@@ -385,8 +385,26 @@ function recordParts(record: TranscriptSessionRecord, messageID: string) {
   })
 }
 
+function toolPresentationMetadata(part: MessagePart): unknown {
+  if (!isRecord(part.metadata)) return undefined
+  const buddy = part.metadata.buddy
+  return isRecord(buddy) ? buddy.presentation : undefined
+}
+
+function toolStateStatus(part: MessagePart): unknown {
+  return isRecord(part.state) ? part.state.status : undefined
+}
+
 function partStructureChanged(previous: MessagePart | undefined, next: MessagePart) {
   if (!previous) return true
+  if (previous.type === "tool" && next.type === "tool") {
+    return (
+      previous.tool !== next.tool ||
+      toolStateStatus(previous) !== toolStateStatus(next) ||
+      JSON.stringify(toolPresentationMetadata(previous)) !==
+        JSON.stringify(toolPresentationMetadata(next))
+    )
+  }
   return (
     previous.type !== next.type ||
     previous.tool !== next.tool ||

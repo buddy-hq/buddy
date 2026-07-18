@@ -20,7 +20,7 @@ import {
   type PierreFileStatus,
   type PierreViewDiff,
 } from "./pierre-diff"
-import type { HiddenStepsEntry } from "./entries"
+import type { ToolActivityEntry } from "./entries"
 
 type FilePatchKind = "add" | "update" | "delete" | "move"
 
@@ -56,7 +56,7 @@ function usePierreViewDiff(diff: PierreDiffInput): PierreViewDiff {
   )
 }
 
-function editDetails(entry: HiddenStepsEntry): FileChangeDetails | undefined {
+function editDetails(entry: ToolActivityEntry): FileChangeDetails | undefined {
   const state = entry.state
   if (!state) return undefined
 
@@ -93,7 +93,7 @@ function editDetails(entry: HiddenStepsEntry): FileChangeDetails | undefined {
   }
 }
 
-function writeDetails(entry: HiddenStepsEntry): FileChangeDetails | undefined {
+function writeDetails(entry: ToolActivityEntry): FileChangeDetails | undefined {
   const state = entry.state
   if (!state) return undefined
 
@@ -107,7 +107,7 @@ function writeDetails(entry: HiddenStepsEntry): FileChangeDetails | undefined {
   }
 }
 
-function applyPatchDetails(entry: HiddenStepsEntry): FileChangeDetails | undefined {
+function applyPatchDetails(entry: ToolActivityEntry): FileChangeDetails | undefined {
   const files = entry.state?.metadata.files
   if (!Array.isArray(files)) return undefined
 
@@ -146,18 +146,14 @@ function applyPatchDetails(entry: HiddenStepsEntry): FileChangeDetails | undefin
   return patches.length > 0 ? { type: "patch", files: patches } : undefined
 }
 
-function detailsForEntry(entry: HiddenStepsEntry): FileChangeDetails | undefined {
-  if (entry.part.type !== "tool") return undefined
-
+function detailsForEntry(entry: ToolActivityEntry): FileChangeDetails | undefined {
   const tool = String(entry.part.tool ?? "")
   if (tool === "edit") return editDetails(entry)
   if (tool === "write") return writeDetails(entry)
   return tool === "apply_patch" ? applyPatchDetails(entry) : undefined
 }
 
-export function hasHiddenFileChangeDetails(entry: HiddenStepsEntry): boolean {
-  if (entry.part.type !== "tool") return false
-
+export function hasActivityFileChangeDetails(entry: ToolActivityEntry): boolean {
   const state = entry.state
   if (!state) return false
 
@@ -200,84 +196,84 @@ export function hasHiddenFileChangeDetails(entry: HiddenStepsEntry): boolean {
   })
 }
 
-function HiddenDiffChanges({ additions, deletions }: { additions: number; deletions: number }) {
+function ActivityDiffChanges({ additions, deletions }: { additions: number; deletions: number }) {
   if (additions + deletions === 0) return null
 
   return (
-    <span className="hidden-patch-file-diff-changes">
-      <span className="hidden-patch-file-additions">+{additions}</span>
-      <span className="hidden-patch-file-deletions">-{deletions}</span>
+    <span className="activity-patch-file-diff-changes">
+      <span className="activity-patch-file-additions">+{additions}</span>
+      <span className="activity-patch-file-deletions">-{deletions}</span>
     </span>
   )
 }
 
-function HiddenPatchFileAction({ file }: { file: FilePatch }) {
+function ActivityPatchFileAction({ file }: { file: FilePatch }) {
   if (file.type === "add") {
     return (
-      <span className="hidden-patch-file-change text-icon-diff-add-base">
+      <span className="activity-patch-file-change text-icon-diff-add-base">
         {language.t("chatTools.patch.created")}
       </span>
     )
   }
   if (file.type === "delete") {
     return (
-      <span className="hidden-patch-file-change text-icon-diff-delete-base">
+      <span className="activity-patch-file-change text-icon-diff-delete-base">
         {language.t("chatTools.patch.deleted")}
       </span>
     )
   }
   if (file.type === "move") {
     return (
-      <span className="hidden-patch-file-change text-icon-diff-modified-base">
+      <span className="activity-patch-file-change text-icon-diff-modified-base">
         {language.t("chatTools.patch.moved")}
       </span>
     )
   }
-  return <HiddenDiffChanges additions={file.diff.additions} deletions={file.diff.deletions} />
+  return <ActivityDiffChanges additions={file.diff.additions} deletions={file.diff.deletions} />
 }
 
-function HiddenPatchFile({ file }: { file: FilePatch }) {
+function ActivityPatchFile({ file }: { file: FilePatch }) {
   const [open, setOpen] = useState(file.type !== "delete")
   const directory = dirname(file.path)
   const filename = basename(file.path)
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="hidden-patch-file">
+    <Collapsible open={open} onOpenChange={setOpen} className="activity-patch-file">
       <CollapsibleTrigger asChild>
-        <button type="button" className="hidden-patch-file-trigger" title={file.path}>
-          <span className="hidden-patch-file-info">
+        <button type="button" className="activity-patch-file-trigger" title={file.path}>
+          <span className="activity-patch-file-info">
             <FileText className="size-3.5 shrink-0 text-icon-weak-base" />
-            <span className="hidden-patch-file-name">
+            <span className="activity-patch-file-name">
               {directory !== "/" ? (
-                <span className="hidden-patch-file-directory">{directory}/</span>
+                <span className="activity-patch-file-directory">{directory}/</span>
               ) : null}
-              <span className="hidden-patch-file-filename">{filename}</span>
+              <span className="activity-patch-file-filename">{filename}</span>
             </span>
           </span>
-          <span className="hidden-patch-file-actions">
-            <HiddenPatchFileAction file={file} />
+          <span className="activity-patch-file-actions">
+            <ActivityPatchFileAction file={file} />
             <ChevronRightIcon
               className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
             />
           </span>
         </button>
       </CollapsibleTrigger>
-      <CollapsibleContent>{open ? <HiddenPatchFileDiff file={file} /> : null}</CollapsibleContent>
+      <CollapsibleContent>{open ? <ActivityPatchFileDiff file={file} /> : null}</CollapsibleContent>
     </Collapsible>
   )
 }
 
-function HiddenPatchFileDiff({ file }: { file: FilePatch }) {
+function ActivityPatchFileDiff({ file }: { file: FilePatch }) {
   const view = usePierreViewDiff(file.diff)
   return <PierreContentDiff view={view} embedded />
 }
 
-function HiddenSinglePatchFile({ file }: { file: FilePatch }) {
+function ActivitySinglePatchFile({ file }: { file: FilePatch }) {
   const view = usePierreViewDiff(file.diff)
   return <PierreContentDiff view={view} />
 }
 
-export function HiddenFileChangeDetails({ entry }: { entry: HiddenStepsEntry }) {
+export function ActivityFileChangeDetails({ entry }: { entry: ToolActivityEntry }) {
   const details = detailsForEntry(entry)
   if (!details) return null
 
@@ -286,13 +282,13 @@ export function HiddenFileChangeDetails({ entry }: { entry: HiddenStepsEntry }) 
   }
 
   if (details.files.length === 1) {
-    return <HiddenSinglePatchFile file={details.files[0]} />
+    return <ActivitySinglePatchFile file={details.files[0]} />
   }
 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col">
       {details.files.map((file) => (
-        <HiddenPatchFile key={file.path} file={file} />
+        <ActivityPatchFile key={file.path} file={file} />
       ))}
     </div>
   )

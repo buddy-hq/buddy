@@ -20,7 +20,7 @@ import { objectMediaAvailabilityQueryOptions } from "@/state/workspace-objects-q
 import type { ObjectMediaPresentationAvailabilityResponse } from "@buddy/sdk/types"
 import type { MessagePart } from "@/state/chat-types"
 import { parseToolState } from "../../parse-tool-state"
-import { getToolInfo } from "../../tool-info"
+import { getToolInfoForPart } from "../../tool-info"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
 import { stageMediaImageEdit } from "@/components/prompt/stage-media-image-edit"
@@ -92,8 +92,7 @@ function usePresentedMediaAvailability(
 
 function groupedImagePlaceholder(part: MessagePart): ToolImageGalleryItem {
   const state = parseToolState(part)
-  const toolName = part.type === "tool" && typeof part.tool === "string" ? part.tool : "imagegen"
-  const title = getToolInfo(toolName, state).title
+  const title = getToolInfoForPart(part, state)?.title ?? "Image"
   return {
     id: part.id,
     src: null,
@@ -312,7 +311,7 @@ function CompletedPresentMediaTool(props: {
   )
 }
 
-export function renderPresentMediaTool(props: ToolPartProps) {
+function renderMediaTool(props: ToolPartProps, imageGeneration: boolean) {
   const output = props.state.output || (props.state.error ?? "")
   const showOutput = output.trim().length > 0
   const presentation =
@@ -321,7 +320,7 @@ export function renderPresentMediaTool(props: ToolPartProps) {
       : undefined
   const running = props.state.status === "pending" || props.state.status === "running"
 
-  if (props.tool === "imagegen" && running) {
+  if (imageGeneration && running) {
     return (
       <ImagegenGallery
         directory={props.directory}
@@ -358,4 +357,12 @@ export function renderPresentMediaTool(props: ToolPartProps) {
       directory={props.directory}
     />
   )
+}
+
+export function renderImageGenerationTool(props: ToolPartProps) {
+  return renderMediaTool(props, true)
+}
+
+export function renderPresentMediaTool(props: ToolPartProps) {
+  return renderMediaTool(props, false)
 }

@@ -1,8 +1,21 @@
 import { describe, expect, test } from "bun:test"
 
-import { normalizePierreDiff } from "../src/components/chat/tools/hidden-steps/pierre-diff"
+import { normalizePierreDiff } from "../src/components/chat/tools/activity-row/pierre-diff"
 import { getToolInfo } from "../src/components/chat/tools/tool-info"
 import type { ToolState } from "../src/components/chat/tools/types"
+import { activityPresentation } from "./tool-presentation-fixtures"
+
+function completedPatchPresentation(detail: string) {
+  return activityPresentation({
+    phase: "completed",
+    action: "Applied edits",
+    detail,
+    category: "edit-files",
+    summary: "Edited files",
+    icon: "edit",
+    renderer: "apply-patch",
+  })
+}
 
 function completedApplyPatchState(files: ToolState["metadata"]["files"]): ToolState {
   return {
@@ -13,7 +26,7 @@ function completedApplyPatchState(files: ToolState["metadata"]["files"]): ToolSt
   }
 }
 
-describe("Pierre hidden file details", () => {
+describe("Pierre activity file details", () => {
   test("normalizes complete before and after contents into a full file diff", () => {
     const view = normalizePierreDiff({
       file: "notes.md",
@@ -54,11 +67,12 @@ describe("Pierre hidden file details", () => {
     expect(view.fileDiff.isPartial).toBe(true)
   })
 
-  test("summarizes one patched file by name and multiple files by count", () => {
+  test("uses the resolved presentation detail for patch summaries", () => {
     expect(
       getToolInfo(
         "apply_patch",
         completedApplyPatchState([{ filePath: "/workspace/notes.md", relativePath: "notes.md" }]),
+        completedPatchPresentation("notes.md"),
       ).subtitle,
     ).toBe("notes.md")
     expect(
@@ -68,6 +82,7 @@ describe("Pierre hidden file details", () => {
           { filePath: "/workspace/notes.md", relativePath: "notes.md" },
           { filePath: "/workspace/tasks.md", relativePath: "tasks.md" },
         ]),
+        completedPatchPresentation("2 files"),
       ).subtitle,
     ).toBe("2 files")
   })

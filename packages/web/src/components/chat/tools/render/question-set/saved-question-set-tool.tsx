@@ -131,7 +131,10 @@ export function renderSavedQuestionSetTool(props: ToolPartProps) {
         subtitle={props.info.subtitle}
         status={props.state.status}
       >
-        <div className="text-sm text-text-weak">Preparing question set...</div>
+        <div aria-hidden className="space-y-2 p-2">
+          <div className="h-2.5 w-3/5 animate-pulse rounded-sm bg-surface-weak/70" />
+          <div className="h-2.5 w-2/5 animate-pulse rounded-sm bg-surface-weak/50" />
+        </div>
       </QuestionSetToolCard>
     )
   }

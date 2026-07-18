@@ -8,11 +8,10 @@ import { useTranscriptSessionMessages } from "@/state/transcript-repository"
 import { readNonEmptyString, readString } from "../../types"
 import type { ToolPartProps } from "../../registry"
 import {
-  createHiddenStepsEntry,
-  hiddenStepsEntryIsActive,
-  resolveHiddenStepsHeader,
-} from "../../hidden-steps/entries"
-import { useFileToolHeaderDisplay } from "../../hidden-steps/use-file-tool-header-display"
+  activityEntryIsActive,
+  createActivityEntry,
+  resolveActivityHeader,
+} from "../../activity-row/entries"
 import type { SubagentCardStatus } from "./subagent-card"
 
 /** Convert snake_case / kebab-case agent identifiers to Title Case display names. */
@@ -83,14 +82,22 @@ export function useSubagentCardData(
     () =>
       childMessages
         .filter((message) => message.info.role === "assistant")
-        .flatMap((message) => message.parts.map(createHiddenStepsEntry)),
+        .flatMap((message) =>
+          message.parts.flatMap((part) => createActivityEntry(part) ?? []),
+        ),
     [childMessages],
   )
   const header = useMemo(
-    () => resolveHiddenStepsHeader(allEntries, cardIsActiveForHeader),
+    () =>
+      resolveActivityHeader({
+        entries: allEntries,
+        busy: cardIsActiveForHeader,
+        current: cardIsActiveForHeader,
+        zeroEntryLabel: "Working",
+      }),
     [allEntries, cardIsActiveForHeader],
   )
-  const childHasActiveTool = allEntries.some(hiddenStepsEntryIsActive)
+  const childHasActiveTool = allEntries.some(activityEntryIsActive)
 
   const toolStatus = toolStateToSubagentStatus(input.state.status)
   const status =
@@ -99,17 +106,8 @@ export function useSubagentCardData(
       : toolStatus
   const cardIsActive = status === "pending" || status === "running"
 
-  const displayHeader = useFileToolHeaderDisplay({
-    label: header.label,
-    icon: header.icon,
-    throttleFileTools: header.throttleFileTools,
-    fileName: header.fileName,
-    verb: header.verb,
-    isBusy: cardIsActive,
-  })
-
-  const activityLine = cardIsActive && !childHasActiveTool ? undefined : displayHeader.label
-  const activityIcon = displayHeader.icon
+  const activityLine = cardIsActive && !childHasActiveTool ? undefined : header.label
+  const activityIcon = header.icon
 
   return {
     agentName,

@@ -1,31 +1,32 @@
 import { formatMessageError, isMessageAbortError } from "./utils/error"
-import { reasoningHeading } from "./utils/markdown"
+import type {
+  ToolCollectionToken,
+  ToolLayoutRole,
+  ToolRendererToken,
+} from "@buddy/opencode-adapter/tool-presentation"
 import { buildTurns, groupAssistantParts } from "./utils/message-utils"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./utils/part-guards"
 import { parseToolState } from "./tools/parse-tool-state"
+import { parseToolPresentation } from "./tools/parse-tool-presentation"
 import type { AssistantRenderItem, ChatTurn } from "./types"
 import type { MessagePart, MessageWithParts, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionStatusRetry } from "@/state/session-status"
 
 export type TimelineAssistantItem =
   | {
-      type: "abstracted"
-      key: string
-      partIDs: string[]
-      previousPartID: string | undefined
-    }
-  | {
       type: "part"
       key: string
       partID: string
-      tool: string | undefined
+      renderer: ToolRendererToken | undefined
+      layoutRole: ToolLayoutRole
       imageAttachmentCount: number
       previousPartID: string | undefined
     }
   | {
       type: "grouped-parts"
       key: string
-      tool: string
+      collection: ToolCollectionToken
+      layoutRole: "compact-output" | "card-output" | "media-output"
       partIDs: string[]
       previousPartID: string | undefined
     }
@@ -66,15 +67,24 @@ export type TimelineRow =
       turnDurationMs: number | undefined
       active: boolean
       itemActive: boolean
+      layoutRole: ToolLayoutRole
+      previousLayoutRole: ToolLayoutRole | undefined
       previousAssistantPart: boolean
       lastAssistantTextID: string | undefined
     }
   | {
-      type: "thinking"
+      type: "activity"
       key: string
       userMessageID: string
-      reasoningPartID: string | undefined
-      reasoningHeading?: string
+      partIDs: string[]
+      assistantMessageIDs: string[]
+      assistantCopyPartID: string | undefined
+      assistantAborted: boolean
+      turnDurationMs: number | undefined
+      active: boolean
+      current: boolean
+      initial: boolean
+      previousLayoutRole: ToolLayoutRole | undefined
       previousAssistantPart: boolean
     }
   | {
@@ -108,23 +118,13 @@ function isAssistantAbortFinish(finish: string | null | undefined): boolean {
   return typeof finish === "string" && ASSISTANT_ABORT_FINISH_REASONS.has(finish)
 }
 
-function assistantPartIDs(item: AssistantRenderItem) {
+function assistantPartIDs(item: AssistantRenderItem): string[] {
   switch (item.type) {
     case "abstracted":
     case "grouped-parts":
       return item.parts.map((part) => part.id)
     case "part":
       return [item.part.id]
-  }
-}
-
-function assistantItemHasReasoning(item: AssistantRenderItem) {
-  switch (item.type) {
-    case "abstracted":
-    case "grouped-parts":
-      return item.parts.some(isChatReasoningPart)
-    case "part":
-      return isChatReasoningPart(item.part)
   }
 }
 
@@ -142,23 +142,22 @@ function imageAttachmentCount(part: MessagePart) {
   ).length
 }
 
+function visibleToolRenderer(part: MessagePart): ToolRendererToken | undefined {
+  const presentation = parseToolPresentation(part)
+  return presentation?.archetype === "silent" ? undefined : presentation?.renderer
+}
+
 function convertAssistantItem(
-  item: AssistantRenderItem,
+  item: Exclude<AssistantRenderItem, { type: "abstracted" }>,
   previousPartID: string | undefined,
 ): TimelineAssistantItem {
   switch (item.type) {
-    case "abstracted":
-      return {
-        type: item.type,
-        key: item.key,
-        partIDs: assistantPartIDs(item),
-        previousPartID,
-      }
     case "grouped-parts":
       return {
         type: item.type,
         key: item.key,
-        tool: item.tool,
+        collection: item.collection,
+        layoutRole: item.layoutRole,
         partIDs: assistantPartIDs(item),
         previousPartID,
       }
@@ -167,7 +166,8 @@ function convertAssistantItem(
         type: item.type,
         key: item.key,
         partID: item.part.id,
-        tool: isChatToolPart(item.part) ? item.part.tool : undefined,
+        renderer: isChatToolPart(item.part) ? visibleToolRenderer(item.part) : undefined,
+        layoutRole: item.layoutRole,
         imageAttachmentCount: imageAttachmentCount(item.part),
         previousPartID,
       }
@@ -229,18 +229,37 @@ function turnDurationMs(turn: ChatTurn) {
   return completed - started
 }
 
-function currentReasoningPart(parts: MessagePart[]) {
-  for (let index = parts.length - 1; index >= 0; index -= 1) {
-    const part = parts[index]
-    if (!part || !isChatReasoningPart(part)) continue
-    const heading = reasoningHeading(part.text)
-    if (heading) return { id: part.id, heading }
+function partIsVisiblyActive(part: MessagePart): boolean {
+  if (isChatToolPart(part)) {
+    return parseToolPresentation(part)?.outcome.type === "active"
   }
-  return undefined
+  if (isChatTextPart(part) || isChatReasoningPart(part)) {
+    return typeof part.time?.end !== "number"
+  }
+  return false
+}
+
+function assistantItemIsVisiblyActive(item: AssistantRenderItem): boolean {
+  switch (item.type) {
+    case "abstracted":
+      return false
+    case "part":
+      return partIsVisiblyActive(item.part)
+    case "grouped-parts":
+      return item.parts.some(partIsVisiblyActive)
+  }
 }
 
 export function timelineRowKey(row: TimelineRow) {
   return row.key
+}
+
+export function latestLiveTimelineRowIndex(rows: readonly TimelineRow[]): number {
+  return rows.findLastIndex(
+    (row) =>
+      (row.type === "activity" && row.active && row.current) ||
+      (row.type === "assistant" && row.itemActive),
+  )
 }
 
 export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRow[] {
@@ -250,10 +269,18 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     const key = input.sessionID ?? input.directory ?? "active"
     return [
       {
-        type: "thinking",
-        key: `thinking:busy:${key}`,
+        type: "activity",
+        key: `activity:${key}:0`,
         userMessageID: key,
-        reasoningPartID: undefined,
+        partIDs: [],
+        assistantMessageIDs: [],
+        assistantCopyPartID: undefined,
+        assistantAborted: false,
+        turnDurationMs: undefined,
+        active: true,
+        current: true,
+        initial: true,
+        previousLayoutRole: undefined,
         previousAssistantPart: false,
       },
     ]
@@ -269,17 +296,19 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     const userMessageID = turnUserMessageID(turn, `turn-${turnIndex}`)
     const assistantParts = turn.assistants.flatMap((message) => message.parts)
     const assistantItems = groupAssistantParts(assistantParts, true)
-    const hasReasoningSummaryRow = assistantItems.some(assistantItemHasReasoning)
     const textPartID = lastTextPartID(assistantParts)
     const aborted = assistantAborted(turn.assistants)
     const error = assistantError(turn.assistants)
     const errorText = formatMessageError(error)
     const compaction = turnHasCompaction(turn)
-    const showThinking =
+    const lastAssistantItem = assistantItems.at(-1)
+    const needsTailActivity = Boolean(
       active &&
-      !errorText &&
-      !hasReasoningSummaryRow &&
-      (input.showReasoningSummaries ? assistantItems.length === 0 : true)
+        !errorText &&
+        (!lastAssistantItem ||
+          (lastAssistantItem.type !== "abstracted" &&
+            !assistantItemIsVisiblyActive(lastAssistantItem))),
+    )
 
     // Interrupted turns already end with a MessageDivider that owns inter-turn
     // spacing. Stacking turn-gap only below that divider made vertical rhythm
@@ -317,10 +346,33 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     }
 
     let previousPartID: string | undefined
+    let previousLayoutRole: ToolLayoutRole | undefined
     const nextTurnUser = turns[turnIndex + 1]?.user
     const forkExclusiveMessageID = nextTurnUser?.info.id ?? input.forkExclusiveEndMessageID
 
     assistantItems.forEach((item, itemIndex) => {
+      const isLastItem = itemIndex === assistantItems.length - 1
+      if (item.type === "abstracted") {
+        rows.push({
+          type: "activity",
+          key: `activity:${userMessageID}:${item.key.slice("activity:".length)}`,
+          userMessageID,
+          partIDs: assistantPartIDs(item),
+          assistantMessageIDs: turn.assistants.map((message) => message.info.id),
+          assistantCopyPartID: active ? undefined : textPartID,
+          assistantAborted: aborted,
+          turnDurationMs: turnDurationMs(turn),
+          active,
+          current: active && isLastItem && !needsTailActivity,
+          initial: item.key === "activity:0",
+          previousLayoutRole,
+          previousAssistantPart: itemIndex > 0,
+        })
+        previousPartID = lastPartID(item) ?? previousPartID
+        previousLayoutRole = "activity"
+        return
+      }
+
       const converted = convertAssistantItem(item, previousPartID)
       rows.push({
         type: "assistant",
@@ -333,24 +385,33 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         assistantAborted: aborted,
         turnDurationMs: turnDurationMs(turn),
         active,
-        itemActive: active && !showThinking && itemIndex === assistantItems.length - 1,
+        itemActive:
+          active && isLastItem && !needsTailActivity && assistantItemIsVisiblyActive(item),
+        layoutRole: item.layoutRole,
+        previousLayoutRole,
         previousAssistantPart: itemIndex > 0,
         lastAssistantTextID: textPartID,
       })
       previousPartID = lastPartID(item) ?? previousPartID
+      previousLayoutRole = item.layoutRole
     })
 
-    if (showThinking) {
-      const reasoning = input.showReasoningSummaries
-        ? undefined
-        : currentReasoningPart(assistantParts)
+    if (needsTailActivity) {
+      const boundaryOrdinal = assistantItems.filter((item) => item.type !== "abstracted").length
       rows.push({
-        type: "thinking",
-        key: `thinking:${userMessageID}`,
+        type: "activity",
+        key: `activity:${userMessageID}:${boundaryOrdinal}`,
         userMessageID,
-        reasoningPartID: reasoning?.id,
+        partIDs: [],
+        assistantMessageIDs: turn.assistants.map((message) => message.info.id),
+        assistantCopyPartID: undefined,
+        assistantAborted: aborted,
+        turnDurationMs: turnDurationMs(turn),
+        active: true,
+        current: true,
+        initial: boundaryOrdinal === 0,
+        previousLayoutRole,
         previousAssistantPart: assistantItems.length > 0,
-        ...(reasoning?.heading ? { reasoningHeading: reasoning.heading } : {}),
       })
     }
 
@@ -398,15 +459,17 @@ function assistantItemsEqual(left: TimelineAssistantItem, right: TimelineAssista
   if (left.type === "part" && right.type === "part") {
     return (
       left.partID === right.partID &&
-      left.tool === right.tool &&
+      left.renderer === right.renderer &&
+      left.layoutRole === right.layoutRole &&
       left.imageAttachmentCount === right.imageAttachmentCount
     )
   }
   if (left.type === "grouped-parts" && right.type === "grouped-parts") {
-    return left.tool === right.tool && stringArraysEqual(left.partIDs, right.partIDs)
-  }
-  if (left.type === "abstracted" && right.type === "abstracted") {
-    return stringArraysEqual(left.partIDs, right.partIDs)
+    return (
+      left.collection === right.collection &&
+      left.layoutRole === right.layoutRole &&
+      stringArraysEqual(left.partIDs, right.partIDs)
+    )
   }
   return false
 }
@@ -449,15 +512,24 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         left.turnDurationMs === right.turnDurationMs &&
         left.active === right.active &&
         left.itemActive === right.itemActive &&
+        left.layoutRole === right.layoutRole &&
+        left.previousLayoutRole === right.previousLayoutRole &&
         left.previousAssistantPart === right.previousAssistantPart &&
         left.lastAssistantTextID === right.lastAssistantTextID
       )
-    case "thinking":
+    case "activity":
       return (
-        right.type === "thinking" &&
+        right.type === "activity" &&
         left.userMessageID === right.userMessageID &&
-        left.reasoningPartID === right.reasoningPartID &&
-        left.reasoningHeading === right.reasoningHeading &&
+        stringArraysEqual(left.partIDs, right.partIDs) &&
+        stringArraysEqual(left.assistantMessageIDs, right.assistantMessageIDs) &&
+        left.assistantCopyPartID === right.assistantCopyPartID &&
+        left.assistantAborted === right.assistantAborted &&
+        left.turnDurationMs === right.turnDurationMs &&
+        left.active === right.active &&
+        left.current === right.current &&
+        left.initial === right.initial &&
+        left.previousLayoutRole === right.previousLayoutRole &&
         left.previousAssistantPart === right.previousAssistantPart
       )
     case "retry":

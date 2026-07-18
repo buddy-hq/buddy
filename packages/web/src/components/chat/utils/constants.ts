@@ -1,9 +1,11 @@
-export function toolDefaultOpen(
-  tool: string,
+import type { ToolRendererToken } from "@buddy/opencode-adapter/tool-presentation"
+
+export function rendererDefaultOpen(
+  renderer: ToolRendererToken | undefined,
   shellToolDefaultOpen: boolean,
   editToolDefaultOpen: boolean,
 ): boolean | undefined {
-  if (tool === "bash") return shellToolDefaultOpen
-  if (tool === "edit" || tool === "write" || tool === "apply_patch") return editToolDefaultOpen
+  if (renderer === "bash") return shellToolDefaultOpen
+  if (renderer === "edit" || renderer === "apply-patch") return editToolDefaultOpen
   return undefined
 }

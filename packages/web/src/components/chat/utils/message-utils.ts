@@ -1,14 +1,8 @@
 import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
+import type { ToolCollectionToken } from "@buddy/opencode-adapter/tool-presentation"
+import type { ToolLayoutRole } from "@buddy/opencode-adapter/tool-presentation"
 
-import { parseToolState } from "../tools/parse-tool-state"
-import { parseToolUiMetadata } from "../tools/parse-tool-ui-metadata"
-import { resolveToolRenderer } from "../tools/registry"
-import { readInlinePresentation } from "../tools/render/buddy-object-result"
-import {
-  isIngestFullTextScopedReadingFallback,
-  isLegacyIngestFullTextScopedReadingError,
-  readIngestFullTextMetadata,
-} from "../tools/full-text-metadata"
+import { parseToolPresentation } from "../tools/parse-tool-presentation"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./part-guards"
 import type { AssistantRenderItem, ChatTranscriptProps, ChatTurn } from "../types"
 
@@ -63,18 +57,12 @@ export function assistantPartRenderable(
   if (part.type === "patch") return false
   if (!isChatToolPart(part)) return true
 
-  const tool = part.tool
-  const state = parseToolState(part)
-  const renderer = resolveToolRenderer(tool, parseToolUiMetadata(state.metadata))
-  if (renderer.hidden) return false
-
-  if (isSilentIngestFullTextFallback(tool, state)) return false
-
-  if (tool === "question") {
-    return state.status !== "running"
-  }
-
-  return true
+  const presentation = parseToolPresentation(part)
+  return Boolean(
+    presentation &&
+      presentation.archetype !== "silent" &&
+      presentation.outcome.type !== "silent",
+  )
 }
 
 export function assistantPartStartsFollowup(part: MessagePart): boolean {
@@ -83,80 +71,45 @@ export function assistantPartStartsFollowup(part: MessagePart): boolean {
   if (isChatReasoningPart(part)) return false
   if (part.type === "patch") return false
   if (isChatToolPart(part)) {
-    const tool = part.tool
-    const state = parseToolState(part)
-    const renderer = resolveToolRenderer(tool, parseToolUiMetadata(state.metadata))
-    if (renderer.hidden || !toolRendererUsesInlinePresentation(renderer, state)) return false
-    if (isSilentIngestFullTextFallback(tool, state)) return false
-
-    if (tool === "question") {
-      return state.status !== "running"
-    }
-
-    return true
+    return toolPartUsesInlinePresentation(part)
   }
 
   if (isChatTextPart(part)) return part.text.trim().length > 0
   return true
 }
 
-function isSilentIngestFullTextFallback(tool: string, state: ReturnType<typeof parseToolState>) {
-  if (tool !== "ingest_full_text") return false
-  if (
-    state.status === "completed" &&
-    isIngestFullTextScopedReadingFallback(readIngestFullTextMetadata(state))
-  ) {
-    return true
-  }
-  return state.status === "error" && isLegacyIngestFullTextScopedReadingError(state.error)
-}
-
-function isToolPartNamed(part: MessagePart, tool: string): boolean {
-  return isChatToolPart(part) && part.tool === tool
-}
-
-const GROUPABLE_INLINE_TOOL_NAMES = new Set([
-  "imagegen",
-  "ingest_full_text",
-  "render_figure",
-  "render_freeform_figure",
-  "render_mermaid",
-])
-
-function toolRendererUsesInlinePresentation(
-  renderer: ReturnType<typeof resolveToolRenderer>,
-  state: ReturnType<typeof parseToolState>,
-): boolean {
-  if (!renderer.inline) return false
-  return state.status !== "error" || renderer.renderInlineErrorCard === true
-}
-
 function toolPartUsesInlinePresentation(part: MessagePart): boolean {
   if (!isChatToolPart(part)) return false
 
-  const state = parseToolState(part)
-  const renderer = resolveToolRenderer(part.tool, parseToolUiMetadata(state.metadata))
-  return toolRendererUsesInlinePresentation(renderer, state)
+  const presentation = parseToolPresentation(part)
+  if (
+    !presentation ||
+    presentation.archetype === "silent" ||
+    presentation.archetype === "activity" ||
+    presentation.outcome.type === "silent"
+  ) {
+    return false
+  }
+
+  return presentation.phase !== "error"
 }
 
 function collectConsecutiveToolParts(
   parts: MessagePart[],
   startIndex: number,
-  tool: string,
+  collection: ToolCollectionToken,
 ): { parts: MessagePart[]; nextIndex: number } {
   const groupedParts: MessagePart[] = []
   let nextIndex = startIndex
 
   while (nextIndex < parts.length) {
     const part = parts[nextIndex]
-    if (
-      !part ||
-      !isToolPartNamed(part, tool) ||
-      !toolPartUsesInlinePresentation(part) ||
-      !toolPartCanJoinGroup(part, tool)
-    ) {
+    if (!part || !toolPartUsesInlinePresentation(part)) {
       break
     }
+    const presentation = parseToolPresentation(part)
+    if (presentation?.archetype !== "inline-output" || presentation.collection !== collection)
+      break
     groupedParts.push(part)
     nextIndex += 1
   }
@@ -164,15 +117,10 @@ function collectConsecutiveToolParts(
   return { parts: groupedParts, nextIndex }
 }
 
-function toolPartCanJoinGroup(part: MessagePart, tool: string): boolean {
-  if (tool !== "imagegen" || !isChatToolPart(part)) return true
-
-  const state = parseToolState(part)
-  if (state.status === "pending" || state.status === "running") return true
-  if (state.status === "error") return false
-
-  const presentation = readInlinePresentation(state.metadata, "media-gallery")
-  return presentation?.data?.renderer === "media-gallery"
+function toolPartCollection(part: MessagePart): ToolCollectionToken | undefined {
+  if (!isChatToolPart(part) || !toolPartUsesInlinePresentation(part)) return undefined
+  const presentation = parseToolPresentation(part)
+  return presentation?.archetype === "inline-output" ? presentation.collection : undefined
 }
 
 export function groupAssistantParts(
@@ -183,6 +131,8 @@ export function groupAssistantParts(
 
   const items: AssistantRenderItem[] = []
   let contextStart = -1
+  let contextBoundaryOrdinal = 0
+  let visibleBoundaryOrdinal = 0
 
   const flushContext = (endIndex: number) => {
     if (contextStart < 0 || endIndex < contextStart) return
@@ -193,7 +143,8 @@ export function groupAssistantParts(
     }
     items.push({
       type: "abstracted",
-      key: `abstracted:${contextParts[0]?.id ?? endIndex}`,
+      key: `activity:${contextBoundaryOrdinal}`,
+      layoutRole: "activity",
       parts: contextParts,
     })
     contextStart = -1
@@ -211,30 +162,34 @@ export function groupAssistantParts(
       isChatReasoningPart(part) || (isChatToolPart(part) && !toolPartUsesInlinePresentation(part))
 
     if (partIsAbstractable) {
-      if (contextStart < 0) contextStart = i
+      if (contextStart < 0) {
+        contextStart = i
+        contextBoundaryOrdinal = visibleBoundaryOrdinal
+      }
       i++
       continue
     }
 
-    const groupedTool =
-      isChatToolPart(part) && GROUPABLE_INLINE_TOOL_NAMES.has(part.tool) ? part.tool : undefined
+    const collection = toolPartCollection(part)
 
-    if (groupedTool) {
+    if (collection) {
       flushContext(i - 1)
 
       const { parts: groupedParts, nextIndex } = collectConsecutiveToolParts(
         visibleParts,
         i,
-        groupedTool,
+        collection,
       )
 
       if (groupedParts.length > 1) {
         items.push({
           type: "grouped-parts",
-          key: `grouped-parts:${groupedTool}:${part.id}`,
-          tool: groupedTool,
+          key: `grouped-parts:${collection}:${part.id}`,
+          collection,
+          layoutRole: toolPartLayoutRole(part),
           parts: groupedParts,
         })
+        visibleBoundaryOrdinal += 1
         i = nextIndex
         continue
       }
@@ -244,14 +199,34 @@ export function groupAssistantParts(
     items.push({
       type: "part",
       key: `part:${part.id}`,
+      layoutRole: partLayoutRole(part),
       part,
     })
+    visibleBoundaryOrdinal += 1
     i++
   }
 
   flushContext(visibleParts.length - 1)
 
   return items
+}
+
+function toolPartLayoutRole(
+  part: MessagePart,
+): "compact-output" | "card-output" | "media-output" {
+  const presentation = parseToolPresentation(part)
+  if (presentation?.archetype === "inline-output") {
+    return presentation.layoutRole
+  }
+  return "card-output"
+}
+
+function partLayoutRole(part: MessagePart): ToolLayoutRole {
+  if (isChatReasoningPart(part)) return "activity"
+  if (isChatTextPart(part)) return "prose"
+  if (!isChatToolPart(part)) return "prose"
+  const presentation = parseToolPresentation(part)
+  return presentation?.archetype === "silent" ? "activity" : (presentation?.layoutRole ?? "activity")
 }
 
 export function buildTurns(messages: MessageWithParts[]): ChatTurn[] {

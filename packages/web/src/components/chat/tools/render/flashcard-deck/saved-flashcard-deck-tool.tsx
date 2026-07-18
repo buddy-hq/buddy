@@ -85,7 +85,7 @@ export function renderSavedFlashcardDeckTool(props: ToolPartProps) {
   return (
     <ObjectCard
       title={props.info.title}
-      subtitle={running ? "Saving flashcard deck" : undefined}
+      subtitle={props.info.subtitle}
       status={props.state.status}
       innerClassName="p-3"
     >

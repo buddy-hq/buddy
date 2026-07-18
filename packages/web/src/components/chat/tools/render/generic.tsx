@@ -1,4 +1,4 @@
-import { HIDDEN_STEPS_ERROR_CLASS_NAME } from "../hidden-steps/styles"
+import { ACTIVITY_ROW_ERROR_CLASS_NAME } from "../activity-row/styles"
 import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowDenied } from "../tool-row"
 import { isPermissionDenied } from "../tool-permission"
 import type { ToolPartProps } from "../registry"
@@ -16,7 +16,7 @@ export function renderGenericTool({ state, info, icon }: ToolPartProps) {
         {denied ? <ToolRowDenied /> : null}
       </ToolRow>
       {state.status === "error" && showOutput ? (
-        <pre className={HIDDEN_STEPS_ERROR_CLASS_NAME}>{output}</pre>
+        <pre className={ACTIVITY_ROW_ERROR_CLASS_NAME}>{output}</pre>
       ) : null}
     </div>
   )

@@ -1,6 +1,5 @@
 import { Checkbox, cn } from "@buddy/ui"
 
-import { language } from "@/context/language"
 import { BasicTool } from "../../tools/basic-tool"
 import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { isRecord, readNonEmptyString } from "../../tools/types"
@@ -101,17 +100,15 @@ function TodoList({ todos }: { todos: TodoItem[] }) {
   )
 }
 
-export function renderTodoTool({ state, defaultOpen, icon }: ToolPartProps) {
+export function renderTodoTool({ state, defaultOpen, icon, info }: ToolPartProps) {
   const todos = readTodos(state)
   const error = state.status === "error" ? (state.error ?? "") : ""
   const hasError = error.trim().length > 0
-  const active = state.status === "pending" || state.status === "running"
-
   return (
     <BasicTool
       icon={icon?.("size-3.5")}
       trigger={{
-        title: language.t(active ? "chatTools.todos.running" : "chatTools.todos"),
+        title: info.title,
         subtitle: todoProgress(todos),
       }}
       status={state.status}

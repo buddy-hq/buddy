@@ -14,6 +14,7 @@ import type { ToolPartProps } from "../src/components/chat/tools/registry"
 import { resolveToolRenderer } from "../src/components/chat/tools/registry"
 import {
   GroupedImagegenToolCard,
+  renderImageGenerationTool,
   renderPresentMediaTool,
 } from "../src/components/chat/tools/render/present-media"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
@@ -24,6 +25,10 @@ import { getPromptDraft, getPromptScopeKey, usePromptStore } from "../src/state/
 
 function PresentMediaToolHarness(props: ToolPartProps) {
   return renderPresentMediaTool(props)
+}
+
+function ImageGenerationToolHarness(props: ToolPartProps) {
+  return renderImageGenerationTool(props)
 }
 
 function createQueryClient() {
@@ -265,13 +270,12 @@ describe("present media renderer", () => {
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
-  test("routes imagegen through the same inline media renderer as present_media", () => {
-    const imagegenRenderer = resolveToolRenderer("imagegen", undefined)
-    const presentMediaRenderer = resolveToolRenderer("present_media", undefined)
+  test("routes semantic image and media tokens to their dedicated adapters", () => {
+    const imagegenRenderer = resolveToolRenderer("image-generation")
+    const presentMediaRenderer = resolveToolRenderer("media")
 
-    expect(imagegenRenderer.inline).toBe(true)
-    expect(imagegenRenderer.card).toBe(renderPresentMediaTool)
-    expect(imagegenRenderer.card).toBe(presentMediaRenderer.card)
+    expect(imagegenRenderer.card).toBe(renderImageGenerationTool)
+    expect(presentMediaRenderer.card).toBe(renderPresentMediaTool)
   })
 
   test("uses the visual media loading shell while imagegen is running", async () => {
@@ -284,7 +288,7 @@ describe("present media renderer", () => {
     await act(async () => {
       renderHarness(
         root,
-        <PresentMediaToolHarness
+        <ImageGenerationToolHarness
           {...props}
           tool="imagegen"
           state={{

@@ -1,4 +1,8 @@
 import type { RefObject } from "react"
+import type {
+  ToolCollectionToken,
+  ToolLayoutRole,
+} from "@buddy/opencode-adapter/tool-presentation"
 import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import type { MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
 
@@ -8,17 +12,20 @@ export type AssistantRenderItem =
   | {
       type: "abstracted"
       key: string
+      layoutRole: "activity"
       parts: MessagePart[]
     }
   | {
       type: "part"
       key: string
+      layoutRole: ToolLayoutRole
       part: MessagePart
     }
   | {
       type: "grouped-parts"
       key: string
-      tool: string
+      collection: ToolCollectionToken
+      layoutRole: "compact-output" | "card-output" | "media-output"
       parts: MessagePart[]
     }
 

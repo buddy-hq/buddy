@@ -3,8 +3,8 @@ import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resourc
 import { BasicTool } from "../../tools/basic-tool"
 import { InlineAssetBoundary } from "../../inline-asset-boundary"
 import { parseToolState } from "../../tools/parse-tool-state"
-import { parseToolUiMetadata } from "../../tools/parse-tool-ui-metadata"
-import { resolveToolRenderer } from "../../tools/registry"
+import { parseToolPresentation } from "../../tools/parse-tool-presentation"
+import { resolveToolIcon, resolveToolRenderer } from "../../tools/registry"
 import { getToolInfo } from "../../tools/tool-info"
 import type { ToolCardRenderer, ToolPartProps } from "../../tools/registry"
 import type { ChatToolPart } from "../../utils/part-guards"
@@ -38,6 +38,7 @@ function toolPartCardEqual(
 
   return (
     prevState.status === nextState.status &&
+    JSON.stringify(prevProps.part.metadata) === JSON.stringify(nextProps.part.metadata) &&
     JSON.stringify(prevState.output) === JSON.stringify(nextState.output) &&
     JSON.stringify(prevState.metadata) === JSON.stringify(nextState.metadata) &&
     JSON.stringify(prevState.attachments) === JSON.stringify(nextState.attachments)
@@ -77,35 +78,29 @@ export const ToolPartCard = memo(function ToolPartCard({
   const tool = part.tool
 
   const state = parseToolState(part)
-  const toolUi = parseToolUiMetadata(state.metadata)
-  const renderer = resolveToolRenderer(tool, toolUi)
-  if (renderer.hidden || !renderer.card) {
+  const presentation = parseToolPresentation(part)
+  if (
+    !presentation ||
+    presentation.archetype === "silent" ||
+    presentation.outcome.type === "silent"
+  ) {
     return null
   }
+  const renderer = resolveToolRenderer(presentation.renderer)
+  const icon = resolveToolIcon(presentation.icon)
 
-  const info = getToolInfo(tool, state)
+  const info = getToolInfo(tool, state, presentation)
   const props: ToolPartProps = {
     part,
     state,
     info,
     tool,
-    icon: renderer.icon,
+    icon,
     directory,
     canEditImages,
     onOpenSession,
     onOpenResource,
     defaultOpen,
-  }
-
-  if (renderer.inline && state.status === "error" && !renderer.renderInlineErrorCard) {
-    return (
-      <BasicTool
-        icon={renderer.icon?.("h-3.5 w-3.5")}
-        trigger={{ title: info.title }}
-        status={state.status}
-        hideDetails
-      />
-    )
   }
 
   if (renderer.deferUntilVisible && state.status === "completed") {

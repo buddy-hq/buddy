@@ -99,6 +99,7 @@ export function renderQuestionTool({ state, info, icon }: ToolPartProps) {
   const isActive = state.status === "pending" || state.status === "running"
   const isPending = state.status === "pending"
   const isAnswered = !isActive && hasAnswers
+  const lifecycleLabel = info.subtitle ? `${info.title} ${info.subtitle}` : info.title
 
   // One chrome phrase, one type style — never "asked" + smaller subject.
   // Singular/plural only; no counts and no answer dump in the top row.
@@ -124,7 +125,7 @@ export function renderQuestionTool({ state, info, icon }: ToolPartProps) {
           <ToolRow>
             <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
             <ToolRowAction className="normal-case text-text-weaker">
-              <TextShimmer text={language.t("chatTools.askingQuestions")} active={true} />
+              <TextShimmer text={lifecycleLabel} active={true} />
             </ToolRowAction>
           </ToolRow>
         </motion.div>
@@ -139,7 +140,11 @@ export function renderQuestionTool({ state, info, icon }: ToolPartProps) {
           <ToolRow>
             <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
             <ToolRowAction className="normal-case text-text-weaker">
-              <TextShimmer text={askingLabel} active={isActive} />
+              {state.status === "running" ? (
+                lifecycleLabel
+              ) : (
+                <TextShimmer text={askingLabel} active={isActive} />
+              )}
             </ToolRowAction>
           </ToolRow>
         </motion.div>

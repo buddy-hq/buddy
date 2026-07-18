@@ -5,7 +5,11 @@ import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import { useChatSettings } from "../src/state/chat-settings"
 import { useChatStore } from "../src/state/chat-store"
-import { applyTranscriptPartDelta } from "../src/state/transcript-repository"
+import type { MessagePart } from "../src/state/chat-types"
+import {
+  applyTranscriptPartDelta,
+  applyTranscriptPartUpdated,
+} from "../src/state/transcript-repository"
 import {
   createAssistantMessageInfo,
   createMessageWithParts,
@@ -16,6 +20,7 @@ import {
   createChatTranscriptTestViewport,
   type ChatTranscriptTestViewport,
 } from "./chat-transcript-harness"
+import { inlinePresentation, presentationMetadata } from "./tool-presentation-fixtures"
 
 async function flushEffects() {
   await Promise.resolve()
@@ -30,7 +35,13 @@ function assistantArticleByText(container: HTMLElement, text: string) {
   ).find((element) => element.textContent?.includes(text))
 }
 
-describe("chat transcript busy placeholder", () => {
+function activityArticleByText(container: HTMLElement, text: string) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>('[data-timeline-row="Activity"]'),
+  ).find((element) => element.textContent?.includes(text))
+}
+
+describe("chat transcript ActivityRow", () => {
   let container: HTMLDivElement
   let root: Root
   let originalResizeObserver: typeof globalThis.ResizeObserver | undefined
@@ -83,7 +94,7 @@ describe("chat transcript busy placeholder", () => {
       await flushEffects()
     })
 
-    expect(container.querySelector("[data-abstracted-thinking-placeholder]")).not.toBeNull()
+    expect(container.querySelector("[data-activity-row]")).not.toBeNull()
   })
 
   test("keeps immediate thinking on a normal optimistic send", async () => {
@@ -117,7 +128,7 @@ describe("chat transcript busy placeholder", () => {
       await flushEffects()
     })
 
-    const placeholders = container.querySelectorAll("[data-abstracted-thinking-placeholder]")
+    const placeholders = container.querySelectorAll("[data-activity-row]")
     const articles = Array.from(container.querySelectorAll("article"))
 
     expect(placeholders).toHaveLength(1)
@@ -190,8 +201,9 @@ describe("chat transcript busy placeholder", () => {
 
     expect(container.textContent).toContain("Partial response")
     expect(container.textContent).toContain("Considering context")
-    expect(container.querySelector("[data-abstracted-thinking-placeholder]")).toBeNull()
-    expect(container.querySelectorAll('[data-timeline-row="AssistantPart"]')).toHaveLength(2)
+    expect(container.querySelector("[data-activity-row]")).not.toBeNull()
+    expect(container.querySelectorAll('[data-timeline-row="AssistantPart"]')).toHaveLength(1)
+    expect(container.querySelectorAll('[data-timeline-row="Activity"]')).toHaveLength(1)
   })
 
   test("replaces active thinking when an empty assistant text part receives its first delta", async () => {
@@ -246,7 +258,7 @@ describe("chat transcript busy placeholder", () => {
       await flushEffects()
     })
 
-    expect(container.querySelector("[data-abstracted-thinking-placeholder]")).not.toBeNull()
+    expect(container.querySelector("[data-activity-row]")).not.toBeNull()
     expect(assistantArticleByText(container, "First streamed token")).toBeUndefined()
 
     await act(async () => {
@@ -261,7 +273,7 @@ describe("chat transcript busy placeholder", () => {
     })
 
     expect(assistantArticleByText(container, "First streamed token")).not.toBeUndefined()
-    expect(container.querySelector("[data-abstracted-thinking-placeholder]")).toBeNull()
+    expect(container.querySelector("[data-activity-row]")).toBeNull()
   })
 
   test("renders completed reasoning summary as an expandable row when summaries are enabled", async () => {
@@ -390,7 +402,7 @@ describe("chat transcript busy placeholder", () => {
       await flushEffects()
     })
 
-    const thoughtArticle = assistantArticleByText(container, "Thought")
+    const thoughtArticle = activityArticleByText(container, "Thought")
     const textArticle = assistantArticleByText(container, "Final response")
     const thoughtMeasuredRow = thoughtArticle?.closest<HTMLElement>("[data-index]")
     const thoughtContent = thoughtArticle?.querySelector<HTMLElement>(":scope > div")
@@ -399,10 +411,8 @@ describe("chat transcript busy placeholder", () => {
     expect(thoughtArticle).not.toBeUndefined()
     expect(textArticle).not.toBeUndefined()
     expect(thoughtMeasuredRow?.className).toContain("flow-root")
-    expect(thoughtArticle?.className).not.toContain("pt-3")
-    expect(textArticle?.className).not.toContain("pt-3")
     expect(thoughtContent?.className).toContain("pt-5")
-    expect(textContent?.className).toContain("pt-2")
+    expect(textContent?.className).toContain("pt-3")
     expect(thoughtContent?.className).not.toContain("mt-5")
     expect(textContent?.className).not.toContain("mt-5")
     expect(thoughtContent?.className).not.toContain("pb-2")
@@ -471,7 +481,149 @@ describe("chat transcript busy placeholder", () => {
 
     expect(container.textContent).toContain("Thought")
     expect(container.textContent).toContain("Final response")
-    expect(container.querySelector("[data-abstracted-thinking-placeholder]")).toBeNull()
-    expect(container.querySelector('[data-timeline-row="AssistantPart"]')).not.toBeNull()
+    expect(container.querySelector("[data-activity-row]")).not.toBeNull()
+    expect(container.querySelector('[data-timeline-row="Activity"]')).not.toBeNull()
+  })
+
+  test("reprojects a live inline tool into activity when its streamed phase fails", async () => {
+    const runningPart: MessagePart = {
+      id: "prt_live_tool",
+      sessionID: "ses_live_tool",
+      messageID: "msg_live_tool",
+      type: "tool",
+      tool: "imagegen",
+      callID: "call_live_tool",
+      metadata: presentationMetadata(
+        inlinePresentation({
+          phase: "running",
+          action: "Generating image",
+          icon: "image",
+          renderer: "generic",
+          layoutRole: "media-output",
+        }),
+      ),
+      state: {
+        status: "running",
+        input: {},
+        time: { start: 1 },
+      },
+    }
+
+    await act(async () => {
+      seedDirectoryChatState("/repo-live-tool", {
+        sessionID: "ses_live_tool",
+        isBusy: true,
+        sessionStatusByID: {
+          ses_live_tool: { type: "busy" },
+        },
+        messages: [
+          createMessageWithParts(
+            createAssistantMessageInfo({
+              id: "msg_live_tool",
+              sessionID: "ses_live_tool",
+            }),
+            [runningPart],
+          ),
+        ],
+      })
+      root.render(
+        <ChatTranscript
+          directory="/repo-live-tool"
+          scrollViewportRef={transcriptViewport.ref}
+        />,
+      )
+      await flushEffects()
+    })
+
+    expect(assistantArticleByText(container, "Generating image")).not.toBeUndefined()
+    expect(container.querySelector('[data-timeline-row="Activity"]')).toBeNull()
+
+    await act(async () => {
+      applyTranscriptPartUpdated("/repo-live-tool", {
+        ...runningPart,
+        metadata: presentationMetadata(
+          inlinePresentation({
+            phase: "error",
+            action: "Failed to generate image",
+            icon: "image",
+            renderer: "generic",
+            layoutRole: "media-output",
+            outcome: { type: "failure" },
+          }),
+        ),
+        state: {
+          status: "error",
+          input: {},
+          error: "generation failed",
+          time: { start: 1, end: 2 },
+        },
+      })
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-timeline-row="Activity"]')).not.toBeNull()
+    expect(assistantArticleByText(container, "Failed to generate image")).toBeUndefined()
+  })
+
+  test("reprojects a running tool when its streamed presentation snapshot arrives late", async () => {
+    const partWithoutPresentation: MessagePart = {
+      id: "prt_late_presentation",
+      sessionID: "ses_late_presentation",
+      messageID: "msg_late_presentation",
+      type: "tool",
+      tool: "imagegen",
+      callID: "call_late_presentation",
+      state: {
+        status: "running",
+        input: {},
+        time: { start: 1 },
+      },
+    }
+
+    await act(async () => {
+      seedDirectoryChatState("/repo-late-presentation", {
+        sessionID: "ses_late_presentation",
+        isBusy: true,
+        sessionStatusByID: {
+          ses_late_presentation: { type: "busy" },
+        },
+        messages: [
+          createMessageWithParts(
+            createAssistantMessageInfo({
+              id: "msg_late_presentation",
+              sessionID: "ses_late_presentation",
+            }),
+            [partWithoutPresentation],
+          ),
+        ],
+      })
+      root.render(
+        <ChatTranscript
+          directory="/repo-late-presentation"
+          scrollViewportRef={transcriptViewport.ref}
+        />,
+      )
+      await flushEffects()
+    })
+
+    expect(assistantArticleByText(container, "Generating image")).toBeUndefined()
+
+    await act(async () => {
+      applyTranscriptPartUpdated("/repo-late-presentation", {
+        ...partWithoutPresentation,
+        metadata: presentationMetadata(
+          inlinePresentation({
+            phase: "running",
+            action: "Generating image",
+            icon: "image",
+            renderer: "generic",
+            layoutRole: "media-output",
+          }),
+        ),
+      })
+      await flushEffects()
+    })
+
+    expect(assistantArticleByText(container, "Generating image")).not.toBeUndefined()
   })
 })

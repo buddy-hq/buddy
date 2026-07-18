@@ -10,7 +10,7 @@ function resolvePlotUrl(url: string): string {
   return resolveAssetUrl(url)
 }
 
-export function renderPythonCalculatorTool({ state }: ToolPartProps) {
+export function renderPythonCalculatorTool({ state, info }: ToolPartProps) {
   const running = state.status === "pending" || state.status === "running"
 
   const codeFirstLine =
@@ -19,7 +19,7 @@ export function renderPythonCalculatorTool({ state }: ToolPartProps) {
   if (running) {
     return (
       <ObjectCard
-        title={language.t("chatTools.info.pythonCalculator.running")}
+        title={info.title}
         badge={language.t("chatTools.python")}
         status={state.status}
       >

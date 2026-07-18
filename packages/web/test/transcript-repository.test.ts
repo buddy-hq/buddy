@@ -21,11 +21,14 @@ import {
   TRANSCRIPT_CACHE_LIMIT,
 } from "../src/state/transcript-repository"
 import type { MessagePart, MessageWithParts } from "../src/state/chat-types"
+import { groupAssistantParts } from "../src/components/chat/utils/message-utils"
+import { parseToolPresentation } from "../src/components/chat/tools/parse-tool-presentation"
 import {
   createAssistantMessageInfo,
   createMessageWithParts,
   createUserMessageInfo,
 } from "./test-utils"
+import { inlinePresentation, presentationMetadata } from "./tool-presentation-fixtures"
 
 const directory = "/repo"
 const sessionID = "session_1"
@@ -80,6 +83,7 @@ function toolPart(input: {
   messageID: string
   sessionID?: string
   status: "pending" | "running" | "completed" | "error"
+  inline?: boolean
 }): MessagePart {
   return {
     id: input.id,
@@ -88,6 +92,19 @@ function toolPart(input: {
     callID: `${input.id}_call`,
     type: "tool",
     tool: "bench_present",
+    ...(input.inline
+      ? {
+          metadata: presentationMetadata(
+            inlinePresentation({
+              phase: input.status,
+              action: input.status === "error" ? "Failed to generate" : "Generating",
+              detail: "diagram",
+              renderer: "mermaid",
+              layoutRole: "media-output",
+            }),
+          ),
+        }
+      : {}),
     state: {
       status: input.status,
       input: {},
@@ -329,7 +346,12 @@ describe("transcript repository", () => {
     )
     applyTranscriptPartUpdated(
       directory,
-      toolPart({ id: "m_terminal_tool", messageID: "m_terminal", status: "running" }),
+      toolPart({
+        id: "m_terminal_tool",
+        messageID: "m_terminal",
+        status: "running",
+        inline: true,
+      }),
     )
 
     sealTranscriptAssistantMessages(directory, sessionID, 20)
@@ -349,6 +371,17 @@ describe("transcript repository", () => {
     const toolTime = recordValue(toolState?.time)
     expect(toolTime?.start).toBe(11)
     expect(toolTime?.end).toBe(20)
+
+    const reconciledPart = getTranscriptPart("m_terminal_tool")
+    expect(reconciledPart && parseToolPresentation(reconciledPart)).toMatchObject({
+      phase: "error",
+      action: "Interrupted",
+      outcome: { type: "neutral", reason: "interrupted" },
+    })
+    expect(reconciledPart && parseToolPresentation(reconciledPart)).not.toHaveProperty("detail")
+    expect(reconciledPart && groupAssistantParts([reconciledPart], true)).toMatchObject([
+      { type: "abstracted" },
+    ])
   })
 
   test("does not resurrect running tools from late snapshots after terminal assistant messages", () => {
@@ -364,7 +397,12 @@ describe("transcript repository", () => {
 
     applyTranscriptPartUpdated(
       directory,
-      toolPart({ id: "m_late_tool", messageID: "m_late_terminal", status: "pending" }),
+      toolPart({
+        id: "m_late_tool",
+        messageID: "m_late_terminal",
+        status: "pending",
+        inline: true,
+      }),
     )
 
     const toolState = recordValue(getTranscriptPart("m_late_tool")?.state)
@@ -372,6 +410,13 @@ describe("transcript repository", () => {
     expect(toolState?.error).toBe("Tool execution interrupted")
     const toolTime = recordValue(toolState?.time)
     expect(toolTime?.end).toBe(30)
+
+    const presentation = getTranscriptPart("m_late_tool")
+    expect(presentation && parseToolPresentation(presentation)).toMatchObject({
+      phase: "error",
+      action: "Interrupted",
+      outcome: { type: "neutral", reason: "interrupted" },
+    })
   })
 
   test("preserves orphan parts that arrive before their parent message outside reloads", () => {

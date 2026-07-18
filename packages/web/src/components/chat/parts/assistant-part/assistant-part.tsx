@@ -11,7 +11,7 @@ import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "../../utils
 function getToolStateHash(part: MessagePart): string {
   if (!isChatToolPart(part)) return ""
   const state = parseToolState(part)
-  return `${state.status}:${JSON.stringify(state.output)}:${JSON.stringify(state.metadata)}:${JSON.stringify(state.attachments)}`
+  return `${state.status}:${JSON.stringify(part.metadata)}:${JSON.stringify(state.output)}:${JSON.stringify(state.metadata)}:${JSON.stringify(state.attachments)}`
 }
 
 export type AssistantPartRendererProps = {
@@ -115,7 +115,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
 
   if (isChatToolPart(part)) {
     return (
-      <div data-component="tool-part-wrapper" className="w-full overflow-hidden p-1 -m-1">
+      <div data-component="tool-part-wrapper" className="w-full overflow-hidden">
         <ToolPartCard
           part={part}
           directory={directory}

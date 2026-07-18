@@ -1,4 +1,6 @@
 import { basename, dirname } from "../utils/path"
+import type { ToolPresentationSnapshot } from "@buddy/opencode-adapter/tool-presentation"
+import type { MessagePart } from "@/state/chat-types"
 import { language } from "@/context/language"
 import { formatHtmlWidgetViewport, resolveHtmlWidgetViewport } from "@/lib/html-widgets"
 import { readIngestFullTextMetadata } from "./full-text-metadata"
@@ -9,9 +11,9 @@ import {
   resolveSkillReference,
 } from "./skill-reference"
 import { isRecord, readNonEmptyString, readNonNegativeInt } from "./types"
-import { parseToolUiMetadata } from "./parse-tool-ui-metadata"
 import { readBuddyObjectResult } from "./render/buddy-object-result"
 import type { ToolInfo, ToolState } from "./types"
+import { parseToolPresentation } from "./parse-tool-presentation"
 
 const IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"]
 
@@ -37,44 +39,10 @@ const KNOWLEDGE_GRAPH_TOOL_TITLES = {
 
 const KNOWLEDGE_GRAPH_TOOL_NAMES = new Set(Object.keys(KNOWLEDGE_GRAPH_TOOL_TITLES))
 
-type ToolLifecycleLabels = {
-  idle: string
-  running?: string
-}
-
-const TOOL_FALLBACK_LABELS: Record<string, ToolLifecycleLabels> = {
-  whiteboard_create_view: {
-    idle: "Updated Whiteboard",
-    running: "Updating Whiteboard",
-  },
-  whiteboard_read_context: {
-    idle: "Read Whiteboard",
-    running: "Reading Whiteboard",
-  },
-}
-
-function humanizeToolID(tool: string): string {
-  const words = tool
-    .split(/[_-]+/u)
-    .map((word) => word.trim())
-    .filter((word) => word.length > 0)
-
-  if (words.length === 0) return "Tool"
-
-  return words
-    .map((word) => {
-      const [first = "", ...rest] = word
-      return `${first.toUpperCase()}${rest.join("").toLowerCase()}`
-    })
-    .join(" ")
-}
-
-function fallbackToolTitle(tool: string, active: boolean): string {
-  const labels = TOOL_FALLBACK_LABELS[tool]
-  if (labels) return active && labels.running ? labels.running : labels.idle
-
-  return humanizeToolID(tool)
-}
+type VisibleToolPresentationSnapshot = Exclude<
+  ToolPresentationSnapshot,
+  { archetype: "silent" }
+>
 
 function countNonEmptyLines(value: string): number {
   const trimmed = value.trim()
@@ -93,18 +61,6 @@ function parseJsonRecord(value: string): Record<string, unknown> | undefined {
 
 function readArrayLength(value: unknown): number | undefined {
   return Array.isArray(value) ? value.length : undefined
-}
-
-function patchFileSummary(state: ToolState): string | undefined {
-  const files = Array.isArray(state.metadata.files) ? state.metadata.files.filter(isRecord) : []
-  if (files.length === 1) {
-    const path = readNonEmptyString(files[0].relativePath) ?? readNonEmptyString(files[0].filePath)
-    return path ? basename(path) : undefined
-  }
-
-  return files.length > 1
-    ? language.t("chatTools.fileCount.other", { count: files.length })
-    : undefined
 }
 
 function formatCountSummary(count: number, singular: string, plural: string): string {
@@ -184,15 +140,22 @@ function knowledgeGraphSummary(tool: string, state: ToolState): string | undefin
   }
 }
 
-function withMetadataTitle(info: ToolInfo, metadataTitle: string | undefined): ToolInfo {
-  if (!metadataTitle) return info
+function withMetadataTitle(
+  info: ToolInfo,
+  presentation: VisibleToolPresentationSnapshot,
+): ToolInfo {
   return {
     ...info,
-    title: metadataTitle,
+    title: presentation.action,
+    subtitle: presentation.detail,
   }
 }
 
-export function getToolInfo(tool: string, state: ToolState): ToolInfo {
+export function getToolInfo(
+  tool: string,
+  state: ToolState,
+  presentation: VisibleToolPresentationSnapshot,
+): ToolInfo {
   const { input, output } = state
   const filePath = typeof input.filePath === "string" ? input.filePath : undefined
   const path = typeof input.path === "string" ? input.path : undefined
@@ -212,10 +175,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
   const title = typeof input.title === "string" ? input.title : undefined
 
   const active = state.status === "pending" || state.status === "running"
-  const toolUi = parseToolUiMetadata(state.metadata)
-  const metadataTitle = active
-    ? (toolUi?.labels?.running ?? toolUi?.labels?.idle)
-    : toolUi?.labels?.idle
+  const metadataTitle = presentation
 
   let summary: string | undefined
   if (KNOWLEDGE_GRAPH_TOOL_NAMES.has(tool)) {
@@ -411,7 +371,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.patch.running" : "chatTools.info.patch"),
-          subtitle: patchFileSummary(state) ?? description,
+          subtitle: description,
         },
         metadataTitle,
       )
@@ -637,9 +597,16 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       )
     default:
       return {
-        title: metadataTitle ?? fallbackToolTitle(tool, active),
-        subtitle: description,
+        title: metadataTitle.action,
+        subtitle: metadataTitle.detail,
         summary,
       }
   }
+}
+
+export function getToolInfoForPart(part: MessagePart, state: ToolState): ToolInfo | undefined {
+  if (part.type !== "tool" || typeof part.tool !== "string") return undefined
+  const presentation = parseToolPresentation(part)
+  if (!presentation || presentation.archetype === "silent") return undefined
+  return getToolInfo(part.tool, state, presentation)
 }

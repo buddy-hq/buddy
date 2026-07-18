@@ -3,7 +3,7 @@ import { resolveAssetUrl } from "@/lib/resource-url"
 import type { ToolPartProps } from "../registry"
 import type { MessagePart } from "@/state/chat-types"
 import { parseToolState } from "../parse-tool-state"
-import { getToolInfo } from "../tool-info"
+import { getToolInfoForPart } from "../tool-info"
 import {
   MEDIA_IMAGE_GALLERY_CONTENT_CLASS_NAME,
   ToolImageGallery,
@@ -204,12 +204,10 @@ export function GroupedFigureToolCard({
   const items = parts
     .map((part) => {
       const state = parseToolState(part)
-      const toolName =
-        part.type === "tool" && typeof part.tool === "string" ? part.tool : "render_figure"
       return figureGalleryItem({
         id: part.id,
         state,
-        fallbackTitle: getToolInfo(toolName, state).title,
+        fallbackTitle: getToolInfoForPart(part, state)?.title ?? "Figure",
         allowUnavailablePlaceholder: true,
       })
     })

@@ -16,6 +16,10 @@ import {
   type ReactNode,
 } from "react"
 import { TooltipProvider } from "@buddy/ui"
+import type {
+  ToolCollectionToken,
+  ToolRendererToken,
+} from "@buddy/opencode-adapter/tool-presentation"
 import { useShallow } from "zustand/react/shallow"
 
 import "@/components/chat/tools/text-shimmer.css"
@@ -41,6 +45,7 @@ import {
 import { ChatScrollProvider } from "./chat-scroll-context"
 import { InlineAssetLifecycleProvider, type InlineAssetSize } from "./inline-asset-boundary"
 import {
+  latestLiveTimelineRowIndex,
   projectTimelineRows,
   reuseTimelineRows,
   type TimelineAssistantItem,
@@ -49,12 +54,16 @@ import {
 import { chatTranscriptEqual } from "./utils/message-utils"
 import { isHiddenFromUserMessage } from "./utils/message-visibility"
 import { isChatReasoningPart, isChatTextPart } from "./utils/part-guards"
-import { reasoningHeading } from "./utils/markdown"
 import { useAssistantMeta } from "./hooks/use-assistant-meta"
 import { UserSection } from "./sections/user-section"
-import { HiddenSteps, type HiddenStepsExpansionState } from "./tools/hidden-steps/index"
-import { HiddenStepsPlaceholder } from "./tools/hidden-steps/thinking-placeholder"
+import { ActivityRow, type ActivityRowExpansionState } from "./tools/activity-row"
+import {
+  ACTIVITY_THINKING_LABEL,
+  activityWorkingLabel,
+} from "./tools/activity-row/entries"
+import { transcriptGapClass } from "./transcript-layout"
 import { parseToolState } from "./tools/parse-tool-state"
+import { parseToolPresentation } from "./tools/parse-tool-presentation"
 import { GroupedIngestFullTextToolCard } from "./tools/render/ingest-full-text"
 import { parseRenderFigureOutput, GroupedFigureToolCard } from "./tools/render/render-figure"
 import { GroupedImagegenToolCard } from "./tools/render/present-media"
@@ -63,7 +72,7 @@ import {
   GroupedMermaidToolCard,
 } from "@/components/media/renderers/mermaid"
 import { ToolExpansionStateProvider } from "./tools/basic-tool"
-import { toolDefaultOpen } from "./utils/constants"
+import { rendererDefaultOpen } from "./utils/constants"
 import { AssistantPartRenderer } from "./parts/assistant-part/assistant-part"
 import { MessageDivider } from "./parts/assistant-part/message-divider"
 import { AssistantErrorCard } from "./assistant-error-card"
@@ -92,7 +101,7 @@ const ASSISTANT_MERMAID_ROW_ESTIMATE_PX = 526
 const ASSISTANT_PYTHON_TEXT_ROW_ESTIMATE_PX = 180
 const ASSISTANT_PYTHON_PLOT_ROW_ESTIMATE_PX = 560
 const EMPTY_PROVIDERS: ProviderInfo[] = []
-const EMPTY_HIDDEN_STEPS_EXPANSION_STATE: HiddenStepsExpansionState = {
+const EMPTY_ACTIVITY_ROW_EXPANSION_STATE: ActivityRowExpansionState = {
   open: false,
   itemOpenByPartID: {},
 }
@@ -103,19 +112,61 @@ type TimelineCacheEntry = {
 }
 
 type TimelineViewState = {
-  hiddenStepsByRowKey: Record<string, HiddenStepsExpansionState>
+  activityRowByKey: Record<string, ActivityRowExpansionState>
   toolOpenByPartID: Record<string, boolean | undefined>
 }
 
 const timelineCache = new Map<string, TimelineCacheEntry>()
 
+function groupedCollectionEstimate(collection: ToolCollectionToken): number {
+  switch (collection) {
+    case "image-gallery":
+    case "mermaid-gallery":
+    case "figure-gallery":
+      return ASSISTANT_GROUPED_VISUAL_ROW_ESTIMATE_PX
+    case "full-text-collection":
+      return 260
+  }
+}
+
+function groupedCollectionContent(input: {
+  collection: ToolCollectionToken
+  parts: MessagePart[]
+  directory: string | undefined
+  canEditImages: boolean | undefined
+  onOpenResource: ChatTranscriptProps["onOpenResource"]
+}): ReactNode {
+  switch (input.collection) {
+    case "mermaid-gallery":
+      return <GroupedMermaidToolCard parts={input.parts} directory={input.directory} />
+    case "image-gallery":
+      return (
+        <GroupedImagegenToolCard
+          parts={input.parts}
+          directory={input.directory}
+          canEditImages={input.canEditImages}
+        />
+      )
+    case "figure-gallery":
+      return <GroupedFigureToolCard parts={input.parts} directory={input.directory} />
+    case "full-text-collection":
+      return (
+        <GroupedIngestFullTextToolCard
+          parts={input.parts}
+          directory={input.directory}
+          onOpenResource={input.onOpenResource}
+        />
+      )
+  }
+}
+
 function timelineCacheKey(directory: string | undefined, sessionID: string | undefined) {
   return directory && sessionID ? `${directory}\u0000${sessionID}` : undefined
 }
 
-function cloneHiddenStepsExpansionState(
-  state: HiddenStepsExpansionState,
-): HiddenStepsExpansionState {
+function cloneActivityRowExpansionState(
+  state: ActivityRowExpansionState,
+): ActivityRowExpansionState {
   return {
     open: state.open,
     itemOpenByPartID: { ...state.itemOpenByPartID },
@@ -124,13 +175,13 @@ function cloneHiddenStepsExpansionState(
 
 function cloneTimelineViewState(state: TimelineViewState | undefined): TimelineViewState {
   if (!state) {
-    return { hiddenStepsByRowKey: {}, toolOpenByPartID: {} }
+    return { activityRowByKey: {}, toolOpenByPartID: {} }
   }
   return {
-    hiddenStepsByRowKey: Object.fromEntries(
-      Object.entries(state.hiddenStepsByRowKey).map(([rowKey, expansionState]) => [
+    activityRowByKey: Object.fromEntries(
+      Object.entries(state.activityRowByKey).map(([rowKey, expansionState]) => [
         rowKey,
-        cloneHiddenStepsExpansionState(expansionState),
+        cloneActivityRowExpansionState(expansionState),
       ]),
     ),
     toolOpenByPartID: { ...state.toolOpenByPartID },
@@ -154,18 +205,16 @@ function estimateUserRowSize(row: Extract<TimelineRow, { type: "user" }>) {
 }
 
 function estimateAssistantToolRowSize(item: Extract<TimelineAssistantItem, { type: "part" }>) {
-  switch (item.tool) {
-    case "render_figure":
-    case "render_freeform_figure":
+  switch (item.renderer) {
+    case "figure":
       return ASSISTANT_FIGURE_ROW_ESTIMATE_PX
-    case "imagegen":
-    case "present_media":
+    case "media":
       return ASSISTANT_MEDIA_ROW_ESTIMATE_PX
-    case "present_html_widget":
+    case "html-widget":
       return ASSISTANT_HTML_WIDGET_ROW_ESTIMATE_PX
-    case "render_mermaid":
+    case "mermaid":
       return ASSISTANT_MERMAID_ROW_ESTIMATE_PX
-    case "python_calculator":
+    case "calculator":
       return item.imageAttachmentCount > 0
         ? ASSISTANT_PYTHON_PLOT_ROW_ESTIMATE_PX
         : ASSISTANT_PYTHON_TEXT_ROW_ESTIMATE_PX
@@ -179,8 +228,8 @@ function estimateRowSize(row: TimelineRow | undefined) {
   switch (row.type) {
     case "turn-gap":
       return 24
-    case "thinking":
-      return 52
+    case "activity":
+      return row.partIDs.length > 0 ? 96 : 52
     case "turn-divider":
       // py-6 (24+24) + ~20px label row
       return 72
@@ -191,17 +240,8 @@ function estimateRowSize(row: TimelineRow | undefined) {
       return estimateUserRowSize(row)
     case "assistant":
       if (row.item.type === "grouped-parts") {
-        if (
-          row.item.tool === "imagegen" ||
-          row.item.tool === "render_mermaid" ||
-          row.item.tool === "render_figure" ||
-          row.item.tool === "render_freeform_figure"
-        ) {
-          return ASSISTANT_GROUPED_VISUAL_ROW_ESTIMATE_PX
-        }
-        return 260
+        return groupedCollectionEstimate(row.item.collection)
       }
-      if (row.item.type === "abstracted") return 96
       return estimateAssistantToolRowSize(row.item)
   }
 }
@@ -387,7 +427,6 @@ function usePreviousPart(partID: string | undefined) {
 
 function assistantItemPartIDs(item: TimelineAssistantItem) {
   switch (item.type) {
-    case "abstracted":
     case "grouped-parts":
       return item.partIDs
     case "part":
@@ -399,16 +438,18 @@ function useAssistantRowParts(item: TimelineAssistantItem) {
   return useTranscriptParts(assistantItemPartIDs(item))
 }
 
-function partIsRenderFigureTool(part: MessagePart | undefined) {
-  return (
-    part?.type === "tool" &&
-    (String(part.tool ?? "") === "render_figure" ||
-      String(part.tool ?? "") === "render_freeform_figure")
-  )
+function partRenderer(part: MessagePart | undefined): ToolRendererToken | undefined {
+  if (part?.type !== "tool") return undefined
+  const presentation = parseToolPresentation(part)
+  return presentation?.archetype === "silent" ? undefined : presentation?.renderer
+}
+
+function partUsesRenderer(part: MessagePart | undefined, renderer: ToolRendererToken) {
+  return partRenderer(part) === renderer
 }
 
 function partIsRenderMermaidTool(part: MessagePart | undefined) {
-  return part?.type === "tool" && String(part.tool ?? "") === "render_mermaid"
+  return partUsesRenderer(part, "mermaid")
 }
 
 function TimelineAssistantRow(props: {
@@ -421,11 +462,8 @@ function TimelineAssistantRow(props: {
   onOpenSession: ChatTranscriptProps["onOpenSession"]
   onOpenResource: ChatTranscriptProps["onOpenResource"]
   onForkMessage: ChatTranscriptProps["onForkMessage"]
-  hiddenStepsExpansionState: HiddenStepsExpansionState | undefined
-  onHiddenStepsExpansionStateChange: (state: HiddenStepsExpansionState) => void
   toolOpenByPartID: TimelineViewState["toolOpenByPartID"]
   onToolOpenChange: (partID: string, open: boolean) => void
-  askingQuestionsLabel?: string
 }) {
   const parts = useAssistantRowParts(props.row.item)
   const previousPart = usePreviousPart(props.row.item.previousPartID)
@@ -445,7 +483,7 @@ function TimelineAssistantRow(props: {
   const stripLeadingFigureImage =
     props.row.item.type === "part" &&
     parts[0]?.type === "text" &&
-    partIsRenderFigureTool(previousPart) &&
+    partUsesRenderer(previousPart, "figure") &&
     previousPartState?.status === "completed" &&
     !!parseRenderFigureOutput(previousPartState)
   const stripLeadingMermaidSources =
@@ -485,9 +523,10 @@ function TimelineAssistantRow(props: {
       className="relative min-w-0 w-full max-w-full px-4 md:px-5"
     >
       <div
-        className={`flow-root min-w-0 w-full max-w-full ${
-          props.row.previousAssistantPart ? "pt-2" : "pt-5"
-        }`}
+        className={`flow-root min-w-0 w-full max-w-full ${transcriptGapClass(
+          props.row.previousLayoutRole,
+          props.row.layoutRole,
+        )}`}
       >
         {showFinalTextSeparator ? (
           <div
@@ -498,44 +537,15 @@ function TimelineAssistantRow(props: {
             <div className="h-px w-full bg-border-weak-base" />
           </div>
         ) : null}
-        {props.row.item.type === "abstracted" ? (
-          <HiddenSteps
-            parts={parts}
-            onOpenSession={props.onOpenSession}
-            directory={props.directory}
-            copyPartID={props.row.assistantCopyPartID}
-            metaText={assistantMetaText}
-            interrupted={props.row.assistantAborted}
-            isBusy={props.row.active}
-            isCurrent={props.row.itemActive}
-            workingLabel={props.askingQuestionsLabel}
-            expansionState={props.hiddenStepsExpansionState ?? EMPTY_HIDDEN_STEPS_EXPANSION_STATE}
-            onExpansionStateChange={props.onHiddenStepsExpansionStateChange}
-          />
-        ) : null}
-
-        {props.row.item.type === "grouped-parts" && props.row.item.tool === "render_mermaid" ? (
-          <GroupedMermaidToolCard parts={parts} directory={props.directory} />
-        ) : null}
-        {props.row.item.type === "grouped-parts" && props.row.item.tool === "imagegen" ? (
-          <GroupedImagegenToolCard
-            parts={parts}
-            directory={props.directory}
-            canEditImages={props.canEditImages}
-          />
-        ) : null}
-        {props.row.item.type === "grouped-parts" &&
-        (props.row.item.tool === "render_figure" ||
-          props.row.item.tool === "render_freeform_figure") ? (
-          <GroupedFigureToolCard parts={parts} directory={props.directory} />
-        ) : null}
-        {props.row.item.type === "grouped-parts" && props.row.item.tool === "ingest_full_text" ? (
-          <GroupedIngestFullTextToolCard
-            parts={parts}
-            directory={props.directory}
-            onOpenResource={props.onOpenResource}
-          />
-        ) : null}
+        {props.row.item.type === "grouped-parts"
+          ? groupedCollectionContent({
+              collection: props.row.item.collection,
+              parts,
+              directory: props.directory,
+              canEditImages: props.canEditImages,
+              onOpenResource: props.onOpenResource,
+            })
+          : null}
 
         {itemPart ? (
           itemPart.type === "tool" ? (
@@ -558,8 +568,8 @@ function TimelineAssistantRow(props: {
                 onOpenSession={props.onOpenSession}
                 onOpenResource={props.onOpenResource}
                 onForkMessage={availableOnForkMessage}
-                defaultOpen={toolDefaultOpen(
-                  String(itemPart.tool ?? ""),
+                defaultOpen={rendererDefaultOpen(
+                  partRenderer(itemPart),
                   props.shellToolDefaultOpen,
                   props.editToolDefaultOpen,
                 )}
@@ -587,26 +597,56 @@ function TimelineAssistantRow(props: {
   )
 }
 
-function TimelineThinkingRow(props: {
-  row: Extract<TimelineRow, { type: "thinking" }>
-  askingQuestionsLabel?: string
+function TimelineActivityRow(props: {
+  row: Extract<TimelineRow, { type: "activity" }>
+  providers: ProviderInfo[]
+  directory: string | undefined
+  onOpenSession: ChatTranscriptProps["onOpenSession"]
+  expansionState: ActivityRowExpansionState | undefined
+  onExpansionStateChange: (state: ActivityRowExpansionState) => void
 }) {
-  const reasoningPart = useTranscriptPart(props.row.reasoningPartID)
-  const detail =
-    props.askingQuestionsLabel ??
-    props.row.reasoningHeading ??
-    (reasoningPart && isChatReasoningPart(reasoningPart)
-      ? reasoningHeading(reasoningPart.text)
-      : undefined)
+  const parts = useTranscriptParts(props.row.partIDs)
+  const assistantMessageInfos = useTranscriptMessages(props.row.assistantMessageIDs)
+  const assistantMessages = useMemo(
+    () => assistantMessageInfos.map((info) => ({ info, parts: [] })),
+    [assistantMessageInfos],
+  )
+  const assistantMetaText = useAssistantMeta(
+    assistantMessages,
+    props.providers,
+    props.row.turnDurationMs,
+    props.row.assistantAborted,
+  )
+  const zeroEntryLabel = props.row.initial
+    ? ACTIVITY_THINKING_LABEL
+    : activityWorkingLabel(props.row.key)
 
   return (
     <article
       data-message-id={props.row.userMessageID}
-      data-timeline-row="Thinking"
+      data-timeline-row="Activity"
       className="relative min-w-0 w-full max-w-full px-4 md:px-5"
     >
-      <div className={`flow-root ${props.row.previousAssistantPart ? "pt-2" : "pt-5"}`}>
-        <HiddenStepsPlaceholder detail={detail} />
+      <div
+        className={`flow-root ${transcriptGapClass(
+          props.row.previousLayoutRole,
+          "activity",
+        )}`}
+      >
+        <ActivityRow
+          parts={parts}
+          seed={props.row.key}
+          zeroEntryLabel={zeroEntryLabel}
+          onOpenSession={props.onOpenSession}
+          directory={props.directory}
+          copyPartID={props.row.assistantCopyPartID}
+          metaText={assistantMetaText}
+          interrupted={props.row.assistantAborted}
+          isBusy={props.row.active}
+          isCurrent={props.row.current}
+          expansionState={props.expansionState ?? EMPTY_ACTIVITY_ROW_EXPANSION_STATE}
+          onExpansionStateChange={props.onExpansionStateChange}
+        />
       </div>
     </article>
   )
@@ -624,11 +664,10 @@ function TimelineRowRenderer(props: {
   onOpenResource: ChatTranscriptProps["onOpenResource"]
   onForkMessage: ChatTranscriptProps["onForkMessage"]
   onRevertMessage: ChatTranscriptProps["onRevertMessage"]
-  hiddenStepsExpansionByRowKey: Record<string, HiddenStepsExpansionState>
-  onHiddenStepsExpansionStateChange: (rowKey: string, state: HiddenStepsExpansionState) => void
+  activityRowExpansionByKey: Record<string, ActivityRowExpansionState>
+  onActivityRowExpansionStateChange: (rowKey: string, state: ActivityRowExpansionState) => void
   toolOpenByPartID: TimelineViewState["toolOpenByPartID"]
   onToolOpenChange: (partID: string, open: boolean) => void
-  askingQuestionsLabel?: string
 }) {
   switch (props.row.type) {
     case "turn-gap":
@@ -670,20 +709,21 @@ function TimelineRowRenderer(props: {
           onOpenSession={props.onOpenSession}
           onOpenResource={props.onOpenResource}
           onForkMessage={props.onForkMessage}
-          hiddenStepsExpansionState={props.hiddenStepsExpansionByRowKey[props.row.key]}
-          onHiddenStepsExpansionStateChange={(state) =>
-            props.onHiddenStepsExpansionStateChange(props.row.key, state)
-          }
           toolOpenByPartID={props.toolOpenByPartID}
           onToolOpenChange={props.onToolOpenChange}
-          askingQuestionsLabel={props.askingQuestionsLabel}
         />
       )
-    case "thinking":
+    case "activity":
       return (
-        <TimelineThinkingRow
+        <TimelineActivityRow
           row={props.row}
-          askingQuestionsLabel={props.askingQuestionsLabel}
+          providers={props.providers}
+          directory={props.directory}
+          onOpenSession={props.onOpenSession}
+          expansionState={props.activityRowExpansionByKey[props.row.key]}
+          onExpansionStateChange={(state) =>
+            props.onActivityRowExpansionStateChange(props.row.key, state)
+          }
         />
       )
     case "retry":
@@ -821,11 +861,6 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     directory ? state.directories[directory] : undefined,
   )
   const sessionID = directoryState?.sessionID
-  const askingQuestionsLabel =
-    sessionID &&
-    directoryState?.pendingQuestions.some((request) => request.sessionID === sessionID)
-      ? language.t("chatTools.asking.other")
-      : undefined
   const sessions = directoryState?.sessions ?? []
   const activeSession = sessionID ? sessions.find((session) => session.id === sessionID) : undefined
   const providers = directoryState?.providers ?? EMPTY_PROVIDERS
@@ -879,13 +914,13 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   }
 
   const timelineViewState = viewStateRef.current
-  const handleHiddenStepsExpansionStateChange = useCallback(
-    (rowKey: string, expansionState: HiddenStepsExpansionState) => {
+  const handleActivityRowExpansionStateChange = useCallback(
+    (rowKey: string, expansionState: ActivityRowExpansionState) => {
       viewStateRef.current = {
         ...viewStateRef.current,
-        hiddenStepsByRowKey: {
-          ...viewStateRef.current.hiddenStepsByRowKey,
-          [rowKey]: cloneHiddenStepsExpansionState(expansionState),
+        activityRowByKey: {
+          ...viewStateRef.current.activityRowByKey,
+          [rowKey]: cloneActivityRowExpansionState(expansionState),
         },
       }
       setViewStateVersion((version) => version + 1)
@@ -913,13 +948,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     [scrollElement],
   )
 
-  const activeRowIndex = useMemo(
-    () =>
-      rows.findLastIndex(
-        (row) => row.type === "thinking" || (row.type === "assistant" && row.active),
-      ),
-    [rows],
-  )
+  const activeRowIndex = useMemo(() => latestLiveTimelineRowIndex(rows), [rows])
 
   const rowVirtualizer = useVirtualizer<HTMLElement, HTMLDivElement>({
     count: rows.length,
@@ -1214,11 +1243,10 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                     onOpenResource={onOpenResource}
                     onForkMessage={onForkMessage}
                     onRevertMessage={onRevertMessage}
-                    hiddenStepsExpansionByRowKey={timelineViewState.hiddenStepsByRowKey}
-                    onHiddenStepsExpansionStateChange={handleHiddenStepsExpansionStateChange}
+                    activityRowExpansionByKey={timelineViewState.activityRowByKey}
+                    onActivityRowExpansionStateChange={handleActivityRowExpansionStateChange}
                     toolOpenByPartID={timelineViewState.toolOpenByPartID}
                     onToolOpenChange={handleToolOpenChange}
-                    askingQuestionsLabel={askingQuestionsLabel}
                   />
                 </TimelineVirtualRow>
               )

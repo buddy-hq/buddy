@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { parseToolState } from "@/components/chat/tools/parse-tool-state"
-import { getToolInfo } from "@/components/chat/tools/tool-info"
+import { getToolInfoForPart } from "@/components/chat/tools/tool-info"
 import { Media, MediaThumbnail, MultiViewShell } from "@/components/media"
 import { language } from "@/context/language"
 import { readNonEmptyString } from "@/components/chat/tools/types"
@@ -698,7 +698,7 @@ export function GroupedMermaidToolCard({
     const parsed = state.status === "completed" ? parseRenderMermaidReference(state) : undefined
     const source =
       state.status === "completed" ? (parsed?.source ?? readNonEmptyString(state.input.source)) : ""
-    const info = getToolInfo("render_mermaid", state)
+    const info = getToolInfoForPart(part, state) ?? { title: state.title ?? "Diagram" }
     const canRenderThumbnail = !!source
 
     return {
@@ -746,7 +746,6 @@ export function GroupedMermaidToolCard({
     <MultiViewShell
       items={items}
       contentClassName="bg-transparent rounded-none border-none p-0 h-auto w-full shadow-none"
-      className="mt-2"
       thumbnailSize="lg"
       defaultIndex={resolveGroupedMermaidDefaultIndex(parts)}
     />

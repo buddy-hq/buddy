@@ -12,16 +12,15 @@ import {
 } from "@/state/resources-query"
 import {
   estimateApproxWordCountFromTokens,
-  isLegacyIngestFullTextScopedReadingError,
-  isIngestFullTextScopedReadingFallback,
   readIngestFullTextMetadata,
 } from "../full-text-metadata"
-import { HIDDEN_STEPS_ERROR_CLASS_NAME } from "../hidden-steps/styles"
+import { ACTIVITY_ROW_ERROR_CLASS_NAME } from "../activity-row/styles"
 import { isPermissionDenied } from "../tool-permission"
 import { parseToolState } from "../parse-tool-state"
-import { getToolInfo } from "../tool-info"
+import { getToolInfoForPart } from "../tool-info"
 import type { ToolPartProps } from "../registry"
 import type { MessagePart } from "@/state/chat-types"
+import { isChatToolPart } from "../../utils/part-guards"
 
 const FULL_TEXT_COVER_CLASS = "w-[9.5rem] max-w-full"
 
@@ -31,6 +30,7 @@ type IngestFullTextToolProps = ToolPartProps & {
 
 function IngestFullTextTool({
   state,
+  info,
   directory,
   onOpenResource,
   grouped,
@@ -43,14 +43,9 @@ function IngestFullTextTool({
   const output = state.output || (state.error ?? "")
   const hasError = !denied && state.status === "error" && output.trim().length > 0
   const showTruncationNote = !denied && completed && truncated
-  const silentScopedReadingFallback =
-    !denied &&
-    ((completed && isIngestFullTextScopedReadingFallback(metadata)) ||
-      (state.status === "error" && isLegacyIngestFullTextScopedReadingError(state.error)))
-
   const resourcesQuery = useQuery({
     ...resourcesQueryOptions(directory ?? ""),
-    enabled: !!directory && !!resource && !silentScopedReadingFallback,
+    enabled: !!directory && !!resource,
   })
 
   const matchedResource = useMemo(() => {
@@ -78,10 +73,6 @@ function IngestFullTextTool({
     })
   }, [directory, onOpenResource, readingTarget])
 
-  if (silentScopedReadingFallback) {
-    return null
-  }
-
   if (denied) {
     return <p className="text-sm text-text-weaker">{language.t("chatTools.readFullTextDenied")}</p>
   }
@@ -90,7 +81,7 @@ function IngestFullTextTool({
     return (
       <div className="flex w-[9.5rem] max-w-full flex-col gap-2">
         <TextShimmer
-          text={language.t("chatTools.readFullText.running")}
+          text={info.title}
           active
           className="text-sm font-medium text-text-base"
         />
@@ -147,7 +138,7 @@ function IngestFullTextTool({
           ) : null}
         </div>
       ) : null}
-      {hasError ? <pre className={HIDDEN_STEPS_ERROR_CLASS_NAME}>{output}</pre> : null}
+      {hasError ? <pre className={ACTIVITY_ROW_ERROR_CLASS_NAME}>{output}</pre> : null}
     </div>
   )
 }
@@ -165,17 +156,17 @@ function SingleIngestFullTextToolCard({
   directory?: string
   onOpenResource: ToolPartProps["onOpenResource"]
 }) {
+  if (!isChatToolPart(part)) return null
   const state = parseToolState(part)
-  const toolName =
-    part.type === "tool" && typeof part.tool === "string" ? part.tool : "ingest_full_text"
-  const info = getToolInfo(toolName, state)
+  const info = getToolInfoForPart(part, state)
+  if (!info) return null
 
   return (
     <IngestFullTextTool
       part={part}
       state={state}
       info={info}
-      tool={toolName}
+      tool={part.tool}
       directory={directory}
       onOpenResource={onOpenResource}
       grouped
@@ -192,23 +183,9 @@ export function GroupedIngestFullTextToolCard({
   directory?: string
   onOpenResource: ToolPartProps["onOpenResource"]
 }) {
-  const visibleParts = parts.filter((part) => {
-    const state = parseToolState(part)
-    if (
-      state.status === "completed" &&
-      isIngestFullTextScopedReadingFallback(readIngestFullTextMetadata(state))
-    ) {
-      return false
-    }
-    return !(state.status === "error" && isLegacyIngestFullTextScopedReadingError(state.error))
-  })
-  if (visibleParts.length === 0) {
-    return null
-  }
-
   return (
     <div className="flex w-full flex-row flex-wrap items-start gap-3">
-      {visibleParts.map((part) => (
+      {parts.map((part) => (
         <SingleIngestFullTextToolCard
           key={part.id}
           part={part}

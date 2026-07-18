@@ -25,11 +25,11 @@
   border-radius: 0;
 }
 
-.hidden-patch-file + .hidden-patch-file {
+.activity-patch-file + .activity-patch-file {
   margin-top: -1px;
 }
 
-.hidden-patch-file-trigger {
+.activity-patch-file-trigger {
   display: flex;
   width: 100%;
   height: 32px;
@@ -49,44 +49,44 @@
   transition: background-color 0.15s ease;
 }
 
-.hidden-patch-file-trigger:hover {
+.activity-patch-file-trigger:hover {
   background-color: var(--surface-base-hover);
 }
 
-.hidden-patch-file:first-child .hidden-patch-file-trigger {
+.activity-patch-file:first-child .activity-patch-file-trigger {
   border-top-left-radius: 0.25rem;
   border-top-right-radius: 0.25rem;
 }
 
-.hidden-patch-file:last-child[data-state="closed"] .hidden-patch-file-trigger,
-.hidden-patch-file:last-child .pierre-content-viewer--embedded {
+.activity-patch-file:last-child[data-state="closed"] .activity-patch-file-trigger,
+.activity-patch-file:last-child .pierre-content-viewer--embedded {
   border-bottom-left-radius: 0.25rem;
   border-bottom-right-radius: 0.25rem;
 }
 
-.hidden-patch-file-info,
-.hidden-patch-file-name,
-.hidden-patch-file-actions,
-.hidden-patch-file-diff-changes {
+.activity-patch-file-info,
+.activity-patch-file-name,
+.activity-patch-file-actions,
+.activity-patch-file-diff-changes {
   display: flex;
   align-items: center;
 }
 
-.hidden-patch-file-info,
-.hidden-patch-file-name {
+.activity-patch-file-info,
+.activity-patch-file-name {
   min-width: 0;
   flex-grow: 1;
 }
 
-.hidden-patch-file-info {
+.activity-patch-file-info {
   gap: 20px;
 }
 
-.hidden-patch-file-name {
+.activity-patch-file-name {
   overflow: hidden;
 }
 
-.hidden-patch-file-directory {
+.activity-patch-file-directory {
   overflow: hidden;
   color: var(--text-base);
   text-align: left;
@@ -95,7 +95,7 @@
   direction: rtl;
 }
 
-.hidden-patch-file-filename {
+.activity-patch-file-filename {
   min-width: 0;
   overflow: hidden;
   color: var(--text-strong);
@@ -103,19 +103,19 @@
   white-space: nowrap;
 }
 
-.hidden-patch-file-actions {
+.activity-patch-file-actions {
   flex-shrink: 0;
   justify-content: flex-end;
   gap: 16px;
 }
 
-.hidden-patch-file-change {
+.activity-patch-file-change {
   font-family: var(--buddy-font-family-sans);
   font-size: 0.75rem;
   font-weight: 500;
 }
 
-.hidden-patch-file-diff-changes {
+.activity-patch-file-diff-changes {
   justify-content: flex-end;
   gap: 8px;
   font-family: var(--buddy-font-family-mono);
@@ -124,10 +124,10 @@
   line-height: 1.25rem;
 }
 
-.hidden-patch-file-additions {
+.activity-patch-file-additions {
   color: var(--text-diff-add-base);
 }
 
-.hidden-patch-file-deletions {
+.activity-patch-file-deletions {
   color: var(--text-diff-delete-base);
 }

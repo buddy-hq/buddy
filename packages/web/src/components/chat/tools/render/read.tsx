@@ -1,12 +1,12 @@
-import { resolveFileToolIcon, resolveFileToolPath } from "../file-tool-icon"
 import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject, ToolRowArg } from "../tool-row"
 import { resolveAssetUrl } from "../../../../lib/resource-url"
 import { getReadPreviewImageAttachments, isReadImagePreview } from "../read-image-preview"
 import { getSkillReferenceRowAction, resolveSkillReferenceInfo } from "../skill-reference"
 import type { ToolPartProps } from "../registry"
+import { readString } from "../types"
 
 export function renderReadTool({ state, info, icon }: ToolPartProps) {
-  const filePath = resolveFileToolPath("read", state, info)
+  const filePath = readString(state.input.filePath) ?? info.subtitle
   const skillReference = resolveSkillReferenceInfo({
     filePath,
     title: info.title,
@@ -14,7 +14,6 @@ export function renderReadTool({ state, info, icon }: ToolPartProps) {
     detail: info.detail,
   })
   const active = state.status === "pending" || state.status === "running"
-  const fileIcon = resolveFileToolIcon("read", state, info, icon)
   const imageAttachments = getReadPreviewImageAttachments({ state, filePath })
   const isImageRead = isReadImagePreview({ state, filePath })
   const action = skillReference ? `${getSkillReferenceRowAction(active)}:` : "read"
@@ -23,7 +22,7 @@ export function renderReadTool({ state, info, icon }: ToolPartProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <ToolRow>
-        <ToolRowIcon>{fileIcon?.("size-3.5")}</ToolRowIcon>
+        <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
         <ToolRowAction>{isImageRead && info.subtitle ? info.subtitle : action}</ToolRowAction>
         {!isImageRead && subject ? <ToolRowSubject>{subject}</ToolRowSubject> : null}
         {info.args?.map((arg) => (

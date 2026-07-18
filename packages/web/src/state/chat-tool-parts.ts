@@ -1,5 +1,9 @@
 import type { AssistantMessageInfo, MessagePart, MessageWithParts } from "./chat-types"
 import {
+  decodeToolPresentationSnapshot,
+  interruptToolPresentationSnapshot,
+} from "@buddy/opencode-adapter/tool-presentation"
+import {
   TOOL_PART_TYPE,
   TOOL_STATE_PENDING_STATUS,
   TOOL_STATE_RUNNING_STATUS,
@@ -21,6 +25,22 @@ function readFiniteNumber(value: unknown): number | undefined {
 
 function readPartTime(part: MessagePart): Record<string, unknown> | undefined {
   return isRecord(part.time) ? part.time : undefined
+}
+
+function reconcileInterruptedPartMetadata(part: MessagePart): Record<string, unknown> | undefined {
+  if (!isRecord(part.metadata)) return undefined
+
+  const buddy = isRecord(part.metadata.buddy) ? part.metadata.buddy : undefined
+  const presentation = decodeToolPresentationSnapshot(buddy?.presentation)
+  if (!buddy || !presentation) return undefined
+
+  return {
+    ...part.metadata,
+    buddy: {
+      ...buddy,
+      presentation: interruptToolPresentationSnapshot(presentation),
+    },
+  }
 }
 
 export function isTerminalAssistantMessageInfo(
@@ -72,9 +92,11 @@ function reconcileInterruptedToolPart(
   const time = isRecord(part.state.time) ? part.state.time : undefined
   const metadata = isRecord(part.state.metadata) ? part.state.metadata : undefined
   const start = typeof time?.start === "number" ? time.start : terminalAt
+  const partMetadata = reconcileInterruptedPartMetadata(part)
 
   return {
     ...part,
+    ...(partMetadata ? { metadata: partMetadata } : {}),
     state: {
       ...part.state,
       status: "error",
