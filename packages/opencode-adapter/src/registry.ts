@@ -11,7 +11,11 @@ import { Agent } from "./agent"
 import { withConfigOverlay } from "./config"
 import { withCurrentInstance } from "./effect-runtime"
 import { Instance } from "./instance"
-import { cloneToolUiMetadata, type ToolUiMetadata } from "./tool-ui-metadata"
+import { getCoreToolPresentationDescriptor } from "./core-tool-presentations"
+import {
+  cloneToolPresentationDescriptor,
+  type ToolPresentationDescriptor,
+} from "./tool-presentation"
 
 const UNBOUNDED_OUTPUT_POLICY_LIMIT = Number.POSITIVE_INFINITY
 
@@ -41,7 +45,7 @@ export type ToolOutputPolicy = {
 }
 
 const toolDefTransformers = new Set<ToolDefTransformer>()
-const customToolUiMetadata = new Map<string, Map<string, ToolUiMetadata>>()
+const customToolPresentations = new Map<string, Map<string, ToolPresentationDescriptor>>()
 const customToolOutputPolicies = new Map<string, Map<string, ToolOutputPolicy>>()
 const customToolJsonSchemas = new Map<string, Map<string, ToolJsonSchema>>()
 
@@ -54,8 +58,12 @@ function directoryKey(directory: string) {
   }
 }
 
-function getCustomToolUiMetadata(directory: string, toolID: string): ToolUiMetadata | undefined {
-  return cloneToolUiMetadata(customToolUiMetadata.get(directoryKey(directory))?.get(toolID))
+function getCustomToolPresentation(
+  directory: string,
+  toolID: string,
+): ToolPresentationDescriptor | undefined {
+  const descriptor = customToolPresentations.get(directoryKey(directory))?.get(toolID)
+  return descriptor ? cloneToolPresentationDescriptor(descriptor) : undefined
 }
 
 function cloneToolOutputPolicy(policy: ToolOutputPolicy | undefined): ToolOutputPolicy | undefined {
@@ -275,9 +283,9 @@ export namespace ToolRegistry {
     await ensureRuntimePatched()
   }
 
-  export type ToolUiRegistration = {
+  export type ToolPresentationRegistration = {
     id: string
-    toolUi?: ToolUiMetadata
+    presentation: ToolPresentationDescriptor
   }
 
   export type ToolOutputPolicyRegistration = {
@@ -290,36 +298,44 @@ export namespace ToolRegistry {
     jsonSchema?: ToolJsonSchema
   }
 
-  export function registerToolUiCatalog(directory: string, tools: readonly ToolUiRegistration[]) {
+  export function registerToolPresentationCatalog(
+    directory: string,
+    tools: readonly ToolPresentationRegistration[],
+  ) {
     const key = directoryKey(directory)
-    const metadataByTool = customToolUiMetadata.get(key) ?? new Map<string, ToolUiMetadata>()
+    const presentationsByTool =
+      customToolPresentations.get(key) ?? new Map<string, ToolPresentationDescriptor>()
 
     for (const tool of tools) {
-      if (tool.toolUi) {
-        metadataByTool.set(tool.id, cloneToolUiMetadata(tool.toolUi) ?? tool.toolUi)
-      } else {
-        metadataByTool.delete(tool.id)
-      }
+      presentationsByTool.set(tool.id, cloneToolPresentationDescriptor(tool.presentation))
     }
 
-    if (metadataByTool.size === 0) {
-      customToolUiMetadata.delete(key)
+    if (presentationsByTool.size === 0) {
+      customToolPresentations.delete(key)
     } else {
-      customToolUiMetadata.set(key, metadataByTool)
+      customToolPresentations.set(key, presentationsByTool)
     }
   }
 
-  export function unregisterToolUi(directory: string, toolIDs: readonly string[]) {
+  export function hasToolPresentationCatalog(
+    directory: string,
+    toolIDs: readonly string[],
+  ): boolean {
+    const presentationsByTool = customToolPresentations.get(directoryKey(directory))
+    return toolIDs.every((toolID) => presentationsByTool?.has(toolID) === true)
+  }
+
+  export function unregisterToolPresentations(directory: string, toolIDs: readonly string[]) {
     const key = directoryKey(directory)
-    const metadataByTool = customToolUiMetadata.get(key)
-    if (!metadataByTool) return
+    const presentationsByTool = customToolPresentations.get(key)
+    if (!presentationsByTool) return
 
     for (const toolID of toolIDs) {
-      metadataByTool.delete(toolID)
+      presentationsByTool.delete(toolID)
     }
 
-    if (metadataByTool.size === 0) {
-      customToolUiMetadata.delete(key)
+    if (presentationsByTool.size === 0) {
+      customToolPresentations.delete(key)
     }
   }
 
@@ -369,15 +385,18 @@ export namespace ToolRegistry {
     }
   }
 
-  export function getToolUiMetadata(toolID: string, directory?: string) {
+  export function getToolPresentationDescriptor(toolID: string, directory?: string) {
     if (directory) {
-      return getCustomToolUiMetadata(directory, toolID)
+      return getCustomToolPresentation(directory, toolID) ?? getCoreToolPresentationDescriptor(toolID)
     }
 
     try {
-      return getCustomToolUiMetadata(Instance.directory, toolID)
+      return (
+        getCustomToolPresentation(Instance.directory, toolID) ??
+        getCoreToolPresentationDescriptor(toolID)
+      )
     } catch {
-      return undefined
+      return getCoreToolPresentationDescriptor(toolID)
     }
   }
 
