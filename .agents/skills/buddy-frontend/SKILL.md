@@ -4,7 +4,10 @@ description: Guides development of the Buddy frontend, including architecture, d
 ---
 
 # Buddy Frontend
+You don't have to read all the skills mentioned in this skill before starting the task. Read them when you are doing relevant tasks.
 
+
+## Basics 
 - React-Vite App
 - uses Tanstack Router, Tanstack Virtual,
 - distributed via Electron
