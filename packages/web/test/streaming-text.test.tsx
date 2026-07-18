@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { useAdaptiveStreamingText } from "../src/components/chat/hooks/use-streaming-text"
+import { createTranscriptPerformanceProbe } from "../src/lib/directory-chat/transcript-performance-probe"
 
 async function flushEffects(delay = 0) {
   await Promise.resolve()
@@ -34,6 +35,7 @@ describe("useAdaptiveStreamingText", () => {
       root.unmount()
       await flushEffects()
     })
+    globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
     container.remove()
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
   })
@@ -81,5 +83,23 @@ describe("useAdaptiveStreamingText", () => {
     })
 
     expect(container.textContent).toBe(mathHeavyValue)
+  })
+
+  test("records the terminal display transition after the last live update", async () => {
+    const probe = createTranscriptPerformanceProbe({ observeBrowserEvents: false })
+    globalThis.__BUDDY_TRANSCRIPT_PERF__ = probe
+
+    await act(async () => {
+      root.render(<StreamingTextProbe value="Final text" live />)
+      await flushEffects()
+    })
+    await act(async () => {
+      root.render(<StreamingTextProbe value="Final text" live={false} />)
+      await flushEffects()
+    })
+
+    const streamEvents = probe.events.filter((event) => event.type === "streaming-throughput")
+    expect(streamEvents.at(-1)?.live).toBe(false)
+    globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
   })
 })

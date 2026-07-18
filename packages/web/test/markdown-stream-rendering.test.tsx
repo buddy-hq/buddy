@@ -2,6 +2,7 @@ import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import { Markdown } from "../src/components/markdown/Markdown"
 import { MarkdownHtmlSegment } from "../src/components/markdown/markdown-html-segment"
 import { resetMarkdownWorkerForTests } from "../src/components/markdown/markdown-worker"
 
@@ -52,7 +53,7 @@ describe("streaming markdown rendering", () => {
       await flushEffects()
     })
 
-    const stableBlock = container.querySelector('[data-markdown-block-key="stream:0:full"]')
+    const stableBlock = container.querySelector('[data-markdown-block-key="stream:block:0"]')
     expect(stableBlock).not.toBeNull()
 
     await act(async () => {
@@ -66,8 +67,89 @@ describe("streaming markdown rendering", () => {
       await flushEffects()
     })
 
-    expect(container.querySelector('[data-markdown-block-key="stream:0:full"]')).toBe(stableBlock)
+    expect(container.querySelector('[data-markdown-block-key="stream:block:0"]')).toBe(stableBlock)
     expect(container.textContent).toContain("First tail grows")
+  })
+
+  test("keeps caller typography classes on the authoritative prose root", async () => {
+    await act(async () => {
+      root.render(
+        <Markdown
+          text="Custom typography"
+          cacheKey="custom-typography"
+          className="text-xl text-text-interactive-base"
+        />,
+      )
+      await flushEffects()
+    })
+
+    const documentRoot = container.querySelector<HTMLElement>("[data-markdown-document]")
+    const proseRoots = container.querySelectorAll<HTMLElement>(".prose")
+    if (!documentRoot) {
+      throw new Error("Expected a Markdown document root")
+    }
+    expect(proseRoots).toHaveLength(1)
+    expect(proseRoots[0]).toBe(documentRoot)
+    expect(documentRoot.className).toContain("text-xl")
+    expect(documentRoot.className).toContain("text-text-interactive-base")
+  })
+
+  test("retains every projected block DOM node when streaming completes", async () => {
+    const text = "Stable paragraph.\n\nFinal paragraph."
+
+    await act(async () => {
+      root.render(<MarkdownHtmlSegment text={text} cacheKey="terminal-projection" streaming />)
+      await flushEffects()
+    })
+
+    const streamingBlocks = Array.from(container.querySelectorAll("[data-markdown-block-key]"))
+    expect(streamingBlocks).toHaveLength(2)
+    const stableBlock = streamingBlocks[0]
+    const tailBlock = streamingBlocks[1]
+
+    await act(async () => {
+      root.render(<MarkdownHtmlSegment text={text} cacheKey="terminal-projection" />)
+      await flushEffects()
+    })
+
+    const completedBlocks = Array.from(container.querySelectorAll("[data-markdown-block-key]"))
+    expect(completedBlocks).toHaveLength(2)
+    expect(completedBlocks[0]).toBe(stableBlock)
+    expect(completedBlocks[1]).toBe(tailBlock)
+    expect(container.textContent).toContain("Final paragraph.")
+  })
+
+  test("reuses rendered Markdown when interruption metadata changes", async () => {
+    const text = "Rendered content remains stable."
+
+    await act(async () => {
+      root.render(<MarkdownHtmlSegment text={text} cacheKey="interruption-cache" streaming />)
+      await flushUntil(
+        () =>
+          container
+            .querySelector("[data-markdown-block-key]")
+            ?.getAttribute("data-markdown-parse-state") === "ready",
+      )
+    })
+
+    const block = container.querySelector("[data-markdown-block-key]")
+    expect(block?.getAttribute("data-markdown-parse-state")).toBe("ready")
+
+    await act(async () => {
+      root.render(
+        <MarkdownHtmlSegment
+          text={text}
+          cacheKey="interruption-cache"
+          streaming
+          interrupted
+        />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector("[data-markdown-block-key]")).toBe(block)
+    expect(block?.getAttribute("data-markdown-parse-state")).toBe("cached")
+    expect(block?.getAttribute("data-markdown-parse-duration-ms")).toBeNull()
   })
 
   test("preserves a broken image node while its live Markdown block grows", async () => {
@@ -102,6 +184,49 @@ describe("streaming markdown rendering", () => {
 
     expect(container.querySelector("img")).toBe(image)
     expect(container.querySelector("img")?.getAttribute("alt")).toBe("alt text")
+  })
+
+  test("reserves broken image space and restores known image dimensions on remount", async () => {
+    const text = [
+      "![ready](https://assets.example/known.png)",
+      "",
+      "![missing](https://assets.example/missing.png)",
+    ].join("\n")
+
+    await act(async () => {
+      root.render(<MarkdownHtmlSegment text={text} cacheKey="remounted-images" />)
+      await flushUntil(() => container.querySelectorAll("img").length === 2)
+    })
+
+    const initialImages = container.querySelectorAll<HTMLImageElement>("img")
+    const readyImage = initialImages[0]
+    const missingImage = initialImages[1]
+    if (!readyImage || !missingImage) {
+      throw new Error("Expected both Markdown images to render")
+    }
+    Object.defineProperties(readyImage, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 640 },
+      naturalHeight: { configurable: true, value: 360 },
+    })
+    readyImage.dispatchEvent(new Event("load"))
+    missingImage.dispatchEvent(new Event("error"))
+
+    expect(readyImage.dataset.markdownImageState).toBe("ready")
+    expect(missingImage.dataset.markdownImageState).toBe("error")
+    expect(missingImage.style.minHeight).toBe("1.5rem")
+
+    await act(async () => {
+      root.render(<div />)
+      await flushEffects()
+      root.render(<MarkdownHtmlSegment text={text} cacheKey="remounted-images" />)
+      await flushUntil(() => container.querySelectorAll("img").length === 2)
+    })
+
+    const remountedImages = container.querySelectorAll<HTMLImageElement>("img")
+    expect(remountedImages[0]?.getAttribute("width")).toBe("640")
+    expect(remountedImages[0]?.getAttribute("height")).toBe("360")
+    expect(remountedImages[1]?.style.minHeight).toBe("1.5rem")
   })
 
   test("does not wait for the worker to render final non-code markdown", async () => {
@@ -232,7 +357,7 @@ $$\mathb{a} \times \mathbf{b} = \begin{vmatrix} \mathbf{i} & \mathbf{j} & \mathb
     }
   })
 
-  test("patches only the code token tail and disposes highlighting when streaming stops", async () => {
+  test("patches only the code token tail and keeps completed code mounted at terminal", async () => {
     const originalWorker = globalThis.Worker
     const requests: unknown[] = []
 
@@ -345,6 +470,10 @@ $$\mathb{a} \times \mathbf{b} = \begin{vmatrix} \mathbf{i} & \mathbf{j} & \mathb
             request.complete === true,
         ),
       ).toBe(true)
+      const completedCodeBlock = container.querySelector(
+        '[data-markdown-block-key="streaming-code:block:0"]',
+      )
+      expect(completedCodeBlock).not.toBeNull()
 
       await act(async () => {
         root.render(
@@ -356,23 +485,17 @@ $$\mathb{a} \times \mathbf{b} = \begin{vmatrix} \mathbf{i} & \mathbf{j} & \mathb
         await flushUntil(
           () =>
             container.querySelector(
-              '[data-markdown-block-key="streaming-code:0:full"] pre.shiki.OpenCode',
+              '[data-markdown-block-key="streaming-code:block:0"] pre.shiki.OpenCode',
             ) !== null,
         )
       })
 
-      expect(
-        requests.some(
-          (request) =>
-            !!request &&
-            typeof request === "object" &&
-            "type" in request &&
-            request.type === "dispose",
-        ),
-      ).toBe(true)
+      expect(container.querySelector('[data-markdown-block-key="streaming-code:block:0"]')).toBe(
+        completedCodeBlock,
+      )
       expect(
         container.querySelector(
-          '[data-markdown-block-key="streaming-code:0:full"] pre.shiki.OpenCode',
+          '[data-markdown-block-key="streaming-code:block:0"] pre.shiki.OpenCode',
         ),
       ).not.toBeNull()
       expect(container.textContent).toContain("const x = 1")

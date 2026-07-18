@@ -17,7 +17,6 @@ type AssistantTextPartProps = {
   copyEnabled: boolean
   interrupted?: boolean
   streaming?: boolean
-  preferEagerMarkdown?: boolean
   stripLeadingFigureImage?: boolean
   stripLeadingMermaidSources?: string[]
   directory?: string
@@ -67,7 +66,6 @@ function assistantTextPartEqual(
   if (prevProps.copyEnabled !== nextProps.copyEnabled) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.streaming !== nextProps.streaming) return false
-  if (prevProps.preferEagerMarkdown !== nextProps.preferEagerMarkdown) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
   if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
   if (prevProps.directory !== nextProps.directory) return false
@@ -81,7 +79,6 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   copyEnabled,
   interrupted,
   streaming = false,
-  preferEagerMarkdown,
   stripLeadingFigureImage,
   stripLeadingMermaidSources,
   directory,
@@ -147,7 +144,6 @@ export const AssistantTextPart = memo(function AssistantTextPart({
           chemistryContext={chemistryContext}
           isStreaming={useStreamingMath}
           isInterrupted={interrupted}
-          preferEagerRender={preferEagerMarkdown}
           directory={directory}
           onOpenResource={onOpenResource}
         />

@@ -8,11 +8,14 @@ type StreamingTextOptions = {
 
 export function useAdaptiveStreamingText(value: string, options: StreamingTextOptions): string {
   const previousLengthRef = useRef(value.length)
+  const previousLiveRef = useRef(options.live)
 
   useEffect(() => {
     const previousLength = previousLengthRef.current
+    const previousLive = previousLiveRef.current
     previousLengthRef.current = value.length
-    if (!options.live) return
+    previousLiveRef.current = options.live
+    if (!options.live && !previousLive) return
     recordTranscriptPerfEvent({
       type: "streaming-throughput",
       at: performance.now(),

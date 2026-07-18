@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import { ChatScrollProvider } from "../src/components/chat/chat-scroll-context"
 import { canContainChemistryBlock, Markdown } from "../src/components/markdown/Markdown"
 import { parseMarkdownSegments } from "../src/components/markdown/markdown-segments"
 import {
@@ -233,6 +234,58 @@ describe("Markdown chemistry segments", () => {
     expect(container.textContent).not.toContain("Chemistry")
     expect(container.textContent).not.toContain("SMILES")
     expect(container.textContent).toContain("After")
+  })
+
+  test("keeps the document and completed HTML segment mounted when an embedded fence closes", async () => {
+    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = async () => ({
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><path d="M0 20h80" /></svg>',
+    })
+    const prefix = `${"Stable introduction with enough detail to form multiple lazy blocks. ".repeat(220)}\n\n`
+    const openFence = `${prefix}\`\`\`smiles\nCCO`
+    const closedFence = `${openFence}\n\`\`\``
+    const viewportRef = { current: container }
+
+    await act(async () => {
+      root.render(
+        <ChatScrollProvider viewportRef={viewportRef}>
+          <Markdown text={openFence} cacheKey="closing-fence" isStreaming />
+        </ChatScrollProvider>,
+      )
+      await flushEffects()
+    })
+
+    const documentShell = container.querySelector('[data-markdown-document="closing-fence"]')
+    const htmlSegmentShell = container.querySelector(
+      '[data-markdown-segment-key="closing-fence:segment:0"]',
+    )
+    const firstVirtualBlockShell = container.querySelector(
+      '[data-markdown-virtual-block-key="closing-fence:segment:0:html:virtual-block:0"]',
+    )
+    expect(documentShell).not.toBeNull()
+    expect(documentShell?.getAttribute("data-markdown-branch")).toBe("lazy")
+    expect(htmlSegmentShell).not.toBeNull()
+    expect(firstVirtualBlockShell).not.toBeNull()
+
+    await act(async () => {
+      root.render(
+        <ChatScrollProvider viewportRef={viewportRef}>
+          <Markdown text={closedFence} cacheKey="closing-fence" isStreaming />
+        </ChatScrollProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-markdown-document="closing-fence"]')).toBe(documentShell)
+    expect(documentShell?.getAttribute("data-markdown-branch")).toBe("segmented-lazy")
+    expect(
+      container.querySelector('[data-markdown-segment-key="closing-fence:segment:0"]'),
+    ).toBe(htmlSegmentShell)
+    expect(
+      container.querySelector(
+        '[data-markdown-virtual-block-key="closing-fence:segment:0:html:virtual-block:0"]',
+      ),
+    ).toBe(firstVirtualBlockShell)
+    expect(container.querySelector('[data-component="markdown-chemistry"]')).not.toBeNull()
   })
 
   test("keeps the fixed transparent viewport while chemistry is loading", async () => {

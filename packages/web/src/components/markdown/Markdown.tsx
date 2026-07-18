@@ -1,10 +1,19 @@
 import { cn } from "@buddy/ui"
 import { useMemo, type ReactNode } from "react"
 import { MarkdownChemistrySegment } from "./markdown-chemistry-segment"
-import { MarkdownHtmlSegment, markdownClassName } from "./markdown-html-segment"
+import { markdownContentHash } from "./markdown-content-hash"
+import {
+  MarkdownHtmlSegment,
+  markdownBlockBoundaryClassName,
+  markdownClassName,
+} from "./markdown-html-segment"
 import { MarkdownMermaidSegment, type MarkdownMermaidContext } from "./markdown-mermaid-segment"
 import { parseMarkdownSegments, type MarkdownSegment } from "./markdown-segments"
-import { shouldVirtualizeMarkdown, VirtualizedMarkdown } from "./virtualized-markdown"
+import {
+  shouldVirtualizeMarkdown,
+  shouldVirtualizeMarkdownLeaf,
+  VirtualizedMarkdown,
+} from "./virtualized-markdown"
 import { CHEMISTRY_FORMATS } from "@/components/media/renderers/chemistry/formats"
 import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
 import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
@@ -32,7 +41,6 @@ type MarkdownProps = {
   chemistryContext?: MarkdownChemistryContext
   isStreaming?: boolean
   isInterrupted?: boolean
-  preferEagerRender?: boolean
   renderMermaid?: boolean
   directory?: string
   onOpenResource?: WorkspaceResourceOpener
@@ -46,15 +54,29 @@ type MarkdownChemistryContext = {
 }
 
 function markdownHtmlSegment(input: {
-  key: string
+  segmentKey: string
   markdown: string
   props: MarkdownProps
+  virtualize: boolean
 }): ReactNode {
+  if (input.virtualize && shouldVirtualizeMarkdownLeaf(input.markdown)) {
+    return (
+      <VirtualizedMarkdown
+        text={input.markdown}
+        cacheKey={`${input.segmentKey}:html`}
+        directory={input.props.directory}
+        onOpenResource={input.props.onOpenResource}
+        streaming={input.props.isStreaming}
+        interrupted={input.props.isInterrupted}
+      />
+    )
+  }
+
   return (
     <MarkdownHtmlSegment
-      key={input.key}
       text={input.markdown}
-      cacheKey={input.key}
+      cacheKey={`${input.segmentKey}:html`}
+      className={markdownBlockBoundaryClassName}
       directory={input.props.directory}
       onOpenResource={input.props.onOpenResource}
       streaming={input.props.isStreaming}
@@ -64,19 +86,23 @@ function markdownHtmlSegment(input: {
 }
 
 function renderMarkdownSegment(input: {
-  baseCacheKey: string
+  segmentKey: string
   segment: MarkdownSegment
   props: MarkdownProps
+  virtualizeHtml: boolean
 }): ReactNode {
   const segment = input.segment
-  const key = `${input.baseCacheKey}:${segment.kind}:${segment.segmentIndex}`
   if (segment.kind === "html") {
-    return markdownHtmlSegment({ key, markdown: segment.markdown, props: input.props })
+    return markdownHtmlSegment({
+      segmentKey: input.segmentKey,
+      markdown: segment.markdown,
+      props: input.props,
+      virtualize: input.virtualizeHtml,
+    })
   }
   if (segment.kind === "chemistry") {
     return (
       <MarkdownChemistrySegment
-        key={key}
         format={segment.format}
         source={segment.source}
         alt={segment.alt}
@@ -98,8 +124,7 @@ function renderMarkdownSegment(input: {
   if (input.props.mermaidContext) {
     return (
       <MarkdownMermaidSegment
-        key={key}
-        cacheKey={key}
+        cacheKey={input.segmentKey}
         context={input.props.mermaidContext}
         isStreaming={input.props.isStreaming ?? false}
         raw={segment.raw}
@@ -110,10 +135,7 @@ function renderMarkdownSegment(input: {
   }
   if (input.props.renderMermaid) {
     return (
-      <div
-        key={key}
-        className="my-4 overflow-hidden rounded-xl border border-border-weaker-base bg-background-base"
-      >
+      <div className="my-4 overflow-hidden rounded-xl border border-border-weaker-base bg-background-base">
         <MermaidDiagram
           source={segment.source}
           alt="Mermaid diagram"
@@ -124,7 +146,16 @@ function renderMarkdownSegment(input: {
       </div>
     )
   }
-  return markdownHtmlSegment({ key, markdown: segment.raw, props: input.props })
+  return markdownHtmlSegment({
+    segmentKey: input.segmentKey,
+    markdown: segment.raw,
+    props: input.props,
+    virtualize: input.virtualizeHtml,
+  })
+}
+
+function singleHtmlSegment(markdown: string): MarkdownSegment[] {
+  return [{ kind: "html", markdown, segmentIndex: 0 }]
 }
 
 export function Markdown(props: MarkdownProps): ReactNode {
@@ -133,44 +164,47 @@ export function Markdown(props: MarkdownProps): ReactNode {
     (!!props.mermaidContext || props.renderMermaid === true) && canContainMermaidBlock(props.text)
   const canContainChemistry = canContainChemistryBlock(props.text)
   const segments = useMemo(
-    () => (canRenderMermaid || canContainChemistry ? parseMarkdownSegments(props.text) : []),
+    () => {
+      if (!canRenderMermaid && !canContainChemistry) return singleHtmlSegment(props.text)
+      const parsed = parseMarkdownSegments(props.text)
+      return parsed.length > 0 ? parsed : singleHtmlSegment(props.text)
+    },
     [canContainChemistry, canRenderMermaid, props.text],
   )
   const hasRenderableSegments = segments.some(
     (segment) => segment.kind === "chemistry" || (segment.kind === "mermaid" && canRenderMermaid),
   )
 
-  if (!hasRenderableSegments) {
-    if (!props.preferEagerRender && shouldVirtualizeMarkdown(props.text)) {
-      return (
-        <VirtualizedMarkdown
-          text={props.text}
-          cacheKey={baseCacheKey}
-          className={props.className}
-          directory={props.directory}
-          onOpenResource={props.onOpenResource}
-          streaming={props.isStreaming}
-          interrupted={props.isInterrupted}
-        />
-      )
-    }
-
-    return (
-      <MarkdownHtmlSegment
-        text={props.text}
-        cacheKey={baseCacheKey}
-        className={cn(markdownClassName, props.className)}
-        directory={props.directory}
-        onOpenResource={props.onOpenResource}
-        streaming={props.isStreaming}
-        interrupted={props.isInterrupted}
-      />
-    )
-  }
+  const virtualizeHtml = shouldVirtualizeMarkdown(props.text)
+  const branch = hasRenderableSegments ? (virtualizeHtml ? "segmented-lazy" : "segmented") : virtualizeHtml ? "lazy" : "eager"
+  const phase = props.isInterrupted ? "interrupted" : props.isStreaming ? "streaming" : "complete"
 
   return (
-    <div className={cn(markdownClassName, props.className)}>
-      {segments.map((segment) => renderMarkdownSegment({ baseCacheKey, segment, props }))}
+    <div
+      className={cn(markdownClassName, "min-w-0 w-full max-w-full", props.className)}
+      data-markdown-document={baseCacheKey}
+      data-markdown-source-length={props.text.length}
+      data-markdown-source-hash={markdownContentHash(props.text)}
+      data-markdown-phase={phase}
+      data-markdown-branch={branch}
+      data-markdown-segment-count={segments.length}
+    >
+      {segments.map((segment) => {
+        const segmentKey = `${baseCacheKey}:segment:${segment.segmentIndex}`
+        return (
+          <div
+            key={segmentKey}
+            className={cn(
+              "min-w-0 w-full max-w-full",
+              segment.kind !== "html" && "not-prose",
+            )}
+            data-markdown-segment-key={segmentKey}
+            data-markdown-segment-kind={segment.kind}
+          >
+            {renderMarkdownSegment({ segmentKey, segment, props, virtualizeHtml })}
+          </div>
+        )
+      })}
     </div>
   )
 }

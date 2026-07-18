@@ -2,6 +2,7 @@ import { Marked, marked, type Tokens } from "marked"
 import markedShiki from "marked-shiki"
 import { bundledLanguages, createHighlighter, type BundledLanguage } from "shiki"
 import remend from "remend"
+import { markdownContentHash } from "./markdown-content-hash"
 import { buddyMathExtension, hasOpenStreamingMath } from "./markdown-math"
 
 let highlighterPromise: ReturnType<typeof createHighlighter> | undefined
@@ -415,8 +416,25 @@ export function projectMarkdownBlocks(
   text: string,
   live: boolean,
 ): MarkdownProjection {
-  if (!live || !previous || !text.startsWith(previous.text)) {
+  if (!previous || !text.startsWith(previous.text)) {
     return { text, blocks: streamBlocks(text, live) }
+  }
+
+  if (!live) {
+    const blocks =
+      text === previous.text ? previous.blocks : streamBlocks(text, true)
+    return {
+      text,
+      blocks: blocks.map((block) =>
+        block.mode === "live"
+          ? {
+              raw: block.raw,
+              src: block.raw,
+              mode: "full",
+            }
+          : block,
+      ),
+    }
   }
 
   const tail = previous.blocks.at(-1)
@@ -497,15 +515,6 @@ type CacheEntry = { hash: string; html: string }
 const blockCache = new Map<string, CacheEntry>()
 const BLOCK_CACHE_MAX = 200
 
-function checksum(value: string): string {
-  let hash = 0
-  for (let i = 0; i < value.length; i++) {
-    const chr = value.charCodeAt(i)
-    hash = ((hash << 5) - hash + chr) | 0
-  }
-  return hash.toString(36)
-}
-
 function touchBlockCache(key: string, entry: CacheEntry) {
   blockCache.delete(key)
   blockCache.set(key, entry)
@@ -524,10 +533,10 @@ export async function parseMarkdownToHtml(
 ) {
   if (streaming) {
     const blocks = streamBlocks(markdown, true)
-    const base = blockCacheKey ?? checksum(markdown)
+    const base = blockCacheKey ?? markdownContentHash(markdown)
     const parts = await Promise.all(
       blocks.map(async (block, index) => {
-        const hash = checksum(block.raw)
+        const hash = markdownContentHash(block.raw)
         const key = `${base}:${index}:${block.mode}`
 
         const cached = blockCache.get(key)
@@ -547,4 +556,11 @@ export async function parseMarkdownToHtml(
   }
 
   return parser.parse(markdown)
+}
+
+export async function parseProjectedMarkdownBlockToHtml(
+  markdown: string,
+  tolerant: boolean,
+): Promise<string> {
+  return await Promise.resolve(tolerant ? streamingParser.parse(markdown) : parser.parse(markdown))
 }

@@ -20,7 +20,6 @@ export type AssistantPartRendererProps = {
   metaText?: string
   interrupted?: boolean
   streaming?: boolean
-  preferEagerMarkdown?: boolean
   onOpenSession?: (sessionID: string) => void
   onOpenResource?: (
     directory: string,
@@ -45,7 +44,6 @@ function assistantPartRendererEqual(
   if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.streaming !== nextProps.streaming) return false
-  if (prevProps.preferEagerMarkdown !== nextProps.preferEagerMarkdown) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
   if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
   if (prevProps.directory !== nextProps.directory) return false
@@ -74,7 +72,6 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   copyPartID,
   interrupted,
   streaming = false,
-  preferEagerMarkdown,
   onOpenSession,
   onOpenResource,
   onForkMessage,
@@ -95,7 +92,6 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         copyEnabled={copyPartID === part.id}
         interrupted={interrupted}
         streaming={streaming}
-        preferEagerMarkdown={preferEagerMarkdown}
         stripLeadingFigureImage={stripLeadingFigureImage}
         stripLeadingMermaidSources={stripLeadingMermaidSources}
         directory={directory}

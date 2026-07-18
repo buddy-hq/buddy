@@ -17,7 +17,7 @@ import { usePlatform } from "@/context/platform"
 import { getServerConnection } from "@/context/server"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import {
-  parseMarkdownToHtml,
+  parseProjectedMarkdownBlockToHtml,
   projectMarkdownBlocks,
   type MarkdownProjection,
 } from "./markdown-parser"
@@ -30,8 +30,8 @@ import {
 } from "./markdown-worker"
 import { shouldResetCodeTokens, type RenderedCodeState } from "./markdown-code-state"
 import type { MarkdownToken, MarkdownWorkerState } from "./markdown-worker-protocol"
+import { markdownContentHash } from "./markdown-content-hash"
 import { hasOpenStreamingMath } from "./markdown-math"
-import { useInlineAssetLifecycleReporter } from "@/components/chat/inline-asset-boundary"
 
 if (typeof window !== "undefined" && DOMPurify.isSupported) {
   DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
@@ -63,6 +63,13 @@ const sanitizeConfig = {
 
 // Current prose-based markdown styles.
 // The original hand-rolled version is preserved in ./markdown-legacy-styles.ts for rollback.
+const markdownBlockBoundaryClassName = [
+  // Markdown blocks add one wrapper between the prose root and rendered content.
+  // Reset only the outer edges so separate streaming blocks retain their internal rhythm.
+  "[&>[data-markdown-block-key]:first-child>*:first-child]:mt-0",
+  "[&>[data-markdown-block-key]:last-child>*:last-child]:mb-0",
+].join(" ")
+
 const markdownClassName = [
   // Base prose: sm size, min-w-0 for flex truncation, break-words for unbroken model output.
   "prose prose-sm min-w-0 max-w-full break-words",
@@ -83,10 +90,7 @@ const markdownClassName = [
   "[--tw-prose-lead:var(--color-text-weak)]",
   "[--tw-prose-pre-bg:transparent]",
   "[--tw-prose-pre-code:var(--color-text-base)]",
-  // Markdown blocks add one wrapper between the prose root and rendered content.
-  // Reset only the outer edges so separate streaming blocks retain their internal rhythm.
-  "[&>[data-markdown-block-key]:first-child>*:first-child]:mt-0",
-  "[&>[data-markdown-block-key]:last-child>*:last-child]:mb-0",
+  markdownBlockBoundaryClassName,
   // Keep headings the same size as body text (chat context)
   "[&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-sm [&_h4]:text-sm [&_h5]:text-sm [&_h6]:text-sm",
   "prose-headings:font-medium",
@@ -117,7 +121,10 @@ type MarkdownCacheEntry = {
 type MarkdownHtmlBlockMode = "full" | "live" | "code"
 
 const MARKDOWN_CACHE_MAX = 200
+const MARKDOWN_IMAGE_INTRINSIC_SIZE_CACHE_MAX = 200
+const MARKDOWN_IMAGE_FALLBACK_MIN_HEIGHT = "1.5rem"
 const markdownCache = new Map<string, MarkdownCacheEntry>()
+const markdownImageIntrinsicSizeCache = new Map<string, { width: number; height: number }>()
 const renderedCodeTokens = new WeakMap<HTMLDivElement, RenderedCodeState>()
 const CODE_FALLBACK_BACKGROUND_COLOR = "var(--color-background-stronger)"
 const CODE_FALLBACK_COLOR = "var(--color-text-base)"
@@ -244,6 +251,77 @@ function setIconVisibility(button: HTMLButtonElement) {
   checkIcon.style.display = copied ? "inline-flex" : "none"
 }
 
+function touchMarkdownImageIntrinsicSize(
+  key: string,
+  size: { width: number; height: number },
+) {
+  markdownImageIntrinsicSizeCache.delete(key)
+  markdownImageIntrinsicSizeCache.set(key, size)
+  while (markdownImageIntrinsicSizeCache.size > MARKDOWN_IMAGE_INTRINSIC_SIZE_CACHE_MAX) {
+    const oldestKey = markdownImageIntrinsicSizeCache.keys().next().value
+    if (!oldestKey) break
+    markdownImageIntrinsicSizeCache.delete(oldestKey)
+  }
+}
+
+function stabilizeMarkdownImages(root: HTMLDivElement) {
+  const images = Array.from(root.querySelectorAll("img"))
+  for (const image of images) {
+    image.dataset.markdownImage = "true"
+    image.dataset.markdownImageState = "pending"
+    image.style.minHeight = MARKDOWN_IMAGE_FALLBACK_MIN_HEIGHT
+
+    const source = image.getAttribute("src")
+    const cachedSize = source ? markdownImageIntrinsicSizeCache.get(source) : undefined
+    if (!cachedSize) continue
+    image.width = cachedSize.width
+    image.height = cachedSize.height
+  }
+}
+
+function setupMarkdownImages(root: HTMLDivElement) {
+  const cleanups: Array<() => void> = []
+  const images = Array.from(
+    root.querySelectorAll<HTMLImageElement>('img[data-markdown-image="true"]'),
+  )
+
+  for (const image of images) {
+    const syncState = () => {
+      if (!image.complete) {
+        image.dataset.markdownImageState = "pending"
+        return
+      }
+      if (image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+        image.dataset.markdownImageState = "error"
+        return
+      }
+
+      image.dataset.markdownImageState = "ready"
+      const source = image.getAttribute("src")
+      if (!source) return
+      const size = { width: image.naturalWidth, height: image.naturalHeight }
+      image.width = size.width
+      image.height = size.height
+      touchMarkdownImageIntrinsicSize(source, size)
+    }
+    const handleLoad = () => syncState()
+    const handleError = () => {
+      image.dataset.markdownImageState = "error"
+    }
+    image.addEventListener("load", handleLoad)
+    image.addEventListener("error", handleError)
+    syncState()
+    cleanups.push(() => {
+      image.removeEventListener("load", handleLoad)
+      image.removeEventListener("error", handleError)
+    })
+  }
+
+  return () => {
+    for (const cleanup of cleanups) cleanup()
+  }
+}
+
 function ensureCodeWrapper(block: HTMLPreElement, labels: CopyLabels) {
   const parent = block.parentElement
   if (!parent) return
@@ -360,6 +438,7 @@ function markTextLinks(root: HTMLDivElement) {
 }
 
 function decorateMarkdown(root: HTMLDivElement, labels: CopyLabels) {
+  stabilizeMarkdownImages(root)
   const blocks = Array.from(root.querySelectorAll("pre"))
   for (const block of blocks) {
     ensureCodeWrapper(block, labels)
@@ -457,6 +536,52 @@ function isSameMarkdownImage(fromElement: Element, toElement: Element): boolean 
   )
 }
 
+function patchMarkdownRoot(
+  root: HTMLDivElement,
+  nextRoot: HTMLDivElement,
+  copyLabels: CopyLabels,
+): void {
+  if (root.childNodes.length === 0) {
+    root.replaceChildren(...Array.from(nextRoot.childNodes))
+    return
+  }
+
+  morphdom(root, nextRoot, {
+    childrenOnly: true,
+    onBeforeElUpdated: (fromElement, toElement) => {
+      if (isSameMarkdownImage(fromElement, toElement)) {
+        return false
+      }
+      if (
+        fromElement instanceof HTMLButtonElement &&
+        toElement instanceof HTMLButtonElement &&
+        fromElement.getAttribute("data-slot") === "markdown-copy-button" &&
+        toElement.getAttribute("data-slot") === "markdown-copy-button" &&
+        fromElement.getAttribute("data-copied") === "true"
+      ) {
+        setCopyState(toElement, copyLabels, true)
+      }
+      if (fromElement.isEqualNode(toElement)) return false
+      return true
+    },
+  })
+}
+
+function markMarkdownParseState(
+  root: HTMLDivElement,
+  input:
+    | { state: "parsing" | "cached"; source: string }
+    | { state: "ready"; source: string; durationMs: number },
+): void {
+  root.dataset.markdownParseState = input.state
+  root.dataset.markdownParsedSourceHash = markdownContentHash(input.source)
+  if (input.state === "ready") {
+    root.dataset.markdownParseDurationMs = input.durationMs.toFixed(2)
+  } else {
+    root.removeAttribute("data-markdown-parse-duration-ms")
+  }
+}
+
 function decoratedCodeFallbackRoot(input: {
   code: string
   language: string | undefined
@@ -550,6 +675,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
   const rootRef = useRef<HTMLDivElement | null>(null)
   const renderIdRef = useRef(0)
   const copyCleanupRef = useRef<(() => void) | undefined>(undefined)
+  const imageCleanupRef = useRef<(() => void) | undefined>(undefined)
   const copySetupTimerRef = useRef<number | undefined>(undefined)
   const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
   const platform = usePlatform()
@@ -557,21 +683,11 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
   const sanitizeContextKey = markdownSanitizeContextKey()
   const fullCacheKey = useMemo(
     () =>
-      `${props.cacheKey ?? props.text}::${sanitizeContextKey}::${props.streaming ? "live" : "full"}::${props.interrupted ? "interrupted" : "active"}`,
-    [props.cacheKey, props.text, sanitizeContextKey, props.streaming, props.interrupted],
+      `${props.cacheKey ?? props.text}::${sanitizeContextKey}::${props.streaming ? "live" : "full"}`,
+    [props.cacheKey, props.text, sanitizeContextKey, props.streaming],
   )
-  useInlineAssetLifecycleReporter({
-    ref: rootRef,
-    active: true,
-  })
-  const cachedEntry = useMemo(() => {
-    const cached = markdownCache.get(fullCacheKey)
-    if (cached && cached.source === props.text) {
-      touchMarkdownCache(fullCacheKey, cached)
-      return cached
-    }
-    return null
-  }, [fullCacheKey, props.text])
+  const cached = markdownCache.get(fullCacheKey)
+  const cachedEntry = cached?.source === props.text ? cached : null
 
   const resetCodeCopy = useCallback(() => {
     if (copySetupTimerRef.current !== undefined) {
@@ -584,11 +700,17 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
     }
   }, [])
 
+  const resetMarkdownImages = useCallback(() => {
+    imageCleanupRef.current?.()
+    imageCleanupRef.current = undefined
+  }, [])
+
   useEffect(() => {
     return () => {
       resetCodeCopy()
+      resetMarkdownImages()
     }
-  }, [resetCodeCopy])
+  }, [resetCodeCopy, resetMarkdownImages])
 
   useLayoutEffect(() => {
     const root = rootRef.current
@@ -597,13 +719,24 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
     const nextRoot = decoratedMarkdownRoot(cachedEntry.html, copyLabels)
     if (!nextRoot) return
 
-    root.replaceChildren(...Array.from(nextRoot.childNodes))
+    touchMarkdownCache(fullCacheKey, cachedEntry)
+    patchMarkdownRoot(root, nextRoot, copyLabels)
+    markMarkdownParseState(root, { state: "cached", source: props.text })
     resetCodeCopy()
+    resetMarkdownImages()
+    imageCleanupRef.current = setupMarkdownImages(root)
     copySetupTimerRef.current = window.setTimeout(() => {
       if (!root.isConnected) return
       copyCleanupRef.current = setupCodeCopy(root, copyLabels)
     }, 0)
-  }, [cachedEntry, copyLabels, resetCodeCopy])
+  }, [
+    cachedEntry,
+    copyLabels,
+    fullCacheKey,
+    props.text,
+    resetCodeCopy,
+    resetMarkdownImages,
+  ])
 
   useEffect(() => {
     const root = rootRef.current
@@ -662,41 +795,40 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
       }
     }
 
+    if (cachedEntry) {
+      return () => {
+        root.removeEventListener("click", handleClick)
+        resetCodeCopy()
+      }
+    }
+
+    const parseStartedAt = performance.now()
+    markMarkdownParseState(root, { state: "parsing", source: props.text })
+
     void (async () => {
       let html: string
       try {
         html = sanitizeMarkdownHtml(
-          await parseMarkdownToHtml(props.text, props.streaming, props.cacheKey),
+          await parseProjectedMarkdownBlockToHtml(props.text, props.streaming === true),
         )
       } catch {
         html = sanitizeRawMarkdownFallback(props.text)
       }
       if (cancelled || renderIdRef.current !== renderId) return
+      markMarkdownParseState(root, {
+        state: "ready",
+        source: props.text,
+        durationMs: performance.now() - parseStartedAt,
+      })
       touchMarkdownCache(fullCacheKey, { source: props.text, html })
 
       const nextRoot = decoratedMarkdownRoot(html, copyLabels)
       if (!nextRoot) return
 
-      morphdom(root, nextRoot, {
-        childrenOnly: true,
-        onBeforeElUpdated: (fromEl, toEl) => {
-          if (isSameMarkdownImage(fromEl, toEl)) {
-            return false
-          }
-          if (
-            fromEl instanceof HTMLButtonElement &&
-            toEl instanceof HTMLButtonElement &&
-            fromEl.getAttribute("data-slot") === "markdown-copy-button" &&
-            toEl.getAttribute("data-slot") === "markdown-copy-button" &&
-            fromEl.getAttribute("data-copied") === "true"
-          ) {
-            setCopyState(toEl, copyLabels, true)
-          }
-          if (fromEl.isEqualNode(toEl)) return false
-          return true
-        },
-      })
+      patchMarkdownRoot(root, nextRoot, copyLabels)
       resetCodeCopy()
+      resetMarkdownImages()
+      imageCleanupRef.current = setupMarkdownImages(root)
       copySetupTimerRef.current = window.setTimeout(() => {
         if (cancelled || renderIdRef.current !== renderId || !root.isConnected) return
         copyCleanupRef.current = setupCodeCopy(root, copyLabels)
@@ -717,14 +849,20 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
     platform.revealPath,
     props.cacheKey,
     props.directory,
-    props.interrupted,
-    props.blockMode,
     props.text,
     props.streaming,
     resetCodeCopy,
+    resetMarkdownImages,
   ])
 
-  return <div ref={rootRef} data-markdown-block-key={props.blockKey} className={props.className} />
+  return (
+    <div
+      ref={rootRef}
+      data-markdown-block-key={props.blockKey}
+      data-markdown-block-mode={props.blockMode}
+      className={props.className}
+    />
+  )
 })
 
 type MarkdownCodeBlockProps = {
@@ -741,11 +879,6 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock(props: MarkdownCodeBlo
   const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
   const language = props.language || "text"
   const workerKey = props.blockKey
-
-  useInlineAssetLifecycleReporter({
-    ref: rootRef,
-    active: true,
-  })
 
   useLayoutEffect(() => {
     const root = rootRef.current
@@ -807,6 +940,7 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock(props: MarkdownCodeBlo
     <div
       ref={rootRef}
       data-markdown-block-key={props.blockKey}
+      data-markdown-block-mode="code"
       data-markdown-complete={props.complete ? "true" : "false"}
       className=""
     />
@@ -824,9 +958,14 @@ export function MarkdownHtmlSegment(props: MarkdownHtmlSegmentProps) {
   const baseCacheKey = props.cacheKey ?? props.text
 
   return (
-    <div className={props.className ?? markdownClassName}>
+    <div
+      className={props.className ?? markdownClassName}
+      data-markdown-html-segment="true"
+      data-markdown-streaming={props.streaming ? "true" : "false"}
+      data-markdown-interrupted={props.interrupted ? "true" : "false"}
+    >
       {blocks.map((block, index) => {
-        const blockKey = `${baseCacheKey}:${index}:${block.mode}`
+        const blockKey = `${baseCacheKey}:block:${index}`
         if (block.mode === "code") {
           return (
             <MarkdownCodeBlock
@@ -858,4 +997,4 @@ export function MarkdownHtmlSegment(props: MarkdownHtmlSegmentProps) {
   )
 }
 
-export { markdownClassName }
+export { markdownBlockBoundaryClassName, markdownClassName }
