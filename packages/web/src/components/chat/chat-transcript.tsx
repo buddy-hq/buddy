@@ -40,6 +40,7 @@ import type { MessagePart, ProviderInfo, SessionStatusInfo } from "@/state/chat-
 import { recordTranscriptPerfEvent } from "@/lib/directory-chat/transcript-performance-probe"
 import {
   VIRTUAL_CHAT_OVERSCAN,
+  VIRTUAL_CHAT_SESSION_CACHE_LIMIT,
   VIRTUAL_CHAT_TURN_ESTIMATE_PX,
 } from "@/components/virtualization/virtualization-defaults"
 import { ChatScrollProvider } from "./chat-scroll-context"
@@ -80,9 +81,10 @@ import { SessionRetryNotice } from "./session-retry-notice"
 import type { ChatTranscriptProps } from "./types"
 
 const HISTORY_PREPEND_TOP_THRESHOLD_PX = 160
-const TIMELINE_CACHE_LIMIT = 16
 const TIMELINE_PADDING_END_PX = 64
 const TIMELINE_SCROLL_END_THRESHOLD_PX = 80
+const TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX = 1
+const TIMELINE_RESIZE_BOTTOM_REPAIR_DELAY_MS = 120
 const TIMELINE_RESIZE_STABLE_FRAMES = 30
 const TIMELINE_RESIZE_MAX_FRAMES = 180
 const TIMELINE_INITIAL_VIEWPORT_HEIGHT_PX = 800
@@ -105,6 +107,9 @@ const EMPTY_ACTIVITY_ROW_EXPANSION_STATE: ActivityRowExpansionState = {
   open: false,
   itemOpenByPartID: {},
 }
+const DEFAULT_INITIAL_SCROLL_OFFSET = () => undefined
+const DEFAULT_SHOULD_ANCHOR_BOTTOM = () => true
+const DEFAULT_HAS_SCROLL_GESTURE = () => false
 
 type TimelineCacheEntry = {
   measurements: VirtualItem[]
@@ -254,6 +259,25 @@ function scheduleConnectedMeasure<TElement extends HTMLElement>(
     if (element.isConnected) {
       measure(element)
     }
+  })
+}
+
+function distanceFromVirtualEnd(root: HTMLElement, totalSize: number) {
+  return Math.max(totalSize - root.clientHeight - root.scrollTop, 0)
+}
+
+function writeTranscriptVirtualEnd(root: HTMLElement, totalSize: number) {
+  const requestedOffset = Math.max(totalSize - root.clientHeight, 0)
+  const previousScrollTop = root.scrollTop
+  root.scrollTop = requestedOffset
+  const nextScrollTop = root.scrollTop
+  recordTranscriptPerfEvent({
+    type: "scroll-write",
+    at: performance.now(),
+    requestedOffset,
+    previousScrollTop,
+    nextScrollTop,
+    noOp: Math.abs(previousScrollTop - nextScrollTop) < 0.5,
   })
 }
 
@@ -856,6 +880,9 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     onOpenResource,
     onRevertMessage,
     scrollViewportRef,
+    initialScrollOffset = DEFAULT_INITIAL_SCROLL_OFFSET,
+    shouldAnchorBottom = DEFAULT_SHOULD_ANCHOR_BOTTOM,
+    hasScrollGesture = DEFAULT_HAS_SCROLL_GESTURE,
   } = props
   const directoryState = useChatStore((state) =>
     directory ? state.directories[directory] : undefined,
@@ -894,6 +921,13 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     ?.info.id
   const cacheKey = timelineCacheKey(directory, sessionID)
   const cached = cacheKey ? timelineCache.get(cacheKey) : undefined
+  const [restoredInitialScrollOffset] = useState(() => initialScrollOffset())
+  const hasRestoredInitialScrollOffset = restoredInitialScrollOffset !== undefined
+  const restoredInitialRowCountRef = useRef(rows.length)
+  const rowCountChangedSinceRestoreRef = useRef(false)
+  if (rows.length !== restoredInitialRowCountRef.current) {
+    rowCountChangedSinceRestoreRef.current = true
+  }
   const virtualContentRef = useRef<HTMLDivElement | null>(null)
   const prependAnchorRef = useRef<{ key: string; offset: number } | undefined>(undefined)
   const restoreAnchorCancelRef = useRef<(() => void) | undefined>(undefined)
@@ -953,7 +987,8 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   const rowVirtualizer = useVirtualizer<HTMLElement, HTMLDivElement>({
     count: rows.length,
     getScrollElement: () => scrollViewportRef?.current ?? null,
-    initialOffset: () => Number.MAX_SAFE_INTEGER,
+    initialOffset: () =>
+      restoredInitialScrollOffset ?? (shouldAnchorBottom() ? Number.MAX_SAFE_INTEGER : 0),
     initialMeasurementsCache: cached?.measurements,
     initialRect,
     estimateSize: (index) => estimateRowSize(rows[index]),
@@ -980,7 +1015,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     getItemKey: (index) => rows[index]?.key ?? `removed:${index}`,
     measureElement: measureVirtualElement,
     anchorTo: "end",
-    followOnAppend: true,
+    followOnAppend: false,
     scrollEndThreshold: TIMELINE_SCROLL_END_THRESHOLD_PX,
     overscan: VIRTUAL_CHAT_OVERSCAN,
     paddingEnd: TIMELINE_PADDING_END_PX,
@@ -997,16 +1032,43 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   })
 
   useEffect(() => {
-    rowVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = (item, _delta, instance) =>
-      item.end <= instance.getLogicalScrollOffset()
+    rowVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = (item) => {
+      if (shouldAnchorBottom()) return false
+      const firstVisibleIndex = rowVirtualizer.range?.startIndex
+      return firstVisibleIndex !== undefined && item.index < firstVisibleIndex
+    }
 
     return () => {
       rowVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = undefined
     }
-  }, [rowVirtualizer])
+  }, [rowVirtualizer, shouldAnchorBottom])
 
   useEffect(() => {
     const resizeItem = rowVirtualizer.resizeItem
+    let resizeAnchorTimer: number | undefined
+    let disposed = false
+
+    const scheduleResizeBottomRepair = () => {
+      if (hasScrollGesture()) return
+      if (resizeAnchorTimer !== undefined) {
+        window.clearTimeout(resizeAnchorTimer)
+      }
+      resizeAnchorTimer = window.setTimeout(() => {
+        resizeAnchorTimer = undefined
+        if (disposed || !shouldAnchorBottom() || hasScrollGesture()) return
+        const root = scrollViewportRef?.current
+        if (!root) return
+        const distanceFromEnd = distanceFromVirtualEnd(root, rowVirtualizer.getTotalSize())
+        if (distanceFromEnd <= TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX) return
+        recordTranscriptPerfEvent({
+          type: "bottom-anchor-repair",
+          at: performance.now(),
+          distanceFromEnd,
+        })
+        writeTranscriptVirtualEnd(root, rowVirtualizer.getTotalSize())
+      }, TIMELINE_RESIZE_BOTTOM_REPAIR_DELAY_MS)
+    }
+
     rowVirtualizer.resizeItem = (index, size) => {
       const item = rowVirtualizer.measurementsCache[index]
       const previous = item ? (rowVirtualizer.itemSizeCache.get(item.key) ?? item.size) : undefined
@@ -1057,19 +1119,31 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         })
       }
       resizeItem(index, size)
+      if (
+        root &&
+        shouldAnchorBottom() &&
+        (previous === undefined || Math.abs(size - previous) > 0.5)
+      ) {
+        scheduleResizeBottomRepair()
+      }
     }
 
     return () => {
+      disposed = true
+      if (resizeAnchorTimer !== undefined) {
+        window.clearTimeout(resizeAnchorTimer)
+      }
       rowVirtualizer.resizeItem = resizeItem
       if (resizePinFrameRef.current !== undefined) {
         window.cancelAnimationFrame(resizePinFrameRef.current)
         resizePinFrameRef.current = undefined
       }
     }
-  }, [rowVirtualizer, rows, scrollViewportRef])
+  }, [hasScrollGesture, rowVirtualizer, rows, scrollViewportRef, shouldAnchorBottom])
 
   useLayoutEffect(() => {
     if (!cacheKey || rows.length === 0) return
+    if (hasRestoredInitialScrollOffset) return
     if (bottomAnchorCacheKeyRef.current === cacheKey) return
     bottomAnchorCacheKeyRef.current = cacheKey
 
@@ -1079,7 +1153,10 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     bottomAnchorFrameRef.current = window.requestAnimationFrame(() => {
       bottomAnchorFrameRef.current = undefined
       if (bottomAnchorCacheKeyRef.current !== cacheKey) return
-      rowVirtualizer.scrollToEnd()
+      if (!shouldAnchorBottom() || hasScrollGesture()) return
+      const root = scrollViewportRef?.current
+      if (!root) return
+      writeTranscriptVirtualEnd(root, rowVirtualizer.getTotalSize())
     })
 
     return () => {
@@ -1088,7 +1165,32 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         bottomAnchorFrameRef.current = undefined
       }
     }
-  }, [cacheKey, rowVirtualizer, rows.length])
+  }, [
+    cacheKey,
+    hasRestoredInitialScrollOffset,
+    hasScrollGesture,
+    rowVirtualizer,
+    rows.length,
+    scrollViewportRef,
+    shouldAnchorBottom,
+  ])
+
+  useEffect(() => {
+    if (hasRestoredInitialScrollOffset && !rowCountChangedSinceRestoreRef.current) return
+    if (rows.length === 0 || !shouldAnchorBottom() || hasScrollGesture()) return
+    const root = scrollViewportRef?.current
+    if (!root) return
+    const distanceFromEnd = distanceFromVirtualEnd(root, rowVirtualizer.getTotalSize())
+    if (distanceFromEnd <= TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX) return
+    writeTranscriptVirtualEnd(root, rowVirtualizer.getTotalSize())
+  }, [
+    hasRestoredInitialScrollOffset,
+    hasScrollGesture,
+    rowVirtualizer,
+    rows.length,
+    scrollViewportRef,
+    shouldAnchorBottom,
+  ])
 
   useEffect(() => {
     return () => {
@@ -1098,7 +1200,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         measurements: rowVirtualizer.takeSnapshot(),
         viewState: cloneTimelineViewState(viewStateRef.current),
       })
-      while (timelineCache.size > TIMELINE_CACHE_LIMIT) {
+      while (timelineCache.size > VIRTUAL_CHAT_SESSION_CACHE_LIMIT) {
         const first = timelineCache.keys().next().value
         if (!first) break
         timelineCache.delete(first)

@@ -47,6 +47,9 @@ type DirectoryChatMainPaneProps = {
   chatState: DirectoryChatState
   transcriptRef: RefObject<HTMLElement | null>
   showJumpToLatest: boolean
+  initialScrollOffset: () => number | undefined
+  shouldAnchorBottom: () => boolean
+  hasScrollGesture: () => boolean
   onJumpToLatest: () => void
   onTranscriptScroll: (event: UIEvent<HTMLElement>) => void
   onTranscriptWheel: (event: WheelEvent<HTMLElement>) => void
@@ -184,6 +187,9 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     chatState,
     transcriptRef,
     showJumpToLatest,
+    initialScrollOffset,
+    shouldAnchorBottom,
+    hasScrollGesture,
     onJumpToLatest,
     onTranscriptScroll,
     onTranscriptWheel,
@@ -282,7 +288,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                 className={`mx-auto min-w-0 w-full max-w-full px-4 pt-4 space-y-4 md:max-w-200 ${
                   chatState.messages.length === 0 && chatState.isReady
                     ? "flex h-full min-h-0 flex-col pb-3"
-                    : "pb-12"
+                    : ""
                 }`}
               >
                 {!chatState.isReady ? (
@@ -318,6 +324,9 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     directory={directory}
                     canEditImages={canEditImages}
                     scrollViewportRef={transcriptRef}
+                    initialScrollOffset={initialScrollOffset}
+                    shouldAnchorBottom={shouldAnchorBottom}
+                    hasScrollGesture={hasScrollGesture}
                     onOpenSession={onOpenSession}
                     onOpenResource={onOpenResource}
                     onForkMessage={onForkMessage}

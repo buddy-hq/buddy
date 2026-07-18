@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -8,6 +9,7 @@ import {
   type TouchEvent as ReactTouchEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react"
+import { VIRTUAL_CHAT_SESSION_CACHE_LIMIT } from "@/components/virtualization/virtualization-defaults"
 
 const ATTACHED_BOTTOM_THRESHOLD_PX = 20
 const JUMP_TO_LATEST_DISTANCE_THRESHOLD_PX = 400
@@ -87,12 +89,35 @@ function shouldMarkRootGesture(input: {
 }
 
 type AutoScrollOptions = {
+  attachmentKey?: string
   onUserScrolled?: () => void
+}
+
+type AutoScrollSessionState = {
+  detached: boolean
+  scrollTop: number
+}
+
+function cacheAutoScrollSessionState(
+  cache: Map<string, AutoScrollSessionState>,
+  key: string,
+  state: AutoScrollSessionState,
+) {
+  cache.delete(key)
+  cache.set(key, state)
+  while (cache.size > VIRTUAL_CHAT_SESSION_CACHE_LIMIT) {
+    const oldestKey = cache.keys().next().value
+    if (!oldestKey) break
+    cache.delete(oldestKey)
+  }
 }
 
 type AutoScrollResult = {
   scrollRef: React.RefObject<HTMLElement | null>
   showJumpToLatest: boolean
+  initialScrollOffset: () => number | undefined
+  shouldAnchorBottom: () => boolean
+  hasScrollGesture: () => boolean
   handleScroll: (event: React.UIEvent<HTMLElement>) => void
   handleWheel: (event: ReactWheelEvent<HTMLElement>) => void
   handleKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => void
@@ -107,8 +132,11 @@ type AutoScrollResult = {
 }
 
 export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
+  const attachmentKey = options?.attachmentKey
   const onUserScrolled = options?.onUserScrolled
   const scrollRef = useRef<HTMLElement | null>(null)
+  const sessionStateByKeyRef = useRef(new Map<string, AutoScrollSessionState>())
+  const attachmentKeyRef = useRef(attachmentKey)
   const detachedRef = useRef(false)
   const autoMarkerRef = useRef<{ top: number; time: number } | undefined>(undefined)
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -116,6 +144,28 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
   const touchGestureYRef = useRef<number | undefined>(undefined)
   const lastScrollTopRef = useRef<number | undefined>(undefined)
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
+
+  const isDetached = useCallback(
+    () => {
+      if (attachmentKeyRef.current === attachmentKey) return detachedRef.current
+      if (!attachmentKey) return false
+      return sessionStateByKeyRef.current.get(attachmentKey)?.detached ?? false
+    },
+    [attachmentKey],
+  )
+
+  const initialScrollOffset = useCallback(() => {
+    if (!attachmentKey) return undefined
+    return sessionStateByKeyRef.current.get(attachmentKey)?.scrollTop
+  }, [attachmentKey])
+
+  const rememberSessionState = useCallback(
+    (state: AutoScrollSessionState) => {
+      if (!attachmentKey) return
+      cacheAutoScrollSessionState(sessionStateByKeyRef.current, attachmentKey, state)
+    },
+    [attachmentKey],
+  )
 
   const markAuto = useCallback((element: HTMLElement, top = bottomScrollTop(element)) => {
     autoMarkerRef.current = {
@@ -145,7 +195,16 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
 
   const updateDetachedState = useCallback(
     (detached: boolean, element = scrollRef.current) => {
+      attachmentKeyRef.current = attachmentKey
       detachedRef.current = detached
+      rememberSessionState({
+        detached,
+        scrollTop:
+          element?.scrollTop ??
+          (attachmentKey
+            ? (sessionStateByKeyRef.current.get(attachmentKey)?.scrollTop ?? 0)
+            : 0),
+      })
       if (element) {
         updateOverflowAnchor(element, detached)
         setShowJumpToLatest(detached && shouldShowJumpToLatest(element))
@@ -153,7 +212,7 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
       }
       setShowJumpToLatest(detached)
     },
-    [updateOverflowAnchor],
+    [attachmentKey, rememberSessionState, updateOverflowAnchor],
   )
 
   const markScrollGesture = useCallback(() => {
@@ -162,14 +221,17 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
 
   const hasScrollGesture = useCallback(() => Date.now() < scrollGestureUntilRef.current, [])
 
+  const shouldAnchorBottom = useCallback(() => !isDetached(), [isDetached])
+
   const scrollToBottomInstant = useCallback(
     (element: HTMLElement) => {
       const top = bottomScrollTop(element)
       markAuto(element, top)
       lastScrollTopRef.current = top
       element.scrollTop = top
+      rememberSessionState({ detached: false, scrollTop: element.scrollTop })
     },
-    [markAuto],
+    [markAuto, rememberSessionState],
   )
 
   const pause = useCallback(() => {
@@ -179,14 +241,14 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
       updateDetachedState(false, element)
       return
     }
-    if (detachedRef.current) {
+    if (isDetached()) {
       setShowJumpToLatest(shouldShowJumpToLatest(element))
       return
     }
 
     updateDetachedState(true, element)
     onUserScrolled?.()
-  }, [onUserScrolled, updateDetachedState])
+  }, [isDetached, onUserScrolled, updateDetachedState])
 
   const forceScrollToBottom = useCallback(() => {
     updateDetachedState(false)
@@ -194,10 +256,32 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
     if (element) scrollToBottomInstant(element)
   }, [scrollToBottomInstant, updateDetachedState])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const restoredState = attachmentKey
+      ? sessionStateByKeyRef.current.get(attachmentKey)
+      : undefined
+    const detached = restoredState?.detached ?? false
+    if (attachmentKey && restoredState) {
+      cacheAutoScrollSessionState(sessionStateByKeyRef.current, attachmentKey, restoredState)
+    }
+    attachmentKeyRef.current = attachmentKey
+    detachedRef.current = detached
+    autoMarkerRef.current = undefined
+    if (autoTimerRef.current) {
+      clearTimeout(autoTimerRef.current)
+      autoTimerRef.current = undefined
+    }
+    scrollGestureUntilRef.current = 0
+    touchGestureYRef.current = undefined
+    lastScrollTopRef.current = restoredState?.scrollTop
     const element = scrollRef.current
-    if (element) updateOverflowAnchor(element, detachedRef.current)
-  }, [updateOverflowAnchor])
+    if (element) {
+      updateOverflowAnchor(element, detached)
+      setShowJumpToLatest(detached && shouldShowJumpToLatest(element))
+    } else {
+      setShowJumpToLatest(false)
+    }
+  }, [attachmentKey, updateOverflowAnchor])
 
   useEffect(
     () => () => {
@@ -211,6 +295,7 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
       const element = event.currentTarget
       const previousScrollTop = lastScrollTopRef.current
       lastScrollTopRef.current = element.scrollTop
+      rememberSessionState({ detached: isDetached(), scrollTop: element.scrollTop })
 
       if (!canScroll(element)) {
         updateDetachedState(false, element)
@@ -223,7 +308,7 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
         return
       }
 
-      if (detachedRef.current) {
+      if (isDetached()) {
         setShowJumpToLatest(shouldShowJumpToLatest(element))
         return
       }
@@ -238,16 +323,23 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
         pause()
       }
     },
-    [hasScrollGesture, isAuto, pause, updateDetachedState],
+    [
+      hasScrollGesture,
+      isAuto,
+      isDetached,
+      pause,
+      rememberSessionState,
+      updateDetachedState,
+    ],
   )
 
   const handleInteraction = useCallback(() => {
-    if (detachedRef.current) return
+    if (isDetached()) return
     const selection = window.getSelection()
     if (selection && selection.toString().length > 0) {
       pause()
     }
-  }, [pause])
+  }, [isDetached, pause])
 
   const handleWheel = useCallback(
     (event: ReactWheelEvent<HTMLElement>) => {
@@ -323,7 +415,11 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
 
   return {
     scrollRef,
-    showJumpToLatest,
+    showJumpToLatest:
+      attachmentKeyRef.current === attachmentKey ? showJumpToLatest : false,
+    initialScrollOffset,
+    shouldAnchorBottom,
+    hasScrollGesture,
     handleScroll,
     handleWheel,
     handleKeyDown,

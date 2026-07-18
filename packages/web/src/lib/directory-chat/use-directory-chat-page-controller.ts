@@ -9,6 +9,7 @@ import {
   RESOURCE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
 import { requestPromptComposerFocus } from "@/components/prompt/prompt-composer-focus"
+import { recordTranscriptPerfEvent } from "@/lib/directory-chat/transcript-performance-probe"
 import type { PromptComposerAttachment, PromptComposerPart } from "@/components/prompt/prompt-types"
 import {
   COMPACT_SLASH_COMMAND_ALIASES,
@@ -508,7 +509,7 @@ export function useDirectoryChatPageController(
     [cs, decodedDirectory],
   )
 
-  const autoScroll = useAutoScroll()
+  const autoScroll = useAutoScroll({ attachmentKey: sessionKey })
 
   useEffect(() => {
     setPendingSuggestionOverride(undefined)
@@ -1519,7 +1520,33 @@ export function useDirectoryChatPageController(
 
   async function onAbort() {
     if (!decodedDirectory) return
-    await abortPrompt(decodedDirectory)
+    const requestedAt = performance.now()
+    recordTranscriptPerfEvent({
+      type: "abort-lifecycle",
+      at: requestedAt,
+      phase: "requested",
+    })
+    try {
+      await abortPrompt(decodedDirectory)
+      const settledAt = performance.now()
+      recordTranscriptPerfEvent({
+        type: "abort-lifecycle",
+        at: settledAt,
+        phase: "settled",
+        durationMs: settledAt - requestedAt,
+        outcome: "success",
+      })
+    } catch (error) {
+      const settledAt = performance.now()
+      recordTranscriptPerfEvent({
+        type: "abort-lifecycle",
+        at: settledAt,
+        phase: "settled",
+        durationMs: settledAt - requestedAt,
+        outcome: "error",
+      })
+      throw error
+    }
   }
 
   // Scroll handling is fully managed by useAutoScroll.
@@ -1642,6 +1669,9 @@ export function useDirectoryChatPageController(
     chatState: cs,
     transcriptRef: autoScroll.scrollRef,
     showJumpToLatest: autoScroll.showJumpToLatest,
+    initialScrollOffset: autoScroll.initialScrollOffset,
+    shouldAnchorBottom: autoScroll.shouldAnchorBottom,
+    hasScrollGesture: autoScroll.hasScrollGesture,
     onJumpToLatest: autoScroll.forceScrollToBottom,
     onTranscriptScroll: autoScroll.handleScroll,
     onTranscriptWheel: autoScroll.handleWheel,

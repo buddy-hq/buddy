@@ -9,9 +9,12 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
 type HarnessHandle = {
   pause: () => void
   forceScrollToBottom: () => void
+  initialScrollOffset: () => number | undefined
+  shouldAnchorBottom: () => boolean
 }
 
 type HarnessProps = {
+  attachmentKey: string
   onReady: (handle: HarnessHandle) => void
 }
 
@@ -23,14 +26,22 @@ type ScrollMetrics = {
 
 function Harness(props: HarnessProps) {
   const onReady = props.onReady
-  const auto = useAutoScroll()
+  const auto = useAutoScroll({ attachmentKey: props.attachmentKey })
 
   useLayoutEffect(() => {
     onReady({
       pause: auto.pause,
       forceScrollToBottom: auto.forceScrollToBottom,
+      initialScrollOffset: auto.initialScrollOffset,
+      shouldAnchorBottom: auto.shouldAnchorBottom,
     })
-  }, [auto.forceScrollToBottom, auto.pause, onReady])
+  }, [
+    auto.forceScrollToBottom,
+    auto.initialScrollOffset,
+    auto.pause,
+    auto.shouldAnchorBottom,
+    onReady,
+  ])
 
   return (
     <div
@@ -96,6 +107,7 @@ describe("useAutoScroll", () => {
     await act(async () => {
       root.render(
         <Harness
+          attachmentKey="session-1"
           onReady={(nextHandle) => {
             handle = nextHandle
           }}
@@ -118,6 +130,7 @@ describe("useAutoScroll", () => {
     })
 
     expect(metrics.scrollTop).toBe(400)
+    expect(handle?.shouldAnchorBottom()).toBe(true)
   })
 
   test("does not pull the viewport back down after an explicit detach", async () => {
@@ -126,6 +139,7 @@ describe("useAutoScroll", () => {
     await act(async () => {
       root.render(
         <Harness
+          attachmentKey="session-1"
           onReady={(nextHandle) => {
             handle = nextHandle
           }}
@@ -149,11 +163,135 @@ describe("useAutoScroll", () => {
     await act(async () => {
       readyHandle.pause()
     })
+    expect(readyHandle.shouldAnchorBottom()).toBe(false)
     metrics.scrollHeight = 1_000
     await act(async () => {
       scrollElement.dispatchEvent(new Event("scroll", { bubbles: true }))
     })
 
     expect(metrics.scrollTop).toBe(200)
+  })
+
+  test("starts a newly selected session attached after the previous session detached", async () => {
+    let handle: HarnessHandle | undefined
+    const onReady = (nextHandle: HarnessHandle) => {
+      handle = nextHandle
+    }
+
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-1" onReady={onReady} />)
+    })
+
+    const scrollElement = requireDiv(container, '[data-testid="scroll"]')
+    installScrollMetrics(scrollElement, {
+      clientHeight: 400,
+      scrollHeight: 1_200,
+      scrollTop: 300,
+    })
+
+    await act(async () => {
+      handle?.pause()
+    })
+    expect(handle?.shouldAnchorBottom()).toBe(false)
+
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-2" onReady={onReady} />)
+    })
+
+    expect(handle?.shouldAnchorBottom()).toBe(true)
+    expect(handle?.initialScrollOffset()).toBeUndefined()
+  })
+
+  test("restores an attached session's finite offset when switching back", async () => {
+    let handle: HarnessHandle | undefined
+    const onReady = (nextHandle: HarnessHandle) => {
+      handle = nextHandle
+    }
+
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-1" onReady={onReady} />)
+    })
+
+    const scrollElement = requireDiv(container, '[data-testid="scroll"]')
+    const metrics: ScrollMetrics = {
+      clientHeight: 400,
+      scrollHeight: 1_600,
+      scrollTop: 1_200,
+    }
+    installScrollMetrics(scrollElement, metrics)
+
+    await act(async () => {
+      scrollElement.dispatchEvent(new Event("scroll", { bubbles: true }))
+    })
+    expect(handle?.shouldAnchorBottom()).toBe(true)
+
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-2" onReady={onReady} />)
+    })
+    expect(handle?.initialScrollOffset()).toBeUndefined()
+
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-1" onReady={onReady} />)
+    })
+    expect(handle?.shouldAnchorBottom()).toBe(true)
+    expect(handle?.initialScrollOffset()).toBe(1_200)
+  })
+
+  test("restores each recently visited session's detached reading position", async () => {
+    let handle: HarnessHandle | undefined
+    const onReady = (nextHandle: HarnessHandle) => {
+      handle = nextHandle
+    }
+
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-1" onReady={onReady} />)
+    })
+
+    const scrollElement = requireDiv(container, '[data-testid="scroll"]')
+    const metrics: ScrollMetrics = {
+      clientHeight: 400,
+      scrollHeight: 1_600,
+      scrollTop: 540,
+    }
+    installScrollMetrics(scrollElement, metrics)
+
+    await act(async () => {
+      handle?.pause()
+      scrollElement.dispatchEvent(new Event("scroll", { bubbles: true }))
+    })
+    expect(handle?.shouldAnchorBottom()).toBe(false)
+
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-2" onReady={onReady} />)
+    })
+    expect(handle?.shouldAnchorBottom()).toBe(true)
+
+    metrics.scrollTop = 0
+    await act(async () => {
+      handle?.pause()
+      scrollElement.dispatchEvent(new Event("scroll", { bubbles: true }))
+    })
+
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-1" onReady={onReady} />)
+    })
+    expect(handle?.shouldAnchorBottom()).toBe(false)
+    expect(handle?.initialScrollOffset()).toBe(540)
+
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-2" onReady={onReady} />)
+    })
+    expect(handle?.shouldAnchorBottom()).toBe(false)
+    expect(handle?.initialScrollOffset()).toBe(0)
+
+    await act(async () => {
+      handle?.forceScrollToBottom()
+      root.render(<Harness attachmentKey="session-1" onReady={onReady} />)
+    })
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-2" onReady={onReady} />)
+    })
+    expect(handle?.shouldAnchorBottom()).toBe(true)
+    expect(handle?.initialScrollOffset()).toBe(1_200)
   })
 })
