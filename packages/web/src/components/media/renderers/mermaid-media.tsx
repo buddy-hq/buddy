@@ -5,6 +5,7 @@ import {
   MermaidDiagram,
   type MermaidDiagramRenderState,
 } from "@/components/media/renderers/mermaid/mermaid-diagram"
+import { createMermaidLoadingState } from "@/components/media/renderers/mermaid/loading-state"
 import { MediaGridSurface } from "../media-grid-surface"
 import { useKeyedMediaState } from "../use-keyed-media-state"
 import { VisualMediaFrame } from "../visual-media-frame"
@@ -31,10 +32,7 @@ function effectiveMermaidState(
 ): MediaState<MermaidMediaData> {
   if (state.status !== "ready") return state
   if (renderState.status === "loading") {
-    return {
-      status: "loading",
-      data: state.data,
-    }
+    return createMermaidLoadingState(state.data)
   }
   if (renderState.status === "error") {
     return {

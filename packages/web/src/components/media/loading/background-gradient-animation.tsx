@@ -1,9 +1,56 @@
 import { cn } from "@buddy/ui"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 import "./background-gradient-animation.css"
 
 type GradientAnimationSpeed = "normal" | "fast" | "faster"
+type GradientAnimationPalette = "default" | "theme"
+
+type GradientAnimationColors = {
+  gradientBackgroundStart: string
+  gradientBackgroundEnd: string
+  firstColor: string
+  secondColor: string
+  thirdColor: string
+  fourthColor: string
+  fifthColor: string
+  pointerColor: string
+}
+
+type GradientAnimationStyle = CSSProperties & {
+  "--gradient-background-start": string
+  "--gradient-background-end": string
+  "--first-color": string
+  "--second-color": string
+  "--third-color": string
+  "--fourth-color": string
+  "--fifth-color": string
+  "--pointer-color": string
+  "--size": string
+  "--blending-value": string
+}
+
+const DEFAULT_GRADIENT_ANIMATION_COLORS = {
+  gradientBackgroundStart: "rgb(108, 0, 162)",
+  gradientBackgroundEnd: "rgb(0, 17, 82)",
+  firstColor: "rgb(18, 113, 255)",
+  secondColor: "rgb(221, 74, 255)",
+  thirdColor: "rgb(100, 220, 255)",
+  fourthColor: "rgb(200, 50, 50)",
+  fifthColor: "rgb(180, 180, 50)",
+  pointerColor: "rgb(140, 100, 255)",
+} satisfies GradientAnimationColors
+
+const THEME_GRADIENT_ANIMATION_COLORS = {
+  gradientBackgroundStart: `var(--background-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.gradientBackgroundStart})`,
+  gradientBackgroundEnd: `color-mix(in oklab, var(--theme-primary-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.gradientBackgroundEnd}) 14%, var(--background-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.gradientBackgroundStart}))`,
+  firstColor: `color-mix(in oklab, var(--theme-primary-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.firstColor}) 45%, var(--background-base, transparent))`,
+  secondColor: `var(--theme-primary-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.secondColor})`,
+  thirdColor: `color-mix(in oklab, var(--theme-primary-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.thirdColor}) 52%, var(--theme-accent-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.thirdColor}))`,
+  fourthColor: `var(--theme-accent-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.fourthColor})`,
+  fifthColor: `color-mix(in oklab, var(--theme-accent-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.fifthColor}) 55%, var(--background-base, transparent))`,
+  pointerColor: `var(--theme-primary-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.pointerColor})`,
+} satisfies GradientAnimationColors
 
 const SPEED_MULTIPLIER: Record<GradientAnimationSpeed, number> = {
   normal: 1,
@@ -27,6 +74,7 @@ function blobAnimation(index: number, speed: GradientAnimationSpeed): CSSPropert
 }
 
 type BackgroundGradientAnimationProps = {
+  palette?: GradientAnimationPalette
   gradientBackgroundStart?: string
   gradientBackgroundEnd?: string
   firstColor?: string
@@ -45,14 +93,15 @@ type BackgroundGradientAnimationProps = {
 }
 
 function BackgroundGradientAnimation({
-  gradientBackgroundStart = "rgb(108, 0, 162)",
-  gradientBackgroundEnd = "rgb(0, 17, 82)",
-  firstColor = "18, 113, 255",
-  secondColor = "221, 74, 255",
-  thirdColor = "100, 220, 255",
-  fourthColor = "200, 50, 50",
-  fifthColor = "180, 180, 50",
-  pointerColor = "140, 100, 255",
+  palette = "default",
+  gradientBackgroundStart,
+  gradientBackgroundEnd,
+  firstColor,
+  secondColor,
+  thirdColor,
+  fourthColor,
+  fifthColor,
+  pointerColor,
   size = "80%",
   blendingValue = "hard-light",
   speed = "normal",
@@ -61,6 +110,9 @@ function BackgroundGradientAnimation({
   interactive = false,
   containerClassName,
 }: BackgroundGradientAnimationProps) {
+  const paletteColors =
+    palette === "theme" ? THEME_GRADIENT_ANIMATION_COLORS : DEFAULT_GRADIENT_ANIMATION_COLORS
+  const filterID = `gradient-blur-${useId().replace(/:/gu, "")}`
   const interactiveRef = useRef<HTMLDivElement | null>(null)
 
   const [curX, setCurX] = useState(0)
@@ -91,18 +143,19 @@ function BackgroundGradientAnimation({
     setIsSafari(/^((?!chrome|android).)*safari/i.test(navigator.userAgent))
   }, [])
 
-  const containerStyle = {
-    "--gradient-background-start": gradientBackgroundStart,
-    "--gradient-background-end": gradientBackgroundEnd,
-    "--first-color": firstColor,
-    "--second-color": secondColor,
-    "--third-color": thirdColor,
-    "--fourth-color": fourthColor,
-    "--fifth-color": fifthColor,
-    "--pointer-color": pointerColor,
+  const containerStyle: GradientAnimationStyle = {
+    "--gradient-background-start":
+      gradientBackgroundStart ?? paletteColors.gradientBackgroundStart,
+    "--gradient-background-end": gradientBackgroundEnd ?? paletteColors.gradientBackgroundEnd,
+    "--first-color": firstColor ?? paletteColors.firstColor,
+    "--second-color": secondColor ?? paletteColors.secondColor,
+    "--third-color": thirdColor ?? paletteColors.thirdColor,
+    "--fourth-color": fourthColor ?? paletteColors.fourthColor,
+    "--fifth-color": fifthColor ?? paletteColors.fifthColor,
+    "--pointer-color": pointerColor ?? paletteColors.pointerColor,
     "--size": size,
     "--blending-value": blendingValue,
-  } as CSSProperties
+  }
 
   return (
     <div
@@ -115,7 +168,7 @@ function BackgroundGradientAnimation({
     >
       <svg className="hidden">
         <defs>
-          <filter id="blurMe">
+          <filter id={filterID}>
             <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
             <feColorMatrix
               in="blur"
@@ -129,10 +182,8 @@ function BackgroundGradientAnimation({
       </svg>
       {children ? <div>{children}</div> : null}
       <div
-        className={cn(
-          "gradients-container h-full w-full blur-lg",
-          isSafari ? "blur-2xl" : "[filter:url(#blurMe)_blur(40px)]",
-        )}
+        className={cn("gradients-container h-full w-full blur-lg", isSafari ? "blur-2xl" : null)}
+        style={isSafari ? undefined : { filter: `url(#${filterID}) blur(40px)` }}
       >
         <div
           className={cn(
@@ -145,7 +196,7 @@ function BackgroundGradientAnimation({
         />
         <div
           className={cn(
-            "absolute [background:radial-gradient(circle_at_center,_rgba(var(--second-color),_0.8)_0,_rgba(var(--second-color),_0)_50%)_no-repeat]",
+            "absolute [background:radial-gradient(circle_at_center,_color-mix(in_srgb,var(--second-color)_80%,transparent)_0,_transparent_50%)_no-repeat]",
             "[mix-blend-mode:var(--blending-value)] w-[var(--size)] h-[var(--size)] top-[calc(50%-var(--size)/2)] left-[calc(50%-var(--size)/2)]",
             "[transform-origin:calc(50%-400px)]",
             "opacity-100",
@@ -154,7 +205,7 @@ function BackgroundGradientAnimation({
         />
         <div
           className={cn(
-            "absolute [background:radial-gradient(circle_at_center,_rgba(var(--third-color),_0.8)_0,_rgba(var(--third-color),_0)_50%)_no-repeat]",
+            "absolute [background:radial-gradient(circle_at_center,_color-mix(in_srgb,var(--third-color)_80%,transparent)_0,_transparent_50%)_no-repeat]",
             "[mix-blend-mode:var(--blending-value)] w-[var(--size)] h-[var(--size)] top-[calc(50%-var(--size)/2)] left-[calc(50%-var(--size)/2)]",
             "[transform-origin:calc(50%+400px)]",
             "opacity-100",
@@ -163,7 +214,7 @@ function BackgroundGradientAnimation({
         />
         <div
           className={cn(
-            "absolute [background:radial-gradient(circle_at_center,_rgba(var(--fourth-color),_0.8)_0,_rgba(var(--fourth-color),_0)_50%)_no-repeat]",
+            "absolute [background:radial-gradient(circle_at_center,_color-mix(in_srgb,var(--fourth-color)_80%,transparent)_0,_transparent_50%)_no-repeat]",
             "[mix-blend-mode:var(--blending-value)] w-[var(--size)] h-[var(--size)] top-[calc(50%-var(--size)/2)] left-[calc(50%-var(--size)/2)]",
             "[transform-origin:calc(50%-200px)]",
             "opacity-70",
@@ -172,7 +223,7 @@ function BackgroundGradientAnimation({
         />
         <div
           className={cn(
-            "absolute [background:radial-gradient(circle_at_center,_rgba(var(--fifth-color),_0.8)_0,_rgba(var(--fifth-color),_0)_50%)_no-repeat]",
+            "absolute [background:radial-gradient(circle_at_center,_color-mix(in_srgb,var(--fifth-color)_80%,transparent)_0,_transparent_50%)_no-repeat]",
             "[mix-blend-mode:var(--blending-value)] w-[var(--size)] h-[var(--size)] top-[calc(50%-var(--size)/2)] left-[calc(50%-var(--size)/2)]",
             "[transform-origin:calc(50%-800px)_calc(50%+800px)]",
             "opacity-100",
@@ -184,7 +235,7 @@ function BackgroundGradientAnimation({
             ref={interactiveRef}
             onMouseMove={handleMouseMove}
             className={cn(
-              "absolute [background:radial-gradient(circle_at_center,_rgba(var(--pointer-color),_0.8)_0,_rgba(var(--pointer-color),_0)_50%)_no-repeat]",
+              "absolute [background:radial-gradient(circle_at_center,_color-mix(in_srgb,var(--pointer-color)_80%,transparent)_0,_transparent_50%)_no-repeat]",
               "[mix-blend-mode:var(--blending-value)] w-full h-full -top-1/2 -left-1/2",
               "opacity-70",
             )}
@@ -196,4 +247,4 @@ function BackgroundGradientAnimation({
 }
 
 export { BackgroundGradientAnimation }
-export type { GradientAnimationSpeed }
+export type { GradientAnimationPalette, GradientAnimationSpeed }

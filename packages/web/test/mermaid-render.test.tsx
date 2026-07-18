@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
+import { renderToStaticMarkup } from "react-dom/server"
+import { DottedGlowLoading } from "../src/components/media/loading/dotted-glow"
 import {
   resolveGroupedMermaidDefaultIndex,
   shouldStartMermaidAutoRepair,
 } from "../src/components/media/renderers/mermaid"
+import { createMermaidLoadingState } from "../src/components/media/renderers/mermaid/loading-state"
 import {
   MERMAID_RENDER_CONFIG_VERSION,
   MERMAID_RENDERER_VERSION,
@@ -73,6 +76,19 @@ afterEach(() => {
 })
 
 describe("mermaid render pipeline", () => {
+  test("uses dotted glow while Mermaid media is loading", () => {
+    expect(createMermaidLoadingState()).toEqual({
+      status: "loading",
+      variant: "dotted-glow",
+    })
+  })
+
+  test("uses the Mermaid media surface behind dotted glow", () => {
+    const markup = renderToStaticMarkup(<DottedGlowLoading />)
+
+    expect(markup).toContain("bg-background-base")
+  })
+
   test("selects the latest renderable grouped Mermaid part by default", () => {
     const parts = [
       {

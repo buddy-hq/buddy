@@ -45,6 +45,8 @@ import { OnboardingNocturne } from "./easel/onboarding-nocturne"
 import { OnboardingAtelier } from "./easel/onboarding-atelier"
 import { QuestionToolAnsweredEasel } from "./easel/question-tool-answered"
 import { QuestionDockRedesignsEasel } from "./easel/question-dock-redesigns"
+import { GradientAnimationLoaderEasel } from "./easel/gradient-animation-loader"
+import { ThemeSelectors } from "./theme-selectors"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
 type EaselRailItemID = EaselSectionID | "agents"
@@ -58,6 +60,7 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "gradient-animation-loader"
   | "right-workspace"
   | "onboarding-easel"
   | "onboarding-nocturne"
@@ -72,6 +75,11 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "gradient-animation-loader",
+    label: "Gradient animation loader",
+    subtitle: "Original fallback palette · Theme-adapted palette",
+  },
   {
     id: "question-dock-redesigns",
     label: "Question dock · Spotlight",
@@ -1001,7 +1009,7 @@ export function DevToolsEaselTab() {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("question-dock-redesigns")
+  const [prototype, setPrototype] = useState<EaselPrototype>("gradient-animation-loader")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1153,6 +1161,7 @@ export function DevToolsEaselTab() {
               />
             </>
           ) : null}
+          <ThemeSelectors compact />
           <Badge variant="outline">Easel</Badge>
         </div>
       </div>
@@ -1240,6 +1249,14 @@ export function DevToolsEaselTab() {
                   )
                 })}
               </nav>
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "gradient-animation-loader" ? (
+          <div className="relative flex h-full min-h-0 w-full max-w-6xl items-center justify-center">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden rounded-lg border border-border-base shadow-lg">
+              <GradientAnimationLoaderEasel />
             </div>
           </div>
         ) : null}

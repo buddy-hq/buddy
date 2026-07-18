@@ -26,6 +26,7 @@ import {
 } from "@/components/media/renderers/mermaid/lib/persisted-renders"
 import { hashMermaidSource } from "@/components/media/renderers/mermaid/lib/render"
 import { findSupersedingMermaidRevisionID } from "@/components/media/renderers/mermaid/lib/supersession"
+import { createMermaidLoadingState } from "@/components/media/renderers/mermaid/loading-state"
 
 type RenderMermaidToolOutput = {
   objectID: string
@@ -539,9 +540,7 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
       <Media
         item={{
           kind: "mermaid",
-          state: {
-            status: "loading",
-          },
+          state: createMermaidLoadingState(),
         }}
         className="h-[30rem]"
       />

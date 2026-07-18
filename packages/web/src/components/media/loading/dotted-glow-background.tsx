@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { cn } from "@buddy/ui"
 
 type DottedGlowBackgroundProps = {
   className?: string
@@ -6,22 +7,10 @@ type DottedGlowBackgroundProps = {
   gap?: number
   /** base radius of each dot in CSS px */
   radius?: number
-  /** dot color (will pulse by alpha) */
-  color?: string
-  /** optional dot color for dark mode */
-  darkColor?: string
-  /** shadow/glow color for bright dots */
-  glowColor?: string
-  /** optional glow color for dark mode */
-  darkGlowColor?: string
-  /** optional CSS variable name for light dot color (e.g. --color-zinc-900) */
-  colorLightVar?: string
-  /** optional CSS variable name for dark dot color (e.g. --color-zinc-100) */
-  colorDarkVar?: string
-  /** optional CSS variable name for light glow color */
-  glowColorLightVar?: string
-  /** optional CSS variable name for dark glow color */
-  glowColorDarkVar?: string
+  /** semantic CSS variable used for the base dots */
+  colorVar?: string
+  /** semantic CSS variable used for bright dot glows */
+  glowColorVar?: string
   /** global opacity for the whole layer */
   opacity?: number
   /** background radial fade opacity (0 = transparent background) */
@@ -32,6 +21,19 @@ type DottedGlowBackgroundProps = {
   speedMax?: number
   /** global speed multiplier for all dots */
   speedScale?: number
+}
+
+const DOTTED_GLOW_COLOR_VAR = "--border-weaker-base"
+const DOTTED_GLOW_HIGHLIGHT_COLOR_VAR = "--icon-interactive-base"
+const TRANSPARENT_CANVAS_COLOR = "transparent"
+
+function resolveCssVariable(element: Element, variableName?: string): string | null {
+  if (!variableName) return null
+  const normalized = variableName.startsWith("--") ? variableName : `--${variableName}`
+  const fromElement = getComputedStyle(element).getPropertyValue(normalized).trim()
+  if (fromElement) return fromElement
+  const fromRoot = getComputedStyle(document.documentElement).getPropertyValue(normalized).trim()
+  return fromRoot || null
 }
 
 /**
@@ -46,14 +48,8 @@ function DottedGlowBackground({
   className,
   gap = 12,
   radius = 2,
-  color = "rgba(0,0,0,0.7)",
-  darkColor,
-  glowColor = "rgba(0, 170, 255, 0.85)",
-  darkGlowColor,
-  colorLightVar,
-  colorDarkVar,
-  glowColorLightVar,
-  glowColorDarkVar,
+  colorVar = DOTTED_GLOW_COLOR_VAR,
+  glowColorVar = DOTTED_GLOW_HIGHLIGHT_COLOR_VAR,
   opacity = 0.6,
   backgroundOpacity = 0,
   speedMin = 0.25,
@@ -62,45 +58,16 @@ function DottedGlowBackground({
 }: DottedGlowBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const [resolvedColor, setResolvedColor] = useState<string>(color)
-  const [resolvedGlowColor, setResolvedGlowColor] = useState<string>(glowColor)
-
-  const resolveCssVariable = (el: Element, variableName?: string): string | null => {
-    if (!variableName) return null
-    const normalized = variableName.startsWith("--") ? variableName : `--${variableName}`
-    const fromEl = getComputedStyle(el).getPropertyValue(normalized).trim()
-    if (fromEl) return fromEl
-    const fromRoot = getComputedStyle(document.documentElement).getPropertyValue(normalized).trim()
-    return fromRoot || null
-  }
-
-  const detectDarkMode = (): boolean => {
-    const root = document.documentElement
-    if (root.classList.contains("dark")) return true
-    if (root.classList.contains("light")) return false
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false
-  }
+  const [resolvedColor, setResolvedColor] = useState(TRANSPARENT_CANVAS_COLOR)
+  const [resolvedGlowColor, setResolvedGlowColor] = useState(TRANSPARENT_CANVAS_COLOR)
 
   useEffect(() => {
     const container = containerRef.current ?? document.documentElement
 
     const compute = () => {
-      const isDark = detectDarkMode()
-
-      let nextColor: string = color
-      let nextGlow: string = glowColor
-
-      if (isDark) {
-        const varDot = resolveCssVariable(container, colorDarkVar)
-        const varGlow = resolveCssVariable(container, glowColorDarkVar)
-        nextColor = varDot ?? darkColor ?? nextColor
-        nextGlow = varGlow ?? darkGlowColor ?? nextGlow
-      } else {
-        const varDot = resolveCssVariable(container, colorLightVar)
-        const varGlow = resolveCssVariable(container, glowColorLightVar)
-        nextColor = varDot ?? nextColor
-        nextGlow = varGlow ?? nextGlow
-      }
+      const nextColor =
+        resolveCssVariable(container, colorVar) ?? TRANSPARENT_CANVAS_COLOR
+      const nextGlow = resolveCssVariable(container, glowColorVar) ?? nextColor
 
       setResolvedColor(nextColor)
       setResolvedGlowColor(nextGlow)
@@ -115,23 +82,14 @@ function DottedGlowBackground({
     const mo = new MutationObserver(() => compute())
     mo.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class", "style"],
+      attributeFilter: ["class", "style", "data-theme", "data-color-scheme"],
     })
 
     return () => {
       mql?.removeEventListener("change", handleMql)
       mo.disconnect()
     }
-  }, [
-    color,
-    darkColor,
-    glowColor,
-    darkGlowColor,
-    colorLightVar,
-    colorDarkVar,
-    glowColorLightVar,
-    glowColorDarkVar,
-  ])
+  }, [colorVar, glowColorVar])
 
   useEffect(() => {
     const el = canvasRef.current
@@ -184,15 +142,12 @@ function DottedGlowBackground({
 
     regenDots()
 
-    let last = performance.now()
-
     const draw = (now: number) => {
       if (stopped) return
       if (!isVisible) {
         raf = requestAnimationFrame(draw)
         return
       }
-      last = now
       const { width, height } = container.getBoundingClientRect()
 
       ctx.clearRect(0, 0, el.width, el.height)
@@ -278,7 +233,11 @@ function DottedGlowBackground({
   ])
 
   return (
-    <div ref={containerRef} className={className} style={{ position: "absolute", inset: 0 }}>
+    <div
+      ref={containerRef}
+      className={cn("bg-background-base", className)}
+      style={{ position: "absolute", inset: 0 }}
+    >
       <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
     </div>
   )

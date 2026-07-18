@@ -235,11 +235,11 @@ export function MultiViewShell({
                   type="button"
                   onClick={() => selectIndex(i)}
                   className={cn(
-                    "shrink-0 overflow-hidden bg-background-base border border-border-base/40 transition-opacity",
+                    "shrink-0 overflow-hidden border-2 bg-background-base transition-[border-color,opacity]",
                     currentSizeClass,
                     i === clampedIdx
-                      ? "ring-2 ring-border-base ring-offset-2 ring-offset-background-base border-transparent opacity-100"
-                      : "opacity-60 hover:opacity-100",
+                      ? "border-border-interactive-base opacity-100"
+                      : "border-border-base/40 opacity-60 hover:opacity-100",
                   )}
                 >
                   {item.thumbnail}

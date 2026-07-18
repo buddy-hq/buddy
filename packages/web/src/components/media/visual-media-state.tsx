@@ -8,6 +8,7 @@ import {
 } from "@buddy/ui"
 import { AlertTriangleIcon, ImageIcon } from "@/icons/app-icons"
 import { MediaLoadingVisual } from "./loading"
+import { DEFAULT_MEDIA_LOADING_VARIANT } from "./loading/types"
 import { MediaActions } from "./media-action-bar"
 import type { MediaState } from "./types"
 
@@ -33,7 +34,7 @@ export function VisualMediaState<T>(props: { state: MediaState<T> }) {
         aria-live="polite"
       >
         <MediaLoadingVisual
-          variant={state.variant ?? "gradient-animation"}
+          variant={state.variant ?? DEFAULT_MEDIA_LOADING_VARIANT}
           label={state.label}
           detail={state.detail}
           className="absolute inset-0 rounded-[inherit]"
