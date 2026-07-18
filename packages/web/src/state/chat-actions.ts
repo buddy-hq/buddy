@@ -80,6 +80,7 @@ import type { PermissionReply } from "./permission-types"
 import { appQueryClient } from "./query-client"
 import { invalidateObsidianFileCaches } from "./obsidian-vault-query"
 import { resolveRedoTargetMessageID, resolveUndoTargetMessageID } from "./session-revert"
+import { fenceChatSyncSession } from "./chat-sync"
 
 export type PersonaConfigOption = {
   id: string
@@ -1962,45 +1963,51 @@ export async function abortPrompt(directory: string) {
     return false
   }
 
-  let abortError: unknown
-  let aborted = false
+  const releaseChatSyncFence = fenceChatSyncSession(directory, sessionID)
 
   try {
-    aborted = requireBuddyData(
-      await getBuddyClient(directory).session.abort({
-        sessionID,
-      }),
-    )
-    if (aborted) {
-      const latestAssistantMessage = getTranscriptMessages(directory, sessionID).findLast(
-        (message) => message.info.role === "assistant",
+    let abortError: unknown
+    let aborted = false
+
+    try {
+      aborted = requireBuddyData(
+        await getBuddyClient(directory).session.abort({
+          sessionID,
+        }),
       )
-      if (latestAssistantMessage?.info.role === "assistant") {
-        applyTranscriptMessageUpdated(directory, {
-          ...latestAssistantMessage.info,
-          finish: "aborted",
-        })
+      if (aborted) {
+        const latestAssistantMessage = getTranscriptMessages(directory, sessionID).findLast(
+          (message) => message.info.role === "assistant",
+        )
+        if (latestAssistantMessage?.info.role === "assistant") {
+          applyTranscriptMessageUpdated(directory, {
+            ...latestAssistantMessage.info,
+            finish: "aborted",
+          })
+        }
+
+        store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
+      }
+    } catch (error) {
+      abortError = error
+    }
+
+    const recovered = await recoverSessionAfterAbortAttempt(directory, sessionID).catch(() => false)
+
+    if (abortError) {
+      if (recovered) {
+        store.clearDirectoryError(directory)
+        return false
       }
 
-      store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
-    }
-  } catch (error) {
-    abortError = error
-  }
-
-  const recovered = await recoverSessionAfterAbortAttempt(directory, sessionID).catch(() => false)
-
-  if (abortError) {
-    if (recovered) {
-      store.clearDirectoryError(directory)
-      return false
+      store.setDirectoryError(directory, stringifyError(abortError))
+      throw abortError
     }
 
-    store.setDirectoryError(directory, stringifyError(abortError))
-    throw abortError
+    return aborted
+  } finally {
+    releaseChatSyncFence()
   }
-
-  return aborted
 }
 
 async function resolveSessionUndoTargetMessageID(input: {

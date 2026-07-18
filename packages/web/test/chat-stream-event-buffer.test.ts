@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   bufferChatStreamEvents,
+  createChatStreamEventBuffer,
   MESSAGE_PART_DELTA_EVENT_TYPE,
   MESSAGE_PART_UPDATED_EVENT_TYPE,
   STREAMING_PART_RAW_FIELD,
@@ -68,7 +69,7 @@ function eventPartState(event: GlobalEvent | undefined) {
 }
 
 describe("chat stream event buffer", () => {
-  test("preserves text deltas between full part snapshots", () => {
+  test("compacts superseded text deltas into the latest full part snapshot", () => {
     const events = bufferChatStreamEvents([
       messagePartUpdated({
         type: "text",
@@ -84,17 +85,11 @@ describe("chat stream event buffer", () => {
       }),
     ])
 
-    expect(events.map((event) => event.payload.type)).toEqual([
-      MESSAGE_PART_UPDATED_EVENT_TYPE,
-      MESSAGE_PART_DELTA_EVENT_TYPE,
-      MESSAGE_PART_UPDATED_EVENT_TYPE,
-    ])
-    expect(eventPart(events[0])?.text).toBe("hel")
-    expect(eventProperties(events[1])?.delta).toBe("lo")
-    expect(eventPart(events[2])?.text).toBe("hello")
+    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
+    expect(eventPart(events[0])?.text).toBe("hello")
   })
 
-  test("preserves leading text deltas before a later snapshot", () => {
+  test("drops leading text deltas superseded by a later snapshot", () => {
     const events = bufferChatStreamEvents([
       messagePartDelta({
         field: "text",
@@ -106,12 +101,8 @@ describe("chat stream event buffer", () => {
       }),
     ])
 
-    expect(events.map((event) => event.payload.type)).toEqual([
-      MESSAGE_PART_DELTA_EVENT_TYPE,
-      MESSAGE_PART_UPDATED_EVENT_TYPE,
-    ])
-    expect(eventProperties(events[0])?.delta).toBe(" world")
-    expect(eventPart(events[1])?.text).toBe("hello world")
+    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
+    expect(eventPart(events[0])?.text).toBe("hello world")
   })
 
   test("coalesces adjacent compatible text deltas", () => {
@@ -180,5 +171,41 @@ describe("chat stream event buffer", () => {
     expect(eventPartState(events[0])?.raw).toBe('{"elements":"[')
     expect(eventProperties(events[1])?.delta).toBe('{\\"type\\":\\"rectangle\\"}')
     expect(eventPartState(events[2])?.raw).toBeUndefined()
+  })
+
+  test("clears queued events without emitting them", () => {
+    const buffer = createChatStreamEventBuffer()
+    buffer.enqueue(
+      messagePartUpdated({
+        type: "text",
+        text: "stale",
+      }),
+    )
+
+    expect(buffer.size()).toBe(1)
+    expect(buffer.clear()).toBe(1)
+    expect(buffer.size()).toBe(0)
+    expect(buffer.drain()).toEqual([])
+  })
+
+  test("discards matching events while preserving unrelated queued events", () => {
+    const buffer = createChatStreamEventBuffer()
+    const targetEvent = messagePartUpdated({
+      type: "text",
+      text: "stale target",
+    })
+    const unrelatedEvent: GlobalEvent = {
+      directory: DIRECTORY,
+      payload: {
+        type: "workspace.file.updated",
+        properties: { path: "notes.md" },
+      },
+    }
+    buffer.enqueue(targetEvent)
+    buffer.enqueue(unrelatedEvent)
+
+    expect(buffer.discardWhere((event) => event === targetEvent)).toBe(1)
+    expect(buffer.size()).toBe(1)
+    expect(buffer.drain()).toEqual([unrelatedEvent])
   })
 })

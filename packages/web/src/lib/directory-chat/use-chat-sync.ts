@@ -58,6 +58,7 @@ import type {
 } from "@/state/chat-types"
 import type { EventStreamData } from "@buddy/sdk/types"
 import { encodeDirectory } from "../directory-token"
+import { getTranscriptPerformanceProbe } from "./transcript-performance-probe"
 
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
 const PERMISSION_NOTIFICATION_COOLDOWN_MS = 15_000
@@ -281,6 +282,38 @@ export function useChatSync(props: UseChatSyncProps) {
         if (hasConnected && (status === "connecting" || status === "error")) {
           shouldRecoverOnReconnect = true
         }
+      },
+      onBufferActivity(activity) {
+        const probe = getTranscriptPerformanceProbe()
+        if (!probe?.isRecording()) return
+        const at = performance.now()
+        if (activity.phase === "flush") {
+          probe.record({
+            type: "stream-buffer",
+            at,
+            phase: "flush",
+            queuedEvents: activity.queuedEvents,
+            appliedEvents: activity.appliedEvents,
+          })
+          return
+        }
+        if (activity.phase === "session-fence") {
+          probe.record({
+            type: "stream-buffer",
+            at,
+            phase: "session-fence",
+            sessionID: activity.sessionID,
+            discardedEvents: activity.discardedEvents,
+          })
+          return
+        }
+        probe.record({
+          type: "stream-buffer",
+          at,
+          phase: "session-resume",
+          sessionID: activity.sessionID,
+          discardedEvents: activity.discardedEvents,
+        })
       },
       onEvent(event: GlobalEvent) {
         const directory = event.directory

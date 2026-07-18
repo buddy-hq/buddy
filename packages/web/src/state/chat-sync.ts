@@ -14,7 +14,25 @@ type SyncHandlers = {
   onEvent: (event: GlobalEvent) => void
   onError?: (error: unknown) => void
   onStatus?: (status: "connecting" | "connected" | "error") => void
+  onBufferActivity?: (activity: ChatSyncBufferActivity) => void
 }
+
+export type ChatSyncBufferActivity =
+  | {
+      phase: "flush"
+      queuedEvents: number
+      appliedEvents: number
+    }
+  | {
+      phase: "session-fence"
+      sessionID: string
+      discardedEvents: number
+    }
+  | {
+      phase: "session-resume"
+      sessionID: string
+      discardedEvents: number
+    }
 
 const FRAME_MS = 16
 const STREAM_YIELD_MS = 8
@@ -27,9 +45,68 @@ const EVENT_STREAM_CACHE_CONTROL = "no-cache"
 const SDK_STREAM_DATA_KEY = "data"
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
 
+type ChatSyncSessionFence = {
+  fenceSession: (sessionID: string) => () => void
+}
+
+const chatSyncSessionFencesByDirectory = new Map<string, Set<ChatSyncSessionFence>>()
+
 type UnknownRecord = Record<string, unknown>
 
 const wait = (ms: number) => new Promise<void>((resolve) => globalThis.setTimeout(resolve, ms))
+
+export function createStreamYieldScheduler(input?: {
+  now?: () => number
+  yieldToMainThread?: () => Promise<void>
+}) {
+  const now = input?.now ?? Date.now
+  const yieldToMainThread = input?.yieldToMainThread ?? (() => wait(0))
+  let yieldedAt = now()
+
+  return async () => {
+    if (now() - yieldedAt < STREAM_YIELD_MS) return false
+    await yieldToMainThread()
+    yieldedAt = now()
+    return true
+  }
+}
+
+function registerChatSyncSessionFence(
+  directory: string | undefined,
+  control: ChatSyncSessionFence,
+) {
+  if (!directory) return () => undefined
+  const controls = chatSyncSessionFencesByDirectory.get(directory)
+  if (controls) {
+    controls.add(control)
+  } else {
+    chatSyncSessionFencesByDirectory.set(directory, new Set([control]))
+  }
+
+  return () => {
+    const current = chatSyncSessionFencesByDirectory.get(directory)
+    if (!current) return
+    current.delete(control)
+    if (current.size === 0) {
+      chatSyncSessionFencesByDirectory.delete(directory)
+    }
+  }
+}
+
+export function fenceChatSyncSession(directory: string, sessionID: string) {
+  const controls = chatSyncSessionFencesByDirectory.get(directory)
+  if (!controls) return () => undefined
+  const releaseControls = Array.from(controls, (control) => control.fenceSession(sessionID))
+  let released = false
+
+  return () => {
+    if (released) return
+    released = true
+    for (const release of releaseControls) {
+      release()
+    }
+  }
+}
 
 function findSseEventBoundary(buffer: string) {
   const match = /\r?\n\r?\n/.exec(buffer)
@@ -107,6 +184,33 @@ function readOptionalString(record: UnknownRecord, key: string) {
   return typeof value === "string" ? value : undefined
 }
 
+function fencedSessionID(event: GlobalEvent) {
+  const payload = event.payload
+  if (!("properties" in payload)) return undefined
+  const properties = payload.properties
+
+  if (payload.type === "message.updated") {
+    const info = properties.info
+    return isRecord(info) ? readOptionalString(info, "sessionID") : undefined
+  }
+
+  if (payload.type === "message.part.updated") {
+    const part = properties.part
+    return isRecord(part) ? readOptionalString(part, "sessionID") : undefined
+  }
+
+  if (
+    payload.type === "message.removed" ||
+    payload.type === "message.part.removed" ||
+    payload.type === "message.part.delta" ||
+    payload.type === "session.status"
+  ) {
+    return readOptionalString(properties, "sessionID")
+  }
+
+  return undefined
+}
+
 function normalizeGlobalEvent(
   value: unknown,
   fallbackDirectory: string | undefined,
@@ -166,6 +270,10 @@ export function startChatSync(handlers: SyncHandlers) {
   let run: Promise<void> | undefined
   let streamErrorLogged = false
   const eventBuffer = createChatStreamEventBuffer()
+  const sessionFences = new Map<
+    string,
+    { count: number; discardedEvents: number; reportedDiscardedEvents: number }
+  >()
 
   const reportStatus = (status: "connecting" | "connected" | "error") => {
     handlers.onStatus?.(status)
@@ -176,6 +284,53 @@ export function startChatSync(handlers: SyncHandlers) {
     streamAbort.abort()
     streamAbort = undefined
   }
+
+  const clearScheduledFlush = () => {
+    if (flushTimer === undefined) return
+    globalThis.clearTimeout(flushTimer)
+    flushTimer = undefined
+  }
+
+  const fenceSession = (sessionID: string) => {
+    const currentFence = sessionFences.get(sessionID)
+    if (currentFence) {
+      currentFence.count += 1
+    } else {
+      const discardedEvents = eventBuffer.discardWhere(
+        (event) => fencedSessionID(event) === sessionID,
+      )
+      sessionFences.set(sessionID, {
+        count: 1,
+        discardedEvents,
+        reportedDiscardedEvents: discardedEvents,
+      })
+      handlers.onBufferActivity?.({
+        phase: "session-fence",
+        sessionID,
+        discardedEvents,
+      })
+    }
+
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      const fence = sessionFences.get(sessionID)
+      if (!fence) return
+      fence.count = Math.max(0, fence.count - 1)
+      if (fence.count !== 0) return
+      sessionFences.delete(sessionID)
+      handlers.onBufferActivity?.({
+        phase: "session-resume",
+        sessionID,
+        discardedEvents: fence.discardedEvents - fence.reportedDiscardedEvents,
+      })
+    }
+  }
+
+  const unregisterSessionFence = registerChatSyncSessionFence(handlers.directory, {
+    fenceSession,
+  })
 
   const clearHeartbeat = () => {
     if (heartbeatTimer === undefined) return
@@ -192,13 +347,17 @@ export function startChatSync(handlers: SyncHandlers) {
   }
 
   const flush = () => {
-    if (flushTimer !== undefined) {
-      globalThis.clearTimeout(flushTimer)
-      flushTimer = undefined
-    }
+    clearScheduledFlush()
 
+    const queuedEvents = eventBuffer.size()
     const events = eventBuffer.drain()
     if (events.length === 0) return
+
+    handlers.onBufferActivity?.({
+      phase: "flush",
+      queuedEvents,
+      appliedEvents: events.length,
+    })
 
     lastFlushAt = Date.now()
     unstable_batchedUpdates(() => {
@@ -232,6 +391,14 @@ export function startChatSync(handlers: SyncHandlers) {
   }
 
   const handleStreamEvent = (event: GlobalEvent) => {
+    const sessionID = fencedSessionID(event)
+    if (sessionID) {
+      const fence = sessionFences.get(sessionID)
+      if (fence) {
+        fence.discardedEvents += 1
+        return
+      }
+    }
     eventBuffer.enqueue(event)
     scheduleFlush()
   }
@@ -292,13 +459,7 @@ export function startChatSync(handlers: SyncHandlers) {
           streamErrorLogged = false
           resetHeartbeat()
 
-          let yieldedAt = Date.now()
-
-          const yieldToMainThread = async () => {
-            if (Date.now() - yieldedAt < STREAM_YIELD_MS) return
-            yieldedAt = Date.now()
-            await wait(0)
-          }
+          const yieldToMainThread = createStreamYieldScheduler()
 
           for await (const event of events.stream) {
             if (disposed || currentAbort.signal.aborted) break
@@ -364,11 +525,14 @@ export function startChatSync(handlers: SyncHandlers) {
   return {
     stop() {
       disposed = true
+      unregisterSessionFence()
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", onVisibilityChange)
       }
       clearHeartbeat()
       closeStream()
+      sessionFences.clear()
+      eventBuffer.clear()
       flush()
     },
   }

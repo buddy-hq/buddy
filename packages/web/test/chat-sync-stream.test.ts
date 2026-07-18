@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { ServerProvider } from "../src/context/server"
 import { setRuntimePlatform, type Platform } from "../src/context/platform"
-import { startChatSync } from "../src/state/chat-sync"
+import { fenceChatSyncSession, startChatSync } from "../src/state/chat-sync"
 import {
   MESSAGE_PART_DELTA_EVENT_TYPE,
   MESSAGE_PART_UPDATED_EVENT_TYPE,
@@ -80,6 +80,160 @@ afterEach(() => {
 })
 
 describe("startChatSync fetch stream", () => {
+  test("fences only the recovered session while unrelated directory events continue", async () => {
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
+    let streamRequests = 0
+    globalThis.fetch = createFetchStub(async () => {
+      streamRequests += 1
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          streamController = controller
+        },
+      })
+
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream",
+        },
+      })
+    })
+
+    setRuntimePlatform({
+      platform: "desktop",
+      fetch: globalThis.fetch,
+      openLink() {},
+      async restart() {},
+      back() {},
+      forward() {},
+      async notify() {},
+    } satisfies Platform)
+
+    const received: GlobalEvent[] = []
+    await new Promise<void>((resolve, reject) => {
+      const lifecycle: string[] = []
+      let fenced = false
+      const sync = startChatSync({
+        directory: "/repo",
+        onEvent(nextEvent) {
+          received.push(nextEvent)
+        },
+        onStatus(status) {
+          lifecycle.push(status)
+          if (status !== "connected") return
+          if (fenced) return
+          fenced = true
+          const releaseFence = fenceChatSyncSession("/repo", "s1")
+          const events = [
+            {
+              directory: "/repo",
+              payload: {
+                type: "message.updated",
+                properties: {
+                  info: {
+                    id: "stale-target",
+                    sessionID: "s1",
+                    role: "assistant",
+                    time: { created: 1 },
+                  },
+                },
+              },
+            },
+            {
+              directory: "/repo",
+              payload: {
+                type: "message.updated",
+                properties: {
+                  info: {
+                    id: "background-session",
+                    sessionID: "s2",
+                    role: "assistant",
+                    time: { created: 1 },
+                  },
+                },
+              },
+            },
+            {
+              directory: "/repo",
+              payload: {
+                type: "workspace.file.updated",
+                properties: { path: "notes.md" },
+              },
+            },
+            {
+              directory: "/repo",
+              payload: {
+                type: "bench.client_action",
+                properties: { id: "bench-action" },
+              },
+            },
+          ]
+          originalSetTimeout(() => {
+            for (const event of events) {
+              streamController?.enqueue(
+                new TextEncoder().encode(`${sseData(event)}\r\n\r\n`),
+              )
+            }
+            originalSetTimeout(() => {
+              releaseFence()
+              streamController?.enqueue(
+                new TextEncoder().encode(
+                  `${sseData({
+                    directory: "/repo",
+                    payload: {
+                      type: "message.updated",
+                      properties: {
+                        info: {
+                          id: "fresh-target",
+                          sessionID: "s1",
+                          role: "assistant",
+                          time: { created: 2 },
+                        },
+                      },
+                    },
+                  })}\r\n\r\n`,
+                ),
+              )
+              originalSetTimeout(() => {
+                sync.stop()
+                expect(lifecycle).toContain("session-fence")
+                expect(lifecycle).toContain("session-resume")
+                resolve()
+              }, 30)
+            }, 30)
+          }, 0)
+        },
+        onBufferActivity(activity) {
+          lifecycle.push(activity.phase)
+        },
+        onError(error) {
+          sync.stop()
+          reject(error)
+        },
+      })
+
+      originalSetTimeout(() => {
+        sync.stop()
+        reject(new Error(`stream recovery timed out: ${lifecycle.join(",")}`))
+      }, 1_000)
+    })
+
+    expect(
+      received.map((event) => {
+        const payload = event.payload
+        if (!("properties" in payload)) return payload.type
+        const info = payload.properties.info
+        return isRecord(info) && typeof info.id === "string" ? info.id : payload.type
+      }),
+    ).toEqual([
+      "background-session",
+      "workspace.file.updated",
+      "bench.client_action",
+      "fresh-target",
+    ])
+    expect(streamRequests).toBe(1)
+  })
+
   test("streams authenticated desktop events through apiFetch", async () => {
     let receivedPath = ""
     let receivedAuth = ""
@@ -154,7 +308,7 @@ describe("startChatSync fetch stream", () => {
     expect(event.directory).toBe("/repo")
   })
 
-  test("preserves part deltas between snapshots", async () => {
+  test("compacts text deltas superseded by the latest snapshot", async () => {
     globalThis.fetch = createFetchStub(async () => {
       const body = new ReadableStream({
         start(controller) {
@@ -209,12 +363,8 @@ describe("startChatSync fetch stream", () => {
       }, 40)
     })
 
-    expect(events.map((event) => event.payload.type)).toEqual([
-      MESSAGE_PART_UPDATED_EVENT_TYPE,
-      MESSAGE_PART_DELTA_EVENT_TYPE,
-      MESSAGE_PART_UPDATED_EVENT_TYPE,
-    ])
-    const firstEventPayload = events[2]?.payload
+    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
+    const firstEventPayload = events[0]?.payload
     let partText: string | undefined
     if (firstEventPayload && "properties" in firstEventPayload) {
       partText = (firstEventPayload.properties as { part?: { text?: string } } | undefined)?.part

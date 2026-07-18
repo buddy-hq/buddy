@@ -14,6 +14,7 @@ type CoalescingInfo =
   | {
       kind: "part-update"
       key: string
+      textSnapshot: boolean
     }
   | {
       kind: "part-delta"
@@ -59,6 +60,7 @@ function readPartUpdateInfo(event: GlobalEvent) {
     directory: directoryKey(event),
     messageID,
     partID,
+    textSnapshot: part.type === "text" && typeof part.text === "string",
   }
 }
 
@@ -88,6 +90,7 @@ function coalescingInfo(event: GlobalEvent): CoalescingInfo | undefined {
     return {
       kind: "part-update",
       key: messagePartKey(update),
+      textSnapshot: update.textSnapshot,
     }
   }
 
@@ -136,19 +139,63 @@ function coalesceAdjacent(left: GlobalEvent, right: GlobalEvent) {
 }
 
 function coalesceQueuedChatStreamEvents(events: GlobalEvent[]) {
-  const output: GlobalEvent[] = []
+  const output: Array<GlobalEvent | undefined> = []
+  const textChainIndexesByPart = new Map<string, number[]>()
+  let lastOutputIndex = -1
 
-  for (const event of events) {
-    const previous = output[output.length - 1]
-    const coalesced = previous ? coalesceAdjacent(previous, event) : undefined
-    if (coalesced) {
-      output[output.length - 1] = coalesced
-      continue
-    }
-    output.push(event)
+  const clearTextChains = () => {
+    textChainIndexesByPart.clear()
   }
 
-  return output
+  const rewindLastOutputIndex = () => {
+    while (lastOutputIndex >= 0 && output[lastOutputIndex] === undefined) {
+      lastOutputIndex -= 1
+    }
+  }
+
+  for (const event of events) {
+    const info = coalescingInfo(event)
+    if (!info) {
+      clearTextChains()
+    } else if (info.kind === "part-update" && info.textSnapshot) {
+      const previousIndexes = textChainIndexesByPart.get(info.key)
+      if (previousIndexes) {
+        for (const index of previousIndexes) {
+          output[index] = undefined
+        }
+        rewindLastOutputIndex()
+      }
+    } else {
+      if (info.kind !== "part-delta" || info.field !== "text") {
+        textChainIndexesByPart.delete(info.key)
+      }
+    }
+
+    const previous = output[lastOutputIndex]
+    const coalesced = previous ? coalesceAdjacent(previous, event) : undefined
+    let eventIndex: number
+    if (coalesced) {
+      output[lastOutputIndex] = coalesced
+      eventIndex = lastOutputIndex
+    } else {
+      eventIndex = output.length
+      output.push(event)
+      lastOutputIndex = eventIndex
+    }
+
+    if (info?.kind === "part-update" && info.textSnapshot) {
+      textChainIndexesByPart.set(info.key, [eventIndex])
+    } else if (info?.kind === "part-delta" && info.field === "text") {
+      const indexes = textChainIndexesByPart.get(info.key)
+      if (!indexes) {
+        textChainIndexesByPart.set(info.key, [eventIndex])
+      } else if (indexes[indexes.length - 1] !== eventIndex) {
+        indexes.push(eventIndex)
+      }
+    }
+  }
+
+  return output.filter((event) => event !== undefined)
 }
 
 export function bufferChatStreamEvents(events: GlobalEvent[]) {
@@ -164,6 +211,18 @@ export function createChatStreamEventBuffer() {
   let buffer: GlobalEvent[] = []
 
   return {
+    clear() {
+      const discarded = queue.length + buffer.length
+      queue.length = 0
+      buffer.length = 0
+      return discarded
+    },
+    discardWhere(predicate: (event: GlobalEvent) => boolean) {
+      const previousSize = queue.length + buffer.length
+      queue = queue.filter((event) => !predicate(event))
+      buffer = buffer.filter((event) => !predicate(event))
+      return previousSize - queue.length - buffer.length
+    },
     drain() {
       if (queue.length === 0) return []
 
@@ -177,6 +236,9 @@ export function createChatStreamEventBuffer() {
     },
     enqueue(event: GlobalEvent) {
       queue.push(event)
+    },
+    size() {
+      return queue.length
     },
   }
 }
