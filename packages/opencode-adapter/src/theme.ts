@@ -66,6 +66,25 @@ import {
 const SECONDARY_BUTTON_HOVER_LIGHTNESS_SHIFT = 0.035
 const SUBTLE_STATUS_SURFACE_ALPHA = 0.15
 
+type ThemeIdentityColors = {
+  primary: HexColor
+  accent: HexColor
+}
+
+function themeIdentityColors(variant: ThemeVariant): ThemeIdentityColors {
+  if (variant.palette) {
+    return {
+      primary: variant.palette.primary,
+      accent: variant.palette.accent ?? variant.palette.primary,
+    }
+  }
+
+  return {
+    primary: variant.seeds.primary,
+    accent: variant.seeds.interactive,
+  }
+}
+
 function isHexColor(value: ColorValue | undefined): value is HexColor {
   return value !== undefined && value.startsWith("#")
 }
@@ -104,7 +123,11 @@ function setReadableToken(
   tokens[key] = ensureTextContrast(preferred, backgrounds, minimum)
 }
 
-function normalizeBuddyTokens(tokens: ResolvedTheme, isDark: boolean): ResolvedTheme {
+function normalizeBuddyTokens(
+  tokens: ResolvedTheme,
+  isDark: boolean,
+  identity: ThemeIdentityColors,
+): ResolvedTheme {
   const next = { ...tokens }
   const applicationParents = [
     "background-base",
@@ -112,6 +135,9 @@ function normalizeBuddyTokens(tokens: ResolvedTheme, isDark: boolean): ResolvedT
     "surface-raised-stronger-non-alpha",
   ] as const
   const backgroundOnly = ["background-base"] as const
+
+  next["theme-primary-base"] = identity.primary
+  next["theme-accent-base"] = identity.accent
 
   setReadableToken(
     next,
@@ -321,7 +347,11 @@ function normalizeBuddyTokens(tokens: ResolvedTheme, isDark: boolean): ResolvedT
 }
 
 export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): ResolvedTheme {
-  return normalizeBuddyTokens(resolveVendorThemeVariant(variant, isDark), isDark)
+  return normalizeBuddyTokens(
+    resolveVendorThemeVariant(variant, isDark),
+    isDark,
+    themeIdentityColors(variant),
+  )
 }
 
 export function resolveTheme(theme: DesktopTheme): { light: ResolvedTheme; dark: ResolvedTheme } {

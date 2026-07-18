@@ -1,14 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
-import {
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
-} from "@buddy/ui"
-import { useTheme, type ColorScheme } from "@/theme"
+import { Input, toast } from "@buddy/ui"
+import { useTheme } from "@/theme"
+import { ThemeSelectors } from "./theme-selectors"
 
 type ColorToken = {
   name: string
@@ -70,7 +63,7 @@ type PalettePanelProps = {
 
 export function PalettePanel({ className }: PalettePanelProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const { themeId, colorScheme, mode, themes, setTheme, setColorScheme } = useTheme()
+  const { themeId, mode } = useTheme()
 
   const [tokens, setTokens] = useState<ColorToken[]>(() => getColorTokens())
 
@@ -81,19 +74,6 @@ export function PalettePanel({ className }: PalettePanelProps) {
     })
     return () => cancelAnimationFrame(raf)
   }, [themeId, mode])
-
-  const colorSchemeOptions: { value: ColorScheme; label: string }[] = [
-    { value: "system", label: "System" },
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
-  ]
-
-  const themeOptions = useMemo(() => {
-    return Object.entries(themes).map(([id, theme]) => ({
-      id,
-      name: theme.name,
-    }))
-  }, [themes])
 
   const filteredTokens = useMemo(() => {
     if (!searchQuery.trim()) return tokens
@@ -131,32 +111,7 @@ export function PalettePanel({ className }: PalettePanelProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Select value={colorScheme} onValueChange={(value) => setColorScheme(value as ColorScheme)}>
-          <SelectTrigger className="h-8 w-full text-xs">
-            <SelectValue placeholder="Color Scheme" />
-          </SelectTrigger>
-          <SelectContent className="z-[10000]">
-            {colorSchemeOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={themeId} onValueChange={setTheme}>
-          <SelectTrigger className="h-8 w-full text-xs">
-            <SelectValue placeholder="Theme" />
-          </SelectTrigger>
-          <SelectContent className="z-[10000]">
-            {themeOptions.map((option) => (
-              <SelectItem key={option.id} value={option.id}>
-                {option.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <ThemeSelectors />
 
       <Input
         placeholder="Search colors..."

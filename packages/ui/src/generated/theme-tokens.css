@@ -280,4 +280,6 @@
   --color-text-weak: var(--text-weak);
   --color-text-weaker: var(--text-weaker);
   --color-text-weakest: var(--text-weakest);
+  --color-theme-accent-base: var(--theme-accent-base);
+  --color-theme-primary-base: var(--theme-primary-base);
 }
