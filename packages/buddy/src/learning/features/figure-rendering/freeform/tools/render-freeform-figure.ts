@@ -73,6 +73,31 @@ const renderFreeformFigureTool = createBuddyTool({
   },
   description: RENDER_FREEFORM_FIGURE_DESCRIPTION,
   parameters: RenderFreeformFigureInputSchema,
+  presentation: {
+    archetype: "inline-output",
+    icon: "image",
+    renderer: "figure",
+    layoutRole: "media-output",
+    collection: "figure-gallery",
+    phases: {
+      pending: {
+        action: "Rendering figure",
+        detail: ({ input }) => (typeof input.caption === "string" ? input.caption : undefined),
+      },
+      running: {
+        action: "Rendering figure",
+        detail: ({ input }) => (typeof input.caption === "string" ? input.caption : undefined),
+      },
+      completed: {
+        action: "Rendered figure",
+        detail: ({ input }) => (typeof input.caption === "string" ? input.caption : undefined),
+      },
+      error: {
+        action: "Failed to render figure",
+        detail: ({ input }) => (typeof input.caption === "string" ? input.caption : undefined),
+      },
+    },
+  },
   async execute(params: RenderFreeformFigureInput, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "render_freeform_figure",

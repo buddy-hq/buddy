@@ -156,11 +156,23 @@ const createWhiteboardViewTool = createBuddyTool({
   },
   description: CREATE_VIEW_DESCRIPTION,
   parameters: CreateWhiteboardViewInputSchema,
-  ui: {
-    presentation: "hidden-summary",
-    labels: {
+  presentation: {
+    archetype: "activity",
+    icon: "presentation",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Updating Whiteboard" },
+      running: { action: "Updating Whiteboard" },
+      completed: { action: "Updated Whiteboard" },
+      error: { action: "Failed to update Whiteboard" },
+    },
+    summary: {
+      category: "update-whiteboard",
+      pending: "Updating Whiteboard",
       running: "Updating Whiteboard",
-      idle: "Updated Whiteboard",
+      completed: "Updated Whiteboard",
+      error: "Failed to update Whiteboard",
     },
   },
   async execute(params: CreateWhiteboardViewInput, ctx: BuddyToolContext) {

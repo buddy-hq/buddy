@@ -2,7 +2,7 @@ import path from "node:path"
 import type { Hooks, Plugin } from "@opencode-ai/plugin"
 import { MessageID, PartID } from "@buddy/opencode-adapter/id"
 import { createOpenAICodexAuthHook } from "./openai-codex-auth"
-import { stripToolUiFromMessages } from "../tool-ui-strip"
+import { stripToolPresentationFromMessages } from "../tool-presentation-strip"
 import { captureSessionSystemPrompt } from "../system-prompt-capture"
 import { preloadBuddyBootstrapGraph } from "../../learning/runtime/bootstrap-preload"
 import {
@@ -88,10 +88,10 @@ function normalizeSystemSegments(segments: string[]) {
   return segments.map((segment) => segment.trim()).filter((segment) => segment.length > 0)
 }
 
-const stripToolUiFromChatMessages: NonNullable<
+const stripToolPresentationFromChatMessages: NonNullable<
   Hooks["experimental.chat.messages.transform"]
 > = async (_hookInput, output) => {
-  stripToolUiFromMessages(output.messages)
+  stripToolPresentationFromMessages(output.messages)
 }
 
 type CommandExecuteBeforeHook = NonNullable<Hooks["command.execute.before"]>
@@ -144,7 +144,7 @@ export const compactCommandInvocationBeforeExecute: CommandExecuteBeforeHook = a
 function createSystemPromptGuard(input: { directory: string }) {
   return {
     "command.execute.before": compactCommandInvocationBeforeExecute,
-    "experimental.chat.messages.transform": stripToolUiFromChatMessages,
+    "experimental.chat.messages.transform": stripToolPresentationFromChatMessages,
     "experimental.chat.system.transform": async (
       hookInput: SystemTransformInput,
       output: SystemTransformOutput,
@@ -175,9 +175,11 @@ function createSystemPromptGuard(input: { directory: string }) {
 
 export async function createBuddyRuntimeHooks(input: { directory: string; worktree: string }) {
   await preloadBuddyBootstrapGraph()
-  const { allBuddyPluginTools, registerBuddyToolUiCatalog } = await import("../buddy-tool-shim")
+  const { allBuddyPluginTools, registerBuddyToolPresentationCatalog } = await import(
+    "../buddy-tool-shim"
+  )
   const toolMap = await allBuddyPluginTools(input.directory)
-  await registerBuddyToolUiCatalog(input.directory)
+  await registerBuddyToolPresentationCatalog(input.directory)
 
   return {
     tool: toolMap,

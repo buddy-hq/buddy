@@ -7,6 +7,25 @@ export const getPrerequisitesTool = createBuddyTool({
   id: "get_prerequisites",
   description: GET_PREREQUISITES_DESCRIPTION,
   parameters: progressionParameters,
+  presentation: {
+    archetype: "activity",
+    icon: "network",
+    renderer: "knowledge-graph",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Reading prerequisites" },
+      running: { action: "Reading prerequisites" },
+      completed: { action: "Read prerequisites" },
+      error: { action: "Failed to read prerequisites" },
+    },
+    summary: {
+      category: "read-prerequisites",
+      pending: "Reading prerequisites",
+      running: "Reading prerequisites",
+      completed: "Read prerequisites",
+      error: "Failed to read prerequisites",
+    },
+  },
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "get_prerequisites",

@@ -164,6 +164,31 @@ const renderMermaidTool = createBuddyTool({
   },
   description: RENDER_MERMAID_DESCRIPTION,
   parameters: RenderMermaidInputSchema,
+  presentation: {
+    archetype: "inline-output",
+    icon: "diagram",
+    renderer: "mermaid",
+    layoutRole: "media-output",
+    collection: "mermaid-gallery",
+    phases: {
+      pending: {
+        action: "Rendering diagram",
+        detail: ({ input }) => (typeof input.alt === "string" ? input.alt : undefined),
+      },
+      running: {
+        action: "Rendering diagram",
+        detail: ({ input }) => (typeof input.alt === "string" ? input.alt : undefined),
+      },
+      completed: {
+        action: "Rendered diagram",
+        detail: ({ input }) => (typeof input.alt === "string" ? input.alt : undefined),
+      },
+      error: {
+        action: "Failed to render diagram",
+        detail: ({ input }) => (typeof input.alt === "string" ? input.alt : undefined),
+      },
+    },
+  },
   async execute(params: RenderMermaidInput, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "render_mermaid",

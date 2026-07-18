@@ -222,6 +222,25 @@ const goalLintTool = createBuddyTool({
     goals: z.array(GoalSchema).min(1),
     explicitlyRequestedSingleGoal: z.boolean(),
   }),
+  presentation: {
+    archetype: "activity",
+    icon: "goal",
+    renderer: "generic",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Checking goals" },
+      running: { action: "Checking goals" },
+      completed: { action: "Checked goals" },
+      error: { action: "Failed to check goals" },
+    },
+    summary: {
+      category: "check-goals",
+      pending: "Checking goals",
+      running: "Checking goals",
+      completed: "Checked goals",
+      error: "Failed to check goals",
+    },
+  },
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "goal_lint",

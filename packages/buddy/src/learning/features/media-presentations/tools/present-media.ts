@@ -34,6 +34,18 @@ const presentMediaTool = createBuddyTool({
   description:
     "Present one or more existing local files to the learner inside Buddy's conversation UI. Use this after creating or finding a learner-facing file that should be shown now. Paths may be workspace-relative, absolute local paths, file:// URLs, or ~/ home-relative paths. Use one call with multiple items for related files and avoid temporary or intermediate outputs.",
   parameters: PresentMediaInputSchema,
+  presentation: {
+    archetype: "inline-output",
+    icon: "image",
+    renderer: "media",
+    layoutRole: "media-output",
+    phases: {
+      pending: { action: "Preparing media" },
+      running: { action: "Presenting media" },
+      completed: { action: "Presented media" },
+      error: { action: "Failed to present media" },
+    },
+  },
   async execute(params: PresentMediaInput, ctx) {
     const permissionPaths = params.items.map((item) =>
       normalizePresentedMediaPermissionPath(ctx.directory, item.path),

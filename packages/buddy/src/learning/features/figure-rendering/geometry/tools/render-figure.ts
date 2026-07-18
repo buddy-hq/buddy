@@ -77,6 +77,19 @@ const renderFigureTool = createBuddyTool({
   },
   description: RENDER_FIGURE_DESCRIPTION,
   parameters: RenderFigureInputSchema,
+  presentation: {
+    archetype: "inline-output",
+    icon: "image",
+    renderer: "figure",
+    layoutRole: "media-output",
+    collection: "figure-gallery",
+    phases: {
+      pending: { action: "Rendering figure" },
+      running: { action: "Rendering figure" },
+      completed: { action: "Rendered figure" },
+      error: { action: "Failed to render figure" },
+    },
+  },
   async execute(params: RenderFigureInput, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "render_figure",

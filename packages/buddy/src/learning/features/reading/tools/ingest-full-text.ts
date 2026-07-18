@@ -257,6 +257,41 @@ export const ingestFullTextTool = createBuddyTool({
   id: "ingest_full_text",
   description: RESOURCE_INGEST_FULL_TEXT_DESCRIPTION,
   parameters: ResourceIngestFullTextParameters,
+  presentation: {
+    archetype: "inline-output",
+    icon: "file",
+    renderer: "full-text",
+    layoutRole: "card-output",
+    collection: "full-text-collection",
+    phases: {
+      pending: {
+        action: "Loading full text",
+        detail: ({ input }) =>
+          typeof input.resourceKey === "string" ? input.resourceKey : undefined,
+      },
+      running: {
+        action: "Loading full text",
+        detail: ({ input }) =>
+          typeof input.resourceKey === "string" ? input.resourceKey : undefined,
+      },
+      completed: {
+        action: "Loaded full text",
+        detail: ({ input }) =>
+          typeof input.resourceKey === "string" ? input.resourceKey : undefined,
+      },
+      error: {
+        action: "Failed to load full text",
+        detail: ({ input }) =>
+          typeof input.resourceKey === "string" ? input.resourceKey : undefined,
+      },
+    },
+    resolveSilentOutcome: ({ phase, metadata }) =>
+      phase === "completed" &&
+      metadata.reason === INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL &&
+      metadata.fallback === INGEST_FULL_TEXT_FALLBACK_SCOPED_READING
+        ? "scoped-reading-fallback"
+        : undefined,
+  },
   output: {
     maxLines: FULL_TEXT_TOOL_MAX_OUTPUT_LINES,
     maxBytes: FULL_TEXT_TOOL_MAX_OUTPUT_BYTES,

@@ -114,6 +114,30 @@ const saveFlashcardDeckTool = createBuddyTool({
   },
   description: SAVE_FLASHCARD_DECK_DESCRIPTION,
   parameters: SaveFlashcardDeckInputSchema,
+  presentation: {
+    archetype: "inline-output",
+    icon: "book",
+    renderer: "flashcard-deck",
+    layoutRole: "card-output",
+    phases: {
+      pending: {
+        action: "Saving flashcard deck",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      running: {
+        action: "Saving flashcard deck",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      completed: {
+        action: "Saved flashcard deck",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      error: {
+        action: "Failed to save flashcard deck",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+    },
+  },
   async execute(params: SaveFlashcardDeckInput, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "save_flashcard_deck",

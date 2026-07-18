@@ -8,6 +8,25 @@ const goalStateTool = createBuddyTool({
   id: "goal_state",
   description: STATE_DESCRIPTION,
   parameters: z.object({}),
+  presentation: {
+    archetype: "activity",
+    icon: "goal",
+    renderer: "generic",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Reading goal state" },
+      running: { action: "Reading goal state" },
+      completed: { action: "Read goal state" },
+      error: { action: "Failed to read goal state" },
+    },
+    summary: {
+      category: "read-goal-state",
+      pending: "Reading goal state",
+      running: "Reading goal state",
+      completed: "Read goal state",
+      error: "Failed to read goal state",
+    },
+  },
   async execute(_params, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "goal_state",

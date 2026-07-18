@@ -8,6 +8,25 @@ const teachingCheckpointTool = createBuddyTool({
   id: "teaching_checkpoint",
   description: CHECKPOINT_DESCRIPTION,
   parameters: z.object({}),
+  presentation: {
+    archetype: "activity",
+    icon: "tool",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Saving lesson checkpoint" },
+      running: { action: "Saving lesson checkpoint" },
+      completed: { action: "Saved lesson checkpoint" },
+      error: { action: "Failed to save lesson checkpoint" },
+    },
+    summary: {
+      category: "save-lesson-checkpoint",
+      pending: "Saving lesson checkpoints",
+      running: "Saving lesson checkpoints",
+      completed: "Saved lesson checkpoints",
+      error: "Failed to save lesson checkpoints",
+    },
+  },
   constraints: {
     teachingWorkspace: "active",
   },

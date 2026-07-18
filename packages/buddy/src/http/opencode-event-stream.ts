@@ -1,6 +1,8 @@
 import path from "node:path"
+import type { EventMessagePartUpdated } from "@opencode-ai/sdk/v2"
 import { readWorkspaceFileWatcherUpdatePayload } from "@buddy/opencode-adapter/file-watcher"
-import { withToolUiOnUnknownPart } from "@buddy/opencode-adapter/session-tool-ui"
+import type { BuddyGlobalEvent } from "@buddy/opencode-adapter/global-event"
+import { withToolPresentationOnUnknownPart } from "@buddy/opencode-adapter/session-tool-presentation"
 
 const SSE_DATA_PREFIX = "data:"
 const SSE_FRAME_DELIMITER = "\n\n"
@@ -17,6 +19,24 @@ type BuddyEventStreamMultiplexer = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+type MessagePartUpdatedGlobalEvent = BuddyGlobalEvent & {
+  directory: string
+  payload: EventMessagePartUpdated
+}
+
+function isMessagePartUpdatedGlobalEvent(value: unknown): value is MessagePartUpdatedGlobalEvent {
+  if (!isRecord(value) || typeof value.directory !== "string") return false
+  const payload = value.payload
+  if (!isRecord(payload) || payload.type !== MESSAGE_PART_UPDATED) return false
+  if (typeof payload.id !== "string" || !isRecord(payload.properties)) return false
+
+  return (
+    typeof payload.properties.sessionID === "string" &&
+    typeof payload.properties.time === "number" &&
+    isRecord(payload.properties.part)
+  )
 }
 
 function readSseDataValue(line: string) {
@@ -72,15 +92,19 @@ function transformGlobalEventPayload(payload: unknown, directory: string): unkno
     }
   }
 
-  if (!isRecord(payload.payload) || payload.payload.type !== MESSAGE_PART_UPDATED) {
-    return payload
-  }
+  if (!isMessagePartUpdatedGlobalEvent(payload)) return payload
 
   return {
     ...payload,
     payload: {
       ...payload.payload,
-      part: withToolUiOnUnknownPart(payload.payload.part, directory),
+      properties: {
+        ...payload.payload.properties,
+        part: withToolPresentationOnUnknownPart(
+          payload.payload.properties.part,
+          payload.directory,
+        ),
+      },
     },
   }
 }

@@ -23,6 +23,41 @@ const teachingAddFileTool = createBuddyTool({
       .optional()
       .describe("Whether the new file should become the active editor file"),
   }),
+  presentation: {
+    archetype: "activity",
+    icon: "edit",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: {
+        action: "Adding",
+        detail: ({ input }) =>
+          typeof input.relativePath === "string" ? input.relativePath : undefined,
+      },
+      running: {
+        action: "Adding",
+        detail: ({ input }) =>
+          typeof input.relativePath === "string" ? input.relativePath : undefined,
+      },
+      completed: {
+        action: "Added",
+        detail: ({ input }) =>
+          typeof input.relativePath === "string" ? input.relativePath : undefined,
+      },
+      error: {
+        action: "Failed to add",
+        detail: ({ input }) =>
+          typeof input.relativePath === "string" ? input.relativePath : undefined,
+      },
+    },
+    summary: {
+      category: "add-lesson-files",
+      pending: "Adding lesson files",
+      running: "Adding lesson files",
+      completed: "Added lesson files",
+      error: "Failed to add lesson files",
+    },
+  },
   constraints: {
     teachingWorkspace: "active",
   },

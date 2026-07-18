@@ -11,6 +11,25 @@ const teachingSetLessonTool = createBuddyTool({
   parameters: z.object({
     content: z.string().describe("The full lesson content to place into the active editor file"),
   }),
+  presentation: {
+    archetype: "activity",
+    icon: "edit",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Updating lesson" },
+      running: { action: "Updating lesson" },
+      completed: { action: "Updated lesson" },
+      error: { action: "Failed to update lesson" },
+    },
+    summary: {
+      category: "update-lesson",
+      pending: "Updating lesson",
+      running: "Updating lesson",
+      completed: "Updated lesson",
+      error: "Failed to update lesson",
+    },
+  },
   constraints: {
     teachingWorkspace: "active",
   },

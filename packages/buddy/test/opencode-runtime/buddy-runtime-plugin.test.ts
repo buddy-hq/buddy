@@ -45,6 +45,11 @@ describe("Buddy runtime plugin", () => {
     expect(toolIDs).toContain("render_mermaid")
     expect(toolIDs).toContain("render_figure")
     expect(toolIDs).toContain("learning_tool_search")
+
+    const toolsWithoutPresentation = toolIDs.filter(
+      (toolID) => !ToolRegistry.getToolPresentationDescriptor(toolID, project.path),
+    )
+    expect(toolsWithoutPresentation).toEqual([])
   }, 30_000)
 
   test("Buddy tools load through the plugin path without registerBuddyTools", async () => {

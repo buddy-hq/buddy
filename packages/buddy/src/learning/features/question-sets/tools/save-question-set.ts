@@ -106,6 +106,30 @@ const saveQuestionSetTool = createBuddyTool({
   },
   description: SAVE_QUESTION_SET_DESCRIPTION,
   parameters: SaveQuestionSetInputSchema,
+  presentation: {
+    archetype: "inline-output",
+    icon: "book",
+    renderer: "question-set",
+    layoutRole: "card-output",
+    phases: {
+      pending: {
+        action: "Saving question set",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      running: {
+        action: "Saving question set",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      completed: {
+        action: "Saved question set",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      error: {
+        action: "Failed to save question set",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+    },
+  },
   async execute(params: SaveQuestionSetInput, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "save_question_set",

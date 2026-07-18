@@ -18,6 +18,25 @@ const goalCommitTool = createBuddyTool({
     assumptions: z.array(z.string()).optional(),
     openQuestions: z.array(z.string()).optional(),
   }),
+  presentation: {
+    archetype: "activity",
+    icon: "goal",
+    renderer: "generic",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Saving goals" },
+      running: { action: "Saving goals" },
+      completed: { action: "Saved goals" },
+      error: { action: "Failed to save goals" },
+    },
+    summary: {
+      category: "save-goals",
+      pending: "Saving goals",
+      running: "Saving goals",
+      completed: "Saved goals",
+      error: "Failed to save goals",
+    },
+  },
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "goal_commit",

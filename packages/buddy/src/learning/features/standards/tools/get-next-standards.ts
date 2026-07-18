@@ -7,6 +7,25 @@ export const getNextStandardsTool = createBuddyTool({
   id: "get_next_standards",
   description: GET_NEXT_STANDARDS_DESCRIPTION,
   parameters: progressionParameters,
+  presentation: {
+    archetype: "activity",
+    icon: "network",
+    renderer: "knowledge-graph",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Reading next standards" },
+      running: { action: "Reading next standards" },
+      completed: { action: "Read next standards" },
+      error: { action: "Failed to read next standards" },
+    },
+    summary: {
+      category: "read-next-standards",
+      pending: "Reading next standards",
+      running: "Reading next standards",
+      completed: "Read next standards",
+      error: "Failed to read next standards",
+    },
+  },
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "get_next_standards",

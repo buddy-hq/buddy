@@ -1,7 +1,11 @@
 import REFLECTION_DESCRIPTION from "./reflection.md"
 import z from "zod"
 import { type PedagogyToolContext, type PedagogyToolParams } from "./orchestration/contracts"
-import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
+import {
+  createBuddyTool,
+  type BuddyToolContext,
+  type ToolPresentationDescriptor,
+} from "../../../runtime/create-buddy-tool"
 
 const DYNAMIC_REFLECTION_TOOL_ID = "reflection_dynamic" as const
 
@@ -115,10 +119,31 @@ async function executeReflectionTool(
   }
 }
 
+const reflectionPresentation = {
+  archetype: "activity",
+  icon: "tool",
+  renderer: "buddy-custom",
+  layoutRole: "activity",
+  phases: {
+    pending: { action: "Preparing reflection" },
+    running: { action: "Preparing reflection" },
+    completed: { action: "Prepared reflection" },
+    error: { action: "Failed to prepare reflection" },
+  },
+  summary: {
+    category: "prepare-reflection",
+    pending: "Preparing reflection",
+    running: "Preparing reflection",
+    completed: "Prepared reflection",
+    error: "Failed to prepare reflection",
+  },
+} satisfies ToolPresentationDescriptor
+
 export const reflectionTool = createBuddyTool({
   id: "reflection",
   description: REFLECTION_DESCRIPTION,
   parameters: PedagogyToolParameters,
+  presentation: reflectionPresentation,
   async execute(params, ctx) {
     return executeReflectionTool("reflection", params, ctx)
   },
@@ -128,6 +153,7 @@ export const dynamicReflectionTool = createBuddyTool({
   id: DYNAMIC_REFLECTION_TOOL_ID,
   description: REFLECTION_DESCRIPTION,
   parameters: PedagogyToolParameters,
+  presentation: reflectionPresentation,
   dynamic: {
     title: "Pedagogy reflection",
     useCase: "reflection",

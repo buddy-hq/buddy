@@ -4,7 +4,11 @@ import {
   type PedagogyToolContext,
   type PedagogyToolParams,
 } from "../../teaching-guidance/tools/orchestration/contracts"
-import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
+import {
+  createBuddyTool,
+  type BuddyToolContext,
+  type ToolPresentationDescriptor,
+} from "../../../runtime/create-buddy-tool"
 
 const DYNAMIC_DEBUG_ATTEMPT_TOOL_ID = "debug_attempt_dynamic" as const
 
@@ -123,10 +127,31 @@ async function executeDebugAttemptTool(
   }
 }
 
+const debugAttemptPresentation = {
+  archetype: "activity",
+  icon: "tool",
+  renderer: "buddy-custom",
+  layoutRole: "activity",
+  phases: {
+    pending: { action: "Preparing debugging guidance" },
+    running: { action: "Preparing debugging guidance" },
+    completed: { action: "Prepared debugging guidance" },
+    error: { action: "Failed to prepare debugging guidance" },
+  },
+  summary: {
+    category: "prepare-debugging-guidance",
+    pending: "Preparing debugging guidance",
+    running: "Preparing debugging guidance",
+    completed: "Prepared debugging guidance",
+    error: "Failed to prepare debugging guidance",
+  },
+} satisfies ToolPresentationDescriptor
+
 export const debugAttemptTool = createBuddyTool({
   id: "debug_attempt",
   description: DEBUG_ATTEMPT_DESCRIPTION,
   parameters: PedagogyToolParameters,
+  presentation: debugAttemptPresentation,
   constraints: {
     teachingWorkspace: "active",
   },
@@ -139,6 +164,7 @@ export const dynamicDebugAttemptTool = createBuddyTool({
   id: DYNAMIC_DEBUG_ATTEMPT_TOOL_ID,
   description: DEBUG_ATTEMPT_DESCRIPTION,
   parameters: PedagogyToolParameters,
+  presentation: debugAttemptPresentation,
   constraints: {
     teachingWorkspace: "active",
   },

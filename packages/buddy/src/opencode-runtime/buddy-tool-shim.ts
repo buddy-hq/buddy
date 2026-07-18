@@ -6,6 +6,7 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Tool } from "@buddy/opencode-adapter/tool"
 import z from "zod"
 import type { BuddyTool, BuddyToolContext } from "../learning/runtime/create-buddy-tool"
+import { ensureBuddyToolPresentationCatalog } from "./buddy-tool-presentation-catalog"
 import { runCompatiblePluginAskResult } from "./plugin-ask-compat"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -132,14 +133,8 @@ async function loadAllBuddyPluginSourceTools(): Promise<BuddyTool[]> {
   return [...featureTools, ...dynamicTools]
 }
 
-export async function registerBuddyToolUiCatalog(directory: string) {
+export async function registerBuddyToolPresentationCatalog(directory: string) {
   const sourceTools = await loadAllBuddyPluginSourceTools()
-  const uiRegistrations = sourceTools.map((tool) => {
-    if (!tool.ui) {
-      return { id: tool.id }
-    }
-    return { id: tool.id, toolUi: tool.ui }
-  })
   const outputPolicyRegistrations = sourceTools.map((tool) => {
     if (!tool.output) {
       return { id: tool.id }
@@ -153,7 +148,7 @@ export async function registerBuddyToolUiCatalog(directory: string) {
     return { id: tool.id, jsonSchema: tool.jsonSchema }
   })
 
-  ToolRegistry.registerToolUiCatalog(directory, uiRegistrations)
+  await ensureBuddyToolPresentationCatalog(directory)
   ToolRegistry.registerToolOutputPolicyCatalog(directory, outputPolicyRegistrations)
   ToolRegistry.registerToolJsonSchemaCatalog(directory, schemaRegistrations)
 }

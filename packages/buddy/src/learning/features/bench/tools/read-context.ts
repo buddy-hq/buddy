@@ -10,11 +10,23 @@ const benchReadContextTool = createBuddyTool({
   description:
     "Read the current model-visible Bench context. Returns status closed when Bench is closed; otherwise returns the loaded Bench target, drawer state, machine refs, metadata, and a model-readable context dump. If Explorer or Library is open as a drawer, the target remains loaded on Bench while that drawer is over it.",
   parameters: BenchReadContextInputSchema,
-  ui: {
-    presentation: "hidden-summary",
-    labels: {
+  presentation: {
+    archetype: "activity",
+    icon: "read",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Reading Bench" },
+      running: { action: "Reading Bench" },
+      completed: { action: "Read Bench" },
+      error: { action: "Failed to read Bench" },
+    },
+    summary: {
+      category: "read-bench",
+      pending: "Reading Bench",
       running: "Reading Bench",
-      idle: "Read Bench",
+      completed: "Read Bench",
+      error: "Failed to read Bench",
     },
   },
   async execute(_params, ctx) {

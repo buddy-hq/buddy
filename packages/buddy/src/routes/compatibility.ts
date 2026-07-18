@@ -29,6 +29,7 @@ import {
   openCodeDirectoryParams,
 } from "../http"
 import { getOpenCodeClient } from "../opencode-runtime/client"
+import { ensureBuddyToolPresentationCatalog } from "../opencode-runtime/buddy-tool-presentation-catalog"
 import { fetchInProcessOpenCode } from "../opencode-runtime/in-process-fetch"
 import {
   mapProjectTextFileEditorError,
@@ -152,6 +153,8 @@ export const CompatibilityRoutes = new Hono()
       const directoryContext = resolveDirectoryRequestContext(c)
       if (!directoryContext.ok) return directoryContext.response
       const eventQuery = c.req.valid("query")
+
+      await ensureBuddyToolPresentationCatalog(directoryContext.context.directory)
 
       const query = new URLSearchParams()
       query.set("directory", directoryContext.context.directory)

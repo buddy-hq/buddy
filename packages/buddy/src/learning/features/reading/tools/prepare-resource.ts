@@ -240,6 +240,41 @@ export const prepareResourceTool = createBuddyTool({
   },
   description: PREPARE_RESOURCE_DESCRIPTION,
   parameters: ResourcePrepareParameters,
+  presentation: {
+    archetype: "activity",
+    icon: "read",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: {
+        action: "Preparing resource",
+        detail: ({ input }) =>
+          typeof input.sourcePath === "string" ? path.basename(input.sourcePath) : undefined,
+      },
+      running: {
+        action: "Preparing resource",
+        detail: ({ input }) =>
+          typeof input.sourcePath === "string" ? path.basename(input.sourcePath) : undefined,
+      },
+      completed: {
+        action: "Prepared resource",
+        detail: ({ input }) =>
+          typeof input.sourcePath === "string" ? path.basename(input.sourcePath) : undefined,
+      },
+      error: {
+        action: "Failed to prepare resource",
+        detail: ({ input }) =>
+          typeof input.sourcePath === "string" ? path.basename(input.sourcePath) : undefined,
+      },
+    },
+    summary: {
+      category: "prepare-resources",
+      pending: "Preparing resources",
+      running: "Preparing resources",
+      completed: "Prepared resources",
+      error: "Failed to prepare resources",
+    },
+  },
   async execute(params, ctx) {
     const sourcePath = await authorizeFileReadPath(
       resolveResourceSourcePath(ctx.directory, params.sourcePath),

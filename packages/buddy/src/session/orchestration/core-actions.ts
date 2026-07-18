@@ -4,13 +4,14 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import type { PermissionRuleset } from "@buddy/opencode-adapter/permission"
-import { withToolUiOnMessages } from "@buddy/opencode-adapter/session-tool-ui"
+import { withToolPresentationOnMessages } from "@buddy/opencode-adapter/session-tool-presentation"
 import { ensureAllowedDirectory } from "../../http"
 import { sdkErrorResponse } from "../../http/sdk-response"
 import { withConfigSync } from "../../http/route-helpers"
 import { runLearnerMemoryStartupPipeline } from "../../learning/features/memory"
 import { clearDynamicLearningToolsForEndedSession } from "../../learning/runtime/dynamic-tool-grants"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
+import { ensureBuddyToolPresentationCatalog } from "../../opencode-runtime/buddy-tool-presentation-catalog"
 import { resolveDirectory } from "../../project"
 import {
   ensureRuntimeSessionExists,
@@ -430,6 +431,8 @@ export async function listSessionMessages(c: Context): Promise<Response> {
       return c.json({ error: SESSION_NOT_FOUND_ERROR }, NOT_FOUND_STATUS)
     }
 
+    await ensureBuddyToolPresentationCatalog(directoryResult.directory)
+
     const runtimeSessionID = SessionID.make(session.id)
     const payload = await OpenCodeInstance.provide({
       directory: directoryResult.directory,
@@ -459,7 +462,7 @@ export async function listSessionMessages(c: Context): Promise<Response> {
       c.header(NEXT_CURSOR_HEADER, payload.cursor)
     }
 
-    return c.json(withToolUiOnMessages(payload.items, directoryResult.directory))
+    return c.json(withToolPresentationOnMessages(payload.items, directoryResult.directory))
   } catch (error) {
     return runtimeSessionLookupErrorResponse(error)
   }

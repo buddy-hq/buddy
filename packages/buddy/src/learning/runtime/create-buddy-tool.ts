@@ -1,7 +1,10 @@
 import { Effect, Schema } from "effect"
 import z from "zod"
 import { Tool, type ToolRuntimeServices } from "@buddy/opencode-adapter/tool"
-import { cloneToolUiMetadata, type ToolUiMetadata } from "@buddy/opencode-adapter/tool-ui-metadata"
+import {
+  cloneToolPresentationDescriptor,
+  type ToolPresentationDescriptor,
+} from "@buddy/opencode-adapter/tool-presentation"
 import { withCurrentInstance } from "@buddy/opencode-adapter/effect-runtime"
 import {
   ACTIVE_TEACHING_WORKSPACE,
@@ -43,7 +46,7 @@ type BuddyToolDefinition<
   formatValidationError?(error: z.ZodError): string
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
-  ui?: ToolUiMetadata
+  presentation: ToolPresentationDescriptor
   output?: BuddyToolOutputPolicy
   produces?: BuddyToolProducesPolicy
 }
@@ -68,7 +71,7 @@ type BuddyTool<
   jsonSchema?: NonNullable<Tool.Def["jsonSchema"]>
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
-  ui?: ToolUiMetadata
+  presentation: ToolPresentationDescriptor
   output?: BuddyToolOutputPolicy
   run(rawArgs: unknown, ctx: BuddyToolContext<Metadata>): Promise<Tool.ExecuteResult<Metadata>>
   toTool(directory: string): Effect.Effect<
@@ -248,7 +251,7 @@ function createBuddyTool<
 >(definition: BuddyToolDefinition<Id, Parameters, Metadata>): BuddyTool<Id, Parameters, Metadata> {
   const clonedConstraints = cloneConstraints(definition.constraints)
   const clonedDynamic = cloneDynamicMetadata(definition.dynamic)
-  const clonedUi = normalizeToolUiMetadata(definition)
+  const presentation = cloneToolPresentationDescriptor(definition.presentation)
   const clonedOutput = cloneOutputPolicy(definition.output)
   const jsonSchema = toToolJsonSchema(definition.id, definition.parameters)
 
@@ -258,8 +261,8 @@ function createBuddyTool<
     parameters: definition.parameters,
     jsonSchema,
     constraints: clonedConstraints,
+    presentation,
     ...(clonedDynamic ? { dynamic: clonedDynamic } : {}),
-    ...(clonedUi ? { ui: clonedUi } : {}),
     ...(clonedOutput ? { output: clonedOutput } : {}),
     run(rawArgs, ctx) {
       return runBuddyTool(definition, rawArgs, ctx)
@@ -322,28 +325,9 @@ function cloneDynamicMetadata(
   }
 }
 
-function normalizeToolUiMetadata(
-  definition: BuddyToolDefinition<string, z.ZodType, Record<string, unknown>>,
-): ToolUiMetadata | undefined {
-  const presentation =
-    definition.ui?.presentation ?? (definition.dynamic ? "hidden-summary" : undefined)
-  const labels =
-    definition.ui?.labels ??
-    (definition.dynamic?.title
-      ? {
-          idle: definition.dynamic.title,
-        }
-      : undefined)
-
-  if (!presentation && !labels?.idle && !labels?.running) return undefined
-  return cloneToolUiMetadata({ presentation, labels })
-}
-
 export { createBuddyTool }
 export { ACTIVE_TEACHING_WORKSPACE, ADVANCED_MATH_RUNTIME, STANDARDS_RUNTIME }
 
-export { normalizeToolUiMetadata }
-
 export type { BuddyTool, BuddyToolConstraints, BuddyToolContext, BuddyToolDefinition }
 export type { BuddyToolRuntimeDependency }
-export type { ToolUiMetadata }
+export type { ToolPresentationDescriptor }

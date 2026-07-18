@@ -1,5 +1,6 @@
 import fs from "node:fs/promises"
 import path from "node:path"
+import type { ToolPresentationResolutionContext } from "@buddy/opencode-adapter/tool-presentation"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import z from "zod"
 import {
@@ -1115,6 +1116,47 @@ function buildBenchPresentToolMetadata(input: {
   })
 }
 
+function readPresentationString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined
+  const normalized = value.trim()
+  return normalized ? normalized : undefined
+}
+
+function isPresentationRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function resolveBenchPresentationTarget(
+  context: ToolPresentationResolutionContext,
+): string | undefined {
+  const benchTarget = context.metadata.benchTarget
+  if (isPresentationRecord(benchTarget)) {
+    if (benchTarget.type === "workspace-file") {
+      const targetPath = readPresentationString(benchTarget.path)
+      if (targetPath) return path.basename(targetPath)
+    }
+    if (benchTarget.type === "object" && isPresentationRecord(benchTarget.ref)) {
+      const objectID = readPresentationString(benchTarget.ref.objectID)
+      if (objectID) return objectID
+    }
+  }
+
+  const requestedPath = readPresentationString(context.input.path)
+  if (requestedPath) return path.basename(requestedPath)
+  return (
+    readPresentationString(context.input.resourceKey) ??
+    readPresentationString(context.input.objectID) ??
+    (context.input.action === "present_whiteboard" ? "Whiteboard" : undefined)
+  )
+}
+
+function resolveBenchPresentationDetail(
+  context: ToolPresentationResolutionContext,
+): string {
+  const target = resolveBenchPresentationTarget(context)
+  return target ? `${target} on Bench` : "on Bench"
+}
+
 const benchPresentTool = createBuddyTool({
   id: "bench_present",
   description: [
@@ -1129,11 +1171,23 @@ const benchPresentTool = createBuddyTool({
   parameters: BenchPresentInputSchema,
   normalizeInput: normalizeBenchPresentInput,
   formatValidationError: formatBenchPresentValidationError,
-  ui: {
-    presentation: "hidden-summary",
-    labels: {
+  presentation: {
+    archetype: "activity",
+    icon: "presentation",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Preparing to present" },
+      running: { action: "Presenting", detail: resolveBenchPresentationDetail },
+      completed: { action: "Presented", detail: resolveBenchPresentationDetail },
+      error: { action: "Failed to present", detail: resolveBenchPresentationDetail },
+    },
+    summary: {
+      category: "present-on-bench",
+      pending: "Preparing to present on Bench",
       running: "Presenting on Bench",
-      idle: "Presented on Bench",
+      completed: "Presented on Bench",
+      error: "Failed to present on Bench",
     },
   },
   async execute(params, ctx) {

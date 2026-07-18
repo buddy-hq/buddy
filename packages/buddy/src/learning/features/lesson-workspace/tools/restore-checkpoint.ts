@@ -8,6 +8,25 @@ const teachingRestoreCheckpointTool = createBuddyTool({
   id: "teaching_restore_checkpoint",
   description: RESTORE_CHECKPOINT_DESCRIPTION,
   parameters: z.object({}),
+  presentation: {
+    archetype: "activity",
+    icon: "tool",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Restoring lesson checkpoint" },
+      running: { action: "Restoring lesson checkpoint" },
+      completed: { action: "Restored lesson checkpoint" },
+      error: { action: "Failed to restore lesson checkpoint" },
+    },
+    summary: {
+      category: "restore-lesson-checkpoint",
+      pending: "Restoring lesson checkpoints",
+      running: "Restoring lesson checkpoints",
+      completed: "Restored lesson checkpoints",
+      error: "Failed to restore lesson checkpoints",
+    },
+  },
   constraints: {
     teachingWorkspace: "active",
   },

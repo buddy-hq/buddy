@@ -7,6 +7,25 @@ export const queryStandardsSqlTool = createBuddyTool({
   id: "query_standards_sql",
   description: QUERY_STANDARDS_SQL_DESCRIPTION,
   parameters: sqlQueryParameters,
+  presentation: {
+    archetype: "activity",
+    icon: "network",
+    renderer: "knowledge-graph",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Querying standards" },
+      running: { action: "Querying standards" },
+      completed: { action: "Queried standards" },
+      error: { action: "Failed to query standards" },
+    },
+    summary: {
+      category: "query-standards",
+      pending: "Querying standards",
+      running: "Querying standards",
+      completed: "Queried standards",
+      error: "Failed to query standards",
+    },
+  },
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "query_standards_sql",

@@ -7,6 +7,37 @@ export const searchStandardsTool = createBuddyTool({
   id: "search_standards",
   description: SEARCH_STANDARDS_DESCRIPTION,
   parameters: searchStandardsParameters,
+  presentation: {
+    archetype: "activity",
+    icon: "network",
+    renderer: "knowledge-graph",
+    layoutRole: "activity",
+    phases: {
+      pending: {
+        action: "Searching standards",
+        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+      },
+      running: {
+        action: "Searching standards",
+        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+      },
+      completed: {
+        action: "Searched standards",
+        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+      },
+      error: {
+        action: "Failed to search standards",
+        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+      },
+    },
+    summary: {
+      category: "search-standards",
+      pending: "Searching standards",
+      running: "Searching standards",
+      completed: "Searched standards",
+      error: "Failed to search standards",
+    },
+  },
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "search_standards",

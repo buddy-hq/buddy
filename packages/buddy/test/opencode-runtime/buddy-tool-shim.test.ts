@@ -7,15 +7,18 @@ import z from "zod"
 import { loadOpenCodeApp } from "../../src/opencode-runtime"
 import { createBuddyTool, type BuddyTool } from "../../src/learning/runtime/create-buddy-tool"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
+import { defineToolPresentation } from "@buddy/opencode-adapter/tool-presentation"
 import {
   allBuddyPluginTools,
   buddyToolToPluginTool,
-  registerBuddyToolUiCatalog,
+  registerBuddyToolPresentationCatalog,
 } from "../../src/opencode-runtime/buddy-tool-shim"
 import { createCompatiblePluginAskHandler } from "../../src/opencode-runtime/plugin-ask-compat"
 import { getDynamicToolSearchTools } from "../../src/learning/runtime/dynamic-tool-discovery"
 import { allBuddyTools } from "../../src/learning/runtime/feature-registry"
 import { tmpdir } from "../helpers/tmpdir"
+
+const TEST_TOOL_PRESENTATION = defineToolPresentation({ archetype: "silent" })
 
 afterEach(async () => {
   await OpenCodeInstance.disposeAll()
@@ -87,26 +90,25 @@ describe("buddyToolToPluginTool shim", () => {
     expect(toolMap.save_flashcard_deck).toBeDefined()
   })
 
-  test("registerBuddyToolUiCatalog restores session tool UI metadata lookup", async () => {
+  test("registers every Buddy tool presentation in the session catalog", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerBuddyToolUiCatalog(project.path)
+    await registerBuddyToolPresentationCatalog(project.path)
 
     const memorySearch = allBuddyTools().find((tool) => tool.id === "learner_memory_search")
-    expect(memorySearch?.ui?.presentation).toBe("hidden-summary")
+    expect(memorySearch?.presentation.archetype).toBe("activity")
 
-    expect(ToolRegistry.getToolUiMetadata("learner_memory_search", project.path)).toEqual(
-      memorySearch?.ui,
+    expect(ToolRegistry.getToolPresentationDescriptor("learner_memory_search", project.path)).toEqual(
+      memorySearch?.presentation,
     )
 
     const dynamicSearch = getDynamicToolSearchTools().find(
       (tool) => tool.id === "learning_tool_search",
     )
-    expect(ToolRegistry.getToolUiMetadata("learning_tool_search", project.path)?.presentation).toBe(
-      "hidden-summary",
-    )
-    expect(ToolRegistry.getToolUiMetadata("learning_tool_search", project.path)?.labels?.idle).toBe(
-      dynamicSearch?.ui?.labels?.idle,
+    expect(
+      ToolRegistry.getToolPresentationDescriptor("learning_tool_search", project.path),
+    ).toEqual(
+      dynamicSearch?.presentation,
     )
   })
 
@@ -114,6 +116,7 @@ describe("buddyToolToPluginTool shim", () => {
     const tool = createBuddyTool({
       id: "test_tool",
       description: "A test tool",
+      presentation: TEST_TOOL_PRESENTATION,
       parameters: z.object({
         input: z.string(),
         count: z.number(),
@@ -140,6 +143,7 @@ describe("buddyToolToPluginTool shim", () => {
     const tool: BuddyTool = {
       id: "string_tool",
       description: "Takes a string",
+      presentation: TEST_TOOL_PRESENTATION,
       parameters,
       async run(rawArgs) {
         const parsed = parameters.safeParse(rawArgs)
@@ -167,6 +171,7 @@ describe("buddyToolToPluginTool shim", () => {
     const tool = createBuddyTool({
       id: "exec_test",
       description: "Execution test",
+      presentation: TEST_TOOL_PRESENTATION,
       parameters: z.object({ name: z.string() }),
       async execute(args, _ctx) {
         return {
@@ -206,6 +211,7 @@ describe("buddyToolToPluginTool shim", () => {
     const tool = createBuddyTool({
       id: "ask_test",
       description: "Ask test",
+      presentation: TEST_TOOL_PRESENTATION,
       parameters: z.object({}),
       async execute(_args, ctx) {
         await ctx.ask({
@@ -253,6 +259,7 @@ describe("buddyToolToPluginTool shim", () => {
     const tool = createBuddyTool({
       id: "meta_test",
       description: "Metadata test",
+      presentation: TEST_TOOL_PRESENTATION,
       parameters: z.object({}),
       async execute(_args, ctx) {
         await ctx.metadata({ title: "working", metadata: { phase: 1 } })
@@ -289,6 +296,7 @@ describe("buddyToolToPluginTool shim", () => {
     const tool = createBuddyTool({
       id: "attachment_test",
       description: "Attachment passthrough test",
+      presentation: TEST_TOOL_PRESENTATION,
       parameters: z.object({}),
       async execute() {
         return {
@@ -341,6 +349,7 @@ describe("buddyToolToPluginTool shim", () => {
     const tool = createBuddyTool({
       id: "messages_forward_test",
       description: "Verifies plugin shim forwards session history",
+      presentation: TEST_TOOL_PRESENTATION,
       parameters: z.object({}),
       async execute(_args, ctx) {
         if (ctx.messages.length === 0) {

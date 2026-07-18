@@ -1,43 +1,45 @@
 import { describe, expect, test } from "bun:test"
 import {
-  stripBuddyToolUi,
-  stripToolUiFromMessages,
-  stripToolUiFromModelMessages,
-} from "../../src/opencode-runtime/tool-ui-strip"
+  stripBuddyToolPresentation,
+  stripToolPresentationFromMessages,
+  stripToolPresentationFromModelMessages,
+} from "../../src/opencode-runtime/tool-presentation-strip"
 
-describe("tool-ui-strip", () => {
-  test("stripBuddyToolUi removes buddy.toolUi and collapses empty buddy", () => {
+describe("tool-presentation-strip", () => {
+  test("removes buddy.presentation and collapses empty buddy metadata", () => {
     expect(
-      stripBuddyToolUi({
-        buddy: { toolUi: { presentation: "hidden-summary" } },
+      stripBuddyToolPresentation({
+        buddy: { presentation: { archetype: "activity" } },
         other: 1,
       }),
     ).toEqual({ other: 1 })
 
-    expect(stripBuddyToolUi({ buddy: { toolUi: { presentation: "default" } } })).toBeUndefined()
+    expect(
+      stripBuddyToolPresentation({ buddy: { presentation: { archetype: "activity" } } }),
+    ).toBeUndefined()
   })
 
-  test("stripBuddyToolUi keeps other buddy fields", () => {
+  test("keeps other buddy fields", () => {
     expect(
-      stripBuddyToolUi({
-        buddy: { toolUi: { presentation: "default" }, other: "x" },
+      stripBuddyToolPresentation({
+        buddy: { presentation: { archetype: "activity" }, other: "x" },
       }),
     ).toEqual({ buddy: { other: "x" } })
   })
 
-  test("stripToolUiFromMessages strips tool part metadata and state metadata", () => {
+  test("strips tool-part and state presentation metadata", () => {
     const messages = [
       {
         parts: [
           {
             type: "tool" as const,
             metadata: {
-              buddy: { toolUi: { presentation: "hidden-summary" as const } },
+              buddy: { presentation: { archetype: "activity" } },
             },
             state: {
               status: "completed",
               metadata: {
-                buddy: { toolUi: { labels: { idle: "Idle" } } },
+                buddy: { presentation: { archetype: "activity" } },
               },
             },
           },
@@ -45,7 +47,7 @@ describe("tool-ui-strip", () => {
       },
     ]
 
-    stripToolUiFromMessages(messages)
+    stripToolPresentationFromMessages(messages)
 
     const part = messages[0]?.parts[0]
     expect(part?.type).toBe("tool")
@@ -56,21 +58,21 @@ describe("tool-ui-strip", () => {
     expect(part.state.metadata?.buddy).toBeUndefined()
   })
 
-  test("stripToolUiFromModelMessages removes toolUi from provider metadata nodes", () => {
+  test("strips presentation from provider metadata nodes", () => {
     const messages = [
       {
         role: "assistant" as const,
         parts: [
           {
             callProviderMetadata: {
-              buddy: { toolUi: { presentation: "hidden-summary" as const } },
+              buddy: { presentation: { archetype: "activity" } },
             },
           },
         ],
       },
     ]
 
-    const stripped = stripToolUiFromModelMessages(messages)
+    const stripped = stripToolPresentationFromModelMessages(messages)
     const part = stripped[0]?.parts[0]
     expect(part).toBeDefined()
     if (!part || typeof part !== "object") {

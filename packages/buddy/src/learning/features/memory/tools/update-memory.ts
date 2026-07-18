@@ -109,10 +109,23 @@ const learnerMemoryUpdateTool = createBuddyTool({
   description:
     "Update Buddy's memory only when the learner explicitly asks Buddy to remember, correct, forget, or reject learner context. Do not use this for inferred memories; background extraction handles inference.",
   parameters: LearnerMemoryUpdateInputSchema,
-  ui: {
-    presentation: "hidden-summary",
-    labels: {
-      idle: "Update memory",
+  presentation: {
+    archetype: "activity",
+    icon: "memory",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Updating memory" },
+      running: { action: "Updating memory" },
+      completed: { action: "Updated memory" },
+      error: { action: "Failed to update memory" },
+    },
+    summary: {
+      category: "update-memory",
+      pending: "Updating memory",
+      running: "Updating memory",
+      completed: "Updated memory",
+      error: "Failed to update memory",
     },
   },
   async execute(params, ctx) {

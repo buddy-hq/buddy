@@ -80,6 +80,41 @@ const renderSvgTool = createBuddyTool({
   id: "render_svg",
   description: RENDER_SVG_DESCRIPTION,
   parameters: RenderSvgInputSchema,
+  presentation: {
+    archetype: "activity",
+    icon: "diagram",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: {
+        action: "Rendering SVG",
+        detail: ({ input }) =>
+          typeof input.filePath === "string" ? path.basename(input.filePath) : undefined,
+      },
+      running: {
+        action: "Rendering SVG",
+        detail: ({ input }) =>
+          typeof input.filePath === "string" ? path.basename(input.filePath) : undefined,
+      },
+      completed: {
+        action: "Rendered SVG",
+        detail: ({ input }) =>
+          typeof input.filePath === "string" ? path.basename(input.filePath) : undefined,
+      },
+      error: {
+        action: "Failed to render SVG",
+        detail: ({ input }) =>
+          typeof input.filePath === "string" ? path.basename(input.filePath) : undefined,
+      },
+    },
+    summary: {
+      category: "render-svg",
+      pending: "Rendering SVGs",
+      running: "Rendering SVGs",
+      completed: "Rendered SVGs",
+      error: "Failed to render SVGs",
+    },
+  },
   output: {
     maxLines: RENDER_SVG_OUTPUT_MAX_LINES,
     maxBytes: RENDER_SVG_OUTPUT_MAX_BYTES,

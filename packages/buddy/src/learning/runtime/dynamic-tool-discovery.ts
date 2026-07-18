@@ -17,7 +17,6 @@ const NO_EXPOSED_TOOLS_OUTPUT =
   "No dynamic learning tools were exposed. Call `learning_tool_search` first, then pass exact returned tool IDs to `learning_tool_load`."
 const DYNAMIC_LEARNING_TOOL_SOURCE_DESCRIPTION =
   "- Dynamic tools: Buddy learning tools provided by the current session."
-const HIDDEN_SUMMARY_PRESENTATION = "hidden-summary" as const
 const MAX_DYNAMIC_TOOL_MATCHES_TO_REGISTER = 3
 
 const DynamicLearningToolSearchParameters = z.object({
@@ -206,11 +205,35 @@ function createLearningToolSearchTool(): BuddyTool {
       "For Buddy pedagogy, search by capability, exact dynamic tool ID, or teaching need. Examples: `reflection metacognition misconception repair`, `debug failed attempt`, `stepwise solve guided hint`.",
     ].join("\n"),
     parameters: DynamicLearningToolSearchParameters,
-    ui: {
-      presentation: HIDDEN_SUMMARY_PRESENTATION,
-      labels: {
-        idle: "Search learning tools",
+    presentation: {
+      archetype: "activity",
+      icon: "search",
+      renderer: "generic",
+      layoutRole: "activity",
+      phases: {
+        pending: {
+          action: "Searching learning tools",
+          detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        },
+        running: {
+          action: "Searching learning tools",
+          detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        },
+        completed: {
+          action: "Searched learning tools",
+          detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        },
+        error: {
+          action: "Failed to search learning tools",
+          detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        },
+      },
+      summary: {
+        category: "search-learning-tools",
+        pending: "Searching learning tools",
         running: "Searching learning tools",
+        completed: "Searched learning tools",
+        error: "Failed to search learning tools",
       },
     },
     async execute(params, ctx) {
@@ -268,11 +291,23 @@ function createLearningToolLoadTool(): BuddyTool {
       "Use this after `learning_tool_search` when a dynamic learning tool is not already loaded. Pass exact tool IDs from the most recent search result. This tool grants session-scoped access; it does not execute the loaded dynamic tools.",
     ].join("\n"),
     parameters: DynamicLearningToolLoadParameters,
-    ui: {
-      presentation: HIDDEN_SUMMARY_PRESENTATION,
-      labels: {
-        idle: "Load learning tools",
+    presentation: {
+      archetype: "activity",
+      icon: "tool",
+      renderer: "generic",
+      layoutRole: "activity",
+      phases: {
+        pending: { action: "Loading learning tools" },
+        running: { action: "Loading learning tools" },
+        completed: { action: "Loaded learning tools" },
+        error: { action: "Failed to load learning tools" },
+      },
+      summary: {
+        category: "load-learning-tools",
+        pending: "Loading learning tools",
         running: "Loading learning tools",
+        completed: "Loaded learning tools",
+        error: "Failed to load learning tools",
       },
     },
     async execute(params, ctx) {

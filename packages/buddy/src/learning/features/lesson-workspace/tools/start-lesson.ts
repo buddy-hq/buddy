@@ -13,6 +13,25 @@ const teachingStartLessonTool = createBuddyTool({
       "Optional language for the initial lesson file, such as rs, js, or ts",
     ),
   }),
+  presentation: {
+    archetype: "activity",
+    icon: "book",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Starting lesson" },
+      running: { action: "Starting lesson" },
+      completed: { action: "Started lesson" },
+      error: { action: "Failed to start lesson" },
+    },
+    summary: {
+      category: "start-lesson",
+      pending: "Starting lesson",
+      running: "Starting lesson",
+      completed: "Started lesson",
+      error: "Failed to start lesson",
+    },
+  },
   async execute(
     params: {
       language?: TeachingLanguage

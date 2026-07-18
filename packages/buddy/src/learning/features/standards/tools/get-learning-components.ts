@@ -7,6 +7,25 @@ export const getLearningComponentsTool = createBuddyTool({
   id: "get_learning_components",
   description: GET_LEARNING_COMPONENTS_DESCRIPTION,
   parameters: learningComponentsParameters,
+  presentation: {
+    archetype: "activity",
+    icon: "network",
+    renderer: "knowledge-graph",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Reading learning components" },
+      running: { action: "Reading learning components" },
+      completed: { action: "Read learning components" },
+      error: { action: "Failed to read learning components" },
+    },
+    summary: {
+      category: "read-learning-components",
+      pending: "Reading learning components",
+      running: "Reading learning components",
+      completed: "Read learning components",
+      error: "Failed to read learning components",
+    },
+  },
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "get_learning_components",

@@ -113,10 +113,29 @@ const imagegenTool = createBuddyTool({
   },
   description: IMAGEGEN_DESCRIPTION,
   parameters: ImagegenInputSchema,
-  ui: {
-    labels: {
-      idle: "Generate image",
-      running: "Generating image",
+  presentation: {
+    archetype: "inline-output",
+    icon: "image",
+    renderer: "image-generation",
+    layoutRole: "media-output",
+    collection: "image-gallery",
+    phases: {
+      pending: {
+        action: "Generating image",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      running: {
+        action: "Generating image",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      completed: {
+        action: "Generated image",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      error: {
+        action: "Failed to generate image",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
     },
   },
   async execute(input, ctx) {

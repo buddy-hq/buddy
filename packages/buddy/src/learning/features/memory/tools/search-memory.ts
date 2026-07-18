@@ -19,10 +19,35 @@ const learnerMemorySearchTool = createBuddyTool({
   description:
     "Search Buddy's memory for relevant preferences, goals, evidence, fragile skills, misconceptions, and project context. Use this only when prior learner context would materially improve the current answer.",
   parameters: LearnerMemorySearchInputSchema,
-  ui: {
-    presentation: "hidden-summary",
-    labels: {
-      idle: "Search memory",
+  presentation: {
+    archetype: "activity",
+    icon: "memory",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: {
+        action: "Searching memory",
+        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+      },
+      running: {
+        action: "Searching memory",
+        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+      },
+      completed: {
+        action: "Searched memory",
+        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+      },
+      error: {
+        action: "Failed to search memory",
+        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+      },
+    },
+    summary: {
+      category: "search-memory",
+      pending: "Searching memory",
+      running: "Searching memory",
+      completed: "Searched memory",
+      error: "Failed to search memory",
     },
   },
   async execute(params, ctx) {

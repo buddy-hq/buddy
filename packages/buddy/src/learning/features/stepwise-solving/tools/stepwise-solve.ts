@@ -4,7 +4,11 @@ import {
   type PedagogyToolContext,
   type PedagogyToolParams,
 } from "../../teaching-guidance/tools/orchestration/contracts"
-import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
+import {
+  createBuddyTool,
+  type BuddyToolContext,
+  type ToolPresentationDescriptor,
+} from "../../../runtime/create-buddy-tool"
 
 const DYNAMIC_STEPWISE_SOLVE_TOOL_ID = "stepwise_solve_dynamic" as const
 
@@ -117,10 +121,31 @@ async function executeStepwiseSolveTool(
   }
 }
 
+const stepwiseSolvePresentation = {
+  archetype: "activity",
+  icon: "tool",
+  renderer: "buddy-custom",
+  layoutRole: "activity",
+  phases: {
+    pending: { action: "Preparing stepwise guidance" },
+    running: { action: "Preparing stepwise guidance" },
+    completed: { action: "Prepared stepwise guidance" },
+    error: { action: "Failed to prepare stepwise guidance" },
+  },
+  summary: {
+    category: "prepare-stepwise-guidance",
+    pending: "Preparing stepwise guidance",
+    running: "Preparing stepwise guidance",
+    completed: "Prepared stepwise guidance",
+    error: "Failed to prepare stepwise guidance",
+  },
+} satisfies ToolPresentationDescriptor
+
 export const stepwiseSolveTool = createBuddyTool({
   id: "stepwise_solve",
   description: STEPWISE_SOLVE_DESCRIPTION,
   parameters: PedagogyToolParameters,
+  presentation: stepwiseSolvePresentation,
   async execute(params, ctx) {
     return executeStepwiseSolveTool("stepwise_solve", params, ctx)
   },
@@ -130,6 +155,7 @@ export const dynamicStepwiseSolveTool = createBuddyTool({
   id: DYNAMIC_STEPWISE_SOLVE_TOOL_ID,
   description: STEPWISE_SOLVE_DESCRIPTION,
   parameters: PedagogyToolParameters,
+  presentation: stepwiseSolvePresentation,
   dynamic: {
     title: "Pedagogy stepwise solve",
     useCase: "stepwise-solve",

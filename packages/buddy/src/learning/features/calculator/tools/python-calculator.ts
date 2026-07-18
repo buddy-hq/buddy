@@ -11,6 +11,18 @@ export const pythonCalculatorTool = createBuddyTool({
   id: "python_calculator",
   description: PYTHON_CALCULATOR_DESCRIPTION,
   parameters: pythonCalculatorInputSchema,
+  presentation: {
+    archetype: "inline-output",
+    icon: "calculator",
+    renderer: "calculator",
+    layoutRole: "compact-output",
+    phases: {
+      pending: { action: "Calculating" },
+      running: { action: "Calculating" },
+      completed: { action: "Calculated" },
+      error: { action: "Failed to calculate" },
+    },
+  },
   async execute(args, ctx) {
     await ctx.ask({
       permission: "python_calculator",

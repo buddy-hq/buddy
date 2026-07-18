@@ -219,11 +219,23 @@ const readWhiteboardContextTool = createBuddyTool({
   id: "whiteboard_read_context",
   description: READ_CONTEXT_DESCRIPTION,
   parameters: ReadWhiteboardContextInputSchema,
-  ui: {
-    presentation: "hidden-summary",
-    labels: {
+  presentation: {
+    archetype: "activity",
+    icon: "read",
+    renderer: "buddy-custom",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Reading Whiteboard" },
+      running: { action: "Reading Whiteboard" },
+      completed: { action: "Read Whiteboard" },
+      error: { action: "Failed to read Whiteboard" },
+    },
+    summary: {
+      category: "read-whiteboard",
+      pending: "Reading Whiteboard",
       running: "Reading Whiteboard",
-      idle: "Read Whiteboard",
+      completed: "Read Whiteboard",
+      error: "Failed to read Whiteboard",
     },
   },
   async execute(_params, ctx) {

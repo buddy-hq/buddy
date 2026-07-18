@@ -1,15 +1,19 @@
 import { describe, expect, test } from "bun:test"
 import z from "zod"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { defineToolPresentation } from "@buddy/opencode-adapter/tool-presentation"
 import { loadOpenCodeApp } from "../../src/opencode-runtime"
 import { createCompatiblePluginAskHandler } from "../../src/opencode-runtime/plugin-ask-compat"
 import { buddyToolToPluginTool } from "../../src/opencode-runtime/buddy-tool-shim"
 import { createBuddyTool } from "../../src/learning/runtime/create-buddy-tool"
 import { tmpdir } from "../helpers/tmpdir"
 
+const TEST_TOOL_PRESENTATION = defineToolPresentation({ archetype: "silent" })
+
 const slowAbortTool = createBuddyTool({
   id: "slow_abort_test",
   description: "Slow tool used to verify abort propagation.",
+  presentation: TEST_TOOL_PRESENTATION,
   parameters: z.object({
     value: z.string(),
   }),
@@ -26,6 +30,7 @@ const slowAbortTool = createBuddyTool({
 const permissionBridgeTool = createBuddyTool({
   id: "permission_bridge_test",
   description: "Tool used to verify permission effects execute.",
+  presentation: TEST_TOOL_PRESENTATION,
   parameters: z.object({}),
   async execute(_args, ctx) {
     await ctx.ask({

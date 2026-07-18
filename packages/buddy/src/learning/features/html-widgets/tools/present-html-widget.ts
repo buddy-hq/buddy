@@ -248,6 +248,30 @@ const presentHtmlWidgetTool = createBuddyTool({
   },
   description: PRESENT_HTML_WIDGET_DESCRIPTION,
   parameters: PresentHtmlWidgetInputSchema,
+  presentation: {
+    archetype: "inline-output",
+    icon: "widget",
+    renderer: "html-widget",
+    layoutRole: "media-output",
+    phases: {
+      pending: {
+        action: "Preparing widget",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      running: {
+        action: "Presenting widget",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      completed: {
+        action: "Presented widget",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+      error: {
+        action: "Failed to present widget",
+        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+      },
+    },
+  },
   normalizeInput: normalizePresentHtmlWidgetInput,
   formatValidationError: formatPresentHtmlWidgetValidationError,
   async execute(params: PresentHtmlWidgetInput, ctx: BuddyToolContext) {

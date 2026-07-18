@@ -20,6 +20,25 @@ const goalDecideScopeTool = createBuddyTool({
       .optional()
       .describe("Optional explicit label for the course or topic."),
   }),
+  presentation: {
+    archetype: "activity",
+    icon: "goal",
+    renderer: "generic",
+    layoutRole: "activity",
+    phases: {
+      pending: { action: "Choosing goal scope" },
+      running: { action: "Choosing goal scope" },
+      completed: { action: "Chose goal scope" },
+      error: { action: "Failed to choose goal scope" },
+    },
+    summary: {
+      category: "choose-goal-scope",
+      pending: "Choosing goal scope",
+      running: "Choosing goal scope",
+      completed: "Chose goal scope",
+      error: "Failed to choose goal scope",
+    },
+  },
   async execute(params, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "goal_decide_scope",
