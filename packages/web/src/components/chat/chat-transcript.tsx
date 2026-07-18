@@ -1128,6 +1128,14 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       }
     }
 
+    // A restored attached offset owns the first paint, but it may no longer be the
+    // virtual end when the viewport or transcript changed while this task was hidden.
+    // Reconcile after the same quiet window used for asynchronous row measurements so
+    // cached geometry cannot fight the restored offset during the initial mount.
+    if (hasRestoredInitialScrollOffset && shouldAnchorBottom()) {
+      scheduleResizeBottomRepair()
+    }
+
     return () => {
       disposed = true
       if (resizeAnchorTimer !== undefined) {
@@ -1139,7 +1147,14 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         resizePinFrameRef.current = undefined
       }
     }
-  }, [hasScrollGesture, rowVirtualizer, rows, scrollViewportRef, shouldAnchorBottom])
+  }, [
+    hasRestoredInitialScrollOffset,
+    hasScrollGesture,
+    rowVirtualizer,
+    rows,
+    scrollViewportRef,
+    shouldAnchorBottom,
+  ])
 
   useLayoutEffect(() => {
     if (!cacheKey || rows.length === 0) return

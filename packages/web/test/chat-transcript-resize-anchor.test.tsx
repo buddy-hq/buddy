@@ -351,6 +351,11 @@ describe("chat transcript resize anchoring", () => {
           event.type === "scroll-write" && event.requestedOffset === Number.MAX_SAFE_INTEGER,
       ),
     ).toBe(false)
+
+    await act(async () => {
+      await waitForResizeBottomRepair()
+    })
+
     expect(
       Array.from(
         new Set(
@@ -382,6 +387,66 @@ describe("chat transcript resize anchoring", () => {
     })
 
     expect(probe.events.some((event) => event.type === "scroll-write")).toBe(true)
+  })
+
+  test("repairs a restored attached offset after cached geometry settles", async () => {
+    const directory = "/repo-stale-attached-offset"
+    const sessionID = "ses_stale_attached_offset"
+    const messages = Array.from({ length: 8 }, (_, index) => {
+      const messageID = `msg_${String(index).padStart(3, "0")}_stale_attached_offset`
+      return createMessageWithParts(createUserMessageInfo({ id: messageID, sessionID }), [
+        {
+          id: `prt_${index}_stale_attached_offset`,
+          sessionID,
+          messageID,
+          type: "text",
+          text: `Attached material with cached geometry ${index + 1}`,
+        },
+      ])
+    })
+    seedDirectoryChatState(directory, { sessionID, messages })
+
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      if (this.hasAttribute("data-index")) return new DOMRect(0, 0, 1_000, 240)
+      return originalGetBoundingClientRect.call(this)
+    }
+
+    try {
+      await act(async () => {
+        root.render(
+          <ChatTranscript
+            directory={directory}
+            scrollViewportRef={transcriptViewport.ref}
+            initialScrollOffset={() => 480}
+            shouldAnchorBottom={() => true}
+            hasScrollGesture={NEVER_HAS_SCROLL_GESTURE}
+          />,
+        )
+        await flushAnimationFrames()
+      })
+
+      expect(transcriptViewport.ref.current?.scrollTop).toBe(480)
+      probe.clear()
+
+      await act(async () => {
+        await waitForResizeBottomRepair()
+      })
+
+      expect(
+        probe.events.filter((event) => event.type === "bottom-anchor-repair"),
+      ).toHaveLength(1)
+      expect(
+        probe.events.some(
+          (event) =>
+            event.type === "scroll-write" &&
+            !event.noOp &&
+            event.requestedOffset > 480,
+        ),
+      ).toBe(true)
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect
+    }
   })
 
 })
