@@ -1,8 +1,10 @@
+import "../happydom"
 import { describe, expect, test } from "bun:test"
 
 import {
   createTranscriptGeometryReport,
   createTranscriptPerformanceProbe,
+  createTranscriptStreamTraceReport,
   recordTranscriptPerfEvent,
   type TranscriptPerfEvent,
 } from "../src/lib/directory-chat/transcript-performance-probe"
@@ -67,6 +69,7 @@ describe("transcript performance probe", () => {
     expect(summary.streamingUpdates).toBe(0)
     expect(summary.scrollWrites).toBe(1)
     expect(summary.scrollNoOps).toBe(1)
+    expect(summary.bottomAnchorRepairs).toBe(0)
     expect(summary.visibleRowMounts).toBe(1)
     expect(summary.rowSizeChanges).toBe(1)
     expect(summary.geometrySettlements).toBe(1)
@@ -170,6 +173,25 @@ describe("transcript performance probe", () => {
       <div data-component="tool-part-wrapper">
         <button type="button">render_figure</button>
       </div>
+      <div
+        data-markdown-document="part"
+        data-markdown-source-length="14000"
+        data-markdown-source-hash="hash"
+        data-markdown-phase="streaming"
+        data-markdown-branch="segmented-lazy"
+      >
+        <div data-markdown-segment-key="part:segment:0">
+          <div data-markdown-virtual-block-key="part:virtual-block:0" data-markdown-residency="resident">
+            <div
+              data-markdown-block-key="part:block:0"
+              data-markdown-parse-state="ready"
+              data-markdown-parse-duration-ms="8.25"
+              data-markdown-parsed-source-hash="hash"
+            ></div>
+          </div>
+          <div data-markdown-virtual-block-key="part:virtual-block:1" data-markdown-residency="placeholder"></div>
+        </div>
+      </div>
     `
     Object.defineProperty(row, "getBoundingClientRect", {
       value: () => ({
@@ -210,9 +232,197 @@ describe("transcript performance probe", () => {
     expect(event.shell?.shellKind).toBe("compact-tool")
     expect(event.shell?.rowHeight).toBe(72)
     expect(event.shell?.buttonCount).toBe(1)
+    expect(event.shell?.mathPlaceholderCount).toBe(0)
+    expect(event.shell?.katexCount).toBe(0)
+    expect(event.shell?.markdown).toEqual({
+      documentCount: 1,
+      sourceLength: 14_000,
+      sourceHash: "hash",
+      phase: "streaming",
+      branch: "segmented-lazy",
+      segmentKeys: ["part:segment:0"],
+      blockKeys: ["part:block:0"],
+      virtualBlockKeys: ["part:virtual-block:0", "part:virtual-block:1"],
+      residentBlockCount: 1,
+      placeholderBlockCount: 1,
+      parseStates: ["ready"],
+      parseDurationsMs: [8.25],
+      parsedSourceHashes: ["hash"],
+      images: [],
+    })
 
     probe.stop()
     globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
     document.body.replaceChildren()
+  })
+
+  test("captures Markdown image readiness and intrinsic geometry", () => {
+    document.body.replaceChildren()
+    const row = document.createElement("div")
+    row.dataset.timelineKey = "assistant:msg:part:prt_image"
+    row.innerHTML = `
+      <div data-markdown-document="image-part" data-markdown-source-length="80">
+        <img
+          data-markdown-image="true"
+          data-markdown-image-state="ready"
+          src="https://assets.example/known.png"
+          alt="known"
+        />
+      </div>
+    `
+    Object.defineProperty(row, "getBoundingClientRect", {
+      value: () => new DOMRect(0, 0, 320, 180),
+    })
+    const image = row.querySelector<HTMLImageElement>("img")
+    if (!image) throw new Error("expected Markdown image")
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 640 },
+      naturalHeight: { configurable: true, value: 360 },
+      getBoundingClientRect: {
+        configurable: true,
+        value: () => new DOMRect(0, 0, 320, 180),
+      },
+    })
+    document.body.append(row)
+
+    const probe = createTranscriptPerformanceProbe({
+      maxEvents: 10,
+      observeBrowserEvents: false,
+    })
+    globalThis.__BUDDY_TRANSCRIPT_PERF__ = probe
+    recordTranscriptPerfEvent({
+      type: "row-size",
+      at: 1,
+      index: 1,
+      rowKey: row.dataset.timelineKey,
+      previousSize: 160,
+      nextSize: 180,
+      deltaPx: 20,
+    })
+
+    const event = probe.events[0]
+    expect(event?.type).toBe("row-size")
+    if (event?.type !== "row-size") throw new Error("expected row-size event")
+    expect(event.shell?.markdown?.images).toEqual([
+      {
+        state: "ready",
+        complete: true,
+        naturalWidth: 640,
+        naturalHeight: 360,
+        renderedWidth: 320,
+        renderedHeight: 180,
+      },
+    ])
+
+    probe.stop()
+    globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
+    document.body.replaceChildren()
+  })
+
+  test("freezes an ordered in-flight rendering trace when recording stops", () => {
+    const probe = createTranscriptPerformanceProbe({
+      maxEvents: 10,
+      observeBrowserEvents: false,
+    })
+    probe.record({
+      type: "render-state",
+      at: probe.startedAt + 5,
+      rowKey: "assistant:math",
+      mutationCount: 2,
+      shell: {
+        shellKind: "unknown",
+        rowHeight: 120,
+        rowTop: 0,
+        rowBottom: 120,
+        textPreview: "equation",
+        hasToolWrapper: false,
+        hasDeferredToolFallback: false,
+        hasObjectCard: false,
+        hasMermaidLoading: false,
+        hasMermaidDiagram: false,
+        hasMermaidError: false,
+        mathPlaceholderCount: 1,
+        katexCount: 0,
+        imageCount: 0,
+        svgCount: 0,
+        iframeCount: 0,
+        videoCount: 0,
+        audioCount: 0,
+        buttonCount: 0,
+      },
+    })
+    probe.record({
+      type: "bottom-anchor-repair",
+      at: probe.startedAt + 9,
+      distanceFromEnd: 42,
+    })
+    probe.stop()
+    probe.record({
+      type: "streaming-throughput",
+      at: probe.startedAt + 12,
+      live: true,
+      contentLength: 20,
+      deltaLength: 20,
+    })
+
+    const report = createTranscriptStreamTraceReport(probe)
+
+    expect(report.recording).toBe(false)
+    expect(report.stoppedAt).toBeNumber()
+    expect(report.events).toHaveLength(2)
+    expect(report.events.map((entry) => entry.sequence)).toEqual([1, 2])
+    expect(report.events.map((entry) => entry.offsetMs)).toEqual([5, 9])
+    expect(report.summary.renderStateSamples).toBe(1)
+    expect(report.summary.bottomAnchorRepairs).toBe(1)
+  })
+
+  test("records stop request timing separately from renderer settlement", () => {
+    const probe = createTranscriptPerformanceProbe({
+      maxEvents: 10,
+      observeBrowserEvents: false,
+    })
+    probe.record({
+      type: "abort-lifecycle",
+      at: probe.startedAt + 10,
+      phase: "requested",
+    })
+    probe.record({
+      type: "abort-lifecycle",
+      at: probe.startedAt + 85,
+      phase: "settled",
+      durationMs: 75,
+      outcome: "success",
+    })
+    probe.record({
+      type: "stream-buffer",
+      at: probe.startedAt + 11,
+      phase: "session-fence",
+      sessionID: "session-1",
+      discardedEvents: 7,
+    })
+    probe.record({
+      type: "stream-buffer",
+      at: probe.startedAt + 86,
+      phase: "session-resume",
+      sessionID: "session-1",
+      discardedEvents: 2,
+    })
+    probe.record({
+      type: "stream-buffer",
+      at: probe.startedAt + 90,
+      phase: "flush",
+      queuedEvents: 12,
+      appliedEvents: 3,
+    })
+
+    const summary = probe.summary()
+    expect(summary.abortRequests).toBe(1)
+    expect(summary.maxAbortLatencyMs).toBe(75)
+    expect(summary.streamSessionFences).toBe(1)
+    expect(summary.streamEventsDiscarded).toBe(9)
+    expect(summary.streamFlushes).toBe(1)
+    expect(summary.streamEventsQueued).toBe(12)
+    expect(summary.streamEventsApplied).toBe(3)
   })
 })
