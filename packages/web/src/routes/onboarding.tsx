@@ -108,17 +108,11 @@ type CinematicBrandStyle = CSSProperties & {
 
 export const Route = createFileRoute("/onboarding")({
   validateSearch: (search: Record<string, unknown>): OnboardingTestSearch => {
-    const result: OnboardingTestSearch = {}
-
     if (search.test === ONBOARDING_TEST_SEARCH_VALUE) {
-      result.test = ONBOARDING_TEST_SEARCH_VALUE
+      return { test: ONBOARDING_TEST_SEARCH_VALUE }
     }
 
-    if (typeof search.returnTo === "string" && search.returnTo.length > 0) {
-      result.returnTo = search.returnTo
-    }
-
-    return result
+    return {}
   },
   beforeLoad: async ({ search }) => {
     if (

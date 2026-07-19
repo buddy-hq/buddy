@@ -284,7 +284,7 @@ export const dict = {
   "desktopTitlebar.disconnectOpenAiFailed": "Failed to disconnect OpenAI",
   "desktopTitlebar.expandLeftPanel": "Expand left panel",
   "desktopTitlebar.expandRightPanel": "Expand right panel",
-  "desktopTitlebar.exitOnboarding": "Exit onboarding",
+  "desktopTitlebar.completeOnboardingToExit": "Complete onboarding to exit",
   "desktopTitlebar.openAiDisconnected": "OpenAI disconnected",
   "desktopTitlebar.resetOnboardingFailed": "Failed to reset onboarding test state",
   "desktopTitlebar.resettingOnboarding": "Resetting onboarding...",

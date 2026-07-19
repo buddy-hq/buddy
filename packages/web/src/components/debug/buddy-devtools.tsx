@@ -75,11 +75,7 @@ import {
   reloadProviderRuntime,
 } from "@/lib/provider-auth"
 import {
-  CHAT_ENTRY_PATH,
   buildOnboardingTestSearch,
-  isOnboardingTestSearch,
-  readOnboardingTestReturnTo,
-  buildOnboardingChatEntryReturnTo,
   runOnboardingTestReset,
 } from "@/lib/onboarding-test-mode"
 import { patchGlobalConfig } from "@/state/chat-actions"
@@ -2566,26 +2562,6 @@ function CapabilitiesChips(props: { directory: string }) {
   )
 }
 
-function buildRelativeSearchParams(search: string) {
-  const params = new URLSearchParams(search)
-  if (params.size === 0) {
-    return undefined
-  }
-  const result: Record<string, string> = {}
-  for (const [key, value] of params.entries()) {
-    result[key] = value
-  }
-  return result
-}
-
-function parseRelativeHref(href: string) {
-  const url = new URL(href, window.location.origin)
-  return {
-    pathname: url.pathname,
-    search: buildRelativeSearchParams(url.search),
-  }
-}
-
 function readDevInstanceName(): string | undefined {
   const buddyGlobals = Reflect.get(window, "__BUDDY__")
   if (!buddyGlobals || typeof buddyGlobals !== "object") return undefined
@@ -2682,7 +2658,7 @@ export function BuddyDevTools() {
   const onboardingToggleLabel = isResettingOnboarding
     ? language.t("desktopTitlebar.resettingOnboarding")
     : pathname === "/onboarding"
-      ? language.t("desktopTitlebar.exitOnboarding")
+      ? language.t("desktopTitlebar.completeOnboardingToExit")
       : language.t("desktopTitlebar.testOnboarding")
 
   const sessionTrace = useMemo(() => {
@@ -2749,27 +2725,9 @@ export function BuddyDevTools() {
 
   const handleToggleOnboarding = useCallback(async () => {
     if (pathname === "/onboarding") {
-      const returnTo = readOnboardingTestReturnTo(location.search)
-      if (returnTo) {
-        const target = parseRelativeHref(returnTo)
-        await navigate({
-          to: target.pathname,
-          ...(target.search ? { search: target.search } : {}),
-        })
-        return
-      }
-      await navigate({
-        to: CHAT_ENTRY_PATH,
-        search: buildOnboardingTestSearch(),
-      })
+      toast(language.t("desktopTitlebar.completeOnboardingToExit"))
       return
     }
-
-    const currentHref = `${location.pathname}${location.searchStr}`
-    const returnTo =
-      pathname === CHAT_ENTRY_PATH && !isOnboardingTestSearch(location.search)
-        ? buildOnboardingChatEntryReturnTo()
-        : currentHref
 
     setIsResettingOnboarding(true)
     try {
@@ -2786,7 +2744,7 @@ export function BuddyDevTools() {
       })
       await navigate({
         to: "/onboarding",
-        search: buildOnboardingTestSearch(returnTo),
+        search: buildOnboardingTestSearch(),
       })
     } catch (error) {
       toast.error(
@@ -2795,7 +2753,7 @@ export function BuddyDevTools() {
     } finally {
       setIsResettingOnboarding(false)
     }
-  }, [location.pathname, location.search, location.searchStr, navigate, pathname, queryClient])
+  }, [navigate, pathname, queryClient])
 
   if (!import.meta.env.DEV) {
     return null

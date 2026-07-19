@@ -1,7 +1,19 @@
 import { describe, expect, test } from "bun:test"
-import { runOnboardingTestReset } from "../src/lib/onboarding-test-mode"
+import {
+  buildOnboardingTestSearch,
+  isOnboardingTestSearch,
+  ONBOARDING_TEST_SEARCH_VALUE,
+  runOnboardingTestReset,
+} from "../src/lib/onboarding-test-mode"
 
 describe("onboarding test reset", () => {
+  test("builds a test route without an exit destination", () => {
+    const search = buildOnboardingTestSearch()
+
+    expect(search).toEqual({ test: ONBOARDING_TEST_SEARCH_VALUE })
+    expect(isOnboardingTestSearch(search)).toBe(true)
+  })
+
   test("clears durable state and refreshes the provider before resetting local onboarding", async () => {
     const calls: string[] = []
 
