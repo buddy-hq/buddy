@@ -4,6 +4,7 @@ import { EXPERIMENTAL_FEATURE_ID } from "../../src/experimental-features/catalog
 import {
   experimentalFeatureIsEnabled,
   listExperimentalFeatureStatuses,
+  setExperimentalFeatureEnabled,
 } from "../../src/experimental-features/service"
 import { enabledBuddyFeatures } from "../../src/learning/access/feature-availability"
 import { memoryFeature } from "../../src/learning/features/memory/feature"
@@ -23,6 +24,7 @@ import { LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY } from "../../src/learning/featur
 import { getBuddySubagentDefinition } from "../../src/learning/subagent-manifest"
 
 describe("experimental feature gating", () => {
+  const FUTURE_EXPERIMENTAL_FEATURE_ID = "future_experimental_feature"
   const enabledConfig = Config.Info.parse({
     experimental_features: {
       [EXPERIMENTAL_FEATURE_ID.learnerMemory]: true,
@@ -36,6 +38,61 @@ describe("experimental feature gating", () => {
   test("experimental opt-ins are global-only config", () => {
     expect(Config.ProjectInfo.safeParse({ experimental_features: {} }).success).toBe(false)
     expect(Config.Info.safeParse({ experimental_features: {} }).success).toBe(true)
+  })
+
+  test("unknown future opt-ins are preserved but excluded from this build's catalog", () => {
+    const config = Config.Info.parse({
+      experimental_features: { [FUTURE_EXPERIMENTAL_FEATURE_ID]: true },
+    })
+
+    expect(config.experimental_features).toEqual({
+      [FUTURE_EXPERIMENTAL_FEATURE_ID]: true,
+    })
+    expect(listExperimentalFeatureStatuses(config)).toEqual([
+      { id: EXPERIMENTAL_FEATURE_ID.learnerMemory, enabled: false },
+    ])
+    expect(
+      listExperimentalFeatureStatuses(
+        Config.Info.parse({
+          experimental_features: { [FUTURE_EXPERIMENTAL_FEATURE_ID]: false },
+        }),
+      ),
+    ).toEqual([{ id: EXPERIMENTAL_FEATURE_ID.learnerMemory, enabled: false }])
+  })
+
+  test("known opt-in updates preserve unknown future opt-ins", async () => {
+    const previous = await Config.getGlobal()
+
+    try {
+      await Config.replaceGlobal(
+        Config.Info.parse({
+          ...previous,
+          experimental_features: {
+            ...previous.experimental_features,
+            [FUTURE_EXPERIMENTAL_FEATURE_ID]: true,
+          },
+        }),
+      )
+
+      await setExperimentalFeatureEnabled({
+        featureID: EXPERIMENTAL_FEATURE_ID.learnerMemory,
+        enabled: true,
+      })
+      expect((await Config.getGlobal()).experimental_features).toEqual({
+        [FUTURE_EXPERIMENTAL_FEATURE_ID]: true,
+        [EXPERIMENTAL_FEATURE_ID.learnerMemory]: true,
+      })
+
+      await setExperimentalFeatureEnabled({
+        featureID: EXPERIMENTAL_FEATURE_ID.learnerMemory,
+        enabled: false,
+      })
+      expect((await Config.getGlobal()).experimental_features).toEqual({
+        [FUTURE_EXPERIMENTAL_FEATURE_ID]: true,
+      })
+    } finally {
+      await Config.replaceGlobal(previous)
+    }
   })
 
   test("legacy memory master state is discarded instead of granting experimental consent", () => {

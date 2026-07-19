@@ -7,7 +7,6 @@ import {
   PRIMARY_USES,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { zodFromEffectSchema } from "../../http/effect-schema"
-import { EXPERIMENTAL_FEATURE_ID } from "../../experimental-features/catalog"
 import { resolveBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
 
 export namespace ConfigSchema {
@@ -39,12 +38,7 @@ export namespace ConfigSchema {
   const BuddySurface = z.enum(PERSONA_SURFACES)
   const BuddyPersonaID = z.enum(PERSONAS)
   const DisabledMcp = z.object({ enabled: z.boolean() }).strict()
-  const ExperimentalFeatures = z
-    .object({
-      [EXPERIMENTAL_FEATURE_ID.learnerMemory]: z.literal(true).optional(),
-    })
-    .strict()
-    .optional()
+  const ExperimentalFeatures = z.record(z.string(), z.boolean()).optional()
   const LearnerMemory = z
     .object({
       master_enabled: z.boolean().optional(),
