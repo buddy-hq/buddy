@@ -1,0 +1,77 @@
+competitor: RemNote
+competitorUrl: https://www.remnote.com/
+audience: learners
+title: "Buddy vs RemNote for flashcards"
+description: "RemNote turns notes into flashcards inside a synced knowledge base. Buddy is a free local desktop app where an AI agent tutors you and builds practice."
+headline: "Buddy vs RemNote for notes and flashcards"
+tagline: "Buddy's agent builds your decks and quizzes for you. RemNote is a synced knowledge base you maintain yourself."
+targetQueries:
+  - "remnote vs buddy"
+  - "remnote alternative with a local ai tutor"
+  - "buddy or remnote for studying from pdfs"
+lastVerified: 2026-07-20
+lastUpdated: 2026-07-20
+ogImagePath: /og/buddy-vs-remnote.png
+ogImageAlt: "Buddy vs RemNote — app icons side by side"
+faqs:
+  - question: "Can I move my RemNote notes or Anki decks into Buddy?"
+    answer: "Not directly. Buddy has no importer for RemNote knowledge bases or Anki decks. It opens ordinary folders of Markdown files and can ingest PDFs and EPUBs as study sources. RemNote imports Anki and other note systems more easily, so a heavy RemNote library is cheaper to keep in RemNote than to rebuild in Buddy."
+  - question: "Is Buddy or RemNote better for board-exam style memorization?"
+    answer: "RemNote is stronger for high-volume memorization today: advanced scheduling, exam-date load shifting, image occlusion, Anki imports, and shared medical decks. Buddy is better when you want an agent to explain your own PDFs and build spaced decks for you, without maintaining an outliner knowledge base."
+  - question: "Who keeps your cards if you stop paying?"
+    answer: "RemNote keeps notes and cards on the free tier if you cancel Pro, with paid ceilings returning on annotated PDFs, image occlusion, and AI credits. Buddy has no subscription: decks and files stay in local folders on your machine whether you use a paid model provider or not."
+  - question: "Can I study offline with Buddy or RemNote?"
+    answer: "Buddy keeps decks and reviews offline on one desktop; AI authoring needs a provider connection. RemNote desktop and mobile can edit and review offline after sign-in, then sync. Choose RemNote if offline multi-device review matters; choose Buddy if one local machine and agent-authored practice matter more."
+sections:
+  - type: prose
+    paragraphs:
+      - "RemNote makes notes and flashcards one system. You write hierarchical notes, turn bullets into cards, and review on a daily queue that syncs across devices. The cost is running that system yourself."
+      - "Buddy hands authoring to an agent. Free desktop app, local folders, no Buddy account: you ask questions, it builds decks and quizzes, and you review on one computer. RemNote rewards a disciplined note-writer; Buddy rewards a review habit without the outliner."
+  - type: workflow
+    heading: "From course PDF to durable memory, by two different routes"
+    intro: "Two routes from a course PDF to long-term retention: write-and-review in RemNote, or ask-and-practice in Buddy."
+    buddy:
+      label: "Buddy: ask, then practice"
+      steps:
+        - title: "Open your material"
+          detail: "Point Buddy at a folder of notes or add a PDF or EPUB as a Source; the agent can ingest the full text when it fits in context."
+        - title: "Ask until it makes sense"
+          detail: "Work through confusion in chat. Answers stay grounded in the source and in the highlights you made in Buddy's reader."
+        - title: "Generate the practice"
+          detail: "Have the agent build a flashcard deck or a multiple-choice quiz with explanations, saved next to your notes."
+        - title: "Review what is due"
+          detail: "Open the decks that are due and rate how well you knew each card. Spaced review spaces the next pass from those ratings."
+    competitor:
+      label: "RemNote: write, then review"
+      steps:
+        - title: "Take hierarchical notes"
+          detail: "Capture lectures as rems in an outliner, with tags, LaTeX, and links that connect related concepts across the knowledge base."
+        - title: "Mark cards while writing"
+          detail: "Typing :: turns a bullet into a flashcard that keeps its note context. PDF highlights and image occlusion regions become cards too."
+        - title: "Let the scheduler queue reviews"
+          detail: "A daily practice queue builds from your cards, and the Exam Scheduler shifts the load toward an upcoming test date."
+        - title: "Fill gaps with AI"
+          detail: "Monthly AI credits generate cards and quizzes from text, PDFs, or slides, and the AI Tutor answers questions about the bullet you are on."
+  - type: pricing
+    heading: "What free actually means on each side"
+    intro: "Buddy charges nothing at all. RemNote's free tier can carry real coursework, but the tools that make it distinctive sit behind a subscription, and AI is paid for differently on each side."
+    buddy: "Buddy is a free download with no subscription and no feature tiers. Its AI runs through a provider you connect yourself, such as a ChatGPT sign-in or API keys, so any AI cost stays between you and that provider."
+    competitor: "RemNote Free includes unlimited notes, flashcards, and synced devices, capped at 3 annotated PDFs, 5 image occlusion cards, and 100 AI credits per month. Pro lifts those ceilings at about $8 per month billed yearly, $96 per year. Pro with AI runs about $18 per month billed yearly and raises the pool to 20,000 credits. Students, faculty, and staff get 25% off Pro."
+  - type: decision
+    heading: "Maintain a system or direct a tutor"
+    competitorHeading: "Choose RemNote if you are building one study system for the long haul"
+    competitorReasons:
+      - "Your flashcards should live inside your notes, keeping each card next to the bullet, context, and backlinks it came from."
+      - "You study across devices, since RemNote syncs web, Windows, Mac, Linux, iOS, and Android behind one account."
+      - "You need serious memorization tooling: FSRS, an Exam Scheduler, image occlusion, and Anki imports."
+      - "Classmates share decks and documents with you, or you rely on community-shared flashcards."
+    buddyHeading: "Choose Buddy if you want an agent to do the authoring"
+    buddyReasons:
+      - "You learn by asking, and want explanations grounded in your own PDFs, EPUBs, notes, and reader highlights."
+      - "You would rather have decks and quizzes generated from a conversation than mark up cards by hand."
+      - "You want no account and no study cloud: files stay in ordinary folders on your Mac or Windows PC."
+      - "You prefer your own AI provider, with its own cost and data terms, over metered in-app AI credits."
+relatedCompares:
+  - buddy-vs-knowt
+  - buddy-vs-quizlet
+  - buddy-vs-notebooklm

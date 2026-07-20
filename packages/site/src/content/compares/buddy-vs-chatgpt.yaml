@@ -1,0 +1,172 @@
+competitor: ChatGPT
+competitorUrl: https://chatgpt.com/
+audience: both
+title: "Buddy vs ChatGPT for studying"
+description: >-
+  ChatGPT is the default AI for studying; Buddy is a free local desktop app
+  built for practice. Platforms, privacy, pricing, and study workflows side by side.
+headline: "Buddy vs ChatGPT for studying and teaching"
+tagline: "Buddy builds decks and quizzes from your own files on one desktop. ChatGPT is a general cloud chat that syncs across devices."
+targetQueries:
+  - Buddy vs ChatGPT for studying
+  - ChatGPT alternative for exam prep
+  - Buddy or ChatGPT for teachers
+lastVerified: 2026-07-20
+lastUpdated: 2026-07-20
+ogImagePath: /og/buddy-vs-chatgpt.png
+ogImageAlt: "Buddy vs ChatGPT — app icons side by side"
+faqs:
+  - question: Is Buddy a free replacement for ChatGPT?
+    answer: >-
+      No. Buddy is free software, but it does not include a model. You connect
+      a ChatGPT account, another provider's API key, or free hosted models
+      with usage limits. Buddy replaces the chat window for study work, not
+      the model subscription.
+  - question: Can ChatGPT make flashcards and practice quizzes like Buddy?
+    answer: >-
+      ChatGPT can quiz you or write flashcard-style questions in chat, and
+      Study mode adds hints and checks, but it has no built-in spaced
+      repetition. Buddy saves decks as files and schedules review for you, so
+      practice persists instead of scrolling away in a thread.
+  - question: Which one should a teacher use for classroom materials?
+    answer: >-
+      Verified U.S. K-12 educators can get ChatGPT for Teachers, a free
+      workspace with district controls during its promo window; it is not for
+      students. Buddy fits solo prep on your own computer: quizzes, rubrics,
+      and worksheets as editable local documents, with no school admin layer.
+  - question: What happens to my notes and chats in each product?
+    answer: >-
+      ChatGPT stores history in the cloud, and consumer plans may use content
+      to improve models unless you opt out; business and education plans do
+      not train by default. Buddy keeps notebooks on your machine with no
+      Buddy account, though your connected provider still processes what you
+      send it.
+  - question: Does Buddy work on phones or sync across devices?
+    answer: >-
+      No. Buddy is a desktop app for macOS and Windows, single user, single
+      machine, with no sync. ChatGPT runs on web, iOS, Android, and desktop
+      with history synced through your account. If you study on a phone,
+      ChatGPT is the only option of the two.
+sections:
+  - type: prose
+    paragraphs:
+      - >-
+        ChatGPT is OpenAI's cloud app: chat, voice, images, and research on
+        web, phone, and desktop, with history synced under one account. Buddy
+        is a free desktop app for macOS and Windows with no Buddy account.
+        Notebooks are local folders, and you connect a model yourself: ChatGPT
+        login, another API key, or free hosted models.
+      - >-
+        They can work together. Use ChatGPT for reach across devices; use
+        Buddy for flashcards, graded quizzes, and study files that stay on
+        your machine. Buddy does not match phones, sync, or school packaging.
+  - type: workflow
+    heading: "Exam prep: one-off chat versus scheduled practice"
+    intro: >-
+      Both products can turn notes into questions, and both can be wrong, so
+      check generated questions against your materials. The difference shows
+      up after the first session, in what survives and what gets scheduled.
+    buddy:
+      label: Buddy
+      steps:
+        - title: Add your materials
+          detail: >-
+            Open a local folder as a notebook and prepare PDFs or EPUBs as
+            sources the agent can read, cite, and ground answers in.
+        - title: Author practice once
+          detail: >-
+            Ask in chat to build a flashcard deck or quiz. Buddy saves it as
+            editable files in the notebook, not as throwaway chat text.
+        - title: Review on a schedule
+          detail: >-
+            Cards come back on a spaced schedule based on how well you knew
+            them. Quizzes keep graded attempts so you can see what stuck.
+        - title: Pick up where you left off
+          detail: >-
+            Decks, quizzes, notes, and whiteboards stay on disk and reopen
+            without re-prompting or scrolling through old chats.
+    competitor:
+      label: ChatGPT
+      steps:
+        - title: Upload or paste notes
+          detail: >-
+            Attach files or paste material into a chat; upload size and
+            frequency limits depend on the plan.
+        - title: Ask for practice
+          detail: >-
+            Request a quiz, flashcard-style Q&A, or a study guide; Study mode
+            adds hints and knowledge checks instead of plain answers.
+        - title: Work inside the thread
+          detail: >-
+            Questions and explanations live in the conversation; ChatGPT has
+            no built-in spaced-repetition system to schedule review.
+        - title: Regenerate next session
+          detail: >-
+            To study the same material again, return to the thread or
+            re-prompt; practice output is chat text rather than a saved study
+            object.
+  - type: decision-factors
+    heading: "Beyond practice: platforms, privacy, schools, and breadth"
+    intro: >-
+      Practice is where Buddy wins. Most of what remains favors ChatGPT:
+      devices, privacy defaults, school packaging, and breadth.
+    factors:
+      - heading: Where studying happens
+        explanation: >-
+          ChatGPT runs on web, iOS, Android, and desktop with cloud-synced
+          history, so a session can move from laptop to phone. Buddy runs on
+          one macOS or Windows machine for one OS user; nothing syncs, and
+          there is no mobile app.
+      - heading: What your content trains
+        explanation: >-
+          On consumer ChatGPT plans, your content can be used to improve
+          models unless you opt out; Business, Enterprise, Edu, and Teachers
+          plans do not train by default. Buddy has no account, cloud, or
+          training pipeline, but your connected provider still receives
+          everything you send it.
+      - heading: School packaging
+        explanation: >-
+          ChatGPT for Teachers gives verified U.S. K-12 educators a free
+          workspace with district controls during a promo window, and ChatGPT
+          Edu adds campus administration. Buddy is a solo app with teacher
+          authoring tools but no rosters, student accounts, or admin console.
+      - heading: How far beyond studying it goes
+        explanation: >-
+          ChatGPT spans voice, image generation, deep research, agentic Work
+          documents, the Codex coding agent, and app connectors. Buddy stays
+          narrow: chat grounded in your files, editable documents and
+          whiteboards beside the chat, widgets, and practice tools.
+  - type: pricing
+    heading: What studying on each one costs
+    intro: >-
+      Buddy's price and ChatGPT's price measure different things: one is
+      software you install, the other is software plus the models.
+    buddy: >-
+      Free. No Buddy subscription, account, or feature tiers. You pay only for
+      the model access you connect, whether that is an existing ChatGPT plan,
+      another provider's API key, or free hosted models with usage limits.
+    competitor: >-
+      Free tier at $0 with tight caps; Go at about $8 per month, which OpenAI
+      says may include ads; Plus at about $20 per month for reasoning models
+      and expanded limits; Pro from about $100 to $200 per month depending on
+      usage tier; Business at about $20 to $25 per user per month with a
+      two-seat minimum; verified U.S. K-12 teachers free during a promo
+      window.
+  - type: decision
+    heading: When ChatGPT fits, when Buddy fits
+    competitorHeading: Choose ChatGPT when
+    competitorReasons:
+      - You study across phone, tablet, and browser and want history, memory, and progress synced everywhere.
+      - You want one subscription covering chat, voice, image generation, deep research, and agentic document work.
+      - You are a verified U.S. K-12 teacher who needs a school workspace, or a campus deploying managed AI with admin controls.
+      - You do not want to install an app or think about providers and keys.
+    buddyHeading: Choose Buddy when
+    buddyReasons:
+      - You study at one desktop machine and want notes, decks, and quizzes stored as local files you own.
+      - You want exam prep that schedules itself, with flashcards and graded quizzes instead of chat quizzes that scroll away.
+      - You already have model access through a ChatGPT plan or another provider and want a learning-focused workspace on top of it.
+      - You want no Buddy account and no cloud copy of your materials, and accept that your chosen provider still processes chats.
+relatedCompares:
+  - buddy-vs-notebooklm
+  - buddy-vs-claude-teachers
+  - buddy-vs-khanmigo

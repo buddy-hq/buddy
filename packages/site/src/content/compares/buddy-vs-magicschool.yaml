@@ -1,0 +1,89 @@
+competitor: MagicSchool AI
+competitorUrl: https://www.magicschool.ai/
+audience: educators
+title: "Buddy vs MagicSchool for teachers"
+description: MagicSchool AI is a cloud platform for K-12 classrooms and districts. Buddy is a local desktop app for one educator's prep and practice on a personal machine.
+headline: "Buddy vs MagicSchool AI for teacher prep"
+tagline: "Buddy is solo teacher prep on your desktop, from your own files. MagicSchool is a classroom platform bought by schools."
+targetQueries:
+  - buddy vs magicschool ai
+  - magicschool ai alternative for teachers
+  - is magicschool ai free for teachers
+lastVerified: 2026-07-20
+lastUpdated: 2026-07-20
+ogImagePath: /og/buddy-vs-magicschool.png
+ogImageAlt: "Buddy vs MagicSchool AI — app icons side by side"
+faqs:
+  - question: What is free on MagicSchool vs Buddy?
+    answer: MagicSchool Free includes teacher tools, student tools, and Raina under unpublished generation caps; Plus removes caps at about $12.99 per month. Buddy's desktop app is free with no Buddy paywall; you only pay the model provider you connect, or use free models with limits.
+  - question: Can Buddy give my students supervised AI like MagicStudent does?
+    answer: No. Buddy is single-user with no student accounts, rooms, dashboards, or moderation. MagicSchool is built for supervised student tools; Buddy is for one educator's prep or one learner's practice on that machine.
+  - question: Does Buddy work inside Google Classroom, Canvas, or Gmail?
+    answer: No. Buddy is a desktop app with local files and PDF export, no Chrome extension or LMS push. MagicSchool covers Google and Microsoft on every plan, with Canvas and Schoology on Enterprise. Pick MagicSchool for in-platform classroom delivery; Buddy for local drafting.
+  - question: Which product keeps student data safer for my use case?
+    answer: MagicSchool is a U.S. cloud service advertising FERPA/COPPA packaging and no training on student data for schools that need a vendor DPA. Buddy has no account and no Buddy cloud, so files stay local, but prompts go to your AI provider. District procurement usually needs MagicSchool; a solo teacher who wants files only on their machine may prefer Buddy.
+sections:
+  - type: prose
+    paragraphs:
+      - MagicSchool AI is a K-12 cloud platform. Teachers get form-driven tools for lessons, quizzes, and family emails; students get moderated tools in rooms the teacher can see; Enterprise adds SSO, LMS hooks, and district data agreements.
+      - Buddy is a free desktop app for one person on one machine. No Buddy account, work in local folders, editable drafts beside the chat, and a model provider you connect. MagicSchool serves classrooms and districts; Buddy serves solo prep and practice.
+  - type: workflow
+    heading: "One job, two sequences: a differentiated quiz for tomorrow"
+    intro: Both products can produce a leveled practice quiz for tomorrow's class. The route to it is different enough to change which one you reach for daily.
+    competitor:
+      label: MagicSchool AI
+      steps:
+        - title: Sign in and pick a tool
+          detail: Log in with Google or Microsoft, open the Multiple Choice Quiz Maker or a related generator, and start from a structured form instead of a blank chat.
+        - title: Fill the form
+          detail: Enter grade, topic, standards, and question count. Built-in exemplars and tips keep the prompting work close to zero.
+        - title: Level and generate
+          detail: Run the Text Leveler for a second reading band, then generate. In-app guidance frames outputs as drafts for educator review, not finished grades.
+        - title: Push it where students are
+          detail: Export to Docs or Classroom, share the tool in a collection with colleagues, or assign a student version inside a Student Room with moderation on.
+    buddy:
+      label: Buddy
+      steps:
+        - title: Ask in a notebook
+          detail: Open a local notebook and describe the class, the passage, and the reading bands. A built-in teaching skill routes quiz and worksheet requests into a structured authoring flow.
+        - title: Draft beside the chat
+          detail: The quiz arrives as an editable document beside the chat. Select a weak question, ask for a rewrite, and the document updates in place.
+        - title: Level the passage
+          detail: Ask for the same passage at two grade bands. Each version stays editable next to the chat.
+        - title: Export or practice
+          detail: Save the document as a PDF for handouts, or turn the items into a graded quiz and spaced-repetition flashcards.
+  - type: decision-factors
+    heading: Who it's for, data, where it runs, who picks the model
+    intro: Four differences that show up every day, not on a feature checklist.
+    factors:
+      - heading: Who the AI is for
+        explanation: MagicSchool serves three groups at once. Teachers generate materials, students work under teacher supervision, and admins manage the rollout. Buddy serves the one person at the keyboard. If students need their own supervised AI, Buddy has nothing to offer, and that is most of what MagicStudent exists to do.
+      - heading: Student data and district paperwork
+        explanation: MagicSchool advertises FERPA, COPPA, SOC 2, and NY Ed Law 2-D compliance packaging, publishes a student data policy, and negotiates data agreements with districts. Buddy's answer is architectural. It runs without an account, keeps files on your machine, and sends content only to the provider you connect. District counsel will ask for the first. An individual may prefer the second.
+      - heading: Where the work happens
+        explanation: MagicSchool runs in the browser and a Chrome extension, online only, with Google and Microsoft sign-in and Enterprise integrations for Canvas and Schoology. Buddy is a desktop app. Files stay on disk, export is PDF, and there is no extension or LMS surface. Both need the network for generation, Buddy to reach your provider, MagicSchool to reach its own stack.
+      - heading: Who picks the model
+        explanation: MagicSchool routes each tool across OpenAI, Anthropic, and Google models under its own contracts, and you cannot bring your own keys. Buddy uses whichever provider you connect in Settings, so cost, quality, and data terms follow your choice rather than a platform default.
+  - type: pricing
+    heading: What free means on each side
+    intro: Both products lead with a free tier, but the word covers different deals.
+    buddy: The Buddy desktop app is free. AI usage runs through the provider you connect, so real cost follows your ChatGPT plan, your API keys, or the free hosted models you pick, each with its own limits and terms.
+    competitor: MagicSchool Free includes the teacher tools, student tools, and Raina under standard generation limits, and the exact quota is not published. Plus costs $12.99 per month, or $8.33 per month billed annually, and removes generation and history caps. Enterprise is a custom quote.
+  - type: decision
+    heading: MagicSchool for the classroom, Buddy for your own machine
+    competitorHeading: Choose MagicSchool AI when
+    competitorReasons:
+      - Students need AI access of their own, with teacher visibility, always-on moderation, and high-risk alerts. Buddy has no student accounts at all.
+      - A school or district is buying, since SSO, Canvas and Schoology integrations, org-wide tool management, dashboards, and a negotiated data agreement exist only on Enterprise.
+      - You want an exit ticket or a leveled passage in under a minute from a named form tool, with the models included and nothing to configure.
+      - Your day runs inside Google Classroom, Docs, and Gmail, where the Chrome extension puts the tools.
+    buddyHeading: Choose Buddy when
+    buddyReasons:
+      - The AI work is your own preparation, and you would rather keep it local with no new cloud account attached.
+      - You want materials you can keep editing after the first draft, revising selections in place and saving as PDF, rather than regenerating from scratch.
+      - Practice matters as much as prep, because graded quizzes and spaced flashcards turn the same material into study sessions for the learner at that machine.
+      - You prefer to choose the model provider yourself and hold your own credentials, accepting that cost and quality then follow your provider.
+relatedCompares:
+  - buddy-vs-diffit
+  - buddy-vs-claude-teachers
+  - buddy-vs-khanmigo

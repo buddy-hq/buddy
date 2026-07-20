@@ -1,0 +1,31 @@
+---
+import type { CompareSection as CompareSectionData } from "../../lib/compare"
+import DecisionFactorsSection from "./DecisionFactorsSection.astro"
+import DecisionSection from "./DecisionSection.astro"
+import DecisionTableSection from "./DecisionTableSection.astro"
+import PricingSection from "./PricingSection.astro"
+import ProseSection from "./ProseSection.astro"
+import SnapshotSection from "./SnapshotSection.astro"
+import TestResultsSection from "./TestResultsSection.astro"
+import WorkflowSection from "./WorkflowSection.astro"
+
+type Props = {
+  readonly competitor: string
+  readonly section: CompareSectionData
+}
+
+const { competitor, section } = Astro.props
+---
+
+{section.type === "prose" && <ProseSection section={section} />}
+{section.type === "snapshot" && <SnapshotSection competitor={competitor} section={section} />}
+{section.type === "decision-factors" && <DecisionFactorsSection section={section} />}
+{section.type === "workflow" && <WorkflowSection section={section} />}
+{section.type === "comparison-table" && (
+  <DecisionTableSection competitor={competitor} section={section} />
+)}
+{section.type === "test-results" && (
+  <TestResultsSection competitor={competitor} section={section} />
+)}
+{section.type === "pricing" && <PricingSection competitor={competitor} section={section} />}
+{section.type === "decision" && <DecisionSection section={section} />}

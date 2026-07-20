@@ -1,0 +1,97 @@
+competitor: Quizlet
+competitorUrl: https://quizlet.com/
+audience: both
+title: "Buddy vs Quizlet for flashcards"
+description: "Compare Buddy and Quizlet for flashcard study: a free local desktop app with spaced repetition versus a cloud library of shared sets, games, and class tools."
+headline: "Buddy vs Quizlet for flashcards and practice"
+tagline: "Buddy builds private practice from your own notes. Quizlet is a shared library of study sets, free with an account."
+targetQueries:
+  - buddy vs quizlet
+  - quizlet alternative for spaced repetition
+  - is quizlet plus worth it
+lastVerified: 2026-07-20
+lastUpdated: 2026-07-20
+ogImagePath: /og/buddy-vs-quizlet.png
+ogImageAlt: "Buddy vs Quizlet — app icons side by side"
+faqs:
+  - question: What is free on Quizlet vs Buddy?
+    answer: "Quizlet free covers public sets and basic modes with ads and caps on Learn, tests, and AI uploads; Plus plans remove or raise those caps. Buddy has no Buddy subscription or ads; you only pay the AI provider you use for authoring, and review itself is uncapped by Buddy."
+  - question: Can I import my Quizlet sets into Buddy?
+    answer: "No. Buddy has no Quizlet or Anki import. Rebuild decks from original notes or readings in Buddy, or keep Quizlet when the shared library and import path matter more than local files."
+  - question: Which one should a teacher use for a class?
+    answer: "Quizlet, when you need classes, Live/Blast games, assignments, or Class Progress. Buddy is one learner on one machine with no rosters or multiplayer. Use Buddy for private practice from materials you own; use Quizlet for the classroom set."
+  - question: Do either of them work offline?
+    answer: "Buddy can review local decks offline; AI authoring needs a provider connection. Quizlet needs connectivity for most study, with offline downloads as a paid mobile feature. One offline desktop machine favors Buddy; multi-device Quizlet study favors Quizlet."
+  - question: Which is better for kids under 13?
+    answer: "Quizlet publishes COPPA Safe Harbor packaging and guardian consent for under 13. Buddy has no under-13 consent flows or school compliance packaging. Families or schools that need that packaging should use Quizlet; Buddy is not a child-account product."
+sections:
+  - type: snapshot
+    heading: Same habit, different foundations
+    intro: "Both products drill flashcards, but they start from opposite assumptions about where material comes from and who it belongs to."
+    items:
+      - label: Where material comes from
+        buddy: "You bring your own notes, PDFs, and EPUBs; Buddy's agent turns them into decks and quizzes"
+        competitor: "You usually start by searching a public library Quizlet counts in the hundreds of millions of sets"
+      - label: Where your data lives
+        buddy: "Local folders on your machine, with no Buddy account required"
+        competitor: "Quizlet's cloud behind a free account; offline downloads are paid"
+      - label: Practice style
+        buddy: "Spaced-repetition flashcards plus graded multiple-choice quizzes from your own materials"
+        competitor: "Term and definition cards with adaptive Learn rounds, tests, and timed games"
+      - label: Cost shape
+        buddy: "Free app; your only optional cost is the AI provider you connect"
+        competitor: "Free with ads and caps; Plus tiers remove them on a subscription"
+      - label: Where you study
+        buddy: "A macOS or Windows desktop app, with no mobile client or cloud sync"
+        competitor: "Web, iOS, and Android, with progress following your account"
+      - label: Who else can join
+        buddy: "Nobody; it is built for one learner on one machine"
+        competitor: "Classes, study groups, and join-code games like Quizlet Live"
+  - type: workflow
+    heading: A week of studying, two different routes
+    intro: "The daily loop differs as much as the feature list. One route starts in a marketplace of sets; the other starts in your own files."
+    buddy:
+      label: "Buddy: build from your own materials"
+      steps:
+        - title: Add sources
+          detail: "Drop PDFs, EPUBs, or notes into a local notebook and ask Buddy to prepare them for study."
+        - title: Generate practice
+          detail: "Buddy builds flashcards and multiple-choice quizzes you can edit by hand."
+        - title: Review what is due
+          detail: "Spaced review serves the cards you need most, with no monthly round caps. You rate how well you knew each one."
+        - title: Ask when stuck
+          detail: "The same agent explains a concept, sketches a figure on the whiteboard, or writes extra questions about a weak topic."
+    competitor:
+      label: "Quizlet: find a set, then drill it"
+      steps:
+        - title: Find or make a set
+          detail: "Search the public library for your course, or upload notes to Magic Notes to generate cards automatically."
+        - title: Pick a mode
+          detail: "Flip cards, run adaptive Learn rounds, take a practice test, or play Match against the clock."
+        - title: Watch the meter
+          detail: "Free accounts hit caps on Learn rounds, tests, and uploads; Plus raises them and Plus Unlimited removes them."
+        - title: Study anywhere
+          detail: "Progress syncs across web and mobile, and paid plans can download sets for offline review."
+  - type: pricing
+    heading: What free means on each side
+    intro: "Both products can be used without paying, but they meter different things. The gap shows up in how much adaptive practice you get before a paywall appears."
+    buddy: "Buddy is free, with no paid tier, no account, and no metering on review. Decks have a configurable daily budget of new and review cards that you control. The only optional cost is the AI provider you connect for chat and authoring, such as a ChatGPT login, an API key, or a free model."
+    competitor: "Quizlet's free tier shows ads and caps Learn rounds, practice tests, and AI note uploads. Plus runs about $7.99 a month or $35.99 a year and still meters you to roughly 20 Learn rounds, 3 practice tests, and 3 textbook solutions a month. Plus Unlimited, about $9.99 a month or $44.99 a year, removes those caps. A family plan covering up to five accounts has been listed near $84 a year, and the teacher plan sits in the same range as individual Plus."
+  - type: decision
+    heading: When Quizlet fits, when Buddy fits
+    competitorHeading: Choose Quizlet if
+    competitorReasons:
+      - "Your course already has shared sets and you want to start tonight without making anything."
+      - "You study on a phone and need progress to follow you across web and mobile."
+      - "A teacher runs Quizlet Live, assigns activities, or tracks class progress."
+      - "Games, audio cards, and labeled diagrams keep you drilling longer."
+    buddyHeading: Choose Buddy if
+    buddyReasons:
+      - "You study from your own notes, PDFs, and readings and want practice built from them."
+      - "You want unlimited spaced review with no ads, no account, and no monthly caps."
+      - "You would rather keep decks and review history on your own machine and pick the AI provider yourself."
+      - "You want more than recall drills: a tutor chat, whiteboard, and graded quizzes sit next to the cards."
+relatedCompares:
+  - buddy-vs-knowt
+  - buddy-vs-remnote
+  - buddy-vs-notebooklm

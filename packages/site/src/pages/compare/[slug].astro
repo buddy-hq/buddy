@@ -1,0 +1,53 @@
+---
+import Footer from "../../components/Footer.astro"
+import ComparePage from "../../components/compare/ComparePage.astro"
+import BasePage from "../../layouts/BasePage.astro"
+import {
+  buildCompareBreadcrumbJsonLd,
+  buildComparedProductJsonLd,
+  buildCompareFaqJsonLd,
+  formatCompareDate,
+  getCompareEntries,
+  getRelatedCompareEntries,
+} from "../../lib/compare"
+import type { CompareEntry } from "../../lib/compare"
+
+export const prerender = true
+
+export async function getStaticPaths() {
+  const entries = await getCompareEntries()
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: {
+      entry,
+      relatedEntries: getRelatedCompareEntries(entry, entries),
+    },
+  }))
+}
+
+type Props = {
+  readonly entry: CompareEntry
+  readonly relatedEntries: readonly CompareEntry[]
+}
+
+const { entry, relatedEntries } = Astro.props
+const { data } = entry
+const structuredData = [
+  buildCompareBreadcrumbJsonLd(entry),
+  buildCompareFaqJsonLd(entry),
+  buildComparedProductJsonLd(entry),
+]
+---
+
+<BasePage
+  title={data.title}
+  description={data.description}
+  ogImagePath={data.ogImagePath}
+  ogImageAlt={data.ogImageAlt}
+  ogType="article"
+  lastModified={formatCompareDate(data.lastUpdated)}
+  additionalJsonLd={structuredData}
+>
+  <ComparePage entry={entry} relatedEntries={relatedEntries} />
+  <Footer />
+</BasePage>

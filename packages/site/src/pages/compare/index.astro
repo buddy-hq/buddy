@@ -1,0 +1,285 @@
+---
+import Footer from "../../components/Footer.astro"
+import InstallSection from "../../components/InstallSection.astro"
+import BasePage from "../../layouts/BasePage.astro"
+import {
+  buildCompareItemListJsonLd,
+  getCompareEntries,
+  getComparePath,
+} from "../../lib/compare"
+import { AUDIENCE_LEARNERS, LEARNER_PATH } from "../../lib/constants"
+
+export const prerender = true
+
+const entries = await getCompareEntries()
+const itemListJsonLd = buildCompareItemListJsonLd(entries)
+---
+
+<BasePage
+  title="Compare Buddy with AI Learning and Teaching Tools"
+  description="Compare Buddy with popular AI learning and teaching tools using researched differences in workflows, privacy, platforms, pricing, and ideal use cases."
+  additionalJsonLd={[itemListJsonLd]}
+>
+  <main class="compare-hub">
+    <nav class="hub-breadcrumb" aria-label="Breadcrumb">
+      <a href={LEARNER_PATH}>Home</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">Compare</span>
+    </nav>
+
+    <header class="hub-header">
+      <p class="hub-kicker">Buddy comparisons</p>
+      <h1>Compare Buddy</h1>
+      <p class="hub-lede">
+        Side-by-side comparisons for choosing the right learning or teaching workflow.
+      </p>
+      <p class="hub-count">{entries.length} tools compared</p>
+    </header>
+
+    <ul class="compare-list">
+      {entries.map((entry, index) => (
+        <li>
+          <article>
+            <span class="compare-index" aria-hidden="true">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <div class="compare-entry">
+              <p class="compare-competitor">Buddy vs {entry.data.competitor}</p>
+              <h2><a href={getComparePath(entry.id)}>{entry.data.headline}</a></h2>
+              <p class="compare-tagline">{entry.data.tagline}</p>
+            </div>
+            <span class="compare-arrow" aria-hidden="true">→</span>
+          </article>
+        </li>
+      ))}
+    </ul>
+  </main>
+
+  <div class="compare-hub-cta">
+    <InstallSection initialAudience={AUDIENCE_LEARNERS} useScrollReveal={false} />
+  </div>
+  <Footer />
+</BasePage>
+
+<style>
+  .compare-hub {
+    width: min(100%, 64rem);
+    min-width: 0;
+    margin-inline: auto;
+    padding: var(--space-12) var(--space-5) var(--space-16);
+  }
+
+  .compare-hub-cta {
+    border-top: 1px solid var(--color-card-border);
+    padding-bottom: var(--space-16);
+  }
+
+  /* ---------- breadcrumb ---------- */
+
+  .hub-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .hub-breadcrumb a {
+    color: var(--color-text-tertiary);
+    text-decoration: none;
+    transition: color 160ms var(--ease-out);
+  }
+
+  /* ---------- header ---------- */
+
+  .hub-header {
+    padding-block: var(--space-16) var(--space-12);
+  }
+
+  .hub-kicker {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-accent-secondary);
+  }
+
+  .hub-kicker::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    background: var(--color-accent-primary);
+  }
+
+  h1 {
+    margin-top: var(--space-5);
+    font-size: var(--text-4xl);
+    font-weight: 560;
+    line-height: var(--leading-tighter);
+    letter-spacing: var(--tracking-tighter);
+    color: var(--color-text-primary);
+  }
+
+  .hub-lede {
+    max-width: 58ch;
+    margin-top: var(--space-6);
+    font-size: var(--text-lg);
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+    text-wrap: pretty;
+  }
+
+  .hub-count {
+    display: inline-block;
+    margin-top: var(--space-8);
+    padding-block: var(--space-3);
+    width: 100%;
+    border-block: 1px solid var(--color-card-border);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  /* ---------- comparison index ---------- */
+
+  .compare-list {
+    list-style: none;
+  }
+
+  .compare-list article {
+    position: relative;
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr) 2.75rem;
+    gap: var(--space-6);
+    align-items: start;
+    padding-block: var(--space-8);
+    border-bottom: 1px solid var(--color-card-border);
+  }
+
+  .compare-index {
+    padding-top: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-accent-secondary);
+  }
+
+  .compare-competitor {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .compare-entry h2 {
+    margin-top: var(--space-2);
+    font-size: var(--text-2xl);
+    font-weight: 560;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .compare-entry h2 a {
+    color: var(--color-text-primary);
+    text-decoration: none;
+    transition: color 160ms var(--ease-out);
+  }
+
+  .compare-entry h2 a::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+
+  .compare-tagline {
+    max-width: 62ch;
+    margin-top: var(--space-3);
+    font-size: var(--text-sm);
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+    text-wrap: pretty;
+  }
+
+  .compare-arrow {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-top: var(--space-2);
+    border: 1px solid var(--color-card-border);
+    border-radius: 50%;
+    place-items: center;
+    color: var(--color-text-muted);
+    transition:
+      border-color 200ms var(--ease-out),
+      color 160ms var(--ease-out),
+      transform 200ms var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .hub-breadcrumb a:hover {
+      color: var(--color-text-primary);
+    }
+
+    .compare-list article:hover h2 a {
+      color: var(--color-accent-secondary);
+    }
+
+    .compare-list article:hover .compare-arrow {
+      border-color: var(--color-card-hover-border);
+      color: var(--color-accent-secondary);
+      transform: translateX(4px);
+    }
+  }
+
+  /* ---------- responsive ---------- */
+
+  @media (min-width: 720px) {
+    .compare-hub {
+      padding-top: var(--space-16);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .compare-list article {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-3);
+      padding-block: var(--space-6);
+    }
+
+    .compare-index {
+      padding-top: 0;
+    }
+
+    .compare-arrow {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .compare-hub {
+      padding-inline: var(--space-4);
+    }
+
+    .hub-header {
+      padding-block: var(--space-10) var(--space-8);
+    }
+
+    h1 {
+      font-size: var(--text-3xl);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .compare-arrow,
+    .compare-entry h2 a {
+      transition: none;
+    }
+  }
+</style>

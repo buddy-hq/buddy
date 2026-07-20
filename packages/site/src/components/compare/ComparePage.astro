@@ -1,0 +1,392 @@
+---
+import type { CompareEntry } from "../../lib/compare"
+import { getComparePath } from "../../lib/compare"
+import {
+  AUDIENCE_EDUCATORS,
+  AUDIENCE_LEARNERS,
+  COMPARE_PATH,
+  LEARNER_PATH,
+} from "../../lib/constants"
+import InstallSection from "../InstallSection.astro"
+import CompareBanner from "./CompareBanner.astro"
+import CompareSection from "./CompareSection.astro"
+
+type Props = {
+  readonly entry: CompareEntry
+  readonly relatedEntries: readonly CompareEntry[]
+}
+
+const { entry, relatedEntries } = Astro.props
+const { data } = entry
+const installAudience =
+  data.audience === "educators" ? AUDIENCE_EDUCATORS : AUDIENCE_LEARNERS
+---
+
+<main class="compare-page">
+  <div class="compare-document compare-document--top">
+    <nav class="compare-breadcrumb" aria-label="Breadcrumb">
+      <a href={LEARNER_PATH}>Home</a>
+      <span aria-hidden="true">/</span>
+      <a href={COMPARE_PATH}>Compare</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{data.competitor}</span>
+    </nav>
+  </div>
+
+  {/* Full-bleed hero (Raycast-style); sits outside the prose column */}
+  <CompareBanner
+    entryId={entry.id}
+    competitor={data.competitor}
+    headline={data.headline}
+    tagline={data.tagline}
+  />
+
+  <article class="compare-document">
+    <div class="compare-sections">
+      {data.sections.map((section) => (
+        <CompareSection competitor={data.competitor} section={section} />
+      ))}
+    </div>
+
+    <section class="compare-faq" aria-labelledby="compare-faq-heading">
+      <p class="compare-section-label">Questions</p>
+      <h2 id="compare-faq-heading">Frequently asked questions</h2>
+      <div class="compare-faq-list">
+        {data.faqs.map((faq) => (
+          <details class="compare-faq-item">
+            <summary>{faq.question}</summary>
+            <p>{faq.answer}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <nav class="compare-related" aria-label="Related comparisons">
+      <p class="compare-section-label">Keep comparing</p>
+      {relatedEntries.length > 0 && (
+        <ul class="compare-related-list">
+          {relatedEntries.map((relatedEntry) => (
+            <li>
+              <a class="compare-related-card" href={getComparePath(relatedEntry.id)}>
+                <span class="related-title">Buddy vs {relatedEntry.data.competitor}</span>
+                <span class="related-headline">{relatedEntry.data.headline}</span>
+                <span class="related-arrow" aria-hidden="true">→</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      <a class="compare-hub-link" href={COMPARE_PATH}>
+        View all comparisons<span class="link-arrow" aria-hidden="true">→</span>
+      </a>
+    </nav>
+  </article>
+</main>
+
+{/* Shared install CTA + download modal (same as main landings). Outside <main> for content validators. */}
+<div class="compare-cta">
+  <InstallSection initialAudience={installAudience} useScrollReveal={false} />
+</div>
+
+<style>
+  .compare-page {
+    padding: var(--space-10) 0 var(--space-16);
+  }
+
+  .compare-document {
+    width: min(100%, 64rem);
+    min-width: 0;
+    margin-inline: auto;
+    padding-inline: var(--space-5);
+  }
+
+  .compare-document--top {
+    margin-bottom: var(--space-4);
+  }
+
+  .compare-cta {
+    border-top: 1px solid var(--color-card-border);
+    padding-bottom: var(--space-16);
+  }
+
+  /* ---------- breadcrumb ---------- */
+
+  .compare-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .compare-breadcrumb a {
+    color: var(--color-text-tertiary);
+    text-decoration: none;
+    transition: color 160ms var(--ease-out);
+  }
+
+  /* ---------- section labels ---------- */
+
+  .compare-section-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-accent-secondary);
+  }
+
+  .compare-section-label::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    background: var(--color-accent-primary);
+  }
+
+  .link-arrow {
+    transition: transform 200ms var(--ease-out);
+  }
+
+  /* ---------- sections ---------- */
+
+  .compare-sections :global(section[data-compare-section]) {
+    padding-block: var(--space-12);
+    border-bottom: 1px solid var(--color-card-border);
+  }
+
+  /* Prose continues the hero; tighter top so it reads as the lead, not a new chapter */
+  .compare-sections :global(section[data-compare-section="prose"]:first-child) {
+    padding-top: var(--space-6);
+  }
+
+  .compare-sections :global(section[data-compare-section]:last-child) {
+    border-bottom: 0;
+    padding-bottom: var(--space-8);
+  }
+
+  /* ---------- faq ---------- */
+
+  .compare-faq {
+    padding-block: var(--space-12);
+  }
+
+  .compare-faq h2 {
+    margin-top: var(--space-4);
+    font-size: var(--text-2xl);
+    font-weight: 560;
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-text-primary);
+  }
+
+  .compare-faq-list {
+    margin-top: var(--space-8);
+    border-top: 1px solid var(--color-card-border);
+  }
+
+  .compare-faq-item {
+    border-bottom: 1px solid var(--color-card-border);
+  }
+
+  .compare-faq-item summary {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding-block: var(--space-5);
+    font-weight: 540;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    list-style: none;
+    transition: color 160ms var(--ease-out);
+  }
+
+  .compare-faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .compare-faq-item summary::after {
+    content: "";
+    flex-shrink: 0;
+    width: 0.625rem;
+    height: 0.625rem;
+    background: var(--color-text-muted);
+    clip-path: polygon(
+      42% 0,
+      58% 0,
+      58% 42%,
+      100% 42%,
+      100% 58%,
+      58% 58%,
+      58% 100%,
+      42% 100%,
+      42% 58%,
+      0 58%,
+      0 42%,
+      42% 42%
+    );
+    transform: translateY(0.05em);
+    transition:
+      transform 240ms var(--ease-out),
+      background 160ms var(--ease-out);
+  }
+
+  .compare-faq-item[open] summary::after {
+    transform: translateY(0.05em) rotate(45deg);
+    background: var(--color-accent-secondary);
+  }
+
+  .compare-faq-item p {
+    max-width: 66ch;
+    padding: 0 var(--space-8) var(--space-6) 0;
+    line-height: 1.75;
+    color: var(--color-text-secondary);
+  }
+
+  /* ---------- related ---------- */
+
+  .compare-related {
+    padding-block: var(--space-12) 0;
+    border-top: 1px solid var(--color-card-border);
+  }
+
+  .compare-related-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
+    margin-top: var(--space-6);
+    list-style: none;
+  }
+
+  .compare-related-card,
+  .compare-related-card:link,
+  .compare-related-card:visited,
+  .compare-related-card:hover,
+  .compare-related-card:active {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    height: 100%;
+    padding: var(--space-5);
+    border: 1px solid var(--color-card-border);
+    background: var(--color-card-bg);
+    color: var(--color-text-primary);
+    text-decoration: none;
+    transition:
+      border-color 200ms var(--ease-out),
+      transform 200ms var(--ease-out);
+  }
+
+  .related-title {
+    font-size: var(--text-base);
+    font-weight: 560;
+    line-height: 1.4;
+    letter-spacing: var(--tracking-snug);
+    color: var(--color-text-primary);
+  }
+
+  .related-headline {
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+  }
+
+  .related-arrow {
+    margin-top: auto;
+    padding-top: var(--space-4);
+    color: var(--color-text-muted);
+    transition:
+      color 160ms var(--ease-out),
+      transform 200ms var(--ease-out);
+  }
+
+  .compare-related-card:link .related-title,
+  .compare-related-card:visited .related-title,
+  .compare-related-card:hover .related-title,
+  .compare-related-card:active .related-title {
+    color: var(--color-text-primary);
+  }
+
+  .compare-related-card:link .related-headline,
+  .compare-related-card:visited .related-headline,
+  .compare-related-card:hover .related-headline,
+  .compare-related-card:active .related-headline {
+    color: var(--color-text-secondary);
+  }
+
+  .compare-hub-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-8);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    text-decoration: none;
+    transition: color 160ms var(--ease-out);
+  }
+
+  /* ---------- hover ---------- */
+
+  @media (hover: hover) and (pointer: fine) {
+    .compare-breadcrumb a:hover,
+    .compare-hub-link:hover {
+      color: var(--color-text-primary);
+    }
+
+    .compare-hub-link:hover .link-arrow {
+      transform: translateX(3px);
+    }
+
+    .compare-faq-item summary:hover {
+      color: var(--color-accent-secondary);
+    }
+
+    .compare-related-card:hover {
+      border-color: var(--color-card-hover-border);
+      transform: translateY(-2px);
+    }
+
+    .compare-related-card:hover .related-arrow {
+      color: var(--color-accent-secondary);
+      transform: translateX(4px);
+    }
+  }
+
+  /* ---------- responsive ---------- */
+
+  @media (min-width: 720px) {
+    .compare-page {
+      padding-top: var(--space-16);
+    }
+  }
+
+  @media (max-width: 720px) {
+    .compare-related-list {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .compare-page {
+      padding-inline: var(--space-4);
+    }
+
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .compare-related-card,
+    .related-arrow,
+    .link-arrow,
+    .compare-faq-item summary::after {
+      transition: none;
+    }
+  }
+</style>

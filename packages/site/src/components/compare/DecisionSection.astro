@@ -1,0 +1,129 @@
+---
+import type { CompareSection } from "../../lib/compare"
+import SectionHeader from "./SectionHeader.astro"
+
+type Props = {
+  readonly section: Extract<CompareSection, { readonly type: "decision" }>
+}
+
+const { section } = Astro.props
+const headingId = `compare-section-${section.type}`
+---
+
+<section data-compare-section={section.type} aria-labelledby={headingId}>
+  <SectionHeader id={headingId} label="Who each is for" heading={section.heading} />
+  <div class="decision-choices">
+    <article class="decision-competitor">
+      <h3>{section.competitorHeading}</h3>
+      <ul>
+        {section.competitorReasons.map((reason) => <li>{reason}</li>)}
+      </ul>
+    </article>
+    <span class="decision-or" aria-hidden="true">or</span>
+    <article class="decision-buddy">
+      <h3>{section.buddyHeading}</h3>
+      <ul>
+        {section.buddyReasons.map((reason) => <li>{reason}</li>)}
+      </ul>
+    </article>
+  </div>
+</section>
+
+<style>
+  .decision-choices {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+    margin-top: var(--space-10);
+  }
+
+  article {
+    min-width: 0;
+    padding: var(--space-6);
+    border: 1px solid var(--color-card-border);
+    background: var(--color-card-bg);
+  }
+
+  .decision-buddy {
+    border-color: var(--color-card-hover-border);
+    background:
+      linear-gradient(180deg, var(--color-accent-primary-glow), transparent 55%),
+      var(--color-card-bg);
+  }
+
+  .decision-or {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--color-card-border);
+    border-radius: 50%;
+    background: var(--color-bg);
+    place-items: center;
+    transform: translate(-50%, -50%);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  h3 {
+    font-size: var(--text-xl);
+    font-weight: 560;
+    line-height: var(--leading-snug);
+    letter-spacing: var(--tracking-snug);
+    color: var(--color-text-primary);
+    text-wrap: balance;
+  }
+
+  ul {
+    display: grid;
+    gap: var(--space-4);
+    margin-top: var(--space-6);
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+    padding-left: var(--space-5);
+    font-size: var(--text-sm);
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+  }
+
+  li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.5em;
+    width: 0.375rem;
+    height: 0.375rem;
+    border: 1px solid var(--color-text-muted);
+  }
+
+  .decision-buddy li::before {
+    border-color: var(--color-accent-primary);
+    background: var(--color-accent-primary);
+  }
+
+  @media (max-width: 720px) {
+    .decision-choices {
+      grid-template-columns: 1fr;
+    }
+
+    .decision-or {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    article {
+      padding: var(--space-5);
+    }
+  }
+</style>

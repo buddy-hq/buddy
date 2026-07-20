@@ -1,0 +1,98 @@
+competitor: Diffit
+competitorUrl: https://web.diffit.me/
+audience: educators
+title: "Buddy vs Diffit for teachers"
+description: "Diffit builds leveled classroom packs in one web flow; Buddy drafts teaching materials conversationally on a local desktop. Compare workflows, cost, and fit."
+headline: "Buddy vs Diffit for leveled materials"
+tagline: "Buddy drafts leveled materials with you in chat, from your own files. Diffit generates ready packs in one flow."
+targetQueries:
+  - "diffit vs buddy"
+  - "diffit alternative for teachers"
+  - "free diffit alternative for differentiated materials"
+lastVerified: 2026-07-20
+lastUpdated: 2026-07-20
+ogImagePath: /og/buddy-vs-diffit.png
+ogImageAlt: "Buddy vs Diffit — app icons side by side"
+faqs:
+  - question: "Can students use Diffit or Buddy directly?"
+    answer: "No student accounts exist on either side. Diffit bars anyone under 18 from signing up and reaches students only through printed or assigned exports. Buddy is a single-user desktop app, so flashcard and question-set practice happens on the machine where it is installed."
+  - question: "Can Buddy level one passage across several grades the way Diffit does?"
+    answer: "Only by asking, one variant at a time. Buddy's agent applies grade-band and differentiation guidance when you request a level, but there is no picker that rebuilds every band in one flow. You keep each version as a separate editable document."
+  - question: "Does Buddy export to Google Classroom or Microsoft 365?"
+    answer: "No. Buddy's handout path is a PDF saved from the desktop app, and files open in your default applications. It does not push to Docs, Slides, Forms, Classroom, or Word; Diffit's paid plans cover those destinations directly."
+  - question: "What happens to teacher and student data in each tool?"
+    answer: "Diffit stores teacher accounts and resources in its cloud and states it collects no student data, though it does not spell out whether prompts train its OpenAI and Gemini providers. Buddy keeps notebooks on your machine with no account, but chat content goes to whichever model provider you connect. Only Diffit offers districts signed privacy agreements."
+sections:
+  - type: snapshot
+    heading: "Same prep problem, two different product shapes"
+    intro: "Both tools aim at the same prep hour. Nearly everything about how they fill it differs."
+    items:
+      - label: "Form factor"
+        buddy: "Free desktop app for macOS and Windows; notebooks live in ordinary local folders."
+        competitor: "Web app at app.diffit.me with a teacher cloud account; nothing to install."
+      - label: "What you make"
+        buddy: "Editable documents drafted beside the chat and revised by asking."
+        competitor: "Leveled packs produced in a single pass: reading, vocabulary, questions, organizers, activities."
+      - label: "Reading levels"
+        buddy: "Ask for a grade band and the agent rewrites; each variant is a document you manage."
+        competitor: "Level pickers rebuild the same content across grade bands, roughly 2nd grade through 11th."
+      - label: "Getting it to students"
+        buddy: "Save as PDF from the desktop, or practice in-app with flashcards and graded question sets."
+        competitor: "Print and PDF on the free plan; Google Docs, Slides, Forms, Classroom, and Word on Premium."
+      - label: "Student accounts"
+        buddy: "None; Buddy is a single-user app on one machine, for the person sitting at it."
+        competitor: "None by design; children under 18 cannot sign up, and students only see exports."
+      - label: "School-wide rollout"
+        buddy: "No admin console, rostering, or site license exists."
+        competitor: "Flat annual license by enrollment, with an admin dashboard, bulk invites, and usage data."
+  - type: workflow
+    heading: "Two routes to tomorrow's differentiated materials"
+    intro: "The sequence decides where your planning time goes: a guided generation flow in the browser, or a drafting conversation on your desktop."
+    buddy:
+      label: "Buddy: conversation to editable documents"
+      steps:
+        - title: "Describe the class and the goal"
+          detail: "Tell the agent the grade band, student needs, and what the material has to accomplish."
+        - title: "Attach sources if you have them"
+          detail: "Drop a PDF or EPUB into the notebook so rewrites and questions ground on the actual text."
+        - title: "Draft beside the chat"
+          detail: "The agent writes the reading, vocabulary, and questions as documents you can edit beside the chat."
+        - title: "Revise and level by asking"
+          detail: "Request a simpler or harder variant, language scaffolds, or a question set; each version stays yours."
+        - title: "Print or practice"
+          detail: "Save a PDF for handouts, or turn the same material into flashcards and graded practice in the app."
+    competitor:
+      label: "Diffit: one flow, many levels"
+      steps:
+        - title: "Pick a source"
+          detail: "Enter a topic, or paste text, a PDF, a URL, or a video transcript into the web app."
+        - title: "Set grade, language, and standards"
+          detail: "Choose reading level and language up front; Premium adds standards and DOK targeting."
+        - title: "Generate the pack"
+          detail: "Diffit produces leveled passages, vocabulary, questions, and activities with source citations."
+        - title: "Edit and export"
+          detail: "Review everything, then print a PDF or push to Google Classroom and Word on paid plans."
+  - type: pricing
+    heading: "Free tiers that gate different things"
+    intro: "Both tools can be used without paying. Paid plans differ in what they include and who they are built for."
+    buddy: "Buddy is a free download for macOS and Windows with no Buddy account. The only possible cost is the model provider you connect, and free model options exist."
+    competitor: "Diffit Basic is free with limited customization and PDF export. Premium costs $14.99 per month or $149.99 per year and adds Chat, Google and Microsoft export, full organizers, and longer inputs; school licenses are flat annual rates quoted by enrollment."
+  - type: decision
+    heading: "When Diffit is enough, when Buddy is better"
+    competitorHeading: "Choose Diffit when"
+    competitorReasons:
+      - "You need the same passage rebuilt at several reading levels by tomorrow, with the levels handled for you."
+      - "Your classroom runs on Google Classroom or Microsoft 365 and exports must land there without detours."
+      - "Your school or district is buying, so you need site licensing, an admin dashboard, and signed privacy agreements."
+      - "You want the simplest privacy review possible: no student accounts means no student data ever sits inside the AI tool."
+    buddyHeading: "Choose Buddy when"
+    buddyReasons:
+      - "You want drafting, leveling, and revision to happen in one ongoing conversation instead of a per-resource generation flow."
+      - "Your sources are long PDFs or EPUBs, and you want rewrites and questions grounded on them inside local notebooks."
+      - "You want the material to become practice: spaced flashcards and graded quizzes in the same app."
+      - "You prefer no cloud account, your own choice of model provider, and files that stay on your machine."
+      - "You need more than worksheets, like whiteboards, diagrams, and interactive widgets next to the chat."
+relatedCompares:
+  - buddy-vs-magicschool
+  - buddy-vs-claude-teachers
+  - buddy-vs-khanmigo

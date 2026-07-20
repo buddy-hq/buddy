@@ -1,0 +1,99 @@
+competitor: Knowt
+competitorUrl: https://knowt.com/
+audience: both
+title: "Buddy vs Knowt for flashcards"
+description: "Knowt is a free cloud study platform with mobile apps, shared sets, and school plans. Buddy is a free local-first study agent for your desktop. Compare them."
+headline: "Buddy vs Knowt for study decks and practice"
+tagline: "Buddy builds practice from your own notes on your desktop. Knowt gives you a free library of shared sets on your phone."
+targetQueries:
+  - Knowt vs Buddy
+  - Knowt alternative that keeps study files local
+  - Buddy or Knowt for turning PDFs into flashcards
+lastVerified: 2026-07-20
+lastUpdated: 2026-07-20
+ogImagePath: /og/buddy-vs-knowt.png
+ogImageAlt: "Buddy vs Knowt — app icons side by side"
+faqs:
+  - question: What is free on Knowt vs Buddy?
+    answer: "Knowt's free tier markets unlimited Learn, Match, Practice Test, and flashcards, with monthly caps and ads on AI extras; Ultra lifts those caps. Buddy's app is free with no ads or Buddy paywall; generation runs through a provider you connect, including free models with limits."
+  - question: Can I import Quizlet sets into Buddy the way Knowt does?
+    answer: "No. Buddy has no Quizlet importer or shared library, so decks come from your own local files. Knowt's extension can pull Quizlet sets into its cloud if migration speed matters more than keeping files local."
+  - question: Which one works on a phone?
+    answer: "Knowt has iOS and Android apps with synced progress. Buddy is macOS and Windows only, no mobile sync. If you study on a phone, pick Knowt; if you study at one desktop from local PDFs, pick Buddy."
+  - question: Can a teacher run a class with Buddy or Knowt?
+    answer: "Knowt has classroom tools and district licensing. Buddy is one user on one machine with no enrollments or class monitoring. Teachers can still author quizzes alone in Buddy, but class delivery belongs to Knowt."
+  - question: Do I have to pay for AI to use Buddy's flashcards and quizzes?
+    answer: "Buddy never bills you. Decks and question sets are authored by an agent on a provider you connect, and free models are an option. Any cost or rate limit comes from that provider, not from Buddy."
+sections:
+  - type: snapshot
+    heading: Same study job, two different product shapes
+    intro: "Both products turn study materials into cards and quizzes. Almost everything around that job works differently: where your files live, who can join, and how the AI is billed."
+    items:
+      - label: What it is
+        buddy: "A free, local-first desktop study agent that builds flashcards, question sets, and guided practice from your own files."
+        competitor: "A cloud study platform that turns uploads into flashcards, quizzes, and podcasts, plus a classroom suite for teachers and schools."
+      - label: Where your study lives
+        buddy: "In ordinary folders on one Mac or Windows PC. There is no Buddy account and no Buddy cloud."
+        competitor: "In your Knowt account, synced across web, iOS, and Android, with sets you can share publicly."
+      - label: Study modes
+        buddy: "Spaced-repetition flashcards plus auto-graded multiple-choice quizzes built from your own files."
+        competitor: "Learn, Match, Practice Test, classic flashcards, and configurable spaced repetition, marketed as unlimited on the free tier."
+      - label: Where the AI comes from
+        buddy: "A provider you connect yourself, with a model picker in every chat."
+        competitor: "Knowt's built-in Kai assistant, metered monthly on free accounts. The underlying model provider is not disclosed."
+      - label: Classroom and school reach
+        buddy: "None. Buddy is single user and single machine, with no classes, rostering, or admin tools."
+        competitor: "Classes, assignments, monitored AI chats, analytics, SSO and rostering, and district licenses quoted per student."
+      - label: What free includes
+        buddy: "The whole app. Generation limits come from the AI provider you connect."
+        competitor: "The study modes, per Knowt's marketing, with monthly caps on AI summaries and Kai chats."
+  - type: workflow
+    heading: From class materials to a study session
+    intro: "Both turn class materials into practice. What differs is where files live and where you can review them."
+    buddy:
+      label: "Buddy: local files, agent-authored practice"
+      steps:
+        - title: Add files to a local notebook
+          detail: "Buddy reads PDF and EPUB directly and extracts DOCX in resource packs. Everything stays in normal folders on your machine."
+        - title: Ask the agent to build practice
+          detail: "It reads the full text and builds a flashcard deck or a multiple-choice quiz from your material."
+        - title: Study on a schedule
+          detail: "Cards come back for spaced review, with daily limits you control. Quizzes grade when you submit."
+        - title: Keep working beside the chat
+          detail: "Open the deck, a document, or a whiteboard next to the chat and refine the material with the agent on the same machine."
+    competitor:
+      label: "Knowt: upload to the cloud, drill in study modes"
+      steps:
+        - title: Upload or import your materials
+          detail: "Add PDFs, slides, notes, audio, or video, or pull existing sets in from Quizlet and YouTube with the Chrome extension."
+        - title: Let Knowt generate study assets
+          detail: "Its AI writes notes, flashcards, and practice quizzes from the upload. Heavy generation counts against the monthly free AI limit."
+        - title: Drill in Learn, Match, or Practice Test
+          detail: "Study modes run on web and mobile with streaks and XP, and progress syncs across devices through your account."
+        - title: Share or browse the library
+          detail: "Sets can be published for others, and millions of community notes and decks are ready to study without uploading anything."
+  - type: pricing
+    heading: What free means on each side
+    intro: "Both products are free to start, but the meter sits in different places. Knowt charges to lift AI caps; Buddy never charges, and any AI cost belongs to the provider you connect."
+    buddy: "Buddy has no paid tier and shows no ads. Chat and generation run through a provider you connect, such as a ChatGPT sign-in, your own API keys, or free models, so any usage cost or rate limit comes from that provider, not from Buddy."
+    competitor: "Knowt's free tier includes the study modes with monthly AI caps and ads on the consumer surface. Ultra costs $149.99 per year (about $12.49 per month) or $24.99 month to month, and school or district licensing is quoted per student, advertised from about $2.75."
+  - type: decision
+    heading: When Knowt fits, when Buddy fits
+    competitorHeading: Choose Knowt when
+    competitorReasons:
+      - "You study on a phone or across several devices and want decks and progress synced through an account."
+      - "You want free drill modes like Learn, Match, and Practice Test without connecting your own AI provider."
+      - "You rely on shared sets, the public library, or one-click imports from Quizlet and YouTube."
+      - "You teach a rostered class or buy for a school and need assignments, monitored AI chats, analytics, SSO, or a signed DPA."
+      - "Your material is mostly recorded lectures, slides, or audio that you want summarized automatically."
+    buddyHeading: Choose Buddy when
+    buddyReasons:
+      - "Your study materials are already on your computer and you want them to stay there, with no account and no ads."
+      - "You want flashcards and graded question sets authored from your own PDFs and EPUBs, with per-deck spaced-repetition settings."
+      - "You prefer picking your own AI provider and model instead of renting a metered built-in assistant."
+      - "You want an agent that tutors and works through problems with you, plus decks you can drill."
+      - "You are one teacher authoring quizzes, rubrics, or worksheets for your own use rather than managing a class."
+relatedCompares:
+  - buddy-vs-quizlet
+  - buddy-vs-remnote
+  - buddy-vs-notebooklm

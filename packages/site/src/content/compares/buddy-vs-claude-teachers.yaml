@@ -1,0 +1,86 @@
+competitor: Claude for Teachers
+competitorUrl: https://claude.com/solutions/teachers
+audience: educators
+title: "Buddy vs Claude for Teachers"
+description: "Claude for Teachers gives verified US K-12 educators a free year of premium Claude. Buddy is a free local desktop app where you bring the model."
+headline: "Buddy vs Claude for Teachers for lesson planning"
+tagline: "Buddy is local lesson prep for anyone, with any model you choose. Claude for Teachers gives verified US K-12 teachers free cloud access."
+targetQueries:
+  - "claude for teachers vs buddy"
+  - "claude for teachers alternative"
+  - "free ai for teachers comparison"
+lastVerified: 2026-07-20
+lastUpdated: 2026-07-20
+ogImagePath: /og/buddy-vs-claude-teachers.png
+ogImageAlt: "Buddy vs Claude for Teachers — app icons side by side"
+faqs:
+  - question: Is Claude for Teachers free compared with Buddy?
+    answer: "For verified US K-12 staff who sign up by June 30, 2027, Claude for Teachers includes a year of Pro-level access at no cost, with usage limits and no published price after year one. Buddy's app is free with no seat fee; you still pay or use free limits on the model provider you connect."
+  - question: Can students use Claude for Teachers or Buddy?
+    answer: "Claude for Teachers is staff-only (18+, no student accounts). Buddy also has no student accounts, but a learner can run flashcards and graded quizzes on the same machine. Neither product is a class roster tool."
+  - question: What happens to my class data in each product?
+    answer: "Claude for Teachers runs under US K-12 terms with no training on inputs/outputs by default and a FERPA-aligned processing agreement. Buddy keeps files local with no Buddy account, but prompts go to your connected provider under that provider's terms; Buddy signs no education DPA of its own."
+  - question: Does Buddy have the same lesson-planning tools as Claude for Teachers?
+    answer: "The two core K-12 lesson-planning and differentiation tools Anthropic open-sourced can install in Buddy. On Claude for Teachers they come preinstalled; in Buddy you add them during setup and pair them with a model provider you choose."
+sections:
+  - type: snapshot
+    heading: "At a glance: a cloud plan versus a local workspace"
+    items:
+      - label: Getting in
+        buddy: "No Buddy account and no verification; install the app and connect a model provider"
+        competitor: "School-email verification plus an educator status check; US K-12 staff aged 18 and over"
+      - label: Platforms
+        buddy: "macOS and Windows desktop only"
+        competitor: "Web, desktop apps including a Linux beta, iOS, Android, and a Chrome extension"
+      - label: Standards grounding
+        buddy: "An optional package installs a local Learning Commons knowledge graph for standards search, prerequisites, and crosswalks"
+        competitor: "A live Learning Commons connector grounds plans in 50-state standards and curricula such as OpenSciEd"
+      - label: Teaching skills
+        buddy: "Installed from Buddy's built-in catalog, including Anthropic's own K-12 planning and differentiation set"
+        competitor: "Preinstalled K-12 lesson-planning and differentiation skills, ready the moment verification clears"
+      - label: Making materials
+        buddy: "Drafts open as editable documents beside chat, with PDF download on desktop"
+        competitor: "Artifacts and Claude Design turn prompts into shareable handouts, decks, and worksheets"
+      - label: Recurring prep
+        buddy: "Interactive sessions only; nothing runs on a schedule while you are away"
+        competitor: "Cowork can run scheduled jobs, like an evening exit-ticket review that drafts the next day's plan"
+      - label: Student-facing surface
+        buddy: "Local flashcards and graded quizzes a learner can run on the same machine"
+        competitor: "None; the plan is 18+ staff only, with no student accounts"
+  - type: decision-factors
+    heading: Money, privacy, eligibility, and setup
+    intro: "Both draft lesson materials and lean on Learning Commons standards data. Where they differ is who pays for the model, who signs the privacy agreement, who is allowed in, and how much setup you do."
+    factors:
+      - heading: Who pays for the model
+        explanation: "The Teachers plan includes Pro-level Claude, Claude Code, and Cowork in the free seat, so the model bill is Anthropic's problem for a year. Buddy takes the opposite approach: the app is free, but every answer is metered by the provider you connect, whether that is an existing ChatGPT subscription, pay-as-you-go API keys, or free hosted models with tighter limits. A teacher with no AI subscription today gets far more from Anthropic's offer."
+      - heading: A signed privacy agreement versus a private machine
+        explanation: "Anthropic wraps the Teachers plan in a contract: no training on educator inputs or outputs, and a FERPA-aligned data processing agreement covering student information, with Anthropic as processor. Buddy's answer is architectural instead. Files live in ordinary folders on your computer, there is no Buddy account, and memory is opt-in. But prompts and any context you share still travel to the model provider you connected, and Buddy signs no education agreement of its own. If your district needs a DPA with the AI vendor of record, only one product here can sign it."
+      - heading: Who is allowed in
+        explanation: "The free seat requires a verified US K-12 school email and an educator status check, and the rules for charter, private, and substitute teachers are not spelled out in detail. Everyone else, including teachers abroad, higher-ed instructors, tutors, and homeschool parents, is pointed at other Anthropic plans. Buddy checks nothing: no account, no geography gate, no verification queue. Its optional standards data centers on US and multi-jurisdiction academic standards, so the grounding advantage shrinks outside those systems, but the app itself turns no one away."
+      - heading: A ready-made plan versus an assembled workspace
+        explanation: "Verification on Claude opens a finished package: lesson tools are preinstalled and the Learning Commons connector is already live, so a teacher can draft a standards-aligned, differentiated lesson on the first evening. Buddy is assembled. Install the desktop app, connect a provider, then add the local standards package and lesson tools yourself. More setup up front; in return, output lives as editable files on a machine you control."
+  - type: pricing
+    heading: What free means on each side
+    intro: "Both products call themselves free, and the word means something different on each side. The details below were checked in July 2026."
+    buddy: "Buddy is a free download for macOS and Windows, with no Buddy account and no Buddy subscription. The cost sits with the model: you connect your own provider, such as an existing ChatGPT plan, pay-per-use API keys, or free hosted models that carry their own limits. Light use can stay free; heavy use is billed by whoever serves your model."
+    competitor: "Verified US K-12 educators who sign up by June 30, 2027 get one full year of Claude at no cost, including Pro-level access, Claude Code, Cowork, lesson-planning tools, and the education connectors. Usage caps still apply, and Anthropic has not published what the plan costs after the first year. For context, individual Claude Pro outside this offer runs about $20 a month or $200 a year."
+  - type: decision
+    heading: Who each is built for
+    competitorHeading: "Choose Claude for Teachers when"
+    competitorReasons:
+      - "You are a verified US K-12 educator and want a year of premium Claude, including Claude Code and Cowork, without paying a subscription"
+      - "You want scheduled prep automation, such as an evening exit-ticket review that produces the next day's plan before you arrive"
+      - "You or your district need a signed K-12 data processing agreement and an explicit no-training commitment from the AI vendor"
+      - "Your planning already runs through classroom tools like Canva Education, MagicSchool, Diffit, or TeachFX, which connect to Claude"
+      - "You plan from a phone, a browser, or several devices and want one synced account everywhere"
+    buddyHeading: "Choose Buddy when"
+    buddyReasons:
+      - "You are outside the gate: teaching abroad, in higher education, tutoring, or homeschooling, and still want standards-aware planning help"
+      - "You want class files and drafted materials to stay in folders on your own machine, with no account sitting in the middle"
+      - "You already pay for a model provider, or prefer free hosted models, and want to choose the model per chat"
+      - "You want one desktop workspace that also serves a learner, with editable documents plus flashcards and graded quizzes"
+      - "You accept a self-directed setup, installing the app and adding the standards package and skills yourself, in exchange for local control"
+relatedCompares:
+  - buddy-vs-chatgpt
+  - buddy-vs-magicschool
+  - buddy-vs-diffit

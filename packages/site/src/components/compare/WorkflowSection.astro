@@ -1,0 +1,154 @@
+---
+import type { CompareSection } from "../../lib/compare"
+import SectionHeader from "./SectionHeader.astro"
+
+type Props = {
+  readonly section: Extract<CompareSection, { readonly type: "workflow" }>
+}
+
+const { section } = Astro.props
+const headingId = `compare-section-${section.type}`
+const tracks = [
+  { ...section.buddy, buddy: true },
+  { ...section.competitor, buddy: false },
+]
+---
+
+<section data-compare-section={section.type} aria-labelledby={headingId}>
+  <SectionHeader
+    id={headingId}
+    label="Workflow"
+    heading={section.heading}
+    intro={section.intro}
+  />
+  <div class="workflow-tracks">
+    {tracks.map((track) => (
+      <div class:list={["workflow-track", { "workflow-track-buddy": track.buddy }]}>
+        <h3>{track.label}</h3>
+        <ol>
+          {track.steps.map((step, index) => (
+            <li>
+              <span aria-hidden="true">{index + 1}</span>
+              <div>
+                <h4>{step.title}</h4>
+                <p>{step.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .workflow-tracks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+    margin-top: var(--space-10);
+  }
+
+  .workflow-track {
+    min-width: 0;
+    padding: var(--space-6);
+    border: 1px solid var(--color-card-border);
+    background: var(--color-card-bg);
+  }
+
+  .workflow-track-buddy {
+    border-color: var(--color-card-hover-border);
+    background:
+      linear-gradient(180deg, var(--color-accent-primary-glow), transparent 45%),
+      var(--color-card-bg);
+  }
+
+  .workflow-track > h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-primary);
+  }
+
+  .workflow-track > h3::before {
+    content: "";
+    width: 0.375rem;
+    height: 0.375rem;
+    background: var(--color-text-muted);
+  }
+
+  .workflow-track-buddy > h3::before {
+    background: var(--color-accent-primary);
+  }
+
+  ol {
+    display: grid;
+    gap: var(--space-6);
+    margin-top: var(--space-6);
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+
+  li:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    left: 0.75rem;
+    top: 1.875rem;
+    bottom: calc(-1 * var(--space-6) + 0.25rem);
+    width: 1px;
+    background: var(--color-card-border);
+  }
+
+  li > span {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 1px solid var(--color-card-border);
+    border-radius: 50%;
+    background: var(--color-bg);
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-accent-secondary);
+  }
+
+  h4 {
+    padding-top: 0.15rem;
+    font-size: var(--text-sm);
+    font-weight: 560;
+    line-height: 1.5;
+    color: var(--color-text-primary);
+  }
+
+  p {
+    margin-top: var(--space-2);
+    font-size: var(--text-sm);
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+  }
+
+  @media (max-width: 720px) {
+    .workflow-tracks {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .workflow-track {
+      padding: var(--space-5);
+    }
+  }
+</style>
