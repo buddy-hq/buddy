@@ -67,7 +67,14 @@ export type ActivityHeader = {
 }
 
 export function activityHeaderKey(header: ActivityHeader): string {
-  return `${header.identity}:${header.label}`
+  return header.identity
+}
+
+function entryHeaderIdentity(entry: ActivityEntry): string {
+  if (entry.kind === "reasoning") return "reasoning"
+  return entry.presentation.archetype === "activity"
+    ? `activity:${entry.presentation.summary.category}`
+    : `tool:${entry.presentation.renderer}`
 }
 
 function isReasoningActive(part: MessagePart): boolean {
@@ -134,17 +141,10 @@ export function activityEntryLabel(entry: ActivityEntry): string {
   return entry.kind === "reasoning" ? reasoningEntryLabel(entry) : toolEntryLabel(entry)
 }
 
-function activeToolLabel(entry: ToolActivityEntry, entries: ActivityEntry[]): string {
-  if (entry.presentation.archetype !== "activity") return toolEntryLabel(entry)
-
-  const category = entry.presentation.summary.category
-  const categoryCount = entries.filter(
-    (candidate) =>
-      candidate.kind === "tool" &&
-      candidate.presentation.archetype === "activity" &&
-      candidate.presentation.summary.category === category,
-  ).length
-  return categoryCount >= 2 ? entry.presentation.summary.label : toolEntryLabel(entry)
+function activeToolLabel(entry: ToolActivityEntry): string {
+  return entry.presentation.archetype === "activity"
+    ? entry.presentation.summary.label
+    : entry.presentation.action
 }
 
 function totalReasoningDurationLabel(entries: ActivityEntry[]): string {
@@ -209,7 +209,7 @@ function settledHeader(entries: ActivityEntry[]): ActivityHeader {
   const groups = settledToolGroups(entries)
   if (groups.length > 0) {
     return {
-      identity: `settled:${groups[0]?.category ?? "tools"}`,
+      identity: `activity:${groups[0]?.category ?? "tools"}`,
       label: groups
         .slice(0, SETTLED_SUMMARY_LIMIT)
         .map((group) => group.label)
@@ -221,7 +221,7 @@ function settledHeader(entries: ActivityEntry[]): ActivityHeader {
 
   if (entries.some((entry) => entry.kind === "reasoning")) {
     return {
-      identity: "settled:reasoning",
+      identity: "reasoning",
       label: totalReasoningDurationLabel(entries),
       icon: ACTIVITY_REASONING_ICON,
       shimmer: false,
@@ -229,7 +229,7 @@ function settledHeader(entries: ActivityEntry[]): ActivityHeader {
   }
 
   return {
-    identity: "settled:fallback",
+    identity: "fallback",
     label: ACTIVITY_FALLBACK_LABEL,
     icon: entries.find((entry) => entry.kind === "tool")?.icon ?? ACTIVITY_REASONING_ICON,
     shimmer: false,
@@ -257,13 +257,10 @@ export function resolveActivityHeader(input: {
   if (activeEntry) {
     const label =
       activeEntry.kind === "tool"
-        ? activeToolLabel(activeEntry, input.entries)
+        ? activeToolLabel(activeEntry)
         : reasoningEntryLabel(activeEntry)
     return {
-      identity:
-        activeEntry.kind === "tool"
-          ? `active:${activeEntry.presentation.icon}`
-          : "active:reasoning",
+      identity: entryHeaderIdentity(activeEntry),
       label,
       icon: activeEntry.icon,
       shimmer: true,
@@ -271,8 +268,9 @@ export function resolveActivityHeader(input: {
   }
 
   if (input.busy && input.current) {
+    const previousEntry = input.entries.at(-1)
     return {
-      identity: "active:zero-entry",
+      identity: previousEntry ? entryHeaderIdentity(previousEntry) : "zero-entry",
       label: input.zeroEntryLabel,
       icon: ACTIVITY_REASONING_ICON,
       shimmer: true,

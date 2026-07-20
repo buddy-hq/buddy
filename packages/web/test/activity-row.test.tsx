@@ -4,7 +4,10 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { TooltipProvider } from "@buddy/ui"
 
-import { ActivityRow } from "../src/components/chat/tools/activity-row"
+import {
+  ACTIVITY_WORKING_GAP_REVEAL_MS,
+  ActivityRow,
+} from "../src/components/chat/tools/activity-row"
 import type { MessagePart } from "../src/state/chat-types"
 import {
   activityPresentation,
@@ -71,6 +74,50 @@ function failedEditPart(): MessagePart {
   }
 }
 
+function searchPart(input: {
+  id: string
+  phase: "pending" | "running" | "completed"
+  pattern: string
+}): MessagePart {
+  const base = {
+    id: input.id,
+    sessionID: "ses_activity",
+    messageID: "msg_activity",
+    type: "tool" as const,
+    tool: "glob",
+    callID: `call_${input.id}`,
+    metadata: presentationMetadata(
+      activityPresentation({
+        phase: input.phase,
+        action: input.phase === "completed" ? "Searched files" : "Searching files",
+        detail: input.pattern,
+        category: "search-files",
+        summary: input.phase === "completed" ? "Searched files" : "Searching files",
+        icon: "search",
+        renderer: "search",
+      }),
+    ),
+  }
+  if (input.phase === "pending") {
+    return { ...base, state: { status: "pending", input: {}, raw: "{}" } }
+  }
+  if (input.phase === "running") {
+    return { ...base, state: { status: "running", input: {}, time: { start: 1 } } }
+  }
+  return {
+    ...base,
+    state: {
+      status: "completed",
+      input: {},
+      output: "ok",
+      title: "Searched files",
+      metadata: {},
+      attachments: [],
+      time: { start: 1, end: 2 },
+    },
+  }
+}
+
 describe("ActivityRow", () => {
   let container: HTMLDivElement
   let root: Root
@@ -105,6 +152,93 @@ describe("ActivityRow", () => {
     expect(row?.textContent).toContain("Thinking")
     expect(row?.className).toBe("w-full")
     expect(container.querySelector(".bg-linear-to-r")).toBeNull()
+  })
+
+  test("keeps the header mounted through a Panda gap between same-category tools", async () => {
+    const firstRunning = searchPart({
+      id: "search-first",
+      phase: "running",
+      pattern: "src/**/*.tsx",
+    })
+    const firstCompleted = searchPart({
+      id: "search-first",
+      phase: "completed",
+      pattern: "src/**/*.tsx",
+    })
+    const nextPending = searchPart({
+      id: "search-next",
+      phase: "pending",
+      pattern: "packages/**/*.tsx",
+    })
+    const nextCompleted = searchPart({
+      id: "search-next",
+      phase: "completed",
+      pattern: "packages/**/*.tsx",
+    })
+
+    await act(async () => {
+      root.render(
+        <ActivityRow
+          parts={[firstRunning]}
+          seed="activity:turn:search"
+          zeroEntryLabel="Pawing"
+          isBusy
+          isCurrent
+        />,
+      )
+    })
+    const initialHeader = container.querySelector("[aria-label='Searching files']")
+    expect(initialHeader).not.toBeNull()
+    expect(container.textContent).not.toContain("src/**/*.tsx")
+
+    await act(async () => {
+      root.render(
+        <ActivityRow
+          parts={[firstCompleted]}
+          seed="activity:turn:search"
+          zeroEntryLabel="Pawing"
+          isBusy
+          isCurrent
+        />,
+      )
+    })
+    expect(container.querySelector("[aria-label='Searching files']")).toBe(initialHeader)
+    expect(container.querySelector("[aria-label='Pawing']")).toBeNull()
+
+    await act(async () => {
+      root.render(
+        <ActivityRow
+          parts={[firstCompleted, nextPending]}
+          seed="activity:turn:search"
+          zeroEntryLabel="Pawing"
+          isBusy
+          isCurrent
+        />,
+      )
+    })
+    expect(container.querySelector("[aria-label='Searching files']")).toBe(initialHeader)
+
+    await act(async () => {
+      root.render(
+        <ActivityRow
+          parts={[firstCompleted, nextCompleted]}
+          seed="activity:turn:search"
+          zeroEntryLabel="Pawing"
+          isBusy
+          isCurrent
+        />,
+      )
+    })
+    expect(container.querySelector("[aria-label='Searching files']")).toBe(initialHeader)
+    expect(container.querySelector("[aria-label='Pawing']")).toBeNull()
+
+    await act(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(resolve, ACTIVITY_WORKING_GAP_REVEAL_MS + 50)
+        }),
+    )
+    expect(container.querySelector("[aria-label='Pawing']")).toBe(initialHeader)
   })
 
   test("shows the entry row even when an expanded group contains one entry", async () => {

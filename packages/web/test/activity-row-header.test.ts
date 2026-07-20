@@ -121,10 +121,12 @@ describe("ActivityRow header resolution", () => {
       zeroEntryLabel: "Thinking",
     })
 
+    expect(pendingHeader.label).toBe("Reading files")
+    expect(runningHeader.label).toBe("Reading files")
     expect(activityHeaderKey(pendingHeader)).toBe(activityHeaderKey(runningHeader))
   })
 
-  test("changes the motion key when visible active header content changes", () => {
+  test("keeps detail changes in the same activity category on one motion key", () => {
     const firstHeader = resolveActivityHeader({
       entries: entries([
         toolPart({
@@ -158,7 +160,132 @@ describe("ActivityRow header resolution", () => {
       zeroEntryLabel: "Thinking",
     })
 
-    expect(activityHeaderKey(firstHeader)).not.toBe(activityHeaderKey(nextHeader))
+    expect(activityHeaderKey(firstHeader)).toBe(activityHeaderKey(nextHeader))
+  })
+
+  test("changes the motion key when the semantic activity category changes", () => {
+    const fileSearchHeader = resolveActivityHeader({
+      entries: entries([
+        toolPart({
+          id: "search-files",
+          phase: "running",
+          action: "Searching",
+          detail: "query",
+          category: "search-files",
+          summary: "Searching",
+          icon: "search",
+        }),
+      ]),
+      busy: true,
+      current: true,
+      zeroEntryLabel: "Thinking",
+    })
+    const codeSearchHeader = resolveActivityHeader({
+      entries: entries([
+        toolPart({
+          id: "search-code",
+          phase: "running",
+          action: "Searching",
+          detail: "query",
+          category: "search-code",
+          summary: "Searching",
+          icon: "search",
+        }),
+      ]),
+      busy: true,
+      current: true,
+      zeroEntryLabel: "Thinking",
+    })
+
+    expect(activityHeaderKey(fileSearchHeader)).not.toBe(activityHeaderKey(codeSearchHeader))
+  })
+
+  test("keeps active and settled titles in one category on the same motion key", () => {
+    const completedSearch = toolPart({
+      id: "search-completed",
+      phase: "completed",
+      action: "Searched files",
+      detail: "src/**/*.tsx",
+      category: "search-files",
+      summary: "Searched files",
+      icon: "search",
+    })
+    const activeHeader = resolveActivityHeader({
+      entries: entries([
+        completedSearch,
+        toolPart({
+          id: "search-running",
+          phase: "running",
+          action: "Searching files",
+          detail: "packages/**/*.tsx",
+          category: "search-files",
+          summary: "Searching files",
+          icon: "search",
+        }),
+      ]),
+      busy: true,
+      current: true,
+      zeroEntryLabel: "Thinking",
+    })
+    const settledHeader = resolveActivityHeader({
+      entries: entries([completedSearch]),
+      busy: false,
+      current: false,
+      zeroEntryLabel: "Thinking",
+    })
+
+    expect(activeHeader.label).toBe("Searching files")
+    expect(settledHeader.label).toBe("Searched files")
+    expect(activityHeaderKey(activeHeader)).toBe(activityHeaderKey(settledHeader))
+  })
+
+  test("updates the Panda gap in place between same-category tool events", () => {
+    const completedSearch = toolPart({
+      id: "search-between-events",
+      phase: "completed",
+      action: "Searched files",
+      detail: "src/**/*.tsx",
+      category: "search-files",
+      summary: "Searched files",
+      icon: "search",
+    })
+    const busyGapHeader = resolveActivityHeader({
+      entries: entries([completedSearch]),
+      busy: true,
+      current: true,
+      zeroEntryLabel: "Pawing",
+    })
+    const nextSearchHeader = resolveActivityHeader({
+      entries: entries([
+        completedSearch,
+        toolPart({
+          id: "search-after-gap",
+          phase: "pending",
+          action: "Searching files",
+          detail: "packages/**/*.tsx",
+          category: "search-files",
+          summary: "Searching files",
+          icon: "search",
+        }),
+      ]),
+      busy: true,
+      current: true,
+      zeroEntryLabel: "Pawing",
+    })
+    const settledHeader = resolveActivityHeader({
+      entries: entries([completedSearch]),
+      busy: false,
+      current: false,
+      zeroEntryLabel: "Pawing",
+    })
+
+    expect(busyGapHeader.label).toBe("Pawing")
+    expect(busyGapHeader.shimmer).toBe(true)
+    expect(activityHeaderKey(busyGapHeader)).toBe("activity:search-files")
+    expect(activityHeaderKey(busyGapHeader)).toBe(activityHeaderKey(nextSearchHeader))
+    expect(nextSearchHeader.label).toBe("Searching files")
+    expect(settledHeader.label).toBe("Searched files")
+    expect(settledHeader.shimmer).toBe(false)
   })
 
   test("keeps the semantic edit icon when the file target is not known", () => {
@@ -180,7 +307,7 @@ describe("ActivityRow header resolution", () => {
     expect(isValidElement(entry.icon("size-4"))).toBe(true)
   })
 
-  test("renders the authored action and exact detail as one label", () => {
+  test("keeps arguments in the expanded entry but out of the summary title", () => {
     const [entry] = entries([
       toolPart({
         id: "read",
@@ -192,10 +319,21 @@ describe("ActivityRow header resolution", () => {
         icon: "read",
       }),
     ])
+    expect(entry).toBeDefined()
+    if (!entry) throw new Error("Expected activity entry")
+
+    const header = resolveActivityHeader({
+      entries: [entry],
+      busy: true,
+      current: true,
+      zeroEntryLabel: "Thinking",
+    })
+
     expect(entry && activityEntryLabel(entry)).toBe("Reading App.tsx")
+    expect(header.label).toBe("Reading files")
   })
 
-  test("switches permanently to the generic burst label on the second category entry", () => {
+  test("keeps the generic category label when more entries arrive", () => {
     const resolvedEntries = entries([
       toolPart({
         id: "read-1",

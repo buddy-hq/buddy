@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 
 import { ChevronRightIcon, cn } from "@buddy/ui"
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react"
@@ -21,6 +21,7 @@ import {
   createActivityEntry,
   resolveActivityHeader,
   type ActivityEntry,
+  type ActivityHeader,
   type ToolActivityEntry,
 } from "./entries"
 import { ActivityFileChangeDetails, hasActivityFileChangeDetails } from "./file-change-details"
@@ -30,6 +31,31 @@ const HEADER_STATUS_TRANSITION = {
   duration: 0.18,
   ease: [0.23, 1, 0.32, 1],
 } as const
+export const ACTIVITY_WORKING_GAP_REVEAL_MS = 400
+
+function useDelayedWorkingGapHeader(input: {
+  resolved: ActivityHeader
+  waitingBetweenEntries: boolean
+}): ActivityHeader {
+  const [revealWorkingGap, setRevealWorkingGap] = useState(false)
+  const previousHeaderRef = useRef(input.resolved)
+
+  if (!input.waitingBetweenEntries) previousHeaderRef.current = input.resolved
+
+  useEffect(() => {
+    if (!input.waitingBetweenEntries) {
+      setRevealWorkingGap(false)
+      return
+    }
+
+    const timer = setTimeout(() => setRevealWorkingGap(true), ACTIVITY_WORKING_GAP_REVEAL_MS)
+    return () => clearTimeout(timer)
+  }, [input.waitingBetweenEntries])
+
+  return input.waitingBetweenEntries && !revealWorkingGap
+    ? previousHeaderRef.current
+    : input.resolved
+}
 
 function ActivityHeaderStatus(props: {
   icon: ToolIconRenderer
@@ -289,7 +315,7 @@ export function ActivityRow({
     () => parts.flatMap((part) => createActivityEntry(part) ?? []),
     [parts],
   )
-  const header = useMemo(
+  const resolvedHeader = useMemo(
     () =>
       resolveActivityHeader({
         entries,
@@ -299,6 +325,16 @@ export function ActivityRow({
       }),
     [entries, isBusy, isCurrent, zeroEntryLabel],
   )
+  const waitingBetweenEntries = Boolean(
+    isBusy &&
+      isCurrent &&
+      entries.length > 0 &&
+      !entries.some(activityEntryIsActive),
+  )
+  const header = useDelayedWorkingGapHeader({
+    resolved: resolvedHeader,
+    waitingBetweenEntries,
+  })
   const canOpen = entries.length > 0
   const stableStreamingDetails =
     isOpen && entries.some((entry) => activityEntryHasStreamingReasoning(entry, isBusy))
