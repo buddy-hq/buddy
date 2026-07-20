@@ -1,11 +1,22 @@
 ---
 // Reader sub-pane for BuddyWorkspaceMock
+import { AUDIENCE_LEARNERS, AUDIENCE_EDUCATORS } from "../lib/constants"
+import type { Audience } from "../content/site"
+
+type Props = {
+  audience?: Audience
+}
+
+const { audience = AUDIENCE_LEARNERS } = Astro.props
+const isEducators = audience === AUDIENCE_EDUCATORS
 ---
 <!-- Surface 3: Document Reader (Warm Cream paper) -->
 <section class="surface-reader">
   <div class="reader-header">
     <div class="reader-title-bar">
-      <span class="reader-doc-title" id="reader-tab-title">Self Reliance</span>
+      <span class="reader-doc-title" id="reader-tab-title">
+        {isEducators ? "Seasons Curriculum Guide" : "Self Reliance"}
+      </span>
     </div>
     <div class="reader-controls">
       <button class="control-btn" id="font-toggle-btn" title="Toggle font styling">
@@ -29,11 +40,21 @@
   <div class="reader-content" id="reader-content-pane">
     <div class="reader-page">
       <div class="dots-separator">...</div>
-      <h2 class="reader-quote" id="reader-quote-text">Whoso would be a man must be a nonconformist.</h2>
+      <h2 class="reader-quote" id="reader-quote-text">
+        {isEducators 
+          ? "Standard: NGSS MS-ESS1-1 - Earth's Place in the Universe." 
+          : "Whoso would be a man must be a nonconformist."
+        }
+      </h2>
       <p class="reader-body" id="reader-body-text">
-        Is non-conformity required for everyone? Probably not. But to be courageous—to be "a man" as Emerson is in a time of different language—you must first be willing to think for yourself. And as Martin Luther King, Jr. (another inspiring non-conformist) said years later, "Nothing pains some people more than having to think." If you can think for yourself, and put those thoughts into meaningful action that improves the state of the world, you're well on the way to a courageous, remarkable life.
+        {isEducators 
+          ? "Focus: Develop and use a model of the Earth-sun-moon system to describe the cyclic patterns of lunar phases, eclipses of the sun and moon, and seasons. Objective: Students will explain how Earth's 23.5° axial tilt and orbital revolution combine to cause seasonal temperature variations."
+          : "Is non-conformity required for everyone? Probably not. But to be courageous—to be \"a man\" as Emerson is in a time of different language—you must first be willing to think for yourself. And as Martin Luther King, Jr. (another inspiring non-conformist) said years later, \"Nothing pains some people more than having to think.\" If you can think for yourself, and put those thoughts into meaningful action that improves the state of the world, you're well on the way to a courageous, remarkable life."
+        }
       </p>
-      <div class="reader-signature" id="reader-sig-text">Chris Guillebeau</div>
+      <div class="reader-signature" id="reader-sig-text">
+        {isEducators ? "Next Generation Science Standards" : "Chris Guillebeau"}
+      </div>
       <div class="dots-separator">...</div>
     </div>
 
@@ -47,6 +68,8 @@
   </div>
 
   <div class="reader-footer">
-    <span class="location-text" id="reader-location-text">BEGIN READING · LOCATION 19 / 95</span>
+    <span class="location-text" id="reader-location-text">
+      {isEducators ? "NGSS ESS1 · PAGE 4 / 18" : "BEGIN READING · LOCATION 19 / 95"}
+    </span>
   </div>
 </section>

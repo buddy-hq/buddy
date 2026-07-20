@@ -1,23 +1,21 @@
 ---
-import type { Audience } from "../../content/site"
+import type { Audience, FeatureItem } from "../../content/site"
 import { content } from "../../content/site"
 import { AUDIENCE_EDUCATORS, AUDIENCE_LEARNERS } from "../../lib/constants"
 import LearnerReadMock from "./mocks/LearnerReadMock.astro"
 import LearnerPlayMock from "./mocks/LearnerPlayMock.astro"
 import LearnerDrawMock from "./mocks/LearnerDrawMock.astro"
-import LearnerQuizMock from "./mocks/LearnerQuizMock.astro"
-import LearnerReviewMock from "./mocks/LearnerReviewMock.astro"
 
-import EducatorAlignMock from "./mocks/EducatorAlignMock.astro"
-import EducatorPlanMock from "./mocks/EducatorPlanMock.astro"
-import EducatorCreateMock from "./mocks/EducatorCreateMock.astro"
-import EducatorResearchMock from "./mocks/EducatorResearchMock.astro"
-import EducatorBuildMock from "./mocks/EducatorBuildMock.astro"
+import QuizArtifact from "./artifacts/QuizArtifact.astro"
+import DifferentiateArtifact from "./artifacts/DifferentiateArtifact.astro"
+import LessonArtifact from "./artifacts/LessonArtifact.astro"
+import LightLabArtifact from "./artifacts/LightLabArtifact.astro"
+import RememberArtifact from "./artifacts/RememberArtifact.astro"
+import VaultArtifact from "./artifacts/VaultArtifact.astro"
 
 const learnersSteps = content.learners.features
 const educatorsSteps = content.educators.features
-const learnersHeader = content.learners.featuresHeader
-const educatorsHeader = content.educators.featuresHeader
+const featureNarrative = content.educatorFeatureNarrative
 const toAnalyticsKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
 
 type Props = {
@@ -30,26 +28,40 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 <section class="features-section" data-analytics-section="features">
 <div class="container">
 
+  {initialAudience === AUDIENCE_EDUCATORS && (
+    <p class="feature-narrative reveal">{featureNarrative}</p>
+  )}
 
   <div class="bookend-cards-stack">
-      {[0, 1, 2, 3, 4].map((i) => {
-        const learnerStep = learnersSteps[i]
-        const educatorStep = educatorsSteps[i]
+      {learnersSteps.map((learnerStep, i) => {
+        // Educators have fewer features (PLAN + CREATE merged into AUTHOR):
+        // cards beyond the educator list are learners-only and are not
+        // rendered at all on the educators page.
+        const educatorStep: FeatureItem | undefined = educatorsSteps[i]
+        if (educatorStep === undefined && initialAudience === AUDIENCE_EDUCATORS) return null
+        // Learner beats 4 & 5 are staged artifacts (the card, the note) rather
+        // than app mocks, so they render bezel-free like the educator beats.
+        const isStage = initialAudience === AUDIENCE_EDUCATORS || i >= 3
 
         return (
           <div
             class="bookend-card-wrapper"
             data-analytics-feature={`feature_${i + 1}`}
             data-analytics-feature-learners={toAnalyticsKey(learnerStep.tag)}
-            data-analytics-feature-educators={toAnalyticsKey(educatorStep.tag)}
+            data-analytics-feature-educators={educatorStep ? toAnalyticsKey(educatorStep.tag) : ""}
           >
             <div class="bookend-card-body">
               <div class="bookend-card-left">
                 <div class="step-tag-wrapper">
                   <span class:list={["step-tag swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>{learnerStep.tag}</span>
-                  <span class:list={["step-tag swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>{educatorStep.tag}</span>
+                  {educatorStep && (
+                    <span class:list={["step-tag swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
+                      <span class="step-num">{String(i + 1).padStart(2, "0")}</span>
+                      {educatorStep.tag}
+                    </span>
+                  )}
                 </div>
-                
+
                 <!-- Learners Content -->
                 <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
                   <h3 class="step-title">{learnerStep.title}</h3>
@@ -57,30 +69,32 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
                 </div>
 
                 <!-- Educators Content -->
-                <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
-                  <h3 class="step-title">{educatorStep.title}</h3>
-                  <p class="step-desc">{educatorStep.subtext}</p>
-                </div>
+                {educatorStep && (
+                  <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
+                    <h3 class="step-title">{educatorStep.title}</h3>
+                    <p class="step-desc">{educatorStep.subtext}</p>
+                  </div>
+                )}
               </div>
-              <div class="bookend-card-right">
-                <div class="sticky-mockup-wrapper">
+              <div class:list={["bookend-card-right", { "bookend-card-right--stage": isStage }]}>
+                <div class:list={["sticky-mockup-wrapper", { "sticky-mockup-wrapper--stage": isStage }]}>
                   <div class="mockup-viewport">
                     <!-- Learners Mocks -->
                     <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
                       {i === 0 && <LearnerReadMock />}
-                      {i === 1 && <LearnerPlayMock />}
-                      {i === 2 && <LearnerDrawMock />}
-                      {i === 3 && <LearnerQuizMock />}
-                      {i === 4 && <LearnerReviewMock />}
+                      {i === 1 && <LearnerDrawMock />}
+                      {i === 2 && <LearnerPlayMock />}
+                      {i === 3 && <RememberArtifact />}
+                      {i === 4 && <VaultArtifact />}
                     </div>
 
-                    <!-- Educators Mocks -->
+                    <!-- Educators: every beat shows the artifact itself — the drafted week,
+                         the leveled reading, the quiz on the desk, the widget on the screen. -->
                     <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
-                      {i === 0 && <EducatorAlignMock />}
-                      {i === 1 && <EducatorPlanMock />}
-                      {i === 2 && <EducatorCreateMock />}
-                      {i === 3 && <EducatorResearchMock />}
-                      {i === 4 && <EducatorBuildMock />}
+                      {i === 0 && <LessonArtifact />}
+                      {i === 1 && <DifferentiateArtifact />}
+                      {i === 2 && <QuizArtifact />}
+                      {i === 3 && <LightLabArtifact />}
                     </div>
                   </div>
                 </div>
@@ -94,6 +108,25 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 </section>
 
 <style>
+
+  /* The thread that ties the four beats together: one unit, start to finish. */
+  .feature-narrative {
+    max-width: min(85vw, 1630px);
+    margin: 0 auto var(--space-16) auto;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  @media (max-width: 960px) {
+    .feature-narrative {
+      max-width: 100%;
+      margin-bottom: var(--space-10);
+    }
+  }
 
   .bookend-cards-stack {
     max-width: min(85vw, 1630px);
@@ -497,6 +530,29 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
     text-transform: uppercase;
   }
 
+  .step-num {
+    color: var(--color-text-muted);
+    margin-right: var(--space-2);
+  }
+
+  .step-num::after {
+    content: "·";
+    margin-left: var(--space-2);
+    color: var(--color-text-muted);
+  }
+
+  /* Artifact stage — drafted handouts shown as-is, no app bezel */
+  .sticky-mockup-wrapper--stage {
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .sticky-mockup-wrapper--stage .mockup-viewport {
+    background-color: transparent;
+  }
+
   @media (max-width: 960px) {
     .bookend-cards-stack {
       width: 100%;
@@ -532,6 +588,8 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
       left: auto !important;
       bottom: auto !important;
       right: auto !important;
+      /* App mocks stay aligned with the text column and bleed to the right
+         edge only, so the rounded bezel and right-side fade read as a peek. */
       width: calc(100% + var(--space-6));
       margin-left: 0;
       margin-right: calc(-1 * var(--space-6));
@@ -543,6 +601,13 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
       padding-top: var(--space-4);
       padding-bottom: 0;
       background: none !important;
+    }
+    /* Staged artifacts are bezel-free sheets sized wider than the screen;
+       they bleed both edges so the sheet insets land on the text gutter. */
+    .bookend-card-right--stage {
+      width: calc(100% + var(--space-6) * 2);
+      margin-left: calc(-1 * var(--space-6));
+      margin-right: calc(-1 * var(--space-6));
     }
     .bookend-card-right::after {
       content: '' !important;
@@ -573,6 +638,21 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
       padding: 0 !important;
       border-radius: var(--radius);
       background-color: var(--color-mock-bg);
+    }
+    .sticky-mockup-wrapper--stage {
+      width: 680px !important;
+      min-width: 680px !important;
+      background-color: transparent !important;
+      border-color: transparent !important;
+      border-radius: 0 !important;
+    }
+    .sticky-mockup-wrapper--stage .mockup-viewport {
+      height: 440px !important;
+      background-color: transparent !important;
+      border-radius: 0 !important;
+    }
+    [data-analytics-feature="feature_3"] .sticky-mockup-wrapper--stage .mockup-viewport {
+      height: 340px !important;
     }
 
     .bookend-card-wrapper {
@@ -610,8 +690,13 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
   @media (max-width: 768px) {
     .bookend-card-right {
       width: calc(100% + var(--space-5)) !important;
-      margin-right: calc(-1 * var(--space-5)) !important;
       margin-left: 0 !important;
+      margin-right: calc(-1 * var(--space-5)) !important;
+    }
+    .bookend-card-right--stage {
+      width: calc(100% + var(--space-5) * 2) !important;
+      margin-left: calc(-1 * var(--space-5)) !important;
+      margin-right: calc(-1 * var(--space-5)) !important;
     }
   }
 
@@ -628,6 +713,19 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
     .sticky-mockup-wrapper {
       width: 100% !important;
       min-width: 0 !important;
+    }
+    /* Educator artifacts use absolute positioning designed for wide containers.
+       Render at desktop-like proportions and let the parent's overflow + gradient
+       create a "peek" — same pattern as hero and learner mocks on mobile. */
+    .sticky-mockup-wrapper--stage {
+      width: 680px !important;
+      min-width: 680px !important;
+    }
+    .sticky-mockup-wrapper--stage .mockup-viewport {
+      height: 440px !important;
+    }
+    [data-analytics-feature="feature_3"] .sticky-mockup-wrapper--stage .mockup-viewport {
+      height: 340px !important;
     }
     .mockup-viewport::after {
       content: '';

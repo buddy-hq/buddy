@@ -1,0 +1,62 @@
+---
+import type { CompareSection } from "../../lib/compare"
+
+type Props = {
+  readonly section: Extract<CompareSection, { readonly type: "prose" }>
+}
+
+const { section } = Astro.props
+---
+
+<section data-compare-section={section.type} aria-label="Context">
+  <div class="prose-copy">
+    {section.paragraphs.map((paragraph) => <p>{paragraph}</p>)}
+    {section.bullets && (
+      <ul>
+        {section.bullets.map((bullet) => <li>{bullet}</li>)}
+      </ul>
+    )}
+  </div>
+</section>
+
+<style>
+  /* Tailwind max-w-prose ≈ 65ch — comfortable reading measure */
+  .prose-copy {
+    display: grid;
+    gap: var(--space-4);
+    width: 100%;
+    max-width: 65ch;
+  }
+
+  p {
+    font-size: var(--text-base);
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+    text-wrap: pretty;
+  }
+
+  ul {
+    display: grid;
+    gap: var(--space-3);
+    margin-top: var(--space-1);
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+    padding-left: var(--space-5);
+    font-size: var(--text-base);
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+  }
+
+  li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.72em;
+    width: 0.625rem;
+    height: 1px;
+    background: var(--color-accent-primary);
+  }
+</style>

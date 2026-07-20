@@ -1,0 +1,73 @@
+competitor: Khanmigo
+competitorUrl: https://www.khanmigo.ai/
+audience: both
+title: "Buddy vs Khanmigo for tutoring"
+description: "Khanmigo is Khan Academy's hosted Socratic tutor with adult oversight; Buddy is a free local-first desktop workspace for tutoring and study."
+headline: "Buddy vs Khanmigo for tutoring and study"
+tagline: "Buddy tutors you from your own files, on your machine. Khanmigo is a hosted tutor with built-in adult oversight."
+targetQueries:
+  - "Buddy vs Khanmigo"
+  - "Khanmigo alternative for self-directed study"
+  - "Khanmigo vs local AI tutor"
+lastVerified: 2026-07-20
+lastUpdated: 2026-07-20
+ogImagePath: /og/buddy-vs-khanmigo.png
+ogImageAlt: "Buddy vs Khanmigo — app icons side by side"
+faqs:
+  - question: "What does tutoring cost on Khanmigo vs Buddy?"
+    answer: "Khanmigo's learner/parent tutor is about $4 a month or $44 a year (US-only, adult account holder). Buddy never bills a seat fee; you only pay the AI provider you connect, or use free hosted models with limits. Khan Academy content without Khanmigo stays free either way."
+  - question: "Can teachers put students on Khanmigo or Buddy?"
+    answer: "Khanmigo student tutor seats need a school or district partnership; the free teacher hub is for the teacher's own prep. Buddy has no student accounts or rostering at all. For supervised class seats, Khanmigo is the fit; for one machine's prep or practice, Buddy is."
+  - question: "Does Buddy have parent controls like Khanmigo's?"
+    answer: "No. Buddy is one OS user on one machine: no child accounts, no parent chat review, no moderation alerts. Families who need adult oversight of a tutor should use Khanmigo's parent plan; Buddy is for a self-directed learner or teacher at a personal computer."
+  - question: "Which product works outside the United States?"
+    answer: "Buddy has no Buddy-side country billing gate; it works wherever your AI provider operates. Khanmigo's paid learner and parent plans are US-only as of July 2026, while free teacher tools run in more listed countries. Outside the US learner gate, Buddy is usually the open option of the two."
+sections:
+  - type: prose
+    paragraphs:
+      - "Khanmigo covers a paid US learner/parent tutor, free teacher tools, and district seats under one Khan Academy account. The tutor guides with questions, stores chats for adults to review, and ties into Khan Academy content."
+      - "Buddy is a free desktop app with no Buddy account. It works from your local files, you pick the AI provider, and practice lives beside the chat. Same patient tutoring job; different bundle: curriculum and adult oversight vs local files and provider choice."
+  - type: snapshot
+    heading: "Five structural differences"
+    intro: "Before price or feature lists, these five differences usually matter more."
+    items:
+      - label: "Where it runs"
+        buddy: "Free desktop app for macOS and Windows; your files and chats stay on your machine."
+        competitor: "A web experience inside Khan Academy's site, used in a browser."
+      - label: "Account"
+        buddy: "No Buddy account. You authenticate only with the AI provider you choose."
+        competitor: "A Khan Academy account is required for every role."
+      - label: "Who can read the chats"
+        buddy: "Only the person at the keyboard; there is no console for a second adult."
+        competitor: "Parents and teachers can review learner chats, with moderation flags and email alerts."
+      - label: "What the tutor draws on"
+        buddy: "Your folders, PDF and EPUB sources, whiteboards, and the web when you ask it to look."
+        competitor: "Khan Academy's exercise library, with problem-aware help while you practice."
+      - label: "Model choice"
+        buddy: "Pick the provider per chat: ChatGPT sign-in, your own API keys, or free models."
+        competitor: "A fixed OpenAI and Azure OpenAI stack under Khan Academy's guardrails."
+  - type: pricing
+    heading: "Three Khanmigo price tags and one Buddy one"
+    intro: "Khanmigo's cost depends on which of its three products you mean; Buddy's depends on the provider you connect. Compare packaging before comparing dollars."
+    buddy: "The desktop app is free on macOS and Windows, with no Buddy account and no Buddy-side billing. What you pay depends on the AI provider you connect: a ChatGPT sign-in, your own API keys, or Buddy's free models where available."
+    competitor: "Khanmigo for Teachers is free for eligible educators in the US and many listed countries. Learner and Parent plans cost $4 per month or $44 per year plus tax, US-only with a US billing address and an account holder 18 or older; the parent plan covers up to 10 children. Districts request custom pricing for rostered student access."
+  - type: decision
+    heading: "Who each product is built for"
+    competitorHeading: "Choose Khanmigo if"
+    competitorReasons:
+      - "The learner is under 18 and a parent wants chat history, moderation alerts, and up to 10 supervised child accounts."
+      - "You want tutoring that knows the Khan Academy exercise on the screen, plus the staged Writing Coach for essays."
+      - "You are a teacher who wants more than 25 free planning and differentiation tools without installing anything."
+      - "A school or district needs rostered seats, SSO, usage reports, and a compliance posture for classroom AI."
+      - "You want answer-withholding to be a product rule, not a preference the student can override."
+    buddyHeading: "Choose Buddy if"
+    buddyReasons:
+      - "You study or teach on your own machine and want files, chats, and sources kept in local folders under one OS user."
+      - "You want to choose the model per chat, from a ChatGPT sign-in to your own API keys or Buddy's free models."
+      - "Your material lives in your own PDFs, EPUBs, and project folders rather than inside Khan Academy's library."
+      - "You want the workspace itself: documents, whiteboards, widgets, spaced-repetition flashcards, and graded question sets."
+      - "You are outside Khanmigo's US billing gate or do not want another account, and you will bring your own provider."
+relatedCompares:
+  - buddy-vs-magicschool
+  - buddy-vs-chatgpt
+  - buddy-vs-claude-teachers

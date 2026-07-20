@@ -1,0 +1,70 @@
+---
+type Props = {
+  readonly id: string
+  readonly label: string
+  readonly heading: string
+  readonly intro?: string
+}
+
+const { id, label, heading, intro } = Astro.props
+---
+
+<header class="compare-section-header">
+  <p class="section-label">{label}</p>
+  <h2 id={id}>{heading}</h2>
+  {intro && <p class="section-intro">{intro}</p>}
+</header>
+
+<style>
+  .compare-section-header {
+    max-width: 44rem;
+    margin: 0;
+    text-align: left;
+  }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-accent-secondary);
+  }
+
+  .section-label::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    background: var(--color-accent-primary);
+  }
+
+  h2 {
+    margin-top: var(--space-4);
+    font-size: var(--text-3xl);
+    font-weight: 560;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-text-primary);
+    text-wrap: balance;
+  }
+
+  .section-intro {
+    margin-top: var(--space-5);
+    font-size: var(--text-lg);
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+    text-wrap: pretty;
+  }
+
+  @media (max-width: 480px) {
+    h2 {
+      font-size: var(--text-2xl);
+    }
+
+    .section-intro {
+      font-size: var(--text-base);
+    }
+  }
+</style>

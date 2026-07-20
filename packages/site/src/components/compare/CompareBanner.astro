@@ -1,0 +1,348 @@
+---
+/**
+ * Raycast-style compare hero:
+ *   desktop — [Buddy icon]  Buddy vs Competitor  [Competitor icon]
+ *   mobile  — icons + pixel VS in a row above the title
+ *
+ * Layout mirrors raycast.com/raycast-vs-*: the content box shrink-wraps the
+ * h1 and both product icons are absolutely positioned off its sides, so the
+ * composition stays balanced for any title length. No grid placement, no
+ * object-fit on SVGs (unreliable for mixed intrinsic sizes) — vector logos
+ * are inlined so the viewBox scales them deterministically.
+ *
+ * Plain black base + soft brand radial glows. No card chrome.
+ */
+import buddyIcon from "../../assets/buddy-app-icon.png"
+import chatgptSvg from "../../assets/competitors/chatgpt.svg?raw"
+import claudeSvg from "../../assets/competitors/claude.svg?raw"
+import diffitLogo from "../../assets/competitors/diffit.webp?url"
+import khanmigoSvg from "../../assets/competitors/khanmigo.svg?raw"
+import knowtLogo from "../../assets/competitors/knowt.png?url"
+import magicschoolLogo from "../../assets/competitors/magicschool.png?url"
+import notebooklmSvg from "../../assets/competitors/notebooklm.svg?raw"
+import quizletSvg from "../../assets/competitors/quizlet.svg?raw"
+import remnoteSvg from "../../assets/competitors/remnote.svg?raw"
+import {
+  BUDDY_ACCENT,
+  getCompareLogoMeta,
+  type CompareLogoId,
+} from "../../lib/compare-logos"
+
+type Props = {
+  readonly entryId: string
+  readonly competitor: string
+  readonly headline: string
+  readonly tagline: string
+}
+
+const { entryId, competitor, tagline } = Astro.props
+const logoMeta = getCompareLogoMeta(entryId)
+
+type CompetitorMark =
+  | { readonly kind: "svg"; readonly svg: string }
+  | { readonly kind: "img"; readonly src: string }
+
+const competitorMarks: Readonly<Record<CompareLogoId, CompetitorMark>> = {
+  "buddy-vs-chatgpt": { kind: "svg", svg: chatgptSvg },
+  "buddy-vs-claude-teachers": { kind: "svg", svg: claudeSvg },
+  "buddy-vs-diffit": { kind: "img", src: diffitLogo },
+  "buddy-vs-khanmigo": { kind: "svg", svg: khanmigoSvg },
+  "buddy-vs-knowt": { kind: "img", src: knowtLogo },
+  "buddy-vs-magicschool": { kind: "img", src: magicschoolLogo },
+  "buddy-vs-notebooklm": { kind: "svg", svg: notebooklmSvg },
+  "buddy-vs-quizlet": { kind: "svg", svg: quizletSvg },
+  "buddy-vs-remnote": { kind: "svg", svg: remnoteSvg },
+}
+
+const mark = competitorMarks[logoMeta.id]
+const buddyIconSrc = typeof buddyIcon === "string" ? buddyIcon : buddyIcon.src
+const pairTitle = `Buddy vs ${competitor}`
+---
+
+<header
+  class="compare-banner"
+  style={`--buddy-accent: ${BUDDY_ACCENT}; --competitor-accent: ${logoMeta.accent};`}
+>
+  <div class="compare-banner-bg" aria-hidden="true"></div>
+
+  <div class="compare-banner-content">
+    <h1 class="compare-banner-heading">
+      <span class="compare-banner-title">{pairTitle}</span>
+      <span class="compare-banner-sub">{tagline}</span>
+    </h1>
+
+    <div class="compare-banner-logo compare-banner-logo--buddy" aria-hidden="true">
+      <img src={buddyIconSrc} alt="" width="113" height="113" decoding="async" />
+    </div>
+
+    <svg
+      class="compare-banner-vs"
+      width="28"
+      height="20"
+      viewBox="0 0 28 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M18.019 19.5V18.3235V17.147H19.1954H20.3719H21.5484H22.7248H23.9013H25.0778V18.3235V19.5H23.9013H22.7248H21.5484H20.3719H19.1954H18.019ZM15.666 17.147V15.9706V14.7941V13.6176V12.4412H16.8425H18.019V13.6176V14.7941V15.9706V17.147H16.8425H15.666ZM25.0778 17.147V15.9706V14.7941V13.6176V12.4412H26.2543H27.4307V13.6176V14.7941V15.9706V17.147H26.2543H25.0778ZM22.7248 12.4412V11.2647H21.5484H20.3719V10.0882H19.1954H18.019V8.91175V7.73528H19.1954H20.3719V8.91175H21.5484H22.7248V10.0882H23.9013H25.0778V11.2647V12.4412H23.9013H22.7248ZM15.666 7.73528V6.55881V5.38234V4.20586V3.02939H16.8425H18.019V4.20586V5.38234V6.55881V7.73528H16.8425H15.666ZM25.0778 7.73528V6.55881V5.38234V4.20586V3.02939H26.2543H27.4307V4.20586V5.38234V6.55881V7.73528H26.2543H25.0778ZM18.019 3.02939V1.85292V0.676453H19.1954H20.3719H21.5484H22.7248H23.9013H25.0778V1.85292V3.02939H23.9013H22.7248H21.5484H20.3719H19.1954H18.019Z"
+        fill="white"
+        fill-opacity="0.5"></path>
+      <path
+        d="M5.09455 19.5V18.3235V17.147H3.91808V15.9706V14.7941H2.74161V13.6176V12.4412H1.56514V11.2647V10.0882H0.388672V8.91175V7.73528V6.55881V5.38234V4.20586V3.02939V1.85292V0.676453H1.56514H2.74161V1.85292V3.02939V4.20586V5.38234V6.55881V7.73528V8.91175V10.0882H3.91808V11.2647V12.4412H5.09455V13.6176V14.7941H6.27103H7.4475V13.6176V12.4412H8.62397V11.2647V10.0882H9.80044V8.91175V7.73528V6.55881V5.38234V4.20586V3.02939V1.85292V0.676453H10.9769H12.1534V1.85292V3.02939V4.20586V5.38234V6.55881V7.73528V8.91175V10.0882H10.9769V11.2647V12.4412H9.80044V13.6176V14.7941H8.62397V15.9706V17.147H7.4475V18.3235V19.5H6.27103H5.09455Z"
+        fill="white"
+        fill-opacity="0.5"></path>
+    </svg>
+
+    <div
+      class:list={[
+        "compare-banner-logo",
+        "compare-banner-logo--competitor",
+        `compare-banner-logo--plate-${logoMeta.plate}`,
+      ]}
+      aria-hidden="true"
+    >
+      {
+        mark.kind === "svg" ? (
+          <span class="compare-banner-mark" set:html={mark.svg} />
+        ) : (
+          <img
+            class="compare-banner-mark"
+            src={mark.src}
+            alt=""
+            width="107"
+            height="107"
+            decoding="async"
+          />
+        )
+      }
+    </div>
+  </div>
+</header>
+
+<style>
+  .compare-banner {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 30rem;
+    padding: 9rem 1.5rem 4.5rem;
+    background: #000;
+    color: #fff;
+    text-align: center;
+  }
+
+  .compare-banner-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        60% 90% at 10% 45%,
+        color-mix(in srgb, var(--buddy-accent) 45%, transparent) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        60% 90% at 90% 45%,
+        color-mix(in srgb, var(--competitor-accent) 42%, transparent) 0%,
+        transparent 70%
+      );
+  }
+
+  /*
+   * Positioning context for the icons. On mobile it spans the hero width and
+   * the icons sit in a row above the title; on desktop it shrink-wraps the h1
+   * (width: auto inside a centered flex column) and the icons flank it.
+   */
+  .compare-banner-content {
+    --logo-size: 4.5rem;
+    --logo-gap: 2.5rem;
+    --logo-shift: 3.75rem;
+
+    position: relative;
+    width: 100%;
+  }
+
+  .compare-banner-heading {
+    margin: 0;
+  }
+
+  .compare-banner-title {
+    display: block;
+    font-size: 2.25rem;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    color: #f5f5f5;
+    background: radial-gradient(
+      120% 100% at 50% 50%,
+      rgb(255 255 255 / 95%) 0,
+      rgb(255 255 255 / 40%) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .compare-banner-sub {
+    display: block;
+    margin-top: 0.75rem;
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: rgb(255 255 255 / 80%);
+    text-wrap: balance;
+  }
+
+  /* ---------- product icons + pixel VS ---------- */
+
+  .compare-banner-logo {
+    position: absolute;
+    z-index: 1;
+    bottom: calc(100% + var(--logo-gap));
+    left: 50%;
+    width: var(--logo-size);
+    aspect-ratio: 1;
+    filter: drop-shadow(0 18px 36px rgb(0 0 0 / 45%));
+  }
+
+  .compare-banner-logo--buddy {
+    transform: translateX(calc(-50% - var(--logo-shift))) rotate(-7deg);
+  }
+
+  .compare-banner-logo--competitor {
+    transform: translateX(calc(-50% + var(--logo-shift))) rotate(5deg);
+  }
+
+  .compare-banner-vs {
+    position: absolute;
+    z-index: 1;
+    /* vertically centered within the icon band above the title */
+    bottom: calc(100% + var(--logo-gap) + (var(--logo-size) - 1.25rem) / 2);
+    left: 50%;
+    width: 1.75rem;
+    height: auto;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  /* ---------- logo tiles ---------- */
+
+  .compare-banner-logo--buddy img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 22%;
+    /*
+     * buddy-app-icon.png ships with ~26% transparent padding (the tile fills
+     * ~74% of the canvas). Scale up so the tile matches the competitor tile,
+     * which fills its whole box.
+     */
+    transform: scale(1.35);
+  }
+
+  .compare-banner-logo--competitor {
+    border-radius: 22%;
+  }
+
+  .compare-banner-logo--plate-light,
+  .compare-banner-logo--plate-dark {
+    box-sizing: border-box;
+    /* absolute elements resolve % padding against the containing block —
+       derive the inset from the tile size instead */
+    padding: calc(var(--logo-size) * 0.18);
+  }
+
+  .compare-banner-logo--plate-light {
+    background: #f4f4f5;
+  }
+
+  .compare-banner-logo--plate-dark {
+    background: #1a1a1a;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%);
+  }
+
+  .compare-banner-logo--plate-none {
+    overflow: hidden;
+  }
+
+  .compare-banner-mark {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /*
+   * Inlined SVGs scale to the tile via their viewBox — no object-fit needed.
+   * :global() is required: set:html content carries no Astro scope attribute.
+   */
+  .compare-banner-mark :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  img.compare-banner-mark {
+    object-fit: contain;
+  }
+
+  .compare-banner-logo--plate-none img.compare-banner-mark {
+    object-fit: cover;
+  }
+
+  /* ---------- desktop: icons flank the title (Raycast ≥980px layout) ---------- */
+
+  @media (min-width: 980px) {
+    .compare-banner {
+      min-height: 37.5rem;
+      padding: 7rem 2rem;
+    }
+
+    .compare-banner-content {
+      --logo-size: clamp(6rem, 9vw, 7.0625rem);
+      --logo-gap: clamp(3.5rem, 8vw, 6rem);
+
+      width: auto;
+      /* keep the flanking icons inside the viewport at any title length */
+      max-width: min(
+        44rem,
+        calc(100vw - 2 * (var(--logo-size) + var(--logo-gap)) - 4rem)
+      );
+    }
+
+    .compare-banner-title {
+      font-size: clamp(3rem, 4.5vw, 4rem);
+      line-height: 1.15;
+    }
+
+    .compare-banner-sub {
+      margin-top: 1rem;
+      font-size: 1.25rem;
+    }
+
+    .compare-banner-logo {
+      bottom: auto;
+      top: 50%;
+    }
+
+    .compare-banner-logo--buddy {
+      left: auto;
+      right: calc(100% + var(--logo-gap));
+      transform: translateY(-50%) rotate(-7deg);
+    }
+
+    .compare-banner-logo--competitor {
+      left: calc(100% + var(--logo-gap));
+      transform: translateY(-50%) rotate(5deg);
+    }
+
+    .compare-banner-vs {
+      display: none;
+    }
+  }
+</style>

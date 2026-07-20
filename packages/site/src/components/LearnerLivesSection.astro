@@ -1,0 +1,821 @@
+---
+// The anti-overfit statement for learners. Not personas, not a wall of
+// identical bubbles — a collage of the artifacts learning actually
+// produces: a quiz card, a flashcard mid-drill, a whiteboard sketch, a
+// highlighted paper, a vault note, a chess drill, one raw ask. Seven
+// different shapes for seven different learners; school is one tile.
+// Tile content is bespoke here, same convention as the workspace mocks.
+import { content } from "../content/site"
+
+const lives = content.learnerLives
+---
+
+<section class="lives-section" aria-labelledby="lives-heading" data-analytics-section="lives">
+  <div class="container">
+    <header class="lives-header reveal">
+      <h2 id="lives-heading" class="lives-headline">{lives.headline}</h2>
+    </header>
+
+    <div class="lives-wall">
+      <!-- 1 · the student: a quiz mid-run -->
+      <div class="lives-cell cell-quiz reveal">
+        <div class="tile tile-quiz">
+          <span class="quiz-head">Quiz · 3 of 10</span>
+          <p class="quiz-q">Which organelle turns glucose into ATP?</p>
+          <ul class="quiz-options">
+            <li class="quiz-option">Golgi apparatus</li>
+            <li class="quiz-option quiz-option-correct">Mitochondria</li>
+            <li class="quiz-option">Ribosome</li>
+          </ul>
+          <span class="quiz-foot">missed twice · now a flashcard</span>
+        </div>
+        <span class="tile-topic">Cell biology</span>
+      </div>
+
+      <!-- 2 · the language learner: a flashcard that flips on hover -->
+      <div class="lives-cell cell-flash reveal">
+        <div class="tile tile-flash">
+          <div class="flash-card" tabindex="0">
+            <div class="flash-inner">
+              <div class="flash-face flash-front">
+                <span class="flash-deck">Card 12 · review</span>
+                <span class="flash-word">tenir</span>
+                <span class="flash-hint">past participle?</span>
+              </div>
+              <div class="flash-face flash-back">
+                <span class="flash-answer">tenu</span>
+                <span class="flash-streak">✓ 3-day streak</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span class="tile-topic">French</span>
+      </div>
+
+      <!-- 3 · the musician: a whiteboard sketch -->
+      <div class="lives-cell cell-board reveal">
+        <div class="tile tile-board">
+          <div class="board-chords" aria-label="Chord progression C, A minor, F, G">
+            <span class="board-chord">C</span>
+            <svg class="board-arrow" viewBox="0 0 26 14" aria-hidden="true">
+              <path d="M2 10 C 8 4, 16 4, 23 8" />
+              <path d="M18 5 L 23 8 L 17 11" />
+            </svg>
+            <span class="board-chord board-chord-sad">Am</span>
+            <svg class="board-arrow" viewBox="0 0 26 14" aria-hidden="true">
+              <path d="M2 10 C 8 4, 16 4, 23 8" />
+              <path d="M18 5 L 23 8 L 17 11" />
+            </svg>
+            <span class="board-chord">F</span>
+            <svg class="board-arrow" viewBox="0 0 26 14" aria-hidden="true">
+              <path d="M2 10 C 8 4, 16 4, 23 8" />
+              <path d="M18 5 L 23 8 L 17 11" />
+            </svg>
+            <span class="board-chord">G</span>
+          </div>
+          <span class="board-note">↑ the sad turn — that's why it hits</span>
+        </div>
+        <span class="tile-topic">Music theory</span>
+      </div>
+
+      <!-- 4 · the doctor: a paper, highlighted and explained -->
+      <div class="lives-cell cell-paper reveal">
+        <div class="tile tile-paper">
+          <span class="paper-head">Methods · p. 4</span>
+          <p class="paper-text">
+            …patients in the treatment arm showed a <mark>hazard ratio of 0.68</mark> (95% CI,
+            0.55–0.84) for the primary composite endpoint over a median follow-up of 3.2 years…
+          </p>
+          <span class="paper-note">so: roughly a third fewer events</span>
+        </div>
+        <span class="tile-topic">Cardiology</span>
+      </div>
+
+      <!-- 5 · the note-taker: plain markdown, wikilinks intact -->
+      <div class="lives-cell cell-vault reveal">
+        <div class="tile tile-vault">
+          <span class="vault-file">sleep-and-memory.md</span>
+          <p class="vault-line vault-h1"># Sleep and memory</p>
+          <p class="vault-line">
+            REM files the day away — see <span class="vault-link">[[memory consolidation]]</span>
+          </p>
+          <p class="vault-line">
+            - caffeine after 2pm → <span class="vault-link">[[sleep latency]]</span>
+          </p>
+        </div>
+        <span class="tile-topic">Your vault</span>
+      </div>
+
+      <!-- 6 · the hobbyist: an endgame drill -->
+      <div class="lives-cell cell-chess reveal">
+        <div class="tile tile-chess">
+          <div class="chess-board" aria-label="Rook endgame position">
+            <span class="chess-sq chess-sq-light"></span>
+            <span class="chess-sq chess-piece-dark">♚</span>
+            <span class="chess-sq chess-sq-light"></span>
+            <span class="chess-sq"></span>
+            <span class="chess-sq"></span>
+            <span class="chess-sq chess-sq-light"></span>
+            <span class="chess-sq"></span>
+            <span class="chess-sq chess-sq-light chess-sq-hot chess-piece">♖</span>
+            <span class="chess-sq chess-sq-light"></span>
+            <span class="chess-sq"></span>
+            <span class="chess-sq chess-sq-light"></span>
+            <span class="chess-sq"></span>
+            <span class="chess-sq"></span>
+            <span class="chess-sq chess-sq-light chess-piece">♔</span>
+            <span class="chess-sq"></span>
+            <span class="chess-sq chess-sq-light"></span>
+          </div>
+          <span class="chess-foot">Rb7 — box the king in</span>
+        </div>
+        <span class="tile-topic">Chess</span>
+      </div>
+
+      <!-- 7 · the baker: the raw ask, where every artifact starts -->
+      <div class="lives-cell cell-bubble reveal">
+        <p class="lives-ask">My starter died again. What is actually going on in that jar?</p>
+        <span class="tile-topic tile-topic-bubble">Sourdough</span>
+      </div>
+
+      <div class="lives-cell cell-closing reveal">
+        <p class="lives-closing">{lives.closing}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .lives-section {
+    padding: var(--space-24) 0;
+    overflow: clip;
+  }
+
+  .lives-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: var(--space-12);
+  }
+
+  .lives-headline {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 4.5vw, 3.5rem);
+    font-weight: 510;
+    line-height: 1.05;
+    letter-spacing: -0.022em;
+    color: var(--color-text-primary);
+    text-wrap: balance;
+    max-width: 22ch;
+    margin: 0;
+  }
+
+  /* ---------- the collage ---------- */
+  .lives-wall {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--space-5);
+    align-items: stretch;
+  }
+
+  .lives-cell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .cell-quiz {
+    grid-column: span 4;
+  }
+  .cell-flash {
+    grid-column: span 3;
+  }
+  .cell-board {
+    grid-column: span 5;
+  }
+  .cell-paper {
+    grid-column: span 5;
+  }
+  .cell-vault {
+    grid-column: span 4;
+  }
+  .cell-chess {
+    grid-column: span 3;
+  }
+  .cell-bubble {
+    grid-column: span 5;
+    justify-content: center;
+  }
+  .cell-closing {
+    grid-column: span 7;
+    justify-content: center;
+  }
+
+  /* stagger the collage in */
+  .lives-cell:nth-child(2) {
+    transition-delay: 0.07s;
+  }
+  .lives-cell:nth-child(3) {
+    transition-delay: 0.14s;
+  }
+  .lives-cell:nth-child(4) {
+    transition-delay: 0.21s;
+  }
+  .lives-cell:nth-child(5) {
+    transition-delay: 0.28s;
+  }
+  .lives-cell:nth-child(6) {
+    transition-delay: 0.35s;
+  }
+  .lives-cell:nth-child(7) {
+    transition-delay: 0.42s;
+  }
+  .lives-cell:nth-child(8) {
+    transition-delay: 0.49s;
+  }
+
+  .tile {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    transition:
+      transform 0.25s var(--ease-out),
+      border-color 0.25s var(--ease-out),
+      box-shadow 0.25s var(--ease-out);
+  }
+
+  .lives-cell:hover .tile {
+    transform: translateY(-3px);
+  }
+
+  .tile-topic {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    padding-left: var(--space-1);
+    transition: color 0.25s var(--ease-out);
+  }
+
+  .lives-cell:hover .tile-topic {
+    color: var(--color-accent-primary);
+  }
+
+  /* ---------- 1 · quiz ---------- */
+  .tile-quiz {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.008));
+    border: 1px solid var(--border);
+    padding: var(--space-5);
+  }
+
+  .lives-cell:hover .tile-quiz {
+    border-color: oklch(1 0 0 / 16%);
+  }
+
+  .quiz-head {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-3);
+  }
+
+  .quiz-q {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-4) 0;
+  }
+
+  .quiz-options {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-4) 0;
+    padding: 0;
+  }
+
+  .quiz-option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 300;
+    color: var(--color-text-tertiary);
+  }
+
+  .quiz-option::before {
+    content: "";
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-text-muted);
+    flex-shrink: 0;
+  }
+
+  .quiz-option-correct {
+    color: var(--color-text-primary);
+    font-weight: 400;
+  }
+
+  .quiz-option-correct::before {
+    border-color: var(--color-accent-primary);
+    background:
+      radial-gradient(
+        circle at center,
+        var(--color-accent-primary) 0 3.5px,
+        transparent 4px
+      );
+  }
+
+  .quiz-option-correct::after {
+    content: "✓";
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-accent-primary);
+  }
+
+  .quiz-foot {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    margin-top: auto;
+  }
+
+  /* ---------- 2 · flashcard ---------- */
+  .tile-flash {
+    justify-content: center;
+    perspective: 900px;
+  }
+
+  .flash-card {
+    flex: 1;
+    display: flex;
+    min-height: 180px;
+    transform: rotate(-2deg);
+    outline: none;
+  }
+
+  .flash-inner {
+    position: relative;
+    flex: 1;
+    transform-style: preserve-3d;
+    transition: transform 0.6s var(--ease-out);
+  }
+
+  .flash-card:hover .flash-inner,
+  .flash-card:focus-visible .flash-inner {
+    transform: rotateY(180deg);
+  }
+
+  .flash-face {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-5);
+    border-radius: 14px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .flash-front {
+    background: linear-gradient(180deg, rgba(255, 107, 0, 0.07), rgba(255, 107, 0, 0.025));
+    border: 1px solid rgba(255, 107, 0, 0.2);
+    /* the rest of the deck peeking out behind */
+    box-shadow:
+      4px 5px 0 -1px rgba(20, 20, 22, 0.9),
+      4px 5px 0 0 rgba(255, 255, 255, 0.07),
+      8px 10px 0 -1px rgba(20, 20, 22, 0.9),
+      8px 10px 0 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .flash-back {
+    background: linear-gradient(180deg, rgba(255, 107, 0, 0.11), rgba(255, 107, 0, 0.04));
+    border: 1px solid rgba(255, 107, 0, 0.3);
+    transform: rotateY(180deg);
+  }
+
+  .flash-deck {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-2);
+  }
+
+  .flash-word {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 510;
+    letter-spacing: -0.02em;
+    color: var(--color-text-primary);
+  }
+
+  .flash-hint {
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    font-weight: 300;
+    color: var(--color-text-tertiary);
+  }
+
+  .flash-answer {
+    font-family: "Architects Daughter", cursive;
+    font-size: 2rem;
+    color: var(--color-accent-secondary);
+    transform: rotate(-2deg);
+  }
+
+  .flash-streak {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--color-accent-primary);
+  }
+
+  /* ---------- 3 · whiteboard ---------- */
+  .tile-board {
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    background-color: #0e0e10;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+    background-size: 18px 18px;
+    border: 1px solid var(--border);
+    padding: var(--space-6) var(--space-5);
+  }
+
+  .lives-cell:hover .tile-board {
+    border-color: oklch(1 0 0 / 16%);
+  }
+
+  .board-chords {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .board-chord {
+    font-family: "Architects Daughter", cursive;
+    font-size: 1.9rem;
+    color: #3b82f6;
+  }
+
+  .board-chord:nth-child(1) {
+    transform: rotate(-2deg);
+  }
+  .board-chord:nth-child(5) {
+    transform: rotate(1.5deg) translateY(3px);
+  }
+  .board-chord:nth-child(7) {
+    transform: rotate(-1deg);
+  }
+
+  .board-chord-sad {
+    color: var(--color-accent-primary);
+    border: 1.5px dashed rgba(255, 107, 0, 0.55);
+    border-radius: 50%;
+    padding: var(--space-1) var(--space-3);
+    transform: rotate(2deg) translateY(-2px);
+  }
+
+  .board-arrow {
+    width: 24px;
+    height: 13px;
+    stroke: #8b8b93;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+  }
+
+  .board-arrow:nth-of-type(2) {
+    transform: rotate(4deg);
+  }
+
+  .board-note {
+    font-family: "Architects Daughter", cursive;
+    font-size: 0.9375rem;
+    color: #a8a29e;
+    align-self: flex-start;
+    margin-left: 14%;
+    transform: rotate(-1.5deg);
+  }
+
+  /* ---------- 4 · paper ---------- */
+  .tile-paper {
+    background: linear-gradient(180deg, #f2ecdf, #e9e2d2);
+    border: 1px solid #d8cfba;
+    padding: var(--space-5) var(--space-6);
+    gap: var(--space-3);
+  }
+
+  .paper-head {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8a7d63;
+  }
+
+  .paper-text {
+    font-family: Georgia, Cambria, "Times New Roman", serif;
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: #322c22;
+    margin: 0;
+  }
+
+  .paper-text mark {
+    background: linear-gradient(
+      100deg,
+      transparent 1%,
+      rgba(255, 149, 0, 0.4) 3%,
+      rgba(255, 149, 0, 0.48) 50%,
+      rgba(255, 149, 0, 0.38) 97%,
+      transparent 99%
+    );
+    color: inherit;
+    padding: 0.05em 0.15em;
+    border-radius: 2px;
+  }
+
+  .paper-note {
+    font-family: "Architects Daughter", cursive;
+    font-size: 0.9375rem;
+    color: #b45309;
+    align-self: flex-end;
+    transform: rotate(-2deg);
+  }
+
+  /* ---------- 5 · vault note ---------- */
+  .tile-vault {
+    background-color: #0c0c0e;
+    border: 1px solid var(--border);
+    padding: var(--space-5);
+    gap: var(--space-2);
+  }
+
+  .lives-cell:hover .tile-vault {
+    border-color: oklch(1 0 0 / 16%);
+  }
+
+  .vault-file {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
+    border-bottom: 1px solid oklch(1 0 0 / 7%);
+  }
+
+  .vault-line {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--color-text-tertiary);
+    margin: 0;
+  }
+
+  .vault-h1 {
+    color: var(--color-text-primary);
+    font-weight: 700;
+  }
+
+  .vault-link {
+    color: var(--color-accent-cool);
+  }
+
+  /* ---------- 6 · chess ---------- */
+  .tile-chess {
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.008));
+    border: 1px solid var(--border);
+    padding: var(--space-5);
+  }
+
+  .lives-cell:hover .tile-chess {
+    border-color: oklch(1 0 0 / 16%);
+  }
+
+  .chess-board {
+    display: grid;
+    grid-template-columns: repeat(4, 38px);
+    grid-auto-rows: 38px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid oklch(1 0 0 / 14%);
+  }
+
+  .chess-sq {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.65rem;
+    line-height: 1;
+  }
+
+  .chess-sq-light {
+    background-color: oklch(1 0 0 / 9%);
+  }
+
+  .chess-sq-hot {
+    background-color: rgba(255, 107, 0, 0.28);
+    box-shadow: inset 0 0 12px rgba(255, 107, 0, 0.35);
+  }
+
+  .chess-piece {
+    color: var(--color-text-primary);
+  }
+
+  .chess-piece-dark {
+    color: oklch(0.72 0 0);
+  }
+
+  .chess-foot {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+  }
+
+  /* ---------- 7 · the raw ask ---------- */
+  .cell-bubble {
+    gap: var(--space-3);
+  }
+
+  .lives-ask {
+    width: fit-content;
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: -0.012em;
+    color: var(--color-text-primary);
+    background-color: rgba(255, 107, 0, 0.05);
+    border: 1px solid rgba(255, 107, 0, 0.16);
+    border-radius: 18px;
+    border-bottom-left-radius: 6px;
+    padding: var(--space-3) var(--space-5);
+    margin: 0;
+    transition:
+      transform 0.25s var(--ease-out),
+      border-color 0.25s var(--ease-out);
+  }
+
+  .lives-ask::after {
+    content: "↵";
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    color: var(--color-accent-primary);
+    margin-left: 0.5ch;
+    opacity: 0;
+    transform: translateY(3px);
+    transition:
+      opacity 0.25s var(--ease-out),
+      transform 0.25s var(--ease-out);
+  }
+
+  .cell-bubble:hover .lives-ask {
+    transform: translateY(-2px);
+    border-color: rgba(255, 107, 0, 0.38);
+  }
+
+  .cell-bubble:hover .lives-ask::after {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .tile-topic-bubble {
+    padding-left: var(--space-4);
+  }
+
+  /* ---------- closing ---------- */
+  .lives-closing {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    font-weight: 300;
+    line-height: 1.6;
+    letter-spacing: -0.011em;
+    color: var(--color-text-secondary);
+    max-width: 44ch;
+    margin: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lives-cell {
+      transition-delay: 0s !important;
+    }
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1024px) {
+    .lives-wall {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cell-quiz,
+    .cell-flash,
+    .cell-vault,
+    .cell-chess {
+      grid-column: span 1;
+    }
+
+    .cell-board,
+    .cell-paper,
+    .cell-bubble,
+    .cell-closing {
+      grid-column: span 2;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .lives-header {
+      margin-bottom: var(--space-10);
+    }
+  }
+
+  /* ---------- phone: the collage becomes a swipeable strip.
+     One row, edge-to-edge, next tile peeking; the closing line is the
+     last card you land on. ---------- */
+  @media (max-width: 768px) {
+    .lives-section {
+      padding: var(--space-12) 0;
+    }
+
+    .lives-wall {
+      grid-template-columns: none;
+      grid-auto-flow: column;
+      grid-auto-columns: min(78vw, 310px);
+      gap: var(--space-4);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      margin: 0 calc(-1 * var(--space-6));
+      padding: var(--space-1) var(--space-6) var(--space-4);
+      scroll-padding-left: var(--space-6);
+      scrollbar-width: none;
+    }
+
+    .lives-wall::-webkit-scrollbar {
+      display: none;
+    }
+
+    .lives-cell,
+    .cell-quiz,
+    .cell-flash,
+    .cell-board,
+    .cell-paper,
+    .cell-vault,
+    .cell-chess,
+    .cell-bubble,
+    .cell-closing {
+      grid-column: auto;
+      scroll-snap-align: start;
+    }
+
+    .cell-bubble .lives-ask {
+      width: auto;
+    }
+
+    .flash-card {
+      min-height: 200px;
+    }
+
+    .lives-closing {
+      font-size: 1.0625rem;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .lives-wall {
+      margin: 0 calc(-1 * var(--space-5));
+      padding-inline: var(--space-5);
+      scroll-padding-left: var(--space-5);
+    }
+
+    .lives-headline {
+      font-size: 2rem;
+      line-height: 1.1;
+    }
+  }
+</style>

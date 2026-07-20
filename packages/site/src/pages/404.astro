@@ -1,0 +1,336 @@
+---
+import { Image } from "astro:assets"
+import Footer from "../components/Footer.astro"
+import Header from "../components/Header.astro"
+import InstallSection from "../components/InstallSection.astro"
+import BasePage from "../layouts/BasePage.astro"
+import buddyMascotConfused from "../assets/mascot/buddy-mascot-confused.png"
+import { content } from "../content/site"
+import {
+  AUDIENCE_LEARNERS,
+  COMPARE_PATH,
+  DOCS_PATH,
+  EDUCATOR_PATH,
+  LEARNER_PATH,
+} from "../lib/constants"
+
+export const prerender = true
+
+const { notFound } = content
+---
+
+<BasePage
+  title={notFound.title}
+  description={notFound.description}
+  robots="noindex, follow"
+>
+  <div class="nf-page">
+    <Header showAudienceToggle={false} />
+
+    <main class="nf-main">
+      <div class="nf-container">
+        <!-- Dashed Wireframe Frame (Vercel & Resend inspired) -->
+        <div class="nf-frame">
+          <span class="nf-corner nf-corner--tl" aria-hidden="true">+</span>
+          <span class="nf-corner nf-corner--tr" aria-hidden="true">+</span>
+          <span class="nf-corner nf-corner--bl" aria-hidden="true">+</span>
+          <span class="nf-corner nf-corner--br" aria-hidden="true">+</span>
+
+          <!-- Ultra-faint 404 Watermark Background -->
+          <div class="nf-watermark" aria-hidden="true" data-numeric>404</div>
+
+          <!-- Centered Content -->
+          <div class="nf-content">
+            <!-- Mascot Visual -->
+            <div class="nf-mascot-stage">
+              <div class="nf-mascot-glow" aria-hidden="true"></div>
+              <Image
+                src={buddyMascotConfused}
+                alt="Confused Buddy mascot"
+                class="nf-mascot-img"
+                width={300}
+                height={300}
+                widths={[150, 225, 300]}
+                sizes="(max-width: 640px) 7.5rem, 9rem"
+                loading="eager"
+              />
+            </div>
+
+            <h1 class="nf-title">This page doesn't exist.</h1>
+            <p class="nf-subtext">The page you're looking for was moved or never existed.</p>
+
+            <div class="nf-actions">
+              <a href={LEARNER_PATH} class="nf-btn-primary">
+                <span aria-hidden="true">←</span>
+                <span>Back to home</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Minimal Sub-links -->
+        <nav class="nf-quick-nav" aria-label="Quick links">
+          <a href={EDUCATOR_PATH} class="nf-quick-link">For Teachers</a>
+          <span class="nf-quick-sep" aria-hidden="true">·</span>
+          <a href={COMPARE_PATH} class="nf-quick-link">Compare</a>
+          <span class="nf-quick-sep" aria-hidden="true">·</span>
+          <a href={DOCS_PATH} class="nf-quick-link">Docs</a>
+        </nav>
+      </div>
+    </main>
+
+    <Footer />
+  </div>
+
+  <div class="nf-install-host" aria-hidden="true">
+    <InstallSection initialAudience={AUDIENCE_LEARNERS} useScrollReveal={false} />
+  </div>
+</BasePage>
+
+<style is:global>
+  .nf-page {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: var(--color-bg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .nf-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(2.5rem, 8vh, 5rem) 1.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .nf-container {
+    width: 100%;
+    max-width: 36rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* --- Dashed Wireframe Frame --- */
+  .nf-frame {
+    position: relative;
+    width: 100%;
+    border: 1px dashed oklch(1 0 0 / 12%);
+    border-radius: 1.25rem;
+    background: oklch(0.17 0.003 285 / 50%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: clamp(2.5rem, 6vw, 3.5rem) 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    overflow: hidden;
+    animation: fadeInUp 400ms var(--ease-out) both;
+  }
+
+  /* Precision Corner Crosshairs (+) */
+  .nf-corner {
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    line-height: 1;
+    color: oklch(1 0 0 / 25%);
+    user-select: none;
+    pointer-events: none;
+  }
+  .nf-corner--tl { top: 0.5rem; left: 0.625rem; }
+  .nf-corner--tr { top: 0.5rem; right: 0.625rem; }
+  .nf-corner--bl { bottom: 0.5rem; left: 0.625rem; }
+  .nf-corner--br { bottom: 0.5rem; right: 0.625rem; }
+
+  /* Giant Faint Watermark */
+  .nf-watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -52%);
+    font-family: var(--font-display);
+    font-size: clamp(10rem, 28vw, 18rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.05em;
+    color: oklch(1 0 0 / 3%);
+    user-select: none;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Content Overlay */
+  .nf-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 26rem;
+  }
+
+  /* Mascot Presentation */
+  .nf-mascot-stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(7.5rem, 18vw, 9rem);
+    height: clamp(7.5rem, 18vw, 9rem);
+    margin-bottom: 1.5rem;
+  }
+
+  .nf-mascot-glow {
+    position: absolute;
+    inset: -20%;
+    border-radius: 50%;
+    background: radial-gradient(circle, oklch(0.65 0.18 45 / 0.22) 0%, transparent 70%);
+    filter: blur(20px);
+    pointer-events: none;
+  }
+
+  .nf-mascot-img {
+    width: 100% !important;
+    height: auto !important;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 20px oklch(0 0 0 / 0.4));
+    animation: float-subtle 6s ease-in-out infinite alternate;
+  }
+
+  /* Typography */
+  .nf-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: var(--tracking-tighter);
+    color: var(--color-text-primary);
+    margin: 0 0 0.625rem;
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  .nf-subtext {
+    font-size: clamp(0.9375rem, 1.8vw, 1rem);
+    line-height: 1.5;
+    color: var(--color-text-tertiary);
+    margin: 0 0 1.75rem;
+    max-width: 28ch;
+    text-align: center;
+    text-wrap: pretty;
+  }
+
+  /* CTA Button */
+  .nf-actions {
+    display: flex;
+    justify-content: center;
+  }
+
+  .nf-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 42px;
+    padding: 0 1.375rem;
+    background-color: #f3f3f3;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #0a0807;
+    border-radius: var(--radius);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.2s var(--ease-out), transform 0.15s var(--ease-out), box-shadow 0.2s var(--ease-out);
+    cursor: pointer;
+  }
+
+  .nf-btn-primary:hover {
+    background-color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(255, 255, 255, 0.18);
+  }
+
+  .nf-btn-primary:active {
+    transform: scale(0.97);
+  }
+
+  /* Quick Navigation Links Below Frame */
+  .nf-quick-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    font-size: var(--text-xs);
+  }
+
+  .nf-quick-link {
+    color: var(--color-text-muted);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.15s var(--ease-out);
+  }
+
+  .nf-quick-link:hover {
+    color: var(--color-text-primary);
+  }
+
+  .nf-quick-sep {
+    color: var(--color-text-muted);
+    opacity: 0.4;
+  }
+
+  .nf-install-host {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    pointer-events: none;
+  }
+
+  .nf-install-host .download-modal-overlay {
+    pointer-events: auto;
+  }
+
+  @keyframes float-subtle {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  @media (max-width: 576px) {
+    .nf-frame {
+      padding: 2rem 1.25rem;
+      border-radius: 1rem;
+    }
+
+    .nf-btn-primary {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nf-frame,
+    .nf-mascot-img {
+      animation: none;
+    }
+  }
+</style>

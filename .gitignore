@@ -88,3 +88,6 @@ buddy.jsonc
 .antigravitycli/
 docs/dogfooding/
 bugeera/
+
+# Temp screenshots
+.tmp-*/

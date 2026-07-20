@@ -1,0 +1,287 @@
+---
+// PLAN artifact — one drafted lesson, typeset as a bright editorial
+// document. No app chrome, no calendar grid, no legend. The proof
+// detail is the standards block: Buddy runs a real standards graph on
+// the teacher's machine (search, prerequisites, crosswalks), so the
+// citation shows where MS-LS1-6 sits in that graph — a receipt no
+// autocomplete can fake.
+---
+
+<div
+  class="lp-stage"
+  aria-label="A drafted 50-minute photosynthesis lesson for grade 8: an objective, a timed sequence — hook, direct instruction, guided practice, exit ticket — and a citation to standard MS-LS1-6, shown with its prerequisite MS-LS1-4 and follow-on HS-LS1-5 from the standards library"
+>
+  <div class="lp-glow" aria-hidden="true"></div>
+
+  <div class="lp-sheet">
+    <div class="lp-left">
+      <span class="lp-eyebrow">Drafted lesson</span>
+      <h4 class="lp-title">Photosynthesis</h4>
+      <p class="lp-meta">Grade 8 · 50 min</p>
+      <p class="lp-objective">
+        Students can explain — and defend — where a plant's mass actually comes from.
+      </p>
+
+      <div class="lp-standard">
+        <span class="lp-code">MS-LS1-6</span>
+        <p class="lp-graph">builds on MS-LS1-4 · leads to HS-LS1-5</p>
+        <p class="lp-source">cited from the standards library on your machine</p>
+      </div>
+    </div>
+
+    <ol class="lp-agenda">
+      <li>
+        <span class="lp-time">:00</span>
+        <div class="lp-beat">
+          <h5 class="lp-phase">Hook <span class="lp-min">10 min</span></h5>
+          <p class="lp-line">An oak weighs 900 kg. The acorn weighed 5 grams. Where did the mass come from?</p>
+        </div>
+      </li>
+      <li>
+        <span class="lp-time">:10</span>
+        <div class="lp-beat">
+          <h5 class="lp-phase">Direct instruction <span class="lp-min">20 min</span></h5>
+          <p class="lp-line">Build the equation together: CO₂ + water + light → glucose + O₂.</p>
+        </div>
+      </li>
+      <li>
+        <span class="lp-time">:30</span>
+        <div class="lp-beat">
+          <h5 class="lp-phase">Guided practice <span class="lp-min">15 min</span></h5>
+          <p class="lp-line">Trace one carbon atom from the air into the trunk.</p>
+        </div>
+      </li>
+      <li class="lp-exit">
+        <span class="lp-time">:45</span>
+        <div class="lp-beat">
+          <h5 class="lp-phase">Exit ticket <span class="lp-min">5 min</span></h5>
+          <p class="lp-line">One question at the door. Misses feed Friday's quiz.</p>
+        </div>
+      </li>
+    </ol>
+  </div>
+</div>
+
+<style>
+  .lp-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    container-type: size;
+    background:
+      radial-gradient(55% 75% at 88% 8%, rgba(255, 107, 0, 0.06), transparent 70%),
+      radial-gradient(60% 80% at 12% 92%, rgba(255, 143, 102, 0.05), transparent 70%);
+  }
+
+  .lp-glow {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(72% 72% at 50% 50%, black, transparent);
+    pointer-events: none;
+  }
+
+  /* ---------- one bright sheet, nearly edge to edge ---------- */
+  .lp-sheet {
+    position: absolute;
+    inset: 5.5% 5%;
+    display: grid;
+    grid-template-columns: 4fr 6fr;
+    gap: 7%;
+    align-items: center;
+    font-size: clamp(11px, 1.5cqw, 17px);
+    background: linear-gradient(180deg, #fbf8f1, #f4efe3);
+    border-radius: 1em;
+    padding: 2.6em 3em;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.4) inset,
+      0 30px 60px -24px rgba(0, 0, 0, 0.85);
+  }
+
+  /* ---------- left: what the lesson is, and its receipt ---------- */
+  .lp-left {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .lp-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.68em;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #9a3b00;
+  }
+
+  .lp-title {
+    margin: 0.35em 0 0 0;
+    font-family: var(--font-display);
+    font-size: 2.5em;
+    font-weight: 650;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    color: #17150f;
+  }
+
+  .lp-meta {
+    margin: 0.9em 0 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.72em;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a8271;
+  }
+
+  .lp-objective {
+    margin: 1.4em 0 0 0;
+    max-width: 24ch;
+    font-family: var(--font-body);
+    font-size: 1em;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+    color: #4a4436;
+    text-wrap: pretty;
+  }
+
+  /* the standards graph — the one detail only Buddy can show */
+  .lp-standard {
+    margin-top: 2em;
+    padding-top: 1.4em;
+    border-top: 1px solid rgba(23, 21, 15, 0.12);
+  }
+
+  .lp-code {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #9a3b00;
+    background: rgba(255, 107, 0, 0.1);
+    border: 1px solid rgba(154, 59, 0, 0.22);
+    border-radius: 999px;
+    padding: 0.35em 1em;
+  }
+
+  .lp-graph {
+    margin: 0.8em 0 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.72em;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: #4a4436;
+  }
+
+  .lp-source {
+    margin: 0.45em 0 0 0;
+    font-family: var(--font-body);
+    font-size: 0.78em;
+    color: #8a8271;
+  }
+
+  /* ---------- right: the agenda ---------- */
+  .lp-agenda {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.6em;
+  }
+
+  .lp-agenda li {
+    display: grid;
+    grid-template-columns: 3em 1fr;
+    gap: 1.3em;
+    align-items: baseline;
+  }
+
+  .lp-time {
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #a39a86;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lp-phase {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.8em;
+    font-family: var(--font-display);
+    font-size: 1.2em;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    color: #17150f;
+  }
+
+  .lp-min {
+    font-family: var(--font-mono);
+    font-size: 0.6em;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: #a39a86;
+    white-space: nowrap;
+  }
+
+  .lp-line {
+    margin: 0.35em 0 0 0;
+    font-family: var(--font-body);
+    font-size: 0.92em;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+    color: #4a4436;
+    max-width: 42ch;
+    text-wrap: pretty;
+  }
+
+  /* the one accent: where the lesson lands */
+  .lp-exit .lp-time,
+  .lp-exit .lp-phase {
+    color: #9a3b00;
+  }
+
+  @media (max-width: 768px) {
+    .lp-stage {
+      background: transparent !important;
+    }
+
+    .lp-sheet {
+      inset: 4% var(--space-5);
+      padding: 1.8em 2em;
+      gap: 5%;
+    }
+  }
+
+  @container (max-width: 640px) {
+    .lp-sheet {
+      grid-template-columns: 1fr;
+      gap: 1.6em;
+      align-content: center;
+    }
+
+    .lp-objective,
+    .lp-line,
+    .lp-source {
+      display: none;
+    }
+
+    .lp-standard {
+      margin-top: 1.2em;
+      padding-top: 1em;
+    }
+
+    .lp-agenda {
+      gap: 1em;
+    }
+  }
+</style>

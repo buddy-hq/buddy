@@ -1,0 +1,125 @@
+---
+import type { CompareSection } from "../../lib/compare"
+import SectionHeader from "./SectionHeader.astro"
+
+type Props = {
+  readonly competitor: string
+  readonly section: Extract<CompareSection, { readonly type: "snapshot" }>
+}
+
+const { competitor, section } = Astro.props
+const headingId = `compare-section-${section.type}`
+---
+
+<section data-compare-section={section.type} aria-labelledby={headingId}>
+  <SectionHeader
+    id={headingId}
+    label="At a glance"
+    heading={section.heading}
+    intro={section.intro}
+  />
+  <div class="snapshot" role="table" aria-label={`Buddy and ${competitor} snapshot`}>
+    <div class="snapshot-heading" role="row">
+      <span role="columnheader"></span>
+      <span class="snapshot-column-buddy" role="columnheader">Buddy</span>
+      <span role="columnheader">{competitor}</span>
+    </div>
+    {section.items.map((item) => (
+      <div class="snapshot-row" role="row">
+        <strong role="rowheader">{item.label}</strong>
+        <p role="cell"><span class="mobile-label snapshot-column-buddy">Buddy</span>{item.buddy}</p>
+        <p role="cell"><span class="mobile-label">{competitor}</span>{item.competitor}</p>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .snapshot {
+    margin-top: var(--space-10);
+  }
+
+  .snapshot-heading,
+  .snapshot-row {
+    display: grid;
+    grid-template-columns: minmax(7rem, 0.55fr) repeat(2, minmax(0, 1fr));
+    gap: var(--space-6);
+  }
+
+  .snapshot-heading {
+    padding-bottom: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .snapshot-heading [role="columnheader"] {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .snapshot-column-buddy {
+    color: var(--color-accent-secondary);
+  }
+
+  .snapshot-column-buddy::before {
+    content: "";
+    width: 0.375rem;
+    height: 0.375rem;
+    background: var(--color-accent-primary);
+  }
+
+  .snapshot-row {
+    padding-block: var(--space-5);
+    border-top: 1px solid var(--color-card-border);
+  }
+
+  strong {
+    font-size: var(--text-sm);
+    font-weight: 560;
+    line-height: 1.6;
+    color: var(--color-text-primary);
+  }
+
+  p {
+    font-size: var(--text-sm);
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+  }
+
+  .mobile-label {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    .snapshot-heading {
+      display: none;
+    }
+
+    .snapshot-row {
+      grid-template-columns: 1fr;
+      gap: var(--space-4);
+      padding-block: var(--space-6);
+    }
+
+    .snapshot-row p + p {
+      padding-top: var(--space-4);
+      border-top: 1px dashed var(--color-card-border);
+    }
+
+    .mobile-label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      letter-spacing: var(--tracking-wider);
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+    }
+  }
+</style>

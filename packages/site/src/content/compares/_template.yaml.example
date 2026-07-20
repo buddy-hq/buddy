@@ -1,0 +1,29 @@
+competitor: Competitor name
+competitorUrl: https://example.com/
+audience: both
+title: Unique page title no longer than 60 characters
+description: Unique description between 120 and 160 characters explaining the decision this comparison resolves for the intended reader.
+headline: Buddy vs Competitor for a specific decision
+tagline: A concise, competitor-specific summary of the choice this page helps the reader make.
+targetQueries:
+  - primary non-brand comparison query
+  - secondary alternative query
+lastVerified: 2026-07-20
+lastUpdated: 2026-07-20
+faqs:
+  - question: A real competitor-specific question?
+    answer: A complete researched answer of at least forty characters that will appear visibly on the page.
+  - question: A second decision-changing question?
+    answer: Another complete answer based on this competitor rather than a reusable generic response.
+  - question: Who should choose the competitor instead?
+    answer: An honest answer explaining a workflow in which the competitor is the stronger choice.
+
+# Choose 3-6 unique section types in the order this competitor's argument needs.
+# Exactly one section must have type: decision. No other type is mandatory.
+# Supported types: prose, snapshot, decision-factors, workflow, comparison-table,
+# test-results, pricing, decision.
+# Do not use evidence or limitations on sales compare pages; put honesty in choose-if and FAQs.
+# See design/research/compare-pages-architecture.md.
+sections: []
+
+relatedCompares: []

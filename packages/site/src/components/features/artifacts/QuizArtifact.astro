@@ -1,0 +1,350 @@
+---
+// ASSESS artifact — not an app mock. The pitch is the output itself:
+// a formative quiz, its answer key, and a flashcard, laid out like
+// handouts on a teacher's desk.
+---
+
+<div class="qa-stage" aria-label="A formative quiz, its answer key, and a flashcard drafted by Buddy">
+  <div class="qa-glow" aria-hidden="true"></div>
+
+  <!-- The quiz handout -->
+  <article class="qa-sheet">
+    <header class="qa-sheet-head">
+      <h4 class="qa-title">Photosynthesis — Check for Understanding</h4>
+      <span class="qa-std">NGSS MS-LS1-6</span>
+    </header>
+    <p class="qa-meta">Grade 8 · Formative · 10 min</p>
+
+    <ol class="qa-questions">
+      <li>
+        <p>Name the two products of photosynthesis.</p>
+        <span class="qa-bloom qa-bloom--recall">Recall</span>
+      </li>
+      <li>
+        <p>A plant sits in a dark closet for a week. Predict what happens to its mass, and why.</p>
+        <span class="qa-bloom qa-bloom--apply">Apply</span>
+      </li>
+      <li>
+        <p>A student claims plants get their food from the soil. What question would you ask to test their thinking?</p>
+        <span class="qa-bloom qa-bloom--analyze">Analyze</span>
+      </li>
+    </ol>
+  </article>
+
+  <!-- The answer key -->
+  <aside class="qa-key">
+    <span class="qa-key-label">Answer key</span>
+    <ol class="qa-key-list">
+      <li>Glucose and oxygen.</li>
+      <li>Mass drops — no light, no glucose.</li>
+      <li>Look for: food is made from air and light.</li>
+    </ol>
+    <p class="qa-key-warn">
+      <strong>Watch for:</strong> “plants eat soil.” Glucose comes from CO₂ and light — not the soil.
+    </p>
+  </aside>
+
+  <!-- The flashcard deck -->
+  <div class="qa-deck">
+    <div class="qa-card qa-card--back-2" aria-hidden="true"></div>
+    <div class="qa-card qa-card--back-1" aria-hidden="true"></div>
+    <div class="qa-card">
+      <span class="qa-card-label">Flashcards · 1 / 12</span>
+      <p class="qa-card-q">Where does a plant's mass come from?</p>
+      <span class="qa-card-hint">tap to reveal</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .qa-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    container-type: size;
+    background:
+      radial-gradient(60% 80% at 24% 88%, rgba(255, 107, 0, 0.07), transparent 70%),
+      radial-gradient(50% 70% at 86% 10%, rgba(255, 143, 102, 0.04), transparent 70%);
+  }
+
+  .qa-glow {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(70% 70% at 50% 50%, black, transparent);
+    pointer-events: none;
+  }
+
+  /* ---------- quiz handout ---------- */
+  .qa-sheet {
+    position: absolute;
+    left: 7%;
+    top: 8%;
+    width: 42%;
+    transform: rotate(-1.4deg);
+    font-size: clamp(10px, 1.35cqw, 16px);
+    background: linear-gradient(180deg, #f7f3ea, #f1ecdf);
+    border-radius: 0.6em;
+    padding: 1.8em 2em;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.25) inset,
+      0 30px 60px -24px rgba(0, 0, 0, 0.85);
+  }
+
+  .qa-sheet-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1em;
+  }
+
+  .qa-title {
+    font-family: var(--font-display);
+    font-size: 1.25em;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    color: #17150f;
+    margin: 0;
+  }
+
+  .qa-std {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-size: 0.62em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #9a3b00;
+    background-color: rgba(255, 107, 0, 0.1);
+    border: 1px solid rgba(154, 59, 0, 0.22);
+    border-radius: 999px;
+    padding: 0.35em 0.9em;
+    white-space: nowrap;
+  }
+
+  .qa-meta {
+    font-family: var(--font-mono);
+    font-size: 0.66em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8a8271;
+    margin: 0.7em 0 0 0;
+    padding-bottom: 1em;
+    border-bottom: 1px solid rgba(23, 21, 15, 0.12);
+  }
+
+  .qa-questions {
+    list-style: none;
+    counter-reset: qa;
+    margin: 0;
+    padding: 0;
+  }
+
+  .qa-questions li {
+    counter-increment: qa;
+    position: relative;
+    padding: 1.1em 0 0 1.9em;
+  }
+
+  .qa-questions li + li {
+    border-top: 1px dashed rgba(23, 21, 15, 0.1);
+    margin-top: 1.1em;
+  }
+
+  .qa-questions li::before {
+    content: counter(qa) ".";
+    position: absolute;
+    left: 0.1em;
+    font-family: var(--font-display);
+    font-weight: 650;
+    color: #b45309;
+  }
+
+  .qa-questions p {
+    font-family: var(--font-body);
+    font-size: 0.95em;
+    line-height: 1.45;
+    color: #2b2820;
+    margin: 0 0 0.6em 0;
+  }
+
+  .qa-bloom {
+    font-family: var(--font-mono);
+    font-size: 0.58em;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: 0.32em 0.95em;
+  }
+
+  .qa-bloom--recall {
+    color: #075985;
+    background-color: rgba(14, 165, 233, 0.14);
+  }
+
+  .qa-bloom--apply {
+    color: #166534;
+    background-color: rgba(34, 197, 94, 0.16);
+  }
+
+  .qa-bloom--analyze {
+    color: #5b21b6;
+    background-color: rgba(139, 92, 246, 0.16);
+  }
+
+  /* ---------- answer key ---------- */
+  .qa-key {
+    position: absolute;
+    left: 46%;
+    top: 34%;
+    width: 27.5%;
+    transform: rotate(1.6deg);
+    z-index: 3;
+    font-size: clamp(9.5px, 1.2cqw, 14px);
+    background: linear-gradient(180deg, #fbf7ec, #f5efe0);
+    border-radius: 0.6em;
+    padding: 1.5em 1.7em;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.3) inset,
+      0 34px 68px -24px rgba(0, 0, 0, 0.9);
+  }
+
+  .qa-key-label {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.62em;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #9a3b00;
+    border-bottom: 2px solid rgba(255, 107, 0, 0.45);
+    padding-bottom: 0.35em;
+    margin-bottom: 1em;
+  }
+
+  .qa-key-list {
+    margin: 0;
+    padding: 0 0 0 1.3em;
+  }
+
+  .qa-key-list li {
+    font-family: var(--font-body);
+    font-size: 0.82em;
+    line-height: 1.45;
+    color: #2b2820;
+    margin-bottom: 0.45em;
+  }
+
+  .qa-key-warn {
+    font-family: var(--font-body);
+    font-size: 0.76em;
+    line-height: 1.45;
+    color: #7c2d12;
+    background-color: rgba(255, 107, 0, 0.09);
+    border-left: 3px solid rgba(180, 83, 9, 0.55);
+    border-radius: 0.3em;
+    padding: 0.7em 0.9em;
+    margin: 1em 0 0 0;
+  }
+
+  .qa-key-warn strong {
+    font-weight: 650;
+  }
+
+  /* ---------- flashcard deck ---------- */
+  .qa-deck {
+    position: absolute;
+    left: 77%;
+    top: 24%;
+    width: 19%;
+    font-size: clamp(9px, 1.15cqw, 14px);
+    transform: rotate(2deg);
+  }
+
+  @media (max-width: 960px) {
+    .qa-sheet {
+      left: var(--space-6);
+      width: 44%;
+    }
+    .qa-key {
+      left: 48%;
+      width: 28%;
+    }
+    .qa-deck {
+      left: 78%;
+      width: 20%;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .qa-stage {
+      background: transparent !important;
+    }
+    .qa-sheet {
+      left: var(--space-5);
+      width: 44%;
+    }
+    .qa-key {
+      left: 36%;
+      width: 28%;
+    }
+    .qa-deck {
+      left: 50%;
+      width: 20%;
+    }
+  }
+
+  .qa-card {
+    position: relative;
+    background: linear-gradient(180deg, #1a181d, #141216);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 0.8em;
+    padding: 1.4em 1.4em 1.2em;
+    box-shadow: 0 26px 52px -22px rgba(0, 0, 0, 0.9);
+  }
+
+  .qa-card--back-1,
+  .qa-card--back-2 {
+    position: absolute;
+    inset: 0;
+    padding: 0;
+  }
+
+  .qa-card--back-1 {
+    transform: rotate(-3deg) translateY(6%);
+  }
+
+  .qa-card--back-2 {
+    transform: rotate(-6.5deg) translateY(12%);
+    opacity: 0.7;
+  }
+
+  .qa-card-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.58em;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent-primary);
+    margin-bottom: 1em;
+  }
+
+  .qa-card-q {
+    font-family: var(--font-display);
+    font-size: 0.98em;
+    font-weight: 510;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: rgba(255, 255, 255, 0.92);
+    margin: 0 0 1.4em 0;
+  }
+
+  .qa-card-hint {
+    font-family: var(--font-mono);
+    font-size: 0.56em;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.35);
+  }
+</style>

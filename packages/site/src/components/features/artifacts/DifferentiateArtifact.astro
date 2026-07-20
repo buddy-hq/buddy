@@ -1,0 +1,361 @@
+---
+// DIFFERENTIATE artifact — not an app mock. The pitch is the pedagogy
+// itself: ONE passage, typeset at three Lexile reading levels, with a
+// single exit ticket pinned across all three — the same task at every
+// level. The text visibly simplifies and deepens down the stack.
+// Set as a clean curriculum document: aligned bands, level rails, word
+// counts — a different language from the ASSESS desk.
+---
+
+<div
+  class="lv-stage"
+  aria-label="One passage about where a plant's mass comes from, written at three reading levels — 430L support, 820L on-level, 1050L extension — with one exit ticket pinned across all three"
+>
+  <div class="lv-glow" aria-hidden="true"></div>
+
+  <div class="lv-head">
+    <div class="lv-head-left">
+      <span class="lv-eyebrow">Leveled reading set · Photosynthesis</span>
+      <h4 class="lv-title">Where does a plant's mass come from?</h4>
+    </div>
+  </div>
+
+  <!-- 430L — support -->
+  <div class="lv-band lv-band--support">
+    <div class="lv-level">
+      <span class="lv-lexile">430L</span>
+      <span class="lv-level-name">Support</span>
+    </div>
+    <p class="lv-passage">
+      A plant gained 42 grams in one month. Its soil lost less than 1 gram. The new mass did
+      not come from the soil. The plant built it from the air.
+    </p>
+  </div>
+
+  <!-- 820L — on-level -->
+  <div class="lv-band lv-band--core">
+    <div class="lv-level">
+      <span class="lv-lexile">820L</span>
+      <span class="lv-level-name">On-level</span>
+    </div>
+    <p class="lv-passage">
+      Over one month, a plant gained 42 g while its soil lost less than 1 g. Because the soil
+      barely changed, most of the plant's new mass must have come from carbon dioxide in the
+      air — not from the soil.
+    </p>
+  </div>
+
+  <!-- 1050L — extension -->
+  <div class="lv-band lv-band--extension">
+    <div class="lv-level">
+      <span class="lv-lexile">1050L</span>
+      <span class="lv-level-name">Extension</span>
+    </div>
+    <p class="lv-passage">
+      The mass balance settles the question: over one month the plant gained 42 g while the
+      soil lost less than 1 g, so nearly all of its new biomass must have been fixed from
+      atmospheric CO₂ during photosynthesis rather than drawn from the soil.
+    </p>
+  </div>
+
+  <!-- one exit ticket, pinned across all three levels -->
+  <aside class="lv-ticket">
+    <span class="lv-ticket-label">Exit ticket</span>
+    <p class="lv-ticket-q">Where did the plant's new mass come from?</p>
+    <div class="lv-ticket-div" aria-hidden="true"></div>
+    <p class="lv-ticket-all">
+      <i class="lv-dot lv-dot--support"></i>
+      <i class="lv-dot lv-dot--core"></i>
+      <i class="lv-dot lv-dot--extension"></i>
+      One ticket, all three levels <b>✓</b>
+    </p>
+  </aside>
+</div>
+
+<style>
+  .lv-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    container-type: size;
+    background:
+      radial-gradient(55% 75% at 88% 8%, rgba(255, 107, 0, 0.06), transparent 70%),
+      radial-gradient(60% 80% at 12% 92%, rgba(255, 143, 102, 0.05), transparent 70%);
+  }
+
+  .lv-glow {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(72% 72% at 50% 50%, black, transparent);
+    pointer-events: none;
+  }
+
+  /* ---------- header ---------- */
+  .lv-head {
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    top: 6.5%;
+    width: auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 4%;
+  }
+
+  .lv-head-left {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2px, 0.55cqw, 6px);
+    min-width: 0;
+  }
+
+  .lv-eyebrow {
+    font-family: var(--font-mono);
+    font-size: clamp(9px, 0.82cqw, 11px);
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.42);
+  }
+
+  .lv-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(13px, 1.75cqw, 22px);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    color: rgba(255, 255, 255, 0.94);
+  }
+
+  /* ---------- the three leveled bands ---------- */
+  .lv-band {
+    position: absolute;
+    left: 6%;
+    width: 76%;
+    height: 22%;
+    display: flex;
+    align-items: stretch;
+    font-size: clamp(10px, 1.42cqw, 16px);
+    background: linear-gradient(180deg, #fbfaf6, #f4f2ea);
+    border-radius: 0.7em;
+    overflow: hidden;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.22) inset,
+      0 26px 52px -24px rgba(0, 0, 0, 0.85);
+  }
+
+  /* the level color bar on the spine of each band */
+  .lv-band::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0.45em;
+    background: var(--lv-bar);
+  }
+
+  .lv-band--support {
+    top: 19.5%;
+    --lv-ink: #0369a1;
+    --lv-tint: rgba(14, 165, 233, 0.14);
+    --lv-bar: #0ea5e9;
+  }
+
+  .lv-band--core {
+    top: 44.25%;
+    --lv-ink: #15803d;
+    --lv-tint: rgba(34, 197, 94, 0.15);
+    --lv-bar: #22c55e;
+  }
+
+  .lv-band--extension {
+    top: 69%;
+    --lv-ink: #6d28d9;
+    --lv-tint: rgba(139, 92, 246, 0.15);
+    --lv-bar: #8b5cf6;
+  }
+
+  @media (max-width: 960px) {
+    .lv-head {
+      left: var(--space-6);
+      right: var(--space-6);
+    }
+    .lv-band {
+      left: var(--space-6);
+      width: 72%;
+    }
+    .lv-ticket {
+      left: 76%;
+      width: 22%;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .lv-stage {
+      background: transparent !important;
+    }
+    .lv-head {
+      left: var(--space-5);
+      right: var(--space-5);
+    }
+    .lv-band {
+      left: var(--space-5);
+      width: 62%;
+    }
+    .lv-ticket {
+      left: 50%;
+      width: 26%;
+    }
+  }
+
+  /* ---------- level cell ---------- */
+  .lv-level {
+    flex: 0 0 16%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.45em;
+    padding: 0 1.3em 0 1.5em;
+    font-size: clamp(8px, 1.05cqw, 12px);
+    background: var(--lv-tint);
+    border-right: 1px solid rgba(38, 32, 25, 0.09);
+  }
+
+  .lv-lexile {
+    font-family: var(--font-display);
+    font-size: 2.5em;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--lv-ink);
+  }
+
+  .lv-level-name {
+    font-family: var(--font-mono);
+    font-size: 0.78em;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--lv-ink);
+  }
+
+  /* ---------- the passage, leveled ---------- */
+
+  .lv-passage {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    /* clear the ticket card overlapping from the right */
+    padding: 1em 14% 1em 1.6em;
+    font-family: var(--font-body);
+    font-size: 0.98em;
+    line-height: 1.55;
+    color: #2a251d;
+    overflow: hidden;
+  }
+
+  /* ---------- one exit ticket, pinned across all three ---------- */
+  .lv-ticket {
+    position: absolute;
+    z-index: 6;
+    left: 74%;
+    width: 21%;
+    top: 30%;
+    transform: rotate(1.2deg);
+    font-size: clamp(10px, 1.15cqw, 14px);
+    padding: 1.3em 1.5em;
+    background: linear-gradient(180deg, #fdfcf8, #f6f3ea);
+    border: 1px solid rgba(38, 32, 25, 0.08);
+    border-radius: 0.5em;
+    box-shadow: 0 30px 60px -22px rgba(0, 0, 0, 0.9);
+  }
+
+  /* tape */
+  .lv-ticket::before {
+    content: "";
+    position: absolute;
+    top: -0.7em;
+    left: 50%;
+    width: 38%;
+    height: 1.3em;
+    transform: translateX(-50%) rotate(-2deg);
+    background: rgba(255, 255, 255, 0.32);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+  }
+
+  .lv-ticket-label {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.62em;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #9a3b00;
+    border-bottom: 2px solid rgba(255, 107, 0, 0.45);
+    padding-bottom: 0.4em;
+  }
+
+  .lv-ticket-q {
+    margin: 0.8em 0 0 0;
+    font-family: var(--font-display);
+    font-size: 0.98em;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: #1f1b14;
+  }
+
+  .lv-ticket-div {
+    margin-top: 1em;
+    border-top: 1px dashed rgba(38, 32, 25, 0.22);
+  }
+
+  /* one quiet confirmation instead of a checklist */
+  .lv-ticket-all {
+    margin: 1em 0 0 0;
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
+    font-family: var(--font-mono);
+    font-size: 0.68em;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    line-height: 1.4;
+    color: #2a251d;
+  }
+
+  .lv-dot {
+    flex: 0 0 auto;
+    width: 0.62em;
+    height: 0.62em;
+    border-radius: 999px;
+  }
+
+  .lv-dot--support {
+    background: #0ea5e9;
+  }
+
+  .lv-dot--core {
+    background: #22c55e;
+    margin-left: -0.15em;
+  }
+
+  .lv-dot--extension {
+    background: #8b5cf6;
+    margin-left: -0.15em;
+    margin-right: 0.25em;
+  }
+
+  .lv-ticket-all b {
+    margin-left: auto;
+    font-weight: 700;
+    color: #15803d;
+  }
+</style>

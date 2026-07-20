@@ -13,7 +13,7 @@ const LearnerHeading = initialAudience === AUDIENCE_LEARNERS ? "h1" : "h2"
 const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
 ---
 
-<section class="hero animate-in" data-analytics-section="hero">
+<section class:list={["hero animate-in", { "hero--educator": initialAudience === AUDIENCE_EDUCATORS }]} data-analytics-section="hero">
   <div class="hero-bg-gradient" aria-hidden="true"></div>
   <div class="container">
 
@@ -22,7 +22,7 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
       <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
         <LearnerHeading class="hero-title">
           {content.learners.hero.headlineLines[0]}<br />
-          {content.learners.hero.headlineLines[1]}
+          <span class="hero-accent">{content.learners.hero.headlineLines[1]}</span>
         </LearnerHeading>
         <div class="hero-header-row">
           <div class="hero-header-left">
@@ -31,9 +31,8 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
         </div>
       </div>
       <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
-        <EducatorHeading class="hero-title">
-          {content.educators.hero.headlineLines[0]}<br />
-          {content.educators.hero.headlineLines[1]}
+        <EducatorHeading class="hero-title hero-title--educator">
+          {content.educators.hero.headlineLines[0] + " "}<span class="hero-accent">{content.educators.hero.headlineLines[1]}</span>
         </EducatorHeading>
         <div class="hero-header-row">
           <div class="hero-header-left">
@@ -47,7 +46,7 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     <div class="hero-visual">
       <div class="mockup-glow"></div>
       <div class="app-mockup-wrapper">
-        <BuddyWorkspaceMock />
+        <BuddyWorkspaceMock audience={initialAudience} />
       </div>
       <div class="mockup-reflection"></div>
     </div>
@@ -64,6 +63,12 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     position: relative;
     padding: clamp(5rem, 10vw, 7rem) 0 clamp(4rem, 8vw, 6rem) 0;
     overflow: hidden;
+  }
+
+  /* Educator hero leads with a short, single-line headline, so it needs
+     less breathing room up top than the taller two-line learner headline. */
+  .hero--educator {
+    padding-top: clamp(3rem, 6vw, 4.5rem);
   }
 
   .hero-bg-gradient {
@@ -105,7 +110,7 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     margin-bottom: var(--space-6);
     color: var(--color-text-primary);
     text-wrap: balance;
-    max-width: 25ch;
+    max-width: 100%;
   }
 
   @media (max-width: 992px) {
@@ -137,7 +142,7 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
   }
 
   .hero-header-left {
-    max-width: 58ch;
+    max-width: 68ch;
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
@@ -151,7 +156,7 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     letter-spacing: -0.012em;
     color: var(--color-text-secondary);
     opacity: 0.88;
-    max-width: 38ch;
+    max-width: 68ch;
     text-wrap: pretty;
   }
 
@@ -373,14 +378,14 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
 
     /* Keep the mockup grid open and styled as desktop mock */
     .hero-visual .workspace-body {
-      grid-template-columns: 160px 1fr 0px 40px !important;
+      grid-template-columns: 160px 1.25fr 1.15fr 40px !important;
       grid-template-rows: 100% !important;
       height: 500px !important;
       overflow: hidden !important;
     }
 
     .hero-visual .workspace-body.right-pane-collapsed {
-      grid-template-columns: 160px 1fr 0px 40px !important;
+      grid-template-columns: 160px 1.25fr 1.15fr 40px !important;
     }
 
     .hero-visual .surface-sidebar {
@@ -476,7 +481,7 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
 
     /* Force active right-pane display states on mobile viewports */
     .hero-visual .buddy-window.show-whiteboard .surface-whiteboard,
-    .hero-visual .buddy-window:not(.show-whiteboard):not(.show-widget):not(.show-notes) .surface-reader,
+    .hero-visual .buddy-window:not(.show-whiteboard):not(.show-widget):not(.show-notes) .workspace-body:not(.right-pane-collapsed) .surface-reader,
     .hero-visual .buddy-window.show-widget .surface-widget,
     .hero-visual .buddy-window.show-notes .surface-notes {
       display: flex !important;

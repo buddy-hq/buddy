@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://hibuddy.in/sitemap-index.xml
+Llms-Txt: https://hibuddy.in/llms.txt

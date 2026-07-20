@@ -1,0 +1,500 @@
+---
+// Educator-only. The concept: a teacher's prep is derived work — the
+// plan, the three versions, the key, the family note all unpack from
+// one sentence. So the section draws exactly that: one typed ask, and
+// hand-drawn branches unpacking it across the board into the five
+// things teachers actually demand (design/research/claude.teachers.md:
+// plan · differentiate · assess · misconceptions · families).
+// The ask is the only box on purpose; everything Buddy does is drawn,
+// not boxed.
+import { content } from "../content/site"
+
+const why = content.educatorWhy
+---
+
+<section class="why-section" aria-labelledby="why-heading" data-analytics-section="why">
+  <div class="container">
+    <h2 id="why-heading" class="why-headline reveal">{why.headline}</h2>
+
+    <div class="why-scene reveal">
+      <svg class="scene-lines" viewBox="0 0 1000 560" preserveAspectRatio="none" aria-hidden="true">
+        <path class="scene-path path-plan" d="M372 250 C 455 235, 465 95, 512 62" pathLength="1"></path>
+        <path class="scene-path path-ws" d="M372 260 C 520 252, 610 195, 728 178" pathLength="1"></path>
+        <path class="scene-path path-quiz" d="M372 276 C 435 285, 460 306, 508 308" pathLength="1"></path>
+        <path class="scene-path path-flag" d="M652 322 C 692 330, 706 348, 728 360" pathLength="1"></path>
+        <path class="scene-path path-note" d="M372 288 C 435 305, 396 418, 418 450" pathLength="1"></path>
+      </svg>
+
+      <div class="scene-ask">
+        <span class="ask-label">{why.askLabel}</span>
+        <p class="ask-bubble">{why.askPrompt}</p>
+        <p class="why-closing">{why.closing}</p>
+      </div>
+
+      <!-- plan lessons -->
+      <div class="scene-node node-plan">
+        <span class="node-time">7:15</span>
+        <span class="plan-text">week plan — 4.MD.A.3 cited ✓</span>
+      </div>
+
+      <!-- differentiate -->
+      <div class="scene-node node-ws">
+        <span class="node-time">7:16</span>
+        <span class="ws-text">worksheet <b class="ws-count">×3</b></span>
+        <span class="ws-levels">support · on-level · stretch</span>
+      </div>
+
+      <!-- assess -->
+      <div class="scene-node node-quiz">
+        <span class="node-time">7:17</span>
+        <span class="quiz-text">exit quiz + answer key</span>
+      </div>
+
+      <!-- anticipate misconceptions — a second-order branch off the quiz -->
+      <div class="scene-node node-flag">
+        <span class="flag-text">watch: they'll add when they should multiply</span>
+      </div>
+
+      <!-- communicate with families — the one artifact that leaves the room -->
+      <div class="scene-node node-note">
+        <span class="node-time">7:18</span>
+        <p class="note-scrap">family note, drafted — “ask your kid how much carpet the reading corner needs”</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .why-section {
+    padding: var(--space-24) 0;
+    overflow: clip;
+  }
+
+  .why-headline {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 4.5vw, 3.5rem);
+    font-weight: 510;
+    line-height: 1.05;
+    letter-spacing: -0.022em;
+    color: var(--color-text-primary);
+    text-wrap: balance;
+    margin: 0 0 var(--space-12) 0;
+  }
+
+  /* ---------- the board ---------- */
+  .why-scene {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1000 / 560;
+  }
+
+  .scene-lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .scene-path {
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    opacity: 0.75;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 0.7s var(--ease-out);
+  }
+
+  .path-plan {
+    stroke: #3b82f6;
+    transition-delay: 0.25s;
+  }
+  .path-ws {
+    stroke: #a8a29e;
+    transition-delay: 0.4s;
+  }
+  .path-quiz {
+    stroke: #2dd4bf;
+    transition-delay: 0.55s;
+  }
+  .path-flag {
+    stroke: var(--color-accent-primary);
+    transition-delay: 1s;
+  }
+  .path-note {
+    stroke: #b9a77e;
+    transition-delay: 0.75s;
+  }
+
+  .why-scene.revealed .scene-path {
+    stroke-dashoffset: 0;
+  }
+
+  /* nodes pop in after their branch reaches them */
+  .scene-node {
+    position: absolute;
+    opacity: 0;
+    translate: 0 8px;
+    transition:
+      opacity 0.5s var(--ease-out),
+      translate 0.5s var(--ease-out),
+      rotate 0.3s var(--ease-out);
+  }
+
+  .why-scene.revealed .scene-node {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  .node-plan {
+    transition-delay: 0.6s;
+  }
+  .node-ws {
+    transition-delay: 0.75s;
+  }
+  .node-quiz {
+    transition-delay: 0.9s;
+  }
+  .node-flag {
+    transition-delay: 1.35s;
+  }
+  .node-note {
+    transition-delay: 1.1s;
+  }
+
+  .scene-node:hover {
+    rotate: -1.2deg;
+  }
+
+  /* ---------- the ask ---------- */
+  .scene-ask {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    translate: 0 -50%;
+    width: 35%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ask-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-accent-primary);
+    margin-bottom: var(--space-4);
+  }
+
+  .ask-label::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: var(--color-accent-primary);
+    box-shadow: 0 0 8px var(--color-accent-primary);
+  }
+
+  .ask-bubble {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: -0.012em;
+    color: var(--color-text-primary);
+    background-color: rgba(255, 107, 0, 0.05);
+    border: 1px solid rgba(255, 107, 0, 0.16);
+    border-radius: 18px;
+    border-bottom-left-radius: 6px;
+    padding: var(--space-4) var(--space-5);
+    margin: 0;
+    transition: border-color 0.25s var(--ease-out);
+  }
+
+  .ask-bubble::after {
+    content: "↵";
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    color: var(--color-accent-primary);
+    margin-left: 0.5ch;
+    opacity: 0;
+    transform: translateY(3px);
+    transition:
+      opacity 0.25s var(--ease-out),
+      transform 0.25s var(--ease-out);
+  }
+
+  .scene-ask:hover .ask-bubble {
+    border-color: rgba(255, 107, 0, 0.38);
+  }
+
+  .scene-ask:hover .ask-bubble::after {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .why-closing {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 300;
+    line-height: 1.6;
+    letter-spacing: -0.011em;
+    color: var(--color-text-secondary);
+    max-width: 34ch;
+    margin: var(--space-6) 0 0 0;
+  }
+
+  /* ---------- the sketched week ---------- */
+  .node-time {
+    position: absolute;
+    top: -1.1rem;
+    left: 2px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--color-text-muted);
+  }
+
+  .node-plan {
+    left: 51.5%;
+    top: 4%;
+  }
+
+  .plan-text {
+    display: inline-block;
+    font-family: "Architects Daughter", cursive;
+    font-size: 1.125rem;
+    color: #3b82f6;
+    border: 1.5px dashed rgba(59, 130, 246, 0.45);
+    border-radius: 12px;
+    padding: var(--space-2) var(--space-4);
+    rotate: -1.5deg;
+  }
+
+  .node-ws {
+    left: 73%;
+    top: 24%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ws-text {
+    font-family: "Architects Daughter", cursive;
+    font-size: 1.25rem;
+    color: #e8e6e3;
+    rotate: 1deg;
+  }
+
+  .ws-count {
+    font-weight: 700;
+    font-size: 1.6rem;
+    color: var(--color-accent-primary);
+  }
+
+  .ws-levels {
+    font-family: "Architects Daughter", cursive;
+    font-size: 0.8125rem;
+    color: #a8a29e;
+    rotate: 1deg;
+  }
+
+  .node-quiz {
+    left: 51.5%;
+    top: 51%;
+  }
+
+  .quiz-text {
+    font-family: "Architects Daughter", cursive;
+    font-size: 1.125rem;
+    color: #e8e6e3;
+    text-decoration: underline wavy #2dd4bf 1.5px;
+    text-underline-offset: 6px;
+    rotate: -0.8deg;
+  }
+
+  .node-flag {
+    left: 70%;
+    top: 63%;
+    max-width: 22%;
+  }
+
+  .flag-text {
+    font-family: "Architects Daughter", cursive;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    color: var(--color-accent-primary);
+    rotate: -1deg;
+    display: inline-block;
+  }
+
+  .node-note {
+    left: 41%;
+    top: 80%;
+    max-width: 25%;
+  }
+
+  .note-scrap {
+    font-family: "Architects Daughter", cursive;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #4a4336;
+    background: linear-gradient(180deg, #f2ecdf, #e9e2d2);
+    border: 1px solid #d8cfba;
+    border-radius: 4px;
+    padding: var(--space-3) var(--space-4);
+    rotate: 2deg;
+    margin: 0;
+    box-shadow: 0 14px 24px -14px rgba(0, 0, 0, 0.6);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scene-path {
+      stroke-dashoffset: 0;
+      transition-delay: 0s !important;
+    }
+
+    .scene-node {
+      opacity: 1;
+      translate: 0 0;
+      transition-delay: 0s !important;
+    }
+  }
+
+  /* ---------- smaller screens: the board becomes a flow ---------- */
+  @media (max-width: 900px) {
+    .why-headline {
+      margin-bottom: var(--space-10);
+    }
+
+    .why-scene {
+      aspect-ratio: auto;
+    }
+
+    .scene-lines {
+      display: none;
+    }
+
+    .scene-ask {
+      position: static;
+      translate: none;
+      width: 100%;
+      max-width: 560px;
+      margin-bottom: var(--space-8);
+    }
+
+    /* closing moves to the end of the story on mobile */
+    .why-closing {
+      order: 10;
+    }
+
+    .scene-ask .why-closing {
+      display: none;
+    }
+
+    .why-scene {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .scene-node {
+      position: relative;
+      left: auto;
+      top: auto;
+      opacity: 1;
+      translate: none;
+      margin: 0 0 var(--space-12) var(--space-8);
+      max-width: 100%;
+    }
+
+    /* the misconception flag is a sub-branch of the quiz — keep it tucked
+       under its parent while the top-level beats breathe */
+    .node-quiz {
+      margin-bottom: var(--space-4);
+    }
+
+    /* a little hand-drawn twig connecting each node to the spine */
+    .scene-node::before {
+      content: "";
+      position: absolute;
+      left: calc(-1 * var(--space-6));
+      top: 0.2em;
+      width: 14px;
+      height: 16px;
+      border-left: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      border-bottom-left-radius: 12px;
+      opacity: 0.45;
+    }
+
+    .node-plan::before {
+      color: #3b82f6;
+    }
+    .node-ws::before {
+      color: #a8a29e;
+    }
+    .node-quiz::before {
+      color: #2dd4bf;
+    }
+    .node-flag::before {
+      color: var(--color-accent-primary);
+    }
+    .node-note::before {
+      color: #b9a77e;
+    }
+
+    .node-time {
+      position: static;
+      display: block;
+      margin-bottom: var(--space-2);
+    }
+
+    .node-flag,
+    .node-note {
+      max-width: min(100%, 34ch);
+    }
+
+    .node-flag {
+      margin-left: var(--space-16);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .why-section {
+      padding: var(--space-12) 0;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .ask-bubble {
+      font-size: 1.0625rem;
+    }
+  }
+</style>
+
+<script>
+  // The mobile flow needs the closing after the nodes; desktop keeps it
+  // under the bubble. Render once, move on match.
+  const scene = document.querySelector(".why-scene")
+  const closing = scene?.querySelector(".why-closing")
+  if (scene && closing) {
+    const mq = window.matchMedia("(max-width: 900px)")
+    const place = () => {
+      if (mq.matches) {
+        scene.appendChild(closing)
+      } else {
+        scene.querySelector(".scene-ask")?.appendChild(closing)
+      }
+    }
+    mq.addEventListener("change", place)
+    place()
+  }
+</script>

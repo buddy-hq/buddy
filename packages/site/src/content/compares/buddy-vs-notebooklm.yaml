@@ -1,0 +1,97 @@
+competitor: "NotebookLM"
+competitorUrl: "https://notebooklm.google/"
+audience: both
+title: "Buddy vs NotebookLM for studying"
+description: "NotebookLM chats with your sources and generates quizzes and audio overviews in Google's cloud. Buddy keeps the study routine on your Mac or Windows desktop."
+headline: "Buddy vs NotebookLM for studying your sources"
+tagline: "Buddy keeps study files on your machine and schedules your practice. NotebookLM keeps your sources in Google's cloud."
+targetQueries:
+  - "NotebookLM vs Buddy"
+  - "local-first NotebookLM alternative"
+  - "NotebookLM alternative for studying PDFs"
+lastVerified: 2026-07-20
+lastUpdated: 2026-07-20
+ogImagePath: /og/buddy-vs-notebooklm.png
+ogImageAlt: "Buddy vs NotebookLM — app icons side by side"
+faqs:
+  - question: "Is Buddy free compared with NotebookLM?"
+    answer: "Buddy's app is free with no Buddy account; you connect a ChatGPT login, API keys, or free hosted models with limits. NotebookLM's free tier includes model use under a Google account with daily generation caps; raising caps means a Google AI plan."
+  - question: "Can I study offline with Buddy or NotebookLM?"
+    answer: "Buddy keeps local decks, notes, and reviews offline on one desktop; AI chat needs a provider connection. NotebookLM runs chat and Studio in Google's cloud; phones can play downloaded Audio Overviews offline, but creation needs a connection. For full offline authoring and review on one machine, Buddy is stronger; for offline listening on the go, NotebookLM."
+  - question: "Which one works for a whole class or school?"
+    answer: "NotebookLM under Google Workspace for Education, with org sharing and LMS assignment paths. Buddy is single-user with no rostering or admin controls, so it fits a teacher's prep machine or one learner's desk, not a managed classroom."
+  - question: "Is my study material used to train models in each product?"
+    answer: "NotebookLM's consumer tier says content is not used to train foundational models unless you submit feedback (which may be reviewed). Workspace and education plans claim no training on uploads. Buddy has no Buddy cloud: files stay on disk, and chats go to your connected provider under that provider's terms."
+sections:
+  - type: prose
+    paragraphs:
+      - "NotebookLM (also called Gemini Notebook) is Google's cloud study product. You upload sources, chat with citation-linked answers, and generate quizzes or Audio Overviews under a Google account. Buddy is a free desktop app: a folder on your disk is the notebook, answers ground in your PDFs and EPUBs, and practice stays local with spaced flashcards and graded quizzes."
+      - "Both help you study your own material. NotebookLM keeps it in Google's cloud with Google's models and daily free caps. Buddy keeps it on your machine with a provider you connect."
+  - type: workflow
+    heading: "From a folder of PDFs to exam day"
+    intro: "Same job from notes to exam day, but the path through each product is different."
+    buddy:
+      label: "Buddy: local workspace loop"
+      steps:
+        - title: "Install and connect a provider"
+          detail: "Download Buddy for macOS or Windows, then sign in with a ChatGPT account, add provider API keys, or start with the free hosted models. You can switch models per chat, and no Buddy account is created."
+        - title: "Open your course folder"
+          detail: "Point Buddy at a folder that already holds your material. A notebook is that folder: files, notes, and chat history stay on your disk."
+        - title: "Read and question the sources"
+          detail: "Add PDFs or EPUBs, read them in the app, and ask questions. The agent answers from that text and flags what the text cannot support."
+        - title: "Build a practice loop"
+          detail: "Ask for flashcards or a quiz. Decks schedule themselves for spaced review so cards resurface before you forget them."
+        - title: "Write study materials"
+          detail: "Turn the material into worksheets, study guides, diagrams, or whiteboard sketches as editable documents, then save them as PDFs for class."
+    competitor:
+      label: "NotebookLM: cloud notebook pipeline"
+      steps:
+        - title: "Sign in and create a notebook"
+          detail: "Open notebooklm.google with a Google account and start a notebook in the browser, the mobile apps, or the Gemini app. Everything syncs through Google's cloud."
+        - title: "Add sources"
+          detail: "Upload PDFs, audio, and text, or pull in websites, YouTube videos, and files from Google Drive. The free tier allows up to 50 sources per notebook."
+        - title: "Chat with citations"
+          detail: "Ask questions and get answers drawn from your sources, with inline citations that jump back to the passage behind each claim."
+        - title: "Generate Studio artifacts"
+          detail: "Click to produce flashcards, quizzes, mind maps, reports, slide decks, or Audio and Video Overviews. Free accounts get about three audio or video generations and ten of most other artifacts per day."
+        - title: "Study anywhere"
+          detail: "Review on the phone apps, listen to downloaded Audio Overviews offline, or share the notebook with classmates through a link."
+  - type: decision-factors
+    heading: "Five everyday trade-offs"
+    intro: "They look similar on a feature list. Day to day, these five differences show up first."
+    factors:
+      - heading: "Listening and watching versus reading and doing"
+        explanation: "NotebookLM's clearest advantage is Studio: it turns sources into podcast-style Audio Overviews in more than 80 languages and into narrated Video Overviews, which suits commuters and tired eyes. Buddy has no audio or video generation at all. Its study material is text, diagrams, whiteboards, and widgets you work through at a desk."
+      - heading: "Where your material lives"
+        explanation: "NotebookLM stores notebooks, sources, chats, and generated outputs in Google's cloud under a Google account, and on the consumer tier any feedback you give can be human-reviewed and kept for up to about three years. Buddy keeps notebooks as local folders with no Buddy account at all. Your questions still travel to the AI provider you connected, so neither product is fully offline."
+      - heading: "Practice that schedules versus practice that generates"
+        explanation: "Both products build flashcards and quizzes from your material. NotebookLM generates a deck or quiz on demand, capped at about ten per day on the free tier. Buddy treats practice as something that lasts: decks resurface when you are about to forget them, and quizzes grade you with explanations."
+      - heading: "Source breadth and citation style"
+        explanation: "NotebookLM ingests PDFs, websites, YouTube transcripts, audio, and Google Drive files, and inline citations are its core identity: answers stay inside your sources. Buddy's visual reader is PDF and EPUB first. Other local file types can still ground the agent after preparation, but grounding is agent discipline rather than a hard product rule, so there is no citation-chip interface."
+      - heading: "Who else can join"
+        explanation: "NotebookLM runs on the web and on phone apps, syncs across devices, and shares notebooks by link, with classroom assignment through Canvas and Schoology on education plans. Buddy is single-user and single-machine by design: no mobile app, no sync, no share links. For solo study that is a privacy feature; for a class or study group it is a hard stop."
+  - type: pricing
+    heading: "Free on both sides, with different strings"
+    intro: "Both products can be used without paying, but free means something different in each, and heavy NotebookLM use runs into paid tiers."
+    buddy: "Buddy is a free download with no Buddy account and no usage quotas from Buddy itself. Your cost is the AI provider: sign in with an existing ChatGPT account, bring API keys billed by that provider, or use the free hosted models, which can be rate-limited."
+    competitor: "NotebookLM's free tier includes model usage under a Google account: about 50 chats a day, three Audio and three Video Overviews, ten each of flashcards, quizzes, reports, and mind maps, and up to 50 sources per notebook. Raising those caps means a Google AI plan, listed as of mid-2026 at roughly $5 to $10 a month for Plus, about $19.99 for Pro, and more for Ultra."
+  - type: decision
+    heading: "When NotebookLM fits, when Buddy fits"
+    competitorHeading: "Choose NotebookLM when"
+    competitorReasons:
+      - "You want to upload sources and immediately chat with citation-linked answers, generate quizzes, and get podcast-style Audio Overviews, without installing anything or configuring a model."
+      - "Your study material lives in Google Drive, YouTube playlists, and web pages rather than local files."
+      - "You study across devices and want notebooks synced between web, phone, and the Gemini app, with offline listening for downloaded audio."
+      - "You teach in a school that needs classroom assignment through Canvas or Schoology, org-only sharing, under-18 guardrails, and FERPA and COPPA packaging."
+      - "You would rather not think about AI providers: the free tier includes model usage under the Google account you already have."
+    buddyHeading: "Choose Buddy when"
+    buddyReasons:
+      - "Your course material already lives in local folders and you want it to stay there, with no cloud notebook and no Buddy account."
+      - "You want reviews scheduled for you instead of one-off generated decks: Buddy spaces flashcards over time and grades quizzes with explanations."
+      - "You prefer choosing your own AI provider and switching models per chat rather than staying inside Google's Gemini stack."
+      - "You teach and want to author worksheets, study guides, and assessments as editable local documents with a Save as PDF path."
+      - "You want a workspace that persists between sessions: reading views, whiteboards, diagrams, and practice objects that live on your disk."
+relatedCompares:
+  - buddy-vs-chatgpt
+  - buddy-vs-remnote
+  - buddy-vs-knowt

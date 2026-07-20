@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && bun ./scripts/validate-compare-pages.ts",
+    "validate:compares": "bun ./scripts/validate-compare-pages.ts",
     "preview": "astro preview",
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
     "typecheck:raw": "bun ./node_modules/astro/astro.js check",
-    "deploy:dry": "astro build && wrangler deploy --dry-run",
-    "deploy": "astro build && wrangler deploy"
+    "deploy:dry": "bun run build && wrangler deploy --dry-run",
+    "deploy": "bun run build && wrangler deploy"
   },
   "dependencies": {
     "@astrojs/cloudflare": "12.6.3",
@@ -25,6 +26,8 @@
     "@astrojs/check": "0.9.6",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "catalog:",
+    "node-html-parser": "7.1.0",
+    "playwright-core": "^1.61.1",
     "sharp": "^0.35.2",
     "typescript": "catalog:",
     "wrangler": "^4.105.0"

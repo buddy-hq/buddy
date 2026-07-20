@@ -1,0 +1,1318 @@
+---
+// Component for the Learner (Student) workspace mockup
+import { getImage } from "astro:assets";
+import MockWhiteboard from "./MockWhiteboard.astro";
+import MockSidebar from "./MockSidebar.astro";
+import MockChat from "./MockChat.astro";
+import MockReader from "./MockReader.astro";
+import MockWidget from "./MockWidget.astro";
+import MockNotebook from "./MockNotebook.astro";
+import selfRelianceCover from "../assets/self-reliance.webp";
+import { AUDIENCE_LEARNERS } from "../lib/constants";
+import "./WorkspaceMock.css";
+
+const selfRelianceChatCover = await getImage({
+  src: selfRelianceCover,
+  width: 88,
+  format: "webp",
+});
+---
+
+<div class="buddy-window" data-self-reliance-cover={selfRelianceChatCover.src} data-audience={AUDIENCE_LEARNERS}>
+  <!-- Workspace layout with macOS unified titlebar split -->
+  <div class="workspace-body sidebar-closed right-pane-collapsed">
+    
+    <!-- Surface 1: Sidebar -->
+    <MockSidebar audience={AUDIENCE_LEARNERS} />
+
+    <!-- Surface 2: Chat Pane -->
+    <MockChat audience={AUDIENCE_LEARNERS} />
+
+    <!-- Surface 3: Document Reader (Warm Cream paper) -->
+    <MockReader audience={AUDIENCE_LEARNERS} />
+
+    <!-- Surface 5: Whiteboard Pane -->
+    <MockWhiteboard audience={AUDIENCE_LEARNERS} />
+
+    <!-- Surface 6: HTML Widget Pane -->
+    <MockWidget audience={AUDIENCE_LEARNERS} />
+
+    <!-- Surface 7: Notebook Pane -->
+    <MockNotebook audience={AUDIENCE_LEARNERS} />
+
+    <!-- Surface 4: Action Toolbar -->
+    <aside class="surface-actions">
+      <div class="action-icons">
+        <button class="action-btn active" title="Library">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+        </button>
+        <button class="action-btn" title="Notebook">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="9" x2="15" y2="9"></line>
+            <line x1="9" y1="13" x2="15" y2="13"></line>
+          </svg>
+        </button>
+        <button class="action-btn" title="HTML Widget">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"></polyline>
+            <polyline points="8 6 2 12 8 18"></polyline>
+          </svg>
+        </button>
+        <button class="action-btn" title="Whiteboard">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h20"></path>
+            <path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"></path>
+            <path d="m7 21 5-5 5 5"></path>
+          </svg>
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Simulated Click/Select Cursor -->
+  <div class="simulated-cursor">
+    <div class="cursor-dot"></div>
+    <svg class="cursor-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M4 4l7.07 17 2.51-7.39L21 11.07z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+    <div class="click-pulse"></div>
+  </div>
+</div>
+
+<script>
+  const selfRelianceCoverSrc =
+    document.querySelector("[data-self-reliance-cover]")?.getAttribute("data-self-reliance-cover") ?? "";
+
+  // Data for notebooks matching real app structure (Learners/Students)
+  const learnerNotebooks = {
+    "self-reliance": {
+      title: "self reliance",
+      session: "Understanding self-reliance meaning",
+      readerTitle: "Self Reliance",
+      pages: [
+        {
+          quote: "Whoso would be a man must be a nonconformist.",
+          body: "Is non-conformity required for everyone? Probably not. But to be courageous—to be \"a man\" as Emerson is in a time of different language—you must first be willing to think for yourself. And as Martin Luther King, Jr. (another inspiring non-conformist) said years later, \"Nothing pains some people more than having to think.\" If you can think for yourself, and put those thoughts into meaningful action that improves the state of the world, you're well on the way to a courageous, remarkable life.",
+          signature: "Ralph Waldo Emerson",
+          location: "ESSAY · PAGE 4 / 24"
+        },
+        {
+          quote: "A foolish consistency is the hobgoblin of little minds...",
+          body: "Emerson points out that we often worry about staying consistent with what we've said or done in the past, or what others expect of us. But true growth requires the willingness to change your mind when presented with new truths. To conform to your own past is just as limiting as conforming to the crowd.",
+          signature: "Ralph Waldo Emerson",
+          location: "ESSAY · PAGE 8 / 24"
+        }
+      ],
+      messages: [
+        { sender: "user", text: "what is Emerson's main argument in Self-Reliance?" },
+        { sender: "buddy", text: "Emerson argues you should trust your own mind instead of conforming to what the crowd or your past self expects.<br><br><div class='wb-chat-card state-skeleton'><div class='wb-chat-icon'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M2 3h20'></path><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'></path><path d='m7 21 5-5 5 5'></path></svg></div><div class='wb-chat-title-group'><div class='wb-chat-title'>Whiteboard</div><div class='wb-chat-subtitle'>Trust Thyself</div></div></div><br><br>I've sketched a quick summary on your whiteboard." },
+        { sender: "user", text: "load the text so we can dig into it" },
+        { sender: "buddy", text: `<div class='illustration-card state-skeleton'><div class='ill-cover' style='background-image: url(${selfRelianceCoverSrc});'></div><div class='ill-text'><span class='ill-title'>Self Reliance</span><span class='ill-author'>Ralph Waldo Emerson</span><span class='ill-meta'>17.3k words · Essay</span></div></div><br><br>Loaded. I've highlighted his core thesis on non-conformity in the e-reader.` },
+        { sender: "user", text: "make me a widget to play with this idea" },
+        { sender: "buddy", text: "Sure! I have generated the Self-Reliance Gauge in your workspace to visualize the balance between integrity and conformity.<br><br><div class='widget-chat-card state-skeleton'><div class='widget-chat-icon'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><polyline points='16 18 22 12 16 6'></polyline><polyline points='8 6 2 12 8 18'></polyline></svg></div><div class='widget-chat-title-group'><div class='widget-chat-title'>Self-Reliance Gauge</div><div class='widget-chat-subtitle'>Interactive UI Component</div></div></div>" }
+      ],
+      whiteboardHtml: ""
+    },
+    "deep-learning": {
+      title: "deep learning",
+      session: "Backpropagation chain rule",
+      readerTitle: "Deep Learning (Ch 6)",
+      pages: [
+        {
+          quote: "The chain rule is used to compute derivatives of functions formed by composing other functions...",
+          body: "In deep learning, backpropagation is simply the application of the chain rule to compute the gradient of the loss function with respect to the weights of the network. We compute derivatives layer by layer, starting from the output and moving backwards.",
+          signature: "Goodfellow et al.",
+          location: "BEGIN READING · LOCATION 112 / 310"
+        }
+      ],
+      messages: [
+        { sender: "user", text: "explain the math behind backpropagation" },
+        { sender: "buddy", text: "At its core, backpropagation uses the calculus chain rule to calculate gradients. It multiplies partial derivatives layer-by-layer starting from the loss output.<br><br>Want to preview the textbook chapter?" },
+        { sender: "user", text: "yes" },
+        { sender: "buddy", text: "<div class='illustration-card state-skeleton'><div class='ill-cover-fallback math'><div class='fallback-cover-text'>Deep Learning</div></div><div class='ill-text'><span class='ill-title'>Deep Learning Book</span><span class='ill-author'>Goodfellow et al.</span><span class='ill-meta'>Ch 6 · Optimization</span></div></div><br><br>Loaded. I've opened the optimization chapter and highlighted the chain rule formulas." },
+        { sender: "user", text: "show me the derivative steps" },
+        { sender: "buddy", text: "<div class='wb-chat-card state-skeleton'><div class='wb-chat-icon'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M2 3h20'></path><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'></path><path d='m7 21 5-5 5 5'></path></svg></div><div class='wb-chat-title-group'><div class='wb-chat-title'>Whiteboard</div><div class='wb-chat-subtitle'>Backprop derivatives</div></div></div><br><br>Sure, I'll calculate and render the derivatives on your whiteboard." }
+      ],
+      whiteboardHtml: ""
+    },
+    "world-history": {
+      title: "world history",
+      session: "Causes of World War I",
+      readerTitle: "World History (Ch 22)",
+      pages: [
+        {
+          quote: "The assassination was the spark that ignited the European powder keg.",
+          body: "Although the assassination of Archduke Franz Ferdinand in June 1914 was the immediate catalyst, the war's root causes lay in imperialism, militarism, nationalist rivalries, and the rigid alliance network. The secret mutual defense pacts quickly turned a local Balkan conflict into a global catastrophe.",
+          signature: "Modern History Press",
+          location: "BEGIN READING · LOCATION 48 / 90"
+        },
+        {
+          quote: "The alliance network transformed a localized conflict into a global tragedy.",
+          body: "By early August 1914, the major European powers had fully mobilized. Mobilization schedules were extremely rigid, meaning that once one nation began the process, its neighbors felt compelled to do the same to avoid being caught unprepared.",
+          signature: "A. J. P. Taylor",
+          location: "LOCATION 49 / 90"
+        }
+      ],
+      messages: [
+        { sender: "user", text: "why did so many countries get pulled into ww1 so quickly?" },
+        { sender: "buddy", text: "The rigid network of mutual defense alliances escalated a local Balkan conflict into a global war within weeks.<br><br>Ready to check the diplomatic crisis text?" },
+        { sender: "user", text: "yes" },
+        { sender: "buddy", text: "<div class='illustration-card state-skeleton'><div class='ill-cover-fallback wh'><div class='fallback-cover-text'>World History</div></div><div class='ill-text'><span class='ill-title'>World History</span><span class='ill-author'>Modern History Press</span><span class='ill-meta'>Ch 22 · 15.1k words</span></div></div><br><br>Loaded Chapter 22. It outlines how Austria-Hungary's declaration of war triggered Russia, Germany, and France." },
+        { sender: "user", text: "explain the alliance timeline" },
+        { sender: "buddy", text: "<div class='wb-chat-card state-skeleton'><div class='wb-chat-icon'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M2 3h20'></path><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'></path><path d='m7 21 5-5 5 5'></path></svg></div><div class='wb-chat-title-group'><div class='wb-chat-title'>Whiteboard</div><div class='wb-chat-subtitle'>Alliance Timeline</div></div></div><br><br>I've mapped the diplomatic communications of July 1914 on your whiteboard." }
+      ],
+      whiteboardHtml: ""
+    }
+  };
+
+  type NotebookKey = "self-reliance" | "deep-learning" | "world-history";
+
+  let activeNotebook: NotebookKey = "self-reliance";
+  let currentPageIndices: Record<string, number> = {
+    "self-reliance": 0,
+    "deep-learning": 0,
+    "world-history": 0
+  };
+
+  let currentStreamId = 0;
+  let activeSidebarPromise = Promise.resolve();
+  let isGenerating = false;
+
+  // Scoped element selectors
+  const buddyWindow = document.querySelector('.buddy-window[data-audience="learners"]') as HTMLElement;
+  if (buddyWindow) {
+    const chatFeed = buddyWindow.querySelector(".chat-feed") as HTMLElement | null;
+    const windowActiveNotebook = buddyWindow.querySelector(".window-active-notebook") as HTMLElement | null;
+    const windowActiveSession = buddyWindow.querySelector(".window-active-session") as HTMLElement | null;
+    const readerTabTitle = buddyWindow.querySelector("#reader-tab-title") as HTMLElement | null;
+    const readerQuoteText = buddyWindow.querySelector("#reader-quote-text") as HTMLElement | null;
+    const readerBodyText = buddyWindow.querySelector("#reader-body-text") as HTMLElement | null;
+    const readerSigText = buddyWindow.querySelector("#reader-sig-text") as HTMLElement | null;
+    const readerLocationText = buddyWindow.querySelector("#reader-location-text") as HTMLElement | null;
+    const fontToggleBtn = buddyWindow.querySelector("#font-toggle-btn") as HTMLElement | null;
+    const readerContentPane = buddyWindow.querySelector("#reader-content-pane") as HTMLElement | null;
+    const chatForm = buddyWindow.querySelector("#mockup-chat-form") as HTMLFormElement | null;
+    const chatInput = buddyWindow.querySelector("#mockup-chat-input") as HTMLTextAreaElement | null;
+    const chatSubmitBtn = buddyWindow.querySelector("#chat-submit-btn") as HTMLButtonElement | null;
+    
+    const readerPrevBtn = buddyWindow.querySelector("#reader-prev-btn") as HTMLElement | null;
+    const readerNextBtn = buddyWindow.querySelector("#reader-next-btn") as HTMLElement | null;
+    const wbDrawings = buddyWindow.querySelector(".wb-drawings") as HTMLElement | null;
+    
+    const libraryRailBtn = buddyWindow.querySelector('.action-btn[title="Library"]') as HTMLButtonElement | null;
+    const whiteboardRailBtn = buddyWindow.querySelector('.action-btn[title="Whiteboard"]') as HTMLButtonElement | null;
+    const widgetRailBtn = buddyWindow.querySelector('.action-btn[title="HTML Widget"]') as HTMLButtonElement | null;
+    const flashcardsRailBtn = buddyWindow.querySelector('.action-btn[title="Notebook"]') as HTMLButtonElement | null;
+    const workspaceBody = buddyWindow.querySelector('.workspace-body') as HTMLElement | null;
+
+    function setGenerating(gen: boolean) {
+      isGenerating = gen;
+      if (!chatSubmitBtn) return;
+      
+      const sendIcon = chatSubmitBtn.querySelector(".icon-send") as HTMLElement | null;
+      const stopIcon = chatSubmitBtn.querySelector(".icon-stop") as HTMLElement | null;
+      
+      if (gen) {
+        chatSubmitBtn.classList.add("generating");
+        if (sendIcon) sendIcon.style.display = "none";
+        if (stopIcon) stopIcon.style.display = "block";
+      } else {
+        chatSubmitBtn.classList.remove("generating");
+        if (sendIcon) sendIcon.style.display = "block";
+        if (stopIcon) stopIcon.style.display = "none";
+      }
+    }
+
+    async function animateWhiteboard(notebookKey: NotebookKey, streamId: number) {
+      if (!wbDrawings) return;
+      wbDrawings.innerHTML = "";
+
+      if (notebookKey === "self-reliance") {
+        const hi = document.createElement("div");
+        hi.className = "wb-handwriting-hi";
+        wbDrawings.appendChild(hi);
+        await typeWbHtml(hi, "Trust Thyself", streamId, 30);
+        if (streamId !== currentStreamId) return;
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const quote = document.createElement("div");
+        quote.className = "wb-welcome-text";
+        wbDrawings.appendChild(quote);
+        await typeWbHtml(quote, '"every heart vibrates to that iron string."', streamId, 18);
+        if (streamId !== currentStreamId) return;
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const arrow = document.createElement("div");
+        arrow.className = "wb-doodle-arrow";
+        arrow.innerHTML = `
+          <svg width="40" height="20" viewBox="0 0 40 20" fill="none" stroke="#3b82f6" stroke-width="2">
+            <path d="M20,2 L20,18 M15,13 L20,18 L25,13" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        `;
+        wbDrawings.appendChild(arrow);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        arrow.classList.add("visible");
+        await new Promise(resolve => setTimeout(resolve, 200));
+        if (streamId !== currentStreamId) return;
+
+        const grid = document.createElement("div");
+        grid.className = "wb-split-grid";
+        wbDrawings.appendChild(grid);
+
+        const integrityCard = document.createElement("div");
+        integrityCard.className = "wb-card integrity";
+        integrityCard.innerHTML = `<div class="wb-card-title">✓ Integrity</div><div class="wb-card-body"></div>`;
+        grid.appendChild(integrityCard);
+
+        const conformityCard = document.createElement("div");
+        conformityCard.className = "wb-card conformity";
+        conformityCard.innerHTML = `<div class="wb-card-title">✗ Conformity</div><div class="wb-card-body"></div>`;
+        grid.appendChild(conformityCard);
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+        integrityCard.classList.add("visible");
+        conformityCard.classList.add("visible");
+        await new Promise(resolve => setTimeout(resolve, 400));
+        if (streamId !== currentStreamId) return;
+
+        const integrityBody = integrityCard.querySelector(".wb-card-body") as HTMLElement;
+        await typeWbHtml(integrityBody, "- Inward Conviction<br>- Self-Trust<br>- Originality", streamId, 18);
+        if (streamId !== currentStreamId) return;
+
+        const conformityBody = conformityCard.querySelector(".wb-card-body") as HTMLElement;
+        await typeWbHtml(conformityBody, "- Crowd Clamor<br>- Consistency Trap<br>- Copying Others", streamId, 18);
+        if (streamId !== currentStreamId) return;
+
+        const conclusionCard = document.createElement("div");
+        conclusionCard.className = "wb-sketch-node bottom-conclusion";
+        conclusionCard.style.opacity = "0";
+        conclusionCard.style.transform = "scale(0.8) rotate(1deg)";
+        conclusionCard.style.transition = "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)";
+        conclusionCard.style.marginTop = "15px";
+        conclusionCard.style.width = "100%";
+        conclusionCard.style.maxWidth = "280px";
+        wbDrawings.appendChild(conclusionCard);
+
+        await new Promise(resolve => setTimeout(resolve, 80));
+        conclusionCard.style.opacity = "1";
+        conclusionCard.style.transform = "scale(1) rotate(1deg)";
+        await new Promise(resolve => setTimeout(resolve, 350));
+        if (streamId !== currentStreamId) return;
+
+        await typeWbHtml(conclusionCard, "Self-Reliance = Outward Non-conformity", streamId, 25);
+      }
+      else if (notebookKey === "deep-learning") {
+        const hi = document.createElement("div");
+        hi.className = "wb-handwriting-hi";
+        wbDrawings.appendChild(hi);
+        await typeWbHtml(hi, "Calculus Chain Rule", streamId, 30);
+        if (streamId !== currentStreamId) return;
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const graph = document.createElement("div");
+        graph.className = "wb-neural-graph";
+        graph.innerHTML = `
+          <div class="neuron-col">
+            <div class="neuron" style="opacity: 0; transform: scale(0.5); transition: all 0.3s ease;">x</div>
+          </div>
+          <div class="neuron-col">
+            <div class="neuron" style="opacity: 0; transform: scale(0.5); transition: all 0.3s ease;">h</div>
+          </div>
+          <div class="neuron-col">
+            <div class="neuron" style="opacity: 0; transform: scale(0.5); transition: all 0.3s ease;">y</div>
+          </div>
+        `;
+        wbDrawings.appendChild(graph);
+        const neurons = graph.querySelectorAll(".neuron");
+        
+        await new Promise(resolve => setTimeout(resolve, 80));
+        (neurons[0] as HTMLElement).style.opacity = "1";
+        (neurons[0] as HTMLElement).style.transform = "scale(1)";
+        await new Promise(resolve => setTimeout(resolve, 150));
+        (neurons[1] as HTMLElement).style.opacity = "1";
+        (neurons[1] as HTMLElement).style.transform = "scale(1)";
+        await new Promise(resolve => setTimeout(resolve, 150));
+        (neurons[2] as HTMLElement).style.opacity = "1";
+        (neurons[2] as HTMLElement).style.transform = "scale(1)";
+        await new Promise(resolve => setTimeout(resolve, 300));
+        if (streamId !== currentStreamId) return;
+
+        const block = document.createElement("div");
+        block.className = "wb-math-deriv-block";
+        wbDrawings.appendChild(block);
+
+        const eqCard1 = document.createElement("div");
+        eqCard1.className = "wb-math-card";
+        eqCard1.innerHTML = `
+          <div class="math-expr">
+            <span class="numerator">∂y</span>
+            <span class="fraction-line"></span>
+            <span class="denominator">∂x</span>
+            <span class="equals">=</span>
+            <span class="numerator">∂y</span>
+            <span class="fraction-line"></span>
+            <span class="denominator">∂h</span>
+            <span class="multiply">·</span>
+            <span class="numerator">∂h</span>
+            <span class="fraction-line"></span>
+            <span class="denominator">∂x</span>
+          </div>
+        `;
+        block.appendChild(eqCard1);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        eqCard1.classList.add("visible");
+        await new Promise(resolve => setTimeout(resolve, 400));
+        if (streamId !== currentStreamId) return;
+
+        const arrow = document.createElement("div");
+        arrow.className = "wb-doodle-arrow horizontal";
+        arrow.innerHTML = `
+          <svg width="20" height="40" viewBox="0 0 20 40" fill="none" stroke="#e5e7eb" stroke-width="2">
+            <path d="M2,20 L18,20 M13,15 L18,20 L13,25" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        `;
+        block.appendChild(arrow);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        arrow.classList.add("visible");
+        await new Promise(resolve => setTimeout(resolve, 300));
+        if (streamId !== currentStreamId) return;
+
+        const eqCard2 = document.createElement("div");
+        eqCard2.className = "wb-math-card forward";
+        eqCard2.innerHTML = `<div class="math-label">Backpropagation Step</div>`;
+        block.appendChild(eqCard2);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        eqCard2.classList.add("visible");
+        await new Promise(resolve => setTimeout(resolve, 350));
+        if (streamId !== currentStreamId) return;
+
+        await typeWbHtml(eqCard2, `<div class="math-label" style="font-size:11px; margin-bottom:4px; font-weight:600;">Backpropagation Step</div><div class="math-expr small">δⱼ = f'(zⱼ) ∑ wₖⱼ δₖ</div>`, streamId, 18);
+      }
+      else if (notebookKey === "world-history") {
+        const hi = document.createElement("div");
+        hi.className = "wb-handwriting-hi";
+        wbDrawings.appendChild(hi);
+        await typeWbHtml(hi, "Causes of World War I", streamId, 30);
+        if (streamId !== currentStreamId) return;
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const flow = document.createElement("div");
+        flow.className = "wb-history-timeline";
+        wbDrawings.appendChild(flow);
+
+        const events = [
+          "<strong>June 28</strong>: Archduke assassinated",
+          "<strong>July 23</strong>: Austria ultimatum to Serbia",
+          "<strong>July 28</strong>: Austria-Hungary declares war",
+          "<strong>July 30</strong>: Russia mobilizes forces",
+          "<strong>Aug 1 & 3</strong>: Germany declares war on Rus/Fra",
+          "<strong>Aug 4</strong>: UK enters after Belgium breach"
+        ];
+
+        for (let i = 0; i < events.length; i++) {
+          const card = document.createElement("div");
+          card.className = "wb-history-card";
+          card.innerHTML = events[i];
+          flow.appendChild(card);
+          
+          await new Promise(resolve => setTimeout(resolve, 50));
+          card.classList.add("visible");
+          await new Promise(resolve => setTimeout(resolve, 200));
+          if (streamId !== currentStreamId) return;
+
+          if (i < events.length - 1) {
+            const arrow = document.createElement("div");
+            arrow.className = "wb-timeline-arrow";
+            arrow.innerHTML = `↓`;
+            flow.appendChild(arrow);
+            await new Promise(resolve => setTimeout(resolve, 50));
+            arrow.classList.add("visible");
+            await new Promise(resolve => setTimeout(resolve, 150));
+          }
+        }
+      }
+    }
+
+    function loadNotebook(key: NotebookKey) {
+      activeNotebook = key;
+      activeSidebarPromise = Promise.resolve();
+      const data = learnerNotebooks[key];
+      if (!data) return;
+
+      if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+      if (windowActiveSession) windowActiveSession.textContent = data.session;
+      if (readerTabTitle) readerTabTitle.textContent = data.readerTitle;
+
+      if (readerQuoteText) readerQuoteText.textContent = "";
+      if (readerBodyText) readerBodyText.textContent = "Waiting for document load command...";
+      if (readerSigText) readerSigText.textContent = "";
+      if (readerLocationText) readerLocationText.textContent = "";
+      if (wbDrawings) wbDrawings.innerHTML = '<div class="wb-welcome-text" style="opacity: 0.3; font-family: var(--font-body); font-size: 13px; padding: 20px;">Whiteboard ready...</div>';
+      
+      if (libraryRailBtn) {
+        buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        libraryRailBtn.classList.add('active');
+        buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+      }
+
+      if (workspaceBody) {
+        workspaceBody.classList.add('right-pane-collapsed');
+      }
+
+      const activeSessionItem = buddyWindow.querySelector('.sessions-list .session-item.active');
+      if (activeSessionItem) {
+        activeSessionItem.classList.add('pulse-slow');
+      }
+
+      currentStreamId++;
+      const streamId = currentStreamId;
+
+      if (chatFeed) {
+        chatFeed.innerHTML = "";
+      }
+
+      runChatStream(key, streamId);
+    }
+
+    async function runChatStream(key: NotebookKey, streamId: number) {
+      const data = learnerNotebooks[key];
+      if (!data) return;
+
+      setGenerating(true);
+
+      try {
+        if (key === "self-reliance") {
+          // Run simulated cursor selection first
+          const cursor = buddyWindow.querySelector(".simulated-cursor") as HTMLElement | null;
+          const libraryView = buddyWindow.querySelector(".surface-library") as HTMLElement | null;
+          const readerView = buddyWindow.querySelector(".surface-reader") as HTMLElement | null;
+          const bookCover = buddyWindow.querySelector(".illustration-card") as HTMLElement | null;
+
+          if (cursor && libraryView && readerView && bookCover) {
+            // Reset states
+            libraryView.style.display = "block";
+            readerView.style.display = "none";
+            if (workspaceBody) workspaceBody.classList.remove("right-pane-collapsed");
+            
+            cursor.style.opacity = "0";
+            cursor.style.top = "80%";
+            cursor.style.left = "80%";
+            cursor.classList.remove("clicking");
+
+            await new Promise(resolve => setTimeout(resolve, 600));
+            if (streamId !== currentStreamId) return;
+
+            // Glide cursor to center of the book cover in the library
+            cursor.style.opacity = "1";
+            const triggerRect = bookCover.getBoundingClientRect();
+            const containerRect = buddyWindow.getBoundingClientRect();
+            const targetY = (triggerRect.top - containerRect.top) + triggerRect.height * 0.48;
+            const targetX = (triggerRect.left - containerRect.left) + triggerRect.width * 0.52;
+            
+            cursor.style.top = `${targetY}px`;
+            cursor.style.left = `${targetX}px`;
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (streamId !== currentStreamId) return;
+
+            // Dwell and click
+            cursor.classList.add("clicking");
+            bookCover.classList.add("hovered");
+
+            await new Promise(resolve => setTimeout(resolve, 250));
+            if (streamId !== currentStreamId) return;
+
+            // Open book reader
+            libraryView.style.display = "none";
+            readerView.style.display = "flex";
+            cursor.style.opacity = "0";
+            bookCover.classList.remove("hovered");
+
+            // Reset page content
+            loadReaderPage("self-reliance", 0);
+
+            await new Promise(resolve => setTimeout(resolve, 400));
+            if (streamId !== currentStreamId) return;
+
+            // Glide cursor to the start of the first sentence in Reader
+            const bodyEl = buddyWindow.querySelector("#reader-body-text") as HTMLElement | null;
+            if (bodyEl) {
+              const rect = bodyEl.getBoundingClientRect();
+              cursor.style.top = `${rect.top - containerRect.top + 10}px`;
+              cursor.style.left = `${rect.left - containerRect.left + 5}px`;
+              cursor.style.opacity = "1";
+
+              await new Promise(resolve => setTimeout(resolve, 400));
+              if (streamId !== currentStreamId) return;
+
+              // Glide cursor to select text (simulate selection highlight swipe)
+              cursor.style.top = `${rect.top - containerRect.top + 28}px`;
+              cursor.style.left = `${rect.left - containerRect.left + rect.width * 0.78}px`;
+
+              bodyEl.innerHTML = `<span class="md-selection-highlight">Is non-conformity required for everyone? Probably not. But to be courageous—to be "a man" as Emerson is in a time of different language—you must first be willing to think for yourself.</span> And as Martin Luther King, Jr. (another inspiring non-conformist) said years later, "Nothing pains some people more than having to think." If you can think for yourself, and put those thoughts into meaningful action that improves the state of the world, you're well on the way to a courageous, remarkable life.`;
+
+              // Display composer selection context chip
+              const chip = buddyWindow.querySelector("#chat-selection-chip") as HTMLElement | null;
+              const chipText = buddyWindow.querySelector(".selection-chip-text") as HTMLElement | null;
+              if (chip && chipText) {
+                chipText.textContent = 'Selected: "Is non-conformity required for everyone?..."';
+                chip.style.display = "flex";
+              }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (streamId !== currentStreamId) return;
+            cursor.style.opacity = "0";
+          }
+        }
+
+        for (let i = 0; i < data.messages.length; i++) {
+          if (streamId !== currentStreamId) return;
+
+          const msg = data.messages[i];
+          if (msg.sender === "user") {
+            await new Promise(resolve => setTimeout(resolve, i === 0 ? 300 : 400));
+            if (streamId !== currentStreamId) return;
+
+            if (chatInput) {
+              chatInput.value = "";
+              for (let charIndex = 0; charIndex < msg.text.length; charIndex++) {
+                if (streamId !== currentStreamId) return;
+                chatInput.value += msg.text[charIndex];
+                chatInput.style.height = "auto";
+                chatInput.style.height = (chatInput.scrollHeight) + "px";
+                const delay = msg.text.length > 30 ? 12 : 15;
+                await new Promise(resolve => setTimeout(resolve, delay));
+              }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 150));
+            if (streamId !== currentStreamId) return;
+
+            if (chatSubmitBtn) {
+              chatSubmitBtn.classList.add("simulated-click");
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+            if (streamId !== currentStreamId) return;
+            if (chatSubmitBtn) {
+              chatSubmitBtn.classList.remove("simulated-click");
+            }
+
+            if (chatInput) {
+              chatInput.value = "";
+              chatInput.style.height = "auto";
+            }
+            appendMessage("user", msg.text);
+          } else {
+            await new Promise(resolve => setTimeout(resolve, 250));
+            if (streamId !== currentStreamId) return;
+
+            const typingIndicator = document.createElement("div");
+            typingIndicator.className = "mock-chat-bubble buddy typing";
+            typingIndicator.innerHTML = `
+              <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            `;
+            if (chatFeed) {
+              chatFeed.appendChild(typingIndicator);
+              chatFeed.scrollTop = chatFeed.scrollHeight;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 400));
+            if (streamId !== currentStreamId) return;
+            typingIndicator.remove();
+
+            const bubble = document.createElement("div");
+            bubble.className = `mock-chat-bubble buddy`;
+            const inner = document.createElement("div");
+            inner.className = "bubble-content";
+            bubble.appendChild(inner);
+            if (chatFeed) {
+              chatFeed.appendChild(bubble);
+              chatFeed.scrollTop = chatFeed.scrollHeight;
+            }
+
+            await typeMessage(inner, msg.text, streamId, key, i);
+            if (streamId !== currentStreamId) return;
+
+            await activeSidebarPromise;
+            if (streamId !== currentStreamId) return;
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+
+        if (streamId !== currentStreamId) return;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (streamId !== currentStreamId) return;
+
+        // Learners rest on whiteboard
+        if (whiteboardRailBtn) {
+          buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+          whiteboardRailBtn.classList.add('active');
+          buddyWindow.classList.add('show-whiteboard');
+          buddyWindow.classList.remove('show-widget', 'show-notes');
+          if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+          if (windowActiveSession) windowActiveSession.textContent = "Current board";
+          if (workspaceBody) {
+            workspaceBody.classList.remove('right-pane-collapsed');
+          }
+        }
+      } finally {
+        if (streamId === currentStreamId) {
+          setGenerating(false);
+        }
+      }
+    }
+
+    async function typeMessage(container: HTMLElement, htmlText: string, streamId: number, notebookKey: NotebookKey, messageIndex: number) {
+      const parts = htmlText.split("<br><br>");
+      for (let partIdx = 0; partIdx < parts.length; partIdx++) {
+        if (streamId !== currentStreamId) return;
+        const part = parts[partIdx];
+        
+        const isCard = part.includes("widget-chat-card") || part.includes("illustration-card") || part.includes("wb-chat-card");
+        
+        if (isCard) {
+          // Render card instantly
+          const cardDiv = document.createElement("div");
+          cardDiv.style.display = "contents";
+          cardDiv.innerHTML = part;
+          
+          // Add skeleton state on creation
+          const cardEl = cardDiv.firstElementChild;
+          if (cardEl) {
+            cardEl.classList.add("state-skeleton");
+          }
+          
+          container.appendChild(cardDiv);
+          if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+
+          // Trigger opening of sidebar!
+          if (messageIndex !== -1) {
+            triggerSidebarOpen(notebookKey, messageIndex);
+            activeSidebarPromise = resolveCardSkeleton(notebookKey, messageIndex, streamId);
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } else {
+          // Typewriter text
+          const textSpan = document.createElement("span");
+          container.appendChild(textSpan);
+          await typeMessageInner(textSpan, part, streamId);
+        }
+
+        if (partIdx < parts.length - 1) {
+          const nextPart = parts[partIdx + 1];
+          const nextIsCard = nextPart.includes("widget-chat-card") || nextPart.includes("illustration-card") || nextPart.includes("wb-chat-card");
+          
+          if (!isCard && !nextIsCard) {
+            // Double break between text paragraphs
+            container.appendChild(document.createElement("br"));
+            container.appendChild(document.createElement("br"));
+          } else {
+            // Tight spacing between card and text
+            const spacer = document.createElement("div");
+            spacer.style.height = "8px";
+            container.appendChild(spacer);
+          }
+          if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+        }
+      }
+    }
+
+    async function typeMessageInner(container: HTMLElement, htmlText: string, streamId: number) {
+      const chunks: string[] = [];
+      let i = 0;
+      while (i < htmlText.length) {
+        if (htmlText[i] === '<') {
+          const closingIndex = htmlText.indexOf('>', i);
+          if (closingIndex !== -1) {
+            chunks.push(htmlText.substring(i, closingIndex + 1));
+            i = closingIndex + 1;
+            continue;
+          }
+        }
+        chunks.push(htmlText[i]);
+        i++;
+      }
+
+      let currentText = "";
+      for (const chunk of chunks) {
+        if (streamId !== currentStreamId) return;
+        currentText += chunk;
+        container.innerHTML = currentText;
+        if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+        
+        const delay = chunk.startsWith('<') ? 0 : (Math.random() * 6 + 4);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    function triggerSidebarOpen(notebookKey: NotebookKey, messageIndex: number) {
+      if (notebookKey === "self-reliance") {
+        if (messageIndex === 1) {
+          // Whiteboard
+          if (wbDrawings) wbDrawings.innerHTML = ""; // Clear drawings instantly so it opens blank
+          if (whiteboardRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            whiteboardRailBtn.classList.add('active');
+            buddyWindow.classList.add('show-whiteboard');
+            buddyWindow.classList.remove('show-widget', 'show-notes');
+            if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+            if (windowActiveSession) windowActiveSession.textContent = "Current board";
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        } else if (messageIndex === 3) {
+          // Reader
+          loadReaderPage("self-reliance", 0);
+          if (libraryRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            libraryRailBtn.classList.add('active');
+            buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+            const data = learnerNotebooks["self-reliance"];
+            if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+            if (windowActiveSession) windowActiveSession.textContent = data.session;
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        } else if (messageIndex === 5) {
+          // Widget
+          if (widgetRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            widgetRailBtn.classList.add('active');
+            buddyWindow.classList.remove('show-whiteboard', 'show-notes');
+            buddyWindow.classList.add('show-widget');
+            if (windowActiveNotebook) windowActiveNotebook.textContent = "Self-Reliance basics";
+            if (windowActiveSession) windowActiveSession.textContent = "HTML Widget";
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        }
+      } else if (notebookKey === "deep-learning") {
+        if (messageIndex === 1) {
+          // Reader
+          loadReaderPage("deep-learning", 0);
+          if (libraryRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            libraryRailBtn.classList.add('active');
+            buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+            const data = learnerNotebooks["deep-learning"];
+            if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+            if (windowActiveSession) windowActiveSession.textContent = data.session;
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        } else if (messageIndex === 5) {
+          // Whiteboard
+          if (wbDrawings) wbDrawings.innerHTML = ""; // Clear drawings instantly so it opens blank
+          if (whiteboardRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            whiteboardRailBtn.classList.add('active');
+            buddyWindow.classList.add('show-whiteboard');
+            buddyWindow.classList.remove('show-widget', 'show-notes');
+            if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+            if (windowActiveSession) windowActiveSession.textContent = "Current board";
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        }
+      } else if (notebookKey === "world-history") {
+        if (messageIndex === 3) {
+          // Reader
+          loadReaderPage("world-history", 0);
+          if (libraryRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            libraryRailBtn.classList.add('active');
+            buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+            const data = learnerNotebooks["world-history"];
+            if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+            if (windowActiveSession) windowActiveSession.textContent = data.session;
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        } else if (messageIndex === 5) {
+          // Whiteboard
+          if (wbDrawings) wbDrawings.innerHTML = ""; // Clear drawings instantly so it opens blank
+          if (whiteboardRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            whiteboardRailBtn.classList.add('active');
+            buddyWindow.classList.add('show-whiteboard');
+            buddyWindow.classList.remove('show-widget', 'show-notes');
+            if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+            if (windowActiveSession) windowActiveSession.textContent = "Current board";
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        }
+      }
+    }
+
+    async function typeWbHtml(container: HTMLElement, htmlText: string, streamId: number, speed = 20) {
+      const parts = htmlText.split(/(<[^>]+>)/g);
+      let currentText = "";
+
+      for (const chunk of parts) {
+        if (streamId !== currentStreamId) return;
+        currentText += chunk;
+        container.innerHTML = currentText;
+        const delay = chunk.startsWith('<') ? 0 : (Math.random() * (speed / 2) + (speed / 2));
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    async function resolveCardSkeleton(notebookKey: NotebookKey, messageIndex: number, streamId: number) {
+      if (notebookKey === "self-reliance") {
+        if (messageIndex === 1) {
+          const sk = buddyWindow.querySelector(".wb-chat-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+          await new Promise(resolve => setTimeout(resolve, 400));
+          if (streamId !== currentStreamId) return;
+          await animateWhiteboard("self-reliance", streamId);
+        } else if (messageIndex === 3) {
+          const sk = buddyWindow.querySelector(".illustration-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+        } else if (messageIndex === 5) {
+          const sk = buddyWindow.querySelector(".widget-chat-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+        }
+      } else if (notebookKey === "deep-learning") {
+        if (messageIndex === 1) {
+          const sk = buddyWindow.querySelector(".illustration-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+        } else if (messageIndex === 5) {
+          const sk = buddyWindow.querySelector(".wb-chat-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+          await animateWhiteboard("deep-learning", streamId);
+        }
+      } else if (notebookKey === "world-history") {
+        if (messageIndex === 3) {
+          const sk = buddyWindow.querySelector(".illustration-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+        } else if (messageIndex === 5) {
+          const sk = buddyWindow.querySelector(".wb-chat-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+          await animateWhiteboard("world-history", streamId);
+        }
+      }
+    }
+
+    function loadReaderPage(notebookKey: NotebookKey, pageIndex: number) {
+      const data = learnerNotebooks[notebookKey];
+      if (!data || !data.pages || !data.pages[pageIndex]) return;
+
+      const page = data.pages[pageIndex];
+      if (readerQuoteText) readerQuoteText.textContent = page.quote;
+      if (readerBodyText) readerBodyText.innerHTML = page.body;
+      if (readerSigText) readerSigText.textContent = page.signature;
+      if (readerLocationText) readerLocationText.textContent = page.location;
+    }
+
+    function appendMessage(sender: string, text: string) {
+      if (!chatFeed) return;
+      const bubble = document.createElement("div");
+      bubble.className = `mock-chat-bubble ${sender}`;
+
+      const inner = document.createElement("div");
+      inner.className = "bubble-content";
+      inner.innerHTML = text;
+
+      bubble.appendChild(inner);
+      chatFeed.appendChild(bubble);
+      chatFeed.scrollTop = chatFeed.scrollHeight;
+    }
+
+    buddyWindow.querySelectorAll(".notebook-header").forEach(header => {
+      header.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const parent = header.closest(".notebook-item");
+        if (parent) parent.classList.toggle("expanded");
+      });
+    });
+
+    buddyWindow.querySelectorAll(".session-item").forEach(item => {
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        buddyWindow.querySelectorAll(".session-item").forEach(el => el.classList.remove("active"));
+        item.classList.add("active");
+
+        const parent = item.closest(".notebook-item");
+        if (parent) {
+          const key = parent.getAttribute("data-notebook") as NotebookKey;
+          loadNotebook(key);
+        }
+      });
+    });
+
+    if (fontToggleBtn && readerContentPane) {
+      fontToggleBtn.addEventListener("click", () => {
+        readerContentPane.classList.toggle("serif-font");
+        fontToggleBtn.classList.toggle("active");
+      });
+    }
+
+    if (readerPrevBtn) {
+      readerPrevBtn.addEventListener("click", () => {
+        const totalPages = learnerNotebooks[activeNotebook].pages.length;
+        let idx = currentPageIndices[activeNotebook];
+        idx = (idx - 1 + totalPages) % totalPages;
+        currentPageIndices[activeNotebook] = idx;
+        loadReaderPage(activeNotebook, idx);
+      });
+    }
+
+    if (readerNextBtn) {
+      readerNextBtn.addEventListener("click", () => {
+        const totalPages = learnerNotebooks[activeNotebook].pages.length;
+        let idx = currentPageIndices[activeNotebook];
+        idx = (idx + 1) % totalPages;
+        currentPageIndices[activeNotebook] = idx;
+        loadReaderPage(activeNotebook, idx);
+      });
+    }
+
+    if (chatForm && chatInput) {
+      chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          chatForm.dispatchEvent(new Event("submit"));
+        }
+      });
+
+      chatForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        if (isGenerating) {
+          currentStreamId++;
+          setGenerating(false);
+          const typingIndicator = buddyWindow.querySelector(".mock-chat-bubble.buddy.typing");
+          if (typingIndicator) typingIndicator.remove();
+          return;
+        }
+
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        currentStreamId++;
+        const streamId = currentStreamId;
+
+        appendMessage("user", text);
+        chatInput.value = "";
+        chatInput.style.height = "auto";
+
+        setGenerating(true);
+
+        setTimeout(() => {
+          if (!chatFeed || streamId !== currentStreamId) {
+            setGenerating(false);
+            return;
+          }
+          const typingIndicator = document.createElement("div");
+          typingIndicator.className = "mock-chat-bubble buddy typing";
+          typingIndicator.innerHTML = `
+            <div class="typing-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          `;
+          chatFeed.appendChild(typingIndicator);
+          chatFeed.scrollTop = chatFeed.scrollHeight;
+
+          setTimeout(async () => {
+            if (streamId !== currentStreamId) {
+              setGenerating(false);
+              return;
+            }
+            typingIndicator.remove();
+            
+            let reply = "I've searched your active documents but found no matching citations for that query. Would you like me to broaden the search to your whole home directory?";
+            if (text.toLowerCase().includes("quote") || text.toLowerCase().includes("emerson") || text.toLowerCase().includes("marcus")) {
+              reply = "Both authors highlight that individual action must align with internal truth. Let's create an active recall flashcard for this comparison.";
+            } else if (text.toLowerCase().includes("widget") || text.toLowerCase().includes("timeline") || text.toLowerCase().includes("map")) {
+              reply = "Sure. I've updated the interactive sidebar view in your reader interface.";
+            } else {
+              reply = `Interesting. Let's analyze this aspect of <strong>${activeNotebook}</strong> together. I've indexed the corresponding sections.`;
+            }
+
+            const bubble = document.createElement("div");
+            bubble.className = `mock-chat-bubble buddy`;
+            const inner = document.createElement("div");
+            inner.className = "bubble-content";
+            bubble.appendChild(inner);
+            chatFeed.appendChild(bubble);
+            chatFeed.scrollTop = chatFeed.scrollHeight;
+
+            await typeMessage(inner, reply, streamId, activeNotebook, -1);
+            if (streamId === currentStreamId) {
+              setGenerating(false);
+            }
+          }, 1200);
+
+        }, 300);
+      });
+
+      chatInput.addEventListener("input", () => {
+        chatInput.style.height = "auto";
+        chatInput.style.height = (chatInput.scrollHeight) + "px";
+      });
+    }
+
+    if (whiteboardRailBtn) {
+      whiteboardRailBtn.addEventListener('click', () => {
+        buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        whiteboardRailBtn.classList.add('active');
+        buddyWindow.classList.add('show-whiteboard');
+        buddyWindow.classList.remove('show-widget', 'show-notes');
+        
+        if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+        if (windowActiveSession) windowActiveSession.textContent = "Current board";
+
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
+        }
+      });
+    }
+    
+    if (libraryRailBtn) {
+      libraryRailBtn.addEventListener('click', () => {
+        buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        libraryRailBtn.classList.add('active');
+        buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+        
+        const data = learnerNotebooks[activeNotebook];
+        if (data) {
+          if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+          if (windowActiveSession) windowActiveSession.textContent = data.session;
+        }
+
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
+        }
+      });
+    }
+
+    if (widgetRailBtn) {
+      widgetRailBtn.addEventListener('click', () => {
+        buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        widgetRailBtn.classList.add('active');
+        buddyWindow.classList.remove('show-whiteboard', 'show-notes');
+        buddyWindow.classList.add('show-widget');
+        
+        if (windowActiveNotebook) windowActiveNotebook.textContent = "Self-Reliance basics";
+        if (windowActiveSession) windowActiveSession.textContent = "HTML Widget";
+
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
+        }
+      });
+    }
+
+    if (flashcardsRailBtn) {
+      flashcardsRailBtn.addEventListener('click', () => {
+        buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        flashcardsRailBtn.classList.add('active');
+        buddyWindow.classList.remove('show-whiteboard', 'show-widget');
+        buddyWindow.classList.add('show-notes');
+        
+        if (windowActiveNotebook) windowActiveNotebook.textContent = "Notebook";
+        if (windowActiveSession) windowActiveSession.textContent = "Personal Notes";
+
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
+        }
+      });
+    }
+
+    const wbLibraryBtn = buddyWindow.querySelector('.wb-library-btn');
+    if (wbLibraryBtn && libraryRailBtn) {
+      wbLibraryBtn.addEventListener('click', () => {
+        libraryRailBtn.dispatchEvent(new Event('click'));
+      });
+    }
+
+    // Minimal HTML Widget Logic
+    const wSlider = buddyWindow.querySelector('#widget-pressure') as HTMLInputElement | null;
+    const wValInward = buddyWindow.querySelector('#val-inward') as HTMLElement | null;
+    const wValCrowd = buddyWindow.querySelector('#val-crowd') as HTMLElement | null;
+    const wQuote = buddyWindow.querySelector('#widget-quote') as HTMLElement | null;
+    const wExplain = buddyWindow.querySelector('#widget-explain') as HTMLElement | null;
+    const wVisualZone = buddyWindow.querySelector('#visual-zone') as HTMLElement | null;
+
+    function updateMinimalWidget() {
+      if (!wSlider || !wValInward || !wValCrowd || !wQuote || !wExplain) return;
+      
+      const crowdVal = Number(wSlider.value);
+      
+      if (wVisualZone) {
+        wVisualZone.style.setProperty('--pressure', String(crowdVal / 100));
+      }
+
+      const inwardVal = 100 - crowdVal;
+
+      wValInward.textContent = inwardVal + '%';
+      wValCrowd.textContent = crowdVal + '%';
+
+      let quoteText = '';
+      let explainText = '';
+
+      if (crowdVal <= 35) {
+        quoteText = 'Nothing is at last sacred but the integrity of your own mind.';
+        explainText = 'Trust your own honest conscience and independent judgment above all else.';
+      } else if (crowdVal <= 70) {
+        quoteText = 'To be great is to be misunderstood.';
+        explainText = 'Maintaining your integrity while in society requires constant, balanced resolve.';
+      } else {
+        quoteText = 'Imitation is suicide.';
+        explainText = 'Copying the crowd keeps you from discovering what only you can accomplish.';
+      }
+
+      wQuote.textContent = quoteText;
+      wExplain.textContent = explainText;
+
+      buddyWindow.querySelectorAll('.mode-btn').forEach(btn => {
+        const val = Number(btn.getAttribute('data-val'));
+        if (val === crowdVal) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    }
+
+    if (wSlider) {
+      wSlider.addEventListener('input', updateMinimalWidget);
+
+      buddyWindow.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.getAttribute('data-val');
+          if (val !== null) {
+            wSlider.value = val;
+            updateMinimalWidget();
+          }
+        });
+      });
+
+      updateMinimalWidget();
+    }
+
+    buddyWindow.querySelectorAll(".wb-tool-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        buddyWindow.querySelectorAll(".wb-tool-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+    });
+
+    const zoomOutBtn = buddyWindow.querySelector("#wb-zoom-out") as HTMLElement | null;
+    const zoomInBtn = buddyWindow.querySelector("#wb-zoom-in") as HTMLElement | null;
+    const zoomValue = buddyWindow.querySelector("#wb-zoom-value") as HTMLElement | null;
+    let currentZoom = 130;
+
+    if (zoomOutBtn && zoomInBtn && zoomValue) {
+      zoomOutBtn.addEventListener("click", () => {
+        if (currentZoom > 50) {
+          currentZoom -= 10;
+          zoomValue.textContent = `${currentZoom}%`;
+        }
+      });
+      zoomInBtn.addEventListener("click", () => {
+        if (currentZoom < 200) {
+          currentZoom += 10;
+          zoomValue.textContent = `${currentZoom}%`;
+        }
+      });
+    }
+
+    const sidebarToggleBtn = buddyWindow.querySelector('.circle-btn[title="Toggle Sidebar"]') as HTMLElement | null;
+    const floatingToggleBtn = buddyWindow.querySelector("#floating-toggle-btn") as HTMLElement | null;
+
+    if (sidebarToggleBtn) {
+      sidebarToggleBtn.addEventListener('click', () => {
+        if (workspaceBody) workspaceBody.classList.add('sidebar-closed');
+      });
+    }
+
+    if (floatingToggleBtn) {
+      floatingToggleBtn.addEventListener('click', () => {
+        if (workspaceBody) workspaceBody.classList.remove('sidebar-closed');
+      });
+    }
+
+    if (chatFeed) {
+      chatFeed.addEventListener("click", (e) => {
+        const targetEl = e.target as HTMLElement | null;
+        if (!targetEl) return;
+        const target = targetEl.closest(".doc-tag, .wb-tag, .system-status, .widget-chat-card, .illustration-card, .wb-chat-card") as HTMLElement | null;
+        if (!target) return;
+
+        if (target.classList.contains("doc-tag") || target.classList.contains("illustration-card")) {
+          if (libraryRailBtn) libraryRailBtn.click();
+        } else if (target.classList.contains("wb-tag") || target.classList.contains("wb-chat-card")) {
+          if (whiteboardRailBtn) whiteboardRailBtn.click();
+        } else if (target.classList.contains("widget-chat-card")) {
+          if (widgetRailBtn) widgetRailBtn.click();
+        } else if (target.classList.contains("system-status")) {
+          const text = target.textContent || "";
+          if (text.toLowerCase().includes("widget")) {
+            if (widgetRailBtn) widgetRailBtn.click();
+          } else if (
+            text.toLowerCase().includes("derivatives") ||
+            text.toLowerCase().includes("equations") ||
+            text.toLowerCase().includes("timeline") ||
+            text.toLowerCase().includes("whiteboard")
+          ) {
+            if (whiteboardRailBtn) whiteboardRailBtn.click();
+          }
+        }
+      });
+    }
+
+    // Whiteboard panning logic
+    const wbCanvas = buddyWindow.querySelector(".whiteboard-canvas") as HTMLElement | null;
+    if (wbCanvas) {
+      let isPanning = false;
+      let startX = 0;
+      let startY = 0;
+      let panX = 0;
+      let panY = 0;
+
+      wbCanvas.addEventListener("mousedown", (e) => {
+        if ((e.target as HTMLElement).closest("button, input, select, textarea")) return;
+        isPanning = true;
+        startX = e.clientX - panX;
+        startY = e.clientY - panY;
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!isPanning) return;
+        panX = e.clientX - startX;
+        panY = e.clientY - startY;
+        wbCanvas.style.setProperty("--pan-x", `${panX}px`);
+        wbCanvas.style.setProperty("--pan-y", `${panY}px`);
+      });
+
+      window.addEventListener("mouseup", () => {
+        isPanning = false;
+      });
+    }
+
+    setTimeout(() => {
+      loadNotebook("self-reliance");
+    }, 800);
+  }
+</script>

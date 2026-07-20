@@ -12,15 +12,17 @@ import {
 
 type Props = {
   initialAudience?: Audience
+  /** Landing pages show learners/educators toggle. Other pages (e.g. 404) hide it. */
+  readonly showAudienceToggle?: boolean
 }
 
 const { header: headerContent } = content
-const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
+const { initialAudience = AUDIENCE_LEARNERS, showAudienceToggle = true } = Astro.props
 ---
 
-<header>
+<header class="site-header">
   <div class="container nav-wrapper">
-    <a href="#" class="logo-group">
+    <a href={LEARNER_PATH} class="logo-group">
       <Image
         src={buddyAppIcon}
         alt={`${headerContent.brandName} Logo`}
@@ -31,29 +33,42 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
       <span class="logo-text">{headerContent.brandName}</span>
     </a>
 
-    <!-- Restored Audience Selector Toggle -->
-    <div class="audience-toggle" role="tablist" aria-label="Select audience">
-      <button
-        class:list={["audience-toggle-btn", { active: initialAudience === AUDIENCE_LEARNERS }]}
-        type="button"
-        role="tab"
-        aria-selected={initialAudience === AUDIENCE_LEARNERS}
-        data-audience={AUDIENCE_LEARNERS}
-        data-audience-path={LEARNER_PATH}
-      >{headerContent.audienceLearnersLabel}</button>
-      <button
-        class:list={["audience-toggle-btn", { active: initialAudience === AUDIENCE_EDUCATORS }]}
-        type="button"
-        role="tab"
-        aria-selected={initialAudience === AUDIENCE_EDUCATORS}
-        data-audience={AUDIENCE_EDUCATORS}
-        data-audience-path={EDUCATOR_PATH}
-      >{headerContent.audienceEducatorsLabel}</button>
-    </div>
-    
+    {
+      showAudienceToggle ? (
+        <nav class="audience-toggle" aria-label="Select audience">
+          <a
+            href={LEARNER_PATH}
+            class:list={[
+              "audience-toggle-btn",
+              { active: initialAudience === AUDIENCE_LEARNERS },
+            ]}
+            aria-current={initialAudience === AUDIENCE_LEARNERS ? "page" : undefined}
+            data-audience={AUDIENCE_LEARNERS}
+          >
+            {headerContent.audienceLearnersLabel}
+          </a>
+          <a
+            href={EDUCATOR_PATH}
+            class:list={[
+              "audience-toggle-btn",
+              { active: initialAudience === AUDIENCE_EDUCATORS },
+            ]}
+            aria-current={initialAudience === AUDIENCE_EDUCATORS ? "page" : undefined}
+            data-audience={AUDIENCE_EDUCATORS}
+          >
+            {headerContent.audienceEducatorsLabel}
+          </a>
+        </nav>
+      ) : null
+    }
+
     <div class="nav-actions">
       <!-- Download button that dynamically opens the installation modal for the user's detected OS -->
-      <button class="nav-install-btn" id="header-download-btn" aria-label={`Download ${headerContent.brandName}`}>
+      <button
+        class="nav-install-btn"
+        id="header-download-btn"
+        aria-label={`Download ${headerContent.brandName}`}
+      >
         <span class="btn-os-icon" id="header-os-icon"></span>
         <span>{headerContent.downloadLabel}</span>
       </button>
@@ -63,7 +78,7 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 
 <style is:global>
   /* === Sticky header === */
-  header {
+  .site-header {
     position: -webkit-sticky; /* Support for iOS Safari */
     position: sticky;
     top: 0;
@@ -107,16 +122,17 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
     letter-spacing: var(--tracking-tight);
   }
 
-  /* === Audience toggle (segmented control) === */
+  /* === Audience toggle — hand-sketched tabs, same language as the
+       board doodles (dashed hand-drawn boxes, handwritten labels) === */
   .audience-toggle {
     display: flex;
     align-items: center;
-    gap: 0;
+    gap: 2px;
     background-color: oklch(0.1 0 0); /* Very dark base background */
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border: 1.5px solid rgba(255, 255, 255, 0.16);
+    border-radius: 14px 12px 15px 13px / 13px 15px 12px 14px; /* slightly uneven, hand-drawn */
     padding: 3px;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+    rotate: -0.6deg;
     transition: opacity 0.25s var(--ease-out), visibility 0.25s var(--ease-out), transform 0.25s var(--ease-out);
     opacity: 1;
     visibility: visible;
@@ -131,32 +147,51 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
   }
 
   .audience-toggle-btn {
+    display: inline-flex;
+    align-items: center;
     background: none;
-    border: none;
     outline: none !important; /* Prevents default browser blue outline focus ring on click */
-    border-radius: calc(var(--radius) - 2px);
-    padding: 6px 16px;
-    font-family: var(--font-body);
+    border: 1.5px solid transparent; /* reserves the active box, no layout shift */
+    border-radius: 10px 9px 11px 9px / 9px 11px 9px 10px; /* slightly uneven, hand-drawn */
+    padding: 4px 12px;
+    font-family: "Architects Daughter", cursive;
     font-size: var(--text-xs);
-    font-weight: 500;
-    color: var(--muted-foreground);
+    font-weight: 400;
+    color: var(--color-text-secondary);
     cursor: pointer;
-    transition: color 0.25s var(--ease-out), background-color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
-    letter-spacing: var(--tracking-wide);
+    transition: color 0.25s var(--ease-out), background-color 0.25s var(--ease-out), border-color 0.25s var(--ease-out), rotate 0.25s var(--ease-out);
+    letter-spacing: 0.01em;
     white-space: nowrap;
     position: relative;
+    text-decoration: none;
   }
 
   .audience-toggle-btn.active {
-    background-color: var(--muted); /* Lighter gray active pill */
-    color: var(--foreground);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    /* Same gradient as .hero-accent ("finding things out.") */
+    isolation: isolate;
+    border-color: rgba(255, 107, 0, 0.45);
+    background-image: linear-gradient(135deg, #ff6b00 30%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    rotate: -1deg;
+  }
+
+  /* Pill wash sits behind gradient text (clip would eat a flat background-color) */
+  .audience-toggle-btn.active::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background-color: rgba(255, 107, 0, 0.07);
   }
 
   @media (hover: hover) and (pointer: fine) {
     .audience-toggle-btn:hover:not(.active) {
-      color: var(--foreground);
-      opacity: 0.8;
+      color: var(--color-text-primary);
+      rotate: 0.6deg;
     }
   }
 
@@ -213,12 +248,12 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
     .nav-install-btn {
       display: none !important;
     }
-    
+
     /* Align the audience toggle to the right now that the button is hidden */
     .audience-toggle {
       margin-left: auto;
     }
-    
+
     /* Keep the logo text visible */
     .logo-text {
       display: block;
@@ -252,11 +287,13 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
   // Audience toggle — navigate so URL, metadata, headings, and content stay in sync.
   const audienceBtns = document.querySelectorAll(".audience-toggle-btn")
   audienceBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (event) => {
       const target = btn.getAttribute("data-audience")
-      const targetPath = btn.getAttribute("data-audience-path")
-      if (!target || !targetPath) return
-      if (btn.classList.contains("active")) return
+      if (!target) return
+      if (btn.classList.contains("active")) {
+        event.preventDefault()
+        return
+      }
       const previousAudience = document
         .querySelector(".audience-toggle-btn.active")
         ?.getAttribute("data-audience")
@@ -284,8 +321,6 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
           },
         }),
       )
-
-      window.location.assign(targetPath)
     })
   })
 

@@ -1,14 +1,17 @@
 ---
 import type { Audience } from "../content/site"
 import { content } from "../content/site"
+import { AUDIENCE_EDUCATORS } from "../lib/constants"
+import { buildFaqPageJsonLd } from "../lib/seo"
 import Landing from "../layouts/Landing.astro"
-import BringYourOwn from "./BringYourOwn.astro"
-import CapabilitiesSection from "./CapabilitiesSection.astro"
+import AnswersSection from "./AnswersSection.astro"
+import FluencySection from "./FluencySection.astro"
 import Footer from "./Footer.astro"
 import Header from "./Header.astro"
 import Hero from "./Hero.astro"
 import InstallSection from "./InstallSection.astro"
-import PhilosophyNew from "./PhilosophyNew.astro"
+import LearnerLivesSection from "./LearnerLivesSection.astro"
+import WhySection from "./WhySection.astro"
 import FeatureSteps from "./features/FeatureSteps.astro"
 
 type Props = {
@@ -17,6 +20,16 @@ type Props = {
 
 const { audience } = Astro.props
 const seo = content[audience].seo
+const isEducator = audience === AUDIENCE_EDUCATORS
+const answers = isEducator ? content.educatorAnswers : content.learnerAnswers
+const pageUrl = new URL(Astro.url.pathname, content.meta.siteUrl).href
+const answersFaqJsonLd = buildFaqPageJsonLd(
+  pageUrl,
+  answers.items.map((item) => ({
+    question: item.q,
+    answer: item.a,
+  })),
+)
 ---
 
 <Landing
@@ -24,18 +37,22 @@ const seo = content[audience].seo
   description={seo.description}
   ogImagePath={seo.ogImagePath}
   ogImageAlt={seo.ogImageAlt}
+  additionalJsonLd={[answersFaqJsonLd]}
 >
   <Header initialAudience={audience} />
   <main>
     <Hero initialAudience={audience} />
+    {isEducator ? <WhySection /> : <LearnerLivesSection />}
     <hr />
-    <PhilosophyNew initialAudience={audience} />
-    <hr style="max-width: 100%" />
     <FeatureSteps initialAudience={audience} />
-    <hr />
-    <CapabilitiesSection />
-    <hr />
-    <BringYourOwn />
+    <hr style="max-width: 100%" />
+    {isEducator && (
+      <>
+        <FluencySection initialAudience={audience} />
+        <hr />
+      </>
+    )}
+    <AnswersSection initialAudience={audience} />
     <hr />
     <InstallSection initialAudience={audience} />
   </main>

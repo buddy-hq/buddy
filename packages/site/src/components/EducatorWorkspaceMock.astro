@@ -1,0 +1,2009 @@
+---
+// Component for the Educator (Teacher) workspace mockup
+import { getImage } from "astro:assets";
+import MockWhiteboard from "./MockWhiteboard.astro";
+import MockSidebar from "./MockSidebar.astro";
+import MockChat from "./MockChat.astro";
+import MockReader from "./MockReader.astro";
+import MockWidget from "./MockWidget.astro";
+import MockNotebook from "./MockNotebook.astro";
+import { AUDIENCE_EDUCATORS } from "../lib/constants";
+import "./WorkspaceMock.css";
+---
+
+<div class="buddy-window" data-audience={AUDIENCE_EDUCATORS}>
+  <!-- Workspace layout with macOS unified titlebar split -->
+  <div class="workspace-body sidebar-closed right-pane-collapsed">
+    
+    <!-- Surface 1: Sidebar -->
+    <MockSidebar audience={AUDIENCE_EDUCATORS} />
+
+    <!-- Surface 2: Chat Pane -->
+    <MockChat audience={AUDIENCE_EDUCATORS} />
+
+    <!-- Surface 3: Document Reader (Warm Cream paper) -->
+    <MockReader audience={AUDIENCE_EDUCATORS} />
+
+    <!-- Surface 5: Whiteboard Pane -->
+    <MockWhiteboard audience={AUDIENCE_EDUCATORS} />
+
+    <!-- Surface 6: HTML Widget Pane -->
+    <MockWidget audience={AUDIENCE_EDUCATORS} />
+
+    <!-- Surface 7: Notebook Pane (MDX Worksheet Editor) -->
+    <MockNotebook audience={AUDIENCE_EDUCATORS} />
+
+    <!-- Surface 8: Skills Pane (Dynamic Installed Skills) -->
+    <div class="buddy-surface surface-skills">
+      <div class="bench-header">
+        <div class="bench-title-area">
+          <span class="bench-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </span>
+          <span class="bench-title">Skills Catalog</span>
+        </div>
+      </div>
+      
+      <div class="skills-pane-body">
+        <div class="skills-list-view">
+          <div class="skills-list-header">
+            <span class="skills-count-badge">9 Installed Skills</span>
+          </div>
+          
+          <div class="skills-rows-container">
+            <div class="skill-row-item" data-skill="align-teaching-topics-to-grade-level-and-age">
+              <div class="skill-row-clickable">
+                <span class="skill-row-title">Developmental Aligner</span>
+                <span class="skill-row-desc">Align teaching topics to developmental readiness, cognitive stages, grade bands, and age levels.</span>
+              </div>
+              <div class="skill-row-control">
+                <label class="mock-switch">
+                  <input type="checkbox" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="skill-row-item" data-skill="assess">
+              <div class="skill-row-clickable">
+                <span class="skill-row-title">Assessment Scaffolder</span>
+                <span class="skill-row-desc">Diagnostic testing, student assessments, rubrics, and feedback loops.</span>
+              </div>
+              <div class="skill-row-control">
+                <label class="mock-switch">
+                  <input type="checkbox" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="skill-row-item" data-skill="find-indian-education-resources">
+              <div class="skill-row-clickable">
+                <span class="skill-row-title">Curriculum Resource Locator</span>
+                <span class="skill-row-desc">Search and locate textbooks, NCERT guidelines, CBSE board syllabus, and state curriculum resources.</span>
+              </div>
+              <div class="skill-row-control">
+                <label class="mock-switch">
+                  <input type="checkbox" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="skill-row-item" data-skill="fetch-indian-competition-papers">
+              <div class="skill-row-clickable">
+                <span class="skill-row-title">Exam Paper Retriever</span>
+                <span class="skill-row-desc">Retrieve competitive exam questions, syllabus grids, and state public service commission papers.</span>
+              </div>
+              <div class="skill-row-control">
+                <label class="mock-switch">
+                  <input type="checkbox" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="skill-row-item" data-skill="obsidian">
+              <div class="skill-row-clickable">
+                <span class="skill-row-title">Obsidian Vault Sync</span>
+                <span class="skill-row-desc">Vault root compatibility and markdown synchronisation for Obsidian vaults.</span>
+              </div>
+              <div class="skill-row-control">
+                <label class="mock-switch">
+                  <input type="checkbox" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="skill-row-item" data-skill="teach-mathematics">
+              <div class="skill-row-clickable">
+                <span class="skill-row-title">Math Concept Scaffolder</span>
+                <span class="skill-row-desc">Mathematics teaching, equation builders, and conceptual progressions.</span>
+              </div>
+              <div class="skill-row-control">
+                <label class="mock-switch">
+                  <input type="checkbox" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="skill-row-item" data-skill="analogy">
+              <div class="skill-row-clickable">
+                <span class="skill-row-title">Analogy Builder</span>
+                <span class="skill-row-desc">Analogies, structural mapping, and conceptual schema links.</span>
+              </div>
+              <div class="skill-row-control">
+                <label class="mock-switch">
+                  <input type="checkbox" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="skill-row-item" data-skill="reading">
+              <div class="skill-row-clickable">
+                <span class="skill-row-title">Reading Passage Builder</span>
+                <span class="skill-row-desc">Reading materials, text passages, and comprehension questions.</span>
+              </div>
+              <div class="skill-row-control">
+                <label class="mock-switch">
+                  <input type="checkbox" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="skill-row-item" data-skill="buddy-help">
+              <div class="skill-row-clickable">
+                <span class="skill-row-title">Workspace Assistant</span>
+                <span class="skill-row-desc">Help and usage guidelines for Buddy's agentic workspace loops.</span>
+              </div>
+              <div class="skill-row-control">
+                <label class="mock-switch">
+                  <input type="checkbox" checked />
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="skills-detail-view" id="skills-detail-view">
+          <button class="skills-back-btn" id="skills-back-btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>Back to catalog</span>
+          </button>
+          
+          <div class="skills-detail-content" id="skills-detail-content">
+            <!-- Populated via script -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Surface 4: Action Toolbar -->
+    <aside class="surface-actions">
+      <div class="action-icons">
+        <button class="action-btn active" title="Notebook">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="9" x2="15" y2="9"></line>
+            <line x1="9" y1="13" x2="15" y2="13"></line>
+          </svg>
+        </button>
+        <button class="action-btn" title="Skills">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="mock-toast" id="workspace-toast">
+    <div class="toast-content">
+      <svg class="toast-success-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      <span class="toast-message">Saved PDF to the notebook.</span>
+    </div>
+    <button class="toast-action-btn" type="button">Open</button>
+  </div>
+
+  <!-- Simulated Click/Select Cursor -->
+  <div class="simulated-cursor">
+    <div class="cursor-dot"></div>
+    <svg class="cursor-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M4 4l7.07 17 2.51-7.39L21 11.07z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+    <div class="click-pulse"></div>
+  </div>
+</div>
+
+<script>
+  type MockMessage = {
+    sender: string;
+    text?: string;
+    action?: string;
+    subject?: string;
+    icon?: string;
+  };
+
+  type NotebookData = {
+    title: string;
+    session: string;
+    readerTitle: string;
+    pages: {
+      quote: string;
+      body: string;
+      signature: string;
+      location: string;
+    }[];
+    messages: MockMessage[];
+    whiteboardHtml: string;
+  };
+
+  // Data for notebooks matching real app structure (Educators/Teachers)
+  const educatorNotebooks: Record<string, NotebookData> = {
+    "lesson-planning": {
+      title: "differentiate a task",
+      session: "Grade 8 Seasons Activity",
+      readerTitle: "Seasons Curriculum Guide",
+      pages: [
+        {
+          quote: "Standard: NGSS MS-ESS1-1 - Earth's Place in the Universe.",
+          body: "Focus: Develop and use a model of the Earth-sun-moon system to describe the cyclic patterns of lunar phases, eclipses of the sun and moon, and seasons. Objective: Students will explain how Earth's 23.5° axial tilt and orbital revolution combine to cause seasonal temperature variations.",
+          signature: "Next Generation Science Standards",
+          location: "NGSS ESS1 · PAGE 4 / 18"
+        },
+        {
+          quote: "Differentiation Strategy: Misconception Debunking",
+          body: "Provide visual representations of solar angle of incidence. Support: Label solstice configurations. On-level: Contrast direct vs indirect solar rays. Extension: Tackle the distance misconception using orbit data (aphelion vs perihelion).",
+          signature: "Differentiation in Science",
+          location: "DIFFERENTIATION · PAGE 3 / 10"
+        }
+      ],
+      messages: [
+        { sender: "user", text: "Can you write a Grade 8 worksheet on Earth's seasons with three tiered tasks (support, on-level, extension) in a markdown doc?" },
+        { sender: "tool", action: "Draft Seasons Activity", subject: "Creating seasons-outline.md", icon: "file" },
+        { sender: "buddy", text: "Sure! I've created 'seasons-outline.md' in your editor. I set up solstices for Task A, solar concentration for Task B, and orbit distance critique for Task C." },
+        { sender: "user", text: "Great. Can you add a clear orbit and tilt diagram right below the header?" },
+        { sender: "tool", action: "Generate Infographic", subject: "seasons-diagram.png", icon: "image" },
+        { sender: "buddy", text: "Generated. I've embedded the orbital diagram under the standards banner. Take a look!" },
+        { sender: "user", text: "Looks good. Can you update Task A to include the exact dates for solstices and equinoxes?" },
+        { sender: "buddy", text: "Done. I updated Task A to include those date ranges (e.g., June 20-22 and Dec 21-23)." },
+        { sender: "user", text: "Perfect. Can you align these sections to the NGSS standards?" },
+        { sender: "tool", action: "Search Standards", subject: "Found 1 standard", icon: "search" },
+        { sender: "buddy", text: "Aligned. I've updated the worksheet tasks to map directly to the MS-ESS1-1 performance expectation (covering axial tilt, solar ray intensity, and orbital geometry) and tagged the standard at the top." },
+        { sender: "user", text: "Excellent. Can you compile a quick 2-slide presentation deck to introduce this activity?" },
+        { sender: "tool", action: "Create Presentation", subject: "seasons-presentation.pptx", icon: "slides" },
+        { sender: "buddy", text: "Done! I have generated the presentation slide deck for the seasons activity. You can download or preview it here:<br><br><div class='buddy-file-card'><div class='file-icon-area'><svg class='pptx-svg-icon' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z'></path><polyline points='14 2 14 8 20 8'></polyline><line x1='8' y1='13' x2='16' y2='13'></line><line x1='8' y1='17' x2='16' y2='17'></line><line x1='10' y1='9' x2='8' y2='9'></line></svg></div><div class='file-details'><span class='file-title'>seasons-presentation.pptx</span><span class='file-meta'>PowerPoint Presentation · 1.4 MB</span></div><div class='file-action-btn'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'></path><polyline points='7 10 12 15 17 10'></polyline><line x1='12' y1='15' x2='12' y2='3'></line></svg></div></div>" }
+      ],
+      whiteboardHtml: ""
+    },
+    "quiz-generation": {
+      title: "quiz generation",
+      session: "Photosynthesis formative test",
+      readerTitle: "Photosynthesis Assessment",
+      pages: [
+        {
+          quote: "Taxonomy Check: Recall vs Analysis",
+          body: "To assess understanding of the light-dependent reactions of photosynthesis, avoid simple recall questions. Instead, ask students to predict the effect of decreasing carbon dioxide concentration or light intensity on oxygen release.",
+          signature: "Formative Assessment Design",
+          location: "ASSESSMENT DESIGN · PAGE 1"
+        }
+      ],
+      messages: [
+        { sender: "user", text: "generate a quiz on photosynthesis aligned to Bloom's taxonomy" },
+        { sender: "buddy", text: "I've drafted a 5-question formative assessment targeting both retrieval and conceptual application.<br><br>Want to preview the assessment guidelines?" },
+        { sender: "user", text: "yes" },
+        { sender: "buddy", text: "<div class='illustration-card state-skeleton'><div class='ill-cover-fallback bio'><div class='fallback-cover-text'>Biology</div></div><div class='ill-text'><span class='ill-title'>Photosynthesis Unit</span><span class='ill-author'>Formative Assessment</span><span class='ill-meta'>Ch 5 · Bloom's Alignment</span></div></div><br><br>I've opened the assessment guide in the reader and highlighted the Bloom's levels." },
+        { sender: "user", text: "show me the standard alignments" },
+        { sender: "buddy", text: "<div class='wb-chat-card state-skeleton'><div class='wb-chat-icon'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M2 3h20'></path><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'></path><path d='m7 21 5-5 5 5'></path></svg></div><div class='wb-chat-title-group'><div class='wb-chat-title'>Whiteboard</div><div class='wb-chat-subtitle'>Standards Map</div></div></div><br><br>Sure, I've mapped the learning objectives to Bloom's Taxonomy levels on your whiteboard." }
+      ],
+      whiteboardHtml: ""
+    },
+    "curriculum-mapping": {
+      title: "curriculum mapping",
+      session: "DIKSHA NCERT mapping",
+      readerTitle: "DIKSHA NCERT Mapping Guide",
+      pages: [
+        {
+          quote: "NCERT Class 10: Science Chapter 6 - Life Processes",
+          body: "Mapping target: Align Indian national curriculum learning objectives to digital interactive resources on the DIKSHA platform. Life Processes includes nutrition, respiration, transportation, and excretion.",
+          signature: "NCERT Curriculum Guide",
+          location: "NCERT MAPPING · PAGE 8"
+        }
+      ],
+      messages: [
+        { sender: "user", text: "map the NCERT Class 10 Science syllabus to DIKSHA digital resources" },
+        { sender: "buddy", text: "I've mapped the 'Life Processes' chapter to digital resource links on DIKSHA.<br><br>Ready to view the mapping guidelines?" },
+        { sender: "user", text: "yes" },
+        { sender: "buddy", text: "<div class='illustration-card state-skeleton'><div class='ill-cover-fallback ncert'><div class='fallback-cover-text'>NCERT</div></div><div class='ill-text'><span class='ill-title'>Life Processes</span><span class='ill-author'>NCERT Class 10</span><span class='ill-meta'>Chapter 6 · Mapping</span></div></div><br><br>Loaded NCERT Class 10 Science Chapter 6. I've highlighted the core topics and resources." },
+        { sender: "user", text: "explain the resource mapping timeline" },
+        { sender: "buddy", text: "<div class='wb-chat-card state-skeleton'><div class='wb-chat-icon'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M2 3h20'></path><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'></path><path d='m7 21 5-5 5 5'></path></svg></div><div class='wb-chat-title-group'><div class='wb-chat-title'>Whiteboard</div><div class='wb-chat-subtitle'>NCERT DIKSHA Map</div></div></div><br><br>I've mapped the NCERT syllabus units to DIKSHA platform QR codes on your whiteboard." }
+      ],
+      whiteboardHtml: ""
+    }
+  };
+
+  type NotebookKey = "lesson-planning" | "quiz-generation" | "curriculum-mapping";
+
+  let activeNotebook: NotebookKey = "lesson-planning";
+  let currentPageIndices: Record<string, number> = {
+    "lesson-planning": 0,
+    "quiz-generation": 0,
+    "curriculum-mapping": 0
+  };
+
+  let currentStreamId = 0;
+  let activeSidebarPromise = Promise.resolve();
+  let isGenerating = false;
+  let currentSlide = 1;
+
+  // Scoped element selectors
+  const buddyWindow = document.querySelector('.buddy-window[data-audience="educators"]') as HTMLElement;
+  if (buddyWindow) {
+    const chatFeed = buddyWindow.querySelector(".chat-feed") as HTMLElement | null;
+    const windowActiveNotebook = buddyWindow.querySelector(".window-active-notebook") as HTMLElement | null;
+    const windowActiveSession = buddyWindow.querySelector(".window-active-session") as HTMLElement | null;
+    const readerTabTitle = buddyWindow.querySelector("#reader-tab-title") as HTMLElement | null;
+    const readerQuoteText = buddyWindow.querySelector("#reader-quote-text") as HTMLElement | null;
+    const readerBodyText = buddyWindow.querySelector("#reader-body-text") as HTMLElement | null;
+    const readerSigText = buddyWindow.querySelector("#reader-sig-text") as HTMLElement | null;
+    const readerLocationText = buddyWindow.querySelector("#reader-location-text") as HTMLElement | null;
+    const fontToggleBtn = buddyWindow.querySelector("#font-toggle-btn") as HTMLElement | null;
+    const readerContentPane = buddyWindow.querySelector("#reader-content-pane") as HTMLElement | null;
+    const chatForm = buddyWindow.querySelector("#mockup-chat-form") as HTMLFormElement | null;
+    const chatInput = buddyWindow.querySelector("#mockup-chat-input") as HTMLTextAreaElement | null;
+    const chatSubmitBtn = buddyWindow.querySelector("#chat-submit-btn") as HTMLButtonElement | null;
+    
+    const readerPrevBtn = buddyWindow.querySelector("#reader-prev-btn") as HTMLElement | null;
+    const readerNextBtn = buddyWindow.querySelector("#reader-next-btn") as HTMLElement | null;
+    const wbDrawings = buddyWindow.querySelector(".wb-drawings") as HTMLElement | null;
+    
+    const libraryRailBtn = buddyWindow.querySelector('.action-btn[title="Library"]') as HTMLButtonElement | null;
+    const whiteboardRailBtn = buddyWindow.querySelector('.action-btn[title="Whiteboard"]') as HTMLButtonElement | null;
+    const widgetRailBtn = buddyWindow.querySelector('.action-btn[title="HTML Widget"]') as HTMLButtonElement | null;
+    const flashcardsRailBtn = buddyWindow.querySelector('.action-btn[title="Notebook"]') as HTMLButtonElement | null;
+    const skillsRailBtn = buddyWindow.querySelector('.action-btn[title="Skills"]') as HTMLButtonElement | null;
+    const workspaceBody = buddyWindow.querySelector('.workspace-body') as HTMLElement | null;
+
+    function setGenerating(gen: boolean) {
+      isGenerating = gen;
+      if (!chatSubmitBtn) return;
+      
+      const sendIcon = chatSubmitBtn.querySelector(".icon-send") as HTMLElement | null;
+      const stopIcon = chatSubmitBtn.querySelector(".icon-stop") as HTMLElement | null;
+      
+      if (gen) {
+        chatSubmitBtn.classList.add("generating");
+        if (sendIcon) sendIcon.style.display = "none";
+        if (stopIcon) stopIcon.style.display = "block";
+      } else {
+        chatSubmitBtn.classList.remove("generating");
+        if (sendIcon) sendIcon.style.display = "block";
+        if (stopIcon) stopIcon.style.display = "none";
+      }
+    }
+
+    async function animateWhiteboard(notebookKey: NotebookKey, streamId: number) {
+      if (!wbDrawings) return;
+      wbDrawings.innerHTML = "";
+
+      if (notebookKey === "lesson-planning") {
+        const hi = document.createElement("div");
+        hi.className = "wb-handwriting-hi";
+        wbDrawings.appendChild(hi);
+        await typeWbHtml(hi, "Photosynthesis Map", streamId, 30);
+        if (streamId !== currentStreamId) return;
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const arrow = document.createElement("div");
+        arrow.className = "wb-doodle-arrow";
+        arrow.innerHTML = `
+          <svg width="40" height="20" viewBox="0 0 40 20" fill="none" stroke="#3b82f6" stroke-width="2">
+            <path d="M20,2 L20,18 M15,13 L20,18 L25,13" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        `;
+        wbDrawings.appendChild(arrow);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        arrow.classList.add("visible");
+        await new Promise(resolve => setTimeout(resolve, 200));
+        if (streamId !== currentStreamId) return;
+
+        const grid = document.createElement("div");
+        grid.className = "wb-split-grid";
+        wbDrawings.appendChild(grid);
+
+        const targetCard = document.createElement("div");
+        targetCard.className = "wb-card integrity";
+        targetCard.innerHTML = `<div class="wb-card-title">Target Standard</div><div class="wb-card-body"></div>`;
+        grid.appendChild(targetCard);
+
+        const prereqCard = document.createElement("div");
+        prereqCard.className = "wb-card conformity";
+        prereqCard.innerHTML = `<div class="wb-card-title">Key Pathways</div><div class="wb-card-body"></div>`;
+        grid.appendChild(prereqCard);
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+        targetCard.classList.add("visible");
+        prereqCard.classList.add("visible");
+        await new Promise(resolve => setTimeout(resolve, 400));
+        if (streamId !== currentStreamId) return;
+
+        const targetBody = targetCard.querySelector(".wb-card-body") as HTMLElement;
+        await typeWbHtml(targetBody, "- NGSS MS-LS1-6<br>- Cycling of matter<br>- Energy flow", streamId, 18);
+        if (streamId !== currentStreamId) return;
+
+        const prereqBody = prereqCard.querySelector(".wb-card-body") as HTMLElement;
+        await typeWbHtml(prereqBody, "- Light reactions<br>- Calvin cycle<br>- Chemical equation", streamId, 18);
+        if (streamId !== currentStreamId) return;
+
+        const conclusionCard = document.createElement("div");
+        conclusionCard.className = "wb-sketch-node bottom-conclusion";
+        conclusionCard.style.opacity = "0";
+        conclusionCard.style.transform = "scale(0.8) rotate(1deg)";
+        conclusionCard.style.transition = "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)";
+        conclusionCard.style.marginTop = "15px";
+        conclusionCard.style.width = "100%";
+        conclusionCard.style.maxWidth = "280px";
+        wbDrawings.appendChild(conclusionCard);
+
+        await new Promise(resolve => setTimeout(resolve, 80));
+        conclusionCard.style.opacity = "1";
+        conclusionCard.style.transform = "scale(1) rotate(1deg)";
+        await new Promise(resolve => setTimeout(resolve, 350));
+        if (streamId !== currentStreamId) return;
+
+        await typeWbHtml(conclusionCard, "Matter & Energy Cycle", streamId, 25);
+      }
+      else if (notebookKey === "quiz-generation") {
+        const hi = document.createElement("div");
+        hi.className = "wb-handwriting-hi";
+        wbDrawings.appendChild(hi);
+        await typeWbHtml(hi, "Bloom's Objective Map", streamId, 30);
+        if (streamId !== currentStreamId) return;
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const grid = document.createElement("div");
+        grid.className = "wb-split-grid";
+        wbDrawings.appendChild(grid);
+
+        const recallCard = document.createElement("div");
+        recallCard.className = "wb-card integrity";
+        recallCard.innerHTML = `<div class="wb-card-title">Lower Order (Recall)</div><div class="wb-card-body"></div>`;
+        grid.appendChild(recallCard);
+
+        const analyzeCard = document.createElement("div");
+        analyzeCard.className = "wb-card conformity";
+        analyzeCard.innerHTML = `<div class="wb-card-title">Higher Order (Analyze)</div><div class="wb-card-body"></div>`;
+        grid.appendChild(analyzeCard);
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+        recallCard.classList.add("visible");
+        analyzeCard.classList.add("visible");
+        await new Promise(resolve => setTimeout(resolve, 400));
+        if (streamId !== currentStreamId) return;
+
+        const recallBody = recallCard.querySelector(".wb-card-body") as HTMLElement;
+        await typeWbHtml(recallBody, "- Define terms<br>- Label components<br>- Direct retrieve", streamId, 18);
+        if (streamId !== currentStreamId) return;
+
+        const analyzeBody = analyzeCard.querySelector(".wb-card-body") as HTMLElement;
+        await typeWbHtml(analyzeBody, "- Predict changes<br>- Analyze systems<br>- Transfer ideas", streamId, 18);
+        if (streamId !== currentStreamId) return;
+
+        const conclusionCard = document.createElement("div");
+        conclusionCard.className = "wb-sketch-node bottom-conclusion";
+        conclusionCard.style.opacity = "0";
+        conclusionCard.style.transform = "scale(0.8) rotate(1deg)";
+        conclusionCard.style.transition = "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)";
+        conclusionCard.style.marginTop = "15px";
+        conclusionCard.style.width = "100%";
+        conclusionCard.style.maxWidth = "280px";
+        wbDrawings.appendChild(conclusionCard);
+
+        await new Promise(resolve => setTimeout(resolve, 80));
+        conclusionCard.style.opacity = "1";
+        conclusionCard.style.transform = "scale(1) rotate(1deg)";
+        await new Promise(resolve => setTimeout(resolve, 350));
+        if (streamId !== currentStreamId) return;
+
+        await typeWbHtml(conclusionCard, "Balanced Formative Assessment", streamId, 25);
+      }
+      else if (notebookKey === "curriculum-mapping") {
+        const hi = document.createElement("div");
+        hi.className = "wb-handwriting-hi";
+        wbDrawings.appendChild(hi);
+        await typeWbHtml(hi, "NCERT-DIKSHA Mapping", streamId, 30);
+        if (streamId !== currentStreamId) return;
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const grid = document.createElement("div");
+        grid.className = "wb-split-grid";
+        wbDrawings.appendChild(grid);
+
+        const ncertCard = document.createElement("div");
+        ncertCard.className = "wb-card integrity";
+        ncertCard.innerHTML = `<div class="wb-card-title">NCERT Chapters</div><div class="wb-card-body"></div>`;
+        grid.appendChild(ncertCard);
+
+        const dikshaCard = document.createElement("div");
+        dikshaCard.className = "wb-card conformity";
+        dikshaCard.innerHTML = `<div class="wb-card-title">DIKSHA Resources</div><div class="wb-card-body"></div>`;
+        grid.appendChild(dikshaCard);
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+        ncertCard.classList.add("visible");
+        dikshaCard.classList.add("visible");
+        await new Promise(resolve => setTimeout(resolve, 400));
+        if (streamId !== currentStreamId) return;
+
+        const ncertBody = ncertCard.querySelector(".wb-card-body") as HTMLElement;
+        await typeWbHtml(ncertBody, "- Life Processes<br>- Nutrition unit<br>- Transport unit", streamId, 18);
+        if (streamId !== currentStreamId) return;
+
+        const dikshaBody = dikshaCard.querySelector(".wb-card-body") as HTMLElement;
+        await typeWbHtml(dikshaBody, "- Video simulations<br>- Interactive quiz<br>- QR-linked sheets", streamId, 18);
+        if (streamId !== currentStreamId) return;
+
+        const conclusionCard = document.createElement("div");
+        conclusionCard.className = "wb-sketch-node bottom-conclusion";
+        conclusionCard.style.opacity = "0";
+        conclusionCard.style.transform = "scale(0.8) rotate(1deg)";
+        conclusionCard.style.transition = "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)";
+        conclusionCard.style.marginTop = "15px";
+        conclusionCard.style.width = "100%";
+        conclusionCard.style.maxWidth = "280px";
+        wbDrawings.appendChild(conclusionCard);
+
+        await new Promise(resolve => setTimeout(resolve, 80));
+        conclusionCard.style.opacity = "1";
+        conclusionCard.style.transform = "scale(1) rotate(1deg)";
+        await new Promise(resolve => setTimeout(resolve, 350));
+        if (streamId !== currentStreamId) return;
+
+        await typeWbHtml(conclusionCard, "Syllabus Integration Complete", streamId, 25);
+      }
+    }
+
+    function loadNotebook(key: NotebookKey) {
+      activeNotebook = key;
+      activeSidebarPromise = Promise.resolve();
+      const data = educatorNotebooks[key];
+      if (!data) return;
+
+      if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+      if (windowActiveSession) windowActiveSession.textContent = data.session;
+      if (readerTabTitle) readerTabTitle.textContent = data.readerTitle;
+
+      if (readerQuoteText) readerQuoteText.textContent = "";
+      if (readerBodyText) readerBodyText.textContent = "Waiting for document load command...";
+      if (readerSigText) readerSigText.textContent = "";
+      if (readerLocationText) readerLocationText.textContent = "";
+      if (wbDrawings) wbDrawings.innerHTML = '<div class="wb-welcome-text" style="opacity: 0.3; font-family: var(--font-body); font-size: 13px; padding: 20px;">Whiteboard ready...</div>';
+      
+      const chip = buddyWindow.querySelector("#chat-selection-chip") as HTMLElement | null;
+      if (chip) chip.style.display = "none";
+
+      const shell = buddyWindow.querySelector(".editor-bench-shell");
+      if (shell) shell.classList.remove("pdf-mode");
+
+      const paper = buddyWindow.querySelector("#worksheet-editor-paper");
+      if (paper) {
+        paper.innerHTML = `
+          <div class="editor-drafting-placeholder">
+            <span class="drafting-text">No active session. Start a chat request to draft a document.</span>
+          </div>
+        `;
+      }
+
+      // Reset slideshow active states
+      if (buddyWindow) {
+        buddyWindow.classList.remove("show-slides");
+      }
+      currentSlide = 1;
+      const slideCard1 = buddyWindow ? buddyWindow.querySelector("#slide-card-1") as HTMLElement | null : null;
+      const slideCard2 = buddyWindow ? buddyWindow.querySelector("#slide-card-2") as HTMLElement | null : null;
+      const slidePrevBtn = buddyWindow ? buddyWindow.querySelector("#slide-prev-btn") as HTMLButtonElement | null : null;
+      const slideNextBtn = buddyWindow ? buddyWindow.querySelector("#slide-next-btn") as HTMLButtonElement | null : null;
+      const slideNavIndicator = buddyWindow ? buddyWindow.querySelector("#slide-nav-indicator") as HTMLElement | null : null;
+      if (slideCard1 && slideCard2 && slidePrevBtn && slideNextBtn && slideNavIndicator) {
+        slideCard1.style.display = "flex";
+        slideCard2.style.display = "none";
+        slidePrevBtn.disabled = true;
+        slideNextBtn.disabled = false;
+        slideNavIndicator.textContent = "Slide 1 of 2";
+      }
+
+      if (libraryRailBtn) {
+        buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        libraryRailBtn.classList.add('active');
+        buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes', 'show-slides');
+      }
+
+      if (workspaceBody) {
+        workspaceBody.classList.add('right-pane-collapsed');
+      }
+
+      const activeSessionItem = buddyWindow.querySelector('.sessions-list .session-item.active');
+      if (activeSessionItem) {
+        activeSessionItem.classList.add('pulse-slow');
+      }
+
+      currentStreamId++;
+      const streamId = currentStreamId;
+
+      if (chatFeed) {
+        chatFeed.innerHTML = "";
+      }
+
+      runChatStream(key, streamId);
+    }
+
+    function getToolStatusText(action: string, isDone: boolean): string {
+      if (action.startsWith("Draft")) {
+        return isDone ? action.replace("Draft", "Drafted") : action.replace("Draft", "Drafting");
+      }
+      if (action.startsWith("Search")) {
+        return isDone ? action.replace("Search", "Searched") : action.replace("Search", "Searching");
+      }
+      if (action.startsWith("Generate")) {
+        return isDone ? action.replace("Generate", "Generated") : action.replace("Generate", "Generating");
+      }
+      if (action.startsWith("Create")) {
+        return isDone ? action.replace("Create", "Created") : action.replace("Create", "Creating");
+      }
+      return action;
+    }
+
+    async function runChatStream(key: NotebookKey, streamId: number) {
+      const data = educatorNotebooks[key];
+      if (!data) return;
+
+      setGenerating(true);
+
+      try {
+        for (let i = 0; i < data.messages.length; i++) {
+          if (streamId !== currentStreamId) return;
+
+          const msg = data.messages[i];
+          if (msg.sender === "user" && msg.text) {
+            await new Promise(resolve => setTimeout(resolve, i === 0 ? 300 : 400));
+            if (streamId !== currentStreamId) return;
+
+            // Trigger visual text selection BEFORE the user types prompt 6
+            if (key === "lesson-planning" && i === 6) {
+              const paper = buddyWindow.querySelector("#worksheet-editor-paper");
+              if (paper && !paper.querySelector("#worksheet-section-1")) {
+                paper.innerHTML = `
+                  <div class="worksheet-editor-container">
+                    <div class="worksheet-standards-banner" id="worksheet-standards-banner"></div>
+                    <div class="worksheet-title">Differentiated Activity: Causes of Earth's Seasons</div>
+                    <div class="worksheet-infographic-placeholder" id="worksheet-infographic-placeholder" style="display: none;"></div>
+                    <div class="worksheet-section" id="worksheet-section-1">
+                      <h3 class="section-heading">Task A: Solstice Orientation (Support Level)</h3>
+                      <p class="section-instruction">Earth revolves around the Sun with a constant 23.5° axial tilt. Using your physical orbit model, match the Earth's configuration to the correct season for each hemisphere:</p>
+                      <div class="worksheet-questions-list">
+                        <div class="question-item">
+                          <span class="question-num">1</span>
+                          <div class="question-body">
+                            <strong>June Solstice:</strong> Northern Hemisphere tilted toward the Sun.<br>
+                            <span class="question-fill">Season: <span class="fill-blank">[_______________]</span></span>
+                          </div>
+                        </div>
+                        <div class="question-item">
+                          <span class="question-num">2</span>
+                          <div class="question-body">
+                            <strong>December Solstice:</strong> Northern Hemisphere tilted away from the Sun.<br>
+                            <span class="question-fill">Season: <span class="fill-blank">[_______________]</span></span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="worksheet-section" id="worksheet-section-2">
+                      <h3 class="section-heading">Task B: Solar Ray Concentration (On-Level)</h3>
+                      <p class="section-instruction">Solar energy intensity depends on the angle at which sunlight strikes the surface. Study the rays and solve:</p>
+                      <div class="worksheet-concept-box">
+                        <p><strong>Concept:</strong> Direct sunlight (90° incident angle) concentrates thermal energy over a small surface area, raising temperatures. Indirect sunlight (slanted rays) spreads the same energy over a larger area, resulting in cooler temperatures.</p>
+                      </div>
+                      <div class="question-item">
+                        <span class="question-num">?</span>
+                        <div class="question-body">
+                          <strong>Problem:</strong> Explain why flashlight beams shining straight down at 90° appear brighter and hotter than beams striking a surface at a slanted 30° angle. How does this map to Earth's equator vs. poles?
+                          <div class="fill-lines">
+                            <div class="fill-line"></div>
+                            <div class="fill-line"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="worksheet-section" id="worksheet-section-3">
+                      <h3 class="section-heading">Task C: Orbit & Distance Critique (Extension Level)</h3>
+                      <p class="section-instruction">Evaluate the common misconception: "Earth experiences summer because it is physically closer to the Sun during its elliptical orbit." Write a claim-evidence-reasoning (CER) critique.</p>
+                      <div class="question-item">
+                        <span class="question-num">✎</span>
+                        <div class="question-body">
+                          <strong>Task:</strong> Evaluate the common misconception: "Earth experiences summer because it is physically closer to the Sun during its elliptical orbit." Write a claim-evidence-reasoning (CER) critique.
+                          <div class="fill-lines">
+                            <div class="fill-line"></div>
+                            <div class="fill-line"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }
+              const cursor = buddyWindow.querySelector(".simulated-cursor") as HTMLElement | null;
+              const section1 = buddyWindow.querySelector("#worksheet-section-1") as HTMLElement | null;
+              
+              if (cursor && section1) {
+                const instructionEl = section1.querySelector(".section-instruction") as HTMLElement | null;
+                if (instructionEl) {
+                  // Reset cursor
+                  cursor.style.opacity = "0";
+                  cursor.style.top = "85%";
+                  cursor.style.left = "85%";
+                  cursor.classList.remove("clicking");
+
+                  await new Promise(resolve => setTimeout(resolve, 300));
+                  if (streamId !== currentStreamId) return;
+
+                  // Glide cursor to the start of the instruction text in Task A
+                  cursor.style.opacity = "1";
+                  const instRect = instructionEl.getBoundingClientRect();
+                  const containerRect = buddyWindow.getBoundingClientRect();
+                  const targetY = (instRect.top - containerRect.top) + 8;
+                  const targetX = (instRect.left - containerRect.left) + 8;
+
+                  cursor.style.top = `${targetY}px`;
+                  cursor.style.left = `${targetX}px`;
+
+                  await new Promise(resolve => setTimeout(resolve, 950));
+                  if (streamId !== currentStreamId) return;
+
+                  // Perform selection drag: move cursor across the text line
+                  cursor.classList.add("clicking");
+                  cursor.style.left = `${targetX + instRect.width * 0.85}px`;
+
+                  // Highlight only the text chunk (text thing)
+                  instructionEl.innerHTML = `<span class="md-selection-highlight">Earth revolves around the Sun with a constant 23.5° axial tilt. Using your physical orbit model, match the Earth's configuration to the correct season for each hemisphere:</span>`;
+
+                  // Display composer selection context chip
+                  const chip = buddyWindow.querySelector("#chat-selection-chip") as HTMLElement | null;
+                  const chipText = buddyWindow.querySelector(".selection-chip-text") as HTMLElement | null;
+                  if (chip && chipText) {
+                    chipText.textContent = 'Selected: "Earth revolves around the Sun with..."';
+                    chip.style.display = "flex";
+                  }
+
+                  await new Promise(resolve => setTimeout(resolve, 800));
+                  if (streamId !== currentStreamId) return;
+
+                  // Fade out cursor
+                  cursor.classList.remove("clicking");
+                  cursor.style.opacity = "0";
+                  await new Promise(resolve => setTimeout(resolve, 400));
+                }
+              }
+            }
+
+            if (chatInput) {
+              chatInput.value = "";
+              for (let charIndex = 0; charIndex < msg.text.length; charIndex++) {
+                if (streamId !== currentStreamId) return;
+                chatInput.value += msg.text[charIndex];
+                chatInput.style.height = "auto";
+                chatInput.style.height = (chatInput.scrollHeight) + "px";
+                const delay = msg.text.length > 30 ? 12 : 15;
+                await new Promise(resolve => setTimeout(resolve, delay));
+              }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 150));
+            if (streamId !== currentStreamId) return;
+
+            if (chatSubmitBtn) {
+              chatSubmitBtn.classList.add("simulated-click");
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+            if (streamId !== currentStreamId) return;
+            if (chatSubmitBtn) {
+              chatSubmitBtn.classList.remove("simulated-click");
+            }
+
+            if (chatInput) {
+              chatInput.value = "";
+              chatInput.style.height = "auto";
+            }
+            appendMessage("user", msg.text);
+          } else if (msg.sender === "tool") {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            if (streamId !== currentStreamId) return;
+
+            if (msg.action === "Search Standards") {
+              const groupDiv = document.createElement("div");
+              groupDiv.className = "tool-group";
+              if (chatFeed) {
+                chatFeed.appendChild(groupDiv);
+                chatFeed.scrollTop = chatFeed.scrollHeight;
+              }
+
+              const standards = [
+                { action: "Search NGSS Standards", subject: "Found MS-ESS1-1" }
+              ];
+              const rowDivs: HTMLElement[] = [];
+
+              for (let sIdx = 0; sIdx < standards.length; sIdx++) {
+                if (streamId !== currentStreamId) return;
+                const s = standards[sIdx];
+                const rowDiv = document.createElement("div");
+                rowDiv.className = "tool-row";
+                rowDiv.innerHTML = `
+                  <span class="tool-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+                  <span class="tool-action running">${getToolStatusText(s.action, false)}</span>
+                  <span class="tool-subject">${s.subject}</span>
+                `;
+                groupDiv.appendChild(rowDiv);
+                if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+                rowDivs.push(rowDiv);
+                await new Promise(resolve => setTimeout(resolve, 150));
+              }
+
+              // Let them shimmer together
+              await new Promise(resolve => setTimeout(resolve, 1200));
+              if (streamId !== currentStreamId) return;
+
+              // Resolve one-by-one in a staggered way
+              for (let sIdx = 0; sIdx < rowDivs.length; sIdx++) {
+                if (streamId !== currentStreamId) return;
+                const rowDiv = rowDivs[sIdx];
+                const action = rowDiv.querySelector(".tool-action");
+                const subject = rowDiv.querySelector(".tool-subject");
+                const originalAction = standards[sIdx].action;
+                if (action) {
+                  action.classList.remove("running");
+                  action.textContent = getToolStatusText(originalAction, true);
+                }
+                if (subject) subject.classList.add("visible");
+                await new Promise(resolve => setTimeout(resolve, 250));
+              }
+
+              // Apply modifications to editor content
+              await resolveCardSkeleton(key, i, streamId);
+              if (streamId !== currentStreamId) return;
+            } else {
+              let iconSvg = "";
+              if (msg.icon === "file") {
+                iconSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><line x1="9" y1="15" x2="15" y2="15"></line><line x1="9" y1="11" x2="15" y2="11"></line></svg>`;
+              } else if (msg.icon === "download") {
+                iconSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`;
+              } else if (msg.icon === "image") {
+                iconSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+              } else if (msg.icon === "slides") {
+                iconSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line><path d="M12 17v4"></path></svg>`;
+              }
+
+              const groupDiv = document.createElement("div");
+              groupDiv.className = "tool-group";
+              if (chatFeed) {
+                chatFeed.appendChild(groupDiv);
+                chatFeed.scrollTop = chatFeed.scrollHeight;
+              }
+
+              const rowDiv = document.createElement("div");
+              rowDiv.className = "tool-row";
+              rowDiv.innerHTML = `
+                <span class="tool-icon">${iconSvg}</span>
+                <span class="tool-action running">${getToolStatusText(msg.action || "", false)}</span>
+                <span class="tool-subject">${msg.subject}</span>
+              `;
+              groupDiv.appendChild(rowDiv);
+              if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+
+              // Shimmer for 1.2 seconds
+              await new Promise(resolve => setTimeout(resolve, 1200));
+              if (streamId !== currentStreamId) return;
+
+              // Resolve the shimmer and show subject details
+              const action = rowDiv.querySelector(".tool-action");
+              const subject = rowDiv.querySelector(".tool-subject");
+              if (action) {
+                action.classList.remove("running");
+                action.textContent = getToolStatusText(msg.action || "", true);
+              }
+              if (subject) subject.classList.add("visible");
+
+              // Trigger sidebar open and expand Bench target after tool resolves
+              triggerSidebarOpen(key, i);
+
+              // Apply modifications to editor content
+              await resolveCardSkeleton(key, i, streamId);
+              if (streamId !== currentStreamId) return;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 400));
+          } else {
+
+
+            await new Promise(resolve => setTimeout(resolve, 250));
+            if (streamId !== currentStreamId) return;
+
+            const typingIndicator = document.createElement("div");
+            typingIndicator.className = "mock-chat-bubble buddy typing";
+            typingIndicator.innerHTML = `
+              <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            `;
+            if (chatFeed) {
+              chatFeed.appendChild(typingIndicator);
+              chatFeed.scrollTop = chatFeed.scrollHeight;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 400));
+            if (streamId !== currentStreamId) return;
+            typingIndicator.remove();
+
+            const bubble = document.createElement("div");
+            bubble.className = `mock-chat-bubble buddy`;
+            const inner = document.createElement("div");
+            inner.className = "bubble-content";
+            bubble.appendChild(inner);
+            if (chatFeed) {
+              chatFeed.appendChild(bubble);
+              chatFeed.scrollTop = chatFeed.scrollHeight;
+            }
+
+            await typeMessage(inner, msg.text || "", streamId, key, i);
+            if (streamId !== currentStreamId) return;
+
+            // Apply modifications associated with this buddy bubble response
+            await resolveCardSkeleton(key, i, streamId);
+            if (streamId !== currentStreamId) return;
+
+            await activeSidebarPromise;
+            if (streamId !== currentStreamId) return;
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+
+        if (streamId !== currentStreamId) return;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (streamId !== currentStreamId) return;
+
+        // Finish stream resting panel: Rest on seasons-outline.md worksheet on the Bench
+        if (flashcardsRailBtn) {
+          buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+          flashcardsRailBtn.classList.add('active');
+          
+          const shell = buddyWindow.querySelector(".editor-bench-shell") as HTMLElement | null;
+          if (shell) {
+            shell.classList.remove("slides-mode");
+          }
+          
+          if (windowActiveNotebook) windowActiveNotebook.textContent = "Editor";
+          if (windowActiveSession) windowActiveSession.textContent = "seasons-outline.md";
+          if (workspaceBody) {
+            workspaceBody.classList.remove('right-pane-collapsed');
+          }
+        }
+      } finally {
+        if (streamId === currentStreamId) {
+          setGenerating(false);
+        }
+      }
+    }
+
+    async function typeMessage(container: HTMLElement, htmlText: string, streamId: number, notebookKey: NotebookKey, messageIndex: number) {
+      const parts = htmlText.split("<br><br>");
+      for (let partIdx = 0; partIdx < parts.length; partIdx++) {
+        if (streamId !== currentStreamId) return;
+        const part = parts[partIdx];
+        
+        const isCard = part.includes("widget-chat-card") || part.includes("illustration-card") || part.includes("wb-chat-card") || part.includes("tool-row") || part.includes("buddy-file-card");
+        
+        if (isCard) {
+          // Render card instantly
+          const cardDiv = document.createElement("div");
+          cardDiv.style.display = "contents";
+          cardDiv.innerHTML = part;
+          
+          // Add skeleton state on creation
+          const cardEl = cardDiv.firstElementChild;
+          if (cardEl && !cardEl.classList.contains("buddy-file-card")) {
+            cardEl.classList.add("state-skeleton");
+          }
+          
+          container.appendChild(cardDiv);
+          if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+
+          // Trigger opening of sidebar!
+          if (messageIndex !== -1) {
+            triggerSidebarOpen(notebookKey, messageIndex);
+            activeSidebarPromise = resolveCardSkeleton(notebookKey, messageIndex, streamId);
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } else {
+          // Typewriter text
+          const textSpan = document.createElement("span");
+          container.appendChild(textSpan);
+          await typeMessageInner(textSpan, part, streamId);
+        }
+
+        if (partIdx < parts.length - 1) {
+          const nextPart = parts[partIdx + 1];
+          const nextIsCard = nextPart.includes("widget-chat-card") || nextPart.includes("illustration-card") || nextPart.includes("wb-chat-card") || nextPart.includes("tool-row");
+          
+          if (!isCard && !nextIsCard) {
+            // Double break between text paragraphs
+            container.appendChild(document.createElement("br"));
+            container.appendChild(document.createElement("br"));
+          } else {
+            // Tight spacing between card and text
+            const spacer = document.createElement("div");
+            spacer.style.height = "8px";
+            container.appendChild(spacer);
+          }
+          if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+        }
+      }
+    }
+
+    async function typeMessageInner(container: HTMLElement, htmlText: string, streamId: number) {
+      const chunks: string[] = [];
+      let i = 0;
+      while (i < htmlText.length) {
+        if (htmlText[i] === '<') {
+          const closingIndex = htmlText.indexOf('>', i);
+          if (closingIndex !== -1) {
+            chunks.push(htmlText.substring(i, closingIndex + 1));
+            i = closingIndex + 1;
+            continue;
+          }
+        }
+        chunks.push(htmlText[i]);
+        i++;
+      }
+
+      let currentText = "";
+      for (const chunk of chunks) {
+        if (streamId !== currentStreamId) return;
+        currentText += chunk;
+        container.innerHTML = currentText;
+        if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+        
+        const delay = chunk.startsWith('<') ? 0 : (Math.random() * 6 + 4);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    function triggerSidebarOpen(notebookKey: NotebookKey, messageIndex: number) {
+      if (notebookKey === "lesson-planning") {
+        if (messageIndex === 1) {
+          // Switch to the MDX Editor (Notebook pane)
+          if (flashcardsRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            flashcardsRailBtn.classList.add('active');
+            buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-slides');
+            buddyWindow.classList.add('show-notes');
+            
+            if (windowActiveNotebook) windowActiveNotebook.textContent = "Editor";
+            if (windowActiveSession) windowActiveSession.textContent = "seasons-outline.md";
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        }
+      } else if (notebookKey === "quiz-generation") {
+        if (messageIndex === 1) {
+          loadReaderPage("quiz-generation", 0);
+          if (libraryRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            libraryRailBtn.classList.add('active');
+            buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+            const data = educatorNotebooks["quiz-generation"];
+            if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+            if (windowActiveSession) windowActiveSession.textContent = data.session;
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        } else if (messageIndex === 5) {
+          if (whiteboardRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            whiteboardRailBtn.classList.add('active');
+            buddyWindow.classList.add('show-whiteboard');
+            buddyWindow.classList.remove('show-widget', 'show-notes');
+            if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+            if (windowActiveSession) windowActiveSession.textContent = "Current board";
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        }
+      } else if (notebookKey === "curriculum-mapping") {
+        if (messageIndex === 1) {
+          loadReaderPage("curriculum-mapping", 0);
+          if (libraryRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            libraryRailBtn.classList.add('active');
+            buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+            const data = educatorNotebooks["curriculum-mapping"];
+            if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+            if (windowActiveSession) windowActiveSession.textContent = data.session;
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        } else if (messageIndex === 5) {
+          if (whiteboardRailBtn) {
+            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+            whiteboardRailBtn.classList.add('active');
+            buddyWindow.classList.add('show-whiteboard');
+            buddyWindow.classList.remove('show-widget', 'show-notes');
+            if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+            if (windowActiveSession) windowActiveSession.textContent = "Current board";
+            if (workspaceBody) {
+              workspaceBody.classList.remove('right-pane-collapsed');
+            }
+          }
+        }
+      }
+    }
+
+    async function typeWbHtml(container: HTMLElement, htmlText: string, streamId: number, speed = 20) {
+      const parts = htmlText.split(/(<[^>]+>)/g);
+      let currentText = "";
+
+      for (const chunk of parts) {
+        if (streamId !== currentStreamId) return;
+        currentText += chunk;
+        container.innerHTML = currentText;
+        const delay = chunk.startsWith('<') ? 0 : (Math.random() * (speed / 2) + (speed / 2));
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    async function resolveCardSkeleton(notebookKey: NotebookKey, messageIndex: number, streamId: number) {
+      if (notebookKey === "lesson-planning") {
+        if (messageIndex === 1) {
+          // Reset PDF mode state
+          const shell = buddyWindow.querySelector(".editor-bench-shell");
+          if (shell) shell.classList.remove("pdf-mode");
+
+          const paper = buddyWindow.querySelector("#worksheet-editor-paper");
+          if (paper) {
+            paper.innerHTML = `
+              <div class="worksheet-editor-container">
+                <div class="worksheet-standards-banner" id="worksheet-standards-banner"></div>
+                <div class="worksheet-title">Differentiated Activity: Causes of Earth's Seasons</div>
+                <div class="worksheet-infographic-placeholder" id="worksheet-infographic-placeholder" style="display: none;"></div>
+                
+                <div class="worksheet-section" id="worksheet-section-1">
+                  <h3 class="section-heading">Task A: Solstice Orientation (Support Level)</h3>
+                  <p class="section-instruction">Earth revolves around the Sun with a constant 23.5° axial tilt. Using your physical orbit model, match the Earth's configuration to the correct season for each hemisphere:</p>
+                  <div class="worksheet-questions-list">
+                    <div class="question-item">
+                      <span class="question-num">1</span>
+                      <div class="question-body">
+                        <strong>June Solstice:</strong> Northern Hemisphere tilted toward the Sun.<br>
+                        <span class="question-fill">Season: <span class="fill-blank">[_______________]</span></span>
+                      </div>
+                    </div>
+                    <div class="question-item">
+                      <span class="question-num">2</span>
+                      <div class="question-body">
+                        <strong>December Solstice:</strong> Northern Hemisphere tilted away from the Sun.<br>
+                        <span class="question-fill">Season: <span class="fill-blank">[_______________]</span></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="worksheet-section" id="worksheet-section-2">
+                  <h3 class="section-heading">Task B: Solar Ray Concentration (On-Level)</h3>
+                  <p class="section-instruction">Solar energy intensity depends on the angle at which sunlight strikes the surface. Study the rays and solve:</p>
+                  <div class="worksheet-concept-box">
+                    <p><strong>Concept:</strong> Direct sunlight (90° incident angle) concentrates thermal energy over a small surface area, raising temperatures. Indirect sunlight (slanted rays) spreads the same energy over a larger area, resulting in cooler temperatures.</p>
+                  </div>
+                  <div class="question-item">
+                    <span class="question-num">?</span>
+                    <div class="question-body">
+                      <strong>Problem:</strong> Explain why flashlight beams shining straight down at 90° appear brighter and hotter than beams striking a surface at a slanted 30° angle. How does this map to Earth's equator vs. poles?
+                      <div class="fill-lines">
+                        <div class="fill-line"></div>
+                        <div class="fill-line"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="worksheet-section" id="worksheet-section-3">
+                  <h3 class="section-heading">Task C: Orbit & Distance Critique (Extension Level)</h3>
+                  <p class="section-instruction">Evaluate the common misconception: "Earth experiences summer because it is physically closer to the Sun during its elliptical orbit." Write a claim-evidence-reasoning (CER) critique.</p>
+                  <div class="question-item">
+                    <span class="question-num">✎</span>
+                    <div class="question-body">
+                      <strong>Task:</strong> Evaluate the common misconception: "Earth experiences summer because it is physically closer to the Sun during its elliptical orbit." Write a claim-evidence-reasoning (CER) critique.
+                      <div class="fill-lines">
+                        <div class="fill-line"></div>
+                        <div class="fill-line"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+        } else if (messageIndex === 4) {
+          const statusEl = buddyWindow.querySelector("#editor-status");
+          if (statusEl) statusEl.textContent = "Saving...";
+
+          setTimeout(() => {
+            if (streamId !== currentStreamId) return;
+            
+            const placeholder = buddyWindow.querySelector("#worksheet-infographic-placeholder") as HTMLElement | null;
+            if (placeholder) {
+              placeholder.style.display = "block";
+              placeholder.innerHTML = `
+                <div class="worksheet-infographic-container">
+                  <img src="/seasons_diagram.jpg" class="worksheet-infographic-img" alt="Earth Orbit and Tilt Diagram" />
+                </div>
+              `;
+            }
+            if (statusEl) statusEl.textContent = "Saved";
+          }, 500);
+        } else if (messageIndex === 7) {
+          // Update content, set status to saving, and let highlight fade to saved
+          const statusEl = buddyWindow.querySelector("#editor-status");
+          if (statusEl) statusEl.textContent = "Saving...";
+          
+          const sec1 = buddyWindow.querySelector("#worksheet-section-1");
+          if (sec1) {
+            sec1.innerHTML = `
+              <div class="editor-text-flash">
+                <h3 class="section-heading">Task A: Solstice & Equinox Dates (Support Level)</h3>
+                <p class="section-instruction">Earth revolves around the Sun with a constant 23.5° axial tilt. Using your physical orbit model, match the Earth's configuration to the correct season and approximate date parameters:</p>
+                <div class="worksheet-questions-list">
+                  <div class="question-item">
+                    <span class="question-num">1</span>
+                    <div class="question-body">
+                      <strong>June Solstice</strong> (June 20-22): Northern Hemisphere tilted toward the Sun.<br>
+                      <span class="question-fill">Season: <span class="fill-blank">[_______________]</span></span>
+                    </div>
+                  </div>
+                  <div class="question-item">
+                    <span class="question-num">2</span>
+                    <div class="question-body">
+                      <strong>December Solstice</strong> (Dec 21-23): Northern Hemisphere tilted away from the Sun.<br>
+                      <span class="question-fill">Season: <span class="fill-blank">[_______________]</span></span>
+                    </div>
+                  </div>
+                  <div class="question-item">
+                    <span class="question-num">3</span>
+                    <div class="question-body">
+                      <strong>March & Sept Equinoxes</strong> (Mar 20-22 / Sept 22-23): Equal day and night parameters.<br>
+                      <span class="question-fill">Season: <span class="fill-blank">[_______________]</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+
+          setTimeout(() => {
+            if (streamId !== currentStreamId) return;
+            if (sec1) {
+              sec1.classList.remove("ai-focus-highlight");
+            }
+            if (statusEl) statusEl.textContent = "Saved";
+
+            // Hide composer chip
+            const chip = buddyWindow.querySelector("#chat-selection-chip") as HTMLElement | null;
+            if (chip) {
+              chip.style.display = "none";
+            }
+          }, 300);
+        } else if (messageIndex === 10) {
+          const statusEl = buddyWindow.querySelector("#editor-status");
+          if (statusEl) statusEl.textContent = "Saving...";
+          
+          setTimeout(() => {
+            if (streamId !== currentStreamId) return;
+            if (statusEl) statusEl.textContent = "Aligned";
+            
+            const banner = buddyWindow.querySelector("#worksheet-standards-banner");
+            if (banner) {
+              banner.innerHTML = `
+                <span class="standard-badge badge-ngss">NGSS MS-ESS1-1</span>
+              `;
+            }
+
+            const sec1 = buddyWindow.querySelector("#worksheet-section-1");
+            const sec2 = buddyWindow.querySelector("#worksheet-section-2");
+            const sec3 = buddyWindow.querySelector("#worksheet-section-3");
+            if (sec1 && !sec1.querySelector(".section-alignment")) {
+              const heading = sec1.querySelector(".section-heading");
+              if (heading) heading.insertAdjacentHTML('afterend', '<span class="section-alignment editor-text-flash">Aligns with MS-ESS1-1 (Axial Tilt & Seasons)</span>');
+            }
+            if (sec2 && !sec2.querySelector(".section-alignment")) {
+              const heading = sec2.querySelector(".section-heading");
+              if (heading) heading.insertAdjacentHTML('afterend', '<span class="section-alignment editor-text-flash">Aligns with MS-ESS1-1 (Solar Intensity & Slant Angle)</span>');
+            }
+            if (sec3 && !sec3.querySelector(".section-alignment")) {
+              const heading = sec3.querySelector(".section-heading");
+              if (heading) heading.insertAdjacentHTML('afterend', '<span class="section-alignment editor-text-flash">Aligns with MS-ESS1-1 (Orbital Geometry CER)</span>');
+            }
+          }, 500);
+        } else if (messageIndex === 12) {
+          const statusEl = buddyWindow.querySelector("#editor-status");
+          if (statusEl) statusEl.textContent = "Exporting...";
+
+          setTimeout(() => {
+            if (streamId !== currentStreamId) return;
+            if (statusEl) statusEl.textContent = "Saved";
+          }, 500);
+        }
+      } else if (notebookKey === "quiz-generation") {
+        if (messageIndex === 1) {
+          const sk = buddyWindow.querySelector(".illustration-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+        } else if (messageIndex === 5) {
+          const sk = buddyWindow.querySelector(".wb-chat-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+          await animateWhiteboard("quiz-generation", streamId);
+        }
+      } else if (notebookKey === "curriculum-mapping") {
+        if (messageIndex === 1) {
+          const sk = buddyWindow.querySelector(".illustration-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+        } else if (messageIndex === 5) {
+          const sk = buddyWindow.querySelector(".wb-chat-card.state-skeleton");
+          if (sk) sk.classList.remove("state-skeleton");
+          await animateWhiteboard("curriculum-mapping", streamId);
+        }
+      }
+    }
+
+    function loadReaderPage(notebookKey: NotebookKey, pageIndex: number) {
+      const data = educatorNotebooks[notebookKey];
+      if (!data || !data.pages || !data.pages[pageIndex]) return;
+
+      const page = data.pages[pageIndex];
+      if (readerQuoteText) readerQuoteText.textContent = page.quote;
+      if (readerBodyText) readerBodyText.textContent = page.body;
+      if (readerSigText) readerSigText.textContent = page.signature;
+      if (readerLocationText) readerLocationText.textContent = page.location;
+    }
+
+    function appendMessage(sender: string, text: string) {
+      if (!chatFeed) return;
+      const bubble = document.createElement("div");
+      bubble.className = `mock-chat-bubble ${sender}`;
+
+      const inner = document.createElement("div");
+      inner.className = "bubble-content";
+      
+      const chip = buddyWindow.querySelector("#chat-selection-chip") as HTMLElement | null;
+      if (sender === "user" && chip && chip.style.display === "flex") {
+        const selectedText = chip.querySelector(".selection-chip-text")?.textContent || "";
+        inner.innerHTML = `
+          <div class="bubble-selection-context">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 4px; opacity: 0.7;">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <span>${selectedText}</span>
+          </div>
+          <div style="margin-top: 2px;">${text}</div>
+        `;
+        chip.style.display = "none";
+      } else {
+        inner.innerHTML = text;
+      }
+
+      bubble.appendChild(inner);
+      chatFeed.appendChild(bubble);
+      chatFeed.scrollTop = chatFeed.scrollHeight;
+    }
+
+    buddyWindow.querySelectorAll(".notebook-header").forEach(header => {
+      header.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const parent = header.closest(".notebook-item");
+        if (parent) parent.classList.toggle("expanded");
+      });
+    });
+
+    buddyWindow.querySelectorAll(".session-item").forEach(item => {
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        buddyWindow.querySelectorAll(".session-item").forEach(el => el.classList.remove("active"));
+        item.classList.add("active");
+
+        const parent = item.closest(".notebook-item");
+        if (parent) {
+          const key = parent.getAttribute("data-notebook") as NotebookKey;
+          loadNotebook(key);
+        }
+      });
+    });
+
+    if (fontToggleBtn && readerContentPane) {
+      fontToggleBtn.addEventListener("click", () => {
+        readerContentPane.classList.toggle("serif-font");
+        fontToggleBtn.classList.toggle("active");
+      });
+    }
+
+    if (readerPrevBtn) {
+      readerPrevBtn.addEventListener("click", () => {
+        const totalPages = educatorNotebooks[activeNotebook].pages.length;
+        let idx = currentPageIndices[activeNotebook];
+        idx = (idx - 1 + totalPages) % totalPages;
+        currentPageIndices[activeNotebook] = idx;
+        loadReaderPage(activeNotebook, idx);
+      });
+    }
+
+    if (readerNextBtn) {
+      readerNextBtn.addEventListener("click", () => {
+        const totalPages = educatorNotebooks[activeNotebook].pages.length;
+        let idx = currentPageIndices[activeNotebook];
+        idx = (idx + 1) % totalPages;
+        currentPageIndices[activeNotebook] = idx;
+        loadReaderPage(activeNotebook, idx);
+      });
+    }
+
+    if (chatForm && chatInput) {
+      chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          chatForm.dispatchEvent(new Event("submit"));
+        }
+      });
+
+      chatForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        if (isGenerating) {
+          currentStreamId++;
+          setGenerating(false);
+          const typingIndicator = buddyWindow.querySelector(".mock-chat-bubble.buddy.typing");
+          if (typingIndicator) typingIndicator.remove();
+          return;
+        }
+
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        currentStreamId++;
+        const streamId = currentStreamId;
+
+        appendMessage("user", text);
+        chatInput.value = "";
+        chatInput.style.height = "auto";
+
+        setGenerating(true);
+
+        setTimeout(() => {
+          if (!chatFeed || streamId !== currentStreamId) {
+            setGenerating(false);
+            return;
+          }
+          const typingIndicator = document.createElement("div");
+          typingIndicator.className = "mock-chat-bubble buddy typing";
+          typingIndicator.innerHTML = `
+            <div class="typing-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          `;
+          chatFeed.appendChild(typingIndicator);
+          chatFeed.scrollTop = chatFeed.scrollHeight;
+
+          setTimeout(async () => {
+            if (streamId !== currentStreamId) {
+              setGenerating(false);
+              return;
+            }
+            typingIndicator.remove();
+            
+            let reply = "I've searched your active documents but found no matching citations for that query. Would you like me to broaden the search to your whole home directory?";
+            if (text.toLowerCase().includes("lesson") || text.toLowerCase().includes("plan") || text.toLowerCase().includes("seasons") || text.toLowerCase().includes("task")) {
+              reply = "I've updated the task progression and standards alignment in the editor view.";
+            } else if (text.toLowerCase().includes("quiz") || text.toLowerCase().includes("photosynthesis") || text.toLowerCase().includes("assessment")) {
+              reply = "I've drafted a balanced formative assessment. You can customize the Bloom's levels directly.";
+            } else {
+              reply = `I'm analyzing the pedagogical strategy for <strong>${activeNotebook}</strong>. I've highlighted the relevant alignments.`;
+            }
+
+            const bubble = document.createElement("div");
+            bubble.className = `mock-chat-bubble buddy`;
+            const inner = document.createElement("div");
+            inner.className = "bubble-content";
+            bubble.appendChild(inner);
+            chatFeed.appendChild(bubble);
+            chatFeed.scrollTop = chatFeed.scrollHeight;
+
+            await typeMessage(inner, reply, streamId, activeNotebook, -1);
+            if (streamId === currentStreamId) {
+              setGenerating(false);
+            }
+          }, 1200);
+
+        }, 300);
+      });
+
+      chatInput.addEventListener("input", () => {
+        chatInput.style.height = "auto";
+        chatInput.style.height = (chatInput.scrollHeight) + "px";
+      });
+
+      const chipCloseBtn = buddyWindow.querySelector("#chat-selection-chip-close");
+      if (chipCloseBtn) {
+        chipCloseBtn.addEventListener("click", () => {
+          const chip = buddyWindow.querySelector("#chat-selection-chip") as HTMLElement | null;
+          if (chip) chip.style.display = "none";
+          
+          const section1 = buddyWindow.querySelector("#worksheet-section-1") as HTMLElement | null;
+          if (section1) {
+            section1.classList.remove("ai-focus-highlight");
+            // Restore clean unselected content
+            section1.innerHTML = `
+              <h3 class="section-heading">Task A: Solstice Orientation (Support Level)</h3>
+              <p class="section-instruction">Earth revolves around the Sun with a constant 23.5° axial tilt. Using your physical orbit model, match the Earth's configuration to the correct season for each hemisphere:</p>
+              <div class="equation-box">
+                <code>1. June Solstice: Northern Hemisphere tilted toward the Sun. Season: [___________]</code><br>
+                <code>2. December Solstice: Northern Hemisphere tilted away from the Sun. Season: [___________]</code>
+              </div>
+            `;
+          }
+        });
+      }
+    }
+
+    const buddySkillsCatalog: Record<string, {
+      displayName: string;
+      description: string;
+      version: string;
+      scope: string;
+      source: string;
+      instructions: string;
+    }> = {
+      "align-teaching-topics-to-grade-level-and-age": {
+        displayName: "Developmental Aligner",
+        description: "Align teaching topics to developmental readiness, cognitive stages, grade bands, and age levels.",
+        version: "1.2.0",
+        scope: "Global",
+        source: "Curated",
+        instructions: "<h4>Align Topics Guidelines</h4><ul><li>Analyze typical understandings for class age bands.</li><li>Map abstract disciplinary ideas to concrete physical contexts.</li><li>Assess student readiness based on knowledge phases, not just grade labels.</li></ul>"
+      },
+      "assess": {
+        displayName: "Assessment Scaffolder",
+        description: "Diagnostic testing, student assessments, rubrics, and feedback loops.",
+        version: "1.4.0",
+        scope: "Workspace",
+        source: "Curated",
+        instructions: "<h4>Assessment Patterns</h4><ul><li>Draft diagnostic checkpoints using scaffolding models.</li><li>Construct scoring rubrics aligned with target standard criteria.</li><li>Provide detailed qualitative feedback patterns for errors.</li></ul>"
+      },
+      "find-indian-education-resources": {
+        displayName: "Curriculum Resource Locator",
+        description: "Search and locate textbooks, NCERT guidelines, CBSE board syllabus, and state curriculum resources.",
+        version: "2.0.1",
+        scope: "Global",
+        source: "Curated",
+        instructions: "<h4>Resource Selection</h4><ul><li>Prioritize NCERT textbooks for national board syllabus.</li><li>Check CBSE Academic papers for sample question structures.</li><li>Fallback to SCERT repositories for regional language editions.</li></ul>"
+      },
+      "fetch-indian-competition-papers": {
+        displayName: "Exam Paper Retriever",
+        description: "Retrieve competitive exam questions, syllabus grids, and state public service commission papers.",
+        version: "1.1.5",
+        scope: "Global",
+        source: "System",
+        instructions: "<h4>Fetch PSC Guidelines</h4><ul><li>Navigate ASP.NET state postbacks cleanly.</li><li>Extract PDF resource links from governmental announcement feeds.</li></ul>"
+      },
+      "obsidian": {
+        displayName: "Obsidian Vault Sync",
+        description: "Vault root compatibility and markdown synchronisation for Obsidian vaults.",
+        version: "1.0.0",
+        scope: "Workspace",
+        source: "System",
+        instructions: "<h4>Vault Sync rules</h4><ul><li>Synchronize file system structure with active Vault nodes.</li><li>Support frontmatter tag ingestion for search.</li><li>Auto-detect bidirectional wiki-links.</li></ul>"
+      },
+      "teach-mathematics": {
+        displayName: "Math Concept Scaffolder",
+        description: "Mathematics teaching, equation builders, and conceptual progressions.",
+        version: "2.3.0",
+        scope: "Global",
+        source: "Curated",
+        instructions: "<h4>Mathematics Guidelines</h4><ul><li>Draft equations and variables with clean layout spacing.</li><li>Build step-by-step progressions from basic arithmetic to algebraic abstraction.</li><li>Avoid dense, crowded blocks of numerical syntax.</li></ul>"
+      },
+      "analogy": {
+        displayName: "Analogy Builder",
+        description: "Analogies, structural mapping, and conceptual schema links.",
+        version: "1.0.2",
+        scope: "Global",
+        source: "Curated",
+        instructions: "<h4>Analogy Framework</h4><ul><li>Identify source and target concept similarities explicitly.</li><li>Highlight structural mapping strengths and limits.</li><li>Map new ideas to familiar physical mechanisms.</li></ul>"
+      },
+      "reading": {
+        displayName: "Reading Passage Builder",
+        description: "Reading materials, text passages, and comprehension questions.",
+        version: "1.5.0",
+        scope: "Workspace",
+        source: "System",
+        instructions: "<h4>Reading Design</h4><ul><li>Structure reading passages with clear paragraph headings.</li><li>Include grade-appropriate comprehension check questions.</li><li>Add vocabulary callouts for advanced terminology.</li></ul>"
+      },
+      "buddy-help": {
+        displayName: "Workspace Assistant",
+        description: "Help and usage guidelines for Buddy's agentic workspace loops.",
+        version: "1.0.0",
+        scope: "Global",
+        source: "System",
+        instructions: "<h4>Workspace Basics</h4><ul><li>Explain agent loop iterations and tool call structures.</li><li>Help teachers customize workspaces and save documents.</li></ul>"
+      }
+    };
+
+    function showMockToast(message: string) {
+      const toastEl = buddyWindow.querySelector("#workspace-toast") as HTMLElement | null;
+      if (toastEl) {
+        const textEl = toastEl.querySelector(".toast-message");
+        if (textEl) textEl.textContent = message;
+        toastEl.classList.add("visible");
+        setTimeout(() => {
+          toastEl.classList.remove("visible");
+        }, 2500);
+      }
+    }
+
+    if (skillsRailBtn) {
+      skillsRailBtn.addEventListener('click', () => {
+        buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        skillsRailBtn.classList.add('active');
+        buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes', 'show-slides');
+        buddyWindow.classList.add('show-skills');
+        
+        if (windowActiveNotebook) windowActiveNotebook.textContent = "Skills";
+        if (windowActiveSession) windowActiveSession.textContent = "Installed Skills";
+
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
+        }
+      });
+    }
+
+    if (flashcardsRailBtn) {
+      flashcardsRailBtn.addEventListener('click', () => {
+        buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        flashcardsRailBtn.classList.add('active');
+        buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-skills');
+        buddyWindow.classList.add('show-notes');
+        
+        const shell = buddyWindow.querySelector(".editor-bench-shell") as HTMLElement | null;
+        if (shell) shell.classList.remove("slides-mode");
+        
+        if (windowActiveNotebook) windowActiveNotebook.textContent = "Editor";
+        if (windowActiveSession) windowActiveSession.textContent = "seasons-outline.md";
+
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
+        }
+      });
+    }
+
+    // Set up skills list item clicks & toggle switches
+    const skillRows = buddyWindow.querySelectorAll('.skill-row-item');
+    const detailView = buddyWindow.querySelector('#skills-detail-view');
+    const detailContent = buddyWindow.querySelector('#skills-detail-content');
+    const backBtn = buddyWindow.querySelector('#skills-back-btn');
+
+    skillRows.forEach(row => {
+      const clickable = row.querySelector('.skill-row-clickable');
+      if (clickable) {
+        clickable.addEventListener('click', () => {
+          const skillKey = row.getAttribute('data-skill') || '';
+          const skillData = buddySkillsCatalog[skillKey];
+          if (skillData && detailContent && detailView) {
+            detailContent.innerHTML = `
+              <h3 class="skills-detail-title">${skillData.displayName}</h3>
+              <p class="skills-detail-desc">${skillData.description}</p>
+              <div class="skills-fields-list">
+                <div class="skills-field-item">
+                  <span class="skills-field-label">Version</span>
+                  <span class="skills-field-value">${skillData.version}</span>
+                </div>
+                 <div class="skills-field-item">
+                  <span class="skills-field-label">Source</span>
+                  <span class="skills-field-value">${skillData.source}</span>
+                </div>
+                <div class="skills-field-item">
+                  <span class="skills-field-label">Scope</span>
+                  <span class="skills-field-value">${skillData.scope}</span>
+                </div>
+                <div class="skills-field-item">
+                  <span class="skills-field-label">Status</span>
+                  <span class="skills-field-value">${row.querySelector('input')?.checked ? 'Enabled' : 'Disabled'}</span>
+                </div>
+              </div>
+              <div class="skills-md-content">
+                ${skillData.instructions}
+              </div>
+            `;
+            detailView.classList.add('show-detail');
+          }
+        });
+      }
+
+      const checkbox = row.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+      if (checkbox) {
+        checkbox.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const skillKey = row.getAttribute('data-skill') || '';
+          const isChecked = checkbox.checked;
+          showMockToast(`${isChecked ? 'Enabled' : 'Disabled'} skill: ${skillKey}`);
+        });
+      }
+    });
+
+    if (backBtn && detailView) {
+      backBtn.addEventListener('click', () => {
+        detailView.classList.remove('show-detail');
+      });
+    }
+
+    // Minimal HTML Widget Logic
+    const wSlider = buddyWindow.querySelector('#widget-pressure') as HTMLInputElement | null;
+    const wValInward = buddyWindow.querySelector('#val-inward') as HTMLElement | null;
+    const wValCrowd = buddyWindow.querySelector('#val-crowd') as HTMLElement | null;
+    const wQuote = buddyWindow.querySelector('#widget-quote') as HTMLElement | null;
+    const wExplain = buddyWindow.querySelector('#widget-explain') as HTMLElement | null;
+    const wVisualZone = buddyWindow.querySelector('#visual-zone') as HTMLElement | null;
+
+    function updateMinimalWidget() {
+      if (!wSlider || !wValInward || !wValCrowd || !wQuote || !wExplain) return;
+      
+      const crowdVal = Number(wSlider.value);
+      
+      if (wVisualZone) {
+        wVisualZone.style.setProperty('--pressure', String(crowdVal / 100));
+      }
+
+      const inwardVal = 100 - crowdVal;
+
+      wValInward.textContent = inwardVal + '%';
+      wValCrowd.textContent = crowdVal + '%';
+
+      let quoteText = '';
+      let explainText = '';
+
+      if (crowdVal <= 35) {
+        quoteText = 'Worked Example: Show the entire path.';
+        explainText = 'Provides a complete step-by-step solved problem. Ideal for introducing new topics.';
+      } else if (crowdVal <= 70) {
+        quoteText = 'Guided Practice: Bridge the gap with hints.';
+        explainText = 'Scaffolds student work with structural prompts, leading questions, and partial answers.';
+      } else {
+        quoteText = 'Independent Transfer: Apply in new contexts.';
+        explainText = 'Challenges students to apply the concept to a real-world scenario with zero scaffolds.';
+      }
+
+      wQuote.textContent = quoteText;
+      wExplain.textContent = explainText;
+
+      buddyWindow.querySelectorAll('.mode-btn').forEach(btn => {
+        const val = Number(btn.getAttribute('data-val'));
+        if (val === crowdVal) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    }
+
+    if (wSlider) {
+      wSlider.addEventListener('input', updateMinimalWidget);
+
+      buddyWindow.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.getAttribute('data-val');
+          if (val !== null) {
+            wSlider.value = val;
+            updateMinimalWidget();
+          }
+        });
+      });
+
+      updateMinimalWidget();
+    }
+
+    buddyWindow.querySelectorAll(".wb-tool-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        buddyWindow.querySelectorAll(".wb-tool-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+    });
+
+    const zoomOutBtn = buddyWindow.querySelector("#wb-zoom-out") as HTMLElement | null;
+    const zoomInBtn = buddyWindow.querySelector("#wb-zoom-in") as HTMLElement | null;
+    const zoomValue = buddyWindow.querySelector("#wb-zoom-value") as HTMLElement | null;
+    let currentZoom = 130;
+
+    if (zoomOutBtn && zoomInBtn && zoomValue) {
+      zoomOutBtn.addEventListener("click", () => {
+        if (currentZoom > 50) {
+          currentZoom -= 10;
+          zoomValue.textContent = `${currentZoom}%`;
+        }
+      });
+      zoomInBtn.addEventListener("click", () => {
+        if (currentZoom < 200) {
+          currentZoom += 10;
+          zoomValue.textContent = `${currentZoom}%`;
+        }
+      });
+    }
+
+    const sidebarToggleBtn = buddyWindow.querySelector('.circle-btn[title="Toggle Sidebar"]') as HTMLElement | null;
+    const floatingToggleBtn = buddyWindow.querySelector("#floating-toggle-btn") as HTMLElement | null;
+
+    if (sidebarToggleBtn) {
+      sidebarToggleBtn.addEventListener('click', () => {
+        if (workspaceBody) workspaceBody.classList.add('sidebar-closed');
+      });
+    }
+
+    if (floatingToggleBtn) {
+      floatingToggleBtn.addEventListener('click', () => {
+        if (workspaceBody) workspaceBody.classList.remove('sidebar-closed');
+      });
+    }
+
+    // Whiteboard panning logic
+    const wbCanvas = buddyWindow.querySelector(".whiteboard-canvas") as HTMLElement | null;
+    if (wbCanvas) {
+      let isPanning = false;
+      let startX = 0;
+      let startY = 0;
+      let panX = 0;
+      let panY = 0;
+
+      wbCanvas.addEventListener("mousedown", (e) => {
+        if ((e.target as HTMLElement).closest("button, input, select, textarea")) return;
+        isPanning = true;
+        startX = e.clientX - panX;
+        startY = e.clientY - panY;
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!isPanning) return;
+        panX = e.clientX - startX;
+        panY = e.clientY - startY;
+        wbCanvas.style.setProperty("--pan-x", `${panX}px`);
+        wbCanvas.style.setProperty("--pan-y", `${panY}px`);
+      });
+
+      window.addEventListener("mouseup", () => {
+        isPanning = false;
+      });
+    }
+
+    const toastOpenBtn = buddyWindow.querySelector('.toast-action-btn') as HTMLElement | null;
+    const toastEl = buddyWindow.querySelector("#workspace-toast") as HTMLElement | null;
+    if (toastOpenBtn && toastEl) {
+      toastOpenBtn.addEventListener('click', () => {
+        toastEl.classList.remove('visible');
+      });
+    }
+
+    // Slide deck viewer logic
+    let currentSlide = 1;
+    const totalSlides = 2;
+    const slidePrevBtn = buddyWindow.querySelector("#slide-prev-btn") as HTMLButtonElement | null;
+    const slideNextBtn = buddyWindow.querySelector("#slide-next-btn") as HTMLButtonElement | null;
+    const slideNavIndicator = buddyWindow.querySelector("#slide-nav-indicator") as HTMLElement | null;
+    const slideCard1 = buddyWindow.querySelector("#slide-card-1") as HTMLElement | null;
+    const slideCard2 = buddyWindow.querySelector("#slide-card-2") as HTMLElement | null;
+    const slidesPresentBtn = buddyWindow.querySelector("#slides-present-btn") as HTMLButtonElement | null;
+
+    function updateSlides() {
+      if (!slidePrevBtn || !slideNextBtn || !slideNavIndicator || !slideCard1 || !slideCard2) return;
+      
+      // Toggle active slides
+      if (currentSlide === 1) {
+        slideCard1.style.display = "flex";
+        slideCard2.style.display = "none";
+        slidePrevBtn.disabled = true;
+        slideNextBtn.disabled = false;
+      } else {
+        slideCard1.style.display = "none";
+        slideCard2.style.display = "flex";
+        slidePrevBtn.disabled = false;
+        slideNextBtn.disabled = true;
+      }
+      
+      slideNavIndicator.textContent = `Slide ${currentSlide} of ${totalSlides}`;
+    }
+
+    if (slidePrevBtn) {
+      slidePrevBtn.addEventListener("click", () => {
+        if (currentSlide > 1) {
+          currentSlide--;
+          updateSlides();
+        }
+      });
+    }
+
+    if (slideNextBtn) {
+      slideNextBtn.addEventListener("click", () => {
+        if (currentSlide < totalSlides) {
+          currentSlide++;
+          updateSlides();
+        }
+      });
+    }
+
+    if (slidesPresentBtn) {
+      slidesPresentBtn.addEventListener("click", () => {
+        const shell = buddyWindow.querySelector(".slides-content-area");
+        if (shell) {
+          shell.classList.toggle("fullscreen");
+          const btnText = slidesPresentBtn.querySelector("span");
+          if (btnText) {
+            btnText.textContent = shell.classList.contains("fullscreen") ? "Exit" : "Present";
+          }
+        }
+      });
+    }
+
+    // Bind slide keys (Left/Right arrow, Space) when slides-mode is active
+    window.addEventListener("keydown", (e) => {
+      const benchShell = buddyWindow.querySelector(".editor-bench-shell");
+      if (e.key === "Escape") {
+        const shell = buddyWindow.querySelector(".slides-content-area");
+        if (shell && shell.classList.contains("fullscreen")) {
+          shell.classList.remove("fullscreen");
+          const btnText = slidesPresentBtn ? slidesPresentBtn.querySelector("span") : null;
+          if (btnText) btnText.textContent = "Present";
+        }
+      }
+      if (!benchShell || !benchShell.classList.contains("slides-mode")) return;
+      if (e.key === "ArrowRight" || e.key === " ") {
+        if (currentSlide < totalSlides) {
+          currentSlide++;
+          updateSlides();
+        }
+      } else if (e.key === "ArrowLeft") {
+        if (currentSlide > 1) {
+          currentSlide--;
+          updateSlides();
+        }
+      }
+    });
+
+    setTimeout(() => {
+      loadNotebook("lesson-planning");
+    }, 800);
+  }
+</script>

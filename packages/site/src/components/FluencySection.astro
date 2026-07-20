@@ -1,0 +1,185 @@
+---
+import type { Audience } from "../content/site"
+import { content } from "../content/site"
+import { AUDIENCE_EDUCATORS } from "../lib/constants"
+
+type Props = {
+  initialAudience?: Audience
+}
+
+const { initialAudience } = Astro.props
+const fluency = content.educatorFluency
+const isEducator = initialAudience === AUDIENCE_EDUCATORS
+---
+
+{isEducator && (
+  <section
+    class="fluency-section"
+    aria-labelledby="fluency-heading"
+    data-analytics-section="fluency"
+  >
+    <div class="container">
+      <div class="fluency-header reveal">
+        <h2 id="fluency-heading" class="fluency-headline">{fluency.headline}</h2>
+        <p class="fluency-subtext">{fluency.subtext}</p>
+      </div>
+    </div>
+
+    <div class="fluency-marquee reveal" aria-hidden="true">
+      <div class="fluency-row">
+        <div class="fluency-track">
+          {[...fluency.standards, ...fluency.standards].map((chip) => (
+            <span class="fluency-chip fluency-chip--standard">{chip}</span>
+          ))}
+        </div>
+      </div>
+      <div class="fluency-row">
+        <div class="fluency-track fluency-track--reverse">
+          {[...fluency.frameworks, ...fluency.frameworks].map((chip) => (
+            <span class="fluency-chip">{chip}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <p class="fluency-a11y-list">
+      Standards: {fluency.standards.join(", ")}. Frameworks: {fluency.frameworks.join(", ")}.
+    </p>
+  </section>
+)}
+
+<style>
+  .fluency-section {
+    padding: var(--space-24) 0;
+    overflow: clip;
+  }
+
+  .fluency-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: var(--space-16);
+  }
+
+  .fluency-headline {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3.5vw, 3rem);
+    font-weight: 510;
+    line-height: 1.1;
+    letter-spacing: -0.022em;
+    color: var(--color-text-primary);
+    text-wrap: balance;
+    max-width: 24ch;
+    margin: 0 0 var(--space-5) 0;
+  }
+
+  .fluency-subtext {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    font-weight: 300;
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+    letter-spacing: -0.011em;
+    max-width: 52ch;
+    text-wrap: pretty;
+    margin: 0;
+  }
+
+  .fluency-marquee {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent);
+  }
+
+  .fluency-row {
+    overflow: hidden;
+  }
+
+  .fluency-track {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding-right: var(--space-4);
+    width: max-content;
+    animation: fluency-scroll 44s linear infinite;
+  }
+
+  .fluency-track--reverse {
+    animation-duration: 58s;
+    animation-direction: reverse;
+  }
+
+  .fluency-marquee:hover .fluency-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes fluency-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .fluency-chip {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 10px 20px;
+    white-space: nowrap;
+  }
+
+  .fluency-chip--standard {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 510;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    color: var(--color-text-primary);
+    background-color: rgba(255, 107, 0, 0.04);
+    border-color: rgba(255, 107, 0, 0.22);
+    padding: 12px 28px;
+  }
+
+  .fluency-a11y-list {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fluency-track {
+      animation: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .fluency-section {
+      padding: var(--space-12) 0;
+    }
+
+    .fluency-header {
+      margin-bottom: var(--space-10);
+    }
+
+    .fluency-chip--standard {
+      font-size: 1.0625rem;
+      padding: 10px 22px;
+    }
+  }
+</style>
