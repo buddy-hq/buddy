@@ -14,7 +14,7 @@
     "icons:generate": "bun ./scripts/generate-icons.ts",
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
-    "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js -b",
+    "typecheck:raw": "bun run --cwd ../web prepare:web:typecheck && bun ../../node_modules/@typescript/native-preview/bin/tsgo.js -b",
     "predev": "bun ./scripts/predev.ts",
     "dev": "bun ./scripts/dev.ts",
     "prebuild": "bun ./scripts/prebuild.ts",
