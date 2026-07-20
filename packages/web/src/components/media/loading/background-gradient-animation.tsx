@@ -144,8 +144,7 @@ function BackgroundGradientAnimation({
   }, [])
 
   const containerStyle: GradientAnimationStyle = {
-    "--gradient-background-start":
-      gradientBackgroundStart ?? paletteColors.gradientBackgroundStart,
+    "--gradient-background-start": gradientBackgroundStart ?? paletteColors.gradientBackgroundStart,
     "--gradient-background-end": gradientBackgroundEnd ?? paletteColors.gradientBackgroundEnd,
     "--first-color": firstColor ?? paletteColors.firstColor,
     "--second-color": secondColor ?? paletteColors.secondColor,

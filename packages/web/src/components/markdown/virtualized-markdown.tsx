@@ -10,10 +10,7 @@ import {
 } from "@/components/virtualization/virtualization-defaults"
 import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import { markdownContentHash } from "./markdown-content-hash"
-import {
-  MarkdownHtmlSegment,
-  markdownBlockBoundaryClassName,
-} from "./markdown-html-segment"
+import { MarkdownHtmlSegment, markdownBlockBoundaryClassName } from "./markdown-html-segment"
 
 const LAZY_MARKDOWN_BLOCK_PREFETCH_PX = 1200
 const MIN_MEASURED_BLOCK_HEIGHT_PX = 1
@@ -132,16 +129,12 @@ function LazyMarkdownBlock(props: {
   const measuredHeightRef = useRef<{ key: string; height: number } | undefined>(
     cachedHeight === undefined ? undefined : { key: measurementKey, height: cachedHeight },
   )
-  const [nearViewport, setNearViewport] = useState(
-    props.block.ordinal === 0 || props.forceResident,
-  )
+  const [nearViewport, setNearViewport] = useState(props.block.ordinal === 0 || props.forceResident)
   const [placeholderMeasurement, setPlaceholderMeasurement] = useState<
     { key: string; height: number } | undefined
   >(cachedHeight === undefined ? undefined : { key: measurementKey, height: cachedHeight })
   const placeholderHeight =
-    placeholderMeasurement?.key === measurementKey
-      ? placeholderMeasurement.height
-      : cachedHeight
+    placeholderMeasurement?.key === measurementKey ? placeholderMeasurement.height : cachedHeight
   const shouldCacheMeasurement = !(props.streaming === true && props.forceResident)
   const canObserve =
     typeof HTMLElement !== "undefined" &&
@@ -216,11 +209,7 @@ function LazyMarkdownBlock(props: {
       data-markdown-virtual-block-key={blockKey}
       data-markdown-residency={resident ? "resident" : "placeholder"}
       className="min-w-0 w-full max-w-full [contain-intrinsic-size:auto_220px] [content-visibility:auto] [&:not(:last-child)]:pb-3"
-      style={
-        resident
-          ? undefined
-          : { minHeight: `${placeholderHeight ?? props.block.estimate}px` }
-      }
+      style={resident ? undefined : { minHeight: `${placeholderHeight ?? props.block.estimate}px` }}
     >
       {resident ? (
         <MarkdownHtmlSegment

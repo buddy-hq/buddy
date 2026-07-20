@@ -21,17 +21,11 @@ describe("gradient animation loading palette", () => {
   test("uses theme tokens with the original palette as fallback", () => {
     const markup = renderToStaticMarkup(<BackgroundGradientAnimation palette="theme" />)
 
-    expect(markup).toContain(
-      "--gradient-background-start:var(--background-base, rgb(108, 0, 162))",
-    )
-    expect(markup).toContain(
-      "--second-color:var(--theme-primary-base, rgb(221, 74, 255))",
-    )
+    expect(markup).toContain("--gradient-background-start:var(--background-base, rgb(108, 0, 162))")
+    expect(markup).toContain("--second-color:var(--theme-primary-base, rgb(221, 74, 255))")
     expect(markup).toContain("var(--theme-accent-base, rgb(100, 220, 255))")
     expect(markup).toContain("--fourth-color:var(--theme-accent-base, rgb(200, 50, 50))")
-    expect(markup).toContain(
-      "--pointer-color:var(--theme-primary-base, rgb(140, 100, 255))",
-    )
+    expect(markup).toContain("--pointer-color:var(--theme-primary-base, rgb(140, 100, 255))")
   })
 
   test("uses a unique SVG filter for each loader instance", () => {

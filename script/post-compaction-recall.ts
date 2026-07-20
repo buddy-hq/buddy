@@ -5,13 +5,8 @@ import { homedir } from "node:os"
 import path from "node:path"
 import { createInterface } from "node:readline"
 
-const THREAD_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const DEFAULT_TRANSCRIPT_DIRECTORY = path.join(
-  "docs",
-  "local",
-  "post-compaction-recall",
-)
+const THREAD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const DEFAULT_TRANSCRIPT_DIRECTORY = path.join("docs", "local", "post-compaction-recall")
 const INJECTED_USER_PREFIXES = [
   "<recommended_plugins>",
   "# AGENTS.md instructions",
@@ -61,18 +56,13 @@ type CliOptions = {
   threadId: string
 }
 
-type CliParseResult =
-  | { kind: "help" }
-  | { kind: "run"; options: CliOptions }
+type CliParseResult = { kind: "help" } | { kind: "run"; options: CliOptions }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function readString(
-  record: Record<string, unknown>,
-  key: string,
-): string | undefined {
+function readString(record: Record<string, unknown>, key: string): string | undefined {
   const value = record[key]
   return typeof value === "string" ? value : undefined
 }
@@ -163,10 +153,7 @@ function renderQuestion(question: QuestionPrompt): string {
   return quoteMarkdown(lines.join("\n"))
 }
 
-function renderQuestionAnswer(
-  question: QuestionPrompt,
-  answers: string[],
-): string {
+function renderQuestionAnswer(question: QuestionPrompt, answers: string[]): string {
   const lines: string[] = []
   if (question.header) lines.push(`**${question.header}**`, "")
   lines.push(...answers)
@@ -274,10 +261,7 @@ export function createPostCompactionTranscriptBuilder(
       if (answers.length === 0) continue
 
       questionAnswers += 1
-      addEntry(
-        "User · question answer",
-        renderQuestionAnswer(question, answers),
-      )
+      addEntry("User · question answer", renderQuestionAnswer(question, answers))
     }
   }
 
@@ -291,10 +275,7 @@ export function createPostCompactionTranscriptBuilder(
       addMessage(payload)
       return
     }
-    if (
-      payloadType === "function_call" &&
-      payload.name === "request_user_input"
-    ) {
+    if (payloadType === "function_call" && payload.name === "request_user_input") {
       addQuestionCall(payload)
       return
     }
@@ -313,10 +294,7 @@ export function createPostCompactionTranscriptBuilder(
       userMessages,
     }
     const renderedEntries = entries
-      .map(
-        (entry, index) =>
-          `## ${index + 1}. ${entry.heading}\n\n${entry.body}`,
-      )
+      .map((entry, index) => `## ${index + 1}. ${entry.heading}\n\n${entry.body}`)
       .join("\n\n")
     const trailingRecordNote = skippedTrailingRecord
       ? "\n- Warning: one incomplete trailing JSONL record was skipped because the active thread was being written"
@@ -343,10 +321,7 @@ ${renderedEntries}
   return { addRecord, finish }
 }
 
-async function consumeRollout(
-  sourcePath: string,
-  builder: TranscriptBuilder,
-): Promise<boolean> {
+async function consumeRollout(sourcePath: string, builder: TranscriptBuilder): Promise<boolean> {
   const input = createReadStream(sourcePath, { encoding: "utf8" })
   const lines = createInterface({ crlfDelay: Infinity, input })
   let lineNumber = 0
@@ -374,13 +349,8 @@ async function consumeRollout(
   return pendingMalformedLine !== undefined
 }
 
-async function findRolloutPath(
-  codexHome: string,
-  threadId: string,
-): Promise<string> {
-  const glob = new Bun.Glob(
-    `sessions/**/rollout-*-${threadId}.jsonl`,
-  )
+async function findRolloutPath(codexHome: string, threadId: string): Promise<string> {
+  const glob = new Bun.Glob(`sessions/**/rollout-*-${threadId}.jsonl`)
   const candidates: string[] = []
   for await (const relativePath of glob.scan({
     cwd: codexHome,
@@ -390,9 +360,7 @@ async function findRolloutPath(
   }
 
   if (candidates.length === 0) {
-    throw new Error(
-      `No raw Codex rollout found for thread ${threadId} under ${codexHome}`,
-    )
+    throw new Error(`No raw Codex rollout found for thread ${threadId} under ${codexHome}`)
   }
   if (candidates.length === 1) return candidates[0]
 
@@ -461,12 +429,7 @@ function parseCliOptions(args: string[]): CliParseResult {
     options: {
       codexHome,
       outputPath:
-        outputPath ??
-        path.resolve(
-          process.cwd(),
-          DEFAULT_TRANSCRIPT_DIRECTORY,
-          `${threadId}.md`,
-        ),
+        outputPath ?? path.resolve(process.cwd(), DEFAULT_TRANSCRIPT_DIRECTORY, `${threadId}.md`),
       ...(sourcePath ? { sourcePath } : {}),
       threadId,
     },
@@ -493,8 +456,7 @@ async function main(): Promise<void> {
   }
 
   const { codexHome, outputPath, sourcePath, threadId } = parsed.options
-  const resolvedSourcePath =
-    sourcePath ?? (await findRolloutPath(codexHome, threadId))
+  const resolvedSourcePath = sourcePath ?? (await findRolloutPath(codexHome, threadId))
   const sourceStats = await stat(resolvedSourcePath)
   if (!sourceStats.isFile()) {
     throw new Error(`Rollout source is not a file: ${resolvedSourcePath}`)

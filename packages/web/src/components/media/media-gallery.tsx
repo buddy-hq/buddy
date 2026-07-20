@@ -106,9 +106,7 @@ export function ToolImageGallery({
         toast.error(error instanceof Error ? error.message : String(error))
       })
       .finally(() => {
-        setEditingItemID((currentID) =>
-          currentID === inlineItem.id ? undefined : currentID,
-        )
+        setEditingItemID((currentID) => (currentID === inlineItem.id ? undefined : currentID))
       })
   }
 

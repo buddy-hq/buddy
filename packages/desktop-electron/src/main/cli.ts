@@ -67,7 +67,9 @@ function getBundledTessdataDir() {
 }
 
 function getTessdataDir() {
-  return resolveDevelopmentBackendPath(DEVELOPMENT_TESSDATA_PATH_SEGMENTS) ?? getBundledTessdataDir()
+  return (
+    resolveDevelopmentBackendPath(DEVELOPMENT_TESSDATA_PATH_SEGMENTS) ?? getBundledTessdataDir()
+  )
 }
 
 function resolveDevelopmentBackendRoot() {

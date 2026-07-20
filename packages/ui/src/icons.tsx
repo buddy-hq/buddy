@@ -14,13 +14,11 @@ import {
   ArrowUpDownIcon as ArrowUpDownIconData,
   BookOpen01Icon as BookOpenIconData,
   NotebookIcon as NotebookIconData,
-
   Cancel01Icon as Cancel01IconData,
   CheckmarkCircle02Icon as CheckmarkCircle02IconData,
   CircleQuestionMarkIcon as CircleQuestionMarkIconData,
   Clock3Icon as Clock3IconData,
   CopyIcon as CopyIconData,
-
   EllipsisIcon as EllipsisIconData,
   FileSlidersIcon as FileSlidersIconData,
   NoteEditIcon as NoteEditIconData,
@@ -29,7 +27,6 @@ import {
   FolderOpenIcon as FolderOpenIconData,
   Home01Icon as HomeIconData,
   Mail01Icon as MailIconData,
-
   MoveLeftIcon as MoveLeftIconData,
   PanelLeftCloseIcon as PanelLeftCloseIconData,
   PanelLeftOpenIcon as PanelLeftOpenIconData,
@@ -68,13 +65,7 @@ function createIcon(icon: IconSvgElement, displayName: string) {
     ref,
   ) {
     return (
-      <HugeiconsIcon
-        ref={ref}
-        icon={icon}
-        strokeWidth={strokeWidth}
-        color={color}
-        {...props}
-      />
+      <HugeiconsIcon ref={ref} icon={icon} strokeWidth={strokeWidth} color={color} {...props} />
     )
   })
   Icon.displayName = displayName
@@ -100,7 +91,10 @@ export const CircleCheckIcon = createIcon(CheckmarkCircle02IconData, "CircleChec
 export const ChevronDownIcon = createIcon(ArrowDown01IconData, "ChevronDownIcon")
 export const ChevronLeftIcon = createIcon(ArrowLeft01IconData, "ChevronLeftIcon")
 export const ChevronRightIcon = createIcon(ArrowRight01IconData, "ChevronRightIcon")
-export const CircleQuestionMarkIcon = createIcon(CircleQuestionMarkIconData, "CircleQuestionMarkIcon")
+export const CircleQuestionMarkIcon = createIcon(
+  CircleQuestionMarkIconData,
+  "CircleQuestionMarkIcon",
+)
 export const Clock3Icon = createIcon(Clock3IconData, "Clock3Icon")
 export const CopyIcon = createIcon(CopyIconData, "CopyIcon")
 /** Hugeicons free download-1 (`Download01Icon`). */

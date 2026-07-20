@@ -267,10 +267,7 @@ function touchMarkdownImageIntrinsicSize(key: string, size: MarkdownImageSize) {
   }
 }
 
-function authoredMarkdownImageDimension(
-  image: HTMLImageElement,
-  attribute: "width" | "height",
-) {
+function authoredMarkdownImageDimension(image: HTMLImageElement, attribute: "width" | "height") {
   const rawValue = image.getAttribute(attribute)
   if (rawValue === null) return
   const value = Number(rawValue)
@@ -786,14 +783,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
       if (!root.isConnected) return
       copyCleanupRef.current = setupCodeCopy(root, copyLabels)
     }, 0)
-  }, [
-    cachedEntry,
-    copyLabels,
-    fullCacheKey,
-    props.text,
-    resetCodeCopy,
-    resetMarkdownImages,
-  ])
+  }, [cachedEntry, copyLabels, fullCacheKey, props.text, resetCodeCopy, resetMarkdownImages])
 
   useEffect(() => {
     const root = rootRef.current

@@ -421,8 +421,7 @@ const educatorWhy: WhySection = {
   askLabel: "Sunday · 7:14 pm · you ask once",
   askPrompt:
     "Plan next week: area and perimeter, grade 4. Half my class is still shaky on multiplication.",
-  closing:
-    "By 7:19, the week is on your desk. You keep the teaching, and your Sunday.",
+  closing: "By 7:19, the week is on your desk. You keep the teaching, and your Sunday.",
 }
 
 const educatorAnswers: Answers = {
@@ -471,7 +470,8 @@ const learnerAnswers: Answers = {
 
 const learnerLives: LearnerLives = {
   headline: "For everything you'll ever learn.",
-  closing: "Whatever you're learning, for a grade, a career, or the joy of it, Buddy meets you there.",
+  closing:
+    "Whatever you're learning, for a grade, a career, or the joy of it, Buddy meets you there.",
 }
 
 const educatorFeatureNarrative =

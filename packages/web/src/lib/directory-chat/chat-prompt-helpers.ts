@@ -217,7 +217,10 @@ export function buildPromptPreviewParts(
   promptParts: PromptComposerPart[],
   attachments: PromptComposerAttachment[],
 ): PromptSubmissionPart[] {
-  return [...promptParts.map((part) => ({ ...part })), ...buildPromptAttachmentParts(attachments, false)]
+  return [
+    ...promptParts.map((part) => ({ ...part })),
+    ...buildPromptAttachmentParts(attachments, false),
+  ]
 }
 
 export function buildPromptSubmissionParts(

@@ -24,7 +24,9 @@ function truncateSemanticValue(value: string, maxCharacters: number): string {
   if (value.length <= maxCharacters) return value
   const truncated = value.slice(0, maxCharacters + 1)
   const wordBoundary = truncated.lastIndexOf(" ")
-  return (wordBoundary > 0 ? truncated.slice(0, wordBoundary) : value.slice(0, maxCharacters)).trim()
+  return (
+    wordBoundary > 0 ? truncated.slice(0, wordBoundary) : value.slice(0, maxCharacters)
+  ).trim()
 }
 
 export function resolveGeneratedImageTitle(input: { title?: string; prompt: string }): string {

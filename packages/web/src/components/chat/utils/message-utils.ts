@@ -59,9 +59,7 @@ export function assistantPartRenderable(
 
   const presentation = parseToolPresentation(part)
   return Boolean(
-    presentation &&
-      presentation.archetype !== "silent" &&
-      presentation.outcome.type !== "silent",
+    presentation && presentation.archetype !== "silent" && presentation.outcome.type !== "silent",
   )
 }
 
@@ -108,8 +106,7 @@ function collectConsecutiveToolParts(
       break
     }
     const presentation = parseToolPresentation(part)
-    if (presentation?.archetype !== "inline-output" || presentation.collection !== collection)
-      break
+    if (presentation?.archetype !== "inline-output" || presentation.collection !== collection) break
     groupedParts.push(part)
     nextIndex += 1
   }
@@ -211,9 +208,7 @@ export function groupAssistantParts(
   return items
 }
 
-function toolPartLayoutRole(
-  part: MessagePart,
-): "compact-output" | "card-output" | "media-output" {
+function toolPartLayoutRole(part: MessagePart): "compact-output" | "card-output" | "media-output" {
   const presentation = parseToolPresentation(part)
   if (presentation?.archetype === "inline-output") {
     return presentation.layoutRole
@@ -226,7 +221,9 @@ function partLayoutRole(part: MessagePart): ToolLayoutRole {
   if (isChatTextPart(part)) return "prose"
   if (!isChatToolPart(part)) return "prose"
   const presentation = parseToolPresentation(part)
-  return presentation?.archetype === "silent" ? "activity" : (presentation?.layoutRole ?? "activity")
+  return presentation?.archetype === "silent"
+    ? "activity"
+    : (presentation?.layoutRole ?? "activity")
 }
 
 export function buildTurns(messages: MessageWithParts[]): ChatTurn[] {

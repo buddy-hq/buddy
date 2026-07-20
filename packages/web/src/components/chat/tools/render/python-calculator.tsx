@@ -18,11 +18,7 @@ export function renderPythonCalculatorTool({ state, info }: ToolPartProps) {
 
   if (running) {
     return (
-      <ObjectCard
-        title={info.title}
-        badge={language.t("chatTools.python")}
-        status={state.status}
-      >
+      <ObjectCard title={info.title} badge={language.t("chatTools.python")} status={state.status}>
         <div className="space-y-2 p-4">
           <div className="h-2.5 w-3/5 animate-pulse rounded-sm bg-surface-weak/70" />
           <div className="h-2.5 w-2/5 animate-pulse rounded-sm bg-surface-weak/50" />

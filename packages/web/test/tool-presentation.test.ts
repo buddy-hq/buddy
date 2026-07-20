@@ -134,7 +134,9 @@ describe("resolved tool presentation", () => {
         ),
       })
 
-    expect(groupAssistantParts([activity("one"), textPart("text", "Done"), activity("two")], true)).toEqual([
+    expect(
+      groupAssistantParts([activity("one"), textPart("text", "Done"), activity("two")], true),
+    ).toEqual([
       { type: "abstracted", key: "activity:0", layoutRole: "activity", parts: [activity("one")] },
       { type: "part", key: "part:text", layoutRole: "prose", part: textPart("text", "Done") },
       { type: "abstracted", key: "activity:1", layoutRole: "activity", parts: [activity("two")] },

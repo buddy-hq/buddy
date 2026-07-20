@@ -36,9 +36,9 @@ function assistantArticleByText(container: HTMLElement, text: string) {
 }
 
 function activityArticleByText(container: HTMLElement, text: string) {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>('[data-timeline-row="Activity"]'),
-  ).find((element) => element.textContent?.includes(text))
+  return Array.from(container.querySelectorAll<HTMLElement>('[data-timeline-row="Activity"]')).find(
+    (element) => element.textContent?.includes(text),
+  )
 }
 
 describe("chat transcript ActivityRow", () => {
@@ -527,10 +527,7 @@ describe("chat transcript ActivityRow", () => {
         ],
       })
       root.render(
-        <ChatTranscript
-          directory="/repo-live-tool"
-          scrollViewportRef={transcriptViewport.ref}
-        />,
+        <ChatTranscript directory="/repo-live-tool" scrollViewportRef={transcriptViewport.ref} />,
       )
       await flushEffects()
     })

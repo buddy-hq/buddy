@@ -100,10 +100,7 @@ function transformGlobalEventPayload(payload: unknown, directory: string): unkno
       ...payload.payload,
       properties: {
         ...payload.payload.properties,
-        part: withToolPresentationOnUnknownPart(
-          payload.payload.properties.part,
-          payload.directory,
-        ),
+        part: withToolPresentationOnUnknownPart(payload.payload.properties.part, payload.directory),
       },
     },
   }

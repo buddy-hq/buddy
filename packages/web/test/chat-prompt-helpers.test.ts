@@ -143,17 +143,20 @@ describe("buildPromptSubmissionParts", () => {
   })
 
   test("submits the staged image edit snapshot while retaining its local path metadata", () => {
-    const parts = buildPromptSubmissionParts([], [
-      {
-        id: "attachment-1",
-        filename: "edit me.png",
-        mime: "image/png",
-        dataUrl: "data:image/png;base64,iVBORw0KGgo=",
-        localPath: "/Users/example/generated/edit me.png",
-        editTarget: true,
-        kind: "image",
-      },
-    ])
+    const parts = buildPromptSubmissionParts(
+      [],
+      [
+        {
+          id: "attachment-1",
+          filename: "edit me.png",
+          mime: "image/png",
+          dataUrl: "data:image/png;base64,iVBORw0KGgo=",
+          localPath: "/Users/example/generated/edit me.png",
+          editTarget: true,
+          kind: "image",
+        },
+      ],
+    )
 
     expect(parts).toEqual([
       {
@@ -170,17 +173,20 @@ describe("buildPromptSubmissionParts", () => {
     ])
 
     expect(
-      buildPromptPreviewParts([], [
-        {
-          id: "attachment-1",
-          filename: "edit me.png",
-          mime: "image/png",
-          dataUrl: "data:image/png;base64,iVBORw0KGgo=",
-          localPath: "/Users/example/generated/edit me.png",
-          editTarget: true,
-          kind: "image",
-        },
-      ]),
+      buildPromptPreviewParts(
+        [],
+        [
+          {
+            id: "attachment-1",
+            filename: "edit me.png",
+            mime: "image/png",
+            dataUrl: "data:image/png;base64,iVBORw0KGgo=",
+            localPath: "/Users/example/generated/edit me.png",
+            editTarget: true,
+            kind: "image",
+          },
+        ],
+      ),
     ).toEqual([
       {
         type: "file",
@@ -197,16 +203,19 @@ describe("buildPromptSubmissionParts", () => {
   })
 
   test("normalizes Windows image paths to file URLs", () => {
-    const parts = buildPromptSubmissionParts([], [
-      {
-        id: "attachment-1",
-        filename: "edit.png",
-        mime: "image/png",
-        dataUrl: "data:image/png;base64,iVBORw0KGgo=",
-        localPath: "C:\\Users\\example\\generated\\edit.png",
-        kind: "image",
-      },
-    ])
+    const parts = buildPromptSubmissionParts(
+      [],
+      [
+        {
+          id: "attachment-1",
+          filename: "edit.png",
+          mime: "image/png",
+          dataUrl: "data:image/png;base64,iVBORw0KGgo=",
+          localPath: "C:\\Users\\example\\generated\\edit.png",
+          kind: "image",
+        },
+      ],
+    )
 
     expect(parts[0]).toEqual({
       type: "file",

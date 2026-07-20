@@ -136,9 +136,7 @@ function groupedImageSources(part: MessagePart): GroupedImageSource[] {
     ]
   })
 
-  return items.length > 0
-    ? items
-    : [{ type: "placeholder", item: groupedImagePlaceholder(part) }]
+  return items.length > 0 ? items : [{ type: "placeholder", item: groupedImagePlaceholder(part) }]
 }
 
 function useGroupedImageItems(

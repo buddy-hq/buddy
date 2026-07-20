@@ -5,10 +5,7 @@ const THREAD_ID = "019f7164-cae1-7652-b6b7-90b538dac9aa"
 
 describe("post-compaction recall transcript", () => {
   test("preserves visible messages and structured question answers", () => {
-    const builder = createPostCompactionTranscriptBuilder(
-      THREAD_ID,
-      "2026-07-18",
-    )
+    const builder = createPostCompactionTranscriptBuilder(THREAD_ID, "2026-07-18")
 
     builder.addRecord({
       payload: {
@@ -70,12 +67,8 @@ describe("post-compaction recall transcript", () => {
 
     expect(transcript.markdown).toContain("Design this with me")
     expect(transcript.markdown).toContain("Which behavior do you want?")
-    expect(transcript.markdown).toContain(
-      "Where should the busy status appear?",
-    )
-    expect(transcript.markdown).toContain(
-      "**Tail row** — Keep the status at the live end.",
-    )
+    expect(transcript.markdown).toContain("Where should the busy status appear?")
+    expect(transcript.markdown).toContain("**Tail row** — Keep the status at the live end.")
     expect(transcript.markdown).toContain("Tail row\n> Keep it compact")
     expect(transcript.markdown).not.toContain("environment_context")
     expect(transcript.stats).toEqual({
@@ -117,9 +110,7 @@ describe("post-compaction recall transcript", () => {
     expect(transcript.markdown).not.toContain("private reasoning")
     expect(transcript.markdown).not.toContain("sensitive command")
     expect(transcript.markdown).not.toContain("sensitive output")
-    expect(transcript.markdown).toContain(
-      "one incomplete trailing JSONL record was skipped",
-    )
+    expect(transcript.markdown).toContain("one incomplete trailing JSONL record was skipped")
     expect(transcript.stats.entries).toBe(0)
     expect(transcript.stats.skippedTrailingRecord).toBe(true)
   })

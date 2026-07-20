@@ -205,9 +205,7 @@ function main() {
       pageInfo.map((issue) => `${issue.severity}:${issue.type}`).join(", ") || "none"
 
     console.log(`${file}`)
-    console.log(
-      `  raw=${raw.score} (${raw.label})  audit=${audit.score} (${audit.label})`,
-    )
+    console.log(`  raw=${raw.score} (${raw.label})  audit=${audit.score} (${audit.label})`)
     console.log(`  actionable: ${actionSummary}`)
     console.log(`  informational: ${infoSummary}`)
   }

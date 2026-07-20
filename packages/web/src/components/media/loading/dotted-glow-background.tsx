@@ -65,8 +65,7 @@ function DottedGlowBackground({
     const container = containerRef.current ?? document.documentElement
 
     const compute = () => {
-      const nextColor =
-        resolveCssVariable(container, colorVar) ?? TRANSPARENT_CANVAS_COLOR
+      const nextColor = resolveCssVariable(container, colorVar) ?? TRANSPARENT_CANVAS_COLOR
       const nextGlow = resolveCssVariable(container, glowColorVar) ?? nextColor
 
       setResolvedColor(nextColor)

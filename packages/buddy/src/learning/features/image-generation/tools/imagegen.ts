@@ -1,10 +1,7 @@
 import path from "node:path"
 import z from "zod"
 import { formatBuddyObjectRefLines } from "../../../../objects"
-import {
-  createBuddyTool,
-  type BuddyToolContext,
-} from "../../../runtime/create-buddy-tool"
+import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
 import {
   buildPresentedMediaObjectOutput,
   PresentedMediaValidationError,
@@ -17,10 +14,7 @@ import {
   resolveGeneratedImageTitle,
   saveGeneratedImage,
 } from "../service/generated-image"
-import {
-  recentConversationImageDataUrls,
-  referencedImageDataUrls,
-} from "../service/image-inputs"
+import { recentConversationImageDataUrls, referencedImageDataUrls } from "../service/image-inputs"
 import { IMAGE_EDIT_TARGET_MAX } from "../contracts"
 import { authorizeFileReadPaths } from "../../../runtime/external-file-authorization"
 
@@ -44,16 +38,10 @@ const ImagegenInputSchema = z
         "Short semantic title for the resulting image, ideally 2 to 6 words. Do not include a path, filename, extension, or slug.",
       ),
     referenced_image_paths: z
-      .array(
-        z
-          .string()
-          .refine(isAbsoluteImagePath, "Image paths must be absolute."),
-      )
+      .array(z.string().refine(isAbsoluteImagePath, "Image paths must be absolute."))
       .max(IMAGE_EDIT_TARGET_MAX)
       .optional()
-      .describe(
-        "Absolute paths of up to 5 local images to edit or use as visual references.",
-      ),
+      .describe("Absolute paths of up to 5 local images to edit or use as visual references."),
     num_last_images_to_include: z
       .number()
       .int()
@@ -69,8 +57,7 @@ const ImagegenInputSchema = z
     if (input.referenced_image_paths?.length && input.num_last_images_to_include !== undefined) {
       context.addIssue({
         code: "custom",
-        message:
-          "Provide only one of `referenced_image_paths` or `num_last_images_to_include`.",
+        message: "Provide only one of `referenced_image_paths` or `num_last_images_to_include`.",
       })
     }
   })

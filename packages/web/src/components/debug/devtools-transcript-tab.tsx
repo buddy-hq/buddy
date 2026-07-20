@@ -64,9 +64,7 @@ function formatMarkdownState(markdown: TranscriptMarkdownSnapshot | undefined) {
   const longestParseMs = Math.max(0, ...markdown.parseDurationsMs)
   const imageStates = markdown.images.map((image) => image.state ?? "unknown").join("/")
   const imageSummary =
-    markdown.images.length > 0
-      ? ` · ${markdown.images.length} images ${imageStates}`
-      : ""
+    markdown.images.length > 0 ? ` · ${markdown.images.length} images ${imageStates}` : ""
   return `Markdown ${markdown.phase ?? "unknown"} / ${markdown.branch ?? "unknown"} · ${formatCount(markdown.sourceLength ?? 0)} chars · ${markdown.segmentKeys.length} segments · ${markdown.blockKeys.length} blocks · ${markdown.residentBlockCount} resident / ${markdown.placeholderBlockCount} placeholders${imageSummary} · parse ${formatDuration(longestParseMs)}`
 }
 
@@ -293,7 +291,9 @@ export function DevToolsTranscriptTab() {
   const probe = getTranscriptPerformanceProbe()
   const summary = probe?.summary()
   const trace = createTranscriptStreamTraceReport(probe)
-  const visibleTraceEntries = trace.events.slice(-TRANSCRIPT_STREAM_TRACE_VISIBLE_EVENTS).toReversed()
+  const visibleTraceEntries = trace.events
+    .slice(-TRANSCRIPT_STREAM_TRACE_VISIBLE_EVENTS)
+    .toReversed()
   const report = createTranscriptGeometryReport(undefined, {
     limit: TRANSCRIPT_GEOMETRY_REPORT_LIMIT,
   })
@@ -404,14 +404,32 @@ export function DevToolsTranscriptTab() {
         <Card size="sm" className="overflow-hidden border-border-weaker-base bg-surface-base">
           <CardContent className="p-0">
             <div className="grid grid-cols-4 gap-y-3 border-b border-border-weaker-base bg-surface-weak/35 p-3">
-              <TraceMetric label="DOM renders" value={formatCount(summary?.renderStateSamples ?? 0)} />
+              <TraceMetric
+                label="DOM renders"
+                value={formatCount(summary?.renderStateSamples ?? 0)}
+              />
               <TraceMetric label="Row sizes" value={formatCount(summary?.rowSizeChanges ?? 0)} />
               <TraceMetric label="Scroll writes" value={formatCount(summary?.scrollWrites ?? 0)} />
-              <TraceMetric label="Bottom repairs" value={formatCount(summary?.bottomAnchorRepairs ?? 0)} />
-              <TraceMetric label="Asset events" value={formatCount(summary?.inlineAssetEvents ?? 0)} />
-              <TraceMetric label="Stream updates" value={formatCount(summary?.streamingUpdates ?? 0)} />
-              <TraceMetric label="Events queued" value={formatCount(summary?.streamEventsQueued ?? 0)} />
-              <TraceMetric label="Events applied" value={formatCount(summary?.streamEventsApplied ?? 0)} />
+              <TraceMetric
+                label="Bottom repairs"
+                value={formatCount(summary?.bottomAnchorRepairs ?? 0)}
+              />
+              <TraceMetric
+                label="Asset events"
+                value={formatCount(summary?.inlineAssetEvents ?? 0)}
+              />
+              <TraceMetric
+                label="Stream updates"
+                value={formatCount(summary?.streamingUpdates ?? 0)}
+              />
+              <TraceMetric
+                label="Events queued"
+                value={formatCount(summary?.streamEventsQueued ?? 0)}
+              />
+              <TraceMetric
+                label="Events applied"
+                value={formatCount(summary?.streamEventsApplied ?? 0)}
+              />
               <TraceMetric
                 label="Events discarded"
                 value={formatCount(summary?.streamEventsDiscarded ?? 0)}
@@ -421,7 +439,10 @@ export function DevToolsTranscriptTab() {
                 value={formatCount(summary?.streamSessionFences ?? 0)}
               />
               <TraceMetric label="Stop requests" value={formatCount(summary?.abortRequests ?? 0)} />
-              <TraceMetric label="Stop latency" value={formatDuration(summary?.maxAbortLatencyMs ?? 0)} />
+              <TraceMetric
+                label="Stop latency"
+                value={formatDuration(summary?.maxAbortLatencyMs ?? 0)}
+              />
             </div>
             <div className="flex items-center justify-between gap-3 px-3 py-2">
               <p className="text-[10px] leading-4 text-text-weak">

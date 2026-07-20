@@ -1150,9 +1150,7 @@ function resolveBenchPresentationTarget(
   )
 }
 
-function resolveBenchPresentationDetail(
-  context: ToolPresentationResolutionContext,
-): string {
+function resolveBenchPresentationDetail(context: ToolPresentationResolutionContext): string {
   const target = resolveBenchPresentationTarget(context)
   return target ? `${target} on Bench` : "on Bench"
 }

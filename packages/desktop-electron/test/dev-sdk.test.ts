@@ -26,9 +26,7 @@ describe("desktop development SDK preparation", () => {
     const adapterDir = path.join(repositoryRoot, "packages/opencode-adapter")
     const sdkDir = path.join(repositoryRoot, "packages/sdk")
 
-    expect(
-      generatedSdkSourcePaths({ repositoryRoot, backendDir, adapterDir, sdkDir }),
-    ).toEqual([
+    expect(generatedSdkSourcePaths({ repositoryRoot, backendDir, adapterDir, sdkDir })).toEqual([
       path.join(backendDir, "src"),
       path.join(adapterDir, "src"),
       path.join(repositoryRoot, "vendor/opencode/packages/core/src"),

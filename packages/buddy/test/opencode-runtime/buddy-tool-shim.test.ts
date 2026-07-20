@@ -98,18 +98,16 @@ describe("buddyToolToPluginTool shim", () => {
     const memorySearch = allBuddyTools().find((tool) => tool.id === "learner_memory_search")
     expect(memorySearch?.presentation.archetype).toBe("activity")
 
-    expect(ToolRegistry.getToolPresentationDescriptor("learner_memory_search", project.path)).toEqual(
-      memorySearch?.presentation,
-    )
+    expect(
+      ToolRegistry.getToolPresentationDescriptor("learner_memory_search", project.path),
+    ).toEqual(memorySearch?.presentation)
 
     const dynamicSearch = getDynamicToolSearchTools().find(
       (tool) => tool.id === "learning_tool_search",
     )
     expect(
       ToolRegistry.getToolPresentationDescriptor("learning_tool_search", project.path),
-    ).toEqual(
-      dynamicSearch?.presentation,
-    )
+    ).toEqual(dynamicSearch?.presentation)
   })
 
   test("extracts Zod object shape from Buddy tool parameters", () => {

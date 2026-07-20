@@ -55,10 +55,7 @@ function lexicalInstanceBoundaries(ctx: ExternalFileAuthorizationContext): strin
 
 function isWithinBoundary(boundaryPath: string, filePath: string): boolean {
   const relativePath = path.relative(boundaryPath, filePath)
-  return (
-    relativePath === "" ||
-    (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
-  )
+  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
 }
 
 async function requestExternalFileAuthorization(

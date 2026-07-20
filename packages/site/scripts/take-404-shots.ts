@@ -16,7 +16,7 @@ const urls = [
   { name: "stripe", url: "https://stripe.com/404" },
   { name: "github", url: "https://github.com/404" },
   { name: "resend", url: "https://resend.com/404" },
-  { name: "supabase", url: "https://supabase.com/404" }
+  { name: "supabase", url: "https://supabase.com/404" },
 ]
 
 async function run() {
@@ -32,7 +32,7 @@ async function run() {
 
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
-    colorScheme: "dark"
+    colorScheme: "dark",
   })
 
   for (const item of urls) {

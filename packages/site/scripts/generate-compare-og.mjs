@@ -142,7 +142,9 @@ async function makeIconTile(filePath, size, plate, alreadyAppIcon = false) {
     .png()
     .toBuffer()
 
-  const platePng = await sharp(roundedRectSvg(size, ICON_RADIUS, bg)).png().toBuffer()
+  const platePng = await sharp(roundedRectSvg(size, ICON_RADIUS, bg))
+    .png()
+    .toBuffer()
 
   return sharp(platePng)
     .composite([{ input: mark, left: inset, top: inset }])
@@ -236,7 +238,9 @@ async function main() {
     const outPath = path.join(OUT_DIR, `${spec.id}.png`)
     await writeFile(outPath, png)
     const meta = await sharp(png).metadata()
-    console.log(`wrote ${path.relative(SITE_ROOT, outPath)} (${meta.width}×${meta.height}, ${png.length} bytes)`)
+    console.log(
+      `wrote ${path.relative(SITE_ROOT, outPath)} (${meta.width}×${meta.height}, ${png.length} bytes)`,
+    )
   }
 
   console.log(`\nDone: ${COMPARES.length} OG images in public/og/`)

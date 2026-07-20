@@ -170,9 +170,7 @@ describe("startChatSync fetch stream", () => {
           ]
           originalSetTimeout(() => {
             for (const event of events) {
-              streamController?.enqueue(
-                new TextEncoder().encode(`${sseData(event)}\r\n\r\n`),
-              )
+              streamController?.enqueue(new TextEncoder().encode(`${sseData(event)}\r\n\r\n`))
             }
             originalSetTimeout(() => {
               releaseFence()

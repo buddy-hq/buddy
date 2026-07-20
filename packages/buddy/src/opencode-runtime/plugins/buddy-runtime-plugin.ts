@@ -175,9 +175,8 @@ function createSystemPromptGuard(input: { directory: string }) {
 
 export async function createBuddyRuntimeHooks(input: { directory: string; worktree: string }) {
   await preloadBuddyBootstrapGraph()
-  const { allBuddyPluginTools, registerBuddyToolPresentationCatalog } = await import(
-    "../buddy-tool-shim"
-  )
+  const { allBuddyPluginTools, registerBuddyToolPresentationCatalog } =
+    await import("../buddy-tool-shim")
   const toolMap = await allBuddyPluginTools(input.directory)
   await registerBuddyToolPresentationCatalog(input.directory)
 

@@ -163,20 +163,23 @@ export function Markdown(props: MarkdownProps): ReactNode {
   const canRenderMermaid =
     (!!props.mermaidContext || props.renderMermaid === true) && canContainMermaidBlock(props.text)
   const canContainChemistry = canContainChemistryBlock(props.text)
-  const segments = useMemo(
-    () => {
-      if (!canRenderMermaid && !canContainChemistry) return singleHtmlSegment(props.text)
-      const parsed = parseMarkdownSegments(props.text)
-      return parsed.length > 0 ? parsed : singleHtmlSegment(props.text)
-    },
-    [canContainChemistry, canRenderMermaid, props.text],
-  )
+  const segments = useMemo(() => {
+    if (!canRenderMermaid && !canContainChemistry) return singleHtmlSegment(props.text)
+    const parsed = parseMarkdownSegments(props.text)
+    return parsed.length > 0 ? parsed : singleHtmlSegment(props.text)
+  }, [canContainChemistry, canRenderMermaid, props.text])
   const hasRenderableSegments = segments.some(
     (segment) => segment.kind === "chemistry" || (segment.kind === "mermaid" && canRenderMermaid),
   )
 
   const virtualizeHtml = shouldVirtualizeMarkdown(props.text)
-  const branch = hasRenderableSegments ? (virtualizeHtml ? "segmented-lazy" : "segmented") : virtualizeHtml ? "lazy" : "eager"
+  const branch = hasRenderableSegments
+    ? virtualizeHtml
+      ? "segmented-lazy"
+      : "segmented"
+    : virtualizeHtml
+      ? "lazy"
+      : "eager"
   const phase = props.isInterrupted ? "interrupted" : props.isStreaming ? "streaming" : "complete"
 
   return (
@@ -194,10 +197,7 @@ export function Markdown(props: MarkdownProps): ReactNode {
         return (
           <div
             key={segmentKey}
-            className={cn(
-              "min-w-0 w-full max-w-full",
-              segment.kind !== "html" && "not-prose",
-            )}
+            className={cn("min-w-0 w-full max-w-full", segment.kind !== "html" && "not-prose")}
             data-markdown-segment-key={segmentKey}
             data-markdown-segment-kind={segment.kind}
           >

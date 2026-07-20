@@ -9,10 +9,7 @@ import {
   resolveActivityHeader,
 } from "../src/components/chat/tools/activity-row/entries"
 import type { MessagePart } from "../src/state/chat-types"
-import {
-  activityPresentation,
-  presentationMetadata,
-} from "./tool-presentation-fixtures"
+import { activityPresentation, presentationMetadata } from "./tool-presentation-fixtures"
 
 type ToolPhase = "pending" | "running" | "completed" | "error"
 
@@ -367,13 +364,62 @@ describe("ActivityRow header resolution", () => {
 
   test("settles to the three most frequent successful categories with first-use ties", () => {
     const resolvedEntries = entries([
-      toolPart({ id: "read-1", phase: "completed", action: "Read", category: "read", summary: "Read files", icon: "read" }),
-      toolPart({ id: "search-1", phase: "completed", action: "Searched", category: "search", summary: "Searched code", icon: "search" }),
-      toolPart({ id: "edit-1", phase: "completed", action: "Edited", category: "edit", summary: "Edited files", icon: "edit" }),
-      toolPart({ id: "shell-1", phase: "completed", action: "Ran", category: "shell", summary: "Ran commands", icon: "terminal" }),
-      toolPart({ id: "edit-2", phase: "completed", action: "Edited", category: "edit", summary: "Edited files", icon: "edit" }),
-      toolPart({ id: "read-2", phase: "completed", action: "Read", category: "read", summary: "Read files", icon: "read" }),
-      toolPart({ id: "edit-3", phase: "completed", action: "Edited", category: "edit", summary: "Edited files", icon: "edit" }),
+      toolPart({
+        id: "read-1",
+        phase: "completed",
+        action: "Read",
+        category: "read",
+        summary: "Read files",
+        icon: "read",
+      }),
+      toolPart({
+        id: "search-1",
+        phase: "completed",
+        action: "Searched",
+        category: "search",
+        summary: "Searched code",
+        icon: "search",
+      }),
+      toolPart({
+        id: "edit-1",
+        phase: "completed",
+        action: "Edited",
+        category: "edit",
+        summary: "Edited files",
+        icon: "edit",
+      }),
+      toolPart({
+        id: "shell-1",
+        phase: "completed",
+        action: "Ran",
+        category: "shell",
+        summary: "Ran commands",
+        icon: "terminal",
+      }),
+      toolPart({
+        id: "edit-2",
+        phase: "completed",
+        action: "Edited",
+        category: "edit",
+        summary: "Edited files",
+        icon: "edit",
+      }),
+      toolPart({
+        id: "read-2",
+        phase: "completed",
+        action: "Read",
+        category: "read",
+        summary: "Read files",
+        icon: "read",
+      }),
+      toolPart({
+        id: "edit-3",
+        phase: "completed",
+        action: "Edited",
+        category: "edit",
+        summary: "Edited files",
+        icon: "edit",
+      }),
     ])
 
     expect(
@@ -388,8 +434,22 @@ describe("ActivityRow header resolution", () => {
 
   test("does not include failed or neutral entries in settled summaries", () => {
     const resolvedEntries = entries([
-      toolPart({ id: "failure", phase: "error", action: "Failed to edit", category: "edit", summary: "Failed to edit files", outcome: "failure" }),
-      toolPart({ id: "denied", phase: "error", action: "Permission denied", category: "read", summary: "Permission denied", outcome: "neutral" }),
+      toolPart({
+        id: "failure",
+        phase: "error",
+        action: "Failed to edit",
+        category: "edit",
+        summary: "Failed to edit files",
+        outcome: "failure",
+      }),
+      toolPart({
+        id: "denied",
+        phase: "error",
+        action: "Permission denied",
+        category: "read",
+        summary: "Permission denied",
+        outcome: "neutral",
+      }),
     ])
 
     expect(activityEntryLabel(resolvedEntries[1]!)).toBe("Permission denied")
@@ -423,9 +483,7 @@ describe("ActivityRow header resolution", () => {
   })
 
   test("selects a deterministic stable Panda word from the segment key", () => {
-    expect(activityWorkingLabel("activity:turn:2")).toBe(
-      activityWorkingLabel("activity:turn:2"),
-    )
+    expect(activityWorkingLabel("activity:turn:2")).toBe(activityWorkingLabel("activity:turn:2"))
     expect(activityWorkingLabel("activity:turn:2")).not.toBe("")
   })
 })

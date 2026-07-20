@@ -1,8 +1,5 @@
 import { createElement } from "react"
-import type {
-  ToolActionIcon,
-  ToolRendererToken,
-} from "@buddy/opencode-adapter/tool-presentation"
+import type { ToolActionIcon, ToolRendererToken } from "@buddy/opencode-adapter/tool-presentation"
 import {
   AppWindow,
   BookOpen,

@@ -54,8 +54,7 @@ export async function resolveRedoTargetMessageID(input: {
 
     if (hasBoundaryCoverage) {
       return snapshot.messages.find(
-        (message) =>
-          message.info.role === "user" && message.info.id > input.revertMessageID,
+        (message) => message.info.role === "user" && message.info.id > input.revertMessageID,
       )?.info.id
     }
     if (!snapshot.cursor) return undefined

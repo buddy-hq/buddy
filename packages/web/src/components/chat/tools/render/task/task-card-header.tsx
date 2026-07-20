@@ -82,9 +82,7 @@ export function useSubagentCardData(
     () =>
       childMessages
         .filter((message) => message.info.role === "assistant")
-        .flatMap((message) =>
-          message.parts.flatMap((part) => createActivityEntry(part) ?? []),
-        ),
+        .flatMap((message) => message.parts.flatMap((part) => createActivityEntry(part) ?? [])),
     [childMessages],
   )
   const header = useMemo(

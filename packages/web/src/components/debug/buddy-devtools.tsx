@@ -74,10 +74,7 @@ import {
   removeProviderAuth,
   reloadProviderRuntime,
 } from "@/lib/provider-auth"
-import {
-  buildOnboardingTestSearch,
-  runOnboardingTestReset,
-} from "@/lib/onboarding-test-mode"
+import { buildOnboardingTestSearch, runOnboardingTestReset } from "@/lib/onboarding-test-mode"
 import { patchGlobalConfig } from "@/state/chat-actions"
 import {
   EMPTY_PERSONALIZATION_SETTINGS,

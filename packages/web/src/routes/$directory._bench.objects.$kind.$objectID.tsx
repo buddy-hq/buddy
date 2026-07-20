@@ -788,8 +788,7 @@ function SelectedMediaObjectBenchView(props: {
     canEditImagesForModel({
       providerID: chatState?.effectiveModelSelection?.providerID,
       acceptsImages: chatState?.selectedModelAcceptsImages ?? false,
-      chatGptOAuthReady:
-        providerCatalogQuery.data?.openAIModelAvailability.status === "ready",
+      chatGptOAuthReady: providerCatalogQuery.data?.openAIModelAvailability.status === "ready",
     })
   const actions = useMemo<BenchViewerAction[]>(
     () => [

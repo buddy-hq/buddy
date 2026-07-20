@@ -15,10 +15,7 @@ import {
   type BenchClientLease,
 } from "../../src/learning/features/bench/client-actions"
 import { benchPresentTool, presentOnBench } from "../../src/learning/features/bench/tools/present"
-import {
-  BUDDY_OBJECT_KIND_VALUES,
-  getBuddyObjectKindDefinition,
-} from "../../src/objects"
+import { BUDDY_OBJECT_KIND_VALUES, getBuddyObjectKindDefinition } from "../../src/objects"
 import {
   addResource,
   resolveResourceObjectByKey,
@@ -224,10 +221,7 @@ function completeSupersededAction(input: {
 }
 
 function presentOnBenchWithTestContext(
-  input: Omit<
-    Parameters<typeof presentOnBench>[0],
-    "messageID" | "callID" | "abort" | "ask"
-  >,
+  input: Omit<Parameters<typeof presentOnBench>[0], "messageID" | "callID" | "abort" | "ask">,
 ) {
   return presentOnBench({
     ...input,
@@ -257,8 +251,7 @@ describe("bench_present", () => {
   test("has a registered Bench resolver for every Buddy object kind", () => {
     expect(
       BUDDY_OBJECT_KIND_VALUES.filter(
-        (kind) =>
-          typeof getBuddyObjectKindDefinition(kind)?.resolveBenchView !== "function",
+        (kind) => typeof getBuddyObjectKindDefinition(kind)?.resolveBenchView !== "function",
       ),
     ).toEqual([])
   })

@@ -1,10 +1,4 @@
-export type JsonLdValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonLdObject
-  | readonly JsonLdValue[]
+export type JsonLdValue = string | number | boolean | null | JsonLdObject | readonly JsonLdValue[]
 
 export type JsonLdObject = {
   readonly [key: string]: JsonLdValue
@@ -30,10 +24,7 @@ export type FaqJsonLdItem = {
 }
 
 /** FAQPage node for the @graph in SeoHead (no @context — graph owns that). */
-export function buildFaqPageJsonLd(
-  pageUrl: string,
-  items: readonly FaqJsonLdItem[],
-): JsonLdObject {
+export function buildFaqPageJsonLd(pageUrl: string, items: readonly FaqJsonLdItem[]): JsonLdObject {
   return {
     "@type": "FAQPage",
     "@id": `${pageUrl}#faq`,

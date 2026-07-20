@@ -22,10 +22,7 @@ const compareDetail = z.string().trim().min(COMPARE_DETAIL_MIN_LENGTH).max(600)
 
 const proseSection = z.object({
   type: z.literal("prose"),
-  paragraphs: z
-    .array(z.string().trim().min(COMPARE_PARAGRAPH_MIN_LENGTH).max(1_000))
-    .min(2)
-    .max(6),
+  paragraphs: z.array(z.string().trim().min(COMPARE_PARAGRAPH_MIN_LENGTH).max(1_000)).min(2).max(6),
   bullets: z.array(compareDetail).min(2).max(6).optional(),
 })
 
@@ -97,7 +94,6 @@ const comparisonTableSection = z.object({
     .max(8),
 })
 
-
 const testResultsSection = z.object({
   type: z.literal("test-results"),
   heading: compareHeading,
@@ -116,7 +112,10 @@ const testResultsSection = z.object({
   caveat: compareDetail,
   visual: z
     .object({
-      src: z.string().trim().regex(/^\/[a-z0-9/_-]+\.[a-z0-9]+$/i),
+      src: z
+        .string()
+        .trim()
+        .regex(/^\/[a-z0-9/_-]+\.[a-z0-9]+$/i),
       alt: z.string().trim().min(1).max(180),
       width: z.number().int().positive(),
       height: z.number().int().positive(),
@@ -156,62 +155,64 @@ const compareSection = z.discriminatedUnion("type", [
 
 const compares = defineCollection({
   loader: glob({ base: "./src/content/compares", pattern: "**/*.{yaml,yml}" }),
-  schema: z.object({
-    competitor: z.string().trim().min(1),
-    competitorUrl: z.string().url(),
-    audience: z.union([z.literal("learners"), z.literal("educators"), z.literal("both")]),
-    title: z.string().trim().min(1).max(COMPARE_TITLE_MAX_LENGTH),
-    description: z
-      .string()
-      .trim()
-      .min(COMPARE_DESCRIPTION_MIN_LENGTH)
-      .max(COMPARE_DESCRIPTION_MAX_LENGTH),
-    headline: z.string().trim().min(1).max(COMPARE_HEADLINE_MAX_LENGTH),
-    tagline: z.string().trim().min(1).max(COMPARE_TAGLINE_MAX_LENGTH),
-    targetQueries: z.array(z.string().trim().min(1)).min(COMPARE_TARGET_QUERY_MIN_COUNT),
-    lastVerified: z.coerce.date(),
-    lastUpdated: z.coerce.date(),
-    faqs: z
-      .array(
-        z.object({
-          question: z.string().trim().min(1),
-          answer: z.string().trim().min(COMPARE_FAQ_ANSWER_MIN_LENGTH),
-        }),
-      )
-      .min(COMPARE_FAQ_MIN_COUNT),
-    sections: z
-      .array(compareSection)
-      .min(COMPARE_SECTION_MIN_COUNT)
-      .max(COMPARE_SECTION_MAX_COUNT),
-    relatedCompares: z.array(z.string().trim().min(1)).default([]),
-    ogImagePath: z.string().trim().min(1).optional(),
-    ogImageAlt: z.string().trim().min(1).optional(),
-  }).superRefine((metadata, context) => {
-    if (Boolean(metadata.ogImagePath) !== Boolean(metadata.ogImageAlt)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "ogImagePath and ogImageAlt must be supplied together.",
-      })
-    }
+  schema: z
+    .object({
+      competitor: z.string().trim().min(1),
+      competitorUrl: z.string().url(),
+      audience: z.union([z.literal("learners"), z.literal("educators"), z.literal("both")]),
+      title: z.string().trim().min(1).max(COMPARE_TITLE_MAX_LENGTH),
+      description: z
+        .string()
+        .trim()
+        .min(COMPARE_DESCRIPTION_MIN_LENGTH)
+        .max(COMPARE_DESCRIPTION_MAX_LENGTH),
+      headline: z.string().trim().min(1).max(COMPARE_HEADLINE_MAX_LENGTH),
+      tagline: z.string().trim().min(1).max(COMPARE_TAGLINE_MAX_LENGTH),
+      targetQueries: z.array(z.string().trim().min(1)).min(COMPARE_TARGET_QUERY_MIN_COUNT),
+      lastVerified: z.coerce.date(),
+      lastUpdated: z.coerce.date(),
+      faqs: z
+        .array(
+          z.object({
+            question: z.string().trim().min(1),
+            answer: z.string().trim().min(COMPARE_FAQ_ANSWER_MIN_LENGTH),
+          }),
+        )
+        .min(COMPARE_FAQ_MIN_COUNT),
+      sections: z
+        .array(compareSection)
+        .min(COMPARE_SECTION_MIN_COUNT)
+        .max(COMPARE_SECTION_MAX_COUNT),
+      relatedCompares: z.array(z.string().trim().min(1)).default([]),
+      ogImagePath: z.string().trim().min(1).optional(),
+      ogImageAlt: z.string().trim().min(1).optional(),
+    })
+    .superRefine((metadata, context) => {
+      if (Boolean(metadata.ogImagePath) !== Boolean(metadata.ogImageAlt)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "ogImagePath and ogImageAlt must be supplied together.",
+        })
+      }
 
-    const sectionTypes = metadata.sections.map((section) => section.type)
-    if (new Set(sectionTypes).size !== sectionTypes.length) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Each comparison section type may appear at most once.",
-        path: ["sections"],
-      })
-    }
+      const sectionTypes = metadata.sections.map((section) => section.type)
+      if (new Set(sectionTypes).size !== sectionTypes.length) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Each comparison section type may appear at most once.",
+          path: ["sections"],
+        })
+      }
 
-    const decisionCount = sectionTypes.filter((type) => type === "decision").length
-    if (decisionCount !== 1) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Every comparison must contain exactly one decision section.",
-        path: ["sections"],
-      })
-    }
-  }),
+      const decisionCount = sectionTypes.filter((type) => type === "decision").length
+      if (decisionCount !== 1) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Every comparison must contain exactly one decision section.",
+          path: ["sections"],
+        })
+      }
+    }),
 })
 
 export const collections = {

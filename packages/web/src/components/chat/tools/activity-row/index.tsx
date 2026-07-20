@@ -57,11 +57,7 @@ function useDelayedWorkingGapHeader(input: {
     : input.resolved
 }
 
-function ActivityHeaderStatus(props: {
-  icon: ToolIconRenderer
-  title: string
-  shimmer: boolean
-}) {
+function ActivityHeaderStatus(props: { icon: ToolIconRenderer; title: string; shimmer: boolean }) {
   const isPresent = useIsPresent()
   const reduceMotion = useReducedMotion()
   const hiddenState = reduceMotion
@@ -89,12 +85,7 @@ function ActivityHeaderStatus(props: {
       transition={reduceMotion ? { duration: 0 } : HEADER_STATUS_TRANSITION}
     >
       <span className="shrink-0">{props.icon("h-3.5 w-3.5 shrink-0")}</span>
-      <TextShimmer
-        text={props.title}
-        active={props.shimmer}
-        truncate
-        className="min-w-0 shrink"
-      />
+      <TextShimmer text={props.title} active={props.shimmer} truncate className="min-w-0 shrink" />
     </motion.span>
   )
 }
@@ -311,10 +302,7 @@ export function ActivityRow({
 }: ActivityRowProps) {
   const [localOpen, setLocalOpen] = useState(false)
   const isOpen = expansionState?.open ?? localOpen
-  const entries = useMemo(
-    () => parts.flatMap((part) => createActivityEntry(part) ?? []),
-    [parts],
-  )
+  const entries = useMemo(() => parts.flatMap((part) => createActivityEntry(part) ?? []), [parts])
   const resolvedHeader = useMemo(
     () =>
       resolveActivityHeader({
@@ -326,10 +314,7 @@ export function ActivityRow({
     [entries, isBusy, isCurrent, zeroEntryLabel],
   )
   const waitingBetweenEntries = Boolean(
-    isBusy &&
-      isCurrent &&
-      entries.length > 0 &&
-      !entries.some(activityEntryIsActive),
+    isBusy && isCurrent && entries.length > 0 && !entries.some(activityEntryIsActive),
   )
   const header = useDelayedWorkingGapHeader({
     resolved: resolvedHeader,

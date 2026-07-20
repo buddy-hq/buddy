@@ -47,9 +47,7 @@ function QuestionAnswerList({
   questions: ToolQuestion[]
   answers: string[][]
 }) {
-  const questionEntries = enumerateQuestionMarkdownText(
-    questions.map((entry) => entry.question),
-  )
+  const questionEntries = enumerateQuestionMarkdownText(questions.map((entry) => entry.question))
 
   // Pair gap >> Q→A gap so each exchange reads as a unit.
   return (

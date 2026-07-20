@@ -92,7 +92,9 @@ function renderValue(value: unknown, depth: number, lines: string[]): void {
         child === null ||
         child === undefined
       ) {
-        lines.push(`${"  ".repeat(depth)}- **${label}:** ${child === undefined || child === null ? "(empty)" : String(child)}`)
+        lines.push(
+          `${"  ".repeat(depth)}- **${label}:** ${child === undefined || child === null ? "(empty)" : String(child)}`,
+        )
         continue
       }
       if (Array.isArray(child) && child.every((item) => typeof item === "string")) {

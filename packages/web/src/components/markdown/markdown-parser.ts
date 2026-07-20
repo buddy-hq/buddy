@@ -421,8 +421,7 @@ export function projectMarkdownBlocks(
   }
 
   if (!live) {
-    const blocks =
-      text === previous.text ? previous.blocks : streamBlocks(text, true)
+    const blocks = text === previous.text ? previous.blocks : streamBlocks(text, true)
     return {
       text,
       blocks: blocks.map((block) =>

@@ -80,11 +80,7 @@ function IngestFullTextTool({
   if (running) {
     return (
       <div className="flex w-[9.5rem] max-w-full flex-col gap-2">
-        <TextShimmer
-          text={info.title}
-          active
-          className="text-sm font-medium text-text-base"
-        />
+        <TextShimmer text={info.title} active className="text-sm font-medium text-text-base" />
         <div className="aspect-[3/4] w-full animate-pulse rounded-xl border border-border-weaker-base bg-surface-weak/40" />
       </div>
     )

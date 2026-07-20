@@ -284,9 +284,7 @@ async function validatePage(
   }
 
   const graph = getJsonLdGraph(document, failures)
-  const comparedProduct = graph.find((node) =>
-    hasSchemaType(node, COMPARED_PRODUCT_SCHEMA_TYPE),
-  )
+  const comparedProduct = graph.find((node) => hasSchemaType(node, COMPARED_PRODUCT_SCHEMA_TYPE))
   const competitor = comparedProduct ? getString(comparedProduct, "name") : undefined
   const mainText = normalizeText(main.structuredText)
   assertCondition(Boolean(competitor), "is missing compared-product structured data", failures)
@@ -350,18 +348,13 @@ async function validatePage(
 
   const linkAndAssetTargets = [
     ...visibleLinks.map((link) => link.getAttribute("href")),
-    ...main.querySelectorAll("img[src], source[src], video[poster]").map(
-      (element) => element.getAttribute("src") ?? element.getAttribute("poster"),
-    ),
+    ...main
+      .querySelectorAll("img[src], source[src], video[poster]")
+      .map((element) => element.getAttribute("src") ?? element.getAttribute("poster")),
   ].filter((target): target is string => Boolean(target))
 
   for (const target of linkAndAssetTargets) {
-    const targetFailure = await validateInternalTarget(
-      target,
-      document,
-      pagePath,
-      indexedRoutes,
-    )
+    const targetFailure = await validateInternalTarget(target, document, pagePath, indexedRoutes)
     if (targetFailure) failures.push(targetFailure)
   }
 

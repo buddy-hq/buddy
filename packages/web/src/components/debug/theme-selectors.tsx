@@ -1,12 +1,5 @@
 import { useMemo } from "react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  cn,
-} from "@buddy/ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from "@buddy/ui"
 import { useTheme, type ColorScheme } from "@/theme"
 
 type ThemeSelectorsProps = {
@@ -38,12 +31,7 @@ export function ThemeSelectors({ className, compact = false }: ThemeSelectorsPro
   )
 
   return (
-    <div
-      className={cn(
-        compact ? "flex items-center gap-2" : "grid grid-cols-2 gap-2",
-        className,
-      )}
-    >
+    <div className={cn(compact ? "flex items-center gap-2" : "grid grid-cols-2 gap-2", className)}>
       <Select
         value={colorScheme}
         onValueChange={(value) => {

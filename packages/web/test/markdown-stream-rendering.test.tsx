@@ -137,12 +137,7 @@ describe("streaming markdown rendering", () => {
 
     await act(async () => {
       root.render(
-        <MarkdownHtmlSegment
-          text={text}
-          cacheKey="interruption-cache"
-          streaming
-          interrupted
-        />,
+        <MarkdownHtmlSegment text={text} cacheKey="interruption-cache" streaming interrupted />,
       )
       await flushEffects()
     })

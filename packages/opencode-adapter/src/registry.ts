@@ -387,7 +387,9 @@ export namespace ToolRegistry {
 
   export function getToolPresentationDescriptor(toolID: string, directory?: string) {
     if (directory) {
-      return getCustomToolPresentation(directory, toolID) ?? getCoreToolPresentationDescriptor(toolID)
+      return (
+        getCustomToolPresentation(directory, toolID) ?? getCoreToolPresentationDescriptor(toolID)
+      )
     }
 
     try {

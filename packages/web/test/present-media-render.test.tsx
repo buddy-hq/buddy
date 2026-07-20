@@ -327,10 +327,7 @@ describe("present media renderer", () => {
     globalThis.fetch = withFetchPreconnect(fetchMock, originalFetch)
 
     await act(async () => {
-      renderHarness(
-        root,
-        <GroupedImagegenToolCard parts={[first, second]} directory="/repo" />,
-      )
+      renderHarness(root, <GroupedImagegenToolCard parts={[first, second]} directory="/repo" />)
       await flushEffects()
     })
 
@@ -365,10 +362,7 @@ describe("present media renderer", () => {
     globalThis.fetch = withFetchPreconnect(fetchMock, originalFetch)
 
     await act(async () => {
-      renderHarness(
-        root,
-        <GroupedImagegenToolCard parts={[first, second]} directory="/repo" />,
-      )
+      renderHarness(root, <GroupedImagegenToolCard parts={[first, second]} directory="/repo" />)
       await flushEffects()
     })
     await waitForEffect(() => fetchMock.mock.calls.length === 2)
@@ -385,9 +379,7 @@ describe("present media renderer", () => {
 
       if (
         method === "GET" &&
-        url.includes(
-          "/api/objects/media-presentation/object_edit/items/item_1/availability",
-        )
+        url.includes("/api/objects/media-presentation/object_edit/items/item_1/availability")
       ) {
         return Response.json({ status: "available", message: null })
       }
@@ -441,9 +433,7 @@ describe("present media renderer", () => {
       await flushEffects()
     })
 
-    const editButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Edit image"]',
-    )
+    const editButton = container.querySelector<HTMLButtonElement>('button[aria-label="Edit image"]')
     expect(editButton).not.toBeNull()
 
     await act(async () => {

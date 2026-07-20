@@ -304,10 +304,10 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     const lastAssistantItem = assistantItems.at(-1)
     const needsTailActivity = Boolean(
       active &&
-        !errorText &&
-        (!lastAssistantItem ||
-          (lastAssistantItem.type !== "abstracted" &&
-            !assistantItemIsVisiblyActive(lastAssistantItem))),
+      !errorText &&
+      (!lastAssistantItem ||
+        (lastAssistantItem.type !== "abstracted" &&
+          !assistantItemIsVisiblyActive(lastAssistantItem))),
     )
 
     // Interrupted turns already end with a MessageDivider that owns inter-turn

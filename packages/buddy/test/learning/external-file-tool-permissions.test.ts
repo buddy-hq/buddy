@@ -191,9 +191,7 @@ describe("external file tool permissions", () => {
       ),
     ).rejects.toThrow(PERMISSION_REJECTED_MESSAGE)
 
-    expect(requests.map((request) => request.permission)).toEqual([
-      "whiteboard_create_view",
-    ])
+    expect(requests.map((request) => request.permission)).toEqual(["whiteboard_create_view"])
     expect(await pathExists(path.join(project.path, ".buddy"))).toBe(false)
   })
 })

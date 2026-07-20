@@ -277,9 +277,9 @@ describe("Markdown chemistry segments", () => {
 
     expect(container.querySelector('[data-markdown-document="closing-fence"]')).toBe(documentShell)
     expect(documentShell?.getAttribute("data-markdown-branch")).toBe("segmented-lazy")
-    expect(
-      container.querySelector('[data-markdown-segment-key="closing-fence:segment:0"]'),
-    ).toBe(htmlSegmentShell)
+    expect(container.querySelector('[data-markdown-segment-key="closing-fence:segment:0"]')).toBe(
+      htmlSegmentShell,
+    )
     expect(
       container.querySelector(
         '[data-markdown-virtual-block-key="closing-fence:segment:0:html:virtual-block:0"]',

@@ -214,7 +214,9 @@ async function verifyComponent(name: string): Promise<ComponentReport> {
     }
     // Disallow non-official size prop on SVG (shadcn uses CSS sizing)
     if (/\bsize=\{/.test(usage.raw) && !usage.raw.includes("className")) {
-      notes.push(`line ${usage.line}: size prop set on ${usage.icon}; shadcn relies on className / parent [&_svg] sizing`)
+      notes.push(
+        `line ${usage.line}: size prop set on ${usage.icon}; shadcn relies on className / parent [&_svg] sizing`,
+      )
     }
   }
 
@@ -234,7 +236,9 @@ async function verifyComponent(name: string): Promise<ComponentReport> {
       const ourCn = ours[i]?.className ?? ""
       // When official uses cn(...), our parser may miss; skip empty
       if (!offCn) continue
-      const missing = structuralTokens.filter((t) => offCn.includes(t) && !ourCn.includes(t) && !source.includes(t))
+      const missing = structuralTokens.filter(
+        (t) => offCn.includes(t) && !ourCn.includes(t) && !source.includes(t),
+      )
       // Search broader in surrounding source near usage
       if (missing.length > 0) {
         // Re-check if tokens appear on same HugeiconsIcon raw including multi-line className via cn()
@@ -262,9 +266,7 @@ async function verifyComponent(name: string): Promise<ComponentReport> {
 
 function printMappingTable(reports: ComponentReport[]) {
   console.log("\n=== Official lucide → hugeicons map (radix-nova) ===\n")
-  console.log(
-    `${"component".padEnd(18)} ${"lucide".padEnd(28)} ${"hugeicons".padEnd(32)} ours`,
-  )
+  console.log(`${"component".padEnd(18)} ${"lucide".padEnd(28)} ${"hugeicons".padEnd(32)} ours`)
   console.log("-".repeat(100))
   for (const report of reports) {
     const n = Math.max(report.official.length, report.ours.length)
@@ -281,7 +283,9 @@ function printMappingTable(reports: ComponentReport[]) {
 
 async function main() {
   console.log(`Verifying packages/ui Hugeicons against shadcn ${STYLE} registry`)
-  console.log(`Expected pattern: <HugeiconsIcon icon={ICON} strokeWidth={${EXPECTED_STROKE_WIDTH}} />`)
+  console.log(
+    `Expected pattern: <HugeiconsIcon icon={ICON} strokeWidth={${EXPECTED_STROKE_WIDTH}} />`,
+  )
   console.log(offline ? "Mode: offline cache" : "Mode: fetch + cache registry JSON\n")
 
   const reports: ComponentReport[] = []

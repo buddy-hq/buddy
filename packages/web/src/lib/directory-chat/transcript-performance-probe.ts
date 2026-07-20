@@ -447,7 +447,11 @@ function readMarkdownSnapshot(row: HTMLElement): TranscriptMarkdownSnapshot | un
     sourceHash: document.dataset.markdownSourceHash,
     phase: document.dataset.markdownPhase,
     branch: document.dataset.markdownBranch,
-    segmentKeys: readAttributeValues(document, MARKDOWN_SEGMENT_SELECTOR, "data-markdown-segment-key"),
+    segmentKeys: readAttributeValues(
+      document,
+      MARKDOWN_SEGMENT_SELECTOR,
+      "data-markdown-segment-key",
+    ),
     blockKeys: readAttributeValues(document, MARKDOWN_BLOCK_SELECTOR, "data-markdown-block-key"),
     virtualBlockKeys: readAttributeValues(
       document,

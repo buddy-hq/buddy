@@ -37,10 +37,7 @@ export const ACTIVITY_WORKING_LABELS = [
 export const ACTIVITY_REASONING_ICON: ToolIconRenderer = (className) =>
   createElement(Panda, { className })
 
-type VisibleToolPresentationSnapshot = Exclude<
-  ToolPresentationSnapshot,
-  { archetype: "silent" }
->
+type VisibleToolPresentationSnapshot = Exclude<ToolPresentationSnapshot, { archetype: "silent" }>
 
 export type ReasoningActivityEntry = {
   kind: "reasoning"
@@ -114,9 +111,7 @@ export function createActivityEntry(part: MessagePart): ActivityEntry | undefine
 }
 
 export function activityEntryIsActive(entry: ActivityEntry): boolean {
-  return entry.kind === "reasoning"
-    ? isReasoningActive(entry.part)
-    : isToolActive(entry.state)
+  return entry.kind === "reasoning" ? isReasoningActive(entry.part) : isToolActive(entry.state)
 }
 
 function reasoningEntryLabel(entry: ReasoningActivityEntry): string {
@@ -242,8 +237,7 @@ export function activityWorkingLabel(seed: string): string {
     0,
   )
   return (
-    ACTIVITY_WORKING_LABELS[checksum % ACTIVITY_WORKING_LABELS.length] ??
-    ACTIVITY_WORKING_LABELS[0]
+    ACTIVITY_WORKING_LABELS[checksum % ACTIVITY_WORKING_LABELS.length] ?? ACTIVITY_WORKING_LABELS[0]
   )
 }
 
@@ -256,9 +250,7 @@ export function resolveActivityHeader(input: {
   const activeEntry = input.entries.toReversed().find(activityEntryIsActive)
   if (activeEntry) {
     const label =
-      activeEntry.kind === "tool"
-        ? activeToolLabel(activeEntry)
-        : reasoningEntryLabel(activeEntry)
+      activeEntry.kind === "tool" ? activeToolLabel(activeEntry) : reasoningEntryLabel(activeEntry)
     return {
       identity: entryHeaderIdentity(activeEntry),
       label,

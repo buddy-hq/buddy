@@ -5,9 +5,5 @@ export function canEditImagesForModel(input: {
   acceptsImages: boolean
   chatGptOAuthReady: boolean
 }): boolean {
-  return (
-    input.providerID === OPENAI_PROVIDER_ID &&
-    input.acceptsImages &&
-    input.chatGptOAuthReady
-  )
+  return input.providerID === OPENAI_PROVIDER_ID && input.acceptsImages && input.chatGptOAuthReady
 }

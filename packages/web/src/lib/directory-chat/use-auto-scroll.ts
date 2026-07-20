@@ -145,14 +145,11 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
   const lastScrollTopRef = useRef<number | undefined>(undefined)
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
 
-  const isDetached = useCallback(
-    () => {
-      if (attachmentKeyRef.current === attachmentKey) return detachedRef.current
-      if (!attachmentKey) return false
-      return sessionStateByKeyRef.current.get(attachmentKey)?.detached ?? false
-    },
-    [attachmentKey],
-  )
+  const isDetached = useCallback(() => {
+    if (attachmentKeyRef.current === attachmentKey) return detachedRef.current
+    if (!attachmentKey) return false
+    return sessionStateByKeyRef.current.get(attachmentKey)?.detached ?? false
+  }, [attachmentKey])
 
   const initialScrollOffset = useCallback(() => {
     if (!attachmentKey) return undefined
@@ -201,9 +198,7 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
         detached,
         scrollTop:
           element?.scrollTop ??
-          (attachmentKey
-            ? (sessionStateByKeyRef.current.get(attachmentKey)?.scrollTop ?? 0)
-            : 0),
+          (attachmentKey ? (sessionStateByKeyRef.current.get(attachmentKey)?.scrollTop ?? 0) : 0),
       })
       if (element) {
         updateOverflowAnchor(element, detached)
@@ -323,14 +318,7 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
         pause()
       }
     },
-    [
-      hasScrollGesture,
-      isAuto,
-      isDetached,
-      pause,
-      rememberSessionState,
-      updateDetachedState,
-    ],
+    [hasScrollGesture, isAuto, isDetached, pause, rememberSessionState, updateDetachedState],
   )
 
   const handleInteraction = useCallback(() => {
@@ -415,8 +403,7 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
 
   return {
     scrollRef,
-    showJumpToLatest:
-      attachmentKeyRef.current === attachmentKey ? showJumpToLatest : false,
+    showJumpToLatest: attachmentKeyRef.current === attachmentKey ? showJumpToLatest : false,
     initialScrollOffset,
     shouldAnchorBottom,
     hasScrollGesture,

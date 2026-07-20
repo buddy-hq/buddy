@@ -9,10 +9,7 @@ import {
   ActivityRow,
 } from "../src/components/chat/tools/activity-row"
 import type { MessagePart } from "../src/state/chat-types"
-import {
-  activityPresentation,
-  presentationMetadata,
-} from "./tool-presentation-fixtures"
+import { activityPresentation, presentationMetadata } from "./tool-presentation-fixtures"
 
 function readPart(): MessagePart {
   return {
@@ -244,11 +241,7 @@ describe("ActivityRow", () => {
   test("shows the entry row even when an expanded group contains one entry", async () => {
     await act(async () => {
       root.render(
-        <ActivityRow
-          parts={[readPart()]}
-          seed="activity:turn:0"
-          zeroEntryLabel="Thinking"
-        />,
+        <ActivityRow parts={[readPart()]} seed="activity:turn:0" zeroEntryLabel="Thinking" />,
       )
     })
 
@@ -265,11 +258,7 @@ describe("ActivityRow", () => {
     await act(async () => {
       root.render(
         <TooltipProvider>
-          <ActivityRow
-            parts={[failedEditPart()]}
-            seed="activity:turn:1"
-            zeroEntryLabel="Pawing"
-          />
+          <ActivityRow parts={[failedEditPart()]} seed="activity:turn:1" zeroEntryLabel="Pawing" />
         </TooltipProvider>,
       )
     })
@@ -285,11 +274,7 @@ describe("ActivityRow", () => {
   test("does not render a collapsed error marker", async () => {
     await act(async () => {
       root.render(
-        <ActivityRow
-          parts={[failedEditPart()]}
-          seed="activity:turn:1"
-          zeroEntryLabel="Pawing"
-        />,
+        <ActivityRow parts={[failedEditPart()]} seed="activity:turn:1" zeroEntryLabel="Pawing" />,
       )
     })
 

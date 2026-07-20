@@ -1,8 +1,5 @@
 import { useState } from "react"
-import {
-  attachmentRequiresVisionInput,
-  fileToPromptComposerAttachment,
-} from "./attachment-utils"
+import { attachmentRequiresVisionInput, fileToPromptComposerAttachment } from "./attachment-utils"
 import type { PromptComposerAttachment } from "./prompt-types"
 
 type UsePromptComposerAttachmentsProps = {

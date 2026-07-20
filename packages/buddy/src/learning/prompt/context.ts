@@ -29,10 +29,7 @@ import type {
   TeachingWorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { listRegisteredResources } from "../../resources/resource-registry-service"
-import {
-  IMAGE_EDIT_TARGET_MAX,
-  type ImageEditIntent,
-} from "../features/image-generation/contracts"
+import { IMAGE_EDIT_TARGET_MAX, type ImageEditIntent } from "../features/image-generation/contracts"
 
 type MessagePromptProjectConfig = Awaited<ReturnType<typeof readProjectConfig>>
 

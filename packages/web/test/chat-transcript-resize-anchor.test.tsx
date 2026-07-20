@@ -3,10 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
-import {
-  ChatTranscript,
-  writeTranscriptVirtualEnd,
-} from "../src/components/chat/chat-transcript"
+import { ChatTranscript, writeTranscriptVirtualEnd } from "../src/components/chat/chat-transcript"
 import {
   installTranscriptPerformanceProbe,
   type TranscriptPerformanceProbe,
@@ -197,9 +194,9 @@ describe("chat transcript resize anchoring", () => {
       await flushAnimationFrames()
     })
 
-    const measuredRows = Array.from(container.querySelectorAll<HTMLElement>("[data-index]")).toSorted(
-      (left, right) => Number(left.dataset.index) - Number(right.dataset.index),
-    )
+    const measuredRows = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-index]"),
+    ).toSorted((left, right) => Number(left.dataset.index) - Number(right.dataset.index))
     const finalRow = requireMeasuredRow(measuredRows.at(-1))
     const penultimateRow = requireMeasuredRow(measuredRows.at(-2))
     const virtualContent = finalRow.parentElement?.parentElement
@@ -242,9 +239,7 @@ describe("chat transcript resize anchoring", () => {
     expect(
       probe.events.slice(finalResizeEventIndex + 1).some((event) => event.type === "scroll-write"),
     ).toBe(true)
-    expect(
-      probe.events.filter((event) => event.type === "bottom-anchor-repair"),
-    ).toHaveLength(0)
+    expect(probe.events.filter((event) => event.type === "bottom-anchor-repair")).toHaveLength(0)
 
     probe.clear()
     await act(async () => {
@@ -252,9 +247,7 @@ describe("chat transcript resize anchoring", () => {
       viewport.scrollTop -= 120
       await waitForResizeBottomRepair()
     })
-    expect(
-      probe.events.filter((event) => event.type === "bottom-anchor-repair"),
-    ).toHaveLength(1)
+    expect(probe.events.filter((event) => event.type === "bottom-anchor-repair")).toHaveLength(1)
     expect(probe.events.some((event) => event.type === "scroll-write" && !event.noOp)).toBe(true)
     await act(async () => {
       await flushAnimationFrames()
@@ -408,18 +401,15 @@ describe("chat transcript resize anchoring", () => {
     probe.clear()
     await act(async () => {
       seedTranscriptMessages(directory, [
-        createMessageWithParts(
-          createUserMessageInfo({ id: appendedMessageID, sessionID }),
-          [
-            {
-              id: "prt_appended_attached_restored_offset",
-              sessionID,
-              messageID: appendedMessageID,
-              type: "text",
-              text: "New material appended after the attached task was restored",
-            },
-          ],
-        ),
+        createMessageWithParts(createUserMessageInfo({ id: appendedMessageID, sessionID }), [
+          {
+            id: "prt_appended_attached_restored_offset",
+            sessionID,
+            messageID: appendedMessageID,
+            type: "text",
+            text: "New material appended after the attached task was restored",
+          },
+        ]),
       ])
       await flushAnimationFrames()
     })
@@ -471,20 +461,14 @@ describe("chat transcript resize anchoring", () => {
         await waitForResizeBottomRepair()
       })
 
-      expect(
-        probe.events.filter((event) => event.type === "bottom-anchor-repair"),
-      ).toHaveLength(1)
+      expect(probe.events.filter((event) => event.type === "bottom-anchor-repair")).toHaveLength(1)
       expect(
         probe.events.some(
-          (event) =>
-            event.type === "scroll-write" &&
-            !event.noOp &&
-            event.requestedOffset > 480,
+          (event) => event.type === "scroll-write" && !event.noOp && event.requestedOffset > 480,
         ),
       ).toBe(true)
     } finally {
       HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect
     }
   })
-
 })

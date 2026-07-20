@@ -235,10 +235,7 @@ export {
   Tick02Icon,
 } from "./icons"
 export type { IconProps, IconSvgElement } from "./icons"
-export {
-  SHADCN_HUGEICONS_STROKE_WIDTH,
-  SHADCN_HUGEICONS_DEFAULT_COLOR,
-} from "./lib/icon-defaults"
+export { SHADCN_HUGEICONS_STROKE_WIDTH, SHADCN_HUGEICONS_DEFAULT_COLOR } from "./lib/icon-defaults"
 export { cn } from "./lib/utils"
 export { toast } from "sonner"
 

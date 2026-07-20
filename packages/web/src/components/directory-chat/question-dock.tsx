@@ -128,9 +128,7 @@ export function QuestionDock(props: QuestionDockProps) {
     const nextAnswers = answers.map((value, index) => (index === tab ? [answer] : value))
     setAnswers(nextAnswers)
     if (isCustomAnswer) {
-      setCustomText((current) =>
-        current.map((value, index) => (index === tab ? answer : value)),
-      )
+      setCustomText((current) => current.map((value, index) => (index === tab ? answer : value)))
     }
 
     if (isSingleSelectAuto) {
@@ -188,9 +186,7 @@ export function QuestionDock(props: QuestionDockProps) {
       if (previousValue) {
         setAnswers((current) =>
           current.map((answer, index) =>
-            index === tab
-              ? answer.filter((candidate) => candidate !== previousValue)
-              : answer,
+            index === tab ? answer.filter((candidate) => candidate !== previousValue) : answer,
           ),
         )
       }
@@ -203,9 +199,7 @@ export function QuestionDock(props: QuestionDockProps) {
         setCustomText((current) =>
           current.map((candidate, index) => (index === tab ? value : candidate)),
         )
-        setAnswers((current) =>
-          current.map((answer, index) => (index === tab ? [value] : answer)),
-        )
+        setAnswers((current) => current.map((answer, index) => (index === tab ? [value] : answer)))
         setEditing(false)
         return
       }
@@ -236,17 +230,12 @@ export function QuestionDock(props: QuestionDockProps) {
       if (event.ctrlKey || event.altKey || event.metaKey) return
 
       const activeElement = document.activeElement
-      if (
-        isTextEntryElement(activeElement) &&
-        !containerRef.current?.contains(activeElement)
-      ) {
+      if (isTextEntryElement(activeElement) && !containerRef.current?.contains(activeElement)) {
         return
       }
 
       const activeDialog =
-        activeElement instanceof HTMLElement
-          ? activeElement.closest("[role='dialog']")
-          : null
+        activeElement instanceof HTMLElement ? activeElement.closest("[role='dialog']") : null
       if (activeDialog && !containerRef.current?.contains(activeDialog)) return
 
       if (editing && !isReview) {
@@ -365,11 +354,7 @@ export function QuestionDock(props: QuestionDockProps) {
                 aria-hidden
                 className="stroke-current"
               >
-                <path
-                  d="M3.5 3.5l7 7M10.5 3.5l-7 7"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
+                <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
           </div>
@@ -438,11 +423,7 @@ export function QuestionDock(props: QuestionDockProps) {
                   aria-hidden
                   className="stroke-current"
                 >
-                  <path
-                    d="M3.5 3.5l7 7M10.5 3.5l-7 7"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
+                  <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
               </button>
             </div>
@@ -466,9 +447,7 @@ export function QuestionDock(props: QuestionDockProps) {
                   onClick={() => selectTab(index)}
                   className="-mx-2 flex w-full items-baseline gap-2 rounded-xl px-2 py-2 text-left transition-colors hover:bg-surface-base-hover"
                 >
-                  <span className="shrink-0 text-xs text-text-weaker">
-                    {reviewQuestion.header}
-                  </span>
+                  <span className="shrink-0 text-xs text-text-weaker">{reviewQuestion.header}</span>
                   {values.length > 0 ? (
                     values.some(isQuestionMarkdownBlock) ? (
                       <div className="min-w-0 flex-1 text-sm text-text-base">
@@ -506,9 +485,7 @@ export function QuestionDock(props: QuestionDockProps) {
                 const optionCacheKey = `${questionCacheKey}:option:${index}`
                 const hasBlockContent =
                   isQuestionMarkdownBlock(option.label) ||
-                  (option.description
-                    ? isQuestionMarkdownBlock(option.description)
-                    : false)
+                  (option.description ? isQuestionMarkdownBlock(option.description) : false)
                 const row = (
                   <button
                     type="button"
@@ -516,9 +493,7 @@ export function QuestionDock(props: QuestionDockProps) {
                     onClick={() => selectOption(index)}
                     className={cn(
                       "group -mx-2 flex w-full items-center gap-2.5 rounded-full px-2 py-1.5 text-left transition-colors active:scale-[0.995]",
-                      active || picked
-                        ? "bg-surface-base-hover"
-                        : "hover:bg-surface-base-hover/70",
+                      active || picked ? "bg-surface-base-hover" : "hover:bg-surface-base-hover/70",
                     )}
                   >
                     <span

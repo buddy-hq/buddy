@@ -34,10 +34,7 @@ function userMessage(input: { id?: string; optimistic?: boolean } = {}): Message
 }
 
 function assistantMessage(id: string, parts: MessagePart[]): MessageWithParts {
-  return createMessageWithParts(
-    createAssistantMessageInfo({ id, sessionID: "ses_rows" }),
-    parts,
-  )
+  return createMessageWithParts(createAssistantMessageInfo({ id, sessionID: "ses_rows" }), parts)
 }
 
 function textPart(id: string): MessagePart {
@@ -155,7 +152,10 @@ describe("chat timeline rows", () => {
 
   test("adds a new tail ActivityRow after completed media while still busy", () => {
     const rows = rowsFor(
-      [userMessage(), assistantMessage("msg_assistant", [inlineImage({ id: "image", phase: "completed" })])],
+      [
+        userMessage(),
+        assistantMessage("msg_assistant", [inlineImage({ id: "image", phase: "completed" })]),
+      ],
       true,
     )
 
@@ -169,7 +169,10 @@ describe("chat timeline rows", () => {
 
   test("does not add duplicate Panda activity while an inline loader is active", () => {
     const rows = rowsFor(
-      [userMessage(), assistantMessage("msg_assistant", [inlineImage({ id: "image", phase: "running" })])],
+      [
+        userMessage(),
+        assistantMessage("msg_assistant", [inlineImage({ id: "image", phase: "running" })]),
+      ],
       true,
     )
     expect(rows.map((row) => row.type)).toEqual(["user", "assistant"])
@@ -218,13 +221,15 @@ describe("chat timeline rows", () => {
     const rows = rowsFor(
       [
         userMessage(),
-        assistantMessage("msg_assistant", [completedActivity("read-1"), text, completedActivity("read-2")]),
+        assistantMessage("msg_assistant", [
+          completedActivity("read-1"),
+          text,
+          completedActivity("read-2"),
+        ]),
       ],
       false,
     )
-    const activityKeys = rows
-      .filter((row) => row.type === "activity")
-      .map((row) => row.key)
+    const activityKeys = rows.filter((row) => row.type === "activity").map((row) => row.key)
     expect(activityKeys).toEqual(["activity:msg_user:0", "activity:msg_user:1"])
   })
 

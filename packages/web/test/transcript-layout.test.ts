@@ -1,10 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { TOOL_LAYOUT_ROLES } from "@buddy/opencode-adapter/tool-presentation"
 
-import {
-  TRANSCRIPT_GAP_PX,
-  transcriptGapClass,
-} from "../src/components/chat/transcript-layout"
+import { TRANSCRIPT_GAP_PX, transcriptGapClass } from "../src/components/chat/transcript-layout"
 
 const EXPECTED_GAPS = [
   ["prose", "prose", 8],

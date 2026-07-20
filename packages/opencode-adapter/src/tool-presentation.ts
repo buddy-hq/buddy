@@ -67,11 +67,7 @@ export const TOOL_COLLECTION_TOKENS = [
   "mermaid-gallery",
   "full-text-collection",
 ] as const
-export const TOOL_NEUTRAL_OUTCOMES = [
-  "permission-denied",
-  "cancelled",
-  "interrupted",
-] as const
+export const TOOL_NEUTRAL_OUTCOMES = ["permission-denied", "cancelled", "interrupted"] as const
 export const TOOL_SILENT_OUTCOMES = ["explicit", "scoped-reading-fallback"] as const
 
 export type ToolPresentationPhase = (typeof TOOL_PRESENTATION_PHASES)[number]

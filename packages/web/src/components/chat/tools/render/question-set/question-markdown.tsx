@@ -73,9 +73,7 @@ export function isQuestionMarkdownBlock(text: string): boolean {
   const contentTokens = marked
     .lexer(text)
     .filter((token) => token.type !== QUESTION_MARKDOWN_SPACE_TOKEN)
-  return (
-    contentTokens.length !== 1 || contentTokens[0]?.type !== QUESTION_MARKDOWN_PARAGRAPH_TOKEN
-  )
+  return contentTokens.length !== 1 || contentTokens[0]?.type !== QUESTION_MARKDOWN_PARAGRAPH_TOKEN
 }
 
 function cacheInlineQuestionMarkdown(key: string, source: string, html: string) {
@@ -138,10 +136,7 @@ export function QuestionInlineMarkdown(props: {
   }
 
   return (
-    <span
-      className={props.className}
-      dangerouslySetInnerHTML={html ? { __html: html } : undefined}
-    >
+    <span className={props.className} dangerouslySetInnerHTML={html ? { __html: html } : undefined}>
       {html ? undefined : props.text}
     </span>
   )

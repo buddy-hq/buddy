@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import {
-  resolveRedoTargetMessageID,
-  resolveUndoTargetMessageID,
-} from "../src/state/session-revert"
+import { resolveRedoTargetMessageID, resolveUndoTargetMessageID } from "../src/state/session-revert"
 import type { MessageWithParts } from "../src/state/chat-types"
 import {
   createAssistantMessageInfo,

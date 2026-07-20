@@ -142,10 +142,7 @@ describe("chat forking", () => {
       await flushEffects()
     })
 
-    expect(requests).toEqual([
-      { sessionID, messageID: "msg_003_user" },
-      { sessionID },
-    ])
+    expect(requests).toEqual([{ sessionID, messageID: "msg_003_user" }, { sessionID }])
   })
 
   test("does not restore hidden reverted messages when branching from the last visible response", async () => {

@@ -13,9 +13,7 @@ function isImageDataUrl(value: string): boolean {
   return value.startsWith(IMAGE_DATA_URL_PREFIX)
 }
 
-type RecentImageSource =
-  | { type: "data-url"; value: string }
-  | { type: "path"; value: string }
+type RecentImageSource = { type: "data-url"; value: string } | { type: "path"; value: string }
 
 type ReferencedImageInput = {
   imagePath: string
@@ -94,9 +92,7 @@ function assertImageInputFileSize(size: number, label: string, imagePath?: strin
 function assertImageInputTotalSize(inputs: readonly { size: number }[]): void {
   const totalBytes = inputs.reduce((total, input) => total + input.size, 0)
   if (totalBytes > IMAGE_INPUT_MAX_TOTAL_BYTES) {
-    throw new Error(
-      `Image inputs exceed the ${IMAGE_INPUT_MAX_TOTAL_BYTES}-byte aggregate limit.`,
-    )
+    throw new Error(`Image inputs exceed the ${IMAGE_INPUT_MAX_TOTAL_BYTES}-byte aggregate limit.`)
   }
 }
 

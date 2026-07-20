@@ -8,11 +8,7 @@
  * Package also defaults color=currentColor, size=24 (CSS size-* overrides display size).
  */
 import { forwardRef } from "react"
-import type {
-  ComponentPropsWithoutRef,
-  ForwardRefExoticComponent,
-  RefAttributes,
-} from "react"
+import type { ComponentPropsWithoutRef, ForwardRefExoticComponent, RefAttributes } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
   ALargeSmallIcon as ALargeSmallIconData,
@@ -140,7 +136,6 @@ import {
   ArrowUpRight03Icon as ArrowUpRight03IconData,
   Bookmark02Icon as Bookmark02IconData,
   BrainCircuitIcon as BrainCircuitIconData,
-
   Moon02Icon as Moon02IconData,
   PaintBrush02Icon as PaintBrush02IconData,
   PanelLeftIcon as PanelLeftIconData,
@@ -150,20 +145,15 @@ import {
   SettingsIcon as SettingsIconData,
   Shield02Icon as Shield02IconData,
   Undo03Icon as Undo03IconData,
-
-
   ScanImageIcon as ScanImageIconData,
   VolumeMute02Icon as VolumeMute02IconData,
   WrenchIcon as WrenchIconData,
-
 } from "@hugeicons/core-free-icons"
 
 export type IconProps = Omit<ComponentPropsWithoutRef<typeof HugeiconsIcon>, "icon">
 
 /** Ref-safe component type shared by app icon consumers. */
-export type AppIcon = ForwardRefExoticComponent<
-  IconProps & RefAttributes<SVGSVGElement>
->
+export type AppIcon = ForwardRefExoticComponent<IconProps & RefAttributes<SVGSVGElement>>
 
 /** Official shadcn/ui Hugeicons default (CLI: strokeWidth={2}). */
 const SHADCN_HUGEICONS_STROKE_WIDTH = 2
@@ -178,10 +168,7 @@ const PANDA_STROKE_ATTRIBUTES = {
 } as const
 
 const BuddyPandaIconData = [
-  [
-    "path",
-    { ...PANDA_STROKE_ATTRIBUTES, d: "M11.25 17.25h1.5L12 18z", key: "1wmwwj" },
-  ],
+  ["path", { ...PANDA_STROKE_ATTRIBUTES, d: "M11.25 17.25h1.5L12 18z", key: "1wmwwj" }],
   ["path", { ...PANDA_STROKE_ATTRIBUTES, d: "m15 12 2 2", key: "k60wz4" }],
   [
     "path",
@@ -216,13 +203,7 @@ function createIcon(icon: IconSvgElement, displayName: string): AppIcon {
     ref,
   ) {
     return (
-      <HugeiconsIcon
-        ref={ref}
-        icon={icon}
-        strokeWidth={strokeWidth}
-        color={color}
-        {...props}
-      />
+      <HugeiconsIcon ref={ref} icon={icon} strokeWidth={strokeWidth} color={color} {...props} />
     )
   })
   Icon.displayName = displayName
@@ -237,10 +218,7 @@ export const AlertCircle = createIcon(AlertCircleIconData, "AlertCircle")
 export const AlertCircleIcon = createIcon(AlertCircleIconData, "AlertCircleIcon")
 export const AlertTriangleIcon = createIcon(Alert02IconData, "AlertTriangleIcon")
 /** Full-width justify lines; free pack TextAlignJustifyCenter matches (not *Left). */
-export const AlignJustifyIcon = createIcon(
-  TextAlignJustifyCenterIconData,
-  "AlignJustifyIcon",
-)
+export const AlignJustifyIcon = createIcon(TextAlignJustifyCenterIconData, "AlignJustifyIcon")
 export const AlignLeftIcon = createIcon(AlignLeftIconData, "AlignLeftIcon")
 export const AppWindow = createIcon(AppWindowIconData, "AppWindow")
 export const AppWindowIcon = createIcon(AppWindowIconData, "AppWindowIcon")

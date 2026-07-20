@@ -43,9 +43,7 @@ function validateCompareEntries(entries: readonly CompareEntry[]): void {
 
   for (const entry of entries) {
     if (!COMPARE_SLUG_PATTERN.test(entry.id)) {
-      throw new Error(
-        `Compare entry "${entry.id}" must use one lowercase kebab-case URL segment.`,
-      )
+      throw new Error(`Compare entry "${entry.id}" must use one lowercase kebab-case URL segment.`)
     }
 
     const sourceSuffixes = [`/${entry.id}.yaml`, `/${entry.id}.yml`]

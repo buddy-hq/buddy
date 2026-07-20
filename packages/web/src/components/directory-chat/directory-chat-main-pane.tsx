@@ -66,10 +66,7 @@ type DirectoryChatMainPaneProps = {
     resource: ResourceReadingTarget,
     options?: ResourceOpenOptions,
   ) => void
-  onForkMessage?: (input: {
-    sessionID: string
-    messageID?: string
-  }) => Promise<void> | void
+  onForkMessage?: (input: { sessionID: string; messageID?: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRestoreRevertedMessages?: () => Promise<void> | void
   onPermissionReply: (reply: PermissionReply) => Promise<void>
@@ -244,8 +241,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   const canEditImages = canEditImagesForModel({
     providerID: chatState.effectiveModelSelection?.providerID,
     acceptsImages: chatState.selectedModelAcceptsImages,
-    chatGptOAuthReady:
-      providerCatalogQuery.data?.openAIModelAvailability.status === "ready",
+    chatGptOAuthReady: providerCatalogQuery.data?.openAIModelAvailability.status === "ready",
   })
 
   return (

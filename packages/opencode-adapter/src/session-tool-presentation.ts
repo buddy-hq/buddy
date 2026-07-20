@@ -28,17 +28,14 @@ function isToolPart(value: unknown): value is ToolPart {
 
 function presentationContext(part: ToolPart): ToolPresentationResolutionContext {
   const state = part.state
-  const metadata =
-    state.status === "pending" || !isRecord(state.metadata) ? {} : state.metadata
+  const metadata = state.status === "pending" || !isRecord(state.metadata) ? {} : state.metadata
 
   return {
     toolID: part.tool,
     phase: state.status,
     input: state.input,
     metadata,
-    ...(state.status === "running" || state.status === "completed"
-      ? { title: state.title }
-      : {}),
+    ...(state.status === "running" || state.status === "completed" ? { title: state.title } : {}),
     ...(state.status === "completed" ? { output: state.output } : {}),
     ...(state.status === "error" ? { error: state.error } : {}),
   }
@@ -61,9 +58,7 @@ function metadataWithPresentation(
 function stripPresentationFromState(state: ToolState): ToolState {
   if (state.status === "pending") return state
 
-  const metadata = stripBuddyToolPresentation(
-    isRecord(state.metadata) ? state.metadata : undefined,
-  )
+  const metadata = stripBuddyToolPresentation(isRecord(state.metadata) ? state.metadata : undefined)
   if (state.status === "completed") {
     return {
       ...state,
@@ -99,10 +94,7 @@ export function withToolPresentationOnPart<T extends MessageV2.Part>(
   }
 }
 
-export function withToolPresentationOnUnknownPart(
-  part: unknown,
-  directory?: string,
-): unknown {
+export function withToolPresentationOnUnknownPart(part: unknown, directory?: string): unknown {
   return isToolPart(part) ? withToolPresentationOnPart(part, directory) : part
 }
 

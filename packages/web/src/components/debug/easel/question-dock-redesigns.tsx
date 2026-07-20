@@ -343,8 +343,7 @@ function SpotlightDock({
 }) {
   const questions = scenario.questions
   // One single-select question → pick auto-submits, no review (matches ChatGPT / production)
-  const isSingleSelectAuto =
-    questions.length === 1 && questions[0]?.multiple !== true
+  const isSingleSelectAuto = questions.length === 1 && questions[0]?.multiple !== true
   // Review step only when there are multiple questions in the batch
   const hasReviewStep = questions.length > 1
   const reviewIndex = questions.length
@@ -369,9 +368,7 @@ function SpotlightDock({
         return { ...s, answers, customText, responding: true, submitted: true }
       }
       // Multi-question batch: advance; last question lands on review
-      const nextTab = hasReviewStep
-        ? Math.min(s.tab + 1, reviewIndex)
-        : s.tab
+      const nextTab = hasReviewStep ? Math.min(s.tab + 1, reviewIndex) : s.tab
       return {
         ...s,
         answers,
@@ -473,11 +470,7 @@ function SpotlightDock({
                 aria-hidden
                 className="stroke-current"
               >
-                <path
-                  d="M3.5 3.5l7 7M10.5 3.5l-7 7"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
+                <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
           </div>
@@ -534,11 +527,7 @@ function SpotlightDock({
                   aria-hidden
                   className="stroke-current"
                 >
-                  <path
-                    d="M3.5 3.5l7 7M10.5 3.5l-7 7"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
+                  <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
               </button>
             </div>
@@ -585,9 +574,7 @@ function SpotlightDock({
                     onClick={() => (isMulti ? toggle(opt.label) : pick(opt.label))}
                     className={cn(
                       "group -mx-2 flex w-full items-center gap-2.5 rounded-full px-2 py-1.5 text-left transition-colors active:scale-[0.995]",
-                      active || picked
-                        ? "bg-surface-base-hover"
-                        : "hover:bg-surface-base-hover/70",
+                      active || picked ? "bg-surface-base-hover" : "hover:bg-surface-base-hover/70",
                     )}
                   >
                     <span
@@ -634,65 +621,36 @@ function SpotlightDock({
                 )
               })}
 
-            {/* Final row: custom (left) + Skip (right) — same line as ChatGPT */}
-            <div className="-mx-2 flex items-center gap-2 px-2 py-1.5">
-              {hasCustom ? (
-                <div
-                  className={cn(
-                    "flex min-w-0 flex-1 items-center gap-2.5 rounded-full py-0.5 transition-colors",
-                    state.selected === options.length || state.editing
-                      ? "bg-surface-base-hover"
-                      : "hover:bg-surface-base-hover/70",
-                  )}
-                  onMouseEnter={() => setState((s) => ({ ...s, selected: options.length }))}
-                  onClick={() => {
-                    if (!state.editing) {
-                      setState((s) => ({ ...s, editing: true, selected: options.length }))
-                    }
-                  }}
-                >
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-raised-base text-xs text-text-weaker">
-                    ✎
-                  </span>
-                  {state.editing ? (
-                    <input
-                      autoFocus
-                      defaultValue={state.customText[state.tab] ?? ""}
-                      placeholder=""
-                      aria-label="Type your own answer"
-                      className="min-w-0 flex-1 bg-transparent text-sm leading-6 text-text-base outline-none"
-                      onClick={(e) => e.stopPropagation()}
-                      onBlur={(e) => {
-                        const v = e.currentTarget.value.trim()
-                        if (!v) {
-                          setState((s) => ({ ...s, editing: false }))
-                          return
-                        }
-                        if (isMulti) {
-                          setState((s) => {
-                            const prev = s.customText[s.tab]
-                            let next = [...(s.answers[s.tab] ?? [])]
-                            if (prev) next = next.filter((x) => x !== prev)
-                            if (!next.includes(v)) next.push(v)
-                            return {
-                              ...s,
-                              answers: s.answers.map((a, i) => (i === s.tab ? next : a)),
-                              customText: s.customText.map((t, i) => (i === s.tab ? v : t)),
-                              editing: false,
-                            }
-                          })
-                        } else {
-                          setState((s) => ({
-                            ...s,
-                            customText: s.customText.map((t, i) => (i === s.tab ? v : t)),
-                            editing: false,
-                          }))
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault()
-                          const v = (e.target as HTMLInputElement).value.trim()
+              {/* Final row: custom (left) + Skip (right) — same line as ChatGPT */}
+              <div className="-mx-2 flex items-center gap-2 px-2 py-1.5">
+                {hasCustom ? (
+                  <div
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center gap-2.5 rounded-full py-0.5 transition-colors",
+                      state.selected === options.length || state.editing
+                        ? "bg-surface-base-hover"
+                        : "hover:bg-surface-base-hover/70",
+                    )}
+                    onMouseEnter={() => setState((s) => ({ ...s, selected: options.length }))}
+                    onClick={() => {
+                      if (!state.editing) {
+                        setState((s) => ({ ...s, editing: true, selected: options.length }))
+                      }
+                    }}
+                  >
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-raised-base text-xs text-text-weaker">
+                      ✎
+                    </span>
+                    {state.editing ? (
+                      <input
+                        autoFocus
+                        defaultValue={state.customText[state.tab] ?? ""}
+                        placeholder=""
+                        aria-label="Type your own answer"
+                        className="min-w-0 flex-1 bg-transparent text-sm leading-6 text-text-base outline-none"
+                        onClick={(e) => e.stopPropagation()}
+                        onBlur={(e) => {
+                          const v = e.currentTarget.value.trim()
                           if (!v) {
                             setState((s) => ({ ...s, editing: false }))
                             return
@@ -706,51 +664,76 @@ function SpotlightDock({
                               return {
                                 ...s,
                                 answers: s.answers.map((a, i) => (i === s.tab ? next : a)),
-                                customText: s.customText.map((t, i) =>
-                                  i === s.tab ? v : t,
-                                ),
+                                customText: s.customText.map((t, i) => (i === s.tab ? v : t)),
                                 editing: false,
                               }
                             })
                           } else {
-                            pick(v, true)
+                            setState((s) => ({
+                              ...s,
+                              customText: s.customText.map((t, i) => (i === s.tab ? v : t)),
+                              editing: false,
+                            }))
                           }
-                        }
-                        if (e.key === "Escape") {
-                          e.preventDefault()
-                          setState((s) => ({ ...s, editing: false }))
-                        }
-                      }}
-                    />
-                  ) : (
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 truncate text-sm leading-6",
-                        state.customText[state.tab]
-                          ? "text-text-base"
-                          : "text-text-weaker",
-                      )}
-                    >
-                      {state.customText[state.tab] || "Type your own answer"}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="min-w-0 flex-1" />
-              )}
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  skip()
-                }}
-                className="shrink-0 text-text-weak"
-              >
-                Skip
-              </Button>
-            </div>
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault()
+                            const v = (e.target as HTMLInputElement).value.trim()
+                            if (!v) {
+                              setState((s) => ({ ...s, editing: false }))
+                              return
+                            }
+                            if (isMulti) {
+                              setState((s) => {
+                                const prev = s.customText[s.tab]
+                                let next = [...(s.answers[s.tab] ?? [])]
+                                if (prev) next = next.filter((x) => x !== prev)
+                                if (!next.includes(v)) next.push(v)
+                                return {
+                                  ...s,
+                                  answers: s.answers.map((a, i) => (i === s.tab ? next : a)),
+                                  customText: s.customText.map((t, i) => (i === s.tab ? v : t)),
+                                  editing: false,
+                                }
+                              })
+                            } else {
+                              pick(v, true)
+                            }
+                          }
+                          if (e.key === "Escape") {
+                            e.preventDefault()
+                            setState((s) => ({ ...s, editing: false }))
+                          }
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className={cn(
+                          "min-w-0 flex-1 truncate text-sm leading-6",
+                          state.customText[state.tab] ? "text-text-base" : "text-text-weaker",
+                        )}
+                      >
+                        {state.customText[state.tab] || "Type your own answer"}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="min-w-0 flex-1" />
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    skip()
+                  }}
+                  className="shrink-0 text-text-weak"
+                >
+                  Skip
+                </Button>
+              </div>
             </div>
           </TooltipProvider>
         ) : null}

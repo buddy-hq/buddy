@@ -58,10 +58,7 @@ import { isChatReasoningPart, isChatTextPart } from "./utils/part-guards"
 import { useAssistantMeta } from "./hooks/use-assistant-meta"
 import { UserSection } from "./sections/user-section"
 import { ActivityRow, type ActivityRowExpansionState } from "./tools/activity-row"
-import {
-  ACTIVITY_THINKING_LABEL,
-  activityWorkingLabel,
-} from "./tools/activity-row/entries"
+import { ACTIVITY_THINKING_LABEL, activityWorkingLabel } from "./tools/activity-row/entries"
 import { transcriptGapClass } from "./transcript-layout"
 import { parseToolState } from "./tools/parse-tool-state"
 import { parseToolPresentation } from "./tools/parse-tool-presentation"
@@ -560,11 +557,7 @@ function TimelineAssistantRow(props: {
         )}`}
       >
         {showFinalTextSeparator ? (
-          <div
-            data-timeline-separator="final-text"
-            className="w-full py-4"
-            aria-hidden="true"
-          >
+          <div data-timeline-separator="final-text" className="w-full py-4" aria-hidden="true">
             <div className="h-px w-full bg-border-weak-base" />
           </div>
         ) : null}
@@ -658,12 +651,7 @@ function TimelineActivityRow(props: {
       data-timeline-row="Activity"
       className="relative min-w-0 w-full max-w-full px-4 md:px-5"
     >
-      <div
-        className={`flow-root ${transcriptGapClass(
-          props.row.previousLayoutRole,
-          "activity",
-        )}`}
-      >
+      <div className={`flow-root ${transcriptGapClass(props.row.previousLayoutRole, "activity")}`}>
         <ActivityRow
           parts={parts}
           seed={props.row.key}
@@ -721,9 +709,7 @@ function TimelineRowRenderer(props: {
         >
           <MessageDivider
             label={
-              props.row.label === "compaction"
-                ? language.t("chat.compaction.compacted")
-                : "Stopped"
+              props.row.label === "compaction" ? language.t("chat.compaction.compacted") : "Stopped"
             }
           />
         </article>
@@ -1072,11 +1058,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
           at: performance.now(),
           distanceFromEnd,
         })
-        writeTranscriptVirtualEnd(
-          root,
-          virtualContentRef.current,
-          rowVirtualizer.getTotalSize(),
-        )
+        writeTranscriptVirtualEnd(root, virtualContentRef.current, rowVirtualizer.getTotalSize())
       }, TIMELINE_RESIZE_BOTTOM_REPAIR_DELAY_MS)
     }
 

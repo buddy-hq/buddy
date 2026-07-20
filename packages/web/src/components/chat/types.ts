@@ -1,8 +1,5 @@
 import type { RefObject } from "react"
-import type {
-  ToolCollectionToken,
-  ToolLayoutRole,
-} from "@buddy/opencode-adapter/tool-presentation"
+import type { ToolCollectionToken, ToolLayoutRole } from "@buddy/opencode-adapter/tool-presentation"
 import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import type { MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
 

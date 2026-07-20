@@ -71,10 +71,7 @@ function QuestionAnswerList({
         const cacheKey = buildQuestionMarkdownCacheKey(cachePrefix, index, question)
 
         return (
-          <li
-            key={`q:${entry.text}:${entry.occurrence}`}
-            className="flex min-w-0 flex-col gap-0.5"
-          >
+          <li key={`q:${entry.text}:${entry.occurrence}`} className="flex min-w-0 flex-col gap-0.5">
             <QuestionMarkdown
               text={question}
               cacheKey={`${cacheKey}:prompt`}
@@ -256,8 +253,8 @@ export function QuestionToolAnsweredEasel() {
             <p className="text-[11px] text-text-weaker">
               Chrome is one phrase at one weight:{" "}
               <span className="text-text-weak">Asked a question</span> /{" "}
-              <span className="text-text-weak">Asked questions</span>. Body: one left edge;
-              answers weaker.
+              <span className="text-text-weak">Asked questions</span>. Body: one left edge; answers
+              weaker.
             </p>
           </div>
           <Badge variant="outline">Easel · UI fidelity</Badge>

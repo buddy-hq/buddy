@@ -39,10 +39,7 @@ const KNOWLEDGE_GRAPH_TOOL_TITLES = {
 
 const KNOWLEDGE_GRAPH_TOOL_NAMES = new Set(Object.keys(KNOWLEDGE_GRAPH_TOOL_TITLES))
 
-type VisibleToolPresentationSnapshot = Exclude<
-  ToolPresentationSnapshot,
-  { archetype: "silent" }
->
+type VisibleToolPresentationSnapshot = Exclude<ToolPresentationSnapshot, { archetype: "silent" }>
 
 function countNonEmptyLines(value: string): number {
   const trimmed = value.trim()

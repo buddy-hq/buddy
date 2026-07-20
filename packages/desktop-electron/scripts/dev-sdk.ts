@@ -15,10 +15,7 @@ export type GeneratedSdkSourcePathsInput = {
 }
 
 export function generatedSdkSourcePaths(input: GeneratedSdkSourcePathsInput): string[] {
-  const vendoredOpenCodePackagesDir = path.resolve(
-    input.repositoryRoot,
-    "vendor/opencode/packages",
-  )
+  const vendoredOpenCodePackagesDir = path.resolve(input.repositoryRoot, "vendor/opencode/packages")
 
   return [
     path.resolve(input.backendDir, "src"),
@@ -56,7 +53,6 @@ export function generatedSdkNeedsRefresh(input: GeneratedSdkFreshnessInput): boo
 
   const generatedAt = statSync(input.successMarker).mtimeMs
   return input.sourcePaths.some(
-    (sourcePath) =>
-      !existsSync(sourcePath) || newestModificationTimeMs(sourcePath) > generatedAt,
+    (sourcePath) => !existsSync(sourcePath) || newestModificationTimeMs(sourcePath) > generatedAt,
   )
 }
