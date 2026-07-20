@@ -1,15 +1,16 @@
 ---
 import "../styles/global.css"
+import SeoHead from "../components/SeoHead.astro"
 import { content } from "../content/site"
-import architectsDaughterLatinFontUrl from "../assets/fonts/architects-daughter-latin.woff2?url"
-import geistLatinFontUrl from "../assets/fonts/geist-latin.woff2?url"
-import geistMonoLatinFontUrl from "../assets/fonts/geist-mono-latin.woff2?url"
+import type { JsonLdObject, RobotsDirective } from "../lib/seo"
 
 type Props = {
   title?: string
   description?: string
   ogImagePath?: string
   ogImageAlt?: string
+  robots?: RobotsDirective
+  additionalJsonLd?: readonly JsonLdObject[]
 }
 
 const { meta } = content
@@ -19,128 +20,18 @@ const {
   description = meta.defaultDescription,
   ogImagePath = meta.defaultOgImagePath,
   ogImageAlt = meta.defaultOgImageAlt,
+  robots = "index, follow",
+  additionalJsonLd = [],
 } = Astro.props
 
-const canonicalURL = new URL(Astro.url.pathname, meta.siteUrl).href
-const ogImage = new URL(ogImagePath, meta.siteUrl).href
-const organizationId = `${meta.siteUrl}/#organization`
-const softwareApplicationId = `${meta.siteUrl}/#software-application`
-const websiteId = `${meta.siteUrl}/#website`
-const webPageId = `${canonicalURL}#webpage`
 const postHogCaptureEndpoint = meta.analytics.postHogCaptureEndpoint
 const postHogProjectToken = meta.analytics.postHogProjectToken
-
-const softwareApplicationJsonLd = {
-  "@type": "SoftwareApplication",
-  "@id": softwareApplicationId,
-  name: meta.siteName,
-  applicationCategory: meta.jsonLd.applicationCategory,
-  operatingSystem: meta.jsonLd.operatingSystem,
-  description,
-  url: meta.siteUrl,
-  image: [ogImage, `${meta.siteUrl}/apple-touch-icon.png`],
-  offers: {
-    "@type": "Offer",
-    price: meta.jsonLd.price,
-    priceCurrency: meta.jsonLd.priceCurrency,
-    availability: "https://schema.org/InStock",
-    url: meta.siteUrl,
-  },
-  publisher: {
-    "@id": organizationId,
-  },
-}
-
-const organizationJsonLd = {
-  "@type": "Organization",
-  "@id": organizationId,
-  name: meta.siteName,
-  url: meta.siteUrl,
-  logo: `${meta.siteUrl}/apple-touch-icon.png`,
-  sameAs: meta.organizationSameAs,
-}
-
-const websiteJsonLd = {
-  "@type": "WebSite",
-  "@id": websiteId,
-  url: meta.siteUrl,
-  name: meta.siteName,
-  publisher: {
-    "@id": organizationId,
-  },
-}
-
-const webPageJsonLd = {
-  "@type": "WebPage",
-  "@id": webPageId,
-  url: canonicalURL,
-  name: title,
-  description,
-  isPartOf: {
-    "@id": websiteId,
-  },
-  about: {
-    "@id": softwareApplicationId,
-  },
-  primaryImageOfPage: {
-    "@type": "ImageObject",
-    url: ogImage,
-    width: Number(meta.ogImageWidth),
-    height: Number(meta.ogImageHeight),
-  },
-}
-
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@graph": [softwareApplicationJsonLd, organizationJsonLd, websiteJsonLd, webPageJsonLd],
-}
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="index, follow" />
-    <meta name="description" content={description} />
-    <title>{title}</title>
-
-    <link rel="canonical" href={canonicalURL} />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-
-    <meta property="og:type" content="website" />
-    <meta property="og:locale" content="en_US" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonicalURL} />
-    <meta property="og:image" content={ogImage} />
-    <meta property="og:image:secure_url" content={ogImage} />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:alt" content={ogImageAlt} />
-    <meta property="og:image:width" content={meta.ogImageWidth} />
-    <meta property="og:image:height" content={meta.ogImageHeight} />
-    <meta property="og:site_name" content={meta.siteName} />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content={meta.twitterHandle} />
-    <meta name="twitter:creator" content={meta.twitterHandle} />
-    <meta name="twitter:title" content={title} />
-    <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={ogImage} />
-    <meta name="twitter:image:alt" content={ogImageAlt} />
-
-    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-
-    <link rel="preload" href={geistLatinFontUrl} as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href={geistMonoLatinFontUrl} as="font" type="font/woff2" crossorigin />
-    <link
-      rel="preload"
-      href={architectsDaughterLatinFontUrl}
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
+    <SeoHead {title} {description} {ogImagePath} {ogImageAlt} {robots} {additionalJsonLd} />
 
     <script define:vars={{ postHogCaptureEndpoint, postHogProjectToken }}>
       const analyticsHosts = new Set(["hibuddy.in", "www.hibuddy.in"])
@@ -892,6 +783,10 @@ const jsonLd = {
     </script>
   </head>
   <body>
+    <div class="llms-directive" aria-hidden="true">
+      For agent-readable product facts and install instructions, see{" "}
+      <a href={`${meta.siteUrl}/llms.txt`}>llms.txt</a>.
+    </div>
     <div class="bg-overlay"></div>
     <slot />
 

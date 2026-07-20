@@ -1,17 +1,14 @@
 ---
 import type { Audience } from "../content/site"
 import { content } from "../content/site"
-import { AUDIENCE_EDUCATORS, AUDIENCE_LEARNERS } from "../lib/constants"
+import { AUDIENCE_LEARNERS } from "../lib/constants"
 
 type Props = {
   initialAudience?: Audience
 }
 
-const learnersPhilosophy = content.learners.philosophy
-const educatorsPhilosophy = content.educators.philosophy
-
-const philosophyItems = learnersPhilosophy.items
 const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
+const privacy = content[initialAudience].privacy
 const philosophyHeadingId = `philosophy-heading-${initialAudience}`
 ---
 
@@ -20,107 +17,139 @@ const philosophyHeadingId = `philosophy-heading-${initialAudience}`
   aria-labelledby={philosophyHeadingId}
   data-analytics-section="philosophy"
 >
+  <div class="privacy-glow" aria-hidden="true"></div>
   <div class="container">
-    <div class="staggered-layout">
+    <div class="privacy-stage">
+      <span class="privacy-eyebrow reveal">{privacy.eyebrow}</span>
+      <h2 id={philosophyHeadingId} class="section-title privacy-headline reveal">
+        {privacy.headline}
+      </h2>
 
-      <div class="header-zone">
-        <!-- Learners Content -->
-        <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
-          <h2 id="philosophy-heading-learners" class="section-title">{learnersPhilosophy.headline}</h2>
-        </div>
-        <!-- Educators Content -->
-        <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
-          <h2 id="philosophy-heading-educators" class="section-title">{educatorsPhilosophy.headline}</h2>
-        </div>
-      </div>
-
-      <div class="columns-zone">
-        {philosophyItems.map((item, idx) => (
-          <div class={`stagger-column col-${idx}`}>
-
-            <div class="col-index">0{idx + 1}</div>
-
-            <h3 class="label">
-              <span class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>{learnersPhilosophy.items[idx].label}</span>
-              <span class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>{educatorsPhilosophy.items[idx].label}</span>
-            </h3>
-            <p class="detail">
-              <span class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>{learnersPhilosophy.items[idx].detail}</span>
-              <span class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>{educatorsPhilosophy.items[idx].detail}</span>
-            </p>
-          </div>
+      <ul class="privacy-lines">
+        {privacy.lines.map((line) => (
+          <li class="reveal">
+            <svg class="privacy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+              <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+              <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+              <line x1="2" x2="22" y1="2" y2="22" />
+            </svg>
+            <span>
+              <span class="privacy-muted">{line.muted}</span>{" "}
+              <span class="privacy-strong">{line.strong}</span>
+            </span>
+          </li>
         ))}
-      </div>
+      </ul>
 
+      <p class="privacy-pivot reveal">{privacy.pivot}</p>
     </div>
   </div>
 </section>
 
-<style is:global>
+<style>
   .philosophy-new {
     padding: var(--space-24) 0;
-    width: 100%;
   }
 
-  .philosophy-new .staggered-layout {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    gap: 96px;
+  .privacy-glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      42% 58% at 50% 46%,
+      var(--color-accent-primary-glow),
+      transparent 72%
+    );
+    opacity: 0.45;
+    pointer-events: none;
   }
 
-  .philosophy-new .header-zone {
-    text-align: center;
+  .privacy-stage {
     position: relative;
-  }
-
-  .philosophy-new .section-title {
-    margin: 0 auto;
-    max-width: 18ch;
-  }
-
-  .philosophy-new .columns-zone {
-    display: flex;
-    gap: var(--space-16);
-  }
-
-  .philosophy-new .stagger-column {
-    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
-    padding-top: var(--space-5);
-    border-top: 1px solid var(--border);
+    align-items: center;
+    text-align: center;
   }
 
-  .philosophy-new .col-index {
+  .privacy-eyebrow {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     color: var(--color-accent-primary);
-    letter-spacing: 0.05em;
+    margin-bottom: var(--space-5);
   }
 
-  .philosophy-new .label {
+  .privacy-headline {
+    margin: 0 0 var(--space-12) 0;
+  }
+
+  /* the stanza: one aligned block, centered as a unit */
+  .privacy-lines {
+    list-style: none;
+    margin: 0 auto;
+    padding: 0;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    text-align: left;
+  }
+
+  .privacy-lines li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
     font-family: var(--font-display);
-    font-size: 1.0625rem;
-    font-weight: 590;
-    line-height: 1.4;
-    letter-spacing: -0.012em;
-    color: var(--color-text-primary);
-    margin: 0;
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    font-weight: 510;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
   }
 
-  .philosophy-new .detail {
+  /* cascade the anaphora */
+  .privacy-lines li:nth-child(2) {
+    transition-delay: 90ms;
+  }
+
+  .privacy-lines li:nth-child(3) {
+    transition-delay: 180ms;
+  }
+
+  .privacy-lines li:nth-child(4) {
+    transition-delay: 270ms;
+  }
+
+  .privacy-icon {
+    flex: 0 0 auto;
+    width: 0.68em;
+    height: 0.68em;
+    color: var(--color-text-muted);
+    opacity: 0.55;
+    transform: translateY(0.04em);
+  }
+
+  .privacy-muted {
+    color: var(--color-text-muted);
+  }
+
+  .privacy-strong {
+    color: var(--color-text-primary);
+  }
+
+  .privacy-pivot {
     font-family: var(--font-body);
-    font-size: 0.9375rem;
+    font-size: 1.0625rem;
     font-weight: 300;
     color: var(--color-text-secondary);
-    line-height: 22px;
+    line-height: 1.7;
     letter-spacing: -0.011em;
-    opacity: 0.8;
-    max-width: 440px;
-    margin: 0;
+    max-width: 58ch;
+    margin: var(--space-12) auto 0 auto;
+    text-wrap: pretty;
   }
 
   @media (max-width: 768px) {
@@ -128,40 +157,18 @@ const philosophyHeadingId = `philosophy-heading-${initialAudience}`
       padding: var(--space-12) 0;
     }
 
-    .philosophy-new .staggered-layout {
-      gap: var(--space-12);
+    .privacy-headline {
+      margin-bottom: var(--space-10);
     }
 
-    .philosophy-new .header-zone {
-      text-align: left;
+    .privacy-pivot {
+      margin-top: var(--space-10);
     }
+  }
 
-    .philosophy-new .section-title {
-      margin: 0;
-    }
-
-    .philosophy-new .columns-zone {
-      flex-direction: row;
-      gap: var(--space-10);
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-      padding-bottom: var(--space-2);
-    }
-
-    .philosophy-new .columns-zone::after {
-      content: "";
-      flex: 0 0 var(--space-6);
-    }
-
-    .philosophy-new .columns-zone::-webkit-scrollbar {
-      display: none;
-    }
-
-    .philosophy-new .stagger-column {
-      flex: 0 0 72%;
-      padding: var(--space-5);
+  @media (max-width: 576px) {
+    .privacy-lines li {
+      white-space: normal;
     }
   }
 </style>

@@ -46,7 +46,8 @@ export type BringYourOwn = {
 }
 
 export type Download = {
-  readonly tagline: string
+  readonly eyebrow?: string
+  readonly headlineLines: readonly [string, string]
 }
 
 export type PhilosophyItem = {
@@ -91,7 +92,6 @@ export type InstallOS = {
 }
 
 export type Install = {
-  readonly title: string
   readonly downloadMac: string
   readonly downloadWin: string
   readonly copyLabel: string
@@ -125,6 +125,64 @@ export type Meta = {
     readonly price: string
     readonly priceCurrency: string
   }
+}
+
+export type PrivacyLine = {
+  readonly muted: string
+  readonly strong: string
+}
+
+export type Privacy = {
+  readonly eyebrow: string
+  readonly headline: string
+  readonly lines: readonly [PrivacyLine, PrivacyLine, PrivacyLine, PrivacyLine]
+  readonly pivot: string
+}
+
+// The prep artifacts on the desk (week plan, worksheet versions, quiz
+// with key, warm-up slip) are bespoke markup in WhySection.astro, same
+// convention as the workspace mocks.
+export type WhySection = {
+  readonly headline: string
+  readonly askLabel: string
+  readonly askPrompt: string
+  readonly closing: string
+}
+
+export type EducatorFluency = {
+  readonly headline: string
+  readonly subtext: string
+  readonly standards: readonly string[]
+  readonly frameworks: readonly string[]
+}
+
+export type AnswerItem = {
+  readonly q: string
+  readonly a: string
+  readonly chips?: readonly string[]
+}
+
+export type Answers = {
+  readonly eyebrow: string
+  readonly headline: string
+  readonly items: readonly AnswerItem[]
+}
+
+// The artifact tiles themselves (quiz card, flashcard, whiteboard, …)
+// are bespoke markup in LearnerLivesSection.astro, same convention as
+// the workspace mocks.
+export type LearnerLives = {
+  readonly headline: string
+  readonly closing: string
+}
+
+export type NotFound = {
+  readonly title: string
+  readonly description: string
+  readonly kicker: string
+  readonly headline: string
+  readonly subtext: string
+  readonly homeLabel: string
 }
 
 const bringYourOwn: BringYourOwn = {
@@ -190,23 +248,25 @@ const learnersPhilosophy: Philosophy = {
 const educatorsPhilosophy: Philosophy = {
   headline: "Your classroom, your data.",
   subtext:
-    "No account, no cloud, no tracking. Your curriculum and your learners' data never leave your computer.",
+    "No account, no cloud, no student data leaving the room. Your curriculum, assessments, and student work stay on your machine.",
   items: [
     {
-      label: "No logins",
-      detail: "Open the app and start. No sign-up, no password, nothing to cancel later.",
+      label: "No account needed",
+      detail: "Open the app and start. No sign-up, no password, no district IT ticket.",
     },
     {
-      label: "On device",
-      detail: "Your notes and files live on your computer. Only the model calls need internet.",
+      label: "Local-first",
+      detail:
+        "All files, lessons, and student data live on your computer. Only model calls go to your AI provider.",
     },
     {
-      label: "Asks permission",
-      detail: "Buddy asks before it does anything. You approve every file and action.",
+      label: "You approve every action",
+      detail: "Buddy asks before it reads, writes, or runs anything. Full permission control.",
     },
     {
-      label: "No tracking",
-      detail: "We can't see what you teach. Your chats go to your AI provider.",
+      label: "Zero telemetry",
+      detail:
+        "We can't see what you teach or who your students are. No analytics, no tracking, no data collection.",
     },
   ],
   closingStatement: "",
@@ -248,19 +308,28 @@ const header: Header = {
 }
 
 const learnerSeo: Seo = {
-  title: "Buddy - The Learning Superapp",
+  title: "Buddy · Learning buddy on your computer",
   description:
-    "Read, understand, and remember with Buddy—the local-first learning superapp for Mac and Windows.",
+    "A free learning buddy for Mac and Windows. Read with Buddy, think on a whiteboard, play simulations, quiz yourself, and keep notes in files you own. No account. Local-first.",
   ogImagePath: "/og-learning-superapp.png",
-  ogImageAlt: "Buddy — The Learning Superapp",
+  ogImageAlt: "Buddy: learning buddy on your computer",
 }
 
 const educatorSeo: Seo = {
-  title: "Buddy - The Teaching Superapp",
+  title: "Buddy · AI teaching partner on your computer",
   description:
-    "Plan lessons, align to standards, create materials, and assess with Buddy—the local-first teaching superapp for Mac and Windows.",
+    "Free AI teaching partner for Mac and Windows. Plan lessons, differentiate worksheets, build quizzes, and keep class files on your machine. No account. No cloud. Your data stays yours.",
   ogImagePath: "/og-teaching-superapp.png",
-  ogImageAlt: "Buddy — The Teaching Superapp",
+  ogImageAlt: "Buddy: AI teaching partner for educators",
+}
+
+const notFound: NotFound = {
+  title: "Page not found · Buddy",
+  description: "That page isn't here. Head home, or jump to teachers, compare, or docs.",
+  kicker: "404",
+  headline: "This page got lost.",
+  subtext: "Nothing here matches that URL.",
+  homeLabel: "Back home",
 }
 
 const meta: Meta = {
@@ -291,7 +360,6 @@ const meta: Meta = {
 }
 
 const install: Install = {
-  title: "made for you",
   downloadMac: "Download for Mac",
   downloadWin: "Download for Windows",
   copyLabel: "Copy",
@@ -322,99 +390,210 @@ const install: Install = {
   },
 }
 
+const learnersPrivacy: Privacy = {
+  eyebrow: "No account · No cloud · No telemetry",
+  headline: "What you learn is yours.",
+  lines: [
+    { muted: "We can't see", strong: "what you read." },
+    { muted: "We can't see", strong: "what you ask." },
+    { muted: "We can't see", strong: "who you are." },
+    { muted: "We can't even", strong: "count you." },
+  ],
+  pivot:
+    "Not by policy, by architecture. Your notes and files stay on your computer; only model calls leave, to your AI provider, with your keys. And Buddy asks before it reads, writes, or runs anything.",
+}
+
+const educatorsPrivacy: Privacy = {
+  eyebrow: "No account · No cloud · No telemetry",
+  headline: "Your classroom, your data.",
+  lines: [
+    { muted: "We can't see", strong: "what you teach." },
+    { muted: "We can't see", strong: "your students." },
+    { muted: "We can't see", strong: "who you are." },
+    { muted: "We can't even", strong: "count you." },
+  ],
+  pivot:
+    "Not by policy, by architecture. Curriculum, assessments, and student work stay on your machine; only model calls leave, to your AI provider, with your keys. And Buddy asks before it reads, writes, or runs anything.",
+}
+
+const educatorWhy: WhySection = {
+  headline: "The job grew. The week didn't.",
+  askLabel: "Sunday · 7:14 pm · you ask once",
+  askPrompt:
+    "Plan next week: area and perimeter, grade 4. Half my class is still shaky on multiplication.",
+  closing:
+    "By 7:19, the week is on your desk. You keep the teaching, and your Sunday.",
+}
+
+const educatorAnswers: Answers = {
+  eyebrow: "Straight answers",
+  headline: "The fine print, up front.",
+  items: [
+    {
+      q: "Where does student work go?",
+      a: "Nowhere. Buddy lives on your computer. Lessons, materials, and student work stay on your machine. Only AI calls leave, to your provider, with your keys. We can't see your classroom; we can't even count you.",
+    },
+    {
+      q: "What does it cost?",
+      a: "Nothing. Buddy is free: no pricing page, no subscription, no trial that expires mid-semester.",
+    },
+    {
+      q: "So who pays for the AI?",
+      a: "You bring the AI you already have: log in with your ChatGPT plan, paste an API key, or run local models. A few free models are included, so you can start tonight.",
+      chips: ["ChatGPT login", "API keys", "Ollama", "Free models included"],
+    },
+  ],
+}
+
+const learnerAnswers: Answers = {
+  eyebrow: "Straight answers",
+  headline: "The fine print, up front.",
+  items: [
+    {
+      q: "Is this another chatbot wrapper?",
+      a: "No. Buddy is a full agent, the same breed as Claude Code or Codex, raised for learning instead of code. It reads your files, builds real apps and boards, and asks before it touches anything.",
+    },
+    {
+      q: "Where does my data go?",
+      a: "Nowhere. Buddy lives on your computer. Notes, chats, and files stay on your machine, as plain files you can open without Buddy. Only AI calls leave, to your provider, with your keys.",
+    },
+    {
+      q: "What does it cost?",
+      a: "Nothing. Buddy is free: no pricing page, no subscription, no trial that expires. A few models are included so you can start right now.",
+    },
+    {
+      q: "Where does the AI come from?",
+      a: "You bring the AI you already have: log in with your ChatGPT plan, paste an API key, or run local models. Your keys, your provider, your choice.",
+      chips: ["ChatGPT login", "API keys", "Ollama", "Free models included"],
+    },
+  ],
+}
+
+const learnerLives: LearnerLives = {
+  headline: "For everything you'll ever learn.",
+  closing: "Whatever you're learning, for a grade, a career, or the joy of it, Buddy meets you there.",
+}
+
+const educatorFeatureNarrative =
+  "One unit: photosynthesis, grade 8, from the first ask to Friday's quiz."
+
+const educatorFluency: EducatorFluency = {
+  headline: "Fluent in your standards. Grounded in learning science.",
+  subtext:
+    "Wherever you teach, whether a US public school, an Indian classroom, or your own kitchen table, Buddy plans in the language of your curriculum.",
+  standards: [
+    "CCSS",
+    "NGSS",
+    "All 50 US state standards",
+    "NCERT",
+    "DIKSHA",
+    "Indian state boards",
+    "Your own textbooks",
+    "Your own framework",
+  ],
+  frameworks: [
+    "Bloom's Taxonomy",
+    "Webb's DOK",
+    "Understanding by Design",
+    "UDL",
+    "5E Model",
+    "Explicit instruction",
+    "Gradual release",
+    "Formative assessment",
+    "SOLO Taxonomy",
+    "Hess Cognitive Rigor",
+    "SIOP",
+    "Project-based learning",
+    "CASEL SEL",
+    "Visible thinking",
+  ],
+}
+
 export const content = {
   learners: {
     seo: learnerSeo,
     hero: {
-      headlineLines: ["A learning buddy", "that lives on your computer."],
+      headlineLines: ["For the pleasure of", "finding things out."],
       subtext:
-        "Read, understand, and remember with a learning companion that never leaves your side.",
-    },
-    featuresHeader: {
-      headline: "Built for how you actually learn.",
-      subtext: "",
+        "A learning buddy on your computer. It reads the page with you, thinks with you on a whiteboard, builds simulations you can play, and keeps every note in files you own.",
     },
     features: [
       {
         tag: "READ",
-        title: "Read, with Buddy at your side.",
+        title: "Read it with someone who's read it.",
         subtext:
-          "Bring your ebooks, PDFs, or papers. Buddy reads alongside you. Ask for summaries, save highlights, take notes.",
-      },
-      {
-        tag: "PLAY",
-        title: "Make games and apps to learn.",
-        subtext:
-          "Turn any topic into a game. Buddy can create games, interactive apps, or anything else you can imagine.",
+          "Drop in a PDF or EPUB and it opens in a reader beside the chat. Highlight as you go, then ask about the paragraph you're stuck on. Buddy answers from the page in front of you, not from a vague memory of the book.",
       },
       {
         tag: "DRAW",
-        title: "Draw on Excalidraw boards.",
+        title: "Think it out on a whiteboard.",
         subtext:
-          "Buddy can sketch for you or see what you're sketching. Ask for diagrams, map concepts, or visualize structures.",
+          "Every chat gets a live Excalidraw board. Buddy draws on it step by step while you watch, and you can pick up the pen yourself once the turn settles. Map a chapter, diagram a system, untangle a proof.",
       },
       {
-        tag: "QUIZ",
-        title: "Test yourself, with Quizzes.",
-        subtext: "Ask Buddy to generate a quiz on any resource, book, or topic you are studying.",
+        tag: "PLAY",
+        title: "Don't just read it. Play with it.",
+        subtext:
+          "Ask for a simulation, a game, an interactive anything. Buddy builds it and opens it on the Bench, saved into your notebook as a real file, sandboxed, with no code and no setup on your side.",
       },
       {
         tag: "REMEMBER",
-        title: "Make it stick, with Flashcards.",
+        title: "Quiz it. Card it. Keep it.",
         subtext:
-          "Stop forgetting what you learned. Buddy turns your reading and chats into flashcards. Review on your schedule.",
+          "Ask for a quiz or type /flashcard, and the deck lands in Practice. Question sets grade on submit and explain what you missed; cards come back on a spaced schedule you rate Again, Hard, Good, or Easy.",
+      },
+      {
+        tag: "CONNECT",
+        title: "Buddy speaks Obsidian.",
+        subtext:
+          "Open your Obsidian vault and Buddy adapts to it, natively. Wikilinks, embeds, and callouts work in the Buddy editor, links resolve between notes, and the agent stays anchored to that vault.",
       },
     ] as const,
     philosophy: learnersPhilosophy,
+    privacy: learnersPrivacy,
     download: {
-      tagline: "The learning superapp",
+      eyebrow: "Free · Mac & Windows · No account",
+      headlineLines: ["Whatever you're learning,", "bring it home."],
     },
   },
   educators: {
     seo: educatorSeo,
     hero: {
-      headlineLines: ["A teaching buddy", "for whatever's next on your list."],
-      subtext: "Plan, create, and assess with a teaching assistant that lives on your computer.",
-    },
-    featuresHeader: {
-      headline: "Built for how you actually teach.",
-      subtext: "",
+      headlineLines: ["Plan less.", "Teach more."],
+      subtext:
+        "An AI teaching partner that lives on your computer. Give it a topic and your class, and it drafts a lesson you can teach tomorrow, in the standards you teach, on a machine only you can see.",
     },
     features: [
       {
-        tag: "ALIGN",
-        title: "Align content to standards or books.",
-        subtext:
-          "Buddy comes with built-in CCSS, NGSS, and all-U.S.-state standards. For Indian teachers, it can download NCERT and state board books, DIKSHA resources, and any public resource published on GOI websites.",
-      },
-      {
         tag: "PLAN",
-        title: "Plan with any learning framework.",
+        title: "Plan a lesson in the standards you teach.",
         subtext:
-          "Buddy can align your content to Bloom levels, DOK levels, or Piaget's stages. It can sequence your lessons using instruction models. It can also help you with materials for project-based learning, SEL, scaffolding, and formative and summative assessment.",
+          "Give Buddy a topic, a grade, and your class. It drafts the lesson: objectives, sequence, timing, exit ticket, mapped to the standards you teach, or to your own textbooks and framework.",
       },
       {
-        tag: "CREATE",
-        title: "Create docs, presentations, or spreadsheets.",
+        tag: "DIFFERENTIATE",
+        title: "One task, ready for every reading level.",
         subtext:
-          "Buddy can create worksheets or lesson plans for your students. And it can create reports, presentations, or spreadsheets for your peers. All ready to export.",
+          "Buddy writes each worksheet at three levels: support, on-level, and extension, with worked examples, guided practice, and independent work, so no student is lost or bored.",
       },
       {
-        tag: "RESEARCH",
-        title: "Research around your material.",
+        tag: "ASSESS",
+        title: "A quiz and its answer key, in one ask.",
         subtext:
-          "Upload your PDFs, ebooks, documents, or web links. Buddy can parse, understand, and answer questions about them. Buddy has a built-in ebook reader, whiteboarding area, and source system to make your research easier.",
+          "Ask for a formative check, a question set, or a flashcard deck. Buddy tags each question by Bloom's level, hands you the answer key, and flags the misconceptions to watch for.",
       },
       {
         tag: "BUILD",
-        title: "Build interactive experiences.",
+        title: "Turn any topic into something to show.",
         subtext:
-          "Ask for an app, a game, or a website, and Buddy builds and publishes it, ready to share with students or peers. Every teacher, a builder.",
+          "Ask for a simulation, an interactive diagram, or a slide deck. Buddy builds it and opens it right in the app, ready for class tomorrow, no coding required.",
       },
     ] as const,
     philosophy: educatorsPhilosophy,
+    privacy: educatorsPrivacy,
     download: {
-      tagline: "The teaching superapp",
+      eyebrow: "Free · Mac & Windows · No account",
+      headlineLines: ["Tomorrow's lesson,", "one ask away."],
     },
   },
   bringYourOwn,
@@ -422,6 +601,13 @@ export const content = {
   header,
   install,
   meta,
+  notFound,
+  educatorWhy,
+  educatorFluency,
+  educatorAnswers,
+  learnerAnswers,
+  learnerLives,
+  educatorFeatureNarrative,
 } as const satisfies Record<
   Audience,
   {
@@ -430,12 +616,9 @@ export const content = {
       headlineLines: readonly [string, string]
       subtext: string
     }
-    featuresHeader: {
-      readonly headline: string
-      readonly subtext: string
-    }
-    features: readonly [FeatureItem, FeatureItem, FeatureItem, FeatureItem, FeatureItem]
+    features: readonly FeatureItem[]
     philosophy: Philosophy
+    privacy: Privacy
     download: Download
   }
 > & {
@@ -444,4 +627,11 @@ export const content = {
   header: Header
   install: Install
   meta: Meta
+  notFound: NotFound
+  educatorWhy: WhySection
+  educatorFluency: EducatorFluency
+  educatorAnswers: Answers
+  learnerAnswers: Answers
+  learnerLives: LearnerLives
+  educatorFeatureNarrative: string
 }

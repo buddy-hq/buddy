@@ -10,23 +10,39 @@ import {
 
 type Props = {
   initialAudience?: Audience
+  /** Landing pages use scroll-reveal JS; compare/BasePage do not — keep CTA visible. */
+  readonly useScrollReveal?: boolean
 }
 
 const { learners, educators, install: installContent, meta } = content
 const installShareUrl = new URL("#install", meta.siteUrl).href
-const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
+const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.props
 ---
 
-<section id="install" class="install-section reveal" data-analytics-section="install">
+<section
+  id="install"
+  class:list={["install-section", { reveal: useScrollReveal }]}
+  data-analytics-section="install"
+>
   <div class="container">
     <div class="install-card">
       <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
-        <p class="install-subtitle">{learners.download.tagline}</p>
-        <h2 class="install-title">{installContent.title}</h2>
+        {"eyebrow" in learners.download && learners.download.eyebrow ? (
+          <p class="install-eyebrow">{learners.download.eyebrow}</p>
+        ) : null}
+        <h2 class="install-title">
+          {learners.download.headlineLines[0]}<br />
+          {learners.download.headlineLines[1]}
+        </h2>
       </div>
       <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
-        <p class="install-subtitle">{educators.download.tagline}</p>
-        <h2 class="install-title">{installContent.title}</h2>
+        {"eyebrow" in educators.download && educators.download.eyebrow ? (
+          <p class="install-eyebrow">{educators.download.eyebrow}</p>
+        ) : null}
+        <h2 class="install-title">
+          {educators.download.headlineLines[0]}<br />
+          {educators.download.headlineLines[1]}
+        </h2>
       </div>
 
       <!-- Download Button Group -->
@@ -163,28 +179,15 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
     }
   }
 
-  .install-subtitle {
-    font-family: var(--font-display);
-    font-size: 4.5rem;
-    font-weight: 510;
-    line-height: 1;
-    letter-spacing: -0.022em;
-    color: var(--color-text-primary);
-    text-wrap: balance;
+  .install-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-accent-primary);
     text-align: center;
-    white-space: nowrap;
-  }
-
-  @media (max-width: 992px) {
-    .install-subtitle {
-      font-size: 3rem;
-    }
-  }
-
-  @media (max-width: 576px) {
-    .install-subtitle {
-      font-size: 2rem;
-    }
+    margin-bottom: var(--space-5);
   }
 
   /* Download Button Styles */

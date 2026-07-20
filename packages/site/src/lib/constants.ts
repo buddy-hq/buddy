@@ -5,6 +5,7 @@ export const AUDIENCE_EDUCATORS = "educators" satisfies Audience
 export const LEARNER_PATH = "/"
 export const EDUCATOR_PATH = "/teachers/"
 export const DOCS_PATH = "/docs/"
+export const COMPARE_PATH = "/compare/"
 export const GITHUB_URL = "https://github.com/prashantbhudwal/buddy"
 export const GITHUB_RELEASES_URL = "https://github.com/prashantbhudwal/buddy/releases"
 export const GITHUB_DISCUSSIONS_URL = "https://github.com/prashantbhudwal/buddy/discussions"
