@@ -1,0 +1,207 @@
+---
+import { Image } from "astro:assets"
+import Footer from "../../components/Footer.astro"
+import Header from "../../components/Header.astro"
+import InstallSection from "../../components/InstallSection.astro"
+import BasePage from "../../layouts/BasePage.astro"
+import buddyMascotRead from "../../assets/mascot/buddy-mascot-read.png"
+import { AUDIENCE_LEARNERS, LEARNER_PATH } from "../../lib/constants"
+
+export const prerender = true
+---
+
+<BasePage
+  title="Documentation · Coming Soon · Buddy"
+  description="Buddy documentation is coming soon."
+>
+  <div class="cs-page">
+    <Header showAudienceToggle={false} />
+
+    <main class="cs-main">
+      <div class="cs-container">
+        <!-- Mascot Stage -->
+        <div class="cs-mascot-stage">
+          <div class="cs-mascot-glow" aria-hidden="true"></div>
+          <Image
+            src={buddyMascotRead}
+            alt="Buddy reading documentation"
+            class="cs-mascot-img"
+            width={480}
+            height={480}
+            widths={[240, 360, 480]}
+            sizes="(max-width: 640px) 14rem, 18rem"
+            loading="eager"
+          />
+        </div>
+
+        <!-- Content -->
+        <div class="cs-content">
+          <h1 class="cs-title">Coming soon.</h1>
+
+          <div class="cs-actions">
+            <a href={LEARNER_PATH} class="cs-btn-primary">
+              <span aria-hidden="true">←</span>
+              <span>Back home</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <Footer />
+  </div>
+
+  <div class="cs-install-host" aria-hidden="true">
+    <InstallSection initialAudience={AUDIENCE_LEARNERS} useScrollReveal={false} />
+  </div>
+</BasePage>
+
+<style is:global>
+  .cs-page {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: var(--color-bg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cs-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(4rem, 12vh, 8rem) 1.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cs-container {
+    width: 100%;
+    max-width: 38rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    animation: fadeInUp 400ms var(--ease-out) both;
+  }
+
+  /* Spacious Mascot Stage */
+  .cs-mascot-stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(13rem, 28vw, 17.5rem);
+    height: clamp(13rem, 28vw, 17.5rem);
+    margin-bottom: clamp(2.5rem, 5vw, 3.5rem);
+  }
+
+  .cs-mascot-glow {
+    position: absolute;
+    inset: -20%;
+    border-radius: 50%;
+    background: radial-gradient(circle, oklch(0.6 0.16 45 / 0.22) 0%, transparent 70%);
+    filter: blur(32px);
+    pointer-events: none;
+  }
+
+  .cs-mascot-img {
+    width: 100% !important;
+    height: auto !important;
+    object-fit: contain;
+    filter: drop-shadow(0 18px 36px oklch(0 0 0 / 0.45));
+    animation: float-subtle 6s ease-in-out infinite alternate;
+  }
+
+  .cs-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+  }
+
+  .cs-title {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 6vw, 3.5rem);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tighter);
+    color: var(--color-text-primary);
+    margin: 0 0 clamp(2rem, 4vw, 2.75rem);
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  .cs-actions {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .cs-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    height: 46px;
+    padding: 0 1.625rem;
+    background-color: #f3f3f3;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #0a0807;
+    border-radius: var(--radius);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.2s var(--ease-out), transform 0.15s var(--ease-out), box-shadow 0.2s var(--ease-out);
+    cursor: pointer;
+  }
+
+  .cs-btn-primary:hover {
+    background-color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
+  }
+
+  .cs-btn-primary:active {
+    transform: scale(0.97);
+  }
+
+  .cs-install-host {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    pointer-events: none;
+  }
+
+  .cs-install-host .download-modal-overlay {
+    pointer-events: auto;
+  }
+
+  @keyframes float-subtle {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cs-container,
+    .cs-mascot-img {
+      animation: none;
+    }
+  }
+</style>
