@@ -1642,9 +1642,6 @@ export async function sendPrompt(
     const resolvedSessionID = requestedSessionID ?? (await resolveSessionForSend(directory))
     const shouldAddOptimistic = input?.optimistic !== false
     sessionID = resolvedSessionID
-    store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
-    await input?.beforePostPrompt?.({ sessionID: resolvedSessionID })
-
     optimisticMessageID = createOptimisticID(OPTIMISTIC_MESSAGE_ID_PREFIX)
     const promptParts = input?.parts ?? []
     const target = resolvePromptTarget(input)
@@ -1676,6 +1673,8 @@ export async function sendPrompt(
           variant: input?.variant,
         })
       : false
+    store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
+    await input?.beforePostPrompt?.({ sessionID: resolvedSessionID })
 
     const postPrompt = async (targetSessionID: string): Promise<void> => {
       const result = await getBuddyClient(directory).session.promptAsync({
@@ -1714,8 +1713,6 @@ export async function sendPrompt(
       selectDraftSession(directory)
       const recoveredSessionID = await resolveSessionForSend(directory)
       sessionID = recoveredSessionID
-      store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
-      await input?.beforePostPrompt?.({ sessionID: recoveredSessionID })
       optimisticAdded = shouldAddOptimistic
         ? addOptimisticPromptMessage({
             directory,
@@ -1729,6 +1726,8 @@ export async function sendPrompt(
             variant: input?.variant,
           })
         : false
+      store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
+      await input?.beforePostPrompt?.({ sessionID: recoveredSessionID })
 
       console.warn("[chat-action] prompt.retry-missing-session", {
         directory,
