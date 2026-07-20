@@ -1,12 +1,41 @@
 ---
-// Notebook sub-pane for BuddyWorkspaceMock
+// Notebook sub-pane for BuddyWorkspaceMock (Styled as MDX Editor for Educators)
+import { AUDIENCE_LEARNERS, AUDIENCE_EDUCATORS } from "../lib/constants";
+import type { Audience } from "../content/site";
+import "./WorkspaceMock.css";
+
+type Props = {
+  audience?: Audience;
+}
+
+const { audience = AUDIENCE_LEARNERS } = Astro.props;
+const isEducators = audience === AUDIENCE_EDUCATORS;
 ---
-<!-- Surface 7: Notebook Pane -->
-<section class="surface-notes">
-  <div class="notes-container">
-    <div class="notes-header">
-      <h2 class="notes-title">Quick Notebook</h2>
+
+<!-- Surface 7: Notebook / Editor Pane -->
+{isEducators ? (
+  <section class="surface-notes surface-editor">
+    <div class="editor-bench-shell">
+
+
+      <div class="editor-content-area">
+        <div class="editor-sheet">
+          <div class="editor-sheet-paper" id="worksheet-editor-paper">
+            <div class="editor-drafting-placeholder">
+              <span class="drafting-text">No active session. Start a chat request to draft a document.</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <textarea id="notes-textarea" class="notes-input" placeholder="Jot down notes, key quotes, or thoughts here..."></textarea>
-  </div>
-</section>
+  </section>
+) : (
+  <section class="surface-notes">
+    <div class="notes-container">
+      <div class="notes-header">
+        <h2 class="notes-title">Quick Notebook</h2>
+      </div>
+      <textarea id="notes-textarea" class="notes-input" placeholder="Jot down notes, key quotes, or thoughts here..."></textarea>
+    </div>
+  </section>
+)}

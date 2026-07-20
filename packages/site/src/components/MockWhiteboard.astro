@@ -1,12 +1,26 @@
 ---
 // Whiteboard sub-pane for BuddyWorkspaceMock
+import { AUDIENCE_LEARNERS, AUDIENCE_EDUCATORS } from "../lib/constants"
+import type { Audience } from "../content/site"
+
+type Props = {
+  audience?: Audience
+}
+
+const { audience = AUDIENCE_LEARNERS } = Astro.props
+const isEducators = audience === AUDIENCE_EDUCATORS
 ---
 <section class="surface-whiteboard">
   <div class="whiteboard-canvas">
     <!-- Canvas Body (Drawings) -->
     <div class="wb-drawings">
-      <div class="wb-handwriting-hi">Trust Thyself</div>
-      <div class="wb-welcome-text">"every heart vibrates to that iron string."</div>
+      {isEducators ? (
+        <div class="wb-handwriting-hi">Lesson Progression</div>
+        <div class="wb-welcome-text">Prerequisite Skills ➔ Standard Mastery</div>
+      ) : (
+        <div class="wb-handwriting-hi">Trust Thyself</div>
+        <div class="wb-welcome-text">"every heart vibrates to that iron string."</div>
+      )}
     </div>
   </div>
 </section>

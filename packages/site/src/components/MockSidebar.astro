@@ -1,5 +1,14 @@
 ---
 // Sidebar sub-pane for BuddyWorkspaceMock
+import { AUDIENCE_LEARNERS, AUDIENCE_EDUCATORS } from "../lib/constants"
+import type { Audience } from "../content/site"
+
+type Props = {
+  audience?: Audience
+}
+
+const { audience = AUDIENCE_LEARNERS } = Astro.props
+const isEducators = audience === AUDIENCE_EDUCATORS
 ---
 <!-- Surface 1: Sidebar -->
 <aside class="surface-sidebar">
@@ -31,22 +40,90 @@
   <div class="sidebar-scrollable">
     <div class="sidebar-section">
       <ul class="notebooks-list">
-        
-        <li class="notebook-item expanded" data-notebook="self-reliance">
-          <div class="notebook-header">
-            <!-- BookOpenIcon -->
-            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-            <span>self reliance</span>
-          </div>
-          <div class="sessions-list-wrapper">
-            <ul class="sessions-list">
-              <li class="session-item active pulse-slow">Understanding self-reliance meaning</li>
-              <li class="session-item">Casual check-in greeting</li>
-              <li class="session-item">Emerson quotes</li>
-              <li class="session-item">Notes on non-conformity</li>
-            </ul>
-          </div>
-        </li>
+        {isEducators ? (
+          <li class="notebook-item expanded" data-notebook="lesson-planning">
+            <div class="notebook-header">
+              <!-- BookOpenIcon -->
+              <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+              <span>differentiate a task</span>
+            </div>
+            <div class="sessions-list-wrapper">
+              <ul class="sessions-list">
+                <li class="session-item active pulse-slow">Grade 8 Seasons Activity</li>
+                <li class="session-item">Grade 9 Algebra Intro</li>
+                <li class="session-item">Unit prerequisite map</li>
+              </ul>
+            </div>
+          </li>
+          <li class="notebook-item" data-notebook="quiz-generation">
+            <div class="notebook-header">
+              <!-- BookOpenIcon -->
+              <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+              <span>quiz generation</span>
+            </div>
+            <div class="sessions-list-wrapper">
+              <ul class="sessions-list">
+                <li class="session-item">Photosynthesis formative test</li>
+                <li class="session-item">Cellular biology quiz</li>
+              </ul>
+            </div>
+          </li>
+          <li class="notebook-item" data-notebook="curriculum-mapping">
+            <div class="notebook-header">
+              <!-- BookOpenIcon -->
+              <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+              <span>curriculum mapping</span>
+            </div>
+            <div class="sessions-list-wrapper">
+              <ul class="sessions-list">
+                <li class="session-item">DIKSHA NCERT mapping</li>
+                <li class="session-item">CBSE alignment guide</li>
+              </ul>
+            </div>
+          </li>
+        ) : (
+          <li class="notebook-item expanded" data-notebook="self-reliance">
+            <div class="notebook-header">
+              <!-- BookOpenIcon -->
+              <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+              <span>self reliance</span>
+            </div>
+            <div class="sessions-list-wrapper">
+              <ul class="sessions-list">
+                <li class="session-item active pulse-slow">Understanding self-reliance meaning</li>
+                <li class="session-item">Casual check-in greeting</li>
+                <li class="session-item">Emerson quotes</li>
+                <li class="session-item">Notes on non-conformity</li>
+              </ul>
+            </div>
+          </li>
+          <li class="notebook-item" data-notebook="deep-learning">
+            <div class="notebook-header">
+              <!-- BookOpenIcon -->
+              <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+              <span>deep learning</span>
+            </div>
+            <div class="sessions-list-wrapper">
+              <ul class="sessions-list">
+                <li class="session-item">Backpropagation chain rule</li>
+                <li class="session-item">Stochastic Gradient Descent</li>
+              </ul>
+            </div>
+          </li>
+          <li class="notebook-item" data-notebook="world-history">
+            <div class="notebook-header">
+              <!-- BookOpenIcon -->
+              <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+              <span>world history</span>
+            </div>
+            <div class="sessions-list-wrapper">
+              <ul class="sessions-list">
+                <li class="session-item">Causes of World War I</li>
+                <li class="session-item">Treaty of Versailles</li>
+              </ul>
+            </div>
+          </li>
+        )}
       </ul>
     </div>
   </div>
