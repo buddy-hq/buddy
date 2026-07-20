@@ -266,7 +266,14 @@ function distanceFromVirtualEnd(root: HTMLElement, totalSize: number) {
   return Math.max(totalSize - root.clientHeight - root.scrollTop, 0)
 }
 
-function writeTranscriptVirtualEnd(root: HTMLElement, totalSize: number) {
+export function writeTranscriptVirtualEnd(
+  root: HTMLElement,
+  virtualContent: HTMLElement | null,
+  totalSize: number,
+) {
+  if (virtualContent) {
+    virtualContent.style.height = `${totalSize}px`
+  }
   const requestedOffset = Math.max(totalSize - root.clientHeight, 0)
   const previousScrollTop = root.scrollTop
   root.scrollTop = requestedOffset
@@ -1065,7 +1072,11 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
           at: performance.now(),
           distanceFromEnd,
         })
-        writeTranscriptVirtualEnd(root, rowVirtualizer.getTotalSize())
+        writeTranscriptVirtualEnd(
+          root,
+          virtualContentRef.current,
+          rowVirtualizer.getTotalSize(),
+        )
       }, TIMELINE_RESIZE_BOTTOM_REPAIR_DELAY_MS)
     }
 
@@ -1171,7 +1182,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       if (!shouldAnchorBottom() || hasScrollGesture()) return
       const root = scrollViewportRef?.current
       if (!root) return
-      writeTranscriptVirtualEnd(root, rowVirtualizer.getTotalSize())
+      writeTranscriptVirtualEnd(root, virtualContentRef.current, rowVirtualizer.getTotalSize())
     })
 
     return () => {
@@ -1197,7 +1208,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     if (!root) return
     const distanceFromEnd = distanceFromVirtualEnd(root, rowVirtualizer.getTotalSize())
     if (distanceFromEnd <= TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX) return
-    writeTranscriptVirtualEnd(root, rowVirtualizer.getTotalSize())
+    writeTranscriptVirtualEnd(root, virtualContentRef.current, rowVirtualizer.getTotalSize())
   }, [
     hasRestoredInitialScrollOffset,
     hasScrollGesture,

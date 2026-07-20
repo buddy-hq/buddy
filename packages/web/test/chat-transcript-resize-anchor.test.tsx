@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
-import { ChatTranscript } from "../src/components/chat/chat-transcript"
+import {
+  ChatTranscript,
+  writeTranscriptVirtualEnd,
+} from "../src/components/chat/chat-transcript"
 import {
   installTranscriptPerformanceProbe,
   type TranscriptPerformanceProbe,
@@ -274,6 +277,41 @@ describe("chat transcript resize anchoring", () => {
 
     expect(probe.events.some((event) => event.type === "row-size")).toBe(true)
     expect(probe.events.some((event) => event.type === "scroll-write")).toBe(false)
+  })
+
+  test("synchronizes spacer height before writing the virtual end", () => {
+    const viewport = document.createElement("div")
+    const virtualContent = document.createElement("div")
+    const viewportHeight = 800
+    const previousTotalSize = 1_200
+    const nextTotalSize = 1_516
+    let scrollTop = previousTotalSize - viewportHeight
+
+    virtualContent.style.height = `${previousTotalSize}px`
+    viewport.append(virtualContent)
+    Object.defineProperties(viewport, {
+      clientHeight: {
+        configurable: true,
+        get: () => viewportHeight,
+      },
+      scrollHeight: {
+        configurable: true,
+        get: () => Number.parseFloat(virtualContent.style.height),
+      },
+      scrollTop: {
+        configurable: true,
+        get: () => scrollTop,
+        set: (value: number) => {
+          const maximum = Math.max(0, viewport.scrollHeight - viewport.clientHeight)
+          scrollTop = Math.min(Math.max(0, value), maximum)
+        },
+      },
+    })
+
+    writeTranscriptVirtualEnd(viewport, virtualContent, nextTotalSize)
+
+    expect(virtualContent.style.height).toBe(`${nextTotalSize}px`)
+    expect(viewport.scrollTop).toBe(nextTotalSize - viewportHeight)
   })
 
   test("uses a restored detached offset for its initial virtualizer position", async () => {
