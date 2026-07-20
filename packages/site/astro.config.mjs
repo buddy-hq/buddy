@@ -26,10 +26,34 @@ function rawFonts(extensions) {
   }
 }
 
+const NON_INDEXED_ROUTE_PREFIXES = ["/layouts/", "/mock/", "/404"]
+
+function isPublicSitemapPage(page) {
+  const pathname = new URL(page).pathname
+  return !NON_INDEXED_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+}
+
+/** Old competitor-only slugs → comparison-friendly buddy-vs-* URLs */
+const COMPARE_SLUG_REDIRECTS = Object.fromEntries(
+  [
+    "chatgpt",
+    "notebooklm",
+    "magicschool",
+    "diffit",
+    "knowt",
+    "claude-teachers",
+    "khanmigo",
+    "quizlet",
+    "remnote",
+  ].map((slug) => [`/compare/${slug}`, `/compare/buddy-vs-${slug}/`]),
+)
+
 export default defineConfig({
   site: "https://hibuddy.in",
   output: "server",
+  prefetch: false,
   adapter: cloudflare({ imageService: "compile" }),
+  redirects: COMPARE_SLUG_REDIRECTS,
   vite: {
     plugins: [rawFonts([".otf", ".ttf"])],
     assetsInclude: ["**/*.wasm"],
@@ -41,6 +65,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Buddy",
+      disable404Route: true,
       sidebar: [
         {
           label: "Documentation",
@@ -48,6 +73,6 @@ export default defineConfig({
         },
       ],
     }),
-    sitemap(),
+    sitemap({ filter: isPublicSitemapPage }),
   ],
 })
