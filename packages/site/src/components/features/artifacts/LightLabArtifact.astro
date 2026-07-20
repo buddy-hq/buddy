@@ -1,0 +1,406 @@
+---
+// BUILD artifact — the thing on the classroom screen, not the app that
+// made it. One bright slide that answers the week's hook question
+// ("an oak weighs 900 kg; the acorn weighed 5 grams — where did the
+// mass come from?"): an oak grows in time-lapse while CO₂ drifts out
+// of the sky into its canopy and a mass counter spins from 5 g to
+// 900 kg. The mass visibly arrives from the air. Loops forever.
+---
+
+<div
+  class="gr-stage"
+  data-lab-artifact
+  aria-label="An interactive simulation built by Buddy from the week's hook question: an oak tree grows in time-lapse while carbon dioxide particles drift from the air into its leaves and a mass counter climbs from 5 grams to 900 kilograms — showing that a tree's mass comes from the air"
+>
+  <p class="gr-ask">“Show them where the oak's 900 kg actually comes from.”</p>
+
+  <div class="gr-slide" data-lab-window>
+    <div class="gr-sunlight" aria-hidden="true"></div>
+    <span class="gr-sun" aria-hidden="true"></span>
+
+    <!-- the payoff: mass, counted live -->
+    <div class="gr-readout">
+      <span class="gr-readout-label">Mass of the oak</span>
+      <span class="gr-mass"><b data-gr-mass>5</b><i data-gr-unit>g</i></span>
+      <span class="gr-readout-sub">built from CO₂ + water + light</span>
+    </div>
+
+    <!-- carbon, drifting out of the sky into the canopy -->
+    <div class="gr-air" aria-hidden="true">
+      <span class="gr-co2 gr-co2--tag">CO₂<i></i></span>
+      <span class="gr-co2"><i></i></span>
+      <span class="gr-co2"><i></i></span>
+      <span class="gr-co2"><i></i></span>
+      <span class="gr-co2"><i></i></span>
+      <span class="gr-co2"><i></i></span>
+    </div>
+
+    <!-- the oak -->
+    <div class="gr-ground" aria-hidden="true"></div>
+    <div class="gr-oak" aria-hidden="true">
+      <span class="gr-trunk"></span>
+      <span class="gr-crown gr-crown--1"></span>
+      <span class="gr-crown gr-crown--2"></span>
+      <span class="gr-crown gr-crown--3"></span>
+      <span class="gr-crown gr-crown--4"></span>
+    </div>
+
+    <span class="gr-caption">grow-an-oak.html · built in one ask · runs in Buddy</span>
+  </div>
+</div>
+
+<style>
+  .gr-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    container-type: size;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 2.2cqh, 18px);
+    padding: clamp(12px, 3cqh, 24px) clamp(14px, 4.5cqw, 40px) clamp(14px, 4cqh, 30px);
+    background:
+      radial-gradient(58% 78% at 16% 10%, rgba(251, 191, 36, 0.05), transparent 70%),
+      radial-gradient(56% 76% at 86% 92%, rgba(45, 212, 191, 0.05), transparent 70%);
+  }
+
+  /* ---------- the ask, handwritten — no chat box ---------- */
+  .gr-ask {
+    margin: 0;
+    align-self: flex-start;
+    transform: rotate(-0.8deg);
+    font-family: "Architects Daughter", cursive;
+    font-size: clamp(14px, 1.7cqw, 20px);
+    line-height: 1.4;
+    color: rgba(255, 236, 214, 0.75);
+  }
+
+  /* ---------- the slide: one bright scene ---------- */
+  .gr-slide {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    border-radius: 1.2em;
+    overflow: hidden;
+    font-size: clamp(10px, 1.4cqw, 16px);
+    background: linear-gradient(180deg, #fdfaf2, #f9f1dd);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.4) inset,
+      0 30px 60px -24px rgba(0, 0, 0, 0.85);
+  }
+
+  .gr-sunlight {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(80% 90% at 84% 4%, rgba(251, 191, 36, 0.26), transparent 60%);
+    pointer-events: none;
+  }
+
+  .gr-sun {
+    position: absolute;
+    top: 8%;
+    right: 7%;
+    width: clamp(30px, 5.5cqw, 64px);
+    height: clamp(30px, 5.5cqw, 64px);
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 34%, #fff7e0, #fbbf24 58%, #f59e0b);
+    box-shadow:
+      0 0 26px rgba(251, 191, 36, 0.5),
+      0 0 70px rgba(251, 191, 36, 0.22);
+  }
+
+  /* ---------- the readout ---------- */
+  .gr-readout {
+    position: absolute;
+    top: 9%;
+    left: 6%;
+    z-index: 3;
+  }
+
+  .gr-readout-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.68em;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8a8271;
+  }
+
+  .gr-mass {
+    display: flex;
+    align-items: baseline;
+    gap: 0.12em;
+    margin-top: 0.08em;
+  }
+
+  .gr-mass b {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 7cqw, 84px);
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: #166534;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gr-mass i {
+    font-style: normal;
+    font-family: var(--font-display);
+    font-size: clamp(16px, 2.4cqw, 30px);
+    font-weight: 600;
+    color: #166534;
+    opacity: 0.75;
+  }
+
+  .gr-readout-sub {
+    display: block;
+    margin-top: 0.5em;
+    font-family: var(--font-body);
+    font-size: 0.82em;
+    font-weight: 500;
+    color: #8a8271;
+  }
+
+  /* ---------- carbon in the air ---------- */
+  .gr-co2 {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    font-family: var(--font-mono);
+    font-size: clamp(9px, 0.85cqw, 12px);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #8a8271;
+    animation: gr-drift var(--dur, 5s) ease-in var(--wait, 0s) infinite;
+    opacity: 0;
+  }
+
+  .gr-co2 i {
+    width: clamp(5px, 0.65cqw, 8px);
+    height: clamp(5px, 0.65cqw, 8px);
+    border-radius: 50%;
+    background-color: rgba(90, 82, 66, 0.5);
+  }
+
+  /* each molecule starts somewhere in the sky and lands in the canopy */
+  .gr-co2:nth-child(1) { top: 16%; left: 30%; --dur: 5.4s; --wait: 0s;   --dx: 16cqw;  --dy: 26cqh; }
+  .gr-co2:nth-child(2) { top: 12%; left: 66%; --dur: 4.6s; --wait: 1.2s; --dx: -9cqw;  --dy: 30cqh; }
+  .gr-co2:nth-child(3) { top: 30%; left: 22%; --dur: 4.9s; --wait: 2.3s; --dx: 22cqw;  --dy: 16cqh; }
+  .gr-co2:nth-child(4) { top: 8%;  left: 48%; --dur: 5.8s; --wait: 0.7s; --dx: 4cqw;   --dy: 34cqh; }
+  .gr-co2:nth-child(5) { top: 26%; left: 74%; --dur: 5.1s; --wait: 3.1s; --dx: -16cqw; --dy: 20cqh; }
+  .gr-co2:nth-child(6) { top: 22%; left: 56%; --dur: 4.4s; --wait: 1.9s; --dx: -3cqw;  --dy: 24cqh; }
+
+  @keyframes gr-drift {
+    0% {
+      transform: translate(0, 0);
+      opacity: 0;
+    }
+    14% {
+      opacity: 1;
+    }
+    82% {
+      opacity: 0.9;
+    }
+    100% {
+      transform: translate(var(--dx), var(--dy));
+      opacity: 0;
+    }
+  }
+
+  /* ---------- ground + oak ---------- */
+  .gr-ground {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 18%;
+    background: linear-gradient(180deg, #cde6ae, #a8d18a);
+    border-radius: 100% 100% 0 0 / 26% 26% 0 0;
+  }
+
+  .gr-oak {
+    position: absolute;
+    left: 54%;
+    bottom: 14%;
+    width: clamp(120px, 24cqw, 280px);
+    height: clamp(150px, 62cqh, 360px);
+    transform: translateX(-50%) scale(0.05);
+    transform-origin: bottom center;
+    transition: transform 0.6s var(--ease-out);
+    z-index: 2;
+  }
+
+  .gr-slide.gr--grow .gr-oak {
+    transform: translateX(-50%) scale(1);
+    transition: transform 5.2s var(--ease-in-out);
+  }
+
+  .gr-trunk {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 9%;
+    height: 58%;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, #8a5a2b, #6b4423);
+    border-radius: 999px 999px 30% 30%;
+  }
+
+  .gr-crown {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #6ee7a0, #16a34a 72%);
+    transform: scale(0);
+    transition: transform 0.4s var(--ease-out);
+  }
+
+  .gr-slide.gr--grow .gr-crown {
+    transform: scale(1);
+    transition: transform 1.6s var(--ease-out) var(--pop, 2.4s);
+  }
+
+  .gr-crown--1 { left: 8%;  top: 18%; width: 46%; height: 40%; --pop: 2.2s; }
+  .gr-crown--2 { left: 44%; top: 10%; width: 50%; height: 44%; --pop: 2.7s; }
+  .gr-crown--3 { left: 2%;  top: 38%; width: 38%; height: 34%; --pop: 3.2s; }
+  .gr-crown--4 { left: 30%; top: 0%;  width: 42%; height: 38%; --pop: 3.6s; }
+
+  /* ---------- caption ---------- */
+  .gr-caption {
+    position: absolute;
+    left: 6%;
+    bottom: 6.5%;
+    z-index: 3;
+    font-family: var(--font-mono);
+    font-size: clamp(9px, 0.78cqw, 11px);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #7f9a63;
+  }
+
+  @media (max-width: 768px) {
+    .gr-stage {
+      padding-left: var(--space-5);
+      padding-right: var(--space-5);
+      background: transparent !important;
+    }
+  }
+
+  @container (max-width: 640px) {
+    .gr-caption {
+      display: none;
+    }
+
+    .gr-oak {
+      left: 58%;
+    }
+  }
+
+  /* ---------- compact stage (mobile peek): pull the oak into the visible
+       sliver and re-aim the carbon stream at its canopy ---------- */
+  @container (max-width: 700px) {
+    .gr-oak {
+      left: 38%;
+    }
+
+    .gr-co2:nth-child(1) { --dx: 1cqw; }
+    .gr-co2:nth-child(2) { --dx: -24cqw; }
+    .gr-co2:nth-child(3) { --dx: 7cqw; }
+    .gr-co2:nth-child(4) { --dx: -11cqw; }
+    .gr-co2:nth-child(5) { --dx: -31cqw; }
+    .gr-co2:nth-child(6) { --dx: -18cqw; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gr-co2 {
+      animation: none;
+      opacity: 0.6;
+    }
+
+    .gr-oak,
+    .gr-crown {
+      transition: none !important;
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll("[data-lab-artifact]").forEach((container) => {
+    const slide = container.querySelector("[data-lab-window]") as HTMLElement | null
+    const mass = container.querySelector("[data-gr-mass]") as HTMLElement | null
+    const unit = container.querySelector("[data-gr-unit]") as HTMLElement | null
+
+    if (!slide || !mass || !unit) return
+
+    // 5 g acorn → 900 kg oak, counted exponentially so the units flip
+    const startGrams = 5
+    const endGrams = 900_000
+    const growMs = 5200
+    const holdMs = 2600
+    const resetMs = 900
+
+    const format = (grams: number): [string, string] => {
+      if (grams < 1000) return [String(Math.round(grams)), "g"]
+      const kg = grams / 1000
+      if (kg < 10) return [kg.toFixed(1), "kg"]
+      return [String(Math.round(kg)), "kg"]
+    }
+
+    const setMass = (grams: number) => {
+      const [value, unitText] = format(grams)
+      mass.textContent = value
+      unit.textContent = unitText
+    }
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+    if (reducedMotion) {
+      slide.classList.add("gr--grow")
+      setMass(endGrams)
+      return
+    }
+
+    let frame = 0
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const ratio = endGrams / startGrams
+
+    const cycle = () => {
+      slide.classList.add("gr--grow")
+
+      const start = performance.now()
+      const tick = (now: number) => {
+        const t = Math.min((now - start) / growMs, 1)
+        const eased = t * t * (3 - 2 * t)
+        setMass(startGrams * ratio ** eased)
+        if (t < 1) frame = requestAnimationFrame(tick)
+      }
+      frame = requestAnimationFrame(tick)
+
+      timer = setTimeout(() => {
+        slide.classList.remove("gr--grow")
+        setMass(startGrams)
+        timer = setTimeout(cycle, resetMs)
+      }, growMs + holdMs)
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            observer.unobserve(container)
+            timer = setTimeout(cycle, 700)
+          }
+        })
+      },
+      { rootMargin: "0px 0px -25% 0px", threshold: 0 },
+    )
+    observer.observe(container)
+
+    window.addEventListener("pagehide", () => {
+      if (timer) clearTimeout(timer)
+      cancelAnimationFrame(frame)
+    })
+  })
+</script>
