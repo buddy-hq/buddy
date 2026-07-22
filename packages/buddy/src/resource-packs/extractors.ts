@@ -3,15 +3,6 @@ import { execFile } from "node:child_process"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { promisify } from "node:util"
-import {
-  BlobReader,
-  TextWriter,
-  BlobWriter,
-  ZipReader,
-  type Entry,
-  type FileEntry,
-} from "@zip.js/zip.js"
-import { XMLParser } from "fast-xml-parser"
 import mammoth from "mammoth"
 import TurndownService from "turndown"
 import {
@@ -46,16 +37,29 @@ import {
 import { extractPdfWithLiteParse } from "./pdf/liteparse-parser"
 import { extractPdfWithSelectiveOcr } from "./pdf/selective-ocr-parser"
 import {
-  assertResourceArchiveBudget,
   assertResourceChunkUnitCount,
   assertResourcePageCount,
   assertResourceTextCharacterCount,
   RESOURCE_MAX_FULL_TEXT_UTF8_BYTES,
   ResourceBudgetExceededError,
 } from "./budgets"
+import {
+  assertResourceArchiveFileBudget,
+  ensureResourceXmlArray as ensureXmlArray,
+  getResourceXmlValue as getXmlValue,
+  openResourceArchive,
+  parseResourceXml,
+  readArchiveEntryBytes as readZipEntryBytes,
+  readArchiveEntryText as readZipEntryText,
+  resourceXmlStringValue as stringValue,
+  resourceXmlTextValue as xmlTextValue,
+  type ResourceArchiveEntries,
+  type ResourceXmlRecord as XmlRecord,
+} from "./archive"
+import { extractPptxResource } from "./pptx-extractor"
+import { extractSpreadsheetResource } from "./spreadsheet-extractor"
+import { isNativeSpreadsheetFormat } from "@buddy/workspace-file-policy"
 
-type XmlRecord = Record<string, unknown>
-type ResourcePackZipEntry = FileEntry
 type PdfOutlinePoint = {
   title: string
   depth: number
@@ -103,8 +107,6 @@ const PDF_HEADING_PATTERNS = [
   /^chapter\s+([0-9ivxlcdm]+)\b[:.\-\s]*(.*)$/i,
   /^part\s+([0-9ivxlcdm]+)\b[:.\-\s]*(.*)$/i,
 ]
-const XML_ENTITY_MAX_TOTAL_EXPANSIONS = 10_000
-const XML_ENTITY_MAX_EXPANDED_LENGTH = 1_000_000
 const PDF_MATRIX_2D_LENGTH = 6
 const PDF_MATRIX_3D_LENGTH = 16
 
@@ -303,18 +305,6 @@ function installPdfJsDOMMatrixFallback(): void {
   })
 }
 
-const resourcePackXMLParser = new XMLParser({
-  ignoreAttributes: false,
-  attributeNamePrefix: "",
-  trimValues: true,
-  removeNSPrefix: true,
-  processEntities: {
-    enabled: true,
-    maxTotalExpansions: XML_ENTITY_MAX_TOTAL_EXPANSIONS,
-    maxExpandedLength: XML_ENTITY_MAX_EXPANDED_LENGTH,
-  },
-})
-
 const resourceTurndown = new TurndownService({
   headingStyle: "atx",
   codeBlockStyle: "fenced",
@@ -325,6 +315,9 @@ export async function extractResourcePack(
   sourcePath: string,
   classification: ResourceClassification,
 ): Promise<ResourceExtractionResult> {
+  if (isNativeSpreadsheetFormat(classification.format)) {
+    return extractSpreadsheetResource(sourcePath, classification.format)
+  }
   switch (classification.format) {
     case "pdf":
       return extractPdfResource(sourcePath)
@@ -332,6 +325,8 @@ export async function extractResourcePack(
       return extractEpubResource(sourcePath)
     case "docx":
       return extractDocxResource(sourcePath)
+    case "pptx":
+      return extractPptxResource(sourcePath)
     case "html":
     case "htm":
     case "xhtml":
@@ -776,17 +771,12 @@ async function runPdfBinaryCommand(
 }
 
 async function extractEpubResource(sourcePath: string): Promise<ResourceExtractionResult> {
-  const bytes = await fs.readFile(sourcePath)
-  const zipReader = new ZipReader<Blob>(new BlobReader(new Blob([Uint8Array.from(bytes)])))
-  const entries = await zipReader.getEntries()
-  assertResourceArchiveBudget(entries)
-  const entryByName = new Map(
-    entries.filter(isFileEntry).map((entry) => [normalizeZipPath(entry.filename), entry] as const),
-  )
+  const archive = await openResourceArchive(sourcePath)
+  const entryByName = archive.entries
 
   try {
     const containerXml = await readZipEntryText(entryByName, "META-INF/container.xml")
-    const container = resourcePackXMLParser.parse(containerXml) as XmlRecord
+    const container = parseResourceXml(containerXml)
     const rootfiles = ensureXmlArray(getXmlValue(container, ["container", "rootfiles", "rootfile"]))
     const opfPath = stringValue(rootfiles[0], "full-path")
     if (!opfPath) {
@@ -794,7 +784,7 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
     }
 
     const opfXml = await readZipEntryText(entryByName, opfPath)
-    const opf = resourcePackXMLParser.parse(opfXml) as XmlRecord
+    const opf = parseResourceXml(opfXml)
     const manifestItems = ensureXmlArray(getXmlValue(opf, ["package", "manifest", "item"]))
     const spineItems = ensureXmlArray(getXmlValue(opf, ["package", "spine", "itemref"]))
     const opfDir = path.posix.dirname(opfPath)
@@ -849,12 +839,12 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
       author: epubAuthor,
     }
   } finally {
-    await zipReader.close()
+    await archive.close()
   }
 }
 
 async function extractDocxResource(sourcePath: string): Promise<ResourceExtractionResult> {
-  await assertZipResourceArchiveBudget(sourcePath)
+  await assertResourceArchiveFileBudget(sourcePath)
   const converted = await mammoth.convertToHtml({ path: sourcePath })
   assertResourceTextCharacterCount(converted.value.length)
   const html = converted.value.trim()
@@ -917,16 +907,6 @@ async function extractTextResource(
   }
 }
 
-async function assertZipResourceArchiveBudget(sourcePath: string): Promise<void> {
-  const bytes = await fs.readFile(sourcePath)
-  const zipReader = new ZipReader<Blob>(new BlobReader(new Blob([Uint8Array.from(bytes)])))
-  try {
-    assertResourceArchiveBudget(await zipReader.getEntries())
-  } finally {
-    await zipReader.close()
-  }
-}
-
 function unsupportedExtraction(reason: string): ResourceExtractionResult {
   return {
     status: RESOURCE_PACK_STATUS_UNSUPPORTED,
@@ -937,7 +917,7 @@ function unsupportedExtraction(reason: string): ResourceExtractionResult {
 }
 
 async function extractEpubTocMarkdown(
-  entryByName: Map<string, ResourcePackZipEntry>,
+  entryByName: ResourceArchiveEntries,
   tocEntryName: string,
 ): Promise<string | undefined> {
   const tocMarkup = await readZipEntryText(entryByName, tocEntryName)
@@ -981,7 +961,7 @@ const EPUB_COVER_IMAGE_MEDIA_TYPES = new Set([
 ])
 
 async function extractEpubCoverImage(
-  entryByName: Map<string, ResourcePackZipEntry>,
+  entryByName: ResourceArchiveEntries,
   manifestItems: XmlRecord[],
   opf: XmlRecord,
   opfDir: string,
@@ -1353,36 +1333,6 @@ function renderPdfTextContent(items: unknown[]): string {
   return lines.join("\n").trim()
 }
 
-async function readZipEntryText(entryByName: Map<string, ResourcePackZipEntry>, filename: string) {
-  const normalized = normalizeZipPath(filename)
-  const entry = entryByName.get(normalized)
-  if (!entry) {
-    throw new Error(`Missing EPUB entry: ${filename}`)
-  }
-
-  const text = await entry.getData(new TextWriter())
-  return typeof text === "string" ? text : String(text)
-}
-
-async function readZipEntryBytes(
-  entryByName: Map<string, ResourcePackZipEntry>,
-  filename: string,
-): Promise<Uint8Array | undefined> {
-  const normalized = normalizeZipPath(filename)
-  const entry = entryByName.get(normalized)
-  if (!entry) return undefined
-
-  const blob = await entry.getData(new BlobWriter())
-  if (!blob) return undefined
-
-  const arrayBuffer = await blob.arrayBuffer()
-  return new Uint8Array(arrayBuffer)
-}
-
-function normalizeZipPath(filename: string) {
-  return path.posix.normalize(filename).replace(/^\.\//, "")
-}
-
 function normalizeCommandBufferOutput(value: unknown) {
   if (Buffer.isBuffer(value)) return value
   if (value instanceof Uint8Array) return Buffer.from(value)
@@ -1406,31 +1356,8 @@ function ensureArray<T>(value: T | T[] | undefined): T[] {
   return Array.isArray(value) ? value : [value]
 }
 
-function ensureXmlArray(value: unknown): XmlRecord[] {
-  return ensureArray<XmlRecord>(value as XmlRecord | XmlRecord[] | undefined)
-}
-
-function isFileEntry(entry: Entry): entry is ResourcePackZipEntry {
-  return entry.directory === false
-}
-
-function getXmlValue(value: unknown, pathSegments: string[]): unknown {
-  let current: unknown = value
-  for (const segment of pathSegments) {
-    if (!isPlainObject(current)) return undefined
-    current = current[segment]
-  }
-  return current
-}
-
-function stringValue(record: unknown, key: string) {
-  if (!isPlainObject(record)) return ""
-  const value = record[key]
-  return typeof value === "string" ? value : ""
-}
-
 function buildNcxTocLines(ncxMarkup: string): string[] {
-  const parsed = resourcePackXMLParser.parse(ncxMarkup) as XmlRecord
+  const parsed = parseResourceXml(ncxMarkup)
   const navPoints = ensureXmlArray(getXmlValue(parsed, ["ncx", "navMap", "navPoint"]))
   if (navPoints.length === 0) return []
 
@@ -1450,21 +1377,6 @@ function appendNcxNavPoints(lines: string[], navPoints: XmlRecord[], depth: numb
       appendNcxNavPoints(lines, children, depth + 1)
     }
   }
-}
-
-function xmlTextValue(value: unknown): string {
-  if (typeof value === "string") return value
-  if (Array.isArray(value)) {
-    for (const entry of value) {
-      const text = xmlTextValue(entry)
-      if (text) return text
-    }
-    return ""
-  }
-  if (!isPlainObject(value)) return ""
-  if (typeof value["#text"] === "string") return value["#text"]
-  if (typeof value.text === "string") return value.text
-  return ""
 }
 
 function errorMessage(error: unknown) {

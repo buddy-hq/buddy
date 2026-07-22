@@ -1,11 +1,13 @@
 import { promises as fs } from "node:fs"
 import path from "node:path"
+import { isNativeResourceFormat } from "@buddy/workspace-file-policy"
 import matter from "gray-matter"
 import { buildResourcePackEntryMarkdown } from "./markdown"
 import type {
   ResourceChunkFileRecord,
   ResourceExtractionCover,
   ResourceExtractionPage,
+  ResourceTextArtifact,
   ResourceFormat,
   ResourcePackBuildInput,
   ResourcePackMetadata,
@@ -118,7 +120,8 @@ export function createPendingResourcePackSnapshot(
 export async function writePreparingResourcePackMetadata(input: {
   build: ResourcePackBuildInput
   warnings: string[]
-}) {
+}): Promise<string[]> {
+  const previousMetadata = await loadResourcePackMetadata(input.build.packPaths.metadataPath)
   const resourceAlias = resourceAliasForBuild(input.build)
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
     ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
@@ -139,6 +142,7 @@ export async function writePreparingResourcePackMetadata(input: {
     title: undefined,
     author: undefined,
   })
+  return previousMetadata?.text_artifacts ?? []
 }
 
 export async function writeResourcePackFiles(input: {
@@ -153,6 +157,8 @@ export async function writeResourcePackFiles(input: {
   coverImage?: ResourceExtractionCover
   title?: string
   author?: string
+  textArtifacts?: ResourceTextArtifact[]
+  previousTextArtifactPaths?: string[]
 }) {
   await fs.mkdir(input.build.packPaths.chunksDirPath, { recursive: true })
   const resourceAlias = resourceAliasForBuild(input.build)
@@ -209,6 +215,11 @@ export async function writeResourcePackFiles(input: {
     format: input.build.classification.format,
   })
   await writeChunkMarkdowns(input.build.packPaths.chunksDirPath, input.chunkFiles)
+  await writeTextArtifacts({
+    rootPath: input.build.packPaths.rootPath,
+    previousPaths: input.previousTextArtifactPaths ?? [],
+    artifacts: input.textArtifacts ?? [],
+  })
 
   const coverPath = await writeCoverFile({
     rootPath: input.build.packPaths.rootPath,
@@ -236,13 +247,20 @@ export async function writeResourcePackFiles(input: {
     cover_relpath: coverRelpath,
     title: input.title,
     author: input.author,
+    text_artifacts: input.textArtifacts?.map((artifact) => artifact.relativePath),
   })
 }
 
 export async function writeErroredResourcePackMetadata(input: {
   build: ResourcePackBuildInput
   message: string
+  previousTextArtifactPaths?: string[]
 }) {
+  await writeTextArtifacts({
+    rootPath: input.build.packPaths.rootPath,
+    previousPaths: input.previousTextArtifactPaths ?? [],
+    artifacts: [],
+  })
   const resourceAlias = resourceAliasForBuild(input.build)
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
     ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
@@ -293,6 +311,7 @@ async function loadResourcePackMetadata(
   const coverRelpath = stringValue(data, "cover_relpath") || undefined
   const title = stringValue(data, "title") || undefined
   const author = stringValue(data, "author") || undefined
+  const textArtifacts = stringArrayValue(data, "text_artifacts")
 
   if (
     !sourcePath ||
@@ -327,6 +346,7 @@ async function loadResourcePackMetadata(
     ...(coverRelpath ? { cover_relpath: coverRelpath } : {}),
     ...(title ? { title } : {}),
     ...(author ? { author } : {}),
+    ...(textArtifacts.length > 0 ? { text_artifacts: textArtifacts } : {}),
   }
 }
 
@@ -394,6 +414,38 @@ async function writeChunkMarkdowns(chunksDirPath: string, chunkFiles: ResourceCh
       )
     }),
   )
+}
+
+async function writeTextArtifacts(input: {
+  rootPath: string
+  previousPaths: string[]
+  artifacts: ResourceTextArtifact[]
+}) {
+  const nextPaths = new Set(input.artifacts.map((artifact) => artifact.relativePath))
+  await Promise.all(
+    input.previousPaths.flatMap((relativePath) => {
+      if (nextPaths.has(relativePath)) return []
+      const absolutePath = safeTextArtifactPath(input.rootPath, relativePath)
+      return absolutePath
+        ? [fs.rm(absolutePath, { force: true }).catch(() => undefined)]
+        : []
+    }),
+  )
+  await Promise.all(
+    input.artifacts.map((artifact) => {
+      const absolutePath = safeTextArtifactPath(input.rootPath, artifact.relativePath)
+      if (!absolutePath) throw new Error(`Invalid resource text artifact path: ${artifact.relativePath}`)
+      return writeTextFile(absolutePath, artifact.content)
+    }),
+  )
+}
+
+function safeTextArtifactPath(rootPath: string, relativePath: string): string | undefined {
+  if (path.isAbsolute(relativePath)) return undefined
+  const absolutePath = path.resolve(rootPath, relativePath)
+  const relative = path.relative(path.resolve(rootPath), absolutePath)
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) return undefined
+  return absolutePath
 }
 
 async function writeTextFile(filepath: string, content: string) {
@@ -494,9 +546,7 @@ function normalizeResourcePackStatus(value: string) {
 }
 
 function normalizeResourceFormat(value: string): ResourceFormat | undefined {
-  if (value === "pdf") return "pdf"
-  if (value === "epub") return "epub"
-  if (value === "docx") return "docx"
+  if (isNativeResourceFormat(value)) return value
   if (value === "html") return "html"
   if (value === "htm") return "htm"
   if (value === "xhtml") return "xhtml"

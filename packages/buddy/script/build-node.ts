@@ -19,11 +19,11 @@ import {
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
 } from "../../../script/backend-node-artifact"
+import { SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME } from "@buddy/script/backend-node-runtime"
 import {
   BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE,
   computeAdvancedMathRuntimeVersion,
 } from "../src/local-runtimes/advanced-math/version"
-
 const backendDir = path.resolve(import.meta.dir, "..")
 const repositoryRoot = path.resolve(backendDir, "../..")
 const outdir = path.resolve(backendDir, "dist/node")
@@ -38,6 +38,14 @@ const chemfigChildEntryPath = path.resolve(backendDir, "src/chemistry/chemfig-ch
 const chemfigRuntimeOutputPath = path.resolve(outdir, CHEMFIG_RUNTIME_DIRECTORY_NAME)
 const chemfigChildOutputPath = path.resolve(chemfigRuntimeOutputPath, CHEMFIG_CHILD_FILENAME)
 const chemfigTexOutputPath = path.resolve(chemfigRuntimeOutputPath, CHEMFIG_TEX_DIRECTORY_NAME)
+const spreadsheetParserWorkerEntryPath = path.resolve(
+  backendDir,
+  "src/resource-packs/spreadsheet-parser-worker.ts",
+)
+const spreadsheetParserWorkerOutputPath = path.resolve(
+  outdir,
+  SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME,
+)
 const firstStageExternals = [
   "jsonc-parser",
   "@lydell/node-pty",
@@ -108,6 +116,7 @@ if (!result.success) {
   throw new Error(summary || "Buddy Node backend build failed.")
 }
 
+await buildSpreadsheetParserWorker()
 copyChonkieWasm()
 copyTessdata()
 await buildChemfigChild()
@@ -116,6 +125,26 @@ copyChemfigTexAssets()
 
 console.log(`Built Buddy Node backend at ${path.resolve(outdir, "node.js")}`)
 console.log(`Bundled advanced math runtime version ${bundledAdvancedMathRuntimeVersion}`)
+
+async function buildSpreadsheetParserWorker(): Promise<void> {
+  const workerResult = await Bun.build({
+    conditions: ["node"],
+    target: "node",
+    format: "esm",
+    minify: true,
+    sourcemap: "none",
+    entrypoints: [spreadsheetParserWorkerEntryPath],
+    outdir,
+    naming: SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME,
+  })
+  if (!workerResult.success) {
+    const summary = workerResult.logs.map((log) => log.message).join("\n")
+    throw new Error(summary || "Spreadsheet parser worker build failed.")
+  }
+  if (!existsSync(spreadsheetParserWorkerOutputPath)) {
+    throw new Error("Spreadsheet parser worker output was not created.")
+  }
+}
 
 function copyChonkieWasm(): void {
   const chonkieWasmInputPath = resolveChonkieWasmInputPath()

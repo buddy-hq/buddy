@@ -75,6 +75,26 @@ describe("tool presentation contract", () => {
     expect("detail" in running ? running.detail : undefined).toBe("App.tsx")
   })
 
+  test("presents todo updates as transcript activity", () => {
+    const descriptor = getCoreToolPresentationDescriptor("todowrite")
+    expect(descriptor).toBeDefined()
+    if (!descriptor) throw new Error("Missing todowrite presentation descriptor")
+
+    const snapshot = resolveToolPresentationSnapshot(descriptor, {
+      toolID: "todowrite",
+      phase: "completed",
+      input: { todos: [{ content: "Ship the dock", status: "completed" }] },
+      metadata: {},
+    })
+
+    expect(snapshot.archetype).toBe("activity")
+    expect(snapshot.layoutRole).toBe("activity")
+    expect(snapshot.renderer).toBe("todo")
+    expect(snapshot.archetype === "activity" ? snapshot.summary.label : undefined).toBe(
+      "Updated tasks",
+    )
+  })
+
   test("resolves apply-patch targets from authoritative tool metadata", () => {
     const descriptor = getCoreToolPresentationDescriptor("apply_patch")
     expect(descriptor).toBeDefined()

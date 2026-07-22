@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./branding": "./src/branding.ts",
+    "./backend-node-runtime": "./src/backend-node-runtime.ts",
     "./channel": "./src/channel.ts",
     "./chemfig-runtime": "./src/chemfig-runtime.ts",
     "./minisign": "./src/minisign.ts",

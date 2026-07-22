@@ -1,6 +1,109 @@
 export const LARGE_TEXT_FILE_LIMIT_BYTES = 1_000_000
 const IMAGE_MIME_PREFIX = "image/"
 
+export const NATIVE_SPREADSHEET_FORMATS = [
+  "xlsx",
+  "xls",
+  "xlsm",
+  "xlsb",
+  "ods",
+  "numbers",
+] as const
+export type NativeSpreadsheetFormat = (typeof NATIVE_SPREADSHEET_FORMATS)[number]
+
+export const NATIVE_RESOURCE_FORMATS = [
+  "pdf",
+  "epub",
+  "docx",
+  "pptx",
+  ...NATIVE_SPREADSHEET_FORMATS,
+] as const
+export const NATIVE_RESOURCE_ATTACHMENT_MAX_COUNT = 8
+export type NativeResourceFormat = (typeof NATIVE_RESOURCE_FORMATS)[number]
+export type NativeResourceDelivery = "model-and-resource" | "resource-only"
+
+export type NativeResourceFileDefinition = {
+  format: NativeResourceFormat
+  extension: `.${NativeResourceFormat}`
+  mime: string
+  delivery: NativeResourceDelivery
+}
+
+export const NATIVE_RESOURCE_FILE_DEFINITIONS: readonly NativeResourceFileDefinition[] = [
+  {
+    format: "pdf",
+    extension: ".pdf",
+    mime: "application/pdf",
+    delivery: "model-and-resource",
+  },
+  {
+    format: "epub",
+    extension: ".epub",
+    mime: "application/epub+zip",
+    delivery: "resource-only",
+  },
+  {
+    format: "docx",
+    extension: ".docx",
+    mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    delivery: "resource-only",
+  },
+  {
+    format: "pptx",
+    extension: ".pptx",
+    mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    delivery: "resource-only",
+  },
+  {
+    format: "xlsx",
+    extension: ".xlsx",
+    mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    delivery: "resource-only",
+  },
+  {
+    format: "xls",
+    extension: ".xls",
+    mime: "application/vnd.ms-excel",
+    delivery: "resource-only",
+  },
+  {
+    format: "xlsm",
+    extension: ".xlsm",
+    mime: "application/vnd.ms-excel.sheet.macroEnabled.12",
+    delivery: "resource-only",
+  },
+  {
+    format: "xlsb",
+    extension: ".xlsb",
+    mime: "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
+    delivery: "resource-only",
+  },
+  {
+    format: "ods",
+    extension: ".ods",
+    mime: "application/vnd.oasis.opendocument.spreadsheet",
+    delivery: "resource-only",
+  },
+  {
+    format: "numbers",
+    extension: ".numbers",
+    mime: "application/vnd.apple.numbers",
+    delivery: "resource-only",
+  },
+] as const
+
+const NATIVE_RESOURCE_DEFINITION_BY_FORMAT = new Map(
+  NATIVE_RESOURCE_FILE_DEFINITIONS.map((definition) => [definition.format, definition] as const),
+)
+const NATIVE_RESOURCE_DEFINITION_BY_EXTENSION = new Map(
+  NATIVE_RESOURCE_FILE_DEFINITIONS.map((definition) => [
+    definition.extension.slice(1),
+    definition,
+  ] as const),
+)
+const NATIVE_RESOURCE_FORMAT_SET = new Set<string>(NATIVE_RESOURCE_FORMATS)
+const NATIVE_SPREADSHEET_FORMAT_SET = new Set<string>(NATIVE_SPREADSHEET_FORMATS)
+
 const IMAGE_FILE_EXTENSIONS = new Set([
   "avif",
   "bmp",
@@ -19,7 +122,16 @@ const ZIP_LOCAL_FILE_HEADER = new Uint8Array([0x50, 0x4b, 0x03, 0x04])
 const HTML_PREFIX_PATTERN = /^\s*(?:<!doctype\s+html|<html|<head|<body)\b/iu
 const PRESENTATION_FILE_EXTENSIONS = new Set(["key", "odp", "ppt", "pptx"])
 const DOCUMENT_FILE_EXTENSIONS = new Set(["doc", "docx", "odt", "rtf"])
-const SPREADSHEET_FILE_EXTENSIONS = new Set(["csv", "ods", "tsv", "xls", "xlsx"])
+const SPREADSHEET_FILE_EXTENSIONS = new Set([
+  "csv",
+  "numbers",
+  "ods",
+  "tsv",
+  "xls",
+  "xlsb",
+  "xlsm",
+  "xlsx",
+])
 const TEXT_SPREADSHEET_FILE_EXTENSIONS = new Set(["csv", "tsv"])
 const AUDIO_FILE_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "ogg", "wav"])
 const VIDEO_FILE_EXTENSIONS = new Set(["avi", "m4v", "mov", "mp4", "mkv", "webm"])
@@ -62,6 +174,38 @@ export function fileExtensionFromPath(filepath: string) {
   const lastDot = name.lastIndexOf(".")
   if (lastDot <= 0 || lastDot === name.length - 1) return ""
   return name.slice(lastDot + 1)
+}
+
+export function nativeResourceDefinitionForFormat(
+  format: NativeResourceFormat,
+): NativeResourceFileDefinition {
+  const definition = NATIVE_RESOURCE_DEFINITION_BY_FORMAT.get(format)
+  if (!definition) {
+    throw new Error(`Unknown native resource format: ${format}`)
+  }
+  return definition
+}
+
+export function nativeResourceDefinitionFromPath(
+  filepath: string,
+): NativeResourceFileDefinition | undefined {
+  return NATIVE_RESOURCE_DEFINITION_BY_EXTENSION.get(fileExtensionFromPath(filepath))
+}
+
+export function nativeResourceFormatFromPath(filepath: string): NativeResourceFormat | undefined {
+  return nativeResourceDefinitionFromPath(filepath)?.format
+}
+
+export function isNativeResourceFormat(value: string): value is NativeResourceFormat {
+  return NATIVE_RESOURCE_FORMAT_SET.has(value)
+}
+
+export function isNativeSpreadsheetFormat(value: string): value is NativeSpreadsheetFormat {
+  return NATIVE_SPREADSHEET_FORMAT_SET.has(value)
+}
+
+export function isNativeResourcePath(filepath: string): boolean {
+  return nativeResourceDefinitionFromPath(filepath) !== undefined
 }
 
 export function readerSourceFormatFromPath(filepath: string): ReaderSourceFormat | null {

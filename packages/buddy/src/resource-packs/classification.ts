@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import path from "node:path"
+import { nativeResourceDefinitionFromPath } from "@buddy/workspace-file-policy"
 import {
   RESOURCE_PACK_LARGE_TEXT_THRESHOLD_BYTES,
   RESOURCE_PACK_ROOT_DIR,
@@ -7,7 +8,11 @@ import {
   type ResourceFormat,
 } from "./contracts"
 
-const RESOURCE_LIKE_EXTENSIONS = new Set([".pdf", ".epub", ".docx", ".html", ".htm", ".xhtml"])
+const RESOURCE_LIKE_EXTENSIONS = new Set([
+  ".html",
+  ".htm",
+  ".xhtml",
+])
 const DIRECT_TEXT_EXTENSIONS = new Set([
   ".txt",
   ".md",
@@ -69,6 +74,15 @@ export function classifyResourcePath(
   sourceSizeBytes?: number,
 ): ResourceClassification {
   const extension = path.extname(sourcePath).toLowerCase()
+  const nativeResource = nativeResourceDefinitionFromPath(sourcePath)
+
+  if (nativeResource) {
+    return {
+      kind: "pack",
+      format: nativeResource.format,
+      mime: "text/plain",
+    }
+  }
 
   if (RESOURCE_LIKE_EXTENSIONS.has(extension)) {
     return {
@@ -121,12 +135,6 @@ export function createResourcePackKey(directory: string, sourcePath: string) {
 
 function resourceFormatForExtension(extension: string): ResourceFormat {
   switch (extension) {
-    case ".pdf":
-      return "pdf"
-    case ".epub":
-      return "epub"
-    case ".docx":
-      return "docx"
     case ".html":
     case ".htm":
     case ".xhtml":

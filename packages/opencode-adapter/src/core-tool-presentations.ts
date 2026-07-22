@@ -249,15 +249,22 @@ const catalog = {
     },
   }),
   todowrite: defineToolPresentation({
-    archetype: "inline-output",
+    archetype: "activity",
     icon: "todo",
     renderer: "todo",
-    layoutRole: "compact-output",
+    layoutRole: "activity",
     phases: {
       pending: { action: "Updating tasks" },
       running: { action: "Updating tasks" },
       completed: { action: "Updated tasks" },
       error: { action: "Failed to update tasks" },
+    },
+    summary: {
+      category: "update-tasks",
+      pending: "Updating tasks",
+      running: "Updating tasks",
+      completed: "Updated tasks",
+      error: "Failed to update tasks",
     },
   }),
   websearch: defineToolPresentation({

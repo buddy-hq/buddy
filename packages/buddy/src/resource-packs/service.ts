@@ -75,7 +75,7 @@ function getOrStartBuild(input: ResourcePackBuildInput): Promise<void> {
 
 async function buildResourcePack(input: ResourcePackBuildInput): Promise<void> {
   await fs.mkdir(input.packPaths.rootPath, { recursive: true })
-  await writePreparingResourcePackMetadata({
+  const previousTextArtifactPaths = await writePreparingResourcePackMetadata({
     build: input,
     warnings: [RESOURCE_PACK_PREPARING_WARNING],
   })
@@ -115,11 +115,14 @@ async function buildResourcePack(input: ResourcePackBuildInput): Promise<void> {
       coverImage: extraction.coverImage,
       title: extraction.title,
       author: extraction.author,
+      textArtifacts: extraction.textArtifacts,
+      previousTextArtifactPaths,
     })
   } catch (error) {
     await writeErroredResourcePackMetadata({
       build: input,
       message: error instanceof Error ? error.message : String(error),
+      previousTextArtifactPaths,
     })
   }
 }

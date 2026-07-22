@@ -1,4 +1,5 @@
 import type { Stats } from "node:fs"
+import type { NativeResourceFormat } from "@buddy/workspace-file-policy"
 import {
   RESOURCE_PACK_CHAPTER_MAX_TOKENS,
   RESOURCE_PACK_CHUNKS_DIR_NAME,
@@ -85,9 +86,7 @@ export type ResourcePackStatus =
   | typeof RESOURCE_PACK_STATUS_ERROR
 
 export type ResourceFormat =
-  | "pdf"
-  | "epub"
-  | "docx"
+  | NativeResourceFormat
   | "html"
   | "htm"
   | "xhtml"
@@ -174,6 +173,7 @@ export type ResourcePackMetadata = {
   cover_relpath?: string
   title?: string
   author?: string
+  text_artifacts?: string[]
 }
 
 export type ResourceExtractionPage = {
@@ -184,6 +184,11 @@ export type ResourceExtractionPage = {
 export type ResourceExtractionCover = {
   data: Buffer
   mediaType: string
+}
+
+export type ResourceTextArtifact = {
+  relativePath: string
+  content: string
 }
 
 export type ResourceExtractionResult = {
@@ -198,6 +203,7 @@ export type ResourceExtractionResult = {
   coverImage?: ResourceExtractionCover
   title?: string
   author?: string
+  textArtifacts?: ResourceTextArtifact[]
 }
 
 export type PackPaths = {

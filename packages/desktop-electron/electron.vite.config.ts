@@ -10,6 +10,7 @@ import {
   CHEMFIG_RUNTIME_DIRECTORY_NAME,
   ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS,
 } from "@buddy/script/chemfig-runtime"
+import { SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME } from "@buddy/script/backend-node-runtime"
 import {
   LITEPARSE_PACKAGE_NAME,
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,
@@ -122,6 +123,7 @@ export default defineConfig(({ command }) => ({
         async writeBundle() {
           if (!shouldCopyPackagedRuntimeAssets(command)) return
           await copyWasmAssets(BUDDY_SERVER_DIST, MAIN_CHUNKS_DIR)
+          await copyBackendRuntimeSidecars()
           await copyChemfigRuntime()
           await copyRuntimePackages()
         },
@@ -179,6 +181,15 @@ async function copyWasmAssets(sourceDir: string, destinationDir: string) {
       await fs.copyFile(source, destination)
     }
   }
+}
+
+async function copyBackendRuntimeSidecars() {
+  await fs.mkdir(MAIN_CHUNKS_DIR, { recursive: true })
+  const source = path.join(BUDDY_SERVER_DIST, SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME)
+  if (!(await fileExists(source))) {
+    throw new Error(`Buddy backend runtime sidecar not found at ${source}`)
+  }
+  await fs.copyFile(source, path.join(MAIN_CHUNKS_DIR, SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME))
 }
 
 async function copyChemfigRuntime() {

@@ -67,7 +67,9 @@ const KNOWN_BINARY_FILE_EXTENSIONS = new Set([
   ".mov",
   ".mp3",
   ".mp4",
+  ".numbers",
   ".o",
+  ".ods",
   ".pdf",
   ".png",
   ".ppt",
@@ -77,6 +79,8 @@ const KNOWN_BINARY_FILE_EXTENSIONS = new Set([
   ".wasm",
   ".webp",
   ".xls",
+  ".xlsb",
+  ".xlsm",
   ".xlsx",
   ".zip",
 ])
