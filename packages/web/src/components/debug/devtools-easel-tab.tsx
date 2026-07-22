@@ -49,6 +49,8 @@ import { GradientAnimationLoaderEasel } from "./easel/gradient-animation-loader"
 import { CreationsPanelRedesignsEasel } from "./easel/creations-panel-redesigns"
 import { SkillsPanelRedesignsEasel } from "./easel/skills-panel-redesigns"
 import { InlineTodoRedesignsEasel } from "./easel/inline-todo-redesigns"
+import { ErrorSystemRedesignEasel } from "./easel/error-system-redesign"
+import { ErrorCardPreviewEasel } from "./easel/error-card-preview"
 import { ThemeSelectors } from "./theme-selectors"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
@@ -63,6 +65,8 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "error-card-preview"
+  | "error-system-redesign"
   | "inline-todo-redesigns"
   | "skills-panel-redesigns"
   | "creations-panel-redesigns"
@@ -82,6 +86,16 @@ type EaselPrototypeConfig = {
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
   {
+    id: "error-card-preview",
+    label: "Error card · breathing pass",
+    subtitle: "Real AssistantErrorCard with roomier spacing · every terminal category",
+  },
+  {
+    id: "error-system-redesign",
+    label: "Error system · retry + terminal + dock",
+    subtitle: "Retries recover quietly · terminal cards in product language · one failure, one box",
+  },
+  {
     id: "inline-todo-redesigns",
     label: "Inline todo list · 5 variants",
     subtitle: "Whiteboard Task Canvas · Mapped for all runtime states (In Progress → Todo → Done)",
@@ -89,12 +103,14 @@ const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
   {
     id: "skills-panel-redesigns",
     label: "Skills drawer · four directions",
-    subtitle: "Category glyphs instead of identical text rows · calm list · gallery · grouped · marketplace",
+    subtitle:
+      "Category glyphs instead of identical text rows · calm list · gallery · grouped · marketplace",
   },
   {
     id: "creations-panel-redesigns",
     label: "Creations drawer · four directions",
-    subtitle: "Inline previews instead of one repeated glyph · contact sheet · mosaic · shelves · peek",
+    subtitle:
+      "Inline previews instead of one repeated glyph · contact sheet · mosaic · shelves · peek",
   },
   {
     id: "gradient-animation-loader",
@@ -1030,7 +1046,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("inline-todo-redesigns")
+  const [prototype, setPrototype] = useState<EaselPrototype>("error-card-preview")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1191,8 +1207,10 @@ export function DevToolsEaselTab(props: { directory?: string }) {
         className={cn(
           "flex min-h-0 flex-1",
           prototype === "question-dock-redesigns" ||
-          prototype === "creations-panel-redesigns" ||
-          prototype === "skills-panel-redesigns"
+            prototype === "creations-panel-redesigns" ||
+            prototype === "skills-panel-redesigns" ||
+            prototype === "error-system-redesign" ||
+            prototype === "error-card-preview"
             ? "items-stretch justify-stretch bg-background-base p-0"
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
@@ -1344,6 +1362,22 @@ export function DevToolsEaselTab(props: { directory?: string }) {
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
               <QuestionDockRedesignsEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "error-system-redesign" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <ErrorSystemRedesignEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "error-card-preview" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <ErrorCardPreviewEasel />
             </div>
           </div>
         ) : null}
