@@ -145,6 +145,8 @@ const EMPTY_MENTIONABLE_REFERENCES: MentionableReference[] = []
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
 const COMPACT_SESSION_MISSING_MODEL_ERROR = "Select a model before compacting this session."
 const COMPACT_SESSION_MISSING_SESSION_ERROR = "Start a session before compacting it."
+const NATIVE_RESOURCE_SLASH_COMMAND_UNSUPPORTED_ERROR =
+  "Document attachments cannot be used with this slash command. Send them with a normal message or remove them before running the command."
 const QUEUED_FOLLOWUP_PREVIEW_MAX_LENGTH = 80
 const QUEUED_FOLLOWUP_ID_PREFIX = "queued-followup"
 let queuedFollowupSequence = 0
@@ -1457,6 +1459,11 @@ export function useDirectoryChatPageController(
       }
 
       const attachmentParts = buildCommandAttachmentParts(rawAttachments)
+      if (!attachmentParts) {
+        cs.setDirectoryError(decodedDirectory, NATIVE_RESOURCE_SLASH_COMMAND_UNSUPPORTED_ERROR)
+        restorePromptSnapshot(draftSnapshot)
+        return
+      }
       cs.clearPromptDraft(cs.promptKey)
       try {
         const submittedSessionID = await sendCommand(

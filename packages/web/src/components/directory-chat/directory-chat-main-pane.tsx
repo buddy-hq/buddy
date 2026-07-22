@@ -2,7 +2,10 @@ import { Button, ScrollArea } from "@buddy/ui"
 import { useQuery } from "@tanstack/react-query"
 import {
   useMemo,
+  useRef,
+  useState,
   type ComponentProps,
+  type DragEvent,
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
@@ -12,6 +15,7 @@ import {
   type WheelEvent,
 } from "react"
 import { ChatEmptyStateBoard } from "@/components/directory-chat/chat-empty-state-board"
+import { preventDefaultForFileDrag } from "@/components/directory-chat/directory-chat-file-drop"
 import { SessionContextUsage } from "@/components/directory-chat/session-context-usage"
 import { ChatTranscript } from "@/components/chat/chat-transcript"
 import { PermissionDock } from "@/components/directory-chat/permission-dock"
@@ -21,7 +25,10 @@ import {
   type QueuedFollowupItem,
 } from "@/components/directory-chat/session-followup-dock"
 import { language } from "@/context/language"
-import { PromptComposer } from "@/components/prompt/prompt-composer"
+import {
+  PromptComposer,
+  type PromptComposerAttachmentsApi,
+} from "@/components/prompt/prompt-composer"
 import { useAdaptiveSelectMode } from "@/components/prompt/use-adaptive-select-mode"
 import type { GetStartedChat } from "@/lib/get-started-chats"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
@@ -36,10 +43,11 @@ import { isBenchRoutePathname } from "@/lib/bench-navigation"
 import { canEditImagesForModel } from "@/lib/image-editing"
 import { useLocation } from "@tanstack/react-router"
 import { WhiteboardBenchAutoOpen } from "@/components/whiteboard/whiteboard-bench-auto-open"
+import { findLatestTodoSnapshot } from "@/components/chat/tools/todo-state"
 
 type PromptComposerProps = Omit<
   ComponentProps<typeof PromptComposer>,
-  "className" | "sessionContextUsage"
+  "className" | "sessionContextUsage" | "todoSnapshot"
 >
 
 type DirectoryChatMainPaneProps = {
@@ -228,6 +236,14 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       }),
     [chatState.messages, revertMessageID],
   )
+  const todoSnapshot = useMemo(
+    () =>
+      findLatestTodoSnapshot({
+        messages: chatState.messages,
+        revertMessageID,
+      }),
+    [chatState.messages, revertMessageID],
+  )
   const activeQuestion = currentSessionQuestions[0]
   const isTranscriptLoading =
     !!chatState.sessionID &&
@@ -244,11 +260,45 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     chatGptOAuthReady: providerCatalogQuery.data?.openAIModelAvailability.status === "ready",
   })
 
+  // The prompt composer publishes its attachment API here so files dropped
+  // anywhere in this pane (not just on the composer) get attached.
+  const attachmentsApiRef = useRef<PromptComposerAttachmentsApi | null>(null)
+  const [isFileDragging, setIsFileDragging] = useState(false)
+  // Only accept drops while the composer is actually mounted below.
+  const dropzoneEnabled = !activeQuestion && !chatState.parentSession
+
+  const handlePaneDragEnter = (event: DragEvent<HTMLElement>) => {
+    if (!preventDefaultForFileDrag(event) || !dropzoneEnabled) return
+    setIsFileDragging(true)
+  }
+  const handlePaneDragOver = (event: DragEvent<HTMLElement>) => {
+    if (!preventDefaultForFileDrag(event) || !dropzoneEnabled) return
+    if (!isFileDragging) setIsFileDragging(true)
+  }
+  const handlePaneDragLeave = (event: DragEvent<HTMLElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+    setIsFileDragging(false)
+  }
+  const handlePaneDrop = (event: DragEvent<HTMLElement>) => {
+    setIsFileDragging(false)
+    if (!preventDefaultForFileDrag(event) || !dropzoneEnabled) return
+    attachmentsApiRef.current?.addAttachments(event.dataTransfer.files)
+  }
+
   return (
     <main
       data-component="directory-chat-main-pane"
       className="relative flex-1 min-w-0 min-h-0 flex flex-col bg-background-stronger"
+      onDragEnter={handlePaneDragEnter}
+      onDragOver={handlePaneDragOver}
+      onDragLeave={handlePaneDragLeave}
+      onDrop={handlePaneDrop}
     >
+      {isFileDragging ? (
+        <div className="pointer-events-none absolute inset-3 z-30 flex items-center justify-center rounded-2xl border border-dashed border-border-interactive-base/50 bg-background-base/80 text-sm text-text-base shadow-sm backdrop-blur-sm">
+          {language.t("prompt.composer.draggingHint")}
+        </div>
+      ) : null}
       <WhiteboardBenchAutoOpen
         directory={directory}
         sessionID={chatState.sessionID}
@@ -441,9 +491,11 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               {!chatState.parentSession && (
                 <PromptComposer
                   {...promptComposerProps}
+                  attachmentsApiRef={attachmentsApiRef}
                   selectorMode={promptSelectorMode}
                   compact={compactPromptComposer}
                   className="mb-1"
+                  todoSnapshot={todoSnapshot}
                   sessionContextUsage={
                     <SessionContextUsage
                       messages={chatState.messages}
