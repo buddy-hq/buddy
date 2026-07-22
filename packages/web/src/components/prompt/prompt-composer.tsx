@@ -1,3 +1,7 @@
+import "./composer-surfaces.css"
+import {
+  NATIVE_RESOURCE_ATTACHMENT_MAX_COUNT,
+} from "@buddy/workspace-file-policy"
 import {
   Dialog,
   DialogContent,
@@ -8,13 +12,14 @@ import {
   toast,
   cn,
 } from "@buddy/ui"
-import { Gamepad2Icon, PenLineIcon, XIcon } from "@/icons/app-icons"
+import { Gamepad2Icon, PenLineIcon } from "@/icons/app-icons"
 import {
   lazy,
   startTransition,
   Suspense,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -27,6 +32,16 @@ import {
 } from "@/components/bench/transient-bench-surface"
 import { GameDock } from "../game/game-dock"
 import { GameBall } from "../game/game-ball"
+import type { TodoSnapshot } from "@/components/chat/tools/todo-state"
+import { TodoDock } from "./todo-dock"
+import { TodoDockIndicator } from "./todo-dock-indicator"
+import {
+  TODO_DOCK_MODE_HIDDEN,
+  TODO_DOCK_MODE_OPEN,
+  reconcileTodoDockViewState,
+  todoDockModeForScope,
+  type TodoDockViewState,
+} from "./todo-dock-state"
 import {
   GAME_PROMPT_PREFERENCE_DISABLED,
   GAME_PROMPT_PREFERENCE_REDUCED,
@@ -80,6 +95,7 @@ import {
   cloneAttachments,
 } from "./attachment-utils"
 import { ImageAttachments } from "./image-attachments"
+import { SelectionClip, type SelectionClipData } from "./selection-clip"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
 import { usePromptEditorSync } from "./use-prompt-editor-sync"
@@ -164,6 +180,21 @@ type PromptComposerProps = {
   contextActions?: React.ReactNode
   activeQuestionID?: string
   compact?: boolean
+  todoSnapshot?: TodoSnapshot
+  /**
+   * When provided, the composer publishes an imperative attachment API onto this
+   * ref so an ancestor can forward files dropped anywhere in the chat area.
+   */
+  attachmentsApiRef?: React.RefObject<PromptComposerAttachmentsApi | null>
+}
+
+/**
+ * Imperative handle exposed by {@link PromptComposer} so an ancestor (e.g. the
+ * chat main pane) can route dropped files into the composer's attachment state,
+ * letting the whole chat area act as a single dropzone.
+ */
+export type PromptComposerAttachmentsApi = {
+  addAttachments: (files: FileList | File[]) => void
 }
 
 const NON_EMPTY_TEXT = /[^\s\u200B]/
@@ -202,7 +233,20 @@ function buildSelectionContextEntryKey(part: SelectionContextChipPart) {
 
 type DismissedSelectionPreview = {
   key: string
-  text: string
+  data: SelectionClipData
+}
+
+/** Map a composer selection-context part onto the shared clip's data shape. */
+function selectionClipDataFromChipPart(part: SelectionContextChipPart): SelectionClipData {
+  return {
+    text: part.text,
+    ...("source" in part && part.source ? { source: part.source } : {}),
+    ...("path" in part && part.path ? { path: part.path } : {}),
+    ...("headingPath" in part && part.headingPath ? { headingPath: part.headingPath } : {}),
+    ...(part.tocLabel ? { tocLabel: part.tocLabel } : {}),
+    ...(part.pageLabel ? { pageLabel: part.pageLabel } : {}),
+    ...(part.locationLabel ? { locationLabel: part.locationLabel } : {}),
+  }
 }
 
 function createEmptyPromptDraftState() {
@@ -244,9 +288,14 @@ export function PromptComposer(props: PromptComposerProps) {
   const [sketchDockOpen, setSketchDockOpen] = useState(false)
   const [sketchDockMinimized, setSketchDockMinimized] = useState(false)
   const [sketchHasContent, setSketchHasContent] = useState(false)
+  const [todoDockViewState, setTodoDockViewState] = useState<TodoDockViewState>({})
   const sketchAttachmentRef = useRef<PromptComposerAttachment | undefined>(undefined)
   const flushSketchAttachmentRef = useRef<SketchAttachmentFlush | undefined>(undefined)
   const sketchBenchOpen = transientBenchSurface?.activeSurface === TRANSIENT_BENCH_SURFACE_SKETCH
+  const todoDockMode = todoDockModeForScope(todoDockViewState, promptKey)
+  const todoCount = props.todoSnapshot?.todos.length ?? 0
+  const hasTodos = todoCount > 0
+  const todoDockOpen = hasTodos && todoDockMode === TODO_DOCK_MODE_OPEN
   const selectionContextEntries = useMemo(
     () =>
       draft.parts.flatMap((part) =>
@@ -276,10 +325,24 @@ export function PromptComposer(props: PromptComposerProps) {
     [unsupportedImageAttachments],
   )
   const hasUnsupportedImageAttachments = unsupportedImageAttachments.length > 0
+  const copyingResourceCount = draft.attachments.filter(
+    (attachment) => attachment.kind === "native-resource" && attachment.status === "copying",
+  ).length
+  const failedResourceCount = draft.attachments.filter(
+    (attachment) => attachment.kind === "native-resource" && attachment.status === "error",
+  ).length
+  const hasUnreadyNativeResources = copyingResourceCount > 0 || failedResourceCount > 0
+  const nativeResourceSendDisabledReason =
+    copyingResourceCount > 0
+      ? "Wait for every document to finish copying before sending."
+      : failedResourceCount > 0
+        ? "Retry or remove every document whose copy failed before sending."
+        : undefined
   const canSubmit = useMemo(
     () =>
       !hasUnsupportedImageAttachments &&
       !hasUnsupportedSketch &&
+      !hasUnreadyNativeResources &&
       (draftEditorValue.trim().length > 0 ||
         draft.attachments.length > 0 ||
         hasSubmittableParts ||
@@ -291,10 +354,10 @@ export function PromptComposer(props: PromptComposerProps) {
       hasSubmittableParts,
       hasUnsupportedImageAttachments,
       hasUnsupportedSketch,
+      hasUnreadyNativeResources,
     ],
   )
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
-  const [dragging, setDragging] = useState(false)
   const [modelMenuOpenRequest, setModelMenuOpenRequest] = useState(0)
   const [focusRequestID, setFocusRequestID] = useState(0)
   const [placeholderVisible, setPlaceholderVisible] = useState(() =>
@@ -318,6 +381,22 @@ export function PromptComposer(props: PromptComposerProps) {
 
   const [busyStartTime, setBusyStartTime] = useState<number | null>(null)
   const [showGameBall, setShowGameBall] = useState(false)
+
+  const todoAutoOpenBlocked = sketchDockOpen || sketchBenchOpen || isGameVisible
+  const todoBelongsToCurrentTurn = props.todoSnapshot?.isCurrentTurn === true
+  const todoRevision = props.todoSnapshot?.revision
+  useEffect(() => {
+    if (!todoRevision) return
+    if (hasTodos && (!props.isBusy || !todoBelongsToCurrentTurn)) return
+    setTodoDockViewState((current) =>
+      reconcileTodoDockViewState({
+        current,
+        scope: promptKey,
+        hasTodos,
+        autoOpenBlocked: todoAutoOpenBlocked,
+      }),
+    )
+  }, [hasTodos, promptKey, props.isBusy, todoAutoOpenBlocked, todoBelongsToCurrentTurn, todoRevision])
 
   useEffect(() => {
     if (arePromptDraftContentsEqual(draftRef.current, storeDraft)) return
@@ -485,8 +564,14 @@ export function PromptComposer(props: PromptComposerProps) {
   )
 
   const setDraftAttachmentsFromComposer = useCallback(
-    (attachments: PromptComposerAttachment[]) => {
+    (
+      update:
+        | PromptComposerAttachment[]
+        | ((attachments: PromptComposerAttachment[]) => PromptComposerAttachment[]),
+    ) => {
       const currentDraft = draftRef.current
+      const attachments =
+        typeof update === "function" ? update(currentDraft.attachments) : update
       replaceDraftFromComposer({
         value: currentDraft.value,
         parts: currentDraft.parts,
@@ -497,15 +582,56 @@ export function PromptComposer(props: PromptComposerProps) {
     [replaceDraftFromComposer],
   )
 
+  const discardTransientAttachments = useCallback(
+    (scopeKey: string) => {
+      const scopedDraft = getPromptDraft(usePromptStore.getState(), scopeKey)
+      const attachments = scopedDraft.attachments.filter(
+        (attachment) =>
+          attachment.kind !== "native-resource" || attachment.status === "ready",
+      )
+      if (attachments.length === scopedDraft.attachments.length) return
+      replaceDraft(scopeKey, {
+        value: scopedDraft.value,
+        parts: scopedDraft.parts,
+        attachments,
+        cursor: scopedDraft.cursor,
+      })
+    },
+    [replaceDraft],
+  )
+
   const attachmentState = usePromptComposerAttachments({
+    scopeKey: promptKey,
+    directory: props.directory,
     attachments: draft.attachments,
     setDraftAttachments: setDraftAttachmentsFromComposer,
+    discardTransientAttachments,
     resetHistoryNavigation,
     acceptsImages: props.selectedModelAcceptsImages,
     onUnsupportedImages: () => {
       toast.error("This model cannot accept image attachments.")
     },
+    onUnsupportedFiles: () => {
+      toast.error("This file type is not supported.")
+    },
+    onNativeResourceLimitExceeded: () => {
+      toast.error(
+        `You can attach up to ${NATIVE_RESOURCE_ATTACHMENT_MAX_COUNT} documents at once.`,
+      )
+    },
   })
+
+  // Keep the latest (unmemoized) addAttachments callback in a ref so the
+  // imperative handle stays stable while always calling the current closure.
+  const addAttachmentsRef = useRef(attachmentState.addAttachments)
+  addAttachmentsRef.current = attachmentState.addAttachments
+  useImperativeHandle(
+    props.attachmentsApiRef,
+    () => ({
+      addAttachments: (files: FileList | File[]) => addAttachmentsRef.current(files),
+    }),
+    [],
+  )
 
   const updateSketchAttachment = useCallback((attachment: PromptComposerAttachment | undefined) => {
     sketchAttachmentRef.current = attachment
@@ -762,7 +888,7 @@ export function PromptComposer(props: PromptComposerProps) {
     if (dismissedSelection) {
       setDismissedSelectionPreviews((current) => [
         ...current,
-        { key, text: dismissedSelection.part.text },
+        { key, data: selectionClipDataFromChipPart(dismissedSelection.part) },
       ])
       window.setTimeout(() => {
         setDismissedSelectionPreviews((current) =>
@@ -983,6 +1109,9 @@ export function PromptComposer(props: PromptComposerProps) {
     if (sketchDockOpen || sketchBenchOpen) {
       minimizeSketchDock()
     }
+    if (todoDockOpen) {
+      hideTodoDock()
+    }
     if (input?.clearDraft) {
       clearComposer()
     }
@@ -1011,6 +1140,9 @@ export function PromptComposer(props: PromptComposerProps) {
     setMinimized(false)
     setPaused(true)
     setShowGameBall(false)
+    if (todoDockOpen) {
+      hideTodoDock()
+    }
     editorRef.current?.blur()
     setSketchDockOpen(true)
     setSketchDockMinimized(false)
@@ -1043,6 +1175,36 @@ export function PromptComposer(props: PromptComposerProps) {
       return
     }
     openSketchDock()
+  }
+
+  function hideTodoDock() {
+    setTodoDockViewState((current) => ({
+      ...current,
+      [promptKey]: TODO_DOCK_MODE_HIDDEN,
+    }))
+  }
+
+  function openTodoDock() {
+    if (!hasTodos) return
+    if (sketchDockOpen || sketchBenchOpen) {
+      minimizeSketchDock()
+    }
+    setGameVisible(false)
+    setMinimized(false)
+    setPaused(true)
+    setShowGameBall(false)
+    setTodoDockViewState((current) => ({
+      ...current,
+      [promptKey]: TODO_DOCK_MODE_OPEN,
+    }))
+  }
+
+  function toggleTodoDock() {
+    if (todoDockOpen) {
+      hideTodoDock()
+      return
+    }
+    openTodoDock()
   }
 
   function toggleArcade() {
@@ -1096,7 +1258,7 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   async function handleSubmit() {
-    if (hasUnsupportedImageAttachments || hasUnsupportedSketch) return
+    if (hasUnsupportedImageAttachments || hasUnsupportedSketch || hasUnreadyNativeResources) return
 
     const currentDraft = readEditorDraft()
 
@@ -1160,8 +1322,25 @@ export function PromptComposer(props: PromptComposerProps) {
         <div className="w-full pointer-events-auto">
           <AnimatePresence>
             {isGameVisible && (
-              <GameDock className="w-full" onClose={closeArcade} onMinimize={minimizeArcade} />
+              <GameDock
+                className="composer-surface-floating composer-grain w-full"
+                onClose={closeArcade}
+                onMinimize={minimizeArcade}
+              />
             )}
+          </AnimatePresence>
+        </div>
+
+        <div className="w-full pointer-events-auto">
+          <AnimatePresence>
+            {todoDockOpen && props.todoSnapshot ? (
+              <TodoDock
+                className="composer-surface-floating composer-grain w-full"
+                todos={props.todoSnapshot.todos}
+                turnActive={props.isBusy}
+                onHide={hideTodoDock}
+              />
+            ) : null}
           </AnimatePresence>
         </div>
 
@@ -1170,11 +1349,14 @@ export function PromptComposer(props: PromptComposerProps) {
             {sketchDockOpen || sketchDockMinimized || sketchBenchOpen ? (
               <Suspense
                 fallback={
-                  <div className="h-[300px] w-full rounded-2xl border border-border-base bg-surface-raised-base shadow-lg" />
+                  <div className="composer-surface-floating h-[300px] w-full" />
                 }
               >
                 <SketchDock
-                  className={cn("w-full", (sketchDockMinimized || sketchBenchOpen) && "hidden")}
+                  className={cn(
+                    "composer-surface-floating composer-grain w-full",
+                    (sketchDockMinimized || sketchBenchOpen) && "hidden",
+                  )}
                   acceptsImages={props.selectedModelAcceptsImages}
                   benchHost={sketchBenchOpen ? transientBenchSurface?.host : null}
                   imageModelOptions={sketchImageModelOptions}
@@ -1224,37 +1406,25 @@ export function PromptComposer(props: PromptComposerProps) {
       {selectionContextEntries.length > 0 || dismissedSelectionPreviews.length > 0 ? (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {selectionContextEntries.map(({ part, key }) => (
-            <div
+            <SelectionClip
               key={key}
-              className="animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-300 transition-all ease-out flex max-w-[min(72%,56ch)] items-center gap-1.5 rounded-lg border border-border-base bg-surface-weak px-2 py-1"
-            >
-              <div className="min-w-0 flex-1 truncate text-[11px] leading-4 text-text-base">
-                {part.text}
-              </div>
-              <button
-                type="button"
-                onClick={() => removeSelectionContextByKey(key)}
-                aria-label="Remove selected context"
-                className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-strong hover:text-text-base"
-              >
-                <XIcon className="size-3" />
-              </button>
-            </div>
+              variant="chip"
+              data={selectionClipDataFromChipPart(part)}
+              onRemove={() => removeSelectionContextByKey(key)}
+              className="animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-300 ease-out"
+            />
           ))}
           {dismissedSelectionPreviews.map((selection) => (
-            <div
+            <SelectionClip
               key={`dismissed_${selection.key}`}
-              className="animate-out fade-out slide-out-to-top-1 zoom-out-95 duration-200 pointer-events-none flex max-w-[min(72%,56ch)] items-center gap-1.5 rounded-lg border border-border-base bg-surface-weak px-2 py-1 opacity-0"
-            >
-              <div className="min-w-0 flex-1 truncate text-[11px] leading-4 text-text-base">
-                {selection.text}
-              </div>
-              <span className="inline-flex size-5 shrink-0" />
-            </div>
+              variant="chip"
+              data={selection.data}
+              className="animate-out fade-out slide-out-to-top-1 zoom-out-95 pointer-events-none opacity-0 duration-200"
+            />
           ))}
         </div>
       ) : null}
-      <div className="group/prompt-input relative z-10 rounded-[16px] border bg-surface-raised-base shadow-sm transition-colors has-[:focus-visible]:border-border-interactive-base/45">
+      <div className="composer-surface composer-grain composer-shell group/prompt-input relative z-10">
         <form
           id="prompt-composer-form"
           data-component="prompt-composer"
@@ -1263,24 +1433,20 @@ export function PromptComposer(props: PromptComposerProps) {
             event.preventDefault()
             void handleSubmit()
           }}
-          onDragEnter={(event) => {
-            event.preventDefault()
-            setDragging(true)
-          }}
-          onDragOver={(event) => {
-            event.preventDefault()
-            if (!dragging) setDragging(true)
-          }}
-          onDragLeave={(event) => {
-            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
-            setDragging(false)
-          }}
-          onDrop={(event) => {
-            event.preventDefault()
-            setDragging(false)
-            void attachmentState.addAttachments(event.dataTransfer.files)
-          }}
         >
+          <ImageAttachments
+            attachments={draft.attachments}
+            unsupportedAttachmentIds={unsupportedImageAttachmentIds}
+            onRemove={attachmentState.removeAttachment}
+            onRetry={attachmentState.retryAttachment}
+            onOpen={attachmentState.openPreviewAttachment}
+          />
+          {hasUnsupportedImageAttachments ? (
+            <div className="mx-3 mt-2 rounded-md border border-border-warning-base bg-surface-warning-weak px-2.5 py-2 text-xs text-text-base">
+              This model cannot accept image attachments. Remove the image or switch to a vision
+              model before sending.
+            </div>
+          ) : null}
           <div className="relative">
             <PromptAutocompleteMenu
               slashVisible={slashMenuVisible}
@@ -1296,15 +1462,9 @@ export function PromptComposer(props: PromptComposerProps) {
               onSetMentionIndex={viewState.setMentionIndex}
             />
 
-            {dragging ? (
-              <div className="absolute inset-2 z-10 flex items-center justify-center rounded-xl border border-dashed border-border-interactive-base/40 bg-background-base/95 text-sm text-text-base shadow-sm">
-                {language.t("prompt.composer.draggingHint")}
-              </div>
-            ) : null}
-
             {placeholderVisible ? (
               <div
-                className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-text-weak transition-opacity duration-250 ease-out"
+                className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-text-weaker transition-opacity duration-250 ease-out"
                 style={{ opacity: viewState.placeholderOpacity }}
               >
                 {viewState.displayedPlaceholder}
@@ -1319,7 +1479,7 @@ export function PromptComposer(props: PromptComposerProps) {
               role="textbox"
               aria-multiline="true"
               className={cn(
-                "w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 text-sm leading-6 text-text-base focus:outline-none",
+                "composer-scroll w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 text-sm leading-6 text-text-base focus:outline-none",
                 props.compact ? PROMPT_EDITOR_COMPACT_SIZE_CLASS : PROMPT_EDITOR_REGULAR_SIZE_CLASS,
               )}
               onInput={() => {
@@ -1493,16 +1653,14 @@ export function PromptComposer(props: PromptComposerProps) {
 
                 const items = Array.from(clipboardData.items)
                 const fileItems = items.filter((item) => item.kind === "file")
-                const imageItems = fileItems.filter((item) =>
-                  ACCEPTED_FILE_TYPES.includes(item.type),
-                )
 
-                if (imageItems.length > 0) {
+                if (fileItems.length > 0) {
                   event.preventDefault()
-                  for (const item of imageItems) {
+                  const files = fileItems.flatMap((item) => {
                     const file = item.getAsFile()
-                    if (file) attachmentState.addAttachments([file])
-                  }
+                    return file ? [file] : []
+                  })
+                  void attachmentState.addAttachments(files)
                   return
                 }
 
@@ -1531,19 +1689,6 @@ export function PromptComposer(props: PromptComposerProps) {
               }}
             />
           </div>
-
-          <ImageAttachments
-            attachments={draft.attachments}
-            unsupportedAttachmentIds={unsupportedImageAttachmentIds}
-            onRemove={attachmentState.removeAttachment}
-            onOpen={attachmentState.openPreviewAttachment}
-          />
-          {hasUnsupportedImageAttachments ? (
-            <div className="mx-3 mt-2 rounded-md border border-border-warning-base bg-surface-warning-weak px-2.5 py-2 text-xs text-text-base">
-              This model cannot accept image attachments. Remove the image or switch to a vision
-              model before sending.
-            </div>
-          ) : null}
         </form>
 
         <PromptComposerToolbar
@@ -1562,6 +1707,7 @@ export function PromptComposer(props: PromptComposerProps) {
           onThinkingChange={props.onThinkingChange}
           isBusy={props.isBusy}
           canSubmit={canSubmit}
+          sendDisabledReason={nativeResourceSendDisabledReason}
           onAttach={() => fileInputRef.current?.click()}
           onAbort={props.onAbort}
           attachLabel={language.t("prompt.composer.attachFilesTitle")}
@@ -1577,6 +1723,35 @@ export function PromptComposer(props: PromptComposerProps) {
         <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
           <div className="flex min-w-0 items-center gap-1.5">{props.contextActions}</div>
           <div className="flex shrink-0 items-center gap-1.5">
+            {hasTodos ? (
+              <button
+                type="button"
+                data-action="prompt-open-todos"
+                aria-label={
+                  todoDockOpen
+                    ? language.t("prompt.todoDock.hideAria")
+                    : language.t("prompt.todoDock.openAria")
+                }
+                aria-pressed={todoDockOpen}
+                title={language.t("prompt.todoDock.openTitle")}
+                onClick={toggleTodoDock}
+                className={cn(
+                  "inline-flex size-6 items-center justify-center rounded-md text-text-weaker transition-colors hover:bg-surface-base-hover hover:text-text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base/50 active:scale-95",
+                  todoDockMode === TODO_DOCK_MODE_HIDDEN &&
+                    "bg-surface-base-hover text-text-base ring-1 ring-border-weak-base/80",
+                  todoDockOpen &&
+                    "bg-surface-interactive-base text-text-on-interactive-base shadow-sm shadow-surface-interactive-base/30 ring-1 ring-border-interactive-base/60",
+                )}
+              >
+                <TodoDockIndicator
+                  revision={props.todoSnapshot?.revision ?? promptKey}
+                  todos={props.todoSnapshot?.todos ?? []}
+                  turnActive={props.isBusy}
+                  isCurrentTurn={props.todoSnapshot?.isCurrentTurn === true}
+                  selected={todoDockOpen}
+                />
+              </button>
+            ) : null}
             <button
               type="button"
               data-action="prompt-open-sketch"

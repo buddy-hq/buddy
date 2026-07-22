@@ -1,6 +1,9 @@
 import { memo, useMemo } from "react"
+import { cn } from "@buddy/ui"
 import { FileAttachmentPart } from "../parts/file-attachment"
 import { UserMessagePart } from "../parts/user-message"
+import { SelectionClip } from "@/components/prompt/selection-clip"
+import { FileAttachmentChip } from "@/components/files/file-attachment-chip"
 import {
   isChatAgentPart,
   isChatFilePart,
@@ -14,6 +17,9 @@ import { isHiddenFromUserMessage } from "../utils/message-visibility"
 import {
   readPromptReadingSelectionMetadata,
   readPromptSelectionContextMetadata,
+  readPromptNativeResourceAttachmentMetadata,
+  readPromptNativeResourceAttachmentPart,
+  readPromptTextFileAttachmentMetadata,
   OPENCODE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
@@ -30,7 +36,9 @@ function isVisibleUserTextPart(part: MessagePart): part is ChatTextPart {
     isChatTextPart(part) &&
     part.synthetic !== true &&
     readPromptSelectionContextMetadata(part.metadata) === undefined &&
-    readPromptReadingSelectionMetadata(part.metadata) === undefined
+    readPromptReadingSelectionMetadata(part.metadata) === undefined &&
+    readPromptNativeResourceAttachmentMetadata(part.metadata) === undefined &&
+    readPromptTextFileAttachmentMetadata(part.metadata) === undefined
   )
 }
 
@@ -111,12 +119,42 @@ export const UserSection = memo(function UserSection({
   userMessage,
   providers,
   onRevertMessage,
+  animateEntrance,
 }: UserSectionProps) {
   const userParts = useMemo(() => userMessage?.parts ?? [], [userMessage?.parts])
   const userFileParts = useMemo(() => userParts.filter(isChatFilePart), [userParts])
+  const userNativeResourceParts = useMemo(
+    () =>
+      userParts.flatMap((part) => {
+        const attachment =
+          readPromptNativeResourceAttachmentPart(part) ??
+          readPromptNativeResourceAttachmentMetadata(part.metadata)
+        return attachment ? [{ id: part.id, attachment }] : []
+      }),
+    [userParts],
+  )
+  const userTextFileAttachmentParts = useMemo(
+    () =>
+      userParts.flatMap((part) => {
+        const attachment = readPromptTextFileAttachmentMetadata(part.metadata)
+        return attachment ? [{ id: part.id, attachment }] : []
+      }),
+    [userParts],
+  )
+  const nativeResourceSourcePaths = useMemo(
+    () => new Set(userNativeResourceParts.map(({ attachment }) => attachment.sourcePath)),
+    [userNativeResourceParts],
+  )
   const userAttachmentParts = useMemo(
-    () => userFileParts.filter(isAttachmentFilePart),
-    [userFileParts],
+    () =>
+      userFileParts.filter((part) => {
+        if (!isAttachmentFilePart(part)) return false
+        const sourceValue: unknown = part.source
+        const source = isRecord(sourceValue) ? sourceValue : undefined
+        const sourcePath = source && typeof source.path === "string" ? source.path : undefined
+        return !sourcePath || !nativeResourceSourcePaths.has(sourcePath)
+      }),
+    [nativeResourceSourcePaths, userFileParts],
   )
   const userInlineFileParts = useMemo(
     () => userFileParts.filter((part) => !isAttachmentFilePart(part)),
@@ -187,6 +225,8 @@ export const UserSection = memo(function UserSection({
   )
   const hasVisibleContent =
     userAttachmentParts.length > 0 ||
+    userNativeResourceParts.length > 0 ||
+    userTextFileAttachmentParts.length > 0 ||
     standaloneReferenceParts.size > 0 ||
     userSelectionContextParts.length > 0 ||
     combinedTextPart !== undefined
@@ -197,7 +237,21 @@ export const UserSection = memo(function UserSection({
   }
 
   return (
-    <div className="flex w-full flex-col items-end gap-2 text-sm">
+    <div
+      className={cn(
+        "flex w-full flex-col items-end gap-2 text-sm",
+        // In-place expansion, not a slide: the block scales up from its
+        // bottom-right corner (origin-bottom-right + zoom-in) so it grows
+        // outward toward the top-left without translating anywhere. It grows
+        // from 90% into its already-reserved full-height slot, so the row's
+        // measured height is stable the whole time (no reflow, nothing to clip).
+        // Safe for the virtualiser: it measures this row's PARENT wrapper, and a
+        // child's transform (this scale) never changes the parent's layout
+        // height — same reason opacity/blur are safe.
+        animateEntrance &&
+          "origin-bottom-right animate-in fade-in zoom-in-85 duration-[400ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:animate-none",
+      )}
+    >
       <div className="group/user flex w-full flex-col items-end gap-2">
         {userAttachmentParts.length > 0 ? (
           <div className="flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">
@@ -206,32 +260,29 @@ export const UserSection = memo(function UserSection({
             ))}
           </div>
         ) : null}
-        {userSelectionContextParts.map((part) => {
-          const metadata = [
-            part.path,
-            part.headingPath?.join(" / "),
-            part.tocLabel,
-            part.pageLabel,
-            part.locationLabel,
-          ]
-            .filter((value) => typeof value === "string" && value.length > 0)
-            .join(" • ")
-
-          return (
-            <div
-              key={part.id}
-              className="ml-auto flex w-fit max-w-[min(82%,64ch)] flex-col gap-1 rounded-lg border border-border-weak-base bg-surface-base px-3 py-2"
-            >
-              <div className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
-                {part.source === "markdown" ? "Selected document text" : "Selected passage"}
-              </div>
-              <div className="whitespace-pre-wrap break-words text-sm text-text-base">
-                {part.text}
-              </div>
-              {metadata ? <div className="text-xs text-text-weak">{metadata}</div> : null}
-            </div>
-          )
-        })}
+        {userNativeResourceParts.length > 0 || userTextFileAttachmentParts.length > 0 ? (
+          <div className="flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">
+            {userNativeResourceParts.map(({ id, attachment }) => (
+              <FileAttachmentChip
+                key={id}
+                fileName={attachment.filename}
+                mime={attachment.mime}
+              />
+            ))}
+            {userTextFileAttachmentParts.map(({ id, attachment }) => (
+              <FileAttachmentChip
+                key={id}
+                fileName={attachment.filename}
+                mime={attachment.mime}
+              />
+            ))}
+          </div>
+        ) : null}
+        {userSelectionContextParts.map((part) => (
+          <div key={part.id} className="ml-auto w-fit max-w-[min(82%,64ch)]">
+            <SelectionClip variant="inline" data={part} />
+          </div>
+        ))}
         {combinedTextPart ? (
           <UserMessagePart
             key={combinedTextPart.id}

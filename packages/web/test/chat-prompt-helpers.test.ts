@@ -1,13 +1,18 @@
 import { describe, expect, test } from "bun:test"
 import {
+  buildCommandAttachmentParts,
   buildPromptDraftFromUserMessage,
   buildPromptImageEditIntent,
   buildPromptPreviewParts,
   buildPromptSubmissionParts,
 } from "../src/lib/directory-chat/chat-prompt-helpers"
 import {
+  BUDDY_PROMPT_PART_METADATA_KEY,
   PROMPT_PART_TYPE_TEXT,
+  TEXT_FILE_ATTACHMENT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
+  type PromptComposerAttachment,
+  type PromptSubmissionPart,
 } from "../src/components/prompt/prompt-types"
 import { createMessageWithParts, createUserMessageInfo } from "./test-utils"
 
@@ -116,9 +121,247 @@ describe("buildPromptDraftFromUserMessage", () => {
       targetPaths: ["/repo/generated.png"],
     })
   })
+
+  test("restores text-file metadata as an attachment instead of composer text", () => {
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: "msg-text-file", sessionID: "ses-1" }),
+      [
+        {
+          id: "part-prompt",
+          sessionID: "ses-1",
+          messageID: "msg-text-file",
+          type: "text",
+          text: "Summarize the attachment",
+        },
+        {
+          id: "part-attachment",
+          sessionID: "ses-1",
+          messageID: "msg-text-file",
+          type: "text",
+          text: "Attached file (notes.md):\n# Notes\n\nSee @README.md",
+          metadata: {
+            [BUDDY_PROMPT_PART_METADATA_KEY]: {
+              type: TEXT_FILE_ATTACHMENT_PART_TYPE,
+              filename: "notes.md",
+              mime: "text/plain",
+            },
+          },
+        },
+      ],
+    )
+
+    const draft = buildPromptDraftFromUserMessage(message, "/repo")
+
+    expect(draft?.value).toBe("Summarize the attachment")
+    expect(draft?.attachments).toEqual([
+      {
+        id: "part-attachment",
+        filename: "notes.md",
+        mime: "text/plain",
+        dataUrl: "data:text/plain;charset=utf-8,%23%20Notes%0A%0ASee%20%40README.md",
+        kind: "file",
+      },
+    ])
+  })
 })
 
 describe("buildPromptSubmissionParts", () => {
+  test("marks decoded text attachments so the transcript can keep their file identity", () => {
+    const attachment: PromptComposerAttachment = {
+      id: "notes",
+      filename: "notes.md",
+      mime: "text/plain",
+      dataUrl: "data:text/plain;base64,IyBOb3RlcwoKU2VlIEBSRUFETUUubWQ=",
+      kind: "file",
+    }
+    const expectedPart = {
+      type: "text",
+      text: "Attached file (notes.md):\n# Notes\n\nSee @README.md",
+      metadata: {
+        [BUDDY_PROMPT_PART_METADATA_KEY]: {
+          type: TEXT_FILE_ATTACHMENT_PART_TYPE,
+          filename: "notes.md",
+          mime: "text/plain",
+        },
+      },
+    } satisfies PromptSubmissionPart
+
+    expect(buildPromptSubmissionParts([], [attachment])).toEqual([expectedPart])
+    expect(buildPromptPreviewParts([], [attachment])).toEqual([expectedPart])
+  })
+
+  test("rejects native resources from the custom slash-command attachment path", () => {
+    const attachment: PromptComposerAttachment = {
+      id: "epub",
+      filename: "Reader.epub",
+      mime: "application/epub+zip",
+      kind: "native-resource",
+      format: "epub",
+      delivery: "resource-only",
+      status: "ready",
+      uploadID: "epub-upload",
+      workspacePath: "uploads/Reader--abcdefghij.epub",
+      localPath: "/repo/uploads/Reader--abcdefghij.epub",
+      sizeBytes: 256,
+    }
+
+    expect(buildCommandAttachmentParts([attachment])).toBeUndefined()
+  })
+
+  test("sends PDFs through both provider and resource paths while keeping other documents metadata-only", () => {
+    const attachments: PromptComposerAttachment[] = [
+      {
+        id: "pdf",
+        filename: "Seasons.pdf",
+        mime: "application/pdf",
+        kind: "native-resource",
+        format: "pdf",
+        delivery: "model-and-resource",
+        status: "ready",
+        uploadID: "pdf-upload",
+        workspacePath: "uploads/Seasons--1234567890.pdf",
+        localPath: "/repo/uploads/Seasons--1234567890.pdf",
+        sizeBytes: 128,
+      },
+      {
+        id: "epub",
+        filename: "Reader.epub",
+        mime: "application/epub+zip",
+        kind: "native-resource",
+        format: "epub",
+        delivery: "resource-only",
+        status: "ready",
+        uploadID: "epub-upload",
+        workspacePath: "uploads/Reader--abcdefghij.epub",
+        localPath: "/repo/uploads/Reader--abcdefghij.epub",
+        sizeBytes: 256,
+      },
+    ]
+
+    expect(buildPromptSubmissionParts([], attachments)).toEqual([
+      {
+        type: "native-resource-attachment",
+        filename: "Seasons.pdf",
+        sourcePath: "/repo/uploads/Seasons--1234567890.pdf",
+        format: "pdf",
+        alias: "Seasons.pdf",
+        mime: "application/pdf",
+      },
+      {
+        type: "file",
+        mime: "application/pdf",
+        url: "file:///repo/uploads/Seasons--1234567890.pdf",
+        filename: "Seasons.pdf",
+        source: {
+          type: "file",
+          path: "/repo/uploads/Seasons--1234567890.pdf",
+          text: { value: "Seasons.pdf", start: 0, end: 11 },
+        },
+      },
+      {
+        type: "native-resource-attachment",
+        filename: "Reader.epub",
+        sourcePath: "/repo/uploads/Reader--abcdefghij.epub",
+        format: "epub",
+        alias: "Reader.epub",
+        mime: "application/epub+zip",
+      },
+    ])
+    expect(buildPromptPreviewParts([], attachments).map((part) => part.type)).toEqual([
+      "native-resource-attachment",
+      "native-resource-attachment",
+    ])
+  })
+
+  test("restores one ready native attachment from persisted runtime metadata", () => {
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: "msg-native", sessionID: "ses-1" }),
+      [
+        {
+          id: "metadata-part",
+          sessionID: "ses-1",
+          messageID: "msg-native",
+          type: "text",
+          text: "Attached native learning resource metadata",
+          metadata: {
+            buddyPromptPart: {
+              type: "native-resource-attachment",
+              filename: "Workbook.xlsx",
+              sourcePath: "/repo/uploads/Workbook--abcdefghij.xlsx",
+              format: "xlsx",
+              alias: "Workbook.xlsx",
+              mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            },
+          },
+        },
+      ],
+    )
+
+    expect(buildPromptDraftFromUserMessage(message, "/repo")?.attachments).toEqual([
+      {
+        id: "metadata-part",
+        filename: "Workbook.xlsx",
+        mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        kind: "native-resource",
+        format: "xlsx",
+        delivery: "resource-only",
+        status: "ready",
+        uploadID: "metadata-part",
+        workspacePath: "uploads/Workbook--abcdefghij.xlsx",
+        localPath: "/repo/uploads/Workbook--abcdefghij.xlsx",
+        sizeBytes: 0,
+      },
+    ])
+  })
+
+  test("does not restore the persisted provider copy of a dual-path PDF twice", () => {
+    const sourcePath = "/repo/uploads/Lesson--abcdefghij.pdf"
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: "msg-native-pdf", sessionID: "ses-1" }),
+      [
+        {
+          id: "metadata-part",
+          sessionID: "ses-1",
+          messageID: "msg-native-pdf",
+          type: "text",
+          text: "Attached native learning resource metadata",
+          metadata: {
+            buddyPromptPart: {
+              type: "native-resource-attachment",
+              filename: "Lesson.pdf",
+              sourcePath,
+              format: "pdf",
+              alias: "Lesson.pdf",
+              mime: "application/pdf",
+            },
+          },
+        },
+        {
+          id: "provider-file-part",
+          sessionID: "ses-1",
+          messageID: "msg-native-pdf",
+          type: "file",
+          mime: "application/pdf",
+          filename: "Lesson.pdf",
+          url: "data:application/pdf;base64,JVBERg==",
+          source: {
+            type: "file",
+            path: sourcePath,
+            text: { value: "Lesson.pdf", start: 0, end: 10 },
+          },
+        },
+      ],
+    )
+
+    const draft = buildPromptDraftFromUserMessage(message, "/repo")
+    expect(draft?.attachments).toHaveLength(1)
+    expect(draft?.attachments[0]).toMatchObject({
+      kind: "native-resource",
+      format: "pdf",
+      localPath: sourcePath,
+    })
+  })
+
   test("marks only Edit image attachments as image edit targets", () => {
     expect(
       buildPromptImageEditIntent([

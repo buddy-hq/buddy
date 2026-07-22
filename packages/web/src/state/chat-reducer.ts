@@ -1,6 +1,7 @@
 import type { MessageInfo, MessagePart, MessageWithParts } from "./chat-types"
 import {
   OPENCODE_REFERENCE_PART_TYPE,
+  NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "../components/prompt/prompt-types"
@@ -117,6 +118,21 @@ function promptSelectionMetadataMatches(existing: MessagePart, metadata: Record<
   )
 }
 
+function promptNativeResourceMetadataMatches(
+  existing: MessagePart,
+  metadata: Record<string, unknown>,
+) {
+  return (
+    existing.type === NATIVE_RESOURCE_ATTACHMENT_PART_TYPE &&
+    metadata.type === NATIVE_RESOURCE_ATTACHMENT_PART_TYPE &&
+    existing.filename === metadata.filename &&
+    existing.sourcePath === metadata.sourcePath &&
+    existing.format === metadata.format &&
+    existing.alias === metadata.alias &&
+    existing.mime === metadata.mime
+  )
+}
+
 function promptSelectionPartsMatch(existing: MessagePart, incoming: MessagePart) {
   if (existing.type !== incoming.type) return false
   if (existing.text !== incoming.text) return false
@@ -145,6 +161,10 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
 
   switch (incoming.type) {
     case "text":
+      if (existing.type === NATIVE_RESOURCE_ATTACHMENT_PART_TYPE) {
+        const metadata = readBuddyPromptPartMetadata(incoming)
+        return metadata ? promptNativeResourceMetadataMatches(existing, metadata) : false
+      }
       if (
         (existing.type === "reading-selection" || existing.type === SELECTION_CONTEXT_PART_TYPE) &&
         typeof existing.text === "string"
@@ -210,6 +230,15 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
     case "reading-selection":
     case SELECTION_CONTEXT_PART_TYPE:
       return promptSelectionPartsMatch(existing, incoming)
+    case NATIVE_RESOURCE_ATTACHMENT_PART_TYPE:
+      return (
+        existing.type === incoming.type &&
+        existing.filename === incoming.filename &&
+        existing.sourcePath === incoming.sourcePath &&
+        existing.format === incoming.format &&
+        existing.alias === incoming.alias &&
+        existing.mime === incoming.mime
+      )
     default:
       return false
   }

@@ -1,5 +1,7 @@
 import { useState } from "react"
-import { Dialog, DialogContent, FolderIcon, cn } from "@buddy/ui"
+import { Dialog, DialogContent, cn } from "@buddy/ui"
+import { language } from "@/context/language"
+import { FileAttachmentChip } from "@/components/files/file-attachment-chip"
 import type { ChatFilePart } from "../utils/part-guards"
 
 type FileAttachmentPartProps = {
@@ -14,6 +16,16 @@ export function FileAttachmentPart({ part, queued }: FileAttachmentPartProps) {
   const mime = part.mime
   const isImage = mime.startsWith("image/")
 
+  if (!isImage) {
+    return (
+      <FileAttachmentChip
+        fileName={filename || language.t("files.attachment.genericType")}
+        mime={mime}
+        className={cn(queued && "opacity-60")}
+      />
+    )
+  }
+
   return (
     <>
       <div
@@ -21,25 +33,17 @@ export function FileAttachmentPart({ part, queued }: FileAttachmentPartProps) {
           "flex h-12 w-12 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-border-base bg-surface-weak transition-colors hover:border-border-hover",
           queued && "opacity-60",
         )}
-        onClick={() => isImage && setPreviewOpen(true)}
+        onClick={() => setPreviewOpen(true)}
         title={filename}
       >
-        {isImage ? (
-          <img className="h-full w-full object-cover" src={url} alt={filename} />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-text-weak">
-            <FolderIcon className="h-5 w-5" />
-          </div>
-        )}
+        <img className="h-full w-full object-cover" src={url} alt={filename} />
       </div>
 
-      {isImage && (
-        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-          <DialogContent className="max-w-3xl max-h-[80vh] p-0 overflow-hidden">
-            <img src={url} alt={filename} className="w-full h-full object-contain" />
-          </DialogContent>
-        </Dialog>
-      )}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] p-0 overflow-hidden">
+          <img src={url} alt={filename} className="w-full h-full object-contain" />
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

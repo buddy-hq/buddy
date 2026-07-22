@@ -57,4 +57,6 @@ export type UserSectionProps = {
   userMessage?: MessageWithParts
   providers: ProviderInfo[]
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  /** Play the transform/opacity entrance once, when this message is first sent. */
+  animateEntrance?: boolean
 }

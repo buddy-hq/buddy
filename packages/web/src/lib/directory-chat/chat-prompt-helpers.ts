@@ -1,10 +1,19 @@
 import { serializePromptEditorParts } from "@/components/prompt/prompt-parts"
 import {
+  BUDDY_PROMPT_PART_METADATA_KEY,
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_FILE,
   PROMPT_PART_TYPE_TEXT,
+  NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+  TEXT_FILE_ATTACHMENT_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   readPromptSelectionContextMetadata,
+  readPromptNativeResourceAttachmentMetadata,
+  readPromptNativeResourceAttachmentPart,
+  readPromptTextFileAttachmentMetadata,
+  isPromptModelAttachment,
+  isPromptNativeResourceAttachment,
+  isPromptReadyNativeResourceAttachment,
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
@@ -14,8 +23,11 @@ import type {
   PromptComposerAttachment,
   PromptComposerPart,
   PromptImageEditIntent,
+  PromptModelAttachment,
+  PromptNativeResourceAttachmentPart,
   PromptSelectionContextPart,
   PromptSubmissionPart,
+  PromptTextFileAttachmentMetadata,
 } from "@/components/prompt/prompt-types"
 import {
   isChatAgentPart,
@@ -37,6 +49,22 @@ import {
 } from "@/state/chat-actions"
 
 const DATA_URL_PREFIX = "data:" as const
+const TEXT_FILE_ATTACHMENT_PREFIX = "Attached file (" as const
+const TEXT_FILE_ATTACHMENT_SEPARATOR = "):\n" as const
+
+function textFileAttachmentPromptText(filename: string, content: string) {
+  return `${TEXT_FILE_ATTACHMENT_PREFIX}${filename}${TEXT_FILE_ATTACHMENT_SEPARATOR}${content}`
+}
+
+function textFileAttachmentContent(text: string, filename: string) {
+  const prefix = textFileAttachmentPromptText(filename, "")
+  return text.startsWith(prefix) ? text.slice(prefix.length) : text
+}
+
+function textFileAttachmentDataUrl(input: PromptTextFileAttachmentMetadata, text: string) {
+  const content = textFileAttachmentContent(text, input.filename)
+  return `data:${input.mime};charset=utf-8,${encodeURIComponent(content)}`
+}
 
 function localPathToFileUrl(path: string): string | undefined {
   if (path.startsWith("file:")) {
@@ -65,14 +93,14 @@ function localPathToFileUrl(path: string): string | undefined {
   return url.href
 }
 
-function promptAttachmentUrl(attachment: PromptComposerAttachment): string {
+function promptAttachmentUrl(attachment: PromptModelAttachment): string {
   if (attachment.editTarget) return attachment.dataUrl
   return attachment.localPath
     ? (localPathToFileUrl(attachment.localPath) ?? attachment.dataUrl)
     : attachment.dataUrl
 }
 
-function promptAttachmentSource(attachment: PromptComposerAttachment) {
+function promptAttachmentSource(attachment: PromptModelAttachment) {
   if (!attachment.localPath) return undefined
   return {
     type: "file" as const,
@@ -89,7 +117,9 @@ export function buildPromptImageEditIntent(
   attachments: PromptComposerAttachment[],
 ): PromptImageEditIntent | undefined {
   const targetPaths = attachments.flatMap((attachment) =>
-    attachment.editTarget && attachment.localPath ? [attachment.localPath] : [],
+    isPromptModelAttachment(attachment) && attachment.editTarget && attachment.localPath
+      ? [attachment.localPath]
+      : [],
   )
   return targetPaths.length > 0 ? { targetPaths } : undefined
 }
@@ -185,6 +215,7 @@ function buildPromptAttachmentParts(
   useLocalPaths = true,
 ): PromptAttachmentPart[] {
   return attachments.flatMap((attachment): PromptAttachmentPart[] => {
+    if (!isPromptModelAttachment(attachment)) return []
     const textLike =
       (!useLocalPaths || !attachment.localPath) &&
       (attachment.mime === "image/svg+xml" || attachment.mime.startsWith("text/"))
@@ -194,7 +225,14 @@ function buildPromptAttachmentParts(
         return [
           {
             type: PROMPT_PART_TYPE_TEXT,
-            text: `Attached file (${attachment.filename}):\n${content}`,
+            text: textFileAttachmentPromptText(attachment.filename, content),
+            metadata: {
+              [BUDDY_PROMPT_PART_METADATA_KEY]: {
+                type: TEXT_FILE_ATTACHMENT_PART_TYPE,
+                filename: attachment.filename,
+                mime: attachment.mime,
+              },
+            },
           },
         ]
       }
@@ -213,6 +251,61 @@ function buildPromptAttachmentParts(
   })
 }
 
+function nativeResourcePart(
+  attachment: PromptComposerAttachment,
+): PromptNativeResourceAttachmentPart | undefined {
+  if (!isPromptReadyNativeResourceAttachment(attachment)) return undefined
+  return {
+    type: NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+    filename: attachment.filename,
+    sourcePath: attachment.localPath,
+    format: attachment.format,
+    alias: attachment.filename,
+    mime: attachment.mime,
+  }
+}
+
+function buildNativeResourcePreviewParts(
+  attachments: PromptComposerAttachment[],
+): PromptNativeResourceAttachmentPart[] {
+  return attachments.flatMap((attachment) => {
+    const part = nativeResourcePart(attachment)
+    return part ? [part] : []
+  })
+}
+
+function buildNativeResourceSubmissionParts(
+  attachments: PromptComposerAttachment[],
+): PromptSubmissionPart[] {
+  return attachments.flatMap((attachment): PromptSubmissionPart[] => {
+    const part = nativeResourcePart(attachment)
+    if (!part) return []
+    if (!isPromptReadyNativeResourceAttachment(attachment)) return [part]
+    if (attachment.delivery !== "model-and-resource") return [part]
+
+    const url = localPathToFileUrl(attachment.localPath)
+    if (!url) return [part]
+    return [
+      part,
+      {
+        type: PROMPT_PART_TYPE_FILE,
+        mime: attachment.mime,
+        url,
+        filename: attachment.filename,
+        source: {
+          type: "file",
+          path: attachment.localPath,
+          text: {
+            value: attachment.filename,
+            start: 0,
+            end: attachment.filename.length,
+          },
+        },
+      },
+    ]
+  })
+}
+
 export function buildPromptPreviewParts(
   promptParts: PromptComposerPart[],
   attachments: PromptComposerAttachment[],
@@ -220,6 +313,7 @@ export function buildPromptPreviewParts(
   return [
     ...promptParts.map((part) => ({ ...part })),
     ...buildPromptAttachmentParts(attachments, false),
+    ...buildNativeResourcePreviewParts(attachments),
   ]
 }
 
@@ -227,16 +321,29 @@ export function buildPromptSubmissionParts(
   promptParts: PromptComposerPart[],
   attachments: PromptComposerAttachment[],
 ): PromptSubmissionPart[] {
-  return [...promptParts.map((part) => ({ ...part })), ...buildPromptAttachmentParts(attachments)]
+  return [
+    ...promptParts.map((part) => ({ ...part })),
+    ...buildPromptAttachmentParts(attachments),
+    ...buildNativeResourceSubmissionParts(attachments),
+  ]
 }
 
 export function buildCommandAttachmentParts(attachments: PromptComposerAttachment[]) {
-  return attachments.map((attachment) => ({
-    type: PROMPT_PART_TYPE_FILE,
-    mime: attachment.mime === "text/plain" ? "application/octet-stream" : attachment.mime,
-    url: promptAttachmentUrl(attachment),
-    filename: attachment.filename,
-  }))
+  if (attachments.some(isPromptNativeResourceAttachment)) return undefined
+
+  return attachments.flatMap((attachment) => {
+    if (isPromptModelAttachment(attachment)) {
+      return [
+        {
+          type: PROMPT_PART_TYPE_FILE,
+          mime: attachment.mime === "text/plain" ? "application/octet-stream" : attachment.mime,
+          url: promptAttachmentUrl(attachment),
+          filename: attachment.filename,
+        },
+      ]
+    }
+    return []
+  })
 }
 
 function isWorkspaceFileReferencePart(
@@ -311,6 +418,40 @@ function toRelativeWorkspacePath(directory: string, filePath: string) {
   return filePath
 }
 
+function nativeResourceDraftAttachment(input: {
+  id: string
+  directory: string
+  part: PromptNativeResourceAttachmentPart
+}): PromptComposerAttachment {
+  return {
+    id: input.id,
+    filename: input.part.filename,
+    mime: input.part.mime,
+    kind: "native-resource",
+    format: input.part.format,
+    delivery: input.part.format === "pdf" ? "model-and-resource" : "resource-only",
+    status: "ready",
+    uploadID: input.id,
+    workspacePath: toRelativeWorkspacePath(input.directory, input.part.sourcePath),
+    localPath: input.part.sourcePath,
+    sizeBytes: 0,
+  }
+}
+
+function textFileDraftAttachment(input: {
+  id: string
+  part: PromptTextFileAttachmentMetadata
+  text: string
+}): PromptModelAttachment {
+  return {
+    id: input.id,
+    filename: input.part.filename,
+    mime: input.part.mime,
+    dataUrl: textFileAttachmentDataUrl(input.part, input.text),
+    kind: input.part.mime.startsWith("image/") ? "image" : "file",
+  }
+}
+
 function readFileUrlPath(url: string) {
   if (!url.startsWith("file:")) return undefined
 
@@ -357,10 +498,32 @@ export function buildPromptDraftFromUserMessage(
 
   const promptParts: PromptComposerPart[] = []
   const attachments: PromptComposerAttachment[] = []
+  const nativeResourceSourcePaths = new Set(
+    message.parts.flatMap((part) => {
+      const attachment =
+        readPromptNativeResourceAttachmentPart(part) ??
+        readPromptNativeResourceAttachmentMetadata(part.metadata)
+      return attachment ? [attachment.sourcePath] : []
+    }),
+  )
 
   for (const part of message.parts) {
     if (isChatTextPart(part)) {
       if (part.synthetic === true) continue
+      const textFileAttachment = readPromptTextFileAttachmentMetadata(part.metadata)
+      if (textFileAttachment) {
+        attachments.push(
+          textFileDraftAttachment({ id: part.id, part: textFileAttachment, text: part.text }),
+        )
+        continue
+      }
+      const nativeResourcePart = readPromptNativeResourceAttachmentMetadata(part.metadata)
+      if (nativeResourcePart) {
+        attachments.push(
+          nativeResourceDraftAttachment({ id: part.id, directory, part: nativeResourcePart }),
+        )
+        continue
+      }
       const selectionContextPart = readPromptSelectionContextMetadata(part.metadata)
       if (selectionContextPart) {
         promptParts.push(selectionContextPart)
@@ -378,6 +541,14 @@ export function buildPromptDraftFromUserMessage(
         type: PROMPT_PART_TYPE_AGENT,
         name: part.name,
       })
+      continue
+    }
+
+    const nativeResourcePart = readPromptNativeResourceAttachmentPart(part)
+    if (nativeResourcePart) {
+      attachments.push(
+        nativeResourceDraftAttachment({ id: part.id, directory, part: nativeResourcePart }),
+      )
       continue
     }
 
@@ -432,6 +603,13 @@ export function buildPromptDraftFromUserMessage(
       })
       continue
     }
+
+    const directFileSource: unknown = isChatFilePart(part) ? part.source : undefined
+    const directFileSourcePath =
+      isRecord(directFileSource) && typeof directFileSource.path === "string"
+        ? directFileSource.path
+        : undefined
+    if (directFileSourcePath && nativeResourceSourcePaths.has(directFileSourcePath)) continue
 
     const attachment = toPromptComposerAttachment(part)
     if (attachment) {

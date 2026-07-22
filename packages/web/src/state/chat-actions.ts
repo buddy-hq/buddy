@@ -66,6 +66,7 @@ import {
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   OPENCODE_REFERENCE_PART_TYPE,
+  readPromptTextFileAttachmentMetadata,
   type PromptFilePart,
   type PromptSubmissionPart,
   type PromptImageEditIntent,
@@ -576,7 +577,10 @@ function createOptimisticPromptParts(input: {
   parts: PromptSubmissionPart[]
 }) {
   const text = input.content.trim()
-  const hasSubmittedTextPart = input.parts.some((part) => part.type === "text")
+  const hasSubmittedTextPart = input.parts.some(
+    (part) =>
+      part.type === "text" && readPromptTextFileAttachmentMetadata(part.metadata) === undefined,
+  )
   const textPart: MessagePart[] =
     text && !hasSubmittedTextPart
       ? [

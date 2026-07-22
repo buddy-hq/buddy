@@ -38,7 +38,7 @@ export function WorkspaceFileOpenDialog() {
         </DialogHeader>
         <DialogFooter>
           {request?.canOpenDefaultApp ? (
-            <Button type="button" variant="outline" onClick={() => resolveRequest("default-app")}>
+            <Button type="button" variant="secondary" onClick={() => resolveRequest("default-app")}>
               Open in default app
             </Button>
           ) : null}

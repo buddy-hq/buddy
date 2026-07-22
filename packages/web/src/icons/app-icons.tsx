@@ -35,7 +35,9 @@ import {
   Cancel01Icon as Cancel01IconData,
   CancelCircleIcon as CancelCircleIconData,
   CheckListIcon as CheckListIconData,
+  CheckmarkCircle01Icon as CheckmarkCircle01IconData,
   CheckmarkCircle02Icon as CheckmarkCircle02IconData,
+  CircleIcon as CircleIconData,
   ClipboardCopyIcon as ClipboardCopyIconData,
   ClipboardPenLineIcon as ClipboardPenLineIconData,
   Clock3Icon as Clock3IconData,
@@ -70,6 +72,7 @@ import {
   InformationCircleIcon as InformationCircleIconData,
   NeuralNetworkIcon as NeuralNetworkIconData,
   JusticeScale01Icon as JusticeScale01IconData,
+  KanbanIcon as KanbanIconData,
   Key01Icon as Key01IconData,
   LaptopIcon as LaptopIconData,
   Layers01Icon as Layers01IconData,
@@ -95,8 +98,10 @@ import {
   PlayIcon as PlayIconData,
   Plug01Icon as Plug01IconData,
   PowerIcon as PowerIconData,
+  QuoteUpIcon as QuoteUpIconData,
   Presentation01Icon as Presentation01IconData,
   PrinterIcon as PrinterIconData,
+  Progress03Icon as Progress03IconData,
   RotateLeft01Icon as RotateLeft01IconData,
   SaveIcon as SaveIconData,
   ScanIcon as ScanIconData,
@@ -250,8 +255,12 @@ export const BoxesIcon = createIcon(BoxesIconData, "BoxesIcon")
 export const Brain = createIcon(BrainCircuitIconData, "Brain")
 export const BrainIcon = createIcon(BrainCircuitIconData, "BrainIcon")
 export const BugIcon = createIcon(Bug01IconData, "BugIcon")
+export const CancelCircle = createIcon(CancelCircleIconData, "CancelCircle")
 export const Check = createIcon(Tick02IconData, "Check")
 export const CheckCircle2 = createIcon(CheckmarkCircle02IconData, "CheckCircle2")
+export const CheckmarkCircle01 = createIcon(CheckmarkCircle01IconData, "CheckmarkCircle01")
+export const Circle = createIcon(CircleIconData, "Circle")
+export const Progress03 = createIcon(Progress03IconData, "Progress03")
 export const CheckIcon = createIcon(Tick02IconData, "CheckIcon")
 export const ChevronDown = createIcon(ArrowDown01IconData, "ChevronDown")
 export const ChevronDownIcon = createIcon(ArrowDown01IconData, "ChevronDownIcon")
@@ -300,6 +309,7 @@ export const HandIcon = createIcon(HandIconData, "HandIcon")
 export const HelpCircle = createIcon(HelpCircleIconData, "HelpCircle")
 export const HighlighterIcon = createIcon(HighlighterIconData, "HighlighterIcon")
 export const HistoryIcon = createIcon(HistoryIconData, "HistoryIcon")
+export const QuoteIcon = createIcon(QuoteUpIconData, "QuoteIcon")
 export const Image = createIcon(Image01IconData, "Image")
 export const ImageIcon = createIcon(Image01IconData, "ImageIcon")
 export const ImagesIcon = createIcon(ImageCompositionIconData, "ImagesIcon")
@@ -308,6 +318,7 @@ export const InfoIcon = createIcon(InformationCircleIconData, "InfoIcon")
 export const ItalicIcon = createIcon(TextItalicIconData, "ItalicIcon")
 export const KeyRound = createIcon(Key01IconData, "KeyRound")
 export const LaptopIcon = createIcon(LaptopIconData, "LaptopIcon")
+export const Kanban = createIcon(KanbanIconData, "Kanban")
 export const Layers = createIcon(Layers01IconData, "Layers")
 export const Layers3Icon = createIcon(Layers02IconData, "Layers3Icon")
 export const LayoutPanelLeftIcon = createIcon(LayoutLeftIconData, "LayoutPanelLeftIcon")

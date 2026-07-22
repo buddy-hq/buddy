@@ -1,11 +1,13 @@
-import { XIcon, FolderIcon } from "@buddy/ui"
+import { XIcon } from "@buddy/ui"
 import { language } from "@/context/language"
+import { FileAttachmentChip } from "@/components/files/file-attachment-chip"
 import type { PromptComposerAttachment } from "./prompt-types"
 
 type ImageAttachmentsProps = {
   attachments: PromptComposerAttachment[]
   unsupportedAttachmentIds?: Set<string>
   onRemove: (id: string) => void
+  onRetry?: (id: string) => void
   onOpen?: (attachment: PromptComposerAttachment) => void
 }
 
@@ -13,18 +15,23 @@ export function ImageAttachments({
   attachments,
   unsupportedAttachmentIds,
   onRemove,
+  onRetry,
   onOpen,
 }: ImageAttachmentsProps) {
   if (attachments.length === 0) return null
 
   return (
-    <div data-component="prompt-attachments" className="flex flex-wrap gap-2 px-3 pt-3">
+    <div
+      data-component="prompt-attachments"
+      className="flex flex-wrap items-start gap-2 px-3 pt-3"
+    >
       {attachments.map((attachment) => (
         <AttachmentItem
           key={attachment.id}
           attachment={attachment}
           unsupported={unsupportedAttachmentIds?.has(attachment.id) ?? false}
           onRemove={onRemove}
+          onRetry={onRetry}
           onOpen={onOpen}
         />
       ))}
@@ -36,8 +43,26 @@ function AttachmentItem(props: {
   attachment: PromptComposerAttachment
   unsupported: boolean
   onRemove: (id: string) => void
+  onRetry?: (id: string) => void
   onOpen?: (attachment: PromptComposerAttachment) => void
 }) {
+  if (!props.attachment.mime.startsWith("image/")) {
+    const status =
+      props.attachment.kind === "native-resource" ? props.attachment.status : "ready"
+    return (
+      <FileAttachmentChip
+        fileName={props.attachment.filename}
+        mime={props.attachment.mime}
+        status={status}
+        className="w-[min(100%,260px)]"
+        onRetry={status === "error" ? () => props.onRetry?.(props.attachment.id) : undefined}
+        onRemove={() => props.onRemove(props.attachment.id)}
+      />
+    )
+  }
+
+  if (props.attachment.kind !== "image") return null
+
   const borderClassName = props.unsupported ? "border-border-warning-base" : "border-border-base"
 
   return (
@@ -48,22 +73,14 @@ function AttachmentItem(props: {
       data-unsupported={props.unsupported ? "true" : undefined}
       className="relative group"
     >
-      {props.attachment.mime.startsWith("image/") ? (
-        <img
-          src={props.attachment.dataUrl}
-          alt={props.attachment.filename}
-          className={`size-16 rounded-lg border ${borderClassName} bg-surface-weak object-cover transition-colors hover:border-border-hover ${props.unsupported ? "opacity-60" : "cursor-pointer"}`}
-          onClick={() => {
-            if (!props.unsupported) props.onOpen?.(props.attachment)
-          }}
-        />
-      ) : (
-        <div
-          className={`size-16 rounded-lg border ${borderClassName} bg-surface-weak flex items-center justify-center`}
-        >
-          <FolderIcon className="size-6 text-text-weak" />
-        </div>
-      )}
+      <img
+        src={props.attachment.dataUrl}
+        alt={props.attachment.filename}
+        className={`size-16 rounded-lg border ${borderClassName} bg-surface-weak object-cover transition-colors hover:border-border-hover ${props.unsupported ? "opacity-60" : "cursor-pointer"}`}
+        onClick={() => {
+          if (!props.unsupported) props.onOpen?.(props.attachment)
+        }}
+      />
 
       <button
         type="button"

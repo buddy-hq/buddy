@@ -77,6 +77,45 @@ describe("prompt store", () => {
     expect(raw).toContain("draft")
   })
 
+  test("persists only completed native resource uploads", () => {
+    const key = getPromptScopeKey("/repo", "session-native")
+    usePromptStore.getState().replaceDraft(key, {
+      value: "",
+      parts: [],
+      cursor: 0,
+      attachments: [
+        {
+          id: "copying",
+          filename: "external-source.docx",
+          mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          kind: "native-resource",
+          format: "docx",
+          delivery: "resource-only",
+          status: "copying",
+        },
+        {
+          id: "ready",
+          filename: "ready.xlsx",
+          mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          kind: "native-resource",
+          format: "xlsx",
+          delivery: "resource-only",
+          status: "ready",
+          uploadID: "abcdefghij",
+          workspacePath: "uploads/ready--abcdefghij.xlsx",
+          localPath: "/repo/uploads/ready--abcdefghij.xlsx",
+          sizeBytes: 10,
+        },
+      ],
+    })
+    flushPromptStorePersistence()
+
+    const raw = localStorage.getItem(PROMPT_STORE_STORAGE_KEY)
+    expect(raw).toContain("ready--abcdefghij.xlsx")
+    expect(raw).not.toContain("external-source.docx")
+    expect(raw).not.toContain('"status":"copying"')
+  })
+
   test("flushes platform storage after prompt persistence writes", () => {
     const writes = new Map<string, string>()
     let flushCount = 0

@@ -43,6 +43,7 @@ type PromptComposerToolbarProps = {
   onThinkingChange: (thinking: string) => void
   isBusy?: boolean
   canSubmit?: boolean
+  sendDisabledReason?: string
   onAttach?: () => void
   onAbort?: () => void
   attachLabel?: string
@@ -111,7 +112,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
             {props.onClearPendingSteer ? (
               <button
                 type="button"
-                className="shrink-0 rounded-sm text-text-weak hover:text-text-base"
+                className="shrink-0 rounded-sm text-text-weaker hover:text-text-base"
                 aria-label={language.t("prompt.toolbar.clearPendingSteerAria")}
                 onClick={props.onClearPendingSteer}
               >
@@ -127,7 +128,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
           <button
             type="button"
             data-action="prompt-attach"
-            className="inline-flex size-7 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak/60 hover:text-text-base"
+            className="inline-flex size-7 items-center justify-center rounded-full text-text-weaker transition-colors hover:bg-surface-weak/60 hover:text-text-base"
             title={props.attachLabel}
             aria-label={props.attachAriaLabel}
             onClick={props.onAttach}
@@ -143,7 +144,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
               size="sm"
               aria-label={language.t("prompt.toolbar.aria.model")}
               wrapperClassName="w-[180px] max-w-[180px] min-w-0"
-              className="h-7 border-0 bg-surface-raised-base/95 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-7 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
             >
               {props.groupedModelOptions.ungrouped.map((option) => (
                 <NativeSelectOption key={option.key} value={option.key} disabled={option.disabled}>
@@ -176,7 +177,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                 ref={props.modelRadixTriggerRef}
                 size="sm"
                 data-action="prompt-model-select"
-                className="h-7 max-w-[180px] min-w-0 border-0 bg-surface-raised-base/95 px-2 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+                className="h-7 max-w-[180px] min-w-0 border-0 bg-transparent px-2 text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
                 aria-label={language.t("prompt.toolbar.aria.model")}
               >
                 <SelectValue placeholder={language.t("prompt.toolbar.placeholders.model")}>
@@ -188,7 +189,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                 align="start"
                 position="popper"
                 sideOffset={6}
-                className="w-[min(22rem,calc(100vw-2rem))] max-h-[min(28rem,calc(100vh-8rem))]"
+                className="composer-surface-menu composer-grain w-[min(22rem,calc(100vw-2rem))] max-h-[min(28rem,calc(100vh-8rem))]"
               >
                 {props.groupedModelOptions.ungrouped.map((option) => (
                   <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
@@ -248,7 +249,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
               size="sm"
               aria-label={language.t("prompt.toolbar.aria.thinking")}
               wrapperClassName="w-[160px] max-w-[160px] min-w-0"
-              className="h-7 border-0 bg-surface-raised-base/95 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-7 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
             >
               {props.thinkingOptions.map((option) => (
                 <NativeSelectOption key={option.key} value={option.key}>
@@ -262,7 +263,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                 type="button"
                 size="sm"
                 data-action="prompt-thinking-select"
-                className="h-7 max-w-[160px] min-w-0 border-0 bg-surface-raised-base/95 px-2 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+                className="h-7 max-w-[160px] min-w-0 border-0 bg-transparent px-2 text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
                 aria-label={language.t("prompt.toolbar.aria.thinking")}
               >
                 <SelectValue placeholder={language.t("prompt.toolbar.placeholders.thinking")} />
@@ -272,7 +273,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                 align="start"
                 position="popper"
                 sideOffset={6}
-                className="w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
+                className="composer-surface-menu composer-grain w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
               >
                 {props.thinkingOptions.map((option) => (
                   <SelectItem key={option.key} value={option.key}>
@@ -291,8 +292,14 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
             data-action="prompt-submit"
             className="inline-flex size-7 items-center justify-center rounded-full bg-surface-interactive-base text-text-on-interactive-base transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={!primaryButtonStopsRun && !props.canSubmit}
-            aria-label={primaryButtonStopsRun ? props.stopAriaLabel : props.sendAriaLabel}
-            title={primaryButtonStopsRun ? props.stopLabel : props.sendLabel}
+            aria-label={
+              primaryButtonStopsRun
+                ? props.stopAriaLabel
+                : (props.sendDisabledReason ?? props.sendAriaLabel)
+            }
+            title={
+              primaryButtonStopsRun ? props.stopLabel : (props.sendDisabledReason ?? props.sendLabel)
+            }
             onClick={() => {
               if (!primaryButtonStopsRun) return
               props.onAbort?.()

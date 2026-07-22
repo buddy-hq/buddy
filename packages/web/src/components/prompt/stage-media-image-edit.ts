@@ -30,6 +30,9 @@ export async function stageMediaImageEdit(input: {
   const previewAttachment = await fileToPromptComposerAttachment(
     new File([image], input.fileName, { type: mime }),
   )
+  if (!previewAttachment) {
+    throw new Error("The media item's image type is not supported.")
+  }
   const attachment: PromptComposerAttachment = {
     ...previewAttachment,
     localPath: input.localPath,

@@ -109,6 +109,36 @@ describe("chat reducer", () => {
     ).toEqual(["prt_0196_test_selection_b", "prt_0196_test_selection_server"])
   })
 
+  test("replaces optimistic native resource metadata with its persisted text part", () => {
+    const optimistic: MessagePart = {
+      id: "prt_native_optimistic",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID,
+      type: "native-resource-attachment",
+      filename: "Workbook.xlsx",
+      sourcePath: "/notebook/uploads/Workbook--abcdefghij.xlsx",
+      format: "xlsx",
+      alias: "Workbook.xlsx",
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      optimistic: true,
+    }
+    const persisted: MessagePart = {
+      ...textPart("prt_native_persisted", "Attached native learning resource metadata"),
+      metadata: {
+        buddyPromptPart: {
+          type: "native-resource-attachment",
+          filename: "Workbook.xlsx",
+          sourcePath: "/notebook/uploads/Workbook--abcdefghij.xlsx",
+          format: "xlsx",
+          alias: "Workbook.xlsx",
+          mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+      },
+    }
+
+    expect(upsertMessagePart([optimistic], persisted)).toEqual([persisted])
+  })
+
   test("keeps accumulated tool input when a newer active snapshot omits raw state", () => {
     const current: MessagePart = {
       id: "part_1",

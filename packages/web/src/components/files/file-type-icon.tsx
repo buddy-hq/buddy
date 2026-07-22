@@ -147,7 +147,16 @@ const AUDIO_ICON_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "ogg", "wav"
 const VIDEO_ICON_EXTENSIONS = new Set(["avi", "m4v", "mkv", "mov", "mp4", "webm"])
 const ARCHIVE_ICON_EXTENSIONS = new Set(["7z", "bz2", "gz", "rar", "tar", "zip"])
 const PDF_ICON_EXTENSIONS = new Set(["pdf"])
-const SPREADSHEET_ICON_EXTENSIONS = new Set(["csv", "ods", "tsv", "xls", "xlsx"])
+const SPREADSHEET_ICON_EXTENSIONS = new Set([
+  "csv",
+  "numbers",
+  "ods",
+  "tsv",
+  "xls",
+  "xlsb",
+  "xlsm",
+  "xlsx",
+])
 const DOCUMENT_ICON_EXTENSIONS = new Set(["doc", "docx", "odt", "rtf", "txt"])
 const PRESENTATION_ICON_EXTENSIONS = new Set(["key", "odp", "ppt", "pptx"])
 
@@ -292,7 +301,11 @@ const EXTENSION_ICON_KEYS = new Map<string, FileIconKey>([
   ["key", "microsoft-powerpoint"],
   ["odp", "microsoft-powerpoint"],
   ["xls", "microsoft-excel"],
+  ["xlsb", "microsoft-excel"],
+  ["xlsm", "microsoft-excel"],
   ["xlsx", "microsoft-excel"],
+  ["numbers", "microsoft-excel"],
+  ["ods", "microsoft-excel"],
   ["csv", "table"],
   ["tsv", "table"],
 ])

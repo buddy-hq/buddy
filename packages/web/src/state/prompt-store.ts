@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { isNativeResourceFormat } from "@buddy/workspace-file-policy"
 import {
   persist,
   type PersistStorage,
@@ -27,6 +28,8 @@ import {
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptComposerAttachment,
   type PromptComposerPart,
+  isPromptModelAttachment,
+  isPromptReadyNativeResourceAttachment,
 } from "@/components/prompt/prompt-types"
 import { getPlatform } from "../context/platform"
 
@@ -90,7 +93,7 @@ function isPromptComposerAttachment(value: unknown): value is PromptComposerAtta
   if (!isRecord(value)) {
     return false
   }
-  return (
+  const isModelAttachment =
     typeof value.id === "string" &&
     typeof value.filename === "string" &&
     typeof value.mime === "string" &&
@@ -98,6 +101,28 @@ function isPromptComposerAttachment(value: unknown): value is PromptComposerAtta
     (value.localPath === undefined || typeof value.localPath === "string") &&
     (value.editTarget === undefined || value.editTarget === true) &&
     (value.kind === "image" || value.kind === "file")
+  if (isModelAttachment) return true
+
+  if (
+    typeof value.id !== "string" ||
+    typeof value.filename !== "string" ||
+    typeof value.mime !== "string" ||
+    value.kind !== "native-resource" ||
+    typeof value.format !== "string" ||
+    !isNativeResourceFormat(value.format) ||
+    (value.delivery !== "model-and-resource" && value.delivery !== "resource-only")
+  ) {
+    return false
+  }
+  if (value.status === "copying") return true
+  if (value.status === "error") return typeof value.error === "string"
+  return (
+    value.status === "ready" &&
+    typeof value.uploadID === "string" &&
+    typeof value.workspacePath === "string" &&
+    typeof value.localPath === "string" &&
+    typeof value.sizeBytes === "number" &&
+    Number.isFinite(value.sizeBytes)
   )
 }
 
@@ -400,10 +425,32 @@ function areAttachmentsEqual(left: PromptComposerAttachment[], right: PromptComp
     if (leftAttachment.id !== rightAttachment.id) return false
     if (leftAttachment.filename !== rightAttachment.filename) return false
     if (leftAttachment.mime !== rightAttachment.mime) return false
-    if (leftAttachment.dataUrl !== rightAttachment.dataUrl) return false
-    if (leftAttachment.localPath !== rightAttachment.localPath) return false
-    if (leftAttachment.editTarget !== rightAttachment.editTarget) return false
     if (leftAttachment.kind !== rightAttachment.kind) return false
+    if (isPromptModelAttachment(leftAttachment) && isPromptModelAttachment(rightAttachment)) {
+      if (leftAttachment.dataUrl !== rightAttachment.dataUrl) return false
+      if (leftAttachment.localPath !== rightAttachment.localPath) return false
+      if (leftAttachment.editTarget !== rightAttachment.editTarget) return false
+      continue
+    }
+    if (
+      leftAttachment.kind !== "native-resource" ||
+      rightAttachment.kind !== "native-resource"
+    ) {
+      return false
+    }
+    if (leftAttachment.format !== rightAttachment.format) return false
+    if (leftAttachment.delivery !== rightAttachment.delivery) return false
+    if (leftAttachment.status !== rightAttachment.status) return false
+    if (leftAttachment.status === "error" && rightAttachment.status === "error") {
+      if (leftAttachment.error !== rightAttachment.error) return false
+      continue
+    }
+    if (leftAttachment.status === "ready" && rightAttachment.status === "ready") {
+      if (leftAttachment.uploadID !== rightAttachment.uploadID) return false
+      if (leftAttachment.workspacePath !== rightAttachment.workspacePath) return false
+      if (leftAttachment.localPath !== rightAttachment.localPath) return false
+      if (leftAttachment.sizeBytes !== rightAttachment.sizeBytes) return false
+    }
   }
 
   return true
@@ -586,9 +633,35 @@ export const usePromptStore = create<PromptStore>()(
       version: 1,
       storage: createPromptStoreStorage(),
       partialize(state) {
+        const draftsByKey = Object.fromEntries(
+          Object.entries(state.draftsByKey).map(([key, draft]) => [
+            key,
+            {
+              ...draft,
+              attachments: draft.attachments.filter(
+                (attachment) =>
+                  isPromptModelAttachment(attachment) ||
+                  isPromptReadyNativeResourceAttachment(attachment),
+              ),
+            },
+          ]),
+        )
+        const historyByDirectory = Object.fromEntries(
+          Object.entries(state.historyByDirectory).map(([directory, entries]) => [
+            directory,
+            entries.map((entry) => ({
+              ...entry,
+              attachments: entry.attachments.filter(
+                (attachment) =>
+                  isPromptModelAttachment(attachment) ||
+                  isPromptReadyNativeResourceAttachment(attachment),
+              ),
+            })),
+          ]),
+        )
         return {
-          draftsByKey: state.draftsByKey,
-          historyByDirectory: state.historyByDirectory,
+          draftsByKey,
+          historyByDirectory,
         }
       },
       migrate(persistedState) {

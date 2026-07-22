@@ -74,7 +74,7 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
     <Command
       data-component="prompt-autocomplete-menu"
       shouldFilter={false}
-      className="absolute inset-x-2 bottom-full z-20 mb-2 h-auto max-h-80 w-auto rounded-xl border bg-surface-raised-stronger-non-alpha/95 shadow-lg backdrop-blur"
+      className="composer-surface-menu composer-grain absolute inset-x-2 bottom-full z-20 mb-2 h-auto max-h-80 w-auto overflow-hidden"
     >
       <CommandList ref={listRef} className="max-h-80">
         {props.slashVisible ? (
