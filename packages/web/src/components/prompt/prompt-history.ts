@@ -1,4 +1,8 @@
-import type { PromptComposerAttachment, PromptComposerPart } from "./prompt-types"
+import {
+  isPromptModelAttachment,
+  type PromptComposerAttachment,
+  type PromptComposerPart,
+} from "./prompt-types"
 
 export type PromptHistoryEntry = {
   value: string
@@ -48,10 +52,32 @@ function isHistoryEntryEqual(left: PromptHistoryEntry, right: PromptHistoryEntry
     if (!leftAttachment || !rightAttachment) return false
     if (leftAttachment.filename !== rightAttachment.filename) return false
     if (leftAttachment.mime !== rightAttachment.mime) return false
-    if (leftAttachment.dataUrl !== rightAttachment.dataUrl) return false
-    if (leftAttachment.localPath !== rightAttachment.localPath) return false
-    if (leftAttachment.editTarget !== rightAttachment.editTarget) return false
     if (leftAttachment.kind !== rightAttachment.kind) return false
+    if (isPromptModelAttachment(leftAttachment) && isPromptModelAttachment(rightAttachment)) {
+      if (leftAttachment.dataUrl !== rightAttachment.dataUrl) return false
+      if (leftAttachment.localPath !== rightAttachment.localPath) return false
+      if (leftAttachment.editTarget !== rightAttachment.editTarget) return false
+      continue
+    }
+    if (
+      leftAttachment.kind !== "native-resource" ||
+      rightAttachment.kind !== "native-resource"
+    ) {
+      return false
+    }
+    if (leftAttachment.format !== rightAttachment.format) return false
+    if (leftAttachment.delivery !== rightAttachment.delivery) return false
+    if (leftAttachment.status !== rightAttachment.status) return false
+    if (leftAttachment.status === "error" && rightAttachment.status === "error") {
+      if (leftAttachment.error !== rightAttachment.error) return false
+      continue
+    }
+    if (leftAttachment.status === "ready" && rightAttachment.status === "ready") {
+      if (leftAttachment.uploadID !== rightAttachment.uploadID) return false
+      if (leftAttachment.workspacePath !== rightAttachment.workspacePath) return false
+      if (leftAttachment.localPath !== rightAttachment.localPath) return false
+      if (leftAttachment.sizeBytes !== rightAttachment.sizeBytes) return false
+    }
   }
 
   for (let index = 0; index < left.parts.length; index += 1) {

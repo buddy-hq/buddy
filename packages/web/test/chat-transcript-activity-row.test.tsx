@@ -20,7 +20,11 @@ import {
   createChatTranscriptTestViewport,
   type ChatTranscriptTestViewport,
 } from "./chat-transcript-harness"
-import { inlinePresentation, presentationMetadata } from "./tool-presentation-fixtures"
+import {
+  activityPresentation,
+  inlinePresentation,
+  presentationMetadata,
+} from "./tool-presentation-fixtures"
 
 async function flushEffects() {
   await Promise.resolve()
@@ -339,6 +343,83 @@ describe("chat transcript ActivityRow", () => {
     expect(container.textContent).toContain("Thought")
     expect(container.textContent).toContain("Final response")
     expect(container.querySelector('[data-timeline-row="AssistantPart"]')).not.toBeNull()
+  })
+
+  test("keeps todo contents out of the transcript while preserving its activity summary", async () => {
+    const directory = "/repo-todo-activity"
+    const sessionID = "ses_todo_activity"
+    const todoContent = "Keep this task in the dock"
+
+    await act(async () => {
+      seedDirectoryChatState(directory, {
+        sessionID,
+        messages: [
+          createMessageWithParts(
+            createUserMessageInfo({ id: "msg_todo_user", sessionID }),
+            [
+              {
+                id: "prt_todo_user",
+                sessionID,
+                messageID: "msg_todo_user",
+                type: "text",
+                text: "Make a plan",
+              },
+            ],
+          ),
+          createMessageWithParts(
+            createAssistantMessageInfo({
+              id: "msg_todo_assistant",
+              sessionID,
+              time: { created: 1, completed: 2 },
+            }),
+            [
+              {
+                id: "prt_todo_tool",
+                sessionID,
+                messageID: "msg_todo_assistant",
+                type: "tool",
+                tool: "todowrite",
+                callID: "call_todo_tool",
+                metadata: presentationMetadata(
+                  activityPresentation({
+                    phase: "completed",
+                    action: "Updated tasks",
+                    category: "update-tasks",
+                    summary: "Updated tasks",
+                    icon: "todo",
+                    renderer: "todo",
+                  }),
+                ),
+                state: {
+                  status: "completed",
+                  input: { todos: [{ content: todoContent, status: "pending" }] },
+                  metadata: { todos: [{ content: todoContent, status: "pending" }] },
+                  attachments: [],
+                  output: JSON.stringify([{ content: todoContent, status: "pending" }]),
+                  title: "1 todos",
+                  time: { start: 1, end: 2 },
+                },
+              },
+            ],
+          ),
+        ],
+      })
+      root.render(<ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />)
+      await flushEffects()
+    })
+
+    const activity = activityArticleByText(container, "Updated tasks")
+    expect(activity).not.toBeUndefined()
+    expect(assistantArticleByText(container, todoContent)).toBeUndefined()
+    expect(container.textContent).not.toContain(todoContent)
+
+    await act(async () => {
+      activity?.querySelector<HTMLButtonElement>("button")?.click()
+      await flushEffects()
+    })
+
+    expect(container.textContent).toContain("Updated tasks")
+    expect(container.textContent).not.toContain(todoContent)
   })
 
   test("keeps collapsed thought row spacing measured and head-equivalent", async () => {

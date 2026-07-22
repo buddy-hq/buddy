@@ -1,0 +1,45 @@
+/*
+ * Excalifont (OFL-1.1) — the hand-drawn whiteboard face used for the todo
+ * section headers. Declared here so the todo renderer owns its own font
+ * dependency instead of piggybacking on an unrelated component's stylesheet
+ * being imported first. Duplicate @font-face for the same family is de-duped
+ * by the browser at load time.
+ */
+@font-face {
+  font-family: Excalifont;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../../../assets/fonts/Excalifont.woff2") format("woff2");
+}
+
+.todo-canvas-heading {
+  font-family: Excalifont, ui-sans-serif, sans-serif;
+  font-synthesis: none;
+}
+
+/*
+ * Real multiline-correct strikethrough for completed / cancelled todos. The
+ * line is genuine text-decoration (so it wraps across every line), and it
+ * fades in via its decoration color when the row mounts into the done section.
+ */
+.todo-strike {
+  text-decoration-line: line-through;
+  text-decoration-color: var(--color-text-weaker);
+  animation: todo-strike-in 0.34s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+@keyframes todo-strike-in {
+  from {
+    text-decoration-color: transparent;
+  }
+  to {
+    text-decoration-color: var(--color-text-weaker);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .todo-strike {
+    animation: none;
+  }
+}

@@ -115,6 +115,9 @@ function toolText(entry: ToolActivityEntry): string | undefined {
   if (entry.presentation.renderer === "read" || entry.presentation.renderer === "skill") {
     return undefined
   }
+  if (entry.presentation.renderer === "todo" && entry.presentation.outcome.type !== "failure") {
+    return undefined
+  }
   if (entry.presentation.renderer === "bash") return toolShellText(entry)
 
   const text =
