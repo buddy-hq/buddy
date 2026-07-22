@@ -377,19 +377,58 @@ function shouldUseThemeColoredIcon(key: FileIconKey): boolean {
   return key === "markdown"
 }
 
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+const MARKDOWN_ICON_VIEWBOX = "0 0 48 48"
+const MARKDOWN_ICON_CLASS = "inline-block shrink-0 text-icon-info-base"
+const MARKDOWN_ICON_PATH =
+  "M42.8236518,9 L5.17634821,9 C3.4245,9 2,10.4031375 2,12.1298375 L2,36.8667719 C2,38.5946344 3.4245,40 5.17634821,40 L42.8236518,40 C44.5755,40 46,38.5946344 46,36.866675 L46,12.1298375 C46,10.4031375 44.5755,9 42.8236518,9 Z M26.7522589,33.8 L21.2475446,33.8 L21.2475446,24.5 L17.1186161,29.7194312 L12.9914554,24.5 L12.9914554,33.8 L7.48713393,33.8 L7.48713393,15.2 L12.9914554,15.2 L17.1186161,21.7855625 L21.2475446,15.2 L26.7522589,15.2 L26.7522589,33.8 Z M34.9685714,33.8 L28.1294196,24.5 L32.2544196,24.5 L32.2544196,15.2 L37.7586429,15.2 L37.7586429,24.5 L41.8862946,24.5 L34.9668036,33.8 L34.9685714,33.8 Z"
+
 function MarkdownFileIcon(props: { className?: string }) {
   return (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 48 48"
+      xmlns={SVG_NAMESPACE}
+      viewBox={MARKDOWN_ICON_VIEWBOX}
       aria-hidden
       focusable="false"
-      className={cn("inline-block shrink-0 text-icon-info-base", props.className)}
+      className={cn(MARKDOWN_ICON_CLASS, props.className)}
       fill="currentColor"
     >
-      <path d="M42.8236518,9 L5.17634821,9 C3.4245,9 2,10.4031375 2,12.1298375 L2,36.8667719 C2,38.5946344 3.4245,40 5.17634821,40 L42.8236518,40 C44.5755,40 46,38.5946344 46,36.866675 L46,12.1298375 C46,10.4031375 44.5755,9 42.8236518,9 Z M26.7522589,33.8 L21.2475446,33.8 L21.2475446,24.5 L17.1186161,29.7194312 L12.9914554,24.5 L12.9914554,33.8 L7.48713393,33.8 L7.48713393,15.2 L12.9914554,15.2 L17.1186161,21.7855625 L21.2475446,15.2 L26.7522589,15.2 L26.7522589,33.8 Z M34.9685714,33.8 L28.1294196,24.5 L32.2544196,24.5 L32.2544196,15.2 L37.7586429,15.2 L37.7586429,24.5 L41.8862946,24.5 L34.9668036,33.8 L34.9685714,33.8 Z" />
+      <path d={MARKDOWN_ICON_PATH} />
     </svg>
   )
+}
+
+/**
+ * DOM (non-React) variant of {@link FileTypeIcon} for imperative surfaces such
+ * as the contenteditable prompt pills, so a file gets the same icon everywhere
+ * — including the theme-coloured markdown glyph, which stays legible where the
+ * raw `markdown.svg` asset would fade into a dark background.
+ */
+export function createFileTypeIconElement(
+  fileName: string,
+  className?: string,
+): HTMLElement | SVGElement {
+  const icon = resolveFileTypeIcon({ fileName })
+
+  if (shouldUseThemeColoredIcon(icon.key)) {
+    const svg = document.createElementNS(SVG_NAMESPACE, "svg")
+    svg.setAttribute("viewBox", MARKDOWN_ICON_VIEWBOX)
+    svg.setAttribute("fill", "currentColor")
+    svg.setAttribute("aria-hidden", "true")
+    svg.setAttribute("focusable", "false")
+    svg.setAttribute("class", cn(MARKDOWN_ICON_CLASS, className))
+    const path = document.createElementNS(SVG_NAMESPACE, "path")
+    path.setAttribute("d", MARKDOWN_ICON_PATH)
+    svg.appendChild(path)
+    return svg
+  }
+
+  const img = document.createElement("img")
+  img.src = icon.url
+  img.alt = ""
+  img.setAttribute("aria-hidden", "true")
+  if (className) img.className = className
+  return img
 }
 
 export function FileTypeIcon(props: FileTypeIconProps) {

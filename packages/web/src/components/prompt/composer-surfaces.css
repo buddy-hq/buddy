@@ -92,14 +92,16 @@
      value, since the values carry font-medium/semibold);
    - hide the arrow. It's an SVG wrapped in a positioning <span>, so this must
      be a descendant selector, not a direct child. The context popover has no
-     other SVGs, so scoping to tooltip-content keeps dropdown/menu icons safe. */
+     other SVGs, so scoping to tooltip-content keeps dropdown/menu icons safe.
+     Radix (react-popper) sets `display: block` INLINE on the arrow SVG, so the
+     override needs `!important` to win — without it the white diamond stays. */
 .composer-surface-menu[data-slot="tooltip-content"],
 .composer-surface-menu[data-slot="tooltip-content"] * {
   color: var(--text-base);
 }
 
 .composer-surface-menu[data-slot="tooltip-content"] svg {
-  display: none;
+  display: none !important;
 }
 
 /* --- surfaces ------------------------------------------------------------ */

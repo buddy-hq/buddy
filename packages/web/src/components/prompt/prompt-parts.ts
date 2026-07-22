@@ -1,7 +1,18 @@
+import { basename } from "../chat/utils/path"
+import { createFileTypeIconElement } from "../files/file-type-icon"
+import {
+  createAppIconElement,
+  folderOpenIconData,
+  rubiksCubeIconData,
+  type IconSvgElement,
+} from "@/icons/app-icons"
 import { createTextFragment } from "./editor-dom"
+import type { MentionOption } from "./mention-autocomplete"
 import {
   PROMPT_PART_TYPE_AGENT,
+  PROMPT_PART_TYPE_SKILL,
   PROMPT_PART_TYPE_TEXT,
+  PROMPT_STRUCTURED_MASK_CHAR,
   OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
@@ -12,6 +23,7 @@ import {
   type PromptOpenCodeReferencePart,
   type PromptReadingSelectionPart,
   type PromptSelectionContextPart,
+  type PromptSkillPart,
   type PromptTextPart,
   type PromptResourceReferencePart,
   type PromptWorkspaceFileReferencePart,
@@ -35,6 +47,13 @@ function createTextPart(text: string): PromptTextPart {
 function createAgentPart(name: string): PromptAgentPart {
   return {
     type: PROMPT_PART_TYPE_AGENT,
+    name,
+  }
+}
+
+export function createSkillPart(name: string): PromptSkillPart {
+  return {
+    type: PROMPT_PART_TYPE_SKILL,
     name,
   }
 }
@@ -117,6 +136,10 @@ export function clonePromptParts(parts: PromptComposerPart[]): PromptComposerPar
       return createAgentPart(part.name)
     }
 
+    if (part.type === PROMPT_PART_TYPE_SKILL) {
+      return createSkillPart(part.name)
+    }
+
     if (part.type === OPENCODE_REFERENCE_PART_TYPE) {
       return createOpenCodeReferencePart(part.name, part.path)
     }
@@ -151,6 +174,11 @@ export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptCom
     }
     if (leftPart.type === PROMPT_PART_TYPE_AGENT) {
       if (rightPart.type !== PROMPT_PART_TYPE_AGENT || leftPart.name !== rightPart.name)
+        return false
+      continue
+    }
+    if (leftPart.type === PROMPT_PART_TYPE_SKILL) {
+      if (rightPart.type !== PROMPT_PART_TYPE_SKILL || leftPart.name !== rightPart.name)
         return false
       continue
     }
@@ -269,6 +297,7 @@ export function serializePromptParts(parts: PromptComposerPart[]): string {
     .map((part) => {
       if (part.type === PROMPT_PART_TYPE_TEXT) return part.text
       if (part.type === PROMPT_PART_TYPE_AGENT) return `@${part.name}`
+      if (part.type === PROMPT_PART_TYPE_SKILL) return `/${part.name}`
       if (part.type === OPENCODE_REFERENCE_PART_TYPE) return `@${part.name}`
       if (part.type === RESOURCE_REFERENCE_PART_TYPE) return `resource:${part.key}`
       if (part.type === READING_SELECTION_PART_TYPE) return `"${part.text}"`
@@ -285,6 +314,27 @@ export function serializePromptEditorParts(parts: PromptComposerPart[]) {
         part.type !== READING_SELECTION_PART_TYPE && part.type !== SELECTION_CONTEXT_PART_TYPE,
     ),
   )
+}
+
+/**
+ * The editor value used for `@`/`/` trigger matching: identical in length to
+ * {@link serializePromptEditorParts} (so match offsets are valid cursor
+ * offsets), but every structured pill's characters are replaced with
+ * {@link PROMPT_STRUCTURED_MASK_CHAR}. `@` or `/` inside a pill's serialized
+ * text — "@node_modules/@types/…" — can therefore never open or feed the menu.
+ */
+export function serializePromptAutocompleteValue(parts: PromptComposerPart[]) {
+  return parts
+    .filter(
+      (part) =>
+        part.type !== READING_SELECTION_PART_TYPE && part.type !== SELECTION_CONTEXT_PART_TYPE,
+    )
+    .map((part) =>
+      part.type === PROMPT_PART_TYPE_TEXT
+        ? part.text
+        : PROMPT_STRUCTURED_MASK_CHAR.repeat(serializePromptParts([part]).length),
+    )
+    .join("")
 }
 
 function readDatasetNumber(value: string | undefined) {
@@ -308,6 +358,7 @@ function readDatasetStringArray(value: string | undefined) {
 function isStructuredPromptElement(element: HTMLElement) {
   return (
     element.dataset.type === PROMPT_PART_TYPE_AGENT ||
+    element.dataset.type === PROMPT_PART_TYPE_SKILL ||
     element.dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
     element.dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
     element.dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
@@ -341,6 +392,15 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       const name = element.dataset.name
       if (name) {
         parts.push(createAgentPart(name))
+      }
+      return
+    }
+
+    if (element.dataset.type === PROMPT_PART_TYPE_SKILL) {
+      flush()
+      const name = element.dataset.name
+      if (name) {
+        parts.push(createSkillPart(name))
       }
       return
     }
@@ -514,6 +574,100 @@ function appendSelectionCard(
   root.appendChild(card)
 }
 
+type StructuredPillPart =
+  | PromptAgentPart
+  | PromptSkillPart
+  | PromptOpenCodeReferencePart
+  | PromptWorkspaceFileReferencePart
+  | PromptResourceReferencePart
+
+// Inline, borderless mention — reads like an attached file in the message body
+// (icon + accent-coloured name), not a boxed chip. Kept in lockstep with the
+// transcript's inline reference (see highlighted-text.tsx): `items-baseline`
+// (not `items-center`) so the icon + name sit flush on the text baseline with
+// no apparent padding, and a `size-3` icon that matches the running text.
+const PROMPT_PILL_CLASS =
+  "mx-1 inline-flex max-w-full items-baseline gap-1 align-baseline font-medium text-text-interactive-base"
+const PROMPT_PILL_ICON_CLASS = "relative top-px size-3 shrink-0"
+
+function isDirectoryPath(path: string) {
+  return path.endsWith("/")
+}
+
+function appendPillLabel(pill: HTMLElement, text: string) {
+  const label = document.createElement("span")
+  label.className = "truncate"
+  label.textContent = text
+  pill.appendChild(label)
+}
+
+function appendPillFileIcon(pill: HTMLElement, fileName: string) {
+  pill.appendChild(createFileTypeIconElement(fileName, PROMPT_PILL_ICON_CLASS))
+}
+
+function appendPillIcon(pill: HTMLElement, icon: IconSvgElement) {
+  pill.appendChild(createAppIconElement(icon, PROMPT_PILL_ICON_CLASS))
+}
+
+/**
+ * Build the inline contenteditable pill for a structured prompt part. Shared by
+ * the full re-render ({@link renderPromptParts}) and the interactive insert path
+ * so a mention always looks the same however it enters the editor. `data-serialized`
+ * records the pill's logical text so the editor can display a short basename + icon
+ * while cursor math still uses the full `@path`.
+ */
+export function createPromptPill(part: StructuredPillPart): HTMLSpanElement {
+  const pill = document.createElement("span")
+  pill.className = PROMPT_PILL_CLASS
+  pill.setAttribute("contenteditable", "false")
+  pill.dataset.type = part.type
+  pill.dataset.serialized = serializePromptParts([part])
+
+  if (part.type === PROMPT_PART_TYPE_AGENT) {
+    pill.dataset.name = part.name
+    appendPillLabel(pill, `@${part.name}`)
+    return pill
+  }
+
+  if (part.type === PROMPT_PART_TYPE_SKILL) {
+    pill.dataset.name = part.name
+    appendPillIcon(pill, rubiksCubeIconData)
+    appendPillLabel(pill, part.name)
+    return pill
+  }
+
+  if (part.type === OPENCODE_REFERENCE_PART_TYPE) {
+    pill.dataset.name = part.name
+    pill.dataset.path = part.path
+    appendPillLabel(pill, `@${part.name}`)
+    return pill
+  }
+
+  if (part.type === RESOURCE_REFERENCE_PART_TYPE) {
+    pill.dataset.key = part.key
+    appendPillLabel(pill, `resource:${part.key}`)
+    return pill
+  }
+
+  pill.dataset.path = part.path
+  if (isDirectoryPath(part.path)) {
+    const directoryName = basename(part.path.replace(/\/+$/, "")) || part.path
+    appendPillIcon(pill, folderOpenIconData)
+    appendPillLabel(pill, directoryName)
+    return pill
+  }
+  const fileName = basename(part.path) || part.path
+  appendPillFileIcon(pill, fileName)
+  appendPillLabel(pill, fileName)
+  return pill
+}
+
+export function promptPartFromMentionOption(option: MentionOption): StructuredPillPart {
+  if (option.type === "agent") return createAgentPart(option.name)
+  if (option.type === "reference") return createOpenCodeReferencePart(option.name, option.path)
+  return createWorkspaceFileReferencePart(option.path)
+}
+
 export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]) {
   root.replaceChildren()
 
@@ -535,28 +689,7 @@ export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]
       continue
     }
 
-    const pill = document.createElement("span")
-    pill.className =
-      "mx-0.5 inline-flex max-w-full items-center rounded-lg border border-border-base/70 bg-surface-weak px-1.5 py-0.5 text-xs font-medium text-text-base"
-    pill.setAttribute("contenteditable", "false")
-    pill.dataset.type = part.type
-
-    if (part.type === PROMPT_PART_TYPE_AGENT) {
-      pill.textContent = `@${part.name}`
-      pill.dataset.name = part.name
-    } else if (part.type === OPENCODE_REFERENCE_PART_TYPE) {
-      pill.textContent = `@${part.name}`
-      pill.dataset.name = part.name
-      pill.dataset.path = part.path
-    } else if (part.type === RESOURCE_REFERENCE_PART_TYPE) {
-      pill.textContent = `resource:${part.key}`
-      pill.dataset.key = part.key
-    } else {
-      pill.textContent = `@${part.path}`
-      pill.dataset.path = part.path
-    }
-
-    root.appendChild(pill)
+    root.appendChild(createPromptPill(part))
   }
 
   const lastPart = parts[parts.length - 1]

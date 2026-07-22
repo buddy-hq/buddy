@@ -3,6 +3,7 @@ import {
   BUDDY_PROMPT_PART_METADATA_KEY,
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_FILE,
+  PROMPT_PART_TYPE_SKILL,
   PROMPT_PART_TYPE_TEXT,
   NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
   TEXT_FILE_ATTACHMENT_PART_TYPE,
@@ -306,12 +307,23 @@ function buildNativeResourceSubmissionParts(
   })
 }
 
+// Skills are an editor-only pill; the backend keeps its start-of-message slash
+// contract, so a skill part is flattened to its `/name` text before it leaves
+// the composer. (At message start it never reaches here — the slash-command path
+// handles it — so this only covers the rarer mid-message case.)
+function submissionPartFromComposerPart(part: PromptComposerPart): PromptSubmissionPart {
+  if (part.type === PROMPT_PART_TYPE_SKILL) {
+    return { type: PROMPT_PART_TYPE_TEXT, text: `/${part.name}` }
+  }
+  return { ...part }
+}
+
 export function buildPromptPreviewParts(
   promptParts: PromptComposerPart[],
   attachments: PromptComposerAttachment[],
 ): PromptSubmissionPart[] {
   return [
-    ...promptParts.map((part) => ({ ...part })),
+    ...promptParts.map(submissionPartFromComposerPart),
     ...buildPromptAttachmentParts(attachments, false),
     ...buildNativeResourcePreviewParts(attachments),
   ]
@@ -322,7 +334,7 @@ export function buildPromptSubmissionParts(
   attachments: PromptComposerAttachment[],
 ): PromptSubmissionPart[] {
   return [
-    ...promptParts.map((part) => ({ ...part })),
+    ...promptParts.map(submissionPartFromComposerPart),
     ...buildPromptAttachmentParts(attachments),
     ...buildNativeResourceSubmissionParts(attachments),
   ]

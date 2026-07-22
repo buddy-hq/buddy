@@ -72,9 +72,17 @@ export type PromptImageEditIntent = {
   targetPaths: string[]
 }
 
+// Object-replacement char standing in for each character of a structured pill
+// when the composer value is matched for `@`/`/` triggers. Length-preserving, so
+// match offsets map 1:1 onto editor cursor offsets, while `@`/`/` characters
+// inside a pill's serialized text (e.g. "@node_modules/@types/…") can never
+// start or extend a trigger match.
+export const PROMPT_STRUCTURED_MASK_CHAR = "￼" as const
+
 export const PROMPT_PART_TYPE_TEXT = "text" as const
 export const PROMPT_PART_TYPE_FILE = "file" as const
 export const PROMPT_PART_TYPE_AGENT = "agent" as const
+export const PROMPT_PART_TYPE_SKILL = "skill" as const
 // Sync with packages/buddy/src/learning/prompt/workspace-file-references.ts.
 export const OPENCODE_REFERENCE_PART_TYPE = "opencode-reference" as const
 // Sync with packages/buddy/src/learning/prompt/workspace-file-references.ts.
@@ -123,6 +131,16 @@ export type PromptFilePart = {
 
 export type PromptAgentPart = {
   type: typeof PROMPT_PART_TYPE_AGENT
+  name: string
+}
+
+/**
+ * A skill invocation rendered inline as a pill. Purely an editor-side construct:
+ * it serializes to `/name` and is converted to text before submission, so the
+ * backend keeps its existing start-of-message slash-command contract.
+ */
+export type PromptSkillPart = {
+  type: typeof PROMPT_PART_TYPE_SKILL
   name: string
 }
 
@@ -297,6 +315,7 @@ export type PromptAttachmentPart = PromptTextPart | PromptFilePart
 export type PromptComposerPart =
   | PromptTextPart
   | PromptAgentPart
+  | PromptSkillPart
   | PromptOpenCodeReferencePart
   | PromptWorkspaceFileReferencePart
   | PromptResourceReferencePart

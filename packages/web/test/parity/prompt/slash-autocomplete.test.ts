@@ -10,17 +10,42 @@ import {
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
+  PROMPT_STRUCTURED_MASK_CHAR,
   RESOURCE_REFERENCE_PART_TYPE,
 } from "../../../src/components/prompt/prompt-types"
 
 describe("slash autocomplete", () => {
-  test("finds a slash command only when the prompt is a single slash token", () => {
+  test("triggers a slash command at the start or after whitespace, like @", () => {
     expect(getSlashMatch("/rev", "/rev".length)).toEqual({
       start: 0,
       end: 4,
       query: "rev",
     })
-    expect(getSlashMatch("/review status", "/review".length)).toBeUndefined()
+    // Reachable after whitespace following a mention pill.
+    const afterMention = "@file.md /rev"
+    expect(getSlashMatch(afterMention, afterMention.length)).toEqual({
+      start: 9,
+      end: 13,
+      query: "rev",
+    })
+    // Not inside a word ("and/or") or a URL ("https://").
+    expect(getSlashMatch("and/or", "and/or".length)).toBeUndefined()
+    expect(getSlashMatch("https://x", "https://x".length)).toBeUndefined()
+    // The command token ends at the first space.
+    expect(getSlashMatch("/review ", "/review ".length)).toBeUndefined()
+  })
+
+  test("triggers immediately after a pill and never matches into one", () => {
+    // A pill (masked upstream) is a boundary, so `/` right after it triggers.
+    const pill = PROMPT_STRUCTURED_MASK_CHAR.repeat("@file.md".length)
+    expect(getSlashMatch(`${pill}/rev`, `${pill}/rev`.length)).toEqual({
+      start: pill.length,
+      end: pill.length + 4,
+      query: "rev",
+    })
+    // A `/` inside a pill's masked text can never feed the menu.
+    const pathPill = PROMPT_STRUCTURED_MASK_CHAR.repeat("@a/b/c.ts".length)
+    expect(getSlashMatch(pathPill, pathPill.length)).toBeUndefined()
   })
 
   test("prefers server commands ahead of builtins when the query is empty", () => {

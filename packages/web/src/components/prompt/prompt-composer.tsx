@@ -63,6 +63,7 @@ import {
   type PromptHistoryEntry,
 } from "./prompt-history"
 import {
+  getMentionMatch,
   type MentionOption,
   type MentionableAgent,
   type MentionableFile,
@@ -72,21 +73,26 @@ import {
   clonePromptParts,
   collectPromptParts,
   createPromptPartsFromValue,
+  createPromptPill,
+  createSkillPart,
+  promptPartFromMentionOption,
   renderPromptParts,
+  serializePromptAutocompleteValue,
   serializePromptEditorParts,
 } from "./prompt-parts"
-import { type SlashCommandOption, type SlashCommandSource } from "./slash-autocomplete"
+import {
+  getSlashMatch,
+  type SlashCommandOption,
+  type SlashCommandSource,
+} from "./slash-autocomplete"
 import { PromptAutocompleteMenu } from "./components/prompt-autocomplete-menu"
 import { PromptComposerToolbar } from "./components/prompt-composer-toolbar"
 import {
-  PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
-  OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   type PromptComposerAttachment,
   type PromptComposerPart,
-  WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "./prompt-types"
 import {
   ACCEPTED_FILE_TYPES,
@@ -164,6 +170,7 @@ type PromptComposerProps = {
     label: string
   }>
   selectedThinking: string
+  modelMenuOpenRequest?: number
   onClearPendingSteer?: () => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
@@ -358,7 +365,30 @@ export function PromptComposer(props: PromptComposerProps) {
     ],
   )
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
-  const [modelMenuOpenRequest, setModelMenuOpenRequest] = useState(0)
+  // Live editor snapshot that drives @/ autocomplete matching. Updated
+  // synchronously on every keystroke/cursor move so the menu never lags behind
+  // the DOM (the heavier `draft`/store writes stay debounced). Decoupling this
+  // from the debounced `draftEditorValue` is what removes the open/close flicker
+  // and keeps the insert range aligned with what the user actually typed. The
+  // value is pill-masked (see serializePromptAutocompleteValue) so `@`/`/`
+  // inside a pill's serialized path never trigger the menu.
+  const [autocompleteInput, setAutocompleteInput] = useState(() => ({
+    value: serializePromptAutocompleteValue(draft.parts),
+    cursor: draft.cursor,
+  }))
+  // Push the editor's live text + cursor into the snapshot that drives
+  // autocomplete. Cheap, and the only source of truth the menu should trust.
+  const syncAutocompleteInputFromEditor = useCallback(() => {
+    const editor = editorRef.current
+    if (!editor) return
+    const value = serializePromptAutocompleteValue(collectPromptParts(editor))
+    const cursor = getCursorPosition(editor)
+    setAutocompleteInput((current) =>
+      current.value === value && current.cursor === cursor ? current : { value, cursor },
+    )
+  }, [])
+  const [localModelMenuOpenRequest, setLocalModelMenuOpenRequest] = useState(0)
+  const modelMenuOpenRequest = localModelMenuOpenRequest + (props.modelMenuOpenRequest ?? 0)
   const [focusRequestID, setFocusRequestID] = useState(0)
   const [placeholderVisible, setPlaceholderVisible] = useState(() =>
     isPromptPlaceholderVisible(draft),
@@ -421,8 +451,8 @@ export function PromptComposer(props: PromptComposerProps) {
   const savedHistoryDraft = historyNavigation.savedDraft
 
   const viewState = usePromptComposerViewState({
-    cursorOffset,
-    draftValue: draftEditorValue,
+    cursorOffset: autocompleteInput.cursor,
+    draftValue: autocompleteInput.value,
     mentionableAgents: props.mentionableAgents,
     mentionableReferences: props.mentionableReferences,
     slashCommands: props.slashCommands,
@@ -447,6 +477,20 @@ export function PromptComposer(props: PromptComposerProps) {
     setCursorOffset(draftEditorValue.length)
   }, [cursorOffset, draftEditorValue])
 
+  // When the draft changes from outside the editor (session switch, clear,
+  // history), usePromptEditorSync re-renders the editor DOM; realign the
+  // autocomplete snapshot from that freshly rendered DOM. Editor-originated
+  // changes skip this path (mirror flag) — handleEditorInput already synced
+  // synchronously — so the debounced draft can never stomp the live snapshot
+  // with stale text mid-typing.
+  const setCursorOffsetFromEditorSync = useCallback(
+    (cursor: number) => {
+      setCursorOffset(cursor)
+      syncAutocompleteInputFromEditor()
+    },
+    [syncAutocompleteInputFromEditor],
+  )
+
   usePromptEditorSync({
     editorRef,
     mirrorInputRef,
@@ -456,7 +500,7 @@ export function PromptComposer(props: PromptComposerProps) {
       parts: draftEditorParts,
     },
     knownAgents: viewState.knownAgents,
-    setCursorOffset,
+    setCursorOffset: setCursorOffsetFromEditorSync,
   })
 
   const previousSelectionContextCountRef = useRef(selectionContextEntries.length)
@@ -815,6 +859,7 @@ export function PromptComposer(props: PromptComposerProps) {
     if (!editor) return
     const currentCursor = getCursorPosition(editor)
     setCursorOffset(currentCursor)
+    syncAutocompleteInputFromEditor()
     updateDraftCursorFromComposer(currentCursor, "debounced")
   }
 
@@ -827,6 +872,7 @@ export function PromptComposer(props: PromptComposerProps) {
     }
     setCursorPosition(editor, cursor)
     setCursorOffset(cursor)
+    syncAutocompleteInputFromEditor()
   }
 
   function resetHistoryNavigation() {
@@ -943,6 +989,12 @@ export function PromptComposer(props: PromptComposerProps) {
       !hasInlineStructuredPart
 
     setPlaceholderVisible(shouldReset && selectionContextParts.length === 0)
+    // Keep autocomplete matching perfectly in step with the DOM (synchronous),
+    // while the cursor/draft/store writes below stay low-priority + debounced.
+    setAutocompleteInput({
+      value: serializePromptAutocompleteValue(nextEditorParts),
+      cursor: nextCursor,
+    })
     startTransition(() => {
       setCursorOffset(nextCursor)
     })
@@ -1025,56 +1077,59 @@ export function PromptComposer(props: PromptComposerProps) {
     handleEditorInput()
   }
 
-  function applyMention(option: MentionOption) {
+  // Replace the live `@`/`/` trigger span with `node` + a trailing space. The
+  // trigger range is re-derived from the LIVE editor (never the debounced React
+  // snapshot) so a fast typist never strands query text next to the inserted pill
+  // ("@why…" -> pill + "hy"), and it works wherever the trigger sits — including
+  // after an existing pill.
+  function applyTriggerSelection(kind: "mention" | "slash", node: Node) {
     const editor = editorRef.current
-    if (!editor || !viewState.mentionMatch) return
+    if (!editor) return
 
     const selection = window.getSelection()
     if (!selection) return
 
     if (selection.rangeCount === 0 || !editor.contains(selection.anchorNode)) {
       editor.focus()
-      setCursorPosition(editor, cursorOffset)
+      setCursorPosition(editor, autocompleteInput.cursor)
     }
 
     if (selection.rangeCount === 0) return
     const range = selection.getRangeAt(0)
     if (!editor.contains(range.startContainer)) return
 
-    const pill = document.createElement("span")
-    pill.className =
-      "mx-0.5 inline-flex max-w-full items-center rounded-md border border-border-base/70 bg-surface-weak px-1.5 py-0.5 text-xs font-medium text-text-base"
-    if (option.type === "agent") {
-      pill.textContent = `@${option.name}`
-      pill.dataset.type = PROMPT_PART_TYPE_AGENT
-      pill.dataset.name = option.name
-    } else if (option.type === "reference") {
-      pill.textContent = `@${option.name}`
-      pill.dataset.type = OPENCODE_REFERENCE_PART_TYPE
-      pill.dataset.name = option.name
-      pill.dataset.path = option.path
-    } else {
-      pill.textContent = `@${option.path}`
-      pill.dataset.type = WORKSPACE_FILE_REFERENCE_PART_TYPE
-      pill.dataset.path = option.path
-      viewState.appendRecentMentionFile({ path: option.path, recent: true })
-    }
-    pill.setAttribute("contenteditable", "false")
+    const liveCursor = getCursorPosition(editor)
+    const liveValue = serializePromptAutocompleteValue(collectPromptParts(editor))
+    const match =
+      kind === "mention"
+        ? getMentionMatch(liveValue, liveCursor)
+        : getSlashMatch(liveValue, liveCursor)
 
-    setRangeEdge(editor, range, "start", viewState.mentionMatch.start)
-    setRangeEdge(editor, range, "end", viewState.mentionMatch.end)
+    // Replace the live trigger span when there is one; otherwise insert at the
+    // cursor (mirrors opencode's addPart, which never drops the selection).
+    if (match) {
+      setRangeEdge(editor, range, "start", match.start)
+      setRangeEdge(editor, range, "end", match.end)
+    }
     range.deleteContents()
 
     const gap = document.createTextNode(" ")
     range.insertNode(gap)
-    range.insertNode(pill)
+    range.insertNode(node)
     range.setStartAfter(gap)
     range.collapse(true)
     selection.removeAllRanges()
     selection.addRange(range)
 
-    viewState.setDismissedMentionKey(undefined)
     handleEditorInput()
+  }
+
+  function applyMention(option: MentionOption) {
+    if (option.type === "file") {
+      viewState.appendRecentMentionFile({ path: option.path, recent: true })
+    }
+    viewState.setDismissedMentionKey(undefined)
+    applyTriggerSelection("mention", createPromptPill(promptPartFromMentionOption(option)))
   }
 
   function clearComposer(input?: { clearStore?: boolean; resetHistory?: boolean }) {
@@ -1224,7 +1279,7 @@ export function PromptComposer(props: PromptComposerProps) {
         return true
       case "model":
         clearComposer()
-        setModelMenuOpenRequest((current) => current + 1)
+        setLocalModelMenuOpenRequest((current) => current + 1)
         return true
       case "mcp":
         clearComposer()
@@ -1244,17 +1299,15 @@ export function PromptComposer(props: PromptComposerProps) {
       return
     }
 
-    const nextValue = `/${command.name} `
-    const nextCursor = command.name.length + 2
     viewState.setDismissedSlashKey(undefined)
-    const nextParts = createPromptPartsFromValue(nextValue, viewState.knownAgents)
-    renderEditorAtCursor(nextParts, nextCursor, true)
-    replaceDraftFromComposer({
-      value: nextValue,
-      parts: nextParts,
-      attachments: draft.attachments,
-      cursor: nextCursor,
-    })
+    // Skills read as inline pills (icon + name); other commands stay literal
+    // `/name` text. Either way we replace only the trigger span, so a command
+    // picked after a mention doesn't wipe what's already in the composer.
+    const node =
+      command.source === "skill"
+        ? createPromptPill(createSkillPart(command.name))
+        : document.createTextNode(`/${command.name}`)
+    applyTriggerSelection("slash", node)
   }
 
   async function handleSubmit() {
@@ -1452,6 +1505,7 @@ export function PromptComposer(props: PromptComposerProps) {
               slashVisible={slashMenuVisible}
               mentionVisible={mentionMenuVisible}
               showMentionLoading={viewState.showMentionLoading}
+              mentionQuery={viewState.mentionMatch?.query}
               slashOptions={viewState.slashOptions}
               slashIndex={viewState.slashIndex}
               mentionOptions={viewState.mentionOptions}
@@ -1497,6 +1551,7 @@ export function PromptComposer(props: PromptComposerProps) {
                 ) {
                   const currentCursor = getCursorPosition(editor)
                   setCursorOffset(currentCursor)
+                  syncAutocompleteInputFromEditor()
                   updateDraftCursorFromComposer(currentCursor, "debounced")
                   return
                 }
@@ -1506,6 +1561,7 @@ export function PromptComposer(props: PromptComposerProps) {
                 const nextCursor = Math.max(0, Math.min(currentDraft.cursor, editorValueLength))
                 setCursorPosition(editor, nextCursor)
                 setCursorOffset(nextCursor)
+                syncAutocompleteInputFromEditor()
                 updateDraftCursorFromComposer(nextCursor, "debounced")
               }}
               onClick={() => {

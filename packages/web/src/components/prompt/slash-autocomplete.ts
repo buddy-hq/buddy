@@ -1,4 +1,8 @@
-import { PROMPT_PART_TYPE_TEXT, type PromptComposerPart } from "./prompt-types"
+import {
+  PROMPT_PART_TYPE_TEXT,
+  PROMPT_STRUCTURED_MASK_CHAR,
+  type PromptComposerPart,
+} from "./prompt-types"
 
 export type SlashCommandSource = "command" | "mcp" | "skill"
 
@@ -44,18 +48,28 @@ export type SlashMatch = {
   query: string
 }
 
+// Whitespace or a masked pill character bounds a slash token.
+const SLASH_BOUNDARY_PATTERN = new RegExp(`[\\s${PROMPT_STRUCTURED_MASK_CHAR}]`)
+
 export function getSlashMatch(value: string, cursorOffset: number): SlashMatch | undefined {
-  if (!value.startsWith("/")) return undefined
   if (cursorOffset <= 0 || cursorOffset > value.length) return undefined
-  if (/\s/.test(value)) return undefined
 
   const prefix = value.slice(0, cursorOffset)
-  if (!prefix.startsWith("/") || /\s/.test(prefix)) return undefined
+  const trigger = prefix.lastIndexOf("/")
+  if (trigger === -1) return undefined
+
+  // Trigger at the start of the message, after whitespace, or right after a
+  // pill (whose text is masked upstream) — not inside URLs or "and/or".
+  const beforeTrigger = trigger === 0 ? undefined : prefix[trigger - 1]
+  if (beforeTrigger !== undefined && !SLASH_BOUNDARY_PATTERN.test(beforeTrigger)) return undefined
+
+  const query = prefix.slice(trigger + 1)
+  if (SLASH_BOUNDARY_PATTERN.test(query)) return undefined
 
   return {
-    start: 0,
+    start: trigger,
     end: cursorOffset,
-    query: prefix.slice(1),
+    query,
   }
 }
 

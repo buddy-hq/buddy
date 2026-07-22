@@ -1,3 +1,5 @@
+import { PROMPT_STRUCTURED_MASK_CHAR } from "./prompt-types"
+
 export type MentionableAgent = {
   name: string
   description?: string
@@ -40,6 +42,14 @@ export type MentionMatch = {
   query: string
 }
 
+// Whitespace or a masked pill character ends a trigger query.
+const QUERY_BREAK_PATTERN = new RegExp(`[\\s${PROMPT_STRUCTURED_MASK_CHAR}]`)
+
+// Mirrors opencode's trigger rule (`/@(\S*)$/` on the text before the cursor):
+// typing `@` opens the menu wherever it happens — after an abandoned "/quer",
+// mid-word, anywhere — as long as no whitespace separates the `@` from the
+// cursor. Pill text is masked out of `value` upstream, so an `@` inside a
+// pill's serialized path can never produce a match.
 export function getMentionMatch(value: string, cursorOffset: number): MentionMatch | undefined {
   if (cursorOffset <= 0 || cursorOffset > value.length) return undefined
 
@@ -47,11 +57,8 @@ export function getMentionMatch(value: string, cursorOffset: number): MentionMat
   const trigger = prefix.lastIndexOf("@")
   if (trigger === -1) return undefined
 
-  const beforeTrigger = trigger === 0 ? undefined : prefix[trigger - 1]
-  if (beforeTrigger !== undefined && !/\s/.test(beforeTrigger)) return undefined
-
   const query = prefix.slice(trigger + 1)
-  if (/\s/.test(query)) return undefined
+  if (QUERY_BREAK_PATTERN.test(query)) return undefined
 
   return {
     start: trigger,

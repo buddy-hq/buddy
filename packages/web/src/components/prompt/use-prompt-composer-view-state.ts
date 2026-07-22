@@ -192,14 +192,23 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
     !!mentionMatch && mentionOptions.length > 0 && mentionKey !== dismissedMentionKey
   const showMentionLoading = !!mentionMatch && mentionKey !== dismissedMentionKey && searchingFiles
 
-  const slashMatch = useMemo(
-    () => getSlashMatch(props.draftValue, props.cursorOffset),
-    [props.cursorOffset, props.draftValue],
-  )
+  // `@` wins over `/` when both could match (mirrors opencode's
+  // `if (atMatch) … else if (slashMatch)`): typing "@" after an abandoned
+  // "/quer" switches straight to the mention menu.
+  const slashMatch = useMemo(() => {
+    if (mentionMatch) return undefined
+    return getSlashMatch(props.draftValue, props.cursorOffset)
+  }, [mentionMatch, props.cursorOffset, props.draftValue])
   const slashKey = slashMatch ? `${slashMatch.start}:${slashMatch.query}` : undefined
   const slashOptions = useMemo(() => {
     if (!slashMatch) return []
-    return filterSlashCommands(slashCommandOptions, slashMatch.query)
+    const filtered = filterSlashCommands(slashCommandOptions, slashMatch.query)
+    // Commands (built-ins, MCP, custom commands) first, then Skills — the menu
+    // renders a "Skills" header at that boundary. Order within each group keeps
+    // the relevance sort from `filterSlashCommands`.
+    const commands = filtered.filter((command) => command.source !== "skill")
+    const skills = filtered.filter((command) => command.source === "skill")
+    return [...commands, ...skills]
   }, [slashCommandOptions, slashMatch])
   const slashVisible = !!slashMatch && slashOptions.length > 0 && slashKey !== dismissedSlashKey
 

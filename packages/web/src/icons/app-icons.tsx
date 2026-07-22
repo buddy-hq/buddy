@@ -116,6 +116,7 @@ import {
   Shapes01Icon as Shapes01IconData,
   SlidersHorizontalIcon as SlidersHorizontalIconData,
   SparklesIcon as SparklesIconData,
+  RubiksCubeIcon as RubiksCubeIconData,
   StudyLampIcon as StudyLampIconData,
   Summation01Icon as Summation01IconData,
   Sun01Icon as Sun01IconData,
@@ -214,6 +215,40 @@ function createIcon(icon: IconSvgElement, displayName: string): AppIcon {
   Icon.displayName = displayName
   return Icon
 }
+
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+const ICON_VIEW_BOX = "0 0 24 24"
+
+function svgAttributeName(name: string) {
+  return name.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)
+}
+
+/**
+ * Render Hugeicons icon data to a detached DOM `<svg>` for imperative surfaces
+ * (e.g. the contenteditable prompt pills) that can't mount a React component.
+ * Backed by the same {@link IconSvgElement} data the React icons use, so the
+ * glyph stays identical everywhere — no hand-copied path strings.
+ */
+export function createAppIconElement(icon: IconSvgElement, className?: string): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NAMESPACE, "svg")
+  svg.setAttribute("viewBox", ICON_VIEW_BOX)
+  svg.setAttribute("fill", "none")
+  svg.setAttribute("aria-hidden", "true")
+  if (className) svg.setAttribute("class", className)
+  for (const [tag, attributes] of icon) {
+    const node = document.createElementNS(SVG_NAMESPACE, tag)
+    for (const [key, value] of Object.entries(attributes)) {
+      if (key === "key") continue
+      node.setAttribute(svgAttributeName(key), String(value))
+    }
+    svg.appendChild(node)
+  }
+  return svg
+}
+
+// Raw icon data for surfaces that build DOM nodes via createAppIconElement.
+export const rubiksCubeIconData = RubiksCubeIconData
+export const folderOpenIconData = FolderOpenIconData
 
 export { HugeiconsIcon }
 export type { IconSvgElement }
@@ -365,6 +400,7 @@ export const BlocksIcon = createIcon(BlocksIconData, "BlocksIcon")
 export const Redo2Icon = createIcon(Redo03IconData, "Redo2Icon")
 export const RefreshCwIcon = createIcon(ArrowReloadHorizontalIconData, "RefreshCwIcon")
 export const RotateCcwIcon = createIcon(RotateLeft01IconData, "RotateCcwIcon")
+export const RubiksCube = createIcon(RubiksCubeIconData, "RubiksCube")
 export const SaveIcon = createIcon(SaveIconData, "SaveIcon")
 export const ScaleIcon = createIcon(JusticeScale01IconData, "ScaleIcon")
 export const ScanText = createIcon(ScanIconData, "ScanText")

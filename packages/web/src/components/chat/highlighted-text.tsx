@@ -2,14 +2,28 @@ import { useMemo } from "react"
 import { cn } from "@buddy/ui"
 import { isRecord } from "./tools/types"
 import { FileTypeIcon } from "../files/file-type-icon"
+import { RubiksCube } from "@/icons/app-icons"
 import type { ChatAgentPart, ChatFilePart } from "./utils/part-guards"
 
-type HighlightSegment = { text: string; type?: "file" | "agent" }
+type HighlightSegment = { text: string; type?: "file" | "agent" | "command" }
 
 type HighlightReference = {
   start: number
   end: number
-  type: "file" | "agent"
+  type: "file" | "agent" | "command"
+}
+
+// A slash command / skill sits only at the very start of a message (the
+// backend contract), so a leading `/name` token followed by a space or the end
+// of the message is rendered as a pill — matching the composer's skill pill —
+// rather than raw "/docx" text. Path-like "/usr/local" never matches: the token
+// must be a bare command name terminated by whitespace or end.
+const LEADING_COMMAND_PATTERN = /^\/([A-Za-z][A-Za-z0-9_-]*)(?=\s|$)/
+
+function readLeadingCommandReference(text: string): HighlightReference | undefined {
+  const match = LEADING_COMMAND_PATTERN.exec(text)
+  if (!match) return undefined
+  return { start: 0, end: match[0].length, type: "command" }
 }
 
 function readSourceRange(value: unknown): { start: number; end: number } | undefined {
@@ -56,14 +70,28 @@ function stripMentionPrefix(value: string) {
   return value.startsWith("@") ? value.slice(1) : value
 }
 
+const INLINE_REFERENCE_CLASS =
+  "mx-1 inline-flex max-w-full items-baseline gap-1 align-baseline font-medium text-text-interactive-base"
+const INLINE_REFERENCE_ICON_CLASS = "relative top-px size-3 shrink-0"
+
 function InlineFileReference({ text }: { text: string }) {
   return (
-    <span className="mx-1 inline-flex max-w-full items-baseline gap-1 align-baseline font-medium text-text-interactive-base">
-      <FileTypeIcon
-        fileName={stripMentionPrefix(text)}
-        className="relative top-px size-3 shrink-0"
-      />
+    <span className={INLINE_REFERENCE_CLASS}>
+      <FileTypeIcon fileName={stripMentionPrefix(text)} className={INLINE_REFERENCE_ICON_CLASS} />
       <span className="truncate">{stripMentionPrefix(text)}</span>
+    </span>
+  )
+}
+
+function stripCommandPrefix(value: string) {
+  return value.startsWith("/") ? value.slice(1) : value
+}
+
+function InlineCommandReference({ text }: { text: string }) {
+  return (
+    <span className={INLINE_REFERENCE_CLASS}>
+      <RubiksCube className={INLINE_REFERENCE_ICON_CLASS} />
+      <span className="truncate">{stripCommandPrefix(text)}</span>
     </span>
   )
 }
@@ -76,6 +104,7 @@ export function HighlightedText({
 }: HighlightedTextProps) {
   const segments = useMemo(() => {
     const allRefs = [
+      readLeadingCommandReference(text),
       ...references.map(readFileHighlightReference),
       ...agents.map(readAgentHighlightReference),
     ]
@@ -142,6 +171,8 @@ export function HighlightedText({
       {keyedSegments.map(({ key, segment }) =>
         segment.type === "file" ? (
           <InlineFileReference key={key} text={segment.text} />
+        ) : segment.type === "command" ? (
+          <InlineCommandReference key={key} text={segment.text} />
         ) : (
           <span key={key} className={cn(segment.type === "agent" && "text-text-base font-medium")}>
             {segment.text}
