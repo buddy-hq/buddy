@@ -4,6 +4,8 @@ import {
   formatChatGptPlan,
   formatRelativeTime,
   formatUsageWindowLabel,
+  isChatGptReconnectRequired,
+  resolveChatGptAuthErrorSurfaces,
   resolveUsageRemainingPercent,
   resolveAvailableProviders,
   resolveProviderListRowAction,
@@ -122,6 +124,48 @@ describe("ChatGPT account formatting", () => {
     expect(
       formatRelativeTime("2026-06-10T14:00:00.000Z", Date.parse("2026-06-10T12:00:00.000Z")),
     ).toBe("in 2 hours")
+  })
+
+  test("distinguishes invalid authentication from transient account failures", () => {
+    expect(
+      isChatGptReconnectRequired({
+        modelAvailability: { status: "reconnect_required" },
+        usage: { status: "error" },
+      }),
+    ).toBe(true)
+    expect(
+      isChatGptReconnectRequired({
+        modelAvailability: { status: "error" },
+        usage: { status: "reconnect_required" },
+      }),
+    ).toBe(true)
+    expect(
+      isChatGptReconnectRequired({
+        modelAvailability: { status: "error" },
+        usage: { status: "error" },
+      }),
+    ).toBe(false)
+  })
+
+  test("keeps reconnect failures on the connected account surface", () => {
+    expect(
+      resolveChatGptAuthErrorSurfaces({
+        connected: true,
+        error: "Sign-in was cancelled.",
+      }),
+    ).toEqual({
+      accountError: "Sign-in was cancelled.",
+      availableError: undefined,
+    })
+    expect(
+      resolveChatGptAuthErrorSurfaces({
+        connected: false,
+        error: "Sign-in was cancelled.",
+      }),
+    ).toEqual({
+      accountError: undefined,
+      availableError: "Sign-in was cancelled.",
+    })
   })
 })
 

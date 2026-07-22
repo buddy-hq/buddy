@@ -82,9 +82,13 @@ type RecommendedProviderCardProps = {
 type ChatGptAccountCardProps = {
   modelAvailability: ProviderCatalogState["openAIModelAvailability"]
   usage: OpenAIUsageSnapshot | undefined
+  error?: string
   usageLoading: boolean
   refreshing: boolean
+  reconnecting: boolean
+  reconnectRequired: boolean
   onManage: () => void
+  onReconnect: () => void
   onRefresh: () => void
 }
 
@@ -201,6 +205,25 @@ export function resolveUsageRemainingPercent(usedPercent: number) {
   return 100 - Math.max(0, Math.min(usedPercent, 100))
 }
 
+export function isChatGptReconnectRequired(input: {
+  modelAvailability: ProviderCatalogState["openAIModelAvailability"]
+  usage: OpenAIUsageSnapshot | undefined
+}) {
+  return (
+    input.modelAvailability.status === "reconnect_required" ||
+    input.usage?.status === "reconnect_required"
+  )
+}
+
+export function resolveChatGptAuthErrorSurfaces(input: {
+  connected: boolean
+  error: string | undefined
+}) {
+  return input.connected
+    ? { accountError: input.error, availableError: undefined }
+    : { accountError: undefined, availableError: input.error }
+}
+
 function UsageWindow(props: { window: OpenAIUsageWindow }) {
   const remainingPercent = resolveUsageRemainingPercent(props.window.usedPercent)
 
@@ -230,9 +253,11 @@ function UsageWindow(props: { window: OpenAIUsageWindow }) {
 }
 
 function ChatGptAccountCard(props: ChatGptAccountCardProps) {
-  const readyUsage = props.usage?.status === "ready" ? props.usage : undefined
-  const modelDescription =
-    props.modelAvailability.status === "ready"
+  const readyUsage =
+    !props.reconnectRequired && props.usage?.status === "ready" ? props.usage : undefined
+  const modelDescription = props.reconnectRequired
+    ? language.t("settings.providers.chatGptReconnectDescription")
+    : props.modelAvailability.status === "ready"
       ? language.t("settings.providers.chatGptModelsAvailable", {
           count: props.modelAvailability.modelIDs.length,
         })
@@ -250,16 +275,38 @@ function ChatGptAccountCard(props: ChatGptAccountCardProps) {
       <div className="flex flex-col gap-4 px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border-success-base bg-surface-success-base/10">
-              <ProviderIcon id={OPENAI_PROVIDER_ID} className="size-5 text-text-success-base" />
+            <div
+              className={cn(
+                "flex size-10 shrink-0 items-center justify-center rounded-xl border",
+                props.reconnectRequired
+                  ? "border-border-critical-base bg-surface-critical-base/10"
+                  : "border-border-success-base bg-surface-success-base/10",
+              )}
+            >
+              <ProviderIcon
+                id={OPENAI_PROVIDER_ID}
+                className={cn(
+                  "size-5",
+                  props.reconnectRequired ? "text-icon-critical-base" : "text-text-success-base",
+                )}
+              />
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-medium text-text-base">
                   {language.t("settings.providers.chatGptTitle")}
                 </p>
-                <Badge variant="outline">
-                  {readyUsage?.plan
+                <Badge
+                  variant="outline"
+                  className={
+                    props.reconnectRequired
+                      ? "border-border-critical-base text-icon-critical-base"
+                      : undefined
+                  }
+                >
+                  {props.reconnectRequired
+                    ? language.t("settings.providers.chatGptReconnectRequired")
+                    : readyUsage?.plan
                     ? language.t("settings.providers.chatGptPlan", {
                         plan: formatChatGptPlan(readyUsage.plan),
                       })
@@ -270,28 +317,50 @@ function ChatGptAccountCard(props: ChatGptAccountCardProps) {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {props.reconnectRequired ? null : (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                aria-label={language.t("settings.providers.refreshChatGpt")}
+                onClick={props.onRefresh}
+                disabled={props.refreshing}
+              >
+                {props.refreshing ? (
+                  <Loader2Icon data-icon="inline-start" className="animate-spin" />
+                ) : (
+                  <RefreshCwIcon data-icon="inline-start" />
+                )}
+                {language.t("common.refresh")}
+              </Button>
+            )}
             <Button
               type="button"
               size="sm"
-              variant="ghost"
-              aria-label={language.t("settings.providers.refreshChatGpt")}
-              onClick={props.onRefresh}
-              disabled={props.refreshing}
+              variant="secondary"
+              onClick={props.reconnectRequired ? props.onReconnect : props.onManage}
+              disabled={props.reconnecting}
             >
-              {props.refreshing ? (
+              {props.reconnecting ? (
                 <Loader2Icon data-icon="inline-start" className="animate-spin" />
-              ) : (
-                <RefreshCwIcon data-icon="inline-start" />
-              )}
-              {language.t("common.refresh")}
-            </Button>
-            <Button type="button" size="sm" variant="secondary" onClick={props.onManage}>
-              {language.t("settings.providers.editConnection")}
+              ) : null}
+              {props.reconnectRequired
+                ? language.t("connectProviderDialog.reconnect")
+                : language.t("settings.providers.editConnection")}
             </Button>
           </div>
         </div>
 
-        {props.usageLoading && !props.usage ? (
+        {props.error ? (
+          <p
+            role="alert"
+            className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-xs text-icon-critical-base"
+          >
+            {props.error}
+          </p>
+        ) : null}
+
+        {props.reconnectRequired ? null : props.usageLoading && !props.usage ? (
           <div className="flex items-center gap-2 text-xs text-text-weak">
             <Loader2Icon className="size-4 animate-spin" />
             {language.t("settings.providers.chatGptUsageLoading")}
@@ -561,20 +630,45 @@ export function ProvidersSettings() {
     [allProviders],
   )
   const chatGptProvider = providersByID.get(OPENAI_PROVIDER_ID)
-  const chatGptOAuthConnected =
+  const chatGptOAuthConfigured =
     Boolean(chatGptProvider?.connected) &&
     providerCatalog?.openAIModelAvailability.status !== "not_connected"
-  const openAIUsageQuery = useQuery(openAIUsageQueryOptions(chatGptOAuthConnected))
+  const openAIUsageQuery = useQuery(openAIUsageQueryOptions(chatGptOAuthConfigured))
   const showChatGptAccountCard =
-    chatGptOAuthConnected &&
+    chatGptOAuthConfigured &&
     filteredConnectedProviders.some((provider) => provider.id === OPENAI_PROVIDER_ID)
+  const chatGptReconnectRequired =
+    Boolean(showChatGptAccountCard && providerCatalog) &&
+    isChatGptReconnectRequired({
+      modelAvailability: providerCatalog?.openAIModelAvailability ?? { status: "not_connected" },
+      usage: openAIUsageQuery.data,
+    })
   const genericConnectedProviders = showChatGptAccountCard
     ? filteredConnectedProviders.filter((provider) => provider.id !== OPENAI_PROVIDER_ID)
     : filteredConnectedProviders
   const dialogProvider = providerDialogTarget
     ? providersByID.get(providerDialogTarget)
     : allProviders[0]
-  const chatGptError = chatGptProvider?.connected ? undefined : chatGptErrorState
+  const chatGptErrors = resolveChatGptAuthErrorSurfaces({
+    connected: Boolean(chatGptProvider?.connected),
+    error: chatGptErrorState,
+  })
+
+  const chatGptAccountCard =
+    showChatGptAccountCard && chatGptProvider && providerCatalog ? (
+      <ChatGptAccountCard
+        modelAvailability={providerCatalog.openAIModelAvailability}
+        usage={openAIUsageQuery.data}
+        error={chatGptErrors.accountError}
+        usageLoading={openAIUsageQuery.isPending}
+        refreshing={chatGptRefreshing}
+        reconnecting={chatGptConnecting}
+        reconnectRequired={chatGptReconnectRequired}
+        onManage={() => openProviderDialog(OPENAI_PROVIDER_ID)}
+        onReconnect={() => void handleConnectChatGpt()}
+        onRefresh={() => void handleRefreshChatGpt()}
+      />
+    ) : null
 
   function openProviderDialog(initialProvider?: string) {
     setProviderDialogTarget(initialProvider)
@@ -616,6 +710,7 @@ export function ProvidersSettings() {
         completeProviderOAuth: ({ providerID, methodIndex }) =>
           completeProviderOAuth({ providerID, methodIndex }),
         reloadProviderRuntime,
+        forceReconnect: chatGptReconnectRequired,
         onAuthenticated: () => {
           if (latestChatGptRequestRef.current === requestID) {
             setChatGptWaitingOpen(false)
@@ -658,19 +753,17 @@ export function ProvidersSettings() {
           />
         ) : null}
 
-        {showChatGptAccountCard || genericConnectedProviders.length > 0 ? (
+        {chatGptReconnectRequired && chatGptAccountCard ? (
+          <ProviderSection title={language.t("settings.providers.needsAttentionSection")}>
+            {chatGptAccountCard}
+          </ProviderSection>
+        ) : null}
+
+        {(!chatGptReconnectRequired && chatGptAccountCard) ||
+        genericConnectedProviders.length > 0 ? (
           <ProviderSection title={language.t("settings.providers.connectedSection")}>
             <div className="flex flex-col gap-3">
-              {showChatGptAccountCard && chatGptProvider && providerCatalog ? (
-                <ChatGptAccountCard
-                  modelAvailability={providerCatalog.openAIModelAvailability}
-                  usage={openAIUsageQuery.data}
-                  usageLoading={openAIUsageQuery.isPending}
-                  refreshing={chatGptRefreshing}
-                  onManage={() => openProviderDialog(OPENAI_PROVIDER_ID)}
-                  onRefresh={() => void handleRefreshChatGpt()}
-                />
-              ) : null}
+              {chatGptReconnectRequired ? null : chatGptAccountCard}
               {genericConnectedProviders.length > 0 ? (
                 <SettingsListCard>
                   {genericConnectedProviders.map((provider, index) => (
@@ -715,7 +808,9 @@ export function ProvidersSettings() {
                         definition.providerID === OPENAI_PROVIDER_ID ? chatGptConnecting : undefined
                       }
                       error={
-                        definition.providerID === OPENAI_PROVIDER_ID ? chatGptError : undefined
+                        definition.providerID === OPENAI_PROVIDER_ID
+                          ? chatGptErrors.availableError
+                          : undefined
                       }
                       onConnect={() => {
                         if (definition.providerID === OPENAI_PROVIDER_ID) {
@@ -734,9 +829,9 @@ export function ProvidersSettings() {
         ) : null}
 
         <ProviderSection title={language.t("settings.providers.allProvidersSection")}>
-          {chatGptError ? (
+          {chatGptErrors.availableError ? (
             <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-xs text-icon-critical-base">
-              {chatGptError}
+              {chatGptErrors.availableError}
             </p>
           ) : null}
           <SettingsListCard>

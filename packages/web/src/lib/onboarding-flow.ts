@@ -170,6 +170,7 @@ export async function connectChatGptPlusForOnboarding(input: {
   }) => Promise<ProviderAuthAuthorization | undefined>
   completeProviderOAuth: (request: { providerID: string; methodIndex: number }) => Promise<void>
   reloadProviderRuntime: () => Promise<void>
+  forceReconnect?: boolean
   onAuthenticated?: () => void
 }) {
   let authenticationNotified = false
@@ -185,7 +186,7 @@ export async function connectChatGptPlusForOnboarding(input: {
     throw new Error(language.t("onboardingFlow.openAiUnavailable"))
   }
 
-  if (provider.connected) {
+  if (provider.connected && !input.forceReconnect) {
     notifyAuthenticated()
     return
   }

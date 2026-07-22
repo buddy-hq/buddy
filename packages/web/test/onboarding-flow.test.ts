@@ -697,6 +697,56 @@ describe("ChatGPT Plus onboarding auth", () => {
     expect(completeCalled).toBe(false)
     expect(reloadCalled).toBe(false)
   })
+
+  test("restarts OAuth when an existing OpenAI connection requires reconnection", async () => {
+    const calls: string[] = []
+    const catalog = createCatalog({
+      providers: [
+        createProvider({
+          id: "openai",
+          name: "OpenAI",
+          connected: true,
+          methods: [{ type: "oauth", label: "ChatGPT Pro/Plus (browser)" }],
+          models: [createModel("gpt-5", "GPT-5")],
+        }),
+      ],
+      default: { openai: "gpt-5" },
+    })
+
+    await connectChatGptPlusForOnboarding({
+      forceReconnect: true,
+      openLink() {
+        calls.push("openLink")
+      },
+      async loadProviderCatalogSnapshot() {
+        calls.push("loadCatalog")
+        return catalog
+      },
+      async authorizeProviderOAuth() {
+        calls.push("authorize")
+        return {
+          url: "https://chatgpt.example/auth",
+          method: "auto",
+          instructions: "Complete authorization in your browser.",
+        }
+      },
+      async completeProviderOAuth() {
+        calls.push("complete")
+      },
+      async reloadProviderRuntime() {
+        calls.push("reload")
+      },
+    })
+
+    expect(calls).toEqual([
+      "loadCatalog",
+      "authorize",
+      "openLink",
+      "complete",
+      "reload",
+      "loadCatalog",
+    ])
+  })
 })
 
 describe("notebook onboarding configuration", () => {
