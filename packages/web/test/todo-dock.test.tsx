@@ -5,10 +5,7 @@ import { createRoot, type Root } from "react-dom/client"
 
 import type { TodoItem } from "../src/components/chat/tools/todo-state"
 import { TodoDock } from "../src/components/prompt/todo-dock"
-import {
-  TodoDockBoardView,
-  TodoDockListView,
-} from "../src/components/prompt/todo-dock-views"
+import { TodoDockBoardView, TodoDockListView } from "../src/components/prompt/todo-dock-views"
 import { TodoDockIndicator } from "../src/components/prompt/todo-dock-indicator"
 
 describe("TodoDock", () => {
@@ -164,9 +161,7 @@ describe("TodoDock", () => {
     expect(pendingRow?.textContent).toContain("Ship it")
 
     await act(async () => {
-      root.render(
-        <TodoDockListView todos={[{ ...todo, status: "completed" }]} turnActive />,
-      )
+      root.render(<TodoDockListView todos={[{ ...todo, status: "completed" }]} turnActive />)
     })
 
     const completedRow = container.querySelector<HTMLElement>('li[data-state="completed"]')
@@ -191,9 +186,7 @@ describe("TodoDock", () => {
       )
     })
 
-    expect(
-      container.querySelector('[data-todo-indicator-state="idle"]'),
-    ).not.toBeNull()
+    expect(container.querySelector('[data-todo-indicator-state="idle"]')).not.toBeNull()
 
     await act(async () => {
       root.render(
@@ -209,9 +202,7 @@ describe("TodoDock", () => {
       )
     })
 
-    expect(
-      container.querySelector('[data-todo-indicator-state="idle"]'),
-    ).not.toBeNull()
+    expect(container.querySelector('[data-todo-indicator-state="idle"]')).not.toBeNull()
 
     await act(async () => {
       root.render(
@@ -227,9 +218,7 @@ describe("TodoDock", () => {
       )
     })
 
-    expect(
-      container.querySelector('[data-todo-indicator-state="idle"]'),
-    ).not.toBeNull()
+    expect(container.querySelector('[data-todo-indicator-state="idle"]')).not.toBeNull()
 
     await act(async () => {
       await new Promise<void>((resolve) => {
@@ -237,13 +226,11 @@ describe("TodoDock", () => {
       })
     })
 
-    const activeIndicator = container.querySelector(
-      '[data-todo-indicator-state="in_progress"]',
-    )
+    const activeIndicator = container.querySelector('[data-todo-indicator-state="in_progress"]')
     expect(activeIndicator).not.toBeNull()
-    expect(activeIndicator?.querySelector("svg")?.classList.contains("motion-safe:animate-spin")).toBe(
-      true,
-    )
+    expect(
+      activeIndicator?.querySelector("svg")?.classList.contains("motion-safe:animate-spin"),
+    ).toBe(true)
 
     await act(async () => {
       await new Promise<void>((resolve) => {
@@ -251,9 +238,7 @@ describe("TodoDock", () => {
       })
     })
 
-    expect(
-      container.querySelector('[data-todo-indicator-state="idle"]'),
-    ).not.toBeNull()
+    expect(container.querySelector('[data-todo-indicator-state="idle"]')).not.toBeNull()
   })
 
   test("coalesces rapid todo revisions before showing their status", async () => {
@@ -291,9 +276,7 @@ describe("TodoDock", () => {
       )
     })
 
-    expect(
-      container.querySelector('[data-todo-indicator-state="idle"]'),
-    ).not.toBeNull()
+    expect(container.querySelector('[data-todo-indicator-state="idle"]')).not.toBeNull()
 
     await act(async () => {
       await new Promise<void>((resolve) => {
@@ -301,11 +284,7 @@ describe("TodoDock", () => {
       })
     })
 
-    expect(
-      container.querySelector('[data-todo-indicator-state="completed"]'),
-    ).not.toBeNull()
-    expect(
-      container.querySelector('[data-todo-indicator-state="in_progress"]'),
-    ).toBeNull()
+    expect(container.querySelector('[data-todo-indicator-state="completed"]')).not.toBeNull()
+    expect(container.querySelector('[data-todo-indicator-state="in_progress"]')).toBeNull()
   })
 })

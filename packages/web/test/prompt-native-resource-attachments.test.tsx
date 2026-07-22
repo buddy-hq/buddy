@@ -10,11 +10,7 @@ import {
   PromptComposer,
   type PromptComposerAttachmentsApi,
 } from "../src/components/prompt/prompt-composer"
-import {
-  createBrowserPlatform,
-  setRuntimePlatform,
-  type Platform,
-} from "../src/context/platform"
+import { createBrowserPlatform, setRuntimePlatform, type Platform } from "../src/context/platform"
 import { flushPromptStorePersistence, usePromptStore } from "../src/state/prompt-store"
 
 const TEST_DIRECTORY = "/repo"
@@ -136,9 +132,9 @@ describe("native resource attachment staging", () => {
     expect(maximumActiveCopies).toBe(2)
     expect(readAsDataUrl).not.toHaveBeenCalled()
     readAsDataUrl.mockRestore()
-    expect(container.querySelector<HTMLButtonElement>('[data-action="prompt-submit"]')?.disabled).toBe(
-      true,
-    )
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-action="prompt-submit"]')?.disabled,
+    ).toBe(true)
     expect(
       container.querySelector('[data-component="prompt-editor"]')?.getAttribute("contenteditable"),
     ).toBe("true")
@@ -177,9 +173,9 @@ describe("native resource attachment staging", () => {
       await flushEffects()
     })
     expect(container.querySelectorAll('[data-status="ready"]')).toHaveLength(3)
-    expect(container.querySelector<HTMLButtonElement>('[data-action="prompt-submit"]')?.disabled).toBe(
-      false,
-    )
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-action="prompt-submit"]')?.disabled,
+    ).toBe(false)
   })
 
   test("stages all six spreadsheet formats without reading their binaries into the renderer", async () => {
@@ -282,9 +278,9 @@ describe("native resource attachment staging", () => {
     const failedChip = container.querySelector<HTMLElement>('[data-status="error"]')
     expect(failedChip).not.toBeNull()
     expect(failedChip?.textContent).toContain("Copy failed")
-    expect(container.querySelector<HTMLButtonElement>('[data-action="prompt-submit"]')?.disabled).toBe(
-      true,
-    )
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-action="prompt-submit"]')?.disabled,
+    ).toBe(true)
 
     const removeButton = container.querySelector<HTMLButtonElement>(
       '[data-action="file-attachment-chip-remove"]',
@@ -335,9 +331,9 @@ describe("native resource attachment staging", () => {
 
     expect(requestCount).toBe(0)
     expect(container.querySelector('[data-status="error"]')?.textContent).toContain("Copy failed")
-    expect(container.querySelector<HTMLButtonElement>('[data-action="prompt-submit"]')?.disabled).toBe(
-      true,
-    )
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-action="prompt-submit"]')?.disabled,
+    ).toBe(true)
   })
 
   test("enforces the shared native resource attachment limit before copying", async () => {
@@ -391,9 +387,7 @@ describe("native resource attachment staging", () => {
       ...createBrowserPlatform(),
       platform: "desktop",
       resolveDroppedFilePath: (file) => `/external/${file.name}`,
-      fetch: createTestFetch(
-        () => new Promise<Response>((resolve) => (completeUpload = resolve)),
-      ),
+      fetch: createTestFetch(() => new Promise<Response>((resolve) => (completeUpload = resolve))),
     }
     setRuntimePlatform(platform)
     const attachmentsApiRef = createRef<PromptComposerAttachmentsApi>()

@@ -7,10 +7,7 @@ import {
   createAssistantErrorCardSpec,
   type AssistantErrorActionID,
 } from "../src/components/chat/assistant-error-card"
-import {
-  SessionRetryNotice,
-  type RetryActionID,
-} from "../src/components/chat/session-retry-notice"
+import { SessionRetryNotice, type RetryActionID } from "../src/components/chat/session-retry-notice"
 
 async function flushEffects() {
   await Promise.resolve()
@@ -50,7 +47,9 @@ describe("locked chat error surfaces", () => {
     })
 
     await act(async () => {
-      root.render(<AssistantErrorCard spec={spec} alert onAction={(action) => actions.push(action)} />)
+      root.render(
+        <AssistantErrorCard spec={spec} alert onAction={(action) => actions.push(action)} />,
+      )
       await flushEffects()
     })
 

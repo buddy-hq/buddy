@@ -134,11 +134,11 @@ describe("user section native resources", () => {
       )
     })
 
+    expect(container.querySelectorAll('[data-component="file-attachment-chip"]')).toHaveLength(2)
     expect(
-      container.querySelectorAll('[data-component="file-attachment-chip"]'),
-    ).toHaveLength(2)
-    expect(
-      container.querySelector('[data-component="file-attachment-chip"][data-filename="analysis.md"]'),
+      container.querySelector(
+        '[data-component="file-attachment-chip"][data-filename="analysis.md"]',
+      ),
     ).not.toBeNull()
     expect(
       container.querySelector('[data-component="file-attachment-chip"][data-filename="notes.txt"]'),

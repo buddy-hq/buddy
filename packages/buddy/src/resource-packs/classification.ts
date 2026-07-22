@@ -8,11 +8,7 @@ import {
   type ResourceFormat,
 } from "./contracts"
 
-const RESOURCE_LIKE_EXTENSIONS = new Set([
-  ".html",
-  ".htm",
-  ".xhtml",
-])
+const RESOURCE_LIKE_EXTENSIONS = new Set([".html", ".htm", ".xhtml"])
 const DIRECT_TEXT_EXTENSIONS = new Set([
   ".txt",
   ".md",

@@ -76,7 +76,10 @@ export function TodoDock(props: TodoDockProps) {
                 <Kanban className="size-3.5 [@media(max-height:640px)]:size-3" />
               </ToggleGroupItem>
             </ToggleGroup>
-            <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-border-weak-base/60 [@media(max-height:640px)]:h-3" />
+            <span
+              aria-hidden="true"
+              className="mx-0.5 h-4 w-px bg-border-weak-base/60 [@media(max-height:640px)]:h-3"
+            />
             <Button
               type="button"
               variant="ghost"

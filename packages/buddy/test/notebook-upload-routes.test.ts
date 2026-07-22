@@ -87,9 +87,7 @@ describe("notebook upload route", () => {
       uploadRequest(project.path, unsupportedWorkbookPath),
       uploadRequest(project.path, largePdfPath),
     ])
-    expect(responses.map((response) => response.status)).toEqual([
-      400, 400, 400, 400, 400,
-    ])
+    expect(responses.map((response) => response.status)).toEqual([400, 400, 400, 400, 400])
     await expect(readdir(path.join(project.path, "uploads"))).rejects.toThrow()
   })
 

@@ -158,9 +158,7 @@ function startsWithBytes(bytes: Uint8Array, signature: Uint8Array): boolean {
 function assertLegacyXlsContainer(bytes: Uint8Array): void {
   const isCompoundFile = startsWithBytes(bytes, LEGACY_XLS_COMPOUND_FILE_SIGNATURE)
   const isRawBiffWorkbook =
-    bytes[0] === 0x09 &&
-    bytes[1] !== undefined &&
-    LEGACY_XLS_BIFF_BOF_VERSIONS.has(bytes[1])
+    bytes[0] === 0x09 && bytes[1] !== undefined && LEGACY_XLS_BIFF_BOF_VERSIONS.has(bytes[1])
   if (isCompoundFile || isRawBiffWorkbook) return
   throw new Error("XLS input is not a legacy Excel compound file or BIFF workbook.")
 }
@@ -172,7 +170,10 @@ function cellDisplayText(cell: SpreadsheetCell): string {
   return ""
 }
 
-function displayCellValue(value: unknown, address: string): {
+function displayCellValue(
+  value: unknown,
+  address: string,
+): {
   text: string
   annotation?: FormulaAnnotation
 } {
@@ -243,10 +244,7 @@ function prepareWorksheets(workbook: XLSX.WorkBook): PreparedWorksheet[] {
   return workbook.SheetNames.map((name, worksheetIndex) => {
     const worksheetValue: unknown = workbook.Sheets[name]
     const fullRowCount = worksheetFullRowCount(worksheetValue, name)
-    if (
-      fullRowCount !== undefined &&
-      fullRowCount > SPREADSHEET_MAX_MATERIALIZED_ROWS_PER_SHEET
-    ) {
+    if (fullRowCount !== undefined && fullRowCount > SPREADSHEET_MAX_MATERIALIZED_ROWS_PER_SHEET) {
       throw new ResourceBudgetExceededError(
         `Worksheet ${name} extends to row ${fullRowCount}; the maximum materialized row is ${SPREADSHEET_MAX_MATERIALIZED_ROWS_PER_SHEET}.`,
       )
@@ -431,11 +429,7 @@ export async function extractSpreadsheetResourceInWorker(
     }
     textArtifacts.push({ relativePath: sheet.csvPath, content: csv })
 
-    for (
-      let startRow = 1;
-      startRow <= sheet.rowCount;
-      startRow += SPREADSHEET_ROW_WINDOW_SIZE
-    ) {
+    for (let startRow = 1; startRow <= sheet.rowCount; startRow += SPREADSHEET_ROW_WINDOW_SIZE) {
       const endRow = Math.min(sheet.rowCount, startRow + SPREADSHEET_ROW_WINDOW_SIZE - 1)
       const markdown = renderRowWindow({
         sheet,

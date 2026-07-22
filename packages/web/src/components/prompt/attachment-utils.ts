@@ -132,9 +132,7 @@ export async function resolvePromptAttachmentMime(file: File): Promise<string | 
 
   if (isTextMimeType(mime)) return TEXT_MIME_TYPE
 
-  const sample = new Uint8Array(
-    await file.slice(0, ATTACHMENT_MIME_SAMPLE_BYTES).arrayBuffer(),
-  )
+  const sample = new Uint8Array(await file.slice(0, ATTACHMENT_MIME_SAMPLE_BYTES).arrayBuffer())
   if (!isProbablyText(sample)) return undefined
   return TEXT_MIME_TYPE
 }

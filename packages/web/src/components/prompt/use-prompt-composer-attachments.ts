@@ -303,16 +303,12 @@ export function usePromptComposerAttachments(props: UsePromptComposerAttachments
   function removeAttachment(id: string): void {
     propsRef.current.resetHistoryNavigation()
     generationByAttachmentRef.current.delete(id)
-    queuedCopiesRef.current = queuedCopiesRef.current.filter(
-      (copy) => copy.attachmentID !== id,
-    )
+    queuedCopiesRef.current = queuedCopiesRef.current.filter((copy) => copy.attachmentID !== id)
     abortByAttachmentRef.current.get(id)?.abort()
     abortByAttachmentRef.current.delete(id)
     fileByAttachmentRef.current.delete(id)
     pathByAttachmentRef.current.delete(id)
-    updateAttachments((attachments) =>
-      attachments.filter((attachment) => attachment.id !== id),
-    )
+    updateAttachments((attachments) => attachments.filter((attachment) => attachment.id !== id))
   }
 
   function retryAttachment(id: string): void {

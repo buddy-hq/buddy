@@ -30,7 +30,9 @@ export function useDirectoryGroups(props: UseDirectoryGroupsProps): DirectoryGro
         const allSessions = props.sessionsByDirectory[directory] ?? []
         const pinnedSet = new Set(props.pinnedByDirectory[directory] ?? [])
         // Pinned root threads surface in the dedicated Pinned section instead, not inside their notebook.
-        const sessions = allSessions.filter((session) => !session.parentID && !pinnedSet.has(session.id))
+        const sessions = allSessions.filter(
+          (session) => !session.parentID && !pinnedSet.has(session.id),
+        )
         const sessionsByID = new Map(allSessions.map((session) => [session.id, session]))
         const unreadMap = props.unreadByDirectory[directory] ?? {}
         const statusByID = props.sessionStatusByDirectory[directory] ?? {}

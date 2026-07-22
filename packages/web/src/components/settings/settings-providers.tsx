@@ -307,10 +307,10 @@ function ChatGptAccountCard(props: ChatGptAccountCardProps) {
                   {props.reconnectRequired
                     ? language.t("settings.providers.chatGptReconnectRequired")
                     : readyUsage?.plan
-                    ? language.t("settings.providers.chatGptPlan", {
-                        plan: formatChatGptPlan(readyUsage.plan),
-                      })
-                    : language.t("onboardingSetup.engineSelection.connected")}
+                      ? language.t("settings.providers.chatGptPlan", {
+                          plan: formatChatGptPlan(readyUsage.plan),
+                        })
+                      : language.t("onboardingSetup.engineSelection.connected")}
                 </Badge>
               </div>
               <p className="text-xs text-text-weak">{modelDescription}</p>

@@ -52,11 +52,7 @@ export type ChatTranscriptProps = {
     messageID?: string
   }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
-  onRetryAction?: (input: {
-    action: RetryActionID
-    userMessageID: string
-    link?: string
-  }) => void
+  onRetryAction?: (input: { action: RetryActionID; userMessageID: string; link?: string }) => void
   onContinueTruncated?: (input: { userMessageID: string }) => void
 }
 

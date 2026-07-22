@@ -446,7 +446,14 @@ function ArtBody(props: { kind: ArtKind }) {
     case "widget-plant":
       return (
         <g strokeWidth={2}>
-          <rect x={4} y={4} width={88} height={56} rx={4} className={cn(LINE, "fill-background-base")} />
+          <rect
+            x={4}
+            y={4}
+            width={88}
+            height={56}
+            rx={4}
+            className={cn(LINE, "fill-background-base")}
+          />
           <path d="M48 46V28" className="stroke-current" fill="none" />
           <path d="M48 32c-10 0-14-6-14-12 8 0 14 4 14 12z" className="fill-current" />
           <path d="M48 36c10 0 14-8 14-14-8 0-14 6-14 14z" className="fill-current opacity-60" />
@@ -458,12 +465,35 @@ function ArtBody(props: { kind: ArtKind }) {
     case "widget-fractions":
       return (
         <g strokeWidth={2}>
-          <rect x={4} y={4} width={88} height={56} rx={4} className={cn(LINE, "fill-background-base")} />
+          <rect
+            x={4}
+            y={4}
+            width={88}
+            height={56}
+            rx={4}
+            className={cn(LINE, "fill-background-base")}
+          />
           <rect x={12} y={16} width={72} height={14} rx={2} className={cn(LINE, FILL_MUTED)} />
-          <rect x={12} y={16} width={27} height={14} rx={2} className="fill-current" stroke="none" />
+          <rect
+            x={12}
+            y={16}
+            width={27}
+            height={14}
+            rx={2}
+            className="fill-current"
+            stroke="none"
+          />
           <path d="M39 16v14M57 16v14M75 16v14" className={cn(LINE, "opacity-60")} />
           <rect x={12} y={38} width={72} height={14} rx={2} className={cn(LINE, FILL_MUTED)} />
-          <rect x={12} y={38} width={48} height={14} rx={2} className="fill-current opacity-55" stroke="none" />
+          <rect
+            x={12}
+            y={38}
+            width={48}
+            height={14}
+            rx={2}
+            className="fill-current opacity-55"
+            stroke="none"
+          />
           <path d="M36 38v14M60 38v14" className={cn(LINE, "opacity-60")} />
         </g>
       )
@@ -499,10 +529,7 @@ function ArtBody(props: { kind: ArtKind }) {
       return (
         <g strokeWidth={2}>
           <rect x={4} y={6} width={88} height={52} rx={3} className={cn(LINE, FILL_MUTED)} />
-          <path
-            d="M48 54c0-16 8-30 22-36-2 18-8 30-22 36z"
-            className="fill-current opacity-70"
-          />
+          <path d="M48 54c0-16 8-30 22-36-2 18-8 30-22 36z" className="fill-current opacity-70" />
           <path d="M48 54c0-16-8-30-22-36 2 18 8 30 22 36z" className="fill-current opacity-45" />
           <path d="M48 54V22" className="stroke-current" fill="none" />
           <rect x={4} y={6} width={88} height={52} rx={3} fill="none" className={LINE} />
@@ -515,7 +542,13 @@ function ArtBody(props: { kind: ArtKind }) {
           <rect x={4} y={6} width={88} height={52} rx={3} className={cn(LINE, FILL_MUTED)} />
           <path d="M38 18h20l-2 16 8 16H32l8-16z" className="fill-current opacity-45" />
           <path d="M34 44h28l2 6H32z" className="fill-current" />
-          <circle cx={48} cy={32} r={12} className="fill-background-base opacity-90" stroke="none" />
+          <circle
+            cx={48}
+            cy={32}
+            r={12}
+            className="fill-background-base opacity-90"
+            stroke="none"
+          />
           <path d="M44 26l11 6-11 6z" className="fill-current" stroke="none" />
           <rect x={4} y={6} width={88} height={52} rx={3} fill="none" className={LINE} />
         </g>
@@ -549,8 +582,24 @@ function ArtBody(props: { kind: ArtKind }) {
     case "freeform-cell":
       return (
         <g strokeWidth={2}>
-          <rect x={8} y={10} width={80} height={44} rx={10} className={cn("stroke-current", FILL_MUTED)} fill="none" />
-          <rect x={13} y={15} width={70} height={34} rx={7} className={cn(LINE, "opacity-50")} fill="none" />
+          <rect
+            x={8}
+            y={10}
+            width={80}
+            height={44}
+            rx={10}
+            className={cn("stroke-current", FILL_MUTED)}
+            fill="none"
+          />
+          <rect
+            x={13}
+            y={15}
+            width={70}
+            height={34}
+            rx={7}
+            className={cn(LINE, "opacity-50")}
+            fill="none"
+          />
           <ellipse cx={40} cy={32} rx={11} ry={9} className="fill-current opacity-70" />
           <circle cx={40} cy={32} r={3.5} className="fill-current" />
           <ellipse cx={66} cy={22} rx={7} ry={4} className="fill-current opacity-40" />
@@ -562,10 +611,18 @@ function ArtBody(props: { kind: ArtKind }) {
     case "freeform-watercycle":
       return (
         <g strokeWidth={2} fill="none">
-          <path d="M22 22a9 9 0 0 1 17-3 7 7 0 0 1 10 3 8 8 0 0 1-1 15H24a8 8 0 0 1-2-15z" className="fill-current opacity-55" stroke="none" />
+          <path
+            d="M22 22a9 9 0 0 1 17-3 7 7 0 0 1 10 3 8 8 0 0 1-1 15H24a8 8 0 0 1-2-15z"
+            className="fill-current opacity-55"
+            stroke="none"
+          />
           <path d="M30 42v7M40 42v9M50 42v6" className="stroke-current" />
           <path d="M6 58h84" className={LINE} />
-          <path d="M62 54c0-14 8-24 20-28" className={cn("stroke-current", "opacity-70")} strokeDasharray="4 3" />
+          <path
+            d="M62 54c0-14 8-24 20-28"
+            className={cn("stroke-current", "opacity-70")}
+            strokeDasharray="4 3"
+          />
           <path d="M78 24l4 2-1 5" className="stroke-current" />
           <path d="M6 58c8-6 16-6 24 0" className={cn(LINE, "opacity-60")} />
         </g>
@@ -847,7 +904,8 @@ function Thumb(props: {
   const { item } = props
   const directory = useContext(DirectoryContext)
   const stacked = item.family === "gallery" && (item.itemCount ?? 0) > 1
-  const live = props.allowLive && directory && item.live ? { directory, item: item.live } : undefined
+  const live =
+    props.allowLive && directory && item.live ? { directory, item: item.live } : undefined
 
   return (
     <span className={cn("relative shrink-0", props.className)}>
@@ -985,11 +1043,7 @@ function ContactSheet(props: { items: Creation[] }) {
                 type="button"
                 className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-surface-base-hover"
               >
-                <Thumb
-                  item={item}
-                  className="h-10 w-14"
-                  allowLive={index < CONCEPT_LIVE_BUDGET}
-                />
+                <Thumb item={item} className="h-10 w-14" allowLive={index < CONCEPT_LIVE_BUDGET} />
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate text-sm text-text-base">{item.title}</span>
                   <span className="truncate text-xs text-text-weaker">{subtitle(item)}</span>
@@ -1110,7 +1164,9 @@ function Shelves(props: { items: Creation[] }) {
           <section key={shelf.label}>
             <div className="flex items-center justify-between gap-2 px-3 pb-1.5">
               <p className="text-xs font-medium text-text-base">{shelf.label}</p>
-              <span className="text-[11px] tabular-nums text-text-weaker">{shelf.items.length}</span>
+              <span className="text-[11px] tabular-nums text-text-weaker">
+                {shelf.items.length}
+              </span>
             </div>
             <ul className="flex gap-2 overflow-x-auto px-3 pb-1">
               {shelf.items.map((item, index) => (
@@ -1524,7 +1580,10 @@ export function CreationsPanelRedesignsEasel(props: { directory?: string }) {
                 onCheckedChange={setShowControl}
               />
             </label>
-            <label className="flex items-center gap-2 text-xs text-text-weak" htmlFor="easel-sparse">
+            <label
+              className="flex items-center gap-2 text-xs text-text-weak"
+              htmlFor="easel-sparse"
+            >
               Near-empty
               <Switch
                 id="easel-sparse"
@@ -1536,7 +1595,11 @@ export function CreationsPanelRedesignsEasel(props: { directory?: string }) {
             </label>
             <Badge variant="outline">
               {items.length}
-              {usingRealPreviews ? ` of ${source.length} · capped` : usingLive ? " live" : " fixture"}
+              {usingRealPreviews
+                ? ` of ${source.length} · capped`
+                : usingLive
+                  ? " live"
+                  : " fixture"}
             </Badge>
           </div>
         </div>

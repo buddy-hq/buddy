@@ -18,9 +18,8 @@ const NOTEBOOK_UPLOAD_PARTIAL_PREFIX = ".buddy-upload-"
 const NOTEBOOK_UPLOAD_PARTIAL_SUFFIX = ".partial"
 const NOTEBOOK_UPLOAD_SOURCE_TOO_LARGE_MESSAGE =
   "The selected file exceeds the 64 MiB document limit."
-const NOTEBOOK_UPLOAD_SUPPORTED_FORMATS_MESSAGE =
-  `Supported document formats are ${NATIVE_RESOURCE_FORMATS.map((format) => format.toUpperCase()).join(", ")}.`
-const UNSAFE_UPLOAD_STEM_CHARACTERS = new Set(['<', '>', ':', '"', '/', '\\', '|', '?', '*'])
+const NOTEBOOK_UPLOAD_SUPPORTED_FORMATS_MESSAGE = `Supported document formats are ${NATIVE_RESOURCE_FORMATS.map((format) => format.toUpperCase()).join(", ")}.`
+const UNSAFE_UPLOAD_STEM_CHARACTERS = new Set(["<", ">", ":", '"', "/", "\\", "|", "?", "*"])
 const TRAILING_UPLOAD_STEM_CHARACTERS = /[ .]+$/u
 
 export type NotebookUpload = {
@@ -116,10 +115,7 @@ export async function copyNativeResourceToNotebook(input: {
   const displayName = path.basename(sourcePath)
   const definition = nativeResourceDefinitionFromPath(displayName)
   if (!definition) {
-    throw new NotebookUploadError(
-      "unsupported-format",
-      NOTEBOOK_UPLOAD_SUPPORTED_FORMATS_MESSAGE,
-    )
+    throw new NotebookUploadError("unsupported-format", NOTEBOOK_UPLOAD_SUPPORTED_FORMATS_MESSAGE)
   }
 
   let sourceStats
@@ -139,10 +135,7 @@ export async function copyNativeResourceToNotebook(input: {
     )
   }
   if (sourceStats.size > RESOURCE_MAX_SOURCE_BYTES) {
-    throw new NotebookUploadError(
-      "source-too-large",
-      NOTEBOOK_UPLOAD_SOURCE_TOO_LARGE_MESSAGE,
-    )
+    throw new NotebookUploadError("source-too-large", NOTEBOOK_UPLOAD_SOURCE_TOO_LARGE_MESSAGE)
   }
 
   const uploadDirectory = path.join(input.directory, NOTEBOOK_UPLOAD_DIRECTORY)
@@ -156,10 +149,7 @@ export async function copyNativeResourceToNotebook(input: {
     await copyFile(sourcePath, partialPath, fileSystemConstants.COPYFILE_EXCL)
     const copiedStats = await stat(partialPath)
     if (copiedStats.size > RESOURCE_MAX_SOURCE_BYTES) {
-      throw new NotebookUploadError(
-        "source-too-large",
-        NOTEBOOK_UPLOAD_SOURCE_TOO_LARGE_MESSAGE,
-      )
+      throw new NotebookUploadError("source-too-large", NOTEBOOK_UPLOAD_SOURCE_TOO_LARGE_MESSAGE)
     }
     const published = await publishUpload({
       partialPath,
@@ -174,7 +164,10 @@ export async function copyNativeResourceToNotebook(input: {
       displayName,
       format: definition.format,
       mime: definition.mime,
-      workspacePath: path.posix.join(NOTEBOOK_UPLOAD_DIRECTORY, path.basename(published.absolutePath)),
+      workspacePath: path.posix.join(
+        NOTEBOOK_UPLOAD_DIRECTORY,
+        path.basename(published.absolutePath),
+      ),
       absolutePath: published.absolutePath,
       sizeBytes: copiedStats.size,
     }

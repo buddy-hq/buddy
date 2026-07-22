@@ -287,13 +287,15 @@ const FIXTURE_INSTALLED: SkillCard[] = FIXTURE_SKILLS.map((skill) =>
 // / system skills don't appear in the library), so they're excluded here.
 // Most are installable, a few already installed, one has an update. Installed
 // / update float to the top, matching compareLibrarySkills.
-const DISCOVER_STATE: Record<string, Extract<RowControl, { kind: "install" | "installed" | "update" }>["kind"]> =
-  {
-    arxiv: "installed",
-    docx: "installed",
-    powerpoint: "installed",
-    excalidraw: "update",
-  }
+const DISCOVER_STATE: Record<
+  string,
+  Extract<RowControl, { kind: "install" | "installed" | "update" }>["kind"]
+> = {
+  arxiv: "installed",
+  docx: "installed",
+  powerpoint: "installed",
+  excalidraw: "update",
+}
 
 function discoverRank(control: RowControl): number {
   return control.kind === "install" ? 1 : 0
@@ -303,7 +305,8 @@ const FIXTURE_DISCOVER: SkillCard[] = FIXTURE_SKILLS.filter((skill) => "category
   .map((skill) => toFixtureCard(skill, { kind: DISCOVER_STATE[skill.id] ?? "install" }))
   .toSorted(
     (left, right) =>
-      discoverRank(left.control) - discoverRank(right.control) || left.name.localeCompare(right.name),
+      discoverRank(left.control) - discoverRank(right.control) ||
+      left.name.localeCompare(right.name),
   )
 
 // ─── Live catalog adapters ──────────────────────────────────────────────────
@@ -406,7 +409,13 @@ function ActionButton(props: {
 }) {
   if (props.kind === "installed") {
     return (
-      <Button type="button" size="xs" variant="ghost" disabled className={cn("gap-1", props.className)}>
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        disabled
+        className={cn("gap-1", props.className)}
+      >
         <CheckIcon className="size-3.5" aria-hidden />
         Installed
       </Button>
@@ -478,7 +487,13 @@ function PanelShell(props: {
               className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-icon-base"
               aria-hidden
             />
-            <Input readOnly value="" placeholder="Search skills..." aria-label="Search skills" className="pl-9" />
+            <Input
+              readOnly
+              value=""
+              placeholder="Search skills..."
+              aria-label="Search skills"
+              className="pl-9"
+            />
           </div>
         </div>
 
@@ -525,7 +540,9 @@ function Today(props: { items: SkillCard[]; tab: Tab }) {
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start hover:bg-surface-base-hover">
               <button type="button" className="min-w-0 px-4 py-3 text-left outline-none">
                 <span className="flex min-w-0 flex-col gap-1.5 py-0.5">
-                  <span className="w-full truncate text-sm font-medium text-text-base">{item.name}</span>
+                  <span className="w-full truncate text-sm font-medium text-text-base">
+                    {item.name}
+                  </span>
                   <span className="line-clamp-2 w-full text-xs leading-snug text-text-weak">
                     {item.description}
                   </span>
@@ -561,8 +578,13 @@ function CalmList(props: { items: SkillCard[]; tab: Tab }) {
           <li key={item.id}>
             <div className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-base-hover">
               <Monogram card={item} className="size-9" />
-              <button type="button" className="flex min-w-0 flex-1 flex-col items-start text-left outline-none">
-                <span className="w-full truncate text-sm font-medium text-text-base">{item.name}</span>
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 flex-col items-start text-left outline-none"
+              >
+                <span className="w-full truncate text-sm font-medium text-text-base">
+                  {item.name}
+                </span>
                 <span className="w-full truncate text-xs text-text-weaker">{item.description}</span>
               </button>
               {renderControl(item.control)}
@@ -595,11 +617,15 @@ function Gallery(props: { items: SkillCard[]; tab: Tab }) {
           >
             <div className="flex items-start justify-between gap-2">
               <Monogram card={item} className="size-9" />
-              {item.control.kind === "toggle" ? <DemoSwitch defaultOn={item.control.enabled} /> : null}
+              {item.control.kind === "toggle" ? (
+                <DemoSwitch defaultOn={item.control.enabled} />
+              ) : null}
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <span className="truncate text-sm font-medium text-text-base">{item.name}</span>
-              <span className="line-clamp-2 text-xs leading-snug text-text-weak">{item.description}</span>
+              <span className="line-clamp-2 text-xs leading-snug text-text-weak">
+                {item.description}
+              </span>
             </div>
             <div className="mt-auto flex items-center justify-between gap-2 pt-1">
               <Chip card={item} />
@@ -630,7 +656,10 @@ function buildGroups(items: SkillCard[]): SkillGroup[] {
   }
   return [...groups.entries()]
     .map(([label, groupItems]) => ({ label, items: groupItems }))
-    .toSorted((left, right) => right.items.length - left.items.length || left.label.localeCompare(right.label))
+    .toSorted(
+      (left, right) =>
+        right.items.length - left.items.length || left.label.localeCompare(right.label),
+    )
 }
 
 function Grouped(props: { items: SkillCard[]; tab: Tab }) {
@@ -648,7 +677,9 @@ function Grouped(props: { items: SkillCard[]; tab: Tab }) {
           <section key={group.label}>
             <div className="flex items-center gap-2 px-1 pb-1.5">
               <span className="text-xs font-medium text-text-base">{group.label}</span>
-              <span className="text-[11px] tabular-nums text-text-weaker">{group.items.length}</span>
+              <span className="text-[11px] tabular-nums text-text-weaker">
+                {group.items.length}
+              </span>
               <span className="h-px flex-1 bg-border-weaker-base" />
             </div>
             <ul className="flex flex-col gap-0.5">
@@ -697,7 +728,9 @@ function Marketplace(props: { items: SkillCard[]; tab: Tab }) {
                 <span className="truncate text-sm font-medium text-text-base">{item.name}</span>
                 <Chip card={item} />
               </div>
-              <span className="line-clamp-2 text-xs leading-snug text-text-weak">{item.description}</span>
+              <span className="line-clamp-2 text-xs leading-snug text-text-weak">
+                {item.description}
+              </span>
               {item.tags.length > 0 ? (
                 <div className="flex flex-wrap gap-1 pt-0.5">
                   {item.tags.map((tag) => (
@@ -742,7 +775,8 @@ export function SkillsPanelRedesignsEasel(props: { directory?: string }) {
       (catalog?.library ?? [])
         .toSorted(
           (left, right) =>
-            libraryEntryRank(left) - libraryEntryRank(right) || left.displayName.localeCompare(right.displayName),
+            libraryEntryRank(left) - libraryEntryRank(right) ||
+            left.displayName.localeCompare(right.displayName),
         )
         .map(toDiscoverCard),
     [catalog?.library],
@@ -786,7 +820,10 @@ export function SkillsPanelRedesignsEasel(props: { directory?: string }) {
               </button>
             ))}
           </div>
-          <label className="flex items-center gap-2 text-xs text-text-weak" htmlFor="skills-easel-live">
+          <label
+            className="flex items-center gap-2 text-xs text-text-weak"
+            htmlFor="skills-easel-live"
+          >
             Live catalog
             <Switch
               id="skills-easel-live"
@@ -796,9 +833,17 @@ export function SkillsPanelRedesignsEasel(props: { directory?: string }) {
               onCheckedChange={setLiveCatalog}
             />
           </label>
-          <label className="flex items-center gap-2 text-xs text-text-weak" htmlFor="skills-easel-control">
+          <label
+            className="flex items-center gap-2 text-xs text-text-weak"
+            htmlFor="skills-easel-control"
+          >
             Show control
-            <Switch id="skills-easel-control" size="sm" checked={showControl} onCheckedChange={setShowControl} />
+            <Switch
+              id="skills-easel-control"
+              size="sm"
+              checked={showControl}
+              onCheckedChange={setShowControl}
+            />
           </label>
           <Badge variant="outline">
             {items.length} {tab === "installed" ? "installed" : "in library"}

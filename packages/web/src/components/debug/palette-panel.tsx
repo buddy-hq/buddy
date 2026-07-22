@@ -177,7 +177,9 @@ function ColorSwatch({ token }: { token: EnrichedColorToken }) {
         <div className="flex items-center gap-1.5 truncate text-[10px] text-text-weaker font-mono">
           <span>{token.value}</span>
           <span className="text-text-weakest">•</span>
-          <span>L:{token.hsl.l}% H:{token.hsl.h}°</span>
+          <span>
+            L:{token.hsl.l}% H:{token.hsl.h}°
+          </span>
         </div>
       </div>
     </button>

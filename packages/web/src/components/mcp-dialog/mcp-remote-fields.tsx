@@ -23,10 +23,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
   return (
     <>
       <Field className="space-y-1.5">
-        <FieldLabel
-          className="text-xs font-medium text-text-weak"
-          htmlFor="mcp-url"
-        >
+        <FieldLabel className="text-xs font-medium text-text-weak" htmlFor="mcp-url">
           {language.t("mcp.remoteFields.remoteUrl")}
         </FieldLabel>
         <Input
@@ -96,10 +93,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
       {showAdvancedFields ? (
         <>
           <Field className="space-y-1.5">
-            <FieldLabel
-              className="text-xs font-medium text-text-weak"
-              htmlFor="mcp-headers"
-            >
+            <FieldLabel className="text-xs font-medium text-text-weak" htmlFor="mcp-headers">
               {language.t("mcp.remoteFields.headersJson")}
             </FieldLabel>
             <Textarea
@@ -136,10 +130,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
               </div>
 
               <Field className="space-y-1.5">
-                <FieldLabel
-                  className="text-xs font-medium text-text-weak"
-                  htmlFor="mcp-client-id"
-                >
+                <FieldLabel className="text-xs font-medium text-text-weak" htmlFor="mcp-client-id">
                   {language.t("mcp.remoteFields.clientIdOptional")}
                 </FieldLabel>
                 <Input
@@ -176,10 +167,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
               </Field>
 
               <Field className="space-y-1.5">
-                <FieldLabel
-                  className="text-xs font-medium text-text-weak"
-                  htmlFor="mcp-scope"
-                >
+                <FieldLabel className="text-xs font-medium text-text-weak" htmlFor="mcp-scope">
                   {language.t("mcp.remoteFields.scopeOptional")}
                 </FieldLabel>
                 <Input

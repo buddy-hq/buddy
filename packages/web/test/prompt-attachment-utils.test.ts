@@ -33,11 +33,9 @@ describe("prompt attachment policy", () => {
   })
 
   test("rejects a binary disk image before creating an attachment", async () => {
-    const diskImage = new File(
-      [Uint8Array.of(0, 255, 1, 2, 3, 4)],
-      "Installer.dmg",
-      { type: "application/x-apple-diskimage" },
-    )
+    const diskImage = new File([Uint8Array.of(0, 255, 1, 2, 3, 4)], "Installer.dmg", {
+      type: "application/x-apple-diskimage",
+    })
 
     expect(await resolvePromptAttachmentMime(diskImage)).toBeUndefined()
     expect(await fileToPromptComposerAttachment(diskImage)).toBeUndefined()

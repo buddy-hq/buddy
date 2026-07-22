@@ -21,10 +21,7 @@ export function ImageAttachments({
   if (attachments.length === 0) return null
 
   return (
-    <div
-      data-component="prompt-attachments"
-      className="flex flex-wrap items-start gap-2 px-3 pt-3"
-    >
+    <div data-component="prompt-attachments" className="flex flex-wrap items-start gap-2 px-3 pt-3">
       {attachments.map((attachment) => (
         <AttachmentItem
           key={attachment.id}
@@ -47,8 +44,7 @@ function AttachmentItem(props: {
   onOpen?: (attachment: PromptComposerAttachment) => void
 }) {
   if (!props.attachment.mime.startsWith("image/")) {
-    const status =
-      props.attachment.kind === "native-resource" ? props.attachment.status : "ready"
+    const status = props.attachment.kind === "native-resource" ? props.attachment.status : "ready"
     return (
       <FileAttachmentChip
         fileName={props.attachment.filename}

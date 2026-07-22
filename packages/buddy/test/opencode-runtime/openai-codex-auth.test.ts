@@ -117,12 +117,9 @@ describe("OpenAI Codex auth hook", () => {
 
   test("reports rejected model credentials to account health", async () => {
     const rejectedAuth = mock((_auth: OpenAICodexStoredAuth) => undefined)
-    const fetchStub = Object.assign(
-      async () => Response.json({}, { status: 401 }),
-      {
-        preconnect: originalFetch.preconnect,
-      },
-    )
+    const fetchStub = Object.assign(async () => Response.json({}, { status: 401 }), {
+      preconnect: originalFetch.preconnect,
+    })
     globalThis.fetch = fetchStub
 
     const loader = createBuddyCodexLoader({

@@ -80,10 +80,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
 
         <div className="grid gap-4 py-1.5">
           <Field className="space-y-1.5">
-            <FieldLabel
-              className="text-xs font-medium text-text-weak"
-              htmlFor="mcp-name"
-            >
+            <FieldLabel className="text-xs font-medium text-text-weak" htmlFor="mcp-name">
               {language.t("mcp.editorDialog.name")}
             </FieldLabel>
             <Input

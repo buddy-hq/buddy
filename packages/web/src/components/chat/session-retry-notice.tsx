@@ -84,10 +84,7 @@ function RetryActions(props: {
   )
 }
 
-function RetrySurface(props: {
-  content: RetryContent
-  onAction: (action: RetryActionID) => void
-}) {
+function RetrySurface(props: { content: RetryContent; onAction: (action: RetryActionID) => void }) {
   const { content } = props
   const actions = content.actions ?? []
 
@@ -111,11 +108,7 @@ function RetrySurface(props: {
   )
 
   if (actions.length === 0) {
-    return (
-      <div className="w-full py-1">
-        {line}
-      </div>
-    )
+    return <div className="w-full py-1">{line}</div>
   }
 
   return (
@@ -162,9 +155,7 @@ function RetryActionCard(props: {
   action: StructuredRetryAction
   onAction: (action: RetryActionID) => void
 }) {
-  const actions: RetryAction[] = [
-    { id: "switch-model", label: "Switch model", primary: true },
-  ]
+  const actions: RetryAction[] = [{ id: "switch-model", label: "Switch model", primary: true }]
   if (props.action.link) {
     actions.push({ id: "open-action", label: props.action.label, icon: ExternalLinkIcon })
   }

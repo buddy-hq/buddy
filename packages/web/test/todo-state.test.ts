@@ -164,8 +164,8 @@ describe("todo state", () => {
       ],
     )
 
-    expect(findLatestTodoSnapshot({ messages: [todoMessage, nextUserMessage] })?.isCurrentTurn).toBe(
-      false,
-    )
+    expect(
+      findLatestTodoSnapshot({ messages: [todoMessage, nextUserMessage] })?.isCurrentTurn,
+    ).toBe(false)
   })
 })

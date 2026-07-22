@@ -43,10 +43,7 @@ describe("todo dock state", () => {
   })
 
   test("clearing the list resets automatic opening for the next lifecycle", () => {
-    const cleared = reconcile(
-      { [SCOPE]: TODO_DOCK_MODE_HIDDEN },
-      { hasTodos: false },
-    )
+    const cleared = reconcile({ [SCOPE]: TODO_DOCK_MODE_HIDDEN }, { hasTodos: false })
     const reopened = reconcile(cleared, { hasTodos: true })
 
     expect(todoDockModeForScope(cleared, SCOPE)).toBe(TODO_DOCK_MODE_UNSEEN)

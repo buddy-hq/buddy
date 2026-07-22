@@ -263,18 +263,10 @@ export const UserSection = memo(function UserSection({
         {userNativeResourceParts.length > 0 || userTextFileAttachmentParts.length > 0 ? (
           <div className="flex w-fit max-w-[min(82%,64ch)] flex-wrap justify-end gap-2">
             {userNativeResourceParts.map(({ id, attachment }) => (
-              <FileAttachmentChip
-                key={id}
-                fileName={attachment.filename}
-                mime={attachment.mime}
-              />
+              <FileAttachmentChip key={id} fileName={attachment.filename} mime={attachment.mime} />
             ))}
             {userTextFileAttachmentParts.map(({ id, attachment }) => (
-              <FileAttachmentChip
-                key={id}
-                fileName={attachment.filename}
-                mime={attachment.mime}
-              />
+              <FileAttachmentChip key={id} fileName={attachment.filename} mime={attachment.mime} />
             ))}
           </div>
         ) : null}

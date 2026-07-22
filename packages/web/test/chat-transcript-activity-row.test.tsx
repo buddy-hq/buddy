@@ -354,18 +354,15 @@ describe("chat transcript ActivityRow", () => {
       seedDirectoryChatState(directory, {
         sessionID,
         messages: [
-          createMessageWithParts(
-            createUserMessageInfo({ id: "msg_todo_user", sessionID }),
-            [
-              {
-                id: "prt_todo_user",
-                sessionID,
-                messageID: "msg_todo_user",
-                type: "text",
-                text: "Make a plan",
-              },
-            ],
-          ),
+          createMessageWithParts(createUserMessageInfo({ id: "msg_todo_user", sessionID }), [
+            {
+              id: "prt_todo_user",
+              sessionID,
+              messageID: "msg_todo_user",
+              type: "text",
+              text: "Make a plan",
+            },
+          ]),
           createMessageWithParts(
             createAssistantMessageInfo({
               id: "msg_todo_assistant",
@@ -404,7 +401,9 @@ describe("chat transcript ActivityRow", () => {
           ),
         ],
       })
-      root.render(<ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />)
+      root.render(
+        <ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />,
+      )
       await flushEffects()
     })
 

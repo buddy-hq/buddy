@@ -1,7 +1,5 @@
 import "./composer-surfaces.css"
-import {
-  NATIVE_RESOURCE_ATTACHMENT_MAX_COUNT,
-} from "@buddy/workspace-file-policy"
+import { NATIVE_RESOURCE_ATTACHMENT_MAX_COUNT } from "@buddy/workspace-file-policy"
 import {
   Dialog,
   DialogContent,
@@ -426,7 +424,14 @@ export function PromptComposer(props: PromptComposerProps) {
         autoOpenBlocked: todoAutoOpenBlocked,
       }),
     )
-  }, [hasTodos, promptKey, props.isBusy, todoAutoOpenBlocked, todoBelongsToCurrentTurn, todoRevision])
+  }, [
+    hasTodos,
+    promptKey,
+    props.isBusy,
+    todoAutoOpenBlocked,
+    todoBelongsToCurrentTurn,
+    todoRevision,
+  ])
 
   useEffect(() => {
     if (arePromptDraftContentsEqual(draftRef.current, storeDraft)) return
@@ -614,8 +619,7 @@ export function PromptComposer(props: PromptComposerProps) {
         | ((attachments: PromptComposerAttachment[]) => PromptComposerAttachment[]),
     ) => {
       const currentDraft = draftRef.current
-      const attachments =
-        typeof update === "function" ? update(currentDraft.attachments) : update
+      const attachments = typeof update === "function" ? update(currentDraft.attachments) : update
       replaceDraftFromComposer({
         value: currentDraft.value,
         parts: currentDraft.parts,
@@ -630,8 +634,7 @@ export function PromptComposer(props: PromptComposerProps) {
     (scopeKey: string) => {
       const scopedDraft = getPromptDraft(usePromptStore.getState(), scopeKey)
       const attachments = scopedDraft.attachments.filter(
-        (attachment) =>
-          attachment.kind !== "native-resource" || attachment.status === "ready",
+        (attachment) => attachment.kind !== "native-resource" || attachment.status === "ready",
       )
       if (attachments.length === scopedDraft.attachments.length) return
       replaceDraft(scopeKey, {
@@ -659,9 +662,7 @@ export function PromptComposer(props: PromptComposerProps) {
       toast.error("This file type is not supported.")
     },
     onNativeResourceLimitExceeded: () => {
-      toast.error(
-        `You can attach up to ${NATIVE_RESOURCE_ATTACHMENT_MAX_COUNT} documents at once.`,
-      )
+      toast.error(`You can attach up to ${NATIVE_RESOURCE_ATTACHMENT_MAX_COUNT} documents at once.`)
     },
   })
 
@@ -1400,11 +1401,7 @@ export function PromptComposer(props: PromptComposerProps) {
         <div className="w-full pointer-events-auto">
           <AnimatePresence>
             {sketchDockOpen || sketchDockMinimized || sketchBenchOpen ? (
-              <Suspense
-                fallback={
-                  <div className="composer-surface-floating h-[300px] w-full" />
-                }
-              >
+              <Suspense fallback={<div className="composer-surface-floating h-[300px] w-full" />}>
                 <SketchDock
                   className={cn(
                     "composer-surface-floating composer-grain w-full",

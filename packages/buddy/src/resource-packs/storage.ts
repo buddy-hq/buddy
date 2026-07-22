@@ -426,15 +426,14 @@ async function writeTextArtifacts(input: {
     input.previousPaths.flatMap((relativePath) => {
       if (nextPaths.has(relativePath)) return []
       const absolutePath = safeTextArtifactPath(input.rootPath, relativePath)
-      return absolutePath
-        ? [fs.rm(absolutePath, { force: true }).catch(() => undefined)]
-        : []
+      return absolutePath ? [fs.rm(absolutePath, { force: true }).catch(() => undefined)] : []
     }),
   )
   await Promise.all(
     input.artifacts.map((artifact) => {
       const absolutePath = safeTextArtifactPath(input.rootPath, artifact.relativePath)
-      if (!absolutePath) throw new Error(`Invalid resource text artifact path: ${artifact.relativePath}`)
+      if (!absolutePath)
+        throw new Error(`Invalid resource text artifact path: ${artifact.relativePath}`)
       return writeTextFile(absolutePath, artifact.content)
     }),
   )

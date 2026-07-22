@@ -14,10 +14,7 @@ import {
   type ResourceExtractionResult,
 } from "./contracts"
 import { RESOURCE_PACK_UNIT_KIND_SECTION } from "./chunking-config"
-import {
-  assertResourceChunkUnitCount,
-  assertResourceTextCharacterCount,
-} from "./budgets"
+import { assertResourceChunkUnitCount, assertResourceTextCharacterCount } from "./budgets"
 import { renderTocMarkdown } from "./markdown"
 
 const PPTX_PRESENTATION_PATH = "ppt/presentation.xml"
@@ -157,10 +154,7 @@ function altTextLines(markup: string): string[] {
   return Array.from(values)
 }
 
-async function notesText(
-  entries: ResourceArchiveEntries,
-  slidePath: string,
-): Promise<string[]> {
+async function notesText(entries: ResourceArchiveEntries, slidePath: string): Promise<string[]> {
   const slideRelationships = await readRelationships(entries, slidePath)
   const notesRelationship = slideRelationships.find((relationship) =>
     relationship.type.endsWith(PPTX_NOTES_RELATIONSHIP_TYPE_SUFFIX),
@@ -192,10 +186,7 @@ function renderSlide(input: {
 export async function extractPptxResource(sourcePath: string): Promise<ResourceExtractionResult> {
   const archive = await openResourceArchive(sourcePath)
   try {
-    const presentationMarkup = await readArchiveEntryText(
-      archive.entries,
-      PPTX_PRESENTATION_PATH,
-    )
+    const presentationMarkup = await readArchiveEntryText(archive.entries, PPTX_PRESENTATION_PATH)
     const presentationRelationships = relationships(
       await readArchiveEntryText(archive.entries, PPTX_PRESENTATION_RELATIONSHIPS_PATH),
     )

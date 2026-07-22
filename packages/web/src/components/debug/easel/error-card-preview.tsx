@@ -1,9 +1,6 @@
 import { useState } from "react"
 import { ToggleGroup, ToggleGroupItem } from "@buddy/ui"
-import type {
-  AssistantErrorCategory,
-  AssistantErrorModel,
-} from "@/state/chat-error-model"
+import type { AssistantErrorCategory, AssistantErrorModel } from "@/state/chat-error-model"
 import {
   AssistantErrorCard,
   AssistantTruncatedNote,

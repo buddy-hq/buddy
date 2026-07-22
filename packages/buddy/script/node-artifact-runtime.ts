@@ -172,7 +172,6 @@ async function createAndWaitForReadyResource(input: {
   sourcePath: string
   timeoutMs: number
 }): Promise<void> {
-
   const createResponse = await fetch(new URL(RESOURCE_ROUTE_PATH, input.baseUrl), {
     method: "POST",
     headers: {

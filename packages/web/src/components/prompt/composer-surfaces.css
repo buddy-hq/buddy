@@ -38,14 +38,11 @@
   --composer-surface-hairline: color-mix(in oklab, var(--border-weak-base) 55%, transparent);
 
   /* Anchored (the composer, resting on the page): soft, diffuse lift. */
-  --composer-surface-shadow:
-    0 1px 2px -1px rgb(0 0 0 / 0.08),
-    0 12px 28px -12px rgb(0 0 0 / 0.18);
+  --composer-surface-shadow: 0 1px 2px -1px rgb(0 0 0 / 0.08), 0 12px 28px -12px rgb(0 0 0 / 0.18);
 
   /* Floating (menus, docks, popovers): the hairline + a deeper lift. */
   --composer-surface-shadow-floating:
-    0 0 0 1px var(--composer-surface-hairline),
-    0 2px 8px -3px rgb(0 0 0 / 0.14),
+    0 0 0 1px var(--composer-surface-hairline), 0 2px 8px -3px rgb(0 0 0 / 0.14),
     0 20px 44px -14px rgb(0 0 0 / 0.32);
 
   /* Focus ring for the composer shell (no border to recolour). */

@@ -1,8 +1,5 @@
 import { isNativeResourceFormat } from "@buddy/workspace-file-policy"
-import type {
-  NativeResourceDelivery,
-  NativeResourceFormat,
-} from "@buddy/workspace-file-policy"
+import type { NativeResourceDelivery, NativeResourceFormat } from "@buddy/workspace-file-policy"
 
 export type PromptModelAttachment = {
   id: string

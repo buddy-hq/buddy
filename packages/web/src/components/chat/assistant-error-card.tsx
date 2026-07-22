@@ -246,7 +246,9 @@ export function createAssistantErrorCardSpec(
     case "auth":
       return {
         id: "auth",
-        headline: providerName ? `${providerName} disconnected` : "Your model provider disconnected",
+        headline: providerName
+          ? `${providerName} disconnected`
+          : "Your model provider disconnected",
         detail: providerName
           ? `Your ${providerName} sign-in expired or was revoked.`
           : "The provider sign-in expired or was revoked.",

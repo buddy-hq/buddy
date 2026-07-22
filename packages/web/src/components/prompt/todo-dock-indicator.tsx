@@ -4,12 +4,7 @@ import { useEffect, useRef, useState } from "react"
 
 import type { TodoItem, TodoProgressState } from "@/components/chat/tools/todo-state"
 import { todoProgress } from "@/components/chat/tools/todo-state"
-import {
-  CheckmarkCircle01,
-  ListTodo,
-  Loader2Icon,
-  type AppIcon,
-} from "@/icons/app-icons"
+import { CheckmarkCircle01, ListTodo, Loader2Icon, type AppIcon } from "@/icons/app-icons"
 
 const TODO_INDICATOR_TRANSITION = {
   duration: 0.16,
@@ -79,13 +74,7 @@ function useTransientTodoStatus(props: {
         window.clearTimeout(expirationTimeout)
       }
     }
-  }, [
-    props.debounceMs,
-    props.durationMs,
-    props.isCurrentTurn,
-    props.revision,
-    props.turnActive,
-  ])
+  }, [props.debounceMs, props.durationMs, props.isCurrentTurn, props.revision, props.turnActive])
 
   return props.turnActive && props.isCurrentTurn ? visibleState : undefined
 }
@@ -102,12 +91,8 @@ export function TodoDockIndicator(props: TodoDockIndicatorProps) {
     debounceMs: props.statusDebounceMs ?? TODO_STATUS_AFFORDANCE_DEBOUNCE_MS,
   })
   const Icon = todoIndicatorIcon(visibleState ?? "pending")
-  const hidden = reduceMotion
-    ? { opacity: 0 }
-    : { opacity: 0, transform: "scale(0.9)" }
-  const visible = reduceMotion
-    ? { opacity: 1 }
-    : { opacity: 1, transform: "scale(1)" }
+  const hidden = reduceMotion ? { opacity: 0 } : { opacity: 0, transform: "scale(0.9)" }
+  const visible = reduceMotion ? { opacity: 1 } : { opacity: 1, transform: "scale(1)" }
 
   if (!visibleState) {
     return (

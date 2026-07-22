@@ -276,10 +276,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
       if (response.status === HTTP_STATUS_UNAUTHORIZED) {
         markAuthenticationRejected(auth)
       }
-      throw new OpenAIAccountRequestError(
-        "OpenAI model availability request",
-        response.status,
-      )
+      throw new OpenAIAccountRequestError("OpenAI model availability request", response.status)
     }
 
     const parsed = codexModelsResponseSchema.parse(await response.json())
@@ -370,9 +367,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
       void startModelRefresh(auth).catch(() => undefined)
     }
 
-    if (
-      activeModelFailure?.status === OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS
-    ) {
+    if (activeModelFailure?.status === OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS) {
       return { status: activeModelFailure.status }
     }
     if (currentCache) {
@@ -518,10 +513,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
         ? usageFailure
         : undefined
 
-    if (
-      !forceRefresh &&
-      activeUsageFailure?.status === OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS
-    ) {
+    if (!forceRefresh && activeUsageFailure?.status === OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS) {
       return { status: activeUsageFailure.status }
     }
     if (!forceRefresh && cacheFresh) return currentCache.response

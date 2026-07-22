@@ -18,8 +18,10 @@ export const RETRY_NOTICE_MIN_ATTEMPT = 3
 export const RETRY_PERSISTENT_MIN_ATTEMPT = 5
 
 const RATE_LIMIT_PATTERN = /rate[\s_-]*limit|too many requests|resource[\s_-]*exhausted|quota/iu
-const OVERLOADED_PATTERN = /overload|capacity|provider is busy|internal server error|service unavailable/iu
-const NETWORK_PATTERN = /network|connection|econn|socket|timeout|timed out|unreachable|dns|fetch failed/iu
+const OVERLOADED_PATTERN =
+  /overload|capacity|provider is busy|internal server error|service unavailable/iu
+const NETWORK_PATTERN =
+  /network|connection|econn|socket|timeout|timed out|unreachable|dns|fetch failed/iu
 
 type RetryStatus = Extract<SessionStatusInfo, { type: "retry" }>
 
@@ -177,8 +179,7 @@ export function buildAssistantErrorModel(
 
 function messageHasVisibleText(message: MessageWithParts): boolean {
   return message.parts.some(
-    (part) =>
-      part.type === "text" && typeof part.text === "string" && part.text.trim().length > 0,
+    (part) => part.type === "text" && typeof part.text === "string" && part.text.trim().length > 0,
   )
 }
 
@@ -195,10 +196,13 @@ export function resolveLatestTerminalAssistantError(
     .slice(lastUserIndex + 1)
     .findLast(
       (message) =>
-        message.info.role === "assistant" &&
-        message.info.parentID === userMessage.info.id,
+        message.info.role === "assistant" && message.info.parentID === userMessage.info.id,
     )
-  if (!latestAssistant || latestAssistant.info.role !== "assistant" || !latestAssistant.info.error) {
+  if (
+    !latestAssistant ||
+    latestAssistant.info.role !== "assistant" ||
+    !latestAssistant.info.error
+  ) {
     return undefined
   }
 

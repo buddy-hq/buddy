@@ -50,10 +50,7 @@ describe("native resource prompt handoff", () => {
     if (!Array.isArray(parts)) throw new Error("Expected transformed prompt parts")
     const reminder = parts.find(
       (part) =>
-        typeof part === "object" &&
-        part !== null &&
-        "synthetic" in part &&
-        part.synthetic === true,
+        typeof part === "object" && part !== null && "synthetic" in part && part.synthetic === true,
     )
     expect(reminder).toBeDefined()
     expect(reminder).toHaveProperty("text")
@@ -161,9 +158,7 @@ describe("native resource prompt handoff", () => {
       ...NATIVE_SPREADSHEET_FORMATS,
     ])
     expect(normalizedAttachments.map((attachment) => attachment.mime)).toEqual(
-      NATIVE_SPREADSHEET_FORMATS.map(
-        (format) => nativeResourceDefinitionForFormat(format).mime,
-      ),
+      NATIVE_SPREADSHEET_FORMATS.map((format) => nativeResourceDefinitionForFormat(format).mime),
     )
     const reminder = parts.find(
       (part) =>

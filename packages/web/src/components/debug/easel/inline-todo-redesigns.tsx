@@ -1,12 +1,6 @@
 import { useState } from "react"
 import { Badge, Button, cn } from "@buddy/ui"
-import {
-  CancelCircle,
-  CheckmarkCircle01,
-  Circle,
-  Loader2Icon,
-  Progress03,
-} from "@/icons/app-icons"
+import { CancelCircle, CheckmarkCircle01, Circle, Loader2Icon, Progress03 } from "@/icons/app-icons"
 import "@/components/prompt/composer-surfaces.css"
 import "@/components/directory-chat/chat-empty-state-board.css"
 
@@ -32,22 +26,47 @@ const STATE_PRESETS: StatePreset[] = [
     label: "1. Active Execution (2 Doing · 4 Todo · 2 Done)",
     description: "Standard live execution with items across all stages.",
     todos: [
-      { key: "0:in_progress", content: "Call remaining tools (batch 2: writes & renders)", status: "in_progress" },
-      { key: "1:in_progress", content: "Execute subagent delegater for concurrent task", status: "in_progress" },
-      { key: "2:pending", content: "Generate 20 Mermaid diagrams with varied types", status: "pending" },
+      {
+        key: "0:in_progress",
+        content: "Call remaining tools (batch 2: writes & renders)",
+        status: "in_progress",
+      },
+      {
+        key: "1:in_progress",
+        content: "Execute subagent delegater for concurrent task",
+        status: "in_progress",
+      },
+      {
+        key: "2:pending",
+        content: "Generate 20 Mermaid diagrams with varied types",
+        status: "pending",
+      },
       { key: "3:pending", content: "Present 30 media items from Desktop", status: "pending" },
-      { key: "4:pending", content: "Stress test LaTeX with 30+ equations across subjects", status: "pending" },
+      {
+        key: "4:pending",
+        content: "Stress test LaTeX with 30+ equations across subjects",
+        status: "pending",
+      },
       { key: "5:pending", content: "Interrupted-tail stress section", status: "pending" },
-      { key: "6:completed", content: "Call available tool batch 1 (harmless reads)", status: "completed" },
+      {
+        key: "6:completed",
+        content: "Call available tool batch 1 (harmless reads)",
+        status: "completed",
+      },
       { key: "7:completed", content: "Inspect workspace structure and files", status: "completed" },
     ],
   },
   {
     id: "only-doing-todo",
     label: "2. Initial Run (2 Doing · 6 Todo · 0 Done)",
-    description: "Start of task run before any item completes. Done & Cancelled sections are hidden.",
+    description:
+      "Start of task run before any item completes. Done & Cancelled sections are hidden.",
     todos: [
-      { key: "0:in_progress", content: "Parse input directives and set up workspace", status: "in_progress" },
+      {
+        key: "0:in_progress",
+        content: "Parse input directives and set up workspace",
+        status: "in_progress",
+      },
       { key: "1:in_progress", content: "Initialize streaming session", status: "in_progress" },
       { key: "2:pending", content: "Execute read commands", status: "pending" },
       { key: "3:pending", content: "Execute write commands", status: "pending" },
@@ -60,12 +79,25 @@ const STATE_PRESETS: StatePreset[] = [
   {
     id: "only-inprogress",
     label: "3. Only In Progress (4 Doing · 0 Todo · 0 Done)",
-    description: "All active items running concurrently. Todo, Done & Cancelled sections are hidden.",
+    description:
+      "All active items running concurrently. Todo, Done & Cancelled sections are hidden.",
     todos: [
-      { key: "0:in_progress", content: "Running subagent worker #1 (Backend API)", status: "in_progress" },
-      { key: "1:in_progress", content: "Running subagent worker #2 (Frontend UI)", status: "in_progress" },
+      {
+        key: "0:in_progress",
+        content: "Running subagent worker #1 (Backend API)",
+        status: "in_progress",
+      },
+      {
+        key: "1:in_progress",
+        content: "Running subagent worker #2 (Frontend UI)",
+        status: "in_progress",
+      },
       { key: "2:in_progress", content: "Running typecheck lock validator", status: "in_progress" },
-      { key: "3:in_progress", content: "Streaming real-time execution logs", status: "in_progress" },
+      {
+        key: "3:in_progress",
+        content: "Streaming real-time execution logs",
+        status: "in_progress",
+      },
     ],
   },
   {
@@ -73,10 +105,18 @@ const STATE_PRESETS: StatePreset[] = [
     label: "4. All Completed (0 Doing · 0 Todo · 6 Done)",
     description: "Task run finished cleanly. In Progress, Todo & Cancelled sections are hidden.",
     todos: [
-      { key: "0:completed", content: "Call available tool batch 1 (harmless reads)", status: "completed" },
+      {
+        key: "0:completed",
+        content: "Call available tool batch 1 (harmless reads)",
+        status: "completed",
+      },
       { key: "1:completed", content: "Inspect workspace structure and files", status: "completed" },
       { key: "2:completed", content: "Execute remaining write tools", status: "completed" },
-      { key: "3:completed", content: "Build React components with shadcn primitives", status: "completed" },
+      {
+        key: "3:completed",
+        content: "Build React components with shadcn primitives",
+        status: "completed",
+      },
       { key: "4:completed", content: "Run typecheck verification pass", status: "completed" },
       { key: "5:completed", content: "Generate walkthrough report", status: "completed" },
     ],
@@ -86,12 +126,20 @@ const STATE_PRESETS: StatePreset[] = [
     label: "5. Partial Failure (1 Doing · 2 Todo · 2 Done · 1 Cancelled)",
     description: "Renders CANCELLED as its own distinct section.",
     todos: [
-      { key: "0:in_progress", content: "Retrying fallback tool call execution", status: "in_progress" },
+      {
+        key: "0:in_progress",
+        content: "Retrying fallback tool call execution",
+        status: "in_progress",
+      },
       { key: "1:pending", content: "Verify updated output artifacts", status: "pending" },
       { key: "2:pending", content: "Finalize transcript summary", status: "pending" },
       { key: "3:completed", content: "Read initial config file", status: "completed" },
       { key: "4:completed", content: "Parse input parameters", status: "completed" },
-      { key: "5:cancelled", content: "Legacy tool call (cancelled due to timeout)", status: "cancelled" },
+      {
+        key: "5:cancelled",
+        content: "Legacy tool call (cancelled due to timeout)",
+        status: "cancelled",
+      },
     ],
   },
   {
@@ -99,7 +147,11 @@ const STATE_PRESETS: StatePreset[] = [
     label: "6. Single Active Step (1 Doing · 0 Todo · 0 Done)",
     description: "Compact 1-task live status.",
     todos: [
-      { key: "0:in_progress", content: "Executing single atomic file edit operation", status: "in_progress" },
+      {
+        key: "0:in_progress",
+        content: "Executing single atomic file edit operation",
+        status: "in_progress",
+      },
     ],
   },
 ]
@@ -175,7 +227,12 @@ function WhiteboardTaskCanvas({
             {/* Stage Title Header */}
             <div className="flex items-center gap-2 px-0.5">
               {stage.titleIcon}
-              <span className={cn("[font-family:Excalifont,sans-serif] text-sm font-bold tracking-wide", stage.color)}>
+              <span
+                className={cn(
+                  "[font-family:Excalifont,sans-serif] text-sm font-bold tracking-wide",
+                  stage.color,
+                )}
+              >
                 {stage.label} ({stage.items.length})
               </span>
             </div>
@@ -194,17 +251,26 @@ function WhiteboardTaskCanvas({
                     className="group flex cursor-pointer items-start gap-2.5 py-0.5 transition-opacity hover:opacity-80 active:scale-[0.99]"
                   >
                     <div className="mt-0.5 shrink-0 flex items-center justify-center">
-                      {isDone && <CheckmarkCircle01 className="size-3.5 text-text-success-base shrink-0" />}
-                      {isDoing && <Loader2Icon className="size-3.5 text-text-warning-base animate-spin shrink-0" />}
-                      {todo.status === "pending" && <Circle className="size-3.5 text-text-weak shrink-0" />}
-                      {isCancelled && <CancelCircle className="size-3.5 text-text-critical-base shrink-0" />}
+                      {isDone && (
+                        <CheckmarkCircle01 className="size-3.5 text-text-success-base shrink-0" />
+                      )}
+                      {isDoing && (
+                        <Loader2Icon className="size-3.5 text-text-warning-base animate-spin shrink-0" />
+                      )}
+                      {todo.status === "pending" && (
+                        <Circle className="size-3.5 text-text-weak shrink-0" />
+                      )}
+                      {isCancelled && (
+                        <CancelCircle className="size-3.5 text-text-critical-base shrink-0" />
+                      )}
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <span
                         className={cn(
                           "leading-normal block text-sm font-normal text-text-weak",
-                          (isDone || isCancelled) && "line-through decoration-text-weaker opacity-80",
+                          (isDone || isCancelled) &&
+                            "line-through decoration-text-weaker opacity-80",
                         )}
                       >
                         {todo.content}
@@ -237,7 +303,7 @@ export function InlineTodoRedesignsEasel() {
       prev.map((t) => {
         if (t.key !== key) return t
         return { ...t, status: cycleTodoStatus(t.status) }
-      })
+      }),
     )
   }
 
@@ -255,7 +321,8 @@ export function InlineTodoRedesignsEasel() {
               Whiteboard Task Canvas (`todo.tsx`) · Title Aligned Task Icons
             </h2>
             <p className="text-xs text-text-weak">
-              Task icons indented with `pl-6` (24px) to align exactly under the first letter of stage titles.
+              Task icons indented with `pl-6` (24px) to align exactly under the first letter of
+              stage titles.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -294,7 +361,9 @@ export function InlineTodoRedesignsEasel() {
               <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-text-strong">
                 {currentPreset.label}
               </h3>
-              <span className="text-xs text-text-weak font-medium">{currentPreset.description}</span>
+              <span className="text-xs text-text-weak font-medium">
+                {currentPreset.description}
+              </span>
             </div>
 
             <WhiteboardTaskCanvas todos={todos} onToggle={handleToggle} />
@@ -312,10 +381,7 @@ export function InlineTodoRedesignsEasel() {
                   <span className="font-bold text-text-strong">{preset.label}</span>
                   <span>{preset.description}</span>
                 </div>
-                <WhiteboardTaskCanvas
-                  todos={preset.todos}
-                  onToggle={() => {}}
-                />
+                <WhiteboardTaskCanvas todos={preset.todos} onToggle={() => {}} />
               </div>
             ))}
           </section>

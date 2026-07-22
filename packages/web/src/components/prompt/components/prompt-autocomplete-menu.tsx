@@ -181,7 +181,13 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
     [props.slashOptions],
   )
   const mentionRows = React.useMemo(
-    () => buildRows<MentionOption>(props.mentionOptions, mentionGroupKey, mentionGroupHeader, getMentionOptionKey),
+    () =>
+      buildRows<MentionOption>(
+        props.mentionOptions,
+        mentionGroupKey,
+        mentionGroupHeader,
+        getMentionOptionKey,
+      ),
     [props.mentionOptions],
   )
 
@@ -236,7 +242,9 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                         <span className={cn(PRIMARY_CLASS, active && PRIMARY_ACTIVE_CLASS)}>
                           {command.title ?? `/${command.name}`}
                         </span>
-                        {description ? <span className={DESCRIPTION_CLASS}>{description}</span> : null}
+                        {description ? (
+                          <span className={DESCRIPTION_CLASS}>{description}</span>
+                        ) : null}
                         {badge ? <span className={BADGE_CLASS}>{badge}</span> : null}
                       </CommandItem>
                     )
@@ -251,12 +259,14 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                     const isDirectory = option.type === "file" && option.path.endsWith("/")
                     const fileName =
                       option.type === "file"
-                        ? (basename(option.path.replace(/\/+$/, "")) || option.path)
+                        ? basename(option.path.replace(/\/+$/, "")) || option.path
                         : undefined
                     const description =
                       option.type === "file"
                         ? (getMentionFileDescription(option.path) ??
-                          (option.recent ? language.t("prompt.autocomplete.recentFile") : undefined))
+                          (option.recent
+                            ? language.t("prompt.autocomplete.recentFile")
+                            : undefined))
                         : option.description
                     const primary =
                       option.type === "file" ? (fileName ?? option.path) : `@${option.name}`
@@ -283,7 +293,9 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                         <span className={cn(PRIMARY_CLASS, active && PRIMARY_ACTIVE_CLASS)}>
                           {primary}
                         </span>
-                        {description ? <span className={DESCRIPTION_CLASS}>{description}</span> : null}
+                        {description ? (
+                          <span className={DESCRIPTION_CLASS}>{description}</span>
+                        ) : null}
                       </CommandItem>
                     )
                   })}

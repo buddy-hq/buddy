@@ -1,14 +1,7 @@
 export const LARGE_TEXT_FILE_LIMIT_BYTES = 1_000_000
 const IMAGE_MIME_PREFIX = "image/"
 
-export const NATIVE_SPREADSHEET_FORMATS = [
-  "xlsx",
-  "xls",
-  "xlsm",
-  "xlsb",
-  "ods",
-  "numbers",
-] as const
+export const NATIVE_SPREADSHEET_FORMATS = ["xlsx", "xls", "xlsm", "xlsb", "ods", "numbers"] as const
 export type NativeSpreadsheetFormat = (typeof NATIVE_SPREADSHEET_FORMATS)[number]
 
 export const NATIVE_RESOURCE_FORMATS = [
@@ -96,10 +89,9 @@ const NATIVE_RESOURCE_DEFINITION_BY_FORMAT = new Map(
   NATIVE_RESOURCE_FILE_DEFINITIONS.map((definition) => [definition.format, definition] as const),
 )
 const NATIVE_RESOURCE_DEFINITION_BY_EXTENSION = new Map(
-  NATIVE_RESOURCE_FILE_DEFINITIONS.map((definition) => [
-    definition.extension.slice(1),
-    definition,
-  ] as const),
+  NATIVE_RESOURCE_FILE_DEFINITIONS.map(
+    (definition) => [definition.extension.slice(1), definition] as const,
+  ),
 )
 const NATIVE_RESOURCE_FORMAT_SET = new Set<string>(NATIVE_RESOURCE_FORMATS)
 const NATIVE_SPREADSHEET_FORMAT_SET = new Set<string>(NATIVE_SPREADSHEET_FORMATS)

@@ -298,7 +298,9 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                 : (props.sendDisabledReason ?? props.sendAriaLabel)
             }
             title={
-              primaryButtonStopsRun ? props.stopLabel : (props.sendDisabledReason ?? props.sendLabel)
+              primaryButtonStopsRun
+                ? props.stopLabel
+                : (props.sendDisabledReason ?? props.sendLabel)
             }
             onClick={() => {
               if (!primaryButtonStopsRun) return

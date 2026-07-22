@@ -59,10 +59,7 @@ function isHistoryEntryEqual(left: PromptHistoryEntry, right: PromptHistoryEntry
       if (leftAttachment.editTarget !== rightAttachment.editTarget) return false
       continue
     }
-    if (
-      leftAttachment.kind !== "native-resource" ||
-      rightAttachment.kind !== "native-resource"
-    ) {
+    if (leftAttachment.kind !== "native-resource" || rightAttachment.kind !== "native-resource") {
       return false
     }
     if (leftAttachment.format !== rightAttachment.format) return false

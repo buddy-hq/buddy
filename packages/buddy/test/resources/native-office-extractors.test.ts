@@ -153,10 +153,7 @@ async function createLargeLegacySpreadsheet(filepath: string): Promise<void> {
   await writeSpreadsheetFixture({ filepath, format: "xls", workbook })
 }
 
-async function createSparseRowSpreadsheet(
-  filepath: string,
-  format: "xlsx" | "xls",
-): Promise<void> {
+async function createSparseRowSpreadsheet(filepath: string, format: "xlsx" | "xls"): Promise<void> {
   const workbook = XLSX.utils.book_new()
   const worksheet = XLSX.utils.aoa_to_sheet([["Label"], [], ["After blank row"]])
   XLSX.utils.book_append_sheet(workbook, worksheet, "Sparse rows")
@@ -177,10 +174,7 @@ async function addUnknownWorkbookExtension(filepath: string): Promise<void> {
           ? new TextEncoder().encode(
               new TextDecoder()
                 .decode(bytes)
-                .replace(
-                  "</workbook>",
-                  '<vendorExtension data-buddy-test="ignored"/></workbook>',
-                ),
+                .replace("</workbook>", '<vendorExtension data-buddy-test="ignored"/></workbook>'),
             )
           : bytes
       await writer.add(entry.filename, new Uint8ArrayReader(output))
@@ -226,7 +220,7 @@ describe("native office resource extractors", () => {
     expect(extraction.status).toBe("ready")
     expect(extraction.tocMarkdown).toContain("Teacher Notes (hidden")
     expect(extraction.fullText).toContain("`=SUM(B2,2)` → 10")
-    expect(extraction.fullText).toContain("`=CONCAT(\"Ready\",\"!\")` → (no cached result)")
+    expect(extraction.fullText).toContain('`=CONCAT("Ready","!")` → (no cached result)')
     const attendanceCsv = extraction.textArtifacts?.find((artifact) =>
       artifact.relativePath.endsWith("attendance.csv"),
     )
@@ -369,9 +363,9 @@ describe("native office resource extractors", () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Far row")
     await writeSpreadsheetFixture({ filepath: sourcePath, format: "xlsx", workbook })
 
-    await expect(
-      extractResourcePack(sourcePath, classifyResourcePath(sourcePath)),
-    ).rejects.toThrow("maximum materialized row is 100000")
+    await expect(extractResourcePack(sourcePath, classifyResourcePath(sourcePath))).rejects.toThrow(
+      "maximum materialized row is 100000",
+    )
   })
 
   test("writes XLSX CSV artifacts, lists them, and removes stale sheets on rebuild", async () => {
@@ -472,9 +466,7 @@ describe("native office resource extractors", () => {
     expect(await readFile(pptxResource.tocPath, "utf8")).toContain("Slide 1")
     for (const [index, resource] of spreadsheetResources.entries()) {
       expect(resource.record.format).toBe(NATIVE_SPREADSHEET_FORMATS[index])
-      expect(await readFile(resource.entrypointPath, "utf8")).toContain(
-        "sheets/001-attendance.csv",
-      )
+      expect(await readFile(resource.entrypointPath, "utf8")).toContain("sheets/001-attendance.csv")
     }
   })
 
