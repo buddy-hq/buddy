@@ -9,41 +9,54 @@ export type ChatTranscriptTestViewport = {
   cleanup: () => void
 }
 
-export function createChatTranscriptTestViewport(): ChatTranscriptTestViewport {
+type ChatTranscriptTestViewportOptions = {
+  height?: number
+  width?: number
+  scrollHeight?: number
+  clampScrollTop?: boolean
+}
+
+export function createChatTranscriptTestViewport(
+  options: ChatTranscriptTestViewportOptions = {},
+): ChatTranscriptTestViewport {
   const element = document.createElement("div")
+  const viewportHeight = options.height ?? TEST_VIEWPORT_HEIGHT_PX
+  const viewportWidth = options.width ?? TEST_VIEWPORT_WIDTH_PX
+  const scrollHeight = options.scrollHeight ?? TEST_VIEWPORT_SCROLL_HEIGHT_PX
   let scrollTop = 0
 
   Object.defineProperties(element, {
     clientHeight: {
       configurable: true,
-      get: () => TEST_VIEWPORT_HEIGHT_PX,
+      get: () => viewportHeight,
     },
     clientWidth: {
       configurable: true,
-      get: () => TEST_VIEWPORT_WIDTH_PX,
+      get: () => viewportWidth,
     },
     offsetHeight: {
       configurable: true,
-      get: () => TEST_VIEWPORT_HEIGHT_PX,
+      get: () => viewportHeight,
     },
     offsetWidth: {
       configurable: true,
-      get: () => TEST_VIEWPORT_WIDTH_PX,
+      get: () => viewportWidth,
     },
     scrollHeight: {
       configurable: true,
-      get: () => TEST_VIEWPORT_SCROLL_HEIGHT_PX,
+      get: () => scrollHeight,
     },
     scrollTop: {
       configurable: true,
       get: () => scrollTop,
       set: (value: number) => {
-        scrollTop = value
+        scrollTop = options.clampScrollTop
+          ? Math.min(Math.max(0, value), Math.max(0, scrollHeight - viewportHeight))
+          : value
       },
     },
   })
-  element.getBoundingClientRect = () =>
-    new DOMRect(0, 0, TEST_VIEWPORT_WIDTH_PX, TEST_VIEWPORT_HEIGHT_PX)
+  element.getBoundingClientRect = () => new DOMRect(0, 0, viewportWidth, viewportHeight)
   document.body.appendChild(element)
 
   return {

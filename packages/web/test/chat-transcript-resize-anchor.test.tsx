@@ -307,6 +307,47 @@ describe("chat transcript resize anchoring", () => {
     expect(viewport.scrollTop).toBe(nextTotalSize - viewportHeight)
   })
 
+  test("mounts the first rows when the transcript is shorter than its viewport", async () => {
+    transcriptViewport.cleanup()
+    transcriptViewport = createChatTranscriptTestViewport({
+      height: 10_000,
+      scrollHeight: 10_000,
+      clampScrollTop: true,
+    })
+    transcriptViewport.ref.current?.append(container)
+
+    const directory = "/repo-short-transcript"
+    const sessionID = "ses_short_transcript"
+    const messages = Array.from({ length: 32 }, (_, index) => {
+      const messageID = `msg_${String(index).padStart(3, "0")}_short_transcript`
+      return createMessageWithParts(createUserMessageInfo({ id: messageID, sessionID }), [
+        {
+          id: `prt_${index}_short_transcript`,
+          sessionID,
+          messageID,
+          type: "text",
+          text: `Short transcript message ${index + 1}`,
+        },
+      ])
+    })
+    seedDirectoryChatState(directory, { sessionID, messages })
+
+    await act(async () => {
+      root.render(
+        <ChatTranscript
+          directory={directory}
+          scrollViewportRef={transcriptViewport.ref}
+          shouldAnchorBottom={() => true}
+          hasScrollGesture={NEVER_HAS_SCROLL_GESTURE}
+        />,
+      )
+      await flushAnimationFrames()
+    })
+
+    expect(transcriptViewport.ref.current?.scrollTop).toBe(0)
+    expect(container.textContent).toContain("Short transcript message 1")
+  })
+
   test("uses a restored detached offset for its initial virtualizer position", async () => {
     const directory = "/repo-restored-offset"
     const sessionID = "ses_restored_offset"

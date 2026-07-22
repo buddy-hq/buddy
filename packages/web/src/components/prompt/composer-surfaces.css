@@ -1,0 +1,245 @@
+/*
+ * Composer surface system — one material for every surface the composer
+ * spawns (the composer itself, its dropdowns, the @/slash menus, the arcade
+ * and sketch docks, the context popover) plus the chat transcript's sent
+ * user-message bubble. See docs/design/grain.md.
+ *
+ * Every visual knob is a CSS custom property declared here, so the whole
+ * system is retuned from one place — and a future grain controller only has
+ * to write `--composer-grain-opacity` (e.g. to 0) to change every surface at
+ * once. Components never hardcode the radius, shadow, or grain; they wear a
+ * class that reads these variables.
+ *
+ * The classes are intentionally *unlayered* (not inside `@layer`). Unlayered
+ * rules beat Tailwind's layered utilities, so a surface built from a shared UI
+ * component (SelectContent, ComposerDock, TooltipContent) adopts the system by
+ * adding one class, without fighting the component's own `rounded-*`/`shadow-*`
+ * utilities. Hosts must be positioned (all our surfaces already are) for the
+ * grain overlay to anchor.
+ */
+
+:root {
+  /* --- the knobs --------------------------------------------------------- */
+
+  /* Grain. The controller target: set opacity to 0 to remove grain everywhere. */
+  --composer-grain-opacity: 0.06;
+  --composer-grain-size: 180px;
+  --composer-grain-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  /* Shape + material. Two radii: panels (composer, docks) read softer; compact
+     popovers (dropdowns, @/slash menu, context popover) read tighter. */
+  --composer-surface-radius: 16px;
+  --composer-surface-radius-sm: 10px;
+  --composer-surface-bg: var(--surface-raised-base);
+  --composer-surface-bg-floating: var(--surface-raised-stronger-non-alpha);
+
+  /* A hairline that reads as an edge without a hard border — baked into the
+     floating shadow so floating surfaces separate from busy content behind. */
+  --composer-surface-hairline: color-mix(in oklab, var(--border-weak-base) 55%, transparent);
+
+  /* Anchored (the composer, resting on the page): soft, diffuse lift. */
+  --composer-surface-shadow:
+    0 1px 2px -1px rgb(0 0 0 / 0.08),
+    0 12px 28px -12px rgb(0 0 0 / 0.18);
+
+  /* Floating (menus, docks, popovers): the hairline + a deeper lift. */
+  --composer-surface-shadow-floating:
+    0 0 0 1px var(--composer-surface-hairline),
+    0 2px 8px -3px rgb(0 0 0 / 0.14),
+    0 20px 44px -14px rgb(0 0 0 / 0.32);
+
+  /* Focus ring for the composer shell (no border to recolour). */
+  --composer-focus-ring: color-mix(in oklab, var(--border-interactive-base) 12%, transparent);
+
+  /* Selection clip: a passage the user pulled from a document. The quote-rail
+     accent that marks it as a citation, and the softer (anchored) fill so a
+     pulled-in quote reads quieter than a live message bubble. */
+  --composer-clip-rail: color-mix(in oklab, var(--text-interactive-base) 60%, transparent);
+}
+
+/* --- grain overlay ------------------------------------------------------- */
+/* Faint paper tooth, laid over the surface and non-interactive. Uniform tile
+   size across surfaces so a big dock and a small menu share the same grain. */
+.composer-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Above the surface's base content (incl. Select's z-10 scroll chevrons, which
+     we drop to z-1 below) so the tooth runs uniformly across the whole surface.
+     Low enough to stay under transient overlays (drag hint, open popovers). */
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: var(--composer-grain-opacity);
+  background-image: var(--composer-grain-image);
+  background-size: var(--composer-grain-size) var(--composer-grain-size);
+  background-repeat: repeat;
+}
+
+/* Select's scroll chevrons ship an opaque fill at z-10; drop them just beneath
+   the grain so the tooth covers them too. Still positioned above the in-flow
+   list, so they keep masking items that scroll under them. */
+.composer-surface-menu [data-slot="select-scroll-up-button"],
+.composer-surface-menu [data-slot="select-scroll-down-button"] {
+  z-index: 1;
+}
+
+/* The context popover is a Radix tooltip built for a LIGHT pill: it hardcodes
+   dark ink (`text-background-base`) plus a `**:text-current` rule that forces
+   every row to that dark colour, and a pale-filled arrow. On our dark surface
+   that's dark-on-dark text and a stray white diamond. Fix both:
+   - reset the ink to the readable app colour (weight still separates label vs
+     value, since the values carry font-medium/semibold);
+   - hide the arrow. It's an SVG wrapped in a positioning <span>, so this must
+     be a descendant selector, not a direct child. The context popover has no
+     other SVGs, so scoping to tooltip-content keeps dropdown/menu icons safe. */
+.composer-surface-menu[data-slot="tooltip-content"],
+.composer-surface-menu[data-slot="tooltip-content"] * {
+  color: var(--text-base);
+}
+
+.composer-surface-menu[data-slot="tooltip-content"] svg {
+  display: none;
+}
+
+/* --- surfaces ------------------------------------------------------------ */
+/* Anchored surface — the composer shell. */
+.composer-surface {
+  border: 0;
+  border-radius: var(--composer-surface-radius);
+  background-color: var(--composer-surface-bg);
+  box-shadow: var(--composer-surface-shadow);
+}
+
+/* Floating panel — the large surfaces the composer opens (arcade, sketch dock). */
+.composer-surface-floating {
+  border: 0;
+  border-radius: var(--composer-surface-radius);
+  background-color: var(--composer-surface-bg-floating);
+  box-shadow: var(--composer-surface-shadow-floating);
+}
+
+/* Compact popover — same material, tighter radius (dropdowns, @/slash menu,
+   context popover). A big panel radius reads as too round at menu size. */
+.composer-surface-menu {
+  border: 0;
+  border-radius: var(--composer-surface-radius-sm);
+  background-color: var(--composer-surface-bg-floating);
+  box-shadow: var(--composer-surface-shadow-floating);
+}
+
+/* Sent user-message bubble — the paper-grained material, but minimal: fill +
+   radius + grain only, no shadow or hairline ring. Two reasons: the transcript
+   virtualises each row inside an `overflow: clip` wrapper sized to the row's
+   exact height, so a shadow/ring would be shaved off the top and bottom edges;
+   and the bubble simply reads cleaner flat. Keeps a pinched bottom-right corner
+   as the chat-bubble tail. */
+.composer-surface-bubble {
+  border: 0;
+  border-radius: var(--composer-surface-radius) var(--composer-surface-radius) 2px
+    var(--composer-surface-radius);
+  background-color: var(--composer-surface-bg-floating);
+}
+
+/* Selection clip — a quoted passage pulled from a document, shown inline in the
+   transcript and as a chip over the composer. Same grain material, but dressed
+   as a citation rather than a chat bubble: a left quote-rail (kept outside the
+   grain, which anchors to the padding box, so it stays a crisp accent), left
+   corners squared to meet the rail, and the softer anchored fill so a pulled-in
+   quote recedes rather than competes with a live message. The mono excerpt and
+   labelled header live at the call sites (see selection-clip.tsx). */
+.composer-surface-clip {
+  border: 0;
+  border-left: 2px solid var(--composer-clip-rail);
+  border-radius: 3px var(--composer-surface-radius-sm) var(--composer-surface-radius-sm) 3px;
+  background-color: var(--composer-surface-bg);
+}
+
+/* Composer shell focus affordance. focus-visible (not focus-within) so opening
+   a dropdown doesn't light the whole shell. Layers the ring over the resting
+   shadow. */
+.composer-shell {
+  transition: box-shadow 200ms ease;
+}
+
+.composer-shell:has(:focus-visible) {
+  box-shadow:
+    0 0 0 3px var(--composer-focus-ring),
+    var(--composer-surface-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-shell {
+    transition: none;
+  }
+}
+
+/* --- editor scrollbar ---------------------------------------------------- */
+/* The app forces a chunky 10px scrollbar with a solid track channel on
+   everything (ui/src/index.css); on the paper surface that channel is an
+   eyesore. Drop the track, thin the thumb to a soft sliver. Scoped, so the
+   rest of the app keeps its default. */
+.composer-scroll {
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  scrollbar-color: color-mix(in oklab, var(--text-weak) 22%, transparent) transparent;
+}
+
+.composer-scroll::-webkit-scrollbar {
+  width: 9px;
+}
+
+.composer-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.composer-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--text-weak) 22%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.composer-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--text-weak) 42%, transparent);
+}
+
+/* Reveal-on-hover variant. The thumb is invisible at rest and fades in only
+   while the container is hovered (or focused within) — used inside the inline
+   selection clip so a tall quote scrolls without a bar cluttering the citation
+   when it's just sitting in the transcript. */
+.composer-scroll-hover {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 160ms ease;
+}
+
+.composer-scroll-hover:hover,
+.composer-scroll-hover:focus-within {
+  scrollbar-color: color-mix(in oklab, var(--text-weak) 32%, transparent) transparent;
+}
+
+.composer-scroll-hover::-webkit-scrollbar {
+  width: 9px;
+}
+
+.composer-scroll-hover::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.composer-scroll-hover::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 160ms ease;
+}
+
+.composer-scroll-hover:hover::-webkit-scrollbar-thumb,
+.composer-scroll-hover:focus-within::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--text-weak) 32%, transparent);
+}
+
+.composer-scroll-hover::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--text-weak) 52%, transparent);
+}

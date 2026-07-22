@@ -655,7 +655,7 @@ export const VersionedTextFileEditor = forwardRef<
               <DialogDescription>{error}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setError(undefined)}>
+              <Button type="button" variant="ghost" onClick={() => setError(undefined)}>
                 {language.t("markdownEditor.dismiss")}
               </Button>
               {showSaveRetry ? (

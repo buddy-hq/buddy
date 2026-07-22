@@ -69,8 +69,6 @@ export type TimelineRow =
       itemActive: boolean
       layoutRole: ToolLayoutRole
       previousLayoutRole: ToolLayoutRole | undefined
-      previousAssistantPart: boolean
-      lastAssistantTextID: string | undefined
     }
   | {
       type: "activity"
@@ -85,7 +83,6 @@ export type TimelineRow =
       current: boolean
       initial: boolean
       previousLayoutRole: ToolLayoutRole | undefined
-      previousAssistantPart: boolean
     }
   | {
       type: "retry"
@@ -281,7 +278,6 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         current: true,
         initial: true,
         previousLayoutRole: undefined,
-        previousAssistantPart: false,
       },
     ]
   }
@@ -366,7 +362,6 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
           current: active && isLastItem && !needsTailActivity,
           initial: item.key === "activity:0",
           previousLayoutRole,
-          previousAssistantPart: itemIndex > 0,
         })
         previousPartID = lastPartID(item) ?? previousPartID
         previousLayoutRole = "activity"
@@ -389,8 +384,6 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
           active && isLastItem && !needsTailActivity && assistantItemIsVisiblyActive(item),
         layoutRole: item.layoutRole,
         previousLayoutRole,
-        previousAssistantPart: itemIndex > 0,
-        lastAssistantTextID: textPartID,
       })
       previousPartID = lastPartID(item) ?? previousPartID
       previousLayoutRole = item.layoutRole
@@ -411,7 +404,6 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         current: true,
         initial: boundaryOrdinal === 0,
         previousLayoutRole,
-        previousAssistantPart: assistantItems.length > 0,
       })
     }
 
@@ -513,9 +505,7 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         left.active === right.active &&
         left.itemActive === right.itemActive &&
         left.layoutRole === right.layoutRole &&
-        left.previousLayoutRole === right.previousLayoutRole &&
-        left.previousAssistantPart === right.previousAssistantPart &&
-        left.lastAssistantTextID === right.lastAssistantTextID
+        left.previousLayoutRole === right.previousLayoutRole
       )
     case "activity":
       return (
@@ -529,8 +519,7 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         left.active === right.active &&
         left.current === right.current &&
         left.initial === right.initial &&
-        left.previousLayoutRole === right.previousLayoutRole &&
-        left.previousAssistantPart === right.previousAssistantPart
+        left.previousLayoutRole === right.previousLayoutRole
       )
     case "retry":
       return (

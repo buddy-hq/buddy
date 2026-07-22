@@ -42,7 +42,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
       <TooltipContent
         side="top"
         sideOffset={6}
-        className="flex min-w-32 flex-col gap-1.5 p-2.5 text-[11px]"
+        className="composer-surface-menu composer-grain flex min-w-32 flex-col gap-1.5 p-2.5 text-[11px]"
       >
         <div className="flex items-center justify-between gap-4">
           <span className="text-text-weak">

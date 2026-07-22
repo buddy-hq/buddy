@@ -15,7 +15,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { TooltipProvider } from "@buddy/ui"
+import { TooltipProvider, cn } from "@buddy/ui"
 import type {
   ToolCollectionToken,
   ToolRendererToken,
@@ -80,6 +80,7 @@ import type { ChatTranscriptProps } from "./types"
 const HISTORY_PREPEND_TOP_THRESHOLD_PX = 160
 const TIMELINE_PADDING_END_PX = 64
 const TIMELINE_SCROLL_END_THRESHOLD_PX = 80
+const TIMELINE_SCROLL_WRITE_EPSILON_PX = 0.5
 const TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX = 1
 const TIMELINE_RESIZE_BOTTOM_REPAIR_DELAY_MS = 120
 const TIMELINE_RESIZE_STABLE_FRAMES = 30
@@ -275,14 +276,22 @@ export function writeTranscriptVirtualEnd(
   const previousScrollTop = root.scrollTop
   root.scrollTop = requestedOffset
   const nextScrollTop = root.scrollTop
+  const noOp = Math.abs(previousScrollTop - nextScrollTop) < TIMELINE_SCROLL_WRITE_EPSILON_PX
   recordTranscriptPerfEvent({
     type: "scroll-write",
     at: performance.now(),
     requestedOffset,
     previousScrollTop,
     nextScrollTop,
-    noOp: Math.abs(previousScrollTop - nextScrollTop) < 0.5,
+    noOp,
   })
+  // A bottom write can be a browser-level no-op when the transcript is shorter
+  // than its viewport. No native scroll event fires in that case, so the
+  // virtualizer can retain its end sentinel and omit the first rows until the
+  // user scrolls. Replaying the current offset synchronizes its visible range.
+  if (noOp) {
+    root.dispatchEvent(new Event("scroll"))
+  }
 }
 
 export function isDeferredToolFallbackCollapse(input: {
@@ -428,6 +437,7 @@ function TimelineUserRow(props: {
   row: Extract<TimelineRow, { type: "user" }>
   providers: ProviderInfo[]
   canRevert: boolean
+  animateEntrance: boolean
   onRevertMessage: ChatTranscriptProps["onRevertMessage"]
 }) {
   const info = useTranscriptMessage(props.row.userMessageID)
@@ -444,6 +454,7 @@ function TimelineUserRow(props: {
         userMessage={userMessage}
         providers={props.providers}
         onRevertMessage={props.canRevert ? props.onRevertMessage : undefined}
+        animateEntrance={props.animateEntrance}
       />
     </article>
   )
@@ -537,12 +548,6 @@ function TimelineAssistantRow(props: {
   }, [assistantSessionID, forkExclusiveMessageID, requestFork, rowActive])
   const availableOnForkMessage =
     requestFork && assistantSessionID && !rowActive ? onForkMessage : undefined
-  // Final non-empty text of the turn: separate it from tools/steps above.
-  const showFinalTextSeparator =
-    itemPart != null &&
-    isChatTextPart(itemPart) &&
-    props.row.lastAssistantTextID === itemPart.id &&
-    props.row.previousAssistantPart
 
   return (
     <article
@@ -556,11 +561,6 @@ function TimelineAssistantRow(props: {
           props.row.layoutRole,
         )}`}
       >
-        {showFinalTextSeparator ? (
-          <div data-timeline-separator="final-text" className="w-full py-4" aria-hidden="true">
-            <div className="h-px w-full bg-border-weak-base" />
-          </div>
-        ) : null}
         {props.row.item.type === "grouped-parts"
           ? groupedCollectionContent({
               collection: props.row.item.collection,
@@ -625,6 +625,7 @@ function TimelineActivityRow(props: {
   row: Extract<TimelineRow, { type: "activity" }>
   providers: ProviderInfo[]
   directory: string | undefined
+  animateEntrance: boolean
   onOpenSession: ChatTranscriptProps["onOpenSession"]
   expansionState: ActivityRowExpansionState | undefined
   onExpansionStateChange: (state: ActivityRowExpansionState) => void
@@ -649,7 +650,21 @@ function TimelineActivityRow(props: {
     <article
       data-message-id={props.row.userMessageID}
       data-timeline-row="Activity"
-      className="relative min-w-0 w-full max-w-full px-4 md:px-5"
+      className={cn(
+        "relative min-w-0 w-full max-w-full px-4 md:px-5",
+        // The thinking placeholder is the "we got your message" signal, so it
+        // must appear essentially immediately, or keyboard submits feel
+        // unresponsive and a fast reply can finish before it ever shows. A tiny
+        // 100ms delay lets the user block lead by a hair — short enough to still
+        // read as instant (well under the 550ms that felt laggy). fill-mode-
+        // backwards holds the hidden start through that 100ms so it doesn't
+        // flash its final state first. It then materialises in place: a gentle
+        // fade + de-blur (comes into focus) where it sits, no translate and no
+        // scale. Filter/opacity only (blur is a filter, like opacity), applied
+        // to this row's child, so it never perturbs the virtualiser measure.
+        props.animateEntrance &&
+          "animate-in fade-in blur-in-[6px] delay-100 fill-mode-backwards duration-[300ms] ease-out motion-reduce:animate-none",
+      )}
     >
       <div className={`flow-root ${transcriptGapClass(props.row.previousLayoutRole, "activity")}`}>
         <ActivityRow
@@ -677,6 +692,7 @@ function TimelineRowRenderer(props: {
   directory: string | undefined
   canEditImages: boolean | undefined
   lastUserMessageID: string | undefined
+  entranceUserMessageID: string | undefined
   shellToolDefaultOpen: boolean
   editToolDefaultOpen: boolean
   onOpenSession: ChatTranscriptProps["onOpenSession"]
@@ -697,6 +713,7 @@ function TimelineRowRenderer(props: {
           row={props.row}
           providers={props.providers}
           canRevert={props.row.userMessageID === props.lastUserMessageID}
+          animateEntrance={props.row.userMessageID === props.entranceUserMessageID}
           onRevertMessage={props.onRevertMessage}
         />
       )
@@ -736,6 +753,7 @@ function TimelineRowRenderer(props: {
           row={props.row}
           providers={props.providers}
           directory={props.directory}
+          animateEntrance={props.row.userMessageID === props.entranceUserMessageID}
           onOpenSession={props.onOpenSession}
           expansionState={props.activityRowExpansionByKey[props.row.key]}
           onExpansionStateChange={(state) =>
@@ -910,10 +928,60 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     activeSessionStatus,
     showReasoningSummaries,
   })
-  const lastUserMessageID = visibleMessages.findLast((message) => message.info.role === "user")
-    ?.info.id
+  const lastUserMessage = visibleMessages.findLast((message) => message.info.role === "user")
+  const lastUserMessageID = lastUserMessage?.info.id
+  // A freshly sent message is added optimistically; async-loaded history is not.
+  // This lets the very first send of an empty session animate (no prior tail id
+  // to advance past) without also animating when an existing conversation's
+  // history streams in.
+  const lastUserMessageIsOptimistic =
+    lastUserMessage?.parts.some((part) => part.optimistic === true) ?? false
   const cacheKey = timelineCacheKey(directory, sessionID)
   const cached = cacheKey ? timelineCache.get(cacheKey) : undefined
+
+  // Entrance animation: play the user block's transform/opacity "pop" once (and
+  // its mirror on the assistant's thinking placeholder), only for a genuine
+  // send. The tail user-message id advances to a strictly newer id exactly when
+  // the user sends — assistant replies and history prepends leave it unchanged,
+  // and a revert moves it backwards. The first send of an empty session has no
+  // prior tail to beat, so we fall back to the optimistic flag, which a live
+  // send carries but async-loaded history does not. Never on session switch or
+  // re-scroll. Message ids are time-ordered (compared with < elsewhere here).
+  const entranceCacheKeyRef = useRef<string | undefined>(cacheKey)
+  const previousLastUserMessageIDRef = useRef<string | undefined>(lastUserMessageID)
+  const [entranceUserMessageID, setEntranceUserMessageID] = useState<string | undefined>(undefined)
+
+  // useLayoutEffect, not useEffect: it must set the flag before the browser
+  // paints the newly mounted row. With useEffect the row paints once at its
+  // resting position (a flash) before the entrance class lands, then jumps to
+  // the start and animates — two visible movements. Running pre-paint means the
+  // very first painted frame already carries the entrance's hidden start state.
+  useLayoutEffect(() => {
+    const sessionChanged = entranceCacheKeyRef.current !== cacheKey
+    const previous = previousLastUserMessageIDRef.current
+    entranceCacheKeyRef.current = cacheKey
+    previousLastUserMessageIDRef.current = lastUserMessageID
+    if (sessionChanged) {
+      setEntranceUserMessageID(undefined)
+      return
+    }
+    if (lastUserMessageID === undefined) return
+    const advanced = previous !== undefined && lastUserMessageID > previous
+    // First send in a session we've been watching empty: no prior tail to beat,
+    // but the optimistic flag confirms it's a live send rather than a history load.
+    const firstSend = previous === undefined && lastUserMessageIsOptimistic
+    if (advanced || firstSend) {
+      setEntranceUserMessageID(lastUserMessageID)
+    }
+  }, [cacheKey, lastUserMessageID, lastUserMessageIsOptimistic])
+
+  // Stop flagging the entrance after it has had time to play, so remounting the
+  // row (scrolling it out of and back into the virtual window) never replays it.
+  useEffect(() => {
+    if (!entranceUserMessageID) return
+    const timer = window.setTimeout(() => setEntranceUserMessageID(undefined), 600)
+    return () => window.clearTimeout(timer)
+  }, [entranceUserMessageID])
   const [restoredInitialScrollOffset] = useState(() => initialScrollOffset())
   const hasRestoredInitialScrollOffset = restoredInitialScrollOffset !== undefined
   const restoredInitialRowCountRef = useRef(rows.length)
@@ -1347,6 +1415,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                     directory={directory}
                     canEditImages={canEditImages}
                     lastUserMessageID={lastUserMessageID}
+                    entranceUserMessageID={entranceUserMessageID}
                     shellToolDefaultOpen={shellToolDefaultOpen}
                     editToolDefaultOpen={editToolDefaultOpen}
                     onOpenSession={onOpenSession}
