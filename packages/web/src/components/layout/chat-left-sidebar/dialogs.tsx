@@ -147,7 +147,7 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
       >
         <DialogContent data-component="left-sidebar-archive-dialog" className="sm:max-w-md">
           <DialogHeader className="flex flex-col items-center text-center space-y-3">
-            <div className="flex size-12 items-center justify-center rounded-full border border-border-weak bg-surface-weak/50 text-icon-weak-base shadow-xs">
+            <div className="flex size-12 items-center justify-center rounded-full border border-border-weak bg-surface-weak/50 text-icon-base shadow-xs">
               <ArchiveIcon className="size-5.5" />
             </div>
             <div className="space-y-1">
@@ -164,7 +164,7 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
           <DialogFooter className="sm:justify-center gap-2 mt-4">
             <Button
               data-action="left-sidebar-archive-cancel"
-              variant="outline"
+              variant="ghost"
               onClick={props.onArchiveCancel}
               disabled={props.archiveSaving}
               className="w-full sm:w-auto min-w-28 active:scale-[0.97] transition-transform"
@@ -195,7 +195,7 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
       >
         <DialogContent data-component="left-sidebar-rename-dialog" className="sm:max-w-md">
           <DialogHeader className="flex flex-col items-center text-center space-y-3">
-            <div className="flex size-12 items-center justify-center rounded-full border border-border-weak bg-surface-weak/50 text-icon-weak-base shadow-xs">
+            <div className="flex size-12 items-center justify-center rounded-full border border-border-weak bg-surface-weak/50 text-icon-base shadow-xs">
               <PencilIcon className="size-5.5" />
             </div>
             <div className="space-y-1">
@@ -225,7 +225,7 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
           <DialogFooter className="sm:justify-end gap-2 mt-2">
             <Button
               data-action="left-sidebar-rename-cancel"
-              variant="outline"
+              variant="ghost"
               onClick={props.onRenameCancel}
               className="active:scale-[0.97] transition-transform"
             >
@@ -754,9 +754,9 @@ export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
             </DialogDescription>
           </div>
         </DialogHeader>
-        <div className="space-y-5 py-2">
+        <div className="space-y-4 py-1">
           <Field className="space-y-1.5">
-            <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider">
+            <FieldLabel className="text-xs font-medium text-text-weak">
               {language.t("sidebar.newNotebookPlaceholder")}
             </FieldLabel>
             <Input
@@ -819,32 +819,31 @@ export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
           )}
 
           {props.onOpenExistingFolder && (
-            <div className="flex items-center justify-between gap-4 border-t border-border-weak/60 pt-4 px-1">
-              <div className="space-y-0.5 min-w-0 flex-1">
-                <span className="text-xs font-semibold text-text-strong block">
-                  {language.t("sidebar.openExistingFolder")}
-                </span>
-                <span className="text-xs text-text-weak block leading-normal">
-                  {language.t("sidebar.openExistingFolderTooltip")}
-                </span>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3" aria-hidden="true">
+                <span className="h-px flex-1 bg-border-weak-base" />
+                <span className="text-xs text-text-weak">{language.t("common.or")}</span>
+                <span className="h-px flex-1 bg-border-weak-base" />
               </div>
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
+                variant="secondary"
                 onClick={props.onOpenExistingFolder}
-                className="h-8 text-xs shrink-0 active:scale-[0.97] transition-transform"
+                className="w-full active:scale-[0.97] transition-transform"
               >
-                <FolderOpenIcon className="size-3.5 mr-1.5" />
-                Open
+                <FolderOpenIcon className="size-4" />
+                {language.t("sidebar.openExistingFolder")}
               </Button>
+              <p className="text-xs text-text-weak text-center leading-normal">
+                {language.t("sidebar.openExistingFolderTooltip")}
+              </p>
             </div>
           )}
         </div>
         <DialogFooter className="gap-2">
           <Button
             data-action="left-sidebar-create-notebook-cancel"
-            variant="outline"
+            variant="ghost"
             onClick={() => props.onOpenChange(false)}
             disabled={props.busy}
             className="active:scale-[0.97] transition-transform"

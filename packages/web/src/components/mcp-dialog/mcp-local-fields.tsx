@@ -22,7 +22,7 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
     <>
       <Field className="space-y-1.5">
         <FieldLabel
-          className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+          className="text-xs font-medium text-text-weak"
           htmlFor="mcp-command"
         >
           {language.t("mcp.localFields.commandLabel")}
@@ -54,7 +54,7 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
 
       <Field className="space-y-1.5">
         <FieldLabel
-          className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+          className="text-xs font-medium text-text-weak"
           htmlFor="mcp-environment"
         >
           {language.t("mcp.localFields.environmentLabel")}

@@ -129,6 +129,10 @@ type DirectoryThreadRowProps = {
   onRequestRename: (sessionID: string, title: string) => void
   onRequestArchive: (sessionID: string, title: string) => void
   depth?: number
+  /** Skip the pin badge — redundant when the row already lives in a dedicated Pinned section. */
+  hidePinBadge?: boolean
+  /** Override the notebook-derived left inset — used by the Pinned section to render flush-left rows. */
+  basePaddingLeftPx?: number
 }
 
 const COLLAPSED_COUNT = 10
@@ -177,7 +181,7 @@ function isSessionInfo(value: SessionInfo | undefined): value is SessionInfo {
 
 export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryListProps) {
   return (
-    <div data-component="left-sidebar-directory-list" className="space-y-0.5 mt-2">
+    <div data-component="left-sidebar-directory-list" className="space-y-0.5 mt-0">
       {props.directoryGroups.map((group) => {
         const allSessions = props.sessionsByDirectory[group.directory] ?? []
         const sessionStatusByID = props.sessionStatusByDirectory[group.directory] ?? {}
@@ -266,14 +270,15 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   const justCollapsedRef = useRef(false)
 
   const handleMouseEnter = () => {
-    if (props.collapsed && !justCollapsedRef.current) {
-      clearTimeout(popoverTimeoutRef.current)
-      if (!popoverOpen) {
-        popoverOpenTimeoutRef.current = setTimeout(() => {
-          setPopoverOpen(true)
-        }, 250)
-      }
-    }
+    // Hover-to-preview popout disabled for now — keeping the logic here to re-enable easily.
+    // if (props.collapsed && !justCollapsedRef.current) {
+    //   clearTimeout(popoverTimeoutRef.current)
+    //   if (!popoverOpen) {
+    //     popoverOpenTimeoutRef.current = setTimeout(() => {
+    //       setPopoverOpen(true)
+    //     }, 250)
+    //   }
+    // }
   }
 
   const handleMouseLeave = () => {
@@ -285,13 +290,15 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   }
 
   const headerNode = (
-    <div className={`group/notebook-header relative flex items-center gap-1 px-1.5 pt-0.5 pb-0.5`}>
+    <div
+      className={`group/notebook-header relative flex items-center gap-1 rounded-lg px-1.5 pt-0.5 pb-0.5 hover:bg-surface-raised-base-hover`}
+    >
       <CollapsibleTrigger asChild>
         <button
           type="button"
           data-action="left-sidebar-directory-toggle"
           data-directory={props.group.directory}
-          className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left text-sm font-light text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong cursor-pointer`}
+          className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left text-sm font-light text-text-weak group-hover/notebook-header:text-text-strong cursor-pointer`}
           onPointerDown={
             canDrag && !isQuickChatGroup ? (event) => props.onLabelPointerDown(event) : undefined
           }
@@ -474,7 +481,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 {props.group.sessions.length === 0 && (
                   <>
                     <div className="mx-3 my-0.5 h-px bg-border-weaker-base" />
-                    <p className="py-3 text-center text-[11px] text-text-weakest">
+                    <p className="py-3 text-center text-[11px] text-icon-base">
                       {language.t("sidebar.noThreads")}
                     </p>
                   </>
@@ -522,23 +529,12 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           <div className="min-h-0 overflow-hidden">
             <div className="flex flex-col space-y-0.5 px-1.5">
               {props.group.sessions.length === 0 ? (
-                <div className="flex justify-center py-6">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    data-action="left-sidebar-directory-empty-new-thread"
-                    className="gap-1.5 text-xs font-light text-text-weaker hover:text-text-base"
-                    onClick={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      props.onNewSession()
-                    }}
-                  >
-                    <SquarePenIcon className="size-3.5" />
-                    {language.t("sidebar.newThread")}
-                  </Button>
-                </div>
+                <p
+                  className="py-1 text-xs font-light text-icon-base select-none"
+                  style={{ paddingLeft: `${THREAD_ROW_PADDING_LEFT_PX}px` }}
+                >
+                  {language.t("sidebar.noThreads")}
+                </p>
               ) : (
                 sessionsToRender.map((session) => (
                   <DirectoryThreadRow
@@ -615,8 +611,13 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   const display = parseSubagentSession(props.session)
   const title = formatSessionTitle(display.title || language.t("sidebar.untitledThread"))
   // const age = formatThreadAge(props.session.time.updated ?? props.session.time.created)
-  const leftPadding = THREAD_ROW_PADDING_LEFT_PX + depth * THREAD_CHILD_INDENT_PX
-  const statusOffset = THREAD_STATUS_OFFSET_PX + depth * THREAD_CHILD_INDENT_PX
+  const basePaddingLeftPx = props.basePaddingLeftPx ?? THREAD_ROW_PADDING_LEFT_PX
+  const leftPadding = basePaddingLeftPx + depth * THREAD_CHILD_INDENT_PX
+  const baseStatusOffset =
+    props.basePaddingLeftPx !== undefined
+      ? Math.max(2, props.basePaddingLeftPx - 6)
+      : THREAD_STATUS_OFFSET_PX
+  const statusOffset = baseStatusOffset + depth * THREAD_CHILD_INDENT_PX
   const canToggleChildren = childSessions.length > 0
   const [childrenOpen, setChildrenOpen] = useState(false)
   // Auto-open children when this session's family becomes active; stays open until user collapses
@@ -736,14 +737,18 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                     >
                       {title}
                     </span>
-                    {pinned ? <PinIcon className="size-2.5 shrink-0 text-text-weaker" /> : null}
+                    {pinned && !props.hidePinBadge ? (
+                      <PinIcon className="size-2.5 shrink-0 text-text-weaker" />
+                    ) : null}
                   </div>
                 ) : (
                   // Single-line layout with hover overlay for root-level thread rows
                   <>
                     <div className="flex min-w-0 flex-1 items-center gap-1.5">
                       <span className="truncate text-xs font-light">{title}</span>
-                      {pinned ? <PinIcon className="size-3 shrink-0 text-text-weaker" /> : null}
+                      {pinned && !props.hidePinBadge ? (
+                        <PinIcon className="size-3 shrink-0 text-text-weaker" />
+                      ) : null}
                     </div>
                     <div
                       className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center gap-2 pl-6 pr-0.5 opacity-0 group-hover/thread:opacity-100 transition-opacity ${
@@ -852,6 +857,8 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                   onRequestRename={props.onRequestRename}
                   onRequestArchive={props.onRequestArchive}
                   depth={depth + 1}
+                  hidePinBadge={props.hidePinBadge}
+                  basePaddingLeftPx={props.basePaddingLeftPx}
                 />
               ))
             : null}
@@ -861,7 +868,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                 type="button"
                 className="relative w-full py-1 pr-2.5 text-left text-[10px] text-text-weaker hover:text-text-base"
                 style={{
-                  paddingLeft: `${THREAD_ROW_PADDING_LEFT_PX + (depth + 1) * THREAD_CHILD_INDENT_PX}px`,
+                  paddingLeft: `${basePaddingLeftPx + (depth + 1) * THREAD_CHILD_INDENT_PX}px`,
                 }}
                 onClick={() => setShowAllChildren((v) => !v)}
               >

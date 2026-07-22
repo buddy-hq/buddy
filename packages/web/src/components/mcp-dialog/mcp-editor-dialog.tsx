@@ -81,7 +81,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
         <div className="grid gap-4 py-1.5">
           <Field className="space-y-1.5">
             <FieldLabel
-              className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+              className="text-xs font-medium text-text-weak"
               htmlFor="mcp-name"
             >
               {language.t("mcp.editorDialog.name")}
@@ -218,7 +218,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
         <DialogFooter className="gap-2 mt-2">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             onClick={() => props.onOpenChange(false)}
             disabled={props.editorSaving}
             className="active:scale-[0.97] transition-transform"

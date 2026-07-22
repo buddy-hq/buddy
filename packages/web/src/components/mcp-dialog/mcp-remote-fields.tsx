@@ -24,7 +24,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
     <>
       <Field className="space-y-1.5">
         <FieldLabel
-          className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+          className="text-xs font-medium text-text-weak"
           htmlFor="mcp-url"
         >
           {language.t("mcp.remoteFields.remoteUrl")}
@@ -97,7 +97,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
         <>
           <Field className="space-y-1.5">
             <FieldLabel
-              className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+              className="text-xs font-medium text-text-weak"
               htmlFor="mcp-headers"
             >
               {language.t("mcp.remoteFields.headersJson")}
@@ -137,7 +137,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
 
               <Field className="space-y-1.5">
                 <FieldLabel
-                  className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+                  className="text-xs font-medium text-text-weak"
                   htmlFor="mcp-client-id"
                 >
                   {language.t("mcp.remoteFields.clientIdOptional")}
@@ -157,7 +157,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
 
               <Field className="space-y-1.5">
                 <FieldLabel
-                  className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+                  className="text-xs font-medium text-text-weak"
                   htmlFor="mcp-client-secret"
                 >
                   {language.t("mcp.remoteFields.clientSecretOptional")}
@@ -177,7 +177,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
 
               <Field className="space-y-1.5">
                 <FieldLabel
-                  className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+                  className="text-xs font-medium text-text-weak"
                   htmlFor="mcp-scope"
                 >
                   {language.t("mcp.remoteFields.scopeOptional")}

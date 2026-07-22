@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Button } from "@buddy/ui"
+import { Button, SquarePenIcon } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
@@ -25,6 +25,7 @@ import {
   NotebookSettingsDialog,
 } from "./chat-left-sidebar/dialogs"
 import { ChatLeftSidebarDirectoryList } from "./chat-left-sidebar/directory-list"
+import { ChatLeftSidebarPinnedList } from "./chat-left-sidebar/pinned-list"
 import { GetStartedChats } from "./chat-left-sidebar/get-started-chats"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
@@ -338,6 +339,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     setNotebookCreationOpen(true)
   }
 
+  function handleRequestArchive(directory: string, sessionID: string, title: string) {
+    setArchiveState({ directory, sessionID, title })
+  }
+
+  function handleRequestRename(directory: string, sessionID: string, title: string) {
+    setRenameState({ directory, sessionID, title })
+  }
+
   return (
     <aside
       data-component="chat-left-sidebar"
@@ -365,6 +374,37 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               onDismiss={getStartedFlow.dismiss}
             />
           ) : null}
+
+          <div data-component="left-sidebar-action-area" className="mb-2">
+            <button
+              type="button"
+              data-action="left-sidebar-new-chat"
+              className="group/new-chat flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm font-light text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
+              onClick={() => props.onNewSession()}
+            >
+              <SquarePenIcon
+                className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/new-chat:scale-110"
+                strokeWidth={2}
+              />
+              <span className="truncate">{language.t("sidebar.newChat")}</span>
+            </button>
+          </div>
+
+          <ChatLeftSidebarPinnedList
+            directories={props.directories}
+            sessionsByDirectory={props.sessionsByDirectory}
+            sessionStatusByDirectory={props.sessionStatusByDirectory}
+            pinnedByDirectory={props.pinnedByDirectory}
+            unreadByDirectory={props.unreadByDirectory}
+            activeSessionID={props.activeSessionID}
+            currentDirectory={props.currentDirectory}
+            onSelectSession={props.onSelectSession}
+            onPrefetchSession={props.onPrefetchSession}
+            onTogglePin={props.onTogglePin}
+            onToggleUnread={props.onToggleUnread}
+            onRequestRename={handleRequestRename}
+            onRequestArchive={handleRequestArchive}
+          />
 
           <ChatLeftSidebarToolbar
             organizeMode={organizeMode}
@@ -406,20 +446,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             onPrefetchSession={props.onPrefetchSession}
             onTogglePin={props.onTogglePin}
             onToggleUnread={props.onToggleUnread}
-            onRequestArchive={(directory, sessionID, title) => {
-              setArchiveState({
-                directory,
-                sessionID,
-                title,
-              })
-            }}
-            onRequestRename={(directory, sessionID, title) => {
-              setRenameState({
-                directory,
-                sessionID,
-                title,
-              })
-            }}
+            onRequestArchive={handleRequestArchive}
+            onRequestRename={handleRequestRename}
             onLabelPointerDown={handleLabelPointerDown}
             onSectionRef={sectionRefCallback}
             onNewSession={(directory) => {
