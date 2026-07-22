@@ -7,6 +7,11 @@ import { SessionTransformValidationError } from "../../session"
 import { resolveResourceReference } from "../../resources/resource-registry-service"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
 import { extractSdkErrorMessage } from "../../http/sdk-response"
+import {
+  isNativeResourceAttachmentPart,
+  normalizeNativeResourceAttachmentPart,
+  readNativeResourcePromptAttachment,
+} from "./native-resource-attachments"
 
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const OPENCODE_REFERENCE_PART_TYPE = "opencode-reference" as const
@@ -20,6 +25,8 @@ export const READING_SELECTION_PART_TYPE = "reading-selection" as const
 export const SELECTION_CONTEXT_PART_TYPE = "selection-context" as const
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const BUDDY_PROMPT_PART_METADATA_KEY = "buddyPromptPart" as const
+// Sync with packages/web/src/components/prompt/prompt-types.ts.
+export const TEXT_FILE_ATTACHMENT_PART_TYPE = "text-file-attachment" as const
 export const PROMPT_WORKSPACE_FILE_REFERENCE_REGEX =
   /(?<![\w`])@(?:"([^"\n]+)"|`([^`\n]+)`|(\.?[^\s`,.]+(?:\.[^\s`,.]+)*))/g
 const PROMPT_PART_TYPE_TEXT = "text" as const
@@ -97,6 +104,16 @@ export async function normalizePromptParts(input: {
   }
 
   for (const part of input.parts) {
+    if (isNativeResourceAttachmentPart(part)) {
+      normalizedParts.push(
+        await normalizeNativeResourceAttachmentPart({
+          directory: input.directory,
+          value: part,
+        }),
+      )
+      continue
+    }
+
     if (isOpenCodeReferencePart(part)) {
       normalizedParts.push(
         await expandOpenCodeReferencePart({
@@ -204,6 +221,10 @@ async function expandPromptTextPart(input: {
   const text = promptTextValue(input.part)
   if (text === undefined || text.length === 0) {
     return []
+  }
+
+  if (isTextFileAttachmentPromptPart(input.part)) {
+    return [normalizePromptTextPart(input.part, text)]
   }
 
   const hasReference = PROMPT_WORKSPACE_FILE_REFERENCE_REGEX.test(text)
@@ -420,6 +441,19 @@ function isPromptTextPart(part: unknown): part is Record<string, unknown> {
   return typeof part.text === "string" || typeof part.content === "string"
 }
 
+function isTextFileAttachmentPromptPart(part: Record<string, unknown>) {
+  if (!isPlainObject(part.metadata)) return false
+  const metadata = part.metadata[BUDDY_PROMPT_PART_METADATA_KEY]
+  return (
+    isPlainObject(metadata) &&
+    metadata.type === TEXT_FILE_ATTACHMENT_PART_TYPE &&
+    typeof metadata.filename === "string" &&
+    metadata.filename.length > 0 &&
+    typeof metadata.mime === "string" &&
+    metadata.mime.length > 0
+  )
+}
+
 function isOpenCodeReferencePart(part: unknown): part is OpenCodeReferencePart {
   if (!isPlainObject(part)) return false
   return (
@@ -530,6 +564,19 @@ function normalizeSelectionContextPart(part: SelectionContextPart) {
 
 export function flattenPromptPartsForRuntime(parts: unknown[]): Record<string, unknown>[] {
   return parts.flatMap((part) => {
+    if (isNativeResourceAttachmentPart(part)) {
+      const metadata = readNativeResourcePromptAttachment(part)
+      return [
+        {
+          type: PROMPT_PART_TYPE_TEXT,
+          text: `Attached native learning resource metadata: ${JSON.stringify({ filename: metadata.filename, format: metadata.format })}. Follow the preparation instructions in the system reminder before relying on this document's contents.`,
+          metadata: {
+            [BUDDY_PROMPT_PART_METADATA_KEY]: metadata,
+          },
+        },
+      ]
+    }
+
     if (isSelectionContextPart(part)) {
       const normalized = normalizeSelectionContextPart(part)
       return [

@@ -30,6 +30,7 @@ import type {
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { listRegisteredResources } from "../../resources/resource-registry-service"
 import { IMAGE_EDIT_TARGET_MAX, type ImageEditIntent } from "../features/image-generation/contracts"
+import type { NativeResourcePromptAttachment } from "./native-resource-attachments"
 
 type MessagePromptProjectConfig = Awaited<ReturnType<typeof readProjectConfig>>
 
@@ -143,6 +144,7 @@ export type PromptContext = {
   personalization?: PromptPersonalization
   teachingContext?: TeachingPromptContext
   imageEditIntent?: ImageEditIntent
+  nativeResourceAttachments?: NativeResourcePromptAttachment[]
   priorTurn?: PromptTurnSnapshot
 }
 
@@ -159,6 +161,7 @@ type CreatePromptContextInput = {
   projectConfig: MessagePromptProjectConfig
   previousState?: TeachingSessionState
   personaID: Persona
+  nativeResourceAttachments: NativeResourcePromptAttachment[]
 }
 
 function resolveTeachingContext(body: Record<string, unknown>): TeachingPromptContext | undefined {
@@ -602,6 +605,9 @@ async function buildPromptContext(
       ...(personalization ? { personalization } : {}),
       ...(teachingContext ? { teachingContext } : {}),
       ...(imageEditIntent ? { imageEditIntent } : {}),
+      ...(input.nativeResourceAttachments.length > 0
+        ? { nativeResourceAttachments: input.nativeResourceAttachments }
+        : {}),
       ...(activeResource ? { activeResource } : {}),
       ...(benchContext ? { benchContext } : {}),
       ...(input.previousState

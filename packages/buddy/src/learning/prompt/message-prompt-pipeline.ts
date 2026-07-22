@@ -2,6 +2,7 @@ import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/con
 import { buildBuddyPromptEnvelope } from "./buddy-prompt-compiler"
 import { createPromptContext, type CreatePromptContextResult } from "./context"
 import { normalizePromptParts } from "./workspace-file-references"
+import { nativeResourcePromptAttachmentsFromParts } from "./native-resource-attachments"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
 import {
   assertNoLegacyRuntimeOverrides,
@@ -50,6 +51,7 @@ export async function runMessagePromptPipeline(input: {
     content,
     parts: Array.isArray(input.body.parts) ? [...input.body.parts] : [],
   })
+  const nativeResourceAttachments = nativeResourcePromptAttachmentsFromParts(parts)
 
   const target = normalizePersonaTarget({
     body: input.body,
@@ -79,6 +81,7 @@ export async function runMessagePromptPipeline(input: {
       projectConfig: input.projectConfig,
       previousState: input.previousState,
       personaID: target.personaID,
+      nativeResourceAttachments,
     })
     const promptEnvelope = await buildBuddyPromptEnvelope(promptContextResult.context)
 
@@ -124,6 +127,7 @@ export async function runMessagePromptPipeline(input: {
   delete transformed.modelRuntime
   delete transformed.teaching
   delete transformed.imageEdit
+  delete transformed.nativeResourceAttachments
 
   return {
     transformed,

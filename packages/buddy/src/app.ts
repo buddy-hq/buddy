@@ -14,6 +14,7 @@ import { GlobalRoutes } from "./routes"
 import { LearnerRoutes } from "./routes"
 import { LocalRuntimeRoutes } from "./routes"
 import { McpRoutes } from "./routes"
+import { NotebookUploadRoutes } from "./routes"
 import { ObjectsRoutes } from "./routes"
 import { ObsidianRoutes } from "./routes"
 import { OpenProjectsRoutes } from "./routes"
@@ -110,6 +111,7 @@ api.route("/auth", AuthRoutes)
 api.route("/bench", BenchRoutes)
 api.route("/chemistry", ChemistryRoutes)
 api.route("/mcp", McpRoutes)
+api.route("/notebook/uploads", NotebookUploadRoutes)
 api.route("/objects", ObjectsRoutes)
 api.route("/obsidian", ObsidianRoutes)
 api.route("/config", ConfigRoutes)

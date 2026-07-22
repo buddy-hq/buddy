@@ -11,10 +11,12 @@ import {
   resolveResourceReference,
 } from "../../src/resources/resource-registry-service"
 import {
+  BUDDY_PROMPT_PART_METADATA_KEY,
   flattenPromptPartsForRuntime,
   OPENCODE_REFERENCE_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
+  TEXT_FILE_ATTACHMENT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "../../src/learning/prompt/workspace-file-references"
 import { tmpdir } from "../helpers/tmpdir"
@@ -366,6 +368,39 @@ describe("message prompt resource references", () => {
         text: " and keep going",
       },
     ])
+  })
+
+  test("keeps @tokens inside text-file attachments as literal file content", async () => {
+    await using project = await tmpdir({ git: true })
+    const config = await readProjectConfig(project.path)
+    writeFileSync(path.join(project.path, "README.md"), "workspace file\n")
+    const attachmentPart = {
+      type: "text",
+      text: "Attached file (notes.md):\nRead @README.md literally",
+      metadata: {
+        [BUDDY_PROMPT_PART_METADATA_KEY]: {
+          type: TEXT_FILE_ATTACHMENT_PART_TYPE,
+          filename: "notes.md",
+          mime: "text/plain",
+        },
+      },
+    }
+
+    const result = await runMessagePromptPipeline({
+      context: {
+        directory: project.path,
+        sessionID: "ses_text_file_attachment",
+      },
+      body: {
+        content: "",
+        parts: [attachmentPart],
+        agent: "custom-agent",
+      },
+      projectConfig: config,
+    })
+
+    expect(result.transformed.parts).toEqual([attachmentPart])
+    expect(flattenPromptPartsForRuntime([attachmentPart])).toEqual([attachmentPart])
   })
 
   test("resolves quoted raw file references with spaces", async () => {
