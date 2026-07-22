@@ -20,6 +20,7 @@ import {
   USERNAME,
   allocatePort,
   assertNodeArtifactResourceRouteSmoke,
+  assertNodeArtifactSpreadsheetRouteSmoke,
   delay,
   probe,
   readStream,
@@ -510,6 +511,11 @@ try {
   await smokeApiRoutes({ baseUrl, directory: notebookRoot })
 
   await assertNodeArtifactResourceRouteSmoke({
+    baseUrl,
+    directory: notebookRoot,
+    timeoutMs: DEFAULT_STARTUP_TIMEOUT_MS,
+  })
+  await assertNodeArtifactSpreadsheetRouteSmoke({
     baseUrl,
     directory: notebookRoot,
     timeoutMs: DEFAULT_STARTUP_TIMEOUT_MS,

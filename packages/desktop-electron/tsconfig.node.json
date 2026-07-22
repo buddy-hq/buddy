@@ -27,6 +27,7 @@
     "scripts/electron-vite-build-policy.ts",
     "../web/vite.ts",
     "../web/scripts/create-foliate-pdf-vite-plugin.ts",
+    "../script/src/backend-node-runtime.ts",
     "../../script/backend-node-artifact.ts",
     "../../script/desktop-runtime-resources.ts"
   ]

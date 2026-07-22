@@ -1,6 +1,7 @@
 import { existsSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
 import path from "node:path"
+import * as XLSX from "xlsx"
 import { assertBackendNodeArtifactRuntimeFiles } from "../../../script/backend-node-artifact"
 
 export const HOSTNAME = "127.0.0.1"
@@ -17,6 +18,8 @@ const RESOURCE_ROUTE_PATH = "/api/objects/resource" as const
 const RESOURCE_ROUTE_SMOKE_ALIAS = "artifact-route-smoke" as const
 const RESOURCE_ROUTE_SMOKE_FILENAME = "artifact-route-smoke.md" as const
 const RESOURCE_ROUTE_SMOKE_TEXT = "# Artifact Route Smoke\n\nPackaged route resource prep smoke.\n"
+const SPREADSHEET_ROUTE_SMOKE_ALIAS = "artifact-spreadsheet-route-smoke" as const
+const SPREADSHEET_ROUTE_SMOKE_FILENAME = "artifact-spreadsheet-route-smoke.xlsx" as const
 const RESOURCE_READY_STATUS = "ready" as const
 const RESOURCE_ROUTE_POLL_TIMEOUT_MS = 3_000
 
@@ -123,6 +126,53 @@ export async function assertNodeArtifactResourceRouteSmoke(input: {
   const sourcePath = path.join(input.directory, RESOURCE_ROUTE_SMOKE_FILENAME)
   writeFileSync(sourcePath, RESOURCE_ROUTE_SMOKE_TEXT, "utf8")
 
+  await createAndWaitForReadyResource({
+    ...input,
+    alias: RESOURCE_ROUTE_SMOKE_ALIAS,
+    sourcePath,
+  })
+}
+
+export async function assertNodeArtifactSpreadsheetRouteSmoke(input: {
+  baseUrl: string
+  directory: string
+  timeoutMs: number
+}): Promise<void> {
+  const sourcePath = path.join(input.directory, SPREADSHEET_ROUTE_SMOKE_FILENAME)
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ["Student", "Score"],
+      ["Ada", 95],
+    ]),
+    "Scores",
+  )
+  const workbookBytes: unknown = XLSX.write(workbook, {
+    bookType: "xlsx",
+    compression: true,
+    type: "buffer",
+  })
+  if (!(workbookBytes instanceof Uint8Array)) {
+    throw new Error("SheetJS smoke fixture writer did not return workbook bytes")
+  }
+  writeFileSync(sourcePath, workbookBytes)
+
+  await createAndWaitForReadyResource({
+    ...input,
+    alias: SPREADSHEET_ROUTE_SMOKE_ALIAS,
+    sourcePath,
+  })
+}
+
+async function createAndWaitForReadyResource(input: {
+  alias: string
+  baseUrl: string
+  directory: string
+  sourcePath: string
+  timeoutMs: number
+}): Promise<void> {
+
   const createResponse = await fetch(new URL(RESOURCE_ROUTE_PATH, input.baseUrl), {
     method: "POST",
     headers: {
@@ -131,8 +181,8 @@ export async function assertNodeArtifactResourceRouteSmoke(input: {
       "content-type": JSON_CONTENT_TYPE,
     },
     body: JSON.stringify({
-      alias: RESOURCE_ROUTE_SMOKE_ALIAS,
-      sourcePath: RESOURCE_ROUTE_SMOKE_FILENAME,
+      alias: input.alias,
+      sourcePath: input.sourcePath,
     }),
   })
   if (!createResponse.ok) {
@@ -156,7 +206,7 @@ export async function assertNodeArtifactResourceRouteSmoke(input: {
       if (listResponse.ok) {
         const body: unknown = JSON.parse(last)
         const resources = readResourceList(body)
-        const resource = resources.find((entry) => entry.alias === RESOURCE_ROUTE_SMOKE_ALIAS)
+        const resource = resources.find((entry) => entry.alias === input.alias)
         if (
           resource?.status === RESOURCE_READY_STATUS &&
           typeof resource.packPath === "string" &&

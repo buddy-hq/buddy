@@ -18,6 +18,7 @@
     "src/main/recovery-policy-core.ts",
     "src/shared/**/*.ts",
     "../buddy/script/node-artifact-runtime.ts",
+    "../script/src/backend-node-runtime.ts",
     "../../script/backend-node-artifact.ts",
     "../../script/changelog.ts",
     "../../script/cut-release.ts",

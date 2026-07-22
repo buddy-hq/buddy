@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from "node:fs"
 import path from "node:path"
+import { SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME } from "../packages/script/src/backend-node-runtime"
 
 const CHONKIE_WASM_RELATIVE_PATH = ["pkg", "chonkiejs_chunk_bg.wasm"] as const
 const ENGLISH_TESSDATA_RELATIVE_PATH = ["resources", "tessdata", "eng.traineddata"] as const
@@ -50,6 +51,16 @@ export function assertBackendNodeArtifactRuntimeFiles(input: { artifactDir: stri
   const entrypoint = path.join(input.artifactDir, "node.js")
   if (!existsSync(entrypoint)) {
     throw new Error(`Buddy Node artifact entrypoint missing at ${entrypoint}`)
+  }
+
+  const spreadsheetParserWorker = path.join(
+    input.artifactDir,
+    SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME,
+  )
+  if (!existsSync(spreadsheetParserWorker)) {
+    throw new Error(
+      `Buddy Node artifact is missing the spreadsheet parser worker at ${spreadsheetParserWorker}`,
+    )
   }
 
   const chonkieWasmPath = path.join(input.artifactDir, ...CHONKIE_WASM_RELATIVE_PATH)
