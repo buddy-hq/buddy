@@ -277,4 +277,83 @@ describe("chat timeline rows", () => {
       undefined,
     ])
   })
+
+  test("keeps output-length caveats inline and terminal errors out of the transcript", () => {
+    const outputLengthMessage = createMessageWithParts(
+      createAssistantMessageInfo({
+        id: "msg_assistant",
+        sessionID: "ses_rows",
+        error: {
+          name: "MessageOutputLengthError",
+          data: {},
+        },
+      }),
+      [textPart("partial-response")],
+    )
+
+    const caveatRow = rowsFor([userMessage(), outputLengthMessage]).find(
+      (row): row is Extract<TimelineRow, { type: "caveat" }> => row.type === "caveat",
+    )
+
+    expect(caveatRow?.model).toMatchObject({
+      category: "output-length",
+      disposition: "caveat",
+      details: { name: "MessageOutputLengthError" },
+    })
+
+    const terminalMessage = createMessageWithParts(
+      createAssistantMessageInfo({
+        id: "msg_terminal",
+        sessionID: "ses_rows",
+        error: {
+          name: "APIError",
+          data: { statusCode: 500, message: "Internal server error" },
+        },
+      }),
+      [],
+    )
+    expect(rowsFor([userMessage(), terminalMessage]).some((row) => row.type === "caveat")).toBe(
+      false,
+    )
+  })
+
+  test("projects only visible retry stages", () => {
+    const quietRows = projectTimelineRows({
+      messages: [userMessage()],
+      isBusy: true,
+      sessionID: "ses_rows",
+      directory: "/repo",
+      activeSessionStatus: {
+        type: "retry",
+        attempt: 2,
+        message: "Provider rate limit exceeded",
+        next: 1_000,
+      },
+      showReasoningSummaries: true,
+    })
+    expect(quietRows.some((row) => row.type === "retry")).toBe(false)
+
+    const rows = projectTimelineRows({
+      messages: [userMessage()],
+      isBusy: true,
+      sessionID: "ses_rows",
+      directory: "/repo",
+      activeSessionStatus: {
+        type: "retry",
+        attempt: 5,
+        message: "Provider rate limit exceeded",
+        next: 1_000,
+      },
+      showReasoningSummaries: true,
+    })
+    const retryRow = rows.find(
+      (row): row is Extract<TimelineRow, { type: "retry" }> => row.type === "retry",
+    )
+
+    expect(retryRow?.model).toMatchObject({
+      stage: "persistent",
+      category: "rate-limit",
+      attempt: 5,
+    })
+  })
 })

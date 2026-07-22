@@ -73,7 +73,7 @@ import { ToolExpansionStateProvider } from "./tools/basic-tool"
 import { rendererDefaultOpen } from "./utils/constants"
 import { AssistantPartRenderer } from "./parts/assistant-part/assistant-part"
 import { MessageDivider } from "./parts/assistant-part/message-divider"
-import { AssistantErrorCard } from "./assistant-error-card"
+import { AssistantTruncatedNote } from "./assistant-error-card"
 import { SessionRetryNotice } from "./session-retry-notice"
 import type { ChatTranscriptProps } from "./types"
 
@@ -237,7 +237,7 @@ function estimateRowSize(row: TimelineRow | undefined) {
       // py-6 (24+24) + ~20px label row
       return 72
     case "retry":
-    case "error":
+    case "caveat":
       return 96
     case "user":
       return estimateUserRowSize(row)
@@ -699,6 +699,8 @@ function TimelineRowRenderer(props: {
   onOpenResource: ChatTranscriptProps["onOpenResource"]
   onForkMessage: ChatTranscriptProps["onForkMessage"]
   onRevertMessage: ChatTranscriptProps["onRevertMessage"]
+  onRetryAction: ChatTranscriptProps["onRetryAction"]
+  onContinueTruncated: ChatTranscriptProps["onContinueTruncated"]
   activityRowExpansionByKey: Record<string, ActivityRowExpansionState>
   onActivityRowExpansionStateChange: (rowKey: string, state: ActivityRowExpansionState) => void
   toolOpenByPartID: TimelineViewState["toolOpenByPartID"]
@@ -761,24 +763,39 @@ function TimelineRowRenderer(props: {
           }
         />
       )
-    case "retry":
+    case "retry": {
+      const retryRow = props.row
       return (
         <article
-          data-message-id={props.row.userMessageID}
+          data-message-id={retryRow.userMessageID}
           data-timeline-row="Retry"
           className="relative min-w-0 w-full max-w-full px-4 md:px-5"
         >
-          <SessionRetryNotice status={props.row.status} />
+          <SessionRetryNotice
+            model={retryRow.model}
+            onAction={(action) =>
+              props.onRetryAction?.({
+                action,
+                userMessageID: retryRow.userMessageID,
+                ...(retryRow.model.action?.link ? { link: retryRow.model.action.link } : {}),
+              })
+            }
+          />
         </article>
       )
-    case "error":
+    }
+    case "caveat":
       return (
         <article
           data-message-id={props.row.userMessageID}
-          data-timeline-row="Error"
+          data-timeline-row="Caveat"
           className="relative min-w-0 w-full max-w-full px-4 md:px-5"
         >
-          <AssistantErrorCard message={props.row.text} errorName={props.row.errorName} />
+          <AssistantTruncatedNote
+            onContinue={() =>
+              props.onContinueTruncated?.({ userMessageID: props.row.userMessageID })
+            }
+          />
         </article>
       )
   }
@@ -890,6 +907,8 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     onOpenSession,
     onOpenResource,
     onRevertMessage,
+    onRetryAction,
+    onContinueTruncated,
     scrollViewportRef,
     initialScrollOffset = DEFAULT_INITIAL_SCROLL_OFFSET,
     shouldAnchorBottom = DEFAULT_SHOULD_ANCHOR_BOTTOM,
@@ -1422,6 +1441,8 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                     onOpenResource={onOpenResource}
                     onForkMessage={onForkMessage}
                     onRevertMessage={onRevertMessage}
+                    onRetryAction={onRetryAction}
+                    onContinueTruncated={onContinueTruncated}
                     activityRowExpansionByKey={timelineViewState.activityRowByKey}
                     onActivityRowExpansionStateChange={handleActivityRowExpansionStateChange}
                     toolOpenByPartID={timelineViewState.toolOpenByPartID}

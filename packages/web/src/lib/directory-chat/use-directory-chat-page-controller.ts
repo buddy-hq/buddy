@@ -29,6 +29,7 @@ import type {
   MentionableAgent,
   MentionableReference,
 } from "@/components/prompt/mention-autocomplete"
+import { filterIgnoredMentionFiles } from "@/components/prompt/mention-file-ignores"
 import type { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
 import type { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
 import {
@@ -119,6 +120,10 @@ import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { useAutoScroll } from "./use-auto-scroll"
 import {
+  createErrorRecoveryContinueDraft,
+  createErrorRecoveryPromptInput,
+} from "./chat-error-recovery"
+import {
   BENCH_CHAT_LAYOUT_DOCKED,
   readBenchOpenPolicyStateFromLocation,
   useOpenBench,
@@ -134,6 +139,9 @@ import { useOpenSettings } from "@/lib/settings-navigation"
 import { referenceListQueryOptions } from "@/state/reference-query"
 
 const SIDEBAR_MIN_WIDTH = 220
+// Over-fetched so filterIgnoredMentionFiles still leaves a full menu after
+// pruning ignored dirs; the view state caps the displayed options separately.
+const MENTION_FILE_SEARCH_LIMIT = 40
 const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceReadingTarget["status"]>>([
   "preparing",
   "unsupported",
@@ -1014,11 +1022,13 @@ export function useDirectoryChatPageController(
   async function onSearchMentionFiles(query: string) {
     if (!decodedDirectory) return []
     try {
+      // Over-fetch so the ignore filter (node_modules etc.) still has enough
+      // real matches left for the menu after pruning.
       const files = await findWorkspaceFiles(decodedDirectory, query, {
         includeDirectories: true,
-        limit: 20,
+        limit: MENTION_FILE_SEARCH_LIMIT,
       })
-      return files.map((path) => ({ path }))
+      return filterIgnoredMentionFiles(files.map((path) => ({ path })))
     } catch {
       return []
     }
@@ -1183,6 +1193,12 @@ export function useDirectoryChatPageController(
       workspace.lifecycle,
       cs,
     ],
+  )
+
+  const sendRecoveryDraft = useCallback(
+    (draft: SubmittedPromptDraft, targetSessionID: string) =>
+      sendRuntimePrompt(createErrorRecoveryPromptInput(draft, targetSessionID)),
+    [sendRuntimePrompt],
   )
 
   async function onStartGetStartedChat(chat: GetStartedChat) {
@@ -1737,6 +1753,42 @@ export function useDirectoryChatPageController(
     onQuestionReject: async (requestID) => {
       await onQuestionReject(requestID)
     },
+    onContinueTerminalError: async ({ sessionID: failedSessionID }) => {
+      if (failedSessionID !== cs.sessionID) return
+      await sendRecoveryDraft(createErrorRecoveryContinueDraft(), failedSessionID)
+    },
+    onCompactTerminalError: async ({ sessionID: failedSessionID, userMessageID }) => {
+      const selection = cs.effectiveModelSelection
+      if (!selection) {
+        cs.setDirectoryError(decodedDirectory, COMPACT_SESSION_MISSING_MODEL_ERROR)
+        return
+      }
+
+      const failedUserMessage = cs.messages.find(
+        (message) => message.info.role === "user" && message.info.id === userMessageID,
+      )
+      const draft = failedUserMessage
+        ? buildPromptDraftFromUserMessage(failedUserMessage, decodedDirectory)
+        : undefined
+      if (!draft) return
+
+      try {
+        await compactSession(decodedDirectory, failedSessionID, {
+          providerID: selection.providerID,
+          modelID: selection.modelID,
+        })
+        await sendRecoveryDraft(draft, failedSessionID)
+      } catch {
+        // The action layer owns the operational failure state.
+      }
+    },
+    onContinueTruncated: async ({ sessionID: targetSessionID }) => {
+      await sendRecoveryDraft(createErrorRecoveryContinueDraft(), targetSessionID)
+    },
+    onOpenProviderSettings: () => {
+      openSettings("providers")
+    },
+    onStopTurn: onAbort,
     promptComposerProps,
     queuedFollowups,
     sendingQueuedFollowupID,

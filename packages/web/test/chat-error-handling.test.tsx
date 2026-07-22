@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
+import { chatTranscriptEqual } from "../src/components/chat/utils/message-utils"
 import type { MessagePart, MessageWithParts } from "../src/state/chat-types"
 import { seedDirectoryChatState } from "./test-utils"
 import {
@@ -15,6 +16,11 @@ async function flushEffects(delay = 0) {
     setTimeout(resolve, delay)
   })
 }
+
+function retryAction() {}
+function replacementRetryAction() {}
+function continueTruncated() {}
+function replacementContinueTruncated() {}
 
 function userMessage(): MessageWithParts {
   return {
@@ -146,6 +152,29 @@ function assistantMessage(input?: {
   }
 }
 
+describe("chat transcript memoization", () => {
+  test("invalidates when an error-recovery callback changes", () => {
+    const previous = {
+      directory: "/repo",
+      onRetryAction: retryAction,
+      onContinueTruncated: continueTruncated,
+    }
+
+    expect(
+      chatTranscriptEqual(previous, {
+        ...previous,
+        onRetryAction: replacementRetryAction,
+      }),
+    ).toBe(false)
+    expect(
+      chatTranscriptEqual(previous, {
+        ...previous,
+        onContinueTruncated: replacementContinueTruncated,
+      }),
+    ).toBe(false)
+  })
+})
+
 describe("chat error handling", () => {
   let container: HTMLDivElement
   let root: Root
@@ -183,7 +212,7 @@ describe("chat error handling", () => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
   })
 
-  test("renders assistant errors as accessible alerts", async () => {
+  test("keeps terminal assistant errors out of the transcript", async () => {
     await act(async () => {
       seedDirectoryChatState("/repo", {
         messages: [
@@ -200,10 +229,9 @@ describe("chat error handling", () => {
       await flushEffects()
     })
 
-    const alert = container.querySelector('[role="alert"]')
-    expect(alert).not.toBeNull()
-    expect(alert?.textContent).toContain("Assistant error")
-    expect(alert?.textContent).toContain("Request failed.")
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+    expect(container.querySelector('[data-timeline-row="Error"]')).toBeNull()
+    expect(container.textContent).not.toContain("Request failed.")
   })
 
   test("hides user messages marked hiddenFromUser", async () => {

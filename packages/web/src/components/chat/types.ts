@@ -2,6 +2,7 @@ import type { RefObject } from "react"
 import type { ToolCollectionToken, ToolLayoutRole } from "@buddy/opencode-adapter/tool-presentation"
 import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import type { MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
+import type { RetryActionID } from "./session-retry-notice"
 
 export type { MessageWithParts, ProviderInfo, SessionStatusInfo } from "@/state/chat-types"
 
@@ -51,6 +52,12 @@ export type ChatTranscriptProps = {
     messageID?: string
   }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  onRetryAction?: (input: {
+    action: RetryActionID
+    userMessageID: string
+    link?: string
+  }) => void
+  onContinueTruncated?: (input: { userMessageID: string }) => void
 }
 
 export type UserSectionProps = {

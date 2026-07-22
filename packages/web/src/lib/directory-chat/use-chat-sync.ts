@@ -33,7 +33,7 @@ import {
   readBrowserSvgRenderRequestEvent,
   synchronizeBrowserSvgRenderRequests,
 } from "@/lib/browser-svg-render-requests"
-import { IDLE_SESSION_STATUS, normalizeSessionStatusValue } from "@/state/session-status"
+import { normalizeSessionStatusValue } from "@/state/session-status"
 import { invalidateReferenceList } from "@/state/reference-query"
 import { refetchActiveWorkspaceObjectQueries } from "@/state/workspace-objects-query"
 import {
@@ -210,7 +210,6 @@ export function useChatSync(props: UseChatSyncProps) {
     clearDirectoryError,
     refreshMcpStatus,
     refreshSlashCommands,
-    setDirectoryError,
     setStreamStatus,
     getBenchEventStreamLeaseQuery,
     onBenchClientLease,
@@ -418,16 +417,10 @@ export function useChatSync(props: UseChatSyncProps) {
           if (erroredSessionID && !isParentSession(directory, erroredSessionID)) {
             return
           }
-          if (erroredSessionID) {
-            markTranscriptSessionRunning(directory, erroredSessionID, false)
-            applySessionStatus(directory, erroredSessionID, IDLE_SESSION_STATUS)
-          }
           if (isAbortLikeError(properties.error)) {
-            clearDirectoryError(directory)
             return
           }
           const message = readSessionErrorMessage(properties.error)
-          setDirectoryError(directory, message)
           appendErrorNotification(directory, erroredSessionID, properties.error)
           const notificationPreferences = useNotificationPreferences.getState().preferences
           if (notificationPreferences.errors) {
@@ -599,7 +592,6 @@ export function useChatSync(props: UseChatSyncProps) {
     clearDirectoryError,
     platform,
     queryClient,
-    setDirectoryError,
     setStreamStatus,
     getBenchEventStreamLeaseQuery,
     onBenchClientLease,

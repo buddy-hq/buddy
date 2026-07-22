@@ -1,4 +1,4 @@
-import { formatMessageError, isMessageAbortError } from "./utils/error"
+import { isMessageAbortError } from "./utils/error"
 import type {
   ToolCollectionToken,
   ToolLayoutRole,
@@ -11,6 +11,12 @@ import { parseToolPresentation } from "./tools/parse-tool-presentation"
 import type { AssistantRenderItem, ChatTurn } from "./types"
 import type { MessagePart, MessageWithParts, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionStatusRetry } from "@/state/session-status"
+import {
+  buildAssistantErrorModel,
+  buildRetryStateModel,
+  type AssistantErrorModel,
+  type RetryStateModel,
+} from "@/state/chat-error-model"
 
 export type TimelineAssistantItem =
   | {
@@ -89,13 +95,13 @@ export type TimelineRow =
       key: string
       userMessageID: string
       status: Extract<SessionStatusInfo, { type: "retry" }>
+      model: RetryStateModel
     }
   | {
-      type: "error"
+      type: "caveat"
       key: string
       userMessageID: string
-      text: string
-      errorName: string | undefined
+      model: AssistantErrorModel
     }
 
 type ProjectTimelineRowsInput = {
@@ -202,11 +208,9 @@ function assistantAborted(messages: MessageWithParts[]) {
 }
 
 function assistantError(messages: MessageWithParts[]) {
-  return messages
-    .map((message) =>
-      message.info.role === "assistant" ? (message.info.error ?? undefined) : undefined,
-    )
-    .findLast((error) => !!error && !isMessageAbortError(error))
+  const latestAssistant = messages.findLast((message) => message.info.role === "assistant")
+  const error = latestAssistant?.info.role === "assistant" ? latestAssistant.info.error : undefined
+  return error && !isMessageAbortError(error) ? error : undefined
 }
 
 function lastTextPartID(parts: MessagePart[]) {
@@ -295,12 +299,14 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     const textPartID = lastTextPartID(assistantParts)
     const aborted = assistantAborted(turn.assistants)
     const error = assistantError(turn.assistants)
-    const errorText = formatMessageError(error)
+    const hasVisibleText = assistantParts.some(
+      (part) => isChatTextPart(part) && part.text.trim().length > 0,
+    )
     const compaction = turnHasCompaction(turn)
     const lastAssistantItem = assistantItems.at(-1)
     const needsTailActivity = Boolean(
       active &&
-      !errorText &&
+      !error &&
       (!lastAssistantItem ||
         (lastAssistantItem.type !== "abstracted" &&
           !assistantItemIsVisiblyActive(lastAssistantItem))),
@@ -417,27 +423,28 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     }
 
     if (isLastTurn && isSessionStatusRetry(input.activeSessionStatus)) {
-      rows.push({
-        type: "retry",
-        key: `retry:${userMessageID}`,
-        userMessageID,
-        status: input.activeSessionStatus,
-      })
+      const model = buildRetryStateModel(input.activeSessionStatus)
+      if (model.stage !== "quiet") {
+        rows.push({
+          type: "retry",
+          key: `retry:${userMessageID}`,
+          userMessageID,
+          status: input.activeSessionStatus,
+          model,
+        })
+      }
     }
 
-    const errorName =
-      error && typeof error.name === "string" && error.name !== "UnknownError"
-        ? error.name
-        : undefined
-
-    if (errorText && !aborted && !input.isBusy) {
-      rows.push({
-        type: "error",
-        key: `error:${userMessageID}`,
-        userMessageID,
-        text: errorText,
-        errorName,
-      })
+    if (error && !aborted && !input.isBusy) {
+      const model = buildAssistantErrorModel(error, { hasVisibleText })
+      if (model.disposition === "caveat") {
+        rows.push({
+          type: "caveat",
+          key: `caveat:${userMessageID}`,
+          userMessageID,
+          model,
+        })
+      }
     }
   })
 
@@ -469,6 +476,18 @@ function assistantItemsEqual(left: TimelineAssistantItem, right: TimelineAssista
 function stringArraysEqual(left: string[], right: string[]) {
   if (left.length !== right.length) return false
   return left.every((value, index) => value === right[index])
+}
+
+function assistantErrorModelsEqual(left: AssistantErrorModel, right: AssistantErrorModel) {
+  return (
+    left.category === right.category &&
+    left.disposition === right.disposition &&
+    left.details.name === right.details.name &&
+    left.details.message === right.details.message &&
+    left.details.providerID === right.details.providerID &&
+    left.details.statusCode === right.details.statusCode &&
+    left.details.responseBody === right.details.responseBody
+  )
 }
 
 export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
@@ -527,12 +546,11 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         left.userMessageID === right.userMessageID &&
         left.status === right.status
       )
-    case "error":
+    case "caveat":
       return (
-        right.type === "error" &&
+        right.type === "caveat" &&
         left.userMessageID === right.userMessageID &&
-        left.text === right.text &&
-        left.errorName === right.errorName
+        assistantErrorModelsEqual(left.model, right.model)
       )
   }
 }

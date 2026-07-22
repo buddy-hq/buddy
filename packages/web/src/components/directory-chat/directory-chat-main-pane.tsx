@@ -1,6 +1,8 @@
 import { Button, ScrollArea } from "@buddy/ui"
 import { useQuery } from "@tanstack/react-query"
 import {
+  useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -44,6 +46,15 @@ import { canEditImagesForModel } from "@/lib/image-editing"
 import { useLocation } from "@tanstack/react-router"
 import { WhiteboardBenchAutoOpen } from "@/components/whiteboard/whiteboard-bench-auto-open"
 import { findLatestTodoSnapshot } from "@/components/chat/tools/todo-state"
+import {
+  AssistantErrorCard,
+  createAssistantErrorCardSpec,
+  type AssistantErrorActionID,
+} from "@/components/chat/assistant-error-card"
+import { isHiddenFromUserMessage } from "@/components/chat/utils/message-visibility"
+import { resolveLatestTerminalAssistantError } from "@/state/chat-error-model"
+import type { RetryActionID } from "@/components/chat/session-retry-notice"
+import { usePlatform } from "@/context/platform"
 
 type PromptComposerProps = Omit<
   ComponentProps<typeof PromptComposer>,
@@ -80,6 +91,14 @@ type DirectoryChatMainPaneProps = {
   onPermissionReply: (reply: PermissionReply) => Promise<void>
   onQuestionReply: (requestID: string, answers: string[][]) => Promise<void>
   onQuestionReject: (requestID: string) => Promise<void>
+  onContinueTerminalError?: (input: { sessionID: string }) => Promise<void> | void
+  onCompactTerminalError?: (input: {
+    sessionID: string
+    userMessageID: string
+  }) => Promise<void> | void
+  onContinueTruncated?: (input: { sessionID: string }) => Promise<void> | void
+  onOpenProviderSettings?: () => void
+  onStopTurn?: () => Promise<void> | void
   promptComposerProps: PromptComposerProps
   queuedFollowups?: QueuedFollowupItem[]
   sendingQueuedFollowupID?: string
@@ -187,6 +206,7 @@ export function resolveRevertedUserMessageCount(input: {
 
 export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   const location = useLocation()
+  const platform = usePlatform()
   const {
     directory,
     chatState,
@@ -213,9 +233,15 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     onPermissionReply,
     onQuestionReply,
     onQuestionReject,
+    onContinueTerminalError,
+    onCompactTerminalError,
+    onContinueTruncated,
+    onOpenProviderSettings,
+    onStopTurn,
     promptComposerProps,
     compactPromptComposer,
   } = props
+  const abortPromptComposer = promptComposerProps.onAbort
   const providerCatalogQuery = useQuery(providerCatalogSnapshotQueryOptions(directory))
   const autoCompactionWarning = useMemo(() => resolveAutoCompactionWarning(chatState), [chatState])
   const queuedFollowups = props.queuedFollowups ?? []
@@ -244,6 +270,22 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       }),
     [chatState.messages, revertMessageID],
   )
+  const visibleMessages = useMemo(() => {
+    const visible = chatState.messages.filter((message) => !isHiddenFromUserMessage(message))
+    return revertMessageID
+      ? visible.filter((message) => message.info.id < revertMessageID)
+      : visible
+  }, [chatState.messages, revertMessageID])
+  const terminalError = useMemo(
+    () => resolveLatestTerminalAssistantError(visibleMessages),
+    [visibleMessages],
+  )
+  const terminalErrorProviderName = terminalError
+    ? chatState.providers.find((provider) => provider.id === terminalError.providerID)?.name
+    : undefined
+  const terminalErrorSpec = terminalError
+    ? createAssistantErrorCardSpec(terminalError.model, terminalErrorProviderName)
+    : undefined
   const activeQuestion = currentSessionQuestions[0]
   const isTranscriptLoading =
     !!chatState.sessionID &&
@@ -264,6 +306,12 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   // anywhere in this pane (not just on the composer) get attached.
   const attachmentsApiRef = useRef<PromptComposerAttachmentsApi | null>(null)
   const [isFileDragging, setIsFileDragging] = useState(false)
+  const [dismissedTerminalMessageID, setDismissedTerminalMessageID] = useState<string>()
+  const [modelMenuOpenRequest, setModelMenuOpenRequest] = useState(0)
+  const [pendingModelSwitch, setPendingModelSwitch] = useState<{
+    selectedModel?: string
+  }>()
+  const modelSwitchAbortRef = useRef<Promise<void>>(Promise.resolve())
   // Only accept drops while the composer is actually mounted below.
   const dropzoneEnabled = !activeQuestion && !chatState.parentSession
 
@@ -284,6 +332,95 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     if (!preventDefaultForFileDrag(event) || !dropzoneEnabled) return
     attachmentsApiRef.current?.addAttachments(event.dataTransfer.files)
   }
+
+  useEffect(() => {
+    if (!pendingModelSwitch?.selectedModel) return
+    if (pendingModelSwitch.selectedModel !== promptComposerProps.selectedModel) return
+    if (!chatState.sessionID || !onContinueTerminalError) return
+
+    const sessionID = chatState.sessionID
+    setPendingModelSwitch(undefined)
+    void modelSwitchAbortRef.current
+      .then(() => onContinueTerminalError({ sessionID }))
+      .catch(() => undefined)
+  }, [
+    chatState.sessionID,
+    pendingModelSwitch,
+    promptComposerProps.selectedModel,
+    onContinueTerminalError,
+  ])
+
+  const requestModelSwitch = useCallback(() => {
+    if (chatState.isBusy && onStopTurn) {
+      modelSwitchAbortRef.current = Promise.resolve(onStopTurn())
+    } else if (chatState.isBusy) {
+      abortPromptComposer()
+      modelSwitchAbortRef.current = Promise.resolve()
+    } else {
+      modelSwitchAbortRef.current = Promise.resolve()
+    }
+    setPendingModelSwitch({})
+    setModelMenuOpenRequest((current) => current + 1)
+  }, [abortPromptComposer, chatState.isBusy, onStopTurn])
+
+  function handleTerminalAction(action: AssistantErrorActionID) {
+    if (!terminalError || !chatState.sessionID) return
+
+    switch (action) {
+      case "open-settings":
+        onOpenProviderSettings?.()
+        return
+      case "try-again":
+        void onContinueTerminalError?.({ sessionID: chatState.sessionID })
+        return
+      case "switch-model":
+        requestModelSwitch()
+        return
+      case "compact-and-continue":
+        void onCompactTerminalError?.({
+          sessionID: chatState.sessionID,
+          userMessageID: terminalError.userMessageID,
+        })
+        return
+      case "new-session":
+        promptComposerProps.onNewSession()
+        return
+      case "dismiss":
+        setDismissedTerminalMessageID(terminalError.assistantMessageID)
+        return
+      case "continue":
+        void onContinueTruncated?.({ sessionID: chatState.sessionID })
+        return
+      case "copy-details":
+        return
+    }
+  }
+
+  const handleRetryAction = useCallback(
+    (input: { action: RetryActionID; userMessageID: string; link?: string }) => {
+      switch (input.action) {
+        case "switch-model":
+          requestModelSwitch()
+          return
+        case "stop":
+          if (onStopTurn) {
+            void onStopTurn()
+          } else {
+            abortPromptComposer()
+          }
+          return
+        case "open-action":
+          if (input.link) platform.openLink(input.link)
+          return
+      }
+    },
+    [abortPromptComposer, onStopTurn, platform, requestModelSwitch],
+  )
+
+  const handleContinueTruncated = useCallback(() => {
+    if (!chatState.sessionID) return
+    void onContinueTruncated?.({ sessionID: chatState.sessionID })
+  }, [chatState.sessionID, onContinueTruncated])
 
   return (
     <main
@@ -377,6 +514,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     onOpenResource={onOpenResource}
                     onForkMessage={onForkMessage}
                     onRevertMessage={onRevertMessage}
+                    onRetryAction={handleRetryAction}
+                    onContinueTruncated={handleContinueTruncated}
                   />
                 )}
               </div>
@@ -394,14 +533,6 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               </Button>
             ) : null}
           </div>
-
-          {chatState.error ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
-              <div className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base">
-                {chatState.error}
-              </div>
-            </div>
-          ) : null}
 
           {chatState.pendingPermissions.length > 0 ? (
             <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
@@ -476,6 +607,15 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             </div>
           ) : null}
 
+          {terminalError &&
+          terminalErrorSpec &&
+          terminalError.assistantMessageID !== dismissedTerminalMessageID &&
+          !chatState.parentSession ? (
+            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
+              <AssistantErrorCard spec={terminalErrorSpec} alert onAction={handleTerminalAction} />
+            </div>
+          ) : null}
+
           {activeQuestion ? (
             <div className="mx-auto w-full max-w-200 shrink-0 px-4 pb-4 pt-2">
               <QuestionDock
@@ -491,6 +631,13 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               {!chatState.parentSession && (
                 <PromptComposer
                   {...promptComposerProps}
+                  onModelChange={(model) => {
+                    promptComposerProps.onModelChange(model)
+                    setPendingModelSwitch((pending) =>
+                      pending ? { ...pending, selectedModel: model } : pending,
+                    )
+                  }}
+                  modelMenuOpenRequest={modelMenuOpenRequest}
                   attachmentsApiRef={attachmentsApiRef}
                   selectorMode={promptSelectorMode}
                   compact={compactPromptComposer}

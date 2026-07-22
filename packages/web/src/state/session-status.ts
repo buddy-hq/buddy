@@ -8,6 +8,9 @@ const SESSION_STATUS_RETRY = "retry"
 const DEFAULT_RETRY_ATTEMPT = 1
 const DEFAULT_RETRY_MESSAGE = "Retrying request"
 
+type RetryStatus = Extract<SessionStatusInfo, { type: "retry" }>
+type RetryAction = NonNullable<RetryStatus["action"]>
+
 export const IDLE_SESSION_STATUS: SessionStatusInfo = {
   type: SESSION_STATUS_IDLE,
 }
@@ -37,6 +40,33 @@ function asString(value: unknown, fallback: string) {
   return normalizeUpstreamProviderErrorMessage(trimmed)
 }
 
+function asNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+function normalizeRetryAction(value: unknown): RetryAction | undefined {
+  if (!isRecord(value)) return undefined
+
+  const reason = asNonEmptyString(value.reason)
+  const provider = asNonEmptyString(value.provider)
+  const title = asNonEmptyString(value.title)
+  const message = asNonEmptyString(value.message)
+  const label = asNonEmptyString(value.label)
+  if (!reason || !provider || !title || !message || !label) return undefined
+
+  const link = asNonEmptyString(value.link)
+  return {
+    reason,
+    provider,
+    title,
+    message,
+    label,
+    ...(link ? { link } : {}),
+  }
+}
+
 export function normalizeSessionStatusValue(value: unknown): SessionStatusInfo {
   if (value === SESSION_STATUS_BUSY) return BUSY_SESSION_STATUS
   if (value === SESSION_STATUS_IDLE) return IDLE_SESSION_STATUS
@@ -48,11 +78,13 @@ export function normalizeSessionStatusValue(value: unknown): SessionStatusInfo {
   if (value.type === SESSION_STATUS_BUSY) return BUSY_SESSION_STATUS
   if (value.type !== SESSION_STATUS_RETRY) return IDLE_SESSION_STATUS
 
+  const action = normalizeRetryAction(value.action)
   return {
     type: SESSION_STATUS_RETRY,
     attempt: asFiniteNumber(value.attempt) ?? DEFAULT_RETRY_ATTEMPT,
     message: asString(value.message, DEFAULT_RETRY_MESSAGE),
     next: asFiniteNumber(value.next) ?? Date.now(),
+    ...(action ? { action } : {}),
   }
 }
 
@@ -87,6 +119,22 @@ export function sessionStatusEquals(left: SessionStatusInfo, right: SessionStatu
   }
 
   return (
-    left.attempt === right.attempt && left.message === right.message && left.next === right.next
+    left.attempt === right.attempt &&
+    left.message === right.message &&
+    left.next === right.next &&
+    retryActionEquals(left.action, right.action)
+  )
+}
+
+function retryActionEquals(left: RetryAction | undefined, right: RetryAction | undefined) {
+  if (left === right) return true
+  if (!left || !right) return false
+  return (
+    left.reason === right.reason &&
+    left.provider === right.provider &&
+    left.title === right.title &&
+    left.message === right.message &&
+    left.label === right.label &&
+    left.link === right.link
   )
 }
