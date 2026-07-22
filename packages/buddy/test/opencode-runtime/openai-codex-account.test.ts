@@ -110,6 +110,82 @@ describe("OpenAI Codex account service", () => {
     })
   })
 
+  test("marks an unauthorized model refresh as requiring reconnection", async () => {
+    const service = createOpenAICodexAccountService({
+      fetch: async () => Response.json({}, { status: 401 }),
+      now: () => NOW,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+
+    expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({
+      status: "reconnect_required",
+    })
+    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+      status: "reconnect_required",
+    })
+  })
+
+  test("uses a rejected ChatGPT model credential immediately without probing account endpoints", async () => {
+    const auth = createAuth()
+    const fetchMock = mock(async () => Response.json({}))
+    const service = createOpenAICodexAccountService({
+      fetch: fetchMock,
+      now: () => NOW,
+      getAuth: async () => auth,
+      setAuth: async () => undefined,
+    })
+
+    service.markAuthenticationRejected(auth)
+
+    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+      status: "reconnect_required",
+    })
+    expect(await service.readUsage(DIRECTORY)).toEqual({
+      status: "reconnect_required",
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test("keeps transient model refresh failures distinct from invalid authentication", async () => {
+    const service = createOpenAICodexAccountService({
+      fetch: async () => Response.json({}, { status: 503 }),
+      now: () => NOW,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+
+    expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({ status: "error" })
+  })
+
+  test("clears reconnect-required state when the account receives new credentials", async () => {
+    let auth = createAuth()
+    const fetchMock = mock(async () => {
+      if (fetchMock.mock.calls.length === 1) {
+        return Response.json({}, { status: 401 })
+      }
+      return Response.json({ models: [{ slug: "gpt-5.5", visibility: "list" }] })
+    })
+    const service = createOpenAICodexAccountService({
+      fetch: fetchMock,
+      now: () => NOW,
+      getAuth: async () => auth,
+      setAuth: async () => undefined,
+    })
+
+    expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({
+      status: "reconnect_required",
+    })
+
+    auth = { ...auth, access: "new-access-token", refresh: "new-refresh-token" }
+    expect(await service.readModelAvailability(DIRECTORY)).toEqual({ status: "loading" })
+    await Bun.sleep(0)
+    expect(await service.readModelAvailability(DIRECTORY)).toMatchObject({
+      status: "ready",
+      modelIDs: ["gpt-5.5"],
+    })
+  })
+
   test("normalizes plan usage and reuses it for sixty seconds", async () => {
     let now = NOW
     const fetchMock = mock(async () =>
@@ -159,6 +235,29 @@ describe("OpenAI Codex account service", () => {
     now += 2_000
     await service.readUsage(DIRECTORY)
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  test("does not mask invalid authentication with cached usage", async () => {
+    const fetchMock = mock(async () => {
+      if (fetchMock.mock.calls.length === 1) {
+        return Response.json({ plan_type: "plus" })
+      }
+      return Response.json({}, { status: 401 })
+    })
+    const service = createOpenAICodexAccountService({
+      fetch: fetchMock,
+      now: () => NOW,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+
+    expect(await service.readUsage(DIRECTORY)).toMatchObject({ status: "ready" })
+    expect(await service.readUsage(DIRECTORY, true)).toEqual({
+      status: "reconnect_required",
+    })
+    expect(await service.readUsage(DIRECTORY)).toEqual({
+      status: "reconnect_required",
+    })
   })
 
   test("does not share in-flight model results across account changes", async () => {

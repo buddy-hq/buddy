@@ -115,6 +115,35 @@ describe("OpenAI Codex auth hook", () => {
     expect(headers.get("x-test")).toBe("1")
   })
 
+  test("reports rejected model credentials to account health", async () => {
+    const rejectedAuth = mock((_auth: OpenAICodexStoredAuth) => undefined)
+    const fetchStub = Object.assign(
+      async () => Response.json({}, { status: 401 }),
+      {
+        preconnect: originalFetch.preconnect,
+      },
+    )
+    globalThis.fetch = fetchStub
+
+    const loader = createBuddyCodexLoader({
+      getAuth: async () => ({
+        type: "oauth",
+        access: "invalidated-access-token",
+        refresh: "refresh-token",
+        expires: Date.now() + 60_000,
+      }),
+      setAuth: async () => undefined,
+      onAuthenticationRejected: rejectedAuth,
+    })
+
+    await loader.fetch("https://api.openai.com/v1/responses")
+
+    expect(rejectedAuth).toHaveBeenCalledTimes(1)
+    expect(rejectedAuth).toHaveBeenCalledWith(
+      expect.objectContaining({ access: "invalidated-access-token" }),
+    )
+  })
+
   test("accepts refresh responses without rotated refresh or ID tokens", async () => {
     const fetchMock = mock(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = readRequestUrl(input)

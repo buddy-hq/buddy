@@ -1,6 +1,12 @@
 import z from "zod"
 
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 3_600
+const HTTP_STATUS_BAD_REQUEST = 400
+const HTTP_STATUS_UNAUTHORIZED = 401
+const TOKEN_REFRESH_RECONNECT_REQUIRED_STATUSES = new Set([
+  HTTP_STATUS_BAD_REQUEST,
+  HTTP_STATUS_UNAUTHORIZED,
+])
 export const OPENAI_CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 export const OPENAI_CODEX_AUTH_ISSUER = "https://auth.openai.com"
 export const OPENAI_PROVIDER_ID = "openai"
@@ -49,6 +55,16 @@ type ResolveOpenAICodexAuthInput = {
   getAuth: () => Promise<OpenAICodexAuthValue>
   setAuth: (auth: OpenAICodexStoredAuth) => Promise<void>
   issuer: string
+}
+
+export class OpenAICodexTokenRefreshError extends Error {
+  readonly reconnectRequired: boolean
+
+  constructor(status: number) {
+    super(`Token refresh failed: ${status}`)
+    this.name = "OpenAICodexTokenRefreshError"
+    this.reconnectRequired = TOKEN_REFRESH_RECONNECT_REQUIRED_STATUSES.has(status)
+  }
 }
 
 let activeRefresh:
@@ -122,7 +138,7 @@ async function refreshAccessToken(refreshToken: string, issuer: string) {
   })
 
   if (!response.ok) {
-    throw new Error(`Token refresh failed: ${response.status}`)
+    throw new OpenAICodexTokenRefreshError(response.status)
   }
 
   return refreshTokenResponseSchema.parse(await response.json())

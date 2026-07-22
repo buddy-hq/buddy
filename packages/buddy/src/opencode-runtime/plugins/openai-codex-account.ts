@@ -4,6 +4,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { OpenCodeVersion } from "@buddy/opencode-adapter/installation"
 import packageJson from "../../../package.json"
 import {
+  OpenAICodexTokenRefreshError,
   OPENAI_CODEX_AUTH_ISSUER,
   OPENAI_PROVIDER_ID,
   resolveOpenAICodexAuth,
@@ -18,6 +19,9 @@ const USAGE_CACHE_TTL_MS = 60 * 1_000
 const USAGE_RETRY_DELAY_MS = 15 * 1_000
 const BUDDY_USER_AGENT = `buddy/${packageJson.version}`
 const EMPTY_MODEL_AVAILABILITY_ERROR = "OpenAI returned no account models"
+const HTTP_STATUS_UNAUTHORIZED = 401
+const OPENAI_ACCOUNT_ERROR_STATUS = "error"
+const OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS = "reconnect_required"
 
 const codexModelSchema = z
   .object({
@@ -101,6 +105,9 @@ export const openAIModelAvailabilityResponseSchema = z.discriminatedUnion("statu
   z.object({
     status: z.literal("error"),
   }),
+  z.object({
+    status: z.literal("reconnect_required"),
+  }),
 ])
 
 export const openAIUsageResponseSchema = z.discriminatedUnion("status", [
@@ -117,6 +124,9 @@ export const openAIUsageResponseSchema = z.discriminatedUnion("status", [
   }),
   z.object({
     status: z.literal("error"),
+  }),
+  z.object({
+    status: z.literal("reconnect_required"),
   }),
 ])
 
@@ -142,7 +152,9 @@ type ModelCache = {
 
 type FailureCache = {
   accountKey: string
+  authKey: string
   retryAtMs: number
+  status: OpenAIAccountFailureStatus
 }
 
 type UsageCache = {
@@ -155,6 +167,30 @@ type AccountRefresh<T> = {
   accountKey: string
   promise: Promise<T>
   requestID: symbol
+}
+
+type OpenAIAccountFailureStatus =
+  | typeof OPENAI_ACCOUNT_ERROR_STATUS
+  | typeof OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS
+
+class OpenAIAccountRequestError extends Error {
+  readonly status: number
+
+  constructor(requestName: string, status: number) {
+    super(`${requestName} failed: ${status}`)
+    this.name = "OpenAIAccountRequestError"
+    this.status = status
+  }
+}
+
+function resolveAccountFailureStatus(error: unknown): OpenAIAccountFailureStatus {
+  if (error instanceof OpenAICodexTokenRefreshError && error.reconnectRequired) {
+    return OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS
+  }
+  if (error instanceof OpenAIAccountRequestError && error.status === HTTP_STATUS_UNAUTHORIZED) {
+    return OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS
+  }
+  return OPENAI_ACCOUNT_ERROR_STATUS
 }
 
 function accountHeaders(auth: OpenAICodexStoredAuth) {
@@ -200,6 +236,15 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
   let usageCache: UsageCache | undefined
   let usageFailure: FailureCache | undefined
   let usageRefresh: AccountRefresh<OpenAIUsageResponse> | undefined
+  const rejectedAccessTokens = new Set<string>()
+
+  function markAuthenticationRejected(auth: OpenAICodexStoredAuth) {
+    rejectedAccessTokens.add(auth.access)
+  }
+
+  function isAuthenticationRejected(auth: OpenAICodexStoredAuth) {
+    return rejectedAccessTokens.has(auth.access)
+  }
 
   async function resolveAuth(directory: string) {
     return resolveOpenAICodexAuth({
@@ -228,7 +273,13 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
       }
     }
     if (!response.ok) {
-      throw new Error(`OpenAI model availability request failed: ${response.status}`)
+      if (response.status === HTTP_STATUS_UNAUTHORIZED) {
+        markAuthenticationRejected(auth)
+      }
+      throw new OpenAIAccountRequestError(
+        "OpenAI model availability request",
+        response.status,
+      )
     }
 
     const parsed = codexModelsResponseSchema.parse(await response.json())
@@ -264,7 +315,9 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
         if (modelRefresh?.requestID === requestID) {
           modelFailure = {
             accountKey,
+            authKey: auth.access,
             retryAtMs: dependencies.now() + MODEL_RETRY_DELAY_MS,
+            status: resolveAccountFailureStatus(error),
           }
         }
         throw error
@@ -285,25 +338,43 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
   async function readModelAvailability(
     directory: string,
   ): Promise<OpenAIModelAvailabilityResponse> {
-    const auth = await resolveAuth(directory)
+    let auth: OpenAICodexStoredAuth | undefined
+    try {
+      auth = await resolveAuth(directory)
+    } catch (error) {
+      return { status: resolveAccountFailureStatus(error) }
+    }
     if (!auth) {
       modelCache = undefined
       modelFailure = undefined
       modelRefresh = undefined
       return { status: "not_connected" }
     }
+    if (isAuthenticationRejected(auth)) {
+      return { status: OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS }
+    }
 
     const accountKey = resolveAccountKey(auth)
     const now = dependencies.now()
     const currentCache = modelCache?.accountKey === accountKey ? modelCache : undefined
     const cacheFresh = currentCache && now - currentCache.fetchedAtMs < MODEL_CACHE_TTL_MS
-    const failureActive =
-      modelFailure && modelFailure.accountKey === accountKey && modelFailure.retryAtMs > now
+    const activeModelFailure =
+      modelFailure &&
+      modelFailure.accountKey === accountKey &&
+      modelFailure.authKey === auth.access &&
+      modelFailure.retryAtMs > now
+        ? modelFailure
+        : undefined
 
-    if (!cacheFresh && !failureActive && modelRefresh?.accountKey !== accountKey) {
+    if (!cacheFresh && !activeModelFailure && modelRefresh?.accountKey !== accountKey) {
       void startModelRefresh(auth).catch(() => undefined)
     }
 
+    if (
+      activeModelFailure?.status === OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS
+    ) {
+      return { status: activeModelFailure.status }
+    }
     if (currentCache) {
       return {
         status: "ready",
@@ -312,15 +383,23 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
         refreshing: modelRefresh?.accountKey === accountKey,
       }
     }
-    if (failureActive) return { status: "error" }
+    if (activeModelFailure) return { status: activeModelFailure.status }
     return { status: "loading" }
   }
 
   async function refreshModelAvailability(
     directory: string,
   ): Promise<OpenAIModelAvailabilityResponse> {
-    const auth = await resolveAuth(directory)
+    let auth: OpenAICodexStoredAuth | undefined
+    try {
+      auth = await resolveAuth(directory)
+    } catch (error) {
+      return { status: resolveAccountFailureStatus(error) }
+    }
     if (!auth) return { status: "not_connected" }
+    if (isAuthenticationRejected(auth)) {
+      return { status: OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS }
+    }
 
     try {
       const nextCache = await startModelRefresh(auth)
@@ -330,8 +409,8 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
         fetchedAt: new Date(nextCache.fetchedAtMs).toISOString(),
         refreshing: false,
       }
-    } catch {
-      return { status: "error" }
+    } catch (error) {
+      return { status: resolveAccountFailureStatus(error) }
     }
   }
 
@@ -341,7 +420,10 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
       headers: accountHeaders(auth),
     })
     if (!response.ok) {
-      throw new Error(`OpenAI usage request failed: ${response.status}`)
+      if (response.status === HTTP_STATUS_UNAUTHORIZED) {
+        markAuthenticationRejected(auth)
+      }
+      throw new OpenAIAccountRequestError("OpenAI usage request", response.status)
     }
 
     const parsed = usageResponseSchema.parse(await response.json())
@@ -388,7 +470,9 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
         if (usageRefresh?.requestID === requestID) {
           usageFailure = {
             accountKey,
+            authKey: auth.access,
             retryAtMs: dependencies.now() + USAGE_RETRY_DELAY_MS,
+            status: resolveAccountFailureStatus(error),
           }
         }
         throw error
@@ -406,32 +490,54 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
   }
 
   async function readUsage(directory: string, forceRefresh = false): Promise<OpenAIUsageResponse> {
-    const auth = await resolveAuth(directory)
+    let auth: OpenAICodexStoredAuth | undefined
+    try {
+      auth = await resolveAuth(directory)
+    } catch (error) {
+      return { status: resolveAccountFailureStatus(error) }
+    }
     if (!auth) {
       usageCache = undefined
       usageFailure = undefined
       usageRefresh = undefined
       return { status: "not_connected" }
     }
+    if (isAuthenticationRejected(auth)) {
+      return { status: OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS }
+    }
 
     const accountKey = resolveAccountKey(auth)
     const now = dependencies.now()
     const currentCache = usageCache?.accountKey === accountKey ? usageCache : undefined
     const cacheFresh = currentCache && now - currentCache.fetchedAtMs < USAGE_CACHE_TTL_MS
-    const failureActive =
-      usageFailure && usageFailure.accountKey === accountKey && usageFailure.retryAtMs > now
+    const activeUsageFailure =
+      usageFailure &&
+      usageFailure.accountKey === accountKey &&
+      usageFailure.authKey === auth.access &&
+      usageFailure.retryAtMs > now
+        ? usageFailure
+        : undefined
 
+    if (
+      !forceRefresh &&
+      activeUsageFailure?.status === OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS
+    ) {
+      return { status: activeUsageFailure.status }
+    }
     if (!forceRefresh && cacheFresh) return currentCache.response
-    if (!forceRefresh && failureActive) return { status: "error" }
+    if (!forceRefresh && activeUsageFailure) return { status: activeUsageFailure.status }
 
     try {
       return await startUsageRefresh(auth)
-    } catch {
-      return currentCache?.response ?? { status: "error" }
+    } catch (error) {
+      const status = resolveAccountFailureStatus(error)
+      if (status === OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS) return { status }
+      return currentCache?.response ?? { status }
     }
   }
 
   return {
+    markAuthenticationRejected,
     readModelAvailability,
     refreshModelAvailability,
     readUsage,

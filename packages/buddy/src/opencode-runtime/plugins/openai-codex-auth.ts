@@ -13,6 +13,7 @@ import {
   type OpenAICodexStoredAuth,
   type OpenAICodexTokenResponse,
 } from "./openai-codex-credentials"
+import { openAICodexAccountService } from "./openai-codex-account"
 import { traceOpenAIAuth } from "./openai-auth-trace"
 
 const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
@@ -20,6 +21,7 @@ const OAUTH_PORT = 1455
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3_000
 export { OPENAI_PROVIDER_ID }
 const WINDOW_CLOSE_DELAY_MS = 1_500
+const HTTP_STATUS_UNAUTHORIZED = 401
 const OPENCODE_OAUTH_USER_AGENT = "opencode/local"
 const CANCELLED_AUTHORIZATION_ERROR = "Authorization cancelled"
 const TOKEN_ERROR_DETAIL_MAX_LENGTH = 500
@@ -305,6 +307,7 @@ export function buildBuddyCodexErrorHtml(error: string) {
 export function createBuddyCodexLoader(input: {
   getAuth: () => Promise<OpenAICodexStoredAuth | { type: string }>
   setAuth: (auth: OpenAICodexStoredAuth) => Promise<void>
+  onAuthenticationRejected?: (auth: OpenAICodexStoredAuth) => void
   issuer?: string
   codexApiEndpoint?: string
 }) {
@@ -342,10 +345,14 @@ export function createBuddyCodexLoader(input: {
           ? new URL(codexApiEndpoint)
           : originalUrl
 
-      return fetch(targetUrl, {
+      const response = await fetch(targetUrl, {
         ...init,
         headers: sanitizedHeaders,
       })
+      if (response.status === HTTP_STATUS_UNAUTHORIZED) {
+        input.onAuthenticationRejected?.(auth)
+      }
+      return response
     },
   }
 }
@@ -513,6 +520,9 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
         },
         setAuth: async (nextAuth) => {
           await Auth.set(OPENAI_PROVIDER_ID, nextAuth)
+        },
+        onAuthenticationRejected: (rejectedAuth) => {
+          openAICodexAccountService.markAuthenticationRejected(rejectedAuth)
         },
       })
     },
