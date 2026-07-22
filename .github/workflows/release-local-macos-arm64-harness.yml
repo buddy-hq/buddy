@@ -45,7 +45,7 @@ jobs:
         run: bun ./script/release-local-runner-harness.ts reset
 
       - name: "Current: measure install dependencies"
-        run: bun ./script/release-local-runner-harness.ts run --name "install dependencies" -- bun install --os=darwin --cpu=arm64
+        run: bun ./script/release-local-runner-harness.ts run --name "install dependencies" -- bun install --frozen-lockfile --os=darwin --cpu=arm64
 
       - name: "Current: measure SDK generation"
         run: bun ./script/release-local-runner-harness.ts run --name "generate SDK" -- bun run sdk:generate
@@ -73,7 +73,7 @@ jobs:
         run: bun ./script/release-local-runner-harness.ts reset
 
       - name: "Optimized: measure install dependencies"
-        run: bun ./script/release-local-runner-harness.ts run --name "install dependencies" -- bun install --os=darwin --cpu=arm64
+        run: bun ./script/release-local-runner-harness.ts run --name "install dependencies" -- bun install --frozen-lockfile --os=darwin --cpu=arm64
 
       - name: "Optimized: measure SDK generation"
         run: bun ./script/release-local-runner-harness.ts run --name "generate SDK" -- bun run sdk:generate

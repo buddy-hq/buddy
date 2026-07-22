@@ -121,9 +121,9 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+          key: release-bun-v2-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Validate repository and signed skill artifacts before platform builds
         env:
@@ -187,7 +187,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+          key: release-bun-v2-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
       - id: cache-versions
         run: bun ./script/release-cache-versions.ts
@@ -199,7 +199,7 @@ jobs:
             .cache/electron-builder
           key: release-electron-v1-${{ runner.os }}-${{ runner.arch }}-electron-${{ steps.cache-versions.outputs.electron }}-builder-${{ steps.cache-versions.outputs.electron_builder }}
 
-      - run: bun install --os=darwin --cpu=arm64
+      - run: bun install --frozen-lockfile --os=darwin --cpu=arm64
 
       - name: Build and smoke Electron release target
         env:
@@ -269,7 +269,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+          key: release-bun-v2-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
       - id: cache-versions
         run: bun ./script/release-cache-versions.ts
@@ -281,7 +281,7 @@ jobs:
             .cache/electron-builder
           key: release-electron-v1-${{ runner.os }}-${{ runner.arch }}-electron-${{ steps.cache-versions.outputs.electron }}-builder-${{ steps.cache-versions.outputs.electron_builder }}
 
-      - run: bun install --os=darwin --cpu=x64
+      - run: bun install --frozen-lockfile --os=darwin --cpu=x64
 
       - name: Build and smoke Electron release target
         env:
@@ -351,7 +351,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+          key: release-bun-v2-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
       - id: cache-versions
         run: bun ./script/release-cache-versions.ts
@@ -363,7 +363,7 @@ jobs:
             .cache/electron-builder
           key: release-electron-v1-${{ runner.os }}-${{ runner.arch }}-electron-${{ steps.cache-versions.outputs.electron }}-builder-${{ steps.cache-versions.outputs.electron_builder }}
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Build and smoke Electron release target
         env:
@@ -553,9 +553,9 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+          key: release-bun-v2-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Resolve advanced math runtime version
         run: |
@@ -600,9 +600,9 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+          key: release-bun-v2-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Resolve advanced math runtime version
         run: |
@@ -645,9 +645,9 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+          key: release-bun-v2-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - run: bun run --cwd packages/buddy verify:knowledge-graph
 
@@ -720,9 +720,9 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+          key: release-bun-v2-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - if: ${{ !inputs.direct_release_uploads && !inputs.dry_run }}
         uses: actions/download-artifact@v7
