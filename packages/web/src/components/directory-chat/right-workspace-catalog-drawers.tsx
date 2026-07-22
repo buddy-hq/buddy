@@ -122,7 +122,7 @@ type PracticeFeedItem =
   | { kind: "flashcards"; object: FlashcardDeckLibraryObject }
   | { kind: "question-sets"; object: QuestionSetLibraryObject }
 
-type CreationFeedItem =
+export type CreationFeedItem =
   | { kind: "widgets"; object: HtmlWidgetLibraryObject }
   | { kind: "diagrams"; object: MermaidLibraryObject }
   | { kind: "media"; object: MediaLibraryObject }
@@ -783,7 +783,7 @@ function creationViewID(item: CreationFeedItem): string {
   return item.object.kind === "media-presentation" ? MEDIA_GALLERY_VIEW_ID : RENDERED_OBJECT_VIEW_ID
 }
 
-function CreationPreviewVisual(props: { directory: string; item: CreationFeedItem }) {
+export function CreationPreviewVisual(props: { directory: string; item: CreationFeedItem }) {
   if (props.item.kind === "widgets") {
     return <WidgetCreationPreview directory={props.directory} object={props.item.object} />
   }

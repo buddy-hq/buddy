@@ -18,7 +18,28 @@ An invariant of after triggering this skill is if you are refactoring a tool or 
 
 
 ## Side-Effects
-Say you are refactoring a tool. You change the schema or you change the metadata or you change what it returns. Even say you change the name. You have to keep looking for side effects before closing that issue. By side effects, the side effects can be of the following types. Side effect number one could be that you have changed the name of the tool, but that name is referred at different places in different markdown files as a prompt. So if you change the name here, those prompts also need to change. Another side effect is you changed the metadata or you changed any trigger inside the tool that affects the front end. So the renderers might also need to change if you change any of the programmatic bits of the tool. For describe blocks and prompting, say you changed the describe blocks or prompting, but then you duplicate stuff in describe block in prompting. So make sure that is not the case. Similarly, look for side effects into different skills. So if you change the prompt here about how the tool works, but there's a different related skill that you find with a grep search, that skill is mentioning this tool working in a completely different way. For this, you may refer to how ingest full text and the reading skills work together. They depend on each other. So always check for side effects in front end, in the prompt layer, in the back end, in the skill layer before closing out on something. 
+When refactoring a tool—changing its name, schema, metadata, triggers, prompts, or return values—check for side effects before closing the issue.
+
+Review every affected layer:
+
+* **Prompt layer:** If the tool name or behavior is referenced in Markdown prompts, update those references.
+* **Frontend:** If metadata, triggers, or other programmatic fields affect rendering, update the relevant renderers.
+* **Backend:** Update all code that depends on the changed schema, name, triggers, metadata, or return format.
+* **Describe blocks and prompts:** Avoid duplicating the same instructions across both.
+* **Skills:** Search related skills for outdated or conflicting descriptions of how the tool works.
+
+Use grep or an equivalent repository-wide search to find dependencies. Some tools and skills work together—for example, full-text ingestion and reading skills—so changes to one may require changes to the other.
+
+Always check the frontend, backend, prompt, and skill layers before considering the refactor complete.
+
+
+
+## Handling Failures
+Tool failures must never be silent. The tool return consumed by the agent should clearly and concisely state what failed and why, so the agent can recover or explain it to the user.
+
+Do not put failure details only in metadata or logs. Metadata can contain verbose debugging information, but the agent-facing return must include the essential failure context.
+
+
 
 ## Permission boundaries
 

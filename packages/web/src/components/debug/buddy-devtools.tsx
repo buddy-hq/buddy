@@ -3203,7 +3203,7 @@ export function BuddyDevTools() {
             </TabsContent>
 
             <TabsContent value="easel" className="min-h-0 flex-1 overflow-hidden mt-0">
-              <DevToolsEaselTab />
+              <DevToolsEaselTab directory={activeDirectory} />
             </TabsContent>
 
             <TabsContent value="transcript" className="min-h-0 flex-1 overflow-hidden mt-0">
