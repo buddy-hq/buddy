@@ -5,9 +5,15 @@ import { createRoot, type Root } from "react-dom/client"
 import { TooltipProvider } from "@buddy/ui"
 
 import {
-  ACTIVITY_WORKING_GAP_REVEAL_MS,
   ActivityRow,
+  END_OF_TURN_DEAD_ZONE_MS,
+  MID_TURN_DEAD_ZONE_MS,
 } from "../src/components/chat/tools/activity-row"
+import {
+  activityHeaderKey,
+  createActivityEntry,
+  resolveActivityHeader,
+} from "../src/components/chat/tools/activity-row/entries"
 import type { MessagePart } from "../src/state/chat-types"
 import { activityPresentation, presentationMetadata } from "./tool-presentation-fixtures"
 
@@ -68,6 +74,17 @@ function failedEditPart(): MessagePart {
       error: "Edit failed",
       time: { start: 1, end: 2 },
     },
+  }
+}
+
+function reasoningPart(input: { active: boolean }): MessagePart {
+  return {
+    id: "reasoning-1",
+    sessionID: "ses_activity",
+    messageID: "msg_activity",
+    type: "reasoning",
+    text: "",
+    time: input.active ? { start: 1 } : { start: 1, end: 2 },
   }
 }
 
@@ -141,6 +158,7 @@ describe("ActivityRow", () => {
           zeroEntryLabel="Thinking"
           isBusy
           isCurrent
+          initial
         />,
       )
     })
@@ -149,6 +167,69 @@ describe("ActivityRow", () => {
     expect(row?.textContent).toContain("Thinking")
     expect(row?.className).toBe("w-full")
     expect(container.querySelector(".bg-linear-to-r")).toBeNull()
+  })
+
+  test("holds back the end-of-turn dead-zone word until the delay elapses", async () => {
+    // A non-initial, empty, busy+current row is the end-of-turn dead zone. Its
+    // working word must not paint immediately — otherwise it flashes under a
+    // finished answer when `isBusy` is about to flip off.
+    await act(async () => {
+      root.render(
+        <ActivityRow
+          parts={[]}
+          seed="activity:turn:tail"
+          zeroEntryLabel="Pondering"
+          isBusy
+          isCurrent
+        />,
+      )
+    })
+    const hiddenRow = container.querySelector<HTMLElement>("[data-activity-row]")
+    expect(hiddenRow).not.toBeNull()
+    expect(hiddenRow?.classList.contains("invisible")).toBe(true)
+    expect(hiddenRow?.getAttribute("aria-hidden")).toBe("true")
+
+    await act(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(resolve, END_OF_TURN_DEAD_ZONE_MS + 50)
+        }),
+    )
+    expect(container.textContent).toContain("Pondering")
+    expect(hiddenRow?.classList.contains("invisible")).toBe(false)
+    expect(hiddenRow?.hasAttribute("aria-hidden")).toBe(false)
+  })
+
+  test("never reveals the word when the turn ends before the dead-zone delay", async () => {
+    await act(async () => {
+      root.render(
+        <ActivityRow
+          parts={[]}
+          seed="activity:turn:tail"
+          zeroEntryLabel="Pondering"
+          isBusy
+          isCurrent
+        />,
+      )
+    })
+    expect(
+      container.querySelector<HTMLElement>("[data-activity-row]")?.classList.contains("invisible"),
+    ).toBe(true)
+
+    // Turn ends (busy clears) well before END_OF_TURN_DEAD_ZONE_MS.
+    await act(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(resolve, MID_TURN_DEAD_ZONE_MS)
+        }),
+    )
+    await act(async () => {
+      root.render(
+        <ActivityRow parts={[]} seed="activity:turn:tail" zeroEntryLabel="Pondering" />,
+      )
+    })
+
+    expect(container.querySelector("[data-activity-row]")).toBeNull()
   })
 
   test("keeps the header mounted through a Panda gap between same-category tools", async () => {
@@ -232,7 +313,7 @@ describe("ActivityRow", () => {
     await act(
       () =>
         new Promise((resolve) => {
-          setTimeout(resolve, ACTIVITY_WORKING_GAP_REVEAL_MS + 50)
+          setTimeout(resolve, MID_TURN_DEAD_ZONE_MS + 50)
         }),
     )
     expect(container.querySelector("[aria-label='Pawing']")).toBe(initialHeader)
@@ -280,5 +361,29 @@ describe("ActivityRow", () => {
 
     expect(container.querySelector("[data-lucide='circle-alert']")).toBeNull()
     expect(container.querySelector("[data-activity-entry]")).toBeNull()
+  })
+
+  // The header's AnimatePresence is keyed on the header identity. The empty
+  // "Thinking" placeholder and the first real reasoning entry both render the
+  // reasoning header, so they must resolve to the same key — otherwise the
+  // identical header crossfades (blur/fade out + in) for no visible reason: the
+  // optimistic/tail thinking-block flash.
+  test("thinking placeholder shares its header key with real reasoning", () => {
+    const placeholder = resolveActivityHeader({
+      entries: [],
+      busy: true,
+      current: true,
+      zeroEntryLabel: "Thinking",
+    })
+    const reasoningEntry = createActivityEntry(reasoningPart({ active: true }))
+    expect(reasoningEntry).toBeDefined()
+    const reasoning = resolveActivityHeader({
+      entries: reasoningEntry ? [reasoningEntry] : [],
+      busy: true,
+      current: true,
+      zeroEntryLabel: "Thinking",
+    })
+
+    expect(activityHeaderKey(placeholder)).toBe(activityHeaderKey(reasoning))
   })
 })

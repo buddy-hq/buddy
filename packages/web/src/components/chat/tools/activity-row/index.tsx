@@ -31,7 +31,20 @@ const HEADER_STATUS_TRANSITION = {
   duration: 0.18,
   ease: [0.23, 1, 0.32, 1],
 } as const
-export const ACTIVITY_WORKING_GAP_REVEAL_MS = 400
+
+// Dead-zone tuning. See docs/dead-zone.md for the vocabulary and the reasoning
+// behind these numbers before changing them.
+//
+// Mid-turn dead zone: a gap between steps while more output is still coming; the
+// previous step's label keeps shimmering during the wait. 600ms is an
+// intentional, conservative step up from 400ms to cut label churn; may rise to
+// ~800ms later.
+export const MID_TURN_DEAD_ZONE_MS = 600
+// End-of-turn dead zone: the empty tail after the answer, where we can't yet
+// tell "the turn is ending" from "a real pause". Higher than mid-turn so the
+// end-of-turn flash never paints, while a genuine >1.2s pause still surfaces a
+// word.
+export const END_OF_TURN_DEAD_ZONE_MS = 1200
 
 function useDelayedWorkingGapHeader(input: {
   resolved: ActivityHeader
@@ -48,13 +61,32 @@ function useDelayedWorkingGapHeader(input: {
       return
     }
 
-    const timer = setTimeout(() => setRevealWorkingGap(true), ACTIVITY_WORKING_GAP_REVEAL_MS)
+    const timer = setTimeout(() => setRevealWorkingGap(true), MID_TURN_DEAD_ZONE_MS)
     return () => clearTimeout(timer)
   }, [input.waitingBetweenEntries])
 
   return input.waitingBetweenEntries && !revealWorkingGap
     ? previousHeaderRef.current
     : input.resolved
+}
+
+// True only after `active` has held continuously for `delayMs`. Resets the
+// moment `active` goes false, so a state that clears before the delay (the
+// end-of-turn flash) never flips this on.
+function useDelayedFlag(active: boolean, delayMs: number): boolean {
+  const [elapsed, setElapsed] = useState(false)
+
+  useEffect(() => {
+    if (!active) {
+      setElapsed(false)
+      return
+    }
+
+    const timer = setTimeout(() => setElapsed(true), delayMs)
+    return () => clearTimeout(timer)
+  }, [active, delayMs])
+
+  return active && elapsed
 }
 
 function ActivityHeaderStatus(props: { icon: ToolIconRenderer; title: string; shimmer: boolean }) {
@@ -280,6 +312,9 @@ type ActivityRowProps = {
   interrupted?: boolean
   isBusy?: boolean
   isCurrent?: boolean
+  // The start-of-turn "Thinking" placeholder. Shows immediately (it's the
+  // "message received" signal); exempt from the end-of-turn dead-zone delay.
+  initial?: boolean
   expansionState?: ActivityRowExpansionState
   onExpansionStateChange?: (state: ActivityRowExpansionState) => void
 }
@@ -300,6 +335,7 @@ export function ActivityRow({
   interrupted,
   isBusy = false,
   isCurrent = isBusy,
+  initial = false,
   expansionState,
   onExpansionStateChange,
 }: ActivityRowProps) {
@@ -323,6 +359,13 @@ export function ActivityRow({
     resolved: resolvedHeader,
     waitingBetweenEntries,
   })
+  // End-of-turn dead zone: an empty, busy tail row that is not the start-of-turn
+  // "Thinking" placeholder. Hold it back until END_OF_TURN_DEAD_ZONE_MS so the
+  // turn-ending case unmounts before its working word ever paints (the flash),
+  // while a genuinely long post-answer pause still reveals one.
+  const endOfTurnDeadZone = entries.length === 0 && isBusy && isCurrent && !initial
+  const endOfTurnDeadZoneRevealed = useDelayedFlag(endOfTurnDeadZone, END_OF_TURN_DEAD_ZONE_MS)
+  const hideEndOfTurnDeadZone = endOfTurnDeadZone && !endOfTurnDeadZoneRevealed
   const canOpen = entries.length > 0
   const stableStreamingDetails =
     isOpen && entries.some((entry) => activityEntryHasStreamingReasoning(entry, isBusy))
@@ -348,7 +391,11 @@ export function ActivityRow({
   }
 
   return (
-    <div className="w-full" data-activity-row={seed}>
+    <div
+      aria-hidden={hideEndOfTurnDeadZone ? true : undefined}
+      className={cn("w-full", hideEndOfTurnDeadZone && "invisible")}
+      data-activity-row={seed}
+    >
       <button
         type="button"
         onClick={() => {

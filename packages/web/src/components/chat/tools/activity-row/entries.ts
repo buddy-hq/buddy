@@ -118,10 +118,14 @@ export function activityEntryIsActive(entry: ActivityEntry): boolean {
   return entry.kind === "reasoning" ? isReasoningActive(entry.part) : isToolActive(entry.state)
 }
 
+function reasoningEntryHeading(entry: ReasoningActivityEntry): string | undefined {
+  return reasoningHeading(typeof entry.part.text === "string" ? entry.part.text.trim() : "")
+}
+
 function reasoningEntryLabel(entry: ReasoningActivityEntry): string {
-  if (activityEntryIsActive(entry)) {
-    return reasoningHeading(String(entry.part.text ?? "").trim()) ?? ACTIVITY_THINKING_LABEL
-  }
+  const heading = reasoningEntryHeading(entry)
+  if (heading) return heading
+  if (activityEntryIsActive(entry)) return ACTIVITY_THINKING_LABEL
 
   const time = isRecord(entry.part.time) ? entry.part.time : undefined
   const start = typeof time?.start === "number" ? time.start : undefined
@@ -161,6 +165,16 @@ function totalReasoningDurationLabel(entries: ActivityEntry[]): string {
   }
 
   return hasTiming ? formatThoughtForLabel(totalMs) : ACTIVITY_THOUGHT_LABEL
+}
+
+function latestReasoningHeading(entries: ActivityEntry[]): string | undefined {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index]
+    if (entry?.kind !== "reasoning") continue
+    const heading = reasoningEntryHeading(entry)
+    if (heading) return heading
+  }
+  return undefined
 }
 
 type SettledGroup = {
@@ -221,7 +235,7 @@ function settledHeader(entries: ActivityEntry[]): ActivityHeader {
   if (entries.some((entry) => entry.kind === "reasoning")) {
     return {
       identity: "reasoning",
-      label: totalReasoningDurationLabel(entries),
+      label: latestReasoningHeading(entries) ?? totalReasoningDurationLabel(entries),
       icon: ACTIVITY_REASONING_ICON,
       shimmer: false,
     }
@@ -266,7 +280,12 @@ export function resolveActivityHeader(input: {
   if (input.busy && input.current) {
     const previousEntry = input.entries.at(-1)
     return {
-      identity: previousEntry ? entryHeaderIdentity(previousEntry) : "zero-entry",
+      // This placeholder renders the reasoning icon, so with no previous entry
+      // its identity must be "reasoning" (not a distinct "zero-entry"). The
+      // header identity is the AnimatePresence key: a distinct key here would
+      // crossfade the (identical) "Thinking" header when the first real
+      // reasoning entry arrives — the optimistic/tail thinking-block flash.
+      identity: previousEntry ? entryHeaderIdentity(previousEntry) : "reasoning",
       label: input.zeroEntryLabel,
       icon: ACTIVITY_REASONING_ICON,
       shimmer: true,

@@ -83,6 +83,21 @@ function entries(parts: MessagePart[]) {
   return parts.flatMap((part) => createActivityEntry(part) ?? [])
 }
 
+function reasoningPart(input: {
+  id: string
+  text: string
+  time: { start: number; end?: number }
+}): MessagePart {
+  return {
+    id: input.id,
+    sessionID: "ses_activity",
+    messageID: "msg_activity",
+    type: "reasoning",
+    text: input.text,
+    time: input.time,
+  }
+}
+
 describe("ActivityRow header resolution", () => {
   test("keeps identical pending and running headers on the same motion key", () => {
     const pendingHeader = resolveActivityHeader({
@@ -464,14 +479,11 @@ describe("ActivityRow header resolution", () => {
   })
 
   test("uses reasoning duration only when no successful tool ran", () => {
-    const reasoning: MessagePart = {
-      id: "reasoning",
-      sessionID: "ses_activity",
-      messageID: "msg_activity",
-      type: "reasoning",
+    const reasoning = reasoningPart({
+      id: "reasoning-without-heading",
       text: "Considering the change",
       time: { start: 1, end: 4_001 },
-    }
+    })
     expect(
       resolveActivityHeader({
         entries: entries([reasoning]),
@@ -480,6 +492,43 @@ describe("ActivityRow header resolution", () => {
         zeroEntryLabel: "Thinking",
       }).label,
     ).toBe("Thought for 4s")
+  })
+
+  test("keeps an OpenAI reasoning summary visible while active and after completion", () => {
+    const title = "Inspecting git worktree list and status"
+    const activeEntries = entries([
+      reasoningPart({
+        id: "reasoning-active",
+        text: `**${title}**`,
+        time: { start: 1 },
+      }),
+    ])
+    const completedEntries = entries([
+      reasoningPart({
+        id: "reasoning-completed",
+        text: `**${title}**`,
+        time: { start: 1, end: 4_001 },
+      }),
+    ])
+
+    expect(activityEntryLabel(activeEntries[0]!)).toBe(title)
+    expect(
+      resolveActivityHeader({
+        entries: activeEntries,
+        busy: true,
+        current: true,
+        zeroEntryLabel: "Thinking",
+      }).label,
+    ).toBe(title)
+    expect(activityEntryLabel(completedEntries[0]!)).toBe(title)
+    expect(
+      resolveActivityHeader({
+        entries: completedEntries,
+        busy: false,
+        current: false,
+        zeroEntryLabel: "Thinking",
+      }).label,
+    ).toBe(title)
   })
 
   test("selects a deterministic stable Panda word from the segment key", () => {

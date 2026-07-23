@@ -280,7 +280,148 @@ describe("chat transcript ActivityRow", () => {
     expect(container.querySelector("[data-activity-row]")).toBeNull()
   })
 
-  test("renders completed reasoning summary as an expandable row when summaries are enabled", async () => {
+  test("keeps delayed end-of-turn activity geometry mounted after text finishes", async () => {
+    const directory = "/repo-end-of-turn-dead-zone"
+    const sessionID = "ses_end_of_turn_dead_zone"
+    const userMessageID = "msg_001_user_end_of_turn_dead_zone"
+    const assistantMessageID = "msg_002_assistant_end_of_turn_dead_zone"
+
+    await act(async () => {
+      seedDirectoryChatState(directory, {
+        sessionID,
+        isBusy: true,
+        sessionStatusByID: {
+          [sessionID]: { type: "busy" },
+        },
+        messages: [
+          createMessageWithParts(
+            createUserMessageInfo({
+              id: userMessageID,
+              sessionID,
+            }),
+            [
+              {
+                id: "prt_user_end_of_turn_dead_zone",
+                sessionID,
+                messageID: userMessageID,
+                type: "text",
+                text: "Finish a response",
+              },
+            ],
+          ),
+          createMessageWithParts(
+            createAssistantMessageInfo({
+              id: assistantMessageID,
+              sessionID,
+              parentID: userMessageID,
+            }),
+            [
+              {
+                id: "prt_assistant_end_of_turn_dead_zone",
+                sessionID,
+                messageID: assistantMessageID,
+                type: "text",
+                text: "Finished response",
+                time: { start: 1, end: 2 },
+              },
+            ],
+          ),
+        ],
+      })
+      root.render(
+        <ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />,
+      )
+      await flushEffects()
+    })
+
+    const activityArticle = container.querySelector<HTMLElement>(
+      '[data-timeline-row="Activity"]',
+    )
+    const delayedRow = activityArticle?.querySelector<HTMLElement>("[data-activity-row]")
+
+    expect(assistantArticleByText(container, "Finished response")).not.toBeUndefined()
+    expect(activityArticle).not.toBeNull()
+    expect(delayedRow).not.toBeNull()
+    expect(delayedRow?.classList.contains("invisible")).toBe(true)
+    expect(delayedRow?.getAttribute("aria-hidden")).toBe("true")
+  })
+
+  test("surfaces a streamed OpenAI reasoning heading while the turn is active", async () => {
+    const directory = "/repo-openai-reasoning-delta"
+    const sessionID = "ses_openai_reasoning_delta"
+    const userMessageID = "msg_001_user_openai_reasoning_delta"
+    const assistantMessageID = "msg_002_assistant_openai_reasoning_delta"
+    const reasoningPartID = "prt_assistant_openai_reasoning_delta"
+    const reasoningTitle = "Inspecting git worktree list and status"
+
+    await act(async () => {
+      seedDirectoryChatState(directory, {
+        sessionID,
+        isBusy: true,
+        sessionStatusByID: {
+          [sessionID]: { type: "busy" },
+        },
+        messages: [
+          createMessageWithParts(
+            createUserMessageInfo({
+              id: userMessageID,
+              sessionID,
+            }),
+            [
+              {
+                id: "prt_user_openai_reasoning_delta",
+                sessionID,
+                messageID: userMessageID,
+                type: "text",
+                text: "Inspect the worktree",
+              },
+            ],
+          ),
+          createMessageWithParts(
+            createAssistantMessageInfo({
+              id: assistantMessageID,
+              sessionID,
+              parentID: userMessageID,
+            }),
+            [
+              {
+                id: reasoningPartID,
+                sessionID,
+                messageID: assistantMessageID,
+                type: "reasoning",
+                text: "",
+                time: { start: 1 },
+              },
+            ],
+          ),
+        ],
+      })
+      root.render(
+        <ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.textContent).toContain("Thinking")
+    expect(container.textContent).not.toContain(reasoningTitle)
+
+    await act(async () => {
+      applyTranscriptPartDelta(directory, {
+        sessionID,
+        messageID: assistantMessageID,
+        partID: reasoningPartID,
+        field: "text",
+        delta: `**${reasoningTitle}**`,
+      })
+      await flushEffects()
+    })
+
+    expect(activityArticleByText(container, reasoningTitle)).not.toBeUndefined()
+  })
+
+  test("keeps a completed OpenAI reasoning heading visible in the collapsed row", async () => {
+    const reasoningTitle = "Reviewing the greeting"
+
     await act(async () => {
       useChatSettings.setState({ showReasoningSummaries: true })
       seedDirectoryChatState("/repo-completed-reasoning", {
@@ -318,7 +459,7 @@ describe("chat transcript ActivityRow", () => {
                 sessionID: "ses_completed_reasoning",
                 messageID: "msg_002_assistant_completed_reasoning",
                 type: "reasoning",
-                text: "The model thought about the greeting.",
+                text: `**${reasoningTitle}**`,
               },
               {
                 id: "prt_assistant_completed_text",
@@ -340,7 +481,7 @@ describe("chat transcript ActivityRow", () => {
       await flushEffects()
     })
 
-    expect(container.textContent).toContain("Thought")
+    expect(container.textContent).toContain(reasoningTitle)
     expect(container.textContent).toContain("Final response")
     expect(container.querySelector('[data-timeline-row="AssistantPart"]')).not.toBeNull()
   })

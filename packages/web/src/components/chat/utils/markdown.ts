@@ -21,5 +21,19 @@ export function reasoningHeading(text: string): string | undefined {
     if (value) return value
   }
 
+  const setext = markdown.match(/^([^\n]+)\n(?:=+|-+)[ \t]*$/m)
+  if (setext?.[1]) {
+    const value = cleanReasoningHeading(setext[1])
+    if (value) return value
+  }
+
+  // OpenAI reasoning summaries title each section with a bold line
+  // (**Title**), not a markdown heading, so match a line that is entirely bold.
+  const strong = markdown.match(/^[ \t]*(\*\*|__)(.+?)\1[ \t]*$/m)
+  if (strong?.[2]) {
+    const value = cleanReasoningHeading(strong[2])
+    if (value) return value
+  }
+
   return undefined
 }

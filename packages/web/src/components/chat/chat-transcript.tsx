@@ -678,6 +678,7 @@ function TimelineActivityRow(props: {
           interrupted={props.row.assistantAborted}
           isBusy={props.row.active}
           isCurrent={props.row.current}
+          initial={props.row.initial}
           expansionState={props.expansionState ?? EMPTY_ACTIVITY_ROW_EXPANSION_STATE}
           onExpansionStateChange={props.onExpansionStateChange}
         />
@@ -1154,6 +1155,8 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       const previous = item ? (rowVirtualizer.itemSizeCache.get(item.key) ?? item.size) : undefined
       const root = scrollViewportRef?.current
       const element = root?.querySelector<HTMLElement>(`[data-index="${index}"]`) ?? null
+      const measuredRowKey =
+        element?.closest<HTMLElement>("[data-timeline-key]")?.dataset.timelineKey ?? rows[index]?.key
       const skipResize = isDeferredToolFallbackCollapse({
         root: element,
         previousSize: previous,
@@ -1163,7 +1166,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         type: "row-size",
         at: performance.now(),
         index,
-        rowKey: rows[index]?.key,
+        rowKey: measuredRowKey,
         previousSize: previous,
         nextSize: size,
         deltaPx: previous === undefined ? undefined : size - previous,
