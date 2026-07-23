@@ -1713,6 +1713,8 @@ export function useDirectoryChatPageController(
     onTranscriptTouchEnd: autoScroll.handleTouchEnd,
     onTranscriptTouchCancel: autoScroll.handleTouchCancel,
     onTranscriptInteraction: autoScroll.handleInteraction,
+    onTranscriptViewportHeightChange: autoScroll.handleViewportHeightChange,
+    markTranscriptProgrammaticScroll: autoScroll.markProgrammaticScroll,
     onOpenSession: handleOpenCurrentDirectorySession,
     onRevertMessage: async ({ sessionID, messageID }) => {
       const result = await undoLastSessionMessage(decodedDirectory, { sessionID, messageID })

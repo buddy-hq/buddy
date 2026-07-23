@@ -127,6 +127,8 @@ type AutoScrollResult = {
   handleTouchEnd: () => void
   handleTouchCancel: () => void
   handleInteraction: () => void
+  handleViewportHeightChange: (element: HTMLElement) => void
+  markProgrammaticScroll: (element: HTMLElement, top: number) => void
   pause: () => void
   forceScrollToBottom: () => void
 }
@@ -227,6 +229,23 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
       rememberSessionState({ detached: false, scrollTop: element.scrollTop })
     },
     [markAuto, rememberSessionState],
+  )
+
+  const handleViewportHeightChange = useCallback(
+    (element: HTMLElement) => {
+      const detached = isDetached()
+      rememberSessionState({ detached, scrollTop: element.scrollTop })
+      setShowJumpToLatest(detached && shouldShowJumpToLatest(element))
+    },
+    [isDetached, rememberSessionState],
+  )
+
+  const markProgrammaticScroll = useCallback(
+    (element: HTMLElement, top: number) => {
+      markAuto(element, top)
+      lastScrollTopRef.current = top
+    },
+    [markAuto],
   )
 
   const pause = useCallback(() => {
@@ -416,6 +435,8 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
     handleTouchEnd,
     handleTouchCancel,
     handleInteraction,
+    handleViewportHeightChange,
+    markProgrammaticScroll,
     pause,
     forceScrollToBottom,
   }

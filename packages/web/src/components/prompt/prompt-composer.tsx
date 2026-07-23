@@ -25,16 +25,17 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react"
-import { AnimatePresence } from "motion/react"
-import { language } from "@/context/language"
 import {
-  TRANSIENT_BENCH_SURFACE_SKETCH,
-  useTransientBenchSurface,
-} from "@/components/bench/transient-bench-surface"
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+} from "motion/react"
+import { language } from "@/context/language"
 import { GameDock } from "../game/game-dock"
 import { GameBall } from "../game/game-ball"
 import { DEVELOPMENT_FEATURES_ENABLED } from "@/lib/development-features"
@@ -111,6 +112,18 @@ import { SelectionClip, type SelectionClipData } from "./selection-clip"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
 import { usePromptEditorSync } from "./use-prompt-editor-sync"
+import {
+  resolveComposerAccessoryPresentation,
+  resolveComposerReplacementHeight,
+  COMPOSER_ACCESSORY_LAYOUT,
+  type ComposerAccessoryLayout,
+} from "./composer-accessory-layout"
+import {
+  SURFACE_REVEAL_BAND_VARIANTS,
+  SURFACE_REVEAL_VARIANT,
+  resolveSurfaceRevealTransition,
+  resolveSurfaceRevealVariants,
+} from "@/lib/surface-reveal-motion"
 import type { SketchAttachmentFlush } from "./sketch-dock"
 import {
   consumePromptComposerFocusRequest,
@@ -142,7 +155,7 @@ const CURSOR_NAVIGATION_KEYS = new Set([
 ])
 
 const SKETCH_IMAGE_MODEL_SUGGESTION_LIMIT = 4
-const PROMPT_EDITOR_REGULAR_SIZE_CLASS = "min-h-[84px] max-h-[240px] pb-12"
+const PROMPT_EDITOR_REGULAR_SIZE_CLASS = "min-h-[72px] max-h-[240px] pb-12"
 const PROMPT_EDITOR_COMPACT_SIZE_CLASS = "min-h-[56px] max-h-[120px] pb-3"
 
 const SketchDock = lazy(async () => {
@@ -200,6 +213,7 @@ type PromptComposerProps = {
   activeQuestionID?: string
   compact?: boolean
   todoSnapshot?: TodoSnapshot
+  accessoryLayout?: ComposerAccessoryLayout
   /**
    * When provided, the composer publishes an imperative attachment API onto this
    * ref so an ancestor can forward files dropped anywhere in the chat area.
@@ -277,9 +291,61 @@ function createEmptyPromptDraftState() {
   })
 }
 
+function cssPixelValue(value: string): number {
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function measureNonAccessoryComposerHeight(input: {
+  root: HTMLElement
+  accessoryHost: HTMLElement | null
+}): number {
+  const rootHeight = input.root.getBoundingClientRect().height
+  const accessoryHostHeight = input.accessoryHost?.getBoundingClientRect().height ?? 0
+  const rootStyle = window.getComputedStyle(input.root)
+  const outerMargin =
+    cssPixelValue(rootStyle.marginBlockStart) + cssPixelValue(rootStyle.marginBlockEnd)
+
+  return Math.max(0, rootHeight - accessoryHostHeight + outerMargin)
+}
+
+type ComposerAccessoryMotionHostProps = {
+  children: React.ReactNode
+  hostRef: { current: HTMLDivElement | null }
+}
+
+function ComposerAccessoryMotionHost(props: ComposerAccessoryMotionHostProps) {
+  const reduceMotion = useReducedMotion() === true
+  const setHostRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      props.hostRef.current = element
+    },
+    [props.hostRef],
+  )
+  const surfaceVariants = useMemo(() => resolveSurfaceRevealVariants(reduceMotion), [reduceMotion])
+
+  return (
+    <motion.div
+      ref={setHostRef}
+      variants={SURFACE_REVEAL_BAND_VARIANTS}
+      initial={SURFACE_REVEAL_VARIANT.enter}
+      animate={SURFACE_REVEAL_VARIANT.visible}
+      exit={SURFACE_REVEAL_VARIANT.exit}
+      className="overflow-visible"
+      data-component="prompt-composer-accessory-motion-host"
+    >
+      <motion.div variants={surfaceVariants} className="pb-2">
+        {props.children}
+      </motion.div>
+    </motion.div>
+  )
+}
+
 export function PromptComposer(props: PromptComposerProps) {
-  const transientBenchSurface = useTransientBenchSurface()
   const isQuestionActive = props.activeQuestionID !== undefined
+  const reduceMotion = useReducedMotion() === true
+  const composerRootRef = useRef<HTMLDivElement | null>(null)
+  const accessoryHostRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const modelNativeTriggerRef = useRef<HTMLSelectElement>(null)
@@ -305,16 +371,53 @@ export function PromptComposer(props: PromptComposerProps) {
   const setHistoryNavigation = usePromptStore((state) => state.setHistoryNavigation)
   const clearHistoryNavigation = usePromptStore((state) => state.resetHistoryNavigation)
   const [sketchDockOpen, setSketchDockOpen] = useState(false)
-  const [sketchDockMinimized, setSketchDockMinimized] = useState(false)
-  const [sketchHasContent, setSketchHasContent] = useState(false)
   const [todoDockViewState, setTodoDockViewState] = useState<TodoDockViewState>({})
+  const [measuredComposerHeight, setMeasuredComposerHeight] = useState<number>()
   const sketchAttachmentRef = useRef<PromptComposerAttachment | undefined>(undefined)
   const flushSketchAttachmentRef = useRef<SketchAttachmentFlush | undefined>(undefined)
-  const sketchBenchOpen = transientBenchSurface?.activeSurface === TRANSIENT_BENCH_SURFACE_SKETCH
   const todoDockMode = todoDockModeForScope(todoDockViewState, promptKey)
   const todoCount = props.todoSnapshot?.todos.length ?? 0
   const hasTodos = todoCount > 0
   const todoDockOpen = hasTodos && todoDockMode === TODO_DOCK_MODE_OPEN
+  const accessoryPresentation = resolveComposerAccessoryPresentation({
+    layout: props.accessoryLayout,
+    measuredComposerHeight,
+  })
+  const {
+    accessoryBudget,
+    largeAccessoryHeight,
+    todoPresentation,
+    todoAccessoryHeight,
+  } = accessoryPresentation
+  const composerReplacementHeight = resolveComposerReplacementHeight(props.accessoryLayout)
+
+  useLayoutEffect(() => {
+    const root = composerRootRef.current
+    const layout = props.accessoryLayout
+    if (!root || !layout || layout.paneHeight <= 0) {
+      setMeasuredComposerHeight(undefined)
+      return
+    }
+
+    const syncComposerHeight = () => {
+      if (!root.querySelector('[data-component="prompt-composer"]')) return
+      const nextComposerHeight = measureNonAccessoryComposerHeight({
+        root,
+        accessoryHost: accessoryHostRef.current,
+      })
+      setMeasuredComposerHeight((current) =>
+        current === nextComposerHeight ? current : nextComposerHeight,
+      )
+    }
+
+    syncComposerHeight()
+    if (typeof ResizeObserver === "undefined") return
+
+    const observer = new ResizeObserver(syncComposerHeight)
+    observer.observe(root)
+    return () => observer.disconnect()
+  }, [props.accessoryLayout])
+
   const selectionContextEntries = useMemo(
     () =>
       draft.parts.flatMap((part) =>
@@ -337,8 +440,6 @@ export function PromptComposer(props: PromptComposerProps) {
         : draft.attachments.filter((attachment) => attachmentRequiresVisionInput(attachment.mime)),
     [draft.attachments, props.selectedModelAcceptsImages],
   )
-  const hasActiveSketch = (sketchDockOpen || sketchBenchOpen) && sketchHasContent
-  const hasUnsupportedSketch = hasActiveSketch && !props.selectedModelAcceptsImages
   const unsupportedImageAttachmentIds = useMemo(
     () => new Set(unsupportedImageAttachments.map((attachment) => attachment.id)),
     [unsupportedImageAttachments],
@@ -361,19 +462,15 @@ export function PromptComposer(props: PromptComposerProps) {
   const canSubmit = useMemo(
     () =>
       !hasUnsupportedImageAttachments &&
-      !hasUnsupportedSketch &&
       !hasUnreadyNativeResources &&
       (draftEditorValue.trim().length > 0 ||
         draft.attachments.length > 0 ||
-        hasSubmittableParts ||
-        hasActiveSketch),
+        hasSubmittableParts),
     [
       draft.attachments.length,
       draftEditorValue,
-      hasActiveSketch,
       hasSubmittableParts,
       hasUnsupportedImageAttachments,
-      hasUnsupportedSketch,
       hasUnreadyNativeResources,
     ],
   )
@@ -425,7 +522,7 @@ export function PromptComposer(props: PromptComposerProps) {
   const [busyStartTime, setBusyStartTime] = useState<number | null>(null)
   const [showGameBall, setShowGameBall] = useState(false)
 
-  const todoAutoOpenBlocked = sketchDockOpen || sketchBenchOpen || isGameVisible
+  const todoAutoOpenBlocked = sketchDockOpen || isGameVisible
   const todoBelongsToCurrentTurn = props.todoSnapshot?.isCurrentTurn === true
   const todoRevision = props.todoSnapshot?.revision
   useEffect(() => {
@@ -697,21 +794,14 @@ export function PromptComposer(props: PromptComposerProps) {
     sketchAttachmentRef.current = attachment
   }, [])
 
-  const updateSketchContent = useCallback((hasContent: boolean) => {
-    setSketchHasContent(hasContent)
-  }, [])
-
   const updateSketchFlush = useCallback((flush: SketchAttachmentFlush | undefined) => {
     flushSketchAttachmentRef.current = flush
   }, [])
 
   const deactivateSketchDock = useCallback(() => {
-    transientBenchSurface?.close(TRANSIENT_BENCH_SURFACE_SKETCH)
     setSketchDockOpen(false)
-    setSketchDockMinimized(false)
-    setSketchHasContent(false)
     updateSketchAttachment(undefined)
-  }, [transientBenchSurface, updateSketchAttachment])
+  }, [updateSketchAttachment])
 
   const focusEditorAtDraftCursor = useCallback(() => {
     const editor = editorRef.current
@@ -1177,8 +1267,8 @@ export function PromptComposer(props: PromptComposerProps) {
       toast.error("Finish answering the question first!")
       return
     }
-    if (sketchDockOpen || sketchBenchOpen) {
-      minimizeSketchDock()
+    if (sketchDockOpen) {
+      closeSketchDock()
     }
     if (todoDockOpen) {
       hideTodoDock()
@@ -1206,7 +1296,6 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function openSketchDock() {
-    transientBenchSurface?.close(TRANSIENT_BENCH_SURFACE_SKETCH)
     setGameVisible(false)
     setMinimized(false)
     setPaused(true)
@@ -1216,33 +1305,15 @@ export function PromptComposer(props: PromptComposerProps) {
     }
     editorRef.current?.blur()
     setSketchDockOpen(true)
-    setSketchDockMinimized(false)
   }
 
   function closeSketchDock() {
     deactivateSketchDock()
   }
 
-  function minimizeSketchDock() {
-    transientBenchSurface?.close(TRANSIENT_BENCH_SURFACE_SKETCH)
-    setSketchDockOpen(false)
-    setSketchDockMinimized(true)
-  }
-
-  function maximizeSketchDock() {
-    if (!transientBenchSurface) return
-    setSketchDockOpen(false)
-    setSketchDockMinimized(false)
-    transientBenchSurface.open(TRANSIENT_BENCH_SURFACE_SKETCH)
-  }
-
   function toggleSketchDock() {
-    if (sketchBenchOpen) {
-      openSketchDock()
-      return
-    }
     if (sketchDockOpen) {
-      minimizeSketchDock()
+      closeSketchDock()
       return
     }
     openSketchDock()
@@ -1257,8 +1328,8 @@ export function PromptComposer(props: PromptComposerProps) {
 
   function openTodoDock() {
     if (!hasTodos) return
-    if (sketchDockOpen || sketchBenchOpen) {
-      minimizeSketchDock()
+    if (sketchDockOpen) {
+      closeSketchDock()
     }
     setGameVisible(false)
     setMinimized(false)
@@ -1326,8 +1397,26 @@ export function PromptComposer(props: PromptComposerProps) {
     applyTriggerSelection("slash", node)
   }
 
+  async function completeSketchInput() {
+    if (!props.selectedModelAcceptsImages) return
+    const attachment =
+      (await flushSketchAttachmentRef.current?.()) ?? sketchAttachmentRef.current
+    if (!attachment) {
+      toast.error("Could not prepare the sketch.")
+      return
+    }
+
+    resetHistoryNavigation()
+    setDraftAttachmentsFromComposer((attachments) => [
+      ...attachments.filter((candidate) => candidate.id !== attachment.id),
+      attachment,
+    ])
+    deactivateSketchDock()
+    setFocusRequestID((current) => current + 1)
+  }
+
   async function handleSubmit() {
-    if (hasUnsupportedImageAttachments || hasUnsupportedSketch || hasUnreadyNativeResources) return
+    if (hasUnsupportedImageAttachments || hasUnreadyNativeResources) return
 
     const currentDraft = readEditorDraft()
 
@@ -1342,32 +1431,18 @@ export function PromptComposer(props: PromptComposerProps) {
     }
 
     const currentHasSubmittableParts = hasSubmittablePromptParts(currentDraft.parts)
-    const activeSketchAttachment =
-      hasActiveSketch && props.selectedModelAcceptsImages
-        ? ((await flushSketchAttachmentRef.current?.()) ?? sketchAttachmentRef.current)
-        : undefined
-    if (hasActiveSketch && !activeSketchAttachment) {
-      toast.error("Could not prepare the sketch.")
-      return
-    }
-    const submissionDraft = activeSketchAttachment
-      ? {
-          ...currentDraft,
-          attachments: [...currentDraft.attachments, activeSketchAttachment],
-        }
-      : currentDraft
 
     if (
-      !submissionDraft.value.trim() &&
-      submissionDraft.attachments.length === 0 &&
+      !currentDraft.value.trim() &&
+      currentDraft.attachments.length === 0 &&
       !currentHasSubmittableParts
     ) {
       return
     }
 
-    commitDraftToHistory(submissionDraft)
+    commitDraftToHistory(currentDraft)
     clearComposer({ resetHistory: false })
-    void props.onSubmit(submissionDraft)
+    void props.onSubmit(currentDraft)
   }
 
   const slashMenuVisible =
@@ -1382,93 +1457,78 @@ export function PromptComposer(props: PromptComposerProps) {
   const isGamePromptSuggestionActive = showGameBall && isGamePromptSuggestionAvailable
 
   // The floating ball is now only a minimized-game restore affordance.
-  const shouldShowBall = isMinimized && !isGameVisible && !isQuestionActive
+  const shouldShowBall =
+    isMinimized &&
+    !isGameVisible &&
+    !isQuestionActive &&
+    (accessoryBudget === undefined ||
+      accessoryBudget >= COMPOSER_ACCESSORY_LAYOUT.task.minimumDocumentHeightPx)
+  const showGameReplacement = isGameVisible && largeAccessoryHeight === undefined
+  const gameDockHeight = showGameReplacement ? composerReplacementHeight : largeAccessoryHeight
+  const showTodoAccessory = todoDockOpen && props.todoSnapshot && todoPresentation !== "hidden"
+  const showAccessoryHost = isGameVisible || showTodoAccessory || shouldShowBall
+  const surfaceTransition = resolveSurfaceRevealTransition(reduceMotion)
 
   return (
-    <div className={cn("relative", props.className ?? "mx-4 mb-4")}>
-      {/* Arcade Layer - Rendered outside the main flow to avoid layout shifts/fluctuations */}
-      <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 z-50 flex flex-col items-end pointer-events-none">
-        <div className="w-full pointer-events-auto">
-          <AnimatePresence>
-            {isGameVisible && (
-              <GameDock
-                className="composer-surface-floating composer-grain w-full"
-                onClose={closeArcade}
-                onMinimize={minimizeArcade}
-              />
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="w-full pointer-events-auto">
-          <AnimatePresence>
-            {todoDockOpen && props.todoSnapshot ? (
-              <TodoDock
-                className="composer-surface-floating composer-grain w-full"
-                todos={props.todoSnapshot.todos}
-                turnActive={props.isBusy}
-                onHide={hideTodoDock}
-              />
-            ) : null}
-          </AnimatePresence>
-        </div>
-
-        <div className="w-full pointer-events-auto">
-          <AnimatePresence>
-            {sketchDockOpen || sketchDockMinimized || sketchBenchOpen ? (
-              <Suspense fallback={<div className="composer-surface-floating h-[300px] w-full" />}>
-                <SketchDock
-                  className={cn(
-                    "composer-surface-floating composer-grain w-full",
-                    (sketchDockMinimized || sketchBenchOpen) && "hidden",
-                  )}
-                  acceptsImages={props.selectedModelAcceptsImages}
-                  benchHost={sketchBenchOpen ? transientBenchSurface?.host : null}
-                  imageModelOptions={sketchImageModelOptions}
-                  isMaximized={sketchBenchOpen}
-                  isOpen={sketchDockOpen || sketchBenchOpen}
-                  onModelChange={props.onModelChange}
-                  onClose={closeSketchDock}
-                  onMaximize={
-                    transientBenchSurface && !sketchBenchOpen ? maximizeSketchDock : undefined
-                  }
-                  onMinimize={minimizeSketchDock}
-                  onRestore={openSketchDock}
-                  onSketchContentChange={updateSketchContent}
-                  onSketchAttachmentChange={updateSketchAttachment}
-                  onFlushSketchAttachmentChange={updateSketchFlush}
+    <div
+      ref={composerRootRef}
+      className={cn("relative", props.className ?? "mx-4 mb-4")}
+    >
+      <AnimatePresence initial={false}>
+        {showAccessoryHost ? (
+          <ComposerAccessoryMotionHost hostRef={accessoryHostRef}>
+            <div
+              className="flex w-full flex-col gap-2"
+              data-component="prompt-composer-accessory-host"
+            >
+              {isGameVisible && gameDockHeight !== undefined ? (
+                <GameDock
+                  className="composer-surface-floating composer-grain w-full"
+                  height={gameDockHeight}
+                  onClose={closeArcade}
+                  onMinimize={minimizeArcade}
                 />
-              </Suspense>
-            ) : null}
-          </AnimatePresence>
-        </div>
+              ) : null}
 
-        <div className="pointer-events-auto">
-          <AnimatePresence>
-            {shouldShowBall && (
-              <GameBall
-                onOpen={() => {
-                  openArcade()
-                }}
-                onHide={dismissGameBall}
-                onSuggestLessOften={() => {
-                  setGamePromptPreference(GAME_PROMPT_PREFERENCE_REDUCED)
-                  setShowGameBall(false)
-                }}
-                onDisableSuggestions={() => {
-                  setGamePromptPreference(GAME_PROMPT_PREFERENCE_DISABLED)
-                  setShowGameBall(false)
-                }}
-                onOpenSettings={() => {
-                  props.onOpenSettings?.()
-                }}
-              />
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+              {showTodoAccessory && props.todoSnapshot ? (
+                <TodoDock
+                  className="composer-surface-floating composer-grain w-full"
+                  height={todoAccessoryHeight}
+                  todos={props.todoSnapshot.todos}
+                  turnActive={props.isBusy}
+                  onHide={hideTodoDock}
+                />
+              ) : null}
 
-      {selectionContextEntries.length > 0 || dismissedSelectionPreviews.length > 0 ? (
+              {shouldShowBall ? (
+                <div className="flex h-10 justify-end">
+                  <GameBall
+                    onOpen={() => {
+                      openArcade()
+                    }}
+                    onHide={dismissGameBall}
+                    onSuggestLessOften={() => {
+                      setGamePromptPreference(GAME_PROMPT_PREFERENCE_REDUCED)
+                      setShowGameBall(false)
+                    }}
+                    onDisableSuggestions={() => {
+                      setGamePromptPreference(GAME_PROMPT_PREFERENCE_DISABLED)
+                      setShowGameBall(false)
+                    }}
+                    onOpenSettings={() => {
+                      props.onOpenSettings?.()
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </ComposerAccessoryMotionHost>
+        ) : null}
+      </AnimatePresence>
+
+      {!sketchDockOpen &&
+      !showGameReplacement &&
+      (selectionContextEntries.length > 0 || dismissedSelectionPreviews.length > 0) ? (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {selectionContextEntries.map(({ part, key }) => (
             <SelectionClip
@@ -1489,7 +1549,79 @@ export function PromptComposer(props: PromptComposerProps) {
           ))}
         </div>
       ) : null}
-      <div className="composer-surface composer-grain composer-shell group/prompt-input relative z-10">
+      <div
+        className="relative w-full"
+        data-component="prompt-composer-replacement-motion-host"
+      >
+        <AnimatePresence initial={false} mode="popLayout">
+          {sketchDockOpen ? (
+            <motion.div
+              key="sketch-input"
+              initial={{
+                opacity: 0,
+                transform: reduceMotion
+                  ? "translateY(0px) scale(1)"
+                  : "translateY(8px) scale(0.985)",
+              }}
+              animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
+              exit={{
+                opacity: 0,
+                transform: reduceMotion
+                  ? "translateY(0px) scale(1)"
+                  : "translateY(6px) scale(0.99)",
+                transition: surfaceTransition,
+              }}
+              transition={surfaceTransition}
+              className="w-full"
+            >
+              <Suspense
+                fallback={
+                  <div
+                    className="composer-surface-floating w-full"
+                    style={{ height: composerReplacementHeight }}
+                  />
+                }
+              >
+                <SketchDock
+                  className="composer-surface-floating composer-grain w-full"
+                  acceptsImages={props.selectedModelAcceptsImages}
+                  benchHost={null}
+                  height={composerReplacementHeight}
+                  imageModelOptions={sketchImageModelOptions}
+                  isMaximized={false}
+                  isOpen
+                  mode="input"
+                  onModelChange={props.onModelChange}
+                  onClose={closeSketchDock}
+                  onContinue={completeSketchInput}
+                  onMinimize={closeSketchDock}
+                  onRestore={openSketchDock}
+                  onSketchAttachmentChange={updateSketchAttachment}
+                  onFlushSketchAttachmentChange={updateSketchFlush}
+                />
+              </Suspense>
+            </motion.div>
+          ) : showGameReplacement ? null : (
+            <motion.div
+              key="prompt-input"
+              initial={{
+                opacity: 0,
+                transform: reduceMotion
+                  ? "translateY(0px) scale(1)"
+                  : "translateY(4px) scale(0.995)",
+              }}
+              animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
+              exit={{
+                opacity: 0,
+                transform: reduceMotion
+                  ? "translateY(0px) scale(1)"
+                  : "translateY(4px) scale(0.995)",
+                transition: surfaceTransition,
+              }}
+              transition={surfaceTransition}
+              className="w-full"
+            >
+              <div className="composer-surface composer-grain composer-shell group/prompt-input relative z-10">
         <form
           id="prompt-composer-form"
           data-component="prompt-composer"
@@ -1785,6 +1917,10 @@ export function PromptComposer(props: PromptComposerProps) {
           stopLabel={language.t("prompt.composer.stop")}
           stopAriaLabel={language.t("prompt.composer.stop")}
         />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {showPersonaSelector || props.sessionContextUsage ? (
@@ -1876,8 +2012,6 @@ export function PromptComposer(props: PromptComposerProps) {
                 onClick={toggleSketchDock}
                 className={cn(
                   "inline-flex size-6 items-center justify-center rounded-md text-text-weaker transition-all hover:bg-surface-base-hover hover:text-text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base/50 active:scale-95",
-                  sketchDockMinimized &&
-                    "bg-surface-base-hover text-text-base ring-1 ring-border-weak-base/80",
                   sketchDockOpen &&
                     "bg-surface-interactive-base text-text-on-interactive-base shadow-sm shadow-surface-interactive-base/30 ring-1 ring-border-interactive-base/60",
                 )}

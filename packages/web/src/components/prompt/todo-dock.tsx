@@ -10,12 +10,15 @@ import { Kanban, ListIcon, MinusIcon } from "@/icons/app-icons"
 import { useTodoDockView } from "./todo-dock-view-preference"
 import { TodoDockBoardView, TodoDockListView } from "./todo-dock-views"
 
+const TODO_DOCK_BOARD_MIN_HEIGHT_PX = 240
+
 const TODO_DOCK_TRANSITION = {
   duration: 0.18,
   ease: [0.23, 1, 0.32, 1],
 } as const
 
 type TodoDockProps = {
+  height?: number
   todos: TodoItem[]
   turnActive: boolean
   onHide: () => void
@@ -24,6 +27,8 @@ type TodoDockProps = {
 
 export function TodoDock(props: TodoDockProps) {
   const [view, setView] = useTodoDockView()
+  const constrained = props.height !== undefined && props.height < TODO_DOCK_BOARD_MIN_HEIGHT_PX
+  const effectiveView = constrained ? "list" : view
 
   return (
     <motion.div
@@ -37,49 +42,58 @@ export function TodoDock(props: TodoDockProps) {
         size="auto"
         autoFocus={false}
         className={cn(
-          // The list hugs its content (a short list shouldn't float at the top
-          // of a tall empty box); the board fills a fixed height so its columns
-          // can stretch. Both cap at the same screen-relative max.
-          "relative max-h-[min(20rem,50vh)]",
-          view === "board" && "h-[min(20rem,50vh)]",
+          // The list hugs its content; the board uses the host's shared budget
+          // so its columns can stretch without consuming transcript space.
+          "relative",
           props.className,
         )}
+        style={
+          props.height === undefined
+            ? undefined
+            : effectiveView === "board" || constrained
+              ? { height: props.height, maxHeight: props.height }
+              : { maxHeight: props.height }
+        }
         data-component="prompt-todo-dock"
       >
         {/* No header chrome — just a minimal control cluster floating top-right. */}
         <div className="pointer-events-none absolute right-0 top-0 z-20 flex justify-end p-2">
           <div className="composer-surface-menu composer-grain pointer-events-auto relative flex items-center gap-0.5 p-1 [@media(max-height:640px)]:p-0.5">
-            <ToggleGroup
-              type="single"
-              size="sm"
-              spacing={1}
-              value={view}
-              onValueChange={(next) => {
-                if (next === "list" || next === "board") setView(next)
-              }}
-              aria-label={language.t("prompt.todoDock.viewLabel")}
-            >
-              <ToggleGroupItem
-                value="list"
-                className="h-6 min-w-6 px-1.5 [@media(max-height:640px)]:h-5 [@media(max-height:640px)]:min-w-5 [@media(max-height:640px)]:px-1"
-                aria-label={language.t("prompt.todoDock.viewListAria")}
-                title={language.t("prompt.todoDock.viewListAria")}
-              >
-                <ListIcon className="size-3.5 [@media(max-height:640px)]:size-3" />
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="board"
-                className="h-6 min-w-6 px-1.5 [@media(max-height:640px)]:h-5 [@media(max-height:640px)]:min-w-5 [@media(max-height:640px)]:px-1"
-                aria-label={language.t("prompt.todoDock.viewBoardAria")}
-                title={language.t("prompt.todoDock.viewBoardAria")}
-              >
-                <Kanban className="size-3.5 [@media(max-height:640px)]:size-3" />
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <span
-              aria-hidden="true"
-              className="mx-0.5 h-4 w-px bg-border-weak-base/60 [@media(max-height:640px)]:h-3"
-            />
+            {constrained ? null : (
+              <>
+                <ToggleGroup
+                  type="single"
+                  size="sm"
+                  spacing={1}
+                  value={view}
+                  onValueChange={(next) => {
+                    if (next === "list" || next === "board") setView(next)
+                  }}
+                  aria-label={language.t("prompt.todoDock.viewLabel")}
+                >
+                  <ToggleGroupItem
+                    value="list"
+                    className="h-6 min-w-6 px-1.5 [@media(max-height:640px)]:h-5 [@media(max-height:640px)]:min-w-5 [@media(max-height:640px)]:px-1"
+                    aria-label={language.t("prompt.todoDock.viewListAria")}
+                    title={language.t("prompt.todoDock.viewListAria")}
+                  >
+                    <ListIcon className="size-3.5 [@media(max-height:640px)]:size-3" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="board"
+                    className="h-6 min-w-6 px-1.5 [@media(max-height:640px)]:h-5 [@media(max-height:640px)]:min-w-5 [@media(max-height:640px)]:px-1"
+                    aria-label={language.t("prompt.todoDock.viewBoardAria")}
+                    title={language.t("prompt.todoDock.viewBoardAria")}
+                  >
+                    <Kanban className="size-3.5 [@media(max-height:640px)]:size-3" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                <span
+                  aria-hidden="true"
+                  className="mx-0.5 h-4 w-px bg-border-weak-base/60 [@media(max-height:640px)]:h-3"
+                />
+              </>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -104,7 +118,7 @@ export function TodoDock(props: TodoDockProps) {
           </span>
         </div>
 
-        {view === "board" ? (
+        {effectiveView === "board" ? (
           <TodoDockBoardView todos={props.todos} turnActive={props.turnActive} />
         ) : (
           <div

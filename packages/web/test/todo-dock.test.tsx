@@ -53,10 +53,33 @@ describe("TodoDock", () => {
     expect(container.textContent).toContain("Tasks")
   })
 
-  test("lets the list hug its content while capping at a responsive max", async () => {
+  test("keeps the actual task list visible and scrollable at compact heights", async () => {
     await act(async () => {
       root.render(
         <TodoDock
+          height={120}
+          todos={[{ key: "one", content: "Keep the task visible", status: "in_progress" }]}
+          turnActive
+          onHide={() => {}}
+        />,
+      )
+    })
+
+    const dock = container.querySelector<HTMLElement>('[data-component="prompt-todo-dock"]')
+    const scrollRegion = container.querySelector<HTMLElement>(
+      '[data-component="prompt-todo-scroll"]',
+    )
+    expect(dock?.style.height).toBe("120px")
+    expect(scrollRegion?.classList.contains("overflow-y-auto")).toBe(true)
+    expect(container.textContent).toContain("Keep the task visible")
+    expect(container.querySelector('button[aria-label="Board view"]')).toBeNull()
+  })
+
+  test("lets the list hug its content while capping at the host-provided max", async () => {
+    await act(async () => {
+      root.render(
+        <TodoDock
+          height={320}
           todos={[{ key: "one", content: "Hug the content", status: "pending" }]}
           turnActive
           onHide={() => {}}
@@ -66,8 +89,8 @@ describe("TodoDock", () => {
 
     const listDock = container.querySelector<HTMLElement>('[data-component="prompt-todo-dock"]')
     // Capped, but not pinned to a fixed height — a short list stays compact.
-    expect(listDock?.classList.contains("max-h-[min(20rem,50vh)]")).toBe(true)
-    expect(listDock?.classList.contains("h-[min(20rem,50vh)]")).toBe(false)
+    expect(listDock?.style.maxHeight).toBe("320px")
+    expect(listDock?.style.height).toBe("")
   })
 
   test("persists the selected view across mounts and fills the board height", async () => {
@@ -76,6 +99,7 @@ describe("TodoDock", () => {
     await act(async () => {
       root.render(
         <TodoDock
+          height={320}
           todos={[{ key: "0:doing", content: "Persisted", status: "in_progress" }]}
           turnActive
           onHide={() => {}}
@@ -88,9 +112,42 @@ describe("TodoDock", () => {
     expect(container.querySelector('[data-column="in_progress"]')).not.toBeNull()
     expect(container.querySelector('[data-component="prompt-todo-scroll"]')).toBeNull()
 
-    // Board pins the fixed, responsive height so its columns can stretch.
+    // Board fills the shared host budget so its columns can stretch.
     const boardDock = container.querySelector<HTMLElement>('[data-component="prompt-todo-dock"]')
-    expect(boardDock?.classList.contains("h-[min(20rem,50vh)]")).toBe(true)
+    expect(boardDock?.style.height).toBe("320px")
+  })
+
+  test("switches compact board presentation at the same breakpoint in both directions", async () => {
+    window.localStorage.setItem("buddy.todoDock.view", "board")
+    const todo: TodoItem = {
+      key: "0:responsive",
+      content: "Resize both ways",
+      status: "in_progress",
+    }
+
+    await act(async () => {
+      root.render(
+        <TodoDock height={200} todos={[todo]} turnActive onHide={() => {}} />,
+      )
+    })
+    expect(container.querySelector('[data-component="prompt-todo-scroll"]')).not.toBeNull()
+    expect(container.querySelector('[data-column="in_progress"]')).toBeNull()
+
+    await act(async () => {
+      root.render(
+        <TodoDock height={240} todos={[todo]} turnActive onHide={() => {}} />,
+      )
+    })
+    expect(container.querySelector('[data-component="prompt-todo-scroll"]')).toBeNull()
+    expect(container.querySelector('[data-column="in_progress"]')).not.toBeNull()
+
+    await act(async () => {
+      root.render(
+        <TodoDock height={200} todos={[todo]} turnActive onHide={() => {}} />,
+      )
+    })
+    expect(container.querySelector('[data-component="prompt-todo-scroll"]')).not.toBeNull()
+    expect(container.querySelector('[data-column="in_progress"]')).toBeNull()
   })
 
   test("offers list and board view toggles", async () => {

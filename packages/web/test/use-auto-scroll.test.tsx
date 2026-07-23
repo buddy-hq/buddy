@@ -9,6 +9,7 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
 type HarnessHandle = {
   pause: () => void
   forceScrollToBottom: () => void
+  handleViewportHeightChange: (element: HTMLElement) => void
   initialScrollOffset: () => number | undefined
   shouldAnchorBottom: () => boolean
 }
@@ -32,11 +33,13 @@ function Harness(props: HarnessProps) {
     onReady({
       pause: auto.pause,
       forceScrollToBottom: auto.forceScrollToBottom,
+      handleViewportHeightChange: auto.handleViewportHeightChange,
       initialScrollOffset: auto.initialScrollOffset,
       shouldAnchorBottom: auto.shouldAnchorBottom,
     })
   }, [
     auto.forceScrollToBottom,
+    auto.handleViewportHeightChange,
     auto.initialScrollOffset,
     auto.pause,
     auto.shouldAnchorBottom,
@@ -170,6 +173,33 @@ describe("useAutoScroll", () => {
     })
 
     expect(metrics.scrollTop).toBe(200)
+  })
+
+  test("preserves a detached reading offset when the viewport height changes", async () => {
+    let handle: HarnessHandle | undefined
+
+    await act(async () => {
+      root.render(<Harness attachmentKey="session-1" onReady={(nextHandle) => (handle = nextHandle)} />)
+    })
+
+    const scrollElement = requireDiv(container, '[data-testid="scroll"]')
+    const metrics: ScrollMetrics = {
+      clientHeight: 400,
+      scrollHeight: 1_600,
+      scrollTop: 520,
+    }
+    installScrollMetrics(scrollElement, metrics)
+    if (!handle) throw new Error("Expected auto-scroll handle to be ready")
+    const readyHandle = handle
+
+    await act(async () => {
+      readyHandle.pause()
+      metrics.clientHeight = 320
+      readyHandle.handleViewportHeightChange(scrollElement)
+    })
+
+    expect(readyHandle.shouldAnchorBottom()).toBe(false)
+    expect(metrics.scrollTop).toBe(520)
   })
 
   test("starts a newly selected session attached after the previous session detached", async () => {

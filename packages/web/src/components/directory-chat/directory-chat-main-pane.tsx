@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -56,6 +57,11 @@ import { isHiddenFromUserMessage } from "@/components/chat/utils/message-visibil
 import { resolveLatestTerminalAssistantError } from "@/state/chat-error-model"
 import type { RetryActionID } from "@/components/chat/session-retry-notice"
 import { usePlatform } from "@/context/platform"
+import {
+  resolveComposerAccessoryLayout,
+  type ComposerAccessoryLayout,
+} from "@/components/prompt/composer-accessory-layout"
+import { useGameStore } from "@/state/game-store"
 
 type PromptComposerProps = Omit<
   ComponentProps<typeof PromptComposer>,
@@ -80,6 +86,8 @@ type DirectoryChatMainPaneProps = {
   onTranscriptTouchEnd: () => void
   onTranscriptTouchCancel: () => void
   onTranscriptInteraction?: () => void
+  onTranscriptViewportHeightChange?: (element: HTMLElement) => void
+  markTranscriptProgrammaticScroll?: (element: HTMLElement, top: number) => void
   onOpenSession: (sessionID: string) => void
   onOpenResource: (
     directory: string,
@@ -114,6 +122,23 @@ type DirectoryChatMainPaneProps = {
 
 const COMPACTION_BUFFER_TOKENS = 20_000
 const OUTPUT_TOKEN_MAX = 32_000
+const CHAT_LAYOUT_RESIZE_SETTLE_DELAY_MS = 100
+
+type ChatLayoutMeasurements = {
+  paneHeight: number
+  reservedContentHeight: number
+  hasBlockingResponseSurface: boolean
+}
+
+const EMPTY_CHAT_LAYOUT_MEASUREMENTS: ChatLayoutMeasurements = {
+  paneHeight: 0,
+  reservedContentHeight: 0,
+  hasBlockingResponseSurface: false,
+}
+
+function measuredElementHeight(element: HTMLElement | null): number {
+  return element ? Math.round(element.getBoundingClientRect().height) : 0
+}
 
 type AutoCompactionWarning = {
   usage: number
@@ -226,6 +251,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     onTranscriptTouchEnd,
     onTranscriptTouchCancel,
     onTranscriptInteraction,
+    onTranscriptViewportHeightChange,
+    markTranscriptProgrammaticScroll,
     onOpenSession,
     onOpenResource,
     onForkMessage,
@@ -310,15 +337,85 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   // The prompt composer publishes its attachment API here so files dropped
   // anywhere in this pane (not just on the composer) get attached.
   const attachmentsApiRef = useRef<PromptComposerAttachmentsApi | null>(null)
+  const chatLayoutRef = useRef<HTMLDivElement | null>(null)
+  const topContentRef = useRef<HTMLDivElement | null>(null)
+  const blockingSurfacesRef = useRef<HTMLDivElement | null>(null)
   const [isFileDragging, setIsFileDragging] = useState(false)
+  const [chatLayoutMeasurements, setChatLayoutMeasurements] = useState<ChatLayoutMeasurements>(
+    EMPTY_CHAT_LAYOUT_MEASUREMENTS,
+  )
   const [dismissedTerminalMessageID, setDismissedTerminalMessageID] = useState<string>()
   const [modelMenuOpenRequest, setModelMenuOpenRequest] = useState(0)
   const [pendingModelSwitch, setPendingModelSwitch] = useState<{
     selectedModel?: string
   }>()
   const modelSwitchAbortRef = useRef<Promise<void>>(Promise.resolve())
+  const isGameVisible = useGameStore((state) => state.isGameVisible)
+  const setGameVisible = useGameStore((state) => state.setGameVisible)
+  const setGamePaused = useGameStore((state) => state.setPaused)
+  const setGameMinimized = useGameStore((state) => state.setMinimized)
   // Only accept drops while the composer is actually mounted below.
   const dropzoneEnabled = !activeQuestion && !chatState.parentSession
+
+  useLayoutEffect(() => {
+    const pane = chatLayoutRef.current
+    const topContent = topContentRef.current
+    const blockingSurfaces = blockingSurfacesRef.current
+    if (!pane || !topContent || !blockingSurfaces) return
+
+    let settleTimer: number | undefined
+    const sync = () => {
+      const blockingResponseSurfaceHeight = measuredElementHeight(blockingSurfaces)
+      const next: ChatLayoutMeasurements = {
+        paneHeight: measuredElementHeight(pane),
+        reservedContentHeight:
+          measuredElementHeight(topContent) + blockingResponseSurfaceHeight,
+        hasBlockingResponseSurface: blockingResponseSurfaceHeight > 0,
+      }
+      setChatLayoutMeasurements((current) =>
+        current.paneHeight === next.paneHeight &&
+        current.reservedContentHeight === next.reservedContentHeight &&
+        current.hasBlockingResponseSurface === next.hasBlockingResponseSurface
+          ? current
+          : next,
+      )
+    }
+    const scheduleSync = () => {
+      if (settleTimer !== undefined) {
+        window.clearTimeout(settleTimer)
+      }
+      settleTimer = window.setTimeout(() => {
+        settleTimer = undefined
+        sync()
+      }, CHAT_LAYOUT_RESIZE_SETTLE_DELAY_MS)
+    }
+
+    sync()
+    if (typeof ResizeObserver === "undefined") return
+
+    const observer = new ResizeObserver(scheduleSync)
+    observer.observe(pane)
+    observer.observe(topContent)
+    observer.observe(blockingSurfaces)
+    return () => {
+      observer.disconnect()
+      if (settleTimer !== undefined) {
+        window.clearTimeout(settleTimer)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!activeQuestion || !isGameVisible) return
+    setGameVisible(false)
+    setGamePaused(true)
+    setGameMinimized(true)
+  }, [activeQuestion, isGameVisible, setGameMinimized, setGamePaused, setGameVisible])
+
+  const composerAccessoryLayout = useMemo<ComposerAccessoryLayout>(
+    () => resolveComposerAccessoryLayout(chatLayoutMeasurements),
+    [chatLayoutMeasurements],
+  )
 
   const handlePaneDragEnter = (event: DragEvent<HTMLElement>) => {
     if (!preventDefaultForFileDrag(event) || !dropzoneEnabled) return
@@ -449,13 +546,15 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       {!isBenchRoutePathname(location.pathname) ? (
         <BenchClosedContextPublisher activeSessionID={chatState.sessionID} />
       ) : null}
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div ref={chatLayoutRef} className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
-          {props.topContent ? (
-            <div className="mx-auto w-full max-w-full px-4 pt-4 md:max-w-200">
-              <div className="mb-4">{props.topContent}</div>
-            </div>
-          ) : null}
+          <div ref={topContentRef} className="shrink-0">
+            {props.topContent ? (
+              <div className="mx-auto w-full max-w-full px-4 pt-4 md:max-w-200">
+                <div className="mb-4">{props.topContent}</div>
+              </div>
+            ) : null}
+          </div>
           <div className="relative min-h-0 flex-1">
             <ScrollArea
               data-component="chat-transcript-scroll-area"
@@ -515,6 +614,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     initialScrollOffset={initialScrollOffset}
                     shouldAnchorBottom={shouldAnchorBottom}
                     hasScrollGesture={hasScrollGesture}
+                    onViewportHeightChange={onTranscriptViewportHeightChange}
+                    markProgrammaticScroll={markTranscriptProgrammaticScroll}
                     onOpenSession={onOpenSession}
                     onOpenResource={onOpenResource}
                     onForkMessage={onForkMessage}
@@ -539,87 +640,89 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             ) : null}
           </div>
 
-          {chatState.pendingPermissions.length > 0 ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
-              <PermissionDock
-                request={chatState.pendingPermissions[0]!}
-                pendingCount={Math.max(0, chatState.pendingPermissions.length - 1)}
-                onReply={async (reply) => {
-                  await onPermissionReply(reply)
-                }}
-              />
-            </div>
-          ) : null}
-
-          {autoCompactionWarning ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
-              <div className="rounded-md border border-border-base/70 bg-surface-weak/35 px-3 py-2 text-xs text-text-weak">
-                <p className="font-medium text-text-base">
-                  {language.t("prompt.compactionNotice.title")}
-                </p>
-                <p className="mt-0.5">
-                  {language.t("prompt.compactionNotice.threshold", {
-                    usage: autoCompactionWarning.usage,
-                    threshold: autoCompactionWarning.threshold.toLocaleString(),
-                    thresholdUsage: autoCompactionWarning.thresholdUsage,
-                    remaining: autoCompactionWarning.remaining.toLocaleString(),
-                  })}
-                </p>
+          <div ref={blockingSurfacesRef} className="shrink-0">
+            {chatState.pendingPermissions.length > 0 ? (
+              <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
+                <PermissionDock
+                  request={chatState.pendingPermissions[0]!}
+                  pendingCount={Math.max(0, chatState.pendingPermissions.length - 1)}
+                  onReply={async (reply) => {
+                    await onPermissionReply(reply)
+                  }}
+                />
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {revertedUserMessageCount > 0 && onRestoreRevertedMessages ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
-              <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/70 bg-surface-weak/35 px-3 py-2 text-xs text-text-weak">
-                <div className="min-w-0">
+            {autoCompactionWarning ? (
+              <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
+                <div className="rounded-md border border-border-base/70 bg-surface-weak/35 px-3 py-2 text-xs text-text-weak">
                   <p className="font-medium text-text-base">
-                    {language.t(
-                      revertedUserMessageCount === 1
-                        ? "chat.revertNotice.summary.one"
-                        : "chat.revertNotice.summary.other",
-                      {
-                        count: revertedUserMessageCount,
-                      },
-                    )}
+                    {language.t("prompt.compactionNotice.title")}
                   </p>
-                  <p className="mt-0.5">{language.t("chat.revertNotice.description")}</p>
+                  <p className="mt-0.5">
+                    {language.t("prompt.compactionNotice.threshold", {
+                      usage: autoCompactionWarning.usage,
+                      threshold: autoCompactionWarning.threshold.toLocaleString(),
+                      thresholdUsage: autoCompactionWarning.thresholdUsage,
+                      remaining: autoCompactionWarning.remaining.toLocaleString(),
+                    })}
+                  </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={chatState.isBusy}
-                  className="shrink-0"
-                  onClick={() => void onRestoreRevertedMessages()}
-                >
-                  <Redo2Icon className="mr-1 h-4 w-4" />
-                  {language.t("chat.revertNotice.restore")}
-                </Button>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {queuedFollowups.length > 0 &&
-          props.onSendQueuedFollowup &&
-          props.onEditQueuedFollowup ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
-              <SessionFollowupDock
-                items={queuedFollowups}
-                sendingID={props.sendingQueuedFollowupID}
-                onSend={props.onSendQueuedFollowup}
-                onEdit={props.onEditQueuedFollowup}
-              />
-            </div>
-          ) : null}
+            {revertedUserMessageCount > 0 && onRestoreRevertedMessages ? (
+              <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
+                <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/70 bg-surface-weak/35 px-3 py-2 text-xs text-text-weak">
+                  <div className="min-w-0">
+                    <p className="font-medium text-text-base">
+                      {language.t(
+                        revertedUserMessageCount === 1
+                          ? "chat.revertNotice.summary.one"
+                          : "chat.revertNotice.summary.other",
+                        {
+                          count: revertedUserMessageCount,
+                        },
+                      )}
+                    </p>
+                    <p className="mt-0.5">{language.t("chat.revertNotice.description")}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={chatState.isBusy}
+                    className="shrink-0"
+                    onClick={() => void onRestoreRevertedMessages()}
+                  >
+                    <Redo2Icon className="mr-1 h-4 w-4" />
+                    {language.t("chat.revertNotice.restore")}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
 
-          {terminalError &&
-          terminalErrorSpec &&
-          terminalError.assistantMessageID !== dismissedTerminalMessageID &&
-          !chatState.parentSession ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
-              <AssistantErrorCard spec={terminalErrorSpec} alert onAction={handleTerminalAction} />
-            </div>
-          ) : null}
+            {queuedFollowups.length > 0 &&
+            props.onSendQueuedFollowup &&
+            props.onEditQueuedFollowup ? (
+              <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
+                <SessionFollowupDock
+                  items={queuedFollowups}
+                  sendingID={props.sendingQueuedFollowupID}
+                  onSend={props.onSendQueuedFollowup}
+                  onEdit={props.onEditQueuedFollowup}
+                />
+              </div>
+            ) : null}
+
+            {terminalError &&
+            terminalErrorSpec &&
+            terminalError.assistantMessageID !== dismissedTerminalMessageID &&
+            !chatState.parentSession ? (
+              <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
+                <AssistantErrorCard spec={terminalErrorSpec} alert onAction={handleTerminalAction} />
+              </div>
+            ) : null}
+          </div>
 
           {activeQuestion ? (
             <div className="mx-auto w-full max-w-200 shrink-0 px-4 pb-4 pt-2">
@@ -645,9 +748,14 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                   modelMenuOpenRequest={modelMenuOpenRequest}
                   attachmentsApiRef={attachmentsApiRef}
                   selectorMode={promptSelectorMode}
-                  compact={compactPromptComposer}
+                  compact={
+                    chatLayoutMeasurements.paneHeight > 0
+                      ? composerAccessoryLayout.compact
+                      : compactPromptComposer
+                  }
                   className="mb-1"
                   todoSnapshot={todoSnapshot}
+                  accessoryLayout={composerAccessoryLayout}
                   sessionContextUsage={
                     <SessionContextUsage
                       messages={chatState.messages}

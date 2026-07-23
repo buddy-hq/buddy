@@ -75,6 +75,10 @@ import { AssistantPartRenderer } from "./parts/assistant-part/assistant-part"
 import { MessageDivider } from "./parts/assistant-part/message-divider"
 import { AssistantTruncatedNote } from "./assistant-error-card"
 import { SessionRetryNotice } from "./session-retry-notice"
+import {
+  createAnchorShiftAnimator,
+  resolveAnchorShiftPx,
+} from "@/lib/surface-reveal-motion"
 import type { ChatTranscriptProps } from "./types"
 
 const HISTORY_PREPEND_TOP_THRESHOLD_PX = 160
@@ -910,6 +914,8 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     onRevertMessage,
     onRetryAction,
     onContinueTruncated,
+    onViewportHeightChange,
+    markProgrammaticScroll,
     scrollViewportRef,
     initialScrollOffset = DEFAULT_INITIAL_SCROLL_OFFSET,
     shouldAnchorBottom = DEFAULT_SHOULD_ANCHOR_BOTTOM,
@@ -1124,31 +1130,47 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     }
   }, [rowVirtualizer, shouldAnchorBottom])
 
+  const bottomRepairTimerRef = useRef<number | undefined>(undefined)
+  const anchorShiftAnimator = useMemo(() => createAnchorShiftAnimator(), [])
+  const repairBottomAnchor = useCallback(() => {
+    if (!shouldAnchorBottom() || hasScrollGesture()) return
+    const root = scrollViewportRef?.current
+    if (!root) return
+    const totalSize = rowVirtualizer.getTotalSize()
+    const distanceFromEnd = distanceFromVirtualEnd(root, totalSize)
+    if (distanceFromEnd <= TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX) return
+    recordTranscriptPerfEvent({
+      type: "bottom-anchor-repair",
+      at: performance.now(),
+      distanceFromEnd,
+    })
+    markProgrammaticScroll?.(root, Math.max(totalSize - root.clientHeight, 0))
+    writeTranscriptVirtualEnd(root, virtualContentRef.current, totalSize)
+  }, [hasScrollGesture, markProgrammaticScroll, rowVirtualizer, scrollViewportRef, shouldAnchorBottom])
+
+  const scheduleResizeBottomRepair = useCallback(() => {
+    if (hasScrollGesture()) return
+    if (bottomRepairTimerRef.current !== undefined) {
+      window.clearTimeout(bottomRepairTimerRef.current)
+    }
+    bottomRepairTimerRef.current = window.setTimeout(() => {
+      bottomRepairTimerRef.current = undefined
+      repairBottomAnchor()
+    }, TIMELINE_RESIZE_BOTTOM_REPAIR_DELAY_MS)
+  }, [hasScrollGesture, repairBottomAnchor])
+
+  useEffect(
+    () => () => {
+      if (bottomRepairTimerRef.current !== undefined) {
+        window.clearTimeout(bottomRepairTimerRef.current)
+      }
+      anchorShiftAnimator.cancel()
+    },
+    [anchorShiftAnimator],
+  )
+
   useEffect(() => {
     const resizeItem = rowVirtualizer.resizeItem
-    let resizeAnchorTimer: number | undefined
-    let disposed = false
-
-    const scheduleResizeBottomRepair = () => {
-      if (hasScrollGesture()) return
-      if (resizeAnchorTimer !== undefined) {
-        window.clearTimeout(resizeAnchorTimer)
-      }
-      resizeAnchorTimer = window.setTimeout(() => {
-        resizeAnchorTimer = undefined
-        if (disposed || !shouldAnchorBottom() || hasScrollGesture()) return
-        const root = scrollViewportRef?.current
-        if (!root) return
-        const distanceFromEnd = distanceFromVirtualEnd(root, rowVirtualizer.getTotalSize())
-        if (distanceFromEnd <= TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX) return
-        recordTranscriptPerfEvent({
-          type: "bottom-anchor-repair",
-          at: performance.now(),
-          distanceFromEnd,
-        })
-        writeTranscriptVirtualEnd(root, virtualContentRef.current, rowVirtualizer.getTotalSize())
-      }, TIMELINE_RESIZE_BOTTOM_REPAIR_DELAY_MS)
-    }
 
     rowVirtualizer.resizeItem = (index, size) => {
       const item = rowVirtualizer.measurementsCache[index]
@@ -1220,10 +1242,6 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     }
 
     return () => {
-      disposed = true
-      if (resizeAnchorTimer !== undefined) {
-        window.clearTimeout(resizeAnchorTimer)
-      }
       rowVirtualizer.resizeItem = resizeItem
       if (resizePinFrameRef.current !== undefined) {
         window.cancelAnimationFrame(resizePinFrameRef.current)
@@ -1235,6 +1253,59 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     hasScrollGesture,
     rowVirtualizer,
     rows,
+    scheduleResizeBottomRepair,
+    scrollViewportRef,
+    shouldAnchorBottom,
+  ])
+
+  // A composer surface opening or closing resizes this viewport. Repairing the
+  // bottom anchor from a later frame makes the transcript jump a full surface
+  // height in one paint, and animating the surface height instead would relayout
+  // the virtualized list every frame. Commit the corrected offset synchronously
+  // here — the observer already runs after layout and before paint — then replay
+  // the resulting shift as a compositor transform so the settle costs no layout,
+  // no scroll events, and no React renders.
+  useEffect(() => {
+    const root = scrollViewportRef?.current
+    if (!root || typeof ResizeObserver === "undefined") return
+
+    let previousHeight = root.clientHeight
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries.find((candidate) => candidate.target === root)
+      if (!entry) return
+      const nextHeight = entry.contentRect.height
+      if (Math.abs(nextHeight - previousHeight) <= TIMELINE_SCROLL_WRITE_EPSILON_PX) return
+      const shiftPx = resolveAnchorShiftPx({
+        scrollHeight: root.scrollHeight,
+        previousViewportHeight: previousHeight,
+        nextViewportHeight: nextHeight,
+      })
+      previousHeight = nextHeight
+      onViewportHeightChange?.(root)
+      if (!shouldAnchorBottom() || hasScrollGesture()) return
+      // Growing the viewport is repaired by the browser's own scrollTop clamp,
+      // so only the shrink direction needs an explicit write here.
+      repairBottomAnchor()
+      anchorShiftAnimator.run(virtualContentRef.current, shiftPx)
+    })
+
+    observer.observe(root)
+    const cancelAnchorShift = () => {
+      anchorShiftAnimator.cancel()
+    }
+    root.addEventListener("wheel", cancelAnchorShift, { passive: true })
+    root.addEventListener("touchstart", cancelAnchorShift, { passive: true })
+    return () => {
+      observer.disconnect()
+      root.removeEventListener("wheel", cancelAnchorShift)
+      root.removeEventListener("touchstart", cancelAnchorShift)
+      anchorShiftAnimator.cancel()
+    }
+  }, [
+    anchorShiftAnimator,
+    hasScrollGesture,
+    onViewportHeightChange,
+    repairBottomAnchor,
     scrollViewportRef,
     shouldAnchorBottom,
   ])

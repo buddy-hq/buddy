@@ -181,6 +181,8 @@ describe("chat transcript resize anchoring", () => {
 
     let anchorBottom = true
     const shouldAnchorBottom = () => anchorBottom
+    let viewportHeightChanges = 0
+    const programmaticScrollOffsets: number[] = []
 
     await act(async () => {
       root.render(
@@ -189,6 +191,12 @@ describe("chat transcript resize anchoring", () => {
           scrollViewportRef={transcriptViewport.ref}
           shouldAnchorBottom={shouldAnchorBottom}
           hasScrollGesture={NEVER_HAS_SCROLL_GESTURE}
+          onViewportHeightChange={() => {
+            viewportHeightChanges += 1
+          }}
+          markProgrammaticScroll={(_, offset) => {
+            programmaticScrollOffsets.push(offset)
+          }}
         />,
       )
       await flushAnimationFrames()
@@ -254,6 +262,17 @@ describe("chat transcript resize anchoring", () => {
       await flushAnimationFrames()
     })
 
+    probe.clear()
+    const programmaticScrollCountBeforeViewportResize = programmaticScrollOffsets.length
+    await act(async () => {
+      viewport.scrollTop = 0
+      emitResize(viewport, 720)
+      await waitForResizeBottomRepair()
+    })
+    expect(viewportHeightChanges).toBe(1)
+    expect(programmaticScrollOffsets).toHaveLength(programmaticScrollCountBeforeViewportResize + 1)
+    expect(probe.events.some((event) => event.type === "scroll-write" && !event.noOp)).toBe(true)
+
     anchorBottom = false
     await act(async () => {
       viewport.scrollTop = 0
@@ -265,11 +284,115 @@ describe("chat transcript resize anchoring", () => {
     await act(async () => {
       emitResize(penultimateRow, 700)
       emitResize(finalRow, 720)
+      emitResize(viewport, 680)
       await waitForResizeBottomRepair()
     })
 
+    expect(viewportHeightChanges).toBe(2)
+    expect(programmaticScrollOffsets).toHaveLength(programmaticScrollCountBeforeViewportResize + 1)
     expect(probe.events.some((event) => event.type === "row-size")).toBe(true)
     expect(probe.events.some((event) => event.type === "scroll-write")).toBe(false)
+  })
+
+  test("commits a surface-sized viewport shrink at once and replays it as a transform", async () => {
+    const directory = "/repo-anchor-shift"
+    const sessionID = "ses_anchor_shift"
+    const messages = Array.from({ length: 4 }, (_, index) => {
+      const userMessageID = `msg_${String(index * 2 + 1).padStart(3, "0")}_shift_user`
+      const assistantMessageID = `msg_${String(index * 2 + 2).padStart(3, "0")}_shift_assistant`
+      return [
+        createMessageWithParts(createUserMessageInfo({ id: userMessageID, sessionID }), [
+          {
+            id: `prt_${index}_shift_user`,
+            sessionID,
+            messageID: userMessageID,
+            type: "text",
+            text: `Question ${index + 1}`,
+          },
+        ]),
+        createMessageWithParts(
+          createAssistantMessageInfo({
+            id: assistantMessageID,
+            sessionID,
+            parentID: userMessageID,
+            finish: "stop",
+          }),
+          [
+            {
+              id: `prt_${index}_shift_assistant`,
+              sessionID,
+              messageID: assistantMessageID,
+              type: "text",
+              text: `Answer ${index + 1}`,
+            },
+          ],
+        ),
+      ]
+    }).flat()
+    seedDirectoryChatState(directory, { sessionID, messages })
+
+    await act(async () => {
+      root.render(
+        <ChatTranscript
+          directory={directory}
+          scrollViewportRef={transcriptViewport.ref}
+          shouldAnchorBottom={() => true}
+          hasScrollGesture={NEVER_HAS_SCROLL_GESTURE}
+        />,
+      )
+      await flushAnimationFrames()
+    })
+
+    const measuredRows = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-index]"),
+    ).toSorted((left, right) => Number(left.dataset.index) - Number(right.dataset.index))
+    const virtualContent = requireMeasuredRow(measuredRows.at(-1)).parentElement?.parentElement
+    const viewport = transcriptViewport.ref.current
+    if (!virtualContent || !viewport) {
+      throw new Error("Expected the transcript viewport and virtual content to remain mounted")
+    }
+
+    let viewportHeight = 800
+    Object.defineProperties(viewport, {
+      clientHeight: { configurable: true, get: () => viewportHeight },
+      scrollHeight: {
+        configurable: true,
+        get: () => Number.parseFloat(virtualContent.style.height || "0"),
+      },
+    })
+
+    await act(async () => {
+      for (const row of measuredRows) {
+        emitResize(row, 240)
+      }
+      await flushAnimationFrames()
+      viewport.scrollTop = Math.max(0, viewport.scrollHeight - viewportHeight)
+      viewport.dispatchEvent(new Event("scroll"))
+      await flushAnimationFrames()
+    })
+
+    const keyframesByCall: Keyframe[][] = []
+    Object.assign(virtualContent, {
+      animate: (keyframes: Keyframe[]) => {
+        keyframesByCall.push(keyframes)
+        return { cancel: () => {}, addEventListener: () => {} }
+      },
+    })
+
+    probe.clear()
+    const scrollTopBeforeShrink = viewport.scrollTop
+    act(() => {
+      viewportHeight = 480
+      emitResize(viewport, 480)
+    })
+
+    // The corrected offset lands inside the observer callback, so the transcript
+    // never paints a frame at the stale offset.
+    expect(probe.events.some((event) => event.type === "scroll-write" && !event.noOp)).toBe(true)
+    expect(viewport.scrollTop - scrollTopBeforeShrink).toBe(320)
+    expect(keyframesByCall).toEqual([
+      [{ transform: "translate3d(0, 320px, 0)" }, { transform: "translate3d(0, 0, 0)" }],
+    ])
   })
 
   test("synchronizes spacer height before writing the virtual end", () => {

@@ -40,6 +40,8 @@ export type ChatTranscriptProps = {
   initialScrollOffset?: () => number | undefined
   shouldAnchorBottom?: () => boolean
   hasScrollGesture?: () => boolean
+  onViewportHeightChange?: (element: HTMLElement) => void
+  markProgrammaticScroll?: (element: HTMLElement, top: number) => void
   onOpenSession?: (sessionID: string) => void
   onOpenResource?: (
     directory: string,

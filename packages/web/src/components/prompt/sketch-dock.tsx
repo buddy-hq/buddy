@@ -12,6 +12,7 @@ import type {
 import {
   EraserIcon,
   HandIcon,
+  ArrowRightIcon,
   Maximize2Icon,
   Minimize2Icon,
   MinusIcon,
@@ -41,10 +42,12 @@ type SketchDockProps = {
   onMaximize?: () => void
   onMinimize: () => void
   onRestore: () => void
-  onSketchContentChange: (hasSketch: boolean) => void
+  onContinue?: () => void | Promise<void>
   onSketchAttachmentChange: (attachment: PromptComposerAttachment | undefined) => void
   onFlushSketchAttachmentChange: (flush: SketchAttachmentFlush | undefined) => void
   className?: string
+  height?: number
+  mode?: "dock" | "input"
 }
 
 type SketchSnapshot = {
@@ -61,8 +64,8 @@ const SKETCH_EXPORT_PADDING_PX = 18
 const SKETCH_ATTACHMENT_FILENAME = "sketch.png"
 const SKETCH_ATTACHMENT_MIME = MIME_TYPES.png
 const SKETCH_BACKGROUND_COLOR = "#ffffff"
+const SKETCH_CANVAS_BACKGROUND_COLOR = "transparent"
 const SKETCH_STROKE_COLOR = "#343a40"
-const SKETCH_GRID_SIZE_PX = 20
 const SKETCH_TOOL_PEN: SketchTool = "pen"
 const SKETCH_TOOL_PAN: SketchTool = "pan"
 
@@ -94,9 +97,8 @@ const SKETCH_INITIAL_DATA: ExcalidrawInitialDataState = {
     exportBackground: true,
     exportEmbedScene: false,
     exportWithDarkMode: false,
-    gridModeEnabled: true,
-    gridSize: SKETCH_GRID_SIZE_PX,
-    viewBackgroundColor: SKETCH_BACKGROUND_COLOR,
+    gridModeEnabled: false,
+    viewBackgroundColor: SKETCH_CANVAS_BACKGROUND_COLOR,
   },
 }
 
@@ -108,6 +110,7 @@ const SKETCH_DOCK_CSS = `
 [data-component="prompt-sketch-dock-canvas"] .Island,
 [data-component="prompt-sketch-dock-canvas"] .excalidraw__footer,
 [data-component="prompt-sketch-dock-canvas"] .help-icon,
+[data-component="prompt-sketch-dock-canvas"] .LoadingMessage,
 [data-component="prompt-sketch-dock-canvas"] .Stack_vertical {
   display: none !important;
 }
@@ -182,16 +185,17 @@ export function SketchDock(props: SketchDockProps) {
     isMaximized,
     isOpen,
     onClose,
+    onContinue,
     onFlushSketchAttachmentChange,
     onMaximize,
     onMinimize,
     onModelChange,
     onRestore,
     onSketchAttachmentChange,
-    onSketchContentChange,
   } = props
   const { mode } = useTheme()
   const [hasSketch, setHasSketch] = useState(false)
+  const [continuing, setContinuing] = useState(false)
   const [activeTool, setActiveTool] = useState<SketchTool>(SKETCH_TOOL_PEN)
   const apiRef = useRef<ExcalidrawImperativeAPI>()
   const latestSnapshotRef = useRef<SketchSnapshot>()
@@ -212,9 +216,8 @@ export function SketchDock(props: SketchDockProps) {
     latestAttachmentRef.current = undefined
     clearScheduledExport()
     setHasSketch(false)
-    onSketchContentChange(false)
     onSketchAttachmentChange(undefined)
-  }, [clearScheduledExport, onSketchAttachmentChange, onSketchContentChange])
+  }, [clearScheduledExport, onSketchAttachmentChange])
 
   const exportLatestSketch = useCallback(async () => {
     const snapshot = latestSnapshotRef.current
@@ -312,10 +315,9 @@ export function SketchDock(props: SketchDockProps) {
         files,
       }
       setHasSketch(true)
-      onSketchContentChange(true)
       scheduleSketchExport()
     },
-    [onSketchContentChange, publishEmptySketch, scheduleSketchExport],
+    [publishEmptySketch, scheduleSketchExport],
   )
 
   const handleClear = useCallback(() => {
@@ -348,9 +350,18 @@ export function SketchDock(props: SketchDockProps) {
         files: currentSnapshot.files,
       }
     : SKETCH_INITIAL_DATA
+  const handleContinue = useCallback(async () => {
+    if (!acceptsImages || !hasSketch || !onContinue || continuing) return
+    setContinuing(true)
+    try {
+      await onContinue()
+    } finally {
+      setContinuing(false)
+    }
+  }, [acceptsImages, continuing, hasSketch, onContinue])
   const rightActions = (
     <>
-      {isMaximized ? (
+      {props.mode === "input" ? null : isMaximized ? (
         <button
           type="button"
           onClick={onRestore}
@@ -442,13 +453,10 @@ export function SketchDock(props: SketchDockProps) {
         />
 
         {acceptsImages ? (
-          <ComposerDockBody className="bg-white dark:bg-[#121212]">
+          <ComposerDockBody className="bg-surface-raised-base">
             <div
               data-component="prompt-sketch-dock-canvas"
-              className={cn(
-                "absolute inset-0 overflow-hidden bg-white dark:bg-[#121212]",
-                "[&_.excalidraw]:bg-white dark:[&_.excalidraw]:bg-[#121212]",
-              )}
+              className="absolute inset-0 overflow-hidden bg-surface-raised-base [&_.excalidraw]:bg-transparent"
               onContextMenu={(event) => event.preventDefault()}
             >
               <Excalidraw
@@ -456,13 +464,28 @@ export function SketchDock(props: SketchDockProps) {
                 initialData={initialData}
                 onChange={handleChange}
                 theme={mode}
-                gridModeEnabled
                 zenModeEnabled
                 UIOptions={SKETCH_UI_OPTIONS}
                 autoFocus
                 handleKeyboardGlobally={false}
               />
             </div>
+            {props.mode === "input" && onContinue ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                data-action="prompt-sketch-continue"
+                disabled={!hasSketch || continuing}
+                onClick={() => void handleContinue()}
+                aria-label="Attach sketch and continue"
+                title="Attach sketch and continue"
+                className="absolute right-3 bottom-3 z-10"
+              >
+                Continue
+                <ArrowRightIcon className="size-3.5" />
+              </Button>
+            ) : null}
           </ComposerDockBody>
         ) : (
           <ComposerDockBody padded>
@@ -514,7 +537,11 @@ export function SketchDock(props: SketchDockProps) {
   }
 
   return (
-    <ComposerDock size="md" className={className}>
+    <ComposerDock
+      size="md"
+      className={className}
+      style={props.height === undefined ? undefined : { height: props.height }}
+    >
       {surface}
     </ComposerDock>
   )

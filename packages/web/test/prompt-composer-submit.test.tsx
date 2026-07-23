@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import {
+  resolveComposerAccessoryLayout,
+  resolveComposerReplacementHeight,
+} from "../src/components/prompt/composer-accessory-layout"
 import { PromptComposer } from "../src/components/prompt/prompt-composer"
 import { createBrowserPlatform, setRuntimePlatform } from "../src/context/platform"
+import { useGameStore } from "../src/state/game-store"
 import {
   createTextPromptDraft,
   flushPromptStorePersistence,
@@ -24,6 +29,11 @@ function resetPromptStore() {
   })
   flushPromptStorePersistence()
   localStorage.removeItem(PROMPT_STORE_STORAGE_KEY)
+  useGameStore.setState({
+    isGameVisible: false,
+    isPaused: false,
+    isMinimized: false,
+  })
 }
 
 async function flushEffects(delay = 0) {
@@ -36,6 +46,7 @@ async function flushEffects(delay = 0) {
 function renderPromptComposer(input: {
   onSubmit: Parameters<typeof PromptComposer>[0]["onSubmit"]
   compact?: boolean
+  accessoryLayout?: Parameters<typeof PromptComposer>[0]["accessoryLayout"]
 }) {
   return (
     <PromptComposer
@@ -68,6 +79,8 @@ function renderPromptComposer(input: {
       onAbort={() => undefined}
       onNewSession={() => undefined}
       compact={input.compact}
+      accessoryLayout={input.accessoryLayout}
+      sessionContextUsage={<span data-testid="session-context" />}
     />
   )
 }
@@ -183,7 +196,7 @@ describe("prompt composer submit", () => {
     })
 
     const regularEditor = container.querySelector('[data-component="prompt-editor"]')
-    expect(regularEditor?.classList.contains("min-h-[84px]")).toBe(true)
+    expect(regularEditor?.classList.contains("min-h-[72px]")).toBe(true)
     expect(regularEditor?.classList.contains("max-h-[240px]")).toBe(true)
     expect(regularEditor?.classList.contains("pb-12")).toBe(true)
 
@@ -201,5 +214,70 @@ describe("prompt composer submit", () => {
     expect(compactEditor?.classList.contains("min-h-[56px]")).toBe(true)
     expect(compactEditor?.classList.contains("max-h-[120px]")).toBe(true)
     expect(compactEditor?.classList.contains("pb-3")).toBe(true)
+  })
+
+  test("keeps the active game mounted when responsive placement changes", async () => {
+    const expandedLayout = resolveComposerAccessoryLayout({
+      paneHeight: 956,
+      reservedContentHeight: 0,
+      hasBlockingResponseSurface: false,
+    })
+    const replacementLayout = resolveComposerAccessoryLayout({
+      paneHeight: 360,
+      reservedContentHeight: 0,
+      hasBlockingResponseSurface: false,
+    })
+    const renderWithLayout = (accessoryLayout: typeof expandedLayout) =>
+      renderPromptComposer({
+        accessoryLayout,
+        onSubmit: () => undefined,
+      })
+
+    await act(async () => {
+      root.render(renderWithLayout(expandedLayout))
+      await flushEffects()
+    })
+
+    const arcadeButton = container.querySelector<HTMLButtonElement>(
+      '[data-action="prompt-open-arcade"]',
+    )
+    expect(arcadeButton).not.toBeNull()
+
+    await act(async () => {
+      arcadeButton?.click()
+      await flushEffects()
+    })
+
+    const initialGameDock = container.querySelector<HTMLElement>(
+      '[data-component="prompt-game-dock"]',
+    )
+    expect(initialGameDock).not.toBeNull()
+
+    await act(async () => {
+      root.render(renderWithLayout(replacementLayout))
+      await flushEffects()
+    })
+
+    const replacementGameDock = container.querySelector<HTMLElement>(
+      '[data-component="prompt-game-dock"]',
+    )
+    expect(replacementGameDock).toBe(initialGameDock)
+    expect(replacementGameDock?.style.height).toBe(
+      `${resolveComposerReplacementHeight(replacementLayout)}px`,
+    )
+    expect(
+      container.querySelector<HTMLElement>(
+        '[data-component="prompt-composer-replacement-motion-host"]',
+      )?.style.height,
+    ).toBe("")
+
+    await act(async () => {
+      root.render(renderWithLayout(expandedLayout))
+      await flushEffects()
+    })
+
+    expect(
+      container.querySelector<HTMLElement>('[data-component="prompt-game-dock"]'),
+    ).toBe(initialGameDock)
   })
 })

@@ -16,6 +16,7 @@ import { MemoryGame } from "./games/memory"
 import { useGameStore, type TGameType } from "@/state/game-store"
 
 type GameDockProps = {
+  height?: number
   onClose: () => void
   onMinimize: () => void
   className?: string
@@ -35,13 +36,18 @@ const GAME_TABS: Array<{ id: TGameType; label: string }> = [
   { id: "memory", label: "Pairs" },
 ]
 
-export function GameDock({ onClose, onMinimize, className }: GameDockProps) {
+export function GameDock({ height, onClose, onMinimize, className }: GameDockProps) {
   const [activeTab, setActiveTab] = useState<TGameType>("snake")
   const highScores = useGameStore((state) => state.highScores)
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null)
 
   return (
-    <ComposerDock size="md" className={className}>
+    <ComposerDock
+      size="md"
+      className={className}
+      style={height === undefined ? undefined : { height }}
+      data-component="prompt-game-dock"
+    >
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.95, filter: "blur(10px)" }}
         animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
