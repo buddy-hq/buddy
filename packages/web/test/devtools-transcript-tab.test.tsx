@@ -92,6 +92,15 @@ describe("DevToolsTranscriptTab", () => {
       sessionID: "session-1",
       discardedEvents: 2,
     })
+    probe?.record({
+      type: "row-size",
+      at: (probe?.startedAt ?? 0) + 12,
+      index: 7,
+      rowKey: "activity:terminal-row:1",
+      previousSize: 52,
+      nextSize: 12,
+      deltaPx: -40,
+    })
 
     await act(async () => root.render(<DevToolsTranscriptTab />))
     expect(container.textContent).toContain("DOM render")
@@ -104,6 +113,11 @@ describe("DevToolsTranscriptTab", () => {
     expect(container.textContent).toContain("stream session-resume")
     expect(container.textContent).toContain("5Events discarded")
     expect(container.textContent).toContain("1Session fences")
+    expect(container.textContent).toContain("Ranked findings")
+    expect(container.textContent).toContain("Virtual row collapsed 40.0px")
+    expect(container.textContent).toContain("activity:terminal-row:1")
+    expect(container.textContent).toContain("Exact evidence from the raw trace")
+    expect(container.querySelector("[data-transcript-highlight='row-size:5']")).not.toBeNull()
 
     await act(async () => requireButton(container, "Stop").click())
     expect(probe?.isRecording()).toBe(false)

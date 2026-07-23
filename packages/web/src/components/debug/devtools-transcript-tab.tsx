@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react"
 import { Button, Card, CardContent, CheckIcon, CopyIcon } from "@buddy/ui"
 import { copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
 import {
-  createTranscriptGeometryReport,
   createTranscriptStreamTraceReport,
   formatTranscriptGeometryReport,
   formatTranscriptStreamTraceReport,
@@ -15,14 +14,39 @@ import {
   type TranscriptPerfInlineAssetEvent,
   type TranscriptPerformanceSummary,
   type TranscriptStreamTraceEntry,
+  type TranscriptTraceHighlight,
+  type TranscriptTraceHighlightSeverity,
 } from "@/lib/directory-chat/transcript-performance-probe"
 
 const TRANSCRIPT_GEOMETRY_DEVTOOLS_MAX_EVENTS = 20_000
 const TRANSCRIPT_GEOMETRY_DEVTOOLS_REFRESH_MS = 250
-const TRANSCRIPT_GEOMETRY_REPORT_LIMIT = 16
 const TRANSCRIPT_GEOMETRY_ROW_KEY_PREVIEW_CHARS = 56
 const TRANSCRIPT_STREAM_TRACE_VISIBLE_EVENTS = 160
 const COPY_FEEDBACK_DURATION_MS = 1_200
+
+const TRANSCRIPT_HIGHLIGHT_TONE = {
+  critical: {
+    border: "border-border-critical-base",
+    surface: "bg-surface-critical-base/10",
+    text: "text-text-critical-base",
+    dot: "bg-text-critical-base",
+  },
+  warning: {
+    border: "border-border-warning-base",
+    surface: "bg-surface-warning-weak",
+    text: "text-text-warning-base",
+    dot: "bg-text-warning-base",
+  },
+  info: {
+    border: "border-border-weak-base",
+    surface: "bg-surface-weak",
+    text: "text-text-weak",
+    dot: "bg-text-weaker",
+  },
+} satisfies Record<
+  TranscriptTraceHighlightSeverity,
+  { border: string; surface: string; text: string; dot: string }
+>
 
 function formatPx(value: number | undefined) {
   if (value === undefined) return "n/a"
@@ -167,7 +191,7 @@ function traceEventDetail(event: TranscriptPerfEvent) {
     case "long-task":
       return `${formatDuration(event.durationMs)} main-thread task`
     case "layout-shift":
-      return `score ${event.value.toFixed(4)}`
+      return `score ${event.value.toFixed(4)} · ${formatCount(event.sources.length)} attributed sources${event.sources[0]?.rowKey ? ` · ${formatRowKey(event.sources[0].rowKey)}` : ""}`
   }
 }
 
@@ -200,6 +224,105 @@ function TraceMetric(props: { label: string; value: string }) {
         {props.label}
       </p>
     </div>
+  )
+}
+
+function formatHighlightPointer(highlight: TranscriptTraceHighlight) {
+  const pointer = highlight.pointer
+  const sequence =
+    pointer.sequenceStart === pointer.sequenceEnd
+      ? `#${pointer.sequenceStart}`
+      : `#${pointer.sequenceStart}–#${pointer.sequenceEnd}`
+  const offset =
+    pointer.offsetStartMs === pointer.offsetEndMs
+      ? `+${formatDuration(pointer.offsetStartMs)}`
+      : `+${formatDuration(pointer.offsetStartMs)}–${formatDuration(pointer.offsetEndMs)}`
+  return `${sequence} · ${offset}`
+}
+
+function DevToolsTranscriptHighlight({ highlight }: { highlight: TranscriptTraceHighlight }) {
+  const tone = TRANSCRIPT_HIGHLIGHT_TONE[highlight.severity]
+  const origin = highlight.origin
+  const [open, setOpen] = useState(highlight.rank === 1)
+  return (
+    <details
+      data-transcript-highlight={highlight.id}
+      className={`group overflow-hidden rounded-md border ${tone.border} bg-surface-base`}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary
+        className={`cursor-pointer list-none px-3 py-2.5 ${tone.surface} [&::-webkit-details-marker]:hidden`}
+      >
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${tone.dot}`} />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <p className="min-w-0 text-xs font-semibold text-text-base">
+                {highlight.rank}. {highlight.title}
+              </p>
+              <p className="shrink-0 font-mono text-[10px] text-text-weaker">
+                {formatHighlightPointer(highlight)}
+              </p>
+            </div>
+            <p className="mt-1 text-[11px] leading-4 text-text-weak">{highlight.explanation}</p>
+            <p className={`mt-1 break-all font-mono text-[10px] ${tone.text}`}>
+              {origin.rowKey ?? "source row unresolved"}
+            </p>
+          </div>
+        </div>
+      </summary>
+      <div className="border-t border-border-weaker-base bg-surface-inset-base p-2">
+        <div className="mb-2 grid gap-1 rounded-md border border-border-weaker-base bg-surface-base px-2.5 py-2 text-[10px] text-text-weak">
+          <p className="font-semibold uppercase tracking-[0.08em] text-text-weaker">
+            Source pointer
+          </p>
+          <p className="break-all font-mono text-text-base">
+            {origin.rowKey ?? "No transcript row resolved"}
+          </p>
+          <p>
+            virtual index {origin.rowIndex ?? "n/a"} · shell {origin.shellKind ?? "unknown"} ·
+            source event #{origin.derivedFromSequence}
+          </p>
+          {origin.textPreview ? (
+            <p className="line-clamp-2 text-text-weaker" title={origin.textPreview}>
+              {origin.textPreview}
+            </p>
+          ) : null}
+          {origin.layoutShiftSources.length > 0 ? (
+            <div className="mt-1 grid gap-1 border-t border-border-weaker-base pt-1.5">
+              {origin.layoutShiftSources.map((source) => (
+                <p
+                  key={[
+                    source.rowKey,
+                    source.nodeName,
+                    source.timelineRow,
+                    source.component,
+                    source.previousRect?.x,
+                    source.previousRect?.y,
+                    source.currentRect?.x,
+                    source.currentRect?.y,
+                  ].join(":")}
+                  className="break-all font-mono text-text-weaker"
+                >
+                  browser source: {source.rowKey ?? source.nodeName} ·{" "}
+                  {source.timelineRow ?? "unknown row"}
+                  {source.component ? ` · ${source.component}` : ""}
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <p className="px-1 pb-1.5 text-[10px] text-text-weaker">
+          Exact evidence from the raw trace; sequence numbers remain stable in the copied report.
+        </p>
+        <div className="rounded-md border border-border-weaker-base bg-surface-base px-2">
+          {highlight.evidence.map((entry) => (
+            <DevToolsTranscriptTraceRow key={entry.sequence} entry={entry} />
+          ))}
+        </div>
+      </div>
+    </details>
   )
 }
 
@@ -289,14 +412,12 @@ export function DevToolsTranscriptTab() {
   }, [])
 
   const probe = getTranscriptPerformanceProbe()
-  const summary = probe?.summary()
   const trace = createTranscriptStreamTraceReport(probe)
+  const summary = trace.summary
   const visibleTraceEntries = trace.events
     .slice(-TRANSCRIPT_STREAM_TRACE_VISIBLE_EVENTS)
     .toReversed()
-  const report = createTranscriptGeometryReport(undefined, {
-    limit: TRANSCRIPT_GEOMETRY_REPORT_LIMIT,
-  })
+  const report = trace.geometry
 
   const handleStart = useCallback(() => {
     restartTranscriptPerformanceProbe({
@@ -406,42 +527,49 @@ export function DevToolsTranscriptTab() {
             <div className="grid grid-cols-4 gap-y-3 border-b border-border-weaker-base bg-surface-weak/35 p-3">
               <TraceMetric
                 label="DOM renders"
-                value={formatCount(summary?.renderStateSamples ?? 0)}
+                value={formatCount(summary.renderStateSamples)}
               />
-              <TraceMetric label="Row sizes" value={formatCount(summary?.rowSizeChanges ?? 0)} />
-              <TraceMetric label="Scroll writes" value={formatCount(summary?.scrollWrites ?? 0)} />
+              <TraceMetric label="Findings" value={formatCount(trace.diagnostics.findingCount)} />
+              <TraceMetric label="Layout shift" value={summary.layoutShiftScore.toFixed(3)} />
+              <TraceMetric
+                label="Max row delta"
+                value={formatPx(report.topRows[0]?.maxAbsDeltaPx)}
+              />
+              <TraceMetric label="Row sizes" value={formatCount(summary.rowSizeChanges)} />
+              <TraceMetric label="Scroll writes" value={formatCount(summary.scrollWrites)} />
               <TraceMetric
                 label="Bottom repairs"
-                value={formatCount(summary?.bottomAnchorRepairs ?? 0)}
+                value={formatCount(summary.bottomAnchorRepairs)}
               />
+              <TraceMetric label="Max frame gap" value={formatDuration(summary.maxRafGapMs)} />
               <TraceMetric
                 label="Asset events"
-                value={formatCount(summary?.inlineAssetEvents ?? 0)}
+                value={formatCount(summary.inlineAssetEvents)}
               />
               <TraceMetric
                 label="Stream updates"
-                value={formatCount(summary?.streamingUpdates ?? 0)}
+                value={formatCount(summary.streamingUpdates)}
               />
               <TraceMetric
                 label="Events queued"
-                value={formatCount(summary?.streamEventsQueued ?? 0)}
+                value={formatCount(summary.streamEventsQueued)}
               />
               <TraceMetric
                 label="Events applied"
-                value={formatCount(summary?.streamEventsApplied ?? 0)}
+                value={formatCount(summary.streamEventsApplied)}
               />
               <TraceMetric
                 label="Events discarded"
-                value={formatCount(summary?.streamEventsDiscarded ?? 0)}
+                value={formatCount(summary.streamEventsDiscarded)}
               />
               <TraceMetric
                 label="Session fences"
-                value={formatCount(summary?.streamSessionFences ?? 0)}
+                value={formatCount(summary.streamSessionFences)}
               />
-              <TraceMetric label="Stop requests" value={formatCount(summary?.abortRequests ?? 0)} />
+              <TraceMetric label="Stop requests" value={formatCount(summary.abortRequests)} />
               <TraceMetric
                 label="Stop latency"
-                value={formatDuration(summary?.maxAbortLatencyMs ?? 0)}
+                value={formatDuration(summary.maxAbortLatencyMs)}
               />
             </div>
             <div className="flex items-center justify-between gap-3 px-3 py-2">
@@ -461,6 +589,35 @@ export function DevToolsTranscriptTab() {
             </div>
           </CardContent>
         </Card>
+
+        <div className="space-y-2" data-transcript-diagnostics>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-text-base">Ranked findings</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-text-weak">
+                {trace.diagnostics.headline}
+              </p>
+            </div>
+            <p className="shrink-0 font-mono text-[10px] text-text-weaker">
+              {formatCount(trace.diagnostics.criticalCount)} critical ·{" "}
+              {formatCount(trace.diagnostics.warningCount)} warning
+            </p>
+          </div>
+          {trace.diagnostics.findings.length === 0 ? (
+            <p className="rounded-md border border-border-weaker-base bg-surface-base p-2 text-[11px] text-text-weak">
+              No ranked findings yet. The raw event trace remains available below.
+            </p>
+          ) : (
+            <div className="grid gap-2">
+              {trace.diagnostics.findings.map((highlight) => (
+                <DevToolsTranscriptHighlight
+                  key={`${highlight.rank}:${highlight.id}`}
+                  highlight={highlight}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
@@ -487,8 +644,8 @@ export function DevToolsTranscriptTab() {
           <CardContent className="flex items-start justify-between gap-3 p-3 text-[11px] text-text-weak">
             <p>
               Geometry threshold {formatPx(report.thresholdPx)} · {formatCount(report.jumpCount)}{" "}
-              total jumps · {formatCount(summary?.visibleRowMounts ?? 0)} mounts /{" "}
-              {formatCount(summary?.visibleRowUnmounts ?? 0)} unmounts
+              total jumps · {formatCount(summary.visibleRowMounts)} mounts /{" "}
+              {formatCount(summary.visibleRowUnmounts)} unmounts
             </p>
             <Button
               type="button"

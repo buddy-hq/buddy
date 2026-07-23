@@ -438,6 +438,33 @@ describe("transcript repository", () => {
     ])
   })
 
+  test("accumulates text deltas onto a sparse reasoning part", () => {
+    applyTranscriptMessageUpdated(directory, assistantMessage("m1", 1).info)
+    applyTranscriptPartUpdated(directory, {
+      id: "m1_reasoning",
+      sessionID,
+      messageID: "m1",
+      type: "reasoning",
+      time: { start: 10 },
+    })
+    applyTranscriptPartDelta(directory, {
+      sessionID,
+      messageID: "m1",
+      partID: "m1_reasoning",
+      field: "text",
+      delta: "## Summarizing",
+    })
+    applyTranscriptPartDelta(directory, {
+      sessionID,
+      messageID: "m1",
+      partID: "m1_reasoning",
+      field: "text",
+      delta: " the changes",
+    })
+
+    expect(getTranscriptPart("m1_reasoning")?.text).toBe("## Summarizing the changes")
+  })
+
   test("applies orphan part deltas before the parent message arrives", () => {
     applyTranscriptPartUpdated(
       directory,

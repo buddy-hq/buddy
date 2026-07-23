@@ -5,6 +5,7 @@ import {
   createTranscriptGeometryReport,
   createTranscriptPerformanceProbe,
   createTranscriptStreamTraceReport,
+  formatTranscriptStreamTraceReport,
   recordTranscriptPerfEvent,
   type TranscriptPerfEvent,
 } from "../src/lib/directory-chat/transcript-performance-probe"
@@ -375,6 +376,154 @@ describe("transcript performance probe", () => {
     expect(report.events.map((entry) => entry.offsetMs)).toEqual([5, 9])
     expect(report.summary.renderStateSamples).toBe(1)
     expect(report.summary.bottomAnchorRepairs).toBe(1)
+  })
+
+  test("excludes buffered browser history from a new capture", () => {
+    const probe = createTranscriptPerformanceProbe({
+      maxEvents: 10,
+      observeBrowserEvents: false,
+    })
+    probe.record({
+      type: "long-task",
+      at: probe.startedAt - 100,
+      durationMs: 250,
+    })
+    probe.record({
+      type: "layout-shift",
+      at: probe.startedAt + 5,
+      value: 0.12,
+      sources: [],
+    })
+
+    const report = createTranscriptStreamTraceReport(probe)
+
+    expect(report.events).toHaveLength(1)
+    expect(report.events[0]?.event.type).toBe("layout-shift")
+    expect(report.events[0]?.offsetMs).toBe(5)
+    expect(report.summary.longTasks).toBe(0)
+    expect(report.summary.layoutShiftScore).toBe(0.12)
+  })
+
+  test("ranks instability and embeds a direct source pointer with its evidence window", () => {
+    const probe = createTranscriptPerformanceProbe({
+      maxEvents: 20,
+      observeBrowserEvents: false,
+    })
+    const tailRowKey = "activity:msg_terminal:1"
+    const at = probe.startedAt
+    const events: TranscriptPerfEvent[] = [
+      {
+        type: "streaming-throughput",
+        at: at + 100,
+        live: false,
+        contentLength: 157,
+        deltaLength: 0,
+      },
+      {
+        type: "row-size",
+        at: at + 110,
+        index: 19,
+        rowKey: undefined,
+        previousSize: 52,
+        nextSize: 12,
+        deltaPx: -40,
+      },
+      {
+        type: "scroll-write",
+        at: at + 111,
+        requestedOffset: 1_017,
+        previousScrollTop: 1_017,
+        nextScrollTop: 977,
+        noOp: false,
+      },
+      {
+        type: "visible-row-mount",
+        at: at + 112,
+        rowKey: tailRowKey,
+        index: 19,
+      },
+      {
+        type: "scroll-write",
+        at: at + 113,
+        requestedOffset: 1_029,
+        previousScrollTop: 977,
+        nextScrollTop: 1_029,
+        noOp: false,
+      },
+      {
+        type: "visible-row-unmount",
+        at: at + 114,
+        rowKey: tailRowKey,
+        index: 19,
+      },
+      {
+        type: "scroll-write",
+        at: at + 115,
+        requestedOffset: 977,
+        previousScrollTop: 1_029,
+        nextScrollTop: 977,
+        noOp: false,
+      },
+      {
+        type: "visible-row-mount",
+        at: at + 116,
+        rowKey: tailRowKey,
+        index: 19,
+      },
+      {
+        type: "layout-shift",
+        at: at + 117,
+        value: 0.1293,
+        sources: [
+          {
+            rowKey: tailRowKey,
+            timelineRow: "Activity",
+            component: undefined,
+            nodeName: "article",
+            textPreview: "Pondering",
+            previousRect: undefined,
+            currentRect: undefined,
+          },
+        ],
+      },
+    ]
+    for (const event of events) probe.record(event)
+
+    const report = createTranscriptStreamTraceReport(probe)
+    const rowSizeFinding = report.diagnostics.findings.find(
+      (finding) => finding.kind === "row-size",
+    )
+    const scrollFinding = report.diagnostics.findings.find(
+      (finding) => finding.kind === "scroll-oscillation",
+    )
+    const layoutFinding = report.diagnostics.findings.find(
+      (finding) => finding.kind === "layout-shift",
+    )
+
+    expect(report.schemaVersion).toBe(2)
+    expect(report.geometry.thresholdPx).toBe(16)
+    expect(report.geometry.acceptedJumpCount).toBe(1)
+    expect(report.diagnostics.severity).toBe("critical")
+    expect(report.diagnostics.headline).toContain("evidence is embedded")
+    expect(rowSizeFinding?.origin.rowKey).toBe(tailRowKey)
+    expect(rowSizeFinding?.origin.derivedFromSequence).toBe(4)
+    expect(rowSizeFinding?.pointer.primarySequence).toBe(2)
+    expect(rowSizeFinding?.explanation).toContain("Terminal phase starts at #1")
+    expect(rowSizeFinding?.evidence.map((entry) => entry.sequence)).toContain(2)
+    expect(rowSizeFinding?.evidence.map((entry) => entry.sequence)).toContain(4)
+    expect(scrollFinding?.title).toContain("Scroll reversed 2×")
+    expect(scrollFinding?.origin.rowKey).toBe(tailRowKey)
+    expect(scrollFinding?.evidence.map((entry) => entry.sequence)).toEqual(
+      expect.arrayContaining([2, 3, 4, 5, 6, 7, 8, 9]),
+    )
+    expect(layoutFinding?.origin.rowKey).toBe(tailRowKey)
+    expect(layoutFinding?.origin.derivedFromSequence).toBe(9)
+    expect(layoutFinding?.origin.layoutShiftSources[0]?.timelineRow).toBe("Activity")
+    const serialized = formatTranscriptStreamTraceReport(report)
+    expect(serialized).toContain('"schemaVersion": 2')
+    expect(serialized.indexOf('\n  "diagnostics"')).toBeLessThan(
+      serialized.indexOf('\n  "events": ['),
+    )
   })
 
   test("records stop request timing separately from renderer settlement", () => {

@@ -513,8 +513,10 @@ function appendStreamingField(
     }
   }
 
-  const currentValue = accumulated ?? part[input.field]
-  if (typeof currentValue !== "string") return undefined
+  // Match OpenCode's event reducer: streamed fields are string fragments, so a
+  // sparse part snapshot uses an empty base instead of dropping its first delta.
+  const existing = accumulated ?? part[input.field]
+  const currentValue = typeof existing === "string" ? existing : ""
   const next = currentValue + input.delta
   fields.set(input.field, next)
   record.streamingFieldsByPartID.set(part.id, fields)
