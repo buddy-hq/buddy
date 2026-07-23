@@ -41,15 +41,29 @@ import {
   refreshOpenAIUsage,
   type OpenAIUsageSnapshot,
 } from "@/state/openai-usage-query"
+import {
+  formatChatGptPlan,
+  formatCompactTokens,
+  formatRelativeTime,
+  formatUsageWindowLabel,
+  resolveUsageRemainingPercent,
+} from "@/state/openai-usage-format"
 import { ProviderSourceBadge, SettingsListCard, SettingsContent } from "./settings-primitives"
+
+// Re-exported so existing importers (the formatter unit test, the Easel
+// prototype) keep resolving these from settings-providers unchanged.
+export {
+  formatChatGptPlan,
+  formatCompactTokens,
+  formatRelativeTime,
+  formatUsageWindowLabel,
+  resolveUsageRemainingPercent,
+}
 
 const OPENCODE_GO_PROVIDER_ID = "opencode-go"
 const OPENCODE_GO_LEARN_MORE_URL = "https://opencode.ai/go"
 const CHATGPT_LEARN_MORE_URL = "https://chatgpt.com/pricing/"
 const PROVIDER_SEARCH_VISIBLE_THRESHOLD = 3
-const SECONDS_PER_MINUTE = 60
-const MINUTES_PER_HOUR = 60
-const HOURS_PER_DAY = 24
 
 type ReadyOpenAIUsage = Extract<OpenAIUsageSnapshot, { status: "ready" }>
 type OpenAIUsageWindow = NonNullable<ReadyOpenAIUsage["rateLimit"]["primary"]>
@@ -152,57 +166,6 @@ export function resolveProviderListRowControls(provider: ProviderInfo, connected
     showEdit: true,
     showEnvNote: envManaged,
   }
-}
-
-export function formatChatGptPlan(plan: string | null | undefined) {
-  if (!plan) return ""
-
-  return plan
-    .split(/[_\-\s]+/)
-    .filter(Boolean)
-    .map((word) => {
-      const lower = word.toLowerCase()
-      if (lower === "k12") return "K12"
-      return `${lower.slice(0, 1).toUpperCase()}${lower.slice(1)}`
-    })
-    .join(" ")
-}
-
-export function formatUsageWindowLabel(windowSeconds: number) {
-  const totalMinutes = Math.max(1, Math.round(windowSeconds / SECONDS_PER_MINUTE))
-  const totalHours = totalMinutes / MINUTES_PER_HOUR
-  const totalDays = totalHours / HOURS_PER_DAY
-
-  if (Number.isInteger(totalDays)) {
-    return `${totalDays}-day limit`
-  }
-  if (Number.isInteger(totalHours)) {
-    return `${totalHours}-hour limit`
-  }
-  return `${totalMinutes}-minute limit`
-}
-
-export function formatRelativeTime(timestamp: string, now = Date.now()) {
-  const target = Date.parse(timestamp)
-  if (!Number.isFinite(target)) return timestamp
-
-  const differenceMinutes = Math.round((target - now) / (SECONDS_PER_MINUTE * 1_000))
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
-  const absoluteMinutes = Math.abs(differenceMinutes)
-  if (absoluteMinutes < MINUTES_PER_HOUR) {
-    return formatter.format(differenceMinutes, "minute")
-  }
-
-  const differenceHours = Math.round(differenceMinutes / MINUTES_PER_HOUR)
-  if (Math.abs(differenceHours) < HOURS_PER_DAY) {
-    return formatter.format(differenceHours, "hour")
-  }
-
-  return formatter.format(Math.round(differenceHours / HOURS_PER_DAY), "day")
-}
-
-export function resolveUsageRemainingPercent(usedPercent: number) {
-  return 100 - Math.max(0, Math.min(usedPercent, 100))
 }
 
 export function isChatGptReconnectRequired(input: {

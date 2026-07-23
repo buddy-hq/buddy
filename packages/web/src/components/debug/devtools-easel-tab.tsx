@@ -51,6 +51,7 @@ import { SkillsPanelRedesignsEasel } from "./easel/skills-panel-redesigns"
 import { InlineTodoRedesignsEasel } from "./easel/inline-todo-redesigns"
 import { ErrorSystemRedesignEasel } from "./easel/error-system-redesign"
 import { ErrorCardPreviewEasel } from "./easel/error-card-preview"
+import { TokenCounterMeterEasel } from "./easel/token-counter-meter"
 import { ThemeSelectors } from "./theme-selectors"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
@@ -65,6 +66,7 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "token-counter-meter"
   | "error-card-preview"
   | "error-system-redesign"
   | "inline-todo-redesigns"
@@ -85,6 +87,12 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "token-counter-meter",
+    label: "Token counter · filled meters",
+    subtitle:
+      "Composer counter as meters · folds in ChatGPT plan limits when connected · context + cost otherwise",
+  },
   {
     id: "error-card-preview",
     label: "Error card · breathing pass",
@@ -1046,7 +1054,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("error-card-preview")
+  const [prototype, setPrototype] = useState<EaselPrototype>("token-counter-meter")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1210,7 +1218,8 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             prototype === "creations-panel-redesigns" ||
             prototype === "skills-panel-redesigns" ||
             prototype === "error-system-redesign" ||
-            prototype === "error-card-preview"
+            prototype === "error-card-preview" ||
+            prototype === "token-counter-meter"
             ? "items-stretch justify-stretch bg-background-base p-0"
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
@@ -1378,6 +1387,14 @@ export function DevToolsEaselTab(props: { directory?: string }) {
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
               <ErrorCardPreviewEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "token-counter-meter" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <TokenCounterMeterEasel />
             </div>
           </div>
         ) : null}

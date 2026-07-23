@@ -7,7 +7,7 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 
 const OPENAI_USAGE_QUERY_KEY = "openai-usage" as const
-const OPENAI_USAGE_REFRESH_INTERVAL_MS = 60 * 1_000
+const OPENAI_USAGE_REFRESH_INTERVAL_MS = 2 * 60 * 1_000
 
 export type OpenAIUsageSnapshot = ProviderOpenaiUsageGetResponses[200]
 

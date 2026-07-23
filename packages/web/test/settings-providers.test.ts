@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { QueryClient } from "@tanstack/react-query"
 import {
   formatChatGptPlan,
+  formatCompactTokens,
   formatRelativeTime,
   formatUsageWindowLabel,
   isChatGptReconnectRequired,
@@ -118,6 +119,11 @@ describe("ChatGPT account formatting", () => {
     expect(formatUsageWindowLabel(604_800)).toBe("7-day limit")
     expect(resolveUsageRemainingPercent(1)).toBe(99)
     expect(resolveUsageRemainingPercent(100)).toBe(0)
+    expect(formatCompactTokens(500)).toBe("500")
+    expect(formatCompactTokens(128_000)).toBe("128k")
+    expect(formatCompactTokens(293_700)).toBe("293.7k")
+    expect(formatCompactTokens(1_000_000)).toBe("1.0M")
+    expect(formatCompactTokens(2_500_000)).toBe("2.5M")
   })
 
   test("formats reset timestamps relative to the current time", () => {

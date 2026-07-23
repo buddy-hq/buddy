@@ -652,6 +652,15 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     <SessionContextUsage
                       messages={chatState.messages}
                       providers={chatState.providers}
+                      selectedModel={
+                        chatState.effectiveModelInfo
+                          ? {
+                              name: chatState.effectiveModelInfo.name,
+                              providerID: chatState.effectiveModelInfo.providerID,
+                              contextLimit: chatState.effectiveModelInfo.limit.context,
+                            }
+                          : undefined
+                      }
                     />
                   }
                 />
