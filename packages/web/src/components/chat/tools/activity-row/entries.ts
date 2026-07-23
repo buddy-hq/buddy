@@ -20,18 +20,22 @@ const ACTIVITY_FALLBACK_LABEL = "Steps"
 const SETTLED_SUMMARY_LIMIT = 3
 
 export const ACTIVITY_WORKING_LABELS = [
+  "Pondering",
   "Foraging",
-  "Sniffing",
-  "Chomping",
+  "Researching",
+  "Reasoning",
   "Digging",
   "Gathering",
   "Pawing",
-  "Climbing",
-  "Gnawing",
-  "Nibbling",
-  "Roaming",
   "Exploring",
-  "Prodding",
+  "Checking",
+  "Connecting",
+  "Organizing",
+  "Drafting",
+  "Reviewing",
+  "Refining",
+  "Preparing",
+  "Chomping",
 ] as const
 
 export const ACTIVITY_REASONING_ICON: ToolIconRenderer = (className) =>
