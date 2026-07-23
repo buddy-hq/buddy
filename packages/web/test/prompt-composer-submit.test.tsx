@@ -41,6 +41,10 @@ function renderPromptComposer(input: {
     <PromptComposer
       directory={TEST_DIRECTORY}
       isBusy={false}
+      personaOptions={[
+        { name: "buddy", label: "Buddy" },
+        { name: "code", label: "Code" },
+      ]}
       mentionableAgents={[]}
       mentionableReferences={[]}
       slashCommands={[]}
@@ -52,10 +56,12 @@ function renderPromptComposer(input: {
         },
       ]}
       selectedModelAcceptsImages
+      selectedPersona="buddy"
       selectedModel="openai/gpt-5"
       thinkingOptions={[{ key: "default", label: "Default" }]}
       selectedThinking="default"
       selectorMode="native"
+      onPersonaChange={() => undefined}
       onModelChange={() => undefined}
       onThinkingChange={() => undefined}
       onSubmit={input.onSubmit}

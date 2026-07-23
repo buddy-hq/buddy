@@ -1,4 +1,6 @@
-export const PERSONAS = ["buddy", "teaching-buddy"] as const
+export const PRODUCTION_PERSONAS = ["buddy", "teaching-buddy"] as const
+export const DEVELOPMENT_PERSONAS = ["code"] as const
+export const PERSONAS = [...PRODUCTION_PERSONAS, ...DEVELOPMENT_PERSONAS] as const
 export type Persona = (typeof PERSONAS)[number]
 
 export const PRIMARY_USES = ["learn", "teach"] as const

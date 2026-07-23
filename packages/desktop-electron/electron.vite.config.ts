@@ -140,6 +140,9 @@ export default defineConfig(({ command }) => ({
     },
   },
   renderer: {
+    define: {
+      [`import.meta.env.${BUDDY_CHANNEL_ENV}`]: JSON.stringify(channel),
+    },
     plugins: [
       ...buddyWebVitePlugin({ resolveOptimizeDepsFromLinkedWebPackage: true }),
       tanstackRouter({

@@ -1,9 +1,7 @@
-import { definePromptTemplate } from "../../prompt/template/engine"
 import type { BuddyPermissionInput, CoreAgentDefinition } from "../../agent-factories"
 import type { PersonaContextPolicy } from "../../shared/runtime-types"
 import type { PersonaDelegateId, Surface } from "../../shared/teaching-vocabulary"
 import type { DefinedBuddyFeature } from "../../runtime/define-buddy-feature"
-import BASE_PERSONA_PROMPT from "../prompts/base.p.md"
 
 type BuddyPersonaDefinitionInput<Id extends string = string> = {
   id: Id
@@ -111,12 +109,6 @@ export function defineBuddyPersona<const Id extends string>(
     context: { ...profile.context },
     runtime: {
       ...runtime,
-      prompt: definePromptTemplate({
-        source: BASE_PERSONA_PROMPT,
-        debugName: "base-persona-prompt",
-      }).render({
-        persona_overlay: runtime.prompt.trim(),
-      }),
       ...(runtime.description ? { description: runtime.description } : {}),
       permission: runtime.permission ?? PRIMARY_PERSONA_PERMISSION,
       ...(runtime.subagents ? { subagents: cloneSubagentConfig(runtime.subagents) } : {}),

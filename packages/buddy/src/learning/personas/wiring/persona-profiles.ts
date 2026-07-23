@@ -9,6 +9,10 @@ import type {
 import type { DefinedBuddyFeature } from "../../runtime/define-buddy-feature"
 import { REGISTERED_BUDDY_PERSONAS } from "../registry"
 import { resolvePreferredBuddyPersona } from "./default-persona"
+import {
+  DEVELOPMENT_PERSONAS_ENABLED,
+  personaIsAvailable,
+} from "./persona-availability"
 
 const BUILTIN_BUDDY_PERSONA_DEFINITIONS = REGISTERED_BUDDY_PERSONAS
 
@@ -150,6 +154,7 @@ const BUILTIN_BUDDY_PERSONA_IDS = BUILTIN_BUDDY_PERSONA_DEFINITIONS.map(
 
 function resolveBuddyPersonaProfiles(
   overrides?: BuddyPersonaOverrides,
+  developmentPersonasEnabled = DEVELOPMENT_PERSONAS_ENABLED,
 ): Record<BuddyPersona, BuddyPersonaProfile> {
   const profiles = Object.fromEntries(
     Object.entries(BUILTIN_BUDDY_PERSONAS).map(([personaID, profile]) => [
@@ -160,26 +165,34 @@ function resolveBuddyPersonaProfiles(
 
   for (const personaID of BUILTIN_BUDDY_PERSONA_IDS) {
     const override = overrides?.[personaID]
-    if (!override) {
-      continue
+    if (override) {
+      const base = profiles[personaID]
+      profiles[personaID] = {
+        ...base,
+        ...(override.label ? { label: override.label } : {}),
+        ...(override.description ? { description: override.description } : {}),
+        ...(override.surfaces ? { surfaces: [...override.surfaces] } : {}),
+        ...(override.defaultSurface ? { defaultSurface: override.defaultSurface } : {}),
+        ...(typeof override.hidden === "boolean" ? { hidden: override.hidden } : {}),
+      }
     }
 
-    const base = profiles[personaID]
-    profiles[personaID] = {
-      ...base,
-      ...(override.label ? { label: override.label } : {}),
-      ...(override.description ? { description: override.description } : {}),
-      ...(override.surfaces ? { surfaces: [...override.surfaces] } : {}),
-      ...(override.defaultSurface ? { defaultSurface: override.defaultSurface } : {}),
-      ...(typeof override.hidden === "boolean" ? { hidden: override.hidden } : {}),
+    if (!personaIsAvailable(personaID, developmentPersonasEnabled)) {
+      profiles[personaID] = {
+        ...profiles[personaID],
+        hidden: true,
+      }
     }
   }
 
   return profiles
 }
 
-function listBuddyPersonas(overrides?: BuddyPersonaOverrides): BuddyPersonaProfile[] {
-  const profiles = resolveBuddyPersonaProfiles(overrides)
+function listBuddyPersonas(
+  overrides?: BuddyPersonaOverrides,
+  developmentPersonasEnabled = DEVELOPMENT_PERSONAS_ENABLED,
+): BuddyPersonaProfile[] {
+  const profiles = resolveBuddyPersonaProfiles(overrides, developmentPersonasEnabled)
   return BUILTIN_BUDDY_PERSONA_IDS.map((personaID) => profiles[personaID]).filter(
     (persona) => !persona.hidden,
   )
@@ -188,16 +201,21 @@ function listBuddyPersonas(overrides?: BuddyPersonaOverrides): BuddyPersonaProfi
 function getBuddyPersona(
   personaID: BuddyPersona,
   overrides?: BuddyPersonaOverrides,
+  developmentPersonasEnabled = DEVELOPMENT_PERSONAS_ENABLED,
 ): BuddyPersonaProfile {
-  return resolveBuddyPersonaProfiles(overrides)[personaID]
+  return resolveBuddyPersonaProfiles(overrides, developmentPersonasEnabled)[personaID]
 }
 
 function getDefaultBuddyPersona(input?: {
   defaultPersona?: BuddyPersona
   primaryUse?: PrimaryUse
   overrides?: BuddyPersonaOverrides
+  developmentPersonasEnabled?: boolean
 }): BuddyPersonaProfile {
-  const profiles = resolveBuddyPersonaProfiles(input?.overrides)
+  const profiles = resolveBuddyPersonaProfiles(
+    input?.overrides,
+    input?.developmentPersonasEnabled,
+  )
   const preferredPersona = profiles[resolvePreferredBuddyPersona(input)]
 
   if (!preferredPersona.hidden) {
@@ -214,8 +232,11 @@ function getDefaultBuddyPersona(input?: {
   throw new Error("At least one Buddy persona must remain visible")
 }
 
-function personaCatalogEntries(overrides?: BuddyPersonaOverrides): BuddyPersonaCatalogEntry[] {
-  return listBuddyPersonas(overrides).map((persona) => ({
+function personaCatalogEntries(
+  overrides?: BuddyPersonaOverrides,
+  developmentPersonasEnabled = DEVELOPMENT_PERSONAS_ENABLED,
+): BuddyPersonaCatalogEntry[] {
+  return listBuddyPersonas(overrides, developmentPersonasEnabled).map((persona) => ({
     id: persona.id,
     label: persona.label,
     description: persona.description,

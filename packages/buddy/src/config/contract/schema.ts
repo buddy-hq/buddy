@@ -5,6 +5,7 @@ import {
   PERSONA_SURFACES,
   PERSONAS,
   PRIMARY_USES,
+  PRODUCTION_PERSONAS,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { zodFromEffectSchema } from "../../http/effect-schema"
 import { resolveBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
@@ -171,7 +172,7 @@ export namespace ConfigSchema {
       })
     }
 
-    if (PERSONAS.every((personaID) => profiles[personaID].hidden)) {
+    if (PRODUCTION_PERSONAS.every((personaID) => profiles[personaID].hidden)) {
       ctx.addIssue({
         code: "custom",
         path: ["personas"],

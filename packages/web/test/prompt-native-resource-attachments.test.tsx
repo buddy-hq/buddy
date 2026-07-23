@@ -49,15 +49,21 @@ function renderComposer(attachmentsApiRef: RefObject<PromptComposerAttachmentsAp
     <PromptComposer
       directory={TEST_DIRECTORY}
       isBusy={false}
+      personaOptions={[
+        { name: "buddy", label: "Buddy" },
+        { name: "code", label: "Code" },
+      ]}
       mentionableAgents={[]}
       mentionableReferences={[]}
       slashCommands={[]}
       modelOptions={[{ key: "openai/gpt-5", label: "GPT-5", acceptsImages: true }]}
       selectedModelAcceptsImages
+      selectedPersona="buddy"
       selectedModel="openai/gpt-5"
       thinkingOptions={[{ key: "default", label: "Default" }]}
       selectedThinking="default"
       selectorMode="native"
+      onPersonaChange={() => undefined}
       onModelChange={() => undefined}
       onThinkingChange={() => undefined}
       onSubmit={() => undefined}

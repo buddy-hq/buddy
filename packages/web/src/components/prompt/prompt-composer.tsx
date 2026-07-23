@@ -7,6 +7,13 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
+  NativeSelect,
+  NativeSelectOption,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   toast,
   cn,
 } from "@buddy/ui"
@@ -30,6 +37,7 @@ import {
 } from "@/components/bench/transient-bench-surface"
 import { GameDock } from "../game/game-dock"
 import { GameBall } from "../game/game-ball"
+import { DEVELOPMENT_FEATURES_ENABLED } from "@/lib/development-features"
 import type { TodoSnapshot } from "@/components/chat/tools/todo-state"
 import { TodoDock } from "./todo-dock"
 import { TodoDockIndicator } from "./todo-dock-indicator"
@@ -146,6 +154,10 @@ type PromptComposerProps = {
   directory: string
   sessionID?: string
   isBusy: boolean
+  personaOptions: Array<{
+    name: string
+    label?: string
+  }>
   mentionableAgents: MentionableAgent[]
   mentionableReferences: MentionableReference[]
   slashCommands: Array<{
@@ -161,6 +173,7 @@ type PromptComposerProps = {
     acceptsImages: boolean
   }>
   selectedModelAcceptsImages: boolean
+  selectedPersona: string
   selectedModel: string
   pendingSteerLabel?: string
   thinkingOptions: Array<{
@@ -170,6 +183,7 @@ type PromptComposerProps = {
   selectedThinking: string
   modelMenuOpenRequest?: number
   onClearPendingSteer?: () => void
+  onPersonaChange: (persona: string) => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
   onSubmit: (draft: Omit<PromptDraftState, "updatedAt">) => void | Promise<void>
@@ -330,6 +344,7 @@ export function PromptComposer(props: PromptComposerProps) {
     [unsupportedImageAttachments],
   )
   const hasUnsupportedImageAttachments = unsupportedImageAttachments.length > 0
+  const showPersonaSelector = DEVELOPMENT_FEATURES_ENABLED && props.personaOptions.length > 1
   const copyingResourceCount = draft.attachments.filter(
     (attachment) => attachment.kind === "native-resource" && attachment.status === "copying",
   ).length
@@ -1772,57 +1787,104 @@ export function PromptComposer(props: PromptComposerProps) {
         />
       </div>
 
-      {props.sessionContextUsage ? (
+      {showPersonaSelector || props.sessionContextUsage ? (
         <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
-          <div className="flex min-w-0 items-center gap-1.5">{props.contextActions}</div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {hasTodos ? (
+          <div className="flex min-w-0 items-center gap-1.5">
+            {showPersonaSelector ? (
+              props.selectorMode === "native" ? (
+                <NativeSelect
+                  value={props.selectedPersona}
+                  onChange={(event) => props.onPersonaChange(event.currentTarget.value)}
+                  size="sm"
+                  data-action="prompt-persona-select"
+                  wrapperClassName="w-[120px] max-w-[120px] min-w-0"
+                  className="h-6 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-transparent focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
+                  aria-label={language.t("prompt.toolbar.aria.persona")}
+                >
+                  {props.personaOptions.map((persona) => (
+                    <NativeSelectOption key={persona.name} value={persona.name}>
+                      {persona.label ?? persona.name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              ) : (
+                <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
+                  <SelectTrigger
+                    type="button"
+                    size="sm"
+                    data-action="prompt-persona-select"
+                    className="h-6 max-w-[120px] min-w-0 border-0 bg-transparent px-0 text-xs text-text-weaker shadow-none hover:bg-transparent hover:text-text-base focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+                    aria-label={language.t("prompt.toolbar.aria.persona")}
+                  >
+                    <SelectValue placeholder={language.t("prompt.toolbar.placeholders.persona")} />
+                  </SelectTrigger>
+                  <SelectContent
+                    side="top"
+                    align="start"
+                    position="popper"
+                    sideOffset={6}
+                    className="w-[min(16rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
+                  >
+                    {props.personaOptions.map((persona) => (
+                      <SelectItem key={persona.name} value={persona.name}>
+                        {persona.label ?? persona.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )
+            ) : null}
+            {props.contextActions}
+          </div>
+          {props.sessionContextUsage ? (
+            <div className="flex shrink-0 items-center gap-1.5">
+              {hasTodos ? (
+                <button
+                  type="button"
+                  data-action="prompt-open-todos"
+                  aria-label={
+                    todoDockOpen
+                      ? language.t("prompt.todoDock.hideAria")
+                      : language.t("prompt.todoDock.openAria")
+                  }
+                  aria-pressed={todoDockOpen}
+                  title={language.t("prompt.todoDock.openTitle")}
+                  onClick={toggleTodoDock}
+                  className={cn(
+                    "inline-flex size-6 items-center justify-center rounded-md text-text-weaker transition-colors hover:bg-surface-base-hover hover:text-text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base/50 active:scale-95",
+                    todoDockMode === TODO_DOCK_MODE_HIDDEN &&
+                      "bg-surface-base-hover text-text-base ring-1 ring-border-weak-base/80",
+                    todoDockOpen &&
+                      "bg-surface-interactive-base text-text-on-interactive-base shadow-sm shadow-surface-interactive-base/30 ring-1 ring-border-interactive-base/60",
+                  )}
+                >
+                  <TodoDockIndicator
+                    revision={props.todoSnapshot?.revision ?? promptKey}
+                    todos={props.todoSnapshot?.todos ?? []}
+                    turnActive={props.isBusy}
+                    isCurrentTurn={props.todoSnapshot?.isCurrentTurn === true}
+                    selected={todoDockOpen}
+                  />
+                </button>
+              ) : null}
               <button
                 type="button"
-                data-action="prompt-open-todos"
-                aria-label={
-                  todoDockOpen
-                    ? language.t("prompt.todoDock.hideAria")
-                    : language.t("prompt.todoDock.openAria")
-                }
-                aria-pressed={todoDockOpen}
-                title={language.t("prompt.todoDock.openTitle")}
-                onClick={toggleTodoDock}
+                data-action="prompt-open-sketch"
+                aria-label={language.t("prompt.composer.openSketchAria")}
+                aria-pressed={sketchDockOpen}
+                title={language.t("prompt.composer.openSketchTitle")}
+                onClick={toggleSketchDock}
                 className={cn(
-                  "inline-flex size-6 items-center justify-center rounded-md text-text-weaker transition-colors hover:bg-surface-base-hover hover:text-text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base/50 active:scale-95",
-                  todoDockMode === TODO_DOCK_MODE_HIDDEN &&
+                  "inline-flex size-6 items-center justify-center rounded-md text-text-weaker transition-all hover:bg-surface-base-hover hover:text-text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base/50 active:scale-95",
+                  sketchDockMinimized &&
                     "bg-surface-base-hover text-text-base ring-1 ring-border-weak-base/80",
-                  todoDockOpen &&
+                  sketchDockOpen &&
                     "bg-surface-interactive-base text-text-on-interactive-base shadow-sm shadow-surface-interactive-base/30 ring-1 ring-border-interactive-base/60",
                 )}
               >
-                <TodoDockIndicator
-                  revision={props.todoSnapshot?.revision ?? promptKey}
-                  todos={props.todoSnapshot?.todos ?? []}
-                  turnActive={props.isBusy}
-                  isCurrentTurn={props.todoSnapshot?.isCurrentTurn === true}
-                  selected={todoDockOpen}
-                />
+                <PenLineIcon className="size-3.5" />
               </button>
-            ) : null}
-            <button
-              type="button"
-              data-action="prompt-open-sketch"
-              aria-label={language.t("prompt.composer.openSketchAria")}
-              aria-pressed={sketchDockOpen}
-              title={language.t("prompt.composer.openSketchTitle")}
-              onClick={toggleSketchDock}
-              className={cn(
-                "inline-flex size-6 items-center justify-center rounded-md text-text-weaker transition-all hover:bg-surface-base-hover hover:text-text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base/50 active:scale-95",
-                sketchDockMinimized &&
-                  "bg-surface-base-hover text-text-base ring-1 ring-border-weak-base/80",
-                sketchDockOpen &&
-                  "bg-surface-interactive-base text-text-on-interactive-base shadow-sm shadow-surface-interactive-base/30 ring-1 ring-border-interactive-base/60",
-              )}
-            >
-              <PenLineIcon className="size-3.5" />
-            </button>
-            <ContextMenu>
+              <ContextMenu>
               <ContextMenuTrigger asChild>
                 <button
                   type="button"
@@ -1880,9 +1942,10 @@ export function PromptComposer(props: PromptComposerProps) {
                   {language.t("game.ball.openSettings")}
                 </ContextMenuItem>
               </ContextMenuContent>
-            </ContextMenu>
-            {props.sessionContextUsage}
-          </div>
+              </ContextMenu>
+              {props.sessionContextUsage}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

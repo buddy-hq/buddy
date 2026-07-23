@@ -9,8 +9,8 @@ export const OPENCODE_CHANNEL_DEFINE = OPENCODE_ENV.CHANNEL
 export type BuddyReleaseChannel = (typeof BUDDY_RELEASE_CHANNELS)[number]
 
 const BUDDY_RELEASE_CHANNEL_SET: ReadonlySet<string> = new Set(BUDDY_RELEASE_CHANNELS)
-const OPENCODE_DEV_CHANNEL = "dev" as const
-const OPENCODE_PROD_CHANNEL = "prod" as const
+export const OPENCODE_DEV_CHANNEL = "dev" as const
+export const OPENCODE_PROD_CHANNEL = "prod" as const
 export const OPENCODE_DB_FILENAME = BUDDY_OPENCODE_DB_FILENAME
 
 export type OpenCodeChannel = typeof OPENCODE_DEV_CHANNEL | typeof OPENCODE_PROD_CHANNEL

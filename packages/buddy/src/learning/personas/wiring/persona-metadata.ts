@@ -3,6 +3,10 @@ import type { PrimaryUse } from "@buddy/backend/learning/shared/teaching-vocabul
 import type { PersonaCatalogEntry, PersonaOverride } from "../../shared/runtime-types"
 import type { PersonaSurface } from "../../shared/teaching-vocabulary"
 import { resolvePreferredBuddyPersona } from "./default-persona"
+import {
+  DEVELOPMENT_PERSONAS_ENABLED,
+  personaIsAvailable,
+} from "./persona-availability"
 
 type BuddyPersonaMetadata = {
   id: BuddyPersona
@@ -32,6 +36,14 @@ const BUILTIN_BUDDY_PERSONA_METADATA = {
     defaultSurface: "curriculum",
     hidden: false,
   },
+  code: {
+    id: "code",
+    label: "Code",
+    description: "OpenCode's coding persona with Buddy capabilities.",
+    surfaces: ["curriculum", "flashcard", "question-set"],
+    defaultSurface: "curriculum",
+    hidden: false,
+  },
 } as const satisfies Record<BuddyPersona, BuddyPersonaMetadata>
 
 const BUILTIN_BUDDY_PERSONA_IDS = Object.keys(BUILTIN_BUDDY_PERSONA_METADATA) as BuddyPersona[]
@@ -45,6 +57,7 @@ function cloneBuddyPersonaMetadata(input: BuddyPersonaMetadata): BuddyPersonaMet
 
 function resolveBuddyPersonaMetadata(
   overrides?: BuddyPersonaOverrides,
+  developmentPersonasEnabled = DEVELOPMENT_PERSONAS_ENABLED,
 ): Record<BuddyPersona, BuddyPersonaMetadata> {
   const profiles = Object.fromEntries(
     BUILTIN_BUDDY_PERSONA_IDS.map((personaID) => [
@@ -55,16 +68,23 @@ function resolveBuddyPersonaMetadata(
 
   for (const personaID of BUILTIN_BUDDY_PERSONA_IDS) {
     const override = overrides?.[personaID]
-    if (!override) continue
+    if (override) {
+      const base = profiles[personaID]
+      profiles[personaID] = {
+        ...base,
+        ...(override.label ? { label: override.label } : {}),
+        ...(override.description ? { description: override.description } : {}),
+        ...(override.surfaces ? { surfaces: [...override.surfaces] } : {}),
+        ...(override.defaultSurface ? { defaultSurface: override.defaultSurface } : {}),
+        ...(typeof override.hidden === "boolean" ? { hidden: override.hidden } : {}),
+      }
+    }
 
-    const base = profiles[personaID]
-    profiles[personaID] = {
-      ...base,
-      ...(override.label ? { label: override.label } : {}),
-      ...(override.description ? { description: override.description } : {}),
-      ...(override.surfaces ? { surfaces: [...override.surfaces] } : {}),
-      ...(override.defaultSurface ? { defaultSurface: override.defaultSurface } : {}),
-      ...(typeof override.hidden === "boolean" ? { hidden: override.hidden } : {}),
+    if (!personaIsAvailable(personaID, developmentPersonasEnabled)) {
+      profiles[personaID] = {
+        ...profiles[personaID],
+        hidden: true,
+      }
     }
   }
 
@@ -75,8 +95,12 @@ function getDefaultBuddyPersonaMetadata(input?: {
   defaultPersona?: BuddyPersona
   primaryUse?: PrimaryUse
   overrides?: BuddyPersonaOverrides
+  developmentPersonasEnabled?: boolean
 }): BuddyPersonaMetadata {
-  const profiles = resolveBuddyPersonaMetadata(input?.overrides)
+  const profiles = resolveBuddyPersonaMetadata(
+    input?.overrides,
+    input?.developmentPersonasEnabled,
+  )
   const preferredPersona = profiles[resolvePreferredBuddyPersona(input)]
 
   if (!preferredPersona.hidden) {
@@ -97,8 +121,12 @@ function personaCatalogEntries(input?: {
   defaultPersona?: BuddyPersona
   primaryUse?: PrimaryUse
   overrides?: BuddyPersonaOverrides
+  developmentPersonasEnabled?: boolean
 }): PersonaCatalogEntry[] {
-  const profiles = resolveBuddyPersonaMetadata(input?.overrides)
+  const profiles = resolveBuddyPersonaMetadata(
+    input?.overrides,
+    input?.developmentPersonasEnabled,
+  )
   const defaultPersona = getDefaultBuddyPersonaMetadata(input)
   const visiblePersonas = BUILTIN_BUDDY_PERSONA_IDS.map((personaID) => profiles[personaID]).filter(
     (persona) => !persona.hidden,

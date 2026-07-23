@@ -48,7 +48,8 @@
     "./theme": "./src/theme.ts",
     "./tool-input-delta-live": "./src/tool-input-delta-live.ts",
     "./provider-icon": "./src/provider-icon.ts",
-    "./storage-db": "./src/storage-db.ts"
+    "./storage-db": "./src/storage-db.ts",
+    "./system-prompt": "./src/system-prompt.ts"
   },
   "scripts": {
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",

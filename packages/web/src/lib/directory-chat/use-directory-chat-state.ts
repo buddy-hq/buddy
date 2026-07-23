@@ -36,6 +36,7 @@ import { getSessionFamily, type SessionFamily } from "../session-family"
 import { isSessionWorking } from "@/state/session-status"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import { formatSessionTitle } from "@/lib/session-title"
+import { DEVELOPMENT_FEATURES_ENABLED } from "@/lib/development-features"
 import type {
   MessageInfo,
   MessagePart,
@@ -60,6 +61,7 @@ const EMPTY_RECORD: Record<string, never> = {}
 const EMPTY_SESSIONS: SessionInfo[] = []
 const EMPTY_SESSION_STATUS: Record<string, SessionStatusInfo> = {}
 const THINKING_DEFAULT_KEY = "default" as const
+const DEVELOPMENT_PERSONA_ID = "code" as const
 const THINKING_LEVEL_ORDER = ["none", "low", "medium", "high", "xhigh"] as const
 type ThinkingLevel = (typeof THINKING_LEVEL_ORDER)[number]
 const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
@@ -158,6 +160,16 @@ export function resolveProviderModelGroup(provider: ProviderInfo) {
     return language.t("prompt.toolbar.groups.freeModels")
   }
   return provider.name
+}
+
+export function resolvePrimaryPersonaOptions(input: {
+  personas: PersonaConfigOption[]
+  development: boolean
+}): PersonaConfigOption[] {
+  return input.personas.filter(
+    (persona) =>
+      !persona.hidden && (input.development || persona.id !== DEVELOPMENT_PERSONA_ID),
+  )
 }
 
 function resolveConfiguredAgentVariant(input: {
@@ -499,7 +511,11 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     })
   }, [autoModelSelection, selectedModelOverrideKey, usableProviders])
   const primaryPersonaOptions = useMemo(
-    () => props.personaCatalog.filter((persona) => !persona.hidden),
+    () =>
+      resolvePrimaryPersonaOptions({
+        personas: props.personaCatalog,
+        development: DEVELOPMENT_FEATURES_ENABLED,
+      }),
     [props.personaCatalog],
   )
   const modelOptions = useMemo(() => {

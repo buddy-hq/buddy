@@ -1,24 +1,25 @@
+import { OPEN_CODE_GPT_SYSTEM_PROMPT } from "@buddy/opencode-adapter/system-prompt"
+import CODE_AVATAR_PROMPT from "./prompts/code-avatar.p.md"
 import { BUDDY_SHARED_FEATURES } from "./shared-features"
-import { renderBuddyBasePersonaPrompt } from "./prompts/render-base-prompt"
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
 
-export const BUDDY = defineBuddyPersona({
-  id: "buddy",
-  label: "Buddy",
-  description: "The default Buddy persona for learning conversations and project help.",
+export const CODE = defineBuddyPersona({
+  id: "code",
+  label: "Code",
+  description: "OpenCode's coding persona with Buddy capabilities.",
   features: BUDDY_SHARED_FEATURES,
   defaultSurface: "curriculum",
   hidden: false,
   context: {
-    attachCurriculum: true,
-    attachProgress: true,
+    attachCurriculum: false,
+    attachProgress: false,
     attachTeachingWorkspace: false,
     attachTeachingPolicy: false,
     attachFigureContext: true,
   },
   runtime: {
     kind: "build",
-    prompt: renderBuddyBasePersonaPrompt(""),
+    prompt: [OPEN_CODE_GPT_SYSTEM_PROMPT, CODE_AVATAR_PROMPT].join("\n\n"),
     subagents: {
       "question-set-author": true,
       "flashcard-author": true,

@@ -1,4 +1,5 @@
 import { BUDDY_SHARED_FEATURES } from "./shared-features"
+import { renderBuddyBasePersonaPrompt } from "./prompts/render-base-prompt"
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
 
 export const TEACHING_BUDDY = defineBuddyPersona({
@@ -17,8 +18,7 @@ export const TEACHING_BUDDY = defineBuddyPersona({
   },
   runtime: {
     kind: "build",
-    // TODO(launch): Keep this overlay detached until base + persona prompting is manually reviewed.
-    prompt: "",
+    prompt: renderBuddyBasePersonaPrompt(""),
     subagents: {
       "question-set-author": true,
       "flashcard-author": true,

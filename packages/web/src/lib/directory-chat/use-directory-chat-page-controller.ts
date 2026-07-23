@@ -1581,17 +1581,25 @@ export function useDirectoryChatPageController(
     directory: decodedDirectory,
     sessionID: cs.sessionID,
     isBusy: cs.isBusy,
+    personaOptions: cs.primaryPersonaOptions.map((persona) => ({
+      name: persona.id,
+      label: persona.label,
+    })),
     mentionableAgents: EMPTY_MENTIONABLE_AGENTS,
     mentionableReferences,
     slashCommands,
     modelOptions: cs.modelOptions,
     selectedModel: cs.selectedModelKey,
     selectedModelAcceptsImages: cs.selectedModelAcceptsImages,
+    selectedPersona: cs.selectedPersona,
     pendingSteerLabel: pendingSuggestionOverride?.label,
     thinkingOptions: cs.thinkingOptions,
     selectedThinking,
     onClearPendingSteer: () => {
       setPendingSuggestionOverride(undefined)
+    },
+    onPersonaChange: (persona: string) => {
+      cs.setSessionPersona(cs.sessionKey, persona)
     },
     onModelChange: (model: string) => {
       pushRecentModelKey(model)

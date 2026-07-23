@@ -469,6 +469,8 @@ function toLearnerPersona(persona?: string): LearnerSnapshotPersona | undefined 
     case "buddy":
     case "teaching-buddy":
       return persona
+    case "code":
+      return undefined
     default:
       throw new Error(`Unsupported learner persona: ${persona}`)
   }
