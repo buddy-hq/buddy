@@ -186,7 +186,7 @@ export function DirectoryChatRightWorkspaceContent(props: {
       {props.hasBenchTarget && props.bench ? (
         <div
           data-component="right-workspace-bench-target"
-          className="h-full min-h-0 min-w-0 flex-1 bg-background-base"
+          className="isolate h-full min-h-0 min-w-0 flex-1 bg-background-base"
         >
           {props.bench}
         </div>
@@ -204,7 +204,7 @@ export function DirectoryChatRightWorkspaceContent(props: {
       {props.hasBenchTarget && props.selectorContent ? (
         <aside
           data-component="right-workspace-selector-drawer"
-          className="absolute inset-y-0 right-0 h-full min-h-0 max-w-full border-l border-border-weaker-base bg-background-base shadow-xl animate-in fade-in slide-in-from-right-3 duration-150"
+          className="absolute inset-y-0 right-0 z-10 h-full min-h-0 max-w-full border-l border-border-weaker-base bg-background-base shadow-xl animate-in fade-in slide-in-from-right-3 duration-150"
           style={{ width: props.selectorDrawerWidth }}
         >
           {props.selectorContent}
