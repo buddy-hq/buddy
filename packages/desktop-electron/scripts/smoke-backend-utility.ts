@@ -64,6 +64,10 @@ const SMOKE_READY_FILENAME = "backend-utility-ready.json" as const
 const SMOKE_STOP_FILENAME = "backend-utility-stop.json" as const
 const SMOKE_ROOT_PREFIX = "buddy-backend-utility-smoke-" as const
 const SMOKE_EXIT_TIMEOUT_MS = 45_000
+const SMOKE_FAILURE_EXIT_TIMEOUT_MS = 10_000
+const SMOKE_FORCED_EXIT_TIMEOUT_MS = 5_000
+const SMOKE_CLEANUP_MAX_ATTEMPTS = 20
+const SMOKE_CLEANUP_RETRY_DELAY_MS = 250
 const PACKAGED_SMOKE_ARGUMENT = "--packaged" as const
 const ELECTRON_ASAR_UNPACKED_DIRECTORY_NAME = "app.asar.unpacked" as const
 const ELECTRON_MAIN_RELATIVE_PATH_SEGMENTS = ["out", "main"] as const
@@ -87,6 +91,7 @@ const CHEMFIG_RENDERER_NAME = "node-tikzjax" as const
 const FORBIDDEN_CHEMFIG_SVG_PATTERN =
   /<(?:script|foreignObject)\b|(?:href|src)\s*=\s*["']https?:\/\/|url\(\s*["']?https?:\/\//iu
 const USER_CONFIG_ENVIRONMENT_KEYS = new Set<string>([BUDDY_ENV.CONFIG, BUDDY_ENV.CONFIG_CONTENT])
+const RETRYABLE_CLEANUP_ERROR_CODES = new Set(["EACCES", "EBUSY", "ENOTEMPTY", "EPERM"])
 
 const packageDir = path.resolve(import.meta.dir, "..")
 const smokeMainScript = path.resolve(import.meta.dir, "backend-utility-smoke-main.mjs")
@@ -138,6 +143,7 @@ function createBackendEnvironment(input: {
     [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: notebookRoot,
     [BUDDY_ENV.APP_VERSION]: "backend-utility-smoke",
     [BUDDY_ENV.BACKEND_RESOURCES_DIR]: input.backendResources,
+    [BUDDY_ENV.DISABLE_SKILL_ARTIFACT_FETCH]: "1",
     [BUDDY_ENV.GLOBAL_CONFIG_DIR]: path.join(input.runtimeRoot, BUDDY_HOME_DIRECTORY_NAME),
     [BUDDY_ENV.TESSDATA_DIR]: input.tessdata,
     [BUDDY_ENV.DIRECTORY_BASE]: notebookRoot,
@@ -392,26 +398,78 @@ async function waitForReadyFile(input: {
   throw new Error("Electron backend utility smoke did not report ready")
 }
 
+async function processExitCode(
+  child: NodeArtifactProcess,
+  timeoutMs: number,
+): Promise<number> {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  const timeoutTask = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      reject(new Error("Electron backend utility smoke did not exit"))
+    }, timeoutMs)
+  })
+  const exitCode = await Promise.race([child.exited, timeoutTask]).finally(() => {
+    if (timeout !== undefined) clearTimeout(timeout)
+  })
+  return exitCode
+}
+
 async function waitForProcessExit(
   child: NodeArtifactProcess,
   stdoutText: Promise<string>,
   stderrText: Promise<string>,
 ): Promise<void> {
-  let timeout: ReturnType<typeof setTimeout> | undefined
-  const timeoutTask = new Promise<never>((_resolve, reject) => {
-    timeout = setTimeout(() => {
-      reject(new Error("Electron backend utility smoke did not exit"))
-    }, SMOKE_EXIT_TIMEOUT_MS)
-  })
-  const exitCode = await Promise.race([child.exited, timeoutTask]).finally(() => {
-    if (timeout !== undefined) clearTimeout(timeout)
-  })
+  const exitCode = await processExitCode(child, SMOKE_EXIT_TIMEOUT_MS)
 
   if (exitCode !== 0) {
     const [stdout, stderr] = await Promise.all([stdoutText, stderrText])
     throw new Error(
       `Electron backend utility smoke failed.\nstdout:\n${tail(stdout)}\nstderr:\n${tail(stderr)}`,
     )
+  }
+}
+
+async function stopProcessAfterFailure(input: {
+  child: NodeArtifactProcess
+  stopPath: string
+}): Promise<void> {
+  writeFileSync(input.stopPath, JSON.stringify({ stop: true }), "utf8")
+  try {
+    await processExitCode(input.child, SMOKE_FAILURE_EXIT_TIMEOUT_MS)
+    return
+  } catch (gracefulExitError) {
+    console.error("Electron backend utility did not stop gracefully after smoke failure", {
+      cause:
+        gracefulExitError instanceof Error
+          ? gracefulExitError.message
+          : String(gracefulExitError),
+    })
+  }
+
+  input.child.kill()
+  await processExitCode(input.child, SMOKE_FORCED_EXIT_TIMEOUT_MS)
+}
+
+function isRetryableCleanupError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    RETRYABLE_CLEANUP_ERROR_CODES.has(error.code)
+  )
+}
+
+async function removeSmokeRoot(smokeRoot: string): Promise<void> {
+  for (let attempt = 1; attempt <= SMOKE_CLEANUP_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      rmSync(smokeRoot, { recursive: true, force: true })
+      return
+    } catch (error) {
+      if (!isRetryableCleanupError(error) || attempt === SMOKE_CLEANUP_MAX_ATTEMPTS) {
+        throw error
+      }
+      await delay(SMOKE_CLEANUP_RETRY_DELAY_MS)
+    }
   }
 }
 
@@ -465,6 +523,8 @@ if (!packagedSmoke) {
 let child: NodeArtifactProcess | undefined
 let stdoutText: Promise<string> | undefined
 let stderrText: Promise<string> | undefined
+let smokeFailed = false
+let smokeFailure: unknown
 
 try {
   child = Bun.spawn(electronCommand(mainScript), {
@@ -530,15 +590,36 @@ try {
       : "Electron backend utility smoke passed",
   )
 } catch (error) {
+  smokeFailed = true
+  smokeFailure = error
   if (child) {
-    child.kill()
+    try {
+      await stopProcessAfterFailure({ child, stopPath })
+    } catch (stopError) {
+      console.error("Electron backend utility cleanup failed after smoke failure", {
+        cause: stopError instanceof Error ? stopError.message : String(stopError),
+      })
+    }
   }
   if (stdoutText && stderrText) {
     const [stdout, stderr] = await Promise.all([stdoutText, stderrText])
     console.error(`stdout:\n${tail(stdout)}`)
     console.error(`stderr:\n${tail(stderr)}`)
   }
-  throw error
-} finally {
-  rmSync(smokeRoot, { recursive: true, force: true })
 }
+
+try {
+  await removeSmokeRoot(smokeRoot)
+} catch (cleanupError) {
+  if (!smokeFailed) {
+    smokeFailed = true
+    smokeFailure = cleanupError
+  } else {
+    console.error("Smoke root cleanup failed without replacing the primary smoke failure", {
+      cause: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+      smokeRoot,
+    })
+  }
+}
+
+if (smokeFailed) throw smokeFailure
