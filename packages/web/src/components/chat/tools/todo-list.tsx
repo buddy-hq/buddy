@@ -18,9 +18,10 @@ function TodoSection(props: { status: TodoStatus; items: TodoItem[]; turnActive:
     <section className="flex flex-col gap-2">
       <div className="flex items-center gap-2 px-0.5">
         <TitleIcon className={cn("size-3 shrink-0", meta.accent)} />
+        {/* Excalifont sits high in its em box; nudge ink down to meet the icon. em tracks font-size. */}
         <h4
           className={cn(
-            "todo-canvas-heading text-xs font-bold uppercase leading-4 tracking-wide whitespace-nowrap",
+            "todo-canvas-heading translate-y-[0.08em] text-xs font-bold uppercase leading-4 tracking-wide whitespace-nowrap",
             meta.accent,
           )}
         >
@@ -31,7 +32,7 @@ function TodoSection(props: { status: TodoStatus; items: TodoItem[]; turnActive:
       <ul className="flex flex-col gap-1 pl-5">
         {props.items.map((todo) => (
           <li key={todo.key} className="flex items-start gap-2 py-0.5" data-state={todo.status}>
-            <span className="mt-px flex shrink-0 items-center justify-center">
+            <span className="mt-1 flex shrink-0 items-center justify-center">
               <ItemIcon
                 className={cn(
                   "size-3 shrink-0",

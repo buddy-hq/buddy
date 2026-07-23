@@ -108,7 +108,7 @@ function TodoListRow(props: { todo: TodoItem; turnActive: boolean; reduceMotion:
       )}
       data-state={props.todo.status}
     >
-      <span className="mt-px flex shrink-0 items-center justify-center">
+      <span className="mt-1 flex shrink-0 items-center justify-center">
         <TodoStatusIcon
           status={props.todo.status}
           turnActive={props.turnActive}
@@ -142,9 +142,10 @@ function TodoListSection(props: {
     >
       <div className="flex items-center gap-2 px-0.5">
         <TitleIcon className={cn("size-3 shrink-0", meta.accent)} />
+        {/* Excalifont sits high in its em box; nudge ink down to meet the icon. em tracks font-size. */}
         <h4
           className={cn(
-            "todo-canvas-heading text-xs font-bold uppercase leading-4 tracking-wide whitespace-nowrap",
+            "todo-canvas-heading translate-y-[0.08em] text-xs font-bold uppercase leading-4 tracking-wide whitespace-nowrap",
             meta.accent,
           )}
         >
@@ -288,9 +289,10 @@ function TodoBoardColumn(props: {
     >
       <div className="flex shrink-0 items-center gap-1.5 px-0.5">
         <TitleIcon className={cn("size-3 shrink-0", meta.accent)} />
+        {/* Excalifont sits high in its em box; nudge ink down to meet the icon. em tracks font-size. */}
         <h4
           className={cn(
-            "todo-canvas-heading text-[11px] font-bold uppercase leading-4 tracking-wide whitespace-nowrap",
+            "todo-canvas-heading translate-y-[0.08em] text-[11px] font-bold uppercase leading-4 tracking-wide whitespace-nowrap",
             meta.accent,
           )}
         >
