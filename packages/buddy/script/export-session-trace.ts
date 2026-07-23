@@ -338,7 +338,12 @@ function parseCliOptions(args: string[]): CliOptions {
       `Pass exactly one selector: ${CLI_FLAGS.sessionID} or ${CLI_FLAGS.title}`,
     )
   }
-  if (!(sessionID || title)) {
+  let selector: CliOptions["selector"]
+  if (sessionID) {
+    selector = { kind: "session-id", value: sessionID }
+  } else if (title) {
+    selector = { kind: "title", value: title }
+  } else {
     throw new Error(
       `Pass exactly one selector: ${CLI_FLAGS.sessionID} or ${CLI_FLAGS.title}`,
     )
@@ -350,9 +355,7 @@ function parseCliOptions(args: string[]): CliOptions {
       configuredDatabasePath ?? resolveDefaultDatabasePath({ channel, userDataPath }),
     ),
     outputPath: path.resolve(outputPath),
-    selector: sessionID
-      ? { kind: "session-id", value: sessionID }
-      : { kind: "title", value: title },
+    selector,
   }
 }
 
