@@ -30,5 +30,5 @@ export function FoliateFloatingOverlay(props: FoliateFloatingOverlayProps) {
     return element
   }
 
-  return createPortal(element, props.anchorRoot.ownerDocument.body)
+  return createPortal(element, props.anchorRoot)
 }
