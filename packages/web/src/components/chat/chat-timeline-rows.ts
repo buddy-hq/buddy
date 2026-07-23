@@ -486,7 +486,11 @@ function assistantErrorModelsEqual(left: AssistantErrorModel, right: AssistantEr
     left.details.message === right.details.message &&
     left.details.providerID === right.details.providerID &&
     left.details.statusCode === right.details.statusCode &&
-    left.details.responseBody === right.details.responseBody
+    left.details.isRetryable === right.details.isRetryable &&
+    left.details.responseBody === right.details.responseBody &&
+    left.details.providerError?.type === right.details.providerError?.type &&
+    left.details.providerError?.code === right.details.providerError?.code &&
+    left.details.providerError?.message === right.details.providerError?.message
   )
 }
 

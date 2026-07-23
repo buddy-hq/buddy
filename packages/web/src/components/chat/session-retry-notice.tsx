@@ -32,7 +32,7 @@ type StructuredRetryAction = NonNullable<RetryStateModel["action"]>
 
 const RETRY_COPY_BY_CATEGORY: Record<RetryStateModel["category"], RetryCategoryCopy> = {
   overloaded: {
-    notice: "The model provider is busy",
+    notice: "The model is busy",
     persistent: "Still busy — this is taking longer than usual",
   },
   "rate-limit": {

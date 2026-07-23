@@ -43,9 +43,39 @@ const PREVIEW_CASES: PreviewCase[] = [
     },
   },
   {
-    category: "overloaded",
-    tag: "overloaded · APIError 529",
+    category: "temporarily-unavailable",
+    tag: "temporarily_unavailable · APIError 529",
     details: { name: "APIError", statusCode: 529, responseBody: "Overloaded" },
+  },
+  {
+    category: "usage-limit",
+    tag: "usage_limit · CreditsError",
+    details: {
+      name: "APIError",
+      statusCode: 401,
+      responseBody:
+        '{"type":"error","error":{"type":"CreditsError","message":"Insufficient balance"}}',
+    },
+  },
+  {
+    category: "model-unavailable",
+    tag: "model_unavailable · ModelError",
+    details: {
+      name: "APIError",
+      statusCode: 401,
+      responseBody:
+        '{"type":"error","error":{"type":"ModelError","message":"Model is disabled"}}',
+    },
+  },
+  {
+    category: "access-restricted",
+    tag: "access_restricted · RegionError",
+    details: {
+      name: "APIError",
+      statusCode: 403,
+      responseBody:
+        '{"type":"error","error":{"type":"RegionError","message":"This model is not available in your region"}}',
+    },
   },
   {
     category: "network",

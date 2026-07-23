@@ -37,7 +37,7 @@ describe("locked chat error surfaces", () => {
   test("renders the easel terminal companion card and keeps raw details disclosed", async () => {
     const actions: AssistantErrorActionID[] = []
     const spec = createAssistantErrorCardSpec({
-      category: "overloaded",
+      category: "temporarily-unavailable",
       disposition: "terminal",
       details: {
         name: "APIError",
@@ -57,7 +57,7 @@ describe("locked chat error surfaces", () => {
     expect(card?.className).toBe(
       "composer-surface composer-grain relative w-full overflow-hidden p-5",
     )
-    expect(card?.textContent).toContain("The model is overloaded")
+    expect(card?.textContent).toContain("This model is temporarily unavailable")
     expect(container.querySelector('img[alt="Buddy dozing"]')).not.toBeNull()
 
     const tryAgain = Array.from(container.querySelectorAll("button")).find(
@@ -93,6 +93,75 @@ describe("locked chat error surfaces", () => {
       headline: "OpenAI disconnected",
       detail: "Your OpenAI sign-in expired or was revoked.",
       primary: { label: "Reconnect OpenAI" },
+      secondary: { label: "Switch model" },
+    })
+  })
+
+  test("keeps provider branding out of free-model availability errors", () => {
+    const spec = createAssistantErrorCardSpec(
+      {
+        category: "temporarily-unavailable",
+        disposition: "terminal",
+        details: {
+          name: "APIError",
+          statusCode: 401,
+          responseBody:
+            '{"type":"error","error":{"type":"ModelError","message":"No provider available"}}',
+        },
+      },
+      "OpenCode Zen",
+    )
+
+    expect(spec).toMatchObject({
+      headline: "This model is temporarily unavailable",
+      primary: { id: "try-again", label: "Try again" },
+      secondary: { id: "switch-model", label: "Switch model" },
+    })
+    expect(JSON.stringify(spec)).not.toContain("OpenCode Zen")
+    expect(JSON.stringify(spec)).not.toContain("Reconnect")
+  })
+
+  test("uses the locked copy and actions for new terminal categories", () => {
+    expect(
+      createAssistantErrorCardSpec({
+        category: "usage-limit",
+        disposition: "terminal",
+        details: { name: "APIError" },
+      }),
+    ).toMatchObject({
+      headline: "You've reached this model's usage limit",
+      detail: "Switch models to keep going.",
+      primary: { id: "switch-model", label: "Switch model" },
+    })
+
+    expect(
+      createAssistantErrorCardSpec({
+        category: "model-unavailable",
+        disposition: "terminal",
+        details: { name: "APIError" },
+      }),
+    ).toMatchObject({
+      headline: "This model isn't available",
+      detail: "Choose another model to keep going.",
+      primary: { id: "switch-model", label: "Switch model" },
+    })
+
+    expect(
+      createAssistantErrorCardSpec({
+        category: "access-restricted",
+        disposition: "terminal",
+        details: {
+          name: "APIError",
+          providerError: {
+            type: "RegionError",
+            message: "This model is not available in your region",
+          },
+        },
+      }),
+    ).toMatchObject({
+      headline: "This model isn't available in your region",
+      detail: "Choose another model to keep going.",
+      primary: { id: "switch-model", label: "Switch model" },
     })
   })
 

@@ -48,11 +48,11 @@ import type {
 import type { AgentConfigOption, PersonaConfigOption } from "@/state/chat-actions"
 import {
   getUsableProviders,
+  isAnonymousOpenCodeProvider,
   resolveAutoModelSelection,
   resolveUsableModelSelection,
   type ProviderModelSelection,
 } from "@/lib/provider-catalog"
-import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 import { resolveCurrentAgent } from "./agent-catalog"
 
 const EMPTY_LIST: never[] = []
@@ -154,7 +154,7 @@ export function resolveVisibleModelKeys(input: {
 }
 
 export function resolveProviderModelGroup(provider: ProviderInfo) {
-  if (provider.id === OPENCODE_PROVIDER_ID && !provider.connected) {
+  if (isAnonymousOpenCodeProvider(provider)) {
     return language.t("prompt.toolbar.groups.freeModels")
   }
   return provider.name

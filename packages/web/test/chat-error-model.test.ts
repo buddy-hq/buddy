@@ -11,6 +11,7 @@ import type { MessageError, SessionStatusInfo } from "../src/state/chat-types"
 import {
   createAssistantMessageInfo,
   createMessageWithParts,
+  createProviderInfo,
   createUserMessageInfo,
 } from "./test-utils"
 
@@ -102,7 +103,7 @@ describe("assistant error model", () => {
     expect(buildAssistantErrorModel(value, { hasVisibleText: false }).disposition).toBe("terminal")
   })
 
-  test("uses structured API status before message heuristics", () => {
+  test("uses structured provider errors before HTTP status fallbacks", () => {
     expect(
       buildAssistantErrorModel(error("APIError", { statusCode: 401 }), {
         hasVisibleText: false,
@@ -112,7 +113,25 @@ describe("assistant error model", () => {
       buildAssistantErrorModel(error("APIError", { statusCode: 503 }), {
         hasVisibleText: false,
       }).category,
-    ).toBe("overloaded")
+    ).toBe("temporarily-unavailable")
+    expect(
+      buildAssistantErrorModel(error("APIError", { statusCode: 402 }), {
+        hasVisibleText: false,
+      }).category,
+    ).toBe("usage-limit")
+    expect(
+      buildAssistantErrorModel(error("APIError", { statusCode: 403 }), {
+        hasVisibleText: false,
+      }).category,
+    ).toBe("auth")
+    expect(
+      buildAssistantErrorModel(
+        error("APIError", { statusCode: 403, message: "Permission denied" }),
+        {
+          hasVisibleText: false,
+        },
+      ).category,
+    ).toBe("access-restricted")
     expect(
       buildAssistantErrorModel(
         error("APIError", {
@@ -121,12 +140,100 @@ describe("assistant error model", () => {
         }),
         { hasVisibleText: false },
       ).category,
-    ).toBe("overloaded")
+    ).toBe("temporarily-unavailable")
     expect(
       buildAssistantErrorModel(error("APIError", { message: "socket connection reset" }), {
         hasVisibleText: false,
       }).category,
     ).toBe("network")
+  })
+
+  test("classifies Zen errors without trusting their overloaded HTTP status", () => {
+    function zenError(type: string, message: string) {
+      return error("APIError", {
+        statusCode: type === "RegionError" ? 403 : 401,
+        isRetryable: false,
+        responseBody: JSON.stringify({
+          type: "error",
+          error: { type, message },
+        }),
+      })
+    }
+
+    const anonymousContext = {
+      hasVisibleText: false,
+      providerID: "opencode",
+      providerConnected: false,
+    }
+
+    expect(
+      buildAssistantErrorModel(
+        zenError("ModelError", "No provider available"),
+        anonymousContext,
+      ),
+    ).toMatchObject({
+      category: "temporarily-unavailable",
+      details: {
+        providerError: {
+          type: "ModelError",
+          message: "No provider available",
+        },
+      },
+    })
+    expect(
+      buildAssistantErrorModel(
+        zenError("CreditsError", "Insufficient balance"),
+        anonymousContext,
+      ).category,
+    ).toBe("usage-limit")
+    expect(
+      buildAssistantErrorModel(
+        zenError("ModelError", "Model is disabled"),
+        anonymousContext,
+      ).category,
+    ).toBe("model-unavailable")
+    expect(
+      buildAssistantErrorModel(
+        zenError("RegionError", "This model is not available in your region"),
+        anonymousContext,
+      ).category,
+    ).toBe("access-restricted")
+    expect(
+      buildAssistantErrorModel(
+        zenError("AuthError", "Invalid API key"),
+        anonymousContext,
+      ).category,
+    ).toBe("model-unavailable")
+    expect(
+      buildAssistantErrorModel(zenError("AuthError", "Invalid API key"), {
+        ...anonymousContext,
+        providerConnected: true,
+      }).category,
+    ).toBe("auth")
+    expect(
+      buildAssistantErrorModel(
+        zenError("AuthError", "Model alpha-x is not supported"),
+        {
+          ...anonymousContext,
+          providerConnected: true,
+        },
+      ).category,
+    ).toBe("model-unavailable")
+  })
+
+  test("never turns an anonymous free-model auth status into a reconnect error", () => {
+    const input = {
+      hasVisibleText: false,
+      providerID: "opencode",
+      providerConnected: false,
+    }
+
+    expect(
+      buildAssistantErrorModel(error("APIError", { statusCode: 401 }), input).category,
+    ).toBe("temporarily-unavailable")
+    expect(buildAssistantErrorModel(error("ProviderAuthError"), input).category).toBe(
+      "model-unavailable",
+    )
   })
 
   test("resolves only a terminal error belonging to the latest user turn", () => {
@@ -147,7 +254,7 @@ describe("assistant error model", () => {
       userMessageID: "msg_user",
       providerID: "test",
       modelID: "test-model",
-      model: { category: "overloaded", disposition: "terminal" },
+      model: { category: "temporarily-unavailable", disposition: "terminal" },
     })
 
     const nextUser = createMessageWithParts(
@@ -163,6 +270,33 @@ describe("assistant error model", () => {
       }),
     )
     expect(resolveLatestTerminalAssistantError([user, failed, recovered])).toBeUndefined()
+  })
+
+  test("uses current provider access only to guard recovery presentation", () => {
+    const user = createMessageWithParts(
+      createUserMessageInfo({ id: "msg_user", sessionID: "ses_free_error" }),
+    )
+    const failed = createMessageWithParts(
+      createAssistantMessageInfo({
+        id: "msg_assistant",
+        sessionID: "ses_free_error",
+        parentID: user.info.id,
+        providerID: "opencode",
+        modelID: "mimo-v2.5-free",
+        error: error("APIError", { statusCode: 401 }),
+      }),
+    )
+
+    expect(
+      resolveLatestTerminalAssistantError(
+        [user, failed],
+        [createProviderInfo({ id: "opencode", connected: false })],
+      ),
+    ).toMatchObject({
+      providerID: "opencode",
+      modelID: "mimo-v2.5-free",
+      model: { category: "temporarily-unavailable" },
+    })
   })
 })
 

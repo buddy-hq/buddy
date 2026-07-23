@@ -46,6 +46,7 @@ import { canEditImagesForModel } from "@/lib/image-editing"
 import { useLocation } from "@tanstack/react-router"
 import { WhiteboardBenchAutoOpen } from "@/components/whiteboard/whiteboard-bench-auto-open"
 import { findLatestTodoSnapshot } from "@/components/chat/tools/todo-state"
+import { isAnonymousOpenCodeProvider } from "@/lib/provider-catalog"
 import {
   AssistantErrorCard,
   createAssistantErrorCardSpec,
@@ -277,12 +278,16 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       : visible
   }, [chatState.messages, revertMessageID])
   const terminalError = useMemo(
-    () => resolveLatestTerminalAssistantError(visibleMessages),
-    [visibleMessages],
+    () => resolveLatestTerminalAssistantError(visibleMessages, chatState.providers),
+    [chatState.providers, visibleMessages],
   )
-  const terminalErrorProviderName = terminalError
-    ? chatState.providers.find((provider) => provider.id === terminalError.providerID)?.name
+  const terminalErrorProvider = terminalError
+    ? chatState.providers.find((provider) => provider.id === terminalError.providerID)
     : undefined
+  const terminalErrorProviderName =
+    terminalErrorProvider && !isAnonymousOpenCodeProvider(terminalErrorProvider)
+      ? terminalErrorProvider.name
+      : undefined
   const terminalErrorSpec = terminalError
     ? createAssistantErrorCardSpec(terminalError.model, terminalErrorProviderName)
     : undefined

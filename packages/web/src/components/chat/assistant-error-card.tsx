@@ -46,6 +46,7 @@ export type AssistantErrorCardSpec = {
 }
 
 const COPIED_FEEDBACK_MS = 1600
+const REGION_ERROR_TYPE = "RegionError"
 
 const MASCOT_BY_POSE = {
   headset: { url: buddyHeadsetUrl, alt: "Buddy wearing a support headset" },
@@ -257,6 +258,15 @@ export function createAssistantErrorCardSpec(
           label: providerName ? `Reconnect ${providerName}` : "Reconnect provider",
           icon: CogIcon,
         },
+        secondary: { id: "switch-model", label: "Switch model" },
+        ...diagnostic,
+      }
+    case "usage-limit":
+      return {
+        id: "rate_limit",
+        headline: "You've reached this model's usage limit",
+        detail: "Switch models to keep going.",
+        primary: { id: "switch-model", label: "Switch model" },
         ...diagnostic,
       }
     case "rate-limit":
@@ -268,13 +278,20 @@ export function createAssistantErrorCardSpec(
         secondary: { id: "switch-model", label: "Switch model" },
         ...diagnostic,
       }
-    case "overloaded":
+    case "temporarily-unavailable":
       return {
         id: "overloaded",
-        headline: "The model is overloaded",
-        detail: "It's under heavy load right now, usually brief.",
+        headline: "This model is temporarily unavailable",
         primary: { id: "try-again", label: "Try again", icon: RefreshCwIcon },
         secondary: { id: "switch-model", label: "Switch model" },
+        ...diagnostic,
+      }
+    case "model-unavailable":
+      return {
+        id: "unknown",
+        headline: "This model isn't available",
+        detail: "Choose another model to keep going.",
+        primary: { id: "switch-model", label: "Switch model" },
         ...diagnostic,
       }
     case "network":
@@ -302,7 +319,7 @@ export function createAssistantErrorCardSpec(
       return {
         id: "content",
         headline: "The model stopped this response",
-        detail: "The provider's content filter blocked it. Rephrasing may help.",
+        detail: "The response was blocked. Rephrasing may help.",
         primary: { id: "dismiss", label: "Dismiss", quiet: true },
         ...diagnostic,
       }
@@ -314,6 +331,18 @@ export function createAssistantErrorCardSpec(
         primary: { id: "try-again", label: "Try again", icon: RefreshCwIcon },
         ...diagnostic,
       }
+    case "access-restricted": {
+      const regionRestricted = model.details.providerError?.type === REGION_ERROR_TYPE
+      return {
+        id: "unknown",
+        headline: regionRestricted
+          ? "This model isn't available in your region"
+          : "This model isn't available for your account",
+        detail: "Choose another model to keep going.",
+        primary: { id: "switch-model", label: "Switch model" },
+        ...diagnostic,
+      }
+    }
     case "output-length":
       return {
         id: "truncated",

@@ -5,6 +5,13 @@ const ZEN_QUERY_FAILURE_PREFIX = "Failed query:"
 const GENERIC_PROVIDER_ERROR_MESSAGE = "Provider returned error"
 const ZEN_NETWORK_RATE_LIMIT_MESSAGE_KEY = "errors.provider.zenNetworkRateLimit"
 const GENERIC_PROVIDER_FAILURE_MESSAGE_KEY = "errors.provider.genericStreamFailure"
+const MAX_JSON_UNWRAP_DEPTH = 3
+
+export type UpstreamProviderErrorPayload = {
+  type?: string
+  code?: string
+  message?: string
+}
 
 export function normalizeUpstreamProviderErrorMessage(message: string): string {
   if (isZenNetworkRateLimitFailure(message)) {
@@ -42,10 +49,12 @@ function readNonEmptyString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
-function unwrapJsonErrorMessage(value: unknown): string | undefined {
+function unwrapJsonErrorMessage(value: unknown, depth = 0): string | undefined {
+  if (depth >= MAX_JSON_UNWRAP_DEPTH) return readNonEmptyString(value)
+
   if (typeof value === "string") {
     const parsed = parseJsonValue(value)
-    if (parsed !== undefined) return unwrapJsonErrorMessage(parsed)
+    if (parsed !== undefined) return unwrapJsonErrorMessage(parsed, depth + 1)
     return readNonEmptyString(value)
   }
 
@@ -53,7 +62,7 @@ function unwrapJsonErrorMessage(value: unknown): string | undefined {
 
   const error = value.error
   if (isRecord(error)) {
-    const nested = unwrapJsonErrorMessage(error)
+    const nested = unwrapJsonErrorMessage(error, depth + 1)
     if (nested) return nested
   }
 
@@ -63,6 +72,33 @@ function unwrapJsonErrorMessage(value: unknown): string | undefined {
     readNonEmptyString(value.code) ??
     readNonEmptyString(value.type)
   )
+}
+
+function readErrorRecord(value: unknown): Record<string, unknown> | undefined {
+  if (isRecord(value)) return value
+  if (typeof value !== "string") return undefined
+  const parsed = parseJsonValue(value)
+  return isRecord(parsed) ? parsed : undefined
+}
+
+export function readUpstreamProviderErrorPayload(
+  responseBody: string | undefined,
+): UpstreamProviderErrorPayload | undefined {
+  if (!responseBody) return undefined
+  const root = readErrorRecord(responseBody)
+  if (!root) return undefined
+  const nested = readErrorRecord(root.error)
+  const source = nested ?? root
+  const type = readNonEmptyString(source.type)
+  const code = readNonEmptyString(source.code)
+  const message = readNonEmptyString(source.message)
+  if (!type && !code && !message) return undefined
+
+  return {
+    ...(type ? { type } : {}),
+    ...(code ? { code } : {}),
+    ...(message ? { message } : {}),
+  }
 }
 
 export function normalizeProviderErrorDetails(input: {
