@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import { useDurableScrollTop } from "@/lib/use-durable-scroll-top"
+import {
+  WORKSPACE_DRAWER_UI_EXPLORER,
+  readWorkspaceDrawerUiState,
+  workspaceDrawerUiKey,
+  writeWorkspaceDrawerUiState,
+} from "@/state/workspace-drawer-ui-state"
 import { Button, FolderIcon, cn, toast } from "@buddy/ui"
 import { ChevronDownIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon } from "@/icons/app-icons"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
@@ -47,6 +54,20 @@ const ROOT_DIRECTORY_STATE: ExplorerDirectoryState = {
   children: EMPTY_CHILDREN,
 }
 
+function expandedDirectoryPaths(state: DirectoryStateMap): string[] {
+  return Object.entries(state)
+    .filter(([path, directoryState]) => path !== ROOT_DIRECTORY_PATH && directoryState.expanded)
+    .map(([path]) => path)
+}
+
+function restoreExpandedDirectoryState(expandedPaths: string[] | undefined): DirectoryStateMap {
+  const state: DirectoryStateMap = { [ROOT_DIRECTORY_PATH]: ROOT_DIRECTORY_STATE }
+  for (const path of expandedPaths ?? []) {
+    state[path] = { ...ROOT_DIRECTORY_STATE, expanded: true }
+  }
+  return state
+}
+
 function sortedNodes(paths: string[], nodesByPath: NodeMap) {
   return paths
     .map((path) => nodesByPath[path])
@@ -65,14 +86,22 @@ function FileNodeIcon(props: { node: ProjectExplorerFileNode }) {
 }
 
 export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
+  const drawerUiKey = workspaceDrawerUiKey({
+    directory: props.directory,
+    drawer: WORKSPACE_DRAWER_UI_EXPLORER,
+  })
+  const { containerRef: treeContainerRef, onScroll: onTreeScroll } =
+    useDurableScrollTop(drawerUiKey)
   const previousRefreshRequestRef = useRef(props.refreshRequest)
   const platform = usePlatform()
   const { executePrimary } = useWorkspaceFileOpen(props.directory, props.onOpenResource, {
     benchMode: props.benchMode,
   })
-  const [directoriesByPath, setDirectoriesByPath] = useState<DirectoryStateMap>({
-    [ROOT_DIRECTORY_PATH]: ROOT_DIRECTORY_STATE,
-  })
+  // The drawer unmounts on every chat switch, so expansion is seeded from durable state and the
+  // listings are reloaded rather than cached here.
+  const [directoriesByPath, setDirectoriesByPath] = useState<DirectoryStateMap>(() =>
+    restoreExpandedDirectoryState(readWorkspaceDrawerUiState(drawerUiKey)?.expandedPaths),
+  )
   const [nodesByPath, setNodesByPath] = useState<NodeMap>({})
 
   const loadDirectory = useCallback(
@@ -120,13 +149,25 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   )
 
   useEffect(() => {
-    setDirectoriesByPath({ [ROOT_DIRECTORY_PATH]: ROOT_DIRECTORY_STATE })
+    setDirectoriesByPath(
+      restoreExpandedDirectoryState(readWorkspaceDrawerUiState(drawerUiKey)?.expandedPaths),
+    )
     setNodesByPath({})
-  }, [props.directory])
+  }, [drawerUiKey, props.directory])
 
   useEffect(() => {
     void loadDirectory(ROOT_DIRECTORY_PATH)
   }, [loadDirectory])
+
+  // Restored expansion carries no listings, so every expanded directory loads its own children.
+  // Without this the tree renders open but empty after a chat switch.
+  useEffect(() => {
+    for (const [path, directoryState] of Object.entries(directoriesByPath)) {
+      if (path === ROOT_DIRECTORY_PATH) continue
+      if (!directoryState.expanded || directoryState.loaded || directoryState.loading) continue
+      void loadDirectory(path)
+    }
+  }, [directoriesByPath, loadDirectory])
 
   useEffect(() => {
     if (
@@ -142,13 +183,17 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const toggleDirectory = async (path: string) => {
     const current = directoriesByPath[path]
     const expanded = !(current?.expanded ?? false)
-    setDirectoriesByPath((state) => ({
-      ...state,
-      [path]: {
-        ...(state[path] ?? ROOT_DIRECTORY_STATE),
-        expanded,
-      },
-    }))
+    setDirectoriesByPath((state) => {
+      const next = {
+        ...state,
+        [path]: {
+          ...(state[path] ?? ROOT_DIRECTORY_STATE),
+          expanded,
+        },
+      }
+      writeWorkspaceDrawerUiState(drawerUiKey, { expandedPaths: expandedDirectoryPaths(next) })
+      return next
+    })
     if (expanded && !current?.loaded) await loadDirectory(path)
   }
 
@@ -285,7 +330,11 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
           </Button>
         </header>
       ) : null}
-      <div className="scrollbar-hover min-h-0 flex-1 overflow-y-auto p-1.5">
+      <div
+        ref={treeContainerRef}
+        onScroll={onTreeScroll}
+        className="scrollbar-hover min-h-0 flex-1 overflow-y-auto p-1.5"
+      >
         {rootState?.error ? (
           <p className="p-2 text-xs text-icon-critical-base">{rootState.error}</p>
         ) : null}

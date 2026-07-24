@@ -1,4 +1,12 @@
-import { forwardRef, type ComponentType, type Ref, type ReactNode } from "react"
+import {
+  forwardRef,
+  useCallback,
+  type ComponentType,
+  type MutableRefObject,
+  type Ref,
+  type ReactNode,
+} from "react"
+import { useDurableScrollTop } from "@/lib/use-durable-scroll-top"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Badge, Button, Input, Skeleton, Spinner, XIcon, cn } from "@buddy/ui"
 import { ChevronRightIcon, SearchIcon } from "@/icons/app-icons"
@@ -24,6 +32,8 @@ type RightWorkspaceDrawerShellProps = {
   toolbar?: ReactNode
   bodyClassName?: string
   scrollRef?: Ref<HTMLDivElement>
+  /** Restores and records this drawer's scroll position across the unmount every chat switch causes. */
+  durableScrollKey?: string
   onSearchValueChange?: (value: string) => void
   onClose: () => void
   children: ReactNode
@@ -50,6 +60,23 @@ type RightWorkspaceVirtualListProps<TItem> = {
 
 export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps) {
   const ActionIcon = props.action?.icon
+  const { containerRef: durableScrollRef, onScroll: onDurableScroll } = useDurableScrollTop(
+    props.durableScrollKey ?? "",
+  )
+  const scrollRef = props.scrollRef
+  const setScrollNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      durableScrollRef.current = node
+      if (typeof scrollRef === "function") {
+        scrollRef(node)
+        return
+      }
+      if (scrollRef) {
+        ;(scrollRef as MutableRefObject<HTMLDivElement | null>).current = node
+      }
+    },
+    [durableScrollRef, scrollRef],
+  )
 
   return (
     <section
@@ -114,7 +141,8 @@ export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps)
       ) : null}
 
       <div
-        ref={props.scrollRef}
+        ref={setScrollNode}
+        onScroll={onDurableScroll}
         data-component="right-workspace-drawer-scroll"
         className={cn("scrollbar-hover min-h-0 flex-1 overflow-y-auto p-3", props.bodyClassName)}
       >

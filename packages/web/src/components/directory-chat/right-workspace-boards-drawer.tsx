@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import {
   Button,
   Empty,
@@ -68,6 +69,7 @@ export function RightWorkspaceBoardsDrawer(props: RightWorkspaceBoardsDrawerProp
 
   return (
     <RightWorkspaceDrawerShell
+      durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "boards" })}
       title="Boards"
       action={
         !board

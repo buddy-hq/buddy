@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSearch } from "@tanstack/react-router"
 import {
@@ -374,6 +375,7 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
 
   return (
     <RightWorkspaceDrawerShell
+      durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "sources" })}
       title="Sources"
       searchLabel="Search sources…"
       searchValue={search}
@@ -664,6 +666,7 @@ export function PracticeDrawer(props: CatalogDrawerProps) {
 
   return (
     <RightWorkspaceDrawerShell
+      durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "practice" })}
       title="Practice"
       searchLabel="Search practice…"
       searchValue={search}
@@ -1068,6 +1071,7 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
 
   return (
     <RightWorkspaceDrawerShell
+      durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "creations" })}
       title="Creations"
       searchLabel="Search creations…"
       searchValue={search}

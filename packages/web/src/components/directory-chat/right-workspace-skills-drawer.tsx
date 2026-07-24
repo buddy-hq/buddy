@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Badge,
@@ -577,6 +578,7 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
   return (
     <>
       <RightWorkspaceDrawerShell
+        durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "skills" })}
         title={language.t("sidebar.skills")}
         searchLabel={language.t("skills.searchPlaceholder")}
         searchValue={search}

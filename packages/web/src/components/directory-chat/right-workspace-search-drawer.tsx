@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react"
+import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import { useQuery } from "@tanstack/react-query"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import {
@@ -448,6 +449,7 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
 
   return (
     <RightWorkspaceDrawerShell
+      durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "search" })}
       title="Search"
       searchLabel="Search this notebook…"
       searchValue={query}
