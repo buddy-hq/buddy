@@ -5,6 +5,7 @@ import {
   TODO_DOCK_MODE_OPEN,
   TODO_DOCK_MODE_UNSEEN,
   reconcileTodoDockViewState,
+  resetTodoDockAfterTurn,
   todoDockModeForScope,
   type TodoDockViewState,
 } from "../src/components/prompt/todo-dock-state"
@@ -40,6 +41,20 @@ describe("todo dock state", () => {
     const hidden = { [SCOPE]: TODO_DOCK_MODE_HIDDEN } satisfies TodoDockViewState
 
     expect(reconcile(hidden, { hasTodos: true })).toBe(hidden)
+  })
+
+  test("closes an open dock at the end of a turn without consuming the next auto-open", () => {
+    const open = { [SCOPE]: TODO_DOCK_MODE_OPEN } satisfies TodoDockViewState
+    const reset = resetTodoDockAfterTurn(open, SCOPE)
+
+    expect(todoDockModeForScope(reset, SCOPE)).toBe(TODO_DOCK_MODE_UNSEEN)
+    expect(reconcile(reset, { hasTodos: true })).toEqual({ [SCOPE]: TODO_DOCK_MODE_OPEN })
+  })
+
+  test("preserves an explicit hidden override when a turn ends", () => {
+    const hidden = { [SCOPE]: TODO_DOCK_MODE_HIDDEN } satisfies TodoDockViewState
+
+    expect(resetTodoDockAfterTurn(hidden, SCOPE)).toBe(hidden)
   })
 
   test("clearing the list resets automatic opening for the next lifecycle", () => {

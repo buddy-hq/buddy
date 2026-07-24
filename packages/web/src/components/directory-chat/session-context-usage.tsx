@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Badge, buttonVariants, cn } from "@buddy/ui"
 import { Popover, PopoverContent, PopoverTrigger } from "@buddy/ui/components/ui/popover"
@@ -30,8 +30,6 @@ type SessionContextUsageProps = {
     contextLimit?: number
   }
 }
-
-const HOVER_CLOSE_DELAY_MS = 100
 
 // The filled portion of a meter is a foreground *mark* carrying a status, so it
 // draws from the icon (foreground) family — the surface family is reserved for
@@ -120,8 +118,6 @@ function ContextRing(props: { usage: number | null }) {
 export function SessionContextUsage(props: SessionContextUsageProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const hoverCloseTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
-  const openedFromHoverRef = useRef(false)
   const queryClient = useQueryClient()
 
   const metrics = useMemo(
@@ -175,32 +171,6 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
         })
       : language.t("chat.sessionContextUsage.noTokens")
 
-  function clearHoverCloseTimeout() {
-    if (hoverCloseTimeoutRef.current === undefined) return
-    clearTimeout(hoverCloseTimeoutRef.current)
-    hoverCloseTimeoutRef.current = undefined
-  }
-
-  function openFromHover() {
-    clearHoverCloseTimeout()
-    if (isOpen) return
-    openedFromHoverRef.current = true
-    setIsOpen(true)
-  }
-
-  function handleOpenChange(open: boolean) {
-    if (open) openedFromHoverRef.current = false
-    setIsOpen(open)
-  }
-
-  function closeFromHover() {
-    clearHoverCloseTimeout()
-    hoverCloseTimeoutRef.current = setTimeout(() => {
-      setIsOpen(false)
-      hoverCloseTimeoutRef.current = undefined
-    }, HOVER_CLOSE_DELAY_MS)
-  }
-
   async function handleRefresh() {
     if (refreshing) return
     setRefreshing(true)
@@ -213,15 +183,9 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
     }
   }
 
-  useEffect(() => clearHoverCloseTimeout, [])
-
   return (
-    <Popover open={isOpen} onOpenChange={handleOpenChange}>
-      <PopoverTrigger
-        asChild
-        onMouseEnter={openFromHover}
-        onMouseLeave={closeFromHover}
-      >
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
         <button
           type="button"
           aria-label={language.t("chat.sessionContextUsage.ariaLabel")}
@@ -236,16 +200,6 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
         align="end"
         sideOffset={8}
         className="composer-surface-menu composer-grain w-72 gap-3 p-3"
-        onMouseEnter={clearHoverCloseTimeout}
-        onMouseLeave={closeFromHover}
-        onOpenAutoFocus={(event) => {
-          if (openedFromHoverRef.current) event.preventDefault()
-        }}
-        onCloseAutoFocus={(event) => {
-          const openedFromHover = openedFromHoverRef.current
-          openedFromHoverRef.current = false
-          if (openedFromHover) event.preventDefault()
-        }}
       >
         {/* Header — selected model, plan badge when known */}
         <div className="flex items-center justify-between gap-3">

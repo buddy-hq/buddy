@@ -13,6 +13,14 @@ export function todoDockModeForScope(state: TodoDockViewState, scope: string): T
   return state[scope] ?? TODO_DOCK_MODE_UNSEEN
 }
 
+export function resetTodoDockAfterTurn(
+  current: TodoDockViewState,
+  scope: string,
+): TodoDockViewState {
+  if (todoDockModeForScope(current, scope) !== TODO_DOCK_MODE_OPEN) return current
+  return { ...current, [scope]: TODO_DOCK_MODE_UNSEEN }
+}
+
 export function reconcileTodoDockViewState(input: {
   current: TodoDockViewState
   scope: string

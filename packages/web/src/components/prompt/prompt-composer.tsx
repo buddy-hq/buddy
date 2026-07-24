@@ -45,6 +45,7 @@ import { TodoDockIndicator } from "./todo-dock-indicator"
 import {
   TODO_DOCK_MODE_HIDDEN,
   TODO_DOCK_MODE_OPEN,
+  resetTodoDockAfterTurn,
   reconcileTodoDockViewState,
   todoDockModeForScope,
   type TodoDockViewState,
@@ -878,6 +879,9 @@ export function PromptComposer(props: PromptComposerProps) {
     } else {
       setBusyStartTime(null)
       setShowGameBall(false)
+      if (wasBusy) {
+        setTodoDockViewState((current) => resetTodoDockAfterTurn(current, promptKey))
+      }
       // Auto-pause game when turn completes (transitions from busy to idle)
       if (wasBusy && isGameVisible) {
         setPaused(true)
@@ -885,7 +889,7 @@ export function PromptComposer(props: PromptComposerProps) {
         setGameVisible(false)
       }
     }
-  }, [props.isBusy, busyStartTime, isGameVisible, setPaused, setMinimized, setGameVisible])
+  }, [props.isBusy, busyStartTime, isGameVisible, promptKey, setPaused, setMinimized, setGameVisible])
 
   useEffect(() => {
     if (!busyStartTime || isQuestionActive) return
