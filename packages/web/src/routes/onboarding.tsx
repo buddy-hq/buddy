@@ -33,6 +33,8 @@ import {
   shouldShowCurrentDesktopOnboarding,
 } from "@/lib/desktop-onboarding"
 import { encodeDirectory } from "@/lib/directory-token"
+import { activateChatDirectory } from "@/lib/active-chat-transition-coordinator"
+import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import { normalizeDirectory, pickProjectDirectory } from "@/lib/directory-picker"
 import {
   ONBOARDING_TEST_SEARCH_VALUE,
@@ -161,7 +163,6 @@ function OnboardingRoute() {
   const personalizationVersionCompleted = useOnboardingStore(
     (state) => state.personalizationVersionCompleted,
   )
-  const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const providerCatalogSnapshotQuery = useQuery(providerCatalogSnapshotQueryOptions())
   const providerCatalogSnapshot =
     providerCatalogSnapshotQuery.data ?? EMPTY_PROVIDER_CATALOG_SNAPSHOT
@@ -304,12 +305,11 @@ function OnboardingRoute() {
     showProviderSelectionStep,
   ])
 
-  function navigateToDirectoryChat(directory: string) {
-    return navigate({
-      to: "/$directory/chat",
-      params: { directory: encodeDirectory(directory) },
-      replace: true,
-    })
+  function navigateToDirectoryChat(
+    directory: string,
+    route: Parameters<typeof buildWorkspaceRouteNavigation>[0]["route"],
+  ) {
+    return navigate(buildWorkspaceRouteNavigation({ directory, route }))
   }
 
   async function handlePrimaryUseSelect(primaryUse: PrimaryUse) {
@@ -341,15 +341,20 @@ function OnboardingRoute() {
   }
 
   async function completeSetupAndContinue(directory: string) {
-    setActiveDirectory(directory)
     markSetupCompleted()
     startPersonalizationVersion(directory)
     setShowProviderSelectionStep(false)
     setShowFolderRecovery(false)
     setError(undefined)
 
-    if (!useOnboardingStore.getState().shouldShowPersonalizationStep()) {
-      await navigateToDirectoryChat(directory)
+    const shouldShowPersonalization =
+      useOnboardingStore.getState().shouldShowPersonalizationStep()
+    const result = await activateChatDirectory({
+      directory,
+      navigate: shouldShowPersonalization ? undefined : navigateToDirectoryChat,
+    })
+    if (result.outcome === "failed") {
+      throw result.error
     }
   }
 

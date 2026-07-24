@@ -3,6 +3,7 @@ import type { ObjectWhiteboardSessionReadResponse } from "@buddy/sdk/types"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePlatform } from "@/context/platform"
+import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { whiteboardQueryKeys, whiteboardSessionQueryOptions } from "./whiteboard-query"
 import type {
@@ -20,8 +21,15 @@ import {
   type ProgressiveWhiteboardPreview,
 } from "./whiteboard-progressive"
 import { createWhiteboardShareJson } from "./whiteboard-share"
-import type { WhiteboardLearnerSaveHandler } from "./whiteboard-learner-save"
+import type {
+  WhiteboardLearnerSaveHandler,
+  WhiteboardLearnerSaveSettlement,
+} from "./whiteboard-learner-save"
 import type { MessageWithParts } from "@/state/chat-types"
+import {
+  allowBenchLeave,
+  type BenchLeaveGuardResult,
+} from "@/lib/bench-leave-guard"
 
 const WhiteboardCanvas = lazy(async () => {
   const module = await import("./whiteboard-canvas")
@@ -33,6 +41,9 @@ type WhiteboardPaneProps = {
   sessionID?: string
   isBusy: boolean
   messages: MessageWithParts[]
+  onLeaveGuardChange?: (
+    guard: (() => Promise<BenchLeaveGuardResult>) | undefined,
+  ) => void
 }
 
 type LiveWhiteboardBoard = {
@@ -53,6 +64,12 @@ const ACTIVE_WHITEBOARD_REFETCH_INTERVAL_MS = 250
 const WHITEBOARD_SHARE_OPENING_MESSAGE = "Opening shared board..."
 const WHITEBOARD_SHARE_SAVE_FAILED_MESSAGE =
   "The pending whiteboard edit did not save. Try sharing again after it saves."
+const WHITEBOARD_LEAVE_SAVE_FAILED_MESSAGE =
+  "The pending whiteboard edit did not save. Try switching chats again after it saves."
+const WHITEBOARD_SAVE_CONFLICT_MESSAGE =
+  "The whiteboard changed elsewhere. Review the latest board before switching chats."
+const WHITEBOARD_SAVE_STILL_RUNNING_MESSAGE =
+  "The whiteboard is still saving. Try switching chats again in a moment."
 
 function resolveWhiteboardCanvasKey(input: { sessionID?: string }): string {
   return input.sessionID ?? WHITEBOARD_CANVAS_EMPTY_KEY
@@ -79,6 +96,37 @@ function resolveWhiteboardShareBoard(input: {
   latestBoard?: ShareableWhiteboardBoard | null
 }): ShareableWhiteboardBoard | undefined {
   return input.liveDraftBoard ?? input.latestBoard ?? input.displayedBoard
+}
+
+function resolveWhiteboardLeaveSettlement(
+  settlement: WhiteboardLearnerSaveSettlement | undefined,
+): BenchLeaveGuardResult {
+  if (
+    settlement === undefined ||
+    settlement.status === "clean" ||
+    settlement.status === "saved"
+  ) {
+    return allowBenchLeave()
+  }
+  if (settlement.status === "conflict") {
+    return {
+      status: "block",
+      reason: "conflict",
+      message: WHITEBOARD_SAVE_CONFLICT_MESSAGE,
+    }
+  }
+  if (settlement.status === "still-saving") {
+    return {
+      status: "block",
+      reason: "saving",
+      message: WHITEBOARD_SAVE_STILL_RUNNING_MESSAGE,
+    }
+  }
+  return {
+    status: "block",
+    reason: "save_error",
+    message: WHITEBOARD_LEAVE_SAVE_FAILED_MESSAGE,
+  }
 }
 
 function shouldRefetchWhiteboardAfterBusyChange(input: {
@@ -131,7 +179,7 @@ function resolveWhiteboardRenderReportKey(input: {
 }
 
 export function WhiteboardPane(props: WhiteboardPaneProps) {
-  const { directory, sessionID, isBusy, messages } = props
+  const { directory, sessionID, isBusy, messages, onLeaveGuardChange } = props
   const platform = usePlatform()
   const queryClient = useQueryClient()
   const [sharingBoard, setSharingBoard] = useState(false)
@@ -145,7 +193,8 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   }>()
   const previousBoardKeyRef = useRef<string>()
   const previousBusyRef = useRef(isBusy)
-  const settleLearnerSaveRef = useRef<() => Promise<boolean>>()
+  const surfaceActive = useBenchSurfaceActive()
+  const settleLearnerSaveRef = useRef<() => Promise<WhiteboardLearnerSaveSettlement>>()
   const sessionQuery = useQuery({
     ...whiteboardSessionQueryOptions(directory, sessionID ?? ""),
     enabled: Boolean(sessionID),
@@ -251,6 +300,8 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   }, [boardID, hasActiveWhiteboardCreateTool])
 
   useEffect(() => {
+    // A kept-alive board belonging to another chat stays mounted; it must not keep polling.
+    if (!surfaceActive) return
     if (
       !shouldPollWhiteboardDuringActiveCreate({
         sessionID,
@@ -264,7 +315,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       void refetchSession()
     }, ACTIVE_WHITEBOARD_REFETCH_INTERVAL_MS)
     return () => window.clearInterval(interval)
-  }, [hasActiveWhiteboardCreateTool, refetchSession, sessionID])
+  }, [hasActiveWhiteboardCreateTool, refetchSession, sessionID, surfaceActive])
 
   useEffect(() => {
     const wasBusy = previousBusyRef.current
@@ -297,9 +348,13 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     if (!sessionID || !displayedBoard || sharingBoard) return
     setSharingBoard(true)
     try {
-      const saveSettled = await settleLearnerSaveRef.current?.()
+      const saveSettlement = await settleLearnerSaveRef.current?.()
       const liveDraftBoard = liveDraftBoardRef.current
-      if (saveSettled === false && !liveDraftBoard) {
+      if (
+        (saveSettlement?.status === "save-error" ||
+          saveSettlement?.status === "still-saving") &&
+        !liveDraftBoard
+      ) {
         toast.error(WHITEBOARD_SHARE_SAVE_FAILED_MESSAGE)
         return
       }
@@ -327,9 +382,28 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     }
   }, [directory, displayedBoard, platform, refetchSession, sessionID, sharingBoard])
 
-  const registerLearnerSaveSettler = useCallback((settle: (() => Promise<boolean>) | undefined) => {
-    settleLearnerSaveRef.current = settle
+  const registerLearnerSaveSettler = useCallback(
+    (settle: (() => Promise<WhiteboardLearnerSaveSettlement>) | undefined) => {
+      settleLearnerSaveRef.current = settle
+    },
+    [],
+  )
+
+  const guardWhiteboardLeave = useCallback(async (): Promise<BenchLeaveGuardResult> => {
+    const settlement = await settleLearnerSaveRef.current?.()
+    const result = resolveWhiteboardLeaveSettlement(settlement)
+    if (result.status === "block" && result.reason === "saving") {
+      toast.error(WHITEBOARD_SAVE_STILL_RUNNING_MESSAGE)
+    }
+    return result
   }, [])
+
+  useEffect(() => {
+    onLeaveGuardChange?.(guardWhiteboardLeave)
+    return () => {
+      onLeaveGuardChange?.(undefined)
+    }
+  }, [guardWhiteboardLeave, onLeaveGuardChange])
 
   const captureLiveViewport = useCallback(
     (viewport: WhiteboardViewport) => {
@@ -352,7 +426,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       viewport: WhiteboardViewport
     }) => {
       if (!sessionID) {
-        return { status: "skipped" }
+        return { status: "failed" }
       }
       try {
         const result = await getBuddyClient(directory).objectWhiteboard.session.saveLearnerEdit({
@@ -365,7 +439,8 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
         if (result.response?.status === 409) {
           await refetchSession()
           liveDraftBoardRef.current = undefined
-          return { status: "skipped" }
+          toast.error(WHITEBOARD_SAVE_CONFLICT_MESSAGE)
+          return { status: "conflict" }
         }
         const data = requireBuddyData(result)
         updateSessionData(data)
@@ -448,6 +523,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
 export {
   resolveWhiteboardCanvasKey,
   resolveWhiteboardCanvasViewport,
+  resolveWhiteboardLeaveSettlement,
   resolveWhiteboardRenderReportKey,
   resolveWhiteboardShareBoard,
   shouldPollWhiteboardDuringActiveCreate,

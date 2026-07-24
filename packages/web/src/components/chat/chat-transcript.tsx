@@ -79,6 +79,11 @@ import {
   createAnchorShiftAnimator,
   resolveAnchorShiftPx,
 } from "@/lib/surface-reveal-motion"
+import {
+  markActiveChatDestinationLayoutReady,
+  readActiveChatTransitionID,
+  registerActiveChatDestinationLayout,
+} from "@/lib/active-chat-transition-state"
 import type { ChatTranscriptProps } from "./types"
 
 const HISTORY_PREPEND_TOP_THRESHOLD_PX = 160
@@ -87,6 +92,8 @@ const TIMELINE_SCROLL_END_THRESHOLD_PX = 80
 const TIMELINE_SCROLL_WRITE_EPSILON_PX = 0.5
 const TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX = 1
 const TIMELINE_RESIZE_BOTTOM_REPAIR_DELAY_MS = 120
+const TIMELINE_INITIAL_LAYOUT_QUIET_MS = 120
+const TIMELINE_PENDING_MARKDOWN_SELECTOR = '[data-markdown-parse-state="parsing"]'
 const TIMELINE_RESIZE_STABLE_FRAMES = 30
 const TIMELINE_RESIZE_MAX_FRAMES = 180
 const TIMELINE_INITIAL_VIEWPORT_HEIGHT_PX = 800
@@ -338,8 +345,24 @@ function restoreVisibleTimelineAnchor(input: {
   let stable = 0
   let frameID: number | undefined
   let lastDeltaPx: number | undefined
+  let finished = false
+
+  const finish = () => {
+    if (finished) return
+    finished = true
+    if (frameID !== undefined) {
+      window.cancelAnimationFrame(frameID)
+      frameID = undefined
+    }
+    input.root.removeEventListener("wheel", finish)
+    input.root.removeEventListener("touchstart", finish)
+    input.root.removeEventListener("pointerdown", finish)
+    input.root.removeEventListener("keydown", finish)
+    input.onDone()
+  }
 
   const apply = () => {
+    if (finished) return
     frameID = undefined
     const element = input.root.querySelector<HTMLElement>(
       `[data-timeline-key="${CSS.escape(input.anchor.key)}"]`,
@@ -369,18 +392,21 @@ function restoreVisibleTimelineAnchor(input: {
         lastDeltaPx,
         completed: stable >= TIMELINE_RESIZE_STABLE_FRAMES,
       })
-      input.onDone()
+      finish()
       return
     }
     frameID = window.requestAnimationFrame(apply)
   }
 
+  // Geometry settlement must never compete with an explicit reading gesture. In particular, a
+  // paginated prepend used to pin the compaction boundary for 30 stable frames and make wheel-up
+  // input appear frozen.
+  input.root.addEventListener("wheel", finish, { passive: true })
+  input.root.addEventListener("touchstart", finish, { passive: true })
+  input.root.addEventListener("pointerdown", finish, { passive: true })
+  input.root.addEventListener("keydown", finish)
   frameID = window.requestAnimationFrame(apply)
-  return () => {
-    if (frameID !== undefined) {
-      window.cancelAnimationFrame(frameID)
-    }
-  }
+  return finish
 }
 
 function useStableTimelineRows(rows: TimelineRow[]) {
@@ -964,6 +990,61 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     lastUserMessage?.parts.some((part) => part.optimistic === true) ?? false
   const cacheKey = timelineCacheKey(directory, sessionID)
   const cached = cacheKey ? timelineCache.get(cacheKey) : undefined
+  const [chatTransitionID] = useState(readActiveChatTransitionID)
+  const initialLayoutReadyTimerRef = useRef<number | undefined>(undefined)
+  const initialLayoutReadyRef = useRef(false)
+  const initialLayoutRegisteredRef = useRef(false)
+  const cancelInitialLayoutReady = useCallback(() => {
+    if (initialLayoutReadyTimerRef.current === undefined) return
+    window.clearTimeout(initialLayoutReadyTimerRef.current)
+    initialLayoutReadyTimerRef.current = undefined
+  }, [])
+  const scheduleInitialLayoutReady = useCallback(() => {
+    if (
+      initialLayoutReadyRef.current ||
+      !initialLayoutRegisteredRef.current ||
+      transcriptMeta.loading
+    ) {
+      return
+    }
+    cancelInitialLayoutReady()
+    const markReadyAfterQuietLayout = () => {
+      if (scrollViewportRef?.current?.querySelector(TIMELINE_PENDING_MARKDOWN_SELECTOR)) {
+        initialLayoutReadyTimerRef.current = window.setTimeout(
+          markReadyAfterQuietLayout,
+          TIMELINE_INITIAL_LAYOUT_QUIET_MS,
+        )
+        return
+      }
+      initialLayoutReadyTimerRef.current = undefined
+      initialLayoutReadyRef.current = true
+      markActiveChatDestinationLayoutReady(chatTransitionID)
+    }
+    initialLayoutReadyTimerRef.current = window.setTimeout(
+      markReadyAfterQuietLayout,
+      TIMELINE_INITIAL_LAYOUT_QUIET_MS,
+    )
+  }, [
+    cancelInitialLayoutReady,
+    chatTransitionID,
+    scrollViewportRef,
+    transcriptMeta.loading,
+  ])
+
+  useLayoutEffect(() => {
+    initialLayoutRegisteredRef.current = registerActiveChatDestinationLayout(chatTransitionID)
+    if (!initialLayoutRegisteredRef.current) return
+    if (!transcriptMeta.loading) {
+      scheduleInitialLayoutReady()
+    }
+    return cancelInitialLayoutReady
+  }, [
+    cancelInitialLayoutReady,
+    chatTransitionID,
+    rows.length,
+    scheduleInitialLayoutReady,
+    transcriptMeta.loading,
+  ])
 
   // Entrance animation: play the user block's transform/opacity "pop" once (and
   // its mirror on the assistant's thinking placeholder), only for a genuine
@@ -1231,6 +1312,9 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       ) {
         scheduleResizeBottomRepair()
       }
+      if (previous === undefined || Math.abs(size - previous) > TIMELINE_SCROLL_WRITE_EPSILON_PX) {
+        scheduleInitialLayoutReady()
+      }
     }
 
     // A restored attached offset owns the first paint, but it may no longer be the
@@ -1253,6 +1337,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     hasScrollGesture,
     rowVirtualizer,
     rows,
+    scheduleInitialLayoutReady,
     scheduleResizeBottomRepair,
     scrollViewportRef,
     shouldAnchorBottom,
@@ -1405,6 +1490,15 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     loadingOlderRef.current = true
     void loadOlderTranscriptMessages(directory, sessionID)
       .then(() => {
+        if (shouldAnchorBottom()) {
+          // An attached transcript owns the semantic end. Restoring the previously visible row
+          // after a prepend instead pins that row (often the "Session compacted" boundary) near
+          // the top and fights end anchoring while the new page is measured.
+          prependAnchorRef.current = undefined
+          restoreAnchorCancelRef.current?.()
+          restoreAnchorCancelRef.current = undefined
+          return
+        }
         restorePrependAnchor()
       })
       .finally(() => {
@@ -1415,6 +1509,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     restorePrependAnchor,
     scrollViewportRef,
     sessionID,
+    shouldAnchorBottom,
     transcriptMeta.complete,
     transcriptMeta.cursor,
     transcriptMeta.loading,

@@ -95,8 +95,19 @@ type BenchRouteContextValue = {
 
 const BenchRouteContext = createContext<BenchRouteContextValue | undefined>(undefined)
 
+/**
+ * Wraps every mounted Bench surface — active or parked — so that flipping between the two never
+ * changes the component type at this position. Swapping in a different provider component would
+ * make React unmount and rebuild the whole surface subtree on every chat switch, which is exactly
+ * the rebuild keep-alive exists to prevent.
+ *
+ * A parked surface registers nothing and publishes nothing: registrations resolve by target key,
+ * newest first, so a parked instance could otherwise win the leave guard, `synchronize`, and the
+ * agent-facing context over the surface the user is actually looking at.
+ */
 export function BenchRouteContextProvider(props: {
   state: BenchRuntimeState
+  active: boolean
   visible: boolean
   activeSessionID: string | undefined
   fallbackProvider: BenchFallbackContextProvider
@@ -105,6 +116,7 @@ export function BenchRouteContextProvider(props: {
   children: ReactNode
 }) {
   const workspace = useDirectoryWorkspace()
+  const active = props.active
 
   const flushContext = useCallback(
     (input: { sessionID: string }) => workspace.lifecycle.flushContextBeforePrompt(input),
@@ -126,42 +138,50 @@ export function BenchRouteContextProvider(props: {
       leaveGuard?: (
         input: BenchLeaveGuardInput,
       ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
-    }) =>
-      workspace.lifecycle.registerSurface({
+    }) => {
+      if (!active) return () => undefined
+      return workspace.lifecycle.registerSurface({
         target: input.target,
         getSnapshot: input.getSnapshot,
         subscribe: input.subscribe,
         ...(input.synchronize ? { synchronize: input.synchronize } : {}),
         ...(input.leaveGuard ? { guardLeave: input.leaveGuard } : {}),
-      }),
-    [workspace.lifecycle],
+      })
+    },
+    [active, workspace.lifecycle],
   )
 
   useEffect(() => {
+    if (!active) return
     return workspace.lifecycle.setFallbackProvider(() => props.fallbackProvider.read())
-  }, [props.fallbackProvider, workspace.lifecycle])
+  }, [active, props.fallbackProvider, workspace.lifecycle])
 
   useEffect(() => {
+    if (!active) return
     void workspace.lifecycle.setActiveSessionID(props.activeSessionID)
-  }, [props.activeSessionID, workspace.lifecycle])
+  }, [active, props.activeSessionID, workspace.lifecycle])
 
   useEffect(() => {
+    if (!active) return
     void workspace.lifecycle.publishCurrent()
-  }, [props.fallbackProvider, props.state, props.visible, workspace.lifecycle])
+  }, [active, props.fallbackProvider, props.state, props.visible, workspace.lifecycle])
 
+  const setMode = props.setMode
+  const setFloatingChatState = props.setFloatingChatState
   const value = useMemo(
     () => ({
       state: props.state,
-      setMode: props.setMode,
-      setFloatingChatState: props.setFloatingChatState,
+      setMode: active ? setMode : () => undefined,
+      setFloatingChatState: active ? setFloatingChatState : () => undefined,
       registerSurface,
       flushContext,
-      publishCurrent,
+      publishCurrent: active ? publishCurrent : async () => undefined,
     }),
     [
+      active,
       flushContext,
-      props.setFloatingChatState,
-      props.setMode,
+      setFloatingChatState,
+      setMode,
       props.state,
       publishCurrent,
       registerSurface,

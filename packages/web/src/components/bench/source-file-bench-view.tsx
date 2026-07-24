@@ -288,6 +288,7 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
           ) : null}
           <VersionedTextFileEditor
             ref={editorRef}
+            viewStateScope={props.directory}
             fallbackPath={props.path}
             languageId={monacoLanguageForWorkspacePath(props.path)}
             statusIndicator="none"

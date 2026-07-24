@@ -96,6 +96,63 @@ function isBenchObjectKind(value: string): value is BenchObjectKind {
   )
 }
 
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined
+}
+
+function readNullableString(value: unknown): string | null | undefined {
+  if (value === null) return null
+  return readNonEmptyString(value)
+}
+
+function readBenchTarget(value: unknown): BenchTarget | undefined {
+  if (!isUnknownRecord(value)) return undefined
+  if (value.type === "workspace-file") {
+    const path = readNonEmptyString(value.path)
+    const viewer = value.viewer === "markdown" || value.viewer === "file" ? value.viewer : undefined
+    const fragment =
+      value.fragment === undefined ? undefined : readNonEmptyString(value.fragment)
+    if (!path || !viewer || (value.fragment !== undefined && !fragment)) return undefined
+    return {
+      type: "workspace-file",
+      path,
+      viewer,
+      ...(fragment ? { fragment } : {}),
+    }
+  }
+
+  if (value.type !== "object" || !isUnknownRecord(value.ref)) return undefined
+  const kind = value.ref.kind
+  const objectID = readNonEmptyString(value.ref.objectID)
+  const revisionID = readNullableString(value.ref.revisionID)
+  const itemID = readNullableString(value.ref.itemID)
+  const viewID = readNonEmptyString(value.viewID)
+  if (
+    typeof kind !== "string" ||
+    !isBenchObjectKind(kind) ||
+    !objectID ||
+    revisionID === undefined ||
+    itemID === undefined ||
+    !viewID
+  ) {
+    return undefined
+  }
+  return {
+    type: "object",
+    ref: {
+      kind,
+      objectID,
+      revisionID,
+      itemID,
+    },
+    viewID,
+  }
+}
+
 function isBenchModePreferenceKey(value: unknown): value is BenchModePreferenceKey {
   if (value === "markdown" || value === "file" || value === "reading" || value === "whiteboard") {
     return true
@@ -168,12 +225,18 @@ function isSameBenchTarget(left: BenchTarget, right: BenchTarget): boolean {
   return benchTargetKey(left) === benchTargetKey(right)
 }
 
+function isSessionOwnedBenchTarget(target: BenchTarget): boolean {
+  return target.type === "object" && target.ref.kind === "whiteboard"
+}
+
 export {
   benchModePreferenceKey,
   benchTargetKey,
   defaultBenchObjectViewID,
   isBenchObjectKind,
   isBenchModePreferenceKey,
+  isSessionOwnedBenchTarget,
   isSameBenchTarget,
+  readBenchTarget,
   readBenchChatLayoutMode,
 }

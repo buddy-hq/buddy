@@ -195,6 +195,10 @@ function turnHasCompaction(turn: ChatTurn) {
   return (turn.user?.parts ?? []).some((part) => part.type === "compaction")
 }
 
+function turnHasVisibleUserRow(turn: ChatTurn) {
+  return (turn.user?.parts ?? []).some((part) => part.type !== "compaction")
+}
+
 function turnHasOptimisticUserInput(turn: ChatTurn) {
   return (turn.user?.parts ?? []).some((part) => part.optimistic === true)
 }
@@ -327,7 +331,7 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
       }
     }
 
-    if (turn.user) {
+    if (turn.user && turnHasVisibleUserRow(turn)) {
       rows.push({
         type: "user",
         key: `user:${turn.user.info.id}`,

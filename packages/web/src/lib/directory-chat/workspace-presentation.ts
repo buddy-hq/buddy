@@ -19,6 +19,7 @@ const WORKSPACE_PRESENTATION_CHAT_MIN_WIDTH_PX = 320
 export type WorkspacePresentationKind =
   | "chat"
   | "hydrating"
+  | "transition"
   | "parked-bench"
   | "selector"
   | "docked-bench"
@@ -32,6 +33,7 @@ export type WorkspacePresentation = {
   benchVisible: boolean
   dockedBenchVisible: boolean
   workspaceOpen: boolean
+  transitioning: boolean
   selector: DrawerKind | null
   leftSidebar: {
     visible: boolean
@@ -96,6 +98,16 @@ export function resolveWorkspacePresentation(input: {
   leftSidebarPreferredOpen: boolean
   leftSidebarWidthPx: number
 }): WorkspacePresentation {
+  const transitionFrame =
+    input.hydrated &&
+    (input.projection.pending.status === "chat-transition" ||
+      input.projection.pending.status === "retained-previous")
+      ? input.projection.pending.transitionFrame
+      : undefined
+  const transitioning = transitionFrame !== undefined
+  const transitionDockedBenchOpen = transitionFrame?.kind === "docked-bench"
+  const transitionFloatingBenchOpen = transitionFrame?.kind === "floating-bench"
+  const transitionSelectorOpen = transitionFrame?.kind === "selector"
   const floatingBenchVisible =
     input.hydrated &&
     input.projection.bench.visibility === "visible" &&
@@ -112,6 +124,8 @@ export function resolveWorkspacePresentation(input: {
 
   const kind: WorkspacePresentationKind = !input.hydrated
     ? "hydrating"
+    : transitioning
+      ? "transition"
     : floatingBenchVisible
       ? "floating-bench"
       : dockedBenchVisible
@@ -122,8 +136,12 @@ export function resolveWorkspacePresentation(input: {
             ? "selector"
             : "chat"
 
-  const mode = floatingBenchVisible ? BENCH_CHAT_LAYOUT_FLOATING : BENCH_CHAT_LAYOUT_DOCKED
-  const dockedShellLayout = dockedBenchVisible
+  const mode =
+    floatingBenchVisible || transitionFloatingBenchOpen
+      ? BENCH_CHAT_LAYOUT_FLOATING
+      : BENCH_CHAT_LAYOUT_DOCKED
+  const dockedFrameOpen = dockedBenchVisible || transitionDockedBenchOpen
+  const dockedShellLayout = dockedFrameOpen
     ? resolveDockedBenchShellLayout({
         profile: input.layoutProfile,
         viewport: input.viewport,
@@ -133,7 +151,7 @@ export function resolveWorkspacePresentation(input: {
         leftSidebarWidthPx: input.leftSidebarWidthPx,
       })
     : null
-  const leftSidebarVisible = floatingBenchVisible
+  const leftSidebarVisible = floatingBenchVisible || transitionFloatingBenchOpen
     ? false
     : dockedShellLayout
       ? dockedShellLayout.leftSidebarVisible
@@ -157,7 +175,13 @@ export function resolveWorkspacePresentation(input: {
         chatMinWidthPx: dockedLayout.chatMinWidthPx,
       }
     : selectorLayout
-  const workspaceOpen = floatingBenchVisible || dockedBenchVisible || selectorVisible
+  const workspaceOpen =
+    floatingBenchVisible ||
+    dockedBenchVisible ||
+    selectorVisible ||
+    transitionDockedBenchOpen ||
+    transitionFloatingBenchOpen ||
+    transitionSelectorOpen
 
   return {
     kind,
@@ -165,19 +189,20 @@ export function resolveWorkspacePresentation(input: {
     benchTarget: retainedBenchTarget ? input.projection.bench.target : null,
     retainedBenchTarget,
     benchVisible: floatingBenchVisible || dockedBenchVisible,
-    dockedBenchVisible,
+    dockedBenchVisible: dockedFrameOpen,
     workspaceOpen,
+    transitioning,
     selector: input.hydrated ? input.projection.drawer : null,
     leftSidebar: {
       visible: leftSidebarVisible,
-      overlayEnabled: dockedBenchVisible && !leftSidebarVisible,
+      overlayEnabled: dockedFrameOpen && !leftSidebarVisible,
     },
     workspace: workspaceLayout,
     controls: {
-      showThreadBrowserInTitlebar: dockedBenchVisible && !leftSidebarVisible,
-      showThreadBrowserInPane: floatingBenchVisible,
-      showSidebarThreadControls: dockedBenchVisible && leftSidebarVisible,
-      showFloatChat: dockedBenchVisible,
+      showThreadBrowserInTitlebar: dockedFrameOpen && !leftSidebarVisible,
+      showThreadBrowserInPane: floatingBenchVisible || transitionFloatingBenchOpen,
+      showSidebarThreadControls: dockedFrameOpen && leftSidebarVisible,
+      showFloatChat: dockedFrameOpen,
     },
   }
 }

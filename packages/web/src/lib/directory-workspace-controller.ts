@@ -2,6 +2,7 @@ import type { NavigateOptions } from "@tanstack/react-router"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   buildBenchNavigation,
+  isSessionOwnedBenchTarget,
   isSameBenchTarget,
   readBenchOpenPolicyStateFromLocation,
   resolveBenchOpenPolicy,
@@ -23,6 +24,7 @@ import { readBenchPresentationPreferences } from "@/lib/bench-preferences"
 import {
   BENCH_ROUTE_STATUS_CLOSED,
   BENCH_ROUTE_STATUS_OPEN,
+  WORKSPACE_PENDING_KIND_CHAT_TRANSITION,
   WORKSPACE_PENDING_KIND_NAVIGATION,
   WORKSPACE_PENDING_KIND_WORKSPACE_ONLY,
   WORKSPACE_COMMAND_QUEUE_LIMIT,
@@ -31,6 +33,7 @@ import {
   createExpandedWorkspaceState,
   effectiveWorkspaceProjection,
   isSameBenchRouteSnapshot,
+  workspacePresentationSlotForChat,
   type BenchRouteSnapshot,
   type DirectoryWorkspaceCommand,
   type DirectoryWorkspaceCommandResult,
@@ -59,6 +62,7 @@ type RegisteredNavigationAttempt = {
   origin: Exclude<BenchLeaveOrigin, "route">
   expectedDirectory: string
   expectedRoute: BenchRouteSnapshot
+  leaveGuardSettled: boolean
 }
 
 type NavigationAttemptOutcome = {
@@ -176,11 +180,36 @@ function readBenchRouteSnapshotFromLocation(input: {
   return openPolicyStateToRouteSnapshot(readBenchOpenPolicyStateFromLocation(input))
 }
 
-function buildChatNavigation(directory: string): NavigateOptions {
+function buildChatNavigation(directory: string, replace = true): NavigateOptions {
   return {
     to: "/$directory/chat",
     params: { directory: encodeDirectory(directory) },
-    replace: true,
+    replace,
+    viewTransition: false,
+  }
+}
+
+/**
+ * Slot restoration replaces history: a chat switch is not a place the user can go "back" to.
+ * Cross-surface entry points (Settings, the entry page) navigate *into* a notebook and must keep
+ * pushing, so `replace` is the caller's decision rather than a property of the route.
+ */
+function buildWorkspaceRouteNavigation(input: {
+  directory: string
+  route: BenchRouteSnapshot
+  replace?: boolean
+}): NavigateOptions {
+  const replace = input.replace ?? true
+  if (input.route.status === BENCH_ROUTE_STATUS_CLOSED) {
+    return buildChatNavigation(input.directory, replace)
+  }
+  return {
+    ...buildBenchNavigation({
+      directory: input.directory,
+      target: input.route.target,
+      mode: input.route.mode,
+    }),
+    replace,
     viewTransition: false,
   }
 }
@@ -287,6 +316,10 @@ function commandWorkspaceCommit(command: DirectoryWorkspaceCommand): DockedWorks
   switch (command.type) {
     case "close":
     case "collapse":
+    case "prepare-chat-change":
+      return createCollapsedWorkspaceState()
+    case "restore-chat":
+    case "promote-chat":
       return createCollapsedWorkspaceState()
     case "open-drawer":
       return createExpandedWorkspaceState(command.drawer)
@@ -328,8 +361,12 @@ export class DirectoryWorkspaceBlocker {
     origin: Exclude<BenchLeaveOrigin, "route">
     expectedDirectory: string
     expectedRoute: BenchRouteSnapshot
+    leaveGuardSettled?: boolean
   }): void {
-    this.#registeredAttempts.set(input.attemptID, input)
+    this.#registeredAttempts.set(input.attemptID, {
+      ...input,
+      leaveGuardSettled: input.leaveGuardSettled ?? false,
+    })
     this.#controllerAttempts.set(input.attemptID, {
       attemptID: input.attemptID,
       commandID: input.commandID,
@@ -364,6 +401,42 @@ export class DirectoryWorkspaceBlocker {
     this.#disposed = true
     this.supersedeControllerAttempts()
     this.#outcomes.clear()
+  }
+
+  isDisposed(): boolean {
+    return this.#disposed
+  }
+
+  async guardChatTransition(input: {
+    next: BenchRouteSnapshot
+    origin: Exclude<BenchLeaveOrigin, "route">
+  }): Promise<BenchLeaveGuardResult> {
+    if (this.#disposed) {
+      return {
+        status: "block",
+        reason: "sync_error",
+        message: "The workspace is no longer active.",
+      }
+    }
+    const current = this.#getCurrentRoute()
+    if (current.status !== BENCH_ROUTE_STATUS_OPEN) return allowBenchLeave()
+    if (
+      !isSessionOwnedBenchTarget(current.target) &&
+      !isGuardedRouteChange({
+        currentDirectory: this.#directory,
+        nextDirectory: this.#directory,
+        current,
+        next: input.next,
+      })
+    ) {
+      return allowBenchLeave()
+    }
+    return this.#guardLeave({
+      intent: input.next.status === BENCH_ROUTE_STATUS_OPEN ? "replace-target" : "close",
+      origin: input.origin,
+      current: current.target,
+      next: input.next.status === BENCH_ROUTE_STATUS_OPEN ? input.next.target : null,
+    })
   }
 
   async shouldBlockNavigation(nextLocation: DirectoryWorkspaceLocation): Promise<boolean> {
@@ -413,6 +486,15 @@ export class DirectoryWorkspaceBlocker {
           outcome: "allowed",
         })
       }
+      return false
+    }
+
+    if (registeredAttempt?.leaveGuardSettled) {
+      this.#recordOutcome({
+        attemptID: registeredAttempt.attemptID,
+        commandID: registeredAttempt.commandID,
+        outcome: "allowed",
+      })
       return false
     }
 
@@ -498,6 +580,31 @@ export class DirectoryWorkspaceController {
     })
   }
 
+  isDisposed(): boolean {
+    return this.#disposed
+  }
+
+  authorizePreparedChatNavigation(input: {
+    directory: string
+    route: BenchRouteSnapshot
+  }): () => void {
+    if (this.#disposed) return () => undefined
+    const commandID = createWorkspaceCommandID()
+    const attemptID = createWorkspaceAttemptID()
+    this.#blocker.supersedeControllerAttempts()
+    this.#blocker.registerControllerAttempt({
+      commandID,
+      attemptID,
+      origin: "user",
+      expectedDirectory: input.directory,
+      expectedRoute: input.route,
+      leaveGuardSettled: true,
+    })
+    return () => {
+      this.#blocker.finishControllerAttempt(attemptID)
+    }
+  }
+
   async execute(
     command: DirectoryWorkspaceCommand,
     options: DirectoryWorkspaceCommandOptions = { origin: "user" },
@@ -579,6 +686,27 @@ export class DirectoryWorkspaceController {
           command,
         })
         return this.#executeWorkspaceOnlyCommand(commandID, command)
+      }
+
+      if (command.type === "prepare-chat-change") {
+        return await this.#executePrepareChatChangeCommand(commandID, command, options)
+      }
+
+      if (command.type === "restore-chat") {
+        return await this.#executeRestoreChatCommand(commandID, command, options)
+      }
+
+      if (command.type === "promote-chat") {
+        const previousProjection = this.#currentProjection()
+        this.#store.getState().promoteChatSlot({
+          from: command.from,
+          to: command.to,
+        })
+        const projection = this.#currentProjection()
+        return committedProjectionResult({
+          changed: didProjectionChange({ previous: previousProjection, next: projection }),
+          projection,
+        })
       }
 
       if (command.type === "close") {
@@ -965,6 +1093,134 @@ export class DirectoryWorkspaceController {
     })
   }
 
+  async #executePrepareChatChangeCommand(
+    commandID: string,
+    command: Extract<DirectoryWorkspaceCommand, { type: "prepare-chat-change" }>,
+    options: DirectoryWorkspaceCommandOptions,
+  ): Promise<DirectoryWorkspaceCommandResult> {
+    const currentRoute = this.#routeForNextCommand()
+    const previousProjection = this.#currentProjection()
+    const currentPendingIntent = this.#store.getState().pendingIntent
+    const destinationSlot = command.resetDestination
+      ? {
+          route: { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot,
+          docked: createCollapsedWorkspaceState(),
+          lastDrawer: this.#store.getState().lastDrawer,
+        }
+      : workspacePresentationSlotForChat(
+          this.#store.getState().slots,
+          command.destinationChatKey,
+        )
+    if (currentPendingIntent?.kind !== WORKSPACE_PENDING_KIND_CHAT_TRANSITION) {
+      const guardResult = await this.#blocker.guardChatTransition({
+        next: destinationSlot.route,
+        origin: options.origin,
+      })
+      if (guardResult.status === "block") {
+        return blockedProjectionResult(previousProjection)
+      }
+    }
+    if (this.#disposed || this.#activeCommandID !== commandID) {
+      return supersededProjectionResult(this.#currentProjection())
+    }
+    if (
+      currentPendingIntent?.kind !== WORKSPACE_PENDING_KIND_CHAT_TRANSITION &&
+      this.#store.getState().activeChatKey === command.outgoingChatKey
+    ) {
+      this.#store.getState().captureChatSlot({
+        chatKey: command.outgoingChatKey,
+        route: currentRoute,
+      })
+    }
+    this.#store.getState().stageChatTransition({
+      commandID,
+      chatKey: command.destinationChatKey,
+      reset: command.resetDestination,
+      previousProjection,
+    })
+    const projection = this.#currentProjection()
+    return committedProjectionResult({
+      changed: didProjectionChange({ previous: previousProjection, next: projection }),
+      projection,
+    })
+  }
+
+  async #executeRestoreChatCommand(
+    commandID: string,
+    command: Extract<DirectoryWorkspaceCommand, { type: "restore-chat" }>,
+    options: DirectoryWorkspaceCommandOptions,
+  ): Promise<DirectoryWorkspaceCommandResult> {
+    const state = this.#store.getState()
+    const previousProjection = this.#currentProjection()
+    const leaveGuardSettled =
+      state.pendingIntent?.kind === WORKSPACE_PENDING_KIND_CHAT_TRANSITION
+    if (state.activeChatKey !== command.chatKey) {
+      state.stageChatTransition({
+        commandID,
+        chatKey: command.chatKey,
+        reset: false,
+        previousProjection,
+      })
+    }
+    const slot = workspacePresentationSlotForChat(this.#store.getState().slots, command.chatKey)
+    const currentRoute = this.#routeForNextCommand()
+    if (isSameBenchRouteSnapshot(currentRoute, slot.route)) {
+      this.#store.getState().setPendingIntent({
+        kind: WORKSPACE_PENDING_KIND_WORKSPACE_ONLY,
+        commandID,
+        previousProjection,
+        workspaceCommit: slot.docked,
+      })
+      this.#store.getState().commitDockedState({
+        commandID,
+        docked: slot.docked,
+      })
+      const projection = this.#currentProjection()
+      return committedProjectionResult({
+        changed: didProjectionChange({ previous: previousProjection, next: projection }),
+        projection,
+      })
+    }
+
+    const result = await this.#executeNavigationCommand({
+      commandID,
+      expectedDirectory: this.#directory,
+      expectedRoute: slot.route,
+      workspaceCommit: slot.docked,
+      navigateOptions: buildWorkspaceRouteNavigation({
+        directory: this.#directory,
+        route: slot.route,
+      }),
+      origin: options.origin,
+      leaveGuardSettled,
+    })
+    if (result.outcome !== "committed" && result.outcome !== "superseded") {
+      this.#commitRestoreFallback(commandID, previousProjection)
+    }
+    return result
+  }
+
+  /**
+   * A restore navigation that neither committed nor was superseded leaves the destination chat
+   * without a presentation. Commit a collapsed slot under the still-live command ID so the
+   * projection cannot keep reporting a chat transition, and so the destination never inherits the
+   * outgoing chat's Bench route. A superseded restore is skipped: the newer command owns the store.
+   */
+  #commitRestoreFallback(commandID: string, previousProjection: EffectiveWorkspaceProjection): void {
+    const docked = createCollapsedWorkspaceState()
+    this.#store.getState().setPendingIntent({
+      kind: WORKSPACE_PENDING_KIND_WORKSPACE_ONLY,
+      commandID,
+      previousProjection,
+      workspaceCommit: docked,
+    })
+    this.#store.getState().commitDockedState({
+      commandID,
+      docked,
+      route: { status: BENCH_ROUTE_STATUS_CLOSED },
+    })
+  }
+
   async #executeSetModeCommand(
     commandID: string,
     mode: BenchMode,
@@ -1028,6 +1284,7 @@ export class DirectoryWorkspaceController {
     workspaceCommit: DockedWorkspaceState
     navigateOptions: NavigateOptions
     origin: Exclude<BenchLeaveOrigin, "route">
+    leaveGuardSettled?: boolean
   }): Promise<DirectoryWorkspaceCommandResult> {
     const previousProjection = this.#currentProjection()
     const attemptID = createWorkspaceAttemptID()
@@ -1060,6 +1317,7 @@ export class DirectoryWorkspaceController {
       origin: input.origin,
       expectedDirectory: input.expectedDirectory,
       expectedRoute: input.expectedRoute,
+      leaveGuardSettled: input.leaveGuardSettled,
     })
 
     let navigatedLocation: DirectoryWorkspaceLocation
@@ -1155,6 +1413,7 @@ export class DirectoryWorkspaceController {
     this.#store.getState().commitDockedState({
       commandID: input.commandID,
       docked: input.workspaceCommit,
+      route: finalRoute,
     })
     const projection = this.#projectionForRoute(finalRoute)
     const changed = didProjectionChange({ previous: previousProjection, next: projection })
@@ -1218,6 +1477,7 @@ export class DirectoryWorkspaceController {
 
 export {
   buildChatNavigation,
+  buildWorkspaceRouteNavigation,
   readBenchRouteSnapshotFromLocation,
   type DirectoryWorkspaceCommandOptions,
   type DirectoryWorkspaceLocation,

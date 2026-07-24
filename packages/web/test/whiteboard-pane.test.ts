@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   resolveWhiteboardCanvasKey,
   resolveWhiteboardCanvasViewport,
+  resolveWhiteboardLeaveSettlement,
   resolveWhiteboardRenderReportKey,
   resolveWhiteboardShareBoard,
   shouldPollWhiteboardDuringActiveCreate,
@@ -22,6 +23,24 @@ const draftElements: PersistedWhiteboardElement[] = [
 ]
 
 describe("whiteboard pane state helpers", () => {
+  test("allows settled saves and blocks every unresolved learner-save outcome", () => {
+    expect(resolveWhiteboardLeaveSettlement(undefined)).toEqual({ status: "allow" })
+    expect(resolveWhiteboardLeaveSettlement({ status: "clean" })).toEqual({ status: "allow" })
+    expect(resolveWhiteboardLeaveSettlement({ status: "saved" })).toEqual({ status: "allow" })
+    expect(resolveWhiteboardLeaveSettlement({ status: "conflict" })).toMatchObject({
+      status: "block",
+      reason: "conflict",
+    })
+    expect(resolveWhiteboardLeaveSettlement({ status: "save-error" })).toMatchObject({
+      status: "block",
+      reason: "save_error",
+    })
+    expect(resolveWhiteboardLeaveSettlement({ status: "still-saving" })).toMatchObject({
+      status: "block",
+      reason: "saving",
+    })
+  })
+
   test("keeps one canvas instance for the full chat session", () => {
     const firstEditable = resolveWhiteboardCanvasKey({
       sessionID: "session",

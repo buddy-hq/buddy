@@ -59,7 +59,8 @@ type ChatLeftSidebarProps = {
     enableAutoExtract?: boolean,
   ) => void | Promise<void>
   onNewSession: (directory?: string) => void
-  onSelectSession: (directory: string, sessionID?: string) => void
+  /** Resolves false when the transition was blocked or failed and the active chat did not change. */
+  onSelectSession: (directory: string, sessionID?: string) => Promise<boolean>
   onPrefetchSession?: (directory: string, sessionID: string) => void
   onTogglePin: (directory: string, sessionID: string) => void
   onToggleUnread: (directory: string, sessionID: string, unread: boolean) => void
@@ -441,7 +442,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               setExpandedDirectories((current) => toggleDirectoryPresence(current, directory))
             }}
             onSelectSession={(directory, sessionID) => {
-              props.onSelectSession(directory, sessionID)
+              void props.onSelectSession(directory, sessionID)
             }}
             onPrefetchSession={props.onPrefetchSession}
             onTogglePin={props.onTogglePin}

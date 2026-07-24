@@ -6,7 +6,17 @@ type WhiteboardLearnerSaveInput = {
   viewport: WhiteboardViewport
 }
 
-type WhiteboardLearnerSaveResult = { status: "saved" } | { status: "skipped" | "failed" }
+type WhiteboardLearnerSaveResult =
+  | { status: "saved" }
+  | { status: "conflict" }
+  | { status: "failed" }
+
+export type WhiteboardLearnerSaveSettlement =
+  | { status: "clean" }
+  | { status: "saved" }
+  | { status: "save-error" }
+  | { status: "conflict" }
+  | { status: "still-saving" }
 
 type WhiteboardLearnerSaveHandler = (
   input: WhiteboardLearnerSaveInput,
@@ -18,7 +28,7 @@ type PendingWhiteboardLearnerSave = WhiteboardLearnerSaveInput & {
 
 type WhiteboardLearnerSaveScheduler = {
   schedule(input: PendingWhiteboardLearnerSave): void
-  flush(): Promise<boolean>
+  flush(): Promise<WhiteboardLearnerSaveSettlement>
   clear(): void
 }
 
@@ -28,7 +38,7 @@ function createWhiteboardLearnerSaveScheduler(input: {
   let timer: ReturnType<typeof setTimeout> | undefined
   let pending: PendingWhiteboardLearnerSave | undefined
   let saving = false
-  let activeSavePromise: Promise<boolean> | undefined
+  let activeSavePromise: Promise<WhiteboardLearnerSaveSettlement> | undefined
   let activeSaveToken: symbol | undefined
 
   function clearTimer(): void {
@@ -41,13 +51,13 @@ function createWhiteboardLearnerSaveScheduler(input: {
     return pending
   }
 
-  function flush(): Promise<boolean> {
+  function flush(): Promise<WhiteboardLearnerSaveSettlement> {
     clearTimer()
     const next = pending
     if (saving) {
-      return activeSavePromise ?? Promise.resolve(true)
+      return activeSavePromise ?? Promise.resolve({ status: "still-saving" })
     }
-    if (!next) return Promise.resolve(true)
+    if (!next) return Promise.resolve({ status: "clean" })
     pending = undefined
     const { save, ...payload } = next
     saving = true
@@ -58,10 +68,10 @@ function createWhiteboardLearnerSaveScheduler(input: {
       try {
         const result = await save(payload)
         const queued = readPendingSave()
-        if (result.status === "skipped" && queued?.baseBoardID === next.baseBoardID) {
+        if (result.status === "conflict" && queued?.baseBoardID === next.baseBoardID) {
           pending = undefined
         }
-        if (result.status !== "failed" && readPendingSave()) {
+        if (result.status === "saved" && readPendingSave()) {
           saving = false
           activeSavePromise = undefined
           activeSaveToken = undefined
@@ -71,10 +81,11 @@ function createWhiteboardLearnerSaveScheduler(input: {
         if (result.status === "failed") {
           if (!queued) pending = next
         }
-        return result.status === "saved"
+        if (result.status === "failed") return { status: "save-error" }
+        return result
       } catch {
         if (!readPendingSave()) pending = next
-        return false
+        return { status: "save-error" }
       } finally {
         if (clearActiveSave && activeSaveToken === saveToken) {
           saving = false
@@ -107,4 +118,5 @@ export type {
   WhiteboardLearnerSaveHandler,
   WhiteboardLearnerSaveInput,
   WhiteboardLearnerSaveResult,
+  WhiteboardLearnerSaveScheduler,
 }

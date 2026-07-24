@@ -21,24 +21,43 @@ import {
 } from "../src/components/directory-chat/directory-workspace-context"
 import {
   DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
+  BENCH_ROUTE_STATUS_CLOSED,
+  BENCH_ROUTE_STATUS_OPEN,
   WORKSPACE_DRAWER_SOURCES,
+  WORKSPACE_HYDRATION_FAILED,
   WORKSPACE_HYDRATION_PENDING,
   WORKSPACE_HYDRATION_READY,
   WORKSPACE_VISIBILITY_COLLAPSED,
   WORKSPACE_VISIBILITY_EXPANDED,
+  type BenchRouteSnapshot,
   type DirectoryWorkspacePersistenceStorage,
+  type DockedWorkspaceState,
 } from "../src/state/directory-workspace-store"
 import {
+  BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
   BENCH_CHAT_SEARCH_PARAM,
   BENCH_DOCK_FLOATING_CHAT_EVENT,
+  type BenchTarget,
 } from "../src/lib/bench-navigation"
+import { resetActiveChatTransitionStateForTests } from "../src/lib/active-chat-transition-state"
+import { WORKSPACE_CHAT_DRAFT_KEY } from "../src/lib/workspace-chat-key"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_STRICT_MODE_DIRECTORY = "/repo-strict-mode"
 const TEST_TITLEBAR_DIRECTORY = "/repo-titlebar"
 const TEST_DIRECT_BENCH_DIRECTORY = "/repo-direct-bench"
 const FLUSH_DELAY_MS = 0
+const TEST_DIRECT_BENCH_TARGET = {
+  type: "workspace-file",
+  path: "docs/direct.md",
+  viewer: "markdown",
+} satisfies BenchTarget
+const TEST_DIRECT_BENCH_ROUTE = {
+  status: BENCH_ROUTE_STATUS_OPEN,
+  target: TEST_DIRECT_BENCH_TARGET,
+  mode: BENCH_CHAT_LAYOUT_DOCKED,
+} satisfies BenchRouteSnapshot
 const TEST_DESKTOP_PLATFORM = {
   ...createBrowserPlatform(),
   platform: "desktop",
@@ -60,6 +79,7 @@ function WorkspaceProbe() {
     <div>
       <span data-testid="hydration">{hydration}</span>
       <span data-testid="visibility">{visibility}</span>
+      <span data-testid="drawer">{workspace.projection.drawer ?? "none"}</span>
       <button
         type="button"
         data-testid="reveal"
@@ -236,10 +256,15 @@ function TestPendingHydrationRouterProvider(props: {
   return <RouterProvider router={router} />
 }
 
-function TestDirectBenchRouterProvider() {
+function TestDirectBenchRouterProvider(props: {
+  persistenceStorage?: DirectoryWorkspacePersistenceStorage
+}) {
   const rootRoute = createRootRoute({
     component: () => (
-      <DirectoryWorkspaceProvider directory={TEST_DIRECT_BENCH_DIRECTORY}>
+      <DirectoryWorkspaceProvider
+        directory={TEST_DIRECT_BENCH_DIRECTORY}
+        persistenceStorage={props.persistenceStorage}
+      >
         <WorkspaceProbe />
       </DirectoryWorkspaceProvider>
     ),
@@ -254,6 +279,21 @@ function TestDirectBenchRouterProvider() {
   })
 
   return <RouterProvider router={router} />
+}
+
+function directBenchPersistedPayload(docked: DockedWorkspaceState): string {
+  return JSON.stringify({
+    version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
+    state: {
+      slots: {
+        [WORKSPACE_CHAT_DRAFT_KEY]: {
+          route: TEST_DIRECT_BENCH_ROUTE,
+          docked,
+          lastDrawer: WORKSPACE_DRAWER_SOURCES,
+        },
+      },
+    },
+  })
 }
 
 function deferredValue<T>() {
@@ -274,6 +314,7 @@ describe("DirectoryWorkspaceProvider", () => {
   let root: Root | undefined
 
   afterEach(async () => {
+    resetActiveChatTransitionStateForTests()
     if (!root || !container) return
     await act(async () => {
       root?.unmount()
@@ -430,8 +471,16 @@ describe("DirectoryWorkspaceProvider", () => {
     const persistedPayload = JSON.stringify({
       version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
       state: {
-        visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_SOURCES,
+        slots: {
+          [WORKSPACE_CHAT_DRAFT_KEY]: {
+            route: { status: BENCH_ROUTE_STATUS_CLOSED },
+            docked: {
+              visibility: WORKSPACE_VISIBILITY_EXPANDED,
+              drawer: null,
+            },
+            lastDrawer: WORKSPACE_DRAWER_SOURCES,
+          },
+        },
       },
     })
     const writes: string[] = []
@@ -459,8 +508,16 @@ describe("DirectoryWorkspaceProvider", () => {
       expect(JSON.parse(write)).toEqual({
         version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
         state: {
-          visibility: WORKSPACE_VISIBILITY_EXPANDED,
-          lastDrawer: WORKSPACE_DRAWER_SOURCES,
+          slots: {
+            [WORKSPACE_CHAT_DRAFT_KEY]: {
+              route: { status: BENCH_ROUTE_STATUS_CLOSED },
+              docked: {
+                visibility: WORKSPACE_VISIBILITY_EXPANDED,
+                drawer: null,
+              },
+              lastDrawer: WORKSPACE_DRAWER_SOURCES,
+            },
+          },
         },
       })
     }
@@ -507,6 +564,126 @@ describe("DirectoryWorkspaceProvider", () => {
     expect(container.querySelector('[data-testid="visibility"]')?.textContent).toBe(
       WORKSPACE_VISIBILITY_EXPANDED,
     )
+  })
+
+  test("hydrates the active draft from its own persisted slot", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const persistenceStorage: DirectoryWorkspacePersistenceStorage = {
+      getItem: () =>
+        JSON.stringify({
+          version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
+          state: {
+            slots: {
+              [WORKSPACE_CHAT_DRAFT_KEY]: {
+                route: { status: BENCH_ROUTE_STATUS_CLOSED },
+                docked: {
+                  visibility: WORKSPACE_VISIBILITY_COLLAPSED,
+                  drawer: null,
+                },
+                lastDrawer: WORKSPACE_DRAWER_SOURCES,
+              },
+            },
+          },
+        }),
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    }
+
+    await act(async () => {
+      root?.render(
+        <TestPendingHydrationRouterProvider persistenceStorage={persistenceStorage} />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-testid="hydration"]')?.textContent).toBe(
+      WORKSPACE_HYDRATION_READY,
+    )
+    expect(container.querySelector('[data-testid="visibility"]')?.textContent).toBe(
+      WORKSPACE_VISIBILITY_COLLAPSED,
+    )
+  })
+
+  test("keeps a matching direct Bench route collapsed after hydration", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const persistenceStorage: DirectoryWorkspacePersistenceStorage = {
+      getItem: () =>
+        directBenchPersistedPayload({
+          visibility: WORKSPACE_VISIBILITY_COLLAPSED,
+          drawer: null,
+        }),
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    }
+
+    await act(async () => {
+      root?.render(<TestDirectBenchRouterProvider persistenceStorage={persistenceStorage} />)
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-testid="visibility"]')?.textContent).toBe(
+      WORKSPACE_VISIBILITY_COLLAPSED,
+    )
+  })
+
+  test("keeps a matching direct Bench route's drawer after hydration", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const persistenceStorage: DirectoryWorkspacePersistenceStorage = {
+      getItem: () =>
+        directBenchPersistedPayload({
+          visibility: WORKSPACE_VISIBILITY_EXPANDED,
+          drawer: WORKSPACE_DRAWER_SOURCES,
+        }),
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    }
+
+    await act(async () => {
+      root?.render(<TestDirectBenchRouterProvider persistenceStorage={persistenceStorage} />)
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe(
+      WORKSPACE_DRAWER_SOURCES,
+    )
+  })
+
+  test("does not persist fallback state after hydration fails", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const writes: string[] = []
+    const persistenceStorage: DirectoryWorkspacePersistenceStorage = {
+      getItem: () => {
+        throw new Error("Temporary storage failure")
+      },
+      setItem: (_name, value) => {
+        writes.push(value)
+      },
+      removeItem: () => undefined,
+    }
+
+    await act(async () => {
+      root?.render(
+        <TestPendingHydrationRouterProvider persistenceStorage={persistenceStorage} />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-testid="hydration"]')?.textContent).toBe(
+      WORKSPACE_HYDRATION_FAILED,
+    )
+    expect(writes).toEqual([])
   })
 
   test("uses expanded defaults for direct Bench routes with no persisted record", async () => {

@@ -13,6 +13,8 @@ type SvgBenchViewProps = {
   src?: string
   actions?: BenchViewerAction[]
   toolbar?: ReactNode
+  /** Persists zoom and pan so a bounded-cache eviction does not reset the view. */
+  viewportKey?: string
 }
 
 type SvgBounds = {
@@ -55,6 +57,7 @@ function SvgBenchViewContent(props: SvgBenchViewProps) {
       subtitle={subtitle}
       actions={actions}
       toolbar={toolbar}
+      {...(props.viewportKey ? { viewportKey: props.viewportKey } : {})}
       controlsPlacement="dock"
       hideHeader
       fitContent

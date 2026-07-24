@@ -1,4 +1,12 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react"
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 import Editor, { type OnMount } from "@monaco-editor/react"
 import {
   Button,
@@ -8,9 +16,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  cn,
 } from "@buddy/ui"
 import { AlertTriangleIcon, PlusIcon, RefreshCwIcon } from "@/icons/app-icons"
 import type { editor as MonacoEditor } from "monaco-editor"
+import { restoreMonacoViewState, saveMonacoViewState } from "@/lib/monaco-view-state"
+import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import { language } from "@/context/language"
 import { useTheme } from "@/theme"
 
@@ -35,6 +46,16 @@ type VersionedTextFileEmptyState = {
   description: string
   createLabel: string
   defaultContent: string
+}
+
+export type VersionedTextFileEditorSurface = {
+  content: string
+  path: string
+  version: string | null
+  dirty: boolean
+  saving: boolean
+  conflict: boolean
+  onChange: (next: string) => void
 }
 
 type VersionedTextFileFlushOptions = {
@@ -96,6 +117,12 @@ type VersionedTextFileExternalRefreshState = {
 
 type VersionedTextFileEditorProps = {
   active?: boolean
+  /**
+   * Scopes cached Monaco view state, normally the notebook directory. Editor paths are
+   * notebook-relative, so without a scope two notebooks holding the same file name would restore
+   * each other's cursor and scroll. Omit it to opt out of view-state caching entirely.
+   */
+  viewStateScope?: string
   reloadKey?: string | number
   className?: string
   fallbackPath: string
@@ -106,6 +133,9 @@ type VersionedTextFileEditorProps = {
   reloadBehavior?: "activate" | "once"
   externalReloadIntervalMs?: number
   editorOptions?: MonacoEditor.IStandaloneEditorConstructionOptions
+  renderEditorSurface?: (surface: VersionedTextFileEditorSurface) => ReactNode
+  /** Removes the outer padding/gap so the editor surface sits flush against its container. */
+  frameless?: boolean
   onSnapshotChange?: (snapshot: VersionedTextFileEditorSnapshot) => void
   load: () => Promise<VersionedTextFileState>
   save: (input: {
@@ -184,21 +214,28 @@ export const VersionedTextFileEditor = forwardRef<
     errorPresentation: errorPresentationProp,
     fallbackPath,
     externalReloadIntervalMs,
+    frameless,
     isVersionConflictError,
     languageId,
     load,
     onSnapshotChange,
     reloadBehavior: reloadBehaviorProp,
     reloadKey,
+    renderEditorSurface,
     save,
     statusIndicator: statusIndicatorProp,
+    viewStateScope,
   } = props
   const { mode: colorMode } = useTheme()
-  const isActive = active ?? true
+  // A kept-alive editor stays mounted while another chat's surface is on screen; it must not keep
+  // polling the file from disk while parked.
+  const surfaceActive = useBenchSurfaceActive()
+  const isActive = (active ?? true) && surfaceActive
   const statusIndicator = statusIndicatorProp ?? "dot"
   const errorPresentation = errorPresentationProp ?? "dialog"
   const reloadBehavior = reloadBehaviorProp ?? "activate"
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
+  const editorPathRef = useRef("")
   const editorContainerRef = useRef<HTMLDivElement | null>(null)
   const [path, setPath] = useState("")
   const [exists, setExists] = useState(false)
@@ -590,8 +627,26 @@ export const VersionedTextFileEditor = forwardRef<
       if (!existsRef.current || savingRef.current) return
       void saveRef.current(contentRef.current)
     })
+    if (viewStateScope) {
+      restoreMonacoViewState({ editor, directory: viewStateScope, path: editorPathRef.current })
+    }
     layoutEditor()
   }
+
+  // Keep-alive is bounded, so this editor can still be evicted and rebuilt. Monaco's view state is
+  // cheap and serializable, so cursor, selection, scroll, and folding survive that rebuild even
+  // when the instance itself does not.
+  useEffect(() => {
+    if (!viewStateScope) return
+    return () => {
+      const editor = editorRef.current
+      if (!editor) return
+      // Read the ref inside the cleanup: at mount time the loaded path is not known yet, so
+      // `editorPath` is still the fallback and saving under it would never match the key
+      // `restoreMonacoViewState` looks up on the next mount.
+      saveMonacoViewState({ editor, directory: viewStateScope, path: editorPathRef.current })
+    }
+  }, [viewStateScope])
 
   useEffect(() => {
     if (!isActive) return
@@ -623,9 +678,16 @@ export const VersionedTextFileEditor = forwardRef<
   }, [isActive])
 
   const editorPath = path || fallbackPath
+  editorPathRef.current = editorPath
 
   return (
-    <div className={`flex h-full min-h-0 flex-1 flex-col gap-3 p-3 ${className ?? ""}`}>
+    <div
+      className={cn(
+        "flex h-full min-h-0 flex-1 flex-col",
+        frameless ? "gap-0" : "gap-3 p-3",
+        className,
+      )}
+    >
       {statusIndicator === "dot" && exists && !conflictMessage ? (
         <div className="flex justify-end">
           <span
@@ -743,30 +805,44 @@ export const VersionedTextFileEditor = forwardRef<
           </p>
         </button>
       ) : exists ? (
-        <div className="min-h-[260px] flex-1 overflow-hidden rounded-md border border-border-base/70 bg-background-base">
-          <div ref={editorContainerRef} className="h-full min-h-[260px]">
-            <Editor
-              height="100%"
-              path={editorPath}
-              language={languageId}
-              theme={colorMode === "dark" ? "vs-dark" : "light"}
-              value={content}
-              onMount={onMount}
-              onChange={(nextValue) => {
-                setContent(nextValue ?? "")
-              }}
-              options={{
-                automaticLayout: true,
-                minimap: { enabled: false },
-                fontSize: 13,
-                scrollBeyondLastLine: false,
-                wordWrap: "off",
-                lineNumbers: "on",
-                ...editorOptions,
-              }}
-            />
+        renderEditorSurface ? (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {renderEditorSurface({
+              content,
+              path: editorPath,
+              version,
+              dirty: content !== savedContent,
+              saving,
+              conflict: conflictMessage !== undefined,
+              onChange: setContent,
+            })}
           </div>
-        </div>
+        ) : (
+          <div className="min-h-[260px] flex-1 overflow-hidden rounded-md border border-border-base/70 bg-background-base">
+            <div ref={editorContainerRef} className="h-full min-h-[260px]">
+              <Editor
+                height="100%"
+                path={editorPath}
+                language={languageId}
+                theme={colorMode === "dark" ? "vs-dark" : "light"}
+                value={content}
+                onMount={onMount}
+                onChange={(nextValue) => {
+                  setContent(nextValue ?? "")
+                }}
+                options={{
+                  automaticLayout: true,
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  scrollBeyondLastLine: false,
+                  wordWrap: "off",
+                  lineNumbers: "on",
+                  ...editorOptions,
+                }}
+              />
+            </div>
+          </div>
+        )
       ) : null}
     </div>
   )

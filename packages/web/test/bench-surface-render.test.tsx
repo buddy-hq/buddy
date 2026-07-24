@@ -33,6 +33,11 @@ import {
   benchTargetKey,
   type BenchTarget,
 } from "../src/lib/bench-navigation"
+import {
+  readBenchSurfaceViewport,
+  useBenchSurfaceUiState,
+  writeBenchSurfaceViewport,
+} from "../src/state/bench-surface-ui-state"
 import type { HtmlWidgetPresentation } from "../src/lib/html-widgets"
 import {
   DirectoryWorkspaceLifecycleService,
@@ -130,6 +135,7 @@ function TestBenchContextProvider(props: { children: ReactNode; target?: BenchTa
     <TestRouterProvider>
       <DirectoryWorkspaceProvider directory={TEST_DIRECTORY}>
         <BenchRouteContextProvider
+          active
           state={{
             directory: TEST_DIRECTORY,
             target,
@@ -348,6 +354,7 @@ describe("bench surface rendering", () => {
 
   beforeEach(() => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    useBenchSurfaceUiState.setState({ viewportByKey: {} })
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -663,6 +670,90 @@ describe("bench surface rendering", () => {
         globalThis.ResizeObserver = originalResizeObserver
       }
     }
+  })
+
+  test("restores a manual zoom and pan after a zoomable surface is evicted", async () => {
+    const viewportKey = "zoomable-surface"
+    writeBenchSurfaceViewport(viewportKey, {
+      zoom: 1.5,
+      autoFit: false,
+      panX: 140,
+      panY: 220,
+    })
+    const originalResizeObserver = globalThis.ResizeObserver
+    Reflect.deleteProperty(globalThis, "ResizeObserver")
+
+    try {
+      await act(async () => {
+        root.render(
+          <BenchZoomableViewer title="Restored asset" fitContent viewportKey={viewportKey}>
+            <div>Asset</div>
+          </BenchZoomableViewer>,
+        )
+        await flushEffects()
+      })
+
+      const viewport = container.querySelector<HTMLElement>(
+        '[data-component="bench-pan-zoom-canvas"]',
+      )
+      const content = container.querySelector<HTMLElement>('[data-component="bench-zoom-content"]')
+      if (!viewport || !content) throw new Error("Expected zoomable Bench elements")
+
+      Object.defineProperties(viewport, {
+        clientWidth: { configurable: true, value: 1_200 },
+        clientHeight: { configurable: true, value: 900 },
+      })
+      Object.defineProperties(content, {
+        offsetWidth: { configurable: true, value: 1_000 },
+        offsetHeight: { configurable: true, value: 500 },
+      })
+
+      await act(async () => {
+        window.dispatchEvent(new Event("resize"))
+        await flushEffects()
+      })
+
+      expect(container.querySelector('[data-component="bench-zoom-label"]')?.textContent).toBe(
+        "150%",
+      )
+      expect(viewport.scrollLeft).toBe(140)
+      expect(viewport.scrollTop).toBe(220)
+    } finally {
+      if (originalResizeObserver) {
+        globalThis.ResizeObserver = originalResizeObserver
+      }
+    }
+  })
+
+  test("captures zoomable pan before the surface DOM is removed", async () => {
+    const viewportKey = "evicted-zoomable-surface"
+
+    await act(async () => {
+      root.render(
+        <BenchZoomableViewer title="Evicted asset" viewportKey={viewportKey}>
+          <div>Asset</div>
+        </BenchZoomableViewer>,
+      )
+      await flushEffects()
+    })
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-component="bench-pan-zoom-canvas"]',
+    )
+    if (!viewport) throw new Error("Expected zoomable Bench viewport")
+    viewport.scrollLeft = 75
+    viewport.scrollTop = 125
+
+    await act(async () => {
+      root.render(<div />)
+      await flushEffects()
+    })
+
+    expect(readBenchSurfaceViewport(viewportKey)).toMatchObject({
+      panX: 75,
+      panY: 125,
+      autoFit: false,
+    })
   })
 
   test("keeps zoomable content centered inside a larger pannable canvas", () => {

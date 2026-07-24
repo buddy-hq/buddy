@@ -3,6 +3,7 @@ import {
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
   BENCH_MODE_REQUEST_POLICY,
   benchTargetKey,
+  readBenchTarget,
   type BenchAutoOpenIdentity,
   type BenchTarget,
 } from "@/lib/bench-navigation"
@@ -40,8 +41,6 @@ type BenchClientActionV1 = {
   expiresAt: number
   command: { type: "present"; target: BenchTarget } | { type: "close" }
 }
-
-type BenchObjectKind = Extract<BenchTarget, { type: "object" }>["ref"]["kind"]
 
 type LedgerEntry =
   | {
@@ -107,59 +106,6 @@ function readString(value: unknown): string | undefined {
 function readNullableString(value: unknown): string | null | undefined {
   if (value === null) return null
   return readString(value)
-}
-
-function isBenchObjectKind(value: unknown): value is BenchObjectKind {
-  return (
-    value === "resource" ||
-    value === "whiteboard" ||
-    value === "html-widget" ||
-    value === "mermaid" ||
-    value === "figure" ||
-    value === "freeform-figure" ||
-    value === "media-presentation" ||
-    value === "question-set" ||
-    value === "flashcard-deck"
-  )
-}
-
-function readBenchTarget(value: unknown): BenchTarget | undefined {
-  if (!isRecord(value)) return undefined
-  if (value.type === "workspace-file") {
-    const filepath = readString(value.path)
-    const viewer = value.viewer === "markdown" || value.viewer === "file" ? value.viewer : undefined
-    if (!filepath || !viewer) return undefined
-    return {
-      type: "workspace-file",
-      path: filepath,
-      viewer,
-    }
-  }
-  if (value.type !== "object" || !isRecord(value.ref)) return undefined
-  const kind = value.ref.kind
-  const objectID = readString(value.ref.objectID)
-  const revisionID = readNullableString(value.ref.revisionID)
-  const itemID = readNullableString(value.ref.itemID)
-  const viewID = readString(value.viewID)
-  if (
-    !isBenchObjectKind(kind) ||
-    !objectID ||
-    revisionID === undefined ||
-    itemID === undefined ||
-    !viewID
-  ) {
-    return undefined
-  }
-  return {
-    type: "object",
-    ref: {
-      kind,
-      objectID,
-      revisionID,
-      itemID,
-    },
-    viewID,
-  }
 }
 
 function readBenchClientAction(value: unknown): BenchClientActionV1 | undefined {

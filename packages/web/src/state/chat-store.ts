@@ -12,6 +12,7 @@ import type {
   SessionInfo,
 } from "./chat-types"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
+import { canonicalProjectDirectory } from "@/lib/project-directory"
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
 
@@ -161,10 +162,7 @@ type PersistedChatStoreState = {
 }
 
 function normalizeProjectDirectory(input: string | undefined) {
-  if (!input) return undefined
-  const trimmed = input.trim()
-  if (!trimmed || trimmed === "/") return undefined
-  return trimmed.replace(/\/+$/, "") || undefined
+  return canonicalProjectDirectory(input)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -20,15 +20,18 @@ import {
   type SettingsTab,
   type SettingsTabDefinition,
 } from "@/components/settings/settings-tabs"
-import { encodeDirectory } from "../lib/directory-token"
 import {
   closeOpenProject,
   openProject,
   reorderOpenProjects,
-  selectSession,
-  startNewSessionDraft,
   updateSession,
 } from "@/state/chat-actions"
+import {
+  activateChatDirectory,
+  runPreparedActiveChatMutation,
+  selectActiveChatSession,
+  startActiveChatDraft,
+} from "@/lib/active-chat-transition-coordinator"
 import {
   openProjectsWithSessionsQueryOptions,
   setOpenProjectsQueryData,
@@ -45,6 +48,7 @@ import { useUiPreferences } from "@/state/ui-preferences"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
 import { readPersonalization } from "@/state/project-config-readers"
 import { pickProjectDirectory } from "../lib/directory-picker"
+import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import {
   readSettingsReturnTo,
   resolveSettingsReturnLocation,
@@ -101,7 +105,6 @@ function SettingsRoute() {
   const openProjects = useChatStore(useShallow((state) => state.openProjects))
   const activeDirectory = useChatStore((state) => state.activeDirectory)
   const directories = useChatStore(useShallow((state) => state.directories))
-  const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
   const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
   const togglePinned = useUiPreferences((state) => state.togglePinned)
@@ -209,11 +212,11 @@ function SettingsRoute() {
     })
   }, [globalConfigQuery.isPending, navigate, standardsStatus, tab, visibleTabIDs])
 
-  function openChat(directory: string) {
-    navigate({
-      to: "/$directory/chat",
-      params: { directory: encodeDirectory(directory) },
-    })
+  async function openChat(
+    directory: string,
+    route: Parameters<typeof buildWorkspaceRouteNavigation>[0]["route"],
+  ) {
+    await navigate(buildWorkspaceRouteNavigation({ directory, route, replace: false }))
   }
 
   async function onOpenDirectory() {
@@ -222,31 +225,43 @@ function SettingsRoute() {
       if (!picked) return
       const nextDirectory = await openProject(picked)
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      setActiveDirectory(nextDirectory)
+      await activateChatDirectory({ directory: nextDirectory })
     } catch {
       toast.error(language.t("routes.settings.openNotebookFailed"))
     }
   }
 
-  function onNewSession(targetDirectory?: string) {
+  async function onNewSession(targetDirectory?: string) {
     const nextDirectory = targetDirectory || currentDirectory
     if (!nextDirectory) return
-    setActiveDirectory(nextDirectory)
-    startNewSessionDraft(nextDirectory)
-    openChat(nextDirectory)
-  }
-
-  async function onSelectSession(targetDirectory: string, targetSessionID?: string) {
-    if (!targetDirectory) return
-    setActiveDirectory(targetDirectory)
-    try {
-      if (targetSessionID) {
-        await selectSession(targetDirectory, targetSessionID)
-      }
-      openChat(targetDirectory)
-    } catch {
+    const result = await startActiveChatDraft({
+      directory: nextDirectory,
+      navigate: openChat,
+    })
+    if (result.outcome === "failed") {
       toast.error(language.t("routes.settings.openThreadFailed"))
     }
+  }
+
+  async function onSelectSession(
+    targetDirectory: string,
+    targetSessionID?: string,
+  ): Promise<boolean> {
+    if (!targetDirectory) return false
+    const result = targetSessionID
+      ? await selectActiveChatSession({
+          directory: targetDirectory,
+          sessionID: targetSessionID,
+          navigate: openChat,
+        })
+      : await activateChatDirectory({
+          directory: targetDirectory,
+          navigate: openChat,
+        })
+    if (result.outcome === "failed") {
+      toast.error(language.t("routes.settings.openThreadFailed"))
+    }
+    return result.outcome === "committed" || result.outcome === "noop"
   }
 
   function onToggleUnread(targetDirectory: string, targetSessionID: string, unread: boolean) {
@@ -261,11 +276,24 @@ function SettingsRoute() {
   async function onArchiveSession(targetDirectory: string, targetSessionID: string) {
     if (!targetDirectory) return
     try {
-      await updateSession({
-        directory: targetDirectory,
-        sessionID: targetSessionID,
-        archivedAt: Date.now(),
-      })
+      const archive = () =>
+        updateSession({
+          directory: targetDirectory,
+          sessionID: targetSessionID,
+          archivedAt: Date.now(),
+        })
+      if (activeDirectory === targetDirectory && activeSessionID === targetSessionID) {
+        const result = await runPreparedActiveChatMutation({
+          directory: targetDirectory,
+          mutate: archive,
+        })
+        if (result.outcome !== "committed") {
+          if (result.outcome === "failed") throw result.error
+          return
+        }
+      } else {
+        await archive()
+      }
       await queryClient.refetchQueries({
         queryKey: directoryChatQueryKeys.sessions(targetDirectory),
         exact: true,
@@ -361,9 +389,9 @@ function SettingsRoute() {
               pinnedByDirectory={pinnedByDirectory}
               unreadByDirectory={unreadByDirectory}
               onOpenDirectory={() => void onOpenDirectory()}
-              onNewSession={(targetDirectory) => void onNewSession(targetDirectory)}
+              onNewSession={(targetDirectory) => onNewSession(targetDirectory)}
               onSelectSession={(targetDirectory, targetSessionID) =>
-                void onSelectSession(targetDirectory, targetSessionID)
+                onSelectSession(targetDirectory, targetSessionID)
               }
               onTogglePin={(targetDirectory, targetSessionID) =>
                 togglePinned(targetDirectory, targetSessionID)

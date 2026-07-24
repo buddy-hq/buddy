@@ -122,7 +122,8 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     <div
       data-component="directory-chat-shell"
       data-right-workspace-open={rightWorkspaceOpen ? "true" : "false"}
-      className="relative grid h-full w-full overflow-hidden bg-surface-raised-base transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none"
+      data-layout-motion="instant"
+      className="relative grid h-full w-full overflow-hidden bg-surface-raised-base transition-none"
       style={{
         gridTemplateColumns: `${leftSidebarResolvedWidth}px minmax(0, 1fr)`,
         gridTemplateRows: `${titlebarHeight}px minmax(0, 1fr)`,

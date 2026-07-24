@@ -59,6 +59,7 @@ import {
 import type { TeachingPromptContext } from "./teaching-runtime"
 import { stringifyError } from "../lib/api-client"
 import { OPENCODE_PROVIDER_ID, OPENAI_PROVIDER_ID } from "../lib/provider-ids"
+import { canonicalProjectDirectory } from "../lib/project-directory"
 
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import type { McpLocalConfig, McpRemoteConfig } from "../components/mcp-dialog/mcp-config-schema"
@@ -288,11 +289,7 @@ function readSessionRuntimeFromResponse(
 }
 
 function normalizeProjectDirectory(directory: string) {
-  const normalized = directory.trim().replace(/\/+$/, "")
-  if (!normalized || normalized === "/") {
-    return undefined
-  }
-  return normalized
+  return canonicalProjectDirectory(directory)
 }
 
 function isNonEmptyString(value: string | undefined): value is string {
@@ -1218,7 +1215,18 @@ async function recoverSessionAfterAbortAttempt(directory: string, sessionID: str
   return !isSessionStatusActive(nextState.sessionStatusByID[sessionID]) && !nextState.isBusy
 }
 
-export async function loadMessages(directory: string, sessionID: string) {
+export async function loadMessages(
+  directory: string,
+  sessionID: string,
+  options?: {
+    /**
+     * The caller is in the middle of selecting this session and has not committed it to the store
+     * yet. Without this the missing-session retry can never run during selection, because its
+     * staleness check compares against the *previously* selected session.
+     */
+    pendingSelection?: boolean
+  },
+) {
   const store = useChatStore.getState()
   const requestSequence = bumpDirectoryRequestSequence(
     latestTranscriptRequestByDirectory,
@@ -1234,9 +1242,11 @@ export async function loadMessages(directory: string, sessionID: string) {
           return false
         }
 
+        const intendedSession =
+          options?.pendingSelection === true || currentSelectedSessionID(directory) === sessionID
         return (
           isMissingSessionError(error) &&
-          currentSelectedSessionID(directory) === sessionID &&
+          intendedSession &&
           (await sessionStillExists(directory, sessionID).catch(() => false))
         )
       },
@@ -1512,27 +1522,63 @@ export async function ensureDirectorySession(directory: string) {
   }
 }
 
-export async function selectSession(directory: string, sessionID: string) {
+export type SessionSelectionResult =
+  | {
+      outcome: "requested"
+      directory: string
+      requestedSessionID: string
+      sessionID: string
+    }
+  | {
+      outcome: "fallback"
+      directory: string
+      requestedSessionID: string
+      sessionID: string
+    }
+  | {
+      outcome: "draft"
+      directory: string
+      requestedSessionID: string
+    }
+  | {
+      outcome: "failed"
+      directory: string
+      requestedSessionID: string
+      error: unknown
+    }
+
+export async function selectSession(
+  directory: string,
+  sessionID: string,
+): Promise<SessionSelectionResult> {
   const store = useChatStore.getState()
-  const current = store.directories[directory]
-  const existing = current?.sessions.find((session) => session.id === sessionID)
-
-  if (existing) {
-    selectCanonicalSession(directory, existing)
-  } else {
-    const info = requireBuddyData<SessionInfo>(
-      await getBuddyClient(directory).session.get({
-        sessionID,
-      }),
-    )
-    selectCanonicalSession(directory, info)
-  }
-
   try {
-    await loadMessages(directory, sessionID)
+    const current = store.directories[directory]
+    const existing = current?.sessions.find((session) => session.id === sessionID)
+    const info =
+      existing ??
+      requireBuddyData<SessionInfo>(
+        await getBuddyClient(directory).session.get({
+          sessionID,
+        }),
+      )
+    await loadMessages(directory, sessionID, { pendingSelection: true })
+    selectCanonicalSession(directory, info)
+    return {
+      outcome: "requested",
+      directory,
+      requestedSessionID: sessionID,
+      sessionID,
+    }
   } catch (error) {
     if (!isMissingSessionError(error)) {
-      throw error
+      store.setDirectoryError(directory, stringifyError(error))
+      return {
+        outcome: "failed",
+        directory,
+        requestedSessionID: sessionID,
+        error,
+      }
     }
 
     const sessions = await loadSessions(directory).catch(() => [])
@@ -1540,7 +1586,11 @@ export async function selectSession(directory: string, sessionID: string) {
     if (!fallback) {
       selectDraftSession(directory)
       store.clearDirectoryError(directory)
-      return
+      return {
+        outcome: "draft",
+        directory,
+        requestedSessionID: sessionID,
+      }
     }
 
     selectCanonicalSession(directory, fallback)
@@ -1549,6 +1599,12 @@ export async function selectSession(directory: string, sessionID: string) {
       .catch(() => false)
     if (fallbackLoaded) {
       store.clearDirectoryError(directory)
+    }
+    return {
+      outcome: "fallback",
+      directory,
+      requestedSessionID: sessionID,
+      sessionID: fallback.id,
     }
   }
 }
@@ -1566,6 +1622,10 @@ export function startNewSessionDraft(directory: string) {
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
   selectDraftSession(directory)
+  return {
+    outcome: "draft" as const,
+    directory,
+  }
 }
 
 async function resolveSessionForSend(directory: string) {

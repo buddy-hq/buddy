@@ -1,6 +1,10 @@
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@buddy/ui"
 import { MinusIcon, PlusIcon, RotateCcwIcon } from "@/icons/app-icons"
 import {
+  readBenchSurfaceViewport,
+  writeBenchSurfaceViewport,
+} from "@/state/bench-surface-ui-state"
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -81,6 +85,11 @@ type BenchZoomableViewerProps = {
   contentClassName?: string
   fitContent?: boolean
   initialZoom?: number
+  /**
+   * Persists zoom and pan for this Bench target so an evicted surface returns where the user left
+   * it. Keep-alive is bounded, so eviction is normal — this is what makes it survivable.
+   */
+  viewportKey?: string
 }
 
 type BenchSize = {
@@ -447,10 +456,20 @@ export function BenchSurfaceViewer(props: BenchSurfaceViewerProps) {
 }
 
 export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
-  const initialZoom = clampZoom(props.initialZoom ?? BENCH_ZOOM_DEFAULT)
+  const viewportKey = props.viewportKey
+  const restoredViewport = useMemo(
+    () => (viewportKey ? readBenchSurfaceViewport(viewportKey) : undefined),
+    [viewportKey],
+  )
+  const initialZoom = clampZoom(restoredViewport?.zoom ?? props.initialZoom ?? BENCH_ZOOM_DEFAULT)
+  const initialAutoFit =
+    restoredViewport?.autoFit ??
+    (restoredViewport?.zoom === undefined &&
+      props.fitContent === true &&
+      props.initialZoom === undefined)
   const [zoomState, setZoomState] = useState<BenchZoomState>({
     zoom: initialZoom,
-    isAutoFit: props.fitContent === true && props.initialZoom === undefined,
+    isAutoFit: initialAutoFit,
   })
   const [dragging, setDragging] = useState(false)
   const [viewportSize, setViewportSize] = useState<BenchSize>({ width: 0, height: 0 })
@@ -458,6 +477,16 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const shouldCenterScrollRef = useRef(true)
+  const restoredPanRef = useRef(
+    initialAutoFit ||
+      restoredViewport?.panX === undefined ||
+      restoredViewport.panY === undefined
+      ? undefined
+      : { panX: restoredViewport.panX, panY: restoredViewport.panY },
+  )
+  const initializationRef = useRef({ initialAutoFit, initialZoom, viewportKey })
+  const zoomStateRef = useRef(zoomState)
+  zoomStateRef.current = zoomState
   const dragStartRef = useRef({
     x: 0,
     y: 0,
@@ -466,12 +495,27 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
   })
 
   useEffect(() => {
+    const previous = initializationRef.current
+    if (
+      previous.initialAutoFit === initialAutoFit &&
+      previous.initialZoom === initialZoom &&
+      previous.viewportKey === viewportKey
+    ) {
+      return
+    }
+    initializationRef.current = { initialAutoFit, initialZoom, viewportKey }
     shouldCenterScrollRef.current = true
+    restoredPanRef.current =
+      initialAutoFit ||
+      restoredViewport?.panX === undefined ||
+      restoredViewport.panY === undefined
+        ? undefined
+        : { panX: restoredViewport.panX, panY: restoredViewport.panY }
     setZoomState({
       zoom: initialZoom,
-      isAutoFit: props.fitContent === true && props.initialZoom === undefined,
+      isAutoFit: initialAutoFit,
     })
-  }, [initialZoom, props.fitContent, props.initialZoom])
+  }, [initialAutoFit, initialZoom, restoredViewport, viewportKey])
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current
@@ -566,10 +610,27 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
       viewportSize,
       metrics: canvasMetrics,
     })
-    viewportRef.current.scrollLeft = scroll.left
-    viewportRef.current.scrollTop = scroll.top
+    // A restored pan wins over centering: the surface is coming back, not opening.
+    viewportRef.current.scrollLeft = restoredPanRef.current?.panX ?? scroll.left
+    viewportRef.current.scrollTop = restoredPanRef.current?.panY ?? scroll.top
+    restoredPanRef.current = undefined
     shouldCenterScrollRef.current = false
   }, [canvasMetrics, viewportSize, zoomState.isAutoFit])
+
+  // Persist zoom and pan for this target so a bounded-cache eviction is survivable.
+  useLayoutEffect(() => {
+    if (!viewportKey) return
+    const viewport = viewportRef.current
+    return () => {
+      writeBenchSurfaceViewport(viewportKey, {
+        zoom: zoomStateRef.current.zoom,
+        autoFit: zoomStateRef.current.isAutoFit,
+        ...(!zoomStateRef.current.isAutoFit && viewport
+          ? { panX: viewport.scrollLeft, panY: viewport.scrollTop }
+          : {}),
+      })
+    }
+  }, [viewportKey])
 
   const zoomControls = useMemo<BenchZoomControls>(
     () => ({

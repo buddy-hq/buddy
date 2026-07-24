@@ -1,6 +1,7 @@
 import "@excalidraw/excalidraw/index.css"
 
-import { Button } from "@buddy/ui"
+import { Button, Skeleton } from "@buddy/ui"
+import { useDelayedPendingVisible } from "@/components/bench/bench-surface-pending"
 import {
   CaptureUpdateAction,
   convertToExcalidrawElements,
@@ -33,6 +34,7 @@ import {
 import {
   createWhiteboardLearnerSaveScheduler,
   type WhiteboardLearnerSaveHandler,
+  type WhiteboardLearnerSaveSettlement,
 } from "./whiteboard-learner-save"
 
 const LEARNER_EDIT_DEBOUNCE_MS = 2_000
@@ -109,7 +111,9 @@ type WhiteboardCanvasProps = {
         }
       | undefined,
   ) => void
-  onSaveSettlerChange?: (settle: (() => Promise<boolean>) | undefined) => void
+  onSaveSettlerChange?: (
+    settle: (() => Promise<WhiteboardLearnerSaveSettlement>) | undefined,
+  ) => void
   onRenderReport?: (report: WhiteboardRenderReport) => void
 }
 
@@ -184,6 +188,28 @@ function viewportToRestoredAppState(
     scrollY: restored.scrollY,
     zoom: fitted.appState.zoom,
   }
+}
+
+/**
+ * Covers the canvas while fonts load and the scene settles.
+ *
+ * The cover is opaque from the first frame so a half-drawn canvas never shows, but it stays
+ * wordless until the settle is slow enough to be worth acknowledging. Most settles finish in a
+ * couple of frames, and a line of text flashing through them read as a glitch, not progress.
+ */
+function WhiteboardCanvasSettlingCover() {
+  const acknowledged = useDelayedPendingVisible()
+
+  return (
+    <div
+      data-component="whiteboard-canvas-settling"
+      className="absolute inset-0 z-10 flex items-center justify-center bg-background-base"
+      role="status"
+      aria-busy
+    >
+      {acknowledged ? <Skeleton className="h-full w-full" /> : null}
+    </div>
+  )
 }
 
 export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: WhiteboardCanvasProps) {
@@ -573,9 +599,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
     <div data-component="whiteboard-canvas" className="relative h-full w-full overflow-hidden">
       <style>{WHITEBOARD_CANVAS_CSS}</style>
       {!fontsReady || !canvasSettled ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-base text-xs text-text-weaker">
-          Preparing whiteboard…
-        </div>
+        <WhiteboardCanvasSettlingCover />
       ) : null}
       {conversion.warning ? (
         <div className="absolute top-3 left-3 z-10 max-w-md rounded-md border border-border-warning-base/60 bg-surface-warning-weak/95 px-3 py-2 text-xs text-text-base shadow-sm">

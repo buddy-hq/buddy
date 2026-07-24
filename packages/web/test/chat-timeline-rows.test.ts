@@ -150,6 +150,33 @@ describe("chat timeline rows", () => {
     expect(populatedRows.at(-1)?.type).toBe("activity")
   })
 
+  test("does not create an empty user row for a compaction-only boundary", () => {
+    const messageID = "msg_compaction"
+    const compactionMessage = createMessageWithParts(
+      createUserMessageInfo({ id: messageID, sessionID: "ses_rows" }),
+      [
+        {
+          id: "prt_compaction",
+          sessionID: "ses_rows",
+          messageID,
+          type: "compaction",
+          auto: true,
+        },
+      ],
+    )
+
+    const rows = rowsFor([
+      compactionMessage,
+      assistantMessage("msg_compaction_summary", [textPart("summary")]),
+    ])
+
+    expect(rows.map((row) => row.type)).toEqual(["turn-divider", "assistant"])
+    expect(rows[0]).toMatchObject({
+      type: "turn-divider",
+      label: "compaction",
+    })
+  })
+
   test("adds a new tail ActivityRow after completed media while still busy", () => {
     const rows = rowsFor(
       [

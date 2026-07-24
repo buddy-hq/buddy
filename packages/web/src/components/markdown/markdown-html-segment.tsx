@@ -742,6 +742,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
   )
   const cached = markdownCache.get(fullCacheKey)
   const cachedEntry = cached?.source === props.text ? cached : null
+  const preserveRenderedFallback = props.streaming === true && hasOpenStreamingMath(props.text)
 
   const resetCodeCopy = useCallback(() => {
     if (copySetupTimerRef.current !== undefined) {
@@ -783,7 +784,14 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
       if (!root.isConnected) return
       copyCleanupRef.current = setupCodeCopy(root, copyLabels)
     }, 0)
-  }, [cachedEntry, copyLabels, fullCacheKey, props.text, resetCodeCopy, resetMarkdownImages])
+  }, [
+    cachedEntry,
+    copyLabels,
+    fullCacheKey,
+    props.text,
+    resetCodeCopy,
+    resetMarkdownImages,
+  ])
 
   useEffect(() => {
     const root = rootRef.current
@@ -830,8 +838,12 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
     const renderId = renderIdRef.current + 1
     renderIdRef.current = renderId
     let cancelled = false
-    const preserveRenderedFallback = props.streaming === true && hasOpenStreamingMath(props.text)
-    if (!cachedEntry && !preserveRenderedFallback && root.childNodes.length === 0) {
+    if (
+      !cachedEntry &&
+      props.streaming === true &&
+      !preserveRenderedFallback &&
+      root.childNodes.length === 0
+    ) {
       const fallbackRoot = decoratedMarkdownRoot(
         sanitizeRawMarkdownFallback(props.text),
         copyLabels,
@@ -841,7 +853,6 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
         resetCodeCopy()
       }
     }
-
     if (cachedEntry) {
       return () => {
         root.removeEventListener("click", handleClick)
@@ -898,6 +909,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
     props.directory,
     props.text,
     props.streaming,
+    preserveRenderedFallback,
     resetCodeCopy,
     resetMarkdownImages,
   ])

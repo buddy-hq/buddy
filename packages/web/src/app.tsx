@@ -10,9 +10,13 @@ import { Toaster, TooltipProvider } from "@buddy/ui"
 import { LanguageProvider } from "@/context/language"
 import { useChatStore } from "@/state/chat-store"
 import { appQueryClient } from "@/state/query-client"
-import { selectSession } from "@/state/chat-actions"
+import {
+  activateChatDirectory,
+  selectActiveChatSession,
+} from "@/lib/active-chat-transition-coordinator"
 import { decodeDirectory } from "@/lib/directory-token"
 import { resolveBenchRouteViewTransitionTypes } from "@/lib/bench-navigation"
+import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import { ThemeProvider } from "@/theme"
 import type { ThemeAppliedDetails } from "@/theme"
 import { routeTree } from "./routeTree.gen"
@@ -88,13 +92,18 @@ async function activateNotificationHref(href: string) {
 
   const directory = decodeDirectory(match[1])
   const sessionID = url.searchParams.get("session")
-  useChatStore.getState().setActiveDirectory(directory)
-
+  const navigate = (targetDirectory: string, route: Parameters<typeof buildWorkspaceRouteNavigation>[0]["route"]) =>
+    router.navigate(
+      buildWorkspaceRouteNavigation({
+        directory: targetDirectory,
+        route,
+      }),
+    )
   if (sessionID) {
-    await selectSession(directory, sessionID).catch(() => undefined)
+    await selectActiveChatSession({ directory, sessionID, navigate })
+    return
   }
-
-  router.history.push(url.pathname)
+  await activateChatDirectory({ directory, navigate })
 }
 
 export function AppInterface() {

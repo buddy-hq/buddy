@@ -17,7 +17,12 @@ import {
   resolveNotebookLearnerMemorySelection,
 } from "@/state/learner-memory-settings"
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
+import {
+  activateChatDirectory,
+  startActiveChatDraft,
+} from "@/lib/active-chat-transition-coordinator"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
+import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import { stringifyError } from "../lib/api-client"
 import { shouldShowCurrentDesktopOnboarding } from "../lib/desktop-onboarding"
 import { encodeDirectory } from "../lib/directory-token"
@@ -34,7 +39,6 @@ import {
   openProject,
   restoreOpenProjectRecovery,
   startFreshOpenProjectRecovery,
-  startNewSessionDraft,
 } from "../state/chat-actions"
 import {
   notebookHomeQueryOptions,
@@ -99,7 +103,6 @@ function ChatEntryPage() {
   const activeDirectory = useChatStore((state) => state.activeDirectory)
   const entryError = useChatStore((state) => state.entryError)
   const recoveryNeeded = useChatStore((state) => state.openProjectsRecovery?.needed === true)
-  const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
   const setEntryError = useChatStore((state) => state.setEntryError)
   const [busyAction, setBusyAction] = useState<EntryAction | undefined>(undefined)
   const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
@@ -114,12 +117,11 @@ function ChatEntryPage() {
     })
   }, [activeDirectory, navigate])
 
-  function navigateToDirectory(directory: string) {
-    setActiveDirectory(directory)
-    navigate({
-      to: "/$directory/chat",
-      params: { directory: encodeDirectory(directory) },
-    })
+  async function navigateToDirectory(
+    directory: string,
+    route: Parameters<typeof buildWorkspaceRouteNavigation>[0]["route"],
+  ) {
+    await navigate(buildWorkspaceRouteNavigation({ directory, route, replace: false }))
   }
 
   async function runEntryAction(action: EntryAction, task: () => Promise<void>) {
@@ -141,7 +143,11 @@ function ChatEntryPage() {
     await runEntryAction(ENTRY_ACTION.OPEN_EXISTING, async () => {
       const nextDirectory = await openProject(directory)
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      navigateToDirectory(nextDirectory)
+      const result = await activateChatDirectory({
+        directory: nextDirectory,
+        navigate: navigateToDirectory,
+      })
+      if (result.outcome === "failed") throw result.error
     })
   }
 
@@ -149,8 +155,11 @@ function ChatEntryPage() {
     await runEntryAction(ENTRY_ACTION.QUICK_CHAT, async () => {
       const inboxDirectory = await openInboxNotebook()
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      startNewSessionDraft(inboxDirectory)
-      navigateToDirectory(inboxDirectory)
+      const result = await startActiveChatDraft({
+        directory: inboxDirectory,
+        navigate: navigateToDirectory,
+      })
+      if (result.outcome === "failed") throw result.error
     })
   }
 
@@ -165,8 +174,11 @@ function ChatEntryPage() {
     await runEntryAction(ENTRY_ACTION.NEW_NOTEBOOK, async () => {
       const nextDirectory = await createManagedNotebook(trimmed)
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      startNewSessionDraft(nextDirectory)
-      navigateToDirectory(nextDirectory)
+      const result = await startActiveChatDraft({
+        directory: nextDirectory,
+        navigate: navigateToDirectory,
+      })
+      if (result.outcome === "failed") throw result.error
       void bootstrapLearnerMemoryForNotebookBestEffort({
         directory: nextDirectory,
         enabled: enableLearnerMemory,

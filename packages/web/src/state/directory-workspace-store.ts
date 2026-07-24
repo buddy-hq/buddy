@@ -1,14 +1,23 @@
 import { createStore, type StoreApi } from "zustand/vanilla"
 import { getPlatform } from "@/context/platform"
 import {
+  BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
   benchTargetKey,
+  readBenchChatLayoutMode,
+  readBenchTarget,
   isSameBenchTarget,
   type BenchMode,
   type BenchModeRequest,
   type BenchTarget,
-} from "@/lib/bench-navigation"
+} from "@/lib/bench-targets"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
+import {
+  WORKSPACE_CHAT_DRAFT_KEY,
+  isPersistedWorkspaceChatKey,
+  type PersistedWorkspaceChatKey,
+  type WorkspaceChatKey,
+} from "@/lib/workspace-chat-key"
 
 export const WORKSPACE_DRAWER_SOURCES = "sources"
 export const WORKSPACE_DRAWER_SEARCH = "search"
@@ -23,13 +32,14 @@ export const BENCH_ROUTE_STATUS_CLOSED = "closed"
 export const BENCH_ROUTE_STATUS_OPEN = "open"
 export const WORKSPACE_PENDING_KIND_NAVIGATION = "navigation"
 export const WORKSPACE_PENDING_KIND_WORKSPACE_ONLY = "workspace-only"
+export const WORKSPACE_PENDING_KIND_CHAT_TRANSITION = "chat-transition"
 export const WORKSPACE_HYDRATION_PENDING = "pending"
 export const WORKSPACE_HYDRATION_READY = "ready"
 export const WORKSPACE_HYDRATION_FAILED = "failed"
 export const WORKSPACE_COMMAND_QUEUE_LIMIT = 64
 export const DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER = WORKSPACE_DRAWER_SOURCES
-export const DIRECTORY_WORKSPACE_PERSISTENCE_VERSION = 2
-export const DIRECTORY_WORKSPACE_STORAGE_FILE = "buddy.directory-workspace.v2.dat"
+export const DIRECTORY_WORKSPACE_PERSISTENCE_VERSION = 3
+export const DIRECTORY_WORKSPACE_STORAGE_FILE = "buddy.directory-workspace.v3.dat"
 const DIRECTORY_WORKSPACE_STORAGE_KEY_PREFIX = "directory-workspace:"
 
 export type DrawerKind =
@@ -60,7 +70,12 @@ export type DockedWorkspaceState =
     }
 
 export type PersistedDirectoryWorkspaceState = {
-  visibility: typeof WORKSPACE_VISIBILITY_COLLAPSED | typeof WORKSPACE_VISIBILITY_EXPANDED
+  slots: Partial<Record<PersistedWorkspaceChatKey, WorkspacePresentationSlot>>
+}
+
+export type WorkspacePresentationSlot = {
+  route: BenchRouteSnapshot
+  docked: DockedWorkspaceState
   lastDrawer: DrawerKind
 }
 
@@ -88,6 +103,12 @@ type PersistedDirectoryWorkspacePayload = {
 
 export type EffectiveBenchVisibility = "visible" | "parked" | "closed"
 
+export type WorkspaceTransitionFrame =
+  | { kind: "closed" }
+  | { kind: "selector" }
+  | { kind: "docked-bench" }
+  | { kind: "floating-bench" }
+
 export type EffectiveWorkspaceProjection = {
   route: BenchRouteSnapshot
   dockedState: DockedWorkspaceState
@@ -114,9 +135,18 @@ export type EffectiveWorkspaceProjection = {
     | "drawer-over-bench"
   pending:
     | { status: "none" }
-    | { status: "retained-previous"; commandID: string }
+    | {
+        status: "retained-previous"
+        commandID: string
+        transitionFrame?: WorkspaceTransitionFrame
+      }
     | { status: "expected-route"; commandID: string }
     | { status: "workspace-only"; commandID: string }
+    | {
+        status: "chat-transition"
+        commandID: string
+        transitionFrame: WorkspaceTransitionFrame
+      }
 }
 
 export type PendingWorkspaceIntent =
@@ -134,6 +164,12 @@ export type PendingWorkspaceIntent =
       previousProjection: EffectiveWorkspaceProjection
       workspaceCommit: DockedWorkspaceState
     }
+  | {
+      kind: typeof WORKSPACE_PENDING_KIND_CHAT_TRANSITION
+      commandID: string
+      previousProjection: EffectiveWorkspaceProjection
+      workspaceCommit: DockedWorkspaceState
+    }
 
 export type DirectoryWorkspaceProjectionState = {
   docked: DockedWorkspaceState
@@ -141,12 +177,22 @@ export type DirectoryWorkspaceProjectionState = {
 }
 
 type DirectoryWorkspaceInitialState = Partial<DirectoryWorkspaceProjectionState> & {
+  activeChatKey?: WorkspaceChatKey
+  slots?: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
   hydration?: DirectoryWorkspaceHydrationState
 }
 
 export type DirectoryWorkspaceCommand =
   | { type: "present"; directory: string; target: BenchTarget; mode: BenchModeRequest }
   | { type: "close" }
+  | {
+      type: "prepare-chat-change"
+      outgoingChatKey: WorkspaceChatKey
+      destinationChatKey: WorkspaceChatKey
+      resetDestination: boolean
+    }
+  | { type: "restore-chat"; chatKey: WorkspaceChatKey }
+  | { type: "promote-chat"; from: WorkspaceChatKey; to: PersistedWorkspaceChatKey }
   | { type: "set-mode"; mode: BenchMode }
   | { type: "reveal" }
   | { type: "collapse" }
@@ -171,19 +217,35 @@ export type DirectoryWorkspaceHydrationState =
 
 export type DirectoryWorkspaceStoreState = DirectoryWorkspaceProjectionState & {
   directory: string
+  activeChatKey: WorkspaceChatKey
+  slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
   pendingIntent: PendingWorkspaceIntent | null
   hydration: DirectoryWorkspaceHydrationState
   setPendingIntent: (intent: PendingWorkspaceIntent) => void
   clearPendingIntent: (commandID: string) => void
-  commitDockedState: (input: { commandID: string; docked: DockedWorkspaceState }) => void
+  commitDockedState: (input: {
+    commandID: string
+    docked: DockedWorkspaceState
+    route?: BenchRouteSnapshot
+  }) => void
   setHydrationReady: () => void
   setHydrationFailed: (message: string) => void
   finishHydration: (input: {
+    activeChatKey?: WorkspaceChatKey
+    slots?: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
     docked: DockedWorkspaceState
     lastDrawer: DrawerKind
     hydration: DirectoryWorkspaceHydrationState
   }) => void
   setLastDrawer: (drawer: DrawerKind) => void
+  captureChatSlot: (input: { chatKey: WorkspaceChatKey; route: BenchRouteSnapshot }) => void
+  stageChatTransition: (input: {
+    commandID: string
+    chatKey: WorkspaceChatKey
+    reset: boolean
+    previousProjection: EffectiveWorkspaceProjection
+  }) => void
+  promoteChatSlot: (input: { from: WorkspaceChatKey; to: PersistedWorkspaceChatKey }) => void
 }
 
 export type DirectoryWorkspaceStore = StoreApi<DirectoryWorkspaceStoreState>
@@ -221,8 +283,46 @@ function isDrawerKind(value: unknown): value is DrawerKind {
 
 function isWorkspaceVisibility(
   value: unknown,
-): value is PersistedDirectoryWorkspaceState["visibility"] {
+): value is DockedWorkspaceState["visibility"] {
   return value === WORKSPACE_VISIBILITY_COLLAPSED || value === WORKSPACE_VISIBILITY_EXPANDED
+}
+
+function readDockedWorkspaceState(value: unknown): DockedWorkspaceState | undefined {
+  if (!isRecord(value) || !isWorkspaceVisibility(value.visibility)) return undefined
+  if (value.visibility === WORKSPACE_VISIBILITY_COLLAPSED) {
+    return value.drawer === null ? createCollapsedWorkspaceState() : undefined
+  }
+  if (value.drawer !== null && !isDrawerKind(value.drawer)) return undefined
+  return createExpandedWorkspaceState(value.drawer)
+}
+
+function readBenchRouteSnapshot(value: unknown): BenchRouteSnapshot | undefined {
+  if (!isRecord(value)) return undefined
+  if (value.status === BENCH_ROUTE_STATUS_CLOSED) {
+    return { status: BENCH_ROUTE_STATUS_CLOSED }
+  }
+  if (value.status !== BENCH_ROUTE_STATUS_OPEN) return undefined
+  const target = readBenchTarget(value.target)
+  const mode = readBenchChatLayoutMode(value.mode)
+  if (!target || !mode) return undefined
+  return {
+    status: BENCH_ROUTE_STATUS_OPEN,
+    target,
+    mode,
+  }
+}
+
+function readWorkspacePresentationSlot(value: unknown): WorkspacePresentationSlot | undefined {
+  if (!isRecord(value)) return undefined
+  const route = readBenchRouteSnapshot(value.route)
+  const docked = readDockedWorkspaceState(value.docked)
+  const lastDrawer = value.lastDrawer
+  if (!route || !docked || !isDrawerKind(lastDrawer)) return undefined
+  return {
+    route,
+    docked,
+    lastDrawer,
+  }
 }
 
 function storageKeyForDirectory(directory: string): string {
@@ -230,6 +330,7 @@ function storageKeyForDirectory(directory: string): string {
 }
 
 const memoryWorkspaceStorage = new Map<string, string>()
+const directoryWorkspaceWriteQueue = new Map<string, Promise<void>>()
 
 function isThenable(value: unknown): value is PromiseLike<unknown> {
   return (
@@ -276,14 +377,48 @@ function defaultDirectoryWorkspaceStorage(): DirectoryWorkspacePersistenceStorag
   }
 }
 
+function persistenceQueueKey(directory: string): string {
+  return storageKeyForDirectory(directory)
+}
+
+function enqueueDirectoryWorkspaceWrite(
+  directory: string,
+  write: () => Promise<void>,
+): Promise<void> {
+  const queueKey = persistenceQueueKey(directory)
+  const previous = directoryWorkspaceWriteQueue.get(queueKey) ?? Promise.resolve()
+  const queued = previous.catch(() => undefined).then(write)
+  directoryWorkspaceWriteQueue.set(queueKey, queued)
+  void queued.then(
+    () => {
+      if (directoryWorkspaceWriteQueue.get(queueKey) === queued) {
+        directoryWorkspaceWriteQueue.delete(queueKey)
+      }
+    },
+    () => {
+      if (directoryWorkspaceWriteQueue.get(queueKey) === queued) {
+        directoryWorkspaceWriteQueue.delete(queueKey)
+      }
+    },
+  )
+  return queued
+}
+
+async function waitForDirectoryWorkspaceWrites(directory: string): Promise<void> {
+  await directoryWorkspaceWriteQueue.get(persistenceQueueKey(directory))?.catch(() => undefined)
+}
+
 function readPersistedDirectoryWorkspaceState(
   value: unknown,
 ): PersistedDirectoryWorkspaceState | undefined {
-  if (!isRecord(value)) return undefined
-  const visibility = value.visibility
-  const lastDrawer = value.lastDrawer
-  if (!isWorkspaceVisibility(visibility) || !isDrawerKind(lastDrawer)) return undefined
-  return { visibility, lastDrawer }
+  if (!isRecord(value) || !isRecord(value.slots)) return undefined
+  const slots: Partial<Record<PersistedWorkspaceChatKey, WorkspacePresentationSlot>> = {}
+  for (const [key, slotValue] of Object.entries(value.slots)) {
+    if (!isPersistedWorkspaceChatKey(key)) continue
+    const slot = readWorkspacePresentationSlot(slotValue)
+    if (slot) slots[key] = slot
+  }
+  return { slots }
 }
 
 function readPersistedDirectoryWorkspacePayload(
@@ -299,7 +434,7 @@ function readPersistedDirectoryWorkspacePayload(
   }
 }
 
-export async function readPersistedDirectoryWorkspace(input: {
+async function readPersistedDirectoryWorkspaceImmediately(input: {
   directory: string
   storage?: DirectoryWorkspacePersistenceStorage
 }): Promise<DirectoryWorkspacePersistenceReadResult> {
@@ -334,7 +469,15 @@ export async function readPersistedDirectoryWorkspace(input: {
   return { status: WORKSPACE_HYDRATION_READY, state: payload.state }
 }
 
-export async function writePersistedDirectoryWorkspace(input: {
+export async function readPersistedDirectoryWorkspace(input: {
+  directory: string
+  storage?: DirectoryWorkspacePersistenceStorage
+}): Promise<DirectoryWorkspacePersistenceReadResult> {
+  await waitForDirectoryWorkspaceWrites(input.directory)
+  return readPersistedDirectoryWorkspaceImmediately(input)
+}
+
+async function writePersistedDirectoryWorkspaceImmediately(input: {
   directory: string
   state: PersistedDirectoryWorkspaceState
   storage?: DirectoryWorkspacePersistenceStorage
@@ -347,13 +490,126 @@ export async function writePersistedDirectoryWorkspace(input: {
   await storage.setItem(storageKeyForDirectory(input.directory), JSON.stringify(payload))
 }
 
-export function persistedDirectoryWorkspaceStateFromStore(
-  state: DirectoryWorkspaceProjectionState,
-): PersistedDirectoryWorkspaceState {
+export async function writePersistedDirectoryWorkspace(input: {
+  directory: string
+  state: PersistedDirectoryWorkspaceState
+  storage?: DirectoryWorkspacePersistenceStorage
+}): Promise<void> {
+  await enqueueDirectoryWorkspaceWrite(input.directory, () =>
+    writePersistedDirectoryWorkspaceImmediately(input),
+  )
+}
+
+export async function readPersistedWorkspaceSlot(input: {
+  directory: string
+  chatKey: PersistedWorkspaceChatKey
+  storage?: DirectoryWorkspacePersistenceStorage
+}): Promise<WorkspacePresentationSlot | undefined> {
+  const persisted = await readPersistedDirectoryWorkspace(input)
+  if (persisted.status === WORKSPACE_HYDRATION_FAILED) return undefined
+  return persisted.state?.slots[input.chatKey]
+}
+
+export async function writePersistedWorkspaceSlot(input: {
+  directory: string
+  chatKey: PersistedWorkspaceChatKey
+  slot: WorkspacePresentationSlot
+  storage?: DirectoryWorkspacePersistenceStorage
+}): Promise<void> {
+  await enqueueDirectoryWorkspaceWrite(input.directory, async () => {
+    const persisted = await readPersistedDirectoryWorkspaceImmediately(input)
+    const slots =
+      persisted.status === WORKSPACE_HYDRATION_READY && persisted.state
+        ? persisted.state.slots
+        : {}
+    await writePersistedDirectoryWorkspaceImmediately({
+      directory: input.directory,
+      state: {
+        slots: {
+          ...slots,
+          [input.chatKey]: input.slot,
+        },
+      },
+      ...(input.storage ? { storage: input.storage } : {}),
+    })
+  })
+}
+
+export function defaultWorkspacePresentationSlot(): WorkspacePresentationSlot {
   return {
-    visibility: state.docked.visibility,
-    lastDrawer: state.lastDrawer,
+    route: { status: BENCH_ROUTE_STATUS_CLOSED },
+    docked: createCollapsedWorkspaceState(),
+    lastDrawer: DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
   }
+}
+
+export function workspacePresentationSlotForChat(
+  slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>,
+  chatKey: WorkspaceChatKey,
+): WorkspacePresentationSlot {
+  return slots[chatKey] ?? defaultWorkspacePresentationSlot()
+}
+
+/**
+ * Bounds the per-chat slot map.
+ *
+ * A slot is created for every chat ever activated in a notebook and nothing removes one on archive
+ * or delete, so both the in-memory map and its persisted blob would grow with chat count forever.
+ * Every other cache in the workspace is bounded; this one is too. The touched chat is re-inserted
+ * last so the map doubles as a recency order, and eviction only drops the least recently touched
+ * persisted slots — never the one being written.
+ */
+const WORKSPACE_CHAT_SLOT_LIMIT = 24
+
+function retainWorkspaceChatSlots(input: {
+  slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
+  touchedChatKey: WorkspaceChatKey
+}): Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> {
+  const touched = input.slots[input.touchedChatKey]
+  const ordered: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
+  for (const [key, slot] of Object.entries(input.slots)) {
+    if (key === input.touchedChatKey || !slot) continue
+    ordered[key as WorkspaceChatKey] = slot
+  }
+  if (touched) ordered[input.touchedChatKey] = touched
+
+  const persistedKeys = Object.keys(ordered).filter((key) => isPersistedWorkspaceChatKey(key))
+  const excess = persistedKeys.length - WORKSPACE_CHAT_SLOT_LIMIT
+  if (excess <= 0) return ordered
+
+  const evicted = new Set<string>(
+    persistedKeys.filter((key) => key !== input.touchedChatKey).slice(0, excess),
+  )
+  const bounded: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
+  for (const [key, slot] of Object.entries(ordered)) {
+    if (evicted.has(key) || !slot) continue
+    bounded[key as WorkspaceChatKey] = slot
+  }
+  return bounded
+}
+
+function releaseTransientChatSlot(input: {
+  slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
+  releasedChatKey: WorkspaceChatKey
+  nextChatKey: WorkspaceChatKey
+}): Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> {
+  if (input.releasedChatKey === input.nextChatKey) return input.slots
+  if (isPersistedWorkspaceChatKey(input.releasedChatKey)) return input.slots
+  if (!(input.releasedChatKey in input.slots)) return input.slots
+  const { [input.releasedChatKey]: _released, ...remaining } = input.slots
+  return remaining
+}
+
+export function persistedDirectoryWorkspaceStateFromStore(input: {
+  slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
+}): PersistedDirectoryWorkspaceState {
+  const slots: Partial<Record<PersistedWorkspaceChatKey, WorkspacePresentationSlot>> = {}
+  for (const [key, slot] of Object.entries(input.slots)) {
+    if (slot && isPersistedWorkspaceChatKey(key)) {
+      slots[key] = slot
+    }
+  }
+  return { slots }
 }
 
 function drawerForClosedRoute(state: DirectoryWorkspaceProjectionState): DrawerKind | null {
@@ -426,6 +682,49 @@ function projectCommittedState(input: {
   }
 }
 
+function workspaceTransitionFrameFor(
+  projection: EffectiveWorkspaceProjection,
+): WorkspaceTransitionFrame {
+  if (
+    projection.pending.status === "chat-transition" ||
+    projection.pending.status === "retained-previous"
+  ) {
+    const retainedFrame = projection.pending.transitionFrame
+    if (retainedFrame) return retainedFrame
+  }
+  if (
+    projection.bench.visibility === "visible" &&
+    projection.bench.mode === BENCH_CHAT_LAYOUT_FLOATING
+  ) {
+    return { kind: "floating-bench" }
+  }
+  if (
+    projection.bench.visibility === "visible" &&
+    projection.bench.mode === BENCH_CHAT_LAYOUT_DOCKED
+  ) {
+    return { kind: "docked-bench" }
+  }
+  if (
+    projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED &&
+    projection.drawer !== null
+  ) {
+    return { kind: "selector" }
+  }
+  return { kind: "closed" }
+}
+
+function retainedTransitionFrame(
+  projection: EffectiveWorkspaceProjection,
+): WorkspaceTransitionFrame | undefined {
+  if (
+    projection.pending.status === "chat-transition" ||
+    projection.pending.status === "retained-previous"
+  ) {
+    return projection.pending.transitionFrame
+  }
+  return undefined
+}
+
 export function effectiveWorkspaceProjection(
   route: BenchRouteSnapshot,
   committedState: DirectoryWorkspaceProjectionState,
@@ -436,6 +735,21 @@ export function effectiveWorkspaceProjection(
       route,
       state: committedState,
       pending: { status: "none" },
+    })
+  }
+
+  if (pendingIntent.kind === WORKSPACE_PENDING_KIND_CHAT_TRANSITION) {
+    return projectCommittedState({
+      route: { status: BENCH_ROUTE_STATUS_CLOSED },
+      state: {
+        docked: pendingIntent.workspaceCommit,
+        lastDrawer: committedState.lastDrawer,
+      },
+      pending: {
+        status: "chat-transition",
+        commandID: pendingIntent.commandID,
+        transitionFrame: workspaceTransitionFrameFor(pendingIntent.previousProjection),
+      },
     })
   }
 
@@ -451,9 +765,14 @@ export function effectiveWorkspaceProjection(
   }
 
   if (!isSameBenchRouteSnapshot(route, pendingIntent.expectedRoute)) {
+    const transitionFrame = retainedTransitionFrame(pendingIntent.previousProjection)
     return {
       ...pendingIntent.previousProjection,
-      pending: { status: "retained-previous", commandID: pendingIntent.commandID },
+      pending: {
+        status: "retained-previous",
+        commandID: pendingIntent.commandID,
+        ...(transitionFrame ? { transitionFrame } : {}),
+      },
     }
   }
 
@@ -483,10 +802,28 @@ export function createDirectoryWorkspaceStore(input: {
     directory: input.directory,
     initialState: input.initialState,
   })
+  const initialActiveChatKey = input.initialState?.activeChatKey ?? WORKSPACE_CHAT_DRAFT_KEY
+  const initialDocked = normalizeDockedState(
+    input.initialState?.docked ?? createCollapsedWorkspaceState(),
+  )
+  const initialLastDrawer =
+    input.initialState?.lastDrawer ?? DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER
+  const initialSlots = {
+    ...input.initialState?.slots,
+    [initialActiveChatKey]: {
+      route:
+        input.initialState?.slots?.[initialActiveChatKey]?.route ??
+        defaultWorkspacePresentationSlot().route,
+      docked: initialDocked,
+      lastDrawer: initialLastDrawer,
+    },
+  }
   return createStore<DirectoryWorkspaceStoreState>()((set) => ({
     directory: input.directory,
-    docked: input.initialState?.docked ?? createCollapsedWorkspaceState(),
-    lastDrawer: input.initialState?.lastDrawer ?? DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
+    activeChatKey: initialActiveChatKey,
+    slots: initialSlots,
+    docked: initialDocked,
+    lastDrawer: initialLastDrawer,
     pendingIntent: null,
     hydration: input.initialState?.hydration ?? { status: WORKSPACE_HYDRATION_PENDING },
     setPendingIntent: (intent) => {
@@ -527,6 +864,18 @@ export function createDirectoryWorkspaceStore(input: {
         })
         return {
           docked,
+          slots: retainWorkspaceChatSlots({
+            slots: {
+              ...state.slots,
+              [state.activeChatKey]: {
+                ...workspacePresentationSlotForChat(state.slots, state.activeChatKey),
+                ...(commit.route ? { route: commit.route } : {}),
+                docked,
+                lastDrawer: state.lastDrawer,
+              },
+            },
+            touchedChatKey: state.activeChatKey,
+          }),
           pendingIntent: null,
         }
       }),
@@ -548,10 +897,27 @@ export function createDirectoryWorkspaceStore(input: {
         directory: input.directory,
         hydrationInput,
       })
-      set({
-        docked: normalizeDockedState(hydrationInput.docked),
-        lastDrawer: hydrationInput.lastDrawer,
-        hydration: hydrationInput.hydration,
+      set((state) => {
+        const activeChatKey = hydrationInput.activeChatKey ?? state.activeChatKey
+        const docked = normalizeDockedState(hydrationInput.docked)
+        const lastDrawer = hydrationInput.lastDrawer
+        return {
+          activeChatKey,
+          slots: {
+            ...(hydrationInput.slots ?? state.slots),
+            [activeChatKey]: {
+              ...workspacePresentationSlotForChat(
+                hydrationInput.slots ?? state.slots,
+                activeChatKey,
+              ),
+              docked,
+              lastDrawer,
+            },
+          },
+          docked,
+          lastDrawer,
+          hydration: hydrationInput.hydration,
+        }
       })
     },
     setLastDrawer: (drawer) => {
@@ -559,8 +925,80 @@ export function createDirectoryWorkspaceStore(input: {
         directory: input.directory,
         drawer,
       })
-      set({ lastDrawer: drawer })
+      set((state) => ({
+        lastDrawer: drawer,
+        slots: {
+          ...state.slots,
+          [state.activeChatKey]: {
+            ...workspacePresentationSlotForChat(state.slots, state.activeChatKey),
+            docked: state.docked,
+            lastDrawer: drawer,
+          },
+        },
+      }))
     },
+    captureChatSlot: ({ chatKey, route }) =>
+      set((state) => ({
+        slots: retainWorkspaceChatSlots({
+          slots: {
+            ...state.slots,
+            [chatKey]: {
+              route,
+              docked: normalizeDockedState(state.docked),
+              lastDrawer: state.lastDrawer,
+            },
+          },
+          touchedChatKey: chatKey,
+        }),
+      })),
+    stageChatTransition: ({ commandID, chatKey, reset, previousProjection }) =>
+      set((state) => {
+        const stagedSlots = reset
+          ? {
+              ...state.slots,
+              [chatKey]: defaultWorkspacePresentationSlot(),
+            }
+          : state.slots
+        // Transient destination keys exist only for the duration of one transition. Drop the
+        // outgoing one here so the slot map cannot grow by a dead entry per new chat or fork.
+        const slots = retainWorkspaceChatSlots({
+          slots: releaseTransientChatSlot({
+            slots: stagedSlots,
+            releasedChatKey: state.activeChatKey,
+            nextChatKey: chatKey,
+          }),
+          touchedChatKey: chatKey,
+        })
+        const slot = workspacePresentationSlotForChat(slots, chatKey)
+        return {
+          activeChatKey: chatKey,
+          slots,
+          docked: createCollapsedWorkspaceState(),
+          lastDrawer: slot.lastDrawer,
+          pendingIntent: {
+            kind: WORKSPACE_PENDING_KIND_CHAT_TRANSITION,
+            commandID,
+            previousProjection,
+            workspaceCommit: createCollapsedWorkspaceState(),
+          },
+        }
+      }),
+    promoteChatSlot: ({ from, to }) =>
+      set((state) => {
+        const source = workspacePresentationSlotForChat(state.slots, from)
+        const { [from]: _removed, ...remainingSlots } = state.slots
+        // A destination that already has a slot is an existing chat that was simply selected late,
+        // not a draft becoming durable. Promoting over it would replace that chat's saved
+        // presentation with the draft's closed one.
+        if (state.slots[to]) return state
+        return {
+          activeChatKey: state.activeChatKey === from ? to : state.activeChatKey,
+          slots: retainWorkspaceChatSlots({
+            slots: { ...remainingSlots, [to]: source },
+            touchedChatKey: to,
+          }),
+        }
+      }),
   }))
 }
 

@@ -28,10 +28,13 @@ import { processedResourcesQueryKey } from "../src/state/resources-query"
 import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
 import { whiteboardQueryKeys } from "../src/components/whiteboard/whiteboard-query"
 import { skillsCatalogQueryKeys } from "../src/state/skills-catalog-query"
+import { workspaceChatKeyForSession } from "../src/lib/workspace-chat-key"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_RESOURCE_ID = "resource-1"
 const FLUSH_DELAY_MS = 0
+const CHAT_A_KEY = workspaceChatKeyForSession(undefined)
+const CHAT_B_KEY = workspaceChatKeyForSession("session-b")
 
 function flushEffects(): Promise<void> {
   return new Promise((resolve) => {
@@ -39,7 +42,7 @@ function flushEffects(): Promise<void> {
   })
 }
 
-function RightWorkspaceHarness(props: { sessionID?: string }) {
+function RightWorkspaceHarness(props: { sessionID?: string; suppressDrawerMotion?: boolean }) {
   const workspace = useDirectoryWorkspace()
   const location = useLocation()
   const presentation = resolveWorkspacePresentation({
@@ -57,11 +60,38 @@ function RightWorkspaceHarness(props: { sessionID?: string }) {
       <span data-testid="pathname">{location.pathname}</span>
       <span data-testid="bench-visibility">{workspace.projection.bench.visibility}</span>
       <span data-testid="drawer">{workspace.projection.drawer ?? "none"}</span>
+      <button
+        type="button"
+        data-testid="prepare-chat-change"
+        onClick={() => {
+          void workspace.controller.execute({
+            type: "prepare-chat-change",
+            outgoingChatKey: CHAT_A_KEY,
+            destinationChatKey: CHAT_B_KEY,
+            resetDestination: false,
+          })
+        }}
+      >
+        Prepare session change
+      </button>
+      <button
+        type="button"
+        data-testid="restore-chat-a"
+        onClick={() => {
+          void workspace.controller.execute({
+            type: "restore-chat",
+            chatKey: CHAT_A_KEY,
+          })
+        }}
+      >
+        Restore chat A
+      </button>
       <DirectoryChatRightWorkspace
         directory={TEST_DIRECTORY}
         sessionID={props.sessionID}
         sessions={[]}
         workspaceWidth={720}
+        suppressDrawerMotion={props.suppressDrawerMotion}
         onCreateBoard={() => undefined}
         onCreateCreation={() => undefined}
         onOpenThread={async () => true}
@@ -77,7 +107,7 @@ function ChatRouteMarker() {
   return <span data-testid="chat-route">Chat route</span>
 }
 
-function createTestRouter(options?: { sessionID?: string }) {
+function createTestRouter(options?: { sessionID?: string; suppressDrawerMotion?: boolean }) {
   const sessionID = options === undefined ? "session-1" : options.sessionID
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -125,7 +155,12 @@ function createTestRouter(options?: { sessionID?: string }) {
   const objectRoute = createRoute({
     getParentRoute: () => directoryRoute,
     path: "objects/$kind/$objectID",
-    component: () => <RightWorkspaceHarness sessionID={sessionID} />,
+    component: () => (
+      <RightWorkspaceHarness
+        sessionID={sessionID}
+        suppressDrawerMotion={options?.suppressDrawerMotion}
+      />
+    ),
   })
   const routeTree = rootRoute.addChildren([directoryRoute.addChildren([chatRoute, objectRoute])])
   return createRouter({
@@ -184,6 +219,9 @@ describe("DirectoryChatRightWorkspace", () => {
     )
     expect(container.querySelector('[data-testid="bench-visibility"]')?.textContent).toBe("visible")
     expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("sources")
+    expect(
+      container.querySelector('[data-component="right-workspace-selector-drawer"]')?.className,
+    ).toContain("animate-in")
     expect(
       container.querySelector('[data-component="right-workspace-selector-drawer"]'),
     ).not.toBeNull()
@@ -272,6 +310,53 @@ describe("DirectoryChatRightWorkspace", () => {
     expect(skillsButton?.getAttribute("aria-pressed")).toBe("true")
     expect(container.querySelector('[data-component="right-workspace-drawer"]')).not.toBeNull()
     expect(container.textContent).toContain("No installed skills")
+  })
+
+  test("restores a chat's last drawer without replaying entrance motion", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        <RouterProvider router={createTestRouter({ suppressDrawerMotion: true })} />,
+      )
+      await flushEffects()
+    })
+
+    const skillsButton = container.querySelector<HTMLButtonElement>('[aria-label="Skills"]')
+    await act(async () => {
+      skillsButton?.click()
+      await flushEffects()
+    })
+
+    const mountedDrawer = container.querySelector('[data-component="right-workspace-selector-drawer"]')
+    expect(mountedDrawer).not.toBeNull()
+    expect(mountedDrawer?.className).not.toContain("animate-in")
+
+    await act(async () => {
+      container
+        ?.querySelector<HTMLButtonElement>('[data-testid="prepare-chat-change"]')
+        ?.click()
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("none")
+    expect(mountedDrawer?.isConnected).toBeFalse()
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>('[data-testid="restore-chat-a"]')?.click()
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("skills")
+    const restoredDrawer = container.querySelector(
+      '[data-component="right-workspace-selector-drawer"]',
+    )
+    expect(restoredDrawer).not.toBeNull()
+    expect(restoredDrawer).not.toBe(mountedDrawer)
+    expect(restoredDrawer?.className).not.toContain("animate-in")
   })
 
   test("opens Boards from the non-creating peek state", async () => {
@@ -367,7 +452,13 @@ describe("DirectoryChatRightWorkspace", () => {
       null,
     )
     expect(container.querySelector('[data-component="right-workspace-selector-drawer"]')).toBeNull()
-    expect(container.querySelector('[data-testid="bench-target"]')).toBeNull()
+    // The Bench container stays mounted and hidden rather than unmounting. Removing it here would
+    // destroy every kept-alive surface on each chat transition, because the projection reports a
+    // closed Bench mid-switch.
+    const benchContainer = container.querySelector('[data-component="right-workspace-bench-target"]')
+    expect(benchContainer?.getAttribute("data-bench-visible")).toBe("false")
+    expect(benchContainer?.className).toContain("hidden")
+    expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
   })
 
   test("overlays a selector when Bench has a retained target", async () => {

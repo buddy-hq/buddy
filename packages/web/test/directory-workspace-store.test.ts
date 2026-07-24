@@ -22,17 +22,25 @@ import {
   createCollapsedWorkspaceState,
   createDirectoryWorkspaceStore,
   createExpandedWorkspaceState,
+  defaultWorkspacePresentationSlot,
   effectiveWorkspaceProjection,
   isSameBenchRouteSnapshot,
   persistedDirectoryWorkspaceStateFromStore,
   readPersistedDirectoryWorkspace,
+  readPersistedWorkspaceSlot,
   writePersistedDirectoryWorkspace,
+  writePersistedWorkspaceSlot,
   type BenchRouteSnapshot,
   type DirectoryWorkspacePersistenceStorage,
   type DirectoryWorkspaceProjectionState,
   type EffectiveWorkspaceProjection,
   type PendingWorkspaceIntent,
+  type WorkspacePresentationSlot,
 } from "../src/state/directory-workspace-store"
+import {
+  workspaceChatKeyForSession,
+  workspaceChatKeyForTransition,
+} from "../src/lib/workspace-chat-key"
 
 const FILE_TARGET = {
   type: "workspace-file",
@@ -120,6 +128,10 @@ function createMemoryStorage(): DirectoryWorkspacePersistenceStorage & {
       entries.delete(name)
     },
   }
+}
+
+function workspaceSlot(slot: WorkspacePresentationSlot): WorkspacePresentationSlot {
+  return slot
 }
 
 describe("bench target keys", () => {
@@ -439,61 +451,296 @@ describe("createDirectoryWorkspaceStore", () => {
       hydration: { status: "ready" },
     })
   })
+
+  test("bounds the persisted slot map and evicts least recently touched chats", () => {
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: { hydration: { status: "ready" } },
+    })
+    const chatKeys = Array.from({ length: 30 }, (_unused, index) =>
+      workspaceChatKeyForSession(`session-${index}`),
+    )
+
+    for (const chatKey of chatKeys) {
+      store.getState().captureChatSlot({ chatKey, route: DOCKED_OBJECT_ROUTE })
+    }
+
+    const slots = store.getState().slots
+    expect(Object.keys(slots)).toHaveLength(24)
+    expect(slots[chatKeys[0] as (typeof chatKeys)[number]]).toBeUndefined()
+    expect(slots[chatKeys.at(-1) as (typeof chatKeys)[number]]).toBeDefined()
+  })
+
+  test("keeps a re-touched chat slot instead of evicting it by insertion age", () => {
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: { hydration: { status: "ready" } },
+    })
+    const oldest = workspaceChatKeyForSession("session-oldest")
+    store.getState().captureChatSlot({ chatKey: oldest, route: DOCKED_OBJECT_ROUTE })
+    for (let index = 0; index < 23; index += 1) {
+      store.getState().captureChatSlot({
+        chatKey: workspaceChatKeyForSession(`session-${index}`),
+        route: DOCKED_OBJECT_ROUTE,
+      })
+    }
+    store.getState().captureChatSlot({ chatKey: oldest, route: DOCKED_OBJECT_ROUTE })
+    store.getState().captureChatSlot({
+      chatKey: workspaceChatKeyForSession("session-new"),
+      route: DOCKED_OBJECT_ROUTE,
+    })
+
+    expect(store.getState().slots[oldest]).toBeDefined()
+  })
+
+  test("releases a transient destination slot when the transition moves on", () => {
+    const transitionKey = workspaceChatKeyForTransition(3)
+    const durableChatKey = workspaceChatKeyForSession("session-created-from-transition")
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: { hydration: { status: "ready" } },
+    })
+
+    store.getState().stageChatTransition({
+      commandID: "command-transition",
+      chatKey: transitionKey,
+      reset: true,
+      previousProjection: commandProjection(),
+    })
+
+    expect(store.getState().activeChatKey).toBe(transitionKey)
+    expect(store.getState().slots[transitionKey]).toBeDefined()
+
+    store.getState().stageChatTransition({
+      commandID: "command-restore",
+      chatKey: durableChatKey,
+      reset: false,
+      previousProjection: commandProjection(),
+    })
+
+    expect(store.getState().activeChatKey).toBe(durableChatKey)
+    expect(store.getState().slots[transitionKey]).toBeUndefined()
+  })
+
+  test("keeps a persisted slot when the transition moves on", () => {
+    const chatAKey = workspaceChatKeyForSession("session-a")
+    const chatBKey = workspaceChatKeyForSession("session-b")
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: { activeChatKey: chatAKey, hydration: { status: "ready" } },
+    })
+    store.getState().captureChatSlot({ chatKey: chatAKey, route: DOCKED_OBJECT_ROUTE })
+
+    store.getState().stageChatTransition({
+      commandID: "command-transition",
+      chatKey: chatBKey,
+      reset: false,
+      previousProjection: commandProjection(),
+    })
+
+    expect(store.getState().slots[chatAKey]).toMatchObject({ route: DOCKED_OBJECT_ROUTE })
+  })
+
+  test("promotes a draft slot to its durable chat without changing the presentation", () => {
+    const draftChatKey = workspaceChatKeyForSession(undefined)
+    const durableChatKey = workspaceChatKeyForSession("session-created-from-draft")
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: {
+        activeChatKey: draftChatKey,
+        docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SKILLS),
+        lastDrawer: WORKSPACE_DRAWER_SKILLS,
+        hydration: { status: "ready" },
+      },
+    })
+    store.getState().captureChatSlot({
+      chatKey: draftChatKey,
+      route: DOCKED_OBJECT_ROUTE,
+    })
+
+    store.getState().promoteChatSlot({
+      from: draftChatKey,
+      to: durableChatKey,
+    })
+
+    expect(store.getState()).toMatchObject({
+      activeChatKey: durableChatKey,
+      docked: {
+        visibility: WORKSPACE_VISIBILITY_EXPANDED,
+        drawer: WORKSPACE_DRAWER_SKILLS,
+      },
+      lastDrawer: WORKSPACE_DRAWER_SKILLS,
+      pendingIntent: null,
+    })
+    expect(store.getState().slots[draftChatKey]).toBeUndefined()
+    expect(store.getState().slots[durableChatKey]).toEqual({
+      route: DOCKED_OBJECT_ROUTE,
+      docked: {
+        visibility: WORKSPACE_VISIBILITY_EXPANDED,
+        drawer: WORKSPACE_DRAWER_SKILLS,
+      },
+      lastDrawer: WORKSPACE_DRAWER_SKILLS,
+    })
+  })
+
+  test("does not promote a draft over an existing chat slot", () => {
+    const draftChatKey = workspaceChatKeyForSession(undefined)
+    const existingChatKey = workspaceChatKeyForSession("existing-session")
+    const existingSlot = {
+      route: CLOSED_ROUTE,
+      docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
+      lastDrawer: WORKSPACE_DRAWER_FILES,
+    } satisfies WorkspacePresentationSlot
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: {
+        activeChatKey: draftChatKey,
+        slots: { [existingChatKey]: existingSlot },
+        docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SKILLS),
+        lastDrawer: WORKSPACE_DRAWER_SKILLS,
+        hydration: { status: "ready" },
+      },
+    })
+    store.getState().captureChatSlot({ chatKey: draftChatKey, route: DOCKED_OBJECT_ROUTE })
+    const stateBeforePromotion = store.getState()
+
+    store.getState().promoteChatSlot({ from: draftChatKey, to: existingChatKey })
+
+    expect(store.getState()).toBe(stateBeforePromotion)
+    expect(store.getState().slots[existingChatKey]).toEqual(existingSlot)
+  })
 })
 
 describe("directory workspace persistence", () => {
-  test("accepts Skills as a durable last drawer", async () => {
-    const storage = createMemoryStorage()
-    await writePersistedDirectoryWorkspace({
+  test("serializes per-chat slot writes without allowing an older write to win", async () => {
+    const entries = new Map<string, string>()
+    let writeCount = 0
+    let releaseFirstWrite: (() => void) | undefined
+    const firstWriteGate = new Promise<void>((resolve) => {
+      releaseFirstWrite = resolve
+    })
+    const storage: DirectoryWorkspacePersistenceStorage = {
+      getItem: (name) => entries.get(name) ?? null,
+      setItem: async (name, value) => {
+        writeCount += 1
+        if (writeCount === 1) await firstWriteGate
+        entries.set(name, value)
+      },
+      removeItem: (name) => {
+        entries.delete(name)
+      },
+    }
+
+    const chatAKey = workspaceChatKeyForSession("session-a")
+    const chatBKey = workspaceChatKeyForSession("session-b")
+    const firstWrite = writePersistedDirectoryWorkspace({
       directory: "/workspace",
       storage,
       state: {
-        visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_SKILLS,
+        slots: {
+          [chatAKey]: workspaceSlot({
+            route: DOCKED_OBJECT_ROUTE,
+            docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SKILLS),
+            lastDrawer: WORKSPACE_DRAWER_SKILLS,
+          }),
+        },
       },
     })
+    await Promise.resolve()
+    const secondWrite = writePersistedWorkspaceSlot({
+      directory: "/workspace",
+      storage,
+      chatKey: chatBKey,
+      slot: {
+        route: CLOSED_ROUTE,
+        docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SEARCH),
+        lastDrawer: WORKSPACE_DRAWER_SEARCH,
+      },
+    })
+    releaseFirstWrite?.()
 
+    await firstWrite
+    await secondWrite
     await expect(
       readPersistedDirectoryWorkspace({ directory: "/workspace", storage }),
     ).resolves.toEqual({
       status: "ready",
       state: {
-        visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_SKILLS,
+        slots: {
+          [chatAKey]: workspaceSlot({
+            route: DOCKED_OBJECT_ROUTE,
+            docked: {
+              visibility: WORKSPACE_VISIBILITY_EXPANDED,
+              drawer: WORKSPACE_DRAWER_SKILLS,
+            },
+            lastDrawer: WORKSPACE_DRAWER_SKILLS,
+          }),
+          [chatBKey]: workspaceSlot({
+            route: CLOSED_ROUTE,
+            docked: {
+              visibility: WORKSPACE_VISIBILITY_EXPANDED,
+              drawer: WORKSPACE_DRAWER_SEARCH,
+            },
+            lastDrawer: WORKSPACE_DRAWER_SEARCH,
+          }),
+        },
       },
     })
   })
 
-  test("accepts Search as a durable last drawer", async () => {
+  test("reads one chat slot without mixing it with another chat", async () => {
     const storage = createMemoryStorage()
+    const chatAKey = workspaceChatKeyForSession("session-a")
+    const chatBKey = workspaceChatKeyForSession("session-b")
     await writePersistedDirectoryWorkspace({
       directory: "/workspace",
       storage,
       state: {
-        visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_SEARCH,
+        slots: {
+          [chatAKey]: workspaceSlot({
+            route: DOCKED_OBJECT_ROUTE,
+            docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
+            lastDrawer: WORKSPACE_DRAWER_FILES,
+          }),
+          [chatBKey]: workspaceSlot({
+            route: CLOSED_ROUTE,
+            docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SKILLS),
+            lastDrawer: WORKSPACE_DRAWER_SKILLS,
+          }),
+        },
       },
     })
 
     await expect(
-      readPersistedDirectoryWorkspace({ directory: "/workspace", storage }),
+      readPersistedWorkspaceSlot({
+        directory: "/workspace",
+        chatKey: chatBKey,
+        storage,
+      }),
     ).resolves.toEqual({
-      status: "ready",
-      state: {
+      route: CLOSED_ROUTE,
+      docked: {
         visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_SEARCH,
+        drawer: WORKSPACE_DRAWER_SKILLS,
       },
+      lastDrawer: WORKSPACE_DRAWER_SKILLS,
     })
   })
 
-  test("persists only visibility and last drawer under a versioned payload", async () => {
+  test("persists the versioned slot map", async () => {
     const storage = createMemoryStorage()
+    const chatKey = workspaceChatKeyForSession("session-a")
     await writePersistedDirectoryWorkspace({
       directory: "/workspace",
       storage,
       state: {
-        visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_SOURCES,
+        slots: {
+          [chatKey]: workspaceSlot({
+            route: CLOSED_ROUTE,
+            docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SEARCH),
+            lastDrawer: WORKSPACE_DRAWER_SEARCH,
+          }),
+        },
       },
     })
 
@@ -502,22 +749,21 @@ describe("directory workspace persistence", () => {
     expect(JSON.parse(raw)).toEqual({
       version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
       state: {
-        visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_SOURCES,
-      },
-    })
-    await expect(
-      readPersistedDirectoryWorkspace({ directory: "/workspace", storage }),
-    ).resolves.toEqual({
-      status: "ready",
-      state: {
-        visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_SOURCES,
+        slots: {
+          [chatKey]: workspaceSlot({
+            route: CLOSED_ROUTE,
+            docked: {
+              visibility: WORKSPACE_VISIBILITY_EXPANDED,
+              drawer: WORKSPACE_DRAWER_SEARCH,
+            },
+            lastDrawer: WORKSPACE_DRAWER_SEARCH,
+          }),
+        },
       },
     })
   })
 
-  test("ignores legacy or mismatched workspace persistence instead of migrating sidebar state", async () => {
+  test("ignores legacy persistence instead of treating directory state as a chat slot", async () => {
     const storage = createMemoryStorage()
     storage.setItem(
       "directory-workspace:%2Fworkspace",
@@ -539,18 +785,31 @@ describe("directory workspace persistence", () => {
     })
   })
 
-  test("derives the persisted slice from committed workspace state", () => {
+  test("derives the active chat slot and excludes transition-only slots", () => {
+    const chatKey = workspaceChatKeyForSession("session-a")
+    const transitionKey = workspaceChatKeyForTransition(9)
     expect(
-      persistedDirectoryWorkspaceStateFromStore(
-        projectionState({
-          visibility: WORKSPACE_VISIBILITY_EXPANDED,
-          drawer: WORKSPACE_DRAWER_FILES,
+      persistedDirectoryWorkspaceStateFromStore({
+        slots: {
+          [chatKey]: workspaceSlot({
+            route: DOCKED_OBJECT_ROUTE,
+            docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
+            lastDrawer: WORKSPACE_DRAWER_SOURCES,
+          }),
+          [transitionKey]: defaultWorkspacePresentationSlot(),
+        },
+      }),
+    ).toEqual({
+      slots: {
+        [chatKey]: workspaceSlot({
+          route: DOCKED_OBJECT_ROUTE,
+          docked: {
+            visibility: WORKSPACE_VISIBILITY_EXPANDED,
+            drawer: WORKSPACE_DRAWER_FILES,
+          },
           lastDrawer: WORKSPACE_DRAWER_SOURCES,
         }),
-      ),
-    ).toEqual({
-      visibility: WORKSPACE_VISIBILITY_EXPANDED,
-      lastDrawer: WORKSPACE_DRAWER_SOURCES,
+      },
     })
   })
 })

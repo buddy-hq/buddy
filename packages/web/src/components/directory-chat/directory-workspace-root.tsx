@@ -1,6 +1,20 @@
-import { Outlet, useLocation } from "@tanstack/react-router"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { BenchRouteContextProvider } from "@/components/bench/bench-route-context"
+import { useLocation } from "@tanstack/react-router"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react"
+import {
+  BenchRouteContextProvider,
+  type BenchRuntimeState,
+} from "@/components/bench/bench-route-context"
+import { BenchSurfaceHost } from "@/components/bench/bench-surface-host"
+import { BenchSurfaceRenderer } from "@/components/bench/bench-surface-renderer"
 import {
   TransientBenchSurfaceProvider,
   closeTransientBenchSurface,
@@ -39,6 +53,7 @@ import {
   type BenchChatLayoutMode,
   type BenchViewport,
   type BenchMode,
+  type BenchTarget,
 } from "@/lib/bench-navigation"
 import type { BenchFloatingChatState } from "@/components/bench/bench-route-context"
 import { resourceSessionKey, useChatStore } from "@/state/chat-store"
@@ -49,6 +64,10 @@ import { useStore } from "zustand"
 import { resolveWorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
 import { requestPromptComposerFocus } from "@/components/prompt/prompt-composer-focus"
 import { createTextPromptDraft, getPromptDraft, usePromptStore } from "@/state/prompt-store"
+import {
+  readActiveChatLayoutMotionSuppressed,
+  subscribeActiveChatLayoutMotion,
+} from "@/lib/active-chat-transition-state"
 
 type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
 
@@ -84,6 +103,54 @@ function readDockedBenchViewport(): BenchViewport {
   }
 }
 
+function useRetainedChatLayoutMotionSuppression(input: {
+  suppressed: boolean
+  destinationReady: boolean
+}): boolean {
+  const [retained, setRetained] = useState(input.suppressed)
+  const releaseFrameRef = useRef<number | undefined>(undefined)
+  const releasePaintFrameRef = useRef<number | undefined>(undefined)
+
+  useLayoutEffect(() => {
+    function cancelRelease(): void {
+      if (typeof globalThis.cancelAnimationFrame === "function") {
+        if (releaseFrameRef.current !== undefined) {
+          globalThis.cancelAnimationFrame(releaseFrameRef.current)
+        }
+        if (releasePaintFrameRef.current !== undefined) {
+          globalThis.cancelAnimationFrame(releasePaintFrameRef.current)
+        }
+      }
+      releaseFrameRef.current = undefined
+      releasePaintFrameRef.current = undefined
+    }
+
+    if (input.suppressed) {
+      cancelRelease()
+      setRetained(true)
+      return cancelRelease
+    }
+    if (!retained || !input.destinationReady) {
+      return cancelRelease
+    }
+    if (typeof globalThis.requestAnimationFrame !== "function") {
+      setRetained(false)
+      return cancelRelease
+    }
+
+    releaseFrameRef.current = globalThis.requestAnimationFrame(() => {
+      releasePaintFrameRef.current = globalThis.requestAnimationFrame(() => {
+        releaseFrameRef.current = undefined
+        releasePaintFrameRef.current = undefined
+        setRetained(false)
+      })
+    })
+    return cancelRelease
+  }, [input.destinationReady, input.suppressed, retained])
+
+  return input.suppressed || retained
+}
+
 export function DirectoryWorkspaceRoot() {
   const { controller } = useDirectoryNotebookRouteContext()
 
@@ -105,6 +172,11 @@ export function DirectoryWorkspaceRoot() {
 function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchController }) {
   const location = useLocation()
   const workspace = useDirectoryWorkspace()
+  const activeChatLayoutMotionSuppressed = useSyncExternalStore(
+    subscribeActiveChatLayoutMotion,
+    readActiveChatLayoutMotionSuppressed,
+    readActiveChatLayoutMotionSuppressed,
+  )
   const hydrationStatus = useStore(workspace.store, (state) => state.hydration.status)
   const workspaceHydrated = hydrationStatus !== WORKSPACE_HYDRATION_PENDING
   const { controller } = props
@@ -130,10 +202,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       }),
     [currentDirectory, location.pathname, location.search],
   )
-  const isWhiteboardTarget =
-    benchPolicyState.status === "open" &&
-    benchPolicyState.target.type === "object" &&
-    benchPolicyState.target.ref.kind === "whiteboard"
   const linkedReadingSessionID = useChatStore((state) => {
     if (
       benchPolicyState.status !== "open" ||
@@ -240,6 +308,11 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const effectiveWorkspaceOpen = transientBenchActive || workspaceOpen
   const workspaceHostOpen = presentation.workspaceOpen
   const effectiveWorkspaceHostOpen = transientBenchActive || workspaceHostOpen
+  const workspaceTransitioning = presentation.transitioning
+  const suppressLayoutMotion = useRetainedChatLayoutMotionSuppression({
+    suppressed: activeChatLayoutMotionSuppressed || workspaceTransitioning,
+    destinationReady: workspaceHydrated,
+  })
   const dockedWorkspaceDisplayWidthPx = transientBenchActive
     ? transientWorkspaceWidthPx
     : presentation.workspace.widthPx
@@ -316,11 +389,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       setLeftSidebarOverlayOpen(false)
     }
   }, [dockedLeftSidebarVisible, presentation.dockedBenchVisible])
-
-  const openChatRoute = useCallback(async (): Promise<boolean> => {
-    const result = await workspace.controller.execute({ type: "close" })
-    return result.outcome === "committed"
-  }, [workspace.controller])
 
   const setBenchMode = useCallback(
     (input: { mode: BenchMode; origin: "user" | "agent" }) => {
@@ -535,23 +603,13 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   ])
 
   const handleNewSession = useCallback(async () => {
-    if (isWhiteboardTarget) {
-      const didCloseBench = await openChatRoute()
-      if (!didCloseBench) return
-    }
     await controller.leftSidebarProps.onNewSession(currentDirectory)
-  }, [controller.leftSidebarProps, currentDirectory, isWhiteboardTarget, openChatRoute])
+  }, [controller.leftSidebarProps, currentDirectory])
 
   const selectWorkspaceSession = useCallback(
-    async (nextSessionID: string): Promise<boolean> => {
-      if (isWhiteboardTarget && nextSessionID) {
-        const didCloseBench = await openChatRoute()
-        if (!didCloseBench) return false
-      }
-      await controller.leftSidebarProps.onSelectSession(currentDirectory, nextSessionID)
-      return true
-    },
-    [controller.leftSidebarProps, currentDirectory, isWhiteboardTarget, openChatRoute],
+    async (nextSessionID: string): Promise<boolean> =>
+      controller.leftSidebarProps.onSelectSession(currentDirectory, nextSessionID),
+    [controller.leftSidebarProps, currentDirectory],
   )
   const handleSelectSession = useCallback(
     async (nextSessionID: string): Promise<void> => {
@@ -590,25 +648,49 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   )
 
   const benchTargetKey = workspace.projection.bench.targetKey ?? CLOSED_BENCH_TARGET_KEY
+  const activeBenchTarget = benchRuntimeState?.target ?? null
+  const renderBenchSurface = useCallback(
+    (target: BenchTarget) => (
+      <BenchSurfaceRenderer directory={currentDirectory} target={target} />
+    ),
+    [currentDirectory],
+  )
+  const renderBenchContext = useCallback(
+    (input: { active: boolean; state: BenchRuntimeState; children: ReactNode }) => (
+      <BenchRouteContextProvider
+        state={input.state}
+        active={input.active}
+        visible={presentation.benchVisible}
+        activeSessionID={activeSessionID}
+        fallbackProvider={fallbackContextProvider}
+        setMode={setBenchMode}
+        setFloatingChatState={setFloatingChatSubstate}
+      >
+        {input.children}
+      </BenchRouteContextProvider>
+    ),
+    [
+      activeSessionID,
+      fallbackContextProvider,
+      presentation.benchVisible,
+      setBenchMode,
+      setFloatingChatSubstate,
+    ],
+  )
   const benchOutlet = (
     <div
-      key={benchTargetKey}
       data-component="directory-workspace-bench-target-boundary"
       data-target-key={benchTargetKey}
       className="h-full min-h-0 w-full min-w-0"
     >
-      {benchRuntimeState ? (
-        <BenchRouteContextProvider
-          state={benchRuntimeState}
-          visible={presentation.benchVisible}
-          activeSessionID={activeSessionID}
-          fallbackProvider={fallbackContextProvider}
-          setMode={setBenchMode}
-          setFloatingChatState={setFloatingChatSubstate}
-        >
-          <Outlet />
-        </BenchRouteContextProvider>
-      ) : null}
+      <BenchSurfaceHost
+        directory={currentDirectory}
+        activeTarget={activeBenchTarget}
+        benchVisible={presentation.benchVisible}
+        activeRuntimeState={benchRuntimeState}
+        renderContext={renderBenchContext}
+        renderSurface={renderBenchSurface}
+      />
     </div>
   )
   const shellLeftSidebarOpen = dockedLeftSidebarVisible
@@ -627,6 +709,19 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     ],
   )
 
+  // Do not mount a full-width transcript and then replace it with the persisted workspace
+  // geometry. Hydration is the one point where waiting is correct: no transcript instance exists
+  // yet, so mounting once after the durable layout is known preserves its normal cache and anchor
+  // lifecycle while avoiding a wrong first paint.
+  if (!workspaceHydrated) {
+    return (
+      <div
+        data-component="directory-workspace-hydrating"
+        className="h-full min-h-0 w-full min-w-0 bg-surface-raised-base"
+      />
+    )
+  }
+
   return (
     <TransientBenchSurfaceProvider value={transientBenchContext}>
       <DirectoryChatShell
@@ -641,6 +736,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
             onFloatingRectChange={setFloatingRect}
             onFloatingChatStateChange={setFloatingChatStateFromLayout}
             benchInteractive={effectiveWorkspaceHostOpen}
+            suppressLayoutMotion={suppressLayoutMotion}
             dockedBenchLayout={{
               open: workspaceHydrated && effectiveWorkspaceOpen,
               widthPx: dockedWorkspaceDisplayWidthPx,
@@ -663,11 +759,16 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                   className="h-full min-h-0 w-full min-w-0 bg-background-base"
                 />
               ) : (
+                // The chat transition no longer swaps in a blank frame. Unmounting the workspace
+                // here destroyed every kept-alive surface on every switch, which is exactly the
+                // rebuild this host exists to prevent. During a transition the projection has no
+                // active target, so BenchSurfaceHost shows nothing while parked surfaces survive.
                 <DirectoryChatRightWorkspace
                   directory={currentDirectory}
                   sessionID={controller.mainPaneProps.chatState.sessionID}
                   sessions={controller.mainPaneProps.chatState.sessions}
                   workspaceWidth={dockedWorkspaceDisplayWidthPx}
+                  suppressDrawerMotion={suppressLayoutMotion}
                   onCreateBoard={handleCreateBoard}
                   onCreateCreation={handleCreateCreation}
                   onOpenThread={selectWorkspaceSession}

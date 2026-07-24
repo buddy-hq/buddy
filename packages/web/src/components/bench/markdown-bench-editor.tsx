@@ -41,6 +41,7 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -62,6 +63,10 @@ import {
   MarkdownBenchMdxIntrinsicPreview,
 } from "@/components/bench/markdown-bench-mdx-intrinsic"
 import { resolveMarkdownBenchImageSrc } from "@/lib/markdown-bench-image-src"
+import {
+  readBenchSurfaceViewport,
+  writeBenchSurfaceViewport,
+} from "@/state/bench-surface-ui-state"
 import { BUDDY_CODE_MIRROR_EXTENSIONS } from "@/components/bench/markdown-bench-code-theme"
 import { buddyMathPlugin } from "@/components/bench/markdown-bench-math-plugin"
 import {
@@ -129,11 +134,15 @@ type MarkdownBenchHistoryPluginParams = {
   onChange(controls: MarkdownBenchHistoryControls): void
 }
 
+export type MarkdownBenchEditorAppearance = "paper" | "plain"
+
 type MarkdownBenchEditorProps = Pick<
   MarkdownBenchEditorContract,
   "markdown" | "version" | "dirty" | "saving" | "conflict" | "onChange"
 > & {
   advancedToolbarContainer?: HTMLElement | null
+  /** "paper" (default) shows the document card chrome; "plain" renders a flush, minimal surface. */
+  appearance?: MarkdownBenchEditorAppearance
   className?: string
   contentFontScale?: number
   contentTheme?: MarkdownBenchContentTheme
@@ -141,6 +150,7 @@ type MarkdownBenchEditorProps = Pick<
   documentFormat: MarkdownBenchDocumentFormat
   path: string
   placeholder?: ReactNode
+  viewportKey?: string
   obsidianWikiLinkContext?: ObsidianWikiLinkContext
   onHistoryControlsChange?(controls: MarkdownBenchHistoryControlsState): void
   onOpenLink?(href: string): void
@@ -398,9 +408,9 @@ function MarkdownBenchAdvancedToolbarPortal(props: { container?: HTMLElement | n
   )
 }
 
-const MARKDOWN_CONTENT_CLASS_NAME = [
+const MARKDOWN_CONTENT_BASE_CLASS_NAME = [
   markdownClassName,
-  "min-h-[calc(100vh-12rem)] px-[clamp(0px,calc((100%_-_28rem)/6),2rem)] py-[clamp(0px,calc((100%_-_28rem)/4),3rem)] focus:outline-none",
+  "focus:outline-none",
   // MDXEditor uses --text-base for font sizing, which shadows Buddy's color token alias.
   "![color:var(--markdown-text)]",
   "![font-size:calc(var(--buddy-font-size-sm)*var(--markdown-bench-document-font-scale))]",
@@ -408,6 +418,16 @@ const MARKDOWN_CONTENT_CLASS_NAME = [
   "[&_code]:!bg-transparent [&_code]:!p-0 [&_code]:!text-[var(--color-syntax-string)]",
   "[&_code_*]:!bg-transparent [&_code_*]:!p-0 [&_code_*]:!text-inherit",
 ].join(" ")
+
+const MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME =
+  "min-h-[calc(100vh-12rem)] px-[clamp(0px,calc((100%_-_28rem)/6),2rem)] py-[clamp(0px,calc((100%_-_28rem)/4),3rem)]"
+
+const MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME = "min-h-full px-4 py-3"
+
+const MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME =
+  "mx-auto w-full max-w-3xl min-h-full overflow-hidden rounded-lg border border-border-weak-base bg-background-base shadow-sm"
+
+const MARKDOWN_BENCH_PAPER_PLAIN_CLASS_NAME = "w-full min-h-full bg-background-base"
 
 const MARKDOWN_BENCH_SELECTION_EDGE_WIDTH_PX = 3
 const MARKDOWN_BENCH_SELECTION_EDGE_MIN_HEIGHT_PX = 3
@@ -553,6 +573,8 @@ const markdownBenchErrorRecoveryPlugin = realmPlugin({
 
 export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, MarkdownBenchEditorProps>(
   function MarkdownBenchEditor(props, ref) {
+    const appearance = props.appearance ?? "paper"
+    const isPlainAppearance = appearance === "plain"
     const editorRef = useRef<MDXEditorMethods>(null)
     const editorRootRef = useRef<HTMLDivElement>(null)
     const [selectionSection, setSelectionSection] = useState<
@@ -563,6 +585,25 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       EMPTY_MARKDOWN_BENCH_HISTORY_CONTROLS,
     )
     const onHistoryControlsChangeRef = useRef(props.onHistoryControlsChange)
+
+    useLayoutEffect(() => {
+      const editorRoot = editorRootRef.current
+      const viewportKey = props.viewportKey
+      if (!editorRoot || !viewportKey) return
+      const restoredViewport = readBenchSurfaceViewport(viewportKey)
+      if (restoredViewport?.scrollTop !== undefined) {
+        editorRoot.scrollTop = restoredViewport.scrollTop
+      }
+      if (restoredViewport?.scrollLeft !== undefined) {
+        editorRoot.scrollLeft = restoredViewport.scrollLeft
+      }
+      return () => {
+        writeBenchSurfaceViewport(viewportKey, {
+          scrollTop: editorRoot.scrollTop,
+          scrollLeft: editorRoot.scrollLeft,
+        })
+      }
+    }, [props.viewportKey])
     const rawThemeScopeID = useId()
     const themeScopeID = useMemo(
       () => sanitizeMarkdownBenchThemeScopeID(rawThemeScopeID),
@@ -803,7 +844,11 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     const mdxEditorElement = (
       <div
         data-component="markdown-bench-paper"
-        className="mx-auto w-full max-w-3xl min-h-full overflow-hidden rounded-lg border border-border-weak-base bg-background-base shadow-sm"
+        className={
+          isPlainAppearance
+            ? MARKDOWN_BENCH_PAPER_PLAIN_CLASS_NAME
+            : MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME
+        }
       >
         <MDXEditor
           ref={editorRef}
@@ -824,7 +869,12 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
             }
             props.onChange(restoreEditorMarkdown(nextMarkdown))
           }}
-          contentEditableClassName={MARKDOWN_CONTENT_CLASS_NAME}
+          contentEditableClassName={cn(
+            MARKDOWN_CONTENT_BASE_CLASS_NAME,
+            isPlainAppearance
+              ? MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME
+              : MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME,
+          )}
         />
       </div>
     )
@@ -841,8 +891,10 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         data-obsidian-vault={obsidianWikiLinkContext.compatible ? "true" : "false"}
         data-markdown-bench-theme-scope={themeScopeID}
         className={cn(
-          "markdown-bench-editor relative h-full min-h-0 overflow-y-auto bg-background-weak pb-48 text-text-base",
-          MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS,
+          "markdown-bench-editor relative h-full min-h-0 overflow-y-auto text-text-base",
+          isPlainAppearance
+            ? "bg-background-base"
+            : cn("bg-background-weak pb-48", MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS),
           props.className,
         )}
         onPointerUp={notifySelectionChange}

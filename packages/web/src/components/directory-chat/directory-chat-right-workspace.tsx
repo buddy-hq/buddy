@@ -67,6 +67,7 @@ type DirectoryChatRightWorkspaceProps = {
   sessionID?: string
   sessions: SessionInfo[]
   workspaceWidth: number
+  suppressDrawerMotion?: boolean
   onCreateBoard: () => void
   onCreateCreation: () => void
   onOpenThread: (sessionID: string) => Promise<boolean>
@@ -180,17 +181,26 @@ export function DirectoryChatRightWorkspaceContent(props: {
   bench?: ReactNode
   selectorContent: ReactNode
   selectorDrawerWidth: number
+  suppressDrawerMotion?: boolean
 }) {
+  // The Bench container is always rendered in the same position and hidden when there is no target.
+  // Moving it into a conditional branch unmounts BenchSurfaceHost — and every surface it is keeping
+  // alive — on every chat transition, because the projection reports a closed Bench mid-switch.
+  const benchVisible = props.hasBenchTarget && Boolean(props.bench)
+
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-      {props.hasBenchTarget && props.bench ? (
-        <div
-          data-component="right-workspace-bench-target"
-          className="isolate h-full min-h-0 min-w-0 flex-1 bg-background-base"
-        >
-          {props.bench}
-        </div>
-      ) : props.selectorContent ? (
+      <div
+        data-component="right-workspace-bench-target"
+        data-bench-visible={benchVisible ? "true" : "false"}
+        className={cn(
+          "isolate h-full min-h-0 min-w-0 flex-1 bg-background-base",
+          !benchVisible && "hidden",
+        )}
+      >
+        {props.bench}
+      </div>
+      {benchVisible ? null : props.selectorContent ? (
         <div data-component="right-workspace-selector-content" className="min-h-0 min-w-0 flex-1">
           {props.selectorContent}
         </div>
@@ -204,7 +214,11 @@ export function DirectoryChatRightWorkspaceContent(props: {
       {props.hasBenchTarget && props.selectorContent ? (
         <aside
           data-component="right-workspace-selector-drawer"
-          className="absolute inset-y-0 right-0 z-10 h-full min-h-0 max-w-full border-l border-border-weaker-base bg-background-base shadow-xl animate-in fade-in slide-in-from-right-3 duration-150"
+          className={cn(
+            "absolute inset-y-0 right-0 z-10 h-full min-h-0 max-w-full border-l border-border-weaker-base bg-background-base shadow-xl",
+            !props.suppressDrawerMotion &&
+              "animate-in fade-in slide-in-from-right-3 duration-150",
+          )}
           style={{ width: props.selectorDrawerWidth }}
         >
           {props.selectorContent}
@@ -552,6 +566,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
         bench={props.bench}
         selectorContent={selectorContent}
         selectorDrawerWidth={selectorDrawerWidth}
+        suppressDrawerMotion={props.suppressDrawerMotion}
       />
 
       {selectorAccessEnabled ? <RightWorkspaceRail items={railItems} /> : null}

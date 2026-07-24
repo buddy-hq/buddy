@@ -42,6 +42,7 @@ type DirectoryChatBenchPageLayoutProps = {
   onFloatingChatStateChange: (state: BenchFloatingChatState) => void
   dockedBenchLayout: DirectoryChatDockedBenchLayout
   benchInteractive?: boolean
+  suppressLayoutMotion?: boolean
   threadBrowserProps?: {
     sessionTitle: string
     notebookName?: string
@@ -72,9 +73,8 @@ const BENCH_CHAT_RESTORE_LABEL = "Restore chat"
 const FLOATING_CHAT_DEFAULT_CONTAINER_WIDTH_PX = 1280
 const FLOATING_CHAT_DEFAULT_CONTAINER_HEIGHT_PX = 800
 const FLOATING_CHAT_DEFAULT_SAFE_TOP_PX = 24
-const BENCH_LAYOUT_TRANSITION = {
-  duration: 0.24,
-  ease: [0.22, 1, 0.36, 1],
+const INSTANT_LAYOUT_TRANSITION = {
+  duration: 0,
 } satisfies Transition
 const FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS = 0.26
 const FLOATING_CHAT_WINDOW_TRANSITION = {
@@ -398,8 +398,8 @@ function resizeFloatingChatRect(input: {
 }
 
 export function BenchContent(props: { bordered: boolean; children: ReactNode }) {
-  // Size-based FLIP transforms expose the temporary collapsed width to embedded surfaces without
-  // triggering a later ResizeObserver update. Editors and canvases must observe real layout sizes.
+  // Editors, canvases, and the transcript must observe the real layout size; transformed width
+  // animations leave their ResizeObservers out of sync with what the user sees.
   return (
     <div
       className={cn(
@@ -436,13 +436,20 @@ function FloatingChatResizeHandle(props: {
   )
 }
 
-function FloatingChatRestoreButton(props: { onRestore: () => void }) {
+function FloatingChatRestoreButton(props: {
+  onRestore: () => void
+  suppressLayoutMotion: boolean
+}) {
   return (
     <motion.div
       data-component="directory-chat-floating-restore"
-      initial={{ opacity: 0, scale: 0.92, y: 8 }}
+      initial={props.suppressLayoutMotion ? false : { opacity: 0, scale: 0.92, y: 8 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={FLOATING_CHAT_WINDOW_TRANSITION}
+      transition={
+        props.suppressLayoutMotion
+          ? INSTANT_LAYOUT_TRANSITION
+          : FLOATING_CHAT_WINDOW_TRANSITION
+      }
       className="absolute bottom-6 right-6 z-40"
     >
       <Button
@@ -484,6 +491,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
   const isFloatingMinimized = isFloating && floatingChatState === "minimized"
   const dockedBenchOpen = props.dockedBenchLayout.open
   const benchInteractive = props.benchInteractive ?? true
+  const suppressLayoutMotion = props.suppressLayoutMotion ?? false
   const conversationControls = isFloating ? {} : { onFloatChat: floatChat }
   const conversation = props.conversation(conversationControls)
   const floatingLayoutDefaults = resolveBenchLayoutDefaults({
@@ -807,6 +815,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
     <section
       ref={layoutRef}
       data-component="directory-chat-bench-page-layout"
+      data-layout-motion={isFloating && !suppressLayoutMotion ? "animated" : "instant"}
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-surface-raised-base"
     >
       <div
@@ -817,9 +826,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
           "absolute min-h-0 min-w-0 overflow-hidden",
           benchInteractive ? "" : "pointer-events-none opacity-0",
           !isFloating ? "border-l border-border-weaker-base" : "",
-          !isFloating
-            ? "transition-[width,opacity] duration-200 ease-out motion-reduce:transition-none"
-            : "",
+          !isFloating ? "transition-none" : "",
         )}
         style={benchHostStyle}
       >
@@ -847,7 +854,11 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
         data-mode={isFloating ? BENCH_CHAT_LAYOUT_FLOATING : BENCH_CHAT_LAYOUT_DOCKED}
         aria-hidden={isFloatingMinimized}
         style={conversationHostStyle}
-        initial={floatingEntryAnimation && isFloating ? { opacity: 0, scale: 0.95, y: 22 } : false}
+        initial={
+          !suppressLayoutMotion && floatingEntryAnimation && isFloating
+            ? { opacity: 0, scale: 0.95, y: 22 }
+            : false
+        }
         animate={
           isFloating
             ? {
@@ -857,15 +868,18 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
               }
             : { opacity: 1, scale: 1, y: 0 }
         }
-        transition={isFloating ? FLOATING_CHAT_WINDOW_TRANSITION : BENCH_LAYOUT_TRANSITION}
+        transition={
+          suppressLayoutMotion
+            ? INSTANT_LAYOUT_TRANSITION
+            : isFloating
+              ? FLOATING_CHAT_WINDOW_TRANSITION
+              : INSTANT_LAYOUT_TRANSITION
+        }
         className={cn(
           "absolute z-30 flex min-h-0 min-w-0 overflow-hidden",
           isFloating
             ? "rounded-2xl border border-border-base/70 bg-background-stronger shadow-lg"
-            : cn(
-                "bg-background-base",
-                "transition-[right] duration-200 ease-out motion-reduce:transition-none",
-              ),
+            : "bg-background-base transition-none",
           isFloatingMinimized && "pointer-events-none",
         )}
       >
@@ -982,6 +996,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
         <FloatingChatRestoreButton
           key="directory-chat-floating-restore"
           onRestore={() => onFloatingChatStateChange("open")}
+          suppressLayoutMotion={suppressLayoutMotion}
         />
       ) : null}
     </section>

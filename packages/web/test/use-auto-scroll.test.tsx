@@ -232,7 +232,7 @@ describe("useAutoScroll", () => {
     expect(handle?.initialScrollOffset()).toBeUndefined()
   })
 
-  test("restores an attached session's finite offset when switching back", async () => {
+  test("restores an attached session to the semantic bottom when switching back", async () => {
     let handle: HarnessHandle | undefined
     const onReady = (nextHandle: HarnessHandle) => {
       handle = nextHandle
@@ -264,7 +264,7 @@ describe("useAutoScroll", () => {
       root.render(<Harness attachmentKey="session-1" onReady={onReady} />)
     })
     expect(handle?.shouldAnchorBottom()).toBe(true)
-    expect(handle?.initialScrollOffset()).toBe(1_200)
+    expect(handle?.initialScrollOffset()).toBeUndefined()
   })
 
   test("restores each recently visited session's detached reading position", async () => {
@@ -322,6 +322,6 @@ describe("useAutoScroll", () => {
       root.render(<Harness attachmentKey="session-2" onReady={onReady} />)
     })
     expect(handle?.shouldAnchorBottom()).toBe(true)
-    expect(handle?.initialScrollOffset()).toBe(1_200)
+    expect(handle?.initialScrollOffset()).toBeUndefined()
   })
 })

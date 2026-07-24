@@ -102,7 +102,8 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   // In chat placement the toggle is a fixed element inside the header — not in the flow
   const showLeftSidebarToggle = placement === "chat" ? false : showSidebarToggles
   const shouldReserveMacWindowControls = placement === "root" ? isMac && !isFullscreen : false
-  // Animated spacer clears the fixed toggle from the title in ALL desktop variants:
+  // This spacer clears the fixed toggle from the title in all desktop variants.
+  // Its width snaps with the sidebar column so the titlebar and transcript share one layout frame:
   //   Mac non-fullscreen closed: 90px (traffic lights) + 40px (toggle + gap) = 130px
   //   Mac fullscreen / Windows closed: 8px (toggle left) + 40px (toggle + gap) = 48px
   //   Sidebar open (Col 2 at x≥280): 0px — toggle is inside the sidebar area
@@ -371,7 +372,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                 ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX
                 : CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX,
             zIndex: 50,
-            transition: "left 200ms ease-out",
+            transition: "none",
           }}
           className="motion-reduce:transition-none [-webkit-app-region:no-drag] flex items-center gap-1.5"
         >
@@ -438,7 +439,8 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         ) : null}
         {placement === "chat" && isDesktop ? (
           <div
-            className="shrink-0 transition-[width] duration-200 ease-out motion-reduce:transition-none"
+            data-component="desktop-titlebar-chat-left-spacer"
+            className="shrink-0 transition-none"
             style={{ width: chatLeftSpacerWidth }}
           />
         ) : null}

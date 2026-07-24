@@ -1,5 +1,7 @@
 import { cn } from "@buddy/ui"
+import { useEffect, useRef } from "react"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
+import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import { fileNameFromPath } from "@/lib/workspace-file-paths"
 
 export type BenchMediaRenderMode = "image" | "audio" | "video" | "pdf" | "file"
@@ -57,7 +59,7 @@ export function BenchMediaPreview(props: BenchMediaPreviewProps) {
   if (props.renderMode === "video" && props.src) {
     return (
       <div data-component="bench-media-video" className={CENTERED_MEDIA_FRAME_CLASS}>
-        <video src={props.src} controls className="block max-h-full max-w-full bg-black" />
+        <ParkAwareVideo src={props.src} />
       </div>
     )
   }
@@ -69,7 +71,7 @@ export function BenchMediaPreview(props: BenchMediaPreviewProps) {
         className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-4 p-6"
       >
         <FileTypeIcon fileName={props.title} className="size-10" />
-        <audio src={props.src} controls className="w-full max-w-xl" />
+        <ParkAwareAudio src={props.src} />
       </div>
     )
   }
@@ -95,4 +97,40 @@ export function BenchMediaPreview(props: BenchMediaPreviewProps) {
       {props.displayPath ? <span>{props.displayPath}</span> : null}
     </div>
   )
+}
+
+/**
+ * Media elements keep playing while their surface is parked, so a chat the user left could still be
+ * producing sound. Playback is paused on park and deliberately not resumed on return: resuming is
+ * the user's decision, and the element keeps its position, buffer, and volume either way.
+ */
+function useParkAwarePlayback<T extends HTMLMediaElement>() {
+  const elementRef = useRef<T | null>(null)
+  const active = useBenchSurfaceActive()
+
+  useEffect(() => {
+    if (active) return
+    elementRef.current?.pause()
+  }, [active])
+
+  return elementRef
+}
+
+function ParkAwareVideo(props: { src: string }) {
+  const videoRef = useParkAwarePlayback<HTMLVideoElement>()
+
+  return (
+    <video
+      ref={videoRef}
+      src={props.src}
+      controls
+      className="block max-h-full max-w-full bg-black"
+    />
+  )
+}
+
+function ParkAwareAudio(props: { src: string }) {
+  const audioRef = useParkAwarePlayback<HTMLAudioElement>()
+
+  return <audio ref={audioRef} src={props.src} controls className="w-full max-w-xl" />
 }

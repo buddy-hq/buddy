@@ -13,6 +13,7 @@ import { useStore } from "zustand"
 import {
   DirectoryWorkspaceBlocker,
   DirectoryWorkspaceController,
+  buildWorkspaceRouteNavigation,
   readBenchRouteSnapshotFromLocation,
 } from "@/lib/directory-workspace-controller"
 import {
@@ -21,7 +22,13 @@ import {
 } from "@/components/bench/bench-context-utils"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { DirectoryWorkspaceLifecycleService } from "@/lib/directory-workspace-lifecycle"
+import { registerLiveDirectoryWorkspace } from "@/lib/directory-workspace-registry"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
+import {
+  workspaceChatKeyForSession,
+  type WorkspaceChatKey,
+} from "@/lib/workspace-chat-key"
+import { useChatStore } from "@/state/chat-store"
 import {
   BENCH_ROUTE_STATUS_OPEN,
   type BenchRouteSnapshot,
@@ -29,18 +36,20 @@ import {
   WORKSPACE_HYDRATION_FAILED,
   WORKSPACE_HYDRATION_PENDING,
   WORKSPACE_HYDRATION_READY,
-  WORKSPACE_VISIBILITY_EXPANDED,
   createCollapsedWorkspaceState,
   createDirectoryWorkspaceStore,
   createExpandedWorkspaceState,
+  isSameBenchRouteSnapshot,
+  defaultWorkspacePresentationSlot,
   effectiveWorkspaceProjection,
   persistedDirectoryWorkspaceStateFromStore,
   readPersistedDirectoryWorkspace,
+  workspacePresentationSlotForChat,
   writePersistedDirectoryWorkspace,
   type DirectoryWorkspacePersistenceStorage,
   type DirectoryWorkspaceStore,
   type EffectiveWorkspaceProjection,
-  type PersistedDirectoryWorkspaceState,
+  type WorkspacePresentationSlot,
 } from "@/state/directory-workspace-store"
 
 type DirectoryWorkspaceContextValue = {
@@ -64,16 +73,6 @@ function initialDockedState(route: BenchRouteSnapshot) {
   return createCollapsedWorkspaceState()
 }
 
-function dockedStateFromPersistedState(
-  state: PersistedDirectoryWorkspaceState,
-):
-  | ReturnType<typeof createCollapsedWorkspaceState>
-  | ReturnType<typeof createExpandedWorkspaceState> {
-  return state.visibility === WORKSPACE_VISIBILITY_EXPANDED
-    ? createExpandedWorkspaceState(null)
-    : createCollapsedWorkspaceState()
-}
-
 export function DirectoryWorkspaceProvider(props: {
   directory: string
   children: ReactNode
@@ -94,21 +93,38 @@ export function DirectoryWorkspaceProvider(props: {
   const routeRef = useRef(route)
   const locationRef = useRef(location)
   const navigateRef = useRef(navigate)
+  const workspaceDisposedRef = useRef(false)
+  const unregisterWorkspaceRef = useRef<() => void>(() => undefined)
   routeRef.current = route
   locationRef.current = location
   navigateRef.current = navigate
 
   const [store] = useState(() => {
+    const activeChatKey = workspaceChatKeyForSession(
+      useChatStore.getState().directories[props.directory]?.sessionID,
+    )
+    const initialDocked = initialDockedState(routeRef.current)
     logBenchToggleStep("directory-workspace-provider-create-store", {
       directory: props.directory,
       route: routeRef.current,
-      initialDocked: initialDockedState(routeRef.current),
+      activeChatKey,
+      initialDocked,
     })
+    const initialSlot: WorkspacePresentationSlot = {
+      route: routeRef.current,
+      docked: initialDocked,
+      lastDrawer: DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
+    }
+    const slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {
+      [activeChatKey]: initialSlot,
+    }
     return createDirectoryWorkspaceStore({
       directory: props.directory,
       initialState: {
-        docked: initialDockedState(routeRef.current),
+        activeChatKey,
+        docked: initialDocked,
         lastDrawer: DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
+        slots,
         hydration: { status: WORKSPACE_HYDRATION_PENDING },
       },
     })
@@ -174,11 +190,13 @@ export function DirectoryWorkspaceProvider(props: {
       lastDrawer: state.lastDrawer,
     })
     if (state.hydration.status === WORKSPACE_HYDRATION_PENDING) return
+    // Failed hydration holds only a fallback slot for the active chat. Persisting that would erase
+    // every other chat's stored presentation on the strength of one transient read error.
+    if (state.hydration.status === WORKSPACE_HYDRATION_FAILED) return
     await writePersistedDirectoryWorkspace({
       directory: props.directory,
       state: persistedDirectoryWorkspaceStateFromStore({
-        docked: state.docked,
-        lastDrawer: state.lastDrawer,
+        slots: state.slots,
       }),
       ...(props.persistenceStorage ? { storage: props.persistenceStorage } : {}),
     })
@@ -192,6 +210,26 @@ export function DirectoryWorkspaceProvider(props: {
       }),
     enableBeforeUnload: false,
   })
+
+  useEffect(() => {
+    workspaceDisposedRef.current = false
+    const unregister = registerLiveDirectoryWorkspace({
+      directory: props.directory,
+      controller,
+      getRoute: () => routeRef.current,
+      setActiveSessionContext: (sessionID) => lifecycle.setActiveSessionID(sessionID),
+      persist: persistCurrentWorkspaceState,
+      isDisposed: () => workspaceDisposedRef.current || controller.isDisposed(),
+    })
+    unregisterWorkspaceRef.current = unregister
+    return () => {
+      workspaceDisposedRef.current = true
+      unregister()
+      if (unregisterWorkspaceRef.current === unregister) {
+        unregisterWorkspaceRef.current = () => undefined
+      }
+    }
+  }, [controller, lifecycle, persistCurrentWorkspaceState, props.directory, store])
 
   useStrictModeDeferredDisposal({
     ownerKey: controller,
@@ -214,6 +252,8 @@ export function DirectoryWorkspaceProvider(props: {
       ),
     }),
     dispose: () => {
+      workspaceDisposedRef.current = true
+      unregisterWorkspaceRef.current()
       void persistCurrentWorkspaceState().catch(() => undefined)
       controller.dispose()
       void lifecycle.dispose().catch(() => undefined)
@@ -226,36 +266,99 @@ export function DirectoryWorkspaceProvider(props: {
       directory: props.directory,
       route: routeRef.current,
     })
-    void readPersistedDirectoryWorkspace({
-      directory: props.directory,
-      ...(props.persistenceStorage ? { storage: props.persistenceStorage } : {}),
-    }).then((result) => {
-      logBenchToggleStep("directory-workspace-provider-read-persisted-result", {
-        directory: props.directory,
-        disposed,
-        result,
-        currentState: store.getState(),
-      })
-      if (disposed) return
-      const defaultDockedState = initialDockedState(routeRef.current)
-      const persistedState = result.status === WORKSPACE_HYDRATION_READY ? result.state : null
-      store.getState().finishHydration({
-        docked: persistedState ? dockedStateFromPersistedState(persistedState) : defaultDockedState,
-        lastDrawer: persistedState?.lastDrawer ?? DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
-        hydration:
-          result.status === WORKSPACE_HYDRATION_FAILED
-            ? { status: WORKSPACE_HYDRATION_FAILED, message: result.message }
-            : { status: WORKSPACE_HYDRATION_READY },
-      })
-      controller.drainHydrationQueue()
-    })
+    void (async () => {
+      try {
+        const result = await readPersistedDirectoryWorkspace({
+          directory: props.directory,
+          ...(props.persistenceStorage ? { storage: props.persistenceStorage } : {}),
+        })
+        logBenchToggleStep("directory-workspace-provider-read-persisted-result", {
+          directory: props.directory,
+          disposed,
+          result,
+          currentState: store.getState(),
+        })
+        if (disposed) return
+        const persistedState = result.status === WORKSPACE_HYDRATION_READY ? result.state : null
+        const activeChatKey = workspaceChatKeyForSession(
+          useChatStore.getState().directories[props.directory]?.sessionID,
+        )
+        const persistedSlots = persistedState?.slots ?? {}
+        const persistedSlot = workspacePresentationSlotForChat(persistedSlots, activeChatKey)
+        const currentRoute = routeRef.current
+        const routeWins = currentRoute.status === BENCH_ROUTE_STATUS_OPEN
+        const restoredRoute = routeWins ? currentRoute : persistedSlot.route
+        // The URL is authoritative for *which* target is open, never for whether the workspace is
+        // expanded or which drawer is showing — those belong to the chat's saved slot. Reloading a
+        // collapsed Bench leaves the same route in the URL, so deriving docked state from the route
+        // would silently reopen a workspace the user closed.
+        const restoredDocked =
+          routeWins && !isSameBenchRouteSnapshot(currentRoute, persistedSlot.route)
+            ? initialDockedState(currentRoute)
+            : persistedSlot.docked
+        const restoredLastDrawer = persistedSlot.lastDrawer
+        if (!routeWins && restoredRoute.status === BENCH_ROUTE_STATUS_OPEN) {
+          await navigateRef.current(
+            buildWorkspaceRouteNavigation({
+              directory: props.directory,
+              route: restoredRoute,
+            }),
+          )
+          if (disposed) return
+        }
+        const slots = {
+          ...persistedSlots,
+          [activeChatKey]: {
+            route: restoredRoute,
+            docked: restoredDocked,
+            lastDrawer: restoredLastDrawer,
+          },
+        }
+        store.getState().finishHydration({
+          activeChatKey,
+          slots,
+          docked: restoredDocked,
+          lastDrawer: restoredLastDrawer,
+          hydration:
+            result.status === WORKSPACE_HYDRATION_FAILED
+              ? { status: WORKSPACE_HYDRATION_FAILED, message: result.message }
+              : { status: WORKSPACE_HYDRATION_READY },
+        })
+      } catch (error) {
+        if (disposed) return
+        const activeChatKey = workspaceChatKeyForSession(
+          useChatStore.getState().directories[props.directory]?.sessionID,
+        )
+        const fallback = defaultWorkspacePresentationSlot()
+        store.getState().finishHydration({
+          activeChatKey,
+          slots: {
+            ...store.getState().slots,
+            [activeChatKey]: fallback,
+          },
+          docked: fallback.docked,
+          lastDrawer: fallback.lastDrawer,
+          hydration: {
+            status: WORKSPACE_HYDRATION_FAILED,
+            message: error instanceof Error ? error.message : "Workspace restoration failed.",
+          },
+        })
+      } finally {
+        if (!disposed) controller.drainHydrationQueue()
+      }
+    })()
     return () => {
       disposed = true
       logBenchToggleStep("directory-workspace-provider-read-persisted-disposed", {
         directory: props.directory,
       })
     }
-  }, [controller, props.directory, props.persistenceStorage, store])
+  }, [
+    controller,
+    props.directory,
+    props.persistenceStorage,
+    store,
+  ])
 
   useEffect(() => {
     const unsubscribe = store.subscribe((state, previousState) => {
@@ -281,6 +384,8 @@ export function DirectoryWorkspaceProvider(props: {
       }))
       if (state.hydration.status === WORKSPACE_HYDRATION_PENDING) return
       if (
+        state.activeChatKey === previousState.activeChatKey &&
+        state.slots === previousState.slots &&
         state.docked.visibility === previousState.docked.visibility &&
         state.lastDrawer === previousState.lastDrawer &&
         state.hydration.status === previousState.hydration.status
@@ -293,6 +398,33 @@ export function DirectoryWorkspaceProvider(props: {
       unsubscribe()
     }
   }, [persistCurrentWorkspaceState, props.directory, store])
+
+  useEffect(() => {
+    if (store.getState().hydration.status === WORKSPACE_HYDRATION_PENDING) return
+    if (store.getState().pendingIntent !== null) return
+    store.getState().captureChatSlot({
+      chatKey: store.getState().activeChatKey,
+      route,
+    })
+  }, [route, store])
+
+  useEffect(() => {
+    return useChatStore.subscribe((state, previousState) => {
+      const nextSessionID = state.directories[props.directory]?.sessionID
+      const previousSessionID = previousState.directories[props.directory]?.sessionID
+      if (previousSessionID !== undefined || nextSessionID === undefined) return
+      const draftChatKey = workspaceChatKeyForSession(undefined)
+      if (store.getState().activeChatKey !== draftChatKey) return
+      store.getState().captureChatSlot({
+        chatKey: draftChatKey,
+        route: routeRef.current,
+      })
+      store.getState().promoteChatSlot({
+        from: draftChatKey,
+        to: workspaceChatKeyForSession(nextSessionID),
+      })
+    })
+  }, [props.directory, store])
 
   const projection = useStore(store, (state) =>
     effectiveWorkspaceProjection(

@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { MarkdownFileEditor } from "@/components/markdown/markdown-file-editor"
+import { MarkdownWysiwygFileEditor } from "@/components/markdown/markdown-wysiwyg-file-editor"
 import { language } from "@/context/language"
 import {
   GlobalAgentsMdVersionConflictError,
@@ -34,9 +34,9 @@ export function GlobalAgentsMdSettingsPanel(props: { active: boolean }) {
   )
 
   return (
-    <MarkdownFileEditor
+    <MarkdownWysiwygFileEditor
       active={props.active}
-      className="h-full min-h-0 flex-1 rounded-lg border border-border-base/70 bg-background-base"
+      className="h-full min-h-0 flex-1"
       fallbackPath="global/AGENTS.md"
       emptyTitle={language.t("agentsMd.globalEmptyTitle")}
       emptyDescription={language.t("agentsMd.globalEmptyDescription")}

@@ -16,6 +16,8 @@ import {
 import {
   BENCH_ROUTE_STATUS_CLOSED,
   BENCH_ROUTE_STATUS_OPEN,
+  WORKSPACE_DRAWER_FILES,
+  WORKSPACE_DRAWER_SKILLS,
   WORKSPACE_DRAWER_SOURCES,
   WORKSPACE_VISIBILITY_COLLAPSED,
   WORKSPACE_VISIBILITY_EXPANDED,
@@ -25,6 +27,7 @@ import {
   type BenchRouteSnapshot,
   type DirectoryWorkspaceCommand,
 } from "../src/state/directory-workspace-store"
+import { workspaceChatKeyForSession } from "../src/lib/workspace-chat-key"
 
 const DIRECTORY = "/workspace/controller-test"
 const OTHER_DIRECTORY = "/workspace/controller-other"
@@ -48,8 +51,20 @@ const OBJECT_TARGET = {
   },
   viewID: "reader",
 } satisfies BenchTarget
+const WHITEBOARD_TARGET = {
+  type: "object",
+  ref: {
+    kind: "whiteboard",
+    objectID: "whiteboard-1",
+    revisionID: null,
+    itemID: null,
+  },
+  viewID: "canvas",
+} satisfies BenchTarget
 
 const CLOSED_ROUTE = { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot
+const CHAT_A_KEY = workspaceChatKeyForSession(undefined)
+const CHAT_B_KEY = workspaceChatKeyForSession("session-b")
 const DOCKED_FILE_ROUTE = {
   status: BENCH_ROUTE_STATUS_OPEN,
   target: FILE_TARGET,
@@ -64,6 +79,11 @@ const FLOATING_FILE_ROUTE = {
   status: BENCH_ROUTE_STATUS_OPEN,
   target: FILE_TARGET,
   mode: BENCH_CHAT_LAYOUT_FLOATING,
+} satisfies BenchRouteSnapshot
+const DOCKED_WHITEBOARD_ROUTE = {
+  status: BENCH_ROUTE_STATUS_OPEN,
+  target: WHITEBOARD_TARGET,
+  mode: BENCH_CHAT_LAYOUT_DOCKED,
 } satisfies BenchRouteSnapshot
 
 const cleanupCallbacks: (() => void)[] = []
@@ -198,6 +218,7 @@ function createHarness(input?: {
 
   return {
     controller,
+    blocker,
     store,
     guardCalls,
     readRoute: () => route,
@@ -390,6 +411,7 @@ describe("DirectoryWorkspaceController", () => {
         pending: { status: "none" },
       },
     })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.route).toEqual(DOCKED_NEXT_FILE_ROUTE)
   })
 
   test("reveals the same already-open parked target without navigation", async () => {
@@ -577,6 +599,306 @@ describe("DirectoryWorkspaceController", () => {
       },
     })
     expect(harness.store.getState().lastDrawer).toBe(WORKSPACE_DRAWER_SOURCES)
+  })
+
+  test("prepares a drawer-only workspace by collapsing it without navigation", async () => {
+    const harness = createHarness()
+    await harness.execute({ type: "open-drawer", drawer: WORKSPACE_DRAWER_SOURCES })
+
+    const result = await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      resetDestination: false,
+    })
+
+    expect(result).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: CLOSED_ROUTE,
+        dockedState: { visibility: WORKSPACE_VISIBILITY_COLLAPSED, drawer: null },
+        renderedSurface: "empty",
+        pending: { status: "chat-transition" },
+      },
+    })
+    expect(harness.store.getState().lastDrawer).toBe(WORKSPACE_DRAWER_SOURCES)
+    expect(harness.readNavigatedOptions()).toBeUndefined()
+  })
+
+  test("restores independent workspace presentations when returning to a chat", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_FILE_ROUTE,
+      initialExpanded: true,
+    })
+    await harness.execute({ type: "open-drawer", drawer: WORKSPACE_DRAWER_FILES })
+
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      resetDestination: true,
+    })
+    const chatBRestoration = await harness.execute(
+      { type: "restore-chat", chatKey: CHAT_B_KEY },
+      CLOSED_ROUTE,
+    )
+
+    expect(chatBRestoration).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: CLOSED_ROUTE,
+        drawer: null,
+        renderedSurface: "empty",
+        pending: { status: "none" },
+      },
+    })
+    await harness.execute({ type: "open-drawer", drawer: WORKSPACE_DRAWER_SKILLS })
+
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_B_KEY,
+      destinationChatKey: CHAT_A_KEY,
+      resetDestination: false,
+    })
+    const chatARestoration = await harness.execute(
+      { type: "restore-chat", chatKey: CHAT_A_KEY },
+      DOCKED_FILE_ROUTE,
+    )
+
+    expect(chatARestoration).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: DOCKED_FILE_ROUTE,
+        drawer: WORKSPACE_DRAWER_FILES,
+        renderedSurface: "drawer-over-bench",
+        pending: { status: "none" },
+      },
+    })
+    expect(harness.store.getState().slots[CHAT_B_KEY]).toMatchObject({
+      route: CLOSED_ROUTE,
+      docked: {
+        visibility: WORKSPACE_VISIBILITY_EXPANDED,
+        drawer: WORKSPACE_DRAWER_SKILLS,
+      },
+      lastDrawer: WORKSPACE_DRAWER_SKILLS,
+    })
+    expect(harness.guardCalls).toHaveLength(1)
+  })
+
+  test("commits a collapsed destination when restore navigation fails", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_FILE_ROUTE,
+      initialExpanded: true,
+      navigationFails: true,
+    })
+
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      resetDestination: false,
+    })
+    const restoration = await harness.execute({ type: "restore-chat", chatKey: CHAT_B_KEY })
+
+    expect(restoration.outcome).toBe("failed")
+    expect(harness.store.getState().pendingIntent).toBeNull()
+    expect(harness.store.getState().slots[CHAT_B_KEY]).toMatchObject({
+      route: CLOSED_ROUTE,
+      docked: { visibility: WORKSPACE_VISIBILITY_COLLAPSED },
+    })
+
+    const recovery = await harness.execute({
+      type: "open-drawer",
+      drawer: WORKSPACE_DRAWER_SKILLS,
+    })
+
+    expect(recovery).toMatchObject({
+      outcome: "committed",
+      projection: { drawer: WORKSPACE_DRAWER_SKILLS, pending: { status: "none" } },
+    })
+  })
+
+  test("reuses a settled leave guard for the prepared cross-directory navigation", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_FILE_ROUTE,
+      initialExpanded: true,
+    })
+
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      resetDestination: false,
+    })
+    const release = harness.controller.authorizePreparedChatNavigation({
+      directory: OTHER_DIRECTORY,
+      route: CLOSED_ROUTE,
+    })
+    const blocked = await harness.blocker.shouldBlockNavigation(
+      routeLocation(CLOSED_ROUTE, OTHER_DIRECTORY),
+    )
+    release()
+
+    expect(blocked).toBeFalse()
+    expect(harness.guardCalls).toHaveLength(1)
+  })
+
+  test("does not capture a stale route when a newer chat change supersedes restoration", async () => {
+    const chatCKey = workspaceChatKeyForSession("session-c")
+    const harness = createHarness({
+      initialRoute: DOCKED_FILE_ROUTE,
+      initialExpanded: true,
+    })
+
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      resetDestination: true,
+    })
+    const supersedingPreparation = await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_B_KEY,
+      destinationChatKey: chatCKey,
+      resetDestination: true,
+    })
+
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.route).toEqual(DOCKED_FILE_ROUTE)
+    expect(harness.store.getState().slots[CHAT_B_KEY]?.route).toEqual(CLOSED_ROUTE)
+    expect(harness.store.getState().activeChatKey).toBe(chatCKey)
+    expect(harness.guardCalls).toHaveLength(1)
+    expect(supersedingPreparation).toMatchObject({
+      projection: {
+        pending: {
+          status: "chat-transition",
+          transitionFrame: { kind: "docked-bench" },
+        },
+      },
+    })
+  })
+
+  test("parks a docked directory-owned target during session preparation", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_FILE_ROUTE,
+      initialExpanded: true,
+    })
+
+    const result = await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      resetDestination: false,
+    })
+
+    expect(result).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: CLOSED_ROUTE,
+        dockedState: { visibility: WORKSPACE_VISIBILITY_COLLAPSED, drawer: null },
+        bench: { visibility: "closed" },
+        pending: { status: "chat-transition" },
+      },
+    })
+    expect(harness.readRoute()).toEqual(DOCKED_FILE_ROUTE)
+    expect(harness.guardCalls).toEqual([
+      {
+        intent: "close",
+        origin: "user",
+        current: FILE_TARGET,
+        next: null,
+      },
+    ])
+    expect(harness.readNavigatedOptions()).toBeUndefined()
+  })
+
+  test("parks a floating directory-owned target atomically in docked mode", async () => {
+    const harness = createHarness({
+      initialRoute: FLOATING_FILE_ROUTE,
+      initialExpanded: false,
+    })
+
+    const result = await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      resetDestination: false,
+    })
+
+    expect(result).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: CLOSED_ROUTE,
+        dockedState: { visibility: WORKSPACE_VISIBILITY_COLLAPSED, drawer: null },
+        bench: { visibility: "closed" },
+        pending: { status: "chat-transition" },
+      },
+    })
+    expect(harness.readRoute()).toEqual(FLOATING_FILE_ROUTE)
+    expect(harness.readNavigatedOptions()).toBeUndefined()
+    expect(harness.guardCalls).toEqual([
+      {
+        intent: "close",
+        origin: "user",
+        current: FILE_TARGET,
+        next: null,
+      },
+    ])
+  })
+
+  test("closes a session-owned whiteboard only after its leave guard allows", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_WHITEBOARD_ROUTE,
+      initialExpanded: true,
+    })
+
+    const result = await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      resetDestination: false,
+    })
+
+    expect(result).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: CLOSED_ROUTE,
+        dockedState: { visibility: WORKSPACE_VISIBILITY_COLLAPSED, drawer: null },
+        bench: { visibility: "closed" },
+        pending: { status: "chat-transition" },
+      },
+    })
+    expect(harness.guardCalls).toEqual([
+      {
+        intent: "close",
+        origin: "user",
+        current: WHITEBOARD_TARGET,
+        next: null,
+      },
+    ])
+  })
+
+  test("keeps a session-owned whiteboard open when preparation is blocked", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_WHITEBOARD_ROUTE,
+      initialExpanded: true,
+      guard: blockLeave,
+    })
+
+    const result = await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      resetDestination: false,
+    })
+
+    expect(result).toMatchObject({
+      outcome: "blocked",
+      projection: {
+        route: DOCKED_WHITEBOARD_ROUTE,
+        bench: { visibility: "visible", target: WHITEBOARD_TARGET },
+      },
+    })
+    expect(harness.readRoute()).toEqual(DOCKED_WHITEBOARD_ROUTE)
   })
 
   test("a newer command supersedes an awaiting guarded navigation", async () => {

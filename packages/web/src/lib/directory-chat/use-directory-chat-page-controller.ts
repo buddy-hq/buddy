@@ -55,7 +55,6 @@ import {
   prefetchSessionMessages,
   createManagedNotebook,
   compactSession,
-  forkSession,
   openInboxNotebook,
   openProject,
   rejectQuestion,
@@ -63,11 +62,8 @@ import {
   replyPermission,
   replyQuestion,
   restoreRevertedSessionMessage,
-  selectSession,
   sendCommand,
   sendPrompt,
-  startNewSession,
-  startNewSessionDraft,
   undoLastSessionMessage,
   updateSession,
 } from "../../state/chat-actions"
@@ -128,7 +124,11 @@ import {
   readBenchOpenPolicyStateFromLocation,
   useOpenBench,
 } from "@/lib/bench-navigation"
-import { WORKSPACE_VISIBILITY_EXPANDED } from "@/state/directory-workspace-store"
+import {
+  WORKSPACE_VISIBILITY_EXPANDED,
+  type BenchRouteSnapshot,
+} from "@/state/directory-workspace-store"
+import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { FOLLOWUP_BEHAVIOR_QUEUE, useChatSettings } from "@/state/chat-settings"
 import { language } from "@/context/language"
@@ -137,6 +137,15 @@ import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 import { useOpenSettings } from "@/lib/settings-navigation"
 import { referenceListQueryOptions } from "@/state/reference-query"
+import {
+  activateChatDirectory,
+  forkActiveChatSession,
+  runPreparedActiveChatMutation,
+  selectActiveChatSession,
+  selectActiveChatSessionAndPresent,
+  startActiveChatDraft,
+  startActiveChatSession,
+} from "@/lib/active-chat-transition-coordinator"
 
 const SIDEBAR_MIN_WIDTH = 220
 // Over-fetched so filterIgnoredMentionFiles still leaves a full menu after
@@ -238,6 +247,12 @@ export function useDirectoryChatPageController(
 ): DirectoryChatPageControllerState {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const navigateToWorkspaceRoute = useCallback(
+    async (directory: string, route: BenchRouteSnapshot) => {
+      await navigate(buildWorkspaceRouteNavigation({ directory, route }))
+    },
+    [navigate],
+  )
   const openSettings = useOpenSettings()
   const location = useLocation()
   const workspace = useDirectoryWorkspace()
@@ -333,7 +348,6 @@ export function useDirectoryChatPageController(
     selectedThinking,
     sessionID,
     sessionKey,
-    setActiveDirectory,
     pushRecentModelKey,
     setSelectedAgent,
     setSelectedModel,
@@ -574,20 +588,29 @@ export function useDirectoryChatPageController(
       return
     }
 
-    void ensureDirectorySession(decodedDirectory)
-      .then((result) => {
-        setActiveDirectory(result.directory)
+    // Session discovery can change this directory from the draft identity to an already-existing
+    // durable session. It must go through the same coordinator as an explicit chat selection so the
+    // destination slot is restored instead of treating that change as draft promotion.
+    const ensureActiveDirectory = runPreparedActiveChatMutation({
+      directory: decodedDirectory,
+      mutate: () => ensureDirectorySession(decodedDirectory),
+    })
+    void ensureActiveDirectory
+      .then(async (transition) => {
+        if (transition.outcome === "failed") throw transition.error
+        if (transition.outcome !== "committed") return
+        const result = transition.value
         if (result.directory === decodedDirectory) return
-        navigate({
-          to: "/$directory/chat",
-          params: { directory: encodeDirectory(result.directory) },
-          replace: true,
+        const activation = await activateChatDirectory({
+          directory: result.directory,
+          navigate: navigateToWorkspaceRoute,
         })
+        if (activation.outcome === "failed") throw activation.error
       })
-      .catch((error) => {
+      .catch(async (error) => {
         const state = useChatStore.getState()
         if (state.openProjects.includes(decodedDirectory)) {
-          setActiveDirectory(decodedDirectory)
+          await activateChatDirectory({ directory: decodedDirectory })
           return
         }
         const fallback = state.openProjects[0]
@@ -600,9 +623,15 @@ export function useDirectoryChatPageController(
           return
         }
         state.setEntryError(stringifyError(error))
-        navigate({ to: "/chat", replace: true })
+        await navigate({ to: "/chat", replace: true })
       })
-  }, [decodedDirectory, hasRegisteredProject, navigate, setActiveDirectory, validOpenProjects])
+  }, [
+    decodedDirectory,
+    hasRegisteredProject,
+    navigate,
+    navigateToWorkspaceRoute,
+    validOpenProjects,
+  ])
 
   useEffect(() => {
     const closingDirectory = closingDirectoryRef.current
@@ -623,9 +652,14 @@ export function useDirectoryChatPageController(
 
       void (async () => {
         try {
-          await selectSession(decodedDirectory, targetSessionID)
-          clearUnread(decodedDirectory, targetSessionID)
-          useNotifications.getState().markSessionViewed(targetSessionID)
+          const result = await selectActiveChatSession({
+            directory: decodedDirectory,
+            sessionID: targetSessionID,
+          })
+          if (result.outcome !== "committed" && result.outcome !== "noop") return
+          if (result.value.outcome === "draft" || result.value.outcome === "failed") return
+          clearUnread(decodedDirectory, result.value.sessionID)
+          useNotifications.getState().markSessionViewed(result.value.sessionID)
         } catch {
           // Store already captures and displays errors.
         }
@@ -659,14 +693,6 @@ export function useDirectoryChatPageController(
     void syncTeachingRuntimeSelection()
   }, [syncTeachingRuntimeSelection])
 
-  function onSwitchDirectory(nextDirectory: string) {
-    if (!nextDirectory) return
-    navigate({
-      to: "/$directory/chat",
-      params: { directory: encodeDirectory(nextDirectory) },
-    })
-  }
-
   function seedDraftModelSelection(targetDirectory: string) {
     const scopeKey = getModelSelectionScopeKey(targetDirectory)
     const carryModelKey = cs.selectedModelKey || undefined
@@ -679,28 +705,50 @@ export function useDirectoryChatPageController(
   async function onNewSession(targetDirectory = decodedDirectory) {
     if (!targetDirectory) return
     try {
-      startNewSessionDraft(targetDirectory)
+      const result = await startActiveChatDraft({
+        directory: targetDirectory,
+        navigate:
+          targetDirectory === decodedDirectory
+            ? undefined
+            : navigateToWorkspaceRoute,
+      })
+      if (result.outcome !== "committed" && result.outcome !== "noop") return
       seedDraftModelSelection(targetDirectory)
       requestPromptComposerFocus(targetDirectory)
-      if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
     } catch {
       // Store already captures and displays errors.
     }
   }
 
-  async function onSelectSession(targetDirectory: string, nextSessionID?: string) {
-    if (!targetDirectory) return
+  async function onSelectSession(
+    targetDirectory: string,
+    nextSessionID?: string,
+  ): Promise<boolean> {
+    if (!targetDirectory) return false
     if (!nextSessionID) {
-      if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
-      return
+      if (targetDirectory === decodedDirectory) return false
+      const result = await activateChatDirectory({
+        directory: targetDirectory,
+        navigate: navigateToWorkspaceRoute,
+      })
+      return result.outcome === "committed" || result.outcome === "noop"
     }
     try {
-      const selection = selectSession(targetDirectory, nextSessionID)
-      if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
-      await selection
-      cs.clearUnread(targetDirectory, nextSessionID)
+      const result = await selectActiveChatSession({
+        directory: targetDirectory,
+        sessionID: nextSessionID,
+        navigate:
+          targetDirectory === decodedDirectory
+            ? undefined
+            : navigateToWorkspaceRoute,
+      })
+      if (result.outcome !== "committed" && result.outcome !== "noop") return false
+      if (result.value.outcome === "draft" || result.value.outcome === "failed") return false
+      cs.clearUnread(targetDirectory, result.value.sessionID)
+      return true
     } catch {
       // Store already captures and displays errors.
+      return false
     }
   }
 
@@ -748,8 +796,10 @@ export function useDirectoryChatPageController(
       if (!picked) return
       const nextDirectory = await openProject(picked)
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      cs.setActiveDirectory(nextDirectory)
-      onSwitchDirectory(nextDirectory)
+      await activateChatDirectory({
+        directory: nextDirectory,
+        navigate: navigateToWorkspaceRoute,
+      })
     } catch (error) {
       reportCurrentDirectoryError(error)
     }
@@ -759,12 +809,15 @@ export function useDirectoryChatPageController(
     try {
       const inboxDirectory = await openInboxNotebook()
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      cs.setActiveDirectory(inboxDirectory)
-      startNewSessionDraft(inboxDirectory)
+      const result = await startActiveChatDraft({
+        directory: inboxDirectory,
+        navigate:
+          inboxDirectory === decodedDirectory
+            ? undefined
+            : navigateToWorkspaceRoute,
+      })
+      if (result.outcome !== "committed" && result.outcome !== "noop") return
       seedDraftModelSelection(inboxDirectory)
-      if (inboxDirectory !== decodedDirectory) {
-        onSwitchDirectory(inboxDirectory)
-      }
     } catch (error) {
       reportCurrentDirectoryError(error)
     }
@@ -778,12 +831,15 @@ export function useDirectoryChatPageController(
     try {
       const nextDirectory = await createManagedNotebook(name)
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      cs.setActiveDirectory(nextDirectory)
-      startNewSessionDraft(nextDirectory)
+      const result = await startActiveChatDraft({
+        directory: nextDirectory,
+        navigate:
+          nextDirectory === decodedDirectory
+            ? undefined
+            : navigateToWorkspaceRoute,
+      })
+      if (result.outcome !== "committed" && result.outcome !== "noop") return
       seedDraftModelSelection(nextDirectory)
-      if (nextDirectory !== decodedDirectory) {
-        onSwitchDirectory(nextDirectory)
-      }
       void bootstrapLearnerMemoryForNotebookBestEffort({
         directory: nextDirectory,
         enabled: enableLearnerMemory,
@@ -798,11 +854,25 @@ export function useDirectoryChatPageController(
   async function onArchiveSession(targetDirectory: string, targetSessionID: string) {
     if (!targetDirectory) return
     try {
-      await updateSession({
-        directory: targetDirectory,
-        sessionID: targetSessionID,
-        archivedAt: Date.now(),
-      })
+      const stateBeforeArchive = useChatStore.getState()
+      const archive = () =>
+        updateSession({
+          directory: targetDirectory,
+          sessionID: targetSessionID,
+          archivedAt: Date.now(),
+        })
+      const wasActive =
+        stateBeforeArchive.activeDirectory === targetDirectory &&
+        stateBeforeArchive.directories[targetDirectory]?.sessionID === targetSessionID
+      if (wasActive) {
+        const result = await runPreparedActiveChatMutation({
+          directory: targetDirectory,
+          mutate: archive,
+        })
+        if (result.outcome !== "committed") return
+      } else {
+        await archive()
+      }
       cs.removePromptDraft(
         (await import("../../state/prompt-store")).getPromptScopeKey(
           targetDirectory,
@@ -827,7 +897,7 @@ export function useDirectoryChatPageController(
 
       const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
       if (!activeSessionID) {
-        startNewSessionDraft(targetDirectory)
+        await startActiveChatDraft({ directory: targetDirectory })
         seedDraftModelSelection(targetDirectory)
         await Promise.all([
           queryClient.refetchQueries({
@@ -950,27 +1020,36 @@ export function useDirectoryChatPageController(
         )
       }
 
+      const presentResource = () =>
+        openBenchRoute({
+          directory: targetDirectory,
+          target: resource.objectID
+            ? {
+                type: "object",
+                ref: {
+                  kind: "resource",
+                  objectID: resource.objectID,
+                  revisionID: null,
+                  itemID: null,
+                },
+                viewID: "reader",
+              }
+            : { type: "workspace-file", path: resource.path, viewer: "file" },
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+          autoOpen: null,
+        })
+
       if (!preferCurrentSession && linkedSessionID && linkedSessionID !== activeSessionID) {
-        await selectSession(targetDirectory, linkedSessionID).catch(() => undefined)
+        const result = await selectActiveChatSessionAndPresent({
+          directory: targetDirectory,
+          sessionID: linkedSessionID,
+          present: presentResource,
+        })
+        if (result.outcome !== "committed" && result.outcome !== "noop") return false
+        return result.value.presentation ?? false
       }
 
-      return openBenchRoute({
-        directory: targetDirectory,
-        target: resource.objectID
-          ? {
-              type: "object",
-              ref: {
-                kind: "resource",
-                objectID: resource.objectID,
-                revisionID: null,
-                itemID: null,
-              },
-              viewID: "reader",
-            }
-          : { type: "workspace-file", path: resource.path, viewer: "file" },
-        mode: BENCH_CHAT_LAYOUT_DOCKED,
-        autoOpen: null,
-      })
+      return presentResource()
     },
     [linkReadingResourceSession, linkedSessionByResource, queryClient, openBenchRoute],
   )
@@ -1203,7 +1282,9 @@ export function useDirectoryChatPageController(
 
   async function onStartGetStartedChat(chat: GetStartedChat) {
     try {
-      const nextSession = await startNewSession(decodedDirectory)
+      const result = await startActiveChatSession({ directory: decodedDirectory })
+      if (result.outcome !== "committed") return
+      const nextSession = result.value
       const defaultPersona = cs.primaryPersonaOptions[0]?.id ?? cs.selectedPersona
       await sendRuntimePrompt({
         content: chat.prompt,
@@ -1395,9 +1476,15 @@ export function useDirectoryChatPageController(
       if (slashCommand.command.name === FORK_SLASH_COMMAND_NAME) {
         cs.clearPromptDraft(cs.promptKey)
         try {
-          const forkedSession = await forkSession(decodedDirectory, {
+          const result = await forkActiveChatSession({
+            directory: decodedDirectory,
             sessionID,
           })
+          if (result.outcome !== "committed") {
+            restorePromptSnapshot(draftSnapshot)
+            return
+          }
+          const forkedSession = result.value
           void syncTeachingRuntimeSelection({
             directory: decodedDirectory,
             sessionID: forkedSession.id,
@@ -1663,12 +1750,9 @@ export function useDirectoryChatPageController(
     },
     onStartGetStartedChat,
     onCreateNotebook,
-    onNewSession: (targetDirectory) => {
-      void onNewSession(targetDirectory)
-    },
-    onSelectSession: (targetDirectory, targetSessionID) => {
-      void onSelectSession(targetDirectory, targetSessionID)
-    },
+    onNewSession: (targetDirectory) => onNewSession(targetDirectory),
+    onSelectSession: (targetDirectory, targetSessionID) =>
+      onSelectSession(targetDirectory, targetSessionID),
     onPrefetchSession: (targetDirectory, targetSessionID) => {
       void prefetchSessionMessages(targetDirectory, targetSessionID).catch(() => undefined)
     },
@@ -1725,10 +1809,17 @@ export function useDirectoryChatPageController(
       void syncTeachingRuntimeSelection()
     },
     onForkMessage: async ({ sessionID, messageID }) => {
-      const forkedSession = await forkSession(decodedDirectory, {
+      const result = await forkActiveChatSession({
+        directory: decodedDirectory,
         sessionID,
         ...(messageID ? { messageID } : {}),
       })
+      if (result.outcome !== "committed") {
+        throw result.outcome === "failed"
+          ? result.error
+          : new Error(`Unable to fork the chat: ${result.outcome}.`)
+      }
+      const forkedSession = result.value
       void syncTeachingRuntimeSelection({
         directory: decodedDirectory,
         sessionID: forkedSession.id,

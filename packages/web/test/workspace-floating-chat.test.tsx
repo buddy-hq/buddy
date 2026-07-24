@@ -140,7 +140,7 @@ function TestBenchPageLayout(props: {
   )
 }
 
-function StableWorkspaceLayoutHarness() {
+function StableWorkspaceLayoutHarness(props: { suppressLayoutMotion?: boolean }) {
   const [mode, setMode] = useState<BenchChatLayoutMode>(BENCH_CHAT_LAYOUT_DOCKED)
   const [workspaceOpen, setWorkspaceOpen] = useState(true)
   const [targetKey, setTargetKey] = useState("target-1")
@@ -162,6 +162,7 @@ function StableWorkspaceLayoutHarness() {
       onFloatingRectChange={setFloatingRect}
       onFloatingChatStateChange={setFloatingChatState}
       benchInteractive={mode === BENCH_CHAT_LAYOUT_FLOATING || workspaceOpen}
+      suppressLayoutMotion={props.suppressLayoutMotion}
       dockedBenchLayout={{
         open: workspaceOpen,
         widthPx: 640,
@@ -468,6 +469,73 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
       initialConversation,
     )
     expect(container.querySelector('[data-component="stable-bench-probe"]')).not.toBe(initialTarget)
+  })
+
+  test("keeps the live conversation visible while native transition pixels are retained", async () => {
+    await act(async () => {
+      root.render(<StableWorkspaceLayoutHarness suppressLayoutMotion />)
+      await flushEffects()
+    })
+
+    const initialConversation = requireElement(
+      container.querySelector('[data-component="stable-conversation-probe"]'),
+    )
+    const conversationHost = requireElement(
+      container.querySelector<HTMLElement>('[data-component="directory-chat-docked-window"]'),
+    )
+    expect(conversationHost.style.visibility).toBe("")
+    expect(conversationHost.hasAttribute("inert")).toBeFalse()
+
+    await act(async () => {
+      root.render(<StableWorkspaceLayoutHarness suppressLayoutMotion={false} />)
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-component="stable-conversation-probe"]')).toBe(
+      initialConversation,
+    )
+    expect(conversationHost.style.visibility).toBe("")
+    expect(conversationHost.hasAttribute("inert")).toBeFalse()
+  })
+
+  test("keeps docked transcript geometry instant", async () => {
+    await act(async () => {
+      root.render(<StableWorkspaceLayoutHarness />)
+      await flushEffects()
+    })
+
+    const directLayout = requireElement(
+      container.querySelector('[data-component="directory-chat-bench-page-layout"]'),
+    )
+    const directBenchHost = requireElement(
+      container.querySelector('[data-component="directory-chat-bench-host"]'),
+    )
+    const directConversation = requireElement(
+      container.querySelector('[data-component="directory-chat-docked-window"]'),
+    )
+    expect(directLayout.getAttribute("data-layout-motion")).toBe("instant")
+    expect(directBenchHost.classList.contains("transition-none")).toBeTrue()
+    expect(directConversation.classList.contains("transition-none")).toBeTrue()
+
+    await act(async () => {
+      root.render(<StableWorkspaceLayoutHarness suppressLayoutMotion />)
+      await flushEffects()
+    })
+
+    const instantLayout = requireElement(
+      container.querySelector('[data-component="directory-chat-bench-page-layout"]'),
+    )
+    const instantBenchHost = requireElement(
+      container.querySelector('[data-component="directory-chat-bench-host"]'),
+    )
+    const instantConversation = requireElement(
+      container.querySelector('[data-component="directory-chat-docked-window"]'),
+    )
+    expect(instantLayout.getAttribute("data-layout-motion")).toBe("instant")
+    expect(instantBenchHost.classList.contains("transition-none")).toBeTrue()
+    expect(instantBenchHost.classList.contains("duration-200")).toBeFalse()
+    expect(instantConversation.classList.contains("transition-none")).toBeTrue()
+    expect(instantConversation.classList.contains("duration-200")).toBeFalse()
   })
 
   test("collapses docked Bench when the divider is dragged below threshold", async () => {

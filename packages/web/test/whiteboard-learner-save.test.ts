@@ -39,7 +39,7 @@ describe("whiteboard learner save scheduler", () => {
       viewport,
     })
 
-    expect(await scheduler.flush()).toBeTrue()
+    expect(await scheduler.flush()).toEqual({ status: "saved" })
     await flushMicrotasks()
     expect(calls).toEqual(["node"])
   })
@@ -59,8 +59,8 @@ describe("whiteboard learner save scheduler", () => {
       viewport,
     })
 
-    expect(await scheduler.flush()).toBeFalse()
-    expect(await scheduler.flush()).toBeTrue()
+    expect(await scheduler.flush()).toEqual({ status: "save-error" })
+    expect(await scheduler.flush()).toEqual({ status: "saved" })
     expect(calls).toEqual(["save", "save"])
   })
 
@@ -89,7 +89,7 @@ describe("whiteboard learner save scheduler", () => {
       viewport,
     })
 
-    expect(await scheduler.flush()).toBeTrue()
+    expect(await scheduler.flush()).toEqual({ status: "saved" })
     await flushMicrotasks()
     expect(calls).toEqual(["second:node"])
   })
@@ -128,8 +128,8 @@ describe("whiteboard learner save scheduler", () => {
     expect(calls).toEqual(["node"])
 
     finishFirst({ status: "saved" })
-    expect(await firstFlush).toBeTrue()
-    expect(await secondFlush).toBeTrue()
+    expect(await firstFlush).toEqual({ status: "saved" })
+    expect(await secondFlush).toEqual({ status: "saved" })
     await flushMicrotasks()
 
     expect(calls).toEqual(["node", "node-2"])
@@ -167,18 +167,18 @@ describe("whiteboard learner save scheduler", () => {
     const secondFlush = scheduler.flush()
 
     finishFirst({ status: "failed" })
-    expect(await firstFlush).toBeFalse()
-    expect(await secondFlush).toBeFalse()
+    expect(await firstFlush).toEqual({ status: "save-error" })
+    expect(await secondFlush).toEqual({ status: "save-error" })
     await flushMicrotasks()
 
     expect(calls).toEqual(["node"])
 
-    expect(await scheduler.flush()).toBeTrue()
+    expect(await scheduler.flush()).toEqual({ status: "saved" })
     await flushMicrotasks()
     expect(calls).toEqual(["node", "node-2"])
   })
 
-  test("discards same-base queued edits after a stale save is skipped", async () => {
+  test("discards same-base queued edits after a save conflict", async () => {
     const calls: string[] = []
     let finishFirst = noopFinishWhiteboardSave
     const save: WhiteboardLearnerSaveHandler = async (input) => {
@@ -205,10 +205,10 @@ describe("whiteboard learner save scheduler", () => {
     })
     const secondFlush = scheduler.flush()
 
-    finishFirst({ status: "skipped" })
-    expect(await firstFlush).toBeFalse()
-    expect(await secondFlush).toBeFalse()
-    expect(await scheduler.flush()).toBeTrue()
+    finishFirst({ status: "conflict" })
+    expect(await firstFlush).toEqual({ status: "conflict" })
+    expect(await secondFlush).toEqual({ status: "conflict" })
+    expect(await scheduler.flush()).toEqual({ status: "clean" })
     expect(calls).toEqual(["node"])
   })
 
@@ -243,12 +243,12 @@ describe("whiteboard learner save scheduler", () => {
     const secondFlush = scheduler.flush()
 
     failFirst(new Error("offline"))
-    expect(await firstFlush).toBeFalse()
-    expect(await secondFlush).toBeFalse()
+    expect(await firstFlush).toEqual({ status: "save-error" })
+    expect(await secondFlush).toEqual({ status: "save-error" })
     await flushMicrotasks()
     expect(calls).toEqual(["node"])
 
-    expect(await scheduler.flush()).toBeTrue()
+    expect(await scheduler.flush()).toEqual({ status: "saved" })
     await flushMicrotasks()
     expect(calls).toEqual(["node", "node-2"])
   })

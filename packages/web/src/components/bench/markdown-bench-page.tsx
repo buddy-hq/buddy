@@ -81,6 +81,7 @@ import {
   MIN_MARKDOWN_BENCH_CONTENT_FONT_SCALE,
   useMarkdownBenchPreferences,
 } from "@/state/markdown-bench-preferences"
+import { benchSurfaceUiKey } from "@/state/bench-surface-ui-state"
 import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
 import {
   obsidianLinkResolutionsQueryOptions,
@@ -1344,6 +1345,10 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             directory={props.directory}
             documentFormat={documentFormat}
             path={props.path}
+            viewportKey={benchSurfaceUiKey({
+              directory: props.directory,
+              target: contextTarget,
+            })}
             placeholder={props.placeholder}
             obsidianWikiLinkContext={obsidianWikiLinkContext}
             onChange={changeMarkdown}

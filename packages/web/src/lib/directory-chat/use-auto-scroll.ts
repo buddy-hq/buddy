@@ -155,7 +155,11 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
 
   const initialScrollOffset = useCallback(() => {
     if (!attachmentKey) return undefined
-    return sessionStateByKeyRef.current.get(attachmentKey)?.scrollTop
+    const restoredState = sessionStateByKeyRef.current.get(attachmentKey)
+    // "Attached" is a semantic position, not a durable pixel offset. Restoring its old scrollTop
+    // against a freshly estimated virtual list can land in the middle of the transcript until row
+    // measurements settle. Detached readers still own their exact saved offset.
+    return restoredState?.detached ? restoredState.scrollTop : undefined
   }, [attachmentKey])
 
   const rememberSessionState = useCallback(

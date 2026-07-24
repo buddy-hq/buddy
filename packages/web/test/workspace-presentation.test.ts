@@ -10,7 +10,10 @@ import {
   createCollapsedWorkspaceState,
   createExpandedWorkspaceState,
   effectiveWorkspaceProjection,
+  WORKSPACE_DRAWER_SOURCES,
   type BenchRouteSnapshot,
+  type DirectoryWorkspaceProjectionState,
+  type PendingWorkspaceIntent,
 } from "../src/state/directory-workspace-store"
 
 const TARGET = {
@@ -194,6 +197,140 @@ describe("workspace presentation", () => {
       kind: "hydrating",
       benchVisible: false,
       workspaceOpen: false,
+      leftSidebar: { visible: true, overlayEnabled: false },
+      controls: {
+        showThreadBrowserInTitlebar: false,
+        showThreadBrowserInPane: false,
+        showSidebarThreadControls: false,
+        showFloatChat: false,
+      },
+    })
+  })
+
+  test("keeps an open workspace frame open while chat content is changing", () => {
+    const route = {
+      status: "open",
+      target: TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    } satisfies BenchRouteSnapshot
+    const projectionState: DirectoryWorkspaceProjectionState = {
+      docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SOURCES),
+      lastDrawer: WORKSPACE_DRAWER_SOURCES,
+    }
+    const previousProjection = effectiveWorkspaceProjection(route, projectionState, null)
+    const transitionIntent = {
+      kind: "chat-transition",
+      commandID: "chat-transition-command",
+      previousProjection,
+      workspaceCommit: createCollapsedWorkspaceState(),
+    } satisfies PendingWorkspaceIntent
+    const transitionProjection = effectiveWorkspaceProjection(
+      route,
+      projectionState,
+      transitionIntent,
+    )
+
+    const presentation = resolveWorkspacePresentation({
+      projection: transitionProjection,
+      hydrated: true,
+      layoutProfile: BENCH_LAYOUT_PROFILE_READING,
+      viewport: WIDE_VIEWPORT,
+      requestedWorkspaceWidthPx: 700,
+      leftSidebarPreferredOpen: true,
+      leftSidebarWidthPx: 280,
+    })
+
+    expect(transitionProjection).toMatchObject({
+      bench: { visibility: "closed" },
+      drawer: null,
+      pending: {
+        status: "chat-transition",
+        transitionFrame: { kind: "docked-bench" },
+      },
+    })
+    expect(presentation).toMatchObject({
+      kind: "transition",
+      transitioning: true,
+      benchVisible: false,
+      dockedBenchVisible: true,
+      workspaceOpen: true,
+      selector: null,
+    })
+
+    const navigationIntent = {
+      kind: "navigation",
+      commandID: "restoration-navigation-command",
+      attemptID: "restoration-navigation-attempt",
+      previousProjection: transitionProjection,
+      expectedRoute: CLOSED_ROUTE,
+      workspaceCommit: createCollapsedWorkspaceState(),
+    } satisfies PendingWorkspaceIntent
+    const retainedProjection = effectiveWorkspaceProjection(
+      route,
+      projectionState,
+      navigationIntent,
+    )
+    const retainedPresentation = resolveWorkspacePresentation({
+      projection: retainedProjection,
+      hydrated: true,
+      layoutProfile: BENCH_LAYOUT_PROFILE_READING,
+      viewport: WIDE_VIEWPORT,
+      requestedWorkspaceWidthPx: 700,
+      leftSidebarPreferredOpen: true,
+      leftSidebarWidthPx: 280,
+    })
+
+    expect(retainedProjection.pending).toEqual({
+      status: "retained-previous",
+      commandID: "restoration-navigation-command",
+      transitionFrame: { kind: "docked-bench" },
+    })
+    expect(retainedPresentation).toMatchObject({
+      kind: "transition",
+      workspaceOpen: true,
+      dockedBenchVisible: true,
+    })
+  })
+
+  test("keeps a targetless drawer frame open while chat content is changing", () => {
+    const projectionState: DirectoryWorkspaceProjectionState = {
+      docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SOURCES),
+      lastDrawer: WORKSPACE_DRAWER_SOURCES,
+    }
+    const previousProjection = effectiveWorkspaceProjection(
+      CLOSED_ROUTE,
+      projectionState,
+      null,
+    )
+    const transitionProjection = effectiveWorkspaceProjection(
+      CLOSED_ROUTE,
+      projectionState,
+      {
+        kind: "chat-transition",
+        commandID: "selector-chat-transition",
+        previousProjection,
+        workspaceCommit: createCollapsedWorkspaceState(),
+      },
+    )
+    const presentation = resolveWorkspacePresentation({
+      projection: transitionProjection,
+      hydrated: true,
+      layoutProfile: BENCH_LAYOUT_PROFILE_READING,
+      viewport: WIDE_VIEWPORT,
+      requestedWorkspaceWidthPx: 700,
+      leftSidebarPreferredOpen: true,
+      leftSidebarWidthPx: 280,
+    })
+
+    expect(transitionProjection.pending).toMatchObject({
+      status: "chat-transition",
+      transitionFrame: { kind: "selector" },
+    })
+    expect(presentation).toMatchObject({
+      kind: "transition",
+      transitioning: true,
+      workspaceOpen: true,
+      dockedBenchVisible: false,
       leftSidebar: { visible: true, overlayEnabled: false },
       controls: {
         showThreadBrowserInTitlebar: false,
