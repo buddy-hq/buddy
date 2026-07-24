@@ -46,6 +46,8 @@ export function ResizeHandle(props: ResizeHandleProps) {
     const startSize = size
     let current = startSize
     let finished = false
+    let pendingIntent: ResizeHandleIntent | undefined
+    let resizeFrameID: number | undefined
     const previousUserSelect = document.body.style.userSelect
     const previousOverflow = document.body.style.overflow
 
@@ -54,9 +56,35 @@ export function ResizeHandle(props: ResizeHandleProps) {
 
     let unsubscribe: () => void = NOOP
 
+    const flushPendingResize = () => {
+      resizeFrameID = undefined
+      const intent = pendingIntent
+      pendingIntent = undefined
+      if (!intent) return
+      onResize(intent.clampedSize)
+      onResizeIntent?.(intent)
+    }
+
+    const scheduleResize = (intent: ResizeHandleIntent) => {
+      pendingIntent = intent
+      if (resizeFrameID !== undefined) return
+      if (typeof globalThis.requestAnimationFrame !== "function") {
+        flushPendingResize()
+        return
+      }
+      resizeFrameID = globalThis.requestAnimationFrame(flushPendingResize)
+    }
+
     const finishResize = () => {
       if (finished) return
       finished = true
+      if (
+        resizeFrameID !== undefined &&
+        typeof globalThis.cancelAnimationFrame === "function"
+      ) {
+        globalThis.cancelAnimationFrame(resizeFrameID)
+      }
+      flushPendingResize()
       document.body.style.userSelect = previousUserSelect
       document.body.style.overflow = previousOverflow
       unsubscribe()
@@ -79,8 +107,7 @@ export function ResizeHandle(props: ResizeHandleProps) {
 
       current = startSize + delta
       const clamped = Math.min(max, Math.max(min, current))
-      onResize(clamped)
-      onResizeIntent?.({
+      scheduleResize({
         rawSize: current,
         clampedSize: clamped,
         min,
