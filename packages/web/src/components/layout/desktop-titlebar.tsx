@@ -4,9 +4,11 @@ import { useLocation } from "@tanstack/react-router"
 import { Button, cn } from "@buddy/ui"
 import {
   ArrowLeftIcon,
+  BookIcon,
   PanelLeftIcon,
   PanelRightIcon,
   PictureInPicture2Icon,
+  SquarePenIcon,
   type AppIcon,
 } from "@/icons/app-icons"
 import {
@@ -19,12 +21,14 @@ import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { BENCH_DOCK_FLOATING_CHAT_EVENT } from "@/lib/bench-navigation"
 import { useUiPreferences } from "@/state/ui-preferences"
+import { RIGHT_WORKSPACE_RAIL_WIDTH_PX } from "@/lib/directory-chat/right-workspace-layout"
 import {
   isBenchToggleEventTarget,
   logBenchToggleDomEvent,
   logBenchToggleStep,
 } from "@/lib/bench-toggle-diagnostics"
 import { isTitlebarInteractiveTarget } from "./desktop-titlebar-helpers"
+import { DESKTOP_TITLEBAR_HEIGHT_PX } from "./desktop-titlebar-inset"
 import { TextShimmer } from "@/components/chat/tools/text-shimmer"
 
 type DesktopTitlebarProps = {
@@ -49,23 +53,63 @@ type DesktopTitlebarProps = {
   showDockFloatingBench?: boolean
 }
 
-const ROOT_TITLEBAR_HEIGHT_CLASS = "h-10"
-const CHAT_TITLEBAR_HEIGHT_CLASS = "h-[52px]"
-const CHAT_TITLEBAR_HEIGHT_PX = 52
 export const MAC_WINDOW_CONTROL_INSET_WIDTH = 90
 const MAC_WINDOW_CONTROL_INSET_CLASS = "w-[90px]"
 
-// When sidebar is closed, reserve space for the fixed toggle/pop-out pill plus a title gap.
-const CHAT_SIDEBAR_TOGGLE_RESERVED_PX = 76
 // Fixed toggle left positions
 const CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX = MAC_WINDOW_CONTROL_INSET_WIDTH
 const CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX = 8
+/** One cluster control is `w-8`; the pill adds a 1px border on each side. */
+const TITLEBAR_CLUSTER_BUTTON_WIDTH_PX = 32
+const TITLEBAR_CLUSTER_PILL_BORDER_PX = 2
+/** Breathing room between the fixed left cluster and the title that follows it. */
+const CHAT_SIDEBAR_TOGGLE_TITLE_GAP_PX = 10
+/**
+ * On macOS nothing else occupies the top-right, so the workspace toggle can sit exactly above the
+ * right workspace rail. The rail is flush to the window edge and centres its buttons, so its icon
+ * column sits RIGHT_WORKSPACE_RAIL_WIDTH_PX / 2 from that edge — this is the margin that puts the
+ * toggle's centre on the same axis. Windows keeps the default inset: the native caption buttons
+ * own that corner, so the toggle can never reach the rail there.
+ */
+const RIGHT_TOGGLE_RAIL_ALIGNED_MARGIN_PX =
+  RIGHT_WORKSPACE_RAIL_WIDTH_PX / 2 - TITLEBAR_CLUSTER_BUTTON_WIDTH_PX / 2
 
 /** 14px glyphs; the default stroke scales with size. */
 const TITLEBAR_ICON_SIZE_CLASS = "size-3.5 shrink-0"
 // No inset padding — hover fills flush with the outer rounded border (no halo gap).
 const TITLEBAR_TOGGLE_PILL_CLASS =
   "flex shrink-0 items-center overflow-hidden rounded-full border border-border-weaker-base bg-surface-raised-base/60 p-0 shadow-xs [-webkit-app-region:no-drag]"
+
+// The hairline is a real `border-b`, not a shadow layer: a box-shadow paints outside the element,
+// so the bench/chat content below paints straight over it. A border draws inside the box and can't
+// be covered. It is always present at 1px and only its colour changes, so nothing reflows when the
+// bench opens — and `border-color` interpolates, so the rule still fades rather than snapping in.
+// The soft falloff stays a shadow (it is meant to bleed past the edge); `relative` keeps it above
+// the in-flow content, with no z-index so the fixed toggle's stacking stays global.
+const TITLEBAR_SEPARATOR_BASE_CLASS =
+  "relative border-b transition-[border-color,box-shadow] duration-200 ease-out motion-reduce:transition-none"
+
+// One layer, offset well clear of the edge and pulled in by a negative spread, so it reads as
+// light falling onto the content below. A tight contact layer at the boundary instead darkens the
+// seam itself, which makes the titlebar and the chat area look like different fills when they are
+// both bg-background-base.
+const TITLEBAR_SEPARATOR_SHADOW_CLASS =
+  "border-transparent shadow-[0_4px_10px_-4px_color-mix(in_oklab,var(--surface-strong)_18%,transparent)]"
+
+const TITLEBAR_SEPARATOR_BORDER_CLASS =
+  "border-border-weaker-base shadow-[0_4px_10px_-4px_transparent]"
+
+/**
+ * Hard rule whenever the titlebar meets a hard layout edge — the bench split, or chat content
+ * running to the window's left edge with the sidebar collapsed. Both need a crisp boundary that a
+ * soft falloff can't provide. The shadow is for the one case where the titlebar floats over a
+ * single uninterrupted surface: sidebar open, bench closed.
+ */
+function titlebarSeparatorClass(hardEdge: boolean) {
+  return `${TITLEBAR_SEPARATOR_BASE_CLASS} ${
+    hardEdge ? TITLEBAR_SEPARATOR_BORDER_CLASS : TITLEBAR_SEPARATOR_SHADOW_CLASS
+  }`
+}
 
 function titlebarToggleButtonClass(inPill: boolean) {
   return cn(
@@ -90,10 +134,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const pathname = location.pathname
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
-  const titlebarHeightClass =
-    placement === "chat" || (placement === "root" && props.showDockFloatingBench)
-      ? CHAT_TITLEBAR_HEIGHT_CLASS
-      : ROOT_TITLEBAR_HEIGHT_CLASS
   const rightWorkspaceOpen = props.rightWorkspaceOpen ?? false
   const [isFullscreen, setIsFullscreen] = useState(false)
   const resolvedLeftSidebarOpen = props.leftSidebarOpen ?? leftSidebarOpen
@@ -102,18 +142,29 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   // In chat placement the toggle is a fixed element inside the header — not in the flow
   const showLeftSidebarToggle = placement === "chat" ? false : showSidebarToggles
   const shouldReserveMacWindowControls = placement === "root" ? isMac && !isFullscreen : false
-  // This spacer clears the fixed toggle from the title in all desktop variants.
-  // Its width snaps with the sidebar column so the titlebar and transcript share one layout frame:
-  //   Mac non-fullscreen closed: 90px (traffic lights) + 40px (toggle + gap) = 130px
-  //   Mac fullscreen / Windows closed: 8px (toggle left) + 40px (toggle + gap) = 48px
-  //   Sidebar open (Col 2 at x≥280): 0px — toggle is inside the sidebar area
+  // Fixed left cluster: the sidebar toggle, plus new-chat and pop-out when they apply. New chat
+  // only appears with the sidebar collapsed — that is exactly when the sidebar's own new-chat
+  // button is out of reach.
+  const showChatFloatInLeftCluster = Boolean(
+    props.onFloatChat && (props.showSidebarThreadControls || props.showThreadBrowser),
+  )
+  const showNewChatInLeftCluster = Boolean(props.onNewSession) && !resolvedLeftSidebarOpen
+  const chatLeftClusterUsesPill = showChatFloatInLeftCluster || showNewChatInLeftCluster
+  const chatLeftClusterWidth =
+    (1 + (showNewChatInLeftCluster ? 1 : 0) + (showChatFloatInLeftCluster ? 1 : 0)) *
+      TITLEBAR_CLUSTER_BUTTON_WIDTH_PX +
+    (chatLeftClusterUsesPill ? TITLEBAR_CLUSTER_PILL_BORDER_PX : 0)
+  // This spacer clears the fixed cluster from the title in all desktop variants. Its width snaps
+  // with the sidebar column so the titlebar and transcript share one layout frame — derived from
+  // the cluster's actual control count so adding a control can't silently overlap the title.
+  //   Sidebar open (Col 2 at x≥280): 0px — the cluster sits inside the sidebar area
   const chatToggleLeft =
     isMac && !isFullscreen ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX : CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX
   const chatLeftSpacerWidth =
     placement === "chat" && isDesktop
       ? resolvedLeftSidebarOpen
         ? 0
-        : chatToggleLeft + CHAT_SIDEBAR_TOGGLE_RESERVED_PX
+        : chatToggleLeft + chatLeftClusterWidth + CHAT_SIDEBAR_TOGGLE_TITLE_GAP_PX
       : 0
 
   useEffect(() => {
@@ -258,7 +309,11 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const rightWorkspaceToggle = showSidebarToggles ? (
     <div
       data-titlebar-no-drag
-      className="mr-2 flex shrink-0 items-center gap-1 motion-reduce:transition-none [-webkit-app-region:no-drag]"
+      className={cn(
+        "flex shrink-0 items-center gap-1 motion-reduce:transition-none [-webkit-app-region:no-drag]",
+        // On mac the outer container owns the right offset so the toggle lands on the rail axis.
+        isMac ? undefined : "mr-2",
+      )}
       onPointerDownCapture={(event) =>
         logBenchToggleDomEvent("right-toggle-wrapper-pointerdown-capture", event)
       }
@@ -306,7 +361,11 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   ) : null
 
   const isShellVariant = props.variant === "shell"
-  const borderClass = isShellVariant ? "" : "border-b border-border-weaker-base"
+  // The collapsed-sidebar term only applies in chat placement — root/settings have no left sidebar,
+  // so the persisted preference there would flip the separator for a panel that isn't rendered.
+  const hasHardBottomEdge =
+    rightWorkspaceOpen || (placement === "chat" && !resolvedLeftSidebarOpen)
+  const separatorClass = isShellVariant ? "" : titlebarSeparatorClass(hasHardBottomEdge)
   const leftSidebarToggleButton = (
     <Button
       type="button"
@@ -329,15 +388,12 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       <TitlebarIcon icon={PanelLeftIcon} />
     </Button>
   )
-  const showChatFloatInLeftCluster = Boolean(
-    props.onFloatChat && (props.showSidebarThreadControls || props.showThreadBrowser),
-  )
-  const chatLeftClusterUsesPill = showChatFloatInLeftCluster
   return (
     <header
       data-component="desktop-titlebar"
       data-variant={props.variant ?? "chat"}
-      className={`shrink-0 ${borderClass} bg-background-base text-text-base select-none [-webkit-app-region:drag] ${titlebarHeightClass}`}
+      className={`shrink-0 ${separatorClass} bg-background-base text-text-base select-none [-webkit-app-region:drag]`}
+      style={{ height: DESKTOP_TITLEBAR_HEIGHT_PX }}
       onPointerDownCapture={(event) => {
         if (!isBenchToggleEventTarget(event.target)) return
         logBenchToggleDomEvent("desktop-titlebar-pointerdown-capture", event)
@@ -366,7 +422,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             // Match the titlebar row: full bar height + flex center (same as in-flow controls).
             // Previous top math used a 30px assumed height while buttons are h-6 (24px), so the pill sat high.
             top: 0,
-            height: CHAT_TITLEBAR_HEIGHT_PX,
+            height: DESKTOP_TITLEBAR_HEIGHT_PX,
             left:
               isMac && !isFullscreen
                 ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX
@@ -401,6 +457,19 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             >
               <TitlebarIcon icon={PanelLeftIcon} />
             </Button>
+            {showNewChatInLeftCluster ? (
+              <Button
+                type="button"
+                data-action="chat-new-session"
+                variant="ghost"
+                className={titlebarToggleButtonClass(chatLeftClusterUsesPill)}
+                aria-label={language.t("sidebar.newChat")}
+                title={language.t("sidebar.newChat")}
+                onClick={() => void props.onNewSession?.()}
+              >
+                <TitlebarIcon icon={SquarePenIcon} />
+              </Button>
+            ) : null}
             {showChatFloatInLeftCluster ? (
               <Button
                 type="button"
@@ -474,33 +543,41 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                 </div>
               ) : null}
 
-              {props.projectName && !props.showThreadBrowser ? (
+              {/* The sidebar already names the directory, so this stands in for it only while the
+                  sidebar is collapsed — otherwise the name is on screen twice. It also owns the
+                  thread switcher: clicking it opens the history popover, which used to open on
+                  hovering the title. A hover target that large opened the panel by accident. */}
+              {props.projectName && !props.showThreadBrowser && !resolvedLeftSidebarOpen ? (
                 <div className="shrink-0 overflow-hidden max-w-[12rem] transition-[max-width] duration-150 ease-in hover:max-w-[20rem] hover:duration-300 hover:ease-out [-webkit-app-region:no-drag] flex items-center border-r border-border-weaker-base [box-shadow:-2px_0_4px_rgba(0,0,0,0.08)]">
-                  <span className="block truncate pl-4 pr-3 text-xs font-medium text-text-weak select-none">
-                    {props.projectName}
-                  </span>
+                  {props.onSelectSession ? (
+                    <ThreadHistoryPopover
+                      sessions={props.sessions ?? []}
+                      activeSessionID={props.activeSessionID}
+                      linkedSessionID={props.linkedSessionID}
+                      onSelectSession={props.onSelectSession}
+                      notebookName={props.projectName}
+                      trigger={
+                        <button
+                          type="button"
+                          data-action="titlebar-notebook-threads"
+                          className="flex min-w-0 items-center gap-1.5 pl-4 pr-3 text-xs font-medium text-text-weak transition-colors hover:text-text-base [-webkit-app-region:no-drag]"
+                          aria-label={language.t("sidebar.showAllThreads")}
+                        >
+                          <BookIcon className={TITLEBAR_ICON_SIZE_CLASS} />
+                          <span className="block min-w-0 truncate">{props.projectName}</span>
+                        </button>
+                      }
+                    />
+                  ) : (
+                    <span className="flex min-w-0 items-center gap-1.5 pl-4 pr-3 text-xs font-medium text-text-weak select-none">
+                      <BookIcon className={TITLEBAR_ICON_SIZE_CLASS} />
+                      <span className="block min-w-0 truncate">{props.projectName}</span>
+                    </span>
+                  )}
                 </div>
               ) : null}
 
-              {!props.showThreadBrowser && props.chatTitle && props.onSelectSession ? (
-                <ThreadHistoryPopover
-                  sessions={props.sessions ?? []}
-                  activeSessionID={props.activeSessionID}
-                  linkedSessionID={props.linkedSessionID}
-                  onSelectSession={props.onSelectSession ?? (() => undefined)}
-                  notebookName={props.projectName}
-                  openOnTriggerHover
-                  trigger={
-                    <button
-                      type="button"
-                      className="min-w-0 max-w-[24rem] self-center truncate px-4 text-left text-sm font-medium text-text-strong transition-colors hover:text-text-base [-webkit-app-region:no-drag]"
-                      aria-label={language.t("sidebar.showAllThreads")}
-                    >
-                      <TextShimmer text={props.chatTitle} active={props.isTurnActive ?? false} />
-                    </button>
-                  }
-                />
-              ) : !props.showThreadBrowser ? (
+              {!props.showThreadBrowser ? (
                 <h1 className="min-w-0 max-w-[24rem] self-center truncate px-4 text-sm font-medium text-text-strong">
                   {props.chatTitle ? (
                     <TextShimmer text={props.chatTitle} active={props.isTurnActive ?? false} />
@@ -514,7 +591,11 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           ))}
         <div
           data-titlebar-no-drag
-          className="flex shrink-0 items-center gap-1 mr-2 ml-auto [-webkit-app-region:no-drag]"
+          className={cn(
+            "flex shrink-0 items-center gap-1 ml-auto [-webkit-app-region:no-drag]",
+            isMac ? undefined : "mr-2",
+          )}
+          style={isMac ? { marginRight: RIGHT_TOGGLE_RAIL_ALIGNED_MARGIN_PX } : undefined}
         >
           {!isShellVariant && rightWorkspaceToggle}
 
@@ -524,7 +605,8 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
               <div
                 data-component="titlebar-system-controls-mount"
                 data-titlebar-no-drag
-                className={`flex shrink-0 flex-row [-webkit-app-region:no-drag] ${titlebarHeightClass}`}
+                className="flex shrink-0 flex-row [-webkit-app-region:no-drag]"
+                style={{ height: DESKTOP_TITLEBAR_HEIGHT_PX }}
               />
             </>
           ) : null}

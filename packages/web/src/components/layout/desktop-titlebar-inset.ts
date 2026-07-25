@@ -2,6 +2,19 @@ import { useLayoutEffect, useState } from "react"
 
 export const DESKTOP_TITLEBAR_SELECTOR = '[data-component="desktop-titlebar"]'
 
+/**
+ * One titlebar height for every placement (root, chat, settings).
+ *
+ * The native chrome is aligned to this same value and cannot follow a per-route height:
+ * macOS `trafficLightPosition.y` and the Windows `titleBarOverlay.height` are both fixed at
+ * window creation in `packages/desktop-electron/src/main/windows.ts`. Changing this constant
+ * means updating those two, or native and web controls drift out of alignment.
+ *
+ * 40px sits 7px above and below the tallest content in the bar (a 24px `h-6` control inside a
+ * 1px-bordered pill = 26px).
+ */
+export const DESKTOP_TITLEBAR_HEIGHT_PX = 40
+
 export function readDesktopTitlebarBottomOffset() {
   const titlebars = document.querySelectorAll(DESKTOP_TITLEBAR_SELECTOR)
   let maxBottom = 0

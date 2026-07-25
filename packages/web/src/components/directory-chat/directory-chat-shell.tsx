@@ -1,9 +1,8 @@
 import { useEffect, useRef, type ReactNode } from "react"
 import { ResizeHandle } from "@buddy/ui"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
+import { DESKTOP_TITLEBAR_HEIGHT_PX } from "@/components/layout/desktop-titlebar-inset"
 import type { SessionInfo } from "@/state/chat-types"
-
-const CHAT_TITLEBAR_HEIGHT_PX = 52
 
 type DirectoryChatShellProps = {
   leftSidebar: ReactNode
@@ -73,7 +72,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
   const leftSidebarOverlayRef = useRef<HTMLDivElement>(null)
 
   const leftSidebarResolvedWidth = !immersive && leftSidebarOpen ? leftSidebarDisplayWidth : 0
-  const titlebarHeight = immersive ? 0 : CHAT_TITLEBAR_HEIGHT_PX
+  const titlebarHeight = immersive ? 0 : DESKTOP_TITLEBAR_HEIGHT_PX
 
   useEffect(() => {
     if (!leftSidebarOverlayOpen) return
@@ -144,18 +143,16 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
             top: 0,
             left: 0,
             width: 130,
-            height: CHAT_TITLEBAR_HEIGHT_PX,
+            height: DESKTOP_TITLEBAR_HEIGHT_PX,
           }}
           className="[-webkit-app-region:no-drag]"
         />
       </div>
 
-      {/* Row 1, Col 2: Main titlebar */}
-      <div
-        hidden={immersive}
-        aria-hidden={immersive}
-        className="col-start-2 row-start-1 min-w-0 overflow-hidden"
-      >
+      {/* Row 1, Col 2: Main titlebar.
+          No `overflow-hidden` here — it would clip the titlebar's downward shadow. Horizontal
+          overflow is already bounded by `min-w-0` plus the truncation inside DesktopTitlebar. */}
+      <div hidden={immersive} aria-hidden={immersive} className="col-start-2 row-start-1 min-w-0">
         <DesktopTitlebar
           placement="chat"
           chatTitle={chatTitle}
@@ -217,7 +214,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
         <div
           data-component="directory-chat-left-sidebar-edge-trigger"
           className="absolute bottom-0 left-0 z-30 w-2 [-webkit-app-region:no-drag]"
-          style={{ top: CHAT_TITLEBAR_HEIGHT_PX }}
+          style={{ top: DESKTOP_TITLEBAR_HEIGHT_PX }}
           onMouseEnter={() => onLeftSidebarOverlayOpenChange?.(true)}
           onPointerDown={() => onLeftSidebarOverlayOpenChange?.(true)}
         />
@@ -228,7 +225,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           data-component="directory-chat-left-sidebar-overlay"
           className="absolute bottom-0 left-0 z-40 overflow-hidden border-r border-border-weaker-base bg-background-base shadow-xl animate-in fade-in slide-in-from-left-2 duration-150"
           style={{
-            top: CHAT_TITLEBAR_HEIGHT_PX,
+            top: DESKTOP_TITLEBAR_HEIGHT_PX,
             width: leftSidebarDisplayWidth,
           }}
           onMouseLeave={() => onLeftSidebarOverlayOpenChange?.(false)}

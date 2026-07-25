@@ -24,6 +24,7 @@ import {
   NotebookCreationDialog,
   NotebookSettingsDialog,
 } from "./chat-left-sidebar/dialogs"
+import { DESKTOP_TITLEBAR_HEIGHT_PX } from "./desktop-titlebar-inset"
 import { ChatLeftSidebarDirectoryList } from "./chat-left-sidebar/directory-list"
 import { ChatLeftSidebarPinnedList } from "./chat-left-sidebar/pinned-list"
 import { GetStartedChats } from "./chat-left-sidebar/get-started-chats"
@@ -357,9 +358,10 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     >
       {props.showHeader !== false ? (
         <header
-          className={`flex h-[52px] shrink-0 items-center justify-end px-2 ${
+          className={`flex shrink-0 items-center justify-end px-2 ${
             isMacDesktop && !isFullscreen ? "pl-[72px]" : ""
           }`}
+          style={{ height: DESKTOP_TITLEBAR_HEIGHT_PX }}
         />
       ) : null}
       {props.children ? (

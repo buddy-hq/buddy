@@ -121,7 +121,11 @@ export function createMainWindow(globals: WindowGlobals) {
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hidden" as const,
-          trafficLightPosition: { x: 12, y: 21 },
+          // Centres the traffic lights against the titlebar controls, calibrated by eye rather
+          // than derived: macOS positions the button frame here, not the visible circle, and the
+          // circle ends up centred at y + 7. So this is DESKTOP_TITLEBAR_HEIGHT_PX / 2 - 7.
+          // Keep in sync with packages/web/src/components/layout/desktop-titlebar-inset.ts.
+          trafficLightPosition: { x: 12, y: 13 },
         }
       : {}),
     ...(process.platform === "win32"
