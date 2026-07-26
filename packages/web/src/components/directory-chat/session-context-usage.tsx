@@ -67,7 +67,10 @@ function MeterBar(props: { percent: number; tone: MeterTone }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-weak">
       <div
-        className={cn("h-full rounded-full transition-[width] duration-300", METER_FILL[props.tone])}
+        className={cn(
+          "h-full rounded-full transition-[width] duration-300",
+          METER_FILL[props.tone],
+        )}
         style={{ width: `${clampPercent(props.percent)}%` }}
       />
     </div>

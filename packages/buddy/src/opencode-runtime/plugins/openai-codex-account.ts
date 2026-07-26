@@ -292,9 +292,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     }
 
     const parsed = codexModelsResponseSchema.parse(await response.json())
-    const models = parsed.models.filter(
-      (model) => model.visibility === LISTED_MODEL_VISIBILITY,
-    )
+    const models = parsed.models.filter((model) => model.visibility === LISTED_MODEL_VISIBILITY)
     const modelIDs = models.map((model) => model.slug)
     if (modelIDs.length === 0) {
       throw new Error(EMPTY_MODEL_AVAILABILITY_ERROR)

@@ -9,10 +9,7 @@ import type {
 import type { DefinedBuddyFeature } from "../../runtime/define-buddy-feature"
 import { REGISTERED_BUDDY_PERSONAS } from "../registry"
 import { resolvePreferredBuddyPersona } from "./default-persona"
-import {
-  DEVELOPMENT_PERSONAS_ENABLED,
-  personaIsAvailable,
-} from "./persona-availability"
+import { DEVELOPMENT_PERSONAS_ENABLED, personaIsAvailable } from "./persona-availability"
 
 const BUILTIN_BUDDY_PERSONA_DEFINITIONS = REGISTERED_BUDDY_PERSONAS
 
@@ -212,10 +209,7 @@ function getDefaultBuddyPersona(input?: {
   overrides?: BuddyPersonaOverrides
   developmentPersonasEnabled?: boolean
 }): BuddyPersonaProfile {
-  const profiles = resolveBuddyPersonaProfiles(
-    input?.overrides,
-    input?.developmentPersonasEnabled,
-  )
+  const profiles = resolveBuddyPersonaProfiles(input?.overrides, input?.developmentPersonasEnabled)
   const preferredPersona = profiles[resolvePreferredBuddyPersona(input)]
 
   if (!preferredPersona.hidden) {

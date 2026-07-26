@@ -722,8 +722,7 @@ async function startBackendUtility(config: EmbeddedBackendConfig) {
 
 function startBackendDevelopmentReloadWatcher() {
   const signalPath = process.env[BACKEND_DEVELOPMENT_RELOAD_SIGNAL_ENV]
-  const acknowledgementPath =
-    process.env[BACKEND_DEVELOPMENT_RELOAD_ACKNOWLEDGEMENT_ENV]
+  const acknowledgementPath = process.env[BACKEND_DEVELOPMENT_RELOAD_ACKNOWLEDGEMENT_ENV]
   if (app.isPackaged || !signalPath || stopBackendDevelopmentReloadWatcher) return
 
   stopBackendDevelopmentReloadWatcher = watchBackendDevelopmentReloadSignal({

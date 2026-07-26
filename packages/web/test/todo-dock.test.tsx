@@ -126,25 +126,19 @@ describe("TodoDock", () => {
     }
 
     await act(async () => {
-      root.render(
-        <TodoDock height={200} todos={[todo]} turnActive onHide={() => {}} />,
-      )
+      root.render(<TodoDock height={200} todos={[todo]} turnActive onHide={() => {}} />)
     })
     expect(container.querySelector('[data-component="prompt-todo-scroll"]')).not.toBeNull()
     expect(container.querySelector('[data-column="in_progress"]')).toBeNull()
 
     await act(async () => {
-      root.render(
-        <TodoDock height={240} todos={[todo]} turnActive onHide={() => {}} />,
-      )
+      root.render(<TodoDock height={240} todos={[todo]} turnActive onHide={() => {}} />)
     })
     expect(container.querySelector('[data-component="prompt-todo-scroll"]')).toBeNull()
     expect(container.querySelector('[data-column="in_progress"]')).not.toBeNull()
 
     await act(async () => {
-      root.render(
-        <TodoDock height={200} todos={[todo]} turnActive onHide={() => {}} />,
-      )
+      root.render(<TodoDock height={200} todos={[todo]} turnActive onHide={() => {}} />)
     })
     expect(container.querySelector('[data-component="prompt-todo-scroll"]')).not.toBeNull()
     expect(container.querySelector('[data-column="in_progress"]')).toBeNull()

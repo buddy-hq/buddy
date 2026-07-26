@@ -347,8 +347,7 @@ function OnboardingRoute() {
     setShowFolderRecovery(false)
     setError(undefined)
 
-    const shouldShowPersonalization =
-      useOnboardingStore.getState().shouldShowPersonalizationStep()
+    const shouldShowPersonalization = useOnboardingStore.getState().shouldShowPersonalizationStep()
     const result = await activateChatDirectory({
       directory,
       navigate: shouldShowPersonalization ? undefined : navigateToDirectoryChat,

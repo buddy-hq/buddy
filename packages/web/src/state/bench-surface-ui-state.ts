@@ -58,9 +58,6 @@ export function readBenchSurfaceViewport(key: string): BenchSurfaceViewportState
   return useBenchSurfaceUiState.getState().readViewport(key)
 }
 
-export function writeBenchSurfaceViewport(
-  key: string,
-  viewport: BenchSurfaceViewportState,
-): void {
+export function writeBenchSurfaceViewport(key: string, viewport: BenchSurfaceViewportState): void {
   useBenchSurfaceUiState.getState().writeViewport(key, viewport)
 }

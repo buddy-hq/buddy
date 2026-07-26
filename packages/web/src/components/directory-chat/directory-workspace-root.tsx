@@ -650,9 +650,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const benchTargetKey = workspace.projection.bench.targetKey ?? CLOSED_BENCH_TARGET_KEY
   const activeBenchTarget = benchRuntimeState?.target ?? null
   const renderBenchSurface = useCallback(
-    (target: BenchTarget) => (
-      <BenchSurfaceRenderer directory={currentDirectory} target={target} />
-    ),
+    (target: BenchTarget) => <BenchSurfaceRenderer directory={currentDirectory} target={target} />,
     [currentDirectory],
   )
   const renderBenchContext = useCallback(

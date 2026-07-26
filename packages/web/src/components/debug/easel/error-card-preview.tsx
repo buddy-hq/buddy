@@ -63,8 +63,7 @@ const PREVIEW_CASES: PreviewCase[] = [
     details: {
       name: "APIError",
       statusCode: 401,
-      responseBody:
-        '{"type":"error","error":{"type":"ModelError","message":"Model is disabled"}}',
+      responseBody: '{"type":"error","error":{"type":"ModelError","message":"Model is disabled"}}',
     },
   },
   {

@@ -446,9 +446,7 @@ function FloatingChatRestoreButton(props: {
       initial={props.suppressLayoutMotion ? false : { opacity: 0, scale: 0.92, y: 8 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={
-        props.suppressLayoutMotion
-          ? INSTANT_LAYOUT_TRANSITION
-          : FLOATING_CHAT_WINDOW_TRANSITION
+        props.suppressLayoutMotion ? INSTANT_LAYOUT_TRANSITION : FLOATING_CHAT_WINDOW_TRANSITION
       }
       className="absolute bottom-6 right-6 z-40"
     >

@@ -109,10 +109,7 @@ export function renderBenchPresentTool(props: ToolPartProps) {
  * three things — and repeats of the same target within a band say nothing the
  * first receipt did not.
  */
-export function GroupedBenchPresentToolCard(props: {
-  parts: MessagePart[]
-  directory?: string
-}) {
+export function GroupedBenchPresentToolCard(props: { parts: MessagePart[]; directory?: string }) {
   const receipts: BenchPresentReceipt[] = []
   const seen = new Set<string>()
 

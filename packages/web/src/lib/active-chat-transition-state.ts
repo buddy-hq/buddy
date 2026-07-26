@@ -97,17 +97,13 @@ function releaseActiveChatLayoutMotionIfReady(transitionID: ActiveChatTransition
  * curtain up while its virtual rows measure at the destination workspace width without changing
  * the transcript's mount, cache, or autoscroll lifecycle.
  */
-export function registerActiveChatDestinationLayout(
-  transitionID: ActiveChatTransitionID,
-): boolean {
+export function registerActiveChatDestinationLayout(transitionID: ActiveChatTransitionID): boolean {
   if (!layoutMotionSuppressed || !isActiveChatTransition(transitionID)) return false
   layoutReadyRequiredTransitionID = transitionID
   return true
 }
 
-export function markActiveChatDestinationLayoutReady(
-  transitionID: ActiveChatTransitionID,
-): void {
+export function markActiveChatDestinationLayoutReady(transitionID: ActiveChatTransitionID): void {
   if (layoutReadyRequiredTransitionID !== transitionID) return
   if (!isActiveChatTransition(transitionID)) return
   layoutReadyTransitionID = transitionID

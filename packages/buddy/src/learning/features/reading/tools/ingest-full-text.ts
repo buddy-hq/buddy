@@ -44,8 +44,7 @@ const MAXIMUM_POST_FULL_TEXT_INGEST_CONTEXT_TOKENS = 96_000
 const FULL_TEXT_TOOL_MAX_OUTPUT_LINES = 500_000
 const FULL_TEXT_TOOL_MAX_OUTPUT_BYTES = 5_000_000
 const INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL = "context_too_full"
-const INGEST_FULL_TEXT_REASON_NATIVE_PDF_ALREADY_IN_CONTEXT =
-  "native_pdf_already_in_context"
+const INGEST_FULL_TEXT_REASON_NATIVE_PDF_ALREADY_IN_CONTEXT = "native_pdf_already_in_context"
 const INGEST_FULL_TEXT_FALLBACK_SCOPED_READING = "scoped_reading"
 
 const ResourceIngestFullTextParameters = z.object({
@@ -89,9 +88,7 @@ function resourceSourceReferencePaths(resource: ResourceObjectResolved): string[
 
 function resourceSourcePaths(directory: string, resource: ResourceObjectResolved): Set<string> {
   return new Set(
-    resourceSourceReferencePaths(resource).map((sourcePath) =>
-      path.resolve(directory, sourcePath),
-    ),
+    resourceSourceReferencePaths(resource).map((sourcePath) => path.resolve(directory, sourcePath)),
   )
 }
 

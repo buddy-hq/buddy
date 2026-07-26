@@ -5,10 +5,7 @@ export function createTestPdf(pageCount = 1): string {
 
   const pageObjectStart = 3
   const contentsObjectNumber = pageObjectStart + pageCount
-  const pageObjectNumbers = Array.from(
-    { length: pageCount },
-    (_, index) => pageObjectStart + index,
-  )
+  const pageObjectNumbers = Array.from({ length: pageCount }, (_, index) => pageObjectStart + index)
   return buildPdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
     `<< /Type /Pages /Kids [${pageObjectNumbers

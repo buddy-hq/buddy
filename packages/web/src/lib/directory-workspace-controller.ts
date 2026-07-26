@@ -1107,10 +1107,7 @@ export class DirectoryWorkspaceController {
           docked: createCollapsedWorkspaceState(),
           lastDrawer: this.#store.getState().lastDrawer,
         }
-      : workspacePresentationSlotForChat(
-          this.#store.getState().slots,
-          command.destinationChatKey,
-        )
+      : workspacePresentationSlotForChat(this.#store.getState().slots, command.destinationChatKey)
     if (currentPendingIntent?.kind !== WORKSPACE_PENDING_KIND_CHAT_TRANSITION) {
       const guardResult = await this.#blocker.guardChatTransition({
         next: destinationSlot.route,
@@ -1152,8 +1149,7 @@ export class DirectoryWorkspaceController {
   ): Promise<DirectoryWorkspaceCommandResult> {
     const state = this.#store.getState()
     const previousProjection = this.#currentProjection()
-    const leaveGuardSettled =
-      state.pendingIntent?.kind === WORKSPACE_PENDING_KIND_CHAT_TRANSITION
+    const leaveGuardSettled = state.pendingIntent?.kind === WORKSPACE_PENDING_KIND_CHAT_TRANSITION
     if (state.activeChatKey !== command.chatKey) {
       state.stageChatTransition({
         commandID,
@@ -1206,7 +1202,10 @@ export class DirectoryWorkspaceController {
    * projection cannot keep reporting a chat transition, and so the destination never inherits the
    * outgoing chat's Bench route. A superseded restore is skipped: the newer command owns the store.
    */
-  #commitRestoreFallback(commandID: string, previousProjection: EffectiveWorkspaceProjection): void {
+  #commitRestoreFallback(
+    commandID: string,
+    previousProjection: EffectiveWorkspaceProjection,
+  ): void {
     const docked = createCollapsedWorkspaceState()
     this.#store.getState().setPendingIntent({
       kind: WORKSPACE_PENDING_KIND_WORKSPACE_ONLY,

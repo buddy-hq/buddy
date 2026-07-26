@@ -281,9 +281,7 @@ function isDrawerKind(value: unknown): value is DrawerKind {
   )
 }
 
-function isWorkspaceVisibility(
-  value: unknown,
-): value is DockedWorkspaceState["visibility"] {
+function isWorkspaceVisibility(value: unknown): value is DockedWorkspaceState["visibility"] {
   return value === WORKSPACE_VISIBILITY_COLLAPSED || value === WORKSPACE_VISIBILITY_EXPANDED
 }
 
@@ -519,9 +517,7 @@ export async function writePersistedWorkspaceSlot(input: {
   await enqueueDirectoryWorkspaceWrite(input.directory, async () => {
     const persisted = await readPersistedDirectoryWorkspaceImmediately(input)
     const slots =
-      persisted.status === WORKSPACE_HYDRATION_READY && persisted.state
-        ? persisted.state.slots
-        : {}
+      persisted.status === WORKSPACE_HYDRATION_READY && persisted.state ? persisted.state.slots : {}
     await writePersistedDirectoryWorkspaceImmediately({
       directory: input.directory,
       state: {

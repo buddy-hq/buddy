@@ -224,9 +224,7 @@ describe("ActivityRow", () => {
         }),
     )
     await act(async () => {
-      root.render(
-        <ActivityRow parts={[]} seed="activity:turn:tail" zeroEntryLabel="Pondering" />,
-      )
+      root.render(<ActivityRow parts={[]} seed="activity:turn:tail" zeroEntryLabel="Pondering" />)
     })
 
     expect(container.querySelector("[data-activity-row]")).toBeNull()

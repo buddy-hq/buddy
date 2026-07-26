@@ -994,10 +994,7 @@ describe("bench_present", () => {
 })
 
 describe("bench_present presentation", () => {
-  function snapshotFor(input: {
-    phase: "running" | "completed" | "error"
-    benchStatus?: string
-  }) {
+  function snapshotFor(input: { phase: "running" | "completed" | "error"; benchStatus?: string }) {
     return resolveToolPresentationSnapshot(benchPresentTool.presentation, {
       toolID: "bench_present",
       phase: input.phase,

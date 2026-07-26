@@ -91,7 +91,10 @@ function MeterBar(props: { percent: number; tone: MeterTone }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-weak">
       <div
-        className={cn("h-full rounded-full transition-[width] duration-300", METER_FILL[props.tone])}
+        className={cn(
+          "h-full rounded-full transition-[width] duration-300",
+          METER_FILL[props.tone],
+        )}
         style={{ width: `${clampPercent(props.percent)}%` }}
       />
     </div>
@@ -231,7 +234,9 @@ function TokenCounterPopover(props: {
                 Loading usage limits…
               </div>
             ) : usage?.status === "error" ? (
-              <p className="text-[11px] text-text-weak">Usage information is unavailable right now.</p>
+              <p className="text-[11px] text-text-weak">
+                Usage information is unavailable right now.
+              </p>
             ) : usage?.status === "reconnect_required" ? (
               <p className="text-[11px] text-text-warning-base">
                 Reconnect ChatGPT in settings to see limits.
@@ -556,8 +561,8 @@ export function TokenCounterMeterEasel() {
           <p className="max-w-sm pt-2 text-center text-[11px] leading-relaxed text-text-weaker">
             All three meters share one scale — accent below 75%, amber at 75%, red at 90% — so the
             same spend reads the same colour everywhere. Plan limits auto-refresh every 60s in
-            production; the <span className="font-medium text-text-weak">Refresh</span> control forces
-            it and stamps “Updated”. Rows appear only for a connected ChatGPT session.
+            production; the <span className="font-medium text-text-weak">Refresh</span> control
+            forces it and stamps “Updated”. Rows appear only for a connected ChatGPT session.
           </p>
         </div>
       </div>

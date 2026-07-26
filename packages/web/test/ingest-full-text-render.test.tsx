@@ -174,9 +174,7 @@ describe("ingest_full_text tool rendering", () => {
     })
 
     for (const [extension, mediaKind, heroClass] of formats) {
-      const cover = container.querySelector<HTMLElement>(
-        `[data-resource-format="${extension}"]`,
-      )
+      const cover = container.querySelector<HTMLElement>(`[data-resource-format="${extension}"]`)
       expect(cover?.dataset.resourceMediaKind).toBe(mediaKind)
       expect(cover?.firstElementChild?.className).toContain(heroClass)
       expect(cover?.querySelector("span:last-child")?.className).toContain("line-clamp-2")
@@ -223,9 +221,7 @@ describe("ingest_full_text tool rendering", () => {
       await flushEffects()
     })
 
-    const card = container.querySelector<HTMLButtonElement>(
-      'button[aria-label*="default app"]',
-    )
+    const card = container.querySelector<HTMLButtonElement>('button[aria-label*="default app"]')
     expect(card).not.toBeNull()
     expect(card?.className).toContain("aspect-[3/4]")
     expect(container.textContent).toContain("docx")

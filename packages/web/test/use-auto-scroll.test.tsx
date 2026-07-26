@@ -179,7 +179,9 @@ describe("useAutoScroll", () => {
     let handle: HarnessHandle | undefined
 
     await act(async () => {
-      root.render(<Harness attachmentKey="session-1" onReady={(nextHandle) => (handle = nextHandle)} />)
+      root.render(
+        <Harness attachmentKey="session-1" onReady={(nextHandle) => (handle = nextHandle)} />,
+      )
     })
 
     const scrollElement = requireDiv(container, '[data-testid="scroll"]')

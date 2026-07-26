@@ -10,7 +10,9 @@ export type WorkspaceChatKey =
   | PersistedWorkspaceChatKey
   | `${typeof WORKSPACE_CHAT_TRANSITION_KEY_PREFIX}${number}`
 
-export function workspaceChatKeyForSession(sessionID: string | undefined): PersistedWorkspaceChatKey {
+export function workspaceChatKeyForSession(
+  sessionID: string | undefined,
+): PersistedWorkspaceChatKey {
   const normalizedSessionID = sessionID?.trim()
   return normalizedSessionID
     ? `${WORKSPACE_CHAT_SESSION_KEY_PREFIX}${normalizedSessionID}`
@@ -29,9 +31,7 @@ export function isPersistedWorkspaceChatKey(value: string): value is PersistedWo
   )
 }
 
-export function workspaceSessionIDFromChatKey(
-  chatKey: WorkspaceChatKey,
-): string | undefined {
+export function workspaceSessionIDFromChatKey(chatKey: WorkspaceChatKey): string | undefined {
   if (!chatKey.startsWith(WORKSPACE_CHAT_SESSION_KEY_PREFIX)) return undefined
   return chatKey.slice(WORKSPACE_CHAT_SESSION_KEY_PREFIX.length)
 }

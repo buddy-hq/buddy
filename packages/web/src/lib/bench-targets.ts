@@ -114,8 +114,7 @@ function readBenchTarget(value: unknown): BenchTarget | undefined {
   if (value.type === "workspace-file") {
     const path = readNonEmptyString(value.path)
     const viewer = value.viewer === "markdown" || value.viewer === "file" ? value.viewer : undefined
-    const fragment =
-      value.fragment === undefined ? undefined : readNonEmptyString(value.fragment)
+    const fragment = value.fragment === undefined ? undefined : readNonEmptyString(value.fragment)
     if (!path || !viewer || (value.fragment !== undefined && !fragment)) return undefined
     return {
       type: "workspace-file",

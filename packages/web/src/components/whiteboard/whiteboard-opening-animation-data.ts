@@ -314,7 +314,10 @@ function trimItem(draw: TimeSpan): LottieTrimItem {
   }
 }
 
-function groupTransform(input?: { anchor: LottieVector; scale: LottieMultiValue }): LottieGroupTransform {
+function groupTransform(input?: {
+  anchor: LottieVector
+  scale: LottieMultiValue
+}): LottieGroupTransform {
   return {
     ty: "tr",
     p: fixedVector(input ? input.anchor : ORIGIN_2D),
@@ -749,7 +752,11 @@ export function buildCurveAnimation(): LottieAnimationData {
     duration: CURVE.duration,
     shapes: [
       group("Curve", [
-        { ty: "sh", ks: { a: 0, k: curvedPath(CURVE.curve.map((item) => ({ ...item }))) }, nm: "Path" },
+        {
+          ty: "sh",
+          ks: { a: 0, k: curvedPath(CURVE.curve.map((item) => ({ ...item }))) },
+          nm: "Path",
+        },
         strokeItem(CURVE.curveWidth, "Stroke"),
         trimItem({ ...CURVE.curveDraw }),
         groupTransform(),
@@ -768,7 +775,11 @@ export function buildCurveAnimation(): LottieAnimationData {
     duration: CURVE.duration,
     shapes: [
       group("Ghost", [
-        { ty: "sh", ks: { a: 0, k: curvedPath(CURVE.ghost.map((item) => ({ ...item }))) }, nm: "Path" },
+        {
+          ty: "sh",
+          ks: { a: 0, k: curvedPath(CURVE.ghost.map((item) => ({ ...item }))) },
+          nm: "Path",
+        },
         strokeItem(CURVE.ghostWidth, "Stroke"),
         trimItem({ ...CURVE.ghostDraw }),
         groupTransform(),

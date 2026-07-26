@@ -707,10 +707,7 @@ export function useDirectoryChatPageController(
     try {
       const result = await startActiveChatDraft({
         directory: targetDirectory,
-        navigate:
-          targetDirectory === decodedDirectory
-            ? undefined
-            : navigateToWorkspaceRoute,
+        navigate: targetDirectory === decodedDirectory ? undefined : navigateToWorkspaceRoute,
       })
       if (result.outcome !== "committed" && result.outcome !== "noop") return
       seedDraftModelSelection(targetDirectory)
@@ -737,10 +734,7 @@ export function useDirectoryChatPageController(
       const result = await selectActiveChatSession({
         directory: targetDirectory,
         sessionID: nextSessionID,
-        navigate:
-          targetDirectory === decodedDirectory
-            ? undefined
-            : navigateToWorkspaceRoute,
+        navigate: targetDirectory === decodedDirectory ? undefined : navigateToWorkspaceRoute,
       })
       if (result.outcome !== "committed" && result.outcome !== "noop") return false
       if (result.value.outcome === "draft" || result.value.outcome === "failed") return false
@@ -811,10 +805,7 @@ export function useDirectoryChatPageController(
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       const result = await startActiveChatDraft({
         directory: inboxDirectory,
-        navigate:
-          inboxDirectory === decodedDirectory
-            ? undefined
-            : navigateToWorkspaceRoute,
+        navigate: inboxDirectory === decodedDirectory ? undefined : navigateToWorkspaceRoute,
       })
       if (result.outcome !== "committed" && result.outcome !== "noop") return
       seedDraftModelSelection(inboxDirectory)
@@ -833,10 +824,7 @@ export function useDirectoryChatPageController(
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       const result = await startActiveChatDraft({
         directory: nextDirectory,
-        navigate:
-          nextDirectory === decodedDirectory
-            ? undefined
-            : navigateToWorkspaceRoute,
+        navigate: nextDirectory === decodedDirectory ? undefined : navigateToWorkspaceRoute,
       })
       if (result.outcome !== "committed" && result.outcome !== "noop") return
       seedDraftModelSelection(nextDirectory)

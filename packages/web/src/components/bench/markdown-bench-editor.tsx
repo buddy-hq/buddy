@@ -65,10 +65,7 @@ import {
   MarkdownBenchMdxIntrinsicPreview,
 } from "@/components/bench/markdown-bench-mdx-intrinsic"
 import { resolveMarkdownBenchImageSrc } from "@/lib/markdown-bench-image-src"
-import {
-  readBenchSurfaceViewport,
-  writeBenchSurfaceViewport,
-} from "@/state/bench-surface-ui-state"
+import { readBenchSurfaceViewport, writeBenchSurfaceViewport } from "@/state/bench-surface-ui-state"
 import { BUDDY_CODE_MIRROR_EXTENSIONS } from "@/components/bench/markdown-bench-code-theme"
 import { buddyMathPlugin } from "@/components/bench/markdown-bench-math-plugin"
 import { buddyMarkdownSvgPlugin } from "@/components/bench/markdown-bench-markdown-svg-plugin"

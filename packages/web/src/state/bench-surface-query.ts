@@ -107,10 +107,7 @@ export function markdownBenchFileQueryOptions(input: { directory: string; path: 
   })
 }
 
-export function markdownBenchApprovedFileQueryOptions(input: {
-  directory: string
-  path: string
-}) {
+export function markdownBenchApprovedFileQueryOptions(input: { directory: string; path: string }) {
   return queryOptions({
     queryKey: [...benchSurfaceQueryKeys.markdownFile(input), "approved"] as const,
     queryFn: (): Promise<ProjectExplorerEditableFileState> =>

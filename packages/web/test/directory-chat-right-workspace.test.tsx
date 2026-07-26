@@ -319,9 +319,7 @@ describe("DirectoryChatRightWorkspace", () => {
     root = createRoot(container)
 
     await act(async () => {
-      root?.render(
-        <RouterProvider router={createTestRouter({ suppressDrawerMotion: true })} />,
-      )
+      root?.render(<RouterProvider router={createTestRouter({ suppressDrawerMotion: true })} />)
       await flushEffects()
     })
 
@@ -331,14 +329,14 @@ describe("DirectoryChatRightWorkspace", () => {
       await flushEffects()
     })
 
-    const mountedDrawer = container.querySelector('[data-component="right-workspace-selector-drawer"]')
+    const mountedDrawer = container.querySelector(
+      '[data-component="right-workspace-selector-drawer"]',
+    )
     expect(mountedDrawer).not.toBeNull()
     expect(mountedDrawer?.className).not.toContain("animate-in")
 
     await act(async () => {
-      container
-        ?.querySelector<HTMLButtonElement>('[data-testid="prepare-chat-change"]')
-        ?.click()
+      container?.querySelector<HTMLButtonElement>('[data-testid="prepare-chat-change"]')?.click()
       await flushEffects()
     })
 
@@ -455,7 +453,9 @@ describe("DirectoryChatRightWorkspace", () => {
     // The Bench container stays mounted and hidden rather than unmounting. Removing it here would
     // destroy every kept-alive surface on each chat transition, because the projection reports a
     // closed Bench mid-switch.
-    const benchContainer = container.querySelector('[data-component="right-workspace-bench-target"]')
+    const benchContainer = container.querySelector(
+      '[data-component="right-workspace-bench-target"]',
+    )
     expect(benchContainer?.getAttribute("data-bench-visible")).toBe("false")
     expect(benchContainer?.className).toContain("hidden")
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()

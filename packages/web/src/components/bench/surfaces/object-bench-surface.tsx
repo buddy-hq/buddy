@@ -164,7 +164,6 @@ function objectBenchTarget(view: ObjectsViewResponse): Extract<BenchTarget, { ty
   }
 }
 
-
 function ObjectBenchPending(props: { shape?: BenchSurfacePendingShape }) {
   return (
     <BenchStaticContextProvider

@@ -167,8 +167,7 @@ export function resolvePrimaryPersonaOptions(input: {
   development: boolean
 }): PersonaConfigOption[] {
   return input.personas.filter(
-    (persona) =>
-      !persona.hidden && (input.development || persona.id !== DEVELOPMENT_PERSONA_ID),
+    (persona) => !persona.hidden && (input.development || persona.id !== DEVELOPMENT_PERSONA_ID),
   )
 }
 

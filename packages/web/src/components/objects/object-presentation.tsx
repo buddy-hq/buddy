@@ -342,7 +342,9 @@ export function ObjectCard({
       data-live={showLive ? "" : undefined}
       role={onOpen ? "button" : undefined}
       tabIndex={onOpen ? 0 : undefined}
-      aria-label={onOpen ? language.t("objectPresentation.open", { title: model.title }) : undefined}
+      aria-label={
+        onOpen ? language.t("objectPresentation.open", { title: model.title }) : undefined
+      }
       onClick={onOpen}
       onKeyDown={(event) => {
         if (event.currentTarget !== event.target) return
@@ -424,8 +426,7 @@ export function ObjectTile({
   loading,
   className,
 }: ObjectTileProps) {
-  const cover =
-    model.thumbnail?.source === OBJECT_THUMBNAIL_COVER ? model.thumbnail : undefined
+  const cover = model.thumbnail?.source === OBJECT_THUMBNAIL_COVER ? model.thumbnail : undefined
   const Glyph = model.glyph
   const open = disabled ? undefined : onOpen
 
@@ -435,12 +436,7 @@ export function ObjectTile({
       data-kind={model.kind}
       data-status={model.status}
       data-active={active ? "" : undefined}
-      className={cn(
-        "relative shrink-0",
-        TILE_FRAME_CLASS,
-        disabled && "opacity-60",
-        className,
-      )}
+      className={cn("relative shrink-0", TILE_FRAME_CLASS, disabled && "opacity-60", className)}
     >
       {cover ? (
         <ResourceCover

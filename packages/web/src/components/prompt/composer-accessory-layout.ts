@@ -81,9 +81,7 @@ export function resolveComposerAccessoryLayout(
     minimum: transcriptReserve.minimumPx,
     maximum: transcriptReserve.maximumPx,
   })
-  const remainingAfterRequiredUI = nonNegative(
-    paneHeight - composerHeight - reservedContentHeight,
-  )
+  const remainingAfterRequiredUI = nonNegative(paneHeight - composerHeight - reservedContentHeight)
   const remainingAfterGap = nonNegative(
     remainingAfterRequiredUI - COMPOSER_ACCESSORY_LAYOUT.accessoryGapPx,
   )
@@ -165,9 +163,7 @@ export function capacityAllowsLargeAccessory(capacity: ComposerAccessoryCapacity
   return capacity === "expanded" || capacity === "restorable"
 }
 
-export function capacityAllowsLargeAccessoryRestore(
-  capacity: ComposerAccessoryCapacity,
-): boolean {
+export function capacityAllowsLargeAccessoryRestore(capacity: ComposerAccessoryCapacity): boolean {
   return capacity === "restorable"
 }
 
@@ -196,7 +192,9 @@ export function resolveLargeAccessoryHeight(accessoryBudget: number): number | u
   return Math.min(accessoryBudget, COMPOSER_ACCESSORY_LAYOUT.largeAccessory.maximumHeightPx)
 }
 
-export function resolveTodoAccessoryPresentation(accessoryBudget: number): TodoAccessoryPresentation {
+export function resolveTodoAccessoryPresentation(
+  accessoryBudget: number,
+): TodoAccessoryPresentation {
   if (accessoryBudget < COMPOSER_ACCESSORY_LAYOUT.task.minimumDocumentHeightPx) return "hidden"
   return "expanded"
 }

@@ -38,10 +38,7 @@ function ScrollHarness(props: { metrics: ScrollMetrics }) {
             configurable: true,
             get: () => props.metrics.scrollTop,
             set: (value: number) => {
-              props.metrics.scrollTop = Math.min(
-                Math.max(0, value),
-                props.metrics.maximum,
-              )
+              props.metrics.scrollTop = Math.min(Math.max(0, value), props.metrics.maximum)
             },
           })
         }

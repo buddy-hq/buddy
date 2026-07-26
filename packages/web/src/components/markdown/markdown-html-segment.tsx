@@ -784,14 +784,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
       if (!root.isConnected) return
       copyCleanupRef.current = setupCodeCopy(root, copyLabels)
     }, 0)
-  }, [
-    cachedEntry,
-    copyLabels,
-    fullCacheKey,
-    props.text,
-    resetCodeCopy,
-    resetMarkdownImages,
-  ])
+  }, [cachedEntry, copyLabels, fullCacheKey, props.text, resetCodeCopy, resetMarkdownImages])
 
   useEffect(() => {
     const root = rootRef.current

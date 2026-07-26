@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  benchTargetKey,
-  type BenchObjectKind,
-  type BenchTarget,
-} from "../src/lib/bench-navigation"
+import { benchTargetKey, type BenchObjectKind, type BenchTarget } from "../src/lib/bench-navigation"
 import {
   BENCH_SURFACE_COST_HEAVY,
   BENCH_SURFACE_COST_LIGHT,
@@ -84,7 +80,9 @@ describe("bench surface keep-alive", () => {
 
     expect(instances).toHaveLength(2)
     expect(instances.at(-1)?.key).toBe(benchTargetKey(boards[3] as BenchTarget))
-    expect(instances.every((instance) => instance.costClass === BENCH_SURFACE_COST_HEAVY)).toBeTrue()
+    expect(
+      instances.every((instance) => instance.costClass === BENCH_SURFACE_COST_HEAVY),
+    ).toBeTrue()
   })
 
   test("a run of cheap surfaces does not evict a kept heavy surface", () => {

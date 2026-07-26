@@ -905,10 +905,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
             headers: { "Content-Type": "application/json" },
           })
         }
-        if (
-          url.includes("/bench/client-actions/action-settled/complete") &&
-          method === "POST"
-        ) {
+        if (url.includes("/bench/client-actions/action-settled/complete") && method === "POST") {
           completionBodies.push(JSON.parse(String(body)))
           return new Response(JSON.stringify({ status: "completed" }), {
             status: 200,

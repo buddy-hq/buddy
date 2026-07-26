@@ -78,10 +78,7 @@ export function ResizeHandle(props: ResizeHandleProps) {
     const finishResize = () => {
       if (finished) return
       finished = true
-      if (
-        resizeFrameID !== undefined &&
-        typeof globalThis.cancelAnimationFrame === "function"
-      ) {
+      if (resizeFrameID !== undefined && typeof globalThis.cancelAnimationFrame === "function") {
         globalThis.cancelAnimationFrame(resizeFrameID)
       }
       flushPendingResize()

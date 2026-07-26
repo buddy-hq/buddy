@@ -36,9 +36,9 @@ describe("resolvePrimaryPersonaOptions", () => {
   const personas = [persona("buddy"), persona("teaching-buddy"), persona("code")]
 
   test("includes Code in development", () => {
-    expect(resolvePrimaryPersonaOptions({ personas, development: true }).map(({ id }) => id)).toEqual(
-      ["buddy", "teaching-buddy", "code"],
-    )
+    expect(
+      resolvePrimaryPersonaOptions({ personas, development: true }).map(({ id }) => id),
+    ).toEqual(["buddy", "teaching-buddy", "code"])
   })
 
   test("excludes Code outside development", () => {

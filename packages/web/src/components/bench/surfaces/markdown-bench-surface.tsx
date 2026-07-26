@@ -18,7 +18,6 @@ import { consumeWorkspaceFileLargeOpenApproval } from "@/state/workspace-file-op
 const AGENTS_MD_PATH = "AGENTS.md"
 const AGENTS_MD_PLACEHOLDER = "Set rules and customize how Buddy responds in this notebook."
 
-
 function MarkdownBenchPending() {
   return (
     <BenchStaticContextProvider

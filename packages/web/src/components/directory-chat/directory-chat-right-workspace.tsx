@@ -216,8 +216,7 @@ export function DirectoryChatRightWorkspaceContent(props: {
           data-component="right-workspace-selector-drawer"
           className={cn(
             "absolute inset-y-0 right-0 z-10 h-full min-h-0 max-w-full border-l border-border-weaker-base bg-background-base shadow-xl",
-            !props.suppressDrawerMotion &&
-              "animate-in fade-in slide-in-from-right-3 duration-150",
+            !props.suppressDrawerMotion && "animate-in fade-in slide-in-from-right-3 duration-150",
           )}
           style={{ width: props.selectorDrawerWidth }}
         >

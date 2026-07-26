@@ -77,10 +77,7 @@ import { AssistantPartRenderer } from "./parts/assistant-part/assistant-part"
 import { MessageDivider } from "./parts/assistant-part/message-divider"
 import { AssistantTruncatedNote } from "./assistant-error-card"
 import { SessionRetryNotice } from "./session-retry-notice"
-import {
-  createAnchorShiftAnimator,
-  resolveAnchorShiftPx,
-} from "@/lib/surface-reveal-motion"
+import { createAnchorShiftAnimator, resolveAnchorShiftPx } from "@/lib/surface-reveal-motion"
 import {
   markActiveChatDestinationLayoutReady,
   readActiveChatTransitionID,
@@ -1032,12 +1029,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       markReadyAfterQuietLayout,
       TIMELINE_INITIAL_LAYOUT_QUIET_MS,
     )
-  }, [
-    cancelInitialLayoutReady,
-    chatTransitionID,
-    scrollViewportRef,
-    transcriptMeta.loading,
-  ])
+  }, [cancelInitialLayoutReady, chatTransitionID, scrollViewportRef, transcriptMeta.loading])
 
   useLayoutEffect(() => {
     initialLayoutRegisteredRef.current = registerActiveChatDestinationLayout(chatTransitionID)
@@ -1235,7 +1227,13 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     })
     markProgrammaticScroll?.(root, Math.max(totalSize - root.clientHeight, 0))
     writeTranscriptVirtualEnd(root, virtualContentRef.current, totalSize)
-  }, [hasScrollGesture, markProgrammaticScroll, rowVirtualizer, scrollViewportRef, shouldAnchorBottom])
+  }, [
+    hasScrollGesture,
+    markProgrammaticScroll,
+    rowVirtualizer,
+    scrollViewportRef,
+    shouldAnchorBottom,
+  ])
 
   const scheduleResizeBottomRepair = useCallback(() => {
     if (hasScrollGesture()) return
@@ -1267,7 +1265,8 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       const root = scrollViewportRef?.current
       const element = root?.querySelector<HTMLElement>(`[data-index="${index}"]`) ?? null
       const measuredRowKey =
-        element?.closest<HTMLElement>("[data-timeline-key]")?.dataset.timelineKey ?? rows[index]?.key
+        element?.closest<HTMLElement>("[data-timeline-key]")?.dataset.timelineKey ??
+        rows[index]?.key
       const skipResize = isDeferredToolFallbackCollapse({
         root: element,
         previousSize: previous,
