@@ -616,9 +616,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   return (
     <div data-component="whiteboard-canvas" className="relative h-full w-full overflow-hidden">
       <style>{WHITEBOARD_CANVAS_CSS}</style>
-      {!fontsReady || !canvasSettled ? (
-        <WhiteboardCanvasSettlingCover />
-      ) : null}
+      {!fontsReady || !canvasSettled ? <WhiteboardCanvasSettlingCover /> : null}
       {conversion.warning ? (
         <div className="absolute top-3 left-3 z-10 max-w-md rounded-md border border-border-warning-base/60 bg-surface-warning-weak/95 px-3 py-2 text-xs text-text-base shadow-sm">
           {conversion.warning}

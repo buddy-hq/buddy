@@ -363,8 +363,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const isShellVariant = props.variant === "shell"
   // The collapsed-sidebar term only applies in chat placement — root/settings have no left sidebar,
   // so the persisted preference there would flip the separator for a panel that isn't rendered.
-  const hasHardBottomEdge =
-    rightWorkspaceOpen || (placement === "chat" && !resolvedLeftSidebarOpen)
+  const hasHardBottomEdge = rightWorkspaceOpen || (placement === "chat" && !resolvedLeftSidebarOpen)
   const separatorClass = isShellVariant ? "" : titlebarSeparatorClass(hasHardBottomEdge)
   const leftSidebarToggleButton = (
     <Button

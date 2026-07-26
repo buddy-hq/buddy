@@ -483,11 +483,7 @@ function readRectSnapshot(value: unknown): TranscriptRectSnapshot | undefined {
 }
 
 function layoutShiftSourceElement(value: unknown): Element | undefined {
-  if (
-    typeof Node === "undefined" ||
-    typeof Element === "undefined" ||
-    !(value instanceof Node)
-  ) {
+  if (typeof Node === "undefined" || typeof Element === "undefined" || !(value instanceof Node)) {
     return undefined
   }
   if (value instanceof Element) return value
@@ -500,7 +496,8 @@ function readLayoutShiftSource(value: unknown): TranscriptLayoutShiftSource | un
   const timelineRoot = element?.closest(`[${TIMELINE_KEY_ATTRIBUTE}]`)
   const timelineContent =
     element?.closest("[data-timeline-row]") ?? timelineRoot?.querySelector("[data-timeline-row]")
-  const component = element?.closest("[data-component]")?.getAttribute("data-component") ?? undefined
+  const component =
+    element?.closest("[data-component]")?.getAttribute("data-component") ?? undefined
   const timelineRow = timelineContent?.getAttribute("data-timeline-row") ?? undefined
   const nodeName = element?.tagName.toLowerCase() ?? "unknown"
   const textPreview = element ? readRowTextPreview(element) : undefined
@@ -1027,9 +1024,7 @@ function resolveTraceOriginEntry(
         )
       })
       .toSorted((left, right) => {
-        return (
-          Math.abs(left.event.at - entry.event.at) - Math.abs(right.event.at - entry.event.at)
-        )
+        return Math.abs(left.event.at - entry.event.at) - Math.abs(right.event.at - entry.event.at)
       })[0] ?? entry
   )
 }
@@ -1264,7 +1259,11 @@ function scrollOscillationHighlightDrafts(
       for (let index = 1; index < deltas.length; index += 1) {
         const previous = deltas[index - 1]
         const current = deltas[index]
-        if (previous !== undefined && current !== undefined && Math.sign(previous) !== Math.sign(current)) {
+        if (
+          previous !== undefined &&
+          current !== undefined &&
+          Math.sign(previous) !== Math.sign(current)
+        ) {
           reversals += 1
         }
       }
@@ -1274,19 +1273,20 @@ function scrollOscillationHighlightDrafts(
           (value): value is number => value !== undefined,
         )
       })
-      const spanPx =
-        positions.length > 0 ? Math.max(...positions) - Math.min(...positions) : 0
+      const spanPx = positions.length > 0 ? Math.max(...positions) - Math.min(...positions) : 0
       if (reversals === 0 || spanPx < TRANSCRIPT_TRACE_SCROLL_MIN_SPAN_PX) return []
       const first = cluster[0]
       const last = cluster.at(-1)
       if (!first || !last) return []
-      const geometryOrigin = findClosestGeometryEntry(entries, first.event.at, last.event.at) ?? first
+      const geometryOrigin =
+        findClosestGeometryEntry(entries, first.event.at, last.event.at) ?? first
       return [
         {
           kind: "scroll-oscillation",
-          severity: reversals >= 2 || spanPx >= TRANSCRIPT_TRACE_ROW_SIZE_CRITICAL_PX
-            ? "critical"
-            : "warning",
+          severity:
+            reversals >= 2 || spanPx >= TRANSCRIPT_TRACE_ROW_SIZE_CRITICAL_PX
+              ? "critical"
+              : "warning",
           title: `Scroll reversed ${reversals}× across ${spanPx.toFixed(1)}px`,
           explanation: `${cluster.length} bottom-anchor writes changed direction within ${(last.event.at - first.event.at).toFixed(1)}ms. The closest material row measurement is used as the source pointer.`,
           score: spanPx + reversals * TRANSCRIPT_TRACE_SCROLL_MIN_SPAN_PX,
@@ -1308,10 +1308,7 @@ function rowChurnHighlightDrafts(
 ): TranscriptTraceHighlightDraft[] {
   const lifecycleByRow = new Map<string, TranscriptStreamTraceEntry[]>()
   for (const entry of entries) {
-    if (
-      entry.event.type !== "visible-row-mount" &&
-      entry.event.type !== "visible-row-unmount"
-    ) {
+    if (entry.event.type !== "visible-row-mount" && entry.event.type !== "visible-row-unmount") {
       continue
     }
     const existing = lifecycleByRow.get(entry.event.rowKey)
@@ -1324,10 +1321,7 @@ function rowChurnHighlightDrafts(
     let cluster: TranscriptStreamTraceEntry[] = []
     for (const entry of lifecycleEntries) {
       const previous = cluster.at(-1)
-      if (
-        previous &&
-        entry.event.at - previous.event.at > TRANSCRIPT_TRACE_CHURN_WINDOW_MS
-      ) {
+      if (previous && entry.event.at - previous.event.at > TRANSCRIPT_TRACE_CHURN_WINDOW_MS) {
         if (cluster.length >= TRANSCRIPT_TRACE_CHURN_MIN_EVENTS) clusters.push(cluster)
         cluster = []
       }
@@ -1347,7 +1341,8 @@ function rowChurnHighlightDrafts(
         kind: "row-churn",
         severity: "warning",
         title: `Row mounted or unmounted ${cluster.length}× in ${(last.event.at - first.event.at).toFixed(1)}ms`,
-        explanation: "Rapid lifecycle churn can invalidate measurements and is linked to the exact row below.",
+        explanation:
+          "Rapid lifecycle churn can invalidate measurements and is linked to the exact row below.",
         score: cluster.length * 10,
         primarySequence: first.sequence,
         primarySequences: cluster.map((entry) => entry.sequence),
@@ -1378,12 +1373,14 @@ function bottomRepairHighlightDrafts(
       if (entry.event.type !== "bottom-anchor-repair") {
         throw new Error("Expected a bottom-anchor-repair trace entry")
       }
-      const geometryOrigin = findClosestGeometryEntry(entries, entry.event.at, entry.event.at) ?? entry
+      const geometryOrigin =
+        findClosestGeometryEntry(entries, entry.event.at, entry.event.at) ?? entry
       return {
         kind: "bottom-repair",
         severity: "warning",
         title: `Bottom anchor repaired a ${entry.event.distanceFromEnd.toFixed(1)}px gap`,
-        explanation: "The transcript drifted from its virtual end; nearby row geometry is embedded as the likely source.",
+        explanation:
+          "The transcript drifted from its virtual end; nearby row geometry is embedded as the likely source.",
         score: entry.event.distanceFromEnd,
         primarySequence: entry.sequence,
         primarySequences: [entry.sequence],
@@ -1418,11 +1415,10 @@ function longTaskHighlightDrafts(
       return {
         kind: "long-task",
         severity:
-          entry.event.durationMs >= TRANSCRIPT_TRACE_LONG_TASK_CRITICAL_MS
-            ? "critical"
-            : "warning",
+          entry.event.durationMs >= TRANSCRIPT_TRACE_LONG_TASK_CRITICAL_MS ? "critical" : "warning",
         title: `Main thread blocked for ${entry.event.durationMs.toFixed(0)}ms`,
-        explanation: "The browser reported a long task; nearby transcript events are embedded to show what was rendering at the time.",
+        explanation:
+          "The browser reported a long task; nearby transcript events are embedded to show what was rendering at the time.",
         score: entry.event.durationMs,
         primarySequence: entry.sequence,
         primarySequences: [entry.sequence],

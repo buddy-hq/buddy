@@ -12,10 +12,7 @@ import {
   registerLiveDirectoryWorkspace,
   resetLiveDirectoryWorkspaceRegistryForTests,
 } from "../src/lib/directory-workspace-registry"
-import {
-  BENCH_CHAT_LAYOUT_DOCKED,
-  type BenchTarget,
-} from "../src/lib/bench-navigation"
+import { BENCH_CHAT_LAYOUT_DOCKED, type BenchTarget } from "../src/lib/bench-navigation"
 import { encodeDirectory } from "../src/lib/directory-token"
 import {
   BENCH_ROUTE_STATUS_CLOSED,
@@ -29,10 +26,7 @@ import {
   type BenchRouteSnapshot,
   type WorkspacePresentationSlot,
 } from "../src/state/directory-workspace-store"
-import {
-  workspaceChatKeyForSession,
-  type WorkspaceChatKey,
-} from "../src/lib/workspace-chat-key"
+import { workspaceChatKeyForSession, type WorkspaceChatKey } from "../src/lib/workspace-chat-key"
 import { useChatStore } from "../src/state/chat-store"
 
 const DIRECTORY = "/workspace/chat-transition"
@@ -180,8 +174,7 @@ function registerRestoringWorkspace() {
     blocker,
     getRoute: () => route,
     navigate: async () => {
-      route =
-        store.getState().slots[store.getState().activeChatKey]?.route ?? CLOSED_ROUTE
+      route = store.getState().slots[store.getState().activeChatKey]?.route ?? CLOSED_ROUTE
       return routeLocation(DIRECTORY, route)
     },
   })
@@ -309,12 +302,7 @@ describe("active chat transition coordinator", () => {
       pendingIntent: null,
     })
     expect(workspace.guardCalls).toHaveLength(1)
-    expect(workspace.sessionContexts).toEqual([
-      undefined,
-      "session-b",
-      undefined,
-      "session-a",
-    ])
+    expect(workspace.sessionContexts).toEqual([undefined, "session-b", undefined, "session-a"])
   })
 
   test("reads and navigates directly to a cross-directory chat slot", async () => {

@@ -26,10 +26,7 @@ import type {
   WhiteboardLearnerSaveSettlement,
 } from "./whiteboard-learner-save"
 import type { MessageWithParts } from "@/state/chat-types"
-import {
-  allowBenchLeave,
-  type BenchLeaveGuardResult,
-} from "@/lib/bench-leave-guard"
+import { allowBenchLeave, type BenchLeaveGuardResult } from "@/lib/bench-leave-guard"
 
 const WhiteboardCanvas = lazy(async () => {
   const module = await import("./whiteboard-canvas")
@@ -47,9 +44,7 @@ type WhiteboardPaneProps = {
   sessionID?: string
   isBusy: boolean
   messages: MessageWithParts[]
-  onLeaveGuardChange?: (
-    guard: (() => Promise<BenchLeaveGuardResult>) | undefined,
-  ) => void
+  onLeaveGuardChange?: (guard: (() => Promise<BenchLeaveGuardResult>) | undefined) => void
 }
 
 type LiveWhiteboardBoard = {
@@ -107,11 +102,7 @@ function resolveWhiteboardShareBoard(input: {
 function resolveWhiteboardLeaveSettlement(
   settlement: WhiteboardLearnerSaveSettlement | undefined,
 ): BenchLeaveGuardResult {
-  if (
-    settlement === undefined ||
-    settlement.status === "clean" ||
-    settlement.status === "saved"
-  ) {
+  if (settlement === undefined || settlement.status === "clean" || settlement.status === "saved") {
     return allowBenchLeave()
   }
   if (settlement.status === "conflict") {
@@ -357,8 +348,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       const saveSettlement = await settleLearnerSaveRef.current?.()
       const liveDraftBoard = liveDraftBoardRef.current
       if (
-        (saveSettlement?.status === "save-error" ||
-          saveSettlement?.status === "still-saving") &&
+        (saveSettlement?.status === "save-error" || saveSettlement?.status === "still-saving") &&
         !liveDraftBoard
       ) {
         toast.error(WHITEBOARD_SHARE_SAVE_FAILED_MESSAGE)

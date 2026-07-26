@@ -220,9 +220,7 @@ describe("native resource prompt handoff", () => {
       })
       const parts = transformedParts(result)
       const expectedDelivery =
-        pageCount <= NATIVE_PDF_MAX_PAGES_PER_FILE
-          ? "model-and-resource"
-          : "resource-only"
+        pageCount <= NATIVE_PDF_MAX_PAGES_PER_FILE ? "model-and-resource" : "resource-only"
 
       expect(nativePdfMetadata(parts)).toEqual([
         expect.objectContaining({
@@ -280,10 +278,7 @@ describe("native resource prompt handoff", () => {
       NATIVE_PDF_MAX_PAGES_PER_PROMPT - firstPageCount,
       "ses_native_pdf_aggregate_limit",
     )
-    expect(nativePdfFilePaths(atLimit.parts)).toEqual([
-      firstSourcePath,
-      atLimit.secondSourcePath,
-    ])
+    expect(nativePdfFilePaths(atLimit.parts)).toEqual([firstSourcePath, atLimit.secondSourcePath])
     expect(nativePdfMetadata(atLimit.parts).map((attachment) => attachment.delivery)).toEqual([
       "model-and-resource",
       "model-and-resource",

@@ -106,9 +106,7 @@ describe("persona prompts", () => {
   })
 
   test("Code uses OpenCode's GPT prompt and is a valid runtime target", () => {
-    expect(CODE.runtime.prompt).toBe(
-      [OPEN_CODE_GPT_SYSTEM_PROMPT, CODE_AVATAR_PROMPT].join("\n\n"),
-    )
+    expect(CODE.runtime.prompt).toBe([OPEN_CODE_GPT_SYSTEM_PROMPT, CODE_AVATAR_PROMPT].join("\n\n"))
     expect(CODE.hidden).toBe(false)
     expect(personaCatalogEntries()).toContainEqual(
       expect.objectContaining({

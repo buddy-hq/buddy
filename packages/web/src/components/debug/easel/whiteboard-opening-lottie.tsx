@@ -58,10 +58,10 @@ export function WhiteboardOpeningLottieEasel() {
           </div>
           <p className="max-w-3xl text-xs leading-relaxed text-text-weak">
             Live in the whiteboard bench pane, in the interactive colour and with no copy — it
-            replaced the “Opening whiteboard...” line. All three compositions play in turn on a single
-            timeline, Flow then Branch then Curve, with the same empty beat between each and before
-            the loop restarts. Rounded cards, curved bezier connectors, everything drawn with eased
-            trim paths. Hand-authored bodymovin in pure white, tinted through{" "}
+            replaced the “Opening whiteboard...” line. All three compositions play in turn on a
+            single timeline, Flow then Branch then Curve, with the same empty beat between each and
+            before the loop restarts. Rounded cards, curved bezier connectors, everything drawn with
+            eased trim paths. Hand-authored bodymovin in pure white, tinted through{" "}
             <span className="font-mono text-[11px]">currentColor</span>: one asset, every theme.
           </p>
         </header>

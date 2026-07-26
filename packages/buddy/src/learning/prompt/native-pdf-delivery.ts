@@ -124,11 +124,9 @@ export async function applyNativePdfDeliveryPolicy(input: {
     const pageCount = nativePdfFilePaths.has(sourcePath)
       ? await readPdfPageCount(sourcePath).catch(() => undefined)
       : undefined
-    const withinPerFileLimit =
-      pageCount !== undefined && pageCount <= NATIVE_PDF_MAX_PAGES_PER_FILE
+    const withinPerFileLimit = pageCount !== undefined && pageCount <= NATIVE_PDF_MAX_PAGES_PER_FILE
     const withinPromptLimit =
-      pageCount !== undefined &&
-      admittedPageCount + pageCount <= NATIVE_PDF_MAX_PAGES_PER_PROMPT
+      pageCount !== undefined && admittedPageCount + pageCount <= NATIVE_PDF_MAX_PAGES_PER_PROMPT
     const delivery =
       withinPerFileLimit && withinPromptLimit ? "model-and-resource" : "resource-only"
 
@@ -158,10 +156,7 @@ export async function applyNativePdfDeliveryPolicy(input: {
     if (!sourcePath) return [part]
 
     const decision = decisions.get(sourcePath)
-    if (
-      decision?.delivery !== "model-and-resource" ||
-      retainedNativePdfPaths.has(sourcePath)
-    ) {
+    if (decision?.delivery !== "model-and-resource" || retainedNativePdfPaths.has(sourcePath)) {
       return []
     }
 

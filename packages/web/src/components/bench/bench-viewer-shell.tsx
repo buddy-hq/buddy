@@ -1,9 +1,6 @@
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@buddy/ui"
 import { MinusIcon, PlusIcon, RotateCcwIcon } from "@/icons/app-icons"
-import {
-  readBenchSurfaceViewport,
-  writeBenchSurfaceViewport,
-} from "@/state/bench-surface-ui-state"
+import { readBenchSurfaceViewport, writeBenchSurfaceViewport } from "@/state/bench-surface-ui-state"
 import {
   useCallback,
   useEffect,
@@ -478,9 +475,7 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
   const contentRef = useRef<HTMLDivElement>(null)
   const shouldCenterScrollRef = useRef(true)
   const restoredPanRef = useRef(
-    initialAutoFit ||
-      restoredViewport?.panX === undefined ||
-      restoredViewport.panY === undefined
+    initialAutoFit || restoredViewport?.panX === undefined || restoredViewport.panY === undefined
       ? undefined
       : { panX: restoredViewport.panX, panY: restoredViewport.panY },
   )
@@ -506,9 +501,7 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
     initializationRef.current = { initialAutoFit, initialZoom, viewportKey }
     shouldCenterScrollRef.current = true
     restoredPanRef.current =
-      initialAutoFit ||
-      restoredViewport?.panX === undefined ||
-      restoredViewport.panY === undefined
+      initialAutoFit || restoredViewport?.panX === undefined || restoredViewport.panY === undefined
         ? undefined
         : { panX: restoredViewport.panX, panY: restoredViewport.panY }
     setZoomState({

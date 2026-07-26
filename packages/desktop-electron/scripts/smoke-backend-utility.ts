@@ -398,10 +398,7 @@ async function waitForReadyFile(input: {
   throw new Error("Electron backend utility smoke did not report ready")
 }
 
-async function processExitCode(
-  child: NodeArtifactProcess,
-  timeoutMs: number,
-): Promise<number> {
+async function processExitCode(child: NodeArtifactProcess, timeoutMs: number): Promise<number> {
   let timeout: ReturnType<typeof setTimeout> | undefined
   const timeoutTask = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
@@ -440,9 +437,7 @@ async function stopProcessAfterFailure(input: {
   } catch (gracefulExitError) {
     console.error("Electron backend utility did not stop gracefully after smoke failure", {
       cause:
-        gracefulExitError instanceof Error
-          ? gracefulExitError.message
-          : String(gracefulExitError),
+        gracefulExitError instanceof Error ? gracefulExitError.message : String(gracefulExitError),
     })
   }
 

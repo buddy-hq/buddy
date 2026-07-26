@@ -276,8 +276,8 @@ describe("prompt composer submit", () => {
       await flushEffects()
     })
 
-    expect(
-      container.querySelector<HTMLElement>('[data-component="prompt-game-dock"]'),
-    ).toBe(initialGameDock)
+    expect(container.querySelector<HTMLElement>('[data-component="prompt-game-dock"]')).toBe(
+      initialGameDock,
+    )
   })
 })

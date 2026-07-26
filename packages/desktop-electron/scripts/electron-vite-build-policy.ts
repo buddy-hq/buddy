@@ -65,8 +65,12 @@ function readWorkspacePackage(manifestPath: string): WorkspacePackage | undefine
 export function backendDevelopmentWatchRoots(repositoryRoot: string): string[] {
   const packages = workspacePackageManifestPaths(repositoryRoot)
     .map(readWorkspacePackage)
-    .filter((workspacePackage): workspacePackage is WorkspacePackage => workspacePackage !== undefined)
-  const packagesByName = new Map(packages.map((workspacePackage) => [workspacePackage.name, workspacePackage]))
+    .filter(
+      (workspacePackage): workspacePackage is WorkspacePackage => workspacePackage !== undefined,
+    )
+  const packagesByName = new Map(
+    packages.map((workspacePackage) => [workspacePackage.name, workspacePackage]),
+  )
   const pendingPackageNames = [BACKEND_WORKSPACE_PACKAGE_NAME]
   const visitedPackageNames = new Set<string>()
   const roots = new Set(

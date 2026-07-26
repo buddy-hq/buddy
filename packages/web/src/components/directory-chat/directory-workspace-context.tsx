@@ -24,10 +24,7 @@ import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { DirectoryWorkspaceLifecycleService } from "@/lib/directory-workspace-lifecycle"
 import { registerLiveDirectoryWorkspace } from "@/lib/directory-workspace-registry"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
-import {
-  workspaceChatKeyForSession,
-  type WorkspaceChatKey,
-} from "@/lib/workspace-chat-key"
+import { workspaceChatKeyForSession, type WorkspaceChatKey } from "@/lib/workspace-chat-key"
 import { useChatStore } from "@/state/chat-store"
 import {
   BENCH_ROUTE_STATUS_OPEN,
@@ -353,12 +350,7 @@ export function DirectoryWorkspaceProvider(props: {
         directory: props.directory,
       })
     }
-  }, [
-    controller,
-    props.directory,
-    props.persistenceStorage,
-    store,
-  ])
+  }, [controller, props.directory, props.persistenceStorage, store])
 
   useEffect(() => {
     const unsubscribe = store.subscribe((state, previousState) => {

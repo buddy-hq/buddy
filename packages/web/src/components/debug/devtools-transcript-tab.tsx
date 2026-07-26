@@ -525,10 +525,7 @@ export function DevToolsTranscriptTab() {
         <Card size="sm" className="overflow-hidden border-border-weaker-base bg-surface-base">
           <CardContent className="p-0">
             <div className="grid grid-cols-4 gap-y-3 border-b border-border-weaker-base bg-surface-weak/35 p-3">
-              <TraceMetric
-                label="DOM renders"
-                value={formatCount(summary.renderStateSamples)}
-              />
+              <TraceMetric label="DOM renders" value={formatCount(summary.renderStateSamples)} />
               <TraceMetric label="Findings" value={formatCount(trace.diagnostics.findingCount)} />
               <TraceMetric label="Layout shift" value={summary.layoutShiftScore.toFixed(3)} />
               <TraceMetric
@@ -542,18 +539,9 @@ export function DevToolsTranscriptTab() {
                 value={formatCount(summary.bottomAnchorRepairs)}
               />
               <TraceMetric label="Max frame gap" value={formatDuration(summary.maxRafGapMs)} />
-              <TraceMetric
-                label="Asset events"
-                value={formatCount(summary.inlineAssetEvents)}
-              />
-              <TraceMetric
-                label="Stream updates"
-                value={formatCount(summary.streamingUpdates)}
-              />
-              <TraceMetric
-                label="Events queued"
-                value={formatCount(summary.streamEventsQueued)}
-              />
+              <TraceMetric label="Asset events" value={formatCount(summary.inlineAssetEvents)} />
+              <TraceMetric label="Stream updates" value={formatCount(summary.streamingUpdates)} />
+              <TraceMetric label="Events queued" value={formatCount(summary.streamEventsQueued)} />
               <TraceMetric
                 label="Events applied"
                 value={formatCount(summary.streamEventsApplied)}
@@ -567,10 +555,7 @@ export function DevToolsTranscriptTab() {
                 value={formatCount(summary.streamSessionFences)}
               />
               <TraceMetric label="Stop requests" value={formatCount(summary.abortRequests)} />
-              <TraceMetric
-                label="Stop latency"
-                value={formatDuration(summary.maxAbortLatencyMs)}
-              />
+              <TraceMetric label="Stop latency" value={formatDuration(summary.maxAbortLatencyMs)} />
             </div>
             <div className="flex items-center justify-between gap-3 px-3 py-2">
               <p className="text-[10px] leading-4 text-text-weak">

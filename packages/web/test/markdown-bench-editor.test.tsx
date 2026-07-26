@@ -519,8 +519,7 @@ describe("MarkdownBenchEditor", () => {
       container.querySelector('svg[data-component="markdown-bench-mdx-svg"] circle'),
     ).not.toBeNull()
     expect(
-      container.querySelector('svg[data-component="markdown-bench-mdx-svg"] title')
-        ?.textContent,
+      container.querySelector('svg[data-component="markdown-bench-mdx-svg"] title')?.textContent,
     ).toBe("Circle")
     expect(
       container

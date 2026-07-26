@@ -30,8 +30,7 @@ function isMarkdownSvgMdastNode(node: unknown): node is MarkdownSvgMdastNode {
     return false
   }
   return (
-    (node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement") &&
-    node.name === "svg"
+    (node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement") && node.name === "svg"
   )
 }
 

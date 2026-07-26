@@ -210,7 +210,13 @@ function KindArt(props: { kind: ObjectKind; accent: string }) {
           className={cn("absolute left-2 top-2 h-6 w-16 rounded border-2 border-current", accent)}
         />
         <div className="absolute right-2 top-2 h-6 w-16 rounded border-2 border-border-weak-base" />
-        <div className={cn("absolute left-1/2 top-5 h-0.5 w-10 -translate-x-1/2", accent, "bg-current")} />
+        <div
+          className={cn(
+            "absolute left-1/2 top-5 h-0.5 w-10 -translate-x-1/2",
+            accent,
+            "bg-current",
+          )}
+        />
         <div className="absolute bottom-2 left-1/2 h-6 w-20 -translate-x-1/2 rounded border-2 border-border-weak-base" />
       </div>
     )
@@ -754,8 +760,8 @@ function CoversSection() {
           <ObjectRow model={book} />
           <ObjectRow model={book} density="sm" />
           <p className="text-[11px] leading-relaxed text-text-weak">
-            The slot stays portrait at every size — the media file row is already h-8 w-[26.6px],
-            a cover-shaped box.
+            The slot stays portrait at every size — the media file row is already h-8 w-[26.6px], a
+            cover-shaped box.
           </p>
         </div>
       </div>

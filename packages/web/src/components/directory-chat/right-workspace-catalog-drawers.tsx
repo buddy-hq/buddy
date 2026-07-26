@@ -318,7 +318,8 @@ function SourceContextMenu(props: {
 }) {
   const { resource } = props
   const canProcess =
-    resource.status !== "preparing" && (resource.status !== "ready" || resource.objectID !== undefined)
+    resource.status !== "preparing" &&
+    (resource.status !== "ready" || resource.objectID !== undefined)
 
   return (
     <ContextMenu>
@@ -631,10 +632,8 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
               const row = feedRows[index]
               if (row?.type !== "shelf") return OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_LG]
               return (
-                objectShelfHeightPx(
-                  RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX,
-                  row.resources.length,
-                ) + SOURCE_SHELF_BOTTOM_GAP_PX
+                objectShelfHeightPx(RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX, row.resources.length) +
+                SOURCE_SHELF_BOTTOM_GAP_PX
               )
             }}
             renderItem={(row) =>
@@ -1298,7 +1297,6 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
       target: createBenchObjectTarget(item.object.kind, item.object.objectID),
     })
   }
-
 
   return (
     <RightWorkspaceDrawerShell

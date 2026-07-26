@@ -154,8 +154,7 @@ const child = spawn(DEV_COMMAND, DEV_ARGUMENTS, {
       : {}),
     ...(backendReloadAcknowledgementPath
       ? {
-          [BACKEND_DEVELOPMENT_RELOAD_ACKNOWLEDGEMENT_ENV]:
-            backendReloadAcknowledgementPath,
+          [BACKEND_DEVELOPMENT_RELOAD_ACKNOWLEDGEMENT_ENV]: backendReloadAcknowledgementPath,
         }
       : {}),
   },
@@ -298,8 +297,7 @@ async function rebuildDevelopmentBackend() {
       waitForChild(build),
       refreshGeneratedSdkForDevelopment(),
     ])
-    const backendBuildSucceeded =
-      buildOutcome.status === "fulfilled" && buildOutcome.value === 0
+    const backendBuildSucceeded = buildOutcome.status === "fulfilled" && buildOutcome.value === 0
     const sdkRefreshSucceeded = sdkOutcome.status === "fulfilled"
 
     if (!backendBuildSucceeded) {
@@ -307,15 +305,10 @@ async function rebuildDevelopmentBackend() {
         buildOutcome.status === "rejected"
           ? String(buildOutcome.reason)
           : `exit code ${buildOutcome.value ?? "unknown"}`
-      console.error(
-        `Backend rebuild failed with ${detail}; keeping the current app running.`,
-      )
+      console.error(`Backend rebuild failed with ${detail}; keeping the current app running.`)
     }
     if (!sdkRefreshSucceeded) {
-      console.error(
-        "Buddy SDK refresh failed; keeping the current app running.",
-        sdkOutcome.reason,
-      )
+      console.error("Buddy SDK refresh failed; keeping the current app running.", sdkOutcome.reason)
     }
     if (shuttingDown) return
 

@@ -3,10 +3,7 @@ import type { PrimaryUse } from "@buddy/backend/learning/shared/teaching-vocabul
 import type { PersonaCatalogEntry, PersonaOverride } from "../../shared/runtime-types"
 import type { PersonaSurface } from "../../shared/teaching-vocabulary"
 import { resolvePreferredBuddyPersona } from "./default-persona"
-import {
-  DEVELOPMENT_PERSONAS_ENABLED,
-  personaIsAvailable,
-} from "./persona-availability"
+import { DEVELOPMENT_PERSONAS_ENABLED, personaIsAvailable } from "./persona-availability"
 
 type BuddyPersonaMetadata = {
   id: BuddyPersona
@@ -97,10 +94,7 @@ function getDefaultBuddyPersonaMetadata(input?: {
   overrides?: BuddyPersonaOverrides
   developmentPersonasEnabled?: boolean
 }): BuddyPersonaMetadata {
-  const profiles = resolveBuddyPersonaMetadata(
-    input?.overrides,
-    input?.developmentPersonasEnabled,
-  )
+  const profiles = resolveBuddyPersonaMetadata(input?.overrides, input?.developmentPersonasEnabled)
   const preferredPersona = profiles[resolvePreferredBuddyPersona(input)]
 
   if (!preferredPersona.hidden) {
@@ -123,10 +117,7 @@ function personaCatalogEntries(input?: {
   overrides?: BuddyPersonaOverrides
   developmentPersonasEnabled?: boolean
 }): PersonaCatalogEntry[] {
-  const profiles = resolveBuddyPersonaMetadata(
-    input?.overrides,
-    input?.developmentPersonasEnabled,
-  )
+  const profiles = resolveBuddyPersonaMetadata(input?.overrides, input?.developmentPersonasEnabled)
   const defaultPersona = getDefaultBuddyPersonaMetadata(input)
   const visiblePersonas = BUILTIN_BUDDY_PERSONA_IDS.map((personaID) => profiles[personaID]).filter(
     (persona) => !persona.hidden,

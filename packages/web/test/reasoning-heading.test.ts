@@ -23,7 +23,9 @@ describe("reasoningHeading", () => {
   // markdown heading — this is the case that regressed for OpenAI models.
   test("extracts a bold-only line as a heading", () => {
     expect(
-      reasoningHeading("**Inspecting git worktree list and status**\n\nI'll run git worktree list."),
+      reasoningHeading(
+        "**Inspecting git worktree list and status**\n\nI'll run git worktree list.",
+      ),
     ).toBe("Inspecting git worktree list and status")
   })
 

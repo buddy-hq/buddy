@@ -8,11 +8,7 @@ import {
 import { act, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { DirectoryChatShell } from "../src/components/directory-chat/directory-chat-shell"
-import {
-  createBrowserPlatform,
-  PlatformProvider,
-  type Platform,
-} from "../src/context/platform"
+import { createBrowserPlatform, PlatformProvider, type Platform } from "../src/context/platform"
 
 const TEST_DESKTOP_PLATFORM = {
   ...createBrowserPlatform(),
@@ -107,18 +103,14 @@ describe("directory chat layout motion", () => {
     const readShell = () =>
       container?.querySelector<HTMLElement>('[data-component="directory-chat-shell"]')
     const readTitlebarSpacer = () =>
-      container?.querySelector<HTMLElement>(
-        '[data-component="desktop-titlebar-chat-left-spacer"]',
-      )
+      container?.querySelector<HTMLElement>('[data-component="desktop-titlebar-chat-left-spacer"]')
 
     expect(readShell()?.getAttribute("data-layout-motion")).toBe("instant")
     expect(readShell()?.classList.contains("transition-none")).toBeTrue()
     expect(readTitlebarSpacer()?.classList.contains("transition-none")).toBeTrue()
 
     await act(async () => {
-      container
-        ?.querySelector<HTMLButtonElement>('[data-action="project-chat-layout"]')
-        ?.click()
+      container?.querySelector<HTMLButtonElement>('[data-action="project-chat-layout"]')?.click()
       await flushEffects()
     })
 

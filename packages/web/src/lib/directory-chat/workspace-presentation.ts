@@ -126,15 +126,15 @@ export function resolveWorkspacePresentation(input: {
     ? "hydrating"
     : transitioning
       ? "transition"
-    : floatingBenchVisible
-      ? "floating-bench"
-      : dockedBenchVisible
-        ? "docked-bench"
-        : input.projection.bench.visibility === "parked"
-          ? "parked-bench"
-          : selectorVisible
-            ? "selector"
-            : "chat"
+      : floatingBenchVisible
+        ? "floating-bench"
+        : dockedBenchVisible
+          ? "docked-bench"
+          : input.projection.bench.visibility === "parked"
+            ? "parked-bench"
+            : selectorVisible
+              ? "selector"
+              : "chat"
 
   const mode =
     floatingBenchVisible || transitionFloatingBenchOpen
@@ -151,11 +151,12 @@ export function resolveWorkspacePresentation(input: {
         leftSidebarWidthPx: input.leftSidebarWidthPx,
       })
     : null
-  const leftSidebarVisible = floatingBenchVisible || transitionFloatingBenchOpen
-    ? false
-    : dockedShellLayout
-      ? dockedShellLayout.leftSidebarVisible
-      : input.leftSidebarPreferredOpen
+  const leftSidebarVisible =
+    floatingBenchVisible || transitionFloatingBenchOpen
+      ? false
+      : dockedShellLayout
+        ? dockedShellLayout.leftSidebarVisible
+        : input.leftSidebarPreferredOpen
   const dockedLayout = dockedShellLayout?.rightWorkspace ?? null
   const selectorLayout = selectorWorkspaceLayout({
     viewport: input.viewport,

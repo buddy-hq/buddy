@@ -92,7 +92,10 @@ async function activateNotificationHref(href: string) {
 
   const directory = decodeDirectory(match[1])
   const sessionID = url.searchParams.get("session")
-  const navigate = (targetDirectory: string, route: Parameters<typeof buildWorkspaceRouteNavigation>[0]["route"]) =>
+  const navigate = (
+    targetDirectory: string,
+    route: Parameters<typeof buildWorkspaceRouteNavigation>[0]["route"],
+  ) =>
     router.navigate(
       buildWorkspaceRouteNavigation({
         directory: targetDirectory,

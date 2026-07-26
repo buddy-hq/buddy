@@ -167,10 +167,7 @@ describe("assistant error model", () => {
     }
 
     expect(
-      buildAssistantErrorModel(
-        zenError("ModelError", "No provider available"),
-        anonymousContext,
-      ),
+      buildAssistantErrorModel(zenError("ModelError", "No provider available"), anonymousContext),
     ).toMatchObject({
       category: "temporarily-unavailable",
       details: {
@@ -181,16 +178,12 @@ describe("assistant error model", () => {
       },
     })
     expect(
-      buildAssistantErrorModel(
-        zenError("CreditsError", "Insufficient balance"),
-        anonymousContext,
-      ).category,
+      buildAssistantErrorModel(zenError("CreditsError", "Insufficient balance"), anonymousContext)
+        .category,
     ).toBe("usage-limit")
     expect(
-      buildAssistantErrorModel(
-        zenError("ModelError", "Model is disabled"),
-        anonymousContext,
-      ).category,
+      buildAssistantErrorModel(zenError("ModelError", "Model is disabled"), anonymousContext)
+        .category,
     ).toBe("model-unavailable")
     expect(
       buildAssistantErrorModel(
@@ -199,10 +192,7 @@ describe("assistant error model", () => {
       ).category,
     ).toBe("access-restricted")
     expect(
-      buildAssistantErrorModel(
-        zenError("AuthError", "Invalid API key"),
-        anonymousContext,
-      ).category,
+      buildAssistantErrorModel(zenError("AuthError", "Invalid API key"), anonymousContext).category,
     ).toBe("model-unavailable")
     expect(
       buildAssistantErrorModel(zenError("AuthError", "Invalid API key"), {
@@ -211,13 +201,10 @@ describe("assistant error model", () => {
       }).category,
     ).toBe("auth")
     expect(
-      buildAssistantErrorModel(
-        zenError("AuthError", "Model alpha-x is not supported"),
-        {
-          ...anonymousContext,
-          providerConnected: true,
-        },
-      ).category,
+      buildAssistantErrorModel(zenError("AuthError", "Model alpha-x is not supported"), {
+        ...anonymousContext,
+        providerConnected: true,
+      }).category,
     ).toBe("model-unavailable")
   })
 
@@ -228,9 +215,9 @@ describe("assistant error model", () => {
       providerConnected: false,
     }
 
-    expect(
-      buildAssistantErrorModel(error("APIError", { statusCode: 401 }), input).category,
-    ).toBe("temporarily-unavailable")
+    expect(buildAssistantErrorModel(error("APIError", { statusCode: 401 }), input).category).toBe(
+      "temporarily-unavailable",
+    )
     expect(buildAssistantErrorModel(error("ProviderAuthError"), input).category).toBe(
       "model-unavailable",
     )

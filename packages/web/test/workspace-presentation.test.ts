@@ -297,21 +297,13 @@ describe("workspace presentation", () => {
       docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SOURCES),
       lastDrawer: WORKSPACE_DRAWER_SOURCES,
     }
-    const previousProjection = effectiveWorkspaceProjection(
-      CLOSED_ROUTE,
-      projectionState,
-      null,
-    )
-    const transitionProjection = effectiveWorkspaceProjection(
-      CLOSED_ROUTE,
-      projectionState,
-      {
-        kind: "chat-transition",
-        commandID: "selector-chat-transition",
-        previousProjection,
-        workspaceCommit: createCollapsedWorkspaceState(),
-      },
-    )
+    const previousProjection = effectiveWorkspaceProjection(CLOSED_ROUTE, projectionState, null)
+    const transitionProjection = effectiveWorkspaceProjection(CLOSED_ROUTE, projectionState, {
+      kind: "chat-transition",
+      commandID: "selector-chat-transition",
+      previousProjection,
+      workspaceCommit: createCollapsedWorkspaceState(),
+    })
     const presentation = resolveWorkspacePresentation({
       projection: transitionProjection,
       hydrated: true,

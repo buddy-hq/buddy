@@ -61,11 +61,7 @@ function ProjectFileBenchError() {
   )
 }
 
-export function FileBenchSurface(props: {
-  directory: string
-  path: string
-  fragment?: string
-}) {
+export function FileBenchSurface(props: { directory: string; path: string; fragment?: string }) {
   // Reading resources render through DirectoryChatReadingPage and never consult the metadata, so
   // the request would be issued and discarded on every epub or PDF open.
   const isReadingResource = isSupportedReadingResourcePath(props.path)

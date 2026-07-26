@@ -80,10 +80,7 @@ type ObjectFileTypeThumbnail = {
 }
 
 /** The cheap tier: an <img> or a file-type mark. Never a live render. */
-export type ObjectThumbnail =
-  | ObjectCoverThumbnail
-  | ObjectImageThumbnail
-  | ObjectFileTypeThumbnail
+export type ObjectThumbnail = ObjectCoverThumbnail | ObjectImageThumbnail | ObjectFileTypeThumbnail
 
 export type ObjectModel = {
   /** Identity, where the thing has one. Chats and other non-Bench results do not. */

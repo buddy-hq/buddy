@@ -1,9 +1,6 @@
 import type { Hooks } from "@opencode-ai/plugin"
 import type { Model as OpenCodeModel } from "@opencode-ai/sdk/v2"
-import {
-  openAICodexAccountService,
-  type OpenAICodexAccountModel,
-} from "./openai-codex-account"
+import { openAICodexAccountService, type OpenAICodexAccountModel } from "./openai-codex-account"
 import { OPENAI_PROVIDER_ID } from "./openai-codex-credentials"
 
 const PERCENT_BASE = 100
@@ -79,10 +76,7 @@ export function createOpenAICodexProviderHook(input: {
       const catalogResult = accountService
         .resolveModelCatalog(input.directory, abortController.signal)
         .catch(() => undefined)
-      const accountModels = await Promise.race([
-        catalogResult,
-        timeoutResult,
-      ]).finally(() => {
+      const accountModels = await Promise.race([catalogResult, timeoutResult]).finally(() => {
         if (timeout !== undefined) clearTimeout(timeout)
       })
       if (!accountModels) return provider.models

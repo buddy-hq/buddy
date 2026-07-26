@@ -593,9 +593,7 @@ describe("DirectoryWorkspaceProvider", () => {
     }
 
     await act(async () => {
-      root?.render(
-        <TestPendingHydrationRouterProvider persistenceStorage={persistenceStorage} />,
-      )
+      root?.render(<TestPendingHydrationRouterProvider persistenceStorage={persistenceStorage} />)
       await flushEffects()
     })
 
@@ -674,9 +672,7 @@ describe("DirectoryWorkspaceProvider", () => {
     }
 
     await act(async () => {
-      root?.render(
-        <TestPendingHydrationRouterProvider persistenceStorage={persistenceStorage} />,
-      )
+      root?.render(<TestPendingHydrationRouterProvider persistenceStorage={persistenceStorage} />)
       await flushEffects()
     })
 

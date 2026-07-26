@@ -26,10 +26,7 @@ import {
   fileNameFromPath,
   normalizeRelativePath,
 } from "@/lib/workspace-file-paths"
-import {
-  useWorkspaceFileOpen,
-  type WorkspaceFileActionInput,
-} from "@/lib/use-workspace-file-open"
+import { useWorkspaceFileOpen, type WorkspaceFileActionInput } from "@/lib/use-workspace-file-open"
 import { usePlatform } from "@/context/platform"
 import { isPermissionDenied } from "../tool-permission"
 import { parseToolState } from "../parse-tool-state"
@@ -58,8 +55,7 @@ export function resolveFullTextResourceFilePresentation(input: {
   const aliasExtension = fileExtensionFromPath(alias)
   const sourceExtension = fileExtensionFromPath(sourcePath)
   const format = input.record?.format.trim().toLowerCase() ?? ""
-  const extension =
-    aliasExtension || sourceExtension || format || FULL_TEXT_FALLBACK_EXTENSION
+  const extension = aliasExtension || sourceExtension || format || FULL_TEXT_FALLBACK_EXTENSION
   const fileName =
     (aliasExtension ? alias : fileNameFromPath(sourcePath) || alias) ||
     (extension === FULL_TEXT_FALLBACK_EXTENSION

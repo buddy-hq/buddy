@@ -136,9 +136,7 @@ function exportSessionTrace(input: {
   }
 
   const durableEvents = input.database
-    .query<DatabaseRow, [string]>(
-      "select * from event where aggregate_id = ? order by seq, id",
-    )
+    .query<DatabaseRow, [string]>("select * from event where aggregate_id = ? order by seq, id")
     .all(input.sessionID)
     .map(normalizeRow)
 
@@ -248,10 +246,7 @@ function readSessionTable(
     `select * from ${quoteIdentifier(table.name)} where session_id = ?` +
     (orderBy ? ` order by ${orderBy}` : "")
 
-  return database
-    .query<DatabaseRow, [string]>(sql)
-    .all(sessionID)
-    .map(normalizeRow)
+  return database.query<DatabaseRow, [string]>(sql).all(sessionID).map(normalizeRow)
 }
 
 function resolveOrderBy(columns: string[]): string | undefined {
@@ -267,9 +262,7 @@ function quoteIdentifier(value: string): string {
 }
 
 function normalizeRow(row: DatabaseRow): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(row).map(([key, value]) => [key, normalizeValue(value)]),
-  )
+  return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, normalizeValue(value)]))
 }
 
 function normalizeValue(value: SqliteValue): unknown {
@@ -334,9 +327,7 @@ function parseCliOptions(args: string[]): CliOptions {
     throw new Error(`Required argument missing: ${CLI_FLAGS.output}`)
   }
   if (sessionID && title) {
-    throw new Error(
-      `Pass exactly one selector: ${CLI_FLAGS.sessionID} or ${CLI_FLAGS.title}`,
-    )
+    throw new Error(`Pass exactly one selector: ${CLI_FLAGS.sessionID} or ${CLI_FLAGS.title}`)
   }
   let selector: CliOptions["selector"]
   if (sessionID) {
@@ -344,9 +335,7 @@ function parseCliOptions(args: string[]): CliOptions {
   } else if (title) {
     selector = { kind: "title", value: title }
   } else {
-    throw new Error(
-      `Pass exactly one selector: ${CLI_FLAGS.sessionID} or ${CLI_FLAGS.title}`,
-    )
+    throw new Error(`Pass exactly one selector: ${CLI_FLAGS.sessionID} or ${CLI_FLAGS.title}`)
   }
 
   return {
@@ -385,18 +374,13 @@ function resolveDefaultDatabasePath(input: {
       BUDDY_APP_NAME,
     )
 
-  return path.join(
-    buddyDataDir,
-    BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
-    BUDDY_OPENCODE_DB_FILENAME,
-  )
+  return path.join(buddyDataDir, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME, BUDDY_OPENCODE_DB_FILENAME)
 }
 
 function resolveDefaultDevUserDataPath(): string {
   if (process.platform === "win32") {
     const appDataPath =
-      resolveConfiguredPath(process.env.APPDATA) ??
-      path.join(os.homedir(), "AppData", "Roaming")
+      resolveConfiguredPath(process.env.APPDATA) ?? path.join(os.homedir(), "AppData", "Roaming")
     return path.join(appDataPath, DEV_APP_ID)
   }
 

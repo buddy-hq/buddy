@@ -17,8 +17,7 @@ export function getConnectedProviders(providers: ProviderInfo[]) {
 export function getUsableProviders(providers: ProviderInfo[]) {
   return providers.filter(
     (provider) =>
-      provider.connected ||
-      (isAnonymousOpenCodeProvider(provider) && provider.models.length > 0),
+      provider.connected || (isAnonymousOpenCodeProvider(provider) && provider.models.length > 0),
   )
 }
 

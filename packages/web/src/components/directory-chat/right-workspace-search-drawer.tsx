@@ -67,10 +67,7 @@ import {
   type ObjectPresentationKind,
 } from "@/components/objects/types"
 import type { BenchObjectKind } from "@/lib/bench-targets"
-import {
-  CreationPreviewVisual,
-  type CreationFeedItem,
-} from "./right-workspace-catalog-drawers"
+import { CreationPreviewVisual, type CreationFeedItem } from "./right-workspace-catalog-drawers"
 import {
   notebookSearchResultFromWorkspaceObject,
   notebookSearchTimestampMetadata,

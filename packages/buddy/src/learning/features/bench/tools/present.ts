@@ -879,10 +879,7 @@ async function waitForBenchPresentationContext(input: {
   timeoutMs: number
 }): Promise<BenchReadContextOutput> {
   input.abort.throwIfAborted()
-  if (
-    input.timeoutMs <= 0 ||
-    benchContextSettled(input.initialContext, input.target)
-  ) {
+  if (input.timeoutMs <= 0 || benchContextSettled(input.initialContext, input.target)) {
     return input.initialContext
   }
 

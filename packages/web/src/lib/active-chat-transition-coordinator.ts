@@ -43,10 +43,7 @@ type DestinationWorkspaceIntent = {
   reset: boolean
 }
 
-export type NavigateToChat = (
-  directory: string,
-  route: BenchRouteSnapshot,
-) => void | Promise<void>
+export type NavigateToChat = (directory: string, route: BenchRouteSnapshot) => void | Promise<void>
 
 export type ActiveChatTransitionResult<T> =
   | {
@@ -98,9 +95,7 @@ type RetainedFrameDocument = Document & {
 }
 
 function supportsRetainedFrameViewTransition(value: Document): value is RetainedFrameDocument {
-  return (
-    "startViewTransition" in value && typeof value.startViewTransition === "function"
-  )
+  return "startViewTransition" in value && typeof value.startViewTransition === "function"
 }
 
 async function runWithRetainedActiveChatFrame<T>(
@@ -179,14 +174,8 @@ class ActiveChatTransitionCoordinator {
   run<T>(input: ActiveChatTransitionInput<T>): Promise<ActiveChatTransitionResult<T>> {
     const transitionID = beginActiveChatTransition()
     const execution = this.#serialized.then(
-      () =>
-        runWithRetainedActiveChatFrame(transitionID, () =>
-          this.#execute(transitionID, input),
-        ),
-      () =>
-        runWithRetainedActiveChatFrame(transitionID, () =>
-          this.#execute(transitionID, input),
-        ),
+      () => runWithRetainedActiveChatFrame(transitionID, () => this.#execute(transitionID, input)),
+      () => runWithRetainedActiveChatFrame(transitionID, () => this.#execute(transitionID, input)),
     )
     this.#serialized = execution.then(
       () => undefined,
@@ -461,9 +450,7 @@ function nextTransientWorkspaceChatKey(): WorkspaceChatKey {
 
 function currentDirectoryDestination(directory: string): DestinationWorkspaceIntent {
   return {
-    chatKey: workspaceChatKeyForSession(
-      useChatStore.getState().directories[directory]?.sessionID,
-    ),
+    chatKey: workspaceChatKeyForSession(useChatStore.getState().directories[directory]?.sessionID),
     reset: false,
   }
 }

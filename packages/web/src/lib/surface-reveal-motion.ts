@@ -43,9 +43,8 @@ const INSTANT_TRANSITION: Transition = { duration: 0 }
 export function resolveSurfaceRevealTransition(reduceMotion: boolean): Transition {
   return {
     duration:
-      (reduceMotion
-        ? SURFACE_REVEAL_MOTION.reducedDurationMs
-        : SURFACE_REVEAL_MOTION.durationMs) / 1_000,
+      (reduceMotion ? SURFACE_REVEAL_MOTION.reducedDurationMs : SURFACE_REVEAL_MOTION.durationMs) /
+      1_000,
     ease: SURFACE_REVEAL_EASING,
   }
 }
@@ -150,10 +149,7 @@ export function createAnchorShiftAnimator(): AnchorShiftAnimator {
       // cancelling it, so overlapping reveals compose to the correct offset.
       // `fill: "none"` leaves no inline transform behind once it settles.
       const animation = element.animate(
-        [
-          { transform: `translate3d(0, ${shiftPx}px, 0)` },
-          { transform: "translate3d(0, 0, 0)" },
-        ],
+        [{ transform: `translate3d(0, ${shiftPx}px, 0)` }, { transform: "translate3d(0, 0, 0)" }],
         {
           duration: SURFACE_REVEAL_MOTION.durationMs,
           easing: SURFACE_REVEAL_EASING_CSS,

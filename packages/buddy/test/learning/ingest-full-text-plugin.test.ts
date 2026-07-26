@@ -448,12 +448,8 @@ describe("ingest_full_text via plugin shim", () => {
           throw new Error("Expected ingest_full_text object result with metadata")
         }
         expect(boundaryResult.metadata.completed).toBe(true)
-        expect(boundaryResult.metadata.inputWindow).toBe(
-          FULL_TEXT_INPUT_WINDOW_CEILING_TOKENS,
-        )
-        expect(boundaryResult.metadata.contextWindow).toBe(
-          LARGE_TEST_ACTIVE_MODEL.limit.context,
-        )
+        expect(boundaryResult.metadata.inputWindow).toBe(FULL_TEXT_INPUT_WINDOW_CEILING_TOKENS)
+        expect(boundaryResult.metadata.contextWindow).toBe(LARGE_TEST_ACTIVE_MODEL.limit.context)
         expect(boundaryResult.metadata.remainingAfterIngestion).toBe(
           FULL_TEXT_INPUT_WINDOW_CEILING_RESERVE_TOKENS,
         )
@@ -478,11 +474,7 @@ describe("ingest_full_text via plugin shim", () => {
 
         const messagesWithUsage = [
           ...messages,
-          createAssistantUsageMessage(
-            sessionID,
-            project.path,
-            INCIDENT_LIVE_USAGE_TOKENS,
-          ),
+          createAssistantUsageMessage(sessionID, project.path, INCIDENT_LIVE_USAGE_TOKENS),
         ]
         const usedPluginContext = {
           ...pluginContext,
@@ -498,24 +490,17 @@ describe("ingest_full_text via plugin shim", () => {
           throw new Error("Expected used-session ingest result with metadata")
         }
         expect(usedBoundaryResult.metadata.completed).toBe(true)
-        expect(usedBoundaryResult.metadata.liveUsageEstimate).toBe(
-          INCIDENT_LIVE_USAGE_TOKENS,
-        )
+        expect(usedBoundaryResult.metadata.liveUsageEstimate).toBe(INCIDENT_LIVE_USAGE_TOKENS)
         expect(usedBoundaryResult.metadata.remainingAfterIngestion).toBe(
           FULL_TEXT_INPUT_WINDOW_CEILING_RESERVE_TOKENS,
         )
 
-        writeEstimatedTokenCount(
-          USED_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS + ONE_TOKEN_OVER_BUDGET,
-        )
+        writeEstimatedTokenCount(USED_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS + ONE_TOKEN_OVER_BUDGET)
         const usedOverBoundaryResult = await ingestPlugin.execute(
           { resourceKey: "capped-window-md" },
           createPluginExecuteContext(usedPluginContext),
         )
-        if (
-          typeof usedOverBoundaryResult === "string" ||
-          !usedOverBoundaryResult.metadata
-        ) {
+        if (typeof usedOverBoundaryResult === "string" || !usedOverBoundaryResult.metadata) {
           throw new Error("Expected used-session fallback result with metadata")
         }
         expect(usedOverBoundaryResult.metadata.completed).toBe(false)
@@ -597,9 +582,7 @@ describe("ingest_full_text via plugin shim", () => {
         expect(ingestMetadata.fallback).toBe("scoped_reading")
         expect(ingestMetadata.inputWindow).toBe(SMALL_TEST_ACTIVE_MODEL.limit.input)
         expect(ingestMetadata.contextWindow).toBe(SMALL_TEST_ACTIVE_MODEL.limit.context)
-        expect(ingestMetadata.requiredReserveAfterIngestion).toBe(
-          MINIMUM_FULL_TEXT_RESERVE_TOKENS,
-        )
+        expect(ingestMetadata.requiredReserveAfterIngestion).toBe(MINIMUM_FULL_TEXT_RESERVE_TOKENS)
         expect(ingestResult.output).toContain('completed="false"')
         expect(ingestResult.output).toContain("Continue with scoped reading")
         expect(ingestResult.output).not.toContain("<full_text>")
@@ -648,9 +631,7 @@ describe("ingest_full_text via plugin shim", () => {
           throw new Error("Expected prepare_resource full-text path")
         }
 
-        const corruptedFullText = CORRUPTED_GLYPH_PATTERN.repeat(
-          CORRUPTED_GLYPH_REPEAT_COUNT,
-        )
+        const corruptedFullText = CORRUPTED_GLYPH_PATTERN.repeat(CORRUPTED_GLYPH_REPEAT_COUNT)
         const recalculatedTokens = estimateTokenCountFromText(corruptedFullText)
         expect(recalculatedTokens).toBeGreaterThan(STALE_FULL_TEXT_ESTIMATE_TOKENS)
         writeFileSync(

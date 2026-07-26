@@ -1,8 +1,4 @@
-import {
-  benchTargetKey,
-  isSameBenchTarget,
-  type BenchTarget,
-} from "@/lib/bench-navigation"
+import { benchTargetKey, isSameBenchTarget, type BenchTarget } from "@/lib/bench-navigation"
 
 /**
  * Bounded keep-alive policy for mounted Bench surfaces.
@@ -29,12 +25,7 @@ export const BENCH_SURFACE_KEEP_ALIVE_LIMIT: Record<BenchSurfaceCostClass, numbe
   [BENCH_SURFACE_COST_LIGHT]: 4,
 }
 
-const HEAVY_OBJECT_KINDS = new Set([
-  "whiteboard",
-  "html-widget",
-  "media-presentation",
-  "resource",
-])
+const HEAVY_OBJECT_KINDS = new Set(["whiteboard", "html-widget", "media-presentation", "resource"])
 
 export type BenchSurfaceInstance = {
   key: string
@@ -72,9 +63,7 @@ export function retainBenchSurfaceInstance(input: {
     existingIndex === input.instances.length - 1 &&
     existing?.costClass === costClass &&
     isSameBenchTarget(existing.target, input.target)
-  const withinLimits = (
-    [BENCH_SURFACE_COST_HEAVY, BENCH_SURFACE_COST_LIGHT] as const
-  ).every(
+  const withinLimits = ([BENCH_SURFACE_COST_HEAVY, BENCH_SURFACE_COST_LIGHT] as const).every(
     (candidateCostClass) =>
       input.instances.filter((instance) => instance.costClass === candidateCostClass).length <=
       limits[candidateCostClass],

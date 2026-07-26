@@ -368,8 +368,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       const blockingResponseSurfaceHeight = measuredElementHeight(blockingSurfaces)
       const next: ChatLayoutMeasurements = {
         paneHeight: measuredElementHeight(pane),
-        reservedContentHeight:
-          measuredElementHeight(topContent) + blockingResponseSurfaceHeight,
+        reservedContentHeight: measuredElementHeight(topContent) + blockingResponseSurfaceHeight,
         hasBlockingResponseSurface: blockingResponseSurfaceHeight > 0,
       }
       setChatLayoutMeasurements((current) =>
@@ -719,7 +718,11 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             terminalError.assistantMessageID !== dismissedTerminalMessageID &&
             !chatState.parentSession ? (
               <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
-                <AssistantErrorCard spec={terminalErrorSpec} alert onAction={handleTerminalAction} />
+                <AssistantErrorCard
+                  spec={terminalErrorSpec}
+                  alert
+                  onAction={handleTerminalAction}
+                />
               </div>
             ) : null}
           </div>

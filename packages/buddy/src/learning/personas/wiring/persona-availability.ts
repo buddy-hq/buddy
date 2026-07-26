@@ -6,10 +6,7 @@ import {
   OPENCODE_PROD_CHANNEL,
   resolveBuddyReleaseChannel,
 } from "@buddy/script/channel"
-import {
-  DEVELOPMENT_PERSONAS,
-  type Persona,
-} from "../../shared/teaching-vocabulary"
+import { DEVELOPMENT_PERSONAS, type Persona } from "../../shared/teaching-vocabulary"
 
 type DevelopmentPersonasInput = {
   installationChannel: string
@@ -46,9 +43,5 @@ function personaIsAvailable(
   )
 }
 
-export {
-  DEVELOPMENT_PERSONAS_ENABLED,
-  personaIsAvailable,
-  resolveDevelopmentPersonasEnabled,
-}
+export { DEVELOPMENT_PERSONAS_ENABLED, personaIsAvailable, resolveDevelopmentPersonasEnabled }
 export type { DevelopmentPersonasInput }

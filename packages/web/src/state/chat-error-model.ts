@@ -1,12 +1,7 @@
 import { readUpstreamProviderErrorPayload } from "@/lib/upstream-provider-error"
 import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 import type { UpstreamProviderErrorPayload } from "@/lib/upstream-provider-error"
-import type {
-  MessageError,
-  MessageWithParts,
-  ProviderInfo,
-  SessionStatusInfo,
-} from "./chat-types"
+import type { MessageError, MessageWithParts, ProviderInfo, SessionStatusInfo } from "./chat-types"
 
 const PROVIDER_AUTH_ERROR_NAME = "ProviderAuthError"
 const UNKNOWN_ERROR_NAME = "UnknownError"
@@ -284,8 +279,7 @@ function apiErrorCategory(
   input: { providerID?: string; providerConnected?: boolean },
 ): AssistantErrorCategory {
   const providerID = details.providerID ?? input.providerID
-  const anonymousOpenCode =
-    providerID === OPENCODE_PROVIDER_ID && input.providerConnected === false
+  const anonymousOpenCode = providerID === OPENCODE_PROVIDER_ID && input.providerConnected === false
   const structured =
     (providerID === OPENCODE_PROVIDER_ID
       ? zenProviderErrorCategory({

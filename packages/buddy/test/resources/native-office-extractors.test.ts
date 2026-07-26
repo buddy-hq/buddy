@@ -473,9 +473,7 @@ describe("native office resource extractors", () => {
     for (const [index, resource] of spreadsheetResources.entries()) {
       expect(resource.record.format).toBe(NATIVE_SPREADSHEET_FORMATS[index])
       if (!resource.record.fullTextPath) {
-        throw new Error(
-          `Prepared ${NATIVE_SPREADSHEET_FORMATS[index]} did not expose full text.`,
-        )
+        throw new Error(`Prepared ${NATIVE_SPREADSHEET_FORMATS[index]} did not expose full text.`)
       }
       expect(await readFile(resource.entrypointPath, "utf8")).toContain("sheets/001-attendance.csv")
       expect(

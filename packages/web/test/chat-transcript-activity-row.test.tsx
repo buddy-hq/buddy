@@ -334,9 +334,7 @@ describe("chat transcript ActivityRow", () => {
       await flushEffects()
     })
 
-    const activityArticle = container.querySelector<HTMLElement>(
-      '[data-timeline-row="Activity"]',
-    )
+    const activityArticle = container.querySelector<HTMLElement>('[data-timeline-row="Activity"]')
     const delayedRow = activityArticle?.querySelector<HTMLElement>("[data-activity-row]")
 
     expect(assistantArticleByText(container, "Finished response")).not.toBeUndefined()

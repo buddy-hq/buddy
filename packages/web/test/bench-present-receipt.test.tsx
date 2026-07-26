@@ -28,10 +28,7 @@ afterEach(() => {
   host = undefined
 })
 
-function presentPart(input: {
-  id: string
-  metadata: Record<string, unknown>
-}): MessagePart {
+function presentPart(input: { id: string; metadata: Record<string, unknown> }): MessagePart {
   return {
     id: input.id,
     type: "tool",

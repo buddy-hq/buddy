@@ -18,9 +18,7 @@ type RegisteredDirectoryWorkspaceHandle = LiveDirectoryWorkspaceHandle & {
 const liveWorkspaceByDirectory = new Map<string, RegisteredDirectoryWorkspaceHandle>()
 let workspaceGeneration = 0
 
-export function registerLiveDirectoryWorkspace(
-  handle: LiveDirectoryWorkspaceHandle,
-): () => void {
+export function registerLiveDirectoryWorkspace(handle: LiveDirectoryWorkspaceHandle): () => void {
   const directory = canonicalProjectDirectory(handle.directory)
   if (!directory) return () => undefined
   workspaceGeneration += 1

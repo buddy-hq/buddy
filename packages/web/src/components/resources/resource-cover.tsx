@@ -12,8 +12,7 @@ const RESOURCE_COVER_BUTTON_CLASS =
 const RESOURCE_COVER_PLACEHOLDER_CLASS =
   "grid size-full grid-rows-[minmax(0,3fr)_minmax(0,2fr)] bg-surface-raised-stronger"
 const RESOURCE_COVER_ICON_CLASS = "size-14 drop-shadow-sm"
-const RESOURCE_COVER_EXTENSION_CLASS =
-  "text-[10px] font-semibold uppercase tracking-[0.16em]"
+const RESOURCE_COVER_EXTENSION_CLASS = "text-[10px] font-semibold uppercase tracking-[0.16em]"
 const RESOURCE_COVER_TITLE_CLASS =
   "mt-1.5 line-clamp-2 break-words text-[11px] font-medium leading-[1.4] text-text-stronger"
 const RESOURCE_COVER_PRESENTATION_TILE = "tile"
@@ -123,8 +122,7 @@ function ResourceCoverContent({
     mimeType: undefined,
     sizeBytes: undefined,
   }).mediaKind
-  const palette =
-    RESOURCE_COVER_PALETTE_BY_MEDIA_KIND[mediaKind] ?? RESOURCE_COVER_DEFAULT_PALETTE
+  const palette = RESOURCE_COVER_PALETTE_BY_MEDIA_KIND[mediaKind] ?? RESOURCE_COVER_DEFAULT_PALETTE
 
   return (
     <div
@@ -132,18 +130,11 @@ function ResourceCoverContent({
       data-resource-format={extension}
       data-resource-media-kind={mediaKind}
     >
-      <div
-        className={cn(
-          "flex min-h-0 items-center justify-center px-4 py-3",
-          palette.heroClass,
-        )}
-      >
+      <div className={cn("flex min-h-0 items-center justify-center px-4 py-3", palette.heroClass)}>
         <FileTypeIcon fileName={resolvedFileName} className={RESOURCE_COVER_ICON_CLASS} />
       </div>
       <div className="flex min-h-0 flex-col justify-center overflow-hidden border-t border-border-weaker-base bg-surface-raised-base px-3 py-2 text-left">
-        <span className={cn(RESOURCE_COVER_EXTENSION_CLASS, palette.accentClass)}>
-          {extension}
-        </span>
+        <span className={cn(RESOURCE_COVER_EXTENSION_CLASS, palette.accentClass)}>{extension}</span>
         <span className={RESOURCE_COVER_TITLE_CLASS}>{displayName}</span>
       </div>
     </div>
