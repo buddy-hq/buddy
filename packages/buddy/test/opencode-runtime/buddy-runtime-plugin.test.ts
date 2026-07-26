@@ -155,6 +155,7 @@ describe("Buddy runtime plugin", () => {
     })
 
     expect(hooks.auth?.provider).toBe("openai")
+    expect(hooks.provider?.id).toBe("openai")
     expect(hooks.auth?.methods.map((method) => method.label)).toEqual([
       "ChatGPT Pro/Plus (browser)",
       "ChatGPT Pro/Plus (headless)",

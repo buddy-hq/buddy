@@ -1,9 +1,14 @@
-import { describe, expect, mock, test } from "bun:test"
+import { afterEach, describe, expect, mock, test } from "bun:test"
 import { createOpenAICodexAccountService } from "../../src/opencode-runtime/plugins/openai-codex-account"
 import type { OpenAICodexStoredAuth } from "../../src/opencode-runtime/plugins/openai-codex-credentials"
 
 const DIRECTORY = "/tmp/buddy-openai-account-test"
 const NOW = Date.parse("2026-06-10T12:00:00.000Z")
+const originalFetch = globalThis.fetch
+
+afterEach(() => {
+  globalThis.fetch = originalFetch
+})
 
 function createAuth(): OpenAICodexStoredAuth {
   return {
@@ -67,6 +72,146 @@ describe("OpenAI Codex account service", () => {
       refreshing: false,
     })
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test("retains account-specific context metadata for runtime model resolution", async () => {
+    const fetchMock = mock(async () =>
+      Response.json({
+        models: [
+          {
+            slug: "gpt-5.6-terra",
+            visibility: "list",
+            context_window: 272_000,
+            max_context_window: 272_000,
+            effective_context_window_percent: 95,
+          },
+          {
+            slug: "codex-auto-review",
+            visibility: "hide",
+            context_window: 272_000,
+            effective_context_window_percent: 95,
+          },
+        ],
+      }),
+    )
+    const auth = createAuth()
+    const service = createOpenAICodexAccountService({
+      fetch: fetchMock,
+      now: () => NOW,
+      getAuth: async () => auth,
+      setAuth: async () => undefined,
+    })
+
+    expect(await service.resolveModelCatalog(DIRECTORY)).toEqual([
+      {
+        slug: "gpt-5.6-terra",
+        visibility: "list",
+        context_window: 272_000,
+        max_context_window: 272_000,
+        effective_context_window_percent: 95,
+      },
+    ])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test("does not overwrite or resolve against an account changed during token refresh", async () => {
+    const tokenResponse = createDeferredResponse()
+    const refreshFetchMock = mock(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => tokenResponse.promise,
+    )
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: Parameters<typeof fetch>[1]) =>
+        refreshFetchMock(input, init),
+      {
+        preconnect: originalFetch.preconnect,
+      },
+    )
+
+    let auth: OpenAICodexStoredAuth = {
+      type: "oauth",
+      access: "expired-account-a",
+      refresh: "refresh-account-a",
+      expires: 0,
+      accountId: "account-a",
+    }
+    const modelFetchMock = mock(async () =>
+      Response.json({
+        models: [{ slug: "model-a", visibility: "list", context_window: 100_000 }],
+      }),
+    )
+    const setAuth = mock(async (_directory: string, nextAuth: OpenAICodexStoredAuth) => {
+      auth = nextAuth
+    })
+    const service = createOpenAICodexAccountService({
+      fetch: modelFetchMock,
+      now: () => NOW,
+      getAuth: async () => auth,
+      setAuth,
+    })
+
+    const catalog = service.resolveModelCatalog(DIRECTORY)
+    await Bun.sleep(0)
+    expect(refreshFetchMock).toHaveBeenCalledTimes(1)
+
+    auth = {
+      type: "oauth",
+      access: "account-b",
+      refresh: "refresh-account-b",
+      expires: Date.now() + 60_000,
+      accountId: "account-b",
+    }
+    tokenResponse.resolve(
+      Response.json({
+        access_token: "refreshed-account-a",
+        refresh_token: "rotated-account-a",
+      }),
+    )
+
+    expect(await catalog).toBeUndefined()
+    expect(setAuth).not.toHaveBeenCalled()
+    expect(modelFetchMock).not.toHaveBeenCalled()
+    expect(auth.accountId).toBe("account-b")
+  })
+
+  test("does not back off account model loading after a catalog request is aborted", async () => {
+    const fetchMock = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (fetchMock.mock.calls.length === 1) {
+        return await new Promise<Response>((_resolve, reject) => {
+          const rejectAborted = () =>
+            reject(new DOMException("Catalog request aborted", "AbortError"))
+          if (init?.signal?.aborted) {
+            rejectAborted()
+            return
+          }
+          init?.signal?.addEventListener("abort", rejectAborted, { once: true })
+        })
+      }
+      return Response.json({
+        models: [{ slug: "gpt-5.5", visibility: "list" }],
+      })
+    })
+    const service = createOpenAICodexAccountService({
+      fetch: fetchMock,
+      now: () => NOW,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+    const abortController = new AbortController()
+
+    const catalog = service.resolveModelCatalog(DIRECTORY, abortController.signal)
+    await Bun.sleep(0)
+    abortController.abort()
+
+    expect(await catalog).toBeUndefined()
+    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+      status: "loading",
+    })
+    await Bun.sleep(0)
+    expect(await service.readModelAvailability(DIRECTORY)).toMatchObject({
+      status: "ready",
+      modelIDs: ["gpt-5.5"],
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   test("uses the cached ETag on an explicit model refresh", async () => {

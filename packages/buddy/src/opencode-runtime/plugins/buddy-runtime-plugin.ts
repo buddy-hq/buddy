@@ -2,6 +2,7 @@ import path from "node:path"
 import type { Hooks, Plugin } from "@opencode-ai/plugin"
 import { MessageID, PartID } from "@buddy/opencode-adapter/id"
 import { createOpenAICodexAuthHook } from "./openai-codex-auth"
+import { createOpenAICodexProviderHook } from "./openai-codex-provider"
 import { stripToolPresentationFromMessages } from "../tool-presentation-strip"
 import { captureSessionSystemPrompt } from "../system-prompt-capture"
 import { preloadBuddyBootstrapGraph } from "../../learning/runtime/bootstrap-preload"
@@ -183,6 +184,7 @@ export async function createBuddyRuntimeHooks(input: { directory: string; worktr
   return {
     tool: toolMap,
     auth: createOpenAICodexAuthHook(),
+    provider: createOpenAICodexProviderHook({ directory: input.directory }),
     ...createSystemPromptGuard({ directory: input.directory }),
   }
 }

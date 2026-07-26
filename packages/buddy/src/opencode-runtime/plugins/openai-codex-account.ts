@@ -5,6 +5,7 @@ import { OpenCodeVersion } from "@buddy/opencode-adapter/installation"
 import packageJson from "../../../package.json"
 import {
   OpenAICodexTokenRefreshError,
+  isOpenAICodexStoredAuth,
   OPENAI_CODEX_AUTH_ISSUER,
   OPENAI_PROVIDER_ID,
   resolveOpenAICodexAuth,
@@ -22,11 +23,16 @@ const EMPTY_MODEL_AVAILABILITY_ERROR = "OpenAI returned no account models"
 const HTTP_STATUS_UNAUTHORIZED = 401
 const OPENAI_ACCOUNT_ERROR_STATUS = "error"
 const OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS = "reconnect_required"
+const LISTED_MODEL_VISIBILITY = "list"
+const PERCENT_BASE = 100
 
 const codexModelSchema = z
   .object({
     slug: z.string(),
     visibility: z.string(),
+    context_window: z.number().int().positive().nullish(),
+    max_context_window: z.number().int().positive().nullish(),
+    effective_context_window_percent: z.number().positive().max(PERCENT_BASE).nullish(),
   })
   .passthrough()
 
@@ -132,6 +138,7 @@ export const openAIUsageResponseSchema = z.discriminatedUnion("status", [
 
 export type OpenAIModelAvailabilityResponse = z.infer<typeof openAIModelAvailabilityResponseSchema>
 export type OpenAIUsageResponse = z.infer<typeof openAIUsageResponseSchema>
+export type OpenAICodexAccountModel = z.infer<typeof codexModelSchema>
 
 type FetchInput = Parameters<typeof fetch>[0]
 type FetchInit = Parameters<typeof fetch>[1]
@@ -145,6 +152,7 @@ type AccountServiceDependencies = {
 
 type ModelCache = {
   accountKey: string
+  models: OpenAICodexAccountModel[]
   modelIDs: string[]
   etag: string | undefined
   fetchedAtMs: number
@@ -191,6 +199,10 @@ function resolveAccountFailureStatus(error: unknown): OpenAIAccountFailureStatus
     return OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS
   }
   return OPENAI_ACCOUNT_ERROR_STATUS
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError"
 }
 
 function accountHeaders(auth: OpenAICodexStoredAuth) {
@@ -254,7 +266,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     })
   }
 
-  async function fetchModels(auth: OpenAICodexStoredAuth) {
+  async function fetchModels(auth: OpenAICodexStoredAuth, signal?: AbortSignal) {
     const accountKey = resolveAccountKey(auth)
     const currentCache = modelCache?.accountKey === accountKey ? modelCache : undefined
     const url = new URL(CHATGPT_CODEX_MODELS_ENDPOINT)
@@ -264,7 +276,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
       headers.set("if-none-match", currentCache.etag)
     }
 
-    const response = await dependencies.fetch(url, { headers })
+    const response = await dependencies.fetch(url, { headers, signal })
     const fetchedAtMs = dependencies.now()
     if (response.status === 304 && currentCache) {
       return {
@@ -280,27 +292,29 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     }
 
     const parsed = codexModelsResponseSchema.parse(await response.json())
-    const modelIDs = parsed.models
-      .filter((model) => model.visibility === "list")
-      .map((model) => model.slug)
+    const models = parsed.models.filter(
+      (model) => model.visibility === LISTED_MODEL_VISIBILITY,
+    )
+    const modelIDs = models.map((model) => model.slug)
     if (modelIDs.length === 0) {
       throw new Error(EMPTY_MODEL_AVAILABILITY_ERROR)
     }
 
     return {
       accountKey,
+      models,
       modelIDs,
       etag: response.headers.get("etag") ?? undefined,
       fetchedAtMs,
     } satisfies ModelCache
   }
 
-  function startModelRefresh(auth: OpenAICodexStoredAuth) {
+  function startModelRefresh(auth: OpenAICodexStoredAuth, signal?: AbortSignal) {
     const accountKey = resolveAccountKey(auth)
     if (modelRefresh?.accountKey === accountKey) return modelRefresh.promise
     const requestID = Symbol()
 
-    const promise = fetchModels(auth)
+    const promise = fetchModels(auth, signal)
       .then((nextCache) => {
         if (modelRefresh?.requestID === requestID) {
           modelCache = nextCache
@@ -309,7 +323,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
         return nextCache
       })
       .catch((error: unknown) => {
-        if (modelRefresh?.requestID === requestID) {
+        if (modelRefresh?.requestID === requestID && !isAbortError(error)) {
           modelFailure = {
             accountKey,
             authKey: auth.access,
@@ -332,6 +346,57 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     return promise
   }
 
+  function readModelState(auth: OpenAICodexStoredAuth) {
+    const accountKey = resolveAccountKey(auth)
+    const now = dependencies.now()
+    const currentCache = modelCache?.accountKey === accountKey ? modelCache : undefined
+    const cacheFresh =
+      currentCache !== undefined && now - currentCache.fetchedAtMs < MODEL_CACHE_TTL_MS
+    const activeFailure =
+      modelFailure &&
+      modelFailure.accountKey === accountKey &&
+      modelFailure.authKey === auth.access &&
+      modelFailure.retryAtMs > now
+        ? modelFailure
+        : undefined
+
+    return {
+      accountKey,
+      currentCache,
+      cacheFresh,
+      activeFailure,
+    }
+  }
+
+  async function resolveModelCatalog(
+    directory: string,
+    signal?: AbortSignal,
+  ): Promise<OpenAICodexAccountModel[] | undefined> {
+    let auth: OpenAICodexStoredAuth | undefined
+    try {
+      auth = await resolveAuth(directory)
+      if (!auth) return undefined
+      const currentAuth = await dependencies.getAuth(directory)
+      if (!isOpenAICodexStoredAuth(currentAuth) || currentAuth.refresh !== auth.refresh) {
+        return undefined
+      }
+      auth = currentAuth
+    } catch {
+      return undefined
+    }
+    if (isAuthenticationRejected(auth)) return undefined
+
+    const state = readModelState(auth)
+    if (state.cacheFresh) return state.currentCache?.models
+    if (state.activeFailure) return state.currentCache?.models
+
+    try {
+      return (await startModelRefresh(auth, signal)).models
+    } catch {
+      return state.currentCache?.models
+    }
+  }
+
   async function readModelAvailability(
     directory: string,
   ): Promise<OpenAIModelAvailabilityResponse> {
@@ -351,34 +416,28 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
       return { status: OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS }
     }
 
-    const accountKey = resolveAccountKey(auth)
-    const now = dependencies.now()
-    const currentCache = modelCache?.accountKey === accountKey ? modelCache : undefined
-    const cacheFresh = currentCache && now - currentCache.fetchedAtMs < MODEL_CACHE_TTL_MS
-    const activeModelFailure =
-      modelFailure &&
-      modelFailure.accountKey === accountKey &&
-      modelFailure.authKey === auth.access &&
-      modelFailure.retryAtMs > now
-        ? modelFailure
-        : undefined
+    const state = readModelState(auth)
 
-    if (!cacheFresh && !activeModelFailure && modelRefresh?.accountKey !== accountKey) {
+    if (
+      !state.cacheFresh &&
+      !state.activeFailure &&
+      modelRefresh?.accountKey !== state.accountKey
+    ) {
       void startModelRefresh(auth).catch(() => undefined)
     }
 
-    if (activeModelFailure?.status === OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS) {
-      return { status: activeModelFailure.status }
+    if (state.activeFailure?.status === OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS) {
+      return { status: state.activeFailure.status }
     }
-    if (currentCache) {
+    if (state.currentCache) {
       return {
         status: "ready",
-        modelIDs: currentCache.modelIDs,
-        fetchedAt: new Date(currentCache.fetchedAtMs).toISOString(),
-        refreshing: modelRefresh?.accountKey === accountKey,
+        modelIDs: state.currentCache.modelIDs,
+        fetchedAt: new Date(state.currentCache.fetchedAtMs).toISOString(),
+        refreshing: modelRefresh?.accountKey === state.accountKey,
       }
     }
-    if (activeModelFailure) return { status: activeModelFailure.status }
+    if (state.activeFailure) return { status: state.activeFailure.status }
     return { status: "loading" }
   }
 
@@ -530,6 +589,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
 
   return {
     markAuthenticationRejected,
+    resolveModelCatalog,
     readModelAvailability,
     refreshModelAvailability,
     readUsage,
