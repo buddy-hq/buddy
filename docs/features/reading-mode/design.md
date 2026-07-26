@@ -15,6 +15,8 @@
 - the backend turns that request payload into `activeResource` prompt context and renders `<active_reading_resource>` into the prompt pipeline.
 
 ## Key Files
+- full-text ingestion budget and provider-limit policy:
+  [Full-text ingestion design](../full-text-ingestion/design.md)
 - route: `packages/web/src/routes/$directory.read.tsx`
 - page shell: `packages/web/src/components/directory-chat/directory-chat-reading-page.tsx`
 - reader pane: `packages/web/src/components/directory-chat/directory-chat-reading-reader-pane.tsx`
