@@ -183,6 +183,8 @@ function buildNativeResourceTurnContextPart(context: PromptContext): TurnContext
     sourcePath: attachment.sourcePath,
     format: attachment.format,
     alias: attachment.alias,
+    delivery: attachment.delivery,
+    pageCount: attachment.pageCount ?? null,
   }))
   return {
     text: [
@@ -192,7 +194,8 @@ function buildNativeResourceTurnContextPart(context: PromptContext): TurnContext
       "For each record, call prepare_resource exactly once with its exact sourcePath and alias before relying on the document's contents.",
       "After preparation, read the returned Markdown pack entrypoint and the relevant TOC, chunks, pages, slides, sheets, chapters, or linked text artifacts needed for the learner's request.",
       "Use full_text only when whole-document text is useful; it is not required merely to read the prepared Markdown resource.",
-      "A PDF may also be attached directly to the model. The prepared resource remains the fallback and durable reading path even when direct PDF input works.",
+      "A record with delivery=model-and-resource is also attached directly to the model. Do not call ingest_full_text for that resource; use the prepared pack for citations, navigation, and later scoped reading.",
+      "A record with delivery=resource-only is not attached directly. Use its prepared resource as the reading path.",
       "</native_resource_attachments>",
     ].join("\n"),
   }

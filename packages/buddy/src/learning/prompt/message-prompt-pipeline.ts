@@ -3,6 +3,7 @@ import { buildBuddyPromptEnvelope } from "./buddy-prompt-compiler"
 import { createPromptContext, type CreatePromptContextResult } from "./context"
 import { normalizePromptParts } from "./workspace-file-references"
 import { nativeResourcePromptAttachmentsFromParts } from "./native-resource-attachments"
+import { applyNativePdfDeliveryPolicy } from "./native-pdf-delivery"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
 import {
   assertNoLegacyRuntimeOverrides,
@@ -46,10 +47,14 @@ export async function runMessagePromptPipeline(input: {
   assertNoLegacyRuntimeOverrides(input.body)
 
   const content = typeof input.body.content === "string" ? input.body.content : ""
-  const parts = await normalizePromptParts({
+  const normalizedParts = await normalizePromptParts({
     directory: input.context.directory,
     content,
     parts: Array.isArray(input.body.parts) ? [...input.body.parts] : [],
+  })
+  const parts = await applyNativePdfDeliveryPolicy({
+    directory: input.context.directory,
+    parts: normalizedParts,
   })
   const nativeResourceAttachments = nativeResourcePromptAttachmentsFromParts(parts)
 

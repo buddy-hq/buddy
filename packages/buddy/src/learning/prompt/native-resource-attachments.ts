@@ -5,11 +5,13 @@ import {
   isNativeResourceFormat,
   nativeResourceDefinitionForFormat,
   nativeResourceFormatFromPath,
+  type NativeResourceDelivery,
   type NativeResourceFormat,
 } from "@buddy/workspace-file-policy"
 import { SessionTransformValidationError } from "../../session"
+import { NATIVE_RESOURCE_ATTACHMENT_PART_TYPE } from "./native-resource-metadata"
 
-export const NATIVE_RESOURCE_ATTACHMENT_PART_TYPE = "native-resource-attachment" as const
+export { NATIVE_RESOURCE_ATTACHMENT_PART_TYPE } from "./native-resource-metadata"
 const NATIVE_RESOURCE_ATTACHMENT_MAX_FILENAME_CHARS = 255
 const NATIVE_RESOURCE_ATTACHMENT_MAX_ALIAS_CHARS = 255
 const NATIVE_RESOURCE_ATTACHMENT_MAX_PATH_CHARS = 4_096
@@ -22,6 +24,8 @@ export type NativeResourcePromptAttachment = {
   format: NativeResourceFormat
   alias: string
   mime: string
+  delivery: NativeResourceDelivery
+  pageCount?: number
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -44,7 +48,12 @@ export function readNativeResourcePromptAttachment(
     typeof value.format !== "string" ||
     !isNativeResourceFormat(value.format) ||
     typeof value.alias !== "string" ||
-    typeof value.mime !== "string"
+    typeof value.mime !== "string" ||
+    (value.delivery !== "model-and-resource" && value.delivery !== "resource-only") ||
+    (value.pageCount !== undefined &&
+      (typeof value.pageCount !== "number" ||
+        !Number.isSafeInteger(value.pageCount) ||
+        value.pageCount <= 0))
   ) {
     throw new SessionTransformValidationError("native resource attachment metadata is invalid")
   }
@@ -55,6 +64,8 @@ export function readNativeResourcePromptAttachment(
     format: value.format,
     alias: value.alias,
     mime: value.mime,
+    delivery: value.delivery,
+    ...(typeof value.pageCount === "number" ? { pageCount: value.pageCount } : {}),
   }
 }
 
@@ -148,5 +159,6 @@ export async function normalizeNativeResourceAttachmentPart(input: {
     format: formatValue,
     alias,
     mime: nativeResourceDefinitionForFormat(formatValue).mime,
+    delivery: nativeResourceDefinitionForFormat(formatValue).delivery,
   }
 }

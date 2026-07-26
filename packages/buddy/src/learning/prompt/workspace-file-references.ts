@@ -12,6 +12,7 @@ import {
   normalizeNativeResourceAttachmentPart,
   readNativeResourcePromptAttachment,
 } from "./native-resource-attachments"
+import { BUDDY_PROMPT_PART_METADATA_KEY } from "./native-resource-metadata"
 
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const OPENCODE_REFERENCE_PART_TYPE = "opencode-reference" as const
@@ -23,8 +24,7 @@ export const RESOURCE_REFERENCE_PART_TYPE = "resource-reference" as const
 export const READING_SELECTION_PART_TYPE = "reading-selection" as const
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const SELECTION_CONTEXT_PART_TYPE = "selection-context" as const
-// Sync with packages/web/src/components/prompt/prompt-types.ts.
-export const BUDDY_PROMPT_PART_METADATA_KEY = "buddyPromptPart" as const
+export { BUDDY_PROMPT_PART_METADATA_KEY } from "./native-resource-metadata"
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const TEXT_FILE_ATTACHMENT_PART_TYPE = "text-file-attachment" as const
 export const PROMPT_WORKSPACE_FILE_REFERENCE_REGEX =
