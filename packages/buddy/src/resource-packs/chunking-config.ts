@@ -1,3 +1,5 @@
+import { Buffer } from "node:buffer"
+
 export const RESOURCE_PACK_ROOT_DIR = "resources" as const
 export const RESOURCE_PACK_PROCESSED_DIR_NAME = "processed" as const
 export const RESOURCE_PACK_CHUNKS_DIR_NAME = "chunks" as const
@@ -18,6 +20,8 @@ export const RESOURCE_PACK_GENERIC_FILE_PREFIX = "50-chunk" as const
 export const RESOURCE_PACK_PAGE_FILE_PREFIX = "page" as const
 
 export const RESOURCE_PACK_TOKEN_ESTIMATE_CHARS_PER_TOKEN = 4
+export const RESOURCE_PACK_TOKEN_ESTIMATE_NON_ASCII_BYTES_PER_TOKEN = 2
+export const RESOURCE_PACK_TOKEN_ESTIMATE_SAFETY_MARGIN_RATIO = 0.1
 export const RESOURCE_PACK_CHAPTER_MAX_TOKENS = 20_000
 export const RESOURCE_PACK_NON_CHAPTER_MAX_TOKENS = 10_000
 
@@ -58,11 +62,27 @@ export const RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE = "fallback_structure
 export const RESOURCE_PACK_RECURSIVE_MIN_CHARS_PER_CHUNK = 24
 export const RESOURCE_PACK_FALLBACK_MIN_BOUNDARY_RATIO = 0.55
 
-export function estimateTokenCountFromChars(charCount: number) {
+const ASCII_MAX_CODE_UNIT = 0x7f
+
+export function estimateTokenCountFromChars(charCount: number): number {
   if (charCount <= 0) return 0
   return Math.ceil(charCount / RESOURCE_PACK_TOKEN_ESTIMATE_CHARS_PER_TOKEN)
 }
 
-export function estimateTokenCountFromText(text: string) {
-  return estimateTokenCountFromChars(text.length)
+export function estimateTokenCountFromText(text: string): number {
+  if (text.length === 0) return 0
+
+  let asciiCharacterCount = 0
+  for (let index = 0; index < text.length; index += 1) {
+    if (text.charCodeAt(index) <= ASCII_MAX_CODE_UNIT) {
+      asciiCharacterCount += 1
+    }
+  }
+
+  const nonAsciiUtf8Bytes = Buffer.byteLength(text, "utf8") - asciiCharacterCount
+  const baseEstimate =
+    asciiCharacterCount / RESOURCE_PACK_TOKEN_ESTIMATE_CHARS_PER_TOKEN +
+    nonAsciiUtf8Bytes / RESOURCE_PACK_TOKEN_ESTIMATE_NON_ASCII_BYTES_PER_TOKEN
+
+  return Math.ceil(baseEstimate + baseEstimate * RESOURCE_PACK_TOKEN_ESTIMATE_SAFETY_MARGIN_RATIO)
 }

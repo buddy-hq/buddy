@@ -4,6 +4,7 @@ import { buildResourceChunkFiles } from "../../src/resource-packs/chunking"
 import {
   RESOURCE_PACK_CHAPTER_MAX_CHARS,
   RESOURCE_PACK_NON_CHAPTER_MAX_CHARS,
+  estimateTokenCountFromText,
 } from "../../src/resource-packs/chunking-config"
 import {
   RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
@@ -12,7 +13,21 @@ import {
   RESOURCE_PACK_UNIT_KIND_PAGE_WINDOW as PAGE_WINDOW_KIND,
 } from "../../src/resource-packs/contracts"
 
+const ESTIMATOR_TEST_CHARACTER_COUNT = 400
+const ASCII_ESTIMATOR_EXPECTED_TOKENS = 110
+const TWO_BYTE_UNICODE_ESTIMATOR_EXPECTED_TOKENS = 440
+
 describe("resource pack chunking", () => {
+  test("estimates ASCII and non-ASCII UTF-8 text with a safety margin", () => {
+    const asciiText = "a".repeat(ESTIMATOR_TEST_CHARACTER_COUNT)
+    const twoByteUnicodeText = "ª".repeat(ESTIMATOR_TEST_CHARACTER_COUNT)
+
+    expect(estimateTokenCountFromText(asciiText)).toBe(ASCII_ESTIMATOR_EXPECTED_TOKENS)
+    expect(estimateTokenCountFromText(twoByteUnicodeText)).toBe(
+      TWO_BYTE_UNICODE_ESTIMATOR_EXPECTED_TOKENS,
+    )
+  })
+
   test("marks top-level heading sections as intact structure", async () => {
     const chunkFiles = await buildResourceChunkFiles({
       resourceAlias: "guide",
