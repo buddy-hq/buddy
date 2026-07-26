@@ -58,7 +58,7 @@
     "@chonkiejs/core": "^0.0.8",
     "@hono/node-server": "^1.19.9",
     "@hono/standard-validator": "^0.2.2",
-    "@llamaindex/liteparse": "2.4.0",
+    "@llamaindex/liteparse": "2.9.0",
     "@lydell/node-pty": "catalog:",
     "@opencode-ai/plugin": "workspace:*",
     "@opencode-ai/sdk": "workspace:*",
