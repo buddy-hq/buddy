@@ -84,6 +84,7 @@
     "dev:site": "bun run --cwd packages/site dev",
     "dev:web": "bun run --cwd packages/web dev",
     "dev:desktop": "bun run --cwd packages/desktop-electron dev",
+    "dev:desktop:fast": "bun run --cwd packages/desktop-electron dev:fast",
     "dev:desktop:electron": "bun run --cwd packages/desktop-electron dev",
     "dev:all": "(bun run dev & BACKEND_PID=$!; trap \"kill $BACKEND_PID\" EXIT INT TERM; bun run dev:web)",
     "worktree:create": "bun ./script/worktree-create.ts",

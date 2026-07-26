@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { EventEmitter } from "node:events"
 import { existsSync } from "node:fs"
-import { readFile, unlink } from "node:fs/promises"
+import { readFile, unlink, writeFile } from "node:fs/promises"
 import { createServer } from "node:net"
 import { homedir } from "node:os"
 import { join } from "node:path"
@@ -11,6 +11,10 @@ import electronUpdaterPackage from "electron-updater"
 import type { ProgressInfo } from "electron-updater"
 import { BUDDY_ENV, XDG_ENV } from "@buddy/script/storage-env"
 import type { InitStep, ServerReadyData } from "../preload/types"
+import {
+  BACKEND_DEVELOPMENT_RELOAD_ACKNOWLEDGEMENT_ENV,
+  BACKEND_DEVELOPMENT_RELOAD_SIGNAL_ENV,
+} from "../shared/backend-development-reload"
 import {
   createCustomMacUpdater,
   parseMacInstallerResult,
@@ -78,6 +82,7 @@ import {
   isReadyUpdateCurrent,
 } from "./update-check-coordinator"
 import { compareVersions } from "./recovery-policy-core"
+import { watchBackendDevelopmentReloadSignal } from "./backend-development-reload"
 import type {
   UpdateProgressErrorStage,
   UpdateProgressSnapshot,
@@ -121,6 +126,9 @@ const initEmitter = new EventEmitter()
 let initStep: InitStep = { phase: "server_waiting" }
 let mainWindow: BrowserWindow | null = null
 let backendUtility: CommandChild | null = null
+let embeddedBackendConfig: EmbeddedBackendConfig | undefined
+let applicationQuitting = false
+let stopBackendDevelopmentReloadWatcher: (() => void) | undefined
 let updaterEnabled = UPDATER_ENABLED
 let customMacUpdater: ReturnType<typeof createCustomMacUpdater> | null = null
 let updateProgress: UpdateProgressSnapshot = createIdleUpdateProgress(getUpdateRing())
@@ -141,6 +149,13 @@ type UpdateCheckResult = {
 
 type SignedWindowsUpdateFeed = WindowsUpdateFeed & {
   version: string
+}
+
+type EmbeddedBackendConfig = {
+  environment: Readonly<Record<string, string>>
+  hostname: string
+  password: string
+  port: number
 }
 
 const loadingComplete = defer<void>()
@@ -174,15 +189,18 @@ function setupApplication() {
   })
 
   app.on("before-quit", () => {
+    beginApplicationShutdown()
     void killBackendUtility()
   })
 
   app.on("will-quit", () => {
+    beginApplicationShutdown()
     void killBackendUtility()
   })
 
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
     process.on(signal, () => {
+      beginApplicationShutdown()
       void killBackendUtility().finally(() => app.exit(0))
     })
   }
@@ -305,14 +323,13 @@ async function initialize() {
     const runtimeEnvironment = await buildRuntimeEnvironment(password, port)
     const needsMigration = !sqliteFileExists(runtimeEnvironment)
 
-    const { child, health, events } = await spawnLocalServer(
+    embeddedBackendConfig = {
+      environment: runtimeEnvironment,
       hostname,
-      port,
       password,
-      runtimeEnvironment,
-    )
-    backendUtility = child
-    wireBackendUtilityLogs(events)
+      port,
+    }
+    const health = await startBackendUtility(embeddedBackendConfig)
 
     serverReady.resolve({
       isEmbeddedBackend: true,
@@ -354,6 +371,7 @@ async function initialize() {
     }
 
     await loadingTask
+    startBackendDevelopmentReloadWatcher()
     setInitStep({ phase: "done" })
 
     if (overlay) {
@@ -688,6 +706,70 @@ async function killBackendUtility() {
   const current = backendUtility
   backendUtility = null
   await current.kill()
+}
+
+async function startBackendUtility(config: EmbeddedBackendConfig) {
+  const { child, health, events } = await spawnLocalServer(
+    config.hostname,
+    config.port,
+    config.password,
+    config.environment,
+  )
+  backendUtility = child
+  wireBackendUtilityLogs(events)
+  return health
+}
+
+function startBackendDevelopmentReloadWatcher() {
+  const signalPath = process.env[BACKEND_DEVELOPMENT_RELOAD_SIGNAL_ENV]
+  const acknowledgementPath =
+    process.env[BACKEND_DEVELOPMENT_RELOAD_ACKNOWLEDGEMENT_ENV]
+  if (app.isPackaged || !signalPath || stopBackendDevelopmentReloadWatcher) return
+
+  stopBackendDevelopmentReloadWatcher = watchBackendDevelopmentReloadSignal({
+    signalPath,
+    onError: (error) => {
+      logger.error("backend development reload failed", error)
+    },
+    onReload: async (generation) => {
+      try {
+        await restartBackendUtilityForDevelopment()
+      } finally {
+        if (acknowledgementPath) {
+          await writeFile(acknowledgementPath, generation).catch((error) => {
+            logger.error("backend development reload acknowledgement failed", error)
+          })
+        }
+      }
+    },
+  })
+  logger.log("backend development reload is active")
+}
+
+async function restartBackendUtilityForDevelopment() {
+  const config = embeddedBackendConfig
+  if (applicationQuitting || !config) return
+
+  const startedAt = performance.now()
+  logger.log("reloading backend utility after development build")
+  await killBackendUtility()
+  if (applicationQuitting) return
+
+  try {
+    const health = await startBackendUtility(config)
+    await health.wait
+    logger.log(`backend utility reloaded in ${Math.round(performance.now() - startedAt)}ms`)
+  } catch (error) {
+    await killBackendUtility()
+    throw error
+  }
+}
+
+function beginApplicationShutdown() {
+  if (applicationQuitting) return
+  applicationQuitting = true
+  stopBackendDevelopmentReloadWatcher?.()
+  stopBackendDevelopmentReloadWatcher = undefined
 }
 
 function wireBackendUtilityLogs(events: EventEmitter) {

@@ -1,8 +1,20 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { generatedSdkNeedsRefresh, generatedSdkSourcePaths } from "../scripts/dev-sdk"
+import {
+  ensureGeneratedSdk,
+  generatedSdkFreshnessInput,
+  generatedSdkNeedsRefresh,
+  generatedSdkSourcePaths,
+} from "../scripts/dev-sdk"
 
 const TEST_DIRECTORY_PREFIX = "buddy-dev-sdk-test-"
 const testDirectories: string[] = []
@@ -22,20 +34,39 @@ function createTestDirectory(): string {
 describe("desktop development SDK preparation", () => {
   test("tracks Buddy and vendored OpenCode schema sources", () => {
     const repositoryRoot = path.resolve("repository")
-    const backendDir = path.join(repositoryRoot, "packages/buddy")
-    const adapterDir = path.join(repositoryRoot, "packages/opencode-adapter")
     const sdkDir = path.join(repositoryRoot, "packages/sdk")
+    const backendSourcePaths = [
+      path.join(repositoryRoot, "packages/buddy/src"),
+      path.join(repositoryRoot, "packages/opencode-adapter/src"),
+      path.join(repositoryRoot, "vendor/opencode/packages/protocol/src"),
+    ]
 
-    expect(generatedSdkSourcePaths({ repositoryRoot, backendDir, adapterDir, sdkDir })).toEqual([
-      path.join(backendDir, "src"),
-      path.join(adapterDir, "src"),
-      path.join(repositoryRoot, "vendor/opencode/packages/core/src"),
-      path.join(repositoryRoot, "vendor/opencode/packages/opencode/src"),
-      path.join(repositoryRoot, "vendor/opencode/packages/schema/src"),
+    expect(generatedSdkSourcePaths({ repositoryRoot, backendSourcePaths, sdkDir })).toEqual([
+      ...backendSourcePaths,
       path.join(sdkDir, "scripts/generate.ts"),
       path.join(sdkDir, "package.json"),
       path.join(repositoryRoot, "bun.lock"),
     ])
+  })
+
+  test("shares the generated output and marker contract across dev entrypoints", () => {
+    const repositoryRoot = path.resolve("repository")
+    const sdkDir = path.join(repositoryRoot, "packages/sdk")
+    const backendSourcePaths = [
+      path.join(repositoryRoot, "packages/buddy/src"),
+      path.join(repositoryRoot, "packages/opencode-adapter/src"),
+    ]
+    const sourceInput = { repositoryRoot, backendSourcePaths, sdkDir }
+
+    expect(generatedSdkFreshnessInput(sourceInput)).toEqual({
+      generatedOutputs: [
+        path.join(sdkDir, "src/gen/sdk.gen.ts"),
+        path.join(sdkDir, "src/gen/types.gen.ts"),
+        path.join(sdkDir, "src/gen/client/index.ts"),
+      ],
+      successMarker: path.join(sdkDir, "src/gen/.generation-complete"),
+      sourcePaths: generatedSdkSourcePaths(sourceInput),
+    })
   })
 
   test("generates when the SDK entry is missing", () => {
@@ -117,5 +148,32 @@ describe("desktop development SDK preparation", () => {
         sourcePaths: [sourceDirectory],
       }),
     ).toBe(true)
+  })
+
+  test("marks a successful on-demand SDK refresh and skips duplicate generation", async () => {
+    const root = createTestDirectory()
+    const source = path.join(root, "source.ts")
+    const generatedEntry = path.join(root, "sdk.gen.ts")
+    const successMarker = path.join(root, ".generation-complete")
+    const freshness = {
+      generatedOutputs: [generatedEntry],
+      successMarker,
+      sourcePaths: [source],
+    }
+    let generationCount = 0
+
+    writeFileSync(source, "export const source = true\n")
+    const generated = await ensureGeneratedSdk(freshness, async () => {
+      generationCount += 1
+      writeFileSync(generatedEntry, "export const sdk = true\n")
+    })
+    const generatedAgain = await ensureGeneratedSdk(freshness, async () => {
+      generationCount += 1
+    })
+
+    expect(generated).toBe(true)
+    expect(generatedAgain).toBe(false)
+    expect(generationCount).toBe(1)
+    expect(existsSync(successMarker)).toBe(true)
   })
 })

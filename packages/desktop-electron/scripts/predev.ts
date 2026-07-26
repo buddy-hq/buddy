@@ -1,9 +1,9 @@
 import { $ } from "bun"
 import { existsSync, readFileSync } from "node:fs"
-import { rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { BUDDY_CHANNEL_ENV, readBuddyReleaseChannel } from "@buddy/script/channel"
-import { generatedSdkNeedsRefresh, generatedSdkSourcePaths } from "./dev-sdk"
+import { ensureGeneratedSdk, generatedSdkFreshnessInput } from "./dev-sdk"
+import { backendDevelopmentWatchRoots } from "./electron-vite-build-policy"
 
 function resolveMainRepoAdvancedMathCacheDir(packageDir: string): string | undefined {
   const gitFile = path.resolve(packageDir, "../../.git")
@@ -37,19 +37,10 @@ const desktopChannel = readBuddyReleaseChannel()
 const packageDir = path.resolve(import.meta.dir, "..")
 const repositoryRoot = path.resolve(packageDir, "../..")
 const backendDir = path.resolve(packageDir, "../buddy")
-const adapterDir = path.resolve(packageDir, "../opencode-adapter")
 const sdkDir = path.resolve(packageDir, "../sdk")
-const generatedSdkDir = path.resolve(sdkDir, "src/gen")
-const generatedSdkOutputs = [
-  path.resolve(generatedSdkDir, "sdk.gen.ts"),
-  path.resolve(generatedSdkDir, "types.gen.ts"),
-  path.resolve(generatedSdkDir, "client/index.ts"),
-] as const
-const generatedSdkSuccessMarker = path.resolve(generatedSdkDir, ".generation-complete")
-const sdkSourcePaths = generatedSdkSourcePaths({
+const sdkFreshness = generatedSdkFreshnessInput({
+  backendSourcePaths: backendDevelopmentWatchRoots(repositoryRoot),
   repositoryRoot,
-  backendDir,
-  adapterDir,
   sdkDir,
 })
 
@@ -58,21 +49,11 @@ if (mainCacheDir) {
   process.env.BUDDY_ADVANCED_MATH_RUNTIME_CACHE_DIR = mainCacheDir
 }
 
-async function ensureGeneratedSdk(): Promise<void> {
-  if (
-    !generatedSdkNeedsRefresh({
-      generatedOutputs: generatedSdkOutputs,
-      successMarker: generatedSdkSuccessMarker,
-      sourcePaths: sdkSourcePaths,
-    })
-  ) {
-    console.log("Buddy SDK is current")
-    return
-  }
-
-  await rm(generatedSdkSuccessMarker, { force: true })
-  await $`bun run --cwd ${sdkDir} generate`
-  await writeFile(generatedSdkSuccessMarker, "")
+async function prepareGeneratedSdk(): Promise<void> {
+  const generated = await ensureGeneratedSdk(sdkFreshness, async () => {
+    await $`bun run --cwd ${sdkDir} generate`
+  })
+  if (!generated) console.log("Buddy SDK is current")
 }
 
 await Promise.all([
@@ -82,5 +63,5 @@ await Promise.all([
     ...process.env,
     [BUDDY_CHANNEL_ENV]: desktopChannel,
   }),
-  ensureGeneratedSdk(),
+  prepareGeneratedSdk(),
 ])
