@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   createWhiteboardRenderReport,
+  resolveWhiteboardRemoteSceneUpdate,
   resolveWhiteboardRemoteSceneViewport,
   resolveWhiteboardViewportFromAppState,
   toEditorElementConversion,
@@ -145,6 +146,59 @@ describe("whiteboard element conversion", () => {
         viewport,
       }),
     ).toBeUndefined()
+  })
+
+  test("repaints the final streamed scene without restoring its persisted viewport", () => {
+    const signature = "box:1:live"
+    const viewport = { x: 100, y: 50, width: 400, height: 300 }
+
+    expect(
+      resolveWhiteboardRemoteSceneUpdate({
+        currentElementSignature: signature,
+        nextElementSignature: signature,
+        wasReadOnly: true,
+        isReadOnly: false,
+      }),
+    ).toEqual({
+      shouldApply: true,
+      preserveCurrentElements: true,
+    })
+    expect(
+      resolveWhiteboardRemoteSceneViewport({
+        phase: "mounted-update",
+        viewport,
+      }),
+    ).toBeUndefined()
+  })
+
+  test("does not repaint an unchanged scene outside the streaming handoff", () => {
+    const signature = "box:1:live"
+
+    expect(
+      resolveWhiteboardRemoteSceneUpdate({
+        currentElementSignature: signature,
+        nextElementSignature: signature,
+        wasReadOnly: false,
+        isReadOnly: false,
+      }),
+    ).toEqual({
+      shouldApply: false,
+      preserveCurrentElements: false,
+    })
+  })
+
+  test("applies changed durable elements instead of preserving the streamed scene", () => {
+    expect(
+      resolveWhiteboardRemoteSceneUpdate({
+        currentElementSignature: "streamed:1:live",
+        nextElementSignature: "durable:1:live",
+        wasReadOnly: true,
+        isReadOnly: false,
+      }),
+    ).toEqual({
+      shouldApply: true,
+      preserveCurrentElements: false,
+    })
   })
 
   test("ignores the transient zero-sized viewport emitted while Bench closes", () => {

@@ -36,6 +36,12 @@ const WhiteboardCanvas = lazy(async () => {
   return { default: module.WhiteboardCanvas }
 })
 
+// Lazy so lottie-web stays out of the pane chunk; the animation only shows while busy.
+const WhiteboardOpeningAnimation = lazy(async () => {
+  const module = await import("./whiteboard-opening-animation")
+  return { default: module.WhiteboardOpeningAnimation }
+})
+
 type WhiteboardPaneProps = {
   directory: string
   sessionID?: string
@@ -510,9 +516,14 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
               onRenderReport={saveRenderReport}
             />
           </Suspense>
+        ) : isBusy ? (
+          // No copy: the diagram assembling itself already says a board is being drawn.
+          <Suspense fallback={null}>
+            <WhiteboardOpeningAnimation />
+          </Suspense>
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-text-weaker">
-            {isBusy ? "Opening whiteboard..." : "Ask Buddy to draw on the whiteboard."}
+            Ask Buddy to draw on the whiteboard.
           </div>
         )}
       </div>

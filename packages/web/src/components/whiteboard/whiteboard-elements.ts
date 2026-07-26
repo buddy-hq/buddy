@@ -392,9 +392,37 @@ function resolveWhiteboardRemoteSceneViewport(input: {
   return input.phase === "initial-mount" ? input.viewport : undefined
 }
 
+function resolveWhiteboardRemoteSceneUpdate(input: {
+  currentElementSignature: string
+  nextElementSignature: string
+  wasReadOnly: boolean
+  isReadOnly: boolean
+}): {
+  shouldApply: boolean
+  preserveCurrentElements: boolean
+} {
+  if (input.currentElementSignature !== input.nextElementSignature) {
+    return {
+      shouldApply: true,
+      preserveCurrentElements: false,
+    }
+  }
+  if (input.wasReadOnly && !input.isReadOnly) {
+    return {
+      shouldApply: true,
+      preserveCurrentElements: true,
+    }
+  }
+  return {
+    shouldApply: false,
+    preserveCurrentElements: false,
+  }
+}
+
 export {
   createWhiteboardRenderReport,
   elementVersionSignature,
+  resolveWhiteboardRemoteSceneUpdate,
   resolveWhiteboardViewportFromAppState,
   resolveWhiteboardRemoteSceneViewport,
   toEditorElementConversion,

@@ -25,12 +25,6 @@ const SUPPORTED_WHITEBOARD_DRAWN_TYPES = new Set([
   "rectangle",
   "text",
 ])
-const STREAMING_CONTROL_TYPES = new Set([
-  "restoreCheckpoint",
-  "replaceCurrentBoard",
-  "delete",
-  "translate",
-])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -113,41 +107,8 @@ function parsePartialElements(value: string | undefined): unknown[] {
   return readJsonArray(`${value.slice(0, lastCompleteObject + 1)}]`) ?? []
 }
 
-function excludeNewestPartialItem(elements: unknown[]): unknown[] {
-  return elements.length <= 1 ? [] : elements.slice(0, -1)
-}
-
-function includeCompleteStreamingControls(input: {
-  parsed: unknown[]
-  safe: unknown[]
-}): unknown[] {
-  const safeControlCount = new Map<string, number>()
-  for (const value of input.safe) {
-    if (!isRecord(value) || typeof value.type !== "string") continue
-    if (!STREAMING_CONTROL_TYPES.has(value.type)) continue
-    safeControlCount.set(value.type, (safeControlCount.get(value.type) ?? 0) + 1)
-  }
-
-  const output = [...input.safe]
-  for (const value of input.parsed) {
-    if (!isRecord(value) || typeof value.type !== "string") continue
-    if (!STREAMING_CONTROL_TYPES.has(value.type)) continue
-    const remaining = safeControlCount.get(value.type) ?? 0
-    if (remaining > 0) {
-      safeControlCount.set(value.type, remaining - 1)
-      continue
-    }
-    output.push(value)
-  }
-  return output
-}
-
 function readStreamingProgram(elements: string | undefined): unknown[] {
-  const parsed = parsePartialElements(elements)
-  return includeCompleteStreamingControls({
-    parsed,
-    safe: excludeNewestPartialItem(parsed),
-  })
+  return parsePartialElements(elements)
 }
 
 function readProgramFromElementsString(

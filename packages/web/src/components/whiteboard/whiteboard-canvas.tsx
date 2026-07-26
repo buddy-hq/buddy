@@ -20,6 +20,7 @@ import { useTheme } from "@/theme"
 import {
   createWhiteboardRenderReport,
   elementVersionSignature,
+  resolveWhiteboardRemoteSceneUpdate,
   resolveWhiteboardRemoteSceneViewport,
   resolveWhiteboardViewportFromAppState,
   toEditorElementConversion,
@@ -226,6 +227,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   const renderReportRef = useRef(props.onRenderReport)
   const viewportChangeRef = useRef(props.onViewportChange)
   const readOnlyRef = useRef(props.readOnly)
+  const previousReadOnlyRef = useRef(props.readOnly)
   const reportReadOnlyBoardRef = useRef(props.reportReadOnlyBoard ?? false)
   const fontsReadyRef = useRef(false)
   const boardIDRef = useRef(props.board.boardID)
@@ -504,11 +506,27 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
 
   useEffect(() => {
     baselineRef.current = elementVersionSignature(elements)
+    const wasReadOnly = previousReadOnlyRef.current
+    previousReadOnlyRef.current = props.readOnly
     const api = apiRef.current
     if (!api) return
     if (initialViewportScenePendingRef.current) return
-    if (elementVersionSignature(api.getSceneElements()) !== baselineRef.current) {
-      applySceneToApi(api, elements, "mounted-update")
+    const currentElements = api.getSceneElements()
+    const remoteSceneUpdate = resolveWhiteboardRemoteSceneUpdate({
+      currentElementSignature: elementVersionSignature(currentElements),
+      nextElementSignature: baselineRef.current,
+      wasReadOnly,
+      isReadOnly: props.readOnly,
+    })
+    if (remoteSceneUpdate.shouldApply) {
+      // Excalidraw can emit delayed onChange callbacks after updateScene. Keep autosave disarmed
+      // until settleScene captures the normalized scene as the new learner-edit baseline.
+      autosaveReadyRef.current = false
+      applySceneToApi(
+        api,
+        remoteSceneUpdate.preserveCurrentElements ? [...currentElements] : elements,
+        "mounted-update",
+      )
     }
     if (props.readOnly) {
       if (props.reportReadOnlyBoard) {

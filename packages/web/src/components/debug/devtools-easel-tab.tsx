@@ -46,12 +46,14 @@ import { OnboardingAtelier } from "./easel/onboarding-atelier"
 import { QuestionToolAnsweredEasel } from "./easel/question-tool-answered"
 import { QuestionDockRedesignsEasel } from "./easel/question-dock-redesigns"
 import { GradientAnimationLoaderEasel } from "./easel/gradient-animation-loader"
+import { WhiteboardOpeningLottieEasel } from "./easel/whiteboard-opening-lottie"
 import { CreationsPanelRedesignsEasel } from "./easel/creations-panel-redesigns"
 import { SkillsPanelRedesignsEasel } from "./easel/skills-panel-redesigns"
 import { InlineTodoRedesignsEasel } from "./easel/inline-todo-redesigns"
 import { ErrorSystemRedesignEasel } from "./easel/error-system-redesign"
 import { ErrorCardPreviewEasel } from "./easel/error-card-preview"
 import { TokenCounterMeterEasel } from "./easel/token-counter-meter"
+import { ObjectRowLanguageEasel } from "./easel/object-row-language"
 import { ThemeSelectors } from "./theme-selectors"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
@@ -66,6 +68,8 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "whiteboard-opening-lottie"
+  | "object-row-language"
   | "token-counter-meter"
   | "error-card-preview"
   | "error-system-redesign"
@@ -87,6 +91,17 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "whiteboard-opening-lottie",
+    label: "Whiteboard opening · diagram assembling",
+    subtitle: "Flow ships in the bench pane · Branch and Curve kept for comparison",
+  },
+  {
+    id: "object-row-language",
+    label: "Inline object language · one row",
+    subtitle:
+      "Kills the three card systems · kind supplies data, never layout · receipt vs default density",
+  },
   {
     id: "token-counter-meter",
     label: "Token counter · filled meters",
@@ -1054,7 +1069,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("token-counter-meter")
+  const [prototype, setPrototype] = useState<EaselPrototype>("object-row-language")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1219,7 +1234,8 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             prototype === "skills-panel-redesigns" ||
             prototype === "error-system-redesign" ||
             prototype === "error-card-preview" ||
-            prototype === "token-counter-meter"
+            prototype === "token-counter-meter" ||
+            prototype === "object-row-language"
             ? "items-stretch justify-stretch bg-background-base p-0"
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
@@ -1319,6 +1335,14 @@ export function DevToolsEaselTab(props: { directory?: string }) {
           </div>
         ) : null}
 
+        {prototype === "whiteboard-opening-lottie" ? (
+          <div className="relative flex h-full min-h-0 w-full max-w-6xl items-center justify-center">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden rounded-lg border border-border-base shadow-lg">
+              <WhiteboardOpeningLottieEasel />
+            </div>
+          </div>
+        ) : null}
+
         {prototype === "gradient-animation-loader" ? (
           <div className="relative flex h-full min-h-0 w-full max-w-6xl items-center justify-center">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden rounded-lg border border-border-base shadow-lg">
@@ -1395,6 +1419,14 @@ export function DevToolsEaselTab(props: { directory?: string }) {
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
               <TokenCounterMeterEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "object-row-language" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <ObjectRowLanguageEasel />
             </div>
           </div>
         ) : null}

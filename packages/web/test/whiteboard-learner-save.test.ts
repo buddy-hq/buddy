@@ -124,6 +124,12 @@ describe("whiteboard learner save scheduler", () => {
       elements: [{ type: "rectangle", id: "node-2", x: 0, y: 0, width: 120, height: 80 }],
       viewport,
     })
+    scheduler.schedule({
+      save,
+      baseBoardID,
+      elements: [...elements],
+      viewport: { ...viewport },
+    })
     const secondFlush = scheduler.flush()
     expect(calls).toEqual(["node"])
 
@@ -134,6 +140,65 @@ describe("whiteboard learner save scheduler", () => {
 
     expect(calls).toEqual(["node", "node-2"])
     expect(baseBoardIDs).toEqual([baseBoardID, baseBoardID])
+  })
+
+  test("does not queue the active payload again when Excalidraw repeats onChange", async () => {
+    const calls: string[] = []
+    let finishSave = noopFinishWhiteboardSave
+    const save: WhiteboardLearnerSaveHandler = async (input) => {
+      calls.push(input.elements[0]?.id ?? "missing")
+      return new Promise<WhiteboardLearnerSaveResult>((resolve) => {
+        finishSave = resolve
+      })
+    }
+    const scheduler = createWhiteboardLearnerSaveScheduler({ delayMs: 60_000 })
+
+    scheduler.schedule({
+      save,
+      baseBoardID,
+      elements,
+      viewport,
+    })
+    const activeSave = scheduler.flush()
+
+    scheduler.schedule({
+      save,
+      baseBoardID,
+      elements: [...elements],
+      viewport: { ...viewport },
+    })
+
+    finishSave({ status: "saved" })
+    expect(await activeSave).toEqual({ status: "saved" })
+    expect(await scheduler.flush()).toEqual({ status: "clean" })
+    expect(calls).toEqual(["node"])
+  })
+
+  test("does not save a completed payload again after a delayed duplicate onChange", async () => {
+    const calls: string[] = []
+    const save: WhiteboardLearnerSaveHandler = async (input) => {
+      calls.push(input.elements[0]?.id ?? "missing")
+      return { status: "saved" }
+    }
+    const scheduler = createWhiteboardLearnerSaveScheduler({ delayMs: 60_000 })
+
+    scheduler.schedule({
+      save,
+      baseBoardID,
+      elements,
+      viewport,
+    })
+    expect(await scheduler.flush()).toEqual({ status: "saved" })
+
+    scheduler.schedule({
+      save,
+      baseBoardID,
+      elements: [...elements],
+      viewport: { ...viewport },
+    })
+
+    expect(await scheduler.flush()).toEqual({ status: "clean" })
+    expect(calls).toEqual(["node"])
   })
 
   test("keeps the latest queued edit when an in-flight save fails", async () => {

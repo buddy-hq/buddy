@@ -61,13 +61,29 @@ describe("whiteboard progressive drawing", () => {
     ).toEqual([{ type: "cameraUpdate" }, { type: "rectangle", id: "node" }])
   })
 
+  test("renders the first complete streamed element without waiting for another delta", () => {
+    const raw = JSON.stringify({
+      boardAction: "destructively_replace_current_board",
+      elements: JSON.stringify([
+        { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
+      ]),
+    })
+
+    expect(
+      buildProgressiveWhiteboardElements({
+        raw,
+        baseElements: [],
+      }),
+    ).toEqual([{ type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 }])
+  })
+
   test("continues the current board when boardAction requests continuation", () => {
     const raw = JSON.stringify({
       boardAction: "continue_current_board",
       elements: JSON.stringify([
         { type: "delete", ids: "old-arrow" },
         { type: "rectangle", id: "new-node", x: 0, y: 0, width: 120, height: 60 },
-        { type: "text", id: "still-buffered", x: 0, y: 80, text: "wait" },
+        { type: "text", id: "final-label", x: 0, y: 80, text: "ready" },
       ]),
     })
     expect(
@@ -81,6 +97,7 @@ describe("whiteboard progressive drawing", () => {
     ).toEqual([
       { type: "rectangle", id: "existing", x: 0, y: 0, width: 120, height: 60 },
       { type: "rectangle", id: "new-node", x: 0, y: 0, width: 120, height: 60 },
+      { type: "text", id: "final-label", x: 0, y: 80, text: "ready" },
     ])
   })
 
@@ -104,7 +121,7 @@ describe("whiteboard progressive drawing", () => {
     const raw = JSON.stringify({
       elements: JSON.stringify([
         { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
-        { type: "text", id: "still-buffered", x: 0, y: 80, text: "wait" },
+        { type: "text", id: "final-label", x: 0, y: 80, text: "ready" },
       ]),
     })
 
@@ -116,6 +133,7 @@ describe("whiteboard progressive drawing", () => {
     ).toEqual([
       { type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 },
       { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
+      { type: "text", id: "final-label", x: 0, y: 80, text: "ready" },
     ])
   })
 
@@ -124,7 +142,7 @@ describe("whiteboard progressive drawing", () => {
       boardAction: "destructively_replace_current_board",
       elements: JSON.stringify([
         { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
-        { type: "text", id: "still-buffered", x: 0, y: 80, text: "wait" },
+        { type: "text", id: "final-label", x: 0, y: 80, text: "ready" },
       ]),
     })
 
@@ -133,7 +151,10 @@ describe("whiteboard progressive drawing", () => {
         raw,
         baseElements: [{ type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 }],
       }),
-    ).toEqual([{ type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 }])
+    ).toEqual([
+      { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
+      { type: "text", id: "final-label", x: 0, y: 80, text: "ready" },
+    ])
   })
 
   test("replaces the current board for historical replace_current_board transcripts", () => {
@@ -141,7 +162,7 @@ describe("whiteboard progressive drawing", () => {
       boardAction: "replace_current_board",
       elements: JSON.stringify([
         { type: "rectangle", id: "historical-node", x: 0, y: 0, width: 120, height: 60 },
-        { type: "text", id: "still-buffered", x: 0, y: 80, text: "wait" },
+        { type: "text", id: "final-label", x: 0, y: 80, text: "ready" },
       ]),
     })
 
@@ -150,7 +171,10 @@ describe("whiteboard progressive drawing", () => {
         raw,
         baseElements: [{ type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 }],
       }),
-    ).toEqual([{ type: "rectangle", id: "historical-node", x: 0, y: 0, width: 120, height: 60 }])
+    ).toEqual([
+      { type: "rectangle", id: "historical-node", x: 0, y: 0, width: 120, height: 60 },
+      { type: "text", id: "final-label", x: 0, y: 80, text: "ready" },
+    ])
   })
 
   test("keeps the current board for conflicting boardAction and legacy controls", () => {
@@ -171,13 +195,8 @@ describe("whiteboard progressive drawing", () => {
   })
 
   test("does not replace a visible board with an empty partial explicit replacement preview", () => {
-    const raw = JSON.stringify({
-      boardAction: "destructively_replace_current_board",
-      elements: JSON.stringify([
-        { type: "cameraUpdate", x: 0, y: 0, width: 800, height: 600 },
-        { type: "rectangle", id: "still-buffered", x: 0, y: 0, width: 120, height: 60 },
-      ]),
-    })
+    const raw =
+      '{"boardAction":"destructively_replace_current_board","elements":"[{\\"type\\":\\"cameraUpdate\\",\\"x\\":0,\\"y\\":0,\\"width\\":800,\\"height\\":600},{\\"type\\":\\"rectangle\\",\\"id\\":\\"incomplete\\"'
 
     expect(
       buildProgressiveWhiteboardPreview({
@@ -193,7 +212,7 @@ describe("whiteboard progressive drawing", () => {
       elements: JSON.stringify([
         { type: "cameraUpdate", x: 10, y: 20, width: 800, height: 600 },
         { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
-        { type: "text", id: "still-buffered", x: 0, y: 80, text: "wait" },
+        { type: "text", id: "final-label", x: 0, y: 80, text: "ready" },
       ]),
     })
 
@@ -203,10 +222,13 @@ describe("whiteboard progressive drawing", () => {
         baseElements: [],
       }),
     ).toEqual({
-      elements: [{ type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 }],
+      elements: [
+        { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
+        { type: "text", id: "final-label", x: 0, y: 80, text: "ready" },
+      ],
       viewport: { x: 10, y: 20, width: 800, height: 600 },
       signature:
-        '10:20:800:600|{"type":"rectangle","id":"first-node","x":0,"y":0,"width":120,"height":60}',
+        '10:20:800:600|{"type":"rectangle","id":"first-node","x":0,"y":0,"width":120,"height":60}|{"type":"text","id":"final-label","x":0,"y":80,"text":"ready"}',
     })
   })
 
@@ -296,7 +318,7 @@ describe("whiteboard progressive drawing", () => {
       boardAction: "continue_current_board",
       elements: JSON.stringify([
         { type: "rectangle", id: "second", x: 160, y: 0, width: 120, height: 60 },
-        { type: "text", id: "still-buffered", x: 0, y: 90, text: "wait" },
+        { type: "text", id: "final-label", x: 0, y: 90, text: "ready" },
       ]),
     })
 
@@ -336,7 +358,7 @@ describe("whiteboard progressive drawing", () => {
         baseBoardID: "01H00000000000000000000000",
         baseElements: [{ type: "rectangle", id: "previous", x: 0, y: 0, width: 120, height: 60 }],
       })?.elements.map((element) => element.id),
-    ).toEqual(["previous", "first", "second"])
+    ).toEqual(["previous", "first", "second", "final-label"])
   })
 
   test("does not replay stale completed tools over the fetched current board", () => {
@@ -347,7 +369,7 @@ describe("whiteboard progressive drawing", () => {
       boardAction: "continue_current_board",
       elements: JSON.stringify([
         { type: "rectangle", id: "new", x: 160, y: 0, width: 120, height: 60 },
-        { type: "text", id: "still-buffered", x: 0, y: 90, text: "wait" },
+        { type: "text", id: "final-label", x: 0, y: 90, text: "ready" },
       ]),
     })
 
@@ -389,7 +411,7 @@ describe("whiteboard progressive drawing", () => {
           { type: "rectangle", id: "learner-edit", x: 0, y: 0, width: 120, height: 60 },
         ],
       })?.elements.map((element) => element.id),
-    ).toEqual(["learner-edit", "new"])
+    ).toEqual(["learner-edit", "new", "final-label"])
   })
 
   test("tracks completed whiteboard writes that are not fetched yet", () => {
