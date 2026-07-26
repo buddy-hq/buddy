@@ -49,6 +49,7 @@ export function inlinePresentation(input: {
   detail?: string
   icon?: ToolActionIcon
   collection?: ToolCollectionToken
+  activeDisplay?: "activity"
   outcome?: ToolPresentationOutcome
 }): Extract<ToolPresentationSnapshot, { archetype: "inline-output" }> {
   return {
@@ -60,6 +61,7 @@ export function inlinePresentation(input: {
     icon: input.icon ?? "tool",
     renderer: input.renderer,
     layoutRole: input.layoutRole,
+    ...(input.activeDisplay ? { activeDisplay: input.activeDisplay } : {}),
     ...(input.collection ? { collection: input.collection } : {}),
     outcome: input.outcome ?? outcomeForPhase(input.phase),
   }

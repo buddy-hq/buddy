@@ -1,20 +1,36 @@
 import { useCallback, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { toast } from "@buddy/ui"
 import { TextShimmer } from "../text-shimmer"
 import { ResourceCover, ResourceCoverButton } from "@/components/resources/resource-cover"
 import { language } from "@/context/language"
 import {
-  RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
   findProcessedResourceByKey,
-  resourceFileExtensionFromFormat,
   resolveResourceReadingTarget,
   resourcesQueryOptions,
 } from "@/state/resources-query"
+import type { ResourceRecord } from "@/state/resource-actions"
 import {
   estimateApproxWordCountFromTokens,
   readIngestFullTextMetadata,
 } from "../full-text-metadata"
 import { ACTIVITY_ROW_ERROR_CLASS_NAME } from "../activity-row/styles"
+import { stringifyError } from "@/lib/api-client"
+import {
+  WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
+  WORKSPACE_FILE_OPEN_TARGET_READING,
+} from "@/lib/workspace-file-open"
+import {
+  absoluteWorkspaceFilePath,
+  fileExtensionFromPath,
+  fileNameFromPath,
+  normalizeRelativePath,
+} from "@/lib/workspace-file-paths"
+import {
+  useWorkspaceFileOpen,
+  type WorkspaceFileActionInput,
+} from "@/lib/use-workspace-file-open"
+import { usePlatform } from "@/context/platform"
 import { isPermissionDenied } from "../tool-permission"
 import { parseToolState } from "../parse-tool-state"
 import { getToolInfoForPart } from "../tool-info"
@@ -23,6 +39,39 @@ import type { MessagePart } from "@/state/chat-types"
 import { isChatToolPart } from "../../utils/part-guards"
 
 const FULL_TEXT_COVER_CLASS = "w-[9.5rem] max-w-full"
+const FULL_TEXT_FALLBACK_EXTENSION = "file"
+const FULL_TEXT_FALLBACK_FILE_NAME = `resource.${FULL_TEXT_FALLBACK_EXTENSION}`
+
+type FullTextCardResource = Pick<
+  ResourceRecord,
+  "alias" | "format" | "sourceOriginRelpath" | "sourceRelpath"
+>
+
+export function resolveFullTextResourceFilePresentation(input: {
+  resourceKey?: string
+  record?: FullTextCardResource
+}) {
+  const sourcePath = normalizeRelativePath(
+    input.record?.sourceOriginRelpath ?? input.record?.sourceRelpath ?? "",
+  )
+  const alias = input.record?.alias || input.resourceKey || ""
+  const aliasExtension = fileExtensionFromPath(alias)
+  const sourceExtension = fileExtensionFromPath(sourcePath)
+  const format = input.record?.format.trim().toLowerCase() ?? ""
+  const extension =
+    aliasExtension || sourceExtension || format || FULL_TEXT_FALLBACK_EXTENSION
+  const fileName =
+    (aliasExtension ? alias : fileNameFromPath(sourcePath) || alias) ||
+    (extension === FULL_TEXT_FALLBACK_EXTENSION
+      ? FULL_TEXT_FALLBACK_FILE_NAME
+      : `resource.${extension}`)
+
+  return {
+    extension,
+    fileName,
+    sourcePath: sourcePath || undefined,
+  }
+}
 
 type IngestFullTextToolProps = ToolPartProps & {
   grouped?: boolean
@@ -37,6 +86,8 @@ function IngestFullTextTool({
 }: IngestFullTextToolProps) {
   const metadata = readIngestFullTextMetadata(state)
   const { resource, fullTextEstimatedTokens, fullTextPath, truncated } = metadata
+  const platform = usePlatform()
+  const { resolvePlan, executePrimary } = useWorkspaceFileOpen(directory, onOpenResource)
   const denied = isPermissionDenied(state)
   const running = state.status === "pending" || state.status === "running"
   const completed = state.status === "completed"
@@ -59,19 +110,70 @@ function IngestFullTextTool({
   }, [matchedResource, resourcesQuery.data])
 
   const displayTitle = matchedResource?.title || matchedResource?.alias || resource
-  const extension = resourceFileExtensionFromFormat(matchedResource?.format ?? "") ?? "epub"
+  const filePresentation = resolveFullTextResourceFilePresentation({
+    resourceKey: resource,
+    record: matchedResource,
+  })
   const approxWordCount =
     fullTextEstimatedTokens !== undefined
       ? estimateApproxWordCountFromTokens(fullTextEstimatedTokens)
       : undefined
-  const canOpenReading = !!directory && !!onOpenResource && !!readingTarget && completed
+  const resourcePath = readingTarget?.path ?? filePresentation.sourcePath
+  const resourceName = readingTarget?.name ?? filePresentation.fileName
+  const resourceObjectID = readingTarget?.objectID ?? matchedResource?.objectID
+  const resourceStatus = readingTarget?.status ?? matchedResource?.status
+  const sourceSizeBytes = matchedResource?.sourceSizeBytes
+  const canOpenDefaultApp = platform.openPath !== undefined
+  const openInput = useMemo<WorkspaceFileActionInput | undefined>(() => {
+    if (!directory || !resourcePath || !matchedResource) return undefined
+    return {
+      path: resourcePath,
+      absolutePath: absoluteWorkspaceFilePath({
+        directory,
+        path: resourcePath,
+      }),
+      name: resourceName,
+      ...(resourceObjectID ? { objectID: resourceObjectID } : {}),
+      ...(resourceStatus ? { resourceStatus } : {}),
+      ...(sourceSizeBytes !== undefined ? { sizeBytes: sourceSizeBytes } : {}),
+      available: completed && matchedResource.status === "ready",
+      canOpenInBuddy: true,
+      canOpenDefaultApp,
+      canReveal: false,
+    }
+  }, [
+    canOpenDefaultApp,
+    completed,
+    directory,
+    matchedResource,
+    resourceName,
+    resourceObjectID,
+    resourcePath,
+    resourceStatus,
+    sourceSizeBytes,
+  ])
+  const primaryOpenTarget = openInput ? resolvePlan(openInput).primaryTarget : undefined
+  const canOpenResource = primaryOpenTarget !== undefined
 
-  const openReading = useCallback(() => {
-    if (!directory || !onOpenResource || !readingTarget) return
-    onOpenResource(directory, readingTarget, {
-      sessionPreference: RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
+  const openResource = useCallback(() => {
+    if (!openInput) return
+    void executePrimary(openInput).catch((error: unknown) => {
+      toast.error(stringifyError(error))
     })
-  }, [directory, onOpenResource, readingTarget])
+  }, [executePrimary, openInput])
+
+  const openResourceLabel =
+    primaryOpenTarget === WORKSPACE_FILE_OPEN_TARGET_READING
+      ? language.t("chatTools.openFullTextResource", {
+          name: displayTitle ?? resource ?? language.t("chatTools.readFullText"),
+        })
+      : primaryOpenTarget === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP
+        ? language.t("chatTools.openFullTextResourceInDefaultApp", {
+            name: displayTitle ?? resource ?? language.t("chatTools.readFullText"),
+          })
+        : language.t("chatTools.openFullTextResourceInBench", {
+            name: displayTitle ?? resource ?? language.t("chatTools.readFullText"),
+          })
 
   if (denied) {
     return <p className="text-sm text-text-weaker">{language.t("chatTools.readFullTextDenied")}</p>
@@ -103,17 +205,16 @@ function IngestFullTextTool({
             : language.t("chatTools.readFullText")}
         </p>
       ) : null}
-      {directory && canOpenReading ? (
+      {directory && canOpenResource ? (
         <ResourceCoverButton
           className={FULL_TEXT_COVER_CLASS}
           directory={directory}
           coverRelpath={matchedResource?.coverRelpath}
           title={displayTitle ?? resource ?? language.t("chatTools.readFullText")}
-          extension={extension}
-          ariaLabel={language.t("chatTools.openFullTextResource", {
-            name: displayTitle ?? resource ?? language.t("chatTools.readFullText"),
-          })}
-          onClick={openReading}
+          extension={filePresentation.extension}
+          fileName={filePresentation.fileName}
+          ariaLabel={openResourceLabel}
+          onClick={openResource}
         />
       ) : directory ? (
         <ResourceCover
@@ -121,7 +222,8 @@ function IngestFullTextTool({
           directory={directory}
           coverRelpath={matchedResource?.coverRelpath}
           title={displayTitle ?? resource ?? language.t("chatTools.readFullText")}
-          extension={extension}
+          extension={filePresentation.extension}
+          fileName={filePresentation.fileName}
         />
       ) : null}
       {showTruncationNote ? (

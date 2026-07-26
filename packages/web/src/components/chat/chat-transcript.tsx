@@ -63,6 +63,8 @@ import { transcriptGapClass } from "./transcript-layout"
 import { parseToolState } from "./tools/parse-tool-state"
 import { parseToolPresentation } from "./tools/parse-tool-presentation"
 import { GroupedIngestFullTextToolCard } from "./tools/render/ingest-full-text"
+import { GroupedBenchPresentToolCard } from "./tools/render/bench-present"
+import { OBJECT_ROW_HEIGHT_PX, OBJECT_VARIANT_MD } from "@/components/objects/types"
 import { parseRenderFigureOutput, GroupedFigureToolCard } from "./tools/render/render-figure"
 import { GroupedImagegenToolCard } from "./tools/render/present-media"
 import {
@@ -140,6 +142,8 @@ function groupedCollectionEstimate(collection: ToolCollectionToken): number {
       return ASSISTANT_GROUPED_VISUAL_ROW_ESTIMATE_PX
     case "full-text-collection":
       return 260
+    case "bench-present-collection":
+      return OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_MD]
   }
 }
 
@@ -171,6 +175,8 @@ function groupedCollectionContent(input: {
           onOpenResource={input.onOpenResource}
         />
       )
+    case "bench-present-collection":
+      return <GroupedBenchPresentToolCard parts={input.parts} directory={input.directory} />
   }
 }
 
@@ -232,6 +238,8 @@ function estimateAssistantToolRowSize(item: Extract<TimelineAssistantItem, { typ
       return item.imageAttachmentCount > 0
         ? ASSISTANT_PYTHON_PLOT_ROW_ESTIMATE_PX
         : ASSISTANT_PYTHON_TEXT_ROW_ESTIMATE_PX
+    case "bench-present":
+      return OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_MD]
     default:
       return VIRTUAL_CHAT_TURN_ESTIMATE_PX
   }

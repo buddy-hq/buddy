@@ -1,6 +1,9 @@
 import fs from "node:fs/promises"
 import path from "node:path"
-import type { ToolPresentationResolutionContext } from "@buddy/opencode-adapter/tool-presentation"
+import type {
+  ToolPresentationResolutionContext,
+  ToolSilentOutcome,
+} from "@buddy/opencode-adapter/tool-presentation"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import z from "zod"
 import {
@@ -31,7 +34,11 @@ import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-
 import { authorizeFileReadPath } from "../../../runtime/external-file-authorization"
 import {
   BenchTargetSchema,
+  benchTargetKey,
+  readCurrentBenchContext,
+  subscribeBenchContext,
   type BenchContextTarget,
+  type BenchReadContextOutput,
   type BenchTarget,
   type ObjectBenchTarget,
   type WorkspaceFileBenchTarget,
@@ -82,6 +89,9 @@ const BenchPresentReasonSchema = z.enum([
   "client_timeout",
   "client_navigation_error",
   "action_superseded",
+  "surface_error",
+  "surface_unavailable",
+  "surface_timeout",
 ])
 
 const BenchPresentInputSchema = z
@@ -141,6 +151,8 @@ type BenchPresentOutput = {
 }
 
 const HTML_FILE_EXTENSIONS = new Set([".html", ".htm"])
+const BENCH_PRESENTATION_SETTLE_TIMEOUT_MS = 15_000
+const EMPTY_BENCH_CONTEXT_UNSUBSCRIBE: () => void = () => undefined
 
 const DEFAULT_BENCH_VIEW_BY_KIND = {
   [BUDDY_OBJECT_KINDS.resource]: "reader",
@@ -847,6 +859,88 @@ function observedBenchStateMessage(completion?: TerminalBenchCompletion): string
   return `Observed Bench state: ${visibility}, ${formatBenchTargetForMessage(observedRoute.target)} in ${observedRoute.mode} mode${drawer}.`
 }
 
+function benchContextMatchesTarget(
+  context: BenchReadContextOutput,
+  target: BenchTarget,
+): context is Extract<BenchReadContextOutput, { status: "open" }> {
+  return context.status === "open" && context.targetKey === benchTargetKey(target)
+}
+
+function benchContextSettled(context: BenchReadContextOutput, target: BenchTarget): boolean {
+  return !benchContextMatchesTarget(context, target) || context.target.status !== "loading"
+}
+
+async function waitForBenchPresentationContext(input: {
+  directory: string
+  sessionID: string
+  target: BenchTarget
+  initialContext: BenchReadContextOutput
+  abort: AbortSignal
+  timeoutMs: number
+}): Promise<BenchReadContextOutput> {
+  input.abort.throwIfAborted()
+  if (
+    input.timeoutMs <= 0 ||
+    benchContextSettled(input.initialContext, input.target)
+  ) {
+    return input.initialContext
+  }
+
+  return new Promise<BenchReadContextOutput>((resolve, reject) => {
+    let latestContext = input.initialContext
+    let finished = false
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    let unsubscribe = EMPTY_BENCH_CONTEXT_UNSUBSCRIBE
+
+    const cleanup = () => {
+      unsubscribe()
+      input.abort.removeEventListener("abort", handleAbort)
+      if (timeout !== undefined) {
+        clearTimeout(timeout)
+      }
+    }
+    const finish = (context: BenchReadContextOutput) => {
+      if (finished) return
+      finished = true
+      cleanup()
+      resolve(context)
+    }
+    const inspect = (context: BenchReadContextOutput) => {
+      latestContext = context
+      if (benchContextSettled(context, input.target)) {
+        finish(context)
+      }
+    }
+    const handleAbort = () => {
+      if (finished) return
+      finished = true
+      cleanup()
+      reject(input.abort.reason ?? new Error("Bench presentation was aborted."))
+    }
+
+    unsubscribe = subscribeBenchContext(
+      {
+        directory: input.directory,
+        sessionID: input.sessionID,
+      },
+      (snapshot) => inspect(snapshot.value),
+    )
+    input.abort.addEventListener("abort", handleAbort, { once: true })
+    timeout = setTimeout(() => finish(latestContext), input.timeoutMs)
+
+    try {
+      inspect(
+        readCurrentBenchContext({
+          directory: input.directory,
+          sessionID: input.sessionID,
+        }),
+      )
+    } catch {
+      // The completion context remains authoritative until the next publication arrives.
+    }
+  })
+}
+
 function supersededActionResult(completion?: TerminalBenchCompletion): BenchPresentOutput {
   const message = [
     "Bench command was replaced before completion by another Bench navigation.",
@@ -863,6 +957,38 @@ function supersededActionResult(completion?: TerminalBenchCompletion): BenchPres
     benchTarget: null,
     mode: null,
     message,
+    objectResult: null,
+  }
+}
+
+function failedSurfaceResult(input: {
+  requested: BenchPresentOutput
+  context: Extract<BenchReadContextOutput, { status: "open" }>
+}): BenchPresentOutput | undefined {
+  const status = input.context.target.status
+  if (status === "ready" || status === "dirty") return undefined
+
+  const details = input.context.content.trim()
+  const detailSuffix = details ? ` ${details}` : ""
+  if (status === "loading") {
+    return {
+      status: "error",
+      reason: "surface_timeout",
+      target: input.context.target,
+      benchTarget: input.requested.benchTarget,
+      mode: input.requested.mode,
+      message: `Bench opened the requested target, but its surface did not finish loading in time.${detailSuffix}`,
+      objectResult: null,
+    }
+  }
+
+  return {
+    status: "error",
+    reason: status === "unavailable" ? "surface_unavailable" : "surface_error",
+    target: input.context.target,
+    benchTarget: input.requested.benchTarget,
+    mode: input.requested.mode,
+    message: `Bench opened the requested target, but its surface reported ${status}.${detailSuffix}`,
     objectResult: null,
   }
 }
@@ -923,6 +1049,16 @@ function committedBenchActionResult(input: {
       objectResult: null,
     }
   }
+
+  if (!benchContextMatchesTarget(input.completion.context, input.command.target)) {
+    return supersededActionResult()
+  }
+
+  const surfaceFailure = failedSurfaceResult({
+    requested: input.requested,
+    context: input.completion.context,
+  })
+  if (surfaceFailure) return surfaceFailure
 
   if (!input.completion.changed) {
     return {
@@ -991,6 +1127,7 @@ async function dispatchRequiredBenchAction(input: {
   abort: AbortSignal
   command: BenchClientActionCommand
   requested: BenchPresentOutput
+  presentationSettleTimeoutMs: number
 }): Promise<BenchPresentOutput> {
   input.abort.throwIfAborted()
   const enqueued = benchClientActionBroker.enqueueRequiredAction({
@@ -1008,8 +1145,29 @@ async function dispatchRequiredBenchAction(input: {
   }
   input.abort.addEventListener("abort", cancelAction, { once: true })
   try {
-    const terminal = await enqueued.completion
+    let terminal = await enqueued.completion
     input.abort.throwIfAborted()
+    if (
+      terminal.status === "completed" &&
+      terminal.completion.outcome === "committed" &&
+      input.command.type === "present"
+    ) {
+      const context = await waitForBenchPresentationContext({
+        directory: input.directory,
+        sessionID: input.sessionID,
+        target: input.command.target,
+        initialContext: terminal.completion.context,
+        abort: input.abort,
+        timeoutMs: input.presentationSettleTimeoutMs,
+      })
+      terminal = {
+        ...terminal,
+        completion: {
+          ...terminal.completion,
+          context,
+        },
+      }
+    }
     return brokerTerminalResult({
       command: input.command,
       requested: input.requested,
@@ -1031,6 +1189,7 @@ async function presentOnBench(input: {
   resourceKey: string | null
   objectID: string | null
   ask: BuddyToolContext["ask"]
+  presentationSettleTimeoutMs?: number
 }): Promise<BenchPresentOutput> {
   if (input.action === "close") {
     const requested = {
@@ -1050,6 +1209,8 @@ async function presentOnBench(input: {
       abort: input.abort,
       command: { type: "close" },
       requested,
+      presentationSettleTimeoutMs:
+        input.presentationSettleTimeoutMs ?? BENCH_PRESENTATION_SETTLE_TIMEOUT_MS,
     })
   }
 
@@ -1100,6 +1261,8 @@ async function presentOnBench(input: {
       target: requested.benchTarget,
     },
     requested,
+    presentationSettleTimeoutMs:
+      input.presentationSettleTimeoutMs ?? BENCH_PRESENTATION_SETTLE_TIMEOUT_MS,
   })
 }
 
@@ -1155,6 +1318,19 @@ function resolveBenchPresentationDetail(context: ToolPresentationResolutionConte
   return target ? `${target} on Bench` : "on Bench"
 }
 
+/**
+ * Only a presentation that actually changed what Bench shows earns a receipt.
+ * Closing leaves nothing to point at, and re-presenting the current target
+ * would duplicate the receipt that call already left in the transcript.
+ */
+function resolveBenchPresentSilentOutcome(
+  context: ToolPresentationResolutionContext,
+): ToolSilentOutcome | undefined {
+  if (context.phase !== "completed") return undefined
+  const status = context.metadata.benchStatus
+  return status === "closed" || status === "already_presenting" ? "no-op" : undefined
+}
+
 const benchPresentTool = createBuddyTool({
   id: "bench_present",
   description: [
@@ -1169,24 +1345,26 @@ const benchPresentTool = createBuddyTool({
   parameters: BenchPresentInputSchema,
   normalizeInput: normalizeBenchPresentInput,
   formatValidationError: formatBenchPresentValidationError,
+  /**
+   * A successful presentation leaves a receipt inline rather than a line in the
+   * activity strip: the strip could only restate what happened, while the
+   * receipt names the target and reopens it. A failure keeps the strip, because
+   * `inline-output` parts fall back there whenever the phase is `error`.
+   */
   presentation: {
-    archetype: "activity",
+    archetype: "inline-output",
     icon: "presentation",
-    renderer: "buddy-custom",
-    layoutRole: "activity",
+    renderer: "bench-present",
+    layoutRole: "compact-output",
+    activeDisplay: "activity",
+    collection: "bench-present-collection",
     phases: {
       pending: { action: "Preparing to present" },
       running: { action: "Presenting", detail: resolveBenchPresentationDetail },
       completed: { action: "Presented", detail: resolveBenchPresentationDetail },
       error: { action: "Failed to present", detail: resolveBenchPresentationDetail },
     },
-    summary: {
-      category: "present-on-bench",
-      pending: "Preparing to present on Bench",
-      running: "Presenting on Bench",
-      completed: "Presented on Bench",
-      error: "Failed to present on Bench",
-    },
+    resolveSilentOutcome: resolveBenchPresentSilentOutcome,
   },
   async execute(params, ctx) {
     const result = await presentOnBench({
@@ -1205,15 +1383,24 @@ const benchPresentTool = createBuddyTool({
       action: params.action,
       result,
     })
+    const output = result.objectResult
+      ? [
+          result.objectResult.message,
+          ...formatBuddyObjectRefLines(result.objectResult.primaryRef),
+        ].join("\n")
+      : result.message
+
+    if (result.status === "blocked" || result.status === "error") {
+      await ctx.metadata({
+        title: "Bench Presentation",
+        metadata,
+      })
+      throw new Error(output)
+    }
 
     return {
       title: "Bench Presentation",
-      output: result.objectResult
-        ? [
-            result.objectResult.message,
-            ...formatBuddyObjectRefLines(result.objectResult.primaryRef),
-          ].join("\n")
-        : result.message,
+      output,
       metadata,
     }
   },

@@ -51,6 +51,7 @@ export const TOOL_RENDERER_TOKENS = [
   "question",
   "knowledge-graph",
   "full-text",
+  "bench-present",
   "buddy-custom",
   "todo",
 ] as const
@@ -66,9 +67,15 @@ export const TOOL_COLLECTION_TOKENS = [
   "figure-gallery",
   "mermaid-gallery",
   "full-text-collection",
+  "bench-present-collection",
 ] as const
 export const TOOL_NEUTRAL_OUTCOMES = ["permission-denied", "cancelled", "interrupted"] as const
-export const TOOL_SILENT_OUTCOMES = ["explicit", "scoped-reading-fallback"] as const
+export const TOOL_SILENT_OUTCOMES = [
+  "explicit",
+  "scoped-reading-fallback",
+  /** The call changed nothing worth pointing at, such as closing or re-presenting Bench. */
+  "no-op",
+] as const
 
 export type ToolPresentationPhase = (typeof TOOL_PRESENTATION_PHASES)[number]
 export type ToolPresentationArchetype = (typeof TOOL_PRESENTATION_ARCHETYPES)[number]
@@ -128,6 +135,11 @@ export type ActivityToolPresentationDescriptor = VisibleToolPresentationDescript
 export type InlineOutputToolPresentationDescriptor = VisibleToolPresentationDescriptor & {
   archetype: "inline-output"
   layoutRole: "compact-output" | "card-output" | "media-output"
+  /**
+   * Keep active work in the transcript activity strip, then switch to the
+   * inline renderer only after the tool completes successfully.
+   */
+  activeDisplay?: "activity"
   collection?: ToolCollectionToken
   resolveSilentOutcome?: (
     context: ToolPresentationResolutionContext,
@@ -247,6 +259,7 @@ const InlineOutputToolPresentationSnapshotSchema = Schema.Struct({
   ...visibleSnapshotFields,
   archetype: Schema.Literal("inline-output"),
   layoutRole: Schema.Literals(["compact-output", "card-output", "media-output"]),
+  activeDisplay: Schema.optional(Schema.Literal("activity")),
   collection: Schema.optional(ToolCollectionTokenSchema),
 })
 
@@ -437,6 +450,7 @@ export function resolveToolPresentationSnapshot(
         ...common,
         archetype: "inline-output",
         layoutRole: descriptor.layoutRole,
+        ...(descriptor.activeDisplay ? { activeDisplay: descriptor.activeDisplay } : {}),
         ...(descriptor.collection ? { collection: descriptor.collection } : {}),
       }
     case "interaction":

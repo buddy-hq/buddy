@@ -2,9 +2,12 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { setTimeout as sleep } from "node:timers/promises"
 import { afterEach, describe, expect, test } from "bun:test"
+import { resolveToolPresentationSnapshot } from "@buddy/opencode-adapter/tool-presentation"
 import {
   benchTargetKey,
   clearBenchContextRegistry,
+  publishSequencedBenchContext,
+  type BenchContextTarget,
   type BenchTarget,
 } from "../../src/learning/features/bench/context"
 import "../../src/learning/features"
@@ -87,7 +90,12 @@ function leaseIdentity(lease: BenchClientLease) {
   }
 }
 
-function openContextForAction(input: { directory: string; action: BenchClientAction }) {
+function openContextForAction(input: {
+  directory: string
+  action: BenchClientAction
+  status?: BenchContextTarget["status"]
+  content?: string
+}) {
   if (input.action.command.type !== "present") {
     return { status: "closed" as const }
   }
@@ -103,11 +111,11 @@ function openContextForAction(input: { directory: string; action: BenchClientAct
         path: target.path,
         absolutePath: path.join(input.directory, target.path),
         route: `/_bench/${target.viewer === "markdown" ? "markdown" : "file"}?path=${encodeURIComponent(target.path)}`,
-        status: "ready" as const,
+        status: input.status ?? "ready",
       },
       drawer: null,
       metadata: ["dirty: false", "save_state: ready"],
-      content: "Current Bench snapshot.",
+      content: input.content ?? "Current Bench snapshot.",
       refs: [
         {
           kind: "file" as const,
@@ -128,11 +136,11 @@ function openContextForAction(input: { directory: string; action: BenchClientAct
       ref: target.ref,
       viewID: target.viewID,
       route: `/_bench/objects/${target.ref.kind}/${target.ref.objectID}?view=${encodeURIComponent(target.viewID)}`,
-      status: "ready" as const,
+      status: input.status ?? "ready",
     },
     drawer: null,
     metadata: [],
-    content: "Current Bench object snapshot.",
+    content: input.content ?? "Current Bench object snapshot.",
     refs: [
       {
         kind: "object" as const,
@@ -148,6 +156,8 @@ function completeCommittedAction(input: {
   client: TestBenchClient
   action: BenchClientAction
   changed: boolean
+  contextStatus?: BenchContextTarget["status"]
+  contextContent?: string
 }) {
   const completion =
     input.action.command.type === "close"
@@ -175,6 +185,8 @@ function completeCommittedAction(input: {
           context: openContextForAction({
             directory: input.client.directory,
             action: input.action,
+            ...(input.contextStatus ? { status: input.contextStatus } : {}),
+            ...(input.contextContent ? { content: input.contextContent } : {}),
           }),
           changed: input.changed,
         }
@@ -182,6 +194,29 @@ function completeCommittedAction(input: {
     directory: input.client.directory,
     actionID: input.action.actionID,
     completion,
+  })
+}
+
+function publishActionContext(input: {
+  client: TestBenchClient
+  action: BenchClientAction
+  status: BenchContextTarget["status"]
+  content: string
+}) {
+  return publishSequencedBenchContext({
+    directory: input.client.directory,
+    sessionID: input.action.sessionID,
+    body: {
+      lease: leaseIdentity(input.client.lease),
+      publicationSequence: nextPublicationSequence(input.client),
+      idempotencyKey: `${input.action.actionID}:${input.status}`,
+      value: openContextForAction({
+        directory: input.client.directory,
+        action: input.action,
+        status: input.status,
+        content: input.content,
+      }),
+    },
   })
 }
 
@@ -324,7 +359,19 @@ describe("bench_present", () => {
       objectID: null,
     })
     const action = await readNextAction(client)
-    completeCommittedAction({ client, action, changed: true })
+    completeCommittedAction({
+      client,
+      action,
+      changed: true,
+      contextStatus: "loading",
+      contextContent: "Markdown Bench is loading.",
+    })
+    publishActionContext({
+      client,
+      action,
+      status: "ready",
+      content: "Markdown Bench is ready.",
+    })
     const result = await run
 
     expect(result).toMatchObject({
@@ -339,6 +386,196 @@ describe("bench_present", () => {
         path: "notes.md",
         viewer: "markdown",
       },
+    })
+  })
+
+  test("returns the existing Bench surface error after a loading presentation settles", async () => {
+    await using project = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "broken.mdx"), "# Broken\n")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+
+    const metadataUpdates: Array<{
+      title?: string
+      metadata?: Record<string, unknown>
+    }> = []
+    const context = createBuddyToolContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "msg_bench_present_surface_error",
+      agent: "buddy",
+    })
+    const run = benchPresentTool.run(
+      {
+        action: "present_file",
+        path: "broken.mdx",
+        resourceKey: null,
+        objectID: null,
+      },
+      {
+        ...context,
+        metadata(input) {
+          metadataUpdates.push(input)
+          return Promise.resolve()
+        },
+      },
+    )
+    const action = await readNextAction(client)
+    completeCommittedAction({
+      client,
+      action,
+      changed: true,
+      contextStatus: "loading",
+      contextContent: "Markdown Bench is loading.",
+    })
+    publishActionContext({
+      client,
+      action,
+      status: "error",
+      content: "The Markdown file could not be rendered: Unexpected empty expression.",
+    })
+
+    await expect(run).rejects.toThrow("Unexpected empty expression")
+    expect(metadataUpdates).toEqual([
+      {
+        title: "Bench Presentation",
+        metadata: {
+          benchAction: "present_file",
+          benchStatus: "error",
+          reason: "surface_error",
+          benchTarget: {
+            type: "workspace-file",
+            path: "broken.mdx",
+            viewer: "markdown",
+          },
+        },
+      },
+    ])
+  })
+
+  test("returns blocked presentations as failed tool calls", async () => {
+    await using project = await tmpdir()
+    const metadataUpdates: Array<{
+      title?: string
+      metadata?: Record<string, unknown>
+    }> = []
+    const context = createBuddyToolContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "msg_bench_present_missing_file",
+      agent: "buddy",
+    })
+
+    const run = benchPresentTool.run(
+      {
+        action: "present_file",
+        path: "missing.md",
+        resourceKey: null,
+        objectID: null,
+      },
+      {
+        ...context,
+        metadata(input) {
+          metadataUpdates.push(input)
+          return Promise.resolve()
+        },
+      },
+    )
+
+    await expect(run).rejects.toThrow("File not found")
+    expect(metadataUpdates).toEqual([
+      {
+        title: "Bench Presentation",
+        metadata: {
+          benchAction: "present_file",
+          benchStatus: "blocked",
+          reason: "file_not_found",
+          benchTarget: null,
+        },
+      },
+    ])
+  })
+
+  test("preserves successful surface metadata in a completed tool result", async () => {
+    await using project = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "ready.md"), "# Ready\n")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+
+    const run = benchPresentTool.run(
+      {
+        action: "present_file",
+        path: "ready.md",
+        resourceKey: null,
+        objectID: null,
+      },
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        messageID: "msg_bench_present_ready",
+        agent: "buddy",
+      }),
+    )
+    const action = await readNextAction(client)
+    completeCommittedAction({
+      client,
+      action,
+      changed: true,
+      contextStatus: "ready",
+      contextContent: "Ready.",
+    })
+
+    await expect(run).resolves.toMatchObject({
+      metadata: {
+        benchAction: "present_file",
+        benchStatus: "presented",
+        benchTarget: {
+          type: "workspace-file",
+          path: "ready.md",
+          viewer: "markdown",
+        },
+      },
+    })
+  })
+
+  test("returns a timeout error when the existing Bench status remains loading", async () => {
+    await using project = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "slow.md"), "# Slow\n")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+
+    const run = presentOnBench({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "msg_bench_present_surface_timeout",
+      callID: null,
+      abort: new AbortController().signal,
+      action: "present_file",
+      path: "slow.md",
+      resourceKey: null,
+      objectID: null,
+      ask: async () => undefined,
+      presentationSettleTimeoutMs: 0,
+    })
+    const action = await readNextAction(client)
+    completeCommittedAction({
+      client,
+      action,
+      changed: true,
+      contextStatus: "loading",
+      contextContent: "Markdown Bench is still loading.",
+    })
+
+    await expect(run).resolves.toMatchObject({
+      status: "error",
+      reason: "surface_timeout",
+      message: expect.stringContaining("did not finish loading"),
     })
   })
 
@@ -753,5 +990,54 @@ describe("bench_present", () => {
       reason: "unsupported_target",
       target: null,
     })
+  })
+})
+
+describe("bench_present presentation", () => {
+  function snapshotFor(input: {
+    phase: "running" | "completed" | "error"
+    benchStatus?: string
+  }) {
+    return resolveToolPresentationSnapshot(benchPresentTool.presentation, {
+      toolID: "bench_present",
+      phase: input.phase,
+      input: { action: "present_object" },
+      metadata: input.benchStatus ? { benchStatus: input.benchStatus } : {},
+      ...(input.phase === "error" ? { error: "boom" } : {}),
+    })
+  }
+
+  test("a successful presentation is an inline receipt, not an activity line", () => {
+    const snapshot = snapshotFor({ phase: "completed", benchStatus: "presented" })
+
+    expect(snapshot.archetype).toBe("inline-output")
+    expect(snapshot.outcome).toEqual({ type: "success" })
+    if (snapshot.archetype !== "inline-output") throw new Error("expected inline output")
+    expect(snapshot.collection).toBe("bench-present-collection")
+    expect(snapshot.layoutRole).toBe("compact-output")
+  })
+
+  test("an active presentation stays in transcript activity until it earns a receipt", () => {
+    const snapshot = snapshotFor({ phase: "running" })
+
+    expect(snapshot).toMatchObject({
+      archetype: "inline-output",
+      activeDisplay: "activity",
+      outcome: { type: "active" },
+    })
+  })
+
+  test("closing and re-presenting leave no receipt", () => {
+    // Closing has no target to point at, and re-presenting would duplicate the
+    // receipt the original call already left in the transcript.
+    for (const benchStatus of ["closed", "already_presenting"]) {
+      const snapshot = snapshotFor({ phase: "completed", benchStatus })
+      expect(snapshot.outcome).toEqual({ type: "silent", reason: "no-op" })
+    }
+  })
+
+  test("a failure stays visible so it can fall back to the activity strip", () => {
+    const snapshot = snapshotFor({ phase: "error", benchStatus: "error" })
+    expect(snapshot.outcome).toEqual({ type: "failure" })
   })
 })

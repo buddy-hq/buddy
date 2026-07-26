@@ -167,6 +167,8 @@ type StoredBenchContextWrite = {
   revision: number
 }
 
+type BenchContextSnapshotListener = (snapshot: StoredBenchContextSnapshot) => void
+
 class BenchContextSnapshotMissingError extends Error {
   constructor(input: { directory: string; sessionID: string }) {
     super(`Bench context has not been synchronized for session ${input.sessionID}.`)
@@ -182,6 +184,7 @@ class BenchContextWriteConflictError extends Error {
 }
 
 const benchContextRegistry = new Map<string, StoredBenchContextEntry>()
+const benchContextSnapshotListeners = new Map<string, Set<BenchContextSnapshotListener>>()
 
 function benchContextRegistryKey(input: { directory: string; sessionID: string }): string {
   return `${path.resolve(input.directory)}::${input.sessionID}`
@@ -290,6 +293,9 @@ function publishBenchContextSnapshot(input: {
     lastSequenceByLeaseKey: current?.lastSequenceByLeaseKey ?? new Map(),
   })
   evictOldestBenchContextEntriesIfNeeded()
+  for (const listener of benchContextSnapshotListeners.get(key) ?? []) {
+    listener(snapshot)
+  }
   return snapshot
 }
 
@@ -313,8 +319,29 @@ function readCurrentBenchContext(input: {
   return readBenchContext(input).value
 }
 
+function subscribeBenchContext(
+  input: {
+    directory: string
+    sessionID: string
+  },
+  listener: BenchContextSnapshotListener,
+): () => void {
+  const key = benchContextRegistryKey(input)
+  const listeners = benchContextSnapshotListeners.get(key) ?? new Set()
+  listeners.add(listener)
+  benchContextSnapshotListeners.set(key, listeners)
+
+  return () => {
+    listeners.delete(listener)
+    if (listeners.size === 0) {
+      benchContextSnapshotListeners.delete(key)
+    }
+  }
+}
+
 function clearBenchContextRegistry(): void {
   benchContextRegistry.clear()
+  benchContextSnapshotListeners.clear()
 }
 
 function benchTargetKey(target: BenchTarget): string {
@@ -365,6 +392,7 @@ export {
   publishSequencedBenchContext,
   readBenchContext,
   readCurrentBenchContext,
+  subscribeBenchContext,
 }
 
 export type {

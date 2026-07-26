@@ -22,6 +22,7 @@ import {
 
 import { renderApplyPatchTool } from "./render/apply-patch"
 import { renderBashTool } from "./render/bash"
+import { renderBenchPresentTool } from "./render/bench-present"
 import { renderBuddyCustomTool } from "./render/buddy-custom"
 import { renderEditTool } from "./render/edit"
 import { renderExaSearchTool } from "./render/exa-search"
@@ -67,6 +68,7 @@ export const toolRenderersByToken = {
   question: { card: renderQuestionTool },
   "knowledge-graph": { card: renderKnowledgeGraphTool },
   "full-text": { card: renderIngestFullTextTool },
+  "bench-present": { card: renderBenchPresentTool },
   "buddy-custom": { card: renderBuddyCustomTool },
   todo: { card: renderTodoTool },
 } satisfies Record<ToolRendererToken, ToolRenderer>

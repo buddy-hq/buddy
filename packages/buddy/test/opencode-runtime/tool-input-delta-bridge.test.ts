@@ -54,7 +54,8 @@ describe("whiteboard tool-input delta bridge", () => {
     expect(aiSdkSource).toContain("name: state.toolNames[event.id] ??")
     expect(aiSdkSource).toContain("text: event.delta ??")
     expect(processorSource).toContain('case "tool-input-delta":')
-    expect(processorSource).toContain("raw: toolCall.call.raw + value.text")
+    expect(processorSource).toContain("yield* ensureToolCall(value)")
+    expect(processorSource).not.toContain("raw: toolCall.call.raw + value.text")
     expect(processorSource).toContain('case "tool-input-end":')
   })
 
@@ -70,8 +71,11 @@ describe("whiteboard tool-input delta bridge", () => {
     expect(serverStartupIndex).toBeGreaterThan(bridgeInstallIndex)
     expect(bridgeSource).toContain("patchSessionService(session)")
     expect(bridgeSource).toContain("patchLlmService(llm, session)")
+    expect(bridgeSource).toContain("yield* OpenCodeSession.Service")
+    expect(bridgeSource).toContain("yield* OpenCodeLLM.Service")
     expect(bridgeSource).toContain('await import("./app-runtime")')
     expect(bridgeSource).not.toContain("OPENCODE_APP_RUNTIME_MODULE_ID")
+    expect(bridgeSource).not.toContain("makeRuntime(")
   })
 
   test("translates the upstream normalized whiteboard delta into the pending nested raw field", () => {

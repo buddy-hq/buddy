@@ -66,6 +66,32 @@ function failedInlinePart(id: string): MessagePart {
   }
 }
 
+function runningInlinePart(id: string): MessagePart {
+  return {
+    id,
+    sessionID: "ses_presentation",
+    messageID: "msg_presentation",
+    type: "tool",
+    tool: "bench_present",
+    callID: `call_${id}`,
+    metadata: presentationMetadata(
+      inlinePresentation({
+        phase: "running",
+        action: "Presenting",
+        renderer: "bench-present",
+        layoutRole: "compact-output",
+        icon: "presentation",
+        activeDisplay: "activity",
+      }),
+    ),
+    state: {
+      status: "running",
+      input: { action: "present_file", path: "notes.md" },
+      time: { start: 1 },
+    },
+  }
+}
+
 function textPart(id: string, text: string): MessagePart {
   return {
     id,
@@ -164,6 +190,20 @@ describe("resolved tool presentation", () => {
     expect(groupAssistantParts([completed, failed], true).map((item) => item.type)).toEqual([
       "part",
       "abstracted",
+    ])
+  })
+
+  test("an inline receipt can keep its active phase in transcript activity", () => {
+    const running = runningInlinePart("bench-running")
+
+    expect(assistantPartStartsFollowup(running)).toBe(false)
+    expect(groupAssistantParts([running], true)).toEqual([
+      {
+        type: "abstracted",
+        key: "activity:0",
+        layoutRole: "activity",
+        parts: [running],
+      },
     ])
   })
 

@@ -282,4 +282,34 @@ describe("tool presentation contract", () => {
       reason: "scoped-reading-fallback",
     })
   })
+
+  test("can keep active inline output in activity until completion", () => {
+    const descriptor = defineToolPresentation({
+      archetype: "inline-output",
+      icon: "presentation",
+      renderer: "bench-present",
+      layoutRole: "compact-output",
+      activeDisplay: "activity",
+      phases: {
+        pending: { action: "Preparing to present" },
+        running: { action: "Presenting" },
+        completed: { action: "Presented" },
+        error: { action: "Failed to present" },
+      },
+    })
+    const snapshot = resolveToolPresentationSnapshot(descriptor, {
+      toolID: "bench_present",
+      phase: "running",
+      input: {},
+      metadata: {},
+    })
+
+    expect(snapshot).toMatchObject({
+      archetype: "inline-output",
+      phase: "running",
+      outcome: { type: "active" },
+      activeDisplay: "activity",
+    })
+    expect(decodeToolPresentationSnapshot(snapshot)).toEqual(snapshot)
+  })
 })

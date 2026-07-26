@@ -89,6 +89,14 @@ function toolPartUsesInlinePresentation(part: MessagePart): boolean {
     return false
   }
 
+  if (
+    presentation.archetype === "inline-output" &&
+    presentation.outcome.type === "active" &&
+    presentation.activeDisplay === "activity"
+  ) {
+    return false
+  }
+
   return presentation.phase !== "error"
 }
 

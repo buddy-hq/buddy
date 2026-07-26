@@ -1,11 +1,25 @@
 import "../happydom"
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { NATIVE_RESOURCE_FORMATS } from "@buddy/workspace-file-policy"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ToolPartCard } from "../src/components/chat/parts/assistant-part/tool-part"
-import { renderIngestFullTextTool } from "../src/components/chat/tools/render/ingest-full-text"
+import {
+  renderIngestFullTextTool,
+  resolveFullTextResourceFilePresentation,
+} from "../src/components/chat/tools/render/ingest-full-text"
+import { ResourceCover } from "../src/components/resources/resource-cover"
+import {
+  createBrowserPlatform,
+  PlatformProvider,
+  setRuntimePlatform,
+  type Platform,
+} from "../src/context/platform"
+import { resourcesQueryKey } from "../src/state/resources-query"
 import type { ToolPartProps } from "../src/components/chat/tools/registry"
+
+const originalFetch = globalThis.fetch
 
 async function flushEffects(delay = 0) {
   await Promise.resolve()
@@ -43,6 +57,18 @@ function createIngestFullTextProps(): ToolPartProps {
   }
 }
 
+function createPlatform(overrides: Partial<Platform> = {}): Platform {
+  return {
+    platform: "desktop",
+    openLink() {},
+    async restart() {},
+    back() {},
+    forward() {},
+    async notify() {},
+    ...overrides,
+  }
+}
+
 describe("ingest_full_text tool rendering", () => {
   let container: HTMLDivElement
   let root: Root
@@ -54,6 +80,7 @@ describe("ingest_full_text tool rendering", () => {
       defaultOptions: {
         queries: {
           retry: false,
+          staleTime: Number.POSITIVE_INFINITY,
         },
       },
     })
@@ -68,7 +95,151 @@ describe("ingest_full_text tool rendering", () => {
       await flushEffects()
     })
     container.remove()
+    queryClient.clear()
+    globalThis.fetch = originalFetch
+    setRuntimePlatform(createBrowserPlatform())
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
+  })
+
+  test("derives cards for every native and text ingestion format without a format whitelist", () => {
+    for (const format of NATIVE_RESOURCE_FORMATS) {
+      expect(
+        resolveFullTextResourceFilePresentation({
+          resourceKey: `lesson.${format}`,
+          record: {
+            alias: `lesson.${format}`,
+            format,
+            sourceRelpath: `.buddy/objects/lesson/source/lesson.${format}`,
+          },
+        }).extension,
+      ).toBe(format)
+    }
+
+    const textFormats = [
+      ["html", "html"],
+      ["htm", "htm"],
+      ["xhtml", "xhtml"],
+      ["markdown", "markdown"],
+      ["text", "txt"],
+      ["json", "json"],
+      ["jsonc", "jsonc"],
+      ["yaml", "yaml"],
+      ["yml", "yml"],
+      ["csv", "csv"],
+      ["code", "ts"],
+      ["unknown", "custom"],
+    ] as const
+
+    for (const [format, extension] of textFormats) {
+      expect(
+        resolveFullTextResourceFilePresentation({
+          resourceKey: `lesson.${extension}`,
+          record: {
+            alias: `lesson.${extension}`,
+            format,
+            sourceRelpath: `.buddy/objects/lesson/source/lesson.${extension}`,
+          },
+        }).extension,
+      ).toBe(extension)
+    }
+  })
+
+  test("uses token palettes for every resource family and clamps titles to two lines", async () => {
+    const formats = [
+      ["docx", "document", "bg-surface-info-weak"],
+      ["xlsx", "spreadsheet", "bg-surface-success-weak"],
+      ["pptx", "presentation", "bg-surface-warning-weak"],
+      ["pdf", "pdf", "bg-surface-critical-weak"],
+      ["epub", "other", "bg-surface-interactive-weak"],
+      ["markdown", "other", "bg-surface-interactive-weak"],
+    ] as const
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <div>
+            {formats.map(([extension]) => (
+              <ResourceCover
+                key={extension}
+                directory="/repo"
+                extension={extension}
+                fileName={`lesson.${extension}`}
+                title={`A deliberately long ${extension} resource title that must be clamped`}
+              />
+            ))}
+          </div>
+        </QueryClientProvider>,
+      )
+      await flushEffects()
+    })
+
+    for (const [extension, mediaKind, heroClass] of formats) {
+      const cover = container.querySelector<HTMLElement>(
+        `[data-resource-format="${extension}"]`,
+      )
+      expect(cover?.dataset.resourceMediaKind).toBe(mediaKind)
+      expect(cover?.firstElementChild?.className).toContain(heroClass)
+      expect(cover?.querySelector("span:last-child")?.className).toContain("line-clamp-2")
+    }
+  })
+
+  test("renders a proportionate DOCX cover and opens its original file in the default app", async () => {
+    const openPath = mock(async () => {})
+    queryClient.setQueryData(resourcesQueryKey("/repo"), {
+      items: [],
+      processed: [
+        {
+          objectID: "01DOCX",
+          alias: "states-of-matter-ngss-ms-ps1-4-worksheet.docx",
+          sourceRelpath:
+            ".buddy/objects/v1/resource/01DOCX/source/states-of-matter-ngss-ms-ps1-4-worksheet.docx",
+          sourceOriginRelpath: "uploads/states-of-matter-ngss-ms-ps1-4-worksheet.docx",
+          format: "docx",
+          status: "ready",
+          sourceValidity: "unknown",
+          extractionStatus: "ready",
+          warnings: [],
+        },
+      ],
+    })
+
+    const props = createIngestFullTextProps()
+    props.directory = "/repo"
+    props.state.metadata = {
+      ...props.state.metadata,
+      resource: "states-of-matter-ngss-ms-ps1-4-worksheet.docx",
+      completed: true,
+      truncated: false,
+    }
+
+    await act(async () => {
+      root.render(
+        <PlatformProvider value={createPlatform({ openPath })}>
+          <QueryClientProvider client={queryClient}>
+            {renderIngestFullTextTool(props)}
+          </QueryClientProvider>
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    const card = container.querySelector<HTMLButtonElement>(
+      'button[aria-label*="default app"]',
+    )
+    expect(card).not.toBeNull()
+    expect(card?.className).toContain("aspect-[3/4]")
+    expect(container.textContent).toContain("docx")
+    expect(container.textContent).not.toContain("epub")
+    expect(container.querySelector('img[src*="document"]')).not.toBeNull()
+
+    await act(async () => {
+      card?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      await flushEffects()
+    })
+
+    expect(openPath).toHaveBeenCalledWith(
+      "/repo/uploads/states-of-matter-ngss-ms-ps1-4-worksheet.docx",
+    )
   })
 
   test("shows truncation details instead of claiming the full source entered context", async () => {
@@ -152,6 +323,25 @@ describe("ingest_full_text tool rendering", () => {
                   'Cannot ingest full text for resource "guns-of-august" because the live session context is too full.\nUse scoped reading instead of full-text ingestion in this session.',
                 time: { start: 1, end: 2 },
               },
+              metadata: {
+                buddy: {
+                  presentation: {
+                    version: 1,
+                    phase: "completed",
+                    action: "Loaded full text",
+                    detail: "guns-of-august",
+                    icon: "file",
+                    renderer: "full-text",
+                    outcome: {
+                      type: "silent",
+                      reason: "scoped-reading-fallback",
+                    },
+                    archetype: "inline-output",
+                    layoutRole: "card-output",
+                    collection: "full-text-collection",
+                  },
+                },
+              },
             }}
           />
         </QueryClientProvider>,
@@ -182,6 +372,24 @@ describe("ingest_full_text tool rendering", () => {
                 error:
                   'Resource "guns-of-august" is not ready for full-text ingestion. Current status: preparing.',
                 time: { start: 1, end: 2 },
+              },
+              metadata: {
+                buddy: {
+                  presentation: {
+                    version: 1,
+                    phase: "error",
+                    action: "Failed to load full text",
+                    detail: "guns-of-august",
+                    icon: "file",
+                    renderer: "full-text",
+                    outcome: {
+                      type: "failure",
+                    },
+                    archetype: "inline-output",
+                    layoutRole: "card-output",
+                    collection: "full-text-collection",
+                  },
+                },
               },
             }}
           />
