@@ -1,5 +1,5 @@
 import { BUDDY_SHARED_FEATURES } from "./shared-features"
-import { renderBuddyBasePersonaPrompt } from "./prompts/render-base-prompt"
+import { PERSONA_PROMPT_ID, renderBuddyPersonaPrompt } from "./prompts/render-persona-prompt"
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
 
 export const BUDDY = defineBuddyPersona({
@@ -18,7 +18,7 @@ export const BUDDY = defineBuddyPersona({
   },
   runtime: {
     kind: "build",
-    prompt: renderBuddyBasePersonaPrompt(""),
+    prompt: renderBuddyPersonaPrompt(PERSONA_PROMPT_ID.learningCompanion),
     subagents: {
       "question-set-author": true,
       "flashcard-author": true,
