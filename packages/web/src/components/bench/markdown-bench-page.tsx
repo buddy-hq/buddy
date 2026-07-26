@@ -44,7 +44,9 @@ import {
   type MarkdownBenchDocumentSelection,
   type MarkdownBenchHistoryControlsState,
   type MarkdownBenchEditorHandle,
+  type MarkdownBenchProcessingResult,
 } from "@/components/bench/markdown-bench-editor"
+import { useOnBenchSurfaceActivated } from "@/components/bench/bench-surface-activity"
 import {
   collectObsidianWikiLinkTargets,
   useObsidianResolutionMap,
@@ -127,6 +129,8 @@ type MarkdownBenchFileState = {
   exists: boolean
   loading: boolean
   markdown: string
+  processingError: string | undefined
+  processingStatus: "loading" | "ready" | "error"
   savedMarkdown: string
   saveError: string | undefined
   saving: boolean
@@ -134,6 +138,31 @@ type MarkdownBenchFileState = {
 }
 
 type MarkdownBenchDockPanel = "advanced-tools" | "file-info" | undefined
+
+function pendingMarkdownProcessingState(
+  currentMarkdown: string,
+  nextMarkdown: string,
+): Partial<MarkdownBenchFileState> {
+  if (currentMarkdown === nextMarkdown) return {}
+  return {
+    processingError: undefined,
+    processingStatus: "loading",
+  }
+}
+
+export function resolveMarkdownBenchTargetStatus(input: {
+  conflict: boolean
+  dirty: boolean
+  exists: boolean
+  loading: boolean
+  processingStatus: MarkdownBenchFileState["processingStatus"]
+  saveError: string | undefined
+}): "unavailable" | "error" | "loading" | "dirty" | "ready" {
+  if (!input.exists) return "unavailable"
+  if (input.conflict || input.saveError || input.processingStatus === "error") return "error"
+  if (input.loading || input.processingStatus === "loading") return "loading"
+  return input.dirty ? "dirty" : "ready"
+}
 
 function markdownPdfFileName(filepath: string) {
   const name = fileNameFromPath(filepath) || "document.md"
@@ -262,6 +291,9 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const [loading, setLoading] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [saveError, setSaveError] = useState<string | undefined>(undefined)
+  const [processingResult, setProcessingResult] = useState<
+    { markdown: string; error: string | undefined } | undefined
+  >(undefined)
   const [exporting, setExporting] = useState(false)
   const [openDockPanel, setOpenDockPanel] = useState<MarkdownBenchDockPanel>()
   const [advancedToolbarContainer, setAdvancedToolbarContainer] = useState<HTMLDivElement | null>(
@@ -296,6 +328,10 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     [activeMessages, props.path],
   )
   const dirty = markdown !== savedMarkdown
+  const processingError =
+    processingResult?.markdown === markdown ? processingResult.error : undefined
+  const processingStatus =
+    processingResult?.markdown !== markdown ? "loading" : processingError ? "error" : "ready"
   const obsidianTargets = useMemo(() => collectObsidianWikiLinkTargets(markdown), [markdown])
   const obsidianProfileQuery = useQuery(obsidianVaultProfileQueryOptions(props.directory))
   const obsidianLinksQuery = useQuery(
@@ -385,20 +421,21 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   }, [props.fragment, props.path])
 
   const saveState = conflict ? "conflict" : saveError ? "error" : saving ? "saving" : "ready"
-  const targetStatus = !exists
-    ? "unavailable"
-    : conflict || saveError
-      ? "error"
-      : dirty
-        ? "dirty"
-        : loading
-          ? "loading"
-          : "ready"
+  const targetStatus = resolveMarkdownBenchTargetStatus({
+    conflict,
+    dirty,
+    exists,
+    loading,
+    processingStatus,
+    saveError,
+  })
   const fileStateRef = useRef<MarkdownBenchFileState>({
     conflict,
     exists,
     loading,
     markdown,
+    processingError,
+    processingStatus,
     savedMarkdown,
     saveError,
     saving,
@@ -409,6 +446,8 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     exists,
     loading,
     markdown,
+    processingError,
+    processingStatus,
     savedMarkdown,
     saveError,
     saving,
@@ -441,6 +480,8 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         saveError ?? "",
         saving,
         targetStatus,
+        processingError ?? "",
+        processingStatus,
         contentThemeMode,
         contentFontScale,
       ].join(MARKDOWN_CONTEXT_SEMANTIC_KEY_SEPARATOR),
@@ -450,6 +491,8 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       dirty,
       exists,
       markdown,
+      processingError,
+      processingStatus,
       saveError,
       saveState,
       savedMarkdown,
@@ -470,15 +513,14 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             : current.saving
               ? "saving"
               : "ready"
-        const currentTargetStatus = !current.exists
-          ? "unavailable"
-          : current.conflict || current.saveError
-            ? "error"
-            : currentDirty
-              ? "dirty"
-              : current.loading
-                ? "loading"
-                : "ready"
+        const currentTargetStatus = resolveMarkdownBenchTargetStatus({
+          conflict: current.conflict,
+          dirty: currentDirty,
+          exists: current.exists,
+          loading: current.loading,
+          processingStatus: current.processingStatus,
+          saveError: current.saveError,
+        })
         const unavailableClean = !current.exists && !currentDirty
         const verificationErrorClean = current.exists && !!current.saveError && !currentDirty
 
@@ -490,6 +532,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             `dirty: ${currentDirty}`,
             `version: ${current.version}`,
             `save_state: ${currentSaveState}`,
+            `processing_status: ${current.processingStatus}`,
             `theme_mode: ${contentThemeMode}`,
             `font_scale: ${contentFontScale}`,
           ],
@@ -497,7 +540,9 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             ? `The Markdown file at ${props.path} was deleted or moved. No verified file content is available.`
             : verificationErrorClean
               ? `The Markdown file at ${props.path} could not be verified. No verified file content is available.`
-              : current.markdown,
+              : current.processingError
+                ? `The Markdown file at ${props.path} could not be rendered: ${current.processingError}`
+                : current.markdown,
           refs: [
             workspaceFileRef({
               path: props.path,
@@ -518,6 +563,9 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
               : []),
             ...(verificationErrorClean
               ? ["File content is unavailable because verification failed."]
+              : []),
+            ...(current.processingError
+              ? ["Repair the Markdown parsing error, then present the file again."]
               : []),
           ],
         }
@@ -697,6 +745,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         version: nextVersion,
         conflict: false,
         saveError: undefined,
+        ...pendingMarkdownProcessingState(settled.markdown, next.content),
       })
       setExists(true)
       setMarkdown(next.content)
@@ -724,6 +773,9 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       return { changed: true }
     }
   }, [patchFileStateRef, props.directory, props.path])
+  useOnBenchSurfaceActivated(() => {
+    void synchronize()
+  }, activeSessionID)
   useRegisterBenchContextProvider({
     target: contextTarget,
     provider: contextProvider,
@@ -760,6 +812,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
 
   useEffect(() => {
     const previousSnapshot = previousCommittedSaveSnapshotRef.current
+    const current = fileStateRef.current
     if (previousSnapshot.directory !== props.directory || previousSnapshot.path !== props.path) {
       void flushMarkdownBenchPendingSave(previousSnapshot)
     }
@@ -781,6 +834,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       loading: false,
       conflict: false,
       saveError: undefined,
+      ...pendingMarkdownProcessingState(current.markdown, props.initialFile.content),
     })
     editorRef.current?.setMarkdown(props.initialFile.content)
   }, [patchFileStateRef, props.directory, props.initialFile, props.path])
@@ -808,6 +862,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         path: props.path,
       })
       const nextVersion = next.version ?? ""
+      const current = fileStateRef.current
       patchFileStateRef({
         exists: true,
         markdown: next.content,
@@ -815,6 +870,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         version: nextVersion,
         conflict: false,
         saveError: undefined,
+        ...pendingMarkdownProcessingState(current.markdown, next.content),
       })
       setExists(true)
       setMarkdown(next.content)
@@ -1023,8 +1079,24 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     (nextMarkdown: string) => {
       patchFileStateRef({
         markdown: nextMarkdown,
+        processingError: undefined,
+        processingStatus: "ready",
       })
+      setProcessingResult({ markdown: nextMarkdown, error: undefined })
       setMarkdown(nextMarkdown)
+    },
+    [patchFileStateRef],
+  )
+  const handleProcessingResult = useCallback(
+    (result: MarkdownBenchProcessingResult) => {
+      if (fileStateRef.current.markdown !== result.markdown) return
+      patchFileStateRef({
+        processingError: result.error,
+        processingStatus: result.error ? "error" : "ready",
+      })
+      setProcessingResult((current) =>
+        current?.markdown === result.markdown && current.error === result.error ? current : result,
+      )
     },
     [patchFileStateRef],
   )
@@ -1354,6 +1426,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             onChange={changeMarkdown}
             onHistoryControlsChange={setHistoryControls}
             onOpenLink={openMarkdownLink}
+            onProcessingResult={handleProcessingResult}
             onSelectionChange={syncSelectionToChat}
           />
         )}

@@ -54,8 +54,9 @@ type RightWorkspaceVirtualListProps<TItem> = {
   items: readonly TItem[]
   scrollElement: HTMLDivElement | null
   getKey: (item: TItem) => string
-  renderItem: (item: TItem) => ReactNode
-  estimateSize?: number
+  renderItem: (item: TItem, index: number) => ReactNode
+  /** A function when the list is mixed-density, so the initial scroll height is not wildly wrong. */
+  estimateSize?: number | ((index: number) => number)
 }
 
 export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps) {
@@ -233,7 +234,10 @@ export function RightWorkspaceVirtualList<TItem>(props: RightWorkspaceVirtualLis
       const item = props.items[index]
       return item ? props.getKey(item) : index
     },
-    estimateSize: () => props.estimateSize ?? RIGHT_WORKSPACE_ROW_ESTIMATE_PX,
+    estimateSize: (index) => {
+      if (typeof props.estimateSize === "function") return props.estimateSize(index)
+      return props.estimateSize ?? RIGHT_WORKSPACE_ROW_ESTIMATE_PX
+    },
     overscan: RIGHT_WORKSPACE_LIST_OVERSCAN,
     gap: 4,
   })
@@ -252,7 +256,7 @@ export function RightWorkspaceVirtualList<TItem>(props: RightWorkspaceVirtualLis
             className="absolute left-0 top-0 w-full"
             style={{ transform: `translateY(${virtualRow.start}px)` }}
           >
-            {props.renderItem(item)}
+            {props.renderItem(item, virtualRow.index)}
           </div>
         )
       })}

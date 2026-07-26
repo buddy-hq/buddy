@@ -618,6 +618,118 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     }
   })
 
+  test("synchronizes the observed workspace file before capturing client-action context", async () => {
+    const completionBodies: unknown[] = []
+    const syncReasons: string[] = []
+    let content = "previous valid content"
+    let semanticRevision = 1
+    let targetStatus: "ready" | "error" = "ready"
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/client-actions/action-malformed/complete") && method === "POST") {
+          completionBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ status: "completed" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "PUT" || method === "DELETE") {
+          return new Response(JSON.stringify({ revision: 1, released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(TARGET),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      service.registerSurface({
+        target: TARGET,
+        getSnapshot: () => {
+          const baseContext = openSurfaceContext(TARGET)
+          return {
+            target: TARGET,
+            targetKey: benchTargetKey(TARGET),
+            semanticRevision,
+            context: {
+              ...baseContext,
+              target: {
+                ...baseContext.target,
+                status: targetStatus,
+              },
+              content,
+            },
+          }
+        },
+        subscribe: () => () => undefined,
+        synchronize: async (reason) => {
+          syncReasons.push(reason)
+          content = "MDX parsing failed."
+          targetStatus = "error"
+          semanticRevision += 1
+          return { changed: true }
+        },
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+
+      await expect(
+        service.completeClientAction({
+          actionID: "action-malformed",
+          sessionID: "session-1",
+          getActiveSessionID: () => "session-1",
+          completion: {
+            outcome: "committed",
+            observedRoute: projectionFor(TARGET).route,
+            observedVisibility: "visible",
+            drawer: null,
+            changed: false,
+          },
+        }),
+      ).resolves.toBeTrue()
+
+      expect(syncReasons).toEqual(["client-action"])
+      expect(completionBodies).toHaveLength(1)
+      expect(completionBodies[0]).toMatchObject({
+        observedRoute: { status: "open", target: TARGET },
+        changed: false,
+        context: {
+          status: "open",
+          target: {
+            path: TARGET.path,
+            status: "error",
+          },
+          content: "MDX parsing failed.",
+        },
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
   test("captures raw markdown-file context before waiting behind ordinary publication", async () => {
     let projection = projectionFor(TARGET)
     let releaseContextPublish: (() => void) | undefined
@@ -754,6 +866,151 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       expect(completionBodies[0]).toMatchObject({
         observedRoute: { status: "open", target: TARGET },
         context: { status: "open", target: { path: TARGET.path } },
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("refreshes loading client-action context after the same surface becomes ready", async () => {
+    let releaseContextPublish: (() => void) | undefined
+    let markContextPublishStarted: (() => void) | undefined
+    let blockContextPublish = false
+    let surfaceStatus: "loading" | "ready" = "loading"
+    let semanticRevision = 1
+    let notifySurfaceChanged: (() => void) | undefined
+    const contextPublishStarted = new Promise<void>((resolve) => {
+      markContextPublishStarted = resolve
+    })
+    const completionBodies: unknown[] = []
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-1/context") && method === "PUT") {
+          if (blockContextPublish) {
+            blockContextPublish = false
+            markContextPublishStarted?.()
+            await new Promise<void>((resolve) => {
+              releaseContextPublish = resolve
+            })
+          }
+          return new Response(JSON.stringify({ revision: 1 }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (
+          url.includes("/bench/client-actions/action-settled/complete") &&
+          method === "POST"
+        ) {
+          completionBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ status: "completed" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(OTHER_TARGET),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      service.registerSurface({
+        target: OTHER_TARGET,
+        getSnapshot: () => ({
+          target: OTHER_TARGET,
+          targetKey: benchTargetKey(OTHER_TARGET),
+          semanticRevision,
+          context: {
+            status: "open",
+            targetKey: benchTargetKey(OTHER_TARGET),
+            target: {
+              type: "workspace-file",
+              title: "other",
+              workspaceRoot: DIRECTORY,
+              path: OTHER_TARGET.path,
+              absolutePath: `${DIRECTORY}/${OTHER_TARGET.path}`,
+              route: "/docs/other.md",
+              status: surfaceStatus,
+            },
+            metadata: [`processing_status: ${surfaceStatus}`],
+            content: "Rendered MDX",
+            refs: [],
+            hints: [],
+          },
+        }),
+        subscribe: (listener) => {
+          notifySurfaceChanged = listener
+          return () => {
+            notifySurfaceChanged = undefined
+          }
+        },
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-1")
+
+      blockContextPublish = true
+      const ordinaryPublish = service.flushContextBeforePrompt({ sessionID: "session-1" })
+      await contextPublishStarted
+
+      const completion = service.completeClientAction({
+        actionID: "action-settled",
+        sessionID: "session-1",
+        getActiveSessionID: () => "session-1",
+        completion: {
+          outcome: "committed",
+          observedRoute: projectionFor(OTHER_TARGET).route,
+          observedVisibility: "visible",
+          drawer: null,
+          changed: true,
+        },
+      })
+      surfaceStatus = "ready"
+      semanticRevision += 1
+      notifySurfaceChanged?.()
+      releaseContextPublish?.()
+
+      await ordinaryPublish
+      await expect(completion).resolves.toBeTrue()
+      expect(completionBodies).toHaveLength(1)
+      expect(completionBodies[0]).toMatchObject({
+        observedRoute: { status: "open", target: OTHER_TARGET },
+        context: {
+          status: "open",
+          target: {
+            path: OTHER_TARGET.path,
+            status: "ready",
+          },
+          metadata: ["processing_status: ready"],
+          content: "Rendered MDX",
+        },
       })
       await service.dispose()
     } finally {

@@ -38,6 +38,10 @@ type BenchTerminalClientActionCompletion = Exclude<
 type BenchClientActionCompletionDraft =
   | Omit<BenchCommittedClientActionCompletion, "lease" | "publicationSequence" | "context">
   | Omit<BenchTerminalClientActionCompletion, "lease">
+type BenchCommittedClientActionCompletionDraft = Extract<
+  BenchClientActionCompletionDraft,
+  { outcome: "committed" }
+>
 
 type BenchSurfaceSnapshot = {
   target: BenchTarget
@@ -46,7 +50,11 @@ type BenchSurfaceSnapshot = {
   context: BenchReadSurfaceContextOpenOutput
 }
 
-type BenchSurfaceSynchronizationReason = "watcher" | "turn-complete" | "context-flush"
+type BenchSurfaceSynchronizationReason =
+  | "watcher"
+  | "turn-complete"
+  | "context-flush"
+  | "client-action"
 
 type BenchSurfaceSynchronizationResult = {
   changed: boolean
@@ -485,15 +493,20 @@ export class DirectoryWorkspaceLifecycleService {
     getActiveSessionID: () => string | undefined
   }): Promise<boolean> {
     if (this.#disposed) return false
-    const completedSnapshot =
-      input.completion.outcome === "committed"
-        ? this.#readPublishSnapshotForObservation({
-            sessionID: input.sessionID,
-            route: input.completion.observedRoute,
-            visibility: input.completion.observedVisibility,
-            drawer: input.completion.drawer,
-          })
-        : null
+    let completedSnapshot: BenchContextPublishSnapshot | null = null
+    if (input.completion.outcome === "committed") {
+      const synchronize = this.#synchronizeObservedWorkspaceFile(input.completion)
+      if (synchronize) {
+        await synchronize
+      }
+      if (this.#disposed) return false
+      completedSnapshot = this.#readPublishSnapshotForObservation({
+        sessionID: input.sessionID,
+        route: input.completion.observedRoute,
+        visibility: input.completion.observedVisibility,
+        drawer: input.completion.drawer,
+      })
+    }
     logBenchToggleStep("workspace-lifecycle-complete-client-action-captured", () => ({
       directory: this.#directory,
       actionID: input.actionID,
@@ -510,6 +523,26 @@ export class DirectoryWorkspaceLifecycleService {
       () => undefined,
     )
     return complete
+  }
+
+  #synchronizeObservedWorkspaceFile(
+    completion: BenchCommittedClientActionCompletionDraft,
+  ): Promise<BenchSurfaceSynchronizationResult> | null {
+    if (
+      completion.observedVisibility !== "visible" ||
+      completion.observedRoute.status === "closed" ||
+      completion.observedRoute.target.type !== "workspace-file"
+    ) {
+      return null
+    }
+
+    const target = completion.observedRoute.target
+    for (const registration of this.#selectedRegistrations(benchTargetKey(target))) {
+      const snapshot = registration.getSnapshot()
+      if (!snapshotMatchesBenchTarget({ snapshot, target })) continue
+      return registration.synchronize?.("client-action") ?? null
+    }
+    return null
   }
 
   async #publishForSession(sessionID: string, options: { force: boolean }): Promise<void> {
@@ -677,13 +710,21 @@ export class DirectoryWorkspaceLifecycleService {
         leaseEpoch: lease.leaseEpoch,
       }
       let body: BenchClientActionCompletion
+      let completionSnapshot = completedSnapshot
       if (input.completion.outcome === "committed") {
-        if (!completedSnapshot) return false
+        if (!completionSnapshot) return false
+        completionSnapshot =
+          this.#readRegisteredPublishSnapshotForObservation({
+            sessionID: input.sessionID,
+            route: input.completion.observedRoute,
+            visibility: input.completion.observedVisibility,
+            drawer: input.completion.drawer,
+          }) ?? completionSnapshot
         body = {
           ...input.completion,
           lease: leaseIdentity,
           publicationSequence: this.#nextPublicationSequence(input.sessionID),
-          context: completedSnapshot.value,
+          context: completionSnapshot.value,
         }
       } else {
         body = {
@@ -723,7 +764,7 @@ export class DirectoryWorkspaceLifecycleService {
           sessionID: input.sessionID,
           activeSessionID,
           completion: input.completion,
-          snapshot: snapshotDiagnostic(completedSnapshot),
+          snapshot: snapshotDiagnostic(completionSnapshot),
           lease: leaseIdentity,
         }))
         if (this.#lease === lease) return false
@@ -731,10 +772,10 @@ export class DirectoryWorkspaceLifecycleService {
       }
       if (
         input.completion.outcome === "committed" &&
-        completedSnapshot &&
+        completionSnapshot &&
         response.status !== "expired"
       ) {
-        this.#lastPublishedKeyBySession.set(input.sessionID, completedSnapshot.publicationKey)
+        this.#lastPublishedKeyBySession.set(input.sessionID, completionSnapshot.publicationKey)
       }
       return true
     }
@@ -783,49 +824,8 @@ export class DirectoryWorkspaceLifecycleService {
 
     const observedTarget = input.route.target
     const targetKey = benchTargetKey(observedTarget)
-    const registrations = this.#selectedRegistrations(targetKey)
-    for (const registration of registrations) {
-      const snapshot = registration.getSnapshot()
-      if (snapshotMatchesBenchTarget({ snapshot, target: observedTarget })) {
-        const output = {
-          status: "open",
-          publicationKey: openPublicationKey({
-            directory: this.#directory,
-            sessionID: input.sessionID,
-            targetKey,
-            visibility: input.visibility,
-            drawer: input.drawer,
-            semanticRevision: snapshot.semanticRevision,
-          }),
-          value: withDrawerContext({
-            context: snapshot.context,
-            drawer: input.drawer,
-          }),
-        } satisfies BenchContextPublishSnapshot
-        logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-registration", () => ({
-          directory: this.#directory,
-          sessionID: input.sessionID,
-          targetKey,
-          registrationID: registration.registrationID,
-          snapshot: snapshotDiagnostic(output),
-        }))
-        return output
-      }
-
-      logBenchToggleStep(
-        "workspace-lifecycle-read-observed-snapshot-registration-target-mismatch",
-        () => ({
-          directory: this.#directory,
-          sessionID: input.sessionID,
-          targetKey,
-          registrationID: registration.registrationID,
-          snapshotTarget: snapshot.target,
-          snapshotTargetKey: snapshot.targetKey,
-          expectedTarget: observedTarget,
-          snapshot: surfaceContextDiagnostic(snapshot.context),
-        }),
-      )
-    }
+    const registeredSnapshot = this.#readRegisteredPublishSnapshotForObservation(input)
+    if (registeredSnapshot) return registeredSnapshot
 
     const currentTargetKey = this.#getProjection().bench.targetKey
     const fallbackContext =
@@ -875,6 +875,64 @@ export class DirectoryWorkspaceLifecycleService {
       snapshot: snapshotDiagnostic(output),
     }))
     return output
+  }
+
+  #readRegisteredPublishSnapshotForObservation(input: {
+    sessionID: string
+    route: EffectiveWorkspaceProjection["route"]
+    visibility: EffectiveWorkspaceProjection["bench"]["visibility"]
+    drawer: DrawerKind | null
+  }): BenchContextPublishSnapshot | null {
+    if (input.visibility !== "visible" || input.route.status === "closed") {
+      return null
+    }
+
+    const observedTarget = input.route.target
+    const targetKey = benchTargetKey(observedTarget)
+    const registrations = this.#selectedRegistrations(targetKey)
+    for (const registration of registrations) {
+      const snapshot = registration.getSnapshot()
+      if (snapshotMatchesBenchTarget({ snapshot, target: observedTarget })) {
+        const output = {
+          status: "open",
+          publicationKey: openPublicationKey({
+            directory: this.#directory,
+            sessionID: input.sessionID,
+            targetKey,
+            visibility: input.visibility,
+            drawer: input.drawer,
+            semanticRevision: snapshot.semanticRevision,
+          }),
+          value: withDrawerContext({
+            context: snapshot.context,
+            drawer: input.drawer,
+          }),
+        } satisfies BenchContextPublishSnapshot
+        logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-registration", () => ({
+          directory: this.#directory,
+          sessionID: input.sessionID,
+          targetKey,
+          registrationID: registration.registrationID,
+          snapshot: snapshotDiagnostic(output),
+        }))
+        return output
+      }
+
+      logBenchToggleStep(
+        "workspace-lifecycle-read-observed-snapshot-registration-target-mismatch",
+        () => ({
+          directory: this.#directory,
+          sessionID: input.sessionID,
+          targetKey,
+          registrationID: registration.registrationID,
+          snapshotTarget: snapshot.target,
+          snapshotTargetKey: snapshot.targetKey,
+          expectedTarget: observedTarget,
+          snapshot: surfaceContextDiagnostic(snapshot.context),
+        }),
+      )
+    }
+    return null
   }
 
   async #publishCurrentSnapshot(sessionID: string, options: { force: boolean }): Promise<void> {

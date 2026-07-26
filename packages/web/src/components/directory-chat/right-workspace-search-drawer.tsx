@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import { useQuery } from "@tanstack/react-query"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
@@ -48,8 +48,29 @@ import {
 } from "@/state/resources-query"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import { whiteboardSessionPeekQueryOptions } from "@/components/whiteboard/whiteboard-query"
-import { ResourceCover } from "@/components/resources/resource-cover"
-import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/library-object-selectors"
+import {
+  createBenchObjectTarget,
+  selectHtmlWidgetObjects,
+  selectMediaLibraryObjects,
+  selectMermaidObjects,
+} from "@/components/layout/chat-left-sidebar/library-object-selectors"
+import { ObjectCard, ObjectRow } from "@/components/objects/object-presentation"
+import { describeObject } from "@/components/objects/describe-object"
+import {
+  OBJECT_KIND_THREAD,
+  OBJECT_KIND_WORKSPACE_FILE,
+  OBJECT_ROW_HEIGHT_PX,
+  OBJECT_THUMBNAIL_COVER,
+  OBJECT_VARIANT_MD,
+  objectCardHeightPx,
+  type ObjectModel,
+  type ObjectPresentationKind,
+} from "@/components/objects/types"
+import type { BenchObjectKind } from "@/lib/bench-targets"
+import {
+  CreationPreviewVisual,
+  type CreationFeedItem,
+} from "./right-workspace-catalog-drawers"
 import {
   notebookSearchResultFromWorkspaceObject,
   notebookSearchTimestampMetadata,
@@ -64,7 +85,6 @@ import { parseSubagentSession } from "@/lib/session-family"
 import type { RightWorkspaceOpenOutcome, RightWorkspaceOpenRequest } from "./right-workspace-open"
 import {
   RightWorkspaceDrawerShell,
-  RightWorkspaceListRow,
   RightWorkspaceListSkeleton,
   RightWorkspaceSectionLabel,
   RightWorkspaceVirtualList,
@@ -106,6 +126,11 @@ const EMPTY_REMOTE_SEARCH_RESULT: RemoteNotebookSearchResult = {
   failedProviders: ["threads", "files"],
 }
 
+const RESOURCE_OBJECT_KIND: BenchObjectKind = "resource"
+const SEARCH_FEATURED_COUNT = 3
+/** Drawer width minus the shell's horizontal padding, for card height estimation. */
+const RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX = 380
+
 function titleCaseStatus(value: string): string {
   return `${value.slice(0, 1).toLocaleUpperCase()}${value.slice(1)}`
 }
@@ -121,8 +146,16 @@ function searchFilterLabel(filter: NotebookSearchFilter): string {
   )
 }
 
-function resultIcon(kind: NotebookSearchResultKind): ComponentType {
-  return SEARCH_KIND_DEFINITIONS.find((definition) => definition.kind === kind)?.icon ?? FileIcon
+/**
+ * The target, not the filter bucket, decides how a result is drawn: it names the
+ * exact object kind, so a widget and a diagram get their own glyphs instead of
+ * sharing one "creation" icon.
+ */
+function searchResultKind(result: NotebookSearchResult): ObjectPresentationKind {
+  if (result.target.type === "object") return result.target.kind
+  if (result.target.type === "resource") return RESOURCE_OBJECT_KIND
+  if (result.target.type === "thread") return OBJECT_KIND_THREAD
+  return OBJECT_KIND_WORKSPACE_FILE
 }
 
 function resourcePath(record: {
@@ -213,6 +246,17 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
   const normalizedQuery = query.trim()
   const hasQuery = normalizedQuery.length > 0
   const canSearch = normalizedQuery.length >= NOTEBOOK_SEARCH_MIN_QUERY_LENGTH
+  const widgets = selectHtmlWidgetObjects(objectsQuery)
+  const diagrams = selectMermaidObjects(objectsQuery)
+  const media = selectMediaLibraryObjects(objectsQuery)
+  /** The objects a featured card can actually render, indexed for lookup by ID. */
+  const creationItems = useMemo(() => {
+    const items = new Map<string, CreationFeedItem>()
+    for (const object of widgets) items.set(object.objectID, { kind: "widgets", object })
+    for (const object of diagrams) items.set(object.objectID, { kind: "diagrams", object })
+    for (const object of media) items.set(object.objectID, { kind: "media", object })
+    return items
+  }, [diagrams, media, widgets])
 
   useEffect(() => {
     const requestSequence = requestSequenceRef.current + 1
@@ -421,28 +465,85 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
     })
   }
 
-  function renderResult(result: NotebookSearchResult) {
-    const Icon = resultIcon(result.kind)
-    const presentation = result.resourceVisual
-      ? {
-          visual: (
-            <ResourceCover
-              directory={props.directory}
-              coverRelpath={result.resourceVisual.coverRelpath}
-              title={result.title}
-              extension={result.resourceVisual.extension}
-              presentation="thumbnail"
-              className="h-11 w-8 shrink-0"
-            />
-          ),
-        }
-      : { icon: Icon }
+  /** Only the promoted band can be a card, so the estimate follows the same rule. */
+  function searchResultEstimate(index: number): number {
+    return index < SEARCH_FEATURED_COUNT
+      ? objectCardHeightPx(RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX)
+      : OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_MD]
+  }
+
+  function describeResult(result: NotebookSearchResult): ObjectModel {
+    return describeObject({
+      kind: searchResultKind(result),
+      title: result.title,
+      meta: [result.metadata],
+      directory: props.directory,
+      ...(result.target.type === "resource" && result.resourceVisual
+        ? {
+            thumbnail: {
+              source: OBJECT_THUMBNAIL_COVER,
+              directory: props.directory,
+              ...(result.resourceVisual.coverRelpath
+                ? { coverRelpath: result.resourceVisual.coverRelpath }
+                : {}),
+              extension: result.resourceVisual.extension,
+              fileName: result.target.name,
+            },
+          }
+        : {}),
+      // An unprocessed source has no object yet, so the file on disk is its identity.
+      ...(result.target.type === "resource"
+        ? {
+            target: result.target.objectID
+              ? createBenchObjectTarget(RESOURCE_OBJECT_KIND, result.target.objectID)
+              : {
+                  type: "workspace-file" as const,
+                  path: result.target.path,
+                  viewer: "file" as const,
+                },
+          }
+        : {}),
+      ...(result.target.type === "object"
+        ? { target: createBenchObjectTarget(result.target.kind, result.target.objectID) }
+        : {}),
+      ...(result.target.type === "file"
+        ? {
+            target: {
+              type: "workspace-file" as const,
+              path: result.target.path,
+              viewer: result.target.viewer,
+            },
+          }
+        : {}),
+    })
+  }
+
+  /**
+   * Split density without reordering: a result keeps its rank, and the top few
+   * are promoted to cards only when they have something to show. A chat or a
+   * plain file at rank one stays a row rather than spending a card on a glyph.
+   */
+  function renderResult(result: NotebookSearchResult, index: number) {
+    const model = describeResult(result)
+    const creation =
+      result.target.type === "object" ? creationItems.get(result.target.objectID) : undefined
+    const featured =
+      index < SEARCH_FEATURED_COUNT && (creation !== undefined || model.thumbnail !== undefined)
+
+    if (!featured) {
+      return (
+        <ObjectRow model={model} variant={OBJECT_VARIANT_MD} onOpen={() => openResult(result)} />
+      )
+    }
+
     return (
-      <RightWorkspaceListRow
-        {...presentation}
-        title={result.title}
-        metadata={result.metadata}
-        onClick={() => openResult(result)}
+      <ObjectCard
+        model={model}
+        allowLive={creation !== undefined}
+        {...(creation
+          ? { preview: <CreationPreviewVisual directory={props.directory} item={creation} /> }
+          : {})}
+        onOpen={() => openResult(result)}
       />
     )
   }
@@ -507,6 +608,7 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
               items={recentResults}
               scrollElement={scrollElement}
               getKey={(result) => result.id}
+              estimateSize={searchResultEstimate}
               renderItem={renderResult}
             />
           ) : (
@@ -550,6 +652,7 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
             items={visibleResults}
             scrollElement={scrollElement}
             getKey={(result) => result.id}
+            estimateSize={searchResultEstimate}
             renderItem={renderResult}
           />
         </div>

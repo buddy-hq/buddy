@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client"
 import {
   MarkdownBenchEditor,
   type MarkdownBenchEditorHandle,
+  type MarkdownBenchProcessingResult,
 } from "../src/components/bench/markdown-bench-editor"
 import type { ObsidianWikiLinkContext } from "../src/components/bench/markdown-bench-obsidian-plugin"
 import { createMermaidThemeConfig } from "../src/components/media/renderers/mermaid/lib/theme"
@@ -373,7 +374,61 @@ describe("MarkdownBenchEditor", () => {
     expect(editorRef.current?.getMarkdown() ?? "").toContain("<Term>evaporation</Term>")
   })
 
-  test("shows invalid MDX in source mode with its parser error", async () => {
+  test("reports initial and imperative parsing results against the exact Markdown source", async () => {
+    const editorRef = createRef<MarkdownBenchEditorHandle>()
+    const processingResults: MarkdownBenchProcessingResult[] = []
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            ref={editorRef}
+            markdown="# Initial"
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-dir"
+            documentFormat="mdx"
+            path="test.mdx"
+            onChange={() => {}}
+            onProcessingResult={(result) => processingResults.push(result)}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(processingResults.at(-1)).toEqual({
+      markdown: "# Initial",
+      error: undefined,
+    })
+
+    await act(async () => {
+      editorRef.current?.setMarkdown("# Updated externally")
+      await flushEffects()
+    })
+
+    expect(processingResults.at(-1)).toEqual({
+      markdown: "# Updated externally",
+      error: undefined,
+    })
+
+    const malformedMarkdown = "# Broken externally\n\n<Component value={}>Content</Component>"
+    await act(async () => {
+      editorRef.current?.setMarkdown(malformedMarkdown)
+      await flushEffects(50)
+    })
+
+    expect(processingResults.at(-1)).toEqual({
+      markdown: malformedMarkdown,
+      error: expect.stringContaining("Unexpected empty expression"),
+    })
+  })
+
+  test("returns to rich text when externally repaired MDX becomes valid", async () => {
+    const processingResults: MarkdownBenchProcessingResult[] = []
+
     await act(async () => {
       root.render(
         <ThemeProvider>
@@ -387,6 +442,7 @@ describe("MarkdownBenchEditor", () => {
             documentFormat="mdx"
             path="test.mdx"
             onChange={() => {}}
+            onProcessingResult={(result) => processingResults.push(result)}
           />
         </ThemeProvider>,
       )
@@ -395,6 +451,86 @@ describe("MarkdownBenchEditor", () => {
 
     expect(container.querySelector(".mdxeditor-source-editor")).not.toBeNull()
     expect(container.textContent).toContain("Error parsing markdown")
+    expect(processingResults.at(-1)).toEqual({
+      markdown: "# Broken\n\n<Component value={}>Content</Component>",
+      error: expect.stringContaining("Unexpected empty expression"),
+    })
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            markdown={"# Repaired\n\nContent"}
+            version="version-2"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-dir"
+            documentFormat="mdx"
+            path="test.mdx"
+            onChange={() => {}}
+            onProcessingResult={(result) => processingResults.push(result)}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects(50)
+    })
+
+    expect(container.querySelector(".mdxeditor-source-editor")).toBeNull()
+    expect(container.textContent).not.toContain("Error parsing markdown")
+    expect(container.textContent).toContain("Repaired")
+    expect(processingResults.at(-1)).toEqual({
+      markdown: "# Repaired\n\nContent",
+      error: undefined,
+    })
+  })
+
+  test("renders allowlisted inline SVG in Markdown", async () => {
+    const editorRef = createRef<MarkdownBenchEditorHandle>()
+    const markdown =
+      '# Diagram\n\n<svg viewBox="0 0 10 10" onload="alert(1)"><title>Circle</title><circle cx="5" cy="5" r="4" /><script>alert(1)</script></svg>'
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            ref={editorRef}
+            markdown={markdown}
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-dir"
+            documentFormat="markdown"
+            path="test.md"
+            onChange={() => {}}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects(50)
+    })
+
+    expect(container.querySelector(".mdxeditor-source-editor")).toBeNull()
+    expect(container.textContent).not.toContain(
+      "Parsing of the following markdown structure failed",
+    )
+    expect(container.textContent).toContain("Diagram")
+    expect(
+      container.querySelector('svg[data-component="markdown-bench-mdx-svg"] circle'),
+    ).not.toBeNull()
+    expect(
+      container.querySelector('svg[data-component="markdown-bench-mdx-svg"] title')
+        ?.textContent,
+    ).toBe("Circle")
+    expect(
+      container
+        .querySelector('svg[data-component="markdown-bench-mdx-svg"]')
+        ?.getAttribute("onload"),
+    ).toBeNull()
+    expect(
+      container.querySelector('svg[data-component="markdown-bench-mdx-svg"] script'),
+    ).toBeNull()
+    expect(editorRef.current?.getMarkdown()).toContain("<svg")
   })
 
   test("renders Markdown angle placeholders without treating them as MDX tags", async () => {
@@ -473,6 +609,7 @@ describe("MarkdownBenchEditor", () => {
   })
 
   test("renders allowlisted intrinsic SVG without executing unsafe markup", async () => {
+    const processingResults: MarkdownBenchProcessingResult[] = []
     const markdown = [
       '<div style="display:flex;justify-content:center;background:#f8fafc">',
       '  <strong style="color:#1a1a2e">Solid</strong>',
@@ -480,6 +617,7 @@ describe("MarkdownBenchEditor", () => {
       '<svg width="140" height="120" viewBox="0 0 140 120" onload="alert(1)">',
       '  <circle cx="30" cy="25" r="10" fill="#4a9eed" stroke-width="1.5" />',
       '  <text x="20" y="110">Particle label</text>',
+      '  <text x="5" y="25">{}</text>',
       "  <script>alert(1)</script>",
       "</svg>",
       '  <div style="font-size:13px">Regular lattice<br />Vibrate in place</div>',
@@ -499,6 +637,7 @@ describe("MarkdownBenchEditor", () => {
             documentFormat="mdx"
             path="test.mdx"
             onChange={() => {}}
+            onProcessingResult={(result) => processingResults.push(result)}
           />
         </ThemeProvider>,
       )
@@ -524,6 +663,11 @@ describe("MarkdownBenchEditor", () => {
     expect(svg?.querySelector("p")).toBeNull()
     expect(svg?.getAttribute("onload")).toBeNull()
     expect(svg?.querySelector("script")).toBeNull()
+    expect(container.querySelector(".mdxeditor-source-editor")).toBeNull()
+    expect(processingResults.at(-1)).toEqual({
+      markdown,
+      error: undefined,
+    })
   })
 
   test("updates intrinsic previews when image nodes are added", async () => {

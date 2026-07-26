@@ -16,20 +16,9 @@ import {
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import { usePlatform } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"
-import { fileNameFromPath } from "@/lib/workspace-file-paths"
+import { absoluteWorkspaceFilePath, fileNameFromPath } from "@/lib/workspace-file-paths"
 
-const WINDOWS_PATH_SEPARATOR = "\\"
-const POSIX_PATH_SEPARATOR = "/"
 const BYTES_PER_MEGABYTE = 1_000_000
-
-function absoluteWorkspaceFilePath(directory: string, path: string) {
-  const separator = directory.includes(WINDOWS_PATH_SEPARATOR)
-    ? WINDOWS_PATH_SEPARATOR
-    : POSIX_PATH_SEPARATOR
-  const normalizedDirectory = directory.replace(/[\\/]+$/u, "")
-  const normalizedPath = path.replace(/^[\\/]+/u, "").replaceAll(/[\\/]/gu, separator)
-  return `${normalizedDirectory}${separator}${normalizedPath}`
-}
 
 function formatFileSize(sizeBytes: number) {
   return `${(sizeBytes / BYTES_PER_MEGABYTE).toFixed(1)} MB`
@@ -37,7 +26,10 @@ function formatFileSize(sizeBytes: number) {
 
 export function WorkspaceFileActionsMenu(props: { directory: string; path: string }) {
   const platform = usePlatform()
-  const absolutePath = absoluteWorkspaceFilePath(props.directory, props.path)
+  const absolutePath = absoluteWorkspaceFilePath({
+    directory: props.directory,
+    path: props.path,
+  })
   const revealLabel = platform.os === "macos" ? "Reveal in Finder" : "Reveal in File Explorer"
 
   const run = (action: () => Promise<void>, successMessage?: string) => {

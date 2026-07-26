@@ -14,10 +14,12 @@ import {
   linkPlugin,
   linkDialogPlugin,
   listsPlugin,
+  markdownSourceEditorValue$,
   markdownProcessingError$,
   markdownShortcutPlugin,
   quotePlugin,
   realmPlugin,
+  setMarkdown$,
   tablePlugin,
   thematicBreakPlugin,
   toolbarPlugin,
@@ -69,6 +71,7 @@ import {
 } from "@/state/bench-surface-ui-state"
 import { BUDDY_CODE_MIRROR_EXTENSIONS } from "@/components/bench/markdown-bench-code-theme"
 import { buddyMathPlugin } from "@/components/bench/markdown-bench-math-plugin"
+import { buddyMarkdownSvgPlugin } from "@/components/bench/markdown-bench-markdown-svg-plugin"
 import {
   MarkdownBenchChemistryViewProvider,
   buddyChemistryPlugin,
@@ -125,6 +128,11 @@ export type MarkdownBenchDocumentSelection = {
   headingPath?: string[]
 }
 
+export type MarkdownBenchProcessingResult = {
+  markdown: string
+  error: string | undefined
+}
+
 type MarkdownBenchHistoryControls = MarkdownBenchHistoryControlsState & {
   redo(): void
   undo(): void
@@ -133,6 +141,15 @@ type MarkdownBenchHistoryControls = MarkdownBenchHistoryControlsState & {
 type MarkdownBenchHistoryPluginParams = {
   onChange(controls: MarkdownBenchHistoryControls): void
 }
+
+type MarkdownBenchErrorRecoveryPluginParams = {
+  onProcessingErrorChange(message: string | undefined): void
+}
+
+type MarkdownBenchProcessingError = {
+  error: string
+  source: string
+} | null
 
 export type MarkdownBenchEditorAppearance = "paper" | "plain"
 
@@ -154,6 +171,7 @@ type MarkdownBenchEditorProps = Pick<
   obsidianWikiLinkContext?: ObsidianWikiLinkContext
   onHistoryControlsChange?(controls: MarkdownBenchHistoryControlsState): void
   onOpenLink?(href: string): void
+  onProcessingResult?(result: MarkdownBenchProcessingResult): void
   onSelectionChange?(selection: MarkdownBenchDocumentSelection): void
 }
 
@@ -560,14 +578,38 @@ const markdownBenchHistoryControlsPlugin = realmPlugin<MarkdownBenchHistoryPlugi
   },
 })
 
-const markdownBenchErrorRecoveryPlugin = realmPlugin({
-  init(realm) {
-    realm.sub(markdownProcessingError$, (error) => {
-      if (!error) return
+const markdownBenchErrorRecoveryPlugin = realmPlugin<MarkdownBenchErrorRecoveryPluginParams>({
+  postInit(realm, params) {
+    let automaticallyEnteredSourceMode = false
+
+    const handleProcessingErrorChange = (error: MarkdownBenchProcessingError) => {
+      params?.onProcessingErrorChange(error?.error)
+      if (!error) {
+        if (!automaticallyEnteredSourceMode) return
+        automaticallyEnteredSourceMode = false
+        queueMicrotask(() => {
+          realm.pub(viewMode$, "rich-text")
+        })
+        return
+      }
+
+      if (realm.getValue(viewMode$) === "source") return
+      automaticallyEnteredSourceMode = true
       queueMicrotask(() => {
         realm.pub(viewMode$, "source")
       })
+    }
+
+    realm.sub(setMarkdown$, (markdown) => {
+      if (realm.getValue(viewMode$) === "source") {
+        realm.pub(markdownSourceEditorValue$, markdown)
+      }
+      queueMicrotask(() => {
+        handleProcessingErrorChange(realm.getValue(markdownProcessingError$))
+      })
     })
+    realm.sub(markdownProcessingError$, handleProcessingErrorChange)
+    handleProcessingErrorChange(realm.getValue(markdownProcessingError$))
   },
 })
 
@@ -585,6 +627,10 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       EMPTY_MARKDOWN_BENCH_HISTORY_CONTROLS,
     )
     const onHistoryControlsChangeRef = useRef(props.onHistoryControlsChange)
+    const onProcessingResultRef = useRef(props.onProcessingResult)
+    const processingMarkdownRef = useRef(props.markdown)
+    onProcessingResultRef.current = props.onProcessingResult
+    processingMarkdownRef.current = props.markdown
 
     useLayoutEffect(() => {
       const editorRoot = editorRootRef.current
@@ -666,6 +712,15 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         canUndo: controls.canUndo,
       })
     }, [])
+    const handleProcessingErrorChange = useCallback((message: string | undefined) => {
+      const result = {
+        markdown: processingMarkdownRef.current,
+        error: message,
+      } satisfies MarkdownBenchProcessingResult
+      queueMicrotask(() => {
+        onProcessingResultRef.current?.(result)
+      })
+    }, [])
     const notifySelectionChange = useCallback(() => {
       if (!onSelectionChange) return
       window.requestAnimationFrame(() => {
@@ -720,6 +775,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         quotePlugin(),
         thematicBreakPlugin(),
         buddyMathPlugin(),
+        ...(props.documentFormat === "markdown" ? [buddyMarkdownSvgPlugin()] : []),
         buddyMermaidPlugin(),
         buddyChemistryPlugin(),
         buddyObsidianWikiLinkPlugin({ context: obsidianWikiLinkContext }),
@@ -755,7 +811,9 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
               }),
             ]
           : []),
-        markdownBenchErrorRecoveryPlugin(),
+        markdownBenchErrorRecoveryPlugin({
+          onProcessingErrorChange: handleProcessingErrorChange,
+        }),
         markdownShortcutPlugin(),
         toolbarPlugin({
           toolbarClassName: "!hidden",
@@ -769,6 +827,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       ],
       [
         handleHistoryControlsChange,
+        handleProcessingErrorChange,
         obsidianWikiLinkContext,
         props.advancedToolbarContainer,
         props.directory,
@@ -796,6 +855,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         },
         setMarkdown(markdown: string) {
           applyingExternalMarkdownRef.current = true
+          processingMarkdownRef.current = markdown
           editorRef.current?.setMarkdown(
             props.documentFormat === "mdx"
               ? prepareMdxForMdxEditor(markdown)

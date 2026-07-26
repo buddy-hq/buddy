@@ -1,4 +1,4 @@
-import { fileNameFromPath } from "@/lib/workspace-file-paths"
+import { absoluteWorkspaceFilePath, fileNameFromPath } from "@/lib/workspace-file-paths"
 import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
 import type { BenchReadContextOpenOutput } from "./bench-route-context"
 
@@ -19,18 +19,6 @@ type BenchSurfaceContextSnapshot = {
   targetKey: string
   semanticRevision: number
   context: BenchReadSurfaceContextOpenOutput
-}
-
-const POSIX_PATH_SEPARATOR = "/"
-const WINDOWS_PATH_SEPARATOR = "\\"
-
-function workspaceAbsolutePath(input: { directory: string; path: string }): string {
-  const normalizedDirectory = input.directory.replace(/[\\/]+$/u, "")
-  const normalizedPath = input.path.replace(/^[/\\]+/u, "")
-  const separator = normalizedDirectory.includes(WINDOWS_PATH_SEPARATOR)
-    ? WINDOWS_PATH_SEPARATOR
-    : POSIX_PATH_SEPARATOR
-  return `${normalizedDirectory}${separator}${normalizedPath.replace(/[\\/]+/gu, separator)}`
 }
 
 function routeString(input: { pathname: string; searchStr: string }): string {
@@ -85,7 +73,7 @@ function workspaceFileTarget(input: {
     title: input.title ?? fileNameFromPath(input.path) ?? input.path,
     workspaceRoot: input.directory,
     path: input.path,
-    absolutePath: workspaceAbsolutePath({
+    absolutePath: absoluteWorkspaceFilePath({
       directory: input.directory,
       path: input.path,
     }),
@@ -230,7 +218,7 @@ export {
   routeString,
   toolRef,
   urlRef,
-  workspaceAbsolutePath,
+  absoluteWorkspaceFilePath as workspaceAbsolutePath,
   workspaceFileRef,
   workspaceFileTarget,
 }

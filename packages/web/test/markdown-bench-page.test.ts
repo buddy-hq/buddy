@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   flushMarkdownBenchPendingSave,
+  resolveMarkdownBenchTargetStatus,
   shouldFlushMarkdownBenchPendingSave,
   type MarkdownBenchPendingSaveSnapshot,
 } from "../src/components/bench/markdown-bench-page"
@@ -63,5 +64,32 @@ describe("MarkdownBenchPage pending save flush", () => {
     expect(shouldFlushMarkdownBenchPendingSave({ ...BASE_SNAPSHOT, conflict: true })).toBe(false)
     expect(shouldFlushMarkdownBenchPendingSave({ ...BASE_SNAPSHOT, saveError: true })).toBe(false)
     expect(shouldFlushMarkdownBenchPendingSave({ ...BASE_SNAPSHOT, exists: false })).toBe(false)
+  })
+})
+
+describe("MarkdownBenchPage target status", () => {
+  const baseInput = {
+    conflict: false,
+    dirty: false,
+    exists: true,
+    loading: false,
+    processingStatus: "ready" as const,
+    saveError: undefined,
+  }
+
+  test("publishes parser loading and error through the existing Bench status", () => {
+    expect(
+      resolveMarkdownBenchTargetStatus({
+        ...baseInput,
+        processingStatus: "loading",
+      }),
+    ).toBe("loading")
+    expect(
+      resolveMarkdownBenchTargetStatus({
+        ...baseInput,
+        processingStatus: "error",
+      }),
+    ).toBe("error")
+    expect(resolveMarkdownBenchTargetStatus(baseInput)).toBe("ready")
   })
 })

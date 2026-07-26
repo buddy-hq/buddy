@@ -2,7 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { useEffect, useRef, type ReactNode } from "react"
-import { useBenchSurfaceActive } from "../src/components/bench/bench-surface-activity"
+import {
+  useBenchSurfaceActive,
+  useOnBenchSurfaceActivated,
+} from "../src/components/bench/bench-surface-activity"
 import { BenchSurfaceHost } from "../src/components/bench/bench-surface-host"
 import { benchTargetKey, type BenchTarget } from "../src/lib/bench-navigation"
 
@@ -37,10 +40,14 @@ afterEach(async () => {
  * iframes and shows their loading states again.
  */
 const mountCounts = new Map<string, number>()
+const activationCounts = new Map<string, number>()
 
-function CountingSurface(props: { targetKey: string }) {
+function CountingSurface(props: { activationIdentity?: string; targetKey: string }) {
   const counted = useRef(false)
   const active = useBenchSurfaceActive()
+  useOnBenchSurfaceActivated(() => {
+    activationCounts.set(props.targetKey, (activationCounts.get(props.targetKey) ?? 0) + 1)
+  }, props.activationIdentity)
   useEffect(() => {
     if (counted.current) return
     counted.current = true
@@ -58,7 +65,11 @@ function StableProvider(props: { active: boolean; children: ReactNode }) {
   return <div data-active={props.active ? "true" : "false"}>{props.children}</div>
 }
 
-async function renderHost(target: BenchTarget | null, benchVisible = true) {
+async function renderHost(
+  target: BenchTarget | null,
+  benchVisible = true,
+  activationIdentity?: string,
+) {
   await act(async () => {
     root?.render(
       <BenchSurfaceHost
@@ -70,7 +81,10 @@ async function renderHost(target: BenchTarget | null, benchVisible = true) {
           <StableProvider active={input.active}>{input.children}</StableProvider>
         )}
         renderSurface={(instanceTarget) => (
-          <CountingSurface targetKey={benchTargetKey(instanceTarget)} />
+          <CountingSurface
+            activationIdentity={activationIdentity}
+            targetKey={benchTargetKey(instanceTarget)}
+          />
         )}
       />,
     )
@@ -149,6 +163,27 @@ describe("BenchSurfaceHost", () => {
         .querySelector(`[data-testid="surface-${benchTargetKey(FIRST_TARGET)}"]`)
         ?.getAttribute("data-runtime-active"),
     ).toBe("true")
+    expect(mountCounts.get(benchTargetKey(FIRST_TARGET))).toBe(1)
+  })
+
+  test("notifies a kept-alive surface when it is revealed or rebound while active", async () => {
+    mountCounts.clear()
+    activationCounts.clear()
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await renderHost(FIRST_TARGET, true, "session-a")
+    expect(activationCounts.get(benchTargetKey(FIRST_TARGET))).toBeUndefined()
+
+    await renderHost(FIRST_TARGET, true, "session-b")
+    expect(activationCounts.get(benchTargetKey(FIRST_TARGET))).toBe(1)
+
+    await renderHost(SECOND_TARGET, true, "session-b")
+    await renderHost(FIRST_TARGET, true, "session-b")
+
+    expect(activationCounts.get(benchTargetKey(FIRST_TARGET))).toBe(2)
     expect(mountCounts.get(benchTargetKey(FIRST_TARGET))).toBe(1)
   })
 })

@@ -30,14 +30,8 @@ import {
   toast,
 } from "@buddy/ui"
 import {
-  AppWindowIcon,
-  BookOpenIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
   Clock3Icon,
-  FileImageIcon,
-  ImagesIcon,
-  Layers3Icon,
   ListChecksIcon,
   Loader2Icon,
   PlusIcon,
@@ -46,7 +40,6 @@ import {
   ShapesIcon,
   Trash2Icon,
   UploadIcon,
-  WorkflowIcon,
 } from "@/icons/app-icons"
 import type { ObjectsViewResponse } from "@buddy/sdk/types"
 import { language } from "@/context/language"
@@ -73,7 +66,6 @@ import {
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
 import { HtmlWidgetFrame } from "@/components/media/renderers/html-widget-frame"
-import { ResourceCover } from "@/components/resources/resource-cover"
 import { relativeTime } from "@/components/layout/sidebar-helpers"
 import { resolveHtmlWidgetViewport, type HtmlWidgetPresentation } from "@/lib/html-widgets"
 import {
@@ -91,6 +83,7 @@ import {
   type MediaLibraryObject,
   type MermaidLibraryObject,
   type QuestionSetLibraryObject,
+  type WorkspaceObjectIndexItem,
 } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import type {
   RightWorkspaceOpenOutcome,
@@ -99,12 +92,37 @@ import type {
 } from "./right-workspace-open"
 import {
   RightWorkspaceDrawerShell,
-  RightWorkspaceListRow,
   RightWorkspaceListSkeleton,
   RightWorkspaceSectionLabel,
   RightWorkspaceVirtualList,
 } from "./right-workspace-drawer-ui"
 import { RightWorkspaceResourceDropzone } from "./right-workspace-resource-dropzone"
+import {
+  ObjectCard,
+  ObjectRow,
+  ObjectShelf,
+  ObjectTile,
+} from "@/components/objects/object-presentation"
+import { describeObject } from "@/components/objects/describe-object"
+import {
+  OBJECT_ROW_HEIGHT_PX,
+  OBJECT_STATUS_ERROR,
+  OBJECT_STATUS_MISSING,
+  OBJECT_STATUS_PREPARING,
+  OBJECT_STATUS_READY,
+  OBJECT_THUMBNAIL_COVER,
+  OBJECT_THUMBNAIL_IMAGE,
+  OBJECT_VARIANT_LG,
+  OBJECT_VARIANT_MD,
+  OBJECT_VARIANT_TILE,
+  objectCardHeightPx,
+  objectShelfHeightPx,
+  type ObjectModel,
+  type ObjectStatus,
+  type ObjectVariant,
+} from "@/components/objects/types"
+import type { MediaAction } from "@/components/media/types"
+import type { BenchObjectKind, BenchTarget } from "@/lib/bench-targets"
 
 type CatalogDrawerProps = {
   directory: string
@@ -123,19 +141,40 @@ type PracticeFeedItem =
   | { kind: "flashcards"; object: FlashcardDeckLibraryObject }
   | { kind: "question-sets"; object: QuestionSetLibraryObject }
 
+/**
+ * Sources are split by density: the newest few are covers, so the drawer opens
+ * on a shelf a reader recognises at a glance, and the rest are rows carrying the
+ * same cover downsampled into the visual slot. One virtual row holds one shelf.
+ */
+type SourceFeedRow =
+  | { type: "shelf"; key: string; resources: readonly ResourceListItem[] }
+  | { type: "row"; key: string; resource: ResourceListItem }
+
 export type CreationFeedItem =
   | { kind: "widgets"; object: HtmlWidgetLibraryObject }
   | { kind: "diagrams"; object: MermaidLibraryObject }
   | { kind: "media"; object: MediaLibraryObject }
+
+type FigureViewData = Extract<ObjectsViewResponse["data"], { renderer: "figure" }>
+type HtmlWidgetViewData = Extract<ObjectsViewResponse["data"], { renderer: "html-widget" }>
+type MediaGalleryViewData = Extract<ObjectsViewResponse["data"], { renderer: "media-gallery" }>
 
 type CreationPreviewState = {
   item: CreationFeedItem
   open: boolean
 }
 
-type FigureViewData = Extract<ObjectsViewResponse["data"], { renderer: "figure" }>
-type HtmlWidgetViewData = Extract<ObjectsViewResponse["data"], { renderer: "html-widget" }>
-type MediaGalleryViewData = Extract<ObjectsViewResponse["data"], { renderer: "media-gallery" }>
+type CreationPreviewDimensions = {
+  widthClass: string
+  aspectClass: string | null
+}
+
+/** Hover-render geometry for the tail. The featured band renders inline instead. */
+const CREATION_PREVIEW_DIMENSIONS: Record<CreationFeedItem["kind"], CreationPreviewDimensions> = {
+  widgets: { widthClass: "w-96", aspectClass: null },
+  diagrams: { widthClass: "w-96", aspectClass: "aspect-[4/3]" },
+  media: { widthClass: "w-80", aspectClass: "aspect-video" },
+}
 
 const CREATION_PREVIEW_PREFETCH_DELAY_MS = 120
 const CREATION_PREVIEW_OPEN_DELAY_MS = 500
@@ -146,20 +185,17 @@ const RENDERED_OBJECT_VIEW_ID = "rendered"
 const STICKY_READING_RESET_DELAY_MS = 500
 const EMPTY_RESOURCE_ITEMS: ResourceListItem[] = []
 
-type CreationPreviewDimensions = {
-  widthClass: string
-  aspectClass: string | null
-}
+/** Drawer width minus the shell's horizontal padding, for row height estimation. */
+const RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX = 380
 
-const CREATION_PREVIEW_DIMENSIONS: Record<CreationFeedItem["kind"], CreationPreviewDimensions> = {
-  // Widgets carry their own viewport dimensions; the inline frame sets the aspect
-  // ratio from the widget data, so we only constrain the width here.
-  widgets: { widthClass: "w-96", aspectClass: null },
-  // Mermaid diagrams vary in shape — wider and taller to show flowchart structure.
-  diagrams: { widthClass: "w-96", aspectClass: "aspect-[4/3]" },
-  // Figures and media galleries — moderate 16:9 preview with object-contain.
-  media: { widthClass: "w-80", aspectClass: "aspect-video" },
-}
+const RESOURCE_OBJECT_KIND: BenchObjectKind = "resource"
+/** The shelf adds columns as the drawer widens, so this is a count, not a shape. */
+const SOURCE_FEATURED_COUNT = 6
+/** Separates the cover band from the rows; the virtual list's own row gap is tight. */
+const SOURCE_SHELF_BOTTOM_GAP_PX = 16
+const SOURCE_PROCESS_ACTION_ID = "process"
+const SOURCE_SHELF_ROW_KEY = "shelf"
+const SOURCE_RESUME_META = "Resume reading"
 
 function normalizeSearch(value: string): string {
   return value.trim().toLocaleLowerCase()
@@ -194,12 +230,121 @@ function resourceMetadata(resource: ResourceListItem): string {
   return `${resource.extension.toUpperCase()} · ${resourceStatusLabel(resource.status)}`
 }
 
+/**
+ * Every state except ready earns a badge — but only on a tile, which has no
+ * detail line of its own. A row states the same thing in its meta, so badging it
+ * there would just say "Unprocessed" twice.
+ */
 function resourceBadge(resource: ResourceListItem, busy: boolean): string | undefined {
   if (busy || resource.status === "preparing") return language.t("sidebar.resourcesPreparing")
-  if (resource.status === "stale" || resource.status === "error") {
-    return resourceStatusLabel(resource.status)
+  if (resource.status === "ready") return undefined
+  return resourceStatusLabel(resource.status)
+}
+
+/** Six index statuses onto the four the presentation language distinguishes. */
+function workspaceObjectStatus(status: WorkspaceObjectIndexItem["status"]): ObjectStatus {
+  if (status === "preparing") return OBJECT_STATUS_PREPARING
+  if (status === "error" || status === "unsupported") return OBJECT_STATUS_ERROR
+  if (status === "unavailable") return OBJECT_STATUS_MISSING
+  return OBJECT_STATUS_READY
+}
+
+function resourceObjectStatus(resource: ResourceListItem, busy: boolean): ObjectStatus {
+  if (busy || resource.status === "preparing") return OBJECT_STATUS_PREPARING
+  if (resource.status === "error" || resource.status === "unsupported") return OBJECT_STATUS_ERROR
+  return OBJECT_STATUS_READY
+}
+
+/** An unprocessed source has no object yet, but the file on disk is still the thing. */
+function resourceBenchTarget(resource: ResourceListItem): BenchTarget {
+  if (resource.objectID) return createBenchObjectTarget(RESOURCE_OBJECT_KIND, resource.objectID)
+  return { type: "workspace-file", path: resource.path, viewer: "file" }
+}
+
+function describeResource(
+  directory: string,
+  resource: ResourceListItem,
+  busy: boolean,
+  variant: ObjectVariant,
+): ObjectModel {
+  const status = resourceObjectStatus(resource, busy)
+  const detail = resourceMetadata(resource)
+  const badge = variant === OBJECT_VARIANT_TILE ? resourceBadge(resource, busy) : undefined
+
+  return describeObject({
+    target: resourceBenchTarget(resource),
+    kind: RESOURCE_OBJECT_KIND,
+    title: resource.title || resource.name,
+    meta: [detail],
+    // The cover carries the relpath rather than a URL; ResourceCover fetches it
+    // itself and renders the same artwork at tile and thumbnail size.
+    thumbnail: {
+      source: OBJECT_THUMBNAIL_COVER,
+      directory,
+      ...(resource.coverRelpath ? { coverRelpath: resource.coverRelpath } : {}),
+      extension: resource.extension,
+      fileName: resource.name,
+    },
+    ...(badge ? { badge } : {}),
+    ...(status === OBJECT_STATUS_ERROR ? { statusMessage: detail } : {}),
+    status,
+  })
+}
+
+function toSourceFeedRows(resources: readonly ResourceListItem[]): SourceFeedRow[] {
+  const featured = resources.slice(0, SOURCE_FEATURED_COUNT)
+  const rows: SourceFeedRow[] = []
+
+  // One band, not one per shelf row: the grid's own gutter then runs in both
+  // directions, instead of the virtual list's tighter row gap cutting across it.
+  if (featured.length > 0) {
+    rows.push({ type: "shelf", key: SOURCE_SHELF_ROW_KEY, resources: featured })
   }
-  return undefined
+
+  for (const resource of resources.slice(SOURCE_FEATURED_COUNT)) {
+    rows.push({ type: "row", key: resource.key, resource })
+  }
+
+  return rows
+}
+
+/** Process and remove stay reachable from both densities, so it wraps either one. */
+function SourceContextMenu(props: {
+  resource: ResourceListItem
+  busy: boolean
+  onProcess: (resource: ResourceListItem) => void
+  onDelete: (resource: ResourceListItem) => void
+  children: ReactNode
+}) {
+  const { resource } = props
+  const canProcess =
+    resource.status !== "preparing" && (resource.status !== "ready" || resource.objectID !== undefined)
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger className="block w-full">{props.children}</ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuGroup>
+          {canProcess ? (
+            <ContextMenuItem disabled={props.busy} onSelect={() => props.onProcess(resource)}>
+              <RefreshCwIcon aria-hidden />
+              {resourceActionLabel(resource.status)}
+            </ContextMenuItem>
+          ) : null}
+          {resource.objectID ? (
+            <ContextMenuItem
+              variant="destructive"
+              disabled={props.busy}
+              onSelect={() => props.onDelete(resource)}
+            >
+              <Trash2Icon aria-hidden />
+              {language.t("resourcesPanel.remove")}
+            </ContextMenuItem>
+          ) : null}
+        </ContextMenuGroup>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
 }
 
 function CatalogError(props: { message: string }) {
@@ -285,9 +430,12 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
       ),
     [normalizedSearch, resources],
   )
-  const resumeReadingResource =
+  const feedRows = useMemo(() => toSourceFeedRows(visibleResources), [visibleResources])
+  // Resolved against the list so the resume row gets the real cover and state,
+  // and so a source deleted since it was last read stops being offered.
+  const resumeResource =
     lastOpenedReadingResource && lastOpenedReadingResource.path !== stickyReadingPath
-      ? lastOpenedReadingResource
+      ? resources.find((item) => item.path === lastOpenedReadingResource.path)
       : undefined
 
   async function addPaths(paths: readonly string[]) {
@@ -373,6 +521,39 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
     })
   }
 
+  function openResourceItem(resource: ResourceListItem) {
+    openResource({
+      path: resource.path,
+      name: resource.name,
+      ...(resource.objectID ? { objectID: resource.objectID } : {}),
+      status: resource.status,
+    })
+  }
+
+  function describe(resource: ResourceListItem, variant: ObjectVariant): ObjectModel {
+    return describeResource(props.directory, resource, busyKeys.has(resource.key), variant)
+  }
+
+  /**
+   * A row states its condition in its meta line, so repeating it as a badge said
+   * "Unprocessed" twice. What a non-ready source actually needs is the verb.
+   */
+  function sourceActions(resource: ResourceListItem): MediaAction[] {
+    if (resource.status === "ready") return []
+    const pending = busyKeys.has(resource.key) || resource.status === "preparing"
+
+    return [
+      {
+        id: SOURCE_PROCESS_ACTION_ID,
+        label: resourceActionLabel(resource.status),
+        icon: RefreshCwIcon,
+        disabled: pending,
+        loading: pending,
+        onSelect: () => void processResource(resource),
+      },
+    ]
+  }
+
   return (
     <RightWorkspaceDrawerShell
       durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "sources" })}
@@ -390,32 +571,18 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
       }}
       toolbar={
         <div className="flex flex-col gap-3">
-          {resumeReadingResource ? (
+          {resumeResource ? (
             <div className="flex flex-col gap-2">
               <RightWorkspaceSectionLabel>Continue</RightWorkspaceSectionLabel>
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-auto w-full justify-start px-3 py-3 text-left"
-                onClick={() =>
-                  openResource({
-                    path: resumeReadingResource.path,
-                    name: resumeReadingResource.name,
-                    ...(resumeReadingResource.objectID
-                      ? { objectID: resumeReadingResource.objectID }
-                      : {}),
-                  })
-                }
-              >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-surface-interactive-weak text-text-interactive-base">
-                  <BookOpenIcon aria-hidden />
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-                  <span className="w-full truncate text-sm">{resumeReadingResource.name}</span>
-                  <span className="text-xs font-normal text-text-weak">Resume reading</span>
-                </span>
-                <ChevronRightIcon className="ml-auto" aria-hidden />
-              </Button>
+              <ObjectRow
+                model={{
+                  ...describe(resumeResource, OBJECT_VARIANT_LG),
+                  meta: [SOURCE_RESUME_META],
+                }}
+                variant={OBJECT_VARIANT_LG}
+                disabled={busyKeys.has(resumeResource.key)}
+                onOpen={() => openResourceItem(resumeResource)}
+              />
             </div>
           ) : null}
           <RightWorkspaceSectionLabel>
@@ -455,73 +622,62 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
             }
           />
         ) : null}
-        {!resourcesQuery.isPending && visibleResources.length > 0 ? (
+        {!resourcesQuery.isPending && feedRows.length > 0 ? (
           <RightWorkspaceVirtualList
-            items={visibleResources}
+            items={feedRows}
             scrollElement={scrollElement}
-            getKey={(resource) => resource.key}
-            renderItem={(resource) => {
-              const busy = busyKeys.has(resource.key)
-              const processLabel = resourceActionLabel(resource.status)
-              const canProcess =
-                resource.status !== "preparing" &&
-                (resource.status !== "ready" || resource.objectID !== undefined)
-
+            getKey={(row) => row.key}
+            estimateSize={(index) => {
+              const row = feedRows[index]
+              if (row?.type !== "shelf") return OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_LG]
               return (
-                <ContextMenu>
-                  <ContextMenuTrigger asChild>
-                    <RightWorkspaceListRow
-                      visual={
-                        <ResourceCover
-                          directory={props.directory}
-                          coverRelpath={resource.coverRelpath}
-                          title={resource.title}
-                          extension={resource.extension}
-                          presentation="thumbnail"
-                          className="h-11 w-8 shrink-0"
-                        />
-                      }
-                      title={resource.title || resource.name}
-                      metadata={resourceMetadata(resource)}
-                      badge={resourceBadge(resource, busy)}
-                      active={stickyReadingPath === resource.path}
-                      disabled={busy}
-                      onClick={() =>
-                        openResource({
-                          path: resource.path,
-                          name: resource.name,
-                          ...(resource.objectID ? { objectID: resource.objectID } : {}),
-                          status: resource.status,
-                        })
-                      }
-                    />
-                  </ContextMenuTrigger>
-                  <ContextMenuContent>
-                    <ContextMenuGroup>
-                      {canProcess ? (
-                        <ContextMenuItem
-                          disabled={busy}
-                          onSelect={() => void processResource(resource)}
-                        >
-                          <RefreshCwIcon aria-hidden />
-                          {processLabel}
-                        </ContextMenuItem>
-                      ) : null}
-                      {resource.objectID ? (
-                        <ContextMenuItem
-                          variant="destructive"
-                          disabled={busy}
-                          onSelect={() => void deleteResource(resource)}
-                        >
-                          <Trash2Icon aria-hidden />
-                          {language.t("resourcesPanel.remove")}
-                        </ContextMenuItem>
-                      ) : null}
-                    </ContextMenuGroup>
-                  </ContextMenuContent>
-                </ContextMenu>
+                objectShelfHeightPx(
+                  RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX,
+                  row.resources.length,
+                ) + SOURCE_SHELF_BOTTOM_GAP_PX
               )
             }}
+            renderItem={(row) =>
+              row.type === "shelf" ? (
+                <div style={{ paddingBottom: SOURCE_SHELF_BOTTOM_GAP_PX }}>
+                  <ObjectShelf>
+                    {row.resources.map((resource) => (
+                      <SourceContextMenu
+                        key={resource.key}
+                        resource={resource}
+                        busy={busyKeys.has(resource.key)}
+                        onProcess={(item) => void processResource(item)}
+                        onDelete={(item) => void deleteResource(item)}
+                      >
+                        <ObjectTile
+                          className="w-full"
+                          model={describe(resource, OBJECT_VARIANT_TILE)}
+                          active={stickyReadingPath === resource.path}
+                          disabled={busyKeys.has(resource.key)}
+                          onOpen={() => openResourceItem(resource)}
+                        />
+                      </SourceContextMenu>
+                    ))}
+                  </ObjectShelf>
+                </div>
+              ) : (
+                <SourceContextMenu
+                  resource={row.resource}
+                  busy={busyKeys.has(row.resource.key)}
+                  onProcess={(item) => void processResource(item)}
+                  onDelete={(item) => void deleteResource(item)}
+                >
+                  <ObjectRow
+                    model={describe(row.resource, OBJECT_VARIANT_LG)}
+                    variant={OBJECT_VARIANT_LG}
+                    actions={sourceActions(row.resource)}
+                    active={stickyReadingPath === row.resource.path}
+                    disabled={busyKeys.has(row.resource.key)}
+                    onOpen={() => openResourceItem(row.resource)}
+                  />
+                </SourceContextMenu>
+              )
+            }
           />
         ) : null}
       </RightWorkspaceResourceDropzone>
@@ -566,18 +722,24 @@ function FlashcardPracticeRow(props: {
     : detailQuery.error
       ? stringifyError(detailQuery.error)
       : "Loading deck…"
+  const model = describeObject({
+    target: createBenchObjectTarget(props.item.kind, props.item.objectID),
+    kind: props.item.kind,
+    title: detail?.title ?? props.item.title,
+    meta: [metadata],
+    status: workspaceObjectStatus(props.item.status),
+    ...(dueCount > 0 ? { badge: `${dueCount} due` } : {}),
+  })
 
   return (
-    <RightWorkspaceListRow
-      icon={Layers3Icon}
-      title={detail?.title ?? props.item.title}
-      metadata={metadata}
-      badge={dueCount > 0 ? `${dueCount} due` : undefined}
-      onClick={() =>
+    <ObjectRow
+      model={model}
+      variant={OBJECT_VARIANT_MD}
+      onOpen={() =>
         void props.onOpen({
           type: "object",
           directory: props.directory,
-          target: createBenchObjectTarget("flashcard-deck", props.item.objectID),
+          target: createBenchObjectTarget(props.item.kind, props.item.objectID),
         })
       }
     />
@@ -602,17 +764,23 @@ function QuestionSetPracticeRow(props: {
     : `${count === undefined ? "Loading" : count} ${
         count === 1 ? "question" : "questions"
       } · ${formatTimestamp(detailQuery.data?.createdAt ?? props.item.updatedAt)}`
+  const model = describeObject({
+    target: createBenchObjectTarget(props.item.kind, props.item.objectID),
+    kind: props.item.kind,
+    title: props.item.title,
+    meta: [metadata],
+    status: workspaceObjectStatus(props.item.status),
+  })
 
   return (
-    <RightWorkspaceListRow
-      icon={ListChecksIcon}
-      title={props.item.title}
-      metadata={metadata}
-      onClick={() =>
+    <ObjectRow
+      model={model}
+      variant={OBJECT_VARIANT_MD}
+      onOpen={() =>
         void props.onOpen({
           type: "object",
           directory: props.directory,
-          target: createBenchObjectTarget("question-set", props.item.objectID),
+          target: createBenchObjectTarget(props.item.kind, props.item.objectID),
         })
       }
     />
@@ -750,6 +918,7 @@ export function PracticeDrawer(props: CatalogDrawerProps) {
           items={items}
           scrollElement={scrollElement}
           getKey={(item) => `${item.kind}:${item.object.objectID}`}
+          estimateSize={OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_MD]}
           renderItem={(item) => (
             <PracticeRow directory={props.directory} item={item} onOpen={props.onOpen} />
           )}
@@ -771,13 +940,6 @@ function creationKindLabel(item: CreationFeedItem): string {
   if (item.kind === "diagrams") return "Diagram"
   if (item.object.kind === "media-presentation") return "Media"
   return "Figure"
-}
-
-function creationIcon(item: CreationFeedItem) {
-  if (item.kind === "widgets") return AppWindowIcon
-  if (item.kind === "diagrams") return WorkflowIcon
-  if (item.object.kind === "media-presentation") return ImagesIcon
-  return FileImageIcon
 }
 
 function creationViewID(item: CreationFeedItem): string {
@@ -905,7 +1067,76 @@ function MediaCreationPreview(props: { directory: string; object: MediaLibraryOb
   )
 }
 
-function CreationRow(props: {
+/**
+ * Split density: the top few creations render the artifact inline, the rest are
+ * rows. The featured band IS the render budget — it is structural, so no cap
+ * has to be imposed after the fact, and the virtualiser only mounts what is
+ * on screen.
+ */
+const CREATION_FEATURED_COUNT = 3
+
+function describeCreation(item: CreationFeedItem): ObjectModel {
+  const { object } = item
+  return describeObject({
+    target: createBenchObjectTarget(object.kind, object.objectID),
+    kind: object.kind,
+    title: object.title,
+    meta: [creationKindLabel(item), formatTimestamp(object.updatedAt)],
+    status: workspaceObjectStatus(object.status),
+  })
+}
+
+/**
+ * Resolves a real image thumbnail for the kinds that earn one.
+ *
+ * Only media presentations and figures reach here, and only while their row is
+ * on screen — the list virtualises, so the view fetch is naturally budgeted by
+ * visibility rather than by an imposed cap. Diagrams and widgets keep the
+ * glyph: at row scale a render is unreadable and costs far more than an <img>.
+ */
+function useCreationRowModel(directory: string, item: CreationFeedItem): ObjectModel {
+  const wantsThumbnail = item.kind === "media"
+  const viewQuery = useQuery({
+    ...objectViewQueryOptions({
+      directory,
+      kind: item.object.kind,
+      objectID: item.object.objectID,
+      viewID: creationViewID(item),
+    }),
+    enabled: wantsThumbnail,
+  })
+
+  return useMemo(() => {
+    const model = describeCreation(item)
+    if (!wantsThumbnail) return model
+
+    const figure: FigureViewData | undefined =
+      viewQuery.data?.data.renderer === "figure" ? viewQuery.data.data : undefined
+    const gallery: MediaGalleryViewData | undefined =
+      viewQuery.data?.data.renderer === "media-gallery" ? viewQuery.data.data : undefined
+    const galleryItem = gallery?.items.find(
+      (entry) => entry.availability === "available" && entry.rawUrl && entry.mediaType !== "video",
+    )
+    const rawSrc = figure?.svgUrl ?? galleryItem?.rawUrl
+    if (!rawSrc) return model
+
+    return {
+      ...model,
+      thumbnail: {
+        source: OBJECT_THUMBNAIL_IMAGE,
+        src: resolveAssetUrl(rawSrc),
+        alt: "",
+      },
+    }
+  }, [item, viewQuery.data, wantsThumbnail])
+}
+
+/**
+ * Tail row: a plain ObjectRow that still reveals the full render on hover, the
+ * way the drawer did before split density. The featured cards do not need this
+ * — they already render inline.
+ */
+function CreationTailRow(props: {
   directory: string
   item: CreationFeedItem
   preview: CreationPreviewState | undefined
@@ -915,6 +1146,7 @@ function CreationRow(props: {
   onPreviewKeepOpen: () => void
   onPreviewOpenChange: (open: boolean) => void
 }) {
+  const model = useCreationRowModel(props.directory, props.item)
   const previewActive =
     props.preview?.item.kind === props.item.kind &&
     props.preview.item.object.objectID === props.item.object.objectID
@@ -923,16 +1155,21 @@ function CreationRow(props: {
   return (
     <Popover open={previewActive && props.preview?.open} onOpenChange={props.onPreviewOpenChange}>
       <PopoverAnchor asChild>
-        <RightWorkspaceListRow
-          icon={creationIcon(props.item)}
-          title={props.item.object.title}
-          metadata={`${creationKindLabel(props.item)} · ${formatTimestamp(
-            props.item.object.updatedAt,
-          )}`}
-          onClick={() => props.onOpen(props.item)}
-          onPreviewIntent={() => props.onPreviewIntent(props.item)}
-          onPreviewEnd={props.onPreviewEnd}
-        />
+        <div
+          onPointerEnter={(event) => {
+            if (event.pointerType === "touch") return
+            props.onPreviewIntent(props.item)
+          }}
+          onPointerLeave={props.onPreviewEnd}
+          onFocus={() => props.onPreviewIntent(props.item)}
+          onBlur={props.onPreviewEnd}
+        >
+          <ObjectRow
+            model={model}
+            variant={OBJECT_VARIANT_MD}
+            onOpen={() => props.onOpen(props.item)}
+          />
+        </div>
       </PopoverAnchor>
       {previewActive ? (
         <PopoverContent
@@ -1062,12 +1299,6 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
     })
   }
 
-  useEffect(
-    () => () => {
-      clearPreviewTimers()
-    },
-    [],
-  )
 
   return (
     <RightWorkspaceDrawerShell
@@ -1156,20 +1387,34 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
           items={items}
           scrollElement={scrollElement}
           getKey={(item) => `${item.object.kind}:${item.object.objectID}`}
-          renderItem={(item) => (
-            <CreationRow
-              directory={props.directory}
-              item={item}
-              preview={preview}
-              onOpen={openCreation}
-              onPreviewIntent={beginPreview}
-              onPreviewEnd={schedulePreviewClose}
-              onPreviewKeepOpen={keepPreviewOpen}
-              onPreviewOpenChange={(open) => {
-                if (!open) setPreview(undefined)
-              }}
-            />
-          )}
+          estimateSize={(index) =>
+            index < CREATION_FEATURED_COUNT
+              ? objectCardHeightPx(RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX)
+              : OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_MD]
+          }
+          renderItem={(item, index) =>
+            index < CREATION_FEATURED_COUNT ? (
+              <ObjectCard
+                model={describeCreation(item)}
+                allowLive
+                preview={<CreationPreviewVisual directory={props.directory} item={item} />}
+                onOpen={() => openCreation(item)}
+              />
+            ) : (
+              <CreationTailRow
+                directory={props.directory}
+                item={item}
+                preview={preview}
+                onOpen={openCreation}
+                onPreviewIntent={beginPreview}
+                onPreviewEnd={schedulePreviewClose}
+                onPreviewKeepOpen={keepPreviewOpen}
+                onPreviewOpenChange={(open) => {
+                  if (!open) setPreview(undefined)
+                }}
+              />
+            )
+          }
         />
       ) : null}
     </RightWorkspaceDrawerShell>
