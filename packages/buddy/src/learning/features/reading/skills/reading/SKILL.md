@@ -16,17 +16,22 @@ Run the reading workflow over the attached resource. Read first, then respond fr
    - resource full-text path
    - resource full-text token estimate
 2. Decide between `whole-full-text` and `scoped-reading`.
-3. If a resource exposes both a full-text path and a full-text token estimate, and the active model exposes an input window or context window, run the headroom test first.
-4. If `(input_window ?? context_window) - full_text_est_tokens >= 100000`, enter `whole-full-text` mode.
-5. In `whole-full-text` mode, read the entire full-text file before giving any substantive user-facing guidance.
+3. If the current native-resource record says `delivery=model-and-resource`, the PDF is already in model context. Do not call `ingest_full_text`; use the prepared pack for citations, navigation, and later scoped reading.
+4. Otherwise, if a resource exposes both a full-text path and a full-text token estimate, and the active model exposes an input window or context window, run the headroom test first.
+5. Calculate the preliminary full-text budget:
+   - `tool_input_window = min(input_window ?? context_window, 250000)`
+   - `reserve = clamp(tool_input_window * 0.25, 48000, 96000)`
+   - if `tool_input_window - full_text_est_tokens >= reserve`, enter `whole-full-text` mode
+   - the ingestion tool performs the final check using live session usage
+6. In `whole-full-text` mode, read the entire full-text file before giving any substantive user-facing guidance.
    - if `ingest_full_text` is available, call it
    - pass `resourceKey` as the resource `object_id` or alias
    - let the tool do the live context-budget check before ingestion
    - do this even if the learner asked about a chapter, unless they explicitly want a narrow passage-only reading
    - if the tool succeeds, the full text is now in context and you can respond from it
-   - if the tool is unavailable or errors because the context is too full, state that briefly and fall back to `scoped-reading`
-6. If the headroom test fails, or the metadata needed for it is unavailable, fall back to `scoped-reading`.
-7. In `scoped-reading`, choose one narrow target:
+   - if the tool is unavailable or returns a scoped-reading fallback, continue in `scoped-reading`
+7. If the headroom test fails, or the metadata needed for it is unavailable, fall back to `scoped-reading`.
+8. In `scoped-reading`, choose one narrow target:
    - one section
    - one chapter
    - one page range
@@ -86,8 +91,9 @@ For substantive reading answers, use this shape when relevant:
 
 # Tool Hints
 - When the whole-full-text rule passes and `ingest_full_text` is available, call it before doing anything else substantive.
+- When the native-resource record says `delivery=model-and-resource`, do not call `ingest_full_text` for that PDF.
 - Pass `resourceKey` copied from `object_id` or `alias` in the resource inventory. Object IDs resolve before aliases.
-- The ingestion tool already checks live session headroom against the active model limits and throws if the remaining budget is not large enough.
+- The ingestion tool checks live session headroom against its capped input-window budget and returns a scoped-reading fallback when the remaining budget is not large enough.
 - If the whole-full-text rule does not pass, use the `pack` path from the resource inventory or tool result, then read/search `10-toc.md`, `chunks/`, `pages/`, or `20-full-text-*.md` under that pack root to stay scoped.
 - Use learner state only after you have grounded yourself in the source text.
 - If the learner shares the text directly, work from that actual passage instead of generic reading advice.
@@ -127,7 +133,7 @@ Before responding, check:
 
 # Avoid
 - Do not skip the full-text headroom check when the runtime context gives you enough data to make it.
-- Do not default to chunk-by-chunk reading when the whole full-text file easily fits with at least 100000 tokens of spare room.
+- Do not default to chunk-by-chunk reading when the whole full-text file passes the preliminary capped-window reserve calculation.
 - Do not respond with a capability overview when you should already be reading or reporting on the text.
 - Do not summarize a whole book before reading it.
 - Do not confuse "I started reading" with "I read the book".

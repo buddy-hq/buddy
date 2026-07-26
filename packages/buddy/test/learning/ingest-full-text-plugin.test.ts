@@ -1,17 +1,21 @@
 import { describe, expect, test } from "bun:test"
-import { writeFileSync } from "node:fs"
+import { mkdirSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import type { ToolContext } from "@opencode-ai/plugin"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import type { MessageV2 } from "@buddy/opencode-adapter/message"
-import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
+import { MessageID, ModelID, PartID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
 import { Effect } from "effect"
 import { ingestFullTextTool } from "../../src/learning/features/reading/tools/ingest-full-text"
 import { createCompatiblePluginAskHandler } from "../../src/opencode-runtime/plugin-ask-compat"
 import { buddyToolToPluginTool } from "../../src/opencode-runtime/buddy-tool-shim"
+import { BUDDY_PROMPT_PART_METADATA_KEY } from "../../src/learning/prompt/workspace-file-references"
+import { NATIVE_RESOURCE_ATTACHMENT_PART_TYPE } from "../../src/learning/prompt/native-resource-attachments"
+import { estimateTokenCountFromText } from "../../src/resource-packs"
 import { tmpdir } from "../helpers/tmpdir"
 import { ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import { createTextPdf } from "../helpers/pdf"
 
 type ActiveProviderModel = {
   providerID: string
@@ -53,6 +57,19 @@ const SMALL_TEST_ACTIVE_MODEL: ActiveProviderModel = {
   },
 }
 
+const FULL_TEXT_INPUT_WINDOW_CEILING_TOKENS = 250_000
+const FULL_TEXT_INPUT_WINDOW_CEILING_RESERVE_TOKENS = 62_500
+const MINIMUM_FULL_TEXT_RESERVE_TOKENS = 48_000
+const INCIDENT_LIVE_USAGE_TOKENS = 21_490
+const ONE_TOKEN_OVER_BUDGET = 1
+const STALE_FULL_TEXT_ESTIMATE_TOKENS = 100
+const CORRUPTED_GLYPH_REPEAT_COUNT = 200
+const CORRUPTED_GLYPH_PATTERN = "ª¨±ø·Æ²­º¸¥´½³ß¹°©æÚÙµ™"
+const EMPTY_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS =
+  FULL_TEXT_INPUT_WINDOW_CEILING_TOKENS - FULL_TEXT_INPUT_WINDOW_CEILING_RESERVE_TOKENS
+const USED_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS =
+  EMPTY_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS - INCIDENT_LIVE_USAGE_TOKENS
+
 function createUserMessageHistory(sessionID: string): MessageV2.WithParts[] {
   return [
     {
@@ -70,6 +87,68 @@ function createUserMessageHistory(sessionID: string): MessageV2.WithParts[] {
       parts: [],
     },
   ]
+}
+
+function createNativePdfMessageHistory(input: {
+  sessionID: string
+  sourcePath: string
+  delivery: "model-and-resource" | "resource-only"
+}): MessageV2.WithParts[] {
+  const messages = createUserMessageHistory(input.sessionID)
+  const message = messages[0]
+  if (!message || message.info.role !== "user") {
+    throw new Error("Expected user message history")
+  }
+  message.parts.push({
+    id: PartID.make("prt_native_pdf_metadata"),
+    sessionID: SessionID.make(input.sessionID),
+    messageID: message.info.id,
+    type: "text",
+    text: "Attached native learning resource metadata",
+    metadata: {
+      [BUDDY_PROMPT_PART_METADATA_KEY]: {
+        type: NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+        filename: "Native.pdf",
+        sourcePath: input.sourcePath,
+        format: "pdf",
+        alias: "Native.pdf",
+        mime: "application/pdf",
+        delivery: input.delivery,
+        pageCount: 1,
+      },
+    },
+  })
+  return messages
+}
+
+function createAssistantUsageMessage(
+  sessionID: string,
+  directory: string,
+  totalTokens: number,
+): MessageV2.WithParts {
+  return {
+    info: {
+      id: MessageID.make("msg_assistant_usage"),
+      sessionID: SessionID.make(sessionID),
+      role: "assistant",
+      time: { created: Date.now(), completed: Date.now() },
+      parentID: MessageID.make("msg_user"),
+      modelID: ModelID.make(LARGE_TEST_ACTIVE_MODEL.id),
+      providerID: ProviderID.opencode,
+      mode: "buddy",
+      agent: "buddy",
+      path: { cwd: directory, root: directory },
+      cost: 0,
+      tokens: {
+        input: totalTokens,
+        output: 0,
+        reasoning: 0,
+        cache: { read: 0, write: 0 },
+        total: totalTokens,
+      },
+    },
+    parts: [],
+  }
 }
 
 function createPluginExecuteContext(input: {
@@ -123,11 +202,8 @@ describe("ingest_full_text via plugin shim", () => {
     await ensureBuddyPluginTools(project.path)
 
     const sourcePath = path.join(project.path, "frames.md")
-    writeFileSync(
-      sourcePath,
-      "# Frames\n\nShort prepared text for ingestion regression coverage.\n",
-      "utf8",
-    )
+    const sourceText = "# Frames\n\nShort prepared text for ingestion regression coverage.\n"
+    writeFileSync(sourcePath, sourceText, "utf8")
 
     const sessionID = "ses_ingest_full_text"
     const messages = createUserMessageHistory(sessionID)
@@ -162,6 +238,9 @@ describe("ingest_full_text via plugin shim", () => {
           throw new Error("Expected prepare_resource object result")
         }
         expect(prepareResult.output).toContain("status=ready")
+        expect(prepareResult.output).toContain(
+          `full_text_est_tokens=${estimateTokenCountFromText(sourceText.trim())}`,
+        )
 
         const ingestPlugin = buddyToolToPluginTool(ingestFullTextTool, project.path)
         const ingestResult = await ingestPlugin.execute(
@@ -230,6 +309,222 @@ describe("ingest_full_text via plugin shim", () => {
       },
     })
   }, 30_000)
+
+  test("does not duplicate prepared full text for a natively delivered PDF", async () => {
+    await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
+
+    const uploadsDirectory = path.join(project.path, "uploads")
+    const sourcePath = path.join(uploadsDirectory, "Native--abcdefghij.pdf")
+    mkdirSync(uploadsDirectory, { recursive: true })
+    writeFileSync(sourcePath, createTextPdf("Native PDF context guard"), "utf8")
+
+    const sessionID = "ses_ingest_full_text_native_pdf"
+    const nativeMessages = createNativePdfMessageHistory({
+      sessionID,
+      sourcePath,
+      delivery: "model-and-resource",
+    })
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        const preparePlugin = buddyToolToPluginTool(
+          (await import("../../src/learning/features/reading/tools/prepare-resource"))
+            .prepareResourceTool,
+          project.path,
+        )
+        const baseContext = {
+          directory: project.path,
+          sessionID,
+          messages: nativeMessages,
+          model: TEST_ACTIVE_MODEL,
+        }
+        const prepareResult = await preparePlugin.execute(
+          {
+            sourcePath,
+            alias: "native-pdf",
+            waitUntilReady: true,
+            maxWaitMs: 20_000,
+          },
+          createPluginExecuteContext(baseContext),
+        )
+        if (typeof prepareResult === "string") {
+          throw new Error("Expected prepare_resource object result")
+        }
+        expect(prepareResult.output).toContain("status=ready")
+
+        const ingestPlugin = buddyToolToPluginTool(ingestFullTextTool, project.path)
+        const nativeResult = await ingestPlugin.execute(
+          { resourceKey: "native-pdf" },
+          createPluginExecuteContext(baseContext),
+        )
+        if (typeof nativeResult === "string" || !nativeResult.metadata) {
+          throw new Error("Expected native PDF fallback result with metadata")
+        }
+        expect(nativeResult.metadata.completed).toBe(false)
+        expect(nativeResult.metadata.reason).toBe("native_pdf_already_in_context")
+        expect(nativeResult.metadata.fallback).toBe("scoped_reading")
+        expect(nativeResult.output).toContain("already present as native model input")
+        expect(nativeResult.output).not.toContain("<full_text>")
+
+        const resourceOnlyMessages = createNativePdfMessageHistory({
+          sessionID,
+          sourcePath,
+          delivery: "resource-only",
+        })
+        const resourceOnlyResult = await ingestPlugin.execute(
+          { resourceKey: "native-pdf" },
+          createPluginExecuteContext({
+            ...baseContext,
+            messages: resourceOnlyMessages,
+          }),
+        )
+        if (typeof resourceOnlyResult === "string" || !resourceOnlyResult.metadata) {
+          throw new Error("Expected resource-only ingestion object result with metadata")
+        }
+        expect(resourceOnlyResult.metadata.completed).toBe(true)
+        expect(resourceOnlyResult.output).toContain("<full_text>")
+      },
+    })
+  })
+
+  test("caps the tool budget at 250k and subtracts live usage without changing model context", async () => {
+    await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
+
+    const sourcePath = path.join(project.path, "capped-window.md")
+    writeFileSync(sourcePath, "# Capped Window\n\nBoundary test content.\n", "utf8")
+
+    const sessionID = "ses_ingest_full_text_capped_window"
+    const messages = createUserMessageHistory(sessionID)
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        const pluginContext = {
+          directory: project.path,
+          sessionID,
+          messages,
+          model: LARGE_TEST_ACTIVE_MODEL,
+        }
+        const preparePlugin = buddyToolToPluginTool(
+          (await import("../../src/learning/features/reading/tools/prepare-resource"))
+            .prepareResourceTool,
+          project.path,
+        )
+        const prepareResult = await preparePlugin.execute(
+          {
+            sourcePath,
+            alias: "capped-window-md",
+            waitUntilReady: true,
+            maxWaitMs: 20_000,
+          },
+          createPluginExecuteContext(pluginContext),
+        )
+        if (typeof prepareResult === "string") {
+          throw new Error("Expected prepare_resource object result")
+        }
+        const fullTextPath = prepareResult.metadata?.fullTextPath
+        if (typeof fullTextPath !== "string") {
+          throw new Error("Expected prepare_resource full-text path")
+        }
+
+        const writeEstimatedTokenCount = (estimatedTokens: number) => {
+          writeFileSync(
+            path.resolve(project.path, fullTextPath),
+            `---\nest_tokens: ${estimatedTokens}\n---\nBoundary test content.\n`,
+            "utf8",
+          )
+        }
+        const ingestPlugin = buddyToolToPluginTool(ingestFullTextTool, project.path)
+
+        writeEstimatedTokenCount(EMPTY_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS)
+        const boundaryResult = await ingestPlugin.execute(
+          { resourceKey: "capped-window-md" },
+          createPluginExecuteContext(pluginContext),
+        )
+        if (typeof boundaryResult === "string" || !boundaryResult.metadata) {
+          throw new Error("Expected ingest_full_text object result with metadata")
+        }
+        expect(boundaryResult.metadata.completed).toBe(true)
+        expect(boundaryResult.metadata.inputWindow).toBe(
+          FULL_TEXT_INPUT_WINDOW_CEILING_TOKENS,
+        )
+        expect(boundaryResult.metadata.contextWindow).toBe(
+          LARGE_TEST_ACTIVE_MODEL.limit.context,
+        )
+        expect(boundaryResult.metadata.remainingAfterIngestion).toBe(
+          FULL_TEXT_INPUT_WINDOW_CEILING_RESERVE_TOKENS,
+        )
+
+        writeEstimatedTokenCount(
+          EMPTY_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS + ONE_TOKEN_OVER_BUDGET,
+        )
+        const overBoundaryResult = await ingestPlugin.execute(
+          { resourceKey: "capped-window-md" },
+          createPluginExecuteContext(pluginContext),
+        )
+        if (typeof overBoundaryResult === "string" || !overBoundaryResult.metadata) {
+          throw new Error("Expected ingest_full_text fallback result with metadata")
+        }
+        expect(overBoundaryResult.metadata.completed).toBe(false)
+        expect(overBoundaryResult.metadata.reason).toBe("context_too_full")
+        expect(overBoundaryResult.metadata.fallback).toBe("scoped_reading")
+        expect(overBoundaryResult.metadata.requiredReserveAfterIngestion).toBe(
+          FULL_TEXT_INPUT_WINDOW_CEILING_RESERVE_TOKENS,
+        )
+        expect(overBoundaryResult.output).not.toContain("<full_text>")
+
+        const messagesWithUsage = [
+          ...messages,
+          createAssistantUsageMessage(
+            sessionID,
+            project.path,
+            INCIDENT_LIVE_USAGE_TOKENS,
+          ),
+        ]
+        const usedPluginContext = {
+          ...pluginContext,
+          messages: messagesWithUsage,
+        }
+
+        writeEstimatedTokenCount(USED_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS)
+        const usedBoundaryResult = await ingestPlugin.execute(
+          { resourceKey: "capped-window-md" },
+          createPluginExecuteContext(usedPluginContext),
+        )
+        if (typeof usedBoundaryResult === "string" || !usedBoundaryResult.metadata) {
+          throw new Error("Expected used-session ingest result with metadata")
+        }
+        expect(usedBoundaryResult.metadata.completed).toBe(true)
+        expect(usedBoundaryResult.metadata.liveUsageEstimate).toBe(
+          INCIDENT_LIVE_USAGE_TOKENS,
+        )
+        expect(usedBoundaryResult.metadata.remainingAfterIngestion).toBe(
+          FULL_TEXT_INPUT_WINDOW_CEILING_RESERVE_TOKENS,
+        )
+
+        writeEstimatedTokenCount(
+          USED_SESSION_CAPPED_FULL_TEXT_LIMIT_TOKENS + ONE_TOKEN_OVER_BUDGET,
+        )
+        const usedOverBoundaryResult = await ingestPlugin.execute(
+          { resourceKey: "capped-window-md" },
+          createPluginExecuteContext(usedPluginContext),
+        )
+        if (
+          typeof usedOverBoundaryResult === "string" ||
+          !usedOverBoundaryResult.metadata
+        ) {
+          throw new Error("Expected used-session fallback result with metadata")
+        }
+        expect(usedOverBoundaryResult.metadata.completed).toBe(false)
+        expect(usedOverBoundaryResult.metadata.remainingAfterIngestion).toBe(
+          FULL_TEXT_INPUT_WINDOW_CEILING_RESERVE_TOKENS - ONE_TOKEN_OVER_BUDGET,
+        )
+      },
+    })
+  })
 
   test("returns scoped-reading fallback instead of throwing when full text lacks headroom", async () => {
     await using project = await tmpdir({ git: true })
@@ -300,8 +595,83 @@ describe("ingest_full_text via plugin shim", () => {
         expect(ingestMetadata.completed).toBe(false)
         expect(ingestMetadata.reason).toBe("context_too_full")
         expect(ingestMetadata.fallback).toBe("scoped_reading")
+        expect(ingestMetadata.inputWindow).toBe(SMALL_TEST_ACTIVE_MODEL.limit.input)
+        expect(ingestMetadata.contextWindow).toBe(SMALL_TEST_ACTIVE_MODEL.limit.context)
+        expect(ingestMetadata.requiredReserveAfterIngestion).toBe(
+          MINIMUM_FULL_TEXT_RESERVE_TOKENS,
+        )
         expect(ingestResult.output).toContain('completed="false"')
         expect(ingestResult.output).toContain("Continue with scoped reading")
+        expect(ingestResult.output).not.toContain("<full_text>")
+      },
+    })
+  })
+
+  test("recalculates stale pack estimates before full-text admission", async () => {
+    await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
+
+    const sourcePath = path.join(project.path, "legacy-estimate.md")
+    writeFileSync(sourcePath, "# Legacy Estimate\n\nShort placeholder.\n", "utf8")
+
+    const sessionID = "ses_ingest_full_text_stale_estimate"
+    const messages = createUserMessageHistory(sessionID)
+    const pluginContext = {
+      directory: project.path,
+      sessionID,
+      messages,
+      model: SMALL_TEST_ACTIVE_MODEL,
+    }
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        const preparePlugin = buddyToolToPluginTool(
+          (await import("../../src/learning/features/reading/tools/prepare-resource"))
+            .prepareResourceTool,
+          project.path,
+        )
+        const prepareResult = await preparePlugin.execute(
+          {
+            sourcePath,
+            alias: "legacy-estimate-md",
+            waitUntilReady: true,
+            maxWaitMs: 20_000,
+          },
+          createPluginExecuteContext(pluginContext),
+        )
+        if (typeof prepareResult === "string") {
+          throw new Error("Expected prepare_resource object result")
+        }
+        const fullTextPath = prepareResult.metadata?.fullTextPath
+        if (typeof fullTextPath !== "string") {
+          throw new Error("Expected prepare_resource full-text path")
+        }
+
+        const corruptedFullText = CORRUPTED_GLYPH_PATTERN.repeat(
+          CORRUPTED_GLYPH_REPEAT_COUNT,
+        )
+        const recalculatedTokens = estimateTokenCountFromText(corruptedFullText)
+        expect(recalculatedTokens).toBeGreaterThan(STALE_FULL_TEXT_ESTIMATE_TOKENS)
+        writeFileSync(
+          path.resolve(project.path, fullTextPath),
+          `---\nest_tokens: ${STALE_FULL_TEXT_ESTIMATE_TOKENS}\n---\n${corruptedFullText}\n`,
+          "utf8",
+        )
+
+        const ingestPlugin = buddyToolToPluginTool(ingestFullTextTool, project.path)
+        const ingestResult = await ingestPlugin.execute(
+          { resourceKey: "legacy-estimate-md" },
+          createPluginExecuteContext(pluginContext),
+        )
+        if (typeof ingestResult === "string" || !ingestResult.metadata) {
+          throw new Error("Expected stale-estimate fallback result with metadata")
+        }
+
+        expect(ingestResult.metadata.completed).toBe(false)
+        expect(ingestResult.metadata.reason).toBe("context_too_full")
+        expect(ingestResult.metadata.fallback).toBe("scoped_reading")
+        expect(ingestResult.metadata.fullTextEstimatedTokens).toBe(recalculatedTokens)
         expect(ingestResult.output).not.toContain("<full_text>")
       },
     })

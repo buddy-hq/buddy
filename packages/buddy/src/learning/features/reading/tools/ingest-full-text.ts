@@ -7,7 +7,14 @@ import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
 import type { MessageV2 } from "@buddy/opencode-adapter/message"
 import { Provider } from "@buddy/opencode-adapter/provider"
 import { RESOURCE_PACK_STATUS_READY, estimateTokenCountFromText } from "../../../../resource-packs"
-import { resolveResourceObjectByKey } from "../../../../resources/resource-registry-service"
+import {
+  resolveResourceObjectByKey,
+  type ResourceObjectResolved,
+} from "../../../../resources/resource-registry-service"
+import {
+  BUDDY_PROMPT_PART_METADATA_KEY,
+  NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+} from "../../../prompt/native-resource-metadata"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 
 // Full-text ingestion fills the next model request with prepared source text, so the
@@ -17,6 +24,11 @@ import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 // output limit is a generation ceiling, not the amount of post-ingest prompt
 // space Buddy needs to reserve for continued reading work.
 const POST_FULL_TEXT_INGEST_RESERVE_RATIO = 0.25
+
+// This is a tool-local safety ceiling. It bounds how much model capacity a
+// single full-text ingestion may budget against without changing the model's
+// global context limit or runtime compaction behavior.
+const FULL_TEXT_INGEST_INPUT_WINDOW_CEILING_TOKENS = 250_000
 
 // Below 48k leftover input tokens, a full-text-loaded session tends to become
 // cramped for Buddy's instructions, recent chat, tool metadata, citations, and
@@ -32,6 +44,8 @@ const MAXIMUM_POST_FULL_TEXT_INGEST_CONTEXT_TOKENS = 96_000
 const FULL_TEXT_TOOL_MAX_OUTPUT_LINES = 500_000
 const FULL_TEXT_TOOL_MAX_OUTPUT_BYTES = 5_000_000
 const INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL = "context_too_full"
+const INGEST_FULL_TEXT_REASON_NATIVE_PDF_ALREADY_IN_CONTEXT =
+  "native_pdf_already_in_context"
 const INGEST_FULL_TEXT_FALLBACK_SCOPED_READING = "scoped_reading"
 
 const ResourceIngestFullTextParameters = z.object({
@@ -64,6 +78,68 @@ function readOptionalNumber(value: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function resourceSourceReferencePaths(resource: ResourceObjectResolved): string[] {
+  return [resource.originalSourceRef, resource.managedSourceRef].flatMap((ref) => {
+    const sourcePath = ref?.workspacePath ?? ref?.path
+    return sourcePath ? [sourcePath] : []
+  })
+}
+
+function resourceSourcePaths(directory: string, resource: ResourceObjectResolved): Set<string> {
+  return new Set(
+    resourceSourceReferencePaths(resource).map((sourcePath) =>
+      path.resolve(directory, sourcePath),
+    ),
+  )
+}
+
+function resourceSourceBasenames(resource: ResourceObjectResolved): Set<string> {
+  return new Set(
+    resourceSourceReferencePaths(resource).map((sourcePath) => path.basename(sourcePath)),
+  )
+}
+
+function nativePdfSourcePathFromMessagePart(part: MessageV2.Part): string | undefined {
+  if (part.type !== "text" || !isRecord(part.metadata)) return undefined
+
+  const metadata: unknown = part.metadata[BUDDY_PROMPT_PART_METADATA_KEY]
+  if (
+    !isRecord(metadata) ||
+    metadata.type !== NATIVE_RESOURCE_ATTACHMENT_PART_TYPE ||
+    metadata.format !== "pdf" ||
+    metadata.delivery !== "model-and-resource" ||
+    typeof metadata.sourcePath !== "string"
+  ) {
+    return undefined
+  }
+  return metadata.sourcePath
+}
+
+function findNativePdfDelivery(input: {
+  directory: string
+  resource: ResourceObjectResolved
+  messages: MessageV2.WithParts[]
+}): { sourcePath: string } | undefined {
+  if (input.resource.format !== "pdf") return undefined
+
+  const sourcePaths = resourceSourcePaths(input.directory, input.resource)
+  const sourceBasenames = resourceSourceBasenames(input.resource)
+  for (const message of input.messages) {
+    if (message.info.role !== "user") continue
+    for (const part of message.parts) {
+      const sourcePath = nativePdfSourcePathFromMessagePart(part)
+      if (
+        sourcePath &&
+        (sourcePaths.has(path.resolve(input.directory, sourcePath)) ||
+          sourceBasenames.has(path.basename(sourcePath)))
+      ) {
+        return { sourcePath }
+      }
+    }
+  }
+  return undefined
 }
 
 function readModelLimit(value: unknown) {
@@ -204,7 +280,10 @@ function resolveContextBudget(input: {
   model: z.infer<typeof ActiveModelSchema>
   messages: MessageV2.WithParts[]
 }) {
-  const inputWindow = input.model.limit.input ?? input.model.limit.context
+  const inputWindow = Math.min(
+    input.model.limit.input ?? input.model.limit.context,
+    FULL_TEXT_INGEST_INPUT_WINDOW_CEILING_TOKENS,
+  )
   const contextWindow = input.model.limit.context
   const reserve = clampPostFullTextIngestReserve(inputWindow * POST_FULL_TEXT_INGEST_RESERVE_RATIO)
   const latestAssistantTotal = lastAssistantTokenTotal(input.messages)
@@ -247,7 +326,28 @@ function formatBudgetFallbackOutput(input: {
     `Required reserve after ingestion: ${input.budget.reserve.toLocaleString()} tokens`,
     `Remaining after ingestion would be: ${remainingAfterIngestion.toLocaleString()} tokens`,
     `<buddy_system_reminder>
-Full text is too large for live ingestion in this session. Continue with scoped reading from pack, using TOC, chunks, pages, or focused full-text sections as needed. Do not retry ingest_full_text unless the model or context window changes.
+Full text is too large for live ingestion in this session. Continue with scoped reading from pack, using TOC, chunks, pages, or focused full-text sections as needed. Do not retry ingest_full_text unless live context usage or the resource's full-text size materially decreases.
+</buddy_system_reminder>`,
+    "</resource_full_text_ingestion>",
+  ].join("\n")
+}
+
+function formatNativePdfFallbackOutput(input: {
+  objectID: string
+  resource: string
+  packPath: string | null
+  fullTextPath: string
+}) {
+  return [
+    `<resource_full_text_ingestion resource="${input.resource}" completed="false" reason="${INGEST_FULL_TEXT_REASON_NATIVE_PDF_ALREADY_IN_CONTEXT}">`,
+    "object_kind=resource",
+    `object_id=${input.objectID}`,
+    `alias=${input.resource}`,
+    `pack=${input.packPath ?? "none"}`,
+    `full_text=${input.fullTextPath}`,
+    "native_delivery=model-and-resource",
+    `<buddy_system_reminder>
+This PDF is already present as native model input, so its prepared full text was not inserted again. Do not retry ingest_full_text for this resource in this session. Use the prepared pack for citations, navigation, and scoped reading when needed.
 </buddy_system_reminder>`,
     "</resource_full_text_ingestion>",
   ].join("\n")
@@ -287,7 +387,8 @@ export const ingestFullTextTool = createBuddyTool({
     },
     resolveSilentOutcome: ({ phase, metadata }) =>
       phase === "completed" &&
-      metadata.reason === INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL &&
+      (metadata.reason === INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL ||
+        metadata.reason === INGEST_FULL_TEXT_REASON_NATIVE_PDF_ALREADY_IN_CONTEXT) &&
       metadata.fallback === INGEST_FULL_TEXT_FALLBACK_SCOPED_READING
         ? "scoped-reading-fallback"
         : undefined,
@@ -318,6 +419,35 @@ export const ingestFullTextTool = createBuddyTool({
       throw new Error(`Resource "${resource.alias}" does not expose a prepared full-text file.`)
     }
 
+    const nativePdfDelivery = findNativePdfDelivery({
+      directory: ctx.directory,
+      resource,
+      messages: ctx.messages,
+    })
+    if (nativePdfDelivery) {
+      return {
+        title: "ingest_full_text",
+        output: formatNativePdfFallbackOutput({
+          objectID: resource.objectID,
+          resource: resource.alias,
+          packPath: resource.packPath,
+          fullTextPath: resource.fullTextPath,
+        }),
+        metadata: {
+          objectID: resource.objectID,
+          resource: resource.alias,
+          alias: resource.alias,
+          completed: false,
+          reason: INGEST_FULL_TEXT_REASON_NATIVE_PDF_ALREADY_IN_CONTEXT,
+          fallback: INGEST_FULL_TEXT_FALLBACK_SCOPED_READING,
+          packPath: resource.packPath,
+          fullTextPath: resource.fullTextPath,
+          nativeSourcePath: nativePdfDelivery.sourcePath,
+          truncated: false,
+        },
+      }
+    }
+
     const model = await resolveActiveModel(ctx.messages, ctx.extra?.model)
     if (!model) {
       throw new Error("Could not resolve the active model for full-text ingestion.")
@@ -333,10 +463,12 @@ export const ingestFullTextTool = createBuddyTool({
       throw new Error(`Prepared full text for resource "${resource.alias}" is empty.`)
     }
 
-    const fullTextTokens =
-      readOptionalNumber(parsed.data.est_tokens) ??
-      resource.fullTextEstimatedTokens ??
-      estimateTokenCountFromText(fullText)
+    const persistedFullTextTokens = Math.max(
+      readOptionalNumber(parsed.data.est_tokens) ?? 0,
+      resource.fullTextEstimatedTokens ?? 0,
+    )
+    const recalculatedFullTextTokens = estimateTokenCountFromText(fullText)
+    const fullTextTokens = Math.max(persistedFullTextTokens, recalculatedFullTextTokens)
 
     const budget = resolveContextBudget({
       model,
