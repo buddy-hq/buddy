@@ -143,12 +143,13 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const showLeftSidebarToggle = placement === "chat" ? false : showSidebarToggles
   const shouldReserveMacWindowControls = placement === "root" ? isMac && !isFullscreen : false
   // Fixed left cluster: the sidebar toggle, plus new-chat and pop-out when they apply. New chat
-  // only appears with the sidebar collapsed — that is exactly when the sidebar's own new-chat
-  // button is out of reach.
+  // appears when the sidebar is collapsed unless the contextual thread browser is present; that
+  // browser owns session creation alongside history and the current-chat control.
   const showChatFloatInLeftCluster = Boolean(
     props.onFloatChat && (props.showSidebarThreadControls || props.showThreadBrowser),
   )
-  const showNewChatInLeftCluster = Boolean(props.onNewSession) && !resolvedLeftSidebarOpen
+  const showNewChatInLeftCluster =
+    Boolean(props.onNewSession) && !resolvedLeftSidebarOpen && !props.showThreadBrowser
   const chatLeftClusterUsesPill = showChatFloatInLeftCluster || showNewChatInLeftCluster
   const chatLeftClusterWidth =
     (1 + (showNewChatInLeftCluster ? 1 : 0) + (showChatFloatInLeftCluster ? 1 : 0)) *

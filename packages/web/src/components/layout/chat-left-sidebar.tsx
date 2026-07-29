@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, SquarePenIcon } from "@buddy/ui"
 import { language } from "@/context/language"
@@ -87,42 +87,6 @@ function toggleDirectoryPresence(current: Record<string, true>, directory: strin
   return next
 }
 
-function setDirectoryCollapsedState(
-  current: Record<string, true>,
-  directory: string,
-  isOpen: boolean,
-) {
-  const next = { ...current }
-  if (isOpen) {
-    delete next[directory]
-  } else {
-    next[directory] = true
-  }
-  return next
-}
-
-function resolveExpandedDirectory(input: {
-  directoryGroups: ReturnType<typeof useDirectoryGroups>
-  currentDirectory: string
-}) {
-  if (input.directoryGroups.some((group) => group.directory === input.currentDirectory)) {
-    return input.currentDirectory
-  }
-  return input.directoryGroups[0]?.directory
-}
-
-function buildCollapsedDirectories(
-  directoryGroups: ReturnType<typeof useDirectoryGroups>,
-  expandedDirectory: string,
-) {
-  return Object.fromEntries(
-    directoryGroups
-      .map((group) => group.directory)
-      .filter((directory) => directory !== expandedDirectory)
-      .map((directory) => [directory, true] as const),
-  )
-}
-
 export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const platform = usePlatform()
   const queryClient = useQueryClient()
@@ -133,7 +97,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [renameState, setRenameState] = useState<RenameState | undefined>(undefined)
   const [renameSaving, setRenameSaving] = useState(false)
   const [expandedDirectories, setExpandedDirectories] = useState<Record<string, true>>({})
-  const [collapsedDirectories, setCollapsedDirectories] = useState<Record<string, true>>({})
   const [organizeMode, setOrganizeMode] = useState<OrganizeMode>("project")
   const [sortMode, setSortMode] = useState<SortMode>("updated")
   const [showMode, setShowMode] = useState<ShowMode>("all")
@@ -149,7 +112,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     experimentalFeaturesQuery.data,
     EXPERIMENTAL_FEATURE_ID.learnerMemory,
   )
-  const hasInitializedCollapsedDirectoriesRef = useRef(false)
   const learnerMemoryDefaults = useMemo(
     () => resolveNotebookLearnerMemorySelection(globalConfigQuery.data ?? {}, {}),
     [globalConfigQuery.data],
@@ -161,6 +123,12 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   )
   const setTeacherStandardsAutoSetupComplete = useUiPreferences(
     (state) => state.setTeacherStandardsAutoSetupComplete,
+  )
+  const collapsedDirectories = useUiPreferences(
+    (state) => state.collapsedChatSidebarDirectories,
+  )
+  const setChatSidebarDirectoryOpen = useUiPreferences(
+    (state) => state.setChatSidebarDirectoryOpen,
   )
   const uiPreferencesHydrated = useUiPreferencesHydrated()
   const onStartGetStartedChat = props.onStartGetStartedChat
@@ -241,30 +209,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     )
     return inboxGroup ? [inboxGroup, ...notebookGroups] : notebookGroups
   }, [directoryGroups])
-
-  const orderedDirectoryGroupsRef = useRef(orderedDirectoryGroups)
-  orderedDirectoryGroupsRef.current = orderedDirectoryGroups
-
-  useEffect(() => {
-    if (props.currentDirectory) {
-      setCollapsedDirectories((current) =>
-        setDirectoryCollapsedState(current, props.currentDirectory, true),
-      )
-    }
-  }, [props.currentDirectory])
-
-  if (!hasInitializedCollapsedDirectoriesRef.current && orderedDirectoryGroups.length > 0) {
-    const expandedDirectory = resolveExpandedDirectory({
-      directoryGroups: orderedDirectoryGroups,
-      currentDirectory: props.currentDirectory,
-    })
-    if (!expandedDirectory) {
-      hasInitializedCollapsedDirectoriesRef.current = true
-    } else {
-      setCollapsedDirectories(buildCollapsedDirectories(orderedDirectoryGroups, expandedDirectory))
-      hasInitializedCollapsedDirectoriesRef.current = true
-    }
-  }
 
   const {
     draggedDirectory,
@@ -435,11 +379,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             draggedDirectory={draggedDirectory}
             dragOverDirectory={dragOverDirectory}
             dragOverPosition={dragOverPosition}
-            onToggleCollapsedDirectory={(directory, isOpen) => {
-              setCollapsedDirectories((current) =>
-                setDirectoryCollapsedState(current, directory, isOpen),
-              )
-            }}
+            onToggleCollapsedDirectory={setChatSidebarDirectoryOpen}
             onToggleExpandedDirectory={(directory) => {
               setExpandedDirectories((current) => toggleDirectoryPresence(current, directory))
             }}
@@ -454,12 +394,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             onLabelPointerDown={handleLabelPointerDown}
             onSectionRef={sectionRefCallback}
             onNewSession={(directory) => {
-              const targetDirectory = directory ?? props.currentDirectory
-              if (targetDirectory) {
-                setCollapsedDirectories((current) =>
-                  setDirectoryCollapsedState(current, targetDirectory, true),
-                )
-              }
               props.onNewSession(directory)
             }}
             onOpenNotebookSettings={setNotebookSettingsDirectory}
