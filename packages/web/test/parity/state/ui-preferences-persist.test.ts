@@ -6,6 +6,7 @@ function resetUiPreferences() {
   useUiPreferences.setState({
     pinnedByDirectory: {},
     unreadByDirectory: {},
+    collapsedChatSidebarDirectories: {},
     leftSidebarOpen: true,
     chatLeftSidebarWidth: 344,
     settingsSidebarWidth: 344,
@@ -24,6 +25,7 @@ describe("ui preference persistence parity", () => {
 
     state.togglePinned("/repo", "session_1")
     state.markUnread("/repo", "session_1")
+    state.setChatSidebarDirectoryOpen("/repo", false)
     state.setLeftSidebarOpen(false)
     state.setChatLeftSidebarWidth(280)
     state.setSettingsSidebarWidth(320)
@@ -36,6 +38,7 @@ describe("ui preference persistence parity", () => {
     expect(parsed.state).toMatchObject({
       pinnedByDirectory: { "/repo": ["session_1"] },
       unreadByDirectory: { "/repo": { session_1: true } },
+      collapsedChatSidebarDirectories: { "/repo": true },
       leftSidebarOpen: false,
       chatLeftSidebarWidth: 280,
       settingsSidebarWidth: 320,
@@ -58,6 +61,18 @@ describe("ui preference persistence parity", () => {
     const next = useUiPreferences.getState()
     expect(next.pinnedByDirectory["/repo"]).toEqual([])
     expect(next.unreadByDirectory["/repo"]).toEqual({ session_2: true })
+  })
+
+  test("keeps notebook collapse choices until they are explicitly reopened", () => {
+    const state = useUiPreferences.getState()
+
+    state.setChatSidebarDirectoryOpen("/notebook-a", false)
+    state.setChatSidebarDirectoryOpen("/notebook-b", false)
+    state.setChatSidebarDirectoryOpen("/notebook-b", true)
+
+    expect(useUiPreferences.getState().collapsedChatSidebarDirectories).toEqual({
+      "/notebook-a": true,
+    })
   })
 
   test("migrates legacy left sidebar width into chat and settings widths", () => {
@@ -83,6 +98,7 @@ describe("ui preference persistence parity", () => {
     const next = useUiPreferences.getState()
     expect(next.chatLeftSidebarWidth).toBe(412)
     expect(next.settingsSidebarWidth).toBe(412)
+    expect(next.collapsedChatSidebarDirectories).toEqual({})
     expect(next.teacherStandardsAutoSetupComplete).toBe(false)
     expect("rightSidebarOpen" in next).toBe(false)
     expect("rightSidebarWidth" in next).toBe(false)

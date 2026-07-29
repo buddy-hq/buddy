@@ -4,6 +4,7 @@ import type {
   ConfigGetRawResponses,
   ConfigPersonasResponses,
   ExplorerFileEditReadResponses,
+  ExplorerFileEditRenameResponses,
   ExplorerFileEditSaveResponses,
   ExplorerFileEditStatusResponses,
   FileContent,
@@ -80,7 +81,10 @@ import {
 } from "./session-status"
 import type { PermissionReply } from "./permission-types"
 import { appQueryClient } from "./query-client"
-import { invalidateObsidianFileCaches } from "./obsidian-vault-query"
+import {
+  invalidateObsidianFileCaches,
+  invalidateObsidianWatcherCaches,
+} from "./obsidian-vault-query"
 import { resolveRedoTargetMessageID, resolveUndoTargetMessageID } from "./session-revert"
 import { fenceChatSyncSession } from "./chat-sync"
 
@@ -2815,6 +2819,7 @@ export async function authenticateMcpServer(directory: string, name: string) {
 export type ProjectExplorerFileNode = FileNode
 export type ProjectExplorerFileContent = FileContent
 export type ProjectExplorerEditableFileState = ExplorerFileEditReadResponses[200]
+export type ProjectExplorerEditableFileRenameResult = ExplorerFileEditRenameResponses[200]
 export type ProjectExplorerEditableFileSaveResult = ExplorerFileEditSaveResponses[200]
 export type ProjectExplorerEditableFileStatus = ExplorerFileEditStatusResponses[200]
 
@@ -2888,6 +2893,36 @@ export async function saveProjectExplorerEditableFile(input: {
     previousContent: input.previousContent,
   })
   return saved
+}
+
+export async function renameProjectExplorerEditableFile(input: {
+  directory: string
+  path: string
+  nextPath: string
+  expectedVersion?: string | null
+}): Promise<ProjectExplorerEditableFileRenameResult> {
+  const response = await getBuddyClient(input.directory).explorer.file.edit.rename({
+    path: input.path,
+    nextPath: input.nextPath,
+    expectedVersion: input.expectedVersion,
+  })
+  if (response.response?.status === 409) {
+    throw new ProjectExplorerFileVersionConflictError(buddyResultMessage(response))
+  }
+  const renamed = requireBuddyData<ProjectExplorerEditableFileRenameResult>(response)
+  await Promise.all([
+    invalidateObsidianWatcherCaches(appQueryClient, {
+      directory: input.directory,
+      path: input.path,
+      event: "unlink",
+    }),
+    invalidateObsidianWatcherCaches(appQueryClient, {
+      directory: input.directory,
+      path: renamed.path,
+      event: "add",
+    }),
+  ])
+  return renamed
 }
 
 export async function findWorkspaceFiles(

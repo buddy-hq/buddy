@@ -16,6 +16,10 @@ const PROVIDER_CONNECTION_POLL_INTERVAL_MS = 1_000
 const PROVIDER_CONNECTION_TIMEOUT_MS = 45_000
 const PREFERRED_FREE_ONBOARDING_MODEL_ID = "deepseek-v4-flash-free"
 const PREFERRED_FREE_ONBOARDING_VARIANT = "max"
+const PREFERRED_CHATGPT_ONBOARDING_MODEL_ID = "gpt-5.6-sol"
+const PREFERRED_CHATGPT_ONBOARDING_VARIANT = "high"
+const FALLBACK_CHATGPT_ONBOARDING_MODEL_ID = "gpt-5.6-terra"
+const FALLBACK_CHATGPT_ONBOARDING_VARIANT = "xhigh"
 
 export const ONBOARDING_PROVIDER_SELECTION_ACTION = {
   showLocation: "show_location",
@@ -161,6 +165,48 @@ function resolvePreferredFreeOnboardingModel(catalog: ProviderCatalogState) {
   }
 }
 
+function resolvePreferredChatGptOnboardingModel(catalog: ProviderCatalogState) {
+  const provider = catalog.providers.find(
+    (entry) => entry.id === OPENAI_PROVIDER_ID && entry.connected,
+  )
+  if (!provider) return undefined
+
+  const preferences =
+    catalog.openAIModelAvailability.status === "ready"
+      ? [
+          {
+            modelID: PREFERRED_CHATGPT_ONBOARDING_MODEL_ID,
+            variant: PREFERRED_CHATGPT_ONBOARDING_VARIANT,
+          },
+          {
+            modelID: FALLBACK_CHATGPT_ONBOARDING_MODEL_ID,
+            variant: FALLBACK_CHATGPT_ONBOARDING_VARIANT,
+          },
+        ]
+      : [
+          {
+            modelID: FALLBACK_CHATGPT_ONBOARDING_MODEL_ID,
+            variant: FALLBACK_CHATGPT_ONBOARDING_VARIANT,
+          },
+        ]
+
+  for (const preference of preferences) {
+    const model = provider.models.find(
+      (entry) =>
+        entry.id === preference.modelID && entry.variants.includes(preference.variant),
+    )
+    if (model) {
+      return {
+        providerID: provider.id,
+        modelID: model.id,
+        variant: preference.variant,
+      }
+    }
+  }
+
+  return undefined
+}
+
 export async function connectChatGptPlusForOnboarding(input: {
   openLink: (url: string) => void
   loadProviderCatalogSnapshot: () => Promise<ProviderCatalogState>
@@ -255,15 +301,38 @@ export async function configureNotebookForOnboarding(input: {
   authChoice: OnboardingAuthChoice
   prepareNotebook: () => Promise<string>
   loadProviderCatalog: (directory: string) => Promise<ProviderCatalogState>
+  refreshOpenAIModelAvailability?: (
+    directory: string,
+  ) => Promise<ProviderCatalogState["openAIModelAvailability"]>
 }) {
   const nextDirectory = await input.prepareNotebook()
-  const providerCatalog = await input.loadProviderCatalog(nextDirectory)
+  let providerCatalog = await input.loadProviderCatalog(nextDirectory)
+  if (
+    input.authChoice === "chatgpt_plus" &&
+    providerCatalog.openAIModelAvailability.status !== "ready" &&
+    input.refreshOpenAIModelAvailability
+  ) {
+    try {
+      const availability = await input.refreshOpenAIModelAvailability(nextDirectory)
+      if (availability.status === "ready") {
+        providerCatalog = await input.loadProviderCatalog(nextDirectory)
+      }
+    } catch {
+      // Account availability is best-effort here. An unready catalog deliberately
+      // skips Sol and uses the broadly available Terra fallback when possible.
+    }
+  }
   const preferredFreeModel =
     input.authChoice === "free_models"
       ? resolvePreferredFreeOnboardingModel(providerCatalog)
       : undefined
+  const preferredChatGptModel =
+    input.authChoice === "chatgpt_plus"
+      ? resolvePreferredChatGptOnboardingModel(providerCatalog)
+      : undefined
+  const preferredModel = preferredFreeModel ?? preferredChatGptModel
   const model =
-    preferredFreeModel ??
+    preferredModel ??
     resolveCatalogProviderModelSelection({
       catalog: providerCatalog,
       providerID: resolveOnboardingProviderID(input.authChoice),
@@ -283,6 +352,6 @@ export async function configureNotebookForOnboarding(input: {
   return {
     directory: nextDirectory,
     model: configuredModel,
-    ...(preferredFreeModel ? { variant: preferredFreeModel.variant } : {}),
+    ...(preferredModel ? { variant: preferredModel.variant } : {}),
   }
 }
