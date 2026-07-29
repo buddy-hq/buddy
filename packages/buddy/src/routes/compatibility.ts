@@ -35,6 +35,7 @@ import {
   mapProjectTextFileEditorError,
   readProjectTextFile,
   readProjectTextFileStatus,
+  renameProjectTextFile,
   saveProjectTextFile,
 } from "../project/project-file-editor-service"
 import {
@@ -78,6 +79,11 @@ const fileRawParamSchema = z.object({
 
 const fileEditBodySchema = z.object({
   content: z.string(),
+  expectedVersion: z.string().nullable().optional(),
+})
+
+const fileRenameBodySchema = z.object({
+  nextPath: z.string().min(1),
   expectedVersion: z.string().nullable().optional(),
 })
 
@@ -545,6 +551,55 @@ export const CompatibilityRoutes = new Hono()
               event: "change",
             })
             return c.json(saved)
+          },
+          mapError: mapProjectTextFileEditorError,
+        }),
+      ),
+  )
+  .patch(
+    "/file/edit",
+    describeRoute({
+      operationId: "explorer.file.edit.rename",
+      summary: "Rename an editable project text file",
+      responses: {
+        200: {
+          description: "Renamed project text file state",
+          content: {
+            "application/json": {
+              schema: resolver(fileEditResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(403, 404, 409, 415),
+      },
+    }),
+    validator("query", fileReadQuerySchema),
+    validator("json", fileRenameBodySchema),
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () => {
+            const sourcePath = c.req.valid("query").path
+            const payload = c.req.valid("json")
+            const renamed = await renameProjectTextFile({
+              directory: context.directory,
+              path: sourcePath,
+              nextPath: payload.nextPath,
+              expectedVersion: payload.expectedVersion,
+            })
+            await Promise.all([
+              updateObsidianVaultIndex({
+                directory: context.directory,
+                path: sourcePath,
+                event: "unlink",
+              }),
+              updateObsidianVaultIndex({
+                directory: context.directory,
+                path: renamed.path,
+                event: "add",
+              }),
+            ])
+            return c.json(renamed)
           },
           mapError: mapProjectTextFileEditorError,
         }),

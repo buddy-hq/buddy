@@ -226,4 +226,99 @@ describe("project file editor routes", () => {
       version: null,
     })
   })
+
+  test("renames an editable file without changing its content", async () => {
+    const repo = createGitRepo("buddy-project-file-editor-rename")
+    const sourcePath = path.join(repo, "notes", "Original.md")
+    const destinationPath = path.join(repo, "notes", "Renamed note.md")
+    const content = "# Existing heading\n\nBody text.\n"
+    await fs.mkdir(path.dirname(sourcePath), { recursive: true })
+    await fs.writeFile(sourcePath, content, "utf8")
+
+    const readResponse = await app.request("/api/file/edit?path=notes/Original.md", {
+      headers: {
+        "x-buddy-directory": repo,
+      },
+    })
+    const readBody = (await readResponse.json()) as { version: string | null }
+
+    const renameResponse = await app.request("/api/file/edit?path=notes/Original.md", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        "x-buddy-directory": repo,
+      },
+      body: JSON.stringify({
+        nextPath: "notes/Renamed note.md",
+        expectedVersion: readBody.version,
+      }),
+    })
+
+    expect(renameResponse.status).toBe(200)
+    expect(await renameResponse.json()).toEqual({
+      path: "notes/Renamed note.md",
+      content,
+      version: readBody.version,
+    })
+    await expect(fs.readFile(destinationPath, "utf8")).resolves.toBe(content)
+    await expect(fs.stat(sourcePath)).rejects.toMatchObject({ code: "ENOENT" })
+  })
+
+  test("supports a case-only file rename", async () => {
+    const repo = createGitRepo("buddy-project-file-editor-case-rename")
+    const notesPath = path.join(repo, "notes")
+    const sourcePath = path.join(notesPath, "Original.md")
+    await fs.mkdir(notesPath, { recursive: true })
+    await fs.writeFile(sourcePath, "Case-sensitive title\n", "utf8")
+
+    const renameResponse = await app.request("/api/file/edit?path=notes/Original.md", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        "x-buddy-directory": repo,
+      },
+      body: JSON.stringify({
+        nextPath: "notes/original.md",
+      }),
+    })
+
+    expect(renameResponse.status).toBe(200)
+    expect(await fs.readdir(notesPath)).toContain("original.md")
+  })
+
+  test("rejects a rename when the destination exists or source version changed", async () => {
+    const repo = createGitRepo("buddy-project-file-editor-rename-conflict")
+    const sourcePath = path.join(repo, "notes", "Original.md")
+    const destinationPath = path.join(repo, "notes", "Existing.md")
+    await fs.mkdir(path.dirname(sourcePath), { recursive: true })
+    await fs.writeFile(sourcePath, "Original\n", "utf8")
+    await fs.writeFile(destinationPath, "Existing\n", "utf8")
+
+    const destinationConflict = await app.request("/api/file/edit?path=notes/Original.md", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        "x-buddy-directory": repo,
+      },
+      body: JSON.stringify({
+        nextPath: "notes/Existing.md",
+      }),
+    })
+    expect(destinationConflict.status).toBe(409)
+    await expect(fs.readFile(destinationPath, "utf8")).resolves.toBe("Existing\n")
+
+    const versionConflict = await app.request("/api/file/edit?path=notes/Original.md", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        "x-buddy-directory": repo,
+      },
+      body: JSON.stringify({
+        nextPath: "notes/Renamed.md",
+        expectedVersion: "stale-version",
+      }),
+    })
+    expect(versionConflict.status).toBe(409)
+    await expect(fs.readFile(sourcePath, "utf8")).resolves.toBe("Original\n")
+  })
 })
