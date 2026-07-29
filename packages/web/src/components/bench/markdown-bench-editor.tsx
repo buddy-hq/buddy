@@ -47,6 +47,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type MouseEvent as ReactMouseEvent,
 } from "react"
@@ -86,6 +88,7 @@ import {
 } from "@/components/bench/markdown-bench-document-theme"
 import { MARKDOWN_BENCH_DIRECTIVE_DESCRIPTORS } from "@/components/bench/markdown-bench-directives"
 import { restoreObsidianCalloutsFromMdxEditor } from "@/components/bench/markdown-bench-obsidian-callouts"
+import { resolveMarkdownBenchNoteTitle } from "@/components/bench/markdown-bench-note-title"
 import {
   buddyObsidianWikiLinkPlugin,
   type ObsidianWikiLinkContext,
@@ -169,7 +172,9 @@ type MarkdownBenchEditorProps = Pick<
   onHistoryControlsChange?(controls: MarkdownBenchHistoryControlsState): void
   onOpenLink?(href: string): void
   onProcessingResult?(result: MarkdownBenchProcessingResult): void
+  onRenameTitle?(title: string): Promise<void>
   onSelectionChange?(selection: MarkdownBenchDocumentSelection): void
+  renamingTitle?: boolean
 }
 
 const CODE_BLOCK_LANGUAGES: Record<string, string> = {
@@ -428,16 +433,40 @@ const MARKDOWN_CONTENT_BASE_CLASS_NAME = [
   "focus:outline-none",
   // MDXEditor uses --text-base for font sizing, which shadows Buddy's color token alias.
   "![color:var(--markdown-text)]",
-  "![font-size:calc(var(--buddy-font-size-sm)*var(--markdown-bench-document-font-scale))]",
+  "![font-size:calc(var(--buddy-font-size-base)*var(--markdown-bench-document-font-scale))]",
+  "![line-height:1.5]",
+  // Match Obsidian's base editor metrics while leaving Buddy's theme colors untouched.
+  "[&_h1]:!text-[1.618em] [&_h1]:![font-weight:700] [&_h1]:!leading-[1.2] [&_h1]:!tracking-[-0.015em]",
+  "[&_h2]:!text-[1.462em] [&_h2]:![font-weight:680] [&_h2]:!leading-[1.2] [&_h2]:!tracking-[-0.011em]",
+  "[&_h3]:!text-[1.318em] [&_h3]:![font-weight:660] [&_h3]:!leading-[1.3] [&_h3]:!tracking-[-0.008em]",
+  "[&_h4]:!text-[1.188em] [&_h4]:![font-weight:640] [&_h4]:!leading-[1.4] [&_h4]:!tracking-[-0.005em]",
+  "[&_h5]:!text-[1.076em] [&_h5]:![font-weight:620] [&_h5]:!leading-[1.5] [&_h5]:!tracking-[-0.002em]",
+  "[&_h6]:!text-[1em] [&_h6]:![font-weight:600] [&_h6]:!leading-[1.5] [&_h6]:!tracking-[0em]",
   // Lexical can apply its code-format class to nested strong/em nodes inside semantic <code>.
   "[&_code]:!bg-transparent [&_code]:!p-0 [&_code]:!text-[var(--color-syntax-string)]",
   "[&_code_*]:!bg-transparent [&_code_*]:!p-0 [&_code_*]:!text-inherit",
 ].join(" ")
 
 const MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME =
-  "min-h-[calc(100vh-12rem)] px-[clamp(0px,calc((100%_-_28rem)/6),2rem)] py-[clamp(0px,calc((100%_-_28rem)/4),3rem)]"
+  "min-h-[calc(100vh-12rem)] !px-0 !pt-0 !pb-[clamp(0px,calc((100%_-_28rem)/4),3rem)]"
 
-const MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME = "min-h-full px-4 py-3"
+const MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME = "min-h-full !px-0 !pt-0 !pb-3"
+
+const MARKDOWN_DOCUMENT_PAPER_INSET_CLASS_NAME =
+  "px-[clamp(0px,calc((100%_-_28rem)/6),2rem)]"
+
+const MARKDOWN_DOCUMENT_PLAIN_INSET_CLASS_NAME = "px-4"
+
+const MARKDOWN_NOTE_TITLE_BASE_CLASS_NAME =
+  "mb-[0.5em] whitespace-pre-wrap [font-size:calc(var(--buddy-font-size-base)*1.618*var(--markdown-bench-document-font-scale))] [font-weight:700] leading-[1.2] tracking-[-0.015em]"
+
+const MARKDOWN_NOTE_TITLE_PAPER_LAYOUT_CLASS_NAME =
+  "pt-[clamp(0px,calc((100%_-_28rem)/4),3rem)]"
+
+const MARKDOWN_NOTE_TITLE_PLAIN_LAYOUT_CLASS_NAME = "pt-3"
+
+const MARKDOWN_NOTE_TITLE_INPUT_CLASS_NAME =
+  "block w-full min-w-0 appearance-none border-0 bg-transparent p-0 text-inherit outline-none [font:inherit] [letter-spacing:inherit]"
 
 const MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME =
   "mx-auto w-full max-w-3xl min-h-full overflow-hidden rounded-lg border border-border-weak-base bg-background-base shadow-sm"
@@ -668,6 +697,47 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       }
     }, [props.contentTheme])
     const isPrintView = props.contentTheme?.mode === "print"
+    const onRenameTitle = props.onRenameTitle
+    const noteTitle = useMemo(() => resolveMarkdownBenchNoteTitle(props.path), [props.path])
+    const [noteTitleDraft, setNoteTitleDraft] = useState(noteTitle)
+    const cancelTitleCommitRef = useRef(false)
+    useEffect(() => {
+      setNoteTitleDraft(noteTitle)
+    }, [noteTitle])
+    const commitNoteTitle = useCallback(
+      async (event: ReactFocusEvent<HTMLInputElement>) => {
+        if (cancelTitleCommitRef.current) {
+          cancelTitleCommitRef.current = false
+          return
+        }
+        const nextTitle = event.currentTarget.value.trim()
+        if (!onRenameTitle || nextTitle === noteTitle) {
+          setNoteTitleDraft(noteTitle)
+          return
+        }
+        try {
+          await onRenameTitle(nextTitle)
+        } catch {
+          setNoteTitleDraft(noteTitle)
+        }
+      },
+      [noteTitle, onRenameTitle],
+    )
+    const handleNoteTitleKeyDown = useCallback(
+      (event: ReactKeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "Enter") {
+          event.preventDefault()
+          event.currentTarget.blur()
+          return
+        }
+        if (event.key !== "Escape") return
+        event.preventDefault()
+        cancelTitleCommitRef.current = true
+        setNoteTitleDraft(noteTitle)
+        event.currentTarget.blur()
+      },
+      [noteTitle],
+    )
     const chemistryViewOptions = useMemo<MarkdownBenchChemistryViewOptions>(
       () => ({
         directory: props.directory,
@@ -907,32 +977,67 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
             : MARKDOWN_BENCH_PAPER_CARD_CLASS_NAME
         }
       >
-        <MDXEditor
-          ref={editorRef}
+        <div
+          data-component="markdown-bench-document-content"
           className={cn(
-            "min-h-full bg-background-base text-text-base",
-            MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME,
-            MDX_EDITOR_THEME_CLASS_NAME,
-          )}
-          markdown={editorMarkdown}
-          plugins={plugins}
-          readOnly={isPrintView}
-          placeholder={props.placeholder}
-          suppressHtmlProcessing={props.documentFormat === "mdx"}
-          toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}
-          onChange={(nextMarkdown, initialMarkdownNormalize) => {
-            if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
-              return
-            }
-            props.onChange(restoreEditorMarkdown(nextMarkdown))
-          }}
-          contentEditableClassName={cn(
-            MARKDOWN_CONTENT_BASE_CLASS_NAME,
             isPlainAppearance
-              ? MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME
-              : MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME,
+              ? MARKDOWN_DOCUMENT_PLAIN_INSET_CLASS_NAME
+              : MARKDOWN_DOCUMENT_PAPER_INSET_CLASS_NAME,
           )}
-        />
+        >
+          <div
+            role="heading"
+            aria-level={1}
+            data-component="markdown-bench-note-title"
+            data-markdown-export-ignore
+            className={cn(
+              MARKDOWN_NOTE_TITLE_BASE_CLASS_NAME,
+              isPlainAppearance
+                ? MARKDOWN_NOTE_TITLE_PLAIN_LAYOUT_CLASS_NAME
+                : MARKDOWN_NOTE_TITLE_PAPER_LAYOUT_CLASS_NAME,
+            )}
+          >
+            <input
+              type="text"
+              aria-label="Note title"
+              aria-busy={props.renamingTitle ? "true" : undefined}
+              data-component="markdown-bench-note-title-input"
+              className={MARKDOWN_NOTE_TITLE_INPUT_CLASS_NAME}
+              readOnly={!onRenameTitle || props.renamingTitle || isPrintView}
+              spellCheck={false}
+              value={noteTitleDraft}
+              onBlur={commitNoteTitle}
+              onChange={(event) => setNoteTitleDraft(event.currentTarget.value)}
+              onKeyDown={handleNoteTitleKeyDown}
+            />
+          </div>
+          <MDXEditor
+            ref={editorRef}
+            className={cn(
+              "min-h-full bg-background-base text-text-base",
+              MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME,
+              MDX_EDITOR_THEME_CLASS_NAME,
+            )}
+            markdown={editorMarkdown}
+            plugins={plugins}
+            readOnly={isPrintView || props.renamingTitle}
+            placeholder={props.placeholder}
+            suppressHtmlProcessing={props.documentFormat === "mdx"}
+            toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}
+            onChange={(nextMarkdown, initialMarkdownNormalize) => {
+              if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
+                return
+              }
+              props.onChange(restoreEditorMarkdown(nextMarkdown))
+            }}
+            contentEditableClassName={cn(
+              MARKDOWN_CONTENT_BASE_CLASS_NAME,
+              isPlainAppearance
+                ? MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME
+                : MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME,
+            )}
+          />
+        </div>
       </div>
     )
 

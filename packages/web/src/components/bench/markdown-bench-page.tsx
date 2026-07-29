@@ -53,6 +53,10 @@ import {
   viewerForObsidianResolution,
 } from "@/components/bench/markdown-bench-obsidian-plugin"
 import {
+  resolveMarkdownBenchNoteTitle,
+  resolveRenamedMarkdownBenchPath,
+} from "@/components/bench/markdown-bench-note-title"
+import {
   isMarkdownBenchContentThemeMode,
   resolveMarkdownBenchContentTheme,
 } from "@/components/bench/markdown-bench-document-theme"
@@ -73,9 +77,13 @@ import {
   ProjectExplorerFileVersionConflictError,
   readProjectExplorerEditableFile,
   readProjectExplorerEditableFileStatus,
+  renameProjectExplorerEditableFile,
   saveProjectExplorerEditableFile,
+  type ProjectExplorerEditableFileSaveResult,
   type ProjectExplorerEditableFileState,
 } from "@/state/chat-actions"
+import { benchSurfaceQueryKeys } from "@/state/bench-surface-query"
+import { appQueryClient } from "@/state/query-client"
 import type { MessagePart } from "@/state/chat-types"
 import { useTranscriptSessionMessages } from "@/state/transcript-repository"
 import {
@@ -96,6 +104,8 @@ const MARKDOWN_LEAVE_GUARD_WAIT_MS = 5000
 const MARKDOWN_LEAVE_GUARD_POLL_MS = 50
 const MARKDOWN_FILE_UNAVAILABLE_MESSAGE = "Markdown file was deleted or moved on disk."
 const MARKDOWN_FILE_CHANGED_MESSAGE = "Markdown file changed on disk."
+const MARKDOWN_CHANGED_DURING_RENAME_MESSAGE =
+  "Markdown changed while preparing the rename. Wait for it to save, then try again."
 const MARKDOWN_CONTEXT_SEMANTIC_KEY_SEPARATOR = "\u0000"
 const MARKDOWN_FRAGMENT_SCROLL_MAX_FRAMES = 30
 const FILE_EDIT_TOOL_NAMES = new Set(["edit", "write", "apply_patch"])
@@ -118,6 +128,21 @@ export type MarkdownBenchPendingSaveSnapshot = {
   savedContent: string
   saving: boolean
   version: string
+}
+
+export function reconcileMarkdownBenchSavedSnapshot(
+  snapshot: MarkdownBenchPendingSaveSnapshot,
+  saved: ProjectExplorerEditableFileSaveResult,
+): MarkdownBenchPendingSaveSnapshot {
+  return {
+    ...snapshot,
+    conflict: false,
+    exists: true,
+    savedContent: saved.content,
+    saveError: false,
+    saving: false,
+    version: saved.version ?? "",
+  }
 }
 
 type MarkdownBenchSaveFile = (
@@ -295,6 +320,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     { markdown: string; error: string | undefined } | undefined
   >(undefined)
   const [exporting, setExporting] = useState(false)
+  const [renamingTitle, setRenamingTitle] = useState(false)
   const [openDockPanel, setOpenDockPanel] = useState<MarkdownBenchDockPanel>()
   const [advancedToolbarContainer, setAdvancedToolbarContainer] = useState<HTMLDivElement | null>(
     null,
@@ -398,7 +424,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       props.path,
     ],
   )
-  const title = fileNameFromPath(props.path) || props.path
+  const title = resolveMarkdownBenchNoteTitle(props.path)
 
   useEffect(() => {
     if (!props.fragment) return
@@ -600,6 +626,31 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const latestSaveSnapshotRef = useRef(currentSaveSnapshot)
   const previousCommittedSaveSnapshotRef = useRef(currentSaveSnapshot)
   latestSaveSnapshotRef.current = currentSaveSnapshot
+  const commitSavedFile = useCallback(
+    (saved: ProjectExplorerEditableFileSaveResult) => {
+      const nextSnapshot = reconcileMarkdownBenchSavedSnapshot(
+        latestSaveSnapshotRef.current,
+        saved,
+      )
+      latestSaveSnapshotRef.current = nextSnapshot
+      previousCommittedSaveSnapshotRef.current = nextSnapshot
+      patchFileStateRef({
+        exists: true,
+        savedMarkdown: saved.content,
+        version: nextSnapshot.version,
+        conflict: false,
+        saving: false,
+        saveError: undefined,
+      })
+      setExists(true)
+      setSavedMarkdown(saved.content)
+      setVersion(nextSnapshot.version)
+      setConflict(false)
+      setSaveError(undefined)
+      return nextSnapshot
+    },
+    [patchFileStateRef],
+  )
   const leaveGuard = useCallback(async () => {
     let snapshot = latestSaveSnapshotRef.current
     if (snapshot.saving) {
@@ -910,19 +961,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
           previousContent: input?.overwrite ? undefined : savedMarkdown,
           expectedVersion: input?.overwrite ? undefined : version,
         })
-        const nextVersion = saved.version ?? ""
-        patchFileStateRef({
-          exists: true,
-          savedMarkdown: saved.content,
-          version: nextVersion,
-          conflict: false,
-          saving: false,
-          saveError: undefined,
-        })
-        setExists(true)
-        setSavedMarkdown(saved.content)
-        setVersion(nextVersion)
-        setConflict(false)
+        commitSavedFile(saved)
       } catch (error) {
         if (error instanceof ProjectExplorerFileVersionConflictError) {
           const status = await readProjectExplorerEditableFileStatus({
@@ -962,6 +1001,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     },
     [
       dirty,
+      commitSavedFile,
       exists,
       markdown,
       patchFileStateRef,
@@ -972,13 +1012,121 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     ],
   )
 
+  const renameTitle = useCallback(
+    async (nextTitle: string) => {
+      const nextPath = resolveRenamedMarkdownBenchPath(props.path, nextTitle)
+      if (nextPath === props.path) return
+
+      setRenamingTitle(true)
+      try {
+        let snapshot = latestSaveSnapshotRef.current
+        if (snapshot.saving) {
+          snapshot = await waitForMarkdownBenchSaveToSettle({
+            snapshotRef: latestSaveSnapshotRef,
+          })
+        }
+        if (snapshot.saving) {
+          throw new Error("Markdown is still saving. Wait for it to finish before renaming.")
+        }
+        if (snapshot.conflict || snapshot.saveError || !snapshot.exists) {
+          throw new Error("Resolve the Markdown file error before renaming this note.")
+        }
+
+        let currentVersion = snapshot.version
+        if (snapshot.content !== snapshot.savedContent) {
+          const saved = await saveProjectExplorerEditableFile({
+            directory: snapshot.directory,
+            path: snapshot.path,
+            content: snapshot.content,
+            expectedVersion: snapshot.version,
+          })
+          snapshot = commitSavedFile(saved)
+          currentVersion = snapshot.version
+          if (snapshot.content !== snapshot.savedContent) {
+            throw new Error(MARKDOWN_CHANGED_DURING_RENAME_MESSAGE)
+          }
+        }
+
+        const renamed = await renameProjectExplorerEditableFile({
+          directory: props.directory,
+          path: props.path,
+          nextPath,
+          expectedVersion: currentVersion,
+        })
+        const settledSnapshot: MarkdownBenchPendingSaveSnapshot = {
+          ...latestSaveSnapshotRef.current,
+          content: renamed.content,
+          exists: false,
+          savedContent: renamed.content,
+          saveError: false,
+          saving: false,
+          version: renamed.version ?? "",
+        }
+        latestSaveSnapshotRef.current = settledSnapshot
+        previousCommittedSaveSnapshotRef.current = settledSnapshot
+        patchFileStateRef({
+          exists: false,
+          markdown: renamed.content,
+          savedMarkdown: renamed.content,
+          saving: false,
+          version: renamed.version ?? "",
+        })
+        appQueryClient.removeQueries({
+          queryKey: benchSurfaceQueryKeys.markdownFile({
+            directory: props.directory,
+            path: props.path,
+          }),
+        })
+        appQueryClient.removeQueries({
+          queryKey: benchSurfaceQueryKeys.fileMetadata({
+            directory: props.directory,
+            path: props.path,
+          }),
+        })
+        appQueryClient.removeQueries({
+          queryKey: benchSurfaceQueryKeys.markdownFile({
+            directory: props.directory,
+            path: renamed.path,
+          }),
+        })
+        appQueryClient.removeQueries({
+          queryKey: benchSurfaceQueryKeys.fileMetadata({
+            directory: props.directory,
+            path: renamed.path,
+          }),
+        })
+
+        const openResult = await openBenchRoute({
+          directory: props.directory,
+          target: {
+            type: "workspace-file",
+            path: renamed.path,
+            viewer: "markdown",
+          },
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: null,
+        })
+        if (openResult.outcome !== "committed") {
+          toast.error(`Renamed to ${renamed.path}, but Bench could not open the new path.`)
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Note could not be renamed."
+        toast.error(message)
+        throw error
+      } finally {
+        setRenamingTitle(false)
+      }
+    },
+    [commitSavedFile, openBenchRoute, patchFileStateRef, props.directory, props.path],
+  )
+
   useEffect(() => {
-    if (!exists || !dirty || saving || conflict) return
+    if (!exists || !dirty || saving || conflict || renamingTitle) return
     const timeout = window.setTimeout(() => {
       void save()
     }, MARKDOWN_SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(timeout)
-  }, [conflict, dirty, exists, save, saving])
+  }, [conflict, dirty, exists, renamingTitle, save, saving])
 
   useEffect(() => {
     if (agentEditActivity.running) {
@@ -1427,7 +1575,9 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             onHistoryControlsChange={setHistoryControls}
             onOpenLink={openMarkdownLink}
             onProcessingResult={handleProcessingResult}
+            onRenameTitle={renameTitle}
             onSelectionChange={syncSelectionToChat}
+            renamingTitle={renamingTitle}
           />
         )}
       </div>

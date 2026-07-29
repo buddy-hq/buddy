@@ -174,8 +174,32 @@ describe("MarkdownBenchEditor", () => {
       expect(editor.className).toContain("pt-[clamp")
     }
     const editable = container.querySelector<HTMLElement>('[aria-label="editable markdown"]')
-    expect(editable?.className).toContain("px-[clamp")
-    expect(editable?.className).toContain("py-[clamp")
+    expect(editable?.className).not.toContain("px-[clamp")
+    expect(editable?.className).toContain("!px-0")
+    expect(editable?.className).toContain("!pt-0")
+    expect(editable?.className).toContain("var(--buddy-font-size-base)")
+    expect(editable?.className).toContain("[&_h1]:!text-[1.618em]")
+    expect(editable?.className).toContain("[&_h2]:!text-[1.462em]")
+    expect(editable?.className).toContain("[&_h6]:!leading-[1.5]")
+
+    const noteTitle = container.querySelector<HTMLElement>(
+      '[data-component="markdown-bench-note-title"]',
+    )
+    expect(noteTitle?.getAttribute("role")).toBe("heading")
+    expect(noteTitle?.getAttribute("aria-level")).toBe("1")
+    expect(noteTitle?.hasAttribute("data-markdown-export-ignore")).toBe(true)
+    const documentContent = container.querySelector<HTMLElement>(
+      '[data-component="markdown-bench-document-content"]',
+    )
+    expect(documentContent?.className).toContain("px-[clamp")
+    expect(noteTitle?.parentElement).toBe(documentContent)
+    expect(documentContent?.contains(editable ?? null)).toBe(true)
+
+    const noteTitleInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Note title"]',
+    )
+    expect(noteTitleInput?.value).toBe("test")
+    expect(noteTitleInput?.readOnly).toBe(true)
 
     const themeStyle = container.querySelector<HTMLStyleElement>(
       "style[data-markdown-bench-content-theme-style]",
@@ -185,6 +209,75 @@ describe("MarkdownBenchEditor", () => {
     expect(themeStyle?.textContent).toContain("color-scheme: light")
     expect(themeStyle?.textContent).toContain("--markdown-bench-document-font-scale: 1.15")
     expect(themeStyle?.textContent).toContain("--markdown-text: #111827;")
+  })
+
+  test("commits an edited inline note title on blur", async () => {
+    const renamedTitles: string[] = []
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            markdown="Document body."
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-dir"
+            documentFormat="markdown"
+            path="Original note.md"
+            onChange={() => {}}
+            onRenameTitle={async (title) => {
+              renamedTitles.push(title)
+            }}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects()
+    })
+
+    const titleInput = container.querySelector<HTMLInputElement>('input[aria-label="Note title"]')
+    expect(titleInput).not.toBeNull()
+    expect(titleInput?.readOnly).toBe(false)
+
+    await act(async () => {
+      if (!titleInput) return
+      titleInput.focus()
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
+      valueSetter?.call(titleInput, "Renamed note")
+      titleInput.dispatchEvent(new Event("input", { bubbles: true }))
+      titleInput.blur()
+      await flushEffects()
+    })
+
+    expect(renamedTitles).toEqual(["Renamed note"])
+  })
+
+  test("locks the title and document body while a rename is running", async () => {
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            markdown="Document body."
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-dir"
+            documentFormat="markdown"
+            path="Original note.md"
+            renamingTitle
+            onChange={() => {}}
+            onRenameTitle={async () => {}}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects()
+    })
+
+    const titleInput = container.querySelector<HTMLInputElement>('input[aria-label="Note title"]')
+    const editable = container.querySelector<HTMLElement>('[aria-label="editable markdown"]')
+    expect(titleInput?.readOnly).toBe(true)
+    expect(editable?.getAttribute("contenteditable")).toBe("false")
   })
 
   test("raises MDXEditor popup dialogs above the floating chat layer", async () => {

@@ -1,10 +1,15 @@
 import { describe, expect, test } from "bun:test"
 import {
   flushMarkdownBenchPendingSave,
+  reconcileMarkdownBenchSavedSnapshot,
   resolveMarkdownBenchTargetStatus,
   shouldFlushMarkdownBenchPendingSave,
   type MarkdownBenchPendingSaveSnapshot,
 } from "../src/components/bench/markdown-bench-page"
+import {
+  resolveMarkdownBenchNoteTitle,
+  resolveRenamedMarkdownBenchPath,
+} from "../src/components/bench/markdown-bench-note-title"
 import type { ProjectExplorerEditableFileState } from "../src/state/chat-actions"
 
 const BASE_SNAPSHOT: MarkdownBenchPendingSaveSnapshot = {
@@ -65,6 +70,34 @@ describe("MarkdownBenchPage pending save flush", () => {
     expect(shouldFlushMarkdownBenchPendingSave({ ...BASE_SNAPSHOT, saveError: true })).toBe(false)
     expect(shouldFlushMarkdownBenchPendingSave({ ...BASE_SNAPSHOT, exists: false })).toBe(false)
   })
+
+  test("commits a save without discarding newer in-memory edits", () => {
+    expect(
+      reconcileMarkdownBenchSavedSnapshot(
+        {
+          ...BASE_SNAPSHOT,
+          content: "newer edit",
+          conflict: true,
+          saveError: true,
+          saving: true,
+        },
+        {
+          content: "edited",
+          path: BASE_SNAPSHOT.path,
+          version: "version-2",
+        },
+      ),
+    ).toEqual({
+      ...BASE_SNAPSHOT,
+      conflict: false,
+      content: "newer edit",
+      exists: true,
+      saveError: false,
+      savedContent: "edited",
+      saving: false,
+      version: "version-2",
+    })
+  })
 })
 
 describe("MarkdownBenchPage target status", () => {
@@ -91,5 +124,30 @@ describe("MarkdownBenchPage target status", () => {
       }),
     ).toBe("error")
     expect(resolveMarkdownBenchTargetStatus(baseInput)).toBe("ready")
+  })
+})
+
+describe("Markdown Bench note title", () => {
+  test("uses the note name without exposing its Markdown file extension", () => {
+    expect(resolveMarkdownBenchNoteTitle("notes/Cell division lesson.mdx")).toBe(
+      "Cell division lesson",
+    )
+    expect(resolveMarkdownBenchNoteTitle("notes/TODO.md")).toBe("TODO")
+  })
+
+  test("renames the note in place while preserving its Markdown format", () => {
+    expect(resolveRenamedMarkdownBenchPath("notes/Old name.mdx", " New name ")).toBe(
+      "notes/New name.mdx",
+    )
+    expect(resolveRenamedMarkdownBenchPath("Old name.md", "New name")).toBe("New name.md")
+  })
+
+  test("rejects empty titles and path characters", () => {
+    expect(() => resolveRenamedMarkdownBenchPath("notes/Old.md", " ")).toThrow(
+      "Note title cannot be empty.",
+    )
+    expect(() => resolveRenamedMarkdownBenchPath("notes/Old.md", "nested/name")).toThrow(
+      "Note title cannot contain",
+    )
   })
 })
