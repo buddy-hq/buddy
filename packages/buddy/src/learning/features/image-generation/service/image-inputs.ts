@@ -2,6 +2,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import type { MessageV2 } from "@buddy/opencode-adapter/message"
 import { mimeTypeForPath } from "../../../../http/mime"
+import { resolveTrustedGeneratedImagePath } from "./generated-image-authorization"
 
 const IMAGE_DATA_URL_PREFIX = "data:image/"
 const BASE64_DATA_URL_ENCODING = ";base64"
@@ -52,6 +53,7 @@ function imageSourcesFromPart(part: MessageV2.Part): RecentImageSource[] {
 export async function recentConversationImageDataUrls(
   messages: readonly MessageV2.WithParts[],
   count: number,
+  sessionID: string,
 ): Promise<string[]> {
   const sources: RecentImageSource[] = []
 
@@ -60,13 +62,13 @@ export async function recentConversationImageDataUrls(
       for (const source of imageSourcesFromPart(part).toReversed()) {
         sources.push(source)
         if (sources.length === count) {
-          return resolveRecentImageSources(sources.toReversed())
+          return resolveRecentImageSources(sources.toReversed(), messages, sessionID)
         }
       }
     }
   }
 
-  return resolveRecentImageSources(sources.toReversed())
+  return resolveRecentImageSources(sources.toReversed(), messages, sessionID)
 }
 
 function imageDataUrlByteLength(dataUrl: string): number {
@@ -120,7 +122,11 @@ async function readReferencedImage(input: ReferencedImageInput): Promise<string>
   return `data:${input.mime};base64,${bytes.toString("base64")}`
 }
 
-async function resolveRecentImageSources(sources: readonly RecentImageSource[]): Promise<string[]> {
+async function resolveRecentImageSources(
+  sources: readonly RecentImageSource[],
+  messages: readonly MessageV2.WithParts[],
+  sessionID: string,
+): Promise<string[]> {
   const inputs: ResolvedRecentImageSource[] = await Promise.all(
     sources.map(async (source) => {
       if (source.type === "data-url") {
@@ -129,7 +135,16 @@ async function resolveRecentImageSources(sources: readonly RecentImageSource[]):
         return { ...source, size }
       }
 
-      const input = await inspectReferencedImage(source.value)
+      const trustedPath = await resolveTrustedGeneratedImagePath(source.value, {
+        messages,
+        sessionID,
+      })
+      if (!trustedPath) {
+        throw new Error(
+          "Recent conversation image is not a trusted generated output from the current session.",
+        )
+      }
+      const input = await inspectReferencedImage(trustedPath)
       return { type: "path", input, size: input.size }
     }),
   )

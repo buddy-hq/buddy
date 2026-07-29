@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { afterEach, describe, expect, test } from "bun:test"
@@ -7,8 +8,12 @@ import { MessageID, ModelID, PartID, ProviderID, SessionID } from "@buddy/openco
 import { imageGenerationFeature } from "../../src/learning/features/image-generation/feature"
 import { createCodexImagesClient } from "../../src/learning/features/image-generation/service/codex-images"
 import {
+  generatedImageProvenance,
   generatedImageFileName,
+  generatedImageSessionDirectory,
   resolveGeneratedImageTitle,
+  saveGeneratedImage,
+  type GeneratedImageProvenance,
 } from "../../src/learning/features/image-generation/service/generated-image"
 import {
   IMAGE_INPUT_MAX_FILE_BYTES,
@@ -19,10 +24,14 @@ import {
 import {
   ImagegenInputSchema,
   authorizeReferencedImagePaths,
+  imagegenTool,
 } from "../../src/learning/features/image-generation/tools/imagegen"
 import { tmpdir } from "../helpers/tmpdir"
 
 const SESSION_ID = SessionID.make("ses_imagegen")
+const OTHER_SESSION_ID = SessionID.make("ses_imagegen_other")
+const SYMLINK_SESSION_ID = SessionID.make("ses_imagegen_symlink")
+const AGGREGATE_SESSION_ID = SessionID.make("ses_imagegen_aggregate")
 const USER_MESSAGE_ID = MessageID.make("msg_imagegen_user")
 const ASSISTANT_MESSAGE_ID = MessageID.make("msg_imagegen_assistant")
 const IMAGE_A = "data:image/png;base64,QUFB"
@@ -33,11 +42,11 @@ afterEach(async () => {
   await OpenCodeInstance.disposeAll()
 })
 
-function userMessageWithImage(): MessageV2.WithParts {
+function userMessageWithImage(sessionID: SessionID = SESSION_ID): MessageV2.WithParts {
   return {
     info: {
       id: USER_MESSAGE_ID,
-      sessionID: SESSION_ID,
+      sessionID,
       role: "user",
       time: { created: 1 },
       agent: "buddy",
@@ -49,7 +58,7 @@ function userMessageWithImage(): MessageV2.WithParts {
     parts: [
       {
         id: PartID.make("prt_imagegen_user_file"),
-        sessionID: SESSION_ID,
+        sessionID,
         messageID: USER_MESSAGE_ID,
         type: "file",
         mime: "image/png",
@@ -116,12 +125,17 @@ function assistantMessageWithSavedImage(input: {
   partID: string
   savedPath: string
   created: number
+  sessionID?: SessionID
+  callID?: string
+  provenance?: GeneratedImageProvenance
 }): MessageV2.WithParts {
   const messageID = MessageID.make(input.messageID)
+  const sessionID = input.sessionID ?? SESSION_ID
+  const callID = input.callID ?? `call_${input.partID}`
   return {
     info: {
       id: messageID,
-      sessionID: SESSION_ID,
+      sessionID,
       role: "assistant",
       time: { created: input.created, completed: input.created + 1 },
       parentID: USER_MESSAGE_ID,
@@ -141,23 +155,65 @@ function assistantMessageWithSavedImage(input: {
     parts: [
       {
         id: PartID.make(input.partID),
-        sessionID: SESSION_ID,
+        sessionID,
         messageID,
         type: "tool",
-        callID: `call_${input.partID}`,
+        callID,
         tool: "imagegen",
         state: {
           status: "completed",
           input: { prompt: "draw it" },
           output: "generated",
           title: "Generated image",
-          metadata: { savedPath: input.savedPath },
+          metadata: {
+            savedPath: input.savedPath,
+            ...(input.provenance ? { generatedImageProvenance: input.provenance } : {}),
+          },
           time: { start: input.created, end: input.created + 1 },
           attachments: [],
         },
       },
     ],
   }
+}
+
+async function completedGeneratedImageFixture(input: {
+  sessionID: SessionID
+  callID: string
+  label: string
+  bytes?: string
+}) {
+  const bytes = input.bytes ?? "trusted-generated-image"
+  const image = await saveGeneratedImage({
+    sessionID: input.sessionID,
+    callID: input.callID,
+    title: input.label,
+    base64: Buffer.from(bytes).toString("base64"),
+  })
+  const provenance = generatedImageProvenance({
+    image,
+    sessionID: input.sessionID,
+    callID: input.callID,
+  })
+  const message = assistantMessageWithSavedImage({
+    messageID: `msg_${input.label}`,
+    partID: `prt_${input.label}`,
+    savedPath: image.path,
+    created: 2,
+    sessionID: input.sessionID,
+    callID: input.callID,
+    provenance,
+  })
+  return { bytes, image, message, provenance }
+}
+
+function expectOnlyExternalDirectoryRequests(
+  permissionRequests: readonly { permission: string }[],
+): void {
+  expect(permissionRequests.length).toBeGreaterThan(0)
+  expect(new Set(permissionRequests.map((request) => request.permission))).toEqual(
+    new Set(["external_directory"]),
+  )
 }
 
 describe("imagegen feature tool", () => {
@@ -181,6 +237,15 @@ describe("imagegen feature tool", () => {
     ).toBe(true)
   })
 
+  test("prefers recent conversation images over local paths in the tool guidance", () => {
+    expect(imagegenTool.description).toContain(
+      "prefer `num_last_images_to_include` even when a local path is visible",
+    )
+    expect(imagegenTool.description).toContain(
+      "Use `referenced_image_paths` only for genuine local-file targets",
+    )
+  })
+
   test("requests permission only for referenced images outside the workspace", async () => {
     await using project = await tmpdir({ git: true })
     await using externalDirectory = await tmpdir()
@@ -201,6 +266,8 @@ describe("imagegen feature tool", () => {
       fn: () =>
         authorizeReferencedImagePaths([workspaceImagePath, externalImagePath], {
           directory: project.path,
+          messages: [],
+          sessionID: SESSION_ID,
           ask: async (input) => {
             permissionRequests.push(input)
           },
@@ -237,6 +304,167 @@ describe("imagegen feature tool", () => {
     ])
   })
 
+  test("trusts the exact completed imagegen output from the current session", async () => {
+    await using project = await tmpdir({ git: true })
+    const generated = await completedGeneratedImageFixture({
+      sessionID: SESSION_ID,
+      callID: "call_trusted_current_session",
+      label: "trusted_current_session",
+    })
+    const permissionRequests: unknown[] = []
+
+    const authorizedPaths = await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () =>
+        authorizeReferencedImagePaths([generated.image.path], {
+          directory: project.path,
+          messages: [generated.message],
+          sessionID: SESSION_ID,
+          ask: async (input) => {
+            permissionRequests.push(input)
+          },
+        }),
+    })
+
+    expect(authorizedPaths).toEqual([await fs.realpath(generated.image.path)])
+    expect(permissionRequests).toEqual([])
+  })
+
+  test("does not trust an unrecorded file in the current generated-image session directory", async () => {
+    await using project = await tmpdir({ git: true })
+    const generated = await completedGeneratedImageFixture({
+      sessionID: SESSION_ID,
+      callID: "call_recorded_current_session",
+      label: "recorded_current_session",
+    })
+    const unrecordedPath = path.join(path.dirname(generated.image.path), "unrecorded.png")
+    const permissionRequests: Array<{ permission: string }> = []
+    await Bun.write(unrecordedPath, "unrecorded")
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () =>
+        authorizeReferencedImagePaths([unrecordedPath], {
+          directory: project.path,
+          messages: [generated.message],
+          sessionID: SESSION_ID,
+          ask: async (input) => {
+            permissionRequests.push(input)
+          },
+        }),
+    })
+
+    expectOnlyExternalDirectoryRequests(permissionRequests)
+  })
+
+  test("does not trust a generated output from another session", async () => {
+    await using project = await tmpdir({ git: true })
+    const generated = await completedGeneratedImageFixture({
+      sessionID: OTHER_SESSION_ID,
+      callID: "call_other_session",
+      label: "other_session",
+    })
+    const permissionRequests: Array<{ permission: string }> = []
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () =>
+        authorizeReferencedImagePaths([generated.image.path], {
+          directory: project.path,
+          messages: [generated.message],
+          sessionID: SESSION_ID,
+          ask: async (input) => {
+            permissionRequests.push(input)
+          },
+        }),
+    })
+
+    expectOnlyExternalDirectoryRequests(permissionRequests)
+  })
+
+  test("does not trust forged generated-image provenance", async () => {
+    await using project = await tmpdir({ git: true })
+    const sessionDirectory = generatedImageSessionDirectory(SESSION_ID)
+    const forgedPath = path.join(sessionDirectory, "forged.png")
+    const forgedBytes = Buffer.from("forged")
+    await fs.mkdir(sessionDirectory, { recursive: true })
+    await fs.writeFile(forgedPath, forgedBytes)
+    const forgedProvenance = generatedImageProvenance({
+      image: {
+        path: forgedPath,
+        sha256: createHash("sha256").update(forgedBytes).digest("hex"),
+        sizeBytes: forgedBytes.byteLength,
+      },
+      sessionID: SESSION_ID,
+      callID: "call_forged_claim",
+    })
+    const forgedMessage = assistantMessageWithSavedImage({
+      messageID: "msg_forged_provenance",
+      partID: "prt_forged_provenance",
+      savedPath: forgedPath,
+      created: 2,
+      callID: "call_actual_part",
+      provenance: forgedProvenance,
+    })
+    const permissionRequests: Array<{ permission: string }> = []
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () =>
+        authorizeReferencedImagePaths([forgedPath], {
+          directory: project.path,
+          messages: [forgedMessage],
+          sessionID: SESSION_ID,
+          ask: async (input) => {
+            permissionRequests.push(input)
+          },
+        }),
+    })
+
+    expectOnlyExternalDirectoryRequests(permissionRequests)
+  })
+
+  test("does not trust a generated path whose canonical target escapes the managed root", async () => {
+    await using project = await tmpdir({ git: true })
+    await using externalDirectory = await tmpdir()
+    const generated = await completedGeneratedImageFixture({
+      sessionID: SYMLINK_SESSION_ID,
+      callID: "call_symlink_escape",
+      label: "symlink_escape",
+    })
+    const sessionDirectory = generatedImageSessionDirectory(SYMLINK_SESSION_ID)
+    const externalImagePath = path.join(externalDirectory.path, path.basename(generated.image.path))
+    await Bun.write(externalImagePath, generated.bytes)
+    if (path.dirname(generated.image.path) !== sessionDirectory) {
+      throw new Error("Expected the generated image inside its managed session directory.")
+    }
+    await fs.rm(sessionDirectory, { recursive: true, force: true })
+    await fs.symlink(
+      externalDirectory.path,
+      sessionDirectory,
+      process.platform === "win32" ? "junction" : "dir",
+    )
+    const permissionRequests: Array<{ permission: string }> = []
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () =>
+        authorizeReferencedImagePaths([generated.image.path], {
+          directory: project.path,
+          messages: [generated.message],
+          sessionID: SYMLINK_SESSION_ID,
+          ask: async (input) => {
+            permissionRequests.push(input)
+          },
+        }),
+    })
+
+    expect(permissionRequests.map((request) => request.permission)).toEqual([
+      "external_directory",
+      "external_directory",
+    ])
+  })
+
   test("derives semantic titles and collision-safe filenames", () => {
     expect(
       resolveGeneratedImageTitle({
@@ -258,8 +486,40 @@ describe("imagegen feature tool", () => {
   test("selects recent user and generated tool images in chronological order", async () => {
     const messages = [userMessageWithImage(), assistantMessageWithGeneratedImage()]
 
-    expect(await recentConversationImageDataUrls(messages, 1)).toEqual([IMAGE_B])
-    expect(await recentConversationImageDataUrls(messages, 2)).toEqual([IMAGE_A, IMAGE_B])
+    expect(await recentConversationImageDataUrls(messages, 1, SESSION_ID)).toEqual([IMAGE_B])
+    expect(await recentConversationImageDataUrls(messages, 2, SESSION_ID)).toEqual([
+      IMAGE_A,
+      IMAGE_B,
+    ])
+  })
+
+  test("resolves an exact trusted generated output from recent conversation context", async () => {
+    const generated = await completedGeneratedImageFixture({
+      sessionID: SESSION_ID,
+      callID: "call_trusted_recent_context",
+      label: "trusted_recent_context",
+    })
+
+    expect(await recentConversationImageDataUrls([generated.message], 1, SESSION_ID)).toEqual([
+      `data:image/png;base64,${Buffer.from(generated.bytes).toString("base64")}`,
+    ])
+  })
+
+  test("rejects recent saved-path metadata without generated-image provenance", async () => {
+    const sessionDirectory = generatedImageSessionDirectory(SESSION_ID)
+    const untrustedPath = path.join(sessionDirectory, "untrusted-recent.png")
+    await fs.mkdir(sessionDirectory, { recursive: true })
+    await Bun.write(untrustedPath, "untrusted")
+    const message = assistantMessageWithSavedImage({
+      messageID: "msg_untrusted_recent",
+      partID: "prt_untrusted_recent",
+      savedPath: untrustedPath,
+      created: 2,
+    })
+
+    await expect(recentConversationImageDataUrls([message], 1, SESSION_ID)).rejects.toThrow(
+      "Recent conversation image is not a trusted generated output from the current session.",
+    )
   })
 
   test("rejects oversized referenced images before reading their payloads", async () => {
@@ -292,34 +552,74 @@ describe("imagegen feature tool", () => {
   })
 
   test("enforces one aggregate limit across recent data URLs and saved image paths", async () => {
-    await using directory = await tmpdir()
-    const firstImagePath = path.join(directory.path, "first.png")
-    const secondImagePath = path.join(directory.path, "second.png")
+    const sessionDirectory = generatedImageSessionDirectory(AGGREGATE_SESSION_ID)
+    const firstImagePath = path.join(sessionDirectory, "first.png")
+    const secondImagePath = path.join(sessionDirectory, "second.png")
+    await fs.mkdir(sessionDirectory, { recursive: true })
     await Promise.all(
       [firstImagePath, secondImagePath].map(async (imagePath) => {
         await Bun.write(imagePath, "")
         await fs.truncate(imagePath, IMAGE_INPUT_MAX_FILE_BYTES)
       }),
     )
+    const zeroChunk = Buffer.alloc(1024 * 1024)
+    const zeroHash = createHash("sha256")
+    for (
+      let bytesHashed = 0;
+      bytesHashed < IMAGE_INPUT_MAX_FILE_BYTES;
+      bytesHashed += zeroChunk.byteLength
+    ) {
+      zeroHash.update(
+        zeroChunk.subarray(
+          0,
+          Math.min(zeroChunk.byteLength, IMAGE_INPUT_MAX_FILE_BYTES - bytesHashed),
+        ),
+      )
+    }
+    const sha256 = zeroHash.digest("hex")
+    const firstCallID = "call_imagegen_saved_first"
+    const secondCallID = "call_imagegen_saved_second"
     const messages = [
-      userMessageWithImage(),
+      userMessageWithImage(AGGREGATE_SESSION_ID),
       assistantMessageWithSavedImage({
         messageID: "msg_imagegen_saved_first",
         partID: "prt_imagegen_saved_first",
         savedPath: firstImagePath,
         created: 2,
+        sessionID: AGGREGATE_SESSION_ID,
+        callID: firstCallID,
+        provenance: generatedImageProvenance({
+          image: {
+            path: firstImagePath,
+            sha256,
+            sizeBytes: IMAGE_INPUT_MAX_FILE_BYTES,
+          },
+          sessionID: AGGREGATE_SESSION_ID,
+          callID: firstCallID,
+        }),
       }),
       assistantMessageWithSavedImage({
         messageID: "msg_imagegen_saved_second",
         partID: "prt_imagegen_saved_second",
         savedPath: secondImagePath,
         created: 4,
+        sessionID: AGGREGATE_SESSION_ID,
+        callID: secondCallID,
+        provenance: generatedImageProvenance({
+          image: {
+            path: secondImagePath,
+            sha256,
+            sizeBytes: IMAGE_INPUT_MAX_FILE_BYTES,
+          },
+          sessionID: AGGREGATE_SESSION_ID,
+          callID: secondCallID,
+        }),
       }),
     ]
 
-    await expect(recentConversationImageDataUrls(messages, 3)).rejects.toThrow(
-      `Image inputs exceed the ${IMAGE_INPUT_MAX_TOTAL_BYTES}-byte aggregate limit`,
-    )
+    await expect(
+      recentConversationImageDataUrls(messages, 3, AGGREGATE_SESSION_ID),
+    ).rejects.toThrow(`Image inputs exceed the ${IMAGE_INPUT_MAX_TOTAL_BYTES}-byte aggregate limit`)
   })
 
   test("uses ChatGPT OAuth headers and Codex generate/edit endpoints", async () => {

@@ -11,9 +11,11 @@ import IMAGEGEN_DESCRIPTION from "../imagegen-description.md"
 import { codexImagesClient } from "../service/codex-images"
 import {
   IMAGE_TITLE_MAX_CHARACTERS,
+  generatedImageProvenance,
   resolveGeneratedImageTitle,
   saveGeneratedImage,
 } from "../service/generated-image"
+import { resolveTrustedGeneratedImagePath } from "../service/generated-image-authorization"
 import { recentConversationImageDataUrls, referencedImageDataUrls } from "../service/image-inputs"
 import { IMAGE_EDIT_TARGET_MAX } from "../contracts"
 import { authorizeFileReadPaths } from "../../../runtime/external-file-authorization"
@@ -41,7 +43,9 @@ const ImagegenInputSchema = z
       .array(z.string().refine(isAbsoluteImagePath, "Image paths must be absolute."))
       .max(IMAGE_EDIT_TARGET_MAX)
       .optional()
-      .describe("Absolute paths of up to 5 local images to edit or use as visual references."),
+      .describe(
+        "Absolute paths of up to 5 genuine local image files to edit or use as visual references. Use only when the targets are not already attached or available in recent conversation context.",
+      ),
     num_last_images_to_include: z
       .number()
       .int()
@@ -49,7 +53,7 @@ const ImagegenInputSchema = z
       .max(IMAGE_EDIT_TARGET_MAX)
       .optional()
       .describe(
-        "Number of most recent conversation images to use as edit references when absolute paths are unavailable.",
+        "Number of most recent conversation images to use as edit references. Prefer this for attached images and images produced by earlier imagegen calls.",
       ),
   })
   .strict()
@@ -66,9 +70,29 @@ type ImagegenInput = z.infer<typeof ImagegenInputSchema>
 
 async function authorizeReferencedImagePaths(
   imagePaths: readonly string[],
-  ctx: Pick<BuddyToolContext, "ask" | "directory">,
+  ctx: Pick<BuddyToolContext, "ask" | "directory" | "messages" | "sessionID">,
 ): Promise<string[]> {
-  return authorizeFileReadPaths(imagePaths, ctx)
+  const trustedPaths = await Promise.all(
+    imagePaths.map((imagePath) =>
+      resolveTrustedGeneratedImagePath(imagePath, {
+        messages: ctx.messages,
+        sessionID: String(ctx.sessionID),
+      }),
+    ),
+  )
+  const untrustedPaths = imagePaths.filter((_, index) => trustedPaths[index] === undefined)
+  const authorizedUntrustedPaths = await authorizeFileReadPaths(untrustedPaths, ctx)
+  let authorizedUntrustedIndex = 0
+
+  return trustedPaths.map((trustedPath) => {
+    if (trustedPath) return trustedPath
+    const authorizedPath = authorizedUntrustedPaths[authorizedUntrustedIndex]
+    authorizedUntrustedIndex += 1
+    if (!authorizedPath) {
+      throw new Error("Expected one authorized image path.")
+    }
+    return authorizedPath
+  })
 }
 
 async function resolveImageDataUrls(input: ImagegenInput, ctx: BuddyToolContext) {
@@ -84,6 +108,7 @@ async function resolveImageDataUrls(input: ImagegenInput, ctx: BuddyToolContext)
   const imageDataUrls = await recentConversationImageDataUrls(
     ctx.messages,
     input.num_last_images_to_include,
+    String(ctx.sessionID),
   )
   if (imageDataUrls.length !== input.num_last_images_to_include) {
     throw new Error(
@@ -135,12 +160,13 @@ const imagegenTool = createBuddyTool({
     })
     ctx.abort.throwIfAborted()
 
-    const savedPath = await saveGeneratedImage({
+    const savedImage = await saveGeneratedImage({
       sessionID: String(ctx.sessionID),
       ...(ctx.callID ? { callID: ctx.callID } : {}),
       title: imageTitle,
       base64: generated.base64,
     })
+    const savedPath = savedImage.path
     try {
       const presentation = await buildPresentedMediaObjectOutput({
         directory: ctx.directory,
@@ -162,6 +188,15 @@ const imagegenTool = createBuddyTool({
         metadata: {
           buddyObjectResult,
           savedPath,
+          ...(ctx.callID
+            ? {
+                generatedImageProvenance: generatedImageProvenance({
+                  image: savedImage,
+                  sessionID: String(ctx.sessionID),
+                  callID: ctx.callID,
+                }),
+              }
+            : {}),
           operation: generated.operation,
           referenceImageCount: imageDataUrls.length,
         },
