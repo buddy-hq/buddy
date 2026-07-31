@@ -7,5 +7,6 @@ export const resolveConfusionSkill = defineBuddySkill({
   presentation: {
     displayName: "Resolve Misconceptions",
     shortDescription: "Replace faulty mental models and verify understanding",
+    icon: "buddy-skill-resolve-confusions.webp",
   },
 })

@@ -7,5 +7,6 @@ export const teachingModelsSkill = defineBuddySkill({
   presentation: {
     displayName: "Teaching Models",
     shortDescription: "Choose the right teaching approach for the learner",
+    icon: "buddy-skill-teaching-models.webp",
   },
 })

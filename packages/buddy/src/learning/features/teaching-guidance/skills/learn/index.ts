@@ -7,5 +7,6 @@ export const learnSkill = defineBuddySkill({
   presentation: {
     displayName: "Conceptual Learning",
     shortDescription: "Build conceptual understanding before meaningful practice",
+    icon: "buddy-skill-learn.webp",
   },
 })

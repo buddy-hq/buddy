@@ -7,5 +7,6 @@ export const buddyHelpSkill = defineBuddySkill({
   presentation: {
     displayName: "Buddy Help",
     shortDescription: "How Buddy works: setup, workspace, skills, MCP",
+    icon: "buddy-skill-buddy-help.webp",
   },
 })

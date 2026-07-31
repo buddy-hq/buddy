@@ -7,5 +7,6 @@ export const teachChemistrySkill = defineBuddySkill({
   presentation: {
     displayName: "Teach Chemistry",
     shortDescription: "Teach chemistry with inline structure and reaction diagrams",
+    icon: "buddy-skill-teach-chemistry.webp",
   },
 })

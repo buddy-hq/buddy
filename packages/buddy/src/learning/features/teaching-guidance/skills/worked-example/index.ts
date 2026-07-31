@@ -7,5 +7,6 @@ export const workedExampleSkill = defineBuddySkill({
   presentation: {
     displayName: "Worked Examples",
     shortDescription: "Show complete reasoning, then transition to learner action",
+    icon: "buddy-skill-worked-example.webp",
   },
 })

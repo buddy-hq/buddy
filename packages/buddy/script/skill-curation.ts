@@ -232,7 +232,11 @@ export async function writeCatalogEntry(input: {
   const existingIndex = catalog.entries.findIndex((candidate) => candidate.id === input.entry.id)
   if (existingIndex >= 0) {
     const existingEntry = catalog.entries[existingIndex]
-    if (entriesEqual(existingEntry, input.entry)) {
+    const replacement =
+      existingEntry.icon && !input.entry.icon
+        ? { ...input.entry, icon: existingEntry.icon }
+        : input.entry
+    if (entriesEqual(existingEntry, replacement)) {
       return "unchanged" as const
     }
     if (!input.replaceExisting) {
@@ -240,7 +244,7 @@ export async function writeCatalogEntry(input: {
         `Catalog entry "${input.entry.id}" already exists. Re-run with --replace-existing after review.`,
       )
     }
-    catalog.entries[existingIndex] = input.entry
+    catalog.entries[existingIndex] = replacement
   } else {
     catalog.entries.push(input.entry)
   }

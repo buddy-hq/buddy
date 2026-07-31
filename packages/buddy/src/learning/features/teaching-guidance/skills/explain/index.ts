@@ -7,5 +7,6 @@ export const explainSkill = defineBuddySkill({
   presentation: {
     displayName: "Explain",
     shortDescription: "Teach a concept clearly before moving into application",
+    icon: "buddy-skill-explain.webp",
   },
 })

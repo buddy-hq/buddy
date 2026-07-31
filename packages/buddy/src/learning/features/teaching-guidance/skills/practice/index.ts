@@ -7,5 +7,6 @@ export const practiceSkill = defineBuddySkill({
   presentation: {
     displayName: "Practice",
     shortDescription: "Create practice tasks that build expert thinking",
+    icon: "buddy-skill-practice.webp",
   },
 })

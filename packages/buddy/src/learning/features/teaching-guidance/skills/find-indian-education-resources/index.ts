@@ -7,5 +7,6 @@ export const findIndianEducationResourcesSkill = defineBuddySkill({
   presentation: {
     displayName: "Indian Education Resources",
     shortDescription: "Find current official Indian education resources",
+    icon: "buddy-skill-find-indian-education-resources.webp",
   },
 })

@@ -7,5 +7,6 @@ export const fetchIndianCompetitionPapersSkill = defineBuddySkill({
   presentation: {
     displayName: "Indian Competition Papers",
     shortDescription: "Fetch official Indian competitive exam papers and answer keys",
+    icon: "buddy-skill-fetch-indian-competition-papers.webp",
   },
 })

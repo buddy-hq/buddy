@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { createHash } from "node:crypto"
 import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
@@ -28,6 +29,7 @@ import {
 } from "../src/learning/skill-management/service/library"
 import { resolveBuddyBundledSkillRoots } from "../src/config/opencode/skills"
 import { allBuddySkills } from "../src/learning/runtime/feature-registry"
+import { catalogIconReleaseFilename } from "../src/learning/skill-management/service/catalog-icon-reference"
 
 const RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
 const RELEASE_TAG = "skill-artifacts"
@@ -56,6 +58,9 @@ const SOURCE_CATALOG_PATH = path.resolve(
   import.meta.dir,
   "../src/learning/skill-management/service/catalog.json",
 )
+const SOURCE_CATALOG_ICON_DIRECTORY = path.resolve(import.meta.dir, "../../../assets/skills/catalog")
+const SOURCE_CATALOG_ICON_FILENAME_PREFIX = "buddy-skill-"
+const SOURCE_CATALOG_ICON_FILENAME_SUFFIX = ".webp"
 
 type SigningConfiguration = {
   environment: NodeJS.ProcessEnv
@@ -276,6 +281,33 @@ async function verifyPublishedArtifacts(
   }
 }
 
+async function buildCatalogIconAssets(
+  catalog: ReturnType<typeof parseSkillCatalogDocument>,
+  outputDirectory: string,
+): Promise<string[]> {
+  const outputPaths: string[] = []
+  for (const entry of catalog.entries) {
+    if (!entry.icon) continue
+    const sourceFilename = `${SOURCE_CATALOG_ICON_FILENAME_PREFIX}${entry.id}${SOURCE_CATALOG_ICON_FILENAME_SUFFIX}`
+    const sourcePath = path.join(SOURCE_CATALOG_ICON_DIRECTORY, sourceFilename)
+    const bytes = await fsp.readFile(sourcePath).catch((error: unknown) => {
+      throw new Error(`Catalog icon source missing for ${entry.id}: ${sourcePath}`, { cause: error })
+    })
+    const digest = createHash("sha256").update(bytes).digest("hex")
+    if (digest !== entry.icon.sha256) {
+      throw new Error(`Catalog icon SHA-256 does not match ${entry.id}`)
+    }
+    const expectedFilename = catalogIconReleaseFilename(entry.id, digest)
+    if (entry.icon.filename !== expectedFilename) {
+      throw new Error(`Catalog icon filename does not match ${entry.id}`)
+    }
+    const outputPath = path.join(outputDirectory, entry.icon.filename)
+    await fsp.copyFile(sourcePath, outputPath)
+    outputPaths.push(outputPath)
+  }
+  return outputPaths
+}
+
 const outputDirectory = path.resolve(flagValue(OUTPUT_FLAG) ?? DEFAULT_OUTPUT_DIRECTORY)
 await fsp.rm(outputDirectory, { recursive: true, force: true })
 await fsp.mkdir(outputDirectory, { recursive: true })
@@ -288,6 +320,7 @@ if (signing.publicKey && signing.publicKey !== BUDDY_SKILL_ARTIFACT_PUBLIC_KEY) 
 const catalogJson: unknown = JSON.parse(await fsp.readFile(SOURCE_CATALOG_PATH, "utf8"))
 const catalog = parseSkillCatalogDocument(catalogJson)
 const catalogPayloadBytes = skillCatalogPayloadBytes(catalog)
+const catalogIconPaths = await buildCatalogIconAssets(catalog, outputDirectory)
 const publishedCatalog = await readPublishedPayload(
   DEFAULT_LIBRARY_CATALOG_URL,
   parseSkillCatalogDocument,
@@ -386,7 +419,7 @@ await Promise.all([
 
 if (process.argv.includes(PUBLISH_FLAG)) {
   ensureReleaseExists(process.env)
-  const artifactPaths = [libraryEnvelopePath, systemEnvelopePath]
+  const artifactPaths = [libraryEnvelopePath, systemEnvelopePath, ...catalogIconPaths]
   run(
     "gh",
     ["release", "upload", RELEASE_TAG, ...artifactPaths, "--clobber", "--repo", RELEASE_REPOSITORY],
@@ -397,5 +430,6 @@ if (process.argv.includes(PUBLISH_FLAG)) {
 
 console.log(`Built signed library catalog revision ${catalog.revision}`)
 console.log(`Built signed system skill pack revision ${systemPack.revision}`)
+console.log(`Built ${catalogIconPaths.length} catalog skill icon asset(s)`)
 console.log(`System skill baseline ${baseFingerprint}`)
 console.log(`Artifacts: ${outputDirectory}`)

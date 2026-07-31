@@ -7,5 +7,6 @@ export const obsidianSkill = defineBuddySkill({
   presentation: {
     displayName: "Obsidian",
     shortDescription: "Work with Obsidian vaults, notes, links, and Canvas",
+    icon: "buddy-skill-obsidian.webp",
   },
 })

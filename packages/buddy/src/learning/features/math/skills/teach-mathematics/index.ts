@@ -7,5 +7,6 @@ export const teachMathematicsSkill = defineBuddySkill({
   presentation: {
     displayName: "Teach Mathematics",
     shortDescription: "Teach mathematics with figures, computation, and proof",
+    icon: "buddy-skill-teach-mathematics.webp",
   },
 })

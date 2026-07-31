@@ -7,5 +7,6 @@ export const learningDesignFrameworksSkill = defineBuddySkill({
   presentation: {
     displayName: "Learning Design Frameworks",
     shortDescription: "Design learning with established teaching frameworks",
+    icon: "buddy-skill-learning-design-frameworks.webp",
   },
 })

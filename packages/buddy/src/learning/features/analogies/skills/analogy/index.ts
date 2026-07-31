@@ -7,5 +7,6 @@ export const analogySkill = defineBuddySkill({
   presentation: {
     displayName: "Analogies",
     shortDescription: "Build clear analogies that connect new ideas to familiar ones",
+    icon: "buddy-skill-analogy.webp",
   },
 })

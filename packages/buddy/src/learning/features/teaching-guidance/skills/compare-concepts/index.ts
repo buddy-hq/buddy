@@ -7,5 +7,6 @@ export const compareConceptsSkill = defineBuddySkill({
   presentation: {
     displayName: "Compare Concepts",
     shortDescription: "Contrast related concepts and clarify their boundaries",
+    icon: "buddy-skill-compare-concepts.webp",
   },
 })

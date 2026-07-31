@@ -7,5 +7,6 @@ export const alignTeachingTopicsToGradeLevelAndAgeSkill = defineBuddySkill({
   presentation: {
     displayName: "Grade & Age Alignment",
     shortDescription: "Match teaching depth and material to learner readiness",
+    icon: "buddy-skill-align-teaching-topics-to-grade-level-and-age.webp",
   },
 })

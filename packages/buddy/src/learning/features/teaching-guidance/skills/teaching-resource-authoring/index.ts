@@ -7,5 +7,6 @@ export const teachingResourceAuthoringSkill = defineBuddySkill({
   presentation: {
     displayName: "Teaching Resources",
     shortDescription: "Create and revise assessments, worksheets, and rubrics",
+    icon: "buddy-skill-teaching-resource-authoring.webp",
   },
 })

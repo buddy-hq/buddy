@@ -7,5 +7,6 @@ export const assessSkill = defineBuddySkill({
   presentation: {
     displayName: "Assess Learning",
     shortDescription: "Design assessments that reveal learner understanding",
+    icon: "buddy-skill-assess.webp",
   },
 })
