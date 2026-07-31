@@ -22,15 +22,28 @@ mock.module("@/state/skills-actions", () => ({
   setSkillPermissionAction: (name: string, action: "allow" | "deny") => setPermission(name, action),
 }))
 
+mock.module("@/components/skills/skill-icon-assets", () => ({
+  resolveSkillIconURL: (reference: string | undefined) =>
+    reference?.startsWith("/api/")
+      ? reference
+      : reference
+        ? `/test-skill-icons/${reference}`
+        : undefined,
+}))
+
+const SLIDES_ICON_SHA256 = "a".repeat(64)
+const DOCUMENT_ICON_SHA256 = "b".repeat(64)
+
 function installedSkill(
   input: Pick<InstalledSkillInfo, "name" | "displayName" | "permissionAction" | "source"> &
-    Partial<Pick<InstalledSkillInfo, "libraryID" | "scope" | "shortDescription">>,
+    Partial<Pick<InstalledSkillInfo, "icon" | "libraryID" | "scope" | "shortDescription">>,
 ): InstalledSkillInfo {
   return {
     name: input.name,
     description: input.shortDescription ?? `${input.displayName} instructions`,
     displayName: input.displayName,
     shortDescription: input.shortDescription ?? `${input.displayName} description`,
+    ...(input.icon ? { icon: input.icon } : {}),
     location: `/skills/${input.name}/SKILL.md`,
     directory: `/skills/${input.name}`,
     content: `# ${input.displayName}`,
@@ -59,13 +72,6 @@ function populatedCatalog(): SkillsCatalog {
         libraryID: "slides-library",
       }),
       installedSkill({
-        name: "withdrawn",
-        displayName: "Withdrawn Skill",
-        permissionAction: "allow",
-        source: "library",
-        libraryID: "withdrawn-library",
-      }),
-      installedSkill({
         name: "practice",
         displayName: "Practice",
         permissionAction: "deny",
@@ -76,6 +82,7 @@ function populatedCatalog(): SkillsCatalog {
       {
         id: "slides-library",
         displayName: "PowerPoint Presentation",
+        icon: `/api/skills/library/slides-library/icon?sha256=${SLIDES_ICON_SHA256}`,
         summary: "Create and edit presentations.",
         categories: ["productivity"],
         tags: ["slides"],
@@ -96,6 +103,7 @@ function populatedCatalog(): SkillsCatalog {
       {
         id: "document-library",
         displayName: "DOCX",
+        icon: `/api/skills/library/document-library/icon?sha256=${DOCUMENT_ICON_SHA256}`,
         summary: "Create and edit documents.",
         categories: ["productivity"],
         tags: ["documents"],
@@ -130,6 +138,13 @@ function deferred<T>() {
 async function flushEffects() {
   await Promise.resolve()
   await new Promise<void>((resolve) => setTimeout(resolve, 0))
+}
+
+/** Drawer buttons live in the container; dialog content is portalled to the body. */
+function buttonWithText(text: string, scope: ParentNode) {
+  return Array.from(scope.querySelectorAll<HTMLButtonElement>("button")).find(
+    (button) => button.textContent === text,
+  )
 }
 
 describe("RightWorkspaceSkillsDrawer", () => {
@@ -179,16 +194,20 @@ describe("RightWorkspaceSkillsDrawer", () => {
       await flushEffects()
       await new Promise((resolve) => setTimeout(resolve, 20))
     })
+    // The catalog query resolves a tick after the first paint; without this the
+    // list is still empty and every row query comes back null.
+    await act(async () => {
+      await flushEffects()
+      await flushEffects()
+    })
   }
 
-  async function selectTab(label: "Discover" | "Installed") {
-    const tab = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(
-      (candidate) => candidate.textContent === label,
-    )
-    expect(tab).not.toBeUndefined()
+  async function openDetail(name: string) {
+    const row = container.querySelector<HTMLButtonElement>(`button[aria-label="Manage ${name}"]`)
+    expect(row).not.toBeNull()
     await act(async () => {
-      tab?.focus()
-      tab?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }))
+      row?.click()
+      await flushEffects()
     })
   }
 
@@ -205,7 +224,7 @@ describe("RightWorkspaceSkillsDrawer", () => {
     })
   }
 
-  test("shows loading, installed, discover, update, and withdrawn states", async () => {
+  test("shows loading, then both bands in one untabbed list", async () => {
     const pendingCatalog = deferred<SkillsCatalog>()
     loadCatalog = () => pendingCatalog.promise
     await renderDrawer()
@@ -217,25 +236,103 @@ describe("RightWorkspaceSkillsDrawer", () => {
     pendingCatalog.resolve(catalog)
     await act(async () => flushEffects())
 
+    expect(container.querySelector('[role="tab"]')).toBeNull()
     expect(container.textContent).toContain("1 update available")
+
+    // Installed band: what this notebook has, on or off.
+    expect(container.textContent).toContain("Your skills")
     expect(container.textContent).toContain("PowerPoint Presentation")
     expect(container.textContent).toContain("Practice")
-    expect(container.textContent).toContain("Off")
+    expect(
+      container
+        .querySelector('button[aria-label="Toggle Practice"]')
+        ?.getAttribute("aria-checked"),
+    ).toBe("false")
 
-    await selectTab("Discover")
-
-    expect(container.textContent).toContain("Update")
-    expect(container.textContent).toContain("Remove")
-    expect(container.textContent).toContain("Install")
+    // Library band: only what is NOT installed, so nothing appears twice.
+    expect(container.textContent).toContain("Available to add")
+    expect(container.textContent).toContain("DOCX")
+    expect(container.textContent).toContain("Withdrawn Skill")
+    expect(buttonWithText("Install", container)).not.toBeUndefined()
+    expect(buttonWithText("Remove", container)).not.toBeUndefined()
+    expect(
+      container.querySelector(
+        `img[src="/api/skills/library/slides-library/icon?sha256=${SLIDES_ICON_SHA256}"]`,
+      ),
+    ).not.toBeNull()
+    expect(
+      container.querySelector(
+        `img[src="/api/skills/library/document-library/icon?sha256=${DOCUMENT_ICON_SHA256}"]`,
+      ),
+    ).not.toBeNull()
 
     await act(async () => {
       queryClient.setQueryData(["skills", "catalog", TEST_DIRECTORY], emptyCatalog())
       await flushEffects()
     })
-    expect(container.textContent).toContain("No skills to discover")
+    expect(container.textContent).toContain("No skills yet")
+  })
 
-    await selectTab("Installed")
-    expect(container.textContent).toContain("No installed skills")
+  test("keeps a row to its name, summary, and control", async () => {
+    await renderDrawer()
+
+    // Category, tags, scope, and source stay in the detail dialog. A row that
+    // leaks them turns a calm list into a wall of badges.
+    expect(container.textContent).not.toContain("productivity")
+    expect(container.textContent).not.toContain("slides")
+    expect(container.textContent).not.toContain("Global")
+    expect(container.textContent).not.toContain("anthropics/skills/pptx")
+
+    await openDetail("PowerPoint Presentation")
+    expect(document.body.textContent).toContain("productivity")
+    expect(document.body.textContent).toContain("anthropics/skills/pptx")
+  })
+
+  test("falls back to initials and retries failed icons on refresh", async () => {
+    await renderDrawer()
+
+    const iconSelector = `img[src="/api/skills/library/slides-library/icon?sha256=${SLIDES_ICON_SHA256}"]`
+    const icon = container.querySelector<HTMLImageElement>(iconSelector)
+    expect(icon).not.toBeNull()
+
+    await act(async () => {
+      icon?.dispatchEvent(new Event("error"))
+      await flushEffects()
+    })
+
+    expect(container.querySelector(iconSelector)).toBeNull()
+    expect(container.textContent).toContain("PP")
+
+    const refreshButton = container.querySelector<HTMLButtonElement>('button[aria-label="Refresh"]')
+    expect(refreshButton).not.toBeNull()
+    await act(async () => {
+      refreshButton?.click()
+      await flushEffects()
+      await flushEffects()
+    })
+
+    expect(container.querySelector(iconSelector)).not.toBeNull()
+  })
+
+  test("keeps per-skill update and removal reachable from the detail dialog", async () => {
+    await renderDrawer()
+    await openDetail("PowerPoint Presentation")
+
+    const updateButton = buttonWithText("Update", document.body)
+    expect(updateButton).not.toBeUndefined()
+    expect(buttonWithText("Remove", document.body)).not.toBeUndefined()
+
+    const updateCalls: string[] = []
+    installSkill = async (skillID) => {
+      updateCalls.push(skillID)
+      return { ok: true, name: skillID }
+    }
+    await act(async () => {
+      updateButton?.click()
+      await flushEffects()
+      await flushEffects()
+    })
+    expect(updateCalls).toEqual(["slides-library"])
   })
 
   test("shows a retryable initial load error", async () => {
@@ -263,34 +360,34 @@ describe("RightWorkspaceSkillsDrawer", () => {
       await flushEffects()
     })
 
-    expect(container.textContent).toContain("No installed skills")
+    expect(container.textContent).toContain("No skills yet")
   })
 
-  test("searches Discover and Installed together without duplicating installed library skills", async () => {
+  test("searches both pools as one ranked list, without duplicating installed library skills", async () => {
     await renderDrawer()
     await searchFor("PowerPoint")
 
-    expect(container.querySelector('[role="tab"]')).toBeNull()
-    expect(container.textContent).toContain("Across Discover and Installed")
-    expect(container.textContent).toContain("Installed")
+    // Searching dissolves the bands: one rank, no section headers.
+    expect(container.textContent).toContain("Results")
+    expect(container.textContent).not.toContain("Your skills")
+    expect(container.textContent).not.toContain("Available to add")
     expect(
       container.querySelectorAll('button[aria-label="Manage PowerPoint Presentation"]'),
     ).toHaveLength(1)
 
     await searchFor("DOCX")
-    expect(container.textContent).toContain("Discover")
     expect(container.textContent).toContain("DOCX")
+
+    await searchFor("nothing matches this")
+    expect(container.textContent).toContain("No matching skills")
   })
 
-  test("disables actions while install, update, removal, and permission changes are pending", async () => {
+  test("disables actions while install and permission changes are pending", async () => {
     const pendingInstall = deferred<{ ok: true; name: string }>()
     installSkill = () => pendingInstall.promise
     await renderDrawer()
-    await selectTab("Discover")
 
-    const installButton = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
-      (button) => button.textContent === "Install",
-    )
+    const installButton = buttonWithText("Install", container)
     expect(installButton).not.toBeUndefined()
 
     await act(async () => {
@@ -307,49 +404,6 @@ describe("RightWorkspaceSkillsDrawer", () => {
       await flushEffects()
     })
 
-    const pendingUpdate = deferred<{ ok: true; name: string }>()
-    installSkill = () => pendingUpdate.promise
-    const updateButton = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
-      (button) => button.textContent === "Update",
-    )
-    expect(updateButton).not.toBeUndefined()
-
-    await act(async () => {
-      updateButton?.click()
-      await flushEffects()
-    })
-
-    expect(updateButton?.disabled).toBe(true)
-    expect(updateButton?.textContent).toContain("Updating...")
-
-    pendingUpdate.resolve({ ok: true, name: "slides" })
-    await act(async () => {
-      await flushEffects()
-      await flushEffects()
-    })
-
-    const pendingRemoval = deferred<{ ok: true; name: string }>()
-    removeSkill = () => pendingRemoval.promise
-    const removeButton = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
-      (button) => button.textContent === "Remove",
-    )
-    expect(removeButton).not.toBeUndefined()
-
-    await act(async () => {
-      removeButton?.click()
-      await flushEffects()
-    })
-
-    expect(removeButton?.disabled).toBe(true)
-    expect(removeButton?.textContent).toContain("Removing...")
-
-    pendingRemoval.resolve({ ok: true, name: "withdrawn" })
-    await act(async () => {
-      await flushEffects()
-      await flushEffects()
-    })
-
-    await selectTab("Installed")
     const pendingPermission = deferred<{
       ok: true
       action: "allow" | "deny"

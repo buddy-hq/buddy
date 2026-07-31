@@ -13,6 +13,7 @@ import { getBuddyClient, requireBuddyData } from "../lib/buddy-client"
 export type SkillLibraryEntry = {
   id: string
   displayName: string
+  icon?: string
   summary: string
   categories: string[]
   tags: string[]
@@ -57,6 +58,7 @@ function parseSkillLibraryEntry(value: unknown): SkillLibraryEntry {
     !record ||
     typeof record.id !== "string" ||
     typeof record.displayName !== "string" ||
+    (record.icon !== undefined && typeof record.icon !== "string") ||
     typeof record.summary !== "string" ||
     !categories ||
     !tags ||
@@ -73,6 +75,7 @@ function parseSkillLibraryEntry(value: unknown): SkillLibraryEntry {
   return {
     id: record.id,
     displayName: record.displayName,
+    ...(typeof record.icon === "string" ? { icon: record.icon } : {}),
     summary: record.summary,
     categories,
     tags,

@@ -1,28 +1,16 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  Badge,
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  Separator,
   Skeleton,
   Spinner,
   Switch,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   toast,
 } from "@buddy/ui"
 import { AlertTriangleIcon, RefreshCwIcon, SearchXIcon, SparklesIcon } from "@/icons/app-icons"
@@ -39,24 +27,64 @@ import {
 } from "@/state/skills-actions"
 import { skillsCatalogQueryOptions } from "@/state/skills-catalog-query"
 import {
+  isInstalledLibrarySkill,
   skillLibraryAction,
   skillLibraryButtonVariant,
   type SkillLibraryAction,
 } from "@/components/skills/skill-library-actions"
 import { matchesInstalledSkillSearch } from "@/components/skills/skill-presentation"
 import {
-  SkillsRailDetailField,
-  SkillsRailListRow,
-  SkillsRailSearchResultGroup,
-} from "@/components/skills/skills-rail-ui"
+  SKILL_DETAIL_FIELD_CHIPS,
+  SKILL_DETAIL_FIELD_TEXT,
+  SkillDetailDialog,
+  type SkillDetail,
+  type SkillDetailActivation,
+  type SkillDetailField,
+} from "@/components/skills/skill-detail-dialog"
+import {
+  SKILL_ROW_DENSITY_COMPACT,
+  SKILL_ROW_DENSITY_DEFAULT,
+  SKILL_ROW_DENSITY_EXPANDED,
+  SkillsListRow,
+  SkillsSectionHeader,
+  type SkillRowDensity,
+} from "@/components/skills/skills-drawer-ui"
 import { RightWorkspaceDrawerShell } from "./right-workspace-drawer-ui"
 
-type SkillsTab = "installed" | "discover"
 type BusyOperation = "install" | "permission" | "remove" | "update"
 type SelectedSkill = { kind: "library"; skillID: string } | { kind: "installed"; skillName: string }
 
+/**
+ * One list, no tabs: everything installed here, then everything in the library
+ * that is not. A row shows what it always showed — name, summary, control —
+ * and the band it sits in says which pool it came from.
+ */
+type SkillListItem =
+  | {
+      kind: "installed"
+      id: string
+      title: string
+      description: string
+      icon?: string
+      skill: InstalledSkillInfo
+    }
+  | {
+      kind: "library"
+      id: string
+      title: string
+      description: string
+      icon?: string
+      entry: SkillLibraryEntry
+    }
+
 const SKILL_LIST_SKELETON_COUNT = 5
 const UPDATE_ALL_BUSY_KEY = "update-all"
+
+/** How many top results earn the taller card while searching. */
+const EXPANDED_RESULT_COUNT = 3
+/** Below this the whole result set is scannable, so nothing needs collapsing. */
+const COMPACT_TAIL_MIN_RESULTS = 12
+const COMPACT_TAIL_START_INDEX = 8
 
 function installLibraryBusyKey(skillID: string) {
   return `install:${skillID}`
@@ -68,10 +96,6 @@ function removeLibraryBusyKey(skillID: string) {
 
 function permissionBusyKey(skillName: string) {
   return `permission:${skillName}`
-}
-
-function isSkillsTab(value: string): value is SkillsTab {
-  return value === "installed" || value === "discover"
 }
 
 function statusLabel(action: InstalledSkillInfo["permissionAction"]): string {
@@ -132,25 +156,44 @@ function matchesLibrarySearch(skill: SkillLibraryEntry, query: string): boolean 
   ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery))
 }
 
-function installedSourceOrder(source: InstalledSkillInfo["source"]): number {
-  if (source === "library") return 0
-  if (source === "system") return 1
-  if (source === "custom") return 2
-  return 3
+/**
+ * One pool, one order. Source used to drive the installed order, but source is
+ * not shown on a row, so ordering by it only looked arbitrary — the name is the
+ * thing the eye scans.
+ */
+function compareListItems(left: SkillListItem, right: SkillListItem): number {
+  return left.title.localeCompare(right.title)
 }
 
-function compareInstalledSkills(left: InstalledSkillInfo, right: InstalledSkillInfo): number {
-  const sourceDifference = installedSourceOrder(left.source) - installedSourceOrder(right.source)
-  if (sourceDifference !== 0) return sourceDifference
-  return left.displayName.localeCompare(right.displayName)
+/**
+ * While searching the two bands dissolve into one rank. A hit in the name or
+ * the summary — the two things a row actually shows — outranks a hit in
+ * metadata the row does not show, and what you already have wins ties: it is a
+ * shorter path to the thing you asked for than something you must install.
+ */
+function searchRank(item: SkillListItem, query: string): number {
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const visible = [item.title, item.description].some((value) =>
+    value.toLocaleLowerCase().includes(normalizedQuery),
+  )
+  return (visible ? 0 : 2) + (item.kind === "installed" ? 0 : 1)
 }
 
-function compareLibrarySkills(left: SkillLibraryEntry, right: SkillLibraryEntry): number {
-  const leftInstalled = left.state !== "available"
-  const rightInstalled = right.state !== "available"
-  if (leftInstalled && !rightInstalled) return -1
-  if (!leftInstalled && rightInstalled) return 1
-  return left.displayName.localeCompare(right.displayName)
+function compareSearchResults(left: SkillListItem, right: SkillListItem, query: string): number {
+  return searchRank(left, query) - searchRank(right, query) || compareListItems(left, right)
+}
+
+/**
+ * Density follows the state of the list, not the item: the best few answers get
+ * room for a fuller summary, and once a result set is long enough that the user
+ * is scanning names rather than reading, the tail gives its summary back.
+ */
+function resultDensity(index: number, total: number): SkillRowDensity {
+  if (index < EXPANDED_RESULT_COUNT) return SKILL_ROW_DENSITY_EXPANDED
+  if (total > COMPACT_TAIL_MIN_RESULTS && index >= COMPACT_TAIL_START_INDEX) {
+    return SKILL_ROW_DENSITY_COMPACT
+  }
+  return SKILL_ROW_DENSITY_DEFAULT
 }
 
 function mutationSuccessMessage(skill: SkillLibraryEntry): string {
@@ -161,26 +204,23 @@ function mutationSuccessMessage(skill: SkillLibraryEntry): string {
 
 function SkillListSkeleton() {
   return (
-    <div aria-label={language.t("skills.loadingSkills")} role="status">
+    <div className="flex flex-col gap-1.5 p-2.5" aria-label={language.t("skills.loadingSkills")} role="status">
       {Array.from({ length: SKILL_LIST_SKELETON_COUNT }, (_, index) => (
-        <Fragment key={index}>
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center px-4 py-3">
-            <div className="flex min-w-0 flex-col gap-2">
-              <Skeleton className="h-4 w-2/5" />
-              <Skeleton className="h-3 w-4/5" />
-            </div>
-            <Skeleton className="h-6 w-20" />
+        <div key={index} className="flex h-[4.5rem] items-center gap-3.5 px-2.5">
+          <Skeleton className="size-13 shrink-0 rounded-xl" />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <Skeleton className="h-4 w-2/5" />
+            <Skeleton className="h-3 w-4/5" />
           </div>
-          {index < SKILL_LIST_SKELETON_COUNT - 1 ? <Separator /> : null}
-        </Fragment>
+          <Skeleton className="h-6 w-20" />
+        </div>
       ))}
     </div>
   )
 }
 
-function SkillEmptyState(props: { kind: "discover" | "installed" | "search" }) {
+function SkillEmptyState(props: { kind: "empty" | "search" }) {
   const search = props.kind === "search"
-  const installed = props.kind === "installed"
   return (
     <Empty className="min-h-56">
       <EmptyHeader>
@@ -190,16 +230,12 @@ function SkillEmptyState(props: { kind: "discover" | "installed" | "search" }) {
         <EmptyTitle>
           {search
             ? language.t("skills.empty.search.title")
-            : installed
-              ? language.t("skills.empty.installed.title")
-              : language.t("skills.empty.discover.title")}
+            : language.t("skills.empty.installed.title")}
         </EmptyTitle>
         <EmptyDescription>
           {search
             ? language.t("skills.empty.search.description")
-            : installed
-              ? language.t("skills.empty.installed.description")
-              : language.t("skills.empty.discover.description")}
+            : language.t("skills.empty.installed.description")}
         </EmptyDescription>
       </EmptyHeader>
     </Empty>
@@ -224,21 +260,28 @@ function SkillLoadErrorState(props: { message: string; retrying: boolean; onRetr
   )
 }
 
+/**
+ * The same control at two scales: a row's control has to sit inside a 72px row
+ * without becoming the loudest thing in it, and a dialog's has to look like the
+ * button you came to press.
+ */
 function LibraryActionControl(props: {
   skill: SkillLibraryEntry
   busyAction?: SkillLibraryAction
   disabled?: boolean
+  size?: "xs" | "default"
   onAction: () => void
 }) {
   const action = skillLibraryAction(props.skill.state)
   const displayAction = props.busyAction ?? action
   const busy = props.busyAction !== undefined
+  const size = props.size ?? "xs"
   return (
     <Button
       type="button"
-      size="xs"
+      size={size}
       variant={skillLibraryButtonVariant(displayAction)}
-      className="w-24"
+      className={size === "default" ? "min-w-28" : "w-24"}
       aria-busy={busy}
       disabled={props.disabled || busy || action === "installed"}
       onClick={props.onAction}
@@ -249,6 +292,13 @@ function LibraryActionControl(props: {
   )
 }
 
+/**
+ * The switch is the whole control. An "On"/"Off" word beside it repeats what the
+ * switch already shows, and it lands at the same optical height as the second
+ * line of the summary — so the row reads as three competing text blocks with a
+ * small toggle orbiting them. State survives without it: the switch says on or
+ * off, and a switched-off row greys out.
+ */
 function InstalledToggle(props: {
   skill: InstalledSkillInfo
   pending: boolean
@@ -257,15 +307,8 @@ function InstalledToggle(props: {
   const active = props.skill.permissionAction !== "deny"
   return (
     <div className="flex w-24 items-center justify-end gap-2" aria-busy={props.pending}>
-      {props.pending ? (
-        <Spinner className="size-3.5" />
-      ) : (
-        <span className="text-xs text-text-weaker">
-          {statusLabel(props.skill.permissionAction)}
-        </span>
-      )}
+      {props.pending ? <Spinner className="size-3.5" /> : null}
       <Switch
-        size="sm"
         checked={active}
         disabled={props.pending}
         aria-label={language.t("skills.toggleAria", { name: props.skill.displayName })}
@@ -275,31 +318,9 @@ function InstalledToggle(props: {
   )
 }
 
-function SkillActivationControl(props: {
-  skill: InstalledSkillInfo
-  pending: boolean
-  onToggle: (checked: boolean) => void
-}) {
-  return (
-    <div
-      className="flex items-center justify-between gap-4 rounded-lg border border-border-weaker-base bg-surface-base p-3"
-      aria-busy={props.pending}
-    >
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-sm font-medium text-text-base">{language.t("skills.active")}</span>
-        <span className="text-xs text-text-weaker">{language.t("skills.activeDescription")}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        {props.pending ? <Spinner className="size-3.5" /> : null}
-        <Switch
-          checked={props.skill.permissionAction !== "deny"}
-          disabled={props.pending}
-          aria-label={language.t("skills.toggleAria", { name: props.skill.displayName })}
-          onCheckedChange={props.onToggle}
-        />
-      </div>
-    </div>
-  )
+/** Drops fields whose value list is empty, so no label sits over nothing. */
+function presentFields(fields: readonly SkillDetailField[]): SkillDetailField[] {
+  return fields.filter((field) => field.values.length > 0)
 }
 
 export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: () => void }) {
@@ -307,9 +328,9 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
   const catalogQuery = useQuery(skillsCatalogQueryOptions(props.directory))
   const catalog = catalogQuery.data
   const loading = !catalog && (catalogQuery.isPending || catalogQuery.isFetching)
-  const [activeTab, setActiveTab] = useState<SkillsTab>("installed")
   const [search, setSearch] = useState("")
   const [refreshing, setRefreshing] = useState(false)
+  const [iconRetryToken, setIconRetryToken] = useState(0)
   const [selectedSkill, setSelectedSkill] = useState<SelectedSkill>()
   const [busyOperations, setBusyOperations] = useState<ReadonlyMap<string, BusyOperation>>(
     () => new Map(),
@@ -330,6 +351,10 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
     [catalog?.library],
   )
 
+  /**
+   * A library entry that is already installed is the same skill as its
+   * installed row, so only the ones you do not have join the list.
+   */
   const visibleInstalled = useMemo(
     () =>
       (catalog?.installed ?? [])
@@ -340,14 +365,44 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
             statusLabel(skill.permissionAction),
           ]),
         )
-        .toSorted(compareInstalledSkills),
-    [catalog?.installed, search],
+        .map(
+          (skill): SkillListItem => {
+            const libraryEntry = libraryByID.get(skill.libraryID ?? "")
+            const icon = libraryEntry?.icon ?? skill.icon
+            const item: SkillListItem = {
+              kind: "installed",
+              id: skill.libraryID ?? skill.name,
+              title: libraryEntry?.displayName ?? skill.displayName,
+              description: libraryEntry?.summary ?? skill.shortDescription,
+              skill,
+            }
+            if (icon) item.icon = icon
+            return item
+          },
+        )
+        .toSorted(compareListItems),
+    [catalog?.installed, libraryByID, search],
   )
-  const visibleLibrary = useMemo(
+  const visibleAvailable = useMemo(
     () =>
       (catalog?.library ?? [])
-        .filter((skill) => matchesLibrarySearch(skill, search))
-        .toSorted(compareLibrarySkills),
+        .filter(
+          (entry) =>
+            (entry.state === "available" || entry.state === "withdrawn_installed") &&
+            matchesLibrarySearch(entry, search),
+        )
+        .map((entry): SkillListItem => {
+          const item: SkillListItem = {
+            kind: "library",
+            id: entry.id,
+            title: entry.displayName,
+            description: entry.summary,
+            entry,
+          }
+          if (entry.icon) item.icon = entry.icon
+          return item
+        })
+        .toSorted(compareListItems),
     [catalog?.library, search],
   )
   const updateSkills = useMemo(
@@ -356,8 +411,13 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
   )
 
   const searchActive = search.trim().length > 0
-  const visibleDiscoverSearch = visibleLibrary.filter((skill) => skill.state === "available")
-  const searchResultCount = visibleInstalled.length + visibleDiscoverSearch.length
+  const searchResults = useMemo(
+    () =>
+      [...visibleInstalled, ...visibleAvailable].toSorted((left, right) =>
+        compareSearchResults(left, right, search),
+      ),
+    [search, visibleAvailable, visibleInstalled],
+  )
   const loadError =
     !catalog && catalogQuery.error
       ? catalogQuery.error instanceof Error
@@ -384,6 +444,7 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
           skillsCatalogQueryOptions(props.directory).queryKey,
           nextCatalog,
         )
+        if (options?.force) setIconRetryToken((token) => token + 1)
         if (options?.force && options.showToast !== false) {
           toast.success(language.t("skills.refreshed"))
         }
@@ -525,55 +586,175 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
     setSelectedSkill({ kind: "installed", skillName: skill.name })
   }
 
-  function renderInstalledSkills(skills: readonly InstalledSkillInfo[]) {
-    return skills.map((skill, index) => (
-      <Fragment key={skill.name}>
-        <SkillsRailListRow
-          title={libraryByID.get(skill.libraryID ?? "")?.displayName ?? skill.displayName}
-          description={libraryByID.get(skill.libraryID ?? "")?.summary ?? skill.shortDescription}
-          ariaLabel={language.t("skills.manageAria", { name: skill.displayName })}
+  /**
+   * One renderer for both pools. The control is the only thing that differs —
+   * a switch for what you have, an install for what you do not — and it sits in
+   * the same slot either way, so the right edge of the list stays a straight
+   * line and no row needs a badge repeating what its control already says.
+   */
+  function renderListItem(item: SkillListItem, density: SkillRowDensity) {
+    const shared = {
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      ...(item.icon ? { icon: item.icon } : {}),
+      iconRetryToken,
+      density,
+      ariaLabel: language.t("skills.manageAria", { name: item.title }),
+      ...(searchActive ? { query: search } : {}),
+    }
+
+    if (item.kind === "installed") {
+      const off = item.skill.permissionAction === "deny"
+      return (
+        <SkillsListRow
+          key={`installed:${item.skill.name}`}
+          {...shared}
+          {...(off ? { dimmed: true } : {})}
           control={
             <InstalledToggle
-              skill={skill}
-              pending={busyOperations.has(permissionBusyKey(skill.name))}
-              onToggle={(checked) => updateSkillPermission(skill, checked ? "allow" : "deny")}
+              skill={item.skill}
+              pending={busyOperations.has(permissionBusyKey(item.skill.name))}
+              onToggle={(checked) => updateSkillPermission(item.skill, checked ? "allow" : "deny")}
             />
           }
-          onSelect={() => selectInstalledSkill(skill)}
+          onSelect={() => selectInstalledSkill(item.skill)}
         />
-        {index < skills.length - 1 ? <Separator /> : null}
-      </Fragment>
-    ))
+      )
+    }
+
+    const busyAction = libraryBusyAction(item.entry.id, busyOperations)
+    return (
+      <SkillsListRow
+        key={`library:${item.entry.id}`}
+        {...shared}
+        muted
+        control={
+          <LibraryActionControl
+            skill={item.entry}
+            busyAction={busyAction}
+            disabled={busyAction !== undefined}
+            onAction={() => void runLibraryMutation(item.entry)}
+          />
+        }
+        onSelect={() => setSelectedSkill({ kind: "library", skillID: item.entry.id })}
+      />
+    )
   }
 
-  function renderLibrarySkills(skills: readonly SkillLibraryEntry[]) {
-    return skills.map((skill, index) => {
-      const busyAction = libraryBusyAction(skill.id, busyOperations)
-      return (
-        <Fragment key={skill.id}>
-          <SkillsRailListRow
-            title={skill.displayName}
-            description={skill.summary}
-            ariaLabel={language.t("skills.manageAria", { name: skill.displayName })}
-            control={
-              <LibraryActionControl
-                skill={skill}
-                busyAction={busyAction}
-                disabled={busyAction !== undefined}
-                onAction={() => void runLibraryMutation(skill)}
-              />
-            }
-            onSelect={() => setSelectedSkill({ kind: "library", skillID: skill.id })}
-          />
-          {index < skills.length - 1 ? <Separator /> : null}
-        </Fragment>
-      )
-    })
+  function renderBand(items: readonly SkillListItem[]) {
+    return (
+      <div className="flex flex-col gap-1.5 px-2.5 pb-1.5 pt-1">
+        {items.map((item) => renderListItem(item, SKILL_ROW_DENSITY_DEFAULT))}
+      </div>
+    )
   }
 
   function closeDetail() {
     setSelectedSkill(undefined)
   }
+
+  function skillActivation(skill: InstalledSkillInfo): SkillDetailActivation {
+    return {
+      active: skill.permissionAction !== "deny",
+      pending: busyOperations.has(permissionBusyKey(skill.name)),
+      ariaLabel: language.t("skills.toggleAria", { name: skill.displayName }),
+      onToggle: (checked) => updateSkillPermission(skill, checked ? "allow" : "deny"),
+    }
+  }
+
+  /**
+   * One dialog for both pools, because a skill is one thing however you reached
+   * it. What differs is what the skill has to say: a library entry carries the
+   * catalogue's metadata and an install action, a skill already on disk carries
+   * where it came from — and either can be switched on and off once installed.
+   */
+  function skillDetail(): SkillDetail | undefined {
+    if (selectedLibrarySkill) {
+      const busyAction = libraryBusyAction(selectedLibrarySkill.id, busyOperations)
+      const entry = selectedLibrarySkill
+      return {
+        id: entry.id,
+        title: entry.displayName,
+        description: entry.summary,
+        ...(entry.icon ? { icon: entry.icon } : {}),
+        fields: presentFields([
+          {
+            label: language.t("skills.detail.source"),
+            kind: SKILL_DETAIL_FIELD_TEXT,
+            values: [entry.sourceLabel],
+          },
+          {
+            label: language.t("skills.detail.category"),
+            kind: SKILL_DETAIL_FIELD_CHIPS,
+            values: entry.categories,
+          },
+          {
+            label: language.t("skills.detail.tags"),
+            kind: SKILL_DETAIL_FIELD_CHIPS,
+            values: entry.tags,
+          },
+        ]),
+        ...(selectedLibraryInstalledSkill
+          ? { activation: skillActivation(selectedLibraryInstalledSkill) }
+          : {}),
+        ...(isInstalledLibrarySkill(entry.state)
+          ? {
+              removal: {
+                disabled: busyAction !== undefined,
+                onRemove: () => {
+                  closeDetail()
+                  void runLibraryMutation(entry, "remove")
+                },
+              },
+            }
+          : {}),
+        // An "Installed" button that cannot be pressed is a status wearing a
+        // button's clothes; the switch above already says the skill is here.
+        ...(skillLibraryAction(entry.state) === "installed"
+          ? {}
+          : {
+              primaryAction: (
+                <LibraryActionControl
+                  skill={entry}
+                  busyAction={busyAction}
+                  size="default"
+                  onAction={() => {
+                    closeDetail()
+                    void runLibraryMutation(entry)
+                  }}
+                />
+              ),
+            }),
+      }
+    }
+
+    if (selectedInstalledSkill) {
+      return {
+        id: selectedInstalledSkill.name,
+        title: selectedInstalledSkill.displayName,
+        description: selectedInstalledSkill.shortDescription,
+        ...(selectedInstalledSkill.icon ? { icon: selectedInstalledSkill.icon } : {}),
+        fields: presentFields([
+          {
+            label: language.t("skills.detail.source"),
+            kind: SKILL_DETAIL_FIELD_TEXT,
+            values: [sourceLabel(selectedInstalledSkill.source)],
+          },
+          {
+            label: language.t("skills.detail.scope"),
+            kind: SKILL_DETAIL_FIELD_TEXT,
+            values: [scopeLabel(selectedInstalledSkill.scope)],
+          },
+        ]),
+        activation: skillActivation(selectedInstalledSkill),
+      }
+    }
+
+    return undefined
+  }
+
+  const detail = skillDetail()
 
   return (
     <>
@@ -598,189 +779,104 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
             retrying={refreshing}
             onRetry={() => void refreshCatalog()}
           />
-        ) : searchActive ? (
-          <div className="scrollbar-hover flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto py-2">
-            <div className="flex items-baseline justify-between gap-3 px-4">
-              <div className="flex flex-col gap-0.5">
-                <h2 className="text-xs font-medium text-text-strong">
-                  {language.t("skills.searchResults")}
-                </h2>
-                <p className="text-[11px] text-text-weaker">{language.t("skills.searchAcross")}</p>
-              </div>
-              <span className="text-xs text-text-weaker">{searchResultCount}</span>
-            </div>
-            {loading ? <SkillListSkeleton /> : null}
-            {!loading && searchResultCount === 0 ? <SkillEmptyState kind="search" /> : null}
-            {!loading && visibleDiscoverSearch.length > 0 ? (
-              <SkillsRailSearchResultGroup label={language.t("skills.discover")}>
-                {renderLibrarySkills(visibleDiscoverSearch)}
-              </SkillsRailSearchResultGroup>
-            ) : null}
-            {!loading && visibleInstalled.length > 0 ? (
-              <SkillsRailSearchResultGroup label={language.t("skills.installed")}>
-                {renderInstalledSkills(visibleInstalled)}
-              </SkillsRailSearchResultGroup>
-            ) : null}
-          </div>
         ) : (
-          <Tabs
-            value={activeTab}
-            className="min-h-0 flex-1 gap-0"
-            onValueChange={(value) => {
-              if (isSkillsTab(value)) setActiveTab(value)
-            }}
+          <div
+            className="scrollbar-hover min-h-0 flex-1 overflow-y-auto"
+            aria-busy={loading || refreshing}
           >
-            <div className="shrink-0 border-b border-border-weaker-base px-3 pt-1">
-              <TabsList variant="line" className="w-full">
-                <TabsTrigger value="installed">{language.t("skills.installed")}</TabsTrigger>
-                <TabsTrigger value="discover">{language.t("skills.discover")}</TabsTrigger>
-              </TabsList>
-            </div>
+            {loading ? <SkillListSkeleton /> : null}
 
-            <TabsContent
-              value="installed"
-              className="scrollbar-hover min-h-0 overflow-y-auto"
-              aria-busy={loading || refreshing}
-            >
-              {!loading && updateSkills.length > 0 ? (
-                <div className="flex items-center justify-between gap-3 border-b border-border-weaker-base bg-surface-base px-4 py-2.5">
-                  <div className="flex items-center gap-2 text-xs font-medium text-text-base">
-                    <RefreshCwIcon className="size-3.5" aria-hidden />
-                    {language.t(
-                      updateSkills.length === 1
-                        ? "skills.updateAvailable.one"
-                        : "skills.updateAvailable.other",
-                      { count: updateSkills.length },
+            {/* Searching dissolves the two bands into one rank: a band header
+                while searching would only push the best answer down the page
+                for the crime of not being installed yet. */}
+            {!loading && searchActive ? (
+              <>
+                <div className="flex items-baseline justify-between gap-3 px-3 pb-1 pt-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-text-weaker">
+                    {language.t("skills.searchResults")}
+                  </p>
+                  <span className="text-[11px] tabular-nums text-text-weaker">
+                    {searchResults.length}
+                  </span>
+                </div>
+                {searchResults.length === 0 ? (
+                  <SkillEmptyState kind="search" />
+                ) : (
+                  <div className="flex flex-col gap-1.5 px-2.5 pb-2.5 pt-1">
+                    {searchResults.map((item, index) =>
+                      renderListItem(item, resultDensity(index, searchResults.length)),
                     )}
                   </div>
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="secondary"
-                    disabled={busyOperations.has(UPDATE_ALL_BUSY_KEY)}
-                    onClick={() => void updateAllSkills()}
-                  >
-                    {busyOperations.has(UPDATE_ALL_BUSY_KEY) ? (
-                      <Spinner data-icon="inline-start" />
-                    ) : null}
-                    {busyOperations.has(UPDATE_ALL_BUSY_KEY)
-                      ? language.t("skills.updating")
-                      : language.t("skills.updateAll")}
-                  </Button>
-                </div>
-              ) : null}
-              {loading ? <SkillListSkeleton /> : null}
-              {!loading && visibleInstalled.length === 0 ? (
-                <SkillEmptyState kind="installed" />
-              ) : null}
-              {!loading && visibleInstalled.length > 0 ? (
-                <div>{renderInstalledSkills(visibleInstalled)}</div>
-              ) : null}
-            </TabsContent>
+                )}
+              </>
+            ) : null}
 
-            <TabsContent
-              value="discover"
-              className="scrollbar-hover min-h-0 overflow-y-auto"
-              aria-busy={loading || refreshing}
-            >
-              {loading ? <SkillListSkeleton /> : null}
-              {!loading && visibleLibrary.length === 0 ? <SkillEmptyState kind="discover" /> : null}
-              {!loading && visibleLibrary.length > 0 ? (
-                <div>{renderLibrarySkills(visibleLibrary)}</div>
-              ) : null}
-            </TabsContent>
-          </Tabs>
+            {!loading && !searchActive ? (
+              <>
+                {updateSkills.length > 0 ? (
+                  <div className="flex items-center justify-between gap-3 border-b border-border-weaker-base bg-surface-base px-3 py-2.5">
+                    <div className="flex items-center gap-2 text-xs font-medium text-text-base">
+                      <RefreshCwIcon className="size-3.5" aria-hidden />
+                      {language.t(
+                        updateSkills.length === 1
+                          ? "skills.updateAvailable.one"
+                          : "skills.updateAvailable.other",
+                        { count: updateSkills.length },
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="secondary"
+                      disabled={busyOperations.has(UPDATE_ALL_BUSY_KEY)}
+                      onClick={() => void updateAllSkills()}
+                    >
+                      {busyOperations.has(UPDATE_ALL_BUSY_KEY) ? (
+                        <Spinner data-icon="inline-start" />
+                      ) : null}
+                      {busyOperations.has(UPDATE_ALL_BUSY_KEY)
+                        ? language.t("skills.updating")
+                        : language.t("skills.updateAll")}
+                    </Button>
+                  </div>
+                ) : null}
+
+                {visibleInstalled.length === 0 && visibleAvailable.length === 0 ? (
+                  <SkillEmptyState kind="empty" />
+                ) : null}
+
+                {visibleInstalled.length > 0 ? (
+                  <>
+                    <SkillsSectionHeader
+                      label={language.t("skills.section.installed")}
+                      count={visibleInstalled.length}
+                    />
+                    {renderBand(visibleInstalled)}
+                  </>
+                ) : null}
+
+                {visibleAvailable.length > 0 ? (
+                  <>
+                    <SkillsSectionHeader
+                      label={language.t("skills.section.available")}
+                      count={visibleAvailable.length}
+                    />
+                    {renderBand(visibleAvailable)}
+                  </>
+                ) : null}
+              </>
+            ) : null}
+          </div>
         )}
       </RightWorkspaceDrawerShell>
 
-      <Dialog
-        open={selectedSkill !== undefined}
+      <SkillDetailDialog
+        {...(detail ? { detail } : {})}
+        iconRetryToken={iconRetryToken}
         onOpenChange={(open) => {
           if (!open) closeDetail()
         }}
-      >
-        <DialogContent className="sm:max-w-xl">
-          {selectedLibrarySkill ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selectedLibrarySkill.displayName}</DialogTitle>
-                <DialogDescription>{selectedLibrarySkill.summary}</DialogDescription>
-              </DialogHeader>
-
-              {selectedLibraryInstalledSkill ? (
-                <SkillActivationControl
-                  skill={selectedLibraryInstalledSkill}
-                  pending={busyOperations.has(
-                    permissionBusyKey(selectedLibraryInstalledSkill.name),
-                  )}
-                  onToggle={(checked) =>
-                    updateSkillPermission(selectedLibraryInstalledSkill, checked ? "allow" : "deny")
-                  }
-                />
-              ) : null}
-
-              <dl className="flex flex-col gap-4 py-2">
-                <SkillsRailDetailField label={language.t("skills.detail.source")}>
-                  {selectedLibrarySkill.sourceLabel}
-                </SkillsRailDetailField>
-                <SkillsRailDetailField label={language.t("skills.detail.category")}>
-                  {selectedLibrarySkill.categories.join(", ")}
-                </SkillsRailDetailField>
-                <SkillsRailDetailField label={language.t("skills.detail.tags")}>
-                  {selectedLibrarySkill.tags.join(", ")}
-                </SkillsRailDetailField>
-              </dl>
-
-              <DialogFooter>
-                {selectedLibrarySkill.state === "installed" ||
-                selectedLibrarySkill.state === "update_available" ? (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    disabled={
-                      libraryBusyAction(selectedLibrarySkill.id, busyOperations) !== undefined
-                    }
-                    onClick={() => {
-                      closeDetail()
-                      void runLibraryMutation(selectedLibrarySkill, "remove")
-                    }}
-                  >
-                    {language.t("skills.detail.remove")}
-                  </Button>
-                ) : null}
-                <LibraryActionControl
-                  skill={selectedLibrarySkill}
-                  busyAction={libraryBusyAction(selectedLibrarySkill.id, busyOperations)}
-                  onAction={() => {
-                    closeDetail()
-                    void runLibraryMutation(selectedLibrarySkill)
-                  }}
-                />
-              </DialogFooter>
-            </>
-          ) : null}
-
-          {selectedInstalledSkill ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selectedInstalledSkill.displayName}</DialogTitle>
-                <DialogDescription>{selectedInstalledSkill.shortDescription}</DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{sourceLabel(selectedInstalledSkill.source)}</Badge>
-                <Badge variant="outline">{scopeLabel(selectedInstalledSkill.scope)}</Badge>
-              </div>
-              <SkillActivationControl
-                skill={selectedInstalledSkill}
-                pending={busyOperations.has(permissionBusyKey(selectedInstalledSkill.name))}
-                onToggle={(checked) =>
-                  updateSkillPermission(selectedInstalledSkill, checked ? "allow" : "deny")
-                }
-              />
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      />
     </>
   )
 }
