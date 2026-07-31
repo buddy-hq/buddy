@@ -192,8 +192,7 @@ function resolvePreferredChatGptOnboardingModel(catalog: ProviderCatalogState) {
 
   for (const preference of preferences) {
     const model = provider.models.find(
-      (entry) =>
-        entry.id === preference.modelID && entry.variants.includes(preference.variant),
+      (entry) => entry.id === preference.modelID && entry.variants.includes(preference.variant),
     )
     if (model) {
       return {

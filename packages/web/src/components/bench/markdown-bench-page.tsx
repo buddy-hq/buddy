@@ -628,10 +628,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   latestSaveSnapshotRef.current = currentSaveSnapshot
   const commitSavedFile = useCallback(
     (saved: ProjectExplorerEditableFileSaveResult) => {
-      const nextSnapshot = reconcileMarkdownBenchSavedSnapshot(
-        latestSaveSnapshotRef.current,
-        saved,
-      )
+      const nextSnapshot = reconcileMarkdownBenchSavedSnapshot(latestSaveSnapshotRef.current, saved)
       latestSaveSnapshotRef.current = nextSnapshot
       previousCommittedSaveSnapshotRef.current = nextSnapshot
       patchFileStateRef({

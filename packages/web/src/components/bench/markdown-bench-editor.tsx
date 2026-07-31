@@ -452,16 +452,14 @@ const MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME =
 
 const MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME = "min-h-full !px-0 !pt-0 !pb-3"
 
-const MARKDOWN_DOCUMENT_PAPER_INSET_CLASS_NAME =
-  "px-[clamp(0px,calc((100%_-_28rem)/6),2rem)]"
+const MARKDOWN_DOCUMENT_PAPER_INSET_CLASS_NAME = "px-[clamp(0px,calc((100%_-_28rem)/6),2rem)]"
 
 const MARKDOWN_DOCUMENT_PLAIN_INSET_CLASS_NAME = "px-4"
 
 const MARKDOWN_NOTE_TITLE_BASE_CLASS_NAME =
   "mb-[0.5em] whitespace-pre-wrap [font-size:calc(var(--buddy-font-size-base)*1.618*var(--markdown-bench-document-font-scale))] [font-weight:700] leading-[1.2] tracking-[-0.015em]"
 
-const MARKDOWN_NOTE_TITLE_PAPER_LAYOUT_CLASS_NAME =
-  "pt-[clamp(0px,calc((100%_-_28rem)/4),3rem)]"
+const MARKDOWN_NOTE_TITLE_PAPER_LAYOUT_CLASS_NAME = "pt-[clamp(0px,calc((100%_-_28rem)/4),3rem)]"
 
 const MARKDOWN_NOTE_TITLE_PLAIN_LAYOUT_CLASS_NAME = "pt-3"
 

@@ -1,7 +1,7 @@
 import { fileNameFromPath } from "@/lib/workspace-file-paths"
 
 const MARKDOWN_FILE_EXTENSION_PATTERN = /\.mdx?$/iu
-const INVALID_NOTE_TITLE_CHARACTERS = new Set(['<', ">", ":", '"', "/", "\\", "|", "?", "*"])
+const INVALID_NOTE_TITLE_CHARACTERS = new Set(["<", ">", ":", '"', "/", "\\", "|", "?", "*"])
 const MAX_CONTROL_CHARACTER_CODE_POINT = 31
 const NOTE_TITLE_REQUIRED_ERROR = "Note title cannot be empty."
 const NOTE_TITLE_CHARACTER_ERROR = 'Note title cannot contain < > : " / \\ | ? or *.'

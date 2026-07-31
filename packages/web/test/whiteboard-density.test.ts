@@ -15,7 +15,9 @@ describe("resolveWhiteboardDensity", () => {
   })
 
   test("leaves a wide board comfortable", () => {
-    expect(resolveWhiteboardDensity(WHITEBOARD_COMPACT_DENSITY_MAX_WIDTH_PX + 1)).toBe("comfortable")
+    expect(resolveWhiteboardDensity(WHITEBOARD_COMPACT_DENSITY_MAX_WIDTH_PX + 1)).toBe(
+      "comfortable",
+    )
   })
 
   test("stays comfortable while the board is unmeasured", () => {

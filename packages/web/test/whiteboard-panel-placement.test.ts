@@ -47,15 +47,11 @@ describe("WHITEBOARD_PANEL_PLACEMENT_CSS", () => {
   test("gives the swatch row an explicit gap", () => {
     // Excalidraw spreads swatches with space-between, which collapses to zero once the section
     // shrinks to its content — that is what made the colours touch.
-    expect(WHITEBOARD_PANEL_PLACEMENT_CSS).toMatch(
-      /\.color-picker__top-picks\s*\{[^}]*gap:/,
-    )
+    expect(WHITEBOARD_PANEL_PLACEMENT_CSS).toMatch(/\.color-picker__top-picks\s*\{[^}]*gap:/)
   })
 
   test("puts each section on its own surface so the caption groups with its controls", () => {
-    expect(WHITEBOARD_PANEL_PLACEMENT_CSS).toMatch(
-      /\.panelColumn > \*\s*\{[^}]*background-color:/,
-    )
+    expect(WHITEBOARD_PANEL_PLACEMENT_CSS).toMatch(/\.panelColumn > \*\s*\{[^}]*background-color:/)
   })
 
   test("aligns controls across a band, not the section boxes", () => {
