@@ -1,0 +1,357 @@
+schemaVersion: 1
+
+# Exact prompts are reconstructed as: templates[template] + "\n" + body.
+templates:
+  product-icon-v0: |-
+    Use case: stylized-concept
+    Asset type: polished desktop app skill icon source
+    Scene/backdrop: a perfectly flat solid #00FF00 chroma-key canvas visible only outside the app icon. It must have no shadows, gradients, texture, floor, or reflections.
+    Structure: exactly three layers: exterior chroma canvas; one complete opaque regular rounded-square icon base; one centered raised subject on that base.
+    Base invariants: complete, centered, symmetrical rounded square with four identical corners and an unbroken silhouette. Never fold, clip, bend, cut, notch, hollow, warp, or deform it. Show the entire base with generous exterior padding.
+    Style/medium: fully finished high-quality 3D product icon with solid tactile materials, carefully modeled depth, soft studio light on the icon, and short contact shadows only between internal layers.
+    Composition: square canvas, centered front view with slight dimensional depth, one bold subject readable at small size.
+    Constraints: no text, no brands, no watermark, no glass, no glow, no transparent material, no green within the icon, and no cast shadow on the chroma canvas. Let the model choose a harmonious palette.
+  product-icon-v1: |-
+    Use case: stylized-concept
+    Asset type: polished desktop app skill icon source
+    Scene/backdrop: a perfectly flat solid #00FF00 chroma-key canvas visible only outside the app icon, with no shadows, gradients, texture, floor, or reflections.
+    Structure: exactly three layers: the exterior chroma canvas; one complete opaque regular rounded-square icon base; one centered raised subject on that base.
+    Base invariants: complete, centered, symmetrical rounded square with four identical corners and an unbroken silhouette. Never fold, clip, bend, cut, notch, hollow, warp, or deform it. Show the entire base with generous exterior padding.
+    Style/medium: fully finished high-quality 3D product icon with solid tactile materials, carefully modeled depth, soft studio light on the icon, and short contact shadows only between internal layers.
+    Composition: square canvas, centered front view with slight dimensional depth, one bold subject readable at small size.
+    Color handling: let the model choose a harmonious palette from the subject. Reserve exact #00FF00 exclusively for the exterior chroma canvas.
+    Constraints: no text, letters, numbers, brands, logos, watermark, glass, glow, transparent icon materials, cast shadow on the chroma canvas, or extra unrelated objects.
+  product-icon-v2: |-
+    Use case: stylized-concept
+    Asset type: polished desktop app skill icon source
+    Scene/backdrop: a perfectly flat solid #00FF00 chroma-key canvas visible only outside the app icon, with no shadows, gradients, texture, floor, or reflections.
+    Structure: exactly three layers: the exterior chroma canvas; one complete opaque regular rounded-square icon base; one centered raised subject on that base.
+    Base invariants: complete, centered, symmetrical rounded square with four identical corners and an unbroken silhouette. Never fold, clip, bend, cut, notch, hollow, warp, or deform it. Show the entire base with generous exterior padding.
+    Subject invariants: use the specified physical metaphor. Do not turn the subject into generic paper, a floating card, a plaque, a dog-eared page, or a folded sheet. Any required document-like surface must be rigid, flat, unbent, and have four intact corners.
+    Style/medium: fully finished high-quality 3D product icon with solid tactile materials, carefully modeled depth, soft studio light on the icon, and short contact shadows only between internal layers.
+    Composition: square canvas, centered front view with slight dimensional depth, one bold subject readable at small size.
+    Palette handling: follow the single broad base-color cue, then choose supporting colors naturally. Reserve exact #00FF00 exclusively for the exterior chroma canvas.
+    Constraints: no text, letters, numbers, brands, logos, watermark, glass, glow, transparent icon materials, cast shadow on the chroma canvas, or extra unrelated objects.
+  product-icon-v3: |-
+    Use case: stylized-concept
+    Asset type: polished desktop app skill icon source
+    Scene/backdrop: a perfectly flat solid #00FF00 chroma-key canvas visible only outside the app icon, with no shadows, gradients, texture, floor, or reflections.
+    Structure: exactly three layers: the exterior chroma canvas; one complete opaque regular rounded-square icon base; one centered raised subject on that base.
+    Base invariants: complete, centered, symmetrical rounded square with four identical corners and an unbroken silhouette. Never fold, clip, bend, cut, notch, hollow, warp, or deform it. Show the entire base with generous exterior padding.
+    Subject invariants: use the specified physical metaphor. Do not turn the subject into generic paper, a floating card, a plaque, a dog-eared page, or a folded sheet. Any inherently folded object must be explicitly requested.
+    Style/medium: fully finished high-quality 3D product icon with solid tactile materials, carefully modeled depth, soft studio light on the icon, and short contact shadows only between internal layers.
+    Composition: square canvas, centered front view with slight dimensional depth, one bold subject readable at small size.
+    Palette handling: follow the single broad base-color cue, then choose supporting colors naturally. Reserve exact #00FF00 exclusively for the exterior chroma canvas.
+    Constraints: no text, letters, numbers, brands, logos, watermark, glass, glow, transparent icon materials, cast shadow on the chroma canvas, or extra unrelated objects.
+
+records:
+  reading:
+    status: legacy-unrecorded
+    reason: "Generated before exact prompt provenance was introduced."
+  analogy:
+    status: legacy-unrecorded
+    reason: "Generated before exact prompt provenance was introduced."
+  practice:
+    status: legacy-unrecorded
+    reason: "Generated before exact prompt provenance was introduced."
+  whiteboard-authoring:
+    status: inline
+    location: "skill-icon-design-system.yaml#skills.whiteboard-authoring.lockedPrompt"
+  learn:
+    status: exact
+    template: product-icon-v0
+    body: |-
+      Primary request: Learn skill icon.
+      Central subject: one unmistakable traditional graduation cap with a clearly visible mortarboard, fitted cap, and short tassel. The cap is a single strong silhouette centered as a separate solid object on the base.
+      Material: matte ceramic with subtle tactile grain.
+      Distinctness: do not use blue as the dominant base color. Do not add books, stairs, stars, bars, charts, light bulbs, or extra symbols.
+  buddy-help:
+    status: exact
+    template: product-icon-v0
+    referenceImage: "assets/mascot/buddy-mascot-headset.png"
+    body: |-
+      Primary request: Buddy Help skill icon generated from scratch.
+      Reference image role: character identity reference only. Preserve the recognizable Buddy panda face, orange hoodie, and support headset; do not copy the reference background or crop.
+      Central subject: a compact head-and-shoulders bust of Buddy wearing the headset, centered as a separate raised 3D figure on the complete rounded-square base. The mascot must not replace, merge with, or break the base.
+      Material: solid molded mascot figure over a matte ceramic base.
+      Distinctness: no question mark, speech bubble, text, book, star, stairs, cards, or blue-dominant base.
+  obsidian:
+    status: exact
+    template: product-icon-v1
+    body: |-
+      Skill: Obsidian.
+      Purpose: discover, search, read, and edit a connected vault of notes.
+      Central subject: three stacked note cards connected by a clearly visible backlink arrow. Make the linked-note relationship immediately readable.
+      Material: dark ceramic.
+  teaching-resource-authoring:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Teaching Resource Authoring.
+      Base-color cue: warm golden ochre.
+      Central subject: one rigid enamel checklist board with four intact rounded corners, crossed by one solid pencil and one raised check mark.
+      Material: powder-coated enamel.
+  explain:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Explain.
+      Base-color cue: warm softened coral.
+      Central subject: one solid raised speech bubble containing a light bulb. It is an internal molded object and does not alter the outer base.
+      Material: satin polymer.
+  fetch-indian-competition-papers:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Indian Competition Papers.
+      Base-color cue: burnished saffron.
+      Central subject: one rigid embossed exam dossier with four intact corners, a formal seal, checklist grooves, and a small silhouette map of India. No page curl or fold.
+      Material: embossed enamel.
+  worked-example:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Worked Example.
+      Base-color cue: earthy brick red.
+      Central subject: three solid reasoning stepping stones joined by one continuous raised path that ends in a check marker. No sheet, page, card, or clipboard.
+      Material: matte polymer.
+  assess:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Assess.
+      Base-color cue: deep scholarly crimson.
+      Central subject: one freestanding calibrated semicircular gauge with a pointer and one raised check marker. No clipboard, page, or card.
+      Material: soft-touch polymer.
+  teaching-models:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Teaching Models.
+      Base-color cue: warm muted plum.
+      Central subject: one branching mechanical rail that splits into three routes and ends at three distinct solid model tokens: a cube, a sphere, and a pyramid. No cards or paper.
+      Material: satin polymer.
+  align-teaching-topics-to-grade-level-and-age:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Grade and Age Alignment.
+      Base-color cue: rich forest evergreen.
+      Central subject: three ascending solid blocks beside one upright ruler, progressing clearly from short to tall. No cards or paper.
+      Material: solid molded polymer.
+  resolve-confusions:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Resolve Confusions.
+      Base-color cue: restrained dusky violet.
+      Central subject: one thick tangled cord entering from one side and becoming one clean path ending in a check marker. No cards or paper.
+      Material: soft-touch polymer.
+  compare-concepts:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Compare Concepts.
+      Base-color cue: warm burnished amber.
+      Central subject: two visibly different solid geometric tokens balanced on opposite sides of one physical comparison beam. No cards, paper, or text symbols.
+      Material: powder-coated enamel.
+  learning-design-frameworks:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Learning Design Frameworks.
+      Base-color cue: warm softened coral.
+      Central subject: three nested planning rings surrounding a central target marker, with three small solid stage pegs connected around the rings. No cards or paper.
+      Material: matte polymer.
+  find-indian-education-resources:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Indian Education Resources.
+      Base-color cue: rich forest evergreen.
+      Central subject: one open rigid textbook with unbent pages, a raised location pin, and a small unmistakable silhouette map of India. No curled or dog-eared corners.
+      Material: solid book-board.
+  teach-chemistry:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Teach Chemistry.
+      Base-color cue: calm botanical teal.
+      Central subject: one physically coherent ball-and-stick molecular structure beside one curved reaction arrow and one small laboratory flask. No cards or paper.
+      Material: solid ceramic.
+  teach-mathematics:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Teach Mathematics.
+      Base-color cue: confident saturated cobalt.
+      Central subject: one geometric compass actively drawing a clean arc over a small engraved coordinate grid. No cards, pages, or numerals.
+      Material: satin polymer.
+  anthropic-pptx:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Presentation Authoring.
+      Base-color cue: warm burnished amber.
+      Central subject: one rigid presentation panel mounted on a small easel, containing one simple pie chart and two engraved content bars. The panel is unbent with four intact corners.
+      Material: powder-coated enamel.
+  anthropics-financial-services-xlsx-author:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Spreadsheet Authoring.
+      Base-color cue: rich forest evergreen.
+      Central subject: one rigid spreadsheet grid with raised cells and a compact rising bar chart emerging directly from the grid. No document page or folded corner.
+      Material: matte polymer.
+  anthropics-k12-teacher-skills-k12-lesson-differentiation:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: K-12 Lesson Differentiation.
+      Base-color cue: calm botanical teal.
+      Central subject: three solid tiered learning trays of increasing height, each containing a different density of small task pegs. No worksheets, cards, or paper.
+      Material: soft-touch polymer.
+  anthropics-k12-teacher-skills-k12-lesson-planning:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: K-12 Lesson Planning.
+      Base-color cue: confident saturated cobalt.
+      Central subject: one rigid embossed calendar tile with four intact corners, crossed by one solid pencil and three checked planning blocks. No loose or folded paper.
+      Material: embossed enamel.
+  anthropics-skills-docx:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Document Editing.
+      Base-color cue: soft charcoal slate.
+      Central subject: one rigid document tablet with four intact rounded corners, engraved horizontal text grooves, and a solid editing cursor. No page curl or fold.
+      Material: solid ceramic.
+  hermes-excalidraw:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Hand-drawn Diagrams.
+      Base-color cue: earthy brick red.
+      Central subject: one free-standing hand-drawn rectangular frame connected to a loose curved arrow and one small spark. Use thick molded strokes, not paper or a card.
+      Material: soft-touch polymer.
+  nousresearch-hermes-agent-arxiv:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Research Paper Discovery.
+      Base-color cue: deep inky navy.
+      Central subject: one rigid research document tablet with four intact corners under a large magnifying lens, with engraved abstract lines and one small citation pair shape. No page curl.
+      Material: matte polymer.
+  nousresearch-hermes-agent-blogwatcher:
+    status: exact
+    template: product-icon-v3
+    body: |-
+      Skill: Blogwatcher.
+      Base-color cue: warm softened coral.
+      Central subject: three broadcast arcs entering one compact physical feed receiver with a small activity indicator. No cards, pages, or text.
+      Material: powder-coated enamel.
+  nousresearch-hermes-agent-concept-diagrams:
+    status: exact
+    template: product-icon-v3
+    body: |-
+      Skill: Concept Diagrams.
+      Base-color cue: calm botanical teal.
+      Central subject: one central solid concept node connected cleanly to four differently shaped outer nodes. No board, paper, or card.
+      Material: satin polymer.
+  nousresearch-hermes-agent-creative-ideation:
+    status: exact
+    template: product-icon-v3
+    body: |-
+      Skill: Creative Ideation.
+      Base-color cue: warm muted plum.
+      Central subject: a cluster of three sculpted sparks emerging from one faceted idea prism. No light bulb, notebook, paper, or card.
+      Material: soft-touch polymer.
+  nousresearch-hermes-agent-duckduckgo-search:
+    status: exact
+    template: product-icon-v3
+    body: |-
+      Skill: Web Search.
+      Base-color cue: confident saturated cobalt.
+      Central subject: one large magnifying lens scanning a compact raised grid of mixed result shapes. No result cards, pages, text, or brand mascot.
+      Material: matte polymer.
+  nousresearch-hermes-agent-jupyter-live-kernel:
+    status: exact
+    template: product-icon-v3
+    body: |-
+      Skill: Live Code Kernel.
+      Base-color cue: warm burnished amber.
+      Central subject: one engraved code-cell grid connected by a wire to a live pulsing node, with a small play triangle. No notebook page, text, or logo.
+      Material: solid ceramic.
+  nousresearch-hermes-agent-manim-video:
+    status: exact
+    template: product-icon-v3
+    body: |-
+      Skill: Mathematical Animation.
+      Base-color cue: dense blue-violet indigo.
+      Central subject: one solid play triangle orbiting a smooth mathematical curve with three motion markers. No screen, card, or paper.
+      Material: satin polymer.
+  nousresearch-hermes-agent-maps:
+    status: exact
+    template: product-icon-v3
+    body: |-
+      Skill: Maps.
+      Base-color cue: rich forest evergreen.
+      Central subject: one intentionally folded physical map with a clear raised route and destination pin. The map is the required object; do not add other paper.
+      Material: soft-touch polymer.
+  nousresearch-hermes-agent-obsidian:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Obsidian Vault.
+      Base-color cue: soft charcoal slate.
+      Central subject: three dark solid knowledge blocks linked by a small graph line and one backlink arrow. No loose notes, cards, pages, or logo.
+      Material: dark ceramic.
+  nousresearch-hermes-agent-ocr-and-documents:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: OCR and Documents.
+      Base-color cue: warm burnished amber.
+      Central subject: one rigid document tablet with four intact corners passing through a solid text-recognition scanning frame, with engraved text grooves emerging cleanly. No page curl.
+      Material: layered enamel.
+  nousresearch-hermes-agent-p5js:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Generative Art.
+      Base-color cue: warm muted plum.
+      Central subject: a lively grid of sculpted circles, waves, and triangles being manipulated by one cursor spark. No screen, card, paper, or logo.
+      Material: powder-coated enamel.
+  nousresearch-hermes-agent-qmd:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Local Knowledge Search.
+      Base-color cue: deep inky navy.
+      Central subject: three layered solid knowledge blocks under one focused magnifying beam, with a small retrieval marker. No cards, paper, or text.
+      Material: matte polymer.
+  nousresearch-hermes-agent-research-paper-writing:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Research Paper Writing.
+      Base-color cue: earthy brick red.
+      Central subject: one rigid research document tablet with four intact corners, engraved citation marks, and one solid writing pen. No page curl or fold.
+      Material: layered enamel.
+  nousresearch-hermes-agent-whisper:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Speech Transcription.
+      Base-color cue: calm botanical teal.
+      Central subject: one sculpted sound wave flowing through a small transcription gate and emerging as three aligned solid text bars. No page, card, microphone, or logo.
+      Material: soft-touch polymer.
+  nousresearch-hermes-agent-youtube-content:
+    status: exact
+    template: product-icon-v2
+    body: |-
+      Skill: Video Content Transformation.
+      Base-color cue: earthy brick red.
+      Central subject: one solid video frame with a play triangle transforming through a clear arrow into three stacked summary bars. No page, card, text, or brand logo.
+      Material: powder-coated enamel.

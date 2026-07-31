@@ -1,0 +1,305 @@
+schemaVersion: 1
+
+asset:
+  sourceBackground: "#00FF00"
+  width: 512
+  visibleContentMax: 400
+  format: webp
+  filenamePattern: "buddy-skill-{id}.webp"
+
+render:
+  style: "Finished 3D product icon"
+  base: "Complete opaque regular rounded square with four even corners"
+  lighting: "Soft studio lighting with short contact shadows"
+  colorPrompt: "Give the image model exactly one short broad base-color cue; do not provide a full palette or multiple shade instructions"
+  paletteRule: "Use only the first palette entry as the generation cue; remaining entries are post-generation atlas review notes"
+  exactColorRule: "Never include literal color values in an image prompt except the exact #00FF00 exterior chroma-key canvas"
+  avoid:
+    - "folded, clipped, bent, cut, hollow, warped, or asymmetric bases"
+    - "defaulting subjects to paper, cards, plaques, dog-eared corners, or folded sheets"
+    - "glass, frost, chrome, holographic effects, bloom, lens flare, or glowing rims"
+    - "third-party logos"
+
+palette:
+  navy: { label: "Navy", reviewDescription: "deep inky navy" }
+  cobalt: { label: "Cobalt", reviewDescription: "confident saturated cobalt blue" }
+  teal: { label: "Teal", reviewDescription: "calm botanical teal" }
+  evergreen: { label: "Evergreen", reviewDescription: "rich forest evergreen" }
+  plum: { label: "Plum", reviewDescription: "warm muted plum" }
+  brick: { label: "Brick", reviewDescription: "earthy brick red" }
+  amber: { label: "Amber", reviewDescription: "warm burnished amber" }
+  slate: { label: "Slate", reviewDescription: "soft charcoal slate" }
+  violet: { label: "Violet", reviewDescription: "restrained dusky violet" }
+  coral: { label: "Coral", reviewDescription: "warm softened coral" }
+  crimson: { label: "Crimson", reviewDescription: "deep scholarly crimson" }
+  indigo: { label: "Indigo", reviewDescription: "dense blue-violet indigo" }
+  cream: { label: "Cream", reviewDescription: "warm paper cream" }
+
+skills:
+  - id: "reading"
+    status: "locked"
+    displayName: "Reading"
+    purpose: "Read, understand, summarize, and study long-form resources."
+    symbol: "Open book with one turned page"
+    material: "Paperboard inset in satin polymer"
+    palette: [plum, cream]
+  - id: "analogy"
+    status: "locked"
+    displayName: "Analogy"
+    purpose: "Bridge unfamiliar ideas to concrete prior knowledge."
+    symbol: "Two different puzzle pieces bridged by an arc"
+    material: "Soft-touch polymer"
+    palette: [teal, cream]
+  - id: "obsidian"
+    status: "locked"
+    displayName: "Obsidian"
+    purpose: "Discover, search, read, and edit Obsidian vault notes."
+    symbol: "Stacked linked note cards with a backlink arrow"
+    material: "Dark ceramic"
+    palette: [slate, violet]
+  - id: "whiteboard-authoring"
+    status: "locked"
+    displayName: "Whiteboard Authoring"
+    purpose: "Author editable visual explanations and cumulative board work."
+    symbol: "Raised whiteboard with nodes and a drawn curve"
+    material: "Satin polymer"
+    palette: [navy, cobalt, cream]
+    lockedPrompt: |-
+      Use case: logo-brand
+      Asset type: square chroma-key master for Buddy's Whiteboard Authoring skill icon
+      Primary request: create a finished 3D mini product icon on a perfectly flat #00FF00 chroma-key background. The icon itself must be a complete opaque dark-navy rounded square with four identical rounded corners, a regular centered square silhouette, and no folded, clipped, bent, cut, warped, or asymmetric edges. Center a smaller raised off-white whiteboard panel on it. The panel shows two navy circular diagram nodes connected by one straight navy line plus one raised cobalt dry-marker curve.
+      Style/medium: premium 3D product icon, like a compact macOS app icon: solid satin plastic base, thick raised paper-like panel, subtle bevels, soft studio light, and short contact shadows only between layers. The base is opaque and solid, never glass or transparent.
+      Composition/framing: centered icon with generous #00FF00 padding; the green exists only outside the rounded-square icon.
+      Color palette: #00FF00 outside only; dark navy, off-white, and cobalt blue inside; no orange.
+      Constraints: no text, letters, numbers, logos, watermark, mascot, character, glass, frosted material, chrome, holographic effects, glow, lens flare, floor plane, reflections, cast shadows on green, or extra objects.
+  - id: "buddy-help"
+    status: "locked"
+    displayName: "Buddy Help"
+    purpose: "Explain Buddy setup, workspaces, notebooks, chat, and settings."
+    symbol: "Buddy panda wearing a support headset"
+    material: "Dark ceramic base with a solid mascot bust"
+    palette: [slate, amber, cream]
+  - id: "learn"
+    status: "locked"
+    displayName: "Learn"
+    purpose: "Build conceptual understanding and move into meaningful practice."
+    symbol: "Single unmistakable graduation cap"
+    material: "Matte ceramic"
+    palette: [amber, slate]
+  - id: "teaching-resource-authoring"
+    status: "locked"
+    displayName: "Teaching Resource Authoring"
+    purpose: "Create worksheets, quizzes, rubrics, handouts, and study artifacts."
+    symbol: "Rigid checklist board crossed by a pencil and check mark"
+    material: "Powder-coated enamel"
+    palette: [amber, cream]
+  - id: "explain"
+    status: "locked"
+    displayName: "Explain"
+    purpose: "Teach a concept directly and concisely before application."
+    symbol: "Solid speech bubble containing a lit idea bulb"
+    material: "Satin polymer"
+    palette: [coral, cream]
+  - id: "fetch-indian-competition-papers"
+    status: "locked"
+    displayName: "Indian Competition Papers"
+    purpose: "Find official Indian competitive exam papers and answer keys."
+    symbol: "Rigid exam dossier with a seal and small India outline"
+    material: "Embossed enamel"
+    palette: [amber, navy, cream]
+  - id: "worked-example"
+    status: "locked"
+    displayName: "Worked Example"
+    purpose: "Show a complete solution with explicit reusable reasoning."
+    symbol: "Three reasoning stepping stones joined by a completed path"
+    material: "Matte polymer"
+    palette: [brick, cream]
+  - id: "assess"
+    status: "locked"
+    displayName: "Assess"
+    purpose: "Generate evidence of understanding and useful feedback."
+    symbol: "Freestanding calibrated gauge with a check marker"
+    material: "Soft-touch polymer"
+    palette: [crimson, cream]
+  - id: "teaching-models"
+    status: "locked"
+    displayName: "Teaching Models"
+    purpose: "Choose the next instructional model for a learner's situation."
+    symbol: "Branching rail leading to three distinct model tokens"
+    material: "Satin polymer"
+    palette: [plum, amber]
+  - id: "align-teaching-topics-to-grade-level-and-age"
+    displayName: "Grade and Age Alignment"
+    purpose: "Match content and depth to learner age, grade, and readiness."
+    symbol: "Three ascending blocks with a ruler"
+    material: "Paperboard inset"
+    palette: [evergreen, cobalt]
+  - id: "resolve-confusions"
+    displayName: "Resolve Confusions"
+    purpose: "Uncover faulty mental models and verify a corrected one."
+    symbol: "Tangled line becoming a clean path"
+    material: "Soft-touch polymer"
+    palette: [violet, cobalt]
+  - id: "compare-concepts"
+    displayName: "Compare Concepts"
+    purpose: "Contrast related concepts so their boundaries stay clear."
+    symbol: "Two balanced tiles divided by a comparison bar"
+    material: "Powder-coated enamel"
+    palette: [amber, teal]
+  - id: "learning-design-frameworks"
+    displayName: "Learning Design Frameworks"
+    purpose: "Design and critique learning experiences using established frameworks."
+    symbol: "Concentric planning rings around a target"
+    material: "Matte polymer"
+    palette: [coral, amber]
+  - id: "practice"
+    status: "locked"
+    displayName: "Practice"
+    purpose: "Give concrete tasks that build expert thinking."
+    symbol: "Stack of prompt cards with one checked answer"
+    material: "Soft-touch polymer"
+    palette: [evergreen, cream]
+  - id: "find-indian-education-resources"
+    displayName: "Indian Education Resources"
+    purpose: "Ground teaching in official Indian curricula and education sources."
+    symbol: "Open textbook, map pin, and India outline"
+    material: "Paperboard inset"
+    palette: [evergreen, amber, cream]
+  - id: "teach-chemistry"
+    displayName: "Teach Chemistry"
+    purpose: "Render chemically correct formulas, structures, and mechanisms."
+    symbol: "Molecular structure with a reaction arrow"
+    material: "Ceramic"
+    palette: [teal, coral, cream]
+  - id: "teach-mathematics"
+    displayName: "Teach Mathematics"
+    purpose: "Teach mathematics with figures, calculations, and proof scaffolding."
+    symbol: "Geometric compass drawing a curve on a grid"
+    material: "Satin polymer"
+    palette: [cobalt, amber, cream]
+  - id: "anthropic-pptx"
+    displayName: "PowerPoint Presentation"
+    purpose: "Create, edit, inspect, and analyze PowerPoint presentations."
+    symbol: "Presentation slide on a small easel"
+    material: "Powder-coated enamel"
+    palette: [amber, cream]
+  - id: "anthropics-financial-services-xlsx-author"
+    displayName: "XLSX Author"
+    purpose: "Produce headless Excel workbooks on disk."
+    symbol: "Spreadsheet grid with rising bars"
+    material: "Matte polymer"
+    palette: [evergreen, cream]
+  - id: "anthropics-k12-teacher-skills-k12-lesson-differentiation"
+    displayName: "K-12 Lesson Differentiation"
+    purpose: "Adapt lessons into below, at, and above grade-level tiers."
+    symbol: "Three tiered learning trays with increasing task density"
+    material: "Soft-touch polymer"
+    palette: [teal, cobalt, amber]
+  - id: "anthropics-k12-teacher-skills-k12-lesson-planning"
+    displayName: "K-12 Lesson Planning"
+    purpose: "Build standards-aligned lesson plans and editable student materials."
+    symbol: "Rigid lesson calendar tile with a pencil"
+    material: "Embossed enamel"
+    palette: [cobalt, amber, cream]
+  - id: "anthropics-skills-docx"
+    displayName: "DOCX"
+    purpose: "Create, read, and edit DOCX files programmatically."
+    symbol: "Rigid document tablet with text lines and an editing cursor"
+    material: "Ceramic"
+    palette: [slate, cobalt, cream]
+  - id: "hermes-excalidraw"
+    displayName: "Excalidraw"
+    purpose: "Create hand-drawn architecture, flow, and sequence diagrams."
+    symbol: "Hand-drawn frame, arrow, and small spark"
+    material: "Soft-touch polymer"
+    palette: [brick, cream]
+  - id: "nousresearch-hermes-agent-arxiv"
+    displayName: "arXiv Research"
+    purpose: "Search arXiv papers by keyword, author, category, or ID."
+    symbol: "Research paper under a magnifier"
+    material: "Matte polymer"
+    palette: [navy, crimson, cream]
+  - id: "nousresearch-hermes-agent-blogwatcher"
+    displayName: "Blogwatcher"
+    purpose: "Monitor blogs and RSS or Atom feeds."
+    symbol: "Broadcast waves entering a small feed receiver"
+    material: "Powder-coated enamel"
+    palette: [coral, slate, cream]
+  - id: "nousresearch-hermes-agent-concept-diagrams"
+    displayName: "Concept Diagrams"
+    purpose: "Generate minimal educational SVG concept diagrams."
+    symbol: "Connected nodes around a central concept tile"
+    material: "Satin polymer"
+    palette: [teal, cobalt, cream]
+  - id: "nousresearch-hermes-agent-creative-ideation"
+    displayName: "Creative Ideation"
+    purpose: "Generate ideas using named methods from creative practice."
+    symbol: "Spark cluster emerging from a faceted idea prism"
+    material: "Soft-touch polymer"
+    palette: [plum, coral]
+  - id: "nousresearch-hermes-agent-duckduckgo-search"
+    displayName: "DuckDuckGo Search"
+    purpose: "Search web text, news, images, and video without an API key."
+    symbol: "Magnifier scanning a compact search grid"
+    material: "Matte polymer"
+    palette: [cobalt, amber, cream]
+  - id: "nousresearch-hermes-agent-jupyter-live-kernel"
+    displayName: "Jupyter Live Kernel"
+    purpose: "Run iterative Python in a persistent Jupyter kernel."
+    symbol: "Code-cell grid connected to a live pulse node"
+    material: "Ceramic"
+    palette: [amber, slate, cream]
+  - id: "nousresearch-hermes-agent-manim-video"
+    displayName: "Manim Video"
+    purpose: "Create mathematical and algorithmic animations with Manim."
+    symbol: "Play triangle orbiting a mathematical curve"
+    material: "Satin polymer"
+    palette: [cobalt, plum]
+  - id: "nousresearch-hermes-agent-maps"
+    displayName: "Maps"
+    purpose: "Find places, routes, points of interest, and timezones."
+    symbol: "Folded map with a route pin"
+    material: "Soft-touch polymer"
+    palette: [evergreen, coral, cream]
+  - id: "nousresearch-hermes-agent-obsidian"
+    displayName: "Obsidian Vault"
+    purpose: "Read, search, create, and edit notes in an Obsidian vault."
+    symbol: "Linked dark notes with a small graph line"
+    material: "Dark ceramic"
+    palette: [slate, violet]
+  - id: "nousresearch-hermes-agent-ocr-and-documents"
+    displayName: "OCR and Documents"
+    purpose: "Extract text from PDFs and scanned documents."
+    symbol: "Document entering a text-recognition frame"
+    material: "Paperboard inset"
+    palette: [amber, navy, cream]
+  - id: "nousresearch-hermes-agent-p5js"
+    displayName: "p5.js"
+    purpose: "Create generative art, shaders, and interactive sketches."
+    symbol: "Generative shape grid with a cursor spark"
+    material: "Powder-coated enamel"
+    palette: [plum, teal]
+  - id: "nousresearch-hermes-agent-qmd"
+    displayName: "QMD"
+    purpose: "Search local knowledge bases using hybrid retrieval."
+    symbol: "Layered knowledge blocks under a search beam"
+    material: "Matte polymer"
+    palette: [navy, teal, cream]
+  - id: "nousresearch-hermes-agent-research-paper-writing"
+    displayName: "Research Paper Writing"
+    purpose: "Design and write machine-learning research papers for submission."
+    symbol: "Research paper, citation mark, and pen"
+    material: "Paperboard inset"
+    palette: [brick, cream]
+  - id: "nousresearch-hermes-agent-whisper"
+    displayName: "Whisper"
+    purpose: "Transcribe, translate, and identify multilingual speech."
+    symbol: "Sound wave entering a transcription page"
+    material: "Soft-touch polymer"
+    palette: [teal, cream]
+  - id: "nousresearch-hermes-agent-youtube-content"
+    displayName: "YouTube Content"
+    purpose: "Turn YouTube transcripts into summaries, threads, and articles."
+    symbol: "Video frame transforming into a summary card"
+    material: "Powder-coated enamel"
+    palette: [brick, cream]
