@@ -6,7 +6,9 @@ import { BUDDY_ENV } from "../../src/storage/constants"
 import {
   buildBuddyCodexErrorHtml,
   buildBuddyCodexSuccessHtml,
+  cancelOpenAICodexAuthorization,
   createBuddyCodexLoader,
+  createOpenAICodexAuthHook,
 } from "../../src/opencode-runtime/plugins/openai-codex-auth"
 import {
   resolveOpenAICodexAuth,
@@ -17,6 +19,8 @@ import { traceOpenAIAuth } from "../../src/opencode-runtime/plugins/openai-auth-
 const originalFetch = globalThis.fetch
 
 afterEach(() => {
+  cancelOpenAICodexAuthorization()
+  delete process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]
   globalThis.fetch = originalFetch
   delete process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE]
 })
@@ -43,6 +47,51 @@ function createDeferredResponse() {
 }
 
 describe("OpenAI Codex auth hook", () => {
+  test("keeps the newest callback listener alive when an older authorization settles", async () => {
+    const method = createOpenAICodexAuthHook().methods.find(
+      (candidate) => candidate.type === "oauth" && candidate.label.includes("browser"),
+    )
+    if (!method || method.type !== "oauth") {
+      throw new Error("Browser OAuth method is unavailable")
+    }
+
+    const firstAuthorization = await method.authorize()
+    if (firstAuthorization.method !== "auto") {
+      throw new Error("Browser OAuth method did not use an automatic callback")
+    }
+    const firstState = new URL(firstAuthorization.url).searchParams.get("state")
+    if (!firstState) throw new Error("First OAuth state is missing")
+    const firstCompletion = firstAuthorization.callback().then(
+      () => undefined,
+      (error: unknown) => error,
+    )
+
+    const secondAuthorization = await method.authorize()
+    if (secondAuthorization.method !== "auto") {
+      throw new Error("Browser OAuth method did not use an automatic callback")
+    }
+    const secondCompletion = secondAuthorization.callback().then(
+      () => undefined,
+      (error: unknown) => error,
+    )
+
+    await expect(firstCompletion).resolves.toEqual(
+      expect.objectContaining({ message: "Superseded by a newer authorization request" }),
+    )
+
+    const staleCallback = await fetch(
+      `http://localhost:1455/auth/callback?code=stale-code&state=${encodeURIComponent(firstState)}`,
+    )
+    expect(staleCallback.status).toBe(400)
+    expect(await staleCallback.text()).toContain("Invalid state - potential CSRF attack")
+
+    const cancelResponse = await fetch("http://localhost:1455/cancel")
+    expect(cancelResponse.status).toBe(200)
+    await expect(secondCompletion).resolves.toEqual(
+      expect.objectContaining({ message: "Authorization cancelled" }),
+    )
+  })
+
   test("writes structured auth diagnostics when the dev trace file is configured", async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-openai-auth-trace-"))
     const traceFile = path.join(directory, "auth.jsonl")
@@ -59,11 +108,19 @@ describe("OpenAI Codex auth hook", () => {
   })
 
   test("brands the success callback page for Buddy", () => {
+    process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL] = "buddy://auth/callback"
     const html = buildBuddyCodexSuccessHtml()
 
     expect(html).toContain("Buddy - Codex Authorization Successful")
-    expect(html).toContain("go back to the Buddy app")
+    expect(html).toContain("Returning you to the app")
     expect(html).not.toContain("return to OpenCode")
+    expect(html).toContain('href="buddy://auth/callback"')
+  })
+
+  test("does not launch the generic Electron protocol handler in source development", () => {
+    const html = buildBuddyCodexSuccessHtml()
+
+    expect(html).toContain("You can go back to the Buddy app")
     expect(html).not.toContain("buddy://")
   })
 

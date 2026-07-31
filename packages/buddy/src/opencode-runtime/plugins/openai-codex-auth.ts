@@ -2,6 +2,8 @@ import { createServer } from "node:http"
 import { setTimeout as sleep } from "node:timers/promises"
 import type { AuthHook } from "@opencode-ai/plugin"
 import { Auth } from "@buddy/opencode-adapter/auth"
+import { BUDDY_BRANDING } from "@buddy/script/branding"
+import { BUDDY_ENV } from "../../storage/constants"
 import {
   extractOpenAICodexAccountId,
   isOpenAICodexStoredAuth,
@@ -201,6 +203,27 @@ async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: Pk
 }
 
 export function buildBuddyCodexSuccessHtml() {
+  const configuredCallbackUrl = process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]?.trim()
+  const callbackUrl = configuredCallbackUrl
+    ? (() => {
+        try {
+          const candidate = new URL(configuredCallbackUrl)
+          return candidate.protocol === `${BUDDY_BRANDING.appProtocol}:`
+            ? candidate.toString()
+            : undefined
+        } catch {
+          return undefined
+        }
+      })()
+    : undefined
+  const returnToAppHtml = callbackUrl
+    ? `<p>Buddy is connected. Returning you to the app&hellip;</p>
+      <p><a href="${callbackUrl}">Open Buddy</a></p>`
+    : "<p>Buddy is connected. You can go back to the Buddy app.</p>"
+  const returnToAppScript = callbackUrl
+    ? `window.location.href = ${JSON.stringify(callbackUrl)}`
+    : ""
+
   return `<!doctype html>
 <html>
   <head>
@@ -232,14 +255,18 @@ export function buildBuddyCodexSuccessHtml() {
         color: #b7b1b1;
         line-height: 1.5;
       }
+      a {
+        color: #f1ecec;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <h1>Authorization Successful</h1>
-      <p>Buddy is connected. You can go back to the Buddy app.</p>
+      ${returnToAppHtml}
     </div>
     <script>
+      ${returnToAppScript}
       setTimeout(() => {
         try {
           window.close()
@@ -380,6 +407,16 @@ async function startOAuthServer() {
         stateMatches: Boolean(pendingOAuth && state === pendingOAuth.state),
       })
 
+      if (!pendingOAuth || state !== pendingOAuth.state) {
+        const errorMessage = "Invalid state - potential CSRF attack"
+        await traceOpenAIAuth("callback_state_mismatch", {
+          hasPendingAuthorization: Boolean(pendingOAuth),
+        })
+        res.writeHead(400, { "Content-Type": "text/html" })
+        res.end(buildBuddyCodexErrorHtml(errorMessage))
+        return
+      }
+
       if (error) {
         const errorMessage = errorDescription || error
         await traceOpenAIAuth("callback_provider_error", {
@@ -396,18 +433,6 @@ async function startOAuthServer() {
       if (!code) {
         const errorMessage = "Missing authorization code"
         await traceOpenAIAuth("callback_missing_code")
-        pendingOAuth?.reject(new Error(errorMessage))
-        pendingOAuth = undefined
-        res.writeHead(400, { "Content-Type": "text/html" })
-        res.end(buildBuddyCodexErrorHtml(errorMessage))
-        return
-      }
-
-      if (!pendingOAuth || state !== pendingOAuth.state) {
-        const errorMessage = "Invalid state - potential CSRF attack"
-        await traceOpenAIAuth("callback_state_mismatch", {
-          hasPendingAuthorization: Boolean(pendingOAuth),
-        })
         pendingOAuth?.reject(new Error(errorMessage))
         pendingOAuth = undefined
         res.writeHead(400, { "Content-Type": "text/html" })
@@ -465,6 +490,18 @@ function stopOAuthServer() {
   oauthServer?.close()
   oauthServer = undefined
   void traceOpenAIAuth("callback_server_stopped", { port: OAUTH_PORT })
+}
+
+function stopOAuthServerIfIdle() {
+  if (pendingOAuth) {
+    void traceOpenAIAuth("callback_server_retained", {
+      port: OAUTH_PORT,
+      reason: "authorization_pending",
+    })
+    return
+  }
+
+  stopOAuthServer()
 }
 
 function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<OpenAICodexTokenResponse> {
@@ -565,7 +602,7 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
                 await traceOpenAIAuth("provider_callback_failed", { error: errorMessage(error) })
                 throw error
               } finally {
-                stopOAuthServer()
+                stopOAuthServerIfIdle()
               }
             },
           }
