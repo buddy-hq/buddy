@@ -1,6 +1,7 @@
 const COPYRIGHT_PREFIX = "Copyright \u00A9"
 
 export type BuddyBranding = {
+  appProtocol: string
   copyrightHolder: string
   copyrightStartYear: number
   desktopPackageDescription: string
@@ -8,6 +9,7 @@ export type BuddyBranding = {
 }
 
 export const BUDDY_BRANDING = {
+  appProtocol: "buddy",
   copyrightHolder: "Prashant Bhudwal",
   copyrightStartYear: 2026,
   desktopPackageDescription: "Buddy Electron desktop shell",

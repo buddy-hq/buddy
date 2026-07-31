@@ -1,4 +1,5 @@
 import { app } from "electron"
+import { BUDDY_BRANDING } from "@buddy/script/branding"
 import {
   BUDDY_PACKAGED_FALLBACK_CHANNEL,
   type BuddyReleaseChannel,
@@ -50,7 +51,7 @@ const APP_IDS: Record<ReleaseChannel, string> = {
   prod: "ai.buddy.desktop",
 }
 
-export const APP_PROTOCOL = "buddy"
+export const APP_PROTOCOL = BUDDY_BRANDING.appProtocol
 export const BACKEND_SERVER_USERNAME = "buddy"
 export const SETTINGS_STORE = "buddy.settings"
 export const DEFAULT_SERVER_URL_KEY = "defaultServerUrl"

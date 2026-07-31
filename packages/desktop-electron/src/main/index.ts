@@ -186,6 +186,7 @@ function setupApplication() {
   app.on("open-url", (event: Event, url: string) => {
     event.preventDefault()
     emitDeepLinks([url])
+    focusMainWindow()
   })
 
   app.on("before-quit", () => {
@@ -207,7 +208,9 @@ function setupApplication() {
 
   void app.whenReady().then(async () => {
     registerBackendRequestAuth()
-    app.setAsDefaultProtocolClient(APP_PROTOCOL)
+    if (app.isPackaged) {
+      app.setAsDefaultProtocolClient(APP_PROTOCOL)
+    }
     if (process.platform === "darwin") {
       customMacUpdater = createCustomMacUpdater({
         currentVersion: app.getVersion(),

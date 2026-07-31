@@ -4,7 +4,7 @@ import path from "node:path"
 import { app } from "electron"
 import { OPENCODE_DB_FILENAME } from "@buddy/script/channel"
 import { BUDDY_ENV, OPENCODE_ENV } from "@buddy/script/storage-env"
-import { BACKEND_SERVER_USERNAME, CHANNEL } from "./constants"
+import { APP_PROTOCOL, BACKEND_SERVER_USERNAME, CHANNEL } from "./constants"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 import {
   resolveAllowedDirectoryRoots,
@@ -121,6 +121,7 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
   const shellEnvironment = process.platform === "win32" ? null : loadShellEnv(getUserShell())
   const base = mergeShellEnv(shellEnvironment, appEnvironment)
   delete base[BUDDY_ENV.RUNTIME_ROOT]
+  delete base[BUDDY_ENV.DESKTOP_CALLBACK_URL]
   delete base[OPENCODE_ENV.DISABLE_CHANNEL_DB]
   ensureDirectories(Object.values(isolatedRuntimeEnvironment))
 
@@ -144,6 +145,9 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
     [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]: "true",
     [OPENCODE_ENV.DB]: OPENCODE_DB_FILENAME,
     [OPENCODE_ENV.CLIENT]: "desktop",
+    ...(app.isPackaged
+      ? { [BUDDY_ENV.DESKTOP_CALLBACK_URL]: `${APP_PROTOCOL}://auth/callback` }
+      : {}),
   }
   if (shouldIsolateDevRuntime) {
     environment[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE] = path.join(

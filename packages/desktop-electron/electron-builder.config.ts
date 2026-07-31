@@ -66,7 +66,7 @@ const BASE_CONFIGURATION: Configuration = {
   ],
   protocols: {
     name: BUDDY_BRANDING.productName,
-    schemes: ["buddy"],
+    schemes: [BUDDY_BRANDING.appProtocol],
   },
   mac: {
     artifactName: resolveMacOsReleaseArtifactPattern(),
