@@ -1,5 +1,5 @@
 import { Button, CheckIcon, CopyIcon, cn } from "@buddy/ui"
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { language } from "@/context/language"
 import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidInlineView } from "./mermaid-inline-view"
@@ -12,6 +12,7 @@ import {
   type MermaidViewportZoomState,
 } from "./use-mermaid-viewport"
 import type { MermaidThemeConfig } from "./lib/theme"
+import { scopeMermaidSvgResourcesForInstance } from "./lib/svg-instance"
 import {
   useInlineAssetActivation,
   useInlineAssetLifecycleReporter,
@@ -163,6 +164,7 @@ export function MermaidDiagram(props: {
   const [staticSvgMounted, setStaticSvgMounted] = useState(false)
   const copyResetTimeoutRef = useRef<number | undefined>(undefined)
   const staticSvgHostRef = useRef<HTMLDivElement>(null)
+  const svgInstanceID = useId()
   const activation = useInlineAssetActivation()
   const enabled = (props.enabled ?? true) && activation.active
 
@@ -241,6 +243,16 @@ export function MermaidDiagram(props: {
   }, [onRenderStateChange, state])
 
   const readyValue = state.status === "ready" ? state.value : undefined
+  const mountedReadyValue = useMemo(
+    () =>
+      readyValue
+        ? {
+            ...readyValue,
+            svg: scopeMermaidSvgResourcesForInstance(readyValue.svg, svgInstanceID),
+          }
+        : undefined,
+    [readyValue, svgInstanceID],
+  )
   const viewportCanvasPadding = benchViewportMode
     ? mermaidConstants.viewport.FULLSCREEN_CANVAS_PADDING
     : mermaidConstants.viewport.INLINE_CANVAS_PADDING
@@ -261,7 +273,7 @@ export function MermaidDiagram(props: {
       ? summarizeMermaidErrorText(props.errorMeta)
       : props.errorMeta
   const inlineViewport = useMermaidViewport({
-    value: readyValue,
+    value: mountedReadyValue,
     enabled: isInteractive && state.status === "ready",
     zoomState: sharedZoomState,
     onZoomStateChange: setSharedZoomState,
@@ -277,7 +289,7 @@ export function MermaidDiagram(props: {
   })
 
   useLayoutEffect(() => {
-    if (isInteractive || state.status !== "ready") {
+    if (isInteractive || !readyValue || !mountedReadyValue) {
       setStaticSvgMounted(false)
       return
     }
@@ -288,17 +300,17 @@ export function MermaidDiagram(props: {
       return
     }
 
-    if (host.innerHTML !== state.value.svg) {
-      host.innerHTML = state.value.svg
+    if (host.innerHTML !== mountedReadyValue.svg) {
+      host.innerHTML = mountedReadyValue.svg
     }
     const svg = host.querySelector("svg")
     svg?.setAttribute(
       "preserveAspectRatio",
       svg.getAttribute("preserveAspectRatio") ?? "xMidYMid meet",
     )
-    state.value.bindFunctions?.(host)
+    readyValue.bindFunctions?.(host)
     setStaticSvgMounted(svg !== null)
-  }, [isInteractive, state])
+  }, [isInteractive, mountedReadyValue, readyValue])
 
   const actions =
     isInteractive && state.status === "ready" ? (

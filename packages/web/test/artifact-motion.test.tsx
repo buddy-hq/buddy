@@ -127,6 +127,8 @@ describe("transcript artifact motion", () => {
       svgBounds: { width: 100, height: 100 },
       renderedWidth: 100,
       renderedHeight: 100,
+      svgHostWidth: 100,
+      svgHostHeight: 100,
       canvasWidth: 100,
       canvasHeight: 100,
       contentOffsetX: 0,

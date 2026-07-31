@@ -13,7 +13,6 @@ export const mermaidConstants = {
     MAX: 50.0,
     STEP: 0.1,
     DEFAULT: 1.0,
-    BENCH_INITIAL: 0.8,
     MAX_AUTO_FIT: 10.0,
     WIDE_DIAGRAM_ASPECT_RATIO: 2.5,
   },

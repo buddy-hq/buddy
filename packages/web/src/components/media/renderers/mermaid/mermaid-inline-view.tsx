@@ -36,8 +36,11 @@ export function MermaidInlineView({ ariaLabel, viewport }: MermaidInlineViewProp
           style={{
             left: viewport.contentOffsetX,
             top: viewport.contentOffsetY,
-            width: viewport.renderedWidth,
-            height: viewport.renderedHeight,
+            // Tailwind's preflight makes this host border-box. Its dimensions must therefore
+            // include the canvas padding, or a short diagram can lose its entire SVG content box
+            // to the top and bottom padding in Bench mode.
+            width: viewport.svgHostWidth,
+            height: viewport.svgHostHeight,
             padding: viewport.canvasPadding,
           }}
         />

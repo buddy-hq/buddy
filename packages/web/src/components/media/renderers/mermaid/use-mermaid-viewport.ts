@@ -49,7 +49,7 @@ export function resolveMermaidInitialZoomState(
 ): MermaidViewportZoomState {
   if (viewportMode === "bench") {
     return {
-      zoom: mermaidConstants.zoom.BENCH_INITIAL,
+      zoom: mermaidConstants.zoom.DEFAULT,
       isAutoZoom: false,
     }
   }
@@ -66,6 +66,8 @@ export type MermaidViewportController = {
   svgBounds: MermaidSvgBounds
   renderedWidth: number
   renderedHeight: number
+  svgHostWidth: number
+  svgHostHeight: number
   canvasWidth: number
   canvasHeight: number
   contentOffsetX: number
@@ -715,6 +717,8 @@ export function useMermaidViewport({
     svgBounds,
     renderedWidth,
     renderedHeight,
+    svgHostWidth: canvasMetrics.contentWidth,
+    svgHostHeight: canvasMetrics.contentHeight,
     canvasWidth: canvasMetrics.canvasWidth,
     canvasHeight: canvasMetrics.canvasHeight,
     contentOffsetX: canvasMetrics.contentOffsetX,
