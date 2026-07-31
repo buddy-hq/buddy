@@ -4,7 +4,7 @@ import os from "node:os"
 import path from "node:path"
 import {
   clearObsidianVaultIndexCache,
-  inspectObsidianVault,
+  detectObsidianVault,
   resolveObsidianVaultLinks,
   updateObsidianVaultIndex,
 } from "../src/learning/features/obsidian-vault/service"
@@ -55,8 +55,8 @@ describe("Obsidian vault compatibility", () => {
       fsp.writeFile(path.join(vaultDirectory, ".custom-config", "core-plugins.json"), "[]"),
     ])
 
-    await expect(inspectObsidianVault(vaultDirectory)).resolves.toEqual({
-      compatible: true,
+    await expect(detectObsidianVault(vaultDirectory)).resolves.toEqual({
+      detected: true,
       configDirectories: [".custom-config", ".obsidian", ".obsidian-work"],
     })
   })
@@ -70,8 +70,8 @@ describe("Obsidian vault compatibility", () => {
         process.platform === "win32" ? "junction" : "dir",
       )
 
-      await expect(inspectObsidianVault(vaultDirectory)).resolves.toEqual({
-        compatible: true,
+      await expect(detectObsidianVault(vaultDirectory)).resolves.toEqual({
+        detected: true,
         configDirectories: [".obsidian"],
       })
     } finally {
@@ -252,7 +252,7 @@ describe("Obsidian vault compatibility", () => {
     })
   })
 
-  test("exposes vault detection and batch resolution through the mounted API", async () => {
+  test("requires an explicit vault connection before enabling Obsidian APIs", async () => {
     await fsp.mkdir(path.join(vaultDirectory, ".obsidian"))
     await fsp.writeFile(path.join(vaultDirectory, "Current.md"), "# Current\n")
     await fsp.writeFile(path.join(vaultDirectory, "Linked.md"), "# Linked\n")
@@ -261,7 +261,33 @@ describe("Obsidian vault compatibility", () => {
     const profileResponse = await app.request("/api/obsidian/profile", { headers })
     expect(profileResponse.status).toBe(200)
     await expect(profileResponse.json()).resolves.toEqual({
-      compatible: true,
+      detected: true,
+      connected: false,
+      configDirectories: [".obsidian"],
+    })
+
+    const disconnectedLinksResponse = await app.request("/api/obsidian/resolve-links", {
+      method: "POST",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({
+        documentPath: "Current.md",
+        targets: ["Linked", "Missing"],
+      }),
+    })
+    expect(disconnectedLinksResponse.status).toBe(409)
+
+    const connectResponse = await app.request("/api/config", {
+      method: "PATCH",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({ obsidian_vault: { connected: true } }),
+    })
+    expect(connectResponse.status).toBe(200)
+
+    const connectedProfileResponse = await app.request("/api/obsidian/profile", { headers })
+    expect(connectedProfileResponse.status).toBe(200)
+    await expect(connectedProfileResponse.json()).resolves.toEqual({
+      detected: true,
+      connected: true,
       configDirectories: [".obsidian"],
     })
 
@@ -281,5 +307,30 @@ describe("Obsidian vault compatibility", () => {
         { target: "Missing", status: "unresolved" },
       ],
     })
+
+    const disconnectResponse = await app.request("/api/config", {
+      method: "PATCH",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({ obsidian_vault: { connected: false } }),
+    })
+    expect(disconnectResponse.status).toBe(200)
+
+    const disconnectedProfileResponse = await app.request("/api/obsidian/profile", { headers })
+    expect(disconnectedProfileResponse.status).toBe(200)
+    await expect(disconnectedProfileResponse.json()).resolves.toEqual({
+      detected: true,
+      connected: false,
+      configDirectories: [".obsidian"],
+    })
+
+    const linksAfterDisconnectResponse = await app.request("/api/obsidian/resolve-links", {
+      method: "POST",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({
+        documentPath: "Current.md",
+        targets: ["Linked"],
+      }),
+    })
+    expect(linksAfterDisconnectResponse.status).toBe(409)
   })
 })

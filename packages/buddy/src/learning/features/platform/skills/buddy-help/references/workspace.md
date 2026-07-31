@@ -151,7 +151,7 @@ Workspace for content that needs more room than chat: files, Markdown, reading, 
 | **Parked** | Right panel collapsed; content may still be open but hidden | **Expand right panel** reveals. |
 | **Closed** | No Bench — normal chat | Open something again. |
 
-Mode on open: keep current mode if Bench already open → else last preference for that content type → else defaults (whiteboard / large HTML / some media → floating; most files/reading/practice → docked). User mode changes stick per content type.
+Mode on open: keep the current mode if Bench is already open → else use the content default (whiteboard / large HTML / some media → floating; most files/reading/practice → docked). Float / dock changes belong to the current chat's saved Bench presentation, not a global content-type preference; returning to that chat restores its saved presentation and mode.
 
 Minimize floating chat does **not** close Bench.
 

@@ -8,13 +8,14 @@ Tell the user to open the vault root as a notebook in Buddy:
 
 1. Choose Buddy's option to open an existing folder.
 2. Select the vault root—the directory containing `.obsidian/` or another Obsidian configuration directory—not the configuration directory itself.
-3. Continue the conversation inside that notebook.
+3. When Buddy detects the vault, choose **Connect vault**.
+4. Continue the conversation inside that notebook.
 
 Buddy uses the existing directory in place. It does not import, copy, convert, or relocate the vault. Obsidian and Buddy continue working with the same files.
 
-## What opening the vault enables
+## What connecting the vault enables
 
-When Buddy detects an Obsidian vault as the active notebook:
+When the user connects a detected Obsidian vault:
 
 - The notebook is identified with the Obsidian mark in Buddy's sidebar.
 - The vault root becomes the deterministic boundary for agent file reads, searches, and edits; the agent does not need to guess among vaults.
@@ -28,7 +29,7 @@ This is usually preferable for ongoing work, cross-note navigation, or any task 
 
 ## What it does not do
 
-Opening a vault in Buddy does not:
+Connecting a vault in Buddy does not:
 
 - install Obsidian or enable its CLI;
 - modify `.obsidian/` settings or plugins;
@@ -41,6 +42,6 @@ Use the official Obsidian CLI for Obsidian-computed operations such as backlinks
 
 Explain the benefit before asking the user to switch notebooks. A concise recommendation is:
 
-> Open the vault folder as a Buddy notebook if you want wikilinks, embeds, callouts, and note navigation to work in Bench while keeping the agent anchored to that vault. Buddy uses the files in place, so nothing is imported or copied.
+> Open the vault folder as a Buddy notebook and choose **Connect vault** if you want wikilinks, embeds, callouts, and note navigation to work in Bench while keeping the agent anchored to that vault. Buddy uses the files in place, so nothing is imported or copied.
 
 If the user does not want to open it, continue through the CLI or filesystem only after identifying the vault unambiguously. Never imply that opening the vault is required for every Obsidian operation.

@@ -11,17 +11,17 @@ Use this for Obsidian vault work. An Obsidian vault is a normal directory of Mar
 
 Do not assume the active Buddy notebook is an Obsidian vault.
 
-1. If the active notebook contains an Obsidian configuration directory, use that notebook as the vault root. It takes precedence over other discovered vaults.
+1. If the active Buddy notebook is connected as an Obsidian vault, use that notebook as the vault root. It takes precedence over other discovered vaults.
 2. If the user supplied a vault path, confirm it is an Obsidian vault and use it.
 3. Otherwise, run `obsidian vaults` to discover registered vaults. Use a vault only when the user's wording identifies it or exactly one suitable vault exists.
 4. If multiple vaults remain possible, ask the user which one to use. Do not guess.
-5. If no vault can be resolved, ask the user to open one as the active Buddy notebook or provide its path. Read [Buddy's Obsidian integration](references/buddy-integration.md) before explaining what opening the vault enables.
+5. If no vault can be resolved, ask the user to open and connect one as the active Buddy notebook or provide its path. Read [Buddy's Obsidian integration](references/buddy-integration.md) before explaining what connecting the vault enables.
 
 Use a concrete absolute vault path after resolving it. Do not rely on a fixed path, environment variable, or fallback vault elsewhere on the machine.
 
 ## Buddy integration
 
-Opening the vault root as a Buddy notebook enables Buddy's first-class Obsidian compatibility and anchors the agent, Files explorer, and Bench to the same vault. Use [Buddy's Obsidian integration](references/buddy-integration.md) when the user needs setup guidance or wants to understand the benefits and limits.
+Opening the vault root as a Buddy notebook and accepting Buddy's connection prompt enables first-class Obsidian compatibility. It anchors the agent, Files explorer, and Bench to the same vault. Use [Buddy's Obsidian integration](references/buddy-integration.md) when the user needs setup guidance or wants to understand the benefits and limits.
 
 ## First checks
 

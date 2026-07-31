@@ -87,6 +87,12 @@ export namespace ConfigSchema {
     })
     .strict()
     .optional()
+  const ObsidianVault = z
+    .object({
+      connected: z.boolean(),
+    })
+    .strict()
+    .optional()
 
   export const PersonaOverride = z
     .object({
@@ -136,6 +142,7 @@ export namespace ConfigSchema {
     personalization: Personalization,
     tools: TOOL_TOGGLE_MAP,
     learner_memory: LearnerMemory,
+    obsidian_vault: ObsidianVault,
     skills_external_vendor_roots_enabled: z.boolean().optional(),
     notebook_home: z.string().nullable().optional(),
   }

@@ -22,6 +22,7 @@ A **notebook** is a **folder** Buddy has open (workspace). Chats live inside a n
 - **Quick Chat** = open/create Inbox, then a new chat there
 - **Open list**: curated list of open notebooks — not every folder on disk
 - Managed create goes under Buddy Home; **Open existing folder** can open any folder as a notebook
+- When an opened folder contains Obsidian settings, Buddy asks whether to connect the vault; skipping keeps it as a regular notebook without Obsidian branding or capabilities
 
 ### What users do
 
@@ -173,4 +174,3 @@ Sidebar **Organize chats**: by notebook · chronological; sort created · update
 - `chat.md` — composer, other slashes
 - `workspace.md` — left sidebar chrome
 - `settings.md` — Advanced auto-compaction
-

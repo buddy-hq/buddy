@@ -60,8 +60,8 @@ const obsidianAliasesSchema = z.object({
   aliases: z.union([z.string(), z.array(z.string())]).optional(),
 })
 
-type ObsidianVaultProfile = {
-  compatible: boolean
+type ObsidianVaultDetection = {
+  detected: boolean
   configDirectories: string[]
 }
 
@@ -161,7 +161,7 @@ async function directoryHasObsidianConfigMarkers(directory: string): Promise<boo
   return markers.every((marker) => marker?.isFile())
 }
 
-export async function inspectObsidianVault(directory: string): Promise<ObsidianVaultProfile> {
+export async function detectObsidianVault(directory: string): Promise<ObsidianVaultDetection> {
   const entries = await fsp.readdir(directory, { withFileTypes: true }).catch(() => [])
   const hiddenEntries = entries.filter((entry) => entry.name.startsWith("."))
   const configDirectories: string[] = []
@@ -185,7 +185,7 @@ export async function inspectObsidianVault(directory: string): Promise<ObsidianV
   }
 
   return {
-    compatible: configDirectories.length > 0,
+    detected: configDirectories.length > 0,
     configDirectories: configDirectories.toSorted((left, right) => left.localeCompare(right)),
   }
 }
@@ -324,9 +324,9 @@ function removeIndexPath(index: ObsidianVaultIndex, relativePath: string): void 
 
 async function buildObsidianVaultIndex(
   directory: string,
-  profile: ObsidianVaultProfile,
+  detection: ObsidianVaultDetection,
 ): Promise<ObsidianVaultIndex> {
-  const listed = await listVaultEntries(directory, new Set(profile.configDirectories))
+  const listed = await listVaultEntries(directory, new Set(detection.configDirectories))
   const aliasesByPath = await readAliasesByPath(directory, listed.entries)
   const index: ObsidianVaultIndex = {
     aliases: new Map(),
@@ -334,7 +334,7 @@ async function buildObsidianVaultIndex(
     byBasename: new Map(),
     byPath: new Map(),
     byStem: new Map(),
-    configDirectories: new Set(profile.configDirectories),
+    configDirectories: new Set(detection.configDirectories),
     partial: listed.partial,
   }
 
@@ -468,13 +468,13 @@ function enqueueVaultIndexUpdate(
 
 function createObsidianVaultIndexEntry(directory: string): ObsidianVaultIndexCacheEntry {
   let entry: ObsidianVaultIndexCacheEntry
-  const profileTask = inspectObsidianVault(directory)
-  const subscriptionTask = profileTask.then(async (profile) =>
+  const detectionTask = detectObsidianVault(directory)
+  const subscriptionTask = detectionTask.then(async (detection) =>
     subscribeNativeWorkspaceFileWatcher({
       directory,
       ignore: [
         ...OBSIDIAN_WATCHER_IGNORE_PATTERNS,
-        ...profile.configDirectories.map((name) => `**/${name}/**`),
+        ...detection.configDirectories.map((name) => `**/${name}/**`),
       ],
       onError(error) {
         invalidateVaultIndexEntry(directory, entry)
@@ -489,8 +489,8 @@ function createObsidianVaultIndexEntry(directory: string): ObsidianVaultIndexCac
       return undefined
     }),
   )
-  const task = Promise.all([profileTask, subscriptionTask])
-    .then(([profile]) => buildObsidianVaultIndex(directory, profile))
+  const task = Promise.all([detectionTask, subscriptionTask])
+    .then(([detection]) => buildObsidianVaultIndex(directory, detection))
     .catch((error: unknown) => {
       invalidateVaultIndexEntry(directory, entry)
       throw error
@@ -679,4 +679,4 @@ export async function updateObsidianVaultIndex(input: {
   })
 }
 
-export type { ObsidianResolvedLink, ObsidianResolvedLinkKind, ObsidianVaultProfile }
+export type { ObsidianResolvedLink, ObsidianResolvedLinkKind, ObsidianVaultDetection }
