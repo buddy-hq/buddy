@@ -54,6 +54,32 @@ export const obsidianVaultQueryKeys = {
     [OBSIDIAN_VAULT_QUERY_SCOPE, "embedded-note", directory, path] as const,
 }
 
+export async function loadObsidianVaultProfile(directory: string): Promise<ObsidianVaultProfile> {
+  return requireBuddyData<ObsidianVaultProfile>(
+    await getBuddyClient(directory).obsidian.profile(),
+  )
+}
+
+async function updateObsidianVaultConnection(
+  directory: string,
+  connected: boolean,
+): Promise<ObsidianVaultProfile> {
+  requireBuddyData(
+    await getBuddyClient(directory).config.update({
+      body: { obsidian_vault: { connected } },
+    }),
+  )
+  return loadObsidianVaultProfile(directory)
+}
+
+export function connectObsidianVault(directory: string): Promise<ObsidianVaultProfile> {
+  return updateObsidianVaultConnection(directory, true)
+}
+
+export function disconnectObsidianVault(directory: string): Promise<ObsidianVaultProfile> {
+  return updateObsidianVaultConnection(directory, false)
+}
+
 export function batchObsidianLinkTargets(targets: readonly string[]): string[][] {
   const batches: string[][] = []
   for (let index = 0; index < targets.length; index += OBSIDIAN_RESOLVE_LINKS_BATCH_SIZE) {
@@ -65,8 +91,7 @@ export function batchObsidianLinkTargets(targets: readonly string[]): string[][]
 export function obsidianVaultProfileQueryOptions(directory: string) {
   return queryOptions({
     queryKey: obsidianVaultQueryKeys.profile(directory),
-    queryFn: async () =>
-      requireBuddyData<ObsidianVaultProfile>(await getBuddyClient(directory).obsidian.profile()),
+    queryFn: () => loadObsidianVaultProfile(directory),
     staleTime: OBSIDIAN_VAULT_PROFILE_STALE_TIME_MS,
   })
 }

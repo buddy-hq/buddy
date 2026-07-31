@@ -30,6 +30,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  UnlinkIcon,
   XIcon,
   BotIcon,
   MessagesSquareIcon,
@@ -86,6 +87,8 @@ type ChatLeftSidebarDirectoryListProps = {
   onSectionRef: (directory: string) => (element: HTMLElement | null) => void
   onNewSession: (directory?: string) => void
   onOpenNotebookSettings: (directory: string) => void
+  onDisconnectObsidianVault: (directory: string) => void
+  disconnectingObsidianDirectory?: string
   onCloseDirectory: (directory: string) => void
 }
 
@@ -115,6 +118,8 @@ type DirectoryGroupSectionProps = {
   onSectionRef: (element: HTMLElement | null) => void
   onOpenNotebook: () => void
   onOpenNotebookSettings: () => void
+  onDisconnectObsidianVault: () => void
+  obsidianDisconnecting: boolean
   onCloseNotebook: () => void
   onNewSession: () => void
 }
@@ -249,6 +254,12 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
               onSectionRef={props.onSectionRef(group.directory)}
               onOpenNotebook={() => props.onSelectSession(group.directory)}
               onOpenNotebookSettings={() => props.onOpenNotebookSettings(group.directory)}
+              onDisconnectObsidianVault={() =>
+                props.onDisconnectObsidianVault(group.directory)
+              }
+              obsidianDisconnecting={
+                props.disconnectingObsidianDirectory === group.directory
+              }
               onCloseNotebook={() => props.onCloseDirectory(group.directory)}
               onNewSession={() => props.onNewSession(group.directory)}
             />
@@ -266,7 +277,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
     ...obsidianVaultProfileQueryOptions(props.group.directory),
     enabled: !isQuickChatGroup,
   })
-  const isObsidianVault = obsidianProfileQuery.data?.compatible === true
+  const isObsidianVault = obsidianProfileQuery.data?.connected === true
   const collapsedCount = isQuickChatGroup ? QUICK_CHAT_COLLAPSED_COUNT : COLLAPSED_COUNT
   const visibleSessions = props.expanded
     ? props.group.sessions
@@ -461,6 +472,16 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   <SlidersHorizontalIcon className="mr-2 size-3.5" />
                   {language.t("sidebar.notebookSettings")}
                 </ContextMenuItem>
+                {isObsidianVault ? (
+                  <ContextMenuItem
+                    data-action="left-sidebar-directory-disconnect-obsidian"
+                    disabled={props.obsidianDisconnecting}
+                    onSelect={props.onDisconnectObsidianVault}
+                  >
+                    <UnlinkIcon />
+                    {language.t("sidebar.disconnectObsidian")}
+                  </ContextMenuItem>
+                ) : null}
                 <ContextMenuSeparator />
                 <ContextMenuItem
                   data-action="left-sidebar-directory-close"

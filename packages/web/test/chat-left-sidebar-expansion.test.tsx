@@ -29,7 +29,8 @@ describe("Chat left sidebar notebook expansion", () => {
     queryClient.setQueryData(experimentalFeaturesQueryKeys.all(), { features: [] })
     for (const directory of [NOTEBOOK_A_DIRECTORY, NOTEBOOK_B_DIRECTORY]) {
       queryClient.setQueryData(obsidianVaultQueryKeys.profile(directory), {
-        compatible: false,
+        detected: false,
+        connected: false,
         configDirectories: [],
       })
     }

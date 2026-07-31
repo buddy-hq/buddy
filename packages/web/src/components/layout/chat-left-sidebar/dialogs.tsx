@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Button,
@@ -20,6 +20,8 @@ import {
   Spinner,
   BookIcon,
 } from "@buddy/ui"
+import obsidianIconUrl from "@/assets/obsidian-icon.svg"
+import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import {
   formatMcpError,
   getMcpStatusLabel,
@@ -59,6 +61,7 @@ import {
 import { SettingsListCard, SettingsSectionHeader } from "../../settings/settings-primitives"
 import { useStandardsRuntime } from "../../settings/use-standards-runtime"
 import type { ArchiveState, RenameState } from "./types"
+import { getFilename } from "../sidebar-helpers"
 import {
   EXPERIMENTAL_FEATURE_ID,
   experimentalFeatureIsEnabled,
@@ -84,6 +87,15 @@ type NotebookCreationDialogProps = {
   onLearnerMemoryChange?: (enabled: boolean) => void
   enableAutoExtract?: boolean
   onAutoExtractChange?: (enabled: boolean) => void
+}
+
+type ObsidianVaultConnectionDialogProps = {
+  open: boolean
+  directory: string
+  busy: boolean
+  error?: string
+  onConnect: () => void
+  onContinueAsNotebook: () => void
 }
 
 type NotebookSettingsDialogProps = {
@@ -857,6 +869,86 @@ export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
             className="active:scale-[0.97] transition-transform"
           >
             {props.busy ? language.t("common.saving") : props.confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ConnectionMark(props: { children: ReactNode }) {
+  return (
+    <span className="flex size-12 items-center justify-center rounded-xl border border-border-weak bg-surface-weak/50 shadow-xs">
+      {props.children}
+    </span>
+  )
+}
+
+export function ObsidianVaultConnectionDialog(props: ObsidianVaultConnectionDialogProps) {
+  const vaultName = getFilename(props.directory)
+
+  return (
+    <Dialog
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!open && !props.busy) {
+          props.onContinueAsNotebook()
+        }
+      }}
+    >
+      <DialogContent
+        data-component="obsidian-vault-connection-dialog"
+        className="sm:max-w-sm"
+        showCloseButton={!props.busy}
+      >
+        <DialogHeader className="items-center gap-4 pt-2 text-center">
+          <div className="flex items-center gap-3" aria-hidden="true">
+            <ConnectionMark>
+              <img src={resolveBuddyIconUrl()} alt="" className="size-7 rounded-md" />
+            </ConnectionMark>
+            <span className="w-8 border-t border-dashed border-border-base" />
+            <ConnectionMark>
+              <img src={obsidianIconUrl} alt="" className="size-7" />
+            </ConnectionMark>
+          </div>
+          <div className="space-y-1.5">
+            <DialogTitle className="text-base font-semibold">
+              {language.t("obsidian.connectionDialog.title")}
+            </DialogTitle>
+            <DialogDescription className="mx-auto max-w-xs leading-normal">
+              {language.t("obsidian.connectionDialog.description", { name: vaultName })}
+            </DialogDescription>
+          </div>
+        </DialogHeader>
+
+        {props.error ? (
+          <p className="text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
+            {props.error}
+          </p>
+        ) : null}
+
+        <DialogFooter className="mt-1 sm:justify-center">
+          <Button
+            type="button"
+            variant="ghost"
+            data-action="obsidian-vault-continue-as-notebook"
+            disabled={props.busy}
+            onClick={props.onContinueAsNotebook}
+            className="active:scale-[0.97] transition-transform"
+          >
+            {language.t("obsidian.connectionDialog.continueAsNotebook")}
+          </Button>
+          <Button
+            type="button"
+            data-action="obsidian-vault-connect"
+            disabled={props.busy}
+            onClick={props.onConnect}
+            className="active:scale-[0.97] transition-transform"
+          >
+            {props.busy ? <Spinner data-icon="inline-start" /> : null}
+            {props.busy
+              ? language.t("obsidian.connectionDialog.connecting")
+              : language.t("obsidian.connectionDialog.connect")}
           </Button>
         </DialogFooter>
       </DialogContent>

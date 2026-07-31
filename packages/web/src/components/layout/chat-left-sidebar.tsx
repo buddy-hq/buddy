@@ -1,7 +1,7 @@
-import type { ReactNode } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Button, SquarePenIcon } from "@buddy/ui"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Button, SquarePenIcon, toast } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
@@ -23,6 +23,7 @@ import {
   ChatLeftSidebarDialogs,
   NotebookCreationDialog,
   NotebookSettingsDialog,
+  ObsidianVaultConnectionDialog,
 } from "./chat-left-sidebar/dialogs"
 import { DESKTOP_TITLEBAR_HEIGHT_PX } from "./desktop-titlebar-inset"
 import { ChatLeftSidebarDirectoryList } from "./chat-left-sidebar/directory-list"
@@ -45,6 +46,11 @@ import type {
 import { SettingsIcon } from "./sidebar-icons"
 import { getFilename } from "./sidebar-helpers"
 import { ensureTeacherStandards, shouldAutoSetupTeacherStandards } from "@/lib/teacher-standards"
+import {
+  disconnectObsidianVault,
+  obsidianVaultQueryKeys,
+} from "@/state/obsidian-vault-query"
+import { invalidateSkillsCatalogQuery } from "@/state/skills-catalog-query"
 
 type ChatLeftSidebarProps = {
   directories: string[]
@@ -75,6 +81,10 @@ type ChatLeftSidebarProps = {
   onCloseDirectory: (directory: string) => void
   onOpenSettings: () => void
   onOpenMcpSettings: () => void
+  obsidianConnectionPrompt?: Omit<
+    ComponentProps<typeof ObsidianVaultConnectionDialog>,
+    "open"
+  >
   showHeader?: boolean
   footer?: ReactNode
   children?: ReactNode
@@ -132,6 +142,22 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const setChatSidebarDirectoryOpen = useUiPreferences((state) => state.setChatSidebarDirectoryOpen)
   const uiPreferencesHydrated = useUiPreferencesHydrated()
   const onStartGetStartedChat = props.onStartGetStartedChat
+  const disconnectObsidianMutation = useMutation({
+    mutationFn: disconnectObsidianVault,
+    onSuccess: async (profile, directory) => {
+      queryClient.setQueryData(obsidianVaultQueryKeys.profile(directory), profile)
+      queryClient.removeQueries({
+        queryKey: obsidianVaultQueryKeys.linkScope(directory),
+      })
+      await invalidateSkillsCatalogQuery(queryClient, directory)
+      toast.success(language.t("sidebar.obsidianDisconnected"))
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : language.t("sidebar.obsidianDisconnectFailed"),
+      )
+    },
+  })
 
   useEffect(() => {
     if (!uiPreferencesHydrated) return
@@ -401,6 +427,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               props.onNewSession(directory)
             }}
             onOpenNotebookSettings={setNotebookSettingsDirectory}
+            onDisconnectObsidianVault={(directory) => {
+              disconnectObsidianMutation.mutate(directory)
+            }}
+            disconnectingObsidianDirectory={
+              disconnectObsidianMutation.isPending
+                ? disconnectObsidianMutation.variables
+                : undefined
+            }
             onCloseDirectory={props.onCloseDirectory}
           />
         </div>
@@ -486,6 +520,10 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           props.onOpenMcpSettings()
         }}
       />
+
+      {props.obsidianConnectionPrompt ? (
+        <ObsidianVaultConnectionDialog open {...props.obsidianConnectionPrompt} />
+      ) : null}
     </aside>
   )
 }

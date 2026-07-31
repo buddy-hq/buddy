@@ -161,7 +161,11 @@ describe("Obsidian Markdown compatibility", () => {
     const linkKey = obsidianVaultQueryKeys.links(directory, "Index.md", ["Shared"])
     const profileKey = obsidianVaultQueryKeys.profile(directory)
     queryClient.setQueryData(linkKey, { links: [], partial: false })
-    queryClient.setQueryData(profileKey, { compatible: true, configDirectories: [".obsidian"] })
+    queryClient.setQueryData(profileKey, {
+      detected: true,
+      connected: true,
+      configDirectories: [".obsidian"],
+    })
 
     await invalidateObsidianWatcherCaches(queryClient, {
       directory,
@@ -177,7 +181,11 @@ describe("Obsidian Markdown compatibility", () => {
     const queryClient = new QueryClient()
     const directory = "/tmp/obsidian-vault"
     const profileKey = obsidianVaultQueryKeys.profile(directory)
-    queryClient.setQueryData(profileKey, { compatible: false, configDirectories: [] })
+    queryClient.setQueryData(profileKey, {
+      detected: false,
+      connected: false,
+      configDirectories: [],
+    })
 
     await invalidateObsidianWatcherCaches(queryClient, {
       directory,
@@ -192,7 +200,11 @@ describe("Obsidian Markdown compatibility", () => {
     const queryClient = new QueryClient()
     const directory = "/tmp/obsidian-vault"
     const profileKey = obsidianVaultQueryKeys.profile(directory)
-    queryClient.setQueryData(profileKey, { compatible: false, configDirectories: [] })
+    queryClient.setQueryData(profileKey, {
+      detected: false,
+      connected: false,
+      configDirectories: [],
+    })
 
     await invalidateObsidianWatcherCaches(queryClient, {
       directory,
