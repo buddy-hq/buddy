@@ -11,6 +11,7 @@ import {
   resolveCatalogSkillState,
   resolveCatalogPathFromCandidates,
   skillCatalogPayloadBytes,
+  listCatalogLibraryItems,
 } from "../../src/learning/skill-management/service/library"
 import type { InstalledSkillLockEntry } from "../../src/learning/skill-management/service/lock"
 import {
@@ -146,6 +147,58 @@ describe("skill catalog library", () => {
     expect(resolveCatalogSkillState({ entry, lockEntry: activeLockEntry("c".repeat(64)) })).toBe(
       "update_available",
     )
+  })
+
+  test("exposes catalog icons through a content-addressed Buddy endpoint", async () => {
+    const previousHome = process.env.BUDDY_TEST_HOME
+    const testHome = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-skill-icon-view-"))
+    process.env.BUDDY_TEST_HOME = testHome
+    const iconSha256 = "d".repeat(64)
+    try {
+      const catalog = parseSkillCatalogDocument({
+        schemaVersion: 1,
+        revision: 5,
+        entries: [
+          {
+            id: "sample-skill",
+            displayName: "Sample Skill",
+            icon: {
+              filename: `buddy-skill-sample-skill-${iconSha256.slice(0, 16)}.webp`,
+              sha256: iconSha256,
+            },
+            summary: "Sample skill with a release-hosted icon.",
+            categories: ["test"],
+            tags: ["test"],
+            source: {
+              type: "github",
+              repo: "example/skills",
+              path: "skills/sample",
+              ref: "e".repeat(40),
+            },
+            integrity: {
+              algorithm: "tree-sha256-v1",
+              sha256: CATALOG_SHA,
+              sizeBytes: SKILL_SIZE_BYTES,
+              fileCount: SKILL_FILE_COUNT,
+            },
+            review: {
+              approvedAt: "2026-07-31T00:00:00.000Z",
+              policyVersion: 1,
+            },
+            status: "approved",
+          },
+        ],
+      })
+
+      const items = await listCatalogLibraryItems(catalog)
+      expect(items[0]?.icon).toBe(
+        `/api/skills/library/sample-skill/icon?sha256=${iconSha256}`,
+      )
+    } finally {
+      if (previousHome === undefined) delete process.env.BUDDY_TEST_HOME
+      else process.env.BUDDY_TEST_HOME = previousHome
+      await fsp.rm(testHome, { recursive: true, force: true })
+    }
   })
 
   test("denies and moves installed skills withdrawn by a catalog revision", async () => {

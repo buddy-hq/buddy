@@ -1,9 +1,13 @@
 {
   "schemaVersion": 1,
-  "revision": 4,
+  "revision": 5,
   "entries": [
     {
       "id": "anthropic-pptx",
+      "icon": {
+        "filename": "buddy-skill-anthropic-pptx-34595d9740f59c62.webp",
+        "sha256": "34595d9740f59c6211d5bcf33a4872d373435f68f64aa312cfa1c5f277458803"
+      },
       "displayName": "PowerPoint Presentation",
       "summary": "Create, edit, inspect, and analyze PowerPoint presentations with the Anthropic PPTX skill.",
       "categories": ["productivity", "documents"],
@@ -31,6 +35,10 @@
     },
     {
       "id": "anthropics-financial-services-xlsx-author",
+      "icon": {
+        "filename": "buddy-skill-anthropics-financial-services-xlsx-author-de0dc6b2309b38ba.webp",
+        "sha256": "de0dc6b2309b38ba5161b75517ad74d5377243d8d43ea4c6ccc66562d2633488"
+      },
       "displayName": "xlsx-author",
       "summary": "Produce a .xlsx file on disk (headless) instead of driving a live Excel workbook — for managed-agent sessions with no open Office app.",
       "categories": ["teaching", "productivity"],
@@ -57,6 +65,10 @@
     },
     {
       "id": "anthropics-k12-teacher-skills-k12-lesson-differentiation",
+      "icon": {
+        "filename": "buddy-skill-anthropics-k12-teacher-skills-k12-lesson-differentiation-7f06e8fcd5508af6.webp",
+        "sha256": "7f06e8fcd5508af644549dcdcb4349bf9e878ae7aff8a53951e8d96611b28335"
+      },
       "displayName": "K-12 Lesson Differentiation",
       "summary": "Differentiate an existing K-12 lesson into below/at/above grade-level tiers with a teacher plan and three student worksheets as editable Word docs.",
       "categories": ["teaching", "documents"],
@@ -84,6 +96,10 @@
     },
     {
       "id": "anthropics-k12-teacher-skills-k12-lesson-planning",
+      "icon": {
+        "filename": "buddy-skill-anthropics-k12-teacher-skills-k12-lesson-planning-7dec2774adfc198b.webp",
+        "sha256": "7dec2774adfc198b6350bbc65339e6523e5cd2f2cdb8e48d080a899006f6af52"
+      },
       "displayName": "K-12 Lesson Planning",
       "summary": "Build standards-aligned K-12 lesson plans with student materials and observation templates as editable Word docs (math, ELA, science, social studies).",
       "categories": ["teaching", "documents"],
@@ -111,6 +127,10 @@
     },
     {
       "id": "anthropics-skills-docx",
+      "icon": {
+        "filename": "buddy-skill-anthropics-skills-docx-ac790e9c547938a2.webp",
+        "sha256": "ac790e9c547938a2c10db458f37817b56fb6dc6244ecb0f7f6a0f359958677b2"
+      },
       "displayName": "DOCX",
       "summary": "Create, read, and edit DOCX files programmatically",
       "categories": ["productivity"],
@@ -138,6 +158,10 @@
     },
     {
       "id": "hermes-excalidraw",
+      "icon": {
+        "filename": "buddy-skill-hermes-excalidraw-e6ab698b72d19bf5.webp",
+        "sha256": "e6ab698b72d19bf528f2e8d85f70347c50c5f6a94c7824b5b849e46aaeb46159"
+      },
       "displayName": "Excalidraw",
       "summary": "Hand-drawn Excalidraw JSON diagrams (arch, flow, seq).",
       "categories": ["learning", "diagramming"],
@@ -165,6 +189,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-arxiv",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-arxiv-255f5cd9f2522980.webp",
+        "sha256": "255f5cd9f2522980d59194f48fa135ebffdbb0ed4a5213f23d6a0a9da4da1559"
+      },
       "displayName": "arXiv Research",
       "summary": "Search arXiv papers by keyword, author, category, or ID.",
       "categories": ["learning", "research"],
@@ -193,6 +221,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-blogwatcher",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-blogwatcher-936ebacfe0565758.webp",
+        "sha256": "936ebacfe0565758cdcd6148cfba15731cba82131d6c8f1ae72fb223ff97f93d"
+      },
       "displayName": "Blogwatcher",
       "summary": "Monitor blogs and RSS/Atom feeds via blogwatcher-cli tool.",
       "categories": ["learning", "research"],
@@ -224,6 +256,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-concept-diagrams",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-concept-diagrams-50371cc32746ea1d.webp",
+        "sha256": "50371cc32746ea1de7280c843db678f0b515a8e1b3f8bdeb749a04572b06cf14"
+      },
       "displayName": "Concept Diagrams",
       "summary": "Generate flat, minimal light/dark-aware SVG diagrams as standalone HTML files, using a unified educational visual language with 9 semantic color ramps, sentence-case typography, and automatic dark mode. Best suited for educational and non-software visuals — physics setups, chemistry mechanisms, math curves, physical objects (aircraft, turbines, smartphones, mechanical watches), anatomy, floor plans, cross-sections, narrative journeys (lifecycle of X, process of Y), hub-spoke system integrations (smart city, IoT), and exploded layer views. If a more specialized skill exists for the subject (dedicated software/cloud architecture, hand-drawn sketches, animated explainers, etc.), prefer that — otherwise this skill can also serve as a general-purpose SVG diagram fallback with a clean educational look. Ships with 15 example diagrams.",
       "categories": ["teaching", "diagramming"],
@@ -252,6 +288,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-creative-ideation",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-creative-ideation-46dccfcba57c2482.webp",
+        "sha256": "46dccfcba57c2482a2fbb02dde9cc5df41ba4eaae108ff217284b0081439596e"
+      },
       "displayName": "Creative Ideation",
       "summary": "Generate ideas via named methods from creative practice.",
       "categories": ["learning", "teaching"],
@@ -279,6 +319,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-duckduckgo-search",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-duckduckgo-search-35832d8aef685ed2.webp",
+        "sha256": "35832d8aef685ed2e2fa1bf96973a0de26b1e341902de69ebb5ed3ad9d2af05c"
+      },
       "displayName": "DuckDuckGo Search",
       "summary": "Free web search via DuckDuckGo — text, news, images, videos. No API key needed. Prefer the `ddgs` CLI when installed; use the Python DDGS library only after verifying that `ddgs` is available in the current runtime.",
       "categories": ["learning", "research"],
@@ -306,6 +350,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-jupyter-live-kernel",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-jupyter-live-kernel-5c540a4939f48df0.webp",
+        "sha256": "5c540a4939f48df0c09fa14b20d06c474cf59d58293cb01c3f3998b1a65ae14a"
+      },
       "displayName": "Jupyter Live Kernel",
       "summary": "Iterative Python via live Jupyter kernel (hamelnb).",
       "categories": ["learning", "data-science"],
@@ -333,6 +381,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-manim-video",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-manim-video-cd500da19083454f.webp",
+        "sha256": "cd500da19083454f5a8567416fd30a918cc08b6a979dbf5b960c914f9ac65dcf"
+      },
       "displayName": "Manim Video",
       "summary": "Manim CE animations: 3Blue1Brown math/algo videos.",
       "categories": ["teaching", "media"],
@@ -360,6 +412,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-maps",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-maps-ad2b9c00533701ab.webp",
+        "sha256": "ad2b9c00533701abfa39c9da5314bf0f7021f36492470f014c961a6543e5177b"
+      },
       "displayName": "Maps",
       "summary": "Geocode, POIs, routes, timezones via OpenStreetMap/OSRM.",
       "categories": ["learning", "research"],
@@ -387,6 +443,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-obsidian",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-obsidian-e4ccc46edbc70905.webp",
+        "sha256": "e4ccc46edbc709057d73b43da77134fb7e6d00b5e684b7ccbe00a40a5e336c23"
+      },
       "displayName": "Obsidian",
       "summary": "Read, search, create, and edit notes in the Obsidian vault.",
       "categories": ["learning", "notes"],
@@ -414,6 +474,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-ocr-and-documents",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-ocr-and-documents-754f99bc92cd951e.webp",
+        "sha256": "754f99bc92cd951ea9bcbaf0c9dc29cef6a9b46c09a292a73ce4c73ebdcde2c8"
+      },
       "displayName": "OCR and Documents",
       "summary": "Extract text from PDFs/scans (pymupdf, marker-pdf).",
       "categories": ["learning", "documents"],
@@ -441,6 +505,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-p5js",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-p5js-182804babc084747.webp",
+        "sha256": "182804babc08474740cac4485dcee4a8684f51dd49e523079325fe03f3ebaf18"
+      },
       "displayName": "p5.js",
       "summary": "p5.js sketches: gen art, shaders, interactive, 3D.",
       "categories": ["learning", "creative-coding"],
@@ -468,6 +536,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-qmd",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-qmd-d5faab86442a65f1.webp",
+        "sha256": "d5faab86442a65f1e038deb2df34292965c6ae6b13e0276168fcca9e89530105"
+      },
       "displayName": "QMD",
       "summary": "Search personal knowledge bases, notes, docs, and meeting transcripts locally using qmd — a hybrid retrieval engine with BM25, vector search, and LLM reranking. Supports CLI and MCP integration.",
       "categories": ["learning", "research"],
@@ -495,6 +567,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-research-paper-writing",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-research-paper-writing-73a0484579448624.webp",
+        "sha256": "73a0484579448624b20b901cbdd9cb544443d5abfd28bc3643c9a8cf6d1a5c03"
+      },
       "displayName": "Research Paper Writing",
       "summary": "Write ML papers for NeurIPS/ICML/ICLR: design→submit.",
       "categories": ["learning", "research"],
@@ -527,6 +603,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-whisper",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-whisper-df5385237107a470.webp",
+        "sha256": "df5385237107a470e23b325ad984ea89d1967f10016d3e4c2bb0364c5d606b64"
+      },
       "displayName": "Whisper",
       "summary": "OpenAI's general-purpose speech recognition model. Supports 99 languages, transcription, translation to English, and language identification. Six model sizes from tiny (39M params) to large (1550M params). Use for speech-to-text, podcast transcription, or multilingual audio processing. Best for robust, multilingual ASR.",
       "categories": ["learning", "media"],
@@ -554,6 +634,10 @@
     },
     {
       "id": "nousresearch-hermes-agent-youtube-content",
+      "icon": {
+        "filename": "buddy-skill-nousresearch-hermes-agent-youtube-content-6a7ee5eb1e016db3.webp",
+        "sha256": "6a7ee5eb1e016db35302a6383d9c86f49ada2791ac89f3c7178f1a33ff018ce6"
+      },
       "displayName": "YouTube Content",
       "summary": "YouTube transcripts to summaries, threads, blogs.",
       "categories": ["learning", "research"],

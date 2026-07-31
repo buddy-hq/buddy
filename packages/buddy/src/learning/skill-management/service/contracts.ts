@@ -10,6 +10,7 @@ export type InstalledSkillInfo = {
   description: string
   displayName: string
   shortDescription: string
+  icon?: string
   location: string
   directory: string
   content: string
@@ -34,6 +35,7 @@ export type SkillLibraryItemView = {
   id: string
   summary: string
   displayName: string
+  icon?: string
   categories: string[]
   tags: string[]
   sourceKind: "github"

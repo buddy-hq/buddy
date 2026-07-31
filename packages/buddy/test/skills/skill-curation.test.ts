@@ -244,13 +244,21 @@ describe("skill curation hardening", () => {
 
   test("requires explicit replacement when overwriting an existing catalog entry", async () => {
     const catalogPath = await tempCatalogPath("buddy-skill-curation")
+    const iconSha256 = "c".repeat(64)
     await fsp.writeFile(
       catalogPath,
       `${JSON.stringify(
         {
           schemaVersion: 1,
           revision: 1,
-          entries: [entryFixture()],
+          entries: [
+            entryFixture({
+              icon: {
+                filename: `buddy-skill-anthropics-skills-pptx-${iconSha256.slice(0, 16)}.webp`,
+                sha256: iconSha256,
+              },
+            }),
+          ],
         },
         null,
         2,
@@ -281,5 +289,6 @@ describe("skill curation hardening", () => {
     const written = parseSkillCatalogDocument(JSON.parse(await fsp.readFile(catalogPath, "utf8")))
     expect(written.revision).toBe(2)
     expect(written.entries[0]?.summary).toBe("Updated summary.")
+    expect(written.entries[0]?.icon?.sha256).toBe(iconSha256)
   })
 })

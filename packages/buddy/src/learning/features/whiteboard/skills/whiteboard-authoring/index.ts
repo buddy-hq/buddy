@@ -7,5 +7,6 @@ export const whiteboardAuthoringSkill = defineBuddySkill({
   presentation: {
     displayName: "Whiteboard Authoring",
     shortDescription: "Create clear editable whiteboards for visual teaching",
+    icon: "buddy-skill-whiteboard-authoring.webp",
   },
 })

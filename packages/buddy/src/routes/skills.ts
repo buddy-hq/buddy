@@ -20,6 +20,7 @@ import {
   createCustomSkill,
   installCuratedLibrarySkill,
   listSkillsCatalog,
+  readCatalogIcon,
   removeCuratedLibrarySkill,
   removeManagedSkill,
   setInstalledSkillAction,
@@ -38,6 +39,7 @@ const installedSkillSchema = z.object({
   description: z.string(),
   displayName: z.string(),
   shortDescription: z.string(),
+  icon: z.string().optional(),
   location: z.string(),
   directory: z.string(),
   content: z.string(),
@@ -55,6 +57,7 @@ const installedSkillSchema = z.object({
 const skillLibraryEntrySchema = z.object({
   id: z.string(),
   displayName: z.string(),
+  icon: z.string().optional(),
   summary: z.string(),
   categories: z.array(z.string()),
   tags: z.array(z.string()),
@@ -92,6 +95,16 @@ const listSkillsQuerySchema = directoryQuerySchema.extend({
   refresh: z.string().optional(),
 })
 
+const skillIconQuerySchema = z.object({
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+})
+
+const skillIconHeaders = {
+  "cache-control": "private, max-age=31536000, immutable",
+  "content-type": "image/webp",
+  "x-content-type-options": "nosniff",
+}
+
 export const SkillsRoutes = new Hono()
   .get(
     "/",
@@ -123,6 +136,41 @@ export const SkillsRoutes = new Hono()
             c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
         }),
       ),
+  )
+  .get(
+    "/library/:skillID/icon",
+    describeRoute({
+      operationId: "skills.library.icon",
+      summary: "Read a verified curated skill icon",
+      responses: {
+        200: {
+          description: "Verified WebP skill icon",
+          content: {
+            "image/webp": { schema: resolver(z.string()) },
+          },
+        },
+        ...routeErrors(400, 403, 404, 500),
+      },
+    }),
+    validator("query", skillIconQuerySchema),
+    validator("param", SkillIDParamSchema),
+    async (c) =>
+      runRouteTask({
+        task: async () => {
+          const icon = await readCatalogIcon(
+            c.req.valid("param").skillID,
+            c.req.valid("query").sha256,
+          )
+          return new Response(Buffer.from(icon.bytes), {
+            headers: {
+              ...skillIconHeaders,
+              etag: `"${icon.sha256}"`,
+            },
+          })
+        },
+        mapError: (error) =>
+          c.json({ error: skillErrorMessage(error) }, installLibrarySkillErrorStatus(error)),
+      }),
   )
   .post(
     "/",

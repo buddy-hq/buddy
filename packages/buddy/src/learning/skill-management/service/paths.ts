@@ -51,6 +51,10 @@ export function libraryCatalogCacheRoot() {
   return path.join(skillArtifactCacheRoot(), "library-catalog")
 }
 
+export function libraryIconCacheRoot() {
+  return path.join(skillArtifactCacheRoot(), "library-icons")
+}
+
 export function systemSkillPackCacheRoot() {
   return path.join(skillArtifactCacheRoot(), "system-skill-pack")
 }

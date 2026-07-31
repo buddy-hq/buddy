@@ -12,6 +12,7 @@ export type {
 export { SkillServiceError } from "./service/contracts"
 export type { InstalledSkillLock, InstalledSkillLockEntry } from "./service/lock"
 export { listSkillsCatalog } from "./service/catalog"
+export { readCatalogIcon } from "./service/catalog-icon-cache"
 export {
   createCustomSkill,
   installCuratedLibrarySkill,

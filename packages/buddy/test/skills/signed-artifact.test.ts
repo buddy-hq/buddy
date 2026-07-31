@@ -160,6 +160,20 @@ describe("signed skill artifact store", () => {
     expect(recovered.source).toBe("remote")
   })
 
+  test("ignores a remote revision lagging behind the trusted bundled revision", async () => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-signed-bundled-ahead-"))
+    const artifactStore = store({
+      cacheRoot: root,
+      bundled: { revision: 2, value: "bundled" },
+      remote: () => ({ revision: 1, value: "remote-lagging" }),
+    })
+
+    const refreshed = await artifactStore.refresh()
+    expect(refreshed.value.value).toBe("bundled")
+    expect(refreshed.source).toBe("bundled")
+    expect(refreshed.syncError).toBeUndefined()
+  })
+
   test("rejects rollback and same-revision replacement while retaining last-known-good", async () => {
     const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-signed-rollback-"))
     let remote = { revision: 2, value: "accepted" }

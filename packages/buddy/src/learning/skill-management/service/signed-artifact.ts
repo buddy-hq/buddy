@@ -179,6 +179,12 @@ function selectActiveResolution<T>(input: {
   })
 }
 
+function clearSyncError<T>(resolution: SignedArtifactResolution<T>): SignedArtifactResolution<T> {
+  const next = { ...resolution }
+  delete next.syncError
+  return next
+}
+
 async function fetchEnvelopeText(fetcher: ArtifactFetch, url: string): Promise<string> {
   const response = await fetcher(url, {
     headers: {
@@ -341,6 +347,13 @@ export function createSignedArtifactStore<T>(options: SignedArtifactStoreOptions
       const state = await readState(cacheRoot)
       const acceptedRevision = Math.max(state?.highestAcceptedRevision ?? 0, current?.revision ?? 0)
       if (verified.resolution.revision < acceptedRevision) {
+        // App releases can ship a newer trusted bundle before the remote artifact is
+        // published. The bundled revision remains active, so remote lag is a no-op,
+        // not a rollback failure. A remote/cache revision rolling back still errors.
+        if (current?.source === "bundled" && verified.resolution.revision < current.revision) {
+          active = clearSyncError(current)
+          return active
+        }
         throw new Error(
           `${options.artifactLabel} revision ${verified.resolution.revision} is older than accepted revision ${acceptedRevision}`,
         )

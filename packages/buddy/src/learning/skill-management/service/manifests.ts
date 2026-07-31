@@ -9,6 +9,7 @@ const DISPLAY_NAME_MIN_LENGTH = 1
 const DISPLAY_NAME_MAX_LENGTH = 64
 const SHORT_DESCRIPTION_MIN_LENGTH = 25
 const SHORT_DESCRIPTION_MAX_LENGTH = 64
+const ICON_MAX_LENGTH = 512
 
 const buddySkillManifestSchema = z.strictObject({
   interface: z.strictObject({
@@ -18,6 +19,7 @@ const buddySkillManifestSchema = z.strictObject({
       .trim()
       .min(SHORT_DESCRIPTION_MIN_LENGTH)
       .max(SHORT_DESCRIPTION_MAX_LENGTH),
+    icon: z.string().trim().min(1).max(ICON_MAX_LENGTH).optional(),
   }),
 })
 
@@ -26,6 +28,7 @@ type BuddySkillManifest = z.infer<typeof buddySkillManifestSchema>
 type ResolvedSkillPresentation = {
   displayName: string
   shortDescription: string
+  icon?: string
 }
 
 function renderBuddySkillManifest(presentation: BuddySkillPresentation): string {
@@ -33,6 +36,7 @@ function renderBuddySkillManifest(presentation: BuddySkillPresentation): string 
     "interface:",
     `  display_name: ${JSON.stringify(presentation.displayName)}`,
     `  short_description: ${JSON.stringify(presentation.shortDescription)}`,
+    ...(presentation.icon ? [`  icon: ${JSON.stringify(presentation.icon)}`] : []),
     "",
   ].join("\n")
 }
@@ -86,6 +90,7 @@ function resolveSkillPresentation(input: {
   return {
     displayName: input.manifest?.interface.display_name ?? input.name,
     shortDescription: input.manifest?.interface.short_description ?? input.description,
+    ...(input.manifest?.interface.icon ? { icon: input.manifest.interface.icon } : {}),
   }
 }
 

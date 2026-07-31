@@ -60,6 +60,7 @@ async function toInstalledSkillInfo(input: {
     description: input.skill.description,
     displayName: presentation.displayName,
     shortDescription: presentation.shortDescription,
+    ...(presentation.icon ? { icon: presentation.icon } : {}),
     location: input.skill.location,
     directory: skillDirectory,
     content: input.skill.content,

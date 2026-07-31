@@ -504,6 +504,8 @@ function runRequiredGates() {
   runCommand("bun", ["fmt"])
   runCommand("bun", ["lint"])
   runCommand("bun", ["typecheck"])
+  runCommand("bun", ["run", "--cwd", "packages/buddy", "test:release-skill-artifacts"])
+  runCommand("bun", ["run", "--cwd", "packages/buddy", "skill:artifacts:build"])
 }
 
 async function waitForRunUrl(version: string, targetSha: string) {

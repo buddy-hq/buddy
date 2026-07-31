@@ -27,6 +27,13 @@ import { allBuddySkills } from "../../runtime/feature-registry"
 import { libraryCatalogArtifactUrl, skillArtifactPublicKey } from "./artifact-config"
 import { createSignedArtifactStore } from "./signed-artifact"
 import { clearSkillPermission, setSkillPermission } from "./permissions"
+import {
+  catalogIconReleaseFilename,
+  catalogIconRoutePath,
+  CATALOG_ICON_SHA256_HEX_LENGTH,
+  isCatalogIconFilename,
+  isCatalogIconSha256,
+} from "./catalog-icon-reference"
 
 const CATALOG_SCHEMA_VERSION = 1
 const CATALOG_FILE_NAME = "catalog.json"
@@ -60,6 +67,16 @@ const skillCatalogEntrySchema = z.object({
     .min(1)
     .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/),
   displayName: z.string().trim().min(1),
+  icon: z
+    .strictObject({
+      filename: z.string().trim().refine(isCatalogIconFilename, "Invalid catalog icon filename"),
+      sha256: z
+        .string()
+        .trim()
+        .length(CATALOG_ICON_SHA256_HEX_LENGTH)
+        .refine(isCatalogIconSha256, "Invalid catalog icon SHA-256"),
+    })
+    .optional(),
   summary: z.string().trim().min(1),
   categories: z.array(z.string().trim().min(1)),
   tags: z.array(z.string().trim().min(1)),
@@ -98,6 +115,12 @@ export function parseSkillCatalogDocument(input: unknown): SkillCatalogDocument 
       throw new Error(`Invalid skill catalog: duplicate entry id "${entry.id}"`)
     }
     ids.add(entry.id)
+    if (
+      entry.icon &&
+      entry.icon.filename !== catalogIconReleaseFilename(entry.id, entry.icon.sha256)
+    ) {
+      throw new Error(`Invalid skill catalog: icon filename does not match skill "${entry.id}"`)
+    }
   }
   return result.data
 }
@@ -117,6 +140,7 @@ function toSkillLibraryItemView(input: {
   return {
     id: input.entry.id,
     displayName: input.entry.displayName,
+    ...(input.entry.icon ? { icon: catalogIconRoutePath(input.entry.id, input.entry.icon) } : {}),
     summary: input.entry.summary,
     categories: input.entry.categories,
     tags: input.entry.tags,

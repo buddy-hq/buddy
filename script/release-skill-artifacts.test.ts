@@ -67,5 +67,20 @@ describe("release skill artifacts", () => {
     expect(source).toContain('if [[ "$INPUT_PUBLISH" == "true" ]]')
     expect(source).not.toContain("actions/upload-artifact")
     expect(source).not.toContain("actions/download-artifact")
+    expect(source).toContain("bun ./script/publish-skill-artifacts.ts")
+  })
+
+  test("runs the signed artifact smoke before a local cut-release dispatch", async () => {
+    const source = await Bun.file(path.join(ROOT_DIRECTORY, "script", "cut-release.ts")).text()
+
+    expect(source).toContain(
+      'runCommand("bun", ["run", "--cwd", "packages/buddy", "test:release-skill-artifacts"])',
+    )
+    expect(source).toContain(
+      'runCommand("bun", ["run", "--cwd", "packages/buddy", "skill:artifacts:build"])',
+    )
+    expect(source).not.toContain(
+      'runCommand("bun", ["run", "--cwd", "packages/buddy", "skill:artifacts:publish"])',
+    )
   })
 })

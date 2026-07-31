@@ -10,6 +10,7 @@ type BuddySkillDefinition = {
 type BuddySkillPresentation = {
   displayName: string
   shortDescription: string
+  icon?: string
 }
 
 type BuddySkill = {
@@ -25,6 +26,8 @@ const DISPLAY_NAME_MIN_LENGTH = 1
 const DISPLAY_NAME_MAX_LENGTH = 64
 const SHORT_DESCRIPTION_MIN_LENGTH = 25
 const SHORT_DESCRIPTION_MAX_LENGTH = 64
+const ICON_MIN_LENGTH = 1
+const ICON_MAX_LENGTH = 512
 
 function parseSkillFrontmatter(content: string): { name: string; description: string } {
   const nameMatch = SKILL_NAME_RE.exec(content)
@@ -90,6 +93,16 @@ function validateSkillPresentation(presentation: BuddySkillPresentation): BuddyS
       minLength: SHORT_DESCRIPTION_MIN_LENGTH,
       maxLength: SHORT_DESCRIPTION_MAX_LENGTH,
     }),
+    ...(presentation.icon
+      ? {
+          icon: validatePresentationField({
+            field: "icon",
+            value: presentation.icon,
+            minLength: ICON_MIN_LENGTH,
+            maxLength: ICON_MAX_LENGTH,
+          }),
+        }
+      : {}),
   }
 }
 
