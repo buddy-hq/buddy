@@ -1,6 +1,15 @@
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
+import { mock } from "bun:test"
 
 GlobalRegistrator.register()
+
+// Packaged skill icons are enumerated with `import.meta.glob`, which only exists
+// inside a Vite build — evaluating that module under the test runtime throws and
+// takes every importer down with it. Tests that assert on icon URLs replace this
+// mock with one of their own.
+mock.module("@/components/skills/skill-icon-assets", () => ({
+  resolveSkillIconURL: () => undefined,
+}))
 
 const originalGetContext = HTMLCanvasElement.prototype.getContext
 

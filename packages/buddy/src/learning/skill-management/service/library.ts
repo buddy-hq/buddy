@@ -133,6 +133,22 @@ export function sourceLabel(source: SkillSourceRef): string {
   return `${source.repo}/${source.path}`
 }
 
+/**
+ * Curated icons live behind the verified-icon route, keyed by catalog id. This
+ * is the one place that mapping is built, so every surface that shows a curated
+ * skill's artwork — the library list, an installed library skill, the composer —
+ * points at the same URL.
+ */
+export function catalogIconRoutePathsByID(
+  catalog: SkillCatalogDocument,
+): ReadonlyMap<string, string> {
+  return new Map(
+    catalog.entries.flatMap((entry) =>
+      entry.icon ? [[entry.id, catalogIconRoutePath(entry.id, entry.icon)] as const] : [],
+    ),
+  )
+}
+
 function toSkillLibraryItemView(input: {
   entry: SkillCatalogEntry
   state: SkillLibraryItemView["state"]

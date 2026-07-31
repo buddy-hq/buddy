@@ -19,6 +19,7 @@ import {
 import {
   createCustomSkill,
   installCuratedLibrarySkill,
+  listSkillPresentations,
   listSkillsCatalog,
   readCatalogIcon,
   removeCuratedLibrarySkill,
@@ -64,6 +65,13 @@ const skillLibraryEntrySchema = z.object({
   sourceKind: z.literal("github"),
   sourceLabel: z.string(),
   state: z.enum(["available", "installed", "update_available", "withdrawn_installed"]),
+})
+
+const skillPresentationSchema = z.object({
+  name: z.string(),
+  displayName: z.string(),
+  shortDescription: z.string(),
+  icon: z.string().optional(),
 })
 
 const skillsCatalogResponseSchema = z.object({
@@ -132,6 +140,31 @@ export const SkillsRoutes = new Hono()
             })
             return c.json(catalog)
           },
+          mapError: (error) =>
+            c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
+        }),
+      ),
+  )
+  .get(
+    "/presentations",
+    describeRoute({
+      operationId: "skills.presentations",
+      summary: "List display name and icon for every visible skill",
+      responses: {
+        200: {
+          description: "Skill presentations",
+          content: {
+            "application/json": { schema: resolver(z.array(skillPresentationSchema)) },
+          },
+        },
+        ...routeErrors(403, 500),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () => c.json(await listSkillPresentations(context.directory)),
           mapError: (error) =>
             c.json({ error: skillErrorMessage(error) }, HTTP_STATUS.INTERNAL_SERVER_ERROR),
         }),

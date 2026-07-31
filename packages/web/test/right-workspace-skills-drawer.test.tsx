@@ -17,6 +17,7 @@ let setPermission: (
 
 mock.module("@/state/skills-actions", () => ({
   loadSkillsCatalog: () => loadCatalog(),
+  loadSkillPresentations: () => Promise.resolve([]),
   installLibrarySkill: (skillID: string) => installSkill(skillID),
   removeLibrarySkill: (skillID: string) => removeSkill(skillID),
   setSkillPermissionAction: (name: string, action: "allow" | "deny") => setPermission(name, action),
@@ -315,6 +316,8 @@ describe("RightWorkspaceSkillsDrawer", () => {
   })
 
   test("keeps per-skill update and removal reachable from the detail dialog", async () => {
+    const presentationQueryKey = ["skills", "presentations", TEST_DIRECTORY] as const
+    queryClient.setQueryData(presentationQueryKey, [])
     await renderDrawer()
     await openDetail("PowerPoint Presentation")
 
@@ -333,6 +336,7 @@ describe("RightWorkspaceSkillsDrawer", () => {
       await flushEffects()
     })
     expect(updateCalls).toEqual(["slides-library"])
+    expect(queryClient.getQueryState(presentationQueryKey)?.isInvalidated).toBe(true)
   })
 
   test("shows a retryable initial load error", async () => {
@@ -431,6 +435,8 @@ describe("RightWorkspaceSkillsDrawer", () => {
   })
 
   test("updates library skills sequentially", async () => {
+    const presentationQueryKey = ["skills", "presentations", TEST_DIRECTORY] as const
+    queryClient.setQueryData(presentationQueryKey, [])
     catalog = {
       ...catalog,
       library: [
@@ -479,5 +485,6 @@ describe("RightWorkspaceSkillsDrawer", () => {
       await flushEffects()
     })
     expect(updateCalls).toEqual(["slides-library", "second-update"])
+    expect(queryClient.getQueryState(presentationQueryKey)?.isInvalidated).toBe(true)
   })
 })

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { language } from "@/context/language"
 import { RESOURCE_LOCAL_SLASH_COMMANDS } from "../../lib/resource-commands"
+import type { SkillPresentationLookup } from "../skills/skill-presentation"
 import {
   filterMentionOptions,
   getMentionMatch,
@@ -120,12 +121,13 @@ type UsePromptComposerViewStateProps = {
     disabled?: boolean
     acceptsImages: boolean
   }>
+  skillPresentation: SkillPresentationLookup
   onSearchFiles?: (query: string) => Promise<MentionableFile[]>
   onRefreshSlashCommands?: () => void
 }
 
 export function usePromptComposerViewState(props: UsePromptComposerViewStateProps) {
-  const { onRefreshSlashCommands, onSearchFiles } = props
+  const { onRefreshSlashCommands, onSearchFiles, skillPresentation } = props
   const [mentionIndex, setMentionIndex] = useState(0)
   const [dismissedMentionKey, setDismissedMentionKey] = useState<string | undefined>(undefined)
   const [slashIndex, setSlashIndex] = useState(0)
@@ -150,7 +152,12 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
       .map((command) => ({
         type: "custom" as const,
         name: command.name,
-        title: command.name,
+        // A skill command is titled by the skill, so the menu says "Analogies"
+        // where the sidebar does — and typing that still finds the row, because
+        // the title is what `filterSlashCommands` searches.
+        title:
+          (command.source === "skill" ? skillPresentation(command.name)?.displayName : undefined) ??
+          command.name,
         description: command.description,
         source: command.source,
       }))
@@ -168,7 +175,7 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
       ...BUILTIN_SLASH_COMMANDS.filter((command) => !customNames.has(command.name.toLowerCase())),
       ...RESOURCE_LOCAL_SLASH_COMMANDS,
     ]
-  }, [props.slashCommands])
+  }, [props.slashCommands, skillPresentation])
 
   const mentionMatch = useMemo(
     () => getMentionMatch(props.draftValue, props.cursorOffset),

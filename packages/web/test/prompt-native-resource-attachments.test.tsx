@@ -12,9 +12,15 @@ import {
 } from "../src/components/prompt/prompt-composer"
 import { createBrowserPlatform, setRuntimePlatform, type Platform } from "../src/context/platform"
 import { flushPromptStorePersistence, usePromptStore } from "../src/state/prompt-store"
+import {
+  createTestQueryClient,
+  seedSkillPresentations,
+  TestQueryClientProvider,
+} from "./query-test-utils"
 
 const TEST_DIRECTORY = "/repo"
 const SPINNER_SETTLE_MS = 175
+let queryClient: ReturnType<typeof createTestQueryClient>
 
 type PendingUpload = {
   resolve: (response: Response) => void
@@ -46,31 +52,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function renderComposer(attachmentsApiRef: RefObject<PromptComposerAttachmentsApi | null>) {
   return (
-    <PromptComposer
-      directory={TEST_DIRECTORY}
-      isBusy={false}
-      personaOptions={[
-        { name: "buddy", label: "Buddy" },
-        { name: "code", label: "Code" },
-      ]}
-      mentionableAgents={[]}
-      mentionableReferences={[]}
-      slashCommands={[]}
-      modelOptions={[{ key: "openai/gpt-5", label: "GPT-5", acceptsImages: true }]}
-      selectedModelAcceptsImages
-      selectedPersona="buddy"
-      selectedModel="openai/gpt-5"
-      thinkingOptions={[{ key: "default", label: "Default" }]}
-      selectedThinking="default"
-      selectorMode="native"
-      onPersonaChange={() => undefined}
-      onModelChange={() => undefined}
-      onThinkingChange={() => undefined}
-      onSubmit={() => undefined}
-      onAbort={() => undefined}
-      onNewSession={() => undefined}
-      attachmentsApiRef={attachmentsApiRef}
-    />
+    <TestQueryClientProvider queryClient={queryClient}>
+      <PromptComposer
+        directory={TEST_DIRECTORY}
+        isBusy={false}
+        personaOptions={[
+          { name: "buddy", label: "Buddy" },
+          { name: "code", label: "Code" },
+        ]}
+        mentionableAgents={[]}
+        mentionableReferences={[]}
+        slashCommands={[]}
+        modelOptions={[{ key: "openai/gpt-5", label: "GPT-5", acceptsImages: true }]}
+        selectedModelAcceptsImages
+        selectedPersona="buddy"
+        selectedModel="openai/gpt-5"
+        thinkingOptions={[{ key: "default", label: "Default" }]}
+        selectedThinking="default"
+        selectorMode="native"
+        onPersonaChange={() => undefined}
+        onModelChange={() => undefined}
+        onThinkingChange={() => undefined}
+        onSubmit={() => undefined}
+        onAbort={() => undefined}
+        onNewSession={() => undefined}
+        attachmentsApiRef={attachmentsApiRef}
+      />
+    </TestQueryClientProvider>
   )
 }
 
@@ -81,6 +89,8 @@ describe("native resource attachment staging", () => {
   beforeEach(() => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     resetStore()
+    queryClient = createTestQueryClient()
+    seedSkillPresentations(queryClient, TEST_DIRECTORY)
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -91,6 +101,7 @@ describe("native resource attachment staging", () => {
       root.unmount()
       await flushEffects()
     })
+    queryClient.clear()
     container.remove()
     resetStore()
     setRuntimePlatform(createBrowserPlatform())

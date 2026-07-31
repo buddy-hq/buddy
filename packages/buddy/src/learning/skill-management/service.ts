@@ -4,6 +4,7 @@ export type {
   SkillLibraryItemState,
   SkillLibraryItemView,
   SkillPermissionSource,
+  SkillPresentationInfo,
   SkillRuleAction,
   SkillScope,
   SkillServiceErrorCode,
@@ -11,7 +12,7 @@ export type {
 } from "./service/contracts"
 export { SkillServiceError } from "./service/contracts"
 export type { InstalledSkillLock, InstalledSkillLockEntry } from "./service/lock"
-export { listSkillsCatalog } from "./service/catalog"
+export { listSkillPresentations, listSkillsCatalog } from "./service/catalog"
 export { readCatalogIcon } from "./service/catalog-icon-cache"
 export {
   createCustomSkill,

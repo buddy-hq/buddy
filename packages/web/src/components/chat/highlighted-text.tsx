@@ -2,6 +2,9 @@ import { useMemo } from "react"
 import { cn } from "@buddy/ui"
 import { isRecord } from "./tools/types"
 import { FileTypeIcon } from "../files/file-type-icon"
+import { SkillIconMark } from "../skills/skill-icon-mark"
+import { useSkillPresentationLookup } from "../skills/skill-presentation"
+import { useDirectoryWorkspaceOptional } from "../directory-chat/directory-workspace-context"
 import { RubiksCube } from "@/icons/app-icons"
 import type { ChatAgentPart, ChatFilePart } from "./utils/part-guards"
 
@@ -73,6 +76,8 @@ function stripMentionPrefix(value: string) {
 const INLINE_REFERENCE_CLASS =
   "mx-1 inline-flex max-w-full items-baseline gap-1 align-baseline font-medium text-text-interactive-base"
 const INLINE_REFERENCE_ICON_CLASS = "relative top-px size-3 shrink-0"
+/** Artwork, not a glyph — a skill's mark needs the extra pixels to read. */
+const INLINE_REFERENCE_SKILL_ICON_CLASS = "relative top-[3px] size-4 shrink-0 rounded-[4px]"
 
 function InlineFileReference({ text }: { text: string }) {
   return (
@@ -87,11 +92,24 @@ function stripCommandPrefix(value: string) {
   return value.startsWith("/") ? value.slice(1) : value
 }
 
+/**
+ * The sent form of a composer skill pill, so a message shows the skill the way
+ * the composer, the slash menu and the sidebar do.
+ */
 function InlineCommandReference({ text }: { text: string }) {
+  const workspace = useDirectoryWorkspaceOptional()
+  const skillPresentation = useSkillPresentationLookup(workspace?.directory)
+  const name = stripCommandPrefix(text)
+  const presentation = skillPresentation(name)
+
   return (
     <span className={INLINE_REFERENCE_CLASS}>
-      <RubiksCube className={INLINE_REFERENCE_ICON_CLASS} />
-      <span className="truncate">{stripCommandPrefix(text)}</span>
+      <SkillIconMark
+        icon={presentation?.icon}
+        className={INLINE_REFERENCE_SKILL_ICON_CLASS}
+        fallback={<RubiksCube className={INLINE_REFERENCE_ICON_CLASS} />}
+      />
+      <span className="truncate">{presentation?.displayName ?? name}</span>
     </span>
   )
 }

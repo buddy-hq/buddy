@@ -25,6 +25,14 @@ export type InstalledSkillInfo = {
   libraryID?: string
 }
 
+/** What a surface needs to draw a skill and nothing more. */
+export type SkillPresentationInfo = {
+  name: string
+  displayName: string
+  shortDescription: string
+  icon?: string
+}
+
 export type SkillLibraryItemState =
   | "available"
   | "installed"

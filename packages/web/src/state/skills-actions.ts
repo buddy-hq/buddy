@@ -5,6 +5,7 @@ import type {
   SkillsLibraryDeleteResponses,
   SkillsLibraryInstallResponses,
   SkillsListResponses,
+  SkillsPresentationsResponses,
   SkillsSettingsPatchResponses,
   SkillsUpdateResponses,
 } from "@buddy/sdk"
@@ -110,6 +111,18 @@ export async function loadSkillsCatalog(
     refresh: options?.refresh ? "1" : undefined,
   })
   return parseSkillsCatalog(requireBuddyData<SkillsListResponses[200]>(result))
+}
+
+export type SkillPresentation = SkillsPresentationsResponses[200][number]
+
+/**
+ * Name, label and artwork for every visible skill. Cheap enough for surfaces
+ * that only draw skills — the slash menu, the composer pill — which have no use
+ * for the full catalog's documents and permission state.
+ */
+export async function loadSkillPresentations(directory?: string) {
+  const result = await getBuddyClient(directory).skills.presentations()
+  return requireBuddyData<SkillsPresentationsResponses[200]>(result)
 }
 
 export async function installLibrarySkill(skillID: string, directory?: string) {

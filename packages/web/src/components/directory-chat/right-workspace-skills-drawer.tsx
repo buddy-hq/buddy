@@ -25,7 +25,11 @@ import {
   type SkillRuleAction,
   type SkillsCatalog,
 } from "@/state/skills-actions"
-import { skillsCatalogQueryOptions } from "@/state/skills-catalog-query"
+import {
+  invalidateSkillPresentationsQuery,
+  invalidateSkillsCatalogQuery,
+  skillsCatalogQueryOptions,
+} from "@/state/skills-catalog-query"
 import {
   isInstalledLibrarySkill,
   skillLibraryAction,
@@ -444,7 +448,10 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
           skillsCatalogQueryOptions(props.directory).queryKey,
           nextCatalog,
         )
-        if (options?.force) setIconRetryToken((token) => token + 1)
+        if (options?.force) {
+          setIconRetryToken((token) => token + 1)
+          await invalidateSkillPresentationsQuery(queryClient, props.directory)
+        }
         if (options?.force && options.showToast !== false) {
           toast.success(language.t("skills.refreshed"))
         }
@@ -501,7 +508,7 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
         await installLibrarySkill(skill.id, props.directory)
         toast.success(mutationSuccessMessage(skill))
       }
-      await refreshCatalog({ showToast: false })
+      await invalidateSkillsCatalogQuery(queryClient, props.directory)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : language.t("skills.requestFailed"))
     } finally {
@@ -526,7 +533,7 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
           failureCount += 1
         }
       }
-      await refreshCatalog({ showToast: false })
+      await invalidateSkillsCatalogQuery(queryClient, props.directory)
       if (failureCount === 0) {
         toast.success(language.t("skills.updateAll.success", { count: updateSkills.length }))
       } else {

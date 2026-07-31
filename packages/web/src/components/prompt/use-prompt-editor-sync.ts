@@ -6,6 +6,7 @@ import {
   renderPromptParts,
 } from "./prompt-parts"
 import { getCursorPosition, setCursorPosition } from "./editor-dom"
+import type { SkillPresentationLookup } from "../skills/skill-presentation"
 import type { PromptComposerPart } from "./prompt-types"
 
 type UsePromptEditorSyncProps = {
@@ -17,11 +18,13 @@ type UsePromptEditorSyncProps = {
     cursor: number
   }
   knownAgents: Set<string>
+  skillPresentation: SkillPresentationLookup
   setCursorOffset: (cursor: number) => void
 }
 
 export function usePromptEditorSync(props: UsePromptEditorSyncProps) {
-  const { draft, editorRef, knownAgents, mirrorInputRef, setCursorOffset } = props
+  const { draft, editorRef, knownAgents, mirrorInputRef, setCursorOffset, skillPresentation } =
+    props
 
   useEffect(() => {
     const editor = editorRef.current
@@ -50,7 +53,7 @@ export function usePromptEditorSync(props: UsePromptEditorSyncProps) {
     }
 
     // Parts genuinely differ (clear after submit, store sync, etc.) — render.
-    renderPromptParts(editor, nextParts)
+    renderPromptParts(editor, nextParts, skillPresentation)
     if (editorFocused) {
       setCursorPosition(editor, nextCursor)
     }
@@ -63,5 +66,6 @@ export function usePromptEditorSync(props: UsePromptEditorSyncProps) {
     knownAgents,
     mirrorInputRef,
     setCursorOffset,
+    skillPresentation,
   ])
 }

@@ -6,6 +6,8 @@ import {
   rubiksCubeIconData,
   type IconSvgElement,
 } from "@/icons/app-icons"
+import { createSkillIconMarkElement } from "../skills/skill-icon-mark"
+import type { SkillPresentationLookup } from "../skills/skill-presentation"
 import { createTextFragment } from "./editor-dom"
 import type { MentionOption } from "./mention-autocomplete"
 import {
@@ -589,6 +591,8 @@ type StructuredPillPart =
 const PROMPT_PILL_CLASS =
   "mx-1 inline-flex max-w-full items-baseline gap-1 align-baseline font-medium text-text-interactive-base"
 const PROMPT_PILL_ICON_CLASS = "relative top-px size-3 shrink-0"
+/** Artwork, not a glyph — a skill's mark needs the extra pixels to read. */
+const PROMPT_PILL_SKILL_ICON_CLASS = "relative top-[3px] size-4 shrink-0 rounded-[4px]"
 
 function isDirectoryPath(path: string) {
   return path.endsWith("/")
@@ -610,13 +614,54 @@ function appendPillIcon(pill: HTMLElement, icon: IconSvgElement) {
 }
 
 /**
+ * A skill pill's contents: the skill's artwork and label when they are known,
+ * the generic skill glyph and the invocation name until then.
+ */
+function fillSkillPill(
+  pill: HTMLElement,
+  name: string,
+  skillPresentation: SkillPresentationLookup | undefined,
+) {
+  const presentation = skillPresentation?.(name)
+  pill.replaceChildren()
+  const fallback = createAppIconElement(rubiksCubeIconData, PROMPT_PILL_ICON_CLASS)
+  const artwork = createSkillIconMarkElement(
+    presentation?.icon,
+    PROMPT_PILL_SKILL_ICON_CLASS,
+    fallback,
+  )
+  pill.appendChild(artwork ?? fallback)
+  appendPillLabel(pill, presentation?.displayName ?? name)
+}
+
+/**
+ * Repaint the skill pills already in the editor. Presentations arrive after the
+ * first render, and a restored draft must not be left showing the placeholder
+ * glyph until its next edit.
+ */
+export function refreshSkillPills(root: HTMLElement, skillPresentation: SkillPresentationLookup) {
+  const pills = root.querySelectorAll<HTMLElement>(`[data-type="${PROMPT_PART_TYPE_SKILL}"]`)
+  for (const pill of pills) {
+    const name = pill.dataset.name
+    if (name) fillSkillPill(pill, name, skillPresentation)
+  }
+}
+
+/**
  * Build the inline contenteditable pill for a structured prompt part. Shared by
  * the full re-render ({@link renderPromptParts}) and the interactive insert path
  * so a mention always looks the same however it enters the editor. `data-serialized`
  * records the pill's logical text so the editor can display a short basename + icon
  * while cursor math still uses the full `@path`.
+ *
+ * `skillPresentation` is how a skill pill gets the label and artwork the rest of
+ * the app shows it with; without it a skill still reads as its invocation name
+ * behind the generic skill glyph.
  */
-export function createPromptPill(part: StructuredPillPart): HTMLSpanElement {
+export function createPromptPill(
+  part: StructuredPillPart,
+  skillPresentation?: SkillPresentationLookup,
+): HTMLSpanElement {
   const pill = document.createElement("span")
   pill.className = PROMPT_PILL_CLASS
   pill.setAttribute("contenteditable", "false")
@@ -631,8 +676,7 @@ export function createPromptPill(part: StructuredPillPart): HTMLSpanElement {
 
   if (part.type === PROMPT_PART_TYPE_SKILL) {
     pill.dataset.name = part.name
-    appendPillIcon(pill, rubiksCubeIconData)
-    appendPillLabel(pill, part.name)
+    fillSkillPill(pill, part.name, skillPresentation)
     return pill
   }
 
@@ -668,7 +712,11 @@ export function promptPartFromMentionOption(option: MentionOption): StructuredPi
   return createWorkspaceFileReferencePart(option.path)
 }
 
-export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]) {
+export function renderPromptParts(
+  root: HTMLElement,
+  parts: PromptComposerPart[],
+  skillPresentation?: SkillPresentationLookup,
+) {
   root.replaceChildren()
 
   for (const part of parts) {
@@ -689,7 +737,7 @@ export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]
       continue
     }
 
-    root.appendChild(createPromptPill(part))
+    root.appendChild(createPromptPill(part, skillPresentation))
   }
 
   const lastPart = parts[parts.length - 1]

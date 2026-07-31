@@ -16,9 +16,15 @@ import {
   PROMPT_STORE_STORAGE_KEY,
   usePromptStore,
 } from "../src/state/prompt-store"
+import {
+  createTestQueryClient,
+  seedSkillPresentations,
+  TestQueryClientProvider,
+} from "./query-test-utils"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_PROMPT = "yeah nice"
+let queryClient: ReturnType<typeof createTestQueryClient>
 
 function resetPromptStore() {
   setRuntimePlatform(createBrowserPlatform())
@@ -49,39 +55,41 @@ function renderPromptComposer(input: {
   accessoryLayout?: Parameters<typeof PromptComposer>[0]["accessoryLayout"]
 }) {
   return (
-    <PromptComposer
-      directory={TEST_DIRECTORY}
-      isBusy={false}
-      personaOptions={[
-        { name: "buddy", label: "Buddy" },
-        { name: "code", label: "Code" },
-      ]}
-      mentionableAgents={[]}
-      mentionableReferences={[]}
-      slashCommands={[]}
-      modelOptions={[
-        {
-          key: "openai/gpt-5",
-          label: "GPT-5",
-          acceptsImages: true,
-        },
-      ]}
-      selectedModelAcceptsImages
-      selectedPersona="buddy"
-      selectedModel="openai/gpt-5"
-      thinkingOptions={[{ key: "default", label: "Default" }]}
-      selectedThinking="default"
-      selectorMode="native"
-      onPersonaChange={() => undefined}
-      onModelChange={() => undefined}
-      onThinkingChange={() => undefined}
-      onSubmit={input.onSubmit}
-      onAbort={() => undefined}
-      onNewSession={() => undefined}
-      compact={input.compact}
-      accessoryLayout={input.accessoryLayout}
-      sessionContextUsage={<span data-testid="session-context" />}
-    />
+    <TestQueryClientProvider queryClient={queryClient}>
+      <PromptComposer
+        directory={TEST_DIRECTORY}
+        isBusy={false}
+        personaOptions={[
+          { name: "buddy", label: "Buddy" },
+          { name: "code", label: "Code" },
+        ]}
+        mentionableAgents={[]}
+        mentionableReferences={[]}
+        slashCommands={[]}
+        modelOptions={[
+          {
+            key: "openai/gpt-5",
+            label: "GPT-5",
+            acceptsImages: true,
+          },
+        ]}
+        selectedModelAcceptsImages
+        selectedPersona="buddy"
+        selectedModel="openai/gpt-5"
+        thinkingOptions={[{ key: "default", label: "Default" }]}
+        selectedThinking="default"
+        selectorMode="native"
+        onPersonaChange={() => undefined}
+        onModelChange={() => undefined}
+        onThinkingChange={() => undefined}
+        onSubmit={input.onSubmit}
+        onAbort={() => undefined}
+        onNewSession={() => undefined}
+        compact={input.compact}
+        accessoryLayout={input.accessoryLayout}
+        sessionContextUsage={<span data-testid="session-context" />}
+      />
+    </TestQueryClientProvider>
   )
 }
 
@@ -92,6 +100,8 @@ describe("prompt composer submit", () => {
   beforeEach(() => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     resetPromptStore()
+    queryClient = createTestQueryClient()
+    seedSkillPresentations(queryClient, TEST_DIRECTORY)
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -102,6 +112,7 @@ describe("prompt composer submit", () => {
       root.unmount()
       await flushEffects()
     })
+    queryClient.clear()
     container.remove()
     resetPromptStore()
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined

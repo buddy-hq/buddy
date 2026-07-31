@@ -20,6 +20,8 @@ import {
   type AppIcon,
 } from "@/icons/app-icons"
 import { FileTypeIcon } from "../../files/file-type-icon"
+import { SkillIconMark } from "../../skills/skill-icon-mark"
+import type { SkillPresentationLookup } from "../../skills/skill-presentation"
 import { language } from "@/context/language"
 import { basename, dirname } from "../../chat/utils/path"
 import type { MentionOption } from "../mention-autocomplete"
@@ -41,6 +43,7 @@ type PromptAutocompleteMenuProps = {
   slashIndex: number
   mentionOptions: MentionOption[]
   mentionIndex: number
+  skillPresentation: SkillPresentationLookup
   onApplySlash: (command: SlashCommandOption) => void
   onApplyMention: (option: MentionOption) => void
   onSetSlashIndex: (index: number) => void
@@ -60,6 +63,8 @@ const HEADER_CLASS =
   "px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.08em] text-text-weakest"
 const STATUS_ROW_CLASS = "flex items-center gap-2 px-2.5 py-2 text-xs text-text-weaker"
 const MENTION_ICON_SIZE = "size-3.5 shrink-0"
+/** Artwork is an object, not a glyph — it needs more room than the line icons beside it. */
+const SKILL_ICON_CLASS = "size-5 rounded-[5px]"
 
 const SLASH_BUILTIN_ICONS: Record<string, AppIcon> = {
   new: SquarePen,
@@ -224,7 +229,15 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                     const active = row.index === props.slashIndex
                     const Icon = slashCommandIcon(command)
                     const badge = slashCommandBadge(command)
-                    const description = command.description ?? command.title
+                    // A skill command is a skill: it shows the skill's own label,
+                    // summary and artwork, not the invocation token and trigger
+                    // text the command carries. The label arrives as `title`, so
+                    // typing what the row says still matches the row.
+                    const presentation =
+                      command.source === "skill" ? props.skillPresentation(command.name) : undefined
+                    const description =
+                      presentation?.shortDescription ?? command.description ?? command.title
+                    const glyph = <Icon className={cn(ICON_CLASS, active && ICON_ACTIVE_CLASS)} />
                     return (
                       <CommandItem
                         key={row.key}
@@ -238,7 +251,15 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                         onMouseDown={(event) => event.preventDefault()}
                         onSelect={() => props.onApplySlash(command)}
                       >
-                        <Icon className={cn(ICON_CLASS, active && ICON_ACTIVE_CLASS)} />
+                        {presentation ? (
+                          <SkillIconMark
+                            icon={presentation.icon}
+                            className={SKILL_ICON_CLASS}
+                            fallback={glyph}
+                          />
+                        ) : (
+                          glyph
+                        )}
                         <span className={cn(PRIMARY_CLASS, active && PRIMARY_ACTIVE_CLASS)}>
                           {command.title ?? `/${command.name}`}
                         </span>

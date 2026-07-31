@@ -2,16 +2,26 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import matter from "gray-matter"
 import { Config } from "@buddy/backend/config"
-import type { InstalledSkillInfo, SkillsCatalog } from "./contracts"
+import type {
+  InstalledSkillInfo,
+  OpenCodeSkill,
+  SkillPresentationInfo,
+  SkillsCatalog,
+} from "./contracts"
 import { readOptionalString } from "./documents"
 import { loadVisibleSkills } from "./discovery"
 import {
+  catalogIconRoutePathsByID,
   listCatalogLibraryItems,
   readSkillCatalogSnapshot,
   reconcileWithdrawnLibrarySkills,
   type SkillCatalogDocument,
 } from "./library"
-import { loadBuddySkillManifest, resolveSkillPresentation } from "./manifests"
+import {
+  loadBuddySkillManifest,
+  resolveSkillPresentation,
+  type ResolvedSkillPresentation,
+} from "./manifests"
 import { managedSkillsRoot, managedSource, resolveSkillScope } from "./paths"
 import {
   enabledAction,
@@ -35,25 +45,55 @@ async function readSkillMetadata(location: string) {
   }
 }
 
-async function toInstalledSkillInfo(input: {
-  skill: Awaited<ReturnType<typeof loadVisibleSkills>>[number]
-  ruleset: ReturnType<typeof skillRuleset>
-}): Promise<InstalledSkillInfo> {
-  const scope = resolveSkillScope(input.skill.location)
-  const permissionRule = resolveSkillPermission(input.skill.name, input.ruleset)
-  const source = managedSource(input.skill.location)
-  const skillDirectory = path.dirname(input.skill.location)
-  const [metadata, manifest] = await Promise.all([
-    readSkillMetadata(input.skill.location),
-    source.source === "system"
-      ? loadBuddySkillManifest(skillDirectory)
-      : Promise.resolve(undefined),
-  ])
+/**
+ * How a skill presents itself, wherever it is shown. A bundled skill names its
+ * artwork in its manifest; a curated one carries the catalog's, addressed by the
+ * verified-icon route. Resolving both here keeps a skill looking like the same
+ * object in the drawer, the slash menu, and the composer.
+ */
+async function resolveSkillDisplay(input: {
+  skill: OpenCodeSkill
+  source: ReturnType<typeof managedSource>
+  catalogIcons: ReadonlyMap<string, string>
+}): Promise<ResolvedSkillPresentation> {
+  const manifest =
+    input.source.source === "system"
+      ? await loadBuddySkillManifest(path.dirname(input.skill.location))
+      : undefined
   const presentation = resolveSkillPresentation({
     name: input.skill.name,
     description: input.skill.description,
     manifest,
   })
+  const catalogIcon = input.source.libraryID
+    ? input.catalogIcons.get(input.source.libraryID)
+    : undefined
+  const icon = catalogIcon ?? presentation.icon
+
+  return {
+    displayName: presentation.displayName,
+    shortDescription: presentation.shortDescription,
+    ...(icon ? { icon } : {}),
+  }
+}
+
+async function toInstalledSkillInfo(input: {
+  skill: OpenCodeSkill
+  ruleset: ReturnType<typeof skillRuleset>
+  catalogIcons: ReadonlyMap<string, string>
+}): Promise<InstalledSkillInfo> {
+  const scope = resolveSkillScope(input.skill.location)
+  const permissionRule = resolveSkillPermission(input.skill.name, input.ruleset)
+  const source = managedSource(input.skill.location)
+  const skillDirectory = path.dirname(input.skill.location)
+  const [metadata, presentation] = await Promise.all([
+    readSkillMetadata(input.skill.location),
+    resolveSkillDisplay({
+      skill: input.skill,
+      source,
+      catalogIcons: input.catalogIcons,
+    }),
+  ])
 
   return {
     name: input.skill.name,
@@ -80,8 +120,13 @@ async function toInstalledSkillInfo(input: {
   }
 }
 
+function sortSkillsByName(skills: OpenCodeSkill[]) {
+  return skills.slice().toSorted((left, right) => left.name.localeCompare(right.name))
+}
+
 async function readInstalledSkillEntries(input: {
   directory: string
+  catalogIcons: ReadonlyMap<string, string>
   refresh?: boolean
 }): Promise<InstalledSkillInfo[]> {
   const [skills, config] = await Promise.all([
@@ -93,13 +138,12 @@ async function readInstalledSkillEntries(input: {
 
   const ruleset = skillRuleset(config)
 
-  const sortedSkills = skills.slice().toSorted((left, right) => left.name.localeCompare(right.name))
-
   return Promise.all(
-    sortedSkills.map((skill) =>
+    sortSkillsByName(skills).map((skill) =>
       toInstalledSkillInfo({
         skill,
         ruleset,
+        catalogIcons: input.catalogIcons,
       }),
     ),
   )
@@ -126,6 +170,7 @@ export async function listSkillsCatalog(
   const [installed, library, globalConfig] = await Promise.all([
     readInstalledSkillEntries({
       directory,
+      catalogIcons: catalogIconRoutePathsByID(catalogSnapshot.document),
       refresh: options?.refresh,
     }),
     readCuratedLibraryEntries(catalogSnapshot.document),
@@ -140,4 +185,38 @@ export async function listSkillsCatalog(
     library: library.entries,
     ...(catalogSnapshot.syncError ? { librarySyncError: catalogSnapshot.syncError } : {}),
   }
+}
+
+/**
+ * Name, label and artwork for every visible skill — nothing else.
+ *
+ * The full catalog carries each skill's whole document plus its permission and
+ * source story, which is the right payload for the drawer and far too much for a
+ * surface that only needs to draw a skill: the slash menu and the composer pill.
+ */
+export async function listSkillPresentations(
+  directory: string,
+): Promise<SkillPresentationInfo[]> {
+  const [skills, catalogSnapshot] = await Promise.all([
+    loadVisibleSkills(directory),
+    readSkillCatalogSnapshot(),
+  ])
+  const catalogIcons = catalogIconRoutePathsByID(catalogSnapshot.document)
+
+  return Promise.all(
+    sortSkillsByName(skills).map(async (skill): Promise<SkillPresentationInfo> => {
+      const presentation = await resolveSkillDisplay({
+        skill,
+        source: managedSource(skill.location),
+        catalogIcons,
+      })
+      const info: SkillPresentationInfo = {
+        name: skill.name,
+        displayName: presentation.displayName,
+        shortDescription: presentation.shortDescription,
+      }
+      if (presentation.icon) info.icon = presentation.icon
+      return info
+    }),
+  )
 }

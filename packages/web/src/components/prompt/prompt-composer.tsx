@@ -80,6 +80,7 @@ import {
   createPromptPill,
   createSkillPart,
   promptPartFromMentionOption,
+  refreshSkillPills,
   renderPromptParts,
   serializePromptAutocompleteValue,
   serializePromptEditorParts,
@@ -105,6 +106,7 @@ import {
   cloneAttachments,
 } from "./attachment-utils"
 import { ImageAttachments } from "./image-attachments"
+import { useSkillPresentationLookup } from "../skills/skill-presentation"
 import { SelectionClip, type SelectionClipData } from "./selection-clip"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
@@ -354,6 +356,7 @@ export function PromptComposer(props: PromptComposerProps) {
     () => getPromptScopeKey(props.directory, props.sessionID),
     [props.directory, props.sessionID],
   )
+  const skillPresentation = useSkillPresentationLookup(props.directory)
   const storeDraft = usePromptStore((state) => getPromptDraft(state, promptKey))
   const [draft, setDraft] = useState(() => storeDraft)
   const draftRef = useRef(draft)
@@ -565,6 +568,7 @@ export function PromptComposer(props: PromptComposerProps) {
     mentionableReferences: props.mentionableReferences,
     slashCommands: props.slashCommands,
     modelOptions: props.modelOptions,
+    skillPresentation,
     onSearchFiles: props.onSearchFiles,
     onRefreshSlashCommands: props.onRefreshSlashCommands,
   })
@@ -608,8 +612,18 @@ export function PromptComposer(props: PromptComposerProps) {
       parts: draftEditorParts,
     },
     knownAgents: viewState.knownAgents,
+    skillPresentation,
     setCursorOffset: setCursorOffsetFromEditorSync,
   })
+
+  // Presentations land after the first paint, and a restored draft's skill pills
+  // are already on screen by then — repaint them where they stand instead of
+  // re-rendering the editor under the caret.
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor) return
+    refreshSkillPills(editor, skillPresentation)
+  }, [skillPresentation])
 
   const previousSelectionContextCountRef = useRef(selectionContextEntries.length)
   const consumedFocusRequestIDRef = useRef(0)
@@ -974,7 +988,7 @@ export function PromptComposer(props: PromptComposerProps) {
   function renderEditorAtCursor(parts: PromptComposerPart[], cursor: number, focus = false) {
     const editor = editorRef.current
     if (!editor) return
-    renderPromptParts(editor, parts)
+    renderPromptParts(editor, parts, skillPresentation)
     if (focus) {
       editor.focus()
     }
@@ -1394,7 +1408,7 @@ export function PromptComposer(props: PromptComposerProps) {
     // picked after a mention doesn't wipe what's already in the composer.
     const node =
       command.source === "skill"
-        ? createPromptPill(createSkillPart(command.name))
+        ? createPromptPill(createSkillPart(command.name), skillPresentation)
         : document.createTextNode(`/${command.name}`)
     applyTriggerSelection("slash", node)
   }
@@ -1649,6 +1663,7 @@ export function PromptComposer(props: PromptComposerProps) {
                       slashIndex={viewState.slashIndex}
                       mentionOptions={viewState.mentionOptions}
                       mentionIndex={viewState.mentionIndex}
+                      skillPresentation={skillPresentation}
                       onApplySlash={applySlash}
                       onApplyMention={applyMention}
                       onSetSlashIndex={viewState.setSlashIndex}
