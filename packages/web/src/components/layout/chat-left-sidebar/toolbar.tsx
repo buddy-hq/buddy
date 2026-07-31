@@ -11,6 +11,7 @@ import {
 } from "@buddy/ui"
 import { PlusIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
+import { SIDEBAR_SECTION_LABEL_INSET_PX } from "./row-geometry"
 import type { OrganizeMode, ShowMode, SortMode } from "./types"
 
 type ChatLeftSidebarToolbarProps = {
@@ -26,7 +27,10 @@ type ChatLeftSidebarToolbarProps = {
 export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
   return (
     <>
-      <div className="flex items-center justify-between px-2 pt-1.5 pb-1 text-text-weaker">
+      <div
+        className="flex items-center justify-between pr-2 pt-1.5 pb-1 text-text-weaker"
+        style={{ paddingLeft: `${SIDEBAR_SECTION_LABEL_INSET_PX}px` }}
+      >
         <p className="text-[13px] font-normal tracking-wide text-icon-base">
           {language.t("sidebar.threads")}
         </p>

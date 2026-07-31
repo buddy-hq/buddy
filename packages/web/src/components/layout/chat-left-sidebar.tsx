@@ -27,6 +27,10 @@ import {
 import { DESKTOP_TITLEBAR_HEIGHT_PX } from "./desktop-titlebar-inset"
 import { ChatLeftSidebarDirectoryList } from "./chat-left-sidebar/directory-list"
 import { ChatLeftSidebarPinnedList } from "./chat-left-sidebar/pinned-list"
+import {
+  SIDEBAR_ROW_LEADING_GAP_PX,
+  SIDEBAR_ROW_PADDING_LEFT_PX,
+} from "./chat-left-sidebar/row-geometry"
 import { GetStartedChats } from "./chat-left-sidebar/get-started-chats"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
@@ -124,12 +128,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const setTeacherStandardsAutoSetupComplete = useUiPreferences(
     (state) => state.setTeacherStandardsAutoSetupComplete,
   )
-  const collapsedDirectories = useUiPreferences(
-    (state) => state.collapsedChatSidebarDirectories,
-  )
-  const setChatSidebarDirectoryOpen = useUiPreferences(
-    (state) => state.setChatSidebarDirectoryOpen,
-  )
+  const collapsedDirectories = useUiPreferences((state) => state.collapsedChatSidebarDirectories)
+  const setChatSidebarDirectoryOpen = useUiPreferences((state) => state.setChatSidebarDirectoryOpen)
   const uiPreferencesHydrated = useUiPreferencesHydrated()
   const onStartGetStartedChat = props.onStartGetStartedChat
 
@@ -322,11 +322,15 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             />
           ) : null}
 
-          <div data-component="left-sidebar-action-area" className="mb-2">
+          <div data-component="left-sidebar-action-area" className="mb-2 px-1.5">
             <button
               type="button"
               data-action="left-sidebar-new-chat"
-              className="group/new-chat flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm font-light text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
+              className="group/new-chat flex w-full items-center rounded-lg pr-2 py-1.5 text-left text-sm font-light text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
+              style={{
+                paddingLeft: `${SIDEBAR_ROW_PADDING_LEFT_PX}px`,
+                gap: `${SIDEBAR_ROW_LEADING_GAP_PX}px`,
+              }}
               onClick={() => props.onNewSession()}
             >
               <SquarePenIcon

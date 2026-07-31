@@ -1,6 +1,7 @@
 import { language } from "@/context/language"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { DirectoryThreadRow } from "./directory-list"
+import { SIDEBAR_ROW_PADDING_LEFT_PX } from "./row-geometry"
 import { buildSessionChildrenByParent } from "./thread-helpers"
 
 type ChatLeftSidebarPinnedListProps = {
@@ -19,13 +20,23 @@ type ChatLeftSidebarPinnedListProps = {
   onRequestArchive: (directory: string, sessionID: string, title: string) => void
 }
 
-// Flush-left inset for Pinned rows — 8px row padding (text starts at 8px, matching Pinned header px-2) with no indentation.
-const PINNED_ROW_PADDING_LEFT_PX = 8
+/**
+ * Everything a pinned row needs from its directory, built once per directory rather
+ * than once per row — these were previously rebuilt inside the render loop, which
+ * cost O(pinned × sessions) per render and handed a fresh identity to every child.
+ */
+type PinnedDirectoryContext = {
+  childrenByParent: Map<string, string[]>
+  sessionsByID: Map<string, SessionInfo>
+  pinnedSet: Set<string>
+  unreadMap: Record<string, true>
+  sessionStatusByID: Record<string, SessionStatusInfo>
+}
 
 type PinnedEntry = {
   directory: string
   session: SessionInfo
-  allSessions: SessionInfo[]
+  context: PinnedDirectoryContext
 }
 
 function getSortTimestamp(session: SessionInfo) {
@@ -40,11 +51,17 @@ function collectPinnedEntries(props: ChatLeftSidebarPinnedListProps): PinnedEntr
     if (pinnedIDs.length === 0) continue
 
     const allSessions = props.sessionsByDirectory[directory] ?? []
-    const sessionsByID = new Map(allSessions.map((session) => [session.id, session]))
+    const context: PinnedDirectoryContext = {
+      childrenByParent: buildSessionChildrenByParent(allSessions),
+      sessionsByID: new Map(allSessions.map((session) => [session.id, session])),
+      pinnedSet: new Set(pinnedIDs),
+      unreadMap: props.unreadByDirectory[directory] ?? {},
+      sessionStatusByID: props.sessionStatusByDirectory[directory] ?? {},
+    }
 
     for (const sessionID of pinnedIDs) {
-      const session = sessionsByID.get(sessionID)
-      if (session) entries.push({ directory, session, allSessions })
+      const session = context.sessionsByID.get(sessionID)
+      if (session) entries.push({ directory, session, context })
     }
   }
 
@@ -57,18 +74,15 @@ export function ChatLeftSidebarPinnedList(props: ChatLeftSidebarPinnedListProps)
   if (entries.length === 0) return null
 
   return (
-    <section data-component="left-sidebar-pinned-list" className="mb-2 space-y-0.5">
-      <p className="px-2 pt-1 pb-1 text-[13px] font-normal tracking-wide text-icon-base">
+    <section data-component="left-sidebar-pinned-list" className="mb-2 space-y-0.5 px-1.5">
+      <p
+        className="pt-1 pb-1 text-[13px] font-normal tracking-wide text-icon-base"
+        style={{ paddingLeft: `${SIDEBAR_ROW_PADDING_LEFT_PX}px` }}
+      >
         {language.t("sidebar.pinned")}
       </p>
-      <div className="flex flex-col space-y-0.5 px-0">
+      <div className="flex flex-col space-y-0.5">
         {entries.map((entry) => {
-          const childrenByParent = buildSessionChildrenByParent(entry.allSessions)
-          const sessionsByID = new Map(entry.allSessions.map((session) => [session.id, session]))
-          const pinnedSet = new Set(props.pinnedByDirectory[entry.directory] ?? [])
-          const unreadMap = props.unreadByDirectory[entry.directory] ?? {}
-          const sessionStatusByID = props.sessionStatusByDirectory[entry.directory] ?? {}
-
           return (
             <DirectoryThreadRow
               key={`pinned:${entry.directory}:${entry.session.id}`}
@@ -76,13 +90,12 @@ export function ChatLeftSidebarPinnedList(props: ChatLeftSidebarPinnedListProps)
               currentDirectory={props.currentDirectory}
               session={entry.session}
               activeSessionID={props.activeSessionID}
-              childrenByParent={childrenByParent}
-              sessionsByID={sessionsByID}
-              sessionStatusByID={sessionStatusByID}
-              pinnedSet={pinnedSet}
-              unreadMap={unreadMap}
+              childrenByParent={entry.context.childrenByParent}
+              sessionsByID={entry.context.sessionsByID}
+              sessionStatusByID={entry.context.sessionStatusByID}
+              pinnedSet={entry.context.pinnedSet}
+              unreadMap={entry.context.unreadMap}
               hidePinBadge
-              basePaddingLeftPx={PINNED_ROW_PADDING_LEFT_PX}
               onSelectSession={(sessionID) => props.onSelectSession(entry.directory, sessionID)}
               onPrefetchSession={
                 props.onPrefetchSession
