@@ -106,6 +106,23 @@ export function isSessionWorking(input: {
   return hasPendingAssistantMessages(input.messages)
 }
 
+export type SessionActivity = "idle" | "working" | "retrying"
+
+/**
+ * Three-way activity for surfaces that distinguish a healthy run from a failing one.
+ * `isSessionWorking` folds retry into a single busy boolean, which is right for
+ * "is anything happening" checks but hides the state a user most needs to see.
+ */
+export function getSessionActivity(input: {
+  info?: SessionInfo
+  status?: SessionStatusInfo
+  messages?: readonly MessageWithParts[]
+}): SessionActivity {
+  if (isSessionStatusRetry(input.status)) return "retrying"
+  if (isSessionWorking(input)) return "working"
+  return "idle"
+}
+
 export function isSessionStatusRetry(
   status: SessionStatusInfo | undefined,
 ): status is Extract<SessionStatusInfo, { type: "retry" }> {
