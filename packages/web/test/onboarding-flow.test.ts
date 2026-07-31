@@ -1,5 +1,6 @@
 import "../happydom"
 import { beforeEach, describe, expect, test } from "bun:test"
+import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
 import {
   CINEMATIC_ONBOARDING_SCENE,
   activateDirectoryForOnboarding,
@@ -508,6 +509,7 @@ describe("ChatGPT Plus onboarding auth", () => {
           })
           calls.push("complete")
         },
+        async cancelProviderOAuth() {},
         onAuthenticated() {
           calls.push("authenticated")
         },
@@ -550,10 +552,122 @@ describe("ChatGPT Plus onboarding auth", () => {
         async authorizeProviderOAuth() {
           throw new Error("Authorization cancelled")
         },
+        async cancelProviderOAuth() {},
         async completeProviderOAuth() {},
         async reloadProviderRuntime() {},
       }),
     ).rejects.toThrow("Authorization cancelled")
+  })
+
+  test("cancels the server-side authorization when the browser wait is aborted", async () => {
+    const abort = new AbortController()
+    let completeStarted: (() => void) | undefined
+    const completeReady = new Promise<void>((resolve) => {
+      completeStarted = resolve
+    })
+    const neverCompletes = new Promise<void>(() => {})
+    let cancelCalls = 0
+
+    const connection = connectChatGptPlusForOnboarding({
+      signal: abort.signal,
+      openLink() {},
+      async loadProviderCatalogSnapshot() {
+        return createCatalog({
+          providers: [
+            createProvider({
+              id: "openai",
+              name: "OpenAI",
+              connected: false,
+              methods: [{ type: "oauth", label: "ChatGPT Pro/Plus (browser)" }],
+            }),
+          ],
+        })
+      },
+      async authorizeProviderOAuth() {
+        return {
+          url: "https://chatgpt.example/auth",
+          method: "auto",
+          instructions: "Complete authorization in your browser.",
+        }
+      },
+      async completeProviderOAuth() {
+        completeStarted?.()
+        await neverCompletes
+      },
+      async cancelProviderOAuth() {
+        cancelCalls += 1
+      },
+      async reloadProviderRuntime() {},
+    }).then(
+      () => undefined,
+      (error: unknown) => error,
+    )
+
+    await completeReady
+    abort.abort()
+
+    await expect(connection).resolves.toEqual(
+      expect.objectContaining({ message: "Sign-in cancelled." }),
+    )
+    expect(cancelCalls).toBe(1)
+  })
+
+  test("cancels an authorization that finishes starting after the user aborts", async () => {
+    const abort = new AbortController()
+    let resolveAuthorization: ((authorization: ProviderAuthAuthorization) => void) | undefined
+    const authorization = new Promise<ProviderAuthAuthorization>((resolve) => {
+      resolveAuthorization = resolve
+    })
+    let browserOpened = false
+    let completeCalled = false
+    let cancelCalls = 0
+
+    const connection = connectChatGptPlusForOnboarding({
+      signal: abort.signal,
+      openLink() {
+        browserOpened = true
+      },
+      async loadProviderCatalogSnapshot() {
+        return createCatalog({
+          providers: [
+            createProvider({
+              id: "openai",
+              name: "OpenAI",
+              connected: false,
+              methods: [{ type: "oauth", label: "ChatGPT Pro/Plus (browser)" }],
+            }),
+          ],
+        })
+      },
+      async authorizeProviderOAuth() {
+        return authorization
+      },
+      async completeProviderOAuth() {
+        completeCalled = true
+      },
+      async cancelProviderOAuth() {
+        cancelCalls += 1
+      },
+      async reloadProviderRuntime() {},
+    }).then(
+      () => undefined,
+      (error: unknown) => error,
+    )
+
+    await Bun.sleep(0)
+    abort.abort()
+    resolveAuthorization?.({
+      url: "https://chatgpt.example/auth",
+      method: "auto",
+      instructions: "Complete authorization in your browser.",
+    })
+
+    await expect(connection).resolves.toEqual(
+      expect.objectContaining({ message: "Sign-in cancelled." }),
+    )
+    expect(cancelCalls).toBe(1)
+    expect(browserOpened).toBe(false)
+    expect(completeCalled).toBe(false)
   })
 
   test("reuses the existing OpenAI connection without restarting OAuth", async () => {
@@ -589,6 +703,7 @@ describe("ChatGPT Plus onboarding auth", () => {
         async completeProviderOAuth() {
           completeCalled = true
         },
+        async cancelProviderOAuth() {},
         async reloadProviderRuntime() {
           reloadCalled = true
         },
@@ -636,6 +751,7 @@ describe("ChatGPT Plus onboarding auth", () => {
       async completeProviderOAuth() {
         calls.push("complete")
       },
+      async cancelProviderOAuth() {},
       async reloadProviderRuntime() {
         calls.push("reload")
       },

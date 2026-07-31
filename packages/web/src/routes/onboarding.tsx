@@ -50,6 +50,7 @@ import {
 import { applyOnboardingModelSelection } from "@/lib/onboarding-model-selection"
 import {
   authorizeProviderOAuth,
+  cancelProviderOAuth,
   completeProviderOAuth,
   formatProviderAuthError,
   reloadProviderRuntime,
@@ -146,7 +147,7 @@ function OnboardingRoute() {
   const [busyChoice, setBusyChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
   const [folderBusy, setFolderBusy] = useState(false)
   const [showFolderRecovery, setShowFolderRecovery] = useState(false)
-  const [authAbort, setAuthAbort] = useState<AbortController | undefined>(undefined)
+  const authAbortRef = useRef<AbortController | undefined>(undefined)
   const [showProviderSelectionStep, setShowProviderSelectionStep] = useState(false)
   const [showPrimaryUseStep, setShowPrimaryUseStep] = useState(true)
   const [primaryUseBusy, setPrimaryUseBusy] = useState(false)
@@ -164,6 +165,13 @@ function OnboardingRoute() {
   })
   const notebookHomeAccess = notebookHomeAccessQuery.data
   const autoContinueHandledRef = useRef(false)
+
+  useEffect(
+    () => () => {
+      authAbortRef.current?.abort()
+    },
+    [],
+  )
 
   useEffect(() => {
     if (finishDestination === undefined) return
@@ -366,27 +374,22 @@ function OnboardingRoute() {
     setBusyChoice(choice)
 
     const abort = new AbortController()
-    setAuthAbort(abort)
+    authAbortRef.current = abort
 
     try {
-      await Promise.race([
-        connectChatGptPlusForOnboarding({
-          openLink: (url) => platform.openLink(url),
-          loadProviderCatalogSnapshot: () =>
-            queryClient.fetchQuery({
-              ...providerCatalogSnapshotQueryOptions(),
-              staleTime: 0,
-            }),
-          authorizeProviderOAuth,
-          completeProviderOAuth,
-          reloadProviderRuntime: () => reloadProviderRuntime(),
-        }),
-        new Promise<void>((_, reject) => {
-          abort.signal.addEventListener("abort", () =>
-            reject(new Error(language.t("routes.onboarding.signInCancelled"))),
-          )
-        }),
-      ])
+      await connectChatGptPlusForOnboarding({
+        openLink: (url) => platform.openLink(url),
+        loadProviderCatalogSnapshot: () =>
+          queryClient.fetchQuery({
+            ...providerCatalogSnapshotQueryOptions(),
+            staleTime: 0,
+          }),
+        authorizeProviderOAuth,
+        cancelProviderOAuth,
+        completeProviderOAuth,
+        reloadProviderRuntime: () => reloadProviderRuntime(),
+        signal: abort.signal,
+      })
 
       setConnectedAuthChoice(choice)
       setAuthChoice(choice)
@@ -401,7 +404,9 @@ function OnboardingRoute() {
       setError(formatProviderAuthError(err, language.t("routes.onboarding.signInFailed")))
     } finally {
       setBusyChoice(undefined)
-      setAuthAbort(undefined)
+      if (authAbortRef.current === abort) {
+        authAbortRef.current = undefined
+      }
     }
   }
 
@@ -530,7 +535,10 @@ function OnboardingRoute() {
         </div>
       </div>
 
-      <AuthOverlay open={busyChoice === "chatgpt_plus"} onCancel={() => authAbort?.abort()} />
+      <AuthOverlay
+        open={busyChoice === "chatgpt_plus"}
+        onCancel={() => authAbortRef.current?.abort()}
+      />
       <StyleTag />
     </div>
   )

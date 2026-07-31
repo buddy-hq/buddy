@@ -17,6 +17,69 @@ const PREFERRED_CHATGPT_ONBOARDING_VARIANT = "high"
 const FALLBACK_CHATGPT_ONBOARDING_MODEL_ID = "gpt-5.6-terra"
 const FALLBACK_CHATGPT_ONBOARDING_VARIANT = "xhigh"
 
+type ProviderOAuthRequest = {
+  providerID: string
+  methodIndex: number
+}
+
+function createSignInCancelledError() {
+  return new Error(language.t("routes.onboarding.signInCancelled"))
+}
+
+async function cancelPendingProviderOAuth(input: {
+  cancelProviderOAuth: (request: { providerID: string }) => Promise<void>
+}) {
+  try {
+    await input.cancelProviderOAuth({ providerID: OPENAI_PROVIDER_ID })
+  } catch {
+    // Cancellation is best-effort because the callback may have settled first.
+  }
+}
+
+async function completeProviderOAuthUntilAborted(input: {
+  completeProviderOAuth: (request: ProviderOAuthRequest) => Promise<void>
+  cancelProviderOAuth: (request: { providerID: string }) => Promise<void>
+  request: ProviderOAuthRequest
+  signal?: AbortSignal
+}) {
+  if (!input.signal) {
+    await input.completeProviderOAuth(input.request)
+    return
+  }
+  const signal = input.signal
+
+  if (signal.aborted) {
+    await cancelPendingProviderOAuth(input)
+    throw createSignInCancelledError()
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false
+
+    function settle(action: () => void) {
+      if (settled) return
+      settled = true
+      signal.removeEventListener("abort", handleAbort)
+      action()
+    }
+
+    function handleAbort() {
+      if (settled) return
+      settled = true
+      signal.removeEventListener("abort", handleAbort)
+      void cancelPendingProviderOAuth(input).then(() => {
+        reject(createSignInCancelledError())
+      })
+    }
+
+    signal.addEventListener("abort", handleAbort, { once: true })
+    void input.completeProviderOAuth(input.request).then(
+      () => settle(resolve),
+      (error: unknown) => settle(() => reject(error)),
+    )
+  })
+}
+
 export const CINEMATIC_ONBOARDING_SCENE = {
   intro: "intro",
   introExit: "intro_exit",
@@ -138,14 +201,15 @@ function resolvePreferredChatGptOnboardingModel(catalog: ProviderCatalogState) {
 export async function connectChatGptPlusForOnboarding(input: {
   openLink: (url: string) => void
   loadProviderCatalogSnapshot: () => Promise<ProviderCatalogState>
-  authorizeProviderOAuth: (request: {
-    providerID: string
-    methodIndex: number
-  }) => Promise<ProviderAuthAuthorization | undefined>
-  completeProviderOAuth: (request: { providerID: string; methodIndex: number }) => Promise<void>
+  authorizeProviderOAuth: (
+    request: ProviderOAuthRequest,
+  ) => Promise<ProviderAuthAuthorization | undefined>
+  completeProviderOAuth: (request: ProviderOAuthRequest) => Promise<void>
+  cancelProviderOAuth: (request: { providerID: string }) => Promise<void>
   reloadProviderRuntime: () => Promise<void>
   forceReconnect?: boolean
   onAuthenticated?: () => void
+  signal?: AbortSignal
 }) {
   let authenticationNotified = false
   function notifyAuthenticated() {
@@ -154,7 +218,10 @@ export async function connectChatGptPlusForOnboarding(input: {
     input.onAuthenticated?.()
   }
 
+  if (input.signal?.aborted) throw createSignInCancelledError()
+
   const catalog = await input.loadProviderCatalogSnapshot()
+  if (input.signal?.aborted) throw createSignInCancelledError()
   const provider = catalog.providers.find((entry) => entry.id === OPENAI_PROVIDER_ID)
   if (!provider) {
     throw new Error(language.t("onboardingFlow.openAiUnavailable"))
@@ -175,6 +242,11 @@ export async function connectChatGptPlusForOnboarding(input: {
     methodIndex,
   })
 
+  if (input.signal?.aborted) {
+    await cancelPendingProviderOAuth(input)
+    throw createSignInCancelledError()
+  }
+
   if (!authorization) {
     throw new Error(language.t("onboardingFlow.startFlowFailed"))
   }
@@ -182,9 +254,14 @@ export async function connectChatGptPlusForOnboarding(input: {
   input.openLink(authorization.url)
 
   if (authorization.method === "auto") {
-    await input.completeProviderOAuth({
-      providerID: OPENAI_PROVIDER_ID,
-      methodIndex,
+    await completeProviderOAuthUntilAborted({
+      completeProviderOAuth: input.completeProviderOAuth,
+      cancelProviderOAuth: input.cancelProviderOAuth,
+      request: {
+        providerID: OPENAI_PROVIDER_ID,
+        methodIndex,
+      },
+      signal: input.signal,
     })
     notifyAuthenticated()
   }

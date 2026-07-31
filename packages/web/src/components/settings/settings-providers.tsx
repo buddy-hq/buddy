@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Badge,
@@ -23,6 +23,7 @@ import { resolveProviderSearchResults } from "@/lib/provider-search"
 import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
 import {
   authorizeProviderOAuth,
+  cancelProviderOAuth,
   completeProviderOAuth,
   formatProviderAuthError,
   reloadProviderRuntime,
@@ -586,7 +587,14 @@ export function ProvidersSettings() {
   const [chatGptWaitingOpen, setChatGptWaitingOpen] = useState(false)
   const [chatGptErrorState, setChatGptError] = useState<string | undefined>(undefined)
   const latestChatGptRequestRef = useRef(0)
-  const dismissedChatGptRequestRef = useRef<number | undefined>(undefined)
+  const chatGptAbortRef = useRef<AbortController | undefined>(undefined)
+
+  useEffect(
+    () => () => {
+      chatGptAbortRef.current?.abort()
+    },
+    [],
+  )
 
   const providersByID = useMemo(
     () => new Map(allProviders.map((provider) => [provider.id, provider])),
@@ -659,7 +667,8 @@ export function ProvidersSettings() {
 
     const requestID = latestChatGptRequestRef.current + 1
     latestChatGptRequestRef.current = requestID
-    dismissedChatGptRequestRef.current = undefined
+    const abort = new AbortController()
+    chatGptAbortRef.current = abort
     setChatGptConnecting(true)
     setChatGptWaitingOpen(true)
     setChatGptError(undefined)
@@ -670,6 +679,7 @@ export function ProvidersSettings() {
         loadProviderCatalogSnapshot: () => loadProviderCatalogSnapshot(),
         authorizeProviderOAuth: ({ providerID, methodIndex }) =>
           authorizeProviderOAuth({ providerID, methodIndex }),
+        cancelProviderOAuth: ({ providerID }) => cancelProviderOAuth({ providerID }),
         completeProviderOAuth: ({ providerID, methodIndex }) =>
           completeProviderOAuth({ providerID, methodIndex }),
         reloadProviderRuntime,
@@ -679,17 +689,20 @@ export function ProvidersSettings() {
             setChatGptWaitingOpen(false)
           }
         },
+        signal: abort.signal,
       })
+      if (latestChatGptRequestRef.current !== requestID) return
       await handleProvidersUpdated()
       setChatGptError(undefined)
     } catch (error) {
-      if (dismissedChatGptRequestRef.current === requestID) {
+      if (abort.signal.aborted || latestChatGptRequestRef.current !== requestID) {
         return
       }
 
       setChatGptError(formatProviderAuthError(error, language.t("routes.onboarding.signInFailed")))
     } finally {
       if (latestChatGptRequestRef.current === requestID) {
+        chatGptAbortRef.current = undefined
         setChatGptConnecting(false)
         setChatGptWaitingOpen(false)
       }
@@ -697,8 +710,8 @@ export function ProvidersSettings() {
   }
 
   function dismissChatGptWaiting() {
-    dismissedChatGptRequestRef.current = latestChatGptRequestRef.current
     setChatGptWaitingOpen(false)
+    chatGptAbortRef.current?.abort()
   }
 
   return (
