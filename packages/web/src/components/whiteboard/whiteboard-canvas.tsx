@@ -7,6 +7,7 @@ import {
   convertToExcalidrawElements,
   Excalidraw,
   FONT_FAMILY,
+  Footer,
   getCommonBounds,
   restore,
   zoomToFitBounds,
@@ -14,8 +15,13 @@ import {
 import type { SceneBounds } from "@excalidraw/excalidraw/element/bounds"
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types"
 import type { AppState, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types"
-import { LinkIcon, Loader2Icon } from "@/icons/app-icons"
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  LayoutPanelBottomIcon,
+  LayoutPanelLeftIcon,
+  LinkIcon,
+  Loader2Icon,
+} from "@/icons/app-icons"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useTheme } from "@/theme"
 import {
   createWhiteboardRenderReport,
@@ -37,6 +43,19 @@ import {
   type WhiteboardLearnerSaveHandler,
   type WhiteboardLearnerSaveSettlement,
 } from "./whiteboard-learner-save"
+import {
+  resolveWhiteboardDensity,
+  WHITEBOARD_COMPACT_DENSITY_CSS,
+  WHITEBOARD_DENSITY_COMFORTABLE,
+  type WhiteboardDensity,
+} from "./whiteboard-density"
+import {
+  WHITEBOARD_PANEL_PLACEMENT_BOTTOM,
+  WHITEBOARD_PANEL_PLACEMENT_CSS,
+} from "./whiteboard-panel-placement"
+import { useWhiteboardPreferences } from "@/state/whiteboard-preferences"
+import { useDirectoryWorkspaceOptional } from "@/components/directory-chat/directory-workspace-context"
+import { BENCH_CHAT_LAYOUT_FLOATING } from "@/lib/bench-targets"
 
 const LEARNER_EDIT_DEBOUNCE_MS = 2_000
 const WHITEBOARD_CANVAS_REFRESH_FRAME_COUNT = 2
@@ -59,15 +78,98 @@ const WHITEBOARD_EXCALIDRAW_UI_OPTIONS = {
   },
 } as const
 
+/** Matches the inset Excalidraw uses for its own bottom-row clusters. */
+const WHITEBOARD_CHROME_EDGE_INSET = "1rem"
+/** Matches the gap Excalidraw leaves between its own zoom and undo clusters. */
+const WHITEBOARD_CHROME_CLUSTER_GAP = "0.75rem"
+/** Mirrors the stock menu's own offset from its trigger, just on the opposite side. */
+const WHITEBOARD_CHROME_MENU_GAP = "0.5rem"
+
 /** Hide stock chrome pieces we do not want on the bench whiteboard. */
 const WHITEBOARD_CANVAS_CSS = `
 [data-component="whiteboard-canvas"] .default-sidebar-trigger {
   display: none !important;
 }
 
-/* Align Buddy share control with the stock top-right chrome slot (where Library sat). */
-[data-component="whiteboard-canvas"] .layer-ui__wrapper__top-right {
-  align-items: flex-start;
+/*
+ * Docked boards park the main menu on the bottom row, hard left, instead of floating it over the
+ * canvas corner. Immersive boards have room to spare and keep Excalidraw's own placement.
+ *
+ * The menu renders through a tunnel into a wrapper Excalidraw gives an inline position:relative.
+ * An inline declaration wins over any selector, so position has to be forced here.
+ *
+ * The offsets are zero on purpose. This wrapper's containing block is .FixedSideContainer_side_top,
+ * which is already inset by --editor-container-padding (1rem) on every side — the same 1rem the
+ * footer applies to itself against the full board. Repeating the inset here would stack the two and
+ * float the menu a full padding above the row, which is exactly what it did.
+ */
+[data-component="whiteboard-canvas"][data-chrome="docked"] .layer-ui__wrapper *:has(> .main-menu-trigger) {
+  position: absolute !important;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  z-index: 4;
+}
+
+/*
+ * Excalidraw opens this menu downward (.excalidraw .dropdown-menu sets top: 100%). From the bottom
+ * row that puts it past the board's edge, where the canvas wrapper's overflow clipping hides it —
+ * so the docked menu has to open upward instead. Immersive keeps the stock downward opening,
+ * because its trigger is still at the top.
+ */
+[data-component="whiteboard-canvas"][data-chrome="docked"] *:has(> .main-menu-trigger) .dropdown-menu {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: ${WHITEBOARD_CHROME_MENU_GAP};
+}
+
+/*
+ * Excalidraw's bottom row starts at the same inset the menu now occupies, so the zoom and undo
+ * clusters have to step aside by exactly the menu's width plus a gap. Without this they stack on
+ * top of each other rather than reading as one row.
+ */
+[data-component="whiteboard-canvas"][data-chrome="docked"] .App-menu_bottom {
+  padding-left: calc(
+    ${WHITEBOARD_CHROME_EDGE_INSET} + var(--lg-button-size) + ${WHITEBOARD_CHROME_CLUSTER_GAP}
+  );
+}
+
+/*
+ * Stock tutorial chrome. The bench board is not a tutorial surface, and the menu hint in
+ * particular renders as a sibling of the main-menu trigger, so it also drags that trigger off the
+ * bottom row once the menu is repositioned.
+ */
+[data-component="whiteboard-canvas"] .HintViewer,
+[data-component="whiteboard-canvas"] .welcome-screen-decor-hint {
+  display: none !important;
+}
+
+/*
+ * Buddy's footer actions borrow the stock undo/redo treatment rather than sitting beside it in a
+ * different one: an island wrapper holding flush segments, sized from Excalidraw's own variables
+ * so they track its theme and density. The leading margin is what separates the two clusters —
+ * .footer-center starts hard against undo/redo with no gap of its own.
+ */
+[data-component="whiteboard-canvas"] [data-component="whiteboard-canvas-actions"] {
+  margin-inline-start: 0.75rem;
+  background-color: var(--island-bg-color);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 0 0 1px var(--color-surface-lowest);
+  overflow: hidden;
+}
+
+[data-component="whiteboard-canvas"] [data-component="whiteboard-canvas-actions"] button {
+  width: var(--lg-button-size);
+  height: var(--lg-button-size);
+  border-radius: 0;
+  background-color: var(--color-surface-low);
+}
+
+[data-component="whiteboard-canvas"] [data-component="whiteboard-canvas-actions"] button svg {
+  width: var(--lg-icon-size);
+  height: var(--lg-icon-size);
 }
 
 /*
@@ -79,7 +181,8 @@ const WHITEBOARD_CANVAS_CSS = `
 [data-component="whiteboard-canvas"] .dropdown-menu .dropdown-menu-group + div {
   display: none !important;
 }
-`
+${WHITEBOARD_COMPACT_DENSITY_CSS}
+${WHITEBOARD_PANEL_PLACEMENT_CSS}`
 
 let whiteboardFontsReadyPromise: Promise<void> | undefined
 
@@ -218,6 +321,12 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   const onSaveSettlerChange = props.onSaveSettlerChange
   const [fontsReady, setFontsReady] = useState(false)
   const [canvasSettled, setCanvasSettled] = useState(false)
+  const [density, setDensity] = useState<WhiteboardDensity>(WHITEBOARD_DENSITY_COMFORTABLE)
+  const workspace = useDirectoryWorkspaceOptional()
+  const immersive = workspace?.projection.bench.mode === BENCH_CHAT_LAYOUT_FLOATING
+  const panelPlacement = useWhiteboardPreferences((state) => state.panelPlacement)
+  const togglePanelPlacement = useWhiteboardPreferences((state) => state.togglePanelPlacement)
+  const rootRef = useRef<HTMLDivElement>(null)
   const apiRef = useRef<ExcalidrawImperativeAPI>()
   const autosaveReadyRef = useRef(false)
   const baselineRef = useRef("")
@@ -587,34 +696,95 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
     [],
   )
 
+  /**
+   * Excalidraw's chrome is a fixed pixel size, so how crowded a board looks depends entirely on the
+   * width the Bench handed it. Measure that width directly rather than inferring it from the
+   * docked/floating layout mode, which the resizable panel makes an unreliable stand-in.
+   */
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+
+    const updateDensity = () => {
+      const nextDensity = resolveWhiteboardDensity(root.offsetWidth)
+      setDensity((current) => (current === nextDensity ? current : nextDensity))
+    }
+
+    updateDensity()
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateDensity)
+      return () => window.removeEventListener("resize", updateDensity)
+    }
+
+    const observer = new ResizeObserver(updateDensity)
+    observer.observe(root)
+    return () => observer.disconnect()
+  }, [])
+
   const shareDisabled = props.shareAction?.disabled
   const shareIsSharing = props.shareAction?.isSharing
   const onShare = props.shareAction?.onShare
-  const renderTopRightUI = useCallback(() => {
-    if (!onShare) return null
-    return (
-      <div data-component="whiteboard-share-action" className="pointer-events-auto">
-        <Button
-          type="button"
-          size="icon-sm"
-          variant="secondary"
-          disabled={Boolean(shareDisabled)}
-          aria-label={shareIsSharing ? "Sharing board" : "Share board"}
-          title="Upload the encrypted board to excalidraw.com and open the share link"
-          onClick={onShare}
-        >
-          {shareIsSharing ? (
-            <Loader2Icon className="size-4 animate-spin" aria-hidden />
-          ) : (
-            <LinkIcon className="size-4" aria-hidden />
-          )}
-        </Button>
-      </div>
-    )
-  }, [onShare, shareDisabled, shareIsSharing])
+  const panelAtBottom = panelPlacement === WHITEBOARD_PANEL_PLACEMENT_BOTTOM
+
+  /** Rendered through Excalidraw's Footer slot so these sit in the bottom bar beside undo/redo. */
+  const boardActions = (
+    <div
+      data-component="whiteboard-canvas-actions"
+      className="pointer-events-auto flex items-center"
+    >
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="secondary"
+        aria-pressed={panelAtBottom}
+        aria-label={
+          panelAtBottom ? "Dock properties panel left" : "Dock properties panel along the bottom"
+        }
+        title={
+          panelAtBottom
+            ? "Properties are docked along the bottom. Click to move them back to the left."
+            : "Properties are docked on the left. Click to move them along the bottom."
+        }
+        onClick={togglePanelPlacement}
+      >
+        {panelAtBottom ? (
+          <LayoutPanelBottomIcon className="size-4" aria-hidden />
+        ) : (
+          <LayoutPanelLeftIcon className="size-4" aria-hidden />
+        )}
+      </Button>
+      {onShare ? (
+        <div data-component="whiteboard-share-action">
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="secondary"
+            disabled={Boolean(shareDisabled)}
+            aria-label={shareIsSharing ? "Sharing board" : "Share board"}
+            title="Upload the encrypted board to excalidraw.com and open the share link"
+            onClick={onShare}
+          >
+            {shareIsSharing ? (
+              <Loader2Icon className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <LinkIcon className="size-4" aria-hidden />
+            )}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
 
   return (
-    <div data-component="whiteboard-canvas" className="relative h-full w-full overflow-hidden">
+    <div
+      ref={rootRef}
+      data-component="whiteboard-canvas"
+      data-density={density}
+      data-panel-placement={panelPlacement}
+      data-chrome={immersive ? "immersive" : "docked"}
+      className="relative h-full w-full overflow-hidden"
+    >
       <style>{WHITEBOARD_CANVAS_CSS}</style>
       {!fontsReady || !canvasSettled ? <WhiteboardCanvasSettlingCover /> : null}
       {conversion.warning ? (
@@ -631,8 +801,16 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
             theme={mode}
             viewModeEnabled={props.readOnly}
             UIOptions={WHITEBOARD_EXCALIDRAW_UI_OPTIONS}
-            renderTopRightUI={renderTopRightUI}
-          />
+            /*
+             * The Footer slot only has an outlet on Excalidraw's desktop branch; below its mobile
+             * breakpoint it renders MobileMenu, which never mounts that tunnel. Serving the mobile
+             * branch here keeps share and the placement toggle reachable on a narrow board, and
+             * the isMobile guard is what stops them rendering twice on desktop.
+             */
+            renderTopRightUI={(isMobile) => (isMobile ? boardActions : null)}
+          >
+            <Footer>{boardActions}</Footer>
+          </Excalidraw>
         </div>
       ) : null}
     </div>

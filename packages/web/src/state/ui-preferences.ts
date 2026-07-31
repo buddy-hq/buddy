@@ -12,6 +12,7 @@ const DEFAULT_PROJECT_FILE_TREE_OPEN = false
 type PersistedUiPreferences = {
   pinnedByDirectory?: Record<string, string[]>
   unreadByDirectory?: Record<string, Record<string, true>>
+  collapsedChatSidebarDirectories?: Record<string, true>
   leftSidebarOpen?: boolean
   leftSidebarWidth?: number
   chatLeftSidebarWidth?: number
@@ -35,6 +36,7 @@ function readLegacyLeftSidebarWidth(state: PersistedUiPreferences | undefined) {
 export type UiPreferencesStore = {
   pinnedByDirectory: Record<string, string[]>
   unreadByDirectory: Record<string, Record<string, true>>
+  collapsedChatSidebarDirectories: Record<string, true>
   leftSidebarOpen: boolean
   chatLeftSidebarWidth: number
   settingsSidebarWidth: number
@@ -46,6 +48,7 @@ export type UiPreferencesStore = {
   clearUnread: (directory: string, sessionID: string) => void
   isUnread: (directory: string, sessionID: string) => boolean
   clearDirectorySessionState: (directory: string, sessionID: string) => void
+  setChatSidebarDirectoryOpen: (directory: string, open: boolean) => void
   setLeftSidebarOpen: (open: boolean) => void
   setChatLeftSidebarWidth: (width: number) => void
   setSettingsSidebarWidth: (width: number) => void
@@ -117,19 +120,31 @@ export const useUiPreferences = create<UiPreferencesStore>()(
 
       const layoutSlice: Pick<
         UiPreferencesStore,
+        | "collapsedChatSidebarDirectories"
         | "leftSidebarOpen"
         | "chatLeftSidebarWidth"
         | "settingsSidebarWidth"
         | "projectFileTreeOpen"
+        | "setChatSidebarDirectoryOpen"
         | "setLeftSidebarOpen"
         | "setChatLeftSidebarWidth"
         | "setSettingsSidebarWidth"
         | "setProjectFileTreeOpen"
       > = {
+        collapsedChatSidebarDirectories: {},
         leftSidebarOpen: true,
         chatLeftSidebarWidth: 280,
         settingsSidebarWidth: 260,
         projectFileTreeOpen: DEFAULT_PROJECT_FILE_TREE_OPEN,
+        setChatSidebarDirectoryOpen(directory, open) {
+          set((state) => {
+            if (open) {
+              delete state.collapsedChatSidebarDirectories[directory]
+            } else {
+              state.collapsedChatSidebarDirectories[directory] = true
+            }
+          })
+        },
         setLeftSidebarOpen(open) {
           set((state) => {
             state.leftSidebarOpen = open
@@ -172,7 +187,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 18,
+      version: 19,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = isPersistedUiPreferences(persistedState) ? persistedState : undefined
@@ -180,6 +195,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         return {
           pinnedByDirectory: state?.pinnedByDirectory ?? {},
           unreadByDirectory: state?.unreadByDirectory ?? {},
+          collapsedChatSidebarDirectories: state?.collapsedChatSidebarDirectories ?? {},
           leftSidebarOpen: state?.leftSidebarOpen ?? true,
           chatLeftSidebarWidth: state?.chatLeftSidebarWidth ?? legacyLeftSidebarWidth,
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
@@ -191,6 +207,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         return {
           pinnedByDirectory: state.pinnedByDirectory,
           unreadByDirectory: state.unreadByDirectory,
+          collapsedChatSidebarDirectories: state.collapsedChatSidebarDirectories,
           leftSidebarOpen: state.leftSidebarOpen,
           chatLeftSidebarWidth: state.chatLeftSidebarWidth,
           settingsSidebarWidth: state.settingsSidebarWidth,

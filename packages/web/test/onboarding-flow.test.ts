@@ -81,11 +81,12 @@ function createProvider(input: {
 function createCatalog(input: {
   providers: ProviderInfo[]
   default?: Record<string, string>
+  openAIModelAvailability?: ProviderCatalogState["openAIModelAvailability"]
 }): ProviderCatalogState {
   return {
     providers: input.providers,
     default: input.default ?? {},
-    openAIModelAvailability: { status: "not_connected" },
+    openAIModelAvailability: input.openAIModelAvailability ?? { status: "not_connected" },
   }
 }
 
@@ -750,6 +751,173 @@ describe("ChatGPT Plus onboarding auth", () => {
 })
 
 describe("notebook onboarding configuration", () => {
+  test("prefers GPT-5.6 Sol with high reasoning when the account catalog is ready", async () => {
+    const sol = createModel("gpt-5.6-sol", "GPT-5.6 Sol")
+    sol.variants = ["medium", "high", "xhigh"]
+    const terra = createModel("gpt-5.6-terra", "GPT-5.6 Terra")
+    terra.variants = ["medium", "high", "xhigh"]
+
+    await expect(
+      configureNotebookForOnboarding({
+        authChoice: "chatgpt_plus",
+        async prepareNotebook() {
+          return "/repo"
+        },
+        async loadProviderCatalog() {
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "openai",
+                name: "OpenAI",
+                connected: true,
+                models: [sol, terra],
+              }),
+            ],
+            default: { openai: "gpt-5.4" },
+            openAIModelAvailability: {
+              status: "ready",
+              modelIDs: ["gpt-5.6-sol", "gpt-5.6-terra"],
+              fetchedAt: "2026-07-29T00:00:00.000Z",
+              refreshing: false,
+            },
+          })
+        },
+      }),
+    ).resolves.toEqual({
+      directory: "/repo",
+      model: "openai/gpt-5.6-sol",
+      variant: "high",
+    })
+  })
+
+  test("falls back to GPT-5.6 Terra with extra-high reasoning when Sol is unavailable", async () => {
+    const terra = createModel("gpt-5.6-terra", "GPT-5.6 Terra")
+    terra.variants = ["medium", "high", "xhigh"]
+
+    await expect(
+      configureNotebookForOnboarding({
+        authChoice: "chatgpt_plus",
+        async prepareNotebook() {
+          return "/repo"
+        },
+        async loadProviderCatalog() {
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "openai",
+                name: "OpenAI",
+                connected: true,
+                models: [terra],
+              }),
+            ],
+            default: { openai: "gpt-5.4" },
+            openAIModelAvailability: {
+              status: "ready",
+              modelIDs: ["gpt-5.6-terra"],
+              fetchedAt: "2026-07-29T00:00:00.000Z",
+              refreshing: false,
+            },
+          })
+        },
+      }),
+    ).resolves.toEqual({
+      directory: "/repo",
+      model: "openai/gpt-5.6-terra",
+      variant: "xhigh",
+    })
+  })
+
+  test("refreshes account availability before selecting Sol", async () => {
+    const sol = createModel("gpt-5.6-sol", "GPT-5.6 Sol")
+    sol.variants = ["high"]
+    let catalogLoads = 0
+    const calls: string[] = []
+
+    await expect(
+      configureNotebookForOnboarding({
+        authChoice: "chatgpt_plus",
+        async prepareNotebook() {
+          return "/repo"
+        },
+        async loadProviderCatalog() {
+          calls.push("load")
+          catalogLoads += 1
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "openai",
+                name: "OpenAI",
+                connected: true,
+                models: [sol],
+              }),
+            ],
+            default: { openai: "gpt-5.4" },
+            openAIModelAvailability:
+              catalogLoads === 1
+                ? { status: "loading" }
+                : {
+                    status: "ready",
+                    modelIDs: ["gpt-5.6-sol"],
+                    fetchedAt: "2026-07-29T00:00:00.000Z",
+                    refreshing: false,
+                  },
+          })
+        },
+        async refreshOpenAIModelAvailability() {
+          calls.push("refresh")
+          return {
+            status: "ready",
+            modelIDs: ["gpt-5.6-sol"],
+            fetchedAt: "2026-07-29T00:00:00.000Z",
+            refreshing: false,
+          }
+        },
+      }),
+    ).resolves.toEqual({
+      directory: "/repo",
+      model: "openai/gpt-5.6-sol",
+      variant: "high",
+    })
+    expect(calls).toEqual(["load", "refresh", "load"])
+  })
+
+  test("uses Terra when account availability remains unready", async () => {
+    const sol = createModel("gpt-5.6-sol", "GPT-5.6 Sol")
+    sol.variants = ["high"]
+    const terra = createModel("gpt-5.6-terra", "GPT-5.6 Terra")
+    terra.variants = ["xhigh"]
+
+    await expect(
+      configureNotebookForOnboarding({
+        authChoice: "chatgpt_plus",
+        async prepareNotebook() {
+          return "/repo"
+        },
+        async loadProviderCatalog() {
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "openai",
+                name: "OpenAI",
+                connected: true,
+                models: [sol, terra],
+              }),
+            ],
+            default: { openai: "gpt-5.4" },
+            openAIModelAvailability: { status: "loading" },
+          })
+        },
+        async refreshOpenAIModelAvailability() {
+          return { status: "error" }
+        },
+      }),
+    ).resolves.toEqual({
+      directory: "/repo",
+      model: "openai/gpt-5.6-terra",
+      variant: "xhigh",
+    })
+  })
+
   test("returns the connected OpenAI default model after folder pick without writing project config", async () => {
     const PREPARED_DIRECTORY = "/repo" as const
 

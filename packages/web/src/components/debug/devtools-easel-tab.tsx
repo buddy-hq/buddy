@@ -54,6 +54,7 @@ import { ErrorSystemRedesignEasel } from "./easel/error-system-redesign"
 import { ErrorCardPreviewEasel } from "./easel/error-card-preview"
 import { TokenCounterMeterEasel } from "./easel/token-counter-meter"
 import { ObjectRowLanguageEasel } from "./easel/object-row-language"
+import { SidebarAlignmentRedesignEasel } from "./easel/sidebar-alignment-redesign"
 import { ThemeSelectors } from "./theme-selectors"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
@@ -68,6 +69,7 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "sidebar-alignment-redesign"
   | "whiteboard-opening-lottie"
   | "object-row-language"
   | "token-counter-meter"
@@ -91,6 +93,12 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "sidebar-alignment-redesign",
+    label: "Left sidebar · alignment + status",
+    subtitle:
+      "Four text baselines collapse to one · status dot becomes a real layout slot · retry stops impersonating busy",
+  },
   {
     id: "whiteboard-opening-lottie",
     label: "Whiteboard opening · diagram assembling",
@@ -1069,7 +1077,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("object-row-language")
+  const [prototype, setPrototype] = useState<EaselPrototype>("sidebar-alignment-redesign")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1235,6 +1243,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             prototype === "error-system-redesign" ||
             prototype === "error-card-preview" ||
             prototype === "token-counter-meter" ||
+            prototype === "sidebar-alignment-redesign" ||
             prototype === "object-row-language"
             ? "items-stretch justify-stretch bg-background-base p-0"
             : "items-center justify-center bg-surface-inset-base p-3",
@@ -1419,6 +1428,14 @@ export function DevToolsEaselTab(props: { directory?: string }) {
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
               <TokenCounterMeterEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "sidebar-alignment-redesign" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <SidebarAlignmentRedesignEasel />
             </div>
           </div>
         ) : null}

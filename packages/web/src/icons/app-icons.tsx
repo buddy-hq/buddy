@@ -78,6 +78,7 @@ import {
   Layers01Icon as Layers01IconData,
   Layers02Icon as Layers02IconData,
   Layout01Icon as Layout01IconData,
+  LayoutBottomIcon as LayoutBottomIconData,
   LayoutLeftIcon as LayoutLeftIconData,
   LayoutTopIcon as LayoutTopIconData,
   LeftToRightListBulletIcon as LeftToRightListBulletIconData,
@@ -356,6 +357,7 @@ export const LaptopIcon = createIcon(LaptopIconData, "LaptopIcon")
 export const Kanban = createIcon(KanbanIconData, "Kanban")
 export const Layers = createIcon(Layers01IconData, "Layers")
 export const Layers3Icon = createIcon(Layers02IconData, "Layers3Icon")
+export const LayoutPanelBottomIcon = createIcon(LayoutBottomIconData, "LayoutPanelBottomIcon")
 export const LayoutPanelLeftIcon = createIcon(LayoutLeftIconData, "LayoutPanelLeftIcon")
 export const LayoutTemplateIcon = createIcon(Layout01IconData, "LayoutTemplateIcon")
 export const Lightbulb = createIcon(BulbIconData, "Lightbulb")

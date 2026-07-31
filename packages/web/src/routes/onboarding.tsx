@@ -84,6 +84,7 @@ import {
   personalizationSettingsQueryOptions,
   setPersonalizationSettingsQueryData,
 } from "@/state/personalization-settings-query"
+import { refreshOpenAIModelAvailability } from "@/state/openai-usage-query"
 import {
   EMPTY_PERSONALIZATION_SETTINGS,
   type PrimaryUse,
@@ -380,6 +381,7 @@ function OnboardingRoute() {
           return openInboxNotebook()
         },
         loadProviderCatalog,
+        refreshOpenAIModelAvailability,
       })
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       if (savedNotebookHome) {
@@ -491,6 +493,7 @@ function OnboardingRoute() {
         authChoice: choice,
         prepareNotebook: async () => existingDirectory,
         loadProviderCatalog,
+        refreshOpenAIModelAvailability,
       })
 
       applyOnboardingModelSelection(result)

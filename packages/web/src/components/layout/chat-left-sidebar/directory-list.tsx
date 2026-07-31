@@ -40,7 +40,7 @@ import obsidianIconUrl from "@/assets/obsidian-icon.svg"
 import { formatSessionTitle } from "@/lib/session-title"
 import { collectSessionFamilyIDs } from "@/lib/session-family"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
-import { isSessionWorking } from "@/state/session-status"
+import { getSessionActivity, type SessionActivity } from "@/state/session-status"
 import { obsidianVaultProfileQueryOptions } from "@/state/obsidian-vault-query"
 import { getFilename } from "../sidebar-helpers"
 import {
@@ -48,7 +48,15 @@ import {
   // formatThreadAge,
   parseSubagentSession,
   ThreadStatusIndicator,
+  type ThreadStatus,
 } from "./thread-helpers"
+import {
+  SIDEBAR_ROW_CHILD_INDENT_PX,
+  SIDEBAR_ROW_LABEL_INSET_PX,
+  SIDEBAR_ROW_LEADING_GAP_PX,
+  SIDEBAR_ROW_LEADING_SLOT_PX,
+  SIDEBAR_ROW_PADDING_LEFT_PX,
+} from "./row-geometry"
 import type { DirectoryGroup, DropPosition, OrganizeMode } from "./types"
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 
@@ -131,20 +139,10 @@ type DirectoryThreadRowProps = {
   depth?: number
   /** Skip the pin badge — redundant when the row already lives in a dedicated Pinned section. */
   hidePinBadge?: boolean
-  /** Override the notebook-derived left inset — used by the Pinned section to render flush-left rows. */
-  basePaddingLeftPx?: number
 }
 
 const COLLAPSED_COUNT = 10
 const QUICK_CHAT_COLLAPSED_COUNT = 3
-// Keep thread title inset in sync with notebook header (list px-1.5 + button px-1 + icon + gap-2).
-const NOTEBOOK_HEADER_BUTTON_PADDING_X_PX = 4
-const NOTEBOOK_HEADER_ICON_SIZE_PX = 14
-const NOTEBOOK_HEADER_ICON_GAP_PX = 8
-const THREAD_ROW_PADDING_LEFT_PX =
-  NOTEBOOK_HEADER_BUTTON_PADDING_X_PX + NOTEBOOK_HEADER_ICON_SIZE_PX + NOTEBOOK_HEADER_ICON_GAP_PX
-const THREAD_CHILD_INDENT_PX = 10
-const THREAD_STATUS_OFFSET_PX = 6
 // Maximum number of subagent child rows visible before the "show more" button appears
 const MAX_VISIBLE_SUBAGENTS = 5
 const SESSION_PREFETCH_HOVER_DELAY_MS = 120
@@ -171,6 +169,29 @@ function getSubagentToneClass(agent: string) {
 
 function isSessionInfo(value: SessionInfo | undefined): value is SessionInfo {
   return value !== undefined
+}
+
+/**
+ * A row reports the liveliest state anywhere in its session family, so a parent
+ * surfaces a subagent that is working or failing. Retry wins outright.
+ */
+function collectFamilyActivity(
+  familyIDs: string[],
+  sessionsByID: Map<string, SessionInfo>,
+  sessionStatusByID: Record<string, SessionStatusInfo>,
+): SessionActivity {
+  let working = false
+
+  for (const id of familyIDs) {
+    const activity = getSessionActivity({
+      info: sessionsByID.get(id),
+      status: sessionStatusByID[id],
+    })
+    if (activity === "retrying") return "retrying"
+    if (activity === "working") working = true
+  }
+
+  return working ? "working" : "idle"
 }
 
 // ---------------------------------------------------------------------------
@@ -466,7 +487,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   <button
                     type="button"
                     className="group/new-thread-btn flex w-full items-center gap-2 rounded-lg py-1.5 pr-2.5 text-xs font-light text-text-weaker hover:bg-surface-raised-base-hover hover:text-text-base transition active:scale-[0.97]"
-                    style={{ paddingLeft: `${THREAD_ROW_PADDING_LEFT_PX}px` }}
+                    style={{ paddingLeft: `${SIDEBAR_ROW_LABEL_INSET_PX}px` }}
                     onClick={(event) => {
                       event.preventDefault()
                       event.stopPropagation()
@@ -531,7 +552,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               {props.group.sessions.length === 0 ? (
                 <p
                   className="py-1 text-xs font-light text-icon-base select-none"
-                  style={{ paddingLeft: `${THREAD_ROW_PADDING_LEFT_PX}px` }}
+                  style={{ paddingLeft: `${SIDEBAR_ROW_LABEL_INSET_PX}px` }}
                 >
                   {language.t("sidebar.noThreads")}
                 </p>
@@ -563,7 +584,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   <button
                     type="button"
                     className="relative w-full py-1 pr-2.5 text-left text-[10px] text-text-weaker hover:text-text-base"
-                    style={{ paddingLeft: `${THREAD_ROW_PADDING_LEFT_PX}px` }}
+                    style={{ paddingLeft: `${SIDEBAR_ROW_LABEL_INSET_PX}px` }}
                     onClick={props.onToggleExpanded}
                   >
                     {props.expanded
@@ -596,28 +617,24 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
     props.directory === props.currentDirectory &&
     !!props.activeSessionID &&
     familyIDs.includes(props.activeSessionID)
-  const busy = familyIDs.some((id) =>
-    isSessionWorking({
-      info: props.sessionsByID.get(id),
-      status: props.sessionStatusByID[id],
-    }),
+  const familyActivity = collectFamilyActivity(
+    familyIDs,
+    props.sessionsByID,
+    props.sessionStatusByID,
   )
   const pinned = familyIDs.some((id) => props.pinnedSet.has(id))
   const unread = !!props.unreadMap[props.session.id]
-  const threadStatus = busy ? "busy" : unread ? "unread" : "idle"
+  // One slot means one state wins. A failing run outranks a healthy one, and both
+  // outrank unread — live status is the thing you need to see first.
+  const threadStatus: ThreadStatus =
+    familyActivity === "idle" ? (unread ? "unread" : "idle") : familyActivity
   const childSessions = (props.childrenByParent.get(props.session.id) ?? [])
     .map((sessionID) => props.sessionsByID.get(sessionID))
     .filter(isSessionInfo)
   const display = parseSubagentSession(props.session)
   const title = formatSessionTitle(display.title || language.t("sidebar.untitledThread"))
   // const age = formatThreadAge(props.session.time.updated ?? props.session.time.created)
-  const basePaddingLeftPx = props.basePaddingLeftPx ?? THREAD_ROW_PADDING_LEFT_PX
-  const leftPadding = basePaddingLeftPx + depth * THREAD_CHILD_INDENT_PX
-  const baseStatusOffset =
-    props.basePaddingLeftPx !== undefined
-      ? Math.max(2, props.basePaddingLeftPx - 6)
-      : THREAD_STATUS_OFFSET_PX
-  const statusOffset = baseStatusOffset + depth * THREAD_CHILD_INDENT_PX
+  const leftPadding = SIDEBAR_ROW_PADDING_LEFT_PX + depth * SIDEBAR_ROW_CHILD_INDENT_PX
   const canToggleChildren = childSessions.length > 0
   const [childrenOpen, setChildrenOpen] = useState(false)
   // Auto-open children when this session's family becomes active; stays open until user collapses
@@ -720,12 +737,18 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
               onBlur={cancelPrefetchIntent}
             >
               <div
-                className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center"
-                style={{ left: `${statusOffset}px` }}
+                className="relative flex min-w-0 items-center"
+                style={{ gap: `${SIDEBAR_ROW_LEADING_GAP_PX}px` }}
               >
-                {threadStatus !== "idle" ? <ThreadStatusIndicator status={threadStatus} /> : null}
-              </div>
-              <div className="relative flex min-w-0 items-center">
+                {/* self-stretch: the slot adopts the label's line box instead of
+                    contributing a height of its own, so mounting the status dot
+                    cannot resize the row. See row-geometry.ts. */}
+                <span
+                  className="flex shrink-0 items-center justify-center self-stretch"
+                  style={{ width: `${SIDEBAR_ROW_LEADING_SLOT_PX}px` }}
+                >
+                  <ThreadStatusIndicator status={threadStatus} />
+                </span>
                 {depth > 0 ? (
                   // Subagent child row: title only, agent name omitted to reduce noise
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -858,7 +881,6 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                   onRequestArchive={props.onRequestArchive}
                   depth={depth + 1}
                   hidePinBadge={props.hidePinBadge}
-                  basePaddingLeftPx={props.basePaddingLeftPx}
                 />
               ))
             : null}
@@ -868,7 +890,9 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                 type="button"
                 className="relative w-full py-1 pr-2.5 text-left text-[10px] text-text-weaker hover:text-text-base"
                 style={{
-                  paddingLeft: `${basePaddingLeftPx + (depth + 1) * THREAD_CHILD_INDENT_PX}px`,
+                  paddingLeft: `${
+                    SIDEBAR_ROW_LABEL_INSET_PX + (depth + 1) * SIDEBAR_ROW_CHILD_INDENT_PX
+                  }px`,
                 }}
                 onClick={() => setShowAllChildren((v) => !v)}
               >

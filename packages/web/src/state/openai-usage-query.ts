@@ -50,8 +50,8 @@ export async function refreshOpenAIUsage(queryClient: QueryClient) {
   return response
 }
 
-export async function refreshOpenAIModelAvailability() {
+export async function refreshOpenAIModelAvailability(directory?: string) {
   return requireBuddyData<ProviderOpenaiModelAvailabilityRefreshResponses[200]>(
-    await getBuddyClient().provider.openai.modelAvailability.refresh(),
+    await getBuddyClient(directory).provider.openai.modelAvailability.refresh(),
   )
 }
