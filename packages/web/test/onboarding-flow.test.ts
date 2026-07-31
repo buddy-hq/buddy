@@ -1,18 +1,15 @@
+import "../happydom"
 import { beforeEach, describe, expect, test } from "bun:test"
 import {
   CINEMATIC_ONBOARDING_SCENE,
-  ONBOARDING_PERSONALIZATION_COMMIT,
-  ONBOARDING_PROVIDER_SELECTION_ACTION,
-  buildOnboardingPersonalizationPatch,
+  activateDirectoryForOnboarding,
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
   resolveCinematicOnboardingScene,
-  resolveOnboardingProviderSelectionAction,
   shouldAutoContinueConnectedOpenAiOnboarding,
   shouldShowOnboardingPrimaryUseStep,
-  shouldShowOnboardingPersonalizationStep,
-  shouldResumeOnboardingPersonalization,
 } from "../src/lib/onboarding-flow"
+import { ONBOARDING_STEPS } from "../src/components/onboarding/cinematic"
 import {
   resolveDesktopEntryPath,
   resolveDesktopEntryPathWithSnapshots,
@@ -24,7 +21,7 @@ import type {
   ProviderModelInfo,
 } from "../src/state/chat-types"
 import { useChatStore } from "../src/state/chat-store"
-import { useOnboardingStore } from "../src/state/onboarding-store"
+import { ONBOARDING_STORAGE_KEY, useOnboardingStore } from "../src/state/onboarding-store"
 
 function createModel(id: string, name: string): ProviderModelInfo {
   return {
@@ -110,7 +107,6 @@ describe("desktop onboarding entry routing", () => {
       resolveDesktopEntryPath({
         platform: "desktop",
         setupCompleted: false,
-        personalizationStepPending: false,
         openProjects: [],
         activeDirectory: undefined,
         pendingActiveDirectory: undefined,
@@ -125,7 +121,6 @@ describe("desktop onboarding entry routing", () => {
       resolveDesktopEntryPath({
         platform: "desktop",
         setupCompleted: true,
-        personalizationStepPending: false,
         openProjects: [],
         activeDirectory: undefined,
         pendingActiveDirectory: undefined,
@@ -140,7 +135,6 @@ describe("desktop onboarding entry routing", () => {
       resolveDesktopEntryPath({
         platform: "desktop",
         setupCompleted: false,
-        personalizationStepPending: false,
         openProjects: ["/repo"],
         activeDirectory: "/repo",
         pendingActiveDirectory: undefined,
@@ -155,7 +149,6 @@ describe("desktop onboarding entry routing", () => {
       resolveDesktopEntryPath({
         platform: "desktop",
         setupCompleted: true,
-        personalizationStepPending: false,
         openProjects: ["/repo"],
         activeDirectory: "/repo",
         pendingActiveDirectory: undefined,
@@ -171,7 +164,6 @@ describe("desktop onboarding entry routing", () => {
         state: {
           platform: "desktop",
           setupCompleted: true,
-          personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
           pendingActiveDirectory: undefined,
@@ -191,7 +183,6 @@ describe("desktop onboarding entry routing", () => {
         state: {
           platform: "desktop",
           setupCompleted: true,
-          personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
           pendingActiveDirectory: "/old-notebook",
@@ -211,7 +202,6 @@ describe("desktop onboarding entry routing", () => {
         state: {
           platform: "desktop",
           setupCompleted: false,
-          personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
           pendingActiveDirectory: undefined,
@@ -231,7 +221,6 @@ describe("desktop onboarding entry routing", () => {
         state: {
           platform: "desktop",
           setupCompleted: true,
-          personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
           pendingActiveDirectory: undefined,
@@ -251,7 +240,6 @@ describe("desktop onboarding entry routing", () => {
         state: {
           platform: "desktop",
           setupCompleted: false,
-          personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
           pendingActiveDirectory: undefined,
@@ -273,7 +261,6 @@ describe("desktop onboarding entry routing", () => {
         state: {
           platform: "desktop",
           setupCompleted: true,
-          personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
           pendingActiveDirectory: undefined,
@@ -293,7 +280,6 @@ describe("desktop onboarding entry routing", () => {
         state: {
           platform: "desktop",
           setupCompleted: false,
-          personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
           pendingActiveDirectory: undefined,
@@ -307,49 +293,23 @@ describe("desktop onboarding entry routing", () => {
     ).resolves.toBe("/onboarding")
   })
 
-  test("keeps onboarding visible while personalization is still pending", () => {
+  test("does not return to onboarding after setup when a notebook exists", () => {
     expect(
       resolveDesktopEntryPath({
         platform: "desktop",
         setupCompleted: true,
-        personalizationStepPending: true,
         openProjects: ["/repo"],
         activeDirectory: "/repo",
         pendingActiveDirectory: undefined,
         lastSessionByDirectory: {},
         directories: {},
       }),
-    ).toBe("/onboarding")
-  })
-
-  test("does not skip pending personalization when open projects already exist", async () => {
-    await expect(
-      resolveDesktopEntryPathWithSnapshots({
-        state: {
-          platform: "desktop",
-          setupCompleted: true,
-          personalizationStepPending: true,
-          openProjects: ["/repo"],
-          activeDirectory: "/repo",
-          pendingActiveDirectory: undefined,
-          lastSessionByDirectory: {},
-          directories: {},
-        },
-        async loadOpenProjectsSnapshot() {
-          return ["/repo"]
-        },
-      }),
-    ).resolves.toBe("/onboarding")
-  })
-
-  test("keeps the provider step visible after backing out of ChatGPT personalization", () => {
-    const shouldAutoContinue = false
-    expect(shouldAutoContinue).toBe(false)
+    ).toBe("/chat")
   })
 })
 
 describe("onboarding store", () => {
-  test("keeps the chosen provider through setup until personalization finishes", () => {
+  test("completes onboarding after the notebook setup finishes", () => {
     const store = useOnboardingStore.getState()
     store.setAuthChoice("free_models")
 
@@ -357,102 +317,41 @@ describe("onboarding store", () => {
 
     expect(useOnboardingStore.getState()).toMatchObject({
       setupCompleted: true,
-      authChoice: "free_models",
+      authChoice: undefined,
     })
   })
 
-  test("tracks personalization separately from setup completion", () => {
-    const store = useOnboardingStore.getState()
+  test("migrates a completed onboarding record without retaining its details step", async () => {
+    localStorage.setItem(
+      ONBOARDING_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          setupCompleted: true,
+          authChoice: "free_models",
+          activePersonalizationVersion: 1,
+          personalizationVersionCompleted: undefined,
+          personalizationDirectory: "/repo",
+        },
+        version: 2,
+      }),
+    )
 
-    store.markSetupCompleted()
-    store.startPersonalizationVersion("/repo")
-
-    expect(store.shouldShowPersonalizationStep()).toBe(true)
-    expect(useOnboardingStore.getState().personalizationDirectory).toBe("/repo")
-
-    store.markPersonalizationSkipped()
+    await useOnboardingStore.persist.rehydrate()
 
     expect(useOnboardingStore.getState()).toMatchObject({
       setupCompleted: true,
-      authChoice: undefined,
-      personalizationSkipped: true,
-      personalizationDirectory: undefined,
-      personalizationVersionCompleted: 1,
+      authChoice: "free_models",
     })
-    expect(useOnboardingStore.getState().shouldShowPersonalizationStep()).toBe(false)
-  })
-
-  test("starts personalization as pending immediately after onboarding setup completes", () => {
-    const store = useOnboardingStore.getState()
-
-    store.markSetupCompleted()
-    store.startPersonalizationVersion("/repo")
-
-    const nextState = useOnboardingStore.getState()
-    expect(nextState.activePersonalizationVersion).toBe(1)
-    expect(nextState.personalizationVersionCompleted).toBeUndefined()
-    expect(nextState.shouldShowPersonalizationStep()).toBe(true)
+    expect("activePersonalizationVersion" in useOnboardingStore.getState()).toBe(false)
   })
 })
 
-describe("onboarding personalization resume", () => {
-  test("persists the selected primary use when the details form has stale empty state", () => {
-    expect(
-      buildOnboardingPersonalizationPatch({
-        commit: ONBOARDING_PERSONALIZATION_COMMIT.saveDetails,
-        selectedPrimaryUse: "teach",
-        values: {
-          primaryUse: undefined,
-          preferredName: "Ada",
-          occupation: "Teacher",
-          moreAboutYou: "I teach science.",
-        },
-      }),
-    ).toEqual({
-      personalization: {
-        primary_use: "teach",
-        preferred_name: "Ada",
-        occupation: "Teacher",
-        more_about_you: "I teach science.",
-      },
-    })
+describe("cinematic onboarding", () => {
+  test("does not include personal details as an onboarding step", () => {
+    expect(ONBOARDING_STEPS).toEqual(["mode", "engine", "location"])
   })
 
-  test("persists only the primary use when optional personalization is skipped", () => {
-    expect(
-      buildOnboardingPersonalizationPatch({
-        commit: ONBOARDING_PERSONALIZATION_COMMIT.skipDetails,
-        selectedPrimaryUse: "learn",
-        values: {
-          primaryUse: undefined,
-          preferredName: "Unsaved name",
-          occupation: "Unsaved occupation",
-          moreAboutYou: "Unsaved context",
-        },
-      }),
-    ).toEqual({
-      personalization: {
-        primary_use: "learn",
-      },
-    })
-  })
-
-  test("does not allow onboarding to finish without a primary use", () => {
-    expect(
-      buildOnboardingPersonalizationPatch({
-        commit: ONBOARDING_PERSONALIZATION_COMMIT.saveDetails,
-        selectedPrimaryUse: undefined,
-        values: {
-          primaryUse: undefined,
-          preferredName: "Ada",
-          occupation: "",
-          moreAboutYou: "",
-        },
-      }),
-    ).toBeUndefined()
-  })
-
-  test("renders the finish scene as soon as an async personalization save finishes", () => {
+  test("renders the finish scene after onboarding completes", () => {
     expect(
       resolveCinematicOnboardingScene({
         introVisible: false,
@@ -462,50 +361,9 @@ describe("onboarding personalization resume", () => {
     ).toBe(CINEMATIC_ONBOARDING_SCENE.finish)
   })
 
-  test("returns to location when provider selection was opened before notebook setup", () => {
-    expect(
-      resolveOnboardingProviderSelectionAction({
-        showProviderSelectionStep: true,
-      }),
-    ).toEqual({ type: ONBOARDING_PROVIDER_SELECTION_ACTION.showLocation })
-  })
-
-  test("reconfigures the existing notebook when provider selection was opened from personalization", () => {
-    expect(
-      resolveOnboardingProviderSelectionAction({
-        showProviderSelectionStep: true,
-        existingDirectory: "/repo",
-      }),
-    ).toEqual({
-      type: ONBOARDING_PROVIDER_SELECTION_ACTION.configureExistingNotebook,
-      directory: "/repo",
-    })
-  })
-
-  test("resumes personalization immediately when the user reselects the same provider", () => {
-    expect(
-      shouldResumeOnboardingPersonalization({
-        showProviderSelectionStep: true,
-        currentChoice: "free_models",
-        nextChoice: "free_models",
-        existingDirectory: "/repo",
-      }),
-    ).toBe(true)
-
-    expect(
-      shouldResumeOnboardingPersonalization({
-        showProviderSelectionStep: true,
-        currentChoice: "free_models",
-        nextChoice: "chatgpt_plus",
-        existingDirectory: "/repo",
-      }),
-    ).toBe(false)
-  })
-
   test("does not auto-continue OpenAI onboarding while provider selection is visible", () => {
     expect(
       shouldAutoContinueConnectedOpenAiOnboarding({
-        personalizationStepVisible: false,
         showProviderSelectionStep: true,
         openAiConnected: true,
         alreadyHandled: false,
@@ -514,30 +372,74 @@ describe("onboarding personalization resume", () => {
 
     expect(
       shouldAutoContinueConnectedOpenAiOnboarding({
-        personalizationStepVisible: false,
         showProviderSelectionStep: false,
         openAiConnected: true,
         alreadyHandled: false,
       }),
     ).toBe(true)
   })
+})
 
-  test("keeps the personalization step visible while the final chat navigation is pending", () => {
-    expect(
-      shouldShowOnboardingPersonalizationStep({
-        personalizationStepPending: false,
-        showProviderSelectionStep: false,
-        exitPending: true,
+describe("onboarding directory activation", () => {
+  test("completes only committed directory transitions", async () => {
+    await expect(
+      activateDirectoryForOnboarding({
+        directory: "/repo",
+        async activateDirectory() {
+          return {
+            outcome: "committed",
+            transitionID: 1,
+            value: { directory: "/repo" },
+          }
+        },
       }),
-    ).toBe(true)
+    ).resolves.toBe(true)
 
-    expect(
-      shouldShowOnboardingPersonalizationStep({
-        personalizationStepPending: true,
-        showProviderSelectionStep: true,
-        exitPending: true,
+    await expect(
+      activateDirectoryForOnboarding({
+        directory: "/repo",
+        async activateDirectory() {
+          return {
+            outcome: "noop",
+            transitionID: 1,
+            value: { directory: "/repo" },
+          }
+        },
       }),
-    ).toBe(false)
+    ).resolves.toBe(true)
+  })
+
+  test("keeps onboarding incomplete when the directory transition does not commit", async () => {
+    await expect(
+      activateDirectoryForOnboarding({
+        directory: "/repo",
+        async activateDirectory() {
+          return { outcome: "blocked", transitionID: 1 }
+        },
+      }),
+    ).resolves.toBe(false)
+
+    await expect(
+      activateDirectoryForOnboarding({
+        directory: "/repo",
+        async activateDirectory() {
+          return { outcome: "superseded", transitionID: 1 }
+        },
+      }),
+    ).resolves.toBe(false)
+  })
+
+  test("preserves directory activation failures", async () => {
+    const error = new Error("activation failed")
+
+    await expect(
+      activateDirectoryForOnboarding({
+        directory: "/repo",
+        async activateDirectory() {
+          return { outcome: "failed", transitionID: 1, error }
+        },
+      }),
+    ).rejects.toBe(error)
   })
 })
 

@@ -9,7 +9,6 @@ import { OPENAI_PROVIDER_ID } from "./provider-ids"
 export type DesktopOnboardingState = {
   platform: "web" | "desktop"
   setupCompleted: boolean
-  personalizationStepPending: boolean
   openProjects: string[]
   activeDirectory?: string
   pendingActiveDirectory?: string
@@ -28,10 +27,6 @@ export function hasExistingChatContext(input: DesktopOnboardingState) {
 export function shouldShowDesktopOnboarding(input: DesktopOnboardingState) {
   if (input.platform !== "desktop") {
     return false
-  }
-
-  if (input.personalizationStepPending) {
-    return true
   }
 
   if (!input.setupCompleted) {
@@ -59,10 +54,6 @@ export async function resolveDesktopEntryPathWithSnapshots(input: {
     return "/chat"
   }
 
-  if (input.state.personalizationStepPending) {
-    return "/onboarding"
-  }
-
   if (!input.state.setupCompleted) {
     return "/onboarding"
   }
@@ -88,7 +79,6 @@ export function readDesktopOnboardingState(): DesktopOnboardingState {
   return {
     platform: getPlatform().platform,
     setupCompleted: onboardingState.setupCompleted,
-    personalizationStepPending: onboardingState.shouldShowPersonalizationStep(),
     openProjects: chatState.openProjects,
     activeDirectory: chatState.activeDirectory,
     pendingActiveDirectory: chatState.pendingActiveDirectory,

@@ -15,7 +15,7 @@ export const SERIF = '"Fraunces", Georgia, "Times New Roman", serif'
 export const SANS = 'ui-sans-serif, -apple-system, "Segoe UI", sans-serif'
 export const MONO = 'ui-monospace, SFMono-Regular, "SF Mono", monospace'
 
-export const ONBOARDING_STEPS = ["mode", "engine", "location", "details"] as const
+export const ONBOARDING_STEPS = ["mode", "engine", "location"] as const
 export type CinematicOnboardingStep = (typeof ONBOARDING_STEPS)[number]
 
 export const COPY = {

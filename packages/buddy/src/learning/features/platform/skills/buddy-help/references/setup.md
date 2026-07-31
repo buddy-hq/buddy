@@ -142,38 +142,33 @@ Desktop only. Web does not show this flow. Install/update: Install & updates abo
 
 ### Defaults
 
-- First desktop launch with no notebooks open → onboarding (**2 steps**).
+- First desktop launch with no notebooks open → onboarding (choose a focus, AI engine, and notebook location).
 - Default notebook home: **Documents → Buddy** (`~/Documents/Buddy` shape).
 - First notebook after Next: **Inbox**.
 - AI engines in wizard: **ChatGPT** or **Free Models** only.
-- Personalization is optional (**Skip for now**).
+- Personalization is available later in **Settings → Personalization**.
 - ChatGPT sign-in is **provider** auth, not a Buddy account (`trust.md`, `providers.md`).
 
 ### Golden path
 
 1. Launch Buddy desktop with no prior notebooks.
-2. **Select AI Engine**
+2. Choose whether you are here to **learn** or **teach**. You can change this later in Settings.
+3. **Select AI Engine**
    - **ChatGPT** — browser sign-in; models depend on ChatGPT plan. Complete auth in browser; Cancel aborts.
    - **Free Models** — start without ChatGPT; free models only (no OAuth in this step).
-3. Storage shows **Documents**. Tap **Next** (disabled until an engine is chosen).
-4. Buddy saves notebook home, opens **Inbox**, sets a model for that engine.
-5. **Make buddy your own** (step 2 / 2) — optional:
-   - Preferred name
-   - Occupation
-   - More about you
-   - **Next** saves; **Skip for now** continues without.
+4. Storage shows **Documents**. Tap **Next** (disabled until an engine is chosen).
+5. Buddy saves notebook home, opens **Inbox**, sets a model for that engine.
 6. Land in Inbox chat. Edit profile later: **Settings → Personalization** (`instructions.md`, `settings.md`).
 
 ### Gate (why am I here again?)
 
 Onboarding shows on desktop when:
 
-- personalization was started and not finished/skipped, **or**
 - no open notebooks / no active notebook
 
 Finishing setup alone is not enough — without a notebook, desktop returns to onboarding.
 
-Skip onboarding when open notebooks already exist (or recovery is needed) — unless personalization is still pending.
+Skip onboarding when open notebooks already exist or recovery is needed.
 
 ### Failures
 
@@ -183,7 +178,6 @@ Skip onboarding when open notebooks already exist (or recovery is needed) — un
 | ChatGPT modal stuck / timeout | Cancel; retry ChatGPT or switch to Free Models. Browser must finish auth. |
 | Free Models fails | No free model available for that notebook — retry later or use ChatGPT. |
 | “Pick an AI provider first” | Choose ChatGPT or Free Models before Next. |
-| Relaunch still on personalization | Finish or Skip; incomplete step 2 keeps onboarding. |
 
 ### Guardrails
 
@@ -191,4 +185,3 @@ Skip onboarding when open notebooks already exist (or recovery is needed) — un
 - Do not invent free model names; catalog varies.
 - Prefer UI nouns: onboarding, AI Engine, Documents, Inbox, Preferred name.
 - Provider detail after setup: `providers.md`. Notebooks / Home / Inbox: `notebooks.md`.
-

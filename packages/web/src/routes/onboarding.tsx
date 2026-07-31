@@ -1,4 +1,3 @@
-import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
@@ -7,7 +6,6 @@ import type { OnboardingAuthChoice } from "@/components/onboarding"
 import {
   Aurora,
   AuthOverlay,
-  DetailsScreen,
   EngineScreen,
   FINISH_EXPAND_DELAY_MS,
   FINISH_NAVIGATE_DELAY_MS,
@@ -34,7 +32,6 @@ import {
 } from "@/lib/desktop-onboarding"
 import { encodeDirectory } from "@/lib/directory-token"
 import { activateChatDirectory } from "@/lib/active-chat-transition-coordinator"
-import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import { normalizeDirectory, pickProjectDirectory } from "@/lib/directory-picker"
 import {
   ONBOARDING_TEST_SEARCH_VALUE,
@@ -43,18 +40,12 @@ import {
 } from "@/lib/onboarding-test-mode"
 import {
   CINEMATIC_ONBOARDING_SCENE,
-  ONBOARDING_PERSONALIZATION_COMMIT,
-  ONBOARDING_PROVIDER_SELECTION_ACTION,
-  buildOnboardingPersonalizationPatch,
+  activateDirectoryForOnboarding,
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
   resolveCinematicOnboardingScene,
-  resolveOnboardingProviderSelectionAction,
   shouldAutoContinueConnectedOpenAiOnboarding,
   shouldShowOnboardingPrimaryUseStep,
-  shouldShowOnboardingPersonalizationStep,
-  shouldResumeOnboardingPersonalization,
-  type OnboardingPersonalizationCommit,
 } from "@/lib/onboarding-flow"
 import { applyOnboardingModelSelection } from "@/lib/onboarding-model-selection"
 import {
@@ -85,11 +76,7 @@ import {
   setPersonalizationSettingsQueryData,
 } from "@/state/personalization-settings-query"
 import { refreshOpenAIModelAvailability } from "@/state/openai-usage-query"
-import {
-  EMPTY_PERSONALIZATION_SETTINGS,
-  type PrimaryUse,
-  shouldResetPersonalizationForm,
-} from "@/state/project-config-readers"
+import type { PrimaryUse } from "@/state/project-config-readers"
 
 const EMPTY_PROVIDER_CATALOG_SNAPSHOT: ProviderCatalogState = {
   providers: [],
@@ -148,22 +135,6 @@ function OnboardingRoute() {
   const authChoice = useOnboardingStore((state) => state.authChoice)
   const setAuthChoice = useOnboardingStore((state) => state.setAuthChoice)
   const markSetupCompleted = useOnboardingStore((state) => state.markSetupCompleted)
-  const startPersonalizationVersion = useOnboardingStore(
-    (state) => state.startPersonalizationVersion,
-  )
-  const markPersonalizationCompleted = useOnboardingStore(
-    (state) => state.markPersonalizationCompleted,
-  )
-  const markPersonalizationSkipped = useOnboardingStore((state) => state.markPersonalizationSkipped)
-  const onboardingPersonalizationDirectory = useOnboardingStore(
-    (state) => state.personalizationDirectory,
-  )
-  const personalizationVersionActive = useOnboardingStore(
-    (state) => state.activePersonalizationVersion,
-  )
-  const personalizationVersionCompleted = useOnboardingStore(
-    (state) => state.personalizationVersionCompleted,
-  )
   const providerCatalogSnapshotQuery = useQuery(providerCatalogSnapshotQueryOptions())
   const providerCatalogSnapshot =
     providerCatalogSnapshotQuery.data ?? EMPTY_PROVIDER_CATALOG_SNAPSHOT
@@ -175,16 +146,11 @@ function OnboardingRoute() {
   const [busyChoice, setBusyChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
   const [folderBusy, setFolderBusy] = useState(false)
   const [showFolderRecovery, setShowFolderRecovery] = useState(false)
-  const [personalizationBusy, setPersonalizationBusy] = useState(false)
-  const [personalizationExitPending, setPersonalizationExitPending] = useState(false)
   const [authAbort, setAuthAbort] = useState<AbortController | undefined>(undefined)
   const [showProviderSelectionStep, setShowProviderSelectionStep] = useState(false)
   const [showPrimaryUseStep, setShowPrimaryUseStep] = useState(true)
   const [primaryUseBusy, setPrimaryUseBusy] = useState(false)
   const [selectedPrimaryUse, setSelectedPrimaryUse] = useState<PrimaryUse | undefined>(undefined)
-  const [personalizationDirectory, setPersonalizationDirectory] = useState<string | undefined>(
-    undefined,
-  )
   const [introVisible, setIntroVisible] = useState(true)
   const [introComplete, setIntroComplete] = useState(false)
   const [hoverPrimaryUse, setHoverPrimaryUse] = useState<PrimaryUse | undefined>(undefined)
@@ -198,18 +164,6 @@ function OnboardingRoute() {
   })
   const notebookHomeAccess = notebookHomeAccessQuery.data
   const autoContinueHandledRef = useRef(false)
-  const form = useForm({
-    defaultValues: EMPTY_PERSONALIZATION_SETTINGS,
-    onSubmit: async () => undefined,
-  })
-  const personalizationStepPending =
-    personalizationVersionActive !== undefined &&
-    personalizationVersionActive !== personalizationVersionCompleted
-  const personalizationStepVisible = shouldShowOnboardingPersonalizationStep({
-    personalizationStepPending,
-    showProviderSelectionStep,
-    exitPending: personalizationExitPending,
-  })
 
   useEffect(() => {
     if (finishDestination === undefined) return
@@ -230,7 +184,6 @@ function OnboardingRoute() {
       void navigation.catch((navigationError: unknown) => {
         setFinishDestination(undefined)
         setFinishExpanding(false)
-        setPersonalizationExitPending(false)
         setError(
           navigationError instanceof Error ? navigationError.message : String(navigationError),
         )
@@ -253,16 +206,6 @@ function OnboardingRoute() {
           return
         }
 
-        const currentValues = form.state.values
-        if (
-          shouldResetPersonalizationForm({
-            nextValues: currentValues,
-            currentValues: bundle.personalization,
-          })
-        ) {
-          form.reset(bundle.personalization)
-        }
-
         const storedPrimaryUse = bundle.personalization.primaryUse
         if (shouldShowOnboardingPrimaryUseStep(storedPrimaryUse)) {
           return
@@ -276,7 +219,7 @@ function OnboardingRoute() {
     return () => {
       cancelled = true
     }
-  }, [form, queryClient])
+  }, [queryClient])
 
   useEffect(() => {
     if (showPrimaryUseStep) {
@@ -286,7 +229,6 @@ function OnboardingRoute() {
     const openAiConnected = hasConnectedOpenAiProvider(providerCatalogSnapshot)
     if (
       !shouldAutoContinueConnectedOpenAiOnboarding({
-        personalizationStepVisible,
         showProviderSelectionStep,
         openAiConnected,
         alreadyHandled: autoContinueHandledRef.current,
@@ -299,19 +241,11 @@ function OnboardingRoute() {
     setConnectedAuthChoice("chatgpt_plus")
     setAuthChoice("chatgpt_plus")
   }, [
-    personalizationStepVisible,
     providerCatalogSnapshot,
     setAuthChoice,
     showPrimaryUseStep,
     showProviderSelectionStep,
   ])
-
-  function navigateToDirectoryChat(
-    directory: string,
-    route: Parameters<typeof buildWorkspaceRouteNavigation>[0]["route"],
-  ) {
-    return navigate(buildWorkspaceRouteNavigation({ directory, route }))
-  }
 
   async function handlePrimaryUseSelect(primaryUse: PrimaryUse) {
     setPrimaryUseBusy(true)
@@ -325,7 +259,6 @@ function OnboardingRoute() {
         },
       })
       setPersonalizationSettingsQueryData(queryClient, updatedGlobal)
-      form.setFieldValue("primaryUse", primaryUse)
       setShowPrimaryUseStep(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -334,28 +267,21 @@ function OnboardingRoute() {
     }
   }
 
-  function completePersonalizationAndNavigate(markCompleted: () => void) {
-    setPersonalizationExitPending(true)
-    markCompleted()
-    setShowProviderSelectionStep(false)
-    setFinishDestination(useChatStore.getState().activeDirectory ?? null)
-  }
-
   async function completeSetupAndContinue(directory: string) {
-    markSetupCompleted()
-    startPersonalizationVersion(directory)
     setShowProviderSelectionStep(false)
     setShowFolderRecovery(false)
     setError(undefined)
 
-    const shouldShowPersonalization = useOnboardingStore.getState().shouldShowPersonalizationStep()
-    const result = await activateChatDirectory({
+    const activated = await activateDirectoryForOnboarding({
       directory,
-      navigate: shouldShowPersonalization ? undefined : navigateToDirectoryChat,
+      activateDirectory: activateChatDirectory,
     })
-    if (result.outcome === "failed") {
-      throw result.error
+    if (!activated) {
+      return
     }
+
+    markSetupCompleted()
+    setFinishDestination(directory)
   }
 
   async function finalizeNotebookSelection(
@@ -389,7 +315,6 @@ function OnboardingRoute() {
       }
 
       applyOnboardingModelSelection(result)
-      setPersonalizationDirectory(result.directory)
       await completeSetupAndContinue(result.directory)
     } catch (err) {
       setShowFolderRecovery(true)
@@ -427,129 +352,19 @@ function OnboardingRoute() {
     await finalizeNotebookSelection(authChoice, accessState.defaultDirectory)
   }
 
-  async function handleSubmitPersonalization() {
-    setPersonalizationBusy(true)
-    setError(undefined)
-
-    try {
-      await persistOnboardingPersonalization(ONBOARDING_PERSONALIZATION_COMMIT.saveDetails)
-      form.setErrorMap({ onSubmit: undefined })
-      completePersonalizationAndNavigate(() => {
-        markPersonalizationCompleted()
-      })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      form.setErrorMap({ onSubmit: { form: message, fields: {} } })
-      setError(message)
-    } finally {
-      setPersonalizationBusy(false)
-    }
-  }
-
-  async function handleSkipPersonalization() {
-    form.setErrorMap({ onSubmit: undefined })
-    setError(undefined)
-
-    setPersonalizationBusy(true)
-
-    try {
-      await persistOnboardingPersonalization(ONBOARDING_PERSONALIZATION_COMMIT.skipDetails)
-      completePersonalizationAndNavigate(() => {
-        markPersonalizationSkipped()
-      })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      form.setErrorMap({ onSubmit: { form: message, fields: {} } })
-      setError(message)
-    } finally {
-      setPersonalizationBusy(false)
-    }
-  }
-
-  async function persistOnboardingPersonalization(commit: OnboardingPersonalizationCommit) {
-    const patch = buildOnboardingPersonalizationPatch({
-      commit,
-      selectedPrimaryUse,
-      values: form.state.values,
-    })
-    if (!patch) {
-      setShowPrimaryUseStep(true)
-      throw new Error(language.t("routes.onboarding.primaryUseRequired"))
-    }
-
-    const updatedGlobal = await patchGlobalConfig(patch)
-    setPersonalizationSettingsQueryData(queryClient, updatedGlobal)
-  }
-
-  async function finalizeExistingNotebookProviderSelection(
-    choice: OnboardingAuthChoice,
-    existingDirectory: string,
-  ) {
-    setFolderBusy(true)
-    setError(undefined)
-
-    try {
-      const result = await configureNotebookForOnboarding({
-        authChoice: choice,
-        prepareNotebook: async () => existingDirectory,
-        loadProviderCatalog,
-        refreshOpenAIModelAvailability,
-      })
-
-      applyOnboardingModelSelection(result)
-      setPersonalizationDirectory(result.directory)
-      await completeSetupAndContinue(result.directory)
-    } catch (err) {
-      setError(
-        formatProviderAuthError(err, language.t("routes.onboarding.initializeNotebookFailed")),
-      )
-    } finally {
-      setFolderBusy(false)
-    }
-  }
-
   async function handleChoose(choice: OnboardingAuthChoice) {
     setError(undefined)
     setShowFolderRecovery(false)
 
-    const existingDirectory = personalizationDirectory ?? onboardingPersonalizationDirectory
-    const providerSelectionAction = resolveOnboardingProviderSelectionAction({
-      showProviderSelectionStep,
-      existingDirectory,
-    })
-
-    async function continueAfterProviderSelection() {
-      if (
-        providerSelectionAction.type ===
-        ONBOARDING_PROVIDER_SELECTION_ACTION.configureExistingNotebook
-      ) {
-        await finalizeExistingNotebookProviderSelection(choice, providerSelectionAction.directory)
-        return
-      }
-
-      setShowProviderSelectionStep(false)
-    }
-
-    const shouldResumePersonalization = shouldResumeOnboardingPersonalization({
-      showProviderSelectionStep,
-      currentChoice: authChoice,
-      nextChoice: choice,
-      existingDirectory,
-    })
-    if (shouldResumePersonalization && existingDirectory) {
-      await completeSetupAndContinue(existingDirectory)
-      return
-    }
-
     if (choice === "free_models") {
       setAuthChoice(choice)
-      await continueAfterProviderSelection()
+      setShowProviderSelectionStep(false)
       return
     }
 
     if (connectedAuthChoice === "chatgpt_plus") {
       setAuthChoice(choice)
-      await continueAfterProviderSelection()
+      setShowProviderSelectionStep(false)
       return
     }
 
@@ -580,7 +395,7 @@ function OnboardingRoute() {
 
       setConnectedAuthChoice(choice)
       setAuthChoice(choice)
-      await continueAfterProviderSelection()
+      setShowProviderSelectionStep(false)
     } catch (err) {
       if (!abort.signal.aborted) {
         abort.abort()
@@ -597,11 +412,9 @@ function OnboardingRoute() {
 
   const step: CinematicOnboardingStep = showPrimaryUseStep
     ? "mode"
-    : personalizationStepVisible
-      ? "details"
-      : showProviderSelectionStep || !authChoice
-        ? "engine"
-        : "location"
+    : showProviderSelectionStep || !authChoice
+      ? "engine"
+      : "location"
   const finished = finishDestination !== undefined
   const scene = resolveCinematicOnboardingScene({
     introVisible,
@@ -629,7 +442,7 @@ function OnboardingRoute() {
     setError(undefined)
     setShowFolderRecovery(false)
 
-    if (step === "details" || step === "location") {
+    if (step === "location") {
       setShowProviderSelectionStep(true)
       return
     }
@@ -713,19 +526,6 @@ function OnboardingRoute() {
                     }}
                     onPickFolder={() => {
                       void handlePickFolder()
-                    }}
-                  />
-                ) : null}
-                {step === "details" ? (
-                  <DetailsScreen
-                    form={form}
-                    busy={personalizationBusy}
-                    error={error}
-                    onFinish={() => {
-                      void handleSubmitPersonalization()
-                    }}
-                    onSkip={() => {
-                      void handleSkipPersonalization()
                     }}
                   />
                 ) : null}

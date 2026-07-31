@@ -1,13 +1,9 @@
 import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
 import { language } from "@/context/language"
+import type { ActiveChatTransitionResult } from "@/lib/active-chat-transition-coordinator"
 import type { ProviderCatalogState } from "@/state/chat-types"
-import {
-  EMPTY_PERSONALIZATION_SETTINGS,
-  buildPersonalizationPatch,
-  type PersonalizationSettings,
-  type PrimaryUse,
-} from "@/state/project-config-readers"
+import type { PrimaryUse } from "@/state/project-config-readers"
 import { resolveCatalogProviderModelSelection } from "./provider-catalog"
 import { OPENAI_PROVIDER_ID, OPENCODE_PROVIDER_ID } from "./provider-ids"
 import { findPreferredOAuthMethodIndex } from "./provider-auth"
@@ -21,11 +17,6 @@ const PREFERRED_CHATGPT_ONBOARDING_VARIANT = "high"
 const FALLBACK_CHATGPT_ONBOARDING_MODEL_ID = "gpt-5.6-terra"
 const FALLBACK_CHATGPT_ONBOARDING_VARIANT = "xhigh"
 
-export const ONBOARDING_PROVIDER_SELECTION_ACTION = {
-  showLocation: "show_location",
-  configureExistingNotebook: "configure_existing_notebook",
-} as const
-
 export const CINEMATIC_ONBOARDING_SCENE = {
   intro: "intro",
   introExit: "intro_exit",
@@ -33,99 +24,41 @@ export const CINEMATIC_ONBOARDING_SCENE = {
   finish: "finish",
 } as const
 
-export const ONBOARDING_PERSONALIZATION_COMMIT = {
-  saveDetails: "save_details",
-  skipDetails: "skip_details",
-} as const
-
 export type CinematicOnboardingScene =
   (typeof CINEMATIC_ONBOARDING_SCENE)[keyof typeof CINEMATIC_ONBOARDING_SCENE]
-
-export type OnboardingPersonalizationCommit =
-  (typeof ONBOARDING_PERSONALIZATION_COMMIT)[keyof typeof ONBOARDING_PERSONALIZATION_COMMIT]
-
-export type OnboardingProviderSelectionAction =
-  | { type: typeof ONBOARDING_PROVIDER_SELECTION_ACTION.showLocation }
-  | {
-      type: typeof ONBOARDING_PROVIDER_SELECTION_ACTION.configureExistingNotebook
-      directory: string
-    }
 
 export function resolveOnboardingProviderID(choice: OnboardingAuthChoice) {
   return choice === "chatgpt_plus" ? OPENAI_PROVIDER_ID : OPENCODE_PROVIDER_ID
 }
 
-export function shouldResumeOnboardingPersonalization(input: {
-  showProviderSelectionStep: boolean
-  currentChoice: OnboardingAuthChoice | undefined
-  nextChoice: OnboardingAuthChoice
-  existingDirectory?: string
-}) {
-  return (
-    input.showProviderSelectionStep &&
-    input.currentChoice === input.nextChoice &&
-    typeof input.existingDirectory === "string" &&
-    input.existingDirectory.length > 0
-  )
-}
-
-export function resolveOnboardingProviderSelectionAction(input: {
-  showProviderSelectionStep: boolean
-  existingDirectory?: string
-}): OnboardingProviderSelectionAction {
-  if (input.showProviderSelectionStep && input.existingDirectory) {
-    return {
-      type: ONBOARDING_PROVIDER_SELECTION_ACTION.configureExistingNotebook,
-      directory: input.existingDirectory,
-    }
-  }
-
-  return { type: ONBOARDING_PROVIDER_SELECTION_ACTION.showLocation }
-}
-
 export function shouldAutoContinueConnectedOpenAiOnboarding(input: {
-  personalizationStepVisible: boolean
   showProviderSelectionStep: boolean
   openAiConnected: boolean
   alreadyHandled: boolean
 }) {
   return (
-    !input.personalizationStepVisible &&
     !input.showProviderSelectionStep &&
     input.openAiConnected &&
     !input.alreadyHandled
   )
 }
 
-export function shouldShowOnboardingPersonalizationStep(input: {
-  personalizationStepPending: boolean
-  showProviderSelectionStep: boolean
-  exitPending: boolean
-}) {
-  return !input.showProviderSelectionStep && (input.personalizationStepPending || input.exitPending)
-}
-
 export function shouldShowOnboardingPrimaryUseStep(primaryUse: PrimaryUse | undefined) {
   return primaryUse === undefined
 }
 
-export function buildOnboardingPersonalizationPatch(input: {
-  commit: OnboardingPersonalizationCommit
-  selectedPrimaryUse: PrimaryUse | undefined
-  values: PersonalizationSettings
-}): Record<string, unknown> | undefined {
-  const primaryUse = input.selectedPrimaryUse ?? input.values.primaryUse
-  if (!primaryUse) return undefined
+export async function activateDirectoryForOnboarding(input: {
+  directory: string
+  activateDirectory: (input: {
+    directory: string
+  }) => Promise<ActiveChatTransitionResult<{ directory: string }>>
+}): Promise<boolean> {
+  const result = await input.activateDirectory({ directory: input.directory })
+  if (result.outcome === "failed") {
+    throw result.error
+  }
 
-  const values =
-    input.commit === ONBOARDING_PERSONALIZATION_COMMIT.saveDetails
-      ? input.values
-      : EMPTY_PERSONALIZATION_SETTINGS
-
-  return buildPersonalizationPatch({
-    ...values,
-    primaryUse,
-  })
+  return result.outcome === "committed" || result.outcome === "noop"
 }
 
 export function resolveCinematicOnboardingScene(input: {
