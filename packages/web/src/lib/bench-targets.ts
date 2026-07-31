@@ -71,7 +71,7 @@ export type BenchLayoutProfileID =
   | typeof BENCH_LAYOUT_PROFILE_CODE
   | typeof BENCH_LAYOUT_PROFILE_VISUAL
 
-export type BenchModePreferenceKey =
+export type BenchSurfaceKey =
   | "markdown"
   | "file"
   | "reading"
@@ -152,15 +152,6 @@ function readBenchTarget(value: unknown): BenchTarget | undefined {
   }
 }
 
-function isBenchModePreferenceKey(value: unknown): value is BenchModePreferenceKey {
-  if (value === "markdown" || value === "file" || value === "reading" || value === "whiteboard") {
-    return true
-  }
-  if (typeof value !== "string" || !value.startsWith("artifact:")) return false
-  const kind = value.slice("artifact:".length)
-  return isBenchObjectKind(kind) && kind !== "resource" && kind !== "whiteboard"
-}
-
 function readBenchChatLayoutMode(value: unknown): BenchChatLayoutMode | undefined {
   return isBenchMode(value) ? value : undefined
 }
@@ -187,7 +178,7 @@ function defaultBenchObjectViewID(kind: BenchObjectKind): string {
   }
 }
 
-function benchModePreferenceKey(target: BenchTarget): BenchModePreferenceKey {
+function benchSurfaceKey(target: BenchTarget): BenchSurfaceKey {
   if (target.type === "object") {
     if (target.ref.kind === "resource") return "reading"
     if (target.ref.kind === "whiteboard") return "whiteboard"
@@ -229,11 +220,10 @@ function isSessionOwnedBenchTarget(target: BenchTarget): boolean {
 }
 
 export {
-  benchModePreferenceKey,
+  benchSurfaceKey,
   benchTargetKey,
   defaultBenchObjectViewID,
   isBenchObjectKind,
-  isBenchModePreferenceKey,
   isSessionOwnedBenchTarget,
   isSameBenchTarget,
   readBenchTarget,

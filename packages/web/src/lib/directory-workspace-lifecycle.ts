@@ -93,6 +93,7 @@ type BenchContextPublishSnapshot =
 
 const DIRECTORY_WORKSPACE_REGISTRATION_ID_PREFIX = "bench-surface-registration"
 const DIRECTORY_WORKSPACE_INSTANCE_ID_PREFIX = "bench-workspace"
+const DIRECTORY_WORKSPACE_FALLBACK_REGISTRATION_ORDER = 0
 const DIRECTORY_WORKSPACE_FALLBACK_REVISION = 0
 const WORKSPACE_PATH_SEPARATOR = "/"
 
@@ -131,6 +132,7 @@ function openPublicationKey(input: {
   targetKey: string
   visibility: EffectiveWorkspaceProjection["bench"]["visibility"]
   drawer: DrawerKind | null
+  registrationOrder: number
   semanticRevision: number
 }): string {
   return [
@@ -139,6 +141,7 @@ function openPublicationKey(input: {
     input.targetKey,
     input.visibility,
     drawerPublicationValue(input.drawer),
+    String(input.registrationOrder),
     String(input.semanticRevision),
   ].join("\u0000")
 }
@@ -859,6 +862,7 @@ export class DirectoryWorkspaceLifecycleService {
         targetKey,
         visibility: input.visibility,
         drawer: input.drawer,
+        registrationOrder: DIRECTORY_WORKSPACE_FALLBACK_REGISTRATION_ORDER,
         semanticRevision: DIRECTORY_WORKSPACE_FALLBACK_REVISION,
       }),
       value: withDrawerContext({
@@ -901,6 +905,7 @@ export class DirectoryWorkspaceLifecycleService {
             targetKey,
             visibility: input.visibility,
             drawer: input.drawer,
+            registrationOrder: registration.order,
             semanticRevision: snapshot.semanticRevision,
           }),
           value: withDrawerContext({

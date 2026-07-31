@@ -40,6 +40,7 @@ import {
   SquareIcon as SquareIconData,
   Target01Icon as TargetIconData,
   Tick02Icon as Tick02IconData,
+  Unlink03Icon as UnlinkIconData,
   ZapIcon as ZapIconData,
   Add01Icon as Add01IconData,
   ArrowDown02Icon as ArrowDown02IconData,
@@ -123,6 +124,7 @@ export const SquareIcon = createIcon(SquareIconData, "SquareIcon")
 /** Hugeicons free PencilEdit02 (pen + document). */
 export const SquarePenIcon = createIcon(PencilEdit02IconData, "SquarePenIcon")
 export const TargetIcon = createIcon(TargetIconData, "TargetIcon")
+export const UnlinkIcon = createIcon(UnlinkIconData, "UnlinkIcon")
 export const FileSlidersIcon = createIcon(FileSlidersIconData, "FileSlidersIcon")
 export const ZapIcon = createIcon(ZapIconData, "ZapIcon")
 export const XIcon = createIcon(Cancel01IconData, "XIcon")

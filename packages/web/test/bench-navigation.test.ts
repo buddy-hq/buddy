@@ -25,7 +25,6 @@ import {
   type BenchOpenDecision,
   type BenchOpenPolicyState,
   type BenchOpenRequest,
-  type BenchPresentationPreferences,
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import { encodeDirectory } from "../src/lib/directory-token"
@@ -83,16 +82,12 @@ const FLASHCARD_DECK_OBJECT_TARGET = {
   viewID: "review",
 } satisfies BenchTarget
 
-const EMPTY_PREFERENCES = {
-  modeBySurface: {},
-} satisfies Pick<BenchPresentationPreferences, "modeBySurface">
 const RIGHT_WORKSPACE_CHROME_WIDTH_PX = 44
 
 function resolveOpenPolicy(input: {
   request: BenchOpenRequest
   current?: BenchOpenPolicyState
   currentVisible?: boolean
-  preferences?: Pick<BenchPresentationPreferences, "modeBySurface">
   autoOpenSuppressed?: boolean
 }): BenchOpenDecision {
   return resolveBenchOpenPolicy({
@@ -100,7 +95,6 @@ function resolveOpenPolicy(input: {
     current: input.current ?? { status: "closed" },
     currentVisible: input.currentVisible ?? input.current?.status === "open",
     defaults: resolveBenchSurfaceDefaults(input.request.target),
-    preferences: input.preferences ?? EMPTY_PREFERENCES,
     autoOpenSuppressed: input.autoOpenSuppressed ?? false,
   })
 }
@@ -338,23 +332,6 @@ describe("bench navigation policy", () => {
       mode: BENCH_CHAT_LAYOUT_FLOATING,
       layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
       policyID: "target-default-mode",
-    })
-  })
-
-  test("saved surface mode preference wins over target default", () => {
-    expect(
-      resolveOpenPolicy({
-        request: openRequest(WHITEBOARD_OBJECT_TARGET),
-        preferences: {
-          modeBySurface: {
-            whiteboard: BENCH_CHAT_LAYOUT_DOCKED,
-          },
-        },
-      }),
-    ).toMatchObject({
-      action: "open",
-      mode: BENCH_CHAT_LAYOUT_DOCKED,
-      policyID: "saved-surface-mode",
     })
   })
 

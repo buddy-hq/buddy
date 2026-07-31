@@ -56,7 +56,6 @@ import {
   createManagedNotebook,
   compactSession,
   openInboxNotebook,
-  openProject,
   rejectQuestion,
   reorderOpenProjects,
   replyPermission,
@@ -135,6 +134,7 @@ import { language } from "@/context/language"
 import type { GetStartedChat } from "@/lib/get-started-chats"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
+import { useOpenExistingNotebook } from "@/lib/use-open-existing-notebook"
 import { useOpenSettings } from "@/lib/settings-navigation"
 import { referenceListQueryOptions } from "@/state/reference-query"
 import {
@@ -784,16 +784,22 @@ export function useDirectoryChatPageController(
     [cs, decodedDirectory],
   )
 
+  const openExistingNotebookFlow = useOpenExistingNotebook({
+    onNotebookReady: async (nextDirectory) => {
+      const result = await activateChatDirectory({
+        directory: nextDirectory,
+        navigate: navigateToWorkspaceRoute,
+      })
+      if (result.outcome === "failed") throw result.error
+    },
+    onDeferredError: reportCurrentDirectoryError,
+  })
+
   async function onOpenExistingFolder() {
     try {
       const picked = await pickProjectDirectory()
       if (!picked) return
-      const nextDirectory = await openProject(picked)
-      setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      await activateChatDirectory({
-        directory: nextDirectory,
-        navigate: navigateToWorkspaceRoute,
-      })
+      await openExistingNotebookFlow.openExistingNotebook(picked)
     } catch (error) {
       reportCurrentDirectoryError(error)
     }
@@ -1763,6 +1769,7 @@ export function useDirectoryChatPageController(
     onOpenMcpSettings: () => {
       openSettings("mcps")
     },
+    obsidianConnectionPrompt: openExistingNotebookFlow.obsidianConnectionPrompt,
     showHeader: false,
     className: "w-full h-full",
   }

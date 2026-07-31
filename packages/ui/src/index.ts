@@ -77,6 +77,7 @@ export {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "./components/ui/alert-dialog"
+export { Alert, AlertAction, AlertDescription, AlertTitle } from "./components/ui/alert"
 export {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -208,6 +209,7 @@ export {
   SquareIcon,
   SquarePenIcon,
   TargetIcon,
+  UnlinkIcon,
   FileSlidersIcon,
   ZapIcon,
   XIcon,

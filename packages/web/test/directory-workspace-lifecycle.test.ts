@@ -116,7 +116,9 @@ function projectionFor(target: BenchTarget): EffectiveWorkspaceProjection {
   }
 }
 
-function openSurfaceContext(target: typeof TARGET = TARGET) {
+function openSurfaceContext(
+  target: Extract<BenchTarget, { type: "workspace-file" }> = TARGET,
+) {
   return {
     status: "open" as const,
     targetKey: benchTargetKey(target),
@@ -1007,6 +1009,91 @@ describe("DirectoryWorkspaceLifecycleService", () => {
           },
           metadata: ["processing_status: ready"],
           content: "Rendered MDX",
+        },
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("publishes ready context when it replaces a loading registration at the same revision", async () => {
+    const publishBodies: unknown[] = []
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-1/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: 1 }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(OTHER_TARGET),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      const registerSurface = (status: "loading" | "ready", content: string) =>
+        service.registerSurface({
+          target: OTHER_TARGET,
+          getSnapshot: () => {
+            const context = openSurfaceContext(OTHER_TARGET)
+            return {
+              target: OTHER_TARGET,
+              targetKey: benchTargetKey(OTHER_TARGET),
+              semanticRevision: 0,
+              context: {
+                ...context,
+                target: { ...context.target, status },
+                content,
+              },
+            }
+          },
+          subscribe: () => () => undefined,
+        })
+      const unregisterLoading = registerSurface("loading", "Loading Markdown")
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-1")
+      expect(readPublishContextProbe(publishBodies.at(-1)).value?.content).toBe("Loading Markdown")
+      publishBodies.length = 0
+
+      unregisterLoading()
+      registerSurface("ready", "Rendered Markdown")
+      await service.publishCurrent()
+
+      expect(publishBodies).toHaveLength(1)
+      expect(publishBodies[0]).toMatchObject({
+        value: {
+          target: { path: OTHER_TARGET.path, status: "ready" },
+          content: "Rendered Markdown",
         },
       })
       await service.dispose()

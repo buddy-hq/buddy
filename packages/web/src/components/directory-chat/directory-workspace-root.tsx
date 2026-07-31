@@ -47,7 +47,6 @@ import {
   readBenchOpenPolicyStateFromLocation,
   resolveDockedBenchShellLayout,
   resolveDockedBenchResizeIntent,
-  finalizeBenchModeTransition,
   setBenchPresentationWorkspaceWidth,
   useBenchPresentationPreferences,
   type BenchChatLayoutMode,
@@ -393,7 +392,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const setBenchMode = useCallback(
     (input: { mode: BenchMode; origin: "user" | "agent" }) => {
       if (benchPolicyState.status !== "open") return
-      const target = benchPolicyState.target
       void workspace.controller
         .execute(
           {
@@ -403,14 +401,12 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           { origin: input.origin },
         )
         .then((result) => {
-          const transitionCommitted = finalizeBenchModeTransition({
-            target,
-            mode: input.mode,
-            persistPreference: input.origin === "user",
-            result,
-          })
-          if (!transitionCommitted) return
-          if (input.mode === BENCH_CHAT_LAYOUT_DOCKED) {
+          if (
+            result.outcome === "committed" &&
+            result.projection.route.status === "open" &&
+            result.projection.route.mode === BENCH_CHAT_LAYOUT_DOCKED &&
+            input.mode === BENCH_CHAT_LAYOUT_DOCKED
+          ) {
             setFloatingChatState("open")
           }
         })

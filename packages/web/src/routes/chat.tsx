@@ -2,7 +2,10 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 import { Button, Card, CardContent, Checkbox, Input, ScrollArea } from "@buddy/ui"
-import { NotebookCreationDialog } from "@/components/layout/chat-left-sidebar/dialogs"
+import {
+  NotebookCreationDialog,
+  ObsidianVaultConnectionDialog,
+} from "@/components/layout/chat-left-sidebar/dialogs"
 import { FolderOpenIcon, FolderPlusIcon, SparklesIcon } from "@/components/layout/sidebar-icons"
 import { language } from "@/context/language"
 import { getPlatform, usePlatform } from "@/context/platform"
@@ -22,6 +25,7 @@ import {
   startActiveChatDraft,
 } from "@/lib/active-chat-transition-coordinator"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
+import { useOpenExistingNotebook } from "@/lib/use-open-existing-notebook"
 import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import { stringifyError } from "../lib/api-client"
 import { shouldShowCurrentDesktopOnboarding } from "../lib/desktop-onboarding"
@@ -36,7 +40,6 @@ import {
   createManagedNotebook,
   type NotebookHomeState,
   openInboxNotebook,
-  openProject,
   restoreOpenProjectRecovery,
   startFreshOpenProjectRecovery,
 } from "../state/chat-actions"
@@ -124,6 +127,17 @@ function ChatEntryPage() {
     await navigate(buildWorkspaceRouteNavigation({ directory, route, replace: false }))
   }
 
+  const openExistingNotebookFlow = useOpenExistingNotebook({
+    onNotebookReady: async (directory) => {
+      const result = await activateChatDirectory({
+        directory,
+        navigate: navigateToDirectory,
+      })
+      if (result.outcome === "failed") throw result.error
+    },
+    onDeferredError: (error) => setEntryError(stringifyError(error)),
+  })
+
   async function runEntryAction(action: EntryAction, task: () => Promise<void>) {
     setEntryError(undefined)
     setBusyAction(action)
@@ -141,13 +155,7 @@ function ChatEntryPage() {
     if (!directory) return
 
     await runEntryAction(ENTRY_ACTION.OPEN_EXISTING, async () => {
-      const nextDirectory = await openProject(directory)
-      setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
-      const result = await activateChatDirectory({
-        directory: nextDirectory,
-        navigate: navigateToDirectory,
-      })
-      if (result.outcome === "failed") throw result.error
+      await openExistingNotebookFlow.openExistingNotebook(directory)
     })
   }
 
@@ -219,6 +227,13 @@ function ChatEntryPage() {
         <div className="mt-4 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base">
           {entryError}
         </div>
+      ) : null}
+
+      {openExistingNotebookFlow.obsidianConnectionPrompt ? (
+        <ObsidianVaultConnectionDialog
+          open
+          {...openExistingNotebookFlow.obsidianConnectionPrompt}
+        />
       ) : null}
     </div>
   )

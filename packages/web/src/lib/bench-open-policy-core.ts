@@ -8,15 +8,14 @@ import {
   BENCH_LAYOUT_PROFILE_READING,
   BENCH_LAYOUT_PROFILE_VISUAL,
   BENCH_MODE_REQUEST_POLICY,
-  benchModePreferenceKey,
+  benchSurfaceKey,
   isSameBenchTarget,
   type BenchLayoutProfileID,
   type BenchMode,
-  type BenchModePreferenceKey,
   type BenchOpenRequest,
+  type BenchSurfaceKey,
   type BenchTarget,
 } from "./bench-targets"
-import type { BenchPresentationPreferences } from "./bench-preferences"
 import { classifyWorkspaceMedia, isWorkspaceReaderPath } from "./workspace-file-media"
 
 type BenchSurfaceDefaults = {
@@ -44,7 +43,6 @@ type BenchIgnorePolicyID =
 
 type BenchResolvedOpenPolicyID =
   | "explicit-mode"
-  | "saved-surface-mode"
   | "target-default-mode"
   | "docked-fallback"
   | "preserved-current-mode"
@@ -68,7 +66,6 @@ type ResolveBenchOpenPolicyInput = {
   current: BenchOpenPolicyState
   currentVisible: boolean
   defaults: BenchSurfaceDefaults
-  preferences: Pick<BenchPresentationPreferences, "modeBySurface">
   autoOpenSuppressed: boolean
 }
 
@@ -106,7 +103,7 @@ const BENCH_SURFACE_DEFAULTS = {
   "artifact:flashcard-deck": {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
   },
-} satisfies Record<BenchModePreferenceKey, Pick<BenchSurfaceDefaults, "mode">>
+} satisfies Record<BenchSurfaceKey, Pick<BenchSurfaceDefaults, "mode">>
 
 function resolveWorkspaceFileLayoutProfile(
   target: Extract<BenchTarget, { type: "workspace-file" }>,
@@ -157,7 +154,7 @@ function resolveBenchLayoutProfile(target: BenchTarget): BenchLayoutProfileID {
 
 function resolveBenchSurfaceDefaults(target: BenchTarget): BenchSurfaceDefaults {
   return {
-    ...BENCH_SURFACE_DEFAULTS[benchModePreferenceKey(target)],
+    ...BENCH_SURFACE_DEFAULTS[benchSurfaceKey(target)],
     layoutProfile: resolveBenchLayoutProfile(target),
   }
 }
@@ -166,7 +163,6 @@ function resolveBenchOpenMode(input: {
   request: BenchOpenRequest
   current: BenchOpenPolicyState
   defaults: BenchSurfaceDefaults
-  preferences: Pick<BenchPresentationPreferences, "modeBySurface">
 }): {
   mode: BenchMode
   policyID: BenchResolvedOpenPolicyID
@@ -182,14 +178,6 @@ function resolveBenchOpenMode(input: {
     return {
       mode: input.current.mode,
       policyID: "preserved-current-mode",
-    }
-  }
-
-  const savedMode = input.preferences.modeBySurface[benchModePreferenceKey(input.request.target)]
-  if (savedMode) {
-    return {
-      mode: savedMode,
-      policyID: "saved-surface-mode",
     }
   }
 
@@ -232,7 +220,6 @@ function resolveBenchOpenPolicy(input: ResolveBenchOpenPolicyInput): BenchOpenDe
     request: input.request,
     current: input.current,
     defaults: input.defaults,
-    preferences: input.preferences,
   })
 
   if (

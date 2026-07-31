@@ -20,7 +20,6 @@ import {
   type BenchLeaveGuardResult,
   type BenchLeaveOrigin,
 } from "@/lib/bench-leave-guard"
-import { readBenchPresentationPreferences } from "@/lib/bench-preferences"
 import {
   BENCH_ROUTE_STATUS_CLOSED,
   BENCH_ROUTE_STATUS_OPEN,
@@ -1001,7 +1000,6 @@ export class DirectoryWorkspaceController {
       current: routeSnapshotToOpenPolicyState(this.#directory, currentRoute),
       currentVisible,
       defaults: resolveBenchSurfaceDefaults(command.target),
-      preferences: readBenchPresentationPreferences(),
       autoOpenSuppressed: false,
     })
     logBenchToggleStep("workspace-controller-present-policy-decision", {

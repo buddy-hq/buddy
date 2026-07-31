@@ -346,7 +346,47 @@ describe("DirectoryWorkspaceController", () => {
       bench: { visibility: "visible", mode: BENCH_CHAT_LAYOUT_FLOATING },
       pending: { status: "none" },
     })
+    expect(harness.store.getState().slots[CHAT_A_KEY]).toMatchObject({
+      route: FLOATING_FILE_ROUTE,
+    })
     expect(harness.guardCalls).toHaveLength(0)
+  })
+
+  test("restores a chat-local floating mode after visiting another chat", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_FILE_ROUTE,
+      initialExpanded: true,
+    })
+
+    await harness.execute(
+      { type: "set-mode", mode: BENCH_CHAT_LAYOUT_FLOATING },
+      FLOATING_FILE_ROUTE,
+    )
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      resetDestination: true,
+    })
+    await harness.execute({ type: "restore-chat", chatKey: CHAT_B_KEY }, CLOSED_ROUTE)
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_B_KEY,
+      destinationChatKey: CHAT_A_KEY,
+      resetDestination: false,
+    })
+    const restoration = await harness.execute(
+      { type: "restore-chat", chatKey: CHAT_A_KEY },
+      FLOATING_FILE_ROUTE,
+    )
+
+    expect(restoration).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: FLOATING_FILE_ROUTE,
+        bench: { visibility: "visible", mode: BENCH_CHAT_LAYOUT_FLOATING },
+      },
+    })
   })
 
   test("runs one leave guard for target replacement and records the controller origin", async () => {

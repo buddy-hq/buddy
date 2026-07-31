@@ -364,7 +364,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     obsidianLinkResolutionsQueryOptions({
       directory: props.directory,
       documentPath: props.path,
-      enabled: obsidianProfileQuery.data?.compatible === true,
+      enabled: obsidianProfileQuery.data?.connected === true,
       targets: obsidianTargets,
     }),
   )
@@ -412,12 +412,12 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     () => ({
       directory: props.directory,
       documentPath: props.path,
-      compatible: obsidianProfileQuery.data?.compatible === true,
+      compatible: obsidianProfileQuery.data?.connected === true,
       resolutions: obsidianResolutions,
       openResolution: openObsidianResolution,
     }),
     [
-      obsidianProfileQuery.data?.compatible,
+      obsidianProfileQuery.data?.connected,
       obsidianResolutions,
       openObsidianResolution,
       props.directory,
