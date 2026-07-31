@@ -194,9 +194,7 @@ export async function listSkillsCatalog(
  * source story, which is the right payload for the drawer and far too much for a
  * surface that only needs to draw a skill: the slash menu and the composer pill.
  */
-export async function listSkillPresentations(
-  directory: string,
-): Promise<SkillPresentationInfo[]> {
+export async function listSkillPresentations(directory: string): Promise<SkillPresentationInfo[]> {
   const [skills, catalogSnapshot] = await Promise.all([
     loadVisibleSkills(directory),
     readSkillCatalogSnapshot(),

@@ -19,9 +19,7 @@ describe("Mermaid SVG instance resources", () => {
     const transcript = scopeMermaidSvgResourcesForInstance(CACHED_SVG, ":transcript:r1:")
     const bench = scopeMermaidSvgResourcesForInstance(CACHED_SVG, ":bench:r2:")
 
-    expect(transcript).toContain(
-      'id="buddy-mermaid-transcript-r1-buddy_mermaid_render_1_pointEnd"',
-    )
+    expect(transcript).toContain('id="buddy-mermaid-transcript-r1-buddy_mermaid_render_1_pointEnd"')
     expect(transcript).toContain(
       'marker-end="url(#buddy-mermaid-transcript-r1-buddy_mermaid_render_1_pointEnd)"',
     )

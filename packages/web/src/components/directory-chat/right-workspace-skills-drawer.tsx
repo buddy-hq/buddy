@@ -208,7 +208,11 @@ function mutationSuccessMessage(skill: SkillLibraryEntry): string {
 
 function SkillListSkeleton() {
   return (
-    <div className="flex flex-col gap-1.5 p-2.5" aria-label={language.t("skills.loadingSkills")} role="status">
+    <div
+      className="flex flex-col gap-1.5 p-2.5"
+      aria-label={language.t("skills.loadingSkills")}
+      role="status"
+    >
       {Array.from({ length: SKILL_LIST_SKELETON_COUNT }, (_, index) => (
         <div key={index} className="flex h-[4.5rem] items-center gap-3.5 px-2.5">
           <Skeleton className="size-13 shrink-0 rounded-xl" />
@@ -369,21 +373,19 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
             statusLabel(skill.permissionAction),
           ]),
         )
-        .map(
-          (skill): SkillListItem => {
-            const libraryEntry = libraryByID.get(skill.libraryID ?? "")
-            const icon = libraryEntry?.icon ?? skill.icon
-            const item: SkillListItem = {
-              kind: "installed",
-              id: skill.libraryID ?? skill.name,
-              title: libraryEntry?.displayName ?? skill.displayName,
-              description: libraryEntry?.summary ?? skill.shortDescription,
-              skill,
-            }
-            if (icon) item.icon = icon
-            return item
-          },
-        )
+        .map((skill): SkillListItem => {
+          const libraryEntry = libraryByID.get(skill.libraryID ?? "")
+          const icon = libraryEntry?.icon ?? skill.icon
+          const item: SkillListItem = {
+            kind: "installed",
+            id: skill.libraryID ?? skill.name,
+            title: libraryEntry?.displayName ?? skill.displayName,
+            description: libraryEntry?.summary ?? skill.shortDescription,
+            skill,
+          }
+          if (icon) item.icon = icon
+          return item
+        })
         .toSorted(compareListItems),
     [catalog?.installed, libraryByID, search],
   )

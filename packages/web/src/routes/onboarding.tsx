@@ -240,12 +240,7 @@ function OnboardingRoute() {
     autoContinueHandledRef.current = true
     setConnectedAuthChoice("chatgpt_plus")
     setAuthChoice("chatgpt_plus")
-  }, [
-    providerCatalogSnapshot,
-    setAuthChoice,
-    showPrimaryUseStep,
-    showProviderSelectionStep,
-  ])
+  }, [providerCatalogSnapshot, setAuthChoice, showPrimaryUseStep, showProviderSelectionStep])
 
   async function handlePrimaryUseSelect(primaryUse: PrimaryUse) {
     setPrimaryUseBusy(true)

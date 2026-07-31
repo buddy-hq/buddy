@@ -25,9 +25,7 @@ describe("skill icon marks", () => {
   })
 
   test("replaces a failed DOM icon with its fallback", async () => {
-    const { createSkillIconMarkElement } = await import(
-      "../src/components/skills/skill-icon-mark"
-    )
+    const { createSkillIconMarkElement } = await import("../src/components/skills/skill-icon-mark")
     const fallback = document.createElement("span")
     fallback.dataset.fallback = "skill"
     const image = createSkillIconMarkElement("analogy.webp", "size-4", fallback)

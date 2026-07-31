@@ -28,9 +28,7 @@ import { SKILL_VISUAL_SIZE_LG, SkillVisual } from "./skill-visual"
 export const SKILL_DETAIL_FIELD_TEXT = "text"
 export const SKILL_DETAIL_FIELD_CHIPS = "chips"
 
-export type SkillDetailFieldKind =
-  | typeof SKILL_DETAIL_FIELD_TEXT
-  | typeof SKILL_DETAIL_FIELD_CHIPS
+export type SkillDetailFieldKind = typeof SKILL_DETAIL_FIELD_TEXT | typeof SKILL_DETAIL_FIELD_CHIPS
 
 export type SkillDetailField = {
   label: string

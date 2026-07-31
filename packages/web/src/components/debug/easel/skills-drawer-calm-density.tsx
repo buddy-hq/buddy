@@ -1,7 +1,14 @@
 import { useMemo, useState, type ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Badge, Button, Input, Switch, cn } from "@buddy/ui"
-import { CheckIcon, DownloadIcon, PlusIcon, RefreshCwIcon, SearchIcon, XIcon } from "@/icons/app-icons"
+import {
+  CheckIcon,
+  DownloadIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  SearchIcon,
+  XIcon,
+} from "@/icons/app-icons"
 import { skillsCatalogQueryOptions } from "@/state/skills-catalog-query"
 import type { InstalledSkillInfo, SkillLibraryEntry } from "@/state/skills-actions"
 import { resolveSkillIconURL } from "@/components/skills/skill-icon-assets"
@@ -60,10 +67,7 @@ const SKILL_DENSITY_SM = "sm"
 const SKILL_DENSITY_MD = "md"
 const SKILL_DENSITY_LG = "lg"
 
-type SkillDensity =
-  | typeof SKILL_DENSITY_SM
-  | typeof SKILL_DENSITY_MD
-  | typeof SKILL_DENSITY_LG
+type SkillDensity = typeof SKILL_DENSITY_SM | typeof SKILL_DENSITY_MD | typeof SKILL_DENSITY_LG
 
 /** sm and md are rows in a borderless list; lg is a bordered card. */
 type CalmDensity = typeof SKILL_DENSITY_SM | typeof SKILL_DENSITY_MD
@@ -185,10 +189,7 @@ const PANEL_MODE_CALM = "calm"
 const PANEL_MODE_SPLIT = "split"
 const PANEL_MODE_EXPAND = "expand"
 
-type PanelMode =
-  | typeof PANEL_MODE_CALM
-  | typeof PANEL_MODE_SPLIT
-  | typeof PANEL_MODE_EXPAND
+type PanelMode = typeof PANEL_MODE_CALM | typeof PANEL_MODE_SPLIT | typeof PANEL_MODE_EXPAND
 
 const MATCH_FIELD_NAME = "name"
 const MATCH_FIELD_SUMMARY = "summary"
@@ -583,9 +584,7 @@ function PromotedSkillCard(props: { card: SkillCard; reason?: string; tokens: re
         <HighlightedText text={card.description} tokens={tokens} />
       </p>
 
-      <p className="mt-auto truncate text-[11px] text-text-weaker">
-        {reason ?? meta}
-      </p>
+      <p className="mt-auto truncate text-[11px] text-text-weaker">{reason ?? meta}</p>
     </div>
   )
 }
@@ -600,11 +599,7 @@ function SkillRow(props: {
 
   if (props.density === SKILL_DENSITY_LG) {
     return (
-      <PromotedSkillCard
-        card={props.card}
-        tokens={props.tokens}
-        {...(reason ? { reason } : {})}
-      />
+      <PromotedSkillCard card={props.card} tokens={props.tokens} {...(reason ? { reason } : {})} />
     )
   }
 
@@ -711,7 +706,8 @@ function DensityLegend(props: { densities: readonly SkillDensity[]; searching: b
       <span>{props.densities.length} results</span>
       <span className="h-px flex-1 bg-border-weaker-base" />
       <span className="tabular-nums">
-        {counts[SKILL_DENSITY_LG]} lg · {counts[SKILL_DENSITY_MD]} md · {counts[SKILL_DENSITY_SM]} sm
+        {counts[SKILL_DENSITY_LG]} lg · {counts[SKILL_DENSITY_MD]} md · {counts[SKILL_DENSITY_SM]}{" "}
+        sm
       </span>
     </div>
   )
@@ -1375,7 +1371,8 @@ export function SkillsDrawerCalmDensityEasel(props: { directory?: string }) {
           </label>
 
           <Badge variant="outline">
-            {ranked.length} {searching ? "matching" : tab === "installed" ? "installed" : "in library"}
+            {ranked.length}{" "}
+            {searching ? "matching" : tab === "installed" ? "installed" : "in library"}
             {usingLive ? " · live" : " · fixture"}
           </Badge>
         </div>
@@ -1390,7 +1387,12 @@ export function SkillsDrawerCalmDensityEasel(props: { directory?: string }) {
             query={query}
             rationale="Today's favourite, unchanged. Perfect while browsing — but a search result that matched a tag looks identical to one that matched its name, so the odd-looking rows never explain themselves."
           >
-            <SkillsList items={ranked} mode={PANEL_MODE_CALM} searching={searching} tokens={tokens} />
+            <SkillsList
+              items={ranked}
+              mode={PANEL_MODE_CALM}
+              searching={searching}
+              tokens={tokens}
+            />
           </PanelShell>
 
           <PanelShell

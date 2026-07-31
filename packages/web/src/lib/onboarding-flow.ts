@@ -36,11 +36,7 @@ export function shouldAutoContinueConnectedOpenAiOnboarding(input: {
   openAiConnected: boolean
   alreadyHandled: boolean
 }) {
-  return (
-    !input.showProviderSelectionStep &&
-    input.openAiConnected &&
-    !input.alreadyHandled
-  )
+  return !input.showProviderSelectionStep && input.openAiConnected && !input.alreadyHandled
 }
 
 export function shouldShowOnboardingPrimaryUseStep(primaryUse: PrimaryUse | undefined) {

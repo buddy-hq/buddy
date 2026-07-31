@@ -245,9 +245,7 @@ describe("RightWorkspaceSkillsDrawer", () => {
     expect(container.textContent).toContain("PowerPoint Presentation")
     expect(container.textContent).toContain("Practice")
     expect(
-      container
-        .querySelector('button[aria-label="Toggle Practice"]')
-        ?.getAttribute("aria-checked"),
+      container.querySelector('button[aria-label="Toggle Practice"]')?.getAttribute("aria-checked"),
     ).toBe("false")
 
     // Library band: only what is NOT installed, so nothing appears twice.

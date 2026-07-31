@@ -4,12 +4,7 @@ import { buildChromaFilter, parseArguments } from "./remove-image-background"
 describe("remove-image-background", () => {
   test("uses chroma background removal defaults for a batch request", () => {
     expect(
-      parseArguments([
-        "--input",
-        "assets/raw/mascot/raw",
-        "--output",
-        "assets/mascot",
-      ]),
+      parseArguments(["--input", "assets/raw/mascot/raw", "--output", "assets/mascot"]),
     ).toEqual({
       kind: "run",
       options: {

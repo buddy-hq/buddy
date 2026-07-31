@@ -191,9 +191,7 @@ describe("skill catalog library", () => {
       })
 
       const items = await listCatalogLibraryItems(catalog)
-      expect(items[0]?.icon).toBe(
-        `/api/skills/library/sample-skill/icon?sha256=${iconSha256}`,
-      )
+      expect(items[0]?.icon).toBe(`/api/skills/library/sample-skill/icon?sha256=${iconSha256}`)
     } finally {
       if (previousHome === undefined) delete process.env.BUDDY_TEST_HOME
       else process.env.BUDDY_TEST_HOME = previousHome

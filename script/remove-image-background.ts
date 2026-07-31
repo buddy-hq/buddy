@@ -1,6 +1,16 @@
 #!/usr/bin/env bun
 
-import { cancel, confirm, intro, isCancel, note, outro, select, spinner, text } from "@clack/prompts"
+import {
+  cancel,
+  confirm,
+  intro,
+  isCancel,
+  note,
+  outro,
+  select,
+  spinner,
+  text,
+} from "@clack/prompts"
 import { access, mkdir, mkdtemp, readdir, rm, stat } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, dirname, extname, join, parse, relative, resolve } from "node:path"
@@ -119,7 +129,11 @@ function requiredValue(args: string[], index: number, flag: string): string {
 
 function parseUnitInterval(value: string, flag: string): number {
   const parsed = Number(value)
-  if (!Number.isFinite(parsed) || parsed < MINIMUM_COLOR_COMPONENT || parsed > MAXIMUM_COLOR_COMPONENT) {
+  if (
+    !Number.isFinite(parsed) ||
+    parsed < MINIMUM_COLOR_COMPONENT ||
+    parsed > MAXIMUM_COLOR_COMPONENT
+  ) {
     throw new Error(`${flag} must be a number from 0 to 1`)
   }
 
@@ -417,7 +431,11 @@ async function collectConversions(options: ImageProcessingOptions): Promise<Imag
       for (const imagePath of imagePaths) {
         conversions.push({
           inputPath: imagePath,
-          outputPath: outputPathFor(relative(resolvedInputPath, imagePath), outputDirectory, options),
+          outputPath: outputPathFor(
+            relative(resolvedInputPath, imagePath),
+            outputDirectory,
+            options,
+          ),
         })
       }
       continue
@@ -461,7 +479,9 @@ async function assertOutputsAreAvailable(
       .then(() => true)
       .catch(() => false)
     if (outputExists) {
-      throw new Error(`Output already exists: ${conversion.outputPath}. Pass --overwrite to replace it.`)
+      throw new Error(
+        `Output already exists: ${conversion.outputPath}. Pass --overwrite to replace it.`,
+      )
     }
   }
 }
@@ -509,15 +529,7 @@ function ffmpegCommand(
 }
 
 function rembgCommand(inputPath: string, outputPath: string): string[] {
-  return [
-    REMBG_EXECUTABLE,
-    "i",
-    "-m",
-    DEFAULT_REMBG_MODEL,
-    "-a",
-    inputPath,
-    outputPath,
-  ]
+  return [REMBG_EXECUTABLE, "i", "-m", DEFAULT_REMBG_MODEL, "-a", inputPath, outputPath]
 }
 
 function imagemagickCommand(
@@ -745,12 +757,7 @@ async function promptForNormalizeDimension(
     cancel("Image processing cancelled.")
     return null
   }
-  return parsePositiveInteger(
-    value,
-    "Visible content size",
-    MINIMUM_IMAGE_DIMENSION,
-    maximum,
-  )
+  return parsePositiveInteger(value, "Visible content size", MINIMUM_IMAGE_DIMENSION, maximum)
 }
 
 async function promptForChromaSettings(): Promise<

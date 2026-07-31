@@ -111,7 +111,10 @@ function optionalString(
   return value
 }
 
-function skillIconStatus(parent: Readonly<Record<string, unknown>>, context: string): SkillIconStatus {
+function skillIconStatus(
+  parent: Readonly<Record<string, unknown>>,
+  context: string,
+): SkillIconStatus {
   const value = parent.status ?? "locked"
   if (value === "candidate" || value === "locked" || value === "planned") return value
   throw new Error(`Skill icon design system has invalid ${context}.status`)
@@ -220,9 +223,14 @@ function matchesPlan(plan: SkillIconPlan, query: string): boolean {
     const definition = ICON_DESIGN_SYSTEM.palette[key]
     return definition ? [definition.label, definition.reviewDescription] : []
   })
-  return [plan.id, plan.displayName, plan.purpose, plan.symbol, plan.material, ...paletteTerms].some(
-    (value) => value.toLocaleLowerCase().includes(normalizedQuery),
-  )
+  return [
+    plan.id,
+    plan.displayName,
+    plan.purpose,
+    plan.symbol,
+    plan.material,
+    ...paletteTerms,
+  ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery))
 }
 
 function SkillIconPlaceholder(props: { displayName: string }) {
@@ -287,7 +295,10 @@ function SkillIconCard(props: { plan: SkillIconPlan; iconURL?: string }) {
           <h3 className="truncate text-sm font-semibold text-text-strong">
             {props.plan.displayName}
           </h3>
-          <p className="mt-0.5 truncate font-mono text-[10px] text-text-weaker" title={props.plan.id}>
+          <p
+            className="mt-0.5 truncate font-mono text-[10px] text-text-weaker"
+            title={props.plan.id}
+          >
             {props.plan.id}
           </p>
         </div>
@@ -328,9 +339,7 @@ function SkillIconCard(props: { plan: SkillIconPlan; iconURL?: string }) {
                   )}
                 />
               ))}
-              <span className="max-w-24 truncate text-[11px] text-text-base">
-                {paletteLabel}
-              </span>
+              <span className="max-w-24 truncate text-[11px] text-text-base">{paletteLabel}</span>
             </div>
           </div>
           <p className="truncate font-mono text-[9px] text-text-weaker" title={expectedFilename}>
@@ -391,9 +400,9 @@ export function SkillIconAtlasEasel(props: { directory?: string }) {
               <Badge variant="outline">{ICON_PLANS.length} skills</Badge>
             </div>
             <p className="mt-1 max-w-2xl text-xs leading-5 text-text-weak">
-              The design plan and packaged assets in one review surface. Visible content is normalized
-              to {ICON_DESIGN_SYSTEM.asset.visibleContentMax}px on a {ICON_DESIGN_SYSTEM.asset.width}px
-              canvas.
+              The design plan and packaged assets in one review surface. Visible content is
+              normalized to {ICON_DESIGN_SYSTEM.asset.visibleContentMax}px on a{" "}
+              {ICON_DESIGN_SYSTEM.asset.width}px canvas.
             </p>
           </div>
 

@@ -58,7 +58,10 @@ const SOURCE_CATALOG_PATH = path.resolve(
   import.meta.dir,
   "../src/learning/skill-management/service/catalog.json",
 )
-const SOURCE_CATALOG_ICON_DIRECTORY = path.resolve(import.meta.dir, "../../../assets/skills/catalog")
+const SOURCE_CATALOG_ICON_DIRECTORY = path.resolve(
+  import.meta.dir,
+  "../../../assets/skills/catalog",
+)
 const SOURCE_CATALOG_ICON_FILENAME_PREFIX = "buddy-skill-"
 const SOURCE_CATALOG_ICON_FILENAME_SUFFIX = ".webp"
 
@@ -291,7 +294,9 @@ async function buildCatalogIconAssets(
     const sourceFilename = `${SOURCE_CATALOG_ICON_FILENAME_PREFIX}${entry.id}${SOURCE_CATALOG_ICON_FILENAME_SUFFIX}`
     const sourcePath = path.join(SOURCE_CATALOG_ICON_DIRECTORY, sourceFilename)
     const bytes = await fsp.readFile(sourcePath).catch((error: unknown) => {
-      throw new Error(`Catalog icon source missing for ${entry.id}: ${sourcePath}`, { cause: error })
+      throw new Error(`Catalog icon source missing for ${entry.id}: ${sourcePath}`, {
+        cause: error,
+      })
     })
     const digest = createHash("sha256").update(bytes).digest("hex")
     if (digest !== entry.icon.sha256) {

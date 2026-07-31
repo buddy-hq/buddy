@@ -1,13 +1,10 @@
 import { resolveAssetUrl } from "@/lib/resource-url"
 
-const SKILL_ICON_MODULES = import.meta.glob<string>(
-  "../../../../../assets/skills/bundled/*.webp",
-  {
-    eager: true,
-    import: "default",
-    query: "?url",
-  },
-)
+const SKILL_ICON_MODULES = import.meta.glob<string>("../../../../../assets/skills/bundled/*.webp", {
+  eager: true,
+  import: "default",
+  query: "?url",
+})
 
 const SKILL_ICON_FILENAME_PREFIX = "buddy-skill-"
 const SKILL_ICON_FILENAME_SUFFIX = ".webp"
