@@ -18,52 +18,64 @@ export const MONO = 'ui-monospace, SFMono-Regular, "SF Mono", monospace'
 export const ONBOARDING_STEPS = ["mode", "engine", "location"] as const
 export type CinematicOnboardingStep = (typeof ONBOARDING_STEPS)[number]
 
+/**
+ * The location step runs two different actions, so a single busy flag cannot
+ * label them: confirming made the picker button claim it was opening a picker.
+ * Both controls lock while either runs; only the running one changes its label.
+ */
+export const LOCATION_ACTION = {
+  confirm: "confirm",
+  pick: "pick",
+} as const
+
+export type CinematicLocationAction = (typeof LOCATION_ACTION)[keyof typeof LOCATION_ACTION]
+
 export const COPY = {
   intro: {
-    heading: ["Hey — I'm Buddy."],
-    subtitle: "Let's make this space yours. Takes about a minute.",
-    clickToBegin: "Click to begin",
+    heading: ["Hey, I'm Buddy."],
+    begin: "Let's begin",
   },
   mode: {
-    eyebrow: "Let's begin",
-    heading: ["What brings you", "to Buddy today?"],
+    // A sentence the rows complete. Both options used to carry "I'm here to"
+    // in full, so it moves up here and the rows keep only what differs.
+    heading: ["I'm here to…"],
     choiceLearn: {
-      title: "I'm here to learn.",
+      title: "Learn",
       description: "For students, researchers, and lifelong learners.",
     },
     choiceTeach: {
-      title: "I'm here to teach.",
+      title: "Teach",
       description: "For school teachers and homeschoolers.",
     },
-    footnote: "You can change this anytime in Settings.",
   },
   engine: {
-    eyebrow: "The Engine",
-    heading: ["Pick the mind", "behind Buddy."],
+    heading: ["Buddy works with", "100+ AI providers."],
+    subheading: "ChatGPT gives you the best experience.",
     choiceChatGPT: {
-      title: "Connect ChatGPT",
-      description: "Works with both free and paid plans. Recommended.",
+      title: "ChatGPT",
+      description: "Works with free and paid accounts.",
     },
     choiceFree: {
-      title: "Use Free Models",
-      description: "No login, but limited messages and intelligence.",
-      tag: "Instant",
+      title: "Free models",
+      description: "No sign-in. Limited messages and intelligence.",
     },
-    footnote: "More connection options available in the Settings.",
+    // The other providers are real but unreachable from onboarding, so they are
+    // stated, never offered. Naming four makes "50+" concrete without wiring.
+    footnote:
+      "Anthropic, Gemini, OpenRouter, Ollama and 100+ more. Add any of them in Settings once you're in.",
   },
   location: {
-    eyebrow: "Your space",
-    heading: ["Buddy keeps your", "work in one place."],
-    folderLabelCustom: "Chosen folder",
-    folderLabelDefault: "Recommended",
-    btnConfirm: "Use this location",
+    // One line of orientation, the folder, accept or change. The eyebrow, the
+    // subheading and the reassurance footnote all restated the heading, and the
+    // "Recommended" tag restated the fact that Buddy proposed the folder at all.
+    heading: ["Your work lives here."],
+    btnConfirm: "Use this",
     btnConfirmSettingUp: "Setting up…",
-    btnCustom: "Choose a different folder",
+    btnCustom: "Choose a different home",
     btnCustomOpening: "Opening picker…",
-    footnote: "You can still open folders from anywhere later.",
   },
   details: {
-    eyebrow: "Last thing — optional",
+    eyebrow: "Last thing, optional",
     heading: ["Tell me about", "yourself."],
     labelName: "What should Buddy call you?",
     placeholderName: "Your name",

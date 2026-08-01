@@ -43,6 +43,9 @@ import { NotebookSearchDrawer, type EaselSearchResult } from "./easel/notebook-s
 import { EaselOnboarding } from "./easel/easel-onboarding"
 import { OnboardingNocturne } from "./easel/onboarding-nocturne"
 import { OnboardingAtelier } from "./easel/onboarding-atelier"
+import { OnboardingDirectionsEasel } from "./easel/onboarding-directions"
+import { EngineStepOptionsEasel } from "./easel/engine-step-options"
+import { LocationStepOptionsEasel } from "./easel/location-step-options"
 import { QuestionToolAnsweredEasel } from "./easel/question-tool-answered"
 import { QuestionDockRedesignsEasel } from "./easel/question-dock-redesigns"
 import { GradientAnimationLoaderEasel } from "./easel/gradient-animation-loader"
@@ -71,6 +74,9 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "location-step-options"
+  | "engine-step-options"
+  | "onboarding-directions"
   | "skills-drawer-calm-density"
   | "skill-icon-atlas"
   | "sidebar-alignment-redesign"
@@ -97,6 +103,24 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "location-step-options",
+    label: "Onboarding · location step",
+    subtitle:
+      "Nine elements down to three · one line of orientation, the folder, accept or change · path / prose / object",
+  },
+  {
+    id: "engine-step-options",
+    label: "Onboarding · engine step",
+    subtitle:
+      "One list · 50+ providers stated, ChatGPT first and heaviest · no button stacked on top of rows",
+  },
+  {
+    id: "onboarding-directions",
+    label: "Onboarding · three art directions",
+    subtitle:
+      "Same three steps, three treatments · Ember (nocturne, disciplined) · Aperture (split canvas) · Letterpress (daylight)",
+  },
   {
     id: "skills-drawer-calm-density",
     label: "Skills drawer · calm + density",
@@ -1092,7 +1116,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("skill-icon-atlas")
+  const [prototype, setPrototype] = useState<EaselPrototype>("location-step-options")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1252,7 +1276,10 @@ export function DevToolsEaselTab(props: { directory?: string }) {
       <div
         className={cn(
           "flex min-h-0 flex-1",
-          prototype === "skills-drawer-calm-density" ||
+          prototype === "location-step-options" ||
+            prototype === "engine-step-options" ||
+            prototype === "onboarding-directions" ||
+            prototype === "skills-drawer-calm-density" ||
             prototype === "skill-icon-atlas" ||
             prototype === "question-dock-redesigns" ||
             prototype === "creations-panel-redesigns" ||
@@ -1266,6 +1293,30 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
       >
+        {prototype === "location-step-options" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <LocationStepOptionsEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "engine-step-options" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <EngineStepOptionsEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "onboarding-directions" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <OnboardingDirectionsEasel />
+            </div>
+          </div>
+        ) : null}
+
         {prototype === "right-workspace" ? (
           <div
             ref={stageRef}

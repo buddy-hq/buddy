@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { motion, useInView } from "motion/react"
 import { cn } from "@buddy/ui"
-import { ArrowUpRightIcon } from "@/icons/app-icons"
+import { ArrowRightIcon } from "@/icons/app-icons"
 import { EASE_OUT, SERIF, rise, lineMask, lineInner } from "./constants"
 
 // ── Big masked-line serif heading (choreographed) ──
@@ -53,57 +53,140 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 }
 
 // ── Editorial "menu" choice ──
+
+/** Icon gutter width, so titles line up whether or not a row carries a mark. */
+const MENU_CHOICE_ICON_COLUMN_PX = 26
+
 export type MenuChoiceProps = {
   title: string
   description: string
   selected?: boolean
   busy?: boolean
+  /**
+   * Mark for the left gutter. Pass `null` on rows without a mark to reserve the
+   * column, so every title in the menu shares one left edge.
+   */
+  leading?: ReactNode
+  /**
+   * Defaults to "next", which is what choosing a row does. Pass an explicit
+   * mark only where the row does something else — a row that hands off to the
+   * browser says so with an outward arrow.
+   */
   trailing?: ReactNode
+  /**
+   * Weight within a menu that has a recommendation. Omit it and the row keeps
+   * the neutral treatment, so menus of equals are unaffected.
+   */
+  emphasis?: MenuChoiceEmphasis
   onHover?: (hovering: boolean) => void
   onClick: () => void
 }
 
+type MenuChoiceEmphasis = "recommended" | "subdued"
+
+type MenuChoiceTone = {
+  titleSize: number
+  titleColor: string
+  descriptionSize: number
+  descriptionColor: string
+}
+
+const MENU_CHOICE_NEUTRAL_TONE: MenuChoiceTone = {
+  titleSize: 22,
+  titleColor: "#f3ede4",
+  descriptionSize: 13.5,
+  descriptionColor: "rgba(255,255,255,0.45)",
+}
+
+const MENU_CHOICE_TONE: Record<MenuChoiceEmphasis, MenuChoiceTone> = {
+  recommended: {
+    titleSize: 24,
+    titleColor: "#f7f1e8",
+    descriptionSize: 13,
+    descriptionColor: "rgba(255,255,255,0.48)",
+  },
+  subdued: {
+    titleSize: 21,
+    titleColor: "rgba(247,241,232,0.7)",
+    descriptionSize: 13,
+    descriptionColor: "rgba(255,255,255,0.3)",
+  },
+}
+
 export function MenuChoice(props: MenuChoiceProps) {
+  const [considering, setConsidering] = useState(false)
+  const tone = props.emphasis ? MENU_CHOICE_TONE[props.emphasis] : MENU_CHOICE_NEUTRAL_TONE
+  const marked = props.selected === true || props.emphasis === "recommended"
+
+  function handleHover(hovering: boolean) {
+    setConsidering(hovering)
+    props.onHover?.(hovering)
+  }
+
   return (
     <motion.button
       type="button"
       variants={rise}
       onClick={props.onClick}
-      onPointerEnter={() => props.onHover?.(true)}
-      onPointerLeave={() => props.onHover?.(false)}
-      onFocus={() => props.onHover?.(true)}
-      onBlur={() => props.onHover?.(false)}
+      onPointerEnter={() => handleHover(true)}
+      onPointerLeave={() => handleHover(false)}
+      onFocus={() => handleHover(true)}
+      onBlur={() => handleHover(false)}
       disabled={props.busy}
       aria-pressed={props.selected}
-      className="group relative flex w-full items-center gap-5 border-t border-white/10 py-5 pl-6 text-left outline-none transition-opacity last:border-b disabled:cursor-default"
+      className="group relative flex w-full cursor-pointer items-center gap-4 border-t border-white/10 py-5 pl-6 text-left outline-none transition-opacity last:border-b disabled:cursor-default"
       style={{ opacity: props.busy && !props.selected ? 0.4 : 1 }}
     >
+      {props.emphasis === "recommended" ? (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          initial={false}
+          animate={{ opacity: considering ? 1 : 0.55 }}
+          transition={{ duration: 0.3, ease: EASE_OUT }}
+          style={{
+            background: `linear-gradient(90deg, color-mix(in srgb, var(--brand-ring) 9%, transparent), color-mix(in srgb, var(--brand-ring) 2%, transparent) 55%, transparent)`,
+          }}
+        />
+      ) : null}
       <motion.span
         aria-hidden
         className="absolute left-0 top-1/2 h-8 w-[3px] -translate-y-1/2 rounded-full"
         initial={false}
-        animate={{ scaleY: props.selected ? 1 : 0, opacity: props.selected ? 1 : 0 }}
+        animate={{ scaleY: marked ? 1 : 0, opacity: marked ? 1 : 0 }}
         transition={{ duration: 0.3, ease: EASE_OUT }}
         style={{ background: "var(--brand-ring)", boxShadow: "0 0 16px var(--brand-ring)" }}
       />
-      <span className="min-w-0 flex-1">
+      {props.leading === undefined ? null : (
         <span
-          className="block text-[22px] leading-tight tracking-[-0.01em] transition-colors duration-200"
+          className="relative flex shrink-0 items-center justify-start"
+          style={{ width: MENU_CHOICE_ICON_COLUMN_PX }}
+        >
+          {props.leading}
+        </span>
+      )}
+      <span className="relative min-w-0 flex-1">
+        <span
+          className="block leading-tight tracking-[-0.01em] transition-colors duration-200"
           style={{
             fontFamily: SERIF,
             fontWeight: 500,
-            color: props.selected ? "var(--brand-word)" : "#f3ede4",
+            fontSize: tone.titleSize,
+            color: props.selected ? "var(--brand-word)" : tone.titleColor,
           }}
         >
           {props.title}
         </span>
-        <span className="mt-1 block text-[13.5px] leading-snug text-white/45">
+        <span
+          className="mt-1 block leading-snug"
+          style={{ fontSize: tone.descriptionSize, color: tone.descriptionColor }}
+        >
           {props.description}
         </span>
       </span>
-      <span className="flex shrink-0 items-center">
+      <span className="relative flex shrink-0 items-center">
         {props.trailing ?? (
-          <ArrowUpRightIcon className="size-5 -translate-x-1 text-white/25 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-hover:text-white/70" />
+          <ArrowRightIcon className="size-5 -translate-x-1 text-white/25 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-hover:text-white/70" />
         )}
       </span>
     </motion.button>
@@ -129,7 +212,7 @@ export function Pill({
       whileHover={{ y: -1 }}
       whileTap={{ scale: 0.97 }}
       transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
-      className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-[14px] font-medium disabled:opacity-50"
+      className="inline-flex cursor-pointer items-center gap-2 rounded-full px-7 py-3 text-[14px] font-medium disabled:cursor-default disabled:opacity-50"
       style={{
         background: "var(--brand-ring)",
         color: "var(--brand-ink)",

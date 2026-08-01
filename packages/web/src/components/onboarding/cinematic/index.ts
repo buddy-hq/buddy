@@ -33,6 +33,7 @@ export {
   lineMask,
   lineInner,
   COPY,
+  LOCATION_ACTION,
   ONBOARDING_STEPS,
   FINISH_EXPAND_DELAY_MS,
   FINISH_NAVIGATE_DELAY_MS,
@@ -47,4 +48,5 @@ export type {
   MoodKey,
   MoodColors,
   CinematicOnboardingStep,
+  CinematicLocationAction,
 } from "./constants"

@@ -12,6 +12,7 @@ import {
   Finish,
   HeaderRail,
   Intro,
+  LOCATION_ACTION,
   LocationScreen,
   ModeScreen,
   SANS,
@@ -21,6 +22,7 @@ import {
   THEMES,
   container,
   useFont,
+  type CinematicLocationAction,
   type CinematicOnboardingStep,
   type MoodKey,
 } from "@/components/onboarding/cinematic"
@@ -145,7 +147,9 @@ function OnboardingRoute() {
   )
   const [error, setError] = useState<string | undefined>(undefined)
   const [busyChoice, setBusyChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
-  const [folderBusy, setFolderBusy] = useState(false)
+  const [folderPending, setFolderPending] = useState<CinematicLocationAction | undefined>(
+    undefined,
+  )
   const [showFolderRecovery, setShowFolderRecovery] = useState(false)
   const authAbortRef = useRef<AbortController | undefined>(undefined)
   const [showProviderSelectionStep, setShowProviderSelectionStep] = useState(false)
@@ -156,7 +160,6 @@ function OnboardingRoute() {
   const [introComplete, setIntroComplete] = useState(false)
   const [hoverPrimaryUse, setHoverPrimaryUse] = useState<PrimaryUse | undefined>(undefined)
   const [selectedHomeDirectory, setSelectedHomeDirectory] = useState<string | undefined>(undefined)
-  const [selectedCustomHome, setSelectedCustomHome] = useState(false)
   const [finishDestination, setFinishDestination] = useState<string | null | undefined>(undefined)
   const [finishExpanding, setFinishExpanding] = useState(false)
   const notebookHomeAccessQuery = useQuery({
@@ -297,7 +300,7 @@ function OnboardingRoute() {
     }
 
     try {
-      setFolderBusy(true)
+      setFolderPending(LOCATION_ACTION.confirm)
       setError(undefined)
       let savedNotebookHome: NotebookHomeState | undefined
 
@@ -325,12 +328,13 @@ function OnboardingRoute() {
         formatProviderAuthError(err, language.t("routes.onboarding.initializeNotebookFailed")),
       )
     } finally {
-      setFolderBusy(false)
+      setFolderPending(undefined)
     }
   }
 
   async function handlePickFolder() {
     try {
+      setFolderPending(LOCATION_ACTION.pick)
       const picked = await pickProjectDirectory()
       if (!picked) return
 
@@ -338,12 +342,13 @@ function OnboardingRoute() {
       if (!normalized) return
 
       setSelectedHomeDirectory(normalized)
-      setSelectedCustomHome(true)
       await finalizeNotebookSelection(authChoice, normalized)
     } catch (err) {
       setError(
         formatProviderAuthError(err, language.t("routes.onboarding.initializeNotebookFailed")),
       )
+    } finally {
+      setFolderPending(undefined)
     }
   }
 
@@ -351,7 +356,6 @@ function OnboardingRoute() {
     setShowFolderRecovery(false)
     const accessState = await queryClient.ensureQueryData(notebookHomeAccessQueryOptions())
     setSelectedHomeDirectory(accessState.defaultDirectory)
-    setSelectedCustomHome(false)
     await finalizeNotebookSelection(authChoice, accessState.defaultDirectory)
   }
 
@@ -505,7 +509,7 @@ function OnboardingRoute() {
                 {step === "engine" ? (
                   <EngineScreen
                     selected={authChoice}
-                    busy={busyChoice !== undefined || folderBusy}
+                    busy={busyChoice !== undefined || folderPending !== undefined}
                     error={error}
                     onChooseChatGpt={() => {
                       void handleChoose("chatgpt_plus")
@@ -518,8 +522,7 @@ function OnboardingRoute() {
                 {step === "location" ? (
                   <LocationScreen
                     homeDirectory={homeDirectory}
-                    custom={selectedCustomHome}
-                    busy={folderBusy}
+                    pending={folderPending}
                     error={error}
                     onUseDefault={() => {
                       void handleUseDefaultHome()
