@@ -22,6 +22,9 @@ const EMPTY_CHILDREN: string[] = []
 const TREE_DEPTH_INDENT_PX = 12
 const TREE_ROW_BASE_PADDING_PX = 8
 const TREE_FILE_ICON_OFFSET_PX = 16
+const MARKDOWN_FILE_EXTENSION_PATTERN = /\.md$/iu
+
+type ProjectFileExplorerVariant = "default" | "obsidian"
 
 type ProjectFileExplorerPanelProps = {
   directory: string
@@ -34,6 +37,7 @@ type ProjectFileExplorerPanelProps = {
   searchValue?: string
   showHeader?: boolean
   refreshRequest?: number
+  variant?: ProjectFileExplorerVariant
 }
 
 type ExplorerDirectoryState = {
@@ -85,7 +89,18 @@ function FileNodeIcon(props: { node: ProjectExplorerFileNode }) {
   return <FileTypeIcon fileName={props.node.path} className="size-4 shrink-0 object-contain" />
 }
 
+export function projectFileExplorerNodeLabel(input: {
+  name: string
+  nodeType: ProjectExplorerFileNode["type"]
+  variant: ProjectFileExplorerVariant
+}): string {
+  if (input.variant !== "obsidian" || input.nodeType !== "file") return input.name
+  return input.name.replace(MARKDOWN_FILE_EXTENSION_PATTERN, "")
+}
+
 export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
+  const variant = props.variant ?? "default"
+  const showNodeIcons = variant !== "obsidian"
   const drawerUiKey = workspaceDrawerUiKey({
     directory: props.directory,
     drawer: WORKSPACE_DRAWER_UI_EXPLORER,
@@ -269,9 +284,13 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
               ) : (
                 <ChevronRightIcon className="size-3 shrink-0" aria-hidden />
               )}
-              <FileNodeIcon node={node} />
+              {showNodeIcons ? <FileNodeIcon node={node} /> : null}
               <span className={cn("min-w-0 flex-1 truncate", node.ignored && "opacity-60")}>
-                {node.name}
+                {projectFileExplorerNodeLabel({
+                  name: node.name,
+                  nodeType: node.type,
+                  variant,
+                })}
               </span>
               {childState.loading ? <Loader2Icon className="size-3 animate-spin" /> : null}
             </button>
@@ -294,9 +313,13 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
           }}
           onClick={() => void openFile(node)}
         >
-          <FileNodeIcon node={node} />
+          {showNodeIcons ? <FileNodeIcon node={node} /> : null}
           <span className={cn("min-w-0 flex-1 truncate", node.ignored && "opacity-60")}>
-            {node.name}
+            {projectFileExplorerNodeLabel({
+              name: node.name,
+              nodeType: node.type,
+              variant,
+            })}
           </span>
         </button>
       )
@@ -308,6 +331,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     <section
       data-component="project-file-explorer-panel"
       data-mode={props.mode ?? "full"}
+      data-variant={variant}
       className={cn("flex h-full min-h-0 flex-col bg-background-base", props.className)}
     >
       {props.showHeader !== false ? (

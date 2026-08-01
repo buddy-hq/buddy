@@ -1,10 +1,8 @@
+import { pathSegments } from "./directory-display"
+
 export type TPermissionDockPathDisplay =
   | { kind: "plain"; path: string }
   | { kind: "split"; prefix: string; interactive: string; final: string }
-
-function pathSegments(path: string): string[] {
-  return path.split(/[/\\]/).filter((segment) => segment.length > 0)
-}
 
 function splitPath(prefix: string, tailSegments: string[]): TPermissionDockPathDisplay {
   const final = tailSegments[tailSegments.length - 1] ?? ""
