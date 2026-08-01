@@ -35,8 +35,8 @@ describe("Obsidian feature gating", () => {
       }).access.skills
 
     expect(resolveSkills(Config.Info.parse({})).obsidian).toBeUndefined()
-    expect(
-      resolveSkills(Config.Info.parse({ obsidian_vault: { connected: true } })).obsidian,
-    ).toBe("allow")
+    expect(resolveSkills(Config.Info.parse({ obsidian_vault: { connected: true } })).obsidian).toBe(
+      "allow",
+    )
   })
 })

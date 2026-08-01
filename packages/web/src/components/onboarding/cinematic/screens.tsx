@@ -102,9 +102,7 @@ export function Intro({ onBegin }: { onBegin: () => void }) {
       </motion.div>
       <Heading lines={COPY.intro.heading} className="text-[clamp(34px,5vw,52px)] leading-[1.02]" />
       <div className="mt-14">
-        <Pill onClick={onBegin}>
-          {COPY.intro.begin}
-        </Pill>
+        <Pill onClick={onBegin}>{COPY.intro.begin}</Pill>
       </div>
     </motion.div>
   )

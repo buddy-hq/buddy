@@ -254,12 +254,8 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
               onSectionRef={props.onSectionRef(group.directory)}
               onOpenNotebook={() => props.onSelectSession(group.directory)}
               onOpenNotebookSettings={() => props.onOpenNotebookSettings(group.directory)}
-              onDisconnectObsidianVault={() =>
-                props.onDisconnectObsidianVault(group.directory)
-              }
-              obsidianDisconnecting={
-                props.disconnectingObsidianDirectory === group.directory
-              }
+              onDisconnectObsidianVault={() => props.onDisconnectObsidianVault(group.directory)}
+              obsidianDisconnecting={props.disconnectingObsidianDirectory === group.directory}
               onCloseNotebook={() => props.onCloseDirectory(group.directory)}
               onNewSession={() => props.onNewSession(group.directory)}
             />

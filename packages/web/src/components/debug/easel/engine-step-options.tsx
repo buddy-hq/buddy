@@ -182,7 +182,8 @@ function Spinner({ size }: { size: number }) {
         width: size,
         height: size,
         background: `conic-gradient(from 0deg, transparent, ${EMBER}, transparent 68%)`,
-        WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
+        WebkitMask:
+          "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
         mask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
       }}
     />
@@ -256,7 +257,10 @@ function EngineRow({
         aria-hidden
         className="absolute left-0 top-1/2 h-8 w-[2px] -translate-y-1/2 rounded-full"
         initial={false}
-        animate={{ scaleY: hovering || recommended ? 1 : 0, opacity: hovering || recommended ? 1 : 0 }}
+        animate={{
+          scaleY: hovering || recommended ? 1 : 0,
+          opacity: hovering || recommended ? 1 : 0,
+        }}
         transition={{ duration: 0.28, ease: EASE_OUT }}
         style={{ background: EMBER, boxShadow: `0 0 16px ${EMBER}` }}
       />
@@ -313,7 +317,12 @@ function ConnectingRow({ onCancel }: { onCancel: () => void }) {
       <div className="min-w-0 flex-1">
         <p
           className="leading-tight tracking-[-0.01em]"
-          style={{ fontFamily: FRAUNCES, fontWeight: 500, fontSize: SCALE.recommendedTitle, color: PAPER }}
+          style={{
+            fontFamily: FRAUNCES,
+            fontWeight: 500,
+            fontSize: SCALE.recommendedTitle,
+            color: PAPER,
+          }}
         >
           Signing in…
         </p>
@@ -339,23 +348,35 @@ function EngineStep({ state }: { state: ReturnType<typeof useEngineState> }) {
   const progress = ((ENGINE_STEP_INDEX + 1) / STEP_COUNT) * 100
 
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ background: INK, fontFamily: TIGHT }}>
+    <div
+      className="relative h-full w-full overflow-hidden"
+      style={{ background: INK, fontFamily: TIGHT }}
+    >
       <div
         aria-hidden
         className="obe-breathe pointer-events-none absolute -left-[14%] -top-[34%] size-[76%] rounded-full blur-[120px]"
-        style={{ background: "radial-gradient(closest-side, rgba(255,106,44,0.26), transparent 70%)" }}
+        style={{
+          background: "radial-gradient(closest-side, rgba(255,106,44,0.26), transparent 70%)",
+        }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-[32%] -right-[16%] size-[60%] rounded-full blur-[140px]"
-        style={{ background: "radial-gradient(closest-side, rgba(96,64,190,0.18), transparent 70%)" }}
+        style={{
+          background: "radial-gradient(closest-side, rgba(96,64,190,0.18), transparent 70%)",
+        }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(120% 80% at 50% 40%, transparent 40%, rgba(0,0,0,0.7))" }}
+        style={{
+          background: "radial-gradient(120% 80% at 50% 40%, transparent 40%, rgba(0,0,0,0.7))",
+        }}
       />
-      <div aria-hidden className="obe-grain pointer-events-none absolute inset-0 z-[1] opacity-[0.05] mix-blend-overlay" />
+      <div
+        aria-hidden
+        className="obe-grain pointer-events-none absolute inset-0 z-[1] opacity-[0.05] mix-blend-overlay"
+      />
 
       <div aria-hidden className="absolute inset-y-0 left-16 z-[2] w-px">
         <div className="absolute inset-0" style={{ background: "rgba(255,255,255,0.07)" }} />
@@ -386,7 +407,12 @@ function EngineStep({ state }: { state: ReturnType<typeof useEngineState> }) {
       </button>
 
       <div className="relative z-[3] flex h-full items-center pl-[132px] pr-14">
-        <motion.div variants={stagger} initial="hidden" animate="show" className="w-full max-w-[560px]">
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+          className="w-full max-w-[560px]"
+        >
           <motion.h2
             variants={{ hidden: {}, show: { transition: { staggerChildren: 0.075 } } }}
             className="text-[clamp(34px,4.4vw,50px)] leading-[1.03] tracking-[-0.02em]"
@@ -432,7 +458,10 @@ function EngineStep({ state }: { state: ReturnType<typeof useEngineState> }) {
             )}
           </motion.div>
 
-          <motion.p variants={rise} className="mt-6 max-w-[460px] text-[12.5px] leading-relaxed text-white/28">
+          <motion.p
+            variants={rise}
+            className="mt-6 max-w-[460px] text-[12.5px] leading-relaxed text-white/28"
+          >
             {BREADTH_NOTE}
           </motion.p>
 
@@ -454,7 +483,10 @@ export function EngineStepOptionsEasel() {
   const state = useEngineState()
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col" style={{ background: EASEL_BG, fontFamily: TIGHT }}>
+    <div
+      className="flex h-full min-h-0 w-full flex-col"
+      style={{ background: EASEL_BG, fontFamily: TIGHT }}
+    >
       <StyleTag />
 
       <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.07] px-4 py-2.5">

@@ -116,9 +116,7 @@ function projectionFor(target: BenchTarget): EffectiveWorkspaceProjection {
   }
 }
 
-function openSurfaceContext(
-  target: Extract<BenchTarget, { type: "workspace-file" }> = TARGET,
-) {
+function openSurfaceContext(target: Extract<BenchTarget, { type: "workspace-file" }> = TARGET) {
   return {
     status: "open" as const,
     targetKey: benchTargetKey(target),

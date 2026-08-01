@@ -335,17 +335,23 @@ function LocationStep({
       <div
         aria-hidden
         className="obl-breathe pointer-events-none absolute -left-[14%] -top-[34%] size-[76%] rounded-full blur-[120px]"
-        style={{ background: "radial-gradient(closest-side, rgba(255,106,44,0.26), transparent 70%)" }}
+        style={{
+          background: "radial-gradient(closest-side, rgba(255,106,44,0.26), transparent 70%)",
+        }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-[32%] -right-[16%] size-[60%] rounded-full blur-[140px]"
-        style={{ background: "radial-gradient(closest-side, rgba(96,64,190,0.18), transparent 70%)" }}
+        style={{
+          background: "radial-gradient(closest-side, rgba(96,64,190,0.18), transparent 70%)",
+        }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(120% 80% at 50% 40%, transparent 40%, rgba(0,0,0,0.7))" }}
+        style={{
+          background: "radial-gradient(120% 80% at 50% 40%, transparent 40%, rgba(0,0,0,0.7))",
+        }}
       />
       <div
         aria-hidden

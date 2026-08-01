@@ -46,10 +46,7 @@ import type {
 import { SettingsIcon } from "./sidebar-icons"
 import { getFilename } from "./sidebar-helpers"
 import { ensureTeacherStandards, shouldAutoSetupTeacherStandards } from "@/lib/teacher-standards"
-import {
-  disconnectObsidianVault,
-  obsidianVaultQueryKeys,
-} from "@/state/obsidian-vault-query"
+import { disconnectObsidianVault, obsidianVaultQueryKeys } from "@/state/obsidian-vault-query"
 import { invalidateSkillsCatalogQuery } from "@/state/skills-catalog-query"
 
 type ChatLeftSidebarProps = {
@@ -81,10 +78,7 @@ type ChatLeftSidebarProps = {
   onCloseDirectory: (directory: string) => void
   onOpenSettings: () => void
   onOpenMcpSettings: () => void
-  obsidianConnectionPrompt?: Omit<
-    ComponentProps<typeof ObsidianVaultConnectionDialog>,
-    "open"
-  >
+  obsidianConnectionPrompt?: Omit<ComponentProps<typeof ObsidianVaultConnectionDialog>, "open">
   showHeader?: boolean
   footer?: ReactNode
   children?: ReactNode

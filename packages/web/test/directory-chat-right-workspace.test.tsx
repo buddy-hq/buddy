@@ -283,9 +283,7 @@ describe("DirectoryChatRightWorkspace", () => {
     root = createRoot(container)
 
     await act(async () => {
-      root?.render(
-        <RouterProvider router={createTestRouter({ obsidianConnected: true })} />,
-      )
+      root?.render(<RouterProvider router={createTestRouter({ obsidianConnected: true })} />)
       await flushEffects()
     })
 

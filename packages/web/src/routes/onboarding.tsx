@@ -147,9 +147,7 @@ function OnboardingRoute() {
   )
   const [error, setError] = useState<string | undefined>(undefined)
   const [busyChoice, setBusyChoice] = useState<OnboardingAuthChoice | undefined>(undefined)
-  const [folderPending, setFolderPending] = useState<CinematicLocationAction | undefined>(
-    undefined,
-  )
+  const [folderPending, setFolderPending] = useState<CinematicLocationAction | undefined>(undefined)
   const [showFolderRecovery, setShowFolderRecovery] = useState(false)
   const authAbortRef = useRef<AbortController | undefined>(undefined)
   const [showProviderSelectionStep, setShowProviderSelectionStep] = useState(false)

@@ -458,17 +458,23 @@ function DirectionEmber({ flow }: { flow: OnboardingFlow }) {
       <div
         aria-hidden
         className="obd-breathe pointer-events-none absolute -left-[14%] -top-[34%] size-[78%] rounded-full blur-[120px]"
-        style={{ background: `radial-gradient(closest-side, rgba(255,106,44,0.30), transparent 70%)` }}
+        style={{
+          background: `radial-gradient(closest-side, rgba(255,106,44,0.30), transparent 70%)`,
+        }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-[34%] -right-[16%] size-[62%] rounded-full blur-[140px]"
-        style={{ background: "radial-gradient(closest-side, rgba(96,64,190,0.20), transparent 70%)" }}
+        style={{
+          background: "radial-gradient(closest-side, rgba(96,64,190,0.20), transparent 70%)",
+        }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(120% 80% at 50% 40%, transparent 40%, rgba(0,0,0,0.72))" }}
+        style={{
+          background: "radial-gradient(120% 80% at 50% 40%, transparent 40%, rgba(0,0,0,0.72))",
+        }}
       />
       <Grain opacity={0.05} />
 
@@ -559,7 +565,9 @@ function DirectionEmber({ flow }: { flow: OnboardingFlow }) {
                         >
                           <Spinner size={24} color={EMBER} />
                           <div className="min-w-0 flex-1">
-                            <p className="text-[17px] text-white/85">Finish sign-in in your browser</p>
+                            <p className="text-[17px] text-white/85">
+                              Finish sign-in in your browser
+                            </p>
                             <p className="mt-1 text-[13px] text-white/35">Waiting for ChatGPT…</p>
                           </div>
                           <button
@@ -725,7 +733,9 @@ function ApertureArt({
   engine?: Engine
   directory: string
 }) {
-  const palette = mood ? APERTURE_MOOD[mood] : { a: "rgba(148,163,184,0.42)", b: "rgba(99,102,241,0.32)" }
+  const palette = mood
+    ? APERTURE_MOOD[mood]
+    : { a: "rgba(148,163,184,0.42)", b: "rgba(99,102,241,0.32)" }
   const described = describeDirectory(directory)
 
   return (
@@ -742,12 +752,16 @@ function ApertureArt({
           >
             <motion.div
               className="obd-breathe absolute left-[16%] top-[20%] size-[58%] rounded-full blur-[70px]"
-              animate={{ background: `radial-gradient(closest-side, ${palette.a}, transparent 72%)` }}
+              animate={{
+                background: `radial-gradient(closest-side, ${palette.a}, transparent 72%)`,
+              }}
               transition={{ duration: 0.7, ease: EASE_SOFT }}
             />
             <motion.div
               className="absolute bottom-[14%] right-[12%] size-[52%] rounded-full blur-[80px]"
-              animate={{ background: `radial-gradient(closest-side, ${palette.b}, transparent 72%)` }}
+              animate={{
+                background: `radial-gradient(closest-side, ${palette.b}, transparent 72%)`,
+              }}
               transition={{ duration: 0.7, ease: EASE_SOFT }}
             />
             <motion.div
@@ -774,7 +788,9 @@ function ApertureArt({
           >
             <div
               className="absolute size-[62%] rounded-full blur-[80px]"
-              style={{ background: "radial-gradient(closest-side, rgba(255,138,76,0.42), transparent 72%)" }}
+              style={{
+                background: "radial-gradient(closest-side, rgba(255,138,76,0.42), transparent 72%)",
+              }}
             />
             <div
               className={cn(
@@ -811,7 +827,9 @@ function ApertureArt({
           >
             <div
               className="absolute size-[70%] rounded-full blur-[90px]"
-              style={{ background: "radial-gradient(closest-side, rgba(255,138,76,0.26), transparent 72%)" }}
+              style={{
+                background: "radial-gradient(closest-side, rgba(255,138,76,0.26), transparent 72%)",
+              }}
             />
             {/* a receding room, with the folder name standing in it */}
             {[0, 1, 2, 3].map((depth) => (
@@ -827,7 +845,10 @@ function ApertureArt({
                 }}
               />
             ))}
-            <div className="relative flex flex-col items-center gap-3 text-center" title={described.short}>
+            <div
+              className="relative flex flex-col items-center gap-3 text-center"
+              title={described.short}
+            >
               <span
                 className="text-[clamp(30px,3.6vw,44px)] leading-none tracking-[-0.025em]"
                 style={{ fontFamily: TIGHT, fontWeight: 600, color: APERTURE_PAPER }}
@@ -857,7 +878,9 @@ function ApertureArt({
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(110% 70% at 50% 50%, transparent 45%, rgba(0,0,0,0.6))" }}
+        style={{
+          background: "radial-gradient(110% 70% at 50% 50%, transparent 45%, rgba(0,0,0,0.6))",
+        }}
       />
     </div>
   )
@@ -891,7 +914,10 @@ function ApertureRow({
     >
       <span
         className="w-6 shrink-0 text-[11px] tabular-nums transition-colors"
-        style={{ fontFamily: MONO, color: active || selected ? APERTURE_ACCENT : "rgba(255,255,255,0.22)" }}
+        style={{
+          fontFamily: MONO,
+          color: active || selected ? APERTURE_ACCENT : "rgba(255,255,255,0.22)",
+        }}
       >
         {String(index).padStart(2, "0")}
       </span>
@@ -986,7 +1012,10 @@ function DirectionAperture({ flow }: { flow: OnboardingFlow }) {
                     className="text-[clamp(28px,3.2vw,38px)] leading-[1.12] tracking-[-0.03em]"
                     style={{ fontFamily: TIGHT, fontWeight: 600, color: APERTURE_PAPER }}
                   />
-                  <motion.p variants={rise} className="mt-4 text-[14px] leading-relaxed text-white/40">
+                  <motion.p
+                    variants={rise}
+                    className="mt-4 text-[14px] leading-relaxed text-white/40"
+                  >
                     Sign in once. Free and paid accounts both work.
                   </motion.p>
 
@@ -1097,7 +1126,8 @@ function DirectionAperture({ flow }: { flow: OnboardingFlow }) {
             </button>
           ) : null}
           <span className="text-[11px] tabular-nums text-white/20" style={{ fontFamily: MONO }}>
-            {String(flow.stepIndex + 1).padStart(2, "0")} — {String(STEP_ORDER.length).padStart(2, "0")}
+            {String(flow.stepIndex + 1).padStart(2, "0")} —{" "}
+            {String(STEP_ORDER.length).padStart(2, "0")}
           </span>
         </div>
       </div>
@@ -1226,7 +1256,9 @@ function DirectionLetterpress({ flow }: { flow: OnboardingFlow }) {
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
-        style={{ background: "radial-gradient(120% 90% at 22% 8%, rgba(255,255,255,0.7), transparent 60%)" }}
+        style={{
+          background: "radial-gradient(120% 90% at 22% 8%, rgba(255,255,255,0.7), transparent 60%)",
+        }}
       />
       <div
         aria-hidden
@@ -1234,7 +1266,11 @@ function DirectionLetterpress({ flow }: { flow: OnboardingFlow }) {
       />
 
       {/* page furniture: a hairline margin and a folio, like a book */}
-      <div aria-hidden className="absolute inset-y-10 left-[76px] w-px" style={{ background: PRESS_RULE }} />
+      <div
+        aria-hidden
+        className="absolute inset-y-10 left-[76px] w-px"
+        style={{ background: PRESS_RULE }}
+      />
       <div className="absolute bottom-9 left-[76px] flex items-center gap-4 pl-6">
         {flow.stepIndex > 0 && !flow.done ? (
           <button
@@ -1248,7 +1284,8 @@ function DirectionLetterpress({ flow }: { flow: OnboardingFlow }) {
           </button>
         ) : null}
         <span className="text-[11px] tabular-nums" style={{ fontFamily: MONO, color: PRESS_FAINT }}>
-          {String(flow.stepIndex + 1).padStart(2, "0")} / {String(STEP_ORDER.length).padStart(2, "0")}
+          {String(flow.stepIndex + 1).padStart(2, "0")} /{" "}
+          {String(STEP_ORDER.length).padStart(2, "0")}
         </span>
       </div>
       <div className="absolute right-12 top-11 flex items-center gap-2.5">
@@ -1356,7 +1393,11 @@ function DirectionLetterpress({ flow }: { flow: OnboardingFlow }) {
                     )}
                   </motion.div>
 
-                  <motion.p variants={rise} className="mt-4 text-[13px]" style={{ color: PRESS_SOFT }}>
+                  <motion.p
+                    variants={rise}
+                    className="mt-4 text-[13px]"
+                    style={{ color: PRESS_SOFT }}
+                  >
                     <span
                       className="mr-2 inline-block align-middle text-[10px] uppercase tracking-[0.18em]"
                       style={{ color: PRESS_RED }}
@@ -1402,7 +1443,10 @@ function DirectionLetterpress({ flow }: { flow: OnboardingFlow }) {
                     variants={rise}
                     title={described.short}
                     className="mt-10 inline-flex flex-col gap-2 px-7 py-6"
-                    style={{ border: `1px solid ${PRESS_INK}`, boxShadow: "8px 8px 0 rgba(23,20,16,0.08)" }}
+                    style={{
+                      border: `1px solid ${PRESS_INK}`,
+                      boxShadow: "8px 8px 0 rgba(23,20,16,0.08)",
+                    }}
                   >
                     <span
                       className="text-[10.5px] uppercase tracking-[0.26em]"
@@ -1559,7 +1603,10 @@ export function OnboardingDirectionsEasel() {
                   active ? "bg-white/[0.08] text-white/90" : "text-white/35 hover:text-white/70",
                 )}
               >
-                <span className="mr-1.5 text-[10px] tabular-nums text-white/25" style={{ fontFamily: MONO }}>
+                <span
+                  className="mr-1.5 text-[10px] tabular-nums text-white/25"
+                  style={{ fontFamily: MONO }}
+                >
                   {index + 1}
                 </span>
                 {STEP_TITLE[step]}

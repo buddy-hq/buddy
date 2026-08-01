@@ -55,9 +55,7 @@ export const obsidianVaultQueryKeys = {
 }
 
 export async function loadObsidianVaultProfile(directory: string): Promise<ObsidianVaultProfile> {
-  return requireBuddyData<ObsidianVaultProfile>(
-    await getBuddyClient(directory).obsidian.profile(),
-  )
+  return requireBuddyData<ObsidianVaultProfile>(await getBuddyClient(directory).obsidian.profile())
 }
 
 async function updateObsidianVaultConnection(
