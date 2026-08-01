@@ -14,6 +14,7 @@ import { createRoot, type Root } from "react-dom/client"
 import {
   DirectoryChatRightWorkspace,
   DirectoryChatRightWorkspaceContent,
+  resolveRightWorkspaceFilesPresentation,
   resolveRightWorkspaceOpenOutcome,
 } from "../src/components/directory-chat/directory-chat-right-workspace"
 import { BenchContent } from "../src/components/directory-chat/directory-chat-bench-page-layout"
@@ -29,6 +30,7 @@ import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
 import { whiteboardQueryKeys } from "../src/components/whiteboard/whiteboard-query"
 import { skillsCatalogQueryKeys } from "../src/state/skills-catalog-query"
 import { workspaceChatKeyForSession } from "../src/lib/workspace-chat-key"
+import { obsidianVaultQueryKeys } from "../src/state/obsidian-vault-query"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_RESOURCE_ID = "resource-1"
@@ -107,7 +109,11 @@ function ChatRouteMarker() {
   return <span data-testid="chat-route">Chat route</span>
 }
 
-function createTestRouter(options?: { sessionID?: string; suppressDrawerMotion?: boolean }) {
+function createTestRouter(options?: {
+  sessionID?: string
+  suppressDrawerMotion?: boolean
+  obsidianConnected?: boolean
+}) {
   const sessionID = options === undefined ? "session-1" : options.sessionID
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -126,6 +132,11 @@ function createTestRouter(options?: { sessionID?: string; suppressDrawerMotion?:
     externalVendorRootsEnabled: true,
     installed: [],
     library: [],
+  })
+  queryClient.setQueryData(obsidianVaultQueryKeys.profile(TEST_DIRECTORY), {
+    detected: options?.obsidianConnected === true,
+    connected: options?.obsidianConnected === true,
+    configDirectories: options?.obsidianConnected === true ? [".obsidian"] : [],
   })
   if (sessionID !== undefined) {
     queryClient.setQueryData(whiteboardQueryKeys.sessionPeek(TEST_DIRECTORY, sessionID), {
@@ -263,6 +274,40 @@ describe("DirectoryChatRightWorkspace", () => {
       "Skills",
       "Notebook Instructions",
     ])
+  })
+
+  test("uses the Obsidian rail mark for a connected vault", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        <RouterProvider router={createTestRouter({ obsidianConnected: true })} />,
+      )
+      await flushEffects()
+    })
+
+    const filesButton = container.querySelector<HTMLButtonElement>('[aria-label="Files"]')
+    expect(
+      filesButton?.querySelector('[data-component="right-workspace-obsidian-icon"]'),
+    ).not.toBeNull()
+  })
+
+  test("uses the notebook name for every explorer and the Obsidian variant only when connected", () => {
+    expect(
+      resolveRightWorkspaceFilesPresentation({
+        directory: "/Users/prashant/Notes",
+        obsidianConnected: false,
+      }),
+    ).toEqual({ title: "Notes", variant: "default" })
+    expect(
+      resolveRightWorkspaceFilesPresentation({
+        directory: "C:\\Users\\prashant\\Vault",
+        obsidianConnected: true,
+      }),
+    ).toEqual({ title: "Vault", variant: "obsidian" })
   })
 
   test("opens Search as the first notebook-scoped drawer", async () => {

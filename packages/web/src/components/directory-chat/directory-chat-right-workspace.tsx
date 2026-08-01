@@ -10,6 +10,7 @@ import {
   type ReactNode,
   type SVGProps,
 } from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   Button,
   Separator,
@@ -31,6 +32,7 @@ import {
   ShapesIcon,
   StudyLampIcon,
 } from "@/icons/app-icons"
+import obsidianIconUrl from "@/assets/obsidian-icon.svg"
 import type { SessionInfo } from "@/state/chat-types"
 import {
   type RightWorkspaceOpenOutcome,
@@ -61,6 +63,8 @@ import { RightWorkspaceBoardsDrawer } from "./right-workspace-boards-drawer"
 import { RightWorkspaceDrawerShell } from "./right-workspace-drawer-ui"
 import { RightWorkspaceSearchDrawer } from "./right-workspace-search-drawer"
 import { RightWorkspaceSkillsDrawer } from "./right-workspace-skills-drawer"
+import { getFilename } from "@/components/layout/sidebar-helpers"
+import { obsidianVaultProfileQueryOptions } from "@/state/obsidian-vault-query"
 
 type DirectoryChatRightWorkspaceProps = {
   directory: string
@@ -119,12 +123,34 @@ export function resolveRightWorkspaceOpenOutcome(
   return "opened"
 }
 
+export function resolveRightWorkspaceFilesPresentation(input: {
+  directory: string
+  obsidianConnected: boolean
+}): { title: string; variant: "default" | "obsidian" } {
+  return {
+    title: getFilename(input.directory),
+    variant: input.obsidianConnected ? "obsidian" : "default",
+  }
+}
+
 const RIGHT_RAIL_ICON_SIZE_CLASS = "size-3.5 shrink-0"
 
 function railIcon(icon: ReactElement<SVGProps<SVGSVGElement>>) {
   return cloneElement(icon, {
     className: cn(RIGHT_RAIL_ICON_SIZE_CLASS, icon.props.className),
   })
+}
+
+function ObsidianRailIcon(props: { className?: string }) {
+  return (
+    <img
+      src={obsidianIconUrl}
+      alt=""
+      aria-hidden
+      data-component="right-workspace-obsidian-icon"
+      className={cn("object-contain", props.className)}
+    />
+  )
 }
 
 function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
@@ -234,6 +260,12 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
   const openBenchRoute = useOpenBench()
   const workspace = useDirectoryWorkspace()
   const selectorAccessEnabled = props.presentation.mode !== BENCH_CHAT_LAYOUT_FLOATING
+  const obsidianProfileQuery = useQuery(obsidianVaultProfileQueryOptions(props.directory))
+  const obsidianConnected = obsidianProfileQuery.data?.connected === true
+  const filesPresentation = resolveRightWorkspaceFilesPresentation({
+    directory: props.directory,
+    obsidianConnected,
+  })
 
   const benchPolicyState = useMemo(
     () =>
@@ -445,7 +477,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     }
     return (
       <RightWorkspaceDrawerShell
-        title="Files"
+        title={filesPresentation.title}
         searchLabel="Search files…"
         searchValue={fileSearch}
         action={{
@@ -465,6 +497,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
           searchValue={fileSearch}
           showHeader={false}
           refreshRequest={fileRefreshRequest}
+          variant={filesPresentation.variant}
           onFileOpenBlocked={restoreFilesSelector}
           onSelectFile={closeSelector}
           onOpenResource={(directory, resource, options) => {
@@ -488,6 +521,8 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     resolvedSelector,
     fileRefreshRequest,
     fileSearch,
+    filesPresentation.title,
+    filesPresentation.variant,
     restoreFilesSelector,
     selectorAccessEnabled,
   ])
@@ -531,7 +566,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     {
       id: "files",
       label: "Files",
-      icon: <FolderIcon />,
+      icon: obsidianConnected ? <ObsidianRailIcon /> : <FolderIcon />,
       active: resolvedSelector === "files",
       onClick: () => openSelector("files"),
     },
