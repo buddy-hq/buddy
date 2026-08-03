@@ -85,6 +85,20 @@ describe("settings updates", () => {
     )
   })
 
+  test("registers Skills between AI Providers and MCPs", () => {
+    const tabIds = SETTINGS_TABS.map((tab) => tab.id)
+    const providersIndex = tabIds.indexOf("providers")
+
+    expect(tabIds.slice(providersIndex, providersIndex + 3)).toEqual([
+      "providers",
+      "skills",
+      "mcps",
+    ])
+    expect(SETTINGS_TABS.find((tab) => tab.id === "skills")?.navLabelKey).toBe(
+      "routes.settings.nav.skills",
+    )
+  })
+
   test("renders update ring controls and checks immediately when Preview is selected", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")

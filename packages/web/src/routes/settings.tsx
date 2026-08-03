@@ -22,6 +22,7 @@ import {
 } from "@/components/settings/settings-tabs"
 import {
   closeOpenProject,
+  deleteSession,
   openProject,
   reorderOpenProjects,
   updateSession,
@@ -49,6 +50,14 @@ import { globalConfigQueryOptions } from "@/state/global-config-query"
 import { readPersonalization } from "@/state/project-config-readers"
 import { pickProjectDirectory } from "../lib/directory-picker"
 import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
+import { sessionFamilyIDs } from "@/lib/session-family"
+import { getPromptScopeKey, usePromptStore } from "@/state/prompt-store"
+import {
+  getModelSelectionScopeKey,
+  getSelectedModelKey,
+  getSelectedVariantKey,
+  useModelSelectionStore,
+} from "@/state/model-selection-store"
 import {
   readSettingsReturnTo,
   resolveSettingsReturnLocation,
@@ -110,6 +119,9 @@ function SettingsRoute() {
   const togglePinned = useUiPreferences((state) => state.togglePinned)
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
+  const clearDirectorySessionState = useUiPreferences(
+    (state) => state.clearDirectorySessionState,
+  )
   const settingsSidebarWidth = useUiPreferences((state) => state.settingsSidebarWidth)
   const setSettingsSidebarWidth = useUiPreferences((state) => state.setSettingsSidebarWidth)
   const { standardsEnabled, standardsStatus } = useStandardsRuntime({
@@ -303,6 +315,83 @@ function SettingsRoute() {
     }
   }
 
+  async function onDeleteSession(
+    targetDirectory: string,
+    targetSessionID: string,
+  ): Promise<boolean> {
+    if (!targetDirectory) return false
+    const sessions = useChatStore.getState().directories[targetDirectory]?.sessions ?? []
+    const affectedSessionIDs = sessionFamilyIDs(sessions, targetSessionID)
+    const selectionSessionID =
+      activeDirectory === targetDirectory &&
+      activeSessionID !== undefined &&
+      affectedSessionIDs.includes(activeSessionID)
+        ? activeSessionID
+        : targetSessionID
+    const selectionKey = getModelSelectionScopeKey(targetDirectory, selectionSessionID)
+    const modelSelectionStore = useModelSelectionStore.getState()
+    const replacementDraftSelection = {
+      model: getSelectedModelKey(modelSelectionStore, selectionKey),
+      variant: getSelectedVariantKey(modelSelectionStore, selectionKey),
+    }
+    const deleteTarget = () =>
+      deleteSession({
+        directory: targetDirectory,
+        sessionID: targetSessionID,
+      })
+
+    try {
+      const affectsActiveSession =
+        activeDirectory === targetDirectory &&
+        activeSessionID !== undefined &&
+        affectedSessionIDs.includes(activeSessionID)
+      if (affectsActiveSession) {
+        const result = await runPreparedActiveChatMutation({
+          directory: targetDirectory,
+          mutate: deleteTarget,
+        })
+        if (result.outcome === "failed") throw result.error
+        if (result.outcome !== "committed") return false
+      } else {
+        await deleteTarget()
+      }
+
+      for (const affectedSessionID of affectedSessionIDs) {
+        usePromptStore.getState().removeSessionDraft(
+          getPromptScopeKey(targetDirectory, affectedSessionID),
+        )
+        clearDirectorySessionState(targetDirectory, affectedSessionID)
+      }
+
+      await Promise.all([
+        queryClient.refetchQueries({
+          queryKey: directoryChatQueryKeys.sessions(targetDirectory),
+          exact: true,
+        }),
+        queryClient.refetchQueries({
+          queryKey: directoryChatQueryKeys.permissions(targetDirectory),
+          exact: true,
+        }),
+        queryClient.refetchQueries({
+          queryKey: directoryChatQueryKeys.questions(targetDirectory),
+          exact: true,
+        }),
+      ])
+
+      if (!useChatStore.getState().directories[targetDirectory]?.sessionID) {
+        await startActiveChatDraft({ directory: targetDirectory })
+        modelSelectionStore.seedWorkspaceSelection(
+          targetDirectory,
+          replacementDraftSelection,
+        )
+      }
+      return true
+    } catch {
+      toast.error(language.t("routes.settings.deleteThreadFailed"))
+      return false
+    }
+  }
+
   async function onRenameSession(targetDirectory: string, targetSessionID: string, title: string) {
     if (!targetDirectory) return
     const nextTitle = title.trim()
@@ -398,6 +487,7 @@ function SettingsRoute() {
               }
               onToggleUnread={onToggleUnread}
               onArchiveSession={onArchiveSession}
+              onDeleteSession={onDeleteSession}
               onRenameSession={onRenameSession}
               onReorderDirectories={(nextOrder) => {
                 void reorderOpenProjects(nextOrder)

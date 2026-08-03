@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { BotIcon } from "@buddy/ui"
 import {
   BlocksIcon,
+  BoxesIcon,
   BrainIcon,
   CpuSettingsIcon,
   RefreshCwIcon,
@@ -14,6 +15,7 @@ import {
 import { GeneralSettings } from "./settings-general"
 import { ProvidersSettings } from "./settings-providers"
 import { McpsSettings } from "./settings-mcps"
+import { SkillsSettings } from "./settings-skills"
 import { AdvancedSettings } from "./settings-advanced"
 import { StandardsSettings } from "./settings-tools"
 import { AttributionSettings } from "./settings-attribution"
@@ -30,6 +32,7 @@ export type SettingsTab =
   | "general"
   | "updates"
   | "providers"
+  | "skills"
   | "mcps"
   | "personalization"
   | "learnerMemory"
@@ -88,6 +91,15 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     group: "main",
     scope: "global",
     render: () => <ProvidersSettings />,
+  },
+  {
+    id: "skills",
+    navLabelKey: "routes.settings.nav.skills",
+    icon: BoxesIcon,
+    layout: "standard",
+    group: "main",
+    scope: "global",
+    render: () => <SkillsSettings />,
   },
   {
     id: "mcps",

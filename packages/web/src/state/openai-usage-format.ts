@@ -54,10 +54,6 @@ export function formatRelativeTime(timestamp: string, now = Date.now()) {
   return formatter.format(Math.round(differenceHours / HOURS_PER_DAY), "day")
 }
 
-export function resolveUsageRemainingPercent(usedPercent: number) {
-  return 100 - Math.max(0, Math.min(usedPercent, 100))
-}
-
 export function formatCompactTokens(count: number): string {
   if (count < 1_000) return `${count}`
   if (count < 1_000_000) {

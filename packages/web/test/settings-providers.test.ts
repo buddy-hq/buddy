@@ -7,7 +7,6 @@ import {
   formatUsageWindowLabel,
   isChatGptReconnectRequired,
   resolveChatGptAuthErrorSurfaces,
-  resolveUsageRemainingPercent,
   resolveAvailableProviders,
   resolveProviderListRowAction,
   resolveProviderListRowControls,
@@ -17,7 +16,7 @@ import { clearOpenAIUsageQuery, openAIUsageQueryKeys } from "../src/state/openai
 import { createProviderInfo } from "./test-utils"
 
 describe("resolveRecommendedProviderCards", () => {
-  test("returns only disconnected recommended providers for section headings", () => {
+  test("recommends ChatGPT only, and only while it is disconnected", () => {
     const providers = resolveRecommendedProviderCards([
       createProviderInfo({ id: "openai", connected: false }),
       createProviderInfo({ id: "opencode", connected: false }),
@@ -25,7 +24,16 @@ describe("resolveRecommendedProviderCards", () => {
       createProviderInfo({ id: "anthropic", connected: false }),
     ])
 
-    expect(providers.map((provider) => provider.id)).toEqual(["openai", "opencode-go"])
+    expect(providers.map((provider) => provider.id)).toEqual(["openai"])
+  })
+
+  test("drops the section entirely once ChatGPT is connected", () => {
+    const providers = resolveRecommendedProviderCards([
+      createProviderInfo({ id: "openai", connected: true }),
+      createProviderInfo({ id: "opencode-go", connected: false }),
+    ])
+
+    expect(providers).toEqual([])
   })
 })
 
@@ -117,8 +125,6 @@ describe("ChatGPT account formatting", () => {
     expect(formatChatGptPlan(null)).toBe("")
     expect(formatUsageWindowLabel(18_000)).toBe("5-hour limit")
     expect(formatUsageWindowLabel(604_800)).toBe("7-day limit")
-    expect(resolveUsageRemainingPercent(1)).toBe(99)
-    expect(resolveUsageRemainingPercent(100)).toBe(0)
     expect(formatCompactTokens(500)).toBe("500")
     expect(formatCompactTokens(128_000)).toBe("128k")
     expect(formatCompactTokens(293_700)).toBe("293.7k")

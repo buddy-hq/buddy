@@ -8,13 +8,13 @@ import {
   DialogContent,
   DialogTitle,
   Input,
-  Progress,
   Separator,
   cn,
 } from "@buddy/ui"
 import { Loader2Icon, RefreshCwIcon } from "@/icons/app-icons"
 import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
 import { ProviderIcon } from "@/components/provider-icon"
+import { UsageMeter } from "@/components/usage/usage-meter"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { connectChatGptPlusForOnboarding } from "@/lib/onboarding-flow"
@@ -47,22 +47,13 @@ import {
   formatCompactTokens,
   formatRelativeTime,
   formatUsageWindowLabel,
-  resolveUsageRemainingPercent,
 } from "@/state/openai-usage-format"
 import { ProviderSourceBadge, SettingsListCard, SettingsContent } from "./settings-primitives"
 
 // Re-exported so existing importers (the formatter unit test, the Easel
 // prototype) keep resolving these from settings-providers unchanged.
-export {
-  formatChatGptPlan,
-  formatCompactTokens,
-  formatRelativeTime,
-  formatUsageWindowLabel,
-  resolveUsageRemainingPercent,
-}
+export { formatChatGptPlan, formatCompactTokens, formatRelativeTime, formatUsageWindowLabel }
 
-const OPENCODE_GO_PROVIDER_ID = "opencode-go"
-const OPENCODE_GO_LEARN_MORE_URL = "https://opencode.ai/go"
 const CHATGPT_LEARN_MORE_URL = "https://chatgpt.com/pricing/"
 const PROVIDER_SEARCH_VISIBLE_THRESHOLD = 3
 
@@ -95,7 +86,6 @@ type RecommendedProviderCardProps = {
 }
 
 type ChatGptAccountCardProps = {
-  modelAvailability: ProviderCatalogState["openAIModelAvailability"]
   usage: OpenAIUsageSnapshot | undefined
   error?: string
   usageLoading: boolean
@@ -107,6 +97,8 @@ type ChatGptAccountCardProps = {
   onRefresh: () => void
 }
 
+/** ChatGPT only. OpenCode Go still appears under "All providers" like every
+ *  other connection — it is just no longer promoted. */
 const RECOMMENDED_PROVIDER_DEFINITIONS: RecommendedProviderDefinition[] = [
   {
     providerID: OPENAI_PROVIDER_ID,
@@ -115,15 +107,6 @@ const RECOMMENDED_PROVIDER_DEFINITIONS: RecommendedProviderDefinition[] = [
     iconID: OPENAI_PROVIDER_ID,
     connectLabel: language.t("common.connect"),
     learnMoreHref: CHATGPT_LEARN_MORE_URL,
-    learnMoreLabel: language.t("settings.providers.learnMore"),
-  },
-  {
-    providerID: OPENCODE_GO_PROVIDER_ID,
-    title: language.t("settings.providers.openCodeGoTitle"),
-    description: language.t("settings.providers.openCodeGoDescription"),
-    iconID: OPENCODE_GO_PROVIDER_ID,
-    connectLabel: language.t("common.connect"),
-    learnMoreHref: OPENCODE_GO_LEARN_MORE_URL,
     learnMoreLabel: language.t("settings.providers.learnMore"),
   },
 ]
@@ -188,168 +171,150 @@ export function resolveChatGptAuthErrorSurfaces(input: {
     : { accountError: undefined, availableError: input.error }
 }
 
-function UsageWindow(props: { window: OpenAIUsageWindow }) {
-  const remainingPercent = resolveUsageRemainingPercent(props.window.usedPercent)
-
-  return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-border-base/60 bg-background-base px-3 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-medium text-text-base">
-          {formatUsageWindowLabel(props.window.windowSeconds)}
-        </span>
-        <span className="text-xs text-text-weak">
-          {language.t("settings.providers.chatGptUsageRemaining", {
-            percent: Math.round(remainingPercent),
-          })}
-        </span>
-      </div>
-      <Progress
-        value={remainingPercent}
-        aria-label={formatUsageWindowLabel(props.window.windowSeconds)}
-      />
-      <span className="text-[11px] text-text-weaker">
-        {language.t("settings.providers.chatGptUsageResets", {
-          time: formatRelativeTime(props.window.resetsAt),
-        })}
-      </span>
-    </div>
-  )
-}
-
+/**
+ * The connected account, ranked the way the composer's plan-usage popover
+ * ranks the same facts: the account, then a rule, then the limits block —
+ * block label, row, rail, caption — with the freshness stamp and its refresh
+ * paired on the block label's right.
+ *
+ * Everything the old card said twice is gone: the section heading above it
+ * already says Connected, so there is no status ring and no plan pill (the
+ * plan is the name — "ChatGPT Plus"), and the model count is not why anyone
+ * opens this card. The card is built on two rails and every row spans between
+ * them, so nothing stops a third of the way across.
+ */
 function ChatGptAccountCard(props: ChatGptAccountCardProps) {
   const readyUsage =
     !props.reconnectRequired && props.usage?.status === "ready" ? props.usage : undefined
-  const modelDescription = props.reconnectRequired
-    ? language.t("settings.providers.chatGptReconnectDescription")
-    : props.modelAvailability.status === "ready"
-      ? language.t("settings.providers.chatGptModelsAvailable", {
-          count: props.modelAvailability.modelIDs.length,
-        })
-      : props.modelAvailability.status === "loading"
-        ? language.t("settings.providers.chatGptModelsChecking")
-        : language.t("settings.providers.chatGptModelsFallback")
   const windows = readyUsage
     ? [readyUsage.rateLimit.primary, readyUsage.rateLimit.secondary].filter(
         (window): window is OpenAIUsageWindow => Boolean(window),
       )
     : []
+  const accountName = readyUsage?.plan
+    ? language.t("settings.providers.chatGptPlan", { plan: formatChatGptPlan(readyUsage.plan) })
+    : language.t("settings.providers.chatGptTitle")
+  const loadingLimits = props.usageLoading && !props.usage
 
   return (
     <SettingsListCard>
-      <div className="flex flex-col gap-4 px-4 py-4 sm:px-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <div
-              className={cn(
-                "flex size-10 shrink-0 items-center justify-center rounded-xl border",
-                props.reconnectRequired
-                  ? "border-border-critical-base bg-surface-critical-base/10"
-                  : "border-border-success-base bg-surface-success-base/10",
-              )}
-            >
-              <ProviderIcon
-                id={OPENAI_PROVIDER_ID}
-                className={cn(
-                  "size-5",
-                  props.reconnectRequired ? "text-icon-critical-base" : "text-text-success-base",
-                )}
-              />
-            </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-text-base">
-                  {language.t("settings.providers.chatGptTitle")}
-                </p>
-                <Badge
-                  variant="outline"
-                  className={
-                    props.reconnectRequired
-                      ? "border-border-critical-base text-icon-critical-base"
-                      : undefined
-                  }
-                >
-                  {props.reconnectRequired
-                    ? language.t("settings.providers.chatGptReconnectRequired")
-                    : readyUsage?.plan
-                      ? language.t("settings.providers.chatGptPlan", {
-                          plan: formatChatGptPlan(readyUsage.plan),
-                        })
-                      : language.t("onboardingSetup.engineSelection.connected")}
-                </Badge>
-              </div>
-              <p className="text-xs text-text-weak">{modelDescription}</p>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {props.reconnectRequired ? null : (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                aria-label={language.t("settings.providers.refreshChatGpt")}
-                onClick={props.onRefresh}
-                disabled={props.refreshing}
-              >
-                {props.refreshing ? (
-                  <Loader2Icon data-icon="inline-start" className="animate-spin" />
-                ) : (
-                  <RefreshCwIcon data-icon="inline-start" />
-                )}
-                {language.t("common.refresh")}
-              </Button>
-            )}
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={props.reconnectRequired ? props.onReconnect : props.onManage}
-              disabled={props.reconnecting}
-            >
-              {props.reconnecting ? (
-                <Loader2Icon data-icon="inline-start" className="animate-spin" />
-              ) : null}
-              {props.reconnectRequired
-                ? language.t("connectProviderDialog.reconnect")
-                : language.t("settings.providers.editConnection")}
-            </Button>
-          </div>
+      <div className="p-6">
+        <div className="flex items-center gap-3">
+          <ProviderMark id={OPENAI_PROVIDER_ID} prominent />
+          <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-text-strong">
+            {accountName}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant={props.reconnectRequired ? "default" : "secondary"}
+            className="shrink-0"
+            onClick={props.reconnectRequired ? props.onReconnect : props.onManage}
+            disabled={props.reconnecting}
+          >
+            {props.reconnecting ? (
+              <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            ) : null}
+            {props.reconnectRequired
+              ? language.t("connectProviderDialog.reconnect")
+              : language.t("settings.providers.editConnection")}
+          </Button>
         </div>
 
         {props.error ? (
           <p
             role="alert"
-            className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-xs text-icon-critical-base"
+            className="mt-3 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-xs text-icon-critical-base"
           >
             {props.error}
           </p>
         ) : null}
 
-        {props.reconnectRequired ? null : props.usageLoading && !props.usage ? (
-          <div className="flex items-center gap-2 text-xs text-text-weak">
-            <Loader2Icon className="size-4 animate-spin" />
-            {language.t("settings.providers.chatGptUsageLoading")}
-          </div>
-        ) : props.usage?.status === "error" ? (
-          <p className="text-xs text-text-weak">
-            {language.t("settings.providers.chatGptUsageError")}
-          </p>
-        ) : windows.length > 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {windows.map((window) => (
-              <UsageWindow key={`${window.windowSeconds}:${window.resetsAt}`} window={window} />
-            ))}
-          </div>
-        ) : null}
+        {/* Closes the header — where the mark owns a gutter — and opens a
+            full-width zone that belongs to the card rather than to the name. */}
+        <div className="my-5 h-px bg-border-base/40" />
 
-        {readyUsage ? (
-          <p className="text-[11px] text-text-weaker">
-            {language.t("settings.providers.chatGptUsageUpdated", {
-              time: formatRelativeTime(readyUsage.fetchedAt),
-            })}
-          </p>
-        ) : null}
+        {/* One uniform 20px step through the block: label row, meter, meter.
+            At the popover's 16px the three lines of a meter read as one stripe
+            once they are stretched across the card's width. */}
+        <div className="flex flex-col gap-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+              {language.t("usage.planUsageLimits")}
+            </span>
+            {props.reconnectRequired ? null : (
+              <div className="flex shrink-0 items-center gap-2">
+                {readyUsage ? (
+                  <span className="text-[11px] text-text-weaker">
+                    {language.t("usage.updated", {
+                      time: formatRelativeTime(readyUsage.fetchedAt),
+                    })}
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  aria-label={language.t("usage.refreshLimits")}
+                  className="flex size-5 shrink-0 items-center justify-center rounded-md text-text-weaker transition-colors hover:bg-surface-base hover:text-text-base disabled:opacity-60"
+                  onClick={props.onRefresh}
+                  disabled={props.refreshing}
+                >
+                  {props.refreshing ? (
+                    <Loader2Icon className="size-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <RefreshCwIcon className="size-3.5" aria-hidden />
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {props.reconnectRequired ? (
+            <p className="text-xs text-text-warning-base">
+              {language.t("settings.providers.chatGptReconnectHint")}
+            </p>
+          ) : loadingLimits ? (
+            <div className="flex items-center gap-2 text-xs text-text-weak">
+              <Loader2Icon className="size-3.5 animate-spin" aria-hidden />
+              {language.t("usage.loadingLimits")}
+            </div>
+          ) : windows.length > 0 ? (
+            windows.map((window) => (
+              <UsageMeter
+                key={`${window.windowSeconds}:${window.resetsAt}`}
+                size="md"
+                label={formatUsageWindowLabel(window.windowSeconds)}
+                usedPercent={window.usedPercent}
+                caption={language.t("usage.resets", {
+                  time: formatRelativeTime(window.resetsAt),
+                })}
+              />
+            ))
+          ) : (
+            <p className="text-xs text-text-weak">{language.t("usage.unavailable")}</p>
+          )}
+        </div>
       </div>
     </SettingsListCard>
+  )
+}
+
+/**
+ * The provider sprite is monochrome `currentColor` glyphs on a 40×40 grid —
+ * drawn to be set like type, not to be framed. The old holder put a 16px glyph
+ * inside a 32px bordered chip on its own dark fill, so two thirds of the box
+ * was padding, the border drew a shape the mark did not have, and the mark
+ * itself was too small to identify.
+ *
+ * So there is no holder: the glyph is the mark, at a size the row can carry.
+ * `shrink-0` on a fixed size still gives every row the same left rail, which
+ * was the only real job the box was doing.
+ */
+function ProviderMark(props: { id: string; prominent?: boolean }) {
+  return (
+    <ProviderIcon
+      id={props.id}
+      className={cn("shrink-0 text-text-base", props.prominent ? "size-6" : "size-5")}
+    />
   )
 }
 
@@ -381,16 +346,7 @@ function RecommendedProviderCard(props: RecommendedProviderCardProps) {
       )}
     >
       <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-lg border",
-            connected
-              ? "border-border-success-base bg-surface-success-base/10 text-text-success-base"
-              : "border-border-weaker-base bg-background-base text-text-base",
-          )}
-        >
-          <ProviderIcon id={props.iconID} className="size-4" />
-        </div>
+        <ProviderMark id={props.iconID} />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <p className="truncate text-sm font-medium text-text-strong">{props.title}</p>
@@ -470,9 +426,7 @@ function ProviderListRow(props: {
     >
       <div className="flex items-center justify-between gap-4 px-4 py-3">
         <div className="flex min-w-0 items-center gap-3 overflow-hidden">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-border-base bg-background-base">
-            <ProviderIcon id={props.provider.id} className="size-4" />
-          </div>
+          <ProviderMark id={props.provider.id} />
           <div className="min-w-0">
             <div className="flex items-center gap-2 overflow-hidden">
               <span className="truncate text-sm font-medium text-text-base">
@@ -628,7 +582,6 @@ export function ProvidersSettings() {
   const chatGptAccountCard =
     showChatGptAccountCard && chatGptProvider && providerCatalog ? (
       <ChatGptAccountCard
-        modelAvailability={providerCatalog.openAIModelAvailability}
         usage={openAIUsageQuery.data}
         error={chatGptErrors.accountError}
         usageLoading={openAIUsageQuery.isPending}

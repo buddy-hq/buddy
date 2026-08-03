@@ -36,6 +36,26 @@ describe("filterProvidersByQuery", () => {
     ])
   })
 
+  test("rejects scattered letter matches that merely share the query's characters", () => {
+    const providers = [
+      createProviderInfo({ id: "kimi-for-coding", name: "Kimi For Coding" }),
+      createProviderInfo({ id: "moonshotai", name: "Moonshot AI" }),
+      createProviderInfo({ id: "github-copilot", name: "GitHub Copilot" }),
+      createProviderInfo({ id: "nano-gpt", name: "NanoGPT" }),
+    ]
+
+    // "moon" reaches Kimi F-o-r C-o-di-n-g, and "gpt" reaches G-itHub Co-p-ilo-t.
+    expect(filterProvidersByQuery(providers, "moon").map((provider) => provider.id)).toEqual([
+      "moonshotai",
+    ])
+    expect(filterProvidersByQuery(providers, "gpt").map((provider) => provider.id)).toEqual([
+      "nano-gpt",
+    ])
+    expect(filterProvidersByQuery(providers, "kimi").map((provider) => provider.id)).toEqual([
+      "kimi-for-coding",
+    ])
+  })
+
   test("matches extra labels such as recommended titles", () => {
     const providers = [createProviderInfo({ id: "openai", name: "OpenAI" })]
     const extraLabelsByID = new Map([
