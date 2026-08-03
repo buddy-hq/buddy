@@ -54,6 +54,23 @@ describe("model selection store", () => {
     expect(useModelSelectionStore.getState().selectedVariantByKey[sessionKey]).toBe("high")
   })
 
+  test("seeds a replacement workspace draft from a deleted session selection", () => {
+    const store = useModelSelectionStore.getState()
+    const workspaceKey = getModelSelectionScopeKey("/repo")
+
+    store.setSelectedAgent(workspaceKey, "build")
+    store.seedWorkspaceSelection("/repo", {
+      model: "openai/gpt-5",
+      variant: "high",
+    })
+
+    const nextState = useModelSelectionStore.getState()
+    expect(nextState.selectedAgentByKey[workspaceKey]).toBeUndefined()
+    expect(nextState.selectedModelByKey[workspaceKey]).toBe("openai/gpt-5")
+    expect(nextState.selectedVariantByKey[workspaceKey]).toBe("high")
+    expect(nextState.selectionSourceByKey[workspaceKey]).toBe("local")
+  })
+
   test("does not overwrite an existing session selection during workspace migration", () => {
     const store = useModelSelectionStore.getState()
     const workspaceKey = getModelSelectionScopeKey("/repo")

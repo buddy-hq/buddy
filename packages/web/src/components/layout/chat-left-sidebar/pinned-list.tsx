@@ -18,6 +18,7 @@ type ChatLeftSidebarPinnedListProps = {
   onToggleUnread: (directory: string, sessionID: string, unread: boolean) => void
   onRequestRename: (directory: string, sessionID: string, title: string) => void
   onRequestArchive: (directory: string, sessionID: string, title: string) => void
+  onRequestDelete: (directory: string, sessionID: string, title: string) => void
 }
 
 /**
@@ -111,6 +112,9 @@ export function ChatLeftSidebarPinnedList(props: ChatLeftSidebarPinnedListProps)
               }
               onRequestArchive={(sessionID, title) =>
                 props.onRequestArchive(entry.directory, sessionID, title)
+              }
+              onRequestDelete={(sessionID, title) =>
+                props.onRequestDelete(entry.directory, sessionID, title)
               }
             />
           )

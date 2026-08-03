@@ -28,6 +28,8 @@ import {
 } from "../src/state/directory-workspace-store"
 import { workspaceChatKeyForSession, type WorkspaceChatKey } from "../src/lib/workspace-chat-key"
 import { useChatStore } from "../src/state/chat-store"
+import { BUSY_SESSION_STATUS } from "../src/state/session-status"
+import type { SessionInfo } from "../src/state/chat-types"
 
 const DIRECTORY = "/workspace/chat-transition"
 const OTHER_DIRECTORY = "/workspace/chat-transition-other"
@@ -51,6 +53,17 @@ const CHAT_A_KEY = workspaceChatKeyForSession("session-a")
 const CHAT_B_KEY = workspaceChatKeyForSession("session-b")
 const OTHER_CHAT_KEY = workspaceChatKeyForSession("session-other")
 const controllers: DirectoryWorkspaceController[] = []
+
+function session(id: string, updated: number): SessionInfo {
+  return {
+    id,
+    title: id,
+    time: {
+      created: updated,
+      updated,
+    },
+  }
+}
 
 function deferredValue<T>() {
   let resolvePromise: ((value: T) => void) | undefined
@@ -303,6 +316,32 @@ describe("active chat transition coordinator", () => {
     })
     expect(workspace.guardCalls).toHaveLength(1)
     expect(workspace.sessionContexts).toEqual([undefined, "session-b", undefined, "session-a"])
+  })
+
+  test("restores the successor workspace when the deleted active session was busy", async () => {
+    const store = useChatStore.getState()
+    store.setActiveDirectory(DIRECTORY)
+    store.setSessions(DIRECTORY, [session("session-a", 2), session("session-b", 1)])
+    store.applySessionStatus(DIRECTORY, "session-a", BUSY_SESSION_STATUS)
+    const workspace = registerRestoringWorkspace()
+
+    const result = await runPreparedActiveChatMutation({
+      directory: DIRECTORY,
+      mutate: () => {
+        useChatStore.getState().applySessionsDeleted(DIRECTORY, ["session-a"])
+        return true
+      },
+    })
+
+    expect(result).toMatchObject({ outcome: "committed", value: true })
+    expect(useChatStore.getState().directories[DIRECTORY]).toMatchObject({
+      isBusy: false,
+      sessionID: "session-b",
+      sessions: [session("session-b", 1)],
+    })
+    expect(workspace.readRoute()).toEqual(CLOSED_ROUTE)
+    expect(workspace.store.getState().activeChatKey).toBe(CHAT_B_KEY)
+    expect(workspace.sessionContexts).toEqual([undefined, "session-b"])
   })
 
   test("reads and navigates directly to a cross-directory chat slot", async () => {

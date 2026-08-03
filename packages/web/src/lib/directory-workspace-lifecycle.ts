@@ -1,4 +1,5 @@
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { isSessionNotFoundResult } from "@/lib/session-request-result"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "@/lib/bench-leave-guard"
 import { allowBenchLeave } from "@/lib/bench-leave-guard"
@@ -995,19 +996,24 @@ export class DirectoryWorkspaceLifecycleService {
       generation: lease.generation,
       leaseEpoch: lease.leaseEpoch,
     }
-    requireBuddyData(
-      await getBuddyClient(this.#directory).bench.context.publish({
-        sessionID,
+    const result = await getBuddyClient(this.#directory).bench.context.publish({
+      sessionID,
+      lease: leaseIdentity,
+      publicationSequence,
+      idempotencyKey: publishIdempotencyKey({
+        publicationKey: snapshot.publicationKey,
         lease: leaseIdentity,
         publicationSequence,
-        idempotencyKey: publishIdempotencyKey({
-          publicationKey: snapshot.publicationKey,
-          lease: leaseIdentity,
-          publicationSequence,
-        }),
-        value: snapshot.value,
       }),
-    )
+      value: snapshot.value,
+    })
+    if (isSessionNotFoundResult(result)) {
+      this.#pendingClosedSessionIDs.delete(sessionID)
+      this.#lastPublishedKeyBySession.delete(sessionID)
+      return false
+    }
+
+    requireBuddyData(result)
     return true
   }
 

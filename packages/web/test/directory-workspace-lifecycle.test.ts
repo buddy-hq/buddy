@@ -1794,4 +1794,107 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       globalThis.fetch = previousFetch
     }
   })
+
+  test("drops context publications when their session was deleted", async () => {
+    const requests: string[] = []
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        requests.push(method)
+        if (method === "PUT") {
+          return new Response(JSON.stringify({ error: "Session not found" }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ released: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(TARGET),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+
+      await expect(service.setActiveSessionID("session-deleted")).resolves.toBeUndefined()
+      await expect(service.setActiveSessionID(undefined)).resolves.toBeUndefined()
+      await expect(service.dispose()).resolves.toBeUndefined()
+
+      expect(requests).toEqual(["PUT", "PUT", "PUT", "PUT", "DELETE"])
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("surfaces a missing-directory 404 from context publication", async () => {
+    let publishCount = 0
+    let rejectPublications = true
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        if (method === "PUT") {
+          publishCount += 1
+          if (rejectPublications) {
+            return new Response(JSON.stringify({ error: `Directory not found: ${DIRECTORY}` }), {
+              status: 404,
+              headers: { "Content-Type": "application/json" },
+            })
+          }
+          return new Response(JSON.stringify({ revision: publishCount }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ released: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(TARGET),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+
+      await expect(service.setActiveSessionID("session-1")).rejects.toThrow(
+        `Directory not found: ${DIRECTORY}`,
+      )
+      rejectPublications = false
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
 })

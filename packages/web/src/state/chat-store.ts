@@ -81,6 +81,7 @@ export type ChatStore = {
   setDirectoryError: (directory: string, error?: string) => void
   clearDirectoryError: (directory: string) => void
   setSessions: (directory: string, sessions: SessionInfo[]) => void
+  applySessionsDeleted: (directory: string, sessionIDs: readonly string[]) => void
   setActiveSession: (directory: string, sessionID?: string) => void
   startSessionDraft: (directory: string) => void
   setSessionInfo: (directory: string, info: SessionInfo) => void
@@ -589,6 +590,72 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           } else if (nextSessions.length === 0) {
             delete state.lastSessionByDirectory[directory]
           }
+        })
+      },
+      applySessionsDeleted(directory, sessionIDs) {
+        set((state) => {
+          const current = state.directories[directory]
+          if (!current || sessionIDs.length === 0) return
+
+          const deletedSessionIDs = new Set(sessionIDs)
+          const nextSessions = current.sessions.filter(
+            (session) => !deletedSessionIDs.has(session.id),
+          )
+          const activeSessionDeleted =
+            current.sessionID !== undefined && deletedSessionIDs.has(current.sessionID)
+          const nextSessionID = activeSessionDeleted ? nextSessions[0]?.id : current.sessionID
+          const nextActiveInfo = findSessionInfo(nextSessions, nextSessionID)
+          const nextSessionStatusByID: Record<string, SessionStatusInfo> = {}
+          for (const [sessionID, status] of Object.entries(current.sessionStatusByID)) {
+            if (!deletedSessionIDs.has(sessionID)) {
+              nextSessionStatusByID[sessionID] = status
+            }
+          }
+
+          state.directories[directory] = {
+            ...current,
+            isDraft: nextSessionID === undefined,
+            sessions: nextSessions,
+            sessionID: nextSessionID,
+            loadingSessionID:
+              activeSessionDeleted ||
+              (current.loadingSessionID !== undefined &&
+                deletedSessionIDs.has(current.loadingSessionID))
+                ? undefined
+                : current.loadingSessionID,
+            sessionTitle:
+              nextActiveInfo?.title ??
+              (nextSessionID === current.sessionID ? current.sessionTitle : DEFAULT_TITLE),
+            sessionStatusByID: nextSessionStatusByID,
+            pendingPermissions: current.pendingPermissions.filter(
+              (request) => !deletedSessionIDs.has(request.sessionID),
+            ),
+            pendingQuestions: current.pendingQuestions.filter(
+              (request) => !deletedSessionIDs.has(request.sessionID),
+            ),
+            isBusy: resolveActiveSessionBusy({
+              sessionID: nextSessionID,
+              sessions: nextSessions,
+              sessionStatusByID: nextSessionStatusByID,
+            }),
+          }
+
+          if (nextSessionID) {
+            state.lastSessionByDirectory[directory] = nextSessionID
+          } else if (
+            state.lastSessionByDirectory[directory] !== undefined &&
+            deletedSessionIDs.has(state.lastSessionByDirectory[directory])
+          ) {
+            delete state.lastSessionByDirectory[directory]
+          }
+
+          const directoryResourceKeyPrefix = resourceSessionKey(directory, "")
+          state.linkedSessionByResource = Object.fromEntries(
+            Object.entries(state.linkedSessionByResource).filter(
+              ([key, sessionID]) =>
+                !key.startsWith(directoryResourceKeyPrefix) || !deletedSessionIDs.has(sessionID),
+            ),
+          )
         })
       },
       setActiveSession(directory, sessionID) {

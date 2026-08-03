@@ -55,6 +55,7 @@ import {
   prefetchSessionMessages,
   createManagedNotebook,
   compactSession,
+  deleteSession,
   openInboxNotebook,
   rejectQuestion,
   reorderOpenProjects,
@@ -94,7 +95,6 @@ import {
   usePromptStore,
   type PromptDraftState,
 } from "../../state/prompt-store"
-import { getModelSelectionScopeKey } from "../../state/model-selection-store"
 import { useChatStore } from "../../state/chat-store"
 import { useNotifications } from "../../state/notifications"
 import type { PermissionReply } from "../../state/permission-types"
@@ -136,6 +136,7 @@ import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 import { useOpenExistingNotebook } from "@/lib/use-open-existing-notebook"
 import { useOpenSettings } from "@/lib/settings-navigation"
+import { sessionFamilyIDs } from "@/lib/session-family"
 import { referenceListQueryOptions } from "@/state/reference-query"
 import {
   activateChatDirectory,
@@ -349,9 +350,8 @@ export function useDirectoryChatPageController(
     sessionID,
     sessionKey,
     pushRecentModelKey,
-    setSelectedAgent,
-    setSelectedModel,
     setSelectedVariant,
+    seedWorkspaceSelection,
     validOpenProjects,
   } = cs
   activeSessionIDRef.current = sessionID
@@ -694,12 +694,12 @@ export function useDirectoryChatPageController(
   }, [syncTeachingRuntimeSelection])
 
   function seedDraftModelSelection(targetDirectory: string) {
-    const scopeKey = getModelSelectionScopeKey(targetDirectory)
     const carryModelKey = cs.selectedModelKey || undefined
     const carryVariantKey = selectedThinking === "default" ? null : selectedThinking
-    setSelectedAgent(scopeKey, undefined)
-    setSelectedModel(scopeKey, carryModelKey)
-    setSelectedVariant(scopeKey, carryVariantKey)
+    seedWorkspaceSelection(targetDirectory, {
+      model: carryModelKey,
+      variant: carryVariantKey,
+    })
   }
 
   async function onNewSession(targetDirectory = decodedDirectory) {
@@ -845,73 +845,114 @@ export function useDirectoryChatPageController(
     }
   }
 
-  async function onArchiveSession(targetDirectory: string, targetSessionID: string) {
-    if (!targetDirectory) return
-    try {
-      const stateBeforeArchive = useChatStore.getState()
-      const archive = () =>
-        updateSession({
-          directory: targetDirectory,
-          sessionID: targetSessionID,
-          archivedAt: Date.now(),
-        })
-      const wasActive =
-        stateBeforeArchive.activeDirectory === targetDirectory &&
-        stateBeforeArchive.directories[targetDirectory]?.sessionID === targetSessionID
-      if (wasActive) {
-        const result = await runPreparedActiveChatMutation({
-          directory: targetDirectory,
-          mutate: archive,
-        })
-        if (result.outcome !== "committed") return
-      } else {
-        await archive()
-      }
-      cs.removePromptDraft(
-        (await import("../../state/prompt-store")).getPromptScopeKey(
-          targetDirectory,
-          targetSessionID,
-        ),
-      )
-      cs.clearDirectorySessionState(targetDirectory, targetSessionID)
+  async function commitSessionListRemoval(input: {
+    directory: string
+    affectedSessionIDs: string[]
+    mutate: () => Promise<unknown>
+  }): Promise<boolean> {
+    const stateBeforeMutation = useChatStore.getState()
+    const activeSessionBeforeMutation =
+      stateBeforeMutation.activeDirectory === input.directory
+        ? stateBeforeMutation.directories[input.directory]?.sessionID
+        : undefined
+    const affectsActiveSession =
+      activeSessionBeforeMutation !== undefined &&
+      input.affectedSessionIDs.includes(activeSessionBeforeMutation)
+
+    if (affectsActiveSession) {
+      const result = await runPreparedActiveChatMutation({
+        directory: input.directory,
+        mutate: input.mutate,
+      })
+      if (result.outcome === "failed") throw result.error
+      if (result.outcome !== "committed") return false
+    } else {
+      await input.mutate()
+    }
+
+    for (const affectedSessionID of input.affectedSessionIDs) {
+      cs.removePromptDraft(getPromptScopeKey(input.directory, affectedSessionID))
+      cs.clearDirectorySessionState(input.directory, affectedSessionID)
+    }
+
+    await Promise.all([
+      queryClient.refetchQueries({
+        queryKey: directoryChatQueryKeys.sessions(input.directory),
+        exact: true,
+      }),
+      queryClient.refetchQueries({
+        queryKey: directoryChatQueryKeys.permissions(input.directory),
+        exact: true,
+      }),
+      queryClient.refetchQueries({
+        queryKey: directoryChatQueryKeys.questions(input.directory),
+        exact: true,
+      }),
+    ])
+
+    const activeSessionID = useChatStore.getState().directories[input.directory]?.sessionID
+    if (!activeSessionID) {
+      await startActiveChatDraft({ directory: input.directory })
+      seedDraftModelSelection(input.directory)
       await Promise.all([
         queryClient.refetchQueries({
-          queryKey: directoryChatQueryKeys.sessions(targetDirectory),
+          queryKey: directoryChatQueryKeys.permissions(input.directory),
           exact: true,
         }),
         queryClient.refetchQueries({
-          queryKey: directoryChatQueryKeys.permissions(targetDirectory),
-          exact: true,
-        }),
-        queryClient.refetchQueries({
-          queryKey: directoryChatQueryKeys.questions(targetDirectory),
+          queryKey: directoryChatQueryKeys.questions(input.directory),
           exact: true,
         }),
       ])
+      return true
+    }
 
-      const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
-      if (!activeSessionID) {
-        await startActiveChatDraft({ directory: targetDirectory })
-        seedDraftModelSelection(targetDirectory)
-        await Promise.all([
-          queryClient.refetchQueries({
-            queryKey: directoryChatQueryKeys.permissions(targetDirectory),
-            exact: true,
-          }),
-          queryClient.refetchQueries({
-            queryKey: directoryChatQueryKeys.questions(targetDirectory),
-            exact: true,
-          }),
-        ])
-        return
-      }
+    if (!input.affectedSessionIDs.includes(activeSessionID)) {
+      await loadMessages(input.directory, activeSessionID)
+      cs.clearUnread(input.directory, activeSessionID)
+    }
+    return true
+  }
 
-      if (activeSessionID !== targetSessionID) {
-        await loadMessages(targetDirectory, activeSessionID)
-        cs.clearUnread(targetDirectory, activeSessionID)
-      }
+  async function onArchiveSession(targetDirectory: string, targetSessionID: string) {
+    if (!targetDirectory) return
+    try {
+      await commitSessionListRemoval({
+        directory: targetDirectory,
+        affectedSessionIDs: [targetSessionID],
+        mutate: () =>
+          updateSession({
+            directory: targetDirectory,
+            sessionID: targetSessionID,
+            archivedAt: Date.now(),
+          }),
+      })
     } catch {
       // Action layers keep directory-level error state.
+    }
+  }
+
+  async function onDeleteSession(
+    targetDirectory: string,
+    targetSessionID: string,
+  ): Promise<boolean> {
+    if (!targetDirectory) return false
+    const sessions = useChatStore.getState().directories[targetDirectory]?.sessions ?? []
+    const affectedSessionIDs = sessionFamilyIDs(sessions, targetSessionID)
+
+    try {
+      return await commitSessionListRemoval({
+        directory: targetDirectory,
+        affectedSessionIDs,
+        mutate: () =>
+          deleteSession({
+            directory: targetDirectory,
+            sessionID: targetSessionID,
+          }),
+      })
+    } catch {
+      // Action layers keep directory-level error state.
+      return false
     }
   }
 
@@ -1754,6 +1795,7 @@ export function useDirectoryChatPageController(
       cs.togglePinned(targetDirectory, targetSessionID),
     onToggleUnread: onToggleUnreadSession,
     onArchiveSession,
+    onDeleteSession,
     onRenameSession,
     onReorderDirectories: (nextOrder) => {
       void reorderOpenProjects(nextOrder)

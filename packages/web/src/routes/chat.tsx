@@ -693,7 +693,6 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
         busy={props.busyAction === ENTRY_ACTION.NEW_NOTEBOOK}
         notebookName={notebookName}
         title={language.t("sidebar.newNotebookDialogTitle")}
-        description={language.t("sidebar.newNotebookDialogDescription")}
         confirmLabel={language.t("sidebar.createNotebook")}
         placeholder={language.t("sidebar.newNotebookPlaceholder")}
         onOpenChange={(open) => {

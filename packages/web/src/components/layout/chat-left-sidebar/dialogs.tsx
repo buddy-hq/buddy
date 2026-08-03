@@ -1,8 +1,17 @@
 import { useMemo, useState, type ReactNode } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -11,14 +20,11 @@ import {
   Input,
   Switch,
   cn,
-  Field,
-  FieldLabel,
-  FolderOpenIcon,
-  FolderPlusIcon,
   PencilIcon,
   ArchiveIcon,
   Spinner,
   BookIcon,
+  XIcon,
 } from "@buddy/ui"
 import obsidianIconUrl from "@/assets/obsidian-icon.svg"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
@@ -60,7 +66,7 @@ import {
 } from "@/state/standards-settings"
 import { SettingsListCard, SettingsSectionHeader } from "../../settings/settings-primitives"
 import { useStandardsRuntime } from "../../settings/use-standards-runtime"
-import type { ArchiveState, RenameState } from "./types"
+import type { ArchiveState, DeleteState, RenameState } from "./types"
 import { getFilename } from "../sidebar-helpers"
 import {
   EXPERIMENTAL_FEATURE_ID,
@@ -76,7 +82,6 @@ type NotebookCreationDialogProps = {
   busy: boolean
   notebookName: string
   title: string
-  description: string
   confirmLabel: string
   placeholder: string
   onOpenChange: (open: boolean) => void
@@ -109,10 +114,14 @@ type NotebookSettingsDialogProps = {
 type ChatLeftSidebarDialogsProps = {
   archiveState?: ArchiveState
   archiveSaving: boolean
+  deleteState?: DeleteState
+  deleteSaving: boolean
   renameState?: RenameState
   renameSaving: boolean
   onArchiveCancel: () => void
   onArchiveConfirm: () => void
+  onDeleteCancel: () => void
+  onDeleteConfirm: () => void
   onRenameCancel: () => void
   onRenameConfirm: () => void
   onRenameTitleChange: (title: string) => void
@@ -196,6 +205,47 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={props.deleteState !== undefined}
+        onOpenChange={(open) => {
+          if (!open && !props.deleteSaving) {
+            props.onDeleteCancel()
+          }
+        }}
+      >
+        <AlertDialogContent data-component="left-sidebar-delete-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language.t("sidebar.deleteThreadTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {props.deleteState
+                ? language.t("sidebar.deleteThreadQuestion", { title: props.deleteState.title })
+                : language.t("sidebar.deleteThreadFallback")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              data-action="left-sidebar-delete-cancel"
+              disabled={props.deleteSaving}
+            >
+              {language.t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-action="left-sidebar-delete-confirm"
+              variant="destructive"
+              disabled={props.deleteSaving}
+              onClick={(event) => {
+                event.preventDefault()
+                props.onDeleteConfirm()
+              }}
+            >
+              {props.deleteSaving
+                ? language.t("sidebar.deleting")
+                : language.t("sidebar.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog
         open={props.renameState !== undefined}
@@ -744,6 +794,28 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
   )
 }
 
+/**
+ * Layout follows the easel's "split footer" direction.
+ *
+ * The dialog names a folder, so it is a title, a field and one row of actions
+ * — the icon medallion, the description (which restated the title), the field
+ * label (which restated the placeholder), the "or" rule and the caption under
+ * the secondary are all cut. `DialogFooter` is not used: its tinted, bordered
+ * bar assumes `p-4` content and adds a second surface to a dialog that has one
+ * thing in it.
+ *
+ * Hierarchy is carried by size and colour together, so the eye has an entry
+ * point:  title 18/semibold · Create filled · Cancel weak · open-existing
+ * 13/weaker. That last one is a bare text control rather than a `Button` —
+ * every button variant pads its label 14px inside its own box, which breaks
+ * the left rail the title and the field's border-box share.
+ *
+ * The field stays at `text-sm` with no colour override, like every other input
+ * here, and takes its presence from height. Do not reach for `text-base`:
+ * `--color-text-base` resolves to `var(--text-base)`, which `index.css` also
+ * declares in the font-size namespace, so `text-base` is both a colour and a
+ * size and the input ends up rendering in the UA's black `fieldtext`.
+ */
 export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
   return (
     <Dialog
@@ -754,136 +826,150 @@ export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
         }
       }}
     >
-      <DialogContent data-component="left-sidebar-create-notebook-dialog" className="sm:max-w-md">
-        <DialogHeader className="flex flex-col items-center text-center space-y-3">
-          <div className="flex size-12 items-center justify-center rounded-full border border-border-weak bg-surface-weak/50 text-icon-brand-base shadow-xs">
-            <FolderPlusIcon className="size-5.5" />
-          </div>
-          <div className="space-y-1">
-            <DialogTitle className="text-lg font-semibold">{props.title}</DialogTitle>
-            <DialogDescription className="text-sm text-text-weak max-w-xs mx-auto leading-normal">
-              {props.description}
-            </DialogDescription>
-          </div>
+      <DialogContent
+        data-component="left-sidebar-create-notebook-dialog"
+        aria-describedby={undefined}
+        showCloseButton={false}
+        className="gap-0 p-6 sm:max-w-[440px]"
+      >
+        {/* The close X sits in the header row so it centres against the title,
+            rather than on the card corner where `p-6` leaves it stranded. */}
+        <DialogHeader className="flex-row items-center justify-between gap-3 pb-5">
+          <DialogTitle className="text-lg font-semibold">{props.title}</DialogTitle>
+          <DialogClose asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              disabled={props.busy}
+              aria-label={language.t("common.close")}
+              className="text-text-weaker hover:text-text-base -mr-2 shrink-0"
+            >
+              <XIcon className="size-4" />
+            </Button>
+          </DialogClose>
         </DialogHeader>
-        <div className="space-y-4 py-1">
-          <Field className="space-y-1.5">
-            <FieldLabel className="text-xs font-medium text-text-weak">
-              {language.t("sidebar.newNotebookPlaceholder")}
-            </FieldLabel>
-            <Input
-              data-action="left-sidebar-create-notebook-input"
-              autoFocus
-              value={props.notebookName}
-              onChange={(event) => props.onNotebookNameChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault()
-                  props.onCreate()
-                }
-              }}
-              placeholder={props.placeholder}
-              className="h-10 text-sm px-3 rounded-lg border-border-base focus-visible:ring-1 focus-visible:ring-border-interactive-base"
-            />
-          </Field>
 
-          {props.enableLearnerMemory !== undefined && (
-            <div className="rounded-xl border border-border-base/50 bg-surface-raised-base/50 p-4 space-y-4 shadow-xs">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <span className="text-sm font-semibold text-text-strong">
-                    {language.t("sidebar.notebookLearnerMemory")}
+        <Input
+          data-action="left-sidebar-create-notebook-input"
+          autoFocus
+          value={props.notebookName}
+          onChange={(event) => props.onNotebookNameChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault()
+              props.onCreate()
+            }
+          }}
+          placeholder={props.placeholder}
+          aria-label={props.placeholder}
+          autoComplete="off"
+          className="h-11 px-3.5 text-sm"
+        />
+
+        {props.enableLearnerMemory !== undefined && (
+          <div className="border-border-weak-base mt-5 space-y-3.5 rounded-lg border p-3.5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-0.5">
+                <span className="text-text-strong text-sm font-medium">
+                  {language.t("sidebar.notebookLearnerMemory")}
+                </span>
+                <p className="text-text-weak text-xs leading-normal">
+                  {language.t("sidebar.notebookSettingsLearnerMemorySectionDescription")}
+                </p>
+              </div>
+              <Switch
+                checked={props.enableLearnerMemory}
+                onCheckedChange={props.onLearnerMemoryChange}
+                disabled={props.busy}
+              />
+            </div>
+
+            {props.enableAutoExtract !== undefined && (
+              <div
+                className={cn(
+                  "border-border-weaker-base flex items-start justify-between gap-4 border-t pt-3.5 transition-opacity duration-200",
+                  !props.enableLearnerMemory && "pointer-events-none opacity-40",
+                )}
+              >
+                <div className="space-y-0.5">
+                  <span className="text-text-strong text-sm font-medium">
+                    {language.t("sidebar.notebookLearnerMemoryAutoExtract")}
                   </span>
-                  <p className="text-xs text-text-weak leading-normal">
-                    {language.t("sidebar.notebookSettingsLearnerMemorySectionDescription")}
+                  <p className="text-text-weak text-xs leading-normal">
+                    {language.t("settings.notebook.learnerMemoryAutoExtractDescription")}
                   </p>
                 </div>
                 <Switch
-                  checked={props.enableLearnerMemory}
-                  onCheckedChange={props.onLearnerMemoryChange}
-                  disabled={props.busy}
+                  checked={props.enableAutoExtract}
+                  onCheckedChange={props.onAutoExtractChange}
+                  disabled={props.busy || !props.enableLearnerMemory}
                 />
               </div>
+            )}
+          </div>
+        )}
 
-              {props.enableAutoExtract !== undefined && (
-                <div
-                  className={cn(
-                    "border-t border-border-weak/60 pt-4 flex items-start justify-between gap-4 transition-opacity duration-200",
-                    !props.enableLearnerMemory && "opacity-40 pointer-events-none",
-                  )}
-                >
-                  <div className="space-y-1 pl-2">
-                    <span className="text-sm font-semibold text-text-strong">
-                      {language.t("sidebar.notebookLearnerMemoryAutoExtract")}
-                    </span>
-                    <p className="text-xs text-text-weak leading-normal">
-                      {language.t("settings.notebook.learnerMemoryAutoExtractDescription")}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={props.enableAutoExtract}
-                    onCheckedChange={props.onAutoExtractChange}
-                    disabled={props.busy || !props.enableLearnerMemory}
-                  />
-                </div>
-              )}
-            </div>
+        <div className="flex items-center justify-between gap-3 pt-6">
+          {props.onOpenExistingFolder ? (
+            <button
+              type="button"
+              data-action="left-sidebar-create-notebook-open-existing"
+              onClick={props.onOpenExistingFolder}
+              disabled={props.busy}
+              className="text-text-weaker hover:text-text-base focus-visible:ring-border-interactive-base/50 rounded-xs text-xs transition-colors outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {language.t("sidebar.openExistingFolder")}
+            </button>
+          ) : (
+            <span aria-hidden="true" />
           )}
-
-          {props.onOpenExistingFolder && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3" aria-hidden="true">
-                <span className="h-px flex-1 bg-border-weak-base" />
-                <span className="text-xs text-text-weak">{language.t("common.or")}</span>
-                <span className="h-px flex-1 bg-border-weak-base" />
-              </div>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={props.onOpenExistingFolder}
-                className="w-full active:scale-[0.97] transition-transform"
-              >
-                <FolderOpenIcon className="size-4" />
-                {language.t("sidebar.openExistingFolder")}
-              </Button>
-              <p className="text-xs text-text-weak text-center leading-normal">
-                {language.t("sidebar.openExistingFolderTooltip")}
-              </p>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Button
+              data-action="left-sidebar-create-notebook-cancel"
+              variant="ghost"
+              onClick={() => props.onOpenChange(false)}
+              disabled={props.busy}
+              className="text-text-weak px-4"
+            >
+              {language.t("common.cancel")}
+            </Button>
+            <Button
+              data-action="left-sidebar-create-notebook-confirm"
+              onClick={props.onCreate}
+              disabled={props.busy || !props.notebookName.trim()}
+              className="px-5"
+            >
+              {props.busy ? language.t("common.saving") : props.confirmLabel}
+            </Button>
+          </div>
         </div>
-        <DialogFooter className="gap-2">
-          <Button
-            data-action="left-sidebar-create-notebook-cancel"
-            variant="ghost"
-            onClick={() => props.onOpenChange(false)}
-            disabled={props.busy}
-            className="active:scale-[0.97] transition-transform"
-          >
-            {language.t("common.cancel")}
-          </Button>
-          <Button
-            data-action="left-sidebar-create-notebook-confirm"
-            onClick={props.onCreate}
-            disabled={props.busy || !props.notebookName.trim()}
-            className="active:scale-[0.97] transition-transform"
-          >
-            {props.busy ? language.t("common.saving") : props.confirmLabel}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
 
+/** Buddy and Obsidian, joined by the dashed run between them. */
 function ConnectionMark(props: { children: ReactNode }) {
   return (
-    <span className="flex size-12 items-center justify-center rounded-xl border border-border-weak bg-surface-weak/50 shadow-xs">
+    <span className="border-border-weak-base bg-surface-weak/50 flex size-14 shrink-0 items-center justify-center rounded-xl border shadow-xs">
       {props.children}
     </span>
   )
 }
 
+/**
+ * Same shape as `NotebookCreationDialog`: `p-6`, one left rail, 18px title,
+ * close X on the top row, and a plain action row instead of `DialogFooter`'s
+ * tinted bar.
+ *
+ * The two marks and the dashed run between them stay — they are the dialog's
+ * subject, not decoration; the whole question is whether these two things get
+ * joined. What changes is that they stop being a centred banner: the pair sits
+ * on the left rail with the close X opposite it, so the row reads as an object
+ * the title then names, and the title and description below it no longer have
+ * to be centred to match.
+ */
 export function ObsidianVaultConnectionDialog(props: ObsidianVaultConnectionDialogProps) {
   const vaultName = getFilename(props.directory)
 
@@ -898,43 +984,56 @@ export function ObsidianVaultConnectionDialog(props: ObsidianVaultConnectionDial
     >
       <DialogContent
         data-component="obsidian-vault-connection-dialog"
-        className="sm:max-w-sm"
-        showCloseButton={!props.busy}
+        showCloseButton={false}
+        className="gap-0 p-6 sm:max-w-[440px]"
       >
-        <DialogHeader className="items-center gap-4 pt-2 text-center">
-          <div className="flex items-center gap-3" aria-hidden="true">
-            <ConnectionMark>
-              <img src={resolveBuddyIconUrl()} alt="" className="size-7 rounded-md" />
-            </ConnectionMark>
-            <span className="w-8 border-t border-dashed border-border-base" />
-            <ConnectionMark>
-              <img src={obsidianIconUrl} alt="" className="size-7" />
-            </ConnectionMark>
+        <DialogHeader className="gap-0">
+          <div className="flex items-start justify-between gap-3 pb-4">
+            <div className="flex items-center gap-2.5" aria-hidden="true">
+              <ConnectionMark>
+                <img src={resolveBuddyIconUrl()} alt="" className="size-8 rounded-md" />
+              </ConnectionMark>
+              <span className="border-border-base w-8 border-t border-dashed" />
+              <ConnectionMark>
+                <img src={obsidianIconUrl} alt="" className="size-8" />
+              </ConnectionMark>
+            </div>
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={props.busy}
+                aria-label={language.t("common.close")}
+                className="text-text-weaker hover:text-text-base -mr-2 shrink-0"
+              >
+                <XIcon className="size-4" />
+              </Button>
+            </DialogClose>
           </div>
-          <div className="space-y-1.5">
-            <DialogTitle className="text-base font-semibold">
-              {language.t("obsidian.connectionDialog.title")}
-            </DialogTitle>
-            <DialogDescription className="mx-auto max-w-xs leading-normal">
-              {language.t("obsidian.connectionDialog.description", { name: vaultName })}
-            </DialogDescription>
-          </div>
+
+          <DialogTitle className="pb-2 text-lg font-semibold">
+            {language.t("obsidian.connectionDialog.title")}
+          </DialogTitle>
+          <DialogDescription className="text-text-weak text-sm leading-normal">
+            {language.t("obsidian.connectionDialog.description", { name: vaultName })}
+          </DialogDescription>
         </DialogHeader>
 
         {props.error ? (
-          <p className="text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
+          <p className="text-text-critical-base bg-surface-critical-weak/10 border-border-critical-weak/30 mt-4 rounded-lg border p-2.5 text-sm">
             {props.error}
           </p>
         ) : null}
 
-        <DialogFooter className="mt-1 sm:justify-center">
+        <div className="flex items-center justify-end gap-2 pt-6">
           <Button
             type="button"
             variant="ghost"
             data-action="obsidian-vault-continue-as-notebook"
             disabled={props.busy}
             onClick={props.onContinueAsNotebook}
-            className="active:scale-[0.97] transition-transform"
+            className="text-text-weak px-4"
           >
             {language.t("obsidian.connectionDialog.continueAsNotebook")}
           </Button>
@@ -943,14 +1042,14 @@ export function ObsidianVaultConnectionDialog(props: ObsidianVaultConnectionDial
             data-action="obsidian-vault-connect"
             disabled={props.busy}
             onClick={props.onConnect}
-            className="active:scale-[0.97] transition-transform"
+            className="px-5"
           >
             {props.busy ? <Spinner data-icon="inline-start" /> : null}
             {props.busy
               ? language.t("obsidian.connectionDialog.connecting")
               : language.t("obsidian.connectionDialog.connect")}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )

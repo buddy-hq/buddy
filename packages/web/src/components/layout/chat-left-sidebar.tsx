@@ -38,6 +38,7 @@ import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
 import { useDirectoryReordering } from "./chat-left-sidebar/use-directory-reordering"
 import type {
   ArchiveState,
+  DeleteState,
   OrganizeMode,
   RenameState,
   ShowMode,
@@ -73,6 +74,7 @@ type ChatLeftSidebarProps = {
   onTogglePin: (directory: string, sessionID: string) => void
   onToggleUnread: (directory: string, sessionID: string, unread: boolean) => void
   onArchiveSession: (directory: string, sessionID: string) => Promise<void>
+  onDeleteSession: (directory: string, sessionID: string) => Promise<boolean>
   onRenameSession: (directory: string, sessionID: string, title: string) => Promise<void>
   onReorderDirectories: (newOrder: string[]) => void
   onCloseDirectory: (directory: string) => void
@@ -102,6 +104,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [archiveState, setArchiveState] = useState<ArchiveState | undefined>(undefined)
   const [archiveSaving, setArchiveSaving] = useState(false)
+  const [deleteState, setDeleteState] = useState<DeleteState | undefined>(undefined)
+  const [deleteSaving, setDeleteSaving] = useState(false)
   const [renameState, setRenameState] = useState<RenameState | undefined>(undefined)
   const [renameSaving, setRenameSaving] = useState(false)
   const [expandedDirectories, setExpandedDirectories] = useState<Record<string, true>>({})
@@ -267,6 +271,20 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     }
   }
 
+  async function submitDelete() {
+    if (!deleteState) return
+
+    setDeleteSaving(true)
+    try {
+      const deleted = await props.onDeleteSession(deleteState.directory, deleteState.sessionID)
+      if (deleted) {
+        setDeleteState(undefined)
+      }
+    } finally {
+      setDeleteSaving(false)
+    }
+  }
+
   async function submitNotebookCreation() {
     const name = notebookName.trim()
     if (!name || !props.onCreateNotebook) return
@@ -307,6 +325,10 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
   function handleRequestArchive(directory: string, sessionID: string, title: string) {
     setArchiveState({ directory, sessionID, title })
+  }
+
+  function handleRequestDelete(directory: string, sessionID: string, title: string) {
+    setDeleteState({ directory, sessionID, title })
   }
 
   function handleRequestRename(directory: string, sessionID: string, title: string) {
@@ -375,6 +397,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             onToggleUnread={props.onToggleUnread}
             onRequestRename={handleRequestRename}
             onRequestArchive={handleRequestArchive}
+            onRequestDelete={handleRequestDelete}
           />
 
           <ChatLeftSidebarToolbar
@@ -414,6 +437,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             onTogglePin={props.onTogglePin}
             onToggleUnread={props.onToggleUnread}
             onRequestArchive={handleRequestArchive}
+            onRequestDelete={handleRequestDelete}
             onRequestRename={handleRequestRename}
             onLabelPointerDown={handleLabelPointerDown}
             onSectionRef={sectionRefCallback}
@@ -456,10 +480,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       <ChatLeftSidebarDialogs
         archiveState={archiveState}
         archiveSaving={archiveSaving}
+        deleteState={deleteState}
+        deleteSaving={deleteSaving}
         renameState={renameState}
         renameSaving={renameSaving}
         onArchiveCancel={() => setArchiveState(undefined)}
         onArchiveConfirm={() => void submitArchive()}
+        onDeleteCancel={() => setDeleteState(undefined)}
+        onDeleteConfirm={() => void submitDelete()}
         onRenameCancel={() => setRenameState(undefined)}
         onRenameConfirm={() => void submitRename()}
         onRenameTitleChange={(title) => {
@@ -472,7 +500,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         busy={notebookSaving}
         notebookName={notebookName}
         title={language.t("sidebar.newNotebookDialogTitle")}
-        description={language.t("sidebar.newNotebookDialogDescription")}
         confirmLabel={language.t("sidebar.createNotebook")}
         placeholder={language.t("sidebar.newNotebookPlaceholder")}
         onOpenChange={(open) => {

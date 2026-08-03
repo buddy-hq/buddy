@@ -61,8 +61,10 @@ import type { TeachingPromptContext } from "./teaching-runtime"
 import { stringifyError } from "../lib/api-client"
 import { OPENCODE_PROVIDER_ID, OPENAI_PROVIDER_ID } from "../lib/provider-ids"
 import { canonicalProjectDirectory } from "../lib/project-directory"
+import { sessionFamilyIDs } from "../lib/session-family"
 
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
+import { isSessionNotFoundResult } from "../lib/session-request-result"
 import type { McpLocalConfig, McpRemoteConfig } from "../components/mcp-dialog/mcp-config-schema"
 import {
   SELECTION_CONTEXT_PART_TYPE,
@@ -338,6 +340,7 @@ const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
   recommendations: [],
 }
 const SESSION_NOT_FOUND_ERROR = "Session not found"
+const HTTP_STATUS_NOT_FOUND = 404
 const UNDO_MISSING_SESSION_ERROR = "Start a session before undoing the last message."
 const UNDO_NO_MESSAGE_ERROR = "No user message is available to undo."
 const FORK_MISSING_SESSION_ERROR = "Start a session before forking."
@@ -1857,7 +1860,7 @@ async function isSessionMissingInDirectory(directory: string, sessionID: string)
   const result = await getBuddyClient(directory).session.get({
     sessionID,
   })
-  return result.response?.status === 404
+  return result.response?.status === HTTP_STATUS_NOT_FOUND
 }
 
 async function shouldRecoverMissingSession(directory: string, sessionID: string, error: unknown) {
@@ -2444,6 +2447,40 @@ export async function updateSession(input: {
     )
     store.setDirectoryError(input.directory, undefined)
     return session
+  } catch (error) {
+    store.setDirectoryError(input.directory, stringifyError(error))
+    throw error
+  }
+}
+
+function applyDeletedSessionFamily(input: { directory: string; sessionID: string }): void {
+  const store = useChatStore.getState()
+  const sessions = store.directories[input.directory]?.sessions ?? []
+  store.applySessionsDeleted(input.directory, sessionFamilyIDs(sessions, input.sessionID))
+}
+
+export async function deleteSession(input: {
+  directory: string
+  sessionID: string
+}): Promise<boolean> {
+  const store = useChatStore.getState()
+
+  try {
+    const result = await getBuddyClient(input.directory).session.delete({
+      sessionID: input.sessionID,
+    })
+    if (isSessionNotFoundResult(result)) {
+      applyDeletedSessionFamily(input)
+      store.setDirectoryError(input.directory, undefined)
+      return true
+    }
+
+    const deleted = requireBuddyData<boolean>(result)
+    if (deleted) {
+      applyDeletedSessionFamily(input)
+    }
+    store.setDirectoryError(input.directory, undefined)
+    return deleted
   } catch (error) {
     store.setDirectoryError(input.directory, stringifyError(error))
     throw error

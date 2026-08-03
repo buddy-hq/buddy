@@ -5,12 +5,11 @@
 //   ScrollTextIcon,
 //   type AppIcon,
 // } from "@/icons/app-icons"
-import { SlidersHorizontalIcon } from "@/icons/app-icons"
+import { SlidersHorizontalIcon, Trash2Icon } from "@/icons/app-icons"
 import { useQuery } from "@tanstack/react-query"
 import {
   ArchiveIcon,
   BookOpenIcon,
-  Button,
   ChevronRightIcon,
   Collapsible,
   CollapsibleTrigger,
@@ -82,6 +81,7 @@ type ChatLeftSidebarDirectoryListProps = {
   onTogglePin: (directory: string, sessionID: string) => void
   onToggleUnread: (directory: string, sessionID: string, unread: boolean) => void
   onRequestArchive: (directory: string, sessionID: string, title: string) => void
+  onRequestDelete: (directory: string, sessionID: string, title: string) => void
   onRequestRename: (directory: string, sessionID: string, title: string) => void
   onLabelPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, directory: string) => void
   onSectionRef: (directory: string) => (element: HTMLElement | null) => void
@@ -113,6 +113,7 @@ type DirectoryGroupSectionProps = {
   onTogglePin: (sessionID: string) => void
   onToggleUnread: (sessionID: string, unread: boolean) => void
   onRequestArchive: (sessionID: string, title: string) => void
+  onRequestDelete: (sessionID: string, title: string) => void
   onRequestRename: (sessionID: string, title: string) => void
   onLabelPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
   onSectionRef: (element: HTMLElement | null) => void
@@ -141,6 +142,7 @@ type DirectoryThreadRowProps = {
   onToggleUnread: (sessionID: string, unread: boolean) => void
   onRequestRename: (sessionID: string, title: string) => void
   onRequestArchive: (sessionID: string, title: string) => void
+  onRequestDelete: (sessionID: string, title: string) => void
   depth?: number
   /** Skip the pin badge — redundant when the row already lives in a dedicated Pinned section. */
   hidePinBadge?: boolean
@@ -246,6 +248,9 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
               }
               onRequestArchive={(sessionID, title) =>
                 props.onRequestArchive(group.directory, sessionID, title)
+              }
+              onRequestDelete={(sessionID, title) =>
+                props.onRequestDelete(group.directory, sessionID, title)
               }
               onRequestRename={(sessionID, title) =>
                 props.onRequestRename(group.directory, sessionID, title)
@@ -546,6 +551,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                     onToggleUnread={props.onToggleUnread}
                     onRequestRename={props.onRequestRename}
                     onRequestArchive={props.onRequestArchive}
+                    onRequestDelete={props.onRequestDelete}
                   />
                 ))}
               </div>
@@ -593,6 +599,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                     onToggleUnread={props.onToggleUnread}
                     onRequestRename={props.onRequestRename}
                     onRequestArchive={props.onRequestArchive}
+                    onRequestDelete={props.onRequestDelete}
                   />
                 ))
               )}
@@ -857,6 +864,20 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
               </>
             )}
           </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            data-action="left-sidebar-thread-delete"
+            variant="destructive"
+            onSelect={() =>
+              props.onRequestDelete(
+                props.session.id,
+                props.session.title || language.t("sidebar.untitledThread"),
+              )
+            }
+          >
+            <Trash2Icon />
+            {language.t("sidebar.deleteThreadAction")}
+          </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
 
@@ -896,6 +917,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                   onToggleUnread={props.onToggleUnread}
                   onRequestRename={props.onRequestRename}
                   onRequestArchive={props.onRequestArchive}
+                  onRequestDelete={props.onRequestDelete}
                   depth={depth + 1}
                   hidePinBadge={props.hidePinBadge}
                 />

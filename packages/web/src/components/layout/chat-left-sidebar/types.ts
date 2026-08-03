@@ -17,6 +17,12 @@ export type ArchiveState = {
   title: string
 }
 
+export type DeleteState = {
+  directory: string
+  sessionID: string
+  title: string
+}
+
 export type DirectoryGroup = {
   directory: string
   sessions: SessionInfo[]

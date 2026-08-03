@@ -10,6 +10,11 @@ const RECENT_MODEL_LIMIT = 5
 
 type SelectionSource = "local" | "restored"
 
+export type WorkspaceModelSelectionSeed = {
+  model?: string
+  variant?: string | null
+}
+
 export type ModelSelectionStore = {
   selectionSourceByKey: Record<string, SelectionSource>
   restoredSelectionCreatedAtByKey: Record<string, number>
@@ -22,6 +27,7 @@ export type ModelSelectionStore = {
   setSelectedVariant: (key: string, variant: string | null | undefined) => void
   pushRecentModelKey: (model: string) => void
   clearSelectedModel: (key: string) => void
+  seedWorkspaceSelection: (directory: string, selection: WorkspaceModelSelectionSeed) => void
   restoreSessionSelection: (
     key: string,
     selection: {
@@ -218,6 +224,32 @@ export const useModelSelectionStore = create<ModelSelectionStore>()(
           state.selectionSourceByKey[key] = "local"
           delete state.restoredSelectionCreatedAtByKey[key]
           delete state.selectedModelByKey[key]
+        })
+      },
+      seedWorkspaceSelection(directory, selection) {
+        const key = getModelSelectionScopeKey(directory)
+        const nextModel = selection.model?.trim()
+        const nextVariant =
+          selection.variant === null ? null : selection.variant?.trim() || undefined
+
+        set((state) => {
+          state.selectionSourceByKey[key] = "local"
+          delete state.restoredSelectionCreatedAtByKey[key]
+          delete state.selectedAgentByKey[key]
+
+          if (nextModel) {
+            state.selectedModelByKey[key] = nextModel
+          } else {
+            delete state.selectedModelByKey[key]
+          }
+
+          if (nextVariant === null) {
+            state.selectedVariantByKey[key] = null
+          } else if (nextVariant) {
+            state.selectedVariantByKey[key] = nextVariant
+          } else {
+            delete state.selectedVariantByKey[key]
+          }
         })
       },
       restoreSessionSelection(key, selection) {

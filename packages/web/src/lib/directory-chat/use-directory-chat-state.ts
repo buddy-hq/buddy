@@ -256,6 +256,7 @@ type DirectoryChatModelSlice = Pick<
   | "setSelectedAgent"
   | "setSelectedModel"
   | "setSelectedVariant"
+  | "seedWorkspaceSelection"
   | "pushRecentModelKey"
   | "restoreSessionSelection"
 >
@@ -390,6 +391,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   const setSelectedAgent = useModelSelectionStore((state) => state.setSelectedAgent)
   const setSelectedModel = useModelSelectionStore((state) => state.setSelectedModel)
   const setSelectedVariant = useModelSelectionStore((state) => state.setSelectedVariant)
+  const seedWorkspaceSelection = useModelSelectionStore((state) => state.seedWorkspaceSelection)
   const pushRecentModelKey = useModelSelectionStore((state) => state.pushRecentModelKey)
   const restoreSessionSelection = useModelSelectionStore((state) => state.restoreSessionSelection)
   const migrateWorkspaceModelSelection = useModelSelectionStore(
@@ -657,6 +659,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     setSelectedAgent,
     setSelectedModel,
     setSelectedVariant,
+    seedWorkspaceSelection,
     pushRecentModelKey,
     restoreSessionSelection,
     // UI preferences actions
