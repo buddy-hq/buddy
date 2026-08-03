@@ -426,12 +426,7 @@ export function ChatGptAccountCardRedesignEasel() {
       <div className="border-border-weaker-base flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-2">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <p className="text-text-base shrink-0 text-xs font-medium">Connected account · ChatGPT</p>
-          <SegmentedControl
-            value={mode}
-            options={MODES}
-            labels={MODE_LABEL}
-            onChange={setMode}
-          />
+          <SegmentedControl value={mode} options={MODES} labels={MODE_LABEL} onChange={setMode} />
           <SegmentedControl
             value={state}
             options={STATES}

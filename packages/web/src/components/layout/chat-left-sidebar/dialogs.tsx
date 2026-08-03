@@ -239,9 +239,7 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
                 props.onDeleteConfirm()
               }}
             >
-              {props.deleteSaving
-                ? language.t("sidebar.deleting")
-                : language.t("sidebar.delete")}
+              {props.deleteSaving ? language.t("sidebar.deleting") : language.t("sidebar.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

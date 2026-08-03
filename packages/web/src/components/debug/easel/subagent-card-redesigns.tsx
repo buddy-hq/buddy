@@ -276,7 +276,10 @@ const CASES: CardCase[] = [
 
 const FANOUT = [
   { title: "Map product notes", activity: undefined },
-  { title: "Map startup business notes", activity: "Identifying glob pattern for Business projects" },
+  {
+    title: "Map startup business notes",
+    activity: "Identifying glob pattern for Business projects",
+  },
   { title: "Map build and venture notes", activity: undefined },
   { title: "Map growth and go-to-market", activity: undefined },
   { title: "Find hidden product references", activity: undefined },

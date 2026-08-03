@@ -301,8 +301,10 @@ const VARIANT_LABEL: Record<Variant, string> = {
 }
 
 const VARIANT_NOTE: Record<Variant, string> = {
-  "split-footer": "Conventional shape, correct weights — escape hatch pinned far left of the footer",
-  "under-field": "Escape hatch belongs to the field, not the footer — footer keeps only Cancel/Create",
+  "split-footer":
+    "Conventional shape, correct weights — escape hatch pinned far left of the footer",
+  "under-field":
+    "Escape hatch belongs to the field, not the footer — footer keeps only Cancel/Create",
   attached: "Create rides the field, so the title goes — two rows, quiet actions at each end",
   compare: "All three at real size, on the same scrim",
 }

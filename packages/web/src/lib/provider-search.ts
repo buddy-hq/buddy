@@ -49,9 +49,7 @@ export function filterProvidersByQuery(
   const bestScore = results[0]?.score ?? 0
   const cutoff = bestScore * MINIMUM_SHARE_OF_BEST_MATCH
 
-  return results
-    .filter((result) => result.score >= cutoff)
-    .map((result) => result.obj.provider)
+  return results.filter((result) => result.score >= cutoff).map((result) => result.obj.provider)
 }
 
 export function resolveProviderSearchResults(input: {

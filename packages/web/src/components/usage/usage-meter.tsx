@@ -93,7 +93,10 @@ export function UsageMeterBar(props: {
       )}
     >
       <div
-        className={cn("h-full rounded-full transition-[width] duration-300", METER_FILL[props.tone])}
+        className={cn(
+          "h-full rounded-full transition-[width] duration-300",
+          METER_FILL[props.tone],
+        )}
         style={{
           width: `${used}%`,
           minWidth: used > 0 && props.tone !== "empty" ? MINIMUM_FILL_WIDTH : undefined,

@@ -119,9 +119,7 @@ function SettingsRoute() {
   const togglePinned = useUiPreferences((state) => state.togglePinned)
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
-  const clearDirectorySessionState = useUiPreferences(
-    (state) => state.clearDirectorySessionState,
-  )
+  const clearDirectorySessionState = useUiPreferences((state) => state.clearDirectorySessionState)
   const settingsSidebarWidth = useUiPreferences((state) => state.settingsSidebarWidth)
   const setSettingsSidebarWidth = useUiPreferences((state) => state.setSettingsSidebarWidth)
   const { standardsEnabled, standardsStatus } = useStandardsRuntime({
@@ -357,9 +355,9 @@ function SettingsRoute() {
       }
 
       for (const affectedSessionID of affectedSessionIDs) {
-        usePromptStore.getState().removeSessionDraft(
-          getPromptScopeKey(targetDirectory, affectedSessionID),
-        )
+        usePromptStore
+          .getState()
+          .removeSessionDraft(getPromptScopeKey(targetDirectory, affectedSessionID))
         clearDirectorySessionState(targetDirectory, affectedSessionID)
       }
 
@@ -380,10 +378,7 @@ function SettingsRoute() {
 
       if (!useChatStore.getState().directories[targetDirectory]?.sessionID) {
         await startActiveChatDraft({ directory: targetDirectory })
-        modelSelectionStore.seedWorkspaceSelection(
-          targetDirectory,
-          replacementDraftSelection,
-        )
+        modelSelectionStore.seedWorkspaceSelection(targetDirectory, replacementDraftSelection)
       }
       return true
     } catch {

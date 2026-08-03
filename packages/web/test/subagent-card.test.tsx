@@ -33,9 +33,7 @@ describe("subagent card", () => {
 
   test("keeps the task context visible while startup becomes live activity", async () => {
     await act(async () => {
-      root.render(
-        <SubagentCard taskTitle="Refactor auth module" status="pending" />,
-      )
+      root.render(<SubagentCard taskTitle="Refactor auth module" status="pending" />)
       await flushEffects()
     })
 

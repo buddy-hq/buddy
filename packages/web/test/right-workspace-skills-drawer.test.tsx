@@ -273,10 +273,8 @@ describe("RightWorkspaceSkillsDrawer", () => {
   })
 
   test("reuses the same catalog and search density in a two-column settings layout", async () => {
-    const {
-      SKILLS_CATALOG_LAYOUT_TWO_COLUMNS,
-      SkillsCatalogSurface,
-    } = await import("../src/components/directory-chat/right-workspace-skills-drawer")
+    const { SKILLS_CATALOG_LAYOUT_TWO_COLUMNS, SkillsCatalogSurface } =
+      await import("../src/components/directory-chat/right-workspace-skills-drawer")
     queryClient.setQueryData(["skills", "catalog", TEST_DIRECTORY], catalog)
 
     await act(async () => {

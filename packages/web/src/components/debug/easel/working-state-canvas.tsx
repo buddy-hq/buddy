@@ -101,8 +101,7 @@ function PathRider({
 
 // ─── paths ───────────────────────────────────────────────────────────────────
 
-const PATH_EIGHT =
-  "M12 5 C 18 5 18 12 12 12 C 6 12 6 19 12 19 C 18 19 18 12 12 12 C 6 12 6 5 12 5"
+const PATH_EIGHT = "M12 5 C 18 5 18 12 12 12 C 6 12 6 19 12 19 C 18 19 18 12 12 12 C 6 12 6 5 12 5"
 const PATH_PRETZEL = "M12 4 C 21 8 3 16 12 20 C 21 16 3 8 12 4"
 const PATH_SPIRAL =
   "M12 12 C 13.5 10.5 16 11 16 13 C 16 16 11 16.5 10 13 C 8.6 8.6 16 6.5 18.5 11 C 21 15.5 15 21.5 9 19"
@@ -166,7 +165,14 @@ function Pretzel({ speed }: Beat) {
   return (
     <>
       <PathRider path={PATH_PRETZEL} duration={2.8} speed={speed} />
-      <PathRider path={PATH_PRETZEL} duration={2.8} speed={speed} delay={0.5} dot={3} opacity={0.4} />
+      <PathRider
+        path={PATH_PRETZEL}
+        duration={2.8}
+        speed={speed}
+        delay={0.5}
+        dot={3}
+        opacity={0.4}
+      />
     </>
   )
 }
@@ -192,8 +198,22 @@ function Comet({ speed }: Beat) {
     <>
       <PathRider path={PATH_RING} duration={1.8} speed={speed} dot={5} />
       <PathRider path={PATH_RING} duration={1.8} speed={speed} delay={0.09} dot={4} opacity={0.5} />
-      <PathRider path={PATH_RING} duration={1.8} speed={speed} delay={0.18} dot={3} opacity={0.28} />
-      <PathRider path={PATH_RING} duration={1.8} speed={speed} delay={0.27} dot={2} opacity={0.14} />
+      <PathRider
+        path={PATH_RING}
+        duration={1.8}
+        speed={speed}
+        delay={0.18}
+        dot={3}
+        opacity={0.28}
+      />
+      <PathRider
+        path={PATH_RING}
+        duration={1.8}
+        speed={speed}
+        delay={0.27}
+        dot={2}
+        opacity={0.14}
+      />
     </>
   )
 }
@@ -204,8 +224,22 @@ function PerimeterSnake({ speed }: Beat) {
   return (
     <>
       <PathRider path={PATH_PERIMETER} duration={2.6} speed={speed} dot={5} />
-      <PathRider path={PATH_PERIMETER} duration={2.6} speed={speed} delay={0.14} dot={4} opacity={0.5} />
-      <PathRider path={PATH_PERIMETER} duration={2.6} speed={speed} delay={0.28} dot={3} opacity={0.25} />
+      <PathRider
+        path={PATH_PERIMETER}
+        duration={2.6}
+        speed={speed}
+        delay={0.14}
+        dot={4}
+        opacity={0.5}
+      />
+      <PathRider
+        path={PATH_PERIMETER}
+        duration={2.6}
+        speed={speed}
+        delay={0.28}
+        dot={3}
+        opacity={0.25}
+      />
     </>
   )
 }
@@ -227,7 +261,14 @@ function Zigzag({ speed }: Beat) {
   return (
     <>
       <PathRider path={PATH_ZIGZAG} duration={1.5} speed={speed} dot={5} />
-      <PathRider path={PATH_ZIGZAG} duration={1.5} speed={speed} delay={0.2} dot={3.5} opacity={0.35} />
+      <PathRider
+        path={PATH_ZIGZAG}
+        duration={1.5}
+        speed={speed}
+        delay={0.2}
+        dot={3.5}
+        opacity={0.35}
+      />
     </>
   )
 }
@@ -242,7 +283,10 @@ function Pendulum({ speed }: Beat) {
       animate={{ rotate: [-38, 38, -38] }}
       transition={loop(1.9, speed)}
     >
-      <span className="absolute" style={{ left: 11.5, top: 3, width: 1, height: 11, background: ACCENT, opacity: 0.3 }} />
+      <span
+        className="absolute"
+        style={{ left: 11.5, top: 3, width: 1, height: 11, background: ACCENT, opacity: 0.3 }}
+      />
       <Dot size={6} style={{ left: 9, top: 13 }} />
     </motion.span>
   )
@@ -253,7 +297,10 @@ function Pendulum({ speed }: Beat) {
 function Bounce({ speed }: Beat) {
   return (
     <>
-      <span className="absolute" style={{ left: 2, top: 20, width: 20, height: 1, background: ACCENT, opacity: 0.25 }} />
+      <span
+        className="absolute"
+        style={{ left: 2, top: 20, width: 20, height: 1, background: ACCENT, opacity: 0.25 }}
+      />
       <motion.span
         className="absolute"
         animate={{ x: [1, 17, 1] }}
@@ -264,7 +311,12 @@ function Bounce({ speed }: Beat) {
           className={cn("block rounded-full", ACCENT_CLASS)}
           style={{ width: 6, height: 6 }}
           animate={{ y: [2, 14, 2], scaleY: [1, 0.65, 1], scaleX: [1, 1.3, 1] }}
-          transition={{ duration: 0.6 / speed, repeat: Infinity, ease: "easeIn", repeatType: "reverse" }}
+          transition={{
+            duration: 0.6 / speed,
+            repeat: Infinity,
+            ease: "easeIn",
+            repeatType: "reverse",
+          }}
         />
       </motion.span>
     </>
@@ -373,7 +425,13 @@ function RandomWalk({ speed }: Beat) {
         <span
           key={cell.id}
           className={cn("absolute rounded-full", ACCENT_CLASS)}
-          style={{ width: 3, height: 3, left: 3.5 + cell.x * 7, top: 3.5 + cell.y * 7, opacity: 0.18 }}
+          style={{
+            width: 3,
+            height: 3,
+            left: 3.5 + cell.x * 7,
+            top: 3.5 + cell.y * 7,
+            opacity: 0.18,
+          }}
         />
       ))}
       <motion.span
@@ -456,7 +514,12 @@ function PulseRings({ speed }: Beat) {
           className="absolute rounded-full"
           style={{ inset: 8, border: `1px solid ${ACCENT}` }}
           animate={{ scale: [0.6, 3.4], opacity: [0.7, 0] }}
-          transition={{ duration: 1.8 / speed, delay: delay / speed, repeat: Infinity, ease: "easeOut" }}
+          transition={{
+            duration: 1.8 / speed,
+            delay: delay / speed,
+            repeat: Infinity,
+            ease: "easeOut",
+          }}
         />
       ))}
     </>
@@ -665,7 +728,13 @@ function ElasticThread({ speed }: Beat) {
       <Dot size={4} style={{ left: 2, top: 10, opacity: 0.5 }} />
       <motion.span
         className="absolute"
-        style={{ left: 4, top: 11.5, height: 1, background: ACCENT, transformOrigin: "left center" }}
+        style={{
+          left: 4,
+          top: 11.5,
+          height: 1,
+          background: ACCENT,
+          transformOrigin: "left center",
+        }}
         animate={{ rotate: [-32, 32, -32], scaleX: [1, 1.35, 1], width: [16, 16, 16] }}
         transition={loop(2, speed)}
       />
@@ -956,7 +1025,9 @@ function superformulaPolygon(
   radii.forEach((r, index) => {
     const theta = (index / points) * TAU
     const scaled = Number.isFinite(r) ? (r / maxR) * 50 : 50
-    coords.push(`${(50 + Math.cos(theta) * scaled).toFixed(2)}% ${(50 + Math.sin(theta) * scaled).toFixed(2)}%`)
+    coords.push(
+      `${(50 + Math.cos(theta) * scaled).toFixed(2)}% ${(50 + Math.sin(theta) * scaled).toFixed(2)}%`,
+    )
   })
   return `polygon(${coords.join(", ")})`
 }
@@ -1158,7 +1229,13 @@ function MoireField({ speed }: Beat) {
         <span
           key={dot.id}
           className={cn("absolute rounded-full", ACCENT_CLASS)}
-          style={{ width: 2.4, height: 2.4, left: 1.5 + dot.x * 5.3, top: 1.5 + dot.y * 5.3, opacity: 0.5 }}
+          style={{
+            width: 2.4,
+            height: 2.4,
+            left: 1.5 + dot.x * 5.3,
+            top: 1.5 + dot.y * 5.3,
+            opacity: 0.5,
+          }}
         />
       ))}
       <motion.span
@@ -1170,7 +1247,13 @@ function MoireField({ speed }: Beat) {
           <span
             key={dot.id}
             className={cn("absolute rounded-full", ACCENT_CLASS)}
-            style={{ width: 2.4, height: 2.4, left: 1.5 + dot.x * 5.3, top: 1.5 + dot.y * 5.3, opacity: 0.6 }}
+            style={{
+              width: 2.4,
+              height: 2.4,
+              left: 1.5 + dot.x * 5.3,
+              top: 1.5 + dot.y * 5.3,
+              opacity: 0.6,
+            }}
           />
         ))}
       </motion.span>
@@ -1267,15 +1350,28 @@ const SIERPINSKI_CELLS: FieldCell[] = Array.from({ length: 64 }, (_, index) => {
 })
 
 function MandelbrotTiles({ speed }: Beat) {
-  return <CellGrid n={7} cells={MANDELBROT_CELLS} duration={2.2} speed={speed} round={false} fill={0.82} />
+  return (
+    <CellGrid
+      n={7}
+      cells={MANDELBROT_CELLS}
+      duration={2.2}
+      speed={speed}
+      round={false}
+      fill={0.82}
+    />
+  )
 }
 
 function JuliaTiles({ speed }: Beat) {
-  return <CellGrid n={7} cells={JULIA_CELLS} duration={2.2} speed={speed} round={false} fill={0.82} />
+  return (
+    <CellGrid n={7} cells={JULIA_CELLS} duration={2.2} speed={speed} round={false} fill={0.82} />
+  )
 }
 
 function Rule90Tiles({ speed }: Beat) {
-  return <CellGrid n={7} cells={RULE90_CELLS} duration={1.9} speed={speed} round={false} fill={0.82} />
+  return (
+    <CellGrid n={7} cells={RULE90_CELLS} duration={1.9} speed={speed} round={false} fill={0.82} />
+  )
 }
 
 /** The shipping indicator itself, so the canvas and the subagent card never drift. */
@@ -1284,7 +1380,9 @@ function LifeTiles() {
 }
 
 function SierpinskiTiles({ speed }: Beat) {
-  return <CellGrid n={8} cells={SIERPINSKI_CELLS} duration={2} speed={speed} round={false} fill={0.84} />
+  return (
+    <CellGrid n={8} cells={SIERPINSKI_CELLS} duration={2} speed={speed} round={false} fill={0.84} />
+  )
 }
 
 // ═══ live systems ════════════════════════════════════════════════════════════
@@ -1328,7 +1426,15 @@ function decay(ctx: CanvasRenderingContext2D, size: number, amount: number) {
   ctx.globalCompositeOperation = "source-over"
 }
 
-function LiveCanvas({ size, speed, factory }: { size: number; speed: number; factory: PainterFactory }) {
+function LiveCanvas({
+  size,
+  speed,
+  factory,
+}: {
+  size: number
+  speed: number
+  factory: PainterFactory
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const still = useReducedMotion() === true
 
@@ -1453,12 +1559,18 @@ const mandelbrotZoom: PainterFactory = () => {
   return (ctx, size, state) => {
     const depth = zoomDepth(state.time, 0.28, 12)
     const scale = 3.4 * Math.exp(-depth)
-    paintEscape(ctx, size, state.rgb, {
-      centerX: SEAHORSE.x,
-      centerY: SEAHORSE.y,
-      scale,
-      maxIter: Math.min(180, Math.round(48 + depth * 11)),
-    }, bufferFor(ctx, size))
+    paintEscape(
+      ctx,
+      size,
+      state.rgb,
+      {
+        centerX: SEAHORSE.x,
+        centerY: SEAHORSE.y,
+        scale,
+        maxIter: Math.min(180, Math.round(48 + depth * 11)),
+      },
+      bufferFor(ctx, size),
+    )
   }
 }
 
@@ -1467,13 +1579,19 @@ const burningShipZoom: PainterFactory = () => {
   return (ctx, size, state) => {
     const depth = zoomDepth(state.time, 0.24, 9)
     const scale = 3.2 * Math.exp(-depth)
-    paintEscape(ctx, size, state.rgb, {
-      centerX: SHIP.x,
-      centerY: SHIP.y,
-      scale,
-      maxIter: Math.min(160, Math.round(46 + depth * 12)),
-      burning: true,
-    }, bufferFor(ctx, size))
+    paintEscape(
+      ctx,
+      size,
+      state.rgb,
+      {
+        centerX: SHIP.x,
+        centerY: SHIP.y,
+        scale,
+        maxIter: Math.min(160, Math.round(46 + depth * 12)),
+        burning: true,
+      },
+      bufferFor(ctx, size),
+    )
   }
 }
 
@@ -1483,13 +1601,19 @@ const juliaMorph: PainterFactory = () => {
     // Two incommensurate rates — the parameter path never closes on itself.
     const angle = state.time * 0.21
     const radius = 0.7 + 0.09 * Math.sin(state.time * 0.0917)
-    paintEscape(ctx, size, state.rgb, {
-      centerX: 0,
-      centerY: 0,
-      scale: 3.2,
-      maxIter: 64,
-      julia: { cr: radius * Math.cos(angle), ci: radius * Math.sin(angle) },
-    }, bufferFor(ctx, size))
+    paintEscape(
+      ctx,
+      size,
+      state.rgb,
+      {
+        centerX: 0,
+        centerY: 0,
+        scale: 3.2,
+        maxIter: 64,
+        julia: { cr: radius * Math.cos(angle), ci: radius * Math.sin(angle) },
+      },
+      bufferFor(ctx, size),
+    )
   }
 }
 
@@ -1515,7 +1639,7 @@ const lorenzLive: PainterFactory = () => {
       y += dy * 0.0022
       z += dz * 0.0022
       ctx.globalAlpha = 0.75
-      ctx.fillRect((x * 0.022 + 0.5) * size, ((z - 5) * 0.022) * size, 1.4, 1.4)
+      ctx.fillRect((x * 0.022 + 0.5) * size, (z - 5) * 0.022 * size, 1.4, 1.4)
     }
     ctx.globalAlpha = 1
   }
@@ -1654,7 +1778,9 @@ const doublePendulum: PainterFactory = () => {
           2 * Math.sin(delta) * (v2 * v2 + v1 * v1 * Math.cos(delta))) /
         den
       const acc2 =
-        (2 * Math.sin(delta) * (v1 * v1 * 2 + 9.81 * 2 * Math.cos(a1) + v2 * v2 * Math.cos(delta))) /
+        (2 *
+          Math.sin(delta) *
+          (v1 * v1 * 2 + 9.81 * 2 * Math.cos(a1) + v2 * v2 * Math.cos(delta))) /
         den
       v1 += acc1 * h
       v2 += acc2 * h
@@ -1725,28 +1851,73 @@ type WorkingState = {
 }
 
 const STATES: WorkingState[] = [
-  { id: "mandelbrot-zoom", label: "Mandelbrot zoom", family: "Chaotic", render: (b) => <MandelbrotZoom {...b} /> },
-  { id: "burning-ship", label: "Burning Ship zoom", family: "Chaotic", render: (b) => <BurningShip {...b} /> },
-  { id: "julia-morph", label: "Julia morph", family: "Chaotic", render: (b) => <JuliaMorph {...b} /> },
+  {
+    id: "mandelbrot-zoom",
+    label: "Mandelbrot zoom",
+    family: "Chaotic",
+    render: (b) => <MandelbrotZoom {...b} />,
+  },
+  {
+    id: "burning-ship",
+    label: "Burning Ship zoom",
+    family: "Chaotic",
+    render: (b) => <BurningShip {...b} />,
+  },
+  {
+    id: "julia-morph",
+    label: "Julia morph",
+    family: "Chaotic",
+    render: (b) => <JuliaMorph {...b} />,
+  },
   { id: "lorenz-live", label: "Lorenz", family: "Chaotic", render: (b) => <LorenzLive {...b} /> },
-  { id: "rossler-live", label: "Rössler", family: "Chaotic", render: (b) => <RosslerLive {...b} /> },
+  {
+    id: "rossler-live",
+    label: "Rössler",
+    family: "Chaotic",
+    render: (b) => <RosslerLive {...b} />,
+  },
   { id: "thomas-live", label: "Thomas", family: "Chaotic", render: (b) => <ThomasLive {...b} /> },
-  { id: "clifford-live", label: "Clifford drift", family: "Chaotic", render: (b) => <CliffordLive {...b} /> },
-  { id: "dejong-live", label: "De Jong drift", family: "Chaotic", render: (b) => <DeJongLive {...b} /> },
+  {
+    id: "clifford-live",
+    label: "Clifford drift",
+    family: "Chaotic",
+    render: (b) => <CliffordLive {...b} />,
+  },
+  {
+    id: "dejong-live",
+    label: "De Jong drift",
+    family: "Chaotic",
+    render: (b) => <DeJongLive {...b} />,
+  },
   { id: "henon-live", label: "Hénon map", family: "Chaotic", render: (b) => <HenonLive {...b} /> },
-  { id: "pendulum-live", label: "Double pendulum", family: "Chaotic", render: (b) => <DoublePendulum {...b} /> },
+  {
+    id: "pendulum-live",
+    label: "Double pendulum",
+    family: "Chaotic",
+    render: (b) => <DoublePendulum {...b} />,
+  },
 
   { id: "orbit", label: "Orbit", family: "Orbital", render: (b) => <Orbit {...b} /> },
   { id: "twin-orbit", label: "Twin orbit", family: "Orbital", render: (b) => <TwinOrbit {...b} /> },
   { id: "comet", label: "Comet", family: "Orbital", render: (b) => <Comet {...b} /> },
   { id: "radar", label: "Radar", family: "Orbital", render: (b) => <Radar {...b} /> },
-  { id: "gears", label: "Counter gears", family: "Orbital", render: (b) => <CounterGears {...b} /> },
+  {
+    id: "gears",
+    label: "Counter gears",
+    family: "Orbital",
+    render: (b) => <CounterGears {...b} />,
+  },
   { id: "swarm", label: "Magnet swarm", family: "Orbital", render: (b) => <MagnetSwarm {...b} /> },
 
   { id: "eight", label: "Figure eight", family: "Path", render: (b) => <FigureEight {...b} /> },
   { id: "pretzel", label: "Pretzel", family: "Path", render: (b) => <Pretzel {...b} /> },
   { id: "spiral", label: "Spiral", family: "Path", render: (b) => <Spiral {...b} /> },
-  { id: "perimeter", label: "Perimeter snake", family: "Path", render: (b) => <PerimeterSnake {...b} /> },
+  {
+    id: "perimeter",
+    label: "Perimeter snake",
+    family: "Path",
+    render: (b) => <PerimeterSnake {...b} />,
+  },
   { id: "weave", label: "Weave", family: "Path", render: (b) => <Weave {...b} /> },
   { id: "zigzag", label: "Zigzag runner", family: "Path", render: (b) => <Zigzag {...b} /> },
 
@@ -1755,35 +1926,85 @@ const STATES: WorkingState[] = [
   { id: "shuttle", label: "Shuttle", family: "Physical", render: (b) => <Shuttle {...b} /> },
   { id: "rain", label: "Rainfall", family: "Physical", render: (b) => <Rainfall {...b} /> },
   { id: "stack", label: "Stack drop", family: "Physical", render: (b) => <StackDrop {...b} /> },
-  { id: "thread", label: "Elastic thread", family: "Physical", render: (b) => <ElasticThread {...b} /> },
+  {
+    id: "thread",
+    label: "Elastic thread",
+    family: "Physical",
+    render: (b) => <ElasticThread {...b} />,
+  },
 
   { id: "wave", label: "Wave field", family: "Field", render: (b) => <WaveField {...b} /> },
   { id: "ripple", label: "Ripple field", family: "Field", render: (b) => <RippleField {...b} /> },
   { id: "walk", label: "Random walk", family: "Field", render: (b) => <RandomWalk {...b} /> },
-  { id: "crosshair", label: "Crosshair scan", family: "Field", render: (b) => <Crosshair {...b} /> },
-  { id: "constellation", label: "Constellation", family: "Field", render: (b) => <Constellation {...b} /> },
+  {
+    id: "crosshair",
+    label: "Crosshair scan",
+    family: "Field",
+    render: (b) => <Crosshair {...b} />,
+  },
+  {
+    id: "constellation",
+    label: "Constellation",
+    family: "Field",
+    render: (b) => <Constellation {...b} />,
+  },
   { id: "jitter", label: "Jitter cloud", family: "Field", render: (b) => <JitterCloud {...b} /> },
-  { id: "chladni", label: "Chladni nodes", family: "Field", render: (b) => <ChladniField {...b} /> },
+  {
+    id: "chladni",
+    label: "Chladni nodes",
+    family: "Field",
+    render: (b) => <ChladniField {...b} />,
+  },
   { id: "plasma", label: "Plasma", family: "Field", render: (b) => <PlasmaField {...b} /> },
-  { id: "lorenz", label: "Lorenz attractor", family: "Field", render: (b) => <LorenzField {...b} /> },
-  { id: "logistic", label: "Logistic chaos", family: "Field", render: (b) => <LogisticField {...b} /> },
+  {
+    id: "lorenz",
+    label: "Lorenz attractor",
+    family: "Field",
+    render: (b) => <LorenzField {...b} />,
+  },
+  {
+    id: "logistic",
+    label: "Logistic chaos",
+    family: "Field",
+    render: (b) => <LogisticField {...b} />,
+  },
   { id: "flow", label: "Flow field", family: "Field", render: (b) => <FlowField {...b} /> },
   { id: "moire", label: "Moiré lattice", family: "Field", render: (b) => <MoireField {...b} /> },
 
   { id: "blob", label: "Morph blob", family: "Blob", render: (b) => <MorphBlob {...b} /> },
   { id: "superblob", label: "Superformula", family: "Blob", render: (b) => <SuperBlob {...b} /> },
-  { id: "starblob", label: "Superformula star", family: "Blob", render: (b) => <StarBlob {...b} /> },
+  {
+    id: "starblob",
+    label: "Superformula star",
+    family: "Blob",
+    render: (b) => <StarBlob {...b} />,
+  },
   { id: "roseblob", label: "Rose curve", family: "Blob", render: (b) => <RoseBlob {...b} /> },
-  { id: "goldenblob", label: "Golden wobble", family: "Blob", render: (b) => <GoldenBlob {...b} /> },
+  {
+    id: "goldenblob",
+    label: "Golden wobble",
+    family: "Blob",
+    render: (b) => <GoldenBlob {...b} />,
+  },
   { id: "metablob", label: "Metaball fuse", family: "Blob", render: (b) => <MetaBlob {...b} /> },
   { id: "pinchblob", label: "Liquid pinch", family: "Blob", render: (b) => <PinchBlob {...b} /> },
 
   { id: "tiles", label: "Flip tiles", family: "Tile", render: (b) => <FlipTiles {...b} /> },
-  { id: "mandelbrot", label: "Escape-time cascade", family: "Tile", render: (b) => <MandelbrotTiles {...b} /> },
+  {
+    id: "mandelbrot",
+    label: "Escape-time cascade",
+    family: "Tile",
+    render: (b) => <MandelbrotTiles {...b} />,
+  },
   { id: "julia", label: "Orbit cascade", family: "Tile", render: (b) => <JuliaTiles {...b} /> },
   { id: "rule90", label: "Rule 90", family: "Tile", render: (b) => <Rule90Tiles {...b} /> },
   { id: "life", label: "Conway glider", family: "Tile", render: () => <LifeTiles /> },
-  { id: "sierpinski", label: "Sierpiński bitmask", family: "Tile", render: (b) => <SierpinskiTiles {...b} /> },
+  {
+    id: "sierpinski",
+    label: "Sierpiński bitmask",
+    family: "Tile",
+    render: (b) => <SierpinskiTiles {...b} />,
+  },
 
   { id: "rings", label: "Pulse rings", family: "Form", render: (b) => <PulseRings {...b} /> },
   { id: "petal", label: "Petal bloom", family: "Form", render: (b) => <PetalBloom {...b} /> },
