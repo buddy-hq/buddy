@@ -36,9 +36,10 @@ export const COPY = {
     begin: "Let's begin",
   },
   mode: {
-    // A sentence the rows complete. Both options used to carry "I'm here to"
-    // in full, so it moves up here and the rows keep only what differs.
-    heading: ["I'm here to…"],
+    // A sentence the rows complete. Second person, because the intro already
+    // spent the flow's only "I" on Buddy — reusing it here for the user would
+    // hand the same pronoun to two different speakers one screen apart.
+    heading: ["You're here to…"],
     choiceLearn: {
       title: "Learn",
       description: "For students, researchers, and lifelong learners.",
@@ -52,12 +53,12 @@ export const COPY = {
     heading: ["Buddy works with", "100+ AI providers."],
     subheading: "ChatGPT gives you the best experience.",
     choiceChatGPT: {
-      title: "ChatGPT",
+      title: "Connect ChatGPT",
       description: "Works with free and paid accounts.",
     },
     choiceFree: {
       title: "Free models",
-      description: "No sign-in. Limited messages and intelligence.",
+      description: "Limited messages and intelligence.",
     },
     // The other providers are real but unreachable from onboarding, so they are
     // stated, never offered. Naming four makes "50+" concrete without wiring.

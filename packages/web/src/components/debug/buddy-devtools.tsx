@@ -13,7 +13,15 @@ import type {
 } from "@buddy/sdk"
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
-import { BugIcon, GripVerticalIcon, PowerIcon, RotateCcwIcon, XIcon } from "@/icons/app-icons"
+import {
+  BugIcon,
+  GripVerticalIcon,
+  Maximize2Icon,
+  PaintbrushIcon,
+  PowerIcon,
+  RotateCcwIcon,
+  XIcon,
+} from "@/icons/app-icons"
 import {
   Badge,
   Button,
@@ -588,6 +596,18 @@ function useDevToolsRect(affordancePosition: DevToolsAffordancePosition) {
     )
   }, [])
 
+  const snapMaximized = useCallback(() => {
+    const { vw, topInset, maxHeight } = readViewportBounds()
+    setRect(
+      clampRectToViewport({
+        left: 0,
+        top: topInset,
+        width: vw,
+        height: maxHeight,
+      }),
+    )
+  }, [])
+
   return {
     rect,
     setRect,
@@ -599,6 +619,7 @@ function useDevToolsRect(affordancePosition: DevToolsAffordancePosition) {
     snapRight,
     snapBottom,
     snapFloating,
+    snapMaximized,
   }
 }
 
@@ -2608,6 +2629,7 @@ export function BuddyDevTools() {
     snapRight,
     snapBottom,
     snapFloating,
+    snapMaximized,
   } = useDevToolsRect(affordancePosition)
 
   const traceSnapshot = useChatStore((s) => {
@@ -2837,28 +2859,18 @@ export function BuddyDevTools() {
             type="button"
             onClick={() => {
               setBuddyOpen(true)
-              setActiveTab("query")
+              setActiveTab("easel")
+              snapMaximized()
             }}
             className={`flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium transition-colors ${
-              buddyOpen && activeTab === "query"
+              buddyOpen && activeTab === "easel"
                 ? "bg-surface-raised-base text-text-strong"
                 : "text-text-weak hover:bg-surface-base-hover hover:text-text-base"
             }`}
-            title="Query DevTools"
+            title="Open Easel"
           >
-            <svg
-              className="size-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8Z" />
-              <path d="M12 6v6l4 2" />
-            </svg>
-            <span>Query</span>
+            <PaintbrushIcon className="size-3.5" />
+            <span>Easel</span>
           </button>
         </div>
       </div>
@@ -2943,6 +2955,17 @@ export function BuddyDevTools() {
                       <div className="flex h-3 w-3 items-center justify-center rounded-sm border border-text-weaker">
                         <div className="h-2 w-2 rounded-[1px] border border-text-weaker" />
                       </div>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="h-6 w-6"
+                      title="Full screen"
+                      aria-label="Open DevTools in full screen"
+                      onClick={snapMaximized}
+                    >
+                      <Maximize2Icon className="size-3.5" />
                     </Button>
                   </div>
 

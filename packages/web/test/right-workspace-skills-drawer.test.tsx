@@ -272,6 +272,48 @@ describe("RightWorkspaceSkillsDrawer", () => {
     expect(container.textContent).toContain("No skills yet")
   })
 
+  test("reuses the same catalog and search density in a two-column settings layout", async () => {
+    const {
+      SKILLS_CATALOG_LAYOUT_TWO_COLUMNS,
+      SkillsCatalogSurface,
+    } = await import("../src/components/directory-chat/right-workspace-skills-drawer")
+    queryClient.setQueryData(["skills", "catalog", TEST_DIRECTORY], catalog)
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <SkillsCatalogSurface
+            directory={TEST_DIRECTORY}
+            layout={SKILLS_CATALOG_LAYOUT_TWO_COLUMNS}
+          />
+        </QueryClientProvider>,
+      )
+      await flushEffects()
+      await flushEffects()
+    })
+
+    const catalogGrids = container.querySelectorAll(
+      '[data-component="skills-catalog-grid"][data-layout="two-columns"]',
+    )
+    expect(catalogGrids.length).toBe(2)
+    expect(container.querySelector('input[aria-label="Search skills"]')).not.toBeNull()
+    expect(container.querySelector('button[aria-label="Close Skills"]')).toBeNull()
+    expect(container.querySelector(".sticky")).toBeNull()
+    expect(container.textContent).not.toContain("Your skills")
+    expect(container.textContent).not.toContain("Available to add")
+
+    await searchFor("document")
+
+    expect(
+      container.querySelector(
+        '[data-component="skills-catalog-search-grid"][data-layout="two-columns"]',
+      ),
+    ).not.toBeNull()
+    expect(
+      container.querySelector('[data-component="skill-row"][data-density="expanded"]'),
+    ).not.toBeNull()
+  })
+
   test("keeps a row to its name, summary, and control", async () => {
     await renderDrawer()
 

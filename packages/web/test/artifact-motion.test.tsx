@@ -176,7 +176,7 @@ describe("transcript artifact motion", () => {
     const renderCompletedCard = () => {
       root.render(
         <TooltipProvider>
-          <SubagentCard agentName="Researcher" taskTitle="Inspect transcript" status="completed">
+          <SubagentCard taskTitle="Inspect transcript" status="completed">
             <div>Completed artifact</div>
           </SubagentCard>
         </TooltipProvider>,

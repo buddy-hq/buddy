@@ -56,6 +56,7 @@ describe("Chat sidebar Obsidian vault icon", () => {
               onTogglePin={() => {}}
               onToggleUnread={() => {}}
               onRequestArchive={() => {}}
+              onRequestDelete={() => {}}
               onRequestRename={() => {}}
               onLabelPointerDown={() => {}}
               onSectionRef={() => () => {}}

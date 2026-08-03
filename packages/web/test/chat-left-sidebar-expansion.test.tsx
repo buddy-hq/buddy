@@ -67,6 +67,7 @@ describe("Chat left sidebar notebook expansion", () => {
                 onTogglePin={() => {}}
                 onToggleUnread={() => {}}
                 onArchiveSession={async () => {}}
+                onDeleteSession={async () => true}
                 onRenameSession={async () => {}}
                 onReorderDirectories={() => {}}
                 onCloseDirectory={() => {}}

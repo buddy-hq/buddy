@@ -8,9 +8,11 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Input,
   Skeleton,
   Spinner,
   Switch,
+  cn,
   toast,
 } from "@buddy/ui"
 import { AlertTriangleIcon, RefreshCwIcon, SearchXIcon, SparklesIcon } from "@/icons/app-icons"
@@ -57,6 +59,24 @@ import { RightWorkspaceDrawerShell } from "./right-workspace-drawer-ui"
 
 type BusyOperation = "install" | "permission" | "remove" | "update"
 type SelectedSkill = { kind: "library"; skillID: string } | { kind: "installed"; skillName: string }
+
+export const SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN = "single-column"
+export const SKILLS_CATALOG_LAYOUT_TWO_COLUMNS = "two-columns"
+
+type SkillsCatalogLayout =
+  | typeof SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN
+  | typeof SKILLS_CATALOG_LAYOUT_TWO_COLUMNS
+
+type SkillsCatalogSurfaceProps =
+  | {
+      directory: string
+      layout: typeof SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN
+      onClose: () => void
+    }
+  | {
+      directory: string
+      layout: typeof SKILLS_CATALOG_LAYOUT_TWO_COLUMNS
+    }
 
 /**
  * One list, no tabs: everything installed here, then everything in the library
@@ -206,10 +226,14 @@ function mutationSuccessMessage(skill: SkillLibraryEntry): string {
     : language.t("skills.librarySection.addedSkill", { name: skill.displayName })
 }
 
-function SkillListSkeleton() {
+function SkillListSkeleton(props: { layout: SkillsCatalogLayout }) {
   return (
     <div
-      className="flex flex-col gap-1.5 p-2.5"
+      className={cn(
+        props.layout === SKILLS_CATALOG_LAYOUT_TWO_COLUMNS
+          ? "grid grid-cols-2 gap-x-10 gap-y-4 py-3"
+          : "flex flex-col gap-1.5 p-2.5",
+      )}
       aria-label={language.t("skills.loadingSkills")}
       role="status"
     >
@@ -331,7 +355,7 @@ function presentFields(fields: readonly SkillDetailField[]): SkillDetailField[] 
   return fields.filter((field) => field.values.length > 0)
 }
 
-export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: () => void }) {
+export function SkillsCatalogSurface(props: SkillsCatalogSurfaceProps) {
   const queryClient = useQueryClient()
   const catalogQuery = useQuery(skillsCatalogQueryOptions(props.directory))
   const catalog = catalogQuery.data
@@ -653,7 +677,15 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
 
   function renderBand(items: readonly SkillListItem[]) {
     return (
-      <div className="flex flex-col gap-1.5 px-2.5 pb-1.5 pt-1">
+      <div
+        data-component="skills-catalog-grid"
+        data-layout={props.layout}
+        className={cn(
+          props.layout === SKILLS_CATALOG_LAYOUT_TWO_COLUMNS
+            ? "grid grid-cols-2 gap-x-10 gap-y-4 pb-5 pt-3"
+            : "flex flex-col gap-1.5 px-2.5 pb-1.5 pt-1",
+        )}
+      >
         {items.map((item) => renderListItem(item, SKILL_ROW_DENSITY_DEFAULT))}
       </div>
     )
@@ -765,8 +797,126 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
 
   const detail = skillDetail()
 
-  return (
-    <>
+  const catalogBody = loadError ? (
+    <SkillLoadErrorState
+      message={loadError}
+      retrying={refreshing}
+      onRetry={() => void refreshCatalog()}
+    />
+  ) : (
+    <div
+      className={cn(
+        props.layout === SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN
+          ? "scrollbar-hover min-h-0 flex-1 overflow-y-auto"
+          : "flex flex-col",
+      )}
+      aria-busy={loading || refreshing}
+    >
+      {loading ? <SkillListSkeleton layout={props.layout} /> : null}
+
+      {/* Searching dissolves the two bands into one rank: a band header
+          while searching would only push the best answer down the page
+          for the crime of not being installed yet. */}
+      {!loading && searchActive ? (
+        <>
+          <div className="flex items-baseline justify-between gap-3 px-3 pb-1 pt-3">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-text-weaker">
+              {language.t("skills.searchResults")}
+            </p>
+            <span className="text-[11px] tabular-nums text-text-weaker">
+              {searchResults.length}
+            </span>
+          </div>
+          {searchResults.length === 0 ? (
+            <SkillEmptyState kind="search" />
+          ) : (
+            <div
+              data-component="skills-catalog-search-grid"
+              data-layout={props.layout}
+              className={cn(
+                props.layout === SKILLS_CATALOG_LAYOUT_TWO_COLUMNS
+                  ? "grid grid-cols-2 gap-x-10 gap-y-4 pb-5 pt-3"
+                  : "flex flex-col gap-1.5 px-2.5 pb-2.5 pt-1",
+              )}
+            >
+              {searchResults.map((item, index) =>
+                renderListItem(item, resultDensity(index, searchResults.length)),
+              )}
+            </div>
+          )}
+        </>
+      ) : null}
+
+      {!loading && !searchActive ? (
+        <>
+          {updateSkills.length > 0 ? (
+            <div
+              className={cn(
+                "flex items-center justify-between gap-3 bg-surface-base px-3 py-2.5",
+                props.layout === SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN &&
+                  "border-b border-border-weaker-base",
+              )}
+            >
+              <div className="flex items-center gap-2 text-xs font-medium text-text-base">
+                <RefreshCwIcon className="size-3.5" aria-hidden />
+                {language.t(
+                  updateSkills.length === 1
+                    ? "skills.updateAvailable.one"
+                    : "skills.updateAvailable.other",
+                  { count: updateSkills.length },
+                )}
+              </div>
+              <Button
+                type="button"
+                size="xs"
+                variant="secondary"
+                disabled={busyOperations.has(UPDATE_ALL_BUSY_KEY)}
+                onClick={() => void updateAllSkills()}
+              >
+                {busyOperations.has(UPDATE_ALL_BUSY_KEY) ? (
+                  <Spinner data-icon="inline-start" />
+                ) : null}
+                {busyOperations.has(UPDATE_ALL_BUSY_KEY)
+                  ? language.t("skills.updating")
+                  : language.t("skills.updateAll")}
+              </Button>
+            </div>
+          ) : null}
+
+          {visibleInstalled.length === 0 && visibleAvailable.length === 0 ? (
+            <SkillEmptyState kind="empty" />
+          ) : null}
+
+          {visibleInstalled.length > 0 ? (
+            <>
+              {props.layout === SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN ? (
+                <SkillsSectionHeader
+                  label={language.t("skills.section.installed")}
+                  count={visibleInstalled.length}
+                />
+              ) : null}
+              {renderBand(visibleInstalled)}
+            </>
+          ) : null}
+
+          {visibleAvailable.length > 0 ? (
+            <>
+              {props.layout === SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN ? (
+                <SkillsSectionHeader
+                  label={language.t("skills.section.available")}
+                  count={visibleAvailable.length}
+                />
+              ) : null}
+              {renderBand(visibleAvailable)}
+            </>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  )
+
+  const surface =
+    props.layout === SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN ? (
       <RightWorkspaceDrawerShell
         durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "skills" })}
         title={language.t("sidebar.skills")}
@@ -782,102 +932,40 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
         onSearchValueChange={setSearch}
         onClose={props.onClose}
       >
-        {loadError ? (
-          <SkillLoadErrorState
-            message={loadError}
-            retrying={refreshing}
-            onRetry={() => void refreshCatalog()}
-          />
-        ) : (
-          <div
-            className="scrollbar-hover min-h-0 flex-1 overflow-y-auto"
-            aria-busy={loading || refreshing}
-          >
-            {loading ? <SkillListSkeleton /> : null}
-
-            {/* Searching dissolves the two bands into one rank: a band header
-                while searching would only push the best answer down the page
-                for the crime of not being installed yet. */}
-            {!loading && searchActive ? (
-              <>
-                <div className="flex items-baseline justify-between gap-3 px-3 pb-1 pt-3">
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-text-weaker">
-                    {language.t("skills.searchResults")}
-                  </p>
-                  <span className="text-[11px] tabular-nums text-text-weaker">
-                    {searchResults.length}
-                  </span>
-                </div>
-                {searchResults.length === 0 ? (
-                  <SkillEmptyState kind="search" />
-                ) : (
-                  <div className="flex flex-col gap-1.5 px-2.5 pb-2.5 pt-1">
-                    {searchResults.map((item, index) =>
-                      renderListItem(item, resultDensity(index, searchResults.length)),
-                    )}
-                  </div>
-                )}
-              </>
-            ) : null}
-
-            {!loading && !searchActive ? (
-              <>
-                {updateSkills.length > 0 ? (
-                  <div className="flex items-center justify-between gap-3 border-b border-border-weaker-base bg-surface-base px-3 py-2.5">
-                    <div className="flex items-center gap-2 text-xs font-medium text-text-base">
-                      <RefreshCwIcon className="size-3.5" aria-hidden />
-                      {language.t(
-                        updateSkills.length === 1
-                          ? "skills.updateAvailable.one"
-                          : "skills.updateAvailable.other",
-                        { count: updateSkills.length },
-                      )}
-                    </div>
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant="secondary"
-                      disabled={busyOperations.has(UPDATE_ALL_BUSY_KEY)}
-                      onClick={() => void updateAllSkills()}
-                    >
-                      {busyOperations.has(UPDATE_ALL_BUSY_KEY) ? (
-                        <Spinner data-icon="inline-start" />
-                      ) : null}
-                      {busyOperations.has(UPDATE_ALL_BUSY_KEY)
-                        ? language.t("skills.updating")
-                        : language.t("skills.updateAll")}
-                    </Button>
-                  </div>
-                ) : null}
-
-                {visibleInstalled.length === 0 && visibleAvailable.length === 0 ? (
-                  <SkillEmptyState kind="empty" />
-                ) : null}
-
-                {visibleInstalled.length > 0 ? (
-                  <>
-                    <SkillsSectionHeader
-                      label={language.t("skills.section.installed")}
-                      count={visibleInstalled.length}
-                    />
-                    {renderBand(visibleInstalled)}
-                  </>
-                ) : null}
-
-                {visibleAvailable.length > 0 ? (
-                  <>
-                    <SkillsSectionHeader
-                      label={language.t("skills.section.available")}
-                      count={visibleAvailable.length}
-                    />
-                    {renderBand(visibleAvailable)}
-                  </>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-        )}
+        {catalogBody}
       </RightWorkspaceDrawerShell>
+    ) : (
+      <section className="flex flex-col gap-8">
+        <div className="flex shrink-0 items-center gap-2">
+          <Input
+            type="search"
+            value={search}
+            aria-label={language.t("skills.searchPlaceholder")}
+            placeholder={language.t("skills.searchPlaceholder")}
+            spellCheck={false}
+            autoComplete="off"
+            autoCapitalize="off"
+            onChange={(event) => setSearch(event.currentTarget.value)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label={language.t("common.refresh")}
+            title={language.t("common.refresh")}
+            disabled={refreshing || loading}
+            onClick={() => void refreshCatalog({ force: true })}
+          >
+            <RefreshCwIcon aria-hidden />
+          </Button>
+        </div>
+        {catalogBody}
+      </section>
+    )
+
+  return (
+    <>
+      {surface}
 
       <SkillDetailDialog
         {...(detail ? { detail } : {})}
@@ -887,5 +975,15 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
         }}
       />
     </>
+  )
+}
+
+export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: () => void }) {
+  return (
+    <SkillsCatalogSurface
+      directory={props.directory}
+      layout={SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN}
+      onClose={props.onClose}
+    />
   )
 }

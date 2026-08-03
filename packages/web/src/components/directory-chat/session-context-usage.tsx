@@ -13,6 +13,12 @@ import {
 } from "@/state/openai-usage-format"
 import { openAIUsageQueryOptions, refreshOpenAIUsage } from "@/state/openai-usage-query"
 import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
+import {
+  USAGE_METER_RING_ARC,
+  UsageMeter,
+  clampUsagePercent,
+  resolveUsageMeterTone,
+} from "@/components/usage/usage-meter"
 import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
 
 type SessionContextUsageProps = {
@@ -31,79 +37,10 @@ type SessionContextUsageProps = {
   }
 }
 
-// The filled portion of a meter is a foreground *mark* carrying a status, so it
-// draws from the icon (foreground) family — the surface family is reserved for
-// backgrounds and the track groove. Base reads as the interactive accent and
-// escalates to the system's real warning / critical colours across the same
-// thresholds for every meter, so equal spend reads the same colour everywhere.
-type MeterTone = "normal" | "warning" | "critical" | "empty"
-
-const METER_FILL: Record<MeterTone, string> = {
-  normal: "bg-icon-interactive-base",
-  warning: "bg-icon-warning-base",
-  critical: "bg-icon-critical-base",
-  empty: "bg-transparent",
-}
-
-const RING_ARC: Record<MeterTone, string> = {
-  normal: "var(--icon-interactive-base)",
-  warning: "var(--icon-warning-base)",
-  critical: "var(--icon-critical-base)",
-  empty: "var(--icon-weak-base)",
-}
-
-function clampPercent(value: number) {
-  return Math.max(0, Math.min(value, 100))
-}
-
-/** Risk tone is always derived from budget *spent*, regardless of display. */
-function meterTone(usedPercent: number): MeterTone {
-  if (usedPercent >= 90) return "critical"
-  if (usedPercent >= 75) return "warning"
-  return "normal"
-}
-
-function MeterBar(props: { percent: number; tone: MeterTone }) {
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-weak">
-      <div
-        className={cn(
-          "h-full rounded-full transition-[width] duration-300",
-          METER_FILL[props.tone],
-        )}
-        style={{ width: `${clampPercent(props.percent)}%` }}
-      />
-    </div>
-  )
-}
-
-function Meter(props: { label: string; usedPercent: number | null; caption?: string }) {
-  const known = props.usedPercent != null
-  const used = known ? clampPercent(props.usedPercent as number) : 0
-  const tone: MeterTone = known ? meterTone(used) : "empty"
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[11px] font-medium text-text-base">{props.label}</span>
-        <span className="text-[11px] tabular-nums text-text-weak">
-          {known
-            ? language.t("chat.sessionContextUsage.percentUsed", { percent: Math.round(used) })
-            : "—"}
-        </span>
-      </div>
-      <MeterBar percent={used} tone={tone} />
-      {props.caption ? (
-        <span className="text-[10px] leading-tight text-text-weaker">{props.caption}</span>
-      ) : null}
-    </div>
-  )
-}
-
 function ContextRing(props: { usage: number | null }) {
   const known = props.usage != null
-  const usage = clampPercent(props.usage ?? 0)
-  const arc = RING_ARC[known ? meterTone(usage) : "empty"]
+  const usage = clampUsagePercent(props.usage ?? 0)
+  const arc = USAGE_METER_RING_ARC[known ? resolveUsageMeterTone(usage) : "empty"]
 
   return (
     <span className="relative size-3.5 shrink-0">
@@ -219,7 +156,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
         <div className="h-px bg-border-base/40" />
 
         {/* Context window — always shown */}
-        <Meter
+        <UsageMeter
           label={language.t("chat.sessionContextUsage.contextWindow")}
           usedPercent={contextPercent}
           caption={contextCaption}
@@ -232,13 +169,13 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-medium uppercase tracking-wide text-text-weaker">
-                  {language.t("chat.sessionContextUsage.planUsageLimits")}
+                  {language.t("usage.planUsageLimits")}
                 </span>
                 {usage?.status === "reconnect_required" ? null : (
                   <button
                     type="button"
                     className="flex size-5 items-center justify-center rounded-md text-text-weaker transition-colors hover:bg-surface-base hover:text-text-base disabled:opacity-60"
-                    aria-label={language.t("chat.sessionContextUsage.refreshLimits")}
+                    aria-label={language.t("usage.refreshLimits")}
                     onClick={() => void handleRefresh()}
                     disabled={refreshing}
                   >
@@ -254,23 +191,21 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
               {usageLoading && !readyUsage ? (
                 <div className="flex items-center gap-2 text-[11px] text-text-weak">
                   <Loader2Icon className="size-3.5 animate-spin" aria-hidden />
-                  {language.t("chat.sessionContextUsage.loadingLimits")}
+                  {language.t("usage.loadingLimits")}
                 </div>
               ) : usage?.status === "error" ? (
-                <p className="text-[11px] text-text-weak">
-                  {language.t("chat.sessionContextUsage.limitsUnavailable")}
-                </p>
+                <p className="text-[11px] text-text-weak">{language.t("usage.unavailable")}</p>
               ) : usage?.status === "reconnect_required" ? (
                 <p className="text-[11px] text-text-warning-base">
                   {language.t("chat.sessionContextUsage.reconnect")}
                 </p>
               ) : windows.length > 0 ? (
                 windows.map((window) => (
-                  <Meter
+                  <UsageMeter
                     key={`${window.windowSeconds}:${window.resetsAt}`}
                     label={formatUsageWindowLabel(window.windowSeconds)}
                     usedPercent={window.usedPercent}
-                    caption={language.t("chat.sessionContextUsage.resets", {
+                    caption={language.t("usage.resets", {
                       time: formatRelativeTime(window.resetsAt),
                     })}
                   />
@@ -279,7 +214,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
 
               {readyUsage ? (
                 <span className="text-[10px] text-text-weaker">
-                  {language.t("chat.sessionContextUsage.updated", {
+                  {language.t("usage.updated", {
                     time: formatRelativeTime(readyUsage.fetchedAt),
                   })}
                 </span>

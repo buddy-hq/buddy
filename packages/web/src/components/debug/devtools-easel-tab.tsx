@@ -60,6 +60,10 @@ import { TokenCounterMeterEasel } from "./easel/token-counter-meter"
 import { ObjectRowLanguageEasel } from "./easel/object-row-language"
 import { SidebarAlignmentRedesignEasel } from "./easel/sidebar-alignment-redesign"
 import { SkillIconAtlasEasel } from "./easel/skill-icon-atlas"
+import { NotebookDialogRedesignEasel } from "./easel/notebook-dialog-redesign"
+import { ChatGptAccountCardRedesignEasel } from "./easel/chatgpt-account-card-redesign"
+import { SubagentCardRedesignsEasel } from "./easel/subagent-card-redesigns"
+import { WorkingStateCanvasEasel } from "./easel/working-state-canvas"
 import { ThemeSelectors } from "./theme-selectors"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
@@ -74,6 +78,10 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "working-state-canvas"
+  | "subagent-card-redesigns"
+  | "chatgpt-account-card-redesign"
+  | "notebook-dialog-redesign"
   | "location-step-options"
   | "engine-step-options"
   | "onboarding-directions"
@@ -103,6 +111,29 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "working-state-canvas",
+    label: "Working states · 2D canvas",
+    subtitle:
+      "53 loading states that move in two dimensions · a live-integrated Chaotic family that never repeats (Mandelbrot zoom, strange attractors, double pendulum) plus field, blob, tile, orbital, path, physical, form",
+  },
+  {
+    id: "subagent-card-redesigns",
+    label: "Subagent card · current states",
+    subtitle:
+      "The real SubagentCard in every state it can reach · pending, running, artifacts, errors, fan-out · baseline for redesign",
+  },
+  {
+    id: "chatgpt-account-card-redesign",
+    label: "Connected account · ChatGPT card",
+    subtitle:
+      "Composer plan-usage hierarchy in the settings card · two rails, every row spanning between them",
+  },
+  {
+    id: "notebook-dialog-redesign",
+    label: "Notebook dialog · layout directions",
+    subtitle: "Split footer · under field · attached",
+  },
   {
     id: "location-step-options",
     label: "Onboarding · location step",
@@ -1116,7 +1147,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("location-step-options")
+  const [prototype, setPrototype] = useState<EaselPrototype>("working-state-canvas")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1277,6 +1308,10 @@ export function DevToolsEaselTab(props: { directory?: string }) {
         className={cn(
           "flex min-h-0 flex-1",
           prototype === "location-step-options" ||
+            prototype === "working-state-canvas" ||
+            prototype === "subagent-card-redesigns" ||
+            prototype === "chatgpt-account-card-redesign" ||
+            prototype === "notebook-dialog-redesign" ||
             prototype === "engine-step-options" ||
             prototype === "onboarding-directions" ||
             prototype === "skills-drawer-calm-density" ||
@@ -1293,6 +1328,38 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
       >
+        {prototype === "working-state-canvas" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <WorkingStateCanvasEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "subagent-card-redesigns" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <SubagentCardRedesignsEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "chatgpt-account-card-redesign" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <ChatGptAccountCardRedesignEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "notebook-dialog-redesign" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <NotebookDialogRedesignEasel />
+            </div>
+          </div>
+        ) : null}
+
         {prototype === "location-step-options" ? (
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
