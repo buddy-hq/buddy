@@ -34,19 +34,18 @@ describe("subagent card", () => {
   test("keeps the task context visible while startup becomes live activity", async () => {
     await act(async () => {
       root.render(
-        <SubagentCard agentName="Coder" taskTitle="Refactor auth module" status="pending" />,
+        <SubagentCard taskTitle="Refactor auth module" status="pending" />,
       )
       await flushEffects()
     })
 
     expect(container.textContent).toContain("Refactor auth module")
-    expect(container.textContent).toContain("Starting specialist...")
+    expect(container.textContent).toContain("Starting specialist")
     expect(container.textContent).not.toContain("Handing off")
 
     await act(async () => {
       root.render(
         <SubagentCard
-          agentName="Coder"
           taskTitle="Refactor auth module"
           status="running"
           activityLine="Reading auth.ts"

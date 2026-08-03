@@ -85,16 +85,8 @@ export function FlashcardAuthorTaskCard({
   directory,
 }: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
   const openBenchRoute = useOpenBench()
-  const {
-    agentName,
-    taskTitle,
-    openChildSession,
-    activityLine,
-    activityContent,
-    activityIcon,
-    activityActive,
-    status,
-  } = useSubagentCardData({ state, onOpenSession, directory })
+  const { taskTitle, openChildSession, activityLine, activityContent, status } =
+    useSubagentCardData({ state, onOpenSession, directory })
   const reducedMotion = useReducedMotion() === true
   const output = state.output || (state.error ?? "")
   const taskResultOutput = parseTaskResultOutput(output)
@@ -139,14 +131,11 @@ export function FlashcardAuthorTaskCard({
   return (
     <>
       <SubagentCard
-        agentName={agentName}
         taskTitle={taskTitle}
         status={status}
         onOpenSession={openChildSession}
         activityLine={!showCompletedBody ? activityLine : undefined}
         activityContent={!showCompletedBody ? activityContent : undefined}
-        activityIcon={activityIcon}
-        activityActive={activityActive}
         error={error}
       >
         {showCompletedBody ? (

@@ -69,16 +69,8 @@ export function QuestionSetAuthorTaskCard({
   onOpenSession,
   directory,
 }: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
-  const {
-    agentName,
-    taskTitle,
-    openChildSession,
-    activityLine,
-    activityContent,
-    activityIcon,
-    activityActive,
-    status,
-  } = useSubagentCardData({ state, onOpenSession, directory })
+  const { taskTitle, openChildSession, activityLine, activityContent, status } =
+    useSubagentCardData({ state, onOpenSession, directory })
   const reducedMotion = useReducedMotion() === true
   const openBenchRoute = useOpenBench()
   const output = state.output || (state.error ?? "")
@@ -130,14 +122,11 @@ export function QuestionSetAuthorTaskCard({
 
   return (
     <SubagentCard
-      agentName={agentName}
       taskTitle={taskTitle}
       status={status}
       onOpenSession={openChildSession}
       activityLine={!showCompletedBody ? activityLine : undefined}
       activityContent={!showCompletedBody ? activityContent : undefined}
-      activityIcon={activityIcon}
-      activityActive={activityActive}
       error={error}
     >
       {showCompletedBody ? (

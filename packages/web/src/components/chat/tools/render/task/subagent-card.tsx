@@ -1,32 +1,34 @@
 import { useState, useRef, useEffect, type ReactNode } from "react"
 import { motion, AnimatePresence, useReducedMotion } from "motion/react"
-import { Bot, BotMessageSquare, XCircle, ChevronDown, ChevronUp } from "@/icons/app-icons"
+import { ChevronDown, ChevronUp } from "@/icons/app-icons"
 import { cn } from "@buddy/ui"
-import { TextShimmer } from "../../text-shimmer"
+import { ConwayGlider } from "../../conway-glider"
+import { seedPhase } from "../../seed-phase"
 import { ToolErrorPanel } from "../../tool-error-panel"
 import { Markdown } from "@/components/markdown/Markdown"
-import type { ToolIconRenderer } from "../../tool-registry-types"
 import { TASK_CARD_ENTER_ANIMATE, TASK_CARD_TRANSITION, taskCardEnterInitial } from "../task-motion"
 
 export type SubagentCardStatus = "pending" | "running" | "completed" | "error"
 
-const STARTING_COPY = "Starting specialist..."
-const WORKING_COPY = "Working..."
+// No ellipsis: the glider carries liveness, so trailing dots would be a second,
+// weaker indicator saying the same thing.
+const STARTING_COPY = "Starting specialist"
+const WORKING_COPY = "Working"
 const DEFAULT_TASK_TITLE = "Delegated task"
-const ICON_CLS = "h-3.5 w-3.5 shrink-0"
+/** The left column. Every status uses it, so titles line up down a fan-out. */
+const GLYPH_CLS = "size-7 shrink-0"
+const BREATH_DURATION_S = 3.6
+const BREATH_PHASES = 6
+const BREATH_PHASE_STEP_S = BREATH_DURATION_S / BREATH_PHASES
 
 type SubagentCardProps = {
-  agentName?: string
   taskTitle?: string
   status: SubagentCardStatus
   onOpenSession?: () => void
-  /** Activity text: shimmers when `activityActive`, static when done. */
+  /** Activity text for the live line beneath the task title. */
   activityLine?: string
   /** Structured file-tool activity (verb + file target). Takes precedence over `activityLine`. */
   activityContent?: ReactNode
-  activityActive?: boolean
-  /** Dominant tool icon from the child session's tool activity. */
-  activityIcon?: ToolIconRenderer
   /** Artifact content shown only in completed state. */
   children?: ReactNode
   error?: string
@@ -108,113 +110,100 @@ function HeaderArea({ onClick, className, children }: HeaderAreaProps) {
 
 type CardHeaderProps = {
   status: SubagentCardStatus
-  displayName: string
   taskTitle: string
   activityLine?: string
   activityContent?: ReactNode
-  activityActive?: boolean
-  activityIcon?: ToolIconRenderer
 }
 
-function CardHeader({
-  status,
-  displayName,
-  taskTitle,
-  activityLine,
-  activityContent,
-  activityActive,
-  activityIcon,
-}: CardHeaderProps) {
+function CardHeader({ status, taskTitle, activityLine, activityContent }: CardHeaderProps) {
   if (status === "pending" || status === "running") {
     const startupPending = status === "pending"
     return (
-      <div className="flex min-w-0 items-start gap-2">
-        {activityIcon ? (
-          <span className="mt-0.5 shrink-0 text-text-weaker">{activityIcon(ICON_CLS)}</span>
-        ) : (
-          <Bot className={cn(ICON_CLS, "mt-0.5 text-text-weaker")} />
-        )}
+      <div className="flex min-w-0 items-center gap-3">
+        <ConwayGlider seed={taskTitle} className={cn(GLYPH_CLS, "text-icon-interactive-base")} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-base">{taskTitle}</p>
           <div className="mt-0.5 min-w-0">
             {activityContent ?? (
-              <TextShimmer
-                text={startupPending ? STARTING_COPY : (activityLine ?? WORKING_COPY)}
-                active={startupPending || (activityActive ?? true)}
-                className="block min-w-0 truncate text-[11px] text-text-weaker"
-              />
+              <p className="min-w-0 truncate text-xs text-text-weaker">
+                {startupPending ? STARTING_COPY : (activityLine ?? WORKING_COPY)}
+              </p>
             )}
           </div>
         </div>
-        <span className="shrink-0 rounded bg-surface-weak px-1.5 py-0.5 text-[11px] font-medium text-text-weak">
-          {displayName}
-        </span>
-      </div>
-    )
-  }
-
-  if (status === "completed") {
-    return (
-      <div className="flex min-w-0 items-center gap-2">
-        <BotMessageSquare className={cn(ICON_CLS, "text-icon-success-base")} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-base">
-          {taskTitle}
-        </span>
-        <span className="shrink-0 text-xs text-text-weak">{displayName}</span>
       </div>
     )
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <XCircle className={cn(ICON_CLS, "text-icon-critical-base")} />
+    <div className="flex min-w-0 items-center gap-3">
+      {/* The same board, settled into a still life — so the terminal state keeps
+          the board's footprint instead of dropping to a floating chip, and sits
+          symmetric about both axes. Only the colour changes. */}
+      <ConwayGlider
+        pattern="still"
+        className={cn(
+          GLYPH_CLS,
+          status === "completed" ? "text-icon-success-base" : "text-icon-critical-base",
+        )}
+      />
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-base">
         {taskTitle}
       </span>
-      <span className="shrink-0 text-xs text-text-weak">{displayName}</span>
     </div>
   )
 }
 
 export function SubagentCard({
-  agentName,
   taskTitle,
   status,
   onOpenSession,
   activityLine,
   activityContent,
-  activityActive,
-  activityIcon,
   children,
   error,
 }: SubagentCardProps) {
   const hasChildBody = status === "completed" && !!children
   const hasErrorBody = status === "error" && !!error
   const hasBody = hasChildBody || hasErrorBody
-  const displayName = agentName ?? "Specialist"
   const displayTaskTitle = taskTitle ?? DEFAULT_TASK_TITLE
   const reducedMotion = useReducedMotion() === true
+  const working = status === "pending" || status === "running"
 
   return (
     <div
       data-component="subagent-card"
-      className="w-full overflow-hidden rounded-xl border border-border-base bg-surface-base"
+      className="relative w-full overflow-hidden rounded-xl bg-surface-base"
     >
+      {/* The whole card breathes while the specialist is working, on its own
+          seeded phase so a fan-out doesn't inhale in unison. */}
+      {working && !reducedMotion ? (
+        <motion.span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-surface-raised-base"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 0.55, 0] }}
+          transition={{
+            duration: BREATH_DURATION_S,
+            delay: seedPhase(displayTaskTitle, BREATH_PHASES) * BREATH_PHASE_STEP_S,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      ) : null}
+
       <HeaderArea
         onClick={onOpenSession && status !== "pending" ? onOpenSession : undefined}
         className={cn(
-          "w-full px-3 py-2.5 text-left",
+          "relative w-full px-3.5 py-3 text-left",
           hasBody && "border-b border-border-weak-base",
         )}
       >
         <CardHeader
           status={status}
-          displayName={displayName}
           taskTitle={displayTaskTitle}
           activityLine={activityLine}
           activityContent={activityContent}
-          activityActive={activityActive}
-          activityIcon={activityIcon}
         />
       </HeaderArea>
 
