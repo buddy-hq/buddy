@@ -207,6 +207,15 @@ async function clearDynamicLearningToolsForEndedSession(input: {
   })
 }
 
+function clearDynamicLearningToolsForDeletedSessions(input: {
+  directory: string
+  sessionIDs: readonly string[]
+}): void {
+  for (const sessionID of input.sessionIDs) {
+    searchCandidatesBySession.delete(grantKey(input.directory, sessionID))
+  }
+}
+
 function exactDynamicAllowRules(rules: PermissionRuleset | undefined): PermissionRuleset {
   return (rules ?? []).filter(isExactDynamicLearningToolAllowRule)
 }
@@ -223,6 +232,7 @@ async function ensureDynamicLearningToolsRegisteredForSession(input: {
 }
 
 export {
+  clearDynamicLearningToolsForDeletedSessions,
   clearDynamicLearningToolsForEndedSession,
   clearDynamicLearningToolGrantsForSession,
   dynamicLearningToolSearchCandidateIDsForSession,

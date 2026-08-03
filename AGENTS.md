@@ -57,6 +57,10 @@ Long term maintainability is a core priority. If you add new functionality, firs
 - **Bench**: Bench is Buddy's first-class workspace for non-chat surfaces — artifacts, files, reading, markdown editing, whiteboards, and HTML widgets — that need more room than the transcript offers. It lives in theright workspace of a directory, beside the conversation pane, and has two layout modes: docked (chat in a side panel) and floating (chat overlays the bench). The active Bench target is URL-owned; visibility, drawer, and layout are owned by the directory-scoped workspace store and routed through a single DirectoryWorkspaceController. The agent presents targets via bench_present; users open them via the Explorer,Library, or file opens. Bench is predictable by design: one owner per concept, one outlet, deterministicopens.
 - All three capabilities (tools, skills, subagents) are first-class opencode runtime capabilities.
 
+## Buddy Vocab
+Easel: A prototyping space inside buddy dev tools. 
+
+
 ## Misc Rules
 - Buddy uses `@hey-api/openapi-ts` to generate a type-safe SDK from its Hono backend. Always use the typed SDK (`BuddyClient`) for API interactions. Never use manual fetch or fetch helpers like `requestJson`.
 - NEVER use magic strings and magic numbers.

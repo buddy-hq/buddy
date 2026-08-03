@@ -9,7 +9,10 @@ import { ensureAllowedDirectory } from "../../http"
 import { sdkErrorResponse } from "../../http/sdk-response"
 import { withConfigSync } from "../../http/route-helpers"
 import { runLearnerMemoryStartupPipeline } from "../../learning/features/memory"
-import { clearDynamicLearningToolsForEndedSession } from "../../learning/runtime/dynamic-tool-grants"
+import {
+  clearDynamicLearningToolsForDeletedSessions,
+  clearDynamicLearningToolsForEndedSession,
+} from "../../learning/runtime/dynamic-tool-grants"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
 import { ensureBuddyToolPresentationCatalog } from "../../opencode-runtime/buddy-tool-presentation-catalog"
 import { resolveDirectory } from "../../project"
@@ -277,6 +280,60 @@ export async function getSessionById(c: Context): Promise<Response> {
   } catch (error) {
     return runtimeSessionLookupErrorResponse(error)
   }
+}
+
+async function collectSessionFamilyIDs(directory: string, sessionID: string): Promise<string[]> {
+  return OpenCodeInstance.provide({
+    directory,
+    async fn() {
+      const familyIDs: string[] = []
+
+      async function collect(currentSessionID: SessionID): Promise<void> {
+        familyIDs.push(currentSessionID)
+        const children = await OpenCodeSession.children(currentSessionID)
+        for (const child of children) {
+          await collect(child.id)
+        }
+      }
+
+      await collect(SessionID.make(sessionID))
+      return familyIDs
+    },
+  })
+}
+
+export async function deleteSessionById(c: Context): Promise<Response> {
+  const directoryResult = ensureAllowedDirectory(c)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const sessionID = c.req.param("sessionID")
+  const lookupResponse = await ensureRuntimeSessionExists(directoryResult.directory, sessionID)
+  if (lookupResponse) return lookupResponse
+
+  const familySessionIDs = await collectSessionFamilyIDs(directoryResult.directory, sessionID)
+
+  const client = await getOpenCodeClient(directoryResult.directory)
+  const result = await client.session.delete({
+    sessionID,
+    directory: directoryResult.directory,
+  })
+
+  if (result.error) {
+    return sdkErrorResponse(result)
+  }
+
+  if (result.data) {
+    try {
+      clearDynamicLearningToolsForDeletedSessions({
+        directory: directoryResult.directory,
+        sessionIDs: familySessionIDs,
+      })
+    } catch (error) {
+      console.warn("Failed to clear dynamic learning tools after deleting session", error)
+    }
+  }
+
+  return Response.json(result.data)
 }
 
 export async function patchSessionById(c: Context): Promise<Response> {

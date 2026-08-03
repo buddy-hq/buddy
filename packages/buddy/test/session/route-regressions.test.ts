@@ -188,4 +188,31 @@ describe("session route regressions", () => {
     expect(Array.isArray(body)).toBe(false)
     expect(body.error).toBeUndefined()
   })
+
+  test("returns 404 when Bench context publication races with session deletion", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/bench/session/ses_deleted/context", {
+      method: "PUT",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        lease: {
+          instanceID: "bench-test-instance",
+          generation: 1,
+          leaseEpoch: 1,
+        },
+        publicationSequence: 1,
+        idempotencyKey: "deleted-session-publication",
+        value: { status: "closed" },
+      }),
+    })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: "Session not found",
+    })
+  })
 })

@@ -3,7 +3,7 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import type { DescribeRouteOptions } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { assertSessionExistsInDirectory } from "../session"
+import { assertSessionExistsInDirectory, SessionLookupError } from "../session"
 import { BUDDY_OBJECT_KIND_VALUES } from "../objects"
 import {
   BenchContextSnapshotMissingError,
@@ -313,6 +313,9 @@ const storedBenchContextSnapshotOpenApiSchema = {
 }
 
 function mapBenchRouteError(error: unknown): Response | undefined {
+  if (error instanceof SessionLookupError) {
+    return error.response
+  }
   if (error instanceof BenchContextSnapshotMissingError) {
     return Response.json({ error: error.message }, { status: 404 })
   }

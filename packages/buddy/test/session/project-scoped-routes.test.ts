@@ -61,6 +61,21 @@ describe("project-scoped session routes", () => {
       },
     })
     expect(getB.status).toBe(404)
+
+    const deleteB = await app.request(`/api/session/${sessionID}`, {
+      method: "DELETE",
+      headers: {
+        "x-buddy-directory": repoB,
+      },
+    })
+    expect(deleteB.status).toBe(404)
+
+    const getAAfterRejectedDelete = await app.request(`/api/session/${sessionID}`, {
+      headers: {
+        "x-buddy-directory": repoA,
+      },
+    })
+    expect(getAAfterRejectedDelete.status).toBe(200)
   })
 
   test("rejects conflicting query and header directory scopes", async () => {

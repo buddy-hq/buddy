@@ -3,7 +3,14 @@ import { MessageID, ModelID, PartID, ProviderID, SessionID } from "@buddy/openco
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { app } from "../../src/index.ts"
+import {
+  dynamicLearningToolSearchCandidateIDsForSession,
+  recordDynamicLearningToolSearchCandidates,
+} from "../../src/learning/runtime/dynamic-tool-grants"
+import { resolveDirectory } from "../../src/project"
 import { tmpdir } from "../helpers/tmpdir"
+
+const DYNAMIC_TEST_TOOL_ID = "dynamic-test-tool"
 
 afterEach(async () => {
   await OpenCodeInstance.disposeAll()
@@ -75,6 +82,55 @@ async function readRevertBoundary(response: Response): Promise<string | undefine
 }
 
 describe("Buddy session API parity", () => {
+  test("delete route permanently removes a session and its children", async () => {
+    await using project = await tmpdir({ git: true })
+    const parent = await createSession(project.path, "Parent")
+    const child = await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () => OpenCodeSession.create({ parentID: parent.id, title: "Child" }),
+    })
+    const resolvedProjectDirectory = resolveDirectory(project.path)
+    recordDynamicLearningToolSearchCandidates({
+      directory: resolvedProjectDirectory,
+      sessionID: parent.id,
+      toolIDs: [DYNAMIC_TEST_TOOL_ID],
+    })
+    recordDynamicLearningToolSearchCandidates({
+      directory: resolvedProjectDirectory,
+      sessionID: child.id,
+      toolIDs: [DYNAMIC_TEST_TOOL_ID],
+    })
+
+    const response = await app.request(`/api/session/${parent.id}`, {
+      method: "DELETE",
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toBe(true)
+
+    const sessions = await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () => OpenCodeSession.list({ directory: project.path }),
+    })
+    expect(sessions.some((session) => session.id === parent.id)).toBe(false)
+    expect(sessions.some((session) => session.id === child.id)).toBe(false)
+    expect(
+      dynamicLearningToolSearchCandidateIDsForSession({
+        directory: resolvedProjectDirectory,
+        sessionID: parent.id,
+      }),
+    ).toEqual(new Set())
+    expect(
+      dynamicLearningToolSearchCandidateIDsForSession({
+        directory: resolvedProjectDirectory,
+        sessionID: child.id,
+      }),
+    ).toEqual(new Set())
+  })
+
   test("fork route clones the full session when messageID is omitted", async () => {
     await using project = await tmpdir({ git: true })
     const session = await createSession(project.path, "Fork title")

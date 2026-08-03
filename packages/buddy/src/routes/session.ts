@@ -20,6 +20,7 @@ import {
 } from "../http"
 import {
   abortSessionRun,
+  deleteSessionById,
   getSessionMermaidRepairStatus,
   getSessionStatus,
   getSessionById,
@@ -60,6 +61,7 @@ const [listSessionsHandler] = sessionRouteFactory.createHandlers(proxySessionCol
 const [createSessionHandler] = sessionRouteFactory.createHandlers(proxySessionCollection)
 const [getSessionStatusHandler] = sessionRouteFactory.createHandlers(getSessionStatus)
 const [getSessionHandler] = sessionRouteFactory.createHandlers(getSessionById)
+const [deleteSessionHandler] = sessionRouteFactory.createHandlers(deleteSessionById)
 const [updateSessionHandler] = sessionRouteFactory.createHandlers(patchSessionById)
 const [postSessionSummarizeHandler] = sessionRouteFactory.createHandlers(summarizeSessionById)
 const [listSessionMessagesHandler] = sessionRouteFactory.createHandlers(listSessionMessages)
@@ -399,6 +401,25 @@ export const SessionRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
     getSessionHandler,
+  )
+  .delete(
+    "/:sessionID",
+    describeRoute({
+      operationId: "session.delete",
+      summary: "Delete a session",
+      responses: {
+        200: {
+          description: "Whether the session was deleted",
+          content: {
+            "application/json": booleanJsonResponse,
+          },
+        },
+        ...routeErrors(403, 404),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    deleteSessionHandler,
   )
   .patch(
     "/:sessionID",
