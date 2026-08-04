@@ -1,0 +1,525 @@
+{
+  "metadata": {
+    "name": "Black PBT",
+    "brand": "Cherry MX",
+    "author": "mechvibes",
+    "supportsKeyUp": false,
+    "category": "keyboard"
+  },
+  "license": {
+    "type": "MIT",
+    "url": "https://github.com/hainguyents13/mechvibes/blob/main/LICENSE"
+  },
+  "sounds": {
+    "default": {
+      "down": [
+        "20.wav",
+        "21.wav",
+        "22.wav",
+        "23.wav",
+        "24.wav"
+      ],
+      "up": []
+    },
+    "1": {
+      "down": [
+        "2.wav"
+      ],
+      "up": []
+    },
+    "2": {
+      "down": [
+        "3.wav"
+      ],
+      "up": []
+    },
+    "3": {
+      "down": [
+        "4.wav"
+      ],
+      "up": []
+    },
+    "4": {
+      "down": [
+        "5.wav"
+      ],
+      "up": []
+    },
+    "5": {
+      "down": [
+        "6.wav"
+      ],
+      "up": []
+    },
+    "6": {
+      "down": [
+        "7.wav"
+      ],
+      "up": []
+    },
+    "7": {
+      "down": [
+        "8.wav"
+      ],
+      "up": []
+    },
+    "8": {
+      "down": [
+        "9.wav"
+      ],
+      "up": []
+    },
+    "9": {
+      "down": [
+        "10.wav"
+      ],
+      "up": []
+    },
+    "0": {
+      "down": [
+        "11.wav"
+      ],
+      "up": []
+    },
+    "q": {
+      "down": [
+        "16.wav"
+      ],
+      "up": []
+    },
+    "w": {
+      "down": [
+        "17.wav"
+      ],
+      "up": []
+    },
+    "e": {
+      "down": [
+        "18.wav"
+      ],
+      "up": []
+    },
+    "r": {
+      "down": [
+        "19.wav"
+      ],
+      "up": []
+    },
+    "t": {
+      "down": [
+        "20.wav"
+      ],
+      "up": []
+    },
+    "y": {
+      "down": [
+        "21.wav"
+      ],
+      "up": []
+    },
+    "u": {
+      "down": [
+        "22.wav"
+      ],
+      "up": []
+    },
+    "i": {
+      "down": [
+        "23.wav"
+      ],
+      "up": []
+    },
+    "o": {
+      "down": [
+        "24.wav"
+      ],
+      "up": []
+    },
+    "p": {
+      "down": [
+        "25.wav"
+      ],
+      "up": []
+    },
+    "a": {
+      "down": [
+        "30.wav"
+      ],
+      "up": []
+    },
+    "s": {
+      "down": [
+        "31.wav"
+      ],
+      "up": []
+    },
+    "d": {
+      "down": [
+        "32.wav"
+      ],
+      "up": []
+    },
+    "f": {
+      "down": [
+        "33.wav"
+      ],
+      "up": []
+    },
+    "g": {
+      "down": [
+        "34.wav"
+      ],
+      "up": []
+    },
+    "h": {
+      "down": [
+        "35.wav"
+      ],
+      "up": []
+    },
+    "j": {
+      "down": [
+        "36.wav"
+      ],
+      "up": []
+    },
+    "k": {
+      "down": [
+        "37.wav"
+      ],
+      "up": []
+    },
+    "l": {
+      "down": [
+        "38.wav"
+      ],
+      "up": []
+    },
+    "z": {
+      "down": [
+        "44.wav"
+      ],
+      "up": []
+    },
+    "x": {
+      "down": [
+        "45.wav"
+      ],
+      "up": []
+    },
+    "c": {
+      "down": [
+        "46.wav"
+      ],
+      "up": []
+    },
+    "v": {
+      "down": [
+        "47.wav"
+      ],
+      "up": []
+    },
+    "b": {
+      "down": [
+        "48.wav"
+      ],
+      "up": []
+    },
+    "n": {
+      "down": [
+        "49.wav"
+      ],
+      "up": []
+    },
+    "m": {
+      "down": [
+        "50.wav"
+      ],
+      "up": []
+    },
+    "*": {
+      "down": [
+        "55.wav"
+      ],
+      "up": []
+    },
+    "/": {
+      "down": [
+        "53.wav"
+      ],
+      "up": []
+    },
+    "+": {
+      "down": [
+        "78.wav"
+      ],
+      "up": []
+    },
+    "-": {
+      "down": [
+        "12.wav"
+      ],
+      "up": []
+    },
+    "=": {
+      "down": [
+        "13.wav"
+      ],
+      "up": []
+    },
+    "[": {
+      "down": [
+        "26.wav"
+      ],
+      "up": []
+    },
+    "]": {
+      "down": [
+        "27.wav"
+      ],
+      "up": []
+    },
+    ";": {
+      "down": [
+        "39.wav"
+      ],
+      "up": []
+    },
+    "'": {
+      "down": [
+        "40.wav"
+      ],
+      "up": []
+    },
+    ",": {
+      "down": [
+        "51.wav"
+      ],
+      "up": []
+    },
+    ".": {
+      "down": [
+        "52.wav"
+      ],
+      "up": []
+    },
+    "\\": {
+      "down": [
+        "43.wav"
+      ],
+      "up": []
+    },
+    "`": {
+      "down": [
+        "41.wav"
+      ],
+      "up": []
+    },
+    "clear": {
+      "down": [
+        "69.wav"
+      ],
+      "up": []
+    },
+    "tab": {
+      "down": [
+        "15.wav"
+      ],
+      "up": []
+    },
+    "space": {
+      "down": [
+        "57.wav"
+      ],
+      "up": []
+    },
+    "del": {
+      "down": [
+        "14.wav"
+      ],
+      "up": []
+    },
+    "esc": {
+      "down": [
+        "1.wav"
+      ],
+      "up": []
+    },
+    "capsLock": {
+      "down": [
+        "58.wav"
+      ],
+      "up": []
+    },
+    "ctrlLeft": {
+      "down": [
+        "29.wav"
+      ],
+      "up": []
+    },
+    "fn": {
+      "down": [
+        "3666.wav"
+      ],
+      "up": []
+    },
+    "enter": {
+      "down": [
+        "28.wav"
+      ],
+      "up": []
+    },
+    "command": {
+      "down": [
+        "3675.wav",
+        "3676.wav"
+      ],
+      "up": []
+    },
+    "shiftLeft": {
+      "down": [
+        "42.wav"
+      ],
+      "up": []
+    },
+    "shiftRight": {
+      "down": [
+        "54.wav"
+      ],
+      "up": []
+    },
+    "optionLeft": {
+      "down": [
+        "56.wav"
+      ],
+      "up": []
+    },
+    "optionRight": {
+      "down": [
+        "3640.wav"
+      ],
+      "up": []
+    },
+    "arrLeft": {
+      "down": [
+        "57419.wav"
+      ],
+      "up": []
+    },
+    "arrRight": {
+      "down": [
+        "57421.wav"
+      ],
+      "up": []
+    },
+    "arrDown": {
+      "down": [
+        "57424.wav"
+      ],
+      "up": []
+    },
+    "arrUp": {
+      "down": [
+        "57416.wav"
+      ],
+      "up": []
+    },
+    "home": {
+      "down": [
+        "3655.wav"
+      ],
+      "up": []
+    },
+    "end": {
+      "down": [
+        "3663.wav"
+      ],
+      "up": []
+    },
+    "pgUp": {
+      "down": [
+        "3657.wav"
+      ],
+      "up": []
+    },
+    "pgDn": {
+      "down": [
+        "3665.wav"
+      ],
+      "up": []
+    },
+    "f1": {
+      "down": [
+        "59.wav"
+      ],
+      "up": []
+    },
+    "f2": {
+      "down": [
+        "60.wav"
+      ],
+      "up": []
+    },
+    "f3": {
+      "down": [
+        "61.wav"
+      ],
+      "up": []
+    },
+    "f4": {
+      "down": [
+        "62.wav"
+      ],
+      "up": []
+    },
+    "f5": {
+      "down": [
+        "63.wav"
+      ],
+      "up": []
+    },
+    "f6": {
+      "down": [
+        "64.wav"
+      ],
+      "up": []
+    },
+    "f7": {
+      "down": [
+        "65.wav"
+      ],
+      "up": []
+    },
+    "f8": {
+      "down": [
+        "66.wav"
+      ],
+      "up": []
+    },
+    "f9": {
+      "down": [
+        "67.wav"
+      ],
+      "up": []
+    },
+    "f10": {
+      "down": [
+        "68.wav"
+      ],
+      "up": []
+    },
+    "f11": {
+      "down": [
+        "87.wav"
+      ],
+      "up": []
+    },
+    "f12": {
+      "down": [
+        "88.wav"
+      ],
+      "up": []
+    }
+  },
+  "id": "980c6cc1-7daf-4584-8b0e-643b3a811a6d"
+}
