@@ -2,12 +2,54 @@ import { toast } from "@buddy/ui"
 import { language } from "@/context/language"
 import type { Platform, UpdateProgressSnapshot } from "@/context/platform"
 
-const UPDATE_PROGRESS_TOAST_ID = "buddy-desktop-update-progress"
-const UPDATE_READY_TOAST_ID = "buddy-desktop-update-ready"
+const UPDATE_TOAST_ID_PREFIX = "buddy-desktop-update"
+let updateToastSequence = 0
+let activeToast: {
+  id: string
+  status: UpdateProgressSnapshot["status"]
+} | null = null
 let activeHandlers: {
   onDeferred?: () => void
   onInstallFailed?: () => void
 } = {}
+
+function clearUpdateToastTransitionOptions() {
+  return {
+    action: undefined,
+    cancel: undefined,
+    onAutoClose: undefined,
+    onDismiss: undefined,
+  }
+}
+
+function transitionUpdateToast(status: UpdateProgressSnapshot["status"]): string {
+  if (activeToast === null) {
+    updateToastSequence += 1
+    activeToast = {
+      id: `${UPDATE_TOAST_ID_PREFIX}-${updateToastSequence}`,
+      status,
+    }
+    return activeToast.id
+  }
+
+  activeToast.status = status
+  return activeToast.id
+}
+
+function clearUpdateToast(id: string) {
+  if (activeToast?.id !== id) return
+
+  activeToast = null
+  activeHandlers = {}
+}
+
+function dismissUpdateToast() {
+  if (activeToast === null) return
+
+  const { id } = activeToast
+  clearUpdateToast(id)
+  toast.dismiss(id)
+}
 
 export function showDesktopUpdateToast(args: {
   platform: Platform
@@ -22,16 +64,26 @@ export function showDesktopUpdateToast(args: {
     activeHandlers.onInstallFailed = args.onInstallFailed
   }
 
-  toast(language.t("desktopUpdates.updateReadyTitle"), {
-    id: UPDATE_READY_TOAST_ID,
+  const toastId = transitionUpdateToast("ready")
+  toast.success(language.t("desktopUpdates.updateReadyTitle"), {
+    id: toastId,
     description: args.version
       ? language.t("desktopUpdates.updateReadyWithVersion", { version: args.version })
       : language.t("desktopUpdates.updateReadyNoVersion"),
     duration: Number.POSITIVE_INFINITY,
+    onAutoClose: undefined,
+    onDismiss: () => {
+      if (activeToast?.id !== toastId) return
+
+      const onDeferred = activeHandlers.onDeferred
+      clearUpdateToast(toastId)
+      onDeferred?.()
+    },
     action: {
       label: language.t("desktopUpdates.installAndRestart"),
-      onClick: async () => {
-        toast.dismiss(UPDATE_READY_TOAST_ID)
+      onClick: async (event) => {
+        event.preventDefault()
+        const onInstallFailed = activeHandlers.onInstallFailed
 
         try {
           const currentProgress = await args.platform.getUpdateProgress?.().catch(() => undefined)
@@ -45,9 +97,8 @@ export function showDesktopUpdateToast(args: {
           })
           await args.platform.update?.()
         } catch {
-          toast.dismiss(UPDATE_PROGRESS_TOAST_ID)
-          activeHandlers.onInstallFailed?.()
-          activeHandlers = {}
+          onInstallFailed?.()
+          dismissUpdateToast()
           toast.error(language.t("desktopUpdates.updateInstallFailedTitle"), {
             description: language.t("desktopUpdates.updateInstallFailedDescription"),
           })
@@ -57,9 +108,8 @@ export function showDesktopUpdateToast(args: {
     cancel: {
       label: language.t("desktopUpdates.later"),
       onClick: () => {
-        toast.dismiss(UPDATE_READY_TOAST_ID)
         activeHandlers.onDeferred?.()
-        activeHandlers = {}
+        dismissUpdateToast()
       },
     },
   })
@@ -71,40 +121,61 @@ export function showDesktopUpdateProgressToast(args: {
 }) {
   switch (args.progress.status) {
     case "checking":
-      if (!args.showChecking) return
-      toast(language.t("desktopUpdates.checkingTitle"), {
-        id: UPDATE_PROGRESS_TOAST_ID,
+      if (!args.showChecking || activeToast?.status === "ready") return
+      const checkingToastId = transitionUpdateToast("checking")
+      toast.loading(language.t("desktopUpdates.checkingTitle"), {
+        id: checkingToastId,
+        description: undefined,
         duration: Number.POSITIVE_INFINITY,
+        ...clearUpdateToastTransitionOptions(),
       })
       return
     case "downloading":
-      toast.dismiss(UPDATE_READY_TOAST_ID)
-      toast(language.t("desktopUpdates.downloadingTitle"), {
-        id: UPDATE_PROGRESS_TOAST_ID,
+      const downloadingToastId = transitionUpdateToast("downloading")
+      activeHandlers = {}
+      toast.loading(language.t("desktopUpdates.downloadingTitle"), {
+        id: downloadingToastId,
         description: updateProgressDescription(args.progress),
         duration: Number.POSITIVE_INFINITY,
+        ...clearUpdateToastTransitionOptions(),
       })
       return
     case "installing":
-      toast.dismiss(UPDATE_READY_TOAST_ID)
-      toast(language.t("desktopUpdates.installingTitle"), {
-        id: UPDATE_PROGRESS_TOAST_ID,
+      const installingToastId = transitionUpdateToast("installing")
+      toast.loading(language.t("desktopUpdates.installingTitle"), {
+        id: installingToastId,
         description: language.t("desktopUpdates.installingDescription"),
         duration: Number.POSITIVE_INFINITY,
+        ...clearUpdateToastTransitionOptions(),
       })
       return
     case "error":
-      if (args.progress.version !== undefined) {
-        toast.dismiss(UPDATE_READY_TOAST_ID)
+      if (args.progress.version === undefined && activeToast?.status === "ready") {
+        return
       }
-      toast.dismiss(UPDATE_PROGRESS_TOAST_ID)
+      dismissUpdateToast()
       return
     case "ready":
-      toast.dismiss(UPDATE_PROGRESS_TOAST_ID)
+      if (activeToast?.status === "ready") return
+      const readyToastId = transitionUpdateToast("ready")
+      activeHandlers = {}
+      toast.success(language.t("desktopUpdates.updateReadyTitle"), {
+        id: readyToastId,
+        description: args.progress.version
+          ? language.t("desktopUpdates.updateReadyWithVersion", {
+              version: args.progress.version,
+            })
+          : language.t("desktopUpdates.updateReadyNoVersion"),
+        duration: undefined,
+        action: undefined,
+        cancel: undefined,
+        onAutoClose: () => {
+          clearUpdateToast(readyToastId)
+        },
+      })
       return
     case "idle":
-      toast.dismiss(UPDATE_READY_TOAST_ID)
-      toast.dismiss(UPDATE_PROGRESS_TOAST_ID)
+      dismissUpdateToast()
       return
   }
 }
