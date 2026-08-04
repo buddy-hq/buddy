@@ -5,9 +5,12 @@ import Header from "../../components/Header.astro"
 import InstallSection from "../../components/InstallSection.astro"
 import BasePage from "../../layouts/BasePage.astro"
 import buddyMascotRead from "../../assets/mascot/buddy-mascot-read.png"
-import { AUDIENCE_LEARNERS, LEARNER_PATH } from "../../lib/constants"
+import { content } from "../../content/site"
+import { LEARNER_PATH } from "../../lib/constants"
 
 export const prerender = true
+
+const download = content.learners.download
 ---
 
 <BasePage
@@ -15,7 +18,7 @@ export const prerender = true
   description="Buddy documentation is coming soon."
 >
   <div class="cs-page">
-    <Header showAudienceToggle={false} />
+    <Header />
 
     <main class="cs-main">
       <div class="cs-container">
@@ -52,7 +55,10 @@ export const prerender = true
   </div>
 
   <div class="cs-install-host" aria-hidden="true">
-    <InstallSection initialAudience={AUDIENCE_LEARNERS} useScrollReveal={false} />
+    <InstallSection
+      headlineLines={download.headlineLines}
+      useScrollReveal={false}
+    />
   </div>
 </BasePage>
 

@@ -1,0 +1,38 @@
+---
+import { content } from "../content/site"
+import { AUDIENCE_EDUCATORS } from "../lib/constants"
+import Landing from "../layouts/Landing.astro"
+import EducatorHero from "./EducatorHero.astro"
+import FluencySection from "./FluencySection.astro"
+import Footer from "./Footer.astro"
+import Header from "./Header.astro"
+import InstallSection from "./InstallSection.astro"
+import PricingSection from "./PricingSection.astro"
+import WhySection from "./WhySection.astro"
+import EducatorFeatureSteps from "./features/EducatorFeatureSteps.astro"
+
+const seo = content.educators.seo
+const download = content.educators.download
+---
+
+<Landing
+  title={seo.title}
+  description={seo.description}
+  ogImagePath={seo.ogImagePath}
+  ogImageAlt={seo.ogImageAlt}
+>
+  <Header />
+  <main>
+    <EducatorHero />
+    <WhySection />
+    <hr />
+    <EducatorFeatureSteps />
+    <hr />
+    <FluencySection />
+    <hr />
+    <PricingSection />
+    <hr />
+    <InstallSection eyebrow={download.eyebrow} headlineLines={download.headlineLines} />
+  </main>
+  <Footer initialAudience={AUDIENCE_EDUCATORS} />
+</Landing>

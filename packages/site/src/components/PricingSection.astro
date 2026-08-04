@@ -1,0 +1,210 @@
+---
+/**
+ * What the app costs, and what you supply instead.
+ *
+ * Two groups, split by a soft rule:
+ *
+ *   $0                                    the hero — the eye lands here first
+ *   The app is free.                      what the number refers to
+ *   ─────────────────────────             the group break
+ *   Connect any model or subscription,    what you supply instead
+ *   from 150+ AI providers.
+ *   Connect ChatGPT · Use API keys ·      how, concretely
+ *   Run local models
+ *
+ * The split is load-bearing. With the "connect any model" line sitting directly
+ * under the number, readers take the *models* to be the free thing — the one
+ * claim this section must not make.
+ *
+ * The rule fades to transparent at both ends so it reads as a soft break rather
+ * than a divider; a hard-edged hairline here competed with the full-width <hr>s
+ * the page puts *between* sections.
+ */
+import { content, PRICING_ICON_KEY, PRICING_ICON_OLLAMA } from "../content/site"
+import ollamaIcon from "../assets/ollama-icon.svg?raw"
+
+const { pricing } = content
+
+const OPENAI_PATH =
+  "M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364l2.0201-1.1638a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997z"
+
+/** lucide key-round. */
+const KEY_PATH =
+  "M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"
+---
+
+<section class="pricing-section" aria-labelledby="pricing-heading" data-analytics-section="pricing">
+  <div class="container">
+    <div class="pricing-stage reveal">
+      <p class="pricing-headline">
+        <span class="pricing-price">{pricing.price}</span>
+        <span id="pricing-heading" class="pricing-caption">{pricing.caption}</span>
+      </p>
+
+      <div class="pricing-break" aria-hidden="true"></div>
+
+      <p class="pricing-statement">{pricing.statement}</p>
+
+      <ul class="pricing-ways">
+        {pricing.ways.map((way) => (
+          <li class="pricing-way">
+            <span class="pricing-mark">
+              {way.icon === PRICING_ICON_OLLAMA ? (
+                <Fragment set:html={ollamaIcon} />
+              ) : way.icon === PRICING_ICON_KEY ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d={KEY_PATH}></path>
+                  <circle cx="16.5" cy="7.5" r="0.5" fill="currentColor"></circle>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d={OPENAI_PATH}></path></svg>
+              )}
+            </span>
+            <span class="pricing-label">{way.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Deeper than the neighbours on purpose: a single loud element needs the air
+     to read as confident rather than cramped. */
+  .pricing-section {
+    padding-block: clamp(6.5rem, 14vw, 11rem);
+  }
+
+  .pricing-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .pricing-headline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+  }
+
+  .pricing-price {
+    font-family: var(--font-display);
+    font-size: clamp(5rem, 13vw, 10rem);
+    font-weight: 510;
+    line-height: 0.82;
+    letter-spacing: -0.045em;
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Under the number, not above it, so the zero is what the eye lands on and
+     the caption tells it what it refers to — the app, not the AI. */
+  .pricing-caption {
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+    font-weight: 510;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--color-text-secondary);
+    margin-top: var(--space-6);
+  }
+
+  .pricing-break {
+    width: 100%;
+    max-width: 34rem;
+    height: 1px;
+    margin-top: clamp(3.5rem, 7vw, 5.5rem);
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--border) 22%,
+      var(--border) 78%,
+      transparent
+    );
+  }
+
+  .pricing-statement {
+    font-family: var(--font-body);
+    font-size: clamp(1.0625rem, 1.6vw, 1.375rem);
+    font-weight: 300;
+    line-height: 1.5;
+    letter-spacing: -0.011em;
+    color: var(--color-text-secondary);
+    max-width: 44ch;
+    text-wrap: pretty;
+    margin: clamp(3rem, 6vw, 4.5rem) 0 0;
+  }
+
+  /* Tighter than the gaps around the break, so the statement and its three
+     concrete answers read as one group rather than two more tiers. */
+  .pricing-ways {
+    list-style: none;
+    display: flex;
+    width: 100%;
+    max-width: 46rem;
+    margin: clamp(1.5rem, 2.5vw, 2rem) 0 0;
+    padding: 0;
+  }
+
+  .pricing-way {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  /* Hairlines, not cards — the division is structural, not a box. */
+  .pricing-way + .pricing-way {
+    border-left: 1px solid var(--border);
+  }
+
+  .pricing-mark {
+    display: grid;
+    place-items: center;
+    width: clamp(26px, 2.4vw, 32px);
+    height: clamp(26px, 2.4vw, 32px);
+    color: var(--color-text-secondary);
+  }
+
+  .pricing-mark :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+
+  .pricing-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  /* Mobile keeps the three side by side and stacks *inside* each one. Collapsing
+     them into a vertical list read as an ordered sequence — step one, then two,
+     then three — when they are three equivalent alternatives. The row is what
+     says "pick any of these", so the row survives and the pair turns vertical. */
+  @media (max-width: 700px) {
+    .pricing-ways {
+      margin-top: var(--space-10);
+    }
+
+    .pricing-way {
+      flex-direction: column;
+      gap: var(--space-3);
+      padding: 0 var(--space-2);
+    }
+
+    .pricing-label {
+      white-space: normal;
+      text-align: center;
+      line-height: 1.45;
+      letter-spacing: 0.06em;
+    }
+  }
+</style>

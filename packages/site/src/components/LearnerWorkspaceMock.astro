@@ -5,8 +5,6 @@ import MockWhiteboard from "./MockWhiteboard.astro";
 import MockSidebar from "./MockSidebar.astro";
 import MockChat from "./MockChat.astro";
 import MockReader from "./MockReader.astro";
-import MockWidget from "./MockWidget.astro";
-import MockNotebook from "./MockNotebook.astro";
 import selfRelianceCover from "../assets/self-reliance.webp";
 import { AUDIENCE_LEARNERS } from "../lib/constants";
 import "./WorkspaceMock.css";
@@ -18,9 +16,11 @@ const selfRelianceChatCover = await getImage({
 });
 ---
 
-<div class="buddy-window" data-self-reliance-cover={selfRelianceChatCover.src} data-audience={AUDIENCE_LEARNERS}>
+<!-- Boots in the state the demo opens in: right pane already showing the whiteboard. The
+     script only takes over at 800ms, so anything staged here as collapsed would flash. -->
+<div class="buddy-window show-whiteboard" data-self-reliance-cover={selfRelianceChatCover.src} data-audience={AUDIENCE_LEARNERS}>
   <!-- Workspace layout with macOS unified titlebar split -->
-  <div class="workspace-body sidebar-closed right-pane-collapsed">
+  <div class="workspace-body sidebar-closed">
     
     <!-- Surface 1: Sidebar -->
     <MockSidebar audience={AUDIENCE_LEARNERS} />
@@ -34,35 +34,16 @@ const selfRelianceChatCover = await getImage({
     <!-- Surface 5: Whiteboard Pane -->
     <MockWhiteboard audience={AUDIENCE_LEARNERS} />
 
-    <!-- Surface 6: HTML Widget Pane -->
-    <MockWidget audience={AUDIENCE_LEARNERS} />
-
-    <!-- Surface 7: Notebook Pane -->
-    <MockNotebook audience={AUDIENCE_LEARNERS} />
-
     <!-- Surface 4: Action Toolbar -->
     <aside class="surface-actions">
       <div class="action-icons">
-        <button class="action-btn active" title="Library">
+        <button class="action-btn" title="Library">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
           </svg>
         </button>
-        <button class="action-btn" title="Notebook">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="9" y1="9" x2="15" y2="9"></line>
-            <line x1="9" y1="13" x2="15" y2="13"></line>
-          </svg>
-        </button>
-        <button class="action-btn" title="HTML Widget">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="16 18 22 12 16 6"></polyline>
-            <polyline points="8 6 2 12 8 18"></polyline>
-          </svg>
-        </button>
-        <button class="action-btn" title="Whiteboard">
+        <button class="action-btn active" title="Whiteboard">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 3h20"></path>
             <path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"></path>
@@ -73,14 +54,8 @@ const selfRelianceChatCover = await getImage({
     </aside>
   </div>
 
-  <!-- Simulated Click/Select Cursor -->
-  <div class="simulated-cursor">
-    <div class="cursor-dot"></div>
-    <svg class="cursor-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.5" stroke-linejoin="round">
-      <path d="M4 4l7.07 17 2.51-7.39L21 11.07z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/>
-    </svg>
-    <div class="click-pulse"></div>
-  </div>
+  <!-- The learner demo drives no simulated cursor: it opens mid-conversation with the
+       board already requested, so there is no click to stage. -->
 </div>
 
 <script>
@@ -96,24 +71,22 @@ const selfRelianceChatCover = await getImage({
       pages: [
         {
           quote: "Whoso would be a man must be a nonconformist.",
-          body: "Is non-conformity required for everyone? Probably not. But to be courageous—to be \"a man\" as Emerson is in a time of different language—you must first be willing to think for yourself. And as Martin Luther King, Jr. (another inspiring non-conformist) said years later, \"Nothing pains some people more than having to think.\" If you can think for yourself, and put those thoughts into meaningful action that improves the state of the world, you're well on the way to a courageous, remarkable life.",
+          body: "There is a time in every man's education when he arrives at the conviction that envy is ignorance; that imitation is suicide; that he must take himself for better, for worse, as his portion; that though the wide universe is full of good, no kernel of nourishing corn can come to him but through his toil bestowed on that plot of ground which is given to him to till.<br><br>Is non-conformity required for everyone? Probably not. But to be courageous—to be \"a man\" as Emerson is in a time of different language—you must first be willing to think for yourself. And as Martin Luther King, Jr. (another inspiring non-conformist) said years later, \"Nothing pains some people more than having to think.\" If you can think for yourself, and put those thoughts into meaningful action that improves the state of the world, you're well on the way to a courageous, remarkable life.",
           signature: "Ralph Waldo Emerson",
           location: "ESSAY · PAGE 4 / 24"
         },
         {
-          quote: "A foolish consistency is the hobgoblin of little minds...",
-          body: "Emerson points out that we often worry about staying consistent with what we've said or done in the past, or what others expect of us. But true growth requires the willingness to change your mind when presented with new truths. To conform to your own past is just as limiting as conforming to the crowd.",
+          quote: "A foolish consistency is the hobgoblin of little minds.",
+          body: "Emerson points out that we often worry about staying consistent with what we've said or done in the past, or with what others have come to expect of us. But real growth requires the willingness to change your mind when you meet a better argument.<br><br>To conform to your own past is just as limiting as conforming to the crowd, and it is harder to notice, because it wears your own face. Speak what you think today in hard words, and tomorrow speak what tomorrow thinks in hard words again, though it contradict every thing you said today.",
           signature: "Ralph Waldo Emerson",
-          location: "ESSAY · PAGE 8 / 24"
+          location: "ESSAY · PAGE 4-8 / 24"
         }
       ],
       messages: [
         { sender: "user", text: "what is Emerson's main argument in Self-Reliance?" },
         { sender: "buddy", text: "Emerson argues you should trust your own mind instead of conforming to what the crowd or your past self expects.<br><br><div class='wb-chat-card state-skeleton'><div class='wb-chat-icon'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M2 3h20'></path><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'></path><path d='m7 21 5-5 5 5'></path></svg></div><div class='wb-chat-title-group'><div class='wb-chat-title'>Whiteboard</div><div class='wb-chat-subtitle'>Trust Thyself</div></div></div><br><br>I've sketched a quick summary on your whiteboard." },
         { sender: "user", text: "load the text so we can dig into it" },
-        { sender: "buddy", text: `<div class='illustration-card state-skeleton'><div class='ill-cover' style='background-image: url(${selfRelianceCoverSrc});'></div><div class='ill-text'><span class='ill-title'>Self Reliance</span><span class='ill-author'>Ralph Waldo Emerson</span><span class='ill-meta'>17.3k words · Essay</span></div></div><br><br>Loaded. I've highlighted his core thesis on non-conformity in the e-reader.` },
-        { sender: "user", text: "make me a widget to play with this idea" },
-        { sender: "buddy", text: "Sure! I have generated the Self-Reliance Gauge in your workspace to visualize the balance between integrity and conformity.<br><br><div class='widget-chat-card state-skeleton'><div class='widget-chat-icon'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><polyline points='16 18 22 12 16 6'></polyline><polyline points='8 6 2 12 8 18'></polyline></svg></div><div class='widget-chat-title-group'><div class='widget-chat-title'>Self-Reliance Gauge</div><div class='widget-chat-subtitle'>Interactive UI Component</div></div></div>" }
+        { sender: "buddy", text: `<div class='illustration-card state-skeleton'><div class='ill-cover' style='background-image: url(${selfRelianceCoverSrc});'></div><div class='ill-text'><span class='ill-title'>Self Reliance</span><span class='ill-author'>Ralph Waldo Emerson</span><span class='ill-meta'>17.3k words · Essay</span></div></div><br><br>Loaded. I've highlighted his core thesis on non-conformity in the e-reader.` }
       ],
       whiteboardHtml: ""
     },
@@ -191,6 +164,9 @@ const selfRelianceChatCover = await getImage({
     const readerTabTitle = buddyWindow.querySelector("#reader-tab-title") as HTMLElement | null;
     const readerQuoteText = buddyWindow.querySelector("#reader-quote-text") as HTMLElement | null;
     const readerBodyText = buddyWindow.querySelector("#reader-body-text") as HTMLElement | null;
+    const readerQuoteText2 = buddyWindow.querySelector("#reader-quote-text-2") as HTMLElement | null;
+    const readerBodyText2 = buddyWindow.querySelector("#reader-body-text-2") as HTMLElement | null;
+    const readerRule = buddyWindow.querySelector(".reader-rule") as HTMLElement | null;
     const readerSigText = buddyWindow.querySelector("#reader-sig-text") as HTMLElement | null;
     const readerLocationText = buddyWindow.querySelector("#reader-location-text") as HTMLElement | null;
     const fontToggleBtn = buddyWindow.querySelector("#font-toggle-btn") as HTMLElement | null;
@@ -199,8 +175,6 @@ const selfRelianceChatCover = await getImage({
     const chatInput = buddyWindow.querySelector("#mockup-chat-input") as HTMLTextAreaElement | null;
     const chatSubmitBtn = buddyWindow.querySelector("#chat-submit-btn") as HTMLButtonElement | null;
     
-    const readerPrevBtn = buddyWindow.querySelector("#reader-prev-btn") as HTMLElement | null;
-    const readerNextBtn = buddyWindow.querySelector("#reader-next-btn") as HTMLElement | null;
     const wbDrawings = buddyWindow.querySelector(".wb-drawings") as HTMLElement | null;
     
     const libraryRailBtn = buddyWindow.querySelector('.action-btn[title="Library"]') as HTMLButtonElement | null;
@@ -249,7 +223,7 @@ const selfRelianceChatCover = await getImage({
         const arrow = document.createElement("div");
         arrow.className = "wb-doodle-arrow";
         arrow.innerHTML = `
-          <svg width="40" height="20" viewBox="0 0 40 20" fill="none" stroke="#3b82f6" stroke-width="2">
+          <svg width="40" height="20" viewBox="0 0 40 20" fill="none" stroke="currentColor" style="color: var(--aurora-base)" stroke-width="2">
             <path d="M20,2 L20,18 M15,13 L20,18 L25,13" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         `;
@@ -449,18 +423,33 @@ const selfRelianceChatCover = await getImage({
 
       if (readerQuoteText) readerQuoteText.textContent = "";
       if (readerBodyText) readerBodyText.textContent = "Waiting for document load command...";
+      // The second passage is part of the same reset. Skipping it leaves the previous
+      // notebook's text sitting underneath the new notebook's placeholder.
+      if (readerQuoteText2) readerQuoteText2.textContent = "";
+      if (readerBodyText2) readerBodyText2.textContent = "";
+      if (readerRule) readerRule.style.display = "none";
       if (readerSigText) readerSigText.textContent = "";
       if (readerLocationText) readerLocationText.textContent = "";
-      if (wbDrawings) wbDrawings.innerHTML = '<div class="wb-welcome-text" style="opacity: 0.3; font-family: var(--font-body); font-size: 13px; padding: 20px;">Whiteboard ready...</div>';
-      
-      if (libraryRailBtn) {
-        buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
-        libraryRailBtn.classList.add('active');
-        buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
-      }
 
-      if (workspaceBody) {
-        workspaceBody.classList.add('right-pane-collapsed');
+      buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+      buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+
+      // The learner story opens on a board being drawn, so self-reliance starts with the
+      // right pane already showing an empty whiteboard — the pane appearing is not the
+      // reveal, the drawing is. Every other notebook opens collapsed and reveals its pane
+      // when the document actually loads, rather than parking the viewer in front of
+      // "waiting for document load command".
+      if (key === "self-reliance") {
+        if (wbDrawings) wbDrawings.innerHTML = "";
+        if (whiteboardRailBtn) whiteboardRailBtn.classList.add('active');
+        buddyWindow.classList.add('show-whiteboard');
+        if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+        if (windowActiveSession) windowActiveSession.textContent = "Current board";
+        if (workspaceBody) workspaceBody.classList.remove('right-pane-collapsed');
+      } else {
+        if (wbDrawings) wbDrawings.innerHTML = '<div class="wb-welcome-text" style="opacity: 0.3; font-family: var(--font-body); font-size: 13px; padding: 20px;">Whiteboard ready...</div>';
+        if (libraryRailBtn) libraryRailBtn.classList.add('active');
+        if (workspaceBody) workspaceBody.classList.add('right-pane-collapsed');
       }
 
       const activeSessionItem = buddyWindow.querySelector('.sessions-list .session-item.active');
@@ -485,92 +474,29 @@ const selfRelianceChatCover = await getImage({
       setGenerating(true);
 
       try {
-        if (key === "self-reliance") {
-          // Run simulated cursor selection first
-          const cursor = buddyWindow.querySelector(".simulated-cursor") as HTMLElement | null;
-          const libraryView = buddyWindow.querySelector(".surface-library") as HTMLElement | null;
-          const readerView = buddyWindow.querySelector(".surface-reader") as HTMLElement | null;
-          const bookCover = buddyWindow.querySelector(".illustration-card") as HTMLElement | null;
-
-          if (cursor && libraryView && readerView && bookCover) {
-            // Reset states
-            libraryView.style.display = "block";
-            readerView.style.display = "none";
-            if (workspaceBody) workspaceBody.classList.remove("right-pane-collapsed");
-            
-            cursor.style.opacity = "0";
-            cursor.style.top = "80%";
-            cursor.style.left = "80%";
-            cursor.classList.remove("clicking");
-
-            await new Promise(resolve => setTimeout(resolve, 600));
-            if (streamId !== currentStreamId) return;
-
-            // Glide cursor to center of the book cover in the library
-            cursor.style.opacity = "1";
-            const triggerRect = bookCover.getBoundingClientRect();
-            const containerRect = buddyWindow.getBoundingClientRect();
-            const targetY = (triggerRect.top - containerRect.top) + triggerRect.height * 0.48;
-            const targetX = (triggerRect.left - containerRect.left) + triggerRect.width * 0.52;
-            
-            cursor.style.top = `${targetY}px`;
-            cursor.style.left = `${targetX}px`;
-
-            await new Promise(resolve => setTimeout(resolve, 500));
-            if (streamId !== currentStreamId) return;
-
-            // Dwell and click
-            cursor.classList.add("clicking");
-            bookCover.classList.add("hovered");
-
-            await new Promise(resolve => setTimeout(resolve, 250));
-            if (streamId !== currentStreamId) return;
-
-            // Open book reader
-            libraryView.style.display = "none";
-            readerView.style.display = "flex";
-            cursor.style.opacity = "0";
-            bookCover.classList.remove("hovered");
-
-            // Reset page content
-            loadReaderPage("self-reliance", 0);
-
-            await new Promise(resolve => setTimeout(resolve, 400));
-            if (streamId !== currentStreamId) return;
-
-            // Glide cursor to the start of the first sentence in Reader
-            const bodyEl = buddyWindow.querySelector("#reader-body-text") as HTMLElement | null;
-            if (bodyEl) {
-              const rect = bodyEl.getBoundingClientRect();
-              cursor.style.top = `${rect.top - containerRect.top + 10}px`;
-              cursor.style.left = `${rect.left - containerRect.left + 5}px`;
-              cursor.style.opacity = "1";
-
-              await new Promise(resolve => setTimeout(resolve, 400));
-              if (streamId !== currentStreamId) return;
-
-              // Glide cursor to select text (simulate selection highlight swipe)
-              cursor.style.top = `${rect.top - containerRect.top + 28}px`;
-              cursor.style.left = `${rect.left - containerRect.left + rect.width * 0.78}px`;
-
-              bodyEl.innerHTML = `<span class="md-selection-highlight">Is non-conformity required for everyone? Probably not. But to be courageous—to be "a man" as Emerson is in a time of different language—you must first be willing to think for yourself.</span> And as Martin Luther King, Jr. (another inspiring non-conformist) said years later, "Nothing pains some people more than having to think." If you can think for yourself, and put those thoughts into meaningful action that improves the state of the world, you're well on the way to a courageous, remarkable life.`;
-
-              // Display composer selection context chip
-              const chip = buddyWindow.querySelector("#chat-selection-chip") as HTMLElement | null;
-              const chipText = buddyWindow.querySelector(".selection-chip-text") as HTMLElement | null;
-              if (chip && chipText) {
-                chipText.textContent = 'Selected: "Is non-conformity required for everyone?..."';
-                chip.style.display = "flex";
-              }
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 500));
-            if (streamId !== currentStreamId) return;
-            cursor.style.opacity = "0";
+        // Open mid-conversation. The question, Buddy's answer and the whiteboard card are
+        // already on screen — resolved, not skeletons, because they have already happened.
+        // The first thing that moves is the board drawing itself, which is the whole pitch;
+        // it should not sit behind a typewriter preamble the viewer has to wait out.
+        const seedCount = key === "self-reliance" ? 2 : 0;
+        for (let s = 0; s < seedCount; s++) {
+          if (streamId !== currentStreamId) return;
+          const seed = data.messages[s];
+          if (seed.sender === "user") {
+            appendMessage("user", seed.text);
+          } else {
+            await typeMessage(appendBuddyBubble(), seed.text, streamId, key, s, true);
           }
         }
 
-        for (let i = 0; i < data.messages.length; i++) {
+        if (key === "self-reliance") {
+          await animateWhiteboard("self-reliance", streamId);
+          if (streamId !== currentStreamId) return;
+          await new Promise(resolve => setTimeout(resolve, 700));
+          if (streamId !== currentStreamId) return;
+        }
+
+        for (let i = seedCount; i < data.messages.length; i++) {
           if (streamId !== currentStreamId) return;
 
           const msg = data.messages[i];
@@ -629,17 +555,7 @@ const selfRelianceChatCover = await getImage({
             if (streamId !== currentStreamId) return;
             typingIndicator.remove();
 
-            const bubble = document.createElement("div");
-            bubble.className = `mock-chat-bubble buddy`;
-            const inner = document.createElement("div");
-            inner.className = "bubble-content";
-            bubble.appendChild(inner);
-            if (chatFeed) {
-              chatFeed.appendChild(bubble);
-              chatFeed.scrollTop = chatFeed.scrollHeight;
-            }
-
-            await typeMessage(inner, msg.text, streamId, key, i);
+            await typeMessage(appendBuddyBubble(), msg.text, streamId, key, i);
             if (streamId !== currentStreamId) return;
 
             await activeSidebarPromise;
@@ -672,41 +588,48 @@ const selfRelianceChatCover = await getImage({
       }
     }
 
-    async function typeMessage(container: HTMLElement, htmlText: string, streamId: number, notebookKey: NotebookKey, messageIndex: number) {
+    /**
+     * `instant` replays a message that has already happened: same markup and same spacing
+     * as the streamed path, but no typewriter, no skeleton, and no pane reveal — seeded
+     * history must not re-fire the side effects of its own arrival.
+     */
+    async function typeMessage(container: HTMLElement, htmlText: string, streamId: number, notebookKey: NotebookKey, messageIndex: number, instant = false) {
       const parts = htmlText.split("<br><br>");
       for (let partIdx = 0; partIdx < parts.length; partIdx++) {
         if (streamId !== currentStreamId) return;
         const part = parts[partIdx];
-        
+
         const isCard = part.includes("widget-chat-card") || part.includes("illustration-card") || part.includes("wb-chat-card");
-        
+
         if (isCard) {
           // Render card instantly
           const cardDiv = document.createElement("div");
           cardDiv.style.display = "contents";
           cardDiv.innerHTML = part;
-          
-          // Add skeleton state on creation
+
           const cardEl = cardDiv.firstElementChild;
           if (cardEl) {
-            cardEl.classList.add("state-skeleton");
+            cardEl.classList.toggle("state-skeleton", !instant);
           }
-          
+
           container.appendChild(cardDiv);
           if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
 
           // Trigger opening of sidebar!
-          if (messageIndex !== -1) {
+          if (!instant && messageIndex !== -1) {
             triggerSidebarOpen(notebookKey, messageIndex);
             activeSidebarPromise = resolveCardSkeleton(notebookKey, messageIndex, streamId);
           }
 
-          await new Promise(resolve => setTimeout(resolve, 100));
+          if (!instant) await new Promise(resolve => setTimeout(resolve, 100));
         } else {
-          // Typewriter text
           const textSpan = document.createElement("span");
           container.appendChild(textSpan);
-          await typeMessageInner(textSpan, part, streamId);
+          if (instant) {
+            textSpan.innerHTML = part;
+          } else {
+            await typeMessageInner(textSpan, part, streamId);
+          }
         }
 
         if (partIdx < parts.length - 1) {
@@ -758,21 +681,9 @@ const selfRelianceChatCover = await getImage({
 
     function triggerSidebarOpen(notebookKey: NotebookKey, messageIndex: number) {
       if (notebookKey === "self-reliance") {
-        if (messageIndex === 1) {
-          // Whiteboard
-          if (wbDrawings) wbDrawings.innerHTML = ""; // Clear drawings instantly so it opens blank
-          if (whiteboardRailBtn) {
-            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
-            whiteboardRailBtn.classList.add('active');
-            buddyWindow.classList.add('show-whiteboard');
-            buddyWindow.classList.remove('show-widget', 'show-notes');
-            if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
-            if (windowActiveSession) windowActiveSession.textContent = "Current board";
-            if (workspaceBody) {
-              workspaceBody.classList.remove('right-pane-collapsed');
-            }
-          }
-        } else if (messageIndex === 3) {
+        // The board is already drawn by the time the stream starts, so the reader is the
+        // only pane this notebook still has to reveal.
+        if (messageIndex === 3) {
           // Reader
           loadReaderPage("self-reliance", 0);
           if (libraryRailBtn) {
@@ -782,19 +693,6 @@ const selfRelianceChatCover = await getImage({
             const data = learnerNotebooks["self-reliance"];
             if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
             if (windowActiveSession) windowActiveSession.textContent = data.session;
-            if (workspaceBody) {
-              workspaceBody.classList.remove('right-pane-collapsed');
-            }
-          }
-        } else if (messageIndex === 5) {
-          // Widget
-          if (widgetRailBtn) {
-            buddyWindow.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
-            widgetRailBtn.classList.add('active');
-            buddyWindow.classList.remove('show-whiteboard', 'show-notes');
-            buddyWindow.classList.add('show-widget');
-            if (windowActiveNotebook) windowActiveNotebook.textContent = "Self-Reliance basics";
-            if (windowActiveSession) windowActiveSession.textContent = "HTML Widget";
             if (workspaceBody) {
               workspaceBody.classList.remove('right-pane-collapsed');
             }
@@ -878,17 +776,8 @@ const selfRelianceChatCover = await getImage({
 
     async function resolveCardSkeleton(notebookKey: NotebookKey, messageIndex: number, streamId: number) {
       if (notebookKey === "self-reliance") {
-        if (messageIndex === 1) {
-          const sk = buddyWindow.querySelector(".wb-chat-card.state-skeleton");
-          if (sk) sk.classList.remove("state-skeleton");
-          await new Promise(resolve => setTimeout(resolve, 400));
-          if (streamId !== currentStreamId) return;
-          await animateWhiteboard("self-reliance", streamId);
-        } else if (messageIndex === 3) {
+        if (messageIndex === 3) {
           const sk = buddyWindow.querySelector(".illustration-card.state-skeleton");
-          if (sk) sk.classList.remove("state-skeleton");
-        } else if (messageIndex === 5) {
-          const sk = buddyWindow.querySelector(".widget-chat-card.state-skeleton");
           if (sk) sk.classList.remove("state-skeleton");
         }
       } else if (notebookKey === "deep-learning") {
@@ -912,6 +801,10 @@ const selfRelianceChatCover = await getImage({
       }
     }
 
+    /**
+     * Renders the passages as one continuous column rather than a paginated page, so the
+     * reader shows real reading length instead of a single stanza behind arrows.
+     */
     function loadReaderPage(notebookKey: NotebookKey, pageIndex: number) {
       const data = learnerNotebooks[notebookKey];
       if (!data || !data.pages || !data.pages[pageIndex]) return;
@@ -919,6 +812,18 @@ const selfRelianceChatCover = await getImage({
       const page = data.pages[pageIndex];
       if (readerQuoteText) readerQuoteText.textContent = page.quote;
       if (readerBodyText) readerBodyText.innerHTML = page.body;
+
+      const next = data.pages[pageIndex + 1];
+      if (readerQuoteText2) {
+        readerQuoteText2.textContent = next ? next.quote : "";
+        readerQuoteText2.style.display = next ? "" : "none";
+      }
+      if (readerBodyText2) {
+        readerBodyText2.innerHTML = next ? next.body : "";
+        readerBodyText2.style.display = next ? "" : "none";
+      }
+      if (readerRule) readerRule.style.display = next ? "" : "none";
+
       if (readerSigText) readerSigText.textContent = page.signature;
       if (readerLocationText) readerLocationText.textContent = page.location;
     }
@@ -935,6 +840,20 @@ const selfRelianceChatCover = await getImage({
       bubble.appendChild(inner);
       chatFeed.appendChild(bubble);
       chatFeed.scrollTop = chatFeed.scrollHeight;
+    }
+
+    /** Appends an empty Buddy bubble and hands back the node its content streams into. */
+    function appendBuddyBubble() {
+      const bubble = document.createElement("div");
+      bubble.className = "mock-chat-bubble buddy";
+      const inner = document.createElement("div");
+      inner.className = "bubble-content";
+      bubble.appendChild(inner);
+      if (chatFeed) {
+        chatFeed.appendChild(bubble);
+        chatFeed.scrollTop = chatFeed.scrollHeight;
+      }
+      return inner;
     }
 
     buddyWindow.querySelectorAll(".notebook-header").forEach(header => {
@@ -963,26 +882,6 @@ const selfRelianceChatCover = await getImage({
       fontToggleBtn.addEventListener("click", () => {
         readerContentPane.classList.toggle("serif-font");
         fontToggleBtn.classList.toggle("active");
-      });
-    }
-
-    if (readerPrevBtn) {
-      readerPrevBtn.addEventListener("click", () => {
-        const totalPages = learnerNotebooks[activeNotebook].pages.length;
-        let idx = currentPageIndices[activeNotebook];
-        idx = (idx - 1 + totalPages) % totalPages;
-        currentPageIndices[activeNotebook] = idx;
-        loadReaderPage(activeNotebook, idx);
-      });
-    }
-
-    if (readerNextBtn) {
-      readerNextBtn.addEventListener("click", () => {
-        const totalPages = learnerNotebooks[activeNotebook].pages.length;
-        let idx = currentPageIndices[activeNotebook];
-        idx = (idx + 1) % totalPages;
-        currentPageIndices[activeNotebook] = idx;
-        loadReaderPage(activeNotebook, idx);
       });
     }
 
@@ -1050,15 +949,7 @@ const selfRelianceChatCover = await getImage({
               reply = `Interesting. Let's analyze this aspect of <strong>${activeNotebook}</strong> together. I've indexed the corresponding sections.`;
             }
 
-            const bubble = document.createElement("div");
-            bubble.className = `mock-chat-bubble buddy`;
-            const inner = document.createElement("div");
-            inner.className = "bubble-content";
-            bubble.appendChild(inner);
-            chatFeed.appendChild(bubble);
-            chatFeed.scrollTop = chatFeed.scrollHeight;
-
-            await typeMessage(inner, reply, streamId, activeNotebook, -1);
+            await typeMessage(appendBuddyBubble(), reply, streamId, activeNotebook, -1);
             if (streamId === currentStreamId) {
               setGenerating(false);
             }
@@ -1235,21 +1126,6 @@ const selfRelianceChatCover = await getImage({
           currentZoom += 10;
           zoomValue.textContent = `${currentZoom}%`;
         }
-      });
-    }
-
-    const sidebarToggleBtn = buddyWindow.querySelector('.circle-btn[title="Toggle Sidebar"]') as HTMLElement | null;
-    const floatingToggleBtn = buddyWindow.querySelector("#floating-toggle-btn") as HTMLElement | null;
-
-    if (sidebarToggleBtn) {
-      sidebarToggleBtn.addEventListener('click', () => {
-        if (workspaceBody) workspaceBody.classList.add('sidebar-closed');
-      });
-    }
-
-    if (floatingToggleBtn) {
-      floatingToggleBtn.addEventListener('click', () => {
-        if (workspaceBody) workspaceBody.classList.remove('sidebar-closed');
       });
     }
 

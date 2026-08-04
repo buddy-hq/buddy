@@ -1,0 +1,38 @@
+---
+import { content } from "../content/site"
+import { AUDIENCE_LEARNERS } from "../lib/constants"
+import Landing from "../layouts/Landing.astro"
+import Footer from "./Footer.astro"
+import Header from "./Header.astro"
+import InstallSection from "./InstallSection.astro"
+import LearnerCapabilitiesSection from "./LearnerCapabilitiesSection.astro"
+import LearnerHero from "./LearnerHero.astro"
+import LearnerLivesSection from "./LearnerLivesSection.astro"
+import PricingSection from "./PricingSection.astro"
+import LearnerFeatureSteps from "./features/LearnerFeatureSteps.astro"
+
+const seo = content.learners.seo
+const download = content.learners.download
+---
+
+<Landing
+  title={seo.title}
+  description={seo.description}
+  ogImagePath={seo.ogImagePath}
+  ogImageAlt={seo.ogImageAlt}
+>
+  <Header />
+  <main>
+    <LearnerHero />
+    <LearnerLivesSection />
+    <hr />
+    <LearnerFeatureSteps />
+    <hr />
+    <LearnerCapabilitiesSection />
+    <hr />
+    <PricingSection />
+    <hr />
+    <InstallSection headlineLines={download.headlineLines} />
+  </main>
+  <Footer initialAudience={AUDIENCE_LEARNERS} />
+</Landing>

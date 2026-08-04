@@ -13,10 +13,15 @@ const lives = content.learnerLives
 <section class="lives-section" aria-labelledby="lives-heading" data-analytics-section="lives">
   <div class="container">
     <header class="lives-header reveal">
-      <h2 id="lives-heading" class="lives-headline">{lives.headline}</h2>
+      <h2 id="lives-heading" class="lives-headline">
+        {lives.headlineLines.map((line, index) => (
+          <span class="lives-headline-line">{line}{index === 0 ? " " : ""}</span>
+        ))}
+      </h2>
     </header>
 
     <div class="lives-wall">
+      <div class="lives-wall-scroll">
       <!-- 1 · the student: a quiz mid-run -->
       <div class="lives-cell cell-quiz reveal">
         <div class="tile tile-quiz">
@@ -137,6 +142,7 @@ const lives = content.learnerLives
         <p class="lives-ask">My starter died again. What is actually going on in that jar?</p>
         <span class="tile-topic tile-topic-bubble">Sourdough</span>
       </div>
+      </div>
 
       <div class="lives-cell cell-closing reveal">
         <p class="lives-closing">{lives.closing}</p>
@@ -176,6 +182,10 @@ const lives = content.learnerLives
     grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: var(--space-5);
     align-items: stretch;
+  }
+
+  .lives-wall-scroll {
+    display: contents;
   }
 
   .lives-cell {
@@ -230,7 +240,7 @@ const lives = content.learnerLives
   .lives-cell:nth-child(7) {
     transition-delay: 0.42s;
   }
-  .lives-cell:nth-child(8) {
+  .lives-wall > .cell-closing {
     transition-delay: 0.49s;
   }
 
@@ -266,7 +276,7 @@ const lives = content.learnerLives
 
   /* ---------- 1 · quiz ---------- */
   .tile-quiz {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.008));
+    background: linear-gradient(180deg, var(--surface-base), var(--surface-base));
     border: 1px solid var(--border);
     padding: var(--space-5);
   }
@@ -393,19 +403,19 @@ const lives = content.learnerLives
   }
 
   .flash-front {
-    background: linear-gradient(180deg, rgba(255, 107, 0, 0.07), rgba(255, 107, 0, 0.025));
-    border: 1px solid rgba(255, 107, 0, 0.2);
+    background: var(--surface-raised);
+    border: 1px solid var(--accent-border);
     /* the rest of the deck peeking out behind */
     box-shadow:
-      4px 5px 0 -1px rgba(20, 20, 22, 0.9),
-      4px 5px 0 0 rgba(255, 255, 255, 0.07),
-      8px 10px 0 -1px rgba(20, 20, 22, 0.9),
-      8px 10px 0 0 rgba(255, 255, 255, 0.04);
+      4px 5px 0 -1px var(--surface-page),
+      4px 5px 0 0 var(--border-weak),
+      8px 10px 0 -1px var(--surface-page),
+      8px 10px 0 0 var(--border-weak);
   }
 
   .flash-back {
-    background: linear-gradient(180deg, rgba(255, 107, 0, 0.11), rgba(255, 107, 0, 0.04));
-    border: 1px solid rgba(255, 107, 0, 0.3);
+    background: var(--surface-high);
+    border: 1px solid var(--accent-border);
     transform: rotateY(180deg);
   }
 
@@ -454,7 +464,6 @@ const lives = content.learnerLives
     justify-content: center;
     gap: var(--space-4);
     background-color: #0e0e10;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
     background-size: 18px 18px;
     border: 1px solid var(--border);
     padding: var(--space-6) var(--space-5);
@@ -473,7 +482,7 @@ const lives = content.learnerLives
   .board-chord {
     font-family: "Architects Daughter", cursive;
     font-size: 1.9rem;
-    color: #3b82f6;
+    color: var(--aurora-base);
   }
 
   .board-chord:nth-child(1) {
@@ -608,7 +617,7 @@ const lives = content.learnerLives
     align-items: center;
     justify-content: center;
     gap: var(--space-4);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.008));
+    background: linear-gradient(180deg, var(--surface-base), var(--surface-base));
     border: 1px solid var(--border);
     padding: var(--space-5);
   }
@@ -635,7 +644,7 @@ const lives = content.learnerLives
   }
 
   .chess-sq-light {
-    background-color: oklch(1 0 0 / 9%);
+    background-color: var(--surface-high);
   }
 
   .chess-sq-hot {
@@ -756,41 +765,45 @@ const lives = content.learnerLives
   }
 
   /* ---------- phone: the collage becomes a swipeable strip.
-     One row, edge-to-edge, next tile peeking; the closing line is the
-     last card you land on. ---------- */
+     Two rows, edge-to-edge, next column peeking. One row wasted half the
+     screen and made the section feel thinner than it is. ---------- */
   @media (max-width: 768px) {
     .lives-section {
       padding: var(--space-12) 0;
     }
 
     .lives-wall {
+      display: block;
+    }
+
+    .lives-wall-scroll {
+      display: grid;
       grid-template-columns: none;
+      grid-template-rows: repeat(2, minmax(0, 1fr));
       grid-auto-flow: column;
-      grid-auto-columns: min(78vw, 310px);
+      grid-auto-columns: min(70vw, 280px);
       gap: var(--space-4);
       overflow-x: auto;
+      overflow-y: hidden;
+      overscroll-behavior-inline: contain;
       scroll-snap-type: x mandatory;
       margin: 0 calc(-1 * var(--space-6));
-      padding: var(--space-1) var(--space-6) var(--space-4);
+      padding: 0 var(--space-6);
       scroll-padding-left: var(--space-6);
       scrollbar-width: none;
     }
 
-    .lives-wall::-webkit-scrollbar {
+    .lives-wall-scroll::-webkit-scrollbar {
       display: none;
     }
 
-    .lives-cell,
-    .cell-quiz,
-    .cell-flash,
-    .cell-board,
-    .cell-paper,
-    .cell-vault,
-    .cell-chess,
-    .cell-bubble,
-    .cell-closing {
+    .lives-wall-scroll .lives-cell {
       grid-column: auto;
       scroll-snap-align: start;
+    }
+
+    .cell-closing {
+      margin-top: var(--space-10);
     }
 
     .cell-bubble .lives-ask {
@@ -804,18 +817,24 @@ const lives = content.learnerLives
     .lives-closing {
       font-size: 1.0625rem;
     }
+
+    .lives-headline-line {
+      display: block;
+      white-space: nowrap;
+    }
   }
 
   @media (max-width: 576px) {
-    .lives-wall {
+    .lives-wall-scroll {
       margin: 0 calc(-1 * var(--space-5));
       padding-inline: var(--space-5);
       scroll-padding-left: var(--space-5);
     }
 
     .lives-headline {
-      font-size: 2rem;
+      font-size: clamp(1.7rem, 8vw, 2rem);
       line-height: 1.1;
     }
+
   }
 </style>

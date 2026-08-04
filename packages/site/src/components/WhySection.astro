@@ -107,15 +107,15 @@ const why = content.educatorWhy
   }
 
   .path-plan {
-    stroke: #3b82f6;
+    stroke: var(--aurora-base);
     transition-delay: 0.25s;
   }
   .path-ws {
-    stroke: #a8a29e;
+    stroke: var(--fg-weaker);
     transition-delay: 0.4s;
   }
   .path-quiz {
-    stroke: #2dd4bf;
+    stroke: var(--aurora-base);
     transition-delay: 0.55s;
   }
   .path-flag {
@@ -123,7 +123,7 @@ const why = content.educatorWhy
     transition-delay: 1s;
   }
   .path-note {
-    stroke: #b9a77e;
+    stroke: var(--paper-ink-weak);
     transition-delay: 0.75s;
   }
 
@@ -208,8 +208,8 @@ const why = content.educatorWhy
     line-height: 1.5;
     letter-spacing: -0.012em;
     color: var(--color-text-primary);
-    background-color: rgba(255, 107, 0, 0.05);
-    border: 1px solid rgba(255, 107, 0, 0.16);
+    background-color: var(--accent-weak);
+    border: 1px solid var(--accent-border);
     border-radius: 18px;
     border-bottom-left-radius: 6px;
     padding: var(--space-4) var(--space-5);
@@ -232,7 +232,7 @@ const why = content.educatorWhy
   }
 
   .scene-ask:hover .ask-bubble {
-    border-color: rgba(255, 107, 0, 0.38);
+    border-color: var(--accent-border);
   }
 
   .scene-ask:hover .ask-bubble::after {
@@ -272,8 +272,8 @@ const why = content.educatorWhy
     display: inline-block;
     font-family: "Architects Daughter", cursive;
     font-size: 1.125rem;
-    color: #3b82f6;
-    border: 1.5px dashed rgba(59, 130, 246, 0.45);
+    color: var(--aurora-base);
+    border: 1.5px dashed var(--aurora-border);
     border-radius: 12px;
     padding: var(--space-2) var(--space-4);
     rotate: -1.5deg;
@@ -289,7 +289,7 @@ const why = content.educatorWhy
   .ws-text {
     font-family: "Architects Daughter", cursive;
     font-size: 1.25rem;
-    color: #e8e6e3;
+    color: var(--fg-base);
     rotate: 1deg;
   }
 
@@ -302,7 +302,7 @@ const why = content.educatorWhy
   .ws-levels {
     font-family: "Architects Daughter", cursive;
     font-size: 0.8125rem;
-    color: #a8a29e;
+    color: var(--fg-weak);
     rotate: 1deg;
   }
 
@@ -314,8 +314,8 @@ const why = content.educatorWhy
   .quiz-text {
     font-family: "Architects Daughter", cursive;
     font-size: 1.125rem;
-    color: #e8e6e3;
-    text-decoration: underline wavy #2dd4bf 1.5px;
+    color: var(--fg-base);
+    text-decoration: underline wavy var(--aurora-base) 1.5px;
     text-underline-offset: 6px;
     rotate: -0.8deg;
   }
@@ -345,14 +345,14 @@ const why = content.educatorWhy
     font-family: "Architects Daughter", cursive;
     font-size: 0.875rem;
     line-height: 1.5;
-    color: #4a4336;
-    background: linear-gradient(180deg, #f2ecdf, #e9e2d2);
-    border: 1px solid #d8cfba;
+    color: var(--paper-ink-soft);
+    background: linear-gradient(180deg, var(--paper-base), var(--paper-sunken));
+    border: 1px solid var(--paper-border);
     border-radius: 4px;
     padding: var(--space-3) var(--space-4);
     rotate: 2deg;
     margin: 0;
-    box-shadow: 0 14px 24px -14px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--shadow-raised);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -436,19 +436,19 @@ const why = content.educatorWhy
     }
 
     .node-plan::before {
-      color: #3b82f6;
+      color: var(--aurora-base);
     }
     .node-ws::before {
-      color: #a8a29e;
+      color: var(--fg-weak);
     }
     .node-quiz::before {
-      color: #2dd4bf;
+      color: var(--aurora-base);
     }
     .node-flag::before {
       color: var(--color-accent-primary);
     }
     .node-note::before {
-      color: #b9a77e;
+      color: var(--paper-ink-weak);
     }
 
     .node-time {

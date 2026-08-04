@@ -1,22 +1,17 @@
 ---
-import type { Audience } from "../content/site"
 import { content } from "../content/site"
-import {
-  AUDIENCE_EDUCATORS,
-  AUDIENCE_LEARNERS,
-  MAC_INSTALL_CMD,
-  WIN_INSTALL_CMD,
-} from "../lib/constants"
+import { MAC_INSTALL_CMD, WIN_INSTALL_CMD } from "../lib/constants"
 
 type Props = {
-  initialAudience?: Audience
+  readonly eyebrow?: string
+  readonly headlineLines: readonly [string, string]
   /** Landing pages use scroll-reveal JS; compare/BasePage do not — keep CTA visible. */
   readonly useScrollReveal?: boolean
 }
 
-const { learners, educators, install: installContent, meta } = content
+const { install: installContent, meta } = content
 const installShareUrl = new URL("#install", meta.siteUrl).href
-const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.props
+const { eyebrow, headlineLines, useScrollReveal = true } = Astro.props
 ---
 
 <section
@@ -26,29 +21,16 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
 >
   <div class="container">
     <div class="install-card">
-      <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
-        {"eyebrow" in learners.download && learners.download.eyebrow ? (
-          <p class="install-eyebrow">{learners.download.eyebrow}</p>
-        ) : null}
-        <h2 class="install-title">
-          {learners.download.headlineLines[0]}<br />
-          {learners.download.headlineLines[1]}
-        </h2>
-      </div>
-      <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
-        {"eyebrow" in educators.download && educators.download.eyebrow ? (
-          <p class="install-eyebrow">{educators.download.eyebrow}</p>
-        ) : null}
-        <h2 class="install-title">
-          {educators.download.headlineLines[0]}<br />
-          {educators.download.headlineLines[1]}
-        </h2>
-      </div>
+      {eyebrow && <p class="install-eyebrow">{eyebrow}</p>}
+      <h2 class="install-title">
+        <span class="install-title-line">{headlineLines[0]}</span>
+        <span class="install-title-line">{headlineLines[1]}</span>
+      </h2>
 
       <!-- Download Button Group -->
       <div class="download-buttons-group">
         <button class="download-btn btn-mac" data-os="mac" aria-label={installContent.downloadMac}>
-          <svg class="btn-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.08 1.85-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"></path>
           </svg>
           <span>{installContent.downloadMac}</span>
@@ -141,19 +123,16 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
     text-align: center;
   }
 
+  /* Scaled to the title's mass — at 2rem the buttons sat tight under 144px of
+     display type. */
   .install-card {
     width: 100%;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-8);
+    gap: clamp(2rem, 4vw, 3rem);
     position: relative;
-  }
-
-  .install-card .swap {
-    width: 100%;
-    text-align: center;
   }
 
   .install-title {
@@ -167,6 +146,11 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
     text-align: center;
   }
 
+  .install-title-line {
+    display: block;
+    white-space: nowrap;
+  }
+
   @media (max-width: 992px) {
     .install-title {
       font-size: 3rem;
@@ -175,7 +159,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
 
   @media (max-width: 576px) {
     .install-title {
-      font-size: 2rem;
+      font-size: clamp(1.6rem, 8vw, 2rem);
     }
   }
 
@@ -213,9 +197,9 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    background-color: #f3f3f3;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #0a0807;
+    background-color: var(--invert-fill);
+    border: 1px solid var(--border-weak);
+    color: var(--invert-ink);
     font-family: var(--font-body);
     font-size: var(--text-sm);
     font-weight: 550;
@@ -223,7 +207,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
     border-radius: var(--radius);
     cursor: pointer;
     transition: background-color 0.2s var(--ease-out), color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-raised);
   }
 
   @media (max-width: 576px) {
@@ -234,11 +218,14 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
 
   .download-btn .btn-icon {
     flex-shrink: 0;
+    width: 18px;
+    height: 18px;
   }
 
   .download-btn:hover {
-    background-color: #ffffff;
-    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.15);
+    background-color: var(--invert-fill);
+    filter: brightness(1.06);
+    box-shadow: var(--shadow-overlay);
   }
 
   .download-btn:active {
@@ -251,7 +238,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
     inset: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.75);
+    background-color: color-mix(in oklch, var(--chrome-screen) 78%, transparent);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     z-index: 99999;
@@ -272,7 +259,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
   }
 
   .download-modal-card {
-    background-color: oklch(0.205 0 0 / 96%);
+    background-color: var(--surface-overlay);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 40px 48px;
@@ -281,9 +268,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
     max-height: calc(100dvh - 32px);
     overflow-y: auto;
     position: relative;
-    box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.8),
-                0 0 40px -4px rgba(255, 107, 0, 0.03);
-    text-align: center;
+        text-align: center;
     transform: scale(0.95);
     transition: transform 0.3s var(--ease-out);
   }
@@ -307,7 +292,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
 
   .modal-close-btn:hover {
     color: var(--color-text-primary);
-    background-color: rgba(255, 255, 255, 0.04);
+    background-color: var(--surface-raised);
   }
 
   .modal-header {
@@ -346,27 +331,27 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
 
   /* High-fidelity Terminal Window Mockup */
   .modal-terminal-wrapper {
-    background-color: #050505;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background-color: var(--chrome-screen);
+    border: 1px solid var(--border-weak);
     border-radius: var(--radius);
     overflow: hidden;
     margin-bottom: var(--space-8);
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--shadow-overlay);
     cursor: pointer; /* Terminal wrapper is fully clickable */
     transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
   }
 
   .modal-terminal-wrapper:hover {
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 255, 255, 0.02);
+    border-color: var(--border-base);
+    box-shadow: var(--shadow-overlay);
   }
 
   .terminal-header {
     display: flex;
     align-items: center;
     height: 34px;
-    background-color: rgba(255, 255, 255, 0.02);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    background-color: var(--border-weak);
+    border-bottom: 1px solid var(--border-weak);
     padding-inline: 14px;
   }
 
@@ -380,7 +365,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
     width: 6.5px;
     height: 6.5px;
     border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--border-base);
   }
 
   .terminal-title {
@@ -414,7 +399,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
   .terminal-command {
     font-family: var(--font-mono);
     font-size: 13px;
-    color: #e5e5e5;
+    color: var(--fg-base);
     line-height: 1.5;
     white-space: nowrap;
     overflow-x: auto;
@@ -433,8 +418,8 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
     align-items: center;
     justify-content: center;
     gap: 6px;
-    background-color: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background-color: var(--border-weak);
+    border: 1px solid var(--border-weak);
     color: var(--color-text-secondary);
     font-family: var(--font-body);
     font-size: 11px;
@@ -451,21 +436,21 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
   .terminal-copy-action-btn.copied .check-icon { display: block; }
 
   .terminal-copy-action-btn:hover:not(.copied) {
-    background-color: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--surface-raised);
+    border-color: var(--border-base);
     color: var(--color-text-primary);
   }
 
   /* Dynamic OS specific buttons inside CTA */
   .download-modal-overlay.overlay-mac .terminal-copy-action-btn.copied {
-    background-color: rgba(255, 255, 255, 0.08) !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
-    color: #e5e5e5 !important;
+    background-color: var(--surface-raised) !important;
+    border-color: var(--border-base) !important;
+    color: var(--fg-base) !important;
   }
   .download-modal-overlay.overlay-win .terminal-copy-action-btn.copied {
-    background-color: rgba(255, 255, 255, 0.08) !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
-    color: #e5e5e5 !important;
+    background-color: var(--surface-raised) !important;
+    border-color: var(--border-base) !important;
+    color: var(--fg-base) !important;
   }
 
   /* Visual Installation Workflow Diagram */
@@ -499,7 +484,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
     flex-shrink: 0;
     background-color: transparent !important;
     border: none !important;
-    color: #a3a3a3 !important;
+    color: var(--fg-weaker) !important;
     font-family: var(--font-display);
     font-size: 1.5rem;
     font-weight: 550;
@@ -508,7 +493,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
 
   /* Highlight icon inside hovered step */
   .workflow-step:hover .workflow-icon-box {
-    color: #ffffff !important;
+    color: var(--fg-strong) !important;
   }
 
   .workflow-text-box {
@@ -567,7 +552,7 @@ const { initialAudience = AUDIENCE_LEARNERS, useScrollReveal = true } = Astro.pr
   
   .download-modal-overlay.overlay-mac .terminal-prompt,
   .download-modal-overlay.overlay-win .terminal-prompt {
-    color: #a3a3a3 !important;
+    color: var(--fg-weaker) !important;
   }
 
   @media (max-width: 640px) {

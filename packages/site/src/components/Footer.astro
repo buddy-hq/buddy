@@ -1,77 +1,409 @@
 ---
-import { formatCopyrightLabel } from "@buddy/script/branding"
+/**
+ * Masthead footer: brand left, links right, one hairline, then copyright and
+ * the audience switch on the bottom row.
+ *
+ * Three deliberate calls here:
+ *
+ * · No "Download" link. It used to sit ~200px under the two real download
+ *   buttons, so the page asked for the same click three times.
+ * · The audience switch is a ghost segment — outlined so it still reads as a
+ *   switch, but with no fill and no rotation. Fill + heavy border + rotation
+ *   together is what made the old one read as a button and compete with the
+ *   install CTA; the accent alone is enough to say where you are.
+ * · One internal rule. `.site-footer`'s border-top is the page/footer boundary;
+ *   the hairline below the top row is the only other line in here.
+ */
+import { Image } from "astro:assets"
+import { formatCopyrightNotice } from "@buddy/script/branding"
+import type { Audience } from "../content/site"
+import { content } from "../content/site"
+import buddyAppIcon from "../assets/buddy-app-icon.png"
 import {
+  AUDIENCE_EDUCATORS,
+  AUDIENCE_LEARNERS,
   COMPARE_PATH,
   DOCS_PATH,
   EDUCATOR_PATH,
   LEARNER_PATH,
+  SOCIAL_LINKEDIN_URL,
+  SOCIAL_X_URL,
+  SOCIAL_YOUTUBE_URL,
 } from "../lib/constants"
 
-const footerCopyrightLabel = formatCopyrightLabel()
+type Props = {
+  initialAudience?: Audience
+}
+
+type TFooterNavLink = {
+  readonly label: string
+  readonly href: string
+}
+
+type TFooterSocialLink = {
+  readonly label: string
+  readonly href: string
+  readonly icon: "x" | "youtube" | "linkedin"
+  /**
+   * Optical, not geometric. All three glyphs are drawn in a 24×24 box but carry
+   * different visual mass in it — X is a thin diagonal, YouTube is full-width
+   * but only ~70% tall. A single shared pixel size makes them look mismatched,
+   * so each is tuned by eye.
+   */
+  readonly size: number
+}
+
+const { header: headerContent } = content
+const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
+
+const footerCopyrightLabel = formatCopyrightNotice()
+
+const navLinks = [
+  { label: "Compare", href: COMPARE_PATH },
+  { label: "Docs", href: DOCS_PATH },
+] as const satisfies readonly TFooterNavLink[]
+
+const socialLinks = [
+  { label: "X", href: SOCIAL_X_URL, icon: "x", size: 17 },
+  { label: "YouTube", href: SOCIAL_YOUTUBE_URL, icon: "youtube", size: 19 },
+  { label: "LinkedIn", href: SOCIAL_LINKEDIN_URL, icon: "linkedin", size: 18 },
+] as const satisfies readonly TFooterSocialLink[]
 ---
 
 <footer class="site-footer">
   <div class="container footer-inner">
-    <nav class="footer-nav" aria-label="Footer navigation">
-      <a href={LEARNER_PATH} class="footer-link">For Learners</a>
-      <a href={EDUCATOR_PATH} class="footer-link">For Teachers</a>
-      <a href={COMPARE_PATH} class="footer-link">Compare</a>
-      <a href={DOCS_PATH} class="footer-link">Docs</a>
-    </nav>
-    <p class="footer-copy">&copy; {footerCopyrightLabel}</p>
+    <div class="footer-top">
+      <a href={LEARNER_PATH} class="footer-logo">
+        <Image
+          src={buddyAppIcon}
+          alt={`${headerContent.brandName} Logo`}
+          class="footer-logo-icon"
+          width={64}
+          height={64}
+        />
+        <span class="footer-logo-text">{headerContent.brandName}</span>
+      </a>
+
+      <nav class="footer-nav" aria-label="Footer navigation">
+        {navLinks.map((link) => (
+          <a href={link.href} class="footer-nav-link">
+            {link.label}
+          </a>
+        ))}
+      </nav>
+    </div>
+
+    <div class="footer-rule" aria-hidden="true"></div>
+
+    <div class="footer-bottom">
+      <p class="footer-copy">{footerCopyrightLabel}</p>
+
+      <div class="footer-bottom-right">
+        <nav class="audience-toggle" aria-label="Select audience">
+          <a
+            href={LEARNER_PATH}
+            class:list={["audience-toggle-btn", { active: initialAudience === AUDIENCE_LEARNERS }]}
+            aria-current={initialAudience === AUDIENCE_LEARNERS ? "page" : undefined}
+            data-audience={AUDIENCE_LEARNERS}
+          >
+            Learners
+          </a>
+          <a
+            href={EDUCATOR_PATH}
+            class:list={["audience-toggle-btn", { active: initialAudience === AUDIENCE_EDUCATORS }]}
+            aria-current={initialAudience === AUDIENCE_EDUCATORS ? "page" : undefined}
+            data-audience={AUDIENCE_EDUCATORS}
+          >
+            Educators
+          </a>
+        </nav>
+
+        <nav class="footer-socials" aria-label="Social links">
+          {
+            socialLinks.map((link) => (
+              <a
+                href={link.href}
+                class="footer-social-link"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={link.label}
+                style={`--social-size: ${link.size}px`}
+              >
+                {link.icon === "x" && (
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path
+                      fill="currentColor"
+                      d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+                    />
+                  </svg>
+                )}
+                {link.icon === "youtube" && (
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path
+                      fill="currentColor"
+                      d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.5 31.5 0 0 0 0 12a31.5 31.5 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.5 31.5 0 0 0 24 12a31.5 31.5 0 0 0-.5-5.8zM9.75 15.5v-7l6.5 3.5-6.5 3.5z"
+                    />
+                  </svg>
+                )}
+                {/* Boxless "in" letterform. The usual LinkedIn mark is a solid
+                    square touching every edge of its box, which nothing else
+                    here is — beside two loose glyphs it read as a filled tile. */}
+                {link.icon === "linkedin" && (
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path
+                      fill="currentColor"
+                      d="M6.94 5a2 2 0 1 1-4-.002 2 2 0 0 1 4 .002zM7 8.48H3V21h4V8.48zm6.32 0H9.34V21h3.94v-6.57c0-3.66 4.77-4 4.77 0V21H22v-7.93c0-6.17-7.06-5.94-8.72-2.91l.04-1.68z"
+                    />
+                  </svg>
+                )}
+              </a>
+            ))
+          }
+        </nav>
+      </div>
+    </div>
   </div>
 </footer>
 
 <style is:global>
   .site-footer {
-    border-top: 1px solid var(--color-card-border);
-    padding: var(--space-8) 0;
-    color: var(--color-text-muted);
+    border-top: 1px solid var(--border-weak);
+    padding: var(--space-12) 0 var(--space-10);
+    color: var(--fg-weak);
   }
 
   .footer-inner {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-8);
+  }
+
+  .footer-top {
+    display: flex;
     align-items: center;
-    justify-content: center;
-    gap: var(--space-4);
-    text-align: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+  }
+
+  .footer-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    text-decoration: none;
+    transition: opacity 0.2s var(--ease-out);
+  }
+
+  .footer-logo-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+
+  .footer-logo-text {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--fg-strong);
+    letter-spacing: var(--tracking-tight);
   }
 
   .footer-nav {
     display: flex;
-    align-items: center;
-    justify-content: center;
     flex-wrap: wrap;
-    gap: var(--space-6);
+    align-items: center;
+    gap: var(--space-3) var(--space-6);
   }
 
-  .footer-link {
+  .footer-nav-link {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-body);
     font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--color-text-muted);
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--fg-base);
     text-decoration: none;
     transition: color 0.15s var(--ease-out);
   }
 
+  .footer-rule {
+    width: 100%;
+    border-top: 1px solid var(--border-weak);
+  }
+
+  .footer-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-5);
+  }
+
+  .footer-bottom-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+  }
+
+  .footer-copy {
+    margin: 0;
+    font-size: var(--text-xs);
+    line-height: 1.5;
+    color: var(--fg-weaker);
+  }
+
+  .footer-socials {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  /* A fixed box each glyph is centred inside, rather than each glyph being
+     stretched to fill it — `--social-size` is what keeps them optically equal. */
+  .footer-social-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    color: var(--fg-base);
+    transition: color 0.15s var(--ease-out);
+  }
+
+  .footer-social-link svg {
+    display: block;
+    width: var(--social-size);
+    height: var(--social-size);
+  }
+
+  /* === Audience switch — ghost segment ===
+     Outlined so it still reads as a switch; no fill, no rotation, so it does
+     not read as a button competing with the install CTA above. */
+  .audience-toggle {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--border-base);
+    border-radius: 999px;
+    padding: 2px;
+    width: fit-content;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .audience-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    outline: none !important;
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    font-weight: 450;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    transition:
+      color 0.25s var(--ease-out),
+      background-color 0.25s var(--ease-out);
+    white-space: nowrap;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  .audience-toggle-btn:focus,
+  .audience-toggle-btn:focus-visible,
+  .audience-toggle-btn:active {
+    outline: none !important;
+    box-shadow: none;
+  }
+
+  .audience-toggle-btn.active {
+    color: var(--accent-base);
+    background-color: color-mix(in oklch, var(--accent-base) 10%, transparent);
+  }
+
   @media (hover: hover) and (pointer: fine) {
-    .footer-link:hover {
+    .footer-logo:hover {
+      opacity: 0.9;
+    }
+
+    .footer-nav-link:hover,
+    .footer-social-link:hover {
+      color: var(--fg-strong);
+    }
+
+    .audience-toggle-btn:hover:not(.active) {
       color: var(--color-text-primary);
     }
   }
 
-  .footer-copy {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    opacity: 0.75;
-    margin: 0;
-  }
+  @media (max-width: 640px) {
+    .footer-top {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-6);
+    }
 
-  @media (min-width: 640px) {
-    .footer-inner {
-      flex-direction: row;
+    .footer-nav {
+      gap: var(--space-3) var(--space-5);
+    }
+
+    /* Copyright drops below the switch and socials, which stay on one row and
+       spread to the full width — the same reflow the easel showed. */
+    .footer-bottom {
+      flex-direction: column-reverse;
+      align-items: flex-start;
+      gap: var(--space-6);
+    }
+
+    .footer-bottom-right {
+      width: 100%;
       justify-content: space-between;
-      align-items: center;
+      gap: var(--space-5);
     }
   }
 </style>
+
+<script>
+  // Audience toggle — navigate so URL, metadata, headings, and content stay in sync.
+  // Lives with the toggle markup (the footer); Landing.astro listens for the changing event.
+  const audienceBtns = document.querySelectorAll(".audience-toggle-btn")
+  audienceBtns.forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      const target = btn.getAttribute("data-audience")
+      if (!target) return
+      if (btn.classList.contains("active")) {
+        event.preventDefault()
+        return
+      }
+      const previousAudience = document
+        .querySelector(".audience-toggle-btn.active")
+        ?.getAttribute("data-audience")
+      if (!previousAudience) return
+
+      window.dispatchEvent(
+        new CustomEvent("buddy:audience-changing", {
+          detail: {
+            audience: target,
+            previous_audience: previousAudience,
+            source: "footer_toggle",
+          },
+        }),
+      )
+
+      window.dispatchEvent(
+        new CustomEvent("buddy:analytics", {
+          detail: {
+            event: "audience_selected",
+            properties: {
+              audience: target,
+              previous_audience: previousAudience,
+              source: "footer_toggle",
+            },
+          },
+        }),
+      )
+    })
+  })
+</script>

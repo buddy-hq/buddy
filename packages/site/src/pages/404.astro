@@ -7,7 +7,6 @@ import BasePage from "../layouts/BasePage.astro"
 import buddyMascotConfused from "../assets/mascot/buddy-mascot-confused.png"
 import { content } from "../content/site"
 import {
-  AUDIENCE_LEARNERS,
   COMPARE_PATH,
   DOCS_PATH,
   EDUCATOR_PATH,
@@ -17,6 +16,7 @@ import {
 export const prerender = true
 
 const { notFound } = content
+const download = content.learners.download
 ---
 
 <BasePage
@@ -25,7 +25,7 @@ const { notFound } = content
   robots="noindex, follow"
 >
   <div class="nf-page">
-    <Header showAudienceToggle={false} />
+    <Header />
 
     <main class="nf-main">
       <div class="nf-container">
@@ -83,7 +83,10 @@ const { notFound } = content
   </div>
 
   <div class="nf-install-host" aria-hidden="true">
-    <InstallSection initialAudience={AUDIENCE_LEARNERS} useScrollReveal={false} />
+    <InstallSection
+      headlineLines={download.headlineLines}
+      useScrollReveal={false}
+    />
   </div>
 </BasePage>
 

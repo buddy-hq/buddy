@@ -2,17 +2,19 @@
 import Footer from "../../components/Footer.astro"
 import InstallSection from "../../components/InstallSection.astro"
 import BasePage from "../../layouts/BasePage.astro"
+import { content } from "../../content/site"
 import {
   buildCompareItemListJsonLd,
   getCompareEntries,
   getComparePath,
 } from "../../lib/compare"
-import { AUDIENCE_LEARNERS, LEARNER_PATH } from "../../lib/constants"
+import { LEARNER_PATH } from "../../lib/constants"
 
 export const prerender = true
 
 const entries = await getCompareEntries()
 const itemListJsonLd = buildCompareItemListJsonLd(entries)
+const download = content.learners.download
 ---
 
 <BasePage
@@ -56,7 +58,10 @@ const itemListJsonLd = buildCompareItemListJsonLd(entries)
   </main>
 
   <div class="compare-hub-cta">
-    <InstallSection initialAudience={AUDIENCE_LEARNERS} useScrollReveal={false} />
+    <InstallSection
+      headlineLines={download.headlineLines}
+      useScrollReveal={false}
+    />
   </div>
   <Footer />
 </BasePage>

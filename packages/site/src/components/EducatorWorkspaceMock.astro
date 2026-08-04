@@ -362,6 +362,9 @@ import "./WorkspaceMock.css";
     const readerTabTitle = buddyWindow.querySelector("#reader-tab-title") as HTMLElement | null;
     const readerQuoteText = buddyWindow.querySelector("#reader-quote-text") as HTMLElement | null;
     const readerBodyText = buddyWindow.querySelector("#reader-body-text") as HTMLElement | null;
+    const readerQuoteText2 = buddyWindow.querySelector("#reader-quote-text-2") as HTMLElement | null;
+    const readerBodyText2 = buddyWindow.querySelector("#reader-body-text-2") as HTMLElement | null;
+    const readerRule = buddyWindow.querySelector(".reader-rule") as HTMLElement | null;
     const readerSigText = buddyWindow.querySelector("#reader-sig-text") as HTMLElement | null;
     const readerLocationText = buddyWindow.querySelector("#reader-location-text") as HTMLElement | null;
     const fontToggleBtn = buddyWindow.querySelector("#font-toggle-btn") as HTMLElement | null;
@@ -370,8 +373,6 @@ import "./WorkspaceMock.css";
     const chatInput = buddyWindow.querySelector("#mockup-chat-input") as HTMLTextAreaElement | null;
     const chatSubmitBtn = buddyWindow.querySelector("#chat-submit-btn") as HTMLButtonElement | null;
     
-    const readerPrevBtn = buddyWindow.querySelector("#reader-prev-btn") as HTMLElement | null;
-    const readerNextBtn = buddyWindow.querySelector("#reader-next-btn") as HTMLElement | null;
     const wbDrawings = buddyWindow.querySelector(".wb-drawings") as HTMLElement | null;
     
     const libraryRailBtn = buddyWindow.querySelector('.action-btn[title="Library"]') as HTMLButtonElement | null;
@@ -414,7 +415,7 @@ import "./WorkspaceMock.css";
         const arrow = document.createElement("div");
         arrow.className = "wb-doodle-arrow";
         arrow.innerHTML = `
-          <svg width="40" height="20" viewBox="0 0 40 20" fill="none" stroke="#3b82f6" stroke-width="2">
+          <svg width="40" height="20" viewBox="0 0 40 20" fill="none" stroke="currentColor" style="color: var(--aurora-base)" stroke-width="2">
             <path d="M20,2 L20,18 M15,13 L20,18 L25,13" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         `;
@@ -1391,6 +1392,18 @@ import "./WorkspaceMock.css";
       const page = data.pages[pageIndex];
       if (readerQuoteText) readerQuoteText.textContent = page.quote;
       if (readerBodyText) readerBodyText.textContent = page.body;
+
+      const next = data.pages[pageIndex + 1];
+      if (readerQuoteText2) {
+        readerQuoteText2.textContent = next ? next.quote : "";
+        readerQuoteText2.style.display = next ? "" : "none";
+      }
+      if (readerBodyText2) {
+        readerBodyText2.textContent = next ? next.body : "";
+        readerBodyText2.style.display = next ? "" : "none";
+      }
+      if (readerRule) readerRule.style.display = next ? "" : "none";
+
       if (readerSigText) readerSigText.textContent = page.signature;
       if (readerLocationText) readerLocationText.textContent = page.location;
     }
@@ -1452,26 +1465,6 @@ import "./WorkspaceMock.css";
       fontToggleBtn.addEventListener("click", () => {
         readerContentPane.classList.toggle("serif-font");
         fontToggleBtn.classList.toggle("active");
-      });
-    }
-
-    if (readerPrevBtn) {
-      readerPrevBtn.addEventListener("click", () => {
-        const totalPages = educatorNotebooks[activeNotebook].pages.length;
-        let idx = currentPageIndices[activeNotebook];
-        idx = (idx - 1 + totalPages) % totalPages;
-        currentPageIndices[activeNotebook] = idx;
-        loadReaderPage(activeNotebook, idx);
-      });
-    }
-
-    if (readerNextBtn) {
-      readerNextBtn.addEventListener("click", () => {
-        const totalPages = educatorNotebooks[activeNotebook].pages.length;
-        let idx = currentPageIndices[activeNotebook];
-        idx = (idx + 1) % totalPages;
-        currentPageIndices[activeNotebook] = idx;
-        loadReaderPage(activeNotebook, idx);
       });
     }
 
@@ -1862,21 +1855,6 @@ import "./WorkspaceMock.css";
           currentZoom += 10;
           zoomValue.textContent = `${currentZoom}%`;
         }
-      });
-    }
-
-    const sidebarToggleBtn = buddyWindow.querySelector('.circle-btn[title="Toggle Sidebar"]') as HTMLElement | null;
-    const floatingToggleBtn = buddyWindow.querySelector("#floating-toggle-btn") as HTMLElement | null;
-
-    if (sidebarToggleBtn) {
-      sidebarToggleBtn.addEventListener('click', () => {
-        if (workspaceBody) workspaceBody.classList.add('sidebar-closed');
-      });
-    }
-
-    if (floatingToggleBtn) {
-      floatingToggleBtn.addEventListener('click', () => {
-        if (workspaceBody) workspaceBody.classList.remove('sidebar-closed');
       });
     }
 

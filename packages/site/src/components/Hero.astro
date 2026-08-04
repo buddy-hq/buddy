@@ -1,43 +1,25 @@
 ---
 import BuddyWorkspaceMock from "./BuddyWorkspaceMock.astro"
 import type { Audience } from "../content/site"
-import { content } from "../content/site"
-import { AUDIENCE_EDUCATORS, AUDIENCE_LEARNERS } from "../lib/constants"
+import { AUDIENCE_EDUCATORS } from "../lib/constants"
 
 type Props = {
-  initialAudience?: Audience
+  audience: Audience
 }
 
-const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
-const LearnerHeading = initialAudience === AUDIENCE_LEARNERS ? "h1" : "h2"
-const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
+const { audience } = Astro.props
 ---
 
-<section class:list={["hero animate-in", { "hero--educator": initialAudience === AUDIENCE_EDUCATORS }]} data-analytics-section="hero">
+<section class:list={["hero animate-in", { "hero--educator": audience === AUDIENCE_EDUCATORS }]} data-analytics-section="hero">
   <div class="hero-bg-gradient" aria-hidden="true"></div>
   <div class="container">
 
     <!-- Hero Header -->
     <div class="hero-header-section">
-      <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
-        <LearnerHeading class="hero-title">
-          {content.learners.hero.headlineLines[0]}<br />
-          <span class="hero-accent">{content.learners.hero.headlineLines[1]}</span>
-        </LearnerHeading>
-        <div class="hero-header-row">
-          <div class="hero-header-left">
-            <p class="hero-subtitle">{content.learners.hero.subtext}</p>
-          </div>
-        </div>
-      </div>
-      <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
-        <EducatorHeading class="hero-title hero-title--educator">
-          {content.educators.hero.headlineLines[0] + " "}<span class="hero-accent">{content.educators.hero.headlineLines[1]}</span>
-        </EducatorHeading>
-        <div class="hero-header-row">
-          <div class="hero-header-left">
-            <p class="hero-subtitle">{content.educators.hero.subtext}</p>
-          </div>
+      <slot name="heading" />
+      <div class="hero-header-row">
+        <div class="hero-header-left">
+          <slot name="subtext" />
         </div>
       </div>
     </div>
@@ -46,7 +28,7 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     <div class="hero-visual">
       <div class="mockup-glow"></div>
       <div class="app-mockup-wrapper">
-        <BuddyWorkspaceMock audience={initialAudience} />
+        <BuddyWorkspaceMock {audience} />
       </div>
       <div class="mockup-reflection"></div>
     </div>
@@ -71,14 +53,12 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     padding-top: clamp(3rem, 6vw, 4.5rem);
   }
 
+  /* The section-wide accent wash is gone — the page ground is the theme's job now. */
   .hero-bg-gradient {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    background: radial-gradient(52.53% 57.5% at 50% 100%, transparent 0%, color-mix(in srgb, var(--color-bg) 50%, transparent) 100%), 
-                linear-gradient(180deg, var(--color-bg) 62%, #ff8f66 100%);
-    opacity: 0.28;
     z-index: 0;
     pointer-events: none;
   }
@@ -128,10 +108,7 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
   }
 
   .hero-accent {
-    background: linear-gradient(135deg, #ff6b00 30%, #f59e0b 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--accent-base);
   }
 
   .hero-header-row {
@@ -185,19 +162,17 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: linear-gradient(135deg, #ff8025 0%, #ff6b00 100%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--accent-fill);
+    border: 1px solid var(--border-weak);
     border-radius: var(--radius);
     padding: 12px 24px;
     font-family: var(--font-body);
     font-size: var(--text-sm);
     font-weight: 500;
-    color: #ffffff;
+    color: var(--accent-ink);
     text-decoration: none;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05),
-      0 8px 24px rgba(255, 107, 0, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    box-shadow: var(--shadow-raised);
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     letter-spacing: var(--tracking-wide);
   }
@@ -207,8 +182,8 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background-color: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: var(--surface-base);
+    border: 1px solid var(--border-weak);
     border-radius: var(--radius);
     padding: 12px 24px;
     font-family: var(--font-body);
@@ -217,21 +192,20 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     color: var(--color-text-primary);
     text-decoration: none;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-raised);
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     letter-spacing: var(--tracking-wide);
   }
 
   .hero-btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 30px rgba(255, 107, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.25);
-    background: linear-gradient(135deg, #ff8c3a 0%, #ff7814 100%);
+    box-shadow: var(--shadow-overlay);
+    background: var(--accent-base);
   }
 
   .hero-btn-secondary:hover {
-    background-color: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--surface-raised);
+    border-color: var(--border-base);
     transform: translateY(-2px);
   }
 
@@ -250,29 +224,28 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background-color: rgba(255, 107, 0, 0.04);
-    border: 1px solid rgba(255, 107, 0, 0.15);
+    background-color: var(--accent-weak);
+    border: 1px solid var(--accent-border);
     border-radius: 99px;
     padding: 6px 14px 6px 8px;
     font-size: var(--text-xs);
     font-weight: 500;
     color: var(--color-text-secondary);
     text-decoration: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    box-shadow: var(--shadow-raised);
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .hero-announcement-link:hover {
-    border-color: rgba(255, 107, 0, 0.35);
-    background-color: rgba(255, 107, 0, 0.08);
+    border-color: var(--accent-border);
+    background-color: var(--accent-weak);
     transform: translateY(-1px);
-    color: #ffffff;
+    color: var(--fg-strong);
   }
 
   .announcement-badge {
-    background: linear-gradient(135deg, #ff8025 0%, #ff6b00 100%);
-    color: #ffffff;
+    background: var(--accent-fill);
+    color: var(--accent-ink);
     font-weight: 600;
     padding: 2px 8px;
     border-radius: 99px;
@@ -293,16 +266,11 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
     opacity: 0;
   }
 
+  /* The accent glow behind the mockup is gone — elevation comes from the shadow, not a wash. */
   .mockup-glow {
     position: absolute;
     width: 90%;
     height: 90%;
-    background: radial-gradient(
-      circle,
-      rgba(255, 107, 0, 0.1) 0%,
-      rgba(245, 158, 11, 0.02) 50%,
-      transparent 70%
-    );
     z-index: -1;
     pointer-events: none;
     filter: blur(50px);
@@ -311,7 +279,7 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
   .app-mockup-wrapper {
     width: 100%;
     max-width: 100%;
-    background-color: #0b0b0d; /* Slate black bezel frame */
+    background-color: var(--chrome-base); /* Bezel frame around the app mock */
     border: 1px solid var(--border); /* Outer bezel outline */
     border-radius: calc(var(--radius) + 6px); /* Rounded bezel frame matching concentric math */
     padding: 6px; /* Gutter around the mock */
@@ -333,12 +301,6 @@ const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
   @media (max-width: 992px) {
     .hero {
       padding-bottom: var(--space-6) !important; /* Decrease spacing under the mockup on mobile */
-    }
-
-    .hero-bg-gradient {
-      background: radial-gradient(52.53% 57.5% at 50% 100%, transparent 0%, color-mix(in srgb, var(--color-bg) 50%, transparent) 100%), 
-                  linear-gradient(180deg, var(--color-bg) 48%, #ff8f66 100%) !important;
-      opacity: 0.42 !important;
     }
 
     .hero-header-row {

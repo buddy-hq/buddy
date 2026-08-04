@@ -1,12 +1,8 @@
 ---
 import type { CompareEntry } from "../../lib/compare"
 import { getComparePath } from "../../lib/compare"
-import {
-  AUDIENCE_EDUCATORS,
-  AUDIENCE_LEARNERS,
-  COMPARE_PATH,
-  LEARNER_PATH,
-} from "../../lib/constants"
+import { content } from "../../content/site"
+import { COMPARE_PATH, LEARNER_PATH } from "../../lib/constants"
 import InstallSection from "../InstallSection.astro"
 import CompareBanner from "./CompareBanner.astro"
 import CompareSection from "./CompareSection.astro"
@@ -18,8 +14,10 @@ type Props = {
 
 const { entry, relatedEntries } = Astro.props
 const { data } = entry
-const installAudience =
-  data.audience === "educators" ? AUDIENCE_EDUCATORS : AUDIENCE_LEARNERS
+const download =
+  data.audience === "educators" ? content.educators.download : content.learners.download
+const downloadEyebrow =
+  data.audience === "educators" ? content.educators.download.eyebrow : undefined
 ---
 
 <main class="compare-page">
@@ -85,7 +83,11 @@ const installAudience =
 
 {/* Shared install CTA + download modal (same as main landings). Outside <main> for content validators. */}
 <div class="compare-cta">
-  <InstallSection initialAudience={installAudience} useScrollReveal={false} />
+  <InstallSection
+    eyebrow={downloadEyebrow}
+    headlineLines={download.headlineLines}
+    useScrollReveal={false}
+  />
 </div>
 
 <style>

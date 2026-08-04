@@ -1,0 +1,22 @@
+---
+import { content } from "../content/site"
+import { AUDIENCE_LEARNERS } from "../lib/constants"
+import Hero from "./Hero.astro"
+
+const hero = content.learners.hero
+---
+
+<Hero audience={AUDIENCE_LEARNERS}>
+  <h1 slot="heading" class="hero-title learner-hero-title">
+    {hero.headlineLines[0]} <span class="hero-accent">{hero.headlineLines[1]}</span>
+  </h1>
+  <p slot="subtext" class="hero-subtitle">{hero.subtext}</p>
+</Hero>
+
+<style>
+  @media (max-width: 576px) {
+    .learner-hero-title .hero-accent {
+      display: block;
+    }
+  }
+</style>

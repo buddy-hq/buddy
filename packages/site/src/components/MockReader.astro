@@ -37,34 +37,42 @@ const isEducators = audience === AUDIENCE_EDUCATORS
     </div>
   </div>
 
+  <!-- One continuous column. No pagination: nobody clicks a fake page arrow, and the
+       scroll itself is the affordance that says "this is a real reader". -->
   <div class="reader-content" id="reader-content-pane">
-    <div class="reader-page">
-      <div class="dots-separator">...</div>
+    <article class="reader-page">
       <h2 class="reader-quote" id="reader-quote-text">
-        {isEducators 
-          ? "Standard: NGSS MS-ESS1-1 - Earth's Place in the Universe." 
+        {isEducators
+          ? "Standard: NGSS MS-ESS1-1 — Earth's Place in the Universe."
           : "Whoso would be a man must be a nonconformist."
         }
       </h2>
       <p class="reader-body" id="reader-body-text">
-        {isEducators 
-          ? "Focus: Develop and use a model of the Earth-sun-moon system to describe the cyclic patterns of lunar phases, eclipses of the sun and moon, and seasons. Objective: Students will explain how Earth's 23.5° axial tilt and orbital revolution combine to cause seasonal temperature variations."
+        {isEducators
+          ? "Focus: Develop and use a model of the Earth-sun-moon system to describe the cyclic patterns of lunar phases, eclipses of the sun and moon, and seasons. Objective: Students will explain how Earth's 23.5° axial tilt and orbital revolution combine to cause seasonal temperature variations, and distinguish that mechanism from the common misconception that seasons follow the Earth's distance from the sun."
           : "Is non-conformity required for everyone? Probably not. But to be courageous—to be \"a man\" as Emerson is in a time of different language—you must first be willing to think for yourself. And as Martin Luther King, Jr. (another inspiring non-conformist) said years later, \"Nothing pains some people more than having to think.\" If you can think for yourself, and put those thoughts into meaningful action that improves the state of the world, you're well on the way to a courageous, remarkable life."
         }
       </p>
-      <div class="reader-signature" id="reader-sig-text">
-        {isEducators ? "Next Generation Science Standards" : "Chris Guillebeau"}
-      </div>
-      <div class="dots-separator">...</div>
-    </div>
 
-    <!-- Navigation arrows overlay -->
-    <button class="nav-arrow left" id="reader-prev-btn" aria-label="Previous page">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-    </button>
-    <button class="nav-arrow right" id="reader-next-btn" aria-label="Next page">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-    </button>
+      <div class="reader-rule"></div>
+
+      <h2 class="reader-quote" id="reader-quote-text-2">
+        {isEducators
+          ? "Common preconception: seasons are caused by distance."
+          : "A foolish consistency is the hobgoblin of little minds."
+        }
+      </h2>
+      <p class="reader-body" id="reader-body-text-2">
+        {isEducators
+          ? "Earth is in fact closest to the sun in early January, during the northern winter. The hemisphere tilted toward the sun receives light at a steeper angle and for more hours each day, and it is that concentration of energy — not proximity — that produces summer. Ask students to predict what the southern hemisphere is doing at the same moment."
+          : "Emerson points out that we often worry about staying consistent with what we've said or done in the past, or with what others have come to expect of us. But real growth requires the willingness to change your mind when you meet a better argument. To conform to your own past is just as limiting as conforming to the crowd, and it is harder to notice, because it wears your own face."
+        }
+      </p>
+
+      <div class="reader-signature" id="reader-sig-text">
+        {isEducators ? "Next Generation Science Standards" : "Ralph Waldo Emerson"}
+      </div>
+    </article>
   </div>
 
   <div class="reader-footer">

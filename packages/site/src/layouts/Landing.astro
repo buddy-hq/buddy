@@ -1,6 +1,8 @@
 ---
 import "../styles/global.css"
 import SeoHead from "../components/SeoHead.astro"
+import ThemeStyles from "../components/dev/ThemeStyles.astro"
+import ThemeSwitcher from "../components/dev/ThemeSwitcher.astro"
 import { content } from "../content/site"
 import type { JsonLdObject, RobotsDirective } from "../lib/seo"
 
@@ -32,6 +34,7 @@ const postHogProjectToken = meta.analytics.postHogProjectToken
 <html lang="en">
   <head>
     <SeoHead {title} {description} {ogImagePath} {ogImageAlt} {robots} {additionalJsonLd} />
+    <ThemeStyles />
 
     <script define:vars={{ postHogCaptureEndpoint, postHogProjectToken }}>
       const analyticsHosts = new Set(["hibuddy.in", "www.hibuddy.in"])
@@ -789,6 +792,7 @@ const postHogProjectToken = meta.analytics.postHogProjectToken
     </div>
     <div class="bg-overlay"></div>
     <slot />
+    {import.meta.env.DEV && <ThemeSwitcher />}
 
     <script>
       // Smooth scroll for anchor links

@@ -2,38 +2,40 @@
 import { content } from "../content/site"
 import MarqueeRows from "./MarqueeRows.astro"
 
-const fluency = content.educatorFluency
+const capabilities = content.learnerCapabilities
 ---
 
 <section
-  class="fluency-section"
-  aria-labelledby="fluency-heading"
-  data-analytics-section="fluency"
+  class="learner-capabilities-section"
+  aria-labelledby="learner-capabilities-heading"
+  data-analytics-section="learner_capabilities"
 >
   <div class="container">
-    <div class="fluency-header reveal">
-      <h2 id="fluency-heading" class="fluency-headline">{fluency.headline}</h2>
-      <p class="fluency-subtext">{fluency.subtext}</p>
-    </div>
+    <header class="learner-capabilities-header reveal">
+      <h2 id="learner-capabilities-heading" class="learner-capabilities-headline">
+        {capabilities.headline}
+      </h2>
+      <p class="learner-capabilities-subtext">{capabilities.subtext}</p>
+    </header>
   </div>
 
   <div class="reveal">
     <MarqueeRows
-      primary={fluency.standards}
-      primaryLabel="Standards"
-      secondary={fluency.frameworks}
-      secondaryLabel="Frameworks"
+      primary={capabilities.primary}
+      primaryLabel="Learning tools"
+      secondary={capabilities.secondary}
+      secondaryLabel="Agent capabilities"
     />
   </div>
 </section>
 
 <style>
-  .fluency-section {
+  .learner-capabilities-section {
     padding: var(--space-24) 0;
     overflow: clip;
   }
 
-  .fluency-header {
+  .learner-capabilities-header {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -41,7 +43,7 @@ const fluency = content.educatorFluency
     margin-bottom: var(--space-16);
   }
 
-  .fluency-headline {
+  .learner-capabilities-headline {
     font-family: var(--font-display);
     font-size: clamp(2rem, 3.5vw, 3rem);
     font-weight: 510;
@@ -53,7 +55,7 @@ const fluency = content.educatorFluency
     margin: 0 0 var(--space-5) 0;
   }
 
-  .fluency-subtext {
+  .learner-capabilities-subtext {
     font-family: var(--font-body);
     font-size: 1.0625rem;
     font-weight: 300;
@@ -65,14 +67,15 @@ const fluency = content.educatorFluency
     margin: 0;
   }
 
-  /* Same as the learner capabilities section — the chips wrap denser on a
-     narrow screen, so mobile needs more room, not less. */
+  /* Mobile still needs the breathing room — at 3rem this section was the most
+     cramped on the page, since the chips wrap into an even denser block on a
+     narrow screen. */
   @media (max-width: 768px) {
-    .fluency-section {
+    .learner-capabilities-section {
       padding: clamp(6.5rem, 18vw, 8rem) 0;
     }
 
-    .fluency-header {
+    .learner-capabilities-header {
       margin-bottom: clamp(3.5rem, 10vw, 4.5rem);
     }
   }

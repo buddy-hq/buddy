@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /devtools
 
 Sitemap: https://hibuddy.in/sitemap-index.xml
 Llms-Txt: https://hibuddy.in/llms.txt
