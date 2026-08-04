@@ -1,0 +1,570 @@
+---
+/**
+ * Easel prototype — Free section: four directions that match the page (round 3).
+ *
+ * What the previous rounds got wrong: boxy cards, borders everywhere, visual
+ * noise that looks nothing like the rest of the landing page. The real page is
+ * typography-driven, open, breathing — no card wrappers, no grids of boxes.
+ *
+ * This round uses the real design tokens, the real typographic scale, and the
+ * real section rhythm from the landing page (--font-display at 510, mono
+ * eyebrows, --space-24 padding, .container, .reveal).
+ *
+ * D — "Billboard": Giant headline, single subtext line, inline chips. Full section.
+ * E — "Ledger Row": One Q&A-style row (like AnswersSection) — just the cost question.
+ * F — "Interstitial": A typographic divider between sections. Minimal vertical space.
+ * G — "Capabilities-style": Headline + subtext + marquee of options (like LearnerCapabilities).
+ */
+---
+
+<div class="easel">
+  <div class="easel-controls">
+    <div class="legend">
+      <span>Round 3 — matches the landing page aesthetic · no boxes</span>
+      <span class="legend-dim">
+        Uses the real tokens, type scale, and spacing. Each direction shown as a full-width
+        section mock exactly as it would appear on the page.
+      </span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       DIRECTION D — "Billboard"
+       Same shape as the hero or install section: centered, typographic,
+       big number, one breath of subtext. No cards. No boxes.
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">D</h2>
+      <div class="direction-meta">
+        <h3 class="direction-name">Billboard</h3>
+        <p class="direction-desc">
+          Same rhythm as the install section. Centered, typographic, breathing.
+          The number is the visual. Chips sit inline as proof, not decoration.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <section class="mock-section">
+        <div class="mock-container">
+          <div class="d-layout">
+            <span class="site-eyebrow">No catch</span>
+            <h2 class="d-price">$0</h2>
+            <p class="d-sub">You bring the AI. We built the app.</p>
+            <ul class="d-options">
+              <li>Free models included</li>
+              <li>ChatGPT login</li>
+              <li>API keys</li>
+              <li>Ollama</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       DIRECTION E — "Ledger Row"
+       Same shape as one row of the existing AnswersSection: question on the
+       left, answer on the right. But it's the ONLY row — a standalone
+       section, not buried inside a 4-item FAQ. Keeps the page's ledger
+       rhythm without the other Q&A noise.
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">E</h2>
+      <div class="direction-meta">
+        <h3 class="direction-name">Ledger Row</h3>
+        <p class="direction-desc">
+          One row from the Answers section — but standalone. Question left, answer right.
+          Same grid, same type, same feel, zero clutter.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <section class="mock-section">
+        <div class="mock-container">
+          <div class="e-row">
+            <h2 class="e-q">What does it cost?</h2>
+            <div class="e-a">
+              <p>Nothing. You bring the AI you already have.</p>
+              <ul class="e-chips">
+                <li>Free models included</li>
+                <li>ChatGPT login</li>
+                <li>API keys</li>
+                <li>Ollama</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       DIRECTION F — "Interstitial"
+       A single typographic line between sections — like the <hr> that
+       already exists between sections, but carrying a message. Takes almost
+       no vertical space. Could replace the hr before the install section.
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">F</h2>
+      <div class="direction-meta">
+        <h3 class="direction-name">Interstitial</h3>
+        <p class="direction-desc">
+          A single typographic line between sections. Almost zero height.
+          Could replace the hr before the install section.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <section class="mock-section mock-section-tight">
+        <div class="mock-container">
+          <div class="f-strip">
+            <p class="f-line">
+              Free forever · you bring the AI
+              <span class="f-dim"> · </span>
+              <span class="f-options">ChatGPT login · API keys · Ollama · free models included</span>
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       DIRECTION G — "Capabilities-style"
+       Same shape as LearnerCapabilitiesSection: left-aligned header with
+       headline + subtext, then content below. But instead of a marquee,
+       it's a horizontal list of the AI options. Feels native to the page.
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">G</h2>
+      <div class="direction-meta">
+        <h3 class="direction-name">Capabilities-style</h3>
+        <p class="direction-desc">
+          Same shape as the "There's more in the box" section. Centered header,
+          then a row of options beneath. Native to the page, not a foreign element.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <section class="mock-section">
+        <div class="mock-container">
+          <div class="g-layout">
+            <header class="g-header">
+              <h2 class="g-headline">Free. You bring the AI.</h2>
+              <p class="g-subtext">
+                No pricing page, no subscription. Use your ChatGPT plan, paste an API key, run local models, or start with the free ones included.
+              </p>
+            </header>
+            <div class="g-options">
+              <div class="g-option">
+                <span class="g-option-name">Free models</span>
+                <span class="g-option-detail">included</span>
+              </div>
+              <div class="g-option">
+                <span class="g-option-name">ChatGPT</span>
+                <span class="g-option-detail">your login</span>
+              </div>
+              <div class="g-option">
+                <span class="g-option-name">API keys</span>
+                <span class="g-option-detail">50+ providers</span>
+              </div>
+              <div class="g-option">
+                <span class="g-option-name">Ollama</span>
+                <span class="g-option-detail">local</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+</div>
+
+<style>
+  /* ═══ Easel shell ═══ */
+  .easel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .easel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .legend {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.8125rem;
+    color: oklch(0.85 0 0);
+  }
+
+  .legend-dim {
+    color: oklch(0.6 0 0);
+    max-width: 76ch;
+  }
+
+  /* ═══ Direction wrappers ═══ */
+  .direction {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .direction + .direction {
+    margin-top: 0.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .direction-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .direction-label {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: oklch(1 0 0 / 8%);
+    color: oklch(0.92 0 0);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    margin: 0;
+  }
+
+  .direction-meta { min-width: 0; }
+
+  .direction-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: oklch(0.95 0 0);
+    margin: 0;
+  }
+
+  .direction-desc {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: oklch(0.6 0 0);
+    max-width: 72ch;
+  }
+
+  /* ═══ Page mock — renders at the same width/padding as the real site ═══ */
+  .page-mock {
+    background: var(--surface-page, oklch(0.16 0 0));
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid oklch(1 0 0 / 6%);
+  }
+
+  .mock-section {
+    padding: var(--space-24, 6rem) 0;
+  }
+
+  .mock-section-tight {
+    padding: var(--space-10, 2.5rem) 0;
+  }
+
+  .mock-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6, 1.5rem);
+  }
+
+  /* ═══ Shared: the mono eyebrow used across the real site ═══ */
+  .site-eyebrow {
+    font-family: var(--font-mono, 'Geist Mono', monospace);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-accent-primary, var(--accent-fill));
+  }
+
+  /* ═══════════════════════════════════════════
+     D — Billboard
+     Same visual weight as the install section.
+     ═══════════════════════════════════════════ */
+  .d-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .d-price {
+    font-family: var(--font-display, 'Geist', sans-serif);
+    font-size: clamp(6rem, 14vw, 10rem);
+    font-weight: 510;
+    line-height: 0.85;
+    letter-spacing: -0.04em;
+    color: var(--color-text-primary, var(--fg-strong));
+    margin: var(--space-4, 1rem) 0 var(--space-3, 0.75rem);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .d-sub {
+    font-family: var(--font-body, 'Geist', sans-serif);
+    font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+    font-weight: 300;
+    line-height: 1.5;
+    letter-spacing: -0.011em;
+    color: var(--color-text-secondary, var(--fg-base));
+    max-width: 42ch;
+    text-wrap: pretty;
+    margin: 0 0 var(--space-8, 2rem);
+  }
+
+  .d-options {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-2, 0.5rem) var(--space-5, 1.25rem);
+    margin: 0;
+    padding: 0;
+  }
+
+  .d-options li {
+    font-family: var(--font-mono, 'Geist Mono', monospace);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted, var(--fg-weaker));
+  }
+
+  .d-options li + li::before {
+    content: "·";
+    margin-right: var(--space-5, 1.25rem);
+  }
+
+  @media (max-width: 576px) {
+    .d-options {
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2, 0.5rem);
+    }
+
+    .d-options li + li::before {
+      content: none;
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     E — Ledger Row
+     Same grid as AnswersSection: 0.85fr / 1.15fr
+     ═══════════════════════════════════════════ */
+  .e-row {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: var(--space-6, 1.5rem) var(--space-16, 4rem);
+    align-items: baseline;
+  }
+
+  .e-q {
+    font-family: var(--font-display, 'Geist', sans-serif);
+    font-size: clamp(1.75rem, 2.5vw, 2.5rem);
+    font-weight: 510;
+    line-height: 1.15;
+    letter-spacing: -0.022em;
+    color: var(--color-text-primary, var(--fg-strong));
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .e-a {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5, 1.25rem);
+  }
+
+  .e-a p {
+    font-family: var(--font-body, 'Geist', sans-serif);
+    font-size: 1.0625rem;
+    font-weight: 300;
+    line-height: 1.7;
+    letter-spacing: -0.011em;
+    color: var(--color-text-secondary, var(--fg-base));
+    max-width: 58ch;
+    text-wrap: pretty;
+    margin: 0;
+  }
+
+  .e-chips {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2, 0.5rem);
+    margin: 0;
+    padding: 0;
+  }
+
+  .e-chips li {
+    font-family: var(--font-mono, 'Geist Mono', monospace);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary, var(--fg-weak));
+    background-color: var(--surface-raised, oklch(0.205 0 0));
+    border-radius: 999px;
+    padding: 7px 14px;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 768px) {
+    .e-row {
+      grid-template-columns: 1fr;
+      gap: var(--space-3, 0.75rem);
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     F — Interstitial
+     A single line. Same weight as the <hr> between sections.
+     ═══════════════════════════════════════════ */
+  .f-strip {
+    text-align: center;
+  }
+
+  .f-line {
+    font-family: var(--font-mono, 'Geist Mono', monospace);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted, var(--fg-weaker));
+    margin: 0;
+  }
+
+  .f-dim {
+    color: var(--color-text-muted, var(--fg-weaker));
+    opacity: 0.4;
+  }
+
+  .f-options {
+    color: var(--color-text-tertiary, var(--fg-weak));
+  }
+
+  @media (max-width: 576px) {
+    .f-line {
+      font-size: 10px;
+      letter-spacing: 0.06em;
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     G — Capabilities-style
+     Centered header + a flex row of items separated by dividers.
+     Same shape as LearnerCapabilitiesSection.
+     ═══════════════════════════════════════════ */
+  .g-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .g-header {
+    text-align: center;
+    margin-bottom: var(--space-12, 3rem);
+  }
+
+  .g-headline {
+    font-family: var(--font-display, 'Geist', sans-serif);
+    font-size: clamp(2rem, 3.5vw, 3rem);
+    font-weight: 510;
+    line-height: 1.1;
+    letter-spacing: -0.022em;
+    color: var(--color-text-primary, var(--fg-strong));
+    text-wrap: balance;
+    max-width: 24ch;
+    margin: 0 0 var(--space-5, 1.25rem);
+  }
+
+  .g-subtext {
+    font-family: var(--font-body, 'Geist', sans-serif);
+    font-size: 1.0625rem;
+    font-weight: 300;
+    color: var(--color-text-secondary, var(--fg-base));
+    line-height: 1.7;
+    letter-spacing: -0.011em;
+    max-width: 52ch;
+    text-wrap: pretty;
+    margin: 0;
+  }
+
+  .g-options {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    width: 100%;
+    max-width: 640px;
+  }
+
+  .g-option {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: var(--space-4, 1rem) 0;
+  }
+
+  .g-option + .g-option {
+    border-left: 1px solid var(--border-base, oklch(1 0 0 / 10%));
+  }
+
+  .g-option-name {
+    font-family: var(--font-display, 'Geist', sans-serif);
+    font-size: 0.9375rem;
+    font-weight: 550;
+    color: var(--color-text-primary, var(--fg-strong));
+  }
+
+  .g-option-detail {
+    font-family: var(--font-mono, 'Geist Mono', monospace);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted, var(--fg-weaker));
+  }
+
+  @media (max-width: 576px) {
+    .g-options {
+      flex-wrap: wrap;
+    }
+
+    .g-option {
+      flex: 0 0 50%;
+    }
+
+    /* Reset left borders for wrapping */
+    .g-option:nth-child(odd) {
+      border-left: none;
+    }
+
+    .g-option:nth-child(n+3) {
+      border-top: 1px solid var(--border-base, oklch(1 0 0 / 10%));
+    }
+  }
+</style>

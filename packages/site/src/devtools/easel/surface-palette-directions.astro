@@ -1,0 +1,590 @@
+---
+/**
+ * Easel prototype — the live themes, side by side.
+ *
+ * These slices are NOT a mock of the palettes: they render `THEMES` from
+ * `src/styles/theme.ts`, the same data the real landing page is built from. Add a theme there
+ * and it shows up here; change a token there and this moves with it. There is no second copy
+ * of the palette to drift.
+ *
+ * The one exception is the "Before" slice, which hardcodes the pre-refactor values so there
+ * is something to measure progress against. It is frozen on purpose.
+ *
+ * Rule learned the hard way and worth keeping: do not desaturate to calm a colour down.
+ * Muted accents read pale, and pale reads cheap. The cool ground is what stops orange
+ * becoming a tint — vary hue, accent count, or base depth instead of intensity.
+ */
+import { THEMES, THEME_TOKEN_NAMES, type ThemeTokens } from "../../styles/theme"
+
+type Slice = {
+  readonly id: string
+  readonly name: string
+  readonly description: string
+  readonly note: string
+  readonly tokens: ThemeTokens
+}
+
+/** The site as it was: near-black page, mocks painted BELOW it, warm wash over everything. */
+const BEFORE: ThemeTokens = {
+  "--surface-sunken": "oklch(0.09 0 0)",
+  "--surface-page": "oklch(0.145 0 0)",
+  "--surface-base": "oklch(0.205 0 0 / 45%)",
+  "--surface-raised": "oklch(0.205 0 0 / 45%)",
+  "--surface-high": "oklch(0.205 0 0)",
+  "--surface-overlay": "oklch(0.205 0 0)",
+  "--surface-sticky": "oklch(0.145 0 0 / 75%)",
+  "--invert-fill": "#f3f3f3",
+  "--invert-ink": "#0a0807",
+  "--chrome-screen": "oklch(0.09 0.002 285.823)",
+  "--chrome-sunken": "oklch(0.09 0.002 285.823)",
+  "--chrome-panel": "oklch(0.09 0.002 285.823)",
+  "--chrome-bar": "oklch(0.13 0.004 285.823)",
+  "--chrome-base": "oklch(0.13 0.004 285.823)",
+  "--chrome-doc": "oklch(0.13 0.004 285.823)",
+  "--chrome-raised": "oklch(0.205 0 0)",
+  "--chrome-high": "oklch(0.269 0 0)",
+  "--board-base": "oklch(0.13 0.004 285.823)",
+  "--board-raised": "oklch(0.205 0 0)",
+  "--board-grid": "oklch(0.3 0.004 285.823)",
+  "--board-ink": "oklch(0.85 0 0)",
+  "--board-ink-weak": "oklch(0.6 0 0)",
+  "--aurora-base": "oklch(0.72 0.17 292)",
+  "--aurora-ink": "oklch(0.52 0.2 292)",
+  "--aurora-weak": "oklch(0.72 0.17 292 / 14%)",
+  "--aurora-border": "oklch(0.72 0.17 292 / 34%)",
+  "--border-weak": "oklch(1 0 0 / 5%)",
+  "--border-base": "oklch(1 0 0 / 10%)",
+  "--border-strong": "oklch(1 0 0 / 15%)",
+  "--fg-strong": "oklch(0.985 0 0)",
+  "--fg-base": "oklch(0.85 0 0)",
+  "--fg-weak": "oklch(0.708 0 0)",
+  "--fg-weaker": "oklch(0.556 0 0)",
+  "--accent-base": "oklch(0.87 0.15 37.304)",
+  "--accent-fill": "oklch(0.47 0.157 37.304)",
+  "--accent-ink": "#ffffff",
+  "--accent-weak": "oklch(0.47 0.157 37.304 / 12%)",
+  "--accent-border": "oklch(0.47 0.157 37.304 / 25%)",
+  "--accent-glow": "oklch(0.47 0.157 37.304 / 15%)",
+  "--agent-base": "oklch(0.87 0.15 37.304)",
+  "--agent-weak": "oklch(0.47 0.157 37.304 / 12%)",
+  "--agent-border": "oklch(0.47 0.157 37.304 / 25%)",
+  "--paper-sunken": "#edeae0",
+  "--paper-base": "#f6f4eb",
+  "--paper-raised": "#fffdf7",
+  "--paper-ink": "#1c1a17",
+  "--paper-ink-soft": "#4a4436",
+  "--paper-ink-weak": "oklch(0.45 0.01 70)",
+  "--paper-border": "oklch(0 0 0 / 12%)",
+  "--paper-mark": "oklch(0.7 0.195 41 / 28%)",
+  "--shadow-paper": "0 2px 6px -3px rgb(0 0 0 / 0.13)",
+  "--shadow-raised": "0 20px 25px -5px rgb(0 0 0 / 0.1)",
+  "--shadow-overlay": "0 20px 25px -5px rgb(0 0 0 / 0.2)",
+}
+
+const SLICES: readonly Slice[] = [
+  {
+    id: "before",
+    name: "Before",
+    description: "The site as it stood, frozen for comparison.",
+    note: "Mock chrome sits BELOW the page (0.13 vs 0.145) and its panel is near pure black. The 15% wash is the only chroma on screen, so the page reads brown.",
+    tokens: BEFORE,
+  },
+  ...THEMES.map(
+    (theme): Slice => ({
+      id: theme.id,
+      name: theme.name,
+      description: theme.description,
+      note: `Live theme · data-theme="${theme.id}" · defined in src/styles/theme.ts`,
+      tokens: theme.tokens,
+    }),
+  ),
+]
+
+const SWATCH_KEYS = [
+  "--surface-page",
+  "--surface-base",
+  "--surface-raised",
+  "--chrome-panel",
+  "--accent-fill",
+  "--agent-base",
+] as const
+
+function toStyle(tokens: ThemeTokens): string {
+  return THEME_TOKEN_NAMES.map((name) => `${name}:${tokens[name]}`).join(";")
+}
+---
+
+<div class="easel">
+  <div class="easel-controls">
+    <div class="legend">
+      <span>The live themes, rendered from <code>src/styles/theme.ts</code>.</span>
+      <span class="legend-dim">
+        Same data the landing page uses — change a token there and this moves with it. Pick one
+        on the site itself with the floating Theme control.
+      </span>
+    </div>
+    <div class="layout-toggle" role="group" aria-label="Stage layout">
+      <button type="button" data-layout="grid" class="layout-btn is-active">Grid</button>
+      <button type="button" data-layout="stack" class="layout-btn">1 up</button>
+    </div>
+  </div>
+
+  <div class="stage" data-layout="grid">
+    {
+      SLICES.map((slice) => (
+        <article class="slice" style={toStyle(slice.tokens)}>
+          <header class="slice-head">
+            <div class="slice-id">
+              <h3>{slice.name}</h3>
+              <p class="thesis">{slice.description}</p>
+            </div>
+            <div class="swatches">
+              {SWATCH_KEYS.map((key) => (
+                <span class="swatch" style={`background:var(${key})`} title={key} />
+              ))}
+            </div>
+          </header>
+
+          <div class="canvas">
+            <div class="glow" aria-hidden="true" />
+            <div class="canvas-inner">
+              <p class="eyebrow">CONNECT</p>
+              <h4 class="headline">Buddy speaks Obsidian.</h4>
+              <p class="body">
+                Open your vault and Buddy adapts to it, natively. Wikilinks, embeds, and callouts
+                work in the editor, and the agent stays anchored to that vault.
+              </p>
+
+              <div class="actions">
+                <span class="btn-primary">Download</span>
+                <span class="btn-ghost">See how it works</span>
+              </div>
+
+              <div class="mock">
+                <div class="mock-bar">
+                  <span class="dot" />
+                  <span class="dot" />
+                  <span class="dot" />
+                  <span class="mock-title">vault — buddy</span>
+                </div>
+                <div class="mock-body">
+                  <aside class="mock-rail">
+                    <span class="rail-row is-active" />
+                    <span class="rail-row" />
+                    <span class="rail-row" />
+                    <span class="rail-row" />
+                  </aside>
+                  <div class="mock-doc">
+                    <span class="line w-70" />
+                    <span class="line w-90" />
+                    <span class="line w-50" />
+                    <span class="line line-accent w-40" />
+                    <span class="line w-80" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="cards">
+                <div class="card card-paper">
+                  <p class="paper-kicker">SELF-RELIANCE · P. 12</p>
+                  <p class="paper-body">
+                    A foolish consistency is the <mark>hobgoblin of little minds</mark>, adored by
+                    little statesmen.
+                  </p>
+                </div>
+                <div class="card">
+                  <p class="card-kicker">SPACED REVIEW</p>
+                  <p class="card-title">12 cards due</p>
+                  <p class="card-meta">4 sources open</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <footer class="slice-note">{slice.note}</footer>
+        </article>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .easel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 0;
+  }
+
+  .easel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .legend {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.8125rem;
+    color: oklch(0.85 0 0);
+  }
+
+  .legend code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  .legend-dim {
+    color: oklch(0.6 0 0);
+    max-width: 76ch;
+  }
+
+  .layout-toggle {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid oklch(1 0 0 / 12%);
+    border-radius: 8px;
+  }
+
+  .layout-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: oklch(0.7 0 0);
+    font: inherit;
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .layout-btn.is-active {
+    background: oklch(1 0 0 / 10%);
+    color: oklch(0.98 0 0);
+  }
+
+  .stage {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .stage[data-layout="grid"] {
+    grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
+  }
+
+  .stage[data-layout="stack"] {
+    grid-template-columns: 1fr;
+  }
+
+  /* ---- one theme ---- */
+  .slice {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid oklch(1 0 0 / 10%);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .slice-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: oklch(0.16 0 0);
+    border-bottom: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .slice-id {
+    min-width: 0;
+  }
+
+  .slice-head h3 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: oklch(0.98 0 0);
+    margin: 0;
+  }
+
+  .thesis {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: oklch(0.62 0 0);
+    max-width: 46ch;
+  }
+
+  .swatches {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid oklch(1 0 0 / 15%);
+  }
+
+  .slice-note {
+    padding: 0.625rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    line-height: 1.6;
+    color: oklch(0.58 0 0);
+    background: oklch(0.16 0 0);
+    border-top: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  /* ---- the slice of page, painted only in theme tokens ---- */
+  .canvas {
+    position: relative;
+    background: var(--surface-page);
+    padding: 2rem 1.75rem 2.25rem;
+    isolation: isolate;
+    flex: 1;
+  }
+
+  .glow {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: radial-gradient(60% 55% at 50% 40%, var(--accent-glow), transparent 70%);
+    pointer-events: none;
+  }
+
+  .canvas-inner {
+    position: relative;
+    z-index: 1;
+  }
+
+  .eyebrow {
+    margin: 0 0 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    color: var(--agent-base);
+  }
+
+  .headline {
+    margin: 0 0 0.5rem;
+    font-size: 1.5rem;
+    font-weight: 550;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--fg-strong);
+  }
+
+  .body {
+    margin: 0;
+    max-width: 48ch;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--fg-weak);
+  }
+
+  .actions {
+    display: flex;
+    gap: 0.625rem;
+    margin: 1.25rem 0 1.5rem;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background: var(--accent-fill);
+    color: var(--accent-ink);
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border: 1px solid var(--border-base);
+    background: var(--surface-base);
+    color: var(--fg-strong);
+  }
+
+  /* ---- the product mock: must read as raised ---- */
+  .mock {
+    border: 1px solid var(--border-base);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--chrome-base);
+    box-shadow: var(--shadow-raised);
+  }
+
+  .mock-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-base);
+    background: var(--chrome-base);
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--fg-weaker);
+    opacity: 0.5;
+  }
+
+  .mock-title {
+    margin-left: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--fg-weaker);
+  }
+
+  .mock-body {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    min-height: 148px;
+  }
+
+  .mock-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 10px;
+    background: var(--chrome-panel);
+    border-right: 1px solid var(--border-base);
+  }
+
+  .rail-row {
+    height: 8px;
+    border-radius: 3px;
+    background: var(--fg-weaker);
+    opacity: 0.28;
+  }
+
+  .rail-row.is-active {
+    background: var(--agent-base);
+    opacity: 0.85;
+  }
+
+  .mock-doc {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    background: var(--chrome-doc);
+  }
+
+  .line {
+    height: 9px;
+    border-radius: 3px;
+    background: var(--fg-weaker);
+    opacity: 0.4;
+  }
+
+  .line-accent {
+    background: var(--agent-base);
+    opacity: 0.85;
+  }
+
+  .w-40 {
+    width: 40%;
+  }
+  .w-50 {
+    width: 50%;
+  }
+  .w-70 {
+    width: 70%;
+  }
+  .w-80 {
+    width: 80%;
+  }
+  .w-90 {
+    width: 90%;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .card {
+    padding: 0.875rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-base);
+    background: var(--surface-raised);
+  }
+
+  .card-kicker {
+    margin: 0 0 4px;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    color: var(--fg-weaker);
+  }
+
+  .card-title {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: var(--fg-strong);
+  }
+
+  .card-meta {
+    margin: 4px 0 0;
+    font-size: 0.75rem;
+    color: var(--fg-weaker);
+  }
+
+  /* the reading surface — paper, not chrome */
+  .card-paper {
+    background: var(--paper-base);
+    border-color: var(--paper-border);
+  }
+
+  .paper-kicker {
+    margin: 0 0 6px;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.1em;
+    color: var(--paper-ink-weak);
+  }
+
+  .paper-body {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: var(--paper-ink);
+  }
+
+  .paper-body mark {
+    background: var(--paper-mark);
+    color: inherit;
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+</style>
+
+<script>
+  const stage = document.querySelector<HTMLElement>(".stage")
+  const buttons = document.querySelectorAll<HTMLButtonElement>(".layout-btn")
+
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      const layout = button.dataset.layout
+      if (!stage || !layout) return
+      stage.dataset.layout = layout
+      for (const other of buttons) other.classList.toggle("is-active", other === button)
+    })
+  }
+</script>

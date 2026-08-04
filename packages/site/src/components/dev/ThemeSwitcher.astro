@@ -1,0 +1,176 @@
+---
+/**
+ * Floating theme picker for the real landing page. Dev-only — the caller gates on
+ * `import.meta.env.DEV`, so it never ships.
+ *
+ * Deliberately not URL-driven: the pick lives in localStorage so it carries across the
+ * landing page, /teachers, and /devtools without any cross-page state to reason about.
+ */
+import { THEMES, THEME_STORAGE_KEY } from "../../styles/theme"
+---
+
+<aside class="theme-dev" data-open="false">
+  <button type="button" class="theme-dev-toggle" aria-expanded="false">
+    <span class="theme-dev-chip"></span>
+    <span class="theme-dev-label">Theme</span>
+  </button>
+
+  <div class="theme-dev-list">
+    {
+      THEMES.map((theme) => (
+        <button type="button" class="theme-dev-option" data-theme-id={theme.id}>
+          <span class="theme-dev-swatches" data-theme={theme.id}>
+            <span style="background: var(--surface-page)" />
+            <span style="background: var(--surface-raised)" />
+            <span style="background: var(--accent-fill)" />
+            <span style="background: var(--agent-base)" />
+          </span>
+          <span class="theme-dev-text">
+            <span class="theme-dev-name">{theme.name}</span>
+            <span class="theme-dev-desc">{theme.description}</span>
+          </span>
+        </button>
+      ))
+    }
+  </div>
+</aside>
+
+<style>
+  .theme-dev {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    font-family: var(--font-body);
+  }
+
+  .theme-dev-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-base);
+    background: var(--surface-overlay);
+    color: var(--fg-base);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .theme-dev-chip {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent-fill);
+  }
+
+  .theme-dev-list {
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    width: 288px;
+    border-radius: 12px;
+    border: 1px solid var(--border-base);
+    background: var(--surface-overlay);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .theme-dev[data-open="true"] .theme-dev-list {
+    display: flex;
+  }
+
+  .theme-dev-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .theme-dev-option:hover {
+    background: var(--surface-raised);
+  }
+
+  .theme-dev-option[aria-current="true"] {
+    background: var(--surface-raised);
+    outline: 1px solid var(--accent-border);
+  }
+
+  .theme-dev-swatches {
+    display: grid;
+    grid-template-columns: repeat(2, 12px);
+    grid-template-rows: repeat(2, 12px);
+    gap: 2px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .theme-dev-swatches span {
+    display: block;
+    border-radius: 2px;
+  }
+
+  .theme-dev-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .theme-dev-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-strong);
+  }
+
+  .theme-dev-desc {
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--fg-weaker);
+  }
+</style>
+
+<script define:vars={{ THEME_STORAGE_KEY }}>
+  const root = document.querySelector(".theme-dev")
+  const toggle = root?.querySelector(".theme-dev-toggle")
+  const options = root?.querySelectorAll("[data-theme-id]") ?? []
+
+  function sync() {
+    const active = document.documentElement.dataset.theme
+    for (const option of options) {
+      option.setAttribute("aria-current", String(option.dataset.themeId === active))
+    }
+  }
+
+  toggle?.addEventListener("click", () => {
+    const open = root?.dataset.open !== "true"
+    if (root) root.dataset.open = String(open)
+    toggle.setAttribute("aria-expanded", String(open))
+  })
+
+  for (const option of options) {
+    option.addEventListener("click", () => {
+      const id = option.dataset.themeId
+      if (!id) return
+      document.documentElement.dataset.theme = id
+      window.localStorage.setItem(THEME_STORAGE_KEY, id)
+      sync()
+    })
+  }
+
+  sync()
+</script>

@@ -1,0 +1,739 @@
+---
+/**
+ * Easel prototype — Free section: round 7.
+ *
+ * Q's composition kept: centred, one big anchor, deep air. What Q was missing
+ * is the third thing that has to be conveyed — not just "free" and "you bring
+ * the AI", but *which* AI you can bring.
+ *
+ * So the question here is only: how do the options get into a centred, airy
+ * composition without becoming a chip row, a mono list, or a marquee (all of
+ * which either add clutter or repeat a section that already exists)?
+ *
+ * T — Arrangement · two groups split by a rule — the one being taken forward
+ * U — Slot        · the options arrive over time instead of over space
+ * V — Annotation  · the options are scrawled beside the anchor, by hand
+ *
+ * T's arrangement, top to bottom:
+ *
+ *   $0                                    the hero — the eye lands here first
+ *   The app is free.                      what the number refers to. Present
+ *                                         tense on purpose: "forever" is a
+ *                                         promise the page would be stuck with.
+ *   ─────────────────────────             the group break
+ *   Connect any model or subscription,    what you supply instead
+ *   from 150+ AI providers.
+ *   Connect ChatGPT · Use API keys ·      how, concretely
+ *   Run local models
+ *
+ * The rule is load-bearing: with the BYO line sitting directly under the
+ * number, readers take the *models* to be the free thing, which is the one
+ * claim this section must not make.
+ *
+ * Copy comes from the launch video rather than site.ts — "Connect any Model or
+ * Subscription" is LAUNCH_COPY.transitionToBringYourOwnAi in the demo-video
+ * worktree. The count is from packages/videos/src/providerCatalog.ts (157
+ * names), so "150+" is the safe claim. Free models are deliberately not
+ * mentioned: the point is reach, not a freebie.
+ */
+
+import ollamaIcon from "../../assets/ollama-icon.svg?raw"
+
+const OPENAI_PATH =
+  "M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364l2.0201-1.1638a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997z"
+
+const KEY_PATH =
+  "M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"
+
+const ABOVE_CHIPS = ["Ebook reader", "Whiteboards", "Research", "Simulations", "Flashcards"] as const
+
+/** The options, in the order they appear in the slot roll. */
+const SLOT_WORDS = ["ChatGPT", "your API key", "Ollama", "free models"] as const
+---
+
+<div class="easel">
+  <p class="legend">
+    Round 7 — Q's centred anchor and deep air, with the options put back in. Three ways to carry
+    them: around the anchor, through time, or by hand.
+  </p>
+
+  <!-- ═══ T — Orbit ═════════════════════════════════════════════════════
+       The options are placed in the whitespace around the zero rather than
+       stacked under it. The empty space stops being empty without the
+       section getting any taller or wordier.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">T</h2>
+      <div>
+        <h3 class="direction-name">Arrangement</h3>
+        <p class="direction-desc">
+          Two groups, split by the rule. Above it, what the app costs. Below it, what you supply —
+          kept apart so nobody reads the models as the free thing.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-head">There's more in the box.</h3>
+          <div class="stub-chips">{ABOVE_CHIPS.map((chip) => <span class="stub-chip">{chip}</span>)}</div>
+        </div>
+      </section>
+      <hr class="mock-hr" />
+
+      <section class="band">
+        <div class="mock-container">
+          <div class="t-stage">
+            <p class="t-headline">
+              <span class="anchor t-zero">$0</span>
+              <span class="t-caption">The app is free.</span>
+            </p>
+
+            <div class="t-bridge" aria-hidden="true"></div>
+
+            <p class="t-line">Connect any model or subscription, from 150+ AI providers.</p>
+
+            <ul class="t-ways">
+              <li class="t-way">
+                <span class="t-mark">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d={OPENAI_PATH}></path></svg>
+                </span>
+                <span class="t-label">Connect ChatGPT</span>
+              </li>
+              <li class="t-way">
+                <span class="t-mark">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d={KEY_PATH}></path>
+                    <circle cx="16.5" cy="7.5" r="0.5" fill="currentColor"></circle>
+                  </svg>
+                </span>
+                <span class="t-label">Use API keys</span>
+              </li>
+              <li class="t-way">
+                <span class="t-mark t-mark-raw" set:html={ollamaIcon} />
+                <span class="t-label">Run local models</span>
+              </li>
+            </ul>
+
+          </div>
+        </div>
+      </section>
+
+      <hr class="mock-hr" />
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-install">Whatever you're learning,<br />bring it home.</h3>
+          <div class="stub-buttons"><span></span><span></span></div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ═══ U — Slot ══════════════════════════════════════════════════════
+       One sentence, one word of which keeps changing. All four options are
+       conveyed, but only one is on screen at a time — options over time
+       rather than over space. Four visible words.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">U</h2>
+      <div>
+        <h3 class="direction-name">Slot</h3>
+        <p class="direction-desc">
+          The options arrive one at a time in a rolling word. Four words on screen, ever. Falls back
+          to a stacked list under reduced motion.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-head">There's more in the box.</h3>
+          <div class="stub-chips">{ABOVE_CHIPS.map((chip) => <span class="stub-chip">{chip}</span>)}</div>
+        </div>
+      </section>
+      <hr class="mock-hr" />
+
+      <section class="band">
+        <div class="mock-container">
+          <div class="u-layout">
+            <p class="anchor u-zero">$0</p>
+            <p class="u-line">
+              <span>You bring</span>
+              <span class="u-slot">
+                <span class="u-roll">
+                  {SLOT_WORDS.map((word) => <span class="u-word">{word}</span>)}
+                  <span class="u-word">{SLOT_WORDS[0]}</span>
+                </span>
+              </span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="mock-hr" />
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-install">Whatever you're learning,<br />bring it home.</h3>
+          <div class="stub-buttons"><span></span><span></span></div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ═══ V — Annotation ════════════════════════════════════════════════
+       The zero is the statement; the options are scrawled beside it with a
+       drawn arrow, the way someone would annotate a page. Buddy's
+       handwriting font already exists but has never been used at page level
+       — only inside the whiteboard mocks.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">V</h2>
+      <div>
+        <h3 class="direction-name">Annotation</h3>
+        <p class="direction-desc">
+          The options are handwritten beside the anchor with a drawn arrow. Uses Buddy's own
+          handwriting, which today only ever appears inside the whiteboard mocks.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-head">There's more in the box.</h3>
+          <div class="stub-chips">{ABOVE_CHIPS.map((chip) => <span class="stub-chip">{chip}</span>)}</div>
+        </div>
+      </section>
+      <hr class="mock-hr" />
+
+      <section class="band">
+        <div class="mock-container">
+          <div class="v-stage">
+            <p class="anchor v-zero">$0</p>
+            <div class="v-note">
+              <svg class="v-arrow" viewBox="0 0 120 80" aria-hidden="true">
+                <path d="M112 72 C 80 68, 34 58, 16 18" />
+                <path d="M10 6 L 16 20 L 30 15" />
+              </svg>
+              <p class="v-scrawl">
+                <span>you bring the AI —</span>
+                <span>ChatGPT, your key,</span>
+                <span>Ollama, or the free ones</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="mock-hr" />
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-install">Whatever you're learning,<br />bring it home.</h3>
+          <div class="stub-buttons"><span></span><span></span></div>
+        </div>
+      </section>
+    </div>
+  </section>
+</div>
+
+<style>
+  /* ═══ Easel shell ═══ */
+  .easel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .legend {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: oklch(0.62 0 0);
+    max-width: 88ch;
+  }
+
+  .direction {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .direction + .direction {
+    margin-top: 0.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .direction-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .direction-label {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: oklch(1 0 0 / 8%);
+    color: oklch(0.92 0 0);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    margin: 0;
+  }
+
+  .direction-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: oklch(0.95 0 0);
+    margin: 0;
+  }
+
+  .direction-desc {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: oklch(0.6 0 0);
+    max-width: 84ch;
+  }
+
+  /* ═══ Page mock ═══ */
+  .page-mock {
+    background: var(--surface-page, oklch(0.16 0 0));
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid oklch(1 0 0 / 6%);
+  }
+
+  .mock-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6, 1.5rem);
+  }
+
+  .mock-hr {
+    border: none;
+    border-top: 1px solid var(--border, var(--border-base));
+    margin: 0 auto;
+    max-width: 1200px;
+  }
+
+  .band {
+    padding-block: clamp(6.5rem, 14vw, 11rem);
+  }
+
+  @media (max-width: 768px) {
+    .band {
+      padding-block: clamp(4.5rem, 16vw, 7rem);
+    }
+  }
+
+  /* ═══ Neighbour stubs ═══ */
+  .stub {
+    padding: var(--space-12, 3rem) 0;
+    opacity: 0.72;
+  }
+
+  .stub-head,
+  .stub-install {
+    font-family: var(--font-display, "Geist", sans-serif);
+    font-weight: 510;
+    letter-spacing: -0.022em;
+    color: var(--color-text-primary, var(--fg-strong));
+    text-align: center;
+    margin: 0;
+  }
+
+  .stub-head {
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+
+  .stub-install {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    line-height: 1;
+  }
+
+  .stub-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3, 0.75rem);
+    margin-top: var(--space-6, 1.5rem);
+  }
+
+  .stub-chip {
+    font-family: var(--font-display, "Geist", sans-serif);
+    font-size: 0.9375rem;
+    font-weight: 510;
+    color: var(--color-text-primary, var(--fg-strong));
+    background-color: var(--accent-weak);
+    border: 1px solid var(--accent-border);
+    border-radius: 999px;
+    padding: 8px 18px;
+    white-space: nowrap;
+  }
+
+  .stub-buttons {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-4, 1rem);
+    margin-top: var(--space-8, 2rem);
+  }
+
+  .stub-buttons span {
+    width: 132px;
+    height: 38px;
+    border-radius: var(--radius, 0.625rem);
+    background-color: var(--invert-fill);
+    opacity: 0.9;
+  }
+
+  /* ═══ The anchor, shared by all three ═══ */
+  .anchor {
+    font-family: var(--font-display, "Geist", sans-serif);
+    font-weight: 510;
+    line-height: 0.82;
+    letter-spacing: -0.045em;
+    color: var(--color-text-primary, var(--fg-strong));
+    font-variant-numeric: tabular-nums;
+    margin: 0;
+  }
+
+  /* ═══════════════════════════════════════════
+     T — Orbit
+     ═══════════════════════════════════════════ */
+  /* Four tiers, in reading order: the price, what it costs you instead, the
+     three ways to supply it, and how far that reaches. Each tier is quieter
+     than the one above it. */
+  .t-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* One centred lockup, not a caption: the sentence starts in display type and
+     lands on the number. Set as a stack rather than inline, because a small
+     word baseline-aligned beside a 10rem glyph throws the whole block
+     off-centre. */
+  .t-headline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+  }
+
+  /* Sits under the number so the zero is what the eye lands on first, and the
+     caption tells it what it refers to — the app, not the AI. */
+  .t-caption {
+    font-family: var(--font-display, "Geist", sans-serif);
+    font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+    font-weight: 510;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--color-text-secondary, var(--fg-base));
+    margin-top: var(--space-6, 1.5rem);
+  }
+
+  .t-zero {
+    font-size: clamp(5rem, 13vw, 10rem);
+  }
+
+  /* Heads the lower group. It sits below the rule on purpose — directly under
+     the number it read as "the models are free", which is the opposite of the
+     point. */
+  .t-line {
+    font-family: var(--font-body, "Geist", sans-serif);
+    font-size: clamp(1.0625rem, 1.6vw, 1.375rem);
+    font-weight: 300;
+    letter-spacing: -0.011em;
+    color: var(--color-text-secondary, var(--fg-base));
+    margin: clamp(3rem, 6vw, 4.5rem) 0 0;
+  }
+
+  /* The group break. A hard-edged hairline read as dead weight, and its blunt
+     ends competed with the full-width <hr>s the page puts *between* sections.
+     Fading it to transparent at both ends fixes both: it separates the two
+     groups without announcing itself as a divider, and it can't be mistaken
+     for a section boundary. */
+  .t-bridge {
+    width: 100%;
+    max-width: 34rem;
+    height: 1px;
+    margin: clamp(3.5rem, 7vw, 5.5rem) 0 0;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--border, var(--border-base)) 22%,
+      var(--border, var(--border-base)) 78%,
+      transparent
+    );
+  }
+
+  /* Tight to the sentence it belongs to — tighter than the gaps around the
+     separator, so the statement and its three concrete answers read as one
+     group rather than two more tiers. Still clear enough that the vertical
+     dividers don't run up into the text. */
+  .t-ways {
+    list-style: none;
+    display: flex;
+    width: 100%;
+    max-width: 46rem;
+    margin: clamp(1.5rem, 2.5vw, 2rem) 0 0;
+    padding: 0;
+  }
+
+  .t-way {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3, 0.75rem);
+    padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  }
+
+  /* Vertical hairlines, not cards — the division is structural, not a box. */
+  .t-way + .t-way {
+    border-left: 1px solid var(--border, var(--border-base));
+  }
+
+  .t-mark {
+    display: grid;
+    place-items: center;
+    width: clamp(26px, 2.4vw, 32px);
+    height: clamp(26px, 2.4vw, 32px);
+    color: var(--color-text-secondary, var(--fg-base));
+  }
+
+  .t-mark svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .t-mark-raw :global(svg) {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+  }
+
+  .t-label {
+    font-family: var(--font-mono, "Geist Mono", monospace);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-muted, var(--fg-weaker));
+    white-space: nowrap;
+  }
+
+  /* Stacked, the dividers go away entirely. Carrying them over as horizontal
+     rules turned three peers into a stack of separate rows — spacing alone
+     groups them, and the column stays centred like the rest of the section. */
+  /* Mobile keeps the three side by side and stacks *inside* each one instead.
+     Collapsing them into a vertical list read as an ordered sequence — step
+     one, then two, then three — when they are three equivalent alternatives.
+     The row is what says "pick any of these", so the row survives and the
+     icon/label pair turns vertical to fit. */
+  @media (max-width: 700px) {
+    .t-ways {
+      margin-top: var(--space-10, 2.5rem);
+    }
+
+    .t-way {
+      flex-direction: column;
+      gap: var(--space-3, 0.75rem);
+      padding: 0 var(--space-2, 0.5rem);
+    }
+
+    .t-label {
+      white-space: normal;
+      text-align: center;
+      line-height: 1.45;
+      letter-spacing: 0.06em;
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     U — Slot
+     ═══════════════════════════════════════════ */
+  .u-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .u-zero {
+    font-size: clamp(5.5rem, 15vw, 11rem);
+  }
+
+  .u-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.4em;
+    font-family: var(--font-body, "Geist", sans-serif);
+    font-size: clamp(1.125rem, 1.8vw, 1.5rem);
+    font-weight: 300;
+    letter-spacing: -0.011em;
+    line-height: 1.25;
+    color: var(--color-text-secondary, var(--fg-base));
+    margin: var(--space-10, 2.5rem) 0 0;
+  }
+
+  /* Fixed width so the line never reflows as the word changes; centred so the
+     visible word stays optically under the anchor. */
+  .u-slot {
+    display: inline-block;
+    height: 1.25em;
+    width: 6.5em;
+    overflow: hidden;
+    text-align: center;
+  }
+
+  .u-roll {
+    display: flex;
+    flex-direction: column;
+    animation: u-roll 11s var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) infinite;
+  }
+
+  .u-word {
+    height: 1.25em;
+    line-height: 1.25em;
+    font-weight: 450;
+    color: var(--accent-base);
+    white-space: nowrap;
+  }
+
+  @keyframes u-roll {
+    0%,
+    18% {
+      transform: translateY(0);
+    }
+    25%,
+    43% {
+      transform: translateY(-1.25em);
+    }
+    50%,
+    68% {
+      transform: translateY(-2.5em);
+    }
+    75%,
+    93% {
+      transform: translateY(-3.75em);
+    }
+    100% {
+      transform: translateY(-5em);
+    }
+  }
+
+  /* No motion: the slot opens up and every option is simply listed. */
+  @media (prefers-reduced-motion: reduce) {
+    .u-line {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .u-slot {
+      height: auto;
+      width: auto;
+      text-align: center;
+    }
+
+    .u-roll {
+      animation: none;
+      gap: 0.15em;
+    }
+
+    .u-roll .u-word:last-child {
+      display: none;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .u-line {
+      flex-direction: column;
+      align-items: center;
+      gap: 0.15em;
+    }
+
+    .u-slot {
+      text-align: center;
+      width: 100%;
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     V — Annotation
+     ═══════════════════════════════════════════ */
+  .v-stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: clamp(18rem, 26vw, 24rem);
+  }
+
+  .v-zero {
+    font-size: clamp(5.5rem, 15vw, 11rem);
+  }
+
+  /* Close enough to the anchor that the arrow actually bridges the two. */
+  .v-note {
+    position: absolute;
+    right: 9%;
+    bottom: 20%;
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-2, 0.5rem);
+  }
+
+  .v-arrow {
+    width: clamp(84px, 8.5vw, 124px);
+    height: auto;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: var(--accent-base);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.85;
+  }
+
+  .v-scrawl {
+    display: flex;
+    flex-direction: column;
+    font-family: "Architects Daughter", cursive, sans-serif;
+    font-size: clamp(0.9375rem, 1.4vw, 1.1875rem);
+    line-height: 1.5;
+    color: var(--color-text-secondary, var(--fg-base));
+    margin: 0 0 0.25em;
+    transform: rotate(-2.5deg);
+    transform-origin: left bottom;
+  }
+
+  @media (max-width: 900px) {
+    .v-stage {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-8, 2rem);
+    }
+
+    .v-note {
+      position: static;
+      align-items: center;
+    }
+
+    .v-arrow {
+      transform: rotate(-32deg);
+    }
+  }
+</style>

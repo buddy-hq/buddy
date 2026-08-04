@@ -1,0 +1,737 @@
+---
+/**
+ * Easel prototype — Free section: three design directions.
+ *
+ * The goal: replace the scattered FAQ items (Q3 "What does it cost?" + Q4
+ * "Where does the AI come from?") with a dedicated section that says exactly
+ * two things:
+ *   1. Buddy is free.
+ *   2. It's free because you bring the AI — your ChatGPT login, your API
+ *      keys, free models, or local models. No subscription from us.
+ *
+ * Each direction is shown for both learner and educator audiences, side by side.
+ *
+ * Direction A — "Statement + How" (bold headline, supporting row of options)
+ * Direction B — "Equation" (visual cause→effect, left = what you bring, right = what you get)
+ * Direction C — "Price Tag Flip" (crosses out $0/mo, reveals the real answer)
+ */
+---
+
+<div class="easel">
+  <div class="easel-controls">
+    <div class="legend">
+      <span>Three directions for the "it's free" section · learner (left) and educator (right)</span>
+      <span class="legend-dim">
+        Each says two things: the app is free, and why — you bring the AI you already have.
+        All other FAQ text is removed. Pick a direction, or cherry-pick elements across them.
+      </span>
+    </div>
+    <div class="layout-toggle" role="group" aria-label="Stage layout">
+      <button type="button" data-layout="grid" class="layout-btn is-active">Side by side</button>
+      <button type="button" data-layout="stack" class="layout-btn">Stacked</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       DIRECTION A — "Statement + How"
+       Bold typographic statement at top, then a row of four option cards
+       that explain *how* it's free. Clean, confident, no gimmick.
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">A</h2>
+      <div class="direction-meta">
+        <h3 class="direction-name">Statement + How</h3>
+        <p class="direction-desc">
+          Bold typographic headline states the fact. A row of option cards explains why.
+          No Q&A wrapper, no numbered list — just the claim and the proof.
+        </p>
+      </div>
+    </header>
+
+    <div class="stage" data-layout="grid">
+      <!-- Learner -->
+      <article class="slice">
+        <div class="slice-label">Learner</div>
+        <div class="canvas">
+          <div class="canvas-inner">
+            <p class="a-eyebrow">No catch</p>
+            <h4 class="a-headline">Buddy is free.<br/>You bring the AI.</h4>
+            <p class="a-subtext">
+              No pricing page. No subscription. No trial that expires.
+              You use the AI you already pay for — or start with the free models included.
+            </p>
+
+            <div class="a-options">
+              <div class="a-option">
+                <div class="a-option-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+                <p class="a-option-title">Free models</p>
+                <p class="a-option-desc">Start right now, no setup.</p>
+              </div>
+              <div class="a-option">
+                <div class="a-option-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                </div>
+                <p class="a-option-title">ChatGPT login</p>
+                <p class="a-option-desc">Use your Free, Plus, or Pro plan.</p>
+              </div>
+              <div class="a-option">
+                <div class="a-option-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <p class="a-option-title">API keys</p>
+                <p class="a-option-desc">Paste a key from any provider.</p>
+              </div>
+              <div class="a-option">
+                <div class="a-option-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                </div>
+                <p class="a-option-title">Local models</p>
+                <p class="a-option-desc">Run Ollama on your machine.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Educator -->
+      <article class="slice">
+        <div class="slice-label">Educator</div>
+        <div class="canvas">
+          <div class="canvas-inner">
+            <p class="a-eyebrow">No catch</p>
+            <h4 class="a-headline">Buddy is free.<br/>You bring the AI.</h4>
+            <p class="a-subtext">
+              No pricing page. No subscription. No trial that expires mid-semester.
+              You use the AI you already pay for — or start with the free models tonight.
+            </p>
+
+            <div class="a-options">
+              <div class="a-option">
+                <div class="a-option-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+                <p class="a-option-title">Free models</p>
+                <p class="a-option-desc">Start tonight, no setup.</p>
+              </div>
+              <div class="a-option">
+                <div class="a-option-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                </div>
+                <p class="a-option-title">ChatGPT login</p>
+                <p class="a-option-desc">Use your Free, Plus, or Pro plan.</p>
+              </div>
+              <div class="a-option">
+                <div class="a-option-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <p class="a-option-title">API keys</p>
+                <p class="a-option-desc">Paste a key from any provider.</p>
+              </div>
+              <div class="a-option">
+                <div class="a-option-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                </div>
+                <p class="a-option-title">Local models</p>
+                <p class="a-option-desc">Run Ollama on your machine.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       DIRECTION B — "Equation"
+       Two-column visual: left side = what you bring (your AI), right side =
+       what you get (a free app). The causal link is the design itself.
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">B</h2>
+      <div class="direction-meta">
+        <h3 class="direction-name">Equation</h3>
+        <p class="direction-desc">
+          Visual cause → effect. Left column = what you bring. Right column = what you get.
+          The layout IS the argument: you supply the AI, the app is free.
+        </p>
+      </div>
+    </header>
+
+    <div class="stage" data-layout="grid">
+      <!-- Learner -->
+      <article class="slice">
+        <div class="slice-label">Learner</div>
+        <div class="canvas">
+          <div class="canvas-inner">
+            <div class="b-equation">
+              <div class="b-side b-you">
+                <p class="b-side-label">You bring</p>
+                <h4 class="b-side-headline">The AI you already have.</h4>
+                <ul class="b-list">
+                  <li>
+                    <span class="b-list-marker"></span>
+                    <span><strong>ChatGPT</strong> — log in with Free, Plus, or Pro</span>
+                  </li>
+                  <li>
+                    <span class="b-list-marker"></span>
+                    <span><strong>API keys</strong> — from any provider, 50+</span>
+                  </li>
+                  <li>
+                    <span class="b-list-marker"></span>
+                    <span><strong>Local models</strong> — Ollama on your machine</span>
+                  </li>
+                  <li>
+                    <span class="b-list-marker"></span>
+                    <span><strong>Nothing at all</strong> — free models included</span>
+                  </li>
+                </ul>
+              </div>
+              <div class="b-divider" aria-hidden="true">
+                <span class="b-arrow">→</span>
+              </div>
+              <div class="b-side b-buddy">
+                <p class="b-side-label">You get</p>
+                <h4 class="b-side-headline">A free app. Forever.</h4>
+                <p class="b-side-body">
+                  No pricing page. No subscription.<br/>
+                  No trial that expires.<br/>
+                  Download it, use it, keep it.
+                </p>
+                <div class="b-price-badge">$0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Educator -->
+      <article class="slice">
+        <div class="slice-label">Educator</div>
+        <div class="canvas">
+          <div class="canvas-inner">
+            <div class="b-equation">
+              <div class="b-side b-you">
+                <p class="b-side-label">You bring</p>
+                <h4 class="b-side-headline">The AI you already have.</h4>
+                <ul class="b-list">
+                  <li>
+                    <span class="b-list-marker"></span>
+                    <span><strong>ChatGPT</strong> — log in with Free, Plus, or Pro</span>
+                  </li>
+                  <li>
+                    <span class="b-list-marker"></span>
+                    <span><strong>API keys</strong> — from any provider, 50+</span>
+                  </li>
+                  <li>
+                    <span class="b-list-marker"></span>
+                    <span><strong>Local models</strong> — Ollama on your machine</span>
+                  </li>
+                  <li>
+                    <span class="b-list-marker"></span>
+                    <span><strong>Nothing at all</strong> — free models included</span>
+                  </li>
+                </ul>
+              </div>
+              <div class="b-divider" aria-hidden="true">
+                <span class="b-arrow">→</span>
+              </div>
+              <div class="b-side b-buddy">
+                <p class="b-side-label">You get</p>
+                <h4 class="b-side-headline">A free teaching partner.</h4>
+                <p class="b-side-body">
+                  No pricing page. No subscription.<br/>
+                  No trial that expires mid-semester.<br/>
+                  Download it, use it, keep it.
+                </p>
+                <div class="b-price-badge">$0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       DIRECTION C — "One line + chips"
+       Minimal: one bold line ("Free. Bring the AI you already have."),
+       then a row of chips listing the options. Maximum density, minimum space.
+       Could sit between features and download, or replace the FAQ entirely.
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">C</h2>
+      <div class="direction-meta">
+        <h3 class="direction-name">One line + chips</h3>
+        <p class="direction-desc">
+          Maximum density, minimum space. One bold centered line + a chip row listing
+          the options. Could be a divider-weight section or an inline callout.
+        </p>
+      </div>
+    </header>
+
+    <div class="stage" data-layout="grid">
+      <!-- Learner -->
+      <article class="slice">
+        <div class="slice-label">Learner</div>
+        <div class="canvas canvas-centered">
+          <div class="canvas-inner">
+            <div class="c-block">
+              <h4 class="c-headline">Free. You bring the AI.</h4>
+              <p class="c-subtext">
+                No subscription from us. Use the AI you already pay for, or the free models included.
+              </p>
+              <div class="c-chips">
+                <span class="c-chip">Free models included</span>
+                <span class="c-chip">ChatGPT login</span>
+                <span class="c-chip">API keys</span>
+                <span class="c-chip">Ollama</span>
+                <span class="c-chip c-chip-count">50+ providers</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Educator -->
+      <article class="slice">
+        <div class="slice-label">Educator</div>
+        <div class="canvas canvas-centered">
+          <div class="canvas-inner">
+            <div class="c-block">
+              <h4 class="c-headline">Free. You bring the AI.</h4>
+              <p class="c-subtext">
+                No subscription from us. Use the AI you already pay for, or start with the free models tonight.
+              </p>
+              <div class="c-chips">
+                <span class="c-chip">Free models included</span>
+                <span class="c-chip">ChatGPT login</span>
+                <span class="c-chip">API keys</span>
+                <span class="c-chip">Ollama</span>
+                <span class="c-chip c-chip-count">50+ providers</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+</div>
+
+<style>
+  /* ═══ Easel shell ═══ */
+  .easel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-height: 0;
+  }
+
+  .easel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .legend {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.8125rem;
+    color: oklch(0.85 0 0);
+  }
+
+  .legend-dim {
+    color: oklch(0.6 0 0);
+    max-width: 76ch;
+  }
+
+  .layout-toggle {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid oklch(1 0 0 / 12%);
+    border-radius: 8px;
+  }
+
+  .layout-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: oklch(0.7 0 0);
+    font: inherit;
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .layout-btn.is-active {
+    background: oklch(1 0 0 / 10%);
+    color: oklch(0.98 0 0);
+  }
+
+  /* ═══ Direction wrapper ═══ */
+  .direction {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .direction + .direction {
+    margin-top: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .direction-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .direction-label {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: oklch(1 0 0 / 8%);
+    color: oklch(0.92 0 0);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    margin: 0;
+  }
+
+  .direction-meta {
+    min-width: 0;
+  }
+
+  .direction-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: oklch(0.95 0 0);
+    margin: 0;
+  }
+
+  .direction-desc {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: oklch(0.6 0 0);
+    max-width: 72ch;
+  }
+
+  /* ═══ Stage (grid of slices) ═══ */
+  .stage {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .stage[data-layout="grid"] {
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  }
+
+  .stage[data-layout="stack"] {
+    grid-template-columns: 1fr;
+  }
+
+  .slice {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid oklch(1 0 0 / 10%);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .slice-label {
+    padding: 0.5rem 1rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: oklch(0.65 0 0);
+    background: oklch(0.16 0 0);
+    border-bottom: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .canvas {
+    position: relative;
+    background: var(--surface-page, oklch(0.16 0 0));
+    padding: 2.5rem 2rem 2.75rem;
+    flex: 1;
+  }
+
+  .canvas-centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .canvas-inner {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ═══════════════════════════════════════════
+     DIRECTION A — Statement + How
+     ═══════════════════════════════════════════ */
+  .a-eyebrow {
+    margin: 0 0 0.75rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-base, oklch(0.87 0.15 37.304));
+  }
+
+  .a-headline {
+    margin: 0 0 0.75rem;
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 560;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    color: var(--fg-strong, oklch(0.985 0 0));
+  }
+
+  .a-subtext {
+    margin: 0 0 1.75rem;
+    max-width: 46ch;
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--fg-weak, oklch(0.708 0 0));
+  }
+
+  .a-options {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 900px) {
+    .a-options {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .a-option {
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-base, oklch(1 0 0 / 10%));
+    background: var(--surface-base, oklch(0.205 0 0 / 45%));
+  }
+
+  .a-option-icon {
+    margin-bottom: 0.625rem;
+    color: var(--fg-weaker, oklch(0.556 0 0));
+  }
+
+  .a-option-title {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--fg-strong, oklch(0.985 0 0));
+  }
+
+  .a-option-desc {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--fg-weaker, oklch(0.556 0 0));
+  }
+
+  /* ═══════════════════════════════════════════
+     DIRECTION B — Equation
+     ═══════════════════════════════════════════ */
+  .b-equation {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    align-items: stretch;
+  }
+
+  .b-side {
+    padding: 1.5rem;
+  }
+
+  .b-you {
+    border-radius: 10px 0 0 10px;
+    border: 1px solid var(--border-base, oklch(1 0 0 / 10%));
+    border-right: none;
+    background: var(--surface-base, oklch(0.205 0 0 / 45%));
+  }
+
+  .b-buddy {
+    border-radius: 0 10px 10px 0;
+    border: 1px solid var(--accent-border, oklch(0.47 0.157 37.304 / 25%));
+    border-left: none;
+    background: var(--accent-weak, oklch(0.47 0.157 37.304 / 12%));
+  }
+
+  .b-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    background: linear-gradient(
+      to right,
+      var(--surface-base, oklch(0.205 0 0 / 45%)),
+      var(--accent-weak, oklch(0.47 0.157 37.304 / 12%))
+    );
+    border-top: 1px solid var(--border-base, oklch(1 0 0 / 10%));
+    border-bottom: 1px solid var(--accent-border, oklch(0.47 0.157 37.304 / 25%));
+  }
+
+  .b-arrow {
+    font-size: 1.25rem;
+    color: var(--fg-weaker, oklch(0.556 0 0));
+    font-weight: 300;
+  }
+
+  .b-side-label {
+    margin: 0 0 0.375rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--fg-weaker, oklch(0.556 0 0));
+  }
+
+  .b-side-headline {
+    margin: 0 0 0.875rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    color: var(--fg-strong, oklch(0.985 0 0));
+  }
+
+  .b-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .b-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--fg-weak, oklch(0.708 0 0));
+  }
+
+  .b-list li strong {
+    color: var(--fg-base, oklch(0.85 0 0));
+    font-weight: 600;
+  }
+
+  .b-list-marker {
+    flex-shrink: 0;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--fg-weaker, oklch(0.556 0 0));
+    margin-top: 0.45em;
+  }
+
+  .b-side-body {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.65;
+    color: var(--fg-weak, oklch(0.708 0 0));
+  }
+
+  .b-price-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1.25rem;
+    padding: 0.375rem 1.25rem;
+    border-radius: 999px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--accent-base, oklch(0.87 0.15 37.304));
+    border: 1px solid var(--accent-border, oklch(0.47 0.157 37.304 / 25%));
+    background: var(--accent-weak, oklch(0.47 0.157 37.304 / 8%));
+  }
+
+  /* ═══════════════════════════════════════════
+     DIRECTION C — One line + chips
+     ═══════════════════════════════════════════ */
+  .c-block {
+    max-width: 580px;
+  }
+
+  .c-headline {
+    margin: 0 0 0.625rem;
+    font-size: clamp(2rem, 3.5vw, 2.75rem);
+    font-weight: 560;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--fg-strong, oklch(0.985 0 0));
+  }
+
+  .c-subtext {
+    margin: 0 0 1.5rem;
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--fg-weak, oklch(0.708 0 0));
+    max-width: 48ch;
+    margin-inline: auto;
+  }
+
+  .c-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .c-chip {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fg-weak, oklch(0.708 0 0));
+    background: var(--surface-base, oklch(0.205 0 0 / 45%));
+    border: 1px solid var(--border-base, oklch(1 0 0 / 10%));
+    border-radius: 999px;
+    padding: 0.4rem 0.875rem;
+    white-space: nowrap;
+  }
+
+  .c-chip-count {
+    color: var(--accent-base, oklch(0.87 0.15 37.304));
+    border-color: var(--accent-border, oklch(0.47 0.157 37.304 / 25%));
+    background: var(--accent-weak, oklch(0.47 0.157 37.304 / 12%));
+  }
+</style>
+
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>(".layout-btn")
+  const stages = document.querySelectorAll<HTMLElement>(".stage")
+
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      const layout = button.dataset.layout
+      if (!layout) return
+      for (const stage of stages) stage.dataset.layout = layout
+      for (const other of buttons) other.classList.toggle("is-active", other === button)
+    })
+  }
+</script>

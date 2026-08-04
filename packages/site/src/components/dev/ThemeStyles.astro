@@ -1,0 +1,24 @@
+---
+/**
+ * Emits the theme contract into <head>. `is:inline` keeps Astro's CSS pipeline out of it —
+ * these are custom properties, and scoping them would defeat the point.
+ *
+ * Also restores the last picked theme before first paint, so a switch survives a reload and a
+ * navigation without a flash of the default palette.
+ */
+import {
+  DEFAULT_THEME_ID,
+  THEME_IDS,
+  THEME_STORAGE_KEY,
+  buildThemeStylesheet,
+} from "../../styles/theme"
+
+const themeStylesheet = buildThemeStylesheet()
+---
+
+<style is:inline set:html={themeStylesheet}></style>
+
+<script is:inline define:vars={{ THEME_STORAGE_KEY, DEFAULT_THEME_ID, THEME_IDS }}>
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+  document.documentElement.dataset.theme = THEME_IDS.includes(stored) ? stored : DEFAULT_THEME_ID
+</script>

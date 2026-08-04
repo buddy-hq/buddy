@@ -1,0 +1,190 @@
+---
+/**
+ * Devtools for the marketing site. Dev-only surface, noindex, never linked from the site.
+ * Same shape as the devtools easel in `packages/web`: tab strip, prototype picker, stage.
+ */
+import "../../styles/global.css"
+import ThemeStyles from "../../components/dev/ThemeStyles.astro"
+import FreeSectionDirections from "../../devtools/easel/free-section-directions.astro"
+import FreeSectionRound2 from "../../devtools/easel/free-section-round2.astro"
+import FreeSectionRound3 from "../../devtools/easel/free-section-round3.astro"
+import FreeSectionRound4 from "../../devtools/easel/free-section-round4.astro"
+import FreeSectionRound5 from "../../devtools/easel/free-section-round5.astro"
+import FreeSectionRound6 from "../../devtools/easel/free-section-round6.astro"
+import FooterDirections from "../../devtools/easel/footer-directions.astro"
+import FreeSectionRound7 from "../../devtools/easel/free-section-round7.astro"
+import SurfacePaletteDirections from "../../devtools/easel/surface-palette-directions.astro"
+import {
+  DEVTOOLS_PATH,
+  DEVTOOLS_PROTOTYPE_PARAM,
+  EASEL_FREE_SECTION,
+  EASEL_FREE_SECTION_R2,
+  EASEL_FREE_SECTION_R3,
+  EASEL_FREE_SECTION_R4,
+  EASEL_FREE_SECTION_R5,
+  EASEL_FREE_SECTION_R6,
+  EASEL_FREE_SECTION_R7,
+  EASEL_FOOTER,
+  EASEL_PROTOTYPES,
+  EASEL_SURFACE_PALETTE,
+  resolveEaselPrototype,
+} from "../../devtools/registry"
+
+export const prerender = false
+
+const active = resolveEaselPrototype(Astro.url)
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Devtools · Buddy site</title>
+    <ThemeStyles />
+  </head>
+  <body>
+    <div class="devtools">
+      <nav class="tabs" aria-label="Devtools sections">
+        <span class="brand">Site devtools</span>
+        <span class="tab is-active" aria-current="page">Easel</span>
+      </nav>
+
+      <header class="easel-bar">
+        <div class="picker">
+          <label class="sr-only" for="prototype">Prototype</label>
+          <select id="prototype" name={DEVTOOLS_PROTOTYPE_PARAM}>
+            {
+              EASEL_PROTOTYPES.map((prototype) => (
+                <option value={prototype.id} selected={prototype.id === active.id}>
+                  {prototype.label}
+                </option>
+              ))
+            }
+          </select>
+          <p class="subtitle">{active.subtitle}</p>
+        </div>
+        <span class="badge">Easel</span>
+      </header>
+
+      <main class="stage-outer">
+        {active.id === EASEL_FOOTER && <FooterDirections />}
+        {active.id === EASEL_FREE_SECTION_R7 && <FreeSectionRound7 />}
+        {active.id === EASEL_FREE_SECTION_R6 && <FreeSectionRound6 />}
+        {active.id === EASEL_FREE_SECTION_R5 && <FreeSectionRound5 />}
+        {active.id === EASEL_FREE_SECTION_R4 && <FreeSectionRound4 />}
+        {active.id === EASEL_FREE_SECTION_R3 && <FreeSectionRound3 />}
+        {active.id === EASEL_FREE_SECTION_R2 && <FreeSectionRound2 />}
+        {active.id === EASEL_FREE_SECTION && <FreeSectionDirections />}
+        {active.id === EASEL_SURFACE_PALETTE && <SurfacePaletteDirections />}
+      </main>
+    </div>
+
+    <script is:inline define:vars={{ DEVTOOLS_PATH, DEVTOOLS_PROTOTYPE_PARAM }}>
+      document.getElementById("prototype")?.addEventListener("change", (event) => {
+        const value = event.currentTarget.value
+        window.location.href = `${DEVTOOLS_PATH}?${DEVTOOLS_PROTOTYPE_PARAM}=${value}`
+      })
+    </script>
+  </body>
+</html>
+
+<style>
+  .devtools {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: oklch(0.145 0 0);
+  }
+
+  .tabs {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0 1rem;
+    height: 40px;
+    border-bottom: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .brand {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: oklch(0.98 0 0);
+  }
+
+  .tab {
+    font-size: 0.75rem;
+    color: oklch(0.7 0 0);
+    padding: 0 2px;
+    border-bottom: 2px solid transparent;
+    line-height: 38px;
+  }
+
+  .tab.is-active {
+    color: oklch(0.98 0 0);
+    border-bottom-color: oklch(0.7 0.19 41);
+  }
+
+  .easel-bar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.625rem 1rem;
+    border-bottom: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .picker {
+    min-width: 0;
+  }
+
+  select {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: oklch(0.98 0 0);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  select option {
+    background: oklch(0.205 0 0);
+    color: oklch(0.98 0 0);
+  }
+
+  .subtitle {
+    margin: 2px 0 0;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: oklch(0.58 0 0);
+    max-width: 90ch;
+  }
+
+  .badge {
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    color: oklch(0.75 0 0);
+    border: 1px solid oklch(1 0 0 / 14%);
+    border-radius: 999px;
+    padding: 2px 9px;
+  }
+
+  .stage-outer {
+    flex: 1;
+    min-height: 0;
+    padding: 1rem;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+</style>

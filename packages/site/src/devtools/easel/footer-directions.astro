@@ -1,0 +1,931 @@
+---
+/**
+ * Easel prototype — footer directions.
+ *
+ * Five complete footers, each rendered at desktop and mobile width. Container
+ * queries rather than media queries, which is why both reflows sit on screen
+ * together.
+ *
+ * What's wrong with the footer today:
+ *   · Three horizontal lines inside one screen — the page <hr> before Install,
+ *     `.site-footer` border-top, and the dotted `.footer-rule`.
+ *   · "Download" sits in the footer nav ~200px under the two real download
+ *     buttons, so the page asks for the same click three times.
+ *   · The audience toggle is styled as a *control* — fill, heavy border,
+ *     rotation — and that combination reads as "press me" wherever it sits, so
+ *     it competes with the install CTA above it.
+ *   · Six centred rows in a column, and on desktop the width goes unused.
+ *
+ * The toggle needs a middle ground: quiet enough not to compete, but still
+ * carrying state ("you're on Learners, you can switch"). A plain nav link
+ * loses that and stops reading as a switch at all. So each footer below wears
+ * a different rung of that ladder, from a status dot up to a ghost segment —
+ * none of them filled, bordered and rotated like today's.
+ *
+ * Socials vary too: icons in some, plain words in others. Three glyphs in a row
+ * read as a badge cluster; set as text they join the footer's typography.
+ */
+
+const BRAND = "Buddy"
+const COPYRIGHT = "Copyright © 2026 Prashant Bhudwal"
+
+/**
+ * Two things were making these look mismatched.
+ *
+ * The first is shape: the usual LinkedIn mark is a solid square that touches
+ * every edge of its box, which nothing else here is — so it read as a filled
+ * tile sitting next to two loose glyphs. It's swapped for the boxless "in"
+ * letterform, which puts all three in the same family: marks on the page, not
+ * one badge among them.
+ *
+ * The second is that a shared pixel size is not a shared *optical* size. X is a
+ * thin diagonal and needs to run slightly larger; YouTube is full-width but
+ * only ~70% tall, so its box can be wider without gaining weight. `size` is
+ * tuned by eye, not set to one number.
+ */
+const SOCIALS = [
+  {
+    label: "X",
+    size: 17,
+    path: "M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z",
+  },
+  {
+    label: "YouTube",
+    size: 19,
+    path: "M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.5 31.5 0 0 0 0 12a31.5 31.5 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.5 31.5 0 0 0 24 12a31.5 31.5 0 0 0-.5-5.8zM9.75 15.5v-7l6.5 3.5-6.5 3.5z",
+  },
+  {
+    label: "LinkedIn",
+    size: 18,
+    path: "M6.94 5a2 2 0 1 1-4-.002 2 2 0 0 1 4 .002zM7 8.48H3V21h4V8.48zm6.32 0H9.34V21h3.94v-6.57c0-3.66 4.77-4 4.77 0V21H22v-7.93c0-6.17-7.06-5.94-8.72-2.91l.04-1.68z",
+  },
+] as const
+
+const SOCIAL_WORDS = ["X", "YouTube", "LinkedIn"] as const
+
+/** The only two destinations that actually exist today. */
+const NAV = [
+  { label: "Compare", href: "#" },
+  { label: "Docs", href: "#" },
+] as const
+---
+
+<div class="easel">
+  <p class="legend">
+    Five complete footers, desktop and mobile side by side. Each wears a different treatment of the
+    audience switch — all quieter than today's filled, rotated pill, but all still showing which
+    mode you're in. Socials appear as icons in some and as words in others.
+  </p>
+
+  <!-- ═══ A — Masthead ═══════════════════════════════════════════════
+       Brand left, links right, one hairline. Toggle: ghost segment —
+       unmistakably a switch, no fill. Socials: icons.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="dhead">
+      <h2 class="dlabel">A</h2>
+      <div>
+        <h3 class="dname">Masthead <span class="dtag">ghost segment · icon socials</span></h3>
+        <p class="dnote">
+          Brand left, links right, one hairline. The switch keeps a segmented outline so it still
+          reads as a switch, but loses the fill and the rotation — and sits on the bottom row, as
+          far from the CTA as the footer allows.
+        </p>
+      </div>
+    </header>
+    <div class="views">
+      <div class="view">
+        <span class="vlabel">Desktop</span>
+        <div class="frame frame-desktop">
+          <footer class="ft">
+            <div class="ft-in">
+              <div class="a-top">
+                <div class="brand">
+                  <span class="mark"></span><span class="wordmark">{BRAND}</span>
+                </div>
+                <nav class="nav-row">
+                  {NAV.map((n) => (<a href={n.href}>{n.label}</a>))}
+                </nav>
+              </div>
+              <div class="hair"></div>
+              <div class="a-bot">
+                <p class="fine">{COPYRIGHT}</p>
+                <div class="a-bot-right">
+                  <span class="tg tg-ghost">
+                    <a href="#" class="is-on">Learners</a><a href="#">Educators</a>
+                  </span>
+                  <nav class="socials">
+                    {SOCIALS.map((s) => (
+                      <a href="#" aria-label={s.label}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" style={`width:${s.size}px;height:${s.size}px`}><path fill="currentColor" d={s.path} /></svg>
+                      </a>
+                    ))}
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </div>
+      <div class="view">
+        <span class="vlabel">Mobile</span>
+        <div class="frame frame-mobile">
+          <footer class="ft">
+            <div class="ft-in">
+              <div class="a-top">
+                <div class="brand">
+                  <span class="mark"></span><span class="wordmark">{BRAND}</span>
+                </div>
+                <nav class="nav-row">
+                  {NAV.map((n) => (<a href={n.href}>{n.label}</a>))}
+                </nav>
+              </div>
+              <div class="hair"></div>
+              <div class="a-bot">
+                <p class="fine">{COPYRIGHT}</p>
+                <div class="a-bot-right">
+                  <span class="tg tg-ghost">
+                    <a href="#" class="is-on">Learners</a><a href="#">Educators</a>
+                  </span>
+                  <nav class="socials">
+                    {SOCIALS.map((s) => (
+                      <a href="#" aria-label={s.label}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" style={`width:${s.size}px;height:${s.size}px`}><path fill="currentColor" d={s.path} /></svg>
+                      </a>
+                    ))}
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ B — Single line ════════════════════════════════════════════
+       No rule at all. Toggle: underline tabs. Socials: words.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="dhead">
+      <h2 class="dlabel">B</h2>
+      <div>
+        <h3 class="dname">Single line <span class="dtag">underline tabs · word socials</span></h3>
+        <p class="dnote">
+          One baseline, copyright beneath, and no rule anywhere — space does the separating. Tab
+          underlines carry the state flat, with nothing boxed.
+        </p>
+      </div>
+    </header>
+    <div class="views">
+      <div class="view">
+        <span class="vlabel">Desktop</span>
+        <div class="frame frame-desktop">
+          <footer class="ft">
+            <div class="ft-in">
+              <div class="b-row">
+                <div class="brand"><span class="mark"></span><span class="wordmark">{BRAND}</span></div>
+                <nav class="nav-row">
+                  {NAV.map((n) => (<a href={n.href}>{n.label}</a>))}
+                </nav>
+                <span class="tg tg-tab">
+                  <a href="#" class="is-on">Learners</a><a href="#">Educators</a>
+                </span>
+                <nav class="nav-row nav-muted">
+                  {SOCIAL_WORDS.map((w) => <a href="#">{w}</a>)}
+                </nav>
+              </div>
+              <p class="fine center">{COPYRIGHT}</p>
+            </div>
+          </footer>
+        </div>
+      </div>
+      <div class="view">
+        <span class="vlabel">Mobile</span>
+        <div class="frame frame-mobile">
+          <footer class="ft">
+            <div class="ft-in">
+              <div class="b-row">
+                <div class="brand"><span class="mark"></span><span class="wordmark">{BRAND}</span></div>
+                <nav class="nav-row">
+                  {NAV.map((n) => (<a href={n.href}>{n.label}</a>))}
+                </nav>
+                <span class="tg tg-tab">
+                  <a href="#" class="is-on">Learners</a><a href="#">Educators</a>
+                </span>
+                <nav class="nav-row nav-muted">
+                  {SOCIAL_WORDS.map((w) => <a href="#">{w}</a>)}
+                </nav>
+              </div>
+              <p class="fine center">{COPYRIGHT}</p>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ C — Sign-off ═══════════════════════════════════════════════
+       Wordmark goes big. Toggle: labelled pair. Socials: icons.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="dhead">
+      <h2 class="dlabel">C</h2>
+      <div>
+        <h3 class="dname">Sign-off <span class="dtag">labelled pair · icon socials</span></h3>
+        <p class="dnote">
+          The wordmark carries real size as a closing mark instead of sitting at nav scale. A mono
+          label says what the switch does, so the styling doesn't have to shout it.
+        </p>
+      </div>
+    </header>
+    <div class="views">
+      <div class="view">
+        <span class="vlabel">Desktop</span>
+        <div class="frame frame-desktop">
+          <footer class="ft">
+            <div class="ft-in">
+              <div class="c-grid">
+                <p class="c-sign">{BRAND}</p>
+                <div class="c-meta">
+                  <nav class="nav-row c-nav">
+                    {NAV.map((n) => (<a href={n.href}>{n.label}</a>))}
+                  </nav>
+                  <span class="tg tg-plain">
+                    <span class="tg-label">Viewing as</span>
+                    <a href="#" class="is-on">Learners</a><span class="tg-sep">/</span><a href="#">Educators</a>
+                  </span>
+                </div>
+              </div>
+              <div class="a-bot">
+                <p class="fine">{COPYRIGHT}</p>
+                <nav class="socials">
+                  {SOCIALS.map((s) => (
+                    <a href="#" aria-label={s.label}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" style={`width:${s.size}px;height:${s.size}px`}><path fill="currentColor" d={s.path} /></svg>
+                    </a>
+                  ))}
+                </nav>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </div>
+      <div class="view">
+        <span class="vlabel">Mobile</span>
+        <div class="frame frame-mobile">
+          <footer class="ft">
+            <div class="ft-in">
+              <div class="c-grid">
+                <p class="c-sign">{BRAND}</p>
+                <div class="c-meta">
+                  <nav class="nav-row c-nav">
+                    {NAV.map((n) => (<a href={n.href}>{n.label}</a>))}
+                  </nav>
+                  <span class="tg tg-plain">
+                    <span class="tg-label">Viewing as</span>
+                    <a href="#" class="is-on">Learners</a><span class="tg-sep">/</span><a href="#">Educators</a>
+                  </span>
+                </div>
+              </div>
+              <div class="a-bot">
+                <p class="fine">{COPYRIGHT}</p>
+                <nav class="socials">
+                  {SOCIALS.map((s) => (
+                    <a href="#" aria-label={s.label}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" style={`width:${s.size}px;height:${s.size}px`}><path fill="currentColor" d={s.path} /></svg>
+                    </a>
+                  ))}
+                </nav>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ D — Columns ════════════════════════════════════════════════
+       Toggle becomes navigation under a heading. Socials: word column.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="dhead">
+      <h2 class="dlabel">D</h2>
+      <div>
+        <h3 class="dname">Columns <span class="dtag">audience column · word socials</span></h3>
+        <p class="dnote">
+          The switch stops being a control and becomes two links under an Audience heading — it
+          can't compete with a button if it isn't one. Accent still marks where you are.
+        </p>
+      </div>
+    </header>
+    <div class="views">
+      <div class="view">
+        <span class="vlabel">Desktop</span>
+        <div class="frame frame-desktop">
+          <footer class="ft">
+            <div class="ft-in">
+              <div class="d-cols">
+                <div class="d-col d-col-brand">
+                  <div class="brand"><span class="mark"></span><span class="wordmark">{BRAND}</span></div>
+                  <p class="d-tag">A learning buddy that runs on your computer.</p>
+                </div>
+                <div class="d-col">
+                  <h4 class="d-h">Product</h4><a href="#">Compare</a>
+                </div>
+                <div class="d-col">
+                  <h4 class="d-h">Resources</h4><a href="#">Docs</a>
+                </div>
+                <div class="d-col">
+                  <h4 class="d-h">Audience</h4><a href="#" class="is-on">Learners</a><a href="#">Educators</a>
+                </div>
+                <div class="d-col">
+                  <h4 class="d-h">Follow</h4>{SOCIAL_WORDS.map((w) => <a href="#">{w}</a>)}
+                </div>
+              </div>
+              <div class="hair"></div>
+              <p class="fine">{COPYRIGHT}</p>
+            </div>
+          </footer>
+        </div>
+      </div>
+      <div class="view">
+        <span class="vlabel">Mobile</span>
+        <div class="frame frame-mobile">
+          <footer class="ft">
+            <div class="ft-in">
+              <div class="d-cols">
+                <div class="d-col d-col-brand">
+                  <div class="brand"><span class="mark"></span><span class="wordmark">{BRAND}</span></div>
+                  <p class="d-tag">A learning buddy that runs on your computer.</p>
+                </div>
+                <div class="d-col">
+                  <h4 class="d-h">Product</h4><a href="#">Compare</a>
+                </div>
+                <div class="d-col">
+                  <h4 class="d-h">Resources</h4><a href="#">Docs</a>
+                </div>
+                <div class="d-col">
+                  <h4 class="d-h">Audience</h4><a href="#" class="is-on">Learners</a><a href="#">Educators</a>
+                </div>
+                <div class="d-col">
+                  <h4 class="d-h">Follow</h4>{SOCIAL_WORDS.map((w) => <a href="#">{w}</a>)}
+                </div>
+              </div>
+              <div class="hair"></div>
+              <p class="fine">{COPYRIGHT}</p>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ E — Rail ═══════════════════════════════════════════════════
+       Everything on one row. Toggle: status dot. Socials: words.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="dhead">
+      <h2 class="dlabel">E</h2>
+      <div>
+        <h3 class="dname">Rail <span class="dtag">status dot · word socials</span></h3>
+        <p class="dnote">
+          Minimum height, minimum furniture. A single dot carries the state while the words stay at
+          link weight — the quietest rung that still reads as a switch.
+        </p>
+      </div>
+    </header>
+    <div class="views">
+      <div class="view">
+        <span class="vlabel">Desktop</span>
+        <div class="frame frame-desktop">
+          <footer class="ft">
+            <div class="ft-in">
+              <div class="e-rail">
+                <div class="brand"><span class="mark"></span><span class="wordmark">{BRAND}</span></div>
+                <span class="e-dot"></span>
+                <nav class="nav-row">{NAV.map((n) => (<a href={n.href}>{n.label}</a>))}</nav>
+                <span class="e-dot"></span>
+                <span class="tg tg-plain">
+                  <a href="#" class="is-on tg-dotted">Learners</a><span class="tg-sep">/</span><a href="#">Educators</a>
+                </span>
+                <span class="e-spacer"></span>
+                <nav class="nav-row nav-muted">{SOCIAL_WORDS.map((w) => <a href="#">{w}</a>)}</nav>
+              </div>
+              <p class="fine">{COPYRIGHT}</p>
+            </div>
+          </footer>
+        </div>
+      </div>
+      <div class="view">
+        <span class="vlabel">Mobile</span>
+        <div class="frame frame-mobile">
+          <footer class="ft">
+            <div class="ft-in">
+              <div class="e-rail">
+                <div class="brand"><span class="mark"></span><span class="wordmark">{BRAND}</span></div>
+                <span class="e-dot"></span>
+                <nav class="nav-row">{NAV.map((n) => (<a href={n.href}>{n.label}</a>))}</nav>
+                <span class="e-dot"></span>
+                <span class="tg tg-plain">
+                  <a href="#" class="is-on tg-dotted">Learners</a><span class="tg-sep">/</span><a href="#">Educators</a>
+                </span>
+                <span class="e-spacer"></span>
+                <nav class="nav-row nav-muted">{SOCIAL_WORDS.map((w) => <a href="#">{w}</a>)}</nav>
+              </div>
+              <p class="fine">{COPYRIGHT}</p>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<style>
+  /* ═══ Easel shell ═══ */
+  .easel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  .legend {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: oklch(0.62 0 0);
+    max-width: 92ch;
+  }
+
+  .direction {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .direction + .direction {
+    padding-top: 1.5rem;
+    border-top: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .dhead {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .dlabel {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: oklch(1 0 0 / 8%);
+    color: oklch(0.92 0 0);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    margin: 0;
+  }
+
+  .dname {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: oklch(0.95 0 0);
+    margin: 0;
+  }
+
+  .dtag {
+    font-size: 0.6875rem;
+    font-weight: 400;
+    color: oklch(0.7 0.19 41);
+    margin-left: 0.5rem;
+  }
+
+  .dnote {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: oklch(0.6 0 0);
+    max-width: 88ch;
+  }
+
+  /* ═══ Desktop + mobile side by side ═══ */
+  .views {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  /* Flex sizing lives on the wrapper — an inline-size container that also has
+     to derive its own width from flex content resolves to zero. */
+  .view:has(.frame-desktop) {
+    flex: 1 1 36rem;
+  }
+
+  .view:has(.frame-mobile) {
+    flex: 0 0 375px;
+  }
+
+  .vlabel {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: oklch(0.5 0 0);
+  }
+
+  .frame {
+    container-type: inline-size;
+    background: var(--surface-page, oklch(0.16 0 0));
+    border: 1px solid oklch(1 0 0 / 8%);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .frame-desktop {
+    width: 100%;
+  }
+
+  .frame-mobile {
+    width: 375px;
+  }
+
+  /* ═══ Shared footer atoms ═══ */
+  .ft {
+    color: var(--fg-weak, oklch(0.7 0 0));
+  }
+
+  /* One line per footer at most — the page already draws an <hr> above this, so
+     the footer never adds a border-top plus a dotted rule on top of that. */
+  .ft-in {
+    padding: clamp(2rem, 5cqi, 3.5rem) clamp(1.25rem, 4cqi, 2.5rem);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.5rem, 3cqi, 2.25rem);
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mark {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    background: var(--accent-fill, oklch(0.7 0.19 41));
+    flex: 0 0 auto;
+  }
+
+  .wordmark {
+    font-family: var(--font-display, "Geist", sans-serif);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--color-text-primary, var(--fg-strong));
+  }
+
+  .hair {
+    border-top: 1px solid var(--border-weak, oklch(1 0 0 / 10%));
+  }
+
+  .fine {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--color-text-muted, var(--fg-weaker));
+  }
+
+  .center {
+    text-align: center;
+  }
+
+  .nav-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .ft a {
+    font-family: var(--font-body, "Geist", sans-serif);
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary, var(--fg-base));
+    text-decoration: none;
+  }
+
+  .nav-muted a {
+    color: var(--color-text-muted, var(--fg-weaker));
+  }
+
+  .socials {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.875rem;
+  }
+
+  /* A fixed box that each glyph is centred inside, rather than each glyph
+     being stretched to fill it — the per-icon size on the svg is what keeps
+     them optically equal. */
+  .socials a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    color: var(--color-text-tertiary, var(--fg-weak));
+  }
+
+  .socials svg {
+    display: block;
+  }
+
+  /* ═══ The audience switch — middle ground ═══
+     State without button affordance. What makes today's version compete is
+     fill + heavy border + rotation together; each treatment below drops that
+     combination while keeping the accent that says where you are. */
+  .tg {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+
+  .tg a {
+    color: var(--color-text-tertiary, var(--fg-weak));
+  }
+
+  .tg-label {
+    font-family: var(--font-mono, "Geist Mono", monospace);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-muted, var(--fg-weaker));
+  }
+
+  .tg-sep {
+    color: var(--color-text-muted, var(--fg-weaker));
+    opacity: 0.6;
+  }
+
+  .tg-plain a.is-on {
+    color: var(--accent-base);
+  }
+
+  .tg-dotted::before {
+    content: "";
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-base);
+    margin-right: 0.4rem;
+    vertical-align: middle;
+  }
+
+  .tg-tab {
+    gap: 1rem;
+  }
+
+  .tg-tab a {
+    padding-bottom: 3px;
+    border-bottom: 1.5px solid transparent;
+  }
+
+  .tg-tab a.is-on {
+    color: var(--color-text-primary, var(--fg-strong));
+    border-bottom-color: var(--accent-base);
+  }
+
+  .tg-ghost {
+    gap: 0;
+    border: 1px solid var(--border-base, oklch(1 0 0 / 14%));
+    border-radius: 999px;
+    padding: 2px;
+  }
+
+  .tg-ghost a {
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+
+  .tg-ghost a.is-on {
+    color: var(--accent-base);
+    background: color-mix(in oklch, var(--accent-base) 10%, transparent);
+  }
+
+  /* ═══ A — Masthead ═══ */
+  .a-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .a-bot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .a-bot-right {
+    display: flex;
+    align-items: center;
+    gap: 1.75rem;
+  }
+
+  @container (max-width: 560px) {
+    .a-top {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.5rem;
+    }
+
+    .a-top .nav-row {
+      gap: 0.75rem 1.25rem;
+    }
+
+    .a-bot {
+      flex-direction: column-reverse;
+      align-items: flex-start;
+      gap: 1.25rem;
+    }
+
+    .a-bot-right {
+      width: 100%;
+      justify-content: space-between;
+    }
+  }
+
+  /* ═══ B — Single line ═══ */
+  .b-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+  }
+
+  @container (max-width: 560px) {
+    .b-row {
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .b-row .nav-row {
+      justify-content: center;
+      gap: 0.75rem 1.25rem;
+    }
+  }
+
+  /* ═══ C — Sign-off ═══ */
+  .c-grid {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+  }
+
+  /* The wordmark is the closing mark, so it carries real size rather than
+     sitting at nav scale like every other footer element. */
+  .c-sign {
+    font-family: var(--font-display, "Geist", sans-serif);
+    font-size: clamp(2.25rem, 9cqi, 4rem);
+    font-weight: 510;
+    line-height: 0.85;
+    letter-spacing: -0.035em;
+    color: var(--color-text-primary, var(--fg-strong));
+    margin: 0;
+  }
+
+  .c-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.875rem;
+  }
+
+  .c-nav {
+    justify-content: flex-end;
+  }
+
+  @container (max-width: 560px) {
+    .c-grid {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.75rem;
+    }
+
+    .c-meta {
+      align-items: flex-start;
+      width: 100%;
+    }
+
+    .c-nav {
+      justify-content: flex-start;
+      gap: 0.75rem 1.25rem;
+    }
+  }
+
+  /* ═══ D — Columns ═══ */
+  .d-cols {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
+    gap: 2rem;
+  }
+
+  .d-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    align-items: flex-start;
+  }
+
+  .d-col-brand {
+    gap: 0.875rem;
+  }
+
+  .d-tag {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--color-text-muted, var(--fg-weaker));
+    max-width: 26ch;
+  }
+
+  .d-h {
+    margin: 0 0 0.25rem;
+    font-family: var(--font-mono, "Geist Mono", monospace);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-muted, var(--fg-weaker));
+  }
+
+  .d-col a.is-on {
+    color: var(--accent-base);
+  }
+
+  @container (max-width: 560px) {
+    .d-cols {
+      grid-template-columns: 1fr 1fr;
+      gap: 1.75rem 1.5rem;
+    }
+
+    .d-col-brand {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* ═══ E — Rail ═══ */
+  .e-rail {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .e-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--border-base, oklch(1 0 0 / 20%));
+    flex: 0 0 auto;
+  }
+
+  .e-spacer {
+    flex: 1;
+  }
+
+  @container (max-width: 560px) {
+    .e-rail {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.25rem;
+    }
+
+    .e-dot,
+    .e-spacer {
+      display: none;
+    }
+
+    .e-rail .nav-row {
+      gap: 0.75rem 1.25rem;
+    }
+  }
+</style>

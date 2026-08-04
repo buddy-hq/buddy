@@ -1,0 +1,473 @@
+---
+/**
+ * Easel prototype — Free section: round 6.
+ *
+ * Two facts: it costs nothing, and that's because you bring the AI.
+ *
+ * Round 5 was badly composed — O baseline-aligned 11px mono against 4.5rem
+ * display type so nothing lined up, and P was a 3rem strip with no air in it.
+ * Both crammed content into a corner of a 1200px container.
+ *
+ * Constraints this round:
+ *   · negative space is the point — vertical padding beats the neighbours,
+ *     and content never sprawls across the full container
+ *   · four words maximum
+ *   · one dominant element, nothing competing with it
+ *   · no baseline tricks across wildly different type sizes
+ *
+ * Q — centred  · the anchor alone, with air
+ * R — split    · the distance between the two elements is the composition
+ * S — left-set · anchor over a rule, marks beneath
+ */
+
+import ollamaIcon from "../../assets/ollama-icon.svg?raw"
+
+const OPENAI_PATH =
+  "M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364l2.0201-1.1638a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997z"
+
+/** lucide key-round — reads as a key, unlike the icon in round 5. */
+const KEY_PATH =
+  "M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"
+
+const ABOVE_CHIPS = ["Ebook reader", "Whiteboards", "Research", "Simulations", "Flashcards"] as const
+---
+
+<div class="easel">
+  <p class="legend">
+    Round 6 — four words maximum, one dominant element, and vertical air that beats both
+    neighbours. Neighbour stubs rendered around each so the rhythm is judgeable in place.
+  </p>
+
+  <!-- ═══ Q — Centred ═══════════════════════════════════════════════════
+       The anchor alone. Two elements, nothing else in the section, and
+       enough padding that the zero has room to be loud.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">Q</h2>
+      <div>
+        <h3 class="direction-name">Centred · the anchor alone</h3>
+        <p class="direction-desc">Two elements. Four words. Everything else is air.</p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-head">There's more in the box.</h3>
+          <div class="stub-chips">
+            {ABOVE_CHIPS.map((chip) => <span class="stub-chip">{chip}</span>)}
+          </div>
+        </div>
+      </section>
+      <hr class="mock-hr" />
+
+      <section class="band">
+        <div class="mock-container">
+          <div class="q-layout">
+            <p class="q-zero">$0</p>
+            <p class="q-line">You bring the AI.</p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="mock-hr" />
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-install">Whatever you're learning,<br />bring it home.</h3>
+          <div class="stub-buttons"><span></span><span></span></div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ═══ R — Split ═════════════════════════════════════════════════════
+       Anchor left, line right, and a deliberate gulf between them. The
+       emptiness in the middle is the composition — nothing is baseline-
+       aligned across sizes, the two blocks simply share a centre line.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">R</h2>
+      <div>
+        <h3 class="direction-name">Split · distance is the design</h3>
+        <p class="direction-desc">
+          Anchor left, line right, a gulf between. Left-set, so it doesn't stack another centred
+          slab onto the install title.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-head">There's more in the box.</h3>
+          <div class="stub-chips">
+            {ABOVE_CHIPS.map((chip) => <span class="stub-chip">{chip}</span>)}
+          </div>
+        </div>
+      </section>
+      <hr class="mock-hr" />
+
+      <section class="band">
+        <div class="mock-container">
+          <div class="r-layout">
+            <p class="r-zero">$0</p>
+            <p class="r-line">You bring the AI.</p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="mock-hr" />
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-install">Whatever you're learning,<br />bring it home.</h3>
+          <div class="stub-buttons"><span></span><span></span></div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ═══ S — Left-set ══════════════════════════════════════════════════
+       Anchor over a full-bleed rule, marks beneath at generous spacing.
+       One word in the whole section; the marks carry fact 2. The rule
+       echoes the hairlines the page already uses between sections.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">S</h2>
+      <div>
+        <h3 class="direction-name">Left-set · marks instead of words</h3>
+        <p class="direction-desc">
+          One word. Fact 2 is carried by the three marks — the extreme end of less text.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-head">There's more in the box.</h3>
+          <div class="stub-chips">
+            {ABOVE_CHIPS.map((chip) => <span class="stub-chip">{chip}</span>)}
+          </div>
+        </div>
+      </section>
+      <hr class="mock-hr" />
+
+      <section class="band">
+        <div class="mock-container">
+          <div class="s-layout">
+            <p class="s-zero">$0</p>
+            <hr class="s-rule" />
+            <div class="s-marks">
+              <span class="s-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d={OPENAI_PATH}></path></svg>
+              </span>
+              <span class="s-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d={KEY_PATH}></path>
+                  <circle cx="16.5" cy="7.5" r="0.5" fill="currentColor"></circle>
+                </svg>
+              </span>
+              <span class="s-mark s-mark-raw" aria-hidden="true" set:html={ollamaIcon} />
+              <span class="sr-only">Your ChatGPT login, an API key, or local models.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="mock-hr" />
+      <section class="stub">
+        <div class="mock-container">
+          <h3 class="stub-install">Whatever you're learning,<br />bring it home.</h3>
+          <div class="stub-buttons"><span></span><span></span></div>
+        </div>
+      </section>
+    </div>
+  </section>
+</div>
+
+<style>
+  /* ═══ Easel shell ═══ */
+  .easel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .legend {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: oklch(0.62 0 0);
+    max-width: 88ch;
+  }
+
+  .direction {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .direction + .direction {
+    margin-top: 0.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .direction-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .direction-label {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: oklch(1 0 0 / 8%);
+    color: oklch(0.92 0 0);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    margin: 0;
+  }
+
+  .direction-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: oklch(0.95 0 0);
+    margin: 0;
+  }
+
+  .direction-desc {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: oklch(0.6 0 0);
+    max-width: 84ch;
+  }
+
+  /* ═══ Page mock ═══ */
+  .page-mock {
+    background: var(--surface-page, oklch(0.16 0 0));
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid oklch(1 0 0 / 6%);
+  }
+
+  .mock-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6, 1.5rem);
+  }
+
+  .mock-hr {
+    border: none;
+    border-top: 1px solid var(--border, var(--border-base));
+    margin: 0 auto;
+    max-width: 1200px;
+  }
+
+  /* The free section. Deliberately taller than either neighbour — the air
+     is what makes a single loud element read as confident rather than
+     cramped. */
+  .band {
+    padding-block: clamp(7rem, 15vw, 12rem);
+  }
+
+  @media (max-width: 768px) {
+    .band {
+      padding-block: clamp(4.5rem, 18vw, 7rem);
+    }
+  }
+
+  /* ═══ Neighbour stubs ═══ */
+  .stub {
+    padding: var(--space-12, 3rem) 0;
+    opacity: 0.72;
+  }
+
+  .stub-head,
+  .stub-install {
+    font-family: var(--font-display, "Geist", sans-serif);
+    font-weight: 510;
+    letter-spacing: -0.022em;
+    color: var(--color-text-primary, var(--fg-strong));
+    text-align: center;
+    margin: 0;
+  }
+
+  .stub-head {
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+
+  .stub-install {
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    line-height: 1;
+  }
+
+  .stub-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3, 0.75rem);
+    margin-top: var(--space-6, 1.5rem);
+  }
+
+  .stub-chip {
+    font-family: var(--font-display, "Geist", sans-serif);
+    font-size: 0.9375rem;
+    font-weight: 510;
+    color: var(--color-text-primary, var(--fg-strong));
+    background-color: var(--accent-weak);
+    border: 1px solid var(--accent-border);
+    border-radius: 999px;
+    padding: 8px 18px;
+    white-space: nowrap;
+  }
+
+  .stub-buttons {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-4, 1rem);
+    margin-top: var(--space-8, 2rem);
+  }
+
+  .stub-buttons span {
+    width: 132px;
+    height: 38px;
+    border-radius: var(--radius, 0.625rem);
+    background-color: var(--invert-fill);
+    opacity: 0.9;
+  }
+
+  /* ═══ Shared anchor type ═══ */
+  .q-zero,
+  .r-zero,
+  .s-zero {
+    font-family: var(--font-display, "Geist", sans-serif);
+    font-weight: 510;
+    line-height: 0.82;
+    letter-spacing: -0.045em;
+    color: var(--color-text-primary, var(--fg-strong));
+    font-variant-numeric: tabular-nums;
+    margin: 0;
+  }
+
+  .q-line,
+  .r-line {
+    font-family: var(--font-body, "Geist", sans-serif);
+    font-weight: 300;
+    letter-spacing: -0.011em;
+    color: var(--color-text-secondary, var(--fg-base));
+    margin: 0;
+  }
+
+  /* ═══════════════════════════════════════════
+     Q — Centred
+     ═══════════════════════════════════════════ */
+  .q-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .q-zero {
+    font-size: clamp(5.5rem, 15vw, 11rem);
+  }
+
+  .q-line {
+    font-size: clamp(1.125rem, 1.8vw, 1.5rem);
+    margin-top: var(--space-10, 2.5rem);
+  }
+
+  /* ═══════════════════════════════════════════
+     R — Split
+     Two blocks sharing a centre line, far apart.
+     No cross-size baseline alignment.
+     ═══════════════════════════════════════════ */
+  .r-layout {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(3rem, 12vw, 11rem);
+  }
+
+  .r-zero {
+    font-size: clamp(5rem, 13vw, 9.5rem);
+  }
+
+  .r-line {
+    font-size: clamp(1.125rem, 2vw, 1.75rem);
+    max-width: 14ch;
+    text-wrap: balance;
+  }
+
+  @media (max-width: 768px) {
+    .r-layout {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-8, 2rem);
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     S — Left-set
+     ═══════════════════════════════════════════ */
+  .s-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .s-zero {
+    font-size: clamp(5rem, 14vw, 10rem);
+  }
+
+  .s-rule {
+    width: 100%;
+    border: none;
+    border-top: 1px solid var(--border, var(--border-base));
+    margin: clamp(2.5rem, 5vw, 4rem) 0 0;
+  }
+
+  .s-marks {
+    display: flex;
+    align-items: center;
+    gap: clamp(2rem, 5vw, 4rem);
+    margin-top: clamp(2rem, 4vw, 3rem);
+  }
+
+  .s-mark {
+    display: grid;
+    place-items: center;
+    width: clamp(28px, 3vw, 38px);
+    height: clamp(28px, 3vw, 38px);
+    color: var(--color-text-secondary, var(--fg-base));
+  }
+
+  .s-mark svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .s-mark-raw :global(svg) {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+</style>
