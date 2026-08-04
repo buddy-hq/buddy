@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@buddy/videos",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio",
+    "type-prompt": "bun scripts/type-prompt.ts",
+    "render:launch:check": "remotion still BuddyLaunch ${BUDDY_VIDEO_CHECK_OUTPUT:-out/buddy-launch/stills/check.png} --frame ${BUDDY_VIDEO_CHECK_FRAME:-285}",
+    "render:preview": "bun scripts/render-video.ts preview",
+    "render:master": "bun scripts/render-video.ts master",
+    "render:linkedin": "bun scripts/render-video.ts linkedin",
+    "render:web": "bun scripts/render-video.ts web",
+    "render:whatsapp": "bun scripts/render-video.ts whatsapp",
+    "render:all": "bun scripts/render-video.ts all",
+    "lint": "bun run typecheck",
+    "typecheck": "tsc --noEmit",
+    "build": "bun run typecheck"
+  },
+  "dependencies": {
+    "@clack/prompts": "1.0.0-alpha.1",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@remotion/cli": "4.0.504",
+    "@remotion/media": "4.0.504",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.504"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/react": "19.2.7",
+    "typescript": "catalog:"
+  }
+}
