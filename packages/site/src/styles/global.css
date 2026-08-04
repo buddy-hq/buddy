@@ -150,62 +150,52 @@
    DESIGN TOKENS
    ============================================================ */
 :root {
-  /* OKLCH Theme Tokens (Defaulting to Dark Theme values as marketing site is dark-only) */
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.47 0.157 37.304);
-  --primary-foreground: oklch(0.98 0.016 73.684);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.705 0.213 47.604);
-  --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* ============================================================
+     COLOUR
+     Every value below is an alias onto the theme contract in
+     src/styles/theme.ts, which is emitted by ThemeStyles.astro.
+
+     No literal colour belongs in this file, and none belongs in a
+     component either. If something needs a colour that isn't here,
+     add a token to theme.ts — the only exception is colour that is
+     *depicted* rather than structural (book covers, a chess board,
+     syntax highlighting, the panda). That stays literal, in place.
+     ============================================================ */
 
   /* Surface */
-  --color-bg: var(--background);
-  --color-card-bg: oklch(0.205 0 0 / 45%);
-  --color-card-border: var(--border);
-  --color-card-hover-border: oklch(0.47 0.157 37.304 / 25%);
-  --color-mock-bg: oklch(0.09 0.002 285.823);
-  --color-mock-panel: oklch(0.13 0.004 285.823);
-  --shadow-card: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --color-bg: var(--surface-page);
+  --color-card-bg: var(--surface-raised);
+  --color-card-border: var(--border-base);
+  --color-card-hover-border: var(--accent-border);
+  /* The mock ground meets the page and must read darker than it, or the product shot
+     dissolves into the section around it. Panels/bars sit above the ground, not below. */
+  --color-mock-bg: var(--chrome-panel);
+  --color-mock-panel: var(--chrome-bar);
+  --shadow-card: var(--shadow-raised);
 
   /* Text hierarchy */
-  --color-text-primary: var(--foreground);
-  --color-text-secondary: oklch(0.85 0 0);
-  --color-text-tertiary: var(--muted-foreground);
-  --color-text-muted: oklch(0.556 0 0);
+  --color-text-primary: var(--fg-strong);
+  --color-text-secondary: var(--fg-base);
+  --color-text-tertiary: var(--fg-weak);
+  --color-text-muted: var(--fg-weaker);
 
   /* Accents (semantic names — not color names) */
-  --color-accent-primary: var(--primary);
-  --color-accent-secondary: oklch(0.87 0.15 37.304);
-  --color-accent-cool: #2dd4bf;
-  --color-accent-primary-glow: oklch(0.47 0.157 37.304 / 15%);
-  --color-accent-secondary-glow: oklch(0.87 0.15 37.304 / 12%);
-  --color-accent-cool-glow: rgba(45, 212, 191, 0.12);
+  --color-accent-primary: var(--accent-fill);
+  --color-accent-secondary: var(--accent-base);
+  --color-accent-cool: var(--agent-base);
+  --color-accent-primary-glow: var(--accent-glow);
+  --color-accent-secondary-glow: var(--accent-glow);
+  --color-accent-cool-glow: var(--agent-weak);
+
+  /* shadcn-shaped names, kept only for the few call sites still using them */
+  --background: var(--surface-page);
+  --foreground: var(--fg-strong);
+  --primary: var(--accent-fill);
+  --accent: var(--surface-base);
+  --muted-foreground: var(--fg-weaker);
+  --border: var(--border-base);
+
+  --radius: 0.625rem;
 
   /* Fonts */
   --font-display:
@@ -334,11 +324,11 @@ h6 {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--border-strong);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--fg-weaker);
 }
 
 /* ============================================================
@@ -434,19 +424,17 @@ section {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  background: linear-gradient(135deg, var(--color-accent-secondary), var(--color-accent-primary));
+  background: var(--accent-fill);
   border: none;
   border-radius: 8px;
   padding: 8px 16px;
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 500;
-  color: #ffffff;
+  color: var(--accent-ink);
   text-decoration: none;
   cursor: pointer;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.05),
-    0 4px 12px rgba(255, 107, 0, 0.15);
+  box-shadow: var(--shadow-raised);
   transition:
     transform 160ms var(--ease-out),
     box-shadow 160ms var(--ease-out);
@@ -461,7 +449,7 @@ section {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--surface-base);
   border: 1px solid var(--color-card-border);
   border-radius: 8px;
   padding: 8px 16px;
@@ -488,13 +476,10 @@ section {
 @media (hover: hover) and (pointer: fine) {
   .btn-cta:hover {
     transform: translateY(-1px);
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.08),
-      0 8px 24px rgba(255, 107, 0, 0.28),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    box-shadow: var(--shadow-overlay);
   }
   .btn-secondary:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--surface-raised);
     border-color: var(--color-card-hover-border);
   }
 }
@@ -509,7 +494,7 @@ section {
   right: 0;
   bottom: 0;
   z-index: -2;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-image: radial-gradient(var(--border-weak) 1px, transparent 1px);
   background-size: 32px 32px;
   opacity: 0.65;
   pointer-events: none;
@@ -651,18 +636,15 @@ section {
 /* ============================================================
    SECTION SEPARATORS
    ============================================================ */
+/* Section separators run the full width, every one of them. Capping most of
+   them at 75vw while a single instance opted into 100% made the page look like
+   it changed its mind halfway down. */
 hr {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--border-weak);
   margin: 0 auto;
-  max-width: min(75vw, 1436px);
+  max-width: 100%;
   width: 100%;
-}
-
-@media (max-width: 768px) {
-  hr {
-    max-width: 100%;
-  }
 }
 
 /* ============================================================
@@ -687,6 +669,13 @@ hr {
   .install-section {
     padding-top: var(--space-12) !important;
     padding-bottom: var(--space-16) !important;
+  }
+
+  /* The shared mobile rule flattened this back to 3rem/4rem, which put the
+     largest type on the page in the tightest box on the smallest screen. */
+  .install-section {
+    padding-top: clamp(6.5rem, 18vw, 8rem) !important;
+    padding-bottom: clamp(6.5rem, 18vw, 8rem) !important;
   }
 }
 

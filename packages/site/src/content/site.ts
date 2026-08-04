@@ -1,6 +1,13 @@
 export type Audience = "learners" | "educators"
 
-export type Seo = {
+export type LearnerSeo = {
+  readonly title: string
+  readonly description: string
+  readonly ogImagePath: string
+  readonly ogImageAlt: string
+}
+
+export type EducatorSeo = {
   readonly title: string
   readonly description: string
   readonly ogImagePath: string
@@ -14,10 +21,31 @@ export type Header = {
   readonly downloadLabel: string
 }
 
-export type FeatureItem = {
+export type LearnerFeatureVisual =
+  | "learner-draw"
+  | "learner-play"
+  | "learner-read"
+  | "learner-remember"
+  | "learner-vault"
+
+export type LearnerFeatureItem = {
   readonly tag: string
   readonly title: string
   readonly subtext: string
+  readonly visual: LearnerFeatureVisual
+}
+
+export type EducatorFeatureVisual =
+  | "educator-assess"
+  | "educator-build"
+  | "educator-differentiate"
+  | "educator-plan"
+
+export type EducatorFeatureItem = {
+  readonly tag: string
+  readonly title: string
+  readonly subtext: string
+  readonly visual: EducatorFeatureVisual
 }
 
 export type LoginOption = {
@@ -45,21 +73,87 @@ export type BringYourOwn = {
   readonly options: readonly [BYOOption, BYOOption, BYOOption, BYOOption]
 }
 
-export type Download = {
+/**
+ * The three marks the pricing section can render, one per way of supplying AI.
+ * Declared here rather than in lib/constants.ts because that module already
+ * type-imports from this one.
+ */
+export const PRICING_ICON_OPENAI = "openai"
+export const PRICING_ICON_KEY = "key"
+export const PRICING_ICON_OLLAMA = "ollama"
+
+export type PricingIcon =
+  | typeof PRICING_ICON_OPENAI
+  | typeof PRICING_ICON_KEY
+  | typeof PRICING_ICON_OLLAMA
+
+export type PricingWay = {
+  readonly icon: PricingIcon
+  readonly label: string
+}
+
+/**
+ * The price section. Two groups, and the split between them is the whole point:
+ * `price`/`caption` say what the app costs, `statement`/`ways` say what you
+ * supply instead. Keeping them apart is what stops readers taking the models to
+ * be free too.
+ */
+export type Pricing = {
+  readonly price: string
+  readonly caption: string
+  readonly statement: string
+  readonly ways: readonly [PricingWay, PricingWay, PricingWay]
+}
+
+export type LearnerDownload = {
+  readonly headlineLines: readonly [string, string]
+}
+
+export type EducatorDownload = {
   readonly eyebrow?: string
   readonly headlineLines: readonly [string, string]
 }
 
-export type PhilosophyItem = {
+export type LearnerHero = {
+  readonly headlineLines: readonly [string, string]
+  readonly subtext: string
+}
+
+export type LearnerPhilosophyItem = {
   readonly label: string
   readonly detail: string
 }
 
-export type Philosophy = {
+export type LearnerPhilosophy = {
   readonly headline: string
   readonly subtext?: string
-  readonly items: readonly [PhilosophyItem, PhilosophyItem, PhilosophyItem, PhilosophyItem]
+  readonly items: readonly [
+    LearnerPhilosophyItem,
+    LearnerPhilosophyItem,
+    LearnerPhilosophyItem,
+    LearnerPhilosophyItem,
+  ]
   readonly closingStatement: string
+}
+
+export type EducatorHero = {
+  readonly headlineLines: readonly [string, string]
+  readonly subtext: string
+}
+
+export type LearnerLandingContent = {
+  readonly seo: LearnerSeo
+  readonly hero: LearnerHero
+  readonly features: readonly LearnerFeatureItem[]
+  readonly philosophy: LearnerPhilosophy
+  readonly download: LearnerDownload
+}
+
+export type EducatorLandingContent = {
+  readonly seo: EducatorSeo
+  readonly hero: EducatorHero
+  readonly features: readonly EducatorFeatureItem[]
+  readonly download: EducatorDownload
 }
 
 export type CapabilityItem = {
@@ -127,18 +221,6 @@ export type Meta = {
   }
 }
 
-export type PrivacyLine = {
-  readonly muted: string
-  readonly strong: string
-}
-
-export type Privacy = {
-  readonly eyebrow: string
-  readonly headline: string
-  readonly lines: readonly [PrivacyLine, PrivacyLine, PrivacyLine, PrivacyLine]
-  readonly pivot: string
-}
-
 // The prep artifacts on the desk (week plan, worksheet versions, quiz
 // with key, warm-up slip) are bespoke markup in WhySection.astro, same
 // convention as the workspace mocks.
@@ -156,24 +238,19 @@ export type EducatorFluency = {
   readonly frameworks: readonly string[]
 }
 
-export type AnswerItem = {
-  readonly q: string
-  readonly a: string
-  readonly chips?: readonly string[]
-}
-
-export type Answers = {
-  readonly eyebrow: string
-  readonly headline: string
-  readonly items: readonly AnswerItem[]
-}
-
 // The artifact tiles themselves (quiz card, flashcard, whiteboard, …)
 // are bespoke markup in LearnerLivesSection.astro, same convention as
 // the workspace mocks.
 export type LearnerLives = {
-  readonly headline: string
+  readonly headlineLines: readonly [string, string]
   readonly closing: string
+}
+
+export type LearnerCapabilities = {
+  readonly headline: string
+  readonly subtext: string
+  readonly primary: readonly string[]
+  readonly secondary: readonly string[]
 }
 
 export type NotFound = {
@@ -220,7 +297,25 @@ const bringYourOwn: BringYourOwn = {
   ],
 }
 
-const learnersPhilosophy: Philosophy = {
+/**
+ * Present tense on "free" on purpose — "forever" is a promise the page would be
+ * stuck with. The count tracks the provider catalog the launch video rolls
+ * (packages/videos/src/providerCatalog.ts, 157 names), so 150+ stays true as it
+ * moves. Free models are deliberately unmentioned: the point is reach, not a
+ * freebie.
+ */
+const pricing: Pricing = {
+  price: "$0",
+  caption: "The app is free.",
+  statement: "Connect any model or subscription, from 150+ AI providers.",
+  ways: [
+    { icon: PRICING_ICON_OPENAI, label: "Connect ChatGPT" },
+    { icon: PRICING_ICON_KEY, label: "Use API keys" },
+    { icon: PRICING_ICON_OLLAMA, label: "Run local models" },
+  ],
+}
+
+const learnerPhilosophy: LearnerPhilosophy = {
   headline: "What you learn is yours.",
   subtext:
     "No account, no cloud, no tracking. Your chats, notes, and files stay on your computer, forever.",
@@ -240,33 +335,6 @@ const learnersPhilosophy: Philosophy = {
     {
       label: "No tracking",
       detail: "We can't see what you study. Your chats go to your AI provider.",
-    },
-  ],
-  closingStatement: "",
-}
-
-const educatorsPhilosophy: Philosophy = {
-  headline: "Your classroom, your data.",
-  subtext:
-    "No account, no cloud, no student data leaving the room. Your curriculum, assessments, and student work stay on your machine.",
-  items: [
-    {
-      label: "No account needed",
-      detail: "Open the app and start. No sign-up, no password, no district IT ticket.",
-    },
-    {
-      label: "Local-first",
-      detail:
-        "All files, lessons, and student data live on your computer. Only model calls go to your AI provider.",
-    },
-    {
-      label: "You approve every action",
-      detail: "Buddy asks before it reads, writes, or runs anything. Full permission control.",
-    },
-    {
-      label: "Zero telemetry",
-      detail:
-        "We can't see what you teach or who your students are. No analytics, no tracking, no data collection.",
     },
   ],
   closingStatement: "",
@@ -307,19 +375,19 @@ const header: Header = {
   downloadLabel: "Download",
 }
 
-const learnerSeo: Seo = {
+const learnerSeo: LearnerSeo = {
   title: "Buddy · Learning buddy on your computer",
   description:
     "A free learning buddy for Mac and Windows. Read with Buddy, think on a whiteboard, play simulations, quiz yourself, and keep notes in files you own. No account. Local-first.",
-  ogImagePath: "/og-learning-superapp.png",
-  ogImageAlt: "Buddy: learning buddy on your computer",
+  ogImagePath: "/og-ai-agent-for-the-curious.png",
+  ogImageAlt: "Buddy: an AI agent for the curious",
 }
 
-const educatorSeo: Seo = {
+const educatorSeo: EducatorSeo = {
   title: "Buddy · AI teaching partner on your computer",
   description:
     "Free AI teaching partner for Mac and Windows. Plan lessons, differentiate worksheets, build quizzes, and keep class files on your machine. No account. No cloud. Your data stays yours.",
-  ogImagePath: "/og-teaching-superapp.png",
+  ogImagePath: "/og-ai-teaching-partner.png",
   ogImageAlt: "Buddy: AI teaching partner for educators",
 }
 
@@ -339,11 +407,11 @@ const meta: Meta = {
   defaultDescription: learnerSeo.description,
   defaultOgImagePath: learnerSeo.ogImagePath,
   defaultOgImageAlt: learnerSeo.ogImageAlt,
-  twitterHandle: "@prashant_hq",
+  twitterHandle: "@hibuddyai",
   organizationSameAs: [
-    "https://x.com/prashant_hq",
-    "https://github.com/prashantbhudwal",
-    "https://www.linkedin.com/in/prashantbhudwal/",
+    "https://x.com/hibuddyai",
+    "https://www.youtube.com/@hibuddyin",
+    "https://www.linkedin.com/company/hibuddy-in",
   ],
   analytics: {
     postHogCaptureEndpoint: "https://us.i.posthog.com/i/v0/e/",
@@ -390,32 +458,6 @@ const install: Install = {
   },
 }
 
-const learnersPrivacy: Privacy = {
-  eyebrow: "No account · No cloud · No telemetry",
-  headline: "What you learn is yours.",
-  lines: [
-    { muted: "We can't see", strong: "what you read." },
-    { muted: "We can't see", strong: "what you ask." },
-    { muted: "We can't see", strong: "who you are." },
-    { muted: "We can't even", strong: "count you." },
-  ],
-  pivot:
-    "Not by policy, by architecture. Your notes and files stay on your computer; only model calls leave, to your AI provider, with your keys. And Buddy asks before it reads, writes, or runs anything.",
-}
-
-const educatorsPrivacy: Privacy = {
-  eyebrow: "No account · No cloud · No telemetry",
-  headline: "Your classroom, your data.",
-  lines: [
-    { muted: "We can't see", strong: "what you teach." },
-    { muted: "We can't see", strong: "your students." },
-    { muted: "We can't see", strong: "who you are." },
-    { muted: "We can't even", strong: "count you." },
-  ],
-  pivot:
-    "Not by policy, by architecture. Curriculum, assessments, and student work stay on your machine; only model calls leave, to your AI provider, with your keys. And Buddy asks before it reads, writes, or runs anything.",
-}
-
 const educatorWhy: WhySection = {
   headline: "The job grew. The week didn't.",
   askLabel: "Sunday · 7:14 pm · you ask once",
@@ -424,54 +466,42 @@ const educatorWhy: WhySection = {
   closing: "By 7:19, the week is on your desk. You keep the teaching, and your Sunday.",
 }
 
-const educatorAnswers: Answers = {
-  eyebrow: "Straight answers",
-  headline: "The fine print, up front.",
-  items: [
-    {
-      q: "Where does student work go?",
-      a: "Nowhere. Buddy lives on your computer. Lessons, materials, and student work stay on your machine. Only AI calls leave, to your provider, with your keys. We can't see your classroom; we can't even count you.",
-    },
-    {
-      q: "What does it cost?",
-      a: "Nothing. Buddy is free: no pricing page, no subscription, no trial that expires mid-semester.",
-    },
-    {
-      q: "So who pays for the AI?",
-      a: "You bring the AI you already have: log in with your ChatGPT plan, paste an API key, or run local models. A few free models are included, so you can start tonight.",
-      chips: ["ChatGPT login", "API keys", "Ollama", "Free models included"],
-    },
-  ],
-}
-
-const learnerAnswers: Answers = {
-  eyebrow: "Straight answers",
-  headline: "The fine print, up front.",
-  items: [
-    {
-      q: "Is this another chatbot wrapper?",
-      a: "No. Buddy is a full agent, the same breed as Claude Code or Codex, raised for learning instead of code. It reads your files, builds real apps and boards, and asks before it touches anything.",
-    },
-    {
-      q: "Where does my data go?",
-      a: "Nowhere. Buddy lives on your computer. Notes, chats, and files stay on your machine, as plain files you can open without Buddy. Only AI calls leave, to your provider, with your keys.",
-    },
-    {
-      q: "What does it cost?",
-      a: "Nothing. Buddy is free: no pricing page, no subscription, no trial that expires. A few models are included so you can start right now.",
-    },
-    {
-      q: "Where does the AI come from?",
-      a: "You bring the AI you already have: log in with your ChatGPT plan, paste an API key, or run local models. Your keys, your provider, your choice.",
-      chips: ["ChatGPT login", "API keys", "Ollama", "Free models included"],
-    },
-  ],
-}
-
 const learnerLives: LearnerLives = {
-  headline: "For everything you'll ever learn.",
+  headlineLines: ["For everything you'll", "ever learn."],
   closing:
     "Whatever you're learning, for a grade, a career, or the joy of it, Buddy meets you there.",
+}
+
+const learnerCapabilities: LearnerCapabilities = {
+  headline: "There's more in the box.",
+  /**
+   * Deliberately does not list anything. The feature steps above already walk
+   * through books, notes, whiteboard, simulations and flashcards, and the
+   * marquee below names them again as chips, so an enumerating subtext was the
+   * same information a third time and made "more" ring false.
+   */
+  subtext:
+    "Whatever you end up studying, the tool for it is already sitting there, ready the moment you think to ask for it.",
+  primary: [
+    "Ebook reader",
+    "Whiteboards",
+    "Research",
+    "Simulations",
+    "Games",
+    "Flashcards",
+    "Notes",
+    "Quizzes",
+  ],
+  secondary: [
+    "Image generation",
+    "Skills",
+    "Local-first",
+    "File editor",
+    "Subagents",
+    "MCP",
+    "50+ models",
+    "Themes",
+  ],
 }
 
 const educatorFeatureNarrative =
@@ -513,46 +543,49 @@ export const content = {
   learners: {
     seo: learnerSeo,
     hero: {
-      headlineLines: ["For the pleasure of", "finding things out."],
+      headlineLines: ["An AI agent", "for the curious."],
       subtext:
-        "A learning buddy on your computer. It reads the page with you, thinks with you on a whiteboard, builds simulations you can play, and keeps every note in files you own.",
+        "Read books, bring your notes, research, draw on a whiteboard, build simulations, and practice with flashcards, all in one place.",
     },
     features: [
       {
         tag: "READ",
-        title: "Read it with someone who's read it.",
+        title: "Bring your Books to Buddy.",
         subtext:
-          "Drop in a PDF or EPUB and it opens in a reader beside the chat. Highlight as you go, then ask about the paragraph you're stuck on. Buddy answers from the page in front of you, not from a vague memory of the book.",
-      },
-      {
-        tag: "DRAW",
-        title: "Think it out on a whiteboard.",
-        subtext:
-          "Every chat gets a live Excalidraw board. Buddy draws on it step by step while you watch, and you can pick up the pen yourself once the turn settles. Map a chapter, diagram a system, untangle a proof.",
-      },
-      {
-        tag: "PLAY",
-        title: "Don't just read it. Play with it.",
-        subtext:
-          "Ask for a simulation, a game, an interactive anything. Buddy builds it and opens it on the Bench, saved into your notebook as a real file, sandboxed, with no code and no setup on your side.",
-      },
-      {
-        tag: "REMEMBER",
-        title: "Quiz it. Card it. Keep it.",
-        subtext:
-          "Ask for a quiz or type /flashcard, and the deck lands in Practice. Question sets grade on submit and explain what you missed; cards come back on a spaced schedule you rate Again, Hard, Good, or Easy.",
+          "Open a PDF or EPUB beside the conversation. Highlight a passage, ask about it, and keep the source in view while you learn.",
+        visual: "learner-read",
       },
       {
         tag: "CONNECT",
-        title: "Buddy speaks Obsidian.",
+        title: "Bring your Notes to Buddy.",
         subtext:
-          "Open your Obsidian vault and Buddy adapts to it, natively. Wikilinks, embeds, and callouts work in the Buddy editor, links resolve between notes, and the agent stays anchored to that vault.",
+          "Open your existing Obsidian vault. Wikilinks, embeds, and callouts continue working, and Buddy can read and write plain Markdown in the same folder.",
+        visual: "learner-vault",
+      },
+      {
+        tag: "DRAW",
+        title: "Think with Buddy on a Whiteboard.",
+        subtext:
+          "Ask Buddy to sketch an idea step by step, then take over the board yourself. Map a chapter, diagram a system, untangle a proof.",
+        visual: "learner-draw",
+      },
+      {
+        tag: "PLAY",
+        title: "Ask Buddy for a Simulation.",
+        subtext:
+          "Turn an explanation into a game, model, or interactive experiment you can actually use. Buddy writes the code, you shape the outcome.",
+        visual: "learner-play",
+      },
+      {
+        tag: "REMEMBER",
+        title: "Buddy helps you Remember.",
+        subtext:
+          "Ask for a quiz or flashcards, and the deck lands in the app. Buddy uses smart spaced-repetition and deliberate practice techniques to help you remember.",
+        visual: "learner-remember",
       },
     ] as const,
-    philosophy: learnersPhilosophy,
-    privacy: learnersPrivacy,
+    philosophy: learnerPhilosophy,
     download: {
-      eyebrow: "Free · Mac & Windows · No account",
       headlineLines: ["Whatever you're learning,", "bring it home."],
     },
   },
@@ -569,28 +602,30 @@ export const content = {
         title: "Plan a lesson in the standards you teach.",
         subtext:
           "Give Buddy a topic, a grade, and your class. It drafts the lesson: objectives, sequence, timing, exit ticket, mapped to the standards you teach, or to your own textbooks and framework.",
+        visual: "educator-plan",
       },
       {
         tag: "DIFFERENTIATE",
         title: "One task, ready for every reading level.",
         subtext:
           "Buddy writes each worksheet at three levels: support, on-level, and extension, with worked examples, guided practice, and independent work, so no student is lost or bored.",
+        visual: "educator-differentiate",
       },
       {
         tag: "ASSESS",
         title: "A quiz and its answer key, in one ask.",
         subtext:
           "Ask for a formative check, a question set, or a flashcard deck. Buddy tags each question by Bloom's level, hands you the answer key, and flags the misconceptions to watch for.",
+        visual: "educator-assess",
       },
       {
         tag: "BUILD",
         title: "Turn any topic into something to show.",
         subtext:
           "Ask for a simulation, an interactive diagram, or a slide deck. Buddy builds it and opens it right in the app, ready for class tomorrow, no coding required.",
+        visual: "educator-build",
       },
     ] as const,
-    philosophy: educatorsPhilosophy,
-    privacy: educatorsPrivacy,
     download: {
       eyebrow: "Free · Mac & Windows · No account",
       headlineLines: ["Tomorrow's lesson,", "one ask away."],
@@ -598,40 +633,29 @@ export const content = {
   },
   bringYourOwn,
   capabilities,
+  pricing,
   header,
   install,
   meta,
   notFound,
   educatorWhy,
   educatorFluency,
-  educatorAnswers,
-  learnerAnswers,
+  learnerCapabilities,
   learnerLives,
   educatorFeatureNarrative,
-} as const satisfies Record<
-  Audience,
-  {
-    seo: Seo
-    hero: {
-      headlineLines: readonly [string, string]
-      subtext: string
-    }
-    features: readonly FeatureItem[]
-    philosophy: Philosophy
-    privacy: Privacy
-    download: Download
-  }
-> & {
+} as const satisfies {
+  learners: LearnerLandingContent
+  educators: EducatorLandingContent
   bringYourOwn: BringYourOwn
   capabilities: Capabilities
+  pricing: Pricing
   header: Header
   install: Install
   meta: Meta
   notFound: NotFound
   educatorWhy: WhySection
   educatorFluency: EducatorFluency
-  educatorAnswers: Answers
-  learnerAnswers: Answers
+  learnerCapabilities: LearnerCapabilities
   learnerLives: LearnerLives
   educatorFeatureNarrative: string
 }

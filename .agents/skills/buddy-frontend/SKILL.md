@@ -1,6 +1,6 @@
 ---
 name: buddy-frontend
-description: Guides development of the Buddy frontend, including architecture, design principles, and usage of core libraries, components, motion, and routing patterns.
+description: Guides development of the Buddy frontend, including architecture, design principles, and usage of core libraries, components, motion, and routing patterns. Read only once per chat.
 ---
 
 # Buddy Frontend
