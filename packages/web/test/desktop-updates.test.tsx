@@ -4,10 +4,7 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { Toaster } from "@buddy/ui"
 import type { Platform, UpdateProgressSnapshot } from "@/context/platform"
-import {
-  showDesktopUpdateProgressToast,
-  showDesktopUpdateToast,
-} from "@/lib/desktop-updates"
+import { showDesktopUpdateProgressToast, showDesktopUpdateToast } from "@/lib/desktop-updates"
 
 const UPDATE_VERSION = "1.2.3"
 const TOAST_SETTLE_DELAY_MS = 100
@@ -230,9 +227,8 @@ describe("desktop update toasts", () => {
     })
     await act(settleToast)
 
-    const installButton = onlyVisibleToast().querySelector<HTMLButtonElement>(
-      '[data-action="true"]',
-    )
+    const installButton =
+      onlyVisibleToast().querySelector<HTMLButtonElement>('[data-action="true"]')
     await act(async () => {
       installButton?.click()
       await settleToast()
