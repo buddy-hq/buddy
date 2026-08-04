@@ -1,0 +1,52 @@
+---
+type Props = {
+  analyticsAudience: "educators" | "learners"
+  analyticsKey: string
+  index: number
+  isStage: boolean
+  showStepNumber?: boolean
+  subtext: string
+  tag: string
+  title: string
+}
+
+const {
+  analyticsAudience,
+  analyticsKey,
+  index,
+  isStage,
+  showStepNumber = false,
+  subtext,
+  tag,
+  title,
+} = Astro.props
+const analyticsFeature = `feature_${index + 1}`
+---
+
+<div
+  class="bookend-card-wrapper"
+  data-analytics-feature={analyticsFeature}
+  data-analytics-feature-learners={analyticsAudience === "learners" ? analyticsKey : ""}
+  data-analytics-feature-educators={analyticsAudience === "educators" ? analyticsKey : ""}
+>
+  <div class="bookend-card-body">
+    <div class="bookend-card-left">
+      <div class="step-tag-wrapper">
+        <span class="step-tag">
+          {showStepNumber && <span class="step-num">{String(index + 1).padStart(2, "0")}</span>}
+          {tag}
+        </span>
+      </div>
+      <h3 class="step-title">{title}</h3>
+      <p class="step-desc">{subtext}</p>
+    </div>
+
+    <div class:list={["bookend-card-right", { "bookend-card-right--stage": isStage }]}>
+      <div class:list={["sticky-mockup-wrapper", { "sticky-mockup-wrapper--stage": isStage }]}>
+        <div class="mockup-viewport">
+          <slot />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

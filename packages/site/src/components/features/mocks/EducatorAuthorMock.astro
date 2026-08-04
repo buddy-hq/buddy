@@ -93,8 +93,8 @@
     align-self: flex-start;
     max-width: 82%;
     width: fit-content;
-    background-color: rgba(255, 255, 255, 0.045);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    background-color: var(--chrome-raised);
+    border: 1px solid var(--border-weak);
     border-radius: 14px;
     border-bottom-right-radius: 3px;
     padding: clamp(8px, 0.8vw, 12px) clamp(12px, 1.1vw, 17px);
@@ -201,39 +201,39 @@
 
   .seg-donow {
     flex: 5;
-    background-color: rgba(138, 180, 248, 0.13);
-    border: 1px solid rgba(138, 180, 248, 0.28);
-    color: #8ab4f8;
+    background-color: var(--aurora-weak);
+    border: 1px solid var(--aurora-border);
+    color: var(--aurora-base);
   }
 
   .seg-mini {
     flex: 15;
-    background-color: rgba(45, 212, 191, 0.12);
-    border: 1px solid rgba(45, 212, 191, 0.26);
-    color: #2dd4bf;
+    background-color: var(--aurora-weak);
+    border: 1px solid var(--aurora-border);
+    color: var(--aurora-base);
   }
 
   .seg-lab {
     flex: 20;
-    background-color: rgba(167, 139, 250, 0.12);
-    border: 1px solid rgba(167, 139, 250, 0.26);
-    color: #a78bfa;
+    background-color: var(--aurora-weak);
+    border: 1px solid var(--aurora-border);
+    color: var(--aurora-base);
   }
 
   .seg-exit {
     flex: 5;
-    background-color: rgba(245, 158, 11, 0.12);
-    border: 1px solid rgba(245, 158, 11, 0.26);
-    color: #f59e0b;
+    background-color: var(--accent-weak);
+    border: 1px solid var(--accent-border);
+    color: var(--accent-base);
   }
 
   /* The hero worksheet sheet */
   .sheet {
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    border: 1px solid var(--border-base);
     border-radius: 16px;
-    background-color: rgba(255, 255, 255, 0.03);
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+    background-color: var(--chrome-base);
+    box-shadow: var(--shadow-raised);
     padding: clamp(14px, 1.8vw, 30px);
     opacity: 0;
     transform: translateY(12px);
@@ -257,18 +257,18 @@
   }
 
   .sheet.lvl-support .sheet-accent {
-    background-color: #60a5fa;
-    box-shadow: 0 0 18px rgba(96, 165, 250, 0.5);
+    background-color: var(--aurora-base);
+    box-shadow: 0 0 18px var(--aurora-border);
   }
 
   .sheet.lvl-core .sheet-accent {
-    background-color: #2dd4bf;
-    box-shadow: 0 0 18px rgba(45, 212, 191, 0.5);
+    background-color: var(--aurora-base);
+    box-shadow: 0 0 18px var(--aurora-border);
   }
 
   .sheet.lvl-challenge .sheet-accent {
-    background-color: #a78bfa;
-    box-shadow: 0 0 18px rgba(167, 139, 250, 0.5);
+    background-color: var(--aurora-base);
+    box-shadow: 0 0 18px var(--aurora-border);
   }
 
   /* Lesson identity, revealed when the standard is cited */
@@ -309,7 +309,7 @@
     font-size: clamp(9.5px, 0.85vw, 12.5px);
     font-weight: 600;
     color: var(--color-text-tertiary);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-base);
     border-radius: 6px;
     padding: 3px 9px;
   }
@@ -332,7 +332,7 @@
     font-weight: 650;
     color: var(--color-text-muted);
     background: none;
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    border: 1px solid var(--border-base);
     border-radius: 999px;
     padding: clamp(4px, 0.5vw, 7px) clamp(12px, 1.3vw, 20px);
     cursor: pointer;
@@ -340,21 +340,21 @@
   }
 
   .sheet.lvl-support .tab-support {
-    color: #60a5fa;
-    background-color: rgba(96, 165, 250, 0.14);
-    border-color: rgba(96, 165, 250, 0.4);
+    color: var(--aurora-base);
+    background-color: var(--aurora-weak);
+    border-color: var(--aurora-border);
   }
 
   .sheet.lvl-core .tab-core {
-    color: #2dd4bf;
-    background-color: rgba(45, 212, 191, 0.14);
-    border-color: rgba(45, 212, 191, 0.4);
+    color: var(--aurora-base);
+    background-color: var(--aurora-weak);
+    border-color: var(--aurora-border);
   }
 
   .sheet.lvl-challenge .tab-challenge {
-    color: #a78bfa;
-    background-color: rgba(167, 139, 250, 0.14);
-    border-color: rgba(167, 139, 250, 0.4);
+    color: var(--aurora-base);
+    background-color: var(--aurora-weak);
+    border-color: var(--aurora-border);
   }
 
   /* Question rows morph when the level changes */
@@ -387,15 +387,15 @@
   }
 
   .sheet.lvl-support .q-num {
-    color: #60a5fa;
+    color: var(--aurora-base);
   }
 
   .sheet.lvl-core .q-num {
-    color: #2dd4bf;
+    color: var(--aurora-base);
   }
 
   .sheet.lvl-challenge .q-num {
-    color: #a78bfa;
+    color: var(--aurora-base);
   }
 
   .q-text {
@@ -407,7 +407,7 @@
   .sheet-exit {
     margin-top: clamp(10px, 1.2vw, 18px);
     padding-top: clamp(9px, 1vw, 15px);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--border-weak);
     font-size: clamp(10px, 0.9vw, 13.5px);
     color: var(--color-text-muted);
   }
@@ -512,7 +512,7 @@
       background-color: #ffffff !important;
       border: 2px solid #000000 !important;
       border-radius: 50% !important;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important;
+      box-shadow: var(--shadow-raised);
     }
     .cursor-arrow {
       display: none !important;

@@ -1,0 +1,34 @@
+---
+import { content } from "../../content/site"
+import FeatureStepCard from "./FeatureStepCard.astro"
+import FeatureSteps from "./FeatureSteps.astro"
+import DifferentiateArtifact from "./artifacts/DifferentiateArtifact.astro"
+import LessonArtifact from "./artifacts/LessonArtifact.astro"
+import LightLabArtifact from "./artifacts/LightLabArtifact.astro"
+import QuizArtifact from "./artifacts/QuizArtifact.astro"
+
+const steps = content.educators.features
+const narrative = content.educatorFeatureNarrative
+const toAnalyticsKey = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+---
+
+<FeatureSteps {narrative}>
+  {steps.map((step, index) => (
+    <FeatureStepCard
+      analyticsAudience="educators"
+      analyticsKey={toAnalyticsKey(step.tag)}
+      index={index}
+      isStage
+      showStepNumber
+      subtext={step.subtext}
+      tag={step.tag}
+      title={step.title}
+    >
+      {step.visual === "educator-plan" && <LessonArtifact />}
+      {step.visual === "educator-differentiate" && <DifferentiateArtifact />}
+      {step.visual === "educator-assess" && <QuizArtifact />}
+      {step.visual === "educator-build" && <LightLabArtifact />}
+    </FeatureStepCard>
+  ))}
+</FeatureSteps>

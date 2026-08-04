@@ -12,18 +12,30 @@
   
   <!-- Interactive Start/Gameover/Victory messages -->
   <div class="game-instructions">
-    <span class="instruction-text">CLICK OR TAP TO PLAY</span>
+    <button type="button" class="instruction-text">CLICK OR TAP TO PLAY</button>
   </div>
 </div>
 
 <style>
+  /* Same construction as every other mock: the panel IS the surface, edge to edge, with a
+     single hairline. No inset bezel — that read as a picture frame and matched nothing else
+     on the page. Depth comes from the ladder, so the game sits one rung below the mock
+     ground rather than at pure black. */
   .game-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle at center, #06050b 0%, #010003 100%);
-    border-radius: 12px;
+    position: absolute;
+    inset: 0;
+    background-color: var(--color-mock-panel);
+    border: 1px solid var(--border-weak);
+    border-radius: var(--radius);
     overflow: hidden;
+    cursor: default;
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  .game-container.is-playing {
     cursor: pointer;
   }
 
@@ -43,7 +55,7 @@
   }
 
   .hud-mono {
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--fg-weak);
     letter-spacing: 0.1em;
     text-transform: uppercase;
   }
@@ -72,23 +84,34 @@
     font-size: clamp(12px, 1.6vw, 16px); /* Responsive instruction text size */
     font-weight: 700;
     letter-spacing: 0.12em;
-    color: #ffffff;
-    background-color: rgba(0, 0, 0, 0.75);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--fg-strong);
+    background-color: color-mix(in oklch, var(--chrome-screen) 82%, transparent);
+    border: 1px solid var(--border-base);
     padding: 8px 20px;
     border-radius: 6px;
     text-align: center;
     animation: blink 1.5s infinite;
+    appearance: none;
+    cursor: pointer;
+    pointer-events: auto;
   }
 
   .game-container.is-playing .game-instructions {
     opacity: 0;
   }
 
+  .game-container.is-playing .instruction-text {
+    pointer-events: none;
+  }
+
   .flappy-canvas {
     width: 100%;
     height: 100%;
     display: block;
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
   }
 
   @keyframes blink {
@@ -307,11 +330,76 @@
       }
     };
 
-    container.addEventListener("mousedown", handleAction);
-    container.addEventListener("touchstart", (e) => {
-      e.preventDefault();
+    type TouchOrigin = {
+      identifier: number;
+      x: number;
+      y: number;
+    };
+
+    const TAP_MOVE_TOLERANCE_PX = 12;
+    let buttonTouchOrigin: TouchOrigin | undefined;
+    let canvasTouchOrigin: TouchOrigin | undefined;
+
+    const getTouchOrigin = (event: TouchEvent): TouchOrigin | undefined => {
+      const touch = event.changedTouches.item(0);
+      if (!touch) return undefined;
+
+      return {
+        identifier: touch.identifier,
+        x: touch.clientX,
+        y: touch.clientY,
+      };
+    };
+
+    const isStationaryTap = (event: TouchEvent, origin: TouchOrigin | undefined) => {
+      if (!origin) return false;
+
+      for (let index = 0; index < event.changedTouches.length; index++) {
+        const touch = event.changedTouches.item(index);
+        if (!touch || touch.identifier !== origin.identifier) continue;
+
+        return (
+          Math.abs(touch.clientX - origin.x) <= TAP_MOVE_TOLERANCE_PX &&
+          Math.abs(touch.clientY - origin.y) <= TAP_MOVE_TOLERANCE_PX
+        );
+      }
+
+      return false;
+    };
+
+    instructionText?.addEventListener("click", handleAction);
+    instructionText?.addEventListener("touchstart", (event) => {
+      buttonTouchOrigin = getTouchOrigin(event);
+    }, { passive: true });
+    instructionText?.addEventListener("touchend", (event) => {
+      const origin = buttonTouchOrigin;
+      buttonTouchOrigin = undefined;
+      if (!isStationaryTap(event, origin)) return;
+
+      event.preventDefault();
       handleAction();
     }, { passive: false });
+    instructionText?.addEventListener("touchcancel", () => {
+      buttonTouchOrigin = undefined;
+    });
+
+    canvas.addEventListener("click", () => {
+      if (state === "PLAYING") handleAction();
+    });
+    canvas.addEventListener("touchstart", (event) => {
+      canvasTouchOrigin = getTouchOrigin(event);
+    }, { passive: true });
+    canvas.addEventListener("touchend", (event) => {
+      const origin = canvasTouchOrigin;
+      canvasTouchOrigin = undefined;
+      if (state !== "PLAYING" || !isStationaryTap(event, origin)) return;
+
+      event.preventDefault();
+      handleAction();
+    }, { passive: false });
+    canvas.addEventListener("touchcancel", () => {
+      canvasTouchOrigin = undefined;
+    });
 
     // Draw the detailed Flappy Bird character (Yellow body, eye, pupil, beak, flapping wing)
     const drawBird = (x: number, y: number, radius: number) => {

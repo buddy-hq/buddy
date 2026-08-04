@@ -11,7 +11,6 @@
   class="lp-stage"
   aria-label="A drafted 50-minute photosynthesis lesson for grade 8: an objective, a timed sequence — hook, direct instruction, guided practice, exit ticket — and a citation to standard MS-LS1-6, shown with its prerequisite MS-LS1-4 and follow-on HS-LS1-5 from the standards library"
 >
-  <div class="lp-glow" aria-hidden="true"></div>
 
   <div class="lp-sheet">
     <div class="lp-left">
@@ -68,18 +67,6 @@
     width: 100%;
     height: 100%;
     container-type: size;
-    background:
-      radial-gradient(55% 75% at 88% 8%, rgba(255, 107, 0, 0.06), transparent 70%),
-      radial-gradient(60% 80% at 12% 92%, rgba(255, 143, 102, 0.05), transparent 70%);
-  }
-
-  .lp-glow {
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 22px 22px;
-    mask-image: radial-gradient(72% 72% at 50% 50%, black, transparent);
-    pointer-events: none;
   }
 
   /* ---------- one bright sheet, nearly edge to edge ---------- */
@@ -91,12 +78,10 @@
     gap: 7%;
     align-items: center;
     font-size: clamp(11px, 1.5cqw, 17px);
-    background: linear-gradient(180deg, #fbf8f1, #f4efe3);
+    background: linear-gradient(180deg, var(--paper-raised), var(--paper-base));
     border-radius: 1em;
     padding: 2.6em 3em;
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.4) inset,
-      0 30px 60px -24px rgba(0, 0, 0, 0.85);
+    box-shadow: var(--shadow-paper);
   }
 
   /* ---------- left: what the lesson is, and its receipt ---------- */
@@ -114,7 +99,7 @@
     font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: #9a3b00;
+    color: var(--accent-ink);
   }
 
   .lp-title {
@@ -124,7 +109,7 @@
     font-weight: 650;
     letter-spacing: -0.025em;
     line-height: 1.05;
-    color: #17150f;
+    color: var(--paper-ink);
   }
 
   .lp-meta {
@@ -134,7 +119,7 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #8a8271;
+    color: var(--paper-ink-weak);
   }
 
   .lp-objective {
@@ -144,7 +129,7 @@
     font-size: 1em;
     line-height: 1.5;
     letter-spacing: -0.005em;
-    color: #4a4436;
+    color: var(--paper-ink-soft);
     text-wrap: pretty;
   }
 
@@ -152,7 +137,7 @@
   .lp-standard {
     margin-top: 2em;
     padding-top: 1.4em;
-    border-top: 1px solid rgba(23, 21, 15, 0.12);
+    border-top: 1px solid var(--paper-border);
   }
 
   .lp-code {
@@ -161,9 +146,9 @@
     font-size: 0.8em;
     font-weight: 700;
     letter-spacing: 0.06em;
-    color: #9a3b00;
-    background: rgba(255, 107, 0, 0.1);
-    border: 1px solid rgba(154, 59, 0, 0.22);
+    color: var(--accent-ink);
+    background: var(--accent-weak);
+    border: 1px solid var(--accent-border);
     border-radius: 999px;
     padding: 0.35em 1em;
   }
@@ -174,14 +159,14 @@
     font-size: 0.72em;
     font-weight: 600;
     letter-spacing: 0.03em;
-    color: #4a4436;
+    color: var(--paper-ink-soft);
   }
 
   .lp-source {
     margin: 0.45em 0 0 0;
     font-family: var(--font-body);
     font-size: 0.78em;
-    color: #8a8271;
+    color: var(--paper-ink-weak);
   }
 
   /* ---------- right: the agenda ---------- */
@@ -206,7 +191,7 @@
     font-size: 0.8em;
     font-weight: 600;
     letter-spacing: 0.04em;
-    color: #a39a86;
+    color: var(--paper-ink-weak);
     text-align: right;
     font-variant-numeric: tabular-nums;
   }
@@ -221,7 +206,7 @@
     font-weight: 600;
     letter-spacing: -0.015em;
     line-height: 1.2;
-    color: #17150f;
+    color: var(--paper-ink);
   }
 
   .lp-min {
@@ -229,7 +214,7 @@
     font-size: 0.6em;
     font-weight: 600;
     letter-spacing: 0.06em;
-    color: #a39a86;
+    color: var(--paper-ink-weak);
     white-space: nowrap;
   }
 
@@ -239,7 +224,7 @@
     font-size: 0.92em;
     line-height: 1.5;
     letter-spacing: -0.005em;
-    color: #4a4436;
+    color: var(--paper-ink-soft);
     max-width: 42ch;
     text-wrap: pretty;
   }
@@ -247,10 +232,10 @@
   /* the one accent: where the lesson lands */
   .lp-exit .lp-time,
   .lp-exit .lp-phase {
-    color: #9a3b00;
+    color: var(--accent-ink);
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 640px) {
     .lp-stage {
       background: transparent !important;
     }
@@ -262,7 +247,11 @@
     }
   }
 
-  @container (max-width: 640px) {
+  /* 700px, not 640px: on phones the staged wrapper is pinned to 680px and bleeds past the
+     viewport on purpose, so a 640px threshold never fires and the agenda column stays in
+     the two-column layout — off-screen, behind the edge feather. Same threshold the other
+     staged artifacts key off. */
+  @container (max-width: 700px) {
     .lp-sheet {
       grid-template-columns: 1fr;
       gap: 1.6em;

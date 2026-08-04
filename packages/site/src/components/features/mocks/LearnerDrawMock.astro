@@ -11,7 +11,7 @@
         <path 
           class="sketch-path central-node-path" 
           d="M 300 135 C 380 135, 410 175, 300 215 C 190 215, 220 135, 300 135 Z" 
-          stroke="#ff6b00" 
+          stroke="var(--agent-base)" 
           stroke-width="3" 
           fill="none"
           stroke-linecap="round"
@@ -22,7 +22,7 @@
         <path 
           class="sketch-path connect-line-path l1" 
           d="M 230 145 L 140 105" 
-          stroke="rgba(255, 255, 255, 0.25)" 
+          stroke="var(--board-grid)" 
           stroke-width="2" 
           fill="none"
           stroke-linecap="round"
@@ -30,7 +30,7 @@
         <path 
           class="sketch-path connect-line-path l2" 
           d="M 370 145 L 460 105" 
-          stroke="rgba(255, 255, 255, 0.25)" 
+          stroke="var(--board-grid)" 
           stroke-width="2" 
           fill="none"
           stroke-linecap="round"
@@ -38,7 +38,7 @@
         <path 
           class="sketch-path connect-line-path l3" 
           d="M 240 185 L 150 255" 
-          stroke="rgba(255, 255, 255, 0.25)" 
+          stroke="var(--board-grid)" 
           stroke-width="2" 
           fill="none"
           stroke-linecap="round"
@@ -49,7 +49,7 @@
         <path 
           class="sketch-path branch-box-path b1" 
           d="M 20 60 C 65 58, 115 62, 160 60 C 162 80, 158 95, 160 110 C 115 112, 65 108, 20 110 C 18 95, 22 80, 20 60 Z" 
-          stroke="#a78bfa" 
+          stroke="currentColor" style="color: var(--aurora-base)" 
           stroke-width="2.5" 
           fill="none"
           stroke-linecap="round"
@@ -60,7 +60,7 @@
         <path 
           class="sketch-path branch-box-path b2" 
           d="M 440 60 C 485 58, 535 62, 580 60 C 582 80, 578 95, 580 110 C 535 112, 485 108, 440 110 C 438 95, 442 80, 440 60 Z" 
-          stroke="#2dd4bf" 
+          stroke="currentColor" style="color: var(--aurora-base)" 
           stroke-width="2.5" 
           fill="none"
           stroke-linecap="round"
@@ -71,7 +71,7 @@
         <path 
           class="sketch-path branch-box-path b3" 
           d="M 60 255 C 105 253, 155 257, 200 255 C 202 275, 198 290, 200 310 C 155 312, 105 308, 60 310 C 58 295, 62 280, 60 255 Z" 
-          stroke="#8ab4f8" 
+          stroke="currentColor" style="color: var(--aurora-base)" 
           stroke-width="2.5" 
           fill="none"
           stroke-linecap="round"
@@ -84,7 +84,7 @@
         <path 
           class="sketch-path connect-line-path l4 phase3-item" 
           d="M 360 185 L 450 255" 
-          stroke="rgba(248, 113, 113, 0.4)" 
+          stroke="rgba(248, 113, 113, 0.45)" 
           stroke-width="2" 
           fill="none"
           stroke-linecap="round"
@@ -103,7 +103,7 @@
         <path 
           class="sketch-path crossout-line phase3-item" 
           d="M 415 260 L 525 305" 
-          stroke="#ef4444" 
+          stroke="#f87171" 
           stroke-width="3" 
           fill="none"
           stroke-linecap="round"
@@ -111,7 +111,7 @@
         <path 
           class="sketch-path crossout-line phase3-item" 
           d="M 525 260 L 415 305" 
-          stroke="#ef4444" 
+          stroke="#f87171" 
           stroke-width="3" 
           fill="none"
           stroke-linecap="round"
@@ -172,9 +172,9 @@
     flex-direction: row; /* SIBLING ROW FLOW: drawing stays left, chat stays right */
     justify-content: space-between;
     padding: var(--space-4) var(--space-6) 0 var(--space-6);
-    background-color: var(--color-mock-bg);
-    background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-    background-size: 18px 18px;
+    background-color: var(--board-base);
+    background-image: radial-gradient(var(--board-grid) 1px, transparent 1px);
+    background-size: 30px 30px;
     overflow: hidden;
   }
 
@@ -211,7 +211,7 @@
   .sketch-text {
     font-family: 'Architects Daughter', cursive, sans-serif;
     font-weight: 700;
-    fill: #ffffff;
+    fill: var(--board-ink);
     opacity: 0;
     user-select: none;
     transition: opacity 0.4s ease;
@@ -223,7 +223,7 @@
 
   .central-node-text {
     font-size: 20px;
-    fill: #ff6b00;
+    fill: var(--agent-base);
   }
 
   .branch-text {
@@ -231,29 +231,29 @@
   }
 
   .left-title {
-    fill: #c084fc; /* soft purple */
+    fill: var(--aurora-base);
   }
 
   .right-title {
-    fill: #2dd4bf; /* soft teal */
+    fill: var(--aurora-base);
   }
 
   .bottom-left-title {
-    fill: #8ab4f8; /* soft blue */
+    fill: var(--aurora-base);
   }
 
   .bottom-right-title {
-    fill: #f87171; /* soft red for consistency */
+    fill: #f87171;
   }
 
   /* Floating Chat Box Popup (matches screenshot exactly) - Header-Free */
   .wb-chat-popup {
     width: 320px;
     background-color: var(--color-mock-panel);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-weak);
     border-bottom: none;
     border-radius: 12px 12px 0 0;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+    box-shadow: var(--shadow-raised);
     display: flex;
     flex-direction: column;
     z-index: 20;
@@ -295,7 +295,7 @@
     background: none !important;
     border: none !important;
     padding: 0 !important;
-    color: #e3e3e3;
+    color: var(--fg-base);
     max-width: 100% !important;
     text-align: left;
   }
@@ -303,9 +303,9 @@
   /* User messages: clean pill on the right */
   .chat-message.user {
     align-self: flex-end;
-    background-color: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    color: #e3e3e3;
+    background-color: var(--chrome-raised);
+    border: 1px solid var(--border-weak);
+    color: var(--fg-base);
     padding: var(--space-2) var(--space-3);
     border-radius: 12px;
     max-width: 85%;
@@ -317,15 +317,15 @@
     margin: 12px;
     margin-top: 4px;
     padding: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-base);
     border-radius: 8px;
-    background-color: rgba(255, 255, 255, 0.01);
+    background-color: var(--chrome-base);
     display: flex;
     flex-direction: column;
   }
 
   .wb-chat-input-placeholder {
-    color: #52525b;
+    color: var(--fg-weaker);
     font-size: 11px;
     padding-bottom: 12px;
     text-align: left;
@@ -345,17 +345,17 @@
 
   .dd-pill {
     font-size: 8px;
-    color: #71717a;
-    background-color: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    color: var(--fg-weaker);
+    background-color: var(--chrome-base);
+    border: 1px solid var(--border-weak);
     padding: 2px 5px;
     border-radius: 3px;
   }
 
   .chat-send-btn {
-    background-color: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    color: #71717a;
+    background-color: var(--chrome-raised);
+    border: 1px solid var(--border-weak);
+    color: var(--fg-weaker);
     height: 18px;
     width: 18px;
     border-radius: 3px;
@@ -366,9 +366,9 @@
   }
 
   .chat-send-btn.active {
-    background-color: #8ab4f8;
+    background-color: var(--aurora-base);
     color: #0b0a0c;
-    border-color: #8ab4f8;
+    border-color: var(--aurora-base);
   }
 
   /* Mobile Query block */

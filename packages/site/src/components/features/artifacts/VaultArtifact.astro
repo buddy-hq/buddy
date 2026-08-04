@@ -5,19 +5,18 @@
 ---
 
 <div class="va-stage" aria-label="Notes in an Obsidian vault, opened in place by Buddy with wikilinks intact">
-  <div class="va-dots" aria-hidden="true"></div>
 
   <!-- The link web -->
   <svg class="va-web" viewBox="0 0 1000 620" fill="none" preserveAspectRatio="none" aria-hidden="true">
-    <path d="M370 300 L 150 130" stroke="rgba(162, 144, 255, 0.3)" stroke-width="1.4" />
-    <path d="M620 260 L 845 120" stroke="rgba(162, 144, 255, 0.3)" stroke-width="1.4" />
-    <path d="M620 285 L 748 492" stroke="rgba(162, 144, 255, 0.22)" stroke-width="1.4" />
-    <circle cx="150" cy="130" r="4" fill="#8a70ff" opacity="0.9" />
-    <circle cx="845" cy="120" r="4" fill="#8a70ff" opacity="0.9" />
-    <circle cx="748" cy="492" r="3.4" fill="#8a70ff" opacity="0.55" />
-    <circle cx="370" cy="300" r="4" fill="#a290ff" />
-    <circle cx="620" cy="260" r="4" fill="#a290ff" />
-    <circle cx="620" cy="285" r="3.4" fill="#a290ff" opacity="0.8" />
+    <path d="M370 300 L 150 130" stroke="var(--aurora-border)" stroke-width="1.4" />
+    <path class="va-web-wide" d="M620 260 L 845 120" stroke="var(--aurora-border)" stroke-width="1.4" />
+    <path class="va-web-wide" d="M620 285 L 690 478" stroke="var(--aurora-border)" stroke-width="1.4" />
+    <circle cx="150" cy="130" r="4" fill="var(--aurora-base)" opacity="0.9" />
+    <circle class="va-web-wide" cx="845" cy="120" r="4" fill="var(--aurora-base)" opacity="0.9" />
+    <circle class="va-web-wide" cx="690" cy="478" r="3.4" fill="var(--aurora-base)" opacity="0.55" />
+    <circle cx="370" cy="300" r="4" fill="var(--aurora-base)" />
+    <circle class="va-web-wide" cx="620" cy="260" r="4" fill="var(--aurora-base)" />
+    <circle class="va-web-wide" cx="620" cy="285" r="3.4" fill="var(--aurora-base)" opacity="0.8" />
   </svg>
 
   <!-- Linked neighbors -->
@@ -31,7 +30,10 @@
     <p class="va-mini-line">The movement behind the essay — self, nature, intuition.</p>
   </article>
 
-  <span class="va-mini va-mini--ghost">Reading log.md</span>
+  <article class="va-mini va-mini--ghost">
+    <span class="va-mini-name">Reading log.md</span>
+    <p class="va-mini-line">Finished §1 — came back to the consistency passage twice.</p>
+  </article>
 
   <!-- The note, open in Buddy -->
   <article class="va-note">
@@ -117,19 +119,6 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
   </article>
 
   <!-- The point: in place, not imported -->
-  <div class="va-chip">
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="3"
-      stroke-linecap="round"
-      stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg
-    >
-    Opened in place · the same files Obsidian uses
-  </div>
 </div>
 
 <style>
@@ -138,19 +127,8 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
     width: 100%;
     height: 100%;
     container-type: size;
-    background:
-      radial-gradient(55% 75% at 50% 45%, rgba(122, 94, 255, 0.07), transparent 72%),
-      radial-gradient(45% 60% at 12% 90%, rgba(255, 107, 0, 0.04), transparent 70%);
   }
 
-  .va-dots {
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-    background-size: 22px 22px;
-    mask-image: radial-gradient(70% 70% at 50% 50%, black, transparent);
-    pointer-events: none;
-  }
 
   .va-web {
     position: absolute;
@@ -163,11 +141,11 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
   .va-mini {
     position: absolute;
     font-size: clamp(9px, 1.15cqw, 13px);
-    background: linear-gradient(180deg, #16161a, #111115);
-    border: 1px solid rgba(162, 144, 255, 0.18);
+    background: linear-gradient(180deg, var(--chrome-panel), var(--chrome-sunken));
+    border: 1px solid var(--aurora-border);
     border-radius: 0.7em;
     padding: 1em 1.2em;
-    box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.85);
+    box-shadow: var(--shadow-raised);
   }
 
   .va-mini--left {
@@ -184,18 +162,29 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
     transform: rotate(2.2deg);
   }
 
+  /* Third node of the graph. Was a lone filename pill, which read as something hanging
+     off the bottom rather than another note in the vault. */
   .va-mini--ghost {
-    left: 72%;
-    top: 82%;
+    left: 66%;
+    top: 78%;
+    width: 22%;
     transform: rotate(-1.6deg);
-    font-family: var(--font-mono);
-    font-size: clamp(8px, 1cqw, 11px);
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    color: #a290ff;
-    background: linear-gradient(180deg, #16161a, #111115);
-    border-color: rgba(162, 144, 255, 0.18);
-    padding: 0.7em 1.1em;
+  }
+
+  /* On a phone there is only room for the open file and one linked neighbour. Anything
+     more turns the graph into clutter, so the other two notes drop out entirely. */
+  @media (max-width: 640px) {
+    .va-web-wide,
+    .va-mini--right,
+    .va-mini--ghost {
+      display: none;
+    }
+
+    .va-mini--left {
+      left: 2%;
+      top: 2%;
+      width: 44%;
+    }
   }
 
   .va-mini-name {
@@ -204,7 +193,7 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
     font-size: 0.78em;
     font-weight: 700;
     letter-spacing: 0.03em;
-    color: #a290ff;
+    color: var(--aurora-base);
     margin-bottom: 0.5em;
   }
 
@@ -228,11 +217,9 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
     transform: rotate(0.6deg);
     font-size: clamp(10px, 1.3cqw, 15.5px);
     border-radius: 0.9em;
-    background: linear-gradient(180deg, #1b1b21, #141419);
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.05) inset,
-      0 38px 70px -26px rgba(0, 0, 0, 0.95);
+    background: linear-gradient(180deg, var(--chrome-panel), var(--chrome-sunken));
+    border: 1px solid var(--border-base);
+    box-shadow: var(--shadow-overlay);
     overflow: hidden;
   }
 
@@ -240,8 +227,8 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
     display: flex;
     align-items: center;
     padding: 0.9em 1.5em;
-    background-color: rgba(0, 0, 0, 0.28);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background-color: var(--chrome-screen);
+    border-bottom: 1px solid var(--border-weak);
   }
 
   .va-note-title {
@@ -284,8 +271,8 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
     font-size: 0.72em;
     line-height: 1.65;
     color: var(--color-text-tertiary);
-    background-color: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background-color: var(--chrome-screen);
+    border: 1px solid var(--border-weak);
     border-radius: 0.6em;
     padding: 0.9em 1.2em;
     margin: 0 0 1.1em 0;
@@ -297,9 +284,9 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
   }
 
   .va-callout {
-    border: 1px solid rgba(122, 94, 255, 0.22);
-    border-left: 3px solid #8a70ff;
-    background-color: rgba(122, 94, 255, 0.07);
+    border: 1px solid var(--aurora-border);
+    border-left: 3px solid var(--aurora-base);
+    background-color: var(--aurora-weak);
     border-radius: 0.55em;
     padding: 0.8em 1.1em;
     margin-bottom: 1.1em;
@@ -312,7 +299,7 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #a290ff;
+    color: var(--aurora-base);
     margin-bottom: 0.45em;
   }
 
@@ -331,32 +318,10 @@ source: "<span class="va-link">[[Self-Reliance.epub]]</span>"
   }
 
   .va-link {
-    color: #a290ff;
+    color: var(--aurora-base);
     white-space: nowrap;
   }
 
   /* ---------- ownership chip ---------- */
-  .va-chip {
-    position: absolute;
-    left: 5%;
-    bottom: 7%;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6em;
-    font-family: var(--font-mono);
-    font-size: clamp(8.5px, 1.05cqw, 11.5px);
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    color: var(--color-text-secondary);
-    background-color: rgba(0, 0, 0, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
-    padding: 0.65em 1.3em;
-    backdrop-filter: blur(6px);
-  }
 
-  .va-chip svg {
-    color: #4ade80;
-    flex-shrink: 0;
-  }
 </style>

@@ -1,0 +1,34 @@
+---
+import { content } from "../../content/site"
+import FeatureStepCard from "./FeatureStepCard.astro"
+import FeatureSteps from "./FeatureSteps.astro"
+import RememberArtifact from "./artifacts/RememberArtifact.astro"
+import VaultArtifact from "./artifacts/VaultArtifact.astro"
+import LearnerDrawMock from "./mocks/LearnerDrawMock.astro"
+import LearnerPlayMock from "./mocks/LearnerPlayMock.astro"
+import LearnerReadMock from "./mocks/LearnerReadMock.astro"
+
+const steps = content.learners.features
+const toAnalyticsKey = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+---
+
+<FeatureSteps>
+  {steps.map((step, index) => (
+    <FeatureStepCard
+      analyticsAudience="learners"
+      analyticsKey={toAnalyticsKey(step.tag)}
+      index={index}
+      isStage={step.visual === "learner-remember" || step.visual === "learner-vault"}
+      subtext={step.subtext}
+      tag={step.tag}
+      title={step.title}
+    >
+      {step.visual === "learner-read" && <LearnerReadMock />}
+      {step.visual === "learner-vault" && <VaultArtifact />}
+      {step.visual === "learner-draw" && <LearnerDrawMock />}
+      {step.visual === "learner-play" && <LearnerPlayMock />}
+      {step.visual === "learner-remember" && <RememberArtifact />}
+    </FeatureStepCard>
+  ))}
+</FeatureSteps>

@@ -41,7 +41,6 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
       <div class="book-cover-wrapper secondary right-book">
         <div class="book-cover mock-cover world-history">
           <div class="mock-cover-design">
-            <div class="pattern-dots"></div>
             <span class="mock-title">World History</span>
             <span class="mock-author">William H. McNeill</span>
           </div>
@@ -128,7 +127,7 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
     inset: 0;
     width: 100%;
     height: 100%;
-    background-color: var(--color-mock-bg);
+    background-color: var(--color-mock-panel);
     font-family: var(--font-body);
     overflow: hidden;
     color: var(--color-text-primary);
@@ -224,8 +223,7 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
     width: clamp(100px, 14vw, 150px);
     aspect-ratio: 0.67 / 1;
     border-radius: 6px;
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5),
-                0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: var(--shadow-overlay);
     overflow: hidden;
     background-color: var(--color-mock-panel);
     transition: box-shadow 0.3s ease;
@@ -233,8 +231,8 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
 
   .book-cover-wrapper.primary:hover .book-cover,
   .book-cover-wrapper.primary.hovered .book-cover {
-    box-shadow: 0 24px 48px rgba(255, 107, 0, 0.15),
-                0 0 0 1px rgba(255, 107, 0, 0.2);
+    box-shadow: var(--shadow-overlay),
+                0 0 0 1px var(--accent-border);
   }
 
   .cover-img {
@@ -251,7 +249,7 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
     left: 0;
     bottom: 0;
     width: 6px;
-    background: linear-gradient(to right, rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.15) 30%, rgba(0, 0, 0, 0.08) 60%, transparent);
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.3), var(--chrome-high) 30%, rgba(0, 0, 0, 0.08) 60%, transparent);
     z-index: 2;
   }
 
@@ -285,14 +283,14 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
   .mock-title {
     font-size: clamp(10px, 1.1vw, 13px);
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--fg-strong);
     line-height: 1.2;
     margin-top: var(--space-2);
   }
 
   .mock-author {
     font-size: 8px;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--fg-weak);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -301,16 +299,8 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
   .pattern-lines {
     position: absolute;
     inset: 0;
-    background: linear-gradient(45deg, transparent 45%, rgba(255, 255, 255, 0.03) 48%, rgba(255, 255, 255, 0.03) 52%, transparent 55%);
+    background: linear-gradient(45deg, transparent 45%, var(--chrome-base) 48%, var(--chrome-base) 52%, transparent 55%);
     background-size: 8px 8px;
-    pointer-events: none;
-  }
-
-  .pattern-dots {
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 6px 6px;
     pointer-events: none;
   }
 
@@ -339,7 +329,7 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
     inset: 0;
     display: flex;
     flex-direction: column;
-    background-color: var(--color-mock-bg);
+    background-color: var(--color-mock-panel);
     opacity: 0;
     pointer-events: none;
     transform: scale(1.04);
@@ -358,7 +348,7 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
     justify-content: space-between;
     align-items: center;
     height: 48px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--border-weak);
     padding-inline: var(--space-4);
     font-size: 11px;
     user-select: none;
@@ -381,7 +371,7 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
 
   .back-btn:hover {
     color: var(--color-text-primary);
-    background-color: rgba(255, 255, 255, 0.03);
+    background-color: var(--chrome-base);
   }
 
   .back-icon {
@@ -437,7 +427,7 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
   .article-divider {
     height: 1px;
     width: 60px;
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--chrome-high);
     margin: var(--space-6) auto;
   }
 
@@ -446,7 +436,7 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
     font-family: Georgia, serif;
     font-size: clamp(14px, 1.45vw, 16px);
     line-height: var(--leading-relaxed);
-    color: #e7e5e4;
+    color: var(--fg-base);
     margin-bottom: var(--space-5);
     text-align: justify;
     text-justify: inter-word;
@@ -464,12 +454,12 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
   }
 
   .highlight-animated.yellow-style {
-    background-image: linear-gradient(to right, rgba(245, 158, 11, 0.16) 0%, rgba(245, 158, 11, 0.16) 100%);
+    background-image: linear-gradient(to right, var(--accent-weak) 0%, var(--accent-weak) 100%);
   }
 
   .highlight-animated.yellow-style.highlighted {
     background-size: 100% 100%;
-    border-color: #f59e0b;
+    border-color: var(--accent-base);
   }
 
   .highlight-animated.green-style {
@@ -535,13 +525,25 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
   /* Responsive layout tweaks */
   @media (max-width: 960px) {
     .cover-flow-container {
-      gap: var(--space-4);
+      gap: 0;
+      padding-inline: var(--space-2);
     }
     .book-cover-wrapper.secondary {
-      display: none; /* Hide off-center books on mobile for tighter fit */
+      opacity: 0.4;
+      filter: blur(1px);
+    }
+    .book-cover-wrapper.secondary.left-book {
+      transform: translateZ(-60px) rotateY(28deg) translateX(28px) scale(0.88);
+    }
+    .book-cover-wrapper.secondary.right-book {
+      transform: translateZ(-60px) rotateY(-28deg) translateX(-28px) scale(0.88);
     }
     .book-cover {
-      width: 110px;
+      width: 96px;
+    }
+    .book-cover-wrapper.secondary .book-title,
+    .book-cover-wrapper.secondary .book-author {
+      display: none;
     }
     .reader-header {
       font-size: 10px;
@@ -563,7 +565,7 @@ import selfRelianceCover from "../../../assets/self-reliance.webp"
       background-color: #ffffff !important;
       border: 2px solid #000000 !important;
       border-radius: 50% !important;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important;
+      box-shadow: var(--shadow-raised);
     }
     .cursor-arrow {
       display: none !important;

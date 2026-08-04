@@ -1,113 +1,21 @@
 ---
-import type { Audience, FeatureItem } from "../../content/site"
-import { content } from "../../content/site"
-import { AUDIENCE_EDUCATORS, AUDIENCE_LEARNERS } from "../../lib/constants"
-import LearnerReadMock from "./mocks/LearnerReadMock.astro"
-import LearnerPlayMock from "./mocks/LearnerPlayMock.astro"
-import LearnerDrawMock from "./mocks/LearnerDrawMock.astro"
-
-import QuizArtifact from "./artifacts/QuizArtifact.astro"
-import DifferentiateArtifact from "./artifacts/DifferentiateArtifact.astro"
-import LessonArtifact from "./artifacts/LessonArtifact.astro"
-import LightLabArtifact from "./artifacts/LightLabArtifact.astro"
-import RememberArtifact from "./artifacts/RememberArtifact.astro"
-import VaultArtifact from "./artifacts/VaultArtifact.astro"
-
-const learnersSteps = content.learners.features
-const educatorsSteps = content.educators.features
-const featureNarrative = content.educatorFeatureNarrative
-const toAnalyticsKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
-
 type Props = {
-  initialAudience?: Audience
+  narrative?: string
 }
 
-const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
+const { narrative } = Astro.props
 ---
 
 <section class="features-section" data-analytics-section="features">
-<div class="container">
-
-  {initialAudience === AUDIENCE_EDUCATORS && (
-    <p class="feature-narrative reveal">{featureNarrative}</p>
-  )}
-
-  <div class="bookend-cards-stack">
-      {learnersSteps.map((learnerStep, i) => {
-        // Educators have fewer features (PLAN + CREATE merged into AUTHOR):
-        // cards beyond the educator list are learners-only and are not
-        // rendered at all on the educators page.
-        const educatorStep: FeatureItem | undefined = educatorsSteps[i]
-        if (educatorStep === undefined && initialAudience === AUDIENCE_EDUCATORS) return null
-        // Learner beats 4 & 5 are staged artifacts (the card, the note) rather
-        // than app mocks, so they render bezel-free like the educator beats.
-        const isStage = initialAudience === AUDIENCE_EDUCATORS || i >= 3
-
-        return (
-          <div
-            class="bookend-card-wrapper"
-            data-analytics-feature={`feature_${i + 1}`}
-            data-analytics-feature-learners={toAnalyticsKey(learnerStep.tag)}
-            data-analytics-feature-educators={educatorStep ? toAnalyticsKey(educatorStep.tag) : ""}
-          >
-            <div class="bookend-card-body">
-              <div class="bookend-card-left">
-                <div class="step-tag-wrapper">
-                  <span class:list={["step-tag swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>{learnerStep.tag}</span>
-                  {educatorStep && (
-                    <span class:list={["step-tag swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
-                      <span class="step-num">{String(i + 1).padStart(2, "0")}</span>
-                      {educatorStep.tag}
-                    </span>
-                  )}
-                </div>
-
-                <!-- Learners Content -->
-                <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
-                  <h3 class="step-title">{learnerStep.title}</h3>
-                  <p class="step-desc">{learnerStep.subtext}</p>
-                </div>
-
-                <!-- Educators Content -->
-                {educatorStep && (
-                  <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
-                    <h3 class="step-title">{educatorStep.title}</h3>
-                    <p class="step-desc">{educatorStep.subtext}</p>
-                  </div>
-                )}
-              </div>
-              <div class:list={["bookend-card-right", { "bookend-card-right--stage": isStage }]}>
-                <div class:list={["sticky-mockup-wrapper", { "sticky-mockup-wrapper--stage": isStage }]}>
-                  <div class="mockup-viewport">
-                    <!-- Learners Mocks -->
-                    <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
-                      {i === 0 && <LearnerReadMock />}
-                      {i === 1 && <LearnerDrawMock />}
-                      {i === 2 && <LearnerPlayMock />}
-                      {i === 3 && <RememberArtifact />}
-                      {i === 4 && <VaultArtifact />}
-                    </div>
-
-                    <!-- Educators: every beat shows the artifact itself — the drafted week,
-                         the leveled reading, the quiz on the desk, the widget on the screen. -->
-                    <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
-                      {i === 0 && <LessonArtifact />}
-                      {i === 1 && <DifferentiateArtifact />}
-                      {i === 2 && <QuizArtifact />}
-                      {i === 3 && <LightLabArtifact />}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      })}
+  <div class="container">
+    {narrative && <p class="feature-narrative reveal">{narrative}</p>}
+    <div class="bookend-cards-stack">
+      <slot />
+    </div>
   </div>
-</div>
 </section>
 
-<style>
+<style is:global>
 
   /* The thread that ties the four beats together: one unit, start to finish. */
   .feature-narrative {
@@ -260,7 +168,7 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
     align-items: center;
     height: 36px;
     background-color: rgba(0, 0, 0, 0.2);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--border-weak);
     padding-inline: var(--space-4);
     gap: var(--space-4);
   }
@@ -274,7 +182,7 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--surface-high);
   }
 
   .mockup-tab-title {
@@ -307,7 +215,7 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 
   .mock-drag-zone {
     flex: 1;
-    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border: 1px dashed var(--border-base);
     border-radius: 8px;
     display: flex;
     flex-direction: column;
@@ -325,8 +233,8 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
   }
 
   .file-row {
-    background-color: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    background-color: var(--surface-base);
+    border: 1px solid var(--border-weak);
     border-radius: 6px;
     padding: 8px 12px;
     font-size: var(--text-xs);
@@ -363,7 +271,7 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 
   .upload-progress-bar {
     height: 4px;
-    background-color: rgba(255, 255, 255, 0.04);
+    background-color: var(--surface-raised);
     border-radius: 99px;
     overflow: hidden;
     width: 100%;
@@ -382,7 +290,7 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
   }
 
   .chat-bubble.bot {
-    background-color: rgba(255, 255, 255, 0.03);
+    background-color: var(--surface-base);
     align-self: flex-start;
     color: var(--color-text-secondary);
   }
@@ -395,7 +303,7 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 
   .chat-input-line {
     margin-top: auto;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-base);
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 6px;
     padding: 8px 12px;
@@ -407,7 +315,7 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
   }
 
   .chat-input-line kbd {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--surface-raised);
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 9px;
@@ -415,9 +323,9 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 
   .flashcard-preview {
     flex: 1;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-weak);
     border-radius: 8px;
-    background-color: rgba(255, 255, 255, 0.01);
+    background-color: var(--surface-base);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -438,8 +346,8 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 
   .card-option-btn {
     width: 100%;
-    background-color: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: var(--surface-base);
+    border: 1px solid var(--border-base);
     color: var(--color-text-primary);
     border-radius: 6px;
     padding: 8px 16px;
@@ -480,8 +388,8 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 
   .stat-item {
     flex: 1;
-    background-color: rgba(255, 255, 255, 0.01);
-    border: 1px solid rgba(255, 255, 255, 0.03);
+    background-color: var(--surface-base);
+    border: 1px solid var(--border-weak);
     border-radius: 6px;
     padding: 8px;
     text-align: center;
@@ -503,7 +411,7 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 
   .stat-progress-bar {
     height: 4px;
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--surface-raised);
     border-radius: 99px;
     overflow: hidden;
     width: 100%;
@@ -609,13 +517,19 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
       margin-left: calc(-1 * var(--space-6));
       margin-right: calc(-1 * var(--space-6));
     }
+    /* Feathers the two edges where the oversized sheet bleeds past the viewport.
+       Two failure modes to stay between: start the ramp too early (this began at 50% of
+       the height and 65% of the width) and the page background buries half the artifact —
+       unnoticeable on a dark mock, ruinous on the teacher's cream paper. Ramp too fast and
+       it stops reading as a fade and becomes a black bar down the edge. So: start late,
+       but keep the runway long enough to actually look like a fade. */
     .bookend-card-right::after {
       content: '' !important;
       position: absolute !important;
       inset: 0 !important;
-      background: 
-        linear-gradient(to bottom, transparent 50%, var(--color-bg) 95%),
-        linear-gradient(to right, transparent 65%, var(--color-bg) 98%) !important;
+      background:
+        linear-gradient(to bottom, transparent 86%, var(--color-bg) 100%),
+        linear-gradient(to right, transparent 84%, var(--color-bg) 100%) !important;
       pointer-events: none !important;
       z-index: 10 !important;
     }
@@ -688,14 +602,13 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
   }
 
   @media (max-width: 768px) {
-    .bookend-card-right {
-      width: calc(100% + var(--space-5)) !important;
-      margin-left: 0 !important;
-      margin-right: calc(-1 * var(--space-5)) !important;
-    }
+    /* Keep the visual's left edge on the same gutter as its copy while allowing the
+       oversized mock to peek through the right viewport edge. */
+    .bookend-card-right,
     .bookend-card-right--stage {
-      width: calc(100% + var(--space-5) * 2) !important;
-      margin-left: calc(-1 * var(--space-5)) !important;
+      width: auto !important;
+      max-width: none !important;
+      margin-left: 0 !important;
       margin-right: calc(-1 * var(--space-5)) !important;
     }
   }
@@ -723,6 +636,11 @@ const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
     }
     .sticky-mockup-wrapper--stage .mockup-viewport {
       height: 440px !important;
+    }
+    [data-analytics-feature-learners="connect"]
+      .sticky-mockup-wrapper--stage
+      .mockup-viewport {
+      height: 320px !important;
     }
     [data-analytics-feature="feature_3"] .sticky-mockup-wrapper--stage .mockup-viewport {
       height: 340px !important;
