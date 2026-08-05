@@ -10,7 +10,7 @@ export type GetStartedFlow = GetStartedFlowSnapshot & {
   dismiss: () => void
 }
 
-export function useGetStartedFlow(currentDirectory: string): GetStartedFlow {
+export function useGetStartedFlow(currentDirectory: string, selectedModel?: string): GetStartedFlow {
   const primaryUseQuery = useQuery({
     ...globalConfigQueryOptions(),
     select: (globalConfig) => readPersonalization(globalConfig).primaryUse,
@@ -29,6 +29,7 @@ export function useGetStartedFlow(currentDirectory: string): GetStartedFlow {
         personalizationResolved: !primaryUseQuery.isPending,
         primaryUse: primaryUseQuery.data,
         currentDirectory,
+        selectedModel,
         devtoolsMode,
       }),
       dismiss,
@@ -40,6 +41,7 @@ export function useGetStartedFlow(currentDirectory: string): GetStartedFlow {
       persistedStateHydrated,
       primaryUseQuery.data,
       primaryUseQuery.isPending,
+      selectedModel,
       devtoolsMode,
     ],
   )

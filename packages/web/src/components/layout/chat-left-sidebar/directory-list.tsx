@@ -149,7 +149,7 @@ type DirectoryThreadRowProps = {
 }
 
 const COLLAPSED_COUNT = 10
-const QUICK_CHAT_COLLAPSED_COUNT = 3
+const QUICK_CHAT_COLLAPSED_COUNT = 5
 // Maximum number of subagent child rows visible before the "show more" button appears
 const MAX_VISIBLE_SUBAGENTS = 5
 const SESSION_PREFETCH_HOVER_DELAY_MS = 120
@@ -388,7 +388,13 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         </button>
       </CollapsibleTrigger>
 
-      <div className="relative z-10 flex items-center gap-0.5 pl-1 opacity-0 pointer-events-none transition-opacity group-hover/directory:opacity-100 group-hover/directory:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
+      <div
+        className={`relative z-10 flex items-center gap-0.5 pl-1 opacity-0 pointer-events-none transition-opacity group-hover/directory:opacity-100 group-hover/directory:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto ${
+          isCurrentDirectory
+            ? "group-hover/sidebar:opacity-100 group-hover/sidebar:pointer-events-auto"
+            : ""
+        }`}
+      >
         <Tooltip delayDuration={1000}>
           <TooltipTrigger asChild>
             <button

@@ -1,11 +1,13 @@
 import type { PrimaryUse } from "@/state/project-config-readers"
+import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 
 export const GET_STARTED_CHAT_IDS = [
   "buddy-help-tour",
-  "whiteboard-problem",
-  "concept-in-motion",
-  "practice-set",
-  "read-a-classic",
+  "whiteboard-explainer",
+  "interactive-simulation",
+  "read-odyssey",
+  "research-question",
+  "skills-showcase",
   "whiteboard-brainstorm",
   "standards-lesson",
   "classroom-activity",
@@ -31,6 +33,9 @@ export const GET_STARTED_CAPABILITY = {
   formativeCheck: "formative-check",
   buddyHelp: "buddy-help",
   reader: "reader",
+  research: "research",
+  skills: "skills",
+  subagents: "subagents",
 } as const
 export type GetStartedCapability =
   (typeof GET_STARTED_CAPABILITY)[keyof typeof GET_STARTED_CAPABILITY]
@@ -53,6 +58,9 @@ export const GET_STARTED_CAPABILITY_LABEL = {
   [GET_STARTED_CAPABILITY.formativeCheck]: "Formative check",
   [GET_STARTED_CAPABILITY.buddyHelp]: "Buddy Help",
   [GET_STARTED_CAPABILITY.reader]: "Reader",
+  [GET_STARTED_CAPABILITY.research]: "Research",
+  [GET_STARTED_CAPABILITY.skills]: "Skills",
+  [GET_STARTED_CAPABILITY.subagents]: "Subagents",
 } as const satisfies Record<GetStartedCapability, string>
 
 /** Icon keys resolved in the board UI. */
@@ -66,6 +74,8 @@ export const GET_STARTED_ICON = {
   standards: "standards",
   activity: "activity",
   differentiate: "differentiate",
+  research: "research",
+  skills: "skills",
 } as const
 export type GetStartedIconId = (typeof GET_STARTED_ICON)[keyof typeof GET_STARTED_ICON]
 
@@ -90,6 +100,23 @@ export const GET_STARTED_FLOW_DEVTOOLS_MODE = {
 export type GetStartedFlowDevtoolsMode =
   (typeof GET_STARTED_FLOW_DEVTOOLS_MODE)[keyof typeof GET_STARTED_FLOW_DEVTOOLS_MODE]
 
+export const GET_STARTED_LEARNER_MODEL_TIER = {
+  free: "free",
+  connected: "connected",
+} as const
+export type GetStartedLearnerModelTier =
+  (typeof GET_STARTED_LEARNER_MODEL_TIER)[keyof typeof GET_STARTED_LEARNER_MODEL_TIER]
+
+export function resolveGetStartedLearnerModelTier(
+  selectedModel: string | undefined,
+): GetStartedLearnerModelTier {
+  if (!selectedModel || selectedModel.startsWith(`${OPENCODE_PROVIDER_ID}/`)) {
+    return GET_STARTED_LEARNER_MODEL_TIER.free
+  }
+
+  return GET_STARTED_LEARNER_MODEL_TIER.connected
+}
+
 const BUDDY_HELP_TOUR_CHAT = {
   id: "buddy-help-tour",
   title: "Take the Grand Tour",
@@ -104,54 +131,124 @@ const BUDDY_HELP_TOUR_CHAT = {
   ],
 } as const satisfies GetStartedChat
 
-/** Learner order: fastest wow first; Grand Tour last (narrow mode shows first 3). */
-const LEARNER_GET_STARTED_CHATS = [
+/** Free-model order: bounded single-surface work first (narrow mode shows first 3). */
+const FREE_LEARNER_GET_STARTED_CHATS = [
   {
-    id: "whiteboard-problem",
-    title: "Solve on the Board",
+    id: "whiteboard-explainer",
+    title: "How Does an AI Agent Work?",
     icon: GET_STARTED_ICON.whiteboard,
-    description: "You’ll leave with a solved quadratic and a second problem you can try yourself.",
+    description: "See one agent work through a goal, a tool, a result, and the loop back around.",
     prompt:
-      "Walk me through solving a quadratic equation step by step on the whiteboard. Draw a clear worked example for x^2 - 5x + 6 = 0 on the board, then give me a similar problem and coach me with short steps. Use the question UI when you need my next step or prediction. Do not dump the full solution at once.",
+      "Draw how an AI agent works on the whiteboard: it receives a goal, thinks, chooses a tool, acts, observes the result, and loops. Use one concrete example throughout. Keep it to five large connected steps with short labels.",
     capabilities: [
       GET_STARTED_CAPABILITY.bench,
       GET_STARTED_CAPABILITY.whiteboard,
-      GET_STARTED_CAPABILITY.workedExample,
-      GET_STARTED_CAPABILITY.questionUi,
     ],
   },
   {
-    id: "concept-in-motion",
-    title: "Run a Population Sim",
+    id: "interactive-simulation",
+    title: "Release a Double Pendulum",
     icon: GET_STARTED_ICON.simulation,
-    description: "You’ll get a tiny natural-selection toy you can tweak once.",
+    description: "Drag, release, and watch a tiny change turn into a completely different path.",
     prompt:
-      "Help me get the idea of natural selection. Build one small interactive Bench widget only: a beetle population with a single slider (predator pressure) and a simple count or bar that updates. No multi-screen UI, no long tutorial copy. Start with the widget, keep chat short, and stop after one brief line on what I can try. That is the only deliverable — no quiz and no second artifact.",
+      "Build and open one compact double-pendulum simulation directly on the Bench. Let me drag, release, and reset it, and draw fading trails behind both arms so I can compare how tiny changes in the starting position produce completely different paths. Keep it to one screen with no tutorial, extra controls, or additional artifacts.",
     capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.htmlWidget],
   },
   {
-    id: "read-a-classic",
-    title: "Read a Classic",
+    id: "read-odyssey",
+    title: "Read The Odyssey",
     icon: GET_STARTED_ICON.reading,
-    description: "You’ll get a free classic open in the reader, ready to study with Buddy.",
+    description: "Open The Odyssey at the moment its oldest witness recognizes the man who came home.",
     prompt:
-      "Help me start reading a free classic from Project Gutenberg. Load the reading skill first, then work from it. Prefer The Adventures of Sherlock Holmes (Arthur Conan Doyle) if it has a real EPUB download; otherwise pick another short, well-known public-domain classic with a real EPUB. Bring that EPUB into this workspace, prepare it as a reading resource, open it on the Bench reader, and then help me begin — a short grounded orientation to the book and one clear next reading step. Prefer EPUB over plain text so the built-in reader can open it. Keep the chat short; put the book on Bench, not a long lecture in chat. Do not use the to-do list tool for this. When you finish, briefly tell me what you did (which book, that it’s open in the reader), then invite me to select something in the book and see what happens.",
+      "Download a real public-domain EPUB of The Odyssey from Project Gutenberg, bring it into this workspace, prepare it as a reading resource, and open the actual book in the Bench reader. Do not stop after downloading it or merely summarize it in chat: the book itself must be visible and open on the Bench when you finish. Find the scene where Argos recognizes Odysseus, give me only the context needed to understand the moment, and leave me at that passage ready to read. Stay grounded in this edition.",
     capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.reader],
   },
   {
-    id: "practice-set",
-    title: "Make Flashcards",
-    icon: GET_STARTED_ICON.practice,
-    description: "You’ll get a tiny 5-card deck you can open in Practice.",
+    id: "research-question",
+    title: "Could Dinosaurs Actually Roar?",
+    icon: GET_STARTED_ICON.research,
+    description: "Get one compact evidence brief separating fossils, living relatives, and inference.",
     prompt:
-      "I am learning photosynthesis for high school biology. Create exactly one flashcard deck on the Bench with exactly 5 cards (basic and cloze mix, one idea per card) for the most common confusions. Save it so I can open it in Practice. Do not create a quiz, question set, or any other artifact. Keep the chat short.",
+      "Spawn exactly one research subagent to investigate whether dinosaurs could actually roar, using reliable palaeontology sources and evidence from fossils and living relatives. When it returns, put one compact, source-backed Markdown research note directly on the Bench—not in chat. Clearly separate evidence from inference and uncertainty. Do not create additional artifacts.",
     capabilities: [
       GET_STARTED_CAPABILITY.bench,
-      GET_STARTED_CAPABILITY.flashcards,
-      GET_STARTED_CAPABILITY.practiceRail,
+      GET_STARTED_CAPABILITY.markdown,
+      GET_STARTED_CAPABILITY.research,
+      GET_STARTED_CAPABILITY.subagents,
     ],
   },
-  BUDDY_HELP_TOUR_CHAT,
+  {
+    id: "skills-showcase",
+    title: "Decode Caffeine",
+    icon: GET_STARTED_ICON.skills,
+    description: "Use Buddy’s chemistry skill to read the atoms and rings inside a familiar molecule.",
+    prompt:
+      "Load the teach-chemistry skill and start with one sentence naming the specialized Buddy skill you are using and what it contributes. Render caffeine as one accurate chemistry structure directly in chat. In three short observations, help me identify its fused rings, two oxygen atoms, and four nitrogen atoms, then ask me one quick identification question. Use only one structure. Do not research, use subagents, create files, or create a Bench artifact.",
+    capabilities: [GET_STARTED_CAPABILITY.skills],
+  },
+] as const satisfies readonly GetStartedChat[]
+
+/** Connected-model order: richer agentic work first (narrow mode shows first 3). */
+const CONNECTED_LEARNER_GET_STARTED_CHATS = [
+  {
+    id: "whiteboard-explainer",
+    title: "How Does Buddy Work?",
+    icon: GET_STARTED_ICON.whiteboard,
+    description: "Trace one request through Buddy’s persona, capabilities, agent loop, and Bench.",
+    prompt:
+      "Load the Buddy Help skill and use it as the source of truth. Draw one clear whiteboard showing how Buddy handles a request—from my message, through its persona, features, skills, tools, and subagents, to a result in Chat or on the Bench. Show the agent loop, keep it to six large stages, and avoid product details that Buddy Help does not confirm.",
+    capabilities: [
+      GET_STARTED_CAPABILITY.bench,
+      GET_STARTED_CAPABILITY.whiteboard,
+      GET_STARTED_CAPABILITY.buddyHelp,
+      GET_STARTED_CAPABILITY.skills,
+      GET_STARTED_CAPABILITY.subagents,
+    ],
+  },
+  {
+    id: "interactive-simulation",
+    title: "Travel Through Space",
+    icon: GET_STARTED_ICON.simulation,
+    description: "Pilot a ship, scan three planets, dodge asteroids, and bring back the science.",
+    prompt:
+      "Build and open one compact game directly on the Bench where I pilot a ship through the solar system, scan three planets, dodge asteroids, and collect science along the way. Give me steering and boost controls, a shield, visible progress, and one short fact when each planet is scanned. Start directly in the playable game: one level, one screen, no menu, no setup flow, and no additional artifacts.",
+    capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.htmlWidget],
+  },
+  {
+    id: "read-odyssey",
+    title: "Read The Odyssey",
+    icon: GET_STARTED_ICON.reading,
+    description: "Open The Odyssey and closely read the recognition scene in its surrounding passage.",
+    prompt:
+      "Download a real public-domain EPUB of The Odyssey from Project Gutenberg, bring it into this workspace, prepare it as a reading resource, and open the actual book in the Bench reader. Do not stop after downloading it or merely summarize it in chat: the book itself must be visible and open on the Bench when you finish. Locate the scene where Argos recognizes Odysseus and leave the reader open at the surrounding passage. Give me a concise, edition-grounded close reading of how waiting, disguise, recognition, and death make the scene work, without creating another artifact.",
+    capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.reader],
+  },
+  {
+    id: "research-question",
+    title: "Why Does Roman Concrete Last?",
+    icon: GET_STARTED_ICON.research,
+    description: "Compare material evidence and ancient sources in one compact research brief.",
+    prompt:
+      "Spawn exactly two research subagents in parallel. Have one investigate the material chemistry and self-healing evidence behind Roman concrete, and the other investigate archaeological evidence and what ancient sources actually support. Put their synthesized findings into one compact, source-backed Markdown research note directly on the Bench—not in chat. Separate established evidence, current hypotheses, and unresolved questions. Do not create additional artifacts.",
+    capabilities: [
+      GET_STARTED_CAPABILITY.bench,
+      GET_STARTED_CAPABILITY.markdown,
+      GET_STARTED_CAPABILITY.research,
+      GET_STARTED_CAPABILITY.subagents,
+    ],
+  },
+  {
+    id: "skills-showcase",
+    title: "Why Does One pH Point Matter?",
+    icon: GET_STARTED_ICON.skills,
+    description: "Combine chemistry and mathematics to reveal the tenfold change hidden in one pH step.",
+    prompt:
+      "Load the teach-chemistry and teach-mathematics skills. Start with one sentence naming both specialized Buddy skills and what each contributes. Use the chemistry skill to render one accurate chemistry-native structure diagram of the hydronium ion directly in chat—not only a text formula—and briefly connect it to what pH measures. Then use the mathematics skill to verify with one short calculation why moving from pH 4 to pH 3 represents a tenfold change in hydrogen-ion activity. Finish with one quick prediction using the question UI. Do not research, use subagents, create files, or create a Bench artifact.",
+    capabilities: [
+      GET_STARTED_CAPABILITY.questionUi,
+      GET_STARTED_CAPABILITY.skills,
+    ],
+  },
 ] as const satisfies readonly GetStartedChat[]
 
 /** Teacher order: fastest classroom wow first; Grand Tour last (narrow mode shows first 3). */
@@ -203,19 +300,23 @@ const EDUCATOR_GET_STARTED_CHATS = [
   BUDDY_HELP_TOUR_CHAT,
 ] as const satisfies readonly GetStartedChat[]
 
-const GET_STARTED_CHATS_BY_PRIMARY_USE = {
-  learn: LEARNER_GET_STARTED_CHATS,
-  teach: EDUCATOR_GET_STARTED_CHATS,
-} as const satisfies Record<PrimaryUse, readonly GetStartedChat[]>
-
 const DEFAULT_GET_STARTED_PRIMARY_USE = "learn" satisfies PrimaryUse
 
 export function isGetStartedFlowDevtoolsMode(value: string): value is GetStartedFlowDevtoolsMode {
   return Object.values(GET_STARTED_FLOW_DEVTOOLS_MODE).some((mode) => mode === value)
 }
 
-export function getStartedChatsForPrimaryUse(primaryUse: PrimaryUse | undefined) {
-  return GET_STARTED_CHATS_BY_PRIMARY_USE[primaryUse ?? DEFAULT_GET_STARTED_PRIMARY_USE]
+export function getStartedChatsForPrimaryUse(
+  primaryUse: PrimaryUse | undefined,
+  learnerModelTier: GetStartedLearnerModelTier = GET_STARTED_LEARNER_MODEL_TIER.free,
+) {
+  if ((primaryUse ?? DEFAULT_GET_STARTED_PRIMARY_USE) === "teach") {
+    return EDUCATOR_GET_STARTED_CHATS
+  }
+
+  return learnerModelTier === GET_STARTED_LEARNER_MODEL_TIER.connected
+    ? CONNECTED_LEARNER_GET_STARTED_CHATS
+    : FREE_LEARNER_GET_STARTED_CHATS
 }
 
 export function getStartedChatsForDevtoolsMode(
@@ -223,8 +324,9 @@ export function getStartedChatsForDevtoolsMode(
     GetStartedFlowDevtoolsMode,
     typeof GET_STARTED_FLOW_DEVTOOLS_MODE.appState | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.hidden
   >,
+  learnerModelTier: GetStartedLearnerModelTier = GET_STARTED_LEARNER_MODEL_TIER.free,
 ): readonly GetStartedChat[] {
   return devtoolsMode === GET_STARTED_FLOW_DEVTOOLS_MODE.student
-    ? LEARNER_GET_STARTED_CHATS
+    ? getStartedChatsForPrimaryUse("learn", learnerModelTier)
     : EDUCATOR_GET_STARTED_CHATS
 }

@@ -24,6 +24,8 @@ export const dict = {
   "chat.emptyState.welcomeToBuddy": "Welcome to Buddy",
   "chat.emptyState.tryThese": "Try these",
   "chat.emptyState.hideGetStarted": "Hide Try these",
+  "chat.emptyState.getStartedDismissed":
+    "You can enable these prompts again in Settings.",
   "chat.jumpToLatest": "Jump to latest",
   "chat.permissionDock.action.bash": "Run command",
   "chat.permissionDock.action.edit": "Edit {{path}}",

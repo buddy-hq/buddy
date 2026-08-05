@@ -103,6 +103,7 @@ function BoardDateCorner(props: BoardDateCornerProps) {
 type ChatEmptyStateBoardProps = {
   directory: string
   directories: string[]
+  selectedModel: string
   persona: string
   onSelectNotebook: (directory: string) => void
   onStartGetStartedChat?: (chat: GetStartedChat) => Promise<void> | void
@@ -132,7 +133,7 @@ function formatBoardDate(now: Date) {
 
 export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
   const isInbox = isInboxDirectory(props.directory)
-  const getStartedFlow = useGetStartedFlow(props.directory)
+  const getStartedFlow = useGetStartedFlow(props.directory, props.selectedModel)
   const showGetStarted = isInbox && getStartedFlow.isActive && Boolean(props.onStartGetStartedChat)
   const headline = isInbox
     ? language.t("chat.emptyState.inboxTitle")

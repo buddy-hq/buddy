@@ -599,6 +599,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     <ChatEmptyStateBoard
                       directory={directory}
                       directories={props.directories}
+                      selectedModel={chatState.selectedModelKey}
                       persona={chatState.selectedPersona}
                       onSelectNotebook={props.onSelectNotebook}
                       onStartGetStartedChat={props.onStartGetStartedChat}

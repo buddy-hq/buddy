@@ -132,6 +132,7 @@ import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memor
 import { FOLLOWUP_BEHAVIOR_QUEUE, useChatSettings } from "@/state/chat-settings"
 import { language } from "@/context/language"
 import type { GetStartedChat } from "@/lib/get-started-chats"
+import { createGetStartedChatDraft } from "@/lib/get-started-chat-draft"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 import { useOpenExistingNotebook } from "@/lib/use-open-existing-notebook"
@@ -1332,6 +1333,22 @@ export function useDirectoryChatPageController(
     }
   }
 
+  async function onStageGetStartedChat(chat: GetStartedChat) {
+    try {
+      const result = await startActiveChatDraft({ directory: decodedDirectory })
+      if (result.outcome !== "committed" && result.outcome !== "noop") return false
+      seedDraftModelSelection(decodedDirectory)
+      const nextPromptKey = getPromptScopeKey(decodedDirectory)
+      const currentDraft = getPromptDraft(usePromptStore.getState(), nextPromptKey)
+      cs.setPromptDraft(nextPromptKey, createGetStartedChatDraft(chat, currentDraft))
+      requestPromptComposerFocus(decodedDirectory)
+      return true
+    } catch {
+      // The active-chat transition owns the session error state.
+      return false
+    }
+  }
+
   function enqueueFollowup(
     draft: SubmittedPromptDraft,
     kind: QueuedFollowupKind,
@@ -1769,6 +1786,7 @@ export function useDirectoryChatPageController(
   const leftSidebarProps: ComponentProps<typeof ChatLeftSidebar> = {
     directories: cs.sidebarDirectories,
     currentDirectory: decodedDirectory,
+    selectedModel: cs.selectedModelKey,
     sessionsByDirectory: cs.sessionsByDirectory,
     activeSessionID: cs.sessionID,
     sessionStatusByDirectory: cs.sessionStatusByDirectory,
@@ -1783,7 +1801,7 @@ export function useDirectoryChatPageController(
     onQuickChat: () => {
       void onQuickChat()
     },
-    onStartGetStartedChat,
+    onStageGetStartedChat,
     onCreateNotebook,
     onNewSession: (targetDirectory) => onNewSession(targetDirectory),
     onSelectSession: (targetDirectory, targetSessionID) =>

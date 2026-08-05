@@ -2,6 +2,7 @@ import {
   GET_STARTED_FLOW_DEVTOOLS_MODE,
   getStartedChatsForPrimaryUse,
   getStartedChatsForDevtoolsMode,
+  resolveGetStartedLearnerModelTier,
   type GetStartedChat,
   type GetStartedFlowDevtoolsMode,
 } from "./get-started-chats"
@@ -37,6 +38,8 @@ export type GetStartedFlowInput = {
    * `isActive` — the empty board decides Inbox-only presentation itself.
    */
   currentDirectory: string
+  /** Active composer model; anonymous OpenCode models receive the bounded prompt set. */
+  selectedModel?: string
   devtoolsMode: GetStartedFlowDevtoolsMode | undefined
 }
 
@@ -80,9 +83,10 @@ export function resolveGetStartedFlow(input: GetStartedFlowInput): GetStartedFlo
     return createSnapshot(GET_STARTED_FLOW_STATUS.loading, input.enabled, [])
   }
 
+  const learnerModelTier = resolveGetStartedLearnerModelTier(input.selectedModel)
   const chats = isDeveloperAudienceOverride(input.devtoolsMode)
-    ? getStartedChatsForDevtoolsMode(input.devtoolsMode)
-    : getStartedChatsForPrimaryUse(input.primaryUse)
+    ? getStartedChatsForDevtoolsMode(input.devtoolsMode, learnerModelTier)
+    : getStartedChatsForPrimaryUse(input.primaryUse, learnerModelTier)
   if (!hasDeveloperAudienceOverride && !input.enabled) {
     return createSnapshot(GET_STARTED_FLOW_STATUS.dismissed, input.enabled, chats)
   }

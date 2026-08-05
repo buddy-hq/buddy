@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
+import "@/components/prompt/composer-surfaces.css"
 import {
   BookOpen,
   Brain,
@@ -9,7 +10,9 @@ import {
   Lightbulb,
   NoteIcon,
   PencilRuler,
+  Search,
   ScrollText,
+  Sparkles,
   type AppIcon,
 } from "@/icons/app-icons"
 import {
@@ -35,14 +38,23 @@ const BOARD_HOVER_CARD_OPEN_DELAY_MS = 1200
 
 export type GetStartedChatsVariant = "sidebar" | "board"
 
-type GetStartedChatsProps = {
+type GetStartedChatsBaseProps = {
   chats: readonly GetStartedChat[]
   disabled?: boolean
-  onStart: (chat: GetStartedChat) => Promise<void> | void
   onDismiss: () => void
-  /** Sidebar list (default) or Option B–style scenario cards on the empty board. */
-  variant?: GetStartedChatsVariant
 }
+
+type GetStartedChatsProps =
+  | (GetStartedChatsBaseProps & {
+      /** Sidebar suggestions stage a draft so repeated clicks cannot create sessions. */
+      variant?: "sidebar"
+      onStage: (chat: GetStartedChat) => Promise<void> | void
+    })
+  | (GetStartedChatsBaseProps & {
+      /** Empty-board suggestions intentionally create and send a chat immediately. */
+      variant: "board"
+      onStart: (chat: GetStartedChat) => Promise<void> | void
+    })
 
 /** App icon set for get-started scenarios. */
 const GET_STARTED_ICON_COMPONENT = {
@@ -55,6 +67,8 @@ const GET_STARTED_ICON_COMPONENT = {
   [GET_STARTED_ICON.standards]: ScrollText,
   [GET_STARTED_ICON.activity]: Gamepad2,
   [GET_STARTED_ICON.differentiate]: Layers,
+  [GET_STARTED_ICON.research]: Search,
+  [GET_STARTED_ICON.skills]: Sparkles,
 } as const satisfies Record<GetStartedIconId, AppIcon>
 
 function GetStartedBoardIcon(props: { icon: GetStartedIconId; className?: string }) {
@@ -70,17 +84,24 @@ function hoverCardTags(
 }
 
 export function GetStartedChats(props: GetStartedChatsProps) {
-  const [startingChatID, setStartingChatID] = useState<GetStartedChat["id"] | undefined>(undefined)
+  const activationInFlightRef = useRef(false)
+  const [activeChatID, setActiveChatID] = useState<GetStartedChat["id"] | undefined>(undefined)
   const variant = props.variant ?? "sidebar"
 
-  async function startChat(chat: GetStartedChat) {
-    if (startingChatID || props.disabled) return
+  async function activateChat(chat: GetStartedChat) {
+    if (activationInFlightRef.current || props.disabled) return
 
-    setStartingChatID(chat.id)
+    activationInFlightRef.current = true
+    setActiveChatID(chat.id)
     try {
-      await props.onStart(chat)
+      if (props.variant === "board") {
+        await props.onStart(chat)
+      } else {
+        await props.onStage(chat)
+      }
     } finally {
-      setStartingChatID(undefined)
+      activationInFlightRef.current = false
+      setActiveChatID(undefined)
     }
   }
 
@@ -112,7 +133,7 @@ export function GetStartedChats(props: GetStartedChatsProps) {
                     type="button"
                     data-action="get-started-chat"
                     data-get-started-chat={chat.id}
-                    disabled={props.disabled || Boolean(startingChatID)}
+                    disabled={props.disabled || Boolean(activeChatID)}
                     className={cn(
                       "chat-empty-board-action group min-w-0 cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-left outline-none",
                       // Narrow / pop-out: only first 3. Tailwind `flex` must not win over hide.
@@ -124,7 +145,7 @@ export function GetStartedChats(props: GetStartedChatsProps) {
                         "@[32rem]:col-span-2 @[32rem]:mx-auto @[32rem]:w-full @[32rem]:max-w-md",
                     )}
                     onClick={() => {
-                      void startChat(chat)
+                      void activateChat(chat)
                     }}
                   >
                     <GetStartedBoardIcon
@@ -181,7 +202,7 @@ export function GetStartedChats(props: GetStartedChatsProps) {
       aria-labelledby="get-started-chats-title"
       data-component="get-started-chats"
       data-variant="sidebar"
-      className="mb-3 space-y-1"
+      className="composer-surface composer-grain relative mx-1 mb-3 space-y-1 overflow-hidden px-1.5 py-1.5 [--composer-surface-bg:var(--surface-raised-stronger-non-alpha)]"
     >
       <div className="flex items-center justify-between gap-2 px-2 py-1">
         <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-text-weak">
@@ -208,10 +229,10 @@ export function GetStartedChats(props: GetStartedChatsProps) {
             type="button"
             data-action="get-started-chat"
             data-get-started-chat={chat.id}
-            disabled={props.disabled || Boolean(startingChatID)}
+            disabled={props.disabled || Boolean(activeChatID)}
             className="group/get-started flex w-full items-center rounded-lg px-2 py-1 text-left text-text-weak outline-none transition-colors duration-150 hover:bg-surface-raised-base-hover hover:text-text-strong focus-visible:ring-2 focus-visible:ring-border-interactive-base disabled:cursor-wait disabled:opacity-70"
             onClick={() => {
-              void startChat(chat)
+              void activateChat(chat)
             }}
           >
             <span className="min-w-0 flex-1 truncate text-xs font-light">{chat.title}</span>

@@ -53,6 +53,7 @@ import { invalidateSkillsCatalogQuery } from "@/state/skills-catalog-query"
 type ChatLeftSidebarProps = {
   directories: string[]
   currentDirectory: string
+  selectedModel?: string
   sessionsByDirectory: Record<string, SessionInfo[]>
   activeSessionID?: string
   sessionStatusByDirectory: Record<string, Record<string, SessionStatusInfo>>
@@ -61,7 +62,7 @@ type ChatLeftSidebarProps = {
   onOpenDirectory: () => void
   onOpenExistingFolder?: () => void | Promise<void>
   onQuickChat?: () => void | Promise<void>
-  onStartGetStartedChat?: (chat: GetStartedChat) => Promise<void> | void
+  onStageGetStartedChat?: (chat: GetStartedChat) => Promise<boolean> | boolean
   onCreateNotebook?: (
     name: string,
     enableLearnerMemory?: boolean,
@@ -129,7 +130,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     [globalConfigQuery.data],
   )
   const primaryUse = readPersonalization(globalConfigQuery.data ?? {}).primaryUse
-  const getStartedFlow = useGetStartedFlow(props.currentDirectory)
+  const getStartedFlow = useGetStartedFlow(props.currentDirectory, props.selectedModel)
   const teacherStandardsAutoSetupComplete = useUiPreferences(
     (state) => state.teacherStandardsAutoSetupComplete,
   )
@@ -139,7 +140,18 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const collapsedDirectories = useUiPreferences((state) => state.collapsedChatSidebarDirectories)
   const setChatSidebarDirectoryOpen = useUiPreferences((state) => state.setChatSidebarDirectoryOpen)
   const uiPreferencesHydrated = useUiPreferencesHydrated()
-  const onStartGetStartedChat = props.onStartGetStartedChat
+  const onStageGetStartedChat = props.onStageGetStartedChat
+
+  async function handleStageGetStartedChat(chat: GetStartedChat) {
+    if (!onStageGetStartedChat) return
+    await onStageGetStartedChat(chat)
+  }
+
+  function handleDismissGetStartedChats() {
+    getStartedFlow.dismiss()
+    toast(language.t("chat.emptyState.getStartedDismissed"))
+  }
+
   const disconnectObsidianMutation = useMutation({
     mutationFn: disconnectObsidianVault,
     onSuccess: async (profile, directory) => {
@@ -356,11 +368,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         </div>
       ) : (
         <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-1.5 pb-3">
-          {getStartedFlow.isActive && onStartGetStartedChat ? (
+          {getStartedFlow.isActive && onStageGetStartedChat ? (
             <GetStartedChats
               chats={getStartedFlow.chats}
-              onStart={onStartGetStartedChat}
-              onDismiss={getStartedFlow.dismiss}
+              onStage={handleStageGetStartedChat}
+              onDismiss={handleDismissGetStartedChats}
             />
           ) : null}
 
