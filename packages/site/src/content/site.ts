@@ -191,7 +191,11 @@ export type Install = {
   readonly copyLabel: string
   readonly copiedLabel: string
   readonly shareLabel: string
+  readonly shareCopyLabel: string
   readonly shareCopiedLabel: string
+  readonly shareCopiedText: string
+  readonly shareFailedText: string
+  readonly shareFallbackText: string
   readonly shareTitle: string
   readonly shareText: string
   readonly mac: InstallOS
@@ -433,7 +437,11 @@ const install: Install = {
   copyLabel: "Copy",
   copiedLabel: "Copied!",
   shareLabel: "Send download link",
+  shareCopyLabel: "Copy download link",
   shareCopiedLabel: "Link copied",
+  shareCopiedText: "Link copied. Send it to your computer to install Buddy.",
+  shareFailedText: "Copy is blocked here. Use your browser's Share button instead.",
+  shareFallbackText: "Sharing didn't open. Tap Copy download link.",
   shareTitle: "Download Buddy for desktop",
   shareText: "Open this link on your computer to install Buddy for macOS or Windows.",
   mac: {

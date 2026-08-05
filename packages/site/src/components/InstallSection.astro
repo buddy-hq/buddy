@@ -81,6 +81,14 @@ const { eyebrow, headlineLines, useScrollReveal = true } = Astro.props
         </svg>
       </button>
 
+      <p
+        class="download-share-status"
+        id="download-share-status"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></p>
+
       <!-- High-fidelity Terminal Mockup with Integrated Copy Button -->
       <div class="modal-terminal-wrapper" title="Click anywhere inside terminal to copy command">
         <div class="terminal-header">
@@ -327,6 +335,22 @@ const { eyebrow, headlineLines, useScrollReveal = true } = Astro.props
 
   .download-share-link-icon {
     flex-shrink: 0;
+  }
+
+  .download-share-status:not([hidden]) {
+    display: block;
+    margin: var(--space-3) auto 0;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+  }
+
+  .download-share-copy-probe {
+    position: fixed;
+    inset: 0 auto auto 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
   }
 
   /* High-fidelity Terminal Window Mockup */
@@ -605,6 +629,7 @@ const { eyebrow, headlineLines, useScrollReveal = true } = Astro.props
   const eventDownloadLinkShareShown = "download_link_share_shown"
   const eventDownloadLinkShareSuccess = "download_link_share_success"
   const mobileInstallShareMaxWidthPx = 640
+  const shareFeedbackDurationMs = 2000
   const modalSourceDownloadModal = "download_modal"
   const modalSourceHeader = "header"
   const modalSourceInstallSection = "install_section"
@@ -674,7 +699,10 @@ const { eyebrow, headlineLines, useScrollReveal = true } = Astro.props
   const modal = document.getElementById("download-modal")
   const modalCloseBtn = document.getElementById("modal-close-btn")
   const shareLinkBtn = document.getElementById("download-share-link-btn")
+  const shareStatus = document.getElementById("download-share-status")
   const downloadBtns = document.querySelectorAll(".download-btn[data-os]")
+  let shareCopyOnly = false
+  let shareFeedbackTimeout
 
   function getModalOs() {
     return modal.classList.contains("overlay-win") ? osWin : osMac
@@ -686,6 +714,99 @@ const { eyebrow, headlineLines, useScrollReveal = true } = Astro.props
       text: installContent.shareText,
       url: installShareUrl,
     }
+  }
+
+  function canUseNativeShare(shareData) {
+    if (typeof navigator.share !== "function") return false
+    if (typeof navigator.canShare !== "function") return true
+
+    try {
+      return navigator.canShare(shareData)
+    } catch {
+      return false
+    }
+  }
+
+  function resetShareFeedback() {
+    if (shareFeedbackTimeout) {
+      clearTimeout(shareFeedbackTimeout)
+      shareFeedbackTimeout = undefined
+    }
+
+    shareCopyOnly = false
+    const shareLabel = shareLinkBtn?.querySelector(".download-share-link-label")
+    if (shareLabel) {
+      shareLabel.textContent = shareCopyOnly ? installContent.shareCopyLabel : installContent.shareLabel
+    }
+    if (shareStatus) {
+      shareStatus.textContent = ""
+      shareStatus.hidden = true
+    }
+  }
+
+  function showShareCopySuccess() {
+    if (shareFeedbackTimeout) clearTimeout(shareFeedbackTimeout)
+
+    const shareLabel = shareLinkBtn?.querySelector(".download-share-link-label")
+    if (shareLabel) shareLabel.textContent = installContent.shareCopiedLabel
+    if (shareStatus) {
+      shareStatus.textContent = installContent.shareCopiedText
+      shareStatus.hidden = false
+    }
+    shareFeedbackTimeout = setTimeout(() => {
+      if (shareLabel) {
+        shareLabel.textContent = shareCopyOnly ? installContent.shareCopyLabel : installContent.shareLabel
+      }
+      shareFeedbackTimeout = undefined
+    }, shareFeedbackDurationMs)
+  }
+
+  function enableShareCopyFallback() {
+    shareCopyOnly = true
+    const shareLabel = shareLinkBtn?.querySelector(".download-share-link-label")
+    if (shareLabel) shareLabel.textContent = installContent.shareCopyLabel
+    if (shareStatus) {
+      shareStatus.textContent = installContent.shareFallbackText
+      shareStatus.hidden = false
+    }
+  }
+
+  function showShareCopyFailure() {
+    if (shareStatus) {
+      shareStatus.textContent = installContent.shareFailedText
+      shareStatus.hidden = false
+    }
+  }
+
+  function copyShareUrlWithSelection() {
+    const copyProbe = document.createElement("textarea")
+    copyProbe.value = installShareUrl
+    copyProbe.readOnly = true
+    copyProbe.className = "download-share-copy-probe"
+    document.body.appendChild(copyProbe)
+    copyProbe.select()
+    copyProbe.setSelectionRange(0, copyProbe.value.length)
+
+    try {
+      return document.execCommand("copy")
+    } catch {
+      return false
+    } finally {
+      copyProbe.remove()
+    }
+  }
+
+  async function copyShareUrl() {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(installShareUrl)
+        return "clipboard"
+      } catch {
+        // Some embedded browsers expose Clipboard API but block writes.
+      }
+    }
+
+    return copyShareUrlWithSelection() ? "selection" : undefined
   }
 
   function isMobileInstallViewport() {
@@ -721,6 +842,7 @@ const { eyebrow, headlineLines, useScrollReveal = true } = Astro.props
     const data = commands[os]
     if (!data) return
     activeModalSource = source || modalSourceUnknown
+    resetShareFeedback()
 
     // Set OS specific classes to target color branding
     modal.classList.remove("overlay-mac", "overlay-win")
@@ -802,6 +924,7 @@ const { eyebrow, headlineLines, useScrollReveal = true } = Astro.props
     modal.setAttribute("aria-hidden", "true")
     document.body.style.overflow = ""
     activeModalSource = modalSourceUnknown
+    resetShareFeedback()
     syncShareLinkButtonVisibility()
   }
 
@@ -837,9 +960,16 @@ const { eyebrow, headlineLines, useScrollReveal = true } = Astro.props
 
     trackDownloadLinkShare(eventDownloadLinkShareClick)
 
-    if (navigator.share) {
+    if (shareCopyOnly) {
+      await handleShareCopyFallback()
+      return
+    }
+
+    const shareData = getShareData()
+    const nativeShareAvailable = canUseNativeShare(shareData)
+    if (nativeShareAvailable) {
       try {
-        await navigator.share(getShareData())
+        await navigator.share(shareData)
         trackDownloadLinkShare(eventDownloadLinkShareSuccess)
         return
       } catch (err) {
@@ -855,25 +985,38 @@ const { eyebrow, headlineLines, useScrollReveal = true } = Astro.props
       }
     }
 
-    try {
-      await navigator.clipboard.writeText(installShareUrl)
-      const shareLabel = shareLinkBtn.querySelector(".download-share-link-label")
-      const previousLabel = shareLabel?.textContent
-      if (shareLabel) shareLabel.textContent = installContent.shareCopiedLabel
-
-      trackDownloadLinkShare(eventDownloadLinkShareCopyFallback, {
-        method: "clipboard",
-      })
-
-      setTimeout(() => {
-        if (shareLabel && previousLabel) shareLabel.textContent = previousLabel
-      }, 2000)
-    } catch (err) {
-      trackDownloadLinkShare(eventDownloadLinkShareFailed, {
-        error_name: err instanceof Error ? err.name : "Unknown",
-        method: "clipboard",
-      })
+    // A rejected native share can consume the tap's transient activation.
+    // Switch this button to copy mode so its next tap gets a fresh gesture.
+    if (nativeShareAvailable) {
+      enableShareCopyFallback()
+      return
     }
+
+    const copyMethod = await copyShareUrl()
+    if (copyMethod) {
+      showShareCopySuccess()
+      trackDownloadLinkShare(eventDownloadLinkShareCopyFallback, {
+        method: copyMethod,
+      })
+      return
+    }
+
+    showShareCopyFailure()
+    trackDownloadLinkShare(eventDownloadLinkShareFailed, { method: "copy_fallback" })
+  }
+
+  async function handleShareCopyFallback() {
+    const copyMethod = await copyShareUrl()
+    if (copyMethod) {
+      showShareCopySuccess()
+      trackDownloadLinkShare(eventDownloadLinkShareCopyFallback, {
+        method: copyMethod,
+      })
+      return
+    }
+
+    showShareCopyFailure()
+    trackDownloadLinkShare(eventDownloadLinkShareFailed, { method: "manual_copy" })
   }
 
   async function handleCopy() {
