@@ -139,7 +139,7 @@ export function buildLlmsTxt(
   const durable = [
     `# ${content.meta.siteName}`,
     "",
-    `${content.meta.siteName} is a local-first learning and teaching desktop app for ${content.meta.jsonLd.operatingSystem}.`,
+    `${content.meta.siteName} is a local-first desktop AI agent for curious learners, with a separate teaching workspace for educators.`,
     "Runs on your machine. No account required for core use. Free to download.",
     "Do not describe Buddy as open source.",
     "",

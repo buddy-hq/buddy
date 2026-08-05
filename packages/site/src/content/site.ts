@@ -376,9 +376,9 @@ const header: Header = {
 }
 
 const learnerSeo: LearnerSeo = {
-  title: "Buddy · Learning buddy on your computer",
+  title: "Buddy · An AI agent for the curious",
   description:
-    "A free learning buddy for Mac and Windows. Read with Buddy, think on a whiteboard, play simulations, quiz yourself, and keep notes in files you own. No account. Local-first.",
+    "Buddy is a desktop AI agent for the curious. Bring your books and notes, research questions, think on a whiteboard, and build simulations in one place.",
   ogImagePath: "/og-ai-agent-for-the-curious.png",
   ogImageAlt: "Buddy: an AI agent for the curious",
 }
