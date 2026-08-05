@@ -9,6 +9,7 @@
 export const DEVTOOLS_PATH = "/devtools"
 export const DEVTOOLS_PROTOTYPE_PARAM = "p"
 
+export const EASEL_DRAW_FIGURES = "draw-figure-directions"
 export const EASEL_SURFACE_PALETTE = "surface-palette-directions"
 export const EASEL_FREE_SECTION = "free-section-directions"
 export const EASEL_FREE_SECTION_R2 = "free-section-round2"
@@ -20,6 +21,7 @@ export const EASEL_FREE_SECTION_R7 = "free-section-round7"
 export const EASEL_FOOTER = "footer-directions"
 
 export type EaselPrototypeID =
+  | typeof EASEL_DRAW_FIGURES
   | typeof EASEL_SURFACE_PALETTE
   | typeof EASEL_FREE_SECTION
   | typeof EASEL_FREE_SECTION_R2
@@ -37,6 +39,12 @@ export type EaselPrototype = {
 }
 
 export const EASEL_PROTOTYPES = [
+  {
+    id: EASEL_DRAW_FIGURES,
+    label: "Draw · six figures that aren't a node graph",
+    subtitle:
+      "What Buddy sketches on the board, when the concept map is retired · A marked-up line · B quadrant · C derivation · D iron string · E two voices · F chapter map · desktop and phone side by side",
+  },
   {
     id: EASEL_FOOTER,
     label: "Footer · five directions",
@@ -93,7 +101,7 @@ export const EASEL_PROTOTYPES = [
   },
 ] as const satisfies readonly EaselPrototype[]
 
-export const DEFAULT_EASEL_PROTOTYPE: EaselPrototypeID = EASEL_FOOTER
+export const DEFAULT_EASEL_PROTOTYPE: EaselPrototypeID = EASEL_DRAW_FIGURES
 
 function isEaselPrototypeID(value: string | null): value is EaselPrototypeID {
   return EASEL_PROTOTYPES.some((prototype) => prototype.id === value)

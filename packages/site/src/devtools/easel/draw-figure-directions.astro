@@ -1,0 +1,747 @@
+---
+/**
+ * Easel prototype — DRAW: what Buddy actually sketches on the board, and in what order.
+ *
+ * The open question is not the whiteboard chrome, it is the *figure*. The live mock draws
+ * a concept map: a labelled centre, four labelled boxes, lines between them. So does the
+ * CONNECT artifact (notes, wikilinks, a graph) and, in silhouette, so does REMEMBER (rounded
+ * rectangles carrying short text). Three features, one picture — a scan of the page reads
+ * "boxes joined by lines" three times and learns nothing new on the second and third.
+ *
+ * Every direction below is Self-Reliance, and none of them is a node graph:
+ *
+ *   A — Marked-up line   · one sentence, read closely. Marks, not boxes.
+ *   B — Quadrant         · a plot. Two axes, four corners, terms placed rather than linked.
+ *   C — Derivation       · an argument worked down the board, with a step revised mid-draw.
+ *   D — Iron string      · the metaphor drawn literally. A picture, barely any text.
+ *   E — Two voices       · one divider, two columns, and the trade between them.
+ *   F — Chapter map      · a route with stops. Linear, which no other visual on the page is.
+ *
+ * All six animate, because the sketch arriving stroke by stroke is the actual pitch — a
+ * figure that only works as a finished image is not a candidate. The draw order is part of
+ * each proposal and is written out beside it, so the sequence can be argued about without
+ * watching it frame by frame. Every stroke carries pathLength="1", so a 40px tick and a
+ * 500px axis take the same beat; the live mock's fixed stroke-dasharray of 600 is why its
+ * short strokes currently snap while its long ones crawl.
+ *
+ * Each figure is shown twice: in the desktop drawing area (the chat rail eats ~26% on the
+ * right, shown dashed) and at phone size, where the chat is hidden and the whole figure
+ * scales down to ~310px tall. The phone frame is the real test — it is where a figure with
+ * five lines of handwriting stops being readable.
+ *
+ * Throwaway. Nothing here is wired into the site.
+ */
+
+type Figure = {
+  readonly key: string
+  readonly name: string
+  readonly desc: string
+  readonly steps: readonly string[]
+  readonly svg: string
+}
+
+/** One sentence, read closely — the marks are the drawing. */
+const MARKED_UP = `
+<svg viewBox="0 0 600 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <text class="hand ink" data-step="1" x="46" y="168" font-size="33">A</text>
+  <text class="hand ink" data-step="1" x="84" y="168" font-size="33">foolish</text>
+  <text class="hand ink" data-step="1" x="208" y="168" font-size="33">consistency</text>
+  <text class="hand ink" data-step="1" x="404" y="168" font-size="33">is the</text>
+  <text class="hand ink" data-step="2" x="46" y="224" font-size="33">hobgoblin</text>
+  <text class="hand ink" data-step="2" x="216" y="224" font-size="33">of little minds.</text>
+
+  <path class="s-agent" data-step="3" pathLength="1" d="M78 140 C 118 128, 180 132, 198 148 C 208 166, 172 182, 130 181 C 90 180, 66 168, 72 152 C 76 142, 98 135, 122 135" stroke-width="2.4" stroke-linecap="round"/>
+
+  <path class="s-agent" data-step="4" pathLength="1" d="M352 84 C 302 88, 252 108, 210 134" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="1 7"/>
+  <path class="s-agent" data-step="4" pathLength="1" d="M220 124 L206 136 L222 141" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="hand agent" data-step="5" x="356" y="70" font-size="19">the adjective is</text>
+  <text class="hand agent" data-step="5" x="356" y="94" font-size="19">the whole argument</text>
+
+  <path class="s-aurora" data-step="6" pathLength="1" d="M50 236 C 92 231, 142 238, 200 232" stroke-width="2.2" stroke-linecap="round"/>
+  <path class="s-aurora" data-step="6" pathLength="1" d="M56 244 C 100 240, 150 246, 194 241" stroke-width="1.5" stroke-linecap="round"/>
+
+  <path class="s-aurora" data-step="7" pathLength="1" d="M104 282 C 106 270, 110 260, 116 250" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="1 6"/>
+  <path class="s-aurora" data-step="7" pathLength="1" d="M110 260 L117 247 L125 258" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="hand aurora" data-step="8" x="62" y="300" font-size="19">a goblin, not a monster —</text>
+  <text class="hand aurora" data-step="8" x="62" y="324" font-size="19">you could stop feeding it</text>
+
+  <text class="hand dim" data-step="9" x="452" y="330" font-size="15">Self-Reliance, ¶11</text>
+</svg>`
+
+/** A plot: two axes, four corners, terms placed rather than joined. */
+const QUADRANT = `
+<svg viewBox="0 0 600 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path class="s-chalk" data-step="1" pathLength="1" d="M48 208 C 200 203, 400 213, 558 205" stroke-width="2.2" stroke-linecap="round"/>
+  <path class="s-chalk" data-step="1" pathLength="1" d="M546 197 L560 205 L546 214" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path class="s-chalk" data-step="2" pathLength="1" d="M300 40 C 295 150, 305 260, 300 348" stroke-width="2.2" stroke-linecap="round"/>
+  <path class="s-chalk" data-step="2" pathLength="1" d="M292 54 L299 39 L308 53" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text class="hand dim" data-step="3" x="316" y="38" font-size="16">your own</text>
+  <text class="hand dim" data-step="3" x="316" y="366" font-size="16">borrowed</text>
+  <text class="hand dim" data-step="3" x="476" y="236" font-size="16">praised</text>
+  <text class="hand dim" data-step="3" x="52" y="236" font-size="16">mocked</text>
+
+  <path class="s-agent" data-step="4" pathLength="1" d="M126 118 C 134 110, 146 112, 148 122 C 150 132, 138 138, 130 132 C 124 128, 122 122, 126 118" stroke-width="2.2"/>
+  <text class="hand agent" data-step="4" x="112" y="100" font-size="19">Self-Reliance</text>
+  <path class="s-agent" data-step="5" pathLength="1" d="M164 126 L172 110 L180 126 L197 128 L184 139 L188 156 L172 147 L157 156 L161 139 L148 128 Z" stroke-width="1.6" stroke-linejoin="round"/>
+
+  <path class="s-red" data-step="6" pathLength="1" d="M410 288 C 418 282, 428 285, 429 293 C 430 302, 419 306, 413 301 C 408 297, 407 291, 410 288" stroke-width="2.2"/>
+  <text class="hand red" data-step="6" x="368" y="326" font-size="19">conformity</text>
+
+  <path class="s-chalk" data-step="7" pathLength="1" d="M162 284 C 170 278, 180 281, 181 289 C 182 298, 171 302, 165 297 C 160 293, 159 287, 162 284" stroke-width="2.2"/>
+  <text class="hand dim" data-step="7" x="126" y="322" font-size="19">envy</text>
+
+  <path class="s-aurora" data-step="8" pathLength="1" d="M396 132 C 404 126, 414 129, 415 137 C 416 146, 405 150, 399 145 C 394 141, 393 135, 396 132" stroke-width="2.2"/>
+  <text class="hand aurora" data-step="8" x="352" y="114" font-size="18">the great man</text>
+  <text class="hand aurora" data-step="8" x="352" y="136" font-size="18">in the crowd</text>
+
+  <path class="s-agent" data-step="9" pathLength="1" d="M112 76 C 116 84, 118 90, 120 96" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="1 6"/>
+  <text class="hand agent" data-step="9" x="52" y="66" font-size="17">the essay lives up here</text>
+</svg>`
+
+/** An argument worked down the board, one step struck out and rewritten. */
+const DERIVATION = `
+<svg viewBox="0 0 600 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path class="s-chalk" data-step="1" pathLength="1" d="M62 66 C 50 70, 54 116, 46 140 C 54 164, 50 226, 62 230" stroke-width="2" stroke-linecap="round"/>
+  <text class="hand dim" data-step="1" x="14" y="150" font-size="14">given</text>
+
+  <text class="hand dim" data-step="2" x="82" y="98" font-size="18">1</text>
+  <text class="hand ink" data-step="2" x="112" y="98" font-size="21">Every man has a genius of his own.</text>
+
+  <text class="hand dim" data-step="3" x="82" y="152" font-size="18">2</text>
+  <text class="hand ink" data-step="3" x="112" y="152" font-size="21">Imitation borrows another&#8217;s.</text>
+
+  <text class="hand dim" data-step="4" x="82" y="206" font-size="18">3</text>
+  <text class="hand dim" data-step="4" x="112" y="206" font-size="21">so imitation is the safe road</text>
+
+  <path class="s-red" data-step="5" pathLength="1" d="M106 199 C 190 203, 290 195, 388 200" stroke-width="2.4" stroke-linecap="round"/>
+
+  <path class="s-agent" data-step="6" pathLength="1" d="M118 228 L128 214 L138 228" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="hand agent" data-step="6" x="146" y="240" font-size="21">so nothing of your own is added</text>
+  <text class="hand dim" data-step="7" x="146" y="262" font-size="14">step 3, rewritten</text>
+
+  <path class="s-agent" data-step="8" pathLength="1" d="M92 288 C 200 282, 340 292, 452 286 C 458 300, 454 314, 452 328 C 340 334, 200 324, 92 330 C 86 314, 90 302, 92 288 Z" stroke-width="2.4" stroke-linecap="round"/>
+  <text class="hand agent" data-step="9" x="112" y="318" font-size="24">&#8756;</text>
+  <text class="hand ink" data-step="9" x="146" y="318" font-size="24">Trust thyself.</text>
+</svg>`
+
+/** The metaphor drawn, not diagrammed. */
+const IRON_STRING = `
+<svg viewBox="0 0 600 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path class="s-chalk" data-step="1" pathLength="1" d="M62 140 C 58 178, 60 216, 64 252" stroke-width="3" stroke-linecap="round"/>
+  <path class="s-chalk" data-step="1" pathLength="1" d="M536 140 C 540 178, 538 216, 534 252" stroke-width="3" stroke-linecap="round"/>
+
+  <path class="s-agent" data-step="2" pathLength="1" d="M66 196 C 200 188, 400 204, 532 196" stroke-width="3" stroke-linecap="round"/>
+
+  <path class="s-chalk" data-step="3" pathLength="1" d="M150 158 C 158 166, 158 178, 150 186" stroke-width="2" stroke-linecap="round"/>
+  <path class="s-chalk" data-step="3" pathLength="1" d="M166 150 C 178 164, 178 184, 166 196" stroke-width="1.6" stroke-linecap="round"/>
+  <path class="s-agent fade" data-step="4" pathLength="1" d="M66 196 C 200 150, 400 166, 532 196" stroke-width="1.6" stroke-linecap="round"/>
+  <path class="s-agent fade" data-step="4" pathLength="1" d="M66 196 C 200 242, 400 226, 532 196" stroke-width="1.6" stroke-linecap="round"/>
+
+  <g class="heart" data-step="5" transform="translate(232 104) scale(1.1)">
+    <path class="s-aurora" d="M0 7 C0 0, 9 -3, 12 4 C15 -3, 24 0, 24 7 C24 16, 12 23, 12 23 C12 23, 0 16, 0 7 Z" stroke-width="2"/>
+  </g>
+  <path class="s-aurora fade" data-step="5" pathLength="1" d="M244 132 C 246 148, 248 164, 248 182" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1 6"/>
+
+  <g class="heart" data-step="6" transform="translate(348 236) scale(1.1)">
+    <path class="s-aurora" d="M0 7 C0 0, 9 -3, 12 4 C15 -3, 24 0, 24 7 C24 16, 12 23, 12 23 C12 23, 0 16, 0 7 Z" stroke-width="2"/>
+  </g>
+  <path class="s-aurora fade" data-step="6" pathLength="1" d="M360 232 C 360 220, 358 210, 358 200" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1 6"/>
+
+  <g class="heart" data-step="7" transform="translate(444 116) scale(1.1)">
+    <path class="s-aurora" d="M0 7 C0 0, 9 -3, 12 4 C15 -3, 24 0, 24 7 C24 16, 12 23, 12 23 C12 23, 0 16, 0 7 Z" stroke-width="2"/>
+  </g>
+  <path class="s-aurora fade" data-step="7" pathLength="1" d="M456 144 C 458 160, 458 176, 458 190" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1 6"/>
+
+  <text class="hand ink" data-step="8" x="112" y="322" font-size="25">every heart vibrates to that iron string</text>
+  <text class="hand agent" data-step="9" x="70" y="70" font-size="18">one string. the same one, in all of them.</text>
+</svg>`
+
+/** One divider, two columns, and the trade between them. */
+const TWO_VOICES = `
+<svg viewBox="0 0 600 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path class="s-chalk" data-step="1" pathLength="1" d="M300 48 C 305 140, 295 244, 300 340" stroke-width="2.2" stroke-linecap="round"/>
+
+  <text class="hand aurora" data-step="2" x="52" y="84" font-size="21">the voice outside</text>
+
+  <path class="s-red" data-step="3" pathLength="1" d="M54 132 L68 146 M68 132 L54 146" stroke-width="2.2" stroke-linecap="round"/>
+  <text class="hand dim" data-step="3" x="84" y="146" font-size="19">custom</text>
+  <path class="s-red" data-step="4" pathLength="1" d="M54 176 L68 190 M68 176 L54 190" stroke-width="2.2" stroke-linecap="round"/>
+  <text class="hand dim" data-step="4" x="84" y="190" font-size="19">the world&#8217;s applause</text>
+  <path class="s-red" data-step="5" pathLength="1" d="M54 220 L68 234 M68 220 L54 234" stroke-width="2.2" stroke-linecap="round"/>
+  <text class="hand dim" data-step="5" x="84" y="234" font-size="19">what is expected of you</text>
+
+  <text class="hand agent" data-step="6" x="332" y="84" font-size="21">the voice inside</text>
+
+  <path class="s-green" data-step="7" pathLength="1" d="M334 140 L342 148 L356 130" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="hand ink" data-step="7" x="366" y="146" font-size="19">your own genius</text>
+  <path class="s-green" data-step="8" pathLength="1" d="M334 184 L342 192 L356 174" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="hand ink" data-step="8" x="366" y="190" font-size="19">the iron string</text>
+  <path class="s-green" data-step="9" pathLength="1" d="M334 228 L342 236 L356 218" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="hand ink" data-step="9" x="366" y="234" font-size="19">what you actually think</text>
+
+  <path class="s-red" data-step="10" pathLength="1" d="M366 288 C 300 306, 220 296, 152 306" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 8"/>
+  <path class="s-red" data-step="10" pathLength="1" d="M166 296 L150 307 L167 314" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="hand red" data-step="11" x="212" y="342" font-size="19">conformity: the trade</text>
+</svg>`
+
+/** A route with stops — the one shape on the page that is linear. */
+const CHAPTER_MAP = `
+<svg viewBox="0 0 600 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <text class="hand dim" data-step="1" x="46" y="58" font-size="16">Self-Reliance &#183; five moves</text>
+
+  <path class="s-chalk" data-step="2" pathLength="1" d="M52 250 C 112 250, 120 182, 176 182 C 232 182, 242 250, 300 250 C 358 250, 366 182, 424 182 C 482 182, 492 250, 548 250" stroke-width="2.4" stroke-linecap="round"/>
+
+  <path class="s-aurora" data-step="3" pathLength="1" d="M46 244 C 54 240, 62 246, 60 253 C 58 260, 48 261, 45 255 C 43 251, 43 246, 46 244" stroke-width="2.2"/>
+  <text class="hand ink" data-step="3" x="52" y="292" font-size="17" text-anchor="middle">trust thyself</text>
+
+  <path class="s-aurora" data-step="4" pathLength="1" d="M170 176 C 178 172, 186 178, 184 185 C 182 192, 172 193, 169 187 C 167 183, 167 178, 170 176" stroke-width="2.2"/>
+  <text class="hand ink" data-step="4" x="176" y="150" font-size="17" text-anchor="middle">society: a joint-stock co.</text>
+
+  <path class="s-agent" data-step="5" pathLength="1" d="M294 244 C 302 240, 310 246, 308 253 C 306 260, 296 261, 293 255 C 291 251, 291 246, 294 244" stroke-width="2.6"/>
+  <text class="hand agent" data-step="5" x="300" y="292" font-size="17" text-anchor="middle">a foolish consistency</text>
+
+  <path class="s-aurora" data-step="6" pathLength="1" d="M418 176 C 426 172, 434 178, 432 185 C 430 192, 420 193, 417 187 C 415 183, 415 178, 418 176" stroke-width="2.2"/>
+  <text class="hand ink" data-step="6" x="424" y="150" font-size="17" text-anchor="middle">the great man in the crowd</text>
+
+  <path class="s-aurora" data-step="7" pathLength="1" d="M542 244 C 550 240, 558 246, 556 253 C 554 260, 544 261, 541 255 C 539 251, 539 246, 542 244" stroke-width="2.2"/>
+  <text class="hand ink" data-step="7" x="536" y="292" font-size="17" text-anchor="middle">peace comes from yourself</text>
+
+  <path class="s-agent" data-step="8" pathLength="1" d="M292 226 L300 238 L308 226 Z" stroke-width="1.8" stroke-linejoin="round"/>
+  <text class="hand agent" data-step="8" x="300" y="218" font-size="14" text-anchor="middle">you are here</text>
+</svg>`
+
+const FIGURES = [
+  {
+    key: "A",
+    name: "Marked-up line",
+    desc:
+      "One sentence, large, read closely. Buddy writes it out, then circles the adjective, underlines the noun, and hangs two notes off it. Nothing is boxed and nothing is joined — the marks are the drawing, so it can share a page with the notes graph without echoing it. Fewest words of the six, so it survives the phone best.",
+    steps: [
+      "write the line",
+      "finish the second half",
+      "circle the adjective",
+      "arrow into the margin",
+      "the margin note",
+      "underline the noun, twice",
+      "arrow up from below",
+      "the second note",
+      "the citation",
+    ],
+    svg: MARKED_UP,
+  },
+  {
+    key: "B",
+    name: "Quadrant",
+    desc:
+      "Two axes instead of a hub: what you think, against what the room thinks. The four terms are placed, not linked — position carries the argument, which is the one thing a node graph cannot do. The animation is the strongest part: each term lands somewhere, and the placement itself is the claim.",
+    steps: [
+      "the horizontal axis",
+      "the vertical axis",
+      "name the four ends",
+      "plot Self-Reliance",
+      "star it",
+      "plot conformity, in red",
+      "plot envy",
+      "plot the great man",
+      "the note, with its arrow",
+    ],
+    svg: QUADRANT,
+  },
+  {
+    key: "C",
+    name: "Derivation",
+    desc:
+      "The argument worked down the board, with step 3 struck out and rewritten underneath. The only direction that shows Buddy thinking rather than presenting, and the literal reading of the section's own copy — untangle a proof. The strike-through at step 5 is the moment worth watching. Costs the most words; the phone render is the check.",
+    steps: [
+      "brace off the givens",
+      "premise 1",
+      "premise 2",
+      "the wrong step 3",
+      "strike it out",
+      "rewrite it underneath",
+      "label the correction",
+      "box the conclusion",
+      "∴ trust thyself",
+    ],
+    svg: DERIVATION,
+  },
+  {
+    key: "D",
+    name: "Iron string",
+    desc:
+      "The metaphor drawn instead of diagrammed: a string between two posts, plucked, and three hearts picking up the vibration. Almost no text, so it scales to any width, and it is the only figure that would still read as a picture at thumbnail size. It also has somewhere to go after the draw — the string can keep vibrating on a loop. The risk is that it says less.",
+    steps: [
+      "two posts",
+      "the string between them",
+      "the pluck",
+      "the vibration",
+      "first heart, picking it up",
+      "second heart",
+      "third heart",
+      "the line itself",
+      "the aside",
+    ],
+    svg: IRON_STRING,
+  },
+  {
+    key: "E",
+    name: "Two voices",
+    desc:
+      "One vertical divider, two columns, one arrow crossing it. Its silhouette is a page split down the middle — the furthest thing from a radial hub while still being a diagram, and the easiest of the six to read at a glance. The animation fills one column, then the other, which is exactly how the point is argued.",
+    steps: [
+      "the divider",
+      "name the outside voice",
+      "custom",
+      "applause",
+      "expectation",
+      "name the inside voice",
+      "your own genius",
+      "the iron string",
+      "what you actually think",
+      "the arrow across",
+      "name the trade",
+    ],
+    svg: TWO_VOICES,
+  },
+  {
+    key: "F",
+    name: "Chapter map",
+    desc:
+      "A route with five stops and a you-are-here. Linear, which nothing else on the landing page is, and it answers 'map a chapter' directly. It animates like a path being walked, left to right. Long labels are the weakness: at phone width this is the first figure to lose its text.",
+    steps: [
+      "title the chapter",
+      "trace the route",
+      "stop 1",
+      "stop 2",
+      "stop 3, in Buddy's ink",
+      "stop 4",
+      "stop 5",
+      "drop the you-are-here",
+    ],
+    svg: CHAPTER_MAP,
+  },
+] as const satisfies readonly Figure[]
+---
+
+<div class="dfg">
+  <p class="legend">
+    The board draws a concept map; CONNECT draws a note graph; REMEMBER stacks rounded
+    rectangles of short text. In silhouette they are the same picture three times. Six figures
+    below, all Self-Reliance, none of them a hub with labelled boxes around it. Each one draws
+    itself on scroll — click a board (or hit Replay) to watch it again. The draw order is
+    written beside it, because the order is half the proposal.
+  </p>
+
+  {
+    FIGURES.map((figure) => (
+      <section class="direction" data-figure={figure.key}>
+        <header class="direction-head">
+          <h2 class="direction-label">{figure.key}</h2>
+          <div class="direction-copy">
+            <h3 class="direction-name">{figure.name}</h3>
+            <p class="direction-desc">{figure.desc}</p>
+            <ol class="draw-order">
+              {figure.steps.map((step) => (
+                <li class="draw-step">{step}</li>
+              ))}
+            </ol>
+          </div>
+          <button class="replay" type="button" data-replay={figure.key}>
+            Replay
+          </button>
+        </header>
+
+        <div class="renders">
+          <div class="frame frame--wide">
+            <div class="art" set:html={figure.svg} />
+            <div class="rail">chat</div>
+          </div>
+          <div class="frame frame--phone">
+            <div class="art" set:html={figure.svg} />
+          </div>
+        </div>
+      </section>
+    ))
+  }
+</div>
+
+<style>
+  .dfg {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .legend {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: oklch(0.62 0 0);
+    max-width: 88ch;
+  }
+
+  .direction {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .direction + .direction {
+    margin-top: 0.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .direction-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .direction-copy {
+    min-width: 0;
+  }
+
+  .direction-label {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: oklch(1 0 0 / 8%);
+    color: oklch(0.92 0 0);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    margin: 0;
+  }
+
+  .direction-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: oklch(0.95 0 0);
+    margin: 0;
+  }
+
+  .direction-desc {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: oklch(0.6 0 0);
+    max-width: 84ch;
+  }
+
+  /* The draw order, as a numbered run of chips — reads as a sequence without a bullet list's
+     vertical cost. */
+  .draw-order {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    counter-reset: draw;
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    max-width: 84ch;
+  }
+
+  .draw-step {
+    counter-increment: draw;
+    font-size: 0.6875rem;
+    line-height: 1.3;
+    color: oklch(0.68 0 0);
+    background: oklch(1 0 0 / 5%);
+    border: 1px solid oklch(1 0 0 / 8%);
+    border-radius: 999px;
+    padding: 2px 9px 2px 6px;
+  }
+
+  .draw-step::before {
+    content: counter(draw);
+    display: inline-block;
+    min-width: 12px;
+    margin-right: 5px;
+    text-align: center;
+    color: oklch(0.7 0.19 41);
+    font-weight: 650;
+  }
+
+  .replay {
+    flex-shrink: 0;
+    margin-left: auto;
+    font: inherit;
+    font-size: 0.6875rem;
+    color: oklch(0.8 0 0);
+    background: oklch(1 0 0 / 6%);
+    border: 1px solid oklch(1 0 0 / 14%);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+
+  .replay:hover {
+    background: oklch(1 0 0 / 12%);
+    color: oklch(0.98 0 0);
+  }
+
+  .renders {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  /* Both frames are the real board: same ground, same grid, same 30px pitch. */
+  .frame {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border-radius: 10px;
+    border: 1px solid var(--border-weak);
+    background-color: var(--board-base);
+    background-image: radial-gradient(var(--board-grid) 1px, transparent 1px);
+    background-size: 30px 30px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  /* Desktop: 16/10 bezel, chat popup parked on the right taking ~26% of it. */
+  .frame--wide {
+    flex: 1 1 640px;
+    min-width: 520px;
+    max-width: 900px;
+    aspect-ratio: 16 / 10;
+    padding: 1rem 1.5rem;
+    gap: 1rem;
+  }
+
+  /* Phone: chat hidden, board 360px tall, figure capped at 310. */
+  .frame--phone {
+    flex: 0 0 auto;
+    width: 340px;
+    height: 360px;
+    padding: 0.75rem;
+    justify-content: center;
+  }
+
+  .art {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  .frame--phone .art {
+    max-height: 310px;
+  }
+
+  .rail {
+    flex: 0 0 26%;
+    align-self: flex-end;
+    height: 62%;
+    border: 1px dashed oklch(1 0 0 / 18%);
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+    display: grid;
+    place-items: start center;
+    padding-top: 0.5rem;
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: oklch(0.5 0 0);
+  }
+</style>
+
+<style is:global>
+  /* set:html content sits outside Astro's scoping, so the figure styles are global and
+     namespaced by hand. */
+  .dfg .art svg {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+  }
+
+  .dfg .hand {
+    font-family: "Architects Daughter", cursive, sans-serif;
+    user-select: none;
+  }
+
+  .dfg .ink {
+    fill: var(--board-ink);
+  }
+
+  .dfg .dim {
+    fill: var(--board-ink-weak);
+  }
+
+  .dfg .agent {
+    fill: var(--agent-base);
+  }
+
+  .dfg .aurora {
+    fill: var(--aurora-base);
+  }
+
+  .dfg .red {
+    fill: #f87171;
+  }
+
+  .dfg .s-chalk {
+    stroke: var(--board-ink-weak);
+    fill: none;
+  }
+
+  .dfg .s-agent {
+    stroke: var(--agent-base);
+    fill: none;
+  }
+
+  .dfg .s-aurora {
+    stroke: var(--aurora-base);
+    fill: none;
+  }
+
+  .dfg .s-red {
+    stroke: #f87171;
+    fill: none;
+  }
+
+  .dfg .s-green {
+    stroke: #4ade80;
+    fill: none;
+  }
+
+  .dfg .fade {
+    opacity: 0.45;
+  }
+
+  /* ═══ The draw ═══
+     Strokes are normalised with pathLength="1", so every stroke takes one beat whatever its
+     length. Text and grouped doodles can't be drawn that way, so they fade in on the same
+     beat instead — which is also how a word appears when someone writes it fast. */
+  .dfg .art path[data-step] {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dfg .art path[data-step].is-drawn {
+    stroke-dashoffset: 0;
+  }
+
+  /* A dashed stroke can't also be a dash-drawn stroke: the offset animation would fight the
+     pattern. Those fade instead. */
+  .dfg .art path[data-step][stroke-dasharray] {
+    stroke-dasharray: inherit;
+    stroke-dashoffset: 0;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .dfg .art path[data-step][stroke-dasharray].is-drawn {
+    opacity: 1;
+  }
+
+  .dfg .art path[data-step][stroke-dasharray].fade.is-drawn {
+    opacity: 0.45;
+  }
+
+  .dfg .art text[data-step],
+  .dfg .art g[data-step] {
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+
+  .dfg .art text[data-step].is-shown,
+  .dfg .art g[data-step].is-shown {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dfg .art path[data-step],
+    .dfg .art text[data-step],
+    .dfg .art g[data-step] {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      transition: none;
+    }
+
+    .dfg .art path[data-step].fade {
+      opacity: 0.45;
+    }
+  }
+</style>
+
+<script>
+  /** One beat per step. Long enough to read as drawing, short enough that F's eight steps
+   *  still land inside the time someone spends looking at a section. */
+  const STEP_MS = 420
+
+  const timers = new WeakMap<Element, number[]>()
+
+  const clearTimers = (art: Element) => {
+    for (const id of timers.get(art) ?? []) window.clearTimeout(id)
+    timers.set(art, [])
+  }
+
+  const draw = (art: Element) => {
+    clearTimers(art)
+
+    const marks = [...art.querySelectorAll<SVGElement>("[data-step]")]
+    for (const mark of marks) mark.classList.remove("is-drawn", "is-shown")
+
+    const beats = new Map<number, SVGElement[]>()
+    for (const mark of marks) {
+      const step = Number(mark.dataset.step)
+      beats.set(step, [...(beats.get(step) ?? []), mark])
+    }
+
+    const ids: number[] = []
+    for (const [index, step] of [...beats.keys()].sort((a, b) => a - b).entries()) {
+      ids.push(
+        window.setTimeout(() => {
+          for (const mark of beats.get(step) ?? []) {
+            mark.classList.add(mark.tagName === "path" ? "is-drawn" : "is-shown")
+          }
+        }, index * STEP_MS),
+      )
+    }
+    timers.set(art, ids)
+  }
+
+  const gallery = document.querySelector(".dfg")
+  if (gallery) {
+    const arts = [...gallery.querySelectorAll<HTMLElement>(".art")]
+
+    // Draw when the board comes into view, once — the same trigger the live mock uses.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          observer.unobserve(entry.target)
+          draw(entry.target)
+        }
+      },
+      { rootMargin: "0px 0px -15% 0px", threshold: 0.25 },
+    )
+    for (const art of arts) observer.observe(art)
+
+    // Click a board to watch it again.
+    for (const frame of gallery.querySelectorAll<HTMLElement>(".frame")) {
+      frame.addEventListener("click", () => {
+        const art = frame.querySelector(".art")
+        if (art) draw(art)
+      })
+    }
+
+    // Replay redraws both renders of one direction, in step.
+    for (const button of gallery.querySelectorAll<HTMLButtonElement>("[data-replay]")) {
+      button.addEventListener("click", () => {
+        const section = button.closest(".direction")
+        if (!section) return
+        for (const art of section.querySelectorAll(".art")) draw(art)
+      })
+    }
+  }
+</script>

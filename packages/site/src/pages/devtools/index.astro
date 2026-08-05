@@ -5,6 +5,7 @@
  */
 import "../../styles/global.css"
 import ThemeStyles from "../../components/dev/ThemeStyles.astro"
+import DrawFigureDirections from "../../devtools/easel/draw-figure-directions.astro"
 import FreeSectionDirections from "../../devtools/easel/free-section-directions.astro"
 import FreeSectionRound2 from "../../devtools/easel/free-section-round2.astro"
 import FreeSectionRound3 from "../../devtools/easel/free-section-round3.astro"
@@ -17,6 +18,7 @@ import SurfacePaletteDirections from "../../devtools/easel/surface-palette-direc
 import {
   DEVTOOLS_PATH,
   DEVTOOLS_PROTOTYPE_PARAM,
+  EASEL_DRAW_FIGURES,
   EASEL_FREE_SECTION,
   EASEL_FREE_SECTION_R2,
   EASEL_FREE_SECTION_R3,
@@ -69,6 +71,7 @@ const active = resolveEaselPrototype(Astro.url)
       </header>
 
       <main class="stage-outer">
+        {active.id === EASEL_DRAW_FIGURES && <DrawFigureDirections />}
         {active.id === EASEL_FOOTER && <FooterDirections />}
         {active.id === EASEL_FREE_SECTION_R7 && <FreeSectionRound7 />}
         {active.id === EASEL_FREE_SECTION_R6 && <FreeSectionRound6 />}
