@@ -30,10 +30,13 @@ import {
 import { resolveBuddyBundledSkillRoots } from "../src/config/opencode/skills"
 import { allBuddySkills } from "../src/learning/runtime/feature-registry"
 import { catalogIconReleaseFilename } from "../src/learning/skill-management/service/catalog-icon-reference"
+import { ensureGitHubReleaseExists } from "./github-release"
 
 const RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
 const RELEASE_TAG = "skill-artifacts"
 const RELEASE_TITLE = "Buddy Skill Artifacts"
+const RELEASE_NOTES =
+  "Signed catalogs and system skill packs consumed independently of Buddy app releases."
 const OUTPUT_FLAG = "--output"
 const BASE_FINGERPRINT_FLAG = "--base-fingerprint"
 const SYSTEM_REVISION_FLAG = "--system-revision"
@@ -219,31 +222,6 @@ async function signPayload(
   return `${JSON.stringify(envelope, null, 2)}\n`
 }
 
-function ensureReleaseExists(environment: NodeJS.ProcessEnv): void {
-  const view = spawnSync("gh", ["release", "view", RELEASE_TAG, "--repo", RELEASE_REPOSITORY], {
-    env: environment,
-    stdio: "ignore",
-  })
-  if (view.status === 0) return
-  run(
-    "gh",
-    [
-      "release",
-      "create",
-      RELEASE_TAG,
-      "--repo",
-      RELEASE_REPOSITORY,
-      "--title",
-      RELEASE_TITLE,
-      "--notes",
-      "Signed catalogs and system skill packs consumed independently of Buddy app releases.",
-      "--prerelease",
-      "--latest=false",
-    ],
-    environment,
-  )
-}
-
 async function verifyPublishedArtifacts(
   artifactPaths: readonly string[],
   environment: NodeJS.ProcessEnv,
@@ -423,7 +401,13 @@ await Promise.all([
 ])
 
 if (process.argv.includes(PUBLISH_FLAG)) {
-  ensureReleaseExists(process.env)
+  await ensureGitHubReleaseExists({
+    environment: process.env,
+    notes: RELEASE_NOTES,
+    repository: RELEASE_REPOSITORY,
+    tag: RELEASE_TAG,
+    title: RELEASE_TITLE,
+  })
   const artifactPaths = [libraryEnvelopePath, systemEnvelopePath, ...catalogIconPaths]
   run(
     "gh",
