@@ -1,13 +1,20 @@
 ---
 import BuddyWorkspaceMock from "./BuddyWorkspaceMock.astro"
-import type { Audience } from "../content/site"
-import { AUDIENCE_EDUCATORS } from "../lib/constants"
+import VideoLightbox from "./VideoLightbox.astro"
+import { content, type Audience } from "../content/site"
+import {
+  AUDIENCE_EDUCATORS,
+  LAUNCH_VIDEO_EMBED_URL,
+  LAUNCH_VIDEO_WATCH_URL,
+  VIDEO_LIGHTBOX,
+} from "../lib/constants"
 
 type Props = {
   audience: Audience
 }
 
 const { audience } = Astro.props
+const { launchVideo } = content
 ---
 
 <section class:list={["hero animate-in", { "hero--educator": audience === AUDIENCE_EDUCATORS }]} data-analytics-section="hero">
@@ -20,6 +27,17 @@ const { audience } = Astro.props
       <div class="hero-header-row">
         <div class="hero-header-left">
           <slot name="subtext" />
+        </div>
+        <div class="hero-header-right">
+          <a
+            class="hero-video-chip"
+            href={LAUNCH_VIDEO_WATCH_URL}
+            {...{ [VIDEO_LIGHTBOX.openAttribute]: "" }}
+          >
+            <span class="hero-video-chip-badge">{launchVideo.badge}</span>
+            <span class="hero-video-chip-label">{launchVideo.label}</span>
+            <span class="hero-video-chip-arrow" aria-hidden="true">→</span>
+          </a>
         </div>
       </div>
     </div>
@@ -34,6 +52,8 @@ const { audience } = Astro.props
     </div>
 
   </div>
+
+  <VideoLightbox embedUrl={LAUNCH_VIDEO_EMBED_URL} title={launchVideo.title} />
 </section>
 
 <style is:global>
@@ -41,18 +61,34 @@ const { audience } = Astro.props
 
 
   /* === Hero Base === */
+  /* The air above the headline is the first thing the page says. The floor
+     (8rem) is the phone value and the cap (12.5rem) is the desktop one, which
+     lands within ~15px of the reference at every width between them. */
   .hero {
     position: relative;
-    padding: clamp(5rem, 10vw, 7rem) 0 clamp(4rem, 8vw, 6rem) 0;
+    padding: clamp(8rem, 16vw, 12.5rem) 0 var(--space-32) 0;
     overflow: hidden;
   }
 
   /* Educator hero leads with a short, single-line headline, so it needs
-     less breathing room up top than the taller two-line learner headline. */
+     less breathing room up top than the taller two-line learner headline.
+     Held at roughly two thirds of the learner hero's air. */
   .hero--educator {
-    padding-top: clamp(3rem, 6vw, 4.5rem);
+    padding-top: clamp(5rem, 10vw, 8rem);
   }
 
+  /* A pool of light rising from behind the product shot, so the mock sits in
+     something instead of on a flat ground.
+
+     Aurora rather than accent: the accent is orange and already spoken for by
+     the download button, so a wash in it would read as more CTA. Violet is the
+     other hue the theme already owns, and it reads as atmosphere rather than
+     as another thing to click.
+
+     One layer, centred at 68% — roughly the top third of the mock — and fully
+     faded by ~70% of its radius, so it never reaches the section's clipped
+     bottom edge and band there. `--aurora-weak` carries its own alpha, so the
+     strength is the theme's call, not a hard-coded opacity here. */
   /* The section-wide accent wash is gone — the page ground is the theme's job now. */
   .hero-bg-gradient {
     position: absolute;
@@ -68,11 +104,74 @@ const { audience } = Astro.props
     z-index: 1;
   }
 
+
   /* --- Hero Header Section --- */
   .hero-header-section {
     margin-bottom: 96px;
-    animation: fadeInUp 400ms var(--ease-out) forwards;
     position: relative;
+  }
+
+  /* The hero arrives in the order it is read: headline, then the line under it,
+     then the video link, then the product shot. Animating the header as one
+     block (what this did before) lands all three pieces of type at once, which
+     reads as a page that popped rather than one that resolved.
+
+     `backwards` holds the first frame during the delay, so nothing flashes at
+     full opacity before its turn. */
+  /* Each piece resolves out of a blur rather than just sliding up — the type
+     comes into focus, which is what makes the reveal read as the page settling
+     instead of the page moving. The rise is deliberately small (8px); with the
+     blur doing the work, a large travel just looks like a slide.
+
+     No `opacity: 0` on the elements themselves. `backwards` already holds the
+     first keyframe through the delay, and hard-coding the hidden state means a
+     browser that never runs the animation renders an empty hero. */
+  @keyframes hero-reveal {
+    from {
+      opacity: 0;
+      filter: blur(8px);
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
+    }
+  }
+
+  .hero-title,
+  .hero-header-left,
+  .hero-header-right,
+  .hero-visual {
+    animation: hero-reveal 1600ms var(--ease-out) backwards;
+  }
+
+  .hero-title {
+    animation-delay: 0ms;
+  }
+
+  .hero-header-left {
+    animation-delay: 220ms;
+  }
+
+  .hero-header-right {
+    animation-delay: 440ms;
+  }
+
+  .hero-visual {
+    animation-delay: 660ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-title,
+    .hero-header-left,
+    .hero-header-right,
+    .hero-visual {
+      animation: none;
+      opacity: 1;
+      filter: none;
+      transform: none;
+    }
   }
 
   @media (max-width: 576px) {
@@ -87,7 +186,7 @@ const { audience } = Astro.props
     font-weight: 510;
     line-height: 1.06;
     letter-spacing: -0.022em;
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-8);
     color: var(--color-text-primary);
     text-wrap: balance;
     max-width: 100%;
@@ -104,6 +203,7 @@ const { audience } = Astro.props
     .hero-title {
       font-size: 38px;
       font-weight: 500;
+      margin-bottom: var(--space-5);
     }
   }
 
@@ -125,21 +225,26 @@ const { audience } = Astro.props
     gap: var(--space-6);
   }
 
+  /* Kept a step above the reference's 15px on purpose: this subtext is a full
+     sentence carrying five capabilities, not a six-word tagline, and our
+     headline does not tower over it the way a two-line one does. */
   .hero-subtitle {
     font-family: var(--font-body);
-    font-size: 1.5rem;
+    font-size: var(--text-lg);
     font-weight: 400;
-    line-height: 1.33;
+    line-height: 1.6;
     letter-spacing: -0.012em;
     color: var(--color-text-secondary);
     opacity: 0.88;
-    max-width: 68ch;
+    /* Wraps well before the headline does, so the block narrows as it
+       descends instead of running the full width of the h1 above it. */
+    max-width: 52ch;
     text-wrap: pretty;
   }
 
   @media (max-width: 992px) {
     .hero-subtitle {
-      font-size: 1.25rem;
+      font-size: var(--text-base);
     }
   }
 
@@ -214,47 +319,64 @@ const { audience } = Astro.props
     transform: translateY(0) scale(0.97);
   }
 
-  /* Right Announcement Link */
+  /* Launch video chip — the far end of the subtext row.
+     Kept off the top of the headline on purpose: the h1 keeps first position,
+     and the chip takes space that was empty. */
   .hero-header-right {
     display: flex;
     align-items: center;
   }
 
-  .hero-announcement-link {
+  /* No pill. A bordered capsule next to a bare line of subtext reads as a
+     stray button floating in the margin; as plain type it sits in the row as
+     a third piece of text, which is what it is. The last line of the subtext
+     and this line share a bottom edge — that shared edge is the alignment. */
+  .hero-video-chip {
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
     gap: 8px;
-    background-color: var(--accent-weak);
-    border: 1px solid var(--accent-border);
-    border-radius: 99px;
-    padding: 6px 14px 6px 8px;
-    font-size: var(--text-xs);
-    font-weight: 500;
-    color: var(--color-text-secondary);
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    letter-spacing: var(--tracking-snug);
     text-decoration: none;
-    box-shadow: var(--shadow-raised);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    cursor: pointer;
   }
 
-  .hero-announcement-link:hover {
-    border-color: var(--accent-border);
-    background-color: var(--accent-weak);
-    transform: translateY(-1px);
-    color: var(--fg-strong);
+  .hero-video-chip-badge {
+    font-weight: 510;
+    color: var(--color-text-primary);
   }
 
-  .announcement-badge {
-    background: var(--accent-fill);
-    color: var(--accent-ink);
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 99px;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .hero-video-chip-label,
+  .hero-video-chip-arrow {
+    font-weight: 400;
+    color: var(--color-text-tertiary);
+    transition: color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .hero-video-chip-arrow {
+    display: inline-block;
+    transition:
+      transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .hero-video-chip:hover .hero-video-chip-label,
+  .hero-video-chip:hover .hero-video-chip-arrow {
+    color: var(--color-text-primary);
+  }
+
+  .hero-video-chip:hover .hero-video-chip-arrow {
+    transform: translateX(3px);
   }
 
   /* --- Mockup Stage --- */
+  /* Reveal timing lives with the rest of the stagger further up, not here. */
   .hero-visual {
     position: relative;
     display: flex;
@@ -262,18 +384,57 @@ const { audience } = Astro.props
     align-items: center;
     justify-content: center;
     margin-top: 0;
-    animation: fadeInUp 500ms var(--ease-out) 0.15s forwards;
-    opacity: 0;
   }
 
-  /* The accent glow behind the mockup is gone — elevation comes from the shadow, not a wash. */
+  /* The floor the mock stands on.
+
+     This is a tall gradient panel sitting *behind* the mock, and the mock is
+     opaque — so all that shows is the strip below its bottom edge. That is the
+     whole trick: the light reads as a thin bright sliver under the window
+     rather than a violet slab, and it needs no separate element to clip it.
+
+     Violet rather than accent: orange is spent on the download button, and a
+     wash in it would read as more CTA. This is atmosphere, not an action.
+
+     Geometry follows the reference, which hides the panel behind its frame and
+     lets only the bottom strip show (its frame is 720px inside a 748px box).
+     The strip height here is the one number worth tuning by eye — the
+     reference's own reads taller than a literal port of its 28px.
+
+     The panel is full width — the falloff is vertical only, plus a wide radial
+     that dims just the outer corners. A tighter radial turns the band into a
+     curved blob, which is the failure mode here.
+
+     The stops mirror it too: page ground at 10%, brightest at 100%, so the 28px
+     that actually shows is the very end of the ramp. */
   .mockup-glow {
     position: absolute;
-    width: 90%;
-    height: 90%;
+    top: 0;
+    bottom: -56px;
+    /* Edge to edge, not container width. The mock lives inside the centred
+       container, but the light it stands on spans the whole viewport — same as
+       the reference, whose clip box starts at -7px in a 1153px window. The
+       hero's `overflow: hidden` clips the bleed, so 100vw costs no scrollbar. */
+    left: 50%;
+    width: 100vw;
+    transform: translateX(-50%);
+    height: auto;
     z-index: -1;
     pointer-events: none;
-    filter: blur(50px);
+    filter: none;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    background:
+      radial-gradient(
+        52.5% 57.5% at 50% 100%,
+        transparent 0%,
+        color-mix(in oklab, var(--surface-page) 50%, transparent) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        var(--surface-page) 10%,
+        color-mix(in oklab, var(--aurora-base) 62%, var(--surface-page)) 100%
+      );
   }
 
   .app-mockup-wrapper {
@@ -283,18 +444,21 @@ const { audience } = Astro.props
     border: 1px solid var(--border); /* Outer bezel outline */
     border-radius: calc(var(--radius) + 6px); /* Rounded bezel frame matching concentric math */
     padding: 6px; /* Gutter around the mock */
-    box-shadow: var(--shadow-card);
+    /* The shared tokens are sized for cards a few hundred pixels wide; on an
+       object this size `0 1px 2px` is invisible and the mock reads as a flat
+       rectangle pasted onto the page. Contact at the edge plus a mid falloff —
+       and no wide ambient pool, because a 96px spread of black underneath would
+       smother the 28px of lit floor the mock is meant to be standing on. */
+    box-shadow:
+      0 2px 4px rgb(0 0 0 / 0.2),
+      0 12px 28px -12px rgb(0 0 0 / 0.4);
     overflow: hidden;
   }
 
+  /* Superseded by the ambient layer of the shadow above — keeping both stacked
+     a dark smudge directly under the bezel. */
   .mockup-reflection {
-    width: 75%;
-    height: 40px;
-    background: radial-gradient(ellipse, rgba(0, 0, 0, 0.8) 0%, transparent 80%);
-    margin-top: -16px;
-    z-index: -1;
-    filter: blur(8px);
-    pointer-events: none;
+    display: none;
   }
 
   /* --- Responsive --- */

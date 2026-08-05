@@ -1,0 +1,168 @@
+---
+/**
+ * Plays a video over the page instead of sending the visitor to YouTube.
+ *
+ * Render this once per page, then mark any number of triggers anywhere in the
+ * page with `VIDEO_LIGHTBOX.openAttribute`; the dialog finds them by delegation,
+ * so a trigger does not have to know the dialog exists.
+ *
+ * Three things here are load-bearing rather than decorative:
+ *
+ *   The iframe carries NO src until the first open. An idle YouTube embed costs
+ *   several hundred KB and a stack of requests, and the hero should not pay that
+ *   for a video most visitors never play.
+ *
+ *   `close` clears the src. That, not hiding the dialog, is what stops playback
+ *   — a hidden iframe keeps playing audio.
+ *
+ *   Triggers stay real links. Modified clicks are handed back to the browser, so
+ *   cmd-click still opens the watch page in a tab, and the whole thing degrades
+ *   to a plain link if the script never runs.
+ *
+ * Native <dialog> supplies the rest: focus trapping, an inert page behind, and
+ * Escape-to-close, none of which are worth reimplementing.
+ */
+import { VIDEO_LIGHTBOX } from "../lib/constants"
+
+type Props = {
+  /** Embed URL, loaded on first open. Autoplay belongs here — the click is the intent. */
+  embedUrl: string
+  /** The video's real title. Names the dialog and the iframe for assistive tech. */
+  title: string
+}
+
+const { embedUrl, title } = Astro.props
+
+const CLOSE_PATH = "M6 6l12 12M18 6L6 18"
+---
+
+<dialog
+  class="video-lightbox"
+  aria-label={title}
+  {...{ [VIDEO_LIGHTBOX.rootAttribute]: "", [VIDEO_LIGHTBOX.embedUrlAttribute]: embedUrl }}
+>
+  <div class="video-lightbox-panel">
+    <button
+      type="button"
+      class="video-lightbox-close"
+      aria-label="Close video"
+      {...{ [VIDEO_LIGHTBOX.closeAttribute]: "" }}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d={CLOSE_PATH}></path>
+      </svg>
+    </button>
+    <div class="video-lightbox-stage">
+      <iframe
+        class="video-lightbox-frame"
+        {...{ [VIDEO_LIGHTBOX.frameAttribute]: "" }}
+        title={title}
+        allow="autoplay; encrypted-media; picture-in-picture; web-share"
+        allowfullscreen
+      ></iframe>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  import { VIDEO_LIGHTBOX } from "../lib/constants"
+
+  const dialog = document.querySelector<HTMLDialogElement>(`[${VIDEO_LIGHTBOX.rootAttribute}]`)
+  const frame = dialog?.querySelector<HTMLIFrameElement>(`[${VIDEO_LIGHTBOX.frameAttribute}]`)
+  const embedUrl = dialog?.getAttribute(VIDEO_LIGHTBOX.embedUrlAttribute)
+
+  if (dialog && frame && embedUrl) {
+    document.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) return
+      const trigger = event.target.closest(`[${VIDEO_LIGHTBOX.openAttribute}]`)
+      if (!trigger) return
+      // Modified clicks belong to the browser: the trigger is a real link on purpose.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+      event.preventDefault()
+      frame.src = embedUrl
+      dialog.showModal()
+    })
+
+    // Clearing src is what stops playback; closing the dialog alone does not.
+    dialog.addEventListener("close", () => {
+      frame.removeAttribute("src")
+    })
+
+    // The backdrop is the dialog itself, so a click that lands on it is a click outside the panel.
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) dialog.close()
+    })
+
+    dialog.querySelector(`[${VIDEO_LIGHTBOX.closeAttribute}]`)?.addEventListener("click", () => {
+      dialog.close()
+    })
+  }
+</script>
+
+<style>
+  .video-lightbox {
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100dvh;
+    padding: 0;
+    border: none;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .video-lightbox::backdrop {
+    background: oklch(0 0 0 / 72%);
+    backdrop-filter: blur(6px);
+  }
+
+  .video-lightbox-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-2);
+    width: min(1040px, 92vw);
+    height: 100%;
+    margin: auto;
+  }
+
+  .video-lightbox-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: calc(var(--radius) + 4px);
+    overflow: hidden;
+    background: oklch(0 0 0);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .video-lightbox-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .video-lightbox-close {
+    align-self: flex-end;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 99px;
+    border: 1px solid oklch(1 0 0 / 18%);
+    background: oklch(1 0 0 / 10%);
+    color: oklch(1 0 0);
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .video-lightbox-close:hover {
+    background: oklch(1 0 0 / 20%);
+  }
+
+  .video-lightbox-close svg {
+    width: 16px;
+    height: 16px;
+  }
+</style>

@@ -21,6 +21,25 @@ export type Header = {
   readonly downloadLabel: string
 }
 
+/**
+ * The hero's launch-video chip.
+ *
+ * `label` says the format and nothing else. It deliberately does not carry the
+ * video's own title — that title is the learner headline word for word, and a
+ * chip repeating the h1 above it reads as an echo rather than an announcement.
+ * Runtime and platform are left out for the same reason: neither changes
+ * anyone's mind about clicking, and both add a second line of type to an object
+ * that has to be read at a glance.
+ *
+ * `title` is the real video title, used where a machine needs it — the iframe's
+ * accessible name and the dialog's label.
+ */
+export type LaunchVideo = {
+  readonly badge: string
+  readonly label: string
+  readonly title: string
+}
+
 export type LearnerFeatureVisual =
   | "learner-draw"
   | "learner-play"
@@ -379,6 +398,12 @@ const header: Header = {
   downloadLabel: "Download",
 }
 
+const launchVideo: LaunchVideo = {
+  badge: "New",
+  label: "Launch video",
+  title: "Buddy: An AI Agent for the Curious",
+}
+
 const learnerSeo: LearnerSeo = {
   title: "Buddy · An AI agent for the curious",
   description:
@@ -643,6 +668,7 @@ export const content = {
   capabilities,
   pricing,
   header,
+  launchVideo,
   install,
   meta,
   notFound,
@@ -658,6 +684,7 @@ export const content = {
   capabilities: Capabilities
   pricing: Pricing
   header: Header
+  launchVideo: LaunchVideo
   install: Install
   meta: Meta
   notFound: NotFound

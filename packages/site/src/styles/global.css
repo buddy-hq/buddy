@@ -334,8 +334,12 @@ h6 {
 /* ============================================================
    SHARED LAYOUT
    ============================================================ */
+/* 75vw left laptops with enormous side margins and a squeezed product shot —
+   at 1153px the column was 865px while the page still had room for 1100. The
+   cap is unchanged in practice (1440 vs the old 1436), so large monitors look
+   the same and only the 900–1560px range opens up. */
 .container {
-  max-width: min(75vw, 1436px);
+  max-width: min(92vw, 1440px);
   margin: 0 auto;
   padding: 0 var(--space-6);
 }
@@ -650,7 +654,10 @@ hr {
 /* ============================================================
    SECTION PADDING AND BORDERS
    ============================================================ */
-.hero,
+/* The hero is deliberately absent: it opens the page and needs more air above
+   the headline than a mid-page section does, and this rule's `!important` was
+   silently overriding the padding Hero.astro declares for itself. The hero owns
+   its own vertical rhythm now. */
 .philosophy-section,
 .features-section,
 .capabilities-section,
@@ -661,7 +668,6 @@ hr {
 }
 
 @media (max-width: 768px) {
-  .hero,
   .philosophy-section,
   .features-section,
   .capabilities-section,
