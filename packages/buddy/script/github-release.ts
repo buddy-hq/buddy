@@ -16,7 +16,7 @@ export type GitHubReleaseTarget = {
 
 export type GitHubReleaseDependencies = {
   createRelease: (target: GitHubReleaseTarget) => number | null
-  fetch: typeof globalThis.fetch
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 }
 
 function releaseApiUrl(target: GitHubReleaseTarget): string {
@@ -25,7 +25,7 @@ function releaseApiUrl(target: GitHubReleaseTarget): string {
 
 async function releaseExists(
   target: GitHubReleaseTarget,
-  fetchImplementation: typeof globalThis.fetch,
+  fetchImplementation: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
 ): Promise<boolean> {
   const headers = new Headers({
     Accept: "application/vnd.github+json",
