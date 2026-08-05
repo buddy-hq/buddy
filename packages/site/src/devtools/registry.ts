@@ -9,6 +9,7 @@
 export const DEVTOOLS_PATH = "/devtools"
 export const DEVTOOLS_PROTOTYPE_PARAM = "p"
 
+export const EASEL_HERO_ANNOUNCEMENT = "hero-announcement-chip"
 export const EASEL_DRAW_FIGURES = "draw-figure-directions"
 export const EASEL_SURFACE_PALETTE = "surface-palette-directions"
 export const EASEL_FREE_SECTION = "free-section-directions"
@@ -21,6 +22,7 @@ export const EASEL_FREE_SECTION_R7 = "free-section-round7"
 export const EASEL_FOOTER = "footer-directions"
 
 export type EaselPrototypeID =
+  | typeof EASEL_HERO_ANNOUNCEMENT
   | typeof EASEL_DRAW_FIGURES
   | typeof EASEL_SURFACE_PALETTE
   | typeof EASEL_FREE_SECTION
@@ -39,6 +41,12 @@ export type EaselPrototype = {
 }
 
 export const EASEL_PROTOTYPES = [
+  {
+    id: EASEL_HERO_ANNOUNCEMENT,
+    label: "Hero · announcement chip for the launch video",
+    subtitle:
+      "Same four words in all seven, so the comparison is form not copy · every chip plays the video in a lightbox instead of leaving for YouTube · A pill · B ticket · C live dot · D thumbnail · E row-end · F bare link · G seam tab · plus all seven at 390px",
+  },
   {
     id: EASEL_DRAW_FIGURES,
     label: "Draw · six figures that aren't a node graph",
@@ -101,7 +109,7 @@ export const EASEL_PROTOTYPES = [
   },
 ] as const satisfies readonly EaselPrototype[]
 
-export const DEFAULT_EASEL_PROTOTYPE: EaselPrototypeID = EASEL_DRAW_FIGURES
+export const DEFAULT_EASEL_PROTOTYPE: EaselPrototypeID = EASEL_HERO_ANNOUNCEMENT
 
 function isEaselPrototypeID(value: string | null): value is EaselPrototypeID {
   return EASEL_PROTOTYPES.some((prototype) => prototype.id === value)

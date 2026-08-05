@@ -14,6 +14,7 @@ import FreeSectionRound5 from "../../devtools/easel/free-section-round5.astro"
 import FreeSectionRound6 from "../../devtools/easel/free-section-round6.astro"
 import FooterDirections from "../../devtools/easel/footer-directions.astro"
 import FreeSectionRound7 from "../../devtools/easel/free-section-round7.astro"
+import HeroAnnouncementChip from "../../devtools/easel/hero-announcement-chip.astro"
 import SurfacePaletteDirections from "../../devtools/easel/surface-palette-directions.astro"
 import {
   DEVTOOLS_PATH,
@@ -27,6 +28,7 @@ import {
   EASEL_FREE_SECTION_R6,
   EASEL_FREE_SECTION_R7,
   EASEL_FOOTER,
+  EASEL_HERO_ANNOUNCEMENT,
   EASEL_PROTOTYPES,
   EASEL_SURFACE_PALETTE,
   resolveEaselPrototype,
@@ -71,6 +73,7 @@ const active = resolveEaselPrototype(Astro.url)
       </header>
 
       <main class="stage-outer">
+        {active.id === EASEL_HERO_ANNOUNCEMENT && <HeroAnnouncementChip />}
         {active.id === EASEL_DRAW_FIGURES && <DrawFigureDirections />}
         {active.id === EASEL_FOOTER && <FooterDirections />}
         {active.id === EASEL_FREE_SECTION_R7 && <FreeSectionRound7 />}

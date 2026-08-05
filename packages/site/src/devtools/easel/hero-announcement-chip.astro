@@ -1,0 +1,1115 @@
+---
+/**
+ * Easel prototype — Hero announcement chip (the launch video).
+ *
+ * Every direction says the same four words: "Watch the launch video". Copy is
+ * held constant on purpose — the open question is form, not wording, and seven
+ * chips with seven different labels can't be compared.
+ *
+ * What the copy deliberately leaves out:
+ *
+ *   The title. The video is called "Buddy: An AI Agent for the Curious" — the
+ *   same sentence as the learner headline. A chip quoting it above an h1 that
+ *   already says it is an echo, not an announcement.
+ *
+ *   The runtime and the platform. "2 min", "on YouTube" — nobody decides to
+ *   click based on either, and each is another line of type inside an object
+ *   that has to be read in a glance.
+ *
+ * Every chip opens the video in a lightbox instead of leaving for YouTube.
+ * The mechanics, because they are the part worth copying into the real hero:
+ *
+ *   - A single native <dialog>, shared by all seven. `showModal()` gives focus
+ *     trapping, inertness of the page behind, and Escape-to-close for free.
+ *   - The iframe carries NO src until the first click. An idle YouTube embed is
+ *     ~700KB and a pile of requests; this way the hero pays nothing for a video
+ *     most visitors never open.
+ *   - src is cleared on close, which is what actually stops playback — hiding
+ *     the dialog alone leaves the audio running.
+ *   - youtube-nocookie.com, and `rel=0` so the end screen doesn't advertise
+ *     other channels' videos.
+ *   - Each chip is still a real <a href> to the watch page, so it works with no
+ *     JS, opens in a new tab on cmd-click, and has a URL to copy.
+ *
+ * Second constraint: the hero is left-set, and the header row already has a
+ * right-hand slot that Hero.astro's CSS anticipates (`.hero-header-right`,
+ * `.hero-announcement-link` — styles that exist today with no markup using
+ * them). Direction E is that leftover slot, finally filled.
+ *
+ * The seven, by pattern rather than by decoration:
+ *
+ *   A — Pill        · the standard. Badge + label + arrow, above the headline.
+ *   B — Ticket      · split pill, hairline between the glyph and the label.
+ *   C — Live        · outline only, a pulsing dot instead of a fill.
+ *   D — Thumbnail   · the video's own frame inside the pill. Loudest.
+ *   E — Row-end     · no chip above the headline; it rides the subtext row.
+ *   F — Bare link   · the anti-chip. Play glyph + underline, under the subtext.
+ *   G — Seam tab    · attached to the top edge of the product shot: "and here
+ *                     it is, moving."
+ *
+ * Each is shown in a hero stub — real headline, real subtext, a stand-in for
+ * the app mockup — because a chip judged on its own always looks fine. The
+ * last section stacks all seven at phone width.
+ *
+ * The thumbnail in D is hot-linked from i.ytimg.com for the prototype. If D
+ * wins, that frame gets pulled into src/assets and served locally.
+ */
+
+const VIDEO_ID = "FCq4janO7pE"
+const VIDEO_WATCH_URL = `https://www.youtube.com/watch?v=${VIDEO_ID}`
+const VIDEO_EMBED_URL = `https://www.youtube-nocookie.com/embed/${VIDEO_ID}?autoplay=1&rel=0`
+const VIDEO_THUMBNAIL_URL = `https://i.ytimg.com/vi/${VIDEO_ID}/hqdefault.jpg`
+
+/** The same in all seven. Whatever wins, this is the sentence it carries. */
+const CHIP_LABEL = "Watch the launch video"
+
+/** Hooks the lightbox script listens on. */
+const OPEN_ATTRIBUTE = "data-video-open"
+const LIGHTBOX_CLASS = "lightbox"
+const LIGHTBOX_FRAME_CLASS = "lightbox-frame"
+const LIGHTBOX_CLOSE_CLASS = "lightbox-close"
+
+/** The live learner hero, so the chip is judged against the type it sits with. */
+const HERO_HEADLINE_LEAD = "An AI agent"
+const HERO_HEADLINE_ACCENT = "for the curious."
+const HERO_SUBTEXT =
+  "Read books, bring your notes, research, draw on a whiteboard, build simulations, and practice with flashcards, all in one place."
+
+const CHEVRON_PATH = "M9 6l6 6-6 6"
+const PLAY_PATH = "M8 5.5v13l11-6.5z"
+const CLOSE_PATH = "M6 6l12 12M18 6L6 18"
+---
+
+<div class="easel">
+  <p class="legend">
+    Seven ways to put the launch video in the hero. The same four words in every one, so what is
+    being compared is form and placement rather than copy. All seven are live — clicking any of
+    them plays the video in a lightbox over the page instead of leaving for YouTube.
+  </p>
+
+  <!-- ═══ A — Pill ═══════════════════════════════════════════════════════
+       The default announcement chip: a tag, a label, an arrow. It works
+       because it is completely unsurprising — the eye reads it as "there is
+       news here" before it reads a single word.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">A</h2>
+      <div>
+        <h3 class="direction-name">Pill</h3>
+        <p class="direction-desc">
+          Badge, label, arrow. The pattern everyone already knows how to read, which is the
+          argument for it. Accent wash, so it registers before the headline does.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <div class="hero-stub">
+        <div class="mock-container">
+          <div class="chip-slot">
+            <a class="chip chip-pill" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+              <span class="chip-badge">New</span>
+              <span class="chip-label">{CHIP_LABEL}</span>
+              <svg class="chip-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d={CHEVRON_PATH}></path>
+              </svg>
+            </a>
+          </div>
+          <h1 class="hero-title">
+            {HERO_HEADLINE_LEAD} <span class="hero-accent">{HERO_HEADLINE_ACCENT}</span>
+          </h1>
+          <div class="hero-row">
+            <p class="hero-sub">{HERO_SUBTEXT}</p>
+          </div>
+          <div class="shot"><div class="shot-bar"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ B — Ticket ═════════════════════════════════════════════════════
+       Same footprint as A, but the left segment is a play glyph rather than
+       the word "New", and one hairline does the separating. Quieter and more
+       built: it reads as part of the page's furniture instead of a sticker
+       stuck on top of it.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">B</h2>
+      <div>
+        <h3 class="direction-name">Ticket</h3>
+        <p class="direction-desc">
+          Split pill: an accent segment holding the play glyph, a hairline, then the words. Neutral
+          surface, so it sits in the page rather than on it.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <div class="hero-stub">
+        <div class="mock-container">
+          <div class="chip-slot">
+            <a class="chip chip-ticket" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+              <span class="ticket-tag">
+                <svg class="chip-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d={PLAY_PATH}></path>
+                </svg>
+              </span>
+              <span class="ticket-body">
+                <span class="chip-label">{CHIP_LABEL}</span>
+              </span>
+            </a>
+          </div>
+          <h1 class="hero-title">
+            {HERO_HEADLINE_LEAD} <span class="hero-accent">{HERO_HEADLINE_ACCENT}</span>
+          </h1>
+          <div class="hero-row">
+            <p class="hero-sub">{HERO_SUBTEXT}</p>
+          </div>
+          <div class="shot"><div class="shot-bar"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ C — Live ═══════════════════════════════════════════════════════
+       No fill at all: an outline and a pulsing dot. The dot buys the
+       attention the accent wash was buying in A, at a fraction of the visual
+       cost — and "new" becomes something the chip does rather than says.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">C</h2>
+      <div>
+        <h3 class="direction-name">Live</h3>
+        <p class="direction-desc">
+          Outline only, with a pulsing dot doing the work the accent wash does in A. The lightest
+          of the pills, and the only one that moves.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <div class="hero-stub">
+        <div class="mock-container">
+          <div class="chip-slot">
+            <a class="chip chip-live" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+              <span class="live-dot" aria-hidden="true"></span>
+              <span class="chip-label">{CHIP_LABEL}</span>
+            </a>
+          </div>
+          <h1 class="hero-title">
+            {HERO_HEADLINE_LEAD} <span class="hero-accent">{HERO_HEADLINE_ACCENT}</span>
+          </h1>
+          <div class="hero-row">
+            <p class="hero-sub">{HERO_SUBTEXT}</p>
+          </div>
+          <div class="shot"><div class="shot-bar"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ D — Thumbnail ══════════════════════════════════════════════════
+       The video shows a frame of itself. Highest click-through of the seven
+       and the highest risk: it is a second image competing with the product
+       shot forty pixels below it, and it drags a remote asset into the LCP
+       window unless the frame is served locally.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">D</h2>
+      <div>
+        <h3 class="direction-name">Thumbnail</h3>
+        <p class="direction-desc">
+          The video's own frame inside the pill. Most clickable, least quiet — and it competes with
+          the product shot right beneath it. Ship the frame locally, never hot-linked.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <div class="hero-stub">
+        <div class="mock-container">
+          <div class="chip-slot">
+            <a class="chip chip-thumb" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+              <span class="thumb-frame">
+                <img class="thumb-img" src={VIDEO_THUMBNAIL_URL} alt="" loading="lazy" decoding="async" />
+                <span class="thumb-play" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d={PLAY_PATH}></path></svg>
+                </span>
+              </span>
+              <span class="chip-label">{CHIP_LABEL}</span>
+              <svg class="chip-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d={CHEVRON_PATH}></path>
+              </svg>
+            </a>
+          </div>
+          <h1 class="hero-title">
+            {HERO_HEADLINE_LEAD} <span class="hero-accent">{HERO_HEADLINE_ACCENT}</span>
+          </h1>
+          <div class="hero-row">
+            <p class="hero-sub">{HERO_SUBTEXT}</p>
+          </div>
+          <div class="shot"><div class="shot-bar"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ E — Row-end ════════════════════════════════════════════════════
+       Nothing above the headline, so the h1 still lands first. The chip
+       takes the empty right half of the subtext row — the slot Hero.astro
+       already has CSS for and no markup in. On phones the row stacks and
+       the chip falls under the subtext, left-set.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">E</h2>
+      <div>
+        <h3 class="direction-name">Row-end</h3>
+        <p class="direction-desc">
+          The headline keeps first position; the chip rides the far end of the subtext row and
+          fills space that is empty today. This is the slot Hero.astro was already styled for.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <div class="hero-stub">
+        <div class="mock-container">
+          <h1 class="hero-title">
+            {HERO_HEADLINE_LEAD} <span class="hero-accent">{HERO_HEADLINE_ACCENT}</span>
+          </h1>
+          <div class="hero-row hero-row-split">
+            <p class="hero-sub">{HERO_SUBTEXT}</p>
+            <a class="chip chip-rowend" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+              <span class="rowend-play" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d={PLAY_PATH}></path></svg>
+              </span>
+              <span class="chip-label">{CHIP_LABEL}</span>
+            </a>
+          </div>
+          <div class="shot"><div class="shot-bar"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ F — Bare link ══════════════════════════════════════════════════
+       No chip. A hero that already has a headline, a subtext, and a product
+       shot does not obviously need a fourth object competing for the first
+       glance — sometimes the announcement should be a sentence you can
+       click. Cheapest to ship, easiest to miss.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">F</h2>
+      <div>
+        <h3 class="direction-name">Bare link</h3>
+        <p class="direction-desc">
+          The anti-chip: a play glyph and an underline under the subtext. Nothing extra for the eye
+          to sort, and easy to skim straight past. The control to judge A–D against.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <div class="hero-stub">
+        <div class="mock-container">
+          <h1 class="hero-title">
+            {HERO_HEADLINE_LEAD} <span class="hero-accent">{HERO_HEADLINE_ACCENT}</span>
+          </h1>
+          <div class="hero-row">
+            <p class="hero-sub">{HERO_SUBTEXT}</p>
+          </div>
+          <a class="bare-link" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+            <span class="bare-play" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d={PLAY_PATH}></path></svg>
+            </span>
+            <span class="bare-text">{CHIP_LABEL}</span>
+            <svg class="chip-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d={CHEVRON_PATH}></path>
+            </svg>
+          </a>
+          <div class="shot"><div class="shot-bar"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ G — Seam tab ═══════════════════════════════════════════════════
+       The chip is attached to the product shot rather than the type, sitting
+       on its top edge. It answers the question the screenshot provokes —
+       "does it actually do this?" — at the exact moment the eye arrives at
+       the screenshot, which no chip above the headline can do. With the
+       lightbox behind it, the still turns into the moving thing in place.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">G</h2>
+      <div>
+        <h3 class="direction-name">Seam tab</h3>
+        <p class="direction-desc">
+          Pinned to the top edge of the product shot, not to the type. It catches the eye where the
+          screenshot does, and reads as "this, but moving". The only centred one.
+        </p>
+      </div>
+    </header>
+
+    <div class="page-mock">
+      <div class="hero-stub">
+        <div class="mock-container">
+          <h1 class="hero-title">
+            {HERO_HEADLINE_LEAD} <span class="hero-accent">{HERO_HEADLINE_ACCENT}</span>
+          </h1>
+          <div class="hero-row">
+            <p class="hero-sub">{HERO_SUBTEXT}</p>
+          </div>
+          <div class="shot shot-seam">
+            <a class="chip chip-seam" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+              <span class="seam-play" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d={PLAY_PATH}></path></svg>
+              </span>
+              <span class="chip-label">{CHIP_LABEL}</span>
+            </a>
+            <div class="shot-bar"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Phone check ════════════════════════════════════════════════════
+       390px, the width that actually decides this. A two-segment pill and a
+       pill with a thumbnail are the two that can outgrow the column.
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="direction">
+    <header class="direction-head">
+      <h2 class="direction-label">↓</h2>
+      <div>
+        <h3 class="direction-name">At 390px</h3>
+        <p class="direction-desc">
+          All seven at phone width. B and D are the ones to watch: a split pill and a pill carrying
+          a thumbnail are the two that can outgrow the column.
+        </p>
+      </div>
+    </header>
+
+    <div class="phone-row">
+      <div class="phone">
+        <span class="phone-tag">A · Pill</span>
+        <a class="chip chip-pill" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+          <span class="chip-badge">New</span>
+          <span class="chip-label">{CHIP_LABEL}</span>
+          <svg class="chip-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d={CHEVRON_PATH}></path>
+          </svg>
+        </a>
+      </div>
+
+      <div class="phone">
+        <span class="phone-tag">B · Ticket</span>
+        <a class="chip chip-ticket" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+          <span class="ticket-tag">
+            <svg class="chip-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d={PLAY_PATH}></path>
+            </svg>
+          </span>
+          <span class="ticket-body">
+            <span class="chip-label">{CHIP_LABEL}</span>
+          </span>
+        </a>
+      </div>
+
+      <div class="phone">
+        <span class="phone-tag">C · Live</span>
+        <a class="chip chip-live" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+          <span class="live-dot" aria-hidden="true"></span>
+          <span class="chip-label">{CHIP_LABEL}</span>
+        </a>
+      </div>
+
+      <div class="phone">
+        <span class="phone-tag">D · Thumbnail</span>
+        <a class="chip chip-thumb" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+          <span class="thumb-frame">
+            <img class="thumb-img" src={VIDEO_THUMBNAIL_URL} alt="" loading="lazy" decoding="async" />
+            <span class="thumb-play" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d={PLAY_PATH}></path></svg>
+            </span>
+          </span>
+          <span class="chip-label">{CHIP_LABEL}</span>
+          <svg class="chip-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d={CHEVRON_PATH}></path>
+          </svg>
+        </a>
+      </div>
+
+      <div class="phone">
+        <span class="phone-tag">E · Row-end</span>
+        <a class="chip chip-rowend" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+          <span class="rowend-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d={PLAY_PATH}></path></svg>
+          </span>
+          <span class="chip-label">{CHIP_LABEL}</span>
+        </a>
+      </div>
+
+      <div class="phone">
+        <span class="phone-tag">F · Bare link</span>
+        <a class="bare-link" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+          <span class="bare-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d={PLAY_PATH}></path></svg>
+          </span>
+          <span class="bare-text">{CHIP_LABEL}</span>
+          <svg class="chip-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d={CHEVRON_PATH}></path>
+          </svg>
+        </a>
+      </div>
+
+      <div class="phone">
+        <span class="phone-tag">G · Seam tab</span>
+        <a class="chip chip-seam" href={VIDEO_WATCH_URL} {...{ [OPEN_ATTRIBUTE]: "" }}>
+          <span class="seam-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d={PLAY_PATH}></path></svg>
+          </span>
+          <span class="chip-label">{CHIP_LABEL}</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- One dialog for all seven. The iframe stays src-less until first open. -->
+  <dialog class={LIGHTBOX_CLASS} aria-label="Buddy launch video">
+    <div class="lightbox-panel">
+      <button type="button" class={LIGHTBOX_CLOSE_CLASS} aria-label="Close video">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d={CLOSE_PATH}></path>
+        </svg>
+      </button>
+      <div class="lightbox-stage">
+        <iframe
+          class={LIGHTBOX_FRAME_CLASS}
+          title="Buddy: An AI Agent for the Curious"
+          allow="autoplay; encrypted-media; picture-in-picture; web-share"
+          allowfullscreen
+          frameborder="0"
+        ></iframe>
+      </div>
+    </div>
+  </dialog>
+</div>
+
+<script
+  is:inline
+  define:vars={{
+    VIDEO_EMBED_URL,
+    OPEN_ATTRIBUTE,
+    LIGHTBOX_CLASS,
+    LIGHTBOX_FRAME_CLASS,
+    LIGHTBOX_CLOSE_CLASS,
+  }}
+>
+  const dialog = document.querySelector(`.${LIGHTBOX_CLASS}`)
+  const frame = document.querySelector(`.${LIGHTBOX_FRAME_CLASS}`)
+
+  if (dialog && frame) {
+    document.addEventListener("click", (event) => {
+      const trigger = event.target.closest(`[${OPEN_ATTRIBUTE}]`)
+      if (!trigger) return
+      // Let cmd/ctrl/middle-click keep the real link — there is a URL here on purpose.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+      event.preventDefault()
+      // src is set on first open, never at page load: an idle YouTube embed is
+      // ~700KB the hero should not pay for.
+      frame.src = VIDEO_EMBED_URL
+      dialog.showModal()
+    })
+
+    // Clearing src is what stops playback. Closing the dialog alone does not.
+    dialog.addEventListener("close", () => {
+      frame.removeAttribute("src")
+    })
+
+    // Click anywhere off the panel closes — the backdrop is the dialog itself.
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) dialog.close()
+    })
+
+    dialog.querySelector(`.${LIGHTBOX_CLOSE_CLASS}`)?.addEventListener("click", () => {
+      dialog.close()
+    })
+  }
+</script>
+
+<style>
+  /* ═══ Easel shell ═══ */
+  .easel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .legend {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: oklch(0.62 0 0);
+    max-width: 88ch;
+  }
+
+  .direction {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .direction + .direction {
+    margin-top: 0.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid oklch(1 0 0 / 8%);
+  }
+
+  .direction-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .direction-label {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: oklch(1 0 0 / 8%);
+    color: oklch(0.92 0 0);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    margin: 0;
+  }
+
+  .direction-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: oklch(0.95 0 0);
+    margin: 0;
+  }
+
+  .direction-desc {
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: oklch(0.6 0 0);
+    max-width: 84ch;
+  }
+
+  /* ═══ Hero stub — the type the chip has to live with ═══ */
+  .page-mock {
+    background: var(--surface-page, oklch(0.16 0 0));
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid oklch(1 0 0 / 6%);
+  }
+
+  .hero-stub {
+    padding: clamp(2.5rem, 5vw, 4rem) 0 0;
+  }
+
+  .mock-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6, 1.5rem);
+  }
+
+  .chip-slot {
+    margin-bottom: var(--space-6, 1.5rem);
+  }
+
+  .hero-title {
+    font-family: var(--font-display, "Geist", sans-serif);
+    font-size: clamp(2rem, 4.4vw, 3.5rem);
+    font-weight: 510;
+    line-height: 1.06;
+    letter-spacing: -0.022em;
+    color: var(--color-text-primary, var(--fg-strong));
+    margin: 0 0 var(--space-6, 1.5rem);
+    text-wrap: balance;
+  }
+
+  .hero-accent {
+    color: var(--accent-base);
+  }
+
+  .hero-row {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-8, 2rem);
+  }
+
+  .hero-row-split {
+    justify-content: space-between;
+  }
+
+  .hero-sub {
+    margin: 0;
+    font-family: var(--font-body, "Geist", sans-serif);
+    font-size: clamp(0.9375rem, 1.2vw, 1.25rem);
+    line-height: 1.4;
+    letter-spacing: -0.012em;
+    color: var(--color-text-secondary, var(--fg-base));
+    opacity: 0.88;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+
+  /* Stand-in for the app mockup. Only the top edge matters here — it is what
+     G attaches to and what D competes with. */
+  .shot {
+    position: relative;
+    margin-top: var(--space-10, 2.5rem);
+    height: 180px;
+    background: var(--chrome-panel);
+    border: 1px solid var(--border-base);
+    border-bottom: none;
+    border-radius: calc(var(--radius, 0.625rem) + 6px) calc(var(--radius, 0.625rem) + 6px) 0 0;
+    overflow: hidden;
+  }
+
+  .shot-bar {
+    height: 28px;
+    background: var(--chrome-bar);
+    border-bottom: 1px solid var(--border-weak);
+  }
+
+  .shot-seam {
+    margin-top: calc(var(--space-10, 2.5rem) + 14px);
+    overflow: visible;
+  }
+
+  /* ═══ Chip base ═══ */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    font-family: var(--font-body, "Geist", sans-serif);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    max-width: 100%;
+    cursor: pointer;
+  }
+
+  .chip-label {
+    font-size: var(--text-sm, 0.875rem);
+    font-weight: 500;
+    letter-spacing: -0.006em;
+    white-space: nowrap;
+  }
+
+  .chip-chevron {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .chip:hover .chip-chevron,
+  .bare-link:hover .chip-chevron {
+    transform: translateX(2px);
+    opacity: 1;
+  }
+
+  /* ═══ A — Pill ═══ */
+  .chip-pill {
+    gap: 8px;
+    background: var(--accent-weak);
+    border: 1px solid var(--accent-border);
+    border-radius: 99px;
+    padding: 5px 12px 5px 5px;
+    color: var(--color-text-secondary, var(--fg-base));
+    box-shadow: var(--shadow-raised);
+  }
+
+  .chip-pill:hover {
+    transform: translateY(-1px);
+    color: var(--color-text-primary, var(--fg-strong));
+  }
+
+  .chip-badge {
+    background: var(--accent-fill);
+    color: var(--accent-ink);
+    font-size: 10px;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 8px;
+    border-radius: 99px;
+  }
+
+  /* ═══ B — Ticket ═══ */
+  .chip-ticket {
+    border: 1px solid var(--border-base);
+    border-radius: 99px;
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-raised);
+    overflow: hidden;
+    color: var(--color-text-primary, var(--fg-strong));
+  }
+
+  .chip-ticket:hover {
+    transform: translateY(-1px);
+    border-color: var(--accent-border);
+  }
+
+  .ticket-tag {
+    display: inline-flex;
+    align-items: center;
+    align-self: stretch;
+    padding: 6px 10px;
+    background: var(--accent-weak);
+    border-right: 1px solid var(--border-base);
+    color: var(--accent-base);
+  }
+
+  .chip-play {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .ticket-body {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 13px;
+    min-width: 0;
+  }
+
+  /* ═══ C — Live ═══ */
+  .chip-live {
+    gap: 9px;
+    padding: 6px 13px;
+    border: 1px solid var(--border-base);
+    border-radius: 99px;
+    background: var(--surface-base);
+    color: var(--color-text-secondary, var(--fg-base));
+  }
+
+  .chip-live:hover {
+    border-color: var(--accent-border);
+    color: var(--color-text-primary, var(--fg-strong));
+  }
+
+  .live-dot {
+    position: relative;
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    border-radius: 99px;
+    background: var(--accent-fill);
+  }
+
+  .live-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 99px;
+    border: 1px solid var(--accent-fill);
+    opacity: 0;
+    animation: chip-pulse 2.4s var(--ease-out, ease-out) infinite;
+  }
+
+  @keyframes chip-pulse {
+    0% {
+      opacity: 0.7;
+      transform: scale(0.7);
+    }
+    70%,
+    100% {
+      opacity: 0;
+      transform: scale(1.5);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .live-dot::after {
+      animation: none;
+    }
+  }
+
+  /* ═══ D — Thumbnail ═══ */
+  .chip-thumb {
+    gap: 10px;
+    padding: 5px 12px 5px 5px;
+    border: 1px solid var(--border-base);
+    border-radius: 99px;
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-raised);
+    color: var(--color-text-primary, var(--fg-strong));
+  }
+
+  .chip-thumb:hover {
+    transform: translateY(-1px);
+    border-color: var(--accent-border);
+  }
+
+  .thumb-frame {
+    position: relative;
+    flex-shrink: 0;
+    width: 52px;
+    height: 30px;
+    border-radius: 99px;
+    overflow: hidden;
+    background: var(--chrome-screen);
+  }
+
+  .thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .thumb-play {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: oklch(0 0 0 / 35%);
+    color: oklch(1 0 0);
+  }
+
+  .thumb-play svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* ═══ E — Row-end ═══ */
+  .chip-rowend {
+    flex-shrink: 0;
+    gap: 10px;
+    padding: 6px 14px 6px 6px;
+    border: 1px solid var(--border-base);
+    border-radius: 99px;
+    background: var(--surface-base);
+    color: var(--color-text-primary, var(--fg-strong));
+  }
+
+  .chip-rowend:hover {
+    border-color: var(--accent-border);
+    background: var(--surface-raised);
+  }
+
+  .rowend-play {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 99px;
+    background: var(--accent-fill);
+    color: var(--accent-ink);
+  }
+
+  .rowend-play svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* ═══ F — Bare link ═══ */
+  .bare-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: var(--space-5, 1.25rem);
+    text-decoration: none;
+    color: var(--color-text-secondary, var(--fg-base));
+    font-family: var(--font-body, "Geist", sans-serif);
+    cursor: pointer;
+  }
+
+  .bare-play {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 99px;
+    border: 1px solid var(--accent-border);
+    background: var(--accent-weak);
+    color: var(--accent-base);
+    flex-shrink: 0;
+  }
+
+  .bare-play svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  .bare-text {
+    font-size: var(--text-sm, 0.875rem);
+    font-weight: 500;
+    letter-spacing: -0.006em;
+    text-decoration: underline;
+    text-decoration-color: var(--border-strong);
+    text-underline-offset: 4px;
+  }
+
+  .bare-link:hover .bare-text {
+    color: var(--color-text-primary, var(--fg-strong));
+    text-decoration-color: var(--accent-base);
+  }
+
+  /* ═══ G — Seam tab ═══ */
+  .chip-seam {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    gap: 8px;
+    padding: 6px 13px 6px 6px;
+    border: 1px solid var(--border-base);
+    border-radius: 99px;
+    background: var(--surface-overlay);
+    box-shadow: var(--shadow-overlay);
+    color: var(--color-text-primary, var(--fg-strong));
+  }
+
+  .chip-seam:hover {
+    transform: translate(-50%, calc(-50% - 1px));
+    border-color: var(--accent-border);
+  }
+
+  .seam-play {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 99px;
+    background: var(--accent-fill);
+    color: var(--accent-ink);
+  }
+
+  .seam-play svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  /* ═══ Lightbox ═══ */
+  .lightbox {
+    border: none;
+    padding: 0;
+    background: transparent;
+    max-width: 100vw;
+    max-height: 100dvh;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .lightbox::backdrop {
+    background: oklch(0 0 0 / 72%);
+    backdrop-filter: blur(6px);
+  }
+
+  .lightbox-panel {
+    position: relative;
+    width: min(1040px, 92vw);
+    margin: auto;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .lightbox-stage {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    border-radius: calc(var(--radius, 0.625rem) + 4px);
+    overflow: hidden;
+    background: oklch(0 0 0);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .lightbox-frame {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border: 0;
+  }
+
+  .lightbox-close {
+    align-self: flex-end;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 99px;
+    border: 1px solid oklch(1 0 0 / 18%);
+    background: oklch(1 0 0 / 10%);
+    color: oklch(1 0 0);
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .lightbox-close:hover {
+    background: oklch(1 0 0 / 20%);
+  }
+
+  .lightbox-close svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* ═══ Phone check ═══ */
+  .phone-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .phone {
+    width: 390px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid oklch(1 0 0 / 6%);
+    background: var(--surface-page, oklch(0.16 0 0));
+  }
+
+  /* The seam tab is absolute in situ; in the phone strip it is a plain chip. */
+  .phone .chip-seam {
+    position: static;
+    transform: none;
+  }
+
+  .phone .chip-seam:hover {
+    transform: translateY(-1px);
+  }
+
+  .phone-tag {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: oklch(0.55 0 0);
+  }
+
+  /* ═══ Responsive — what the real hero does at these widths ═══ */
+  @media (max-width: 992px) {
+    .hero-row-split {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-5, 1.25rem);
+    }
+  }
+</style>
