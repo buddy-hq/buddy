@@ -4,9 +4,10 @@ import { TooltipProvider } from "@buddy/ui"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatLeftSidebarDirectoryList } from "../src/components/layout/chat-left-sidebar/directory-list"
+import type { SessionInfo } from "../src/state/chat-types"
 import { obsidianVaultQueryKeys } from "../src/state/obsidian-vault-query"
 
-describe("Chat sidebar Obsidian vault icon", () => {
+describe("Chat sidebar directory list", () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -108,5 +109,62 @@ describe("Chat sidebar Obsidian vault icon", () => {
     expect(
       container.querySelector('[data-component="left-sidebar-obsidian-vault-icon"]'),
     ).toBeNull()
+  })
+
+  test("shows five quick chats before offering to show more", async () => {
+    const directory = "/tmp/inbox"
+    const sessions = Array.from(
+      { length: 6 },
+      (_, index) =>
+        ({
+          id: `quick-chat-${index + 1}`,
+          title: `Quick Chat ${index + 1}`,
+          time: { created: index, updated: index },
+        }) satisfies SessionInfo,
+    )
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <ChatLeftSidebarDirectoryList
+              directoryGroups={[{ directory, sessions }]}
+              currentDirectory={directory}
+              sessionsByDirectory={{ [directory]: sessions }}
+              sessionStatusByDirectory={{}}
+              pinnedByDirectory={{}}
+              unreadByDirectory={{}}
+              organizeMode="project"
+              expandedDirectories={{}}
+              collapsedDirectories={{}}
+              dragOverPosition="after"
+              onToggleCollapsedDirectory={() => {}}
+              onToggleExpandedDirectory={() => {}}
+              onSelectSession={() => {}}
+              onTogglePin={() => {}}
+              onToggleUnread={() => {}}
+              onRequestArchive={() => {}}
+              onRequestDelete={() => {}}
+              onRequestRename={() => {}}
+              onLabelPointerDown={() => {}}
+              onSectionRef={() => () => {}}
+              onNewSession={() => {}}
+              onOpenNotebookSettings={() => {}}
+              onDisconnectObsidianVault={() => {}}
+              onCloseDirectory={() => {}}
+            />
+          </TooltipProvider>
+        </QueryClientProvider>,
+      )
+    })
+
+    expect(
+      container.querySelectorAll('[data-action="left-sidebar-thread-select"]'),
+    ).toHaveLength(5)
+    expect(container.textContent).toContain("Show more")
+    expect(container.textContent).not.toContain("Quick Chat 6")
   })
 })

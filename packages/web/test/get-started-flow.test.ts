@@ -48,7 +48,20 @@ describe("get started flow rules", () => {
 
     expect(flow.status).toBe(GET_STARTED_FLOW_STATUS.active)
     expect(flow.isActive).toBe(true)
-    expect(flow.chats.some((chat) => chat.id === "practice-set")).toBe(true)
+    expect(flow.chats.some((chat) => chat.id === "research-question")).toBe(true)
+    expect(flow.chats[0]?.title).toBe("How Does an AI Agent Work?")
+  })
+
+  test("uses connected-model learner prompts when the active model has a connected provider", () => {
+    const flow = resolveGetStartedFlow({
+      ...ACTIVE_LEARNER_INPUT,
+      selectedModel: "openai/gpt-5.6-sol",
+    })
+
+    expect(flow.status).toBe(GET_STARTED_FLOW_STATUS.active)
+    expect(flow.chats).toHaveLength(5)
+    expect(flow.chats[0]?.title).toBe("How Does Buddy Work?")
+    expect(flow.chats[1]?.title).toBe("Travel Through Space")
   })
 
   test("becomes active independently of sessions, render callbacks, or directory", () => {

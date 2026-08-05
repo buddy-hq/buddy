@@ -808,7 +808,9 @@ describe("notebook onboarding configuration", () => {
     })
   })
 
-  test("falls back to GPT-5.6 Terra with extra-high reasoning when Sol is unavailable", async () => {
+  test("falls back to GPT-5.6 Luna with extra-high reasoning when Sol is unavailable", async () => {
+    const luna = createModel("gpt-5.6-luna", "GPT-5.6 Luna")
+    luna.variants = ["medium", "high", "xhigh"]
     const terra = createModel("gpt-5.6-terra", "GPT-5.6 Terra")
     terra.variants = ["medium", "high", "xhigh"]
 
@@ -825,13 +827,13 @@ describe("notebook onboarding configuration", () => {
                 id: "openai",
                 name: "OpenAI",
                 connected: true,
-                models: [terra],
+                models: [terra, luna],
               }),
             ],
-            default: { openai: "gpt-5.4" },
+            default: { openai: "gpt-5.6-terra" },
             openAIModelAvailability: {
               status: "ready",
-              modelIDs: ["gpt-5.6-terra"],
+              modelIDs: ["gpt-5.6-terra", "gpt-5.6-luna"],
               fetchedAt: "2026-07-29T00:00:00.000Z",
               refreshing: false,
             },
@@ -840,7 +842,7 @@ describe("notebook onboarding configuration", () => {
       }),
     ).resolves.toEqual({
       directory: "/repo",
-      model: "openai/gpt-5.6-terra",
+      model: "openai/gpt-5.6-luna",
       variant: "xhigh",
     })
   })
@@ -899,9 +901,11 @@ describe("notebook onboarding configuration", () => {
     expect(calls).toEqual(["load", "refresh", "load"])
   })
 
-  test("uses Terra when account availability remains unready", async () => {
+  test("uses Luna when account availability remains unready", async () => {
     const sol = createModel("gpt-5.6-sol", "GPT-5.6 Sol")
     sol.variants = ["high"]
+    const luna = createModel("gpt-5.6-luna", "GPT-5.6 Luna")
+    luna.variants = ["xhigh"]
     const terra = createModel("gpt-5.6-terra", "GPT-5.6 Terra")
     terra.variants = ["xhigh"]
 
@@ -918,10 +922,10 @@ describe("notebook onboarding configuration", () => {
                 id: "openai",
                 name: "OpenAI",
                 connected: true,
-                models: [sol, terra],
+                models: [sol, terra, luna],
               }),
             ],
-            default: { openai: "gpt-5.4" },
+            default: { openai: "gpt-5.6-terra" },
             openAIModelAvailability: { status: "loading" },
           })
         },
@@ -931,7 +935,7 @@ describe("notebook onboarding configuration", () => {
       }),
     ).resolves.toEqual({
       directory: "/repo",
-      model: "openai/gpt-5.6-terra",
+      model: "openai/gpt-5.6-luna",
       variant: "xhigh",
     })
   })
