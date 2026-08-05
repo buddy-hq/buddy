@@ -479,14 +479,29 @@ const { launchVideo } = content
 
     .hero-visual {
       display: block !important; /* Prevent browser flexbox overflow alignment bugs on mobile */
-      height: 440px; /* Taller visual stage to show full mockup without vertical cropping */
+      /* Tall enough to show the whole mock uncropped, plus roughly 30px of
+         slack under it — that slack is what the lit floor shows through, so
+         every height below is really "mock height + strip". */
+      height: 440px;
       overflow: hidden;
       position: relative;
       background-color: transparent;
-      width: calc(100% + var(--space-6));
-      margin-left: 0;
-      margin-right: calc(-1 * var(--space-6));
-      padding-left: 0;
+      /* Full bleed, so this box clips at the viewport edges instead of the
+         container's. The mock already ran off the right; what this buys is a
+         floor behind it that can reach both edges — clipped in here, it never
+         could.
+
+         `100vw` counts the scrollbar and the page does not, so an exact bleed
+         lands a pixel or two off centre and leaves a bare sliver down one side.
+         Overshoot instead and let `.hero`'s own clip trim it: the edges come
+         out exact by construction. The padding puts the mock back where the
+         container would have started it, and since it cancels the margin term
+         for term, the mock does not move by even a pixel. */
+      --hero-visual-bleed-slack: 24px;
+      width: calc(100vw + 2 * var(--hero-visual-bleed-slack));
+      margin-left: calc(50% - 50vw - var(--hero-visual-bleed-slack));
+      margin-right: calc(50% - 50vw - var(--hero-visual-bleed-slack));
+      padding-left: calc(50vw - 50% + var(--hero-visual-bleed-slack));
     }
 
     .hero-visual .app-mockup-wrapper {
@@ -555,15 +570,23 @@ const { launchVideo } = content
       display: none;
     }
 
+    /* The stage is already full bleed here, so the panel just fills it — the
+       `100vw` the desktop rule needs would only reintroduce the scrollbar skew
+       the stage went to some trouble to cancel.
+
+       Bottom flush too: the stage clips, unlike on desktop where the panel is
+       free to hang past it, and the gradient's bright end has to land on the
+       clip edge or the strip under the mock shows a dimmer part of the ramp. */
     .mockup-glow {
-      display: none;
+      left: 0;
+      width: 100%;
+      transform: none;
+      bottom: 0;
     }
   }
 
   @media (max-width: 768px) {
     .hero-visual {
-      width: calc(100% + var(--space-5)) !important;
-      margin-right: calc(-1 * var(--space-5)) !important;
       height: 455px;
     }
     .hero-visual .app-mockup-wrapper {
@@ -635,7 +658,7 @@ const { launchVideo } = content
 
   @media (max-width: 580px) {
     .hero-visual {
-      height: 410px;
+      height: 416px;
     }
     .hero-visual .app-mockup-wrapper {
       transform: scale(0.68) translateZ(0);
@@ -644,7 +667,7 @@ const { launchVideo } = content
 
   @media (max-width: 480px) {
     .hero-visual {
-      height: 374px;
+      height: 381px;
     }
     .hero-visual .app-mockup-wrapper {
       transform: scale(0.62) translateZ(0);
@@ -653,7 +676,7 @@ const { launchVideo } = content
 
   @media (max-width: 380px) {
     .hero-visual {
-      height: 332px;
+      height: 342px;
     }
     .hero-visual .app-mockup-wrapper {
       transform: scale(0.55) translateZ(0);
