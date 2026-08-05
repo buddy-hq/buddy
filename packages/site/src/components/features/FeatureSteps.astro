@@ -568,7 +568,14 @@ const { narrative } = Astro.props
     [data-analytics-feature="feature_3"] .sticky-mockup-wrapper--stage .mockup-viewport {
       height: 340px !important;
     }
-
+    /* Remember is the one artifact whose compact layout stacks its two objects vertically —
+       the self-check and the card it becomes. 440px puts the card's review schedule inside
+       the bottom feather; this gives the column room and still leaves a fade tail. */
+    [data-analytics-feature-learners="remember"]
+      .sticky-mockup-wrapper--stage
+      .mockup-viewport {
+      height: 510px !important;
+    }
     .bookend-card-wrapper {
       position: relative;
       top: 0 !important;

@@ -1,5 +1,29 @@
 /* === Workspace Mock Shared Styles === */
 
+/* These panes are screenshots of an app, not scrollable page UI. A visible scrollbar inside
+   one reads as a rendering artifact and breaks the illusion — the panes still scroll (the
+   animations pin them to the bottom), the bar is just not drawn. */
+.sidebar-scrollable,
+.chat-feed,
+.reader-content,
+.surface-widget,
+.editor-content-area,
+.skills-list-view,
+.skills-detail-content {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sidebar-scrollable::-webkit-scrollbar,
+.chat-feed::-webkit-scrollbar,
+.reader-content::-webkit-scrollbar,
+.surface-widget::-webkit-scrollbar,
+.editor-content-area::-webkit-scrollbar,
+.skills-list-view::-webkit-scrollbar,
+.skills-detail-content::-webkit-scrollbar {
+  display: none;
+}
+
 /* === Window Shell (Exact high fidelity replica) === */
 .buddy-window {
   width: 100%;
@@ -521,22 +545,26 @@
   max-width: 75%;
 }
 
-/* User Message: rounded capsule with warm styling */
+/* User message: rounded capsule, one rung above the pane and no further. --chrome-raised
+   put it three rungs up, and since both inline cards sit BELOW the pane, the bubble became
+   the only light block in the transcript. The shadow goes with it — a message is a message,
+   not a card floating over the conversation. */
 .mock-chat-bubble.user .bubble-content {
   width: fit-content;
-  background-color: oklch(0.18 0.005 285.823);
+  background-color: var(--chrome-base);
   border: 1px solid var(--border-weak);
-  color: var(--fg-weak);
+  color: var(--fg-strong);
   padding: 8px 14px;
   border-radius: 12px;
   border-bottom-right-radius: 2px;
   font-weight: 500;
-  box-shadow: var(--shadow-raised);
 }
 
-/* Buddy message: borderless raw premium text on canvas */
+/* Buddy message: borderless raw premium text on canvas. This is the primary content of the
+   transcript, so it does not get the weakest text token — the user's own message must not
+   outrank Buddy's answer. */
 .mock-chat-bubble.buddy .bubble-content {
-  color: var(--fg-weaker);
+  color: var(--fg-strong);
   padding: 0;
   background: none;
   border: none;
@@ -545,7 +573,7 @@
 
 .mock-chat-bubble.buddy .bubble-content strong {
   font-weight: 600;
-  color: var(--fg-weak);
+  color: var(--fg-strong);
 }
 
 .mock-chat-bubble.buddy .bubble-content em {
@@ -637,11 +665,15 @@
 }
 
 /* Illustration book cover in mockup */
+/* Same object as .wb-chat-card — an inline thing Buddy attached to a turn. Styled to match
+   it exactly, token for token, so a book and a whiteboard read as one card family. Sits one
+   rung ABOVE the pane, like the user bubble: at --chrome-panel it fell below the pane and
+   the border stopped reading as an edge and started reading as an outline around a hole. */
 .illustration-card {
   display: flex;
   align-items: center;
   gap: 12px;
-  background-color: oklch(0.205 0 0 / 70%);
+  background-color: var(--chrome-base);
   border: 1px solid var(--border-weak);
   border-radius: 10px;
   padding: 10px 12px;
@@ -653,7 +685,10 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   cursor: pointer;
-  transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    transform 0.35s var(--ease-out),
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
   text-align: left;
   align-self: flex-start;
   animation: card-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -662,12 +697,12 @@
 .illustration-card:hover {
   transform: translateY(-1.5px);
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-overlay);
+  box-shadow: var(--shadow-raised);
 }
 
 .ill-cover {
-  width: 44px;
-  height: 60px;
+  width: 30px;
+  height: 40px;
   object-fit: cover;
   border-radius: 4px;
   border: 1px solid var(--border-base);
@@ -675,8 +710,8 @@
 }
 
 .ill-cover-fallback {
-  width: 44px;
-  height: 60px;
+  width: 30px;
+  height: 40px;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -694,7 +729,7 @@
 
 .ill-cover-fallback.wh {
   background: linear-gradient(135deg, #44321d 0%, #251b0e 100%);
-  border-color: rgba(245, 158, 11, 0.3);
+  border-color: var(--accent-border);
 }
 
 .fallback-cover-text {
@@ -722,24 +757,24 @@
 
 .ill-author {
   font-size: 9px;
-  color: var(--color-text-secondary);
+  color: var(--fg-weak);
   font-family: var(--font-body);
   margin-top: 1px;
 }
 
 .ill-meta {
   font-size: 9px;
-  color: var(--color-text-muted);
+  color: var(--fg-weaker);
   font-family: var(--font-body);
   margin-top: 2px;
 }
 
-/* Inline Whiteboard Card */
+/* Inline Whiteboard Card — same family as .illustration-card, same surface, same metrics. */
 .wb-chat-card {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: color-mix(in oklch, var(--chrome-panel) 82%, transparent);
+  background-color: var(--chrome-base);
   border: 1px solid var(--border-weak);
   border-radius: 10px;
   padding: 10px 12px;
@@ -751,7 +786,10 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   cursor: pointer;
-  transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    transform 0.35s var(--ease-out),
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
   text-align: left;
   align-self: flex-start;
   animation: card-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -763,17 +801,28 @@
   box-shadow: var(--shadow-raised);
 }
 
+/* Matches .ill-cover exactly, so the two cards are the same height and read as one family.
+   Sized to two lines of text, not three — the thumbnail is what sets the card's height, so
+   this is the only number that matters. The dotted fill is the board itself, in miniature. */
 .wb-chat-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background-color: var(--chrome-base);
-  border: 1px solid var(--border-weak);
-  color: var(--fg-weak);
+  width: 30px;
+  height: 40px;
+  border-radius: 4px;
+  background-color: var(--board-base);
+  background-image: radial-gradient(var(--board-grid) 1px, transparent 1px);
+  background-size: 8px 8px;
+  border: 1px solid var(--border-base);
+  box-shadow: var(--shadow-raised);
+  color: var(--aurora-base);
   flex-shrink: 0;
+}
+
+.wb-chat-icon svg {
+  width: 13px;
+  height: 13px;
 }
 
 .wb-chat-title-group {
@@ -791,9 +840,9 @@
 
 .wb-chat-subtitle {
   font-size: 9px;
-  color: var(--color-text-muted);
+  color: var(--fg-weak);
   font-family: var(--font-body);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .wb-card-preview-sketch {
@@ -921,8 +970,11 @@
 }
 
 /* --- Pane 3: Document Reader (Warm paper layout, zero borders inside) --- */
+/* Same reading pane as the READ section's mock (LearnerReadMock), token for token: the
+   page is --chrome-bar, the rule is --chrome-high, and the type runs
+   --fg-strong / --fg-base / --fg-weaker. One reader, two places on the site. */
 .surface-reader {
-  background-color: var(--chrome-doc);
+  background-color: var(--chrome-bar);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1008,7 +1060,7 @@
 /* Hairline between the two passages — the only separator the page needs. */
 .reader-rule {
   height: 1px;
-  background-color: var(--border-weak);
+  background-color: var(--chrome-high);
   margin-block: 10px;
 }
 
@@ -1048,9 +1100,11 @@
   color: var(--fg-base);
 }
 
+/* The pane is --chrome-bar now, so a --chrome-bar footer would be an invisible block. It
+   keeps only its hairline, the same treatment .reader-header already uses. */
 .reader-footer {
   height: 32px;
-  background-color: var(--chrome-bar);
+  background-color: transparent;
   border-top: 1px solid var(--border-weak);
   display: flex;
   align-items: center;
@@ -1208,10 +1262,13 @@
   letter-spacing: -0.02em;
 }
 
+/* Board content uses the board's own ink, not the page's --fg-* ramp. The page tokens are
+   calibrated against --surface-page; on the darker board they land a step too dim, and a
+   hairline handwriting face on a dark ground loses more still. */
 .wb-welcome-text {
   font-family: "Architects Daughter", cursive, sans-serif;
   font-size: 16px;
-  color: var(--fg-weak);
+  color: var(--board-ink);
   transform: rotate(-1.5deg);
   letter-spacing: -0.01em;
 }
@@ -1239,7 +1296,7 @@
 .wb-eq-line {
   font-family: "Architects Daughter", cursive, sans-serif;
   font-size: 15px;
-  color: var(--fg-base);
+  color: var(--board-ink);
   letter-spacing: 0.05em;
 }
 
@@ -1818,7 +1875,10 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   cursor: pointer;
-  transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    transform 0.35s var(--ease-out),
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
   text-align: left;
   align-self: flex-start;
   animation: card-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1979,8 +2039,11 @@
   text-align: left;
   opacity: 0;
   transform: scale(0.9) rotate(var(--rot, 0deg));
+  /* The overshoot curve belongs on transform only. Opacity cannot overshoot — the >1
+     region of the spring clamps at full opacity, so the card visibly stalls before it
+     finishes. Fade on the standard ease-out, pop on the spring. */
   transition:
-    opacity 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.35s var(--ease-out),
     transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -2020,7 +2083,7 @@
 .wb-card-body {
   font-size: 11px;
   line-height: 1.5;
-  color: var(--fg-weak);
+  color: var(--board-ink);
 }
 
 .wb-doodle-arrow {
@@ -2031,8 +2094,8 @@
   opacity: 0;
   transform: scale(0.8);
   transition:
-    opacity 0.4s ease,
-    transform 0.4s ease;
+    opacity 0.3s var(--ease-out),
+    transform 0.4s var(--ease-out);
 }
 
 .wb-doodle-arrow.visible {
@@ -2053,7 +2116,9 @@
   border-radius: 8px;
   opacity: 0;
   transform: scale(0.9);
-  transition: all 0.5s ease;
+  transition:
+    opacity 0.35s var(--ease-out),
+    transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .wb-neural-graph.visible {

@@ -1,121 +1,91 @@
 ---
 // Component: LearnerDrawMock
+//
+// The board works an argument out, it does not present a concept map. A hub with four
+// labelled boxes around it was the same picture as the CONNECT note graph and, in silhouette,
+// as the REMEMBER cards — three features, one shape. A derivation shares its shape with
+// nothing else on the page, and it is the literal reading of this section's own copy:
+// untangle a proof.
+//
+// The sequence is the pitch, so the chat and the board are one timeline. Buddy lays out the
+// two premises; the reader pushes back with the common reading; that line gets written down,
+// struck out, and rewritten. The user's question is what changes the drawing — which is the
+// difference between a whiteboard and a picture of one.
+//
+// Strokes carry pathLength="1" so a 30px caret and a 400px strike take the same beat. Order
+// comes from data-step, and PHASE_ONE_LAST_STEP is where the board waits for the reader.
 ---
 
 <div class="draw-mock-container" data-draw-mock>
   <!-- Drawing Board / Canvas Area -->
   <div class="whiteboard-canvas">
     <div class="wb-drawings">
-      <svg class="wb-svg" viewBox="0 0 600 380" preserveAspectRatio="xMidYMid meet">
-        <!-- 1. Central Node (Self-Reliance) -->
-        <path 
-          class="sketch-path central-node-path" 
-          d="M 300 135 C 380 135, 410 175, 300 215 C 190 215, 220 135, 300 135 Z" 
-          stroke="var(--agent-base)" 
-          stroke-width="3" 
-          fill="none"
+      <!-- viewBox is cropped to the ink plus a margin, not a round 600×380: the drawing area
+           is only ~420px wide once the chat panel takes its 320, and on a phone the board is
+           ~344px across, so every unused column in the canvas came straight off the size of
+           the handwriting. The margin is not optional — the figure is width-bound at both
+           sizes, so a box cropped flush to the ink puts the text against the bezel. -->
+      <svg class="wb-svg" viewBox="-14 42 500 308" fill="none" preserveAspectRatio="xMidYMid meet">
+        <!-- The givens, braced -->
+        <path
+          class="stroke-chalk"
+          data-step="1"
+          pathLength="1"
+          d="M62 66 C 50 70, 54 116, 46 140 C 54 164, 50 226, 62 230"
+          stroke-width="2"
           stroke-linecap="round"
         />
-        <text class="sketch-text central-node-text" x="300" y="180" text-anchor="middle">Self-Reliance</text>
+        <text class="hand dim" data-step="1" x="12" y="150" font-size="14">given</text>
 
-        <!-- 2. Connecting Lines (Phase 1) -->
-        <path 
-          class="sketch-path connect-line-path l1" 
-          d="M 230 145 L 140 105" 
-          stroke="var(--board-grid)" 
-          stroke-width="2" 
-          fill="none"
-          stroke-linecap="round"
-        />
-        <path 
-          class="sketch-path connect-line-path l2" 
-          d="M 370 145 L 460 105" 
-          stroke="var(--board-grid)" 
-          stroke-width="2" 
-          fill="none"
-          stroke-linecap="round"
-        />
-        <path 
-          class="sketch-path connect-line-path l3" 
-          d="M 240 185 L 150 255" 
-          stroke="var(--board-grid)" 
-          stroke-width="2" 
-          fill="none"
+        <text class="hand dim" data-step="2" x="82" y="98" font-size="18">1</text>
+        <text class="hand ink" data-step="2" x="112" y="98" font-size="21">
+          Every man has a genius of his own.
+        </text>
+
+        <text class="hand dim" data-step="3" x="82" y="152" font-size="18">2</text>
+        <text class="hand ink" data-step="3" x="112" y="152" font-size="21">
+          Imitation borrows another&#8217;s.
+        </text>
+
+        <!-- Everything below waits for the reader's question -->
+        <text class="hand dim" data-step="4" x="82" y="206" font-size="18">3</text>
+        <text class="hand dim" data-step="4" x="112" y="206" font-size="21">
+          so imitation is the safe road
+        </text>
+
+        <path
+          class="stroke-wrong"
+          data-step="5"
+          pathLength="1"
+          d="M106 199 C 190 203, 290 195, 388 200"
+          stroke-width="2.4"
           stroke-linecap="round"
         />
 
-        <!-- 3. Branch Boxes (Phase 1) -->
-        <!-- Top Left (Trust Thyself) -->
-        <path 
-          class="sketch-path branch-box-path b1" 
-          d="M 20 60 C 65 58, 115 62, 160 60 C 162 80, 158 95, 160 110 C 115 112, 65 108, 20 110 C 18 95, 22 80, 20 60 Z" 
-          stroke="currentColor" style="color: var(--aurora-base)" 
-          stroke-width="2.5" 
-          fill="none"
+        <path
+          class="stroke-agent"
+          data-step="6"
+          pathLength="1"
+          d="M118 228 L128 214 L138 228"
+          stroke-width="1.8"
           stroke-linecap="round"
+          stroke-linejoin="round"
         />
-        <text class="sketch-text branch-text left-title" x="90" y="90" text-anchor="middle">Trust Thyself</text>
+        <text class="hand agent" data-step="6" x="146" y="240" font-size="21">
+          so nothing of your own is added
+        </text>
+        <text class="hand dim" data-step="7" x="146" y="262" font-size="14">step 3, rewritten</text>
 
-        <!-- Top Right (Non-Conformity) -->
-        <path 
-          class="sketch-path branch-box-path b2" 
-          d="M 440 60 C 485 58, 535 62, 580 60 C 582 80, 578 95, 580 110 C 535 112, 485 108, 440 110 C 438 95, 442 80, 440 60 Z" 
-          stroke="currentColor" style="color: var(--aurora-base)" 
-          stroke-width="2.5" 
-          fill="none"
+        <path
+          class="stroke-agent"
+          data-step="8"
+          pathLength="1"
+          d="M92 288 C 200 282, 340 292, 452 286 C 458 300, 454 314, 452 328 C 340 334, 200 324, 92 330 C 86 314, 90 302, 92 288 Z"
+          stroke-width="2.4"
           stroke-linecap="round"
         />
-        <text class="sketch-text branch-text right-title" x="510" y="90" text-anchor="middle">Non-Conformity</text>
-
-        <!-- Bottom Left (Originality) -->
-        <path 
-          class="sketch-path branch-box-path b3" 
-          d="M 60 255 C 105 253, 155 257, 200 255 C 202 275, 198 290, 200 310 C 155 312, 105 308, 60 310 C 58 295, 62 280, 60 255 Z" 
-          stroke="currentColor" style="color: var(--aurora-base)" 
-          stroke-width="2.5" 
-          fill="none"
-          stroke-linecap="round"
-        />
-        <text class="sketch-text branch-text bottom-left-title" x="130" y="285" text-anchor="middle">Originality</text>
-
-        <!-- ==========================================
-             PHASE 3: Added consistency trap box
-             ========================================== -->
-        <path 
-          class="sketch-path connect-line-path l4 phase3-item" 
-          d="M 360 185 L 450 255" 
-          stroke="rgba(248, 113, 113, 0.45)" 
-          stroke-width="2" 
-          fill="none"
-          stroke-linecap="round"
-        />
-        <path 
-          class="sketch-path branch-box-path b4 phase3-item" 
-          d="M 400 255 C 445 253, 495 257, 540 255 C 542 275, 538 290, 540 310 C 495 312, 445 308, 400 310 C 398 295, 402 280, 400 255 Z" 
-          stroke="#f87171" 
-          stroke-width="2.5" 
-          fill="none"
-          stroke-linecap="round"
-        />
-        <text class="sketch-text branch-text bottom-right-title phase3-item" x="470" y="285" text-anchor="middle">✗ Consistency</text>
-
-        <!-- Red Crossout X marker lines over the consistency box (negative constraint) -->
-        <path 
-          class="sketch-path crossout-line phase3-item" 
-          d="M 415 260 L 525 305" 
-          stroke="#f87171" 
-          stroke-width="3" 
-          fill="none"
-          stroke-linecap="round"
-        />
-        <path 
-          class="sketch-path crossout-line phase3-item" 
-          d="M 525 260 L 415 305" 
-          stroke="#f87171" 
-          stroke-width="3" 
-          fill="none"
-          stroke-linecap="round"
-        />
+        <text class="hand agent" data-step="9" x="112" y="318" font-size="24">&#8756;</text>
+        <text class="hand ink" data-step="9" x="146" y="318" font-size="24">Trust thyself.</text>
       </svg>
     </div>
 
@@ -123,11 +93,14 @@
     <div class="wb-chat-popup">
       <div class="wb-chat-body">
         <!-- First chat message is already visible by default on load -->
-        <div class="chat-message buddy m1 visible">I've sketched a concept map for Emerson's 'Self-Reliance' on your board. At the core is the individual soul, supported by self-trust, originality, and non-conformity.</div>
+        <div class="chat-message buddy m1 visible">
+          I&#39;ve put Emerson&#39;s argument on the board — the two premises &#39;Self-Reliance&#39;
+          starts from.
+        </div>
         <div class="chat-message user m2"></div>
         <div class="chat-message buddy m3"></div>
       </div>
-      
+
       <div class="wb-chat-input-area">
         <div class="wb-chat-input-placeholder">Ask Buddy...</div>
         <div class="wb-chat-input-footer">
@@ -197,53 +170,69 @@
     max-height: 100%;
   }
 
-  .sketch-path {
-    stroke-dasharray: 600;
-    stroke-dashoffset: 600;
-    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .sketch-path.drawn {
-    stroke-dashoffset: 0;
-  }
-
-  /* Handwriting Typography rules */
-  .sketch-text {
-    font-family: 'Architects Daughter', cursive, sans-serif;
-    font-weight: 700;
-    fill: var(--board-ink);
-    opacity: 0;
+  /* ═══ Ink ═══ */
+  .hand {
+    font-family: "Architects Daughter", cursive, sans-serif;
     user-select: none;
-    transition: opacity 0.4s ease;
   }
 
-  .sketch-text.visible {
-    opacity: 1;
+  .ink {
+    fill: var(--board-ink);
   }
 
-  .central-node-text {
-    font-size: 20px;
+  .dim {
+    fill: var(--board-ink-weak);
+  }
+
+  .agent {
     fill: var(--agent-base);
   }
 
-  .branch-text {
-    font-size: 14px;
+  .stroke-chalk {
+    stroke: var(--board-ink-weak);
+    fill: none;
   }
 
-  .left-title {
-    fill: var(--aurora-base);
+  .stroke-agent {
+    stroke: var(--agent-base);
+    fill: none;
   }
 
-  .right-title {
-    fill: var(--aurora-base);
+  .stroke-wrong {
+    stroke: #f87171;
+    fill: none;
   }
 
-  .bottom-left-title {
-    fill: var(--aurora-base);
+  /* ═══ The draw ═══
+     pathLength="1" normalises every stroke to one beat, whatever its length. Text can't be
+     dash-drawn, so it fades on the same beat — which is close to how a word lands when
+     someone writes it fast. */
+  .wb-svg path[data-step] {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 0.55s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .bottom-right-title {
-    fill: #f87171;
+  .wb-svg path[data-step].is-drawn {
+    stroke-dashoffset: 0;
+  }
+
+  .wb-svg text[data-step] {
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+
+  .wb-svg text[data-step].is-shown {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wb-svg path[data-step],
+    .wb-svg text[data-step] {
+      stroke-dashoffset: 0;
+      opacity: 1;
+      transition: none;
+    }
   }
 
   /* Floating Chat Box Popup (matches screenshot exactly) - Header-Free */
@@ -393,213 +382,159 @@
 </style>
 
 <script>
+  /** One beat per step: long enough to read as drawing, short enough to finish in a scroll. */
+  const STEP_MS = 480
+  /** The board stops here and waits for the reader. Everything after is the correction. */
+  const PHASE_ONE_LAST_STEP = 3
+  const TYPE_MS = 15
+  const STREAM_MS = 10
+
+  const READER_QUESTION = "Isn't imitation just the safe road, then?"
+  const BUDDY_REPLY =
+    "Fair — let's put it on the board as line 3 and test it. It is safe. That's the problem: nothing of your own gets added."
+  const INPUT_PLACEHOLDER = "Ask Buddy..."
+
+  type Beat = {
+    readonly step: number
+    readonly marks: readonly SVGElement[]
+  }
+
+  const beatsOf = (root: Element): readonly Beat[] => {
+    const byStep = new Map<number, SVGElement[]>()
+    for (const mark of root.querySelectorAll<SVGElement>("[data-step]")) {
+      const step = Number(mark.dataset.step)
+      byStep.set(step, [...(byStep.get(step) ?? []), mark])
+    }
+    return [...byStep.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([step, marks]) => ({ step, marks }))
+  }
+
   document.querySelectorAll("[data-draw-mock]").forEach((container) => {
-    // Canvas Phase 1 items
-    const centralNode = container.querySelector(".central-node-path") as HTMLElement | null;
-    const centralText = container.querySelector(".central-node-text") as HTMLElement | null;
-    const l1 = container.querySelector(".connect-line-path.l1") as HTMLElement | null;
-    const l2 = container.querySelector(".connect-line-path.l2") as HTMLElement | null;
-    const l3 = container.querySelector(".connect-line-path.l3") as HTMLElement | null;
-    const b1 = container.querySelector(".branch-box-path.b1") as HTMLElement | null;
-    const b2 = container.querySelector(".branch-box-path.b2") as HTMLElement | null;
-    const b3 = container.querySelector(".branch-box-path.b3") as HTMLElement | null;
-    const t1 = container.querySelector(".sketch-text.left-title") as HTMLElement | null;
-    const t2 = container.querySelector(".sketch-text.right-title") as HTMLElement | null;
-    const t3 = container.querySelector(".sketch-text.bottom-left-title") as HTMLElement | null;
+    const beats = beatsOf(container)
+    const m2 = container.querySelector<HTMLElement>(".chat-message.m2")
+    const m3 = container.querySelector<HTMLElement>(".chat-message.m3")
+    const input = container.querySelector<HTMLElement>(".wb-chat-input-placeholder")
+    const sendBtn = container.querySelector<HTMLElement>(".chat-send-btn")
 
-    // Canvas Phase 3 items
-    const l4 = container.querySelector(".connect-line-path.l4") as HTMLElement | null;
-    const b4 = container.querySelector(".branch-box-path.b4") as HTMLElement | null;
-    const t4 = container.querySelector(".sketch-text.bottom-right-title") as HTMLElement | null;
-
-    // Chat items
-    const m2 = container.querySelector(".chat-message.m2") as HTMLElement | null;
-    const m3 = container.querySelector(".chat-message.m3") as HTMLElement | null;
-    const inputPlaceholder = container.querySelector(".wb-chat-input-placeholder") as HTMLElement | null;
-    const sendBtn = container.querySelector(".chat-send-btn") as HTMLElement | null;
-
-    if (!centralNode || !centralText || !l1 || !l2 || !l3 || !b1 || !b2 || !b3 || !t1 || !t2 || !t3 || !l4 || !b4 || !t4) return;
-
-    let isUserInteracting = false;
-    let animationTimeout: any = null;
+    let isUserInteracting = false
+    let timer: number | null = null
 
     const stopAutoplay = () => {
-      isUserInteracting = true;
-      if (animationTimeout) {
-        clearTimeout(animationTimeout);
-        animationTimeout = null;
+      isUserInteracting = true
+      if (timer !== null) {
+        window.clearTimeout(timer)
+        timer = null
       }
-    };
+    }
 
-    container.addEventListener("click", stopAutoplay);
+    container.addEventListener("click", stopAutoplay)
 
-    const delay = (ms: number) => new Promise(resolve => {
-      animationTimeout = setTimeout(resolve, ms);
-    });
+    const delay = (ms: number) =>
+      new Promise<void>((resolve) => {
+        timer = window.setTimeout(resolve, ms)
+      })
 
-    // Simulated character-by-character typing stream
-    const streamText = async (element: HTMLElement, text: string, speed = 20) => {
-      let currentText = "";
-      element.classList.add("visible");
-      for (let i = 0; i < text.length; i++) {
-        if (isUserInteracting) return;
-        
-        if (text.substr(i, 4) === "<br>") {
-          currentText += "<br>";
-          i += 3;
-          element.innerHTML = currentText;
-          continue;
+    /** Character-by-character, the way the real transcript arrives. */
+    const streamText = async (element: HTMLElement, text: string, speed: number) => {
+      element.classList.add("visible")
+      element.textContent = ""
+      for (const character of text) {
+        if (isUserInteracting) return
+        element.textContent += character
+        await delay(speed)
+      }
+    }
+
+    const clearBoard = () => {
+      for (const beat of beats) {
+        for (const mark of beat.marks) mark.classList.remove("is-drawn", "is-shown")
+      }
+    }
+
+    const drawThrough = async (from: number, to: number) => {
+      for (const beat of beats) {
+        if (beat.step < from || beat.step > to) continue
+        if (isUserInteracting) return
+        for (const mark of beat.marks) {
+          mark.classList.add(mark.tagName === "path" ? "is-drawn" : "is-shown")
         }
-
-        currentText += text[i];
-        element.innerHTML = currentText;
-        await delay(speed);
+        await delay(STEP_MS)
       }
-    };
+    }
+
+    const lastStep = beats.length === 0 ? 0 : beats[beats.length - 1].step
 
     const runTimeline = async () => {
-      if (isUserInteracting) return;
+      if (isUserInteracting) return
 
-      // Reset diagram to start generating Phase 1 on screen in real time
-      centralNode.classList.remove("drawn");
-      centralText.classList.remove("visible");
-      l1.classList.remove("drawn");
-      l2.classList.remove("drawn");
-      l3.classList.remove("drawn");
-      b1.classList.remove("drawn");
-      b2.classList.remove("drawn");
-      b3.classList.remove("drawn");
-      t1.classList.remove("visible");
-      t2.classList.remove("visible");
-      t3.classList.remove("visible");
-
-      // Reset Phase 3 items
-      l4.classList.remove("drawn");
-      b4.classList.remove("drawn");
-      t4.classList.remove("visible");
-      container.querySelectorAll(".crossout-line").forEach(l => l.classList.remove("drawn"));
-
-      // Reset Phase 2/3 chat
-      if (m2) { m2.classList.remove("visible"); m2.innerHTML = ""; }
-      if (m3) { m3.classList.remove("visible"); m3.innerHTML = ""; }
-      if (inputPlaceholder) inputPlaceholder.innerHTML = "Ask Buddy...";
-      if (sendBtn) sendBtn.classList.remove("active");
-
-      await delay(300);
-      if (isUserInteracting) return;
-
-      // ==========================================
-      // PHASE 1: Concept Map Generates in Real Time
-      // ==========================================
-      // Draw Central Ellipse Node
-      centralNode.classList.add("drawn");
-      await delay(400);
-      if (isUserInteracting) return;
-
-      // Fade in Central Text
-      centralText.classList.add("visible");
-      await delay(400);
-      if (isUserInteracting) return;
-
-      // Draw the connecting lines
-      l1.classList.add("drawn");
-      l2.classList.add("drawn");
-      l3.classList.add("drawn");
-      await delay(350);
-      if (isUserInteracting) return;
-
-      // Draw branch box outlines
-      b1.classList.add("drawn");
-      b2.classList.add("drawn");
-      b3.classList.add("drawn");
-      await delay(400);
-      if (isUserInteracting) return;
-
-      // Fade in branch text labels
-      t1.classList.add("visible");
-      t2.classList.add("visible");
-      t3.classList.add("visible");
-      
-      // Let user observe the fully sketched initial map
-      await delay(800);
-      if (isUserInteracting) return;
-
-      // ==========================================
-      // PHASE 2: User asks for more (dialogue query)
-      // ==========================================
-      if (!isUserInteracting && m2 && inputPlaceholder && sendBtn) {
-        // Simulate typing inside chat input
-        let query = "What does he say about consistency? He has that famous quote about it.";
-        let typed = "";
-        for (let i = 0; i < query.length; i++) {
-          if (isUserInteracting) return;
-          typed += query[i];
-          inputPlaceholder.innerHTML = typed;
-          await delay(15);
-        }
-        
-        await delay(200);
-        sendBtn.classList.add("active");
-        await delay(250);
-
-        // Submit query into chat feed
-        inputPlaceholder.innerHTML = "";
-        sendBtn.classList.remove("active");
-        m2.innerHTML = query;
-        m2.classList.add("visible");
-        
-        await delay(500); // Simulate Buddy thinking
-        if (isUserInteracting) return;
-      } else {
-        // On mobile: just pause to represent dialogue delay
-        await delay(1500);
+      clearBoard()
+      if (m2) {
+        m2.classList.remove("visible")
+        m2.textContent = ""
       }
-
-      // Buddy response in chat streams character-by-character (Desktop only)
       if (m3) {
-        await streamText(m3, "Ah, 'A foolish consistency is the hobgoblin of little minds.' Let's draw it onto the board as the primary barrier to self-reliance.", 10);
-        await delay(400);
-        if (isUserInteracting) return;
+        m3.classList.remove("visible")
+        m3.textContent = ""
+      }
+      if (input) input.textContent = INPUT_PLACEHOLDER
+      sendBtn?.classList.remove("active")
+
+      await delay(300)
+
+      // ── The givens ──────────────────────────────────────────────
+      await drawThrough(1, PHASE_ONE_LAST_STEP)
+      await delay(700)
+      if (isUserInteracting) return
+
+      // ── The reader pushes back ──────────────────────────────────
+      if (m2 && input && sendBtn) {
+        let typed = ""
+        for (const character of READER_QUESTION) {
+          if (isUserInteracting) return
+          typed += character
+          input.textContent = typed
+          await delay(TYPE_MS)
+        }
+
+        await delay(200)
+        sendBtn.classList.add("active")
+        await delay(250)
+
+        input.textContent = ""
+        sendBtn.classList.remove("active")
+        m2.textContent = READER_QUESTION
+        m2.classList.add("visible")
+
+        await delay(500)
+        if (isUserInteracting) return
+      } else {
+        // Phone: no chat panel, so the pause stands in for the exchange.
+        await delay(1500)
       }
 
-      // ==========================================
-      // PHASE 3: More drawn on the board (Consistency Box)
-      // ==========================================
-      // Draw Line 4
-      l4.classList.add("drawn");
-      await delay(350);
-      if (isUserInteracting) return;
-
-      // Draw box 4 outline (red)
-      b4.classList.add("drawn");
-      await delay(400);
-      if (isUserInteracting) return;
-
-      // Fade in text 4 label (✗ Consistency)
-      t4.classList.add("visible");
-      await delay(350);
-      if (isUserInteracting) return;
-
-      // Draw red crossout X marks
-      container.querySelectorAll(".crossout-line").forEach(l => l.classList.add("drawn"));
-      
-      if (inputPlaceholder) {
-        inputPlaceholder.innerHTML = "Ask Buddy...";
+      if (m3) {
+        await streamText(m3, BUDDY_REPLY, STREAM_MS)
+        await delay(400)
+        if (isUserInteracting) return
       }
-    };
 
-    // Autoplay trigger when the mock crosses the viewport center
+      // ── Written down, struck out, rewritten ─────────────────────
+      await drawThrough(PHASE_ONE_LAST_STEP + 1, lastStep)
+
+      if (input) input.textContent = INPUT_PLACEHOLDER
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            observer.unobserve(container);
-            runTimeline();
-          }
-        });
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          observer.unobserve(container)
+          void runTimeline()
+        }
       },
-      { rootMargin: "0px 0px -25% 0px", threshold: 0 }
-    );
-    observer.observe(container);
-  });
+      { rootMargin: "0px 0px -25% 0px", threshold: 0 },
+    )
+    observer.observe(container)
+  })
 </script>

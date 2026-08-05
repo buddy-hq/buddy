@@ -14,11 +14,13 @@
     </header>
 
     <div class="ra-q ra-q--right">
+      <span class="ra-q-num" aria-hidden="true">06</span>
       <p class="ra-q-text">Why is “envy ignorance”?</p>
       <span class="ra-mark ra-mark--right" aria-label="answered correctly">✓</span>
     </div>
 
     <div class="ra-q ra-q--missed">
+      <span class="ra-q-num" aria-hidden="true">07</span>
       <p class="ra-q-text">What is “the hobgoblin of little minds”?</p>
       <span class="ra-mark ra-mark--wrong" aria-label="answered incorrectly">✗</span>
     </div>
@@ -27,9 +29,10 @@
   </article>
 
   <!-- What the deck actually looks like once a few cards exist. Without this the whole
-       lower-left of the frame was empty and the two cards read as floating. -->
+       lower-left of the frame was empty and the two cards read as floating. The rows are
+       cards, not table rows: same material as the deck, receding as their due date does. -->
   <article class="ra-queue">
-    <span class="ra-queue-label">Practice · due today</span>
+    <span class="ra-queue-label">Practice · your queue</span>
     <div class="ra-queue-row">
       <span class="ra-queue-q">“Imitation is suicide” — the argument in four words</span>
       <span class="ra-queue-tag ra-queue-tag--now">new</span>
@@ -51,21 +54,26 @@
     <path d="M200 82 L 210 88 L 199 93" stroke="var(--accent-border)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
   </svg>
 
-  <!-- The deck it lands in -->
+  <!-- The deck it lands in. The card face carries the question and its answer and nothing
+       else; the schedule sits under the stack, the way a review queue sits under a deck. -->
   <div class="ra-deck">
-    <div class="ra-card ra-card--back-2" aria-hidden="true"></div>
-    <div class="ra-card ra-card--back-1" aria-hidden="true"></div>
-    <div class="ra-card">
-      <span class="ra-card-label">Flashcard · from your misses</span>
-      <p class="ra-card-q">What is “the hobgoblin of little minds”?</p>
-      <p class="ra-card-a">A foolish consistency.</p>
-      <div class="ra-sched" aria-label="Spaced review schedule">
-        <span class="ra-sched-pill ra-sched-pill--now">today</span>
-        <span class="ra-sched-sep"></span>
-        <span class="ra-sched-pill">+4 days</span>
-        <span class="ra-sched-sep"></span>
-        <span class="ra-sched-pill">+12 days</span>
-      </div>
+    <div class="ra-stack">
+      <div class="ra-card ra-card--back-2" aria-hidden="true"></div>
+      <div class="ra-card ra-card--back-1" aria-hidden="true"></div>
+      <article class="ra-card ra-card--face">
+        <span class="ra-card-label">Flashcard · from your misses</span>
+        <p class="ra-card-q">What is “the hobgoblin of little minds”?</p>
+        <span class="ra-card-rule" aria-hidden="true"></span>
+        <p class="ra-card-a">A foolish consistency.</p>
+      </article>
+    </div>
+
+    <div class="ra-sched" aria-label="Spaced review schedule">
+      <span class="ra-sched-pill ra-sched-pill--now">today</span>
+      <span class="ra-sched-sep"></span>
+      <span class="ra-sched-pill">+4 days</span>
+      <span class="ra-sched-sep"></span>
+      <span class="ra-sched-pill">+12 days</span>
     </div>
   </div>
 </div>
@@ -94,7 +102,11 @@
     box-shadow: var(--shadow-overlay);
   }
 
-  /* ---------- the practice queue, under the self-check ---------- */
+  /* ---------- the practice queue, under the self-check ----------
+     No panel around it. A tray with ruled rows was a third dark rounded rectangle on a stage
+     that already had two, and it made the queue read as another screen when what it holds is
+     three more of the same object the deck is made of. So the rows carry the chrome instead,
+     and the panel goes away. */
   .ra-queue {
     position: absolute;
     left: 9%;
@@ -102,14 +114,9 @@
     width: 41%;
     transform: rotate(-1.1deg);
     font-size: clamp(9px, 1.2cqw, 14px);
-    background: linear-gradient(180deg, var(--chrome-panel), var(--chrome-sunken));
-    border: 1px solid var(--border-weak);
-    border-radius: 0.8em;
-    padding: 1.2em 1.4em;
-    box-shadow: var(--shadow-overlay);
     display: flex;
     flex-direction: column;
-    gap: 0.7em;
+    gap: 0.5em;
   }
 
   .ra-queue-label {
@@ -119,20 +126,38 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--accent-base);
+    margin-bottom: 0.35em;
   }
 
+  /* Each row is a card lying flat. They step down the same ladder the deck's back cards use,
+     so the queue recedes into the future rather than sitting flat as a list. */
   .ra-queue-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.8em;
-    padding-top: 0.6em;
-    border-top: 1px solid var(--border-weak);
+    background-color: var(--chrome-doc);
+    border: 1px solid var(--border-base);
+    border-radius: 0.65em;
+    padding: 0.85em 1em;
+    box-shadow: var(--shadow-raised);
+  }
+
+  .ra-queue-row:nth-of-type(2) {
+    background-color: var(--chrome-base);
+  }
+
+  .ra-queue-row:nth-of-type(3) {
+    background-color: var(--chrome-bar);
   }
 
   .ra-queue-q {
     color: var(--fg-weak);
     line-height: 1.35;
+  }
+
+  .ra-queue-row:nth-of-type(3) .ra-queue-q {
+    color: var(--fg-weaker);
   }
 
   .ra-queue-tag {
@@ -142,8 +167,10 @@
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--fg-weaker);
-    background-color: var(--chrome-base);
-    border: 1px solid var(--border-weak);
+    /* Transparent, not a fill: the three rows now sit on three different rungs, and any fixed
+       pill colour is recessed on one of them and raised on another. */
+    background-color: transparent;
+    border: 1px solid var(--border-base);
     border-radius: 999px;
     padding: 0.25em 0.7em;
   }
@@ -187,9 +214,18 @@
   .ra-q {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
-    gap: 1em;
+    gap: 0.9em;
     padding: 1em 0.2em;
+  }
+
+  /* A numbered row is what separates a quiz from a list of sentences. */
+  .ra-q-num {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--fg-weaker);
   }
 
   .ra-q + .ra-q {
@@ -197,6 +233,7 @@
   }
 
   .ra-q-text {
+    flex: 1 1 auto;
     font-size: 0.92em;
     line-height: 1.45;
     letter-spacing: -0.01em;
@@ -214,6 +251,10 @@
 
   .ra-q--missed .ra-q-text {
     color: var(--color-text-primary);
+  }
+
+  .ra-q--missed .ra-q-num {
+    color: var(--color-accent-primary);
   }
 
   .ra-mark {
@@ -259,41 +300,56 @@
     font-size: clamp(10px, 1.3cqw, 15px);
   }
 
-  .ra-card {
+  /* An index-card footprint, not a text block. The self-check above is a screen — it sits
+     below the page on the chrome ladder — so the card climbs above it instead: lighter than
+     the page, squat, centred, with the two cards behind it far enough out to read as a pile.
+     The old 0.7em nudge vanished the moment the card narrowed to phone width, which left two
+     identical dark rectangles stacked down the stage. */
+  .ra-stack {
     position: relative;
-    background: linear-gradient(180deg, var(--chrome-panel), var(--chrome-sunken));
-    border: 1px solid var(--border-base);
-    border-radius: 1em;
-    padding: 1.4em 1.6em;
-    box-shadow: var(--shadow-raised);
+    aspect-ratio: 1.62;
   }
 
-  .ra-card--back-1,
-  .ra-card--back-2 {
+  .ra-card {
     position: absolute;
     inset: 0;
-    padding: 0;
+    background-color: var(--chrome-doc);
+    border: 1px solid var(--border-base);
+    border-radius: 1.1em;
+  }
+
+  .ra-card--face {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8em;
+    text-align: center;
+    padding: 2.6em 1.6em 1.6em;
+    box-shadow: var(--shadow-overlay);
   }
 
   .ra-card--back-1 {
-    transform: rotate(3deg) translate(0.7em, -0.5em);
-    opacity: 0.7;
+    background-color: var(--chrome-base);
+    transform: rotate(4.5deg) translate(4%, -4%);
   }
 
   .ra-card--back-2 {
-    transform: rotate(-3.4deg) translate(-0.8em, 0.6em);
-    opacity: 0.45;
+    background-color: var(--chrome-bar);
+    transform: rotate(-5deg) translate(-5%, 3%);
   }
 
   .ra-card-label {
-    display: block;
+    position: absolute;
+    top: 1.3em;
+    left: 1.4em;
+    right: 1.4em;
     font-family: var(--font-mono);
     font-size: 0.62em;
     font-weight: 700;
     letter-spacing: 0.11em;
     text-transform: uppercase;
     color: var(--color-accent-primary);
-    margin-bottom: 1em;
   }
 
   .ra-card-q {
@@ -303,22 +359,30 @@
     line-height: 1.35;
     letter-spacing: -0.014em;
     color: var(--color-text-primary);
-    margin: 0 0 0.55em 0;
+    margin: 0;
+  }
+
+  /* The fold between the two faces of the card. */
+  .ra-card-rule {
+    width: 2.6em;
+    height: 1px;
+    background-color: var(--border-base);
   }
 
   .ra-card-a {
     font-size: 0.9em;
     line-height: 1.4;
     color: #4ade80;
-    margin: 0 0 1.2em 0;
+    margin: 0;
   }
 
+  /* Under the deck, where a review queue belongs — the card face stays a card face. */
   .ra-sched {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.55em;
-    padding-top: 1em;
-    border-top: 1px solid var(--border-weak);
+    margin-top: 1.2em;
   }
 
   .ra-sched-pill {
@@ -346,26 +410,43 @@
     background-color: var(--chrome-high);
   }
 
-  /* ---------- compact stage (mobile peek): stack the deck under the quiz
-       so both beats stay inside the visible sliver ---------- */
+  /* ---------- compact stage ----------
+     700px, not 640px, and a container query rather than a viewport one: below 960px the
+     staged wrapper is pinned to a 680px canvas and shown through a clip window narrower than
+     itself — down to ~81% of it at 800px of viewport and ~52% on a phone. A viewport query
+     that lets the wide layout survive into that band does not save the composition, it just
+     moves the damage: the deck sits at the canvas's right edge, so the flashcard — the whole
+     point of the beat — gets sliced mid-question by the clip.
+
+     What fits in that window is two beats, not four. The practice queue and the thread are
+     what turned this into a pile — the deck landed on top of the queue, and the thread
+     pointed across a column that had been stacked underneath it. Both drop out; "missed →
+     becomes a card" still carries the link. */
   @container (max-width: 700px) {
-    .ra-quiz {
-      left: 5%;
-      top: 8%;
-      width: 52%;
+    .ra-queue,
+    .ra-thread {
+      display: none;
     }
 
-    .ra-thread {
-      left: 22%;
-      top: 40%;
-      width: 30%;
+    .ra-quiz {
+      left: 4%;
+      top: 2.5%;
+      width: 47%;
+      font-size: clamp(12px, 1.35cqw, 16px);
     }
 
     .ra-deck {
       right: auto;
-      left: 20%;
-      top: 49%;
-      width: 46%;
+      left: 4%;
+      top: 44%;
+      width: 47%;
+      font-size: clamp(13px, 1.3cqw, 15px);
+    }
+
+    /* A shallower card than the desktop 5×3. At phone width the deck is only ~320px across,
+       and a full index-card ratio pushes the schedule pills into the stage's bottom feather. */
+    .ra-stack {
+      aspect-ratio: 1.8;
     }
   }
 </style>

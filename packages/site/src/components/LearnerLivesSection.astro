@@ -1,9 +1,14 @@
 ---
 // The anti-overfit statement for learners. Not personas, not a wall of
 // identical bubbles — a collage of the artifacts learning actually
-// produces: a quiz card, a flashcard mid-drill, a whiteboard sketch, a
-// highlighted paper, a vault note, a chess drill, one raw ask. Seven
-// different shapes for seven different learners; school is one tile.
+// produces: a whiteboard sketch, a highlighted paper, a flashcard
+// mid-drill, a quiz card, a vault note, a chess drill, one raw ask.
+//
+// The grammar is DOMAIN (the label) × FEATURE (the artifact): one subject
+// shown through one Buddy surface, and no two tiles are the same person.
+// A tile with a feature but no domain — the old "Your vault" — breaks the
+// wall, because every other label answers "what am I learning?".
+//
 // Tile content is bespoke here, same convention as the workspace mocks.
 import { content } from "../content/site"
 
@@ -22,42 +27,55 @@ const lives = content.learnerLives
 
     <div class="lives-wall">
       <div class="lives-wall-scroll">
-      <!-- 1 · the student: a quiz mid-run -->
-      <div class="lives-cell cell-quiz reveal">
-        <div class="tile tile-quiz">
-          <span class="quiz-head">Quiz · 3 of 10</span>
-          <p class="quiz-q">Which organelle turns glucose into ATP?</p>
-          <ul class="quiz-options">
-            <li class="quiz-option">Golgi apparatus</li>
-            <li class="quiz-option quiz-option-correct">Mitochondria</li>
-            <li class="quiz-option">Ribosome</li>
-          </ul>
-          <span class="quiz-foot">missed twice · now a flashcard</span>
-        </div>
-        <span class="tile-topic">Cell biology</span>
-      </div>
-
-      <!-- 2 · the language learner: a flashcard that flips on hover -->
+      <!-- 1 · the language learner: a flashcard that flips on hover -->
       <div class="lives-cell cell-flash reveal">
         <div class="tile tile-flash">
           <div class="flash-card" tabindex="0">
             <div class="flash-inner">
               <div class="flash-face flash-front">
                 <span class="flash-deck">Card 12 · review</span>
-                <span class="flash-word">tenir</span>
-                <span class="flash-hint">past participle?</span>
+                <span class="flash-word flash-cjk">積ん読</span>
+                <span class="flash-hint">meaning?</span>
               </div>
               <div class="flash-face flash-back">
-                <span class="flash-answer">tenu</span>
+                <span class="flash-answer flash-answer-phrase">the unread pile</span>
                 <span class="flash-streak">✓ 3-day streak</span>
               </div>
             </div>
           </div>
         </div>
-        <span class="tile-topic">French</span>
+        <span class="tile-topic">Japanese</span>
       </div>
 
-      <!-- 3 · the musician: a whiteboard sketch -->
+      <!-- 2 · the doctor: a paper, highlighted and explained -->
+      <div class="lives-cell cell-paper reveal">
+        <div class="tile tile-paper">
+          <span class="paper-head">Methods · p. 4</span>
+          <p class="paper-text">
+            …patients in the treatment arm showed a <mark>hazard ratio of 0.68</mark> (95% CI,
+            0.55–0.84) for the primary composite endpoint over a median follow-up of 3.2 years…
+          </p>
+          <span class="paper-note">so: roughly a third fewer events</span>
+        </div>
+        <span class="tile-topic">Cardiology</span>
+      </div>
+
+      <!-- 3 · the pilot: the written-exam question that already cost them once -->
+      <div class="lives-cell cell-quiz reveal">
+        <div class="tile tile-quiz">
+          <span class="quiz-head">Quiz · 3 of 10</span>
+          <p class="quiz-q">Vacuum pump fails in IMC. Which instrument lies to you first?</p>
+          <ul class="quiz-options">
+            <li class="quiz-option">Altimeter</li>
+            <li class="quiz-option quiz-option-correct">Attitude indicator</li>
+            <li class="quiz-option">Turn coordinator</li>
+          </ul>
+          <span class="quiz-foot">missed twice · now a flashcard</span>
+        </div>
+        <span class="tile-topic">Aviation</span>
+      </div>
+
+      <!-- 4 · the musician: a whiteboard sketch -->
       <div class="lives-cell cell-board reveal">
         <div class="tile tile-board">
           <div class="board-chords" aria-label="Chord progression C, A minor, F, G">
@@ -83,35 +101,7 @@ const lives = content.learnerLives
         <span class="tile-topic">Music theory</span>
       </div>
 
-      <!-- 4 · the doctor: a paper, highlighted and explained -->
-      <div class="lives-cell cell-paper reveal">
-        <div class="tile tile-paper">
-          <span class="paper-head">Methods · p. 4</span>
-          <p class="paper-text">
-            …patients in the treatment arm showed a <mark>hazard ratio of 0.68</mark> (95% CI,
-            0.55–0.84) for the primary composite endpoint over a median follow-up of 3.2 years…
-          </p>
-          <span class="paper-note">so: roughly a third fewer events</span>
-        </div>
-        <span class="tile-topic">Cardiology</span>
-      </div>
-
-      <!-- 5 · the note-taker: plain markdown, wikilinks intact -->
-      <div class="lives-cell cell-vault reveal">
-        <div class="tile tile-vault">
-          <span class="vault-file">sleep-and-memory.md</span>
-          <p class="vault-line vault-h1"># Sleep and memory</p>
-          <p class="vault-line">
-            REM files the day away — see <span class="vault-link">[[memory consolidation]]</span>
-          </p>
-          <p class="vault-line">
-            - caffeine after 2pm → <span class="vault-link">[[sleep latency]]</span>
-          </p>
-        </div>
-        <span class="tile-topic">Your vault</span>
-      </div>
-
-      <!-- 6 · the hobbyist: an endgame drill -->
+      <!-- 5 · the hobbyist: an endgame drill -->
       <div class="lives-cell cell-chess reveal">
         <div class="tile tile-chess">
           <div class="chess-board" aria-label="Rook endgame position">
@@ -135,6 +125,22 @@ const lives = content.learnerLives
           <span class="chess-foot">Rb7 — box the king in</span>
         </div>
         <span class="tile-topic">Chess</span>
+      </div>
+
+      <!-- 6 · the note-taker: plain markdown, wikilinks intact -->
+      <div class="lives-cell cell-vault reveal">
+        <div class="tile tile-vault">
+          <span class="vault-file">fall-of-the-republic.md</span>
+          <p class="vault-line vault-h1"># Marian reforms</p>
+          <p class="vault-line">
+            Legions swear to the general, not the Senate — see
+            <span class="vault-link">[[client armies]]</span>
+          </p>
+          <p class="vault-line">
+            - Sulla marches on Rome → <span class="vault-link">[[proscriptions]]</span>
+          </p>
+        </div>
+        <span class="tile-topic">Roman history</span>
       </div>
 
       <!-- 7 · the baker: the raw ask, where every artifact starts -->
@@ -177,10 +183,14 @@ const lives = content.learnerLives
   }
 
   /* ---------- the collage ---------- */
+  /* Row gap is deliberately much larger than column gap. Each topic label hangs BELOW its
+     tile, so an equal gap leaves it the same distance from the next row's tile as from the
+     one it names — and the label stops reading as attached to anything. */
   .lives-wall {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: var(--space-5);
+    column-gap: var(--space-5);
+    row-gap: var(--space-12);
     align-items: stretch;
   }
 
@@ -437,6 +447,15 @@ const lives = content.learnerLives
     color: var(--color-text-primary);
   }
 
+  /* Geist carries no CJK, so the prompt face gets a real stack rather than a silent
+     fallback that changes weight halfway through the tile. Only the front needs it — the
+     answer is English on purpose, which is what makes this a translation card and not two
+     Japanese faces, and it keeps the handwritten reveal the tile is built around. */
+  .flash-face .flash-cjk {
+    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif;
+    letter-spacing: 0;
+  }
+
   .flash-hint {
     font-family: var(--font-body);
     font-size: 0.8125rem;
@@ -449,6 +468,13 @@ const lives = content.learnerLives
     font-size: 2rem;
     color: var(--color-accent-secondary);
     transform: rotate(-2deg);
+  }
+
+  /* A phrase, not a single word like "tenu" — it needs to wrap without becoming a wall. */
+  .flash-answer-phrase {
+    font-size: 1.5rem;
+    line-height: 1.15;
+    text-align: center;
   }
 
   .flash-streak {
