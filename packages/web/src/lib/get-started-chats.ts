@@ -140,10 +140,7 @@ const FREE_LEARNER_GET_STARTED_CHATS = [
     description: "See one agent work through a goal, a tool, a result, and the loop back around.",
     prompt:
       "Draw how an AI agent works on the whiteboard: it receives a goal, thinks, chooses a tool, acts, observes the result, and loops. Use one concrete example throughout. Keep it to five large connected steps with short labels.",
-    capabilities: [
-      GET_STARTED_CAPABILITY.bench,
-      GET_STARTED_CAPABILITY.whiteboard,
-    ],
+    capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.whiteboard],
   },
   {
     id: "interactive-simulation",
@@ -158,7 +155,8 @@ const FREE_LEARNER_GET_STARTED_CHATS = [
     id: "read-odyssey",
     title: "Read The Odyssey",
     icon: GET_STARTED_ICON.reading,
-    description: "Open The Odyssey at the moment its oldest witness recognizes the man who came home.",
+    description:
+      "Open The Odyssey at the moment its oldest witness recognizes the man who came home.",
     prompt:
       "Download a real public-domain EPUB of The Odyssey from Project Gutenberg, bring it into this workspace, prepare it as a reading resource, and open the actual book in the Bench reader. Do not stop after downloading it or merely summarize it in chat: the book itself must be visible and open on the Bench when you finish. Find the scene where Argos recognizes Odysseus, give me only the context needed to understand the moment, and leave me at that passage ready to read. Stay grounded in this edition.",
     capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.reader],
@@ -167,7 +165,8 @@ const FREE_LEARNER_GET_STARTED_CHATS = [
     id: "research-question",
     title: "Could Dinosaurs Actually Roar?",
     icon: GET_STARTED_ICON.research,
-    description: "Get one compact evidence brief separating fossils, living relatives, and inference.",
+    description:
+      "Get one compact evidence brief separating fossils, living relatives, and inference.",
     prompt:
       "Spawn exactly one research subagent to investigate whether dinosaurs could actually roar, using reliable palaeontology sources and evidence from fossils and living relatives. When it returns, put one compact, source-backed Markdown research note directly on the Bench—not in chat. Clearly separate evidence from inference and uncertainty. Do not create additional artifacts.",
     capabilities: [
@@ -181,7 +180,8 @@ const FREE_LEARNER_GET_STARTED_CHATS = [
     id: "skills-showcase",
     title: "Decode Caffeine",
     icon: GET_STARTED_ICON.skills,
-    description: "Use Buddy’s chemistry skill to read the atoms and rings inside a familiar molecule.",
+    description:
+      "Use Buddy’s chemistry skill to read the atoms and rings inside a familiar molecule.",
     prompt:
       "Load the teach-chemistry skill and start with one sentence naming the specialized Buddy skill you are using and what it contributes. Render caffeine as one accurate chemistry structure directly in chat. In three short observations, help me identify its fused rings, two oxygen atoms, and four nitrogen atoms, then ask me one quick identification question. Use only one structure. Do not research, use subagents, create files, or create a Bench artifact.",
     capabilities: [GET_STARTED_CAPABILITY.skills],
@@ -218,7 +218,8 @@ const CONNECTED_LEARNER_GET_STARTED_CHATS = [
     id: "read-odyssey",
     title: "Read The Odyssey",
     icon: GET_STARTED_ICON.reading,
-    description: "Open The Odyssey and closely read the recognition scene in its surrounding passage.",
+    description:
+      "Open The Odyssey and closely read the recognition scene in its surrounding passage.",
     prompt:
       "Download a real public-domain EPUB of The Odyssey from Project Gutenberg, bring it into this workspace, prepare it as a reading resource, and open the actual book in the Bench reader. Do not stop after downloading it or merely summarize it in chat: the book itself must be visible and open on the Bench when you finish. Locate the scene where Argos recognizes Odysseus and leave the reader open at the surrounding passage. Give me a concise, edition-grounded close reading of how waiting, disguise, recognition, and death make the scene work, without creating another artifact.",
     capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.reader],
@@ -241,13 +242,11 @@ const CONNECTED_LEARNER_GET_STARTED_CHATS = [
     id: "skills-showcase",
     title: "Why Does One pH Point Matter?",
     icon: GET_STARTED_ICON.skills,
-    description: "Combine chemistry and mathematics to reveal the tenfold change hidden in one pH step.",
+    description:
+      "Combine chemistry and mathematics to reveal the tenfold change hidden in one pH step.",
     prompt:
       "Load the teach-chemistry and teach-mathematics skills. Start with one sentence naming both specialized Buddy skills and what each contributes. Use the chemistry skill to render one accurate chemistry-native structure diagram of the hydronium ion directly in chat—not only a text formula—and briefly connect it to what pH measures. Then use the mathematics skill to verify with one short calculation why moving from pH 4 to pH 3 represents a tenfold change in hydrogen-ion activity. Finish with one quick prediction using the question UI. Do not research, use subagents, create files, or create a Bench artifact.",
-    capabilities: [
-      GET_STARTED_CAPABILITY.questionUi,
-      GET_STARTED_CAPABILITY.skills,
-    ],
+    capabilities: [GET_STARTED_CAPABILITY.questionUi, GET_STARTED_CAPABILITY.skills],
   },
 ] as const satisfies readonly GetStartedChat[]
 

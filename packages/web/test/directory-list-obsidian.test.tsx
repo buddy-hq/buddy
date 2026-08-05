@@ -161,9 +161,7 @@ describe("Chat sidebar directory list", () => {
       )
     })
 
-    expect(
-      container.querySelectorAll('[data-action="left-sidebar-thread-select"]'),
-    ).toHaveLength(5)
+    expect(container.querySelectorAll('[data-action="left-sidebar-thread-select"]')).toHaveLength(5)
     expect(container.textContent).toContain("Show more")
     expect(container.textContent).not.toContain("Quick Chat 6")
   })

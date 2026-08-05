@@ -79,10 +79,7 @@ describe("get started chats", () => {
   })
 
   test("provides five richer learner scenarios for connected models", () => {
-    const chats = getStartedChatsForPrimaryUse(
-      "learn",
-      GET_STARTED_LEARNER_MODEL_TIER.connected,
-    )
+    const chats = getStartedChatsForPrimaryUse("learn", GET_STARTED_LEARNER_MODEL_TIER.connected)
 
     expect(chats.map((chat) => chat.id)).toEqual([...LEARNER_CHAT_IDS])
     expect(chats).toHaveLength(5)

@@ -1,8 +1,5 @@
 import type { GetStartedChat } from "@/lib/get-started-chats"
-import {
-  createTextPromptDraft,
-  type PromptDraftState,
-} from "@/state/prompt-store"
+import { createTextPromptDraft, type PromptDraftState } from "@/state/prompt-store"
 
 export function createGetStartedChatDraft(
   chat: Pick<GetStartedChat, "prompt">,

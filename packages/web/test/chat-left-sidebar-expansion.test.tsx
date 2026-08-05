@@ -86,7 +86,6 @@ describe("Chat left sidebar notebook expansion", () => {
   }
 
   test("preserves expansion state when cross-notebook navigation remounts the sidebar", async () => {
-
     const getToggle = (directory: string) => {
       const toggle = container.querySelector<HTMLButtonElement>(
         `[data-action="left-sidebar-directory-toggle"][data-directory="${directory}"]`,

@@ -10,7 +10,10 @@ export type GetStartedFlow = GetStartedFlowSnapshot & {
   dismiss: () => void
 }
 
-export function useGetStartedFlow(currentDirectory: string, selectedModel?: string): GetStartedFlow {
+export function useGetStartedFlow(
+  currentDirectory: string,
+  selectedModel?: string,
+): GetStartedFlow {
   const primaryUseQuery = useQuery({
     ...globalConfigQueryOptions(),
     select: (globalConfig) => readPersonalization(globalConfig).primaryUse,
