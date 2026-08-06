@@ -79,6 +79,9 @@
   },
   "type": "module",
   "scripts": {
+    "play": "bun run --cwd packages/videos dev",
+    "render": "bun run --cwd packages/videos render:all",
+    "type": "bun run --cwd packages/videos type-prompt",
     "dev": "bun --env-file=.env run --cwd packages/buddy dev",
     "smoke": "bun run --cwd packages/buddy smoke",
     "dev:site": "bun run --cwd packages/site dev",

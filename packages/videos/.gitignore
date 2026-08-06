@@ -1,0 +1,4 @@
+out/
+public/captures/*.jpg
+public/captures/*.mov
+public/captures/*.mp4

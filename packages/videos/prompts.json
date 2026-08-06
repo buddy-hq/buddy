@@ -1,0 +1,50 @@
+[
+  {
+    "id": "board-ai-message",
+    "prompt": "Draw me on the whiteboard what actually happens when I send a message to an AI — from my words going in to the answer coming back, including the part where it loops around. Keep it to the main steps only, big and uncrowded, with short labels."
+  },
+  {
+    "id": "board-agent-loop",
+    "prompt": "Draw me on the whiteboard how an AI agent actually works — the loop where it thinks, picks a tool, gets a result back, and goes round again. Keep it to four or five steps, big and uncrowded, with short labels."
+  },
+  {
+    "id": "board-chip-making",
+    "prompt": "Draw me on the whiteboard how a computer chip gets made, from sand to a finished processor. Keep it to the main stages only, big and uncrowded, with short labels."
+  },
+  {
+    "id": "board-crispr",
+    "prompt": "Draw me on the whiteboard how CRISPR edits a gene — finding the spot on the DNA, cutting it, and what happens after. Keep it simple and big, only a few labels."
+  },
+  {
+    "id": "board-quantum",
+    "prompt": "Draw me on the whiteboard what makes a quantum computer different from a normal one. Keep it simple and big, only a few labels."
+  },
+  {
+    "id": "command-moon-falling",
+    "prompt": "I've never really understood why the Moon doesn't just fall into the Earth. Walk me through what's actually holding it up there, starting from first principles."
+  },
+  {
+    "id": "creation-jet-engine",
+    "prompt": "Break down what's actually happening inside a jet engine — the air coming in, the combustion, the thrust going out. Give me a proper labelled cutaway I can follow stage by stage."
+  },
+  {
+    "id": "immersion-double-pendulum",
+    "prompt": "Build me a double pendulum I can drag, release and reset, with the trails drawn behind it, so I can see how wildly the path changes when I move the starting point barely at all."
+  },
+  {
+    "id": "expansion-great-war",
+    "prompt": "Map out everything that led to the First World War on a whiteboard — the alliances, the empires, the arms race, the assassination — and connect the causes so I can see how each one pulled the next along."
+  },
+  {
+    "id": "peak-solar-odyssey",
+    "prompt": "Build me a game where I fly a ship out through the solar system, scanning each planet as I pass it, dodging asteroids and collecting science along the way."
+  },
+  {
+    "id": "alt-obsidian-vault",
+    "prompt": "Open my Obsidian vault and give me a proper read of this note, then follow the links out of it so I can see how it connects to everything else I've written."
+  },
+  {
+    "id": "alt-mastery-quiz",
+    "prompt": "Quiz me on this properly — hard questions, no multiple-choice hand-holding — and tell me exactly where I'm getting it wrong."
+  }
+]

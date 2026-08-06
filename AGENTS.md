@@ -73,5 +73,3 @@ Easel: A prototyping space inside buddy dev tools.
   - Infer local types; annotate exports and public APIs.
 - Skip tests for behavior that is fully guaranteed by TypeScript inference alone. Only write tests when there is observable runtime behavior, explicit API contract behavior, or a type-level edge case not naturally covered by normal compilation.
 - The developer will mostly talk to you via audio transcripts, account for transcrtiption errors.
-
-
