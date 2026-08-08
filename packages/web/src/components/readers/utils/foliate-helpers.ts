@@ -1,7 +1,6 @@
 import type {
   FoliateNavigationTarget,
   FoliateReaderLocation,
-  FoliateReaderSidebarTab,
   FoliateReaderSource,
   ReaderAnnotation,
   ReaderAnnotationColorId,
@@ -137,26 +136,6 @@ export function getSourceFormatLabel(source: FoliateReaderSource): string {
   const lastDot = lowerName.lastIndexOf(".")
   if (lastDot < 0 || lastDot === lowerName.length - 1) return "Book"
   return lowerName.slice(lastDot + 1).toUpperCase()
-}
-
-function hasPdfExtension(value: string): boolean {
-  const normalizedValue = value.split(/[?#]/, 1)[0] ?? value
-  return normalizedValue.toLowerCase().endsWith(".pdf")
-}
-
-export function isPdfSource(source: FoliateReaderSource | null): boolean {
-  if (!source) return false
-
-  switch (source.kind) {
-    case "file":
-      return source.file.type === "application/pdf" || hasPdfExtension(source.file.name)
-    case "blob":
-      return source.blob.type === "application/pdf" || hasPdfExtension(source.name)
-    case "url":
-      return (source.name ? hasPdfExtension(source.name) : false) || hasPdfExtension(source.url)
-    case "book":
-      return source.name ? hasPdfExtension(source.name) : false
-  }
 }
 
 export function toFoliateInput(source: FoliateReaderSource): string | Blob | File | FoliateBook {
@@ -546,19 +525,4 @@ export function cleanupView(view: FoliateView | null, coverUrl: string | undefin
 export function createError(error: unknown): Error {
   if (error instanceof Error) return error
   return new Error("Buddy could not initialize the foliate renderer for this source.")
-}
-
-// ============================================================
-// Sidebar Validation
-// ============================================================
-
-export function isFoliateSidebarTab(value: string): value is FoliateReaderSidebarTab {
-  return (
-    value === "contents" ||
-    value === "search" ||
-    value === "bookmarks" ||
-    value === "annotations" ||
-    value === "details" ||
-    value === "preferences"
-  )
 }

@@ -24,6 +24,27 @@ import type {
 import type { FoliateBook } from "foliate-js/view.js"
 import { clamp, getSourceName } from "./foliate-helpers"
 import { formatContributor, formatMetadataValue } from "./foliate-formatters"
+import {
+  hasStoredReaderDocumentRecord,
+  loadReaderPreferences,
+  loadStoredReaderDocumentState,
+  migrateLegacyEpubReaderBookState,
+  readerDocumentStateToLegacyEpubBookState,
+  saveReaderDocumentState,
+  saveReaderPreferences,
+} from "../reader-storage"
+import { isPdfReaderSource, type ReaderSource } from "../reader-types"
+
+export type FoliateBookState = {
+  lastLocation?: string
+  bookmarks: ReaderBookmark[]
+  annotations: ReaderAnnotation[]
+}
+
+export type FoliateBookPersistenceTarget = {
+  bookKey: string
+  readerSource?: ReaderSource
+}
 
 export function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
@@ -98,11 +119,13 @@ export function loadGlobalPreferences(
   const parsed = parseJsonObject(safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY))
   const flow = parsed?.flow
   const fontPreset = parsed?.fontPreset
+  const legacyThemeId =
+    typeof parsed?.themeId === "string" && isFoliateReaderThemeId(parsed.themeId)
+      ? parsed.themeId
+      : defaultTheme
+  const readerPreferences = loadReaderPreferences(legacyThemeId)
   return {
-    themeId:
-      typeof parsed?.themeId === "string" && isFoliateReaderThemeId(parsed.themeId)
-        ? parsed.themeId
-        : defaultTheme,
+    themeId: readerPreferences.themeId,
     flow: isFoliateReaderFlow(flow) ? flow : defaultFlow,
     fontPreset: isFoliateReaderFontPreset(fontPreset) ? fontPreset : FONT_SERIF,
     fontScaleRem:
@@ -129,20 +152,23 @@ export function loadGlobalPreferences(
         : DEFAULT_MAX_BLOCK_SIZE_PX,
     justify: parsed?.justify !== false,
     hyphenate: parsed?.hyphenate !== false,
-    reduceMotion: parsed?.reduceMotion === true,
-    autohideCursor: parsed?.autohideCursor === true,
+    reduceMotion: readerPreferences.reduceMotion,
+    autohideCursor: readerPreferences.autohideCursor,
   }
 }
 
 export function saveGlobalPreferences(preferences: FoliateReaderPreferences) {
   safeWriteStorage(GLOBAL_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences))
+  const readerPreferences = loadReaderPreferences(preferences.themeId)
+  saveReaderPreferences({
+    ...readerPreferences,
+    themeId: preferences.themeId,
+    reduceMotion: preferences.reduceMotion,
+    autohideCursor: preferences.autohideCursor,
+  })
 }
 
-export function loadBookState(bookKey: string): {
-  lastLocation?: string
-  bookmarks: ReaderBookmark[]
-  annotations: ReaderAnnotation[]
-} {
+export function loadBookState(bookKey: string): FoliateBookState {
   const parsed = parseJsonObject(safeReadStorage(bookKey))
   const bookmarks = Array.isArray(parsed?.bookmarks)
     ? parsed.bookmarks.filter(isReaderBookmark)
@@ -160,9 +186,61 @@ export function loadBookState(bookKey: string): {
 
 export function saveBookState(
   bookKey: string,
-  state: { lastLocation?: string; bookmarks: ReaderBookmark[]; annotations: ReaderAnnotation[] },
+  state: FoliateBookState,
 ) {
   safeWriteStorage(bookKey, JSON.stringify(state))
+}
+
+export function loadMirroredEpubBookState(
+  bookKey: string,
+  source: ReaderSource,
+): ReturnType<typeof loadBookState> {
+  if (isPdfReaderSource(source)) return loadBookState(bookKey)
+  if (!source.contentFingerprint) return loadBookState(bookKey)
+
+  const hadStoredMirror = hasStoredReaderDocumentRecord(source.sourceId)
+  const storedState = loadStoredReaderDocumentState(source)
+  if (storedState) {
+    const mirroredState = readerDocumentStateToLegacyEpubBookState(storedState)
+    saveBookState(bookKey, mirroredState)
+    return mirroredState
+  }
+
+  if (hadStoredMirror) {
+    const resetState: FoliateBookState = {
+      bookmarks: [],
+      annotations: [],
+    }
+    saveBookState(bookKey, resetState)
+    saveReaderDocumentState(source, migrateLegacyEpubReaderBookState(source, resetState))
+    return resetState
+  }
+
+  const legacyState = loadBookState(bookKey)
+  const migratedState = migrateLegacyEpubReaderBookState(source, legacyState)
+  saveReaderDocumentState(source, migratedState)
+  return readerDocumentStateToLegacyEpubBookState(migratedState)
+}
+
+export function saveMirroredEpubBookState(
+  bookKey: string,
+  source: ReaderSource,
+  state: FoliateBookState,
+): void {
+  saveBookState(bookKey, state)
+  if (isPdfReaderSource(source) || !source.contentFingerprint) return
+  saveReaderDocumentState(source, migrateLegacyEpubReaderBookState(source, state))
+}
+
+export function saveFoliateBookPersistenceTarget(
+  target: FoliateBookPersistenceTarget,
+  state: FoliateBookState,
+): void {
+  if (target.readerSource) {
+    saveMirroredEpubBookState(target.bookKey, target.readerSource, state)
+    return
+  }
+  saveBookState(target.bookKey, state)
 }
 
 export function normalizeStorageSegment(value: string | undefined) {

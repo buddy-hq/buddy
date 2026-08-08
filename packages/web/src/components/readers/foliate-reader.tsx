@@ -26,8 +26,6 @@ import {
   EllipsisIcon,
 } from "@buddy/ui"
 import {
-  BookOpenIcon,
-  CheckIcon,
   BookmarkIcon,
   LayoutPanelLeftIcon,
   Loader2Icon,
@@ -36,19 +34,21 @@ import {
   ScrollTextIcon,
   Undo2Icon,
 } from "@/icons/app-icons"
-import { FoliateAnnotationsPopover } from "./ui/foliate-annotations-popover"
-import { FoliateBookmarksPopover } from "./ui/foliate-bookmarks-popover"
-import { FoliateEmptyState } from "./ui/foliate-empty-state"
-import { FoliateErrorState } from "./ui/foliate-error-state"
-import { FoliateMetadataHoverCard } from "./ui/foliate-metadata-hover-card"
-import { FoliatePreferencesPopover } from "./ui/foliate-preferences-popover"
-import { FoliateSearchPopover } from "./ui/foliate-search-popover"
-import { FoliateTocPopover } from "./ui/foliate-toc-popover"
-import { FoliateHelpDialog } from "./ui/foliate-help-dialog"
+import { ReaderAnnotationsPopover } from "./ui/reader-annotations-popover"
+import { ReaderBookmarksPopover } from "./ui/reader-bookmarks-popover"
+import { ReaderEmptyState } from "./ui/reader-empty-state"
+import { ReaderErrorState } from "./ui/reader-error-state"
+import { ReaderMetadataHoverCard } from "./ui/reader-metadata-hover-card"
+import { ReaderPreferencesPopover } from "./ui/reader-preferences-popover"
+import { ReaderProgressScrubber } from "./ui/reader-progress-scrubber"
+import { ReaderSearchPopover } from "./ui/reader-search-popover"
+import { ReaderTocPopover } from "./ui/reader-toc-popover"
+import { ReaderHelpDialog } from "./ui/reader-help-dialog"
 import { FoliateLocationDialog } from "./ui/foliate-location-dialog"
-import { FoliateAnnotationDialog } from "./ui/foliate-annotation-dialog"
-import { FoliateAnnotationPopover } from "./ui/foliate-annotation-popover"
-import { FoliateSelectionToolbar } from "./ui/foliate-selection-toolbar"
+import { ReaderAnnotationDialog } from "./ui/reader-annotation-dialog"
+import { ReaderAnnotationPopover } from "./ui/reader-annotation-popover"
+import { ReaderSelectionToolbar } from "./ui/reader-selection-toolbar"
+import { FoliatePreferencesPanel } from "./ui/foliate-preferences-panel"
 import { ensureFoliateRuntimeCompat } from "@/lib/foliate/ensure-foliate-runtime-compat"
 import type {
   FoliateDrawAnnotationEventDetail,
@@ -65,7 +65,6 @@ import type {
   FoliateReaderLandmark,
   FoliateReaderLocation,
   FoliateReaderProps,
-  FoliateReaderSearchScope,
   FoliateReaderSnapshot,
   FoliateReaderSource,
   FoliateReaderThemeId,
@@ -77,7 +76,6 @@ import type {
   ReaderSearchState,
   ReaderSelectionAction,
   ReaderSelectionToolbarState,
-  ReaderShortcut,
 } from "./foliate-reader-types"
 import {
   ANNOTATION_STYLE_HIGHLIGHT,
@@ -91,9 +89,9 @@ import {
   SEARCH_SCOPE_BOOK,
   SEARCH_SCOPE_SECTION,
   SEARCH_SECTION_KEY_PREFIX,
+  SHORTCUTS,
   VIEWPORT_CLASS_NAME,
   VIEW_ELEMENT_CLASS_NAME,
-  resolveReaderContentFilter,
 } from "./foliate-reader-constants"
 import {
   buildLandmarks,
@@ -111,9 +109,7 @@ import {
   getSearchResultRows,
   getSourceFormatLabel,
   getSourceName,
-  isPdfSource,
   isEditingTarget,
-  isReaderAnnotationColorId,
   readSelectedRange,
   releaseObjectUrl,
   resolveCoverUrl,
@@ -121,27 +117,13 @@ import {
   toFoliateInput,
 } from "./utils/foliate-helpers"
 import {
-  addPdfAnnotation,
-  addPdfAnnotationFromSelection,
-  clearPdfPageOverlays,
-  configurePdfFixedLayoutView,
-  deletePdfAnnotation,
-  PDF_VIEW_MODE_FIT,
-  PDF_VIEW_MODE_FIT_WIDTH,
-  PDF_VIEW_MODE_SPREAD,
-  preparePdfDocument,
-  registerPdfPageOverlay,
-  showPdfAnnotation,
-  syncPdfFixedLayoutView,
-  type FoliatePdfViewMode,
-  updatePdfFixedLayoutViewMode,
-} from "./utils/foliate-pdf-compat"
-import {
   buildBookPersistenceKey,
   loadBookState,
   loadGlobalPreferences,
-  saveBookState,
+  loadMirroredEpubBookState,
+  saveFoliateBookPersistenceTarget,
   saveGlobalPreferences,
+  type FoliateBookPersistenceTarget,
 } from "./utils/foliate-storage"
 import { applyReaderPreferences, getThemeDefinition } from "./utils/foliate-themes"
 import {
@@ -149,12 +131,26 @@ import {
   READER_NAVIGATION_GO_RIGHT,
   READER_NAVIGATION_NEXT,
   resolveReaderArrowNavigation,
+  resolveReaderWheelNavigation,
 } from "./utils/foliate-navigation"
 import { drawAnnotation, toAnnotationDialogState } from "./utils/foliate-drawing"
 import { formatContributor, formatMetadataValue } from "./utils/foliate-formatters"
+import { withReaderSourceContentFingerprint } from "./reader-storage"
+import {
+  foliateAnnotationDialogToReaderEditor,
+  foliateAnnotationsToReaderAnnotations,
+  foliateBookmarksToReaderBookmarks,
+  foliateSearchToReaderSearch,
+  foliateSnapshotToReaderSnapshot,
+  readerPositionAnchorToFoliateTarget,
+  readerSearchScopeToFoliateScope,
+  readerTextAnchorToFoliateCfi,
+} from "./foliate-reader-adapters"
 // Components already imported above
 
 ensureFoliateRuntimeCompat()
+
+const WHEEL_GESTURE_IDLE_THRESHOLD_MS = 180
 
 function createSelectionKey() {
   const random = Math.random().toString(36).slice(2, 10)
@@ -165,11 +161,11 @@ export type {
   FoliateReaderAnnotationStyle,
   FoliateReaderFlow,
   FoliateReaderFontPreset,
+  FoliateReaderHandle,
   FoliateReaderLandmark,
   FoliateReaderLocation,
   FoliateReaderSelection,
   FoliateReaderSearchScope,
-  FoliateReaderSidebarTab,
   FoliateReaderSnapshot,
   FoliateReaderSource,
   FoliateReaderThemeId,
@@ -177,15 +173,11 @@ export type {
   ReaderShortcut,
 } from "./foliate-reader-types"
 
-export { FoliateEmptyState } from "./ui/foliate-empty-state"
-export { FoliateErrorState } from "./ui/foliate-error-state"
-export { FoliateMetadataPanel } from "./ui/foliate-metadata-panel"
-export { FoliateTocTree } from "./ui/foliate-toc-tree"
-
 export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>(
   function FoliateReader(
     {
       source,
+      readerSource,
       className,
       initialLocation,
       defaultTheme = "paper",
@@ -214,6 +206,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const searchRunIdRef = useRef(0)
     const selectionActionRef = useRef<ReaderSelectionAction | null>(null)
     const stagedSelectionKeyRef = useRef<string | null>(null)
+    const wheelNavigationGestureRef = useRef<{
+      command: ReturnType<typeof resolveReaderWheelNavigation>
+      lastEventAt: number | undefined
+    }>({ command: undefined, lastEventAt: undefined })
     const callbacksRef = useRef({
       onReady,
       onLocationChange,
@@ -231,7 +227,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const [location, setLocation] = useState<FoliateReaderLocation>({})
     const [error, setError] = useState<Error | null>(null)
     const [historyState, setHistoryState] = useState({ canGoBack: false, canGoForward: false })
-    const [bookKey, setBookKey] = useState<string | null>(null)
+    const [persistenceTarget, setPersistenceTarget] =
+      useState<FoliateBookPersistenceTarget | null>(null)
     const [bookmarks, setBookmarks] = useState<ReaderBookmark[]>([])
     const [annotations, setAnnotations] = useState<ReaderAnnotation[]>([])
     const [searchState, setSearchState] = useState<ReaderSearchState>({
@@ -253,18 +250,17 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const [annotationDialog, setAnnotationDialog] = useState<ReaderAnnotationDialogState | null>(
       null,
     )
+    const [searchOpen, setSearchOpen] = useState(false)
+    const [preferencesOpen, setPreferencesOpen] = useState(false)
     const [helpOpen, setHelpOpen] = useState(false)
     const [locationDialogOpen, setLocationDialogOpen] = useState(false)
     const [locationDraft, setLocationDraft] = useState("")
     const [progressDraft, setProgressDraft] = useState<number | null>(null)
-    const [pdfViewMode, setPdfViewMode] = useState<FoliatePdfViewMode>(PDF_VIEW_MODE_FIT)
-
     const preferencesRef = useRef(preferences)
     const annotationsRef = useRef(annotations)
     const bookmarksRef = useRef(bookmarks)
     const searchStateRef = useRef(searchState)
     const annotationDialogRef = useRef(annotationDialog)
-    const pdfViewModeRef = useRef(pdfViewMode)
 
     const sourceDependencyKey = buildSourceDependencyKey(source)
     const initialLocationDependencyKey = buildNavigationTargetDependencyKey(initialLocation)
@@ -292,10 +288,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
     const stableSource = stableSourceRef.current.value
     const stableInitialLocation = stableInitialLocationRef.current.value
-    const sourceIsPdf = isPdfSource(stableSource)
     const theme = getThemeDefinition(preferences.themeId)
     const canChangeFlow = snapshot ? !snapshot.isFixedLayout : false
-    const canChangePdfView = sourceIsPdf && (snapshot?.isFixedLayout ?? false)
     const showPageTurnControls =
       status === "ready" &&
       snapshot !== null &&
@@ -306,6 +300,27 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     )
     const flattenedToc = useMemo(() => flattenTocItems(snapshot?.toc ?? []), [snapshot?.toc])
     const readerLandmarks = snapshot?.landmarks ?? []
+    const readerSnapshot = useMemo(() => foliateSnapshotToReaderSnapshot(snapshot), [snapshot])
+    const readerBookmarks = useMemo(
+      () => foliateBookmarksToReaderBookmarks(bookmarks),
+      [bookmarks],
+    )
+    const readerAnnotations = useMemo(
+      () => foliateAnnotationsToReaderAnnotations(annotations),
+      [annotations],
+    )
+    const readerSearch = useMemo(() => foliateSearchToReaderSearch(searchState), [searchState])
+    const readerAnnotationEditor = useMemo(
+      () => foliateAnnotationDialogToReaderEditor(annotationDialog),
+      [annotationDialog],
+    )
+    const readerAnnotationPopover = annotationPopover
+      ? {
+          annotationId: annotationPopover.value,
+          x: annotationPopover.x,
+          y: annotationPopover.y,
+        }
+      : null
 
     callbacksRef.current = {
       onReady,
@@ -321,7 +336,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     bookmarksRef.current = bookmarks
     searchStateRef.current = searchState
     annotationDialogRef.current = annotationDialog
-    pdfViewModeRef.current = pdfViewMode
 
     useImperativeHandle(
       ref,
@@ -347,12 +361,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     )
 
     useEffect(() => {
-      if (sourceIsPdf) {
-        setPdfViewMode(PDF_VIEW_MODE_FIT)
-      }
-    }, [sourceDependencyKey, sourceIsPdf])
-
-    useEffect(() => {
       const root = rootRef.current
       if (!root) return
 
@@ -361,7 +369,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         if (!view) return
         const nextTheme = getThemeDefinition(preferencesRef.current.themeId)
         applyReaderPreferences(view, nextTheme, preferencesRef.current)
-        if (sourceIsPdf && view.isFixedLayout) syncPdfFixedLayoutView(view, pdfViewMode)
         syncMarginals(view, snapshotRef.current, locationRef.current)
         clearPositionedOverlays()
       }
@@ -375,25 +382,25 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       return () => {
         resizeObserver?.disconnect()
       }
-    }, [pdfViewMode, sourceIsPdf])
+    }, [])
 
     useEffect(() => {
       saveGlobalPreferences(preferences)
       const view = viewRef.current
       if (!view) return
       applyReaderPreferences(view, theme, preferences)
-      if (sourceIsPdf && view.isFixedLayout) syncPdfFixedLayoutView(view, pdfViewMode)
       syncMarginals(view, snapshotRef.current, locationRef.current)
-    }, [pdfViewMode, preferences, sourceIsPdf, theme])
+    }, [preferences, theme])
 
     useEffect(() => {
-      if (!bookKey) return
-      saveBookState(bookKey, {
+      if (!persistenceTarget) return
+      const state = {
         lastLocation: typeof location.cfi === "string" ? location.cfi : undefined,
         bookmarks,
         annotations,
-      })
-    }, [annotations, bookmarks, bookKey, location.cfi])
+      }
+      saveFoliateBookPersistenceTarget(persistenceTarget, state)
+    }, [annotations, bookmarks, location.cfi, persistenceTarget])
 
     useEffect(() => {
       callbacksRef.current.onAnnotationsChange?.(annotations)
@@ -413,6 +420,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       clearPositionedOverlays()
       setAnnotationDialog(null)
       setProgressDraft(null)
+      setSearchOpen(false)
+      setPreferencesOpen(false)
     }
 
     function clearPositionedOverlays() {
@@ -420,17 +429,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       selectionActionRef.current = null
       setSelectionToolbar(null)
       setAnnotationPopover(null)
-    }
-
-    async function changePdfViewMode(nextMode: FoliatePdfViewMode) {
-      setPdfViewMode(nextMode)
-
-      const view = viewRef.current
-      if (!sourceIsPdf || !view || !view.isFixedLayout) return
-
-      resetTransientUi()
-      const target = locationRef.current.cfi ?? locationRef.current.index ?? 0
-      await updatePdfFixedLayoutViewMode(view, nextMode, target)
     }
 
     async function resetSearch(view = viewRef.current) {
@@ -537,20 +535,20 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const hydrateAnnotations = useCallback(
       async (view: FoliateView, nextAnnotations: ReaderAnnotation[], onlyIndex?: number) => {
         for (const annotation of nextAnnotations) {
+          if (viewRef.current !== view) return
           if (typeof onlyIndex === "number" && annotation.index !== onlyIndex) continue
           let info
           try {
-            info =
-              sourceIsPdf && view.isFixedLayout
-                ? await addPdfAnnotation(view, annotation)
-                : await view.addAnnotation(annotation)
+            info = await view.addAnnotation(annotation)
           } catch (error) {
+            if (viewRef.current !== view) return
             console.warn("Failed to hydrate reader annotation", {
               annotation,
               error,
             })
             continue
           }
+          if (viewRef.current !== view) return
           if (!info) continue
           if (annotation.index === info.index && annotation.label === info.label) continue
           setAnnotations((current) =>
@@ -562,7 +560,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           )
         }
       },
-      [sourceIsPdf],
+      [],
     )
 
     function updateHistoryState(view: FoliateView) {
@@ -671,11 +669,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     async function showAnnotation(annotation: ReaderAnnotation) {
       const view = viewRef.current
       if (!view) return
-      if (sourceIsPdf && view.isFixedLayout) {
-        const range = await showPdfAnnotation(view, annotation)
-        if (range) openAnnotationSurface(annotation.value, range)
-        return
-      }
       await view.showAnnotation(annotation)
       if (annotation.note?.trim()) {
         openAnnotationDialog(annotation)
@@ -699,15 +692,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           created: now,
           modified: now,
         }
-        const info =
-          sourceIsPdf && view.isFixedLayout
-            ? (addPdfAnnotationFromSelection({
-                view,
-                annotation,
-                index: selectionAction.index,
-                range: selectionAction.range,
-              }) ?? (await addPdfAnnotation(view, annotation)))
-            : await view.addAnnotation(annotation)
+        const info = await view.addAnnotation(annotation)
         if (info) {
           annotation.index = info.index
           annotation.label = info.label
@@ -729,15 +714,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         color: getAnnotationColorValue(nextDialog.color),
         modified: new Date().toISOString(),
       }
-      if (sourceIsPdf && view.isFixedLayout) {
-        await deletePdfAnnotation(view, existing)
-      } else {
-        await view.deleteAnnotation(existing)
-      }
-      const info =
-        sourceIsPdf && view.isFixedLayout
-          ? await addPdfAnnotation(view, updated)
-          : await view.addAnnotation(updated)
+      await view.deleteAnnotation(existing)
+      const info = await view.addAnnotation(updated)
       if (info) {
         updated.index = info.index
         updated.label = info.label
@@ -753,11 +731,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       const view = viewRef.current
       const annotation = getAnnotationAtValue(annotations, value)
       if (!view || !annotation) return
-      if (sourceIsPdf && view.isFixedLayout) {
-        await deletePdfAnnotation(view, annotation)
-      } else {
-        await view.deleteAnnotation(annotation)
-      }
+      await view.deleteAnnotation(annotation)
       setAnnotations((current) => current.filter((entry) => entry.value !== value))
       setAnnotationDialog(null)
       setAnnotationPopover(null)
@@ -799,6 +773,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
     function revealSearchPanel(query: string) {
       setSearchState((current) => ({ ...current, query }))
+      setSearchOpen(true)
     }
 
     function openSearchWithQuery(query: string) {
@@ -857,6 +832,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       }
       if (command && key === ",") {
         event.preventDefault()
+        setPreferencesOpen(true)
         return
       }
       if (event.altKey && key === "ArrowLeft") {
@@ -886,6 +862,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       }
       if (key === "Escape") {
         clearPositionedOverlays()
+        setSearchOpen(false)
+        setPreferencesOpen(false)
         setLocationDialogOpen(false)
         if (annotationDialogRef.current) setAnnotationDialog(null)
       }
@@ -896,18 +874,17 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       if (!host) return
 
       cleanupView(viewRef.current, coverUrlRef.current)
-      clearPdfPageOverlays(viewRef.current)
       viewRef.current = null
       coverUrlRef.current = undefined
       host.replaceChildren()
 
       void resetSearch(null)
       resetTransientUi()
+      setPersistenceTarget(null)
 
       if (!stableSource) {
         snapshotRef.current = null
         locationRef.current = {}
-        setBookKey(null)
         setStatus("idle")
         setSnapshot(null)
         setLocation({})
@@ -928,6 +905,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       setBookmarks([])
       setAnnotations([])
       setHistoryState({ canGoBack: false, canGoForward: false })
+      const persistenceReaderSourcePromise = readerSource
+        ? withReaderSourceContentFingerprint(readerSource)
+        : Promise.resolve(undefined)
 
       void (async () => {
         try {
@@ -970,16 +950,51 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           const historyListener = () => updateHistoryState(view)
 
           const loadListener = (event: CustomEvent<{ doc: Document; index: number }>) => {
-            const isPdfDocument = sourceIsPdf && view.isFixedLayout
+            event.detail.doc.addEventListener(
+              "wheel",
+              (wheelEvent) => {
+                if (wheelEvent.ctrlKey) return
+
+                const renderer = view.renderer
+                const navigationCommand = resolveReaderWheelNavigation({
+                  flow: preferencesRef.current.flow,
+                  isFixedLayout: snapshotRef.current?.isFixedLayout ?? false,
+                  deltaY: wheelEvent.deltaY,
+                  sectionStart: renderer.start,
+                  sectionEnd: renderer.end,
+                  sectionSize: renderer.viewSize,
+                })
+
+                if (!navigationCommand) {
+                  wheelNavigationGestureRef.current = {
+                    command: undefined,
+                    lastEventAt: undefined,
+                  }
+                  return
+                }
+
+                wheelEvent.preventDefault()
+                const previousGesture = wheelNavigationGestureRef.current
+                const isMomentumContinuation =
+                  previousGesture.command === navigationCommand &&
+                  previousGesture.lastEventAt !== undefined &&
+                  wheelEvent.timeStamp - previousGesture.lastEventAt <=
+                    WHEEL_GESTURE_IDLE_THRESHOLD_MS
+
+                wheelNavigationGestureRef.current = {
+                  command: navigationCommand,
+                  lastEventAt: wheelEvent.timeStamp,
+                }
+                if (!isMomentumContinuation) runNavigationCommand(navigationCommand)
+              },
+              { capture: true, passive: false },
+            )
             event.detail.doc.addEventListener("pointerdown", () => {
               clearPositionedOverlays()
               // Dispatch a pointerdown event on the main document to trigger dismissal
               // of popovers and other floating UI that listen for outside interactions.
               document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
             })
-            if (isPdfDocument) {
-              preparePdfDocument(event.detail.doc)
-            }
             event.detail.doc.addEventListener("pointerup", () => {
               const readSelection = () => {
                 const selection = event.detail.doc.getSelection()
@@ -1019,15 +1034,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               }
             })
             event.detail.doc.addEventListener("keydown", (keyEvent) => handleShortcut(keyEvent))
-            if (sourceIsPdf && view.isFixedLayout) {
-              registerPdfPageOverlay({
-                view,
-                doc: event.detail.doc,
-                index: event.detail.index,
-                onShowAnnotation: openAnnotationSurface,
-              })
-              void hydrateAnnotations(view, annotationsRef.current, event.detail.index)
-            }
           }
 
           view.addEventListener("relocate", relocateListener)
@@ -1040,12 +1046,13 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
           await view.open(toFoliateInput(stableSource))
           if (cancelled) return
-          if (sourceIsPdf && view.isFixedLayout) {
-            configurePdfFixedLayoutView(view, pdfViewModeRef.current)
-          }
 
+          const persistenceReaderSource = await persistenceReaderSourcePromise
+          if (cancelled) return
           const nextBookKey = buildBookPersistenceKey(stableSource, view.book, persistenceSuffix)
-          const persisted = loadBookState(nextBookKey)
+          const persisted = persistenceReaderSource
+            ? loadMirroredEpubBookState(nextBookKey, persistenceReaderSource)
+            : loadBookState(nextBookKey)
 
           const themeDefinition = getThemeDefinition(preferencesRef.current.themeId)
           applyReaderPreferences(view, themeDefinition, preferencesRef.current)
@@ -1107,9 +1114,13 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           const nextLocation = buildLocationState(view.lastLocation)
           snapshotRef.current = nextSnapshot
           locationRef.current = nextLocation
+          const nextPersistenceTarget: FoliateBookPersistenceTarget = {
+            bookKey: nextBookKey,
+            ...(persistenceReaderSource ? { readerSource: persistenceReaderSource } : {}),
+          }
 
           startTransition(() => {
-            setBookKey(nextBookKey)
+            setPersistenceTarget(nextPersistenceTarget)
             setBookmarks(persisted.bookmarks)
             setAnnotations(persisted.annotations)
             setSnapshot(nextSnapshot)
@@ -1120,12 +1131,12 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           updateHistoryState(view)
           syncMarginals(view, nextSnapshot, nextLocation)
           await hydrateAnnotations(view, persisted.annotations)
+          if (cancelled || viewRef.current !== view) return
           callbacksRef.current.onReady?.(nextSnapshot)
           callbacksRef.current.onLocationChange?.(nextLocation)
         } catch (caughtError) {
           if (cancelled) return
           cleanupView(viewRef.current, coverUrlRef.current)
-          clearPdfPageOverlays(viewRef.current)
           viewRef.current = null
           coverUrlRef.current = undefined
           host.replaceChildren()
@@ -1139,24 +1150,14 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       return () => {
         cancelled = true
         cleanupView(viewRef.current, coverUrlRef.current)
-        clearPdfPageOverlays(viewRef.current)
         viewRef.current = null
         coverUrlRef.current = undefined
         host.replaceChildren()
       }
-    }, [hydrateAnnotations, persistenceSuffix, sourceIsPdf, stableInitialLocation, stableSource])
+    }, [hydrateAnnotations, persistenceSuffix, readerSource, stableInitialLocation, stableSource])
 
     const progressValue =
       progressDraft ?? Math.round((location.fraction ?? 0) * DEFAULT_PROGRESS_STEPS)
-    const chromeClassName =
-      theme.appearance === "dark"
-        ? "bg-surface-strong text-text-strong"
-        : "bg-surface-raised-base text-text-base"
-    const readerContentFilter = resolveReaderContentFilter({
-      sourceIsPdf,
-      isFixedLayout: snapshot?.isFixedLayout ?? false,
-      pdfFilter: theme.pdfFilter,
-    })
 
     const readerPane = (
       <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
@@ -1165,7 +1166,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             {/* Progress accent line at top */}
             <div className="absolute inset-x-0 top-0 h-px bg-border-base/30">
               <div
-                className="h-full bg-text-interactive-base/60 transition-[width] duration-300"
+                className="h-full bg-text-interactive-base/60"
                 style={{
                   width: `${((progressValue / DEFAULT_PROGRESS_STEPS) * 100).toFixed(1)}%`,
                 }}
@@ -1173,52 +1174,65 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             </div>
 
             <div className="relative flex h-11 min-w-0 items-center gap-1 overflow-hidden px-2">
-              <FoliateTocPopover
-                snapshot={snapshot}
-                tocLabel={location.tocLabel}
-                onSelectHref={(href) => {
-                  void viewRef.current?.goTo(href)
+              <ReaderTocPopover
+                items={readerSnapshot?.toc ?? []}
+                activeLabel={location.tocLabel}
+                onSelect={(navigationId) => {
+                  void viewRef.current?.goTo(navigationId)
                 }}
               />
 
-              <FoliateBookmarksPopover
-                bookmarks={bookmarks}
-                currentBookmark={currentBookmark}
+              <ReaderBookmarksPopover
+                bookmarks={readerBookmarks}
+                currentBookmarkId={currentBookmark?.value}
                 onToggleBookmark={() => void toggleBookmark()}
-                onGoToBookmark={(val) => void viewRef.current?.goTo(val)}
-                onDeleteBookmark={(val) => setBookmarks((c) => c.filter((e) => e.value !== val))}
+                onGoToBookmark={(target) =>
+                  void viewRef.current?.goTo(readerPositionAnchorToFoliateTarget(target))
+                }
+                onDeleteBookmark={(bookmarkId) =>
+                  setBookmarks((current) =>
+                    current.filter((bookmark) => bookmark.value !== bookmarkId),
+                  )
+                }
               />
 
-              <FoliateAnnotationsPopover
-                annotations={annotations}
-                onShowAnnotation={(ann) => void showAnnotation(ann)}
-                onOpenAnnotationDialog={openAnnotationDialog}
-                onDeleteAnnotation={(val) => void deleteAnnotationValue(val)}
+              <ReaderAnnotationsPopover
+                annotations={readerAnnotations}
+                onShowAnnotation={(annotation) => {
+                  const foliateAnnotation = getAnnotationAtValue(annotations, annotation.id)
+                  if (foliateAnnotation) void showAnnotation(foliateAnnotation)
+                }}
+                onEditAnnotation={(annotation) => {
+                  const foliateAnnotation = getAnnotationAtValue(annotations, annotation.id)
+                  if (foliateAnnotation) openAnnotationDialog(foliateAnnotation)
+                }}
+                onDeleteAnnotation={(annotationId) => void deleteAnnotationValue(annotationId)}
               />
 
               <div className="flex-1" />
 
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-48">
-                <FoliateMetadataHoverCard snapshot={snapshot}>
+                <ReaderMetadataHoverCard snapshot={readerSnapshot}>
                   <span className="pointer-events-auto cursor-pointer truncate text-xs font-medium text-text-base">
                     {snapshot?.title ??
                       (source ? getSourceName(source) : undefined) ??
                       DEFAULT_TITLE}
                   </span>
-                </FoliateMetadataHoverCard>
+                </ReaderMetadataHoverCard>
               </div>
 
               <Separator orientation="vertical" className="mx-0.5 h-4" />
 
-              <FoliateSearchPopover
-                searchState={searchState}
+              <ReaderSearchPopover
+                search={readerSearch}
                 onQueryChange={(query) => setSearchState((c) => ({ ...c, query }))}
                 onRunSearch={() => void runSearch()}
                 onCycleResults={(dir) => void cycleSearchResults(dir)}
                 onScopeChange={(scope) => {
-                  if (scope === SEARCH_SCOPE_BOOK || scope === SEARCH_SCOPE_SECTION) {
-                    setSearchState((c) => ({ ...c, scope }))
-                  }
+                  setSearchState((current) => ({
+                    ...current,
+                    scope: readerSearchScopeToFoliateScope(scope),
+                  }))
                 }}
                 onMatchCaseChange={(matchCase) => setSearchState((c) => ({ ...c, matchCase }))}
                 onMatchWholeWordsChange={(matchWholeWords) =>
@@ -1227,18 +1241,25 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 onMatchDiacriticsChange={(matchDiacritics) =>
                   setSearchState((c) => ({ ...c, matchDiacritics }))
                 }
-                onShowResult={(cfi) => void showSearchResult(cfi)}
-                status={status}
-                isReaderSearchScope={(v: string): v is FoliateReaderSearchScope =>
-                  v === SEARCH_SCOPE_BOOK || v === SEARCH_SCOPE_SECTION
-                }
+                onShowResult={(target) => {
+                  const cfi = readerTextAnchorToFoliateCfi(target)
+                  if (cfi) void showSearchResult(cfi)
+                }}
+                ready={status === "ready"}
+                open={searchOpen}
+                onOpenChange={setSearchOpen}
               />
 
-              <FoliatePreferencesPopover
-                preferences={preferences}
-                setPreferences={setPreferences}
-                canChangeFlow={canChangeFlow}
-              />
+              <ReaderPreferencesPopover
+                open={preferencesOpen}
+                onOpenChange={setPreferencesOpen}
+              >
+                <FoliatePreferencesPanel
+                  preferences={preferences}
+                  setPreferences={setPreferences}
+                  canChangeFlow={canChangeFlow}
+                />
+              </ReaderPreferencesPopover>
 
               <Button
                 type="button"
@@ -1273,45 +1294,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                     Location and jumps
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  {canChangePdfView ? (
-                    <>
-                      <DropdownMenuItem onClick={() => void changePdfViewMode(PDF_VIEW_MODE_FIT)}>
-                        <CheckIcon
-                          className={cn(
-                            "mr-2 size-4",
-                            pdfViewMode === PDF_VIEW_MODE_FIT ? "opacity-100" : "opacity-0",
-                          )}
-                        />
-                        <LayoutPanelLeftIcon className="mr-2 size-4" />
-                        Fit page
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => void changePdfViewMode(PDF_VIEW_MODE_FIT_WIDTH)}
-                      >
-                        <CheckIcon
-                          className={cn(
-                            "mr-2 size-4",
-                            pdfViewMode === PDF_VIEW_MODE_FIT_WIDTH ? "opacity-100" : "opacity-0",
-                          )}
-                        />
-                        <ScrollTextIcon className="mr-2 size-4" />
-                        Fit width
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => void changePdfViewMode(PDF_VIEW_MODE_SPREAD)}
-                      >
-                        <CheckIcon
-                          className={cn(
-                            "mr-2 size-4",
-                            pdfViewMode === PDF_VIEW_MODE_SPREAD ? "opacity-100" : "opacity-0",
-                          )}
-                        />
-                        <BookOpenIcon className="mr-2 size-4" />
-                        Two-page spread
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  ) : canChangeFlow ? (
+                  {canChangeFlow ? (
                     <>
                       <DropdownMenuItem
                         onClick={() => setPreferences((c) => ({ ...c, flow: FLOW_PAGINATED }))}
@@ -1345,16 +1328,16 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           {status === "loading" ? (
             <div className="absolute inset-x-3 top-3 z-10 sm:inset-x-4 sm:top-4">
               <div className="inline-flex items-center gap-1.5 border border-border-base/50 bg-surface-raised-base/90 px-2.5 py-1 text-[11px] text-text-weaker shadow-sm backdrop-blur">
-                <Loader2Icon className="size-3 animate-spin" />
+                <Loader2Icon className="size-3 animate-spin motion-reduce:animate-none" />
                 Opening…
               </div>
             </div>
           ) : null}
 
           {status === "idle" ? (
-            <FoliateEmptyState>{emptyState}</FoliateEmptyState>
+            <ReaderEmptyState>{emptyState}</ReaderEmptyState>
           ) : status === "error" && error ? (
-            <FoliateErrorState error={error} />
+            <ReaderErrorState error={error} />
           ) : null}
 
           <div
@@ -1376,7 +1359,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 onClick={() => {
                   void viewRef.current?.goLeft()
                 }}
-                className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-surface-raised-base/80 text-text-weak opacity-70 shadow-sm backdrop-blur-sm transition-[opacity,transform] duration-150 hover:opacity-100 active:scale-95"
+                className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-surface-raised-base/80 text-text-weak opacity-70 shadow-sm backdrop-blur-sm transition-[opacity,transform] duration-150 hover:opacity-100 active:scale-95 motion-reduce:transition-none"
               >
                 <ChevronLeftIcon />
               </Button>
@@ -1388,14 +1371,14 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 onClick={() => {
                   void viewRef.current?.goRight()
                 }}
-                className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-surface-raised-base/80 text-text-weak opacity-70 shadow-sm backdrop-blur-sm transition-[opacity,transform] duration-150 hover:opacity-100 active:scale-95"
+                className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-surface-raised-base/80 text-text-weak opacity-70 shadow-sm backdrop-blur-sm transition-[opacity,transform] duration-150 hover:opacity-100 active:scale-95 motion-reduce:transition-none"
               >
                 <ChevronRightIcon />
               </Button>
             </>
           ) : null}
 
-          <FoliateSelectionToolbar
+          <ReaderSelectionToolbar
             selectionAction={selectionToolbar}
             anchorRoot={readerSurfaceRef.current}
             onCopyText={(text: string) => void handleCopySelection(text)}
@@ -1415,16 +1398,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               }
               void (async () => {
                 const view = viewRef.current
-                const info = !view
-                  ? undefined
-                  : sourceIsPdf && view.isFixedLayout
-                    ? (addPdfAnnotationFromSelection({
-                        view,
-                        annotation,
-                        index: action.index,
-                        range: action.range,
-                      }) ?? (await addPdfAnnotation(view, annotation)))
-                    : await view.addAnnotation(annotation)
+                const info = view ? await view.addAnnotation(annotation) : undefined
                 if (info) {
                   annotation.index = info.index
                   annotation.label = info.label
@@ -1446,12 +1420,15 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             onClose={() => dismissSelectionToolbar(true)}
           />
 
-          <FoliateAnnotationPopover
-            popover={annotationPopover}
+          <ReaderAnnotationPopover
+            popover={readerAnnotationPopover}
             anchorRoot={readerSurfaceRef.current}
-            onOpenAnnotationDialog={(ann?: ReaderAnnotation) => openAnnotationDialog(ann)}
-            onDeleteAnnotation={(val: string) => void deleteAnnotationValue(val)}
-            annotations={annotations}
+            annotations={readerAnnotations}
+            onEditAnnotation={(annotation) => {
+              const foliateAnnotation = getAnnotationAtValue(annotations, annotation.id)
+              if (foliateAnnotation) openAnnotationDialog(foliateAnnotation)
+            }}
+            onDeleteAnnotation={(annotationId) => void deleteAnnotationValue(annotationId)}
           />
         </div>
 
@@ -1507,22 +1484,16 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
             {/* Scrubber slider — ultrathin hairline at the very bottom */}
             <div className="group/scrubber relative h-2 w-full mt-1">
-              <input
-                type="range"
-                min="0"
-                max={String(DEFAULT_PROGRESS_STEPS)}
-                step="1"
+              <ReaderProgressScrubber
+                max={DEFAULT_PROGRESS_STEPS}
                 value={progressDraft ?? progressValue}
-                onChange={(event) => {
-                  setProgressDraft(Number(event.target.value))
-                }}
-                onPointerUp={() => {
-                  if (progressDraft === null) return
-                  void viewRef.current?.goToFraction(progressDraft / DEFAULT_PROGRESS_STEPS)
+                onPreview={setProgressDraft}
+                onCommit={(progress) => {
+                  void viewRef.current?.goToFraction(progress / DEFAULT_PROGRESS_STEPS)
                   setProgressDraft(null)
                 }}
-                onPointerCancel={() => setProgressDraft(null)}
-                className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent outline-none [&::-webkit-slider-runnable-track]:h-px [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:mt-[-3px] [&::-webkit-slider-thumb]:h-1.5 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-text-weaker/40 [&::-webkit-slider-thumb]:transition-all peer-hover:[&::-webkit-slider-thumb]:bg-text-interactive-base"
+                onCancel={() => setProgressDraft(null)}
+                className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent outline-none [&::-webkit-slider-runnable-track]:h-px [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:mt-[-3px] [&::-webkit-slider-thumb]:h-1.5 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-text-weaker/40 [&::-webkit-slider-thumb]:transition-colors peer-hover:[&::-webkit-slider-thumb]:bg-text-interactive-base motion-reduce:[&::-webkit-slider-thumb]:transition-none"
               />
             </div>
           </footer>
@@ -1535,13 +1506,11 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         ref={rootRef}
         tabIndex={0}
         data-component="foliate-reader"
-        data-theme={theme.id}
+        data-reader-theme={theme.id}
         data-appearance={theme.appearance}
         onKeyDown={handleShortcut}
         className={cn(
-          "h-full w-full min-h-0 overflow-hidden shadow-[0_8px_32px_color-mix(in_oklab,var(--surface-strong)_12%,transparent)]",
-          chromeClassName,
-          theme.shellClassName,
+          "h-full w-full min-h-0 overflow-hidden bg-surface-base text-text-base shadow-[0_8px_32px_color-mix(in_oklab,var(--surface-strong)_12%,transparent)]",
           className,
         )}
       >
@@ -1555,10 +1524,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(head),
           .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(foot) {
             display: none;
-          }
-
-          .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(filter) {
-            filter: ${readerContentFilter};
           }
 
           /* Custom scrollbar to match theme */
@@ -1588,13 +1553,17 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
         {readerPane}
 
-        <FoliateAnnotationDialog
-          dialog={annotationDialog}
-          selectionToolbarText={selectionToolbar?.text ?? null}
-          isReaderAnnotationColorId={isReaderAnnotationColorId}
-          onChangeNote={(note: string) => setAnnotationDialog((c) => (c ? { ...c, note } : null))}
-          onChangeStyle={(style: any) => setAnnotationDialog((c) => (c ? { ...c, style } : null))}
-          onChangeColor={(color: any) => setAnnotationDialog((c) => (c ? { ...c, color } : null))}
+        <ReaderAnnotationDialog
+          dialog={readerAnnotationEditor}
+          onChangeNote={(note) =>
+            setAnnotationDialog((current) => (current ? { ...current, note } : null))
+          }
+          onChangeStyle={(style) =>
+            setAnnotationDialog((current) => (current ? { ...current, style } : null))
+          }
+          onChangeColor={(color) =>
+            setAnnotationDialog((current) => (current ? { ...current, color } : null))
+          }
           onSave={() => {
             if (annotationDialog) {
               void createOrUpdateAnnotation(annotationDialog)
@@ -1620,7 +1589,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           readerLandmarks={readerLandmarks}
         />
 
-        <FoliateHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+        <ReaderHelpDialog open={helpOpen} onOpenChange={setHelpOpen} shortcuts={SHORTCUTS} />
       </section>
     )
   },

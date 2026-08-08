@@ -18,12 +18,6 @@ export {
   FONT_SERIF,
   SEARCH_SCOPE_BOOK,
   SEARCH_SCOPE_SECTION,
-  SIDEBAR_ANNOTATIONS,
-  SIDEBAR_BOOKMARKS,
-  SIDEBAR_CONTENTS,
-  SIDEBAR_DETAILS,
-  SIDEBAR_PREFERENCES,
-  SIDEBAR_SEARCH,
 } from "./foliate-reader-types"
 
 // ============================================================
@@ -32,15 +26,6 @@ export {
 
 export const DEFAULT_TITLE = "Untitled publication"
 export const DEFAULT_AUTHOR = "Unknown author"
-export const DEFAULT_EMPTY_MESSAGE = "Select a compatible ebook or PDF to preview it here."
-export const DEFAULT_ERROR_TITLE = "Unable to open publication"
-export const DEFAULT_ERROR_MESSAGE =
-  "Buddy could not initialize the foliate renderer for this source."
-export const TOC_EMPTY_MESSAGE = "This publication does not expose a table of contents."
-export const DETAILS_EMPTY_MESSAGE = "Metadata is limited for this publication."
-export const SEARCH_EMPTY_MESSAGE = "Search inside the current book or chapter."
-export const BOOKMARKS_EMPTY_MESSAGE = "Bookmarks you add here persist per book."
-export const ANNOTATIONS_EMPTY_MESSAGE = "Highlights and notes appear here."
 
 // ============================================================
 // Storage Keys
@@ -69,7 +54,6 @@ export const SEARCH_SECTION_KEY_PREFIX = "search-section:"
 // UI Constants
 // ============================================================
 
-export const VIRTUALIZE_ROW_THRESHOLD = 24
 export const DEFAULT_PROGRESS_STEPS = 1000
 
 // ============================================================
@@ -102,8 +86,6 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     id: "paper",
     label: "Paper",
     appearance: "light",
-    shellClassName:
-      "bg-[radial-gradient(circle_at_top,#ffffff_0%,transparent_48%),linear-gradient(180deg,#f6f2ea_0%,#ede5d8_100%)]",
     viewportClassName: "bg-[#efe7db]",
     contentBackground: "#fffdf7",
     contentForeground: "#1f1b16",
@@ -117,8 +99,6 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     id: "sepia",
     label: "Sepia",
     appearance: "light",
-    shellClassName:
-      "bg-[radial-gradient(circle_at_top,#f7eedc_0%,transparent_52%),linear-gradient(180deg,#e8dcc3_0%,#d8c7aa_100%)]",
     viewportClassName: "bg-[#e1d3b9]",
     contentBackground: "#f5ecd9",
     contentForeground: "#3b2d1f",
@@ -132,8 +112,6 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     id: "night",
     label: "Night",
     appearance: "dark",
-    shellClassName:
-      "bg-[radial-gradient(circle_at_top,#243347_0%,transparent_44%),linear-gradient(180deg,#111722_0%,#090d14_100%)]",
     viewportClassName: "bg-[#111722]",
     contentBackground: "#0f141d",
     contentForeground: "#e6edf6",
@@ -141,14 +119,12 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentLink: "#8fbbff",
     contentHeading: "#f5f8fc",
     contentAccent: "rgba(95, 154, 255, 0.16)",
-    pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.88) contrast(1.04)",
+    pdfFilter: "brightness(0.78) saturate(0.9) contrast(1.04)",
   },
   {
     id: "mist",
     label: "Mist",
     appearance: "light",
-    shellClassName:
-      "bg-[radial-gradient(circle_at_top,#dfeaf2_0%,transparent_50%),linear-gradient(180deg,#d3dfe6_0%,#c0ced7_100%)]",
     viewportClassName: "bg-[#cad8e0]",
     contentBackground: "#edf4f8",
     contentForeground: "#203646",
@@ -162,8 +138,6 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     id: "graphite",
     label: "Graphite",
     appearance: "dark",
-    shellClassName:
-      "bg-[radial-gradient(circle_at_top,#3b434b_0%,transparent_44%),linear-gradient(180deg,#1d2329_0%,#111417_100%)]",
     viewportClassName: "bg-[#1b2025]",
     contentBackground: "#1c2025",
     contentForeground: "#f4f2ee",
@@ -171,17 +145,9 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentLink: "#89c0f2",
     contentHeading: "#ffffff",
     contentAccent: "rgba(255,255,255,0.06)",
-    pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.9)",
+    pdfFilter: "grayscale(0.18) brightness(0.82) contrast(1.04)",
   },
 ]
-
-export function resolveReaderContentFilter(input: {
-  sourceIsPdf: boolean
-  isFixedLayout: boolean
-  pdfFilter: string
-}): string {
-  return input.sourceIsPdf && input.isFixedLayout ? input.pdfFilter : "none"
-}
 
 // ============================================================
 // Annotation Colors

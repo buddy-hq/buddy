@@ -1,4 +1,3 @@
-import { ToggleGroup, ToggleGroupItem, Switch, ScrollArea, Separator } from "@buddy/ui"
 import {
   BookAIcon,
   LayoutPanelLeftIcon,
@@ -6,282 +5,216 @@ import {
   AlignLeftIcon,
   AlignJustifyIcon,
 } from "@/icons/app-icons"
-
+import { Field, FieldGroup, FieldLabel, Separator, ToggleGroup, ToggleGroupItem } from "@buddy/ui"
 import {
+  FLOW_PAGINATED,
+  FLOW_SCROLLED,
   FONT_PUBLISHER,
   FONT_SANS,
   FONT_SERIF,
-  FLOW_PAGINATED,
-  FLOW_SCROLLED,
-  READER_THEMES,
 } from "../foliate-reader-constants"
 import type { FoliateReaderPreferences } from "../foliate-reader-types"
-import { isFoliateReaderThemeId } from "../utils/foliate-themes"
-import { cn } from "@buddy/ui/lib/utils"
+import {
+  foliatePreferencesToReaderPreferences,
+  foliateThemesToReaderThemes,
+} from "../foliate-reader-adapters"
+import {
+  ReaderPreferenceSlider,
+  ReaderPreferencesPanel,
+  ReaderPreferenceToggle,
+} from "./reader-preferences-panel"
 
-export interface FoliatePreferencesPanelProps {
+type FoliatePreferencesPanelProps = {
   preferences: FoliateReaderPreferences
   setPreferences: React.Dispatch<React.SetStateAction<FoliateReaderPreferences>>
   canChangeFlow: boolean
 }
 
-function SliderRow({
-  label,
-  min,
-  max,
-  step,
-  value,
-  onChange,
-  format,
-}: {
-  label: string
-  min: number
-  max: number
-  step: number
-  value: number
-  onChange: (v: number) => void
-  format?: (v: number) => string
-}) {
-  return (
-    <label className="flex items-center gap-4 px-5 py-2">
-      <span className="w-24 shrink-0 text-[13px] font-medium text-text-weak">{label}</span>
-      <div className="relative flex-1 flex items-center">
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="peer h-[3px] w-full cursor-pointer appearance-none rounded-full bg-border-base/40 accent-text-interactive-base outline-none hover:bg-border-base/60 [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-text-interactive-base [&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:transition-transform hover:[&::-webkit-slider-thumb]:scale-110"
-        />
-      </div>
-      {format && (
-        <span className="w-12 shrink-0 text-right font-mono text-[10px] text-text-weak">
-          {format(value)}
-        </span>
-      )}
-    </label>
-  )
-}
-
-function ToggleRow({
-  label,
-  description,
-  checked,
-  onCheckedChange,
-}: {
-  label: string
-  description?: string
-  checked: boolean
-  onCheckedChange: (v: boolean) => void
-}) {
-  return (
-    <div className="flex items-center justify-between px-5 py-3 border-t border-border-base/30 first:border-t-0">
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[13px] font-medium text-text-base">{label}</span>
-        {description && <span className="text-[11px] text-text-weak">{description}</span>}
-      </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} className="scale-90 shadow-sm" />
-    </div>
-  )
-}
+const FOLIATE_READER_THEME_OPTIONS = foliateThemesToReaderThemes()
 
 export function FoliatePreferencesPanel({
   preferences,
   setPreferences,
   canChangeFlow,
 }: FoliatePreferencesPanelProps) {
-  return (
-    <ScrollArea className="flex-1 bg-surface-raised-base">
-      <div className="flex flex-col pb-4 pt-4">
-        {/* Theme Swatches */}
-        <div className="px-5 pb-3">
-          <ToggleGroup
-            type="single"
-            value={preferences.themeId}
-            spacing={4}
-            onValueChange={(val) => {
-              if (val && isFoliateReaderThemeId(val)) {
-                setPreferences((c) => ({ ...c, themeId: val }))
-              }
-            }}
-            className="flex w-full justify-between"
-          >
-            {READER_THEMES.map((theme) => {
-              const isActive = preferences.themeId === theme.id
-              return (
-                <ToggleGroupItem
-                  key={theme.id}
-                  value={theme.id}
-                  className={cn(
-                    "relative size-12 rounded-full p-0 border border-black/5 dark:border-white/5 shadow-md flex items-center justify-center transition-transform active:scale-95",
-                    isActive
-                      ? "ring-2 ring-text-interactive-base outline outline-2 outline-offset-2 outline-transparent"
-                      : "hover:scale-105",
-                  )}
-                  style={{
-                    backgroundColor: theme.contentBackground,
-                    color: theme.contentForeground,
-                  }}
-                  aria-label={theme.label}
-                >
-                  <span className="font-serif text-[22px] leading-none tracking-tight">A</span>
-                </ToggleGroupItem>
-              )
-            })}
-          </ToggleGroup>
-        </div>
-
-        {/* Display Toggles */}
-        <div className="flex flex-col gap-4 px-5 py-2">
-          {/* Typography */}
+  const engineControls = (
+    <div className="flex flex-col gap-4">
+      <FieldGroup className="gap-3 px-5">
+        <Field>
+          <FieldLabel id="foliate-font-family-label">Font family</FieldLabel>
           <ToggleGroup
             type="single"
             variant="outline"
             value={preferences.fontPreset}
-            onValueChange={(val) => {
-              if (val === FONT_SERIF || val === FONT_SANS || val === FONT_PUBLISHER) {
-                setPreferences((c) => ({ ...c, fontPreset: val }))
+            aria-labelledby="foliate-font-family-label"
+            onValueChange={(value) => {
+              if (value === FONT_SERIF || value === FONT_SANS || value === FONT_PUBLISHER) {
+                setPreferences((current) => ({ ...current, fontPreset: value }))
               }
             }}
-            className="flex w-full"
+            className="w-full"
           >
-            <ToggleGroupItem value={FONT_SERIF} className="flex-1 h-9 text-xs font-serif">
+            <ToggleGroupItem value={FONT_SERIF} className="flex-1 font-serif">
               Serif
             </ToggleGroupItem>
-            <ToggleGroupItem value={FONT_SANS} className="flex-1 h-9 text-xs font-sans">
+            <ToggleGroupItem value={FONT_SANS} className="flex-1 font-sans">
               Sans
             </ToggleGroupItem>
-            <ToggleGroupItem value={FONT_PUBLISHER} className="flex-[1.2] h-9 text-xs">
+            <ToggleGroupItem value={FONT_PUBLISHER} className="flex-1">
               <BookAIcon data-icon="inline-start" />
               Publisher
             </ToggleGroupItem>
           </ToggleGroup>
+        </Field>
 
-          {/* Reading Flow & Alignment combined or stacked */}
-          <div className="flex gap-2">
-            {canChangeFlow && (
+        <div className="flex gap-2">
+          {canChangeFlow ? (
+            <Field className="flex-1">
+              <FieldLabel id="foliate-reading-flow-label">Reading flow</FieldLabel>
               <ToggleGroup
                 type="single"
                 variant="outline"
                 value={preferences.flow}
-                onValueChange={(val) => {
-                  if (val === FLOW_PAGINATED || val === FLOW_SCROLLED) {
-                    setPreferences((c) => ({ ...c, flow: val }))
+                aria-labelledby="foliate-reading-flow-label"
+                onValueChange={(value) => {
+                  if (value === FLOW_PAGINATED || value === FLOW_SCROLLED) {
+                    setPreferences((current) => ({ ...current, flow: value }))
                   }
                 }}
-                className="flex-1"
+                className="w-full"
               >
-                <ToggleGroupItem value={FLOW_PAGINATED} className="flex-1 h-9 text-xs">
+                <ToggleGroupItem value={FLOW_PAGINATED} className="flex-1">
                   <LayoutPanelLeftIcon data-icon="inline-start" />
                   Pages
                 </ToggleGroupItem>
-                <ToggleGroupItem value={FLOW_SCROLLED} className="flex-1 h-9 text-xs">
+                <ToggleGroupItem value={FLOW_SCROLLED} className="flex-1">
                   <ScrollTextIcon data-icon="inline-start" />
-                  Section scroll
+                  Scroll
                 </ToggleGroupItem>
               </ToggleGroup>
-            )}
+            </Field>
+          ) : null}
 
+          <Field className="w-28">
+            <FieldLabel id="foliate-text-alignment-label">Alignment</FieldLabel>
             <ToggleGroup
               type="single"
               variant="outline"
               value={preferences.justify ? "justify" : "left"}
-              onValueChange={(val) => {
-                if (val) setPreferences((c) => ({ ...c, justify: val === "justify" }))
+              aria-labelledby="foliate-text-alignment-label"
+              onValueChange={(value) => {
+                if (value) {
+                  setPreferences((current) => ({ ...current, justify: value === "justify" }))
+                }
               }}
-              className="w-24"
+              className="w-full"
             >
-              <ToggleGroupItem value="left" className="flex-1 h-9 p-0" aria-label="Align Left">
-                <AlignLeftIcon data-icon="inline-start" className="m-0" />
+              <ToggleGroupItem value="left" className="flex-1" aria-label="Align left">
+                <AlignLeftIcon />
               </ToggleGroupItem>
-              <ToggleGroupItem value="justify" className="flex-1 h-9 p-0" aria-label="Justify Text">
-                <AlignJustifyIcon data-icon="inline-start" className="m-0" />
+              <ToggleGroupItem value="justify" className="flex-1" aria-label="Justify text">
+                <AlignJustifyIcon />
               </ToggleGroupItem>
             </ToggleGroup>
-          </div>
-          {canChangeFlow && preferences.flow === FLOW_SCROLLED ? (
-            <p className="px-1 text-[11px] leading-relaxed text-text-weaker">
-              Scrolls within the current EPUB section, then advances to the next section.
-            </p>
-          ) : null}
+          </Field>
         </div>
 
-        <Separator className="mx-5 my-3 opacity-30" />
+        {canChangeFlow && preferences.flow === FLOW_SCROLLED ? (
+          <p className="text-xs leading-relaxed text-text-weaker">
+            Scrolls within the current EPUB section, then advances to the next section.
+          </p>
+        ) : null}
+      </FieldGroup>
 
-        {/* Sliders */}
-        <div className="flex flex-col py-1 space-y-1">
-          <SliderRow
-            label="Text Size"
-            min={0.85}
-            max={1.4}
-            step={0.01}
-            value={preferences.fontScaleRem}
-            onChange={(v) => setPreferences((c) => ({ ...c, fontScaleRem: v }))}
-            format={(v) => `${Math.round(v * 100)}%`}
-          />
-          <SliderRow
-            label="Line Height"
-            min={1.2}
-            max={2}
-            step={0.02}
-            value={preferences.lineHeight}
-            onChange={(v) => setPreferences((c) => ({ ...c, lineHeight: v }))}
-            format={(v) => v.toFixed(2)}
-          />
-          <SliderRow
-            label="Column Gap"
-            min={0}
-            max={18}
-            step={1}
-            value={preferences.gapPercent}
-            onChange={(v) => setPreferences((c) => ({ ...c, gapPercent: v }))}
-            format={(v) => `${v}%`}
-          />
-          <SliderRow
-            label="Margins"
-            min={16}
-            max={120}
-            step={2}
-            value={preferences.marginPx}
-            onChange={(v) => setPreferences((c) => ({ ...c, marginPx: v }))}
-            format={(v) => `${v}px`}
-          />
-          <SliderRow
-            label="Max Width"
-            min={520}
-            max={1100}
-            step={10}
-            value={preferences.maxInlineSizePx}
-            onChange={(v) => setPreferences((c) => ({ ...c, maxInlineSizePx: v }))}
-            format={(v) => `${v}`}
-          />
-        </div>
+      <Separator />
+      <FieldGroup className="gap-1">
+        <ReaderPreferenceSlider
+          id="foliate-text-size"
+          label="Text size"
+          min={0.85}
+          max={1.4}
+          step={0.01}
+          value={preferences.fontScaleRem}
+          onChange={(value) =>
+            setPreferences((current) => ({ ...current, fontScaleRem: value }))
+          }
+          formatValue={(value) => `${Math.round(value * 100)}%`}
+        />
+        <ReaderPreferenceSlider
+          id="foliate-line-height"
+          label="Line height"
+          min={1.2}
+          max={2}
+          step={0.02}
+          value={preferences.lineHeight}
+          onChange={(value) =>
+            setPreferences((current) => ({ ...current, lineHeight: value }))
+          }
+          formatValue={(value) => value.toFixed(2)}
+        />
+        <ReaderPreferenceSlider
+          id="foliate-column-gap"
+          label="Column gap"
+          min={0}
+          max={18}
+          step={1}
+          value={preferences.gapPercent}
+          onChange={(value) =>
+            setPreferences((current) => ({ ...current, gapPercent: value }))
+          }
+          formatValue={(value) => `${value}%`}
+        />
+        <ReaderPreferenceSlider
+          id="foliate-margins"
+          label="Margins"
+          min={16}
+          max={120}
+          step={2}
+          value={preferences.marginPx}
+          onChange={(value) =>
+            setPreferences((current) => ({ ...current, marginPx: value }))
+          }
+          formatValue={(value) => `${value}px`}
+        />
+        <ReaderPreferenceSlider
+          id="foliate-max-width"
+          label="Max width"
+          min={520}
+          max={1100}
+          step={10}
+          value={preferences.maxInlineSizePx}
+          onChange={(value) =>
+            setPreferences((current) => ({ ...current, maxInlineSizePx: value }))
+          }
+          formatValue={(value) => String(value)}
+        />
+      </FieldGroup>
 
-        <Separator className="mx-5 my-3 opacity-30" />
+      <ReaderPreferenceToggle
+        id="foliate-hyphenation"
+        label="Hyphenation"
+        checked={preferences.hyphenate}
+        onCheckedChange={(hyphenate) =>
+          setPreferences((current) => ({ ...current, hyphenate }))
+        }
+      />
+    </div>
+  )
 
-        {/* Behavior */}
-        <div className="flex flex-col py-1">
-          <ToggleRow
-            label="Hyphenation"
-            checked={preferences.hyphenate}
-            onCheckedChange={(v) => setPreferences((c) => ({ ...c, hyphenate: v }))}
-          />
-          <ToggleRow
-            label="Reduce Motion"
-            description="Disable book page turning animations"
-            checked={preferences.reduceMotion}
-            onCheckedChange={(v) => setPreferences((c) => ({ ...c, reduceMotion: v }))}
-          />
-          <ToggleRow
-            label="Autohide Cursor"
-            description="Hide mouse cursor while reading"
-            checked={preferences.autohideCursor}
-            onCheckedChange={(v) => setPreferences((c) => ({ ...c, autohideCursor: v }))}
-          />
-        </div>
-      </div>
-    </ScrollArea>
+  return (
+    <ReaderPreferencesPanel
+      preferences={foliatePreferencesToReaderPreferences(preferences)}
+      themes={FOLIATE_READER_THEME_OPTIONS}
+      onThemeChange={(themeId) =>
+        setPreferences((current) => ({ ...current, themeId }))
+      }
+      onReduceMotionChange={(reduceMotion) =>
+        setPreferences((current) => ({ ...current, reduceMotion }))
+      }
+      onAutohideCursorChange={(autohideCursor) =>
+        setPreferences((current) => ({ ...current, autohideCursor }))
+      }
+      engineControls={engineControls}
+    />
   )
 }

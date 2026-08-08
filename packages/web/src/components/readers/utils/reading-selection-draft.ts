@@ -3,18 +3,18 @@ import {
   READING_SELECTION_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   type PromptComposerPart,
-  type PromptReadingSelectionPart,
-  type PromptSelectionContextPart,
+  type PromptMarkdownSelectionContextPart,
+  type PromptReadingSelectionContextPart,
 } from "@/components/prompt/prompt-types"
 import type { PromptDraftState } from "@/state/prompt-store"
 
 type PromptDraftInput = Pick<PromptDraftState, "attachments" | "cursor" | "parts" | "value">
 
-type ReadingSelectionDraftInput = Omit<PromptReadingSelectionPart, "type" | "selectionKey"> & {
-  selectionKey: string
-}
+type ReadingSelectionDraftInput = Omit<PromptReadingSelectionContextPart, "type" | "source">
 
-type SelectionContextDraftInput = Omit<PromptSelectionContextPart, "type">
+type SelectionContextDraftInput =
+  | Omit<PromptReadingSelectionContextPart, "type">
+  | Omit<PromptMarkdownSelectionContextPart, "type">
 
 type PromptDraftUpdate = Omit<PromptDraftState, "updatedAt">
 

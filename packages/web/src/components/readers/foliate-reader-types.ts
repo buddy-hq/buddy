@@ -5,6 +5,7 @@ import type {
   FoliateNavigationTarget,
   FoliateTocItem,
 } from "foliate-js/view.js"
+import type { ReaderSource } from "./reader-types"
 
 export type { FoliateNavigationTarget }
 
@@ -16,25 +17,6 @@ export const FLOW_PAGINATED = "paginated" as const
 export const FLOW_SCROLLED = "scrolled" as const
 
 export type FoliateReaderFlow = typeof FLOW_PAGINATED | typeof FLOW_SCROLLED
-
-// ============================================================
-// Sidebar Tab Types
-// ============================================================
-
-export const SIDEBAR_CONTENTS = "contents" as const
-export const SIDEBAR_SEARCH = "search" as const
-export const SIDEBAR_BOOKMARKS = "bookmarks" as const
-export const SIDEBAR_ANNOTATIONS = "annotations" as const
-export const SIDEBAR_DETAILS = "details" as const
-export const SIDEBAR_PREFERENCES = "preferences" as const
-
-export type FoliateReaderSidebarTab =
-  | typeof SIDEBAR_CONTENTS
-  | typeof SIDEBAR_SEARCH
-  | typeof SIDEBAR_BOOKMARKS
-  | typeof SIDEBAR_ANNOTATIONS
-  | typeof SIDEBAR_DETAILS
-  | typeof SIDEBAR_PREFERENCES
 
 // ============================================================
 // Search Scope Types
@@ -76,11 +58,10 @@ export type FoliateReaderAnnotationStyle =
 
 export type FoliateReaderThemeId = "paper" | "sepia" | "night" | "mist" | "graphite"
 
-export interface FoliateReaderThemeDefinition {
+export type FoliateReaderThemeDefinition = {
   id: FoliateReaderThemeId
   label: string
   appearance: "light" | "dark"
-  shellClassName: string
   viewportClassName: string
   contentBackground: string
   contentForeground: string
@@ -190,6 +171,7 @@ import type { ReactNode } from "react"
 
 export interface FoliateReaderProps {
   source: FoliateReaderSource | null
+  readerSource?: ReaderSource
   className?: string
   initialLocation?: FoliateNavigationTarget
   defaultTheme?: FoliateReaderThemeId
@@ -362,16 +344,6 @@ export interface ReaderAnnotationDialogState {
 export interface ReaderShortcut {
   keys: string
   label: string
-}
-
-// ============================================================
-// Book State Types
-// ============================================================
-
-export interface ReaderBookState {
-  lastLocation?: string
-  bookmarks: ReaderBookmark[]
-  annotations: ReaderAnnotation[]
 }
 
 // ============================================================
