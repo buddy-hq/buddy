@@ -10,6 +10,7 @@ import {
   hasUnfetchedCompletedWhiteboardCreate,
   hasWhiteboardCreate,
   parsePartialElements,
+  readLatestActiveWhiteboardCreate,
   readLatestActiveWhiteboardCreateKey,
   readLatestStreamingWhiteboardRaw,
   resolveStickyProgressiveWhiteboardPreview,
@@ -47,6 +48,167 @@ function createAssistantMessage(
 }
 
 describe("whiteboard progressive drawing", () => {
+  test("keeps an unapproved new-board stream transient", () => {
+    const raw = JSON.stringify({
+      objectID: null,
+      boardAction: "continue_current_board",
+      elements: JSON.stringify([
+        { type: "rectangle", id: "streamed", x: 0, y: 0, width: 120, height: 60 },
+      ]),
+    })
+    const messages = [
+      createAssistantMessage([
+        {
+          id: "part-1",
+          callID: "call-1",
+          sessionID: "session-1",
+          messageID: "message-1",
+          type: "tool",
+          tool: "whiteboard_create_view",
+          state: {
+            status: "running",
+            input: { objectID: null },
+            raw,
+          },
+        },
+      ]),
+    ] satisfies MessageWithParts[]
+
+    expect(readLatestActiveWhiteboardCreate(messages)).toEqual({
+      toolKey: "message-1:part-1",
+      sessionID: "session-1",
+      phase: "awaiting-permission",
+      requestKind: "new",
+    })
+    expect(
+      buildProgressiveWhiteboardPreviewFromMessages({
+        messages,
+        baseElements: [],
+      })?.elements.map((element) => element.id),
+    ).toEqual(["streamed"])
+    expect(hasActiveWhiteboardCreate(messages)).toBeTrue()
+    expect(hasActiveWhiteboardCreate(messages, "reserved-object")).toBeFalse()
+  })
+
+  test("distinguishes an existing-board update from a new-board preview", () => {
+    const messages = [
+      createAssistantMessage([
+        {
+          id: "part-1",
+          callID: "call-1",
+          sessionID: "session-1",
+          messageID: "message-1",
+          type: "tool",
+          tool: "whiteboard_create_view",
+          state: {
+            status: "running",
+            input: { objectID: "existing-object" },
+            raw: '{"objectID":"existing-object"}',
+          },
+        },
+      ]),
+    ] satisfies MessageWithParts[]
+
+    expect(readLatestActiveWhiteboardCreate(messages)).toEqual({
+      toolKey: "message-1:part-1",
+      sessionID: "session-1",
+      phase: "awaiting-permission",
+      requestKind: "existing",
+    })
+  })
+
+  test("keeps an authorized existing-board update out of the new-board preview", () => {
+    const messages = [
+      createAssistantMessage([
+        {
+          id: "part-1",
+          callID: "call-1",
+          sessionID: "session-1",
+          messageID: "message-1",
+          type: "tool",
+          tool: "whiteboard_create_view",
+          state: {
+            status: "running",
+            input: { objectID: "existing-object" },
+            raw: '{"objectID":"existing-object"}',
+            metadata: { objectID: "existing-object" },
+          },
+        },
+      ]),
+    ] satisfies MessageWithParts[]
+
+    expect(readLatestActiveWhiteboardCreate(messages)).toEqual({
+      toolKey: "message-1:part-1",
+      sessionID: "session-1",
+      phase: "authorized",
+      requestKind: "existing",
+      objectID: "existing-object",
+    })
+  })
+
+  test("composes an existing-board stream over the fetched board", () => {
+    const messages = [
+      createAssistantMessage([
+        {
+          id: "part-1",
+          callID: "call-1",
+          sessionID: "session-1",
+          messageID: "message-1",
+          type: "tool",
+          tool: "whiteboard_create_view",
+          state: {
+            status: "running",
+            input: { objectID: "existing-object" },
+            raw: JSON.stringify({
+              objectID: "existing-object",
+              boardAction: "continue_current_board",
+              elements: JSON.stringify([
+                { type: "rectangle", id: "streamed-node", x: 160, y: 0 },
+              ]),
+            }),
+          },
+        },
+      ]),
+    ] satisfies MessageWithParts[]
+
+    expect(
+      buildProgressiveWhiteboardPreviewFromMessages({
+        messages,
+        objectID: "existing-object",
+        baseElements: [{ type: "rectangle", id: "persisted-node", x: 0, y: 0 }],
+      })?.elements.map((element) => element.id),
+    ).toEqual(["persisted-node", "streamed-node"])
+  })
+
+  test("exposes the object only after authorized metadata arrives", () => {
+    const messages = [
+      createAssistantMessage([
+        {
+          id: "part-1",
+          callID: "call-1",
+          sessionID: "session-1",
+          messageID: "message-1",
+          type: "tool",
+          tool: "whiteboard_create_view",
+          state: {
+            status: "running",
+            input: { objectID: null },
+            raw: '{"objectID":null}',
+            metadata: { objectID: "authorized-object" },
+          },
+        },
+      ]),
+    ] satisfies MessageWithParts[]
+
+    expect(readLatestActiveWhiteboardCreate(messages)).toEqual({
+      toolKey: "message-1:part-1",
+      sessionID: "session-1",
+      phase: "authorized",
+      requestKind: "new",
+      objectID: "authorized-object",
+    })
+  })
+
   test("decodes escaped elements from partial outer tool arguments", () => {
     const raw =
       '{"elements":"[{\\"type\\":\\"text\\",\\"id\\":\\"label\\",\\"x\\":0,\\"y\\":0,\\"text\\":\\"phase \\\\u2192 change\\"}'
@@ -543,5 +705,70 @@ describe("whiteboard progressive drawing", () => {
 
     expect(hasLatestFailedWhiteboardCreate([createAssistantMessage([failed])])).toBeTrue()
     expect(hasLatestFailedWhiteboardCreate([createAssistantMessage([failed, pending])])).toBeFalse()
+  })
+
+  test("isolates progressive state and activity by whiteboard object id", () => {
+    const boardAElements = JSON.stringify([{ type: "text", id: "board-a", text: "A" }])
+    const boardBRaw = JSON.stringify({
+      objectID: "board-b",
+      boardAction: "continue_current_board",
+      elements: JSON.stringify([{ type: "text", id: "board-b", text: "B" }]),
+    })
+    const messages = [
+      createAssistantMessage([
+        {
+          id: "part-a",
+          sessionID: "session-1",
+          messageID: "message-1",
+          type: "tool",
+          tool: "whiteboard_create_view",
+          state: {
+            status: "completed",
+            input: {
+              objectID: "board-a",
+              boardAction: "continue_current_board",
+              elements: boardAElements,
+            },
+            output: "",
+            title: "",
+            time: { start: 1, end: 2 },
+            metadata: { objectID: "board-a", boardID: "01J00000000000000000000001" },
+          },
+        },
+        {
+          id: "part-b",
+          sessionID: "session-1",
+          messageID: "message-1",
+          type: "tool",
+          tool: "whiteboard_create_view",
+          state: { status: "running", input: {}, raw: boardBRaw },
+        },
+      ]),
+    ] satisfies MessageWithParts[]
+
+    expect(
+      buildProgressiveWhiteboardPreviewFromMessages({
+        messages,
+        objectID: "board-a",
+        baseElements: [],
+      })?.elements.map((element) => element.id),
+    ).toEqual(["board-a"])
+    expect(
+      buildProgressiveWhiteboardPreviewFromMessages({
+        messages,
+        toolKey: "message-1:part-b",
+        baseElements: [],
+      })?.elements.map((element) => element.id),
+    ).toEqual(["board-b"])
+    expect(hasActiveWhiteboardCreate(messages, "board-a")).toBeFalse()
+    expect(hasActiveWhiteboardCreate(messages, "board-b")).toBeTrue()
+    expect(countCompletedWhiteboardCreate(messages, "board-a")).toBe(1)
+    expect(countCompletedWhiteboardCreate(messages, "board-b")).toBe(0)
+    expect(readLatestActiveWhiteboardCreate(messages)).toEqual({
+      toolKey: "message-1:part-b",
+      sessionID: "session-1",
+      phase: "awaiting-permission",
+      requestKind: "existing",
+    })
   })
 })

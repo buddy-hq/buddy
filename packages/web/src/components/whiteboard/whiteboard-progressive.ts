@@ -13,6 +13,26 @@ type ProgressiveWhiteboardState = {
   viewport?: WhiteboardViewport
 }
 
+type ActiveWhiteboardCreate =
+  | {
+      toolKey: string
+      sessionID: string
+      phase: "awaiting-permission"
+      requestKind: "new" | "existing"
+    }
+  | {
+      toolKey: string
+      sessionID: string
+      phase: "authorized"
+      requestKind: "new" | "existing"
+      objectID: string
+    }
+
+type WhiteboardCreateObjectReference =
+  | { status: "existing"; objectID: string }
+  | { status: "new" }
+  | { status: "unknown" }
+
 type ProgramReadMode = "complete" | "streaming"
 type ProgramWriteMode = "auto" | "continue" | "replace" | "invalid"
 const WHITEBOARD_CONTINUATION_HANDLE = "current"
@@ -56,8 +76,9 @@ function decodePartialStringArgument(raw: string, key: string): string | undefin
   if (keyIndex === -1) return undefined
   const colonIndex = raw.indexOf(":", keyIndex + JSON.stringify(key).length)
   if (colonIndex === -1) return undefined
-  const quoteIndex = raw.indexOf('"', colonIndex + 1)
-  if (quoteIndex === -1) return undefined
+  let quoteIndex = colonIndex + 1
+  while (/\s/u.test(raw[quoteIndex] ?? "")) quoteIndex += 1
+  if (raw[quoteIndex] !== '"') return undefined
 
   let decoded = ""
   for (let index = quoteIndex + 1; index < raw.length; index += 1) {
@@ -83,6 +104,15 @@ function decodePartialStringArgument(raw: string, key: string): string | undefin
     index += 1
   }
   return decoded
+}
+
+function hasPartialNullArgument(raw: string, key: string): boolean {
+  const encodedKey = JSON.stringify(key)
+  const keyIndex = raw.indexOf(encodedKey)
+  if (keyIndex === -1) return false
+  const colonIndex = raw.indexOf(":", keyIndex + encodedKey.length)
+  if (colonIndex === -1) return false
+  return /^\s*null(?:\s*[,}]|\s*$)/u.test(raw.slice(colonIndex + 1))
 }
 
 function decodePartialElementsArgument(raw: string): string | undefined {
@@ -375,6 +405,39 @@ function readToolInputBoardAction(state: Record<string, unknown>): ProgramWriteM
   )
 }
 
+function readRequestedWhiteboardCreateObjectReference(
+  state: Record<string, unknown>,
+): WhiteboardCreateObjectReference {
+  if (isRecord(state.input)) {
+    if (typeof state.input.objectID === "string") {
+      return { status: "existing", objectID: state.input.objectID }
+    }
+    if (state.input.objectID === null) return { status: "new" }
+  }
+  if (typeof state.raw !== "string") return { status: "unknown" }
+  const rawObjectID = decodePartialStringArgument(state.raw, "objectID")
+  if (rawObjectID) return { status: "existing", objectID: rawObjectID }
+  return hasPartialNullArgument(state.raw, "objectID") ? { status: "new" } : { status: "unknown" }
+}
+
+function readWhiteboardCreateObjectReference(
+  state: Record<string, unknown>,
+): WhiteboardCreateObjectReference {
+  const metadataObjectID = readToolMetadataString(state, "objectID")
+  if (metadataObjectID) return { status: "existing", objectID: metadataObjectID }
+  return readRequestedWhiteboardCreateObjectReference(state)
+}
+
+function whiteboardCreateTargetsObject(
+  state: Record<string, unknown>,
+  objectID: string | undefined,
+): boolean {
+  if (objectID === undefined) return true
+  const reference = readWhiteboardCreateObjectReference(state)
+  if (reference.status === "existing") return reference.objectID === objectID
+  return false
+}
+
 function readToolMetadataString(state: Record<string, unknown>, key: string): string | undefined {
   if (!isRecord(state.metadata)) return undefined
   return typeof state.metadata[key] === "string" ? state.metadata[key] : undefined
@@ -383,6 +446,10 @@ function readToolMetadataString(state: Record<string, unknown>, key: string): st
 function readToolMetadataBoolean(state: Record<string, unknown>, key: string): boolean | undefined {
   if (!isRecord(state.metadata)) return undefined
   return typeof state.metadata[key] === "boolean" ? state.metadata[key] : undefined
+}
+
+function whiteboardCreateToolKey(messageID: string, partID: string): string {
+  return `${messageID}:${partID}`
 }
 
 function didCompletedWhiteboardCreateSave(state: Record<string, unknown>): boolean {
@@ -399,6 +466,8 @@ function shouldApplyCompletedWhiteboardCreate(input: {
 
 function buildProgressiveWhiteboardPreviewFromMessages(input: {
   messages: MessageWithParts[]
+  objectID?: string
+  toolKey?: string
   baseBoardID?: string
   baseElements: PersistedWhiteboardElement[]
   baseViewport?: WhiteboardViewport
@@ -416,6 +485,15 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
     for (const part of message.parts) {
       if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
       if (!isRecord(part.state)) continue
+      if (
+        input.toolKey !== undefined &&
+        whiteboardCreateToolKey(message.info.id, part.id) !== input.toolKey
+      ) {
+        continue
+      }
+      if (!whiteboardCreateTargetsObject(part.state, input.objectID)) {
+        continue
+      }
 
       if (part.state.status === "completed") {
         if (!didCompletedWhiteboardCreateSave(part.state)) continue
@@ -463,7 +541,11 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
   return toVisiblePreview(state)
 }
 
-function hasActiveWhiteboardCreate(messages: MessageWithParts[]): boolean {
+function hasActiveWhiteboardCreate(
+  messages: MessageWithParts[],
+  objectID?: string,
+  toolKey?: string,
+): boolean {
   return messages.some(
     (message) =>
       message.info.role === "assistant" &&
@@ -471,12 +553,23 @@ function hasActiveWhiteboardCreate(messages: MessageWithParts[]): boolean {
       message.parts.some((part) => {
         if (part.type !== "tool" || part.tool !== "whiteboard_create_view") return false
         if (!isRecord(part.state)) return false
+        if (
+          toolKey !== undefined &&
+          whiteboardCreateToolKey(message.info.id, part.id) !== toolKey
+        ) {
+          return false
+        }
+        if (!whiteboardCreateTargetsObject(part.state, objectID)) {
+          return false
+        }
         return part.state.status === "pending" || part.state.status === "running"
       }),
   )
 }
 
-function readLatestActiveWhiteboardCreateKey(messages: MessageWithParts[]): string | undefined {
+function readLatestActiveWhiteboardCreate(
+  messages: MessageWithParts[],
+): ActiveWhiteboardCreate | undefined {
   for (const message of messages.toReversed()) {
     if (message.info.role !== "assistant" || isTerminalAssistantMessageInfo(message.info)) {
       continue
@@ -486,21 +579,47 @@ function readLatestActiveWhiteboardCreateKey(messages: MessageWithParts[]): stri
       if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
       if (!isRecord(part.state)) continue
       if (part.state.status !== "pending" && part.state.status !== "running") continue
-      return `${message.info.id}:${part.id}`
+      const toolKey = whiteboardCreateToolKey(message.info.id, part.id)
+      const requestedReference = readRequestedWhiteboardCreateObjectReference(part.state)
+      const authorizedObjectID = readToolMetadataString(part.state, "objectID")
+      if (authorizedObjectID) {
+        return {
+          toolKey,
+          sessionID: part.sessionID,
+          phase: "authorized",
+          // Authorized metadata is enough to present the real object. Only an explicit null
+          // request may retain the zero-content transient preview during that handoff.
+          requestKind: requestedReference.status === "new" ? "new" : "existing",
+          objectID: authorizedObjectID,
+        }
+      }
+      if (requestedReference.status === "unknown") return undefined
+      return {
+        toolKey,
+        sessionID: part.sessionID,
+        phase: "awaiting-permission",
+        requestKind: requestedReference.status,
+      }
     }
   }
 
   return undefined
 }
 
+function readLatestActiveWhiteboardCreateKey(messages: MessageWithParts[]): string | undefined {
+  return readLatestActiveWhiteboardCreate(messages)?.toolKey
+}
+
 function hasUnfetchedCompletedWhiteboardCreate(input: {
   messages: MessageWithParts[]
+  objectID?: string
   baseBoardID?: string
 }): boolean {
   for (const message of input.messages) {
     for (const part of message.parts) {
       if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
       if (!isRecord(part.state) || part.state.status !== "completed") continue
+      if (!whiteboardCreateTargetsObject(part.state, input.objectID)) continue
       if (!didCompletedWhiteboardCreateSave(part.state)) continue
       const boardID = readToolMetadataString(part.state, "boardID")
       if (
@@ -517,11 +636,19 @@ function hasUnfetchedCompletedWhiteboardCreate(input: {
   return false
 }
 
-function hasLatestFailedWhiteboardCreate(messages: MessageWithParts[]): boolean {
+function hasLatestFailedWhiteboardCreate(
+  messages: MessageWithParts[],
+  objectID?: string,
+): boolean {
   for (const message of messages.toReversed()) {
     for (const part of message.parts.toReversed()) {
       if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
       if (!isRecord(part.state)) continue
+      if (
+        !whiteboardCreateTargetsObject(part.state, objectID)
+      ) {
+        continue
+      }
       return part.state.status === "error"
     }
   }
@@ -539,21 +666,26 @@ function resolveStickyProgressiveWhiteboardPreview(input: {
   return input.retainWithoutComputed ? input.current : undefined
 }
 
-function countCompletedWhiteboardCreate(messages: MessageWithParts[]): number {
+function countCompletedWhiteboardCreate(messages: MessageWithParts[], objectID?: string): number {
   let count = 0
   for (const message of messages) {
     for (const part of message.parts) {
       if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
       if (!isRecord(part.state) || part.state.status !== "completed") continue
+      if (!whiteboardCreateTargetsObject(part.state, objectID)) continue
       count += 1
     }
   }
   return count
 }
 
-function hasWhiteboardCreate(messages: MessageWithParts[]): boolean {
+function hasWhiteboardCreate(messages: MessageWithParts[], objectID?: string): boolean {
   return messages.some((message) =>
-    message.parts.some((part) => part.type === "tool" && part.tool === "whiteboard_create_view"),
+    message.parts.some((part) => {
+      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") return false
+      if (!isRecord(part.state)) return objectID === undefined
+      return whiteboardCreateTargetsObject(part.state, objectID)
+    }),
   )
 }
 
@@ -586,6 +718,7 @@ export {
   hasWhiteboardCreate,
   parsePartialElements,
   readLatestActiveWhiteboardCreateKey,
+  readLatestActiveWhiteboardCreate,
   readLatestStreamingWhiteboardRaw,
   resolveStickyProgressiveWhiteboardPreview,
 }

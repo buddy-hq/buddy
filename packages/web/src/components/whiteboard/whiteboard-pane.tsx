@@ -1,11 +1,11 @@
 import { toast } from "@buddy/ui"
-import type { ObjectWhiteboardSessionReadResponse } from "@buddy/sdk/types"
+import type { ObjectWhiteboardObjectReadResponse } from "@buddy/sdk/types"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePlatform } from "@/context/platform"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
-import { whiteboardQueryKeys, whiteboardSessionQueryOptions } from "./whiteboard-query"
+import { whiteboardQueryKeys, whiteboardObjectQueryOptions } from "./whiteboard-query"
 import type {
   PersistedWhiteboardElement,
   WhiteboardRenderReport,
@@ -20,6 +20,7 @@ import {
   resolveStickyProgressiveWhiteboardPreview,
   type ProgressiveWhiteboardPreview,
 } from "./whiteboard-progressive"
+import { useLiveWhiteboardMessages } from "./whiteboard-live-messages"
 import { createWhiteboardShareJson } from "./whiteboard-share"
 import type {
   WhiteboardLearnerSaveHandler,
@@ -41,7 +42,8 @@ const WhiteboardOpeningAnimation = lazy(async () => {
 
 type WhiteboardPaneProps = {
   directory: string
-  sessionID?: string
+  objectID?: string
+  previewToolKey?: string
   isBusy: boolean
   messages: MessageWithParts[]
   onLeaveGuardChange?: (guard: (() => Promise<BenchLeaveGuardResult>) | undefined) => void
@@ -72,20 +74,20 @@ const WHITEBOARD_SAVE_CONFLICT_MESSAGE =
 const WHITEBOARD_SAVE_STILL_RUNNING_MESSAGE =
   "The whiteboard is still saving. Try switching chats again in a moment."
 
-function resolveWhiteboardCanvasKey(input: { sessionID?: string }): string {
-  return input.sessionID ?? WHITEBOARD_CANVAS_EMPTY_KEY
+function resolveWhiteboardCanvasKey(input: { objectID?: string }): string {
+  return input.objectID ?? WHITEBOARD_CANVAS_EMPTY_KEY
 }
 
 function resolveWhiteboardCanvasViewport(input: {
-  sessionID?: string
+  objectID?: string
   liveViewport?: {
-    sessionID?: string
+    objectID?: string
     viewport: WhiteboardViewport
   }
   boardViewport?: WhiteboardViewport
 }): WhiteboardViewport | undefined {
   const liveViewport = input.liveViewport
-  if (liveViewport && liveViewport.sessionID === input.sessionID) {
+  if (liveViewport && liveViewport.objectID === input.objectID) {
     return liveViewport.viewport
   }
   return input.boardViewport
@@ -127,11 +129,11 @@ function resolveWhiteboardLeaveSettlement(
 }
 
 function shouldRefetchWhiteboardAfterBusyChange(input: {
-  sessionID?: string
+  objectID?: string
   wasBusy: boolean
   isBusy: boolean
 }): boolean {
-  return Boolean(input.sessionID && input.wasBusy && !input.isBusy)
+  return Boolean(input.objectID && input.wasBusy && !input.isBusy)
 }
 
 function shouldRetainProgressiveWhiteboardPreview(input: {
@@ -148,10 +150,20 @@ function shouldRetainProgressiveWhiteboardPreview(input: {
 }
 
 function shouldPollWhiteboardDuringActiveCreate(input: {
-  sessionID?: string
+  objectID?: string
   hasActiveWhiteboardCreateTool: boolean
 }): boolean {
-  return Boolean(input.sessionID && input.hasActiveWhiteboardCreateTool)
+  return Boolean(input.objectID && input.hasActiveWhiteboardCreateTool)
+}
+
+function shouldShowWhiteboardOpeningAnimation(input: {
+  hasDisplayedBoard: boolean
+  hasActiveWhiteboardCreateTool: boolean
+  isBusy: boolean
+}): boolean {
+  return (
+    !input.hasDisplayedBoard && (input.hasActiveWhiteboardCreateTool || input.isBusy)
+  )
 }
 
 function shouldPreferFetchedBoardDuringActiveCreate(input: {
@@ -176,7 +188,15 @@ function resolveWhiteboardRenderReportKey(input: {
 }
 
 export function WhiteboardPane(props: WhiteboardPaneProps) {
-  const { directory, sessionID, isBusy, messages, onLeaveGuardChange } = props
+  const {
+    directory,
+    objectID,
+    previewToolKey,
+    isBusy,
+    messages: messageSnapshot,
+    onLeaveGuardChange,
+  } = props
+  const messages = useLiveWhiteboardMessages(messageSnapshot)
   const platform = usePlatform()
   const queryClient = useQueryClient()
   const [sharingBoard, setSharingBoard] = useState(false)
@@ -185,49 +205,59 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   // Excalidraw text-submit from synchronously rerendering the editor during its own cleanup.
   const liveDraftBoardRef = useRef<LiveWhiteboardBoard>()
   const liveViewportRef = useRef<{
-    sessionID?: string
+    objectID?: string
     viewport: WhiteboardViewport
   }>()
   const previousBoardKeyRef = useRef<string>()
   const previousBusyRef = useRef(isBusy)
   const surfaceActive = useBenchSurfaceActive()
   const settleLearnerSaveRef = useRef<() => Promise<WhiteboardLearnerSaveSettlement>>()
-  const sessionQuery = useQuery({
-    ...whiteboardSessionQueryOptions(directory, sessionID ?? ""),
-    enabled: Boolean(sessionID),
+  const objectQuery = useQuery({
+    ...whiteboardObjectQueryOptions(directory, objectID ?? ""),
+    enabled: Boolean(objectID),
   })
-  const refetchSession = sessionQuery.refetch
-  const currentBoard = sessionQuery.data?.currentBoard ?? undefined
+  const refetchObject = objectQuery.refetch
+  const currentBoard = objectQuery.data?.currentBoard ?? undefined
   const boardID = currentBoard?.boardID
   const computedProgressivePreview = useMemo(
     () =>
       buildProgressiveWhiteboardPreviewFromMessages({
         messages,
+        objectID,
+        toolKey: previewToolKey,
         baseBoardID: boardID,
         baseElements: currentBoard?.elements ?? [],
         ...(currentBoard?.viewport ? { baseViewport: currentBoard.viewport } : {}),
       }),
-    [boardID, currentBoard?.elements, currentBoard?.viewport, messages],
+    [
+      boardID,
+      currentBoard?.elements,
+      currentBoard?.viewport,
+      messages,
+      objectID,
+      previewToolKey,
+    ],
   )
   const completedWhiteboardCreateCount = useMemo(
-    () => countCompletedWhiteboardCreate(messages),
-    [messages],
+    () => countCompletedWhiteboardCreate(messages, objectID),
+    [messages, objectID],
   )
   const hasActiveWhiteboardCreateTool = useMemo(
-    () => hasActiveWhiteboardCreate(messages),
-    [messages],
+    () => hasActiveWhiteboardCreate(messages, objectID, previewToolKey),
+    [messages, objectID, previewToolKey],
   )
   const hasUnfetchedCompletedWhiteboardCreateTool = useMemo(
     () =>
       hasUnfetchedCompletedWhiteboardCreate({
         messages,
+        objectID,
         baseBoardID: boardID,
       }),
-    [boardID, messages],
+    [boardID, messages, objectID],
   )
   const hasLatestFailedWhiteboardCreateTool = useMemo(
-    () => hasLatestFailedWhiteboardCreate(messages),
-    [messages],
+    () => hasLatestFailedWhiteboardCreate(messages, objectID),
+    [messages, objectID],
   )
   const [progressivePreview, setProgressivePreview] = useState<ProgressiveWhiteboardPreview>()
   const shouldUseFetchedBoardDuringActiveCreate = shouldPreferFetchedBoardDuringActiveCreate({
@@ -250,11 +280,16 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       ...(progressivePreview.viewport ? { viewport: progressivePreview.viewport } : {}),
     }
   }, [currentBoard, progressivePreview, shouldUseFetchedBoardDuringActiveCreate])
+  const showOpeningAnimation = shouldShowWhiteboardOpeningAnimation({
+    hasDisplayedBoard: Boolean(displayedBoard),
+    hasActiveWhiteboardCreateTool,
+    isBusy,
+  })
   const canvasKey = resolveWhiteboardCanvasKey({
-    sessionID,
+    objectID,
   })
   const canvasViewport = resolveWhiteboardCanvasViewport({
-    sessionID,
+    objectID,
     liveViewport: liveViewportRef.current,
     boardViewport: displayedBoard?.viewport,
   })
@@ -285,9 +320,9 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   ])
 
   useEffect(() => {
-    if (!sessionID || completedWhiteboardCreateCount === 0) return
-    void refetchSession()
-  }, [completedWhiteboardCreateCount, refetchSession, sessionID])
+    if (!objectID || completedWhiteboardCreateCount === 0) return
+    void refetchObject()
+  }, [completedWhiteboardCreateCount, refetchObject, objectID])
 
   useEffect(() => {
     setActiveWhiteboardBase((current) => {
@@ -301,28 +336,28 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     if (!surfaceActive) return
     if (
       !shouldPollWhiteboardDuringActiveCreate({
-        sessionID,
+        objectID,
         hasActiveWhiteboardCreateTool,
       })
     ) {
       return
     }
-    void refetchSession()
+    void refetchObject()
     const interval = window.setInterval(() => {
-      void refetchSession()
+      void refetchObject()
     }, ACTIVE_WHITEBOARD_REFETCH_INTERVAL_MS)
     return () => window.clearInterval(interval)
-  }, [hasActiveWhiteboardCreateTool, refetchSession, sessionID, surfaceActive])
+  }, [hasActiveWhiteboardCreateTool, refetchObject, objectID, surfaceActive])
 
   useEffect(() => {
     const wasBusy = previousBusyRef.current
     previousBusyRef.current = isBusy
-    if (!shouldRefetchWhiteboardAfterBusyChange({ sessionID, wasBusy, isBusy })) return
-    void refetchSession()
-  }, [isBusy, refetchSession, sessionID])
+    if (!shouldRefetchWhiteboardAfterBusyChange({ objectID, wasBusy, isBusy })) return
+    void refetchObject()
+  }, [isBusy, refetchObject, objectID])
 
   useEffect(() => {
-    const boardKey = `${sessionID ?? ""}:${boardID ?? ""}`
+    const boardKey = `${objectID ?? ""}:${boardID ?? ""}`
     if (previousBoardKeyRef.current === undefined) {
       previousBoardKeyRef.current = boardKey
       return
@@ -331,18 +366,18 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     previousBoardKeyRef.current = boardKey
     setProgressivePreview(undefined)
     liveDraftBoardRef.current = undefined
-  }, [boardID, sessionID])
+  }, [boardID, objectID])
 
-  const updateSessionData = useCallback(
-    (data: ObjectWhiteboardSessionReadResponse) => {
-      if (!sessionID) return
-      queryClient.setQueryData(whiteboardQueryKeys.session(directory, sessionID), data)
+  const updateObjectData = useCallback(
+    (data: ObjectWhiteboardObjectReadResponse) => {
+      if (!objectID) return
+      queryClient.setQueryData(whiteboardQueryKeys.object(directory, objectID), data)
     },
-    [directory, queryClient, sessionID],
+    [directory, queryClient, objectID],
   )
 
   const shareBoard = useCallback(async () => {
-    if (!sessionID || !displayedBoard || sharingBoard) return
+    if (!objectID || !displayedBoard || sharingBoard) return
     setSharingBoard(true)
     try {
       const saveSettlement = await settleLearnerSaveRef.current?.()
@@ -354,7 +389,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
         toast.error(WHITEBOARD_SHARE_SAVE_FAILED_MESSAGE)
         return
       }
-      const refetched = await refetchSession()
+      const refetched = await refetchObject()
       const boardToShare = resolveWhiteboardShareBoard({
         displayedBoard,
         liveDraftBoard,
@@ -363,9 +398,9 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       if (!boardToShare) return
       const json = await createWhiteboardShareJson(boardToShare)
       const result = requireBuddyData(
-        await getBuddyClient(directory).objectWhiteboard.session.share.create({
+        await getBuddyClient(directory).objectWhiteboard.object.share.create({
           directory,
-          sessionID,
+          objectID,
           json,
         }),
       )
@@ -376,7 +411,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     } finally {
       setSharingBoard(false)
     }
-  }, [directory, displayedBoard, platform, refetchSession, sessionID, sharingBoard])
+  }, [directory, displayedBoard, platform, refetchObject, objectID, sharingBoard])
 
   const registerLearnerSaveSettler = useCallback(
     (settle: (() => Promise<WhiteboardLearnerSaveSettlement>) | undefined) => {
@@ -404,11 +439,11 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   const captureLiveViewport = useCallback(
     (viewport: WhiteboardViewport) => {
       liveViewportRef.current = {
-        sessionID,
+        objectID,
         viewport,
       }
     },
-    [sessionID],
+    [objectID],
   )
 
   const captureLiveDraftBoard = useCallback((board: LiveWhiteboardBoard | undefined) => {
@@ -421,61 +456,61 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       elements: PersistedWhiteboardElement[]
       viewport: WhiteboardViewport
     }) => {
-      if (!sessionID) {
+      if (!objectID) {
         return { status: "failed" }
       }
       try {
-        const result = await getBuddyClient(directory).objectWhiteboard.session.saveLearnerEdit({
+        const result = await getBuddyClient(directory).objectWhiteboard.object.saveLearnerEdit({
           directory,
-          sessionID,
+          objectID,
           baseBoardID: input.baseBoardID,
           elements: input.elements,
           viewport: input.viewport,
         })
         if (result.response?.status === 409) {
-          await refetchSession()
+          await refetchObject()
           liveDraftBoardRef.current = undefined
           toast.error(WHITEBOARD_SAVE_CONFLICT_MESSAGE)
           return { status: "conflict" }
         }
         const data = requireBuddyData(result)
-        updateSessionData(data)
+        updateObjectData(data)
         liveDraftBoardRef.current = undefined
         return data.currentBoard ? { status: "saved" } : { status: "failed" }
       } catch (error) {
-        await refetchSession()
+        await refetchObject()
         toast.error(error instanceof Error ? error.message : String(error))
         return { status: "failed" }
       }
     },
-    [directory, refetchSession, sessionID, updateSessionData],
+    [directory, refetchObject, objectID, updateObjectData],
   )
 
   const saveRenderReport = useCallback(
     async (report: WhiteboardRenderReport) => {
-      if (!sessionID) return
+      if (!objectID) return
       try {
-        await getBuddyClient(directory).objectWhiteboard.session.renderReport.save({
+        await getBuddyClient(directory).objectWhiteboard.object.renderReport.save({
           directory,
-          sessionID,
+          objectID,
           ...report,
         })
       } catch {
         // Render feedback improves future model edits but should never surface as a save error.
       }
     },
-    [directory, sessionID],
+    [directory, objectID],
   )
 
   const shareAction = useMemo(
     () => ({
-      disabled: !sessionID || !displayedBoard || sharingBoard || hasActiveWhiteboardCreateTool,
+      disabled: !objectID || !displayedBoard || sharingBoard || hasActiveWhiteboardCreateTool,
       isSharing: sharingBoard,
       onShare: () => {
         void shareBoard()
       },
     }),
-    [displayedBoard, hasActiveWhiteboardCreateTool, sessionID, shareBoard, sharingBoard],
+    [displayedBoard, hasActiveWhiteboardCreateTool, objectID, shareBoard, sharingBoard],
   )
   return (
     <section
@@ -506,7 +541,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
               onRenderReport={saveRenderReport}
             />
           </Suspense>
-        ) : isBusy ? (
+        ) : showOpeningAnimation ? (
           // No copy: the diagram assembling itself already says a board is being drawn.
           <Suspense fallback={null}>
             <WhiteboardOpeningAnimation />
@@ -531,4 +566,5 @@ export {
   shouldPreferFetchedBoardDuringActiveCreate,
   shouldRetainProgressiveWhiteboardPreview,
   shouldRefetchWhiteboardAfterBusyChange,
+  shouldShowWhiteboardOpeningAnimation,
 }

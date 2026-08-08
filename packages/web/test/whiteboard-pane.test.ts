@@ -9,6 +9,7 @@ import {
   shouldPreferFetchedBoardDuringActiveCreate,
   shouldRetainProgressiveWhiteboardPreview,
   shouldRefetchWhiteboardAfterBusyChange,
+  shouldShowWhiteboardOpeningAnimation,
 } from "../src/components/whiteboard/whiteboard-pane"
 import type { PersistedWhiteboardElement } from "../src/components/whiteboard/whiteboard-elements"
 
@@ -41,34 +42,34 @@ describe("whiteboard pane state helpers", () => {
     })
   })
 
-  test("keeps one canvas instance for the full chat session", () => {
+  test("keeps one canvas instance for the full whiteboard object", () => {
     const firstEditable = resolveWhiteboardCanvasKey({
-      sessionID: "session",
+      objectID: "session",
     })
     const secondEditable = resolveWhiteboardCanvasKey({
-      sessionID: "session",
+      objectID: "session",
     })
     const firstPreview = resolveWhiteboardCanvasKey({
-      sessionID: "session",
+      objectID: "session",
     })
-    const otherSession = resolveWhiteboardCanvasKey({
-      sessionID: "other-session",
+    const otherObject = resolveWhiteboardCanvasKey({
+      objectID: "other-session",
     })
 
     expect(firstEditable).toBe(secondEditable)
     expect(firstEditable).toBe(firstPreview)
-    expect(firstEditable).not.toBe(otherSession)
+    expect(firstEditable).not.toBe(otherObject)
   })
 
-  test("preserves the visible viewport across same-session generation transitions", () => {
+  test("preserves the visible viewport across same-object generation transitions", () => {
     const boardViewport = { x: 0, y: 0, width: 800, height: 600 }
     const liveViewport = { x: 120, y: 80, width: 400, height: 300 }
 
     expect(
       resolveWhiteboardCanvasViewport({
-        sessionID: "session",
+        objectID: "session",
         liveViewport: {
-          sessionID: "session",
+          objectID: "session",
           viewport: liveViewport,
         },
         boardViewport,
@@ -76,9 +77,9 @@ describe("whiteboard pane state helpers", () => {
     ).toBe(liveViewport)
     expect(
       resolveWhiteboardCanvasViewport({
-        sessionID: "other-session",
+        objectID: "other-session",
         liveViewport: {
-          sessionID: "session",
+          objectID: "session",
           viewport: liveViewport,
         },
         boardViewport,
@@ -116,14 +117,14 @@ describe("whiteboard pane state helpers", () => {
   test("refetches the board when an active turn becomes idle", () => {
     expect(
       shouldRefetchWhiteboardAfterBusyChange({
-        sessionID: "session",
+        objectID: "session",
         wasBusy: true,
         isBusy: false,
       }),
     ).toBe(true)
     expect(
       shouldRefetchWhiteboardAfterBusyChange({
-        sessionID: "session",
+        objectID: "session",
         wasBusy: false,
         isBusy: false,
       }),
@@ -158,19 +159,50 @@ describe("whiteboard pane state helpers", () => {
   test("polls current board state only while an active whiteboard create is visible", () => {
     expect(
       shouldPollWhiteboardDuringActiveCreate({
-        sessionID: "session",
+        objectID: "session",
         hasActiveWhiteboardCreateTool: true,
       }),
     ).toBe(true)
     expect(
       shouldPollWhiteboardDuringActiveCreate({
-        sessionID: "session",
+        objectID: "session",
         hasActiveWhiteboardCreateTool: false,
       }),
     ).toBe(false)
     expect(
       shouldPollWhiteboardDuringActiveCreate({
         hasActiveWhiteboardCreateTool: true,
+      }),
+    ).toBe(false)
+  })
+
+  test("shows the opening animation for a transient board before its first streamed element", () => {
+    expect(
+      shouldShowWhiteboardOpeningAnimation({
+        hasDisplayedBoard: false,
+        hasActiveWhiteboardCreateTool: true,
+        isBusy: false,
+      }),
+    ).toBe(true)
+    expect(
+      shouldShowWhiteboardOpeningAnimation({
+        hasDisplayedBoard: false,
+        hasActiveWhiteboardCreateTool: false,
+        isBusy: true,
+      }),
+    ).toBe(true)
+    expect(
+      shouldShowWhiteboardOpeningAnimation({
+        hasDisplayedBoard: false,
+        hasActiveWhiteboardCreateTool: false,
+        isBusy: false,
+      }),
+    ).toBe(false)
+    expect(
+      shouldShowWhiteboardOpeningAnimation({
+        hasDisplayedBoard: true,
+        hasActiveWhiteboardCreateTool: true,
+        isBusy: true,
       }),
     ).toBe(false)
   })

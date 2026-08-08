@@ -1,5 +1,5 @@
 import { memo } from "react"
-import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
+import type { ResourceReadingTarget } from "@/state/resources-query"
 import { parseToolState } from "../../tools/parse-tool-state"
 import { AssistantTextPart } from "./text-part"
 import { ReasoningPart } from "./reasoning-part"
@@ -21,11 +21,7 @@ export type AssistantPartRendererProps = {
   interrupted?: boolean
   streaming?: boolean
   onOpenSession?: (sessionID: string) => void
-  onOpenResource?: (
-    directory: string,
-    resource: ResourceReadingTarget,
-    options?: ResourceOpenOptions,
-  ) => void
+  onOpenResource?: (directory: string, resource: ResourceReadingTarget) => void
   onForkMessage?: () => Promise<void> | void
   stripLeadingFigureImage?: boolean
   stripLeadingMermaidSources?: string[]

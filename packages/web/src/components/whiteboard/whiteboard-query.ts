@@ -5,38 +5,22 @@ const WHITEBOARD_QUERY_SCOPE = "whiteboard" as const
 const WHITEBOARD_QUERY_STALE_TIME_MS = 0
 
 const whiteboardQueryKeys = {
-  session: (directory: string, sessionID: string) =>
-    [WHITEBOARD_QUERY_SCOPE, directory, sessionID] as const,
-  sessionPeek: (directory: string, sessionID: string) =>
-    [WHITEBOARD_QUERY_SCOPE, "peek", directory, sessionID] as const,
+  object: (directory: string, objectID: string) =>
+    [WHITEBOARD_QUERY_SCOPE, directory, objectID] as const,
 }
 
-function whiteboardSessionQueryOptions(directory: string, sessionID: string) {
+function whiteboardObjectQueryOptions(directory: string, objectID: string) {
   return queryOptions({
-    queryKey: whiteboardQueryKeys.session(directory, sessionID),
+    queryKey: whiteboardQueryKeys.object(directory, objectID),
     queryFn: async () =>
       requireBuddyData(
-        await getBuddyClient(directory).objectWhiteboard.session.read({
+        await getBuddyClient(directory).objectWhiteboard.object.read({
           directory,
-          sessionID,
+          objectID,
         }),
       ),
     staleTime: WHITEBOARD_QUERY_STALE_TIME_MS,
   })
 }
 
-function whiteboardSessionPeekQueryOptions(directory: string, sessionID: string) {
-  return queryOptions({
-    queryKey: whiteboardQueryKeys.sessionPeek(directory, sessionID),
-    queryFn: async () =>
-      requireBuddyData(
-        await getBuddyClient(directory).objectWhiteboard.session.peek({
-          directory,
-          sessionID,
-        }),
-      ),
-    staleTime: WHITEBOARD_QUERY_STALE_TIME_MS,
-  })
-}
-
-export { whiteboardQueryKeys, whiteboardSessionPeekQueryOptions, whiteboardSessionQueryOptions }
+export { whiteboardObjectQueryOptions, whiteboardQueryKeys }

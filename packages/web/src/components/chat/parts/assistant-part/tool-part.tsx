@@ -1,5 +1,5 @@
 import { memo } from "react"
-import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
+import type { ResourceReadingTarget } from "@/state/resources-query"
 import { BasicTool } from "../../tools/basic-tool"
 import { InlineAssetBoundary } from "../../inline-asset-boundary"
 import { parseToolState } from "../../tools/parse-tool-state"
@@ -14,11 +14,7 @@ type ToolPartRendererProps = {
   directory?: string
   canEditImages?: boolean
   onOpenSession?: (sessionID: string) => void
-  onOpenResource?: (
-    directory: string,
-    resource: ResourceReadingTarget,
-    options?: ResourceOpenOptions,
-  ) => void
+  onOpenResource?: (directory: string, resource: ResourceReadingTarget) => void
   defaultOpen?: boolean
 }
 

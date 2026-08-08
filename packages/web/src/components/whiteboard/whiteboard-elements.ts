@@ -3,13 +3,13 @@ import type { Bounds } from "@excalidraw/excalidraw/element/bounds"
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types"
 import type { AppState } from "@excalidraw/excalidraw/types"
 import type {
-  ObjectWhiteboardSessionReadResponse,
-  ObjectWhiteboardSessionSaveLearnerEditData,
+  ObjectWhiteboardObjectReadResponse,
+  ObjectWhiteboardObjectSaveLearnerEditData,
 } from "@buddy/sdk"
 
-type CurrentWhiteboardBoard = NonNullable<ObjectWhiteboardSessionReadResponse["currentBoard"]>
+type CurrentWhiteboardBoard = NonNullable<ObjectWhiteboardObjectReadResponse["currentBoard"]>
 type PersistedWhiteboardElement = CurrentWhiteboardBoard["elements"][number]
-type LearnerEditBody = NonNullable<ObjectWhiteboardSessionSaveLearnerEditData["body"]>
+type LearnerEditBody = NonNullable<ObjectWhiteboardObjectSaveLearnerEditData["body"]>
 type WhiteboardViewport = NonNullable<LearnerEditBody["viewport"]>
 type WhiteboardEditorElementGroup =
   | {
