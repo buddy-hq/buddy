@@ -54,6 +54,7 @@
     "@ai-sdk/anthropic": "2.0.62",
     "@bokuweb/zstd-wasm": "^0.0.27",
     "@buddy/opencode-adapter": "workspace:*",
+    "@buddy/reader-contract": "workspace:*",
     "@buddy/workspace-file-policy": "workspace:*",
     "@chonkiejs/core": "^0.0.8",
     "@hono/node-server": "^1.19.9",

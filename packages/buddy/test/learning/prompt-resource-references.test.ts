@@ -3,6 +3,10 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
+import {
+  READER_ANCHOR_KIND_CFI_TEXT,
+  READER_ANCHOR_KIND_PDF_TEXT,
+} from "@buddy/reader-contract"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
@@ -14,6 +18,7 @@ import {
   BUDDY_PROMPT_PART_METADATA_KEY,
   flattenPromptPartsForRuntime,
   OPENCODE_REFERENCE_PART_TYPE,
+  READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   TEXT_FILE_ATTACHMENT_PART_TYPE,
@@ -335,6 +340,109 @@ describe("message prompt resource references", () => {
         },
       },
     ])
+  })
+
+  test("preserves neutral PDF selection anchors in prompt metadata", () => {
+    const anchor = {
+      kind: READER_ANCHOR_KIND_PDF_TEXT,
+      segments: [
+        {
+          pageIndex: 3,
+          quads: [
+            {
+              topLeft: { x: 10, y: 20 },
+              topRight: { x: 50, y: 20 },
+              bottomRight: { x: 50, y: 32 },
+              bottomLeft: { x: 10, y: 32 },
+            },
+          ],
+        },
+      ],
+      quote: { exact: "Selected PDF text" },
+    }
+
+    expect(
+      flattenPromptPartsForRuntime([
+        {
+          type: SELECTION_CONTEXT_PART_TYPE,
+          source: "reading",
+          text: "Selected PDF text",
+          selectionKey: "selection-pdf",
+          resourceKey: "pdf-book",
+          anchor,
+          pageLabel: "4",
+        },
+      ]),
+    ).toEqual([
+      {
+        type: "text",
+        text: "Selected PDF text",
+        metadata: {
+          buddyPromptPart: {
+            type: SELECTION_CONTEXT_PART_TYPE,
+            source: "reading",
+            text: "Selected PDF text",
+            selectionKey: "selection-pdf",
+            resourceKey: "pdf-book",
+            anchor,
+            pageLabel: "4",
+          },
+        },
+      },
+    ])
+  })
+
+  test("migrates historical reading-selection CFI metadata without writing flat fields", () => {
+    expect(
+      flattenPromptPartsForRuntime([
+        {
+          type: READING_SELECTION_PART_TYPE,
+          text: "Legacy selected text",
+          cfi: "epubcfi(/6/2)",
+          index: 1,
+        },
+      ]),
+    ).toEqual([
+      {
+        type: "text",
+        text: "Legacy selected text",
+        metadata: {
+          buddyPromptPart: {
+            type: READING_SELECTION_PART_TYPE,
+            text: "Legacy selected text",
+            anchor: {
+              kind: READER_ANCHOR_KIND_CFI_TEXT,
+              cfi: "epubcfi(/6/2)",
+              sectionIndex: 1,
+            },
+          },
+        },
+      },
+    ])
+  })
+
+  test("rejects unanchored reading selections and never falls back past a malformed anchor", () => {
+    expect(() =>
+      flattenPromptPartsForRuntime([
+        {
+          type: SELECTION_CONTEXT_PART_TYPE,
+          source: "reading",
+          text: "Unanchored selection",
+          selectionKey: "selection-missing-anchor",
+        },
+      ]),
+    ).toThrow("reading selection-context anchor is required")
+
+    expect(() =>
+      flattenPromptPartsForRuntime([
+        {
+          type: READING_SELECTION_PART_TYPE,
+          text: "Malformed canonical selection",
+          anchor: {},
+          cfi: "epubcfi(/6/2)",
+        },
+      ]),
+    ).toThrow("reading-selection anchor is required")
   })
 
   test("keeps unresolved raw @tokens as text", async () => {

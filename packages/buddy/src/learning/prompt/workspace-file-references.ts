@@ -2,6 +2,11 @@ import os from "node:os"
 import path from "node:path"
 import { promises as fs } from "node:fs"
 import { pathToFileURL } from "node:url"
+import {
+  READER_ANCHOR_KIND_CFI_TEXT,
+  readReaderTextAnchor,
+  type ReaderTextAnchor,
+} from "@buddy/reader-contract"
 import { Agent } from "@buddy/opencode-adapter/agent"
 import { SessionTransformValidationError } from "../../session"
 import { resolveResourceReference } from "../../resources/resource-registry-service"
@@ -61,27 +66,50 @@ export type ReadingSelectionPart = {
   text: string
   selectionKey?: string
   resourceKey?: string
-  cfi?: string
-  index?: number
+  anchor: ReaderTextAnchor
   tocLabel?: string
   pageLabel?: string
   locationLabel?: string
 }
 
-export type SelectionContextPart = {
+export type ReadingSelectionContextPart = {
   type: typeof SELECTION_CONTEXT_PART_TYPE
-  source: "reading" | "markdown"
+  source: "reading"
+  text: string
+  selectionKey: string
+  resourceKey?: string
+  anchor: ReaderTextAnchor
+  tocLabel?: string
+  pageLabel?: string
+  locationLabel?: string
+}
+
+export type MarkdownSelectionContextPart = {
+  type: typeof SELECTION_CONTEXT_PART_TYPE
+  source: "markdown"
   text: string
   selectionKey: string
   path?: string
   version?: string
   headingPath?: string[]
-  resourceKey?: string
-  cfi?: string
-  index?: number
-  tocLabel?: string
-  pageLabel?: string
-  locationLabel?: string
+}
+
+export type SelectionContextPart =
+  | ReadingSelectionContextPart
+  | MarkdownSelectionContextPart
+
+type ReadingSelectionPartInput = {
+  type: typeof READING_SELECTION_PART_TYPE
+  text: string
+  [key: string]: unknown
+}
+
+type SelectionContextPartInput = {
+  type: typeof SELECTION_CONTEXT_PART_TYPE
+  source: "reading" | "markdown"
+  text: string
+  selectionKey: string
+  [key: string]: unknown
 }
 
 export async function normalizePromptParts(input: {
@@ -473,12 +501,12 @@ function isResourceReferencePart(part: unknown): part is ResourceReferencePart {
   return part.type === RESOURCE_REFERENCE_PART_TYPE && typeof part.key === "string"
 }
 
-function isReadingSelectionPart(part: unknown): part is ReadingSelectionPart {
+function isReadingSelectionPart(part: unknown): part is ReadingSelectionPartInput {
   if (!isPlainObject(part)) return false
   return part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string"
 }
 
-function isSelectionContextPart(part: unknown): part is SelectionContextPart {
+function isSelectionContextPart(part: unknown): part is SelectionContextPartInput {
   if (!isPlainObject(part)) return false
   return (
     part.type === SELECTION_CONTEXT_PART_TYPE &&
@@ -491,10 +519,26 @@ function isSelectionContextPart(part: unknown): part is SelectionContextPart {
   )
 }
 
-function normalizeReadingSelectionPart(part: ReadingSelectionPart) {
+function readSelectionTextAnchor(value: unknown): ReaderTextAnchor | undefined {
+  if (!isPlainObject(value)) return undefined
+  if (value.anchor !== undefined) return readReaderTextAnchor(value.anchor)
+  if (typeof value.cfi !== "string") return undefined
+
+  return readReaderTextAnchor({
+    kind: READER_ANCHOR_KIND_CFI_TEXT,
+    cfi: value.cfi,
+    ...(value.index !== undefined ? { sectionIndex: value.index } : {}),
+  })
+}
+
+function normalizeReadingSelectionPart(part: ReadingSelectionPartInput): ReadingSelectionPart {
   const text = part.text.trim()
   if (!text) {
     throw new SessionTransformValidationError("reading-selection text is required")
+  }
+  const anchor = readSelectionTextAnchor(part)
+  if (!anchor) {
+    throw new SessionTransformValidationError("reading-selection anchor is required")
   }
 
   return {
@@ -506,8 +550,7 @@ function normalizeReadingSelectionPart(part: ReadingSelectionPart) {
     ...(typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
       ? { resourceKey: part.resourceKey.trim() }
       : {}),
-    ...(typeof part.cfi === "string" && part.cfi.trim().length > 0 ? { cfi: part.cfi.trim() } : {}),
-    ...(typeof part.index === "number" && Number.isFinite(part.index) ? { index: part.index } : {}),
+    anchor,
     ...(typeof part.tocLabel === "string" && part.tocLabel.trim().length > 0
       ? { tocLabel: part.tocLabel.trim() }
       : {}),
@@ -520,7 +563,7 @@ function normalizeReadingSelectionPart(part: ReadingSelectionPart) {
   }
 }
 
-function normalizeSelectionContextPart(part: SelectionContextPart) {
+function normalizeSelectionContextPart(part: SelectionContextPartInput): SelectionContextPart {
   const text = part.text.trim()
   if (!text) {
     throw new SessionTransformValidationError("selection-context text is required")
@@ -530,26 +573,42 @@ function normalizeSelectionContextPart(part: SelectionContextPart) {
   if (!selectionKey) {
     throw new SessionTransformValidationError("selection-context selectionKey is required")
   }
+  if (part.source === "markdown") {
+    return {
+      type: SELECTION_CONTEXT_PART_TYPE,
+      source: "markdown",
+      text,
+      selectionKey,
+      ...(typeof part.path === "string" && part.path.trim().length > 0
+        ? { path: part.path.trim() }
+        : {}),
+      ...(typeof part.version === "string" && part.version.trim().length > 0
+        ? { version: part.version.trim() }
+        : {}),
+      ...(Array.isArray(part.headingPath)
+        ? {
+            headingPath: part.headingPath.flatMap((entry) =>
+              typeof entry === "string" && entry.trim() ? [entry.trim()] : [],
+            ),
+          }
+        : {}),
+    }
+  }
+
+  const anchor = readSelectionTextAnchor(part)
+  if (!anchor) {
+    throw new SessionTransformValidationError("reading selection-context anchor is required")
+  }
 
   return {
     type: SELECTION_CONTEXT_PART_TYPE,
-    source: part.source,
+    source: "reading",
     text,
     selectionKey,
-    ...(typeof part.path === "string" && part.path.trim().length > 0
-      ? { path: part.path.trim() }
-      : {}),
-    ...(typeof part.version === "string" && part.version.trim().length > 0
-      ? { version: part.version.trim() }
-      : {}),
-    ...(Array.isArray(part.headingPath)
-      ? { headingPath: part.headingPath.map((entry) => entry.trim()).filter(Boolean) }
-      : {}),
     ...(typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
       ? { resourceKey: part.resourceKey.trim() }
       : {}),
-    ...(typeof part.cfi === "string" && part.cfi.trim().length > 0 ? { cfi: part.cfi.trim() } : {}),
-    ...(typeof part.index === "number" && Number.isFinite(part.index) ? { index: part.index } : {}),
+    anchor,
     ...(typeof part.tocLabel === "string" && part.tocLabel.trim().length > 0
       ? { tocLabel: part.tocLabel.trim() }
       : {}),

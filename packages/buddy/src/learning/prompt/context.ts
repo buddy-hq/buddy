@@ -1,5 +1,11 @@
 import path from "node:path"
 import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
+import {
+  READER_ANCHOR_KIND_CFI_POSITION,
+  readReaderLocation,
+  type ReaderLocation,
+  type ReaderTrailEntry,
+} from "@buddy/reader-contract"
 import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
 import { Provider } from "@buddy/opencode-adapter/provider"
 import type { TeachingPromptContext } from "../features/lesson-workspace/model/types"
@@ -38,23 +44,12 @@ type ActiveReadingContext = {
   resourceKey?: string
   title: string
   path: string
-  cfi?: string
-  index?: number
-  fraction?: number
-  locationLabel?: string
-  tocLabel?: string
-  pageLabel?: string
+  location?: ReaderLocation
   currentPassageText?: string
   visibleStartText?: string
   visibleEndText?: string
-  readingTrail?: ActiveReadingTrailEntry[]
+  readingTrail?: ReaderTrailEntry[]
   annotationSummary?: ActiveAnnotationSummaryEntry[]
-}
-
-type ActiveReadingTrailEntry = {
-  tocLabel: string
-  cfi?: string
-  fraction?: number
 }
 
 type ActiveAnnotationSummaryEntry = {
@@ -91,16 +86,11 @@ export type ActivePromptResource = {
   title: string
   path: string
   status?: PromptResourceStatus
-  cfi?: string
-  index?: number
-  fraction?: number
-  locationLabel?: string
-  tocLabel?: string
-  pageLabel?: string
+  location?: ReaderLocation
   currentPassageText?: string
   visibleStartText?: string
   visibleEndText?: string
-  readingTrail?: ActiveReadingTrailEntry[]
+  readingTrail?: ReaderTrailEntry[]
   annotationSummary?: ActiveAnnotationSummaryEntry[]
 }
 
@@ -192,6 +182,10 @@ function boundText(value: string, maxChars: number): string {
   return value.length <= maxChars ? value : value.slice(0, maxChars)
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
 function readTrimmedStringField(value: object, key: string): string | undefined {
   const candidate = Reflect.get(value, key)
   if (typeof candidate !== "string") return undefined
@@ -210,19 +204,56 @@ function readFiniteNumberField(value: object, key: string): number | undefined {
   return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : undefined
 }
 
-function readReadingTrail(value: unknown): ActiveReadingTrailEntry[] | undefined {
+function readLegacyReaderLocation(value: object): ReaderLocation | undefined {
+  const cfi = readTrimmedStringField(value, "cfi")
+  if (!cfi) return undefined
+  const sectionIndex = readFiniteNumberField(value, "index")
+  const fraction = readFiniteNumberField(value, "fraction")
+  const tocLabel = readTrimmedStringField(value, "tocLabel")
+  const pageLabel = readTrimmedStringField(value, "pageLabel")
+  const locationLabel = readTrimmedStringField(value, "locationLabel")
+
+  return readReaderLocation({
+    anchor: {
+      kind: READER_ANCHOR_KIND_CFI_POSITION,
+      cfi,
+      ...(sectionIndex !== undefined ? { sectionIndex } : {}),
+    },
+    ...(fraction !== undefined ? { fraction } : {}),
+    ...(tocLabel ? { tocLabel } : {}),
+    ...(pageLabel ? { pageLabel } : {}),
+    ...(locationLabel ? { locationLabel } : {}),
+  })
+}
+
+function readActiveReaderLocation(value: object): ReaderLocation | undefined {
+  const location = Reflect.get(value, "location")
+  if (location !== undefined) return readReaderLocation(location)
+  return readLegacyReaderLocation(value)
+}
+
+function readReadingTrail(value: unknown): ReaderTrailEntry[] | undefined {
   if (!Array.isArray(value)) return undefined
   const entries = value.flatMap((entry) => {
     if (!entry || typeof entry !== "object") return []
-    const tocLabel = readTrimmedStringField(entry, "tocLabel")
-    if (!tocLabel) return []
-    const cfi = readTrimmedStringField(entry, "cfi")
+    const label =
+      readTrimmedStringField(entry, "label") ?? readTrimmedStringField(entry, "tocLabel")
+    if (!label) return []
     const fraction = readFiniteNumberField(entry, "fraction")
+    const anchor = Reflect.get(entry, "anchor")
+    const location =
+      anchor !== undefined
+        ? readReaderLocation({
+            anchor,
+            ...(fraction !== undefined ? { fraction } : {}),
+          })
+        : readLegacyReaderLocation(entry)
+    if (!location) return []
     return [
       {
-        tocLabel,
-        ...(cfi ? { cfi } : {}),
-        ...(fraction !== undefined ? { fraction } : {}),
+        label,
+        anchor: location.anchor,
+        ...(location.fraction !== undefined ? { fraction: location.fraction } : {}),
       },
     ]
   })
@@ -281,9 +312,9 @@ async function resolvePromptModel(input: {
 }
 
 function readPromptModelRuntimeSnapshot(value: unknown): PromptModelRuntimeSnapshot | undefined {
-  if (!value || typeof value !== "object") return undefined
+  if (!isObjectRecord(value)) return undefined
 
-  const record = value as Record<string, unknown>
+  const record = value
   const providerID =
     typeof record.providerID === "string" && record.providerID.trim().length > 0
       ? record.providerID
@@ -387,12 +418,7 @@ function parseActiveReadingContext(value: unknown): ActiveReadingContext | undef
   const title = readTrimmedStringField(value, "title") ?? ""
   const path = readTrimmedStringField(value, "path") ?? ""
   const resourceKey = readTrimmedStringField(value, "resourceKey")
-  const cfi = readTrimmedStringField(value, "cfi")
-  const index = readFiniteNumberField(value, "index")
-  const fraction = readFiniteNumberField(value, "fraction")
-  const locationLabel = readTrimmedStringField(value, "locationLabel")
-  const tocLabel = readTrimmedStringField(value, "tocLabel")
-  const pageLabel = readTrimmedStringField(value, "pageLabel")
+  const location = readActiveReaderLocation(value)
   const currentPassageText = readBoundedStringField(
     value,
     "currentPassageText",
@@ -412,12 +438,7 @@ function parseActiveReadingContext(value: unknown): ActiveReadingContext | undef
     ...(resourceKey ? { resourceKey } : {}),
     title,
     path,
-    ...(cfi ? { cfi } : {}),
-    ...(index !== undefined ? { index } : {}),
-    ...(fraction !== undefined ? { fraction } : {}),
-    ...(locationLabel ? { locationLabel } : {}),
-    ...(tocLabel ? { tocLabel } : {}),
-    ...(pageLabel ? { pageLabel } : {}),
+    ...(location ? { location } : {}),
     ...(currentPassageText ? { currentPassageText } : {}),
     ...(visibleStartText ? { visibleStartText } : {}),
     ...(visibleEndText ? { visibleEndText } : {}),
@@ -469,16 +490,7 @@ function buildActiveResource(
       : {}),
     title: activeReadingContext.title,
     path: activeReadingContext.path,
-    ...(activeReadingContext.cfi ? { cfi: activeReadingContext.cfi } : {}),
-    ...(activeReadingContext.index !== undefined ? { index: activeReadingContext.index } : {}),
-    ...(activeReadingContext.fraction !== undefined
-      ? { fraction: activeReadingContext.fraction }
-      : {}),
-    ...(activeReadingContext.locationLabel
-      ? { locationLabel: activeReadingContext.locationLabel }
-      : {}),
-    ...(activeReadingContext.tocLabel ? { tocLabel: activeReadingContext.tocLabel } : {}),
-    ...(activeReadingContext.pageLabel ? { pageLabel: activeReadingContext.pageLabel } : {}),
+    ...(activeReadingContext.location ? { location: activeReadingContext.location } : {}),
     ...(activeReadingContext.currentPassageText
       ? { currentPassageText: activeReadingContext.currentPassageText }
       : {}),

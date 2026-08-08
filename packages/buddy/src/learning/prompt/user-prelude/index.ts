@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { formatReaderPositionAnchor } from "@buddy/reader-contract"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import type { PromptContext, PromptTurnSnapshot } from "../context"
 import {
@@ -64,14 +65,16 @@ function shortFingerprint(value: string): string {
 function buildReadingTurnContextPart(context: PromptContext): TurnContextPartBuild {
   const resource = context.activeResource
   if (!resource) return {}
+  const location = resource.location
 
   const fields = [
-    ...(resource.cfi ? [`cfi=${resource.cfi}`] : []),
-    ...(resource.index !== undefined ? [`index=${resource.index}`] : []),
-    ...(resource.fraction !== undefined ? [`fraction=${resource.fraction}`] : []),
-    ...(resource.tocLabel ? [`toc=${resource.tocLabel}`] : []),
-    ...(resource.pageLabel ? [`page=${resource.pageLabel}`] : []),
-    ...(resource.locationLabel ? [`location=${resource.locationLabel}`] : []),
+    ...(location
+      ? [`position=${formatReaderPositionAnchor(location.anchor, location.pageLabel)}`]
+      : []),
+    ...(location?.fraction !== undefined ? [`fraction=${location.fraction}`] : []),
+    ...(location?.tocLabel ? [`toc=${location.tocLabel}`] : []),
+    ...(location?.pageLabel ? [`page=${location.pageLabel}`] : []),
+    ...(location?.locationLabel ? [`location=${location.locationLabel}`] : []),
   ]
   const optionalFields = fields.length === 0 ? "" : `${fields.join("\n")}\n`
   const currentPassageBlock = resource.currentPassageText
@@ -87,7 +90,7 @@ function buildReadingTurnContextPart(context: PromptContext): TurnContextPartBui
     ? `reading_trail:\n${resource.readingTrail
         .map(
           (entry) =>
-            `  - ${entry.tocLabel}${entry.cfi ? ` (cfi=${entry.cfi})` : ""}${entry.fraction !== undefined ? ` (fraction=${entry.fraction})` : ""}`,
+            `  - ${entry.label} (position=${formatReaderPositionAnchor(entry.anchor)})${entry.fraction !== undefined ? ` (fraction=${entry.fraction})` : ""}`,
         )
         .join("\n")}\n`
     : ""
