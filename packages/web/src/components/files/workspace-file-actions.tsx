@@ -98,19 +98,31 @@ export function WorkspaceFileLargeWarning(props: {
       toolbar={<WorkspaceFileActionsMenu directory={props.directory} path={props.path} />}
       contentClassName="overflow-hidden"
     >
-      <div className="flex h-full min-h-0 items-center justify-center p-6">
-        <div className="max-w-md text-center">
-          <AlertTriangleIcon className="mx-auto size-6 text-icon-warning-base" aria-hidden />
-          <h2 className="mt-3 text-sm font-semibold text-text-strong">Large file</h2>
-          <p className="mt-1 text-sm text-text-weak">
-            This file is {formatFileSize(props.sizeBytes)}. Opening it in Buddy may use significant
-            memory.
-          </p>
-          <Button type="button" className="mt-4" onClick={props.onOpenAnyway}>
-            Open anyway
-          </Button>
-        </div>
-      </div>
+      <LargeFileWarningContent
+        sizeBytes={props.sizeBytes}
+        onOpenAnyway={props.onOpenAnyway}
+      />
     </BenchViewerShell>
+  )
+}
+
+export function LargeFileWarningContent(props: {
+  sizeBytes: number
+  onOpenAnyway: () => void
+}) {
+  return (
+    <div className="flex h-full min-h-0 items-center justify-center p-6">
+      <div className="max-w-md text-center">
+        <AlertTriangleIcon className="mx-auto size-6 text-icon-warning-base" aria-hidden />
+        <h2 className="mt-3 text-sm font-semibold text-text-strong">Large file</h2>
+        <p className="mt-1 text-sm text-text-weak">
+          This file is {formatFileSize(props.sizeBytes)}. Opening it in Buddy may use significant
+          memory.
+        </p>
+        <Button type="button" className="mt-4" onClick={props.onOpenAnyway}>
+          Open anyway
+        </Button>
+      </div>
+    </div>
   )
 }

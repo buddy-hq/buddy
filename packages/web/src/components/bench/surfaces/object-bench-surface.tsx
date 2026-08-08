@@ -17,6 +17,7 @@ import {
 } from "@/components/bench/bench-context-utils"
 import { BenchMediaMessage, BenchMediaPreview } from "@/components/bench/bench-media-preview"
 import type { BenchMediaRenderMode } from "@/components/bench/bench-media-preview"
+import { ReadOnlySourceBenchView } from "@/components/bench/read-only-source-bench-view"
 import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import {
   BenchSurfacePending,
@@ -45,6 +46,7 @@ import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-
 import { DirectoryChatReadingPage } from "@/components/directory-chat/directory-chat-reading-page"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { stageMediaImageEdit } from "@/components/prompt/stage-media-image-edit"
+import { LargeFileWarningContent } from "@/components/files/workspace-file-actions"
 import { WhiteboardPane } from "@/components/whiteboard/whiteboard-pane"
 import { usePlatform } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"
@@ -57,7 +59,9 @@ import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { IDEMPOTENCY_KEY_PARAMETER } from "@/lib/idempotency"
 import { canEditImagesForModel } from "@/lib/image-editing"
 import { resolveAssetUrl } from "@/lib/resource-url"
+import { canRenderPresentedMediaAsSource } from "@/lib/presented-media-source"
 import { isSvgMedia } from "@/lib/svg-media"
+import { isWorkspaceFileOverSoftLimit } from "@/lib/workspace-file-media"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
 import { providerCatalogSnapshotQueryOptions } from "@/state/bootstrap-query"
 import type { ProjectExplorerEditableFileState } from "@/state/chat-actions"
@@ -71,6 +75,7 @@ import {
   type ObjectBenchSurfaceData,
 } from "@/state/bench-surface-query"
 import { benchSurfaceUiKey } from "@/state/bench-surface-ui-state"
+import { presentedMediaSourceQueryOptions } from "@/state/presented-media-source-query"
 import type {
   ObjectFlashcardDeckReadDeckResponse,
   ObjectQuestionSetReadQuestionsResponse,
@@ -696,6 +701,13 @@ function SelectedMediaObjectBenchView(props: {
     mediaType: props.item.mediaType,
     fileName: props.item.fileName,
   })
+  const sourceFileName = props.item.fileName ?? title
+  const canRenderSource = canRenderPresentedMediaAsSource({
+    path: sourceFileName,
+    mimeType: props.item.mimeType ?? undefined,
+    sizeBytes: props.item.sizeBytes ?? undefined,
+    renderMode,
+  })
   const svg = isSvgMedia({
     fileName: props.item.fileName,
     mimeType: props.item.mimeType,
@@ -792,6 +804,23 @@ function SelectedMediaObjectBenchView(props: {
     ],
   )
 
+  if (canRenderSource) {
+    return (
+      <PresentedMediaSourceBenchView
+        directory={props.directory}
+        view={props.view}
+        layout={props.layout}
+        item={props.item}
+        availability={availability}
+        title={title}
+        sourcePath={sourcePath}
+        sourceFileName={sourceFileName}
+        src={src}
+        actions={actions}
+      />
+    )
+  }
+
   return (
     <ObjectBenchContextProvider
       directory={props.directory}
@@ -872,6 +901,141 @@ function SelectedMediaObjectBenchView(props: {
             displayPath={props.item.source.displayPath ?? sourcePath}
           />
         </BenchSurfaceViewer>
+      )}
+    </ObjectBenchContextProvider>
+  )
+}
+
+function PresentedMediaSourceBenchView(props: {
+  directory: string
+  view: ObjectsViewResponse
+  layout: ObjectMediaGalleryViewData["layout"]
+  item: ObjectMediaGalleryItem
+  availability: ObjectMediaAvailability
+  title: string
+  sourcePath: string
+  sourceFileName: string
+  src: string | undefined
+  actions: BenchViewerAction[]
+}) {
+  const [approvedLargeItemID, setApprovedLargeItemID] = useState<string>()
+  const isLarge = isWorkspaceFileOverSoftLimit({
+    path: props.sourceFileName,
+    mimeType: props.item.mimeType ?? undefined,
+    sizeBytes: props.item.sizeBytes ?? undefined,
+  })
+  const largeFileApproved = approvedLargeItemID === props.item.itemID
+  const shouldLoad =
+    props.availability.status === "available" && (!isLarge || largeFileApproved)
+  const sourceQuery = useQuery({
+    ...presentedMediaSourceQueryOptions({
+      directory: props.directory,
+      objectID: props.view.ref.objectID,
+      itemID: props.item.itemID,
+      fileName: props.sourceFileName,
+      modifiedAt: props.item.modifiedAt,
+    }),
+    enabled: shouldLoad,
+  })
+  const sourceError = sourceQuery.isError ? stringifyError(sourceQuery.error) : undefined
+  const hasSourceContent = sourceQuery.data !== undefined
+  const contextStatus: ObjectBenchContextStatus =
+    props.availability.status !== "available"
+      ? "unavailable"
+      : isLarge && !largeFileApproved
+        ? "ready"
+        : sourceQuery.isPending
+          ? "loading"
+          : sourceQuery.isError
+            ? "error"
+            : "ready"
+
+  return (
+    <ObjectBenchContextProvider
+      directory={props.directory}
+      view={props.view}
+      status={contextStatus}
+      metadata={[
+        `layout: ${props.layout}`,
+        `item_id: ${props.item.itemID}`,
+        `media_type: ${props.item.mediaType}`,
+        `mime_type: ${props.item.mimeType ?? "unknown"}`,
+        `size_bytes: ${props.item.sizeBytes ?? "unknown"}`,
+        `availability: ${props.availability.status}`,
+        `source_path: ${props.sourcePath}`,
+        "renderer: read-only-source",
+        `large_file_approved: ${largeFileApproved}`,
+      ]}
+      content={
+        props.availability.status !== "available"
+          ? `External source file unavailable: ${props.sourcePath}`
+          : isLarge && !largeFileApproved
+            ? `A large-file warning is visible for ${props.sourcePath}. The file has not been opened yet.`
+            : hasSourceContent
+              ? `External source file: ${props.sourcePath}\n\n${sourceQuery.data}`
+              : sourceError
+                ? `External source file could not be opened: ${sourceError}`
+                : `External source file is loading: ${props.sourcePath}`
+      }
+      refs={[
+        objectRef({
+          objectID: props.view.ref.objectID,
+          note: "External source file object on Bench.",
+        }),
+        ...(props.item.source.workspacePath
+          ? [
+              workspaceFileRef({
+                path: props.item.source.workspacePath,
+                note: "External source file path.",
+              }),
+            ]
+          : []),
+        ...urlRef({
+          url: props.src,
+          note: "Raw external source file URL.",
+        }),
+      ]}
+      hints={[
+        "The external file is displayed read-only; use its default app to edit it.",
+        ...(hasSourceContent ? ["The context contains the complete displayed source text."] : []),
+      ]}
+    >
+      {props.availability.status !== "available" ? (
+        <ReadOnlySourceBenchView
+          title={props.title}
+          path={props.sourcePath}
+          content={undefined}
+          error={props.availability.message ?? "This file is not available."}
+          loading={false}
+          actions={props.actions}
+        />
+      ) : isLarge && !largeFileApproved && props.item.sizeBytes !== null ? (
+        <BenchSurfaceViewer
+          title={props.title}
+          subtitle={props.sourcePath}
+          actions={props.actions}
+          controlsPlacement="dock"
+          hideHeader
+        >
+          <LargeFileWarningContent
+            sizeBytes={props.item.sizeBytes}
+            onOpenAnyway={() => setApprovedLargeItemID(props.item.itemID)}
+          />
+        </BenchSurfaceViewer>
+      ) : (
+        <ReadOnlySourceBenchView
+          title={props.title}
+          path={props.sourcePath}
+          content={sourceQuery.data}
+          error={sourceError}
+          loading={sourceQuery.isPending}
+          actions={props.actions}
+          banner={
+            <div className="border-b border-border-base bg-surface-weak/40 px-4 py-1.5 text-xs text-text-weak">
+              External file · Read-only
+            </div>
+          }
+        />
       )}
     </ObjectBenchContextProvider>
   )

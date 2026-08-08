@@ -9,9 +9,9 @@ export const TEACHING_WORKSPACE_SCOPE = "__workspace__"
 export const TEACHING_LANGUAGE_OPTIONS = [
   { value: "txt", label: "Plain Text", monacoLanguage: "plaintext" },
   { value: "ts", label: "TypeScript", monacoLanguage: "typescript" },
-  { value: "tsx", label: "TSX / React", monacoLanguage: "typescriptreact" },
+  { value: "tsx", label: "TSX / React", monacoLanguage: "typescript" },
   { value: "js", label: "JavaScript", monacoLanguage: "javascript" },
-  { value: "jsx", label: "JSX / React", monacoLanguage: "javascriptreact" },
+  { value: "jsx", label: "JSX / React", monacoLanguage: "javascript" },
   { value: "py", label: "Python", monacoLanguage: "python" },
   { value: "go", label: "Go", monacoLanguage: "go" },
   { value: "rs", label: "Rust", monacoLanguage: "rust" },
