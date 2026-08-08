@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/package",
+  "name": "@buddy/reader-contract",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

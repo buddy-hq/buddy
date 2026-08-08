@@ -8,7 +8,8 @@ Buddy should keep one user-facing reader interface, but split the rendering engi
 
 - EPUB and other reflowable ebook formats should keep using `foliate-js`.
 - PDF should move to a dedicated PDF.js-backed engine.
-- Highlights, bookmarks, search results, current location, chat selection, notes, and the reader toolbar/sidebar should belong to Buddy's reader shell, not to Foliate.
+- Highlights, bookmarks, search results, current location, chat selection, notes, and the reader toolbar/panels should belong to Buddy's reader shell, not to Foliate.
+- Buddy should build its PDF surface from PDF.js's exported viewer components, not embed the stock viewer application and not begin by rebuilding its rendering queue from the low-level display API.
 
 In other words:
 
@@ -18,15 +19,18 @@ Buddy DocumentReader shell
   location UI, preferences UI, and chat-selection integration
 
 FoliateEngine
-  handles EPUB/MOBI/AZW/FB2/CBZ-style book rendering
+  handles the currently supported EPUB route and remains extensible to other ebook formats
   anchors with CFI or Foliate navigation targets
 
 PdfJsEngine
-  handles PDF rendering
-  anchors with page numbers, normalized page coordinates, text quotes, and page offsets
+  wraps PDF.js viewer-layer components behind a small Buddy-owned adapter
+  handles PDF rendering, navigation, selection extraction, search, and location events
+  anchors with canonical PDF page coordinates, text quotes, and page offsets
 ```
 
 The long-term answer is not a short-term Foliate patch. The long-term answer is to make Buddy's reader UI engine-neutral and make PDF a first-class PDF reader underneath that interface.
+
+This is one end-to-end delivery, not a sequence of independently releasable partial readers. The new PDF path remains internal until it reaches current Buddy PDF feature parity and passes the cutover gates in this document. Shared shell behavior should still be extracted incrementally during implementation so the architecture is proven by working features rather than a speculative full rewrite.
 
 ## Original Problem
 
@@ -38,7 +42,7 @@ Buddy currently uses `foliate-js` for PDFs because it provides a common reading 
 - search and navigation hooks
 - bookmarks
 - reader preferences
-- a consistent Buddy toolbar/sidebar experience
+- a consistent Buddy toolbar and panel experience
 
 The problem is that the PDF experience is poor on small screens.
 
@@ -97,7 +101,7 @@ The current storage helper is:
 packages/web/src/components/readers/utils/foliate-storage.ts
 ```
 
-The current reader already has more than the older inventory doc claimed. It includes:
+The current reader already has more than the older inventory doc claimed. The live production route includes:
 
 - toolbar
 - TOC popover
@@ -111,6 +115,18 @@ The current reader already has more than the older inventory doc claimed. It inc
 - persisted per-book state
 - global preferences
 - PDF-specific compatibility code for selection and overlay drawing
+
+There is an older `FoliateSidebar` component and a set of reader hooks in the tree, but the live `FoliateReader` does not mount that sidebar or use those hooks. They are not part of the parity baseline. Likewise, production resource discovery currently routes only `.epub` and `.pdf` files into the reader. MOBI, AZW, FB2, and CBZ are engine capabilities or future extensions, not current production routes.
+
+The existing PDF route also has important gaps that must not be mislabeled as working parity requirements:
+
+- its whole-document search does not produce useful PDF results because Foliate PDF sections do not expose the document factory used by Foliate search
+- it has a table of contents when the PDF exposes an outline, but no PDF page-label/page-list model
+- it has fit-page, fit-width, and spread modes, but no continuous layout, persisted PDF mode, arbitrary numeric zoom control, or rotation control
+- it supports selection and annotation on a rendered page, but not a deliberate cross-page selection contract
+- it has no dedicated password prompt
+
+The new engine must preserve every working behavior and may improve these known gaps. “Feature parity” in this document never means reproducing a broken search path or inventing a legacy sidebar requirement.
 
 The important limitation is that this is still built around a Foliate-shaped anchor model.
 
@@ -357,6 +373,8 @@ This aligns with the source code: Foliate's architecture is not currently the ri
 
 ## PDF.js Capabilities Verified
 
+The official PDF.js getting-started guidance distinguishes the core, display, and viewer layers and describes the viewer as a useful starting point for a custom viewer. Buddy should therefore reuse exported viewer components while replacing the stock application shell.
+
 PDF.js provides the primitives Buddy needs for a serious PDF reader:
 
 - loading a PDF document
@@ -387,7 +405,13 @@ PDF.js documentation also warns against rendering every page at high resolution:
 - the demo viewer only creates/renders/holds canvases for visible pages
 - the recommended approach is to render only visible pages
 
-That is exactly what Buddy needs: a virtualized continuous viewer that renders visible pages plus overscan.
+That is exactly what Buddy needs: a viewer-managed continuous surface with bounded visible-page canvas rendering.
+
+Primary references:
+
+- [PDF.js getting started and layer overview](https://mozilla.github.io/pdf.js/getting_started/)
+- [PDF.js API documentation](https://mozilla.github.io/pdf.js/api/)
+- [PDF.js memory and worker-version guidance](https://github.com/mozilla/pdf.js/wiki/frequently-asked-questions)
 
 ## Why Not Just Upgrade Foliate
 
@@ -471,7 +495,7 @@ The long-term architecture should be:
 DocumentReader
   ReaderShell
     Toolbar
-    Sidebar
+    PopoversAndPanels
     SearchPanel
     BookmarksPanel
     AnnotationsPanel
@@ -494,39 +518,78 @@ The engine owns only format-specific rendering and anchor resolution.
 
 The engine contract should be explicit and Buddy-owned. It should not expose Foliate types directly to the shell.
 
+The contract should also preserve ownership boundaries:
+
+- the shell/controller owns bookmark and annotation collections, persistence, dialogs, panels, and chat integration
+- the engine owns format-specific rendering, navigation, selection extraction, search execution, and location events
+- the engine receives annotations to render; it does not own the authoritative annotation collection
+- bookmarks do not need engine CRUD methods because navigation already operates on anchors
+- all long-running engine operations need cancellation or stale-run protection
+- the shell should branch on declared capabilities, not scatter checks for a particular engine kind
+
 Conceptual shape:
 
 ```ts
 type ReaderEngineKind = "foliate" | "pdf"
 
-type ReaderEngine = {
-  kind: ReaderEngineKind
-  open: (source: ReaderSource) => Promise<ReaderSnapshot>
-  destroy: () => void
+type ReaderEngineCapabilities = {
+  textFlow: boolean
+  pageLayouts: boolean
+  search: boolean
+  outline: boolean
+  pageLabels: boolean
+  textSelection: boolean
+  annotations: boolean
+}
 
-  goTo: (anchor: ReaderAnchor) => Promise<void>
+type ReaderEngineCallbacks = {
+  onReady: (snapshot: ReaderSnapshot) => void
+  onLocationChange: (location: ReaderLocation) => void
+  onSelectionChange: (selection: ReaderSelection | null) => void
+  onError: (error: Error) => void
+}
+
+type ReaderEngineFactory = {
+  open: (
+    source: ReaderSource,
+    callbacks: ReaderEngineCallbacks,
+    signal?: AbortSignal,
+  ) => Promise<ReaderEngineSession>
+}
+
+type ReaderEngineSession = {
+  kind: ReaderEngineKind
+  capabilities: ReaderEngineCapabilities
+
+  goTo: (anchor: ReaderPositionAnchor, signal?: AbortSignal) => Promise<void>
   getCurrentLocation: () => ReaderLocation
   getSelection: () => ReaderSelection | null
   clearSelection: () => void
 
-  search: (request: ReaderSearchRequest) => AsyncGenerator<ReaderSearchEvent>
+  search: (
+    request: ReaderSearchRequest,
+    signal?: AbortSignal,
+  ) => AsyncGenerator<ReaderSearchEvent>
   clearSearch: () => void
   showSearchResult: (result: ReaderSearchResult) => Promise<void>
 
-  addAnnotation: (annotation: ReaderAnnotation) => Promise<void>
-  deleteAnnotation: (annotation: ReaderAnnotation) => Promise<void>
-  showAnnotation: (annotation: ReaderAnnotation) => Promise<void>
+  setAnnotations: (annotations: ReaderAnnotation[]) => Promise<void>
+  showAnnotation: (annotation: ReaderAnnotation, signal?: AbortSignal) => Promise<void>
 
-  addBookmark: (bookmark: ReaderBookmark) => Promise<void>
   setMode: (mode: ReaderMode) => Promise<void>
+  destroy: () => Promise<void>
 }
 ```
 
-This is not intended as final API code. It is the boundary idea: the shell calls Buddy reader concepts, not Foliate APIs.
+This is not intended as final API code. React components or hooks may own `open` and `destroy` rather than exposing a fully imperative object. The boundary idea is what matters: the shell calls Buddy reader concepts, receives explicit events, and keeps product state outside the renderer.
 
 ## Shared Data Model
 
 Buddy should store reader state using a format-neutral model.
+
+Persisted anchors should describe an addressing scheme, not the engine implementation that currently renders it. Use anchor kinds such as `cfi-position` and `pdf-text`, not `engine: "foliate"`. This avoids coupling stored user data to a replaceable renderer.
+
+Position anchors and text anchors should be separate types. Bookmarks and last-location state require a position. Annotations and text search results require a text range. A single type with many optional fields permits invalid combinations.
 
 ```ts
 type ReaderDocumentIdentity = {
@@ -534,47 +597,73 @@ type ReaderDocumentIdentity = {
   format: "epub" | "pdf" | "mobi" | "azw" | "fb2" | "cbz"
   title?: string
   author?: string
-  fingerprint?: string
+  contentFingerprint?: string
 }
 
-type ReaderAnchor =
-  | FoliateAnchor
-  | PdfAnchor
+type ReaderPositionAnchor = CfiPositionAnchor | PdfPositionAnchor
 
-type FoliateAnchor = {
-  engine: "foliate"
+type ReaderTextAnchor = CfiTextAnchor | PdfTextAnchor
+
+type CfiPositionAnchor = {
+  kind: "cfi-position"
   cfi: string
   sectionIndex?: number
   fraction?: number
 }
 
-type PdfAnchor = {
-  engine: "pdf"
-  pageIndex: number
-  pageLabel?: string
-  yRatio?: number
-  rects?: NormalizedPdfRect[]
-  textQuote?: string
-  textHash?: string
+type CfiTextAnchor = {
+  kind: "cfi-text"
+  cfi: string
+  sectionIndex?: number
 }
 
-type NormalizedPdfRect = {
+type PdfPositionAnchor = {
+  kind: "pdf-position"
+  pageIndex: number
+  pageLabel?: string
+  xRatio: number
+  yRatio: number
+}
+
+type PdfPoint = {
   x: number
   y: number
-  width: number
-  height: number
+}
+
+type PdfQuad = {
+  topLeft: PdfPoint
+  topRight: PdfPoint
+  bottomRight: PdfPoint
+  bottomLeft: PdfPoint
+}
+
+type PdfTextSegment = {
+  pageIndex: number
+  quads: PdfQuad[]
+  startOffset?: number
+  endOffset?: number
+}
+
+type PdfTextAnchor = {
+  kind: "pdf-text"
+  segments: PdfTextSegment[]
+  quote: {
+    exact: string
+    prefix?: string
+    suffix?: string
+  }
 }
 
 type ReaderBookmark = {
   id: string
-  anchor: ReaderAnchor
+  anchor: ReaderPositionAnchor
   label: string
   created: string
 }
 
 type ReaderAnnotation = {
   id: string
-  anchor: ReaderAnchor
+  anchor: ReaderTextAnchor
   text: string
   note: string
   color: string
@@ -584,12 +673,11 @@ type ReaderAnnotation = {
 }
 ```
 
-The key change is that the anchor becomes a union.
+PDF quads must use a documented canonical coordinate system: unrotated PDF user space relative to the page crop box. Convert DOM selection points through the active PDF.js page viewport before persistence. Do not persist coordinates in the currently scaled or rotated DOM coordinate system.
 
-- EPUB annotations use Foliate CFI.
-- PDF annotations use page index plus normalized page rectangles and text quote metadata.
+The `segments` array allows one selection to span multiple pages. `pageIndex` is the stable navigation identity within a particular PDF; `pageLabel` is display metadata. The exact quote plus optional prefix and suffix provides recovery context when text-layer segmentation changes.
 
-The UI does not care which kind it receives. The engine does.
+For Buddy resources, `sourceId` should be the object/resource id. If an object id is not available, use a stable directory-plus-resource-path identity. Use `contentFingerprint` to detect that the bytes behind an identity changed; do not derive identity from title and author alone.
 
 ## Highlights In Foliate Modes
 
@@ -625,25 +713,30 @@ These are text/book preferences. They should not be forced onto PDF.
 For PDF-backed sources:
 
 - selection comes from the PDF.js text layer
-- the PDF engine identifies which page each selected rect belongs to
-- selected DOM rects are converted into page-relative normalized rectangles
-- normalized rectangles are stored in `PdfAnchor.rects`
-- text content is stored as `textQuote`
-- a hash/fingerprint of selected text can be stored as `textHash` for best-effort validation
+- the PDF engine identifies which page each selected quad belongs to
+- selected DOM geometry is converted through each page viewport into canonical, unrotated PDF coordinates
+- page-specific quads are stored in `PdfTextAnchor.segments`
+- the exact selected text plus optional prefix and suffix are stored as quote context
+- selections spanning pages produce multiple `PdfTextSegment` values
 
 Example:
 
 ```ts
-type PdfAnchor = {
-  engine: "pdf"
-  pageIndex: 42
-  pageLabel: "43"
-  rects: [
-    { x: 0.12, y: 0.34, width: 0.48, height: 0.018 },
-    { x: 0.12, y: 0.36, width: 0.31, height: 0.018 },
+type PdfTextAnchor = {
+  kind: "pdf-text"
+  segments: [
+    {
+      pageIndex: 42
+      quads: PdfQuad[]
+      startOffset: 318
+      endOffset: 381
+    },
   ]
-  textQuote: "The selected sentence from the PDF text layer..."
-  textHash: "..."
+  quote: {
+    exact: "The selected sentence from the PDF text layer..."
+    prefix: "Text before the selection"
+    suffix: "Text after the selection"
+  }
 }
 ```
 
@@ -657,9 +750,9 @@ When the user changes PDF mode:
 - explicit zoom
 - rotation
 
-the stored rectangles remain valid because they are page-coordinate anchors, not screen-coordinate anchors.
+the stored quads remain valid because they are canonical PDF coordinates, not screen coordinates or coordinates from the currently rotated viewport.
 
-On render, the PDF engine maps normalized page rectangles back into overlay positions using the current page viewport and page DOM bounds.
+On render, the PDF engine maps canonical quads through the current page viewport into overlay positions.
 
 This is the important answer to the highlights question: highlights do not move with Foliate. They move with Buddy's neutral annotation model. Foliate and PDF.js each know how to draw their own anchor kind.
 
@@ -672,7 +765,7 @@ For Foliate:
 ```ts
 type FoliateBookmark = {
   anchor: {
-    engine: "foliate"
+    kind: "cfi-position"
     cfi: string
   }
 }
@@ -683,15 +776,16 @@ For PDF:
 ```ts
 type PdfBookmark = {
   anchor: {
-    engine: "pdf"
+    kind: "pdf-position"
     pageIndex: number
     pageLabel?: string
-    yRatio?: number
+    xRatio: number
+    yRatio: number
   }
 }
 ```
 
-`yRatio` is the normalized vertical offset within the page. It lets Buddy restore a position inside a page, not only the top of the page.
+`xRatio` and `yRatio` are normalized offsets within the page. Together they let Buddy restore a position inside a page through zoom and every rotation, not only the top of the page.
 
 The bookmarks UI can stay the same:
 
@@ -716,7 +810,7 @@ For Foliate:
 For PDF:
 
 - use PDF.js text content/search facilities
-- search results carry page index and normalized rect anchors
+- search results carry `PdfTextAnchor` values
 - result snippets use text content around the match
 - `showSearchResult` scrolls to page and draws/activates the match overlay
 
@@ -738,7 +832,7 @@ type ReaderSearchRow =
         match: string
         post: string
       }
-      anchor: ReaderAnchor
+      anchor: ReaderTextAnchor
     }
 ```
 
@@ -776,11 +870,9 @@ The long-term product default should optimize reading, not mimic a print preview
 Some reader preferences remain shared:
 
 - theme
-- annotation colors
-- annotation style
 - reduce motion
 - autohide chrome/cursor behavior
-- sidebar/tool visibility
+- panel/tool visibility where the shell persists it
 - keyboard shortcut handling
 
 Some preferences are Foliate-only:
@@ -806,7 +898,9 @@ The preferences UI can stay in the same place, but it should render engine-speci
 
 ## Persistence
 
-Current state uses localStorage through `foliate-storage.ts`. Long term, the state should be renamed and versioned as Buddy reader state, not Foliate reader state.
+Current state uses localStorage through `foliate-storage.ts`. The new design should introduce a Buddy-owned, versioned `ReaderStateRepository` boundary and keep localStorage as its first implementation. Moving state into Buddy's object/resource system is a separate project and should not be coupled to the PDF renderer migration.
+
+Persisted data must be runtime-validated from `unknown` before use. During the transition, read v2 first, fall back to v1 where migration is supported, and write only v2.
 
 Suggested direction:
 
@@ -821,7 +915,7 @@ Document state:
 type ReaderDocumentState = {
   version: 2
   identity: ReaderDocumentIdentity
-  lastLocation?: ReaderAnchor
+  lastLocation?: ReaderPositionAnchor
   bookmarks: ReaderBookmark[]
   annotations: ReaderAnnotation[]
   enginePreferences?: {
@@ -831,7 +925,7 @@ type ReaderDocumentState = {
 }
 ```
 
-The document identity should be more stable than title/author alone. For resources, prefer a Buddy resource/object id. For loose files, use a fingerprint if available, or the current title/author/source fallback.
+The document identity should be more stable than title/author alone. For resources, use a Buddy resource/object id when available and otherwise use the normalized directory-plus-resource path. A content fingerprint detects changed bytes. Do not silently apply old page-coordinate annotations to a changed PDF.
 
 ## Migration
 
@@ -845,55 +939,66 @@ Existing persisted `ReaderBookmark.value` and `ReaderAnnotation.value` can be wr
 
 ```ts
 {
-  engine: "foliate",
+  kind: "cfi-position",
   cfi: old.value
 }
 ```
 
-This migration is straightforward.
+Annotations should use `kind: "cfi-text"`. This migration is straightforward.
 
 ### Existing PDFs stored through Foliate
 
 Existing PDF highlights are harder because they are stored as Foliate values over the fixed-layout PDF adapter.
 
-Options:
+The implementation uses a deliberate two-tier migration:
 
-1. Best-effort migration while the Foliate PDF path still exists:
+1. When full range geometry can be resolved safely, convert it while the Foliate PDF path still exists:
    - open the PDF using the old Foliate engine
    - resolve the old annotation value
    - find page index and range rects
-   - convert rects to normalized PDF page coordinates
-   - store a new `PdfAnchor`
+   - convert rects into canonical, unrotated PDF coordinates
+   - store a new `PdfTextAnchor`
 
-2. Keep legacy entries visible but mark them unavailable until migrated:
+2. Otherwise import a navigation-safe legacy entry without inventing geometry:
    - preserve text/note/color/style
-   - show a "legacy PDF highlight" state
-   - do not block the new engine on perfect conversion
+   - derive the zero-based PDF page from Foliate's saved section index or fake CFI base
+   - store a `pdf-text` segment with offsets/quads absent, so the item remains visible and can navigate to its page but is not drawn at a fabricated location
+   - leave the v1 record untouched as a recovery/export source
 
-3. Drop old PDF highlight anchors if the migration is too brittle:
-   - acceptable only if there is little real user data
-   - should be a deliberate product call, not an accidental side effect
+Buddy must not silently drop a legacy PDF entry or fabricate a highlight rectangle. New writes use v2 only. The importer matches a bounded v1 record using the normalized filename plus the existing notebook persistence suffix, validates every field, and ignores ambiguous or malformed records.
 
-The preferred path is option 1 for real user data, with option 2 as fallback. Do not keep Foliate PDF rendering around forever just to support old anchors.
+Local Buddy profiles were checked for the v1 key prefix and do contain legacy reader records, so an accidental discard is not acceptable. The navigation-safe tier allows the Foliate PDF renderer to be removed without claiming that unavailable historical DOM rectangles were recovered exactly.
 
 ## PDF.js Engine Design
 
-The PDF engine should be a native Buddy component, not an iframe around the generic PDF.js viewer.
+The PDF engine should be a native Buddy component built from PDF.js's exported viewer-layer pieces. It should not be an iframe around the generic viewer application, and Buddy should not initially rebuild the viewer's rendering queue from low-level page APIs.
+
+Use a direct, exact `pdfjs-dist` dependency in `packages/web`. Do not reach into Foliate's bundled PDF.js copy. The API module and worker must come from the same package version, and the worker, CMaps, standard fonts, WASM, and viewer CSS/assets must be bundled locally for Vite and packaged Electron. Do not depend on a CDN.
+
+The initial adapter should evaluate and wrap the public exports that Buddy needs:
+
+- `PDFViewer`
+- `PDFLinkService`
+- `PDFFindController`
+- `EventBus`
+- `ScrollMode`
+- `SpreadMode`
+
+Use the viewer layer for page layout, current-page tracking, scale modes, rotation, rendering queues, text layers, and link/annotation layers. Keep Buddy's own toolbar, panels, search results UI, persistence, annotation model, and chat-selection integration. Avoid depending on underscored/private viewer fields; if the find controller's public events are insufficient for Buddy's result list, implement a small cancellable text-search service through the display API instead of reading private state.
 
 Core pieces:
 
 - load PDF from Buddy's source/blob pipeline
-- configure `pdfjsLib.GlobalWorkerOptions.workerSrc`
+- centralize PDF.js runtime and asset configuration
 - parse metadata and outline
-- create a scroll container for pages
-- virtualize pages using `@tanstack/react-virtual` or an equivalent page virtualization strategy
-- render visible pages plus overscan
-- render canvas layer
-- render text layer
-- render annotation/link layer
+- give `PDFViewer` one clear scroll container
+- configure continuous vertical, single-page, and two-up modes through PDF.js viewer modes
+- configure fit-width, fit-page, custom scale, and rotation through the viewer adapter
+- use PDF.js's rendering queue and page-view buffer
 - render Buddy highlight overlay layer
 - track visible page and current location
-- expose page navigation and search through the `ReaderEngine` contract
+- expose navigation, search, selection, and location events through the Buddy engine contract
+- cancel source loads, searches, and stale asynchronous work when the source changes or the reader unmounts
 
 Layer structure per page:
 
@@ -912,18 +1017,19 @@ The highlight overlay layer should sit above text/canvas but below transient pop
 
 PDFs can be hundreds or thousands of pages. Rendering every page at high DPI is not viable.
 
-The engine should:
+PDF.js's viewer already prioritizes visible pages and keeps a bounded buffer of expensive rendered canvases. It may retain lightweight page-view DOM for the document, so the performance gate must measure canvas/render retention rather than incorrectly requiring a bounded count of page wrapper elements. Buddy should use and measure that behavior before introducing a second virtualization system. Combining `PDFViewer` with `@tanstack/react-virtual` would create competing ownership of the scroll container, page mounting, measurements, selection layers, and keyboard behavior.
 
-- keep page measurements stable
-- render visible pages plus a small overscan
-- cancel render tasks when pages leave overscan
-- cache rendered pages carefully
-- release canvases when memory pressure is high
+The initial engine should:
+
+- preserve one scroll owner
+- keep page measurements stable across mixed page sizes
+- rely on the PDF.js rendering queue and page-view buffer for visible-page rendering and canvas release
 - re-render at the current zoom only when necessary
-- debounce resize and zoom changes
+- respond to container resize rather than viewport breakpoints because the Bench pane is resizable
 - preserve scroll anchor on zoom changes
+- verify that repeated source changes destroy loading tasks, workers, object URLs, and page views
 
-PDF.js's own FAQ recommends rendering only visible pages. Buddy should follow that approach.
+If profiling with representative large documents proves that PDF.js page-view DOM retention is a real problem, evaluate an alternative virtualization design as a separate optimization. Any TanStack Virtual fallback must still use one clear vertical scroll parent, stable page keys, measured variable page heights, and preserved selection/navigation semantics.
 
 ## Selection And Chat Integration
 
@@ -937,8 +1043,8 @@ For Foliate:
 For PDF:
 
 - selection range comes from the PDF.js text layer
-- engine maps selection rects to PDF page coordinates
-- engine returns selected text, `PdfAnchor`, page label, and screen position
+- engine maps selection geometry into one or more canonical PDF page segments
+- engine returns selected text, `PdfTextAnchor`, page label, and screen position
 
 Shared shell behavior:
 
@@ -953,7 +1059,7 @@ The chat layer should receive a normalized selection:
 ```ts
 type ReaderSelection = {
   text: string
-  anchor: ReaderAnchor
+  anchor: ReaderTextAnchor
   selectionKey: string
   label?: string
 }
@@ -972,7 +1078,7 @@ For Foliate:
 For PDF:
 
 - draw Buddy-owned SVG/HTML overlays on top of PDF pages
-- use normalized rectangles from `PdfAnchor.rects`
+- map canonical quads from `PdfTextAnchor.segments` through the current page viewport
 - support the same visual styles:
   - highlight
   - underline
@@ -1000,11 +1106,12 @@ PDF:
 
 ```ts
 type PdfLocation = {
-  engine: "pdf"
+  kind: "pdf-location"
   pageIndex: number
   pageLabel?: string
   pageCount: number
-  yRatio?: number
+  xRatio: number
+  yRatio: number
   fraction: number
 }
 ```
@@ -1013,16 +1120,12 @@ The location dialog can remain the same shell feature, but should offer page-ori
 
 ## Theme And Dark Mode
 
-Current Buddy PDF theming through Foliate applies CSS filters to the fixed-layout renderer. That can continue conceptually, but the PDF.js engine should own it explicitly.
+Current Buddy PDF theming through Foliate applies CSS filters to the fixed-layout renderer. The PDF.js engine should preserve that behavior for the initial cutover so the engine migration does not also become a visual-theme change.
 
-Options:
-
-- keep PDF canvas unmodified in light themes
-- use CSS filter for dark themes, as Buddy currently does
-- keep overlays unfiltered so highlight colors remain stable
-- consider a future "invert PDF" toggle separate from global theme
-
-Do not make dark mode block the engine split.
+- keep PDF canvas rendering unmodified in light themes
+- preserve the current filter behavior in dark themes
+- keep Buddy annotation and search overlays outside the page filter so their colors remain stable
+- treat a future explicit "invert PDF" preference as separate product work
 
 ## Source System Fit
 
@@ -1041,7 +1144,7 @@ The reader should expose:
 That gives the agent and source system stable references:
 
 ```txt
-resource id + page label/index + selected text + optional normalized rects
+resource id + page label/index + selected text + optional canonical PDF quads
 ```
 
 This is closer to what users expect from source-grounded research systems.
@@ -1078,170 +1181,283 @@ Not the preferred path.
 
 Native PDF views could be fast, but Buddy needs a web/Electron renderer with selection, overlays, annotations, chat integration, and consistent UI across macOS and Windows.
 
-## Implementation Plan
+## End-To-End Delivery Plan
 
-### Phase 1: Extract the shell
+This work is complete only when one production-ready `DocumentReader` provides the current Buddy PDF feature set plus continuous vertical reading, explicit zoom, and horizontal panning for zoomed pages. Intermediate implementation checkpoints may be exposed through tests or a development-only flag, but they are not releasable product states and must not replace the current Foliate PDF path.
 
-Goal: make `FoliateReader` stop being the conceptual owner of the reader product.
+### Outcome And Non-Regression Contract
 
-Steps:
+The final reader must preserve all working current Buddy PDF behavior:
 
-- introduce `DocumentReader`
-- move toolbar/sidebar/dialog/popover components under neutral names over time
-- define Buddy reader types:
-  - `ReaderAnchor`
-  - `ReaderLocation`
-  - `ReaderSelection`
-  - `ReaderAnnotation`
-  - `ReaderBookmark`
-  - `ReaderSearchResult`
-- keep Foliate behavior unchanged behind `FoliateEngine`
+- the Buddy toolbar, popovers, dialogs, metadata/details, preferences, and help UI
+- loading, ready, empty, timeout, and error states
+- table-of-contents navigation
+- the existing search UI contract; the nonfunctional legacy PDF search path is replaced by working document search, result excerpts, active-result highlighting, cancellation, and navigation
+- previous/next navigation, reading history, progress display, page/location dialog, and location restoration
+- text selection, copy, selection toolbar positioning, chat-selection staging, and chat-selection removal
+- highlights and notes, including create, edit, delete, show, colors, and highlight/underline/squiggly/strikethrough styles
+- bookmarks, current-bookmark state, persistence, and navigation
+- global reader preferences, themes, reduced motion, cursor/chrome behavior, keyboard shortcuts, and external links
+- annotation summaries and reading context sent to the surrounding directory/chat state
 
-This phase should not change user behavior.
+The final PDF reader intentionally adds or changes only the PDF reading surface:
 
-### Phase 2: Version persistence
+- continuous vertical page-after-page layout is the default
+- fit-width is the default scale for narrow or resized Bench panes
+- fit-page, custom numeric zoom, zoom in, zoom out, and zoom reset remain available
+- when the scaled page is wider than the pane, the same PDF scroll container provides horizontal panning
+- horizontal panning is not horizontal page-to-page flow
+- single-page and two-up layouts remain optional modes
+- rotation is supported without invalidating highlights, bookmarks, search results, or the restored reading position
+- zoom, rotation, layout changes, and container resizes preserve the current reading anchor
 
-Goal: make persistence engine-neutral.
+EPUB continues through Foliate and must not change behavior as part of this work. The neutral contract remains capable of adding MOBI, AZW, FB2, and CBZ later, but those formats are not currently exposed by production resource discovery and are not claimed as a tested regression surface here.
 
-Steps:
+### Verified Baseline Acceptance Matrix
 
-- create `reader-storage.ts`
-- introduce v2 keys
-- migrate existing Foliate state into v2 Foliate anchors
-- leave current v1 reader state readable during transition
+This matrix is the source of truth for parity. A “working baseline” row must remain unchanged from the user's perspective. An “improvement” row closes a verified gap in the Foliate PDF route and is not a behavior regression.
 
-### Phase 3: Build `PdfJsEngine` skeleton
+| Area | Verified Foliate PDF baseline | Required PDF.js result | Classification |
+| --- | --- | --- | --- |
+| Open/lifecycle | Blob opens through the shared reader with opening, ready, timeout, empty, and error states | Preserve states; additionally cancel rapid source replacement and release loading task, worker, page views, events, observers, and object URLs | Preserve and harden |
+| Reader chrome | Buddy toolbar, popovers, dialogs, metadata hover card, help, and footer are mounted; the orphaned sidebar is not | Keep Buddy-owned chrome and neutral shared panels; do not expose the stock PDF.js toolbar/sidebar | Preserve |
+| Outline | PDF outline can populate the TOC and navigate | Preserve named and explicit destination navigation and external-link handling | Preserve |
+| Page list/labels | No reliable PDF page-list/page-label model | Expose PDF.js page labels and a navigable page list | Improvement |
+| Search | Search controls exist, but whole-PDF results are effectively unavailable for Foliate PDF sections | Provide cancellable whole-document search, excerpts, match options, active highlighting, and result navigation | Improvement |
+| Layout | Fit page, fit width, and two-page spread | Continuous fit-width default plus single-page/two-up alternatives | Preserve and improve |
+| Zoom/pan | Fit presets only; no product numeric zoom control | Fit presets, numeric zoom, keyboard/toolbar/trackpad zoom, and one two-axis scroll owner for horizontal panning | Improvement |
+| Rotation | No product rotation control | Rotate in 90-degree steps while retaining canonical anchors | Improvement |
+| Navigation | Previous/next, history, progress, location jump, and restoration work through Foliate navigation | Preserve with page/ratio PDF position anchors and page labels | Preserve |
+| Selection/chat | Single rendered-page text selection, copy, floating toolbar, staging, and removal | Preserve and add multi-page PDF text anchors with canonical quads | Preserve and improve |
+| Annotations | Create/edit/delete/show, note, four colors, four styles, and per-book persistence work on rendered Foliate PDF pages | Preserve all actions/styles and keep overlays aligned across scale, rotation, layout, resize, reopen, and restart | Preserve and harden |
+| Bookmarks | Add/remove/current-state/navigation/persistence use Foliate-shaped string values | Preserve behavior with versioned PDF position anchors | Preserve and migrate |
+| Preferences/theme | Theme/filter, reduced motion, autohide cursor, and common shortcuts are global; PDF mode is not persisted | Preserve common preferences and persist discriminated PDF mode separately | Preserve and improve |
+| Password PDF | No dedicated product prompt | Show required/incorrect-password states and allow retry or predictable cancellation | Improvement |
+| Image-only PDF | Viewable when PDF.js renders it; text actions simply have no useful text | Remain viewable and disable or yield no text-dependent actions predictably | Preserve and clarify |
+| Non-PDF | Production routes `.epub` through Foliate | Keep the EPUB engine and user behavior unchanged | Preserve |
 
-Goal: open PDFs with PDF.js in Buddy's shell.
+### Work Package 1: Freeze The Current Contract
 
-Steps:
+Before refactoring, convert the current behavior inventory into an acceptance matrix and capture fixtures that exercise it.
 
-- add PDF.js dependency or use existing bundled PDF.js strategy intentionally
-- configure worker and asset loading for Vite/Electron
-- render continuous vertical pages
-- implement fit-width default
-- implement visible-page tracking
-- implement `goTo` for page anchors
-- implement current location updates
+- record the exact current PDF actions, controls, callbacks, persistence fields, and keyboard behavior
+- trace CFI-shaped assumptions through the reader pane, directory reading page, chat store, prompt-selection metadata, annotation summaries, and agent reading context
+- add representative PDFs: normal text, scanned/image-only, mixed page sizes, portrait and landscape, rotated pages, outline, page labels, links, no text layer, large page count, malformed file, and password-protected file
+- capture baseline desktop and narrow-pane screenshots and current interaction results
+- inspect whether real Foliate-backed PDF annotations exist before committing to an expensive migration
 
-### Phase 4: Add PDF selection and annotations
+The acceptance matrix becomes the cutover checklist. A feature cannot disappear merely because PDF.js exposes it differently.
 
-Goal: match Buddy's existing highlight/note workflow.
+### Work Package 2: Prove The PDF.js Runtime Internally
 
-Steps:
+Build a development-only vertical slice before changing production routing.
 
-- render text layer
-- detect selection across page text layers
-- convert selection rects to normalized page coordinates
-- show the existing selection toolbar
-- create annotations with `PdfAnchor`
-- render stored PDF annotations as overlays
-- support show/delete/update annotation
+- add an exact direct `pdfjs-dist` dependency to `packages/web`
+- centralize API, matching worker, CMaps, standard fonts, WASM, viewer CSS, and image asset configuration
+- instantiate `PDFViewer`, `PDFLinkService`, `PDFFindController`, and `EventBus` behind a small Buddy adapter
+- load the existing resource blob without an iframe or CDN
+- prove continuous vertical rendering, fit-width, explicit zoom, horizontal panning, current-page events, links, and teardown
+- verify Vite development and packaged Electron asset loading on macOS and Windows
+- verify rapid source replacement and unmount cancel stale loads and destroy PDF.js resources
 
-### Phase 5: Add PDF search, outline, bookmarks
+This checkpoint may use a development-only route or flag. It must not become the default PDF reader.
 
-Goal: make PDFs feature-complete in the shared interface.
+### Work Package 3: Establish The Neutral Reader Boundary
 
-Steps:
+Introduce the product boundary without performing a big-bang UI rewrite.
 
-- load outline
-- render outline in existing TOC UI
-- implement page search
-- show search results in existing search UI
-- implement PDF bookmarks using page/y anchors
-- implement location dialog page jumps
+- add `DocumentReader` as the only reader entry point
+- keep the existing `FoliateReader` working through a thin Foliate adapter
+- add neutral `ReaderSource`, `ReaderSnapshot`, `ReaderPositionAnchor`, `ReaderTextAnchor`, `ReaderLocation`, `ReaderSelection`, `ReaderAnnotation`, `ReaderBookmark`, `ReaderSearchResult`, and `ReaderEngineCapabilities` types
+- update the directory reader pane, reading page, chat store, prompt metadata, reading trail, and agent context so they accept neutral locations and selections
+- keep format-specific modes discriminated rather than forcing Foliate text preferences onto PDF
+- extract toolbar/panel/dialog components only when both engines have a concrete shared need
 
-### Phase 6: Remove Foliate PDF as the default
+Production PDF routing remains on Foliate throughout this package.
 
-Goal: stop routing PDFs through Foliate.
+### Work Package 4: Implement Anchors And Versioned State
 
-Steps:
+Complete the data foundation before annotations are cut over.
 
-- route PDF sources to `PdfJsEngine`
-- keep Foliate for EPUB/MOBI/AZW/FB2/CBZ
-- optionally keep a debug flag for old Foliate PDF during migration
-- remove Foliate PDF compatibility code after migration confidence is high
+- implement and unit-test conversion between DOM selection geometry, PDF.js viewports, canonical unrotated PDF coordinates, and rendered overlays
+- support multi-page text selections through page-specific segments
+- define stable position restoration using page index plus horizontal and vertical page ratios
+- introduce a runtime-validated `ReaderStateRepository` with v2 keys and localStorage as its first backend
+- require resource/object identity where available and attach a content fingerprint to detect changed bytes
+- migrate existing Foliate ebook bookmarks and annotations into CFI position/text anchors
+- implement legacy PDF conversion only if the baseline inventory finds meaningful user data; otherwise preserve/export or explicitly discard it without delaying the reader
+- write only v2 state after migration while retaining the deliberate v1 read path
+
+### Work Package 5: Complete The PDF Feature Set
+
+Implement the new PDF engine until every row in the current behavior matrix is satisfied.
+
+- continuous, single-page, and two-up layouts
+- fit-width, fit-page, numeric zoom, toolbar and keyboard zoom controls, reset, trackpad/pinch zoom where supported, horizontal panning, rotation, and container-resize handling
+- current page, page label, page offset, progress, next/previous, reading history, page jump, and restored position
+- metadata, outline, page list, external links, loading states, errors, and password-required handling
+- text layer selection, copy, selection toolbar placement, cross-page selection, and chat selection
+- Buddy-owned highlight and note overlays for all current colors and styles
+- annotation create, edit, delete, show, persistence, and annotation summaries
+- bookmark add/remove/current state, navigation, and persistence
+- cancellable search, result excerpts, active result, match overlays, and result navigation
+- shared toolbar, panels, dialogs, preferences, help, keyboard shortcuts, reduced-motion behavior, and theming
+
+Preserve the current PDF theme/filter behavior for the initial cutover so theme changes are not bundled into the engine migration. A separate explicit invert-PDF preference can be considered later.
+
+### Work Package 6: Reliability, Performance, And Accessibility
+
+Harden the complete reader before routing production PDFs to it.
+
+- ensure one scroll owner handles both vertical movement and horizontal panning
+- verify the PDF.js rendering queue retains a bounded number of rendered canvases while scrolling a large document
+- verify mixed page sizes do not overlap, clip, or cause unstable scroll jumps
+- preserve the reading anchor while zooming, rotating, changing layout, opening/closing panels, and resizing the Bench pane
+- cancel search, page rendering, source loading, and delayed callbacks when replaced or unmounted
+- verify repeated open/close and source-switch cycles do not retain loading tasks, workers, object URLs, page views, or event listeners
+- verify keyboard navigation, focus order, screen-reader labels, reduced motion, selection, links, and popover positioning
+- verify scanned/image-only PDFs remain viewable and clearly lack text-dependent actions when no text layer exists
+- surface malformed, unsupported, and password-required states predictably rather than hanging
+
+Do not introduce TanStack Virtual unless profiling demonstrates that PDF.js page-view retention is the remaining bottleneck. If it becomes necessary, it must preserve the single scroll owner and all selection, navigation, and measurement semantics.
+
+### Work Package 7: Atomic Cutover And Cleanup
+
+Cut over only after the complete acceptance matrix passes.
+
+- run the full parity, new-behavior, persistence, lifecycle, and platform gates
+- route PDFs through `PdfJsEngine` in `DocumentReader` in one atomic product change
+- continue routing all non-PDF formats through Foliate
+- keep the Foliate PDF path available only as a short-lived development comparison until migration confidence is established
+- remove the Foliate PDF route, PDF-specific compatibility helpers, CFI assumptions in shared consumers, and the development flag
+- update reader documentation so the PDF.js path is the sole supported PDF architecture
+
+No partial PDF reader is released between these work packages.
+
+## Cutover Gates
+
+| Area | Required before PDF.js becomes the default |
+| --- | --- |
+| Current feature parity | Every item in the current behavior matrix works through the Buddy shell. |
+| Continuous reading | Pages render vertically in order with fit-width as the narrow-pane default. |
+| Zoom and panning | Fit-width, fit-page, numeric zoom, zoom controls, reset, and horizontal panning work without nested scroll conflicts. |
+| Navigation | Next/previous, history, outline, page labels, progress, page jump, bookmarks, and restored position target the correct location. |
+| Selection and chat | Text selection, copy, toolbar placement, cross-page selection, staging/removal, and agent context work. |
+| Annotations | Every current color/style and note action survives zoom, rotation, layout changes, resize, close/reopen, and app restart. |
+| Search | Search is cancellable; excerpts, active match, overlays, and navigation are correct. |
+| Persistence | V2 state is validated, document identity is stable, changed bytes are detected, and the chosen migration policy is verified. |
+| Reliability | Rapid source changes, errors, password-required files, and repeated mount/unmount cycles settle predictably without stale updates. |
+| Performance | Large-document scrolling keeps rendered canvases bounded and does not show sustained unbounded memory growth. |
+| Accessibility | Keyboard, focus, labels, reduced motion, text selection, and links remain usable. |
+| Platforms | Vite development and packaged Electron pass on macOS and Windows. |
+| Non-PDF regression | Production EPUB behavior is unchanged. |
 
 ## Verification Plan
 
-For code changes, Buddy's normal completion requirement applies:
+Automated verification should include:
 
-- `bun lint`
-- `bun typecheck` from repository root
+- unit tests for coordinate conversion at every rotation, mixed crop boxes/page sizes, multi-page selections, position restoration, identity, schema validation, and migration
+- component tests for capability-driven shell controls, source replacement, cleanup, selection/chat callbacks, bookmark state, annotation CRUD, and mode changes
+- search tests for cancellation, repeated queries, excerpts, active-result movement, and navigation
+- Playwright tests at desktop and narrow Bench widths for nonblank canvas output, continuous layout, zoom, horizontal panning, selection toolbar placement, overlay alignment, and persistence after reopen
+- large-document assertions that rendered canvas/page-view retention remains bounded while scrolling forward and backward
+- packaged Electron smoke tests for worker/assets, links, selection, zoom, persistence, and teardown on macOS and Windows
 
-For reader behavior, add targeted verification:
+For canvas views, include pixel or nonblank checks so visual tests cannot pass with empty pages. Use repeatable bounds and lifecycle assertions rather than relying only on vague heap snapshots.
 
-- desktop viewport screenshot
-- narrow/mobile-width viewport screenshot
-- PDF continuous vertical pages render nonblank
-- fit-width default is readable on narrow width
-- zoom preserves current page and highlight positions
-- highlights survive mode changes
-- bookmarks navigate correctly
-- search result navigation works
-- text selection toolbar appears in the correct screen position
-- no page canvas is rendered for every page in a large document
-- memory does not grow unbounded while scrolling
+For all code changes, Buddy's normal completion requirements apply:
 
-Use Playwright for visual checks where possible. For canvas views, include pixel/nonblank checks so tests do not pass with empty pages.
+- run tests only for the packages changed
+- run `bun lint`
+- run `bun typecheck` once from the repository root
+- run `bun fmt` only after the task is complete and the user is satisfied
 
 ## Risks
 
-### Text selection accuracy
+### Viewer-layer API changes
 
-PDF text layers can be imperfect. Some PDFs have poor text order or missing text.
+PDF.js viewer APIs can change between releases.
 
 Mitigation:
 
-- store selected text quote
-- store normalized rects
-- support image-only pages as view-only until OCR/source preparation exists
+- pin one exact `pdfjs-dist` version in `packages/web`
+- isolate viewer-layer imports and events behind one adapter
+- avoid private or underscored fields
+- update the API and worker together
+
+### Text selection accuracy
+
+PDF text layers can have poor ordering, imperfect geometry, or no text at all.
+
+Mitigation:
+
+- persist canonical quads plus exact/prefix/suffix quote context
+- support multi-page segments
+- treat image-only pages as viewable but without text-dependent actions until OCR/source preparation exists
 
 ### Annotation stability
 
-Page-coordinate highlights are stable across zoom, but not across a changed PDF file.
+Page-coordinate highlights are stable across display changes but not across changed PDF bytes.
 
 Mitigation:
 
-- use resource identity/fingerprint
-- store page label and text quote as fallback context
+- use stable resource identity plus content fingerprint
+- refuse silent reuse when the fingerprint changes
+- keep page label and quote context for diagnosis and recovery
 
-### Memory usage
+### Memory and rendering cost
 
-Continuous PDF viewers can use too much memory if every page is rendered.
-
-Mitigation:
-
-- virtualize pages
-- cancel offscreen render tasks
-- release canvases outside overscan
-
-### Worker and asset setup
-
-PDF.js worker and assets can be annoying under Vite/Electron.
+Continuous PDF viewers can use too much memory if canvases are retained indefinitely.
 
 Mitigation:
 
-- centralize PDF.js runtime setup
-- avoid ad hoc imports throughout the app
-- verify production Electron build, not only Vite dev
+- use PDF.js's rendering queue and page-view buffer
+- measure bounded canvas retention with representative large documents
+- cancel stale work and destroy document resources on source replacement
+- evaluate additional virtualization only after profiling proves it necessary
 
-### Feature parity pressure
+### Worker and asset packaging
 
-PDF.js has many features Buddy may not need immediately.
+A PDF reader can work in Vite development but fail in packaged Electron because a worker, CMap, font, WASM, CSS, or image asset is missing.
 
 Mitigation:
 
-- implement reading, selection, highlights, bookmarks, outline, search, zoom first
-- defer forms, signing, embedded annotation editing, and PDF file mutation
+- centralize locally bundled runtime URLs
+- test production packaging early and at the final gate
+- test both macOS and Windows artifacts
 
-## Open Questions
+### Shared-state leaks
 
-- Should PDF.js be consumed directly from `pdfjs-dist`, or should Buddy reuse the PDF.js bundled inside `foliate-js` temporarily?
-- Should reader state remain in localStorage for now, or move into Buddy's object/resource system as part of source-system work?
-- How much effort should be spent migrating existing Foliate-backed PDF annotations?
-- Should PDF dark mode default to filtered/inverted rendering, or should it remain opt-in?
-- Should two-up PDF mode be desktop-only by default?
+CFI assumptions currently extend beyond `FoliateReader` into directory/chat state and prompt metadata.
+
+Mitigation:
+
+- include every consumer in the neutral boundary work package
+- keep format-specific anchors discriminated
+- add contract tests at the reader-to-chat boundary
+
+### Feature drift during implementation
+
+A new rendering path can appear complete while silently omitting current Buddy behavior.
+
+Mitigation:
+
+- freeze the current behavior matrix first
+- keep the new path development-only until all gates pass
+- cut over atomically and do not release intermediate partial states
+
+## Resolved Decisions
+
+- Consume an exact direct `pdfjs-dist` dependency from `packages/web`; never reuse Foliate's private bundled copy.
+- Use exported PDF.js viewer-layer components behind a Buddy adapter; do not embed the stock viewer application.
+- Let PDF.js own page rendering and the single scroll container initially; add TanStack Virtual only if profiling requires it.
+- Keep reader state in a versioned localStorage-backed repository during this project; moving it into the source system is separate work.
+- Preserve current PDF theme/filter behavior for the cutover; an explicit inversion preference is future work.
+- Default PDFs to continuous fit-width, with fit-page, numeric zoom, single-page, and two-up available as user modes.
+- For documents above PDF.js's 10,000-page continuous-view safety limit, surface the enforced page-mode fallback instead of silently claiming continuous layout.
+- Provide horizontal panning when zoom makes a page wider than the pane; do not introduce horizontal page flow.
+- Implement legacy PDF annotation migration only when real stored data justifies it; migration cannot delay the new reader indefinitely.
+- Defer PDF forms, signing, embedded annotation editing, file mutation, and OCR. Preserve or improve predictable viewing/error behavior for those files without treating those features as parity requirements.
 
 ## Final Position
 
@@ -1249,4 +1465,4 @@ Buddy should not let Foliate's PDF adapter define Buddy's PDF product.
 
 Foliate remains a good ebook engine. PDF.js is the right PDF rendering foundation. Buddy's own reader shell should be the stable product interface across both.
 
-Highlights, bookmarks, notes, search, chat selection, and preferences should become Buddy reader concepts with engine-specific anchors. Foliate modes keep working for Foliate anchors. PDF modes work through PDF page anchors. The user sees one reader; the code gets two engines.
+Highlights, bookmarks, notes, search, chat selection, and preferences should become Buddy reader concepts with format-specific anchors. Foliate modes keep working through CFI anchors. PDF modes work through canonical PDF position and text anchors. The user sees one complete reader; the code gets two engines.
