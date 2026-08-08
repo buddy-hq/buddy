@@ -9,7 +9,7 @@ import {
   type WhiteboardBoard,
   type WhiteboardBoardOrigin,
   type WhiteboardElement,
-  type WhiteboardSessionRead,
+  type WhiteboardObjectRead,
   type WhiteboardViewport,
 } from "./types"
 import { assertWhiteboardPayloadWithinLimit } from "./payload"
@@ -66,7 +66,7 @@ const CAMERA_TARGET_ASPECT_RATIO = 4 / 3
 const CAMERA_ASPECT_RATIO_TOLERANCE = 0.15
 
 type WhiteboardProgramResult = {
-  state: WhiteboardSessionRead
+  state: WhiteboardObjectRead
   continuationHandle: string
   boardID: string
   saved: boolean
@@ -524,7 +524,7 @@ function buildWhiteboardProgramBoard(input: {
 
 async function applyWhiteboardDrawingProgram(input: {
   directory: string
-  sessionID: string
+  objectID: string
   elements: string
   writeMode?: WhiteboardProgramRequestedWriteMode
 }): Promise<WhiteboardProgramResult> {
@@ -539,7 +539,7 @@ async function applyWhiteboardDrawingProgram(input: {
   const touchedIDs = writeMode === "replace" ? new Set<string>() : collectTouchedIDs(program)
   const writeResult = await writeWhiteboardCurrentFromLatest({
     directory: input.directory,
-    sessionID: input.sessionID,
+    objectID: input.objectID,
     origin: "agent" satisfies WhiteboardBoardOrigin,
     validateBase:
       writeMode === "replace"

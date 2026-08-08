@@ -17,10 +17,11 @@ This skill has 3 sections
 
 # Buddy Whiteboard Authoring
 
-You are using Buddy's embedded Excalidraw whiteboard. The Buddy whiteboard appears in the left panel of a two-panel layout. Buddy Chat appears in the right panel. The whiteboard may use a light or dark background depending on the current theme. Any changes you make on the whiteboard are visible to the learner in real time.
+You are using Buddy's embedded Excalidraw whiteboard on Bench. Depending on the learner's layout, chat may be docked beside it or float over it. The whiteboard may use a light or dark background depending on the current theme. Complete streamed drawing elements become visible to the learner in real time.
 
 Buddy-specific rules:
 - Treat `whiteboard_create_view` like Excalidraw MCP's `create_view`: keep the tool input small and format-first. Put strategy and teaching decisions in your reasoning and in this skill, not inside the `elements` JSON.
+- Pass `objectID:null` only for a new whiteboard. Reuse a whiteboard's stable `objectID` for every read and subsequent edit, regardless of which chat is active.
 - `elements` must be one compact JSON array. It must be valid JSON: no comments, no trailing commas.
 - The tool argument is already a string field, so inside it write plain JSON like `[{"type":"rectangle","id":"a","x":0,"y":0,"width":120,"height":80}]`.
 - Do not double-escape quotes inside `elements`.
@@ -31,12 +32,12 @@ Buddy-specific rules:
 - Treat `destructively_replace_current_board` as destructive: Buddy has one current board, so the viewer has no in-app way to go back to the overwritten board.
 - Do not use `destructively_replace_current_board` merely because a clean canvas, a different layout, a new lesson/topic, or a structurally different visualization would be easier. Continue the board and draw in a new zone unless the user explicitly asks to discard the old board.
 - Do not put `restoreCheckpoint` or `replaceCurrentBoard` inside `elements`. Board persistence is controlled by `boardAction`.
-- Before precise edits to the current board, call `whiteboard_read_context`, then use `boardAction:"continue_current_board"`.
+- Before precise edits to the current board, call `whiteboard_read_context` with its `objectID`, then use the same `objectID` with `boardAction:"continue_current_board"`.
 - The continuation handle resolves to the latest persisted current board, including learner edits.
-- Do not include session ids, board ids, or other app state in tool input. Buddy already knows them.
+- Do not invent or include session ids, internal checkpoint ids, or other app state in tool input. Pass only the stable whiteboard `objectID` required by the tool contract; Buddy owns internal board/checkpoint identity.
 - Use stable semantic element ids and never reuse a deleted id.
-- Progressive rendering is best effort while the tool input streams. Only the final validated program saves a durable board.
-- Buddy keeps one mutable current board per chat session. Small edits should continue from context and change only the local area instead of redrawing the whole board from scratch.
+- Progressive rendering is best effort while the tool input streams. Emit complete drawable objects in useful order so the first one can replace the new-board loading state immediately. Only the final validated program saves a durable board.
+- Each directory-owned whiteboard object keeps one mutable current board. Multiple chats may open and edit the same object. Small edits should continue from context and change only the local area instead of redrawing the whole board from scratch.
 
 ---
 
@@ -714,17 +715,17 @@ This demonstrates a UML-style sequence diagram with 4 actors (User, Agent, App i
 
 ## Continuing the current board
 
-Every `whiteboard_create_view` call returns `metadata.continuationHandle` and the model-visible line `continuation_handle=current`. This is a continuation handle for Buddy's single current board, not a checkpoint or restore point, and you do not put it inside `elements`. Buddy already knows the current session and resolves the current board internally.
+Every `whiteboard_create_view` call returns `metadata.objectID`, `metadata.continuationHandle`, and the model-visible object reference. The continuation handle names the current board within that whiteboard object; it is not a checkpoint or restore point, and you do not put it inside `elements`. Reuse the returned `objectID` when reading or editing that same board, including from another chat. Pass `objectID: null` only to create a distinct new whiteboard.
 
 To preserve the current board and apply local drawing changes, set `boardAction` to `continue_current_board`:
 
-`{"boardAction":"continue_current_board","elements":"[{\"type\":\"text\",\"id\":\"next-note\",\"x\":80,\"y\":420,\"text\":\"Next step\"}]"}`
+`{"objectID":"<existing-object-id>","boardAction":"continue_current_board","elements":"[{\"type\":\"text\",\"id\":\"next-note\",\"x\":80,\"y\":420,\"text\":\"Next step\"}]"}`
 
 The current board is continued, and your new elements or local controls are applied on top. This saves tokens — you don't need to re-send the entire diagram.
 
 To intentionally discard the current board and start over, make replacement explicit only after the user asks for that destructive overwrite:
 
-`{"boardAction":"destructively_replace_current_board","elements":"[{\"type\":\"rectangle\",\"id\":\"new-frame\",\"x\":0,\"y\":0,\"width\":400,\"height\":300}]"}`
+`{"objectID":"<existing-object-id>","boardAction":"destructively_replace_current_board","elements":"[{\"type\":\"rectangle\",\"id\":\"new-frame\",\"x\":0,\"y\":0,\"width\":400,\"height\":300}]"}`
 
 Replacement overwrites Buddy's single current board. The learner/viewer has no in-app way to return to the overwritten board, so do not choose it for visual cleanliness or because a new layout would be easier to draw.
 

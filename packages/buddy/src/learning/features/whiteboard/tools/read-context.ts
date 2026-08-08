@@ -1,6 +1,7 @@
 import z from "zod"
 import READ_CONTEXT_DESCRIPTION from "./read-context.md"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
+import { BuddyObjectIDSchema } from "../../../../objects"
 import {
   readAndRecordWhiteboardBoardContext,
   WHITEBOARD_CONTINUATION_HANDLE,
@@ -8,7 +9,13 @@ import {
 import { buildWhiteboardLayoutDigest } from "../service/layout-digest"
 import type { WhiteboardBoard, WhiteboardBounds, WhiteboardElement } from "../service/types"
 
-const ReadWhiteboardContextInputSchema = z.object({}).strict()
+const ReadWhiteboardContextInputSchema = z
+  .object({
+    objectID: BuddyObjectIDSchema.describe(
+      "Stable id of the directory whiteboard object whose latest persisted board context should be read.",
+    ),
+  })
+  .strict()
 const MAX_CONTEXT_ELEMENTS = 120
 const MAX_VISIBLE_TEXT_ITEMS = 80
 const MAX_CONTEXT_TEXT_CHARS = 500
@@ -238,15 +245,15 @@ const readWhiteboardContextTool = createBuddyTool({
       error: "Failed to read Whiteboard",
     },
   },
-  async execute(_params, ctx) {
-    const context = await readAndRecordWhiteboardBoardContext(ctx.directory, String(ctx.sessionID))
+  async execute(params, ctx) {
+    const context = await readAndRecordWhiteboardBoardContext(ctx.directory, params.objectID)
     const currentBoard = context.currentBoard
     if (!currentBoard) {
       return {
         title: "Read Whiteboard",
         output:
           'No whiteboard board exists. Create the first board with whiteboard_create_view using boardAction: "continue_current_board".',
-        metadata: {},
+        metadata: { objectID: params.objectID },
       }
     }
     const latestLearnerEditSummary = context.previousBoard
@@ -279,6 +286,7 @@ const readWhiteboardContextTool = createBuddyTool({
         elements,
       }),
       metadata: {
+        objectID: params.objectID,
         boardID: currentBoard.boardID,
       },
     }

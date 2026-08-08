@@ -114,31 +114,34 @@ Desktop when available:
 
 Use when the user asks about the whiteboard, Boards drawer, drawing on canvas, sharing a board, or how Buddy sketches live.
 
-**Boards** (rail) = catalog for the session’s whiteboard. Not Creations (widgets, Mermaid, figures, media) — Creations below. Opens on **Bench** — `workspace.md`.
+**Boards** (rail) = catalog of whiteboards in the notebook. Not Creations (widgets, Mermaid, figures, media) — Creations below. Opens on **Bench** — `workspace.md`.
 
 ### User paths
 
 - Library rail → **Boards**.
-- Empty: **No board yet** → **Create board** stages a chat prompt (does not create a silent empty canvas). User still sends.
-- With board: **Current board** → open on Bench (header **Whiteboard**).
+- Empty: **No boards yet** → **Create board** creates and opens an editable empty canvas immediately. It does not fill or send the chat composer.
+- With boards: choose any board → open it on Bench (header **Whiteboard**).
 - On canvas: pan/zoom; draw when Buddy is not mid-draw. Learner edits autosave.
 - **Share board**: encrypts upload to excalidraw.com and opens the share link (network). Disabled while Buddy is still drawing.
 - Empty Bench pane: “Ask Buddy to draw on the whiteboard.”
 
 ### Defaults
 
-- One mutable **current board per chat session** (chat). Drawer lists that board only — not a multi-board library.
+- Whiteboards belong to the notebook and use stable object IDs. Multiple chats can open and edit the same board; opening one never switches chats.
 - New topics usually continue on the same board unless the user asked to wipe the whole board.
-- Drawing may appear step-by-step; the finished board is what is saved.
+- For a new Buddy drawing, Bench opens immediately with a temporary loading animation. The animation disappears as soon as the first complete drawable element arrives; later elements appear one by one before the tool finishes. Only the validated finished board is saved.
+- Updating an existing board never hides its current content behind the loading animation. The populated canvas stays visible while Buddy's streamed changes compose over it.
 - Share is the export path found.
 
 ### Gotchas
 
-- **Create board** fills the chat box — not an instant blank board.
+- **Create board** directly creates a notebook-owned empty board; ask Buddy in chat when you want it to draw for you.
 - While Buddy draws, canvas is view-only; edit after the turn settles.
+- Denying or failing a new drawing removes its temporary preview and does not leave a board behind.
+- If a board is collapsed when an authorized update starts, Buddy reopens that real board; the update does not switch chats.
 - Destructive full replace: no in-app restore of the overwritten board.
 - Share leaves Buddy (excalidraw.com). Fails offline.
-- Other chats’ boards: switch chat, then Boards — do not claim a global board browser.
+- The Boards catalog is notebook-wide. Every chat in the notebook can open the same boards without switching chats.
 
 ### Related
 
@@ -178,4 +181,3 @@ Empty: “No creations yet” until Buddy presents something. **Create** only st
 ### Related
 
 Boards below, `workspace.md`, `workspace.md`, `extend.md`, `workspace.md`
-

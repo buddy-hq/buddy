@@ -116,11 +116,20 @@ const WhiteboardBoardSchema = z
   })
   .strict()
 
-const WhiteboardSessionBoardSchema = WhiteboardBoardSchema.omit({
+const WhiteboardObjectBoardSchema = WhiteboardBoardSchema.omit({
   renderReport: true,
 })
 
-const WhiteboardSessionStateSchema = z
+const WhiteboardObjectStateSchema = z
+  .object({
+    version: z.literal(3),
+    currentBoard: WhiteboardBoardSchema.optional(),
+    previousBoard: WhiteboardBoardSchema.optional(),
+    modelContext: WhiteboardModelContextSchema.optional(),
+  })
+  .strict()
+
+const LegacyWhiteboardSessionStateSchema = z
   .object({
     version: z.literal(2),
     sessionID: z.string().trim().min(1),
@@ -130,10 +139,24 @@ const WhiteboardSessionStateSchema = z
   })
   .strict()
 
-const WhiteboardSessionReadSchema = z
+const WhiteboardObjectReadSchema = z
   .object({
-    objectID: BuddyObjectIDSchema.nullable(),
-    currentBoard: WhiteboardSessionBoardSchema.nullable(),
+    objectID: BuddyObjectIDSchema,
+    currentBoard: WhiteboardObjectBoardSchema.nullable(),
+  })
+  .strict()
+
+const WhiteboardCreationReservationRequestSchema = z
+  .object({
+    sessionID: z.string().trim().min(1),
+    messageID: z.string().trim().min(1),
+    callID: z.string().trim().min(1),
+  })
+  .strict()
+
+const WhiteboardCreationReservationResponseSchema = z
+  .object({
+    objectID: BuddyObjectIDSchema,
   })
   .strict()
 
@@ -154,10 +177,17 @@ type WhiteboardModelContextAnchor = z.infer<typeof WhiteboardModelContextAnchorS
 type WhiteboardRenderReport = z.infer<typeof WhiteboardRenderReportSchema>
 type WhiteboardRenderReportElement = z.infer<typeof WhiteboardRenderReportElementSchema>
 type WhiteboardRenderReportSaveResponse = z.infer<typeof WhiteboardRenderReportSaveResponseSchema>
-type WhiteboardSessionBoard = z.infer<typeof WhiteboardSessionBoardSchema>
+type WhiteboardObjectBoard = z.infer<typeof WhiteboardObjectBoardSchema>
 type WhiteboardViewport = z.infer<typeof WhiteboardViewportSchema>
-type WhiteboardSessionState = z.infer<typeof WhiteboardSessionStateSchema>
-type WhiteboardSessionRead = z.infer<typeof WhiteboardSessionReadSchema>
+type WhiteboardObjectState = z.infer<typeof WhiteboardObjectStateSchema>
+type WhiteboardObjectRead = z.infer<typeof WhiteboardObjectReadSchema>
+type WhiteboardCreationReservationRequest = z.infer<
+  typeof WhiteboardCreationReservationRequestSchema
+>
+type WhiteboardCreationReservationResponse = z.infer<
+  typeof WhiteboardCreationReservationResponseSchema
+>
+type LegacyWhiteboardSessionState = z.infer<typeof LegacyWhiteboardSessionStateSchema>
 type WhiteboardLearnerEditRequest = z.infer<typeof WhiteboardLearnerEditRequestSchema>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -290,9 +320,12 @@ export {
   WhiteboardModelContextSchema,
   WhiteboardRenderReportSaveResponseSchema,
   WhiteboardRenderReportSchema,
-  WhiteboardSessionBoardSchema,
-  WhiteboardSessionReadSchema,
-  WhiteboardSessionStateSchema,
+  LegacyWhiteboardSessionStateSchema,
+  WhiteboardObjectBoardSchema,
+  WhiteboardCreationReservationRequestSchema,
+  WhiteboardCreationReservationResponseSchema,
+  WhiteboardObjectReadSchema,
+  WhiteboardObjectStateSchema,
   WhiteboardViewportSchema,
   parsePersistableWhiteboardElement,
   sanitizeWhiteboardElements,
@@ -309,8 +342,11 @@ export type {
   WhiteboardRenderReport,
   WhiteboardRenderReportElement,
   WhiteboardRenderReportSaveResponse,
-  WhiteboardSessionBoard,
-  WhiteboardSessionRead,
-  WhiteboardSessionState,
+  LegacyWhiteboardSessionState,
+  WhiteboardCreationReservationRequest,
+  WhiteboardCreationReservationResponse,
+  WhiteboardObjectBoard,
+  WhiteboardObjectRead,
+  WhiteboardObjectState,
   WhiteboardViewport,
 }

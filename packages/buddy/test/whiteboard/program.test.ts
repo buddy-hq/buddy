@@ -2,16 +2,16 @@ import { describe, expect, test } from "bun:test"
 import { setTimeout as sleep } from "node:timers/promises"
 import { MessageID, SessionID } from "@buddy/opencode-adapter/id"
 import {
-  applyWhiteboardDrawingProgram,
+  applyWhiteboardDrawingProgram as applyWhiteboardDrawingProgramForObject,
   parseDrawingProgram,
 } from "../../src/learning/features/whiteboard/service/program"
 import {
-  ensureWhiteboardObjectForSession,
-  readAndRecordWhiteboardBoardContext,
-  readWhiteboardSession,
-  readWhiteboardBoardContext,
-  saveWhiteboardLearnerEdit,
-  saveWhiteboardRenderReport,
+  createWhiteboardObject,
+  readAndRecordWhiteboardBoardContext as readAndRecordWhiteboardObjectContext,
+  readWhiteboardObject,
+  readWhiteboardBoardContext as readWhiteboardObjectContext,
+  saveWhiteboardLearnerEdit as saveWhiteboardObjectLearnerEdit,
+  saveWhiteboardRenderReport as saveWhiteboardObjectRenderReport,
 } from "../../src/learning/features/whiteboard/service/store"
 import { BUDDY_OBJECT_KINDS, listObjects } from "../../src/objects"
 import {
@@ -21,8 +21,8 @@ import {
 } from "../../src/learning/features/whiteboard/errors"
 import { MAX_WHITEBOARD_PAYLOAD_BYTES } from "../../src/learning/features/whiteboard/service/payload"
 import {
-  createWhiteboardViewTool,
-  readWhiteboardContextTool,
+  createWhiteboardViewTool as createWhiteboardViewToolForObject,
+  readWhiteboardContextTool as readWhiteboardContextToolForObject,
 } from "../../src/learning/features/whiteboard/tools/tools"
 import type { WhiteboardRenderReport } from "../../src/learning/features/whiteboard/service/types"
 import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
@@ -58,6 +58,107 @@ function createContext(input: { directory: string; sessionID: string }): BuddyTo
     metadata: async () => {},
     ask: async () => {},
   }
+}
+
+const testWhiteboardObjectBySession = new Map<
+  string,
+  ReturnType<typeof createWhiteboardObject>
+>()
+
+function testWhiteboardSessionKey(directory: string, sessionID: string): string {
+  return JSON.stringify([directory, sessionID])
+}
+
+function ensureWhiteboardObjectForSession(input: { directory: string; sessionID: string }) {
+  const key = testWhiteboardSessionKey(input.directory, input.sessionID)
+  const existing = testWhiteboardObjectBySession.get(key)
+  if (existing) return existing
+  const created = createWhiteboardObject({ directory: input.directory })
+  testWhiteboardObjectBySession.set(key, created)
+  return created
+}
+
+function existingWhiteboardObjectForSession(directory: string, sessionID: string) {
+  return testWhiteboardObjectBySession.get(testWhiteboardSessionKey(directory, sessionID))
+}
+
+async function applyWhiteboardDrawingProgram(
+  input: Omit<Parameters<typeof applyWhiteboardDrawingProgramForObject>[0], "objectID"> & {
+    sessionID: string
+  },
+) {
+  const { sessionID, ...program } = input
+  const object = await ensureWhiteboardObjectForSession({ directory: input.directory, sessionID })
+  return applyWhiteboardDrawingProgramForObject({ ...program, objectID: object.objectID })
+}
+
+async function readWhiteboardSession(directory: string, sessionID: string) {
+  const object = await existingWhiteboardObjectForSession(directory, sessionID)
+  return object
+    ? readWhiteboardObject(directory, object.objectID)
+    : { objectID: null, currentBoard: null }
+}
+
+async function readWhiteboardBoardContext(directory: string, sessionID: string) {
+  const object = await existingWhiteboardObjectForSession(directory, sessionID)
+  return object
+    ? readWhiteboardObjectContext(directory, object.objectID)
+    : { currentBoard: null }
+}
+
+async function readAndRecordWhiteboardBoardContext(directory: string, sessionID: string) {
+  const object = await existingWhiteboardObjectForSession(directory, sessionID)
+  return object
+    ? readAndRecordWhiteboardObjectContext(directory, object.objectID)
+    : { currentBoard: null }
+}
+
+async function saveWhiteboardRenderReport(
+  input: Omit<Parameters<typeof saveWhiteboardObjectRenderReport>[0], "objectID"> & {
+    sessionID: string
+  },
+) {
+  const { sessionID, ...report } = input
+  const object = await ensureWhiteboardObjectForSession({ directory: input.directory, sessionID })
+  return saveWhiteboardObjectRenderReport({ ...report, objectID: object.objectID })
+}
+
+async function saveWhiteboardLearnerEdit(
+  input: Omit<Parameters<typeof saveWhiteboardObjectLearnerEdit>[0], "objectID"> & {
+    sessionID: string
+  },
+) {
+  const { sessionID, ...edit } = input
+  const object = await ensureWhiteboardObjectForSession({ directory: input.directory, sessionID })
+  return saveWhiteboardObjectLearnerEdit({ ...edit, objectID: object.objectID })
+}
+
+type TestCreateWhiteboardViewInput = {
+  objectID?: string | null
+  boardAction: "continue_current_board" | "destructively_replace_current_board"
+  elements: string
+}
+
+const createWhiteboardViewTool = {
+  async run(input: TestCreateWhiteboardViewInput, ctx: BuddyToolContext) {
+    const object = input.objectID
+      ? await readWhiteboardObject(ctx.directory, input.objectID)
+      : await ensureWhiteboardObjectForSession({
+          directory: ctx.directory,
+          sessionID: String(ctx.sessionID),
+        })
+    return createWhiteboardViewToolForObject.run({ ...input, objectID: object.objectID }, ctx)
+  },
+}
+
+const readWhiteboardContextTool = {
+  async run(_input: Record<string, never>, ctx: BuddyToolContext) {
+    const object = await ensureWhiteboardObjectForSession({
+      directory: ctx.directory,
+      sessionID: String(ctx.sessionID),
+    })
+    return readWhiteboardContextToolForObject.run({ objectID: object.objectID }, ctx)
+  },
 }
 
 async function waitForWhiteboardBoardID(input: {

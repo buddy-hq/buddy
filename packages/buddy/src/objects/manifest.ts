@@ -226,7 +226,8 @@ const ResourceObjectSummarySchema = z
 const WhiteboardObjectSummarySchema = z
   .object({
     kind: z.literal(BUDDY_OBJECT_KINDS.whiteboard),
-    sessionID: nonEmptyString,
+    // Accepted only so existing session-owned manifests can be migrated on read.
+    sessionID: nonEmptyString.optional(),
     boardID: nonEmptyString.nullable(),
     continuationHandle: z.literal("current"),
   })

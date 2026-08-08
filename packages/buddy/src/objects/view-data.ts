@@ -186,7 +186,7 @@ const ResourceReaderViewDataSchema = z
 const WhiteboardViewDataSchema = z
   .object({
     renderer: z.literal("whiteboard"),
-    sessionID: nonEmptyString,
+    objectID: BuddyObjectIDSchema,
     boardID: nonEmptyString.nullable(),
     continuationHandle: z.literal("current"),
     elementCount: z.number().int().nonnegative(),

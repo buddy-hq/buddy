@@ -1,12 +1,12 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
+import { BuddyObjectIDSchema, mapBuddyObjectRouteError } from "../objects"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { assertSessionExistsInDirectory } from "../session"
 import { mapWhiteboardRouteError } from "../learning/features/whiteboard/errors"
 import {
-  ensureWhiteboardObjectForSession,
-  readWhiteboardSession,
+  createBlankWhiteboardObject,
+  readWhiteboardObject,
   saveWhiteboardLearnerEdit,
   saveWhiteboardRenderReport,
 } from "../learning/features/whiteboard/service/store"
@@ -17,131 +17,121 @@ import {
 } from "../learning/features/whiteboard/service/share"
 import {
   WhiteboardLearnerEditRequestSchema,
+  WhiteboardObjectReadSchema,
   WhiteboardRenderReportSaveResponseSchema,
   WhiteboardRenderReportSchema,
-  WhiteboardSessionReadSchema,
 } from "../learning/features/whiteboard/service/types"
 
-const sessionIDParamSchema = z.object({
-  sessionID: z.string().min(1),
+const objectIDParamSchema = z.object({
+  objectID: BuddyObjectIDSchema,
 })
+const WHITEBOARD_DIRECT_CREATE_ORIGIN_REASON = "direct-whiteboard-creation"
+
+function mapWhiteboardObjectRouteError(error: unknown): Response | undefined {
+  return mapWhiteboardRouteError(error) ?? mapBuddyObjectRouteError(error)
+}
 
 export const ObjectWhiteboardRoutes = new Hono()
-  .get(
-    "/session/:sessionID/peek",
+  .post(
+    "/",
     describeRoute({
-      operationId: "objectWhiteboard.session.peek",
-      summary: "Read existing session whiteboard state without creating an object",
+      operationId: "objectWhiteboard.object.create",
+      summary: "Create an empty whiteboard object",
       responses: {
-        200: {
-          description: "Existing whiteboard object state",
+        201: {
+          description: "New empty whiteboard object",
           content: {
-            "application/json": { schema: resolver(WhiteboardSessionReadSchema) },
+            "application/json": { schema: resolver(WhiteboardObjectReadSchema) },
           },
         },
-        ...routeErrors(400, 403, 404),
+        ...routeErrors(400, 403, 500),
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("param", sessionIDParamSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
-          task: async () => {
-            const sessionID = c.req.valid("param").sessionID
-            await assertSessionExistsInDirectory({
-              directory: context.directory,
-              sessionID,
-              request: c.req.raw,
-            })
-            return c.json(await readWhiteboardSession(context.directory, sessionID))
-          },
-          mapError: mapWhiteboardRouteError,
+          task: async () =>
+            c.json(
+              await createBlankWhiteboardObject({
+                directory: context.directory,
+                origin: {
+                  kind: "app",
+                  reason: WHITEBOARD_DIRECT_CREATE_ORIGIN_REASON,
+                },
+              }),
+              201,
+            ),
+          mapError: mapWhiteboardObjectRouteError,
         }),
       ),
   )
   .get(
-    "/session/:sessionID",
+    "/:objectID",
     describeRoute({
-      operationId: "objectWhiteboard.session.read",
-      summary: "Read the session whiteboard object state",
+      operationId: "objectWhiteboard.object.read",
+      summary: "Read a whiteboard object state",
       responses: {
         200: {
           description: "Current whiteboard object state",
           content: {
-            "application/json": { schema: resolver(WhiteboardSessionReadSchema) },
+            "application/json": { schema: resolver(WhiteboardObjectReadSchema) },
           },
         },
-        ...routeErrors(400, 403, 404),
+        ...routeErrors(400, 403, 404, 410, 500),
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("param", sessionIDParamSchema),
+    validator("param", objectIDParamSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
-          task: async () => {
-            const sessionID = c.req.valid("param").sessionID
-            await assertSessionExistsInDirectory({
-              directory: context.directory,
-              sessionID,
-              request: c.req.raw,
-            })
-            await ensureWhiteboardObjectForSession({
-              directory: context.directory,
-              sessionID,
-            })
-            return c.json(await readWhiteboardSession(context.directory, sessionID))
-          },
-          mapError: mapWhiteboardRouteError,
+          task: async () =>
+            c.json(
+              await readWhiteboardObject(context.directory, c.req.valid("param").objectID),
+            ),
+          mapError: mapWhiteboardObjectRouteError,
         }),
       ),
   )
   .put(
-    "/session/:sessionID",
+    "/:objectID",
     describeRoute({
-      operationId: "objectWhiteboard.session.saveLearnerEdit",
-      summary: "Persist the learner-edited current whiteboard object state",
+      operationId: "objectWhiteboard.object.saveLearnerEdit",
+      summary: "Persist a learner edit to a whiteboard object",
       responses: {
         200: {
           description: "Whiteboard object state after updating the current board",
           content: {
-            "application/json": { schema: resolver(WhiteboardSessionReadSchema) },
+            "application/json": { schema: resolver(WhiteboardObjectReadSchema) },
           },
         },
-        ...routeErrors(400, 403, 404, 409),
+        ...routeErrors(400, 403, 404, 409, 410, 500),
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("param", sessionIDParamSchema),
+    validator("param", objectIDParamSchema),
     validator("json", WhiteboardLearnerEditRequestSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
-          task: async () => {
-            const sessionID = c.req.valid("param").sessionID
-            await assertSessionExistsInDirectory({
-              directory: context.directory,
-              sessionID,
-              request: c.req.raw,
-            })
-            return c.json(
+          task: async () =>
+            c.json(
               await saveWhiteboardLearnerEdit({
                 directory: context.directory,
-                sessionID,
+                objectID: c.req.valid("param").objectID,
                 edit: c.req.valid("json"),
               }),
-            )
-          },
-          mapError: mapWhiteboardRouteError,
+            ),
+          mapError: mapWhiteboardObjectRouteError,
         }),
       ),
   )
   .put(
-    "/session/:sessionID/render-report",
+    "/:objectID/render-report",
     describeRoute({
-      operationId: "objectWhiteboard.session.renderReport.save",
-      summary: "Persist rendered whiteboard object layout facts for the current board",
+      operationId: "objectWhiteboard.object.renderReport.save",
+      summary: "Persist rendered layout facts for a whiteboard object",
       responses: {
         200: {
           description: "Render report save status",
@@ -149,38 +139,31 @@ export const ObjectWhiteboardRoutes = new Hono()
             "application/json": { schema: resolver(WhiteboardRenderReportSaveResponseSchema) },
           },
         },
-        ...routeErrors(400, 403, 404),
+        ...routeErrors(400, 403, 404, 410, 500),
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("param", sessionIDParamSchema),
+    validator("param", objectIDParamSchema),
     validator("json", WhiteboardRenderReportSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
-          task: async () => {
-            const sessionID = c.req.valid("param").sessionID
-            await assertSessionExistsInDirectory({
-              directory: context.directory,
-              sessionID,
-              request: c.req.raw,
-            })
-            return c.json(
+          task: async () =>
+            c.json(
               await saveWhiteboardRenderReport({
                 directory: context.directory,
-                sessionID,
+                objectID: c.req.valid("param").objectID,
                 report: c.req.valid("json"),
               }),
-            )
-          },
-          mapError: mapWhiteboardRouteError,
+            ),
+          mapError: mapWhiteboardObjectRouteError,
         }),
       ),
   )
   .post(
-    "/session/:sessionID/share",
+    "/:objectID/share",
     describeRoute({
-      operationId: "objectWhiteboard.session.share.create",
+      operationId: "objectWhiteboard.object.share.create",
       summary: "Create an encrypted Excalidraw share link for a whiteboard object",
       responses: {
         200: {
@@ -189,25 +172,22 @@ export const ObjectWhiteboardRoutes = new Hono()
             "application/json": { schema: resolver(WhiteboardShareResponseSchema) },
           },
         },
-        ...routeErrors(400, 403, 404, 502),
+        ...routeErrors(400, 403, 404, 410, 500, 502),
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("param", sessionIDParamSchema),
+    validator("param", objectIDParamSchema),
     validator("json", WhiteboardShareRequestSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const sessionID = c.req.valid("param").sessionID
-            await assertSessionExistsInDirectory({
-              directory: context.directory,
-              sessionID,
-              request: c.req.raw,
-            })
+            await readWhiteboardObject(context.directory, c.req.valid("param").objectID)
             return c.json(await createExcalidrawShareLink(c.req.valid("json")))
           },
-          mapError: mapWhiteboardRouteError,
+          mapError: mapWhiteboardObjectRouteError,
         }),
       ),
   )
+
+export { mapWhiteboardObjectRouteError }

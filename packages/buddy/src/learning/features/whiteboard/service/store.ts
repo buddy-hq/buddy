@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { setTimeout as sleep } from "node:timers/promises"
@@ -8,60 +8,71 @@ import {
   BUDDY_OBJECT_KINDS,
   BuddyObjectIDSchema,
   BuddyObjectManifestSchema,
+  BuddyObjectNotFoundError,
   BuddyObjectValidationError,
   BuddyObjectViewResponseSchema,
   WhiteboardObjectSummarySchema,
   generateObjectID,
-  listObjects,
   readObjectManifest,
   registerBuddyObjectKind,
   writeObjectManifest,
   writeObjectRecord,
   type BuddyObjectManifest,
+  type BuddyObjectOrigin,
   type BuddyObjectViewResponse,
 } from "../../../../objects"
-import { WhiteboardSessionConflictError, WhiteboardStaleLearnerEditError } from "../errors"
+import { WhiteboardStaleLearnerEditError } from "../errors"
 import { WhiteboardPath } from "./path"
 import { assertWhiteboardPayloadWithinLimit } from "./payload"
 import { buildWhiteboardModelContext } from "./model-context"
 import {
   WhiteboardBoardSchema,
+  WhiteboardCreationReservationRequestSchema,
+  WhiteboardCreationReservationResponseSchema,
+  LegacyWhiteboardSessionStateSchema,
   WhiteboardRenderReportSaveResponseSchema,
   WhiteboardRenderReportSchema,
-  WhiteboardSessionReadSchema,
-  WhiteboardSessionStateSchema,
+  WhiteboardObjectReadSchema,
+  WhiteboardObjectStateSchema,
   parsePersistableWhiteboardElement,
   sanitizeWhiteboardElements,
   type WhiteboardBoard,
   type WhiteboardBoardOrigin,
+  type WhiteboardCreationReservationRequest,
+  type WhiteboardCreationReservationResponse,
   type WhiteboardElement,
   type WhiteboardLearnerEditRequest,
   type WhiteboardRenderReport,
   type WhiteboardRenderReportSaveResponse,
-  type WhiteboardSessionBoard,
-  type WhiteboardSessionRead,
-  type WhiteboardSessionState,
+  type WhiteboardObjectBoard,
+  type WhiteboardObjectRead,
+  type WhiteboardObjectState,
   type WhiteboardViewport,
 } from "./types"
 
-const STATE_VERSION = 2
+const STATE_VERSION = 3
 const WHITEBOARD_CONTINUATION_HANDLE = "current"
 const WHITEBOARD_CURRENT_VIEW_ID = "current"
 const RENDER_REPORT_WAIT_TIMEOUT_MS = 4_000
 const RENDER_REPORT_POLL_INTERVAL_MS = 100
-const sessionMutationTails = new Map<string, Promise<void>>()
+const objectMutationTails = new Map<string, Promise<void>>()
+const creationReservationTails = new Map<string, Promise<void>>()
 const createWhiteboardID = monotonicFactory()
-const WhiteboardSessionIndexSchema = z.record(z.string().trim().min(1), BuddyObjectIDSchema)
 const whiteboardManifestSchema = BuddyObjectManifestSchema.safeExtend({
   summary: WhiteboardObjectSummarySchema,
 })
+const whiteboardCreationReservationRecordSchema =
+  WhiteboardCreationReservationRequestSchema.extend({
+    version: z.literal(1),
+    objectID: BuddyObjectIDSchema,
+  }).strict()
 
 type WhiteboardBoardBuildBase = {
   boardID?: string
   elements: WhiteboardElement[]
   hasCurrentBoard: boolean
   currentBoard?: WhiteboardBoard
-  modelContext?: WhiteboardSessionState["modelContext"]
+  modelContext?: WhiteboardObjectState["modelContext"]
   viewport?: WhiteboardViewport
 }
 
@@ -71,41 +82,48 @@ type WhiteboardBoardBuildResult = {
 }
 
 type WhiteboardCurrentWriteResult = {
-  state: WhiteboardSessionRead
+  state: WhiteboardObjectRead
   saved: boolean
 }
 
-type WhiteboardSessionIndex = z.infer<typeof WhiteboardSessionIndexSchema>
 type WhiteboardObjectManifest = BuddyObjectManifest & {
   summary: ReturnType<typeof WhiteboardObjectSummarySchema.parse>
 }
 
-function withWhiteboardSessionMutationLock<T>(
+type WhiteboardCreationReservationRecord = z.infer<
+  typeof whiteboardCreationReservationRecordSchema
+>
+
+function withWhiteboardObjectMutationLock<T>(
   directory: string,
-  sessionID: string,
-  task: (sanitizedSessionID: string) => Promise<T>,
+  objectID: string,
+  task: (objectID: string) => Promise<T>,
 ): Promise<T> {
-  const sanitizedSessionID = WhiteboardPath.sanitizeSessionID(sessionID)
-  const key = JSON.stringify([path.resolve(directory), sanitizedSessionID])
-  const previous = sessionMutationTails.get(key) ?? Promise.resolve()
+  const validatedObjectID = BuddyObjectIDSchema.parse(objectID)
+  const key = JSON.stringify([path.resolve(directory), validatedObjectID])
+  const previous = objectMutationTails.get(key) ?? Promise.resolve()
   const run = previous.then(
-    () => task(sanitizedSessionID),
-    () => task(sanitizedSessionID),
+    () => task(validatedObjectID),
+    () => task(validatedObjectID),
   )
   const next = run.then(
     () => undefined,
     () => undefined,
   )
-  sessionMutationTails.set(key, next)
+  objectMutationTails.set(key, next)
   return run.finally(() => {
-    if (sessionMutationTails.get(key) === next) {
-      sessionMutationTails.delete(key)
+    if (objectMutationTails.get(key) === next) {
+      objectMutationTails.delete(key)
     }
   })
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function isFileNotFound(error: unknown): boolean {
+  return error !== null && typeof error === "object" && "code" in error && error.code === "ENOENT"
+}
+
+function isFileAlreadyExists(error: unknown): boolean {
+  return error !== null && typeof error === "object" && "code" in error && error.code === "EEXIST"
 }
 
 async function writeAtomicJson(targetPath: string, value: unknown): Promise<void> {
@@ -118,41 +136,13 @@ async function writeAtomicJson(targetPath: string, value: unknown): Promise<void
   await fs.rename(temporaryPath, targetPath)
 }
 
-function emptyState(sessionID: string): WhiteboardSessionState {
-  return WhiteboardSessionStateSchema.parse({
+function emptyState(): WhiteboardObjectState {
+  return WhiteboardObjectStateSchema.parse({
     version: STATE_VERSION,
-    sessionID,
   })
 }
 
-const WHITEBOARD_SESSION_STATE_RELATIVE_PATH = "state/session.json"
-
-async function readWhiteboardSessionIndex(directory: string): Promise<WhiteboardSessionIndex> {
-  try {
-    const parsed: unknown = JSON.parse(
-      await fs.readFile(WhiteboardPath.sessionIndexFile(directory), "utf8"),
-    )
-    return WhiteboardSessionIndexSchema.parse(parsed)
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      return {}
-    }
-    if (error instanceof SyntaxError || error instanceof z.ZodError) {
-      return {}
-    }
-    throw error
-  }
-}
-
-async function writeWhiteboardSessionIndex(
-  directory: string,
-  index: WhiteboardSessionIndex,
-): Promise<void> {
-  await writeAtomicJson(
-    WhiteboardPath.sessionIndexFile(directory),
-    WhiteboardSessionIndexSchema.parse(index),
-  )
-}
+const WHITEBOARD_OBJECT_STATE_RELATIVE_PATH = "state/whiteboard.json"
 
 function buildWhiteboardObjectViews(): BuddyObjectManifest["views"] {
   return [
@@ -164,19 +154,26 @@ function buildWhiteboardObjectViews(): BuddyObjectManifest["views"] {
       bench: { resolver: "object-view" },
       context: {
         toolID: "whiteboard_read_context",
-        refs: [{ label: "continuationHandle", value: WHITEBOARD_CONTINUATION_HANDLE }],
+        refs: [],
       },
     },
   ]
 }
 
-async function createWhiteboardObjectForSession(input: {
+async function createWhiteboardObject(input: {
   directory: string
-  sessionID: string
+  objectID?: string
+  origin?: BuddyObjectOrigin
+  initialBoard?: {
+    origin: WhiteboardBoardOrigin
+    elements: WhiteboardElement[]
+    viewport?: WhiteboardViewport
+  }
 }): Promise<WhiteboardObjectManifest> {
-  const sessionID = WhiteboardPath.sanitizeSessionID(input.sessionID)
-  const objectID = generateObjectID()
+  const objectID = input.objectID ? BuddyObjectIDSchema.parse(input.objectID) : generateObjectID()
   const now = new Date().toISOString()
+  const state = emptyState()
+  const initialBoard = input.initialBoard ? writeCurrentBoard(state, input.initialBoard) : undefined
   const manifest = whiteboardManifestSchema.parse({
     version: 1,
     kind: BUDDY_OBJECT_KINDS.whiteboard,
@@ -186,12 +183,12 @@ async function createWhiteboardObjectForSession(input: {
     lifecycle: "live",
     createdAt: now,
     updatedAt: now,
+    ...(input.origin ? { origin: input.origin } : {}),
     sourceRefs: [],
     views: buildWhiteboardObjectViews(),
     summary: {
       kind: BUDDY_OBJECT_KINDS.whiteboard,
-      sessionID,
-      boardID: null,
+      boardID: initialBoard?.boardID ?? null,
       continuationHandle: WHITEBOARD_CONTINUATION_HANDLE,
     },
   })
@@ -202,117 +199,204 @@ async function createWhiteboardObjectForSession(input: {
     manifest,
     files: [
       {
-        relativePath: WHITEBOARD_SESSION_STATE_RELATIVE_PATH,
+        relativePath: WHITEBOARD_OBJECT_STATE_RELATIVE_PATH,
         format: "json",
-        content: emptyState(sessionID),
+        content: state,
       },
     ],
   })
-  const index = await readWhiteboardSessionIndex(input.directory)
-  index[sessionID] = objectID
-  await writeWhiteboardSessionIndex(input.directory, index)
   return manifest
+}
+
+async function createBlankWhiteboardObject(input: {
+  directory: string
+  origin?: BuddyObjectOrigin
+}): Promise<WhiteboardObjectRead> {
+  const manifest = await createWhiteboardObject({
+    directory: input.directory,
+    ...(input.origin ? { origin: input.origin } : {}),
+    initialBoard: {
+      origin: "learner",
+      elements: [],
+    },
+  })
+  return readWhiteboardObject(input.directory, manifest.objectID)
+}
+
+function creationReservationIdentityKey(input: WhiteboardCreationReservationRequest): string {
+  return JSON.stringify([input.sessionID, input.messageID, input.callID])
+}
+
+function creationReservationDigest(input: WhiteboardCreationReservationRequest): string {
+  return createHash("sha256").update(creationReservationIdentityKey(input)).digest("hex")
+}
+
+function withCreationReservationLock<T>(
+  directory: string,
+  reservation: WhiteboardCreationReservationRequest,
+  task: () => Promise<T>,
+): Promise<T> {
+  const key = JSON.stringify([path.resolve(directory), creationReservationIdentityKey(reservation)])
+  const previous = creationReservationTails.get(key) ?? Promise.resolve()
+  const run = previous.then(task, task)
+  const next = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  creationReservationTails.set(key, next)
+  return run.finally(() => {
+    if (creationReservationTails.get(key) === next) {
+      creationReservationTails.delete(key)
+    }
+  })
+}
+
+async function readCreationReservation(
+  filepath: string,
+): Promise<WhiteboardCreationReservationRecord | undefined> {
+  try {
+    const parsed: unknown = JSON.parse(await fs.readFile(filepath, "utf8"))
+    return whiteboardCreationReservationRecordSchema.parse(parsed)
+  } catch (error) {
+    if (isFileNotFound(error)) return undefined
+    throw error
+  }
+}
+
+async function claimCreationReservation(input: {
+  filepath: string
+  record: WhiteboardCreationReservationRecord
+}): Promise<WhiteboardCreationReservationRecord> {
+  await fs.mkdir(path.dirname(input.filepath), { recursive: true })
+  try {
+    await fs.writeFile(input.filepath, `${JSON.stringify(input.record, null, 2)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+    })
+    return input.record
+  } catch (error) {
+    if (!isFileAlreadyExists(error)) throw error
+    const existing = await readCreationReservation(input.filepath)
+    if (!existing) {
+      throw new Error("Whiteboard creation reservation disappeared after it was claimed.", {
+        cause: error,
+      })
+    }
+    return existing
+  }
+}
+
+async function ensureWhiteboardObjectForToolCall(input: {
+  directory: string
+  reservation: WhiteboardCreationReservationRequest
+}): Promise<WhiteboardCreationReservationResponse> {
+  const reservation = WhiteboardCreationReservationRequestSchema.parse(input.reservation)
+  return withCreationReservationLock(input.directory, reservation, async () => {
+    const filepath = WhiteboardPath.creationReservationFile(
+      input.directory,
+      creationReservationDigest(reservation),
+    )
+    const existing = await readCreationReservation(filepath)
+    const record =
+      existing ??
+      (await claimCreationReservation({
+        filepath,
+        record: whiteboardCreationReservationRecordSchema.parse({
+          version: 1,
+          ...reservation,
+          objectID: generateObjectID(),
+        }),
+      }))
+    if (
+      record.sessionID !== reservation.sessionID ||
+      record.messageID !== reservation.messageID ||
+      record.callID !== reservation.callID
+    ) {
+      throw new Error("Whiteboard creation reservation identity collision.")
+    }
+
+    try {
+      await readWhiteboardObjectManifest({
+        directory: input.directory,
+        objectID: record.objectID,
+      })
+    } catch (error) {
+      if (!(error instanceof BuddyObjectNotFoundError)) throw error
+      await createWhiteboardObject({
+        directory: input.directory,
+        objectID: record.objectID,
+        origin: {
+          kind: "tool",
+          sessionID: reservation.sessionID,
+          messageID: reservation.messageID,
+          callID: reservation.callID,
+        },
+      })
+    }
+
+    return WhiteboardCreationReservationResponseSchema.parse({
+      objectID: record.objectID,
+    })
+  })
 }
 
 async function readWhiteboardObjectManifest(input: {
   directory: string
   objectID: string
 }): Promise<WhiteboardObjectManifest> {
-  return whiteboardManifestSchema.parse(
+  const manifest = whiteboardManifestSchema.parse(
     await readObjectManifest({
       directory: input.directory,
       kind: BUDDY_OBJECT_KINDS.whiteboard,
       objectID: input.objectID,
     }),
   )
-}
+  if (!manifest.summary.sessionID) return manifest
 
-async function rebuildWhiteboardSessionIndex(directory: string): Promise<WhiteboardSessionIndex> {
-  const listed = await listObjects({ directory, kind: BUDDY_OBJECT_KINDS.whiteboard })
-  const index: WhiteboardSessionIndex = {}
-  const objectIDsBySession = new Map<string, string[]>()
-  for (const item of listed.objects) {
-    const manifest = await readWhiteboardObjectManifest({
-      directory,
-      objectID: item.objectID,
-    }).catch(() => undefined)
-    if (!manifest) continue
-    const objectIDs = objectIDsBySession.get(manifest.summary.sessionID) ?? []
-    objectIDs.push(manifest.objectID)
-    objectIDsBySession.set(manifest.summary.sessionID, objectIDs)
-  }
-  for (const [sessionID, objectIDs] of objectIDsBySession) {
-    if (objectIDs.length > 1) {
-      throw new WhiteboardSessionConflictError(sessionID, objectIDs)
-    }
-    const objectID = objectIDs[0]
-    if (objectID) {
-      index[sessionID] = objectID
-    }
-  }
-  await writeWhiteboardSessionIndex(directory, index)
-  return index
-}
-
-async function resolveWhiteboardObjectForSession(input: {
-  directory: string
-  sessionID: string
-  createIfMissing: boolean
-}): Promise<WhiteboardObjectManifest | undefined> {
-  const sessionID = WhiteboardPath.sanitizeSessionID(input.sessionID)
-  const indexedObjectID = (await readWhiteboardSessionIndex(input.directory))[sessionID]
-  if (indexedObjectID) {
-    const manifest = await readWhiteboardObjectManifest({
-      directory: input.directory,
-      objectID: indexedObjectID,
-    }).catch(() => undefined)
-    if (manifest?.summary.sessionID === sessionID) {
-      return manifest
-    }
-  }
-  const rebuiltObjectID = (await rebuildWhiteboardSessionIndex(input.directory))[sessionID]
-  if (rebuiltObjectID) {
-    return readWhiteboardObjectManifest({
-      directory: input.directory,
-      objectID: rebuiltObjectID,
-    })
-  }
-  return input.createIfMissing
-    ? createWhiteboardObjectForSession({
-        directory: input.directory,
-        sessionID,
-      })
-    : undefined
-}
-
-async function readState(directory: string, sessionID: string): Promise<WhiteboardSessionState> {
-  const manifest = await resolveWhiteboardObjectForSession({
-    directory,
-    sessionID,
-    createIfMissing: false,
+  const { sessionID: _legacySessionID, ...summary } = manifest.summary
+  const migrated = whiteboardManifestSchema.parse({
+    ...manifest,
+    updatedAt: new Date().toISOString(),
+    summary,
   })
-  if (!manifest) {
-    return emptyState(WhiteboardPath.sanitizeSessionID(sessionID))
-  }
-  const filepath = WhiteboardPath.sessionStateFile(directory, manifest.objectID)
+  await writeObjectManifest({ directory: input.directory, manifest: migrated })
+  return migrated
+}
+
+async function readState(directory: string, objectID: string): Promise<WhiteboardObjectState> {
+  const validatedObjectID = BuddyObjectIDSchema.parse(objectID)
+  const filepath = WhiteboardPath.objectStateFile(directory, validatedObjectID)
   try {
     const parsed: unknown = JSON.parse(await fs.readFile(filepath, "utf8"))
-    if (!isRecord(parsed) || parsed.version !== STATE_VERSION) {
-      return emptyState(sessionID)
-    }
-    return WhiteboardSessionStateSchema.parse(parsed)
+    return WhiteboardObjectStateSchema.parse(parsed)
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      return emptyState(sessionID)
-    }
-    throw error
+    if (!isFileNotFound(error)) throw error
   }
+
+  try {
+    const parsed: unknown = JSON.parse(
+      await fs.readFile(WhiteboardPath.legacySessionStateFile(directory, validatedObjectID), "utf8"),
+    )
+    const legacy = LegacyWhiteboardSessionStateSchema.parse(parsed)
+    const migrated = WhiteboardObjectStateSchema.parse({
+      version: STATE_VERSION,
+      ...(legacy.currentBoard ? { currentBoard: legacy.currentBoard } : {}),
+      ...(legacy.previousBoard ? { previousBoard: legacy.previousBoard } : {}),
+      ...(legacy.modelContext ? { modelContext: legacy.modelContext } : {}),
+    })
+    await writeAtomicJson(filepath, migrated)
+    return migrated
+  } catch (error) {
+    if (!isFileNotFound(error)) throw error
+  }
+
+  return emptyState()
 }
 
 async function updateWhiteboardObjectManifestFromState(input: {
   directory: string
   objectID: string
-  state: WhiteboardSessionState
+  state: WhiteboardObjectState
 }): Promise<void> {
   const manifest = await readWhiteboardObjectManifest({
     directory: input.directory,
@@ -333,20 +417,16 @@ async function updateWhiteboardObjectManifestFromState(input: {
 
 async function mutateState<T>(
   directory: string,
-  sessionID: string,
-  mutate: (state: WhiteboardSessionState, objectID: string) => T | Promise<T>,
+  objectID: string,
+  mutate: (state: WhiteboardObjectState, objectID: string) => T | Promise<T>,
 ): Promise<T> {
-  return withWhiteboardSessionMutationLock(directory, sessionID, async (sanitizedSessionID) => {
-    const manifest = await resolveWhiteboardObjectForSession({
+  return withWhiteboardObjectMutationLock(directory, objectID, async (validatedObjectID) => {
+    const manifest = await readWhiteboardObjectManifest({
       directory,
-      sessionID: sanitizedSessionID,
-      createIfMissing: true,
+      objectID: validatedObjectID,
     })
-    if (!manifest) {
-      throw new Error(`Unable to create whiteboard object for session ${sanitizedSessionID}.`)
-    }
-    const filepath = WhiteboardPath.sessionStateFile(directory, manifest.objectID)
-    const state = await readState(directory, sessionID)
+    const filepath = WhiteboardPath.objectStateFile(directory, manifest.objectID)
+    const state = await readState(directory, manifest.objectID)
     const result = await mutate(state, manifest.objectID)
     await writeAtomicJson(filepath, state)
     await updateWhiteboardObjectManifestFromState({
@@ -365,9 +445,9 @@ function sanitizeBoard(board: WhiteboardBoard): WhiteboardBoard {
   })
 }
 
-function withoutRenderReport(board: WhiteboardBoard): WhiteboardSessionBoard {
-  const { renderReport: _renderReport, ...sessionBoard } = board
-  return sessionBoard
+function withoutRenderReport(board: WhiteboardBoard): WhiteboardObjectBoard {
+  const { renderReport: _renderReport, ...objectBoard } = board
+  return objectBoard
 }
 
 function toPreviousBoard(board: WhiteboardBoard): WhiteboardBoard {
@@ -390,7 +470,7 @@ function createBoard(input: {
 }
 
 function writeCurrentBoard(
-  state: WhiteboardSessionState,
+  state: WhiteboardObjectState,
   input: {
     origin: WhiteboardBoardOrigin
     elements: WhiteboardElement[]
@@ -406,7 +486,7 @@ function writeCurrentBoard(
 }
 
 function saveLearnerBoard(
-  state: WhiteboardSessionState,
+  state: WhiteboardObjectState,
   input: {
     elements: WhiteboardElement[]
     viewport?: WhiteboardViewport
@@ -432,11 +512,11 @@ function saveLearnerBoard(
   return board
 }
 
-function toSessionRead(input: {
-  state: WhiteboardSessionState
-  objectID: string | null
-}): WhiteboardSessionRead {
-  return WhiteboardSessionReadSchema.parse({
+function toObjectRead(input: {
+  state: WhiteboardObjectState
+  objectID: string
+}): WhiteboardObjectRead {
+  return WhiteboardObjectReadSchema.parse({
     objectID: input.objectID,
     currentBoard: input.state.currentBoard
       ? withoutRenderReport(sanitizeBoard(input.state.currentBoard))
@@ -444,30 +524,30 @@ function toSessionRead(input: {
   })
 }
 
-async function readWhiteboardSession(
+async function readWhiteboardObject(
   directory: string,
-  sessionID: string,
-): Promise<WhiteboardSessionRead> {
-  const state = await readState(directory, sessionID)
-  const manifest = await resolveWhiteboardObjectForSession({
+  objectID: string,
+): Promise<WhiteboardObjectRead> {
+  const manifest = await readWhiteboardObjectManifest({
     directory,
-    sessionID,
-    createIfMissing: false,
+    objectID,
   })
-  return toSessionRead({
+  const state = await readState(directory, manifest.objectID)
+  return toObjectRead({
     state,
-    objectID: manifest?.objectID ?? null,
+    objectID: manifest.objectID,
   })
 }
 
 async function readWhiteboardBoardContext(
   directory: string,
-  sessionID: string,
+  objectID: string,
 ): Promise<{
   currentBoard: WhiteboardBoard | null
   previousBoard?: WhiteboardBoard
 }> {
-  const state = await readState(directory, sessionID)
+  const manifest = await readWhiteboardObjectManifest({ directory, objectID })
+  const state = await readState(directory, manifest.objectID)
   return {
     currentBoard: state.currentBoard ? sanitizeBoard(state.currentBoard) : null,
     ...(state.previousBoard ? { previousBoard: sanitizeBoard(state.previousBoard) } : {}),
@@ -476,25 +556,21 @@ async function readWhiteboardBoardContext(
 
 async function readAndRecordWhiteboardBoardContext(
   directory: string,
-  sessionID: string,
+  objectID: string,
 ): Promise<{
   currentBoard: WhiteboardBoard | null
   previousBoard?: WhiteboardBoard
 }> {
-  return withWhiteboardSessionMutationLock(directory, sessionID, async (sanitizedSessionID) => {
-    const manifest = await resolveWhiteboardObjectForSession({
+  return withWhiteboardObjectMutationLock(directory, objectID, async (validatedObjectID) => {
+    const manifest = await readWhiteboardObjectManifest({
       directory,
-      sessionID: sanitizedSessionID,
-      createIfMissing: false,
+      objectID: validatedObjectID,
     })
-    if (!manifest) {
-      return { currentBoard: null }
-    }
-    const state = await readState(directory, sanitizedSessionID)
+    const state = await readState(directory, manifest.objectID)
     const currentBoard = state.currentBoard ? sanitizeBoard(state.currentBoard) : undefined
     if (currentBoard) {
       state.modelContext = buildWhiteboardModelContext(currentBoard)
-      await writeAtomicJson(WhiteboardPath.sessionStateFile(directory, manifest.objectID), state)
+      await writeAtomicJson(WhiteboardPath.objectStateFile(directory, manifest.objectID), state)
       await updateWhiteboardObjectManifestFromState({
         directory,
         objectID: manifest.objectID,
@@ -510,7 +586,7 @@ async function readAndRecordWhiteboardBoardContext(
 
 async function writeWhiteboardCurrentFromLatest(input: {
   directory: string
-  sessionID: string
+  objectID: string
   origin: WhiteboardBoardOrigin
   buildBoard: (base: WhiteboardBoardBuildBase) => WhiteboardBoardBuildResult
   validateBase?: (base: WhiteboardBoardBuildBase) => void
@@ -520,7 +596,7 @@ async function writeWhiteboardCurrentFromLatest(input: {
     next: WhiteboardBoardBuildResult
   }) => boolean
 }): Promise<WhiteboardCurrentWriteResult> {
-  return mutateState(input.directory, input.sessionID, (state, objectID) => {
+  return mutateState(input.directory, input.objectID, (state, objectID) => {
     const currentBoard = state.currentBoard ? sanitizeBoard(state.currentBoard) : undefined
     const base = {
       ...(currentBoard ? { boardID: currentBoard.boardID, currentBoard } : {}),
@@ -539,7 +615,7 @@ async function writeWhiteboardCurrentFromLatest(input: {
     }
     if (input.shouldSave && !input.shouldSave({ base, next: validatedNext })) {
       return {
-        state: toSessionRead({ state, objectID }),
+        state: toObjectRead({ state, objectID }),
         saved: false,
       }
     }
@@ -552,7 +628,7 @@ async function writeWhiteboardCurrentFromLatest(input: {
       state.modelContext = buildWhiteboardModelContext(board)
     }
     return {
-      state: toSessionRead({ state, objectID }),
+      state: toObjectRead({ state, objectID }),
       saved: true,
     }
   })
@@ -560,12 +636,12 @@ async function writeWhiteboardCurrentFromLatest(input: {
 
 async function saveWhiteboardRenderReport(input: {
   directory: string
-  sessionID: string
+  objectID: string
   report: WhiteboardRenderReport
 }): Promise<WhiteboardRenderReportSaveResponse> {
   assertWhiteboardPayloadWithinLimit("Whiteboard render report", JSON.stringify(input.report))
   const report = WhiteboardRenderReportSchema.parse(input.report)
-  return mutateState(input.directory, input.sessionID, (state, _objectID) => {
+  return mutateState(input.directory, input.objectID, (state, _objectID) => {
     if (!state.currentBoard || state.currentBoard.boardID !== report.boardID) {
       return WhiteboardRenderReportSaveResponseSchema.parse({ saved: false })
     }
@@ -579,12 +655,12 @@ async function saveWhiteboardRenderReport(input: {
 
 async function waitForCurrentWhiteboardRenderReport(input: {
   directory: string
-  sessionID: string
+  objectID: string
   boardID: string
 }): Promise<WhiteboardBoard | undefined> {
   const startedAt = Date.now()
   while (Date.now() - startedAt <= RENDER_REPORT_WAIT_TIMEOUT_MS) {
-    const context = await readWhiteboardBoardContext(input.directory, input.sessionID)
+    const context = await readWhiteboardBoardContext(input.directory, input.objectID)
     const currentBoard = context.currentBoard
     if (currentBoard?.boardID === input.boardID && currentBoard.renderReport) {
       return currentBoard
@@ -596,11 +672,11 @@ async function waitForCurrentWhiteboardRenderReport(input: {
 
 async function saveWhiteboardLearnerEdit(input: {
   directory: string
-  sessionID: string
+  objectID: string
   edit: WhiteboardLearnerEditRequest
-}): Promise<WhiteboardSessionRead> {
+}): Promise<WhiteboardObjectRead> {
   assertWhiteboardPayloadWithinLimit("Whiteboard learner edit", JSON.stringify(input.edit))
-  return mutateState(input.directory, input.sessionID, (state, objectID) => {
+  return mutateState(input.directory, input.objectID, (state, objectID) => {
     if (!state.currentBoard || state.currentBoard.boardID !== input.edit.baseBoardID) {
       throw new WhiteboardStaleLearnerEditError()
     }
@@ -611,29 +687,8 @@ async function saveWhiteboardLearnerEdit(input: {
       elements,
       ...(input.edit.viewport ? { viewport: input.edit.viewport } : {}),
     })
-    return toSessionRead({ state, objectID })
+    return toObjectRead({ state, objectID })
   })
-}
-
-async function ensureWhiteboardObjectForSession(input: {
-  directory: string
-  sessionID: string
-}): Promise<WhiteboardObjectManifest> {
-  return withWhiteboardSessionMutationLock(
-    input.directory,
-    input.sessionID,
-    async (sanitizedSessionID) => {
-      const manifest = await resolveWhiteboardObjectForSession({
-        directory: input.directory,
-        sessionID: sanitizedSessionID,
-        createIfMissing: true,
-      })
-      if (!manifest) {
-        throw new Error(`Unable to create whiteboard object for session ${sanitizedSessionID}.`)
-      }
-      return manifest
-    },
-  )
 }
 
 registerBuddyObjectKind({
@@ -653,7 +708,7 @@ registerBuddyObjectKind({
       directory: input.directory,
       objectID: input.ref.objectID,
     })
-    const state = await readState(input.directory, manifest.summary.sessionID)
+    const state = await readState(input.directory, manifest.objectID)
     return BuddyObjectViewResponseSchema.parse({
       ref: {
         kind: BUDDY_OBJECT_KINDS.whiteboard,
@@ -665,7 +720,7 @@ registerBuddyObjectKind({
       title: manifest.title,
       data: {
         renderer: "whiteboard",
-        sessionID: manifest.summary.sessionID,
+        objectID: manifest.objectID,
         boardID: state.currentBoard?.boardID ?? null,
         continuationHandle: WHITEBOARD_CONTINUATION_HANDLE,
         elementCount: state.currentBoard?.elements.length ?? 0,
@@ -697,10 +752,12 @@ registerBuddyObjectKind({
 })
 
 export {
-  ensureWhiteboardObjectForSession,
+  createBlankWhiteboardObject,
+  createWhiteboardObject,
+  ensureWhiteboardObjectForToolCall,
   readAndRecordWhiteboardBoardContext,
   readWhiteboardBoardContext,
-  readWhiteboardSession,
+  readWhiteboardObject,
   saveWhiteboardRenderReport,
   saveWhiteboardLearnerEdit,
   waitForCurrentWhiteboardRenderReport,
