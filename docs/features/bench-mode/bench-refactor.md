@@ -7,6 +7,8 @@ user comment: as of 0215 local time; the right sidebar toggle does nto work. whe
 
 # Bench Refactor: Problem Statement and Reviewed Plan
 
+> Ownership amendment: `current-architecture.md` supersedes this plan wherever this document assigns a book, resource, or whiteboard to one session. Artifacts are directory-owned; chats own independent presentation slots that reference them. Session IDs scope/validate presentation actions but cannot select a chat. Starting a new chat inherits the currently visible artifact into an independent draft slot.
+
 ## Document purpose
 
 This document is the complete handoff for replacing Buddy's Bench/right-workspace architecture. It contains the verified structural problems, the locked product behavior, the reviewed target architecture, and the execution and validation requirements. The implementer must not rely on chat history or earlier Bench design documents to fill gaps. When an older Bench document conflicts with this document, this document is authoritative for the refactor.
@@ -282,11 +284,11 @@ The blocker:
 - Rechecks the active attempt after every awaited guard. A stale guard may finish its save, but its navigation is denied and its deferred resolves `superseded`.
 - Rejects and disposes stale attempts on controller replacement, directory change, unmount, and router failure.
 
-Browser Back and Forward attempts have no command ID but still receive an attempt ID and use the same blocker. Mode-only attempts bypass the leave guard. Target replacement, whiteboard/session close, directory exit, and explicit close invoke it exactly once.
+Browser Back and Forward attempts have no command ID but still receive an attempt ID and use the same blocker. Mode-only attempts bypass the leave guard. Target replacement, target exit, directory exit, and explicit close invoke it exactly once.
 
-Before creating or selecting a different session, if the current target is the session-owned whiteboard, close it through this same guarded controller path. A blocked close leaves the selected session unchanged. For every allowed session change, publish closed context to the outgoing session before changing the selected session, then publish the current effective route context to the incoming session once that session is authoritative in frontend state. A session draft with no session ID publishes nothing until the real session exists. Do not mirror active chat-session truth into the backend action lease as a required-action delivery or completion authority.
+Whiteboards and reading resources are directory-owned targets, so a chat change does not close them merely because their original chat changed. Existing chats restore their independent workspace slots. A same-directory New Chat draft may receive a value-copy of the visible target and layout so the artifact stays visually continuous; the underlying object and the workspace slot remain separate owners. Target replacement or exit still uses the same guarded controller path. For every allowed session change, publish closed context to the outgoing session, then publish the destination projection once the incoming session is authoritative. A draft with no session ID publishes nothing until the real session exists. Do not mirror active chat-session truth into the backend action lease as a required-action delivery or completion authority.
 
-Preserve reading-resource linkage: opening a linked resource may select its linked session first, and opening with the current-session preference updates that link. Reading linkage remains domain/session state and is not moved into the workspace store.
+Generic resource opening is navigation-free. Resource/session usage history may support an explicit future “Continue discussion” command, but ordinary opening cannot consult that history to select a session.
 
 ## Hardened Agent Action and Context Protocol
 
@@ -664,9 +666,9 @@ React registration occurs after commit and may overlap during animation. Correct
 
 Persist visibility, last drawer, width, and target-family preferences only where specified. Do not persist active drawers, action ledgers, commands, attempts, registrations, hydration status, or animation state. Hydration is a one-time boundary with explicit queuing and failure defaults, not an ongoing source of truth.
 
-### Session-owned and domain state remain domain-owned
+### Shared artifact and provenance state remain domain-owned
 
-Whiteboards belong to sessions, so session changes guard and close the current session's whiteboard before mutating selection. Reading-resource linkage remains in chat/domain state because it determines which session owns reading context; it is not right-workspace presentation state. Architectural cleanup must not erase domain semantics merely because old UI code touched them.
+Books, resources, and whiteboards belong to the directory. Chats own independent workspace slots that reference those artifacts. Whiteboard mutations target stable object IDs, while resource usage and tool-session fields remain provenance only. Neither provenance nor an artifact may activate a chat. Session changes restore or intentionally seed a destination slot through the transition coordinator; generic artifact opening changes Bench only.
 
 ### The transcript records outcomes; it does not cause UI behavior
 
@@ -694,7 +696,8 @@ The archived design made the backend lease mirror active chat-session truth and 
 
 The active design keeps the lease as authoritative directory-client connection identity only. Required actions are delivered to the authoritative directory lease. The frontend ledger checks `action.sessionID` against the actual current active session before execution and reports `inactive_session` only when that frontend state is known to be different. If frontend session state is temporarily unknown, required actions remain queued until session state is known or the broker expires them.
 
-Archived session-change rule:
+Archived obsolete session-change rule (retained only as rejected rationale; do
+not implement):
 
 > Before creating or selecting a different session, if the current target is the session-owned whiteboard, close it through this same guarded controller path. A blocked close leaves the selected session unchanged. For every allowed session change, publish closed context to the outgoing session before changing the authoritative lease, update the selected session and lease together, then publish the current effective route context to the incoming session. A session draft with no session ID keeps the lease session null and publishes nothing until the real session exists.
 

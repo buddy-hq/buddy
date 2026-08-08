@@ -39,19 +39,19 @@
 7. those location updates are copied into `activeReadingResourceByDirectory`, so the current location, toc label, and page label are available to prompt submission.
 8. `sendRuntimePrompt` attaches the `reading` payload with position, passage, trail, and annotation data. Resource references are only included when explicitly requested (e.g. via `/resource use`).
 9. the backend parses that payload into `activeResource` and includes `<active_reading_resource>` in the prompt context for the turn.
-10. after a prompt is sent, the session id is linked to the resource id in `linkedSessionByResource`.
+10. the active chat remains selected. The submitted turn snapshots the visible reading context; the resource does not acquire a canonical chat or navigation authority.
 
 ## Verified Behavior
 - last-location restore already exists in `FoliateReader`. it loads `persisted.lastLocation` from `loadBookState(...)` and passes it into `view.init(...)`.
 - reader open and init failures are already caught inside `FoliateReader`, which renders `FoliateErrorState` instead of crashing on the normal async failure path.
-- linked session restore is only partially implemented today. the code restores a linked session when reopening a resource outside the library-open flow, but opening from the library sidebar still starts a fresh draft first.
+- generic resource opening is navigation-free. Sources, Search, and Explorer present the resource in the active chat's Bench workspace and never restore another session.
 
 ## Obvious Improvements
 
-### 1. Reuse the linked reading session even when reopening from the library
-- current behavior: `openResourceInReadingMode` restores `linkedSessionByResource[...]` only when the resource is opened outside the `libraryOpen` flow. if the user reopens the same resource from the library sidebar, Buddy creates a fresh draft session instead.
-- why it matters: this breaks the strongest reading-mode mental model, which is that a book and its discussion thread belong together.
-- likely change: prefer the linked session when one exists, even during the library-open path. only fall back to a new draft when the resource has no linked session yet.
+### 1. Keep resource presentation independent from chat selection
+- current behavior: opening a resource preserves the active existing chat or draft and presents the book through the directory workspace controller.
+- invariant: a book is shared notebook content. A normal book click cannot inspect resource history and activate another chat.
+- future continuation UI: an explicit “Continue discussion” action may intentionally select a named chat and then present the resource. That compound action must stay separate from generic resource opening.
 
 ### 2. Gate the reader on resource readiness before fetching the blob
 - current behavior: the route loader and reader pane fetch the blob for any supported path, but the pane does not check the resource's processing status before trying to open it.
@@ -68,10 +68,10 @@
 - why it matters: it adds noise when navigating the reader code and makes it less clear which implementation is real.
 - likely change: delete it if it is truly dead, or move it out of the main source tree if it still needs to be kept for reference.
 
-### 5. Make the reading thread browser resource-aware
-- current behavior: `DirectoryChatReadingThreadBrowser` receives the full notebook session list and does not distinguish sessions linked to the current resource.
-- why it matters: once a notebook has many threads, reading mode loses the sense that the conversation history belongs to this book.
-- likely change: filter the thread list to the linked resource sessions, or at minimum badge and sort resource-linked sessions ahead of unrelated threads.
+### 5. Make previous resource discussions discoverable without creating ownership
+- current behavior: `DirectoryChatReadingThreadBrowser` receives the full notebook session list and does not distinguish sessions that discussed the current resource.
+- why it matters: relevant history becomes difficult to find in notebooks with many chats.
+- likely change: derive informational many-to-many resource/message history and offer explicit discussion links. Never consult that history from the normal resource-open path.
 
 ### 6. Add a true cross-route resume-reading affordance
 - current behavior: the active reading resource is cleared on reading-page unmount, so normal chat does not retain enough state to offer a reliable “resume reading” action.

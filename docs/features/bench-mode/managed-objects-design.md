@@ -1,6 +1,16 @@
 # Buddy Managed Objects
 
-> Historical note: this document contains managed-object design background that predates the final Bench ownership refactor. Managed-object domain concepts may still be relevant, but stale Bench presentation details such as `BenchAutoOpen` policy wiring should be checked against `current-architecture.md` and the authoritative `bench-refactor.md` plan before implementation.
+> Historical note: this document contains managed-object design background that
+> predates the final Bench ownership refactor. Managed-object domain concepts may
+> still be relevant, but session-owned whiteboards, `present_whiteboard`,
+> session-index routes, linked-resource navigation, and stale `BenchAutoOpen`
+> wiring are superseded by `current-architecture.md`, the current whiteboard
+> design, and `../whiteboard/streaming.md`. In the current lifecycle, only
+> `objectID: null` may use a permission-safe transient preview; an existing-board
+> update keeps the real populated board mounted; the first complete drawable
+> replaces the new-board opening animation; raw fragments are observed through
+> targeted part-level subscriptions; and no object or route is persisted before
+> authorization.
 
 This is the working design source for consolidating Buddy resources,
 artifacts, whiteboards, media presentations, HTML widgets, and other
@@ -9,13 +19,13 @@ app-managed learner objects.
 The document intentionally includes the problem statement because the API and
 storage decisions only make sense against those problems.
 
-## Implementation Note
+## Historical Implementation Note
 
-This document is the implementation source of truth for the managed-objects
-cut. The architecture, invariants, storage ownership, model-facing tool shapes,
-and frontend/backend API shapes are the parts to preserve. Exact prose wording,
-example strings, and helper names are not sacred when implementation reveals a
-better local fit.
+This document was the implementation source of truth for the original
+managed-objects cut. It is retained as design history, not as the current
+whiteboard or Bench lifecycle contract. Use `current-architecture.md` and
+`../whiteboard/streaming.md` for current behavior. Architecture and storage
+ideas below remain useful only where they do not conflict with those sources.
 
 The litmus test is: after the cut, every supported workflow must still work for
 newly-created objects without user-facing or behavioral regressions. Old object
@@ -31,8 +41,10 @@ the structural architecture stabilized:
 
 - `whiteboard_read_context` looked "read-only" in prose, but current behavior
   persists `modelContext` and continuation safety depends on it.
-- Whiteboard start-of-tool auto-open needs an object target early enough to
-  preserve the current progressive Bench-opening UX.
+- Whiteboard start-of-tool feedback must not require an object before permission.
+  A new request uses a transient non-routed preview, then hands off to the stable
+  object target after authorization; an existing request keeps its real object
+  surface visible throughout.
 - Resource storage cannot move without moving prompt inventory, active-resource
   prelude, resource chips, reading skills, and `ingest_full_text` terminology.
 - Resource preparation needs objectID-scoped generation/locking so stale
@@ -352,29 +364,26 @@ presentation descriptors, and tool result plumbing.
 
 9. **How do live objects fit?**
 
-   **Status: Locked**
+   **Status: Historical decision superseded by V3 whiteboard ownership**
 
-   **Locked decision:** The whiteboard object-store scope implements current
-   functionality only. Whiteboard is a live object kind with one current board
-   per chat session. It does not introduce durable checkpoint history,
-   `revisions/`, or restoreable snapshots.
+   **Current decision:** Whiteboard is a directory-owned live object kind with
+   one mutable current board per stable `objectID`. It does not introduce
+   learner-visible checkpoint history, `revisions/`, or restoreable snapshots.
 
-   **Locked identity:** Buddy mints one whiteboard object per session on first
-   whiteboard write. A session-to-objectID index resolves the current session
-   whiteboard. The model does not pass a whiteboard object ID for the current
-   board.
+   **Current identity:** `whiteboard_create_view` passes `objectID: null` for a
+   distinct new object or a concrete stable ID for an existing object. The tool
+   creates a new object only after permission succeeds. A session-to-object
+   index does not resolve an implicit current board.
 
-   **Locked listing rule:** Whiteboard objects may be present in the global
-   object index for resolution, but they do not expose a Library view in this
-   design. Library filters by `hasLibraryView` or `surfaces`, not by hard-coded
-   kind exclusions.
+   **Current listing rule:** The Boards drawer is a notebook-wide catalog of
+   whiteboard objects. Any active chat may present the same object without
+   changing chats.
 
-   **Locked empty-board rule:** `present_whiteboard`, whiteboard UI routes, and
-   `whiteboard_create_view` lazily create the current session whiteboard object
-   when none exists yet. This preserves today's ability to open an empty
-   whiteboard before the model has drawn on it. `whiteboard_read_context` does
-   not mint objects or mutate boards; when no board exists, it returns the
-   current no-board context.
+   **Current empty-board rule:** The Boards `+` action directly creates an
+   editable blank object. A tool-requested new board uses a frontend-only
+   transient preview before authorization, then hands off to the stable object.
+   `whiteboard_read_context` requires a concrete `objectID` and does not mint or
+   mutate objects.
 
    **Locked context-read side effect:** `whiteboard_read_context` may refresh
    and persist `modelContext` for the current board. That is part of today's
@@ -3405,18 +3414,24 @@ Frontend auto-open consumer:
    suppression, same-target checks, and blocking replacement of a different
    active Bench target.
 
-Running tools may also publish a start-of-tool auto-open candidate when current
-UX depends on Bench opening before the tool finishes. Whiteboard uses this path
-to preserve today's behavior where Bench opens while `whiteboard_create_view`
-is running and the learner can watch the board appear.
+Running tools may also publish a start-of-tool auto-open candidate after their
+permission boundary when current UX depends on Bench opening before the tool
+finishes. For `objectID: null`, whiteboard preserves earlier visual feedback
+with a frontend-only transient preview while arguments stream. That preview
+creates no object, persists no workspace target, and is removed on denial or
+failure. A concrete `objectID` is an existing-board update and never opens this
+objectless preview: its populated real canvas remains mounted while complete
+streamed elements compose over it. For a new-board preview, the opening
+animation yields as soon as the first complete drawable element arrives.
 
-For whiteboard, `whiteboard_create_view` must resolve or mint the session
-whiteboard object before emitting this metadata and before long-running drawing
-work. The start of `execute` should create the empty live object if needed,
-commit `state/session.json` and `object.json`, update the session/object
-indexes, then call `ctx.metadata({ benchAutoOpenCandidate })` with the object
-Bench target. Permission prompts and drawing-program execution happen after the
-stable object target exists.
+After `ctx.ask` succeeds, `whiteboard_create_view` resolves or idempotently
+creates the directory-owned object, then calls
+`ctx.metadata({ benchAutoOpenCandidate })` with the stable object target before
+applying the drawing program. The frontend replaces a new-board transient
+preview with that routed object surface and continues progressive rendering
+there. Existing-board requests continue on their already mounted object surface.
+Presentation is considered handled only after the intended target is visibly
+committed.
 
 ```ts
 type BenchAutoOpenCandidateMetadata = {
@@ -3431,7 +3446,7 @@ type BenchAutoOpenCandidateMetadata = {
 The event key must be stable and dedup-safe. It is derived from deterministic
 tool-part identity, not random data. Current locked formats:
 
-- whiteboard create view: `whiteboard:<sessionID>:<messageID>:<callID-or-partID>`;
+- whiteboard create view: `whiteboard:<sessionID>:<messageID>:<callID>`;
 - fullscreen HTML widget: `fullscreen-html-widget:<objectID>`.
 
 Completed tool results may emit the same auto-open event through

@@ -1,6 +1,6 @@
 # Bench Mode Design
 
-> Historical note: this document records the pre-refactor Bench mode design history. The current post-refactor architecture is documented in `current-architecture.md`, and `bench-refactor.md` is the authoritative refactor plan. Keep the material below for context, but do not use stale references to `BenchAutoOpen`, transcript-driven presentation, transition classifiers, or legacy right-sidebar state as current implementation guidance.
+> Historical note: this document records the pre-refactor Bench mode design history. The current post-refactor architecture is documented in `current-architecture.md`. Keep the material below for context, but do not use stale references to session-owned whiteboards, `present_whiteboard`, linked-resource navigation, `BenchAutoOpen`, transcript-driven presentation, transition classifiers, or legacy right-sidebar state as current implementation guidance.
 
 ## Objective
 

@@ -1,5 +1,29 @@
 <!-- cspell:ignore baselined ciphertext coalescer Excalifont freedraw refetches repost titlebar viewports -->
 
+# Whiteboard Facts
+
+## Current authoritative facts
+
+- Whiteboards are directory-owned managed objects addressed by stable `objectID`. Any chat, fork, or draft may open and edit the same board. Opening a board never changes the active chat.
+- `whiteboard_create_view.objectID` is explicit: `null` requests a new board; a concrete ID updates that exact existing board. `whiteboard_read_context` always names a concrete object.
+- Session, message, part, and call identifiers are action origin, correlation, and idempotency metadata. They never resolve “the board for this session” and never authorize navigation.
+- Before permission, only a new-board request may display a transient, non-routed preview. It creates no object, reservation, workspace route, or `.buddy` state. Denial removes it and restores the prior Bench target.
+- An existing-board update never uses the objectless preview or opening animation. The populated board remains mounted, and streamed elements compose over its fetched content.
+- A new-board preview shows the opening animation only while it has zero complete drawable elements. The first complete drawable replaces the animation immediately; later complete elements render one by one. Incomplete JSON remains buffered.
+- Raw drawing fragments arrive as transient part-level `message.part.delta` updates in `state.raw`. Active whiteboard UI subscribes to the relevant live part IDs and merges only those parts into its session snapshot; the whole chat must not rerender for every drawing fragment.
+- `part.id` is the transcript/UI tool key. `part.callID`/`ctx.callID` is the backend tool-call and creation-idempotency identity. They are not interchangeable.
+- After authorization, the tool publishes the stable object target before applying the final program. New-board preview handoff and existing-board auto-open count as complete only when that intended target is visibly committed. Retryable workspace races are bounded; background sessions cannot hijack the foreground.
+- Starting New Chat copies the visible notebook-owned target and layout into an independent draft workspace slot. The backend/session owner changes while the visible book or board remains continuous.
+- The Boards drawer is notebook-wide. Its `+` action directly creates and opens an editable blank board without filling or sending the chat composer.
+- Storage, locks, reads, writes, learner saves, render reports, sharing, and routes are object-scoped. Legacy session-owned state migrates in place on read.
+- Object routes return `404` for a valid missing object and `410` for a tombstoned or unavailable object; whiteboard-specific error mapping must compose with the shared managed-object mapper.
+
+The current lifecycle and transport contract is specified in [Whiteboard Streaming](streaming.md). The current ownership and tool contract is specified in [Whiteboard Design](design.md). If anything below conflicts with those sections, the current documents win.
+
+## Historical V1/V2 research log (non-authoritative)
+
+The bullets below preserve the original research and implementation reasoning. Session-owned boards, implicit “current board” lookup, session routes, session canvas keys, and dedicated whiteboard navigation are superseded. Rendering, Excalidraw, layout, autosave, and tool-schema observations remain useful only when they do not conflict with the current authoritative facts above.
+
 - The orange blocks in the sketch are implementation requirements that do not exist yet; the `<about>` blocks are notes for implementation and must never render.
 - The requested whiteboard is session-scoped persistent state, not an inline chat artifact and not a mirror of Excalidraw internals.
 - The temporary floating Excalidraw canvas is too space-constrained for the actual use case and must be replaced.

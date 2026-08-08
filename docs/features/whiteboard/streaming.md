@@ -2,8 +2,20 @@
 
 This document is the source of truth for Buddy's model-time progressive whiteboard
 streaming. It describes the current architecture, the transient and durable data
-paths, and the July 2026 regression in which Bench stayed on `Opening whiteboard...`
-until a complete drawing appeared.
+paths, the July 2026 producer regression, and the August 2026 lifecycle and
+subscription regressions that delayed or obscured progressive drawing.
+
+The lifecycle is split by the streamed `objectID` value:
+
+- `objectID: null` is a new-board request. Before authorization it may open a
+  transient, non-routed preview that creates no object, reservation, route, or
+  `.buddy` state. Denial removes the preview and reveals the previous target.
+- a concrete `objectID` is an existing-board update. It never opens the
+  objectless preview or replaces the populated board with the opening animation.
+  The real board remains mounted while streamed elements compose over it.
+- after `ctx.ask` succeeds, execution creates or resolves the directory-owned
+  object and publishes its stable target. A new preview hands off to that target;
+  an existing update continues on the already mounted target.
 
 ## Outcome
 
@@ -18,8 +30,13 @@ Progressive drawing is deliberately ephemeral:
 - only the final parsed and validated drawing program may update the current board;
 - a malformed or interrupted stream may leave a temporary preview, but it cannot
   corrupt persisted whiteboard state;
-- the completed durable board replaces the preview without remounting the
-  session canvas or resetting the learner's viewport.
+- for a new board, the opening animation exists only while the stream contains
+  zero complete drawable elements; the first complete drawable replaces it
+  immediately and later complete elements apply one by one;
+- for an existing board, progressive rendering composes over the fetched board
+  without hiding its current content;
+- after authorization, a new-board object surface replaces its transient
+  preview and continues progressive rendering against the stable object ID.
 
 ## Core Invariants
 
@@ -33,10 +50,15 @@ Progressive drawing is deliberately ephemeral:
 5. Only a pending `whiteboard_create_view` part may receive live raw fragments.
 6. The AI SDK callback is the primary low-latency source. The normalized LLM
    stream remains a deduplicated fallback and covers the native LLM runtime.
-7. A kept-alive Bench whiteboard consumes transcript deltas only when its owning
-   session is the active chat session.
+7. A kept-alive Bench whiteboard consumes only active-chat tool parts that match
+   its stable `objectID`; a new objectless preview consumes only its exact
+   `messageID:part.id` tool key.
 8. Partial rendering applies only complete inner-array objects and never persists
    them.
+9. `part.id` is transcript/UI identity. `part.callID`/`ctx.callID` is backend
+   tool-call identity. Neither may be substituted for the other.
+10. Session-level message snapshots are structural and do not rerender for every
+    raw delta. Active whiteboard UI subscribes directly to its live part IDs.
 
 ## Architecture at a Glance
 
@@ -69,7 +91,7 @@ streamed message-part fields.
 
 ## End-to-End Flow
 
-### 1. The tool call opens the whiteboard surface
+### 1. The streamed request selects one of two surface lifecycles
 
 `whiteboard_create_view` uses an outer object with a string drawing program:
 
@@ -80,17 +102,24 @@ streamed message-part fields.
 }
 ```
 
-Before executing the final program, the tool:
+As soon as enough outer input exists to classify the call:
 
-1. resolves or creates the session's whiteboard object;
-2. publishes Bench auto-open metadata;
-3. dispatches a best-effort Bench presentation;
-4. eventually validates and applies the completed `elements` program.
+1. `objectID: null` opens a frontend-only transient preview for that tool key.
+   This is deliberately before authorization so the learner gets immediate
+   visual feedback, but it performs no durable or routed write.
+2. a concrete `objectID` keeps or presents that real object. It does not put a
+   transient empty surface in front of the existing canvas.
+3. after authorization, execution creates or resolves the stable object,
+   publishes Bench auto-open metadata for that target, and validates and applies
+   the completed drawing program.
+4. presentation is acknowledged only when the intended object is visibly
+   committed. Retryable workspace-transition outcomes use bounded retries;
+   inactive/background actions never activate their session.
 
-The Bench presentation is independent of the partial drawing transport. It can
-successfully open an empty whiteboard surface even when no raw deltas arrive.
-That failure mode produces `Opening whiteboard...` until the durable board is
-available.
+Surface opening and partial drawing transport are independent. If a new-board
+preview opens but no raw deltas arrive, it remains on `Opening whiteboard...`
+until a complete drawable arrives or the lifecycle terminates. An existing
+board must remain visible even when no raw delta arrives.
 
 ### 2. Startup installs the live bridge
 
@@ -211,21 +240,25 @@ It also supports a delta arriving while the part is still orphaned from its
 parent message. Once the parent message arrives, the accumulated part joins the
 normal transcript.
 
-### 8. Bench scopes the transcript to the board owner
+### 8. Whiteboard UI subscribes only to matching live parts
 
-Bench may keep multiple surfaces mounted. A whiteboard surface must not consume
-the active transcript merely because it is mounted.
+Raw `state.raw` fragments update the transcript repository's part-level store.
+The session-level message snapshot intentionally does not publish a new React
+snapshot for every raw fragment, because doing so would rerender the entire chat
+at drawing-token frequency.
 
-`ObjectWhiteboardBenchPage` passes live `messages` and `isBusy` into
-`WhiteboardPane` only when:
+`useLiveWhiteboardMessages` bridges that boundary narrowly:
 
-```text
-whiteboard.sessionID === activeChat.sessionID
-```
+1. start with the active session's structural message snapshot;
+2. find active `whiteboard_create_view` parts;
+3. subscribe to only those part IDs through `useTranscriptParts`;
+4. merge those live part snapshots back into the messages consumed by
+   `WhiteboardPane` and `WhiteboardBenchAutoOpen`.
 
-Otherwise it passes an empty transcript and `isBusy: false`. This prevents one
-chat's identity-free partial whiteboard program from rebuilding a different
-kept-alive board.
+The progressive consumer then filters by stable `objectID` for a real board or
+by exact `messageID:part.id` tool key for a new transient preview. A kept-alive
+surface cannot consume another chat's transcript merely because it is mounted,
+and unrelated transcript components do not rerender for each drawing fragment.
 
 ### 9. The progressive parser builds safe frames
 
@@ -272,14 +305,14 @@ The preview:
 - folds completed same-turn writes newer than the fetched board before applying
   the next pending program;
 - does not replace a visible board with an empty control-only preview;
-- reuses the pane-owned viewport and session canvas key.
+- reuses the pane-owned viewport and stable object canvas key.
 
 When the final program executes, the backend validates it and saves the new
 current board. The pane refetches when completed whiteboard call count changes
 and once more on the busy-to-idle transition as a safety net. The durable board
 then becomes the editable autosave baseline.
 
-The session canvas stays mounted through that handoff. When the streamed and
+The object canvas stays mounted through that handoff. When the streamed and
 durable element signatures match, `WhiteboardCanvas` republishes the exact
 currently visible Excalidraw elements once with `CaptureUpdateAction.NEVER`.
 That scene update forces Excalidraw's final high-quality render without
@@ -298,12 +331,35 @@ replace the preview through the same viewport-preserving path.
 | Client accumulated raw | Transcript repository memory | No | Reconstruct partial outer arguments |
 | Progressive elements | Whiteboard pane/Excalidraw memory | No | Immediate visual feedback |
 | Completed tool input | Final tool part | Yes | Auditable final call |
-| Current board | Whiteboard object session state | Yes | Editable learner-visible board |
+| Current board | Directory-owned whiteboard object state | Yes | Editable learner-visible board |
 | Render report | Current board support state | Yes | Measured layout feedback |
 
 This distinction matters during incident analysis. The session database can
 confirm the pending/running/completed lifecycle and final tool input, but it
 cannot count or disprove transient `message.part.delta` delivery.
+
+## August 2026 Lifecycle And Subscription Regressions
+
+Two regressions established boundaries that are now contractual:
+
+1. The transient new-board preview was briefly activated for every create-view
+   call. Existing-board updates therefore hid a populated board behind the
+   opening animation. The fix was to retain `requestKind: "new" | "existing"`
+   from the streamed input and permit the objectless preview only for `new`.
+2. The progressive parser was fed only session-level message snapshots. Raw
+   part deltas reached the transcript repository, but the whiteboard did not
+   rerender until a later lifecycle snapshot. The fix was the targeted
+   live-part subscription described in step 8, not global session rerenders.
+
+The required visual sequence is therefore:
+
+```text
+new board:      opening animation -> first complete element -> later elements -> durable object
+existing board: populated canvas   -> streamed changes over that canvas       -> durable update
+```
+
+Tool completion is not a valid trigger for the first progressive frame. The
+first complete drawable element is.
 
 ## July 2026 Streaming Regression Postmortem
 
@@ -351,7 +407,8 @@ The completed tool call contains the fully parsed input. Tool execution still:
 
 1. parsed and validated the final drawing program;
 2. persisted the current board;
-3. exposed it through the whiteboard session query.
+3. exposed it through the whiteboard object query (the historical incident used
+   the pre-V3 session query, which is no longer the ownership contract).
 
 The frontend's durable refetch and polling fallback eventually loaded that
 board. Those paths are independent of `state.raw` deltas.
@@ -460,9 +517,10 @@ without a saved board, the failed preview clears.
 
 ### A running snapshot omits accumulated raw
 
-The client does not require the running snapshot to contain the raw string.
-The usable progressive preview is sticky across the lifecycle transition, and
-the final parsed input owns the durable handoff.
+The client does not require the running session snapshot to contain the raw
+string. The active whiteboard directly observes its part-level snapshot, the
+usable progressive preview is sticky across the lifecycle transition, and the
+final parsed input owns the durable handoff.
 
 ## Debugging Playbook
 
@@ -544,19 +602,31 @@ Frontend coverage:
   covers streamed-field accumulation and orphan event ordering.
 - `packages/web/test/whiteboard-progressive.test.ts`
   covers partial parsing, program application, sticky previews, failed streams,
-  same-turn folding, and durable-board handoff rules.
+  same-turn folding, existing-board composition, request-kind classification,
+  and durable-board handoff rules.
+- `packages/web/test/whiteboard-bench-auto-open.test.tsx`
+  covers permission-safe new previews, denial cleanup, existing-board updates
+  without transient replacement, visible-commit settlement, and repository-level
+  part-delta delivery where element 1 renders before element 2.
 
 Manual acceptance:
 
 1. start a fresh chat with no current board;
 2. ask for a drawing containing several elements;
-3. confirm Bench opens for that session;
-4. confirm at least one incomplete frame is visible while the transcript still
-   says `Updating Whiteboard`;
-5. confirm the final board becomes editable after completion;
-6. repeat with an existing board and confirm continuation does not reset the
-   learner's viewport;
-7. confirm the final strokes become smooth without pointer interaction and that
+3. confirm the transient Bench preview opens immediately without creating a
+   durable object before authorization;
+4. confirm the opening animation disappears as soon as the first complete
+   drawable appears, while the transcript still says `Updating Whiteboard`;
+5. confirm later complete elements appear individually before tool completion;
+6. confirm the final board becomes editable after completion;
+7. repeat with a populated existing board and confirm its existing content
+   never disappears behind the opening animation, progressive changes compose
+   over it, and continuation does not reset the learner's viewport;
+8. collapse an inherited board after New Chat, request an update, and confirm the
+   intended real board becomes visibly committed without switching chats;
+9. deny a new-board tool and confirm the preview disappears with no object or
+   workspace route persisted;
+10. confirm the final strokes become smooth without pointer interaction and that
    no figure, zoom level, or scroll position moves during settlement.
 
 ## Key Files
@@ -571,10 +641,12 @@ Manual acceptance:
 | Reconnecting browser stream | `packages/web/src/state/chat-sync.ts` |
 | Frame buffer/coalescing | `packages/web/src/state/chat-stream-event-buffer.ts` |
 | Nested raw accumulation | `packages/web/src/state/transcript-repository.ts` |
+| Targeted live-part subscription | `packages/web/src/components/whiteboard/whiteboard-live-messages.ts` |
 | Partial JSON and program semantics | `packages/web/src/components/whiteboard/whiteboard-progressive.ts` |
 | Preview and durable handoff | `packages/web/src/components/whiteboard/whiteboard-pane.tsx` |
+| New/existing lifecycle and visible-commit auto-open | `packages/web/src/components/whiteboard/whiteboard-bench-auto-open.tsx` |
 | Canvas repaint and viewport-preserving settle | `packages/web/src/components/whiteboard/whiteboard-canvas.tsx` |
-| Bench session ownership gate | `packages/web/src/components/bench/surfaces/object-bench-surface.tsx` |
+| Stable object Bench surface | `packages/web/src/components/bench/surfaces/object-bench-surface.tsx` |
 | Final program validation/persistence | `packages/buddy/src/learning/features/whiteboard/tools/create-view.ts` |
 
 ## Maintenance Checklist
@@ -589,7 +661,19 @@ state, Bench keep-alive behavior, or whiteboard rendering:
 - do not patch vendored code directly;
 - do not make progressive state durable;
 - do not let part snapshots discard queued raw delta events;
-- do not let a kept-alive board consume another session's transcript;
+- do not subscribe the whole session snapshot to every raw drawing delta; keep
+  the part-level subscription targeted to active whiteboard part IDs;
+- do not let a kept-alive board consume another session's transcript or another
+  object's tool parts;
+- retain the `new` versus `existing` request kind across metadata transitions;
+- show the objectless transient preview only for `objectID: null`;
+- never replace a populated existing board with the opening animation;
+- remove the opening animation on the first complete drawable, not on complete
+  tool input or tool execution;
+- keep `part.id` for transcript/UI identity and `part.callID` for backend
+  call/idempotency identity;
+- perform no object, reservation, route, or `.buddy` write before authorization;
+- acknowledge auto-open only after the intended target is visibly committed;
 - do not autosave programmatic progressive scene updates;
 - preserve a stable canvas key and learner viewport during the final handoff;
 - repaint identical final scenes with the current elements, not a viewport

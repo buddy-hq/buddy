@@ -3,7 +3,53 @@
 
 # Whiteboard Design
 
-## Locked Product Decisions
+## Current V3 Ownership (authoritative)
+
+- A whiteboard is a directory-owned managed object with a stable `objectID`. It is not owned by a chat session.
+- Any existing chat, fork, or draft in the notebook may open and edit the same board without changing the active chat.
+- Chat/session identifiers on tool calls are action origin and idempotency metadata only. They never resolve “the board for this session” and never authorize navigation.
+- `whiteboard_create_view` requires `objectID`: pass `null` to create a new board or a concrete ID to update an existing board. `whiteboard_read_context` always requires a concrete `objectID`.
+- Storage, mutation locks, learner saves, render reports, sharing, and UI queries are keyed by `objectID`. Legacy `state/session.json` and summary `sessionID` data migrate in place on read.
+- A streamed call with `objectID: null` is a new-board request. Before permission, the frontend may open a transient, non-routed Bench preview scoped to that tool part. It creates no object, reservation, route, or `.buddy` state. Denial or failure removes it and reveals the previous Bench target.
+- A streamed call with a concrete `objectID` is an existing-board update. It never opens the objectless transient preview: the populated board remains mounted and visible while complete streamed elements compose over its fetched board state.
+- The new-board opening animation is only the zero-drawable-content state. The first complete drawable element replaces it with the progressive canvas immediately; every later complete element applies individually, while an incomplete JSON object stays buffered.
+- `part.id` remains the transcript/UI identity and `part.callID` remains the backend tool-call identity. Active whiteboard surfaces subscribe directly to their live transcript parts because raw `state.raw` deltas are part-level transient events; session message snapshots intentionally do not rerender for every fragment.
+- After permission succeeds, execution idempotently creates or resolves the directory-owned object and publishes its stable `objectID`. A new-board preview hands off to that real object surface; an existing-board update continues on the already mounted object surface.
+- Auto-open is complete only when the intended object is visibly committed. Retryable New Chat/workspace races use bounded retries; inactive/background actions never activate their originating chat.
+- The Boards drawer lists all whiteboard objects in the notebook. Opening a board uses the same navigation-free Bench presentation boundary as opening a book.
+- The Boards drawer `+` action creates and opens a directly editable blank board. It does not seed the chat composer or invoke an agent tool.
+- Starting a new chat while a board is visible copies that Bench presentation into the new draft's independent workspace slot, so the board remains visibly open while the chat context changes.
+
+Current tool contracts:
+
+```ts
+whiteboard_create_view({
+  objectID: string | null,
+  boardAction: "continue_current_board" | "destructively_replace_current_board",
+  elements: string,
+})
+
+whiteboard_read_context({ objectID: string })
+```
+
+Current UI routes are object-scoped:
+
+```text
+POST /api/objects/whiteboard
+GET  /api/objects/whiteboard/:objectID
+PUT  /api/objects/whiteboard/:objectID
+PUT  /api/objects/whiteboard/:objectID/render-report
+POST /api/objects/whiteboard/:objectID/share
+```
+
+A syntactically valid missing object returns `404`. A tombstoned or unavailable
+object returns `410`. Whiteboard route error mapping composes the feature error
+mapper with the shared managed-object mapper; object-layer failures must not
+fall through to a generic `500`.
+
+## Historical V1/V2 Product Decisions
+
+The material below records the previous session-owned design and rendering rationale. Session ownership, session routes, implicit current-board resolution, and dedicated whiteboard navigation described below are superseded by V3. Rendering, drawing-program, autosave, and layout-measurement details remain useful where they do not conflict with the V3 section.
 
 - The whiteboard is session-scoped persistent state rendered in a dedicated whiteboard view.
 - Replace the temporary floating overlay with the existing reading-view interaction model: a large left workspace for the board and chat moved into the right-side pane with the same transition behavior.
@@ -198,7 +244,7 @@ ui: {
 - The backend keeps `previousBoard` only for recovery/context summaries, not as a user-visible timeline.
 - The user mental model is: "this chat has one whiteboard, and Buddy or I can update the current board."
 
-## Implementation Status
+## Historical V1/V2 Implementation Status (superseded)
 
 - The durable backend and embedded UI are implemented end to end: feature registration, two model-visible tools, authoring skill, one mutable current board per session, typed UI routes, generated SDK consumption, editable Excalidraw canvas, learner-save debounce, and hidden-summary labels and icon.
 - The frontend progressive consumer is implemented and tested. It accepts pending `state.raw` deltas, removes one outer JSON-string escaping layer, applies each complete inner object immediately, keeps incomplete objects buffered, and applies restore, delete, and translate semantics ephemerally.

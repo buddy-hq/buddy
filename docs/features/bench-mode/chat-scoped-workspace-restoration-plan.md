@@ -4,6 +4,9 @@
 
 Implemented on 2026-07-24.
 
+Amended in August 2026 for directory-owned artifact continuity. The current
+ownership and command boundary remains authoritative in `current-architecture.md`.
+
 ## Product Decision
 
 The right-workspace infrastructure remains directory-owned, while its visible presentation is
@@ -14,7 +17,9 @@ owned by the chat.
 - Each durable chat stores its own workspace presentation slot.
 - The directory's single draft stores one draft presentation slot and promotes it to the new
   session when the first prompt creates that session.
-- A new chat starts with a closed workspace.
+- A same-directory New Chat draft copies the currently visible directory-owned
+  target and layout into an independent draft slot. The presentation stays
+  visually continuous while later changes diverge independently.
 - Selecting an existing chat restores that chat's slot automatically.
 - Returning to a chat must not replay a drawer or workspace entrance animation.
 - Explorer, Skills, and other drawer data remain directory-scoped. Only the drawer selection and
@@ -51,8 +56,9 @@ For a same-directory transition:
 
 1. Capture the outgoing route and projection in the outgoing chat's slot.
 2. Run the current surface leave guard. A failed whiteboard save blocks the chat change.
-3. Publish closed context for the outgoing chat and stage a non-visible destination projection so
-   the outgoing target cannot leak into the incoming chat.
+3. Publish closed context for the outgoing chat and stage the destination projection. Existing
+   chats restore only their saved slot; a New Chat draft may receive a value-copy of the outgoing
+   visible directory-owned target and layout.
 4. Mutate/select the chat.
 5. Resolve the authoritative destination identity, including fallback or draft results.
 6. Restore the destination slot atomically through the live directory controller.
@@ -68,9 +74,11 @@ For a cross-directory transition:
 4. Navigate directly to the destination slot's route.
 5. Let the destination provider hydrate the same slot before displaying the workspace.
 
-New durable sessions, forks, and new drafts stage a closed destination slot. A linked-resource
-action is an explicit destination presentation and may replace the restored destination slot after
-selection succeeds.
+New drafts inherit the visible same-directory artifact presentation into an independent slot.
+Promotion preserves that draft slot. Existing chats always restore their own slot. Forks and
+durable sessions created without a promoted draft start closed unless a separate explicit policy
+initializes them. Generic resource opening presents in the already active chat and cannot select a
+destination chat; any future “Continue discussion” compound action must remain explicit.
 
 ## Controller and Store
 
@@ -132,7 +140,9 @@ Use the coordinator for:
 - sidebar, titlebar, thread-browser, and composer new/select actions;
 - `/new`, fork, transcript fork, active archive fallback, and starter chats;
 - Settings, notifications, Quick Chat, and cross-directory activation;
-- linked-resource selection before explicit presentation.
+- an explicitly requested compound “Continue discussion” transition, if that
+  product action is added; generic resource presentation never uses this
+  coordinator.
 
 Non-active archival does not transition workspace state.
 
@@ -141,14 +151,16 @@ Non-active archival does not transition workspace state.
 ### Store and persistence
 
 - Chat A and Chat B retain independent route, visibility, drawer, and `lastDrawer` slots.
-- A new draft starts closed.
+- A New Chat draft copies the current visible directory-owned target and layout into an independent
+  slot; a closed source remains closed.
 - Draft promotion preserves its presentation.
 - Persistence restores the selected chat's slot and cannot mix slots.
 - Transition-only slots are not persisted.
 
 ### Controller and coordinator
 
-- Files open in A → select new B → B is closed.
+- Files open in A → select New Chat draft B → B visibly retains the same file in an independent
+  slot.
 - Files open in A → select existing B with Skills open → B restores Skills.
 - Returning to A restores Files automatically.
 - No intermediate projection exposes A's target or drawer under B.
@@ -157,7 +169,8 @@ Non-active archival does not transition workspace state.
 - Missing-session fallback restores the fallback slot.
 - Cross-directory navigation targets the destination slot directly.
 - Overlapping transitions allow only the newest restoration and navigation.
-- Linked-resource selection restores, then explicitly presents the requested resource.
+- Generic resource presentation preserves the already active chat and never restores a historical
+  linked session.
 
 ### Lifecycle and rendering
 
@@ -180,14 +193,16 @@ Run `bun fmt` only after implementation is complete and the user is satisfied.
 
 ## Acceptance Criteria
 
-- A new chat never inherits another chat's workspace.
+- A same-directory New Chat inherits the visible directory-owned target and layout by value, without
+  sharing mutable workspace state.
 - Each existing chat automatically restores its own right-workspace presentation.
 - Returning to a chat does not require manually reopening its drawer or Bench target.
 - Restoration does not replay the drawer entrance animation.
 - No part of the directory layout interpolates between two chats' presentations.
 - Opening or closing the right workspace directly inside one chat still animates.
 - The provider/controller/lifecycle remain directory-owned.
-- Whiteboard save failure prevents leaving the owning chat.
+- A whiteboard object never belongs to the chat. Target replacement or exit still uses its leave
+  guard; a New Chat continuity transition that retains the same object does not reassign ownership.
 - All chat-changing entry points use the same latest-wins transition.
 - Cross-directory restoration navigates directly to the destination slot.
 - Outgoing Bench context never leaks into the incoming chat.
