@@ -48,7 +48,6 @@ export type ChatStore = {
   lastSessionByDirectory: Record<string, string>
   selectedModelByDirectory: Record<string, string>
   activeReadingResourceByDirectory: Record<string, ActiveReadingResourceState>
-  linkedSessionByResource: Record<string, string>
   lastOpenedReadingResourceByDirectory: Record<string, LastOpenedReadingResource>
   directories: Record<string, DirectoryChatState>
   streamStatus: StreamStatus
@@ -85,7 +84,6 @@ export type ChatStore = {
     directory: string,
     input: ActiveReadingLocationUpdate,
   ) => void
-  linkReadingResourceSession: (directory: string, objectID: string, sessionID: string) => void
   appendReadingTrailEntry: (
     directory: string,
     entry: ReaderTrailEntry,
@@ -110,15 +108,10 @@ type ChatStoreStateFields = Pick<
   | "lastSessionByDirectory"
   | "selectedModelByDirectory"
   | "activeReadingResourceByDirectory"
-  | "linkedSessionByResource"
   | "lastOpenedReadingResourceByDirectory"
   | "directories"
   | "streamStatus"
 >
-
-export function resourceSessionKey(directory: string, objectID: string) {
-  return `${directory}::${objectID}`
-}
 
 const DEFAULT_TITLE = "New chat"
 const CHAT_STORAGE_FILE = "buddy.chat.dat"
@@ -129,7 +122,6 @@ type PersistedChatStoreState = {
   activeDirectory?: string
   lastSessionByDirectory?: Record<string, string>
   activeReadingResourceByDirectory?: Record<string, ActiveReadingResourceState>
-  linkedSessionByResource?: Record<string, string>
   lastOpenedReadingResourceByDirectory?: Record<string, LastOpenedReadingResource>
 }
 
@@ -207,7 +199,6 @@ function readPersistedChatStoreState(value: unknown): PersistedChatStoreState {
     activeReadingResourceByDirectory: readActiveReadingResourceRecord(
       value.activeReadingResourceByDirectory,
     ),
-    linkedSessionByResource: readStringRecord(value.linkedSessionByResource),
     lastOpenedReadingResourceByDirectory: readLastOpenedReadingResourceRecord(
       value.lastOpenedReadingResourceByDirectory,
     ),
@@ -245,7 +236,6 @@ function createChatStoreStateFields(): ChatStoreStateFields {
     lastSessionByDirectory: {},
     selectedModelByDirectory: {},
     activeReadingResourceByDirectory: {},
-    linkedSessionByResource: {},
     lastOpenedReadingResourceByDirectory: {},
     directories: {},
     streamStatus: STREAM_STATUS_IDLE,
@@ -372,11 +362,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
               unique.includes(directory),
             ),
           )
-          state.linkedSessionByResource = Object.fromEntries(
-            Object.entries(state.linkedSessionByResource).filter(([key]) =>
-              unique.some((directory) => key.startsWith(`${directory}::`)),
-            ),
-          )
           for (const directory of unique) {
             if (!state.directories[directory]) {
               state.directories[directory] = emptyDirectoryState()
@@ -413,11 +398,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           delete state.lastSessionByDirectory[normalized]
           delete state.activeReadingResourceByDirectory[normalized]
           delete state.lastOpenedReadingResourceByDirectory[normalized]
-          state.linkedSessionByResource = Object.fromEntries(
-            Object.entries(state.linkedSessionByResource).filter(
-              ([key]) => !key.startsWith(`${normalized}::`),
-            ),
-          )
 
           if (state.pendingActiveDirectory === normalized) {
             state.pendingActiveDirectory = undefined
@@ -579,13 +559,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             delete state.lastSessionByDirectory[directory]
           }
 
-          const directoryResourceKeyPrefix = resourceSessionKey(directory, "")
-          state.linkedSessionByResource = Object.fromEntries(
-            Object.entries(state.linkedSessionByResource).filter(
-              ([key, sessionID]) =>
-                !key.startsWith(directoryResourceKeyPrefix) || !deletedSessionIDs.has(sessionID),
-            ),
-          )
         })
       },
       setActiveSession(directory, sessionID) {
@@ -866,16 +839,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           }
         })
       },
-      linkReadingResourceSession(directory, objectID, sessionID) {
-        const normalized = normalizeProjectDirectory(directory)
-        if (!normalized) return
-        if (!objectID.trim()) return
-        if (!sessionID.trim()) return
-
-        set((state) => {
-          state.linkedSessionByResource[resourceSessionKey(normalized, objectID)] = sessionID
-        })
-      },
       appendReadingTrailEntry(directory, entry) {
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
@@ -965,9 +928,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
               ([directory]) => !!normalizeProjectDirectory(directory),
             ),
           ),
-          linkedSessionByResource: Object.fromEntries(
-            Object.entries(persisted.linkedSessionByResource ?? {}),
-          ),
           lastOpenedReadingResourceByDirectory: Object.fromEntries(
             Object.entries(persisted.lastOpenedReadingResourceByDirectory ?? {}).filter(
               ([directory]) => !!normalizeProjectDirectory(directory),
@@ -992,7 +952,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
                 stripTransientActiveReadingResourceFields(resource),
               ]),
           ),
-          linkedSessionByResource: state.linkedSessionByResource,
           lastOpenedReadingResourceByDirectory: Object.fromEntries(
             Object.entries(state.lastOpenedReadingResourceByDirectory).filter(
               ([directory]) => !!normalizeProjectDirectory(directory),

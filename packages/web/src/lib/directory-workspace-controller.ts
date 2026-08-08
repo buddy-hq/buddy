@@ -2,7 +2,6 @@ import type { NavigateOptions } from "@tanstack/react-router"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   buildBenchNavigation,
-  isSessionOwnedBenchTarget,
   isSameBenchTarget,
   readBenchOpenPolicyStateFromLocation,
   resolveBenchOpenPolicy,
@@ -23,6 +22,8 @@ import {
 import {
   BENCH_ROUTE_STATUS_CLOSED,
   BENCH_ROUTE_STATUS_OPEN,
+  WORKSPACE_DESTINATION_EMPTY,
+  WORKSPACE_DESTINATION_INHERIT_CURRENT,
   WORKSPACE_PENDING_KIND_CHAT_TRANSITION,
   WORKSPACE_PENDING_KIND_NAVIGATION,
   WORKSPACE_PENDING_KIND_WORKSPACE_ONLY,
@@ -39,6 +40,7 @@ import {
   type DirectoryWorkspaceStore,
   type DockedWorkspaceState,
   type EffectiveWorkspaceProjection,
+  type WorkspacePresentationSlot,
 } from "@/state/directory-workspace-store"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 
@@ -420,7 +422,6 @@ export class DirectoryWorkspaceBlocker {
     const current = this.#getCurrentRoute()
     if (current.status !== BENCH_ROUTE_STATUS_OPEN) return allowBenchLeave()
     if (
-      !isSessionOwnedBenchTarget(current.target) &&
       !isGuardedRouteChange({
         currentDirectory: this.#directory,
         nextDirectory: this.#directory,
@@ -1099,13 +1100,23 @@ export class DirectoryWorkspaceController {
     const currentRoute = this.#routeForNextCommand()
     const previousProjection = this.#currentProjection()
     const currentPendingIntent = this.#store.getState().pendingIntent
-    const destinationSlot = command.resetDestination
-      ? {
+    const destinationSlot: WorkspacePresentationSlot =
+      command.destinationInitialization === WORKSPACE_DESTINATION_EMPTY
+        ? {
           route: { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot,
           docked: createCollapsedWorkspaceState(),
           lastDrawer: this.#store.getState().lastDrawer,
         }
-      : workspacePresentationSlotForChat(this.#store.getState().slots, command.destinationChatKey)
+        : command.destinationInitialization === WORKSPACE_DESTINATION_INHERIT_CURRENT
+          ? {
+              route: currentRoute,
+              docked: this.#store.getState().docked,
+              lastDrawer: this.#store.getState().lastDrawer,
+            }
+          : workspacePresentationSlotForChat(
+              this.#store.getState().slots,
+              command.destinationChatKey,
+            )
     if (currentPendingIntent?.kind !== WORKSPACE_PENDING_KIND_CHAT_TRANSITION) {
       const guardResult = await this.#blocker.guardChatTransition({
         next: destinationSlot.route,
@@ -1130,7 +1141,10 @@ export class DirectoryWorkspaceController {
     this.#store.getState().stageChatTransition({
       commandID,
       chatKey: command.destinationChatKey,
-      reset: command.resetDestination,
+      ...(command.destinationInitialization === WORKSPACE_DESTINATION_EMPTY ||
+      command.destinationInitialization === WORKSPACE_DESTINATION_INHERIT_CURRENT
+        ? { destinationSlot }
+        : {}),
       previousProjection,
     })
     const projection = this.#currentProjection()
@@ -1152,7 +1166,6 @@ export class DirectoryWorkspaceController {
       state.stageChatTransition({
         commandID,
         chatKey: command.chatKey,
-        reset: false,
         previousProjection,
       })
     }

@@ -48,6 +48,7 @@ import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/di
 import { stageMediaImageEdit } from "@/components/prompt/stage-media-image-edit"
 import { LargeFileWarningContent } from "@/components/files/workspace-file-actions"
 import { WhiteboardPane } from "@/components/whiteboard/whiteboard-pane"
+import { hasWhiteboardCreate } from "@/components/whiteboard/whiteboard-progressive"
 import { usePlatform } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"
 import {
@@ -65,7 +66,6 @@ import { isWorkspaceFileOverSoftLimit } from "@/lib/workspace-file-media"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
 import { providerCatalogSnapshotQueryOptions } from "@/state/bootstrap-query"
 import type { ProjectExplorerEditableFileState } from "@/state/chat-actions"
-import type { MessageWithParts } from "@/state/chat-types"
 import {
   objectMediaAvailabilityQueryOptions,
   objectViewQueryOptions,
@@ -108,7 +108,6 @@ function pendingShapeForKind(kind: BenchObjectKind): BenchSurfacePendingShape {
   return "document"
 }
 /** Stable identity so a board that does not own the active transcript does not rerender on it. */
-const NO_TRANSCRIPT_MESSAGES: MessageWithParts[] = []
 const OBJECT_RENDER_STATUS_READY = "ready"
 const OBJECT_RENDER_STATUS_STALE = "stale"
 const OBJECT_RENDER_STATUS_ERROR = "error"
@@ -536,14 +535,9 @@ function WhiteboardObjectBenchView(props: {
   }
 
   const chatState = controller.mainPaneProps.chatState
-  // The transcript comes from the notebook route context, which is above BenchSurfaceHost and
-  // therefore always the *active* chat. A kept-alive board belonging to another chat — or a
-  // directory-scoped board opened from the Library while a different chat is selected — must not
-  // consume it: streaming whiteboard_create_view programs carry no board identity, so another
-  // chat's program would rebuild this board's displayed elements, and message-derived effects
-  // would refetch this board's session on the other chat's activity.
-  const transcriptOwnedByBoard = Boolean(
-    props.data.sessionID && chatState.sessionID === props.data.sessionID,
+  const transcriptTargetsBoard = hasWhiteboardCreate(
+    chatState.messages,
+    props.view.ref.objectID,
   )
   return (
     <ObjectBenchContextProvider
@@ -552,7 +546,7 @@ function WhiteboardObjectBenchView(props: {
       status="ready"
       metadata={[
         "surface: whiteboard",
-        `session_id: ${props.data.sessionID}`,
+        `object_id: ${props.view.ref.objectID}`,
         `board_id: ${props.data.boardID ?? "none"}`,
         `element_count: ${props.data.elementCount}`,
       ]}
@@ -573,9 +567,9 @@ function WhiteboardObjectBenchView(props: {
       <div data-component="object-whiteboard-bench-page" className="h-full min-h-0 w-full">
         <WhiteboardPane
           directory={props.directory}
-          sessionID={props.data.sessionID}
-          isBusy={transcriptOwnedByBoard ? chatState.isBusy : false}
-          messages={transcriptOwnedByBoard ? chatState.messages : NO_TRANSCRIPT_MESSAGES}
+          objectID={props.view.ref.objectID}
+          isBusy={transcriptTargetsBoard ? chatState.isBusy : false}
+          messages={chatState.messages}
           onLeaveGuardChange={setLeaveGuard}
         />
       </div>

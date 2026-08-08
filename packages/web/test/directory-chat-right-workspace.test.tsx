@@ -27,10 +27,10 @@ import { BENCH_LAYOUT_PROFILE_READING } from "../src/lib/bench-navigation"
 import { resolveWorkspacePresentation } from "../src/lib/directory-chat/workspace-presentation"
 import { processedResourcesQueryKey } from "../src/state/resources-query"
 import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
-import { whiteboardQueryKeys } from "../src/components/whiteboard/whiteboard-query"
 import { skillsCatalogQueryKeys } from "../src/state/skills-catalog-query"
 import { workspaceChatKeyForSession } from "../src/lib/workspace-chat-key"
 import { obsidianVaultQueryKeys } from "../src/state/obsidian-vault-query"
+import { WORKSPACE_DESTINATION_RESTORE } from "../src/state/directory-workspace-store"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_RESOURCE_ID = "resource-1"
@@ -70,7 +70,7 @@ function RightWorkspaceHarness(props: { sessionID?: string; suppressDrawerMotion
             type: "prepare-chat-change",
             outgoingChatKey: CHAT_A_KEY,
             destinationChatKey: CHAT_B_KEY,
-            resetDestination: false,
+            destinationInitialization: WORKSPACE_DESTINATION_RESTORE,
           })
         }}
       >
@@ -94,7 +94,6 @@ function RightWorkspaceHarness(props: { sessionID?: string; suppressDrawerMotion
         sessions={[]}
         workspaceWidth={720}
         suppressDrawerMotion={props.suppressDrawerMotion}
-        onCreateBoard={() => undefined}
         onCreateCreation={() => undefined}
         onOpenThread={async () => true}
         onOpenResource={() => undefined}
@@ -125,6 +124,10 @@ function createTestRouter(options?: {
     objects: [],
     loadErrors: [],
   })
+  queryClient.setQueryData(workspaceObjectsQueryKeys.kind(TEST_DIRECTORY, "whiteboard"), {
+    objects: [],
+    loadErrors: [],
+  })
   queryClient.setQueryData(processedResourcesQueryKey(TEST_DIRECTORY), [])
   queryClient.setQueryData(skillsCatalogQueryKeys.catalog(TEST_DIRECTORY), {
     directory: TEST_DIRECTORY,
@@ -138,12 +141,6 @@ function createTestRouter(options?: {
     connected: options?.obsidianConnected === true,
     configDirectories: options?.obsidianConnected === true ? [".obsidian"] : [],
   })
-  if (sessionID !== undefined) {
-    queryClient.setQueryData(whiteboardQueryKeys.sessionPeek(TEST_DIRECTORY, sessionID), {
-      objectID: null,
-      currentBoard: null,
-    })
-  }
   const rootRoute = createRootRoute({
     component: () => <Outlet />,
   })
@@ -352,7 +349,7 @@ describe("DirectoryChatRightWorkspace", () => {
 
     expect(skillsButton?.getAttribute("aria-pressed")).toBe("true")
     expect(container.querySelector('[data-component="right-workspace-drawer"]')).not.toBeNull()
-    expect(container.textContent).toContain("No installed skills")
+    expect(container.textContent).toContain("No skills yet")
   })
 
   test("restores a chat's last drawer without replaying entrance motion", async () => {
@@ -420,7 +417,7 @@ describe("DirectoryChatRightWorkspace", () => {
     expect(
       container.querySelector('[data-component="right-workspace-drawer"] h2')?.textContent,
     ).toBe("Boards")
-    expect(container.textContent).toContain("No board yet")
+    expect(container.textContent).toContain("No boards yet")
   })
 
   test("shows the create board empty state without an active chat", async () => {
@@ -443,7 +440,7 @@ describe("DirectoryChatRightWorkspace", () => {
     expect(
       container.querySelector('[data-component="right-workspace-drawer"] h2')?.textContent,
     ).toBe("Boards")
-    expect(container.textContent).toContain("No board yet")
+    expect(container.textContent).toContain("No boards yet")
     expect(container.textContent).toContain("Create board")
     expect(container.textContent).not.toContain("Start a chat first")
   })

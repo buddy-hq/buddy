@@ -504,7 +504,7 @@ describe("createDirectoryWorkspaceStore", () => {
     store.getState().stageChatTransition({
       commandID: "command-transition",
       chatKey: transitionKey,
-      reset: true,
+      destinationSlot: defaultWorkspacePresentationSlot(),
       previousProjection: commandProjection(),
     })
 
@@ -514,7 +514,6 @@ describe("createDirectoryWorkspaceStore", () => {
     store.getState().stageChatTransition({
       commandID: "command-restore",
       chatKey: durableChatKey,
-      reset: false,
       previousProjection: commandProjection(),
     })
 
@@ -534,7 +533,6 @@ describe("createDirectoryWorkspaceStore", () => {
     store.getState().stageChatTransition({
       commandID: "command-transition",
       chatKey: chatBKey,
-      reset: false,
       previousProjection: commandProjection(),
     })
 

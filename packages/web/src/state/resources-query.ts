@@ -228,17 +228,6 @@ export type ResourceReadingTarget = {
   status?: ResourceViewStatus
 }
 
-export const RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT = "current" as const
-export const RESOURCE_OPEN_SESSION_PREFERENCE_LINKED = "linked" as const
-
-export type ResourceOpenSessionPreference =
-  | typeof RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT
-  | typeof RESOURCE_OPEN_SESSION_PREFERENCE_LINKED
-
-export type ResourceOpenOptions = {
-  sessionPreference?: ResourceOpenSessionPreference
-}
-
 function toResourceReadingTarget(item: ResourceListItem): ResourceReadingTarget {
   return {
     path: item.path,

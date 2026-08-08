@@ -7,8 +7,16 @@ import {
 } from "react"
 
 const TRANSIENT_BENCH_SURFACE_SKETCH = "sketch" as const
+const TRANSIENT_BENCH_SURFACE_WHITEBOARD_OPENING = "whiteboard-opening" as const
 
-type TransientBenchSurface = typeof TRANSIENT_BENCH_SURFACE_SKETCH
+type WhiteboardOpeningTransientBenchSurface = {
+  type: typeof TRANSIENT_BENCH_SURFACE_WHITEBOARD_OPENING
+  toolKey: string
+}
+
+type TransientBenchSurface =
+  | typeof TRANSIENT_BENCH_SURFACE_SKETCH
+  | WhiteboardOpeningTransientBenchSurface
 
 type TransientBenchSurfaceContextValue = {
   activeSurface: TransientBenchSurface | null
@@ -47,8 +55,13 @@ function closeTransientBenchSurface(
 
 export {
   TRANSIENT_BENCH_SURFACE_SKETCH,
+  TRANSIENT_BENCH_SURFACE_WHITEBOARD_OPENING,
   TransientBenchSurfaceProvider,
   closeTransientBenchSurface,
   useTransientBenchSurface,
 }
-export type { TransientBenchSurface, TransientBenchSurfaceContextValue }
+export type {
+  TransientBenchSurface,
+  TransientBenchSurfaceContextValue,
+  WhiteboardOpeningTransientBenchSurface,
+}

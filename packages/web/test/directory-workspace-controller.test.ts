@@ -2,9 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test"
 import type { NavigateOptions } from "@tanstack/react-router"
 import {
   BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
+  BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
   BENCH_CHAT_SEARCH_PARAM,
+  BENCH_MODE_REQUEST_POLICY,
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "../src/lib/bench-leave-guard"
@@ -16,6 +18,9 @@ import {
 import {
   BENCH_ROUTE_STATUS_CLOSED,
   BENCH_ROUTE_STATUS_OPEN,
+  WORKSPACE_DESTINATION_EMPTY,
+  WORKSPACE_DESTINATION_INHERIT_CURRENT,
+  WORKSPACE_DESTINATION_RESTORE,
   WORKSPACE_DRAWER_FILES,
   WORKSPACE_DRAWER_SKILLS,
   WORKSPACE_DRAWER_SOURCES,
@@ -78,6 +83,16 @@ const DOCKED_NEXT_FILE_ROUTE = {
 const FLOATING_FILE_ROUTE = {
   status: BENCH_ROUTE_STATUS_OPEN,
   target: FILE_TARGET,
+  mode: BENCH_CHAT_LAYOUT_FLOATING,
+} satisfies BenchRouteSnapshot
+const DOCKED_OBJECT_ROUTE = {
+  status: BENCH_ROUTE_STATUS_OPEN,
+  target: OBJECT_TARGET,
+  mode: BENCH_CHAT_LAYOUT_DOCKED,
+} satisfies BenchRouteSnapshot
+const FLOATING_OBJECT_ROUTE = {
+  status: BENCH_ROUTE_STATUS_OPEN,
+  target: OBJECT_TARGET,
   mode: BENCH_CHAT_LAYOUT_FLOATING,
 } satisfies BenchRouteSnapshot
 const DOCKED_WHITEBOARD_ROUTE = {
@@ -366,14 +381,14 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_A_KEY,
       destinationChatKey: CHAT_B_KEY,
-      resetDestination: true,
+      destinationInitialization: WORKSPACE_DESTINATION_EMPTY,
     })
     await harness.execute({ type: "restore-chat", chatKey: CHAT_B_KEY }, CLOSED_ROUTE)
     await harness.execute({
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_B_KEY,
       destinationChatKey: CHAT_A_KEY,
-      resetDestination: false,
+      destinationInitialization: WORKSPACE_DESTINATION_RESTORE,
     })
     const restoration = await harness.execute(
       { type: "restore-chat", chatKey: CHAT_A_KEY },
@@ -384,6 +399,90 @@ describe("DirectoryWorkspaceController", () => {
       outcome: "committed",
       projection: {
         route: FLOATING_FILE_ROUTE,
+        bench: { visibility: "visible", mode: BENCH_CHAT_LAYOUT_FLOATING },
+      },
+    })
+  })
+
+  test("inherits the visible book into an independent destination slot", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_OBJECT_ROUTE,
+      initialExpanded: true,
+    })
+
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      destinationInitialization: WORKSPACE_DESTINATION_INHERIT_CURRENT,
+    })
+    const sourceSlot = harness.store.getState().slots[CHAT_A_KEY]
+    const destinationSlot = harness.store.getState().slots[CHAT_B_KEY]
+    expect(destinationSlot).toEqual(sourceSlot)
+    expect(destinationSlot).not.toBe(sourceSlot)
+
+    const restoration = await harness.execute(
+      { type: "restore-chat", chatKey: CHAT_B_KEY },
+      DOCKED_OBJECT_ROUTE,
+    )
+    expect(restoration).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: DOCKED_OBJECT_ROUTE,
+        dockedState: { visibility: WORKSPACE_VISIBILITY_EXPANDED, drawer: null },
+        bench: { visibility: "visible", mode: BENCH_CHAT_LAYOUT_DOCKED },
+      },
+    })
+  })
+
+  test("inherits the visible whiteboard without treating it as session-owned", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_WHITEBOARD_ROUTE,
+      initialExpanded: true,
+    })
+
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      destinationInitialization: WORKSPACE_DESTINATION_INHERIT_CURRENT,
+    })
+    const restoration = await harness.execute(
+      { type: "restore-chat", chatKey: CHAT_B_KEY },
+      DOCKED_WHITEBOARD_ROUTE,
+    )
+
+    expect(restoration).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: DOCKED_WHITEBOARD_ROUTE,
+        bench: { visibility: "visible", target: WHITEBOARD_TARGET },
+      },
+    })
+    expect(harness.guardCalls).toHaveLength(0)
+  })
+
+  test("inherits an immersive book with its floating layout mode", async () => {
+    const harness = createHarness({
+      initialRoute: FLOATING_OBJECT_ROUTE,
+      initialExpanded: false,
+    })
+
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      destinationInitialization: WORKSPACE_DESTINATION_INHERIT_CURRENT,
+    })
+    const restoration = await harness.execute(
+      { type: "restore-chat", chatKey: CHAT_B_KEY },
+      FLOATING_OBJECT_ROUTE,
+    )
+
+    expect(restoration).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: FLOATING_OBJECT_ROUTE,
         bench: { visibility: "visible", mode: BENCH_CHAT_LAYOUT_FLOATING },
       },
     })
@@ -475,6 +574,35 @@ describe("DirectoryWorkspaceController", () => {
         route: DOCKED_FILE_ROUTE,
         dockedState: { visibility: WORKSPACE_VISIBILITY_EXPANDED },
         bench: { visibility: "visible", target: FILE_TARGET },
+      },
+    })
+    expect(harness.guardCalls).toHaveLength(0)
+  })
+
+  test("whiteboard auto-open reveals an inherited board parked by the new chat", async () => {
+    const harness = createHarness({
+      initialRoute: DOCKED_WHITEBOARD_ROUTE,
+      initialExpanded: false,
+    })
+
+    const result = await harness.controller.executeOpen({
+      directory: DIRECTORY,
+      target: WHITEBOARD_TARGET,
+      mode: BENCH_MODE_REQUEST_POLICY,
+      autoOpen: {
+        policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+        eventKey: "new-chat:whiteboard-update",
+      },
+    })
+
+    expect(result).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      decision: { action: "ignore", policyID: "already-open" },
+      projection: {
+        route: DOCKED_WHITEBOARD_ROUTE,
+        dockedState: { visibility: WORKSPACE_VISIBILITY_EXPANDED },
+        bench: { visibility: "visible", target: WHITEBOARD_TARGET },
       },
     })
     expect(harness.guardCalls).toHaveLength(0)
@@ -649,7 +777,7 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_A_KEY,
       destinationChatKey: CHAT_B_KEY,
-      resetDestination: false,
+      destinationInitialization: WORKSPACE_DESTINATION_RESTORE,
     })
 
     expect(result).toMatchObject({
@@ -676,7 +804,7 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_A_KEY,
       destinationChatKey: CHAT_B_KEY,
-      resetDestination: true,
+      destinationInitialization: WORKSPACE_DESTINATION_EMPTY,
     })
     const chatBRestoration = await harness.execute(
       { type: "restore-chat", chatKey: CHAT_B_KEY },
@@ -698,7 +826,7 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_B_KEY,
       destinationChatKey: CHAT_A_KEY,
-      resetDestination: false,
+      destinationInitialization: WORKSPACE_DESTINATION_RESTORE,
     })
     const chatARestoration = await harness.execute(
       { type: "restore-chat", chatKey: CHAT_A_KEY },
@@ -736,7 +864,7 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_A_KEY,
       destinationChatKey: CHAT_B_KEY,
-      resetDestination: false,
+      destinationInitialization: WORKSPACE_DESTINATION_RESTORE,
     })
     const restoration = await harness.execute({ type: "restore-chat", chatKey: CHAT_B_KEY })
 
@@ -768,7 +896,7 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_A_KEY,
       destinationChatKey: CHAT_B_KEY,
-      resetDestination: false,
+      destinationInitialization: WORKSPACE_DESTINATION_RESTORE,
     })
     const release = harness.controller.authorizePreparedChatNavigation({
       directory: OTHER_DIRECTORY,
@@ -794,13 +922,13 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_A_KEY,
       destinationChatKey: CHAT_B_KEY,
-      resetDestination: true,
+      destinationInitialization: WORKSPACE_DESTINATION_EMPTY,
     })
     const supersedingPreparation = await harness.execute({
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_B_KEY,
       destinationChatKey: chatCKey,
-      resetDestination: true,
+      destinationInitialization: WORKSPACE_DESTINATION_EMPTY,
     })
 
     expect(harness.store.getState().slots[CHAT_A_KEY]?.route).toEqual(DOCKED_FILE_ROUTE)
@@ -827,7 +955,7 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_A_KEY,
       destinationChatKey: CHAT_B_KEY,
-      resetDestination: false,
+      destinationInitialization: WORKSPACE_DESTINATION_RESTORE,
     })
 
     expect(result).toMatchObject({
@@ -861,7 +989,7 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_A_KEY,
       destinationChatKey: CHAT_B_KEY,
-      resetDestination: false,
+      destinationInitialization: WORKSPACE_DESTINATION_RESTORE,
     })
 
     expect(result).toMatchObject({
@@ -885,7 +1013,7 @@ describe("DirectoryWorkspaceController", () => {
     ])
   })
 
-  test("closes a session-owned whiteboard only after its leave guard allows", async () => {
+  test("closes a directory-owned whiteboard only after its leave guard allows", async () => {
     const harness = createHarness({
       initialRoute: DOCKED_WHITEBOARD_ROUTE,
       initialExpanded: true,
@@ -895,7 +1023,7 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_A_KEY,
       destinationChatKey: CHAT_B_KEY,
-      resetDestination: false,
+      destinationInitialization: WORKSPACE_DESTINATION_RESTORE,
     })
 
     expect(result).toMatchObject({
@@ -917,7 +1045,7 @@ describe("DirectoryWorkspaceController", () => {
     ])
   })
 
-  test("keeps a session-owned whiteboard open when preparation is blocked", async () => {
+  test("keeps a directory-owned whiteboard open when preparation is blocked", async () => {
     const harness = createHarness({
       initialRoute: DOCKED_WHITEBOARD_ROUTE,
       initialExpanded: true,
@@ -928,7 +1056,7 @@ describe("DirectoryWorkspaceController", () => {
       type: "prepare-chat-change",
       outgoingChatKey: CHAT_A_KEY,
       destinationChatKey: CHAT_B_KEY,
-      resetDestination: false,
+      destinationInitialization: WORKSPACE_DESTINATION_RESTORE,
     })
 
     expect(result).toMatchObject({

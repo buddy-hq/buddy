@@ -53,7 +53,6 @@ import {
   invalidateResourcesQueries,
   resourcesQueryOptions,
   type ResourceListItem,
-  type ResourceOpenOptions,
 } from "@/state/resources-query"
 import {
   objectFlashcardDeckPayloadQueryOptions,
@@ -513,12 +512,11 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
     }
   }
 
-  function openResource(resource: RightWorkspaceResourceTarget, options?: ResourceOpenOptions) {
+  function openResource(resource: RightWorkspaceResourceTarget) {
     void props.onOpen({
       type: "resource",
       directory: props.directory,
       resource,
-      ...(options ? { options } : {}),
     })
   }
 

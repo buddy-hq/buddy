@@ -49,16 +49,12 @@ import {
   type BenchClientActionCommand,
   type BenchClientActionCompletion,
 } from "../client-actions"
-import {
-  ensureWhiteboardObjectForSession,
-  WHITEBOARD_CURRENT_VIEW_ID,
-} from "../../whiteboard/service/store"
+import { WHITEBOARD_CURRENT_VIEW_ID } from "../../whiteboard/service/store"
 
 const BenchPresentActionSchema = z.enum([
   "present_object",
   "present_file",
   "present_resource",
-  "present_whiteboard",
   "close",
 ])
 
@@ -74,7 +70,6 @@ const BenchPresentReasonSchema = z.enum([
   "presented_file",
   "presented_resource",
   "presented_object",
-  "presented_whiteboard",
   "already_showing_target",
   "closed_by_request",
   "file_not_found",
@@ -97,7 +92,7 @@ const BenchPresentReasonSchema = z.enum([
 const BenchPresentInputSchema = z
   .object({
     action: BenchPresentActionSchema.describe(
-      "What to show on Bench. Use present_file for an existing local file, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id, present_whiteboard for the current session whiteboard, and close only when the user asks to close Bench.",
+      "What to show on Bench. Use present_file for an existing local file, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id (including a whiteboard), and close only when the user asks to close Bench.",
     ),
     path: z
       .string()
@@ -218,18 +213,6 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
         path: null,
         resourceKey: null,
         objectID: "01KG1A0KH77HJ9QGAQ5QK0N4BD",
-      },
-      null,
-      2,
-    ),
-    "",
-    "Open the current whiteboard:",
-    JSON.stringify(
-      {
-        action: "present_whiteboard",
-        path: null,
-        resourceKey: null,
-        objectID: null,
       },
       null,
       2,
@@ -513,7 +496,7 @@ async function presentResolvedObject(input: {
   manifest: BuddyObjectManifest
   reason: Extract<
     BenchPresentReason,
-    "presented_file" | "presented_object" | "presented_resource" | "presented_whiteboard"
+    "presented_file" | "presented_object" | "presented_resource"
   >
   message: string
 }): Promise<BenchPresentOutput> {
@@ -779,23 +762,6 @@ async function presentObject(input: {
     manifest: resolved.manifest,
     reason: "presented_object",
     message: `Requested Bench presentation for object ${resolved.manifest.objectID}.`,
-  })
-}
-
-async function presentWhiteboard(input: {
-  directory: string
-  sessionID: string
-}): Promise<BenchPresentOutput> {
-  const manifest = await ensureWhiteboardObjectForSession({
-    directory: input.directory,
-    sessionID: input.sessionID,
-  })
-  return presentResolvedObject({
-    directory: input.directory,
-    sessionID: input.sessionID,
-    manifest,
-    reason: "presented_whiteboard",
-    message: "Requested Bench presentation for the current whiteboard.",
   })
 }
 
@@ -1235,12 +1201,6 @@ async function presentOnBench(input: {
         objectID: input.objectID ?? "",
       })
       break
-    case "present_whiteboard":
-      requested = await presentWhiteboard({
-        directory: input.directory,
-        sessionID: input.sessionID,
-      })
-      break
   }
 
   if (requested.status !== "presented" || !requested.benchTarget) {
@@ -1305,8 +1265,7 @@ function resolveBenchPresentationTarget(
   if (requestedPath) return path.basename(requestedPath)
   return (
     readPresentationString(context.input.resourceKey) ??
-    readPresentationString(context.input.objectID) ??
-    (context.input.action === "present_whiteboard" ? "Whiteboard" : undefined)
+    readPresentationString(context.input.objectID)
   )
 }
 

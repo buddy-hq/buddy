@@ -73,8 +73,6 @@ import {
   isSupportedReadingResourcePath,
   readingResourceBlobQueryOptions,
   resourcesQueryOptions,
-  RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
-  type ResourceOpenOptions,
   type ResourceReadingTarget,
 } from "../../state/resources-query"
 import { setOpenProjectsQueryData } from "../../state/bootstrap-query"
@@ -144,7 +142,6 @@ import {
   forkActiveChatSession,
   runPreparedActiveChatMutation,
   selectActiveChatSession,
-  selectActiveChatSessionAndPresent,
   startActiveChatDraft,
   startActiveChatSession,
 } from "@/lib/active-chat-transition-coordinator"
@@ -293,8 +290,6 @@ export function useDirectoryChatPageController(
   }, [props.directoryToken])
 
   const openProjects = useChatStore(useShallow((state) => state.openProjects))
-  const linkedSessionByResource = useChatStore((state) => state.linkedSessionByResource)
-  const linkReadingResourceSession = useChatStore((state) => state.linkReadingResourceSession)
   const openBenchRoute = useOpenBench()
   const hasRegisteredProject = useMemo(
     () =>
@@ -1026,22 +1021,7 @@ export function useDirectoryChatPageController(
   }
 
   const openResourceInReadingMode = useCallback(
-    async (
-      targetDirectory: string,
-      resource: ResourceReadingTarget,
-      options?: ResourceOpenOptions,
-    ) => {
-      const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
-      const preferCurrentSession =
-        options?.sessionPreference === RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT
-      const linkedSessionID = resource.objectID
-        ? linkedSessionByResource[`${targetDirectory}::${resource.objectID}`]
-        : undefined
-
-      if (preferCurrentSession && activeSessionID && resource.objectID) {
-        linkReadingResourceSession(targetDirectory, resource.objectID, activeSessionID)
-      }
-
+    async (targetDirectory: string, resource: ResourceReadingTarget) => {
       void queryClient.prefetchQuery(resourcesQueryOptions(targetDirectory))
       const canPrefetchReadingBlob =
         isSupportedReadingResourcePath(resource.path) &&
@@ -1052,38 +1032,25 @@ export function useDirectoryChatPageController(
         )
       }
 
-      const presentResource = () =>
-        openBenchRoute({
-          directory: targetDirectory,
-          target: resource.objectID
-            ? {
-                type: "object",
-                ref: {
-                  kind: "resource",
-                  objectID: resource.objectID,
-                  revisionID: null,
-                  itemID: null,
-                },
-                viewID: "reader",
-              }
-            : { type: "workspace-file", path: resource.path, viewer: "file" },
-          mode: BENCH_CHAT_LAYOUT_DOCKED,
-          autoOpen: null,
-        })
-
-      if (!preferCurrentSession && linkedSessionID && linkedSessionID !== activeSessionID) {
-        const result = await selectActiveChatSessionAndPresent({
-          directory: targetDirectory,
-          sessionID: linkedSessionID,
-          present: presentResource,
-        })
-        if (result.outcome !== "committed" && result.outcome !== "noop") return false
-        return result.value.presentation ?? false
-      }
-
-      return presentResource()
+      return openBenchRoute({
+        directory: targetDirectory,
+        target: resource.objectID
+          ? {
+              type: "object",
+              ref: {
+                kind: "resource",
+                objectID: resource.objectID,
+                revisionID: null,
+                itemID: null,
+              },
+              viewID: "reader",
+            }
+          : { type: "workspace-file", path: resource.path, viewer: "file" },
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+        autoOpen: null,
+      })
     },
-    [linkReadingResourceSession, linkedSessionByResource, queryClient, openBenchRoute],
+    [queryClient, openBenchRoute],
   )
 
   async function handleResourceCommand(
@@ -1264,14 +1231,6 @@ export function useDirectoryChatPageController(
           : {}),
       })
 
-      if (includeActiveContext && visibleReadingResource?.objectID) {
-        linkReadingResourceSession(
-          decodedDirectory,
-          visibleReadingResource.objectID,
-          submittedSessionID,
-        )
-      }
-
       if (input.clearDrafts ?? true) {
         clearSubmittedPromptDrafts(submittedSessionID)
       }
@@ -1287,7 +1246,6 @@ export function useDirectoryChatPageController(
       currentAgentName,
       decodedDirectory,
       includeReadingResourceForPrompt,
-      linkReadingResourceSession,
       selectedThinking,
       syncTeachingRuntimeSelection,
       teachingWs,

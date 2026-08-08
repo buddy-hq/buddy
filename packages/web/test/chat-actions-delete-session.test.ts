@@ -31,7 +31,6 @@ describe("deleteSession", () => {
       lastSessionByDirectory: {},
       selectedModelByDirectory: {},
       activeReadingResourceByDirectory: {},
-      linkedSessionByResource: {},
       lastOpenedReadingResourceByDirectory: {},
       directories: {},
       streamStatus: "idle",
@@ -123,7 +122,6 @@ describe("deleteSession", () => {
     store.setSessions(DIRECTORY, [root, child, successor])
     store.setActiveSession(DIRECTORY, child.id)
     store.applySessionStatus(DIRECTORY, child.id, BUSY_SESSION_STATUS)
-    store.linkReadingResourceSession(DIRECTORY, "resource-deleted", child.id)
 
     setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
@@ -148,7 +146,6 @@ describe("deleteSession", () => {
         lastSessionByDirectory: {
           [DIRECTORY]: successor.id,
         },
-        linkedSessionByResource: {},
         directories: {
           [DIRECTORY]: {
             isBusy: false,

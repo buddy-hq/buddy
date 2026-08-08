@@ -37,7 +37,7 @@ import type { GetStartedChat } from "@/lib/get-started-chats"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import { getSessionContextMetrics } from "@/state/context-metrics"
 import { providerCatalogSnapshotQueryOptions } from "@/state/bootstrap-query"
-import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
+import type { ResourceReadingTarget } from "@/state/resources-query"
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
 import type { PermissionReply } from "@/state/permission-types"
 import { ArrowDownIcon, Redo2Icon } from "@/icons/app-icons"
@@ -89,11 +89,7 @@ type DirectoryChatMainPaneProps = {
   onTranscriptViewportHeightChange?: (element: HTMLElement) => void
   markTranscriptProgrammaticScroll?: (element: HTMLElement, top: number) => void
   onOpenSession: (sessionID: string) => void
-  onOpenResource: (
-    directory: string,
-    resource: ResourceReadingTarget,
-    options?: ResourceOpenOptions,
-  ) => void
+  onOpenResource: (directory: string, resource: ResourceReadingTarget) => void
   onForkMessage?: (input: { sessionID: string; messageID?: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRestoreRevertedMessages?: () => Promise<void> | void

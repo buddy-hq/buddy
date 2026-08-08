@@ -33,6 +33,9 @@ export const BENCH_ROUTE_STATUS_OPEN = "open"
 export const WORKSPACE_PENDING_KIND_NAVIGATION = "navigation"
 export const WORKSPACE_PENDING_KIND_WORKSPACE_ONLY = "workspace-only"
 export const WORKSPACE_PENDING_KIND_CHAT_TRANSITION = "chat-transition"
+export const WORKSPACE_DESTINATION_RESTORE = "restore"
+export const WORKSPACE_DESTINATION_EMPTY = "empty"
+export const WORKSPACE_DESTINATION_INHERIT_CURRENT = "inherit-current"
 export const WORKSPACE_HYDRATION_PENDING = "pending"
 export const WORKSPACE_HYDRATION_READY = "ready"
 export const WORKSPACE_HYDRATION_FAILED = "failed"
@@ -78,6 +81,11 @@ export type WorkspacePresentationSlot = {
   docked: DockedWorkspaceState
   lastDrawer: DrawerKind
 }
+
+export type WorkspaceDestinationInitialization =
+  | typeof WORKSPACE_DESTINATION_RESTORE
+  | typeof WORKSPACE_DESTINATION_EMPTY
+  | typeof WORKSPACE_DESTINATION_INHERIT_CURRENT
 
 export type DirectoryWorkspacePersistenceStorage = {
   getItem(name: string): string | null | Promise<string | null>
@@ -189,7 +197,7 @@ export type DirectoryWorkspaceCommand =
       type: "prepare-chat-change"
       outgoingChatKey: WorkspaceChatKey
       destinationChatKey: WorkspaceChatKey
-      resetDestination: boolean
+      destinationInitialization: WorkspaceDestinationInitialization
     }
   | { type: "restore-chat"; chatKey: WorkspaceChatKey }
   | { type: "promote-chat"; from: WorkspaceChatKey; to: PersistedWorkspaceChatKey }
@@ -242,7 +250,7 @@ export type DirectoryWorkspaceStoreState = DirectoryWorkspaceProjectionState & {
   stageChatTransition: (input: {
     commandID: string
     chatKey: WorkspaceChatKey
-    reset: boolean
+    destinationSlot?: WorkspacePresentationSlot
     previousProjection: EffectiveWorkspaceProjection
   }) => void
   promoteChatSlot: (input: { from: WorkspaceChatKey; to: PersistedWorkspaceChatKey }) => void
@@ -947,12 +955,12 @@ export function createDirectoryWorkspaceStore(input: {
           touchedChatKey: chatKey,
         }),
       })),
-    stageChatTransition: ({ commandID, chatKey, reset, previousProjection }) =>
+    stageChatTransition: ({ commandID, chatKey, destinationSlot, previousProjection }) =>
       set((state) => {
-        const stagedSlots = reset
+        const stagedSlots = destinationSlot
           ? {
               ...state.slots,
-              [chatKey]: defaultWorkspacePresentationSlot(),
+              [chatKey]: destinationSlot,
             }
           : state.slots
         // Transient destination keys exist only for the duration of one transition. Drop the

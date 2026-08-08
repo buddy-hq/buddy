@@ -18,7 +18,6 @@ import {
   renderPresentMediaTool,
 } from "../src/components/chat/tools/render/present-media"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
-import { RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT } from "../src/state/resources-query"
 import { usePresentedMediaPlaybackStore } from "../src/state/presented-media-playback-store"
 import type { MessagePart } from "../src/state/chat-types"
 import { getPromptDraft, getPromptScopeKey, usePromptStore } from "../src/state/prompt-store"
@@ -751,9 +750,6 @@ describe("present media renderer", () => {
       {
         path: "generated/notes.pdf",
         name: "notes.pdf",
-      },
-      {
-        sessionPreference: RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
       },
     )
     expect(openPath).not.toHaveBeenCalled()

@@ -55,7 +55,6 @@ import {
   type BenchTarget,
 } from "@/lib/bench-navigation"
 import type { BenchFloatingChatState } from "@/components/bench/bench-route-context"
-import { resourceSessionKey, useChatStore } from "@/state/chat-store"
 import { WORKSPACE_HYDRATION_PENDING } from "@/state/directory-workspace-store"
 import type { ResizeHandleIntent } from "@buddy/ui"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
@@ -73,8 +72,6 @@ type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, {
 const DOCKED_BENCH_DEFAULT_VIEWPORT_WIDTH_PX = 1280
 const DOCKED_BENCH_DEFAULT_VIEWPORT_HEIGHT_PX = 800
 const CLOSED_BENCH_TARGET_KEY = "closed-bench-target"
-const CREATE_BOARD_PROMPT =
-  "Create a whiteboard for this notebook chat that helps me organize and develop the current ideas."
 const CREATE_CREATION_PROMPT =
   "Create a visual or interactive learning artifact for this notebook chat based on the current context."
 
@@ -201,20 +198,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       }),
     [currentDirectory, location.pathname, location.search],
   )
-  const linkedReadingSessionID = useChatStore((state) => {
-    if (
-      benchPolicyState.status !== "open" ||
-      benchPolicyState.target.type !== "object" ||
-      benchPolicyState.target.ref.kind !== "resource"
-    ) {
-      return undefined
-    }
-
-    const objectID = state.activeReadingResourceByDirectory[currentDirectory]?.objectID
-    return objectID
-      ? state.linkedSessionByResource[resourceSessionKey(currentDirectory, objectID)]
-      : undefined
-  })
   const routeChatLayoutMode =
     benchPolicyState.status === "open" ? benchPolicyState.mode : BENCH_CHAT_LAYOUT_DOCKED
   const chatLayoutMode = transientBenchActive ? BENCH_CHAT_LAYOUT_DOCKED : routeChatLayoutMode
@@ -634,10 +617,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     },
     [controller.mainPaneProps.chatState, currentDirectory],
   )
-  const handleCreateBoard = useCallback(
-    () => stageWorkspacePrompt(CREATE_BOARD_PROMPT),
-    [stageWorkspacePrompt],
-  )
   const handleCreateCreation = useCallback(
     () => stageWorkspacePrompt(CREATE_CREATION_PROMPT),
     [stageWorkspacePrompt],
@@ -763,7 +742,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                   sessions={controller.mainPaneProps.chatState.sessions}
                   workspaceWidth={dockedWorkspaceDisplayWidthPx}
                   suppressDrawerMotion={suppressLayoutMotion}
-                  onCreateBoard={handleCreateBoard}
                   onCreateCreation={handleCreateCreation}
                   onOpenThread={selectWorkspaceSession}
                   onOpenResource={controller.mainPaneProps.onOpenResource}
@@ -779,7 +757,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                     notebookName: controller.shellProps.projectName,
                     sessions: chatState.sessions,
                     activeSessionID: chatState.sessionID,
-                    linkedSessionID: linkedReadingSessionID,
                     parentSession: chatState.parentSession,
                     isTurnActive: chatState.isTurnActive,
                     onNewSession: handleNewSession,
@@ -791,7 +768,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
               <DirectoryChatBenchConversationPane
                 {...controller.mainPaneProps}
                 compactPromptComposer={effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
-                linkedSessionID={linkedReadingSessionID}
                 showThreadBrowser={false}
                 onNewSession={handleNewSession}
                 onSelectSession={handleSelectSession}
@@ -824,7 +800,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         showSidebarThreadControls={presentation.controls.showSidebarThreadControls}
         sessions={chatState.sessions}
         activeSessionID={chatState.sessionID}
-        linkedSessionID={linkedReadingSessionID}
         parentSession={chatState.parentSession}
         onNewSession={handleNewSession}
         onSelectSession={handleSelectSession}

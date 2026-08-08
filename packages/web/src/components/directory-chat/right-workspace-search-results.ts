@@ -24,6 +24,7 @@ function objectKindLabel(kind: BenchObjectKind): string {
   if (kind === "media-presentation") return "Media"
   if (kind === "flashcard-deck") return "Flashcards"
   if (kind === "question-set") return "Question set"
+  if (kind === "whiteboard") return "Board"
   return "Source"
 }
 
@@ -40,6 +41,7 @@ function workspaceObjectSearchKind(
     return "creation"
   }
   if (kind === "flashcard-deck" || kind === "question-set") return "practice"
+  if (kind === "whiteboard") return "board"
   if (kind === "resource") return "source"
   return undefined
 }

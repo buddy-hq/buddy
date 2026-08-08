@@ -215,16 +215,11 @@ function isSameBenchTarget(left: BenchTarget, right: BenchTarget): boolean {
   return benchTargetKey(left) === benchTargetKey(right)
 }
 
-function isSessionOwnedBenchTarget(target: BenchTarget): boolean {
-  return target.type === "object" && target.ref.kind === "whiteboard"
-}
-
 export {
   benchSurfaceKey,
   benchTargetKey,
   defaultBenchObjectViewID,
   isBenchObjectKind,
-  isSessionOwnedBenchTarget,
   isSameBenchTarget,
   readBenchTarget,
   readBenchChatLayoutMode,

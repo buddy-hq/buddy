@@ -1,7 +1,7 @@
 import type { MessagePart } from "@/state/chat-types"
 import type { ReactNode } from "react"
 
-import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
+import type { ResourceReadingTarget } from "@/state/resources-query"
 import type { ToolAttachment, ToolInfo, ToolState } from "./types"
 
 /** Draws the semantic action icon selected by the resolved presentation snapshot. */
@@ -16,11 +16,7 @@ export type ToolPartProps = {
   directory?: string
   canEditImages?: boolean
   onOpenSession?: (sessionID: string) => void
-  onOpenResource?: (
-    directory: string,
-    resource: ResourceReadingTarget,
-    options?: ResourceOpenOptions,
-  ) => void
+  onOpenResource?: (directory: string, resource: ResourceReadingTarget) => void
   defaultOpen?: boolean
 }
 

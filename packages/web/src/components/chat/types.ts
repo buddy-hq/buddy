@@ -1,6 +1,6 @@
 import type { RefObject } from "react"
 import type { ToolCollectionToken, ToolLayoutRole } from "@buddy/opencode-adapter/tool-presentation"
-import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
+import type { ResourceReadingTarget } from "@/state/resources-query"
 import type { MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
 import type { RetryActionID } from "./session-retry-notice"
 
@@ -43,11 +43,7 @@ export type ChatTranscriptProps = {
   onViewportHeightChange?: (element: HTMLElement) => void
   markProgrammaticScroll?: (element: HTMLElement, top: number) => void
   onOpenSession?: (sessionID: string) => void
-  onOpenResource?: (
-    directory: string,
-    resource: ResourceReadingTarget,
-    options?: ResourceOpenOptions,
-  ) => void
+  onOpenResource?: (directory: string, resource: ResourceReadingTarget) => void
   onForkMessage?: (input: {
     sessionID: string
     /** Exclusive upper bound (keep id < messageID). Omit to clone the full session. */

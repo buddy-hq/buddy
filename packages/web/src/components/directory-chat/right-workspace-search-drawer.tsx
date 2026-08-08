@@ -47,7 +47,6 @@ import {
   resourceFileExtensionFromFormat,
 } from "@/state/resources-query"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
-import { whiteboardSessionPeekQueryOptions } from "@/components/whiteboard/whiteboard-query"
 import {
   createBenchObjectTarget,
   selectHtmlWidgetObjects,
@@ -236,10 +235,6 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
   const [remoteState, setRemoteState] = useState<RemoteSearchState>({ status: "idle" })
   const objectsQuery = useQuery(workspaceObjectsQueryOptions(props.directory))
   const resourcesQuery = useQuery(processedResourcesQueryOptions(props.directory))
-  const boardQuery = useQuery({
-    ...whiteboardSessionPeekQueryOptions(props.directory, props.sessionID ?? ""),
-    enabled: props.sessionID !== undefined,
-  })
   const normalizedQuery = query.trim()
   const hasQuery = normalizedQuery.length > 0
   const canSearch = normalizedQuery.length >= NOTEBOOK_SEARCH_MIN_QUERY_LENGTH
@@ -341,31 +336,8 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
     const threadResults = props.sessions
       .filter((session) => parseSubagentSession(session).agent === undefined)
       .map(sessionSearchResult)
-    const board = boardQuery.data?.currentBoard
-    const boardObjectID = boardQuery.data?.objectID
-    const boardResults: NotebookSearchResult[] =
-      board && boardObjectID
-        ? [
-            {
-              id: `board:${boardObjectID}`,
-              kind: "board",
-              title: "Notebook board",
-              metadata: notebookSearchTimestampMetadata(
-                "Board",
-                parseNotebookSearchTimestamp(board.updatedAt),
-              ),
-              updatedAtMs: parseNotebookSearchTimestamp(board.updatedAt),
-              target: {
-                type: "object",
-                kind: "whiteboard",
-                objectID: boardObjectID,
-              },
-            },
-          ]
-        : []
-
-    return [...resourceResults, ...objectResults, ...threadResults, ...boardResults]
-  }, [boardQuery.data, objectsQuery.data?.objects, props.sessions, resourcesQuery.data])
+    return [...resourceResults, ...objectResults, ...threadResults]
+  }, [objectsQuery.data?.objects, props.sessions, resourcesQuery.data])
 
   const processedResourcePaths = useMemo(() => {
     const paths = new Set<string>()

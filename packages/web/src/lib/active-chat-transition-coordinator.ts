@@ -26,11 +26,15 @@ import {
 import { useChatStore } from "@/state/chat-store"
 import type { SessionInfo } from "@/state/chat-types"
 import {
+  WORKSPACE_DESTINATION_EMPTY,
+  WORKSPACE_DESTINATION_INHERIT_CURRENT,
+  WORKSPACE_DESTINATION_RESTORE,
   defaultWorkspacePresentationSlot,
   readPersistedWorkspaceSlot,
   writePersistedWorkspaceSlot,
   type BenchRouteSnapshot,
   type WorkspacePresentationSlot,
+  type WorkspaceDestinationInitialization,
 } from "@/state/directory-workspace-store"
 
 type ActiveChatIdentity =
@@ -40,7 +44,7 @@ type ActiveChatIdentity =
 
 type DestinationWorkspaceIntent = {
   chatKey: WorkspaceChatKey
-  reset: boolean
+  initialization: WorkspaceDestinationInitialization
 }
 
 export type NavigateToChat = (directory: string, route: BenchRouteSnapshot) => void | Promise<void>
@@ -316,12 +320,13 @@ class ActiveChatTransitionCoordinator {
         await sameLiveWorkspace.setActiveSessionContext(destinationState.sessionID)
         destinationRoute = restoration.projection.route
       } else {
-        const shouldResetDestination =
-          input.destination.reset && input.destination.chatKey === destinationState.chatKey
-        const destinationSlot = shouldResetDestination
+        const shouldInitializeEmptyDestination =
+          input.destination.initialization !== WORKSPACE_DESTINATION_RESTORE &&
+          input.destination.chatKey === destinationState.chatKey
+        const destinationSlot = shouldInitializeEmptyDestination
           ? defaultWorkspacePresentationSlot()
           : await persistedOrDefaultWorkspaceSlot(directory, destinationState.chatKey)
-        if (shouldResetDestination) {
+        if (shouldInitializeEmptyDestination) {
           await writePersistedWorkspaceSlot({
             directory,
             chatKey: destinationState.chatKey,
@@ -388,7 +393,9 @@ class ActiveChatTransitionCoordinator {
         type: "prepare-chat-change",
         outgoingChatKey: sourceState.chatKey,
         destinationChatKey,
-        resetDestination: sameDirectory ? input.destination.reset : true,
+        destinationInitialization: sameDirectory
+          ? input.destination.initialization
+          : WORKSPACE_DESTINATION_EMPTY,
       },
       { origin: "user" },
     )
@@ -451,7 +458,7 @@ function nextTransientWorkspaceChatKey(): WorkspaceChatKey {
 function currentDirectoryDestination(directory: string): DestinationWorkspaceIntent {
   return {
     chatKey: workspaceChatKeyForSession(useChatStore.getState().directories[directory]?.sessionID),
-    reset: false,
+    initialization: WORKSPACE_DESTINATION_RESTORE,
   }
 }
 
@@ -477,7 +484,7 @@ export function startActiveChatDraft(input: {
     directory: input.directory,
     destination: {
       chatKey: workspaceChatKeyForSession(undefined),
-      reset: true,
+      initialization: WORKSPACE_DESTINATION_INHERIT_CURRENT,
     },
     identity: { kind: "draft" },
     readNoopValue: () => ({
@@ -497,7 +504,7 @@ export function startActiveChatSession(input: {
     directory: input.directory,
     destination: {
       chatKey: nextTransientWorkspaceChatKey(),
-      reset: true,
+      initialization: WORKSPACE_DESTINATION_EMPTY,
     },
     mutate: () => startNewSession(input.directory),
     navigate: input.navigate,
@@ -513,7 +520,7 @@ export function selectActiveChatSession(input: {
     directory: input.directory,
     destination: {
       chatKey: workspaceChatKeyForSession(input.sessionID),
-      reset: false,
+      initialization: WORKSPACE_DESTINATION_RESTORE,
     },
     identity: { kind: "session", sessionID: input.sessionID },
     readNoopValue: () => ({
@@ -541,7 +548,7 @@ export function forkActiveChatSession(input: {
     directory: input.directory,
     destination: {
       chatKey: nextTransientWorkspaceChatKey(),
-      reset: true,
+      initialization: WORKSPACE_DESTINATION_EMPTY,
     },
     mutate: () =>
       forkSession(input.directory, {
@@ -549,53 +556,6 @@ export function forkActiveChatSession(input: {
         ...(input.messageID ? { messageID: input.messageID } : {}),
       }),
     navigate: input.navigate,
-  })
-}
-
-export function selectActiveChatSessionAndPresent<T>(input: {
-  directory: string
-  sessionID: string
-  navigate?: NavigateToChat
-  present: () => T | Promise<T>
-}): Promise<
-  ActiveChatTransitionResult<{
-    selection: SessionSelectionResult
-    presentation: T | undefined
-  }>
-> {
-  return activeChatTransitionCoordinator.run({
-    directory: input.directory,
-    destination: {
-      chatKey: workspaceChatKeyForSession(input.sessionID),
-      reset: false,
-    },
-    identity: { kind: "session", sessionID: input.sessionID },
-    readNoopValue: () => ({
-      selection: {
-        outcome: "requested",
-        directory: input.directory,
-        requestedSessionID: input.sessionID,
-        sessionID: input.sessionID,
-      },
-      presentation: undefined,
-    }),
-    mutate: async () => {
-      const selection = await selectSession(input.directory, input.sessionID)
-      if (selection.outcome === "failed") throw selection.error
-      const value: {
-        selection: SessionSelectionResult
-        presentation: T | undefined
-      } = {
-        selection,
-        presentation: undefined,
-      }
-      return value
-    },
-    navigate: input.navigate,
-    present: async (value) => {
-      if (value.selection.outcome !== "requested") return
-      value.presentation = await input.present()
-    },
   })
 }
 
@@ -608,7 +568,7 @@ export function runPreparedActiveChatMutation<T>(input: {
     ...input,
     destination: {
       chatKey: nextTransientWorkspaceChatKey(),
-      reset: false,
+      initialization: WORKSPACE_DESTINATION_RESTORE,
     },
   })
 }

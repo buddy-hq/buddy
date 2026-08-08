@@ -1,8 +1,6 @@
 import { useCallback } from "react"
 import { usePlatform } from "@/context/platform"
 import {
-  RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
-  type ResourceOpenOptions,
   type ResourceReadingTarget,
   type ResourceViewStatus,
 } from "@/state/resources-query"
@@ -34,7 +32,6 @@ import {
 export type WorkspaceResourceOpener = (
   directory: string,
   resource: ResourceReadingTarget,
-  options?: ResourceOpenOptions,
 ) => Promise<OpenBenchResult> | void
 
 export type WorkspaceFileActionInput = Omit<WorkspaceFileOpenInput, "canOpenReading"> & {
@@ -74,18 +71,12 @@ export function useWorkspaceFileOpen(
       if (!directory) return
 
       if (target === WORKSPACE_FILE_OPEN_TARGET_READING) {
-        return onOpenResource?.(
-          directory,
-          {
-            path: input.path,
-            name: input.name ?? fileNameFromPath(input.path),
-            ...(input.objectID ? { objectID: input.objectID } : {}),
-            ...(input.resourceStatus ? { status: input.resourceStatus } : {}),
-          },
-          {
-            sessionPreference: RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
-          },
-        )
+        return onOpenResource?.(directory, {
+          path: input.path,
+          name: input.name ?? fileNameFromPath(input.path),
+          ...(input.objectID ? { objectID: input.objectID } : {}),
+          ...(input.resourceStatus ? { status: input.resourceStatus } : {}),
+        })
         return
       }
 

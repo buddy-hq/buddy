@@ -54,7 +54,6 @@ import {
   RIGHT_WORKSPACE_RAIL_WIDTH_PX,
   resolveRightWorkspaceSelectorDrawerWidth,
 } from "@/lib/directory-chat/right-workspace-layout"
-import type { ResourceOpenOptions } from "@/state/resources-query"
 import { BENCH_ROUTE_STATUS_OPEN, type DrawerKind } from "@/state/directory-workspace-store"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import type { WorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
@@ -72,13 +71,11 @@ type DirectoryChatRightWorkspaceProps = {
   sessions: SessionInfo[]
   workspaceWidth: number
   suppressDrawerMotion?: boolean
-  onCreateBoard: () => void
   onCreateCreation: () => void
   onOpenThread: (sessionID: string) => Promise<boolean>
   onOpenResource: (
     directory: string,
     resource: RightWorkspaceResourceTarget,
-    options?: ResourceOpenOptions,
   ) => Promise<OpenBenchResult> | void
   bench?: ReactNode
   presentation: Pick<
@@ -360,7 +357,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       try {
         if (request.type === "resource") {
           const outcome = resolveRightWorkspaceOpenOutcome(
-            await props.onOpenResource(request.directory, request.resource, request.options),
+            await props.onOpenResource(request.directory, request.resource),
           )
           if (outcome === "opened" || outcome === "focused") closeSelector()
           return outcome
@@ -462,12 +459,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       return (
         <RightWorkspaceBoardsDrawer
           directory={props.directory}
-          sessionID={props.sessionID}
           onClose={closeSelector}
-          onCreateBoard={() => {
-            closeSelector()
-            props.onCreateBoard()
-          }}
           onOpen={openWorkspaceRequest}
         />
       )
@@ -500,8 +492,8 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
           variant={filesPresentation.variant}
           onFileOpenBlocked={restoreFilesSelector}
           onSelectFile={closeSelector}
-          onOpenResource={(directory, resource, options) => {
-            const pendingDecision = props.onOpenResource(directory, resource, options)
+          onOpenResource={(directory, resource) => {
+            const pendingDecision = props.onOpenResource(directory, resource)
             if (!pendingDecision) return
             return pendingDecision.then((decision) => {
               const outcome = resolveRightWorkspaceOpenOutcome(decision)
