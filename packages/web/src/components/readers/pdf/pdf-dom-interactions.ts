@@ -6,7 +6,10 @@ import {
   readerTextAnchorKey,
   type PdfTextAnchor,
 } from "@buddy/reader-contract"
-import { ANNOTATION_COLOR_TOKENS } from "../foliate-reader-constants"
+import {
+  ANNOTATION_COLOR_TOKENS,
+  READER_SELECTION_BACKGROUND,
+} from "../foliate-reader-constants"
 import type { ReaderAnnotation, ReaderSearchResult, ReaderSelection } from "../reader-types"
 import {
   pdfQuadFromClientRect,
@@ -563,7 +566,7 @@ function renderPdfSelectionPage(input: {
         top: `${offset.top + bounds.top}px`,
         width: `${bounds.width}px`,
         height: `${bounds.height}px`,
-        backgroundColor: "var(--surface-info-base)",
+        backgroundColor: READER_SELECTION_BACKGROUND,
         opacity: PDF_SELECTION_MARK_OPACITY,
         pointerEvents: "none",
       })

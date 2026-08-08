@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { MAX_PDF_QUOTE_LENGTH, type PdfQuad } from "@buddy/reader-contract"
+import { READER_SELECTION_BACKGROUND } from "../src/components/readers/foliate-reader-constants"
 import {
   isPdfSelectionEventTarget,
   readPdfSelection,
@@ -339,7 +340,7 @@ describe("PDF DOM interactions", () => {
       expect(mark?.style.top).toBe("24px")
       expect(mark?.style.width).toBe("40px")
       expect(mark?.style.height).toBe("12px")
-      expect(mark?.style.backgroundColor).toBe("var(--surface-info-base)")
+      expect(mark?.style.backgroundColor).toBe(READER_SELECTION_BACKGROUND)
       expect(mark?.style.opacity).toBe("0.34")
 
       renderPdfSelection({ root, session, selection: undefined })

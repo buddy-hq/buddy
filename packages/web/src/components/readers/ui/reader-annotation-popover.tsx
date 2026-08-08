@@ -1,5 +1,5 @@
 import { PencilLineIcon, XIcon } from "@/icons/app-icons"
-import { Button, Separator } from "@buddy/ui"
+import { Button } from "@buddy/ui"
 import type {
   ReaderAnnotationPopoverViewModel,
   ReaderAnnotationViewModel,
@@ -41,7 +41,6 @@ export function ReaderAnnotationPopover({
           <PencilLineIcon data-icon="inline-start" />
           Edit
         </Button>
-        <Separator orientation="vertical" className="h-4 self-center" />
         <Button
           type="button"
           variant="ghost"

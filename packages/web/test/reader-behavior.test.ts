@@ -5,9 +5,19 @@ import {
   FLOW_PAGINATED,
   FLOW_SCROLLED,
   GLOBAL_PREFERENCES_STORAGE_KEY,
+  READER_SELECTION_BACKGROUND,
+  READER_SELECTION_FOREGROUND,
   READER_THEMES,
+  resolveReaderContentFilter,
 } from "../src/components/readers/foliate-reader-constants"
-import { getOverlayPosition } from "../src/components/readers/utils/foliate-helpers"
+import {
+  getOverlayPosition,
+  resolveAnnotationColorValue,
+} from "../src/components/readers/utils/foliate-helpers"
+import {
+  buildReaderStyles,
+  getThemeDefinition,
+} from "../src/components/readers/utils/foliate-themes"
 import { READER_PREFERENCES_STORAGE_KEY } from "../src/components/readers/reader-storage"
 import {
   READER_NAVIGATION_GO_LEFT,
@@ -145,7 +155,7 @@ describe("reader themes", () => {
       {
         id: "night",
         appearance: "dark",
-        pdfFilter: "brightness(0.78) saturate(0.9) contrast(1.04)",
+        pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.88) contrast(1.04)",
       },
       {
         id: "mist",
@@ -155,9 +165,40 @@ describe("reader themes", () => {
       {
         id: "graphite",
         appearance: "dark",
-        pdfFilter: "grayscale(0.18) brightness(0.82) contrast(1.04)",
+        pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.9)",
       },
     ])
+    expect(READER_THEMES.every((theme) => theme.contentAccent === READER_SELECTION_BACKGROUND)).toBe(
+      true,
+    )
+  })
+
+  test("forces reader colors after publisher EPUB styles", () => {
+    const preferences = loadGlobalPreferences("night", FLOW_SCROLLED)
+    const [, overrideStyles] = buildReaderStyles(getThemeDefinition("night"), preferences)
+
+    expect(overrideStyles).toContain("background-color: #0f141d !important")
+    expect(overrideStyles).toContain("color: #e6edf6 !important")
+    expect(overrideStyles).toContain("color: #8fbbff !important")
+    expect(overrideStyles).toContain(`background: ${READER_SELECTION_BACKGROUND}`)
+    expect(overrideStyles).toContain(`color: ${READER_SELECTION_FOREGROUND}`)
+  })
+
+  test("applies the selected theme filter only to fixed-layout EPUB content", () => {
+    const nightFilter = getThemeDefinition("night").pdfFilter
+
+    expect(resolveReaderContentFilter({ isFixedLayout: false, filter: nightFilter })).toBe("none")
+    expect(resolveReaderContentFilter({ isFixedLayout: true, filter: nightFilter })).toBe(
+      nightFilter,
+    )
+  })
+
+  test("resolves annotation colors from semantic theme tokens before EPUB injection", () => {
+    document.documentElement.style.setProperty("--surface-warning-base", "rgb(255, 191, 0)")
+
+    expect(resolveAnnotationColorValue("amber", document.documentElement)).toBe(
+      "rgb(255, 191, 0)",
+    )
   })
 
   test("ignores the legacy independent appearance preference", () => {

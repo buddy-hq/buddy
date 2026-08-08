@@ -26,7 +26,6 @@ import {
   Field,
   FieldLabel,
   Input,
-  Separator,
   ToggleGroup,
   ToggleGroupItem,
   cn,
@@ -71,6 +70,8 @@ import { ReaderSelectionToolbar } from "../ui/reader-selection-toolbar"
 import { ReaderTocPopover } from "../ui/reader-toc-popover"
 import {
   DEFAULT_ANNOTATION_COLOR_ID,
+  READER_SELECTION_BACKGROUND,
+  READER_SELECTION_FOREGROUND,
   READER_THEMES,
 } from "../foliate-reader-constants"
 import { getThemeDefinition } from "../utils/foliate-themes"
@@ -1452,7 +1453,6 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(
               >
                 <PlusIcon />
               </Button>
-              <Separator orientation="vertical" className="mx-0.5 h-4" />
               <ReaderSearchPopover
                 search={search}
                 onQueryChange={handleSearchQueryChange}
@@ -1716,7 +1716,8 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(
           }
 
           .buddy-pdfjs-scope .textLayer ::selection {
-            background: color-mix(in oklab, var(--surface-info-base) 42%, transparent);
+            background: ${READER_SELECTION_BACKGROUND};
+            color: ${READER_SELECTION_FOREGROUND};
           }
 
           .buddy-pdfjs-scope .textLayer .endOfContent::selection {

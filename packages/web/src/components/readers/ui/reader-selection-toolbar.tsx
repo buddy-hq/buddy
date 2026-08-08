@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { CopyIcon, HighlighterIcon, PencilLineIcon, SearchIcon, XIcon } from "@/icons/app-icons"
-import { Button, Separator } from "@buddy/ui"
+import { Button } from "@buddy/ui"
 import type { ReaderSelectionToolbarViewModel } from "../reader-types"
 import {
   ReaderFloatingOverlay,
@@ -51,28 +51,20 @@ export function ReaderSelectionToolbar({
             <span className="font-medium">Copy</span>
           </ActionButton>
 
-          <Separator orientation="vertical" className="mx-0.5 h-4 self-center" />
-
           <ActionButton onClick={onHighlight} label="Highlight">
             <HighlighterIcon data-icon="inline-start" />
             <span className="font-medium">Highlight</span>
           </ActionButton>
-
-          <Separator orientation="vertical" className="mx-0.5 h-4 self-center" />
 
           <ActionButton onClick={onOpenAnnotationDialog} label="Add note">
             <PencilLineIcon data-icon="inline-start" />
             <span className="font-medium">Note</span>
           </ActionButton>
 
-          <Separator orientation="vertical" className="mx-0.5 h-4 self-center" />
-
           <ActionButton onClick={() => onSearch(text)} label="Search selection">
             <SearchIcon data-icon="inline-start" />
             <span className="font-medium">Search</span>
           </ActionButton>
-
-          <Separator orientation="vertical" className="mx-0.5 h-4 self-center" />
 
           <Button
             type="button"

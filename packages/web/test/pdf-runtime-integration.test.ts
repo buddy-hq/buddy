@@ -74,13 +74,13 @@ describe("PDF.js Vite integration", () => {
     expect(twice).toBe(once)
   })
 
-  test("preserves embedded image fidelity in dark PDF appearances", () => {
+  test("inverts PDF page surfaces in dark appearances", () => {
     const darkThemes = READER_THEMES.filter((theme) => theme.appearance === "dark")
 
     expect(darkThemes).not.toHaveLength(0)
     for (const theme of darkThemes) {
-      expect(theme.pdfFilter).not.toContain("invert(")
-      expect(theme.pdfFilter).not.toContain("hue-rotate(")
+      expect(theme.pdfFilter).toContain("invert(")
+      expect(theme.pdfFilter).toContain("hue-rotate(")
     }
   })
 })

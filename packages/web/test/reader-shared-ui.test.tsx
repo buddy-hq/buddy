@@ -30,6 +30,7 @@ describe("shared reader UI", () => {
 
   beforeEach(() => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    localStorage.clear()
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
