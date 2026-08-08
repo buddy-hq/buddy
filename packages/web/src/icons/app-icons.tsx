@@ -80,7 +80,9 @@ import {
   Layout01Icon as Layout01IconData,
   LayoutBottomIcon as LayoutBottomIconData,
   LayoutLeftIcon as LayoutLeftIconData,
+  LayoutThreeRowIcon as LayoutThreeRowIconData,
   LayoutTopIcon as LayoutTopIconData,
+  LayoutTwoColumnIcon as LayoutTwoColumnIconData,
   LeftToRightListBulletIcon as LeftToRightListBulletIconData,
   Link01Icon as Link01IconData,
   Loading03Icon as Loading03IconData,
@@ -104,6 +106,7 @@ import {
   PrinterIcon as PrinterIconData,
   Progress03Icon as Progress03IconData,
   RotateLeft01Icon as RotateLeft01IconData,
+  RotateRight01Icon as RotateRight01IconData,
   SaveIcon as SaveIconData,
   ScanIcon as ScanIconData,
   School01Icon as School01IconData,
@@ -303,11 +306,13 @@ export const ChevronDownIcon = createIcon(ArrowDown01IconData, "ChevronDownIcon"
 export const ChevronRightIcon = createIcon(ArrowRight01IconData, "ChevronRightIcon")
 export const ChevronUp = createIcon(ArrowUp01IconData, "ChevronUp")
 export const ChevronUpIcon = createIcon(ArrowUp01IconData, "ChevronUpIcon")
+export const CircleHelpIcon = createIcon(HelpCircleIconData, "CircleHelpIcon")
 export const ClipboardCopyIcon = createIcon(ClipboardCopyIconData, "ClipboardCopyIcon")
 export const ClipboardPenLine = createIcon(ClipboardPenLineIconData, "ClipboardPenLine")
 export const Clock3Icon = createIcon(Clock3IconData, "Clock3Icon")
 export const CogIcon = createIcon(Settings01IconData, "CogIcon")
 export const Compass = createIcon(Compass01IconData, "Compass")
+export const Columns2Icon = createIcon(LayoutTwoColumnIconData, "Columns2Icon")
 /** Settings · Advanced nav — Hugeicons free CpuSettings. */
 export const CpuSettingsIcon = createIcon(CpuSettingsIconData, "CpuSettingsIcon")
 export const CopyIcon = createIcon(CopyIconData, "CopyIcon")
@@ -403,6 +408,8 @@ export const Redo2Icon = createIcon(Redo03IconData, "Redo2Icon")
 export const RefreshCwIcon = createIcon(ArrowReloadHorizontalIconData, "RefreshCwIcon")
 export const RotateCcwIcon = createIcon(RotateLeft01IconData, "RotateCcwIcon")
 export const RubiksCube = createIcon(RubiksCubeIconData, "RubiksCube")
+export const RotateCwIcon = createIcon(RotateRight01IconData, "RotateCwIcon")
+export const Rows3Icon = createIcon(LayoutThreeRowIconData, "Rows3Icon")
 export const SaveIcon = createIcon(SaveIconData, "SaveIcon")
 export const ScaleIcon = createIcon(JusticeScale01IconData, "ScaleIcon")
 export const ScanText = createIcon(ScanIconData, "ScanText")

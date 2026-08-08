@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
+import { READER_ANCHOR_KIND_CFI_TEXT } from "@buddy/reader-contract"
 import type { PromptComposerAttachment } from "../src/components/prompt/prompt-types"
 import {
   FLOW_PAGINATED,
@@ -7,12 +8,14 @@ import {
   READER_THEMES,
 } from "../src/components/readers/foliate-reader-constants"
 import { getOverlayPosition } from "../src/components/readers/utils/foliate-helpers"
+import { READER_PREFERENCES_STORAGE_KEY } from "../src/components/readers/reader-storage"
 import {
   READER_NAVIGATION_GO_LEFT,
   READER_NAVIGATION_GO_RIGHT,
   READER_NAVIGATION_NEXT,
   READER_NAVIGATION_PREVIOUS,
   resolveReaderArrowNavigation,
+  resolveReaderWheelNavigation,
 } from "../src/components/readers/utils/foliate-navigation"
 import {
   appendReadingSelectionToDraft,
@@ -71,11 +74,58 @@ describe("reader navigation", () => {
       }),
     ).toBe(READER_NAVIGATION_GO_LEFT)
   })
+
+  test("turns sections when the wheel continues past a section-scroll boundary", () => {
+    expect(
+      resolveReaderWheelNavigation({
+        flow: FLOW_SCROLLED,
+        isFixedLayout: false,
+        deltaY: 24,
+        sectionStart: 600,
+        sectionEnd: 1_000,
+        sectionSize: 1_000,
+      }),
+    ).toBe(READER_NAVIGATION_NEXT)
+    expect(
+      resolveReaderWheelNavigation({
+        flow: FLOW_SCROLLED,
+        isFixedLayout: false,
+        deltaY: -24,
+        sectionStart: 0,
+        sectionEnd: 400,
+        sectionSize: 1_000,
+      }),
+    ).toBe(READER_NAVIGATION_PREVIOUS)
+  })
+
+  test("leaves wheel scrolling alone away from section boundaries", () => {
+    expect(
+      resolveReaderWheelNavigation({
+        flow: FLOW_SCROLLED,
+        isFixedLayout: false,
+        deltaY: 24,
+        sectionStart: 400,
+        sectionEnd: 800,
+        sectionSize: 1_000,
+      }),
+    ).toBeUndefined()
+    expect(
+      resolveReaderWheelNavigation({
+        flow: FLOW_PAGINATED,
+        isFixedLayout: false,
+        deltaY: 24,
+        sectionStart: 600,
+        sectionEnd: 1_000,
+        sectionSize: 1_000,
+      }),
+    ).toBeUndefined()
+  })
 })
 
 describe("reader themes", () => {
   beforeEach(() => {
     localStorage.removeItem(GLOBAL_PREFERENCES_STORAGE_KEY)
+    localStorage.removeItem(READER_PREFERENCES_STORAGE_KEY)
   })
 
   test("treats each theme as a complete appearance", () => {
@@ -95,7 +145,7 @@ describe("reader themes", () => {
       {
         id: "night",
         appearance: "dark",
-        pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.88) contrast(1.04)",
+        pdfFilter: "brightness(0.78) saturate(0.9) contrast(1.04)",
       },
       {
         id: "mist",
@@ -105,7 +155,7 @@ describe("reader themes", () => {
       {
         id: "graphite",
         appearance: "dark",
-        pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.9)",
+        pdfFilter: "grayscale(0.18) brightness(0.82) contrast(1.04)",
       },
     ])
   })
@@ -163,8 +213,11 @@ describe("reading selection drafts", () => {
         text: "selected text",
         selectionKey: "selection-1",
         resourceKey: "book",
-        cfi: "epubcfi(/6/2)",
-        index: 1,
+        anchor: {
+          kind: READER_ANCHOR_KIND_CFI_TEXT,
+          cfi: "epubcfi(/6/2)",
+          sectionIndex: 1,
+        },
       },
     )
 
@@ -176,8 +229,11 @@ describe("reading selection drafts", () => {
         text: "selected text",
         selectionKey: "selection-1",
         resourceKey: "book",
-        cfi: "epubcfi(/6/2)",
-        index: 1,
+        anchor: {
+          kind: READER_ANCHOR_KIND_CFI_TEXT,
+          cfi: "epubcfi(/6/2)",
+          sectionIndex: 1,
+        },
       },
     ])
     expect(nextDraft.attachments).toEqual([attachment])
@@ -195,12 +251,22 @@ describe("reading selection drafts", () => {
             source: "reading",
             text: "first",
             selectionKey: "selection-1",
+            anchor: {
+              kind: READER_ANCHOR_KIND_CFI_TEXT,
+              cfi: "epubcfi(/6/2)",
+              sectionIndex: 1,
+            },
           },
           {
             type: "selection-context",
             source: "reading",
             text: "second",
             selectionKey: "selection-2",
+            anchor: {
+              kind: READER_ANCHOR_KIND_CFI_TEXT,
+              cfi: "epubcfi(/6/4)",
+              sectionIndex: 1,
+            },
           },
         ],
         attachments: [attachment],
@@ -216,6 +282,11 @@ describe("reading selection drafts", () => {
         source: "reading",
         text: "second",
         selectionKey: "selection-2",
+        anchor: {
+          kind: READER_ANCHOR_KIND_CFI_TEXT,
+          cfi: "epubcfi(/6/4)",
+          sectionIndex: 1,
+        },
       },
     ])
     expect(nextDraft?.attachments).toEqual([attachment])

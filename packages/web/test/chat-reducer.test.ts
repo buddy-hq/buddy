@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { READER_ANCHOR_KIND_PDF_TEXT } from "@buddy/reader-contract"
 import { inferBusyFromMessages, upsertMessagePart } from "../src/state/chat-reducer"
 import {
   TOOL_PART_TYPE,
@@ -137,6 +138,51 @@ describe("chat reducer", () => {
     }
 
     expect(upsertMessagePart([optimistic], persisted)).toEqual([persisted])
+  })
+
+  test("matches optimistic PDF selections by their neutral text anchor", () => {
+    const anchor = {
+      kind: READER_ANCHOR_KIND_PDF_TEXT,
+      segments: [
+        {
+          pageIndex: 2,
+          quads: [
+            {
+              topLeft: { x: 10, y: 20 },
+              topRight: { x: 40, y: 20 },
+              bottomRight: { x: 40, y: 32 },
+              bottomLeft: { x: 10, y: 32 },
+            },
+          ],
+        },
+      ],
+      quote: { exact: "same excerpt" },
+    }
+    const optimistic: MessagePart = {
+      id: "prt_pdf_optimistic",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID,
+      type: "selection-context",
+      source: "reading",
+      optimistic: true,
+      text: "same excerpt",
+      selectionKey: "selection-pdf",
+      anchor,
+    }
+    const server: MessagePart = {
+      ...textPart("prt_pdf_server", "same excerpt"),
+      metadata: {
+        buddyPromptPart: {
+          type: "selection-context",
+          source: "reading",
+          text: "same excerpt",
+          selectionKey: "selection-pdf",
+          anchor,
+        },
+      },
+    }
+
+    expect(upsertMessagePart([optimistic], server)).toEqual([server])
   })
 
   test("keeps accumulated tool input when a newer active snapshot omits raw state", () => {

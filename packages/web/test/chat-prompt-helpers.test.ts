@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import {
+  READER_ANCHOR_KIND_CFI_TEXT,
+  READER_ANCHOR_KIND_PDF_TEXT,
+} from "@buddy/reader-contract"
+import {
   buildCommandAttachmentParts,
   buildPromptDraftFromUserMessage,
   buildPromptImageEditIntent,
@@ -9,6 +13,7 @@ import {
 import {
   BUDDY_PROMPT_PART_METADATA_KEY,
   PROMPT_PART_TYPE_TEXT,
+  SELECTION_CONTEXT_PART_TYPE,
   TEXT_FILE_ATTACHMENT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptComposerAttachment,
@@ -160,6 +165,90 @@ describe("buildPromptDraftFromUserMessage", () => {
         mime: "text/plain",
         dataUrl: "data:text/plain;charset=utf-8,%23%20Notes%0A%0ASee%20%40README.md",
         kind: "file",
+      },
+    ])
+  })
+
+  test("restores historical CFI metadata as a neutral text anchor", () => {
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: "msg-legacy", sessionID: "ses-1" }),
+      [
+        {
+          id: "part-legacy",
+          sessionID: "ses-1",
+          messageID: "msg-legacy",
+          type: "text",
+          text: "Legacy selected text",
+          metadata: {
+            buddyPromptPart: {
+              type: SELECTION_CONTEXT_PART_TYPE,
+              source: "reading",
+              text: "Legacy selected text",
+              selectionKey: "selection-legacy",
+              cfi: "epubcfi(/6/2)",
+              index: 1,
+            },
+          },
+        },
+      ],
+    )
+
+    expect(buildPromptDraftFromUserMessage(message, "/repo")?.parts).toEqual([
+      {
+        type: SELECTION_CONTEXT_PART_TYPE,
+        source: "reading",
+        text: "Legacy selected text",
+        selectionKey: "selection-legacy",
+        anchor: {
+          kind: READER_ANCHOR_KIND_CFI_TEXT,
+          cfi: "epubcfi(/6/2)",
+          sectionIndex: 1,
+        },
+      },
+    ])
+  })
+
+  test("restores direct PDF selection parts without flattened location fields", () => {
+    const anchor = {
+      kind: READER_ANCHOR_KIND_PDF_TEXT,
+      segments: [
+        {
+          pageIndex: 0,
+          quads: [
+            {
+              topLeft: { x: 5, y: 10 },
+              topRight: { x: 30, y: 10 },
+              bottomRight: { x: 30, y: 22 },
+              bottomLeft: { x: 5, y: 22 },
+            },
+          ],
+        },
+      ],
+      quote: { exact: "PDF selected text" },
+    }
+    const message = createMessageWithParts(
+      createUserMessageInfo({ id: "msg-pdf", sessionID: "ses-1" }),
+      [
+        {
+          id: "part-pdf",
+          sessionID: "ses-1",
+          messageID: "msg-pdf",
+          type: SELECTION_CONTEXT_PART_TYPE,
+          source: "reading",
+          text: "PDF selected text",
+          selectionKey: "selection-pdf",
+          anchor,
+        },
+      ],
+    )
+
+    expect(buildPromptDraftFromUserMessage(message, "/repo")?.parts).toEqual([
+      {
+        type: SELECTION_CONTEXT_PART_TYPE,
+        source: "reading",
+        text: "PDF selected text",
+        selectionKey: "selection-pdf",
+        anchor,
       },
     ])
   })

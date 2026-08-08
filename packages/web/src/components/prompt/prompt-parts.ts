@@ -11,6 +11,11 @@ import type { SkillPresentationLookup } from "../skills/skill-presentation"
 import { createTextFragment } from "./editor-dom"
 import type { MentionOption } from "./mention-autocomplete"
 import {
+  readReaderTextAnchor,
+  readerTextAnchorEquals,
+  type ReaderTextAnchor,
+} from "@buddy/reader-contract"
+import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_SKILL,
   PROMPT_PART_TYPE_TEXT,
@@ -18,12 +23,15 @@ import {
   OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
+  readPromptReaderTextAnchor,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptAgentPart,
   type PromptComposerPart,
   type PromptOpenCodeReferencePart,
+  type PromptMarkdownSelectionContextPart,
   type PromptReadingSelectionPart,
+  type PromptReadingSelectionContextPart,
   type PromptSelectionContextPart,
   type PromptSkillPart,
   type PromptTextPart,
@@ -90,32 +98,50 @@ function createReadingSelectionPart(
     text: part.text,
     ...(part.selectionKey ? { selectionKey: part.selectionKey } : {}),
     ...(part.resourceKey ? { resourceKey: part.resourceKey } : {}),
-    ...(part.cfi ? { cfi: part.cfi } : {}),
-    ...(part.index !== undefined ? { index: part.index } : {}),
+    anchor: part.anchor,
     ...(part.tocLabel ? { tocLabel: part.tocLabel } : {}),
     ...(part.pageLabel ? { pageLabel: part.pageLabel } : {}),
     ...(part.locationLabel ? { locationLabel: part.locationLabel } : {}),
   }
 }
 
+type SelectionContextPartInput =
+  | Omit<PromptReadingSelectionContextPart, "type">
+  | Omit<PromptMarkdownSelectionContextPart, "type">
+
 function createSelectionContextPart(
-  part: Omit<PromptSelectionContextPart, "type">,
+  part: SelectionContextPartInput,
 ): PromptSelectionContextPart {
+  if (part.source === "markdown") {
+    return {
+      type: SELECTION_CONTEXT_PART_TYPE,
+      source: "markdown",
+      text: part.text,
+      selectionKey: part.selectionKey,
+      ...(part.path ? { path: part.path } : {}),
+      ...(part.version ? { version: part.version } : {}),
+      ...(part.headingPath ? { headingPath: [...part.headingPath] } : {}),
+    }
+  }
+
   return {
     type: SELECTION_CONTEXT_PART_TYPE,
-    source: part.source,
+    source: "reading",
     text: part.text,
     selectionKey: part.selectionKey,
-    ...(part.path ? { path: part.path } : {}),
-    ...(part.version ? { version: part.version } : {}),
-    ...(part.headingPath ? { headingPath: [...part.headingPath] } : {}),
     ...(part.resourceKey ? { resourceKey: part.resourceKey } : {}),
-    ...(part.cfi ? { cfi: part.cfi } : {}),
-    ...(part.index !== undefined ? { index: part.index } : {}),
+    anchor: part.anchor,
     ...(part.tocLabel ? { tocLabel: part.tocLabel } : {}),
     ...(part.pageLabel ? { pageLabel: part.pageLabel } : {}),
     ...(part.locationLabel ? { locationLabel: part.locationLabel } : {}),
   }
+}
+
+function optionalReaderTextAnchorsEqual(left: unknown, right: unknown): boolean {
+  const leftAnchor = readPromptReaderTextAnchor(left)
+  const rightAnchor = readPromptReaderTextAnchor(right)
+  if (!leftAnchor || !rightAnchor) return leftAnchor === rightAnchor
+  return readerTextAnchorEquals(leftAnchor, rightAnchor)
 }
 
 function appendTextPart(parts: PromptComposerPart[], text: string) {
@@ -215,8 +241,7 @@ export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptCom
       if ((leftPart.headingPath?.join("\n") ?? "") !== (rightPart.headingPath?.join("\n") ?? ""))
         return false
       if (leftPart.resourceKey !== rightPart.resourceKey) return false
-      if (leftPart.cfi !== rightPart.cfi) return false
-      if (leftPart.index !== rightPart.index) return false
+      if (!optionalReaderTextAnchorsEqual(leftPart, rightPart)) return false
       if (leftPart.tocLabel !== rightPart.tocLabel) return false
       if (leftPart.pageLabel !== rightPart.pageLabel) return false
       if (leftPart.locationLabel !== rightPart.locationLabel) return false
@@ -227,8 +252,7 @@ export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptCom
     if (leftPart.text !== rightPart.text) return false
     if (leftPart.selectionKey !== rightPart.selectionKey) return false
     if (leftPart.resourceKey !== rightPart.resourceKey) return false
-    if (leftPart.cfi !== rightPart.cfi) return false
-    if (leftPart.index !== rightPart.index) return false
+    if (!optionalReaderTextAnchorsEqual(leftPart, rightPart)) return false
     if (leftPart.tocLabel !== rightPart.tocLabel) return false
     if (leftPart.pageLabel !== rightPart.pageLabel) return false
     if (leftPart.locationLabel !== rightPart.locationLabel) return false
@@ -341,8 +365,28 @@ export function serializePromptAutocompleteValue(parts: PromptComposerPart[]) {
 
 function readDatasetNumber(value: string | undefined) {
   if (value === undefined || value.length === 0) return undefined
-  const parsed = Number.parseInt(value, 10)
-  return Number.isFinite(parsed) ? parsed : undefined
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined
+}
+
+function readSerializedReaderTextAnchor(value: string): ReaderTextAnchor | undefined {
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return readReaderTextAnchor(parsed)
+  } catch {
+    return undefined
+  }
+}
+
+function readElementReaderTextAnchor(element: HTMLElement): ReaderTextAnchor | undefined {
+  const serializedAnchor = element.dataset.readerAnchor
+  if (serializedAnchor !== undefined) return readSerializedReaderTextAnchor(serializedAnchor)
+
+  const sectionIndex = readDatasetNumber(element.dataset.index)
+  return readPromptReaderTextAnchor({
+    cfi: element.dataset.cfi,
+    ...(sectionIndex !== undefined ? { index: sectionIndex } : {}),
+  })
 }
 
 function readDatasetStringArray(value: string | undefined) {
@@ -386,8 +430,8 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       return
     }
 
-    if (node.nodeType !== Node.ELEMENT_NODE) return
-    const element = node as HTMLElement
+    if (!(node instanceof HTMLElement)) return
+    const element = node
 
     if (element.dataset.type === PROMPT_PART_TYPE_AGENT) {
       flush()
@@ -438,15 +482,14 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
     if (element.dataset.type === READING_SELECTION_PART_TYPE) {
       flush()
       const text = element.dataset.text
-      if (text) {
-        const index = readDatasetNumber(element.dataset.index)
+      const anchor = readElementReaderTextAnchor(element)
+      if (text && anchor) {
         parts.push(
           createReadingSelectionPart({
             text,
+            anchor,
             ...(element.dataset.selectionKey ? { selectionKey: element.dataset.selectionKey } : {}),
             ...(element.dataset.resourceKey ? { resourceKey: element.dataset.resourceKey } : {}),
-            ...(element.dataset.cfi ? { cfi: element.dataset.cfi } : {}),
-            ...(index !== undefined ? { index } : {}),
             ...(element.dataset.tocLabel ? { tocLabel: element.dataset.tocLabel } : {}),
             ...(element.dataset.pageLabel ? { pageLabel: element.dataset.pageLabel } : {}),
             ...(element.dataset.locationLabel
@@ -463,9 +506,8 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       const text = element.dataset.text
       const source = element.dataset.source
       const selectionKey = element.dataset.selectionKey
-      if (text && (source === "reading" || source === "markdown") && selectionKey) {
+      if (text && source === "markdown" && selectionKey) {
         const headingPath = readDatasetStringArray(element.dataset.headingPath)
-        const index = readDatasetNumber(element.dataset.index)
         parts.push(
           createSelectionContextPart({
             source,
@@ -474,9 +516,19 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
             ...(element.dataset.path ? { path: element.dataset.path } : {}),
             ...(element.dataset.version ? { version: element.dataset.version } : {}),
             ...(headingPath ? { headingPath } : {}),
+          }),
+        )
+      }
+      if (text && source === "reading" && selectionKey) {
+        const anchor = readElementReaderTextAnchor(element)
+        if (!anchor) return
+        parts.push(
+          createSelectionContextPart({
+            source,
+            text,
+            selectionKey,
+            anchor,
             ...(element.dataset.resourceKey ? { resourceKey: element.dataset.resourceKey } : {}),
-            ...(element.dataset.cfi ? { cfi: element.dataset.cfi } : {}),
-            ...(index !== undefined ? { index } : {}),
             ...(element.dataset.tocLabel ? { tocLabel: element.dataset.tocLabel } : {}),
             ...(element.dataset.pageLabel ? { pageLabel: element.dataset.pageLabel } : {}),
             ...(element.dataset.locationLabel
@@ -497,9 +549,9 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
     children.forEach((child, index) => {
       visit(child)
       const isBlock =
-        child.nodeType === Node.ELEMENT_NODE &&
-        BLOCK_TAG_NAMES.has((child as HTMLElement).tagName) &&
-        !isStructuredPromptElement(child as HTMLElement)
+        child instanceof HTMLElement &&
+        BLOCK_TAG_NAMES.has(child.tagName) &&
+        !isStructuredPromptElement(child)
       if (isBlock && index < children.length - 1) {
         buffer += "\n"
       }
@@ -509,9 +561,9 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
   Array.from(root.childNodes).forEach((child, index, siblings) => {
     visit(child)
     const isBlock =
-      child.nodeType === Node.ELEMENT_NODE &&
-      BLOCK_TAG_NAMES.has((child as HTMLElement).tagName) &&
-      !isStructuredPromptElement(child as HTMLElement)
+      child instanceof HTMLElement &&
+      BLOCK_TAG_NAMES.has(child.tagName) &&
+      !isStructuredPromptElement(child)
     if (isBlock && index < siblings.length - 1) {
       buffer += "\n"
     }
@@ -539,8 +591,8 @@ function appendSelectionCard(
     card.dataset.headingPath = JSON.stringify(part.headingPath)
   }
   if (part.resourceKey) card.dataset.resourceKey = part.resourceKey
-  if (part.cfi) card.dataset.cfi = part.cfi
-  if (part.index !== undefined) card.dataset.index = String(part.index)
+  const anchor = readPromptReaderTextAnchor(part)
+  if (anchor) card.dataset.readerAnchor = JSON.stringify(anchor)
   if (part.tocLabel) card.dataset.tocLabel = part.tocLabel
   if (part.pageLabel) card.dataset.pageLabel = part.pageLabel
   if (part.locationLabel) card.dataset.locationLabel = part.locationLabel
@@ -744,7 +796,7 @@ export function renderPromptParts(
   const lastNode = root.lastChild
   const needsCursorAnchor =
     (lastPart !== undefined && lastPart.type !== PROMPT_PART_TYPE_TEXT) ||
-    (lastNode?.nodeType === Node.ELEMENT_NODE && (lastNode as HTMLElement).tagName === "BR")
+    (lastNode instanceof HTMLElement && lastNode.tagName === "BR")
   if (needsCursorAnchor) {
     root.appendChild(document.createTextNode(ZERO_WIDTH_SPACE))
   }

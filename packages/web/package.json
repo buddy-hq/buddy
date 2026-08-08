@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@buddy/opencode-adapter": "workspace:*",
+    "@buddy/reader-contract": "workspace:*",
     "@buddy/sdk": "workspace:*",
     "@buddy/ui": "workspace:*",
     "@buddy/workspace-file-policy": "workspace:*",
@@ -70,6 +71,7 @@
     "monaco-editor": "^0.52.2",
     "morphdom": "^2.7.8",
     "motion": "^12.38.0",
+    "pdfjs-dist": "5.5.207",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-dropzone": "^15.0.0",

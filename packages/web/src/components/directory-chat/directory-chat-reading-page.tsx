@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, toast } from "@buddy/ui"
+import { formatReaderPositionAnchor } from "@buddy/reader-contract"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
@@ -13,6 +14,7 @@ import {
   appendReadingSelectionToDraft,
   removeReadingSelectionFromDraft,
 } from "@/components/readers/utils/reading-selection-draft"
+import type { ReaderSelection } from "@/components/readers/reader-types"
 import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
 import { useChatStore } from "@/state/chat-store"
@@ -35,11 +37,6 @@ function normalizeResourceRecordPath(record: ResourceRecord) {
 }
 
 const READING_DRAFT_SESSION_ID = undefined
-
-function createReadingSelectionKey() {
-  const random = Math.random().toString(36).slice(2, 10)
-  return `sel_${Date.now().toString(36)}_${random}`
-}
 
 export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const queryClient = useQueryClient()
@@ -122,26 +119,22 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         const objectID =
           routeObjectID ?? resourceRecord?.objectID ?? activeReadingResource?.objectID ?? null
         const alias = resourceRecord?.alias ?? activeReadingResource?.alias
+        const location = activeReadingResource?.location
+        const anchor = location?.anchor
         const metadata = [
           `resource_status: ${resourceRecord?.status ?? activeReadingResource?.status ?? "unknown"}`,
           ...(alias ? [`resource_alias: ${alias}`] : []),
           `reader_status: ${readerStatus}`,
-          ...(activeReadingResource?.locationLabel
-            ? [`location_label: ${activeReadingResource.locationLabel}`]
+          ...(location?.locationLabel ? [`location_label: ${location.locationLabel}`] : []),
+          ...(location?.pageLabel ? [`page_label: ${location.pageLabel}`] : []),
+          ...(location?.tocLabel ? [`toc_label: ${location.tocLabel}`] : []),
+          ...(anchor ? [`reader_anchor: ${JSON.stringify(anchor)}`] : []),
+          ...(anchor?.kind === "cfi-position" ? [`cfi: ${anchor.cfi}`] : []),
+          ...(anchor?.kind === "cfi-position" && anchor.sectionIndex !== undefined
+            ? [`section_index: ${anchor.sectionIndex}`]
             : []),
-          ...(activeReadingResource?.pageLabel
-            ? [`page_label: ${activeReadingResource.pageLabel}`]
-            : []),
-          ...(activeReadingResource?.tocLabel
-            ? [`toc_label: ${activeReadingResource.tocLabel}`]
-            : []),
-          ...(activeReadingResource?.cfi ? [`cfi: ${activeReadingResource.cfi}`] : []),
-          ...(activeReadingResource?.index !== undefined
-            ? [`index: ${activeReadingResource.index}`]
-            : []),
-          ...(activeReadingResource?.fraction !== undefined
-            ? [`fraction: ${activeReadingResource.fraction}`]
-            : []),
+          ...(anchor?.kind === "pdf-position" ? [`page_index: ${anchor.pageIndex}`] : []),
+          ...(location?.fraction !== undefined ? [`fraction: ${location.fraction}`] : []),
         ]
         const contentParts = [
           `Current reading surface: ${resourceName}`,
@@ -158,10 +151,10 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
             ? `reading_trail:\n${activeReadingResource.readingTrail
                 .map((entry) => {
                   const details = [
-                    entry.cfi ? `cfi=${entry.cfi}` : undefined,
+                    formatReaderPositionAnchor(entry.anchor),
                     entry.fraction !== undefined ? `fraction=${entry.fraction}` : undefined,
                   ].filter((detail): detail is string => detail !== undefined)
-                  return `- ${entry.tocLabel}${details.length > 0 ? ` (${details.join(", ")})` : ""}`
+                  return `- ${entry.label}${details.length > 0 ? ` (${details.join(", ")})` : ""}`
                 })
                 .join("\n")}`
             : undefined,
@@ -313,15 +306,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   }
 
   const readyController = controller
-  function stageReadingSelection(input: {
-    text: string
-    cfi: string
-    index: number
-    selectionKey?: string
-    tocLabel?: string
-    pageLabel?: string
-    locationLabel?: string
-  }) {
+  function stageReadingSelection(input: ReaderSelection) {
     const promptKey = readyController.mainPaneProps.chatState.promptKey
     const setPromptDraft = readyController.mainPaneProps.chatState.setPromptDraft
     const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
@@ -330,10 +315,9 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       promptKey,
       appendReadingSelectionToDraft(currentDraft, {
         text: input.text,
-        selectionKey: input.selectionKey ?? createReadingSelectionKey(),
+        selectionKey: input.selectionKey,
         ...(resourceKey ? { resourceKey } : {}),
-        cfi: input.cfi,
-        index: input.index,
+        anchor: input.anchor,
         ...(input.tocLabel ? { tocLabel: input.tocLabel } : {}),
         ...(input.pageLabel ? { pageLabel: input.pageLabel } : {}),
         ...(input.locationLabel ? { locationLabel: input.locationLabel } : {}),
@@ -396,20 +380,12 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
           coverExtension={resourceFileExtensionFromFormat(resourceRecord?.format ?? "")}
           resourceStatus={resourceRecord?.status}
           onLocationChange={(location) => {
-            updateActiveReadingResourceLocation(readyDirectory, {
-              cfi: location.cfi,
-              index: location.index,
-              fraction: location.fraction,
-              locationLabel: location.locationLabel,
-              tocLabel: location.tocLabel,
-              pageLabel: location.pageLabel,
-              currentPassageText: location.currentPassageText,
-            })
+            updateActiveReadingResourceLocation(readyDirectory, location)
             if (location.tocLabel) {
               appendReadingTrailEntry(readyDirectory, {
-                tocLabel: location.tocLabel,
-                cfi: location.cfi,
-                fraction: location.fraction,
+                label: location.tocLabel,
+                anchor: location.anchor,
+                ...(location.fraction !== undefined ? { fraction: location.fraction } : {}),
               })
             }
           }}

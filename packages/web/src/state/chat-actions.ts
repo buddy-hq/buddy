@@ -31,7 +31,9 @@ import type {
   ProviderListResponse,
   ProviderOpenaiModelAvailabilityGetResponses,
 } from "@buddy/sdk"
+import type { ReaderLocation, ReaderTrailEntry } from "@buddy/reader-contract"
 import { useChatStore } from "./chat-store"
+import type { AnnotationSummaryEntry } from "./active-reading-state"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "./model-selection-store"
 import type {
   MessageInfo,
@@ -158,6 +160,18 @@ export type LearnerCurriculumView = {
     title: string
     items: string[]
   }>
+}
+
+export type ActiveReadingPromptInput = {
+  resourceKey?: string
+  title: string
+  path: string
+  location?: ReaderLocation
+  currentPassageText?: string
+  visibleStartText?: string
+  visibleEndText?: string
+  readingTrail?: ReaderTrailEntry[]
+  annotationSummary?: AnnotationSummaryEntry[]
 }
 
 export type SessionRuntimeView = {
@@ -1685,22 +1699,7 @@ export async function sendPrompt(
     variant?: string
     teaching?: TeachingPromptContext
     optimistic?: boolean
-    reading?: {
-      resourceKey?: string
-      title: string
-      path: string
-      cfi?: string
-      index?: number
-      fraction?: number
-      locationLabel?: string
-      tocLabel?: string
-      pageLabel?: string
-      currentPassageText?: string
-      visibleStartText?: string
-      visibleEndText?: string
-      readingTrail?: { tocLabel: string; cfi?: string; fraction?: number }[]
-      annotationSummary?: { text: string; tocLabel?: string; note?: string }[]
-    }
+    reading?: ActiveReadingPromptInput
     beforePostPrompt?: (input: { sessionID: string }) => Promise<void>
   },
 ): Promise<string> {

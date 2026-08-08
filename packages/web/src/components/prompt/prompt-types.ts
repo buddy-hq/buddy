@@ -1,3 +1,8 @@
+import {
+  READER_ANCHOR_KIND_CFI_TEXT,
+  readReaderTextAnchor,
+  type ReaderTextAnchor,
+} from "@buddy/reader-contract"
 import { isNativeResourceFormat } from "@buddy/workspace-file-policy"
 import type { NativeResourceDelivery, NativeResourceFormat } from "@buddy/workspace-file-policy"
 
@@ -162,8 +167,7 @@ export type PromptReadingSelectionPart = {
   text: string
   selectionKey?: string
   resourceKey?: string
-  cfi?: string
-  index?: number
+  anchor: ReaderTextAnchor
   tocLabel?: string
   pageLabel?: string
   locationLabel?: string
@@ -171,21 +175,39 @@ export type PromptReadingSelectionPart = {
 
 export type PromptSelectionContextSource = "reading" | "markdown"
 
-export type PromptSelectionContextPart = {
+export type PromptReadingSelectionContextPart = {
   type: typeof SELECTION_CONTEXT_PART_TYPE
-  source: PromptSelectionContextSource
+  source: "reading"
+  text: string
+  selectionKey: string
+  resourceKey?: string
+  anchor: ReaderTextAnchor
+  tocLabel?: string
+  pageLabel?: string
+  locationLabel?: string
+  path?: never
+  version?: never
+  headingPath?: never
+}
+
+export type PromptMarkdownSelectionContextPart = {
+  type: typeof SELECTION_CONTEXT_PART_TYPE
+  source: "markdown"
   text: string
   selectionKey: string
   path?: string
   version?: string
   headingPath?: string[]
-  resourceKey?: string
-  cfi?: string
-  index?: number
-  tocLabel?: string
-  pageLabel?: string
-  locationLabel?: string
+  resourceKey?: never
+  anchor?: never
+  tocLabel?: never
+  pageLabel?: never
+  locationLabel?: never
 }
+
+export type PromptSelectionContextPart =
+  | PromptReadingSelectionContextPart
+  | PromptMarkdownSelectionContextPart
 
 export type PromptNativeResourceAttachmentPart = {
   type: typeof NATIVE_RESOURCE_ATTACHMENT_PART_TYPE
@@ -206,6 +228,18 @@ function readStringArray(value: unknown): string[] | undefined {
   return value
 }
 
+export function readPromptReaderTextAnchor(value: unknown): ReaderTextAnchor | undefined {
+  if (!isRecord(value)) return undefined
+  if (value.anchor !== undefined) return readReaderTextAnchor(value.anchor)
+  if (typeof value.cfi !== "string") return undefined
+
+  return readReaderTextAnchor({
+    kind: READER_ANCHOR_KIND_CFI_TEXT,
+    cfi: value.cfi,
+    ...(value.index !== undefined ? { sectionIndex: value.index } : {}),
+  })
+}
+
 export function readPromptReadingSelectionMetadata(
   metadata: unknown,
 ): PromptReadingSelectionPart | undefined {
@@ -215,14 +249,15 @@ export function readPromptReadingSelectionMetadata(
   if (!isRecord(candidate)) return undefined
   if (candidate.type !== READING_SELECTION_PART_TYPE) return undefined
   if (typeof candidate.text !== "string") return undefined
+  const anchor = readPromptReaderTextAnchor(candidate)
+  if (!anchor) return undefined
 
   return {
     type: READING_SELECTION_PART_TYPE,
     text: candidate.text,
     ...(typeof candidate.selectionKey === "string" ? { selectionKey: candidate.selectionKey } : {}),
     ...(typeof candidate.resourceKey === "string" ? { resourceKey: candidate.resourceKey } : {}),
-    ...(typeof candidate.cfi === "string" ? { cfi: candidate.cfi } : {}),
-    ...(typeof candidate.index === "number" ? { index: candidate.index } : {}),
+    anchor,
     ...(typeof candidate.tocLabel === "string" ? { tocLabel: candidate.tocLabel } : {}),
     ...(typeof candidate.pageLabel === "string" ? { pageLabel: candidate.pageLabel } : {}),
     ...(typeof candidate.locationLabel === "string"
@@ -246,18 +281,27 @@ export function readPromptSelectionContextMetadata(
   if (typeof candidate.text !== "string") return undefined
   if (typeof candidate.selectionKey !== "string") return undefined
   const headingPath = readStringArray(candidate.headingPath)
+  if (candidate.source === "markdown") {
+    return {
+      type: SELECTION_CONTEXT_PART_TYPE,
+      source: "markdown",
+      text: candidate.text,
+      selectionKey: candidate.selectionKey,
+      ...(typeof candidate.path === "string" ? { path: candidate.path } : {}),
+      ...(typeof candidate.version === "string" ? { version: candidate.version } : {}),
+      ...(headingPath ? { headingPath } : {}),
+    }
+  }
 
+  const anchor = readPromptReaderTextAnchor(candidate)
+  if (!anchor) return undefined
   return {
     type: SELECTION_CONTEXT_PART_TYPE,
-    source: candidate.source,
+    source: "reading",
     text: candidate.text,
     selectionKey: candidate.selectionKey,
-    ...(typeof candidate.path === "string" ? { path: candidate.path } : {}),
-    ...(typeof candidate.version === "string" ? { version: candidate.version } : {}),
-    ...(headingPath ? { headingPath } : {}),
     ...(typeof candidate.resourceKey === "string" ? { resourceKey: candidate.resourceKey } : {}),
-    ...(typeof candidate.cfi === "string" ? { cfi: candidate.cfi } : {}),
-    ...(typeof candidate.index === "number" ? { index: candidate.index } : {}),
+    anchor,
     ...(typeof candidate.tocLabel === "string" ? { tocLabel: candidate.tocLabel } : {}),
     ...(typeof candidate.pageLabel === "string" ? { pageLabel: candidate.pageLabel } : {}),
     ...(typeof candidate.locationLabel === "string"

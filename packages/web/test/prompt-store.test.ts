@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import {
+  READER_ANCHOR_KIND_CFI_TEXT,
+  READER_ANCHOR_KIND_PDF_TEXT,
+} from "@buddy/reader-contract"
+import {
   createTextPromptDraft,
   flushPromptStorePersistence,
   getPromptDraft,
   getPromptScopeKey,
   PROMPT_STORE_STORAGE_KEY,
+  PROMPT_STORE_VERSION,
   usePromptStore,
 } from "../src/state/prompt-store"
 import { createBrowserPlatform, setRuntimePlatform, type Platform } from "../src/context/platform"
@@ -158,5 +163,140 @@ describe("prompt store", () => {
     store.replaceDraft(key, createTextPromptDraft("draft"))
 
     expect(getPromptDraft(usePromptStore.getState(), key)).toBe(firstDraft)
+  })
+
+  test("migrates persisted legacy CFI selections to neutral text anchors", async () => {
+    const key = getPromptScopeKey("/repo", "session-1")
+    localStorage.setItem(
+      PROMPT_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        state: {
+          draftsByKey: {
+            [key]: {
+              value: '"Legacy selected text"',
+              parts: [
+                {
+                  type: "selection-context",
+                  source: "reading",
+                  text: "Legacy selected text",
+                  selectionKey: "selection-legacy",
+                  cfi: "epubcfi(/6/2)",
+                  index: 1,
+                },
+              ],
+              attachments: [],
+              cursor: 0,
+              updatedAt: 1,
+            },
+          },
+          historyByDirectory: {},
+        },
+      }),
+    )
+
+    await usePromptStore.persist.rehydrate()
+
+    expect(getPromptDraft(usePromptStore.getState(), key).parts).toEqual([
+      {
+        type: "selection-context",
+        source: "reading",
+        text: "Legacy selected text",
+        selectionKey: "selection-legacy",
+        anchor: {
+          kind: READER_ANCHOR_KIND_CFI_TEXT,
+          cfi: "epubcfi(/6/2)",
+          sectionIndex: 1,
+        },
+      },
+    ])
+  })
+
+  test("rehydrates persisted skill parts without changing them to agents", async () => {
+    const key = getPromptScopeKey("/repo", "session-skill")
+    localStorage.setItem(
+      PROMPT_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: PROMPT_STORE_VERSION,
+        state: {
+          draftsByKey: {
+            [key]: {
+              value: "/explain",
+              parts: [{ type: "skill", name: "explain" }],
+              attachments: [],
+              cursor: 8,
+              updatedAt: 1,
+            },
+          },
+          historyByDirectory: {},
+        },
+      }),
+    )
+
+    await usePromptStore.persist.rehydrate()
+
+    expect(getPromptDraft(usePromptStore.getState(), key).parts).toEqual([
+      { type: "skill", name: "explain" },
+    ])
+  })
+
+  test("rehydrates canonical PDF selections without flattened location fields", async () => {
+    const key = getPromptScopeKey("/repo", "session-pdf")
+    const anchor = {
+      kind: READER_ANCHOR_KIND_PDF_TEXT,
+      segments: [
+        {
+          pageIndex: 3,
+          quads: [
+            {
+              topLeft: { x: 10, y: 20 },
+              topRight: { x: 40, y: 20 },
+              bottomRight: { x: 40, y: 32 },
+              bottomLeft: { x: 10, y: 32 },
+            },
+          ],
+        },
+      ],
+      quote: { exact: "PDF selected text" },
+    }
+    localStorage.setItem(
+      PROMPT_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        state: {
+          draftsByKey: {
+            [key]: {
+              value: '"PDF selected text"',
+              parts: [
+                {
+                  type: "selection-context",
+                  source: "reading",
+                  text: "PDF selected text",
+                  selectionKey: "selection-pdf",
+                  anchor,
+                },
+              ],
+              attachments: [],
+              cursor: 0,
+              updatedAt: 1,
+            },
+          },
+          historyByDirectory: {},
+        },
+      }),
+    )
+
+    await usePromptStore.persist.rehydrate()
+
+    const part = getPromptDraft(usePromptStore.getState(), key).parts[0]
+    expect(part).toEqual({
+      type: "selection-context",
+      source: "reading",
+      text: "PDF selected text",
+      selectionKey: "selection-pdf",
+      anchor,
+    })
+    expect(part).not.toHaveProperty("cfi")
+    expect(part).not.toHaveProperty("index")
   })
 })

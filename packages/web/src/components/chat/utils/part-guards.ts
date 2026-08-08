@@ -5,12 +5,15 @@ import type {
   TextPart as SdkTextPart,
   ToolPart as SdkToolPart,
 } from "@buddy/sdk"
+import type { ReaderTextAnchor } from "@buddy/reader-contract"
 import type { MessagePart } from "@/state/chat-types"
 import {
   READING_SELECTION_PART_TYPE,
-  readPromptReadingSelectionMetadata,
+  readPromptReaderTextAnchor,
   readPromptSelectionContextMetadata,
   SELECTION_CONTEXT_PART_TYPE,
+  type PromptReadingSelectionPart,
+  type PromptSelectionContextPart,
 } from "@/components/prompt/prompt-types"
 
 export type ChatFilePart = MessagePart & SdkFilePart
@@ -27,8 +30,7 @@ export type ChatReadingSelectionPart = MessagePart & {
   version?: string
   headingPath?: string[]
   resourceKey?: string
-  cfi?: string
-  index?: number
+  anchor?: ReaderTextAnchor
   tocLabel?: string
   pageLabel?: string
   locationLabel?: string
@@ -54,35 +56,110 @@ export function isChatToolPart(part: MessagePart): part is ChatToolPart {
   return part.type === "tool" && typeof part.tool === "string"
 }
 
-export function isChatReadingSelectionPart(part: MessagePart): part is ChatReadingSelectionPart {
+export function isChatReadingSelectionPart(part: MessagePart): boolean {
   return (
     (part.type === READING_SELECTION_PART_TYPE || part.type === SELECTION_CONTEXT_PART_TYPE) &&
     typeof part.text === "string"
   )
 }
 
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined
+}
+
+function readOptionalStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
+    return undefined
+  }
+  return value
+}
+
+function addMessageIdentity(
+  part: MessagePart,
+  normalized: PromptReadingSelectionPart | PromptSelectionContextPart,
+): ChatReadingSelectionPart {
+  return {
+    id: part.id,
+    sessionID: part.sessionID,
+    messageID: part.messageID,
+    ...normalized,
+  }
+}
+
 export function readChatReadingSelectionPart(
   part: MessagePart,
 ): ChatReadingSelectionPart | undefined {
   if (isChatReadingSelectionPart(part)) {
-    return part
+    if (part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string") {
+      const anchor = readPromptReaderTextAnchor(part)
+      if (!anchor) return undefined
+      const selectionKey = readOptionalString(part.selectionKey)
+      const resourceKey = readOptionalString(part.resourceKey)
+      const tocLabel = readOptionalString(part.tocLabel)
+      const pageLabel = readOptionalString(part.pageLabel)
+      const locationLabel = readOptionalString(part.locationLabel)
+      return addMessageIdentity(part, {
+        type: READING_SELECTION_PART_TYPE,
+        text: part.text,
+        ...(selectionKey ? { selectionKey } : {}),
+        ...(resourceKey ? { resourceKey } : {}),
+        anchor,
+        ...(tocLabel ? { tocLabel } : {}),
+        ...(pageLabel ? { pageLabel } : {}),
+        ...(locationLabel ? { locationLabel } : {}),
+      })
+    }
+
+    if (
+      part.type === SELECTION_CONTEXT_PART_TYPE &&
+      typeof part.text === "string" &&
+      typeof part.selectionKey === "string" &&
+      part.source === "markdown"
+    ) {
+      const path = readOptionalString(part.path)
+      const version = readOptionalString(part.version)
+      const headingPath = readOptionalStringArray(part.headingPath)
+      return addMessageIdentity(part, {
+        type: SELECTION_CONTEXT_PART_TYPE,
+        source: "markdown",
+        text: part.text,
+        selectionKey: part.selectionKey,
+        ...(path ? { path } : {}),
+        ...(version ? { version } : {}),
+        ...(headingPath ? { headingPath } : {}),
+      })
+    }
+
+    if (
+      part.type === SELECTION_CONTEXT_PART_TYPE &&
+      typeof part.text === "string" &&
+      typeof part.selectionKey === "string" &&
+      part.source === "reading"
+    ) {
+      const anchor = readPromptReaderTextAnchor(part)
+      if (!anchor) return undefined
+      const resourceKey = readOptionalString(part.resourceKey)
+      const tocLabel = readOptionalString(part.tocLabel)
+      const pageLabel = readOptionalString(part.pageLabel)
+      const locationLabel = readOptionalString(part.locationLabel)
+      return addMessageIdentity(part, {
+        type: SELECTION_CONTEXT_PART_TYPE,
+        source: "reading",
+        text: part.text,
+        selectionKey: part.selectionKey,
+        ...(resourceKey ? { resourceKey } : {}),
+        anchor,
+        ...(tocLabel ? { tocLabel } : {}),
+        ...(pageLabel ? { pageLabel } : {}),
+        ...(locationLabel ? { locationLabel } : {}),
+      })
+    }
   }
 
   const metadataPart = readPromptSelectionContextMetadata(part.metadata)
   if (metadataPart) {
-    return {
-      ...part,
-      ...metadataPart,
-    }
+    return addMessageIdentity(part, metadataPart)
   }
 
-  const readingMetadataPart = readPromptReadingSelectionMetadata(part.metadata)
-  if (!readingMetadataPart) {
-    return undefined
-  }
-
-  return {
-    ...part,
-    ...readingMetadataPart,
-  }
+  return undefined
 }

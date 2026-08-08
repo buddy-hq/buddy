@@ -31,6 +31,7 @@ import {
   useState,
 } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { readerTextAnchorKey } from "@buddy/reader-contract"
 import { language } from "@/context/language"
 import { GameDock } from "../game/game-dock"
 import { GameBall } from "../game/game-ball"
@@ -253,11 +254,10 @@ function isSelectionContextChipPart(part: PromptComposerPart): part is Selection
 }
 
 function buildSelectionContextEntryKey(part: SelectionContextChipPart) {
+  const anchorKey = part.anchor ? readerTextAnchorKey(part.anchor) : ""
   return (
     part.selectionKey ??
-    `${"path" in part ? (part.path ?? "") : ""}:${"version" in part ? (part.version ?? "") : ""}:${
-      "cfi" in part ? (part.cfi ?? "") : ""
-    }:${"index" in part ? (part.index ?? "") : ""}:${
+    `${"path" in part ? (part.path ?? "") : ""}:${"version" in part ? (part.version ?? "") : ""}:${anchorKey}:${
       "tocLabel" in part ? (part.tocLabel ?? "") : ""
     }:${"pageLabel" in part ? (part.pageLabel ?? "") : ""}:${part.text}`
   )

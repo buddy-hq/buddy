@@ -1,6 +1,10 @@
 import { execFile } from "node:child_process"
 import { app, BrowserWindow, Notification, clipboard, dialog, ipcMain, shell } from "electron"
 import type { IpcMainEvent, IpcMainInvokeEvent } from "electron"
+import {
+  READER_EXTERNAL_LINK_PROTOCOLS,
+  readAllowedExternalLink,
+} from "@buddy/reader-contract"
 
 import type {
   InitStep,
@@ -23,6 +27,10 @@ const pickerFilters = (extensions?: string[]) => {
 }
 
 const FILE_ICON_SIZE = "normal" as const
+const DESKTOP_EXTERNAL_LINK_PROTOCOLS = [
+  ...READER_EXTERNAL_LINK_PROTOCOLS,
+  "obsidian:",
+] as const
 
 type Deps = {
   killBackendUtility: () => Promise<void> | void
@@ -192,8 +200,10 @@ export function registerIpcHandlers(deps: Deps) {
     },
   )
 
-  ipcMain.on("open-link", (_event: IpcMainEvent, url: string) => {
-    void shell.openExternal(url)
+  ipcMain.on("open-link", (_event: IpcMainEvent, url: unknown) => {
+    const safeUrl = readAllowedExternalLink(url, DESKTOP_EXTERNAL_LINK_PROTOCOLS)
+    if (!safeUrl) return
+    void shell.openExternal(safeUrl)
   })
 
   ipcMain.handle(

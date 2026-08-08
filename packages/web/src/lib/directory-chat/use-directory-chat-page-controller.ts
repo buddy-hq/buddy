@@ -1240,21 +1240,8 @@ export function useDirectoryChatPageController(
                   : {}),
                 title: visibleReadingResource.name,
                 path: visibleReadingResource.path,
-                ...(visibleReadingResource.locationLabel
-                  ? { locationLabel: visibleReadingResource.locationLabel }
-                  : {}),
-                ...(visibleReadingResource.cfi ? { cfi: visibleReadingResource.cfi } : {}),
-                ...(visibleReadingResource.index !== undefined
-                  ? { index: visibleReadingResource.index }
-                  : {}),
-                ...(visibleReadingResource.fraction !== undefined
-                  ? { fraction: visibleReadingResource.fraction }
-                  : {}),
-                ...(visibleReadingResource.tocLabel
-                  ? { tocLabel: visibleReadingResource.tocLabel }
-                  : {}),
-                ...(visibleReadingResource.pageLabel
-                  ? { pageLabel: visibleReadingResource.pageLabel }
+                ...(visibleReadingResource.location
+                  ? { location: visibleReadingResource.location }
                   : {}),
                 ...(visibleReadingResource.currentPassageText
                   ? { currentPassageText: visibleReadingResource.currentPassageText }

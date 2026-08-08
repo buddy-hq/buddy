@@ -1,20 +1,23 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Loader2Icon } from "@/icons/app-icons"
-import { cn } from "@buddy/ui"
-import {
-  FoliateReader,
-  type FoliateReaderLocation,
-  type FoliateReaderSelection,
-  type FoliateReaderSource,
-  type FoliateReaderSnapshot,
-} from "@/components/readers/foliate-reader"
-import type { ReaderAnnotation } from "@/components/readers/foliate-reader-types"
-import { FoliateErrorState } from "@/components/readers/ui/foliate-error-state"
+import { cn, toast } from "@buddy/ui"
+import { readReaderExternalLink } from "@buddy/reader-contract"
+import { readerSourceFormatFromPath } from "@buddy/workspace-file-policy"
+import { DocumentReader } from "@/components/readers/document-reader"
+import type {
+  ReaderAnnotation,
+  ReaderRelocation,
+  ReaderSelection,
+  ReaderSnapshot,
+  ReaderSource,
+} from "@/components/readers/reader-types"
+import { ReaderErrorState } from "@/components/readers/ui/reader-error-state"
 import { ResourceCover } from "@/components/resources/resource-cover"
 import { language } from "@/context/language"
+import { usePlatform } from "@/context/platform"
+import { normalizeRelativePath } from "@/lib/workspace-file-paths"
 import {
-  isSupportedReadingResourcePath,
   readingResourceBlobQueryOptions,
   type ResourceFileExtension,
 } from "@/state/resources-query"
@@ -27,21 +30,31 @@ type DirectoryChatReadingReaderPaneProps = {
   coverRelpath?: string
   coverExtension?: ResourceFileExtension
   resourceStatus?: "preparing" | "ready" | "unsupported" | "error" | "stale" | "unprocessed"
-  onLocationChange?: (location: FoliateReaderLocation) => void
-  onChatSelection?: (selection: FoliateReaderSelection) => void
+  onLocationChange?: (location: ReaderRelocation) => void
+  onChatSelection?: (selection: ReaderSelection) => void
   onChatSelectionRemoved?: (selectionKey: string) => void
   onAnnotationsChange?: (annotations: ReaderAnnotation[]) => void
 }
 
 const NOTEBOOK_PERSISTENCE_SUFFIX_PREFIX = "notebook"
+const READER_SOURCE_ID_NAMESPACE = "workspace-reader"
 const READER_SOURCE_KEY_SEPARATOR = "\0"
 const READER_REVEAL_EASING = "ease-[cubic-bezier(0.23,1,0.32,1)]"
 const READER_REVEAL_DURATION_CLASS = "duration-220"
 const READER_OPEN_TIMEOUT_MS = 30_000
 
-type ReaderErrorState = {
+type ReaderFailureState = {
   sourceKey: string
   error: Error
+}
+
+export function shouldStartReaderOpenTimeout(input: {
+  hasReaderData: boolean
+  ready: boolean
+  failed: boolean
+  interactionPending: boolean
+}): boolean {
+  return input.hasReaderData && !input.ready && !input.failed && !input.interactionPending
 }
 
 function buildReaderSourceKey(input: {
@@ -54,10 +67,26 @@ function buildReaderSourceKey(input: {
   )
 }
 
+export function buildWorkspaceReaderSourceId(input: {
+  directory: string
+  resourcePath: string
+  objectID?: string
+}): string {
+  if (input.objectID) {
+    return JSON.stringify([READER_SOURCE_ID_NAMESPACE, "object", input.objectID])
+  }
+  const normalizedDirectory = input.directory.trim().replaceAll("\\", "/").replace(/\/+$/u, "")
+  const normalizedPath = normalizeRelativePath(input.resourcePath)
+  return JSON.stringify([READER_SOURCE_ID_NAMESPACE, "path", normalizedDirectory, normalizedPath])
+}
+
 export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReaderPaneProps) {
+  const platform = usePlatform()
   const [readerReadySourceKey, setReaderReadySourceKey] = useState<string | null>(null)
-  const [readerErrorState, setReaderErrorState] = useState<ReaderErrorState | null>(null)
-  const resourceSupported = isSupportedReadingResourcePath(props.resourcePath)
+  const [readerErrorState, setReaderErrorState] = useState<ReaderFailureState | null>(null)
+  const [readerInteractionSourceKey, setReaderInteractionSourceKey] = useState<string | null>(null)
+  const readerFormat = readerSourceFormatFromPath(props.resourcePath)
+  const resourceSupported = readerFormat !== null
   const readerBlobQuery = useQuery({
     ...readingResourceBlobQueryOptions(props.directory, props.resourcePath),
     enabled: Boolean(props.resourcePath) && resourceSupported,
@@ -68,12 +97,35 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
     dataUpdatedAt: readerBlobQuery.dataUpdatedAt,
   })
   const readerReady = readerReadySourceKey === readerSourceKey
+  const readerInteractionPending = readerInteractionSourceKey === readerSourceKey
   const readerError =
     readerErrorState?.sourceKey === readerSourceKey ? readerErrorState.error : null
+  const readerSource = useMemo<ReaderSource | null>(() => {
+    if (!readerBlobQuery.data || !readerFormat) return null
+    return {
+      kind: "blob",
+      blob: readerBlobQuery.data,
+      name: props.resourceName,
+      sourceId: buildWorkspaceReaderSourceId({
+        directory: props.directory,
+        resourcePath: props.resourcePath,
+        ...(props.objectID ? { objectID: props.objectID } : {}),
+      }),
+      format: readerFormat,
+    }
+  }, [
+    props.directory,
+    props.objectID,
+    props.resourceName,
+    props.resourcePath,
+    readerBlobQuery.data,
+    readerFormat,
+  ])
 
   const handleReaderReady = useCallback(
-    (_snapshot: FoliateReaderSnapshot) => {
+    (_snapshot: ReaderSnapshot) => {
       setReaderReadySourceKey(readerSourceKey)
+      setReaderInteractionSourceKey((current) => (current === readerSourceKey ? null : current))
       setReaderErrorState((current) => (current?.sourceKey === readerSourceKey ? null : current))
     },
     [readerSourceKey],
@@ -81,13 +133,45 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
 
   const handleReaderError = useCallback(
     (error: Error) => {
+      setReaderInteractionSourceKey((current) => (current === readerSourceKey ? null : current))
       setReaderErrorState({ sourceKey: readerSourceKey, error })
     },
     [readerSourceKey],
   )
 
+  const handleOpenExternalLink = useCallback(
+    (href: string) => {
+      const safeHref = readReaderExternalLink(href)
+      if (!safeHref) {
+        toast.error("This document link type is not supported.")
+        return
+      }
+      platform.openLink(safeHref)
+    },
+    [platform],
+  )
+
+  const handleOpeningInteractionChange = useCallback(
+    (pending: boolean) => {
+      setReaderInteractionSourceKey((current) => {
+        if (pending) return readerSourceKey
+        return current === readerSourceKey ? null : current
+      })
+    },
+    [readerSourceKey],
+  )
+
   useEffect(() => {
-    if (!readerBlobQuery.data || readerReady || readerError) return
+    if (
+      !shouldStartReaderOpenTimeout({
+        hasReaderData: Boolean(readerBlobQuery.data),
+        ready: readerReady,
+        failed: Boolean(readerError),
+        interactionPending: readerInteractionPending,
+      })
+    ) {
+      return
+    }
     const timeout = setTimeout(() => {
       setReaderErrorState({
         sourceKey: readerSourceKey,
@@ -97,7 +181,13 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
     return () => {
       clearTimeout(timeout)
     }
-  }, [readerBlobQuery.data, readerError, readerReady, readerSourceKey])
+  }, [
+    readerBlobQuery.data,
+    readerError,
+    readerInteractionPending,
+    readerReady,
+    readerSourceKey,
+  ])
 
   function renderOpeningState(label: string) {
     return (
@@ -115,7 +205,7 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
         )}
 
         <div className="inline-flex items-center gap-2 rounded-full border border-border-base/50 bg-surface-raised-base/88 px-3 py-1.5 text-xs text-text-weaker shadow-sm backdrop-blur">
-          <Loader2Icon className="size-3.5 animate-spin" />
+          <Loader2Icon className="size-3.5 animate-spin motion-reduce:animate-none" />
           {label}
         </div>
       </div>
@@ -142,14 +232,6 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
     )
   }
 
-  const readerSource: FoliateReaderSource | null = readerBlobQuery.data
-    ? {
-        kind: "blob",
-        blob: readerBlobQuery.data,
-        name: props.resourceName,
-      }
-    : null
-
   if (readerBlobQuery.isPending) {
     return (
       <div className="h-full bg-background-base">
@@ -174,7 +256,7 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
   }
 
   if (readerError) {
-    return <FoliateErrorState error={readerError} />
+    return <ReaderErrorState error={readerError} />
   }
 
   if (!readerSource) {
@@ -208,7 +290,7 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
           readerSettled ? "scale-100 opacity-100 blur-0" : "scale-[0.985] opacity-0 blur-[6px]",
         )}
       >
-        <FoliateReader
+        <DocumentReader
           source={readerSource}
           className="h-full min-h-0"
           persistenceSuffix={persistenceSuffix}
@@ -218,6 +300,8 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
           onChatSelection={props.onChatSelection}
           onChatSelectionRemoved={props.onChatSelectionRemoved}
           onAnnotationsChange={props.onAnnotationsChange}
+          onOpenExternalLink={handleOpenExternalLink}
+          onOpeningInteractionChange={handleOpeningInteractionChange}
         />
       </div>
     </div>

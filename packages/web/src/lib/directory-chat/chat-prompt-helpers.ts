@@ -8,6 +8,7 @@ import {
   NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
   TEXT_FILE_ATTACHMENT_PART_TYPE,
   READING_SELECTION_PART_TYPE,
+  readPromptReaderTextAnchor,
   readPromptSelectionContextMetadata,
   readPromptNativeResourceAttachmentMetadata,
   readPromptNativeResourceAttachmentPart,
@@ -26,7 +27,6 @@ import type {
   PromptImageEditIntent,
   PromptModelAttachment,
   PromptNativeResourceAttachmentPart,
-  PromptSelectionContextPart,
   PromptSubmissionPart,
   PromptTextFileAttachmentMetadata,
 } from "@/components/prompt/prompt-types"
@@ -373,19 +373,18 @@ function isResourceReferencePart(
 function isReadingSelectionPart(part: MessagePart): part is MessagePart & {
   type: typeof READING_SELECTION_PART_TYPE
   text: string
-  resourceKey?: string
-  cfi?: string
-  index?: number
-  tocLabel?: string
-  pageLabel?: string
-  locationLabel?: string
 } {
   return part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string"
 }
 
 function isSelectionContextPart(
   part: MessagePart,
-): part is MessagePart & PromptSelectionContextPart {
+): part is MessagePart & {
+  type: typeof SELECTION_CONTEXT_PART_TYPE
+  source: "reading" | "markdown"
+  text: string
+  selectionKey: string
+} {
   return (
     part.type === SELECTION_CONTEXT_PART_TYPE &&
     (part.source === "reading" || part.source === "markdown") &&
@@ -581,20 +580,31 @@ export function buildPromptDraftFromUserMessage(
     }
 
     if (isSelectionContextPart(part)) {
+      if (part.source === "markdown") {
+        promptParts.push({
+          type: SELECTION_CONTEXT_PART_TYPE,
+          source: "markdown",
+          text: part.text,
+          selectionKey: part.selectionKey,
+          ...(typeof part.path === "string" ? { path: part.path } : {}),
+          ...(typeof part.version === "string" ? { version: part.version } : {}),
+          ...(Array.isArray(part.headingPath) &&
+          part.headingPath.every((entry) => typeof entry === "string")
+            ? { headingPath: part.headingPath }
+            : {}),
+        })
+        continue
+      }
+
+      const anchor = readPromptReaderTextAnchor(part)
+      if (!anchor) continue
       promptParts.push({
         type: SELECTION_CONTEXT_PART_TYPE,
-        source: part.source,
+        source: "reading",
         text: part.text,
         selectionKey: part.selectionKey,
-        ...(typeof part.path === "string" ? { path: part.path } : {}),
-        ...(typeof part.version === "string" ? { version: part.version } : {}),
-        ...(Array.isArray(part.headingPath) &&
-        part.headingPath.every((entry) => typeof entry === "string")
-          ? { headingPath: part.headingPath }
-          : {}),
         ...(typeof part.resourceKey === "string" ? { resourceKey: part.resourceKey } : {}),
-        ...(typeof part.cfi === "string" ? { cfi: part.cfi } : {}),
-        ...(typeof part.index === "number" ? { index: part.index } : {}),
+        anchor,
         ...(typeof part.tocLabel === "string" ? { tocLabel: part.tocLabel } : {}),
         ...(typeof part.pageLabel === "string" ? { pageLabel: part.pageLabel } : {}),
         ...(typeof part.locationLabel === "string" ? { locationLabel: part.locationLabel } : {}),
@@ -603,12 +613,14 @@ export function buildPromptDraftFromUserMessage(
     }
 
     if (isReadingSelectionPart(part)) {
+      const anchor = readPromptReaderTextAnchor(part)
+      if (!anchor) continue
       promptParts.push({
         type: READING_SELECTION_PART_TYPE,
         text: part.text,
+        ...(typeof part.selectionKey === "string" ? { selectionKey: part.selectionKey } : {}),
         ...(typeof part.resourceKey === "string" ? { resourceKey: part.resourceKey } : {}),
-        ...(typeof part.cfi === "string" ? { cfi: part.cfi } : {}),
-        ...(typeof part.index === "number" ? { index: part.index } : {}),
+        anchor,
         ...(typeof part.tocLabel === "string" ? { tocLabel: part.tocLabel } : {}),
         ...(typeof part.pageLabel === "string" ? { pageLabel: part.pageLabel } : {}),
         ...(typeof part.locationLabel === "string" ? { locationLabel: part.locationLabel } : {}),

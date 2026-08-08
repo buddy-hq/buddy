@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url"
 import type { PluginOption, UserConfig } from "vite"
-import { createFoliatePdfVitePlugin } from "./scripts/create-foliate-pdf-vite-plugin"
+import { createFoliateVitePlugin } from "./scripts/create-foliate-vite-plugin"
+import { createPdfJsVitePlugin } from "./scripts/create-pdfjs-vite-plugin"
 
 const BUDDY_WEB_PACKAGE_NAME = "@buddy/web"
 const BUDDY_WEB_SOURCE_ALIAS = "@"
@@ -26,10 +27,10 @@ const WEB_OPTIMIZE_DEPS_EXCLUDES = [
   // moves the JavaScript into .vite/deps without copying the sibling WASM,
   // so the development worker must load this entry from its package location.
   "indigo-ketcher/binaryWasm",
+  "pdfjs-dist",
+  "pdfjs-dist/web/pdf_viewer.mjs",
   "foliate-js/view.js",
-  "foliate-js/pdf.js",
   "foliate-js/overlayer.js",
-  "foliate-js/vendor/pdfjs/pdf.mjs",
 ]
 const WEB_DEDUPE_MODULES = ["react", "react-dom"]
 
@@ -85,7 +86,8 @@ export function buddyWebVitePlugin(options: BuddyWebVitePluginOptions = {}): Plu
         } satisfies UserConfig
       },
     },
-    createFoliatePdfVitePlugin(),
+    createFoliateVitePlugin(),
+    createPdfJsVitePlugin(),
   ]
 }
 

@@ -1,6 +1,7 @@
 import { create, type Mutate, type StoreApi, type UseBoundStore } from "zustand"
 import { persist } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
+import type { ReaderTrailEntry } from "@buddy/reader-contract"
 import { createPlatformJsonStorage } from "../context/platform"
 import type {
   DirectoryChatState,
@@ -13,41 +14,19 @@ import type {
 } from "./chat-types"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
 import { canonicalProjectDirectory } from "@/lib/project-directory"
+import {
+  READING_TRAIL_MAX_ENTRIES,
+  readActiveReadingResourceRecord,
+  readerTrailEntriesEqual,
+  stripTransientActiveReadingResourceFields,
+  type ActiveReadingLocationUpdate,
+  type ActiveReadingResourceState,
+  type AnnotationSummaryEntry,
+} from "./active-reading-state"
+
+export type { ActiveReadingResourceState } from "./active-reading-state"
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
-
-type ReadingTrailEntry = {
-  tocLabel: string
-  cfi?: string
-  fraction?: number
-}
-
-type AnnotationSummaryEntry = {
-  text: string
-  tocLabel?: string
-  note?: string
-}
-
-const READING_TRAIL_MAX_ENTRIES = 20
-
-export type ActiveReadingResourceState = {
-  objectID?: string
-  alias?: string
-  name: string
-  path: string
-  status?: "preparing" | "ready" | "unsupported" | "error" | "stale" | "unprocessed"
-  cfi?: string
-  index?: number
-  fraction?: number
-  locationLabel?: string
-  tocLabel?: string
-  pageLabel?: string
-  currentPassageText?: string
-  visibleStartText?: string
-  visibleEndText?: string
-  readingTrail?: ReadingTrailEntry[]
-  annotationSummary?: AnnotationSummaryEntry[]
-}
 
 type LastOpenedReadingResource = {
   objectID?: string
@@ -103,21 +82,12 @@ export type ChatStore = {
   ) => void
   updateActiveReadingResourceLocation: (
     directory: string,
-    input: Pick<
-      ActiveReadingResourceState,
-      | "cfi"
-      | "index"
-      | "fraction"
-      | "locationLabel"
-      | "tocLabel"
-      | "pageLabel"
-      | "currentPassageText"
-    >,
+    input: ActiveReadingLocationUpdate,
   ) => void
   linkReadingResourceSession: (directory: string, objectID: string, sessionID: string) => void
   appendReadingTrailEntry: (
     directory: string,
-    entry: { tocLabel: string; cfi?: string; fraction?: number },
+    entry: ReaderTrailEntry,
   ) => void
   setActiveReadingAnnotationSummary: (directory: string, summary: AnnotationSummaryEntry[]) => void
   setLastOpenedReadingResource: (
@@ -201,66 +171,6 @@ function readLastOpenedReadingResourceRecord(
   for (const [key, entry] of Object.entries(value)) {
     if (isLastOpenedReadingResource(entry)) {
       result[key] = entry
-    }
-  }
-  return result
-}
-
-function isActiveReadingResourceState(value: unknown): value is ActiveReadingResourceState {
-  if (!isRecord(value)) {
-    return false
-  }
-  return (
-    typeof value.name === "string" &&
-    typeof value.path === "string" &&
-    (value.objectID === undefined || typeof value.objectID === "string") &&
-    (value.alias === undefined || typeof value.alias === "string") &&
-    (value.status === undefined ||
-      value.status === "preparing" ||
-      value.status === "ready" ||
-      value.status === "unsupported" ||
-      value.status === "error" ||
-      value.status === "stale" ||
-      value.status === "unprocessed") &&
-    (value.cfi === undefined || typeof value.cfi === "string") &&
-    (value.index === undefined || typeof value.index === "number") &&
-    (value.fraction === undefined || typeof value.fraction === "number") &&
-    (value.locationLabel === undefined || typeof value.locationLabel === "string") &&
-    (value.tocLabel === undefined || typeof value.tocLabel === "string") &&
-    (value.pageLabel === undefined || typeof value.pageLabel === "string") &&
-    (value.currentPassageText === undefined || typeof value.currentPassageText === "string") &&
-    (value.visibleStartText === undefined || typeof value.visibleStartText === "string") &&
-    (value.visibleEndText === undefined || typeof value.visibleEndText === "string") &&
-    (value.readingTrail === undefined || Array.isArray(value.readingTrail)) &&
-    (value.annotationSummary === undefined || Array.isArray(value.annotationSummary))
-  )
-}
-
-function stripTransientActiveReadingResourceFields(
-  value: ActiveReadingResourceState,
-): ActiveReadingResourceState {
-  const {
-    currentPassageText: _currentPassageText,
-    visibleStartText: _visibleStartText,
-    visibleEndText: _visibleEndText,
-    readingTrail: _readingTrail,
-    annotationSummary: _annotationSummary,
-    ...persisted
-  } = value
-  return persisted
-}
-
-function readActiveReadingResourceRecord(
-  value: unknown,
-): Record<string, ActiveReadingResourceState> | undefined {
-  if (!isRecord(value)) {
-    return undefined
-  }
-
-  const result: Record<string, ActiveReadingResourceState> = {}
-  for (const [key, entry] of Object.entries(value)) {
-    if (isActiveReadingResourceState(entry)) {
-      result[key] = stripTransientActiveReadingResourceFields(entry)
     }
   }
   return result
@@ -912,13 +822,15 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
       updateActiveReadingResourceLocation(directory, input) {
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
+        const { currentPassageText, ...location } = input
 
         set((state) => {
           const current = state.activeReadingResourceByDirectory[normalized]
           if (!current) return
           state.activeReadingResourceByDirectory[normalized] = {
             ...current,
-            ...input,
+            location,
+            currentPassageText,
           }
         })
       },
@@ -935,16 +847,14 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
       appendReadingTrailEntry(directory, entry) {
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
-        if (!entry.tocLabel) return
+        if (!entry.label) return
 
         set((state) => {
           const current = state.activeReadingResourceByDirectory[normalized]
           if (!current) return
           const trail = current.readingTrail ?? []
           const last = trail[trail.length - 1]
-          if (last?.tocLabel === entry.tocLabel && last?.fraction === entry.fraction) {
-            return
-          }
+          if (readerTrailEntriesEqual(last, entry)) return
           const boundedTrail = [...trail, entry].slice(-READING_TRAIL_MAX_ENTRIES)
           state.activeReadingResourceByDirectory[normalized] = {
             ...current,

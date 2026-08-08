@@ -86,6 +86,9 @@ declare module "foliate-js/view.js" {
   export type FoliateRenderer = HTMLElement & {
     heads?: HTMLElement[] | null
     feet?: HTMLElement[] | null
+    start?: number
+    end?: number
+    viewSize?: number
     open: (book: FoliateBook) => void
     setStyles?: (styles: string | [string, string]) => void
     prev: (distance?: number) => Promise<void>

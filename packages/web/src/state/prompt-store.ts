@@ -27,6 +27,7 @@ import {
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
+  readPromptReaderTextAnchor,
   type PromptComposerAttachment,
   type PromptComposerPart,
   isPromptModelAttachment,
@@ -36,6 +37,7 @@ import { getPlatform } from "../context/platform"
 
 export const PROMPT_STORE_STORAGE_KEY = "buddy.prompt.v1"
 export const PROMPT_STORE_STORAGE_FILE = "buddy.prompt.dat"
+export const PROMPT_STORE_VERSION = 2
 export const PROMPT_STORE_PERSIST_DEBOUNCE_MS = 250
 export const WORKSPACE_PROMPT_SCOPE = "__workspace__"
 export const MAX_PROMPT_DRAFTS = 20
@@ -127,88 +129,180 @@ function isPromptComposerAttachment(value: unknown): value is PromptComposerAtta
   )
 }
 
-function isPromptComposerPart(value: unknown): value is PromptComposerPart {
-  if (!isRecord(value) || typeof value.type !== "string") {
-    return false
-  }
+function readOptionalString(value: unknown): string | undefined | null {
+  if (value === undefined) return undefined
+  return typeof value === "string" ? value : null
+}
+
+function readOptionalStringArray(value: unknown): string[] | undefined | null {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) return null
+  return [...value]
+}
+
+function readPromptComposerPart(value: unknown): PromptComposerPart | undefined {
+  if (!isRecord(value) || typeof value.type !== "string") return undefined
   if (value.type === PROMPT_PART_TYPE_TEXT) {
     return typeof value.text === "string"
+      ? { type: PROMPT_PART_TYPE_TEXT, text: value.text }
+      : undefined
   }
-  if (value.type === PROMPT_PART_TYPE_AGENT || value.type === PROMPT_PART_TYPE_SKILL) {
+  if (value.type === PROMPT_PART_TYPE_AGENT) {
     return typeof value.name === "string"
+      ? { type: PROMPT_PART_TYPE_AGENT, name: value.name }
+      : undefined
+  }
+  if (value.type === PROMPT_PART_TYPE_SKILL) {
+    return typeof value.name === "string"
+      ? { type: PROMPT_PART_TYPE_SKILL, name: value.name }
+      : undefined
   }
   if (value.type === OPENCODE_REFERENCE_PART_TYPE) {
     return typeof value.name === "string" && typeof value.path === "string"
+      ? { type: OPENCODE_REFERENCE_PART_TYPE, name: value.name, path: value.path }
+      : undefined
   }
   if (value.type === WORKSPACE_FILE_REFERENCE_PART_TYPE) {
     return typeof value.path === "string"
+      ? { type: WORKSPACE_FILE_REFERENCE_PART_TYPE, path: value.path }
+      : undefined
   }
   if (value.type === RESOURCE_REFERENCE_PART_TYPE) {
     return typeof value.key === "string"
+      ? { type: RESOURCE_REFERENCE_PART_TYPE, key: value.key }
+      : undefined
   }
   if (value.type === READING_SELECTION_PART_TYPE) {
-    return (
-      typeof value.text === "string" &&
-      (value.selectionKey === undefined || typeof value.selectionKey === "string") &&
-      (value.resourceKey === undefined || typeof value.resourceKey === "string") &&
-      (value.cfi === undefined || typeof value.cfi === "string") &&
-      (value.index === undefined || typeof value.index === "number") &&
-      (value.tocLabel === undefined || typeof value.tocLabel === "string") &&
-      (value.pageLabel === undefined || typeof value.pageLabel === "string") &&
-      (value.locationLabel === undefined || typeof value.locationLabel === "string")
-    )
+    if (typeof value.text !== "string") return undefined
+    const anchor = readPromptReaderTextAnchor(value)
+    if (!anchor) return undefined
+    const selectionKey = readOptionalString(value.selectionKey)
+    const resourceKey = readOptionalString(value.resourceKey)
+    const tocLabel = readOptionalString(value.tocLabel)
+    const pageLabel = readOptionalString(value.pageLabel)
+    const locationLabel = readOptionalString(value.locationLabel)
+    if (
+      selectionKey === null ||
+      resourceKey === null ||
+      tocLabel === null ||
+      pageLabel === null ||
+      locationLabel === null
+    ) {
+      return undefined
+    }
+    return {
+      type: READING_SELECTION_PART_TYPE,
+      text: value.text,
+      ...(selectionKey !== undefined ? { selectionKey } : {}),
+      ...(resourceKey !== undefined ? { resourceKey } : {}),
+      anchor,
+      ...(tocLabel !== undefined ? { tocLabel } : {}),
+      ...(pageLabel !== undefined ? { pageLabel } : {}),
+      ...(locationLabel !== undefined ? { locationLabel } : {}),
+    }
   }
   if (value.type === SELECTION_CONTEXT_PART_TYPE) {
-    return (
-      (value.source === "reading" || value.source === "markdown") &&
-      typeof value.text === "string" &&
-      typeof value.selectionKey === "string" &&
-      (value.path === undefined || typeof value.path === "string") &&
-      (value.version === undefined || typeof value.version === "string") &&
-      (value.headingPath === undefined ||
-        (Array.isArray(value.headingPath) &&
-          value.headingPath.every((entry) => typeof entry === "string"))) &&
-      (value.resourceKey === undefined || typeof value.resourceKey === "string") &&
-      (value.cfi === undefined || typeof value.cfi === "string") &&
-      (value.index === undefined || typeof value.index === "number") &&
-      (value.tocLabel === undefined || typeof value.tocLabel === "string") &&
-      (value.pageLabel === undefined || typeof value.pageLabel === "string") &&
-      (value.locationLabel === undefined || typeof value.locationLabel === "string")
-    )
+    if (typeof value.text !== "string" || typeof value.selectionKey !== "string") {
+      return undefined
+    }
+    if (value.source === "markdown") {
+      const path = readOptionalString(value.path)
+      const version = readOptionalString(value.version)
+      const headingPath = readOptionalStringArray(value.headingPath)
+      if (path === null || version === null || headingPath === null) return undefined
+      return {
+        type: SELECTION_CONTEXT_PART_TYPE,
+        source: "markdown",
+        text: value.text,
+        selectionKey: value.selectionKey,
+        ...(path !== undefined ? { path } : {}),
+        ...(version !== undefined ? { version } : {}),
+        ...(headingPath !== undefined ? { headingPath } : {}),
+      }
+    }
+    if (value.source !== "reading") return undefined
+    const anchor = readPromptReaderTextAnchor(value)
+    if (!anchor) return undefined
+    const resourceKey = readOptionalString(value.resourceKey)
+    const tocLabel = readOptionalString(value.tocLabel)
+    const pageLabel = readOptionalString(value.pageLabel)
+    const locationLabel = readOptionalString(value.locationLabel)
+    if (
+      resourceKey === null ||
+      tocLabel === null ||
+      pageLabel === null ||
+      locationLabel === null
+    ) {
+      return undefined
+    }
+    return {
+      type: SELECTION_CONTEXT_PART_TYPE,
+      source: "reading",
+      text: value.text,
+      selectionKey: value.selectionKey,
+      ...(resourceKey !== undefined ? { resourceKey } : {}),
+      anchor,
+      ...(tocLabel !== undefined ? { tocLabel } : {}),
+      ...(pageLabel !== undefined ? { pageLabel } : {}),
+      ...(locationLabel !== undefined ? { locationLabel } : {}),
+    }
   }
-  return false
+  return undefined
 }
 
-function isPromptDraftState(value: unknown): value is PromptDraftState {
-  if (!isRecord(value)) {
-    return false
+function readPromptComposerParts(value: unknown): PromptComposerPart[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const parts: PromptComposerPart[] = []
+  for (const part of value) {
+    const parsed = readPromptComposerPart(part)
+    if (!parsed) return undefined
+    parts.push(parsed)
   }
-
-  return (
-    typeof value.value === "string" &&
-    Array.isArray(value.parts) &&
-    value.parts.every(isPromptComposerPart) &&
-    Array.isArray(value.attachments) &&
-    value.attachments.every(isPromptComposerAttachment) &&
-    typeof value.cursor === "number" &&
-    Number.isFinite(value.cursor) &&
-    typeof value.updatedAt === "number" &&
-    Number.isFinite(value.updatedAt)
-  )
+  return parts
 }
 
-function isPromptHistoryEntry(value: unknown): value is PromptHistoryEntry {
-  if (!isRecord(value)) {
-    return false
+function readPromptDraftState(value: unknown): PromptDraftState | undefined {
+  if (!isRecord(value)) return undefined
+  const parts = readPromptComposerParts(value.parts)
+  if (
+    typeof value.value !== "string" ||
+    !parts ||
+    !Array.isArray(value.attachments) ||
+    !value.attachments.every(isPromptComposerAttachment) ||
+    typeof value.cursor !== "number" ||
+    !Number.isFinite(value.cursor) ||
+    typeof value.updatedAt !== "number" ||
+    !Number.isFinite(value.updatedAt)
+  ) {
+    return undefined
   }
 
-  return (
-    typeof value.value === "string" &&
-    Array.isArray(value.parts) &&
-    value.parts.every(isPromptComposerPart) &&
-    Array.isArray(value.attachments) &&
-    value.attachments.every(isPromptComposerAttachment)
-  )
+  return {
+    value: value.value,
+    parts,
+    attachments: value.attachments,
+    cursor: value.cursor,
+    updatedAt: value.updatedAt,
+  }
+}
+
+function readPromptHistoryEntry(value: unknown): PromptHistoryEntry | undefined {
+  if (!isRecord(value)) return undefined
+  const parts = readPromptComposerParts(value.parts)
+  if (
+    typeof value.value !== "string" ||
+    !parts ||
+    !Array.isArray(value.attachments) ||
+    !value.attachments.every(isPromptComposerAttachment)
+  ) {
+    return undefined
+  }
+
+  return {
+    value: value.value,
+    parts,
+    attachments: value.attachments,
+  }
 }
 
 function readDraftsByKey(value: unknown): Record<string, PromptDraftState> | undefined {
@@ -218,9 +312,8 @@ function readDraftsByKey(value: unknown): Record<string, PromptDraftState> | und
 
   const result: Record<string, PromptDraftState> = {}
   for (const [key, entry] of Object.entries(value)) {
-    if (isPromptDraftState(entry)) {
-      result[key] = entry
-    }
+    const draft = readPromptDraftState(entry)
+    if (draft) result[key] = draft
   }
   return result
 }
@@ -233,7 +326,10 @@ function readHistoryByDirectory(value: unknown): Record<string, PromptHistoryEnt
   const result: Record<string, PromptHistoryEntry[]> = {}
   for (const [key, entry] of Object.entries(value)) {
     if (Array.isArray(entry)) {
-      const historyEntries = entry.filter(isPromptHistoryEntry)
+      const historyEntries = entry.flatMap((historyEntry) => {
+        const parsed = readPromptHistoryEntry(historyEntry)
+        return parsed ? [parsed] : []
+      })
       result[key] = historyEntries
     }
   }
@@ -628,7 +724,7 @@ export const usePromptStore = create<PromptStore>()(
     }),
     {
       name: PROMPT_STORE_STORAGE_KEY,
-      version: 1,
+      version: PROMPT_STORE_VERSION,
       storage: createPromptStoreStorage(),
       partialize(state) {
         const draftsByKey = Object.fromEntries(

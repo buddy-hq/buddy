@@ -1,7 +1,9 @@
 import type { MessageInfo, MessagePart, MessageWithParts } from "./chat-types"
+import { readerTextAnchorEquals } from "@buddy/reader-contract"
 import {
   OPENCODE_REFERENCE_PART_TYPE,
   NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+  readPromptReaderTextAnchor,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "../components/prompt/prompt-types"
@@ -41,11 +43,6 @@ function readString(record: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : undefined
 }
 
-function readNumber(record: Record<string, unknown>, key: string) {
-  const value = record[key]
-  return typeof value === "number" ? value : undefined
-}
-
 function readStringArray(record: Record<string, unknown>, key: string) {
   const value = record[key]
   if (!Array.isArray(value)) return undefined
@@ -67,15 +64,6 @@ function optionalStringFieldMatches(
   return metadataValue === undefined || existing[key] === metadataValue
 }
 
-function optionalNumberFieldMatches(
-  existing: MessagePart,
-  metadata: Record<string, unknown>,
-  key: string,
-) {
-  const metadataValue = readNumber(metadata, key)
-  return metadataValue === undefined || existing[key] === metadataValue
-}
-
 function optionalStringArrayFieldMatches(
   existing: MessagePart,
   metadata: Record<string, unknown>,
@@ -91,6 +79,31 @@ function optionalStringArrayFieldMatches(
       (entry, index) => typeof entry === "string" && entry === metadataValue[index],
     )
   )
+}
+
+function hasReaderTextAnchorInput(value: Record<string, unknown>): boolean {
+  return value.anchor !== undefined || value.cfi !== undefined
+}
+
+function optionalReaderTextAnchorMatches(
+  existing: MessagePart,
+  metadata: Record<string, unknown>,
+): boolean {
+  if (!hasReaderTextAnchorInput(metadata)) return true
+  const existingAnchor = readPromptReaderTextAnchor(existing)
+  const metadataAnchor = readPromptReaderTextAnchor(metadata)
+  return Boolean(
+    existingAnchor &&
+    metadataAnchor &&
+    readerTextAnchorEquals(existingAnchor, metadataAnchor),
+  )
+}
+
+function readerTextAnchorsMatch(left: MessagePart, right: MessagePart): boolean {
+  const leftAnchor = readPromptReaderTextAnchor(left)
+  const rightAnchor = readPromptReaderTextAnchor(right)
+  if (!leftAnchor || !rightAnchor) return leftAnchor === rightAnchor
+  return readerTextAnchorEquals(leftAnchor, rightAnchor)
 }
 
 function promptSelectionMetadataMatches(existing: MessagePart, metadata: Record<string, unknown>) {
@@ -110,8 +123,7 @@ function promptSelectionMetadataMatches(existing: MessagePart, metadata: Record<
   return (
     optionalStringFieldMatches(existing, metadata, "selectionKey") &&
     optionalStringFieldMatches(existing, metadata, "resourceKey") &&
-    optionalStringFieldMatches(existing, metadata, "cfi") &&
-    optionalNumberFieldMatches(existing, metadata, "index") &&
+    optionalReaderTextAnchorMatches(existing, metadata) &&
     optionalStringFieldMatches(existing, metadata, "tocLabel") &&
     optionalStringFieldMatches(existing, metadata, "pageLabel") &&
     optionalStringFieldMatches(existing, metadata, "locationLabel")
@@ -145,8 +157,7 @@ function promptSelectionPartsMatch(existing: MessagePart, incoming: MessagePart)
     existing.path === incoming.path &&
     existing.version === incoming.version &&
     existing.resourceKey === incoming.resourceKey &&
-    existing.cfi === incoming.cfi &&
-    existing.index === incoming.index &&
+    readerTextAnchorsMatch(existing, incoming) &&
     existing.tocLabel === incoming.tocLabel &&
     existing.pageLabel === incoming.pageLabel &&
     existing.locationLabel === incoming.locationLabel &&
