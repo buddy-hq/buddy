@@ -293,9 +293,6 @@ export function useDirectoryChatPageController(
   }, [props.directoryToken])
 
   const openProjects = useChatStore(useShallow((state) => state.openProjects))
-  const activeReadingResource = useChatStore((state) =>
-    decodedDirectory ? state.activeReadingResourceByDirectory[decodedDirectory] : undefined,
-  )
   const linkedSessionByResource = useChatStore((state) => state.linkedSessionByResource)
   const linkReadingResourceSession = useChatStore((state) => state.linkReadingResourceSession)
   const openBenchRoute = useOpenBench()
@@ -422,12 +419,11 @@ export function useDirectoryChatPageController(
     },
     [decodedDirectory, queryClient, workspace.lifecycle],
   )
-  const visibleReadingResource =
+  const includeReadingResourceForPrompt = !(
     benchPolicyStateForPrompt.status === "open" &&
     benchPolicyStateForPrompt.mode === BENCH_CHAT_LAYOUT_DOCKED &&
     workspace.projection.dockedState.visibility !== WORKSPACE_VISIBILITY_EXPANDED
-      ? undefined
-      : activeReadingResource
+  )
   const { slashCommands } = chatConfig
   const slashCommandCandidates = useMemo(() => {
     const candidates = new Map<string, { name: string; aliases?: string[] }>()
@@ -1178,6 +1174,9 @@ export function useDirectoryChatPageController(
       if (!contentForSubmission && submissionParts.length === 0) return false
 
       const includeActiveContext = input.includeActiveContext ?? true
+      const visibleReadingResource = includeReadingResourceForPrompt
+        ? useChatStore.getState().activeReadingResourceByDirectory[decodedDirectory]
+        : undefined
 
       if (includeActiveContext && cs.selectedPersonaSupportsEditor && cs.isInteractiveMode) {
         const ready = await teachingWs.flushTeachingWorkspace()
@@ -1284,10 +1283,10 @@ export function useDirectoryChatPageController(
       return true
     },
     [
-      visibleReadingResource,
       clearSubmittedPromptDrafts,
       currentAgentName,
       decodedDirectory,
+      includeReadingResourceForPrompt,
       linkReadingResourceSession,
       selectedThinking,
       syncTeachingRuntimeSelection,

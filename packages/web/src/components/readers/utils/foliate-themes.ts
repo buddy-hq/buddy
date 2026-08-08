@@ -3,7 +3,11 @@ import type {
   FoliateReaderThemeDefinition,
   FoliateReaderThemeId,
 } from "../foliate-reader-types"
-import { READER_THEMES, VIEW_ELEMENT_CLASS_NAME } from "../foliate-reader-constants"
+import {
+  READER_SELECTION_FOREGROUND,
+  READER_THEMES,
+  VIEW_ELEMENT_CLASS_NAME,
+} from "../foliate-reader-constants"
 import type { View as FoliateView } from "foliate-js/view.js"
 import { FONT_PUBLISHER, FONT_SANS, FONT_SERIF } from "../foliate-reader-constants"
 
@@ -88,6 +92,7 @@ export function buildReaderStyles(
 ): [string, string] {
   const family = fontStack(preferences.fontPreset)
   const overrideFont = preferences.fontPreset !== FONT_PUBLISHER
+  const selectionForeground = resolveColor(READER_SELECTION_FOREGROUND)
 
   // ---- base stylesheet (prepended before book CSS) ----
   const base = `
@@ -123,6 +128,34 @@ export function buildReaderStyles(
   const override = `
     @namespace epub "http://www.idpf.org/2007/ops";
 
+    :root,
+    html,
+    body {
+      color-scheme: ${theme.appearance};
+      background-color: ${theme.contentBackground} !important;
+      color: ${theme.contentForeground} !important;
+    }
+
+    body :where(
+      article, section, main, header, footer, nav, aside,
+      div, p, span, li, blockquote, dl, dt, dd,
+      figure, figcaption, table, thead, tbody, tfoot, tr, th, td,
+      pre, code, samp, kbd
+    ) {
+      background-color: transparent !important;
+      color: inherit !important;
+    }
+
+    a,
+    a:visited {
+      color: ${theme.contentLink} !important;
+    }
+
+    ::selection {
+      background: ${theme.contentAccent};
+      color: ${selectionForeground};
+    }
+
     ${
       overrideFont
         ? `
@@ -143,7 +176,7 @@ export function buildReaderStyles(
     }
 
     h1, h2, h3, h4, h5, h6 {
-      color: ${theme.contentHeading};
+      color: ${theme.contentHeading} !important;
       line-height: 1.14;
       text-wrap: balance;
     }

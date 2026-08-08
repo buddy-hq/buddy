@@ -16,7 +16,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Separator,
   cn,
   toast,
   // Icons from @buddy/ui
@@ -78,6 +77,7 @@ import type {
   ReaderSelectionToolbarState,
 } from "./foliate-reader-types"
 import {
+  ANNOTATION_COLOR_IDS,
   ANNOTATION_STYLE_HIGHLIGHT,
   DEFAULT_ANNOTATION_COLOR_ID,
   DEFAULT_AUTHOR,
@@ -92,6 +92,7 @@ import {
   SHORTCUTS,
   VIEWPORT_CLASS_NAME,
   VIEW_ELEMENT_CLASS_NAME,
+  resolveReaderContentFilter,
 } from "./foliate-reader-constants"
 import {
   buildLandmarks,
@@ -103,6 +104,7 @@ import {
   createError,
   flattenTocItems,
   getAnnotationAtValue,
+  getAnnotationColorId,
   getAnnotationColorValue,
   getBookmarkAtLocation,
   getOverlayPosition,
@@ -112,6 +114,7 @@ import {
   isEditingTarget,
   readSelectedRange,
   releaseObjectUrl,
+  resolveAnnotationColorValue,
   resolveCoverUrl,
   syncMarginals,
   toFoliateInput,
@@ -151,6 +154,33 @@ import {
 ensureFoliateRuntimeCompat()
 
 const WHEEL_GESTURE_IDLE_THRESHOLD_MS = 180
+const HOST_THEME_ATTRIBUTE_FILTER = ["class", "style", "data-theme", "data-color-scheme"]
+
+function readAnnotationThemeSignature(): string {
+  if (typeof document === "undefined") return ""
+  return ANNOTATION_COLOR_IDS.map((colorId) =>
+    resolveAnnotationColorValue(colorId, document.documentElement),
+  ).join("\0")
+}
+
+function useAnnotationThemeSignature(): string {
+  const [signature, setSignature] = useState(readAnnotationThemeSignature)
+
+  useEffect(() => {
+    const syncSignature = () => setSignature(readAnnotationThemeSignature())
+    syncSignature()
+    if (typeof MutationObserver === "undefined") return
+
+    const observer = new MutationObserver(syncSignature)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: HOST_THEME_ATTRIBUTE_FILTER,
+    })
+    return () => observer.disconnect()
+  }, [])
+
+  return signature
+}
 
 function createSelectionKey() {
   const random = Math.random().toString(36).slice(2, 10)
@@ -261,6 +291,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const bookmarksRef = useRef(bookmarks)
     const searchStateRef = useRef(searchState)
     const annotationDialogRef = useRef(annotationDialog)
+    // ReaderSource also carries persistence metadata such as sourceId. That metadata may resolve
+    // after the Blob is already opening and must not restart Foliate's content lifecycle.
+    const readerSourceRef = useRef(readerSource)
+    const persistenceSuffixRef = useRef(persistenceSuffix)
 
     const sourceDependencyKey = buildSourceDependencyKey(source)
     const initialLocationDependencyKey = buildNavigationTargetDependencyKey(initialLocation)
@@ -288,6 +322,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
     const stableSource = stableSourceRef.current.value
     const stableInitialLocation = stableInitialLocationRef.current.value
+    const annotationThemeSignature = useAnnotationThemeSignature()
     const theme = getThemeDefinition(preferences.themeId)
     const canChangeFlow = snapshot ? !snapshot.isFixedLayout : false
     const showPageTurnControls =
@@ -336,6 +371,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     bookmarksRef.current = bookmarks
     searchStateRef.current = searchState
     annotationDialogRef.current = annotationDialog
+    readerSourceRef.current = readerSource
+    persistenceSuffixRef.current = persistenceSuffix
 
     useImperativeHandle(
       ref,
@@ -391,6 +428,30 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       applyReaderPreferences(view, theme, preferences)
       syncMarginals(view, snapshotRef.current, locationRef.current)
     }, [preferences, theme])
+
+    useEffect(() => {
+      const view = viewRef.current
+      if (!view) return
+      void (async () => {
+        for (const annotation of annotationsRef.current) {
+          if (viewRef.current !== view) return
+          try {
+            await view.deleteAnnotation(annotation)
+            if (viewRef.current !== view) return
+            await view.addAnnotation({
+              ...annotation,
+              color: resolveAnnotationColorValue(
+                getAnnotationColorId(annotation.color),
+                readerSurfaceRef.current,
+              ),
+            })
+          } catch (error) {
+            if (viewRef.current !== view) return
+            console.warn("Failed to refresh reader annotation color", { annotation, error })
+          }
+        }
+      })()
+    }, [annotationThemeSignature])
 
     useEffect(() => {
       if (!persistenceTarget) return
@@ -539,7 +600,13 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           if (typeof onlyIndex === "number" && annotation.index !== onlyIndex) continue
           let info
           try {
-            info = await view.addAnnotation(annotation)
+            info = await view.addAnnotation({
+              ...annotation,
+              color: resolveAnnotationColorValue(
+                getAnnotationColorId(annotation.color),
+                readerSurfaceRef.current,
+              ),
+            })
           } catch (error) {
             if (viewRef.current !== view) return
             console.warn("Failed to hydrate reader annotation", {
@@ -692,7 +759,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           created: now,
           modified: now,
         }
-        const info = await view.addAnnotation(annotation)
+        const info = await view.addAnnotation({
+          ...annotation,
+          color: resolveAnnotationColorValue(nextDialog.color, readerSurfaceRef.current),
+        })
         if (info) {
           annotation.index = info.index
           annotation.label = info.label
@@ -715,7 +785,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         modified: new Date().toISOString(),
       }
       await view.deleteAnnotation(existing)
-      const info = await view.addAnnotation(updated)
+      const info = await view.addAnnotation({
+        ...updated,
+        color: resolveAnnotationColorValue(nextDialog.color, readerSurfaceRef.current),
+      })
       if (info) {
         updated.index = info.index
         updated.label = info.label
@@ -905,10 +978,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       setBookmarks([])
       setAnnotations([])
       setHistoryState({ canGoBack: false, canGoForward: false })
-      const persistenceReaderSourcePromise = readerSource
-        ? withReaderSourceContentFingerprint(readerSource)
-        : Promise.resolve(undefined)
-
       void (async () => {
         try {
           const module = await import("foliate-js/view.js")
@@ -1047,9 +1116,16 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           await view.open(toFoliateInput(stableSource))
           if (cancelled) return
 
-          const persistenceReaderSource = await persistenceReaderSourcePromise
+          const currentReaderSource = readerSourceRef.current
+          const persistenceReaderSource = currentReaderSource
+            ? await withReaderSourceContentFingerprint(currentReaderSource)
+            : undefined
           if (cancelled) return
-          const nextBookKey = buildBookPersistenceKey(stableSource, view.book, persistenceSuffix)
+          const nextBookKey = buildBookPersistenceKey(
+            stableSource,
+            view.book,
+            persistenceSuffixRef.current,
+          )
           const persisted = persistenceReaderSource
             ? loadMirroredEpubBookState(nextBookKey, persistenceReaderSource)
             : loadBookState(nextBookKey)
@@ -1154,10 +1230,45 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         coverUrlRef.current = undefined
         host.replaceChildren()
       }
-    }, [hydrateAnnotations, persistenceSuffix, readerSource, stableInitialLocation, stableSource])
+    }, [hydrateAnnotations, stableInitialLocation, stableSource])
+
+    const persistenceBookKey = persistenceTarget?.bookKey
+    useEffect(() => {
+      const view = viewRef.current
+      if (!stableSource || !view || !persistenceBookKey) return
+      const nextBookKey = buildBookPersistenceKey(stableSource, view.book, persistenceSuffix)
+      setPersistenceTarget((current) =>
+        current && current.bookKey !== nextBookKey ? { ...current, bookKey: nextBookKey } : current,
+      )
+    }, [persistenceBookKey, persistenceSuffix, stableSource])
+
+    useEffect(() => {
+      if (!readerSource || !persistenceBookKey) return
+      let cancelled = false
+
+      void withReaderSourceContentFingerprint(readerSource).then((fingerprintedSource) => {
+        if (cancelled || !fingerprintedSource) return
+        setPersistenceTarget((current) =>
+          current?.bookKey === persistenceBookKey
+            ? {
+                ...current,
+                readerSource: fingerprintedSource,
+              }
+            : current,
+        )
+      })
+
+      return () => {
+        cancelled = true
+      }
+    }, [persistenceBookKey, readerSource])
 
     const progressValue =
       progressDraft ?? Math.round((location.fraction ?? 0) * DEFAULT_PROGRESS_STEPS)
+    const readerContentFilter = resolveReaderContentFilter({
+      isFixedLayout: snapshot?.isFixedLayout ?? false,
+      filter: theme.pdfFilter,
+    })
 
     const readerPane = (
       <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
@@ -1220,8 +1331,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                   </span>
                 </ReaderMetadataHoverCard>
               </div>
-
-              <Separator orientation="vertical" className="mx-0.5 h-4" />
 
               <ReaderSearchPopover
                 search={readerSearch}
@@ -1398,7 +1507,15 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               }
               void (async () => {
                 const view = viewRef.current
-                const info = view ? await view.addAnnotation(annotation) : undefined
+                const info = view
+                  ? await view.addAnnotation({
+                      ...annotation,
+                      color: resolveAnnotationColorValue(
+                        DEFAULT_ANNOTATION_COLOR_ID,
+                        readerSurfaceRef.current,
+                      ),
+                    })
+                  : undefined
                 if (info) {
                   annotation.index = info.index
                   annotation.label = info.label
@@ -1524,6 +1641,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(head),
           .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(foot) {
             display: none;
+          }
+
+          .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(filter) {
+            filter: ${readerContentFilter};
           }
 
           /* Custom scrollbar to match theme */

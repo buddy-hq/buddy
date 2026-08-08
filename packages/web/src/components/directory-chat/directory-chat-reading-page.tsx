@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, toast } from "@buddy/ui"
 import { formatReaderPositionAnchor } from "@buddy/reader-contract"
@@ -46,14 +46,15 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const { controller } = useDirectoryNotebookRouteContext()
   const normalizedPath = normalizeRelativePath(props.resourcePath)
   const resourceName = fileNameFromPath(normalizedPath) || language.t("sidebar.resources")
+  const routeObjectID =
+    props.target.type === "object" && props.target.ref.kind === "resource"
+      ? props.target.ref.objectID
+      : undefined
   const readyDirectory =
     controller.status === "ready" ? controller.mainPaneProps.directory : undefined
   const readingSessionID =
     controller.status === "ready" ? controller.mainPaneProps.chatState.sessionID : undefined
   const setActiveReadingResource = useChatStore((state) => state.setActiveReadingResource)
-  const activeReadingResource = useChatStore(
-    (state) => state.activeReadingResourceByDirectory[props.directory],
-  )
   const updateActiveReadingResourceLocation = useChatStore(
     (state) => state.updateActiveReadingResourceLocation,
   )
@@ -90,6 +91,9 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       (resource) => normalizeResourceRecordPath(resource) === normalizedPath,
     )
   }, [normalizedPath, props.resourceKey, resourcesQuery.data?.processed])
+  const resourceObjectID = resourceRecord?.objectID ?? routeObjectID
+  const resourceAlias = resourceRecord?.alias
+  const resourceStatus = resourceRecord?.status
   const canProcessResource = !resourceRecord?.objectID && !processBannerDismissed
   const readerStatus =
     resourceRecord?.status === "error"
@@ -109,20 +113,30 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         : readerStatus === "unsupported"
           ? "unavailable"
           : "ready"
+  const subscribeToReadingContext = useCallback(
+    (listener: () => void) =>
+      useChatStore.subscribe((state, previousState) => {
+        if (
+          state.activeReadingResourceByDirectory[props.directory] ===
+          previousState.activeReadingResourceByDirectory[props.directory]
+        ) {
+          return
+        }
+        listener()
+      }),
+    [props.directory],
+  )
   const contextProvider = useMemo<BenchContextProvider>(
     () => ({
       read: () => {
-        const routeObjectID =
-          props.target.type === "object" && props.target.ref.kind === "resource"
-            ? props.target.ref.objectID
-            : null
-        const objectID =
-          routeObjectID ?? resourceRecord?.objectID ?? activeReadingResource?.objectID ?? null
-        const alias = resourceRecord?.alias ?? activeReadingResource?.alias
+        const activeReadingResource =
+          useChatStore.getState().activeReadingResourceByDirectory[props.directory]
+        const objectID = resourceObjectID ?? activeReadingResource?.objectID ?? null
+        const alias = resourceAlias ?? activeReadingResource?.alias
         const location = activeReadingResource?.location
         const anchor = location?.anchor
         const metadata = [
-          `resource_status: ${resourceRecord?.status ?? activeReadingResource?.status ?? "unknown"}`,
+          `resource_status: ${resourceStatus ?? activeReadingResource?.status ?? "unknown"}`,
           ...(alias ? [`resource_alias: ${alias}`] : []),
           `reader_status: ${readerStatus}`,
           ...(location?.locationLabel ? [`location_label: ${location.locationLabel}`] : []),
@@ -189,16 +203,21 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       },
     }),
     [
-      activeReadingResource,
       normalizedPath,
-      props.target,
+      props.directory,
       readerStatus,
       resourceName,
-      resourceRecord,
+      resourceAlias,
+      resourceObjectID,
+      resourceStatus,
       targetStatus,
     ],
   )
-  useRegisterBenchContextProvider({ target: props.target, provider: contextProvider })
+  useRegisterBenchContextProvider({
+    target: props.target,
+    provider: contextProvider,
+    subscribeToChanges: subscribeToReadingContext,
+  })
 
   async function processResourceForBuddy() {
     if (!readyDirectory || !normalizedPath || processing) return
@@ -269,14 +288,6 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   useEffect(() => {
     if (!readyDirectory || !normalizedPath) return
     setActiveReadingResource(readyDirectory, {
-      ...(resourceRecord?.objectID ? { objectID: resourceRecord.objectID } : {}),
-      ...(resourceRecord?.alias ? { alias: resourceRecord.alias } : {}),
-      name: resourceName,
-      path: normalizedPath,
-      ...(resourceRecord?.status ? { status: resourceRecord.status } : {}),
-    })
-    setLastOpenedReadingResource(readyDirectory, {
-      ...(resourceRecord?.objectID ? { objectID: resourceRecord.objectID } : {}),
       name: resourceName,
       path: normalizedPath,
     })
@@ -288,7 +299,30 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     normalizedPath,
     readyDirectory,
     resourceName,
-    resourceRecord,
+    setActiveReadingResource,
+  ])
+
+  useEffect(() => {
+    if (!readyDirectory || !normalizedPath) return
+    setActiveReadingResource(readyDirectory, {
+      ...(resourceObjectID ? { objectID: resourceObjectID } : {}),
+      ...(resourceAlias ? { alias: resourceAlias } : {}),
+      name: resourceName,
+      path: normalizedPath,
+      ...(resourceStatus ? { status: resourceStatus } : {}),
+    })
+    setLastOpenedReadingResource(readyDirectory, {
+      ...(resourceObjectID ? { objectID: resourceObjectID } : {}),
+      name: resourceName,
+      path: normalizedPath,
+    })
+  }, [
+    normalizedPath,
+    readyDirectory,
+    resourceAlias,
+    resourceName,
+    resourceObjectID,
+    resourceStatus,
     setActiveReadingResource,
     setLastOpenedReadingResource,
   ])
@@ -375,7 +409,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
           directory={readyDirectory}
           resourceName={resourceName}
           resourcePath={normalizedPath}
-          objectID={resourceRecord?.objectID}
+          objectID={resourceObjectID}
           coverRelpath={resourceRecord?.coverRelpath}
           coverExtension={resourceFileExtensionFromFormat(resourceRecord?.format ?? "")}
           resourceStatus={resourceRecord?.status}

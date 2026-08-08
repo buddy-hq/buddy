@@ -221,3 +221,18 @@ export function readerTrailEntriesEqual(
     readerPositionAnchorEquals(left.anchor, right.anchor)
   )
 }
+
+export function activeReadingLocationUpdatesEqual(
+  left: ActiveReadingLocationUpdate | undefined,
+  right: ActiveReadingLocationUpdate,
+): boolean {
+  if (!left) return false
+  return (
+    readerPositionAnchorEquals(left.anchor, right.anchor) &&
+    left.fraction === right.fraction &&
+    left.tocLabel === right.tocLabel &&
+    left.pageLabel === right.pageLabel &&
+    left.locationLabel === right.locationLabel &&
+    left.currentPassageText === right.currentPassageText
+  )
+}

@@ -81,6 +81,9 @@ export const READER_SIDEBAR_BREAKPOINT_HYSTERESIS_PX = 32
 // Theme Definitions
 // ============================================================
 
+export const READER_SELECTION_BACKGROUND = "var(--surface-warning-base)"
+export const READER_SELECTION_FOREGROUND = "var(--text-on-warning-base)"
+
 export const READER_THEMES: FoliateReaderThemeDefinition[] = [
   {
     id: "paper",
@@ -92,7 +95,7 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentMuted: "#6a6054",
     contentLink: "#2f69b7",
     contentHeading: "#15110c",
-    contentAccent: "rgba(84, 146, 232, 0.18)",
+    contentAccent: READER_SELECTION_BACKGROUND,
     pdfFilter: "none",
   },
   {
@@ -105,7 +108,7 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentMuted: "#755742",
     contentLink: "#8a4f24",
     contentHeading: "#2c1c12",
-    contentAccent: "rgba(168, 120, 52, 0.18)",
+    contentAccent: READER_SELECTION_BACKGROUND,
     pdfFilter: "sepia(0.22) saturate(0.92) brightness(0.98)",
   },
   {
@@ -118,8 +121,8 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentMuted: "#9aa8bb",
     contentLink: "#8fbbff",
     contentHeading: "#f5f8fc",
-    contentAccent: "rgba(95, 154, 255, 0.16)",
-    pdfFilter: "brightness(0.78) saturate(0.9) contrast(1.04)",
+    contentAccent: READER_SELECTION_BACKGROUND,
+    pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.88) contrast(1.04)",
   },
   {
     id: "mist",
@@ -131,7 +134,7 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentMuted: "#5b7382",
     contentLink: "#1d5d84",
     contentHeading: "#102432",
-    contentAccent: "rgba(63, 131, 182, 0.18)",
+    contentAccent: READER_SELECTION_BACKGROUND,
     pdfFilter: "brightness(0.99) saturate(0.96)",
   },
   {
@@ -144,10 +147,17 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentMuted: "#a3acb4",
     contentLink: "#89c0f2",
     contentHeading: "#ffffff",
-    contentAccent: "rgba(255,255,255,0.06)",
-    pdfFilter: "grayscale(0.18) brightness(0.82) contrast(1.04)",
+    contentAccent: READER_SELECTION_BACKGROUND,
+    pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.9)",
   },
 ]
+
+export function resolveReaderContentFilter(input: {
+  isFixedLayout: boolean
+  filter: string
+}): string {
+  return input.isFixedLayout ? input.filter : "none"
+}
 
 // ============================================================
 // Annotation Colors
@@ -178,7 +188,7 @@ export const ANNOTATION_COLORS: Record<ReaderAnnotationColorId, ReaderAnnotation
 
 export const ANNOTATION_COLOR_IDS: ReaderAnnotationColorId[] = ["amber", "mint", "sky", "rose"]
 
-export const DEFAULT_ANNOTATION_COLOR_ID: ReaderAnnotationColorId = "sky"
+export const DEFAULT_ANNOTATION_COLOR_ID: ReaderAnnotationColorId = "amber"
 
 export const ANNOTATION_COLOR_TOKENS: Record<ReaderAnnotationColorId, string> = {
   amber: "--surface-warning-base",

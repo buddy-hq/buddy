@@ -45,6 +45,7 @@ type BenchContextProviderRegistration = {
   target: BenchTarget
   provider: BenchContextProvider
   semanticKey?: string
+  subscribeToChanges?: (listener: () => void) => () => void
   synchronize?: (
     reason: BenchSurfaceSynchronizationReason,
   ) => Promise<BenchSurfaceSynchronizationResult>
@@ -222,6 +223,7 @@ export function useRegisterBenchContextProvider(input: BenchContextProviderRegis
   const providerRef = useRef(input.provider)
   const synchronizeRef = useRef(input.synchronize)
   const leaveGuardRef = useRef(input.leaveGuard)
+  const subscribeToChanges = input.subscribeToChanges
   const semanticRevisionRef = useRef(0)
   const listenersRef = useRef(new Set<() => void>())
   providerRef.current = input.provider
@@ -234,6 +236,16 @@ export function useRegisterBenchContextProvider(input: BenchContextProviderRegis
       listener()
     }
   }, [input.provider, input.semanticKey])
+
+  useEffect(() => {
+    if (!subscribeToChanges) return
+    return subscribeToChanges(() => {
+      semanticRevisionRef.current += 1
+      for (const listener of listenersRef.current) {
+        listener()
+      }
+    })
+  }, [subscribeToChanges])
 
   const getSnapshot = useCallback(
     () =>

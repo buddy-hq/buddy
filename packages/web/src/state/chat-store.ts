@@ -16,6 +16,7 @@ import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./se
 import { canonicalProjectDirectory } from "@/lib/project-directory"
 import {
   READING_TRAIL_MAX_ENTRIES,
+  activeReadingLocationUpdatesEqual,
   readActiveReadingResourceRecord,
   readerTrailEntriesEqual,
   stripTransientActiveReadingResourceFields,
@@ -134,6 +135,25 @@ type PersistedChatStoreState = {
 
 function normalizeProjectDirectory(input: string | undefined) {
   return canonicalProjectDirectory(input)
+}
+
+function activeReadingResourceStatesEqual(
+  left: ActiveReadingResourceState,
+  right: ActiveReadingResourceState,
+) {
+  return (
+    left.objectID === right.objectID &&
+    left.alias === right.alias &&
+    left.name === right.name &&
+    left.path === right.path &&
+    left.status === right.status &&
+    left.location === right.location &&
+    left.currentPassageText === right.currentPassageText &&
+    left.visibleStartText === right.visibleStartText &&
+    left.visibleEndText === right.visibleEndText &&
+    left.readingTrail === right.readingTrail &&
+    left.annotationSummary === right.annotationSummary
+  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -813,7 +833,10 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
 
         set((state) => {
           if (resource) {
-            state.activeReadingResourceByDirectory[normalized] = resource
+            const current = state.activeReadingResourceByDirectory[normalized]
+            const next = current?.path === resource.path ? { ...current, ...resource } : resource
+            if (current && activeReadingResourceStatesEqual(current, next)) return
+            state.activeReadingResourceByDirectory[normalized] = next
             return
           }
           delete state.activeReadingResourceByDirectory[normalized]
@@ -827,6 +850,15 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
         set((state) => {
           const current = state.activeReadingResourceByDirectory[normalized]
           if (!current) return
+          const currentLocation = current.location
+            ? {
+                ...current.location,
+                ...(current.currentPassageText !== undefined
+                  ? { currentPassageText: current.currentPassageText }
+                  : {}),
+              }
+            : undefined
+          if (activeReadingLocationUpdatesEqual(currentLocation, input)) return
           state.activeReadingResourceByDirectory[normalized] = {
             ...current,
             location,
