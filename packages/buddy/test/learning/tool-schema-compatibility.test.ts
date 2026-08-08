@@ -25,6 +25,7 @@ const PRESENT_HTML_WIDGET_REQUIRED_FIELDS = [
   "viewportPreset",
 ] as const
 const BENCH_PRESENT_REQUIRED_FIELDS = ["action", "path", "resourceKey", "objectID"] as const
+const WHITEBOARD_CREATE_REQUIRED_FIELDS = ["objectID", "boardAction", "elements"] as const
 
 const originalAdvancedMathReady = AdvancedMathRuntimeService.isReady.bind(
   AdvancedMathRuntimeService,
@@ -149,7 +150,6 @@ describe("tool schema compatibility", () => {
       "present_object",
       "present_file",
       "present_resource",
-      "present_whiteboard",
       "close",
     ])
     const benchPathProperty = expectStringNullableProperty(benchProperties, "path")
@@ -161,5 +161,22 @@ describe("tool schema compatibility", () => {
     expect(resourceKeyProperty.description).toContain("object id or alias")
     const benchObjectIDProperty = expectStringNullableProperty(benchProperties, "objectID")
     expect(benchObjectIDProperty.description).toContain("Buddy object id")
+
+    const whiteboardCreateSchema = expectJsonSchemaObject(
+      toolSchemas.find((entry) => entry.id === "whiteboard_create_view")?.schema,
+      "whiteboard_create_view schema",
+    )
+    expect(whiteboardCreateSchema.required).toEqual([...WHITEBOARD_CREATE_REQUIRED_FIELDS])
+    const whiteboardCreateProperties = expectJsonSchemaObject(
+      whiteboardCreateSchema.properties,
+      "whiteboard_create_view properties",
+    )
+    expectStringNullableProperty(whiteboardCreateProperties, "objectID")
+
+    const whiteboardReadSchema = expectJsonSchemaObject(
+      toolSchemas.find((entry) => entry.id === "whiteboard_read_context")?.schema,
+      "whiteboard_read_context schema",
+    )
+    expect(whiteboardReadSchema.required).toEqual(["objectID"])
   }, 180_000)
 })

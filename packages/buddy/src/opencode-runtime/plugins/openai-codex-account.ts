@@ -33,6 +33,15 @@ const codexModelSchema = z
     context_window: z.number().int().positive().nullish(),
     max_context_window: z.number().int().positive().nullish(),
     effective_context_window_percent: z.number().positive().max(PERCENT_BASE).nullish(),
+    supported_reasoning_levels: z
+      .array(
+        z
+          .object({
+            effort: z.string(),
+          })
+          .passthrough(),
+      )
+      .nullish(),
   })
   .passthrough()
 

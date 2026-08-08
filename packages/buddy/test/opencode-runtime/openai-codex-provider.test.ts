@@ -3,6 +3,7 @@ import type { Model, Provider } from "@opencode-ai/sdk/v2"
 import {
   applyOpenAICodexAccountModels,
   createOpenAICodexProviderHook,
+  resolveOpenAICodexModelVariants,
 } from "../../src/opencode-runtime/plugins/openai-codex-provider"
 import type { OpenAICodexAccountModel } from "../../src/opencode-runtime/plugins/openai-codex-account"
 
@@ -80,10 +81,28 @@ function createAccountModel(): OpenAICodexAccountModel {
     context_window: 272_000,
     max_context_window: 272_000,
     effective_context_window_percent: 95,
+    supported_reasoning_levels: [
+      { effort: "low" },
+      { effort: "medium" },
+      { effort: "high" },
+      { effort: "xhigh" },
+      { effort: "max" },
+      { effort: "ultra" },
+    ],
   }
 }
 
 describe("OpenAI Codex provider model overlay", () => {
+  test("uses account-supported reasoning levels and excludes unsupported OpenCode levels", () => {
+    expect(resolveOpenAICodexModelVariants(createAccountModel())).toEqual({
+      low: { reasoningEffort: "low" },
+      medium: { reasoningEffort: "medium" },
+      high: { reasoningEffort: "high" },
+      xhigh: { reasoningEffort: "xhigh" },
+      max: { reasoningEffort: "max" },
+    })
+  })
+
   test("replaces generic API limits with account-effective ChatGPT limits", () => {
     const provider = createProvider()
     const models = applyOpenAICodexAccountModels(provider.models, [createAccountModel()])
@@ -93,6 +112,13 @@ describe("OpenAI Codex provider model overlay", () => {
       context: 258_400,
       input: 258_400,
       output: 128_000,
+    })
+    expect(models[MODEL_ID]?.variants).toEqual({
+      low: { reasoningEffort: "low" },
+      medium: { reasoningEffort: "medium" },
+      high: { reasoningEffort: "high" },
+      xhigh: { reasoningEffort: "xhigh" },
+      max: { reasoningEffort: "max" },
     })
     expect(models[MODEL_ID]?.capabilities).toBe(provider.models[MODEL_ID]?.capabilities)
     expect(models["api-only-model"]).toBe(provider.models["api-only-model"])

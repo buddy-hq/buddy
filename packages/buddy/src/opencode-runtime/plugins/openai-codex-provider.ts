@@ -5,12 +5,30 @@ import { OPENAI_PROVIDER_ID } from "./openai-codex-credentials"
 
 const PERCENT_BASE = 100
 const MODEL_CATALOG_RESOLUTION_TIMEOUT_MS = 5_000
+const SUPPORTED_REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const
+
+type SupportedReasoningEffort = (typeof SUPPORTED_REASONING_EFFORTS)[number]
 
 type OpenAICodexModelCatalogService = {
   resolveModelCatalog: typeof openAICodexAccountService.resolveModelCatalog
 }
 
 type OpenAICodexEffectiveModelLimits = Pick<OpenCodeModel["limit"], "context" | "input">
+
+function isSupportedReasoningEffort(effort: string): effort is SupportedReasoningEffort {
+  return SUPPORTED_REASONING_EFFORTS.some((supportedEffort) => supportedEffort === effort)
+}
+
+export function resolveOpenAICodexModelVariants(model: OpenAICodexAccountModel) {
+  if (!model.supported_reasoning_levels) return undefined
+
+  return Object.fromEntries(
+    model.supported_reasoning_levels
+      .map((level) => level.effort)
+      .filter(isSupportedReasoningEffort)
+      .map((effort) => [effort, { reasoningEffort: effort }]),
+  )
+}
 
 export function resolveOpenAICodexModelLimits(
   model: OpenAICodexAccountModel,
@@ -37,14 +55,20 @@ export function applyOpenAICodexAccountModels(
   for (const accountModel of accountModels) {
     const model = models[accountModel.slug]
     const limits = resolveOpenAICodexModelLimits(accountModel)
-    if (!model || !limits) continue
+    const variants = resolveOpenAICodexModelVariants(accountModel)
+    if (!model || (!limits && !variants)) continue
 
     result[accountModel.slug] = {
       ...model,
-      limit: {
-        ...model.limit,
-        ...limits,
-      },
+      ...(limits
+        ? {
+            limit: {
+              ...model.limit,
+              ...limits,
+            },
+          }
+        : {}),
+      ...(variants ? { variants } : {}),
     }
   }
 

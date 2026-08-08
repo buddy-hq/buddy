@@ -84,6 +84,10 @@ describe("OpenAI Codex account service", () => {
             context_window: 272_000,
             max_context_window: 272_000,
             effective_context_window_percent: 95,
+            supported_reasoning_levels: [
+              { effort: "low", description: "Fast responses" },
+              { effort: "max", description: "Maximum reasoning" },
+            ],
           },
           {
             slug: "codex-auto-review",
@@ -109,6 +113,10 @@ describe("OpenAI Codex account service", () => {
         context_window: 272_000,
         max_context_window: 272_000,
         effective_context_window_percent: 95,
+        supported_reasoning_levels: [
+          { effort: "low", description: "Fast responses" },
+          { effort: "max", description: "Maximum reasoning" },
+        ],
       },
     ])
     expect(fetchMock).toHaveBeenCalledTimes(1)

@@ -182,7 +182,7 @@ describe("external file tool permissions", () => {
 
     await expect(
       createWhiteboardViewTool.run(
-        { boardAction: "continue_current_board", elements: "[]" },
+        { objectID: null, boardAction: "continue_current_board", elements: "[]" },
         rejectingContext({
           directory: project.path,
           rejectPermission: "whiteboard_create_view",
