@@ -33,6 +33,8 @@ const MediaGalleryInlineItemSchema = z
     availability: z.enum(["available", "missing", "error", "unavailable"]),
     rawUrl: nonEmptyString.nullable(),
     fileName: nonEmptyString.nullable(),
+    sizeBytes: z.number().int().nonnegative().nullable(),
+    modifiedAt: nonEmptyString.nullable(),
   })
   .strict()
 

@@ -89,6 +89,8 @@ describe("present media", () => {
     )
     expect(output.output.items[0]?.rawUrl).toContain("fileName=outside.png")
     expect(output.output.items[0]?.rawUrl?.includes(encodeURIComponent(localPath))).toBe(false)
+    expect(output.inlineData.items[0]?.sizeBytes).toBe("local-image".length)
+    expect(output.inlineData.items[0]?.modifiedAt).toBeTruthy()
   })
 
   test("registers present_media and returns structured metadata", async () => {

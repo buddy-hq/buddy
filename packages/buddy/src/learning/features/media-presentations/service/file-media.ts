@@ -419,6 +419,8 @@ function buildMediaGalleryData(input: {
             })
           : null,
       fileName: item.fileName,
+      sizeBytes: item.sizeBytes,
+      modifiedAt: item.modifiedAt,
     })),
   }
 }

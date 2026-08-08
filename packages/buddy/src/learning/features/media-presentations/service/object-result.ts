@@ -58,6 +58,8 @@ export function buildPresentedMediaObjectResult(input: {
             availability: item.availability.status,
             rawUrl: item.rawUrl,
             fileName: item.fileName,
+            sizeBytes: item.sizeBytes,
+            modifiedAt: item.modifiedAt,
           })),
         },
         autoOpen: null,
