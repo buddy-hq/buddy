@@ -9,6 +9,12 @@ type Finding = {
 }
 
 const REPO_ROOT = path.resolve(import.meta.dir, "..")
+const DESKTOP_PACKAGE_MANIFEST = "packages/desktop-electron/package.json"
+const WORKSPACE_VERSION_PREFIX = "workspace:"
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
 
 function toPosix(value: string) {
   return value.split(path.sep).join("/")
@@ -77,6 +83,21 @@ function checkViteAliasContract(findings: Finding[]) {
     findings.push({
       file: relativePath,
       message: 'Found forbidden Vite alias remap for "@/...". Use package imports instead.',
+    })
+  }
+}
+
+function checkDesktopRuntimeDependencies(findings: Finding[]) {
+  const manifest: unknown = JSON.parse(
+    readFileSync(path.join(REPO_ROOT, DESKTOP_PACKAGE_MANIFEST), "utf8"),
+  )
+  if (!isRecord(manifest) || !isRecord(manifest.dependencies)) return
+
+  for (const [packageName, version] of Object.entries(manifest.dependencies)) {
+    if (typeof version !== "string" || !version.startsWith(WORKSPACE_VERSION_PREFIX)) continue
+    findings.push({
+      file: DESKTOP_PACKAGE_MANIFEST,
+      message: `Workspace package "${packageName}" is a desktop runtime dependency, so electron-vite will externalize it. Put it in devDependencies so it is bundled into Electron instead.`,
     })
   }
 }
@@ -171,6 +192,7 @@ async function main() {
   const findings: Finding[] = []
 
   checkViteAliasContract(findings)
+  checkDesktopRuntimeDependencies(findings)
   await checkUiAliasImports(findings)
   await checkWebUiBoundary(findings)
   await checkCrossPackageSrcImports(findings)
