@@ -37,7 +37,7 @@ import {
   BenchZoomableViewer,
   type BenchViewerAction,
 } from "@/components/bench/bench-viewer-shell"
-import { FlashcardBenchReview } from "@/components/bench/flashcard-bench-review"
+import { FlashcardBenchDeck } from "@/components/bench/flashcard-bench-deck"
 import { MarkdownBenchPage } from "@/components/bench/markdown-bench-page"
 import { QuestionSetBenchReview } from "@/components/bench/question-set-bench-review"
 import { SvgBenchView } from "@/components/bench/svg-bench-view"
@@ -68,8 +68,11 @@ import { providerCatalogSnapshotQueryOptions } from "@/state/bootstrap-query"
 import type { ProjectExplorerEditableFileState } from "@/state/chat-actions"
 import {
   objectMediaAvailabilityQueryOptions,
+  objectQuestionSetPayloadQueryOptions,
   objectViewQueryOptions,
+  workspaceObjectsQueryKeys,
 } from "@/state/workspace-objects-query"
+import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 import {
   objectBenchSurfaceQueryOptions,
   type ObjectBenchSurfaceData,
@@ -1154,7 +1157,21 @@ function QuestionSetObjectBenchView(props: {
   view: ObjectsViewResponse
   questionSet?: ObjectQuestionSetReadQuestionsResponse
 }) {
-  const questionSet = props.questionSet
+  const queryInput = {
+    directory: props.directory,
+    objectID: props.view.ref.objectID,
+  }
+  const liveQuestionSetQuery = useQuery({
+    ...objectQuestionSetPayloadQueryOptions(queryInput),
+    enabled: props.questionSet !== undefined,
+    initialData: props.questionSet,
+    refetchOnMount: false,
+  })
+  useInvalidateQueryOnChatIdle({
+    directory: props.directory,
+    queryKey: workspaceObjectsQueryKeys.questionSetPayload(queryInput),
+  })
+  const questionSet = liveQuestionSetQuery.data ?? props.questionSet
   if (!questionSet) {
     return (
       <ObjectBenchContextProvider
@@ -1218,7 +1235,7 @@ function FlashcardDeckObjectBenchView(props: {
   }
 
   return (
-    <FlashcardBenchReview
+    <FlashcardBenchDeck
       directory={props.directory}
       objectID={props.deck.objectID}
       target={objectBenchTarget(props.view)}

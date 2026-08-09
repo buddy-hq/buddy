@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, cn } from "@buddy/ui"
 import { CheckIcon, ListIcon, PresentationIcon, XIcon } from "@/icons/app-icons"
-import { objectRef } from "@/components/bench/bench-context-utils"
+import { objectRef, workspaceFileRef } from "@/components/bench/bench-context-utils"
 import {
   useRegisterBenchContextProvider,
   type BenchContextProvider,
@@ -18,6 +18,7 @@ import type {
 } from "@buddy/sdk/types"
 import type { BenchTarget } from "@/lib/bench-navigation"
 import { createIdempotencyKey } from "@/lib/idempotency"
+import { absoluteWorkspaceFilePath } from "@/lib/workspace-file-paths"
 
 type AnswerState = Record<string, string[]>
 type QuestionSetObject = ObjectQuestionSetReadQuestionsResponse
@@ -33,6 +34,9 @@ type QuestionSetBenchReviewProps = {
 
 const HASH_OFFSET_BASIS = 2166136261
 const HASH_MULTIPLIER = 16777619
+const QUESTION_SET_MANAGED_ROOT = ".buddy/objects/v1/question-set"
+const QUESTION_SET_REVISIONS_DIRECTORY = "revisions"
+const QUESTION_SET_PAYLOAD_FILE_NAME = "question-set.json"
 
 function questionCountLabel(count: number) {
   return count === 1 ? "1 question" : `${count} questions`
@@ -138,6 +142,16 @@ function buildQuestionSetVisibleContext(input: {
 }
 
 export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
+  const editPath = absoluteWorkspaceFilePath({
+    directory: props.directory,
+    path: [
+      QUESTION_SET_MANAGED_ROOT,
+      props.questionSet.objectID,
+      QUESTION_SET_REVISIONS_DIRECTORY,
+      props.questionSet.revisionID,
+      QUESTION_SET_PAYLOAD_FILE_NAME,
+    ].join("/"),
+  })
   const [answers, setAnswers] = useState<AnswerState>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
@@ -172,35 +186,45 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
         targetStatus: error ? "error" : "ready",
         title: props.questionSet.title,
         metadata: [
+          `edit_path: ${editPath}`,
           `group_type: ${props.questionSet.groupType}`,
           `question_count: ${props.questionSet.questions.length}`,
           `view_mode: ${viewMode}`,
           `current_step: ${currentStep + 1}`,
           `result_state: ${resultState}`,
         ],
-        content: buildQuestionSetVisibleContext({
-          questionSet: props.questionSet,
-          answers,
-          currentStep,
-          evaluationByQuestionID,
-          orderedChoicesByQuestionID,
-          ...(result ? { result } : {}),
-          viewMode,
-        }),
+        content: [
+          buildQuestionSetVisibleContext({
+            questionSet: props.questionSet,
+            answers,
+            currentStep,
+            evaluationByQuestionID,
+            orderedChoicesByQuestionID,
+            ...(result ? { result } : {}),
+            viewMode,
+          }),
+          `Edit path: ${editPath}`,
+        ].join("\n\n"),
         refs: [
           objectRef({
             objectID: props.questionSet.objectID,
             note: "Question set object on Bench.",
           }),
+          workspaceFileRef({
+            path: editPath,
+            note: "Authoritative question-set payload for minor text edits.",
+          }),
         ],
         hints: [
           "Do not expose correctness, rationales, or explanations before submission visibility.",
+          "For a minor user-requested correction, use the existing file tools to edit only questions[].prompt, questions[].payload.choices[].content, questions[].explanation, or questions[].payload.choices[].rationale in edit_path. Preserve object, revision, question, and choice IDs; correct flags; selection behavior; attempt state; provenance; and every structural field.",
         ],
       }),
     }),
     [
       answers,
       currentStep,
+      editPath,
       error,
       evaluationByQuestionID,
       orderedChoicesByQuestionID,
