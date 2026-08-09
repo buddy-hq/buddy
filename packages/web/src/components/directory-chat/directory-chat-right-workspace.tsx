@@ -14,10 +14,6 @@ import { useQuery } from "@tanstack/react-query"
 import {
   Button,
   Separator,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
   cn,
   toast,
 } from "@buddy/ui"
@@ -155,47 +151,39 @@ function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
     ? railIcon(props.icon as ReactElement<SVGProps<SVGSVGElement>>)
     : props.icon
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={props.label}
-          aria-pressed={props.active}
-          disabled={props.disabled}
-          className={cn(
-            "rounded-lg text-icon-base hover:bg-surface-base-hover hover:text-icon-base",
-            props.active ? "bg-surface-raised-base text-icon-base" : undefined,
-          )}
-          onClick={props.onClick}
-        >
-          {icon}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="left" sideOffset={8}>
-        <p>{props.label}</p>
-      </TooltipContent>
-    </Tooltip>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label={props.label}
+      aria-pressed={props.active}
+      disabled={props.disabled}
+      className={cn(
+        "rounded-lg text-icon-base hover:bg-surface-base-hover hover:text-icon-base",
+        props.active ? "bg-surface-raised-base text-icon-base" : undefined,
+      )}
+      onClick={props.onClick}
+    >
+      {icon}
+    </Button>
   )
 }
 
+/** The rail names its buttons for assistive tech only — no hover tooltips. */
 function RightWorkspaceRail(props: { items: RightWorkspaceRailItem[] }) {
   return (
-    <TooltipProvider delayDuration={350}>
-      <div
-        data-component="right-workspace-rail"
-        className="flex h-full shrink-0 flex-col items-center gap-1 border-l border-border-weaker-base bg-background-base px-1 py-2"
-        style={{ width: RIGHT_WORKSPACE_RAIL_WIDTH_PX }}
-      >
-        {props.items.map((item) => (
-          <Fragment key={item.id}>
-            {item.separatorBefore ? <Separator className="my-1 w-5" /> : null}
-            <RightWorkspaceRailButton {...item} />
-          </Fragment>
-        ))}
-      </div>
-    </TooltipProvider>
+    <div
+      data-component="right-workspace-rail"
+      className="flex h-full shrink-0 flex-col items-center gap-1 border-l border-border-weaker-base bg-background-base px-1 py-2"
+      style={{ width: RIGHT_WORKSPACE_RAIL_WIDTH_PX }}
+    >
+      {props.items.map((item) => (
+        <Fragment key={item.id}>
+          {item.separatorBefore ? <Separator className="my-1 w-5" /> : null}
+          <RightWorkspaceRailButton {...item} />
+        </Fragment>
+      ))}
+    </div>
   )
 }
 
