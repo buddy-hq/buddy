@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { Button, cn } from "@buddy/ui"
+import { cn } from "@buddy/ui"
 import { ArrowLeftIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import { ReviewCardHinge, ReviewRuledHead } from "./flashcard-review-card"
@@ -265,7 +265,10 @@ export function FlashcardReviewStage(props: {
                   variants={reduceMotion ? REVIEW_REDUCED_SWAP_VARIANTS : REVIEW_SWAP_VARIANTS}
                   initial={shouldAnimateReviewSwap(session.cardsReviewed) ? "enter" : false}
                   animate="settled"
-                  exit="leave"
+                  /* Only a card is ever thrown. A phase panel — the "Dealing"
+                     slab the first load opens on — just gives way, so opening a
+                     deck no longer looks like a card flying off the top. */
+                  exit={showCard ? "leave" : "dismiss"}
                   className="absolute inset-0"
                   style={{ transformStyle: "preserve-3d" }}
                 >
@@ -283,6 +286,7 @@ export function FlashcardReviewStage(props: {
                         note={session.note}
                         templateIdx={phase.card.templateIdx}
                         revealed={session.revealed}
+                        onToggle={session.toggleReveal}
                       />
                     ) : missingNote ? (
                       <PhasePanel
@@ -325,9 +329,9 @@ export function FlashcardReviewStage(props: {
                 disabled={session.submitting}
               />
             ) : showCard ? (
-              <Button size="sm" variant="outline" onClick={session.toggleReveal}>
-                {language.t("flashcardDeck.showAnswer")}
-              </Button>
+              <p className="text-[11px] text-text-weaker">
+                {language.t("workspaceFlashcard.flipToReveal")}
+              </p>
             ) : null}
           </div>
         </div>

@@ -1295,7 +1295,7 @@ export const dict = {
   "workspaceFlashcard.noDue": "No cards due",
   "workspaceFlashcard.review": "Review",
   "workspaceFlashcard.reviewComplete": "All done for now!",
-  "workspaceFlashcard.flipToReveal": "Tap to reveal",
+  "workspaceFlashcard.flipToReveal": "Tap the card to reveal",
   "workspaceFlashcard.ratingAgain": "Again",
   "workspaceFlashcard.ratingHard": "Hard",
   "workspaceFlashcard.ratingGood": "Good",

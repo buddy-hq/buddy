@@ -10,7 +10,7 @@ import {
   parseClozeText,
 } from "./flashcard-card-content"
 import type { ReviewNote } from "./flashcard-review-session"
-import type { ReactNode } from "react"
+import type { KeyboardEvent, ReactNode } from "react"
 
 /**
  * The index card.
@@ -140,18 +140,37 @@ export function ReviewCardFace(props: {
 /**
  * The reveal. Both faces are opaque and mounted at once; only `rotateY` moves,
  * so there is no cross-fade and no moment where both are readable.
+ *
+ * The card itself is the reveal affordance when `onToggle` is given. It stays a
+ * `div` with `role="button"` rather than a real `<button>`: a face can carry
+ * Markdown links, and those cannot live inside a button element.
  */
 export function ReviewCardHinge(props: {
   note: ReviewNote
   templateIdx: number
   revealed: boolean
+  onToggle?: () => void
 }) {
   const reduceMotion = useReducedMotion()
   const face = cn("absolute inset-0 overflow-hidden", REVIEW_CARD_RADIUS, REVIEW_CARD_CHROME)
+  const { onToggle } = props
+  const toggle = onToggle
+    ? {
+        role: "button",
+        tabIndex: 0,
+        "aria-label": language.t("workspaceFlashcard.flipToReveal"),
+        onClick: onToggle,
+        onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+          if (event.key !== "Enter" && event.key !== " ") return
+          event.preventDefault()
+          onToggle()
+        },
+      }
+    : {}
 
   if (reduceMotion) {
     return (
-      <div className={face}>
+      <div className={cn(face, onToggle && "cursor-pointer")} {...toggle}>
         <ReviewCardFace
           note={props.note}
           templateIdx={props.templateIdx}
@@ -163,11 +182,12 @@ export function ReviewCardHinge(props: {
 
   return (
     <motion.div
-      className={cn("absolute inset-0 text-left", REVIEW_CARD_RADIUS)}
+      className={cn("absolute inset-0 text-left", REVIEW_CARD_RADIUS, onToggle && "cursor-pointer")}
       style={{ transformStyle: "preserve-3d" }}
       initial={false}
       animate={{ rotateY: props.revealed ? 180 : 0 }}
       transition={REVIEW_HINGE_TRANSITION}
+      {...toggle}
     >
       <div
         ref={(element) => {

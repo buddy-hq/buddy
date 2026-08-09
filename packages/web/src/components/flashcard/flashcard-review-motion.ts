@@ -4,9 +4,10 @@ import type { CardRating } from "./flashcard-review-session"
 /**
  * The card-to-card hand-off.
  *
- *   aim   — hovering a rating leans the card that way, telegraphing the throw
- *   leave — the rating throws the card: Again ← … → Easy, Hard and Good fall
- *   enter — the next card lifts off the deck underneath
+ *   aim     — hovering a rating leans the card that way, telegraphing the throw
+ *   leave   — the rating throws the card: Again ← … → Easy, Hard and Good fall
+ *   enter   — the next card lifts off the deck underneath
+ *   dismiss — a phase panel is replaced; only cards are ever thrown
  *
  * Arrivals decelerate hard so the card looks like it settled rather than
  * stopped; departures accelerate, because a thrown card gets faster.
@@ -62,6 +63,7 @@ export const REVIEW_SWAP_VARIANTS: Variants = {
       transition: { duration: 0.44, ease: EASE_LEAVE },
     }
   },
+  dismiss: { opacity: 0, transition: { duration: 0.12, ease: EASE_LEAVE } },
 }
 
 export const REVIEW_REDUCED_SWAP_VARIANTS: Variants = {
@@ -74,4 +76,5 @@ export const REVIEW_REDUCED_SWAP_VARIANTS: Variants = {
     opacity: 0,
     transition: { duration: 0.08, ease: EASE_LEAVE },
   },
+  dismiss: { opacity: 0, transition: { duration: 0.08, ease: EASE_LEAVE } },
 }

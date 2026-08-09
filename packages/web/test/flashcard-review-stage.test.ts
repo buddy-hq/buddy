@@ -19,6 +19,10 @@ describe("flashcard review stage", () => {
         opacity: 0,
         transition: { duration: 0.08, ease: [0.4, 0.02, 0.85, 0.4] },
       },
+      dismiss: {
+        opacity: 0,
+        transition: { duration: 0.08, ease: [0.4, 0.02, 0.85, 0.4] },
+      },
     })
   })
 })
