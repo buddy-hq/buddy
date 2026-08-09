@@ -168,7 +168,7 @@ Kind-specific stores still own domain behavior:
 
 - Mermaid owns preflight repair, source snapshots, browser render records, failed-render records, supersession, and auto-repair state.
 - Question sets own public answer stripping, attempt records, and attempt evaluation.
-- Flashcards own card scheduling, due counts, next-card selection, pending review recovery, and review records.
+- Flashcards own authoritative queue/count construction, scheduling, pending review recovery, and review records. Their current contract is documented in [Flashcards](../../library-resources/flashcards.md).
 - Media presentations own local-file resolution, media classification, raw-file serving metadata, and current availability.
 - HTML widgets own file-first snapshotting, viewport presets, source/runtime URLs, warnings, and sandbox/CSP behavior.
 - Figures own SVG generation, repair attempts, and raw SVG serving.
@@ -352,4 +352,3 @@ Old roots are intentionally not read:
 ```
 
 The current system has one storage root, one manifest filename, one public ID field, one unified index API, and kind-scoped detail/action routes. The remaining kind-specific code is for actual domain behavior: rendering, review scheduling, attempt evaluation, file availability, sandboxed widget runtime, and SVG generation.
-

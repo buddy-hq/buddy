@@ -383,11 +383,18 @@ If the deck fails these checks, revise before saving.
 ## Success Format 
 If you saved a deck, respond according to this exact schema. No additional description. No other data or text.
 
+Set `edit_path` to the actual, fully resolved OS path to the mutable state file. Start with the
+current workspace's real absolute working directory, append
+`.buddy/objects/v1/flashcard-deck/`, the actual returned object id, and `/state/deck.json`, and put
+the resulting concrete path in the response. On macOS/Linux it must begin with `/`; on Windows it
+must begin with the resolved drive or UNC root. Never return `.buddy/...`, a workspace-relative
+path, a placeholder such as `<workspace>` or `<working-directory>`, or a path under `revisions/`.
+
 ```json
 {
   "type": "object",
   "description": "Successful flashcard deck generation response.",
-  "required": ["instructions", "status", "deck_details"],
+  "required": ["status", "instructionsFromSubagentSystem", "deck_metadata", "edit_path"],
   "properties": {
     "status": {
       "type": "string",
@@ -395,11 +402,15 @@ If you saved a deck, respond according to this exact schema. No additional descr
     },
     "instructionsFromSubagentSystem": {
       "type": "string",
-      "const": "Inspect the deck using the returned deck metadata if needed, but do not reveal or reproduce the flashcard content directly as the app renderes the flashcard on it's own. Never share deck metadata directly with the user. Direct them to view the deck on the screen.",
+      "const": "Inspect the deck using the returned deck metadata if needed, but do not reveal or reproduce the flashcard content directly because the app renders the flashcards. Never share deck metadata directly with the user; direct them to the deck on screen. For later minor user-requested text corrections, the main agent should use its existing file tools to edit only notes[].fields text at edit_path without delegating. Preserve IDs, cards, configuration, review and scheduling state, counters, provenance, and revision files. Use the flashcard-author flow for structural or whole-deck changes.",
     },
     "deck_metadata": {
       "type": "object",
       "description": "JSON returned from `save_flashcard_deck`."
+    },
+    "edit_path": {
+      "type": "string",
+      "description": "The concrete, fully resolved absolute OS path to the deck's authoritative state/deck.json file. It must include the actual workspace directory and actual object id; relative paths, placeholders, and revision paths are invalid."
     }
   },
   "additionalProperties": false

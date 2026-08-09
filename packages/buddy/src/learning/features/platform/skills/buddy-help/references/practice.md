@@ -1,26 +1,27 @@
 ---
 name: practice
-description: "Buddy Practice: flashcards, question sets, SM-2 review, /flashcard, /quiz."
+description: "Buddy Practice drawer and question sets: find, create, open, answer, retry."
 ---
 
 # Practice
 
-Use when the user asks about flashcards, quizzes, question sets, Practice drawer, SM-2 ratings, or how practice objects show up.
+Use when the user asks about the Practice drawer, quizzes, question sets, or where practice objects appear.
 
-Not the chat **question UI** (structured mid-turn Q&A) — see `chat.md`.
+Flashcard scheduling / ratings → `flashcards.md`. Not the chat **question UI** (structured mid-turn Q&A) — `chat.md`.
 
 ## Defaults
 
-- **Practice** = right-rail drawer: flashcard decks + question sets for this notebook.
-- Create via chat, `/flashcard`, or `/quiz`. Open/review via Practice drawer or Bench.
-- Flashcards: spaced review (Again / Hard / Good / Easy). Question sets: MCQ; graded on submit.
+- **Practice** = right-rail drawer: flashcard decks + question sets in this notebook.
+- Rows mix both types, newest activity first.
+- Flashcard row: deck name + card count + **Study N** or next return time.
+- Question-set row: title + question count + **Start**.
 
 ## Open Practice
 
 1. Right workspace rail → **Practice**.
-2. **Ready to review**: total cards due; **Start** opens first deck with due cards on Bench (disabled if none).
-3. Filters: **All** | **Cards** | **Questions**. Search practice…
-4. Click a deck → Bench flashcard review. Click a set → Bench question set.
+2. Header badge = total flashcards due now.
+3. Click a flashcard deck name → deck view on Bench. Click **Study N** → scheduled study.
+4. Click a question set or **Start** → question set on Bench.
 
 Empty: “No practice yet” — ask Buddy to create flashcards or a question set.
 
@@ -28,22 +29,13 @@ Empty: “No practice yet” — ask Buddy to create flashcards or a question se
 
 | Path | What happens |
 | --- | --- |
-| Ask in chat | Buddy authors flashcards or a quiz when available |
-| `/flashcard` [topic] | Flashcard authoring prompt |
-| `/quiz` [topic] | Quiz-create prompt |
+| Ask in chat | Buddy authors flashcards or a question set when available |
+| `/flashcard` [topic] | Create a flashcard deck |
+| `/quiz` [topic] | Create a question set |
 
-After save: chat may show a deck card (**Review**) or an inline quiz. Objects also land in Practice. Save may prompt permissions — `trust.md`.
+After save: object lands in Practice; chat may also show an open/review action. Save may prompt permissions — `trust.md`.
 
-**Card types (product):** basic (front/back) or cloze. One idea per card.
-
-## Review flashcards
-
-1. Practice → deck, chat **Review**, or Bench object.
-2. Front → **Tap to reveal** → rate: **Again** / **Hard** / **Good** / **Easy**.
-3. Scheduler queues learning → review → new (daily caps). Due badges: new / learning / review.
-4. **No cards due** / **All done for now** when empty. Leech warning after many lapses — attention only, not auto-delete.
-
-No user Settings knobs found for SM-2 parameters.
+Flashcard types: basic (front/back) or cloze. Full flow → `flashcards.md`.
 
 ## Question sets (quizzes)
 
@@ -52,16 +44,16 @@ No user Settings knobs found for SM-2 parameters.
 3. Supports multi-select, optional none-of-the-above, optional shuffle.
 4. Retry starts a fresh attempt.
 
-UI: question set / quiz / Questions filter. **Never** call this UI “question dock.”
+UI nouns: question set / quiz. **Never** call this UI “question dock.”
 
 ## Gotchas
 
-- **Start** in Practice only starts a due **deck**, not a question set.
+- Practice header due total counts flashcards, not unanswered quiz questions.
+- Flashcard **Study N** starts scheduled study. Deck-name click opens the deck first.
 - Thin chat with no learnable material → authoring should refuse empty decks.
-- Daily limits can leave cards in a deck but not due today.
-- Practice items are local notebook objects. No Anki import/export claimed.
+- Practice items are local notebook objects. No practice import/export flow claimed.
 - MCQ UI ≠ question UI.
 
 ## Related
 
-- `workspace.md`, `chat.md`, `library.md`, `workspace.md`, `trust.md`
+- `flashcards.md`, `workspace.md`, `chat.md`, `library.md`, `trust.md`

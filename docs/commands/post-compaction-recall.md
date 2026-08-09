@@ -1,5 +1,7 @@
 # Post-compaction recall
 
+This command is for Codex tasks. For Claude sessions, use [Claude post-compaction recall](./claude-post-compaction-recall.md).
+
 Use this command when a task has compacted and the user wants the complete conversational context restored. When the user references this file, execute the procedure; do not merely summarize these instructions.
 
 ## Outcome

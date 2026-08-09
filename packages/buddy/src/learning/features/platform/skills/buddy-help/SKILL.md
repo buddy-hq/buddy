@@ -1,11 +1,11 @@
 ---
 name: buddy-help
-description: "Buddy app help: setup, workspace, notebooks, chat, library, settings, providers, trust; agent basics for newbies only."
+description: "Buddy app help: setup, workspace, notebooks, chat, library, Practice, flashcards, question sets, settings, providers, trust; agent basics for newbies only."
 ---
 
 # Buddy Help
 
-Use when the user asks how Buddy works, how to install/setup/customize it, or where something lives in the app (Bench, notebooks, Settings, skills, providers, memory, permissions).
+Use when the user asks how Buddy works, how to install/setup/customize it, or where something lives in the app (Bench, notebooks, Practice, flashcards, Settings, skills, providers, memory, permissions).
 
 Not for subject teaching (math, history, code lessons as content). Use pedagogy skills for that. This skill is product help only — except `references/basics-of-agents.md` (general agent vocabulary; not Buddy UI).
 
@@ -38,7 +38,8 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | Notebooks, Home, Inbox, Quick Chat, chats, pin/archive, branch, compact | `references/notebooks.md` |
 | Chat box, slash, @, follow-ups, agent questions | `references/chat.md` |
 | Sources, PDF/EPUB, Files, Boards, Creations | `references/library.md` |
-| Flashcards, question sets, Practice | `references/practice.md` |
+| Flashcards, source/content types, images, deck overview, due counts, ratings, scheduling, off-schedule practice | `references/flashcards.md` |
+| Practice drawer, question sets, quizzes | `references/practice.md` |
 | Providers, API keys, ChatGPT login, models, usage | `references/providers.md` |
 | Skills (right rail), MCP servers, Advanced Math / Standards packages | `references/extend.md` |
 | Hand-edit MCP config, enable MCP via buddy.jsonc, notebook mcp override | `references/config-mcp.md` |

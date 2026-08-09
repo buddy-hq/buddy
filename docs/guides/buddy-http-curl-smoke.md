@@ -325,8 +325,9 @@ their feature is in scope:
   `task` tool with `subagent_type: "flashcard-author"` and ask that subagent to
   save a one-card deck. The main chat renders the saved object from task
   metadata, so verify the `task` flow completes, the new `flashcard-deck`
-  object appears in the managed object index, then verify `next-card` and
-  `reviews`.
+  object appears in the managed object index, then verify `queued-cards` and
+  `reviews`. See [Flashcards](../library-resources/flashcards.md) for the
+  scheduler contract.
 - `render_figure`: prompt for a small geometry spec and verify the SVG raw
   route.
 - `render_freeform_figure`: prompt for a simple SVG and verify the SVG raw
@@ -396,7 +397,7 @@ GET /api/objects/question-set/:objectID/questions
 POST /api/objects/question-set/:objectID/attempts
 
 GET /api/objects/flashcard-deck/:objectID/deck
-GET /api/objects/flashcard-deck/:objectID/next-card
+GET /api/objects/flashcard-deck/:objectID/queued-cards
 POST /api/objects/flashcard-deck/:objectID/reviews
 
 GET /api/objects/html-widget/:objectID/source

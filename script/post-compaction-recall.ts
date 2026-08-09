@@ -1,11 +1,17 @@
 #!/usr/bin/env bun
-import { createReadStream } from "node:fs"
 import { mkdir, stat, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import path from "node:path"
-import { createInterface } from "node:readline"
+import {
+  consumeJsonl,
+  isRecord,
+  normalizeText,
+  parseJson,
+  readString,
+  requireFlagValue,
+  UUID_PATTERN,
+} from "./post-compaction-recall-shared"
 
-const THREAD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const DEFAULT_TRANSCRIPT_DIRECTORY = path.join("docs", "local", "post-compaction-recall")
 const INJECTED_USER_PREFIXES = [
   "<recommended_plugins>",
@@ -57,24 +63,6 @@ type CliOptions = {
 }
 
 type CliParseResult = { kind: "help" } | { kind: "run"; options: CliOptions }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function readString(record: Record<string, unknown>, key: string): string | undefined {
-  const value = record[key]
-  return typeof value === "string" ? value : undefined
-}
-
-function parseJson(value: string): unknown {
-  const parsed: unknown = JSON.parse(value)
-  return parsed
-}
-
-function normalizeText(value: string): string {
-  return value.replaceAll("\r\n", "\n").trim()
-}
 
 function quoteMarkdown(value: string): string {
   return normalizeText(value)
@@ -184,7 +172,7 @@ export function createPostCompactionTranscriptBuilder(
   threadId: string,
   capturedOn = new Date().toISOString().slice(0, 10),
 ): TranscriptBuilder {
-  if (!THREAD_ID_PATTERN.test(threadId)) {
+  if (!UUID_PATTERN.test(threadId)) {
     throw new Error(`Invalid Codex thread id: ${threadId}`)
   }
 
@@ -321,34 +309,6 @@ ${renderedEntries}
   return { addRecord, finish }
 }
 
-async function consumeRollout(sourcePath: string, builder: TranscriptBuilder): Promise<boolean> {
-  const input = createReadStream(sourcePath, { encoding: "utf8" })
-  const lines = createInterface({ crlfDelay: Infinity, input })
-  let lineNumber = 0
-  let pendingMalformedLine: number | undefined
-
-  for await (const line of lines) {
-    lineNumber += 1
-    if (line.trim().length === 0) continue
-    if (pendingMalformedLine !== undefined) {
-      throw new Error(
-        `Malformed JSONL record at line ${pendingMalformedLine} is not the trailing record`,
-      )
-    }
-
-    let record: unknown
-    try {
-      record = parseJson(line)
-    } catch {
-      pendingMalformedLine = lineNumber
-      continue
-    }
-    builder.addRecord(record)
-  }
-
-  return pendingMalformedLine !== undefined
-}
-
 async function findRolloutPath(codexHome: string, threadId: string): Promise<string> {
   const glob = new Bun.Glob(`sessions/**/rollout-*-${threadId}.jsonl`)
   const candidates: string[] = []
@@ -377,14 +337,6 @@ async function findRolloutPath(codexHome: string, threadId: string): Promise<str
     throw new Error(`No raw Codex rollout found for thread ${threadId}`)
   }
   return newestCandidate.candidate
-}
-
-function requireFlagValue(args: string[], index: number, flag: string): string {
-  const value = args[index + 1]
-  if (!value || value.startsWith("--")) {
-    throw new Error(`${flag} requires a value`)
-  }
-  return value
 }
 
 function parseCliOptions(args: string[]): CliParseResult {
@@ -420,7 +372,7 @@ function parseCliOptions(args: string[]): CliParseResult {
   }
 
   if (!threadId) throw new Error("A Codex thread id is required")
-  if (!THREAD_ID_PATTERN.test(threadId)) {
+  if (!UUID_PATTERN.test(threadId)) {
     throw new Error(`Invalid Codex thread id: ${threadId}`)
   }
 
@@ -463,7 +415,7 @@ async function main(): Promise<void> {
   }
 
   const builder = createPostCompactionTranscriptBuilder(threadId)
-  const skippedTrailingRecord = await consumeRollout(resolvedSourcePath, builder)
+  const skippedTrailingRecord = await consumeJsonl(resolvedSourcePath, builder.addRecord)
   const transcript = builder.finish(skippedTrailingRecord)
 
   await mkdir(path.dirname(outputPath), { recursive: true })
