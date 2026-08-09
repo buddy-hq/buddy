@@ -14,7 +14,13 @@ import {
   backendDevelopmentWatchRoots,
   resolveBackendDevelopmentRebuildCompletion,
 } from "./electron-vite-build-policy"
+import { resolveElectronBin } from "./electron-bin"
 import { ensureGeneratedSdk, generatedSdkFreshnessInput } from "./dev-sdk"
+import { prepareMacDevElectronExecutable } from "./mac-dev-electron-app"
+import {
+  BUDDY_DEV_INSTANCE_NAME_ENV,
+  formatBuddyDevAppName,
+} from "../src/shared/dev-app-name"
 
 const DEV_COMMAND = "electron-vite"
 const DEV_ARGUMENTS = ["dev"] as const
@@ -31,6 +37,7 @@ const BACKEND_WATCH_DISABLED_ARGUMENT = "--no-backend-watch"
 const BACKEND_RELOAD_SIGNAL_PREFIX = "buddy-electron-backend-reload-"
 const BACKEND_RELOAD_SIGNAL_SUFFIX = ".signal"
 const BACKEND_RELOAD_ACKNOWLEDGEMENT_SUFFIX = ".ack"
+const ELECTRON_EXECUTABLE_PATH_ENV = "ELECTRON_EXEC_PATH"
 const backendDevelopmentReloadEnabled = !process.argv.includes(BACKEND_WATCH_DISABLED_ARGUMENT)
 
 let shuttingDown = false
@@ -64,7 +71,6 @@ const backendReloadAcknowledgementPath = backendReloadSignalPath
   ? `${backendReloadSignalPath}${BACKEND_RELOAD_ACKNOWLEDGEMENT_SUFFIX}`
   : undefined
 const electronViteBinPath = path.resolve(packageRoot, "node_modules/.bin/electron-vite")
-const electronBinaryPathFragment = path.join(repoRoot, "node_modules/.bun/electron@")
 const desktopChannel = readBuddyReleaseChannel()
 
 function resolveDevInstanceName() {
@@ -74,10 +80,9 @@ function resolveDevInstanceName() {
       cwd: repoRoot,
     })
     const branch = result.trim()
-    if (!branch || branch === "main" || branch === "master") return undefined
-    return branch
+    return branch || path.basename(repoRoot)
   } catch {
-    return undefined
+    return path.basename(repoRoot)
   }
 }
 
@@ -117,13 +122,17 @@ function killStaleDesktopDevProcesses() {
       const matchesElectronVite =
         command.includes(electronViteBinPath) ||
         command.includes("electron-vite/bin/electron-vite.js")
-      const matchesBuddyElectron =
-        command.includes(electronBinaryPathFragment) &&
-        command.includes("/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron")
+      const matchesBuddyElectron = electronExecutablePaths.some((executablePath) =>
+        command.includes(executablePath),
+      )
 
       if (!matchesElectronVite && !matchesBuddyElectron) continue
 
-      const isFromCurrentWorktree = command.includes(repoRoot)
+      const isFromCurrentWorktree =
+        command.includes(repoRoot) ||
+        (macDevElectronExecutablePath
+          ? command.includes(macDevElectronExecutablePath)
+          : false)
       if (!isFromCurrentWorktree) continue
 
       treeKill(pid, FORCE_KILL_SIGNAL, () => undefined)
@@ -133,9 +142,20 @@ function killStaleDesktopDevProcesses() {
   }
 }
 
+const devInstanceName = resolveDevInstanceName()
+const sourceElectronExecutablePath = resolveElectronBin(packageRoot)
+const macDevElectronExecutablePath = prepareMacDevElectronExecutable({
+  appName: formatBuddyDevAppName(devInstanceName),
+  electronExecutablePath: sourceElectronExecutablePath,
+  repositoryRoot: repoRoot,
+})
+const electronExecutablePaths = [
+  sourceElectronExecutablePath,
+  ...(macDevElectronExecutablePath ? [macDevElectronExecutablePath] : []),
+]
+
 killStaleDesktopDevProcesses()
 
-const devInstanceName = resolveDevInstanceName()
 if (backendReloadSignalPath) writeFileSync(backendReloadSignalPath, "0\n")
 if (backendReloadAcknowledgementPath) {
   writeFileSync(backendReloadAcknowledgementPath, "0\n")
@@ -148,7 +168,10 @@ const child = spawn(DEV_COMMAND, DEV_ARGUMENTS, {
   env: {
     ...process.env,
     PATH: resolveShellPath(),
-    ...(devInstanceName ? { BUDDY_DEV_INSTANCE_NAME: devInstanceName } : {}),
+    [BUDDY_DEV_INSTANCE_NAME_ENV]: devInstanceName,
+    ...(macDevElectronExecutablePath
+      ? { [ELECTRON_EXECUTABLE_PATH_ENV]: macDevElectronExecutablePath }
+      : {}),
     ...(backendReloadSignalPath
       ? { [BACKEND_DEVELOPMENT_RELOAD_SIGNAL_ENV]: backendReloadSignalPath }
       : {}),

@@ -1,9 +1,9 @@
 import windowState from "electron-window-state"
 import { app, BrowserWindow, nativeImage, nativeTheme } from "electron"
-import { execFileSync } from "node:child_process"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import type { TitlebarTheme } from "../preload/types"
+import { BUDDY_DEV_INSTANCE_NAME_ENV } from "../shared/dev-app-name"
 import { wireContextMenu } from "./context-menu"
 
 type WindowGlobals = {
@@ -40,29 +40,8 @@ function resolveBackgroundColor(): string {
   return nativeTheme.shouldUseDarkColors ? FALLBACK_DARK_BG : FALLBACK_LIGHT_BG
 }
 
-function resolveDevBranchName(): string | undefined {
-  if (app.isPackaged) return undefined
-  const fromEnv = process.env.BUDDY_DEV_INSTANCE_NAME?.trim()
-  if (fromEnv) return fromEnv
-
-  try {
-    const result = execFileSync("git", ["branch", "--show-current"], {
-      encoding: "utf8",
-      cwd: join(root, "../../../.."),
-    })
-    const branch = result.trim()
-    return branch.length > 0 ? branch : undefined
-  } catch {
-    return undefined
-  }
-}
-
 function resolveWindowTitle(): string {
-  const branch = resolveDevBranchName()
-  if (branch && branch !== "main" && branch !== "master") {
-    return `Buddy Dev — ${branch}`
-  }
-  return "Buddy"
+  return app.getName()
 }
 
 function iconsDirectory() {
@@ -221,7 +200,9 @@ function injectGlobals(win: BrowserWindow, globals: WindowGlobals) {
       deepLinks: Array.isArray(deepLinks) ? [...deepLinks] : [],
       version: globals.version,
       assetBaseUrl,
-      devInstanceName: resolveDevBranchName(),
+      devInstanceName: app.isPackaged
+        ? undefined
+        : process.env[BUDDY_DEV_INSTANCE_NAME_ENV]?.trim() || undefined,
       ...(globals.iconUrl || resolvedIconUrl
         ? { iconUrl: globals.iconUrl ?? resolvedIconUrl }
         : {}),

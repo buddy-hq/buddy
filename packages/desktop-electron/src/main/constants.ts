@@ -5,6 +5,11 @@ import {
   type BuddyReleaseChannel,
   isBuddyReleaseChannel,
 } from "@buddy/script/channel"
+import {
+  BUDDY_DEV_APP_NAME,
+  BUDDY_DEV_INSTANCE_NAME_ENV,
+  formatBuddyDevAppName,
+} from "../shared/dev-app-name"
 
 export type ReleaseChannel = BuddyReleaseChannel
 
@@ -40,7 +45,7 @@ export const CHANNEL: ReleaseChannel = isBuddyReleaseChannel(rawChannel)
     : "dev"
 
 const APP_NAMES: Record<ReleaseChannel, string> = {
-  dev: "Buddy Dev",
+  dev: BUDDY_DEV_APP_NAME,
   beta: "Buddy Beta",
   prod: "Buddy",
 }
@@ -63,9 +68,8 @@ export const BACKEND_HEALTH_TIMEOUT_MS = 30_000
 export const UPDATER_ENABLED = app.isPackaged && CHANNEL !== "dev"
 
 export function resolveAppName(packaged: boolean) {
-  const devInstanceName = process.env.BUDDY_DEV_INSTANCE_NAME?.trim()
-  if (!packaged && devInstanceName) return `${APP_NAMES.dev} — ${devInstanceName}`
-  if (!packaged) return APP_NAMES.dev
+  const devInstanceName = process.env[BUDDY_DEV_INSTANCE_NAME_ENV]?.trim()
+  if (!packaged) return formatBuddyDevAppName(devInstanceName)
   return APP_NAMES[CHANNEL]
 }
 
