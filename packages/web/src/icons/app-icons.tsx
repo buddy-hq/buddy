@@ -139,6 +139,7 @@ import {
   Add01Icon as Add01IconData,
   ArrowDown02Icon as ArrowDown02IconData,
   ArrowExpandIcon as ArrowExpandIconData,
+  ArrowExpand02Icon as ArrowExpand02IconData,
   ArrowLeft02Icon as ArrowLeft02IconData,
   ArrowReloadHorizontalIcon as ArrowReloadHorizontalIconData,
   ArrowRight02Icon as ArrowRight02IconData,
@@ -374,6 +375,8 @@ export const Loader2Icon = createIcon(Loading03IconData, "Loader2Icon")
 export const LoaderCircleIcon = createIcon(Loading03IconData, "LoaderCircleIcon")
 export const MapIcon = createIcon(MapsIconData, "MapIcon")
 export const Maximize2Icon = createIcon(ArrowExpandIconData, "Maximize2Icon")
+/** Four-corner expand glyph — reads as "expand" without needing a rotation hack. */
+export const ArrowExpand02Icon = createIcon(ArrowExpand02IconData, "ArrowExpand02Icon")
 export const MessageSquare = createIcon(Message01IconData, "MessageSquare")
 export const MessageSquareIcon = createIcon(Message01IconData, "MessageSquareIcon")
 export const MessageSquareTextIcon = createIcon(Message02IconData, "MessageSquareTextIcon")

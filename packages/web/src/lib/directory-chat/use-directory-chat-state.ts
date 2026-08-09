@@ -69,7 +69,7 @@ const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
   low: "Low",
   medium: "Medium",
   high: "High",
-  xhigh: "Xhigh",
+  xhigh: "Extra High",
 }
 
 function asThinkingLevel(value: string): ThinkingLevel | undefined {

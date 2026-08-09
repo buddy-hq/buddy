@@ -1,7 +1,7 @@
 import { Button, cn } from "@buddy/ui"
 import {
+  ArrowExpand02Icon,
   CornerUpLeftIcon,
-  Maximize2Icon,
   MinusIcon,
   PictureInPicture2Icon,
   SquarePenIcon,
@@ -25,6 +25,12 @@ type ThreadActionPillProps = {
   onMinimizeChat?: () => void
   onDockChat?: () => void
   showHistory?: boolean
+  /**
+   * `auto` draws the pill halo once there is more than one control to group.
+   * `plain` never draws it — for compact window chrome, where a bordered capsule
+   * inside an already-bordered bar is one box too many.
+   */
+  chrome?: "auto" | "plain"
   /** Optional thread title rendered inside the pill (after controls). */
   title?: string
   titleActive?: boolean
@@ -124,7 +130,8 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
   // Single lone control (e.g. new-chat only) should not get the pill "halo" border.
   // Title + any control always uses pill chrome so the label sits inside the shell.
   const usePillChrome =
-    showWindowControls || leadingControlCount > 1 || (hasTitle && hasLeadingControls)
+    (props.chrome ?? "auto") !== "plain" &&
+    (showWindowControls || leadingControlCount > 1 || (hasTitle && hasLeadingControls))
 
   if (!hasLeadingControls && !showWindowControls && !hasTitle) {
     return null
@@ -186,7 +193,7 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
     <div
       className={cn(
         "flex items-center",
-        hasLeadingControls ? "ml-0.5 border-l border-border-weaker-base" : "",
+        hasLeadingControls && usePillChrome ? "ml-0.5 border-l border-border-weaker-base" : "",
       )}
     >
       {props.onMinimizeChat ? (
@@ -215,7 +222,7 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
           title={language.t("sidebar.dockChat")}
           onClick={props.onDockChat}
         >
-          <Maximize2Icon className={cn(styles.icon, "-rotate-90")} />
+          <ArrowExpand02Icon className={styles.icon} />
         </Button>
       ) : null}
     </div>
@@ -257,7 +264,9 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
               "rounded-full border border-border-weaker-base bg-surface-raised-base/60 shadow-xs",
               styles.pill,
             )
-          : "gap-0.5",
+          : // No gap without pill chrome: the square hit areas already hold the glyphs apart, and
+            // an extra gap makes a two-icon cluster read as two loose icons instead of one group.
+            "gap-0",
         props.className,
       )}
     >

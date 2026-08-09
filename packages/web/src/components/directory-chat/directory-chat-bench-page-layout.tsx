@@ -25,9 +25,7 @@ import {
   ThreadActionPill,
   ThreadParentReturnButton,
 } from "@/components/directory-chat/thread-titlebar-controls"
-import { ThreadHistoryPopover } from "@/components/directory-chat/thread-history-popover"
 import { TextShimmer } from "@/components/chat/tools/text-shimmer"
-import { language } from "@/context/language"
 import { RIGHT_WORKSPACE_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-workspace-layout"
 
 type DirectoryChatBenchPageLayoutProps = {
@@ -883,8 +881,24 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
       >
         <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
           {isFloating ? (
+            /*
+             * Compact window chrome: the floating layout exists to give the bench room, so this
+             * bar stays at 36px with flat `chrome="plain"` controls. Pill halos here would nest a
+             * bordered capsule inside an already-bordered bar and cost height for no information.
+             *
+             * Grouping comes from spacing alone, on one scale: adjacent controls touch (their
+             * 24px hit areas hold the 14px glyphs apart), and the only real gap — 8px — separates
+             * a control cluster from the title. Any gap between the icons flattens that contrast
+             * and the bar reads as loose specks rather than two clusters flanking a title.
+             *
+             * The 8px inset keeps the leading control clear of the window's `rounded-2xl` arc.
+             *
+             * No fill of its own: the header inherits the window's surface and is separated by a
+             * hairline alone. A distinct raised band across a 36px strip cuts a small window into
+             * two slabs, which is what made the chrome read as bolted on rather than part of it.
+             */
             <div
-              className="flex h-10 shrink-0 items-center gap-2 border-b border-border-weaker-base bg-surface-raised-base/95 px-3 backdrop-blur cursor-grab active:cursor-grabbing select-none"
+              className="flex h-9 shrink-0 items-center gap-2 border-b border-border-weaker-base/70 px-2 cursor-grab active:cursor-grabbing select-none"
               onPointerDown={startFloatingChatDrag}
             >
               <ThreadParentReturnButton
@@ -895,7 +909,10 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
               />
 
               {props.threadBrowserProps ? (
-                <div className="flex min-w-0 max-w-[34rem] shrink items-center gap-1">
+                <div className="flex min-w-0 max-w-[34rem] shrink items-center gap-2">
+                  {/* History is a real button here, matching the docked titlebar: the title is a
+                      label, not a trigger. Hover-opening a popover off the title made the list
+                      appear while the pointer was only passing through the header. */}
                   <ThreadActionPill
                     sessions={props.threadBrowserProps.sessions}
                     activeSessionID={props.threadBrowserProps.activeSessionID}
@@ -903,43 +920,32 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
                     onSelectSession={props.threadBrowserProps.onSelectSession}
                     notebookName={props.threadBrowserProps.notebookName}
                     onNewSession={props.threadBrowserProps.onNewSession}
-                    showHistory={false}
-                    size="mini"
+                    chrome="plain"
+                    size="compact"
                     className="[-webkit-app-region:no-drag]"
                   />
-                  <ThreadHistoryPopover
-                    sessions={props.threadBrowserProps.sessions}
-                    activeSessionID={props.threadBrowserProps.activeSessionID}
-                    linkedSessionID={props.threadBrowserProps.linkedSessionID}
-                    onSelectSession={props.threadBrowserProps.onSelectSession}
-                    notebookName={props.threadBrowserProps.notebookName}
-                    openOnTriggerHover
-                    trigger={
-                      <button
-                        type="button"
-                        className="block min-w-0 max-w-[28rem] shrink truncate pr-2 text-left text-sm font-normal text-text-strong transition-colors hover:text-text-base [-webkit-app-region:no-drag]"
-                        aria-label={language.t("sidebar.showAllThreads")}
-                      >
-                        <TextShimmer
-                          text={props.threadBrowserProps.sessionTitle}
-                          active={props.threadBrowserProps.isTurnActive ?? false}
-                        />
-                      </button>
-                    }
-                  />
+                  {/* One step off the icons, not two: `text-base` weight-medium made the title the
+                      loudest thing in a bar whose job is to stay quiet under the conversation. */}
+                  <span className="min-w-0 shrink truncate text-xs font-medium tracking-tight text-text-weak">
+                    <TextShimmer
+                      text={props.threadBrowserProps.sessionTitle}
+                      active={props.threadBrowserProps.isTurnActive ?? false}
+                    />
+                  </span>
                 </div>
               ) : null}
 
-              <div className="min-w-0 flex-1" />
-
+              {/* `ml-auto` rather than a flex-1 spacer: a spacer element sits between two `gap-2`
+                  gaps, so the window controls end up 8px further out than the 8px inset. */}
               <ThreadActionPill
                 sessions={[]}
                 onSelectSession={() => undefined}
                 onMinimizeChat={() => onFloatingChatStateChange("minimized")}
                 onDockChat={dockChat}
                 showHistory={false}
-                size="mini"
-                className="[-webkit-app-region:no-drag]"
+                chrome="plain"
+                size="compact"
+                className="ml-auto [-webkit-app-region:no-drag]"
               />
             </div>
           ) : null}

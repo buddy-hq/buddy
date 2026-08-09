@@ -367,7 +367,13 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           {props.children}
         </div>
       ) : (
-        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-1.5 pb-3">
+        /*
+         * The whitespace under the new-chat row is the group gap (`mb-2` on the action
+         * area) plus the first section header's own leading padding (`pt-1.5` in the
+         * toolbar) — 14px, not 8px. The top inset matches that sum so the row sits
+         * centered in its band instead of riding up against the titlebar.
+         */
+        <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-1.5 pt-3.5 pb-3">
           {getStartedFlow.isActive && onStageGetStartedChat ? (
             <GetStartedChats
               chats={getStartedFlow.chats}
