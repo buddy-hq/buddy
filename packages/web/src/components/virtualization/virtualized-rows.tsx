@@ -1,5 +1,9 @@
 import type { ReactNode } from "react"
-import { useVirtualizer } from "@tanstack/react-virtual"
+import {
+  measureElement as measureVirtualElement,
+  observeElementRect,
+  useVirtualizer,
+} from "@tanstack/react-virtual"
 import { cn } from "@buddy/ui"
 import { VIRTUAL_DEFAULT_OVERSCAN } from "./virtualization-defaults"
 
@@ -12,17 +16,35 @@ type VirtualizedRowsProps<TItem, TScrollElement extends Element = HTMLDivElement
   overscan?: number
   measure?: boolean
   className?: string
+  initialRect?: { width: number; height: number }
 }
 
 export function VirtualizedRows<TItem, TScrollElement extends Element = HTMLDivElement>(
   props: VirtualizedRowsProps<TItem, TScrollElement>,
 ) {
+  const fallbackRect = props.initialRect
   const virtualizer = useVirtualizer<TScrollElement, HTMLDivElement>({
     count: props.items.length,
     getScrollElement: props.getScrollElement,
     getItemKey: (index) => props.getItemKey(props.items[index]!, index),
     estimateSize: (index) => props.estimateSize(props.items[index]!, index),
     overscan: props.overscan ?? VIRTUAL_DEFAULT_OVERSCAN,
+    initialRect: fallbackRect,
+    ...(fallbackRect
+      ? {
+          observeElementRect: (instance, callback) =>
+            observeElementRect(instance, (rect) =>
+              callback(rect.height > 0 ? rect : fallbackRect),
+            ),
+          measureElement: (element, entry, instance) => {
+            const measured = measureVirtualElement(element, entry, instance)
+            if (measured > 0) return measured
+            const index = Number(element.getAttribute("data-index"))
+            const item = props.items[index]
+            return item === undefined ? 0 : props.estimateSize(item, index)
+          },
+        }
+      : {}),
   })
 
   const virtualRows = virtualizer.getVirtualItems()

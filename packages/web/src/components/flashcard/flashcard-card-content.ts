@@ -16,6 +16,12 @@ type FlashcardVisibleContent = {
   backText?: string
 }
 
+type FlashcardClozeSegment =
+  | { kind: "text"; text: string }
+  | { kind: "deletion"; ordinal: number; answer: string }
+
+const CLOZE_PATTERN = /\{\{c(\d+)::([\s\S]*?)\}\}/gu
+
 function isBasicFlashcardFields(
   fields: FlashcardBasicFields | FlashcardClozeFields,
 ): fields is FlashcardBasicFields {
@@ -28,14 +34,45 @@ function isClozeFlashcardFields(
   return "text" in fields && !("front" in fields)
 }
 
-function renderClozeText(text: string, ordinal: number, revealed: boolean): string {
-  return text.replace(/\{\{c(\d+)::([^}]+)\}\}/gu, (_match, indexStr: string, answer: string) => {
-    const clozeOrdinal = Number.parseInt(indexStr, 10)
-    if (clozeOrdinal === ordinal) {
-      return revealed ? answer : "[...]"
+function parseClozeText(text: string): FlashcardClozeSegment[] {
+  const segments: FlashcardClozeSegment[] = []
+  const pattern = new RegExp(CLOZE_PATTERN)
+  let cursor = 0
+  let match = pattern.exec(text)
+
+  while (match) {
+    if (match.index > cursor) {
+      segments.push({ kind: "text", text: text.slice(cursor, match.index) })
     }
-    return answer
-  })
+
+    const [full, rawOrdinal, answer] = match
+    if (rawOrdinal === undefined || answer === undefined) {
+      segments.push({ kind: "text", text: full })
+    } else {
+      segments.push({
+        kind: "deletion",
+        ordinal: Number.parseInt(rawOrdinal, 10),
+        answer,
+      })
+    }
+    cursor = match.index + full.length
+    match = pattern.exec(text)
+  }
+
+  if (cursor < text.length) {
+    segments.push({ kind: "text", text: text.slice(cursor) })
+  }
+  return segments
+}
+
+function renderClozeText(text: string, ordinal: number, revealed: boolean): string {
+  return parseClozeText(text)
+    .map((segment) => {
+      if (segment.kind === "text") return segment.text
+      if (segment.ordinal !== ordinal) return segment.answer
+      return revealed ? segment.answer : "[...]"
+    })
+    .join("")
 }
 
 function buildFlashcardVisibleContent(input: {
@@ -75,6 +112,12 @@ export {
   buildFlashcardVisibleContent,
   isBasicFlashcardFields,
   isClozeFlashcardFields,
+  parseClozeText,
   renderClozeText,
 }
-export type { FlashcardBasicFields, FlashcardClozeFields, FlashcardVisibleContent }
+export type {
+  FlashcardBasicFields,
+  FlashcardClozeFields,
+  FlashcardClozeSegment,
+  FlashcardVisibleContent,
+}

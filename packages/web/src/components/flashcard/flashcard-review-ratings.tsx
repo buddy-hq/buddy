@@ -1,84 +1,86 @@
+import { cn } from "@buddy/ui"
 import { language } from "@/context/language"
-import { motion } from "motion/react"
+import { REVIEW_CARD_RADIUS, REVIEW_PAPER, REVIEW_RATING_TONE } from "./flashcard-review-surface"
+import type { CardRating } from "./flashcard-review-session"
 
-type CardRating = "again" | "hard" | "good" | "easy"
+/**
+ * The rating ruler.
+ *
+ * One strip cut from the card: same radius, same border, same paper, cells
+ * divided by the same hairline that rules the card's head. The aim shows as a
+ * coloured rule along the cell's top edge — no pills, no capsules, nothing that
+ * looks dropped on top of the card instead of part of it.
+ *
+ * Hovering a cell also leans the card toward where that rating will throw it,
+ * which is why `onAim` exists: the lean is owned by the stage, not by a cell.
+ */
 
-type FlashcardReviewRatingsProps = {
-  onRate: (rating: CardRating) => void
-  disabled?: boolean
-}
-
-const RATINGS: { rating: CardRating; labelKey: string; className: string }[] = [
-  {
-    rating: "again",
-    labelKey: "workspaceFlashcard.ratingAgain",
-    className:
-      "border-transparent bg-surface-critical-base text-text-on-critical-base hover:bg-surface-critical-base-hover hover:text-text-on-critical-strong shadow-sm",
-  },
-  {
-    rating: "hard",
-    labelKey: "workspaceFlashcard.ratingHard",
-    className:
-      "border-transparent bg-surface-warning-base text-text-on-warning-base hover:bg-surface-warning-base-hover hover:text-text-on-warning-strong shadow-sm",
-  },
-  {
-    rating: "good",
-    labelKey: "workspaceFlashcard.ratingGood",
-    className:
-      "border-transparent bg-surface-success-base text-text-on-success-base hover:bg-surface-success-base-hover hover:text-text-on-success-strong shadow-sm",
-  },
-  {
-    rating: "easy",
-    labelKey: "workspaceFlashcard.ratingEasy",
-    className:
-      "border-transparent bg-surface-interactive-base text-text-on-interactive-base hover:bg-surface-interactive-base-hover shadow-sm",
-  },
+const RATINGS: { rating: CardRating; labelKey: string }[] = [
+  { rating: "again", labelKey: "workspaceFlashcard.ratingAgain" },
+  { rating: "hard", labelKey: "workspaceFlashcard.ratingHard" },
+  { rating: "good", labelKey: "workspaceFlashcard.ratingGood" },
+  { rating: "easy", labelKey: "workspaceFlashcard.ratingEasy" },
 ]
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.1,
-    },
-  },
-}
-
-import { type Variants } from "motion/react"
-
-const buttonVariants: Variants = {
-  hidden: { opacity: 0, y: 10, scale: 0.95 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { type: "spring", stiffness: 300, damping: 20 },
-  },
-}
-
-export function FlashcardReviewRatings({ onRate, disabled }: FlashcardReviewRatingsProps) {
+export function FlashcardRatingRuler(props: {
+  onRate: (rating: CardRating) => void
+  onAim: (rating: CardRating | null) => void
+  aimed: CardRating | null
+  disabled?: boolean
+}) {
   return (
-    <motion.div
-      className="flex items-center justify-center gap-3 px-4 py-4"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
+    <div
+      className={cn(
+        "flex h-full w-full overflow-hidden border border-border-strong-base transition-opacity",
+        REVIEW_CARD_RADIUS,
+        props.disabled && "opacity-50",
+      )}
     >
-      {RATINGS.map(({ rating, labelKey, className }) => (
-        <motion.button
-          key={rating}
-          variants={buttonVariants}
-          whileTap={disabled ? undefined : { scale: 0.96 }}
-          type="button"
-          disabled={disabled}
-          onClick={() => onRate(rating)}
-          className={`cursor-pointer rounded-xl border px-6 py-3 min-w-[80px] text-sm font-semibold transition-colors duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
-        >
-          {language.t(labelKey)}
-        </motion.button>
-      ))}
-    </motion.div>
+      {RATINGS.map(({ rating, labelKey }, index) => {
+        const tone = REVIEW_RATING_TONE[rating]
+        const isAimed = props.aimed === rating
+        return (
+          <button
+            key={rating}
+            type="button"
+            disabled={props.disabled}
+            onClick={() => {
+              props.onAim(null)
+              props.onRate(rating)
+            }}
+            onMouseEnter={() => props.onAim(rating)}
+            onMouseLeave={() => props.onAim(null)}
+            onFocus={() => props.onAim(rating)}
+            onBlur={() => props.onAim(null)}
+            className={cn(
+              "relative flex flex-1 cursor-pointer items-center justify-center transition-colors",
+              REVIEW_PAPER,
+              "hover:bg-surface-float-base disabled:cursor-not-allowed",
+              index > 0 && "border-l border-border-base",
+            )}
+          >
+            {/* At rest the rule still has to read as its rating's colour, so it
+                stays bright; the aim state separates itself with the label
+                colour and the paper lift rather than by brightness alone. */}
+            <span
+              aria-hidden
+              className={cn(
+                "absolute inset-x-0 top-0 h-[3px] transition-opacity",
+                tone.rule,
+                isAimed ? "opacity-100" : "opacity-70",
+              )}
+            />
+            <span
+              className={cn(
+                "text-[12px] font-medium transition-colors",
+                isAimed ? tone.text : "text-text-strong",
+              )}
+            >
+              {language.t(labelKey)}
+            </span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
