@@ -205,6 +205,11 @@ function buildNativeResourceTurnContextPart(context: PromptContext): TurnContext
 }
 
 const BENCH_TURN_CONTEXT_METADATA_LIMIT = 5
+const EDIT_PATH_METADATA_PREFIX = "edit_path: "
+const FLASHCARD_DECK_EDIT_GUIDANCE =
+  "For a minor user-requested flashcard text correction, use the existing file tools to edit only notes[].fields text at edit_path. Preserve IDs, cards, configuration, review and scheduling state, counters, provenance, and revision files. Use the flashcard-author flow for structural or whole-deck changes."
+const QUESTION_SET_EDIT_GUIDANCE =
+  "For a minor user-requested question-set text correction, use the existing file tools to edit only questions[].prompt, questions[].payload.choices[].content, questions[].explanation, or questions[].payload.choices[].rationale at edit_path. Preserve object, revision, question, and choice IDs; correct flags; selection behavior; attempt state; provenance; and every structural field. Do not change object.json or create or repoint revisions. Use the question-set-author flow for structural or whole-set changes."
 const BENCH_DRAWER_LABELS = {
   search: "Search",
   sources: "Sources",
@@ -275,6 +280,17 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
     .slice(0, BENCH_TURN_CONTEXT_METADATA_LIMIT)
     .map((line) => `- ${line}`)
   const metadataBlock = metadataLines.length > 0 ? `Details:\n${metadataLines.join("\n")}\n` : ""
+  const hasEditPath = benchContext.metadata.some((line) =>
+    line.startsWith(EDIT_PATH_METADATA_PREFIX),
+  )
+  const editGuidance =
+    target.type === "object" &&
+    target.ref.kind === "flashcard-deck" &&
+    hasEditPath
+      ? FLASHCARD_DECK_EDIT_GUIDANCE
+      : target.type === "object" && target.ref.kind === "question-set" && hasEditPath
+        ? QUESTION_SET_EDIT_GUIDANCE
+        : ""
 
   const text = [
     "<bench_turn_context>",
@@ -282,6 +298,7 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
     benchDrawerStatusLine(context),
     locationLines.join("\n"),
     metadataBlock.trimEnd(),
+    editGuidance,
     "Use bench_read_context if the learner refers to Bench contents or if exact current Bench context matters.",
     "</bench_turn_context>",
   ]

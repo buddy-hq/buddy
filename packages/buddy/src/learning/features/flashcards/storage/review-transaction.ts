@@ -16,6 +16,7 @@ import {
   ReviewRecordSchema,
   SubmitReviewOutputSchema,
   type FlashcardDeck,
+  type FlashcardQueueLease,
   type ReviewRecord,
   type SubmitReviewOutput,
 } from "../types"
@@ -135,11 +136,13 @@ function flashcardReviewPendingIngestionFile(
 
 function flashcardReviewRequestHash(input: {
   cardID: string
+  queueLease: FlashcardQueueLease
   rating: string
   timeTakenMs: number
 }): string {
   return createIdempotencyRequestHash({
     cardID: input.cardID,
+    queueLease: input.queueLease,
     rating: input.rating,
     timeTakenMs: input.timeTakenMs,
   })
@@ -189,6 +192,7 @@ async function writePendingFlashcardObjectReviewTransaction(input: {
   directory: string
   deck: FlashcardDeck
   record: ReviewRecord
+  queueLease: FlashcardQueueLease
   submissionID: string
   output: SubmitReviewOutput
 }): Promise<FlashcardReviewTransaction> {
@@ -201,6 +205,7 @@ async function writePendingFlashcardObjectReviewTransaction(input: {
     submissionID: input.submissionID,
     requestHash: flashcardReviewRequestHash({
       cardID: input.record.cardID,
+      queueLease: input.queueLease,
       rating: input.record.rating,
       timeTakenMs: input.record.timeTakenMs,
     }),

@@ -15,15 +15,13 @@ import {
 import {
   FlashcardDeckSchema,
   ReviewRecordSchema,
+  type DeckConfig,
   type FlashcardDeck,
   type ReviewRecord,
 } from "../types"
 import { FLASHCARD_DECK_OBJECT_VIEW_ID, flashcardDeckObjectStatePath } from "./save-deck"
-
-type ReviewedTodayCounts = {
-  newCount: number
-  reviewCount: number
-}
+import type { ReviewedTodayCounts } from "./limits"
+import { schedulingDayKey } from "./timing"
 
 function isNodeErrorCode(error: unknown, code: string): boolean {
   return (
@@ -40,34 +38,34 @@ async function readJsonFile<T>(filePath: string, schema: z.ZodSchema<T>): Promis
   return schema.parse(parsed)
 }
 
-function todayISO(timestamp = Date.now()): string {
-  const now = new Date(timestamp)
-  const year = now.getFullYear()
-  const month = `${now.getMonth() + 1}`.padStart(2, "0")
-  const day = `${now.getDate()}`.padStart(2, "0")
-  return `${year}-${month}-${day}`
-}
-
 function countReviewedToday(records: ReviewRecord[]): ReviewedTodayCounts {
   let newCount = 0
   let reviewCount = 0
 
   for (const record of records) {
     if (record.previousState === "new") newCount++
-    if (record.previousState === "review") reviewCount++
+    if (
+      record.previousQueue === "review" ||
+      record.previousQueue === "day-learning" ||
+      (record.previousQueue === undefined && record.previousState === "review")
+    ) {
+      reviewCount++
+    }
   }
 
   return { newCount, reviewCount }
 }
 
-async function readTodayObjectReviewRecords(
-  directory: string,
-  objectID: string,
-): Promise<ReviewRecord[]> {
+async function readTodayObjectReviewRecords(input: {
+  directory: string
+  objectID: string
+  config: DeckConfig
+  now: number
+}): Promise<ReviewRecord[]> {
   const reviewDirectory = BuddyObjectPath.objectFile(
-    directory,
+    input.directory,
     BUDDY_OBJECT_KINDS.flashcardDeck,
-    objectID,
+    input.objectID,
     "state",
     "reviews",
   )
@@ -87,15 +85,29 @@ async function readTodayObjectReviewRecords(
       )
       .map((entry) => readJsonFile(path.join(reviewDirectory, entry.name), ReviewRecordSchema)),
   )
-  const today = todayISO()
-  return records.filter((record) => todayISO(record.answeredAt) === today)
+  const today = schedulingDayKey(input.now, input.config.rolloverHour)
+  return records.filter(
+    (record) => schedulingDayKey(record.answeredAt, input.config.rolloverHour) === today,
+  )
 }
 
-async function readFlashcardObjectReviewedTodayCounts(
-  directory: string,
-  objectID: string,
-): Promise<ReviewedTodayCounts> {
-  return countReviewedToday(await readTodayObjectReviewRecords(directory, objectID))
+async function readFlashcardObjectReviewedTodayCounts(input: {
+  directory: string
+  objectID: string
+  deck: FlashcardDeck
+  config: DeckConfig
+  now: number
+}): Promise<ReviewedTodayCounts> {
+  const schedulingDay = schedulingDayKey(input.now, input.config.rolloverHour)
+  if (input.deck.dailyReviewCounts) {
+    return input.deck.dailyReviewCounts.schedulingDay === schedulingDay
+      ? {
+          newCount: input.deck.dailyReviewCounts.newCount,
+          reviewCount: input.deck.dailyReviewCounts.reviewCount,
+        }
+      : { newCount: 0, reviewCount: 0 }
+  }
+  return countReviewedToday(await readTodayObjectReviewRecords(input))
 }
 
 async function readFlashcardDeckObject(
@@ -111,7 +123,7 @@ async function readFlashcardDeckObject(
   })
 }
 
-export { readFlashcardDeckObject, readFlashcardObjectReviewedTodayCounts, todayISO }
+export { readFlashcardDeckObject, readFlashcardObjectReviewedTodayCounts }
 
 registerBuddyObjectKind({
   kind: BUDDY_OBJECT_KINDS.flashcardDeck,

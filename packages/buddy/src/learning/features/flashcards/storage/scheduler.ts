@@ -1,40 +1,133 @@
-import {
-  type CardRating,
-  type CardState,
-  type DeckConfig,
-  type DueCounts,
-  type FlashcardCard,
+import type {
+  CardQueue,
+  CardRating,
+  CardState,
+  DeckConfig,
+  FlashcardCard,
 } from "../types"
+import {
+  DAYS_TO_MS,
+  learningIntervalCrossesRollover,
+  learningIntervalDays,
+  scheduleDayInterval,
+  schedulerTiming,
+  schedulingDaysLate,
+  type SchedulerTiming,
+} from "./timing"
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const MINUTES_TO_MS = 60_000
-const DAYS_TO_MS = 86_400_000
 const MIN_EASE_FACTOR = 1300
 const EASE_AGAIN_PENALTY = 200
 const EASE_HARD_PENALTY = 150
 const EASE_EASY_BONUS = 150
-const FUZZ_RANGE_FRACTION = 0.05
+const LEARNING_FUZZ_FRACTION = 0.25
+const LEARNING_FUZZ_MAX_SECONDS = 5 * 60
+const MILLISECONDS_PER_SECOND = 1000
+const SECONDS_PER_MINUTE = 60
+const SECONDS_PER_DAY = DAYS_TO_MS / MILLISECONDS_PER_SECOND
+const FNV_OFFSET_BASIS = 2_166_136_261
+const FNV_PRIME = 16_777_619
+const UINT32_RANGE = 4_294_967_296
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const REVIEW_FUZZ_RANGES: readonly {
+  start: number
+  end: number
+  factor: number
+}[] = [
+  { start: 2.5, end: 7, factor: 0.15 },
+  { start: 7, end: 20, factor: 0.1 },
+  { start: 20, end: Number.POSITIVE_INFINITY, factor: 0.05 },
+]
 
-/** Add a small random fuzz to prevent review clustering. */
-function fuzzInterval(interval: number): number {
-  if (interval < 3) return interval
-  const fuzz = Math.max(1, Math.round(interval * FUZZ_RANGE_FRACTION))
-  return interval + Math.floor(Math.random() * (fuzz * 2 + 1)) - fuzz
+type ScheduleResult = {
+  newState: CardState
+  newQueue: CardQueue
+  newInterval: number
+  newEaseFactor: number
+  nextDue: number
+  remainingSteps: number
+  reps: number
+  lapses: number
+  isLeech: boolean
 }
 
-function clampInterval(interval: number, maxInterval: number): number {
-  return Math.max(1, Math.min(Math.round(interval), maxInterval))
+type LearningDelay = {
+  queue: Extract<CardQueue, "learning" | "day-learning">
+  due: number
 }
 
 function clampEaseFactor(easeFactor: number): number {
   return Math.max(MIN_EASE_FACTOR, Math.round(easeFactor))
+}
+
+function minAndMaxReviewIntervals(config: DeckConfig, minimum: number): [number, number] {
+  const maximum = Math.max(1, config.maxInterval)
+  return [Math.min(Math.max(1, Math.round(minimum)), maximum), maximum]
+}
+
+function stableFuzzFactor(cardID: string, reps: number): number {
+  let hash = FNV_OFFSET_BASIS
+  for (const character of cardID) {
+    hash ^= character.charCodeAt(0)
+    hash = Math.imul(hash, FNV_PRIME)
+  }
+  hash ^= reps
+  hash = Math.imul(hash, FNV_PRIME)
+  return (hash >>> 0) / UINT32_RANGE
+}
+
+function reviewFuzzDelta(interval: number): number {
+  if (interval < REVIEW_FUZZ_RANGES[0].start) return 0
+  return REVIEW_FUZZ_RANGES.reduce(
+    (delta, range) =>
+      delta + range.factor * Math.max(0, Math.min(interval, range.end) - range.start),
+    1,
+  )
+}
+
+function constrainedReviewFuzzBounds(
+  interval: number,
+  minimum: number,
+  maximum: number,
+): [number, number] {
+  const boundedMinimum = Math.min(minimum, maximum)
+  const boundedInterval = Math.min(maximum, Math.max(boundedMinimum, interval))
+  const delta = reviewFuzzDelta(boundedInterval)
+  let lower = Math.min(maximum, Math.max(boundedMinimum, Math.round(boundedInterval - delta)))
+  let upper = Math.min(maximum, Math.max(boundedMinimum, Math.round(boundedInterval + delta)))
+
+  if (upper === lower && upper > 2 && upper < maximum) {
+    upper = lower + 1
+  }
+  return [lower, upper]
+}
+
+function withReviewFuzz(input: {
+  interval: number
+  minimum: number
+  maximum: number
+  fuzzFactor: number
+}): number {
+  const [lower, upper] = constrainedReviewFuzzBounds(
+    input.interval,
+    input.minimum,
+    input.maximum,
+  )
+  return Math.floor(lower + input.fuzzFactor * (upper - lower + 1))
+}
+
+function constrainPassingInterval(input: {
+  interval: number
+  minimum: number
+  config: DeckConfig
+  fuzzFactor: number
+}): number {
+  const [minimum, maximum] = minAndMaxReviewIntervals(input.config, input.minimum)
+  return withReviewFuzz({
+    interval: input.interval * input.config.intervalMultiplier,
+    minimum,
+    maximum,
+    fuzzFactor: input.fuzzFactor,
+  })
 }
 
 function listClozeOrdinals(text: string): number[] {
@@ -52,397 +145,428 @@ function listClozeOrdinals(text: string): number[] {
   return [...ordinals].toSorted((left, right) => left - right)
 }
 
-/** Count cloze deletions like {{c1::...}}, {{c2::...}} in a text string. */
-function countClozeDeletions(text: string): number {
-  return listClozeOrdinals(text).length
+function learningStepIndex(steps: readonly number[], remainingSteps: number): number {
+  return Math.min(
+    Math.max(0, steps.length - remainingSteps),
+    Math.max(0, steps.length - 1),
+  )
 }
 
-// ---------------------------------------------------------------------------
-// Schedule a single review answer
-// ---------------------------------------------------------------------------
-
-type ScheduleResult = {
-  newState: CardState
-  newInterval: number
-  newEaseFactor: number
-  nextDue: number
-  remainingSteps: number
-  reps: number
-  lapses: number
-  isLeech: boolean
+function learningStepSeconds(delayMinutes: number): number {
+  return Math.floor(delayMinutes * SECONDS_PER_MINUTE)
 }
 
-function scheduleReview(input: {
-  card: FlashcardCard
-  rating: CardRating
-  config: DeckConfig
-  now: number
-}): ScheduleResult {
-  const { card, rating, config, now } = input
-  const maxInterval = config.maxInterval
+function learningHardDelaySeconds(
+  steps: readonly number[],
+  remainingSteps: number,
+): number | null {
+  if (steps.length === 0) return null
+  const index = learningStepIndex(steps, remainingSteps)
+  const currentMinutes = steps[index] ?? steps[0]
+  const current = learningStepSeconds(currentMinutes)
+  if (index > 0) return current
 
-  switch (card.state) {
-    case "new":
-      return scheduleNewCard({ card, rating, config, now })
-    case "learning":
-      return scheduleLearningCard({ card, rating, config, now, steps: config.learnSteps })
-    case "review":
-      return scheduleReviewCard({ card, rating, config, now, maxInterval })
-    case "relearning":
-      return scheduleLearningCard({ card, rating, config, now, steps: config.relearnSteps })
+  const next = steps[1]
+  if (next !== undefined) {
+    return roundLongLearningDelaySeconds(
+      Math.floor((current + learningStepSeconds(next)) / 2),
+    )
+  }
+
+  return roundLongLearningDelaySeconds(
+    Math.min(Math.floor((current * 3) / 2), current + SECONDS_PER_DAY),
+  )
+}
+
+function roundLongLearningDelaySeconds(delaySeconds: number): number {
+  return delaySeconds > SECONDS_PER_DAY
+    ? Math.round(delaySeconds / SECONDS_PER_DAY) * SECONDS_PER_DAY
+    : delaySeconds
+}
+
+function learningGoodDelaySeconds(
+  steps: readonly number[],
+  remainingSteps: number,
+): number | null {
+  const index = learningStepIndex(steps, remainingSteps)
+  const next = steps[index + 1]
+  return next === undefined ? null : learningStepSeconds(next)
+}
+
+function remainingLearningStepsAfterGood(
+  steps: readonly number[],
+  remainingSteps: number,
+): number {
+  const index = learningStepIndex(steps, remainingSteps)
+  return Math.max(0, steps.length - (index + 1))
+}
+
+function learningDelay(input: {
+  delaySeconds: number
+  timing: SchedulerTiming
+  rolloverHour: number
+  fuzzFactor: number
+}): LearningDelay {
+  const delayMs = input.delaySeconds * MILLISECONDS_PER_SECOND
+  if (learningIntervalCrossesRollover(input.timing, delayMs)) {
+    return {
+      queue: "day-learning",
+      due: scheduleDayInterval(
+        input.timing,
+        learningIntervalDays(input.timing, delayMs),
+        input.rolloverHour,
+      ),
+    }
+  }
+
+  const fuzzWindowSeconds = Math.floor(
+    Math.min(input.delaySeconds * LEARNING_FUZZ_FRACTION, LEARNING_FUZZ_MAX_SECONDS),
+  )
+  const fuzzSeconds = Math.floor(input.fuzzFactor * fuzzWindowSeconds)
+  return {
+    queue: "learning",
+    due:
+      input.timing.now +
+      (input.delaySeconds + fuzzSeconds) * MILLISECONDS_PER_SECOND,
   }
 }
 
-// ---------------------------------------------------------------------------
-// New card → enters learning
-// ---------------------------------------------------------------------------
-
-function scheduleNewCard(input: {
+function graduationResult(input: {
   card: FlashcardCard
-  rating: CardRating
   config: DeckConfig
-  now: number
+  timing: SchedulerTiming
+  interval: number
+  easeFactor: number
+  lapses?: number
 }): ScheduleResult {
-  const { card, rating, config, now } = input
-  const steps = config.learnSteps
-  const base: ScheduleResult = {
-    newState: "learning",
-    newInterval: 0,
-    newEaseFactor: config.initialEaseFactor,
-    nextDue: now,
-    remainingSteps: steps.length > 0 ? steps.length - 1 : 0,
-    reps: card.reps + 1,
-    lapses: card.lapses,
+  const fuzzFactor = stableFuzzFactor(input.card.cardID, input.card.reps)
+  const [minimum, maximum] = minAndMaxReviewIntervals(input.config, 1)
+  const interval = withReviewFuzz({
+    interval: input.interval,
+    minimum,
+    maximum,
+    fuzzFactor,
+  })
+  return {
+    newState: "review",
+    newQueue: "review",
+    newInterval: interval,
+    newEaseFactor: input.easeFactor,
+    nextDue: scheduleDayInterval(input.timing, interval, input.config.rolloverHour),
+    remainingSteps: 0,
+    reps: input.card.reps + 1,
+    lapses: input.lapses ?? input.card.lapses,
     isLeech: false,
   }
-
-  if (steps.length === 0) {
-    // No learning steps → graduate immediately
-    const interval =
-      rating === "easy" ? config.graduatingIntervalEasy : config.graduatingIntervalGood
-    return {
-      ...base,
-      newState: "review",
-      newInterval: interval,
-      nextDue: now + interval * DAYS_TO_MS,
-      remainingSteps: 0,
-    }
-  }
-
-  switch (rating) {
-    case "again":
-      return {
-        ...base,
-        remainingSteps: steps.length - 1,
-        nextDue: now + steps[0] * MINUTES_TO_MS,
-      }
-    case "hard":
-      return {
-        ...base,
-        remainingSteps: steps.length - 1,
-        nextDue: now + steps[0] * MINUTES_TO_MS,
-      }
-    case "good": {
-      if (steps.length <= 1) {
-        // Graduate
-        return {
-          ...base,
-          newState: "review",
-          newInterval: config.graduatingIntervalGood,
-          nextDue: now + config.graduatingIntervalGood * DAYS_TO_MS,
-          remainingSteps: 0,
-        }
-      }
-      return {
-        ...base,
-        remainingSteps: steps.length - 2,
-        nextDue: now + steps[1] * MINUTES_TO_MS,
-      }
-    }
-    case "easy": {
-      // Graduate immediately
-      return {
-        ...base,
-        newState: "review",
-        newInterval: config.graduatingIntervalEasy,
-        newEaseFactor: clampEaseFactor(config.initialEaseFactor + EASE_EASY_BONUS),
-        nextDue: now + config.graduatingIntervalEasy * DAYS_TO_MS,
-        remainingSteps: 0,
-      }
-    }
-  }
 }
-
-// ---------------------------------------------------------------------------
-// Learning / Relearning card → step through or graduate
-// ---------------------------------------------------------------------------
 
 function scheduleLearningCard(input: {
   card: FlashcardCard
   rating: CardRating
   config: DeckConfig
-  now: number
-  steps: number[]
+  timing: SchedulerTiming
+  steps: readonly number[]
+  relearning: boolean
 }): ScheduleResult {
-  const { card, rating, config, now, steps } = input
-  const isRelearning = card.state === "relearning"
-  const currentStepIdx = steps.length - 1 - card.remainingSteps
-
-  const base: ScheduleResult = {
-    newState: card.state,
+  const { card, config, steps, timing } = input
+  const fuzzFactor = stableFuzzFactor(card.cardID, card.reps)
+  const currentRemaining = card.state === "new" ? steps.length : card.remainingSteps
+  const learningState: Extract<CardState, "learning" | "relearning"> = input.relearning
+    ? "relearning"
+    : "learning"
+  const base = {
+    newState: learningState,
     newInterval: card.interval,
-    newEaseFactor: card.easeFactor,
-    nextDue: now,
-    remainingSteps: card.remainingSteps,
+    newEaseFactor: input.relearning ? card.easeFactor : config.initialEaseFactor,
     reps: card.reps + 1,
     lapses: card.lapses,
     isLeech: false,
   }
 
-  if (steps.length === 0) {
-    // Graduate immediately
-    const interval = isRelearning ? Math.max(1, card.interval) : config.graduatingIntervalGood
-    return {
-      ...base,
-      newState: "review",
-      newInterval: interval,
-      nextDue: now + interval * DAYS_TO_MS,
-      remainingSteps: 0,
-    }
-  }
-
-  switch (rating) {
-    case "again": {
-      // Reset to first step
-      const stepMs = steps[0] * MINUTES_TO_MS
-      return {
-        ...base,
-        remainingSteps: steps.length - 1,
-        nextDue: now + stepMs,
-      }
-    }
-    case "hard": {
-      // Repeat current step
-      const stepIdx = Math.min(currentStepIdx, steps.length - 1)
-      return {
-        ...base,
-        nextDue: now + steps[stepIdx] * MINUTES_TO_MS,
-      }
-    }
-    case "good": {
-      const nextStepIdx = currentStepIdx + 1
-      if (nextStepIdx >= steps.length) {
-        // Graduate
-        const interval = isRelearning ? Math.max(1, card.interval) : config.graduatingIntervalGood
-        return {
-          ...base,
-          newState: "review",
-          newInterval: interval,
-          nextDue: now + interval * DAYS_TO_MS,
-          remainingSteps: 0,
-        }
-      }
-      return {
-        ...base,
-        remainingSteps: steps.length - 1 - nextStepIdx,
-        nextDue: now + steps[nextStepIdx] * MINUTES_TO_MS,
-      }
-    }
-    case "easy": {
-      // Graduate immediately
-      const interval = isRelearning
-        ? Math.max(config.graduatingIntervalEasy, card.interval)
-        : config.graduatingIntervalEasy
+  const graduateGood = (): ScheduleResult => {
+    if (input.relearning) {
+      const interval = Math.max(1, card.interval)
       return {
         ...base,
         newState: "review",
+        newQueue: "review",
         newInterval: interval,
-        newEaseFactor: clampEaseFactor(card.easeFactor + EASE_EASY_BONUS),
-        nextDue: now + interval * DAYS_TO_MS,
+        nextDue: scheduleDayInterval(timing, interval, config.rolloverHour),
+        remainingSteps: 0,
+      }
+    }
+    return graduationResult({
+      card,
+      config,
+      timing,
+      interval: config.graduatingIntervalGood,
+      easeFactor: base.newEaseFactor,
+    })
+  }
+
+  switch (input.rating) {
+    case "again": {
+      const firstStep = steps[0]
+      if (firstStep === undefined) return graduateGood()
+      const delay = learningDelay({
+        delaySeconds: learningStepSeconds(firstStep),
+        timing,
+        rolloverHour: config.rolloverHour,
+        fuzzFactor,
+      })
+      return {
+        ...base,
+        newQueue: delay.queue,
+        newInterval: input.relearning ? failingReviewInterval({ card, config }) : base.newInterval,
+        nextDue: delay.due,
+        remainingSteps: steps.length,
+      }
+    }
+    case "hard": {
+      const delaySeconds = learningHardDelaySeconds(steps, currentRemaining)
+      if (delaySeconds === null) return graduateGood()
+      const delay = learningDelay({
+        delaySeconds,
+        timing,
+        rolloverHour: config.rolloverHour,
+        fuzzFactor,
+      })
+      return {
+        ...base,
+        newQueue: delay.queue,
+        nextDue: delay.due,
+        remainingSteps: currentRemaining,
+      }
+    }
+    case "good": {
+      const delaySeconds = learningGoodDelaySeconds(steps, currentRemaining)
+      if (delaySeconds === null) return graduateGood()
+      const delay = learningDelay({
+        delaySeconds,
+        timing,
+        rolloverHour: config.rolloverHour,
+        fuzzFactor,
+      })
+      return {
+        ...base,
+        newQueue: delay.queue,
+        nextDue: delay.due,
+        remainingSteps: remainingLearningStepsAfterGood(steps, currentRemaining),
+      }
+    }
+    case "easy": {
+      if (input.relearning) {
+        const interval = Math.max(1, card.interval) + 1
+        return {
+          ...base,
+          newState: "review",
+          newQueue: "review",
+          newInterval: interval,
+          nextDue: scheduleDayInterval(timing, interval, config.rolloverHour),
+          remainingSteps: 0,
+        }
+      }
+
+      const [minimum, maximum] = minAndMaxReviewIntervals(config, 1)
+      const goodInterval = withReviewFuzz({
+        interval: config.graduatingIntervalGood,
+        minimum,
+        maximum,
+        fuzzFactor,
+      })
+      const easyInterval = withReviewFuzz({
+        interval: config.graduatingIntervalEasy,
+        minimum: Math.min(maximum, goodInterval + 1),
+        maximum,
+        fuzzFactor,
+      })
+      return {
+        ...base,
+        newState: "review",
+        newQueue: "review",
+        newInterval: easyInterval,
+        nextDue: scheduleDayInterval(timing, easyInterval, config.rolloverHour),
         remainingSteps: 0,
       }
     }
   }
 }
 
-// ---------------------------------------------------------------------------
-// Review card → reschedule or lapse
-// ---------------------------------------------------------------------------
+function leechThresholdMet(lapses: number, threshold: number): boolean {
+  if (threshold <= 0) return false
+  const halfThreshold = Math.max(1, Math.ceil(threshold / 2))
+  return lapses >= threshold && (lapses - threshold) % halfThreshold === 0
+}
+
+function passingReviewIntervals(input: {
+  card: FlashcardCard
+  config: DeckConfig
+  timing: SchedulerTiming
+}): { hard: number; good: number; easy: number } {
+  const currentInterval = Math.max(1, input.card.interval)
+  const daysLate = schedulingDaysLate(
+    input.card.due,
+    input.timing.now,
+    input.config.rolloverHour,
+  )
+  const fuzzFactor = stableFuzzFactor(input.card.cardID, input.card.reps)
+  const hardMinimum =
+    input.config.hardMultiplier <= 1 ? 1 : Math.round(input.card.interval) + 1
+  const hard = constrainPassingInterval({
+    interval: currentInterval * input.config.hardMultiplier,
+    minimum: hardMinimum,
+    config: input.config,
+    fuzzFactor,
+  })
+  const goodMinimum =
+    input.config.hardMultiplier <= 1 ? Math.round(input.card.interval) + 1 : hard + 1
+  const good = constrainPassingInterval({
+    interval: (currentInterval + daysLate / 2) * (input.card.easeFactor / 1000),
+    minimum: goodMinimum,
+    config: input.config,
+    fuzzFactor,
+  })
+  const easy = constrainPassingInterval({
+    interval:
+      (currentInterval + daysLate) *
+      (input.card.easeFactor / 1000) *
+      input.config.easyMultiplier,
+    minimum: good + 1,
+    config: input.config,
+    fuzzFactor,
+  })
+  return { hard, good, easy }
+}
+
+function failingReviewInterval(input: {
+  card: FlashcardCard
+  config: DeckConfig
+}): number {
+  const [minimum, maximum] = minAndMaxReviewIntervals(
+    input.config,
+    input.config.minimumLapseInterval,
+  )
+  return withReviewFuzz({
+    interval: Math.max(1, input.card.interval) * input.config.lapseMultiplier,
+    minimum,
+    maximum,
+    fuzzFactor: stableFuzzFactor(input.card.cardID, input.card.reps),
+  })
+}
 
 function scheduleReviewCard(input: {
   card: FlashcardCard
   rating: CardRating
   config: DeckConfig
-  now: number
-  maxInterval: number
+  timing: SchedulerTiming
 }): ScheduleResult {
-  const { card, rating, config, now, maxInterval } = input
-
-  const base: ScheduleResult = {
+  const { card, config, timing } = input
+  const intervals = passingReviewIntervals(input)
+  const base: Omit<ScheduleResult, "newInterval" | "nextDue"> = {
     newState: "review",
-    newInterval: card.interval,
+    newQueue: "review",
     newEaseFactor: card.easeFactor,
-    nextDue: now,
     remainingSteps: 0,
     reps: card.reps + 1,
     lapses: card.lapses,
     isLeech: false,
   }
 
-  switch (rating) {
+  switch (input.rating) {
     case "again": {
-      // Lapse
-      const newLapses = card.lapses + 1
+      const lapses = card.lapses + 1
+      const lapseInterval = failingReviewInterval({ card, config })
       const newEaseFactor = clampEaseFactor(card.easeFactor - EASE_AGAIN_PENALTY)
-      const isLeech = newLapses >= config.leechThreshold && newLapses % config.leechThreshold === 0
-
-      if (config.relearnSteps.length === 0) {
-        // No relearning steps → stay in review with reduced interval
-        const newInterval =
-          config.lapseMultiplier > 0
-            ? clampInterval(card.interval * config.lapseMultiplier, maxInterval)
-            : 1
+      const isLeech = leechThresholdMet(lapses, config.leechThreshold)
+      const firstRelearnStep = config.relearnSteps[0]
+      if (firstRelearnStep === undefined) {
         return {
           ...base,
-          newState: "review",
-          newInterval,
+          newInterval: lapseInterval,
           newEaseFactor,
-          nextDue: now + newInterval * DAYS_TO_MS,
-          lapses: newLapses,
+          nextDue: scheduleDayInterval(timing, lapseInterval, config.rolloverHour),
+          lapses,
           isLeech,
         }
       }
 
+      const delay = learningDelay({
+        delaySeconds: learningStepSeconds(firstRelearnStep),
+        timing,
+        rolloverHour: config.rolloverHour,
+        fuzzFactor: stableFuzzFactor(card.cardID, card.reps),
+      })
       return {
         ...base,
         newState: "relearning",
-        newInterval:
-          config.lapseMultiplier > 0
-            ? clampInterval(card.interval * config.lapseMultiplier, maxInterval)
-            : 1,
+        newQueue: delay.queue,
+        newInterval: lapseInterval,
         newEaseFactor,
-        nextDue: now + config.relearnSteps[0] * MINUTES_TO_MS,
-        remainingSteps: config.relearnSteps.length - 1,
-        lapses: newLapses,
+        nextDue: delay.due,
+        remainingSteps: config.relearnSteps.length,
+        lapses,
         isLeech,
       }
     }
-    case "hard": {
-      const newEaseFactor = clampEaseFactor(card.easeFactor - EASE_HARD_PENALTY)
-      const rawInterval = card.interval * config.hardMultiplier
-      const newInterval = clampInterval(fuzzInterval(rawInterval), maxInterval)
+    case "hard":
       return {
         ...base,
-        newInterval,
-        newEaseFactor,
-        nextDue: now + newInterval * DAYS_TO_MS,
+        newInterval: intervals.hard,
+        newEaseFactor: clampEaseFactor(card.easeFactor - EASE_HARD_PENALTY),
+        nextDue: scheduleDayInterval(timing, intervals.hard, config.rolloverHour),
       }
-    }
-    case "good": {
-      const rawInterval = card.interval * (card.easeFactor / 1000)
-      const newInterval = clampInterval(
-        fuzzInterval(Math.max(rawInterval, card.interval + 1)),
-        maxInterval,
-      )
+    case "good":
       return {
         ...base,
-        newInterval,
-        nextDue: now + newInterval * DAYS_TO_MS,
+        newInterval: intervals.good,
+        nextDue: scheduleDayInterval(timing, intervals.good, config.rolloverHour),
       }
-    }
-    case "easy": {
-      const newEaseFactor = clampEaseFactor(card.easeFactor + EASE_EASY_BONUS)
-      const rawInterval = card.interval * (card.easeFactor / 1000) * config.easyMultiplier
-      const newInterval = clampInterval(
-        fuzzInterval(Math.max(rawInterval, card.interval + 1)),
-        maxInterval,
-      )
+    case "easy":
       return {
         ...base,
-        newInterval,
-        newEaseFactor,
-        nextDue: now + newInterval * DAYS_TO_MS,
+        newInterval: intervals.easy,
+        newEaseFactor: card.easeFactor + EASE_EASY_BONUS,
+        nextDue: scheduleDayInterval(timing, intervals.easy, config.rolloverHour),
       }
-    }
   }
 }
 
-// ---------------------------------------------------------------------------
-// Due counts
-// ---------------------------------------------------------------------------
-
-function computeDueCounts(cards: FlashcardCard[], now: number): DueCounts {
-  let newCount = 0
-  let learningCount = 0
-  let reviewCount = 0
-
-  for (const card of cards) {
-    switch (card.state) {
-      case "new":
-        newCount++
-        break
-      case "learning":
-      case "relearning":
-        if (card.due <= now) learningCount++
-        break
-      case "review":
-        if (card.due <= now) reviewCount++
-        break
-    }
-  }
-
-  return { new: newCount, learning: learningCount, review: reviewCount }
-}
-
-// ---------------------------------------------------------------------------
-// Select next due card (learning first, then review, then new)
-// ---------------------------------------------------------------------------
-
-function selectNextDueCard(input: {
-  cards: FlashcardCard[]
+/**
+ * Apply one rating using the applicable subset of Anki's legacy scheduling
+ * states. Queue eligibility and counts are deliberately owned by queue.ts.
+ */
+function scheduleReview(input: {
+  card: FlashcardCard
+  rating: CardRating
   config: DeckConfig
   now: number
-  reviewedToday: { newCount: number; reviewCount: number }
-}): FlashcardCard | undefined {
-  const { cards, config, now, reviewedToday } = input
-
-  // 1. Learning/relearning cards that are due (sorted by due time)
-  const learningDue = cards
-    .filter((card) => (card.state === "learning" || card.state === "relearning") && card.due <= now)
-    .toSorted((a, b) => a.due - b.due)
-
-  if (learningDue.length > 0) return learningDue[0]
-
-  // 2. Review cards that are due (sorted by due time)
-  if (reviewedToday.reviewCount < config.reviewsPerDay) {
-    const reviewDue = cards
-      .filter((card) => card.state === "review" && card.due <= now)
-      .toSorted((a, b) => a.due - b.due)
-
-    if (reviewDue.length > 0) return reviewDue[0]
+}): ScheduleResult {
+  const timing = schedulerTiming(input.now, input.config.rolloverHour)
+  switch (input.card.state) {
+    case "new":
+    case "learning":
+      return scheduleLearningCard({
+        ...input,
+        timing,
+        steps: input.config.learnSteps,
+        relearning: false,
+      })
+    case "relearning":
+      return scheduleLearningCard({
+        ...input,
+        timing,
+        steps: input.config.relearnSteps,
+        relearning: true,
+      })
+    case "review":
+      return scheduleReviewCard({ ...input, timing })
   }
-
-  // 3. New cards (FIFO order by cardID which is a ULID = creation order)
-  if (reviewedToday.newCount < config.newPerDay) {
-    const newCards = cards
-      .filter((card) => card.state === "new")
-      .toSorted((a, b) => a.cardID.localeCompare(b.cardID))
-
-    if (newCards.length > 0) return newCards[0]
-  }
-
-  return undefined
 }
 
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
-
 export {
-  computeDueCounts,
-  countClozeDeletions,
+  constrainedReviewFuzzBounds,
+  leechThresholdMet,
   listClozeOrdinals,
   scheduleReview,
-  selectNextDueCard,
 }
 export type { ScheduleResult }

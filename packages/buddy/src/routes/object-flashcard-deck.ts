@@ -14,12 +14,17 @@ import { BuddyObjectIDSchema, mapBuddyObjectRouteError } from "../objects"
 import { readFlashcardDeckObject } from "../learning/features/flashcards/storage/read-deck"
 import {
   FlashcardCardNotFoundError,
-  getNextFlashcardObjectForReview,
+  FlashcardCardNotQueuedError,
+  getQueuedFlashcardObjectsForReview,
   submitFlashcardObjectReview,
 } from "../learning/features/flashcards/storage/review"
 import {
-  FlashcardCardSchema,
+  DEFAULT_FLASHCARD_QUEUE_FETCH_LIMIT,
+  MAX_FLASHCARD_QUEUE_FETCH_LIMIT,
+} from "../learning/features/flashcards/storage/queue"
+import {
   FlashcardDeckSchema,
+  FlashcardQueuedCardsSchema,
   SubmitReviewInputSchema,
   SubmitReviewOutputSchema,
 } from "../learning/features/flashcards/types"
@@ -30,15 +35,21 @@ const objectIDParamSchema = z
   })
   .strict()
 
-const nextCardResponseSchema = z
-  .object({
-    card: FlashcardCardSchema.nullable(),
-  })
-  .strict()
+const queuedCardsQuerySchema = directoryQuerySchema.extend({
+  fetchLimit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_FLASHCARD_QUEUE_FETCH_LIMIT)
+    .default(DEFAULT_FLASHCARD_QUEUE_FETCH_LIMIT),
+})
 
 function mapFlashcardObjectRouteError(error: unknown): Response | undefined {
   if (error instanceof FlashcardCardNotFoundError) {
     return Response.json({ error: error.message }, { status: 404 })
+  }
+  if (error instanceof FlashcardCardNotQueuedError) {
+    return Response.json({ error: error.message }, { status: 409 })
   }
   return mapIdempotencyRouteError(error) ?? mapBuddyObjectRouteError(error)
 }
@@ -78,33 +89,35 @@ export const ObjectFlashcardDeckRoutes = new Hono()
       ),
   )
   .get(
-    "/:objectID/next-card",
+    "/:objectID/queued-cards",
     describeRoute({
-      operationId: "objectFlashcardDeck.nextCard",
-      summary: "Get the next due card for a flashcard-deck object review",
+      operationId: "objectFlashcardDeck.queuedCards",
+      summary: "Get authoritative queued cards and remaining counts for a flashcard deck",
       responses: {
         200: {
-          description: "Next card to review, or null if none due",
+          description: "Queued cards and counts produced by the same scheduler queue",
           content: {
             "application/json": {
-              schema: resolver(nextCardResponseSchema),
+              schema: resolver(FlashcardQueuedCardsSchema),
             },
           },
         },
         ...routeErrors(400, 403, 404, 410, 500),
       },
     }),
-    validator("query", directoryQuerySchema),
+    validator("query", queuedCardsQuerySchema),
     validator("param", objectIDParamSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const card = await getNextFlashcardObjectForReview({
+            const query = c.req.valid("query")
+            const queue = await getQueuedFlashcardObjectsForReview({
               directory: context.directory,
               objectID: c.req.valid("param").objectID,
+              fetchLimit: query.fetchLimit,
             })
-            return c.json({ card: card ?? null })
+            return c.json(queue)
           },
           mapError: mapFlashcardObjectRouteError,
         }),
@@ -142,6 +155,7 @@ export const ObjectFlashcardDeckRoutes = new Hono()
               directory: context.directory,
               objectID,
               cardID: payload.cardID,
+              queueLease: payload.queueLease,
               rating: payload.rating,
               timeTakenMs: payload.timeTakenMs,
               submissionID,

@@ -16,6 +16,7 @@ import {
 } from "../../src/objects"
 import { readFlashcardDeckObject } from "../../src/learning/features/flashcards/storage/read-deck"
 import { writePendingFlashcardObjectReviewTransaction } from "../../src/learning/features/flashcards/storage/review-transaction"
+import { DAYS_TO_MS } from "../../src/learning/features/flashcards/storage/timing"
 import { Global } from "../../src/storage/global"
 import {
   buildFlashcardNotesAndCards,
@@ -27,7 +28,9 @@ import {
   DeckConfigSchema,
   FLASHCARD_DECK_KIND,
   FlashcardDeckSchema,
+  FlashcardQueuedCardsSchema,
   ReviewRecordSchema,
+  SubmitReviewOutputSchema,
 } from "../../src/learning/features/flashcards/types"
 import type { FlashcardDeck } from "../../src/learning/features/flashcards/types"
 import type { SaveFlashcardDeckInput } from "../../src/learning/features/flashcards/tools/save-flashcard-deck"
@@ -90,17 +93,6 @@ const ObjectReadBodySchema = z
           .strict(),
       })
       .passthrough(),
-  })
-  .strict()
-
-const NextCardBodySchema = z
-  .object({
-    card: z
-      .object({
-        cardID: z.string(),
-      })
-      .passthrough()
-      .nullable(),
   })
   .strict()
 
@@ -327,7 +319,7 @@ describe("flashcard tools and routes", () => {
     expect(readBody.manifest.origin.subagent).toBe("flashcard-author")
   })
 
-  test("returns no next card when the configured new-card quota is zero", async () => {
+  test("returns one authoritative empty queue when the configured new-card quota is zero", async () => {
     await using project = await tmpdir({ git: true })
     const saved = await saveFlashcardDeckWithTool(project.path, "ses_flashcard_quota")
 
@@ -343,26 +335,302 @@ describe("flashcard tools and routes", () => {
     await fs.writeFile(statePath, JSON.stringify(updatedDeck), "utf8")
 
     const response = await app.request(
-      `/api/objects/flashcard-deck/${saved.ref.objectID}/next-card?directory=${encodeURIComponent(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/queued-cards?directory=${encodeURIComponent(
         project.path,
       )}`,
     )
 
     expect(response.status).toBe(200)
-    expect(NextCardBodySchema.parse(await response.json()).card).toBeNull()
+    const queue = FlashcardQueuedCardsSchema.parse(await response.json())
+    expect(queue.cards).toEqual([])
+    expect(queue.queueLease).toBeNull()
+    expect(queue.newCount).toBe(0)
+    expect(queue.learningCount).toBe(0)
+    expect(queue.reviewCount).toBe(0)
+    expect(queue.completion.newLimitReached).toBe(true)
+  })
+
+  test("rejects a card that is not first in the authoritative queue", async () => {
+    await using project = await tmpdir({ git: true })
+    const saved = await saveFlashcardDeckWithTool(project.path, "ses_flashcard_queue_order")
+    const queuedCardsResponse = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/queued-cards?fetchLimit=2&directory=${encodeURIComponent(
+        project.path,
+      )}`,
+    )
+    const queue = FlashcardQueuedCardsSchema.parse(await queuedCardsResponse.json())
+    const secondCard = queue.cards[1]
+    const queueLease = queue.queueLease
+    expect(secondCard).toBeDefined()
+    expect(queueLease).not.toBeNull()
+    if (!secondCard || !queueLease) return
+
+    const response = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/reviews?directory=${encodeURIComponent(
+        project.path,
+      )}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          cardID: secondCard.cardID,
+          queueLease,
+          rating: "good",
+          timeTakenMs: 500,
+        }),
+      },
+    )
+
+    expect(response.status).toBe(409)
+    const deck = await readFlashcardDeckObject(project.path, saved.ref.objectID)
+    expect(deck.cards.find((card) => card.cardID === secondCard.cardID)?.reps).toBe(0)
+  })
+
+  test("rejects a queue lease forged for a future due time", async () => {
+    await using project = await tmpdir({ git: true })
+    const saved = await saveFlashcardDeckWithTool(project.path, "ses_flashcard_future_lease")
+    const statePath = flashcardDeckStateFile(project.path, saved.ref.objectID)
+    const deck = FlashcardDeckSchema.parse(JSON.parse(await fs.readFile(statePath, "utf8")))
+    const futureCard = deck.cards[0]
+    expect(futureCard).toBeDefined()
+    if (!futureCard) return
+
+    const now = Date.now()
+    const due = now + DAYS_TO_MS
+    const cards = deck.cards.map((card, index) => ({
+      ...card,
+      state: "review",
+      queue: "review",
+      due: due + index,
+      interval: 1,
+      reps: 1,
+    }))
+    await fs.writeFile(
+      statePath,
+      JSON.stringify(FlashcardDeckSchema.parse({ ...deck, cards })),
+      "utf8",
+    )
+
+    const response = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/reviews?directory=${encodeURIComponent(
+        project.path,
+      )}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          cardID: futureCard.cardID,
+          queueLease: {
+            queuedAt: due,
+            card: {
+              cardID: futureCard.cardID,
+              state: "review",
+              queue: "review",
+              due,
+              interval: 1,
+              easeFactor: futureCard.easeFactor,
+              reps: 1,
+              lapses: futureCard.lapses,
+              remainingSteps: futureCard.remainingSteps,
+            },
+          },
+          rating: "good",
+          timeTakenMs: 500,
+        }),
+      },
+    )
+
+    expect(response.status).toBe(409)
+    const persisted = await readFlashcardDeckObject(project.path, saved.ref.objectID)
+    expect(persisted.cards.find((card) => card.cardID === futureCard.cardID)?.reps).toBe(1)
+  })
+
+  test("accepts the served card when a learning card becomes due before the answer", async () => {
+    await using project = await tmpdir({ git: true })
+    const saved = await saveFlashcardDeckWithTool(project.path, "ses_flashcard_queue_lease")
+    const statePath = flashcardDeckStateFile(project.path, saved.ref.objectID)
+    const deck = FlashcardDeckSchema.parse(JSON.parse(await fs.readFile(statePath, "utf8")))
+    const servedCard = deck.cards[0]
+    const learningCard = deck.cards[1]
+    expect(servedCard).toBeDefined()
+    expect(learningCard).toBeDefined()
+    if (!servedCard || !learningCard) return
+
+    const originalDateNow = Date.now
+    const servedAt = originalDateNow()
+    const cards = structuredClone(deck.cards)
+    cards[0] = {
+      ...servedCard,
+      state: "review",
+      queue: "review",
+      due: servedAt - 1000,
+      interval: 2,
+      reps: 1,
+    }
+    cards[1] = {
+      ...learningCard,
+      state: "learning",
+      queue: "learning",
+      due: servedAt + 1000,
+      reps: 1,
+      remainingSteps: deck.config.learnSteps.length,
+    }
+    for (const card of cards.slice(2)) {
+      card.state = "review"
+      card.queue = "review"
+      card.due = servedAt + 2 * 86_400_000
+      card.interval = 2
+      card.reps = 1
+    }
+    await fs.writeFile(
+      statePath,
+      JSON.stringify(FlashcardDeckSchema.parse({ ...deck, cards })),
+      "utf8",
+    )
+
+    try {
+      Date.now = () => servedAt
+      const queuedCardsResponse = await app.request(
+        `/api/objects/flashcard-deck/${saved.ref.objectID}/queued-cards?fetchLimit=2&directory=${encodeURIComponent(
+          project.path,
+        )}`,
+      )
+      const queue = FlashcardQueuedCardsSchema.parse(await queuedCardsResponse.json())
+      expect(queue.cards.map((card) => card.cardID)).toEqual([
+        servedCard.cardID,
+        learningCard.cardID,
+      ])
+      expect(queue.queueLease).not.toBeNull()
+      if (!queue.queueLease) return
+
+      Date.now = () => servedAt + 2000
+      const response = await app.request(
+        `/api/objects/flashcard-deck/${saved.ref.objectID}/reviews?directory=${encodeURIComponent(
+          project.path,
+        )}`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "idempotency-key": crypto.randomUUID(),
+          },
+          body: JSON.stringify({
+            cardID: servedCard.cardID,
+            queueLease: queue.queueLease,
+            rating: "good",
+            timeTakenMs: 2000,
+          }),
+        },
+      )
+
+      expect(response.status).toBe(200)
+      const persisted = await readFlashcardDeckObject(project.path, saved.ref.objectID)
+      expect(persisted.cards.find((card) => card.cardID === servedCard.cardID)?.reps).toBe(2)
+    } finally {
+      Date.now = originalDateNow
+    }
+  })
+
+  test("requeues a repeated learning card behind the next ahead-learning card", async () => {
+    await using project = await tmpdir({ git: true })
+    const saved = await saveFlashcardDeckWithTool(project.path, "ses_flashcard_requeue")
+    const statePath = flashcardDeckStateFile(project.path, saved.ref.objectID)
+    const deck = FlashcardDeckSchema.parse(JSON.parse(await fs.readFile(statePath, "utf8")))
+    const first = deck.cards[0]
+    const second = deck.cards[1]
+    expect(first).toBeDefined()
+    expect(second).toBeDefined()
+    if (!first || !second) return
+
+    const now = Date.now()
+    const secondDue = now + 5 * 60_000
+    const updatedCards = structuredClone(deck.cards)
+    updatedCards[0] = {
+      ...first,
+      state: "learning",
+      queue: "learning",
+      due: now - 1000,
+      reps: 1,
+      remainingSteps: deck.config.learnSteps.length,
+    }
+    updatedCards[1] = {
+      ...second,
+      state: "learning",
+      queue: "learning",
+      due: secondDue,
+      reps: 1,
+      remainingSteps: deck.config.learnSteps.length,
+    }
+    for (const card of updatedCards.slice(2)) {
+      card.state = "review"
+      card.queue = "review"
+      card.due = now + 2 * 86_400_000
+      card.interval = 2
+      card.reps = 1
+    }
+    const updatedDeck = FlashcardDeckSchema.parse({
+      ...deck,
+      cards: updatedCards,
+    })
+    await fs.writeFile(statePath, JSON.stringify(updatedDeck), "utf8")
+
+    const queuedCardsResponse = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/queued-cards?fetchLimit=2&directory=${encodeURIComponent(
+        project.path,
+      )}`,
+    )
+    const queue = FlashcardQueuedCardsSchema.parse(await queuedCardsResponse.json())
+    expect(queue.queueLease).not.toBeNull()
+    if (!queue.queueLease) return
+
+    const response = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/reviews?directory=${encodeURIComponent(
+        project.path,
+      )}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          cardID: first.cardID,
+          queueLease: queue.queueLease,
+          rating: "again",
+          timeTakenMs: 500,
+        }),
+      },
+    )
+
+    expect(response.status).toBe(200)
+    const output = SubmitReviewOutputSchema.parse(await response.json())
+    expect(output.nextDue).toBe(secondDue + 1000)
+    const persisted = await readFlashcardDeckObject(project.path, saved.ref.objectID)
+    expect(persisted.cards.find((card) => card.cardID === first.cardID)?.due).toBe(
+      secondDue + 1000,
+    )
   })
 
   test("returns the committed flashcard review for an idempotent retry", async () => {
     await using project = await tmpdir({ git: true })
     const saved = await saveFlashcardDeckWithTool(project.path, "ses_flashcard_idempotency")
-    const nextCardResponse = await app.request(
-      `/api/objects/flashcard-deck/${saved.ref.objectID}/next-card?directory=${encodeURIComponent(
+    const queuedCardsResponse = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/queued-cards?directory=${encodeURIComponent(
         project.path,
       )}`,
     )
-    const card = NextCardBodySchema.parse(await nextCardResponse.json()).card
-    expect(card).not.toBeNull()
-    if (!card) return
+    const queue = FlashcardQueuedCardsSchema.parse(await queuedCardsResponse.json())
+    const card = queue.cards[0]
+    const queueLease = queue.queueLease
+    expect(card).toBeDefined()
+    expect(queueLease).not.toBeNull()
+    if (!card || !queueLease) return
 
     const submissionID = crypto.randomUUID()
     const submit = () =>
@@ -378,6 +646,7 @@ describe("flashcard tools and routes", () => {
           },
           body: JSON.stringify({
             cardID: card.cardID,
+            queueLease,
             rating: "good",
             timeTakenMs: 500,
           }),
@@ -398,7 +667,26 @@ describe("flashcard tools and routes", () => {
         },
         body: JSON.stringify({
           cardID: card.cardID,
+          queueLease,
           rating: "hard",
+          timeTakenMs: 500,
+        }),
+      },
+    )
+    const conflictingLeaseRetry = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/reviews?directory=${encodeURIComponent(
+        project.path,
+      )}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": submissionID,
+        },
+        body: JSON.stringify({
+          cardID: card.cardID,
+          queueLease: { ...queueLease, queuedAt: queueLease.queuedAt + 1 },
+          rating: "good",
           timeTakenMs: 500,
         }),
       },
@@ -406,6 +694,7 @@ describe("flashcard tools and routes", () => {
     expect(first.status).toBe(200)
     expect(retry.status).toBe(200)
     expect(conflictingRetry.status).toBe(409)
+    expect(conflictingLeaseRetry.status).toBe(409)
     expect(await retry.json()).toEqual(await first.json())
 
     const deck = await readFlashcardDeckObject(project.path, saved.ref.objectID)
@@ -416,12 +705,12 @@ describe("flashcard tools and routes", () => {
       "{",
       "utf8",
     )
-    const nextCardAfterCompletedHistory = await app.request(
-      `/api/objects/flashcard-deck/${saved.ref.objectID}/next-card?directory=${encodeURIComponent(
+    const queueAfterCompletedHistory = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/queued-cards?directory=${encodeURIComponent(
         project.path,
       )}`,
     )
-    expect(nextCardAfterCompletedHistory.status).toBe(200)
+    expect(queueAfterCompletedHistory.status).toBe(200)
   })
 
   test("keeps valid decks visible while surfacing corrupt manifest load errors", async () => {
@@ -451,7 +740,7 @@ describe("flashcard tools and routes", () => {
     expect(body.loadErrors[0]?.message).toContain("could not be loaded")
   })
 
-  test("recovers a pending review before serving the next card", async () => {
+  test("recovers a pending review before serving the queue", async () => {
     await using project = await tmpdir({ git: true })
     const deck = await createStoredFlashcardDeck(project.path)
     const card = deck.cards[0]
@@ -501,16 +790,31 @@ describe("flashcard tools and routes", () => {
       directory: project.path,
       deck: updatedDeck,
       record,
+      queueLease: {
+        queuedAt: answeredAt,
+        card: {
+          cardID: card.cardID,
+          state: card.state,
+          queue: card.queue,
+          due: card.due,
+          interval: card.interval,
+          easeFactor: card.easeFactor,
+          reps: card.reps,
+          lapses: card.lapses,
+          remainingSteps: card.remainingSteps,
+          ...(card.lastReviewAt === undefined ? {} : { lastReviewAt: card.lastReviewAt }),
+        },
+      },
       submissionID,
       output,
     })
 
-    const nextCardResponse = await app.request(
-      `/api/objects/flashcard-deck/${deck.objectID}/next-card?directory=${encodeURIComponent(
+    const queuedCardsResponse = await app.request(
+      `/api/objects/flashcard-deck/${deck.objectID}/queued-cards?directory=${encodeURIComponent(
         project.path,
       )}`,
     )
-    expect(nextCardResponse.status).toBe(200)
+    expect(queuedCardsResponse.status).toBe(200)
 
     const recovered = await readFlashcardDeckObject(project.path, deck.objectID)
     expect(recovered.cards[0]?.state).toBe("review")
