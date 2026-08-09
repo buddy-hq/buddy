@@ -6,10 +6,7 @@ import {
   readerTextAnchorKey,
   type PdfTextAnchor,
 } from "@buddy/reader-contract"
-import {
-  ANNOTATION_COLOR_TOKENS,
-  READER_SELECTION_BACKGROUND,
-} from "../foliate-reader-constants"
+import { ANNOTATION_COLOR_TOKENS, READER_SELECTION_BACKGROUND } from "../foliate-reader-constants"
 import type { ReaderAnnotation, ReaderSearchResult, ReaderSelection } from "../reader-types"
 import {
   pdfQuadFromClientRect,
@@ -279,8 +276,8 @@ export function readPdfSelection(input: {
   }
   const firstPageIndex = segments[0]?.pageIndex ?? 0
   const lastPageIndex = segments.at(-1)?.pageIndex ?? firstPageIndex
-  const firstPageLabel = input.session.getPageLabel?.(firstPageIndex) ??
-    String(firstPageIndex + PDF_PAGE_NUMBER_OFFSET)
+  const firstPageLabel =
+    input.session.getPageLabel?.(firstPageIndex) ?? String(firstPageIndex + PDF_PAGE_NUMBER_OFFSET)
   const pageLabel =
     firstPageIndex === lastPageIndex
       ? firstPageLabel
@@ -506,11 +503,7 @@ function renderPdfAnnotationPage(input: {
     for (const segment of annotation.anchor.segments) {
       if (segment.pageIndex !== input.pageIndex) continue
       for (const quad of segment.quads) {
-        const bounds = viewportBoundsFromPdfQuad(
-          quad,
-          geometry.viewport,
-          geometry.cropBoxOrigin,
-        )
+        const bounds = viewportBoundsFromPdfQuad(quad, geometry.viewport, geometry.cropBoxOrigin)
         if (!bounds || bounds.width <= 0 || bounds.height <= 0) continue
         layer.append(
           annotationMark({
@@ -552,11 +545,7 @@ function renderPdfSelectionPage(input: {
   const offset = layerOffset(geometry, layer)
   for (const segment of segments) {
     for (const quad of segment.quads) {
-      const bounds = viewportBoundsFromPdfQuad(
-        quad,
-        geometry.viewport,
-        geometry.cropBoxOrigin,
-      )
+      const bounds = viewportBoundsFromPdfQuad(quad, geometry.viewport, geometry.cropBoxOrigin)
       if (!bounds || bounds.width <= 0 || bounds.height <= 0) continue
       const mark = layer.ownerDocument.createElement("div")
       mark.className = PDF_SELECTION_MARK_CLASS_NAME
@@ -597,11 +586,7 @@ function renderPdfSearchResultPage(input: {
   const offset = layerOffset(geometry, layer)
   for (const segment of segments) {
     for (const quad of segment.quads) {
-      const bounds = viewportBoundsFromPdfQuad(
-        quad,
-        geometry.viewport,
-        geometry.cropBoxOrigin,
-      )
+      const bounds = viewportBoundsFromPdfQuad(quad, geometry.viewport, geometry.cropBoxOrigin)
       if (!bounds || bounds.width <= 0 || bounds.height <= 0) continue
       const mark = layer.ownerDocument.createElement("div")
       mark.className = PDF_SEARCH_MARK_CLASS_NAME
@@ -645,9 +630,7 @@ export function renderPdfSelection(input: {
   input.root
     .querySelectorAll<HTMLElement>(`.${PDF_SELECTION_LAYER_CLASS_NAME}`)
     .forEach((layer) => layer.remove())
-  const pageIndexes = new Set(
-    input.selection.anchor.segments.map((segment) => segment.pageIndex),
-  )
+  const pageIndexes = new Set(input.selection.anchor.segments.map((segment) => segment.pageIndex))
   for (const pageIndex of pageIndexes) {
     renderPdfSelectionPage({ session: input.session, pageIndex, selection: input.selection })
   }
@@ -674,9 +657,7 @@ export function renderPdfSearchResult(input: {
   }
 
   removePdfSearchLayers(input.root)
-  const pageIndexes = new Set(
-    input.result.anchor.segments.map((segment) => segment.pageIndex),
-  )
+  const pageIndexes = new Set(input.result.anchor.segments.map((segment) => segment.pageIndex))
   for (const pageIndex of pageIndexes) {
     renderPdfSearchResultPage({
       session: input.session,

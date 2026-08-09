@@ -33,9 +33,7 @@ export function VirtualizedRows<TItem, TScrollElement extends Element = HTMLDivE
     ...(fallbackRect
       ? {
           observeElementRect: (instance, callback) =>
-            observeElementRect(instance, (rect) =>
-              callback(rect.height > 0 ? rect : fallbackRect),
-            ),
+            observeElementRect(instance, (rect) => callback(rect.height > 0 ? rect : fallbackRect)),
           measureElement: (element, entry, instance) => {
             const measured = measureVirtualElement(element, entry, instance)
             if (measured > 0) return measured

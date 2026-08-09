@@ -40,11 +40,7 @@ import {
   type FlashcardReviewTallyState,
 } from "@/state/bench-surface-ui-state"
 import type { ObjectFlashcardDeckReadDeckResponse } from "@buddy/sdk/types"
-import {
-  BENCH_MODE_REQUEST_POLICY,
-  useOpenBench,
-  type BenchTarget,
-} from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
 import { absoluteWorkspaceFilePath } from "@/lib/workspace-file-paths"
 
 const FLASHCARD_DECK_MANAGED_ROOT = ".buddy/objects/v1/flashcard-deck"
@@ -106,9 +102,7 @@ function buildFlashcardContextContent(input: {
     }
     const cardIndex = input.practiceIndex % input.deck.cards.length
     const card = input.deck.cards[cardIndex]
-    const note = card
-      ? input.deck.notes.find((entry) => entry.noteID === card.noteID)
-      : undefined
+    const note = card ? input.deck.notes.find((entry) => entry.noteID === card.noteID) : undefined
     if (!card || !note) {
       return "Flashcard practice is open, but the current card note is unavailable."
     }
@@ -238,9 +232,7 @@ export function FlashcardBenchDeck(props: FlashcardBenchDeckProps) {
     enabled: showSummary,
   })
   const otherDecks = showSummary
-    ? selectFlashcardDeckObjects(decksQuery).filter(
-        (entry) => entry.objectID !== props.objectID,
-      )
+    ? selectFlashcardDeckObjects(decksQuery).filter((entry) => entry.objectID !== props.objectID)
     : []
   const otherQueues = useQueries({
     queries: otherDecks.map((entry) => ({
@@ -346,11 +338,7 @@ export function FlashcardBenchDeck(props: FlashcardBenchDeckProps) {
   useRegisterBenchContextProvider({ target: props.target, provider: contextProvider })
 
   return (
-    <BenchViewerShell
-      title={activeDeck.title}
-      hideHeader
-      contentClassName="overflow-hidden"
-    >
+    <BenchViewerShell title={activeDeck.title} hideHeader contentClassName="overflow-hidden">
       {mode === "review" ? (
         <FlashcardReviewStage
           session={session}

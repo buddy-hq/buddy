@@ -1,9 +1,6 @@
 import { useCallback } from "react"
 import { usePlatform } from "@/context/platform"
-import {
-  type ResourceReadingTarget,
-  type ResourceViewStatus,
-} from "@/state/resources-query"
+import { type ResourceReadingTarget, type ResourceViewStatus } from "@/state/resources-query"
 import { fileNameFromPath } from "./workspace-file-paths"
 import {
   resolveWorkspaceFileOpenPlan,

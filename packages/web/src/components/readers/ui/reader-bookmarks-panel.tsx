@@ -77,9 +77,7 @@ export function ReaderBookmarksPanel({
 
       <ScrollArea className="min-h-0 flex-1 px-3 py-2" viewportRef={viewportRef}>
         {bookmarks.length === 0 ? (
-          <p className="px-1 py-4 text-sm text-text-weaker">
-            {READER_EMPTY_BOOKMARKS_MESSAGE}
-          </p>
+          <p className="px-1 py-4 text-sm text-text-weaker">{READER_EMPTY_BOOKMARKS_MESSAGE}</p>
         ) : bookmarks.length >= READER_VIRTUALIZE_ROW_THRESHOLD ? (
           <VirtualizedRows
             items={bookmarks}
@@ -91,7 +89,11 @@ export function ReaderBookmarksPanel({
             renderItem={renderBookmark}
           />
         ) : (
-          <div>{bookmarks.map((bookmark) => <div key={bookmark.id}>{renderBookmark(bookmark)}</div>)}</div>
+          <div>
+            {bookmarks.map((bookmark) => (
+              <div key={bookmark.id}>{renderBookmark(bookmark)}</div>
+            ))}
+          </div>
         )}
       </ScrollArea>
     </div>

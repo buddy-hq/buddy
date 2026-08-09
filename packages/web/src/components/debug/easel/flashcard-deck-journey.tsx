@@ -313,8 +313,7 @@ const STANDINGS: Record<StandingID, Standing> = {
     id: "review-limit",
     eyebrow: "Daily limit",
     headline: "Today's review limit is spent",
-    detail:
-      "This deck is set to 20 reviews a day. More are due — they'll come after the rollover.",
+    detail: "This deck is set to 20 reviews a day. More are due — they'll come after the rollover.",
     sessionLine: "You've spent today's 20 reviews. More are due — they'll come after the rollover.",
     action: { label: "Practice off schedule", mode: "practice" },
     tone: "limit",
@@ -840,10 +839,7 @@ function StageShell(props: {
 }) {
   return (
     <div className={cn("flex h-full min-h-0 w-full flex-col", STAGE_BACKGROUND)}>
-      <header
-        className="flex shrink-0 items-center gap-3 px-4"
-        style={{ height: HEADER_H_PX }}
-      >
+      <header className="flex shrink-0 items-center gap-3 px-4" style={{ height: HEADER_H_PX }}>
         {/* Exit returns to the deck — the same bench target, other mode. */}
         <button
           type="button"
@@ -863,10 +859,7 @@ function StageShell(props: {
       {props.banner ? <div className="shrink-0 px-4 pb-3">{props.banner}</div> : null}
 
       <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-5">
-        <div
-          className="flex h-full w-full flex-col"
-          style={{ maxWidth: STAGE_CARD_MAX_W_PX }}
-        >
+        <div className="flex h-full w-full flex-col" style={{ maxWidth: STAGE_CARD_MAX_W_PX }}>
           <div
             className="relative min-h-0 w-full flex-1"
             style={{ perspective: HINGE_PERSPECTIVE_PX }}
@@ -995,10 +988,7 @@ function DoneSurface(props: {
 
   return (
     <div className={cn("flex h-full min-h-0 flex-col", STAGE_BACKGROUND)}>
-      <header
-        className="flex shrink-0 items-center gap-3 px-4"
-        style={{ height: HEADER_H_PX }}
-      >
+      <header className="flex shrink-0 items-center gap-3 px-4" style={{ height: HEADER_H_PX }}>
         <span className="min-w-0 flex-1 truncate text-[10px] uppercase tracking-[0.14em] text-text-weaker">
           {DECK_TITLE}
         </span>
@@ -1151,10 +1141,7 @@ function BenchSlot(props: { bench: BenchMode; onBench: (next: BenchMode) => void
   }
 }
 
-function RightWorkspace(props: {
-  state: WorkspaceState
-  onState: (next: WorkspaceState) => void
-}) {
+function RightWorkspace(props: { state: WorkspaceState; onState: (next: WorkspaceState) => void }) {
   const { state, onState } = props
 
   return (
@@ -1367,8 +1354,7 @@ const API_LEDGER: LedgerRow[] = [
   },
   {
     affordance: "How many cards the limit is holding back",
-    backing:
-      "queue.ts:217 computes it to set reviewLimitReached, then returns only the boolean",
+    backing: "queue.ts:217 computes it to set reviewLimitReached, then returns only the boolean",
     status: "extend",
   },
   {
@@ -1634,9 +1620,9 @@ export function FlashcardDeckJourneyEasel() {
 
           <p className="max-w-[90ch] text-[11px] leading-relaxed text-text-weaker">
             The whole deck API is three operations plus objects.delete.{" "}
-            <span className="text-text-success-base">exists</span> is a field the API returns
-            today. <span className="text-text-interactive-base">derived</span> is computed on the
-            client from data already fetched, with no scheduler logic duplicated.{" "}
+            <span className="text-text-success-base">exists</span> is a field the API returns today.{" "}
+            <span className="text-text-interactive-base">derived</span> is computed on the client
+            from data already fetched, with no scheduler logic duplicated.{" "}
             <span className="text-text-warning-base">extend</span> is a value that already exists as
             a local inside buildFlashcardQueue and simply is not returned — a contained backend
             change, and the only thing on this page that needs your approval.{" "}

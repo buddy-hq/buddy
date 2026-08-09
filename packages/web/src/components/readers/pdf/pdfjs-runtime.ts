@@ -4,10 +4,7 @@ import {
   type PDFDocumentLoadingTask,
   type PDFDocumentProxy,
 } from "pdfjs-dist"
-import {
-  pdfJsRuntimeBaseUrl,
-  pdfJsWorkerSrc,
-} from "virtual:buddy-pdfjs-runtime"
+import { pdfJsRuntimeBaseUrl, pdfJsWorkerSrc } from "virtual:buddy-pdfjs-runtime"
 import type { ReaderSource } from "../reader-types"
 
 const PDFJS_CMAP_DIRECTORY = "cmaps/"

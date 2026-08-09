@@ -1103,10 +1103,10 @@ export class DirectoryWorkspaceController {
     const destinationSlot: WorkspacePresentationSlot =
       command.destinationInitialization === WORKSPACE_DESTINATION_EMPTY
         ? {
-          route: { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot,
-          docked: createCollapsedWorkspaceState(),
-          lastDrawer: this.#store.getState().lastDrawer,
-        }
+            route: { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot,
+            docked: createCollapsedWorkspaceState(),
+            lastDrawer: this.#store.getState().lastDrawer,
+          }
         : command.destinationInitialization === WORKSPACE_DESTINATION_INHERIT_CURRENT
           ? {
               route: currentRoute,

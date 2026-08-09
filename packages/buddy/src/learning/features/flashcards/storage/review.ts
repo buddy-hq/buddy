@@ -193,8 +193,7 @@ async function submitFlashcardObjectReview(input: {
     })
 
     const reviewedToday =
-      schedulingDayKey(now, config.rolloverHour) ===
-      schedulingDayKey(queuedAt, config.rolloverHour)
+      schedulingDayKey(now, config.rolloverHour) === schedulingDayKey(queuedAt, config.rolloverHour)
         ? queuedReviewedToday
         : await readFlashcardObjectReviewedTodayCounts({
             directory: input.directory,

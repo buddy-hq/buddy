@@ -181,13 +181,7 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
     return () => {
       clearTimeout(timeout)
     }
-  }, [
-    readerBlobQuery.data,
-    readerError,
-    readerInteractionPending,
-    readerReady,
-    readerSourceKey,
-  ])
+  }, [readerBlobQuery.data, readerError, readerInteractionPending, readerReady, readerSourceKey])
 
   function renderOpeningState(label: string) {
     return (

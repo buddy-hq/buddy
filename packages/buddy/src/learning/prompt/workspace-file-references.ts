@@ -94,9 +94,7 @@ export type MarkdownSelectionContextPart = {
   headingPath?: string[]
 }
 
-export type SelectionContextPart =
-  | ReadingSelectionContextPart
-  | MarkdownSelectionContextPart
+export type SelectionContextPart = ReadingSelectionContextPart | MarkdownSelectionContextPart
 
 type ReadingSelectionPartInput = {
   type: typeof READING_SELECTION_PART_TYPE

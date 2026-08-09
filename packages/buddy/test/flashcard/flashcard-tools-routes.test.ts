@@ -612,9 +612,7 @@ describe("flashcard tools and routes", () => {
     const output = SubmitReviewOutputSchema.parse(await response.json())
     expect(output.nextDue).toBe(secondDue + 1000)
     const persisted = await readFlashcardDeckObject(project.path, saved.ref.objectID)
-    expect(persisted.cards.find((card) => card.cardID === first.cardID)?.due).toBe(
-      secondDue + 1000,
-    )
+    expect(persisted.cards.find((card) => card.cardID === first.cardID)?.due).toBe(secondDue + 1000)
   })
 
   test("returns the committed flashcard review for an idempotent retry", async () => {

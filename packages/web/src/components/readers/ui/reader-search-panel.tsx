@@ -1,8 +1,4 @@
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  SearchIcon,
-} from "@/icons/app-icons"
+import { ChevronDownIcon, ChevronUpIcon, SearchIcon } from "@/icons/app-icons"
 import {
   Button,
   Field,
@@ -20,11 +16,7 @@ import {
   Switch,
   cn,
 } from "@buddy/ui"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@buddy/ui/components/ui/input-group"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@buddy/ui/components/ui/input-group"
 import { VirtualizedRows } from "@/components/virtualization/virtualized-rows"
 import {
   READER_SEARCH_SCOPE_DOCUMENT,
@@ -35,10 +27,7 @@ import {
   type ReaderSearchViewModel,
   type ReaderTextAnchor,
 } from "../reader-types"
-import {
-  READER_EMPTY_SEARCH_MESSAGE,
-  READER_VIRTUALIZE_ROW_THRESHOLD,
-} from "./reader-ui-constants"
+import { READER_EMPTY_SEARCH_MESSAGE, READER_VIRTUALIZE_ROW_THRESHOLD } from "./reader-ui-constants"
 
 type ReaderSearchPanelProps = {
   search: ReaderSearchViewModel
@@ -283,7 +272,11 @@ export function ReaderSearchPanel({
             renderItem={renderRow}
           />
         ) : (
-          <div>{search.rows.map((row) => <div key={row.id}>{renderRow(row)}</div>)}</div>
+          <div>
+            {search.rows.map((row) => (
+              <div key={row.id}>{renderRow(row)}</div>
+            ))}
+          </div>
         )}
       </ScrollArea>
     </div>

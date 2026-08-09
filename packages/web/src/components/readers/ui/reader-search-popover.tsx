@@ -1,11 +1,7 @@
 import { useEffect, useRef } from "react"
 import { SearchIcon } from "@/icons/app-icons"
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buddy/ui"
-import type {
-  ReaderSearchScope,
-  ReaderSearchViewModel,
-  ReaderTextAnchor,
-} from "../reader-types"
+import type { ReaderSearchScope, ReaderSearchViewModel, ReaderTextAnchor } from "../reader-types"
 import { ReaderSearchPanel } from "./reader-search-panel"
 
 type ReaderSearchPopoverProps = {

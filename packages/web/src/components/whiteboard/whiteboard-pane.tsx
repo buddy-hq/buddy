@@ -161,9 +161,7 @@ function shouldShowWhiteboardOpeningAnimation(input: {
   hasActiveWhiteboardCreateTool: boolean
   isBusy: boolean
 }): boolean {
-  return (
-    !input.hasDisplayedBoard && (input.hasActiveWhiteboardCreateTool || input.isBusy)
-  )
+  return !input.hasDisplayedBoard && (input.hasActiveWhiteboardCreateTool || input.isBusy)
 }
 
 function shouldPreferFetchedBoardDuringActiveCreate(input: {
@@ -229,14 +227,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
         baseElements: currentBoard?.elements ?? [],
         ...(currentBoard?.viewport ? { baseViewport: currentBoard.viewport } : {}),
       }),
-    [
-      boardID,
-      currentBoard?.elements,
-      currentBoard?.viewport,
-      messages,
-      objectID,
-      previewToolKey,
-    ],
+    [boardID, currentBoard?.elements, currentBoard?.viewport, messages, objectID, previewToolKey],
   )
   const completedWhiteboardCreateCount = useMemo(
     () => countCompletedWhiteboardCreate(messages, objectID),

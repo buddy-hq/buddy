@@ -1,8 +1,4 @@
-import {
-  AnnotationEditorType,
-  AnnotationMode,
-  type PDFDocumentProxy,
-} from "pdfjs-dist"
+import { AnnotationEditorType, AnnotationMode, type PDFDocumentProxy } from "pdfjs-dist"
 import {
   EventBus,
   LinkTarget,
@@ -11,17 +7,10 @@ import {
   ScrollMode,
   SpreadMode,
 } from "pdfjs-dist/web/pdf_viewer.mjs"
-import type {
-  PdfPositionAnchor,
-  PdfTextAnchor,
-  ReaderRelocation,
-} from "@buddy/reader-contract"
+import type { PdfPositionAnchor, PdfTextAnchor, ReaderRelocation } from "@buddy/reader-contract"
 import { findPdfTextMatches, type PdfTextMatchOptions } from "./pdf-search"
 import { pdfDocumentFingerprint } from "./pdf-document-identity"
-import {
-  readPdfPageViewGeometry,
-  type PdfPageViewGeometry,
-} from "./pdf-geometry"
+import { readPdfPageViewGeometry, type PdfPageViewGeometry } from "./pdf-geometry"
 import {
   pdfCurrentPassageText,
   pdfTextAnchorFromOffsets,
@@ -29,11 +18,7 @@ import {
   repairPdfTextAnchor,
   type PdfPageText,
 } from "./pdf-page-text"
-import {
-  loadPdfDocument,
-  resolvePdfJsRuntimeUrls,
-  type LoadedPdfDocument,
-} from "./pdfjs-runtime"
+import { loadPdfDocument, resolvePdfJsRuntimeUrls, type LoadedPdfDocument } from "./pdfjs-runtime"
 import {
   PDF_PAGE_TURN_NEXT,
   pdfModeAfterViewerScaleChange,
@@ -470,11 +455,7 @@ export class PdfViewerSession {
       (value: unknown) => {
         const event = readPdfViewerEvent(value)
         if (event.scale !== undefined) {
-          this.#mode = pdfModeAfterViewerScaleChange(
-            this.#mode,
-            event.scale,
-            event.presetValue,
-          )
+          this.#mode = pdfModeAfterViewerScaleChange(this.#mode, event.scale, event.presetValue)
           this.#callbacks.onScaleChange(event.scale, event.presetValue)
         }
       },
@@ -546,8 +527,7 @@ export class PdfViewerSession {
         const isMomentumContinuation =
           previousGesture.direction === direction &&
           previousGesture.lastEventAt !== undefined &&
-          event.timeStamp - previousGesture.lastEventAt <=
-            PDF_WHEEL_GESTURE_IDLE_THRESHOLD_MS
+          event.timeStamp - previousGesture.lastEventAt <= PDF_WHEEL_GESTURE_IDLE_THRESHOLD_MS
         this.#wheelPageTurnGesture = { direction, lastEventAt: event.timeStamp }
         if (isMomentumContinuation) return
         if (direction === PDF_PAGE_TURN_NEXT) viewer.nextPage()
@@ -742,9 +722,7 @@ export class PdfViewerSession {
       : undefined
     const emissionId = this.#locationEmissionId + 1
     this.#locationEmissionId = emissionId
-    this.#callbacks.onLocationChange(
-      currentPassageText ? { ...base, currentPassageText } : base,
-    )
+    this.#callbacks.onLocationChange(currentPassageText ? { ...base, currentPassageText } : base)
     if (cachedPageText === undefined) {
       const pageIndex = anchor.pageIndex
       void this.#getPageText(pageIndex, this.#lifecycle.signal)
@@ -758,7 +736,9 @@ export class PdfViewerSession {
             return
           }
           const passage = pdfCurrentPassageText(pageText, anchor)
-          this.#callbacks.onLocationChange(passage ? { ...base, currentPassageText: passage } : base)
+          this.#callbacks.onLocationChange(
+            passage ? { ...base, currentPassageText: passage } : base,
+          )
         })
         .catch(() => undefined)
     }
@@ -778,8 +758,14 @@ export class PdfViewerSession {
     }
     const containerBounds = this.#container.getBoundingClientRect()
     const surfaceBounds = geometry.textLayerDiv.getBoundingClientRect()
-    const viewportX = Math.max(0, Math.min(surfaceBounds.width, containerBounds.left - surfaceBounds.left))
-    const viewportY = Math.max(0, Math.min(surfaceBounds.height, containerBounds.top - surfaceBounds.top))
+    const viewportX = Math.max(
+      0,
+      Math.min(surfaceBounds.width, containerBounds.left - surfaceBounds.left),
+    )
+    const viewportY = Math.max(
+      0,
+      Math.min(surfaceBounds.height, containerBounds.top - surfaceBounds.top),
+    )
     const pdfPoint = readCoordinatePair(geometry.viewport.convertToPdfPoint(viewportX, viewportY))
     if (!pdfPoint) return { kind: "pdf-position", pageIndex, xRatio: 0, yRatio: 0 }
     const { xMin, yMin, xMax, yMax } = geometry.cropBox
@@ -999,7 +985,10 @@ export class PdfViewerSession {
         pageResults.push(result)
       }
       if (pageResults.length > 0) onResults?.(pageResults)
-      onProgress?.({ completedPages: searchPageIndex + PDF_PAGE_NUMBER_OFFSET, totalPages: pageIndexes.length })
+      onProgress?.({
+        completedPages: searchPageIndex + PDF_PAGE_NUMBER_OFFSET,
+        totalPages: pageIndexes.length,
+      })
     }
     return results
   }

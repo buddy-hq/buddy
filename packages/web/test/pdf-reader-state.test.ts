@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { shouldDismissPdfSelectionForRelocation } from "../src/components/readers/pdf/pdf-reader-state"
-import type {
-  PdfPositionAnchor,
-  ReaderRelocation,
-} from "../src/components/readers/reader-types"
+import type { PdfPositionAnchor, ReaderRelocation } from "../src/components/readers/reader-types"
 
 const CURRENT_ANCHOR: PdfPositionAnchor = {
   kind: "pdf-position",

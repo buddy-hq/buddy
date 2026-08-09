@@ -636,17 +636,12 @@ function hasUnfetchedCompletedWhiteboardCreate(input: {
   return false
 }
 
-function hasLatestFailedWhiteboardCreate(
-  messages: MessageWithParts[],
-  objectID?: string,
-): boolean {
+function hasLatestFailedWhiteboardCreate(messages: MessageWithParts[], objectID?: string): boolean {
   for (const message of messages.toReversed()) {
     for (const part of message.parts.toReversed()) {
       if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
       if (!isRecord(part.state)) continue
-      if (
-        !whiteboardCreateTargetsObject(part.state, objectID)
-      ) {
+      if (!whiteboardCreateTargetsObject(part.state, objectID)) {
         continue
       }
       return part.state.status === "error"

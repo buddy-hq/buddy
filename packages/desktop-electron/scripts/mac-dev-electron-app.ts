@@ -20,11 +20,7 @@ export function prepareMacDevElectronExecutable(input: {
 }): string | undefined {
   if (process.platform !== "darwin") return undefined
 
-  const sourceAppPath = path.resolve(
-    path.dirname(input.electronExecutablePath),
-    "..",
-    "..",
-  )
+  const sourceAppPath = path.resolve(path.dirname(input.electronExecutablePath), "..", "..")
   const cacheKey = createHash("sha256")
     .update(input.repositoryRoot)
     .update("\0")
@@ -74,10 +70,18 @@ function prepareAppBundle(input: {
       mode: constants.COPYFILE_FICLONE,
       recursive: true,
     })
-    const infoPlistPath = path.join(stagingAppPath, APP_CONTENTS_DIRECTORY_NAME, APP_INFO_PLIST_NAME)
+    const infoPlistPath = path.join(
+      stagingAppPath,
+      APP_CONTENTS_DIRECTORY_NAME,
+      APP_INFO_PLIST_NAME,
+    )
     replacePlistString(infoPlistPath, "CFBundleDisplayName", input.appName)
     replacePlistString(infoPlistPath, "CFBundleName", input.appName)
-    replacePlistString(infoPlistPath, "CFBundleIdentifier", `ai.buddy.desktop.dev.${input.cacheKey}`)
+    replacePlistString(
+      infoPlistPath,
+      "CFBundleIdentifier",
+      `ai.buddy.desktop.dev.${input.cacheKey}`,
+    )
 
     rmSync(input.cacheRoot, { force: true, recursive: true })
     renameSync(stagingRoot, input.cacheRoot)

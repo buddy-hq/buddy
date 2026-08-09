@@ -13,11 +13,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@buddy/ui"
-import type {
-  ReaderCommonPreferences,
-  ReaderThemeId,
-  ReaderThemeOption,
-} from "../reader-types"
+import type { ReaderCommonPreferences, ReaderThemeId, ReaderThemeOption } from "../reader-types"
 
 type ReaderPreferenceSliderProps = {
   id: string

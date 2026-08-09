@@ -41,10 +41,7 @@ import {
   UploadIcon,
   XIcon,
 } from "@/icons/app-icons"
-import type {
-  ObjectFlashcardDeckQueuedCardsResponse,
-  ObjectsViewResponse,
-} from "@buddy/sdk/types"
+import type { ObjectFlashcardDeckQueuedCardsResponse, ObjectsViewResponse } from "@buddy/sdk/types"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getFlashcardDueCount } from "@/lib/flashcard"

@@ -184,10 +184,7 @@ export function loadBookState(bookKey: string): FoliateBookState {
   }
 }
 
-export function saveBookState(
-  bookKey: string,
-  state: FoliateBookState,
-) {
+export function saveBookState(bookKey: string, state: FoliateBookState) {
   safeWriteStorage(bookKey, JSON.stringify(state))
 }
 

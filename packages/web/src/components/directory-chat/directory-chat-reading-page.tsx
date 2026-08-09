@@ -295,12 +295,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     return () => {
       setActiveReadingResource(readyDirectory, undefined)
     }
-  }, [
-    normalizedPath,
-    readyDirectory,
-    resourceName,
-    setActiveReadingResource,
-  ])
+  }, [normalizedPath, readyDirectory, resourceName, setActiveReadingResource])
 
   useEffect(() => {
     if (!readyDirectory || !normalizedPath) return

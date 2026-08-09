@@ -68,9 +68,7 @@ describe("Anki-aligned flashcard queue", () => {
 
     expect(queue.newCount).toBe(DEFAULT_NEW_CARD_LIMIT)
     expect(queue.queuedCardIDs).toHaveLength(DEFAULT_NEW_CARD_LIMIT)
-    expect(queue.completion.newHeldBack).toBe(
-      FRESH_DECK_CARD_COUNT - DEFAULT_NEW_CARD_LIMIT,
-    )
+    expect(queue.completion.newHeldBack).toBe(FRESH_DECK_CARD_COUNT - DEFAULT_NEW_CARD_LIMIT)
     expect(queue.cards).toHaveLength(1)
   })
 

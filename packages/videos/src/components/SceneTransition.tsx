@@ -1,9 +1,4 @@
-import {
-  AbsoluteFill,
-  Easing,
-  interpolate,
-  useCurrentFrame,
-} from "remotion"
+import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion"
 
 import type { TransitionDefinition } from "../timeline/launchTimeline"
 
@@ -12,8 +7,7 @@ const LAST_FRAME_OFFSET = 1
 const TRANSITION_FADE_FRAMES = 15
 const TRANSITION_EASING = Easing.bezier(0.4, 0, 0.2, 1)
 
-const SANS =
-  "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif"
+const SANS = "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif"
 
 const COPY_SIZE_PX = 92
 const COPY_WEIGHT = 700
@@ -40,15 +34,10 @@ type SceneTransitionProps = {
   readonly transition: TransitionDefinition
 }
 
-export const SceneTransition = ({
-  transition,
-}: SceneTransitionProps) => {
+export const SceneTransition = ({ transition }: SceneTransitionProps) => {
   const frame = useCurrentFrame()
   const lastFrame = transition.durationInFrames - LAST_FRAME_OFFSET
-  const fadeFrames = Math.min(
-    TRANSITION_FADE_FRAMES,
-    Math.floor(transition.durationInFrames / 3),
-  )
+  const fadeFrames = Math.min(TRANSITION_FADE_FRAMES, Math.floor(transition.durationInFrames / 3))
   const fadeOutStartFrame = lastFrame - fadeFrames
   const opacity = interpolate(
     frame,
@@ -65,9 +54,7 @@ export const SceneTransition = ({
     <AbsoluteFill
       style={{
         alignItems: "center",
-        backgroundColor: transition.overlayPrevious
-          ? "transparent"
-          : "#000000",
+        backgroundColor: transition.overlayPrevious ? "transparent" : "#000000",
         color: "#ffffff",
         justifyContent: "center",
       }}

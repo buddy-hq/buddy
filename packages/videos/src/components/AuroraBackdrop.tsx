@@ -46,8 +46,7 @@ const DRIFT_X_PERCENT = -3
 const DRIFT_Y_PERCENT = -2
 const DRIFT_ROTATION_DEG = 5
 
-const VIGNETTE =
-  "radial-gradient(130% 120% at 50% -10%, transparent 44%, rgba(0,0,0,0.66) 100%)"
+const VIGNETTE = "radial-gradient(130% 120% at 50% -10%, transparent 44%, rgba(0,0,0,0.66) 100%)"
 
 const AURORA_GRAIN_IMAGE = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E")`
 const AURORA_GRAIN_OPACITY = 0.05

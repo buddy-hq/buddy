@@ -51,11 +51,7 @@ function schedulingDayKey(timestamp: number, rolloverHour: number): string {
   return `${year}-${month}-${day}`
 }
 
-function scheduleDayInterval(
-  timing: SchedulerTiming,
-  days: number,
-  rolloverHour: number,
-): number {
+function scheduleDayInterval(timing: SchedulerTiming, days: number, rolloverHour: number): number {
   const boundedDays = Math.max(1, Math.round(days))
   return addLocalDays(timing.nextDayAt, boundedDays - 1, rolloverHour)
 }

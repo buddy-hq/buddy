@@ -1,8 +1,5 @@
 import { cancel, confirm, isCancel, select } from "@clack/prompts"
-import {
-  typePromptConfig,
-  typePromptTiming,
-} from "./type-prompt.config"
+import { typePromptConfig, typePromptTiming } from "./type-prompt.config"
 
 const EXIT_SUCCESS = 0
 const EXIT_FAILURE = 1
@@ -14,13 +11,9 @@ const PROMPT_CATALOG_URL = new URL("../prompts.json", import.meta.url)
 const RETURN_KEY_CODE = 36
 const SPACE = " "
 const DEFAULT_ACTIVATION_DELAY_MILLISECONDS =
-  typePromptTiming.pauseMilliseconds[
-    typePromptConfig.timing.beforeTyping
-  ]
+  typePromptTiming.pauseMilliseconds[typePromptConfig.timing.beforeTyping]
 const DEFAULT_SUBMIT_DELAY_MILLISECONDS =
-  typePromptTiming.pauseMilliseconds[
-    typePromptConfig.timing.beforeSubmit
-  ]
+  typePromptTiming.pauseMilliseconds[typePromptConfig.timing.beforeSubmit]
 
 type PromptDefinition = {
   readonly id: string
@@ -47,10 +40,7 @@ const characterDelayFromWordsPerMinute = (wordsPerMinute: number): number => {
 
   // WPM convention: one word is five characters.
   // Example: 60 WPM = 300 characters/minute = one keystroke every 200 ms.
-  return (
-    MILLISECONDS_PER_MINUTE /
-    (wordsPerMinute * STANDARD_CHARACTERS_PER_WORD)
-  )
+  return MILLISECONDS_PER_MINUTE / (wordsPerMinute * STANDARD_CHARACTERS_PER_WORD)
 }
 
 const DEFAULT_CHARACTER_DELAY_MILLISECONDS = characterDelayFromWordsPerMinute(

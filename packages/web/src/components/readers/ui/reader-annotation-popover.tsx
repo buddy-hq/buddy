@@ -1,9 +1,6 @@
 import { PencilLineIcon, XIcon } from "@/icons/app-icons"
 import { Button } from "@buddy/ui"
-import type {
-  ReaderAnnotationPopoverViewModel,
-  ReaderAnnotationViewModel,
-} from "../reader-types"
+import type { ReaderAnnotationPopoverViewModel, ReaderAnnotationViewModel } from "../reader-types"
 import {
   ReaderFloatingOverlay,
   READER_FLOATING_OVERLAY_ANCHOR_OFFSET_PROPERTY,
@@ -37,7 +34,12 @@ export function ReaderAnnotationPopover({
       y={popover.y}
     >
       <div className="flex items-center overflow-hidden rounded-md border bg-surface-raised-base shadow-lg">
-        <Button type="button" variant="ghost" size="sm" onClick={() => onEditAnnotation(annotation)}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => onEditAnnotation(annotation)}
+        >
           <PencilLineIcon data-icon="inline-start" />
           Edit
         </Button>

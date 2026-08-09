@@ -5,7 +5,15 @@ import { OPENAI_PROVIDER_ID } from "./openai-codex-credentials"
 
 const PERCENT_BASE = 100
 const MODEL_CATALOG_RESOLUTION_TIMEOUT_MS = 5_000
-const SUPPORTED_REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const
+const SUPPORTED_REASONING_EFFORTS = [
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const
 
 type SupportedReasoningEffort = (typeof SUPPORTED_REASONING_EFFORTS)[number]
 

@@ -2,11 +2,7 @@ import { mkdir, rename, rm } from "node:fs/promises"
 import path from "node:path"
 
 import { BUDDY_LAUNCH_DURATION_FRAMES } from "../src/timeline/launchTimeline"
-import {
-  BUDDY_LAUNCH_FPS,
-  BUDDY_LAUNCH_HEIGHT_PX,
-  BUDDY_LAUNCH_WIDTH_PX,
-} from "../src/videoConfig"
+import { BUDDY_LAUNCH_FPS, BUDDY_LAUNCH_HEIGHT_PX, BUDDY_LAUNCH_WIDTH_PX } from "../src/videoConfig"
 
 const COMPOSITION_ID = "BuddyLaunch"
 const OUTPUT_DIRECTORY = path.resolve(import.meta.dir, "../out/buddy-launch")
@@ -92,14 +88,10 @@ const textDecoder = new TextDecoder()
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
 
-const hasString = (
-  value: Record<string, unknown>,
-  key: keyof LoudnessMeasurement,
-): boolean => typeof value[key] === "string"
+const hasString = (value: Record<string, unknown>, key: keyof LoudnessMeasurement): boolean =>
+  typeof value[key] === "string"
 
-const isLoudnessMeasurement = (
-  value: unknown,
-): value is LoudnessMeasurement =>
+const isLoudnessMeasurement = (value: unknown): value is LoudnessMeasurement =>
   isRecord(value) &&
   hasString(value, "input_i") &&
   hasString(value, "input_lra") &&
@@ -110,8 +102,7 @@ const isLoudnessMeasurement = (
 const isRenderTarget = (value: string): value is RenderTarget =>
   Object.hasOwn(RENDER_TARGETS, value)
 
-const isMissingPathError = (error: unknown): boolean =>
-  isRecord(error) && error.code === "ENOENT"
+const isMissingPathError = (error: unknown): boolean => isRecord(error) && error.code === "ENOENT"
 
 const runInherited = (command: readonly string[], label: string): void => {
   const result = Bun.spawnSync([...command], {
@@ -135,9 +126,7 @@ const runCaptured = (command: readonly string[], label: string): string => {
   const stdout = textDecoder.decode(result.stdout)
 
   if (result.exitCode !== 0) {
-    throw new Error(
-      `${label} failed with exit code ${result.exitCode}.\n${stderr}${stdout}`,
-    )
+    throw new Error(`${label} failed with exit code ${result.exitCode}.\n${stderr}${stdout}`)
   }
 
   return `${stdout}\n${stderr}`
@@ -179,11 +168,7 @@ const measureLoudness = (inputPath: string): LoudnessMeasurement => {
   return parseLoudnessMeasurement(output)
 }
 
-const normalizeAudio = (
-  inputPath: string,
-  outputPath: string,
-  audioBitrate: string,
-): void => {
+const normalizeAudio = (inputPath: string, outputPath: string, audioBitrate: string): void => {
   const measurement = measureLoudness(inputPath)
   const filter = [
     `loudnorm=I=${TARGET_INTEGRATED_LUFS}`,
@@ -230,10 +215,7 @@ const normalizeAudio = (
   )
 }
 
-const finalizeWithoutAudioNormalization = (
-  inputPath: string,
-  outputPath: string,
-): void => {
+const finalizeWithoutAudioNormalization = (inputPath: string, outputPath: string): void => {
   runInherited(
     [
       "ffmpeg",
@@ -259,32 +241,21 @@ const finalizeWithoutAudioNormalization = (
 }
 
 const verifyDecode = (inputPath: string): void => {
-  runInherited(
-    ["ffmpeg", "-v", "error", "-i", inputPath, "-f", "null", "-"],
-    "Decode verification",
-  )
+  runInherited(["ffmpeg", "-v", "error", "-i", inputPath, "-f", "null", "-"], "Decode verification")
 }
 
-const stringValue = (
-  record: Record<string, unknown>,
-  key: string,
-): string | null => {
+const stringValue = (record: Record<string, unknown>, key: string): string | null => {
   const value = record[key]
   return typeof value === "string" ? value : null
 }
 
-const numberValue = (
-  record: Record<string, unknown>,
-  key: string,
-): number | null => {
+const numberValue = (record: Record<string, unknown>, key: string): number | null => {
   const value = record[key]
   return typeof value === "number" ? value : null
 }
 
 const expectedFrameCount = (target: RenderTarget): number =>
-  target === "preview"
-    ? PREVIEW_LAST_FRAME - FIRST_FRAME + 1
-    : BUDDY_LAUNCH_DURATION_FRAMES
+  target === "preview" ? PREVIEW_LAST_FRAME - FIRST_FRAME + 1 : BUDDY_LAUNCH_DURATION_FRAMES
 
 const verifyStructure = (inputPath: string, target: RenderTarget): void => {
   const output = runCaptured(
@@ -313,12 +284,8 @@ const verifyStructure = (inputPath: string, target: RenderTarget): void => {
   }
 
   const streams: readonly unknown[] = rawStreams
-  const videoStream = streams.find(
-    (stream) => isRecord(stream) && stream.codec_type === "video",
-  )
-  const audioStream = streams.find(
-    (stream) => isRecord(stream) && stream.codec_type === "audio",
-  )
+  const videoStream = streams.find((stream) => isRecord(stream) && stream.codec_type === "video")
+  const audioStream = streams.find((stream) => isRecord(stream) && stream.codec_type === "audio")
 
   if (!isRecord(videoStream) || !isRecord(audioStream)) {
     throw new Error("The rendered file must contain video and audio streams.")
@@ -354,19 +321,13 @@ const verifyStructure = (inputPath: string, target: RenderTarget): void => {
   if (numberValue(videoStream, "height") !== expectedHeight) {
     failures.push(`height is not ${expectedHeight}px`)
   }
-  if (
-    stringValue(videoStream, "nb_read_frames") !==
-    String(expectedFrameCount(target))
-  ) {
+  if (stringValue(videoStream, "nb_read_frames") !== String(expectedFrameCount(target))) {
     failures.push(`frame count is not ${expectedFrameCount(target)}`)
   }
   if (stringValue(audioStream, "codec_name") !== "aac") {
     failures.push("audio codec is not AAC")
   }
-  if (
-    stringValue(audioStream, "sample_rate") !==
-    String(OUTPUT_AUDIO_SAMPLE_RATE_HZ)
-  ) {
+  if (stringValue(audioStream, "sample_rate") !== String(OUTPUT_AUDIO_SAMPLE_RATE_HZ)) {
     failures.push(`audio sample rate is not ${OUTPUT_AUDIO_SAMPLE_RATE_HZ}Hz`)
   }
   if (numberValue(audioStream, "channels") !== 2) {
@@ -385,28 +346,19 @@ const verifyLoudness = (inputPath: string): void => {
 
   if (
     !Number.isFinite(integratedLoudness) ||
-    Math.abs(integratedLoudness - TARGET_INTEGRATED_LUFS) >
-      LOUDNESS_TOLERANCE_LU
+    Math.abs(integratedLoudness - TARGET_INTEGRATED_LUFS) > LOUDNESS_TOLERANCE_LU
   ) {
     throw new Error(
       `Integrated loudness ${measurement.input_i} LUFS is outside the target tolerance.`,
     )
   }
 
-  if (
-    !Number.isFinite(truePeak) ||
-    truePeak > TARGET_TRUE_PEAK_DBTP + TRUE_PEAK_TOLERANCE_DB
-  ) {
-    throw new Error(
-      `True peak ${measurement.input_tp} dBTP exceeds the target ceiling.`,
-    )
+  if (!Number.isFinite(truePeak) || truePeak > TARGET_TRUE_PEAK_DBTP + TRUE_PEAK_TOLERANCE_DB) {
+    throw new Error(`True peak ${measurement.input_tp} dBTP exceeds the target ceiling.`)
   }
 }
 
-const moveIfPresent = async (
-  sourcePath: string,
-  destinationPath: string,
-): Promise<boolean> => {
+const moveIfPresent = async (sourcePath: string, destinationPath: string): Promise<boolean> => {
   try {
     await rename(sourcePath, destinationPath)
     return true
@@ -439,28 +391,13 @@ const publishAtomically = async (
 
 const renderTarget = async (target: RenderTarget): Promise<void> => {
   const config = RENDER_TARGETS[target]
-  const outputPath = path.join(
-    OUTPUT_DIRECTORY,
-    `buddy-launch-${target}.mp4`,
-  )
-  const renderPath = path.join(
-    OUTPUT_DIRECTORY,
-    `buddy-launch-${target}.rendering.mp4`,
-  )
-  const finalizedPath = path.join(
-    OUTPUT_DIRECTORY,
-    `buddy-launch-${target}.finalized.mp4`,
-  )
-  const backupPath = path.join(
-    OUTPUT_DIRECTORY,
-    `buddy-launch-${target}.previous.mp4`,
-  )
+  const outputPath = path.join(OUTPUT_DIRECTORY, `buddy-launch-${target}.mp4`)
+  const renderPath = path.join(OUTPUT_DIRECTORY, `buddy-launch-${target}.rendering.mp4`)
+  const finalizedPath = path.join(OUTPUT_DIRECTORY, `buddy-launch-${target}.finalized.mp4`)
+  const backupPath = path.join(OUTPUT_DIRECTORY, `buddy-launch-${target}.previous.mp4`)
 
   await mkdir(OUTPUT_DIRECTORY, { recursive: true })
-  await Promise.all([
-    rm(renderPath, { force: true }),
-    rm(finalizedPath, { force: true }),
-  ])
+  await Promise.all([rm(renderPath, { force: true }), rm(finalizedPath, { force: true })])
 
   try {
     const renderCommand = [
@@ -507,10 +444,7 @@ const renderTarget = async (target: RenderTarget): Promise<void> => {
     await publishAtomically(finalizedPath, outputPath, backupPath)
     console.log(`Published ${outputPath}`)
   } finally {
-    await Promise.all([
-      rm(renderPath, { force: true }),
-      rm(finalizedPath, { force: true }),
-    ])
+    await Promise.all([rm(renderPath, { force: true }), rm(finalizedPath, { force: true })])
   }
 }
 
@@ -523,7 +457,5 @@ if (requestedTarget === "all") {
 } else if (requestedTarget && isRenderTarget(requestedTarget)) {
   await renderTarget(requestedTarget)
 } else {
-  throw new Error(
-    `Choose one of: ${[...DELIVERY_TARGETS, "preview", "all"].join(", ")}.`,
-  )
+  throw new Error(`Choose one of: ${[...DELIVERY_TARGETS, "preview", "all"].join(", ")}.`)
 }

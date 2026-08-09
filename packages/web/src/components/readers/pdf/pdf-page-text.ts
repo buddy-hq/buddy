@@ -105,17 +105,17 @@ function scaledVector(x: number, y: number, length: number): PdfPoint {
 }
 
 function addPoints(...points: PdfPoint[]): PdfPoint {
-  return points.reduce(
-    (sum, point) => ({ x: sum.x + point.x, y: sum.y + point.y }),
-    { x: 0, y: 0 },
-  )
+  return points.reduce((sum, point) => ({ x: sum.x + point.x, y: sum.y + point.y }), { x: 0, y: 0 })
 }
 
 function cropRelativePoint(point: PdfPoint, cropBox: PdfCropBox): PdfPoint {
   return { x: point.x - cropBox.xMin, y: point.y - cropBox.yMin }
 }
 
-function textItemQuad(item: PdfTextContentItem, cropBox: PdfCropBox): {
+function textItemQuad(
+  item: PdfTextContentItem,
+  cropBox: PdfCropBox,
+): {
   quad: PdfQuad
   flow: PdfTextFlow
   direction: PdfTextDirection
@@ -145,9 +145,7 @@ function textItemQuad(item: PdfTextContentItem, cropBox: PdfCropBox): {
   return {
     flow: PDF_TEXT_HORIZONTAL_FLOW,
     direction:
-      item.direction === PDF_TEXT_DIRECTION_RTL
-        ? PDF_TEXT_DIRECTION_RTL
-        : PDF_TEXT_DIRECTION_LTR,
+      item.direction === PDF_TEXT_DIRECTION_RTL ? PDF_TEXT_DIRECTION_RTL : PDF_TEXT_DIRECTION_LTR,
     quad: {
       topLeft: cropRelativePoint(addPoints(origin, ascent), cropBox),
       topRight: cropRelativePoint(addPoints(origin, ascent, advance), cropBox),
@@ -221,16 +219,8 @@ function slicedSpanQuad(
     return {
       topLeft: interpolatePoint(span.quad.topLeft, span.quad.topRight, visualStartRatio),
       topRight: interpolatePoint(span.quad.topLeft, span.quad.topRight, visualEndRatio),
-      bottomRight: interpolatePoint(
-        span.quad.bottomLeft,
-        span.quad.bottomRight,
-        visualEndRatio,
-      ),
-      bottomLeft: interpolatePoint(
-        span.quad.bottomLeft,
-        span.quad.bottomRight,
-        visualStartRatio,
-      ),
+      bottomRight: interpolatePoint(span.quad.bottomLeft, span.quad.bottomRight, visualEndRatio),
+      bottomLeft: interpolatePoint(span.quad.bottomLeft, span.quad.bottomRight, visualStartRatio),
     }
   }
   return {
@@ -279,10 +269,15 @@ export function pdfTextAnchorFromOffsets(input: {
   }
 }
 
-function quoteMatchOffsets(text: string, quote: PdfTextQuote): {
-  startOffset: number
-  endOffset: number
-} | undefined {
+function quoteMatchOffsets(
+  text: string,
+  quote: PdfTextQuote,
+):
+  | {
+      startOffset: number
+      endOffset: number
+    }
+  | undefined {
   let bestStart = -1
   let bestScore = -1
   let candidateStart = text.indexOf(quote.exact)
@@ -380,7 +375,5 @@ export function pdfCurrentPassageText(
   }, undefined)
   const centerOffset = nearestSpan?.startOffset ?? 0
   const startOffset = Math.max(0, centerOffset - PDF_PASSAGE_LEADING_CONTEXT_LENGTH)
-  return normalizePassage(
-    pageText.text.slice(startOffset, startOffset + PDF_PASSAGE_MAX_LENGTH),
-  )
+  return normalizePassage(pageText.text.slice(startOffset, startOffset + PDF_PASSAGE_MAX_LENGTH))
 }

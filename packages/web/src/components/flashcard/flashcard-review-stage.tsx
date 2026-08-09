@@ -156,8 +156,7 @@ export function FlashcardReviewStage(props: {
    * stale aim would mount the *next* card already tilted.
    */
   const [aimed, setAimed] = useState<CardRating | null>(null)
-  const lean =
-    !reduceMotion && session.revealed && aimed ? REVIEW_AIM_LEAN[aimed] : REVIEW_NO_LEAN
+  const lean = !reduceMotion && session.revealed && aimed ? REVIEW_AIM_LEAN[aimed] : REVIEW_NO_LEAN
 
   const showCard = phase.kind === "card" && session.note !== null
   const missingNote = phase.kind === "card" && session.note === null

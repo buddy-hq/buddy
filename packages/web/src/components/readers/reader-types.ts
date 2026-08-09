@@ -71,11 +71,7 @@ export type ReaderSelection = {
   locationLabel?: string
 }
 
-export type ReaderAnnotationStyle =
-  | "highlight"
-  | "underline"
-  | "squiggly"
-  | "strikethrough"
+export type ReaderAnnotationStyle = "highlight" | "underline" | "squiggly" | "strikethrough"
 
 export type ReaderAnnotationColorId = "amber" | "mint" | "sky" | "rose"
 

@@ -60,8 +60,7 @@ const columnOf = (index: number) => Math.floor(index / ROWS_PER_COLUMN)
 const rowOf = (index: number) => index % ROWS_PER_COLUMN
 
 /** Every column runs the whole cycle, rotated by its own index. */
-const cycleStep = (index: number) =>
-  (columnOf(index) + rowOf(index)) % TILE_HEIGHT_CYCLE.length
+const cycleStep = (index: number) => (columnOf(index) + rowOf(index)) % TILE_HEIGHT_CYCLE.length
 
 const tileHeight = (index: number) => TILE_HEIGHT_CYCLE[cycleStep(index)]
 const headingSize = (index: number) => HEADING_SIZE_CYCLE[cycleStep(index)]
@@ -72,8 +71,7 @@ const headingSize = (index: number) => HEADING_SIZE_CYCLE[cycleStep(index)]
  * never break the rhythm.
  */
 const TONE_PARITY = 2
-const isLightTile = (index: number) =>
-  (columnOf(index) + rowOf(index)) % TONE_PARITY !== 0
+const isLightTile = (index: number) => (columnOf(index) + rowOf(index)) % TONE_PARITY !== 0
 
 /**
  * Non-integer so no two tiles share a band, which keeps the sweep landing one
@@ -82,8 +80,7 @@ const isLightTile = (index: number) =>
 const DIAGONAL_ROW_WEIGHT = 1.15
 
 /** Diagonal band a tile sits in, used to order the landings. */
-const diagonalBand = (index: number) =>
-  columnOf(index) + rowOf(index) * DIAGONAL_ROW_WEIGHT
+const diagonalBand = (index: number) => columnOf(index) + rowOf(index) * DIAGONAL_ROW_WEIGHT
 
 /**
  * Tiles sweep in diagonally from the top-left. Two orders were tried and
@@ -100,23 +97,20 @@ const LANDING_RANKS: readonly number[] = FEATURES.map((_feature, index) =>
 )
 
 /** Cumulative landing frame per rank, from the shrinking stagger. */
-const LANDING_FRAMES: readonly number[] = FEATURES.reduce<number[]>(
-  (frames, _feature, rank) => {
-    if (rank === 0) {
-      return [0]
-    }
-    const previousRank = rank - 1
-    const stagger = interpolate(
-      previousRank,
-      [0, FEATURES.length - 1],
-      [TILE_STAGGER_START_FRAMES, TILE_STAGGER_END_FRAMES],
-      { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-    )
-    frames.push(frames[previousRank] + Math.round(stagger))
-    return frames
-  },
-  [],
-)
+const LANDING_FRAMES: readonly number[] = FEATURES.reduce<number[]>((frames, _feature, rank) => {
+  if (rank === 0) {
+    return [0]
+  }
+  const previousRank = rank - 1
+  const stagger = interpolate(
+    previousRank,
+    [0, FEATURES.length - 1],
+    [TILE_STAGGER_START_FRAMES, TILE_STAGGER_END_FRAMES],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  )
+  frames.push(frames[previousRank] + Math.round(stagger))
+  return frames
+}, [])
 
 const DEPTH_OPACITY_FALLOFF = 0.2
 const DEPTH_SCALE_FALLOFF = 0.03
@@ -145,18 +139,15 @@ const PUSH_EASING = Easing.bezier(0.55, 0, 0.85, 0.35)
  * placeholder card. Kept in frames to stay exact at 30 FPS. */
 export const FEATURES_MONTAGE_DURATION_FRAMES = 270
 
-const ACCUMULATE_FRAMES =
-  LANDING_FRAMES[FEATURES.length - 1] + TILE_ENTRY_FRAMES
-export const FEATURES_MONTAGE_PUSH_START_FRAME =
-  FEATURES_MONTAGE_DURATION_FRAMES - PUSH_FRAMES
+const ACCUMULATE_FRAMES = LANDING_FRAMES[FEATURES.length - 1] + TILE_ENTRY_FRAMES
+export const FEATURES_MONTAGE_PUSH_START_FRAME = FEATURES_MONTAGE_DURATION_FRAMES - PUSH_FRAMES
 
 if (ACCUMULATE_FRAMES > FEATURES_MONTAGE_PUSH_START_FRAME) {
   throw new Error("The feature wall lands slower than the montage is long.")
 }
 
 /** 0 at the centre column, 1 at the outermost. */
-const columnDepth = (column: number) =>
-  Math.abs(column - COLUMN_CENTER_INDEX) / COLUMN_CENTER_INDEX
+const columnDepth = (column: number) => Math.abs(column - COLUMN_CENTER_INDEX) / COLUMN_CENTER_INDEX
 
 type TileProps = {
   readonly feature: LaunchFeatureCopy
@@ -173,16 +164,11 @@ const Tile = ({ feature, index }: TileProps) => {
     fps,
     frame: entryFrame,
   })
-  const entryOpacity = interpolate(
-    entryFrame,
-    [FIRST_FRAME, TILE_ENTRY_FRAMES / 2],
-    [0, 1],
-    {
-      easing: ENTRY_EASING,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
+  const entryOpacity = interpolate(entryFrame, [FIRST_FRAME, TILE_ENTRY_FRAMES / 2], [0, 1], {
+    easing: ENTRY_EASING,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
   const entryY = (1 - entrySpring) * ENTRY_RISE_PX
   const entryScale = interpolate(entrySpring, [0, 1], [ENTRY_START_SCALE, 1])
 
@@ -221,8 +207,7 @@ const Tile = ({ feature, index }: TileProps) => {
       <span
         style={{
           color: isLight ? INK_ON_PARCHMENT : INK_ON_DARK,
-          fontFamily:
-            "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
+          fontFamily: "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
           fontSize: headingSize(index),
           fontWeight: 700,
           letterSpacing: "-0.035em",
@@ -256,16 +241,11 @@ const Column = ({ column }: ColumnProps) => {
         width: COLUMN_WIDTH,
       }}
     >
-      {FEATURES.slice(
-        column * ROWS_PER_COLUMN,
-        (column + 1) * ROWS_PER_COLUMN,
-      ).map((feature, rowIndex) => (
-        <Tile
-          key={feature.tag}
-          feature={feature}
-          index={column * ROWS_PER_COLUMN + rowIndex}
-        />
-      ))}
+      {FEATURES.slice(column * ROWS_PER_COLUMN, (column + 1) * ROWS_PER_COLUMN).map(
+        (feature, rowIndex) => (
+          <Tile key={feature.tag} feature={feature} index={column * ROWS_PER_COLUMN + rowIndex} />
+        ),
+      )}
     </div>
   )
 }
@@ -293,15 +273,10 @@ export const FeaturesMontage = () => {
    * to its very last frame and hard-cuts, so the ending has nothing to rise
    * out of.
    */
-  const backdropPushOut = interpolate(
-    pushProgress,
-    [BACKDROP_PUSH_OUT_START, 1],
-    [1, 0],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
+  const backdropPushOut = interpolate(pushProgress, [BACKDROP_PUSH_OUT_START, 1], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
   const backdropStrength = interpolate(
     frame,
     [FIRST_FRAME, ACCUMULATE_FRAMES],
@@ -329,15 +304,13 @@ export const FeaturesMontage = () => {
 
       <div
         style={{
-          backgroundImage:
-            "radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)",
+          backgroundImage: "radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)",
           backgroundSize: "24px 24px",
           height: "100%",
           maskImage: "radial-gradient(62% 62% at 50% 50%, black, transparent)",
           pointerEvents: "none",
           position: "absolute",
-          WebkitMaskImage:
-            "radial-gradient(62% 62% at 50% 50%, black, transparent)",
+          WebkitMaskImage: "radial-gradient(62% 62% at 50% 50%, black, transparent)",
           width: "100%",
         }}
       />
@@ -358,7 +331,6 @@ export const FeaturesMontage = () => {
           <Column key={`column-${column}`} column={column} />
         ))}
       </div>
-
     </AbsoluteFill>
   )
 }

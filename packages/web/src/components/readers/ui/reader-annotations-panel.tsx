@@ -25,9 +25,7 @@ export function ReaderAnnotationsPanel({
   viewportRef,
 }: ReaderAnnotationsPanelProps) {
   const renderAnnotation = (annotation: ReaderAnnotationViewModel) => {
-    const color = READER_ANNOTATION_COLOR_OPTIONS.find(
-      (option) => option.id === annotation.color,
-    )
+    const color = READER_ANNOTATION_COLOR_OPTIONS.find((option) => option.id === annotation.color)
     return (
       <div className="group mb-0.5 flex items-start gap-2 rounded-md px-1 py-2 hover:bg-surface-base-hover">
         <span
@@ -89,9 +87,7 @@ export function ReaderAnnotationsPanel({
 
       <ScrollArea className="min-h-0 flex-1 px-2 py-2" viewportRef={viewportRef}>
         {annotations.length === 0 ? (
-          <p className="px-2 py-4 text-sm text-text-weaker">
-            {READER_EMPTY_ANNOTATIONS_MESSAGE}
-          </p>
+          <p className="px-2 py-4 text-sm text-text-weaker">{READER_EMPTY_ANNOTATIONS_MESSAGE}</p>
         ) : annotations.length >= READER_VIRTUALIZE_ROW_THRESHOLD ? (
           <VirtualizedRows
             items={annotations}

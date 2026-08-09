@@ -50,8 +50,8 @@ describe("presented media source files", () => {
     await expect(
       readPresentedMediaSourceBlob(new Blob(["export const answer = 42\n"])),
     ).resolves.toBe("export const answer = 42\n")
-    await expect(readPresentedMediaSourceBlob(new Blob([new Uint8Array([0, 1, 2])]))).rejects.toThrow(
-      "not readable UTF-8 text",
-    )
+    await expect(
+      readPresentedMediaSourceBlob(new Blob([new Uint8Array([0, 1, 2])])),
+    ).rejects.toThrow("not readable UTF-8 text")
   })
 })

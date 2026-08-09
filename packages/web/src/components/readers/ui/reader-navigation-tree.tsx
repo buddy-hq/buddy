@@ -18,9 +18,7 @@ export function ReaderNavigationTree({
 }: ReaderNavigationTreeProps) {
   return (
     <div
-      className={
-        depth === 0 ? "flex flex-col gap-0.5" : "ml-3 flex flex-col gap-0.5 border-l pl-2"
-      }
+      className={depth === 0 ? "flex flex-col gap-0.5" : "ml-3 flex flex-col gap-0.5 border-l pl-2"}
     >
       {items.map((item) => {
         const isActive = item.id === activeItemId || item.label === activeLabel

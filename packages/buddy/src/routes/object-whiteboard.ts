@@ -87,9 +87,7 @@ export const ObjectWhiteboardRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () =>
-            c.json(
-              await readWhiteboardObject(context.directory, c.req.valid("param").objectID),
-            ),
+            c.json(await readWhiteboardObject(context.directory, c.req.valid("param").objectID)),
           mapError: mapWhiteboardObjectRouteError,
         }),
       ),

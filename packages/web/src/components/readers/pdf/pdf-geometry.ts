@@ -165,9 +165,7 @@ export function viewportBoundsFromPdfQuad(
 ): { left: number; top: number; width: number; height: number } | undefined {
   const points = [quad.topLeft, quad.topRight, quad.bottomRight, quad.bottomLeft].map((point) => {
     const absolutePoint = absolutePdfPoint(point, cropBoxOrigin)
-    return readCoordinatePair(
-      viewport.convertToViewportPoint(absolutePoint.x, absolutePoint.y),
-    )
+    return readCoordinatePair(viewport.convertToViewportPoint(absolutePoint.x, absolutePoint.y))
   })
   if (points.some((point) => point === undefined)) return undefined
   const resolvedPoints = points.filter((point) => point !== undefined)

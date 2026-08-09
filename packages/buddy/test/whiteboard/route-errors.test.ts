@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  BuddyObjectNotFoundError,
-  BuddyObjectUnavailableError,
-} from "../../src/objects"
+import { BuddyObjectNotFoundError, BuddyObjectUnavailableError } from "../../src/objects"
 import { mapWhiteboardObjectRouteError } from "../../src/routes/object-whiteboard"
 
 describe("whiteboard object route errors", () => {

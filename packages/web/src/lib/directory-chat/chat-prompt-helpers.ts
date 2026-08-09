@@ -377,9 +377,7 @@ function isReadingSelectionPart(part: MessagePart): part is MessagePart & {
   return part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string"
 }
 
-function isSelectionContextPart(
-  part: MessagePart,
-): part is MessagePart & {
+function isSelectionContextPart(part: MessagePart): part is MessagePart & {
   type: typeof SELECTION_CONTEXT_PART_TYPE
   source: "reading" | "markdown"
   text: string

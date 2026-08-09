@@ -79,7 +79,8 @@ export function resolveFlashcardStanding(input: {
 
   if (dueCount > 0) {
     const parts: string[] = []
-    if (queue.newCount > 0) parts.push(language.t("flashcardDeck.partNew", { count: queue.newCount }))
+    if (queue.newCount > 0)
+      parts.push(language.t("flashcardDeck.partNew", { count: queue.newCount }))
     if (queue.learningCount > 0) {
       parts.push(language.t("flashcardDeck.partLearning", { count: queue.learningCount }))
     }
@@ -113,7 +114,10 @@ export function resolveFlashcardStanding(input: {
       headline: language.t("flashcardDeck.dueHeadline", { count: dueCount }),
       detail: parts.join(" · "),
       sessionLine: language.t("flashcardDeck.dueSession", { count: dueCount }),
-      action: { label: language.t("flashcardDeck.actionStudy", { count: dueCount }), mode: "study" },
+      action: {
+        label: language.t("flashcardDeck.actionStudy", { count: dueCount }),
+        mode: "study",
+      },
       tone: "ready",
     }
   }

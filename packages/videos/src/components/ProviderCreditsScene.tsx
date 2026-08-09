@@ -23,8 +23,7 @@ import { PROVIDER_NAMES } from "../providerCatalog"
  */
 
 const FIRST_FRAME = 0
-const SANS =
-  "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif"
+const SANS = "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif"
 
 const CENTER_DIVISOR = 2
 
@@ -42,8 +41,7 @@ const COLUMN_COUNT = 5
 const NAME_COLUMN_WIDTH = 320
 const NAME_COLUMN_GAP = 36
 const NAME_ROW_HEIGHT = 68
-const LIST_WIDTH =
-  COLUMN_COUNT * NAME_COLUMN_WIDTH + (COLUMN_COUNT - 1) * NAME_COLUMN_GAP
+const LIST_WIDTH = COLUMN_COUNT * NAME_COLUMN_WIDTH + (COLUMN_COUNT - 1) * NAME_COLUMN_GAP
 const ROWS_PER_COLUMN = Math.ceil(PROVIDER_NAMES.length / COLUMN_COUNT)
 const LIST_HEIGHT = ROWS_PER_COLUMN * NAME_ROW_HEIGHT
 
@@ -90,8 +88,7 @@ const CLOSING_HEADLINE_SIZE_PX = 92
 const HERO_BLOCK_CENTER = HERO_BLOCK_HEIGHT / CENTER_DIVISOR
 const CLOSING_BLOCK_TOP =
   HERO_BLOCK_HEIGHT + COMPANIONS_TO_LIST_GAP + LIST_HEIGHT + LIST_TO_CLOSING_GAP
-const CLOSING_BLOCK_CENTER =
-  CLOSING_BLOCK_TOP + CLOSING_BLOCK_HEIGHT / CENTER_DIVISOR
+const CLOSING_BLOCK_CENTER = CLOSING_BLOCK_TOP + CLOSING_BLOCK_HEIGHT / CENTER_DIVISOR
 
 const HERO_ENTRY_FRAMES = 14
 const COMPANION_DELAY_FRAMES = 14
@@ -102,8 +99,7 @@ const ROLL_FRAMES = 186
 const CLOSING_HOLD_FRAMES = 36
 const ROLL_END_FRAME = ROLL_START_FRAME + ROLL_FRAMES
 
-export const PROVIDER_CREDITS_DURATION_FRAMES =
-  ROLL_END_FRAME + CLOSING_HOLD_FRAMES
+export const PROVIDER_CREDITS_DURATION_FRAMES = ROLL_END_FRAME + CLOSING_HOLD_FRAMES
 
 /** Slow out of the hero, quick through the middle, park on the count. */
 const ROLL_EASING = Easing.bezier(0.5, 0, 0.25, 1)
@@ -126,24 +122,18 @@ const SEPARATOR = "·"
  * Names dissolve at the frame edges instead of clipping, which is what makes a
  * roll read as a roll. The hero sits centred, so it never touches the fade.
  */
-const TRACK_MASK =
-  "linear-gradient(180deg, transparent 0%, black 15%, black 85%, transparent 100%)"
+const TRACK_MASK = "linear-gradient(180deg, transparent 0%, black 15%, black 85%, transparent 100%)"
 
 const Hero = () => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
 
   const entrySpring = spring({ config: HERO_SPRING, fps, frame })
-  const entryOpacity = interpolate(
-    frame,
-    [FIRST_FRAME, HERO_ENTRY_FRAMES],
-    [0, 1],
-    {
-      easing: ENTRY_EASING,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
+  const entryOpacity = interpolate(frame, [FIRST_FRAME, HERO_ENTRY_FRAMES], [0, 1], {
+    easing: ENTRY_EASING,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
 
   return (
     <div
@@ -194,18 +184,12 @@ type CompanionProps = {
 /** The companions arrive one at a time, which is what says "and these too". */
 const Companion = ({ index, name }: CompanionProps) => {
   const frame = useCurrentFrame()
-  const entryFrame =
-    frame - COMPANION_DELAY_FRAMES - index * COMPANION_STAGGER_FRAMES
-  const entry = interpolate(
-    entryFrame,
-    [FIRST_FRAME, COMPANION_ENTRY_FRAMES],
-    [0, 1],
-    {
-      easing: ENTRY_EASING,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
+  const entryFrame = frame - COMPANION_DELAY_FRAMES - index * COMPANION_STAGGER_FRAMES
+  const entry = interpolate(entryFrame, [FIRST_FRAME, COMPANION_ENTRY_FRAMES], [0, 1], {
+    easing: ENTRY_EASING,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
 
   return (
     <div
@@ -276,7 +260,6 @@ export const ProviderCreditsScene = () => {
       extrapolateRight: "clamp",
     },
   )
-
 
   return (
     <AbsoluteFill

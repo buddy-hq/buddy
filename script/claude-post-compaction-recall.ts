@@ -12,13 +12,9 @@ import {
   UUID_PATTERN,
 } from "./post-compaction-recall-shared"
 
-const LOCAL_SESSION_PATTERN = /^local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const DEFAULT_TRANSCRIPT_DIRECTORY = path.join(
-  "docs",
-  "local",
-  "post-compaction-recall",
-  "claude",
-)
+const LOCAL_SESSION_PATTERN =
+  /^local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const DEFAULT_TRANSCRIPT_DIRECTORY = path.join("docs", "local", "post-compaction-recall", "claude")
 const INJECTED_USER_BLOCKS = [
   /<cu_window_hints>[\s\S]*?<\/cu_window_hints>/gi,
   /<ide_opened_file>[\s\S]*?<\/ide_opened_file>/gi,

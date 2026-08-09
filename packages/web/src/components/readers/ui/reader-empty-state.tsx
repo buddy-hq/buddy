@@ -1,12 +1,6 @@
 import type { ReactNode } from "react"
 import { ScrollTextIcon } from "@/icons/app-icons"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@buddy/ui"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@buddy/ui"
 
 type ReaderEmptyStateProps = {
   children?: ReactNode

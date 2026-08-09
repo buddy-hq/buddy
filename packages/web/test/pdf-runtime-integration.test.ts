@@ -46,9 +46,7 @@ describe("Foliate Vite integration", () => {
 describe("PDF.js Vite integration", () => {
   test("includes a modified PDF's revision ID in its persistence fingerprint", () => {
     expect(pdfDocumentFingerprint(["permanent-id", null])).toBe("permanent-id")
-    expect(pdfDocumentFingerprint(["permanent-id", "revision-id"])).toBe(
-      "permanent-id:revision-id",
-    )
+    expect(pdfDocumentFingerprint(["permanent-id", "revision-id"])).toBe("permanent-id:revision-id")
   })
 
   test("scopes the stock viewer stylesheet without retaining root declarations", () => {

@@ -38,8 +38,9 @@ describe("flashcard review card", () => {
 
     expect(container.querySelector("a")?.closest("button")).toBeNull()
     expect(container.querySelector("button")).toBeNull()
-    const hiddenFace = Array.from(container.querySelectorAll<HTMLElement>('[aria-hidden="true"]'))
-      .find((element) => element.textContent?.includes("Secret answer"))
+    const hiddenFace = Array.from(
+      container.querySelectorAll<HTMLElement>('[aria-hidden="true"]'),
+    ).find((element) => element.textContent?.includes("Secret answer"))
     expect(hiddenFace).toBeDefined()
     expect(hiddenFace?.inert).toBe(true)
   })

@@ -36,9 +36,7 @@ function FlashcardPracticeHeader(props: {
         {language.t("flashcardDeck.exitToDeck")}
       </button>
       <span className="h-3 w-px shrink-0 bg-border-base" aria-hidden />
-      <span className="min-w-0 flex-1 truncate text-[11px] text-text-weak">
-        {props.deckTitle}
-      </span>
+      <span className="min-w-0 flex-1 truncate text-[11px] text-text-weak">{props.deckTitle}</span>
       {props.cardNumber === undefined ? null : (
         <span className="shrink-0 font-mono text-[11px] tabular-nums text-text-weaker">
           {props.cardNumber}/{props.cardCount}
@@ -62,9 +60,7 @@ export function FlashcardPracticeStage(props: {
   onExit: () => void
 }) {
   const card = props.deck.cards[props.index % Math.max(1, props.deck.cards.length)]
-  const note = card
-    ? props.deck.notes.find((entry) => entry.noteID === card.noteID)
-    : undefined
+  const note = card ? props.deck.notes.find((entry) => entry.noteID === card.noteID) : undefined
 
   if (!card || !note) {
     return (
@@ -78,9 +74,7 @@ export function FlashcardPracticeStage(props: {
           onExit={props.onExit}
         />
         <div className="flex min-h-0 flex-1 items-center justify-center">
-          <p className="text-[12px] text-text-weaker">
-            {language.t("flashcardDeck.noCards")}
-          </p>
+          <p className="text-[12px] text-text-weaker">{language.t("flashcardDeck.noCards")}</p>
         </div>
       </div>
     )
@@ -144,11 +138,7 @@ export function FlashcardPracticeStage(props: {
             style={{ height: REVIEW_ACTIONS_H_PX, marginTop: REVIEW_ACTIONS_GAP_PX }}
           >
             <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => props.onRevealed(!props.revealed)}
-              >
+              <Button size="sm" variant="outline" onClick={() => props.onRevealed(!props.revealed)}>
                 {language.t(
                   props.revealed ? "flashcardDeck.hideAnswer" : "flashcardDeck.showAnswer",
                 )}

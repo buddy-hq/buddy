@@ -73,10 +73,7 @@ const DECK_INITIAL_VIEWPORT_RECT = {
 
 type DeckFilterID = "all" | "due" | "new" | "leech"
 
-type DeckVirtualItem =
-  | { kind: "overview" }
-  | { kind: "empty" }
-  | { kind: "card"; card: DeckCard }
+type DeckVirtualItem = { kind: "overview" } | { kind: "empty" } | { kind: "card"; card: DeckCard }
 
 const DECK_FILTERS: { id: DeckFilterID; labelKey: string }[] = [
   { id: "all", labelKey: "flashcardDeck.filterAll" },
@@ -234,10 +231,7 @@ export function FlashcardDeckView(props: {
   /* The queue is the only authority on what is due. `cards` is intentionally a
      small payload window for review; queuedCardIDs is the complete admitted set
      and therefore the only correct source for a deck-wide filter. */
-  const queuedCardIDs = useMemo(
-    () => new Set(queue.queuedCardIDs),
-    [queue.queuedCardIDs],
-  )
+  const queuedCardIDs = useMemo(() => new Set(queue.queuedCardIDs), [queue.queuedCardIDs])
 
   const visibleCards = useMemo(() => {
     switch (filter) {
@@ -270,10 +264,7 @@ export function FlashcardDeckView(props: {
       data-component="flashcard-deck-view"
       className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6"
     >
-      <div
-        data-component="flashcard-deck-content"
-        className="mx-auto w-full max-w-3xl"
-      >
+      <div data-component="flashcard-deck-content" className="mx-auto w-full max-w-3xl">
         <VirtualizedRows
           items={virtualItems}
           getScrollElement={() => scrollElement}
@@ -355,10 +346,7 @@ export function FlashcardDeckView(props: {
                 <DeckCardRow
                   card={card}
                   note={notesByID.get(card.noteID)}
-                  leech={isFlashcardLeech(
-                    card.lapses,
-                    queue.resolvedConfig.leechThreshold,
-                  )}
+                  leech={isFlashcardLeech(card.lapses, queue.resolvedConfig.leechThreshold)}
                   now={now}
                   open={props.peekCardID === card.cardID}
                   onToggle={() =>

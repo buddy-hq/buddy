@@ -242,11 +242,7 @@ describe("whiteboard Bench auto-open", () => {
     }
     const render = (messages: MessageWithParts[]) => (
       <TransientBenchSurfaceProvider value={transientValue}>
-        <WhiteboardBenchAutoOpen
-          directory={DIRECTORY}
-          sessionID={SESSION_ID}
-          messages={messages}
-        />
+        <WhiteboardBenchAutoOpen directory={DIRECTORY} sessionID={SESSION_ID} messages={messages} />
       </TransientBenchSurfaceProvider>
     )
 

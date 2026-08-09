@@ -1,14 +1,8 @@
 import { AbsoluteFill, Sequence } from "remotion"
 
 import { BackgroundMusic } from "./components/BackgroundMusic"
-import {
-  LaunchSlotCanvas,
-  SLOT_CANVAS_DURATION_FRAMES,
-} from "./components/LaunchSlotCanvas"
-import {
-  OPENING_HOOK_DURATION_FRAMES,
-  OpeningHook,
-} from "./components/OpeningHook"
+import { LaunchSlotCanvas, SLOT_CANVAS_DURATION_FRAMES } from "./components/LaunchSlotCanvas"
+import { OPENING_HOOK_DURATION_FRAMES, OpeningHook } from "./components/OpeningHook"
 
 export const BuddyLaunch = () => {
   return (
@@ -22,10 +16,7 @@ export const BuddyLaunch = () => {
         <OpeningHook />
       </Sequence>
 
-      <Sequence
-        durationInFrames={SLOT_CANVAS_DURATION_FRAMES}
-        from={OPENING_HOOK_DURATION_FRAMES}
-      >
+      <Sequence durationInFrames={SLOT_CANVAS_DURATION_FRAMES} from={OPENING_HOOK_DURATION_FRAMES}>
         <LaunchSlotCanvas />
       </Sequence>
 

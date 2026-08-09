@@ -60,10 +60,7 @@ function createContext(input: { directory: string; sessionID: string }): BuddyTo
   }
 }
 
-const testWhiteboardObjectBySession = new Map<
-  string,
-  ReturnType<typeof createWhiteboardObject>
->()
+const testWhiteboardObjectBySession = new Map<string, ReturnType<typeof createWhiteboardObject>>()
 
 function testWhiteboardSessionKey(directory: string, sessionID: string): string {
   return JSON.stringify([directory, sessionID])
@@ -101,9 +98,7 @@ async function readWhiteboardSession(directory: string, sessionID: string) {
 
 async function readWhiteboardBoardContext(directory: string, sessionID: string) {
   const object = await existingWhiteboardObjectForSession(directory, sessionID)
-  return object
-    ? readWhiteboardObjectContext(directory, object.objectID)
-    : { currentBoard: null }
+  return object ? readWhiteboardObjectContext(directory, object.objectID) : { currentBoard: null }
 }
 
 async function readAndRecordWhiteboardBoardContext(directory: string, sessionID: string) {

@@ -42,10 +42,7 @@ export const ScrambleReveal = ({
   revealedStyle,
   text,
 }: ScrambleRevealProps) => {
-  const revealCount = Math.max(
-    NOTHING_REVEALED,
-    Math.floor(frame / framesPerCharacter),
-  )
+  const revealCount = Math.max(NOTHING_REVEALED, Math.floor(frame / framesPerCharacter))
   const flipTick = Math.floor(frame / flipFrames)
 
   // Characters resolve left to right, so the revealed run is always a prefix
@@ -54,9 +51,7 @@ export const ScrambleReveal = ({
     .slice(revealCount)
     .split("")
     .map((character, offset) =>
-      character === SPACE
-        ? SPACE
-        : scrambleCharacter(revealCount + offset, flipTick),
+      character === SPACE ? SPACE : scrambleCharacter(revealCount + offset, flipTick),
     )
     .join("")
 

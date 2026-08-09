@@ -9,12 +9,7 @@ const PDFJS_OUTPUT_DIRECTORY = "assets/pdfjs"
 const PDFJS_REQUEST_PREFIX = `/${PDFJS_OUTPUT_DIRECTORY}/`
 const PDFJS_WORKER_FILE_NAME = "pdf.worker.min.mjs"
 const PDFJS_OUTPUT_WORKER_PATH = `${PDFJS_OUTPUT_DIRECTORY}/${PDFJS_WORKER_FILE_NAME}`
-const PDFJS_RUNTIME_DIRECTORY_NAMES = [
-  "cmaps",
-  "standard_fonts",
-  "wasm",
-  "iccs",
-] as const
+const PDFJS_RUNTIME_DIRECTORY_NAMES = ["cmaps", "standard_fonts", "wasm", "iccs"] as const
 const PDFJS_IMAGE_DIRECTORY_NAME = "images"
 const PDFJS_VIEWER_SCOPE_SELECTOR = ".buddy-pdfjs-scope"
 const PDFJS_VIEWER_CONTAINER_HEIGHT_DECLARATION = "--viewer-container-height:0;"
@@ -58,11 +53,7 @@ type PdfJsRuntimeAsset = {
 
 const require = createRequire(import.meta.url)
 const PDFJS_PACKAGE_DIRECTORY = path.dirname(require.resolve("pdfjs-dist/package.json"))
-const PDFJS_WORKER_PATH = path.join(
-  PDFJS_PACKAGE_DIRECTORY,
-  "build",
-  PDFJS_WORKER_FILE_NAME,
-)
+const PDFJS_WORKER_PATH = path.join(PDFJS_PACKAGE_DIRECTORY, "build", PDFJS_WORKER_FILE_NAME)
 
 function toOutputPath(...segments: readonly string[]): string {
   return segments.join("/")

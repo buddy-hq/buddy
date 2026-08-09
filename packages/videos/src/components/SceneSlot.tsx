@@ -11,36 +11,18 @@ import {
 
 import type { ComponentType } from "react"
 
-import type {
-  BuiltInSceneId,
-  SceneSlotDefinition,
-} from "../timeline/launchTimeline"
-import {
-  ARGOS_PROMPT_SCENE_DURATION_FRAMES,
-  ArgosPromptScene,
-} from "./ArgosPromptScene"
-import {
-  FEATURES_MONTAGE_DURATION_FRAMES,
-  FeaturesMontage,
-} from "./FeaturesMontage"
-import {
-  FIRST_PROMPT_SCENE_DURATION_FRAMES,
-  FirstPromptScene,
-} from "./FirstPromptScene"
-import {
-  FINAL_LOGO_DURATION_FRAMES,
-  FinalLogoEnding,
-} from "./FinalLogoEnding"
+import type { BuiltInSceneId, SceneSlotDefinition } from "../timeline/launchTimeline"
+import { ARGOS_PROMPT_SCENE_DURATION_FRAMES, ArgosPromptScene } from "./ArgosPromptScene"
+import { FEATURES_MONTAGE_DURATION_FRAMES, FeaturesMontage } from "./FeaturesMontage"
+import { FIRST_PROMPT_SCENE_DURATION_FRAMES, FirstPromptScene } from "./FirstPromptScene"
+import { FINAL_LOGO_DURATION_FRAMES, FinalLogoEnding } from "./FinalLogoEnding"
 import { GAME_CLIP_DURATION_FRAMES, GamePeak } from "./GamePeak"
 import {
   READER_FADE_OUT_DURATION_FRAMES,
   READER_SCENE_DURATION_FRAMES,
   ReaderScene,
 } from "./ReaderScene"
-import {
-  PROVIDER_CREDITS_DURATION_FRAMES,
-  ProviderCreditsScene,
-} from "./ProviderCreditsScene"
+import { PROVIDER_CREDITS_DURATION_FRAMES, ProviderCreditsScene } from "./ProviderCreditsScene"
 import {
   PROMPT_TO_RESULT_FADE_IN_FRAMES,
   PROMPT_TO_RESULT_FADE_OUT_FRAMES,
@@ -52,10 +34,7 @@ import {
   WHITEBOARD_ONE_SCENE_DURATION_FRAMES,
   WhiteboardOneScene,
 } from "./WhiteboardOneScene"
-import {
-  WORMHOLE_PROMPT_SCENE_DURATION_FRAMES,
-  WormholePromptScene,
-} from "./WormholePromptScene"
+import { WORMHOLE_PROMPT_SCENE_DURATION_FRAMES, WormholePromptScene } from "./WormholePromptScene"
 
 const GUIDE_FADE_FRAMES = 12
 const FIRST_FRAME = 0
@@ -148,8 +127,7 @@ export const SceneSlot = ({ slot }: SceneSlotProps) => {
     },
   )
   const durationSeconds = slot.durationInFrames / fps
-  const sceneBackgroundColor =
-    (slot.offsetInFrames ?? 0) < 0 ? "transparent" : "#000000"
+  const sceneBackgroundColor = (slot.offsetInFrames ?? 0) < 0 ? "transparent" : "#000000"
 
   if (slot.source) {
     return (
@@ -172,13 +150,10 @@ export const SceneSlot = ({ slot }: SceneSlotProps) => {
   if (slot.builtIn) {
     const builtInScene = BUILT_IN_SCENES[slot.builtIn]
     const BuiltInComponent = builtInScene.component
-    const remainingDurationInFrames =
-      slot.durationInFrames - builtInScene.durationInFrames
+    const remainingDurationInFrames = slot.durationInFrames - builtInScene.durationInFrames
 
     if (remainingDurationInFrames !== 0) {
-      throw new Error(
-        `${builtInScene.label} duration does not match the ${slot.id} scene.`,
-      )
+      throw new Error(`${builtInScene.label} duration does not match the ${slot.id} scene.`)
     }
 
     return (
@@ -186,13 +161,9 @@ export const SceneSlot = ({ slot }: SceneSlotProps) => {
         <Sequence durationInFrames={builtInScene.durationInFrames}>
           <SceneBoundaryFade
             durationInFrames={builtInScene.durationInFrames}
-            fadeInDurationInFrames={
-              builtInScene.fadeInDurationInFrames
-            }
+            fadeInDurationInFrames={builtInScene.fadeInDurationInFrames}
             fadeOutCurve={builtInScene.fadeOutCurve}
-            fadeOutDurationInFrames={
-              builtInScene.fadeOutDurationInFrames
-            }
+            fadeOutDurationInFrames={builtInScene.fadeOutDurationInFrames}
           >
             <BuiltInComponent />
           </SceneBoundaryFade>
@@ -236,8 +207,7 @@ export const SceneSlot = ({ slot }: SceneSlotProps) => {
 
         <div
           style={{
-            fontFamily:
-              "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
+            fontFamily: "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
             fontSize: 104,
             fontWeight: 750,
             letterSpacing: "-0.055em",
@@ -251,8 +221,7 @@ export const SceneSlot = ({ slot }: SceneSlotProps) => {
         <div
           style={{
             color: "rgba(255,255,255,0.6)",
-            fontFamily:
-              "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
+            fontFamily: "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
             fontSize: 42,
             lineHeight: 1.35,
             marginTop: 38,
@@ -269,8 +238,7 @@ export const SceneSlot = ({ slot }: SceneSlotProps) => {
             marginTop: 48,
           }}
         >
-          Add media to public/scenes, then set this slot&apos;s source in
-          launchTimeline.ts
+          Add media to public/scenes, then set this slot&apos;s source in launchTimeline.ts
         </div>
       </div>
     </AbsoluteFill>

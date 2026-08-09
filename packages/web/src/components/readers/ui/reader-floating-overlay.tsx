@@ -38,7 +38,8 @@ export function ReaderFloatingOverlay(props: ReaderFloatingOverlayProps) {
       const ownerWindow = anchorRoot.ownerDocument.defaultView
       const viewportLeft = ownerWindow?.visualViewport?.offsetLeft ?? 0
       const viewportRight =
-        viewportLeft + (ownerWindow?.visualViewport?.width ?? ownerWindow?.innerWidth ?? rootBounds.right)
+        viewportLeft +
+        (ownerWindow?.visualViewport?.width ?? ownerWindow?.innerWidth ?? rootBounds.right)
       const boundaryLeft =
         Math.max(rootBounds.left, viewportLeft) + READER_FLOATING_OVERLAY_BOUNDARY_PADDING_PX
       const boundaryRight =

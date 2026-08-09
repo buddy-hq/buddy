@@ -14,16 +14,13 @@ import { BUDDY_LAUNCH_FPS } from "../videoConfig"
 const SOURCE_START_SECONDS = 1
 const SOURCE_END_SECONDS = 22
 const SOURCE_PLAYBACK_RATE = 1.1
-const CLIP_DURATION_SECONDS =
-  (SOURCE_END_SECONDS - SOURCE_START_SECONDS) / SOURCE_PLAYBACK_RATE
+const CLIP_DURATION_SECONDS = (SOURCE_END_SECONDS - SOURCE_START_SECONDS) / SOURCE_PLAYBACK_RATE
 const STATIC_DURATION_SECONDS = 1
 const FIRST_FRAME = 0
 const FPS = BUDDY_LAUNCH_FPS
 const FINDING_THING_OUT_SOURCE_SECONDS = 13.08
 const FINDING_THING_OUT_CLIP_FRAME = Math.round(
-  ((FINDING_THING_OUT_SOURCE_SECONDS - SOURCE_START_SECONDS) /
-    SOURCE_PLAYBACK_RATE) *
-    FPS,
+  ((FINDING_THING_OUT_SOURCE_SECONDS - SOURCE_START_SECONDS) / SOURCE_PLAYBACK_RATE) * FPS,
 )
 const VOICE_INITIAL_VOLUME = 0.5
 const VOICE_MAX_VOLUME = 0.5
@@ -35,29 +32,20 @@ const STATIC_DURATION_FRAMES = STATIC_DURATION_SECONDS * FPS
 const STATIC_AUDIO_DURATION_SECONDS = 2
 const STATIC_AUDIO_DURATION_FRAMES = STATIC_AUDIO_DURATION_SECONDS * FPS
 const STATIC_AUDIO_FADE_START_FRAME = STATIC_DURATION_FRAMES
-export const TELEVISION_CLIP_DURATION_FRAMES = Math.round(
-  CLIP_DURATION_SECONDS * FPS,
-)
+export const TELEVISION_CLIP_DURATION_FRAMES = Math.round(CLIP_DURATION_SECONDS * FPS)
 export const TELEVISION_TOTAL_FRAMES = STATIC_DURATION_FRAMES + TELEVISION_CLIP_DURATION_FRAMES
-export const TELEVISION_FADE_OUT_START_FRAME =
-  STATIC_DURATION_FRAMES + FINDING_THING_OUT_CLIP_FRAME
+export const TELEVISION_FADE_OUT_START_FRAME = STATIC_DURATION_FRAMES + FINDING_THING_OUT_CLIP_FRAME
 export const TELEVISION_FADE_OUT_DURATION_FRAMES =
   TELEVISION_TOTAL_FRAMES - TELEVISION_FADE_OUT_START_FRAME
 
-export const televisionSourceSecondsToFrame = (
-  sourceSeconds: number,
-): number => {
+export const televisionSourceSecondsToFrame = (sourceSeconds: number): number => {
   return (
     STATIC_DURATION_FRAMES +
-    Math.round(
-      ((sourceSeconds - SOURCE_START_SECONDS) / SOURCE_PLAYBACK_RATE) * FPS,
-    )
+    Math.round(((sourceSeconds - SOURCE_START_SECONDS) / SOURCE_PLAYBACK_RATE) * FPS)
   )
 }
 
-const SOURCE_CLIP = staticFile(
-  "references/feynman-pleasure-of-finding-things-out.mp4",
-)
+const SOURCE_CLIP = staticFile("references/feynman-pleasure-of-finding-things-out.mp4")
 const SOURCE_VOICE = staticFile("audio/feynman-voice-1.1x.wav")
 const STATIC_AUDIO = staticFile("audio/tv-static-2s-loop.wav")
 
@@ -70,8 +58,7 @@ const CABINET_BOTTOM_PADDING = 44
 const BEZEL_WIDTH = SCREEN_WIDTH + BEZEL_INSET * 2
 const BEZEL_HEIGHT = SCREEN_HEIGHT + BEZEL_INSET * 2
 const TELEVISION_WIDTH = BEZEL_WIDTH + CABINET_SIDE_PADDING * 2
-export const TELEVISION_HEIGHT_PX =
-  BEZEL_HEIGHT + CABINET_TOP_PADDING + CABINET_BOTTOM_PADDING
+export const TELEVISION_HEIGHT_PX = BEZEL_HEIGHT + CABINET_TOP_PADDING + CABINET_BOTTOM_PADDING
 const CABINET_RADIUS = 40
 const BEZEL_RADIUS = 30
 const SCREEN_RADIUS = "7% / 12%"
@@ -80,16 +67,11 @@ const FADE_IN_EASING = Easing.bezier(0.16, 1, 0.3, 1)
 const FADE_OUT_EASING = Easing.bezier(0.4, 0, 0.2, 1)
 
 export const getTelevisionCameraScale = (frame: number): number => {
-  return interpolate(
-    frame,
-    [FIRST_FRAME, TELEVISION_TOTAL_FRAMES],
-    [0.94, 1],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-      easing: FADE_IN_EASING,
-    },
-  )
+  return interpolate(frame, [FIRST_FRAME, TELEVISION_TOTAL_FRAMES], [0.94, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: FADE_IN_EASING,
+  })
 }
 
 const Broadcast = () => {
@@ -107,10 +89,7 @@ const Broadcast = () => {
     )
     const fadeOut = interpolate(
       audioFrame,
-      [
-        FINDING_THING_OUT_CLIP_FRAME,
-        TELEVISION_CLIP_DURATION_FRAMES - 1,
-      ],
+      [FINDING_THING_OUT_CLIP_FRAME, TELEVISION_CLIP_DURATION_FRAMES - 1],
       [1, VOICE_FINAL_VOLUME],
       {
         extrapolateLeft: "clamp",
@@ -171,12 +150,7 @@ const StaticSignal = () => {
 
   return (
     <AbsoluteFill style={{ opacity: staticOpacity, pointerEvents: "none" }}>
-      <svg
-        aria-hidden="true"
-        height="100%"
-        preserveAspectRatio="none"
-        width="100%"
-      >
+      <svg aria-hidden="true" height="100%" preserveAspectRatio="none" width="100%">
         <filter id="crt-static">
           <feTurbulence
             baseFrequency="0.72"
@@ -192,18 +166,12 @@ const StaticSignal = () => {
             <feFuncB intercept="-0.75" slope="2.6" type="linear" />
           </feComponentTransfer>
         </filter>
-        <rect
-          fill="#bcbcbc"
-          filter="url(#crt-static)"
-          height="100%"
-          width="100%"
-        />
+        <rect fill="#bcbcbc" filter="url(#crt-static)" height="100%" width="100%" />
       </svg>
 
       <div
         style={{
-          background:
-            "linear-gradient(180deg, transparent, rgba(255,255,255,0.34), transparent)",
+          background: "linear-gradient(180deg, transparent, rgba(255,255,255,0.34), transparent)",
           filter: "blur(3px)",
           height: 46,
           left: 0,
@@ -258,10 +226,7 @@ const Screen = () => {
         />
       </Sequence>
 
-      <Sequence
-        durationInFrames={TELEVISION_CLIP_DURATION_FRAMES}
-        from={STATIC_DURATION_FRAMES}
-      >
+      <Sequence durationInFrames={TELEVISION_CLIP_DURATION_FRAMES} from={STATIC_DURATION_FRAMES}>
         <Broadcast />
       </Sequence>
 
@@ -277,8 +242,7 @@ const Screen = () => {
 
       <AbsoluteFill
         style={{
-          background:
-            "radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,0.62) 100%)",
+          background: "radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,0.62) 100%)",
           pointerEvents: "none",
         }}
       />
@@ -360,8 +324,7 @@ export const Television = () => {
         <div
           style={{
             alignItems: "center",
-            background:
-              "linear-gradient(170deg, #1b1815 0%, #121010 55%, #191614 100%)",
+            background: "linear-gradient(170deg, #1b1815 0%, #121010 55%, #191614 100%)",
             borderRadius: BEZEL_RADIUS,
             boxShadow: [
               "inset 0 3px 6px rgba(0,0,0,0.85)",

@@ -50,15 +50,9 @@ const DECK_CONFIG_DEFAULTS = {
 const DeckConfigSchema = z.object({
   newPerDay: z.number().int().nonnegative().default(DECK_CONFIG_DEFAULTS.newPerDay),
   reviewsPerDay: z.number().int().nonnegative().default(DECK_CONFIG_DEFAULTS.reviewsPerDay),
-  newCardsIgnoreReviewLimit: z
-    .boolean()
-    .default(DECK_CONFIG_DEFAULTS.newCardsIgnoreReviewLimit),
+  newCardsIgnoreReviewLimit: z.boolean().default(DECK_CONFIG_DEFAULTS.newCardsIgnoreReviewLimit),
   /** Minutes to make short learning cards available before their exact due time. */
-  learnAheadMinutes: z
-    .number()
-    .int()
-    .nonnegative()
-    .default(DECK_CONFIG_DEFAULTS.learnAheadMinutes),
+  learnAheadMinutes: z.number().int().nonnegative().default(DECK_CONFIG_DEFAULTS.learnAheadMinutes),
   /** Local hour at which the scheduling day rolls over. */
   rolloverHour: z.number().int().min(0).max(23).default(DECK_CONFIG_DEFAULTS.rolloverHour),
   /** Minutes between learning steps, e.g. [1, 10]. */

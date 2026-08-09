@@ -28,38 +28,19 @@ export const SceneBoundaryFade = ({
 }: SceneBoundaryFadeProps) => {
   const frame = useCurrentFrame()
   const lastFrame = durationInFrames - LAST_FRAME_OFFSET
-  const fadeInFrames = Math.min(
-    fadeInDurationInFrames,
-    Math.floor(durationInFrames / 3),
-  )
-  const fadeOutFrames = Math.min(
-    fadeOutDurationInFrames,
-    Math.floor(durationInFrames / 3),
-  )
+  const fadeInFrames = Math.min(fadeInDurationInFrames, Math.floor(durationInFrames / 3))
+  const fadeOutFrames = Math.min(fadeOutDurationInFrames, Math.floor(durationInFrames / 3))
   const fadeOutStartFrame = lastFrame - fadeOutFrames
-  const fadeInOpacity = interpolate(
-    frame,
-    [0, fadeInFrames],
-    [0, 1],
-    {
-      easing: SLOW_FADE_IN_EASING,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
-  const fadeOutOpacity = interpolate(
-    frame,
-    [fadeOutStartFrame, lastFrame],
-    [1, 0],
-    {
-      easing:
-        fadeOutCurve === "linear"
-          ? Easing.linear
-          : QUICK_FADE_OUT_EASING,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
+  const fadeInOpacity = interpolate(frame, [0, fadeInFrames], [0, 1], {
+    easing: SLOW_FADE_IN_EASING,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
+  const fadeOutOpacity = interpolate(frame, [fadeOutStartFrame, lastFrame], [1, 0], {
+    easing: fadeOutCurve === "linear" ? Easing.linear : QUICK_FADE_OUT_EASING,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
   const opacity = fadeInOpacity * fadeOutOpacity
 
   return <div style={{ height: "100%", opacity, width: "100%" }}>{children}</div>

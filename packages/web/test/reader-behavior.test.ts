@@ -168,9 +168,9 @@ describe("reader themes", () => {
         pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.9)",
       },
     ])
-    expect(READER_THEMES.every((theme) => theme.contentAccent === READER_SELECTION_BACKGROUND)).toBe(
-      true,
-    )
+    expect(
+      READER_THEMES.every((theme) => theme.contentAccent === READER_SELECTION_BACKGROUND),
+    ).toBe(true)
   })
 
   test("forces reader colors after publisher EPUB styles", () => {
@@ -196,9 +196,7 @@ describe("reader themes", () => {
   test("resolves annotation colors from semantic theme tokens before EPUB injection", () => {
     document.documentElement.style.setProperty("--surface-warning-base", "rgb(255, 191, 0)")
 
-    expect(resolveAnnotationColorValue("amber", document.documentElement)).toBe(
-      "rgb(255, 191, 0)",
-    )
+    expect(resolveAnnotationColorValue("amber", document.documentElement)).toBe("rgb(255, 191, 0)")
   })
 
   test("ignores the legacy independent appearance preference", () => {

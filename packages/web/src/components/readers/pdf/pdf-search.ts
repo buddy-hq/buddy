@@ -33,9 +33,7 @@ function normalizeText(
 
   for (const sourceCharacter of value) {
     const sourceEnd = sourceStart + sourceCharacter.length
-    const decomposed = options.matchDiacritics
-      ? sourceCharacter
-      : sourceCharacter.normalize("NFD")
+    const decomposed = options.matchDiacritics ? sourceCharacter : sourceCharacter.normalize("NFD")
     for (const character of decomposed) {
       if (!options.matchDiacritics && COMBINING_MARK_PATTERN.test(character)) {
         const previousIndex = sourceEnds.length - 1

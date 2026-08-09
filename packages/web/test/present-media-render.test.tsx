@@ -745,13 +745,10 @@ describe("present media renderer", () => {
       await flushEffects()
     })
 
-    expect(onOpenResource).toHaveBeenCalledWith(
-      "/repo",
-      {
-        path: "generated/notes.pdf",
-        name: "notes.pdf",
-      },
-    )
+    expect(onOpenResource).toHaveBeenCalledWith("/repo", {
+      path: "generated/notes.pdf",
+      name: "notes.pdf",
+    })
     expect(openPath).not.toHaveBeenCalled()
   })
 

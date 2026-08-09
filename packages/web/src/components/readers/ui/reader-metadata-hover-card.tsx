@@ -8,10 +8,7 @@ type ReaderMetadataHoverCardProps = {
   children: ReactNode
 }
 
-export function ReaderMetadataHoverCard({
-  snapshot,
-  children,
-}: ReaderMetadataHoverCardProps) {
+export function ReaderMetadataHoverCard({ snapshot, children }: ReaderMetadataHoverCardProps) {
   return (
     <HoverCard>
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>

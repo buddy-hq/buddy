@@ -110,8 +110,7 @@ describe("PDF DOM interactions", () => {
       const action = readPdfSelection({
         root,
         session: {
-          getPageGeometry: (pageIndex) =>
-            pageIndex === PAGE_INDEX ? geometry : undefined,
+          getPageGeometry: (pageIndex) => (pageIndex === PAGE_INDEX ? geometry : undefined),
           getPageLabel: () => "Sheet 7",
           getTocLabel: () => "Results",
         },
@@ -268,8 +267,7 @@ describe("PDF DOM interactions", () => {
       renderPdfAnnotations({
         root,
         session: {
-          getPageGeometry: (pageIndex) =>
-            pageIndex === PAGE_INDEX ? geometry : undefined,
+          getPageGeometry: (pageIndex) => (pageIndex === PAGE_INDEX ? geometry : undefined),
         },
         annotationsByPage: new Map([[PAGE_INDEX, [annotation]]]),
         onActivate: () => undefined,
@@ -330,8 +328,7 @@ describe("PDF DOM interactions", () => {
 
     try {
       const session = {
-        getPageGeometry: (pageIndex: number) =>
-          pageIndex === PAGE_INDEX ? geometry : undefined,
+        getPageGeometry: (pageIndex: number) => (pageIndex === PAGE_INDEX ? geometry : undefined),
       }
       renderPdfSelection({ root, session, selection })
 
@@ -391,8 +388,7 @@ describe("PDF DOM interactions", () => {
 
     try {
       const session = {
-        getPageGeometry: (pageIndex: number) =>
-          pageIndex === PAGE_INDEX ? geometry : undefined,
+        getPageGeometry: (pageIndex: number) => (pageIndex === PAGE_INDEX ? geometry : undefined),
       }
       renderPdfSearchResult({ root, session, result })
 

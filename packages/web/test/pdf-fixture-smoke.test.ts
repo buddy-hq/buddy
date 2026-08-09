@@ -46,11 +46,7 @@ describe("synthetic multi-page PDF smoke fixture", () => {
       expect(Reflect.get(metadata.info, "Author")).toBe("Buddy Tests")
 
       const outline = await document.getOutline()
-      expect(outline?.map((item) => item.title)).toEqual([
-        "Page one",
-        "Page two",
-        "Page three",
-      ])
+      expect(outline?.map((item) => item.title)).toEqual(["Page one", "Page two", "Page three"])
 
       expect(await document.getPageLabels()).toEqual(["i", "Sheet 7", "Appendix"])
 

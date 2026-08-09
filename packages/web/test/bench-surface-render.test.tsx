@@ -935,7 +935,9 @@ describe("bench surface rendering", () => {
     expect(readCalls).toEqual([])
     expect(queueCalls.length).toBe(1)
     expect(calls.some((call) => call.includes("/api/objects?"))).toBe(false)
-    expect(Array.from(shell?.children ?? []).some((child) => child.tagName === "HEADER")).toBe(false)
+    expect(Array.from(shell?.children ?? []).some((child) => child.tagName === "HEADER")).toBe(
+      false,
+    )
     expect(reviewHeader?.textContent).toContain("Biology Review")
     expect(reviewStage).not.toBeNull()
     expect(cardFrame).not.toBeNull()
@@ -1323,7 +1325,9 @@ describe("bench surface rendering", () => {
     )
     const shell = container.querySelector<HTMLElement>('[data-component="bench-viewer-shell"]')
     const practiceHeader = container.querySelector('[data-component="flashcard-practice-header"]')
-    expect(Array.from(shell?.children ?? []).some((child) => child.tagName === "HEADER")).toBe(false)
+    expect(Array.from(shell?.children ?? []).some((child) => child.tagName === "HEADER")).toBe(
+      false,
+    )
     expect(practiceHeader?.textContent).toContain("Biology Review")
     expect(container.querySelector('[data-component="flashcard-practice-stage"]')).not.toBeNull()
     expect(

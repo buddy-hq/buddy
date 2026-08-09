@@ -11,12 +11,7 @@ import {
   type SVGProps,
 } from "react"
 import { useQuery } from "@tanstack/react-query"
-import {
-  Button,
-  Separator,
-  cn,
-  toast,
-} from "@buddy/ui"
+import { Button, Separator, cn, toast } from "@buddy/ui"
 import {
   Books02Icon,
   BoxesIcon,

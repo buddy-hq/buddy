@@ -2,11 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, createElement, useEffect } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import {
-  createBrowserPlatform,
-  PlatformProvider,
-  type Platform,
-} from "../src/context/platform"
+import { createBrowserPlatform, PlatformProvider, type Platform } from "../src/context/platform"
 import type {
   DocumentReaderProps,
   ReaderSnapshot,

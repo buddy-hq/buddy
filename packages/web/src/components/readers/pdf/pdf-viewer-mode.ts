@@ -31,8 +31,7 @@ export function resolvePdfWheelPageTurn(
   }
   if (
     input.deltaY > 0 &&
-    input.scrollHeight - input.clientHeight - input.scrollTop <=
-      PDF_SCROLL_BOUNDARY_EPSILON_PX
+    input.scrollHeight - input.clientHeight - input.scrollTop <= PDF_SCROLL_BOUNDARY_EPSILON_PX
   ) {
     return PDF_PAGE_TURN_NEXT
   }

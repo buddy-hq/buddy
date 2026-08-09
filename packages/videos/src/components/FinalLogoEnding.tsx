@@ -15,8 +15,7 @@ import type { PlatformMarkKind } from "./PlatformMark"
 
 const BUDDY_APP_ICON = staticFile("brand/buddy-app-icon.png")
 
-const SANS =
-  "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif"
+const SANS = "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif"
 
 const EASE_IN = Easing.bezier(0.4, 0, 0.2, 1)
 const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1)
@@ -51,15 +50,13 @@ const CARD_EXIT_START_FRAME = FINAL_LOGO_FADE_IN_FRAMES + CARD_HOLD_FRAMES
  * The score rides out from here, so the last thing the viewer hears ends on the
  * one thing they have to leave with.
  */
-export const FINAL_LOGO_WEBSITE_START_FRAME =
-  CARD_EXIT_START_FRAME + CARD_EXIT_FRAMES
+export const FINAL_LOGO_WEBSITE_START_FRAME = CARD_EXIT_START_FRAME + CARD_EXIT_FRAMES
 
 const WEBSITE_START_FRAME = FINAL_LOGO_WEBSITE_START_FRAME
 const WEBSITE_LANDED_FRAME = WEBSITE_START_FRAME + WEBSITE_ENTRY_FRAMES
 const FADE_OUT_START_FRAME = WEBSITE_LANDED_FRAME + WEBSITE_HOLD_FRAMES
 
-export const FINAL_LOGO_DURATION_FRAMES =
-  FADE_OUT_START_FRAME + FINAL_LOGO_FADE_OUT_FRAMES
+export const FINAL_LOGO_DURATION_FRAMES = FADE_OUT_START_FRAME + FINAL_LOGO_FADE_OUT_FRAMES
 
 /**
  * Four tiers that step down by roughly the same ratio each time — 200 / 112 /
@@ -123,16 +120,11 @@ export const FinalLogoEnding = () => {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
 
-  const plateFadeIn = interpolate(
-    frame,
-    [0, FINAL_LOGO_FADE_IN_FRAMES],
-    [0, 1],
-    {
-      easing: EASE_IN,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
+  const plateFadeIn = interpolate(frame, [0, FINAL_LOGO_FADE_IN_FRAMES], [0, 1], {
+    easing: EASE_IN,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
   const plateFadeOut = interpolate(
     frame,
     [FADE_OUT_START_FRAME, FINAL_LOGO_DURATION_FRAMES],
@@ -155,16 +147,11 @@ export const FinalLogoEnding = () => {
     },
   )
 
-  const websiteEntry = interpolate(
-    frame,
-    [WEBSITE_START_FRAME, WEBSITE_LANDED_FRAME],
-    [0, 1],
-    {
-      easing: EASE_OUT,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
+  const websiteEntry = interpolate(frame, [WEBSITE_START_FRAME, WEBSITE_LANDED_FRAME], [0, 1], {
+    easing: EASE_OUT,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
   const websiteDrift = interpolate(
     frame,
     [WEBSITE_LANDED_FRAME, FINAL_LOGO_DURATION_FRAMES],
@@ -188,12 +175,10 @@ export const FinalLogoEnding = () => {
     fps,
     frame: frame - BRAND_DELAY_FRAMES,
   })
-  const brandOpacity = interpolate(
-    frame - BRAND_DELAY_FRAMES,
-    [0, ICON_FADE_FRAMES],
-    [0, 1],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-  )
+  const brandOpacity = interpolate(frame - BRAND_DELAY_FRAMES, [0, ICON_FADE_FRAMES], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
 
   const availabilityEntry = interpolate(
     frame - AVAILABILITY_DELAY_FRAMES,
@@ -229,9 +214,7 @@ export const FinalLogoEnding = () => {
           alignItems: "center",
           justifyContent: "center",
           opacity: 1 - cardExit,
-          transform: `translateY(${
-            -LOCKUP_OPTICAL_RISE_PX - cardExit * CARD_EXIT_RISE_PX
-          }px)`,
+          transform: `translateY(${-LOCKUP_OPTICAL_RISE_PX - cardExit * CARD_EXIT_RISE_PX}px)`,
         }}
       >
         <div
@@ -248,11 +231,7 @@ export const FinalLogoEnding = () => {
               marginBottom: ICON_TO_BRAND_GAP_PX,
               objectFit: "contain",
               opacity: iconOpacity,
-              transform: `scale(${interpolate(
-                iconSpring,
-                [0, 1],
-                [ICON_ENTRY_SCALE, 1],
-              )})`,
+              transform: `scale(${interpolate(iconSpring, [0, 1], [ICON_ENTRY_SCALE, 1])})`,
               width: ICON_SIZE_PX,
             }}
           />
@@ -267,11 +246,7 @@ export const FinalLogoEnding = () => {
               lineHeight: 1,
               marginBottom: BRAND_TO_AVAILABILITY_GAP_PX,
               opacity: brandOpacity,
-              transform: `translateY(${interpolate(
-                brandSpring,
-                [0, 1],
-                [BRAND_RISE_PX, 0],
-              )}px)`,
+              transform: `translateY(${interpolate(brandSpring, [0, 1], [BRAND_RISE_PX, 0])}px)`,
             }}
           >
             {LAUNCH_COPY.ending.brandName}
@@ -286,9 +261,7 @@ export const FinalLogoEnding = () => {
               lineHeight: 1.2,
               marginBottom: AVAILABILITY_TO_PLATFORMS_GAP_PX,
               opacity: availabilityEntry,
-              transform: `translateY(${
-                (1 - availabilityEntry) * AVAILABILITY_RISE_PX
-              }px)`,
+              transform: `translateY(${(1 - availabilityEntry) * AVAILABILITY_RISE_PX}px)`,
             }}
           >
             {LAUNCH_COPY.ending.availability}
@@ -300,9 +273,7 @@ export const FinalLogoEnding = () => {
               display: "flex",
               gap: PLATFORM_GAP_PX,
               opacity: platformsEntry,
-              transform: `translateY(${
-                (1 - platformsEntry) * PLATFORMS_RISE_PX
-              }px)`,
+              transform: `translateY(${(1 - platformsEntry) * PLATFORMS_RISE_PX}px)`,
             }}
           >
             {PLATFORMS.map((platform, index) => (

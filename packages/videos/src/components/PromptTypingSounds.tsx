@@ -3,13 +3,9 @@ import { Sequence, staticFile } from "remotion"
 
 const FIRST_PROMPT_KEYBOARD_TRACK = staticFile("audio/first-prompt-keyboard.wav")
 const FIRST_PROMPT_KEYBOARD_TRACK_DURATION_FRAMES = 52
-const SECOND_PROMPT_KEYBOARD_TRACK = staticFile(
-  "audio/second-prompt-keyboard.wav",
-)
+const SECOND_PROMPT_KEYBOARD_TRACK = staticFile("audio/second-prompt-keyboard.wav")
 const SECOND_PROMPT_KEYBOARD_TRACK_DURATION_FRAMES = 47
-const THIRD_PROMPT_KEYBOARD_TRACK = staticFile(
-  "audio/third-prompt-keyboard.wav",
-)
+const THIRD_PROMPT_KEYBOARD_TRACK = staticFile("audio/third-prompt-keyboard.wav")
 const THIRD_PROMPT_KEYBOARD_TRACK_DURATION_FRAMES = 68
 
 export type PromptTypingSoundTrack = "first" | "second" | "third"
@@ -37,17 +33,11 @@ type PromptTypingSoundsProps = {
   readonly typingStartFrame: number
 }
 
-export const PromptTypingSounds = ({
-  track,
-  typingStartFrame,
-}: PromptTypingSoundsProps) => {
+export const PromptTypingSounds = ({ track, typingStartFrame }: PromptTypingSoundsProps) => {
   const keyboardTrack = KEYBOARD_TRACKS[track]
 
   return (
-    <Sequence
-      durationInFrames={keyboardTrack.durationInFrames}
-      from={typingStartFrame}
-    >
+    <Sequence durationInFrames={keyboardTrack.durationInFrames} from={typingStartFrame}>
       <Audio src={keyboardTrack.source} />
     </Sequence>
   )

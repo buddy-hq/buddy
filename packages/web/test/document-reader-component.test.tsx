@@ -115,11 +115,7 @@ describe("DocumentReader PDF integration", () => {
       "Page two",
       "Page three",
     ])
-    expect(snapshots[0]?.pageList.map((item) => item.label)).toEqual([
-      "i",
-      "Sheet 7",
-      "Appendix",
-    ])
+    expect(snapshots[0]?.pageList.map((item) => item.label)).toEqual(["i", "Sheet 7", "Appendix"])
     expect(readerRef.current?.getSnapshot()).toEqual(snapshots[0])
     await waitFor(() => locations.some((location) => location.currentPassageText !== undefined))
     expect(locations.at(-1)).toMatchObject({

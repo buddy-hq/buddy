@@ -93,9 +93,7 @@ describe("Claude post-compaction recall transcript", () => {
                 {
                   header: "Placement",
                   multiSelect: false,
-                  options: [
-                    { description: "Keep it at the live end.", label: "Tail row" },
-                  ],
+                  options: [{ description: "Keep it at the live end.", label: "Tail row" }],
                   question: "Where should the busy status appear?",
                 },
               ],

@@ -1,11 +1,5 @@
 import { Audio } from "@remotion/media"
-import {
-  Easing,
-  interpolate,
-  Sequence,
-  staticFile,
-  useVideoConfig,
-} from "remotion"
+import { Easing, interpolate, Sequence, staticFile, useVideoConfig } from "remotion"
 
 import { BUDDY_LAUNCH_FEATURES_PUSH_FRAME } from "../timeline/launchTimeline"
 import { TELEVISION_TOTAL_FRAMES } from "./Television"
@@ -33,11 +27,7 @@ export const BackgroundMusic = () => {
   const fadeOutStartFrame = BUDDY_LAUNCH_FEATURES_PUSH_FRAME - musicStartFrame
 
   return (
-    <Sequence
-      durationInFrames={musicDurationFrames}
-      from={musicStartFrame}
-      layout="none"
-    >
+    <Sequence durationInFrames={musicDurationFrames} from={musicStartFrame} layout="none">
       <Audio
         src={BACKGROUND_TRACK}
         volume={(frame) => {

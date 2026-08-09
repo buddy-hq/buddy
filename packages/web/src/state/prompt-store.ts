@@ -227,12 +227,7 @@ function readPromptComposerPart(value: unknown): PromptComposerPart | undefined 
     const tocLabel = readOptionalString(value.tocLabel)
     const pageLabel = readOptionalString(value.pageLabel)
     const locationLabel = readOptionalString(value.locationLabel)
-    if (
-      resourceKey === null ||
-      tocLabel === null ||
-      pageLabel === null ||
-      locationLabel === null
-    ) {
+    if (resourceKey === null || tocLabel === null || pageLabel === null || locationLabel === null) {
       return undefined
     }
     return {

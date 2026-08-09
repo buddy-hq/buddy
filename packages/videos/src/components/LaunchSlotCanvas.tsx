@@ -1,9 +1,6 @@
 import { AbsoluteFill, Series } from "remotion"
 
-import {
-  LAUNCH_TIMELINE,
-  SLOT_CANVAS_DURATION_FRAMES,
-} from "../timeline/launchTimeline"
+import { LAUNCH_TIMELINE, SLOT_CANVAS_DURATION_FRAMES } from "../timeline/launchTimeline"
 import type { LaunchTimelineEntry } from "../timeline/launchTimeline"
 import { SceneSlot } from "./SceneSlot"
 import { SceneTransition } from "./SceneTransition"

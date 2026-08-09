@@ -1,7 +1,4 @@
-import type {
-  ReaderAnnotationColorId,
-  ReaderAnnotationStyle,
-} from "../reader-types"
+import type { ReaderAnnotationColorId, ReaderAnnotationStyle } from "../reader-types"
 
 export type ReaderAnnotationColorOption = {
   id: ReaderAnnotationColorId
@@ -39,8 +36,7 @@ export const READER_ANNOTATION_STYLE_LABELS: Record<ReaderAnnotationStyle, strin
   strikethrough: "Strike",
 }
 
-export const READER_EMPTY_TOC_MESSAGE =
-  "This publication does not expose a table of contents."
+export const READER_EMPTY_TOC_MESSAGE = "This publication does not expose a table of contents."
 export const READER_EMPTY_SEARCH_MESSAGE = "Search inside the current document."
 export const READER_EMPTY_BOOKMARKS_MESSAGE = "Bookmarks you add here persist per document."
 export const READER_EMPTY_ANNOTATIONS_MESSAGE = "Highlights and notes appear here."

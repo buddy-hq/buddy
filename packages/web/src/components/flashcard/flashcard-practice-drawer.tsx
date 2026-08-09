@@ -8,10 +8,7 @@ export type FlashcardPracticeRowAction =
   | { kind: "note"; label: string }
 
 /** The ruled mixed-list language shared by the Easel and the live drawer. */
-export function FlashcardPracticeDrawerRuledHead(props: {
-  label: string
-  trailing: ReactNode
-}) {
+export function FlashcardPracticeDrawerRuledHead(props: { label: string; trailing: ReactNode }) {
   return (
     <div className="shrink-0">
       <div className="flex items-baseline justify-between gap-3">

@@ -50,14 +50,7 @@ function mergeLiveWhiteboardCreateParts(
 function useLiveWhiteboardMessages(messages: MessageWithParts[]): MessageWithParts[] {
   const activePartIDs = useMemo(() => activeWhiteboardCreatePartIDs(messages), [messages])
   const liveParts = useTranscriptParts(activePartIDs)
-  return useMemo(
-    () => mergeLiveWhiteboardCreateParts(messages, liveParts),
-    [liveParts, messages],
-  )
+  return useMemo(() => mergeLiveWhiteboardCreateParts(messages, liveParts), [liveParts, messages])
 }
 
-export {
-  activeWhiteboardCreatePartIDs,
-  mergeLiveWhiteboardCreateParts,
-  useLiveWhiteboardMessages,
-}
+export { activeWhiteboardCreatePartIDs, mergeLiveWhiteboardCreateParts, useLiveWhiteboardMessages }

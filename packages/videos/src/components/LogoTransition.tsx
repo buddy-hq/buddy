@@ -1,11 +1,4 @@
-import {
-  AbsoluteFill,
-  Easing,
-  Img,
-  interpolate,
-  staticFile,
-  useCurrentFrame,
-} from "remotion"
+import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } from "remotion"
 
 import { LAUNCH_COPY } from "../launchCopy"
 import { BUDDY_LAUNCH_FPS } from "../videoConfig"
@@ -82,8 +75,7 @@ const AURORA_EXPANDED_SCALE = 2.5
 const AURORA_RESTING_SCALE = 1
 const AURORA_EXPANSION_EASING = Easing.bezier(0.16, 1, 0.3, 1)
 
-export const LOGO_TRANSITION_FADE_IN_FRAMES =
-  TELEVISION_FADE_OUT_DURATION_FRAMES
+export const LOGO_TRANSITION_FADE_IN_FRAMES = TELEVISION_FADE_OUT_DURATION_FRAMES
 export const LOGO_TRANSITION_FADE_OUT_FRAMES = 18
 
 /**
@@ -91,27 +83,20 @@ export const LOGO_TRANSITION_FADE_OUT_FRAMES = 18
  * television, so the whole lockup arrives at full strength on the same frame —
  * and the long dissolve has something moving in it on the way there.
  */
-const REVEAL_START_FRAME =
-  LOGO_TRANSITION_FADE_IN_FRAMES - SUBTITLE_REVEAL_FRAMES
+const REVEAL_START_FRAME = LOGO_TRANSITION_FADE_IN_FRAMES - SUBTITLE_REVEAL_FRAMES
 const SCRAMBLE_START_FRAME = REVEAL_START_FRAME - SCRAMBLE_LEAD_IN_FRAMES
-const EXPANSION_START_FRAME =
-  LOGO_TRANSITION_FADE_IN_FRAMES + msToFrames(EXPANSION_DELAY_MS)
+const EXPANSION_START_FRAME = LOGO_TRANSITION_FADE_IN_FRAMES + msToFrames(EXPANSION_DELAY_MS)
 
 export const LOGO_TRANSITION_DURATION_FRAMES =
   EXPANSION_START_FRAME + msToFrames(EXPANSION_VISIBLE_MS)
 
 export const LogoTransition = () => {
   const frame = useCurrentFrame()
-  const fadeIn = interpolate(
-    frame,
-    [0, LOGO_TRANSITION_FADE_IN_FRAMES],
-    [0, 1],
-    {
-      easing: FADE_EASING,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
+  const fadeIn = interpolate(frame, [0, LOGO_TRANSITION_FADE_IN_FRAMES], [0, 1], {
+    easing: FADE_EASING,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
   const fadeOut = interpolate(
     frame,
     [
@@ -128,16 +113,11 @@ export const LogoTransition = () => {
   const opacity = fadeIn * fadeOut
 
   /** Fades the scrambled characters up before the first one resolves. */
-  const subtitleOpacity = interpolate(
-    frame,
-    [SCRAMBLE_START_FRAME, REVEAL_START_FRAME],
-    [0, 1],
-    {
-      easing: FADE_EASING,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
+  const subtitleOpacity = interpolate(frame, [SCRAMBLE_START_FRAME, REVEAL_START_FRAME], [0, 1], {
+    easing: FADE_EASING,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
 
   /** The lockup lifts and clears as the aurora takes the frame. */
   const contentExit = interpolate(
@@ -164,16 +144,11 @@ export const LogoTransition = () => {
   )
   // Settles before the first character resolves. Running the zoom through the
   // reveal re-rasterises the type every frame, which reads as a wobble.
-  const scale = interpolate(
-    frame,
-    [0, REVEAL_START_FRAME],
-    [0.97, 1],
-    {
-      easing: FADE_EASING,
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  )
+  const scale = interpolate(frame, [0, REVEAL_START_FRAME], [0.97, 1], {
+    easing: FADE_EASING,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  })
 
   return (
     <AbsoluteFill
@@ -221,8 +196,7 @@ export const LogoTransition = () => {
           <div
             style={{
               color: "#ffffff",
-              fontFamily:
-                "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
+              fontFamily: "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
               fontSize: BRAND_SIZE_PX,
               fontWeight: 800,
               letterSpacing: "-0.05em",
@@ -234,8 +208,7 @@ export const LogoTransition = () => {
 
           <div
             style={{
-              fontFamily:
-                "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
+              fontFamily: "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
               fontSize: SUBTITLE_SIZE_PX,
               fontWeight: SUBTITLE_WEIGHT,
               lineHeight: 1.2,

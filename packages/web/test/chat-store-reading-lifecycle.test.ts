@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import {
-  READER_ANCHOR_KIND_CFI_POSITION,
-  type ReaderRelocation,
-} from "@buddy/reader-contract"
+import { READER_ANCHOR_KIND_CFI_POSITION, type ReaderRelocation } from "@buddy/reader-contract"
 import { useChatStore, type ActiveReadingResourceState } from "../src/state/chat-store"
 
 const DIRECTORY = "/tmp/reader-lifecycle"

@@ -77,9 +77,10 @@ describe("reader position anchors", () => {
       sectionIndex: 3,
     })
 
-    expect(
-      readReaderPositionAnchor({ kind: READER_ANCHOR_KIND_CFI_POSITION, cfi: CFI }),
-    ).toEqual({ kind: READER_ANCHOR_KIND_CFI_POSITION, cfi: CFI })
+    expect(readReaderPositionAnchor({ kind: READER_ANCHOR_KIND_CFI_POSITION, cfi: CFI })).toEqual({
+      kind: READER_ANCHOR_KIND_CFI_POSITION,
+      cfi: CFI,
+    })
   })
 
   test("rejects malformed CFI position anchors", () => {
@@ -278,10 +279,7 @@ describe("reader text anchors", () => {
       { pageIndex: 0, quads: [malformedQuad] },
       {
         pageIndex: 0,
-        quads: Array.from(
-          { length: MAX_PDF_QUADS_PER_SEGMENT + 1 },
-          () => createQuad(),
-        ),
+        quads: Array.from({ length: MAX_PDF_QUADS_PER_SEGMENT + 1 }, () => createQuad()),
       },
     ]
 
@@ -558,9 +556,7 @@ describe("reader external links", () => {
     expect(readReaderExternalLink("https://example.com/chapter?q=1")).toBe(
       "https://example.com/chapter?q=1",
     )
-    expect(readReaderExternalLink("mailto:reader@example.com")).toBe(
-      "mailto:reader@example.com",
-    )
+    expect(readReaderExternalLink("mailto:reader@example.com")).toBe("mailto:reader@example.com")
     expect(readReaderExternalLink("file:///Users/reader/private.txt")).toBeUndefined()
     expect(readReaderExternalLink("example-handler://run/action")).toBeUndefined()
     expect(readReaderExternalLink("/relative/chapter.xhtml")).toBeUndefined()

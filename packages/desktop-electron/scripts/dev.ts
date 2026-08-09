@@ -17,10 +17,7 @@ import {
 import { resolveElectronBin } from "./electron-bin"
 import { ensureGeneratedSdk, generatedSdkFreshnessInput } from "./dev-sdk"
 import { prepareMacDevElectronExecutable } from "./mac-dev-electron-app"
-import {
-  BUDDY_DEV_INSTANCE_NAME_ENV,
-  formatBuddyDevAppName,
-} from "../src/shared/dev-app-name"
+import { BUDDY_DEV_INSTANCE_NAME_ENV, formatBuddyDevAppName } from "../src/shared/dev-app-name"
 
 const DEV_COMMAND = "electron-vite"
 const DEV_ARGUMENTS = ["dev"] as const
@@ -130,9 +127,7 @@ function killStaleDesktopDevProcesses() {
 
       const isFromCurrentWorktree =
         command.includes(repoRoot) ||
-        (macDevElectronExecutablePath
-          ? command.includes(macDevElectronExecutablePath)
-          : false)
+        (macDevElectronExecutablePath ? command.includes(macDevElectronExecutablePath) : false)
       if (!isFromCurrentWorktree) continue
 
       treeKill(pid, FORCE_KILL_SIGNAL, () => undefined)

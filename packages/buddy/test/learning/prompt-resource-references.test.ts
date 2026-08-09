@@ -3,10 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
-import {
-  READER_ANCHOR_KIND_CFI_TEXT,
-  READER_ANCHOR_KIND_PDF_TEXT,
-} from "@buddy/reader-contract"
+import { READER_ANCHOR_KIND_CFI_TEXT, READER_ANCHOR_KIND_PDF_TEXT } from "@buddy/reader-contract"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"

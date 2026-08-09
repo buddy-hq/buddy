@@ -61,11 +61,12 @@ const createWhiteboardID = monotonicFactory()
 const whiteboardManifestSchema = BuddyObjectManifestSchema.safeExtend({
   summary: WhiteboardObjectSummarySchema,
 })
-const whiteboardCreationReservationRecordSchema =
-  WhiteboardCreationReservationRequestSchema.extend({
+const whiteboardCreationReservationRecordSchema = WhiteboardCreationReservationRequestSchema.extend(
+  {
     version: z.literal(1),
     objectID: BuddyObjectIDSchema,
-  }).strict()
+  },
+).strict()
 
 type WhiteboardBoardBuildBase = {
   boardID?: string
@@ -90,9 +91,7 @@ type WhiteboardObjectManifest = BuddyObjectManifest & {
   summary: ReturnType<typeof WhiteboardObjectSummarySchema.parse>
 }
 
-type WhiteboardCreationReservationRecord = z.infer<
-  typeof whiteboardCreationReservationRecordSchema
->
+type WhiteboardCreationReservationRecord = z.infer<typeof whiteboardCreationReservationRecordSchema>
 
 function withWhiteboardObjectMutationLock<T>(
   directory: string,
@@ -375,7 +374,10 @@ async function readState(directory: string, objectID: string): Promise<Whiteboar
 
   try {
     const parsed: unknown = JSON.parse(
-      await fs.readFile(WhiteboardPath.legacySessionStateFile(directory, validatedObjectID), "utf8"),
+      await fs.readFile(
+        WhiteboardPath.legacySessionStateFile(directory, validatedObjectID),
+        "utf8",
+      ),
     )
     const legacy = LegacyWhiteboardSessionStateSchema.parse(parsed)
     const migrated = WhiteboardObjectStateSchema.parse({

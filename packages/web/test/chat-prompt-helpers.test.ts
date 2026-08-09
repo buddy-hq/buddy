@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  READER_ANCHOR_KIND_CFI_TEXT,
-  READER_ANCHOR_KIND_PDF_TEXT,
-} from "@buddy/reader-contract"
+import { READER_ANCHOR_KIND_CFI_TEXT, READER_ANCHOR_KIND_PDF_TEXT } from "@buddy/reader-contract"
 import {
   buildCommandAttachmentParts,
   buildPromptDraftFromUserMessage,

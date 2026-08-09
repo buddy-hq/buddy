@@ -193,9 +193,7 @@ describe("shared reader UI", () => {
     })
 
     expect(container.textContent).toContain("Page Sheet 7")
-    expect(inputRef.current).toBe(
-      container.querySelector<HTMLInputElement>("#reader-search-input"),
-    )
+    expect(inputRef.current).toBe(container.querySelector<HTMLInputElement>("#reader-search-input"))
     const result = requireElement(
       container.querySelector<HTMLButtonElement>('button[aria-current="true"]'),
     )
@@ -241,7 +239,9 @@ describe("shared reader UI", () => {
       await flushEffects()
     })
 
-    const scrubber = requireElement(container.querySelector<HTMLInputElement>('input[type="range"]'))
+    const scrubber = requireElement(
+      container.querySelector<HTMLInputElement>('input[type="range"]'),
+    )
     expect(scrubber.getAttribute("aria-label")).toBe("Reading progress")
     expect(scrubber.getAttribute("aria-valuetext")).toBe("25%")
 

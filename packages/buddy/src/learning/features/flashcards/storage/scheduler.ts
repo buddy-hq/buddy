@@ -1,10 +1,4 @@
-import type {
-  CardQueue,
-  CardRating,
-  CardState,
-  DeckConfig,
-  FlashcardCard,
-} from "../types"
+import type { CardQueue, CardRating, CardState, DeckConfig, FlashcardCard } from "../types"
 import {
   DAYS_TO_MS,
   learningIntervalCrossesRollover,
@@ -107,11 +101,7 @@ function withReviewFuzz(input: {
   maximum: number
   fuzzFactor: number
 }): number {
-  const [lower, upper] = constrainedReviewFuzzBounds(
-    input.interval,
-    input.minimum,
-    input.maximum,
-  )
+  const [lower, upper] = constrainedReviewFuzzBounds(input.interval, input.minimum, input.maximum)
   return Math.floor(lower + input.fuzzFactor * (upper - lower + 1))
 }
 
@@ -146,20 +136,14 @@ function listClozeOrdinals(text: string): number[] {
 }
 
 function learningStepIndex(steps: readonly number[], remainingSteps: number): number {
-  return Math.min(
-    Math.max(0, steps.length - remainingSteps),
-    Math.max(0, steps.length - 1),
-  )
+  return Math.min(Math.max(0, steps.length - remainingSteps), Math.max(0, steps.length - 1))
 }
 
 function learningStepSeconds(delayMinutes: number): number {
   return Math.floor(delayMinutes * SECONDS_PER_MINUTE)
 }
 
-function learningHardDelaySeconds(
-  steps: readonly number[],
-  remainingSteps: number,
-): number | null {
+function learningHardDelaySeconds(steps: readonly number[], remainingSteps: number): number | null {
   if (steps.length === 0) return null
   const index = learningStepIndex(steps, remainingSteps)
   const currentMinutes = steps[index] ?? steps[0]
@@ -168,9 +152,7 @@ function learningHardDelaySeconds(
 
   const next = steps[1]
   if (next !== undefined) {
-    return roundLongLearningDelaySeconds(
-      Math.floor((current + learningStepSeconds(next)) / 2),
-    )
+    return roundLongLearningDelaySeconds(Math.floor((current + learningStepSeconds(next)) / 2))
   }
 
   return roundLongLearningDelaySeconds(
@@ -184,19 +166,13 @@ function roundLongLearningDelaySeconds(delaySeconds: number): number {
     : delaySeconds
 }
 
-function learningGoodDelaySeconds(
-  steps: readonly number[],
-  remainingSteps: number,
-): number | null {
+function learningGoodDelaySeconds(steps: readonly number[], remainingSteps: number): number | null {
   const index = learningStepIndex(steps, remainingSteps)
   const next = steps[index + 1]
   return next === undefined ? null : learningStepSeconds(next)
 }
 
-function remainingLearningStepsAfterGood(
-  steps: readonly number[],
-  remainingSteps: number,
-): number {
+function remainingLearningStepsAfterGood(steps: readonly number[], remainingSteps: number): number {
   const index = learningStepIndex(steps, remainingSteps)
   return Math.max(0, steps.length - (index + 1))
 }
@@ -225,9 +201,7 @@ function learningDelay(input: {
   const fuzzSeconds = Math.floor(input.fuzzFactor * fuzzWindowSeconds)
   return {
     queue: "learning",
-    due:
-      input.timing.now +
-      (input.delaySeconds + fuzzSeconds) * MILLISECONDS_PER_SECOND,
+    due: input.timing.now + (input.delaySeconds + fuzzSeconds) * MILLISECONDS_PER_SECOND,
   }
 }
 
@@ -404,14 +378,9 @@ function passingReviewIntervals(input: {
   timing: SchedulerTiming
 }): { hard: number; good: number; easy: number } {
   const currentInterval = Math.max(1, input.card.interval)
-  const daysLate = schedulingDaysLate(
-    input.card.due,
-    input.timing.now,
-    input.config.rolloverHour,
-  )
+  const daysLate = schedulingDaysLate(input.card.due, input.timing.now, input.config.rolloverHour)
   const fuzzFactor = stableFuzzFactor(input.card.cardID, input.card.reps)
-  const hardMinimum =
-    input.config.hardMultiplier <= 1 ? 1 : Math.round(input.card.interval) + 1
+  const hardMinimum = input.config.hardMultiplier <= 1 ? 1 : Math.round(input.card.interval) + 1
   const hard = constrainPassingInterval({
     interval: currentInterval * input.config.hardMultiplier,
     minimum: hardMinimum,
@@ -428,9 +397,7 @@ function passingReviewIntervals(input: {
   })
   const easy = constrainPassingInterval({
     interval:
-      (currentInterval + daysLate) *
-      (input.card.easeFactor / 1000) *
-      input.config.easyMultiplier,
+      (currentInterval + daysLate) * (input.card.easeFactor / 1000) * input.config.easyMultiplier,
     minimum: good + 1,
     config: input.config,
     fuzzFactor,
@@ -438,10 +405,7 @@ function passingReviewIntervals(input: {
   return { hard, good, easy }
 }
 
-function failingReviewInterval(input: {
-  card: FlashcardCard
-  config: DeckConfig
-}): number {
+function failingReviewInterval(input: { card: FlashcardCard; config: DeckConfig }): number {
   const [minimum, maximum] = minAndMaxReviewIntervals(
     input.config,
     input.config.minimumLapseInterval,
@@ -563,10 +527,5 @@ function scheduleReview(input: {
   }
 }
 
-export {
-  constrainedReviewFuzzBounds,
-  leechThresholdMet,
-  listClozeOrdinals,
-  scheduleReview,
-}
+export { constrainedReviewFuzzBounds, leechThresholdMet, listClozeOrdinals, scheduleReview }
 export type { ScheduleResult }

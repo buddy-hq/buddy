@@ -1340,8 +1340,7 @@ export const dict = {
   "flashcardDeck.dueHeadline": "{{count}} due now",
   "flashcardDeck.dueSession": "Still {{count}} due.",
   "flashcardDeck.freshHeadline": "{{count}} cards, none studied yet",
-  "flashcardDeck.freshDetail.one":
-    "At {{perDay}} new a day, that's {{days}} day to meet them all.",
+  "flashcardDeck.freshDetail.one": "At {{perDay}} new a day, that's {{days}} day to meet them all.",
   "flashcardDeck.freshDetail.other":
     "At {{perDay}} new a day, that's {{days}} days to meet them all.",
   "flashcardDeck.freshSession": "Nothing studied yet.",

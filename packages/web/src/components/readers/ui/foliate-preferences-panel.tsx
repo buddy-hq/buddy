@@ -135,9 +135,7 @@ export function FoliatePreferencesPanel({
           max={1.4}
           step={0.01}
           value={preferences.fontScaleRem}
-          onChange={(value) =>
-            setPreferences((current) => ({ ...current, fontScaleRem: value }))
-          }
+          onChange={(value) => setPreferences((current) => ({ ...current, fontScaleRem: value }))}
           formatValue={(value) => `${Math.round(value * 100)}%`}
         />
         <ReaderPreferenceSlider
@@ -147,9 +145,7 @@ export function FoliatePreferencesPanel({
           max={2}
           step={0.02}
           value={preferences.lineHeight}
-          onChange={(value) =>
-            setPreferences((current) => ({ ...current, lineHeight: value }))
-          }
+          onChange={(value) => setPreferences((current) => ({ ...current, lineHeight: value }))}
           formatValue={(value) => value.toFixed(2)}
         />
         <ReaderPreferenceSlider
@@ -159,9 +155,7 @@ export function FoliatePreferencesPanel({
           max={18}
           step={1}
           value={preferences.gapPercent}
-          onChange={(value) =>
-            setPreferences((current) => ({ ...current, gapPercent: value }))
-          }
+          onChange={(value) => setPreferences((current) => ({ ...current, gapPercent: value }))}
           formatValue={(value) => `${value}%`}
         />
         <ReaderPreferenceSlider
@@ -171,9 +165,7 @@ export function FoliatePreferencesPanel({
           max={120}
           step={2}
           value={preferences.marginPx}
-          onChange={(value) =>
-            setPreferences((current) => ({ ...current, marginPx: value }))
-          }
+          onChange={(value) => setPreferences((current) => ({ ...current, marginPx: value }))}
           formatValue={(value) => `${value}px`}
         />
         <ReaderPreferenceSlider
@@ -194,9 +186,7 @@ export function FoliatePreferencesPanel({
         id="foliate-hyphenation"
         label="Hyphenation"
         checked={preferences.hyphenate}
-        onCheckedChange={(hyphenate) =>
-          setPreferences((current) => ({ ...current, hyphenate }))
-        }
+        onCheckedChange={(hyphenate) => setPreferences((current) => ({ ...current, hyphenate }))}
       />
     </div>
   )
@@ -205,9 +195,7 @@ export function FoliatePreferencesPanel({
     <ReaderPreferencesPanel
       preferences={foliatePreferencesToReaderPreferences(preferences)}
       themes={FOLIATE_READER_THEME_OPTIONS}
-      onThemeChange={(themeId) =>
-        setPreferences((current) => ({ ...current, themeId }))
-      }
+      onThemeChange={(themeId) => setPreferences((current) => ({ ...current, themeId }))}
       onReduceMotionChange={(reduceMotion) =>
         setPreferences((current) => ({ ...current, reduceMotion }))
       }

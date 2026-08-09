@@ -7,11 +7,7 @@ type ReaderHelpDialogProps = {
   shortcuts: ReaderShortcut[]
 }
 
-export function ReaderHelpDialog({
-  open,
-  onOpenChange,
-  shortcuts,
-}: ReaderHelpDialogProps) {
+export function ReaderHelpDialog({ open, onOpenChange, shortcuts }: ReaderHelpDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">

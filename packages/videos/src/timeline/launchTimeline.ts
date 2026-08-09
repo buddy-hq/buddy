@@ -13,9 +13,7 @@ import {
 import { GAME_CLIP_DURATION_FRAMES } from "../components/GamePeak"
 import { PROVIDER_CREDITS_DURATION_FRAMES } from "../components/ProviderCreditsScene"
 import { READER_SCENE_DURATION_FRAMES } from "../components/ReaderScene"
-import {
-  PROMPT_TO_RESULT_FADE_IN_FRAMES,
-} from "../components/SceneBoundaryFade"
+import { PROMPT_TO_RESULT_FADE_IN_FRAMES } from "../components/SceneBoundaryFade"
 import {
   WHITEBOARD_FADE_OUT_DURATION_FRAMES,
   WHITEBOARD_ONE_SCENE_DURATION_FRAMES,
@@ -70,9 +68,7 @@ export type TransitionDefinition = {
   readonly style: "fade" | "text"
 }
 
-export type LaunchTimelineEntry =
-  | SceneSlotDefinition
-  | TransitionDefinition
+export type LaunchTimelineEntry = SceneSlotDefinition | TransitionDefinition
 
 const EMPTY_TIMELINE_DURATION_FRAMES = 0
 const secondsToFrames = (seconds: number): number => {
@@ -87,18 +83,13 @@ const secondsToFrames = (seconds: number): number => {
 const ENDING_BLACK_HOLD_FRAMES = secondsToFrames(0.4)
 
 const OBSIDIAN_CLIP_DURATION_SECONDS = 10.35
-const OBSIDIAN_CLIP_DURATION_FRAMES = secondsToFrames(
-  OBSIDIAN_CLIP_DURATION_SECONDS,
-)
+const OBSIDIAN_CLIP_DURATION_FRAMES = secondsToFrames(OBSIDIAN_CLIP_DURATION_SECONDS)
 const SUBAGENTS_CLIP_DURATION_SECONDS = 9.466667
-const SUBAGENTS_CLIP_DURATION_FRAMES = secondsToFrames(
-  SUBAGENTS_CLIP_DURATION_SECONDS,
-)
+const SUBAGENTS_CLIP_DURATION_FRAMES = secondsToFrames(SUBAGENTS_CLIP_DURATION_SECONDS)
 
 const sumDuration = (entries: readonly LaunchTimelineEntry[]): number => {
   return entries.reduce(
-    (total, entry) =>
-      total + entry.durationInFrames + (entry.offsetInFrames ?? 0),
+    (total, entry) => total + entry.durationInFrames + (entry.offsetInFrames ?? 0),
     EMPTY_TIMELINE_DURATION_FRAMES,
   )
 }
@@ -267,8 +258,7 @@ export const LAUNCH_TIMELINE = [
   {
     arcPoint: "Resolution",
     builtIn: "final-logo-ending",
-    culmination:
-      "The mascot completes the world, dissolves, and leaves the living canvas behind.",
+    culmination: "The mascot completes the world, dissolves, and leaves the living canvas behind.",
     durationInFrames: FINAL_LOGO_DURATION_FRAMES,
     id: "canvas-ending",
     kind: "scene",
@@ -298,8 +288,6 @@ export const BUDDY_LAUNCH_FEATURES_PUSH_FRAME =
  * The frame `hibuddy.in` takes the screen, in composition time. The ending is
  * the last entry, so its own start is the canvas end minus its duration.
  */
-export const BUDDY_LAUNCH_WEBSITE_FRAME =
-  BUDDY_LAUNCH_ENDING_FRAME + FINAL_LOGO_WEBSITE_START_FRAME
+export const BUDDY_LAUNCH_WEBSITE_FRAME = BUDDY_LAUNCH_ENDING_FRAME + FINAL_LOGO_WEBSITE_START_FRAME
 
-export const BUDDY_LAUNCH_DURATION_FRAMES =
-  BUDDY_LAUNCH_CANVAS_DURATION_FRAMES
+export const BUDDY_LAUNCH_DURATION_FRAMES = BUDDY_LAUNCH_CANVAS_DURATION_FRAMES

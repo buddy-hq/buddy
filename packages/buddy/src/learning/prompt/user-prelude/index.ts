@@ -284,9 +284,7 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
     line.startsWith(EDIT_PATH_METADATA_PREFIX),
   )
   const editGuidance =
-    target.type === "object" &&
-    target.ref.kind === "flashcard-deck" &&
-    hasEditPath
+    target.type === "object" && target.ref.kind === "flashcard-deck" && hasEditPath
       ? FLASHCARD_DECK_EDIT_GUIDANCE
       : target.type === "object" && target.ref.kind === "question-set" && hasEditPath
         ? QUESTION_SET_EDIT_GUIDANCE

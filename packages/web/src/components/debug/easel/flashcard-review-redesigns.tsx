@@ -382,7 +382,9 @@ function CardFace(props: { card: MockCard; revealed: boolean }) {
             </p>
           </>
         ) : (
-          <p className="text-pretty text-[17px] leading-relaxed text-text-stronger">{card.prompt}</p>
+          <p className="text-pretty text-[17px] leading-relaxed text-text-stronger">
+            {card.prompt}
+          </p>
         )}
       </div>
     </div>
@@ -581,69 +583,66 @@ function ReviewStage(props: ReviewStageProps) {
             minHeight: `min(${GROUP_MAX_H_PX}px, 100%)`,
           }}
         >
-          <div
-            className="relative w-full min-h-0 flex-1"
-            style={{ perspective: SWAP_PERSPECTIVE }}
-          >
-          {/* Deepest first, so nearer slabs paint on top. Each one peeks a fixed
+          <div className="relative w-full min-h-0 flex-1" style={{ perspective: SWAP_PERSPECTIVE }}>
+            {/* Deepest first, so nearer slabs paint on top. Each one peeks a fixed
               STACK_STEP_PX further below the card — pixels, never scale. */}
-          {deck
-            ? Array.from({ length: STACK_COUNT }, (_, index) => {
-                const depth = STACK_COUNT - index
-                if (depth >= remaining) return null
-                return (
-                  <div
-                    key={depth}
-                    aria-hidden
-                    className={cn("absolute", CARD_RADIUS, STACK_CHROME)}
-                    style={{
-                      left: depth * (STACK_STEP_PX / 2),
-                      right: depth * (STACK_STEP_PX / 2),
-                      top: depth * STACK_STEP_PX,
-                      bottom: STACK_TOTAL_PX - depth * STACK_STEP_PX,
-                      opacity: 1 - depth * 0.16,
-                    }}
-                  />
-                )
-              })
-            : null}
+            {deck
+              ? Array.from({ length: STACK_COUNT }, (_, index) => {
+                  const depth = STACK_COUNT - index
+                  if (depth >= remaining) return null
+                  return (
+                    <div
+                      key={depth}
+                      aria-hidden
+                      className={cn("absolute", CARD_RADIUS, STACK_CHROME)}
+                      style={{
+                        left: depth * (STACK_STEP_PX / 2),
+                        right: depth * (STACK_STEP_PX / 2),
+                        top: depth * STACK_STEP_PX,
+                        bottom: STACK_TOTAL_PX - depth * STACK_STEP_PX,
+                        opacity: 1 - depth * 0.16,
+                      }}
+                    />
+                  )
+                })
+              : null}
 
-          {/* The live card sits above the deck, inset by exactly its depth. */}
-          <div className="absolute inset-x-0 top-0" style={{ bottom: STACK_TOTAL_PX }}>
-            <AnimatePresence initial={false} custom={props.lastRating}>
-              <motion.div
-                key={props.seq}
-                custom={props.lastRating}
-                variants={swapVariants(props.speed)}
-                initial="enter"
-                animate="settled"
-                exit="leave"
-                className="absolute inset-0"
-                style={{ transformStyle: "preserve-3d" }}
-              >
-                {/* Aim lives inside the swap so a thrown card keeps its lean on
-                    the way out, and outside the hinge so it survives the flip. */}
+            {/* The live card sits above the deck, inset by exactly its depth. */}
+            <div className="absolute inset-x-0 top-0" style={{ bottom: STACK_TOTAL_PX }}>
+              <AnimatePresence initial={false} custom={props.lastRating}>
                 <motion.div
+                  key={props.seq}
+                  custom={props.lastRating}
+                  variants={swapVariants(props.speed)}
+                  initial="enter"
+                  animate="settled"
+                  exit="leave"
                   className="absolute inset-0"
                   style={{ transformStyle: "preserve-3d" }}
-                  initial={false}
-                  animate={{ x: lean.x, rotate: lean.rotate }}
-                  transition={timing(0.22, props.speed)}
                 >
-                  {isCardPhase(props.phase) ? (
-                    <Hinge
-                      card={props.card}
-                      revealed={revealed}
-                      speed={props.speed}
-                      onToggle={props.onToggleReveal}
-                    />
-                  ) : copy ? (
-                    <PhasePanel phase={props.phase} copy={copy} />
-                  ) : null}
+                  {/* Aim lives inside the swap so a thrown card keeps its lean on
+                    the way out, and outside the hinge so it survives the flip. */}
+                  <motion.div
+                    className="absolute inset-0"
+                    style={{ transformStyle: "preserve-3d" }}
+                    initial={false}
+                    animate={{ x: lean.x, rotate: lean.rotate }}
+                    transition={timing(0.22, props.speed)}
+                  >
+                    {isCardPhase(props.phase) ? (
+                      <Hinge
+                        card={props.card}
+                        revealed={revealed}
+                        speed={props.speed}
+                        onToggle={props.onToggleReveal}
+                      />
+                    ) : copy ? (
+                      <PhasePanel phase={props.phase} copy={copy} />
+                    ) : null}
+                  </motion.div>
                 </motion.div>
-              </motion.div>
-            </AnimatePresence>
-          </div>
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* The rating ruler: one strip at the card's own width, sitting
@@ -798,7 +797,9 @@ export function FlashcardReviewRedesignsEasel() {
       <div className="shrink-0 space-y-2.5 border-b border-border-base px-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-text-strong">Flashcard review · the index card</h2>
+            <h2 className="text-sm font-bold text-text-strong">
+              Flashcard review · the index card
+            </h2>
             <p className="max-w-[100ch] text-xs leading-snug text-text-weak">
               One material all the way through: tight radius, hairline rules, paper, labelled
               eyebrow over left-aligned document type. The rating ruler and the panel actions are
@@ -967,7 +968,8 @@ export function FlashcardReviewRedesignsEasel() {
             <p className="text-[11px] leading-relaxed text-text-weak">
               Hinge to reveal · hover a rating to lean the card that way · the rating throws it
               (Again ← … → Easy, Hard and Good fall) · the next card lifts off the deck underneath.
-              The aim clears the moment a card is thrown, so the incoming card always arrives square.
+              The aim clears the moment a card is thrown, so the incoming card always arrives
+              square.
             </p>
           </div>
         </section>

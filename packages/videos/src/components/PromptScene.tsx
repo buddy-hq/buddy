@@ -1,20 +1,9 @@
-import {
-  AbsoluteFill,
-  Easing,
-  interpolate,
-  useCurrentFrame,
-} from "remotion"
+import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion"
 
 import type { PromptComposerCopy } from "../launchCopy"
 import { BUDDY_LAUNCH_FPS } from "../videoConfig"
-import {
-  getPromptTypingDurationInFrames,
-  PromptComposerMock,
-} from "./PromptComposerMock"
-import {
-  PromptTypingSounds,
-  type PromptTypingSoundTrack,
-} from "./PromptTypingSounds"
+import { getPromptTypingDurationInFrames, PromptComposerMock } from "./PromptComposerMock"
+import { PromptTypingSounds, type PromptTypingSoundTrack } from "./PromptTypingSounds"
 
 const SCENE_BACKGROUND = "#12131b"
 /**
@@ -22,9 +11,7 @@ const SCENE_BACKGROUND = "#12131b"
  * typing, so the entrance gets out of its way.
  */
 const PROMPT_ENTRANCE_DURATION_SECONDS = 0.25
-const TYPING_START_FRAME = Math.round(
-  PROMPT_ENTRANCE_DURATION_SECONDS * BUDDY_LAUNCH_FPS,
-)
+const TYPING_START_FRAME = Math.round(PROMPT_ENTRANCE_DURATION_SECONDS * BUDDY_LAUNCH_FPS)
 const SUBMIT_HOLD_FRAMES = 8
 const SUBMIT_AND_DISSOLVE_FRAMES = 22
 const ENTRANCE_START_FRAME = 0
@@ -32,10 +19,7 @@ const ENTRANCE_END_FRAME = TYPING_START_FRAME
 const ENTRANCE_EASING = Easing.bezier(0.16, 1, 0.3, 1)
 const COMPOSER_SCALE = 1.7
 
-const getSubmitFrame = (
-  text: string,
-  wordsPerMinute: number,
-): number => {
+const getSubmitFrame = (text: string, wordsPerMinute: number): number => {
   return (
     TYPING_START_FRAME +
     getPromptTypingDurationInFrames({
@@ -47,10 +31,7 @@ const getSubmitFrame = (
   )
 }
 
-export const getPromptSceneDurationInFrames = (
-  text: string,
-  wordsPerMinute: number,
-): number => {
+export const getPromptSceneDurationInFrames = (text: string, wordsPerMinute: number): number => {
   return getSubmitFrame(text, wordsPerMinute) + SUBMIT_AND_DISSOLVE_FRAMES
 }
 
@@ -81,16 +62,11 @@ export const PromptScene = ({
     >
       <div
         style={{
-          opacity: interpolate(
-            frame,
-            [ENTRANCE_START_FRAME, ENTRANCE_END_FRAME],
-            [0, 1],
-            {
-              easing: ENTRANCE_EASING,
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            },
-          ),
+          opacity: interpolate(frame, [ENTRANCE_START_FRAME, ENTRANCE_END_FRAME], [0, 1], {
+            easing: ENTRANCE_EASING,
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          }),
           scale: interpolate(
             frame,
             [ENTRANCE_START_FRAME, ENTRANCE_END_FRAME],
@@ -124,10 +100,7 @@ export const PromptScene = ({
         />
       </div>
       {typingSoundTrack ? (
-        <PromptTypingSounds
-          track={typingSoundTrack}
-          typingStartFrame={TYPING_START_FRAME}
-        />
+        <PromptTypingSounds track={typingSoundTrack} typingStartFrame={TYPING_START_FRAME} />
       ) : null}
     </AbsoluteFill>
   )

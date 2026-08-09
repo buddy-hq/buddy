@@ -93,9 +93,7 @@ function optionalReaderTextAnchorMatches(
   const existingAnchor = readPromptReaderTextAnchor(existing)
   const metadataAnchor = readPromptReaderTextAnchor(metadata)
   return Boolean(
-    existingAnchor &&
-    metadataAnchor &&
-    readerTextAnchorEquals(existingAnchor, metadataAnchor),
+    existingAnchor && metadataAnchor && readerTextAnchorEquals(existingAnchor, metadataAnchor),
   )
 }
 

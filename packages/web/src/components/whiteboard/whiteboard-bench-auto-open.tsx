@@ -108,10 +108,7 @@ function WhiteboardBenchAutoOpen(props: WhiteboardBenchAutoOpenProps) {
   const messages = useLiveWhiteboardMessages(props.messages)
   const handledToolKeysRef = useRef(new Set<string>())
   const inFlightToolKeyRef = useRef<string>()
-  const activeTool = useMemo(
-    () => readLatestActiveWhiteboardCreate(messages),
-    [messages],
-  )
+  const activeTool = useMemo(() => readLatestActiveWhiteboardCreate(messages), [messages])
   const activeToolRef = useRef(activeTool)
   activeToolRef.current = activeTool
   const activeToolBelongsToSession = activeTool?.sessionID === props.sessionID
@@ -219,11 +216,7 @@ function WhiteboardBenchAutoOpen(props: WhiteboardBenchAutoOpenProps) {
     transientClose,
   ])
 
-  if (
-    !previewSurface ||
-    transientBench?.activeSurface !== previewSurface ||
-    !transientBench.host
-  ) {
+  if (!previewSurface || transientBench?.activeSurface !== previewSurface || !transientBench.host) {
     return null
   }
   return createPortal(

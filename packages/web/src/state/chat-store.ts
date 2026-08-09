@@ -84,10 +84,7 @@ export type ChatStore = {
     directory: string,
     input: ActiveReadingLocationUpdate,
   ) => void
-  appendReadingTrailEntry: (
-    directory: string,
-    entry: ReaderTrailEntry,
-  ) => void
+  appendReadingTrailEntry: (directory: string, entry: ReaderTrailEntry) => void
   setActiveReadingAnnotationSummary: (directory: string, summary: AnnotationSummaryEntry[]) => void
   setLastOpenedReadingResource: (
     directory: string,
@@ -558,7 +555,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           ) {
             delete state.lastSessionByDirectory[directory]
           }
-
         })
       },
       setActiveSession(directory, sessionID) {

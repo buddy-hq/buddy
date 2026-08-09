@@ -109,9 +109,7 @@ type SelectionContextPartInput =
   | Omit<PromptReadingSelectionContextPart, "type">
   | Omit<PromptMarkdownSelectionContextPart, "type">
 
-function createSelectionContextPart(
-  part: SelectionContextPartInput,
-): PromptSelectionContextPart {
+function createSelectionContextPart(part: SelectionContextPartInput): PromptSelectionContextPart {
   if (part.source === "markdown") {
     return {
       type: SELECTION_CONTEXT_PART_TYPE,

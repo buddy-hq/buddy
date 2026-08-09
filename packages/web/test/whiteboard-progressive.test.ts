@@ -162,9 +162,7 @@ describe("whiteboard progressive drawing", () => {
             raw: JSON.stringify({
               objectID: "existing-object",
               boardAction: "continue_current_board",
-              elements: JSON.stringify([
-                { type: "rectangle", id: "streamed-node", x: 160, y: 0 },
-              ]),
+              elements: JSON.stringify([{ type: "rectangle", id: "streamed-node", x: 160, y: 0 }]),
             }),
           },
         },

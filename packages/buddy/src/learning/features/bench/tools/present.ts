@@ -494,10 +494,7 @@ async function presentResolvedObject(input: {
   directory: string
   sessionID: string
   manifest: BuddyObjectManifest
-  reason: Extract<
-    BenchPresentReason,
-    "presented_file" | "presented_object" | "presented_resource"
-  >
+  reason: Extract<BenchPresentReason, "presented_file" | "presented_object" | "presented_resource">
   message: string
 }): Promise<BenchPresentOutput> {
   const viewID = DEFAULT_BENCH_VIEW_BY_KIND[input.manifest.kind]

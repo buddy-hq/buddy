@@ -1,7 +1,4 @@
-import type {
-  ReaderSearchResult,
-  ReaderSearchRow,
-} from "../reader-types"
+import type { ReaderSearchResult, ReaderSearchRow } from "../reader-types"
 
 type PdfSearchResultRow = Extract<ReaderSearchRow, { kind: "result" }>
 

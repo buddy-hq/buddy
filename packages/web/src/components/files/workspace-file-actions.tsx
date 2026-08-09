@@ -98,18 +98,12 @@ export function WorkspaceFileLargeWarning(props: {
       toolbar={<WorkspaceFileActionsMenu directory={props.directory} path={props.path} />}
       contentClassName="overflow-hidden"
     >
-      <LargeFileWarningContent
-        sizeBytes={props.sizeBytes}
-        onOpenAnyway={props.onOpenAnyway}
-      />
+      <LargeFileWarningContent sizeBytes={props.sizeBytes} onOpenAnyway={props.onOpenAnyway} />
     </BenchViewerShell>
   )
 }
 
-export function LargeFileWarningContent(props: {
-  sizeBytes: number
-  onOpenAnyway: () => void
-}) {
+export function LargeFileWarningContent(props: { sizeBytes: number; onOpenAnyway: () => void }) {
   return (
     <div className="flex h-full min-h-0 items-center justify-center p-6">
       <div className="max-w-md text-center">

@@ -225,9 +225,7 @@ export function loadReaderPreferences(defaultTheme: ReaderThemeId): ReaderPrefer
     reduceMotion:
       typeof value.reduceMotion === "boolean" ? value.reduceMotion : legacy.reduceMotion,
     autohideCursor:
-      typeof value.autohideCursor === "boolean"
-        ? value.autohideCursor
-        : legacy.autohideCursor,
+      typeof value.autohideCursor === "boolean" ? value.autohideCursor : legacy.autohideCursor,
     pdfMode: readPdfReaderMode(value.pdfMode) ?? legacy.pdfMode,
   }
 }
@@ -401,11 +399,7 @@ function readLegacyEpubAnnotation(value: unknown): ReaderAnnotation | undefined 
     ...(sectionIndex !== undefined ? { sectionIndex } : {}),
   })
   if (!anchor || anchor.kind !== READER_ANCHOR_KIND_CFI_TEXT) return undefined
-  const created = legacyString(
-    value.created,
-    MAX_READER_LABEL_LENGTH,
-    LEGACY_RECORD_TIMESTAMP,
-  )
+  const created = legacyString(value.created, MAX_READER_LABEL_LENGTH, LEGACY_RECORD_TIMESTAMP)
   return {
     id: anchor.cfi,
     anchor,
@@ -503,11 +497,7 @@ function readLegacyPdfAnnotation(
   if (pageIndex === undefined) return undefined
   const text = legacyString(value.text, MAX_READER_NOTE_LENGTH)
   const note = legacyString(value.note, MAX_READER_NOTE_LENGTH)
-  const created = legacyString(
-    value.created,
-    MAX_READER_LABEL_LENGTH,
-    LEGACY_RECORD_TIMESTAMP,
-  )
+  const created = legacyString(value.created, MAX_READER_LABEL_LENGTH, LEGACY_RECORD_TIMESTAMP)
   return {
     id: `legacy_pdf_annotation_${legacyIndex}`,
     anchor: {
@@ -670,10 +660,7 @@ export function loadStoredReaderDocumentState(
   if (identity.format !== "pdf" && identity.format !== "epub") return undefined
   const format = identity.format
   if (format !== empty.identity.format) return undefined
-  const storedFingerprint = readBoundedString(
-    identity.contentFingerprint,
-    MAX_READER_LABEL_LENGTH,
-  )
+  const storedFingerprint = readBoundedString(identity.contentFingerprint, MAX_READER_LABEL_LENGTH)
   if (identity.contentFingerprint !== undefined && storedFingerprint === undefined) {
     return undefined
   }
@@ -723,7 +710,9 @@ export function createReaderRecordId(prefix: "annotation" | "bookmark" | "select
   if (typeof globalThis.crypto?.randomUUID === "function") {
     return `${prefix}_${globalThis.crypto.randomUUID()}`
   }
-  const random = Math.random().toString(36).slice(2, 2 + FALLBACK_ID_RANDOM_LENGTH)
+  const random = Math.random()
+    .toString(36)
+    .slice(2, 2 + FALLBACK_ID_RANDOM_LENGTH)
   return `${prefix}_${Date.now().toString(36)}_${random}`
 }
 

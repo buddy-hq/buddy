@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  parseClozeText,
-  renderClozeText,
-} from "../src/components/flashcard/flashcard-card-content"
+import { parseClozeText, renderClozeText } from "../src/components/flashcard/flashcard-card-content"
 
 describe("flashcard cloze content", () => {
   test("parses and hides a deletion whose answer spans lines", () => {

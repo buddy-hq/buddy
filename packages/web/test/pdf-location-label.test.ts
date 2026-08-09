@@ -3,9 +3,7 @@ import { pdfLocationLabel } from "../src/components/readers/pdf/pdf-location-lab
 
 describe("PDF location labels", () => {
   test("uses the file page ordinal when its printed label is identical", () => {
-    expect(pdfLocationLabel({ pageIndex: 2, pageCount: 16, pageLabel: "3" })).toBe(
-      "Page 3 of 16",
-    )
+    expect(pdfLocationLabel({ pageIndex: 2, pageCount: 16, pageLabel: "3" })).toBe("Page 3 of 16")
   })
 
   test("separates a printed page label from the file page ordinal", () => {

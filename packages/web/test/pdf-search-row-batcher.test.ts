@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { createPdfSearchRowBatcher } from "../src/components/readers/pdf/pdf-search-row-batcher"
-import type {
-  ReaderSearchResult,
-  ReaderSearchRow,
-} from "../src/components/readers/reader-types"
+import type { ReaderSearchResult, ReaderSearchRow } from "../src/components/readers/reader-types"
 
 const RESULT_COUNT = 10_000
 const FRAME_ID = 7

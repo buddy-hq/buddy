@@ -257,8 +257,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const [location, setLocation] = useState<FoliateReaderLocation>({})
     const [error, setError] = useState<Error | null>(null)
     const [historyState, setHistoryState] = useState({ canGoBack: false, canGoForward: false })
-    const [persistenceTarget, setPersistenceTarget] =
-      useState<FoliateBookPersistenceTarget | null>(null)
+    const [persistenceTarget, setPersistenceTarget] = useState<FoliateBookPersistenceTarget | null>(
+      null,
+    )
     const [bookmarks, setBookmarks] = useState<ReaderBookmark[]>([])
     const [annotations, setAnnotations] = useState<ReaderAnnotation[]>([])
     const [searchState, setSearchState] = useState<ReaderSearchState>({
@@ -336,10 +337,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const flattenedToc = useMemo(() => flattenTocItems(snapshot?.toc ?? []), [snapshot?.toc])
     const readerLandmarks = snapshot?.landmarks ?? []
     const readerSnapshot = useMemo(() => foliateSnapshotToReaderSnapshot(snapshot), [snapshot])
-    const readerBookmarks = useMemo(
-      () => foliateBookmarksToReaderBookmarks(bookmarks),
-      [bookmarks],
-    )
+    const readerBookmarks = useMemo(() => foliateBookmarksToReaderBookmarks(bookmarks), [bookmarks])
     const readerAnnotations = useMemo(
       () => foliateAnnotationsToReaderAnnotations(annotations),
       [annotations],
@@ -1359,10 +1357,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 onOpenChange={setSearchOpen}
               />
 
-              <ReaderPreferencesPopover
-                open={preferencesOpen}
-                onOpenChange={setPreferencesOpen}
-              >
+              <ReaderPreferencesPopover open={preferencesOpen} onOpenChange={setPreferencesOpen}>
                 <FoliatePreferencesPanel
                   preferences={preferences}
                   setPreferences={setPreferences}

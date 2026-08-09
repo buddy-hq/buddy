@@ -24,9 +24,7 @@ describe("PDF viewer scale mode", () => {
   })
 
   test("keeps the requested mode for PDF.js preset scale events", () => {
-    expect(pdfModeAfterViewerScaleChange(FIT_WIDTH_MODE, 1, "page-width")).toBe(
-      FIT_WIDTH_MODE,
-    )
+    expect(pdfModeAfterViewerScaleChange(FIT_WIDTH_MODE, 1, "page-width")).toBe(FIT_WIDTH_MODE)
   })
 })
 

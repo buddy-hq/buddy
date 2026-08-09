@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
-import {
-  applyWhiteboardDrawingProgram,
-} from "../../src/learning/features/whiteboard/service/program"
+import { applyWhiteboardDrawingProgram } from "../../src/learning/features/whiteboard/service/program"
 import {
   createBlankWhiteboardObject,
   createWhiteboardObject,
@@ -110,9 +108,7 @@ describe("whiteboard object ownership", () => {
       directory: project.path,
       objectID: object.objectID,
       writeMode: "continue",
-      elements: JSON.stringify([
-        { type: "text", id: "preserved", x: 0, y: 0, text: "Keep me" },
-      ]),
+      elements: JSON.stringify([{ type: "text", id: "preserved", x: 0, y: 0, text: "Keep me" }]),
     })
 
     const objectStatePath = WhiteboardPath.objectStateFile(project.path, object.objectID)

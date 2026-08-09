@@ -1,9 +1,4 @@
-import {
-  AbsoluteFill,
-  interpolate,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion"
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion"
 
 import { LAUNCH_COPY } from "../launchCopy"
 import {
@@ -23,9 +18,7 @@ const getActiveCaption = (frame: number): string | null => {
   let cueStartFrame = televisionSourceSecondsToFrame(SOURCE_START_SECONDS)
 
   for (const cue of LAUNCH_COPY.opening.feynman.captions) {
-    const cueEndFrame = televisionSourceSecondsToFrame(
-      cue.endAtSourceSeconds,
-    )
+    const cueEndFrame = televisionSourceSecondsToFrame(cue.endAtSourceSeconds)
 
     if (frame >= cueStartFrame && frame < cueEndFrame) {
       return cue.text
@@ -41,13 +34,10 @@ export const FeynmanCaptions = () => {
   const frame = useCurrentFrame()
   const { height } = useVideoConfig()
   const firstSpeechFrame = televisionSourceSecondsToFrame(SOURCE_START_SECONDS)
-  const finalCaptionEndFrame = televisionSourceSecondsToFrame(
-    FINAL_CAPTION_END_SOURCE_SECONDS,
-  )
+  const finalCaptionEndFrame = televisionSourceSecondsToFrame(FINAL_CAPTION_END_SOURCE_SECONDS)
   const caption = getActiveCaption(frame)
   const televisionVisualBottom =
-    height / 2 +
-    (TELEVISION_HEIGHT_PX * getTelevisionCameraScale(frame)) / 2
+    height / 2 + (TELEVISION_HEIGHT_PX * getTelevisionCameraScale(frame)) / 2
   const captionCenter = (televisionVisualBottom + height) / 2
   const captionTop = Math.round(captionCenter - CAPTION_LINE_HEIGHT_PX / 2)
 
@@ -68,8 +58,7 @@ export const FeynmanCaptions = () => {
       style={{
         alignItems: "center",
         color: "#f7f1e8",
-        fontFamily:
-          "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily: "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif",
         pointerEvents: "none",
       }}
     >

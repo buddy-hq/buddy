@@ -48,20 +48,14 @@ function flashcardQueueCardSnapshot(card: FlashcardCard): FlashcardQueueCardSnap
   }
 }
 
-function createFlashcardQueueLease(
-  card: FlashcardCard,
-  queuedAt: number,
-): FlashcardQueueLease {
+function createFlashcardQueueLease(card: FlashcardCard, queuedAt: number): FlashcardQueueLease {
   return {
     queuedAt,
     card: flashcardQueueCardSnapshot(card),
   }
 }
 
-function flashcardQueueLeaseMatchesCard(
-  lease: FlashcardQueueLease,
-  card: FlashcardCard,
-): boolean {
+function flashcardQueueLeaseMatchesCard(lease: FlashcardQueueLease, card: FlashcardCard): boolean {
   const snapshot = flashcardQueueCardSnapshot(card)
   return (
     lease.card.cardID === snapshot.cardID &&
@@ -81,10 +75,7 @@ function compareDueCards(left: FlashcardCard, right: FlashcardCard): number {
   return left.due - right.due || left.cardID.localeCompare(right.cardID)
 }
 
-function compareIntradayLearningCards(
-  left: FlashcardCard,
-  right: FlashcardCard,
-): number {
+function compareIntradayLearningCards(left: FlashcardCard, right: FlashcardCard): number {
   const leftNeverAttempted = left.reps === 0 ? 1 : 0
   const rightNeverAttempted = right.reps === 0 ? 1 : 0
   return (
@@ -248,9 +239,7 @@ function buildFlashcardQueue(input: BuildFlashcardQueueInput): FlashcardQueuedCa
   const admittedReview = sortedReviewDue.slice(0, remainingReview)
   remainingReview = Math.max(0, remainingReview - admittedReview.length)
 
-  const remainingNew = limits.capNewToReview
-    ? Math.min(limits.new, remainingReview)
-    : limits.new
+  const remainingNew = limits.capNewToReview ? Math.min(limits.new, remainingReview) : limits.new
   const admittedNew = sortedNewCards.slice(0, remainingNew)
 
   const learningCount =
@@ -274,10 +263,7 @@ function buildFlashcardQueue(input: BuildFlashcardQueueInput): FlashcardQueuedCa
   const reviewLimitReached = reviewHeldBack > 0
   const nextIntradayAvailableAt = earliestDue(intradayLater)
   const needsDayBoundaryRefresh =
-    interdayLater.length > 0 ||
-    reviewLater.length > 0 ||
-    newLimitReached ||
-    reviewLimitReached
+    interdayLater.length > 0 || reviewLater.length > 0 || newLimitReached || reviewLimitReached
   const nextQueueAt = earliestTimestamp([
     nextIntradayAvailableAt === null
       ? null

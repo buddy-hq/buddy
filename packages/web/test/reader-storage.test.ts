@@ -238,7 +238,9 @@ describe("reader document storage", () => {
       }),
     )
 
-    expect(loadStoredReaderDocumentState({ ...SOURCE, contentFingerprint: undefined })).toBeUndefined()
+    expect(
+      loadStoredReaderDocumentState({ ...SOURCE, contentFingerprint: undefined }),
+    ).toBeUndefined()
   })
 
   test("keeps an opened EPUB book key paired with its original reader source", () => {

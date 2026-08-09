@@ -46,9 +46,7 @@ export function foliateTocItemsToReaderItems(items: FoliateTocItem[]): ReaderNav
   }))
 }
 
-function foliateLandmarksToReaderItems(
-  landmarks: FoliateReaderLandmark[],
-): ReaderNavigationItem[] {
+function foliateLandmarksToReaderItems(landmarks: FoliateReaderLandmark[]): ReaderNavigationItem[] {
   return landmarks.map((landmark) => ({
     id: landmark.href,
     label: landmark.label,
@@ -85,9 +83,7 @@ export function foliateSnapshotToReaderSnapshot(
   }
 }
 
-export function foliateBookmarksToReaderBookmarks(
-  bookmarks: FoliateBookmark[],
-): ReaderBookmark[] {
+export function foliateBookmarksToReaderBookmarks(bookmarks: FoliateBookmark[]): ReaderBookmark[] {
   return bookmarks.map((bookmark) => ({
     id: bookmark.value,
     anchor: legacyCfiPositionAnchor(bookmark.value),

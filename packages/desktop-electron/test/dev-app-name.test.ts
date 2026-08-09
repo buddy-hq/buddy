@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  BUDDY_DEV_APP_NAME,
-  formatBuddyDevAppName,
-} from "../src/shared/dev-app-name"
+import { BUDDY_DEV_APP_NAME, formatBuddyDevAppName } from "../src/shared/dev-app-name"
 
 describe("development app name", () => {
   test("uses the Buddy Dev base name without an instance", () => {

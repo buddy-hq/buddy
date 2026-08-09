@@ -538,10 +538,7 @@ function WhiteboardObjectBenchView(props: {
   }
 
   const chatState = controller.mainPaneProps.chatState
-  const transcriptTargetsBoard = hasWhiteboardCreate(
-    chatState.messages,
-    props.view.ref.objectID,
-  )
+  const transcriptTargetsBoard = hasWhiteboardCreate(chatState.messages, props.view.ref.objectID)
   return (
     <ObjectBenchContextProvider
       directory={props.directory}
@@ -922,8 +919,7 @@ function PresentedMediaSourceBenchView(props: {
     sizeBytes: props.item.sizeBytes ?? undefined,
   })
   const largeFileApproved = approvedLargeItemID === props.item.itemID
-  const shouldLoad =
-    props.availability.status === "available" && (!isLarge || largeFileApproved)
+  const shouldLoad = props.availability.status === "available" && (!isLarge || largeFileApproved)
   const sourceQuery = useQuery({
     ...presentedMediaSourceQueryOptions({
       directory: props.directory,

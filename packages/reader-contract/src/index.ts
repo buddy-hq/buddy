@@ -263,18 +263,12 @@ export function readReaderLocation(value: unknown): ReaderLocation | undefined {
   const anchor = readReaderPositionAnchor(value.anchor)
   if (!anchor) return undefined
   const fraction = value.fraction
-  if (
-    fraction !== undefined &&
-    (!isFiniteNumber(fraction) || fraction < 0 || fraction > 1)
-  ) {
+  if (fraction !== undefined && (!isFiniteNumber(fraction) || fraction < 0 || fraction > 1)) {
     return undefined
   }
   const tocLabel = readOptionalBoundedString(value.tocLabel, MAX_PDF_QUOTE_CONTEXT_LENGTH)
   const pageLabel = readOptionalBoundedString(value.pageLabel, MAX_PDF_QUOTE_CONTEXT_LENGTH)
-  const locationLabel = readOptionalBoundedString(
-    value.locationLabel,
-    MAX_PDF_QUOTE_CONTEXT_LENGTH,
-  )
+  const locationLabel = readOptionalBoundedString(value.locationLabel, MAX_PDF_QUOTE_CONTEXT_LENGTH)
   if (tocLabel === null || pageLabel === null || locationLabel === null) return undefined
   return {
     anchor,
@@ -285,10 +279,7 @@ export function readReaderLocation(value: unknown): ReaderLocation | undefined {
   }
 }
 
-export function legacyCfiPositionAnchor(
-  cfi: string,
-  sectionIndex?: number,
-): CfiPositionAnchor {
+export function legacyCfiPositionAnchor(cfi: string, sectionIndex?: number): CfiPositionAnchor {
   return {
     kind: READER_ANCHOR_KIND_CFI_POSITION,
     cfi,
@@ -348,9 +339,7 @@ export function readerTextAnchorEquals(left: ReaderTextAnchor, right: ReaderText
 }
 
 export function readerPositionIndex(anchor: ReaderPositionAnchor): number | undefined {
-  return anchor.kind === READER_ANCHOR_KIND_CFI_POSITION
-    ? anchor.sectionIndex
-    : anchor.pageIndex
+  return anchor.kind === READER_ANCHOR_KIND_CFI_POSITION ? anchor.sectionIndex : anchor.pageIndex
 }
 
 export function formatReaderPositionAnchor(

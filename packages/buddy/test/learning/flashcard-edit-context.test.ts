@@ -212,9 +212,7 @@ describe("flashcard edit context", () => {
     expect(QUESTION_SET_AUTHOR_AGENT.prompt).toContain(
       "Never return `.buddy/...`, a workspace-relative path",
     )
-    expect(QUESTION_SET_AUTHOR_AGENT.prompt).toContain(
-      "questions[].payload.choices[].content",
-    )
+    expect(QUESTION_SET_AUTHOR_AGENT.prompt).toContain("questions[].payload.choices[].content")
     expect(QUESTION_SET_AUTHOR_AGENT.prompt).toContain(
       "Do not change object.json or create or repoint revisions",
     )
