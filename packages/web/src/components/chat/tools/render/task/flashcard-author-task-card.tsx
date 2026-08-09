@@ -5,11 +5,12 @@ import { stringifyError } from "@/lib/api-client"
 import { getFlashcardDueCount, isFlashcardReviewAvailable } from "@/lib/flashcard"
 import {
   objectFlashcardDeckPayloadQueryOptions,
+  objectFlashcardDeckQueueQueryOptions,
   workspaceFlashcardDeckObjectsQueryOptions,
 } from "@/state/workspace-objects-query"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
+import { prepareFlashcardBenchTarget } from "@/components/flashcard/flashcard-bench-target"
 import {
-  createBenchObjectTarget,
   getFlashcardDeckObjectSummary,
   selectFlashcardDeckObjects,
 } from "@/components/layout/chat-left-sidebar/library-object-selectors"
@@ -23,12 +24,19 @@ import { SubagentCard } from "./subagent-card"
 import { parseTaskResultOutput } from "./task-utils"
 
 function FlashcardDeckTaskPreview(props: {
+  directory: string
   deck: ObjectFlashcardDeckReadDeckResponse
   onStartReview: (deck: { objectID: string; title: string }) => void
 }) {
+  const queueQuery = useQuery(
+    objectFlashcardDeckQueueQueryOptions({
+      directory: props.directory,
+      objectID: props.deck.objectID,
+    }),
+  )
   const summary = getFlashcardDeckObjectSummary(props.deck)
-  const reviewAvailable = isFlashcardReviewAvailable(summary)
-  const totalDue = getFlashcardDueCount(summary.dueCounts)
+  const reviewAvailable = isFlashcardReviewAvailable(queueQuery.data)
+  const totalDue = getFlashcardDueCount(queueQuery.data)
 
   if (!reviewAvailable) {
     return (
@@ -156,12 +164,17 @@ export function FlashcardAuthorTaskCard({
                   transition={TASK_CARD_TRANSITION}
                 >
                   <FlashcardDeckTaskPreview
+                    directory={directory ?? ""}
                     deck={deck}
                     onStartReview={(selectedDeck) => {
                       if (!directory) return
                       void openBenchRoute({
                         directory,
-                        target: createBenchObjectTarget("flashcard-deck", selectedDeck.objectID),
+                        target: prepareFlashcardBenchTarget({
+                          directory,
+                          objectID: selectedDeck.objectID,
+                          mode: "review",
+                        }),
                         mode: BENCH_MODE_REQUEST_POLICY,
                         autoOpen: null,
                       })

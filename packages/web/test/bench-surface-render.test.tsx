@@ -8,7 +8,13 @@ import {
 } from "@tanstack/react-router"
 import { act, useMemo, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { FlashcardBenchReview } from "../src/components/bench/flashcard-bench-review"
+import { FlashcardBenchDeck } from "../src/components/bench/flashcard-bench-deck"
+import { FlashcardDeckView } from "../src/components/flashcard/flashcard-deck-view"
+import { resolveFlashcardStanding } from "../src/components/flashcard/flashcard-deck-standing"
+import {
+  REVIEW_CARD_MAX_W_PX,
+  REVIEW_GROUP_MAX_H_PX,
+} from "../src/components/flashcard/flashcard-review-surface"
 import {
   BenchRouteContextProvider,
   useRegisterBenchContextProvider,
@@ -34,8 +40,10 @@ import {
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import {
+  benchSurfaceUiKey,
   readBenchSurfaceViewport,
   useBenchSurfaceUiState,
+  writeFlashcardDeckSurfaceState,
   writeBenchSurfaceViewport,
 } from "../src/state/bench-surface-ui-state"
 import type { HtmlWidgetPresentation } from "../src/lib/html-widgets"
@@ -43,8 +51,10 @@ import {
   DirectoryWorkspaceLifecycleService,
   type BenchSurfaceRegistrationInput,
 } from "../src/lib/directory-workspace-lifecycle"
+import { useChatStore } from "../src/state/chat-store"
+import { createDirectoryChatState } from "./test-utils"
 import type {
-  ObjectFlashcardDeckNextCardResponse,
+  ObjectFlashcardDeckQueuedCardsResponse,
   ObjectFlashcardDeckReadDeckResponse,
   ObjectQuestionSetReadQuestionsResponse,
 } from "@buddy/sdk/types"
@@ -76,8 +86,8 @@ const TEST_QUESTION_SET_TARGET = {
 } satisfies BenchTarget
 const FLUSH_DELAY_MS = 0
 const WAIT_FOR_EFFECT_ATTEMPTS = 20
-const FLASHCARD_DECK_READ_PATH = `/api/objects/flashcard-deck/${TEST_DECK_ID}?`
-const FLASHCARD_DECK_NEXT_CARD_PATH = `/api/objects/flashcard-deck/${TEST_DECK_ID}/next-card`
+const FLASHCARD_DECK_READ_PATH = `/api/objects/flashcard-deck/${TEST_DECK_ID}/deck?`
+const FLASHCARD_DECK_QUEUE_PATH = `/api/objects/flashcard-deck/${TEST_DECK_ID}/queued-cards`
 const TEST_FLOATING_RECT = {
   x: 24,
   y: 24,
@@ -314,19 +324,98 @@ function createRandomizedQuestionSet(): ObjectQuestionSetReadQuestionsResponse {
   }
 }
 
-function createNextCardResponse(): ObjectFlashcardDeckNextCardResponse {
+function createQueuedCardsResponse(): ObjectFlashcardDeckQueuedCardsResponse {
   return {
-    card: {
-      cardID: TEST_CARD_ID,
-      noteID: TEST_NOTE_ID,
-      templateIdx: 0,
-      state: "new",
-      due: 0,
-      interval: 0,
-      easeFactor: 2500,
-      reps: 0,
-      lapses: 0,
-      remainingSteps: 0,
+    queuedCardIDs: [TEST_CARD_ID],
+    cards: [
+      {
+        cardID: TEST_CARD_ID,
+        noteID: TEST_NOTE_ID,
+        templateIdx: 0,
+        state: "new",
+        queue: "new",
+        due: 0,
+        interval: 0,
+        easeFactor: 2500,
+        reps: 0,
+        lapses: 0,
+        remainingSteps: 0,
+      },
+    ],
+    queueLease: {
+      queuedAt: 0,
+      card: {
+        cardID: TEST_CARD_ID,
+        state: "new",
+        queue: "new",
+        due: 0,
+        interval: 0,
+        easeFactor: 2500,
+        reps: 0,
+        lapses: 0,
+        remainingSteps: 0,
+      },
+    },
+    newCount: 1,
+    learningCount: 0,
+    reviewCount: 0,
+    resolvedConfig: {
+      newPerDay: 20,
+      reviewsPerDay: 200,
+      leechThreshold: 8,
+    },
+    completion: {
+      nextLearningAt: null,
+      nextDueAt: null,
+      nextQueueAt: null,
+      newLimitReached: false,
+      reviewLimitReached: false,
+      newHeldBack: 0,
+      reviewHeldBack: 0,
+      learningLaterToday: 0,
+      returningLater: 0,
+      reviewedToday: { newCount: 0, reviewCount: 0 },
+    },
+  }
+}
+
+function createDeferredQueueResponse(nextQueueAt: number): ObjectFlashcardDeckQueuedCardsResponse {
+  return {
+    queuedCardIDs: [],
+    cards: [],
+    queueLease: null,
+    newCount: 0,
+    learningCount: 0,
+    reviewCount: 0,
+    resolvedConfig: {
+      newPerDay: 20,
+      reviewsPerDay: 200,
+      leechThreshold: 8,
+    },
+    completion: {
+      nextLearningAt: nextQueueAt,
+      nextDueAt: nextQueueAt,
+      nextQueueAt,
+      newLimitReached: false,
+      reviewLimitReached: false,
+      newHeldBack: 0,
+      reviewHeldBack: 0,
+      learningLaterToday: 1,
+      returningLater: 0,
+      reviewedToday: { newCount: 0, reviewCount: 0 },
+    },
+  }
+}
+
+function createEmptyQueueResponse(): ObjectFlashcardDeckQueuedCardsResponse {
+  const queue = createDeferredQueueResponse(0)
+  return {
+    ...queue,
+    completion: {
+      ...queue.completion,
+      nextLearningAt: null,
+      nextDueAt: null,
+      nextQueueAt: null,
     },
   }
 }
@@ -354,7 +443,8 @@ describe("bench surface rendering", () => {
 
   beforeEach(() => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
-    useBenchSurfaceUiState.setState({ viewportByKey: {} })
+    useBenchSurfaceUiState.setState({ flashcardDeckByKey: {}, viewportByKey: {} })
+    useChatStore.setState({ directories: {} })
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -794,8 +884,338 @@ describe("bench surface rendering", () => {
           return Response.json(createFlashcardDeck())
         }
 
-        if (method === "GET" && url.includes(FLASHCARD_DECK_NEXT_CARD_PATH)) {
-          return Response.json(createNextCardResponse())
+        if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
+          return Response.json(createQueuedCardsResponse())
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    })
+    writeFlashcardDeckSurfaceState(
+      benchSurfaceUiKey({ directory: TEST_DIRECTORY, target: TEST_FLASHCARD_TARGET }),
+      { mode: "review" },
+    )
+
+    await act(async () => {
+      root.render(
+        <ServerProvider value={createServerConnection()}>
+          <TestBenchContextProvider>
+            <QueryClientProvider client={queryClient}>
+              <FlashcardBenchDeck
+                directory={TEST_DIRECTORY}
+                objectID={TEST_DECK_ID}
+                target={TEST_FLASHCARD_TARGET}
+                deck={createFlashcardDeck()}
+              />
+            </QueryClientProvider>
+          </TestBenchContextProvider>
+        </ServerProvider>,
+      )
+      await flushEffects()
+    })
+    await waitForEffect(() => calls.some((call) => call.includes(FLASHCARD_DECK_QUEUE_PATH)))
+
+    const readCalls = calls.filter((call) => call.includes(FLASHCARD_DECK_READ_PATH))
+    const queueCalls = calls.filter((call) => call.includes(FLASHCARD_DECK_QUEUE_PATH))
+    const shell = container.querySelector<HTMLElement>('[data-component="bench-viewer-shell"]')
+    const reviewStage = container.querySelector('[data-component="flashcard-review-stage"]')
+    const cardFrame = container.querySelector('[data-component="flashcard-review-card-frame"]')
+    const reviewHeader = container.querySelector('[data-component="flashcard-review-header"]')
+
+    queryClient.clear()
+    expect(readCalls).toEqual([])
+    expect(queueCalls.length).toBe(1)
+    expect(calls.some((call) => call.includes("/api/objects?"))).toBe(false)
+    expect(Array.from(shell?.children ?? []).some((child) => child.tagName === "HEADER")).toBe(false)
+    expect(reviewHeader?.textContent).toContain("Biology Review")
+    expect(reviewStage).not.toBeNull()
+    expect(cardFrame).not.toBeNull()
+    // The card is dealt from the loader's deck, so its front is on screen.
+    expect(container.textContent).toContain("What powers the cell?")
+  })
+
+  test("publishes the authoritative absolute flashcard edit path without a revision path", async () => {
+    const registrations: BenchSurfaceRegistrationInput[] = []
+    const registerSurface = spyOn(
+      DirectoryWorkspaceLifecycleService.prototype,
+      "registerSurface",
+    ).mockImplementation((input) => {
+      registrations.push(input)
+      return () => undefined
+    })
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
+          return Response.json(createQueuedCardsResponse())
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    try {
+      await act(async () => {
+        root.render(
+          <ServerProvider value={createServerConnection()}>
+            <TestBenchContextProvider target={TEST_FLASHCARD_TARGET}>
+              <QueryClientProvider client={queryClient}>
+                <FlashcardBenchDeck
+                  directory={TEST_DIRECTORY}
+                  objectID={TEST_DECK_ID}
+                  target={TEST_FLASHCARD_TARGET}
+                  deck={createFlashcardDeck()}
+                />
+              </QueryClientProvider>
+            </TestBenchContextProvider>
+          </ServerProvider>,
+        )
+        await flushEffects()
+      })
+      await waitForEffect(() => registrations.length > 0)
+
+      const context = registrations.at(-1)?.getSnapshot().context
+      const editPath = `${TEST_DIRECTORY}/.buddy/objects/v1/flashcard-deck/${TEST_DECK_ID}/state/deck.json`
+
+      expect(context?.metadata[0]).toBe(`edit_path: ${editPath}`)
+      expect(context?.content).toContain(`Edit path: ${editPath}`)
+      expect(context?.refs).toContainEqual({
+        kind: "file",
+        value: editPath,
+        note: "Authoritative flashcard deck state for minor text edits.",
+      })
+      expect(context?.hints.join("\n")).toContain("edit only notes[].fields text")
+      expect(context?.metadata.join("\n")).not.toContain("/revisions/")
+    } finally {
+      queryClient.clear()
+      registerSurface.mockRestore()
+    }
+  })
+
+  test("refreshes an open flashcard deck after the agent turn becomes idle", async () => {
+    const updatedDeck = createFlashcardDeck()
+    updatedDeck.notes[0] = {
+      ...updatedDeck.notes[0],
+      fields: {
+        front: "What is the powerhouse of the cell?",
+        back: "Mitochondria",
+      },
+    }
+    let readCalls = 0
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (method === "GET" && url.includes(FLASHCARD_DECK_READ_PATH)) {
+          readCalls++
+          return Response.json(updatedDeck)
+        }
+        if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
+          return Response.json(createQueuedCardsResponse())
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+    useChatStore.setState({
+      directories: {
+        [TEST_DIRECTORY]: createDirectoryChatState({ isBusy: true }),
+      },
+    })
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    await act(async () => {
+      root.render(
+        <ServerProvider value={createServerConnection()}>
+          <TestBenchContextProvider>
+            <QueryClientProvider client={queryClient}>
+              <FlashcardBenchDeck
+                directory={TEST_DIRECTORY}
+                objectID={TEST_DECK_ID}
+                target={TEST_FLASHCARD_TARGET}
+                deck={createFlashcardDeck()}
+              />
+            </QueryClientProvider>
+          </TestBenchContextProvider>
+        </ServerProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(readCalls).toBe(0)
+    expect(container.textContent).toContain("What powers the cell?")
+
+    await act(async () => {
+      useChatStore.setState({
+        directories: {
+          [TEST_DIRECTORY]: createDirectoryChatState({ isBusy: false }),
+        },
+      })
+      await flushEffects()
+    })
+    await waitForEffect(() => readCalls === 1)
+    await waitForEffect(
+      () => container.textContent?.includes("What is the powerhouse of the cell?") === true,
+    )
+
+    queryClient.clear()
+    expect(container.textContent).not.toContain("What powers the cell?")
+  })
+
+  test("restores a completed review tally after the Bench surface remounts", async () => {
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
+          return Response.json(createEmptyQueueResponse())
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    writeFlashcardDeckSurfaceState(
+      benchSurfaceUiKey({ directory: TEST_DIRECTORY, target: TEST_FLASHCARD_TARGET }),
+      {
+        mode: "done",
+        reviewTally: {
+          reviewed: 3,
+          elapsedMs: 4500,
+          ratings: { again: 1, hard: 0, good: 2, easy: 0 },
+        },
+      },
+    )
+
+    await act(async () => {
+      root.render(
+        <ServerProvider value={createServerConnection()}>
+          <TestBenchContextProvider>
+            <QueryClientProvider client={queryClient}>
+              <FlashcardBenchDeck
+                directory={TEST_DIRECTORY}
+                objectID={TEST_DECK_ID}
+                target={TEST_FLASHCARD_TARGET}
+                deck={createFlashcardDeck()}
+              />
+            </QueryClientProvider>
+          </TestBenchContextProvider>
+        </ServerProvider>,
+      )
+      await flushEffects()
+    })
+    await waitForEffect(
+      () => container.querySelector('[data-component="flashcard-session-summary"]') !== null,
+    )
+
+    expect(container.textContent).toContain("3 reviewed in")
+    expect(container.textContent).toContain("1 Again · 2 Good")
+  })
+
+  test("uses the complete scheduled ID set for the deck Due filter", async () => {
+    const secondNoteID = "note-2"
+    const secondCardID = "card-2"
+    const baseDeck = createFlashcardDeck()
+    const deck: ObjectFlashcardDeckReadDeckResponse = {
+      ...baseDeck,
+      notes: [
+        ...baseDeck.notes,
+        {
+          noteID: secondNoteID,
+          objectID: TEST_DECK_ID,
+          type: "basic",
+          fields: { front: "What captures light energy?", back: "Chlorophyll" },
+        },
+      ],
+      cards: [
+        ...baseDeck.cards,
+        {
+          cardID: secondCardID,
+          noteID: secondNoteID,
+          templateIdx: 0,
+          state: "new",
+          due: 0,
+          interval: 0,
+          easeFactor: 2500,
+          reps: 0,
+          lapses: 0,
+          remainingSteps: 0,
+        },
+      ],
+    }
+    const queue: ObjectFlashcardDeckQueuedCardsResponse = {
+      ...createQueuedCardsResponse(),
+      queuedCardIDs: [TEST_CARD_ID, secondCardID],
+      newCount: 2,
+    }
+
+    await act(async () => {
+      root.render(
+        <FlashcardDeckView
+          deck={deck}
+          queue={queue}
+          standing={resolveFlashcardStanding({ deck, queue, now: Date.now() })}
+          peekCardID={undefined}
+          onPeek={() => {}}
+          onAction={() => {}}
+        />,
+      )
+      await flushEffects()
+    })
+
+    const dueFilter = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Due",
+    )
+    await act(async () => {
+      dueFilter?.click()
+      await flushEffects()
+    })
+
+    expect(container.textContent).toContain("What powers the cell?")
+    expect(container.textContent).toContain("What captures light energy?")
+  })
+
+  test("refreshes an open scheduled deck when the backend queue says to check again", async () => {
+    let queueCalls = 0
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
+          queueCalls++
+          return Response.json(
+            queueCalls === 1
+              ? createDeferredQueueResponse(Date.now() + 10)
+              : createQueuedCardsResponse(),
+          )
         }
 
         throw new Error(`Unexpected fetch: ${method} ${url}`)
@@ -816,7 +1236,7 @@ describe("bench surface rendering", () => {
         <ServerProvider value={createServerConnection()}>
           <TestBenchContextProvider>
             <QueryClientProvider client={queryClient}>
-              <FlashcardBenchReview
+              <FlashcardBenchDeck
                 directory={TEST_DIRECTORY}
                 objectID={TEST_DECK_ID}
                 target={TEST_FLASHCARD_TARGET}
@@ -828,20 +1248,164 @@ describe("bench surface rendering", () => {
       )
       await flushEffects()
     })
-    await waitForEffect(() => calls.some((call) => call.includes(FLASHCARD_DECK_NEXT_CARD_PATH)))
+    expect(container.textContent).toContain("Next card in a moment")
+    expect(
+      Array.from(
+        container.querySelector<HTMLElement>('[data-component="bench-viewer-shell"]')?.children ??
+          [],
+      ).some((child) => child.tagName === "HEADER"),
+    ).toBe(false)
+    expect(
+      container.querySelector('[data-component="flashcard-deck-content"]')?.className,
+    ).toContain("max-w-3xl")
 
-    const readCalls = calls.filter((call) => call.includes(FLASHCARD_DECK_READ_PATH))
-    const nextCardCalls = calls.filter((call) => call.includes(FLASHCARD_DECK_NEXT_CARD_PATH))
-    const reviewStage = container.querySelector('[data-component="flashcard-review-stage"]')
-    const cardFrame = container.querySelector('[data-component="flashcard-review-card-frame"]')
+    await act(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 300))
+      await flushEffects()
+    })
 
     queryClient.clear()
-    expect(readCalls).toEqual([])
-    expect(nextCardCalls.length).toBe(1)
-    expect(reviewStage).not.toBeNull()
-    expect(reviewStage?.className).toContain("flex-1")
-    expect(cardFrame).not.toBeNull()
-    expect(cardFrame?.className).toContain("min-h-[12rem]")
+    expect(queueCalls).toBe(2)
+    expect(container.textContent).toContain("New deck")
+    expect(container.textContent).toContain("Start studying")
+    expect(container.textContent).toContain("What powers the cell?")
+  })
+
+  test("renders off-schedule practice as the Easel card stage without rating controls", async () => {
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
+          return Response.json(createQueuedCardsResponse())
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const surfaceKey = benchSurfaceUiKey({
+      directory: TEST_DIRECTORY,
+      target: TEST_FLASHCARD_TARGET,
+    })
+    writeFlashcardDeckSurfaceState(surfaceKey, {
+      mode: "practice",
+      practiceIndex: 0,
+      practiceRevealed: false,
+    })
+
+    await act(async () => {
+      root.render(
+        <ServerProvider value={createServerConnection()}>
+          <TestBenchContextProvider>
+            <QueryClientProvider client={queryClient}>
+              <FlashcardBenchDeck
+                directory={TEST_DIRECTORY}
+                objectID={TEST_DECK_ID}
+                target={TEST_FLASHCARD_TARGET}
+                deck={createFlashcardDeck()}
+              />
+            </QueryClientProvider>
+          </TestBenchContextProvider>
+        </ServerProvider>,
+      )
+      await flushEffects()
+    })
+
+    const cardGroup = container.querySelector<HTMLElement>(
+      '[data-component="flashcard-practice-card-group"]',
+    )
+    const shell = container.querySelector<HTMLElement>('[data-component="bench-viewer-shell"]')
+    const practiceHeader = container.querySelector('[data-component="flashcard-practice-header"]')
+    expect(Array.from(shell?.children ?? []).some((child) => child.tagName === "HEADER")).toBe(false)
+    expect(practiceHeader?.textContent).toContain("Biology Review")
+    expect(container.querySelector('[data-component="flashcard-practice-stage"]')).not.toBeNull()
+    expect(
+      container.querySelector('[data-component="flashcard-practice-card-frame"]'),
+    ).not.toBeNull()
+    expect(cardGroup?.style.maxWidth).toBe(`${REVIEW_CARD_MAX_W_PX}px`)
+    expect(cardGroup?.style.maxHeight).toBe(`${REVIEW_GROUP_MAX_H_PX}px`)
+    expect(container.textContent).toContain("Off schedule")
+    expect(container.textContent).toContain("Nothing here is rated")
+    expect(container.textContent).toContain("Show answer")
+    expect(container.textContent).toContain("Next card")
+    expect(container.textContent).not.toContain("Again")
+    expect(container.textContent).not.toContain("Hard")
+    expect(container.textContent).not.toContain("Good")
+    expect(container.textContent).not.toContain("Easy")
+
+    queryClient.clear()
+  })
+
+  test("publishes the actual practice card and reveal state without exposing a hidden answer", async () => {
+    const registrations: BenchSurfaceRegistrationInput[] = []
+    const registerSurface = spyOn(
+      DirectoryWorkspaceLifecycleService.prototype,
+      "registerSurface",
+    ).mockImplementation((input) => {
+      registrations.push(input)
+      return () => undefined
+    })
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
+          return Response.json(createQueuedCardsResponse())
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    writeFlashcardDeckSurfaceState(
+      benchSurfaceUiKey({ directory: TEST_DIRECTORY, target: TEST_FLASHCARD_TARGET }),
+      { mode: "practice", practiceIndex: 0, practiceRevealed: false },
+    )
+
+    try {
+      await act(async () => {
+        root.render(
+          <ServerProvider value={createServerConnection()}>
+            <TestBenchContextProvider target={TEST_FLASHCARD_TARGET}>
+              <QueryClientProvider client={queryClient}>
+                <FlashcardBenchDeck
+                  directory={TEST_DIRECTORY}
+                  objectID={TEST_DECK_ID}
+                  target={TEST_FLASHCARD_TARGET}
+                  deck={createFlashcardDeck()}
+                />
+              </QueryClientProvider>
+            </TestBenchContextProvider>
+          </ServerProvider>,
+        )
+        await flushEffects()
+      })
+      await waitForEffect(() => registrations.length > 0)
+
+      const context = registrations.at(-1)?.getSnapshot().context
+      expect(context?.metadata).toContain("deck_mode: practice")
+      expect(context?.metadata).toContain("revealed: false")
+      expect(context?.metadata).toContain(`card_id: ${TEST_CARD_ID}`)
+      expect(context?.content).toContain("Flashcard practice: Biology Review")
+      expect(context?.content).toContain("Front:\nWhat powers the cell?")
+      expect(context?.content).toContain("Back: hidden until revealed")
+      expect(context?.content).not.toContain("Mitochondria")
+    } finally {
+      queryClient.clear()
+      registerSurface.mockRestore()
+    }
   })
 
   test("renders question sets in Bench with wizard and list modes", async () => {
@@ -892,6 +1456,54 @@ describe("bench surface rendering", () => {
     expect(container.textContent).toContain("Pick one.")
     expect(container.textContent).toContain("Pick another.")
     expect(container.textContent).toContain("Submit Entire Quiz")
+  })
+
+  test("publishes the current question-set revision as an absolute content-only edit path", async () => {
+    const registrations: BenchSurfaceRegistrationInput[] = []
+    const registerSurface = spyOn(
+      DirectoryWorkspaceLifecycleService.prototype,
+      "registerSurface",
+    ).mockImplementation((input) => {
+      registrations.push(input)
+      return () => undefined
+    })
+
+    try {
+      await act(async () => {
+        root.render(
+          <TestBenchContextProvider target={TEST_QUESTION_SET_TARGET}>
+            <QuestionSetBenchReview
+              directory={TEST_DIRECTORY}
+              target={TEST_QUESTION_SET_TARGET}
+              questionSet={createRandomizedQuestionSet()}
+              onSubmit={async () => ({
+                totalQuestions: 2,
+                correctQuestions: 0,
+                status: "partial",
+                questions: [],
+              })}
+            />
+          </TestBenchContextProvider>,
+        )
+        await flushEffects()
+      })
+      await waitForEffect(() => registrations.length > 0)
+
+      const editPath = `${TEST_DIRECTORY}/.buddy/objects/v1/question-set/${TEST_QUESTION_SET_ID}/revisions/question-revision-1/question-set.json`
+      const context = registrations.at(-1)?.getSnapshot().context
+
+      expect(context?.metadata[0]).toBe(`edit_path: ${editPath}`)
+      expect(context?.content).toContain(`Edit path: ${editPath}`)
+      expect(context?.refs).toContainEqual({
+        kind: "file",
+        value: editPath,
+        note: "Authoritative question-set payload for minor text edits.",
+      })
+      expect(context?.hints.join("\n")).toContain("questions[].payload.choices[].content")
+      expect(context?.hints.join("\n")).toContain("Preserve object, revision, question")
+    } finally {
+      registerSurface.mockRestore()
+    }
   })
 
   test("rotates the Bench question-set submission key only after an answer changes", async () => {

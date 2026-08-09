@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSearch } from "@tanstack/react-router"
 import {
+  Badge,
   Button,
   ContextMenu,
   ContextMenuContent,
@@ -24,24 +25,26 @@ import {
   Popover,
   PopoverAnchor,
   PopoverContent,
-  ToggleGroup,
-  ToggleGroupItem,
   cn,
   toast,
 } from "@buddy/ui"
 import {
   ChevronDownIcon,
   Clock3Icon,
+  Layers3Icon,
   ListChecksIcon,
   Loader2Icon,
   PlusIcon,
-  PlayIcon,
   RefreshCwIcon,
   ShapesIcon,
   Trash2Icon,
   UploadIcon,
+  XIcon,
 } from "@/icons/app-icons"
-import type { ObjectsViewResponse } from "@buddy/sdk/types"
+import type {
+  ObjectFlashcardDeckQueuedCardsResponse,
+  ObjectsViewResponse,
+} from "@buddy/sdk/types"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getFlashcardDueCount } from "@/lib/flashcard"
@@ -56,6 +59,7 @@ import {
 } from "@/state/resources-query"
 import {
   objectFlashcardDeckPayloadQueryOptions,
+  objectFlashcardDeckQueueQueryOptions,
   objectMermaidPayloadQueryOptions,
   objectQuestionSetPayloadQueryOptions,
   objectViewQueryOptions,
@@ -63,6 +67,12 @@ import {
   workspaceObjectsQueryOptions,
 } from "@/state/workspace-objects-query"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
+import {
+  FlashcardPracticeDrawerColumnLabel,
+  FlashcardPracticeDrawerRow,
+  FlashcardPracticeDrawerRuledHead,
+} from "@/components/flashcard/flashcard-practice-drawer"
+import { useDurableScrollTop } from "@/lib/use-durable-scroll-top"
 import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
 import { HtmlWidgetFrame } from "@/components/media/renderers/html-widget-frame"
 import { relativeTime } from "@/components/layout/sidebar-helpers"
@@ -122,6 +132,8 @@ import {
 } from "@/components/objects/types"
 import type { MediaAction } from "@/components/media/types"
 import type { BenchObjectKind, BenchTarget } from "@/lib/bench-targets"
+import type { FlashcardDeckSurfaceMode } from "@/state/bench-surface-ui-state"
+import { prepareFlashcardBenchTarget } from "@/components/flashcard/flashcard-bench-target"
 
 type CatalogDrawerProps = {
   directory: string
@@ -133,7 +145,6 @@ type CreationsDrawerProps = CatalogDrawerProps & {
   onCreate: () => void
 }
 
-type PracticeFilter = "all" | "flashcards" | "question-sets"
 type CreationFilter = "all" | "widgets" | "diagrams" | "media"
 
 type PracticeFeedItem =
@@ -682,8 +693,48 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
   )
 }
 
-function isPracticeFilter(value: string): value is PracticeFilter {
-  return value === "all" || value === "flashcards" || value === "question-sets"
+const PRACTICE_DRAWER_HEADER_H_PX = 44
+const PRACTICE_ROW_ESTIMATE_PX = 65
+const PRACTICE_MINUTE_MS = 60_000
+const PRACTICE_HOUR_MS = 60 * PRACTICE_MINUTE_MS
+const PRACTICE_DAY_MS = 24 * PRACTICE_HOUR_MS
+
+export function practiceReturnLabel(
+  queue: ObjectFlashcardDeckQueuedCardsResponse | undefined,
+  now: number,
+): string {
+  if (!queue) return "Loading…"
+  const limited = queue.completion.newLimitReached || queue.completion.reviewLimitReached
+  const target = limited ? queue.completion.nextQueueAt : queue.completion.nextDueAt
+  if (target === null || target === undefined) return "caught up"
+
+  const deltaMs = target - now
+  if (deltaMs <= PRACTICE_MINUTE_MS) return "soon"
+  if (deltaMs < PRACTICE_HOUR_MS) {
+    return `in ${Math.max(1, Math.round(deltaMs / PRACTICE_MINUTE_MS))}m`
+  }
+
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (new Date(target).toDateString() === tomorrow.toDateString()) return "tomorrow"
+  if (deltaMs < PRACTICE_DAY_MS) {
+    return `in ${Math.max(1, Math.round(deltaMs / PRACTICE_HOUR_MS))}h`
+  }
+  return new Date(target).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+function openFlashcardPracticeTarget(input: {
+  directory: string
+  objectID: string
+  mode: FlashcardDeckSurfaceMode
+  onOpen: CatalogDrawerProps["onOpen"]
+}) {
+  const target = prepareFlashcardBenchTarget({
+    directory: input.directory,
+    objectID: input.objectID,
+    mode: input.mode,
+  })
+  void input.onOpen({ type: "object", directory: input.directory, target })
 }
 
 function PracticeRow(props: {
@@ -710,35 +761,39 @@ function FlashcardPracticeRow(props: {
     refetchOnMount: false,
   })
   const detail = detailQuery.data
-  const summary = detail ? getFlashcardDeckObjectSummary(detail) : undefined
-  const dueCount = summary ? getFlashcardDueCount(summary.dueCounts) : 0
-  const metadata = summary
-    ? `${summary.cardCount} ${summary.cardCount === 1 ? "card" : "cards"} · ${
-        dueCount > 0 ? `${dueCount} due` : "No cards due"
-      }`
-    : detailQuery.error
-      ? stringifyError(detailQuery.error)
-      : "Loading deck…"
-  const model = describeObject({
-    target: createBenchObjectTarget(props.item.kind, props.item.objectID),
-    kind: props.item.kind,
-    title: detail?.title ?? props.item.title,
-    meta: [metadata],
-    status: workspaceObjectStatus(props.item.status),
-    ...(dueCount > 0 ? { badge: `${dueCount} due` } : {}),
+  const queueQuery = useQuery({
+    ...objectFlashcardDeckQueueQueryOptions({
+      directory: props.directory,
+      objectID: props.item.objectID,
+    }),
+    refetchOnMount: false,
   })
+  const summary = detail ? getFlashcardDeckObjectSummary(detail) : undefined
+  const dueCount = getFlashcardDueCount(queueQuery.data)
+  const metadata = summary
+    ? `${summary.cardCount} ${summary.cardCount === 1 ? "card" : "cards"}`
+    : detailQuery.error || queueQuery.error
+      ? stringifyError(detailQuery.error ?? queueQuery.error)
+      : "Loading deck…"
+  const open = (mode: FlashcardDeckSurfaceMode) =>
+    openFlashcardPracticeTarget({
+      directory: props.directory,
+      objectID: props.item.objectID,
+      mode,
+      onOpen: props.onOpen,
+    })
 
   return (
-    <ObjectRow
-      model={model}
-      variant={OBJECT_VARIANT_MD}
-      onOpen={() =>
-        void props.onOpen({
-          type: "object",
-          directory: props.directory,
-          target: createBenchObjectTarget(props.item.kind, props.item.objectID),
-        })
+    <FlashcardPracticeDrawerRow
+      icon={Layers3Icon}
+      title={detail?.title ?? props.item.title}
+      metadata={metadata}
+      action={
+        dueCount > 0
+          ? { kind: "action", label: `Study ${dueCount}`, onClick: () => open("review") }
+          : { kind: "note", label: practiceReturnLabel(queueQuery.data, Date.now()) }
       }
+      onOpen={() => open("deck")}
     />
   )
 }
@@ -758,36 +813,37 @@ function QuestionSetPracticeRow(props: {
   const count = detailQuery.data?.questions.length
   const metadata = detailQuery.error
     ? stringifyError(detailQuery.error)
-    : `${count === undefined ? "Loading" : count} ${
-        count === 1 ? "question" : "questions"
-      } · ${formatTimestamp(detailQuery.data?.createdAt ?? props.item.updatedAt)}`
-  const model = describeObject({
-    target: createBenchObjectTarget(props.item.kind, props.item.objectID),
-    kind: props.item.kind,
-    title: props.item.title,
-    meta: [metadata],
-    status: workspaceObjectStatus(props.item.status),
-  })
+    : `${count === undefined ? "Loading" : count} ${count === 1 ? "question" : "questions"}`
+  const open = () =>
+    void props.onOpen({
+      type: "object",
+      directory: props.directory,
+      target: createBenchObjectTarget(props.item.kind, props.item.objectID),
+    })
 
   return (
-    <ObjectRow
-      model={model}
-      variant={OBJECT_VARIANT_MD}
-      onOpen={() =>
-        void props.onOpen({
-          type: "object",
-          directory: props.directory,
-          target: createBenchObjectTarget(props.item.kind, props.item.objectID),
-        })
-      }
+    <FlashcardPracticeDrawerRow
+      icon={ListChecksIcon}
+      title={props.item.title}
+      metadata={metadata}
+      action={{ kind: "action", label: "Start", onClick: open }}
+      onOpen={open}
     />
   )
 }
 
 export function PracticeDrawer(props: CatalogDrawerProps) {
-  const [search, setSearch] = useState("")
-  const [filter, setFilter] = useState<PracticeFilter>("all")
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
+  const { containerRef, onScroll } = useDurableScrollTop(
+    workspaceDrawerUiKey({ directory: props.directory, drawer: "practice" }),
+  )
+  const setScrollNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      containerRef.current = node
+      setScrollElement(node)
+    },
+    [containerRef],
+  )
   const objectsQuery = useQuery(workspaceObjectsQueryOptions(props.directory))
   useInvalidateQueryOnChatIdle({
     directory: props.directory,
@@ -795,133 +851,97 @@ export function PracticeDrawer(props: CatalogDrawerProps) {
   })
   const flashcards = selectFlashcardDeckObjects(objectsQuery)
   const questionSets = selectQuestionSetObjects(objectsQuery)
-  const deckDetailQueries = useQueries({
+  const deckQueueQueries = useQueries({
     queries: flashcards.map((deck) => ({
-      ...objectFlashcardDeckPayloadQueryOptions({
+      ...objectFlashcardDeckQueueQueryOptions({
         directory: props.directory,
         objectID: deck.objectID,
       }),
       refetchOnMount: false,
     })),
   })
-  const totalDue = deckDetailQueries.reduce((total, query) => {
-    if (!query.data) return total
-    return total + getFlashcardDueCount(getFlashcardDeckObjectSummary(query.data).dueCounts)
-  }, 0)
-  const firstDueDeckIndex = deckDetailQueries.findIndex((query) => {
-    if (!query.data) return false
-    return getFlashcardDueCount(getFlashcardDeckObjectSummary(query.data).dueCounts) > 0
-  })
-  const firstReviewDeck = firstDueDeckIndex >= 0 ? flashcards[firstDueDeckIndex] : undefined
-  const normalizedSearch = normalizeSearch(search)
+  const totalDue = deckQueueQueries.reduce(
+    (total, query) => total + getFlashcardDueCount(query.data),
+    0,
+  )
   const items = useMemo(() => {
     const combined: PracticeFeedItem[] = [
       ...flashcards.map((object): PracticeFeedItem => ({ kind: "flashcards", object })),
       ...questionSets.map((object): PracticeFeedItem => ({ kind: "question-sets", object })),
     ]
-    return combined
-      .filter((item) => filter === "all" || item.kind === filter)
-      .filter((item) => includesSearch(item.object.title, normalizedSearch))
-      .toSorted((left, right) => right.object.updatedAt.localeCompare(left.object.updatedAt))
-  }, [filter, flashcards, normalizedSearch, questionSets])
+    return combined.toSorted((left, right) =>
+      right.object.updatedAt.localeCompare(left.object.updatedAt),
+    )
+  }, [flashcards, questionSets])
   const loadErrors = selectWorkspaceObjectLoadErrors(objectsQuery, [
     "flashcard-deck",
     "question-set",
   ])
 
   return (
-    <RightWorkspaceDrawerShell
-      durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "practice" })}
-      title="Practice"
-      searchLabel="Search practice…"
-      searchValue={search}
-      scrollRef={setScrollElement}
-      toolbar={
-        <div className="flex flex-col gap-3">
-          <RightWorkspaceSectionLabel>Ready to review</RightWorkspaceSectionLabel>
-          <div className="flex items-center gap-3 rounded-lg border border-border-interactive-base bg-surface-interactive-weak p-3">
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <p className="text-lg font-semibold text-text-strong">{totalDue} due</p>
-              <p className="text-xs text-text-weak">
-                {flashcards.length} {flashcards.length === 1 ? "deck" : "decks"} ·{" "}
-                {questionSets.length} {questionSets.length === 1 ? "question set" : "question sets"}
-              </p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              disabled={!firstReviewDeck}
-              onClick={() => {
-                if (!firstReviewDeck) return
-                void props.onOpen({
-                  type: "object",
-                  directory: props.directory,
-                  target: createBenchObjectTarget("flashcard-deck", firstReviewDeck.objectID),
-                })
-              }}
-            >
-              <PlayIcon data-icon="inline-start" aria-hidden />
-              Start
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            <ToggleGroup
-              type="single"
-              value={filter}
-              variant="outline"
-              size="sm"
-              aria-label="Filter practice items"
-              onValueChange={(value) => {
-                if (isPracticeFilter(value)) setFilter(value)
-              }}
-            >
-              <ToggleGroupItem value="all">All</ToggleGroupItem>
-              <ToggleGroupItem value="flashcards">Cards</ToggleGroupItem>
-              <ToggleGroupItem value="question-sets">Questions</ToggleGroupItem>
-            </ToggleGroup>
-            <RecentSortLabel />
-          </div>
-          <RightWorkspaceSectionLabel>
-            {items.length} practice {items.length === 1 ? "item" : "items"}
-          </RightWorkspaceSectionLabel>
-          {objectsQuery.error ? (
-            <CatalogError message={stringifyError(objectsQuery.error)} />
-          ) : null}
-          {loadErrors.map((error) => (
-            <CatalogError
-              key={`${error.kind}:${error.objectID}:${error.path}`}
-              message={error.message}
-            />
-          ))}
-        </div>
-      }
-      onSearchValueChange={setSearch}
-      onClose={props.onClose}
+    <section
+      data-component="right-workspace-drawer"
+      className="flex h-full min-h-0 flex-col bg-background-base"
     >
-      {objectsQuery.isPending ? <RightWorkspaceListSkeleton /> : null}
-      {!objectsQuery.isPending && !objectsQuery.error && items.length === 0 ? (
-        <EmptyInventory
-          icon={ListChecksIcon}
-          title={flashcards.length + questionSets.length === 0 ? "No practice yet" : "No matches"}
-          description={
-            flashcards.length + questionSets.length === 0
-              ? "Ask Buddy to create flashcards or a question set."
-              : "Try another search or filter."
-          }
-        />
-      ) : null}
-      {items.length > 0 ? (
-        <RightWorkspaceVirtualList
-          items={items}
-          scrollElement={scrollElement}
-          getKey={(item) => `${item.kind}:${item.object.objectID}`}
-          estimateSize={OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_MD]}
-          renderItem={(item) => (
-            <PracticeRow directory={props.directory} item={item} onOpen={props.onOpen} />
-          )}
-        />
-      ) : null}
-    </RightWorkspaceDrawerShell>
+      <header
+        className="flex shrink-0 items-center gap-2 border-b border-border-weaker-base px-4"
+        style={{ height: PRACTICE_DRAWER_HEADER_H_PX }}
+      >
+        <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-text-strong">
+          Practice
+        </h2>
+        <Badge variant="outline">{totalDue} due</Badge>
+        <button
+          type="button"
+          onClick={props.onClose}
+          aria-label="Close Practice"
+          className="cursor-pointer rounded-md p-1 text-text-weaker transition-colors hover:bg-surface-base hover:text-text-base"
+        >
+          <XIcon className="size-4" aria-hidden />
+        </button>
+      </header>
+
+      <div
+        ref={setScrollNode}
+        onScroll={onScroll}
+        data-component="right-workspace-drawer-scroll"
+        className="scrollbar-hover flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
+      >
+        <section className="flex flex-col gap-2">
+          <FlashcardPracticeDrawerRuledHead
+            label="Practice"
+            trailing={<FlashcardPracticeDrawerColumnLabel />}
+          />
+          {objectsQuery.isPending ? <RightWorkspaceListSkeleton /> : null}
+          {!objectsQuery.isPending && !objectsQuery.error && items.length === 0 ? (
+            <EmptyInventory
+              icon={ListChecksIcon}
+              title="No practice yet"
+              description="Ask Buddy to create flashcards or a question set."
+            />
+          ) : null}
+          {items.length > 0 ? (
+            <RightWorkspaceVirtualList
+              items={items}
+              scrollElement={scrollElement}
+              getKey={(item) => `${item.kind}:${item.object.objectID}`}
+              estimateSize={PRACTICE_ROW_ESTIMATE_PX}
+              gap={0}
+              renderItem={(item) => (
+                <PracticeRow directory={props.directory} item={item} onOpen={props.onOpen} />
+              )}
+            />
+          ) : null}
+        </section>
+        {objectsQuery.error ? <CatalogError message={stringifyError(objectsQuery.error)} /> : null}
+        {loadErrors.map((error) => (
+          <CatalogError
+            key={`${error.kind}:${error.objectID}:${error.path}`}
+            message={error.message}
+          />
+        ))}
+      </div>
+    </section>
   )
 }
 

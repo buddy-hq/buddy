@@ -63,6 +63,8 @@ import { SkillIconAtlasEasel } from "./easel/skill-icon-atlas"
 import { NotebookDialogRedesignEasel } from "./easel/notebook-dialog-redesign"
 import { ChatGptAccountCardRedesignEasel } from "./easel/chatgpt-account-card-redesign"
 import { SubagentCardRedesignsEasel } from "./easel/subagent-card-redesigns"
+import { FlashcardReviewRedesignsEasel } from "./easel/flashcard-review-redesigns"
+import { FlashcardDeckJourneyEasel } from "./easel/flashcard-deck-journey"
 import { WorkingStateCanvasEasel } from "./easel/working-state-canvas"
 import { ThemeSelectors } from "./theme-selectors"
 
@@ -78,6 +80,8 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "flashcard-deck-journey"
+  | "flashcard-review-redesigns"
   | "working-state-canvas"
   | "subagent-card-redesigns"
   | "chatgpt-account-card-redesign"
@@ -111,6 +115,18 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "flashcard-deck-journey",
+    label: "Flashcard deck · the surface around the reviewer",
+    subtitle:
+      "The drawer lists, the Bench opens, review is a mode of the same target · nothing invented: readDeck + queuedCards + submitReview only, with an API ledger for what got cut · the four drain reasons the scheduler already returns, told apart · 12 phases, all live",
+  },
+  {
+    id: "flashcard-review-redesigns",
+    label: "Flashcard review · the index card",
+    subtitle:
+      "One material end to end — tight radius, hairline rules, paper · rating ruler cut from the card · deck stacked underneath, and absent when the queue is empty, drained or unreachable · hover-aim + throw · slow-motion scrub · every state, one per row",
+  },
   {
     id: "working-state-canvas",
     label: "Working states · 2D canvas",
@@ -1147,7 +1163,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("working-state-canvas")
+  const [prototype, setPrototype] = useState<EaselPrototype>("flashcard-deck-journey")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1308,6 +1324,8 @@ export function DevToolsEaselTab(props: { directory?: string }) {
         className={cn(
           "flex min-h-0 flex-1",
           prototype === "location-step-options" ||
+            prototype === "flashcard-deck-journey" ||
+            prototype === "flashcard-review-redesigns" ||
             prototype === "working-state-canvas" ||
             prototype === "subagent-card-redesigns" ||
             prototype === "chatgpt-account-card-redesign" ||
@@ -1328,6 +1346,22 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
       >
+        {prototype === "flashcard-deck-journey" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <FlashcardDeckJourneyEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "flashcard-review-redesigns" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <FlashcardReviewRedesignsEasel />
+            </div>
+          </div>
+        ) : null}
+
         {prototype === "working-state-canvas" ? (
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">

@@ -57,6 +57,8 @@ type RightWorkspaceVirtualListProps<TItem> = {
   renderItem: (item: TItem, index: number) => ReactNode
   /** A function when the list is mixed-density, so the initial scroll height is not wildly wrong. */
   estimateSize?: number | ((index: number) => number)
+  /** Defaults to the catalog rhythm; ruled lists can opt into contiguous rows. */
+  gap?: number
 }
 
 export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps) {
@@ -239,7 +241,7 @@ export function RightWorkspaceVirtualList<TItem>(props: RightWorkspaceVirtualLis
       return props.estimateSize ?? RIGHT_WORKSPACE_ROW_ESTIMATE_PX
     },
     overscan: RIGHT_WORKSPACE_LIST_OVERSCAN,
-    gap: 4,
+    gap: props.gap ?? 4,
   })
 
   return (

@@ -1,5 +1,6 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import type {
+  ObjectFlashcardDeckQueuedCardsResponse,
   ObjectFlashcardDeckReadDeckResponse,
   ObjectMediaPresentationAvailabilityResponse,
   ObjectMermaidReadSourceResponse,
@@ -12,6 +13,7 @@ import type {
   ObjectsViewResponse,
 } from "@buddy/sdk/types"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { FLASHCARD_QUEUE_REFETCH_FLOOR_MS } from "@/lib/flashcard"
 
 type WorkspaceObjectKind = NonNullable<NonNullable<ObjectsListData["query"]>["kind"]>
 type ObjectViewKind = ObjectsViewData["path"]["kind"]
@@ -50,6 +52,7 @@ const OBJECT_READ_QUERY_KEY = "read" as const
 const MERMAID_OBJECT_PAYLOAD_QUERY_KEY = "mermaid-payload" as const
 const QUESTION_SET_OBJECT_PAYLOAD_QUERY_KEY = "question-set-payload" as const
 const FLASHCARD_DECK_OBJECT_PAYLOAD_QUERY_KEY = "flashcard-deck-payload" as const
+const FLASHCARD_DECK_QUEUE_QUERY_KEY = "flashcard-deck-queue" as const
 const MEDIA_PRESENTATION_AVAILABILITY_QUERY_KEY = "media-availability" as const
 const WORKSPACE_OBJECTS_STALE_TIME_MS = 0
 
@@ -110,6 +113,13 @@ export const workspaceObjectsQueryKeys = {
       WORKSPACE_OBJECTS_QUERY_SCOPE,
       input.directory,
       FLASHCARD_DECK_OBJECT_PAYLOAD_QUERY_KEY,
+      input.objectID,
+    ] as const,
+  flashcardDeckQueue: (input: ObjectPayloadQueryInput) =>
+    [
+      WORKSPACE_OBJECTS_QUERY_SCOPE,
+      input.directory,
+      FLASHCARD_DECK_QUEUE_QUERY_KEY,
       input.objectID,
     ] as const,
   mediaAvailability: (input: ObjectMediaAvailabilityQueryInput) =>
@@ -260,6 +270,31 @@ export function objectFlashcardDeckPayloadQueryOptions(input: ObjectPayloadQuery
     queryKey: workspaceObjectsQueryKeys.flashcardDeckPayload(input),
     queryFn: () => loadObjectFlashcardDeckPayload(input),
     staleTime: WORKSPACE_OBJECTS_STALE_TIME_MS,
+  })
+}
+
+export async function loadObjectFlashcardDeckQueue(
+  input: ObjectPayloadQueryInput,
+): Promise<ObjectFlashcardDeckQueuedCardsResponse> {
+  return requireBuddyData(
+    await getBuddyClient(input.directory).objectFlashcardDeck.queuedCards({
+      directory: input.directory,
+      objectID: input.objectID,
+    }),
+  )
+}
+
+export function objectFlashcardDeckQueueQueryOptions(input: ObjectPayloadQueryInput) {
+  return queryOptions({
+    queryKey: workspaceObjectsQueryKeys.flashcardDeckQueue(input),
+    queryFn: () => loadObjectFlashcardDeckQueue(input),
+    staleTime: WORKSPACE_OBJECTS_STALE_TIME_MS,
+    refetchInterval: (query) => {
+      const nextQueueAt = query.state.data?.completion.nextQueueAt
+      return nextQueueAt === null || nextQueueAt === undefined
+        ? false
+        : Math.max(FLASHCARD_QUEUE_REFETCH_FLOOR_MS, nextQueueAt - Date.now())
+    },
   })
 }
 

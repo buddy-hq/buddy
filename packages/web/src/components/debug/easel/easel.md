@@ -1,0 +1,1 @@
+The user has added this file just to point you to the correct easel folder and what easel means.

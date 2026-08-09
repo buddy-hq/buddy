@@ -4,7 +4,6 @@ import {
   type BenchObjectKind,
   type BenchTarget,
 } from "@/lib/bench-navigation"
-import type { FlashcardDueCounts } from "@/lib/flashcard"
 
 type WorkspaceObjectIndexItem = ObjectsListResponse["objects"][number]
 type WorkspaceObjectLoadError = ObjectsListResponse["loadErrors"][number]
@@ -20,8 +19,6 @@ type MediaLibraryObject = WorkspaceObjectOfKind<"media-presentation" | "figure" 
 type FlashcardDeckObjectSummary = {
   noteCount: number
   cardCount: number
-  dueCounts: FlashcardDueCounts
-  reviewAvailable: boolean
 }
 
 type WorkspaceObjectsQuerySnapshot = {
@@ -132,49 +129,12 @@ function selectWorkspaceObjectLoadErrors(
   )
 }
 
-function computeFlashcardObjectDueCounts(
-  cards: readonly ObjectFlashcardDeckReadDeckResponse["cards"][number][],
-  now: number = Date.now(),
-): FlashcardDueCounts {
-  let newCount = 0
-  let learningCount = 0
-  let reviewCount = 0
-
-  for (const card of cards) {
-    switch (card.state) {
-      case "new":
-        newCount += 1
-        break
-      case "learning":
-      case "relearning":
-        if (card.due <= now) {
-          learningCount += 1
-        }
-        break
-      case "review":
-        if (card.due <= now) {
-          reviewCount += 1
-        }
-        break
-    }
-  }
-
-  return {
-    new: newCount,
-    learning: learningCount,
-    review: reviewCount,
-  }
-}
-
 function getFlashcardDeckObjectSummary(
   deck: ObjectFlashcardDeckReadDeckResponse,
 ): FlashcardDeckObjectSummary {
-  const dueCounts = computeFlashcardObjectDueCounts(deck.cards)
   return {
     noteCount: deck.notes.length,
     cardCount: deck.cards.length,
-    dueCounts,
-    reviewAvailable: dueCounts.new + dueCounts.learning + dueCounts.review > 0,
   }
 }
 
@@ -193,7 +153,6 @@ function countMediaObjectsByDirectory(input: {
 
 export {
   MEDIA_LIBRARY_KINDS,
-  computeFlashcardObjectDueCounts,
   createBenchObjectTarget,
   objectKindFilter,
   countMediaObjectsByDirectory,
