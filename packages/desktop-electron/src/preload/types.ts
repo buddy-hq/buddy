@@ -21,6 +21,13 @@ export type TitlebarTheme = {
   mode: "light" | "dark"
 }
 
+export type BenchCaptureRectangle = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export type ElectronAPI = {
   killBackendUtility: () => Promise<void>
   installCli: () => Promise<string>
@@ -93,6 +100,7 @@ export type ElectronAPI = {
   setBackgroundColor: (color: string) => Promise<void>
   getPathForFile: (file: File) => string
   consumeDroppedFilePaths: () => string[]
+  captureBenchScreenshot: (rectangle: BenchCaptureRectangle) => Promise<string>
 }
 export type MarkdownPdfExportInput = {
   html: string

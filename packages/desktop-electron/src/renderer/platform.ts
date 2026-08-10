@@ -260,5 +260,8 @@ export function createDesktopPlatform(): Platform {
     getIsFullscreen() {
       return window.api.getIsFullscreen()
     },
+    captureBenchScreenshot(rectangle) {
+      return window.api.captureBenchScreenshot(rectangle)
+    },
   }
 }

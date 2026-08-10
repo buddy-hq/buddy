@@ -176,6 +176,8 @@ const api: ElectronAPI = {
     lastDroppedFilePaths = []
     return paths
   },
+  captureBenchScreenshot: (rectangle) =>
+    ipcRenderer.invoke("capture-bench-screenshot", rectangle),
 }
 
 contextBridge.exposeInMainWorld("api", api)

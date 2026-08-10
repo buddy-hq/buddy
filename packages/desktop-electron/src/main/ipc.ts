@@ -13,6 +13,7 @@ import type {
   WslConfig,
 } from "../preload/types"
 import type { UpdateProgressSnapshot, UpdateRing } from "../shared/update-state"
+import { isValidBenchCaptureRectangle } from "./bench-capture"
 import { getStore } from "./store"
 import { setTitlebar } from "./windows"
 
@@ -245,6 +246,21 @@ export function registerIpcHandlers(deps: Deps) {
     const size = image.getSize()
     return { buffer, width: size.width, height: size.height }
   })
+
+  ipcMain.handle(
+    "capture-bench-screenshot",
+    async (event: IpcMainInvokeEvent, rectangle: unknown) => {
+      const window = BrowserWindow.fromWebContents(event.sender)
+      if (!window) throw new Error("Bench capture window is unavailable.")
+      const [width, height] = window.getContentSize()
+      if (!isValidBenchCaptureRectangle(rectangle, { width, height })) {
+        throw new Error("Bench capture rectangle is invalid.")
+      }
+      const image = await event.sender.capturePage(rectangle)
+      if (image.isEmpty()) throw new Error("Bench capture returned an empty image.")
+      return image.toPNG().toString("base64")
+    },
+  )
 
   ipcMain.on(
     "show-notification",
