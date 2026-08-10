@@ -13,6 +13,8 @@ const SESSION_ID = "ses_flashcard_edit_context"
 const OBJECT_ID = "01KG1A0KH77HJ9QGAQ5QK0N4BD"
 const QUESTION_SET_OBJECT_ID = "01KG1A0KH77HJ9QGAQ5QK0N4BE"
 const QUESTION_SET_REVISION_ID = "01KG1A0KH77HJ9QGAQ5QK0N4BF"
+const FLASHCARD_TAB_KEY = `object:flashcard-deck:${OBJECT_ID}:review`
+const QUESTION_SET_TAB_KEY = `object:question-set:${QUESTION_SET_OBJECT_ID}:practice`
 
 function readSyntheticReminderText(parts: unknown): string {
   if (!Array.isArray(parts)) throw new Error("Expected transformed prompt parts")
@@ -59,6 +61,25 @@ describe("flashcard edit context", () => {
         idempotencyKey: "flashcard-edit-context-1",
         value: {
           status: "open",
+          visibility: "visible",
+          mode: "docked",
+          selectedTabKey: FLASHCARD_TAB_KEY,
+          tabs: [
+            {
+              tabKey: FLASHCARD_TAB_KEY,
+              title: "Biology Review",
+              target: {
+                type: "object",
+                ref: {
+                  kind: "flashcard-deck",
+                  objectID: OBJECT_ID,
+                  revisionID: null,
+                  itemID: null,
+                },
+                viewID: "review",
+              },
+            },
+          ],
           targetKey: "flashcard-edit-target",
           target: {
             type: "object",
@@ -148,6 +169,25 @@ describe("flashcard edit context", () => {
         idempotencyKey: "question-set-edit-context-1",
         value: {
           status: "open",
+          visibility: "visible",
+          mode: "docked",
+          selectedTabKey: QUESTION_SET_TAB_KEY,
+          tabs: [
+            {
+              tabKey: QUESTION_SET_TAB_KEY,
+              title: "Biology Quiz",
+              target: {
+                type: "object",
+                ref: {
+                  kind: "question-set",
+                  objectID: QUESTION_SET_OBJECT_ID,
+                  revisionID: QUESTION_SET_REVISION_ID,
+                  itemID: null,
+                },
+                viewID: "practice",
+              },
+            },
+          ],
           targetKey: "question-set-edit-target",
           target: {
             type: "object",

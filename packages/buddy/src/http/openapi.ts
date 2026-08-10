@@ -18,6 +18,7 @@ const ERROR_DESCRIPTIONS: Record<number, string> = {
   403: "Directory is outside allowed roots",
   404: "Not found",
   409: "Conflict",
+  413: "Payload too large",
   500: "Internal server error",
 }
 

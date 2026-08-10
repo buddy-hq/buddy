@@ -14,6 +14,11 @@ import { checkpointReminder } from "./checkpoint-reminder"
 import type { TurnReminderDefinition, TurnReminderContext } from "./definition"
 import { learnerMemoryReminder } from "./learner-memory-reminder"
 import { turnTransitionReminder } from "./turn-transitions"
+import {
+  BENCH_TURN_CONTEXT_TAB_LIMIT,
+  benchTargetAbsolutePath,
+  projectModelVisibleBenchTabs,
+} from "../../features/bench/model-tabs"
 
 export type BuddyUserPreludePart = {
   type: "text"
@@ -60,6 +65,21 @@ function fingerprintText(text: string): string {
 
 function shortFingerprint(value: string): string {
   return value.slice(0, 12)
+}
+
+function fingerprintBenchTurnContext(
+  text: string,
+  priorDeliveredFingerprint: string | undefined,
+): TurnContextPartBuild {
+  const fingerprint = fingerprintText(text)
+  if (priorDeliveredFingerprint === fingerprint) {
+    return {
+      fingerprint,
+      text: `<bench_ctx_ref same="${shortFingerprint(fingerprint)}"/>`,
+    }
+  }
+
+  return { fingerprint, text }
 }
 
 function buildReadingTurnContextPart(context: PromptContext): TurnContextPartBuild {
@@ -223,6 +243,7 @@ const BENCH_DRAWER_LABELS = {
 function benchSurfaceLabel(context: PromptContext): string {
   const benchContext = context.benchContext
   if (!benchContext || benchContext.status === "closed") return "Bench"
+  if (benchContext.visibility === "parked") return "a parked Bench tab"
 
   const target = benchContext.target
   if (target.type === "object") {
@@ -234,6 +255,7 @@ function benchSurfaceLabel(context: PromptContext): string {
 function benchDrawerStatusLine(context: PromptContext): string {
   const benchContext = context.benchContext
   if (!benchContext || benchContext.status === "closed") return "No Bench target is loaded."
+  if (benchContext.visibility === "parked") return "Bench is parked and no drawer is open."
   if (!benchContext.drawer) return "No right workspace drawer is open over the target."
   const drawerLabel = BENCH_DRAWER_LABELS[benchContext.drawer.kind]
   return `${drawerLabel} is open as a drawer over the loaded Bench target. The target remains loaded, but the drawer is currently over it.`
@@ -242,7 +264,12 @@ function benchDrawerStatusLine(context: PromptContext): string {
 function isBenchShowingActiveResource(context: PromptContext): boolean {
   const benchContext = context.benchContext
   const activeResource = context.activeResource
-  if (!benchContext || benchContext.status === "closed" || !activeResource?.objectID) {
+  if (
+    !benchContext ||
+    benchContext.status === "closed" ||
+    benchContext.visibility === "parked" ||
+    !activeResource?.objectID
+  ) {
     return false
   }
   return (
@@ -255,9 +282,48 @@ function isBenchShowingActiveResource(context: PromptContext): boolean {
 function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild {
   const benchContext = context.benchContext
   if (!benchContext || benchContext.status === "closed") return {}
+  if (benchContext.visibility === "parked") {
+    const tabListing = projectModelVisibleBenchTabs({
+      directory: context.directory,
+      tabs: benchContext.tabs,
+      selectedTabKey: benchContext.selectedTabKey,
+      limit: BENCH_TURN_CONTEXT_TAB_LIMIT,
+    })
+    const selectedTab = tabListing.tabs.find(
+      (tab) => tab.tabKey === benchContext.selectedTabKey,
+    )
+    const recentTabs = tabListing.tabs.filter(
+      (tab) => tab.tabKey !== benchContext.selectedTabKey,
+    )
+    const text = [
+      "<bench_turn_context>",
+      selectedTab
+        ? `Bench is parked with selected tab ${selectedTab.tabNumber} of ${tabListing.openTabCount}: ${selectedTab.title}: ${selectedTab.tabKey}.`
+        : `Bench is parked with selected tab ${benchContext.selectedTabKey}.`,
+      ...(selectedTab?.target
+        ? [`Selected target absolute path: ${selectedTab.target.absolutePath}.`]
+        : []),
+      `${tabListing.openTabCount} Bench tabs are open.`,
+      ...(recentTabs.length > 0
+        ? [
+            "Recently opened tabs:",
+            ...recentTabs.map((tab) => `- Tab ${tab.tabNumber}: ${tab.title}: ${tab.tabKey}`),
+          ]
+        : []),
+      ...(tabListing.omittedTabCount > 0
+        ? [`${tabListing.omittedTabCount} additional tabs are omitted.`]
+        : []),
+      "Use bench_read_context with tabSearch to find another open tab. Reading and searching do not reveal Bench or switch tabs.",
+      "</bench_turn_context>",
+    ].join("\n")
+    return fingerprintBenchTurnContext(text, context.priorDeliveredBenchTurnContextDigest)
+  }
   if (isBenchShowingActiveResource(context)) return {}
 
   const target = benchContext.target
+  const selectedTab = benchContext.tabs.find(
+    (tab) => tab.tabKey === benchContext.selectedTabKey,
+  )
   const targetLines =
     target.type === "object"
       ? [
@@ -267,6 +333,9 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
           target.ref.revisionID ? `Revision ID: ${target.ref.revisionID}` : undefined,
           target.ref.itemID ? `Item ID: ${target.ref.itemID}` : undefined,
           `View ID: ${target.viewID}`,
+          selectedTab
+            ? `Absolute path: ${benchTargetAbsolutePath({ directory: context.directory, target: selectedTab.target })}`
+            : undefined,
           `State: ${target.status}`,
         ]
       : [
@@ -302,18 +371,7 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
   ]
     .filter((line) => line.length > 0)
     .join("\n")
-  const fingerprint = fingerprintText(text)
-  if (context.priorDeliveredBenchTurnContextDigest === fingerprint) {
-    return {
-      fingerprint,
-      text: `<bench_ctx_ref same="${shortFingerprint(fingerprint)}"/>`,
-    }
-  }
-
-  return {
-    fingerprint,
-    text,
-  }
+  return fingerprintBenchTurnContext(text, context.priorDeliveredBenchTurnContextDigest)
 }
 
 export function buildBuddyUserPrelude(input: {

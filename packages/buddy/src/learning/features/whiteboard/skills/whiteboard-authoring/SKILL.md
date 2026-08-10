@@ -22,6 +22,7 @@ You are using Buddy's embedded Excalidraw whiteboard on Bench. Depending on the 
 Buddy-specific rules:
 - Treat `whiteboard_create_view` like Excalidraw MCP's `create_view`: keep the tool input small and format-first. Put strategy and teaching decisions in your reasoning and in this skill, not inside the `elements` JSON.
 - Pass `objectID:null` only for a new whiteboard. Reuse a whiteboard's stable `objectID` for every read and subsequent edit, regardless of which chat is active.
+- Give each new whiteboard a short semantic `title` that identifies it in Bench tabs and the Library. On later edits, omit `title` to preserve the current name unless the board should be renamed.
 - `elements` must be one compact JSON array. It must be valid JSON: no comments, no trailing commas.
 - The tool argument is already a string field, so inside it write plain JSON like `[{"type":"rectangle","id":"a","x":0,"y":0,"width":120,"height":80}]`.
 - Do not double-escape quotes inside `elements`.

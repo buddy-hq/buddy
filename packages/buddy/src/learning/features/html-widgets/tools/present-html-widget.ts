@@ -20,7 +20,9 @@ import { dispatchBestEffortBenchPresent } from "../../bench/auto-open"
 
 const HTML_WIDGET_RUNTIME_VIEW_ID = "runtime" as const
 const HTML_WIDGET_AUTO_OPEN_POLICY_ID = "fullscreen-html-widget" as const
-const HTML_WIDGET_AUTO_OPEN_EVENT_PREFIX = "fullscreen-html-widget:" as const
+const HTML_WIDGET_AUTO_OPEN_EVENT_PREFIX = "fullscreen-html-widget" as const
+const HTML_WIDGET_AUTO_OPEN_EVENT_KEY_SEPARATOR = ":" as const
+const HTML_WIDGET_AUTO_OPEN_MISSING_CALL_ID = "no-call" as const
 // Temporarily auto-open every viewport preset on Bench until we find a better
 // pattern for which widgets stay inline-only vs open on Bench.
 const HTML_WIDGET_AUTO_OPEN_VIEWPORT_PRESETS = new Set([
@@ -189,6 +191,7 @@ function formatPresentHtmlWidgetValidationError(error: z.ZodError): string {
 
 function buildHtmlWidgetObjectResult(input: {
   result: PresentHtmlWidgetObjectResult
+  autoOpenEventKey: string
 }): BuddyObjectResult {
   const ref = {
     kind: BUDDY_OBJECT_KINDS.htmlWidget,
@@ -232,13 +235,28 @@ function buildHtmlWidgetObjectResult(input: {
               data: null,
               autoOpen: {
                 policyID: HTML_WIDGET_AUTO_OPEN_POLICY_ID,
-                eventKey: `${HTML_WIDGET_AUTO_OPEN_EVENT_PREFIX}${input.result.manifest.objectID}`,
+                eventKey: input.autoOpenEventKey,
               },
             },
           ]
         : []),
     ],
   })
+}
+
+function htmlWidgetAutoOpenEventKey(input: {
+  objectID: string
+  sessionID: string
+  messageID: string
+  callID: string | null
+}): string {
+  return [
+    HTML_WIDGET_AUTO_OPEN_EVENT_PREFIX,
+    input.objectID,
+    input.sessionID,
+    input.messageID,
+    input.callID ?? HTML_WIDGET_AUTO_OPEN_MISSING_CALL_ID,
+  ].join(HTML_WIDGET_AUTO_OPEN_EVENT_KEY_SEPARATOR)
 }
 
 const presentHtmlWidgetTool = createBuddyTool({
@@ -275,6 +293,9 @@ const presentHtmlWidgetTool = createBuddyTool({
   normalizeInput: normalizePresentHtmlWidgetInput,
   formatValidationError: formatPresentHtmlWidgetValidationError,
   async execute(params: PresentHtmlWidgetInput, ctx: BuddyToolContext) {
+    const sessionID = String(ctx.sessionID)
+    const messageID = String(ctx.messageID)
+    const callID = nullableCallID(ctx)
     if (params.action === "present_path") {
       const permissionPath = normalizePresentedMediaPermissionPath(ctx.directory, params.path ?? "")
       await ctx.ask({
@@ -299,8 +320,8 @@ const presentHtmlWidgetTool = createBuddyTool({
             viewportPreset: params.viewportPreset ?? "standard_16_10",
             origin: {
               kind: "tool",
-              sessionID: String(ctx.sessionID),
-              messageID: String(ctx.messageID),
+              sessionID,
+              messageID,
               callID: createdByCallID(ctx),
             },
           }
@@ -308,18 +329,28 @@ const presentHtmlWidgetTool = createBuddyTool({
             action: "present_object",
             directory: ctx.directory,
             objectID: params.objectID ?? "",
-          },
+        },
     )
-    const buddyObjectResult = buildHtmlWidgetObjectResult({ result })
+    const autoOpenEventKey = htmlWidgetAutoOpenEventKey({
+      objectID: result.manifest.objectID,
+      sessionID,
+      messageID,
+      callID,
+    })
+    const buddyObjectResult = buildHtmlWidgetObjectResult({ result, autoOpenEventKey })
     const shouldAutoOpen = HTML_WIDGET_AUTO_OPEN_VIEWPORT_PRESETS.has(
       result.manifest.summary.viewportPreset,
     )
     if (shouldAutoOpen) {
       dispatchBestEffortBenchPresent({
         directory: ctx.directory,
-        sessionID: String(ctx.sessionID),
-        messageID: String(ctx.messageID),
-        callID: nullableCallID(ctx),
+        sessionID,
+        messageID,
+        callID,
+        autoOpen: {
+          policyID: HTML_WIDGET_AUTO_OPEN_POLICY_ID,
+          eventKey: autoOpenEventKey,
+        },
         target: {
           type: "object",
           ref: {
@@ -364,5 +395,9 @@ const presentHtmlWidgetTool = createBuddyTool({
   },
 })
 
-export { presentHtmlWidgetTool, PresentHtmlWidgetInputSchema }
+export {
+  presentHtmlWidgetTool,
+  PresentHtmlWidgetInputSchema,
+  htmlWidgetAutoOpenEventKey,
+}
 export type { PresentHtmlWidgetInput }

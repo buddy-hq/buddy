@@ -7,6 +7,10 @@ type DispatchBestEffortBenchPresentInput = {
   messageID: string
   callID: string | null
   target: BenchTarget
+  autoOpen: {
+    policyID: "whiteboard" | "fullscreen-html-widget"
+    eventKey: string
+  }
 }
 
 function dispatchBestEffortBenchPresent(input: DispatchBestEffortBenchPresentInput): void {
@@ -18,6 +22,7 @@ function dispatchBestEffortBenchPresent(input: DispatchBestEffortBenchPresentInp
     command: {
       type: "present",
       target: input.target,
+      autoOpen: input.autoOpen,
     },
   })
 }

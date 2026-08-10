@@ -525,6 +525,7 @@ function buildWhiteboardProgramBoard(input: {
 async function applyWhiteboardDrawingProgram(input: {
   directory: string
   objectID: string
+  title?: string
   elements: string
   writeMode?: WhiteboardProgramRequestedWriteMode
 }): Promise<WhiteboardProgramResult> {
@@ -540,6 +541,7 @@ async function applyWhiteboardDrawingProgram(input: {
   const writeResult = await writeWhiteboardCurrentFromLatest({
     directory: input.directory,
     objectID: input.objectID,
+    ...(input.title ? { title: input.title } : {}),
     origin: "agent" satisfies WhiteboardBoardOrigin,
     validateBase:
       writeMode === "replace"

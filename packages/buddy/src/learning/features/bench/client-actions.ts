@@ -1,10 +1,13 @@
 import path from "node:path"
+import { createHash } from "node:crypto"
 import { ulid } from "ulid"
 import z from "zod"
+import { BENCH_CAPTURE_MAX_BASE64_CHARACTERS } from "./capture-limits"
 import {
   BenchClientLeaseIdentitySchema,
   BenchDrawerKindSchema,
   BenchReadContextOutputSchema,
+  BenchReadContextVisibleOutputSchema,
   BenchTargetSchema,
   benchTargetKey,
   publishSequencedBenchContext,
@@ -12,7 +15,7 @@ import {
   type BenchTarget,
 } from "./context"
 
-const BENCH_CLIENT_ACTION_VERSION = 1
+const BENCH_CLIENT_ACTION_VERSION = 2
 const REQUIRED_ACTION_TIMEOUT_MS = 30_000
 const TERMINAL_TOMBSTONE_TTL_MS = 5 * 60_000
 const TERMINAL_TOMBSTONE_LIMIT = 512
@@ -45,11 +48,33 @@ const BenchClientActionCommandSchema = z.union([
     .object({
       type: z.literal("present"),
       target: BenchTargetSchema,
+      autoOpen: z
+        .object({
+          policyID: z.enum(["whiteboard", "fullscreen-html-widget"]),
+          eventKey: z.string().min(1),
+        })
+        .strict()
+        .nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("focus_tab"),
+      tabKey: z.string().min(1),
+      target: BenchTargetSchema,
     })
     .strict(),
   z
     .object({
       type: z.literal("close"),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("capture_bench_screenshot"),
+      tabKey: z.string().min(1),
+      target: BenchTargetSchema,
+      drawer: BenchDrawerKindSchema.nullable(),
     })
     .strict(),
 ])
@@ -91,6 +116,19 @@ const BenchClientActionCompletionCommittedSchema = z
   })
   .strict()
 
+const BenchClientActionCompletionCapturedSchema = z
+  .object({
+    outcome: z.literal("captured"),
+    lease: BenchClientLeaseIdentitySchema,
+    publicationSequence: z.number().int().positive(),
+    observedRoute: BenchRouteSnapshotSchema,
+    observedVisibility: z.literal("visible"),
+    drawer: BenchDrawerKindSchema.nullable(),
+    context: BenchReadContextVisibleOutputSchema,
+    pngBase64: z.string().min(1).max(BENCH_CAPTURE_MAX_BASE64_CHARACTERS),
+  })
+  .strict()
+
 const BenchClientActionCompletionTerminalSchema = z
   .object({
     outcome: z.enum(["blocked", "failed", "inactive_session", "superseded"]),
@@ -101,6 +139,8 @@ const BenchClientActionCompletionTerminalSchema = z
       "context_sync_failed",
       "session_inactive",
       "newer_command",
+      "capture_failed",
+      "capture_unavailable",
     ]),
     observedRoute: BenchRouteSnapshotSchema.optional(),
     observedVisibility: z.enum(["visible", "parked", "closed"]).optional(),
@@ -110,6 +150,7 @@ const BenchClientActionCompletionTerminalSchema = z
 
 const BenchClientActionCompletionSchema = z.union([
   BenchClientActionCompletionCommittedSchema,
+  BenchClientActionCompletionCapturedSchema,
   BenchClientActionCompletionTerminalSchema,
 ])
 
@@ -287,7 +328,9 @@ function actionTombstoneKey(input: { sessionID: string; actionID: string }): str
 }
 
 function completionKey(completion: BenchClientActionCompletion): string {
-  return JSON.stringify(BenchClientActionCompletionSchema.parse(completion))
+  return createHash("sha256")
+    .update(JSON.stringify(BenchClientActionCompletionSchema.parse(completion)))
+    .digest("hex")
 }
 
 function isSameLeaseIdentity(left: BenchClientLease, right: BenchClientLeaseIdentity): boolean {
@@ -318,10 +361,33 @@ function commandMatchesCommittedCompletion(
   if (completion.observedVisibility !== "visible") return false
   if (completion.context.status !== "open") return false
 
+  if (action.command.type === "capture_bench_screenshot") return false
   const expectedTargetKey = benchTargetKey(action.command.target)
   return (
     isSameTargetKey(completion.observedRoute.target, action.command.target) &&
-    completion.context.targetKey === expectedTargetKey
+    completion.context.visibility === "visible" &&
+    completion.context.targetKey === expectedTargetKey &&
+    (action.command.type !== "focus_tab" ||
+      completion.context.selectedTabKey === action.command.tabKey)
+  )
+}
+
+function commandMatchesCapturedCompletion(
+  action: BenchClientAction,
+  completion: Extract<BenchClientActionCompletion, { outcome: "captured" }>,
+): boolean {
+  if (action.command.type !== "capture_bench_screenshot") return false
+  if (completion.observedRoute.status !== "open") return false
+  if (completion.context.status !== "open" || completion.context.visibility !== "visible") {
+    return false
+  }
+  const expectedTargetKey = benchTargetKey(action.command.target)
+  return (
+    completion.drawer === action.command.drawer &&
+    completion.drawer === (completion.context.drawer?.kind ?? null) &&
+    isSameTargetKey(completion.observedRoute.target, action.command.target) &&
+    completion.context.targetKey === expectedTargetKey &&
+    completion.context.selectedTabKey === action.command.tabKey
   )
 }
 
@@ -528,8 +594,14 @@ export class BenchClientActionBroker {
     ) {
       return { status: "conflict" }
     }
+    if (
+      parsed.outcome === "captured" &&
+      !commandMatchesCapturedCompletion(entry.action, parsed)
+    ) {
+      return { status: "conflict" }
+    }
 
-    if (parsed.outcome === "committed") {
+    if (parsed.outcome === "committed" || parsed.outcome === "captured") {
       try {
         publishSequencedBenchContext({
           directory: state.directory,

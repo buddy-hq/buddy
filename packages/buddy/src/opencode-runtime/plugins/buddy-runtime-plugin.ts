@@ -10,6 +10,7 @@ import {
   formatCommandInvocationDisplay,
   withCommandInvocationDisplayParts,
 } from "../../session/orchestration/command-transcript"
+import { cleanupBenchCapturesForSession } from "../../learning/features/bench/captures"
 
 type SystemTransformInput = {
   sessionID?: string
@@ -96,6 +97,7 @@ const stripToolPresentationFromChatMessages: NonNullable<
 }
 
 type CommandExecuteBeforeHook = NonNullable<Hooks["command.execute.before"]>
+type EventHook = NonNullable<Hooks["event"]>
 type CommandExecuteBeforeInput = Parameters<CommandExecuteBeforeHook>[0]
 type CommandExecuteBeforeOutput = Parameters<CommandExecuteBeforeHook>[1]
 type CommandExecuteBeforePart = CommandExecuteBeforeOutput["parts"][number]
@@ -142,6 +144,12 @@ export const compactCommandInvocationBeforeExecute: CommandExecuteBeforeHook = a
   output.parts.push(...parts)
 }
 
+const cleanupBenchCapturesOnIdle: EventHook = async ({ event }) => {
+  if (event.type === "session.idle") {
+    await cleanupBenchCapturesForSession(event.properties.sessionID)
+  }
+}
+
 function createSystemPromptGuard(input: { directory: string }) {
   return {
     "command.execute.before": compactCommandInvocationBeforeExecute,
@@ -185,6 +193,7 @@ export async function createBuddyRuntimeHooks(input: { directory: string; worktr
     tool: toolMap,
     auth: createOpenAICodexAuthHook(),
     provider: createOpenAICodexProviderHook({ directory: input.directory }),
+    event: cleanupBenchCapturesOnIdle,
     ...createSystemPromptGuard({ directory: input.directory }),
   }
 }

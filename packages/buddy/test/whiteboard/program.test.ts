@@ -130,6 +130,7 @@ async function saveWhiteboardLearnerEdit(
 
 type TestCreateWhiteboardViewInput = {
   objectID?: string | null
+  title?: string
   boardAction: "continue_current_board" | "destructively_replace_current_board"
   elements: string
 }

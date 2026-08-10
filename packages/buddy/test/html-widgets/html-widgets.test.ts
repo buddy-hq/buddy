@@ -10,11 +10,32 @@ import {
   presentHtmlWidgetObject,
 } from "../../src/learning/features/html-widgets/service/store"
 import { HTML_WIDGET_RUNTIME_CSP } from "../../src/learning/features/html-widgets/service/types"
-import { presentHtmlWidgetTool } from "../../src/learning/features/html-widgets/tools/present-html-widget"
+import {
+  htmlWidgetAutoOpenEventKey,
+  presentHtmlWidgetTool,
+} from "../../src/learning/features/html-widgets/tools/present-html-widget"
 import { createBuddyToolContext } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("HTML widget objects", () => {
+  test("uses invocation identity for repeated widget auto-open events", () => {
+    const firstEventKey = htmlWidgetAutoOpenEventKey({
+      objectID: "widget-1",
+      sessionID: "session-1",
+      messageID: "message-1",
+      callID: "call-1",
+    })
+
+    expect(
+      htmlWidgetAutoOpenEventKey({
+        objectID: "widget-1",
+        sessionID: "session-1",
+        messageID: "message-2",
+        callID: "call-2",
+      }),
+    ).not.toBe(firstEventKey)
+  })
+
   test("adopts a self-contained HTML file and serves it through hardened runtime routes", async () => {
     await using project = await tmpdir({ git: true })
     await fs.mkdir(path.join(project.path, "widgets"), { recursive: true })
@@ -173,7 +194,12 @@ describe("HTML widget objects", () => {
       surface: "bench",
       autoOpen: {
         policyID: "fullscreen-html-widget",
-        eventKey: `fullscreen-html-widget:${objectResult.primaryRef?.objectID}`,
+        eventKey: htmlWidgetAutoOpenEventKey({
+          objectID: objectResult.primaryRef?.objectID ?? "",
+          sessionID: "ses_tool_html_widget",
+          messageID: "msg_tool_html_widget",
+          callID: null,
+        }),
       },
     })
 

@@ -84,15 +84,27 @@ const BenchDrawerContextSchema = z
   })
   .strict()
 
+const BenchTabSummarySchema = z
+  .object({
+    tabKey: nonEmptyString,
+    title: nonEmptyString,
+    target: BenchTargetSchema,
+  })
+  .strict()
+
 const BenchReadContextClosedOutputSchema = z
   .object({
     status: z.literal("closed"),
   })
   .strict()
 
-const BenchReadContextOpenOutputSchema = z
+const BenchReadContextVisibleOutputSchema = z
   .object({
     status: z.literal("open"),
+    visibility: z.literal("visible"),
+    mode: z.enum(["docked", "floating"]),
+    selectedTabKey: nonEmptyString,
+    tabs: z.array(BenchTabSummarySchema),
     targetKey: nonEmptyString,
     target: BenchContextTargetSchema,
     drawer: BenchDrawerContextSchema.nullable(),
@@ -103,9 +115,21 @@ const BenchReadContextOpenOutputSchema = z
   })
   .strict()
 
+const BenchReadContextParkedOutputSchema = z
+  .object({
+    status: z.literal("open"),
+    visibility: z.literal("parked"),
+    mode: z.enum(["docked", "floating"]),
+    selectedTabKey: nonEmptyString,
+    tabs: z.array(BenchTabSummarySchema),
+    drawer: z.null(),
+  })
+  .strict()
+
 const BenchReadContextOutputSchema = z.union([
   BenchReadContextClosedOutputSchema,
-  BenchReadContextOpenOutputSchema,
+  BenchReadContextVisibleOutputSchema,
+  BenchReadContextParkedOutputSchema,
 ])
 
 const PublishBenchContextResponseSchema = z
@@ -141,7 +165,9 @@ type ObjectBenchTarget = z.infer<typeof ObjectBenchTargetSchema>
 type BenchClientLeaseIdentity = z.infer<typeof BenchClientLeaseIdentitySchema>
 type BenchContextTarget = z.infer<typeof BenchContextTargetSchema>
 type BenchDrawerContext = z.infer<typeof BenchDrawerContextSchema>
-type BenchReadContextOpenOutput = z.infer<typeof BenchReadContextOpenOutputSchema>
+type BenchTabSummary = z.infer<typeof BenchTabSummarySchema>
+type BenchReadContextOpenOutput = z.infer<typeof BenchReadContextVisibleOutputSchema>
+type BenchReadContextParkedOutput = z.infer<typeof BenchReadContextParkedOutputSchema>
 type BenchReadContextOutput = z.infer<typeof BenchReadContextOutputSchema>
 type PublishBenchContextInput = z.infer<typeof PublishBenchContextInputSchema>
 type PublishBenchContextResponse = z.infer<typeof PublishBenchContextResponseSchema>
@@ -362,7 +388,23 @@ function benchTargetKey(target: BenchTarget): string {
   ].join(BENCH_TARGET_KEY_PART_SEPARATOR)
 }
 
-const BenchReadContextInputSchema = z.object({}).strict()
+const BenchReadContextInputSchema = z
+  .object({
+    responseFormat: z
+      .enum(["context_only", "context_and_bench_screenshot", "bench_screenshot_only"])
+      .describe(
+        "Use context_only unless the Bench's visual appearance matters. context_and_bench_screenshot returns the context, temporary PNG path, and capture receipt. bench_screenshot_only returns only the temporary PNG path and capture receipt.",
+      ),
+    tabSearch: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        "Search every open Bench tab by title, path, tab key, one-based tab number such as 'tab 3', object kind, or object identifier. Omit to return the selected tab and recently opened tab summaries. Searching never focuses or reveals a tab and has no effect with bench_screenshot_only.",
+      ),
+  })
+  .strict()
 
 export {
   BENCH_CONTEXT_HISTORY_LIMIT,
@@ -378,8 +420,10 @@ export {
   PublishBenchContextInputSchema,
   BenchReadContextClosedOutputSchema,
   BenchReadContextInputSchema,
-  BenchReadContextOpenOutputSchema,
+  BenchReadContextParkedOutputSchema,
+  BenchReadContextVisibleOutputSchema,
   BenchReadContextOutputSchema,
+  BenchTabSummarySchema,
   BenchTargetSchema,
   ObjectBenchTargetSchema,
   PublishedObjectBenchContextTargetSchema,
@@ -400,7 +444,9 @@ export type {
   BenchContextTarget,
   BenchDrawerContext,
   BenchReadContextOpenOutput,
+  BenchReadContextParkedOutput,
   BenchReadContextOutput,
+  BenchTabSummary,
   PublishBenchContextInput,
   BenchTarget,
   ObjectBenchTarget,

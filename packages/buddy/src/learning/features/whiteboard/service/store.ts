@@ -55,6 +55,7 @@ const WHITEBOARD_CONTINUATION_HANDLE = "current"
 const WHITEBOARD_CURRENT_VIEW_ID = "current"
 const RENDER_REPORT_WAIT_TIMEOUT_MS = 4_000
 const RENDER_REPORT_POLL_INTERVAL_MS = 100
+const DEFAULT_WHITEBOARD_TITLE = "Whiteboard"
 const objectMutationTails = new Map<string, Promise<void>>()
 const creationReservationTails = new Map<string, Promise<void>>()
 const createWhiteboardID = monotonicFactory()
@@ -162,6 +163,7 @@ function buildWhiteboardObjectViews(): BuddyObjectManifest["views"] {
 async function createWhiteboardObject(input: {
   directory: string
   objectID?: string
+  title?: string
   origin?: BuddyObjectOrigin
   initialBoard?: {
     origin: WhiteboardBoardOrigin
@@ -177,7 +179,7 @@ async function createWhiteboardObject(input: {
     version: 1,
     kind: BUDDY_OBJECT_KINDS.whiteboard,
     objectID,
-    title: "Whiteboard",
+    title: input.title ?? DEFAULT_WHITEBOARD_TITLE,
     status: "ready",
     lifecycle: "live",
     createdAt: now,
@@ -288,6 +290,7 @@ async function claimCreationReservation(input: {
 async function ensureWhiteboardObjectForToolCall(input: {
   directory: string
   reservation: WhiteboardCreationReservationRequest
+  title?: string
 }): Promise<WhiteboardCreationReservationResponse> {
   const reservation = WhiteboardCreationReservationRequestSchema.parse(input.reservation)
   return withCreationReservationLock(input.directory, reservation, async () => {
@@ -324,6 +327,7 @@ async function ensureWhiteboardObjectForToolCall(input: {
       await createWhiteboardObject({
         directory: input.directory,
         objectID: record.objectID,
+        ...(input.title ? { title: input.title } : {}),
         origin: {
           kind: "tool",
           sessionID: reservation.sessionID,
@@ -399,6 +403,7 @@ async function updateWhiteboardObjectManifestFromState(input: {
   directory: string
   objectID: string
   state: WhiteboardObjectState
+  title?: string
 }): Promise<void> {
   const manifest = await readWhiteboardObjectManifest({
     directory: input.directory,
@@ -408,6 +413,7 @@ async function updateWhiteboardObjectManifestFromState(input: {
     directory: input.directory,
     manifest: whiteboardManifestSchema.parse({
       ...manifest,
+      ...(input.title ? { title: input.title } : {}),
       updatedAt: new Date().toISOString(),
       summary: {
         ...manifest.summary,
@@ -421,6 +427,7 @@ async function mutateState<T>(
   directory: string,
   objectID: string,
   mutate: (state: WhiteboardObjectState, objectID: string) => T | Promise<T>,
+  title?: string,
 ): Promise<T> {
   return withWhiteboardObjectMutationLock(directory, objectID, async (validatedObjectID) => {
     const manifest = await readWhiteboardObjectManifest({
@@ -435,6 +442,7 @@ async function mutateState<T>(
       directory,
       objectID: manifest.objectID,
       state,
+      ...(title ? { title } : {}),
     })
     return result
   })
@@ -589,6 +597,7 @@ async function readAndRecordWhiteboardBoardContext(
 async function writeWhiteboardCurrentFromLatest(input: {
   directory: string
   objectID: string
+  title?: string
   origin: WhiteboardBoardOrigin
   buildBoard: (base: WhiteboardBoardBuildBase) => WhiteboardBoardBuildResult
   validateBase?: (base: WhiteboardBoardBuildBase) => void
@@ -633,7 +642,7 @@ async function writeWhiteboardCurrentFromLatest(input: {
       state: toObjectRead({ state, objectID }),
       saved: true,
     }
-  })
+  }, input.title)
 }
 
 async function saveWhiteboardRenderReport(input: {

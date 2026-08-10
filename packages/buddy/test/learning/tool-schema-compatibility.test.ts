@@ -24,7 +24,13 @@ const PRESENT_HTML_WIDGET_REQUIRED_FIELDS = [
   "description",
   "viewportPreset",
 ] as const
-const BENCH_PRESENT_REQUIRED_FIELDS = ["action", "path", "resourceKey", "objectID"] as const
+const BENCH_PRESENT_REQUIRED_FIELDS = [
+  "action",
+  "path",
+  "resourceKey",
+  "objectID",
+  "tabKey",
+] as const
 const WHITEBOARD_CREATE_REQUIRED_FIELDS = ["objectID", "boardAction", "elements"] as const
 
 const originalAdvancedMathReady = AdvancedMathRuntimeService.isReady.bind(
@@ -150,6 +156,7 @@ describe("tool schema compatibility", () => {
       "present_object",
       "present_file",
       "present_resource",
+      "focus_tab",
       "close",
     ])
     const benchPathProperty = expectStringNullableProperty(benchProperties, "path")
@@ -172,6 +179,12 @@ describe("tool schema compatibility", () => {
       "whiteboard_create_view properties",
     )
     expectStringNullableProperty(whiteboardCreateProperties, "objectID")
+    const whiteboardTitleProperty = expectJsonSchemaObject(
+      whiteboardCreateProperties.title,
+      "whiteboard_create_view.title",
+    )
+    expect(whiteboardTitleProperty.type).toBe("string")
+    expect(whiteboardTitleProperty.description).toContain("Bench tabs")
 
     const whiteboardReadSchema = expectJsonSchemaObject(
       toolSchemas.find((entry) => entry.id === "whiteboard_read_context")?.schema,

@@ -96,13 +96,26 @@ function openContextForAction(input: {
   status?: BenchContextTarget["status"]
   content?: string
 }) {
-  if (input.action.command.type !== "present") {
+  if (
+    input.action.command.type === "close" ||
+    input.action.command.type === "capture_bench_screenshot"
+  ) {
     return { status: "closed" as const }
   }
   const target = input.action.command.target
   if (target.type === "workspace-file") {
     return {
       status: "open" as const,
+      visibility: "visible" as const,
+      mode: "docked" as const,
+      selectedTabKey: `file:${target.viewer}:${encodeURIComponent(target.path)}`,
+      tabs: [
+        {
+          tabKey: `file:${target.viewer}:${encodeURIComponent(target.path)}`,
+          title: path.basename(target.path),
+          target,
+        },
+      ],
       targetKey: benchTargetKey(target),
       target: {
         type: "workspace-file" as const,
@@ -128,6 +141,16 @@ function openContextForAction(input: {
   }
   return {
     status: "open" as const,
+    visibility: "visible" as const,
+    mode: "docked" as const,
+    selectedTabKey: `object:${target.ref.kind}:${encodeURIComponent(target.ref.objectID)}:${encodeURIComponent(target.viewID)}`,
+    tabs: [
+      {
+        tabKey: `object:${target.ref.kind}:${encodeURIComponent(target.ref.objectID)}:${encodeURIComponent(target.viewID)}`,
+        title: "Bench object",
+        target,
+      },
+    ],
     targetKey: benchTargetKey(target),
     target: {
       type: "object" as const,
@@ -256,10 +279,14 @@ function completeSupersededAction(input: {
 }
 
 function presentOnBenchWithTestContext(
-  input: Omit<Parameters<typeof presentOnBench>[0], "messageID" | "callID" | "abort" | "ask">,
+  input: Omit<
+    Parameters<typeof presentOnBench>[0],
+    "messageID" | "callID" | "abort" | "ask" | "tabKey"
+  >,
 ) {
   return presentOnBench({
     ...input,
+    tabKey: null,
     messageID: "msg_bench_present_test",
     callID: null,
     abort: new AbortController().signal,
@@ -317,6 +344,116 @@ describe("bench_present", () => {
       benchStatus: "closed",
       reason: "closed_by_request",
       benchTarget: null,
+    })
+  })
+
+  test("focuses an exact synchronized tab key without resolving a new target", async () => {
+    await using project = await tmpdir({ git: true })
+    const client = connectTestBenchClient({ directory: project.path })
+    const selectedTarget = {
+      type: "workspace-file",
+      path: "selected.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    const backgroundTarget = {
+      type: "workspace-file",
+      path: "background.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    const contextAction = {
+      version: 2,
+      actionID: "context-action",
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "context-message",
+      callID: null,
+      origin: "agent",
+      acknowledgement: "required",
+      expiresAt: Date.now() + 30_000,
+      command: { type: "present", target: selectedTarget, autoOpen: null },
+    } satisfies BenchClientAction
+    const initialContext = openContextForAction({
+      directory: project.path,
+      action: contextAction,
+    })
+    if (initialContext.status !== "open") throw new Error("Expected open context.")
+    const backgroundTabKey = `file:markdown:${encodeURIComponent(backgroundTarget.path)}`
+    publishSequencedBenchContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      body: {
+        lease: leaseIdentity(client.lease),
+        publicationSequence: nextPublicationSequence(client),
+        idempotencyKey: "focus-tab-context",
+        value: {
+          ...initialContext,
+          tabs: [
+            ...initialContext.tabs,
+            { tabKey: backgroundTabKey, title: "background.md", target: backgroundTarget },
+          ],
+        },
+      },
+    })
+
+    const run = presentOnBench({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "focus-message",
+      callID: null,
+      abort: new AbortController().signal,
+      action: "focus_tab",
+      path: null,
+      resourceKey: null,
+      objectID: null,
+      tabKey: backgroundTabKey,
+      ask: async () => undefined,
+    })
+    const action = await readNextAction(client)
+    expect(action.command).toEqual({
+      type: "focus_tab",
+      tabKey: backgroundTabKey,
+      target: backgroundTarget,
+    })
+    completeCommittedAction({ client, action, changed: true })
+
+    await expect(run).resolves.toMatchObject({
+      status: "presented",
+      reason: "focused_tab",
+      benchTarget: backgroundTarget,
+    })
+  })
+
+  test("rejects a stale focus tab key with a re-read instruction", async () => {
+    await using project = await tmpdir({ git: true })
+    publishSequencedBenchContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      body: {
+        lease: { instanceID: "focus-stale", generation: 1, leaseEpoch: 1 },
+        publicationSequence: 1,
+        idempotencyKey: "focus-stale-context",
+        value: { status: "closed" },
+      },
+    })
+
+    await expect(
+      presentOnBench({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        messageID: "focus-stale-message",
+        callID: null,
+        abort: new AbortController().signal,
+        action: "focus_tab",
+        path: null,
+        resourceKey: null,
+        objectID: null,
+        tabKey: "file:markdown:missing.md",
+        ask: async () => undefined,
+      }),
+    ).resolves.toMatchObject({
+      status: "error",
+      reason: "tab_not_found",
+      message: expect.stringContaining("bench_read_context"),
     })
   })
 
@@ -560,6 +697,7 @@ describe("bench_present", () => {
       path: "slow.md",
       resourceKey: null,
       objectID: null,
+      tabKey: null,
       ask: async () => undefined,
       presentationSettleTimeoutMs: 0,
     })

@@ -55,6 +55,7 @@ const BenchPresentActionSchema = z.enum([
   "present_object",
   "present_file",
   "present_resource",
+  "focus_tab",
   "close",
 ])
 
@@ -70,12 +71,14 @@ const BenchPresentReasonSchema = z.enum([
   "presented_file",
   "presented_resource",
   "presented_object",
+  "focused_tab",
   "already_showing_target",
   "closed_by_request",
   "file_not_found",
   "resource_not_found",
   "object_not_found",
   "object_unavailable",
+  "tab_not_found",
   "unsupported_target",
   "blocked_by_unsaved_work",
   "sync_error",
@@ -92,7 +95,7 @@ const BenchPresentReasonSchema = z.enum([
 const BenchPresentInputSchema = z
   .object({
     action: BenchPresentActionSchema.describe(
-      "What to show on Bench. Use present_file for an existing local file, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id (including a whiteboard), and close only when the user asks to close Bench.",
+      "What to show on Bench. Use present_file for an existing local file, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id, focus_tab for an exact tabKey returned by bench_read_context, and close only when the user asks to close Bench.",
     ),
     path: z
       .string()
@@ -113,6 +116,14 @@ const BenchPresentInputSchema = z
     objectID: BuddyObjectIDSchema.nullable().describe(
       "Buddy object id copied from a prior tool result. Required only for present_object. Must be null for every other action.",
     ),
+    tabKey: z
+      .string()
+      .trim()
+      .min(1)
+      .nullable()
+      .describe(
+        "Exact logical tabKey copied from bench_read_context. Required only for focus_tab. Must be null for every other action.",
+      ),
   })
   .strict()
   .superRefine(validateBenchPresentInput)
@@ -173,6 +184,7 @@ function normalizeBenchPresentInput(rawArgs: unknown): unknown {
     path: rawArgs.path ?? null,
     resourceKey: rawArgs.resourceKey ?? null,
     objectID: rawArgs.objectID ?? null,
+    tabKey: rawArgs.tabKey ?? null,
   }
 }
 
@@ -189,6 +201,7 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
         path: "notes/derivatives.md",
         resourceKey: null,
         objectID: null,
+        tabKey: null,
       },
       null,
       2,
@@ -201,6 +214,7 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
         path: null,
         resourceKey: "calculus",
         objectID: null,
+        tabKey: null,
       },
       null,
       2,
@@ -213,6 +227,20 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
         path: null,
         resourceKey: null,
         objectID: "01KG1A0KH77HJ9QGAQ5QK0N4BD",
+        tabKey: null,
+      },
+      null,
+      2,
+    ),
+    "",
+    "Focus an exact open tab:",
+    JSON.stringify(
+      {
+        action: "focus_tab",
+        path: null,
+        resourceKey: null,
+        objectID: null,
+        tabKey: "object:whiteboard:01KG1A0KH77HJ9QGAQ5QK0N4BD:current",
       },
       null,
       2,
@@ -225,6 +253,7 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
         path: null,
         resourceKey: null,
         objectID: null,
+        tabKey: null,
       },
       null,
       2,
@@ -255,6 +284,13 @@ function validateBenchPresentInput(input: BenchPresentInput, ctx: z.RefinementCt
         message: "objectID must be null when action is present_file.",
       })
     }
+    if (input.tabKey !== null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["tabKey"],
+        message: "tabKey must be null when action is present_file.",
+      })
+    }
     return
   }
 
@@ -278,6 +314,13 @@ function validateBenchPresentInput(input: BenchPresentInput, ctx: z.RefinementCt
         code: "custom",
         path: ["objectID"],
         message: "objectID must be null when action is present_resource.",
+      })
+    }
+    if (input.tabKey !== null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["tabKey"],
+        message: "tabKey must be null when action is present_resource.",
       })
     }
     return
@@ -305,6 +348,33 @@ function validateBenchPresentInput(input: BenchPresentInput, ctx: z.RefinementCt
         message: "resourceKey must be null when action is present_object.",
       })
     }
+    if (input.tabKey !== null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["tabKey"],
+        message: "tabKey must be null when action is present_object.",
+      })
+    }
+    return
+  }
+
+  if (input.action === "focus_tab") {
+    if (input.tabKey === null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["tabKey"],
+        message: "tabKey is required when action is focus_tab.",
+      })
+    }
+    for (const field of ["path", "resourceKey", "objectID"] as const) {
+      if (input[field] !== null) {
+        ctx.addIssue({
+          code: "custom",
+          path: [field],
+          message: `${field} must be null when action is focus_tab.`,
+        })
+      }
+    }
     return
   }
 
@@ -327,6 +397,13 @@ function validateBenchPresentInput(input: BenchPresentInput, ctx: z.RefinementCt
       code: "custom",
       path: ["objectID"],
       message: "objectID must be null unless action is present_object.",
+    })
+  }
+  if (input.tabKey !== null) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["tabKey"],
+      message: "tabKey must be null unless action is focus_tab.",
     })
   }
 }
@@ -825,8 +902,12 @@ function observedBenchStateMessage(completion?: TerminalBenchCompletion): string
 function benchContextMatchesTarget(
   context: BenchReadContextOutput,
   target: BenchTarget,
-): context is Extract<BenchReadContextOutput, { status: "open" }> {
-  return context.status === "open" && context.targetKey === benchTargetKey(target)
+): context is Extract<BenchReadContextOutput, { status: "open"; visibility: "visible" }> {
+  return (
+    context.status === "open" &&
+    context.visibility === "visible" &&
+    context.targetKey === benchTargetKey(target)
+  )
 }
 
 function benchContextSettled(context: BenchReadContextOutput, target: BenchTarget): boolean {
@@ -923,7 +1004,7 @@ function supersededActionResult(completion?: TerminalBenchCompletion): BenchPres
 
 function failedSurfaceResult(input: {
   requested: BenchPresentOutput
-  context: Extract<BenchReadContextOutput, { status: "open" }>
+  context: Extract<BenchReadContextOutput, { status: "open"; visibility: "visible" }>
 }): BenchPresentOutput | undefined {
   const status = input.context.target.status
   if (status === "ready" || status === "dirty") return undefined
@@ -1025,7 +1106,8 @@ function committedBenchActionResult(input: {
       status: "already_presenting",
       reason: "already_showing_target",
       target:
-        input.completion.context.status === "open"
+        input.completion.context.status === "open" &&
+        input.completion.context.visibility === "visible"
           ? input.completion.context.target
           : input.requested.target,
       benchTarget: input.requested.benchTarget,
@@ -1045,6 +1127,9 @@ function completedBenchActionResult(input: {
 }): BenchPresentOutput {
   if (input.completion.outcome === "committed") {
     return committedBenchActionResult(input)
+  }
+  if (input.completion.outcome === "captured") {
+    return contextSyncFailedResult()
   }
   if (input.completion.outcome === "blocked") {
     return leaveGuardBlockedResult()
@@ -1110,7 +1195,7 @@ async function dispatchRequiredBenchAction(input: {
     if (
       terminal.status === "completed" &&
       terminal.completion.outcome === "committed" &&
-      input.command.type === "present"
+      (input.command.type === "present" || input.command.type === "focus_tab")
     ) {
       const context = await waitForBenchPresentationContext({
         directory: input.directory,
@@ -1148,6 +1233,7 @@ async function presentOnBench(input: {
   path: string | null
   resourceKey: string | null
   objectID: string | null
+  tabKey: string | null
   ask: BuddyToolContext["ask"]
   presentationSettleTimeoutMs?: number
 }): Promise<BenchPresentOutput> {
@@ -1168,6 +1254,58 @@ async function presentOnBench(input: {
       callID: input.callID,
       abort: input.abort,
       command: { type: "close" },
+      requested,
+      presentationSettleTimeoutMs:
+        input.presentationSettleTimeoutMs ?? BENCH_PRESENTATION_SETTLE_TIMEOUT_MS,
+    })
+  }
+
+  if (input.action === "focus_tab") {
+    const context = readCurrentBenchContext({
+      directory: input.directory,
+      sessionID: input.sessionID,
+    })
+    if (context.status === "closed") {
+      return {
+        status: "error",
+        reason: "tab_not_found",
+        target: null,
+        benchTarget: null,
+        mode: null,
+        message:
+          "Bench has no open tabs. Call bench_read_context again before using focus_tab.",
+        objectResult: null,
+      }
+    }
+    const tab = context.tabs.find((item) => item.tabKey === input.tabKey)
+    if (!tab) {
+      return {
+        status: "error",
+        reason: "tab_not_found",
+        target: null,
+        benchTarget: null,
+        mode: null,
+        message:
+          "That Bench tab is no longer open. Call bench_read_context again and use an exact current tabKey.",
+        objectResult: null,
+      }
+    }
+    const requested = {
+      status: "presented",
+      reason: "focused_tab",
+      target: null,
+      benchTarget: tab.target,
+      mode: context.mode,
+      message: `Focused Bench tab ${tab.title}.`,
+      objectResult: null,
+    } satisfies BenchPresentOutput
+    return dispatchRequiredBenchAction({
+      directory: input.directory,
+      sessionID: input.sessionID,
+      messageID: input.messageID,
+      callID: input.callID,
+      abort: input.abort,
+      command: { type: "focus_tab", tabKey: tab.tabKey, target: tab.target },
       requested,
       presentationSettleTimeoutMs:
         input.presentationSettleTimeoutMs ?? BENCH_PRESENTATION_SETTLE_TIMEOUT_MS,
@@ -1213,6 +1351,7 @@ async function presentOnBench(input: {
     command: {
       type: "present",
       target: requested.benchTarget,
+      autoOpen: null,
     },
     requested,
     presentationSettleTimeoutMs:
@@ -1287,9 +1426,9 @@ function resolveBenchPresentSilentOutcome(
 const benchPresentTool = createBuddyTool({
   id: "bench_present",
   description: [
-    "Present an existing stable target on Bench, or close Bench.",
+    "Present an existing stable target, focus an exact open tab, or close Bench.",
     "",
-    "Use this tool when the learner asks to focus an existing local file, prepared resource, existing Buddy object, or the current whiteboard on Bench. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
+    "Use present_file, present_resource, or present_object to open and focus a stable target. Use focus_tab only with an exact current tabKey copied from bench_read_context; a missing key means the tab set is stale and must be read again. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
     "",
     "For Buddy objects, pass only objectID copied from a prior tool result. Do not pass object kind, revision id, item id, view id, routes, layout pixels, or user preferences.",
     "",
@@ -1330,6 +1469,7 @@ const benchPresentTool = createBuddyTool({
       path: params.path,
       resourceKey: params.resourceKey,
       objectID: params.objectID,
+      tabKey: params.tabKey,
       ask: ctx.ask,
     })
     const metadata = buildBenchPresentToolMetadata({

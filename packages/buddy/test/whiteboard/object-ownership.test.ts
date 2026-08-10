@@ -69,6 +69,47 @@ describe("whiteboard object ownership", () => {
     ])
   })
 
+  test("stores semantic titles and preserves them unless an edit renames the board", async () => {
+    await using project = await tmpdir()
+    const object = await createWhiteboardObject({
+      directory: project.path,
+      title: "How Buddy handles a request",
+    })
+
+    await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      objectID: object.objectID,
+      writeMode: "continue",
+      elements: JSON.stringify([{ type: "text", id: "first", x: 0, y: 0, text: "First" }]),
+    })
+    expect(
+      (
+        await readObjectManifest({
+          directory: project.path,
+          kind: BUDDY_OBJECT_KINDS.whiteboard,
+          objectID: object.objectID,
+        })
+      ).title,
+    ).toBe("How Buddy handles a request")
+
+    await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      objectID: object.objectID,
+      title: "Buddy request flow",
+      writeMode: "continue",
+      elements: JSON.stringify([{ type: "text", id: "second", x: 0, y: 40, text: "Second" }]),
+    })
+    expect(
+      (
+        await readObjectManifest({
+          directory: project.path,
+          kind: BUDDY_OBJECT_KINDS.whiteboard,
+          objectID: object.objectID,
+        })
+      ).title,
+    ).toBe("Buddy request flow")
+  })
+
   test("reserves one directory object idempotently for a streaming tool call", async () => {
     await using project = await tmpdir()
     const reservation = {

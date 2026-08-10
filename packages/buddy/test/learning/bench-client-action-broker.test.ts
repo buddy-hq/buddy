@@ -111,6 +111,7 @@ function enqueuePresentAction(broker: BenchClientActionBroker, input?: { session
     callID: null,
     command: {
       type: "present",
+      autoOpen: null,
       target: {
         type: "workspace-file",
         path: "notes.md",
@@ -128,6 +129,7 @@ function enqueueResourceAction(broker: BenchClientActionBroker) {
     callID: null,
     command: {
       type: "present",
+      autoOpen: null,
       target: {
         type: "object",
         ref: {
@@ -168,6 +170,16 @@ function committedCompletion(input: {
     drawer: null,
     context: {
       status: "open",
+      visibility: "visible",
+      mode: "docked",
+      selectedTabKey: "file:markdown:notes.md",
+      tabs: [
+        {
+          tabKey: "file:markdown:notes.md",
+          title: "notes.md",
+          target: input.action.command.target,
+        },
+      ],
       targetKey: benchTargetKey(input.action.command.target),
       target: {
         type: "workspace-file",
@@ -221,6 +233,16 @@ function committedResourceCompletion(input: {
     drawer: null,
     context: {
       status: "open",
+      visibility: "visible",
+      mode: "docked",
+      selectedTabKey: `object:resource:${RESOURCE_OBJECT_ID}:reader`,
+      tabs: [
+        {
+          tabKey: `object:resource:${RESOURCE_OBJECT_ID}:reader`,
+          title: "Book",
+          target: input.action.command.target,
+        },
+      ],
       targetKey: benchTargetKey(contextTarget),
       target: {
         type: "object",
@@ -238,6 +260,61 @@ function committedResourceCompletion(input: {
       hints: [],
     },
     changed: true,
+  }
+}
+
+function capturedCompletion(input: {
+  lease: BenchClientLease
+  action: BenchClientAction
+  drawer: "files" | "skills"
+}): BenchClientActionCompletion {
+  if (input.action.command.type !== "capture_bench_screenshot") {
+    throw new Error("Expected capture action.")
+  }
+  return {
+    outcome: "captured",
+    lease: {
+      instanceID: input.lease.instanceID,
+      generation: input.lease.generation,
+      leaseEpoch: input.lease.leaseEpoch,
+    },
+    publicationSequence: 1,
+    observedRoute: {
+      status: "open",
+      target: input.action.command.target,
+      mode: "docked",
+    },
+    observedVisibility: "visible",
+    drawer: input.drawer,
+    context: {
+      status: "open",
+      visibility: "visible",
+      mode: "docked",
+      selectedTabKey: input.action.command.tabKey,
+      tabs: [
+        {
+          tabKey: input.action.command.tabKey,
+          title: "notes.md",
+          target: input.action.command.target,
+        },
+      ],
+      targetKey: benchTargetKey(input.action.command.target),
+      target: {
+        type: "workspace-file",
+        title: "notes.md",
+        workspaceRoot: DIRECTORY,
+        path: "notes.md",
+        absolutePath: `${DIRECTORY}/notes.md`,
+        route: "/_bench/markdown?path=notes.md",
+        status: "ready",
+      },
+      drawer: { kind: input.drawer, presentation: "drawer" },
+      metadata: [],
+      content: "Snapshot",
+      refs: [],
+      hints: [],
+    },
+    pngBase64: "png-bytes",
   }
 }
 
@@ -355,6 +432,7 @@ describe("BenchClientActionBroker", () => {
       callID: null,
       command: {
         type: "present",
+        autoOpen: null,
         target: {
           type: "workspace-file",
           path: "notes.md",
@@ -365,7 +443,11 @@ describe("BenchClientActionBroker", () => {
     const action = client.actions[0]
     if (!action) throw new Error("Expected delivered action.")
     const completion = committedCompletion({ lease: client.lease, action })
-    if (completion.outcome !== "committed" || completion.context.status !== "open") {
+    if (
+      completion.outcome !== "committed" ||
+      completion.context.status !== "open" ||
+      completion.context.visibility !== "visible"
+    ) {
       throw new Error("Expected committed open completion.")
     }
 
@@ -422,5 +504,45 @@ describe("BenchClientActionBroker", () => {
     await expect(enqueued.completion).resolves.toMatchObject({
       status: "completed",
     })
+  })
+
+  test("rejects captures whose acknowledged drawer differs from the request", async () => {
+    const { broker } = createBroker()
+    const client = connectClient({ broker })
+    const target = {
+      type: "workspace-file",
+      path: "notes.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    const enqueued = broker.enqueueRequiredAction({
+      directory: DIRECTORY,
+      sessionID: SESSION_ID,
+      messageID: "msg_capture_drawer",
+      callID: null,
+      command: {
+        type: "capture_bench_screenshot",
+        tabKey: "file:markdown:notes.md",
+        target,
+        drawer: "skills",
+      },
+    })
+    const action = client.actions[0]
+    if (!action) throw new Error("Expected delivered capture action.")
+
+    expect(
+      broker.completeAction({
+        directory: DIRECTORY,
+        actionID: action.actionID,
+        completion: capturedCompletion({ lease: client.lease, action, drawer: "files" }),
+      }),
+    ).toEqual({ status: "conflict" })
+    expect(
+      broker.completeAction({
+        directory: DIRECTORY,
+        actionID: action.actionID,
+        completion: capturedCompletion({ lease: client.lease, action, drawer: "skills" }),
+      }),
+    ).toEqual({ status: "completed" })
+    await expect(enqueued.completion).resolves.toMatchObject({ status: "completed" })
   })
 })

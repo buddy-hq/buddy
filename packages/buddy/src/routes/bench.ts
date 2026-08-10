@@ -3,6 +3,7 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import type { DescribeRouteOptions } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
+import { readBoundedRequestBody, replayRequestBody } from "../http/bounded-request-body"
 import { assertSessionExistsInDirectory, SessionLookupError } from "../session"
 import { BUDDY_OBJECT_KIND_VALUES } from "../objects"
 import {
@@ -14,6 +15,10 @@ import {
   publishSequencedBenchContext,
   readBenchContext,
 } from "../learning/features/bench/context"
+import {
+  BENCH_CAPTURE_MAX_BASE64_CHARACTERS,
+  BENCH_CLIENT_ACTION_COMPLETION_MAX_REQUEST_BODY_BYTES,
+} from "../learning/features/bench/capture-limits"
 import {
   BenchClientActionCompletionResponseSchema,
   BenchClientActionCompletionSchema,
@@ -38,6 +43,9 @@ const clientLeaseReleaseQuerySchema = directoryQuerySchema.extend({
   generation: z.coerce.number().int().nonnegative(),
   leaseEpoch: z.coerce.number().int().positive(),
 })
+
+const BENCH_CLIENT_ACTION_COMPLETION_TOO_LARGE_ERROR =
+  "Bench client action completion exceeds the request size limit."
 
 const nullableStringOpenApiSchema = {
   type: "string" as const,
@@ -204,12 +212,41 @@ const closedBenchContextOpenApiSchema = {
   },
 }
 
-const openBenchContextOpenApiSchema = {
+const benchTabSummaryOpenApiSchema = {
   type: "object" as const,
-  required: ["status", "target", "drawer", "metadata", "content", "refs", "hints"],
+  required: ["tabKey", "title", "target"],
+  additionalProperties: false,
+  properties: {
+    tabKey: { type: "string" as const },
+    title: { type: "string" as const },
+    target: benchTargetOpenApiSchema,
+  },
+}
+
+const visibleBenchContextOpenApiSchema = {
+  type: "object" as const,
+  required: [
+    "status",
+    "visibility",
+    "mode",
+    "selectedTabKey",
+    "tabs",
+    "targetKey",
+    "target",
+    "drawer",
+    "metadata",
+    "content",
+    "refs",
+    "hints",
+  ],
   additionalProperties: false,
   properties: {
     status: { type: "string" as const, enum: ["open"] },
+    visibility: { type: "string" as const, enum: ["visible"] },
+    mode: { type: "string" as const, enum: ["docked", "floating"] },
+    selectedTabKey: { type: "string" as const },
+    tabs: { type: "array" as const, items: benchTabSummaryOpenApiSchema },
+    targetKey: { type: "string" as const },
     target: benchContextTargetOpenApiSchema,
     drawer: benchDrawerContextOpenApiSchema,
     metadata: stringArrayOpenApiSchema,
@@ -222,8 +259,26 @@ const openBenchContextOpenApiSchema = {
   },
 }
 
+const parkedBenchContextOpenApiSchema = {
+  type: "object" as const,
+  required: ["status", "visibility", "mode", "selectedTabKey", "tabs", "drawer"],
+  additionalProperties: false,
+  properties: {
+    status: { type: "string" as const, enum: ["open"] },
+    visibility: { type: "string" as const, enum: ["parked"] },
+    mode: { type: "string" as const, enum: ["docked", "floating"] },
+    selectedTabKey: { type: "string" as const },
+    tabs: { type: "array" as const, items: benchTabSummaryOpenApiSchema },
+    drawer: { type: "null" as const },
+  },
+}
+
 const benchReadContextOutputOpenApiSchema: OpenApiRequestBodySchema = {
-  oneOf: [closedBenchContextOpenApiSchema, openBenchContextOpenApiSchema],
+  oneOf: [
+    closedBenchContextOpenApiSchema,
+    visibleBenchContextOpenApiSchema,
+    parkedBenchContextOpenApiSchema,
+  ],
 }
 
 const publishBenchContextInputOpenApiSchema: OpenApiRequestBodySchema = {
@@ -284,6 +339,8 @@ const terminalBenchClientActionCompletionOpenApiSchema: OpenApiRequestBodySchema
         "context_sync_failed",
         "session_inactive",
         "newer_command",
+        "capture_failed",
+        "capture_unavailable",
       ],
     },
     observedRoute: benchRouteSnapshotOpenApiSchema,
@@ -295,9 +352,41 @@ const terminalBenchClientActionCompletionOpenApiSchema: OpenApiRequestBodySchema
   },
 }
 
+const capturedBenchClientActionCompletionOpenApiSchema: OpenApiRequestBodySchema = {
+  type: "object" as const,
+  required: [
+    "outcome",
+    "lease",
+    "publicationSequence",
+    "observedRoute",
+    "observedVisibility",
+    "drawer",
+    "context",
+    "pngBase64",
+  ],
+  additionalProperties: false,
+  properties: {
+    outcome: { type: "string" as const, enum: ["captured"] },
+    lease: benchClientLeaseIdentityOpenApiSchema,
+    publicationSequence: { type: "integer" as const, minimum: 1 },
+    observedRoute: benchRouteSnapshotOpenApiSchema,
+    observedVisibility: { type: "string" as const, enum: ["visible"] },
+    drawer: {
+      type: ["string", "null"] as const,
+      enum: [...BENCH_DRAWER_KIND_VALUES, null],
+    },
+    context: visibleBenchContextOpenApiSchema,
+    pngBase64: {
+      type: "string" as const,
+      maxLength: BENCH_CAPTURE_MAX_BASE64_CHARACTERS,
+    },
+  },
+}
+
 const benchClientActionCompletionOpenApiSchema: OpenApiRequestBodySchema = {
   oneOf: [
     committedBenchClientActionCompletionOpenApiSchema,
+    capturedBenchClientActionCompletionOpenApiSchema,
     terminalBenchClientActionCompletionOpenApiSchema,
   ],
 }
@@ -437,11 +526,22 @@ export const BenchRoutes = new Hono()
             "application/json": { schema: resolver(BenchClientActionCompletionResponseSchema) },
           },
         },
-        ...routeErrors(400, 403, 409),
+        ...routeErrors(400, 403, 409, 413),
       },
     }),
     validator("query", directoryQuerySchema),
     validator("param", actionIDParamSchema),
+    async (c, next) => {
+      const result = await readBoundedRequestBody(
+        c.req.raw,
+        BENCH_CLIENT_ACTION_COMPLETION_MAX_REQUEST_BODY_BYTES,
+      )
+      if (result.status === "too_large") {
+        return c.json({ error: BENCH_CLIENT_ACTION_COMPLETION_TOO_LARGE_ERROR }, 413)
+      }
+      c.req.raw = replayRequestBody(c.req.raw, result.body)
+      await next()
+    },
     validator("json", BenchClientActionCompletionSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>

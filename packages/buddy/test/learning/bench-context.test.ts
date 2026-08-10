@@ -4,6 +4,8 @@ import {
   BENCH_DRAWER_KIND_VALUES,
   BenchContextWriteConflictError,
   BenchDrawerContextSchema,
+  BenchReadContextInputSchema,
+  BenchReadContextOutputSchema,
   benchTargetKey,
   clearBenchContextRegistry,
   publishSequencedBenchContext,
@@ -17,6 +19,53 @@ const BENCH_TARGET_KEY_NULL_PART = "\u2400"
 
 afterEach(() => {
   clearBenchContextRegistry()
+})
+
+describe("Bench read context contract", () => {
+  test("uses an explicit response format instead of a capture boolean", () => {
+    expect(
+      BenchReadContextInputSchema.parse({ responseFormat: "context_only" }),
+    ).toEqual({ responseFormat: "context_only" })
+    expect(
+      BenchReadContextInputSchema.parse({ responseFormat: "context_and_bench_screenshot" }),
+    ).toEqual({ responseFormat: "context_and_bench_screenshot" })
+    expect(
+      BenchReadContextInputSchema.parse({ responseFormat: "bench_screenshot_only" }),
+    ).toEqual({ responseFormat: "bench_screenshot_only" })
+    expect(
+      BenchReadContextInputSchema.parse({
+        responseFormat: "context_only",
+        tabSearch: "  chapter 4  ",
+      }),
+    ).toEqual({ responseFormat: "context_only", tabSearch: "chapter 4" })
+    expect(() =>
+      BenchReadContextInputSchema.parse({ responseFormat: "context_only", tabSearch: null }),
+    ).toThrow()
+    expect(() =>
+      BenchReadContextInputSchema.parse({ responseFormat: "context_only", tabSearch: "  " }),
+    ).toThrow()
+    expect(() => BenchReadContextInputSchema.parse({ capture: true })).toThrow()
+  })
+
+  test("keeps parked tab identity while excluding selected surface content", () => {
+    const value = BenchReadContextOutputSchema.parse({
+      status: "open",
+      visibility: "parked",
+      mode: "docked",
+      selectedTabKey: "file:markdown:notes.md",
+      tabs: [
+        {
+          tabKey: "file:markdown:notes.md",
+          title: "notes.md",
+          target: { type: "workspace-file", path: "notes.md", viewer: "markdown" },
+        },
+      ],
+      drawer: null,
+    })
+
+    expect(value).not.toHaveProperty("content")
+    expect(value).not.toHaveProperty("targetKey")
+  })
 })
 
 function publish(input: {
@@ -108,7 +157,7 @@ describe("Bench context history bounds", () => {
 })
 
 describe("bench target keys", () => {
-  test("matches the frontend canonical key format", () => {
+  test("preserves exact rendered target identity", () => {
     expect(
       benchTargetKey({
         type: "workspace-file",

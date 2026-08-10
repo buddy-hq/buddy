@@ -7,6 +7,7 @@ import {
   BuddyObjectResultSchema,
   formatBuddyObjectRefLines,
   objectSummaryBaseFromManifest,
+  readObjectManifest,
   type BuddyObjectResult,
 } from "../../../../objects"
 import {
@@ -26,6 +27,7 @@ const CREATE_WHITEBOARD_VIEW_BOARD_ACTIONS = [
   "continue_current_board",
   "destructively_replace_current_board",
 ] as const
+const WHITEBOARD_TITLE_MAX_CHARACTERS = 80
 
 const CreateWhiteboardViewBoardActionSchema = z
   .enum(CREATE_WHITEBOARD_VIEW_BOARD_ACTIONS)
@@ -38,6 +40,15 @@ const CreateWhiteboardViewInputSchema = z
     objectID: BuddyObjectIDSchema.nullable().describe(
       "Stable whiteboard object id to update. Pass null only when creating a new directory whiteboard. Reuse the same object id when continuing or revising an existing whiteboard, including from another chat.",
     ),
+    title: z
+      .string()
+      .trim()
+      .min(1)
+      .max(WHITEBOARD_TITLE_MAX_CHARACTERS)
+      .optional()
+      .describe(
+        "Short user-facing name for the whiteboard in Bench tabs and the Library. Provide it when creating a new whiteboard. When omitted while editing an existing whiteboard, its current title is preserved.",
+      ),
     boardAction: CreateWhiteboardViewBoardActionSchema,
     elements: z
       .string()
@@ -61,6 +72,7 @@ function nullableCallID(ctx: BuddyToolContext): string | null {
 
 function buildWhiteboardObjectResult(input: {
   objectID: string
+  title: string
   sessionID: string
   messageID: string
   callID: string
@@ -81,7 +93,7 @@ function buildWhiteboardObjectResult(input: {
       objectSummaryBaseFromManifest({
         kind: BUDDY_OBJECT_KINDS.whiteboard,
         objectID: input.objectID,
-        title: "Whiteboard",
+        title: input.title,
         status: "ready",
         lifecycle: "live",
         sourceRoot: null,
@@ -195,11 +207,12 @@ const createWhiteboardViewTool = createBuddyTool({
       ? await readWhiteboardObject(ctx.directory, params.objectID)
       : await ensureWhiteboardObjectForToolCall({
           directory: ctx.directory,
-          reservation: {
+        reservation: {
             sessionID,
             messageID,
             callID: eventCallID,
           },
+          ...(params.title ? { title: params.title } : {}),
         })
     const objectID = whiteboardObject.objectID
     await ctx.metadata({
@@ -219,6 +232,10 @@ const createWhiteboardViewTool = createBuddyTool({
       sessionID,
       messageID,
       callID,
+      autoOpen: {
+        policyID: "whiteboard",
+        eventKey: `whiteboard:${sessionID}:${messageID}:${eventCallID}`,
+      },
       target: {
         type: "object",
         ref: {
@@ -233,6 +250,7 @@ const createWhiteboardViewTool = createBuddyTool({
     const result = await applyWhiteboardDrawingProgram({
       directory: ctx.directory,
       objectID,
+      ...(params.title ? { title: params.title } : {}),
       elements: params.elements,
       writeMode: toWhiteboardProgramWriteMode(params.boardAction),
     })
@@ -246,8 +264,14 @@ const createWhiteboardViewTool = createBuddyTool({
     const layout = buildWhiteboardLayoutDigest(measuredBoard?.renderReport, {
       priorityElementIDs: new Set(result.layoutPriorityElementIDs),
     })
+    const manifest = await readObjectManifest({
+      directory: ctx.directory,
+      kind: BUDDY_OBJECT_KINDS.whiteboard,
+      objectID,
+    })
     const buddyObjectResult = buildWhiteboardObjectResult({
       objectID,
+      title: manifest.title,
       sessionID,
       messageID,
       callID: eventCallID,

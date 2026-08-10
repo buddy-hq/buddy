@@ -14,6 +14,7 @@ import { repairLegacyOpenCodeMigrations } from "./legacy-migration-repair"
 import { ensureSubagentForwardingPatched } from "./subagent-forwarding"
 import { ensureSkillServicePatched } from "./skill-filtering"
 import { createBuddyRuntimeHooks } from "./plugins/buddy-runtime-plugin"
+import { initializeBenchCaptureStorage } from "../learning/features/bench/captures"
 
 let appPromise: Promise<{ fetch(request: Request): Response | Promise<Response> }> | undefined
 let buddyRuntimePluginRegistered = false
@@ -38,6 +39,7 @@ export async function loadOpenCodeApp() {
   if (!appPromise) {
     appPromise = (async () => {
       await ensureRuntimeDirectories()
+      await initializeBenchCaptureStorage()
       try {
         const repairedMigrations = await repairLegacyOpenCodeMigrations()
         if (repairedMigrations.length > 0) {
