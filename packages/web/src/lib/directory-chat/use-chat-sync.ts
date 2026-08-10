@@ -10,7 +10,7 @@ import { startChatSync } from "@/state/chat-sync"
 import {
   readBenchClientActionEvent,
   readBenchClientLeaseEvent,
-  type BenchClientActionV1,
+  type BenchClientActionV2,
 } from "@/lib/directory-workspace-client-actions"
 import type { BenchClientLease } from "@/lib/directory-workspace-lifecycle"
 import { resyncDirectory, resyncDirectoryAfterReconnect } from "@/state/chat-actions"
@@ -182,7 +182,7 @@ type UseChatSyncProps = {
   refreshMcpStatus: () => void
   getBenchEventStreamLeaseQuery?: () => Partial<NonNullable<EventStreamData["query"]>>
   onBenchClientLease?: (lease: BenchClientLease) => void
-  onBenchClientAction?: (action: BenchClientActionV1) => void | Promise<void>
+  onBenchClientAction?: (action: BenchClientActionV2) => void | Promise<void>
   onAgentTurnComplete?: () => void | Promise<void>
   onWorkspaceFileChanged?: (input: {
     path: string

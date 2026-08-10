@@ -20,6 +20,7 @@ import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
 export function BenchSurfaceHost(props: {
   directory: string
   activeTarget: BenchTarget | null
+  retainedTargetKeys: readonly string[]
   /**
    * Whether the Bench is actually on screen. Separate from the active target on purpose: a docked
    * Bench that the user collapsed keeps its target — and its agent-facing registration — but is not
@@ -50,13 +51,21 @@ export function BenchSurfaceHost(props: {
     instances: BenchSurfaceInstance[]
   }>(() => ({ directory: props.directory, instances: [] }))
 
-  const releasedForDirectory =
-    cache.directory === props.directory
-      ? cache.instances
-      : releaseBenchSurfaceInstances({
-          instances: cache.instances,
-          releasedKeys: cache.instances.map((instance) => instance.key),
-        })
+  const retainedTargetKeys = new Set(props.retainedTargetKeys)
+  // The route becomes observable before the controller commits its matching tab list. Treat the
+  // selected route as retained during that gap so render-time cache reconciliation cannot release
+  // and immediately recreate the same instance forever.
+  if (activeKey) retainedTargetKeys.add(activeKey)
+  const releasedKeys = cache.instances
+    .filter(
+      (instance) =>
+        cache.directory !== props.directory || !retainedTargetKeys.has(instance.key),
+    )
+    .map((instance) => instance.key)
+  const releasedForDirectory = releaseBenchSurfaceInstances({
+    instances: cache.instances,
+    releasedKeys,
+  })
   const instances = retainBenchSurfaceInstance({
     instances: releasedForDirectory,
     target: props.activeTarget,

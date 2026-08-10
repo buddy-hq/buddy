@@ -27,6 +27,7 @@ import {
   type WorkspacePresentationSlot,
 } from "../src/state/directory-workspace-store"
 import { workspaceChatKeyForSession, type WorkspaceChatKey } from "../src/lib/workspace-chat-key"
+import { upsertBenchTab } from "../src/lib/bench-tabs"
 import { useChatStore } from "../src/state/chat-store"
 import { BUSY_SESSION_STATUS } from "../src/state/session-status"
 import type { SessionInfo } from "../src/state/chat-types"
@@ -150,11 +151,13 @@ function registerRestoringWorkspace() {
   let route: BenchRouteSnapshot = WHITEBOARD_ROUTE
   const chatASlot: WorkspacePresentationSlot = {
     route: WHITEBOARD_ROUTE,
+    tabs: upsertBenchTab([], WHITEBOARD_TARGET).tabs,
     docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
     lastDrawer: WORKSPACE_DRAWER_FILES,
   }
   const chatBSlot: WorkspacePresentationSlot = {
     route: CLOSED_ROUTE,
+    tabs: [],
     docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SKILLS),
     lastDrawer: WORKSPACE_DRAWER_SKILLS,
   }
@@ -354,6 +357,7 @@ describe("active chat transition coordinator", () => {
       chatKey: OTHER_CHAT_KEY,
       slot: {
         route: WHITEBOARD_ROUTE,
+        tabs: upsertBenchTab([], WHITEBOARD_TARGET).tabs,
         docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
         lastDrawer: WORKSPACE_DRAWER_FILES,
       },

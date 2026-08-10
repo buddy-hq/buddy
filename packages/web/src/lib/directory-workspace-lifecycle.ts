@@ -4,6 +4,7 @@ import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "@/lib/bench-leave-guard"
 import { allowBenchLeave } from "@/lib/bench-leave-guard"
 import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
+import { benchTabFallbackTitle, benchTabKey, type BenchTab } from "@/lib/bench-tabs"
 import type {
   DirectoryWorkspaceHydrationState,
   DrawerKind,
@@ -16,8 +17,15 @@ import type {
 } from "@buddy/sdk/types"
 
 type BenchReadContextOutput = BenchContextPublishData["body"]["value"]
-type BenchReadContextOpenOutput = Extract<BenchReadContextOutput, { status: "open" }>
-type BenchReadSurfaceContextOpenOutput = Omit<BenchReadContextOpenOutput, "drawer"> &
+type BenchReadContextOpenOutput = Extract<
+  BenchReadContextOutput,
+  { status: "open"; visibility: "visible" }
+>
+type BenchContextTabSummary = BenchReadContextOpenOutput["tabs"][number]
+type BenchReadSurfaceContextOpenOutput = Pick<
+  BenchReadContextOpenOutput,
+  "status" | "targetKey" | "target" | "metadata" | "content" | "refs" | "hints"
+> &
   Partial<Pick<BenchReadContextOpenOutput, "drawer">>
 type BenchClientLeaseIdentity = BenchContextPublishData["body"]["lease"]
 type BenchClientLease = BenchClientLeaseIdentity & {
@@ -32,12 +40,25 @@ type BenchCommittedClientActionCompletion = Extract<
   BenchClientActionCompletion,
   { outcome: "committed" }
 >
+type BenchCapturedClientActionCompletion = Extract<
+  BenchClientActionCompletion,
+  { outcome: "captured" }
+>
 type BenchTerminalClientActionCompletion = Exclude<
   BenchClientActionCompletion,
-  BenchCommittedClientActionCompletion
+  BenchCommittedClientActionCompletion | BenchCapturedClientActionCompletion
 >
 type BenchClientActionCompletionDraft =
   | Omit<BenchCommittedClientActionCompletion, "lease" | "publicationSequence" | "context">
+  | Omit<
+      BenchCapturedClientActionCompletion,
+      | "lease"
+      | "publicationSequence"
+      | "context"
+      | "observedRoute"
+      | "observedVisibility"
+      | "drawer"
+    >
   | Omit<BenchTerminalClientActionCompletion, "lease">
 type BenchCommittedClientActionCompletionDraft = Extract<
   BenchClientActionCompletionDraft,
@@ -135,6 +156,7 @@ function openPublicationKey(input: {
   drawer: DrawerKind | null
   registrationOrder: number
   semanticRevision: number
+  tabs: readonly BenchContextTabSummary[]
 }): string {
   return [
     input.directory,
@@ -144,6 +166,7 @@ function openPublicationKey(input: {
     drawerPublicationValue(input.drawer),
     String(input.registrationOrder),
     String(input.semanticRevision),
+    JSON.stringify(input.tabs),
   ].join("\u0000")
 }
 
@@ -174,14 +197,59 @@ function drawerContext(drawer: DrawerKind | null): BenchReadContextOpenOutput["d
     : null
 }
 
-function withDrawerContext(input: {
+function sharedBenchTarget(target: BenchTarget): BenchContextTabSummary["target"] {
+  if (target.type === "workspace-file") {
+    return {
+      type: target.type,
+      path: target.path,
+      viewer: target.viewer,
+    }
+  }
+  return {
+    type: target.type,
+    ref: target.ref,
+    viewID: target.viewID,
+  }
+}
+
+function visibleBenchContext(input: {
   context: BenchReadSurfaceContextOpenOutput
   drawer: DrawerKind | null
+  mode: "docked" | "floating"
+  tabs: readonly BenchContextTabSummary[]
 }): BenchReadContextOpenOutput {
   const { drawer: _drawer, ...context } = input.context
+  const selectedTabKey = input.tabs.find(
+    (tab) => benchTargetKey(tab.target) === input.context.targetKey,
+  )?.tabKey
+  if (!selectedTabKey) {
+    throw new Error("The selected Bench target is missing from the synchronized tab set.")
+  }
   return {
     ...context,
+    visibility: "visible",
+    mode: input.mode,
+    selectedTabKey,
+    tabs: [...input.tabs],
     drawer: drawerContext(input.drawer),
+  }
+}
+
+function parkedBenchContext(input: {
+  route: Extract<EffectiveWorkspaceProjection["route"], { status: "open" }>
+  tabs: readonly BenchContextTabSummary[]
+}): BenchReadContextOutput {
+  const selectedTabKey = input.tabs.find(
+    (tab) => benchTargetKey(tab.target) === benchTargetKey(input.route.target),
+  )?.tabKey
+  if (!selectedTabKey) return closedBenchContext()
+  return {
+    status: "open",
+    visibility: "parked",
+    mode: input.route.mode,
+    selectedTabKey,
+    tabs: [...input.tabs],
+    drawer: null,
   }
 }
 
@@ -238,6 +306,14 @@ function contextTargetDiagnosticValue(
 
 function contextTargetDiagnostic(value: BenchReadContextOutput): Record<string, unknown> {
   if (value.status === "closed") return { status: value.status }
+  if (value.visibility === "parked") {
+    return {
+      status: value.status,
+      visibility: value.visibility,
+      selectedTabKey: value.selectedTabKey,
+      tabCount: value.tabs.length,
+    }
+  }
   return {
     status: value.status,
     targetKey: value.targetKey,
@@ -267,6 +343,8 @@ function snapshotDiagnostic(snapshot: BenchContextPublishSnapshot | null): Recor
 export class DirectoryWorkspaceLifecycleService {
   readonly #directory: string
   readonly #getProjection: () => EffectiveWorkspaceProjection
+  readonly #getTabs: () => readonly BenchTab[]
+  readonly #getTabTitle: (tab: BenchTab) => string | undefined
   readonly #getHydrationStatus: () => DirectoryWorkspaceHydrationState["status"]
   readonly #getRouteFallbackContext: (
     route: EffectiveWorkspaceProjection["route"],
@@ -290,6 +368,8 @@ export class DirectoryWorkspaceLifecycleService {
   constructor(input: {
     directory: string
     getProjection: () => EffectiveWorkspaceProjection
+    getTabs: () => readonly BenchTab[]
+    getTabTitle?: (tab: BenchTab) => string | undefined
     getHydrationStatus: () => DirectoryWorkspaceHydrationState["status"]
     getRouteFallbackContext: (
       route: EffectiveWorkspaceProjection["route"],
@@ -297,6 +377,8 @@ export class DirectoryWorkspaceLifecycleService {
   }) {
     this.#directory = input.directory
     this.#getProjection = input.getProjection
+    this.#getTabs = input.getTabs
+    this.#getTabTitle = input.getTabTitle ?? (() => undefined)
     this.#getHydrationStatus = input.getHydrationStatus
     this.#getRouteFallbackContext = input.getRouteFallbackContext
   }
@@ -494,6 +576,7 @@ export class DirectoryWorkspaceLifecycleService {
     actionID: string
     sessionID: string
     completion: BenchClientActionCompletionDraft
+    expectedCapture?: { tabKey: string; target: BenchTarget; drawer: DrawerKind | null }
     getActiveSessionID: () => string | undefined
   }): Promise<boolean> {
     if (this.#disposed) return false
@@ -510,6 +593,16 @@ export class DirectoryWorkspaceLifecycleService {
         visibility: input.completion.observedVisibility,
         drawer: input.completion.drawer,
       })
+    } else if (input.completion.outcome === "captured") {
+      const projection = this.#getProjection()
+      if (this.#captureProjectionMatches(input.expectedCapture, projection)) {
+        completedSnapshot = this.#readPublishSnapshotForObservation({
+          sessionID: input.sessionID,
+          route: projection.route,
+          visibility: projection.bench.visibility,
+          drawer: projection.drawer,
+        })
+      }
     }
     logBenchToggleStep("workspace-lifecycle-complete-client-action-captured", () => ({
       directory: this.#directory,
@@ -693,6 +786,7 @@ export class DirectoryWorkspaceLifecycleService {
       actionID: string
       sessionID: string
       completion: BenchClientActionCompletionDraft
+      expectedCapture?: { tabKey: string; target: BenchTarget; drawer: DrawerKind | null }
       getActiveSessionID: () => string | undefined
     },
     completedSnapshot: BenchContextPublishSnapshot | null,
@@ -717,18 +811,49 @@ export class DirectoryWorkspaceLifecycleService {
       let completionSnapshot = completedSnapshot
       if (input.completion.outcome === "committed") {
         if (!completionSnapshot) return false
-        completionSnapshot =
-          this.#readRegisteredPublishSnapshotForObservation({
-            sessionID: input.sessionID,
-            route: input.completion.observedRoute,
-            visibility: input.completion.observedVisibility,
-            drawer: input.completion.drawer,
-          }) ?? completionSnapshot
+        const currentTargetKey = this.#getProjection().bench.targetKey
+        const observedTargetKey =
+          input.completion.observedRoute.status === "open"
+            ? benchTargetKey(input.completion.observedRoute.target)
+            : null
+        if (currentTargetKey === observedTargetKey) {
+          completionSnapshot =
+            this.#readRegisteredPublishSnapshotForObservation({
+              sessionID: input.sessionID,
+              route: input.completion.observedRoute,
+              visibility: input.completion.observedVisibility,
+              drawer: input.completion.drawer,
+            }) ?? completionSnapshot
+        }
         body = {
           ...input.completion,
           lease: leaseIdentity,
           publicationSequence: this.#nextPublicationSequence(input.sessionID),
           context: completionSnapshot.value,
+        }
+      } else if (input.completion.outcome === "captured") {
+        const projection = this.#getProjection()
+        if (
+          !completionSnapshot ||
+          completionSnapshot.value.status !== "open" ||
+          completionSnapshot.value.visibility !== "visible" ||
+          !this.#captureProjectionMatches(input.expectedCapture, projection)
+        ) {
+          body = {
+            outcome: "failed",
+            reason: "capture_failed",
+            lease: leaseIdentity,
+          }
+        } else {
+          body = {
+            ...input.completion,
+            lease: leaseIdentity,
+            publicationSequence: this.#nextPublicationSequence(input.sessionID),
+            observedRoute: projection.route,
+            observedVisibility: projection.bench.visibility,
+            drawer: projection.drawer,
+            context: completionSnapshot.value,
+          }
         }
       } else {
         body = {
@@ -750,12 +875,12 @@ export class DirectoryWorkspaceLifecycleService {
         completionOutcome: input.completion.outcome,
         lease: leaseIdentity,
         body:
-          body.outcome === "committed"
+          body.outcome === "committed" || body.outcome === "captured"
             ? {
                 observedRoute: body.observedRoute,
                 observedVisibility: body.observedVisibility,
                 drawer: body.drawer,
-                changed: body.changed,
+                ...(body.outcome === "committed" ? { changed: body.changed } : {}),
                 publicationSequence: body.publicationSequence,
                 context: contextTargetDiagnostic(body.context),
               }
@@ -775,7 +900,7 @@ export class DirectoryWorkspaceLifecycleService {
         continue
       }
       if (
-        input.completion.outcome === "committed" &&
+        (input.completion.outcome === "committed" || input.completion.outcome === "captured") &&
         completionSnapshot &&
         response.status !== "expired"
       ) {
@@ -784,6 +909,31 @@ export class DirectoryWorkspaceLifecycleService {
       return true
     }
     return false
+  }
+
+  #captureProjectionMatches(
+    expected:
+      | { tabKey: string; target: BenchTarget; drawer: DrawerKind | null }
+      | undefined,
+    projection: EffectiveWorkspaceProjection,
+  ): projection is EffectiveWorkspaceProjection & {
+    route: Extract<EffectiveWorkspaceProjection["route"], { status: "open" }>
+    bench: EffectiveWorkspaceProjection["bench"] & { visibility: "visible" }
+  } {
+    if (
+      !expected ||
+      projection.route.status !== "open" ||
+      projection.bench.visibility !== "visible" ||
+      projection.drawer !== expected.drawer ||
+      benchTargetKey(projection.route.target) !== benchTargetKey(expected.target)
+    ) {
+      return false
+    }
+    const routeTarget = projection.route.target
+    const selectedTab = this.#getTabs().find(
+      (tab) => benchTargetKey(tab.target) === benchTargetKey(routeTarget),
+    )
+    return selectedTab?.key === expected.tabKey && selectedTab.key === benchTabKey(expected.target)
   }
 
   #readCurrentPublishSnapshot(sessionID: string): BenchContextPublishSnapshot {
@@ -808,13 +958,21 @@ export class DirectoryWorkspaceLifecycleService {
     })
   }
 
+  #readTabSummaries(): BenchContextTabSummary[] {
+    return this.#getTabs().map((tab) => ({
+      tabKey: tab.key,
+      title: this.#getTabTitle(tab) ?? benchTabFallbackTitle(tab.target),
+      target: sharedBenchTarget(tab.target),
+    }))
+  }
+
   #readPublishSnapshotForObservation(input: {
     sessionID: string
     route: EffectiveWorkspaceProjection["route"]
     visibility: EffectiveWorkspaceProjection["bench"]["visibility"]
     drawer: DrawerKind | null
   }): BenchContextPublishSnapshot {
-    if (input.visibility !== "visible" || input.route.status === "closed") {
+    if (input.route.status === "closed" || input.visibility === "closed") {
       return {
         status: "closed",
         publicationKey: closedPublicationKey({
@@ -823,6 +981,24 @@ export class DirectoryWorkspaceLifecycleService {
           visibility: input.visibility,
         }),
         value: closedBenchContext(),
+      }
+    }
+
+    const tabs = this.#readTabSummaries()
+    if (input.visibility === "parked") {
+      return {
+        status: "open",
+        publicationKey: openPublicationKey({
+          directory: this.#directory,
+          sessionID: input.sessionID,
+          targetKey: benchTargetKey(input.route.target),
+          visibility: input.visibility,
+          drawer: null,
+          registrationOrder: DIRECTORY_WORKSPACE_FALLBACK_REGISTRATION_ORDER,
+          semanticRevision: DIRECTORY_WORKSPACE_FALLBACK_REVISION,
+          tabs,
+        }),
+        value: parkedBenchContext({ route: input.route, tabs }),
       }
     }
 
@@ -865,10 +1041,13 @@ export class DirectoryWorkspaceLifecycleService {
         drawer: input.drawer,
         registrationOrder: DIRECTORY_WORKSPACE_FALLBACK_REGISTRATION_ORDER,
         semanticRevision: DIRECTORY_WORKSPACE_FALLBACK_REVISION,
+        tabs,
       }),
-      value: withDrawerContext({
+      value: visibleBenchContext({
         context: fallbackContext,
         drawer: input.drawer,
+        mode: input.route.mode,
+        tabs,
       }),
     } satisfies BenchContextPublishSnapshot
     logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-fallback", () => ({
@@ -894,6 +1073,7 @@ export class DirectoryWorkspaceLifecycleService {
 
     const observedTarget = input.route.target
     const targetKey = benchTargetKey(observedTarget)
+    const tabs = this.#readTabSummaries()
     const registrations = this.#selectedRegistrations(targetKey)
     for (const registration of registrations) {
       const snapshot = registration.getSnapshot()
@@ -908,10 +1088,13 @@ export class DirectoryWorkspaceLifecycleService {
             drawer: input.drawer,
             registrationOrder: registration.order,
             semanticRevision: snapshot.semanticRevision,
+            tabs,
           }),
-          value: withDrawerContext({
+          value: visibleBenchContext({
             context: snapshot.context,
             drawer: input.drawer,
+            mode: input.route.mode,
+            tabs,
           }),
         } satisfies BenchContextPublishSnapshot
         logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-registration", () => ({

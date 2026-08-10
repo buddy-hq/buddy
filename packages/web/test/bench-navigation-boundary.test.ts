@@ -8,7 +8,7 @@ const PRESENTATION_ONLY_SOURCES = [
   "../src/lib/directory-workspace-controller.ts",
   "../src/lib/directory-workspace-client-actions.ts",
   "../src/lib/use-workspace-file-open.ts",
-  "../src/components/whiteboard/whiteboard-bench-auto-open.tsx",
+  "../src/components/whiteboard/whiteboard-opening-preview.tsx",
   "../src/components/directory-chat/right-workspace-open.ts",
 ] as const
 const CHAT_TRANSITION_CALL =

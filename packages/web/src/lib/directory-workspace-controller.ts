@@ -14,6 +14,17 @@ import {
 } from "@/lib/bench-navigation"
 import { encodeDirectory } from "@/lib/directory-token"
 import {
+  areBenchTabsEqual,
+  benchTabKey,
+  closeAllBenchTabs,
+  closeBenchTab,
+  closeBenchTabsToRight,
+  closeOtherBenchTabs,
+  upsertBenchTab,
+  type BenchTab,
+  type BenchTabSelection,
+} from "@/lib/bench-tabs"
+import {
   allowBenchLeave,
   type BenchLeaveGuardInput,
   type BenchLeaveGuardResult,
@@ -84,6 +95,23 @@ type DirectoryWorkspaceCommandOptions = {
   origin: Exclude<BenchLeaveOrigin, "route">
   autoOpen?: BenchAutoOpenIdentity | null
 }
+
+type DirectoryWorkspaceTabCommand = Extract<
+  DirectoryWorkspaceCommand,
+  {
+    type:
+      | "focus-tab"
+      | "close-tab"
+      | "close-other-tabs"
+      | "close-tabs-to-right"
+      | "close-all-tabs"
+  }
+>
+
+type DirectoryWorkspaceOnlyCommand = Extract<
+  DirectoryWorkspaceCommand,
+  { type: "reveal" | "collapse" | "open-drawer" | "close-drawer" }
+>
 
 function isForegroundCommand(options: DirectoryWorkspaceCommandOptions): boolean {
   return options.origin !== "auto-open"
@@ -313,26 +341,16 @@ function isGuardedRouteChange(input: {
   return !isSameBenchTarget(input.current.target, input.next.target)
 }
 
-function commandWorkspaceCommit(command: DirectoryWorkspaceCommand): DockedWorkspaceState {
+function commandWorkspaceCommit(command: DirectoryWorkspaceOnlyCommand): DockedWorkspaceState {
   switch (command.type) {
-    case "close":
     case "collapse":
-    case "prepare-chat-change":
-      return createCollapsedWorkspaceState()
-    case "restore-chat":
-    case "promote-chat":
       return createCollapsedWorkspaceState()
     case "open-drawer":
       return createExpandedWorkspaceState(command.drawer)
     case "close-drawer":
       return createExpandedWorkspaceState(null)
-    case "present":
     case "reveal":
       return createExpandedWorkspaceState(null)
-    case "set-mode":
-      return command.mode === BENCH_CHAT_LAYOUT_DOCKED
-        ? createExpandedWorkspaceState(null)
-        : createCollapsedWorkspaceState()
   }
 }
 
@@ -709,6 +727,32 @@ export class DirectoryWorkspaceController {
         })
       }
 
+      if (command.type === "present-background") {
+        const state = this.#store.getState()
+        const previousSlot = workspacePresentationSlotForChat(state.slots, command.chatKey)
+        state.presentBackground(command)
+        const nextSlot = workspacePresentationSlotForChat(
+          this.#store.getState().slots,
+          command.chatKey,
+        )
+        return committedProjectionResult({
+          changed:
+            !areBenchTabsEqual(previousSlot.tabs, nextSlot.tabs) ||
+            !isSameBenchRouteSnapshot(previousSlot.route, nextSlot.route),
+          projection: this.#currentProjection(),
+        })
+      }
+
+      if (
+        command.type === "focus-tab" ||
+        command.type === "close-tab" ||
+        command.type === "close-other-tabs" ||
+        command.type === "close-tabs-to-right" ||
+        command.type === "close-all-tabs"
+      ) {
+        return await this.#executeTabCommand(commandID, command, options)
+      }
+
       if (command.type === "close") {
         logBenchToggleStep("workspace-controller-execute-close-branch", {
           directory: this.#directory,
@@ -913,7 +957,7 @@ export class DirectoryWorkspaceController {
 
   #executeWorkspaceOnlyCommand(
     commandID: string,
-    command: DirectoryWorkspaceCommand,
+    command: DirectoryWorkspaceOnlyCommand,
   ): DirectoryWorkspaceCommandResult {
     const route = this.#routeForNextCommand()
     const previousProjection = this.#currentProjection()
@@ -972,6 +1016,129 @@ export class DirectoryWorkspaceController {
       }))
     }
     return result
+  }
+
+  async #executeTabCommand(
+    commandID: string,
+    command: DirectoryWorkspaceTabCommand,
+    options: DirectoryWorkspaceCommandOptions,
+  ): Promise<DirectoryWorkspaceCommandResult> {
+    const currentRoute = this.#routeForNextCommand()
+    const state = this.#store.getState()
+    const tabs = workspacePresentationSlotForChat(state.slots, state.activeChatKey).tabs
+    const activeTabKey =
+      currentRoute.status === BENCH_ROUTE_STATUS_OPEN ? benchTabKey(currentRoute.target) : null
+
+    if (command.type === "focus-tab") {
+      if (!tabs.some((tab) => tab.key === command.tabKey)) {
+        return supersededProjectionResult(this.#currentProjection())
+      }
+      if (
+        activeTabKey === command.tabKey &&
+        currentRoute.status === BENCH_ROUTE_STATUS_OPEN &&
+        currentRoute.mode === BENCH_CHAT_LAYOUT_DOCKED &&
+        this.#currentProjection().bench.visibility === "parked"
+      ) {
+        return this.#executeWorkspaceOnlyCommand(commandID, { type: "reveal" })
+      }
+      return this.#commitTabSelection(
+        commandID,
+        { tabs: [...tabs], activeTabKey: command.tabKey },
+        options,
+      )
+    }
+
+    if (command.type === "close-all-tabs") {
+      return this.#commitTabSelection(commandID, closeAllBenchTabs(), options)
+    }
+
+    if (!tabs.some((tab) => tab.key === command.tabKey)) {
+      return committedProjectionResult({ changed: false, projection: this.#currentProjection() })
+    }
+
+    const selection =
+      command.type === "close-tab"
+        ? closeBenchTab({ tabs, activeTabKey, tabKey: command.tabKey })
+        : command.type === "close-other-tabs"
+          ? closeOtherBenchTabs({ tabs, tabKey: command.tabKey })
+          : closeBenchTabsToRight({ tabs, activeTabKey, tabKey: command.tabKey })
+    return this.#commitTabSelection(commandID, selection, options)
+  }
+
+  async #commitTabSelection(
+    commandID: string,
+    selection: BenchTabSelection,
+    options: DirectoryWorkspaceCommandOptions,
+  ): Promise<DirectoryWorkspaceCommandResult> {
+    const currentRoute = this.#routeForNextCommand()
+    const nextTab = selection.tabs.find((tab) => tab.key === selection.activeTabKey)
+    if (!nextTab) {
+      if (currentRoute.status === BENCH_ROUTE_STATUS_CLOSED) {
+        return this.#executeWorkspaceTabsCommit(commandID, selection.tabs)
+      }
+      return this.#executeNavigationCommand({
+        commandID,
+        expectedDirectory: this.#directory,
+        expectedRoute: { status: BENCH_ROUTE_STATUS_CLOSED },
+        workspaceCommit: createCollapsedWorkspaceState(),
+        tabs: selection.tabs,
+        navigateOptions: buildChatNavigation(this.#directory),
+        origin: options.origin,
+      })
+    }
+
+    const mode =
+      currentRoute.status === BENCH_ROUTE_STATUS_OPEN
+        ? currentRoute.mode
+        : BENCH_CHAT_LAYOUT_DOCKED
+    const expectedRoute: BenchRouteSnapshot = {
+      status: BENCH_ROUTE_STATUS_OPEN,
+      target: nextTab.target,
+      mode,
+    }
+    if (isSameBenchRouteSnapshot(currentRoute, expectedRoute)) {
+      return this.#executeWorkspaceTabsCommit(commandID, selection.tabs)
+    }
+
+    return this.#executeNavigationCommand({
+      commandID,
+      expectedDirectory: this.#directory,
+      expectedRoute,
+      workspaceCommit:
+        mode === BENCH_CHAT_LAYOUT_DOCKED
+          ? createExpandedWorkspaceState(null)
+          : createCollapsedWorkspaceState(),
+      tabs: selection.tabs,
+      navigateOptions: buildWorkspaceRouteNavigation({
+        directory: this.#directory,
+        route: expectedRoute,
+      }),
+      origin: options.origin,
+    })
+  }
+
+  #executeWorkspaceTabsCommit(
+    commandID: string,
+    tabs: BenchTab[],
+  ): DirectoryWorkspaceCommandResult {
+    const state = this.#store.getState()
+    const previousTabs = workspacePresentationSlotForChat(state.slots, state.activeChatKey).tabs
+    const previousProjection = this.#currentProjection()
+    state.setPendingIntent({
+      kind: WORKSPACE_PENDING_KIND_WORKSPACE_ONLY,
+      commandID,
+      previousProjection,
+      workspaceCommit: state.docked,
+    })
+    this.#store.getState().commitDockedState({
+      commandID,
+      docked: state.docked,
+      tabs,
+    })
+    return committedProjectionResult({
+      changed: !areBenchTabsEqual(previousTabs, tabs),
+      projection: this.#currentProjection(),
+    })
   }
 
   async #executePresentCommand(
@@ -1040,6 +1207,8 @@ export class DirectoryWorkspaceController {
       command,
       decision,
     })
+    const state = this.#store.getState()
+    const currentTabs = workspacePresentationSlotForChat(state.slots, state.activeChatKey).tabs
     return openExecutionResult(
       decision,
       await this.#executeNavigationCommand({
@@ -1054,6 +1223,9 @@ export class DirectoryWorkspaceController {
           decision.mode === BENCH_CHAT_LAYOUT_DOCKED
             ? createExpandedWorkspaceState(null)
             : createCollapsedWorkspaceState(),
+        ...(decision.directory === this.#directory
+          ? { tabs: upsertBenchTab(currentTabs, decision.target).tabs }
+          : {}),
         navigateOptions: {
           ...buildBenchNavigation({
             directory: decision.directory,
@@ -1087,6 +1259,7 @@ export class DirectoryWorkspaceController {
       expectedDirectory: this.#directory,
       expectedRoute: { status: BENCH_ROUTE_STATUS_CLOSED },
       workspaceCommit: createCollapsedWorkspaceState(),
+      tabs: [],
       navigateOptions: buildChatNavigation(this.#directory),
       origin: options.origin,
     })
@@ -1103,13 +1276,18 @@ export class DirectoryWorkspaceController {
     const destinationSlot: WorkspacePresentationSlot =
       command.destinationInitialization === WORKSPACE_DESTINATION_EMPTY
         ? {
-            route: { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot,
-            docked: createCollapsedWorkspaceState(),
-            lastDrawer: this.#store.getState().lastDrawer,
-          }
+          route: { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot,
+          tabs: [],
+          docked: createCollapsedWorkspaceState(),
+          lastDrawer: this.#store.getState().lastDrawer,
+        }
         : command.destinationInitialization === WORKSPACE_DESTINATION_INHERIT_CURRENT
           ? {
               route: currentRoute,
+              tabs:
+                currentRoute.status === BENCH_ROUTE_STATUS_OPEN
+                  ? upsertBenchTab([], currentRoute.target).tabs
+                  : [],
               docked: this.#store.getState().docked,
               lastDrawer: this.#store.getState().lastDrawer,
             }
@@ -1181,6 +1359,7 @@ export class DirectoryWorkspaceController {
       this.#store.getState().commitDockedState({
         commandID,
         docked: slot.docked,
+        tabs: slot.tabs,
       })
       const projection = this.#currentProjection()
       return committedProjectionResult({
@@ -1194,6 +1373,7 @@ export class DirectoryWorkspaceController {
       expectedDirectory: this.#directory,
       expectedRoute: slot.route,
       workspaceCommit: slot.docked,
+      tabs: slot.tabs,
       navigateOptions: buildWorkspaceRouteNavigation({
         directory: this.#directory,
         route: slot.route,
@@ -1228,6 +1408,7 @@ export class DirectoryWorkspaceController {
       commandID,
       docked,
       route: { status: BENCH_ROUTE_STATUS_CLOSED },
+      tabs: [],
     })
   }
 
@@ -1292,6 +1473,7 @@ export class DirectoryWorkspaceController {
     expectedDirectory: string
     expectedRoute: BenchRouteSnapshot
     workspaceCommit: DockedWorkspaceState
+    tabs?: BenchTab[]
     navigateOptions: NavigateOptions
     origin: Exclude<BenchLeaveOrigin, "route">
     leaveGuardSettled?: boolean
@@ -1424,6 +1606,7 @@ export class DirectoryWorkspaceController {
       commandID: input.commandID,
       docked: input.workspaceCommit,
       route: finalRoute,
+      ...(input.tabs ? { tabs: input.tabs } : {}),
     })
     const projection = this.#projectionForRoute(finalRoute)
     const changed = didProjectionChange({ previous: previousProjection, next: projection })

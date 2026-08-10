@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react"
+import type { MouseEvent, RefCallback } from "react"
 import { useEffect, useState } from "react"
 import { useLocation } from "@tanstack/react-router"
 import { Button, cn } from "@buddy/ui"
@@ -51,6 +51,7 @@ type DesktopTitlebarProps = {
   onSelectSession?: (sessionID: string) => void | Promise<void>
   onFloatChat?: () => void
   showDockFloatingBench?: boolean
+  rootContentRef?: RefCallback<HTMLDivElement>
 }
 
 export const MAC_WINDOW_CONTROL_INSET_WIDTH = 90
@@ -62,6 +63,14 @@ const CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX = 8
 /** One cluster control is `w-8`; the pill adds a 1px border on each side. */
 const TITLEBAR_CLUSTER_BUTTON_WIDTH_PX = 32
 const TITLEBAR_CLUSTER_PILL_BORDER_PX = 2
+const TITLEBAR_CLUSTER_GAP_PX = 4
+const TITLEBAR_NON_MAC_RIGHT_MARGIN_PX = 8
+const WINDOWS_CAPTION_CONTROLS_INSET_WIDTH_PX = 140
+export const WINDOWS_CHAT_TITLEBAR_RIGHT_CONTROLS_INSET_PX =
+  WINDOWS_CAPTION_CONTROLS_INSET_WIDTH_PX +
+  TITLEBAR_CLUSTER_BUTTON_WIDTH_PX +
+  TITLEBAR_CLUSTER_GAP_PX * 2 +
+  TITLEBAR_NON_MAC_RIGHT_MARGIN_PX * 2
 /** Breathing room between the fixed left cluster and the title that follows it. */
 const CHAT_SIDEBAR_TOGGLE_TITLE_GAP_PX = 10
 /**
@@ -76,6 +85,8 @@ const RIGHT_TOGGLE_RAIL_ALIGNED_MARGIN_PX =
 
 /** 14px glyphs; the default stroke scales with size. */
 const TITLEBAR_ICON_SIZE_CLASS = "size-3.5 shrink-0"
+const DOCK_BENCH_ICON_SIZE_CLASS = "size-4 shrink-0"
+const DOCK_BENCH_ICON_STROKE_WIDTH = 2.5
 // No inset padding — hover fills flush with the outer rounded border (no halo gap).
 const TITLEBAR_TOGGLE_PILL_CLASS =
   "flex shrink-0 items-center overflow-hidden rounded-full border border-border-weaker-base bg-surface-raised-base/60 p-0 shadow-xs [-webkit-app-region:no-drag]"
@@ -497,12 +508,15 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
               type="button"
               data-action="titlebar-dock-floating-bench"
               variant="ghost"
-              className={titlebarToggleButtonClass(false)}
+              className={cn(titlebarToggleButtonClass(false), "text-text-strong")}
               aria-label={language.t("sidebar.dockChat")}
               title={language.t("sidebar.dockChat")}
               onClick={onDockFloatingBench}
             >
-              <TitlebarIcon icon={ArrowLeftIcon} />
+              <ArrowLeftIcon
+                className={DOCK_BENCH_ICON_SIZE_CLASS}
+                strokeWidth={DOCK_BENCH_ICON_STROKE_WIDTH}
+              />
             </Button>
           </div>
         ) : null}
@@ -516,7 +530,14 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         {showLeftSidebarToggle ? (
           <div className="ml-2 flex shrink-0 items-center">{leftSidebarToggleButton}</div>
         ) : null}
-        {!isShellVariant &&
+        {placement === "root" ? (
+          <div
+            ref={props.rootContentRef}
+            data-component="desktop-titlebar-root-content"
+            className="flex h-full min-w-0 flex-1 items-stretch overflow-hidden"
+          />
+        ) : (
+          !isShellVariant &&
           (placement === "chat" ? (
             <div className="flex min-w-0 flex-1 items-stretch">
               {props.showThreadBrowser ? (
@@ -588,20 +609,34 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             </div>
           ) : (
             <div className="min-w-0 flex-1" />
-          ))}
+          ))
+        )}
         <div
           data-titlebar-no-drag
           className={cn(
             "flex shrink-0 items-center gap-1 ml-auto [-webkit-app-region:no-drag]",
             isMac ? undefined : "mr-2",
+            placement === "chat" && isDesktop ? "fixed top-0 z-50" : undefined,
           )}
-          style={isMac ? { marginRight: RIGHT_TOGGLE_RAIL_ALIGNED_MARGIN_PX } : undefined}
+          style={
+            placement === "chat" && isDesktop
+              ? {
+                  right: isMac ? RIGHT_TOGGLE_RAIL_ALIGNED_MARGIN_PX : 0,
+                  height: DESKTOP_TITLEBAR_HEIGHT_PX,
+                }
+              : isMac
+                ? { marginRight: RIGHT_TOGGLE_RAIL_ALIGNED_MARGIN_PX }
+                : undefined
+          }
         >
           {!isShellVariant && rightWorkspaceToggle}
 
           {isWindows ? (
             <>
-              <div className="w-[140px] shrink-0" />
+              <div
+                className="shrink-0"
+                style={{ width: WINDOWS_CAPTION_CONTROLS_INSET_WIDTH_PX }}
+              />
               <div
                 data-component="titlebar-system-controls-mount"
                 data-titlebar-no-drag

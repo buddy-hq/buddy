@@ -1,4 +1,5 @@
 import {
+  BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
@@ -205,6 +206,7 @@ function resolveBenchOpenPolicy(input: ResolveBenchOpenPolicyInput): BenchOpenDe
   if (
     input.request.autoOpen &&
     input.request.autoOpen.policyID !== BENCH_AUTO_OPEN_POLICY_WHITEBOARD &&
+    input.request.autoOpen.policyID !== BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET &&
     input.current.status === "open" &&
     input.currentVisible &&
     (!isSameBenchTarget(input.current.target, input.request.target) ||

@@ -38,6 +38,13 @@ export type UpdateProgressSnapshot = {
   version?: string
 }
 
+export type BenchCaptureRectangle = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export type Platform = {
   platform: "web" | "desktop"
   os?: "macos" | "windows" | "linux"
@@ -67,6 +74,7 @@ export type Platform = {
   setUpdateRing?(ring: UpdateRing): Promise<void>
   update?(): Promise<void>
   parseMarkdown?(markdown: string): Promise<string>
+  captureBenchScreenshot?(rectangle: BenchCaptureRectangle): Promise<string>
 }
 
 function notifyWindowOfClick(href: string) {

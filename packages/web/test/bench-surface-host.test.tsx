@@ -20,6 +20,14 @@ const SECOND_TARGET: BenchTarget = {
   viewer: "markdown",
 }
 
+function heavyTarget(objectID: string, kind: "html-widget" | "whiteboard"): BenchTarget {
+  return {
+    type: "object",
+    ref: { kind, objectID, revisionID: null, itemID: null },
+    viewID: "canvas",
+  }
+}
+
 let root: Root | undefined
 let container: HTMLDivElement | undefined
 
@@ -69,12 +77,14 @@ async function renderHost(
   target: BenchTarget | null,
   benchVisible = true,
   activationIdentity?: string,
+  retainedTargets: readonly BenchTarget[] = [FIRST_TARGET, SECOND_TARGET],
 ) {
   await act(async () => {
     root?.render(
       <BenchSurfaceHost
         directory="/workspace"
         activeTarget={target}
+        retainedTargetKeys={retainedTargets.map(benchTargetKey)}
         benchVisible={benchVisible}
         activeRuntimeState={undefined}
         renderContext={(input) => (
@@ -125,6 +135,64 @@ describe("BenchSurfaceHost", () => {
       .filter((node) => node.getAttribute("data-surface-active") === "true")
       .map((node) => node.getAttribute("data-target-key"))
     expect(activeKeys).toEqual([benchTargetKey(SECOND_TARGET)])
+  })
+
+  test("releases a surface when no chat tab retains its exact target", async () => {
+    mountCounts.clear()
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await renderHost(FIRST_TARGET)
+    await renderHost(SECOND_TARGET, true, undefined, [SECOND_TARGET])
+
+    const instances = container.querySelectorAll('[data-component="bench-surface-instance"]')
+    expect(
+      [...instances].some(
+        (instance) => instance.getAttribute("data-target-key") === benchTargetKey(FIRST_TARGET),
+      ),
+    ).toBeFalse()
+    expect(instances).toHaveLength(1)
+  })
+
+  test("retains the route target while its tab commit is still pending", async () => {
+    mountCounts.clear()
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await renderHost(FIRST_TARGET, true, undefined, [])
+
+    const instances = container.querySelectorAll('[data-component="bench-surface-instance"]')
+    expect(instances).toHaveLength(1)
+    expect(instances[0]?.getAttribute("data-target-key")).toBe(benchTargetKey(FIRST_TARGET))
+  })
+
+  test("bounds mounted heavy surfaces when many tabs across chats remain open", async () => {
+    mountCounts.clear()
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const retainedTargets = [
+      heavyTarget("board-1", "whiteboard"),
+      heavyTarget("widget-1", "html-widget"),
+      heavyTarget("board-2", "whiteboard"),
+      heavyTarget("widget-2", "html-widget"),
+      heavyTarget("board-3", "whiteboard"),
+    ]
+
+    for (const target of retainedTargets) {
+      await renderHost(target, true, undefined, retainedTargets)
+    }
+
+    const instances = container.querySelectorAll('[data-component="bench-surface-instance"]')
+    expect(instances).toHaveLength(2)
+    expect([...instances].map((instance) => instance.getAttribute("data-target-key"))).toEqual(
+      retainedTargets.slice(-2).map(benchTargetKey),
+    )
   })
 
   test("mounts the newly active surface in the same render, without an empty frame", async () => {

@@ -6,9 +6,11 @@ import {
   useMemo,
   useRef,
   useState,
+  type MutableRefObject,
   type ReactNode,
 } from "react"
 import { useBlocker, useLocation, useNavigate, useRouter } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
 import { useStore } from "zustand"
 import {
   DirectoryWorkspaceBlocker,
@@ -21,11 +23,13 @@ import {
   routeString,
 } from "@/components/bench/bench-context-utils"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
+import { resolveBenchTabTitle, upsertBenchTab } from "@/lib/bench-tabs"
 import { DirectoryWorkspaceLifecycleService } from "@/lib/directory-workspace-lifecycle"
 import { registerLiveDirectoryWorkspace } from "@/lib/directory-workspace-registry"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 import { workspaceChatKeyForSession, type WorkspaceChatKey } from "@/lib/workspace-chat-key"
 import { useChatStore } from "@/state/chat-store"
+import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import {
   BENCH_ROUTE_STATUS_OPEN,
   type BenchRouteSnapshot,
@@ -70,6 +74,29 @@ function initialDockedState(route: BenchRouteSnapshot) {
   return createCollapsedWorkspaceState()
 }
 
+function BenchObjectTitleSynchronizer(props: {
+  directory: string
+  lifecycle: DirectoryWorkspaceLifecycleService
+  objectTitlesRef: MutableRefObject<ReadonlyMap<string, string>>
+}) {
+  const objectsQuery = useQuery(workspaceObjectsQueryOptions(props.directory))
+  const objectTitles = useMemo(() => {
+    const titles = new Map<string, string>()
+    for (const object of objectsQuery.data?.objects ?? []) {
+      titles.set(object.objectID, object.title)
+    }
+    return titles
+  }, [objectsQuery.data?.objects])
+
+  useEffect(() => {
+    if (objectsQuery.data === undefined) return
+    props.objectTitlesRef.current = objectTitles
+    void props.lifecycle.publishCurrent()
+  }, [objectTitles, objectsQuery.data, props.lifecycle, props.objectTitlesRef])
+
+  return null
+}
+
 export function DirectoryWorkspaceProvider(props: {
   directory: string
   children: ReactNode
@@ -109,6 +136,10 @@ export function DirectoryWorkspaceProvider(props: {
     })
     const initialSlot: WorkspacePresentationSlot = {
       route: routeRef.current,
+      tabs:
+        routeRef.current.status === BENCH_ROUTE_STATUS_OPEN
+          ? upsertBenchTab([], routeRef.current.target).tabs
+          : [],
       docked: initialDocked,
       lastDrawer: DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
     }
@@ -126,6 +157,12 @@ export function DirectoryWorkspaceProvider(props: {
       },
     })
   })
+  const hasObjectTabs = useStore(store, (state) =>
+    workspacePresentationSlotForChat(state.slots, state.activeChatKey).tabs.some(
+      (tab) => tab.target.type === "object",
+    ),
+  )
+  const objectTitlesRef = useRef<ReadonlyMap<string, string>>(new Map())
   const [lifecycle] = useState(
     () =>
       new DirectoryWorkspaceLifecycleService({
@@ -139,6 +176,12 @@ export function DirectoryWorkspaceProvider(props: {
             },
             store.getState().pendingIntent,
           ),
+        getTabs: () =>
+          workspacePresentationSlotForChat(
+            store.getState().slots,
+            store.getState().activeChatKey,
+          ).tabs,
+        getTabTitle: (tab) => resolveBenchTabTitle(tab, objectTitlesRef.current),
         getHydrationStatus: () => store.getState().hydration.status,
         getRouteFallbackContext: (route) => {
           if (route.status !== BENCH_ROUTE_STATUS_OPEN) return null
@@ -285,6 +328,10 @@ export function DirectoryWorkspaceProvider(props: {
         const currentRoute = routeRef.current
         const routeWins = currentRoute.status === BENCH_ROUTE_STATUS_OPEN
         const restoredRoute = routeWins ? currentRoute : persistedSlot.route
+        const restoredTabs =
+          restoredRoute.status === BENCH_ROUTE_STATUS_OPEN
+            ? upsertBenchTab(persistedSlot.tabs, restoredRoute.target).tabs
+            : []
         // The URL is authoritative for *which* target is open, never for whether the workspace is
         // expanded or which drawer is showing — those belong to the chat's saved slot. Reloading a
         // collapsed Bench leaves the same route in the URL, so deriving docked state from the route
@@ -307,6 +354,7 @@ export function DirectoryWorkspaceProvider(props: {
           ...persistedSlots,
           [activeChatKey]: {
             route: restoredRoute,
+            tabs: restoredTabs,
             docked: restoredDocked,
             lastDrawer: restoredLastDrawer,
           },
@@ -375,6 +423,9 @@ export function DirectoryWorkspaceProvider(props: {
         ),
       }))
       if (state.hydration.status === WORKSPACE_HYDRATION_PENDING) return
+      if (state.slots !== previousState.slots) {
+        void lifecycle.publishCurrent()
+      }
       if (
         state.activeChatKey === previousState.activeChatKey &&
         state.slots === previousState.slots &&
@@ -389,7 +440,7 @@ export function DirectoryWorkspaceProvider(props: {
     return () => {
       unsubscribe()
     }
-  }, [persistCurrentWorkspaceState, props.directory, store])
+  }, [lifecycle, persistCurrentWorkspaceState, props.directory, store])
 
   useEffect(() => {
     if (store.getState().hydration.status === WORKSPACE_HYDRATION_PENDING) return
@@ -457,6 +508,13 @@ export function DirectoryWorkspaceProvider(props: {
 
   return (
     <DirectoryWorkspaceContext.Provider value={value}>
+      {hasObjectTabs ? (
+        <BenchObjectTitleSynchronizer
+          directory={props.directory}
+          lifecycle={lifecycle}
+          objectTitlesRef={objectTitlesRef}
+        />
+      ) : null}
       {props.children}
     </DirectoryWorkspaceContext.Provider>
   )

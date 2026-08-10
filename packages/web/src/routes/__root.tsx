@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, Outlet, useLocation } from "@tanstack/react-router"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
+import { DesktopTitlebarContentProvider } from "@/components/layout/desktop-titlebar-content"
 import { WorkspaceFileOpenDialog } from "@/components/files/workspace-file-open-dialog"
 import { BuddyDevTools } from "@/components/debug/buddy-devtools"
 import { language } from "@/context/language"
@@ -115,6 +116,8 @@ function ReleaseUpdateWatcher() {
 }
 
 function RootLayout() {
+  const [desktopTitlebarContentTarget, setDesktopTitlebarContentTarget] =
+    useState<HTMLDivElement | null>(null)
   const location = useLocation()
   const isOnboarding = location.pathname.startsWith("/onboarding")
   const isDirectoryChat = location.pathname !== "/chat" && location.pathname.endsWith("/chat")
@@ -131,10 +134,15 @@ function RootLayout() {
       <ReleaseUpdateWatcher />
       <WorkspaceFileOpenDialog />
       {!isOnboarding && !isDirectoryChat && !isDockedBench && !isSettings && (
-        <DesktopTitlebar showDockFloatingBench={isFloatingBench} />
+        <DesktopTitlebar
+          showDockFloatingBench={isFloatingBench}
+          rootContentRef={setDesktopTitlebarContentTarget}
+        />
       )}
       <div className="min-h-0 flex-1">
-        <Outlet />
+        <DesktopTitlebarContentProvider target={desktopTitlebarContentTarget}>
+          <Outlet />
+        </DesktopTitlebarContentProvider>
       </div>
       {import.meta.env.DEV && <BuddyDevTools />}
     </div>

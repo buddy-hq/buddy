@@ -33,6 +33,7 @@ import {
   type DirectoryWorkspaceCommand,
 } from "../src/state/directory-workspace-store"
 import { workspaceChatKeyForSession } from "../src/lib/workspace-chat-key"
+import { benchTabKey } from "../src/lib/bench-tabs"
 
 const DIRECTORY = "/workspace/controller-test"
 const OTHER_DIRECTORY = "/workspace/controller-other"
@@ -66,6 +67,16 @@ const WHITEBOARD_TARGET = {
   },
   viewID: "canvas",
 } satisfies BenchTarget
+const HTML_WIDGET_TARGET = {
+  type: "object",
+  ref: {
+    kind: "html-widget",
+    objectID: "widget-1",
+    revisionID: null,
+    itemID: null,
+  },
+  viewID: "runtime",
+} satisfies BenchTarget
 
 const CLOSED_ROUTE = { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot
 const CHAT_A_KEY = workspaceChatKeyForSession(undefined)
@@ -98,6 +109,11 @@ const FLOATING_OBJECT_ROUTE = {
 const DOCKED_WHITEBOARD_ROUTE = {
   status: BENCH_ROUTE_STATUS_OPEN,
   target: WHITEBOARD_TARGET,
+  mode: BENCH_CHAT_LAYOUT_DOCKED,
+} satisfies BenchRouteSnapshot
+const DOCKED_HTML_WIDGET_ROUTE = {
+  status: BENCH_ROUTE_STATUS_OPEN,
+  target: HTML_WIDGET_TARGET,
   mode: BENCH_CHAT_LAYOUT_DOCKED,
 } satisfies BenchRouteSnapshot
 
@@ -337,6 +353,9 @@ describe("DirectoryWorkspaceController", () => {
     })
     expect(harness.readRoute()).toEqual(DOCKED_FILE_ROUTE)
     expect(harness.store.getState().pendingIntent).toBeNull()
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([
+      { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
+    ])
     expect(harness.guardCalls).toHaveLength(0)
     expect(harness.readNavigatedOptions()).toMatchObject({
       viewTransition: false,
@@ -433,6 +452,156 @@ describe("DirectoryWorkspaceController", () => {
         bench: { visibility: "visible", mode: BENCH_CHAT_LAYOUT_DOCKED },
       },
     })
+  })
+
+  test("inherits only the selected target into a new chat", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: NEXT_FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_NEXT_FILE_ROUTE,
+    )
+
+    await harness.execute({
+      type: "prepare-chat-change",
+      outgoingChatKey: CHAT_A_KEY,
+      destinationChatKey: CHAT_B_KEY,
+      destinationInitialization: WORKSPACE_DESTINATION_INHERIT_CURRENT,
+    })
+
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs.map((tab) => tab.key)).toEqual([
+      benchTabKey(FILE_TARGET),
+      benchTabKey(NEXT_FILE_TARGET),
+    ])
+    expect(harness.store.getState().slots[CHAT_B_KEY]?.tabs).toEqual([
+      { key: benchTabKey(NEXT_FILE_TARGET), target: NEXT_FILE_TARGET },
+    ])
+  })
+
+  test("focuses tabs and closes the selected tab with the right-hand fallback", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: NEXT_FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_NEXT_FILE_ROUTE,
+    )
+
+    const focused = await harness.execute(
+      { type: "focus-tab", tabKey: benchTabKey(FILE_TARGET) },
+      DOCKED_FILE_ROUTE,
+    )
+    expect(focused).toMatchObject({ outcome: "committed", projection: { route: DOCKED_FILE_ROUTE } })
+
+    const closed = await harness.execute(
+      { type: "close-tab", tabKey: benchTabKey(FILE_TARGET) },
+      DOCKED_NEXT_FILE_ROUTE,
+    )
+    expect(closed).toMatchObject({
+      outcome: "committed",
+      projection: { route: DOCKED_NEXT_FILE_ROUTE },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([
+      { key: benchTabKey(NEXT_FILE_TARGET), target: NEXT_FILE_TARGET },
+    ])
+  })
+
+  test("reveals a parked selected tab without preventing a later user collapse", async () => {
+    const harness = createHarness({ initialRoute: DOCKED_FILE_ROUTE })
+    const state = harness.store.getState()
+    state.captureChatSlot({ chatKey: state.activeChatKey, route: DOCKED_FILE_ROUTE })
+
+    const focused = await harness.controller.execute({
+      type: "focus-tab",
+      tabKey: benchTabKey(FILE_TARGET),
+    })
+
+    expect(focused).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      projection: {
+        route: DOCKED_FILE_ROUTE,
+        bench: { visibility: "visible" },
+      },
+    })
+    expect(harness.readNavigationEvents()).toEqual([])
+
+    const collapsed = await harness.controller.execute({ type: "collapse" })
+    expect(collapsed).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      projection: {
+        route: DOCKED_FILE_ROUTE,
+        bench: { visibility: "parked" },
+      },
+    })
+  })
+
+  test("supersedes a focus request after its tab has gone stale", async () => {
+    const harness = createHarness({ initialRoute: DOCKED_FILE_ROUTE, initialExpanded: true })
+    const state = harness.store.getState()
+    state.captureChatSlot({ chatKey: state.activeChatKey, route: DOCKED_FILE_ROUTE })
+
+    const result = await harness.controller.execute({
+      type: "focus-tab",
+      tabKey: "file:markdown:closed.md",
+    })
+
+    expect(result).toMatchObject({
+      outcome: "superseded",
+      reason: "newer_command",
+      projection: { route: DOCKED_FILE_ROUTE },
+    })
+    expect(harness.readRoute()).toEqual(DOCKED_FILE_ROUTE)
+    expect(harness.readNavigationEvents()).toEqual([])
+  })
+
+  test("closing the final tab closes Bench only after the leave guard allows", async () => {
+    const harness = createHarness({ guard: blockLeave })
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+
+    const blocked = await harness.execute(
+      { type: "close-tab", tabKey: benchTabKey(FILE_TARGET) },
+      CLOSED_ROUTE,
+    )
+    expect(blocked.outcome).toBe("blocked")
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([
+      { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
+    ])
+    expect(harness.readRoute()).toEqual(DOCKED_FILE_ROUTE)
   })
 
   test("inherits the visible whiteboard without treating it as session-owned", async () => {
@@ -1163,5 +1332,119 @@ describe("DirectoryWorkspaceController", () => {
     })
     expect(harness.readRoute()).toEqual(DOCKED_NEXT_FILE_ROUTE)
     expect(harness.readNavigationEvents()).toEqual(["navigate", "guard"])
+  })
+
+  test("auto-focuses an HTML widget over a visible Bench tab", async () => {
+    const harness = createHarness({ initialRoute: DOCKED_FILE_ROUTE, initialExpanded: true })
+    const state = harness.store.getState()
+    state.captureChatSlot({ chatKey: state.activeChatKey, route: DOCKED_FILE_ROUTE })
+    harness.setNextRoute(DOCKED_HTML_WIDGET_ROUTE)
+
+    const result = await harness.controller.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: HTML_WIDGET_TARGET,
+        mode: BENCH_MODE_REQUEST_POLICY,
+      },
+      {
+        origin: "auto-open",
+        autoOpen: {
+          policyID: BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
+          eventKey: "widget:auto-open",
+        },
+      },
+    )
+
+    expect(result).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      decision: { action: "open", policyID: "preserved-current-mode" },
+      projection: {
+        route: DOCKED_HTML_WIDGET_ROUTE,
+        bench: { visibility: "visible", target: HTML_WIDGET_TARGET },
+      },
+    })
+    expect(harness.readRoute()).toEqual(DOCKED_HTML_WIDGET_ROUTE)
+    expect(
+      harness.store.getState().slots[harness.store.getState().activeChatKey]?.tabs,
+    ).toEqual([
+      { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
+      { key: benchTabKey(HTML_WIDGET_TARGET), target: HTML_WIDGET_TARGET },
+    ])
+  })
+
+  test("auto-focuses and reveals an HTML widget while Bench is parked", async () => {
+    const harness = createHarness({ initialRoute: DOCKED_FILE_ROUTE, initialExpanded: false })
+    const state = harness.store.getState()
+    state.captureChatSlot({ chatKey: state.activeChatKey, route: DOCKED_FILE_ROUTE })
+    harness.setNextRoute(DOCKED_HTML_WIDGET_ROUTE)
+
+    const result = await harness.controller.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: HTML_WIDGET_TARGET,
+        mode: BENCH_MODE_REQUEST_POLICY,
+      },
+      {
+        origin: "auto-open",
+        autoOpen: {
+          policyID: BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
+          eventKey: "widget:parked-auto-open",
+        },
+      },
+    )
+
+    expect(result).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      decision: { action: "open", policyID: "preserved-current-mode" },
+      projection: {
+        route: DOCKED_HTML_WIDGET_ROUTE,
+        dockedState: { visibility: WORKSPACE_VISIBILITY_EXPANDED },
+        bench: { visibility: "visible", target: HTML_WIDGET_TARGET },
+      },
+    })
+    expect(harness.readRoute()).toEqual(DOCKED_HTML_WIDGET_ROUTE)
+  })
+
+  test("focuses an existing background whiteboard tab when the active chat starts updating it", async () => {
+    const harness = createHarness({ initialRoute: DOCKED_FILE_ROUTE, initialExpanded: true })
+    const state = harness.store.getState()
+    state.captureChatSlot({ chatKey: state.activeChatKey, route: DOCKED_FILE_ROUTE })
+    state.presentBackground({
+      chatKey: state.activeChatKey,
+      target: WHITEBOARD_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+    harness.setNextRoute(DOCKED_WHITEBOARD_ROUTE)
+
+    const result = await harness.controller.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: WHITEBOARD_TARGET,
+        mode: BENCH_MODE_REQUEST_POLICY,
+      },
+      {
+        origin: "auto-open",
+        autoOpen: {
+          policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+          eventKey: "whiteboard:update",
+        },
+      },
+    )
+
+    expect(result).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      decision: {
+        action: "open",
+        target: WHITEBOARD_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+    })
+    expect(harness.readRoute()).toEqual(DOCKED_WHITEBOARD_ROUTE)
   })
 })

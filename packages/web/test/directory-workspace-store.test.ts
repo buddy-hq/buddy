@@ -41,6 +41,7 @@ import {
   workspaceChatKeyForSession,
   workspaceChatKeyForTransition,
 } from "../src/lib/workspace-chat-key"
+import { upsertBenchTab } from "../src/lib/bench-tabs"
 
 const FILE_TARGET = {
   type: "workspace-file",
@@ -130,8 +131,19 @@ function createMemoryStorage(): DirectoryWorkspacePersistenceStorage & {
   }
 }
 
-function workspaceSlot(slot: WorkspacePresentationSlot): WorkspacePresentationSlot {
-  return slot
+function workspaceSlot(
+  slot: Omit<WorkspacePresentationSlot, "tabs"> & {
+    tabs?: WorkspacePresentationSlot["tabs"]
+  },
+): WorkspacePresentationSlot {
+  return {
+    ...slot,
+    tabs:
+      slot.tabs ??
+      (slot.route.status === BENCH_ROUTE_STATUS_OPEN
+        ? upsertBenchTab([], slot.route.target).tabs
+        : []),
+  }
 }
 
 describe("bench target keys", () => {
@@ -400,6 +412,77 @@ describe("effectiveWorkspaceProjection", () => {
 })
 
 describe("createDirectoryWorkspaceStore", () => {
+  test("adds an auto-open target to an inactive chat without changing the active chat", () => {
+    const activeChatKey = workspaceChatKeyForSession("active")
+    const inactiveChatKey = workspaceChatKeyForSession("inactive")
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: { activeChatKey, hydration: { status: "ready" } },
+    })
+
+    store.getState().presentBackground({
+      chatKey: inactiveChatKey,
+      target: OBJECT_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+
+    expect(store.getState().activeChatKey).toBe(activeChatKey)
+    expect(store.getState().slots[inactiveChatKey]).toMatchObject({
+      route: { status: BENCH_ROUTE_STATUS_OPEN, target: OBJECT_TARGET },
+      docked: { visibility: WORKSPACE_VISIBILITY_COLLAPSED },
+      tabs: [{ target: OBJECT_TARGET }],
+    })
+  })
+
+  test("keeps the active chat when a background open exceeds the persisted slot limit", () => {
+    const activeChatKey = workspaceChatKeyForSession("active-oldest")
+    const backgroundChatKey = workspaceChatKeyForSession("background-newest")
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: { activeChatKey, hydration: { status: "ready" } },
+    })
+    for (let index = 0; index < 23; index += 1) {
+      store.getState().captureChatSlot({
+        chatKey: workspaceChatKeyForSession(`session-${index}`),
+        route: DOCKED_OBJECT_ROUTE,
+      })
+    }
+
+    store.getState().presentBackground({
+      chatKey: backgroundChatKey,
+      target: FILE_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+
+    expect(Object.keys(store.getState().slots)).toHaveLength(24)
+    expect(store.getState().slots[activeChatKey]).toBeDefined()
+    expect(store.getState().slots[backgroundChatKey]).toMatchObject({
+      route: { status: BENCH_ROUTE_STATUS_OPEN, target: FILE_TARGET },
+      tabs: [{ target: FILE_TARGET }],
+    })
+  })
+
+  test("preserves the saved mode when background presentation refreshes the selected tab", () => {
+    const chatKey = workspaceChatKeyForSession("selected")
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: { activeChatKey: chatKey, hydration: { status: "ready" } },
+    })
+    store.getState().captureChatSlot({ chatKey, route: DOCKED_OBJECT_ROUTE })
+
+    store.getState().presentBackground({
+      chatKey,
+      target: OBJECT_TARGET,
+      mode: BENCH_CHAT_LAYOUT_FLOATING,
+    })
+
+    expect(store.getState().slots[chatKey]?.route).toEqual({
+      status: BENCH_ROUTE_STATUS_OPEN,
+      target: OBJECT_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+  })
+
   test("creates a collapsed directory-scoped store with Sources as the default last drawer", () => {
     const store = createDirectoryWorkspaceStore({ directory: "/workspace" })
 
@@ -571,24 +654,24 @@ describe("createDirectoryWorkspaceStore", () => {
       pendingIntent: null,
     })
     expect(store.getState().slots[draftChatKey]).toBeUndefined()
-    expect(store.getState().slots[durableChatKey]).toEqual({
+    expect(store.getState().slots[durableChatKey]).toEqual(workspaceSlot({
       route: DOCKED_OBJECT_ROUTE,
       docked: {
         visibility: WORKSPACE_VISIBILITY_EXPANDED,
         drawer: WORKSPACE_DRAWER_SKILLS,
       },
       lastDrawer: WORKSPACE_DRAWER_SKILLS,
-    })
+    }))
   })
 
   test("does not promote a draft over an existing chat slot", () => {
     const draftChatKey = workspaceChatKeyForSession(undefined)
     const existingChatKey = workspaceChatKeyForSession("existing-session")
-    const existingSlot = {
+    const existingSlot = workspaceSlot({
       route: CLOSED_ROUTE,
       docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
       lastDrawer: WORKSPACE_DRAWER_FILES,
-    } satisfies WorkspacePresentationSlot
+    })
     const store = createDirectoryWorkspaceStore({
       directory: "/workspace",
       initialState: {
@@ -649,11 +732,11 @@ describe("directory workspace persistence", () => {
       directory: "/workspace",
       storage,
       chatKey: chatBKey,
-      slot: {
+      slot: workspaceSlot({
         route: CLOSED_ROUTE,
         docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SEARCH),
         lastDrawer: WORKSPACE_DRAWER_SEARCH,
-      },
+      }),
     })
     releaseFirstWrite?.()
 
@@ -715,14 +798,14 @@ describe("directory workspace persistence", () => {
         chatKey: chatBKey,
         storage,
       }),
-    ).resolves.toEqual({
+    ).resolves.toEqual(workspaceSlot({
       route: CLOSED_ROUTE,
       docked: {
         visibility: WORKSPACE_VISIBILITY_EXPANDED,
         drawer: WORKSPACE_DRAWER_SKILLS,
       },
       lastDrawer: WORKSPACE_DRAWER_SKILLS,
-    })
+    }))
   })
 
   test("persists the versioned slot map", async () => {

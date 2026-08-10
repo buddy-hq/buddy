@@ -4,7 +4,10 @@ import type { BenchReadContextOpenOutput } from "./bench-route-context"
 
 type BenchContextTarget = BenchReadContextOpenOutput["target"]
 type BenchContextRef = BenchReadContextOpenOutput["refs"][number]
-type BenchReadSurfaceContextOpenOutput = Omit<BenchReadContextOpenOutput, "drawer"> &
+type BenchReadSurfaceContextOpenOutput = Pick<
+  BenchReadContextOpenOutput,
+  "status" | "targetKey" | "target" | "metadata" | "content" | "refs" | "hints"
+> &
   Partial<Pick<BenchReadContextOpenOutput, "drawer">>
 type BenchSurfaceContextEnrichment = {
   targetStatus: BenchContextTarget["status"]
@@ -160,7 +163,7 @@ function benchRouteFallbackContextFromTarget(input: {
   target: BenchTarget
   directory: string
   route: string
-}): BenchReadContextOpenOutput {
+}): BenchReadSurfaceContextOpenOutput {
   return {
     status: "open",
     targetKey: benchTargetKey(input.target),

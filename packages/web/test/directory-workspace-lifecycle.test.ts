@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { setRuntimeServerConnection } from "../src/context/server"
 import { DirectoryWorkspaceLifecycleService } from "../src/lib/directory-workspace-lifecycle"
 import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "../src/lib/bench-leave-guard"
+import { benchTabKey, type BenchTab } from "../src/lib/bench-tabs"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   benchTargetKey,
@@ -10,6 +11,7 @@ import {
 import {
   BENCH_ROUTE_STATUS_OPEN,
   createExpandedWorkspaceState,
+  type DrawerKind,
   type EffectiveWorkspaceProjection,
 } from "../src/state/directory-workspace-store"
 
@@ -34,6 +36,10 @@ const RESOURCE_TARGET = {
   },
   viewID: "reader",
 } satisfies BenchTarget
+
+function tabsForTarget(target: BenchTarget): BenchTab[] {
+  return [{ key: benchTabKey(target), target }]
+}
 type PublishBodyProbe = {
   idempotencyKey: string
   publicationSequence: number
@@ -96,21 +102,35 @@ function readPublishContextProbe(value: unknown): PublishContextProbe {
   }
 }
 
-function projectionFor(target: BenchTarget): EffectiveWorkspaceProjection {
+function readFirstPublishedTabTarget(value: unknown): Record<string, unknown> {
+  if (!isRecord(value) || !isRecord(value.value)) {
+    throw new Error("Expected a published Bench context value.")
+  }
+  const tabs = value.value.tabs
+  if (!Array.isArray(tabs) || !isRecord(tabs[0]) || !isRecord(tabs[0].target)) {
+    throw new Error("Expected a published Bench tab target.")
+  }
+  return tabs[0].target
+}
+
+function projectionFor(
+  target: BenchTarget,
+  drawer: DrawerKind | null = null,
+): EffectiveWorkspaceProjection {
   return {
     route: {
       status: BENCH_ROUTE_STATUS_OPEN,
       target,
       mode: BENCH_CHAT_LAYOUT_DOCKED,
     },
-    dockedState: createExpandedWorkspaceState(null),
+    dockedState: createExpandedWorkspaceState(drawer),
     bench: {
       visibility: "visible",
       target,
       targetKey: benchTargetKey(target),
       mode: BENCH_CHAT_LAYOUT_DOCKED,
     },
-    drawer: null,
+    drawer,
     renderedSurface: "docked-bench",
     pending: { status: "none" },
   }
@@ -239,6 +259,8 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     const service = new DirectoryWorkspaceLifecycleService({
       directory: DIRECTORY,
       getProjection: () => projection,
+      getTabs: () =>
+        projection.route.status === "open" ? tabsForTarget(projection.route.target) : [],
       getHydrationStatus: () => "ready",
       getRouteFallbackContext: () => null,
     })
@@ -319,6 +341,8 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projection,
+        getTabs: () =>
+          projection.route.status === "open" ? tabsForTarget(projection.route.target) : [],
         getHydrationStatus: () => hydrationStatus,
         getRouteFallbackContext: () => null,
       })
@@ -404,6 +428,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -485,6 +510,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -573,6 +599,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -657,6 +684,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -779,6 +807,8 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projection,
+        getTabs: () =>
+          projection.route.status === "open" ? tabsForTarget(projection.route.target) : [],
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -930,6 +960,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(OTHER_TARGET),
+        getTabs: () => tabsForTarget(OTHER_TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -1050,6 +1081,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(OTHER_TARGET),
+        getTabs: () => tabsForTarget(OTHER_TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -1138,6 +1170,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(RESOURCE_TARGET),
+        getTabs: () => tabsForTarget(RESOURCE_TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: (route) =>
           route.status === "open" && route.target.type === "object"
@@ -1202,6 +1235,147 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     }
   })
 
+  test("publishes stored object titles and republishes when a title changes", async () => {
+    const publishBodies: unknown[] = []
+    let title = "Abhi Aiyer interview pack"
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-1/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: publishBodies.length }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(RESOURCE_TARGET),
+        getTabs: () => tabsForTarget(RESOURCE_TARGET),
+        getTabTitle: () => title,
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: (route) =>
+          route.status === "open" && route.target.type === "object"
+            ? openObjectFallbackContext(route.target)
+            : null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-1")
+
+      expect(publishBodies.at(-1)).toMatchObject({
+        value: {
+          selectedTabKey: benchTabKey(RESOURCE_TARGET),
+          tabs: [{ title: "Abhi Aiyer interview pack", target: RESOURCE_TARGET }],
+        },
+      })
+
+      title = "Renamed interview pack"
+      await service.publishCurrent()
+
+      expect(publishBodies).toHaveLength(2)
+      expect(publishBodies.at(-1)).toMatchObject({
+        value: { tabs: [{ title: "Renamed interview pack" }] },
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("omits route-only fragments from published tab targets", async () => {
+    const publishBodies: unknown[] = []
+    const anchoredTarget = {
+      type: "workspace-file",
+      path: "docs/intro.md",
+      viewer: "markdown",
+      fragment: "installation",
+    } satisfies BenchTarget
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-1/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: publishBodies.length }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(anchoredTarget),
+        getTabs: () => tabsForTarget(anchoredTarget),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: (route) =>
+          route.status === "open" && route.target.type === "workspace-file"
+            ? openSurfaceContext(route.target)
+            : null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-1")
+
+      expect(readFirstPublishedTabTarget(publishBodies.at(-1))).toEqual({
+        type: "workspace-file",
+        path: anchoredTarget.path,
+        viewer: anchoredTarget.viewer,
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
   test("skips a stale newest registration and uses an older valid registration", async () => {
     const completionBodies: unknown[] = []
     setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
@@ -1240,6 +1414,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(RESOURCE_TARGET),
+        getTabs: () => tabsForTarget(RESOURCE_TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: (route) =>
           route.status === "open" && route.target.type === "object"
@@ -1364,6 +1539,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -1390,6 +1566,129 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     }
   })
 
+  test("completes captures only while the requested tab and drawer remain selected", async () => {
+    const completionBodies: unknown[] = []
+    let projectionTarget: BenchTarget = TARGET
+    let projectionDrawer: DrawerKind = "skills"
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/client-actions/") && method === "POST") {
+          completionBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ status: "completed" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ revision: 1 }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(projectionTarget, projectionDrawer),
+        getTabs: () => tabsForTarget(projectionTarget),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: (route) =>
+          route.status === "open" && route.target.type === "workspace-file"
+            ? openSurfaceContext(route.target)
+            : null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+
+      await expect(
+        service.completeClientAction({
+          actionID: "action-capture-current",
+          sessionID: "session-1",
+          expectedCapture: {
+            tabKey: benchTabKey(TARGET),
+            target: TARGET,
+            drawer: "skills",
+          },
+          getActiveSessionID: () => "session-1",
+          completion: { outcome: "captured", pngBase64: "png-bytes" },
+        }),
+      ).resolves.toBeTrue()
+
+      projectionDrawer = "files"
+      await expect(
+        service.completeClientAction({
+          actionID: "action-capture-stale-drawer",
+          sessionID: "session-1",
+          expectedCapture: {
+            tabKey: benchTabKey(TARGET),
+            target: TARGET,
+            drawer: "skills",
+          },
+          getActiveSessionID: () => "session-1",
+          completion: { outcome: "captured", pngBase64: "stale-drawer-png-bytes" },
+        }),
+      ).resolves.toBeTrue()
+
+      projectionDrawer = "skills"
+      projectionTarget = OTHER_TARGET
+      await expect(
+        service.completeClientAction({
+          actionID: "action-capture-stale-tab",
+          sessionID: "session-1",
+          expectedCapture: {
+            tabKey: benchTabKey(TARGET),
+            target: TARGET,
+            drawer: "skills",
+          },
+          getActiveSessionID: () => "session-1",
+          completion: { outcome: "captured", pngBase64: "stale-tab-png-bytes" },
+        }),
+      ).resolves.toBeTrue()
+
+      expect(completionBodies).toHaveLength(3)
+      expect(completionBodies[0]).toMatchObject({
+        outcome: "captured",
+        drawer: "skills",
+        observedRoute: { status: "open", target: TARGET },
+        context: {
+          status: "open",
+          visibility: "visible",
+          selectedTabKey: benchTabKey(TARGET),
+          drawer: { kind: "skills", presentation: "drawer" },
+        },
+      })
+      expect(completionBodies[1]).toMatchObject({
+        outcome: "failed",
+        reason: "capture_failed",
+      })
+      expect(completionBodies[2]).toMatchObject({
+        outcome: "failed",
+        reason: "capture_failed",
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
   test("keeps same-lease conflicts incomplete but treats expiry as terminal", async () => {
     const statuses = ["conflict", "expired"] as const
     let requestIndex = 0
@@ -1408,6 +1707,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -1477,6 +1777,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => openSurfaceContext(),
       })
@@ -1556,6 +1857,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => openSurfaceContext(),
       })
@@ -1625,6 +1927,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => openSurfaceContext(),
       })
@@ -1710,6 +2013,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => openSurfaceContext(),
       })
@@ -1772,6 +2076,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -1822,6 +2127,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })
@@ -1877,6 +2183,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projectionFor(TARGET),
+        getTabs: () => tabsForTarget(TARGET),
         getHydrationStatus: () => "ready",
         getRouteFallbackContext: () => null,
       })

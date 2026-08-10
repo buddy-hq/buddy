@@ -1,19 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import {
-  BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
-  BENCH_CHAT_LAYOUT_DOCKED,
-  type BenchTarget,
-  type OpenBenchResult,
-} from "../src/lib/bench-navigation"
-import {
-  WhiteboardBenchAutoOpen,
-  resolveWhiteboardBenchAutoOpenResult,
-  shouldStartWhiteboardBenchAutoOpen,
-  whiteboardBenchAutoOpenIdentity,
-  whiteboardBenchTargetFromObjectID,
-} from "../src/components/whiteboard/whiteboard-bench-auto-open"
+import { WhiteboardOpeningPreview } from "../src/components/whiteboard/whiteboard-opening-preview"
 import { useLiveWhiteboardMessages } from "../src/components/whiteboard/whiteboard-live-messages"
 import { buildProgressiveWhiteboardPreviewFromMessages } from "../src/components/whiteboard/whiteboard-progressive"
 import {
@@ -28,19 +16,10 @@ import {
   getTranscriptMessages,
   resetTranscriptRepositoryForTests,
 } from "../src/state/transcript-repository"
-import {
-  BENCH_ROUTE_STATUS_OPEN,
-  DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
-  createCollapsedWorkspaceState,
-  createExpandedWorkspaceState,
-  effectiveWorkspaceProjection,
-  type BenchRouteSnapshot,
-} from "../src/state/directory-workspace-store"
 
 const ACTIVE_TOOL_KEY = "message-1:part-1"
 const SESSION_ID = "session-1"
 const DIRECTORY = "/repo"
-const WHITEBOARD_TARGET = whiteboardBenchTargetFromObjectID("whiteboard-object-1")
 
 let container: HTMLDivElement | undefined
 let root: Root | undefined
@@ -81,29 +60,6 @@ function createAssistantMessage(state: Record<string, unknown>): MessageWithPart
   }
 }
 
-function committedOpenResult(input: { visible: boolean }): OpenBenchResult {
-  const route = {
-    status: BENCH_ROUTE_STATUS_OPEN,
-    target: WHITEBOARD_TARGET,
-    mode: BENCH_CHAT_LAYOUT_DOCKED,
-  } satisfies BenchRouteSnapshot
-  return {
-    outcome: "committed",
-    changed: false,
-    decision: { action: "ignore", policyID: "already-open" },
-    projection: effectiveWorkspaceProjection(
-      route,
-      {
-        docked: input.visible
-          ? createExpandedWorkspaceState(null)
-          : createCollapsedWorkspaceState(),
-        lastDrawer: DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
-      },
-      null,
-    ),
-  }
-}
-
 afterEach(async () => {
   if (root) {
     await act(async () => {
@@ -125,104 +81,7 @@ function LiveWhiteboardPreviewProbe(props: { messages: MessageWithParts[] }) {
   return <output>{preview?.elements.map((element) => element.id).join(",")}</output>
 }
 
-describe("whiteboard Bench auto-open", () => {
-  test("starts once for an active whiteboard tool key", () => {
-    expect(
-      shouldStartWhiteboardBenchAutoOpen({
-        activeToolKey: ACTIVE_TOOL_KEY,
-        sessionID: SESSION_ID,
-        handledToolKeys: new Set(),
-        inFlightToolKey: undefined,
-      }),
-    ).toBe(true)
-
-    expect(
-      shouldStartWhiteboardBenchAutoOpen({
-        activeToolKey: ACTIVE_TOOL_KEY,
-        sessionID: SESSION_ID,
-        handledToolKeys: new Set([ACTIVE_TOOL_KEY]),
-        inFlightToolKey: undefined,
-      }),
-    ).toBe(false)
-
-    expect(
-      shouldStartWhiteboardBenchAutoOpen({
-        activeToolKey: ACTIVE_TOOL_KEY,
-        sessionID: SESSION_ID,
-        handledToolKeys: new Set(),
-        inFlightToolKey: ACTIVE_TOOL_KEY,
-      }),
-    ).toBe(false)
-  })
-
-  test("builds a Bench target directly from the whiteboard object id", () => {
-    const target = {
-      type: "object",
-      ref: {
-        kind: "whiteboard",
-        objectID: "whiteboard-object-1",
-        revisionID: null,
-        itemID: null,
-      },
-      viewID: "current",
-    } satisfies BenchTarget
-
-    expect(whiteboardBenchTargetFromObjectID("whiteboard-object-1")).toEqual(target)
-    expect(whiteboardBenchAutoOpenIdentity(ACTIVE_TOOL_KEY)).toEqual({
-      policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
-      eventKey: ACTIVE_TOOL_KEY,
-    })
-  })
-
-  test("acknowledges auto-open only after the requested whiteboard is visible", () => {
-    expect(
-      resolveWhiteboardBenchAutoOpenResult(
-        committedOpenResult({ visible: true }),
-        WHITEBOARD_TARGET,
-      ),
-    ).toBe("complete")
-    expect(
-      resolveWhiteboardBenchAutoOpenResult(
-        committedOpenResult({ visible: false }),
-        WHITEBOARD_TARGET,
-      ),
-    ).toBe("retry")
-  })
-
-  test("retries transient workspace outcomes and stops on terminal failures", () => {
-    const projection = committedOpenResult({ visible: false }).projection
-    expect(
-      resolveWhiteboardBenchAutoOpenResult(
-        {
-          outcome: "superseded",
-          reason: "newer_command",
-          projection,
-        },
-        WHITEBOARD_TARGET,
-      ),
-    ).toBe("retry")
-    expect(
-      resolveWhiteboardBenchAutoOpenResult(
-        {
-          outcome: "inactive",
-          reason: "session_inactive",
-          projection,
-        },
-        WHITEBOARD_TARGET,
-      ),
-    ).toBe("retry")
-    expect(
-      resolveWhiteboardBenchAutoOpenResult(
-        {
-          outcome: "blocked",
-          reason: "leave_guard_blocked",
-          projection,
-        },
-        WHITEBOARD_TARGET,
-      ),
-    ).toBe("stop")
-  })
-
+describe("whiteboard opening preview", () => {
   test("closes a denied new-board preview without reserving a persistent object", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
@@ -242,7 +101,11 @@ describe("whiteboard Bench auto-open", () => {
     }
     const render = (messages: MessageWithParts[]) => (
       <TransientBenchSurfaceProvider value={transientValue}>
-        <WhiteboardBenchAutoOpen directory={DIRECTORY} sessionID={SESSION_ID} messages={messages} />
+        <WhiteboardOpeningPreview
+          directory={DIRECTORY}
+          sessionID={SESSION_ID}
+          messages={messages}
+        />
       </TransientBenchSurfaceProvider>
     )
 
@@ -297,7 +160,7 @@ describe("whiteboard Bench auto-open", () => {
     await act(async () => {
       root?.render(
         <TransientBenchSurfaceProvider value={transientValue}>
-          <WhiteboardBenchAutoOpen
+          <WhiteboardOpeningPreview
             directory={DIRECTORY}
             sessionID={SESSION_ID}
             messages={[

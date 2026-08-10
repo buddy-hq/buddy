@@ -1,8 +1,13 @@
 import { useEffect, useRef, type ReactNode } from "react"
 import { ResizeHandle } from "@buddy/ui"
-import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
+import {
+  DesktopTitlebar,
+  WINDOWS_CHAT_TITLEBAR_RIGHT_CONTROLS_INSET_PX,
+} from "@/components/layout/desktop-titlebar"
 import { DESKTOP_TITLEBAR_HEIGHT_PX } from "@/components/layout/desktop-titlebar-inset"
 import type { SessionInfo } from "@/state/chat-types"
+import { RIGHT_WORKSPACE_RAIL_WIDTH_PX } from "@/lib/directory-chat/right-workspace-layout"
+import { usePlatform } from "@/context/platform"
 
 type DirectoryChatShellProps = {
   leftSidebar: ReactNode
@@ -24,6 +29,8 @@ type DirectoryChatShellProps = {
   onLeftSidebarOverlayOpenChange?: (open: boolean) => void
   onLeftSidebarToggle?: () => void
   rightWorkspaceOpen: boolean
+  rightWorkspaceTitlebar?: ReactNode
+  rightWorkspaceDisplayWidth?: number
   onRightWorkspaceToggle: () => void
   showThreadBrowser?: boolean
   showSidebarThreadControls?: boolean
@@ -37,6 +44,7 @@ type DirectoryChatShellProps = {
 }
 
 export function DirectoryChatShell(props: DirectoryChatShellProps) {
+  const platform = usePlatform()
   const {
     leftSidebar,
     contentLayout,
@@ -57,6 +65,8 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     onLeftSidebarOverlayOpenChange,
     onLeftSidebarToggle,
     rightWorkspaceOpen,
+    rightWorkspaceTitlebar,
+    rightWorkspaceDisplayWidth = 0,
     onRightWorkspaceToggle,
     showThreadBrowser,
     showSidebarThreadControls,
@@ -73,6 +83,14 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
 
   const leftSidebarResolvedWidth = !immersive && leftSidebarOpen ? leftSidebarDisplayWidth : 0
   const titlebarHeight = immersive ? 0 : DESKTOP_TITLEBAR_HEIGHT_PX
+  const rightWorkspaceTitlebarWidth =
+    !immersive && rightWorkspaceOpen && rightWorkspaceTitlebar
+      ? rightWorkspaceDisplayWidth
+      : 0
+  const rightWorkspaceTitlebarInset =
+    platform.platform === "desktop" && platform.os === "windows"
+      ? WINDOWS_CHAT_TITLEBAR_RIGHT_CONTROLS_INSET_PX
+      : RIGHT_WORKSPACE_RAIL_WIDTH_PX
 
   useEffect(() => {
     if (!leftSidebarOverlayOpen) return
@@ -124,7 +142,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
       data-layout-motion="instant"
       className="relative grid h-full w-full overflow-hidden bg-surface-raised-base transition-none"
       style={{
-        gridTemplateColumns: `${leftSidebarResolvedWidth}px minmax(0, 1fr)`,
+        gridTemplateColumns: `${leftSidebarResolvedWidth}px minmax(0, 1fr) ${rightWorkspaceTitlebarWidth}px`,
         gridTemplateRows: `${titlebarHeight}px minmax(0, 1fr)`,
       }}
     >
@@ -176,6 +194,16 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
       </div>
 
       <div
+        hidden={immersive || rightWorkspaceTitlebarWidth === 0}
+        aria-hidden={immersive || rightWorkspaceTitlebarWidth === 0}
+        data-component="directory-chat-right-workspace-titlebar"
+        className="col-start-3 row-start-1 min-w-0 overflow-hidden border-b border-l border-border-weaker-base bg-background-base"
+        style={{ paddingRight: rightWorkspaceTitlebarInset }}
+      >
+        {rightWorkspaceTitlebar}
+      </div>
+
+      <div
         hidden={immersive}
         aria-hidden={immersive}
         className="col-start-1 row-start-2 min-h-0 min-w-0 overflow-hidden"
@@ -205,7 +233,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
         </div>
       </div>
 
-      <div className="col-start-2 row-start-2 min-h-0 min-w-0 overflow-hidden">
+      <div className="col-start-2 col-span-2 row-start-2 min-h-0 min-w-0 overflow-hidden">
         <div data-component="directory-chat-shell-content-layout" className="h-full min-h-0 w-full">
           {contentLayout}
         </div>

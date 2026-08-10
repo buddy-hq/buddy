@@ -359,7 +359,7 @@ describe("bench navigation policy", () => {
     })
   })
 
-  test("fullscreen widget auto-open does not replace a different active bench target", () => {
+  test("fullscreen widget auto-open focuses the widget over a different active target", () => {
     const currentTarget = {
       type: "workspace-file",
       path: "notes.md",
@@ -384,9 +384,10 @@ describe("bench navigation policy", () => {
           layoutProfile: resolveBenchSurfaceDefaults(currentTarget).layoutProfile,
         },
       }),
-    ).toEqual({
-      action: "ignore",
-      policyID: "auto-open-not-authorized",
+    ).toMatchObject({
+      action: "open",
+      target: HTML_WIDGET_OBJECT_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
     })
   })
 

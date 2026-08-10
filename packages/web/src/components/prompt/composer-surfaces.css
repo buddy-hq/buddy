@@ -110,6 +110,14 @@
   box-shadow: var(--composer-surface-shadow);
 }
 
+/* Selected Bench tab — the anchored composer material at compact-control scale. */
+.composer-surface-tab {
+  border: 0;
+  border-radius: var(--composer-surface-radius-sm);
+  background-color: var(--composer-surface-bg);
+  box-shadow: var(--composer-surface-shadow);
+}
+
 /* Floating panel — the large surfaces the composer opens (arcade, sketch dock). */
 .composer-surface-floating {
   border: 0;

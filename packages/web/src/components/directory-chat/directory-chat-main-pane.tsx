@@ -45,7 +45,7 @@ import { BenchClosedContextPublisher } from "@/components/bench/bench-route-cont
 import { isBenchRoutePathname } from "@/lib/bench-navigation"
 import { canEditImagesForModel } from "@/lib/image-editing"
 import { useLocation } from "@tanstack/react-router"
-import { WhiteboardBenchAutoOpen } from "@/components/whiteboard/whiteboard-bench-auto-open"
+import { WhiteboardOpeningPreview } from "@/components/whiteboard/whiteboard-opening-preview"
 import { findLatestTodoSnapshot } from "@/components/chat/tools/todo-state"
 import { isAnonymousOpenCodeProvider } from "@/lib/provider-catalog"
 import {
@@ -533,7 +533,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           {language.t("prompt.composer.draggingHint")}
         </div>
       ) : null}
-      <WhiteboardBenchAutoOpen
+      <WhiteboardOpeningPreview
         directory={directory}
         sessionID={chatState.sessionID}
         messages={chatState.messages}

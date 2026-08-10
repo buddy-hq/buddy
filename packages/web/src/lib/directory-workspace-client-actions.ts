@@ -4,6 +4,7 @@ import {
   BENCH_MODE_REQUEST_POLICY,
   benchTargetKey,
   readBenchTarget,
+  resolveBenchSurfaceDefaults,
   type BenchAutoOpenIdentity,
   type BenchTarget,
 } from "@/lib/bench-navigation"
@@ -11,13 +12,18 @@ import type {
   BenchClientActionCompletionDraft,
   BenchClientLease,
 } from "@/lib/directory-workspace-lifecycle"
-import type {
-  DirectoryWorkspaceCommand,
-  DirectoryWorkspaceCommandResult,
+import {
+  WORKSPACE_DRAWER_NONE,
+  isDrawerKind,
+  type DrawerKind,
+  type DirectoryWorkspaceCommand,
+  type DirectoryWorkspaceCommandResult,
 } from "@/state/directory-workspace-store"
+import { getPlatform } from "@/context/platform"
+import { workspaceChatKeyForSession } from "@/lib/workspace-chat-key"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 
-const BENCH_CLIENT_ACTION_VERSION = 1
+const BENCH_CLIENT_ACTION_VERSION = 2
 const BENCH_CLIENT_ACTION_LEDGER_LIMIT = 512
 const BENCH_CLIENT_ACTION_TYPE = "bench.client_action"
 const BENCH_CLIENT_LEASE_TYPE = "bench.client_lease"
@@ -26,10 +32,16 @@ const LEDGER_STATUS_PENDING_COMPLETION_SESSION = "pending-completion-session"
 const LEDGER_STATUS_PENDING_SESSION = "pending-session"
 const LEDGER_STATUS_TERMINAL = "terminal"
 const BEST_EFFORT_COALESCING_KEY_SEPARATOR = "\0"
+const BENCH_CAPTURE_REGION_SELECTOR =
+  '[data-component="right-workspace-bench-target"][data-bench-visible="true"]'
+const BENCH_WORKSPACE_SELECTOR =
+  '[data-component="directory-chat-right-workspace"][data-bench-visible="true"]'
+const BENCH_TITLEBAR_SELECTOR =
+  '[data-component="directory-chat-right-workspace-titlebar"]:not([hidden]), [data-component="desktop-titlebar-root-content"]'
 
 type UnknownRecord = Record<string, unknown>
 
-type BenchClientActionV1 = {
+type BenchClientActionV2 = {
   version: typeof BENCH_CLIENT_ACTION_VERSION
   actionID: string
   directory: string
@@ -39,7 +51,20 @@ type BenchClientActionV1 = {
   origin: "agent" | "auto-open"
   acknowledgement: "required" | "best-effort"
   expiresAt: number
-  command: { type: "present"; target: BenchTarget } | { type: "close" }
+  command:
+    | {
+        type: "present"
+        target: BenchTarget
+        autoOpen: BenchAutoOpenIdentity | null
+      }
+    | { type: "focus_tab"; tabKey: string; target: BenchTarget }
+    | { type: "close" }
+    | {
+        type: "capture_bench_screenshot"
+        tabKey: string
+        target: BenchTarget
+        drawer: DrawerKind | null
+      }
 }
 
 type LedgerEntry =
@@ -48,27 +73,27 @@ type LedgerEntry =
     }
   | {
       status: typeof LEDGER_STATUS_PENDING_SESSION
-      action: BenchClientActionV1
+      action: BenchClientActionV2
     }
   | {
       status: typeof LEDGER_STATUS_PENDING_COMPLETION_SESSION
-      action: BenchClientActionV1
+      action: BenchClientActionV2
       completion: BenchClientActionCompletionDraft
     }
   | {
       status: typeof LEDGER_STATUS_TERMINAL
-      completion: BenchClientActionCompletionDraft
+      completion: BenchClientActionCompletionDraft | null
       usedAt: number
     }
 
 type PendingSessionDrainEntry =
   | {
       type: "action"
-      action: BenchClientActionV1
+      action: BenchClientActionV2
     }
   | {
       type: "completion"
-      action: BenchClientActionV1
+      action: BenchClientActionV2
       completion: BenchClientActionCompletionDraft
     }
 
@@ -91,6 +116,7 @@ type DirectoryWorkspaceActionCompletionSink = {
     actionID: string
     sessionID: string
     completion: BenchClientActionCompletionDraft
+    expectedCapture?: { tabKey: string; target: BenchTarget; drawer: DrawerKind | null }
     getActiveSessionID: () => string | undefined
   }): Promise<boolean>
 }
@@ -108,7 +134,19 @@ function readNullableString(value: unknown): string | null | undefined {
   return readString(value)
 }
 
-function readBenchClientAction(value: unknown): BenchClientActionV1 | undefined {
+function readBenchAutoOpenIdentity(value: unknown): BenchAutoOpenIdentity | null | undefined {
+  if (value === null) return null
+  if (!isRecord(value)) return undefined
+  const policyID =
+    value.policyID === BENCH_AUTO_OPEN_POLICY_WHITEBOARD ||
+    value.policyID === BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET
+      ? value.policyID
+      : undefined
+  const eventKey = readString(value.eventKey)
+  return policyID && eventKey ? { policyID, eventKey } : undefined
+}
+
+function readBenchClientAction(value: unknown): BenchClientActionV2 | undefined {
   if (!isRecord(value)) return undefined
   if (value.version !== BENCH_CLIENT_ACTION_VERSION) return undefined
   const actionID = readString(value.actionID)
@@ -149,9 +187,49 @@ function readBenchClientAction(value: unknown): BenchClientActionV1 | undefined 
       command: { type: "close" },
     }
   }
-  if (value.command.type !== "present") return undefined
   const target = readBenchTarget(value.command.target)
   if (!target) return undefined
+  if (value.command.type === "focus_tab") {
+    const tabKey = readString(value.command.tabKey)
+    if (!tabKey) return undefined
+    return {
+      version: BENCH_CLIENT_ACTION_VERSION,
+      actionID,
+      directory,
+      sessionID,
+      messageID,
+      callID,
+      origin,
+      acknowledgement,
+      expiresAt,
+      command: { type: "focus_tab", tabKey, target },
+    }
+  }
+  if (value.command.type === "capture_bench_screenshot") {
+    const tabKey = readString(value.command.tabKey)
+    const drawer =
+      value.command.drawer === null
+        ? null
+        : isDrawerKind(value.command.drawer)
+          ? value.command.drawer
+          : undefined
+    if (!tabKey || drawer === undefined) return undefined
+    return {
+      version: BENCH_CLIENT_ACTION_VERSION,
+      actionID,
+      directory,
+      sessionID,
+      messageID,
+      callID,
+      origin,
+      acknowledgement,
+      expiresAt,
+      command: { type: "capture_bench_screenshot", tabKey, target, drawer },
+    }
+  }
+  if (value.command.type !== "present") return undefined
+  const autoOpen = readBenchAutoOpenIdentity(value.command.autoOpen)
+  if (autoOpen === undefined) return undefined
   return {
     version: BENCH_CLIENT_ACTION_VERSION,
     actionID,
@@ -165,6 +243,7 @@ function readBenchClientAction(value: unknown): BenchClientActionV1 | undefined 
     command: {
       type: "present",
       target,
+      autoOpen,
     },
   }
 }
@@ -192,7 +271,7 @@ function readEventProperties(input: unknown, type: string): UnknownRecord | unde
   return isRecord(input.properties) ? input.properties : undefined
 }
 
-function readBenchClientActionEvent(input: unknown): BenchClientActionV1 | undefined {
+function readBenchClientActionEvent(input: unknown): BenchClientActionV2 | undefined {
   const properties = readEventProperties(input, BENCH_CLIENT_ACTION_TYPE)
   return properties ? readBenchClientAction(properties.action) : undefined
 }
@@ -259,40 +338,88 @@ function contextSyncFailedCompletion(): BenchClientActionCompletionDraft {
   }
 }
 
-function isActionExpired(action: BenchClientActionV1): boolean {
+function captureFailureCompletion(
+  reason: "capture_failed" | "capture_unavailable",
+): BenchClientActionCompletionDraft {
+  return { outcome: "failed", reason }
+}
+
+async function captureVisibleBench(
+  command: Extract<BenchClientActionV2["command"], { type: "capture_bench_screenshot" }>,
+): Promise<BenchClientActionCompletionDraft> {
+  const captureBenchScreenshot = getPlatform().captureBenchScreenshot
+  if (!captureBenchScreenshot) return captureFailureCompletion("capture_unavailable")
+  const region = document.querySelector(BENCH_CAPTURE_REGION_SELECTOR)
+  const workspace = document.querySelector(BENCH_WORKSPACE_SELECTOR)
+  if (!(region instanceof HTMLElement) || !(workspace instanceof HTMLElement)) {
+    return captureFailureCompletion("capture_unavailable")
+  }
+  const expectedTargetKey = benchTargetKey(command.target)
+  const expectedDrawer = command.drawer ?? WORKSPACE_DRAWER_NONE
+  if (
+    region.dataset.benchTabKey !== command.tabKey ||
+    region.dataset.benchTargetKey !== expectedTargetKey ||
+    workspace.dataset.selector !== expectedDrawer
+  ) {
+    return captureFailureCompletion("capture_failed")
+  }
+  const workspaceBounds = workspace.getBoundingClientRect()
+  const titlebar = document.querySelector(BENCH_TITLEBAR_SELECTOR)
+  const titlebarBounds = titlebar instanceof HTMLElement ? titlebar.getBoundingClientRect() : null
+  const x = Math.floor(Math.min(workspaceBounds.left, titlebarBounds?.left ?? workspaceBounds.left))
+  const y = Math.floor(Math.min(workspaceBounds.top, titlebarBounds?.top ?? workspaceBounds.top))
+  const right = Math.ceil(
+    Math.max(workspaceBounds.right, titlebarBounds?.right ?? workspaceBounds.right),
+  )
+  const bottom = Math.ceil(
+    Math.max(workspaceBounds.bottom, titlebarBounds?.bottom ?? workspaceBounds.bottom),
+  )
+  const width = right - x
+  const height = bottom - y
+  if (width <= 0 || height <= 0) return captureFailureCompletion("capture_unavailable")
+  try {
+    const pngBase64 = await captureBenchScreenshot({ x, y, width, height })
+    if (
+      document.querySelector(BENCH_CAPTURE_REGION_SELECTOR) !== region ||
+      document.querySelector(BENCH_WORKSPACE_SELECTOR) !== workspace ||
+      region.dataset.benchTabKey !== command.tabKey ||
+      region.dataset.benchTargetKey !== expectedTargetKey ||
+      workspace.dataset.selector !== expectedDrawer
+    ) {
+      return captureFailureCompletion("capture_failed")
+    }
+    return { outcome: "captured", pngBase64 }
+  } catch {
+    return captureFailureCompletion("capture_failed")
+  }
+}
+
+function isActionExpired(action: BenchClientActionV2): boolean {
   return action.expiresAt <= Date.now()
 }
 
 function bestEffortAutoOpenIdentity(
-  action: BenchClientActionV1,
+  action: BenchClientActionV2,
 ): BenchAutoOpenIdentity | undefined {
   if (action.acknowledgement !== "best-effort") return undefined
   if (action.command.type !== "present") return undefined
-  if (action.command.target.type !== "object") return undefined
-  if (action.command.target.ref.kind === "whiteboard") {
-    return {
-      policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
-      eventKey: action.actionID,
-    }
-  }
-  if (action.command.target.ref.kind === "html-widget") {
-    return {
-      policyID: BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
-      eventKey: action.actionID,
-    }
-  }
-  return undefined
+  return action.command.autoOpen ?? undefined
 }
 
-function bestEffortCoalescingKey(action: BenchClientActionV1): string | undefined {
+function bestEffortCoalescingKey(action: BenchClientActionV2): string | undefined {
   const identity = bestEffortAutoOpenIdentity(action)
   if (!identity || action.command.type !== "present") return undefined
   return [
     identity.policyID,
-    action.messageID,
-    action.callID ?? "",
-    benchTargetKey(action.command.target),
+    action.sessionID,
+    identity.eventKey,
   ].join(BEST_EFFORT_COALESCING_KEY_SEPARATOR)
+}
+
+function whiteboardForegroundClaimKey(action: BenchClientActionV2): string | undefined {
+  const identity = bestEffortAutoOpenIdentity(action)
+  if (identity?.policyID !== BENCH_AUTO_OPEN_POLICY_WHITEBOARD) return undefined
+  return [action.sessionID, action.messageID].join(BEST_EFFORT_COALESCING_KEY_SEPARATOR)
 }
 
 export class DirectoryWorkspaceClientActionLedger {
@@ -301,7 +428,8 @@ export class DirectoryWorkspaceClientActionLedger {
   readonly #lifecycle: DirectoryWorkspaceActionCompletionSink
   readonly #getActiveSessionID: () => string | undefined
   #entries = new Map<string, LedgerEntry>()
-  #pendingBestEffortActionIDByKey = new Map<string, string>()
+  #bestEffortActionIDByKey = new Map<string, string>()
+  #whiteboardForegroundClaims = new Set<string>()
   #terminalSequence = 0
 
   constructor(input: DirectoryWorkspaceClientActionLedgerInput) {
@@ -318,13 +446,14 @@ export class DirectoryWorkspaceClientActionLedger {
     logBenchToggleStep("client-action-ledger-dispose", {
       directory: this.#directory,
       entryCount: this.#entries.size,
-      pendingBestEffortCount: this.#pendingBestEffortActionIDByKey.size,
+      pendingBestEffortCount: this.#bestEffortActionIDByKey.size,
     })
     this.#entries.clear()
-    this.#pendingBestEffortActionIDByKey.clear()
+    this.#bestEffortActionIDByKey.clear()
+    this.#whiteboardForegroundClaims.clear()
   }
 
-  async handle(action: BenchClientActionV1): Promise<void> {
+  async handle(action: BenchClientActionV2): Promise<void> {
     logBenchToggleStep("client-action-ledger-handle-entry", {
       ledgerDirectory: this.#directory,
       action,
@@ -351,7 +480,7 @@ export class DirectoryWorkspaceClientActionLedger {
         action,
         completion: existing.completion,
       })
-      if (action.acknowledgement === "required") {
+      if (action.acknowledgement === "required" && existing.completion) {
         await this.#complete(action, existing.completion)
       }
       return
@@ -372,6 +501,16 @@ export class DirectoryWorkspaceClientActionLedger {
       this.#entries.delete(action.actionID)
       this.#removePendingBestEffort(action)
       return
+    }
+    if (action.acknowledgement === "best-effort") {
+      const key = bestEffortCoalescingKey(action)
+      if (!key) return
+      const claimedActionID = this.#bestEffortActionIDByKey.get(key)
+      if (claimedActionID && claimedActionID !== action.actionID) {
+        if (this.#entries.has(claimedActionID)) return
+        this.#bestEffortActionIDByKey.delete(key)
+      }
+      this.#bestEffortActionIDByKey.set(key, action.actionID)
     }
     const activeSessionID = this.#getActiveSessionID()
     if (activeSessionID === undefined) {
@@ -439,7 +578,7 @@ export class DirectoryWorkspaceClientActionLedger {
   }
 
   async #finishCompletion(
-    action: BenchClientActionV1,
+    action: BenchClientActionV2,
     completion: BenchClientActionCompletionDraft,
   ): Promise<void> {
     logBenchToggleStep("client-action-ledger-finish-completion-entry", {
@@ -462,8 +601,7 @@ export class DirectoryWorkspaceClientActionLedger {
         action,
         completion,
       })
-      this.#removePendingBestEffort(action)
-      this.#recordTerminal(action.actionID, completion)
+      this.#recordTerminal(action, completion)
       return
     }
     let baseCompletion = completion
@@ -509,7 +647,7 @@ export class DirectoryWorkspaceClientActionLedger {
           action,
           completionToRecord: finalCompletion,
         })
-        this.#recordTerminal(action.actionID, finalCompletion)
+        this.#recordTerminal(action, finalCompletion)
         return
       }
       if (this.#getActiveSessionID() !== completionSessionID) continue
@@ -531,7 +669,7 @@ export class DirectoryWorkspaceClientActionLedger {
   }
 
   async #execute(
-    action: BenchClientActionV1,
+    action: BenchClientActionV2,
     activeSessionID: string,
   ): Promise<BenchClientActionCompletionDraft> {
     logBenchToggleStep("client-action-ledger-execute-entry", {
@@ -539,6 +677,25 @@ export class DirectoryWorkspaceClientActionLedger {
       activeSessionID,
     })
     if (action.sessionID !== activeSessionID) {
+      const autoOpen = bestEffortAutoOpenIdentity(action)
+      if (
+        autoOpen &&
+        action.command.type === "present" &&
+        action.acknowledgement === "best-effort"
+      ) {
+        const defaults = resolveBenchSurfaceDefaults(action.command.target)
+        return completionFromResult(
+          await this.#controller.execute(
+            {
+              type: "present-background",
+              chatKey: workspaceChatKeyForSession(action.sessionID),
+              target: action.command.target,
+              mode: defaults.mode,
+            },
+            { origin: "auto-open", autoOpen },
+          ),
+        )
+      }
       logBenchToggleStep("client-action-ledger-execute-inactive-session", {
         action,
         activeSessionID,
@@ -556,7 +713,32 @@ export class DirectoryWorkspaceClientActionLedger {
       })
       return completionFromResult(result)
     }
+    if (action.command.type === "focus_tab") {
+      const result = await this.#controller.execute(
+        { type: "focus-tab", tabKey: action.command.tabKey },
+        { origin: "agent" },
+      )
+      return completionFromResult(result)
+    }
+    if (action.command.type === "capture_bench_screenshot") {
+      return captureVisibleBench(action.command)
+    }
     const autoOpen = bestEffortAutoOpenIdentity(action)
+    const whiteboardClaimKey = whiteboardForegroundClaimKey(action)
+    if (whiteboardClaimKey && !this.#claimWhiteboardForeground(whiteboardClaimKey)) {
+      const defaults = resolveBenchSurfaceDefaults(action.command.target)
+      return completionFromResult(
+        await this.#controller.execute(
+          {
+            type: "present-background",
+            chatKey: workspaceChatKeyForSession(action.sessionID),
+            target: action.command.target,
+            mode: defaults.mode,
+          },
+          { origin: "auto-open", autoOpen },
+        ),
+      )
+    }
     logBenchToggleStep("client-action-ledger-execute-present-before-controller", {
       action,
       autoOpen,
@@ -581,8 +763,18 @@ export class DirectoryWorkspaceClientActionLedger {
     return completionFromResult(result)
   }
 
+  #claimWhiteboardForeground(key: string): boolean {
+    if (this.#whiteboardForegroundClaims.has(key)) return false
+    this.#whiteboardForegroundClaims.add(key)
+    if (this.#whiteboardForegroundClaims.size > BENCH_CLIENT_ACTION_LEDGER_LIMIT) {
+      const oldestKey = this.#whiteboardForegroundClaims.values().next().value
+      if (oldestKey !== undefined) this.#whiteboardForegroundClaims.delete(oldestKey)
+    }
+    return true
+  }
+
   async #complete(
-    action: BenchClientActionV1,
+    action: BenchClientActionV2,
     completion: BenchClientActionCompletionDraft,
   ): Promise<boolean> {
     logBenchToggleStep("client-action-ledger-complete-entry", {
@@ -593,6 +785,15 @@ export class DirectoryWorkspaceClientActionLedger {
       actionID: action.actionID,
       sessionID: action.sessionID,
       completion,
+      ...(completion.outcome === "captured" && action.command.type === "capture_bench_screenshot"
+        ? {
+            expectedCapture: {
+              tabKey: action.command.tabKey,
+              target: action.command.target,
+              drawer: action.command.drawer,
+            },
+          }
+        : {}),
       getActiveSessionID: this.#getActiveSessionID,
     })
     logBenchToggleStep("client-action-ledger-complete-result", {
@@ -603,40 +804,31 @@ export class DirectoryWorkspaceClientActionLedger {
     return completed
   }
 
-  #recordTerminal(actionID: string, completion: BenchClientActionCompletionDraft): void {
+  #recordTerminal(
+    action: BenchClientActionV2,
+    completion: BenchClientActionCompletionDraft,
+  ): void {
+    const retainedCompletion =
+      action.command.type === "capture_bench_screenshot" && completion.outcome === "captured"
+        ? null
+        : completion
     logBenchToggleStep("client-action-ledger-record-terminal", {
-      actionID,
-      completion,
+      actionID: action.actionID,
+      outcome: completion.outcome,
+      retainedCompletion: retainedCompletion !== null,
     })
-    this.#entries.set(actionID, {
+    this.#entries.set(action.actionID, {
       status: LEDGER_STATUS_TERMINAL,
-      completion,
+      completion: retainedCompletion,
       usedAt: this.#nextTerminalSequence(),
     })
     this.#evictTerminalEntries()
   }
 
-  #queuePendingSessionAction(action: BenchClientActionV1): void {
+  #queuePendingSessionAction(action: BenchClientActionV2): void {
     logBenchToggleStep("client-action-ledger-queue-pending-session-entry", {
       action,
     })
-    if (action.acknowledgement === "best-effort") {
-      const key = bestEffortCoalescingKey(action)
-      if (!key) {
-        logBenchToggleStep("client-action-ledger-queue-pending-session-best-effort-no-key", {
-          action,
-        })
-        return
-      }
-      const previousActionID = this.#pendingBestEffortActionIDByKey.get(key)
-      if (previousActionID) this.#entries.delete(previousActionID)
-      this.#pendingBestEffortActionIDByKey.set(key, action.actionID)
-      logBenchToggleStep("client-action-ledger-queue-pending-session-best-effort-key", {
-        action,
-        key,
-        previousActionID,
-      })
-    }
     this.#entries.set(action.actionID, {
       status: LEDGER_STATUS_PENDING_SESSION,
       action,
@@ -647,11 +839,11 @@ export class DirectoryWorkspaceClientActionLedger {
     })
   }
 
-  #removePendingBestEffort(action: BenchClientActionV1): void {
+  #removePendingBestEffort(action: BenchClientActionV2): void {
     const key = bestEffortCoalescingKey(action)
     if (!key) return
-    if (this.#pendingBestEffortActionIDByKey.get(key) === action.actionID) {
-      this.#pendingBestEffortActionIDByKey.delete(key)
+    if (this.#bestEffortActionIDByKey.get(key) === action.actionID) {
+      this.#bestEffortActionIDByKey.delete(key)
       logBenchToggleStep("client-action-ledger-remove-pending-best-effort", {
         action,
         key,
@@ -678,10 +870,16 @@ export class DirectoryWorkspaceClientActionLedger {
       evictedActionIDs: evicted.map(([actionID]) => actionID),
     })
     for (const [actionID] of evicted) {
+      const entry = this.#entries.get(actionID)
+      if (entry?.status === LEDGER_STATUS_TERMINAL) {
+        for (const [key, claimedActionID] of this.#bestEffortActionIDByKey) {
+          if (claimedActionID === actionID) this.#bestEffortActionIDByKey.delete(key)
+        }
+      }
       this.#entries.delete(actionID)
     }
   }
 }
 
 export { readBenchClientActionEvent, readBenchClientLeaseEvent }
-export type { BenchClientActionV1 }
+export type { BenchClientActionV2 }

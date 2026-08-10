@@ -5,9 +5,14 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router"
-import { StrictMode, act } from "react"
+import { StrictMode, act, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import { createPortal } from "react-dom"
 import { DesktopTitlebar } from "../src/components/layout/desktop-titlebar"
+import {
+  DesktopTitlebarContentProvider,
+  useDesktopTitlebarContentTarget,
+} from "../src/components/layout/desktop-titlebar-content"
 import { encodeDirectory } from "../src/lib/directory-token"
 import {
   createBrowserPlatform,
@@ -42,6 +47,8 @@ import {
 } from "../src/lib/bench-navigation"
 import { resetActiveChatTransitionStateForTests } from "../src/lib/active-chat-transition-state"
 import { WORKSPACE_CHAT_DRAFT_KEY } from "../src/lib/workspace-chat-key"
+import { upsertBenchTab } from "../src/lib/bench-tabs"
+import { DESKTOP_TITLEBAR_HEIGHT_PX } from "../src/components/layout/desktop-titlebar-inset"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_STRICT_MODE_DIRECTORY = "/repo-strict-mode"
@@ -130,10 +137,19 @@ function ThreadControlsTitlebarProbe(props: { showSidebarThreadControls: boolean
   )
 }
 
+function FloatingBenchTitlebarContentProbe() {
+  const target = useDesktopTitlebarContentTarget()
+  return target ? createPortal(<span data-testid="floating-bench-tabs">Bench tabs</span>, target) : null
+}
+
 function RootFloatingBenchTitlebarProbe() {
+  const [target, setTarget] = useState<HTMLDivElement | null>(null)
   return (
     <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
-      <DesktopTitlebar showDockFloatingBench />
+      <DesktopTitlebarContentProvider target={target}>
+        <DesktopTitlebar showDockFloatingBench rootContentRef={setTarget} />
+        <FloatingBenchTitlebarContentProbe />
+      </DesktopTitlebarContentProvider>
     </PlatformProvider>
   )
 }
@@ -288,6 +304,7 @@ function directBenchPersistedPayload(docked: DockedWorkspaceState): string {
       slots: {
         [WORKSPACE_CHAT_DRAFT_KEY]: {
           route: TEST_DIRECT_BENCH_ROUTE,
+          tabs: upsertBenchTab([], TEST_DIRECT_BENCH_TARGET).tabs,
           docked,
           lastDrawer: WORKSPACE_DRAWER_SOURCES,
         },
@@ -381,7 +398,7 @@ describe("DirectoryWorkspaceProvider", () => {
     )
   })
 
-  test("titlebar sidebar thread controls require an explicit placement gate", async () => {
+  test("titlebar pop-out control requires an explicit placement gate", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -401,7 +418,7 @@ describe("DirectoryWorkspaceProvider", () => {
     })
 
     expect(container.querySelector('[aria-label="Pop out chat"]')).not.toBeNull()
-    expect(container.querySelector('[aria-label="New chat"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="New chat"]')).toBeNull()
   })
 
   test("floating Bench root titlebar keeps the chat titlebar height", async () => {
@@ -416,12 +433,15 @@ describe("DirectoryWorkspaceProvider", () => {
     })
 
     const titlebar = container.querySelector('[data-component="desktop-titlebar"]')
-    expect(titlebar?.className).toContain("h-[52px]")
-    expect(titlebar?.className).not.toContain("h-10")
+    expect(titlebar?.getAttribute("style")).toContain(`height: ${DESKTOP_TITLEBAR_HEIGHT_PX}px`)
+    const content = container.querySelector('[data-component="desktop-titlebar-root-content"]')
+    expect(content?.querySelector('[data-testid="floating-bench-tabs"]')).not.toBeNull()
     const dockButton = container.querySelector<HTMLButtonElement>(
       '[data-action="titlebar-dock-floating-bench"]',
     )
     expect(dockButton).not.toBeNull()
+    expect(dockButton?.className).toContain("text-text-strong")
+    expect(dockButton?.querySelector("svg")?.classList.contains("size-4")).toBeTrue()
 
     let dockEventCount = 0
     function onDockFloatingChat() {
@@ -474,6 +494,7 @@ describe("DirectoryWorkspaceProvider", () => {
         slots: {
           [WORKSPACE_CHAT_DRAFT_KEY]: {
             route: { status: BENCH_ROUTE_STATUS_CLOSED },
+            tabs: [],
             docked: {
               visibility: WORKSPACE_VISIBILITY_EXPANDED,
               drawer: null,
@@ -511,6 +532,7 @@ describe("DirectoryWorkspaceProvider", () => {
           slots: {
             [WORKSPACE_CHAT_DRAFT_KEY]: {
               route: { status: BENCH_ROUTE_STATUS_CLOSED },
+              tabs: [],
               docked: {
                 visibility: WORKSPACE_VISIBILITY_EXPANDED,
                 drawer: null,
@@ -579,6 +601,7 @@ describe("DirectoryWorkspaceProvider", () => {
             slots: {
               [WORKSPACE_CHAT_DRAFT_KEY]: {
                 route: { status: BENCH_ROUTE_STATUS_CLOSED },
+                tabs: [],
                 docked: {
                   visibility: WORKSPACE_VISIBILITY_COLLAPSED,
                   drawer: null,

@@ -34,6 +34,7 @@ import { ProjectFileExplorerPanel } from "@/components/project-explorer/project-
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
+  benchTargetKey,
   resolveBenchSurfaceDefaults,
   useOpenBench,
   type BenchOpenPolicyState,
@@ -45,7 +46,11 @@ import {
   RIGHT_WORKSPACE_RAIL_WIDTH_PX,
   resolveRightWorkspaceSelectorDrawerWidth,
 } from "@/lib/directory-chat/right-workspace-layout"
-import { BENCH_ROUTE_STATUS_OPEN, type DrawerKind } from "@/state/directory-workspace-store"
+import {
+  BENCH_ROUTE_STATUS_OPEN,
+  WORKSPACE_DRAWER_NONE,
+  type DrawerKind,
+} from "@/state/directory-workspace-store"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import type { WorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
 import { CreationsDrawer, PracticeDrawer, SourcesDrawer } from "./right-workspace-catalog-drawers"
@@ -55,6 +60,8 @@ import { RightWorkspaceSearchDrawer } from "./right-workspace-search-drawer"
 import { RightWorkspaceSkillsDrawer } from "./right-workspace-skills-drawer"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { obsidianVaultProfileQueryOptions } from "@/state/obsidian-vault-query"
+import { BenchTabs } from "@/components/bench/bench-tabs"
+import type { BenchTab } from "@/lib/bench-tabs"
 
 type DirectoryChatRightWorkspaceProps = {
   directory: string
@@ -68,6 +75,14 @@ type DirectoryChatRightWorkspaceProps = {
     directory: string,
     resource: RightWorkspaceResourceTarget,
   ) => Promise<OpenBenchResult> | void
+  tabs: readonly BenchTab[]
+  activeTabKey: string | null
+  onActivateTab: (tabKey: string) => void
+  onCloseTab: (tabKey: string) => void
+  onCloseOtherTabs: (tabKey: string) => void
+  onCloseTabsToRight: (tabKey: string) => void
+  onCloseAllTabs: () => void
+  showTabsInWorkspace?: boolean
   bench?: ReactNode
   presentation: Pick<
     WorkspacePresentation,
@@ -184,6 +199,8 @@ function RightWorkspaceRail(props: { items: RightWorkspaceRailItem[] }) {
 
 export function DirectoryChatRightWorkspaceContent(props: {
   hasBenchTarget: boolean
+  activeTabKey?: string | null
+  activeTargetKey?: string | null
   bench?: ReactNode
   selectorContent: ReactNode
   selectorDrawerWidth: number
@@ -199,6 +216,8 @@ export function DirectoryChatRightWorkspaceContent(props: {
       <div
         data-component="right-workspace-bench-target"
         data-bench-visible={benchVisible ? "true" : "false"}
+        data-bench-tab-key={props.activeTabKey ?? undefined}
+        data-bench-target-key={props.activeTargetKey ?? undefined}
         className={cn(
           "isolate h-full min-h-0 min-w-0 flex-1 bg-background-base",
           !benchVisible && "hidden",
@@ -566,17 +585,37 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
   return (
     <section
       data-component="directory-chat-right-workspace"
-      data-selector={resolvedSelector ?? "none"}
+      data-selector={resolvedSelector ?? WORKSPACE_DRAWER_NONE}
       data-bench-visible={hasVisibleBench ? "true" : "false"}
       className="flex h-full min-h-0 w-full overflow-hidden bg-background-base"
     >
-      <DirectoryChatRightWorkspaceContent
-        hasBenchTarget={hasBenchTarget}
-        bench={props.bench}
-        selectorContent={selectorContent}
-        selectorDrawerWidth={selectorDrawerWidth}
-        suppressDrawerMotion={props.suppressDrawerMotion}
-      />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {props.showTabsInWorkspace ?? true ? (
+          <BenchTabs
+            directory={props.directory}
+            tabs={props.tabs}
+            activeTabKey={props.activeTabKey}
+            onActivate={props.onActivateTab}
+            onClose={props.onCloseTab}
+            onCloseOthers={props.onCloseOtherTabs}
+            onCloseToRight={props.onCloseTabsToRight}
+            onCloseAll={props.onCloseAllTabs}
+          />
+        ) : null}
+        <DirectoryChatRightWorkspaceContent
+          hasBenchTarget={hasBenchTarget}
+          activeTabKey={props.activeTabKey}
+          activeTargetKey={
+            props.presentation.benchTarget
+              ? benchTargetKey(props.presentation.benchTarget)
+              : null
+          }
+          bench={props.bench}
+          selectorContent={selectorContent}
+          selectorDrawerWidth={selectorDrawerWidth}
+          suppressDrawerMotion={props.suppressDrawerMotion}
+        />
+      </div>
 
       {selectorAccessEnabled ? <RightWorkspaceRail items={railItems} /> : null}
     </section>

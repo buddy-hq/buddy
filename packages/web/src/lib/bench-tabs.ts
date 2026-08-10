@@ -1,0 +1,148 @@
+import { isSameBenchTarget, readBenchTarget, type BenchTarget } from "@/lib/bench-targets"
+
+export type BenchTab = {
+  key: string
+  target: BenchTarget
+}
+
+export type BenchTabSelection = {
+  tabs: BenchTab[]
+  activeTabKey: string | null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+export function benchTabKey(target: BenchTarget): string {
+  if (target.type === "workspace-file") {
+    return `file:${target.viewer}:${encodeURIComponent(target.path)}`
+  }
+
+  return `object:${target.ref.kind}:${encodeURIComponent(target.ref.objectID)}:${encodeURIComponent(target.viewID)}`
+}
+
+export function benchTabFallbackTitle(target: BenchTarget): string {
+  if (target.type === "workspace-file") {
+    return target.path.replaceAll("\\", "/").split("/").at(-1) ?? target.path
+  }
+
+  switch (target.ref.kind) {
+    case "resource":
+      return "Resource"
+    case "whiteboard":
+      return "Whiteboard"
+    case "mermaid":
+      return "Diagram"
+    case "html-widget":
+      return "Widget"
+    case "figure":
+    case "freeform-figure":
+      return "Figure"
+    case "media-presentation":
+      return "Presentation"
+    case "question-set":
+      return "Question set"
+    case "flashcard-deck":
+      return "Flashcards"
+  }
+}
+
+export function resolveBenchTabTitle(
+  tab: BenchTab,
+  objectTitles: ReadonlyMap<string, string>,
+): string {
+  if (tab.target.type === "object") {
+    return objectTitles.get(tab.target.ref.objectID) ?? benchTabFallbackTitle(tab.target)
+  }
+  return benchTabFallbackTitle(tab.target)
+}
+
+export function readBenchTab(value: unknown): BenchTab | undefined {
+  if (!isRecord(value) || typeof value.key !== "string") return undefined
+  const target = readBenchTarget(value.target)
+  if (!target || value.key !== benchTabKey(target)) return undefined
+  return { key: value.key, target }
+}
+
+export function areBenchTabsEqual(left: readonly BenchTab[], right: readonly BenchTab[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((tab, index) => {
+      const candidate = right[index]
+      return candidate?.key === tab.key && isSameBenchTarget(candidate.target, tab.target)
+    })
+  )
+}
+
+export function upsertBenchTab(tabs: readonly BenchTab[], target: BenchTarget): BenchTabSelection {
+  const key = benchTabKey(target)
+  const index = tabs.findIndex((tab) => tab.key === key)
+  if (index < 0) {
+    return {
+      tabs: [...tabs, { key, target }],
+      activeTabKey: key,
+    }
+  }
+
+  const existing = tabs[index]
+  if (existing?.target === target) {
+    return { tabs: [...tabs], activeTabKey: key }
+  }
+
+  return {
+    tabs: tabs.map((tab) => (tab.key === key ? { key, target } : tab)),
+    activeTabKey: key,
+  }
+}
+
+export function closeBenchTab(input: {
+  tabs: readonly BenchTab[]
+  activeTabKey: string | null
+  tabKey: string
+}): BenchTabSelection {
+  const closingIndex = input.tabs.findIndex((tab) => tab.key === input.tabKey)
+  if (closingIndex < 0) {
+    return { tabs: [...input.tabs], activeTabKey: input.activeTabKey }
+  }
+
+  const tabs = input.tabs.filter((tab) => tab.key !== input.tabKey)
+  if (input.activeTabKey !== input.tabKey) {
+    return { tabs, activeTabKey: input.activeTabKey }
+  }
+
+  return {
+    tabs,
+    activeTabKey: tabs[Math.min(closingIndex, tabs.length - 1)]?.key ?? null,
+  }
+}
+
+export function closeOtherBenchTabs(input: {
+  tabs: readonly BenchTab[]
+  tabKey: string
+}): BenchTabSelection {
+  const tab = input.tabs.find((candidate) => candidate.key === input.tabKey)
+  if (!tab) return { tabs: [...input.tabs], activeTabKey: null }
+  return { tabs: [tab], activeTabKey: tab.key }
+}
+
+export function closeBenchTabsToRight(input: {
+  tabs: readonly BenchTab[]
+  activeTabKey: string | null
+  tabKey: string
+}): BenchTabSelection {
+  const tabIndex = input.tabs.findIndex((tab) => tab.key === input.tabKey)
+  if (tabIndex < 0 || tabIndex === input.tabs.length - 1) {
+    return { tabs: [...input.tabs], activeTabKey: input.activeTabKey }
+  }
+
+  const tabs = input.tabs.slice(0, tabIndex + 1)
+  const activeTabKey = tabs.some((tab) => tab.key === input.activeTabKey)
+    ? input.activeTabKey
+    : input.tabKey
+  return { tabs, activeTabKey }
+}
+
+export function closeAllBenchTabs(): BenchTabSelection {
+  return { tabs: [], activeTabKey: null }
+}

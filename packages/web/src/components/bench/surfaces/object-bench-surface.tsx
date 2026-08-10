@@ -544,24 +544,10 @@ function WhiteboardObjectBenchView(props: {
       directory={props.directory}
       view={props.view}
       status="ready"
-      metadata={[
-        "surface: whiteboard",
-        `object_id: ${props.view.ref.objectID}`,
-        `board_id: ${props.data.boardID ?? "none"}`,
-        `element_count: ${props.data.elementCount}`,
-      ]}
-      content="The whiteboard object is visible on Bench. Use whiteboard_read_context for precise board contents, layout, visible text, and learner edits."
-      refs={[
-        objectRef({
-          objectID: props.view.ref.objectID,
-          note: "Whiteboard object on Bench.",
-        }),
-        toolRef({
-          tool: "whiteboard_read_context",
-          note: "Reads precise whiteboard state.",
-        }),
-      ]}
-      hints={["Whiteboard board state is domain context, not generic Bench context."]}
+      metadata={[`element_count: ${props.data.elementCount}`]}
+      content="Call whiteboard_read_context with the selected objectID for precise board contents, layout, visible text, and learner edits."
+      refs={[]}
+      hints={[]}
       leaveGuard={guardLeave}
     >
       <div data-component="object-whiteboard-bench-page" className="h-full min-h-0 w-full">

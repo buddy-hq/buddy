@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from "zustand/vanilla"
 import { getPlatform } from "@/context/platform"
+import { benchTabKey, readBenchTab, upsertBenchTab, type BenchTab } from "@/lib/bench-tabs"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
@@ -26,6 +27,7 @@ export const WORKSPACE_DRAWER_CREATIONS = "creations"
 export const WORKSPACE_DRAWER_BOARDS = "boards"
 export const WORKSPACE_DRAWER_FILES = "files"
 export const WORKSPACE_DRAWER_SKILLS = "skills"
+export const WORKSPACE_DRAWER_NONE = "none"
 export const WORKSPACE_VISIBILITY_COLLAPSED = "collapsed"
 export const WORKSPACE_VISIBILITY_EXPANDED = "expanded"
 export const BENCH_ROUTE_STATUS_CLOSED = "closed"
@@ -41,8 +43,8 @@ export const WORKSPACE_HYDRATION_READY = "ready"
 export const WORKSPACE_HYDRATION_FAILED = "failed"
 export const WORKSPACE_COMMAND_QUEUE_LIMIT = 64
 export const DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER = WORKSPACE_DRAWER_SOURCES
-export const DIRECTORY_WORKSPACE_PERSISTENCE_VERSION = 3
-export const DIRECTORY_WORKSPACE_STORAGE_FILE = "buddy.directory-workspace.v3.dat"
+export const DIRECTORY_WORKSPACE_PERSISTENCE_VERSION = 4
+export const DIRECTORY_WORKSPACE_STORAGE_FILE = "buddy.directory-workspace.v4.dat"
 const DIRECTORY_WORKSPACE_STORAGE_KEY_PREFIX = "directory-workspace:"
 
 export type DrawerKind =
@@ -78,6 +80,7 @@ export type PersistedDirectoryWorkspaceState = {
 
 export type WorkspacePresentationSlot = {
   route: BenchRouteSnapshot
+  tabs: BenchTab[]
   docked: DockedWorkspaceState
   lastDrawer: DrawerKind
 }
@@ -193,6 +196,17 @@ type DirectoryWorkspaceInitialState = Partial<DirectoryWorkspaceProjectionState>
 export type DirectoryWorkspaceCommand =
   | { type: "present"; directory: string; target: BenchTarget; mode: BenchModeRequest }
   | { type: "close" }
+  | { type: "focus-tab"; tabKey: string }
+  | {
+      type: "present-background"
+      chatKey: PersistedWorkspaceChatKey
+      target: BenchTarget
+      mode: BenchMode
+    }
+  | { type: "close-tab"; tabKey: string }
+  | { type: "close-other-tabs"; tabKey: string }
+  | { type: "close-tabs-to-right"; tabKey: string }
+  | { type: "close-all-tabs" }
   | {
       type: "prepare-chat-change"
       outgoingChatKey: WorkspaceChatKey
@@ -235,6 +249,7 @@ export type DirectoryWorkspaceStoreState = DirectoryWorkspaceProjectionState & {
     commandID: string
     docked: DockedWorkspaceState
     route?: BenchRouteSnapshot
+    tabs?: BenchTab[]
   }) => void
   setHydrationReady: () => void
   setHydrationFailed: (message: string) => void
@@ -254,6 +269,11 @@ export type DirectoryWorkspaceStoreState = DirectoryWorkspaceProjectionState & {
     previousProjection: EffectiveWorkspaceProjection
   }) => void
   promoteChatSlot: (input: { from: WorkspaceChatKey; to: PersistedWorkspaceChatKey }) => void
+  presentBackground: (input: {
+    chatKey: WorkspaceChatKey
+    target: BenchTarget
+    mode: BenchMode
+  }) => void
 }
 
 export type DirectoryWorkspaceStore = StoreApi<DirectoryWorkspaceStoreState>
@@ -277,7 +297,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function isDrawerKind(value: unknown): value is DrawerKind {
+export function isDrawerKind(value: unknown): value is DrawerKind {
   return (
     value === WORKSPACE_DRAWER_SEARCH ||
     value === WORKSPACE_DRAWER_SOURCES ||
@@ -321,11 +341,15 @@ function readBenchRouteSnapshot(value: unknown): BenchRouteSnapshot | undefined 
 function readWorkspacePresentationSlot(value: unknown): WorkspacePresentationSlot | undefined {
   if (!isRecord(value)) return undefined
   const route = readBenchRouteSnapshot(value.route)
+  if (!Array.isArray(value.tabs)) return undefined
+  const tabs = value.tabs.map(readBenchTab)
   const docked = readDockedWorkspaceState(value.docked)
   const lastDrawer = value.lastDrawer
-  if (!route || !docked || !isDrawerKind(lastDrawer)) return undefined
+  if (!route || tabs.some((tab) => !tab) || !docked || !isDrawerKind(lastDrawer)) return undefined
+  const parsedTabs = tabs.flatMap((tab) => (tab ? [tab] : []))
   return {
     route,
+    tabs: tabsForRoute(parsedTabs, route),
     docked,
     lastDrawer,
   }
@@ -542,9 +566,15 @@ export async function writePersistedWorkspaceSlot(input: {
 export function defaultWorkspacePresentationSlot(): WorkspacePresentationSlot {
   return {
     route: { status: BENCH_ROUTE_STATUS_CLOSED },
+    tabs: [],
     docked: createCollapsedWorkspaceState(),
     lastDrawer: DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
   }
+}
+
+function tabsForRoute(tabs: readonly BenchTab[], route: BenchRouteSnapshot): BenchTab[] {
+  if (route.status === BENCH_ROUTE_STATUS_CLOSED) return []
+  return upsertBenchTab(tabs, route.target).tabs
 }
 
 export function workspacePresentationSlotForChat(
@@ -568,6 +598,7 @@ const WORKSPACE_CHAT_SLOT_LIMIT = 24
 function retainWorkspaceChatSlots(input: {
   slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
   touchedChatKey: WorkspaceChatKey
+  protectedChatKeys?: readonly WorkspaceChatKey[]
 }): Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> {
   const touched = input.slots[input.touchedChatKey]
   const ordered: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
@@ -581,8 +612,12 @@ function retainWorkspaceChatSlots(input: {
   const excess = persistedKeys.length - WORKSPACE_CHAT_SLOT_LIMIT
   if (excess <= 0) return ordered
 
+  const protectedChatKeys = new Set<string>([
+    input.touchedChatKey,
+    ...(input.protectedChatKeys ?? []),
+  ])
   const evicted = new Set<string>(
-    persistedKeys.filter((key) => key !== input.touchedChatKey).slice(0, excess),
+    persistedKeys.filter((key) => !protectedChatKeys.has(key)).slice(0, excess),
   )
   const bounded: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
   for (const [key, slot] of Object.entries(ordered)) {
@@ -818,6 +853,11 @@ export function createDirectoryWorkspaceStore(input: {
       route:
         input.initialState?.slots?.[initialActiveChatKey]?.route ??
         defaultWorkspacePresentationSlot().route,
+      tabs: tabsForRoute(
+        input.initialState?.slots?.[initialActiveChatKey]?.tabs ?? [],
+        input.initialState?.slots?.[initialActiveChatKey]?.route ??
+          defaultWorkspacePresentationSlot().route,
+      ),
       docked: initialDocked,
       lastDrawer: initialLastDrawer,
     },
@@ -861,6 +901,9 @@ export function createDirectoryWorkspaceStore(input: {
         })
         if (state.pendingIntent?.commandID !== commit.commandID) return {}
         const docked = normalizeDockedState(commit.docked)
+        const currentSlot = workspacePresentationSlotForChat(state.slots, state.activeChatKey)
+        const route = commit.route ?? currentSlot.route
+        const tabs = tabsForRoute(commit.tabs ?? currentSlot.tabs, route)
         logBenchToggleStep("directory-workspace-store-commit-docked-state-commit", {
           directory: input.directory,
           commit,
@@ -872,8 +915,9 @@ export function createDirectoryWorkspaceStore(input: {
             slots: {
               ...state.slots,
               [state.activeChatKey]: {
-                ...workspacePresentationSlotForChat(state.slots, state.activeChatKey),
-                ...(commit.route ? { route: commit.route } : {}),
+                ...currentSlot,
+                route,
+                tabs,
                 docked,
                 lastDrawer: state.lastDrawer,
               },
@@ -905,15 +949,15 @@ export function createDirectoryWorkspaceStore(input: {
         const activeChatKey = hydrationInput.activeChatKey ?? state.activeChatKey
         const docked = normalizeDockedState(hydrationInput.docked)
         const lastDrawer = hydrationInput.lastDrawer
+        const hydratedSlots = hydrationInput.slots ?? state.slots
+        const activeSlot = workspacePresentationSlotForChat(hydratedSlots, activeChatKey)
         return {
           activeChatKey,
           slots: {
-            ...(hydrationInput.slots ?? state.slots),
+            ...hydratedSlots,
             [activeChatKey]: {
-              ...workspacePresentationSlotForChat(
-                hydrationInput.slots ?? state.slots,
-                activeChatKey,
-              ),
+              ...activeSlot,
+              tabs: tabsForRoute(activeSlot.tabs, activeSlot.route),
               docked,
               lastDrawer,
             },
@@ -948,6 +992,7 @@ export function createDirectoryWorkspaceStore(input: {
             ...state.slots,
             [chatKey]: {
               route,
+              tabs: tabsForRoute(workspacePresentationSlotForChat(state.slots, chatKey).tabs, route),
               docked: normalizeDockedState(state.docked),
               lastDrawer: state.lastDrawer,
             },
@@ -1000,6 +1045,34 @@ export function createDirectoryWorkspaceStore(input: {
           slots: retainWorkspaceChatSlots({
             slots: { ...remainingSlots, [to]: source },
             touchedChatKey: to,
+          }),
+        }
+      }),
+    presentBackground: ({ chatKey, target, mode }) =>
+      set((state) => {
+        const slot = workspacePresentationSlotForChat(state.slots, chatKey)
+        const tabs = upsertBenchTab(slot.tabs, target).tabs
+        const targetTabKey = benchTabKey(target)
+        const selectedTabKey =
+          slot.route.status === BENCH_ROUTE_STATUS_OPEN ? benchTabKey(slot.route.target) : null
+        const route: BenchRouteSnapshot =
+          slot.route.status === BENCH_ROUTE_STATUS_CLOSED
+            ? { status: BENCH_ROUTE_STATUS_OPEN, target, mode }
+            : selectedTabKey === targetTabKey
+              ? { ...slot.route, target }
+              : slot.route
+        return {
+          slots: retainWorkspaceChatSlots({
+            slots: {
+              ...state.slots,
+              [chatKey]: {
+                ...slot,
+                route,
+                tabs,
+              },
+            },
+            touchedChatKey: chatKey,
+            protectedChatKeys: [state.activeChatKey],
           }),
         }
       }),

@@ -9,12 +9,14 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react"
+import { createPortal } from "react-dom"
 import {
   BenchRouteContextProvider,
   type BenchRuntimeState,
 } from "@/components/bench/bench-route-context"
 import { BenchSurfaceHost } from "@/components/bench/bench-surface-host"
 import { BenchSurfaceRenderer } from "@/components/bench/bench-surface-renderer"
+import { BenchTabs } from "@/components/bench/bench-tabs"
 import {
   TransientBenchSurfaceProvider,
   closeTransientBenchSurface,
@@ -25,6 +27,7 @@ import {
   routeString,
 } from "@/components/bench/bench-context-utils"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
+import { useDesktopTitlebarContentTarget } from "@/components/layout/desktop-titlebar-content"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { DirectoryChatBenchConversationPane } from "@/components/directory-chat/directory-chat-bench-conversation-pane"
 import {
@@ -44,6 +47,7 @@ import {
   BENCH_DOCK_FLOATING_CHAT_EVENT,
   BENCH_LAYOUT_PROFILE_DOCUMENT,
   BENCH_LAYOUT_PROFILE_VISUAL,
+  benchTargetKey as exactBenchTargetKey,
   readBenchOpenPolicyStateFromLocation,
   resolveDockedBenchShellLayout,
   resolveDockedBenchResizeIntent,
@@ -54,11 +58,16 @@ import {
   type BenchMode,
   type BenchTarget,
 } from "@/lib/bench-navigation"
+import { benchTabKey } from "@/lib/bench-tabs"
 import type { BenchFloatingChatState } from "@/components/bench/bench-route-context"
-import { WORKSPACE_HYDRATION_PENDING } from "@/state/directory-workspace-store"
+import {
+  WORKSPACE_HYDRATION_PENDING,
+  workspacePresentationSlotForChat,
+} from "@/state/directory-workspace-store"
 import type { ResizeHandleIntent } from "@buddy/ui"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStore } from "zustand"
+import { useShallow } from "zustand/react/shallow"
 import { resolveWorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
 import { requestPromptComposerFocus } from "@/components/prompt/prompt-composer-focus"
 import { createTextPromptDraft, getPromptDraft, usePromptStore } from "@/state/prompt-store"
@@ -166,6 +175,7 @@ export function DirectoryWorkspaceRoot() {
 }
 
 function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchController }) {
+  const desktopTitlebarContentTarget = useDesktopTitlebarContentTarget()
   const location = useLocation()
   const workspace = useDirectoryWorkspace()
   const activeChatLayoutMotionSuppressed = useSyncExternalStore(
@@ -174,6 +184,19 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     readActiveChatLayoutMotionSuppressed,
   )
   const hydrationStatus = useStore(workspace.store, (state) => state.hydration.status)
+  const activeTabs = useStore(workspace.store, (state) =>
+    workspacePresentationSlotForChat(state.slots, state.activeChatKey).tabs,
+  )
+  const retainedBenchTargetKeys = useStore(
+    workspace.store,
+    useShallow((state) => {
+      const keys = new Set<string>()
+      for (const slot of Object.values(state.slots)) {
+        for (const tab of slot?.tabs ?? []) keys.add(exactBenchTargetKey(tab.target))
+      }
+      return [...keys]
+    }),
+  )
   const workspaceHydrated = hydrationStatus !== WORKSPACE_HYDRATION_PENDING
   const { controller } = props
   const currentDirectory = controller.mainPaneProps.directory
@@ -198,6 +221,8 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       }),
     [currentDirectory, location.pathname, location.search],
   )
+  const activeTabKey =
+    benchPolicyState.status === "open" ? benchTabKey(benchPolicyState.target) : null
   const routeChatLayoutMode =
     benchPolicyState.status === "open" ? benchPolicyState.mode : BENCH_CHAT_LAYOUT_DOCKED
   const chatLayoutMode = transientBenchActive ? BENCH_CHAT_LAYOUT_DOCKED : routeChatLayoutMode
@@ -621,8 +646,35 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     () => stageWorkspacePrompt(CREATE_CREATION_PROMPT),
     [stageWorkspacePrompt],
   )
+  const activateBenchTab = useCallback(
+    (tabKey: string) => {
+      void workspace.controller.execute({ type: "focus-tab", tabKey })
+    },
+    [workspace.controller],
+  )
+  const closeBenchTab = useCallback(
+    (tabKey: string) => {
+      void workspace.controller.execute({ type: "close-tab", tabKey })
+    },
+    [workspace.controller],
+  )
+  const closeOtherBenchTabs = useCallback(
+    (tabKey: string) => {
+      void workspace.controller.execute({ type: "close-other-tabs", tabKey })
+    },
+    [workspace.controller],
+  )
+  const closeBenchTabsToRight = useCallback(
+    (tabKey: string) => {
+      void workspace.controller.execute({ type: "close-tabs-to-right", tabKey })
+    },
+    [workspace.controller],
+  )
+  const closeAllBenchTabs = useCallback(() => {
+    void workspace.controller.execute({ type: "close-all-tabs" })
+  }, [workspace.controller])
 
-  const benchTargetKey = workspace.projection.bench.targetKey ?? CLOSED_BENCH_TARGET_KEY
+  const activeBenchTargetKey = workspace.projection.bench.targetKey ?? CLOSED_BENCH_TARGET_KEY
   const activeBenchTarget = benchRuntimeState?.target ?? null
   const renderBenchSurface = useCallback(
     (target: BenchTarget) => <BenchSurfaceRenderer directory={currentDirectory} target={target} />,
@@ -653,12 +705,13 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const benchOutlet = (
     <div
       data-component="directory-workspace-bench-target-boundary"
-      data-target-key={benchTargetKey}
+      data-target-key={activeBenchTargetKey}
       className="h-full min-h-0 w-full min-w-0"
     >
       <BenchSurfaceHost
         directory={currentDirectory}
         activeTarget={activeBenchTarget}
+        retainedTargetKeys={retainedBenchTargetKeys}
         benchVisible={presentation.benchVisible}
         activeRuntimeState={benchRuntimeState}
         renderContext={renderBenchContext}
@@ -681,6 +734,23 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       transientBenchSurface,
     ],
   )
+  const showImmersiveTabsInDesktopTitlebar =
+    effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING &&
+    !transientBenchActive &&
+    desktopTitlebarContentTarget !== null
+  const titlebarBenchTabs = !transientBenchActive ? (
+    <BenchTabs
+      placement="titlebar"
+      directory={currentDirectory}
+      tabs={activeTabs}
+      activeTabKey={activeTabKey}
+      onActivate={activateBenchTab}
+      onClose={closeBenchTab}
+      onCloseOthers={closeOtherBenchTabs}
+      onCloseToRight={closeBenchTabsToRight}
+      onCloseAll={closeAllBenchTabs}
+    />
+  ) : null
 
   // Do not mount a full-width transcript and then replace it with the persisted workspace
   // geometry. Hydration is the one point where waiting is correct: no transcript instance exists
@@ -697,6 +767,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
 
   return (
     <TransientBenchSurfaceProvider value={transientBenchContext}>
+      {showImmersiveTabsInDesktopTitlebar
+        ? createPortal(titlebarBenchTabs, desktopTitlebarContentTarget)
+        : null}
       <DirectoryChatShell
         leftSidebar={<ChatLeftSidebar {...controller.leftSidebarProps} />}
         contentLayout={
@@ -745,6 +818,17 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                   onCreateCreation={handleCreateCreation}
                   onOpenThread={selectWorkspaceSession}
                   onOpenResource={controller.mainPaneProps.onOpenResource}
+                  tabs={activeTabs}
+                  activeTabKey={activeTabKey}
+                  onActivateTab={activateBenchTab}
+                  onCloseTab={closeBenchTab}
+                  onCloseOtherTabs={closeOtherBenchTabs}
+                  onCloseTabsToRight={closeBenchTabsToRight}
+                  onCloseAllTabs={closeAllBenchTabs}
+                  showTabsInWorkspace={
+                    effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING &&
+                    desktopTitlebarContentTarget === null
+                  }
                   bench={benchOutlet}
                   presentation={presentation}
                 />
@@ -796,6 +880,16 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         chatTitle={controller.mainPaneProps.chatState.sessionTitle}
         titlebarVariant="chat"
         rightWorkspaceOpen={effectiveWorkspaceHostOpen}
+        rightWorkspaceDisplayWidth={dockedWorkspaceDisplayWidthPx}
+        rightWorkspaceTitlebar={
+          effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED && effectiveWorkspaceHostOpen ? (
+            transientBenchActive ? (
+              <div className="h-full bg-background-base" />
+            ) : (
+              titlebarBenchTabs
+            )
+          ) : undefined
+        }
         showThreadBrowser={presentation.controls.showThreadBrowserInTitlebar}
         showSidebarThreadControls={presentation.controls.showSidebarThreadControls}
         sessions={chatState.sessions}

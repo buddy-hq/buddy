@@ -97,6 +97,13 @@ function RightWorkspaceHarness(props: { sessionID?: string; suppressDrawerMotion
         onCreateCreation={() => undefined}
         onOpenThread={async () => true}
         onOpenResource={() => undefined}
+        tabs={[]}
+        activeTabKey={null}
+        onActivateTab={() => undefined}
+        onCloseTab={() => undefined}
+        onCloseOtherTabs={() => undefined}
+        onCloseTabsToRight={() => undefined}
+        onCloseAllTabs={() => undefined}
         bench={<div data-testid="bench-target">Reader target</div>}
         presentation={presentation}
       />

@@ -14,6 +14,10 @@ type FlushableStorage = {
 let diagnosticSequence = 0
 let writeChain: Promise<void> = Promise.resolve()
 
+function isDiagnosticDetails(value: unknown): value is DiagnosticDetails {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
 function hasFlush(storage: unknown): storage is FlushableStorage {
   return (
     typeof storage === "object" &&
@@ -23,7 +27,10 @@ function hasFlush(storage: unknown): storage is FlushableStorage {
   )
 }
 
-function normalizeDiagnosticValue(_key: string, value: unknown): unknown {
+function normalizeDiagnosticValue(key: string, value: unknown): unknown {
+  if (key === "pngBase64" && typeof value === "string") {
+    return `[redacted ${value.length} characters]`
+  }
   if (typeof value === "bigint") return value.toString()
   if (value instanceof Error) {
     return {
@@ -45,6 +52,18 @@ function stringifyDiagnosticEntry(value: unknown): string {
       stringifyError: error instanceof Error ? error.message : String(error),
     })
   }
+}
+
+function normalizedDiagnosticDetailsFromEntry(entry: string): DiagnosticDetails {
+  const parsed: unknown = JSON.parse(entry)
+  if (
+    isDiagnosticDetails(parsed) &&
+    "details" in parsed &&
+    isDiagnosticDetails(parsed.details)
+  ) {
+    return parsed.details
+  }
+  return { diagnosticEntry: parsed }
 }
 
 function trimLog(raw: string): string {
@@ -116,7 +135,10 @@ export function diagnosticLog(input: {
   })
 
   if (shouldEchoDiagnosticsToConsole()) {
-    console.info(`[diagnostic:${input.channel}] ${input.event}`, input.details ?? {})
+    console.info(
+      `[diagnostic:${input.channel}] ${input.event}`,
+      normalizedDiagnosticDetailsFromEntry(entry),
+    )
   }
 
   writeChain = writeChain
