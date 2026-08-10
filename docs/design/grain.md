@@ -46,6 +46,7 @@ can anchor to it.
 | --- | --- | --- |
 | `composer-grain` | any positioned surface | The paper-tooth `::after` overlay (non-interactive, sits at `z-index: 2` so it runs across the whole surface). |
 | `composer-surface` | the composer shell | Panel radius + anchored bg + resting shadow, borderless. |
+| `composer-surface-tab` | selected Bench tab | Anchored composer material at the compact radius. |
 | `composer-surface-floating` | large floating panels (docks) | Panel radius + floating bg + floating shadow + hairline. |
 | `composer-surface-menu` | compact popovers (dropdowns, `@`/`/` menu, context popover) | Same material as floating, but the compact radius. |
 | `composer-surface-bubble` | the sent user-message bubble | Minimal: fill + radius + grain only, **no shadow/ring**, with a pinched bottom-right corner (the chat-bubble tail). |
@@ -72,6 +73,7 @@ Two edge cases the CSS also handles, both keyed off `composer-surface-menu`:
 | Arcade dock, Sketch dock | `prompt/prompt-composer.tsx` (call sites) | `composer-surface-floating composer-grain` |
 | Context-usage popover | `directory-chat/session-context-usage.tsx` | `composer-surface-menu composer-grain` |
 | Sent user-message bubble | `chat/parts/user-message.tsx` | `composer-surface-bubble composer-grain` |
+| Selected Bench tab | `bench/bench-tabs.tsx` | `composer-surface-tab composer-grain` |
 
 The docks are styled at their call sites (passed via `className` into the
 shared `ComposerDock`) so the `@buddy/ui` package stays decoupled from the app's

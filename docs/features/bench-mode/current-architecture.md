@@ -85,15 +85,15 @@ The router blocker is the only unsaved-work protection boundary. It runs for tar
 
 ## Drawers And Visibility
 
-Bench, Explorer, and Library are no longer modeled as mutually exclusive durable surfaces.
+Bench and notebook drawers are no longer modeled as mutually exclusive durable surfaces.
 
-The route owns the selected chat's active Bench target. The docked workspace may be expanded or collapsed. Explorer or Library may be a drawer over that target. Selecting an item presents the target in the active chat slot, commits expanded visibility, and closes the drawer.
+The route owns the selected chat's active Bench target. Each chat slot owns its ordered logical tabs. The docked workspace may be expanded or collapsed, and a notebook drawer may cover the selected target. Selecting an item presents or focuses its tab, commits expanded visibility, and closes the drawer.
 
-A no-target expanded workspace shows the active drawer, otherwise the last drawer, otherwise Explorer. A drawer over a visible target is published to model-visible context as:
+A no-target expanded workspace shows the active drawer or the last drawer. A drawer over a visible target is published to model-visible context as:
 
 ```ts
 type BenchDrawerContext = {
-  kind: "explorer" | "library"
+  kind: "search" | "sources" | "practice" | "creations" | "boards" | "files" | "skills"
   presentation: "drawer"
 }
 ```
@@ -105,8 +105,8 @@ Agent-facing Bench commands use a typed Bench-specific client-action protocol ov
 The shared action identity is:
 
 ```ts
-type BenchClientActionV1 = {
-  version: 1
+type BenchClientActionV2 = {
+  version: 2
   actionID: string
   directory: string
   sessionID: string
@@ -116,7 +116,14 @@ type BenchClientActionV1 = {
   acknowledgement: "required" | "best-effort"
   expiresAt: number
   command:
-    | { type: "present"; target: BenchTarget }
+    | { type: "present"; target: BenchTarget; autoOpen: BenchAutoOpenIdentity | null }
+    | { type: "focus_tab"; tabKey: string; target: BenchTarget }
+    | {
+        type: "capture_bench_screenshot"
+        tabKey: string
+        target: BenchTarget
+        drawer: BenchDrawerContext["kind"] | null
+      }
     | { type: "close" }
 }
 ```
@@ -140,7 +147,9 @@ The frontend keeps at most 512 terminal action-ledger entries per directory.
 Executing entries are never evicted. The backend keeps five-minute terminal broker
 tombstones capped at 512 per directory/session.
 
-Best-effort auto-open actions are live-only. They do not delay the producing tool and do not send backend completions.
+Best-effort auto-open actions are live-only. They carry canonical policy/event identity, coalesce by
+that identity and originating session, do not delay the producing tool, and do not send backend
+completions.
 
 OpenCode and Buddy events share one response stream without an eager upstream
 pump. Downstream `pull` demand reads at most one transformed OpenCode chunk, so a
@@ -169,7 +178,16 @@ reconnect replaced the lease while the request was in flight, the captured
 completion is retried with the new authoritative lease and sequence space; a
 same-lease conflict remains pending for broker redelivery.
 
-Visible targets publish open context. Parked, closed, hydration-pending, and no-session states publish closed context. When no matching surface registration is ready, the route host supplies a loading fallback snapshot for the canonical target so completion does not wait on a React registration effect.
+Visible targets publish the ordered tab summaries plus full context for only the selected target.
+Parked targets publish their mode, selected tab key, and tab summaries without selected content.
+This complete published tab set supports synchronization, validation, and persistence. The automatic
+turn prelude and `bench_read_context` apply separate bounded model-facing projections; the read tool
+can search the complete internal list without returning it wholesale. Model-visible summaries add
+the tab's current one-based position for interpreting user references, while focus commands continue
+to use the stable tab key.
+Closed, hydration-pending, and no-session states publish closed context. When no matching surface
+registration is ready, the route host supplies a loading fallback snapshot for the canonical target
+so completion does not wait on a React registration effect.
 
 Publication keys are semantic: directory, session, target key, effective visibility, drawer, and semantic revision. Registration ID and provider object identity are not semantic publication inputs.
 
@@ -180,7 +198,11 @@ primary stale-lease gate.
 
 ## Persistence And Cleanup
 
-Workspace persistence stores a bounded per-directory map of chat presentation slots. Each slot contains the selected Bench route, docked state, and last drawer. Draft slots are promoted into their newly created session without sharing mutable slot state. Legacy right-sidebar and old Bench persistence keys are discarded by versioned migration while unrelated UI preferences are preserved.
+Workspace persistence stores a bounded per-directory map of chat presentation slots. Each slot
+contains its ordered logical tabs, selected Bench route, docked state, and last drawer. Draft slots
+are promoted into their newly created session without sharing mutable slot state. Legacy
+right-sidebar and old Bench persistence keys are discarded by versioned migration while unrelated
+UI preferences are preserved.
 
 Runtime-only state is not persisted:
 
