@@ -2,6 +2,7 @@ import * as React from "react"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 
 import { cn } from "@buddy/ui/lib/utils"
+import { Z_INDEX } from "@buddy/ui/lib/z-index"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
 
@@ -42,6 +43,7 @@ function ContextMenuRadioGroup({
 
 function ContextMenuContent({
   className,
+  style,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -51,9 +53,10 @@ function ContextMenuContent({
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
         className={cn(
-          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-border-weak-base bg-surface-raised-stronger-non-alpha text-text-base min-w-36 rounded-lg p-1 shadow-md ring-1 duration-100 z-50 max-h-(--radix-context-menu-content-available-height) origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto",
+          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-border-weak-base bg-surface-raised-stronger-non-alpha text-text-base min-w-36 rounded-lg p-1 shadow-md ring-1 duration-100 max-h-(--radix-context-menu-content-available-height) origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto",
           className,
         )}
+        style={{ zIndex: Z_INDEX.floating, ...style }}
         {...props}
       />
     </ContextMenuPrimitive.Portal>
@@ -109,15 +112,17 @@ function ContextMenuSubTrigger({
 
 function ContextMenuSubContent({
   className,
+  style,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.SubContent>) {
   return (
     <ContextMenuPrimitive.SubContent
       data-slot="context-menu-sub-content"
       className={cn(
-        "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-border-weak-base bg-surface-raised-stronger-non-alpha text-text-base min-w-32 rounded-lg p-1 shadow-lg ring-1 duration-100 z-50 origin-(--radix-context-menu-content-transform-origin) overflow-hidden",
+        "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-border-weak-base bg-surface-raised-stronger-non-alpha text-text-base min-w-32 rounded-lg p-1 shadow-lg ring-1 duration-100 origin-(--radix-context-menu-content-transform-origin) overflow-hidden",
         className,
       )}
+      style={{ zIndex: Z_INDEX.floating, ...style }}
       {...props}
     />
   )

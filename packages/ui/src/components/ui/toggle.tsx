@@ -4,8 +4,25 @@ import { Toggle as TogglePrimitive } from "radix-ui"
 
 import { cn } from "@buddy/ui/lib/utils"
 
+/**
+ * The on-state must not be the hover state.
+ *
+ * Upstream shadcn paints hover, aria-pressed and data-[state=on] with a single
+ * token (`bg-muted`, retokenised here as `surface-weak`), so a selected item
+ * and a merely-hovered one are the same pixels, with no secondary signal — same
+ * text colour, same weight, same border. On a raised surface `surface-weak` is
+ * also close to the container's own fill, so inside a popover the selected item
+ * reads as unselected. See docs/known-issues/state-collapsed-into-hover.md.
+ *
+ * Three parts to the fix, all load-bearing:
+ *   · a distinct fill, one step further up the raised ramp than hover
+ *   · a text-colour signal, so the state survives at any surface depth
+ *   · an explicit data-[state=on]:hover:, because an attribute selector and
+ *     :hover have equal specificity — without it, hovering a selected item
+ *     hands it straight back to the hover colour.
+ */
 const toggleVariants = cva(
-  "hover:text-text-base aria-pressed:bg-surface-weak focus-visible:border-border-interactive-base focus-visible:ring-border-interactive-base/50 aria-invalid:ring-border-critical-base/35 aria-invalid:border-border-critical-base data-[state=on]:bg-surface-weak gap-1 rounded-lg text-sm font-medium transition-all [&_svg:not([class*='size-'])]:size-4 group/toggle hover:bg-surface-weak inline-flex items-center justify-center whitespace-nowrap outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "hover:text-text-base aria-pressed:bg-surface-raised-strong aria-pressed:text-text-strong focus-visible:border-border-interactive-base focus-visible:ring-border-interactive-base/50 aria-invalid:ring-border-critical-base/35 aria-invalid:border-border-critical-base data-[state=on]:bg-surface-raised-strong data-[state=on]:text-text-strong data-[state=on]:hover:bg-surface-raised-strong gap-1 rounded-lg text-sm font-medium transition-all [&_svg:not([class*='size-'])]:size-4 group/toggle hover:bg-surface-weak inline-flex items-center justify-center whitespace-nowrap outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {

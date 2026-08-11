@@ -4,6 +4,7 @@ import * as React from "react"
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
 
 import { cn } from "@buddy/ui/lib/utils"
+import { Z_INDEX } from "@buddy/ui/lib/z-index"
 import { Button } from "@buddy/ui/components/ui/button"
 import {
   InputGroup,
@@ -105,7 +106,8 @@ function ComboboxContent({
         align={align}
         alignOffset={alignOffset}
         anchor={anchor}
-        className="isolate z-50"
+        className="isolate"
+        style={{ zIndex: Z_INDEX.floating }}
       >
         <ComboboxPrimitive.Popup
           data-slot="combobox-content"

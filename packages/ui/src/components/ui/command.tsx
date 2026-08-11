@@ -149,7 +149,11 @@ const CommandItem = React.forwardRef<
     ref={ref}
     data-slot="command-item"
     className={cn(
-      "group/command-item data-selected:bg-surface-weak data-selected:text-text-base data-selected:*:[svg]:text-text-base relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! [&_svg:not([class*='size-'])]:size-4 data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+      // The active row is matched by value, not by attribute presence: cmdk
+      // writes data-selected="false" on every other row, and Buddy's own
+      // `data-selected` variant means [data-state="selected"], which cmdk never
+      // sets. Either shorthand leaves the highlight unpainted.
+      "group/command-item data-[selected=true]:bg-surface-raised-base-hover data-[selected=true]:text-text-strong data-[selected=true]:*:[svg]:text-text-strong relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! [&_svg:not([class*='size-'])]:size-4 data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
       className,
     )}
     {...props}
@@ -169,7 +173,7 @@ const CommandShortcut = ({ className, ...props }: React.HTMLAttributes<HTMLSpanE
     <span
       data-slot="command-shortcut"
       className={cn(
-        "text-text-weak group-data-selected/command-item:text-text-base ml-auto text-xs tracking-widest",
+        "text-text-weak group-data-[selected=true]/command-item:text-text-base ml-auto text-xs tracking-widest",
         className,
       )}
       {...props}

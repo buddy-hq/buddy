@@ -3,6 +3,7 @@ import { cva } from "class-variance-authority"
 import { NavigationMenu as NavigationMenuPrimitive } from "radix-ui"
 
 import { cn } from "@buddy/ui/lib/utils"
+import { Z_INDEX } from "@buddy/ui/lib/z-index"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons"
 
@@ -103,7 +104,10 @@ function NavigationMenuViewport({
   ...props
 }: React.ComponentProps<typeof NavigationMenuPrimitive.Viewport>) {
   return (
-    <div className={cn("absolute top-full left-0 isolate z-50 flex justify-center")}>
+    <div
+      className={cn("absolute top-full left-0 isolate flex justify-center")}
+      style={{ zIndex: Z_INDEX.floating }}
+    >
       <NavigationMenuPrimitive.Viewport
         data-slot="navigation-menu-viewport"
         className={cn(

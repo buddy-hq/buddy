@@ -238,6 +238,7 @@ export {
 } from "./icons"
 export type { IconProps, IconSvgElement } from "./icons"
 export { SHADCN_HUGEICONS_STROKE_WIDTH, SHADCN_HUGEICONS_DEFAULT_COLOR } from "./lib/icon-defaults"
+export { Z_INDEX } from "./lib/z-index"
 export { cn } from "./lib/utils"
 export { toast } from "sonner"
 

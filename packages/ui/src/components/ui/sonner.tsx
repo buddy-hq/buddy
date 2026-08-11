@@ -1,6 +1,7 @@
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { Z_INDEX } from "@buddy/ui/lib/z-index"
 import {
   CheckmarkCircle02Icon,
   InformationCircleIcon,
@@ -33,6 +34,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-text": "var(--text-base)",
           "--normal-border": "var(--border-base)",
           "--border-radius": "var(--radius)",
+          zIndex: Z_INDEX.notification,
         } as React.CSSProperties
       }
       toastOptions={{
