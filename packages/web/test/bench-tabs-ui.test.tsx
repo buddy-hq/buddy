@@ -113,4 +113,102 @@ describe("BenchTabs", () => {
     expect(activated).toEqual([tabs[1]?.key])
     expect(closed).toEqual([tabs[0]?.key, tabs[1]?.key])
   })
+
+  test("keeps the close control outside the tab role so its own keys reach it", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const first = upsertBenchTab([], FIRST_TARGET)
+    const tabs = upsertBenchTab(first.tabs, SECOND_TARGET).tabs
+    const activated: string[] = []
+
+    await act(async () => {
+      root?.render(
+        <QueryClientProvider client={new QueryClient()}>
+          <BenchTabs
+            directory="/workspace"
+            tabs={tabs}
+            activeTabKey={first.activeTabKey}
+            onActivate={(tabKey) => activated.push(tabKey)}
+            onClose={() => undefined}
+            onCloseOthers={() => undefined}
+            onCloseToRight={() => undefined}
+            onCloseAll={() => undefined}
+          />
+        </QueryClientProvider>,
+      )
+    })
+
+    const closeButton = container.querySelector<HTMLButtonElement>('[aria-label="Close first.md"]')
+    expect(closeButton).not.toBeNull()
+    // Inside a `role="tab"` the button is presentational to assistive tech, and
+    // the tab's own Enter handling would cancel the button's activation.
+    expect(closeButton?.closest('[role="tab"]')).toBeNull()
+
+    // Enter on the close button must not fall through to tab activation.
+    await act(async () => {
+      closeButton?.focus()
+      closeButton?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
+      closeButton?.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }))
+    })
+    expect(activated).toEqual([])
+  })
+
+  test("leads the strip with the immersive control only when the Bench can expand", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const first = upsertBenchTab([], FIRST_TARGET)
+    let immersiveCount = 0
+
+    function renderTabs(onEnterImmersive?: () => void) {
+      return (
+        <QueryClientProvider client={new QueryClient()}>
+          <BenchTabs
+            directory="/workspace"
+            tabs={first.tabs}
+            activeTabKey={first.activeTabKey}
+            onActivate={() => undefined}
+            onClose={() => undefined}
+            onCloseOthers={() => undefined}
+            onCloseToRight={() => undefined}
+            onCloseAll={() => undefined}
+            onEnterImmersive={onEnterImmersive}
+          />
+        </QueryClientProvider>
+      )
+    }
+
+    await act(async () => {
+      root?.render(renderTabs())
+    })
+    expect(container.querySelector('[data-action="bench-enter-immersive"]')).toBeNull()
+
+    await act(async () => {
+      root?.render(
+        renderTabs(() => {
+          immersiveCount += 1
+        }),
+      )
+    })
+
+    const control = container.querySelector<HTMLButtonElement>(
+      '[data-action="bench-enter-immersive"]',
+    )
+    expect(control).not.toBeNull()
+    // Ahead of every tab, so it never reads as one of them.
+    const firstTab = container.querySelector('[data-component="bench-tab"]')
+    const tabFollowsControl =
+      firstTab && control
+        ? (control.compareDocumentPosition(firstTab) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+        : false
+    expect(tabFollowsControl).toBeTrue()
+
+    await act(async () => {
+      control?.click()
+    })
+    expect(immersiveCount).toBe(1)
+  })
 })

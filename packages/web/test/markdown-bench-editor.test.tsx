@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act, createRef } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import { Z_INDEX } from "@buddy/ui"
 import {
   MarkdownBenchEditor,
   type MarkdownBenchEditorHandle,
@@ -313,9 +314,11 @@ describe("MarkdownBenchEditor", () => {
     )
     expect(popupLayerStyle?.textContent).toContain('[class*="_dialogOverlay_"]')
     expect(popupLayerStyle?.textContent).toContain('[role="dialog"]')
-    expect(popupLayerStyle?.textContent).toContain("z-index: 60")
-    expect(popupLayerStyle?.textContent).toContain("z-index: 61")
-    expect(popupLayerStyle?.textContent).toContain("z-index: 62")
+    // Popups clear the chat's floating layer; the editor's own dialogs sit on the
+    // modal layer, backdrop and content together so nesting stacks by DOM order.
+    expect(popupLayerStyle?.textContent).toContain(`z-index: ${Z_INDEX.floating}`)
+    expect(popupLayerStyle?.textContent).toContain(`z-index: ${Z_INDEX.modal}`)
+    expect(Z_INDEX.floating).toBeGreaterThan(Z_INDEX.modal)
   })
 
   test("reports rendered document selections without an explicit action", async () => {

@@ -1,0 +1,200 @@
+/*
+ * Bench tab strip — browser-style sizing.
+ *
+ * Tabs divide the strip between themselves instead of keeping a fixed width and
+ * scrolling: opening a tab shrinks every tab, closing one grows them back, and
+ * the change animates. The icon stays put while the title clips and fades for as
+ * long as a sliver of it fits; the close button steps aside first on all but the
+ * active tab. Only once a tab is down to its icon does the strip scroll.
+ *
+ * The strip publishes the open-tab count as `--bench-tab-count`; every other
+ * metric is a knob declared here, so the whole strip is retuned from one place.
+ * The strip must have a definite width — tab widths are a percentage of it, and
+ * a content-sized strip collapses them to the floor.
+ *
+ * Rules are intentionally *unlayered* so they beat Tailwind's layered utilities
+ * — the component wears `.bench-tab` and never fights it with `w-*`/`rounded-*`.
+ */
+
+/* Registering the count is what makes the resize animate. Left unregistered, a
+   width built on `var()` computes to a pending substitution, which cannot be
+   interpolated — the tabs jump to their new width. Registered, the count is a
+   real <number>, so the width below resolves to a concrete value and the
+   `transition` on it interpolates. (Verified in Chrome: unregistered jumps.) */
+@property --bench-tab-count {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
+.bench-tab-bar {
+  --bench-tab-gap: 0.25rem;
+  --bench-tab-width-max: 11rem;
+  /* The floor is the icon plus the tab's own padding: at that width the title
+     has clipped away to nothing on its own, and the strip starts scrolling. */
+  --bench-tab-width-min: 2.25rem;
+  /* The active tab keeps a close button, so its floor has to fit one. */
+  --bench-tab-width-min-active: 3.5rem;
+  --bench-tab-separator-height: 0.875rem;
+  --bench-tab-title-fade: 1rem;
+  --bench-tab-new-space: 1.5rem;
+  --bench-tab-end-space: 2.25rem;
+  --bench-tab-resize-duration: 160ms;
+  --bench-tab-resize-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.bench-tab-strip {
+  gap: var(--bench-tab-gap);
+  /* The strip scrolls only once every tab is at its floor, and a scrollbar here
+     would steal height from a fixed-height row — the tabs would visibly shift.
+     Stated unlayered so it outranks the app's global `*::-webkit-scrollbar`. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.bench-tab-strip::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Reserved space after the strip, so the last tab never touches the edge. */
+.bench-tab-end {
+  width: var(--bench-tab-end-space);
+  flex-shrink: 0;
+}
+
+/* The new-tab button travels with the tabs: it is the strip's last child, one
+   gap after the last tab. That is why the tab width below subtracts its space
+   and counts one gap per tab rather than one fewer. */
+.bench-tab-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--bench-tab-new-space);
+  flex-shrink: 0;
+}
+
+.bench-tab {
+  /* An equal share of the strip, the new-tab button and the gaps removed; the
+     min/max clamp each frame. */
+  width: calc(
+    (
+        100% - var(--bench-tab-new-space) - var(--bench-tab-count) * var(--bench-tab-gap)
+      ) / var(--bench-tab-count)
+  );
+  min-width: var(--bench-tab-width-min);
+  max-width: var(--bench-tab-width-max);
+  border-radius: var(--composer-surface-radius-sm);
+  container: bench-tab / inline-size;
+  /* Clip the contents while a tab is mid-grow, but keep a gap's worth of margin
+     so the separator — which sits outside the box — still paints. */
+  overflow: clip;
+  overflow-clip-margin: var(--bench-tab-gap);
+  transition:
+    width var(--bench-tab-resize-duration) var(--bench-tab-resize-ease),
+    min-width var(--bench-tab-resize-duration) var(--bench-tab-resize-ease),
+    padding-inline var(--bench-tab-resize-duration) var(--bench-tab-resize-ease);
+}
+
+/* A new tab grows in from nothing rather than popping in at full width. That is
+   not just decoration: the tabs already on screen are shrinking to make room, so
+   a tab that appears at its final width overshoots the strip for the length of
+   the animation — long enough for a scrollbar to flash and shove the row. Grown
+   from zero, the widths always sum to the strip and nothing overflows. */
+@starting-style {
+  .bench-tab {
+    width: 0;
+    min-width: 0;
+    padding-inline: 0;
+  }
+}
+
+/* The tab's own box wears the focus ring, but the focus lands on the `role="tab"`
+   button inside it. An outline rather than a ring: `overflow: clip` above would
+   crop a descendant's ring, and an outline on the clipping element itself is not
+   subject to its own clip. `--border-interactive-base` is what every other
+   focusable control here rings with; shadcn's `--ring` is not a token this theme
+   defines, so the utility that named it painted nothing. */
+.bench-tab:has([role="tab"]:focus-visible) {
+  outline: 1px solid var(--border-interactive-base);
+  outline-offset: -1px;
+}
+
+/* Divider sitting in the gap after a tab. Hidden at the end of the strip and on
+   both sides of the active and hovered tabs, whose own shapes read as the edge.
+   The last tab is the one followed by the new-tab button, not `:last-child` —
+   that button is the strip's final element, so no tab is ever the last child.
+   Uses ::before — the active tab's `.composer-grain` overlay owns ::after. */
+.bench-tab::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: calc(var(--bench-tab-gap) / -2);
+  width: 1px;
+  height: var(--bench-tab-separator-height);
+  transform: translateY(-50%);
+  background-color: var(--border-weaker-base);
+  pointer-events: none;
+}
+
+.bench-tab:has(+ .bench-tab-new)::before,
+.bench-tab:hover::before,
+.bench-tab[data-active="true"]::before,
+.bench-tab:has(+ .bench-tab:hover)::before,
+.bench-tab:has(+ .bench-tab[data-active="true"])::before {
+  display: none;
+}
+
+/* A clipped title fades out toward the separator rather than ending in an
+   ellipsis. The title always fills the space left over, so the gradient eats
+   empty space (invisibly) when the title already fits. The fade belongs to the
+   separator, so the last tab — which has none — goes without it too. */
+.bench-tab-title {
+  overflow: hidden;
+  white-space: nowrap;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - min(var(--bench-tab-title-fade), 50%)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - min(var(--bench-tab-title-fade), 50%)),
+    transparent 100%
+  );
+}
+
+.bench-tab:has(+ .bench-tab-new) .bench-tab-title {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* The active tab always wears its close button; the rest reveal one on hover. */
+.bench-tab[data-active="true"] .bench-tab-close {
+  opacity: 1;
+}
+
+.bench-tab[data-active="true"] {
+  min-width: var(--bench-tab-width-min-active);
+}
+
+/* Squeezed: only the active tab keeps a close button, handing the space back to
+   the title. The rest close by middle-click or the context menu.
+   The title itself is never hidden — the icon stays put and the title keeps
+   clipping (and fading) for as long as a sliver of it fits, down to nothing. */
+@container bench-tab (max-width: 7rem) {
+  .bench-tab-close {
+    display: none;
+  }
+
+  .bench-tab[data-active="true"] .bench-tab-close {
+    display: flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bench-tab {
+    transition: none;
+  }
+}

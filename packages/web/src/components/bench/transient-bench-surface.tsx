@@ -5,6 +5,11 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  BENCH_CHAT_LAYOUT_FLOATING,
+  type BenchChatLayoutMode,
+} from "@/lib/bench-navigation"
 
 const TRANSIENT_BENCH_SURFACE_SKETCH = "sketch" as const
 const TRANSIENT_BENCH_SURFACE_WHITEBOARD_OPENING = "whiteboard-opening" as const
@@ -46,6 +51,14 @@ function useTransientBenchSurface() {
   return useContext(TransientBenchSurfaceContext)
 }
 
+function resolveTransientBenchSurfaceLayoutMode(
+  surface: TransientBenchSurface | null,
+): BenchChatLayoutMode | null {
+  if (surface === null) return null
+  if (surface === TRANSIENT_BENCH_SURFACE_SKETCH) return BENCH_CHAT_LAYOUT_DOCKED
+  return BENCH_CHAT_LAYOUT_FLOATING
+}
+
 function closeTransientBenchSurface(
   setActiveSurface: Dispatch<SetStateAction<TransientBenchSurface | null>>,
   surface: TransientBenchSurface,
@@ -58,6 +71,7 @@ export {
   TRANSIENT_BENCH_SURFACE_WHITEBOARD_OPENING,
   TransientBenchSurfaceProvider,
   closeTransientBenchSurface,
+  resolveTransientBenchSurfaceLayoutMode,
   useTransientBenchSurface,
 }
 export type {

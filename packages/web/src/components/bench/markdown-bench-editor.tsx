@@ -53,7 +53,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react"
 import type { RootContent } from "mdast"
-import { cn } from "@buddy/ui"
+import { Z_INDEX, cn } from "@buddy/ui"
 import type { MarkdownBenchDocumentFormat } from "@buddy/workspace-file-policy"
 import { markdownClassName } from "@/components/markdown/markdown-html-segment"
 import {
@@ -395,20 +395,17 @@ const MDX_EDITOR_THEME_CLASS_NAME = [
 ].join(" ")
 
 const MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME = "markdown-bench-mdx-editor"
-const MARKDOWN_BENCH_MDX_POPUP_Z_INDEX = 60
-const MARKDOWN_BENCH_MDX_DIALOG_OVERLAY_Z_INDEX = MARKDOWN_BENCH_MDX_POPUP_Z_INDEX + 1
-const MARKDOWN_BENCH_MDX_DIALOG_CONTENT_Z_INDEX = MARKDOWN_BENCH_MDX_POPUP_Z_INDEX + 2
+const MARKDOWN_BENCH_MDX_POPUP_Z_INDEX = Z_INDEX.floating
+/** Overlay and content share the modal layer; see `Z_INDEX.modal`. */
+const MARKDOWN_BENCH_MDX_DIALOG_Z_INDEX = Z_INDEX.modal
 const MARKDOWN_BENCH_MDX_POPUP_LAYER_CSS = `
 .${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME}.mdxeditor-popup-container {
   z-index: ${MARKDOWN_BENCH_MDX_POPUP_Z_INDEX};
 }
 
-.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME}.mdxeditor-popup-container [class*="_dialogOverlay_"] {
-  z-index: ${MARKDOWN_BENCH_MDX_DIALOG_OVERLAY_Z_INDEX};
-}
-
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME}.mdxeditor-popup-container [class*="_dialogOverlay_"],
 .${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME}.mdxeditor-popup-container [role="dialog"] {
-  z-index: ${MARKDOWN_BENCH_MDX_DIALOG_CONTENT_Z_INDEX};
+  z-index: ${MARKDOWN_BENCH_MDX_DIALOG_Z_INDEX};
 }
 `
 
