@@ -1,4 +1,4 @@
-import { Button } from "@buddy/ui"
+import { Button, cn } from "@buddy/ui"
 import type { ReaderNavigationItem } from "../reader-types"
 
 type ReaderNavigationTreeProps = {
@@ -26,11 +26,15 @@ export function ReaderNavigationTree({
           <div key={item.id}>
             <Button
               type="button"
-              variant={isActive ? "secondary" : "ghost"}
+              variant="ghost"
               size="sm"
               aria-current={isActive ? "location" : undefined}
               onClick={() => onSelect(item.id)}
-              className="h-auto w-full justify-start whitespace-normal px-2 py-1.5 text-left"
+              className={cn(
+                "h-auto w-full justify-start whitespace-normal px-2.5 py-2 text-left",
+                isActive &&
+                  "bg-surface-raised-strong text-text-strong hover:bg-surface-raised-strong",
+              )}
             >
               <span className="min-w-0">
                 <span className="block">{item.label}</span>

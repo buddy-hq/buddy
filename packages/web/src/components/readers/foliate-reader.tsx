@@ -11,37 +11,26 @@ import {
 } from "react"
 import {
   Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   cn,
   toast,
   // Icons from @buddy/ui
   ChevronLeftIcon,
   ChevronRightIcon,
-  CircleQuestionMarkIcon,
-  EllipsisIcon,
 } from "@buddy/ui"
-import {
-  BookmarkIcon,
-  LayoutPanelLeftIcon,
-  Loader2Icon,
-  MapIcon,
-  Redo2Icon,
-  ScrollTextIcon,
-  Undo2Icon,
-} from "@/icons/app-icons"
-import { ReaderAnnotationsPopover } from "./ui/reader-annotations-popover"
-import { ReaderBookmarksPopover } from "./ui/reader-bookmarks-popover"
+import { Loader2Icon } from "@/icons/app-icons"
 import { ReaderEmptyState } from "./ui/reader-empty-state"
 import { ReaderErrorState } from "./ui/reader-error-state"
+import { ReaderFocusExit } from "./ui/reader-focus-exit"
+import { ReaderLocationPopover } from "./ui/reader-location-popover"
+import { ReaderMarksPopover } from "./ui/reader-marks-popover"
 import { ReaderMetadataHoverCard } from "./ui/reader-metadata-hover-card"
+import { ReaderProgressRail } from "./ui/reader-progress-rail"
 import { ReaderPreferencesPopover } from "./ui/reader-preferences-popover"
-import { ReaderProgressScrubber } from "./ui/reader-progress-scrubber"
 import { ReaderSearchPopover } from "./ui/reader-search-popover"
+import { ReaderStatusPill } from "./ui/reader-status-pill"
+import { ReaderToolbar } from "./ui/reader-toolbar"
 import { ReaderTocPopover } from "./ui/reader-toc-popover"
+import { useReaderRecentLocations } from "./ui/use-reader-recent-locations"
 import { ReaderHelpDialog } from "./ui/reader-help-dialog"
 import { FoliateLocationDialog } from "./ui/foliate-location-dialog"
 import { ReaderAnnotationDialog } from "./ui/reader-annotation-dialog"
@@ -106,6 +95,7 @@ import {
   getAnnotationAtValue,
   getAnnotationColorId,
   getAnnotationColorValue,
+  getAnnotationStyle,
   getBookmarkAtLocation,
   getOverlayPosition,
   getSearchResultRows,
@@ -139,6 +129,10 @@ import {
 import { drawAnnotation, toAnnotationDialogState } from "./utils/foliate-drawing"
 import { formatContributor, formatMetadataValue } from "./utils/foliate-formatters"
 import { withReaderSourceContentFingerprint } from "./reader-storage"
+import type {
+  ReaderAnnotationViewModel,
+  ReaderBookmark as CommonReaderBookmark,
+} from "./reader-types"
 import {
   foliateAnnotationDialogToReaderEditor,
   foliateAnnotationsToReaderAnnotations,
@@ -149,12 +143,22 @@ import {
   readerSearchScopeToFoliateScope,
   readerTextAnchorToFoliateCfi,
 } from "./foliate-reader-adapters"
+import { foliateLocationToReaderRelocation } from "./document-reader-adapters"
 // Components already imported above
 
 ensureFoliateRuntimeCompat()
 
 const WHEEL_GESTURE_IDLE_THRESHOLD_MS = 180
+const READER_PERCENT_MAX = 100
 const HOST_THEME_ATTRIBUTE_FILTER = ["class", "style", "data-theme", "data-color-scheme"]
+
+function foliateBookmarkOrder(bookmark: CommonReaderBookmark): string {
+  return bookmark.anchor.kind === "cfi-position" ? bookmark.anchor.cfi : ""
+}
+
+function foliateAnnotationOrder(annotation: ReaderAnnotationViewModel): string {
+  return annotation.anchor.kind === "cfi-text" ? annotation.anchor.cfi : ""
+}
 
 function readAnnotationThemeSignature(): string {
   if (typeof document === "undefined") return ""
@@ -282,10 +286,15 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       null,
     )
     const [searchOpen, setSearchOpen] = useState(false)
+    const [tocOpen, setTocOpen] = useState(false)
+    const [marksOpen, setMarksOpen] = useState(false)
     const [preferencesOpen, setPreferencesOpen] = useState(false)
     const [helpOpen, setHelpOpen] = useState(false)
     const [locationDialogOpen, setLocationDialogOpen] = useState(false)
     const [locationDraft, setLocationDraft] = useState("")
+    const [goToOpen, setGoToOpen] = useState(false)
+    const [goToDraft, setGoToDraft] = useState("")
+    const [focus, setFocus] = useState(false)
     const [progressDraft, setProgressDraft] = useState<number | null>(null)
     const preferencesRef = useRef(preferences)
     const annotationsRef = useRef(annotations)
@@ -354,6 +363,14 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           y: annotationPopover.y,
         }
       : null
+    const readerRelocation = useMemo(
+      () => foliateLocationToReaderRelocation(location),
+      [location],
+    )
+    const recentLocations = useReaderRecentLocations({
+      sourceKey: sourceDependencyKey,
+      relocation: readerRelocation,
+    })
 
     callbacksRef.current = {
       onReady,
@@ -860,8 +877,16 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     async function goToLocationTarget(target: string) {
       const value = target.trim()
       if (!value) return
+      const percent = Number(value.replace(/%$/, ""))
+      if (Number.isFinite(percent) && percent >= 0 && percent <= READER_PERCENT_MAX) {
+        await viewRef.current?.goToFraction(percent / READER_PERCENT_MAX)
+        setLocationDialogOpen(false)
+        setGoToOpen(false)
+        return
+      }
       await viewRef.current?.goTo(value)
       setLocationDialogOpen(false)
+      setGoToOpen(false)
     }
 
     function runNavigationCommand(command: ReturnType<typeof resolveReaderArrowNavigation>) {
@@ -886,6 +911,11 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       if (isEditingTarget(event.target)) return
       const key = event.key
       const command = event.metaKey || event.ctrlKey
+      if (command && key === ".") {
+        event.preventDefault()
+        setFocus((current) => !current)
+        return
+      }
       if (command && key.toLowerCase() === "f") {
         event.preventDefault()
         revealSearchPanel(searchStateRef.current.query)
@@ -932,9 +962,13 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         return
       }
       if (key === "Escape") {
+        setFocus(false)
         clearPositionedOverlays()
+        setTocOpen(false)
+        setMarksOpen(false)
         setSearchOpen(false)
         setPreferencesOpen(false)
+        setGoToOpen(false)
         setLocationDialogOpen(false)
         if (annotationDialogRef.current) setAnnotationDialog(null)
       }
@@ -1267,162 +1301,125 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       isFixedLayout: snapshot?.isFixedLayout ?? false,
       filter: theme.pdfFilter,
     })
+    const surfaceScrolls = canChangeFlow && preferences.flow === FLOW_SCROLLED
+    const locationSection = location.tocLabel ?? snapshot?.title ?? DEFAULT_TITLE
+    const locationPosition =
+      location.pageLabel ??
+      location.locationLabel ??
+      (location.fraction !== undefined
+        ? `${Math.round(location.fraction * READER_PERCENT_MAX)}%`
+        : "—")
 
     const readerPane = (
-      <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
-        {showToolbar ? (
-          <header className="relative z-[2] shrink-0">
-            {/* Progress accent line at top */}
-            <div className="absolute inset-x-0 top-0 h-px bg-border-base/30">
-              <div
-                className="h-full bg-text-interactive-base/60"
-                style={{
-                  width: `${((progressValue / DEFAULT_PROGRESS_STEPS) * 100).toFixed(1)}%`,
-                }}
-              />
-            </div>
-
-            <div className="relative flex h-11 min-w-0 items-center gap-1 overflow-hidden px-2">
+      <div className="relative flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+        {showToolbar && !focus ? (
+          <ReaderToolbar
+            contents={
               <ReaderTocPopover
                 items={readerSnapshot?.toc ?? []}
                 activeLabel={location.tocLabel}
+                open={tocOpen}
+                onOpenChange={setTocOpen}
                 onSelect={(navigationId) => {
                   void viewRef.current?.goTo(navigationId)
+                  setTocOpen(false)
                 }}
               />
-
-              <ReaderBookmarksPopover
+            }
+            marks={
+              <ReaderMarksPopover
                 bookmarks={readerBookmarks}
-                currentBookmarkId={currentBookmark?.value}
-                onToggleBookmark={() => void toggleBookmark()}
-                onGoToBookmark={(target) =>
+                annotations={readerAnnotations}
+                bookmarkOrder={foliateBookmarkOrder}
+                annotationOrder={foliateAnnotationOrder}
+                open={marksOpen}
+                onOpenChange={setMarksOpen}
+                onGoToBookmark={(target) => {
                   void viewRef.current?.goTo(readerPositionAnchorToFoliateTarget(target))
-                }
+                  setMarksOpen(false)
+                }}
+                onShowAnnotation={(annotation) => {
+                  const foliateAnnotation = getAnnotationAtValue(annotations, annotation.id)
+                  if (foliateAnnotation) void showAnnotation(foliateAnnotation)
+                  setMarksOpen(false)
+                }}
+                onEditAnnotation={(annotation) => {
+                  const foliateAnnotation = getAnnotationAtValue(annotations, annotation.id)
+                  if (foliateAnnotation) openAnnotationDialog(foliateAnnotation)
+                  setMarksOpen(false)
+                }}
                 onDeleteBookmark={(bookmarkId) =>
                   setBookmarks((current) =>
                     current.filter((bookmark) => bookmark.value !== bookmarkId),
                   )
                 }
-              />
-
-              <ReaderAnnotationsPopover
-                annotations={readerAnnotations}
-                onShowAnnotation={(annotation) => {
-                  const foliateAnnotation = getAnnotationAtValue(annotations, annotation.id)
-                  if (foliateAnnotation) void showAnnotation(foliateAnnotation)
-                }}
-                onEditAnnotation={(annotation) => {
-                  const foliateAnnotation = getAnnotationAtValue(annotations, annotation.id)
-                  if (foliateAnnotation) openAnnotationDialog(foliateAnnotation)
-                }}
                 onDeleteAnnotation={(annotationId) => void deleteAnnotationValue(annotationId)}
               />
-
-              <div className="flex-1" />
-
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-48">
-                <ReaderMetadataHoverCard snapshot={readerSnapshot}>
-                  <span className="pointer-events-auto cursor-pointer truncate text-xs font-medium text-text-base">
-                    {snapshot?.title ??
-                      (source ? getSourceName(source) : undefined) ??
-                      DEFAULT_TITLE}
-                  </span>
-                </ReaderMetadataHoverCard>
-              </div>
-
+            }
+            search={
               <ReaderSearchPopover
                 search={readerSearch}
-                onQueryChange={(query) => setSearchState((c) => ({ ...c, query }))}
+                onQueryChange={(query) => setSearchState((current) => ({ ...current, query }))}
                 onRunSearch={() => void runSearch()}
-                onCycleResults={(dir) => void cycleSearchResults(dir)}
+                onCycleResults={(direction) => void cycleSearchResults(direction)}
                 onScopeChange={(scope) => {
                   setSearchState((current) => ({
                     ...current,
                     scope: readerSearchScopeToFoliateScope(scope),
                   }))
                 }}
-                onMatchCaseChange={(matchCase) => setSearchState((c) => ({ ...c, matchCase }))}
+                onMatchCaseChange={(matchCase) =>
+                  setSearchState((current) => ({ ...current, matchCase }))
+                }
                 onMatchWholeWordsChange={(matchWholeWords) =>
-                  setSearchState((c) => ({ ...c, matchWholeWords }))
+                  setSearchState((current) => ({ ...current, matchWholeWords }))
                 }
                 onMatchDiacriticsChange={(matchDiacritics) =>
-                  setSearchState((c) => ({ ...c, matchDiacritics }))
+                  setSearchState((current) => ({ ...current, matchDiacritics }))
                 }
                 onShowResult={(target) => {
                   const cfi = readerTextAnchorToFoliateCfi(target)
                   if (cfi) void showSearchResult(cfi)
                 }}
+                canSearchSection={Boolean(readerSnapshot?.toc.length)}
                 ready={status === "ready"}
                 open={searchOpen}
                 onOpenChange={setSearchOpen}
               />
-
+            }
+            title={
+              <ReaderMetadataHoverCard snapshot={readerSnapshot}>
+                <button
+                  type="button"
+                  className="max-w-full truncate text-xs font-medium text-text-base"
+                >
+                  {snapshot?.title ??
+                    (source ? getSourceName(source) : undefined) ??
+                    DEFAULT_TITLE}
+                </button>
+              </ReaderMetadataHoverCard>
+            }
+            view={
               <ReaderPreferencesPopover open={preferencesOpen} onOpenChange={setPreferencesOpen}>
                 <FoliatePreferencesPanel
                   preferences={preferences}
                   setPreferences={setPreferences}
                   canChangeFlow={canChangeFlow}
+                  onOpenHelp={() => {
+                    setPreferencesOpen(false)
+                    setHelpOpen(true)
+                  }}
+                  onOpenLocationNavigation={() => {
+                    setPreferencesOpen(false)
+                    openLocationDialog()
+                  }}
                 />
               </ReaderPreferencesPopover>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => void toggleBookmark()}
-                aria-label={currentBookmark ? "Remove bookmark" : "Add bookmark"}
-                className={cn(
-                  "shrink-0 transition-colors",
-                  currentBookmark
-                    ? "text-text-interactive-base"
-                    : "text-text-weaker hover:text-text-base",
-                )}
-              >
-                <BookmarkIcon className={cn("size-4", currentBookmark && "fill-current")} />
-              </Button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label="Reader actions"
-                    className="shrink-0 text-text-weaker hover:text-text-base"
-                  >
-                    <EllipsisIcon className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem onClick={openLocationDialog}>
-                    <MapIcon className="mr-2 size-4" />
-                    Location and jumps
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {canChangeFlow ? (
-                    <>
-                      <DropdownMenuItem
-                        onClick={() => setPreferences((c) => ({ ...c, flow: FLOW_PAGINATED }))}
-                      >
-                        <LayoutPanelLeftIcon className="mr-2 size-4" />
-                        Paginated
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => setPreferences((c) => ({ ...c, flow: FLOW_SCROLLED }))}
-                      >
-                        <ScrollTextIcon className="mr-2 size-4" />
-                        Section scroll
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  ) : null}
-                  <DropdownMenuItem onClick={() => setHelpOpen(true)}>
-                    <CircleQuestionMarkIcon className="mr-2 size-4" />
-                    Keyboard shortcuts
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </header>
+            }
+            bookmarked={Boolean(currentBookmark)}
+            onToggleBookmark={() => void toggleBookmark()}
+            onEnterFocus={() => setFocus(true)}
+          />
         ) : null}
 
         <div
@@ -1430,11 +1427,11 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           className={cn("relative min-h-0 min-w-0 w-full flex-1", theme.viewportClassName)}
         >
           {status === "loading" ? (
-            <div className="absolute inset-x-3 top-3 z-10 sm:inset-x-4 sm:top-4">
-              <div className="inline-flex items-center gap-1.5 border border-border-base/50 bg-surface-raised-base/90 px-2.5 py-1 text-[11px] text-text-weaker shadow-sm backdrop-blur">
+            <div className="pointer-events-none absolute inset-x-3 top-3 z-30">
+              <ReaderStatusPill>
                 <Loader2Icon className="size-3 animate-spin motion-reduce:animate-none" />
                 Opening…
-              </div>
+              </ReaderStatusPill>
             </div>
           ) : null}
 
@@ -1486,7 +1483,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             selectionAction={selectionToolbar}
             anchorRoot={readerSurfaceRef.current}
             onCopyText={(text: string) => void handleCopySelection(text)}
-            onHighlight={() => {
+            onHighlight={(color) => {
               removeCurrentChatSelection()
               const action = selectionActionRef.current
               if (!action) return
@@ -1496,7 +1493,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 text: action.text,
                 note: "",
                 style: ANNOTATION_STYLE_HIGHLIGHT,
-                color: getAnnotationColorValue(DEFAULT_ANNOTATION_COLOR_ID),
+                color: getAnnotationColorValue(color),
                 created: now,
                 modified: now,
               }
@@ -1506,7 +1503,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                   ? await view.addAnnotation({
                       ...annotation,
                       color: resolveAnnotationColorValue(
-                        DEFAULT_ANNOTATION_COLOR_ID,
+                        color,
                         readerSurfaceRef.current,
                       ),
                     })
@@ -1529,85 +1526,80 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               removeCurrentChatSelection()
               openSearchWithQuery(query)
             }}
-            onClose={() => dismissSelectionToolbar(true)}
           />
 
           <ReaderAnnotationPopover
             popover={readerAnnotationPopover}
             anchorRoot={readerSurfaceRef.current}
             annotations={readerAnnotations}
+            onChangeColor={(annotation, color) => {
+              const existing = getAnnotationAtValue(annotations, annotation.id)
+              if (!existing) return
+              void createOrUpdateAnnotation({
+                mode: "edit",
+                value: existing.value,
+                text: existing.text ?? "",
+                note: existing.note ?? "",
+                style: getAnnotationStyle(existing),
+                color,
+              })
+            }}
             onEditAnnotation={(annotation) => {
               const foliateAnnotation = getAnnotationAtValue(annotations, annotation.id)
               if (foliateAnnotation) openAnnotationDialog(foliateAnnotation)
             }}
             onDeleteAnnotation={(annotationId) => void deleteAnnotationValue(annotationId)}
           />
-        </div>
 
-        {/* Solid Footer — matches header color & style */}
-        {snapshot && status === "ready" ? (
-          <footer className="z-30 flex h-10 w-full shrink-0 flex-col justify-center px-5">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Go back in reading history"
-                  onClick={() => viewRef.current?.history.back()}
-                  disabled={!historyState.canGoBack}
-                  className="size-7 text-text-weaker hover:text-text-base border-none"
-                >
-                  <Undo2Icon className="size-3" />
-                </Button>
-              </div>
+          {focus ? <ReaderFocusExit onExit={() => setFocus(false)} /> : null}
 
-              <div className="flex items-center gap-2 overflow-hidden text-[9px] font-medium tracking-tight text-text-weaker uppercase">
-                {typeof location.index === "number" && (
-                  <span className="shrink-0 opacity-40 font-mono">{location.index + 1}</span>
-                )}
-                <span className="truncate max-w-[200px] opacity-80 tracking-widest">
-                  {location.tocLabel ?? snapshot.title}
-                </span>
-                <span className="mx-0.5 opacity-30 tracking-widest leading-none">•</span>
-                <span className="shrink-0 font-mono opacity-50">
-                  {location.pageLabel ??
-                    location.locationLabel ??
-                    (location.fraction !== undefined
-                      ? `${Math.round(location.fraction * 100)}%`
-                      : "")}
-                </span>
-              </div>
-
-              <div className="flex items-center">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Go forward in reading history"
-                  onClick={() => viewRef.current?.history.forward()}
-                  disabled={!historyState.canGoForward}
-                  className="size-7 text-text-weaker hover:text-text-base border-none"
-                >
-                  <Redo2Icon className="size-3" />
-                </Button>
+          {focus && !surfaceScrolls && snapshot && status === "ready" ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 z-30 flex justify-center">
+              <div className="max-w-[min(70vw,30rem)] truncate rounded-full border border-border-weak-base bg-surface-raised-stronger-non-alpha/90 px-2.5 py-1 font-mono text-[10px] text-text-weaker shadow-sm backdrop-blur">
+                {locationPosition}
               </div>
             </div>
+          ) : null}
+        </div>
 
-            {/* Scrubber slider — ultrathin hairline at the very bottom */}
-            <div className="group/scrubber relative h-2 w-full mt-1">
-              <ReaderProgressScrubber
-                max={DEFAULT_PROGRESS_STEPS}
+        {snapshot && status === "ready" && showToolbar && !focus ? (
+          <footer className={cn("relative z-20 shrink-0", surfaceScrolls && "border-t border-border-weak-base")}>
+            {!surfaceScrolls ? (
+              <ReaderProgressRail
                 value={progressDraft ?? progressValue}
+                max={DEFAULT_PROGRESS_STEPS}
+                paper={theme.contentBackground}
+                ink={theme.contentForeground}
                 onPreview={setProgressDraft}
                 onCommit={(progress) => {
                   void viewRef.current?.goToFraction(progress / DEFAULT_PROGRESS_STEPS)
                   setProgressDraft(null)
                 }}
                 onCancel={() => setProgressDraft(null)}
-                className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent outline-none [&::-webkit-slider-runnable-track]:h-px [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:mt-[-3px] [&::-webkit-slider-thumb]:h-1.5 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-text-weaker/40 [&::-webkit-slider-thumb]:transition-colors peer-hover:[&::-webkit-slider-thumb]:bg-text-interactive-base motion-reduce:[&::-webkit-slider-thumb]:transition-none"
               />
-            </div>
+            ) : null}
+            <ReaderLocationPopover
+              section={locationSection}
+              position={locationPosition}
+              targetLabel="CFI or percentage"
+              target={goToDraft}
+              onTargetChange={setGoToDraft}
+              onSubmitTarget={() => void goToLocationTarget(goToDraft)}
+              canGoBack={historyState.canGoBack}
+              canGoForward={historyState.canGoForward}
+              onGoBack={() => viewRef.current?.history.back()}
+              onGoForward={() => viewRef.current?.history.forward()}
+              recent={recentLocations}
+              onSelectRecent={(anchor) => {
+                void viewRef.current?.goTo(readerPositionAnchorToFoliateTarget(anchor))
+                setGoToOpen(false)
+              }}
+              open={goToOpen}
+              onOpenChange={(open) => {
+                if (open) setGoToDraft(location.cfi ?? locationPosition)
+                setGoToOpen(open)
+              }}
+            />
           </footer>
         ) : null}
       </div>
@@ -1623,6 +1615,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         onKeyDown={handleShortcut}
         className={cn(
           "h-full w-full min-h-0 overflow-hidden bg-surface-base text-text-base shadow-[0_8px_32px_color-mix(in_oklab,var(--surface-strong)_12%,transparent)]",
+          preferences.reduceMotion && "[&_*]:!animate-none [&_*]:!transition-none",
           className,
         )}
       >
@@ -1643,26 +1636,26 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           }
 
           /* Custom scrollbar to match theme */
-          * {
+          [data-component="foliate-reader"] * {
             scrollbar-width: thin;
             scrollbar-color: color-mix(in oklab, ${theme.contentForeground} 15%, transparent) transparent;
           }
 
-          ::-webkit-scrollbar {
+          [data-component="foliate-reader"] ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
           }
 
-          ::-webkit-scrollbar-track {
+          [data-component="foliate-reader"] ::-webkit-scrollbar-track {
             background: transparent;
           }
 
-          ::-webkit-scrollbar-thumb {
+          [data-component="foliate-reader"] ::-webkit-scrollbar-thumb {
             background: color-mix(in oklab, ${theme.contentForeground} 15%, transparent);
             border-radius: 10px;
           }
 
-          ::-webkit-scrollbar-thumb:hover {
+          [data-component="foliate-reader"] ::-webkit-scrollbar-thumb:hover {
             background: color-mix(in oklab, ${theme.contentForeground} 25%, transparent);
           }
         `}</style>

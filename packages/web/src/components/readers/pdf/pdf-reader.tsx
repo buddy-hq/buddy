@@ -18,34 +18,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Field,
   FieldLabel,
   Input,
-  ToggleGroup,
-  ToggleGroupItem,
   cn,
   toast,
 } from "@buddy/ui"
 import {
-  BookmarkIcon,
-  CheckIcon,
-  CircleHelpIcon,
-  Columns2Icon,
-  EllipsisIcon,
-  FileIcon,
   LoaderCircleIcon,
-  MapIcon,
-  MinusIcon,
-  PlusIcon,
-  Redo2Icon,
-  RotateCwIcon,
-  Rows3Icon,
-  Undo2Icon,
+  TriangleAlertIcon,
 } from "@/icons/app-icons"
 import { PasswordResponses } from "pdfjs-dist"
 import "pdfjs-dist/web/pdf_viewer.css"
@@ -57,17 +38,22 @@ import {
 } from "@buddy/reader-contract"
 import { ReaderAnnotationDialog } from "../ui/reader-annotation-dialog"
 import { ReaderAnnotationPopover } from "../ui/reader-annotation-popover"
-import { ReaderAnnotationsPopover } from "../ui/reader-annotations-popover"
-import { ReaderBookmarksPopover } from "../ui/reader-bookmarks-popover"
 import { ReaderErrorState } from "../ui/reader-error-state"
+import { ReaderFocusExit } from "../ui/reader-focus-exit"
 import { ReaderHelpDialog } from "../ui/reader-help-dialog"
+import { ReaderLocationPopover } from "../ui/reader-location-popover"
+import { ReaderMarksPopover } from "../ui/reader-marks-popover"
 import { ReaderMetadataHoverCard } from "../ui/reader-metadata-hover-card"
-import { ReaderPreferencesPanel, ReaderPreferenceSlider } from "../ui/reader-preferences-panel"
+import { PdfPreferencesPanel, type PdfFitMode } from "../ui/pdf-preferences-panel"
+import { ReaderPdfZoomControls } from "../ui/reader-pdf-zoom-controls"
 import { ReaderPreferencesPopover } from "../ui/reader-preferences-popover"
-import { ReaderProgressScrubber } from "../ui/reader-progress-scrubber"
+import { ReaderProgressRail } from "../ui/reader-progress-rail"
 import { ReaderSearchPopover } from "../ui/reader-search-popover"
 import { ReaderSelectionToolbar } from "../ui/reader-selection-toolbar"
+import { ReaderStatusPill } from "../ui/reader-status-pill"
+import { ReaderToolbar } from "../ui/reader-toolbar"
 import { ReaderTocPopover } from "../ui/reader-toc-popover"
+import { useReaderRecentLocations } from "../ui/use-reader-recent-locations"
 import {
   DEFAULT_ANNOTATION_COLOR_ID,
   READER_SELECTION_BACKGROUND,
@@ -80,20 +66,17 @@ import {
   clampPdfCustomScale,
   createLocalReaderStateRepository,
   createReaderRecordId,
-  MAX_PDF_CUSTOM_SCALE,
-  MIN_PDF_CUSTOM_SCALE,
   type ReaderDocumentState,
   type ReaderPreferences,
 } from "../reader-storage"
 import type {
   DocumentReaderHandle,
   DocumentReaderProps,
-  PdfReaderLayout,
   PdfReaderMode,
-  PdfReaderRotation,
-  PdfReaderScaleMode,
   ReaderAnnotation,
+  ReaderAnnotationColorId,
   ReaderAnnotationEditorViewModel,
+  ReaderAnnotationViewModel,
   ReaderBookmark,
   ReaderSearchResult,
   ReaderSearchRow,
@@ -128,9 +111,10 @@ const PDF_HISTORY_POSITION_DELTA = 0.15
 const PDF_HISTORY_MAX_ENTRIES = 500
 const PDF_BOOKMARK_POSITION_DELTA = 0.03
 const PDF_KEYBOARD_PAN_DISTANCE_PX = 80
-const PDF_SCALE_STEP = 0.05
 const PDF_SCALE_PERCENT = 100
 const PDF_PROGRESS_MAX = 1_000
+const PDF_ORDER_INTEGER_WIDTH = 8
+const PDF_ORDER_FRACTION_DIGITS = 6
 const PDF_DEFAULT_ANNOTATION_STYLE = "highlight" as const
 const PDF_SELECTION_LIMIT_MESSAGE =
   "That selection is too large to save reliably. Select a smaller passage and try again."
@@ -138,6 +122,7 @@ const PDF_SELECTION_LIMIT_MESSAGE =
 const PDF_READER_SHORTCUTS: ReaderShortcut[] = [
   { keys: "Ctrl/Cmd + F", label: "Search this PDF" },
   { keys: "Ctrl/Cmd + D", label: "Toggle bookmark" },
+  { keys: "Ctrl/Cmd + .", label: "Toggle Focus" },
   { keys: "Ctrl/Cmd + L", label: "Open page navigation" },
   { keys: "Ctrl/Cmd + +/-/0", label: "Zoom in, out, or reset" },
   { keys: "Shift + Left / Right", label: "Pan across a zoomed page" },
@@ -147,20 +132,6 @@ const PDF_READER_SHORTCUTS: ReaderShortcut[] = [
   { keys: "?", label: "Open keyboard help" },
   { keys: "Esc", label: "Close reader overlays" },
 ]
-
-const PDF_LAYOUT_OPTIONS: Array<{ value: PdfReaderLayout; label: string }> = [
-  { value: "continuous", label: "Continuous" },
-  { value: "single-page", label: "Single" },
-  { value: "two-up", label: "Two-up" },
-]
-
-const PDF_SCALE_OPTIONS: Array<{ value: PdfReaderScaleMode; label: string }> = [
-  { value: "fit-width", label: "Fit width" },
-  { value: "fit-page", label: "Fit page" },
-  { value: "custom", label: "Custom" },
-]
-
-const PDF_ROTATIONS: PdfReaderRotation[] = [0, 90, 180, 270]
 
 const READER_THEME_OPTIONS = READER_THEMES.map((theme) => ({
   id: theme.id,
@@ -243,6 +214,14 @@ function shouldAppendHistory(
   )
 }
 
+/**
+ * The fit "Fit" and Cmd+0 return to. A document opened at a custom scale has no
+ * fit of its own, so it falls back to the same default a fresh reader takes.
+ */
+function preferredFitModeFor(mode: PdfReaderMode): PdfFitMode {
+  return mode.scaleMode === "fit-page" ? "fit-page" : "fit-width"
+}
+
 function emptySearchViewModel(): ReaderSearchViewModel {
   return {
     query: "",
@@ -270,79 +249,22 @@ function searchResults(rows: ReaderSearchRow[]): ReaderSearchResult[] {
   return rows.flatMap((row) => (row.kind === "result" ? [row.result] : []))
 }
 
-function rotationAfter(rotation: PdfReaderRotation): PdfReaderRotation {
-  const index = PDF_ROTATIONS.indexOf(rotation)
-  return PDF_ROTATIONS[(index + 1) % PDF_ROTATIONS.length] ?? 0
+function pdfOrderSegment(value: number): string {
+  return value
+    .toFixed(PDF_ORDER_FRACTION_DIGITS)
+    .padStart(PDF_ORDER_INTEGER_WIDTH + PDF_ORDER_FRACTION_DIGITS + 1, "0")
 }
 
-function PdfEnginePreferences(props: {
-  mode: PdfReaderMode
-  currentScale: number
-  onModeChange: (mode: PdfReaderMode) => void
-}): React.JSX.Element {
-  const setLayout = (layout: PdfReaderLayout) => props.onModeChange({ ...props.mode, layout })
-  const setScaleMode = (scaleMode: PdfReaderScaleMode) =>
-    props.onModeChange({
-      ...props.mode,
-      scaleMode,
-      ...(scaleMode === "custom" ? { scale: props.currentScale } : {}),
-    })
-  return (
-    <div className="flex flex-col gap-4 px-5">
-      <Field>
-        <FieldLabel id="pdf-reader-layout-label">Page layout</FieldLabel>
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          value={props.mode.layout}
-          aria-labelledby="pdf-reader-layout-label"
-          onValueChange={(value) => {
-            const option = PDF_LAYOUT_OPTIONS.find((candidate) => candidate.value === value)
-            if (option) setLayout(option.value)
-          }}
-          className="w-full"
-        >
-          {PDF_LAYOUT_OPTIONS.map((option) => (
-            <ToggleGroupItem key={option.value} value={option.value} className="flex-1">
-              {option.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </Field>
-      <Field>
-        <FieldLabel id="pdf-reader-scale-label">Page scale</FieldLabel>
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          value={props.mode.scaleMode}
-          aria-labelledby="pdf-reader-scale-label"
-          onValueChange={(value) => {
-            const option = PDF_SCALE_OPTIONS.find((candidate) => candidate.value === value)
-            if (option) setScaleMode(option.value)
-          }}
-          className="w-full"
-        >
-          {PDF_SCALE_OPTIONS.map((option) => (
-            <ToggleGroupItem key={option.value} value={option.value} className="flex-1">
-              {option.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </Field>
-      {props.mode.scaleMode === "custom" ? (
-        <ReaderPreferenceSlider
-          id="pdf-reader-custom-scale"
-          label="Zoom"
-          min={MIN_PDF_CUSTOM_SCALE}
-          max={MAX_PDF_CUSTOM_SCALE}
-          step={PDF_SCALE_STEP}
-          value={props.mode.scale ?? 1}
-          onChange={(scale) => props.onModeChange({ ...props.mode, scale })}
-          formatValue={(scale) => `${Math.round(scale * PDF_SCALE_PERCENT)}%`}
-        />
-      ) : null}
-    </div>
-  )
+function pdfBookmarkOrder(bookmark: ReaderBookmark): string {
+  if (bookmark.anchor.kind !== "pdf-position") return ""
+  return `${pdfOrderSegment(bookmark.anchor.pageIndex)}:${pdfOrderSegment(bookmark.anchor.yRatio)}`
+}
+
+function pdfAnnotationOrder(annotation: ReaderAnnotationViewModel): string {
+  if (annotation.anchor.kind !== "pdf-text") return ""
+  const firstSegment = annotation.anchor.segments[0]
+  const firstQuad = firstSegment?.quads[0]
+  return `${pdfOrderSegment(firstSegment?.pageIndex ?? 0)}:${pdfOrderSegment(firstQuad?.topLeft.y ?? 0)}`
 }
 
 export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(function PdfReader(
@@ -403,16 +325,18 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     () => repositoryRef.current.loadDocument(source, persistenceSuffix),
     [persistenceSuffix, source],
   )
+  const initialMode = initialDocumentState.pdfMode ?? initialPreferences.pdfMode
   const [status, setStatus] = useState<PdfReaderStatus>("loading")
   const [error, setError] = useState<Error | null>(null)
   const [snapshot, setSnapshot] = useState<ReaderSnapshot | null>(null)
   const [location, setLocation] = useState<ReaderRelocation | null>(null)
   const [preferences, setPreferences] = useState<ReaderPreferences>(initialPreferences)
   const [documentState, setDocumentState] = useState<ReaderDocumentState>(initialDocumentState)
-  const [mode, setModeState] = useState<PdfReaderMode>(
-    initialDocumentState.pdfMode ?? initialPreferences.pdfMode,
+  const [mode, setModeState] = useState<PdfReaderMode>(initialMode)
+  const [preferredFitMode, setPreferredFitMode] = useState<PdfFitMode>(
+    preferredFitModeFor(initialMode),
   )
-  const [scale, setScale] = useState(initialDocumentState.pdfMode?.scale ?? 1)
+  const [, setScale] = useState(initialDocumentState.pdfMode?.scale ?? 1)
   const [layoutFallback, setLayoutFallback] = useState<string | null>(null)
   const [selectionAction, setSelectionAction] = useState<PdfSelectionAction | null>(null)
   const [annotationPopover, setAnnotationPopover] = useState<{
@@ -440,10 +364,13 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     [],
   )
   const [searchOpen, setSearchOpen] = useState(false)
+  const [tocOpen, setTocOpen] = useState(false)
+  const [marksOpen, setMarksOpen] = useState(false)
   const [preferencesOpen, setPreferencesOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [locationOpen, setLocationOpen] = useState(false)
   const [locationDraft, setLocationDraft] = useState("")
+  const [focus, setFocus] = useState(false)
   const [passwordPrompt, setPasswordPrompt] = useState<PdfPasswordPrompt | null>(null)
   const [passwordDraft, setPasswordDraft] = useState("")
   const [historyRevision, setHistoryRevision] = useState(0)
@@ -456,6 +383,10 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     () => searchResults(search.rows).find((result) => result.id === search.activeResultId),
     [search.activeResultId, search.rows],
   )
+  const recentLocations = useReaderRecentLocations({
+    sourceKey: source.sourceId,
+    relocation: location,
+  })
   const annotationPageIndexRef = useRef(annotationPageIndex)
   const documentStateRef = useRef(documentState)
   const modeRef = useRef(mode)
@@ -682,6 +613,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     modeRef.current = openingMode
     setPreferences(openingPreferences)
     setModeState(openingMode)
+    setPreferredFitMode(preferredFitModeFor(openingMode))
     setDocumentState(openingDocumentState)
     const explicitInitialLocation =
       initialLocation?.kind === "pdf-position" ? initialLocation : undefined
@@ -716,6 +648,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
           modeRef.current = storedMode
           setDocumentState(hydratedState)
           setModeState(storedMode)
+          setPreferredFitMode(preferredFitModeFor(storedMode))
           setSnapshot(nextSnapshot)
           setStatus("ready")
           callbacksRef.current.onReady?.(nextSnapshot)
@@ -904,6 +837,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
   ])
 
   const updateMode = useCallback((nextMode: PdfReaderMode) => {
+    if (nextMode.scaleMode !== "custom") setPreferredFitMode(nextMode.scaleMode)
     const scaleValue =
       nextMode.scaleMode === "custom"
         ? clampPdfCustomScale(nextMode.scale ?? sessionRef.current?.currentScale ?? 1)
@@ -1012,7 +946,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     })
   }, [])
 
-  const createQuickHighlight = useCallback(() => {
+  const createQuickHighlight = useCallback((color: ReaderAnnotationColorId) => {
     if (!selectionAction) return
     const now = new Date().toISOString()
     const annotation: ReaderAnnotation = {
@@ -1021,7 +955,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       text: selectionAction.selection.text,
       note: "",
       style: PDF_DEFAULT_ANNOTATION_STYLE,
-      color: DEFAULT_ANNOTATION_COLOR_ID,
+      color,
       created: now,
       modified: now,
     }
@@ -1225,10 +1159,20 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     }, PDF_HISTORY_NAVIGATION_SETTLE_MS)
   }, [])
 
+  const openLocationNavigation = useCallback(() => {
+    setLocationDraft(location?.pageLabel ?? String((currentAnchor?.pageIndex ?? 0) + 1))
+    setLocationOpen(true)
+  }, [currentAnchor?.pageIndex, location?.pageLabel])
+
   const handleKeyboard = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
       if (isEditingTarget(event.target)) return
       const command = event.metaKey || event.ctrlKey
+      if (command && event.key === ".") {
+        event.preventDefault()
+        setFocus((current) => !current)
+        return
+      }
       if (command && event.key.toLowerCase() === "f") {
         event.preventDefault()
         setSearchOpen(true)
@@ -1241,8 +1185,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       }
       if (command && event.key.toLowerCase() === "l") {
         event.preventDefault()
-        setLocationDraft(location?.pageLabel ?? String((currentAnchor?.pageIndex ?? 0) + 1))
-        setLocationOpen(true)
+        openLocationNavigation()
         return
       }
       if (command && event.key === ",") {
@@ -1262,7 +1205,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       }
       if (command && event.key === "0") {
         event.preventDefault()
-        updateMode({ ...mode, scaleMode: "fit-width" })
+        updateMode({ ...mode, scaleMode: preferredFitMode })
         return
       }
       if (event.altKey && event.key === "ArrowLeft") {
@@ -1299,18 +1242,22 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
         return
       }
       if (event.key === "Escape") {
+        setFocus(false)
+        setTocOpen(false)
+        setMarksOpen(false)
         setSearchOpen(false)
         setPreferencesOpen(false)
+        setLocationOpen(false)
         setAnnotationPopover(null)
         dismissSelection(true)
       }
     },
     [
-      currentAnchor?.pageIndex,
       dismissSelection,
-      location?.pageLabel,
       mode,
       navigateHistory,
+      openLocationNavigation,
+      preferredFitMode,
       toggleBookmark,
       updateMode,
     ],
@@ -1348,6 +1295,13 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     callbacksRef.current.onOpeningInteractionChange?.(false)
   }, [passwordDraft, passwordPrompt])
 
+  const surfaceScrolls = mode.layout === "continuous"
+  const locationSection = location?.tocLabel ?? snapshot?.title ?? source.sourceId
+  const locationPosition =
+    location?.locationLabel ??
+    location?.pageLabel ??
+    `${Math.round(progress * PDF_SCALE_PERCENT)}%`
+
   return (
     <section
       ref={rootRef}
@@ -1358,30 +1312,44 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       onKeyDown={handleKeyboard}
       className={cn(
         "flex h-full min-h-0 w-full flex-col overflow-hidden bg-surface-base text-text-base",
+        preferences.reduceMotion && "[&_*]:!animate-none [&_*]:!transition-none",
         preferences.autohideCursor && "cursor-none",
         className,
       )}
     >
-      {showToolbar ? (
-        <header className="relative z-20 shrink-0 border-b border-border-base/40">
-          <div className="absolute inset-x-0 top-0 h-px bg-border-base/30">
-            <div
-              className="h-full bg-text-interactive-base"
-              style={{ width: `${Math.round(progress * PDF_SCALE_PERCENT)}%` }}
-            />
-          </div>
-          <div className="relative flex h-11 min-w-0 items-center gap-1 px-2">
+      {showToolbar && !focus ? (
+        <ReaderToolbar
+          contents={
             <ReaderTocPopover
               items={snapshot?.toc ?? []}
               activeLabel={location?.tocLabel}
-              onSelect={(navigationId) => void sessionRef.current?.navigate(navigationId)}
+              open={tocOpen}
+              onOpenChange={setTocOpen}
+              onSelect={(navigationId) => {
+                void sessionRef.current?.navigate(navigationId)
+                setTocOpen(false)
+              }}
             />
-            <ReaderBookmarksPopover
+          }
+          marks={
+            <ReaderMarksPopover
               bookmarks={documentState.bookmarks}
-              currentBookmarkId={currentBookmark?.id}
-              onToggleBookmark={toggleBookmark}
+              annotations={documentState.annotations}
+              bookmarkOrder={pdfBookmarkOrder}
+              annotationOrder={pdfAnnotationOrder}
+              open={marksOpen}
+              onOpenChange={setMarksOpen}
               onGoToBookmark={(target) => {
                 if (target.kind === "pdf-position") void sessionRef.current?.goTo(target)
+                setMarksOpen(false)
+              }}
+              onShowAnnotation={(annotation) => {
+                void showAnnotation(annotation)
+                setMarksOpen(false)
+              }}
+              onEditAnnotation={(annotation) => {
+                openEditAnnotation(annotation)
+                setMarksOpen(false)
               }}
               onDeleteBookmark={(bookmarkId) =>
                 setDocumentState((current) => ({
@@ -1389,59 +1357,19 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
                   bookmarks: current.bookmarks.filter((bookmark) => bookmark.id !== bookmarkId),
                 }))
               }
-            />
-            <ReaderAnnotationsPopover
-              annotations={documentState.annotations}
-              onShowAnnotation={(annotation) => void showAnnotation(annotation)}
-              onEditAnnotation={openEditAnnotation}
               onDeleteAnnotation={deleteAnnotation}
             />
-
-            <div className="min-w-0 flex-1" />
-            <div className="pointer-events-none absolute inset-0 hidden items-center justify-center px-72 md:flex">
-              <ReaderMetadataHoverCard snapshot={snapshot}>
-                <button
-                  type="button"
-                  className="pointer-events-auto max-w-full truncate text-xs font-medium"
-                >
-                  {snapshot?.title ?? source.sourceId}
-                </button>
-              </ReaderMetadataHoverCard>
-            </div>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Zoom out"
-              onClick={() => sessionRef.current?.zoomOut()}
-            >
-              <MinusIcon />
-            </Button>
-            <button
-              type="button"
-              onClick={() => updateMode({ ...mode, scaleMode: "fit-width" })}
-              className="min-w-12 px-1 text-center font-mono text-xs text-text-weaker hover:text-text-base"
-              aria-label="Reset to fit width"
-            >
-              {Math.round(scale * PDF_SCALE_PERCENT)}%
-            </button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Zoom in"
-              onClick={() => sessionRef.current?.zoomIn()}
-            >
-              <PlusIcon />
-            </Button>
+          }
+          search={
             <ReaderSearchPopover
               search={search}
               onQueryChange={handleSearchQueryChange}
               onRunSearch={() => void runSearch()}
               onCycleResults={cycleSearch}
               onScopeChange={(scope) => setSearch((current) => ({ ...current, scope }))}
-              onMatchCaseChange={(matchCase) => setSearch((current) => ({ ...current, matchCase }))}
+              onMatchCaseChange={(matchCase) =>
+                setSearch((current) => ({ ...current, matchCase }))
+              }
               onMatchWholeWordsChange={(matchWholeWords) =>
                 setSearch((current) => ({ ...current, matchWholeWords }))
               }
@@ -1459,10 +1387,35 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
               open={searchOpen}
               onOpenChange={setSearchOpen}
             />
-            <ReaderPreferencesPopover open={preferencesOpen} onOpenChange={setPreferencesOpen}>
-              <ReaderPreferencesPanel
+          }
+          title={
+            <ReaderMetadataHoverCard snapshot={snapshot}>
+              <button
+                type="button"
+                className="max-w-full truncate text-xs font-medium text-text-base"
+              >
+                {snapshot?.title ?? source.sourceId}
+              </button>
+            </ReaderMetadataHoverCard>
+          }
+          zoom={
+            <ReaderPdfZoomControls
+              onZoomOut={() => sessionRef.current?.zoomOut()}
+              onFit={() => updateMode({ ...mode, scaleMode: preferredFitMode })}
+              onZoomIn={() => sessionRef.current?.zoomIn()}
+            />
+          }
+          view={
+            <ReaderPreferencesPopover
+              label="View"
+              open={preferencesOpen}
+              onOpenChange={setPreferencesOpen}
+            >
+              <PdfPreferencesPanel
                 preferences={preferences}
                 themes={READER_THEME_OPTIONS}
+                mode={mode}
+                preferredFitMode={preferredFitMode}
                 onThemeChange={setTheme}
                 onReduceMotionChange={(reduceMotion) =>
                   setPreferences((current) => ({ ...current, reduceMotion }))
@@ -1470,83 +1423,23 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
                 onAutohideCursorChange={(autohideCursor) =>
                   setPreferences((current) => ({ ...current, autohideCursor }))
                 }
-                engineControls={
-                  <PdfEnginePreferences
-                    mode={mode}
-                    currentScale={scale}
-                    onModeChange={updateMode}
-                  />
-                }
+                onOpenHelp={() => {
+                  setPreferencesOpen(false)
+                  setHelpOpen(true)
+                }}
+                onOpenLocationNavigation={() => {
+                  setPreferencesOpen(false)
+                  openLocationNavigation()
+                }}
+                onModeChange={updateMode}
+                onPreferredFitModeChange={setPreferredFitMode}
               />
             </ReaderPreferencesPopover>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={currentBookmark ? "Remove bookmark" : "Add bookmark"}
-              onClick={toggleBookmark}
-            >
-              <BookmarkIcon className={cn(currentBookmark && "fill-current")} />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label="Reader actions">
-                  <EllipsisIcon />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem
-                  onClick={() => {
-                    setLocationDraft(
-                      location?.pageLabel ?? String((currentAnchor?.pageIndex ?? 0) + 1),
-                    )
-                    setLocationOpen(true)
-                  }}
-                >
-                  <MapIcon data-icon="inline-start" />
-                  Go to page
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {PDF_LAYOUT_OPTIONS.map((option) => (
-                  <DropdownMenuItem
-                    key={option.value}
-                    onClick={() => updateMode({ ...mode, layout: option.value })}
-                  >
-                    <CheckIcon
-                      data-icon="inline-start"
-                      className={cn(mode.layout !== option.value && "invisible")}
-                    />
-                    {option.value === "continuous" ? (
-                      <Rows3Icon data-icon="inline-start" />
-                    ) : option.value === "two-up" ? (
-                      <Columns2Icon data-icon="inline-start" />
-                    ) : (
-                      <FileIcon data-icon="inline-start" />
-                    )}
-                    {option.label}
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuItem
-                  onClick={() => updateMode({ ...mode, rotation: rotationAfter(mode.rotation) })}
-                >
-                  <RotateCwIcon data-icon="inline-start" />
-                  Rotate clockwise ({mode.rotation}°)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setHelpOpen(true)}>
-                  <CircleHelpIcon data-icon="inline-start" />
-                  Keyboard shortcuts
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </header>
-      ) : null}
-
-      {layoutFallback ? (
-        <div role="status" className="z-10 border-b bg-surface-warning-weak px-3 py-2 text-xs">
-          {layoutFallback}
-        </div>
+          }
+          bookmarked={Boolean(currentBookmark)}
+          onToggleBookmark={toggleBookmark}
+          onEnterFocus={() => setFocus(true)}
+        />
       ) : null}
 
       <div
@@ -1555,10 +1448,18 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       >
         {status === "loading" ? (
           <div className="pointer-events-none absolute inset-x-3 top-3 z-30">
-            <div className="inline-flex items-center gap-2 rounded-full border bg-surface-raised-base px-3 py-1.5 text-xs shadow-sm">
-              <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
-              Opening PDF…
-            </div>
+            <ReaderStatusPill>
+              <LoaderCircleIcon className="size-3 animate-spin motion-reduce:animate-none" />
+              Opening…
+            </ReaderStatusPill>
+          </div>
+        ) : null}
+        {layoutFallback ? (
+          <div role="status" className="pointer-events-none absolute inset-x-3 top-3 z-30">
+            <ReaderStatusPill>
+              <TriangleAlertIcon className="size-3 text-icon-warning-base" />
+              {layoutFallback}
+            </ReaderStatusPill>
           </div>
         ) : null}
         {status === "error" && error ? <ReaderErrorState error={error} /> : null}
@@ -1618,57 +1519,82 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
             setSearchOpen(true)
             void runSearch(query)
           }}
-          onClose={() => dismissSelection(true)}
         />
         <ReaderAnnotationPopover
           popover={annotationPopover}
           anchorRoot={readerSurfaceRef.current}
           annotations={documentState.annotations}
+          onChangeColor={(annotation, color) =>
+            setDocumentState((current) => ({
+              ...current,
+              annotations: current.annotations.map((entry) =>
+                entry.id === annotation.id
+                  ? { ...entry, color, modified: new Date().toISOString() }
+                  : entry,
+              ),
+            }))
+          }
           onEditAnnotation={openEditAnnotation}
           onDeleteAnnotation={deleteAnnotation}
         />
+
+        {focus ? <ReaderFocusExit onExit={() => setFocus(false)} /> : null}
+
+        {focus && !surfaceScrolls && snapshot && status === "ready" ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-30 flex justify-center">
+            <div className="max-w-[min(70vw,30rem)] truncate rounded-full border border-border-weak-base bg-surface-raised-stronger-non-alpha/90 px-2.5 py-1 font-mono text-[10px] text-text-weaker shadow-sm backdrop-blur">
+              {locationPosition}
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      {snapshot && status === "ready" ? (
-        <footer className="z-20 flex h-10 shrink-0 flex-col justify-center border-t px-5">
-          <div className="flex items-center justify-between gap-4">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Go back in reading history"
-              onClick={() => navigateHistory(-1)}
-              disabled={!canGoBack}
-            >
-              <Undo2Icon />
-            </Button>
-            <div className="min-w-0 truncate text-xs text-text-weaker">
-              <span>{location?.tocLabel ?? snapshot.title}</span>
-              <span aria-hidden="true" className="px-2">
-                ·
-              </span>
-              <span className="font-mono">
-                {location?.locationLabel ?? `${Math.round(progress * PDF_SCALE_PERCENT)}%`}
-              </span>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Go forward in reading history"
-              onClick={() => navigateHistory(1)}
-              disabled={!canGoForward}
-            >
-              <Redo2Icon />
-            </Button>
-          </div>
-          <ReaderProgressScrubber
-            max={PDF_PROGRESS_MAX}
-            value={progressValue}
-            onPreview={setProgressDraft}
-            onCommit={commitProgressNavigation}
-            onCancel={() => setProgressDraft(null)}
-            className="h-1 w-full cursor-pointer accent-text-interactive-base"
+      {snapshot && status === "ready" && showToolbar && !focus ? (
+        <footer
+          className={cn(
+            "relative z-20 shrink-0",
+            surfaceScrolls && "border-t border-border-weak-base",
+          )}
+        >
+          {!surfaceScrolls ? (
+            <ReaderProgressRail
+              value={progressValue}
+              max={PDF_PROGRESS_MAX}
+              paper={theme.contentBackground}
+              ink={theme.contentForeground}
+              onPreview={setProgressDraft}
+              onCommit={commitProgressNavigation}
+              onCancel={() => setProgressDraft(null)}
+            />
+          ) : null}
+          <ReaderLocationPopover
+            section={locationSection}
+            position={locationPosition}
+            targetLabel="Page number or label"
+            target={locationDraft}
+            onTargetChange={setLocationDraft}
+            onSubmitTarget={() => {
+              sessionRef.current?.goToPage(locationDraft.trim())
+              setLocationOpen(false)
+            }}
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
+            onGoBack={() => navigateHistory(-1)}
+            onGoForward={() => navigateHistory(1)}
+            recent={recentLocations}
+            onSelectRecent={(anchor) => {
+              if (anchor.kind === "pdf-position") void sessionRef.current?.goTo(anchor)
+              setLocationOpen(false)
+            }}
+            open={locationOpen}
+            onOpenChange={(open) => {
+              if (open) {
+                setLocationDraft(
+                  location?.pageLabel ?? String((currentAnchor?.pageIndex ?? 0) + 1),
+                )
+              }
+              setLocationOpen(open)
+            }}
           />
         </footer>
       ) : null}
@@ -1739,45 +1665,6 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
             : undefined
         }
       />
-
-      <Dialog open={locationOpen} onOpenChange={setLocationOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Go to page</DialogTitle>
-            <DialogDescription>
-              Enter a page number or a page label from this PDF.
-            </DialogDescription>
-          </DialogHeader>
-          <Field>
-            <FieldLabel htmlFor="pdf-reader-page-target">Page</FieldLabel>
-            <Input
-              id="pdf-reader-page-target"
-              value={locationDraft}
-              onChange={(event) => setLocationDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return
-                event.preventDefault()
-                sessionRef.current?.goToPage(locationDraft.trim())
-                setLocationOpen(false)
-              }}
-            />
-          </Field>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setLocationOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                sessionRef.current?.goToPage(locationDraft.trim())
-                setLocationOpen(false)
-              }}
-            >
-              Go
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={Boolean(passwordPrompt)}

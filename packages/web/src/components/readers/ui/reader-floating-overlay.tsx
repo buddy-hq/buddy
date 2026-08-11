@@ -1,7 +1,8 @@
 import { createPortal } from "react-dom"
 import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react"
+import { Z_INDEX } from "@buddy/ui"
 
-export const READER_FLOATING_OVERLAY_Z_INDEX = 60
+export const READER_FLOATING_OVERLAY_Z_INDEX = Z_INDEX.floating
 export const READER_FLOATING_OVERLAY_ANCHOR_OFFSET_PROPERTY =
   "--reader-floating-overlay-anchor-offset-x"
 

@@ -29,7 +29,11 @@ export function ReaderAnnotationsPopover({
           <PencilLineIcon />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={8} className="h-[min(28rem,70vh)] w-80 p-0">
+      <PopoverContent
+        align="start"
+        sideOffset={8}
+        className="h-[min(28rem,70vh)] w-80 p-0"
+      >
         <ReaderAnnotationsPanel
           annotations={annotations}
           onShowAnnotation={onShowAnnotation}

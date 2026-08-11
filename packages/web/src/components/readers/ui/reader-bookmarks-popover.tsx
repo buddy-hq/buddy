@@ -37,7 +37,11 @@ export function ReaderBookmarksPopover({
           <BookmarkIcon />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={8} className="h-[min(28rem,70vh)] w-80 p-0">
+      <PopoverContent
+        align="start"
+        sideOffset={8}
+        className="h-[min(28rem,70vh)] w-80 p-0"
+      >
         <ReaderBookmarksPanel
           bookmarks={bookmarks}
           currentBookmarkId={currentBookmarkId}

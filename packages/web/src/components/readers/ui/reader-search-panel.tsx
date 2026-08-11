@@ -1,21 +1,5 @@
 import { ChevronDownIcon, ChevronUpIcon, SearchIcon } from "@/icons/app-icons"
-import {
-  Button,
-  Field,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-  ScrollArea,
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Switch,
-  cn,
-} from "@buddy/ui"
+import { Button, ScrollArea, ToggleGroup, ToggleGroupItem, cn } from "@buddy/ui"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@buddy/ui/components/ui/input-group"
 import { VirtualizedRows } from "@/components/virtualization/virtualized-rows"
 import {
@@ -28,6 +12,17 @@ import {
   type ReaderTextAnchor,
 } from "../reader-types"
 import { READER_EMPTY_SEARCH_MESSAGE, READER_VIRTUALIZE_ROW_THRESHOLD } from "./reader-ui-constants"
+import { ReaderPanelLabel } from "./reader-panel"
+
+const SEARCH_MATCH_CASE = "case"
+const SEARCH_MATCH_WORD = "word"
+const SEARCH_MATCH_DIACRITICS = "diacritics"
+
+const SEARCH_MATCH_OPTIONS = [
+  { id: SEARCH_MATCH_CASE, glyph: "Aa", label: "Match case" },
+  { id: SEARCH_MATCH_WORD, glyph: "ab|", label: "Whole words" },
+  { id: SEARCH_MATCH_DIACRITICS, glyph: "ä", label: "Match diacritics" },
+] as const
 
 type ReaderSearchPanelProps = {
   search: ReaderSearchViewModel
@@ -44,17 +39,12 @@ type ReaderSearchPanelProps = {
   ready: boolean
   canSearchSection?: boolean
 }
-
-function isReaderSearchScope(value: string): value is ReaderSearchScope {
-  return value === READER_SEARCH_SCOPE_DOCUMENT || value === READER_SEARCH_SCOPE_SECTION
-}
-
 function ReaderSearchExcerptText({ excerpt }: { excerpt: ReaderSearchExcerpt }) {
   return (
     <span>
-      <span>{excerpt.pre}</span>
+      {excerpt.pre}
       <strong className="font-semibold text-text-strong">{excerpt.match}</strong>
-      <span>{excerpt.post}</span>
+      {excerpt.post}
     </span>
   )
 }
@@ -75,210 +65,195 @@ export function ReaderSearchPanel({
   canSearchSection = true,
 }: ReaderSearchPanelProps) {
   const results = search.rows.filter((row) => row.kind === "result")
+  const matchValues = [
+    ...(search.matchCase ? [SEARCH_MATCH_CASE] : []),
+    ...(search.matchWholeWords ? [SEARCH_MATCH_WORD] : []),
+    ...(search.matchDiacritics ? [SEARCH_MATCH_DIACRITICS] : []),
+  ]
 
   const renderRow = (row: ReaderSearchRow) => {
     if (row.kind === "section") {
       return (
-        <div className="pb-1 pt-2.5 text-xs font-medium uppercase tracking-wide text-text-weaker">
+        <p className="px-1 pb-1.5 pt-3 text-[10px] font-medium uppercase tracking-wide text-text-weaker first:pt-0">
           {row.label}
-        </div>
+        </p>
       )
     }
     const active = row.result.id === search.activeResultId
     return (
-      <Button
+      <button
         type="button"
-        variant={active ? "secondary" : "ghost"}
         aria-current={active ? "true" : undefined}
         onClick={() => onShowResult(row.result.anchor)}
-        className="mb-1 h-auto w-full justify-start whitespace-normal px-2 py-2 text-left"
+        className={cn(
+          "w-full rounded-md px-2.5 py-2 text-left hover:bg-surface-base-hover",
+          active &&
+            "bg-surface-raised-strong text-text-strong hover:bg-surface-raised-strong",
+        )}
       >
-        <span className="min-w-0 flex-1">
-          {row.result.label ? (
-            <span className="mb-0.5 block font-mono text-xs text-text-weaker">
-              {row.result.label}
-            </span>
-          ) : null}
-          <span className="line-clamp-3 block">
-            <ReaderSearchExcerptText excerpt={row.result.excerpt} />
+        {row.result.label ? (
+          <span className="mb-1 block font-mono text-[10px] text-text-weaker">
+            {row.result.label}
           </span>
+        ) : null}
+        <span className="line-clamp-3 block text-xs leading-relaxed text-text-weak">
+          <ReaderSearchExcerptText excerpt={row.result.excerpt} />
         </span>
-      </Button>
+      </button>
     )
   }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <form
-        className="border-b px-3 py-3"
+        className="flex shrink-0 flex-col gap-4 p-4"
         onSubmit={(event) => {
           event.preventDefault()
           onRunSearch()
         }}
       >
-        <FieldGroup className="gap-2">
-          <Field>
-            <FieldLabel htmlFor="reader-search-input" className="sr-only">
-              Search this document
-            </FieldLabel>
-            <div className="flex items-center gap-1.5">
-              <InputGroup>
-                <InputGroupAddon>
-                  <SearchIcon />
-                </InputGroupAddon>
-                <InputGroupInput
-                  ref={inputRef}
-                  id="reader-search-input"
-                  value={search.query}
-                  onChange={(event) => onQueryChange(event.target.value)}
-                  placeholder="Search this document"
-                />
-              </InputGroup>
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                onClick={() => onCycleResults(-1)}
-                disabled={results.length === 0}
-                aria-label="Previous result"
-              >
-                <ChevronUpIcon />
-              </Button>
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                onClick={() => onCycleResults(1)}
-                disabled={results.length === 0}
-                aria-label="Next result"
-              >
-                <ChevronDownIcon />
-              </Button>
-            </div>
-          </Field>
+        <div className="flex items-center gap-1">
+          <InputGroup className="min-w-0 flex-1 rounded-md bg-background-base">
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              ref={inputRef}
+              value={search.query}
+              onChange={(event) => onQueryChange(event.currentTarget.value)}
+              placeholder="Search this document"
+              aria-label="Search this document"
+              disabled={!ready}
+              className="text-xs"
+            />
+          </InputGroup>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Previous result"
+            onClick={() => onCycleResults(-1)}
+            disabled={results.length === 0}
+          >
+            <ChevronUpIcon />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Next result"
+            onClick={() => onCycleResults(1)}
+            disabled={results.length === 0}
+          >
+            <ChevronDownIcon />
+          </Button>
+        </div>
 
-          <Field orientation="horizontal">
-            <FieldLabel htmlFor="reader-search-scope" className="sr-only">
-              Search scope
-            </FieldLabel>
-            <Select
-              value={search.scope}
-              onValueChange={(value) => {
-                if (isReaderSearchScope(value)) onScopeChange(value)
-              }}
+        <div className="flex items-center gap-3">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={search.scope}
+            aria-label="Search scope"
+            className="flex-1"
+            onValueChange={(value) => {
+              if (value === READER_SEARCH_SCOPE_DOCUMENT || value === READER_SEARCH_SCOPE_SECTION) {
+                onScopeChange(value)
+              }
+            }}
+          >
+            <ToggleGroupItem value={READER_SEARCH_SCOPE_DOCUMENT} className="min-w-0 flex-1">
+              <span className="truncate">Document</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value={READER_SEARCH_SCOPE_SECTION}
+              className="min-w-0 flex-1"
+              disabled={!canSearchSection}
             >
-              <SelectTrigger id="reader-search-scope" size="sm" className="flex-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value={READER_SEARCH_SCOPE_DOCUMENT}>Whole document</SelectItem>
-                  <SelectItem value={READER_SEARCH_SCOPE_SECTION} disabled={!canSearchSection}>
-                    Current section
-                  </SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Button type="submit" size="sm" disabled={!ready || search.query.trim().length === 0}>
-              Search
-            </Button>
-          </Field>
+              <span className="truncate">Section</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
 
-          <FieldSet>
-            <FieldLegend className="sr-only" variant="label">
-              Match options
-            </FieldLegend>
-            <div className="flex items-center gap-3">
-              {[
-                {
-                  id: "reader-search-match-case",
-                  label: "Match case",
-                  shortLabel: "Aa",
-                  checked: search.matchCase,
-                  onChange: onMatchCaseChange,
-                },
-                {
-                  id: "reader-search-whole-words",
-                  label: "Whole words",
-                  shortLabel: "\\b",
-                  checked: search.matchWholeWords,
-                  onChange: onMatchWholeWordsChange,
-                },
-                {
-                  id: "reader-search-diacritics",
-                  label: "Match diacritics",
-                  shortLabel: "ä",
-                  checked: search.matchDiacritics,
-                  onChange: onMatchDiacriticsChange,
-                },
-              ].map((option) => (
-                <Field key={option.id} orientation="horizontal" className="w-auto gap-1">
-                  <Switch
-                    id={option.id}
-                    size="sm"
-                    checked={option.checked}
-                    onCheckedChange={option.onChange}
-                    aria-label={option.label}
-                  />
-                  <FieldLabel
-                    htmlFor={option.id}
-                    title={option.label}
-                    className={cn(
-                      "font-mono text-xs",
-                      option.checked ? "text-text-base" : "text-text-weaker",
-                    )}
-                  >
-                    {option.shortLabel}
-                  </FieldLabel>
-                </Field>
-              ))}
-              {results.length > 0 ? (
-                <span className="ml-auto font-mono text-xs tabular-nums text-text-weaker">
-                  {results.length} results
-                </span>
-              ) : null}
-            </div>
-          </FieldSet>
-        </FieldGroup>
+          <ToggleGroup
+            type="multiple"
+            variant="outline"
+            size="sm"
+            value={matchValues}
+            aria-label="Match options"
+            onValueChange={(values) => {
+              onMatchCaseChange(values.includes(SEARCH_MATCH_CASE))
+              onMatchWholeWordsChange(values.includes(SEARCH_MATCH_WORD))
+              onMatchDiacriticsChange(values.includes(SEARCH_MATCH_DIACRITICS))
+            }}
+          >
+            {SEARCH_MATCH_OPTIONS.map((option) => (
+              <ToggleGroupItem
+                key={option.id}
+                value={option.id}
+                aria-label={option.label}
+                title={option.label}
+                className="font-mono text-[11px]"
+              >
+                {option.glyph}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
 
         {search.running && search.progress !== null ? (
-          <div
-            role="progressbar"
-            aria-label="Search progress"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(search.progress * 100)}
-            className="mt-2 h-0.5 bg-surface-weak"
-          >
+          <div className="flex items-center gap-2">
             <div
-              className="h-full bg-surface-interactive-base"
-              style={{ width: `${Math.round(search.progress * 100)}%` }}
-            />
+              role="progressbar"
+              aria-label="Search progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(search.progress * 100)}
+              className="h-0.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-weak"
+            >
+              <div
+                className="h-full bg-surface-interactive-base"
+                style={{ width: `${Math.round(search.progress * 100)}%` }}
+              />
+            </div>
+            <span className="shrink-0 font-mono text-[10px] text-text-weaker">searching…</span>
           </div>
         ) : null}
       </form>
 
-      <ScrollArea className="min-h-0 flex-1 px-3 py-2" viewportRef={viewportRef}>
-        {search.rows.length === 0 ? (
-          <p className="px-1 py-4 text-sm text-text-weaker">{READER_EMPTY_SEARCH_MESSAGE}</p>
-        ) : search.rows.length >= READER_VIRTUALIZE_ROW_THRESHOLD ? (
-          <VirtualizedRows
-            items={search.rows}
-            getItemKey={(item) => item.id}
-            estimateSize={(item) => (item.kind === "section" ? 28 : 64)}
-            getScrollElement={() => viewportRef.current}
-            overscan={8}
-            measure
-            renderItem={renderRow}
-          />
-        ) : (
-          <div>
-            {search.rows.map((row) => (
-              <div key={row.id}>{renderRow(row)}</div>
-            ))}
+      {search.rows.length === 0 ? (
+        <p className="px-4 py-8 text-center text-xs leading-relaxed text-text-weaker">
+          {READER_EMPTY_SEARCH_MESSAGE}
+        </p>
+      ) : (
+        <div className="mx-4 flex min-h-0 flex-1 flex-col border-t border-border-weaker-base pt-3">
+          <div className="flex items-baseline justify-between pb-1.5">
+            <ReaderPanelLabel>{search.running ? "Found so far" : "Results"}</ReaderPanelLabel>
+            <span className="font-mono text-[10px] tabular-nums text-text-weaker">
+              {results.length}
+            </span>
           </div>
-        )}
-      </ScrollArea>
+          <ScrollArea className="min-h-0 flex-1" viewportRef={viewportRef}>
+            {search.rows.length >= READER_VIRTUALIZE_ROW_THRESHOLD ? (
+              <VirtualizedRows
+                items={search.rows}
+                getItemKey={(item) => item.id}
+                estimateSize={(item) => (item.kind === "section" ? 28 : 64)}
+                getScrollElement={() => viewportRef.current}
+                overscan={8}
+                measure
+                renderItem={renderRow}
+              />
+            ) : (
+              <div className="flex flex-col gap-1 pb-4">
+                {search.rows.map((row) => (
+                  <div key={row.id}>{renderRow(row)}</div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+      )}
     </div>
   )
 }

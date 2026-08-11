@@ -1,7 +1,10 @@
 import type { ReactNode } from "react"
-import { CopyIcon, HighlighterIcon, PencilLineIcon, SearchIcon, XIcon } from "@/icons/app-icons"
+import { CopyIcon, PencilLineIcon, SearchIcon } from "@/icons/app-icons"
 import { Button } from "@buddy/ui"
-import type { ReaderSelectionToolbarViewModel } from "../reader-types"
+import { DEFAULT_ANNOTATION_COLOR_ID } from "../foliate-reader-constants"
+import type { ReaderAnnotationColorId, ReaderSelectionToolbarViewModel } from "../reader-types"
+import { ReaderAnnotationColorDots } from "./reader-annotation-color-dots"
+import { ReaderFloatingSurface } from "./reader-floating-surface"
 import {
   ReaderFloatingOverlay,
   READER_FLOATING_OVERLAY_ANCHOR_OFFSET_PROPERTY,
@@ -13,10 +16,10 @@ type ReaderSelectionToolbarProps = {
   selectionAction: ReaderSelectionToolbarState | null
   anchorRoot: HTMLElement | null
   onCopyText: (text: string) => void
-  onHighlight: () => void
+  onHighlight: (color: ReaderAnnotationColorId) => void
   onOpenAnnotationDialog: () => void
   onSearch: (text: string) => void
-  onClose: () => void
+  onClose?: () => void
 }
 
 export function ReaderSelectionToolbar({
@@ -26,7 +29,6 @@ export function ReaderSelectionToolbar({
   onHighlight,
   onOpenAnnotationDialog,
   onSearch,
-  onClose,
 }: ReaderSelectionToolbarProps) {
   if (!selectionAction) return null
 
@@ -41,42 +43,29 @@ export function ReaderSelectionToolbar({
       y={y}
     >
       <div className="relative flex flex-col items-center">
-        <div
+        <ReaderFloatingSurface
           role="toolbar"
-          aria-label="Selection actions"
-          className="flex select-none items-center gap-0.5 rounded-full border bg-surface-raised-base p-1 shadow-lg"
+          className="flex-row items-center rounded-full px-3.5 py-2.5"
         >
-          <ActionButton onClick={() => onCopyText(text)} label="Copy text">
-            <CopyIcon data-icon="inline-start" />
-            <span className="font-medium">Copy</span>
-          </ActionButton>
+          <ReaderAnnotationColorDots
+            selected={DEFAULT_ANNOTATION_COLOR_ID}
+            size="large"
+            onSelect={onHighlight}
+          />
+          <span aria-hidden className="mx-3 h-7 w-px shrink-0 bg-border-weak-base" />
 
-          <ActionButton onClick={onHighlight} label="Highlight">
-            <HighlighterIcon data-icon="inline-start" />
-            <span className="font-medium">Highlight</span>
-          </ActionButton>
-
-          <ActionButton onClick={onOpenAnnotationDialog} label="Add note">
-            <PencilLineIcon data-icon="inline-start" />
-            <span className="font-medium">Note</span>
-          </ActionButton>
-
-          <ActionButton onClick={() => onSearch(text)} label="Search selection">
-            <SearchIcon data-icon="inline-start" />
-            <span className="font-medium">Search</span>
-          </ActionButton>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={onClose}
-            aria-label="Dismiss"
-            className="rounded-full"
-          >
-            <XIcon />
-          </Button>
-        </div>
+          <span className="flex items-center gap-1">
+            <ActionButton onClick={onOpenAnnotationDialog} label="Add note">
+              <PencilLineIcon />
+            </ActionButton>
+            <ActionButton onClick={() => onCopyText(text)} label="Copy" title="Copy  ⌘C">
+              <CopyIcon />
+            </ActionButton>
+            <ActionButton onClick={() => onSearch(text)} label="Search for this">
+              <SearchIcon />
+            </ActionButton>
+          </span>
+        </ReaderFloatingSurface>
 
         <div
           aria-hidden="true"
@@ -94,10 +83,12 @@ function ActionButton({
   children,
   onClick,
   label,
+  title,
 }: {
   children: ReactNode
   onClick: () => void
   label: string
+  title?: string
 }) {
   return (
     <Button
@@ -106,7 +97,8 @@ function ActionButton({
       size="sm"
       onClick={onClick}
       aria-label={label}
-      className="rounded-full"
+      title={title ?? label}
+      className="size-9 rounded-full [&_svg]:size-[18px]"
     >
       {children}
     </Button>

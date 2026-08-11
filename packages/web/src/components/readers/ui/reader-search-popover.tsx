@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react"
 import { SearchIcon } from "@/icons/app-icons"
-import { Button, Popover, PopoverContent, PopoverTrigger } from "@buddy/ui"
+import { Popover, PopoverContent, PopoverTrigger } from "@buddy/ui"
 import type { ReaderSearchScope, ReaderSearchViewModel, ReaderTextAnchor } from "../reader-types"
 import { ReaderSearchPanel } from "./reader-search-panel"
+import { ReaderPanelHeader } from "./reader-panel"
+import { ReaderToolbarButton } from "./reader-toolbar-button"
 
 type ReaderSearchPopoverProps = {
   search: ReaderSearchViewModel
@@ -45,11 +47,14 @@ export function ReaderSearchPopover({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label="Search in document">
-          <SearchIcon />
-        </Button>
+        <ReaderToolbarButton icon={SearchIcon} label="Search  ⌘F" active={Boolean(open)} />
       </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={8} className="h-[min(32rem,70vh)] w-[22.5rem] p-0">
+      <PopoverContent
+        align="start"
+        sideOffset={8}
+        className="flex h-[min(32rem,70vh)] w-[340px] flex-col overflow-hidden rounded-lg border border-border-base bg-surface-raised-stronger-non-alpha p-0 shadow-xl"
+      >
+        <ReaderPanelHeader title="Search" onClose={() => onOpenChange?.(false)} />
         <ReaderSearchPanel
           search={search}
           onQueryChange={onQueryChange}

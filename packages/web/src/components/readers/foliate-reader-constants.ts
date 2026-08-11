@@ -212,6 +212,7 @@ export const SHORTCUTS: ReaderShortcut[] = [
   { keys: "Ctrl/Cmd + F", label: "Open search" },
   { keys: "Ctrl/Cmd + L", label: "Open location and landmarks" },
   { keys: "Ctrl/Cmd + D", label: "Toggle bookmark at current location" },
+  { keys: "Ctrl/Cmd + .", label: "Toggle Focus" },
   { keys: "Left / Right", label: "Turn pages in paginated and fixed-layout views" },
   { keys: "Up / Down", label: "Move through the current section in section scroll" },
   { keys: "Alt + Left", label: "History back" },
