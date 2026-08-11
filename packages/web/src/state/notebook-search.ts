@@ -12,6 +12,9 @@ export const NOTEBOOK_SEARCH_REMOTE_RESULT_LIMIT = 20
 export const NOTEBOOK_SEARCH_TOTAL_RESULT_LIMIT = 50
 export const NOTEBOOK_SEARCH_RECENT_RESULT_LIMIT = 6
 
+/** The filter that keeps every kind — the state a search starts in. */
+export const NOTEBOOK_SEARCH_FILTER_ALL = "all"
+
 export const NOTEBOOK_SEARCH_RESULT_KINDS = [
   "thread",
   "source",
@@ -22,7 +25,7 @@ export const NOTEBOOK_SEARCH_RESULT_KINDS = [
 ] as const
 
 export type NotebookSearchResultKind = (typeof NOTEBOOK_SEARCH_RESULT_KINDS)[number]
-export type NotebookSearchFilter = "all" | NotebookSearchResultKind
+export type NotebookSearchFilter = typeof NOTEBOOK_SEARCH_FILTER_ALL | NotebookSearchResultKind
 
 export type NotebookSearchTarget =
   | { type: "thread"; sessionID: string }
@@ -151,7 +154,9 @@ export function searchNotebookResults(input: {
 }): NotebookSearchResult[] {
   const scored: ScoredNotebookSearchResult[] = []
   for (const result of input.results) {
-    if (input.filter !== "all" && result.kind !== input.filter) continue
+    if (input.filter !== NOTEBOOK_SEARCH_FILTER_ALL && result.kind !== input.filter) {
+      continue
+    }
     const score = scoreNotebookSearchText({
       query: input.query,
       title: result.title,
@@ -178,6 +183,8 @@ export async function searchRemoteNotebookEntities(input: {
   directory: string
   query: string
   signal: AbortSignal
+  /** Off where the caller cannot open a chat, so the provider is never asked. */
+  includeThreads: boolean
 }): Promise<RemoteNotebookSearchResult> {
   const query = input.query.trim().slice(0, NOTEBOOK_SEARCH_MAX_QUERY_LENGTH)
   if (query.length < NOTEBOOK_SEARCH_MIN_QUERY_LENGTH) {
@@ -189,20 +196,22 @@ export async function searchRemoteNotebookEntities(input: {
     }
   }
   const client = getBuddyClient(input.directory)
-  const sessionRequest = client.session
-    .list(
-      {
-        directory: input.directory,
-        search: query,
-        limit: NOTEBOOK_SEARCH_REMOTE_RESULT_LIMIT,
-      },
-      { signal: input.signal },
-    )
-    .then((response) =>
-      requireBuddyData(response)
-        .map(sessionInfoFromSearchResult)
-        .filter((session) => parseSubagentSession(session).agent === undefined),
-    )
+  const sessionRequest = input.includeThreads
+    ? client.session
+        .list(
+          {
+            directory: input.directory,
+            search: query,
+            limit: NOTEBOOK_SEARCH_REMOTE_RESULT_LIMIT,
+          },
+          { signal: input.signal },
+        )
+        .then((response) =>
+          requireBuddyData(response)
+            .map(sessionInfoFromSearchResult)
+            .filter((session) => parseSubagentSession(session).agent === undefined),
+        )
+    : Promise.resolve<SessionInfo[]>([])
   const fileRequest = client.find
     .notebookFiles(
       {

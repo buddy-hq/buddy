@@ -1,5 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useRef } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import {
   Button,
@@ -9,17 +8,13 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  toast,
 } from "@buddy/ui"
 import { PlusIcon, PresentationIcon } from "@/icons/app-icons"
 import { stringifyError } from "@/lib/api-client"
 import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import { relativeTime } from "@/components/layout/sidebar-helpers"
-import {
-  refetchActiveWorkspaceObjectQueries,
-  workspaceObjectsQueryOptions,
-} from "@/state/workspace-objects-query"
-import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { useCreateBoard } from "@/lib/use-create-board"
+import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import type { RightWorkspaceOpenOutcome, RightWorkspaceOpenRequest } from "./right-workspace-open"
 import {
   RightWorkspaceDrawerShell,
@@ -40,34 +35,10 @@ function formatBoardTimestamp(value: string): string {
   return `Edited ${relativeTime(parsed.getTime())}`
 }
 
-async function createEmptyBoardAndOpen(input: {
-  directory: string
-  create: () => Promise<{ objectID: string }>
-  refetch: () => Promise<unknown>
-  open: (request: RightWorkspaceOpenRequest) => Promise<RightWorkspaceOpenOutcome>
-}): Promise<RightWorkspaceOpenOutcome> {
-  const board = await input.create()
-  await input.refetch()
-  return input.open({
-    type: "object",
-    directory: input.directory,
-    target: createBenchObjectTarget("whiteboard", board.objectID),
-  })
-}
-
 export function RightWorkspaceBoardsDrawer(props: RightWorkspaceBoardsDrawerProps) {
-  const queryClient = useQueryClient()
-  const createBoardInFlightRef = useRef(false)
   const boardsQuery = useQuery(workspaceObjectsQueryOptions(props.directory, "whiteboard"))
   const boards = boardsQuery.data?.objects ?? []
-  const createBoardMutation = useMutation({
-    mutationFn: async () =>
-      requireBuddyData(
-        await getBuddyClient(props.directory).objectWhiteboard.object.create({
-          directory: props.directory,
-        }),
-      ),
-  })
+  const boardCreation = useCreateBoard({ directory: props.directory, open: props.onOpen })
 
   function openBoard(objectID: string) {
     void props.onOpen({
@@ -77,23 +48,6 @@ export function RightWorkspaceBoardsDrawer(props: RightWorkspaceBoardsDrawerProp
     })
   }
 
-  async function createBoard() {
-    if (createBoardInFlightRef.current) return
-    createBoardInFlightRef.current = true
-    try {
-      await createEmptyBoardAndOpen({
-        directory: props.directory,
-        create: () => createBoardMutation.mutateAsync(),
-        refetch: () => refetchActiveWorkspaceObjectQueries(queryClient, props.directory),
-        open: props.onOpen,
-      })
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
-    } finally {
-      createBoardInFlightRef.current = false
-    }
-  }
-
   return (
     <RightWorkspaceDrawerShell
       durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "boards" })}
@@ -101,9 +55,9 @@ export function RightWorkspaceBoardsDrawer(props: RightWorkspaceBoardsDrawerProp
       action={{
         label: "Create board",
         icon: PlusIcon,
-        busy: createBoardMutation.isPending,
+        busy: boardCreation.pending,
         onClick: () => {
-          void createBoard()
+          void boardCreation.createBoard()
         },
       }}
       onClose={props.onClose}
@@ -134,9 +88,9 @@ export function RightWorkspaceBoardsDrawer(props: RightWorkspaceBoardsDrawerProp
           <EmptyContent>
             <Button
               type="button"
-              disabled={createBoardMutation.isPending}
+              disabled={boardCreation.pending}
               onClick={() => {
-                void createBoard()
+                void boardCreation.createBoard()
               }}
             >
               <PlusIcon data-icon="inline-start" aria-hidden />
@@ -162,5 +116,3 @@ export function RightWorkspaceBoardsDrawer(props: RightWorkspaceBoardsDrawerProp
     </RightWorkspaceDrawerShell>
   )
 }
-
-export { createEmptyBoardAndOpen }

@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import { useQuery } from "@tanstack/react-query"
-import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import {
   Button,
   DropdownMenu,
@@ -30,55 +29,34 @@ import {
 } from "@/icons/app-icons"
 import type { SessionInfo } from "@/state/chat-types"
 import {
-  NOTEBOOK_SEARCH_DEBOUNCE_MS,
+  NOTEBOOK_SEARCH_FILTER_ALL,
   NOTEBOOK_SEARCH_MAX_QUERY_LENGTH,
   NOTEBOOK_SEARCH_MIN_QUERY_LENGTH,
-  NOTEBOOK_SEARCH_RECENT_RESULT_LIMIT,
   NOTEBOOK_SEARCH_RESULT_KINDS,
   type NotebookSearchFilter,
   type NotebookSearchResult,
   type NotebookSearchResultKind,
-  type RemoteNotebookSearchResult,
-  searchNotebookResults,
-  searchRemoteNotebookEntities,
 } from "@/state/notebook-search"
-import {
-  processedResourcesQueryOptions,
-  resourceFileExtensionFromFormat,
-} from "@/state/resources-query"
+import { useNotebookSearch } from "@/state/use-notebook-search"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import {
-  createBenchObjectTarget,
   selectHtmlWidgetObjects,
   selectMediaLibraryObjects,
   selectMermaidObjects,
 } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import { ObjectCard, ObjectRow } from "@/components/objects/object-presentation"
-import { describeObject } from "@/components/objects/describe-object"
+import { describeNotebookSearchResult } from "@/components/objects/describe-search-result"
 import {
-  OBJECT_KIND_THREAD,
-  OBJECT_KIND_WORKSPACE_FILE,
   OBJECT_ROW_HEIGHT_PX,
-  OBJECT_THUMBNAIL_COVER,
   OBJECT_VARIANT_MD,
   objectCardHeightPx,
-  type ObjectModel,
-  type ObjectPresentationKind,
 } from "@/components/objects/types"
-import type { BenchObjectKind } from "@/lib/bench-targets"
 import { CreationPreviewVisual, type CreationFeedItem } from "./right-workspace-catalog-drawers"
 import {
-  notebookSearchResultFromWorkspaceObject,
-  notebookSearchTimestampMetadata,
-  parseNotebookSearchTimestamp,
-} from "./right-workspace-search-results"
-import {
-  fileExtensionFromPath,
-  fileNameFromPath,
-  normalizeRelativePath,
-} from "@/lib/workspace-file-paths"
-import { parseSubagentSession } from "@/lib/session-family"
-import type { RightWorkspaceOpenOutcome, RightWorkspaceOpenRequest } from "./right-workspace-open"
+  notebookSearchOpenRequest,
+  type RightWorkspaceOpenOutcome,
+  type RightWorkspaceOpenRequest,
+} from "./right-workspace-open"
 import {
   RightWorkspaceDrawerShell,
   RightWorkspaceListSkeleton,
@@ -101,10 +79,7 @@ type SearchKindDefinition = {
   icon: AppIcon
 }
 
-type RemoteSearchState =
-  | { status: "idle" }
-  | { status: "loading"; query: string }
-  | { status: "ready"; query: string; data: RemoteNotebookSearchResult }
+const SEARCH_FILTER_ALL_LABEL = "All types"
 
 const SEARCH_KIND_DEFINITIONS: SearchKindDefinition[] = [
   { kind: "thread", label: "Chats", icon: MessageSquareTextIcon },
@@ -115,129 +90,35 @@ const SEARCH_KIND_DEFINITIONS: SearchKindDefinition[] = [
   { kind: "file", label: "Files", icon: FileIcon },
 ]
 
-const EMPTY_REMOTE_SEARCH_RESULT: RemoteNotebookSearchResult = {
-  sessions: [],
-  files: [],
-  fileScanPartial: false,
-  failedProviders: ["threads", "files"],
-}
-
-const RESOURCE_OBJECT_KIND: BenchObjectKind = "resource"
 const SEARCH_FEATURED_COUNT = 3
 /** Drawer width minus the shell's horizontal padding, for card height estimation. */
 const RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX = 380
 
-function titleCaseStatus(value: string): string {
-  return `${value.slice(0, 1).toLocaleUpperCase()}${value.slice(1)}`
-}
-
 function isNotebookSearchFilter(value: string): value is NotebookSearchFilter {
-  return value === "all" || NOTEBOOK_SEARCH_RESULT_KINDS.some((candidate) => candidate === value)
-}
-
-function searchFilterLabel(filter: NotebookSearchFilter): string {
-  if (filter === "all") return "All types"
   return (
-    SEARCH_KIND_DEFINITIONS.find((definition) => definition.kind === filter)?.label ?? "All types"
+    value === NOTEBOOK_SEARCH_FILTER_ALL ||
+    NOTEBOOK_SEARCH_RESULT_KINDS.some((candidate) => candidate === value)
   )
 }
 
-/**
- * The target, not the filter bucket, decides how a result is drawn: it names the
- * exact object kind, so a widget and a diagram get their own glyphs instead of
- * sharing one "creation" icon.
- */
-function searchResultKind(result: NotebookSearchResult): ObjectPresentationKind {
-  if (result.target.type === "object") return result.target.kind
-  if (result.target.type === "resource") return RESOURCE_OBJECT_KIND
-  if (result.target.type === "thread") return OBJECT_KIND_THREAD
-  return OBJECT_KIND_WORKSPACE_FILE
-}
-
-function resourcePath(record: {
-  readerPath?: string
-  sourceOriginRelpath?: string
-  sourceRelpath: string
-}): string {
-  return record.readerPath ?? record.sourceOriginRelpath ?? record.sourceRelpath
-}
-
-function resourceExtension(record: {
-  format: string
-  readerPath?: string
-  sourceOriginRelpath?: string
-  sourceRelpath: string
-}) {
-  const fromFormat = resourceFileExtensionFromFormat(record.format)
-  if (fromFormat) return fromFormat
-  const extension = fileExtensionFromPath(resourcePath(record))
-  return extension === "pdf" || extension === "epub" ? extension : undefined
-}
-
-function sessionSearchResult(session: SessionInfo): NotebookSearchResult {
-  const updatedAt = session.time.updated ?? session.time.created
-  return {
-    id: `thread:${session.id}`,
-    kind: "thread",
-    title: session.title,
-    metadata: notebookSearchTimestampMetadata("Chat", updatedAt),
-    updatedAtMs: updatedAt,
-    target: { type: "thread", sessionID: session.id },
-  }
-}
-
-function fileSearchResult(path: string): NotebookSearchResult {
-  const extension = fileExtensionFromPath(path)
-  const name = fileNameFromPath(path)
-  const normalizedPath = normalizeRelativePath(path) ?? path
-  const parentPath = normalizedPath.includes("/")
-    ? normalizedPath.slice(0, normalizedPath.lastIndexOf("/"))
-    : "Notebook root"
-
-  if (extension === "pdf" || extension === "epub") {
-    return {
-      id: `source-file:${normalizedPath}`,
-      kind: "source",
-      title: name,
-      metadata: `${extension.toUpperCase()} · Unprocessed`,
-      keywords: normalizedPath,
-      updatedAtMs: 0,
-      target: {
-        type: "resource",
-        path: normalizedPath,
-        name,
-        status: "unprocessed",
-      },
-      resourceVisual: { extension },
-    }
-  }
-
-  return {
-    id: `file:${normalizedPath}`,
-    kind: "file",
-    title: name,
-    metadata: `File · ${parentPath}`,
-    keywords: normalizedPath,
-    updatedAtMs: 0,
-    target: {
-      type: "file",
-      path: normalizedPath,
-      viewer: isMarkdownBenchPath(normalizedPath) ? "markdown" : "file",
-    },
-  }
+function searchFilterLabel(filter: NotebookSearchFilter): string {
+  if (filter === NOTEBOOK_SEARCH_FILTER_ALL) return SEARCH_FILTER_ALL_LABEL
+  return (
+    SEARCH_KIND_DEFINITIONS.find((definition) => definition.kind === filter)?.label ?? SEARCH_FILTER_ALL_LABEL
+  )
 }
 
 export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProps) {
-  const requestSequenceRef = useRef(0)
   const [query, setQuery] = useState("")
-  const [filter, setFilter] = useState<NotebookSearchFilter>("all")
+  const [filter, setFilter] = useState<NotebookSearchFilter>(NOTEBOOK_SEARCH_FILTER_ALL)
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
-  const [remoteState, setRemoteState] = useState<RemoteSearchState>({ status: "idle" })
   const objectsQuery = useQuery(workspaceObjectsQueryOptions(props.directory))
-  const resourcesQuery = useQuery(processedResourcesQueryOptions(props.directory))
-  const normalizedQuery = query.trim()
-  const hasQuery = normalizedQuery.length > 0
-  const canSearch = normalizedQuery.length >= NOTEBOOK_SEARCH_MIN_QUERY_LENGTH
+  const search = useNotebookSearch({
+    directory: props.directory,
+    query,
+    filter,
+    sessions: props.sessions,
+  })
   const widgets = selectHtmlWidgetObjects(objectsQuery)
   const diagrams = selectMermaidObjects(objectsQuery)
   const media = selectMediaLibraryObjects(objectsQuery)
@@ -249,189 +130,19 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
     for (const object of media) items.set(object.objectID, { kind: "media", object })
     return items
   }, [diagrams, media, widgets])
-
-  useEffect(() => {
-    const requestSequence = requestSequenceRef.current + 1
-    requestSequenceRef.current = requestSequence
-    if (!canSearch) {
-      setRemoteState({ status: "idle" })
-      return
-    }
-
-    setRemoteState({ status: "loading", query: normalizedQuery })
-    const controller = new AbortController()
-    const timeout = setTimeout(() => {
-      void searchRemoteNotebookEntities({
-        directory: props.directory,
-        query: normalizedQuery,
-        signal: controller.signal,
-      })
-        .then((data) => {
-          if (requestSequenceRef.current !== requestSequence) return
-          setRemoteState({ status: "ready", query: normalizedQuery, data })
-        })
-        .catch(() => {
-          if (controller.signal.aborted || requestSequenceRef.current !== requestSequence) {
-            return
-          }
-          setRemoteState({
-            status: "ready",
-            query: normalizedQuery,
-            data: EMPTY_REMOTE_SEARCH_RESULT,
-          })
-        })
-    }, NOTEBOOK_SEARCH_DEBOUNCE_MS)
-
-    return () => {
-      clearTimeout(timeout)
-      controller.abort()
-    }
-  }, [canSearch, normalizedQuery, props.directory])
-
-  const localResults = useMemo(() => {
-    const objectUpdatedAtByID = new Map(
-      (objectsQuery.data?.objects ?? []).map((object) => [
-        object.objectID,
-        parseNotebookSearchTimestamp(object.updatedAt),
-      ]),
-    )
-    const resourceResults: NotebookSearchResult[] = []
-    for (const resource of resourcesQuery.data ?? []) {
-      const path = resourcePath(resource)
-      const extension = resourceExtension(resource)
-      const updatedAt =
-        objectUpdatedAtByID.get(resource.objectID) ??
-        parseNotebookSearchTimestamp(resource.preparedAt)
-      const result: NotebookSearchResult = {
-        id: `source:${resource.objectID}`,
-        kind: "source",
-        title: resource.title ?? resource.alias ?? fileNameFromPath(path),
-        metadata: `${resource.format.toUpperCase()} · ${
-          resource.author ?? titleCaseStatus(resource.status)
-        }`,
-        keywords: `${resource.sourceRelpath} ${resource.sourceOriginRelpath ?? ""}`,
-        updatedAtMs: updatedAt,
-        target: {
-          type: "resource",
-          path,
-          name: fileNameFromPath(path) || resource.alias,
-          objectID: resource.objectID,
-          status: resource.status,
-        },
-      }
-      if (extension) {
-        result.resourceVisual = {
-          extension,
-          ...(resource.coverRelpath ? { coverRelpath: resource.coverRelpath } : {}),
-        }
-      }
-      resourceResults.push(result)
-    }
-    const objectResults: NotebookSearchResult[] = (objectsQuery.data?.objects ?? []).flatMap(
-      (object) => {
-        const result = notebookSearchResultFromWorkspaceObject(object)
-        return result ? [result] : []
-      },
-    )
-    const threadResults = props.sessions
-      .filter((session) => parseSubagentSession(session).agent === undefined)
-      .map(sessionSearchResult)
-    return [...resourceResults, ...objectResults, ...threadResults]
-  }, [objectsQuery.data?.objects, props.sessions, resourcesQuery.data])
-
-  const processedResourcePaths = useMemo(() => {
-    const paths = new Set<string>()
-    for (const resource of resourcesQuery.data ?? []) {
-      for (const candidate of [
-        resource.sourceRelpath,
-        resource.sourceOriginRelpath,
-        resource.readerPath,
-      ]) {
-        const normalized = candidate ? normalizeRelativePath(candidate) : undefined
-        if (normalized) paths.add(normalized)
-      }
-    }
-    return paths
-  }, [resourcesQuery.data])
-
-  const remoteResults = useMemo(() => {
-    if (remoteState.status !== "ready" || remoteState.query !== normalizedQuery) return []
-    const threadResults = remoteState.data.sessions.map(sessionSearchResult)
-    const fileResults = remoteState.data.files
-      .map((path) => normalizeRelativePath(path) ?? path)
-      .filter((path) => !processedResourcePaths.has(path))
-      .map(fileSearchResult)
-    return [...threadResults, ...fileResults]
-  }, [normalizedQuery, processedResourcePaths, remoteState])
-
-  const visibleResults = useMemo(
-    () =>
-      canSearch && remoteState.status === "ready" && remoteState.query === normalizedQuery
-        ? searchNotebookResults({
-            query: normalizedQuery,
-            filter,
-            results: [...localResults, ...remoteResults],
-          })
-        : [],
-    [canSearch, filter, localResults, normalizedQuery, remoteResults, remoteState],
-  )
-  const recentResults = useMemo(
-    () =>
-      searchNotebookResults({
-        query: "",
-        filter: "all",
-        results: localResults,
-        limit: NOTEBOOK_SEARCH_RECENT_RESULT_LIMIT,
-      }),
-    [localResults],
-  )
-  const isSearching =
-    canSearch && (remoteState.status !== "ready" || remoteState.query !== normalizedQuery)
-  const remoteData =
-    remoteState.status === "ready" && remoteState.query === normalizedQuery
-      ? remoteState.data
-      : undefined
-  const searchIncomplete =
-    remoteData !== undefined &&
-    (remoteData.fileScanPartial || remoteData.failedProviders.length > 0)
+  const searchIncomplete = search.incomplete
 
   function openResult(result: NotebookSearchResult) {
-    if (result.target.type === "thread") {
-      void props.onOpenThread(result.target.sessionID).then((opened) => {
+    const request = notebookSearchOpenRequest({ result, directory: props.directory })
+    if (!request) {
+      if (result.target.type !== "thread") return
+      const { sessionID } = result.target
+      void props.onOpenThread(sessionID).then((opened) => {
         if (opened) props.onClose()
       })
       return
     }
-    if (result.target.type === "resource") {
-      void props.onOpen({
-        type: "resource",
-        directory: props.directory,
-        resource: {
-          path: result.target.path,
-          name: result.target.name,
-          ...(result.target.objectID ? { objectID: result.target.objectID } : {}),
-          ...(result.target.status ? { status: result.target.status } : {}),
-        },
-      })
-      return
-    }
-    if (result.target.type === "object") {
-      void props.onOpen({
-        type: "object",
-        directory: props.directory,
-        target: createBenchObjectTarget(result.target.kind, result.target.objectID),
-      })
-      return
-    }
-    void props.onOpen({
-      type: "object",
-      directory: props.directory,
-      target: {
-        type: "workspace-file",
-        path: result.target.path,
-        viewer: result.target.viewer,
-      },
-    })
+    void props.onOpen(request)
   }
 
   /** Only the promoted band can be a card, so the estimate follows the same rule. */
@@ -441,59 +152,13 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
       : OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_MD]
   }
 
-  function describeResult(result: NotebookSearchResult): ObjectModel {
-    return describeObject({
-      kind: searchResultKind(result),
-      title: result.title,
-      meta: [result.metadata],
-      directory: props.directory,
-      ...(result.target.type === "resource" && result.resourceVisual
-        ? {
-            thumbnail: {
-              source: OBJECT_THUMBNAIL_COVER,
-              directory: props.directory,
-              ...(result.resourceVisual.coverRelpath
-                ? { coverRelpath: result.resourceVisual.coverRelpath }
-                : {}),
-              extension: result.resourceVisual.extension,
-              fileName: result.target.name,
-            },
-          }
-        : {}),
-      // An unprocessed source has no object yet, so the file on disk is its identity.
-      ...(result.target.type === "resource"
-        ? {
-            target: result.target.objectID
-              ? createBenchObjectTarget(RESOURCE_OBJECT_KIND, result.target.objectID)
-              : {
-                  type: "workspace-file" as const,
-                  path: result.target.path,
-                  viewer: "file" as const,
-                },
-          }
-        : {}),
-      ...(result.target.type === "object"
-        ? { target: createBenchObjectTarget(result.target.kind, result.target.objectID) }
-        : {}),
-      ...(result.target.type === "file"
-        ? {
-            target: {
-              type: "workspace-file" as const,
-              path: result.target.path,
-              viewer: result.target.viewer,
-            },
-          }
-        : {}),
-    })
-  }
-
   /**
    * Split density without reordering: a result keeps its rank, and the top few
    * are promoted to cards only when they have something to show. A chat or a
    * plain file at rank one stays a row rather than spending a card on a glyph.
    */
   function renderResult(result: NotebookSearchResult, index: number) {
-    const model = describeResult(result)
+    const model = describeNotebookSearchResult({ result, directory: props.directory })
     const creation =
       result.target.type === "object" ? creationItems.get(result.target.objectID) : undefined
     const featured =
@@ -523,12 +188,12 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
       title="Search"
       searchLabel="Search this notebook…"
       searchValue={query}
-      searchPending={isSearching}
+      searchPending={search.searching}
       searchAutoFocus
       searchMaxLength={NOTEBOOK_SEARCH_MAX_QUERY_LENGTH}
       scrollRef={setScrollElement}
       toolbar={
-        hasQuery ? (
+        search.hasQuery ? (
           <div className="flex items-center justify-between gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -546,7 +211,9 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
                       if (isNotebookSearchFilter(value)) setFilter(value)
                     }}
                   >
-                    <DropdownMenuRadioItem value="all">All types</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value={NOTEBOOK_SEARCH_FILTER_ALL}>
+                      {SEARCH_FILTER_ALL_LABEL}
+                    </DropdownMenuRadioItem>
                     {SEARCH_KIND_DEFINITIONS.map((definition) => (
                       <DropdownMenuRadioItem key={definition.kind} value={definition.kind}>
                         {definition.label}
@@ -557,9 +224,9 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
               </DropdownMenuContent>
             </DropdownMenu>
             <p className="text-xs text-text-weaker" aria-live="polite">
-              {isSearching
+              {search.searching
                 ? "Searching…"
-                : `${visibleResults.length} ${visibleResults.length === 1 ? "result" : "results"}`}
+                : `${search.results.length} ${search.results.length === 1 ? "result" : "results"}`}
             </p>
           </div>
         ) : undefined
@@ -567,14 +234,14 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
       onSearchValueChange={setQuery}
       onClose={props.onClose}
     >
-      {!hasQuery ? (
+      {!search.hasQuery ? (
         <section className="flex flex-col gap-1">
           <RightWorkspaceSectionLabel>Recent in this notebook</RightWorkspaceSectionLabel>
-          {objectsQuery.isPending || resourcesQuery.isPending ? (
+          {search.catalogPending ? (
             <RightWorkspaceListSkeleton />
-          ) : recentResults.length > 0 ? (
+          ) : search.recents.length > 0 ? (
             <RightWorkspaceVirtualList
-              items={recentResults}
+              items={search.recents}
               scrollElement={scrollElement}
               getKey={(result) => result.id}
               estimateSize={searchResultEstimate}
@@ -594,7 +261,7 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
             </Empty>
           )}
         </section>
-      ) : !canSearch ? (
+      ) : !search.canSearch ? (
         <Empty className="min-h-72">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -606,19 +273,19 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
-      ) : isSearching ? (
+      ) : search.searching ? (
         <RightWorkspaceListSkeleton count={5} />
-      ) : visibleResults.length > 0 ? (
+      ) : search.results.length > 0 ? (
         <div className="flex flex-col gap-2">
           {searchIncomplete ? (
             <p className="px-1 text-xs text-text-weaker">
-              {remoteData?.failedProviders.length
+              {search.failedProviders.length > 0
                 ? "Some result types could not be searched."
                 : "Showing the best matches from a bounded file scan."}
             </p>
           ) : null}
           <RightWorkspaceVirtualList
-            items={visibleResults}
+            items={search.results}
             scrollElement={scrollElement}
             getKey={(result) => result.id}
             estimateSize={searchResultEstimate}
