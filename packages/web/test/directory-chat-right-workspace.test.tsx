@@ -15,8 +15,8 @@ import {
   DirectoryChatRightWorkspace,
   DirectoryChatRightWorkspaceContent,
   resolveRightWorkspaceFilesPresentation,
-  resolveRightWorkspaceOpenOutcome,
 } from "../src/components/directory-chat/directory-chat-right-workspace"
+import { resolveRightWorkspaceOpenOutcome } from "../src/components/directory-chat/right-workspace-open"
 import { BenchContent } from "../src/components/directory-chat/directory-chat-bench-page-layout"
 import {
   DirectoryWorkspaceProvider,

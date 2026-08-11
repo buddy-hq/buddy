@@ -1,13 +1,12 @@
 import type { MouseEvent, RefCallback } from "react"
 import { useEffect, useState } from "react"
 import { useLocation } from "@tanstack/react-router"
-import { Button, cn } from "@buddy/ui"
+import { Button, Z_INDEX, cn } from "@buddy/ui"
 import {
   ArrowLeftIcon,
   BookIcon,
   PanelLeftIcon,
   PanelRightIcon,
-  PictureInPicture2Icon,
   SquarePenIcon,
   type AppIcon,
 } from "@/icons/app-icons"
@@ -49,8 +48,8 @@ type DesktopTitlebarProps = {
   parentSession?: SessionInfo
   onNewSession?: () => void | Promise<void>
   onSelectSession?: (sessionID: string) => void | Promise<void>
-  onFloatChat?: () => void
   showDockFloatingBench?: boolean
+  showSidebarToggles?: boolean
   rootContentRef?: RefCallback<HTMLDivElement>
 }
 
@@ -149,22 +148,21 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const resolvedLeftSidebarOpen = props.leftSidebarOpen ?? leftSidebarOpen
   const showSidebarToggles =
-    placement === "chat" || (pathname !== "/chat" && pathname.endsWith("/chat"))
+    props.showSidebarToggles ??
+    (placement === "chat" || (pathname !== "/chat" && pathname.endsWith("/chat")))
   // In chat placement the toggle is a fixed element inside the header — not in the flow
   const showLeftSidebarToggle = placement === "chat" ? false : showSidebarToggles
   const shouldReserveMacWindowControls = placement === "root" ? isMac && !isFullscreen : false
-  // Fixed left cluster: the sidebar toggle, plus new-chat and pop-out when they apply. New chat
-  // appears when the sidebar is collapsed unless the contextual thread browser is present; that
-  // browser owns session creation alongside history and the current-chat control.
-  const showChatFloatInLeftCluster = Boolean(
-    props.onFloatChat && (props.showSidebarThreadControls || props.showThreadBrowser),
-  )
+  // Fixed left cluster: the sidebar toggle, plus new-chat when it applies. New chat appears when
+  // the sidebar is collapsed unless the contextual thread browser is present; that browser owns
+  // session creation alongside history and the current-chat control. The pill is grouping chrome,
+  // so it only appears once there is a second control to group with — the immersive control that
+  // used to sit here now leads the Bench tab strip.
   const showNewChatInLeftCluster =
     Boolean(props.onNewSession) && !resolvedLeftSidebarOpen && !props.showThreadBrowser
-  const chatLeftClusterUsesPill = showChatFloatInLeftCluster || showNewChatInLeftCluster
+  const chatLeftClusterUsesPill = showNewChatInLeftCluster
   const chatLeftClusterWidth =
-    (1 + (showNewChatInLeftCluster ? 1 : 0) + (showChatFloatInLeftCluster ? 1 : 0)) *
-      TITLEBAR_CLUSTER_BUTTON_WIDTH_PX +
+    (1 + (showNewChatInLeftCluster ? 1 : 0)) * TITLEBAR_CLUSTER_BUTTON_WIDTH_PX +
     (chatLeftClusterUsesPill ? TITLEBAR_CLUSTER_PILL_BORDER_PX : 0)
   // This spacer clears the fixed cluster from the title in all desktop variants. Its width snaps
   // with the sidebar column so the titlebar and transcript share one layout frame — derived from
@@ -438,12 +436,14 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
               isMac && !isFullscreen
                 ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX
                 : CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX,
-            zIndex: 50,
+            zIndex: Z_INDEX.applicationChrome,
             transition: "none",
           }}
           className="motion-reduce:transition-none [-webkit-app-region:no-drag] flex items-center gap-1.5"
         >
           <div
+            data-component="chat-titlebar-left-cluster"
+            data-pill={chatLeftClusterUsesPill ? "true" : "false"}
             className={
               chatLeftClusterUsesPill ? TITLEBAR_TOGGLE_PILL_CLASS : "flex shrink-0 items-center"
             }
@@ -479,19 +479,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                 onClick={() => void props.onNewSession?.()}
               >
                 <TitlebarIcon icon={SquarePenIcon} />
-              </Button>
-            ) : null}
-            {showChatFloatInLeftCluster ? (
-              <Button
-                type="button"
-                data-action="chat-pop-out"
-                variant="ghost"
-                className={titlebarToggleButtonClass(true)}
-                aria-label={language.t("sidebar.popOutChat")}
-                title={language.t("sidebar.popOutChat")}
-                onClick={props.onFloatChat}
-              >
-                <PictureInPicture2Icon className={TITLEBAR_ICON_SIZE_CLASS} />
               </Button>
             ) : null}
           </div>
@@ -616,13 +603,14 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           className={cn(
             "flex shrink-0 items-center gap-1 ml-auto [-webkit-app-region:no-drag]",
             isMac ? undefined : "mr-2",
-            placement === "chat" && isDesktop ? "fixed top-0 z-50" : undefined,
+            placement === "chat" && isDesktop ? "fixed top-0" : undefined,
           )}
           style={
             placement === "chat" && isDesktop
               ? {
                   right: isMac ? RIGHT_TOGGLE_RAIL_ALIGNED_MARGIN_PX : 0,
                   height: DESKTOP_TITLEBAR_HEIGHT_PX,
+                  zIndex: Z_INDEX.applicationChrome,
                 }
               : isMac
                 ? { marginRight: RIGHT_TOGGLE_RAIL_ALIGNED_MARGIN_PX }

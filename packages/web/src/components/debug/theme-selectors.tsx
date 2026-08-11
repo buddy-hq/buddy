@@ -1,5 +1,13 @@
 import { useMemo } from "react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from "@buddy/ui"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Z_INDEX,
+  cn,
+} from "@buddy/ui"
 import { useTheme, type ColorScheme } from "@/theme"
 
 type ThemeSelectorsProps = {
@@ -12,8 +20,6 @@ const COLOR_SCHEME_OPTIONS = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ] satisfies { value: ColorScheme; label: string }[]
-
-const DEVTOOLS_SELECT_CONTENT_CLASS = "z-[10000]"
 
 function isColorScheme(value: string): value is ColorScheme {
   return COLOR_SCHEME_OPTIONS.some((option) => option.value === value)
@@ -45,7 +51,7 @@ export function ThemeSelectors({ className, compact = false }: ThemeSelectorsPro
         >
           <SelectValue placeholder="Color scheme" />
         </SelectTrigger>
-        <SelectContent className={DEVTOOLS_SELECT_CONTENT_CLASS}>
+        <SelectContent style={{ zIndex: Z_INDEX.devtoolsFloating }}>
           {COLOR_SCHEME_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}
@@ -62,7 +68,7 @@ export function ThemeSelectors({ className, compact = false }: ThemeSelectorsPro
         >
           <SelectValue placeholder="Theme" />
         </SelectTrigger>
-        <SelectContent className={DEVTOOLS_SELECT_CONTENT_CLASS}>
+        <SelectContent style={{ zIndex: Z_INDEX.devtoolsFloating }}>
           {themeOptions.map((option) => (
             <SelectItem key={option.id} value={option.id}>
               {option.name}

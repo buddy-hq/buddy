@@ -58,6 +58,7 @@ import {
   FileUnknownIcon as FileUnknownIconData,
   Folder01Icon as Folder01IconData,
   FolderOpenIcon as FolderOpenIconData,
+  FitToScreenIcon as FitToScreenIconData,
   Gamepad2Icon as Gamepad2IconData,
   GitBranchIcon as GitBranchIconData,
   Globe02Icon as Globe02IconData,
@@ -67,6 +68,7 @@ import {
   HelpCircleIcon as HelpCircleIconData,
   HighlighterIcon as HighlighterIconData,
   HistoryIcon as HistoryIconData,
+  IdeaIcon as IdeaIconData,
   Image01Icon as Image01IconData,
   ImageCompositionIcon as ImageCompositionIconData,
   InformationCircleIcon as InformationCircleIconData,
@@ -339,6 +341,7 @@ export const Folder = createIcon(Folder01IconData, "Folder")
 export const FolderIcon = createIcon(Folder01IconData, "FolderIcon")
 export const FolderOpen = createIcon(FolderOpenIconData, "FolderOpen")
 export const FolderOpenIcon = createIcon(FolderOpenIconData, "FolderOpenIcon")
+export const FitToScreenIcon = createIcon(FitToScreenIconData, "FitToScreenIcon")
 export const Gamepad2 = createIcon(Gamepad2IconData, "Gamepad2")
 export const Gamepad2Icon = createIcon(Gamepad2IconData, "Gamepad2Icon")
 export const GitBranch = createIcon(GitBranchIconData, "GitBranch")
@@ -352,6 +355,7 @@ export const HelpCircle = createIcon(HelpCircleIconData, "HelpCircle")
 export const HighlighterIcon = createIcon(HighlighterIconData, "HighlighterIcon")
 export const HistoryIcon = createIcon(HistoryIconData, "HistoryIcon")
 export const QuoteIcon = createIcon(QuoteUpIconData, "QuoteIcon")
+export const IdeaIcon = createIcon(IdeaIconData, "IdeaIcon")
 export const Image = createIcon(Image01IconData, "Image")
 export const ImageIcon = createIcon(Image01IconData, "ImageIcon")
 export const ImagesIcon = createIcon(ImageCompositionIconData, "ImagesIcon")

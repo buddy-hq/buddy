@@ -113,7 +113,7 @@ export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
       <PopoverContent
         align="start"
         sideOffset={12}
-        className="flex max-h-[480px] w-80 flex-col overflow-hidden border-border-weaker-base/20 bg-background-base/95 p-0 shadow-2xl backdrop-blur-xl z-50"
+        className="flex max-h-[480px] w-80 flex-col overflow-hidden border-border-weaker-base/20 bg-background-base/95 p-0 shadow-2xl backdrop-blur-xl"
         onMouseEnter={props.openOnTriggerHover ? clearHoverCloseTimeout : undefined}
         onMouseLeave={props.openOnTriggerHover ? closeFromHover : undefined}
         onOpenAutoFocus={(event) => {
@@ -163,7 +163,8 @@ export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
                     "flex w-full cursor-pointer flex-row items-center justify-between gap-4 rounded-xl px-3 py-2.5 text-left transition-all duration-200",
                     "text-text-weak hover:bg-surface-raised-base/50 hover:text-text-base",
                     "data-[active=true]:bg-surface-raised-base/40 data-[active=true]:text-text-base data-[active=true]:ring-1 data-[active=true]:ring-border-base/5",
-                    "data-selected:bg-surface-raised-base-hover/80 data-selected:text-text-strong data-selected:shadow-xs data-selected:ring-1 data-selected:ring-border-base/5",
+                    // Matched by value: cmdk writes data-selected="false" on the rest.
+                    "data-[selected=true]:bg-surface-raised-base-hover/80 data-[selected=true]:text-text-strong data-[selected=true]:shadow-xs data-[selected=true]:ring-1 data-[selected=true]:ring-border-base/5",
                   )}
                   onSelect={(value) => {
                     void props.onSelectSession(value)

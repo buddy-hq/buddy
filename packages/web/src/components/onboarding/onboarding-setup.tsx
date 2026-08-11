@@ -1,4 +1,4 @@
-import { Button, CheckIcon, cn } from "@buddy/ui"
+import { Button, CheckIcon, Z_INDEX, cn } from "@buddy/ui"
 import { FolderIcon } from "@/icons/app-icons"
 import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
@@ -192,7 +192,8 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2, ease: EASE_OUT }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background-base/80 backdrop-blur-md"
+            className="fixed inset-0 flex flex-col items-center justify-center bg-background-base/80 backdrop-blur-md"
+            style={{ zIndex: Z_INDEX.modal }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.96 }}

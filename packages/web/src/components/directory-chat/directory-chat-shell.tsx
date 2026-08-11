@@ -13,6 +13,7 @@ type DirectoryChatShellProps = {
   leftSidebar: ReactNode
   contentLayout: ReactNode
   immersive?: boolean
+  showImmersiveTitlebar?: boolean
   chatTitle?: string
   projectName?: string
   isTurnActive?: boolean
@@ -40,7 +41,6 @@ type DirectoryChatShellProps = {
   parentSession?: SessionInfo
   onNewSession?: () => void | Promise<void>
   onSelectSession?: (sessionID: string) => void | Promise<void>
-  onFloatChat?: () => void
 }
 
 export function DirectoryChatShell(props: DirectoryChatShellProps) {
@@ -49,6 +49,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     leftSidebar,
     contentLayout,
     immersive = false,
+    showImmersiveTitlebar = false,
     chatTitle,
     projectName,
     isTurnActive,
@@ -76,13 +77,13 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     parentSession,
     onNewSession,
     onSelectSession,
-    onFloatChat,
   } = props
 
   const leftSidebarOverlayRef = useRef<HTMLDivElement>(null)
 
   const leftSidebarResolvedWidth = !immersive && leftSidebarOpen ? leftSidebarDisplayWidth : 0
-  const titlebarHeight = immersive ? 0 : DESKTOP_TITLEBAR_HEIGHT_PX
+  const titlebarVisible = !immersive || showImmersiveTitlebar
+  const titlebarHeight = titlebarVisible ? DESKTOP_TITLEBAR_HEIGHT_PX : 0
   const rightWorkspaceTitlebarWidth =
     !immersive && rightWorkspaceOpen && rightWorkspaceTitlebar
       ? rightWorkspaceDisplayWidth
@@ -170,27 +171,34 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
       {/* Row 1, Col 2: Main titlebar.
           No `overflow-hidden` here — it would clip the titlebar's downward shadow. Horizontal
           overflow is already bounded by `min-w-0` plus the truncation inside DesktopTitlebar. */}
-      <div hidden={immersive} aria-hidden={immersive} className="col-start-2 row-start-1 min-w-0">
-        <DesktopTitlebar
-          placement="chat"
-          chatTitle={chatTitle}
-          projectName={projectName}
-          isTurnActive={isTurnActive}
-          variant={titlebarVariant}
-          leftSidebarOpen={leftSidebarOpen}
-          rightWorkspaceOpen={rightWorkspaceOpen}
-          onLeftSidebarToggle={onLeftSidebarToggle}
-          onRightWorkspaceToggle={handleRightWorkspaceToggle}
-          showThreadBrowser={showThreadBrowser}
-          showSidebarThreadControls={showSidebarThreadControls}
-          sessions={sessions}
-          activeSessionID={activeSessionID}
-          linkedSessionID={linkedSessionID}
-          parentSession={parentSession}
-          onNewSession={onNewSession}
-          onSelectSession={onSelectSession}
-          onFloatChat={onFloatChat}
-        />
+      <div
+        hidden={!titlebarVisible}
+        aria-hidden={!titlebarVisible}
+        className="col-start-2 row-start-1 min-w-0"
+      >
+        {immersive ? (
+          <DesktopTitlebar placement="root" showSidebarToggles={false} />
+        ) : (
+          <DesktopTitlebar
+            placement="chat"
+            chatTitle={chatTitle}
+            projectName={projectName}
+            isTurnActive={isTurnActive}
+            variant={titlebarVariant}
+            leftSidebarOpen={leftSidebarOpen}
+            rightWorkspaceOpen={rightWorkspaceOpen}
+            onLeftSidebarToggle={onLeftSidebarToggle}
+            onRightWorkspaceToggle={handleRightWorkspaceToggle}
+            showThreadBrowser={showThreadBrowser}
+            showSidebarThreadControls={showSidebarThreadControls}
+            sessions={sessions}
+            activeSessionID={activeSessionID}
+            linkedSessionID={linkedSessionID}
+            parentSession={parentSession}
+            onNewSession={onNewSession}
+            onSelectSession={onSelectSession}
+          />
+        )}
       </div>
 
       <div

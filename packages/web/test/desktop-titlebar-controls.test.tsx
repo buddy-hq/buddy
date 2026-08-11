@@ -30,7 +30,6 @@ function TitlebarProbe(props: {
       sessions={[]}
       onNewSession={props.onNewSession}
       onSelectSession={() => undefined}
-      onFloatChat={() => undefined}
     />
   )
 }

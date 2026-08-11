@@ -1630,7 +1630,7 @@ export function PromptComposer(props: PromptComposerProps) {
               transition={surfaceTransition}
               className="w-full"
             >
-              <div className="composer-surface composer-grain composer-shell group/prompt-input relative z-10">
+              <div className="composer-surface composer-grain group/prompt-input relative z-10">
                 <form
                   id="prompt-composer-form"
                   data-component="prompt-composer"

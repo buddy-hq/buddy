@@ -22,6 +22,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
   XIcon,
+  Z_INDEX,
   cn,
 } from "@buddy/ui"
 import {
@@ -66,6 +67,10 @@ import { SubagentCardRedesignsEasel } from "./easel/subagent-card-redesigns"
 import { FlashcardReviewRedesignsEasel } from "./easel/flashcard-review-redesigns"
 import { FlashcardDeckJourneyEasel } from "./easel/flashcard-deck-journey"
 import { WorkingStateCanvasEasel } from "./easel/working-state-canvas"
+import { CommandSelectionTokensEasel } from "./easel/command-selection-tokens"
+import { ReaderLayoutConsistencyEasel } from "./easel/reader-layout-consistency"
+import { SegmentedActiveStateEasel } from "./easel/segmented-active-state"
+import { SettingsUpdatesAndModeEasel } from "./easel/settings-updates-and-mode"
 import { ThemeSelectors } from "./theme-selectors"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
@@ -80,6 +85,10 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "settings-updates-and-mode"
+  | "segmented-active-state"
+  | "reader-layout-consistency"
+  | "command-selection-tokens"
   | "flashcard-deck-journey"
   | "flashcard-review-redesigns"
   | "working-state-canvas"
@@ -115,6 +124,30 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "segmented-active-state",
+    label: "Segmented active state · on vs hover",
+    subtitle:
+      "Why a selected segment does not look selected: `toggleVariants` paints hover, aria-pressed and data-[state=on] with one token, and that token sits close to the popover fill it lives on \u00b7 the collision shown statically, before/after on the live ToggleGroup, five candidate on-states over both surfaces, and the one-string change",
+  },
+  {
+    id: "settings-updates-and-mode",
+    label: "Settings · update channel + Buddy mode",
+    subtitle:
+      "Two controls that hide what the pick costs · the channel toggle downloads a release candidate on selection and can't be undone (allowDowngrade = false), the mode cards flood with brand purple · baseline with the defects measured, then two update-tab directions across six updater states and three mode directions",
+  },
+  {
+    id: "reader-layout-consistency",
+    label: "Reader chrome · EPUB + PDF side by side",
+    subtitle:
+      "Two readers built to the same brief, drifted · original with the defects pinned, then four directions where both engines get the identical bar · depth ranked by frequency, the ⋯ menu and the footer deleted, one scroller per surface",
+  },
+  {
+    id: "command-selection-tokens",
+    label: "Command selection · variant + token",
+    subtitle:
+      "Why a cmdk row never lit up: `data-selected` is retargeted to `[data-state=\"selected\"]`, an attribute cmdk never writes · broken vs value-matching side by side, candidate highlight tokens on the real popover surface, and the live primitive",
+  },
   {
     id: "flashcard-deck-journey",
     label: "Flashcard deck · the surface around the reviewer",
@@ -1163,7 +1196,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("flashcard-deck-journey")
+  const [prototype, setPrototype] = useState<EaselPrototype>("segmented-active-state")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1288,7 +1321,7 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="z-[10050]">
+            <SelectContent style={{ zIndex: Z_INDEX.devtoolsFloating }}>
               {EASEL_PROTOTYPES.map((config) => (
                 <SelectItem key={config.id} value={config.id} className="text-xs">
                   {config.label}
@@ -1324,6 +1357,10 @@ export function DevToolsEaselTab(props: { directory?: string }) {
         className={cn(
           "flex min-h-0 flex-1",
           prototype === "location-step-options" ||
+            prototype === "settings-updates-and-mode" ||
+            prototype === "segmented-active-state" ||
+            prototype === "reader-layout-consistency" ||
+            prototype === "command-selection-tokens" ||
             prototype === "flashcard-deck-journey" ||
             prototype === "flashcard-review-redesigns" ||
             prototype === "working-state-canvas" ||
@@ -1346,6 +1383,38 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
       >
+        {prototype === "settings-updates-and-mode" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <SettingsUpdatesAndModeEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "segmented-active-state" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <SegmentedActiveStateEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "reader-layout-consistency" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <ReaderLayoutConsistencyEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "command-selection-tokens" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <CommandSelectionTokensEasel />
+            </div>
+          </div>
+        ) : null}
+
         {prototype === "flashcard-deck-journey" ? (
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">

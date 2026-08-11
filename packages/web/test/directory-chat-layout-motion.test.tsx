@@ -28,7 +28,11 @@ function flushEffects(): Promise<void> {
   })
 }
 
-function LayoutMotionHarness(props: { platform?: Platform }) {
+function LayoutMotionHarness(props: {
+  platform?: Platform
+  immersive?: boolean
+  showImmersiveTitlebar?: boolean
+}) {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
 
   return (
@@ -54,6 +58,8 @@ function LayoutMotionHarness(props: { platform?: Platform }) {
       <DirectoryChatShell
         leftSidebar={<div>Left sidebar</div>}
         contentLayout={<div>Chat and right workspace</div>}
+        immersive={props.immersive}
+        showImmersiveTitlebar={props.showImmersiveTitlebar}
         leftSidebarOpen={leftSidebarOpen}
         leftSidebarDisplayWidth={280}
         leftSidebarWidth={280}
@@ -70,9 +76,13 @@ function LayoutMotionHarness(props: { platform?: Platform }) {
   )
 }
 
-function createTestRouter(platform?: Platform) {
+function createTestRouter(options?: {
+  platform?: Platform
+  immersive?: boolean
+  showImmersiveTitlebar?: boolean
+}) {
   const rootRoute = createRootRoute({
-    component: () => <LayoutMotionHarness platform={platform} />,
+    component: () => <LayoutMotionHarness {...options} />,
   })
   return createRouter({
     routeTree: rootRoute,
@@ -148,7 +158,9 @@ describe("directory chat layout motion", () => {
     root = createRoot(container)
 
     await act(async () => {
-      root?.render(<RouterProvider router={createTestRouter(TEST_WINDOWS_PLATFORM)} />)
+      root?.render(
+        <RouterProvider router={createTestRouter({ platform: TEST_WINDOWS_PLATFORM })} />,
+      )
       await flushEffects()
     })
 
@@ -158,5 +170,29 @@ describe("directory chat layout motion", () => {
     expect(rightTitlebar?.style.paddingRight).toBe(
       `${WINDOWS_CHAT_TITLEBAR_RIGHT_CONTROLS_INSET_PX}px`,
     )
+  })
+
+  test("keeps desktop window chrome while a transient surface starts immersive", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        <RouterProvider
+          router={createTestRouter({ immersive: true, showImmersiveTitlebar: true })}
+        />,
+      )
+      await flushEffects()
+    })
+
+    const shell = container.querySelector<HTMLElement>('[data-component="directory-chat-shell"]')
+    expect(shell?.style.gridTemplateColumns).toBe("0px minmax(0, 1fr) 0px")
+    expect(shell?.style.gridTemplateRows).toBe("40px minmax(0, 1fr)")
+    expect(container.querySelector('[data-component="desktop-titlebar"]')).not.toBeNull()
+    expect(
+      container.querySelector('[data-component="desktop-titlebar-chat-left-spacer"]'),
+    ).toBeNull()
   })
 })

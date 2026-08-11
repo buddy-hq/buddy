@@ -68,13 +68,7 @@ import {
   updateSession,
 } from "../../state/chat-actions"
 import { addResource, rebuildResource, removeResource } from "../../state/resource-actions"
-import {
-  invalidateResourcesQueries,
-  isSupportedReadingResourcePath,
-  readingResourceBlobQueryOptions,
-  resourcesQueryOptions,
-  type ResourceReadingTarget,
-} from "../../state/resources-query"
+import { invalidateResourcesQueries } from "../../state/resources-query"
 import { setOpenProjectsQueryData } from "../../state/bootstrap-query"
 import {
   directoryChatQueryKeys,
@@ -119,7 +113,6 @@ import {
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   readBenchOpenPolicyStateFromLocation,
-  useOpenBench,
 } from "@/lib/bench-navigation"
 import {
   WORKSPACE_VISIBILITY_EXPANDED,
@@ -134,6 +127,7 @@ import { createGetStartedChatDraft } from "@/lib/get-started-chat-draft"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 import { useOpenExistingNotebook } from "@/lib/use-open-existing-notebook"
+import { useOpenReadingResource } from "@/lib/use-open-reading-resource"
 import { useOpenSettings } from "@/lib/settings-navigation"
 import { sessionFamilyIDs } from "@/lib/session-family"
 import { referenceListQueryOptions } from "@/state/reference-query"
@@ -150,12 +144,6 @@ const SIDEBAR_MIN_WIDTH = 220
 // Over-fetched so filterIgnoredMentionFiles still leaves a full menu after
 // pruning ignored dirs; the view state caps the displayed options separately.
 const MENTION_FILE_SEARCH_LIMIT = 40
-const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceReadingTarget["status"]>>([
-  "preparing",
-  "unsupported",
-  "error",
-])
-
 const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const EMPTY_MENTIONABLE_REFERENCES: MentionableReference[] = []
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
@@ -290,7 +278,6 @@ export function useDirectoryChatPageController(
   }, [props.directoryToken])
 
   const openProjects = useChatStore(useShallow((state) => state.openProjects))
-  const openBenchRoute = useOpenBench()
   const hasRegisteredProject = useMemo(
     () =>
       !!decodedDirectory && openProjects.filter((d) => d && d !== "/").includes(decodedDirectory),
@@ -1020,38 +1007,7 @@ export function useDirectoryChatPageController(
     openSettings("general")
   }
 
-  const openResourceInReadingMode = useCallback(
-    async (targetDirectory: string, resource: ResourceReadingTarget) => {
-      void queryClient.prefetchQuery(resourcesQueryOptions(targetDirectory))
-      const canPrefetchReadingBlob =
-        isSupportedReadingResourcePath(resource.path) &&
-        (resource.status === undefined || !READING_PREFETCH_BLOCKED_STATUSES.has(resource.status))
-      if (canPrefetchReadingBlob) {
-        void queryClient.prefetchQuery(
-          readingResourceBlobQueryOptions(targetDirectory, resource.path),
-        )
-      }
-
-      return openBenchRoute({
-        directory: targetDirectory,
-        target: resource.objectID
-          ? {
-              type: "object",
-              ref: {
-                kind: "resource",
-                objectID: resource.objectID,
-                revisionID: null,
-                itemID: null,
-              },
-              viewID: "reader",
-            }
-          : { type: "workspace-file", path: resource.path, viewer: "file" },
-        mode: BENCH_CHAT_LAYOUT_DOCKED,
-        autoOpen: null,
-      })
-    },
-    [queryClient, openBenchRoute],
-  )
+  const openResourceInReadingMode = useOpenReadingResource()
 
   async function handleResourceCommand(
     command: ResourceLocalSlashCommand,

@@ -26,6 +26,9 @@ import {
 import obsidianIconUrl from "@/assets/obsidian-icon.svg"
 import type { SessionInfo } from "@/state/chat-types"
 import {
+  resolveRightWorkspaceOpenOutcome,
+  rightWorkspaceOpenSettled,
+  useRightWorkspaceOpen,
   type RightWorkspaceOpenOutcome,
   type RightWorkspaceOpenRequest,
   type RightWorkspaceResourceTarget,
@@ -106,25 +109,9 @@ type RightWorkspaceRailItem = {
   onClick: () => void
 }
 
-type RightWorkspaceOpenResolution =
-  | Pick<Extract<OpenBenchResult, { outcome: "committed" }>, "outcome" | "decision">
-  | Pick<Exclude<OpenBenchResult, { outcome: "committed" }>, "outcome">
-
 const CLOSED_BENCH_POLICY_STATE = {
   status: "closed",
 } satisfies BenchOpenPolicyState
-
-export function resolveRightWorkspaceOpenOutcome(
-  openResult: RightWorkspaceOpenResolution | void,
-): RightWorkspaceOpenOutcome {
-  if (!openResult) return "failed"
-  if (openResult.outcome === "blocked") return "blocked"
-  if (openResult.outcome !== "committed") return "failed"
-  if (openResult.decision.action === "ignore" && openResult.decision.policyID === "already-open") {
-    return "focused"
-  }
-  return "opened"
-}
 
 export function resolveRightWorkspaceFilesPresentation(input: {
   directory: string
@@ -257,6 +244,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
   const [fileSearch, setFileSearch] = useState("")
   const [fileRefreshRequest, setFileRefreshRequest] = useState(0)
   const openBenchRoute = useOpenBench()
+  const openWorkspaceTarget = useRightWorkspaceOpen()
   const workspace = useDirectoryWorkspace()
   const selectorAccessEnabled = props.presentation.mode !== BENCH_CHAT_LAYOUT_FLOATING
   const obsidianProfileQuery = useQuery(obsidianVaultProfileQueryOptions(props.directory))
@@ -356,38 +344,21 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
 
   const openWorkspaceRequest = useCallback(
     async (request: RightWorkspaceOpenRequest): Promise<RightWorkspaceOpenOutcome> => {
-      try {
-        if (request.type === "resource") {
-          const outcome = resolveRightWorkspaceOpenOutcome(
-            await props.onOpenResource(request.directory, request.resource),
-          )
-          if (outcome === "opened" || outcome === "focused") closeSelector()
-          return outcome
-        }
-
-        const currentTarget =
-          benchPolicyState.status === "open" &&
-          benchPolicyState.target.type === "object" &&
-          request.target.type === "object" &&
-          benchPolicyState.target.ref.objectID === request.target.ref.objectID
-            ? benchPolicyState.target
-            : request.target
-        const outcome = resolveRightWorkspaceOpenOutcome(
-          await openBenchRoute({
-            directory: request.directory,
-            target: currentTarget,
-            mode: BENCH_CHAT_LAYOUT_DOCKED,
-            autoOpen: null,
-          }),
-        )
-        if (outcome === "opened" || outcome === "focused") closeSelector()
-        return outcome
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : String(error))
-        return "failed"
-      }
+      // Reopening the object already on the Bench keeps its current view rather
+      // than snapping back to the kind's default one.
+      const resolvedRequest =
+        request.type === "object" &&
+        benchPolicyState.status === "open" &&
+        benchPolicyState.target.type === "object" &&
+        request.target.type === "object" &&
+        benchPolicyState.target.ref.objectID === request.target.ref.objectID
+          ? { ...request, target: benchPolicyState.target }
+          : request
+      const outcome = await openWorkspaceTarget(resolvedRequest)
+      if (rightWorkspaceOpenSettled(outcome)) closeSelector()
+      return outcome
     },
-    [benchPolicyState, closeSelector, openBenchRoute, props],
+    [benchPolicyState, closeSelector, openWorkspaceTarget],
   )
 
   async function openInstructions() {

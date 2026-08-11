@@ -51,6 +51,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Z_INDEX,
   toast,
 } from "@buddy/ui"
 import { useLocation, useNavigate } from "@tanstack/react-router"
@@ -660,16 +661,17 @@ function useDesktopTitlebarTopInset() {
 }
 
 function getDevToolsAffordanceClassName(position: DevToolsAffordancePosition) {
-  return `fixed z-[9999] flex flex-col gap-1.5 [-webkit-app-region:no-drag] ${DEVTOOLS_AFFORDANCE_POSITION_CLASS_NAMES[position]}`
+  return `fixed flex flex-col gap-1.5 [-webkit-app-region:no-drag] ${DEVTOOLS_AFFORDANCE_POSITION_CLASS_NAMES[position]}`
 }
 
 function getDevToolsAffordanceStyle(position: DevToolsAffordancePosition, topInset: number) {
   if (!isTopDevToolsAffordancePosition(position)) {
-    return undefined
+    return { zIndex: Z_INDEX.devtools }
   }
 
   return {
     top: topInset + DEVTOOLS_FLOATING_PADDING_PX,
+    zIndex: Z_INDEX.devtools,
   }
 }
 
@@ -1206,7 +1208,7 @@ function MemoryTestModelSelect(props: {
         <SelectTrigger className="h-8 w-full text-xs">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="z-[10050]" position="popper">
+        <SelectContent style={{ zIndex: Z_INDEX.devtoolsFloating }} position="popper">
           <SelectItem value={MEMORY_TEST_AUTO_MODEL_VALUE}>
             Auto · {props.autoDescription}
           </SelectItem>
@@ -2810,7 +2812,7 @@ export function BuddyDevTools() {
                 <span>Buddy</span>
               </button>
             </ContextMenuTrigger>
-            <ContextMenuContent className="z-[10000]">
+            <ContextMenuContent style={{ zIndex: Z_INDEX.devtoolsFloating }}>
               <ContextMenuItem disabled={!sessionTrace} onClick={handleCopySessionTrace}>
                 <CopyIcon className="mr-2 size-3.5" />
                 Copy Session Trace
@@ -2877,7 +2879,7 @@ export function BuddyDevTools() {
       {/* Buddy panel */}
       {buddyOpen && (
         <div
-          className="fixed z-[9999] flex flex-col overflow-hidden rounded-lg border border-border-base bg-background-base shadow-xl [-webkit-app-region:no-drag]"
+          className="fixed flex flex-col overflow-hidden rounded-lg border border-border-base bg-background-base shadow-xl [-webkit-app-region:no-drag]"
           style={{
             left: rect.left,
             top: rect.top,
@@ -2885,6 +2887,7 @@ export function BuddyDevTools() {
             height: rect.height,
             maxWidth: "100vw",
             maxHeight: "100vh",
+            zIndex: Z_INDEX.devtools,
           }}
         >
           <Tabs
@@ -3100,7 +3103,10 @@ export function BuddyDevTools() {
                           >
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="z-[10050]" position="popper">
+                          <SelectContent
+                            style={{ zIndex: Z_INDEX.devtoolsFloating }}
+                            position="popper"
+                          >
                             <SelectGroup>
                               <SelectItem value={GET_STARTED_FLOW_DEVTOOLS_MODE.appState}>
                                 Use app state

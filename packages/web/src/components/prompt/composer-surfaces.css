@@ -45,9 +45,6 @@
     0 0 0 1px var(--composer-surface-hairline), 0 2px 8px -3px rgb(0 0 0 / 0.14),
     0 20px 44px -14px rgb(0 0 0 / 0.32);
 
-  /* Focus ring for the composer shell (no border to recolour). */
-  --composer-focus-ring: color-mix(in oklab, var(--border-interactive-base) 12%, transparent);
-
   /* Selection clip: a passage the user pulled from a document. The quote-rail
      accent that marks it as a citation, and the softer (anchored) fill so a
      pulled-in quote reads quieter than a live message bubble. */
@@ -162,24 +159,8 @@
   background-color: var(--composer-surface-bg);
 }
 
-/* Composer shell focus affordance. focus-visible (not focus-within) so opening
-   a dropdown doesn't light the whole shell. Layers the ring over the resting
-   shadow. */
-.composer-shell {
-  transition: box-shadow 200ms ease;
-}
-
-.composer-shell:has(:focus-visible) {
-  box-shadow:
-    0 0 0 3px var(--composer-focus-ring),
-    var(--composer-surface-shadow);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .composer-shell {
-    transition: none;
-  }
-}
+/* The composer shell keeps its resting surface on focus — no ring or edge
+   change, so focusing the editor doesn't outline the whole shell. */
 
 /* --- editor scrollbar ---------------------------------------------------- */
 /* The app forces a chunky 10px scrollbar with a solid track channel on

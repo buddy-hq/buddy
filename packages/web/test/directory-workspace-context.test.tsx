@@ -132,7 +132,6 @@ function ThreadControlsTitlebarProbe(props: { showSidebarThreadControls: boolean
       sessions={[]}
       onNewSession={() => undefined}
       onSelectSession={() => undefined}
-      onFloatChat={() => undefined}
     />
   )
 }
@@ -398,27 +397,23 @@ describe("DirectoryWorkspaceProvider", () => {
     )
   })
 
-  test("titlebar pop-out control requires an explicit placement gate", async () => {
+  test("chat titlebar leaves immersive to the Bench tab strip and drops the solo pill", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
 
     await act(async () => {
-      root?.render(<TestThreadControlsTitlebarRouterProvider showSidebarThreadControls={false} />)
-      await flushEffects()
-    })
-
-    expect(container.querySelector('[aria-label="Pop out chat"]')).toBeNull()
-    expect(container.querySelector('[aria-label="New chat"]')).toBeNull()
-
-    await act(async () => {
       root?.render(<TestThreadControlsTitlebarRouterProvider showSidebarThreadControls={true} />)
       await flushEffects()
     })
 
-    expect(container.querySelector('[aria-label="Pop out chat"]')).not.toBeNull()
+    expect(container.querySelector('[data-action="chat-pop-out"]')).toBeNull()
     expect(container.querySelector('[aria-label="New chat"]')).toBeNull()
+
+    const cluster = container.querySelector('[data-component="chat-titlebar-left-cluster"]')
+    expect(cluster?.querySelectorAll("button")).toHaveLength(1)
+    expect(cluster?.getAttribute("data-pill")).toBe("false")
   })
 
   test("floating Bench root titlebar keeps the chat titlebar height", async () => {

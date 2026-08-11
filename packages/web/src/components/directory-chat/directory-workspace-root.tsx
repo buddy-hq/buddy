@@ -20,6 +20,7 @@ import { BenchTabs } from "@/components/bench/bench-tabs"
 import {
   TransientBenchSurfaceProvider,
   closeTransientBenchSurface,
+  resolveTransientBenchSurfaceLayoutMode,
   type TransientBenchSurface,
 } from "@/components/bench/transient-bench-surface"
 import {
@@ -39,7 +40,9 @@ import { DirectoryChatRightWorkspace } from "@/components/directory-chat/directo
 import { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { useDirectoryWorkspace } from "@/components/directory-chat/directory-workspace-context"
+import { useRightWorkspaceOpen } from "@/components/directory-chat/right-workspace-open"
 import { language } from "@/context/language"
+import { useCreateBoard } from "@/lib/use-create-board"
 import type { DirectoryChatPageControllerState } from "@/lib/directory-chat/use-directory-chat-page-controller"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
@@ -212,6 +215,8 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     closeTransientBenchSurface(setTransientBenchSurface, surface)
   }, [])
   const transientBenchActive = transientBenchSurface !== null
+  const transientBenchLayoutMode = resolveTransientBenchSurfaceLayoutMode(transientBenchSurface)
+  const transientBenchFloating = transientBenchLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
   const benchPolicyState = useMemo(
     () =>
       readBenchOpenPolicyStateFromLocation({
@@ -225,7 +230,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     benchPolicyState.status === "open" ? benchTabKey(benchPolicyState.target) : null
   const routeChatLayoutMode =
     benchPolicyState.status === "open" ? benchPolicyState.mode : BENCH_CHAT_LAYOUT_DOCKED
-  const chatLayoutMode = transientBenchActive ? BENCH_CHAT_LAYOUT_DOCKED : routeChatLayoutMode
+  const chatLayoutMode = transientBenchLayoutMode ?? routeChatLayoutMode
   const workspaceRenderedSurface = workspace.projection.renderedSurface
   const workspacePending = workspace.projection.pending
   const workspaceBenchVisibility = workspace.projection.bench.visibility
@@ -308,9 +313,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     Math.max(transientWorkspaceBounds.workspaceMinWidthPx, requestedWorkspaceWidthPx),
   )
   const workspaceLayoutMode = presentation.mode
-  const effectiveWorkspaceLayoutMode = transientBenchActive
-    ? BENCH_CHAT_LAYOUT_DOCKED
-    : workspaceLayoutMode
+  const effectiveWorkspaceLayoutMode = transientBenchLayoutMode ?? workspaceLayoutMode
   const workspaceOpen = presentation.workspaceOpen
   const effectiveWorkspaceOpen = transientBenchActive || workspaceOpen
   const workspaceHostOpen = presentation.workspaceOpen
@@ -610,6 +613,18 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     await controller.leftSidebarProps.onNewSession(currentDirectory)
   }, [controller.leftSidebarProps, currentDirectory])
 
+  // A chat is always open here, so a new board needs no chat of its own: it is
+  // created in this one and opened on its Bench, expanding the workspace if the
+  // Bench was collapsed.
+  const openWorkspaceTarget = useRightWorkspaceOpen()
+  const { createBoard } = useCreateBoard({
+    directory: currentDirectory,
+    open: openWorkspaceTarget,
+  })
+  const handleNewBoard = useCallback(() => {
+    void createBoard()
+  }, [createBoard])
+
   const selectWorkspaceSession = useCallback(
     async (nextSessionID: string): Promise<boolean> =>
       controller.leftSidebarProps.onSelectSession(currentDirectory, nextSessionID),
@@ -738,6 +753,18 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING &&
     !transientBenchActive &&
     desktopTitlebarContentTarget !== null
+  const persistentFloatingTitlebarVisible =
+    benchPolicyState.status === "open" &&
+    benchPolicyState.mode === BENCH_CHAT_LAYOUT_FLOATING
+  const showTransientFloatingTitlebar =
+    transientBenchFloating && !persistentFloatingTitlebarVisible
+  // Only the docked Bench can expand — in floating mode this same strip is the
+  // immersive chrome, so the control would offer the state it is already in.
+  const enterImmersiveFromTabs =
+    presentation.controls.showFloatChat &&
+    effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED
+      ? handleFloatChat
+      : undefined
   const titlebarBenchTabs = !transientBenchActive ? (
     <BenchTabs
       placement="titlebar"
@@ -749,6 +776,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       onCloseOthers={closeOtherBenchTabs}
       onCloseToRight={closeBenchTabsToRight}
       onCloseAll={closeAllBenchTabs}
+      onEnterImmersive={enterImmersiveFromTabs}
     />
   ) : null
 
@@ -771,7 +799,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         ? createPortal(titlebarBenchTabs, desktopTitlebarContentTarget)
         : null}
       <DirectoryChatShell
-        leftSidebar={<ChatLeftSidebar {...controller.leftSidebarProps} />}
+        leftSidebar={
+          <ChatLeftSidebar {...controller.leftSidebarProps} onNewBoard={handleNewBoard} />
+        }
         contentLayout={
           <DirectoryChatBenchPageLayout
             chatLayoutMode={effectiveWorkspaceLayoutMode}
@@ -860,9 +890,8 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           />
         }
         {...controller.shellProps}
-        immersive={
-          effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING && !transientBenchActive
-        }
+        immersive={effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
+        showImmersiveTitlebar={showTransientFloatingTitlebar}
         leftSidebarOpen={shellLeftSidebarOpen}
         leftSidebarOverlayEnabled={presentation.leftSidebar.overlayEnabled}
         leftSidebarOverlayOpen={leftSidebarOverlayOpen}
@@ -897,7 +926,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         parentSession={chatState.parentSession}
         onNewSession={handleNewSession}
         onSelectSession={handleSelectSession}
-        onFloatChat={presentation.controls.showFloatChat ? handleFloatChat : undefined}
       />
     </TransientBenchSurfaceProvider>
   )

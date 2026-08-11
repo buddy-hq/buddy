@@ -232,7 +232,7 @@ export function ProviderDialogPlayground() {
 
       {/* ACTUAL DIALOG modal OVERLAY CONTAINER */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="z-[10000] sm:max-w-md h-[400px] flex flex-col justify-between overflow-hidden">
+        <DialogContent className="sm:max-w-md h-[400px] flex flex-col justify-between overflow-hidden">
           {/* Actual Hierarchy: DialogHeader, DialogTitle are direct children of DialogContent */}
           <DialogHeader>
             <DialogTitle>

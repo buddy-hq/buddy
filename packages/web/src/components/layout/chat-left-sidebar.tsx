@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, SquarePenIcon, toast } from "@buddy/ui"
+import { PresentationIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
@@ -69,6 +70,8 @@ type ChatLeftSidebarProps = {
     enableAutoExtract?: boolean,
   ) => void | Promise<void>
   onNewSession: (directory?: string) => void
+  /** Creates a board on the Bench of the chat that is already open. Absent where no chat is. */
+  onNewBoard?: () => void
   /** Resolves false when the transition was blocked or failed and the active chat did not change. */
   onSelectSession: (directory: string, sessionID?: string) => Promise<boolean>
   onPrefetchSession?: (directory: string, sessionID: string) => void
@@ -86,6 +89,14 @@ type ChatLeftSidebarProps = {
   footer?: ReactNode
   children?: ReactNode
   className?: string
+}
+
+/** The action rows above the chat lists — new chat, new board — share one shape. */
+const SIDEBAR_ACTION_ROW_CLASS =
+  "group/sidebar-action flex w-full items-center rounded-lg pr-2 py-1.5 text-left text-sm font-light text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
+const SIDEBAR_ACTION_ROW_STYLE = {
+  paddingLeft: `${SIDEBAR_ROW_PADDING_LEFT_PX}px`,
+  gap: `${SIDEBAR_ROW_LEADING_GAP_PX}px`,
 }
 
 function toggleDirectoryPresence(current: Record<string, true>, directory: string) {
@@ -386,19 +397,28 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             <button
               type="button"
               data-action="left-sidebar-new-chat"
-              className="group/new-chat flex w-full items-center rounded-lg pr-2 py-1.5 text-left text-sm font-light text-text-weak transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong"
-              style={{
-                paddingLeft: `${SIDEBAR_ROW_PADDING_LEFT_PX}px`,
-                gap: `${SIDEBAR_ROW_LEADING_GAP_PX}px`,
-              }}
+              className={SIDEBAR_ACTION_ROW_CLASS}
+              style={SIDEBAR_ACTION_ROW_STYLE}
               onClick={() => props.onNewSession()}
             >
               <SquarePenIcon
-                className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/new-chat:scale-110"
+                className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/sidebar-action:scale-110"
                 strokeWidth={2}
               />
               <span className="truncate">{language.t("sidebar.newChat")}</span>
             </button>
+            {props.onNewBoard ? (
+              <button
+                type="button"
+                data-action="left-sidebar-new-board"
+                className={SIDEBAR_ACTION_ROW_CLASS}
+                style={SIDEBAR_ACTION_ROW_STYLE}
+                onClick={props.onNewBoard}
+              >
+                <PresentationIcon className="size-3.5 shrink-0 transition-transform duration-100 ease-out group-active/sidebar-action:scale-110" />
+                <span className="truncate">{language.t("sidebar.newBoard")}</span>
+              </button>
+            ) : null}
           </div>
 
           <ChatLeftSidebarPinnedList
