@@ -1,22 +1,25 @@
-import {
-  cn,
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-  FieldTitle,
-  Input,
-  RadioGroup,
-  RadioGroupItem,
-  Textarea,
-} from "@buddy/ui"
-import { BookOpenTextIcon, SchoolIcon } from "@/icons/app-icons"
+import { cn, Input, RadioGroup, RadioGroupItem, Textarea } from "@buddy/ui"
+import { BookOpenTextIcon, SchoolIcon, type AppIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import type { AnyFieldApi } from "@tanstack/react-form"
-import { isPrimaryUse, type PersonalizationSettings } from "@/state/project-config-readers"
+import {
+  isPrimaryUse,
+  type PersonalizationSettings,
+  type PrimaryUse,
+} from "@/state/project-config-readers"
 import { SettingsListCard } from "./settings-primitives"
 
-const PRIMARY_USE_OPTIONS = [
+type PrimaryUseOption = {
+  value: PrimaryUse
+  fieldId: string
+  icon: AppIcon
+  titleKey: string
+  descriptionKey: string
+  /** What changes elsewhere in the app when this one is active. */
+  consequenceKey?: string
+}
+
+const PRIMARY_USE_OPTIONS: PrimaryUseOption[] = [
   {
     value: "learn",
     fieldId: "personalization-primary-use-learn",
@@ -30,8 +33,9 @@ const PRIMARY_USE_OPTIONS = [
     icon: SchoolIcon,
     titleKey: "settings.personalization.primaryUseTeach",
     descriptionKey: "settings.personalization.primaryUseTeachDescription",
+    consequenceKey: "settings.personalization.primaryUseTeachConsequence",
   },
-] as const
+]
 
 type PersonalizationFormApi = {
   Field: (props: {
@@ -58,6 +62,11 @@ function FieldBlock(props: { title: string; children: React.ReactNode; first?: b
   )
 }
 
+/**
+ * The mode is a settings row like every other one — same card, same padding,
+ * same separator. Selection is a left accent and a weak fill rather than a
+ * brand-coloured flood, so the two modes read as peers with one chosen.
+ */
 export function SharedPersonalizationPrimaryUseField(props: {
   form: PersonalizationFormApi
   onPrimaryUseChange?: () => void
@@ -65,34 +74,59 @@ export function SharedPersonalizationPrimaryUseField(props: {
   return (
     <props.form.Field name="primaryUse">
       {(field: AnyFieldApi) => (
-        <RadioGroup
-          aria-label={language.t("settings.personalization.primaryUseTitle")}
-          className="grid-cols-1 sm:grid-cols-2"
-          value={field.state.value}
-          onValueChange={(value) => {
-            if (isPrimaryUse(value)) {
-              field.handleChange(value)
-              props.onPrimaryUseChange?.()
-            }
-          }}
-        >
-          {PRIMARY_USE_OPTIONS.map((option) => {
-            const Icon = option.icon
+        <SettingsListCard>
+          <RadioGroup
+            aria-label={language.t("settings.personalization.primaryUseTitle")}
+            className="gap-0"
+            value={field.state.value}
+            onValueChange={(value) => {
+              if (isPrimaryUse(value)) {
+                field.handleChange(value)
+                props.onPrimaryUseChange?.()
+              }
+            }}
+          >
+            {PRIMARY_USE_OPTIONS.map((option) => {
+              const Icon = option.icon
+              const selected = field.state.value === option.value
 
-            return (
-              <FieldLabel key={option.value} htmlFor={option.fieldId} className="cursor-pointer">
-                <Field orientation="horizontal" className="min-w-0 gap-3">
-                  <Icon className="size-4 shrink-0 text-icon-base" />
-                  <FieldContent>
-                    <FieldTitle>{language.t(option.titleKey)}</FieldTitle>
-                    <FieldDescription>{language.t(option.descriptionKey)}</FieldDescription>
-                  </FieldContent>
+              return (
+                <label
+                  key={option.value}
+                  htmlFor={option.fieldId}
+                  className={cn(
+                    "relative flex cursor-pointer items-center gap-3 border-t border-border-base/60 px-4 py-3.5 transition-colors first:border-t-0 sm:px-5",
+                    selected ? "bg-surface-weak" : "hover:bg-surface-raised-base-hover",
+                  )}
+                >
+                  {selected ? (
+                    <span
+                      className="absolute inset-y-0 left-0 w-0.5 bg-surface-interactive-base"
+                      aria-hidden
+                    />
+                  ) : null}
+                  <Icon
+                    className={cn(
+                      "size-4 shrink-0",
+                      selected ? "text-icon-interactive-base" : "text-icon-weak-base",
+                    )}
+                    aria-hidden
+                  />
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="text-[13px] font-medium tracking-[-0.01em] text-text-base">
+                      {language.t(option.titleKey)}
+                    </span>
+                    <span className="text-xs text-text-weaker">
+                      {language.t(option.descriptionKey)}
+                      {option.consequenceKey ? ` ${language.t(option.consequenceKey)}` : ""}
+                    </span>
+                  </span>
                   <RadioGroupItem id={option.fieldId} value={option.value} />
-                </Field>
-              </FieldLabel>
-            )
-          })}
-        </RadioGroup>
+                </label>
+              )
+            })}
+          </RadioGroup>
+        </SettingsListCard>
       )}
     </props.form.Field>
   )

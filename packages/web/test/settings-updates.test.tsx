@@ -9,11 +9,20 @@ import {
   type UpdateRing,
 } from "../src/context/platform"
 import { UpdatesSettings } from "../src/components/settings/settings-updates"
+import {
+  resolveUpdateBanner,
+  useUpdateSettings,
+  type UpdateSettings,
+} from "../src/components/settings/use-update-settings"
 import { SETTINGS_TABS } from "../src/components/settings/settings-tabs"
+
+const BANNER_SELECTOR = '[data-action="settings-update-banner"]'
+const BANNER_ACTION_SELECTOR = '[data-action="settings-update-banner-action"]'
 
 function createDesktopUpdatePlatform(input?: {
   onCheck?: () => void
   onSetRing?: (ring: UpdateRing) => void
+  onUpdate?: () => void
 }) {
   let ring: UpdateRing = "stable"
   let progress: UpdateProgressSnapshot = {
@@ -24,6 +33,7 @@ function createDesktopUpdatePlatform(input?: {
 
   const platform: Platform = {
     platform: "desktop",
+    version: "0.14.2",
     openLink: () => undefined,
     restart: async () => undefined,
     back: () => undefined,
@@ -49,7 +59,9 @@ function createDesktopUpdatePlatform(input?: {
       }
       input?.onSetRing?.(nextRing)
     },
-    update: async () => undefined,
+    update: async () => {
+      input?.onUpdate?.()
+    },
   }
 
   return {
@@ -63,6 +75,13 @@ function createDesktopUpdatePlatform(input?: {
   }
 }
 
+let capturedSettings: UpdateSettings | undefined
+
+function UpdateSettingsProbe() {
+  capturedSettings = useUpdateSettings()
+  return null
+}
+
 describe("settings updates", () => {
   let container: HTMLDivElement | null = null
   let root: Root | null = null
@@ -74,8 +93,18 @@ describe("settings updates", () => {
     root = null
     container?.remove()
     container = null
+    capturedSettings = undefined
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
+
+  function mount() {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    const testRoot = createRoot(container)
+    root = testRoot
+    return testRoot
+  }
 
   test("registers Updates as a main settings tab", () => {
     const tabIds = SETTINGS_TABS.map((tab) => tab.id)
@@ -99,12 +128,24 @@ describe("settings updates", () => {
     )
   })
 
-  test("renders update ring controls and checks immediately when Preview is selected", async () => {
-    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
-    container = document.createElement("div")
-    document.body.appendChild(container)
-    const testRoot = createRoot(container)
-    root = testRoot
+  test("shows the running version and no status strip while the updater is idle", async () => {
+    const testRoot = mount()
+    const updatePlatform = createDesktopUpdatePlatform()
+
+    await act(async () => {
+      testRoot.render(
+        <PlatformProvider value={updatePlatform.platform}>
+          <UpdatesSettings />
+        </PlatformProvider>,
+      )
+    })
+
+    expect(container?.textContent).toContain("0.14.2")
+    expect(container?.querySelector(BANNER_SELECTOR)).toBeNull()
+  })
+
+  test("saves the channel and checks immediately when Preview is selected", async () => {
+    const testRoot = mount()
 
     let checkCount = 0
     let savedRing: UpdateRing | undefined
@@ -120,35 +161,46 @@ describe("settings updates", () => {
     await act(async () => {
       testRoot.render(
         <PlatformProvider value={updatePlatform.platform}>
+          <UpdateSettingsProbe />
+        </PlatformProvider>,
+      )
+    })
+
+    await act(async () => {
+      await capturedSettings?.changeRing("preview")
+    })
+
+    expect(savedRing).toBe("preview")
+    expect(checkCount).toBe(1)
+    expect(capturedSettings?.ring).toBe("preview")
+  })
+
+  test("reports an up-to-date check in the status strip", async () => {
+    const testRoot = mount()
+    const updatePlatform = createDesktopUpdatePlatform()
+
+    await act(async () => {
+      testRoot.render(
+        <PlatformProvider value={updatePlatform.platform}>
           <UpdatesSettings />
         </PlatformProvider>,
       )
     })
 
-    expect(container.textContent).toContain("Stable")
-    expect(container.textContent).toContain("Preview")
-    expect(container.querySelector('[data-action="settings-check-updates"]')).not.toBeNull()
-
-    const previewButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Preview",
+    const checkButton = container?.querySelector<HTMLButtonElement>(
+      '[data-action="settings-check-updates"]',
     )
-    expect(previewButton).toBeDefined()
+    expect(checkButton).not.toBeNull()
 
     await act(async () => {
-      previewButton?.click()
-      await Promise.resolve()
+      checkButton?.click()
     })
 
-    expect(savedRing).toBe("preview")
-    expect(checkCount).toBe(1)
+    expect(container?.querySelector(BANNER_SELECTOR)?.textContent).toContain("Buddy is up to date")
   })
 
   test("shows inline download progress snapshots", async () => {
-    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
-    container = document.createElement("div")
-    document.body.appendChild(container)
-    const testRoot = createRoot(container)
-    root = testRoot
+    const testRoot = mount()
     const updatePlatform = createDesktopUpdatePlatform()
 
     await act(async () => {
@@ -166,10 +218,100 @@ describe("settings updates", () => {
         status: "downloading",
         totalBytes: 100,
         transferredBytes: 42,
+        version: "0.15.0",
       })
     })
 
-    expect(container.textContent).toContain("Downloading update")
-    expect(container.textContent).toContain("42%")
+    const banner = container?.querySelector(BANNER_SELECTOR)
+    expect(banner?.textContent).toContain("Downloading Buddy 0.15.0")
+    expect(banner?.textContent).toContain("42%")
+  })
+
+  test("installs from the status strip once an update is ready", async () => {
+    const testRoot = mount()
+    let updateCount = 0
+    const updatePlatform = createDesktopUpdatePlatform({
+      onUpdate: () => {
+        updateCount += 1
+      },
+    })
+
+    await act(async () => {
+      testRoot.render(
+        <PlatformProvider value={updatePlatform.platform}>
+          <UpdatesSettings />
+        </PlatformProvider>,
+      )
+    })
+
+    await act(async () => {
+      updatePlatform.emitProgress({
+        percent: 100,
+        ring: "stable",
+        status: "ready",
+        version: "0.15.0",
+      })
+    })
+
+    const banner = container?.querySelector(BANNER_SELECTOR)
+    expect(banner?.textContent).toContain("Buddy 0.15.0 is ready")
+
+    const installButton = container?.querySelector<HTMLButtonElement>(BANNER_ACTION_SELECTOR)
+    expect(installButton?.textContent).toBe("Restart to install")
+
+    await act(async () => {
+      installButton?.click()
+    })
+
+    expect(updateCount).toBe(1)
+  })
+})
+
+describe("update banner resolution", () => {
+  test("stays silent while the updater is idle and nothing has been checked", () => {
+    expect(
+      resolveUpdateBanner({
+        progress: { ring: "stable", status: "idle" },
+        checking: false,
+        installFailed: false,
+      }),
+    ).toBeUndefined()
+  })
+
+  test("prefers live progress over the last check result", () => {
+    const banner = resolveUpdateBanner({
+      progress: { ring: "stable", status: "ready", version: "0.15.0" },
+      lastCheck: { status: "up-to-date" },
+      checking: true,
+      installFailed: false,
+    })
+
+    expect(banner?.tone).toBe("positive")
+    expect(banner?.action).toBe("install")
+    expect(banner?.title).toBe("Buddy 0.15.0 is ready")
+  })
+
+  test("surfaces a failed install ahead of the ready snapshot it came from", () => {
+    const banner = resolveUpdateBanner({
+      progress: { ring: "stable", status: "ready", version: "0.15.0" },
+      checking: false,
+      installFailed: true,
+    })
+
+    expect(banner?.tone).toBe("critical")
+    expect(banner?.action).toBe("install")
+  })
+
+  test("offers a retry when a check fails", () => {
+    const banner = resolveUpdateBanner({
+      progress: { ring: "stable", status: "idle" },
+      lastCheck: { status: "error", stage: "download" },
+      checking: false,
+      installFailed: false,
+    })
+
+    expect(banner?.tone).toBe("critical")
+    expect(banner?.action).toBe("retry")
+    expect(banner?.title).toBe("Found an update, but download failed")
   })
 })

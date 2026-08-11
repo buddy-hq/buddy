@@ -1,215 +1,162 @@
-import { useEffect, useState } from "react"
-import { Button, Progress, Spinner, ToggleGroup, ToggleGroupItem, toast } from "@buddy/ui"
-import { language } from "@/context/language"
 import {
-  usePlatform,
-  type UpdateCheckResult,
-  type UpdateProgressSnapshot,
-  type UpdateRing,
-} from "@/context/platform"
-import { showDesktopUpdateProgressToast, showDesktopUpdateToast } from "@/lib/desktop-updates"
+  Button,
+  Progress,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Spinner,
+  cn,
+} from "@buddy/ui"
+import { language } from "@/context/language"
+import type { UpdateRing } from "@/context/platform"
 import { SettingsContent, SettingsRow, SettingsSection } from "./settings-primitives"
+import {
+  isUpdateRing,
+  useUpdateSettings,
+  type UpdateBanner,
+  type UpdateBannerTone,
+} from "./use-update-settings"
 
-const DEFAULT_UPDATE_RING: UpdateRing = "stable"
-
-function isUpdateRing(value: string): value is UpdateRing {
-  return value === "stable" || value === "preview"
+const BANNER_SURFACE: Record<UpdateBannerTone, string> = {
+  neutral: "bg-surface-weak text-text-base",
+  positive: "bg-surface-success-weak text-text-on-success-weak",
+  critical: "bg-surface-critical-weak text-text-on-critical-weak",
 }
 
-function idleProgress(ring: UpdateRing): UpdateProgressSnapshot {
-  return {
-    ring,
-    status: "idle",
+const RING_LABEL_KEYS: Record<UpdateRing, string> = {
+  stable: "settings.updates.ringStable",
+  preview: "settings.updates.ringPreview",
+}
+
+const RING_DESCRIPTION_KEYS: Record<UpdateRing, string> = {
+  stable: "settings.updates.channelStableDescription",
+  preview: "settings.updates.channelPreviewDescription",
+}
+
+function bannerActionLabel(banner: UpdateBanner): string | undefined {
+  switch (banner.action) {
+    case "install":
+      return language.t("settings.updates.install")
+    case "retry":
+      return language.t("settings.updates.retry")
+    case undefined:
+      return undefined
   }
 }
 
-function isBusy(progress: UpdateProgressSnapshot): boolean {
+/**
+ * Updater activity gets its own strip at the top of the card, and only exists
+ * when there is something to say. An idle updater leaves three calm rows behind.
+ */
+function UpdateBannerStrip(props: {
+  banner: UpdateBanner
+  disabled: boolean
+  onAction: () => void
+}) {
+  const actionLabel = bannerActionLabel(props.banner)
+
   return (
-    progress.status === "checking" ||
-    progress.status === "downloading" ||
-    progress.status === "installing"
+    <div
+      role="status"
+      aria-live="polite"
+      data-action="settings-update-banner"
+      data-tone={props.banner.tone}
+      className={cn("flex flex-col gap-2 px-4 py-3 sm:px-5", BANNER_SURFACE[props.banner.tone])}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {props.banner.busy ? <Spinner className="size-3.5 shrink-0" /> : null}
+          <div className="flex min-w-0 flex-col">
+            <p className="truncate text-[13px] font-medium tracking-[-0.01em]">
+              {props.banner.title}
+            </p>
+            {props.banner.detail ? (
+              <p className="truncate text-xs opacity-80">{props.banner.detail}</p>
+            ) : null}
+          </div>
+        </div>
+        {actionLabel ? (
+          <Button
+            data-action="settings-update-banner-action"
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="shrink-0"
+            disabled={props.disabled}
+            onClick={props.onAction}
+          >
+            {actionLabel}
+          </Button>
+        ) : null}
+      </div>
+      {props.banner.percent === undefined ? null : <Progress value={props.banner.percent} />}
+    </div>
   )
-}
-
-function progressPercent(progress: UpdateProgressSnapshot): number | undefined {
-  if (typeof progress.percent !== "number" || !Number.isFinite(progress.percent)) {
-    return undefined
-  }
-
-  return Math.min(100, Math.max(0, progress.percent))
-}
-
-function formatProgress(progress: UpdateProgressSnapshot): string {
-  const percent = progressPercent(progress)
-  if (percent !== undefined) {
-    return language.t("settings.updates.progressPercent", {
-      percent: String(Math.round(percent)),
-    })
-  }
-
-  return language.t("settings.updates.progressPreparing")
-}
-
-function updateCheckFallback(): UpdateCheckResult {
-  return {
-    stage: "check",
-    status: "error",
-  }
-}
-
-function statusLabel(progress: UpdateProgressSnapshot): string {
-  switch (progress.status) {
-    case "checking":
-      return language.t("settings.updates.statusChecking")
-    case "downloading":
-      return language.t("settings.updates.statusDownloading")
-    case "ready":
-      return progress.version
-        ? language.t("settings.updates.statusReadyWithVersion", { version: progress.version })
-        : language.t("settings.updates.statusReady")
-    case "installing":
-      return language.t("settings.updates.statusInstalling")
-    case "error":
-      return language.t("settings.updates.statusError")
-    case "idle":
-      return language.t("settings.updates.statusIdle")
-  }
 }
 
 export function UpdatesSettings() {
-  const platform = usePlatform()
-  const [checkingForUpdates, setCheckingForUpdates] = useState(false)
-  const [savingRing, setSavingRing] = useState(false)
-  const [ring, setRing] = useState<UpdateRing>(DEFAULT_UPDATE_RING)
-  const [progress, setProgress] = useState<UpdateProgressSnapshot>(
-    idleProgress(DEFAULT_UPDATE_RING),
-  )
+  const updates = useUpdateSettings()
+  const banner = updates.banner
 
-  const showDesktopUpdateControls =
-    platform.platform === "desktop" &&
-    !!platform.checkUpdate &&
-    !!platform.update &&
-    !!platform.restart &&
-    !!platform.getUpdateRing &&
-    !!platform.setUpdateRing &&
-    !!platform.getUpdateProgress &&
-    !!platform.onUpdateProgress
-
-  const busy = checkingForUpdates || savingRing || isBusy(progress)
-
-  useEffect(() => {
-    if (!showDesktopUpdateControls) return
-
-    let cancelled = false
-    void platform.getUpdateRing?.().then((nextRing) => {
-      if (cancelled) return
-      setRing(nextRing)
-    })
-    void platform.getUpdateProgress?.().then((snapshot) => {
-      if (cancelled) return
-      setProgress(snapshot)
-    })
-
-    const unsubscribe = platform.onUpdateProgress?.((snapshot) => {
-      setProgress(snapshot)
-    })
-
-    return () => {
-      cancelled = true
-      unsubscribe?.()
-    }
-  }, [platform, showDesktopUpdateControls])
-
-  useEffect(() => {
-    if (!showDesktopUpdateControls) return
-    showDesktopUpdateProgressToast({
-      progress,
-      showChecking: checkingForUpdates,
-    })
-  }, [checkingForUpdates, progress, showDesktopUpdateControls])
-
-  async function onCheckForUpdates() {
-    if (!showDesktopUpdateControls || !platform.checkUpdate) {
+  function onBannerAction() {
+    if (banner?.action === "install") {
+      void updates.installUpdate()
       return
     }
 
-    setCheckingForUpdates(true)
-    const result = await platform.checkUpdate().catch(() => updateCheckFallback())
-    setCheckingForUpdates(false)
-
-    switch (result.status) {
-      case "ready":
-        showDesktopUpdateToast({ platform, version: result.version })
-        return
-      case "up-to-date":
-        toast(language.t("settings.updates.upToDate"))
-        return
-      case "disabled":
-        toast(language.t("settings.updates.unavailable"))
-        return
-      case "blocked":
-        toast(language.t("settings.updates.updateBlocked"))
-        return
-      case "error":
-        toast.error(
-          result.stage === "download"
-            ? language.t("settings.updates.updateDownloadFailed")
-            : language.t("settings.updates.updateCheckFailed"),
-        )
-    }
-  }
-
-  async function onUpdateRingChange(value: string) {
-    if (!isUpdateRing(value) || value === ring || !showDesktopUpdateControls) {
-      return
-    }
-
-    const previousRing = ring
-    setRing(value)
-    setSavingRing(true)
-    try {
-      await platform.setUpdateRing?.(value)
-      setProgress((current) => (current.status === "idle" ? idleProgress(value) : current))
-      if (value === "preview") {
-        await onCheckForUpdates()
-      }
-    } catch {
-      setRing(previousRing)
-      toast.error(language.t("settings.updates.ringSaveFailed"))
-    } finally {
-      setSavingRing(false)
-    }
+    void updates.checkForUpdates()
   }
 
   return (
     <SettingsContent>
       <SettingsSection title={language.t("settings.updates.title")}>
+        {banner ? (
+          <UpdateBannerStrip
+            banner={banner}
+            disabled={!updates.supported || updates.busy}
+            onAction={onBannerAction}
+          />
+        ) : null}
+
         <SettingsRow
-          title={language.t("settings.updates.channelTitle")}
-          description={language.t("settings.updates.channelDescription")}
+          title={language.t("settings.updates.versionTitle")}
           control={
-            <ToggleGroup
-              data-action="settings-update-ring"
-              type="single"
-              value={ring}
-              variant="outline"
-              size="sm"
-              onValueChange={(value) => void onUpdateRingChange(value)}
-              disabled={!showDesktopUpdateControls || busy}
-            >
-              <ToggleGroupItem value="stable">
-                {language.t("settings.updates.ringStable")}
-              </ToggleGroupItem>
-              <ToggleGroupItem value="preview">
-                {language.t("settings.updates.ringPreview")}
-              </ToggleGroupItem>
-            </ToggleGroup>
+            <span className="text-xs text-text-weak tabular-nums">
+              {updates.version ?? language.t("settings.updates.versionUnknown")}
+            </span>
           }
         />
+
+        <SettingsRow
+          title={language.t("settings.updates.channelTitle")}
+          description={language.t(RING_DESCRIPTION_KEYS[updates.ring])}
+          control={
+            <Select
+              value={updates.ring}
+              disabled={!updates.supported || updates.busy}
+              onValueChange={(value) => {
+                if (isUpdateRing(value)) {
+                  void updates.changeRing(value)
+                }
+              }}
+            >
+              <SelectTrigger data-action="settings-update-ring" className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="stable">{language.t(RING_LABEL_KEYS.stable)}</SelectItem>
+                <SelectItem value="preview">{language.t(RING_LABEL_KEYS.preview)}</SelectItem>
+              </SelectContent>
+            </Select>
+          }
+        />
+
         <SettingsRow
           title={language.t("settings.updates.checkTitle")}
           description={
-            showDesktopUpdateControls
+            updates.supported
               ? language.t("settings.updates.checkDescription")
               : language.t("settings.updates.unavailable")
           }
@@ -217,31 +164,13 @@ export function UpdatesSettings() {
             <Button
               data-action="settings-check-updates"
               type="button"
-              size="xs"
-              variant="outline"
-              onClick={() => void onCheckForUpdates()}
-              disabled={!showDesktopUpdateControls || busy}
+              size="sm"
+              variant="secondary"
+              disabled={!updates.supported || updates.busy}
+              onClick={() => void updates.checkForUpdates()}
             >
-              {checkingForUpdates ? <Spinner data-icon="inline-start" /> : null}
-              {checkingForUpdates
-                ? language.t("settings.updates.checking")
-                : language.t("settings.updates.checkForUpdates")}
+              {language.t("settings.updates.checkNow")}
             </Button>
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.updates.statusTitle")}
-          description={language.t("settings.updates.statusDescription")}
-          control={
-            <div className="flex w-60 flex-col items-end gap-2 text-right">
-              <span className="text-xs text-text-weak">{statusLabel(progress)}</span>
-              {progress.status === "downloading" ? (
-                <div className="flex w-full flex-col gap-1.5">
-                  <Progress value={progressPercent(progress) ?? 0} />
-                  <span className="text-[11px] text-text-weaker">{formatProgress(progress)}</span>
-                </div>
-              ) : null}
-            </div>
           }
         />
       </SettingsSection>
