@@ -8,6 +8,7 @@ import {
 import { orchestrateSessionMessageTransform } from "../../src/learning/agent-execution/transforms/message-transform-orchestration"
 import { readTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
+import { runWithLearnerMemoryLabContext } from "../../src/learning/features/memory/lab-context"
 import { tmpdir } from "../helpers/tmpdir"
 
 async function createPromptBody() {
@@ -17,8 +18,13 @@ async function createPromptBody() {
   } satisfies Record<string, unknown>
 }
 
+function withLearnerMemoryEnabled(testBody: () => Promise<void>): () => Promise<void> {
+  return () =>
+    runWithLearnerMemoryLabContext({ settingsOverride: { enabled: true } }, testBody)
+}
+
 describe("learner context delivery", () => {
-  test("emits bootstrap learner context on first delivery", async () => {
+  test("emits bootstrap learner context on first delivery", withLearnerMemoryEnabled(async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
 
@@ -48,9 +54,9 @@ describe("learner context delivery", () => {
     expect(parts[0]?.text).toContain("Learner profile:")
     expect(parts[0]?.text).toContain("Concrete examples first")
     expect(result.learnerContextDelivery?.kind).toBe("bootstrap")
-  })
+  }))
 
-  test("does not emit learner context when the delivered fingerprint has not changed", async () => {
+  test("does not emit learner context when the delivered fingerprint has not changed", withLearnerMemoryEnabled(async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
 
@@ -92,9 +98,9 @@ describe("learner context delivery", () => {
       ),
     ).toBe(false)
     expect(second.learnerContextDelivery).toBeUndefined()
-  })
+  }))
 
-  test("emits a learner context delta after learner memory changes", async () => {
+  test("emits a learner context delta after learner memory changes", withLearnerMemoryEnabled(async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
 
@@ -145,9 +151,9 @@ describe("learner context delivery", () => {
     expect(deltaText).toContain("Added:")
     expect(deltaText).toContain("Goal: Implement bridge validation")
     expect(second.learnerContextDelivery?.kind).toBe("delta")
-  })
+  }))
 
-  test("preserves delta delivery after an unchanged intermediate turn", async () => {
+  test("preserves delta delivery after an unchanged intermediate turn", withLearnerMemoryEnabled(async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
 
@@ -218,9 +224,9 @@ describe("learner context delivery", () => {
     expect(deltaText).toContain("<learner_context_delta")
     expect(deltaText).toContain("Added:")
     expect(second.learnerContextDelivery?.kind).toBe("delta")
-  })
+  }))
 
-  test("records learner context delivery only after the transformed prompt is accepted", async () => {
+  test("records learner context delivery only after the transformed prompt is accepted", withLearnerMemoryEnabled(async () => {
     await using project = await tmpdir({ git: true })
 
     const result = await orchestrateSessionMessageTransform({
@@ -246,9 +252,9 @@ describe("learner context delivery", () => {
     const file = await Bun.file(eventFile).text()
     expect(file).toContain('"type":"learner_context_delivered"')
     expect(file).toContain('"deliveryKind":"bootstrap"')
-  })
+  }))
 
-  test("accepted delivery does not create or strengthen learner memories", async () => {
+  test("accepted delivery does not create or strengthen learner memories", withLearnerMemoryEnabled(async () => {
     await using project = await tmpdir({ git: true })
 
     const memory = await createLearnerMemory({
@@ -278,5 +284,5 @@ describe("learner context delivery", () => {
     )
     expect(updated?.strength).toBe(memory.strength)
     expect(updated?.lastUsedAt).toBe(memory.lastUsedAt)
-  })
+  }))
 })

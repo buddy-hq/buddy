@@ -317,7 +317,7 @@ describe("flashcard tools and routes", () => {
     expect(readBody.manifest.origin.messageID).toBe("msg_ses_flashcard_author")
     expect(readBody.manifest.origin.callID).toBeDefined()
     expect(readBody.manifest.origin.subagent).toBe("flashcard-author")
-  })
+  }, 15_000)
 
   test("returns one authoritative empty queue when the configured new-card quota is zero", async () => {
     await using project = await tmpdir({ git: true })

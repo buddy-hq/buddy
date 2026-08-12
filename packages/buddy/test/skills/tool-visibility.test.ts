@@ -19,7 +19,7 @@ describe("skill tool visibility", () => {
           const skillTool = requireTool(tools, "skill")
           const loaded = await skillTool.execute(
             {
-              name: "explain",
+              name: "teaching-models",
             },
             createToolContext({
               sessionID: "ses_skill",
@@ -32,7 +32,7 @@ describe("skill tool visibility", () => {
         },
       })
 
-      expect(output).toContain("explain")
+      expect(output).toContain("teaching-models")
     } finally {
       await OpenCodeInstance.disposeAll()
     }
