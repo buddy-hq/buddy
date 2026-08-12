@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  createBrowserPlatform,
-  setRuntimePlatform,
-} from "../src/context/platform"
+import { createBrowserPlatform, setRuntimePlatform } from "../src/context/platform"
 import {
   BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
@@ -131,10 +128,7 @@ function bestEffortAction(input: {
   }
 }
 
-function captureAction(
-  actionID: string,
-  drawer: DrawerKind | null = null,
-): BenchClientActionV2 {
+function captureAction(actionID: string, drawer: DrawerKind | null = null): BenchClientActionV2 {
   return {
     ...benchAction({ actionID }),
     command: {

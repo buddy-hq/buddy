@@ -177,10 +177,8 @@ export function DirectoryWorkspaceProvider(props: {
             store.getState().pendingIntent,
           ),
         getTabs: () =>
-          workspacePresentationSlotForChat(
-            store.getState().slots,
-            store.getState().activeChatKey,
-          ).tabs,
+          workspacePresentationSlotForChat(store.getState().slots, store.getState().activeChatKey)
+            .tabs,
         getTabTitle: (tab) => resolveBenchTabTitle(tab, objectTitlesRef.current),
         getHydrationStatus: () => store.getState().hydration.status,
         getRouteFallbackContext: (route) => {

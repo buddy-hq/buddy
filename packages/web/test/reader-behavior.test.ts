@@ -105,9 +105,9 @@ describe("reader navigation", () => {
       resolveNavigation: () => ({ index: 0 }),
     }
 
-    await expect(
-      resolveRestorableNavigationTarget(view, "epubcfi(/6/8!/4/2)"),
-    ).resolves.toBe("epubcfi(/6/8!/4/2)")
+    await expect(resolveRestorableNavigationTarget(view, "epubcfi(/6/8!/4/2)")).resolves.toBe(
+      "epubcfi(/6/8!/4/2)",
+    )
   })
 
   test("restores a malformed-spine CFI through its canonical filtered section", async () => {

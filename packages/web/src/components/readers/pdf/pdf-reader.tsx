@@ -25,10 +25,7 @@ import {
   cn,
   toast,
 } from "@buddy/ui"
-import {
-  LoaderCircleIcon,
-  TriangleAlertIcon,
-} from "@/icons/app-icons"
+import { LoaderCircleIcon, TriangleAlertIcon } from "@/icons/app-icons"
 import { PasswordResponses } from "pdfjs-dist"
 import "pdfjs-dist/web/pdf_viewer.css"
 import {
@@ -55,10 +52,7 @@ import { ReaderStatusPill } from "../ui/reader-status-pill"
 import { ReaderToolbar } from "../ui/reader-toolbar"
 import { ReaderTocPopover } from "../ui/reader-toc-popover"
 import { useReaderRecentLocations } from "../ui/use-reader-recent-locations"
-import {
-  DEFAULT_ANNOTATION_COLOR_ID,
-  READER_THEMES,
-} from "../foliate-reader-constants"
+import { DEFAULT_ANNOTATION_COLOR_ID, READER_THEMES } from "../foliate-reader-constants"
 import { getThemeDefinition } from "../utils/foliate-themes"
 import { copyText } from "../utils/foliate-helpers"
 import {
@@ -367,9 +361,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
   const [, setScale] = useState(initialDocumentState.pdfMode?.scale ?? 1)
   const [layoutFallback, setLayoutFallback] = useState<string | null>(null)
   const [selectionAction, setSelectionAction] = useState<PdfSelectionState | null>(null)
-  const [annotationPopover, setAnnotationPopover] = useState<PdfAnnotationPopoverState | null>(
-    null,
-  )
+  const [annotationPopover, setAnnotationPopover] = useState<PdfAnnotationPopoverState | null>(null)
   const [annotationEditor, setAnnotationEditor] = useState<PdfAnnotationEditorState | null>(null)
   const [search, setSearch] = useState<ReaderSearchViewModel>(emptySearchViewModel)
   const searchRowsBatcher = useMemo(
@@ -641,13 +633,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     const session = sessionRef.current
     if (root && session) renderPdfSelection({ root, session, selection: stagedSelection })
     refreshOverlayAnchors()
-  }, [
-    annotationPageIndex,
-    mode,
-    paintAnnotations,
-    refreshOverlayAnchors,
-    stagedSelection,
-  ])
+  }, [annotationPageIndex, mode, paintAnnotations, refreshOverlayAnchors, stagedSelection])
 
   useEffect(() => {
     renderActiveSearchResult()
@@ -1104,25 +1090,28 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     })
   }, [])
 
-  const createQuickHighlight = useCallback((color: ReaderAnnotationColorId) => {
-    if (!selectionAction) return
-    const now = new Date().toISOString()
-    const annotation: ReaderAnnotation = {
-      id: createReaderRecordId("annotation"),
-      anchor: selectionAction.selection.anchor,
-      text: selectionAction.selection.text,
-      note: "",
-      style: PDF_DEFAULT_ANNOTATION_STYLE,
-      color,
-      created: now,
-      modified: now,
-    }
-    setDocumentState((current) => ({
-      ...current,
-      annotations: [...current.annotations, annotation],
-    }))
-    dismissSelection(true)
-  }, [dismissSelection, selectionAction])
+  const createQuickHighlight = useCallback(
+    (color: ReaderAnnotationColorId) => {
+      if (!selectionAction) return
+      const now = new Date().toISOString()
+      const annotation: ReaderAnnotation = {
+        id: createReaderRecordId("annotation"),
+        anchor: selectionAction.selection.anchor,
+        text: selectionAction.selection.text,
+        note: "",
+        style: PDF_DEFAULT_ANNOTATION_STYLE,
+        color,
+        created: now,
+        modified: now,
+      }
+      setDocumentState((current) => ({
+        ...current,
+        annotations: [...current.annotations, annotation],
+      }))
+      dismissSelection(true)
+    },
+    [dismissSelection, selectionAction],
+  )
 
   const saveAnnotationEditor = useCallback(() => {
     if (!annotationEditor) return
@@ -1456,9 +1445,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
   const surfaceScrolls = mode.layout === "continuous"
   const locationSection = location?.tocLabel ?? snapshot?.title ?? source.sourceId
   const locationPosition =
-    location?.locationLabel ??
-    location?.pageLabel ??
-    `${Math.round(progress * PDF_SCALE_PERCENT)}%`
+    location?.locationLabel ?? location?.pageLabel ?? `${Math.round(progress * PDF_SCALE_PERCENT)}%`
 
   return (
     <section
@@ -1525,9 +1512,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
               onRunSearch={() => void runSearch()}
               onCycleResults={cycleSearch}
               onScopeChange={(scope) => setSearch((current) => ({ ...current, scope }))}
-              onMatchCaseChange={(matchCase) =>
-                setSearch((current) => ({ ...current, matchCase }))
-              }
+              onMatchCaseChange={(matchCase) => setSearch((current) => ({ ...current, matchCase }))}
               onMatchWholeWordsChange={(matchWholeWords) =>
                 setSearch((current) => ({ ...current, matchWholeWords }))
               }
@@ -1755,9 +1740,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
             open={locationOpen}
             onOpenChange={(open) => {
               if (open) {
-                setLocationDraft(
-                  location?.pageLabel ?? String((currentAnchor?.pageIndex ?? 0) + 1),
-                )
+                setLocationDraft(location?.pageLabel ?? String((currentAnchor?.pageIndex ?? 0) + 1))
               }
               setLocationOpen(open)
             }}

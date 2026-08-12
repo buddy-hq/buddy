@@ -48,9 +48,24 @@ type HighlightCandidate = {
 }
 
 const SELECTION_SAMPLES: SelectionSample[] = [
-  { id: "board", title: "Bird Whiteboard Bug Repro", kindLabel: "Whiteboard", glyph: PresentationIcon },
-  { id: "diagram", title: "High-level view of Bench workspace", kindLabel: "Diagram", glyph: WorkflowIcon },
-  { id: "widget", title: "Workspace Hydration Flow", kindLabel: "Widget", glyph: PanelsTopLeftIcon },
+  {
+    id: "board",
+    title: "Bird Whiteboard Bug Repro",
+    kindLabel: "Whiteboard",
+    glyph: PresentationIcon,
+  },
+  {
+    id: "diagram",
+    title: "High-level view of Bench workspace",
+    kindLabel: "Diagram",
+    glyph: WorkflowIcon,
+  },
+  {
+    id: "widget",
+    title: "Workspace Hydration Flow",
+    kindLabel: "Widget",
+    glyph: PanelsTopLeftIcon,
+  },
   { id: "source", title: "glm-5-paper", kindLabel: "Resource", glyph: BookOpenIcon },
 ]
 
@@ -180,7 +195,9 @@ export function CommandSelectionTokensEasel() {
           Command selection · the variant, then the token
         </h2>
         <p className="max-w-3xl text-sm text-text-weak">
-          <code className="text-text-base">@custom-variant data-selected (&amp;[data-state=&quot;selected&quot;])</code>{" "}
+          <code className="text-text-base">
+            @custom-variant data-selected (&amp;[data-state=&quot;selected&quot;])
+          </code>{" "}
           in <code className="text-text-base">packages/ui/src/index.css</code> retargets every{" "}
           <code className="text-text-base">data-selected:*</code> class. cmdk writes{" "}
           <code className="text-text-base">data-selected=&quot;true&quot;</code>, never{" "}
@@ -194,7 +211,7 @@ export function CommandSelectionTokensEasel() {
       <div className="flex flex-wrap gap-6">
         <SelectionColumn
           title="Broken · data-selected:"
-          note="Compiles to [data-state=&quot;selected&quot;]. Nothing matches; click a row and it stays flat."
+          note='Compiles to [data-state="selected"]. Nothing matches; click a row and it stays flat.'
           highlightClass="data-selected:bg-surface-weak"
         />
         <SelectionColumn

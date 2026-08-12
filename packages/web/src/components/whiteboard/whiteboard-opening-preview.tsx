@@ -48,11 +48,7 @@ function WhiteboardOpeningPreview(props: WhiteboardOpeningPreviewProps) {
     }
   }, [previewSurface, transientClose, transientOpen])
 
-  if (
-    !previewSurface ||
-    transientBench?.activeSurface !== previewSurface ||
-    !transientBench.host
-  ) {
+  if (!previewSurface || transientBench?.activeSurface !== previewSurface || !transientBench.host) {
     return null
   }
   return createPortal(

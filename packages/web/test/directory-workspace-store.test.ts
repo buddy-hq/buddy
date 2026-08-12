@@ -654,14 +654,16 @@ describe("createDirectoryWorkspaceStore", () => {
       pendingIntent: null,
     })
     expect(store.getState().slots[draftChatKey]).toBeUndefined()
-    expect(store.getState().slots[durableChatKey]).toEqual(workspaceSlot({
-      route: DOCKED_OBJECT_ROUTE,
-      docked: {
-        visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        drawer: WORKSPACE_DRAWER_SKILLS,
-      },
-      lastDrawer: WORKSPACE_DRAWER_SKILLS,
-    }))
+    expect(store.getState().slots[durableChatKey]).toEqual(
+      workspaceSlot({
+        route: DOCKED_OBJECT_ROUTE,
+        docked: {
+          visibility: WORKSPACE_VISIBILITY_EXPANDED,
+          drawer: WORKSPACE_DRAWER_SKILLS,
+        },
+        lastDrawer: WORKSPACE_DRAWER_SKILLS,
+      }),
+    )
   })
 
   test("does not promote a draft over an existing chat slot", () => {
@@ -798,14 +800,16 @@ describe("directory workspace persistence", () => {
         chatKey: chatBKey,
         storage,
       }),
-    ).resolves.toEqual(workspaceSlot({
-      route: CLOSED_ROUTE,
-      docked: {
-        visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        drawer: WORKSPACE_DRAWER_SKILLS,
-      },
-      lastDrawer: WORKSPACE_DRAWER_SKILLS,
-    }))
+    ).resolves.toEqual(
+      workspaceSlot({
+        route: CLOSED_ROUTE,
+        docked: {
+          visibility: WORKSPACE_VISIBILITY_EXPANDED,
+          drawer: WORKSPACE_DRAWER_SKILLS,
+        },
+        lastDrawer: WORKSPACE_DRAWER_SKILLS,
+      }),
+    )
   })
 
   test("persists the versioned slot map", async () => {

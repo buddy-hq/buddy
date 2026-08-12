@@ -79,9 +79,8 @@
   /* An equal share of the strip, the new-tab button and the gaps removed; the
      min/max clamp each frame. */
   width: calc(
-    (
-        100% - var(--bench-tab-new-space) - var(--bench-tab-count) * var(--bench-tab-gap)
-      ) / var(--bench-tab-count)
+    (100% - var(--bench-tab-new-space) - var(--bench-tab-count) * var(--bench-tab-gap)) /
+      var(--bench-tab-count)
   );
   min-width: var(--bench-tab-width-min);
   max-width: var(--bench-tab-width-max);

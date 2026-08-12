@@ -409,11 +409,9 @@ function bestEffortAutoOpenIdentity(
 function bestEffortCoalescingKey(action: BenchClientActionV2): string | undefined {
   const identity = bestEffortAutoOpenIdentity(action)
   if (!identity || action.command.type !== "present") return undefined
-  return [
-    identity.policyID,
-    action.sessionID,
-    identity.eventKey,
-  ].join(BEST_EFFORT_COALESCING_KEY_SEPARATOR)
+  return [identity.policyID, action.sessionID, identity.eventKey].join(
+    BEST_EFFORT_COALESCING_KEY_SEPARATOR,
+  )
 }
 
 function whiteboardForegroundClaimKey(action: BenchClientActionV2): string | undefined {
@@ -804,10 +802,7 @@ export class DirectoryWorkspaceClientActionLedger {
     return completed
   }
 
-  #recordTerminal(
-    action: BenchClientActionV2,
-    completion: BenchClientActionCompletionDraft,
-  ): void {
+  #recordTerminal(action: BenchClientActionV2, completion: BenchClientActionCompletionDraft): void {
     const retainedCompletion =
       action.command.type === "capture_bench_screenshot" && completion.outcome === "captured"
         ? null

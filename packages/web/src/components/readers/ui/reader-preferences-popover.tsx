@@ -20,11 +20,7 @@ export function ReaderPreferencesPopover({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <ReaderToolbarButton
-          icon={ALargeSmallIcon}
-          label={label}
-          active={Boolean(open)}
-        />
+        <ReaderToolbarButton icon={ALargeSmallIcon} label={label} active={Boolean(open)} />
       </PopoverTrigger>
       <PopoverContent
         align="end"

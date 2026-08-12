@@ -380,10 +380,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           y: annotationPopover.y,
         }
       : null
-    const readerRelocation = useMemo(
-      () => foliateLocationToReaderRelocation(location),
-      [location],
-    )
+    const readerRelocation = useMemo(() => foliateLocationToReaderRelocation(location), [location])
     const recentLocations = useReaderRecentLocations({
       sourceKey: sourceDependencyKey,
       relocation: readerRelocation,
@@ -1477,9 +1474,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                   type="button"
                   className="max-w-full truncate text-xs font-medium text-text-base"
                 >
-                  {snapshot?.title ??
-                    (source ? getSourceName(source) : undefined) ??
-                    DEFAULT_TITLE}
+                  {snapshot?.title ?? (source ? getSourceName(source) : undefined) ?? DEFAULT_TITLE}
                 </button>
               </ReaderMetadataHoverCard>
             }
@@ -1645,7 +1640,12 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         </div>
 
         {snapshot && status === "ready" && showToolbar && !focus ? (
-          <footer className={cn("relative z-20 shrink-0", surfaceScrolls && "border-t border-border-weak-base")}>
+          <footer
+            className={cn(
+              "relative z-20 shrink-0",
+              surfaceScrolls && "border-t border-border-weak-base",
+            )}
+          >
             {!surfaceScrolls ? (
               <ReaderProgressRail
                 value={progressDraft ?? progressValue}

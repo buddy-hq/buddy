@@ -85,9 +85,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
   const titlebarVisible = !immersive || showImmersiveTitlebar
   const titlebarHeight = titlebarVisible ? DESKTOP_TITLEBAR_HEIGHT_PX : 0
   const rightWorkspaceTitlebarWidth =
-    !immersive && rightWorkspaceOpen && rightWorkspaceTitlebar
-      ? rightWorkspaceDisplayWidth
-      : 0
+    !immersive && rightWorkspaceOpen && rightWorkspaceTitlebar ? rightWorkspaceDisplayWidth : 0
   const rightWorkspaceTitlebarInset =
     platform.platform === "desktop" && platform.os === "windows"
       ? WINDOWS_CHAT_TITLEBAR_RIGHT_CONTROLS_INSET_PX

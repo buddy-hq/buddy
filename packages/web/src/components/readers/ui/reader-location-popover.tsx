@@ -1,16 +1,6 @@
 import { MapIcon, Redo2Icon, Undo2Icon } from "@/icons/app-icons"
-import {
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  cn,
-} from "@buddy/ui"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@buddy/ui/components/ui/input-group"
+import { Button, Popover, PopoverContent, PopoverTrigger, cn } from "@buddy/ui"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@buddy/ui/components/ui/input-group"
 import type { ReaderPositionAnchor } from "../reader-types"
 import { ReaderPanelBody, ReaderPanelHeader, ReaderPanelLabel } from "./reader-panel"
 

@@ -207,7 +207,7 @@ const createWhiteboardViewTool = createBuddyTool({
       ? await readWhiteboardObject(ctx.directory, params.objectID)
       : await ensureWhiteboardObjectForToolCall({
           directory: ctx.directory,
-        reservation: {
+          reservation: {
             sessionID,
             messageID,
             callID: eventCallID,

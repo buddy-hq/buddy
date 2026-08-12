@@ -594,10 +594,7 @@ export class BenchClientActionBroker {
     ) {
       return { status: "conflict" }
     }
-    if (
-      parsed.outcome === "captured" &&
-      !commandMatchesCapturedCompletion(entry.action, parsed)
-    ) {
+    if (parsed.outcome === "captured" && !commandMatchesCapturedCompletion(entry.action, parsed)) {
       return { status: "conflict" }
     }
 

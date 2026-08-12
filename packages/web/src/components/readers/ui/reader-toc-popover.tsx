@@ -1,10 +1,5 @@
 import { TableOfContents as TableOfContentsIcon } from "@/icons/app-icons"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  ScrollArea,
-} from "@buddy/ui"
+import { Popover, PopoverContent, PopoverTrigger, ScrollArea } from "@buddy/ui"
 import type { ReaderNavigationItem } from "../reader-types"
 import { READER_EMPTY_TOC_MESSAGE } from "./reader-ui-constants"
 import { ReaderNavigationTree } from "./reader-navigation-tree"

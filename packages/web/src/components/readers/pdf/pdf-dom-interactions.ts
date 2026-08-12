@@ -128,13 +128,15 @@ function pdfTextCaretAtPoint(root: HTMLElement, point: PdfClientPoint): PdfTextC
 }
 
 function pdfPageForTarget(root: HTMLElement, target: EventTarget | null): HTMLElement | undefined {
-  const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null
+  const element =
+    target instanceof Element ? target : target instanceof Node ? target.parentElement : null
   const page = element?.closest<HTMLElement>(PDF_PAGE_SELECTOR)
   return page && root.contains(page) ? page : undefined
 }
 
 function isPdfInteractiveTarget(target: EventTarget | null, page: HTMLElement): boolean {
-  const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null
+  const element =
+    target instanceof Element ? target : target instanceof Node ? target.parentElement : null
   const interactive = element?.closest(PDF_INTERACTIVE_TARGET_SELECTOR)
   return Boolean(interactive && page.contains(interactive))
 }
@@ -330,12 +332,7 @@ export function readPdfSelection(input: {
       const textLayerBounds = rectCoordinates(geometry.textLayerDiv.getBoundingClientRect())
       const quads = collectRangeTextRects(pageRange, geometry.textLayerDiv)
         .map((rect) =>
-          pdfQuadFromClientRect(
-            rect,
-            textLayerBounds,
-            geometry.viewport,
-            geometry.cropBoxOrigin,
-          ),
+          pdfQuadFromClientRect(rect, textLayerBounds, geometry.viewport, geometry.cropBoxOrigin),
         )
         .filter((quad) => quad !== undefined)
       if (quads.length > MAX_PDF_QUADS_PER_SEGMENT) {

@@ -128,8 +128,4 @@ async function initializeBenchCaptureStorage(): Promise<void> {
   await fs.mkdir(captureRoot, { recursive: true })
 }
 
-export {
-  cleanupBenchCapturesForSession,
-  initializeBenchCaptureStorage,
-  writeTemporaryBenchCapture,
-}
+export { cleanupBenchCapturesForSession, initializeBenchCaptureStorage, writeTemporaryBenchCapture }

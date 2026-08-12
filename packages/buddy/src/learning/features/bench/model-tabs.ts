@@ -44,14 +44,7 @@ type ModelVisibleBenchTabs = {
 function searchableTabValues(tab: NumberedBenchTab): string[] {
   const target = tab.target
   if (target.type === "workspace-file") {
-    return [
-      tab.title,
-      tab.tabKey,
-      `tab ${tab.tabNumber}`,
-      target.type,
-      target.path,
-      target.viewer,
-    ]
+    return [tab.title, tab.tabKey, `tab ${tab.tabNumber}`, target.type, target.path, target.viewer]
   }
 
   return [

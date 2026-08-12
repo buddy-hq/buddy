@@ -912,9 +912,7 @@ export class DirectoryWorkspaceLifecycleService {
   }
 
   #captureProjectionMatches(
-    expected:
-      | { tabKey: string; target: BenchTarget; drawer: DrawerKind | null }
-      | undefined,
+    expected: { tabKey: string; target: BenchTarget; drawer: DrawerKind | null } | undefined,
     projection: EffectiveWorkspaceProjection,
   ): projection is EffectiveWorkspaceProjection & {
     route: Extract<EffectiveWorkspaceProjection["route"], { status: "open" }>

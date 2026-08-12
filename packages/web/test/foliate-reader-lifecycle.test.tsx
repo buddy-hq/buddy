@@ -303,7 +303,8 @@ describe("Foliate reader lifecycle", () => {
       })
       await waitFor(() => resizeObservers.length === 1)
       const view = container.querySelector("buddy-lifecycle-foliate-view")
-      if (!(view instanceof LifecycleView)) throw new Error("Foliate lifecycle view was not mounted")
+      if (!(view instanceof LifecycleView))
+        throw new Error("Foliate lifecycle view was not mounted")
       let viewportWidth = 800
       Object.defineProperty(view, "getBoundingClientRect", {
         configurable: true,

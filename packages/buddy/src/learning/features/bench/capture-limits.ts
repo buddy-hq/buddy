@@ -6,8 +6,7 @@ const BENCH_CAPTURE_MAX_PNG_BYTES = 16 * BYTES_PER_MEBIBYTE
 const BENCH_CAPTURE_MAX_DIMENSION_PIXELS = 16_384
 const BENCH_CAPTURE_MAX_PIXEL_COUNT = 64 * 1024 * 1024
 const BENCH_CAPTURE_MAX_BASE64_CHARACTERS =
-  Math.ceil(BENCH_CAPTURE_MAX_PNG_BYTES / BYTES_PER_BASE64_GROUP) *
-  CHARACTERS_PER_BASE64_GROUP
+  Math.ceil(BENCH_CAPTURE_MAX_PNG_BYTES / BYTES_PER_BASE64_GROUP) * CHARACTERS_PER_BASE64_GROUP
 
 // Leave room for the observed route, tab summaries, and selected surface context that accompany
 // the screenshot while still rejecting an unbounded JSON body before it is parsed.

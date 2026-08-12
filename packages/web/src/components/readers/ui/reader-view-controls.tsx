@@ -122,12 +122,7 @@ type ReaderViewToggleProps = {
   onCheckedChange: (checked: boolean) => void
 }
 
-export function ReaderViewToggle({
-  id,
-  label,
-  checked,
-  onCheckedChange,
-}: ReaderViewToggleProps) {
+export function ReaderViewToggle({ id, label, checked, onCheckedChange }: ReaderViewToggleProps) {
   return (
     <div className="flex items-center justify-between gap-3 py-2">
       <label htmlFor={id} className="min-w-0 text-xs text-text-weak">

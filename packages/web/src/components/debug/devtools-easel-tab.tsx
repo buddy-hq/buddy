@@ -146,7 +146,7 @@ const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
     id: "command-selection-tokens",
     label: "Command selection · variant + token",
     subtitle:
-      "Why a cmdk row never lit up: `data-selected` is retargeted to `[data-state=\"selected\"]`, an attribute cmdk never writes · broken vs value-matching side by side, candidate highlight tokens on the real popover surface, and the live primitive",
+      'Why a cmdk row never lit up: `data-selected` is retargeted to `[data-state="selected"]`, an attribute cmdk never writes · broken vs value-matching side by side, candidate highlight tokens on the real popover surface, and the live primitive',
   },
   {
     id: "flashcard-deck-journey",

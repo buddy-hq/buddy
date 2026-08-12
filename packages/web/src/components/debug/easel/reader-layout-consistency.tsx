@@ -219,7 +219,7 @@ const DEFECTS: Defect[] = [
     title: "The PDF title disappears at Bench width",
     where: "pdf-reader.tsx:1401 · foliate-reader.tsx:1323",
     detail:
-      'PDF centres the title with `hidden … md:flex`, so in a docked Bench pane there is no title at all. EPUB keeps it and reserves px-48 against the buttons; PDF reserves px-72. Both are absolute overlays that can collide rather than a flex cell that truncates.',
+      "PDF centres the title with `hidden … md:flex`, so in a docked Bench pane there is no title at all. EPUB keeps it and reserves px-48 against the buttons; PDF reserves px-72. Both are absolute overlays that can collide rather than a flex cell that truncates.",
   },
   {
     pin: 5,
@@ -486,7 +486,13 @@ const IMPLEMENTED_CONTROLS: CapabilityRow[] = [
     pdf: "conditional",
     rule: "pdf gates on toc.length; foliate never passes canSearchSection, so it defaults true",
   },
-  { name: "TOC · bookmarks · annotations · history", epub: "yes", epubFixed: "yes", pdf: "yes", rule: "parity" },
+  {
+    name: "TOC · bookmarks · annotations · history",
+    epub: "yes",
+    epubFixed: "yes",
+    pdf: "yes",
+    rule: "parity",
+  },
 ]
 
 // ── The frequency ranking that decides depth ──────────────────────────────
@@ -612,7 +618,7 @@ const SCROLL_RULES = [
   "The rail draws in the reader theme's own content ink over the reader's own paper, so it stays legible on all five themes without a per-theme value.",
   "Horizontal scroll only when scale is custom — never as a side effect of chrome width.",
   "Every popover scrolls the same way: one ScrollArea, under a fixed header. No raw overflow-y-auto divs.",
-  "The reader stylesheet is scoped to [data-component=\"reader\"]. No bare * or ::-webkit-scrollbar rules.",
+  'The reader stylesheet is scoped to [data-component="reader"]. No bare * or ::-webkit-scrollbar rules.',
 ]
 
 // ── Primitives ────────────────────────────────────────────────────────────
@@ -1066,8 +1072,7 @@ function PanelLabel(props: { children: ReactNode }) {
  * See docs/known-issues/state-collapsed-into-hover.md for why fill alone is not
  * enough, and why the hover companion is required.
  */
-const SELECTED_ROW =
-  "bg-surface-raised-strong text-text-strong hover:bg-surface-raised-strong"
+const SELECTED_ROW = "bg-surface-raised-strong text-text-strong hover:bg-surface-raised-strong"
 
 const CONTENTS_ENTRIES = [
   "Cover",
@@ -1557,7 +1562,12 @@ function ViewPanel(props: { engine: ReaderEngine; onClose: () => void }) {
  * could only be reached through a dialog.
  */
 const ANNOTATION_COLORS: Array<{ id: string; label: string; dot: string; wash: string }> = [
-  { id: "amber", label: "Amber", dot: "bg-surface-warning-base", wash: "bg-surface-warning-base/35" },
+  {
+    id: "amber",
+    label: "Amber",
+    dot: "bg-surface-warning-base",
+    wash: "bg-surface-warning-base/35",
+  },
   { id: "mint", label: "Mint", dot: "bg-surface-success-base", wash: "bg-surface-success-base/35" },
   { id: "sky", label: "Sky", dot: "bg-surface-info-base", wash: "bg-surface-info-base/35" },
   {
@@ -1725,7 +1735,14 @@ function MarksPanel(props: { onClose: () => void }) {
 
 // ── Search ────────────────────────────────────────────────────────────────
 
-type SearchHit = { id: string; section?: string; label: string; pre: string; match: string; post: string }
+type SearchHit = {
+  id: string
+  section?: string
+  label: string
+  pre: string
+  match: string
+  post: string
+}
 
 const SEARCH_HITS: SearchHit[] = [
   {
@@ -2234,7 +2251,9 @@ function CenteredState(props: { icon: ReactNode; title: string; body: string; ac
     <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
       <span className="text-icon-weak-base">{props.icon}</span>
       <span className="text-xs font-medium text-text-base">{props.title}</span>
-      <span className="max-w-[30ch] text-[11px] leading-relaxed text-text-weaker">{props.body}</span>
+      <span className="max-w-[30ch] text-[11px] leading-relaxed text-text-weaker">
+        {props.body}
+      </span>
       {props.action ? (
         <Button type="button" variant="outline" size="sm" className="mt-1">
           {props.action}
@@ -2364,11 +2383,7 @@ const ORIGINAL_LANDMARKS = [
 
 const ORIGINAL_PAGE_LABELS = ["1", "12", "48", "84", "126"] as const
 
-function OriginalDialogShell(props: {
-  title: string
-  children: ReactNode
-  className?: string
-}) {
+function OriginalDialogShell(props: { title: string; children: ReactNode; className?: string }) {
   return (
     <div
       className={cn(
@@ -2561,7 +2576,9 @@ function OriginalOnlyInventory(props: { engines: ReaderEngine[] }) {
               <h3 className="text-xs font-medium text-text-base">
                 Page-turn overlay · {ENGINE_LABEL[engine]}
               </h3>
-              <p className="mt-1 text-xs text-text-weaker">Shown unchanged in the shipped reader.</p>
+              <p className="mt-1 text-xs text-text-weaker">
+                Shown unchanged in the shipped reader.
+              </p>
             </div>
             <OriginalPageTurnSurface engine={engine} />
           </article>
@@ -2586,9 +2603,7 @@ function OriginalOnlyInventory(props: { engines: ReaderEngine[] }) {
         {includesEpub ? (
           <article className="flex w-full max-w-lg flex-col gap-3">
             <div>
-              <h3 className="text-xs font-medium text-text-base">
-                Location & navigation · EPUB
-              </h3>
+              <h3 className="text-xs font-medium text-text-base">Location & navigation · EPUB</h3>
               <p className="mt-1 text-xs text-text-weaker">
                 This shipped dialog contains the retained advanced tools: CFI jump/copy, the
                 separate page-list selector, and landmarks.
@@ -2621,7 +2636,10 @@ function OriginalReader(props: { engine: ReaderEngine; pins: boolean; scrollMap:
         <Pinned n={6} show={props.pins}>
           <div className="absolute inset-x-0 top-0 h-px bg-border-base/30">
             <div
-              className={cn("h-full", isPdf ? "bg-text-interactive-base" : "bg-text-interactive-base/60")}
+              className={cn(
+                "h-full",
+                isPdf ? "bg-text-interactive-base" : "bg-text-interactive-base/60",
+              )}
               style={{ width: "32%" }}
             />
           </div>
@@ -2736,7 +2754,10 @@ function OriginalReader(props: { engine: ReaderEngine; pins: boolean; scrollMap:
         <Pinned n={7} show={props.pins}>
           {isPdf ? (
             <div className="mt-0.5 h-1 w-full rounded-full bg-surface-weak">
-              <div className="h-full rounded-full bg-text-interactive-base" style={{ width: "32%" }} />
+              <div
+                className="h-full rounded-full bg-text-interactive-base"
+                style={{ width: "32%" }}
+              />
             </div>
           ) : (
             <div className="relative mt-1 h-2 w-full">
@@ -2753,7 +2774,9 @@ function OriginalReader(props: { engine: ReaderEngine; pins: boolean; scrollMap:
       {props.pins ? (
         <div className="pointer-events-none absolute inset-x-0 top-11 z-30 flex justify-center">
           <span className="rounded-b bg-surface-critical-base px-2 py-0.5 text-[9px] font-medium text-text-on-critical-base">
-            {props.engine === "epub" ? "pin 10 · global scrollbar restyle" : "pin 9 · borders differ"}
+            {props.engine === "epub"
+              ? "pin 10 · global scrollbar restyle"
+              : "pin 9 · borders differ"}
           </span>
         </div>
       ) : null}
@@ -2912,9 +2935,7 @@ function ProposedReader(props: {
       {panel === "contents" ? (
         <ContentsPanel engine={props.engine} onClose={() => setPanel(null)} />
       ) : null}
-      {panel === "goto" ? (
-        <GoToPanel engine={props.engine} onClose={() => setPanel(null)} />
-      ) : null}
+      {panel === "goto" ? <GoToPanel engine={props.engine} onClose={() => setPanel(null)} /> : null}
       {panel === "view" ? <ViewPanel engine={props.engine} onClose={() => setPanel(null)} /> : null}
       {panel === "marks" ? <MarksPanel onClose={() => setPanel(null)} /> : null}
       {panel === "search" ? (
@@ -3165,9 +3186,7 @@ function SurfaceGallery() {
                   type="button"
                   className={cn(
                     "truncate rounded-md px-2.5 py-2 text-left text-xs hover:bg-surface-base-hover",
-                    entry === DOCUMENT.epub.section
-                      ? SELECTED_ROW
-                      : "text-text-weak",
+                    entry === DOCUMENT.epub.section ? SELECTED_ROW : "text-text-weak",
                   )}
                 >
                   {entry}
@@ -3666,7 +3685,10 @@ function CutsLedger() {
         <ul className="flex flex-col gap-1.5">
           {CUTS.map((cut) => (
             <li key={cut} className="flex gap-2 text-xs leading-relaxed text-text-weak">
-              <span aria-hidden className="mt-1.5 size-1 shrink-0 rounded-full bg-icon-critical-base" />
+              <span
+                aria-hidden
+                className="mt-1.5 size-1 shrink-0 rounded-full bg-icon-critical-base"
+              />
               {cut}
             </li>
           ))}
@@ -3725,13 +3747,13 @@ function CutsLedger() {
           </div>
         </div>
         <p className="mt-2.5 text-xs leading-relaxed text-text-weak">
-          The engine difference lives inside <span className="font-medium text-text-base">View</span>{" "}
-          — text size, typeface, flow, margins and hyphenation for EPUB; page layout, fit and
-          rotation for PDF — under an identical theme block above and an identical
-          motion/cursor/shortcuts block below. The zoom track is the one thing that stays in the bar,
-          because it belongs to the page rather than to the type — and it is also the one object a
-          PDF has that an EPUB does not, which is why the PDF bar is one pill heavier and not four
-          icons heavier.
+          The engine difference lives inside{" "}
+          <span className="font-medium text-text-base">View</span> — text size, typeface, flow,
+          margins and hyphenation for EPUB; page layout, fit and rotation for PDF — under an
+          identical theme block above and an identical motion/cursor/shortcuts block below. The zoom
+          track is the one thing that stays in the bar, because it belongs to the page rather than
+          to the type — and it is also the one object a PDF has that an EPUB does not, which is why
+          the PDF bar is one pill heavier and not four icons heavier.
         </p>
       </LedgerCard>
     </div>
@@ -3892,8 +3914,8 @@ export function ReaderLayoutConsistencyEasel() {
         ) : (
           <p className="max-w-4xl text-xs leading-relaxed text-text-weak">
             Five things to try. Press{" "}
-            <span className="font-medium text-text-base">the last button in the bar</span> for Focus —
-            both bands leave, one control stays. Open{" "}
+            <span className="font-medium text-text-base">the last button in the bar</span> for Focus
+            — both bands leave, one control stays. Open{" "}
             <span className="font-medium text-text-base">Aa</span> on EPUB and find A− / A+ at the
             head of the type block, then open it on PDF and confirm they are absent and{" "}
             <span className="font-mono text-text-base">− +</span> is in the bar instead. Click the
@@ -3937,10 +3959,10 @@ export function ReaderLayoutConsistencyEasel() {
               <span className="font-medium text-text-base">
                 Text size sits inside View rather than in the bar.
               </span>{" "}
-              It follows from the rule that only page properties are bar-level, and it matches Books.
-              But it does mean the EPUB's most-used adjustment costs one click more than the PDF's,
-              on an engine where it is arguably used more. The counter-argument is that once the
-              panel is open, every further press is free — and text size is set in a burst, not
+              It follows from the rule that only page properties are bar-level, and it matches
+              Books. But it does mean the EPUB's most-used adjustment costs one click more than the
+              PDF's, on an engine where it is arguably used more. The counter-argument is that once
+              the panel is open, every further press is free — and text size is set in a burst, not
               continuously.
             </li>
             <li>
@@ -3957,15 +3979,16 @@ export function ReaderLayoutConsistencyEasel() {
               A PDF could carry page-of-total up top, where Preview puts it, and drop the band
               entirely. I kept it because the two engines then have the same skeleton, and because
               chapter and page are the same kind of thing wherever they are shown. The cost is 28px
-              of reading height on a surface that already tells you the page number in its scrollbar.
+              of reading height on a surface that already tells you the page number in its
+              scrollbar.
             </li>
             <li>
               <span className="font-medium text-text-base">
                 Focus has no discoverable way back other than the one button.
               </span>{" "}
-              That button is deliberately the only chrome left, which is the point — but a reader who
-              scrolls past it, or who entered Focus by keyboard, has one small target and two shortcuts
-              and nothing else.
+              That button is deliberately the only chrome left, which is the point — but a reader
+              who scrolls past it, or who entered Focus by keyboard, has one small target and two
+              shortcuts and nothing else.
             </li>
             <li>
               <span className="font-medium text-text-base">
@@ -3980,10 +4003,10 @@ export function ReaderLayoutConsistencyEasel() {
               <span className="font-medium text-text-base">
                 The note editor is anchored rather than modal.
               </span>{" "}
-              Keeping the text visible while you write about it is the whole argument, and it wins on
-              a wide frame. In a docked bench the card is 330px against a 480px pane, so it covers
-              most of the column anyway — at which point a modal would at least have been honest
-              about it.
+              Keeping the text visible while you write about it is the whole argument, and it wins
+              on a wide frame. In a docked bench the card is 330px against a 480px pane, so it
+              covers most of the column anyway — at which point a modal would at least have been
+              honest about it.
             </li>
             <li>
               <span className="font-medium text-text-base">

@@ -103,7 +103,8 @@ function isNotebookSearchFilter(value: string): value is NotebookSearchFilter {
 function searchFilterLabel(filter: NotebookSearchFilter): string {
   if (filter === NOTEBOOK_SEARCH_FILTER_ALL) return SEARCH_FILTER_ALL_LABEL
   return (
-    SEARCH_KIND_DEFINITIONS.find((definition) => definition.kind === filter)?.label ?? SEARCH_FILTER_ALL_LABEL
+    SEARCH_KIND_DEFINITIONS.find((definition) => definition.kind === filter)?.label ??
+    SEARCH_FILTER_ALL_LABEL
   )
 }
 

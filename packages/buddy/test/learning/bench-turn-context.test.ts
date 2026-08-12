@@ -74,9 +74,7 @@ describe("parked Bench turn context", () => {
     })
     const firstText = syntheticPromptText(first)
     expect(firstText).toContain("12 Bench tabs are open.")
-    expect(firstText).toContain(
-      `selected tab 1 of 12: ${selectedTab.title}: ${selectedTab.tabKey}`,
-    )
+    expect(firstText).toContain(`selected tab 1 of 12: ${selectedTab.title}: ${selectedTab.tabKey}`)
     expect(firstText).toContain(
       `Selected target absolute path: ${path.join(project.path, selectedTab.target.path)}.`,
     )

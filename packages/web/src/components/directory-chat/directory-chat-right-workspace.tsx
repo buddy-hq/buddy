@@ -398,20 +398,10 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       )
     }
     if (resolvedSelector === "sources") {
-      return (
-        <SourcesDrawer
-          directory={props.directory}
-          onOpen={openWorkspaceRequest}
-        />
-      )
+      return <SourcesDrawer directory={props.directory} onOpen={openWorkspaceRequest} />
     }
     if (resolvedSelector === "practice") {
-      return (
-        <PracticeDrawer
-          directory={props.directory}
-          onOpen={openWorkspaceRequest}
-        />
-      )
+      return <PracticeDrawer directory={props.directory} onOpen={openWorkspaceRequest} />
     }
     if (resolvedSelector === "creations") {
       return (
@@ -427,10 +417,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     }
     if (resolvedSelector === "boards") {
       return (
-        <RightWorkspaceBoardsDrawer
-          directory={props.directory}
-          onOpen={openWorkspaceRequest}
-        />
+        <RightWorkspaceBoardsDrawer directory={props.directory} onOpen={openWorkspaceRequest} />
       )
     }
     if (resolvedSelector === "skills") {
@@ -556,7 +543,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       className="flex h-full min-h-0 w-full overflow-hidden bg-background-base"
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {props.showTabsInWorkspace ?? true ? (
+        {(props.showTabsInWorkspace ?? true) ? (
           <BenchTabs
             directory={props.directory}
             tabs={props.tabs}
@@ -572,9 +559,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
           hasBenchTarget={hasBenchTarget}
           activeTabKey={props.activeTabKey}
           activeTargetKey={
-            props.presentation.benchTarget
-              ? benchTargetKey(props.presentation.benchTarget)
-              : null
+            props.presentation.benchTarget ? benchTargetKey(props.presentation.benchTarget) : null
           }
           bench={props.bench}
           selectorContent={selectorContent}

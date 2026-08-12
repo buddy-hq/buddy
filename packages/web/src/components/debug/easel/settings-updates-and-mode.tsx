@@ -29,7 +29,11 @@ import {
   SchoolIcon,
   type AppIcon,
 } from "@/icons/app-icons"
-import { SettingsListCard, SettingsRow, SettingsSection } from "@/components/settings/settings-primitives"
+import {
+  SettingsListCard,
+  SettingsRow,
+  SettingsSection,
+} from "@/components/settings/settings-primitives"
 
 /**
  * Two settings controls that both use a "pick one of two" pattern, and both
@@ -738,9 +742,9 @@ function UpdatesPart() {
           items={[
             "Selecting a channel starts a download. settings-updates.tsx:174 calls onCheckForUpdates() on switch, and on macOS checkCustomMacUpdate streams the file inside checkForUpdate. The control is shaped like a view toggle and costs a release candidate.",
             "The selection is nearly invisible. toggleVariants sets data-[state=on]:bg-surface-weak and hover:bg-surface-weak — the same value. A hovered channel and the chosen channel paint identically.",
-            "The right column is ragged. ToggleGroup size=\"sm\" is 28px, Button size=\"xs\" is 24px, and the status column is a hand-set w-60 against everyone else's sm:min-w-44. Three rows, three widths, two heights.",
-            "The Status row is empty most of the time. It is a permanently mounted row whose usual content is the words \"No update activity\".",
-            "When an update is ready, the panel cannot install it. It prints \"ready to install\" and leaves the action in a toast the user has to still have on screen.",
+            'The right column is ragged. ToggleGroup size="sm" is 28px, Button size="xs" is 24px, and the status column is a hand-set w-60 against everyone else\'s sm:min-w-44. Three rows, three widths, two heights.',
+            'The Status row is empty most of the time. It is a permanently mounted row whose usual content is the words "No update activity".',
+            'When an update is ready, the panel cannot install it. It prints "ready to install" and leaves the action in a toast the user has to still have on screen.',
             "The version is never shown. platform.version is available and is the one fact an Updates panel exists to state.",
           ]}
         />

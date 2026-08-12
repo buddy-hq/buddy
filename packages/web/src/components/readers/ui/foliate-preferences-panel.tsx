@@ -126,9 +126,7 @@ export function FoliatePreferencesPanel({
               max={2}
               step={0.02}
               value={preferences.lineHeight}
-              onChange={(lineHeight) =>
-                setPreferences((current) => ({ ...current, lineHeight }))
-              }
+              onChange={(lineHeight) => setPreferences((current) => ({ ...current, lineHeight }))}
               formatValue={(value) => value.toFixed(2)}
             />
             <ReaderPreferenceSlider
@@ -148,9 +146,7 @@ export function FoliatePreferencesPanel({
               max={18}
               step={1}
               value={preferences.gapPercent}
-              onChange={(gapPercent) =>
-                setPreferences((current) => ({ ...current, gapPercent }))
-              }
+              onChange={(gapPercent) => setPreferences((current) => ({ ...current, gapPercent }))}
               formatValue={(value) => `${value}%`}
             />
             <ReaderPreferenceSlider

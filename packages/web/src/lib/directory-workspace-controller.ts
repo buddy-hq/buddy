@@ -99,12 +99,7 @@ type DirectoryWorkspaceCommandOptions = {
 type DirectoryWorkspaceTabCommand = Extract<
   DirectoryWorkspaceCommand,
   {
-    type:
-      | "focus-tab"
-      | "close-tab"
-      | "close-other-tabs"
-      | "close-tabs-to-right"
-      | "close-all-tabs"
+    type: "focus-tab" | "close-tab" | "close-other-tabs" | "close-tabs-to-right" | "close-all-tabs"
   }
 >
 
@@ -1088,9 +1083,7 @@ export class DirectoryWorkspaceController {
     }
 
     const mode =
-      currentRoute.status === BENCH_ROUTE_STATUS_OPEN
-        ? currentRoute.mode
-        : BENCH_CHAT_LAYOUT_DOCKED
+      currentRoute.status === BENCH_ROUTE_STATUS_OPEN ? currentRoute.mode : BENCH_CHAT_LAYOUT_DOCKED
     const expectedRoute: BenchRouteSnapshot = {
       status: BENCH_ROUTE_STATUS_OPEN,
       target: nextTab.target,
@@ -1276,11 +1269,11 @@ export class DirectoryWorkspaceController {
     const destinationSlot: WorkspacePresentationSlot =
       command.destinationInitialization === WORKSPACE_DESTINATION_EMPTY
         ? {
-          route: { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot,
-          tabs: [],
-          docked: createCollapsedWorkspaceState(),
-          lastDrawer: this.#store.getState().lastDrawer,
-        }
+            route: { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot,
+            tabs: [],
+            docked: createCollapsedWorkspaceState(),
+            lastDrawer: this.#store.getState().lastDrawer,
+          }
         : command.destinationInitialization === WORKSPACE_DESTINATION_INHERIT_CURRENT
           ? {
               route: currentRoute,

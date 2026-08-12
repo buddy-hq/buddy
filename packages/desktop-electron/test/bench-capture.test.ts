@@ -6,10 +6,7 @@ const CAPTURE_BOUNDS = { width: 1_440, height: 900 }
 describe("Bench capture rectangle validation", () => {
   test("accepts a positive safe-integer rectangle inside the visible content bounds", () => {
     expect(
-      isValidBenchCaptureRectangle(
-        { x: 1_000, y: 600, width: 440, height: 300 },
-        CAPTURE_BOUNDS,
-      ),
+      isValidBenchCaptureRectangle({ x: 1_000, y: 600, width: 440, height: 300 }, CAPTURE_BOUNDS),
     ).toBeTrue()
   })
 
@@ -36,10 +33,7 @@ describe("Bench capture rectangle validation", () => {
       ),
     ).toBeFalse()
     expect(
-      isValidBenchCaptureRectangle(
-        { x: 0.5, y: 0, width: 10, height: 10 },
-        CAPTURE_BOUNDS,
-      ),
+      isValidBenchCaptureRectangle({ x: 0.5, y: 0, width: 10, height: 10 }, CAPTURE_BOUNDS),
     ).toBeFalse()
     expect(isValidBenchCaptureRectangle(null, CAPTURE_BOUNDS)).toBeFalse()
   })

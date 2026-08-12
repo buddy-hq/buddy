@@ -289,12 +289,8 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
       selectedTabKey: benchContext.selectedTabKey,
       limit: BENCH_TURN_CONTEXT_TAB_LIMIT,
     })
-    const selectedTab = tabListing.tabs.find(
-      (tab) => tab.tabKey === benchContext.selectedTabKey,
-    )
-    const recentTabs = tabListing.tabs.filter(
-      (tab) => tab.tabKey !== benchContext.selectedTabKey,
-    )
+    const selectedTab = tabListing.tabs.find((tab) => tab.tabKey === benchContext.selectedTabKey)
+    const recentTabs = tabListing.tabs.filter((tab) => tab.tabKey !== benchContext.selectedTabKey)
     const text = [
       "<bench_turn_context>",
       selectedTab
@@ -321,9 +317,7 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
   if (isBenchShowingActiveResource(context)) return {}
 
   const target = benchContext.target
-  const selectedTab = benchContext.tabs.find(
-    (tab) => tab.tabKey === benchContext.selectedTabKey,
-  )
+  const selectedTab = benchContext.tabs.find((tab) => tab.tabKey === benchContext.selectedTabKey)
   const targetLines =
     target.type === "object"
       ? [

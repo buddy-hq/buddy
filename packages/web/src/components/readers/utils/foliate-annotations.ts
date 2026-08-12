@@ -21,10 +21,7 @@ type FoliateAnnotationView = {
   resolveNavigation: (
     target: FoliateNavigationTarget,
   ) => FoliateResolvedNavigation | undefined | Promise<FoliateResolvedNavigation | undefined>
-  getProgressOf: (
-    index: number,
-    range?: Range,
-  ) => { tocItem?: { label: string } | null }
+  getProgressOf: (index: number, range?: Range) => { tocItem?: { label: string } | null }
 }
 
 type FoliateAnnotationInfo = {

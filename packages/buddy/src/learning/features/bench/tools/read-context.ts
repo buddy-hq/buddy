@@ -6,10 +6,7 @@ import {
 } from "../context"
 import { benchClientActionBroker } from "../client-actions"
 import { writeTemporaryBenchCapture } from "../captures"
-import {
-  BENCH_READ_CONTEXT_TAB_LIMIT,
-  projectModelVisibleBenchTabs,
-} from "../model-tabs"
+import { BENCH_READ_CONTEXT_TAB_LIMIT, projectModelVisibleBenchTabs } from "../model-tabs"
 
 type VisibleBenchContext = Extract<
   ReturnType<typeof readCurrentBenchContext>,
@@ -21,10 +18,7 @@ type CapturedBench = {
   context: VisibleBenchContext
 }
 
-type OpenBenchContext = Extract<
-  ReturnType<typeof readCurrentBenchContext>,
-  { status: "open" }
->
+type OpenBenchContext = Extract<ReturnType<typeof readCurrentBenchContext>, { status: "open" }>
 
 function projectModelVisibleBenchContext(input: {
   context: OpenBenchContext
@@ -76,9 +70,7 @@ async function captureCurrentBench(input: {
   abort: AbortSignal
   context: VisibleBenchContext
 }): Promise<CapturedBench> {
-  const selectedTab = input.context.tabs.find(
-    (tab) => tab.tabKey === input.context.selectedTabKey,
-  )
+  const selectedTab = input.context.tabs.find((tab) => tab.tabKey === input.context.selectedTabKey)
   if (!selectedTab) {
     throw new Error("Bench tab context is stale. Call bench_read_context again before capturing.")
   }

@@ -607,42 +607,47 @@ async function writeWhiteboardCurrentFromLatest(input: {
     next: WhiteboardBoardBuildResult
   }) => boolean
 }): Promise<WhiteboardCurrentWriteResult> {
-  return mutateState(input.directory, input.objectID, (state, objectID) => {
-    const currentBoard = state.currentBoard ? sanitizeBoard(state.currentBoard) : undefined
-    const base = {
-      ...(currentBoard ? { boardID: currentBoard.boardID, currentBoard } : {}),
-      elements: currentBoard?.elements.map((element) => ({ ...element })) ?? [],
-      hasCurrentBoard: currentBoard !== undefined,
-      ...(state.modelContext ? { modelContext: state.modelContext } : {}),
-      ...(currentBoard?.viewport ? { viewport: currentBoard.viewport } : {}),
-    }
-    input.validateBase?.(base)
-    const next = input.buildBoard(base)
-    const validatedNext = {
-      elements: next.elements.map((element, index) =>
-        parsePersistableWhiteboardElement(element, index),
-      ),
-      ...(next.viewport ? { viewport: next.viewport } : {}),
-    }
-    if (input.shouldSave && !input.shouldSave({ base, next: validatedNext })) {
+  return mutateState(
+    input.directory,
+    input.objectID,
+    (state, objectID) => {
+      const currentBoard = state.currentBoard ? sanitizeBoard(state.currentBoard) : undefined
+      const base = {
+        ...(currentBoard ? { boardID: currentBoard.boardID, currentBoard } : {}),
+        elements: currentBoard?.elements.map((element) => ({ ...element })) ?? [],
+        hasCurrentBoard: currentBoard !== undefined,
+        ...(state.modelContext ? { modelContext: state.modelContext } : {}),
+        ...(currentBoard?.viewport ? { viewport: currentBoard.viewport } : {}),
+      }
+      input.validateBase?.(base)
+      const next = input.buildBoard(base)
+      const validatedNext = {
+        elements: next.elements.map((element, index) =>
+          parsePersistableWhiteboardElement(element, index),
+        ),
+        ...(next.viewport ? { viewport: next.viewport } : {}),
+      }
+      if (input.shouldSave && !input.shouldSave({ base, next: validatedNext })) {
+        return {
+          state: toObjectRead({ state, objectID }),
+          saved: false,
+        }
+      }
+      const board = writeCurrentBoard(state, {
+        origin: input.origin,
+        elements: validatedNext.elements,
+        ...(validatedNext.viewport ? { viewport: validatedNext.viewport } : {}),
+      })
+      if (input.recordModelContext) {
+        state.modelContext = buildWhiteboardModelContext(board)
+      }
       return {
         state: toObjectRead({ state, objectID }),
-        saved: false,
+        saved: true,
       }
-    }
-    const board = writeCurrentBoard(state, {
-      origin: input.origin,
-      elements: validatedNext.elements,
-      ...(validatedNext.viewport ? { viewport: validatedNext.viewport } : {}),
-    })
-    if (input.recordModelContext) {
-      state.modelContext = buildWhiteboardModelContext(board)
-    }
-    return {
-      state: toObjectRead({ state, objectID }),
-      saved: true,
-    }
-  }, input.title)
+    },
+    input.title,
+  )
 }
 
 async function saveWhiteboardRenderReport(input: {

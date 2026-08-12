@@ -33,9 +33,7 @@ export function ReaderAnnotationPopover({
   if (!popover) return null
   const annotation = annotations.find((entry) => entry.id === popover.annotationId)
   if (!annotation) return null
-  const color = READER_ANNOTATION_COLOR_OPTIONS.find(
-    (option) => option.id === annotation.color,
-  )
+  const color = READER_ANNOTATION_COLOR_OPTIONS.find((option) => option.id === annotation.color)
 
   return (
     <ReaderFloatingOverlay

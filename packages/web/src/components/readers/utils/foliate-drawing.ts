@@ -1,8 +1,5 @@
 import type { Overlayer } from "foliate-js/overlayer.js"
-import type {
-  FoliateAnnotationPayload,
-  FoliateDrawAnnotationEventDetail,
-} from "foliate-js/view.js"
+import type { FoliateAnnotationPayload, FoliateDrawAnnotationEventDetail } from "foliate-js/view.js"
 import {
   ANNOTATION_COLORS,
   ANNOTATION_STYLE_HIGHLIGHT,

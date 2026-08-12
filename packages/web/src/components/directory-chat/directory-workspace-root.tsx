@@ -187,8 +187,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     readActiveChatLayoutMotionSuppressed,
   )
   const hydrationStatus = useStore(workspace.store, (state) => state.hydration.status)
-  const activeTabs = useStore(workspace.store, (state) =>
-    workspacePresentationSlotForChat(state.slots, state.activeChatKey).tabs,
+  const activeTabs = useStore(
+    workspace.store,
+    (state) => workspacePresentationSlotForChat(state.slots, state.activeChatKey).tabs,
   )
   const retainedBenchTargetKeys = useStore(
     workspace.store,
@@ -754,15 +755,12 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     !transientBenchActive &&
     desktopTitlebarContentTarget !== null
   const persistentFloatingTitlebarVisible =
-    benchPolicyState.status === "open" &&
-    benchPolicyState.mode === BENCH_CHAT_LAYOUT_FLOATING
-  const showTransientFloatingTitlebar =
-    transientBenchFloating && !persistentFloatingTitlebarVisible
+    benchPolicyState.status === "open" && benchPolicyState.mode === BENCH_CHAT_LAYOUT_FLOATING
+  const showTransientFloatingTitlebar = transientBenchFloating && !persistentFloatingTitlebarVisible
   // Only the docked Bench can expand — in floating mode this same strip is the
   // immersive chrome, so the control would offer the state it is already in.
   const enterImmersiveFromTabs =
-    presentation.controls.showFloatChat &&
-    effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED
+    presentation.controls.showFloatChat && effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED
       ? handleFloatChat
       : undefined
   const titlebarBenchTabs = !transientBenchActive ? (
@@ -911,7 +909,8 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         rightWorkspaceOpen={effectiveWorkspaceHostOpen}
         rightWorkspaceDisplayWidth={dockedWorkspaceDisplayWidthPx}
         rightWorkspaceTitlebar={
-          effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED && effectiveWorkspaceHostOpen ? (
+          effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED &&
+          effectiveWorkspaceHostOpen ? (
             transientBenchActive ? (
               <div className="h-full bg-background-base" />
             ) : (

@@ -516,7 +516,10 @@ describe("DirectoryWorkspaceController", () => {
       { type: "focus-tab", tabKey: benchTabKey(FILE_TARGET) },
       DOCKED_FILE_ROUTE,
     )
-    expect(focused).toMatchObject({ outcome: "committed", projection: { route: DOCKED_FILE_ROUTE } })
+    expect(focused).toMatchObject({
+      outcome: "committed",
+      projection: { route: DOCKED_FILE_ROUTE },
+    })
 
     const closed = await harness.execute(
       { type: "close-tab", tabKey: benchTabKey(FILE_TARGET) },
@@ -1366,9 +1369,7 @@ describe("DirectoryWorkspaceController", () => {
       },
     })
     expect(harness.readRoute()).toEqual(DOCKED_HTML_WIDGET_ROUTE)
-    expect(
-      harness.store.getState().slots[harness.store.getState().activeChatKey]?.tabs,
-    ).toEqual([
+    expect(harness.store.getState().slots[harness.store.getState().activeChatKey]?.tabs).toEqual([
       { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
       { key: benchTabKey(HTML_WIDGET_TARGET), target: HTML_WIDGET_TARGET },
     ])

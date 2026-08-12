@@ -7,11 +7,7 @@ type ReaderPdfZoomControlsProps = {
   onZoomIn: () => void
 }
 
-export function ReaderPdfZoomControls({
-  onZoomOut,
-  onFit,
-  onZoomIn,
-}: ReaderPdfZoomControlsProps) {
+export function ReaderPdfZoomControls({ onZoomOut, onFit, onZoomIn }: ReaderPdfZoomControlsProps) {
   return (
     <div role="group" aria-label="Zoom" className="flex shrink-0 items-center">
       <ReaderToolbarButton icon={ZoomOutIcon} label="Zoom out  ⌘−" onClick={onZoomOut} />
@@ -20,4 +16,3 @@ export function ReaderPdfZoomControls({
     </div>
   )
 }
-

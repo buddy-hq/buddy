@@ -188,11 +188,7 @@ describe("bench_read_context", () => {
           type: "object",
           kind: "whiteboard",
           objectID: whiteboardObjectID,
-          absolutePath: path.join(
-            project.path,
-            ".buddy/objects/v1/whiteboard",
-            whiteboardObjectID,
-          ),
+          absolutePath: path.join(project.path, ".buddy/objects/v1/whiteboard", whiteboardObjectID),
           viewID: "current",
         },
       },
@@ -441,9 +437,7 @@ describe("bench_read_context", () => {
         throw new Error("Expected object Bench capture output.")
       }
       const temporaryPath =
-        "temporaryBenchScreenshotPath" in output
-          ? output.temporaryBenchScreenshotPath
-          : undefined
+        "temporaryBenchScreenshotPath" in output ? output.temporaryBenchScreenshotPath : undefined
       expect(typeof temporaryPath).toBe("string")
       if (typeof temporaryPath !== "string") throw new Error("Expected capture path.")
       expect(temporaryPath).toContain("bench-capture-")
@@ -484,10 +478,7 @@ describe("bench_read_context", () => {
         expect(output).not.toHaveProperty("selectedTabKey")
         expect(output).not.toHaveProperty("target")
       } else {
-        expect(Object.keys(output).toSorted()).toEqual([
-          "capture",
-          "temporaryBenchScreenshotPath",
-        ])
+        expect(Object.keys(output).toSorted()).toEqual(["capture", "temporaryBenchScreenshotPath"])
       }
       expect((await fs.readFile(temporaryPath)).subarray(1, 4).toString("ascii")).toBe("PNG")
     }

@@ -992,7 +992,10 @@ export function createDirectoryWorkspaceStore(input: {
             ...state.slots,
             [chatKey]: {
               route,
-              tabs: tabsForRoute(workspacePresentationSlotForChat(state.slots, chatKey).tabs, route),
+              tabs: tabsForRoute(
+                workspacePresentationSlotForChat(state.slots, chatKey).tabs,
+                route,
+              ),
               docked: normalizeDockedState(state.docked),
               lastDrawer: state.lastDrawer,
             },

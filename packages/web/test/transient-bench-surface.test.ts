@@ -4,10 +4,7 @@ import {
   TRANSIENT_BENCH_SURFACE_WHITEBOARD_OPENING,
   resolveTransientBenchSurfaceLayoutMode,
 } from "../src/components/bench/transient-bench-surface"
-import {
-  BENCH_CHAT_LAYOUT_DOCKED,
-  BENCH_CHAT_LAYOUT_FLOATING,
-} from "../src/lib/bench-navigation"
+import { BENCH_CHAT_LAYOUT_DOCKED, BENCH_CHAT_LAYOUT_FLOATING } from "../src/lib/bench-navigation"
 
 describe("transient Bench surface layout", () => {
   test("keeps the sketch docked and opens a generated whiteboard immersive", () => {

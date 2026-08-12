@@ -158,10 +158,7 @@ type FoliateNavigationResolver = {
   book: FoliateBook
   resolveNavigation: (
     target: FoliateEngineNavigationTarget,
-  ) =>
-    | { index: number }
-    | undefined
-    | Promise<{ index: number } | undefined>
+  ) => { index: number } | undefined | Promise<{ index: number } | undefined>
 }
 
 const EPUB_NAV_DOCUMENT_PATTERN = /(?:^|\/)nav\.x?html?$/i

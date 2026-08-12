@@ -56,11 +56,7 @@ function stringifyDiagnosticEntry(value: unknown): string {
 
 function normalizedDiagnosticDetailsFromEntry(entry: string): DiagnosticDetails {
   const parsed: unknown = JSON.parse(entry)
-  if (
-    isDiagnosticDetails(parsed) &&
-    "details" in parsed &&
-    isDiagnosticDetails(parsed.details)
-  ) {
+  if (isDiagnosticDetails(parsed) && "details" in parsed && isDiagnosticDetails(parsed.details)) {
     return parsed.details
   }
   return { diagnosticEntry: parsed }

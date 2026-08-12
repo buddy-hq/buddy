@@ -87,8 +87,7 @@ export function ReaderSearchPanel({
         onClick={() => onShowResult(row.result.anchor)}
         className={cn(
           "w-full rounded-md px-2.5 py-2 text-left hover:bg-surface-base-hover",
-          active &&
-            "bg-surface-raised-strong text-text-strong hover:bg-surface-raised-strong",
+          active && "bg-surface-raised-strong text-text-strong hover:bg-surface-raised-strong",
         )}
       >
         {row.result.label ? (

@@ -329,7 +329,7 @@ const presentHtmlWidgetTool = createBuddyTool({
             action: "present_object",
             directory: ctx.directory,
             objectID: params.objectID ?? "",
-        },
+          },
     )
     const autoOpenEventKey = htmlWidgetAutoOpenEventKey({
       objectID: result.manifest.objectID,
@@ -395,9 +395,5 @@ const presentHtmlWidgetTool = createBuddyTool({
   },
 })
 
-export {
-  presentHtmlWidgetTool,
-  PresentHtmlWidgetInputSchema,
-  htmlWidgetAutoOpenEventKey,
-}
+export { presentHtmlWidgetTool, PresentHtmlWidgetInputSchema, htmlWidgetAutoOpenEventKey }
 export type { PresentHtmlWidgetInput }

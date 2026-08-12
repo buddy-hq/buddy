@@ -1272,8 +1272,7 @@ async function presentOnBench(input: {
         target: null,
         benchTarget: null,
         mode: null,
-        message:
-          "Bench has no open tabs. Call bench_read_context again before using focus_tab.",
+        message: "Bench has no open tabs. Call bench_read_context again before using focus_tab.",
         objectResult: null,
       }
     }

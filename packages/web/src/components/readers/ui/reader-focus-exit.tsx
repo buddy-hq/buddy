@@ -22,4 +22,3 @@ export function ReaderFocusExit({ onExit }: ReaderFocusExitProps) {
     </div>
   )
 }
-

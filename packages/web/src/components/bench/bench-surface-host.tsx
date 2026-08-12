@@ -58,8 +58,7 @@ export function BenchSurfaceHost(props: {
   if (activeKey) retainedTargetKeys.add(activeKey)
   const releasedKeys = cache.instances
     .filter(
-      (instance) =>
-        cache.directory !== props.directory || !retainedTargetKeys.has(instance.key),
+      (instance) => cache.directory !== props.directory || !retainedTargetKeys.has(instance.key),
     )
     .map((instance) => instance.key)
   const releasedForDirectory = releaseBenchSurfaceInstances({

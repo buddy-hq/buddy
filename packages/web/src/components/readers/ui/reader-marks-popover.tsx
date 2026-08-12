@@ -1,13 +1,6 @@
 import { useMemo } from "react"
 import { BookmarkIcon, PencilLineIcon, Trash2Icon } from "@/icons/app-icons"
-import {
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  ScrollArea,
-  cn,
-} from "@buddy/ui"
+import { Button, Popover, PopoverContent, PopoverTrigger, ScrollArea, cn } from "@buddy/ui"
 import { formatReaderPositionAnchor } from "@buddy/reader-contract"
 import type {
   ReaderAnnotationViewModel,

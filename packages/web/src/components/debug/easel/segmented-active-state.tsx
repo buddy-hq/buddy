@@ -228,8 +228,7 @@ export function SegmentedActiveStateEasel() {
           <p className="max-w-3xl text-xs leading-relaxed text-text-weak">
             <code className="text-text-base">toggleVariants</code> in{" "}
             <code className="text-text-base">packages/ui/src/components/ui/toggle.tsx</code> used to
-            declare{" "}
-            <code className="text-text-base">hover:bg-surface-weak</code>,{" "}
+            declare <code className="text-text-base">hover:bg-surface-weak</code>,{" "}
             <code className="text-text-base">aria-pressed:bg-surface-weak</code> and{" "}
             <code className="text-text-base">data-[state=on]:bg-surface-weak</code> — three states,
             one token, and no other difference between them. Selection was tracked correctly and
@@ -237,10 +236,10 @@ export function SegmentedActiveStateEasel() {
           </p>
           <p className="max-w-3xl text-xs leading-relaxed text-text-weak">
             This is the real <code className="text-text-base">ToggleGroup</code> from{" "}
-            <code className="text-text-base">@buddy/ui</code> throughout — every variant and size the
-            component actually defines. The fix has landed, so the "after" columns are the plain
-            component and the "before" columns are the old behaviour put back by hand. Click
-            through them and hover across them.
+            <code className="text-text-base">@buddy/ui</code> throughout — every variant and size
+            the component actually defines. The fix has landed, so the "after" columns are the plain
+            component and the "before" columns are the old behaviour put back by hand. Click through
+            them and hover across them.
           </p>
         </header>
 
@@ -255,10 +254,11 @@ export function SegmentedActiveStateEasel() {
             <code className="text-text-base">muted → surface-weak</code>,{" "}
             <code className="text-text-base">ring → border-interactive-base</code>. The upstream
             string already read <code className="text-text-base">hover:bg-muted</code> …{" "}
-            <code className="text-text-base">data-[state=on]:bg-muted</code>, so the collapse arrived
-            with the component and there is nothing to revert to. Per{" "}
-            <code className="text-text-base">packages/ui/AGENTS.md</code> — shadcn is the foundation,
-            the Buddy token layer is the theme — overriding it here is the intended move.
+            <code className="text-text-base">data-[state=on]:bg-muted</code>, so the collapse
+            arrived with the component and there is nothing to revert to. Per{" "}
+            <code className="text-text-base">packages/ui/AGENTS.md</code> — shadcn is the
+            foundation, the Buddy token layer is the theme — overriding it here is the intended
+            move.
           </p>
           <p className="mt-2 max-w-3xl text-xs leading-relaxed text-text-weak">
             <span className="font-medium text-text-base">Scope:</span>{" "}
@@ -313,11 +313,7 @@ export function SegmentedActiveStateEasel() {
           >
             <div className="flex flex-col gap-3">
               {SURFACES.map((surface) => (
-                <VariantMatrix
-                  key={surface}
-                  surface={surface}
-                  itemClassName={REGRESSED_ON_STATE}
-                />
+                <VariantMatrix key={surface} surface={surface} itemClassName={REGRESSED_ON_STATE} />
               ))}
             </div>
           </Column>
@@ -365,9 +361,9 @@ export function SegmentedActiveStateEasel() {
           <code className="text-text-base">foliate-preferences-panel.tsx</code>,{" "}
           <code className="text-text-base">pdf-reader.tsx</code>,{" "}
           <code className="text-text-base">reader-preferences-panel.tsx</code>,{" "}
-          <code className="text-text-base">reader-annotation-dialog.tsx</code>, and every easel using
-          a ToggleGroup. That breadth is the argument for fixing the variant rather than one panel —
-          and the argument for the neutral on-state over an accented one.
+          <code className="text-text-base">reader-annotation-dialog.tsx</code>, and every easel
+          using a ToggleGroup. That breadth is the argument for fixing the variant rather than one
+          panel — and the argument for the neutral on-state over an accented one.
         </p>
       </div>
     </div>

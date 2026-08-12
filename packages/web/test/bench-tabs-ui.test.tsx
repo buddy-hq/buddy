@@ -96,12 +96,7 @@ describe("BenchTabs", () => {
       )
     })
     expect(document.activeElement).toBe(activationTabs[0])
-    expect(activated).toEqual([
-      tabs[1]?.key,
-      tabs[0]?.key,
-      tabs[1]?.key,
-      tabs[0]?.key,
-    ])
+    expect(activated).toEqual([tabs[1]?.key, tabs[0]?.key, tabs[1]?.key, tabs[0]?.key])
     activated.length = 0
 
     await act(async () => {

@@ -789,8 +789,7 @@ export const dict = {
   "settings.updates.bannerReadyWithVersion": "Buddy {{version}} is ready",
   "settings.updates.channelPreviewDescription":
     "Installs release candidates first. Switching back to Stable keeps you on one until a stable release passes it.",
-  "settings.updates.channelStableDescription":
-    "Installs releases after they have been approved.",
+  "settings.updates.channelStableDescription": "Installs releases after they have been approved.",
   "settings.updates.channelTitle": "Update channel",
   "settings.updates.checkDescription":
     "Downloads the newest release in your channel if there is one.",

@@ -161,7 +161,9 @@ describe("reader floating overlays", () => {
       container.querySelector<HTMLElement>('[data-component="reader-selection-toolbar"]'),
     )
     const toolbar = requireElement(overlay.querySelector<HTMLElement>('[role="toolbar"]'))
-    const action = requireElement(toolbar.querySelector<HTMLButtonElement>('[aria-label="Add note"]'))
+    const action = requireElement(
+      toolbar.querySelector<HTMLButtonElement>('[aria-label="Add note"]'),
+    )
     expect(overlay.classList.contains("pb-4")).toBe(true)
     expect(toolbar.classList.contains("py-1.5")).toBe(true)
     expect(action.classList.contains("size-8")).toBe(true)
@@ -184,9 +186,7 @@ describe("reader floating overlays", () => {
     })
 
     const rose = requireElement(container.querySelector<HTMLButtonElement>('[aria-label="Rose"]'))
-    const amber = requireElement(
-      container.querySelector<HTMLButtonElement>('[aria-label="Amber"]'),
-    )
+    const amber = requireElement(container.querySelector<HTMLButtonElement>('[aria-label="Amber"]'))
     expect(amber.hasAttribute("aria-pressed")).toBe(false)
     expect(amber.classList.contains("ring-2")).toBe(false)
     await act(async () => {

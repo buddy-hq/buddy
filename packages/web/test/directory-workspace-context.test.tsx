@@ -138,7 +138,9 @@ function ThreadControlsTitlebarProbe(props: { showSidebarThreadControls: boolean
 
 function FloatingBenchTitlebarContentProbe() {
   const target = useDesktopTitlebarContentTarget()
-  return target ? createPortal(<span data-testid="floating-bench-tabs">Bench tabs</span>, target) : null
+  return target
+    ? createPortal(<span data-testid="floating-bench-tabs">Bench tabs</span>, target)
+    : null
 }
 
 function RootFloatingBenchTitlebarProbe() {

@@ -23,15 +23,15 @@ afterEach(() => {
 
 describe("Bench read context contract", () => {
   test("uses an explicit response format instead of a capture boolean", () => {
-    expect(
-      BenchReadContextInputSchema.parse({ responseFormat: "context_only" }),
-    ).toEqual({ responseFormat: "context_only" })
+    expect(BenchReadContextInputSchema.parse({ responseFormat: "context_only" })).toEqual({
+      responseFormat: "context_only",
+    })
     expect(
       BenchReadContextInputSchema.parse({ responseFormat: "context_and_bench_screenshot" }),
     ).toEqual({ responseFormat: "context_and_bench_screenshot" })
-    expect(
-      BenchReadContextInputSchema.parse({ responseFormat: "bench_screenshot_only" }),
-    ).toEqual({ responseFormat: "bench_screenshot_only" })
+    expect(BenchReadContextInputSchema.parse({ responseFormat: "bench_screenshot_only" })).toEqual({
+      responseFormat: "bench_screenshot_only",
+    })
     expect(
       BenchReadContextInputSchema.parse({
         responseFormat: "context_only",

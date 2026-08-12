@@ -31,9 +31,7 @@ export type OpenReadingResourceOptions = {
  * way. A processed source opens as its object so the reader keeps its position;
  * an unprocessed one opens as the plain file it still is.
  */
-export function useOpenReadingResource(
-  options?: OpenReadingResourceOptions,
-): OpenReadingResource {
+export function useOpenReadingResource(options?: OpenReadingResourceOptions): OpenReadingResource {
   const queryClient = useQueryClient()
   const openBench = useOpenBench()
   const mode = options?.mode ?? BENCH_CHAT_LAYOUT_DOCKED
