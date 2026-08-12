@@ -22,8 +22,6 @@ let closeCount = 0
 let annotationAddCount = 0
 let annotationDeleteCount = 0
 let annotationStateCount = 0
-let suspendCount = 0
-let resumeCount = 0
 
 type ResizeObserverHarness = {
   callback: ResizeObserverCallback
@@ -62,8 +60,16 @@ class LifecycleView extends HTMLElement {
     forward: () => undefined,
   })
   isFixedLayout = false
-  lastLocation = undefined
+  lastLocation:
+    | {
+        cfi: string
+        index: number
+        location: { current: number; total: number }
+        range: Range
+      }
+    | undefined
   renderer = Object.assign(document.createElement("div"), {
+    start: 100,
     getContents: () => [
       {
         index: 0,
@@ -72,19 +78,23 @@ class LifecycleView extends HTMLElement {
       },
     ],
     goTo: async () => undefined,
-    suspend: () => {
-      suspendCount += 1
-    },
-    resume: () => {
-      resumeCount += 1
-    },
   })
 
   async open(): Promise<void> {
     openCount += 1
   }
 
-  async init(): Promise<void> {}
+  async init(): Promise<void> {
+    const range = this.contentDocument.createRange()
+    range.selectNodeContents(this.contentDocument.body)
+    this.lastLocation = {
+      cfi: "epubcfi(/6/4!/4/2:0)",
+      index: 0,
+      location: { current: 0, total: 1 },
+      range,
+    }
+    this.dispatchEvent(new CustomEvent("relocate", { detail: this.lastLocation }))
+  }
 
   resolveNavigation() {
     const range = this.contentDocument.createRange()
@@ -137,8 +147,6 @@ describe("Foliate reader lifecycle", () => {
     annotationAddCount = 0
     annotationDeleteCount = 0
     annotationStateCount = 0
-    suspendCount = 0
-    resumeCount = 0
     localStorage.clear()
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -201,7 +209,7 @@ describe("Foliate reader lifecycle", () => {
     expect(closeCount).toBe(0)
   })
 
-  test("suspends and resumes the existing Foliate view across Bench switches", async () => {
+  test("does not navigate or reopen the resident Foliate view across Bench switches", async () => {
     const module = documentReaderModule
     if (!module) throw new Error("DocumentReader module was not initialized")
 
@@ -227,19 +235,19 @@ describe("Foliate reader lifecycle", () => {
       root.render(renderReader(false))
       await Promise.resolve()
     })
+    const view = container.querySelector<LifecycleView>("buddy-lifecycle-foliate-view")
+    if (!view) throw new Error("Lifecycle view was not mounted")
     expect(openCount).toBe(1)
     expect(closeCount).toBe(0)
-    expect(suspendCount).toBe(1)
-    expect(resumeCount).toBe(0)
+    expect(view.renderer.start).toBe(100)
 
     await act(async () => {
       root.render(renderReader(true))
-      await new Promise<void>((resolve) => setTimeout(resolve, ASYNC_POLL_MS * 2))
+      await new Promise<void>((resolve) => setTimeout(resolve, ASYNC_POLL_MS))
     })
     expect(openCount).toBe(1)
     expect(closeCount).toBe(0)
-    expect(suspendCount).toBe(1)
-    expect(resumeCount).toBe(1)
+    expect(view.renderer.start).toBe(100)
   })
 
   test("updates responsive margins only while the Foliate surface is active", async () => {

@@ -483,17 +483,14 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
     useLayoutEffect(() => {
       const view = viewRef.current
-      const renderer = view?.renderer
-      if (!renderer) return
+      if (!view?.renderer) return
 
       if (!benchSurfaceActive) {
         responsiveMarginObserverRef.current?.disconnect()
         responsiveMarginObserverRef.current = null
-        renderer.suspend()
         return
       }
 
-      renderer.resume()
       scheduleAnnotationRefresh(view, annotationsRef.current, locationRef.current.index)
     }, [benchSurfaceActive, scheduleAnnotationRefresh])
 
@@ -515,9 +512,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         syncReaderResponsiveMargin(view, preferencesRef.current)
       }
 
-      // Activation runs the engine's resume effect first. Margin synchronization
-      // is deliberately separate: it observes only the active host and writes
-      // only the responsive margin attribute when that value actually changes.
+      // Activation position restoration is deliberately separate from responsive layout. This
+      // observer watches only the visible host and writes the margin only when the value changes.
       syncResponsiveMargin()
       if (typeof ResizeObserver === "undefined") return
       const resizeObserver = new ResizeObserver(syncResponsiveMargin)
@@ -1219,7 +1215,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
           await view.open(toFoliateInput(stableSource))
           if (cancelled) return
-          if (!benchSurfaceActiveRef.current) view.renderer.suspend()
 
           const currentReaderSource = readerSourceRef.current
           const persistenceReaderSource = currentReaderSource

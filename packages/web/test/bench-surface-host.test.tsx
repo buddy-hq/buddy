@@ -28,6 +28,14 @@ function heavyTarget(objectID: string, kind: "html-widget" | "whiteboard"): Benc
   }
 }
 
+function readerTarget(objectID: string): BenchTarget {
+  return {
+    type: "object",
+    ref: { kind: "resource", objectID, revisionID: null, itemID: null },
+    viewID: "reader",
+  }
+}
+
 let root: Root | undefined
 let container: HTMLDivElement | undefined
 
@@ -189,10 +197,65 @@ describe("BenchSurfaceHost", () => {
     }
 
     const instances = container.querySelectorAll('[data-component="bench-surface-instance"]')
-    expect(instances).toHaveLength(2)
+    expect(instances).toHaveLength(4)
     expect([...instances].map((instance) => instance.getAttribute("data-target-key"))).toEqual(
-      retainedTargets.slice(-2).map(benchTargetKey),
+      retainedTargets.slice(-4).map(benchTargetKey),
     )
+  })
+
+  test("keeps every open reader mounted while switching across more than two reader tabs", async () => {
+    mountCounts.clear()
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const retainedTargets = ["book-1", "book-2", "book-3", "book-4", "book-5"].map(readerTarget)
+
+    for (const target of retainedTargets) {
+      await renderHost(target, true, undefined, retainedTargets)
+    }
+    await renderHost(retainedTargets[0] ?? null, true, undefined, retainedTargets)
+
+    const instances = container.querySelectorAll('[data-component="bench-surface-instance"]')
+    expect(instances).toHaveLength(retainedTargets.length)
+    for (const target of retainedTargets) {
+      expect(mountCounts.get(benchTargetKey(target))).toBe(1)
+    }
+  })
+
+  test("never moves an already-mounted reader when its LRU position changes", async () => {
+    mountCounts.clear()
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const retainedTargets = ["book-1", "book-2", "book-3"].map(readerTarget)
+
+    for (const target of retainedTargets) {
+      await renderHost(target, true, undefined, retainedTargets)
+    }
+
+    const originalInstances = [...container.querySelectorAll<HTMLElement>(
+      '[data-component="bench-surface-instance"]',
+    )]
+    expect(originalInstances.map((instance) => instance.dataset.targetKey)).toEqual(
+      retainedTargets.map(benchTargetKey),
+    )
+
+    // React must only change visibility here. Rendering the LRU array directly would reorder the
+    // first instance to the end, physically moving any reader iframe owned by that subtree.
+    await renderHost(retainedTargets[0] ?? null, true, undefined, retainedTargets)
+
+    const reactivatedInstances = [...container.querySelectorAll<HTMLElement>(
+      '[data-component="bench-surface-instance"]',
+    )]
+    expect(reactivatedInstances.map((instance) => instance.dataset.targetKey)).toEqual(
+      retainedTargets.map(benchTargetKey),
+    )
+    expect(reactivatedInstances).toEqual(originalInstances)
+    for (const target of retainedTargets) {
+      expect(mountCounts.get(benchTargetKey(target))).toBe(1)
+    }
   })
 
   test("mounts the newly active surface in the same render, without an empty frame", async () => {

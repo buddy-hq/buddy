@@ -3,6 +3,7 @@ import { benchTargetKey, type BenchObjectKind, type BenchTarget } from "../src/l
 import {
   BENCH_SURFACE_COST_HEAVY,
   BENCH_SURFACE_COST_LIGHT,
+  BENCH_SURFACE_COST_READER,
   benchSurfaceCostClass,
   releaseBenchSurfaceInstances,
   retainBenchSurfaceInstance,
@@ -37,9 +38,10 @@ function retainAll(targets: BenchTarget[]): BenchSurfaceInstance[] {
 }
 
 describe("bench surface keep-alive", () => {
-  test("classifies live-instance surfaces as heavy and plain documents as light", () => {
+  test("classifies readers separately from bounded heavy and light surfaces", () => {
     expect(benchSurfaceCostClass(whiteboardTarget("board-1"))).toBe(BENCH_SURFACE_COST_HEAVY)
     expect(benchSurfaceCostClass(objectTarget("html-widget"))).toBe(BENCH_SURFACE_COST_HEAVY)
+    expect(benchSurfaceCostClass(objectTarget("resource"))).toBe(BENCH_SURFACE_COST_READER)
     expect(benchSurfaceCostClass(fileTarget("docs/intro.md"))).toBe(BENCH_SURFACE_COST_LIGHT)
     expect(benchSurfaceCostClass(objectTarget("question-set"))).toBe(BENCH_SURFACE_COST_LIGHT)
   })
@@ -75,11 +77,11 @@ describe("bench surface keep-alive", () => {
   })
 
   test("bounds each cost class independently and never evicts the active surface", () => {
-    const boards = ["b1", "b2", "b3", "b4"].map(whiteboardTarget)
+    const boards = ["b1", "b2", "b3", "b4", "b5"].map(whiteboardTarget)
     const instances = retainAll(boards)
 
-    expect(instances).toHaveLength(2)
-    expect(instances.at(-1)?.key).toBe(benchTargetKey(boards[3] as BenchTarget))
+    expect(instances).toHaveLength(4)
+    expect(instances.at(-1)?.key).toBe(benchTargetKey(boards[4] as BenchTarget))
     expect(
       instances.every((instance) => instance.costClass === BENCH_SURFACE_COST_HEAVY),
     ).toBeTrue()
@@ -96,6 +98,22 @@ describe("bench surface keep-alive", () => {
     ])
 
     expect(instances.some((instance) => instance.key === benchTargetKey(board))).toBeTrue()
+  })
+
+  test("keeps every open reader mounted until its tab is released", () => {
+    const readers = ["book-1", "book-2", "book-3", "book-4", "book-5"].map(
+      (objectID): BenchTarget => ({
+        type: "object",
+        ref: { kind: "resource", objectID, revisionID: null, itemID: null },
+        viewID: "reader",
+      }),
+    )
+    const instances = retainAll(readers)
+
+    expect(instances.map((instance) => instance.key)).toEqual(readers.map(benchTargetKey))
+    expect(
+      instances.every((instance) => instance.costClass === BENCH_SURFACE_COST_READER),
+    ).toBeTrue()
   })
 
   test("a closed workspace keeps its instances so reopening reveals them", () => {

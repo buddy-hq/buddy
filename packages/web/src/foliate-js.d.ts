@@ -94,8 +94,6 @@ declare module "foliate-js/view.js" {
     prev: (distance?: number) => Promise<void>
     next: (distance?: number) => Promise<void>
     goTo: (target: unknown) => Promise<void>
-    suspend: () => void
-    resume: () => void
     getContents: () => Array<{
       index?: number
       doc: Document

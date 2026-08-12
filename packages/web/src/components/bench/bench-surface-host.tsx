@@ -4,6 +4,7 @@ import { BenchSurfaceActivityProvider } from "@/components/bench/bench-surface-a
 import {
   releaseBenchSurfaceInstances,
   retainBenchSurfaceInstance,
+  retainBenchSurfaceRenderOrder,
   type BenchSurfaceInstance,
 } from "@/lib/bench-surface-keep-alive"
 import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
@@ -49,7 +50,8 @@ export function BenchSurfaceHost(props: {
   const [cache, setCache] = useState<{
     directory: string
     instances: BenchSurfaceInstance[]
-  }>(() => ({ directory: props.directory, instances: [] }))
+    renderOrder: readonly string[]
+  }>(() => ({ directory: props.directory, instances: [], renderOrder: [] }))
 
   const retainedTargetKeys = new Set(props.retainedTargetKeys)
   // The route becomes observable before the controller commits its matching tab list. Treat the
@@ -69,10 +71,19 @@ export function BenchSurfaceHost(props: {
     instances: releasedForDirectory,
     target: props.activeTarget,
   })
-  if (instances !== cache.instances || cache.directory !== props.directory) {
-    setCache({ directory: props.directory, instances })
+  const renderOrder = retainBenchSurfaceRenderOrder({
+    renderOrder: cache.directory === props.directory ? cache.renderOrder : [],
+    instances,
+  })
+  if (
+    instances !== cache.instances ||
+    renderOrder !== cache.renderOrder ||
+    cache.directory !== props.directory
+  ) {
+    setCache({ directory: props.directory, instances, renderOrder })
   }
   const activeInstance = instances.find((instance) => instance.key === activeKey)
+  const instancesByKey = new Map(instances.map((instance) => [instance.key, instance]))
 
   return (
     <div
@@ -81,7 +92,9 @@ export function BenchSurfaceHost(props: {
       data-instance-count={instances.length}
       className="relative h-full min-h-0 w-full min-w-0"
     >
-      {instances.map((instance) => {
+      {renderOrder.map((key) => {
+        const instance = instancesByKey.get(key)
+        if (!instance) return null
         const active = instance.key === activeKey
         const surface = (
           <BenchSurfaceActivityProvider value={active && props.benchVisible}>
