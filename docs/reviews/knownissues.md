@@ -2,14 +2,16 @@
 
 ## Status And Scope
 
-This file tracks open issues identified while reviewing the uncommitted onboarding and directory
-display changes on 2026-08-02. The issues are documented here and are not fixed by this review.
+This file tracks open issues identified while reviewing uncommitted changes. The issues are
+documented here for later follow-up and are not fixed by the reviews that recorded them.
 
 | ID | Item | Priority | Status |
 | --- | --- | --- | --- |
 | ONB-001 | Directory display infers the user's home from path shape | P2 | Open, blocking |
 | ONB-002 | Directory display drops absolute and UNC root markers | P2 | Open, blocking |
 | ONB-003 | ChatGPT choice arrow uses an unbounded, ungated hover transition | P3 | Open |
+| CHAT-002 | Usage-limit fallback copy promises resets for non-resetting failures | P2 | Open, deferred |
+| CHAT-003 | Terminal Stop actions leave the error card unchanged | P2 | Open, deferred |
 
 ## ONB-001: Directory Display Infers Home From Path Shape
 
@@ -79,6 +81,57 @@ fine pointer.
 Transition only `transform`, `opacity`, and `color`. Gate the translation behind
 `@media (hover: hover) and (pointer: fine)`, or remove the translation and retain only the opacity
 and color feedback.
+
+## CHAT-002: Usage-Limit Fallback Copy Promises Resets For Non-Resetting Failures
+
+### Current behavior
+
+The fallback from `usageLimitDetail()` is used by every `usage-limit` classification, including
+payment-required responses, insufficient balances, missing payment methods, and OpenCode Zen credit
+errors. When those errors contain no reset metadata, the card still tells the user to wait for a
+reset.
+
+### User-visible impact
+
+Some account and billing failures do not reset automatically. The current copy can therefore send
+users toward a recovery path that will never resolve the error.
+
+### Follow-up
+
+Mention waiting only when the provider supplied a valid reset time. For usage limits without reset
+metadata, direct the user to provider billing or settings, or suggest selecting another available
+model.
+
+Affected code:
+
+- `packages/web/src/components/chat/assistant-error-card.tsx`
+- `packages/web/src/state/chat-error-model.ts`
+
+## CHAT-003: Terminal Stop Actions Leave The Error Card Unchanged
+
+### Current behavior
+
+Several terminal assistant-error cards expose a **Stop** action. The handler aborts the active
+session run, but a terminal error normally represents a run that has already settled. Aborting the
+idle session does not dismiss or replace the persisted assistant error, so the same card remains
+visible after the action completes.
+
+### User-visible impact
+
+The button appears actionable but commonly produces no visible change. This is especially confusing
+on authentication, model-availability, access-restriction, and exhausted-retry errors where the
+user expects the action to advance or clear the failure state.
+
+### Follow-up
+
+Keep **Stop** on live retry notices. Terminal cards should instead expose an action that changes the
+terminal state, such as dismissing the card, opening the model selector, or starting an explicit
+recovery flow.
+
+Affected code:
+
+- `packages/web/src/components/chat/assistant-error-card.tsx`
+- `packages/web/src/components/directory-chat/directory-chat-main-pane.tsx`
 
 ## Verification Notes
 
