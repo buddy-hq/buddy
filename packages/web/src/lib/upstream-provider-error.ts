@@ -11,6 +11,9 @@ export type UpstreamProviderErrorPayload = {
   type?: string
   code?: string
   message?: string
+  planType?: string
+  resetsAt?: number
+  resetsInSeconds?: number
 }
 
 export function normalizeUpstreamProviderErrorMessage(message: string): string {
@@ -47,6 +50,10 @@ function readNonEmptyString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined
+}
+
+function readFiniteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
 }
 
 function unwrapJsonErrorMessage(value: unknown, depth = 0): string | undefined {
@@ -92,12 +99,27 @@ export function readUpstreamProviderErrorPayload(
   const type = readNonEmptyString(source.type)
   const code = readNonEmptyString(source.code)
   const message = readNonEmptyString(source.message)
-  if (!type && !code && !message) return undefined
+  const planType = readNonEmptyString(source.plan_type)
+  const resetsAt = readFiniteNumber(source.resets_at)
+  const resetsInSeconds = readFiniteNumber(source.resets_in_seconds)
+  if (
+    !type &&
+    !code &&
+    !message &&
+    !planType &&
+    resetsAt === undefined &&
+    resetsInSeconds === undefined
+  ) {
+    return undefined
+  }
 
   return {
     ...(type ? { type } : {}),
     ...(code ? { code } : {}),
     ...(message ? { message } : {}),
+    ...(planType ? { planType } : {}),
+    ...(resetsAt !== undefined ? { resetsAt } : {}),
+    ...(resetsInSeconds !== undefined ? { resetsInSeconds } : {}),
   }
 }
 

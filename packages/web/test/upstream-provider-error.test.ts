@@ -79,6 +79,29 @@ describe("upstream provider error normalization", () => {
     })
   })
 
+  test("preserves OpenAI subscription reset metadata", () => {
+    expect(
+      readUpstreamProviderErrorPayload(
+        JSON.stringify({
+          error: {
+            type: "usage_limit_reached",
+            message: "The usage limit has been reached",
+            plan_type: "plus",
+            resets_at: 1_787_087_426,
+            eligible_promo: null,
+            resets_in_seconds: 539_958,
+          },
+        }),
+      ),
+    ).toEqual({
+      type: "usage_limit_reached",
+      message: "The usage limit has been reached",
+      planType: "plus",
+      resetsAt: 1_787_087_426,
+      resetsInSeconds: 539_958,
+    })
+  })
+
   test("handles malformed and top-level response bodies", () => {
     expect(readUpstreamProviderErrorPayload("<html>gateway error</html>")).toBeUndefined()
     expect(readUpstreamProviderErrorPayload(JSON.stringify({ type: "error" }))).toEqual({

@@ -148,6 +148,34 @@ describe("assistant error model", () => {
     ).toBe("network")
   })
 
+  test("classifies OpenAI subscription exhaustion as a usage limit", () => {
+    const model = buildAssistantErrorModel(
+      error("APIError", {
+        statusCode: 429,
+        isRetryable: false,
+        message: "The usage limit has been reached",
+        responseBody: JSON.stringify({
+          error: {
+            type: "usage_limit_reached",
+            message: "The usage limit has been reached",
+          },
+        }),
+      }),
+      { hasVisibleText: false, providerID: "openai" },
+    )
+
+    expect(model).toMatchObject({
+      category: "usage-limit",
+      disposition: "terminal",
+      details: {
+        providerError: {
+          type: "usage_limit_reached",
+          message: "The usage limit has been reached",
+        },
+      },
+    })
+  })
+
   test("classifies Zen errors without trusting their overloaded HTTP status", () => {
     function zenError(type: string, message: string) {
       return error("APIError", {

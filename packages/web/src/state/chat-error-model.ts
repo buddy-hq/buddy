@@ -23,7 +23,7 @@ export const RETRY_PERSISTENT_MIN_ATTEMPT = 5
 
 const RATE_LIMIT_PATTERN = /rate[\s_-]*limit|too many requests|resource[\s_-]*exhausted|quota/iu
 const USAGE_LIMIT_PATTERN =
-  /insufficient (?:balance|credits)|monthly (?:spending |usage )?limit|usage limit reached|no payment method/iu
+  /insufficient (?:balance|credits)|monthly (?:spending |usage )?limit|usage limit (?:has been )?reached|no payment method/iu
 const OVERLOADED_PATTERN =
   /overload|capacity|no provider available|provider is busy|internal server error|service unavailable/iu
 const NETWORK_PATTERN =
@@ -56,6 +56,7 @@ const GENERIC_USAGE_LIMIT_IDENTIFIERS = new Set([
   "insufficient_credits",
   "insufficient_quota",
   "usage_limit",
+  "usage_limit_reached",
 ])
 const GENERIC_RATE_LIMIT_IDENTIFIERS = new Set([
   "rate_limit_error",
