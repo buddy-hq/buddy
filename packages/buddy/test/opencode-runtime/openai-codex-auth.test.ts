@@ -233,9 +233,9 @@ describe("OpenAI Codex auth hook", () => {
       setAuth: async () => undefined,
     })
 
-    const result = await loader.fetch("https://api.openai.com/v1/responses").catch(
-      (error: unknown) => error,
-    )
+    const result = await loader
+      .fetch("https://api.openai.com/v1/responses")
+      .catch((error: unknown) => error)
 
     expect(APICallError.isInstance(result)).toBe(true)
     if (!APICallError.isInstance(result)) throw new Error("Expected an API call error")
@@ -253,10 +253,9 @@ describe("OpenAI Codex auth hook", () => {
         message: "Too many requests",
       },
     })
-    const fetchStub = Object.assign(
-      async () => new Response(responseBody, { status: 429 }),
-      { preconnect: originalFetch.preconnect },
-    )
+    const fetchStub = Object.assign(async () => new Response(responseBody, { status: 429 }), {
+      preconnect: originalFetch.preconnect,
+    })
     globalThis.fetch = fetchStub
 
     const loader = createBuddyCodexLoader({

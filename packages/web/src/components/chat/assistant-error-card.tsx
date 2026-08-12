@@ -267,9 +267,7 @@ function usageLimitDetail(model: AssistantErrorModel) {
   }
 
   if (providerError?.resetsInSeconds !== undefined) {
-    const resetDate = new Date(
-      Date.now() + providerError.resetsInSeconds * MILLISECONDS_PER_SECOND,
-    )
+    const resetDate = new Date(Date.now() + providerError.resetsInSeconds * MILLISECONDS_PER_SECOND)
     if (Number.isFinite(resetDate.getTime())) {
       return `Limit resets ${formatRelativeTime(resetDate.toISOString())}. Choose a model from another provider or wait for the reset.`
     }
