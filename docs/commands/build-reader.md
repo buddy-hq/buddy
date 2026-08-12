@@ -73,6 +73,7 @@ PDF text geometry is persisted in unrotated PDF user space relative to the crop 
 
 - Foliate engine API reference: `~/code/foliate-js`
 - Foliate behavior/UI reference: `~/code/foliate`
+- Foliate integration incident guide: `docs/features/reader/foliate-gotchas.md`
 - PDF.js API/viewer reference: the pinned `packages/web/node_modules/pdfjs-dist` source and official PDF.js documentation
 - Long-term decision, baseline matrix, risks, and gates: `docs/reader/pdf-long-term.md`
 
