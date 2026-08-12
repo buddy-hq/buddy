@@ -19,11 +19,10 @@ type ReaderFloatingOverlayProps = {
 
 export function ReaderFloatingOverlay(props: ReaderFloatingOverlayProps) {
   const overlayRef = useRef<HTMLDivElement | null>(null)
-  const anchorRect = props.anchorRoot?.getBoundingClientRect()
   const style: CSSProperties = {
-    left: `${(anchorRect?.left ?? 0) + props.x}px`,
-    position: props.anchorRoot ? "fixed" : "absolute",
-    top: `${(anchorRect?.top ?? 0) + props.y}px`,
+    left: `${props.x}px`,
+    position: "absolute",
+    top: `${props.y}px`,
     zIndex: READER_FLOATING_OVERLAY_Z_INDEX,
   }
 

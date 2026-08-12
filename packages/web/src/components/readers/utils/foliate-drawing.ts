@@ -1,4 +1,8 @@
-import type { FoliateDrawAnnotationEventDetail } from "foliate-js/view.js"
+import type { Overlayer } from "foliate-js/overlayer.js"
+import type {
+  FoliateAnnotationPayload,
+  FoliateDrawAnnotationEventDetail,
+} from "foliate-js/view.js"
 import {
   ANNOTATION_COLORS,
   ANNOTATION_STYLE_HIGHLIGHT,
@@ -123,8 +127,8 @@ export function drawLinearMark(
   return group
 }
 
-export function drawAnnotation(event: CustomEvent<FoliateDrawAnnotationEventDetail>) {
-  const annotation = event.detail.annotation
+function drawAnnotationDetail(detail: FoliateDrawAnnotationEventDetail) {
+  const annotation = detail.annotation
   const color =
     typeof annotation.color === "string" ? annotation.color : ANNOTATION_COLORS.amber.value
   const style =
@@ -133,13 +137,13 @@ export function drawAnnotation(event: CustomEvent<FoliateDrawAnnotationEventDeta
     annotation.style === ANNOTATION_STYLE_STRIKETHROUGH
       ? annotation.style
       : ANNOTATION_STYLE_HIGHLIGHT
-  const writingMode = event.detail.doc.defaultView?.getComputedStyle(
-    event.detail.range.startContainer.parentElement ?? event.detail.doc.body,
+  const writingMode = detail.doc.defaultView?.getComputedStyle(
+    detail.range.startContainer.parentElement ?? detail.doc.body,
   ).writingMode
   const hasNote = typeof annotation.note === "string" && annotation.note.trim().length > 0
 
   if (style === ANNOTATION_STYLE_HIGHLIGHT) {
-    event.detail.draw((rects) => {
+    detail.draw((rects) => {
       const group = drawHighlight(rects, color)
       if (hasNote) addNoteMarker(group, rects, color)
       return group
@@ -147,10 +151,29 @@ export function drawAnnotation(event: CustomEvent<FoliateDrawAnnotationEventDeta
     return
   }
 
-  event.detail.draw((rects) => {
+  detail.draw((rects) => {
     const group = drawLinearMark(rects, color, writingMode ?? "", style)
     if (hasNote) addNoteMarker(group, rects, color)
     return group
+  })
+}
+
+export function drawAnnotation(event: CustomEvent<FoliateDrawAnnotationEventDetail>) {
+  drawAnnotationDetail(event.detail)
+}
+
+export function drawAnnotationRange(
+  overlayer: Overlayer,
+  value: string,
+  range: Range,
+  annotation: FoliateAnnotationPayload,
+  doc: Document,
+) {
+  drawAnnotationDetail({
+    annotation,
+    doc,
+    range,
+    draw: (painter, options) => overlayer.add(value, range, painter, options),
   })
 }
 

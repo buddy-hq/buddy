@@ -94,7 +94,13 @@ declare module "foliate-js/view.js" {
     prev: (distance?: number) => Promise<void>
     next: (distance?: number) => Promise<void>
     goTo: (target: unknown) => Promise<void>
-    getContents: () => Array<{ index?: number; doc: Document; overlayer?: unknown }>
+    suspend: () => void
+    resume: () => void
+    getContents: () => Array<{
+      index?: number
+      doc: Document
+      overlayer?: import("foliate-js/overlayer.js").Overlayer
+    }>
   }
 
   export type FoliateRelocationDetail = {

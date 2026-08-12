@@ -105,17 +105,17 @@ describe("reader floating overlays", () => {
 
     expect(anchorRoot.contains(selectionToolbar)).toBe(true)
     expect(anchorRoot.contains(annotationPopover)).toBe(true)
-    expect(selectionToolbar.style.position).toBe("fixed")
-    expect(selectionToolbar.style.left).toBe("120px")
-    expect(selectionToolbar.style.top).toBe("200px")
+    expect(selectionToolbar.style.position).toBe("absolute")
+    expect(selectionToolbar.style.left).toBe("72px")
+    expect(selectionToolbar.style.top).toBe("120px")
     expect(selectionToolbar.style.zIndex).toBe(String(READER_FLOATING_OVERLAY_Z_INDEX))
-    expect(annotationPopover.style.position).toBe("fixed")
-    expect(annotationPopover.style.left).toBe("138px")
-    expect(annotationPopover.style.top).toBe("230px")
+    expect(annotationPopover.style.position).toBe("absolute")
+    expect(annotationPopover.style.left).toBe("90px")
+    expect(annotationPopover.style.top).toBe("150px")
     expect(annotationPopover.style.zIndex).toBe(String(READER_FLOATING_OVERLAY_Z_INDEX))
-    expect(requireElement(document.body.querySelector('[aria-label="Copy text"]'))).not.toBeNull()
-    expect(document.body.textContent).toContain("Highlight")
-    expect(document.body.textContent).toContain("Delete")
+    expect(requireElement(document.body.querySelector('[aria-label="Copy"]'))).not.toBeNull()
+    expect(requireElement(document.body.querySelector('[aria-label="Amber"]'))).not.toBeNull()
+    expect(requireElement(document.body.querySelector('[aria-label="Delete"]'))).not.toBeNull()
   })
 
   test("falls back to local absolute positioning before the reader surface is available", async () => {
@@ -140,6 +140,60 @@ describe("reader floating overlays", () => {
     expect(probe.style.position).toBe("absolute")
     expect(probe.style.left).toBe("24px")
     expect(probe.style.top).toBe("32px")
+  })
+
+  test("keeps the selection pill compact and clear of its text anchor", async () => {
+    await act(async () => {
+      root.render(
+        <ReaderSelectionToolbar
+          anchorRoot={null}
+          selectionAction={{ text: "Selected text", x: 72, y: 120 }}
+          onCopyText={() => undefined}
+          onHighlight={() => undefined}
+          onOpenAnnotationDialog={() => undefined}
+          onSearch={() => undefined}
+        />,
+      )
+      await flushEffects()
+    })
+
+    const overlay = requireElement(
+      container.querySelector<HTMLElement>('[data-component="reader-selection-toolbar"]'),
+    )
+    const toolbar = requireElement(overlay.querySelector<HTMLElement>('[role="toolbar"]'))
+    const action = requireElement(toolbar.querySelector<HTMLButtonElement>('[aria-label="Add note"]'))
+    expect(overlay.classList.contains("pb-4")).toBe(true)
+    expect(toolbar.classList.contains("py-1.5")).toBe(true)
+    expect(action.classList.contains("size-8")).toBe(true)
+  })
+
+  test("commits the color dot as a highlight action", async () => {
+    const highlightedColors: string[] = []
+    await act(async () => {
+      root.render(
+        <ReaderSelectionToolbar
+          anchorRoot={null}
+          selectionAction={{ text: "Selected text", x: 72, y: 120 }}
+          onCopyText={() => undefined}
+          onHighlight={(color) => highlightedColors.push(color)}
+          onOpenAnnotationDialog={() => undefined}
+          onSearch={() => undefined}
+        />,
+      )
+      await flushEffects()
+    })
+
+    const rose = requireElement(container.querySelector<HTMLButtonElement>('[aria-label="Rose"]'))
+    const amber = requireElement(
+      container.querySelector<HTMLButtonElement>('[aria-label="Amber"]'),
+    )
+    expect(amber.hasAttribute("aria-pressed")).toBe(false)
+    expect(amber.classList.contains("ring-2")).toBe(false)
+    await act(async () => {
+      rose.click()
+      await flushEffects()
+    })
+    expect(highlightedColors).toEqual(["rose"])
   })
 
   test("keeps a wide selection menu inside the reader while preserving its anchor", async () => {

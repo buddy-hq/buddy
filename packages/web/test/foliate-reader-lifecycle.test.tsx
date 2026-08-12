@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test"
 import { act, createRef } from "react"
 import { createRoot, type Root } from "react-dom/client"
+import { BenchSurfaceActivityProvider } from "../src/components/bench/bench-surface-activity"
 import type { DocumentReaderHandle, ReaderSource } from "../src/components/readers/reader-types"
 import type {
   FoliateReaderSource,
@@ -8,7 +9,9 @@ import type {
 } from "../src/components/readers/foliate-reader-types"
 import {
   buildBookPersistenceKey,
+  loadGlobalPreferences,
   saveBookState,
+  saveGlobalPreferences,
 } from "../src/components/readers/utils/foliate-storage"
 
 const ASYNC_POLL_MS = 10
@@ -19,11 +22,35 @@ let closeCount = 0
 let annotationAddCount = 0
 let annotationDeleteCount = 0
 let annotationStateCount = 0
+let suspendCount = 0
+let resumeCount = 0
+
+type ResizeObserverHarness = {
+  callback: ResizeObserverCallback
+  disconnected: boolean
+  observed: Set<Element>
+  observer: ResizeObserver
+}
 
 class LifecycleView extends HTMLElement {
+  private annotationKeys = new Set<string>()
+  private contentDocument = document.implementation.createHTMLDocument("Lifecycle EPUB")
+  private overlayer = {
+    element: document.createElementNS("http://www.w3.org/2000/svg", "svg"),
+    add: (key: string) => {
+      this.annotationKeys.add(key)
+      annotationAddCount += 1
+    },
+    remove: (key: string) => {
+      if (!this.annotationKeys.delete(key)) return
+      annotationDeleteCount += 1
+    },
+    redraw: () => undefined,
+    hitTest: () => [undefined, undefined],
+  }
   book = {
     metadata: { title: "Lifecycle EPUB", author: "Buddy" },
-    sections: [],
+    sections: [{ id: "chapter.xhtml", cfi: "epubcfi(/6/4)", load: () => "chapter" }],
     toc: [],
     pageList: [],
     landmarks: [],
@@ -36,7 +63,22 @@ class LifecycleView extends HTMLElement {
   })
   isFixedLayout = false
   lastLocation = undefined
-  renderer = undefined
+  renderer = Object.assign(document.createElement("div"), {
+    getContents: () => [
+      {
+        index: 0,
+        doc: this.contentDocument,
+        overlayer: this.overlayer,
+      },
+    ],
+    goTo: async () => undefined,
+    suspend: () => {
+      suspendCount += 1
+    },
+    resume: () => {
+      resumeCount += 1
+    },
+  })
 
   async open(): Promise<void> {
     openCount += 1
@@ -44,14 +86,14 @@ class LifecycleView extends HTMLElement {
 
   async init(): Promise<void> {}
 
-  async addAnnotation(): Promise<undefined> {
-    annotationAddCount += 1
-    return undefined
+  resolveNavigation() {
+    const range = this.contentDocument.createRange()
+    range.selectNodeContents(this.contentDocument.body)
+    return { index: 0, anchor: () => range }
   }
 
-  async deleteAnnotation(): Promise<undefined> {
-    annotationDeleteCount += 1
-    return undefined
+  getProgressOf() {
+    return { tocItem: { label: "Chapter" } }
   }
 
   close(): void {
@@ -95,6 +137,8 @@ describe("Foliate reader lifecycle", () => {
     annotationAddCount = 0
     annotationDeleteCount = 0
     annotationStateCount = 0
+    suspendCount = 0
+    resumeCount = 0
     localStorage.clear()
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -155,6 +199,146 @@ describe("Foliate reader lifecycle", () => {
     expect(errors).toEqual([])
     expect(openCount).toBe(1)
     expect(closeCount).toBe(0)
+  })
+
+  test("suspends and resumes the existing Foliate view across Bench switches", async () => {
+    const module = documentReaderModule
+    if (!module) throw new Error("DocumentReader module was not initialized")
+
+    const source: ReaderSource = {
+      kind: "blob",
+      blob: new Blob(["epub"], { type: "application/epub+zip" }),
+      name: "reactivation.epub",
+      sourceId: "workspace-path:reactivation.epub",
+      format: "epub",
+    }
+    const renderReader = (active: boolean) => (
+      <BenchSurfaceActivityProvider value={active}>
+        <module.DocumentReader source={source} showToolbar={false} />
+      </BenchSurfaceActivityProvider>
+    )
+
+    await act(async () => {
+      root.render(renderReader(true))
+    })
+    await waitFor(() => openCount === 1)
+
+    await act(async () => {
+      root.render(renderReader(false))
+      await Promise.resolve()
+    })
+    expect(openCount).toBe(1)
+    expect(closeCount).toBe(0)
+    expect(suspendCount).toBe(1)
+    expect(resumeCount).toBe(0)
+
+    await act(async () => {
+      root.render(renderReader(true))
+      await new Promise<void>((resolve) => setTimeout(resolve, ASYNC_POLL_MS * 2))
+    })
+    expect(openCount).toBe(1)
+    expect(closeCount).toBe(0)
+    expect(suspendCount).toBe(1)
+    expect(resumeCount).toBe(1)
+  })
+
+  test("updates responsive margins only while the Foliate surface is active", async () => {
+    const module = documentReaderModule
+    if (!module) throw new Error("DocumentReader module was not initialized")
+
+    const originalResizeObserver = globalThis.ResizeObserver
+    const resizeObservers: ResizeObserverHarness[] = []
+    class MockResizeObserver implements ResizeObserver {
+      readonly harness: ResizeObserverHarness
+
+      constructor(callback: ResizeObserverCallback) {
+        this.harness = {
+          callback,
+          disconnected: false,
+          observed: new Set<Element>(),
+          observer: this,
+        }
+        resizeObservers.push(this.harness)
+      }
+
+      observe(target: Element): void {
+        this.harness.observed.add(target)
+      }
+
+      unobserve(target: Element): void {
+        this.harness.observed.delete(target)
+      }
+
+      disconnect(): void {
+        this.harness.disconnected = true
+        this.harness.observed.clear()
+      }
+
+      takeRecords(): ResizeObserverEntry[] {
+        return []
+      }
+    }
+    globalThis.ResizeObserver = MockResizeObserver
+    saveGlobalPreferences({
+      ...loadGlobalPreferences("paper", "paginated"),
+      marginPx: 120,
+    })
+
+    const source: ReaderSource = {
+      kind: "blob",
+      blob: new Blob(["epub"], { type: "application/epub+zip" }),
+      name: "responsive-margin.epub",
+      sourceId: "workspace-path:responsive-margin.epub",
+      format: "epub",
+    }
+    const renderReader = (active: boolean) => (
+      <BenchSurfaceActivityProvider value={active}>
+        <module.DocumentReader source={source} showToolbar={false} />
+      </BenchSurfaceActivityProvider>
+    )
+
+    try {
+      await act(async () => {
+        root.render(renderReader(true))
+      })
+      await waitFor(() => resizeObservers.length === 1)
+      const view = container.querySelector("buddy-lifecycle-foliate-view")
+      if (!(view instanceof LifecycleView)) throw new Error("Foliate lifecycle view was not mounted")
+      let viewportWidth = 800
+      Object.defineProperty(view, "getBoundingClientRect", {
+        configurable: true,
+        value: () => DOMRect.fromRect({ width: viewportWidth, height: 600 }),
+      })
+      const activeObserver = resizeObservers[0]
+      if (!activeObserver) throw new Error("Active resize observer was not created")
+
+      activeObserver.callback([], activeObserver.observer)
+      expect(view.renderer.getAttribute("margin")).toBe("120px")
+
+      viewportWidth = 514
+      activeObserver.callback([], activeObserver.observer)
+      expect(view.renderer.getAttribute("margin")).toBe("97px")
+
+      await act(async () => {
+        root.render(renderReader(false))
+        await Promise.resolve()
+      })
+      expect(activeObserver.disconnected).toBe(true)
+      viewportWidth = 800
+      activeObserver.callback([], activeObserver.observer)
+      expect(view.renderer.getAttribute("margin")).toBe("97px")
+
+      await act(async () => {
+        root.render(renderReader(true))
+        await Promise.resolve()
+      })
+      expect(openCount).toBe(1)
+      expect(view.renderer.getAttribute("margin")).toBe("120px")
+      expect(resizeObservers).toHaveLength(2)
+    } finally {
+      if (originalResizeObserver) globalThis.ResizeObserver = originalResizeObserver
+      else Reflect.deleteProperty(globalThis, "ResizeObserver")
+    }
   })
 
   test("does not refresh annotation tokens for reader preference changes", async () => {

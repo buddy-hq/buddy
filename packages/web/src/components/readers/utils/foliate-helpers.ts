@@ -12,6 +12,9 @@ import type {
 import type {
   FoliateBook,
   FoliateMetadata,
+  FoliateNavigationTarget as FoliateEngineNavigationTarget,
+  FoliateResolvedNavigation,
+  FoliateSection,
   FoliateTocItem,
   FoliateRelocationDetail,
 } from "foliate-js/view.js"
@@ -151,6 +154,109 @@ export function toFoliateInput(source: FoliateReaderSource): string | Blob | Fil
   }
 }
 
+type FoliateNavigationResolver = {
+  book: FoliateBook
+  resolveNavigation: (
+    target: FoliateEngineNavigationTarget,
+  ) =>
+    | { index: number }
+    | undefined
+    | Promise<{ index: number } | undefined>
+}
+
+const EPUB_NAV_DOCUMENT_PATTERN = /(?:^|\/)nav\.x?html?$/i
+
+function isNavigationSection(section: FoliateSection): boolean {
+  const sectionId = typeof section.id === "string" ? section.id.split(/[?#]/, 1)[0] : ""
+  return EPUB_NAV_DOCUMENT_PATTERN.test(sectionId)
+}
+
+function canRestoreSection(section: FoliateSection | undefined): boolean {
+  if (!section || section.linear === "no") return false
+  return !isNavigationSection(section)
+}
+
+function findFirstRestorableSectionIndex(
+  sections: FoliateSection[],
+  startIndex = 0,
+): number | undefined {
+  for (let index = startIndex; index < sections.length; index += 1) {
+    if (canRestoreSection(sections[index])) return index
+  }
+  return undefined
+}
+
+function getTargetSectionCfi(target: FoliateEngineNavigationTarget): string | undefined {
+  if (typeof target !== "string" || !target.startsWith("epubcfi(")) return undefined
+  const indirectionIndex = target.indexOf("!")
+  if (indirectionIndex < 0) return target
+  return `${target.slice(0, indirectionIndex)})`
+}
+
+function getCanonicalSectionIndex(
+  book: FoliateBook,
+  target: FoliateEngineNavigationTarget,
+): number | undefined {
+  const targetSectionCfi = getTargetSectionCfi(target)
+  if (!targetSectionCfi) return undefined
+  const index = book.sections.findIndex((section) => section.cfi === targetSectionCfi)
+  return index >= 0 ? index : undefined
+}
+
+export type FoliateCanonicalResolvedNavigation = FoliateResolvedNavigation & {
+  nativeIndex: number
+}
+
+/**
+ * Foliate builds EPUB CFIs from the unfiltered package spine but exposes a filtered `sections`
+ * array. If a spine item references a missing manifest entry, a CFI can round-trip to the wrong
+ * renderer index. Keep Foliate's anchor function, but make the exposed section CFI authoritative.
+ */
+export async function resolveCanonicalNavigationTarget(
+  view: FoliateNavigationResolver,
+  target: FoliateEngineNavigationTarget,
+): Promise<FoliateCanonicalResolvedNavigation | undefined> {
+  const resolved = await view.resolveNavigation(target)
+  if (!resolved) return undefined
+  const canonicalIndex = getCanonicalSectionIndex(view.book, target)
+  return {
+    ...resolved,
+    index: canonicalIndex ?? resolved.index,
+    nativeIndex: resolved.index,
+  }
+}
+
+/**
+ * Some generated EPUBs incorrectly place an empty nav.xhtml in the linear spine. A persisted CFI
+ * into that document is technically resolvable, so Foliate restores it as a blank reading page.
+ * Preserve valid targets, but move malformed navigation-only targets to the next readable section.
+ */
+export async function resolveRestorableNavigationTarget(
+  view: FoliateNavigationResolver,
+  target: FoliateEngineNavigationTarget | undefined,
+): Promise<FoliateEngineNavigationTarget | undefined> {
+  if (target === undefined) {
+    return findFirstRestorableSectionIndex(view.book.sections)
+  }
+
+  let resolved
+  try {
+    resolved = await resolveCanonicalNavigationTarget(view, target)
+  } catch {
+    return target
+  }
+  if (!resolved) return target
+
+  const sectionIndex = resolved.index
+  if (canRestoreSection(view.book.sections[sectionIndex])) {
+    // A numeric target is intentional here. Passing the original CFI back into Foliate would
+    // resolve it through the unfiltered package spine again and reopen the adjacent section.
+    return resolved.nativeIndex === sectionIndex ? target : sectionIndex
+  }
+
+  return findFirstRestorableSectionIndex(view.book.sections, sectionIndex + 1) ?? target
+}
+
 // ============================================================
 // Metadata Helpers
 // ============================================================
@@ -216,7 +322,30 @@ export function buildLandmarks(book: FoliateBook): FoliateReaderLandmark[] {
 // Location Helpers
 // ============================================================
 
-export function buildLocationState(detail?: FoliateRelocationDetail): FoliateReaderLocation {
+type FoliateSectionCatalog = Pick<FoliateBook, "sections">
+
+function canonicalizeRelocationCfi(
+  detail: FoliateRelocationDetail,
+  book: FoliateSectionCatalog | undefined,
+): string | undefined {
+  const cfi = detail.cfi
+  const index = detail.index
+  if (!book || !cfi || index === undefined) return cfi
+
+  const sectionCfi = book.sections[index]?.cfi
+  if (!sectionCfi || !sectionCfi.endsWith(")")) return cfi
+  if (getTargetSectionCfi(cfi) === sectionCfi) return cfi
+
+  const indirectionIndex = cfi.indexOf("!")
+  return indirectionIndex < 0
+    ? sectionCfi
+    : `${sectionCfi.slice(0, -1)}${cfi.slice(indirectionIndex)}`
+}
+
+export function buildLocationState(
+  detail?: FoliateRelocationDetail,
+  book?: FoliateSectionCatalog,
+): FoliateReaderLocation {
   if (!detail) return {}
 
   let locationLabel: string | undefined
@@ -232,7 +361,7 @@ export function buildLocationState(detail?: FoliateRelocationDetail): FoliateRea
 
   return {
     fraction: detail.fraction,
-    cfi: detail.cfi,
+    cfi: canonicalizeRelocationCfi(detail, book),
     index: detail.index,
     tocLabel: detail.tocItem?.label,
     pageLabel: detail.pageItem?.label,

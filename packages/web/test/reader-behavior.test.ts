@@ -11,8 +11,10 @@ import {
   resolveReaderContentFilter,
 } from "../src/components/readers/foliate-reader-constants"
 import {
+  buildLocationState,
   getOverlayPosition,
   resolveAnnotationColorValue,
+  resolveRestorableNavigationTarget,
 } from "../src/components/readers/utils/foliate-helpers"
 import {
   buildReaderStyles,
@@ -34,6 +36,129 @@ import {
 import { loadGlobalPreferences } from "../src/components/readers/utils/foliate-storage"
 
 describe("reader navigation", () => {
+  test("starts a malformed EPUB at its first readable spine item", async () => {
+    const nonLinear = "no"
+    const view = {
+      book: {
+        sections: [
+          {
+            id: "EPUB/nav.xhtml",
+            cfi: "epubcfi(/6/4)",
+            load: () => "nav",
+          },
+          {
+            id: "EPUB/hidden.xhtml",
+            cfi: "epubcfi(/6/6)",
+            linear: nonLinear,
+            load: () => "hidden",
+          },
+          {
+            id: "EPUB/chapter.xhtml",
+            cfi: "epubcfi(/6/8)",
+            load: () => "chapter",
+          },
+        ],
+      },
+      resolveNavigation: () => undefined,
+    }
+
+    await expect(resolveRestorableNavigationTarget(view, undefined)).resolves.toBe(2)
+  })
+
+  test("moves a saved CFI out of an empty EPUB navigation spine item", async () => {
+    const view = {
+      book: {
+        sections: [
+          {
+            id: "EPUB/nav.xhtml",
+            cfi: "epubcfi(/6/4)",
+            load: () => "nav",
+          },
+          {
+            id: "EPUB/notice.html",
+            cfi: "epubcfi(/6/6)",
+            load: () => "chapter",
+          },
+        ],
+      },
+      // Foliate resolves the malformed range anchor against the following
+      // section, so the package CFI must remain authoritative.
+      resolveNavigation: () => ({ index: 1 }),
+    }
+
+    await expect(
+      resolveRestorableNavigationTarget(view, "epubcfi(/6/4!/4/2[id],,/4)"),
+    ).resolves.toBe(1)
+  })
+
+  test("preserves a saved CFI that resolves to readable EPUB content", async () => {
+    const view = {
+      book: {
+        sections: [
+          {
+            id: "chapter.xhtml",
+            cfi: "epubcfi(/6/8)",
+            load: () => "chapter",
+          },
+        ],
+      },
+      resolveNavigation: () => ({ index: 0 }),
+    }
+
+    await expect(
+      resolveRestorableNavigationTarget(view, "epubcfi(/6/8!/4/2)"),
+    ).resolves.toBe("epubcfi(/6/8!/4/2)")
+  })
+
+  test("restores a malformed-spine CFI through its canonical filtered section", async () => {
+    const view = {
+      book: {
+        sections: [
+          {
+            id: "EPUB/nav.xhtml",
+            cfi: "epubcfi(/6/4)",
+            load: () => "nav",
+          },
+          {
+            id: "EPUB/page_1.html",
+            cfi: "epubcfi(/6/8)",
+            load: () => "page 1",
+          },
+          {
+            id: "EPUB/page_3.html",
+            cfi: "epubcfi(/6/10)",
+            load: () => "page 3",
+          },
+        ],
+      },
+      // The package spine still contains a missing manifest entry, while
+      // book.sections has filtered it out.
+      resolveNavigation: () => ({ index: 3 }),
+    }
+
+    await expect(
+      resolveRestorableNavigationTarget(view, "epubcfi(/6/10!/4/2,/1:0,/1:37)"),
+    ).resolves.toBe(2)
+  })
+
+  test("canonicalizes a relocated CFI before the malformed spine overwrites persistence", () => {
+    expect(
+      buildLocationState(
+        {
+          index: 2,
+          cfi: "epubcfi(/6/12!/4/2,,/1:694)",
+        },
+        {
+          sections: [
+            { id: "EPUB/nav.xhtml", cfi: "epubcfi(/6/4)", load: () => "nav" },
+            { id: "EPUB/page_1.html", cfi: "epubcfi(/6/8)", load: () => "page 1" },
+            { id: "EPUB/page_3.html", cfi: "epubcfi(/6/10)", load: () => "page 3" },
+          ],
+        },
+      ).cfi,
+    ).toBe("epubcfi(/6/10!/4/2,,/1:694)")
+  })
+
   test("uses physical page turns for fixed-layout content regardless of EPUB flow", () => {
     expect(
       resolveReaderArrowNavigation({

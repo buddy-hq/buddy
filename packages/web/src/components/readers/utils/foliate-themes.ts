@@ -236,19 +236,32 @@ export function applyReaderPreferences(
   else renderer.setAttribute("animated", "")
 
   if (!view.isFixedLayout) {
-    const viewportWidth = view.getBoundingClientRect().width
-    const maxMarginByWidth = Number.isFinite(viewportWidth)
-      ? Math.floor((viewportWidth - MIN_READER_INLINE_CONTENT_WIDTH_PX) / 2)
-      : preferences.marginPx
-    const responsiveMarginPx = Math.min(
-      preferences.marginPx,
-      Math.max(MIN_READER_MARGIN_PX, maxMarginByWidth),
-    )
-
-    renderer.setAttribute("flow", preferences.flow)
-    renderer.setAttribute("margin", `${responsiveMarginPx}px`)
-    renderer.setAttribute("gap", `${preferences.gapPercent}%`)
-    renderer.setAttribute("max-inline-size", `${preferences.maxInlineSizePx}px`)
-    renderer.setAttribute("max-block-size", `${preferences.maxBlockSizePx}px`)
+    setAttributeIfChanged(renderer, "flow", preferences.flow)
+    syncReaderResponsiveMargin(view, preferences)
+    setAttributeIfChanged(renderer, "gap", `${preferences.gapPercent}%`)
+    setAttributeIfChanged(renderer, "max-inline-size", `${preferences.maxInlineSizePx}px`)
+    setAttributeIfChanged(renderer, "max-block-size", `${preferences.maxBlockSizePx}px`)
   }
+}
+
+export function syncReaderResponsiveMargin(
+  view: FoliateView,
+  preferences: FoliateReaderPreferences,
+) {
+  const renderer = view.renderer
+  if (!renderer || view.isFixedLayout) return
+  const viewportWidth = view.getBoundingClientRect().width
+  const maxMarginByWidth = Number.isFinite(viewportWidth)
+    ? Math.floor((viewportWidth - MIN_READER_INLINE_CONTENT_WIDTH_PX) / 2)
+    : preferences.marginPx
+  const responsiveMarginPx = Math.min(
+    preferences.marginPx,
+    Math.max(MIN_READER_MARGIN_PX, maxMarginByWidth),
+  )
+  setAttributeIfChanged(renderer, "margin", `${responsiveMarginPx}px`)
+}
+
+function setAttributeIfChanged(element: HTMLElement, name: string, value: string) {
+  if (element.getAttribute(name) === value) return
+  element.setAttribute(name, value)
 }

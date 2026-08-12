@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -18,6 +19,7 @@ import {
   ChevronRightIcon,
 } from "@buddy/ui"
 import { Loader2Icon } from "@/icons/app-icons"
+import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import { ReaderEmptyState } from "./ui/reader-empty-state"
 import { ReaderErrorState } from "./ui/reader-error-state"
 import { ReaderFocusExit } from "./ui/reader-focus-exit"
@@ -105,6 +107,7 @@ import {
   readSelectedRange,
   releaseObjectUrl,
   resolveAnnotationColorValue,
+  resolveRestorableNavigationTarget,
   resolveCoverUrl,
   syncMarginals,
   toFoliateInput,
@@ -118,7 +121,11 @@ import {
   saveGlobalPreferences,
   type FoliateBookPersistenceTarget,
 } from "./utils/foliate-storage"
-import { applyReaderPreferences, getThemeDefinition } from "./utils/foliate-themes"
+import {
+  applyReaderPreferences,
+  getThemeDefinition,
+  syncReaderResponsiveMargin,
+} from "./utils/foliate-themes"
 import {
   READER_NAVIGATION_GO_LEFT,
   READER_NAVIGATION_GO_RIGHT,
@@ -127,6 +134,11 @@ import {
   resolveReaderWheelNavigation,
 } from "./utils/foliate-navigation"
 import { drawAnnotation, toAnnotationDialogState } from "./utils/foliate-drawing"
+import {
+  removeFoliateAnnotation,
+  renderFoliateAnnotation,
+  revealFoliateAnnotation,
+} from "./utils/foliate-annotations"
 import { formatContributor, formatMetadataValue } from "./utils/foliate-formatters"
 import { withReaderSourceContentFingerprint } from "./reader-storage"
 import type {
@@ -244,6 +256,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       command: ReturnType<typeof resolveReaderWheelNavigation>
       lastEventAt: number | undefined
     }>({ command: undefined, lastEventAt: undefined })
+    const annotationRefreshFrameRef = useRef<number | undefined>(undefined)
+    const responsiveMarginObserverRef = useRef<ResizeObserver | null>(null)
     const callbacksRef = useRef({
       onReady,
       onLocationChange,
@@ -305,6 +319,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     // after the Blob is already opening and must not restart Foliate's content lifecycle.
     const readerSourceRef = useRef(readerSource)
     const persistenceSuffixRef = useRef(persistenceSuffix)
+    const benchSurfaceActive = useBenchSurfaceActive()
+    const benchSurfaceActiveRef = useRef(benchSurfaceActive)
+    benchSurfaceActiveRef.current = benchSurfaceActive
 
     const sourceDependencyKey = buildSourceDependencyKey(source)
     const initialLocationDependencyKey = buildNavigationTargetDependencyKey(initialLocation)
@@ -412,27 +429,116 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       [],
     )
 
-    useEffect(() => {
-      const root = rootRef.current
-      if (!root) return
+    const hydrateAnnotations = useCallback(
+      async (view: FoliateView, nextAnnotations: ReaderAnnotation[], onlyIndex?: number) => {
+        for (const annotation of nextAnnotations) {
+          if (viewRef.current !== view) return
+          let info
+          try {
+            info = await renderFoliateAnnotation(
+              view,
+              {
+                ...annotation,
+                color: resolveAnnotationColorValue(
+                  getAnnotationColorId(annotation.color),
+                  readerSurfaceRef.current,
+                ),
+              },
+              onlyIndex,
+            )
+          } catch (error) {
+            if (viewRef.current !== view) return
+            console.warn("Failed to hydrate reader annotation", {
+              annotation,
+              error,
+            })
+            continue
+          }
+          if (viewRef.current !== view) return
+          if (!info) continue
+          if (annotation.index === info.index && annotation.label === info.label) continue
+          setAnnotations((current) =>
+            current.map((entry) =>
+              entry.value === annotation.value
+                ? { ...entry, index: info.index, label: info.label }
+                : entry,
+            ),
+          )
+        }
+      },
+      [],
+    )
 
-      const syncRendererPreferences = () => {
-        const view = viewRef.current
-        if (!view) return
-        const nextTheme = getThemeDefinition(preferencesRef.current.themeId)
-        applyReaderPreferences(view, nextTheme, preferencesRef.current)
-        syncMarginals(view, snapshotRef.current, locationRef.current)
-        clearPositionedOverlays()
+    const scheduleAnnotationRefresh = useCallback(
+      (view: FoliateView, nextAnnotations: ReaderAnnotation[], onlyIndex?: number) => {
+        const pendingFrame = annotationRefreshFrameRef.current
+        if (pendingFrame !== undefined) cancelAnimationFrame(pendingFrame)
+        annotationRefreshFrameRef.current = requestAnimationFrame(() => {
+          annotationRefreshFrameRef.current = requestAnimationFrame(() => {
+            annotationRefreshFrameRef.current = undefined
+            if (viewRef.current !== view) return
+            void hydrateAnnotations(view, nextAnnotations, onlyIndex)
+          })
+        })
+      },
+      [hydrateAnnotations],
+    )
+
+    useLayoutEffect(() => {
+      const view = viewRef.current
+      const renderer = view?.renderer
+      if (!renderer) return
+
+      if (!benchSurfaceActive) {
+        responsiveMarginObserverRef.current?.disconnect()
+        responsiveMarginObserverRef.current = null
+        renderer.suspend()
+        return
       }
 
-      syncRendererPreferences()
+      renderer.resume()
+      scheduleAnnotationRefresh(view, annotationsRef.current, locationRef.current.index)
+    }, [benchSurfaceActive, scheduleAnnotationRefresh])
 
-      const resizeObserver =
-        typeof ResizeObserver === "undefined" ? null : new ResizeObserver(syncRendererPreferences)
+    useLayoutEffect(() => {
+      if (!benchSurfaceActive || status !== "ready") return
+      const view = viewRef.current
+      const surface = readerSurfaceRef.current
+      if (!view?.renderer || !surface || view.isFixedLayout) return
 
-      resizeObserver?.observe(root)
+      const syncResponsiveMargin = () => {
+        if (
+          !benchSurfaceActiveRef.current ||
+          viewRef.current !== view ||
+          view.isFixedLayout ||
+          view.getBoundingClientRect().width <= 0
+        ) {
+          return
+        }
+        syncReaderResponsiveMargin(view, preferencesRef.current)
+      }
+
+      // Activation runs the engine's resume effect first. Margin synchronization
+      // is deliberately separate: it observes only the active host and writes
+      // only the responsive margin attribute when that value actually changes.
+      syncResponsiveMargin()
+      if (typeof ResizeObserver === "undefined") return
+      const resizeObserver = new ResizeObserver(syncResponsiveMargin)
+      responsiveMarginObserverRef.current = resizeObserver
+      resizeObserver.observe(surface)
       return () => {
-        resizeObserver?.disconnect()
+        resizeObserver.disconnect()
+        if (responsiveMarginObserverRef.current === resizeObserver) {
+          responsiveMarginObserverRef.current = null
+        }
+      }
+    }, [benchSurfaceActive, status])
+
+    useEffect(() => {
+      return () => {
+        const pendingFrame = annotationRefreshFrameRef.current
+        if (pendingFrame !== undefined) cancelAnimationFrame(pendingFrame)
+        annotationRefreshFrameRef.current = undefined
       }
     }, [])
 
@@ -451,9 +557,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         for (const annotation of annotationsRef.current) {
           if (viewRef.current !== view) return
           try {
-            await view.deleteAnnotation(annotation)
+            await removeFoliateAnnotation(view, annotation)
             if (viewRef.current !== view) return
-            await view.addAnnotation({
+            await renderFoliateAnnotation(view, {
               ...annotation,
               color: resolveAnnotationColorValue(
                 getAnnotationColorId(annotation.color),
@@ -608,43 +714,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       }
     }
 
-    const hydrateAnnotations = useCallback(
-      async (view: FoliateView, nextAnnotations: ReaderAnnotation[], onlyIndex?: number) => {
-        for (const annotation of nextAnnotations) {
-          if (viewRef.current !== view) return
-          if (typeof onlyIndex === "number" && annotation.index !== onlyIndex) continue
-          let info
-          try {
-            info = await view.addAnnotation({
-              ...annotation,
-              color: resolveAnnotationColorValue(
-                getAnnotationColorId(annotation.color),
-                readerSurfaceRef.current,
-              ),
-            })
-          } catch (error) {
-            if (viewRef.current !== view) return
-            console.warn("Failed to hydrate reader annotation", {
-              annotation,
-              error,
-            })
-            continue
-          }
-          if (viewRef.current !== view) return
-          if (!info) continue
-          if (annotation.index === info.index && annotation.label === info.label) continue
-          setAnnotations((current) =>
-            current.map((entry) =>
-              entry.value === annotation.value
-                ? { ...entry, index: info.index, label: info.label }
-                : entry,
-            ),
-          )
-        }
-      },
-      [],
-    )
-
     function updateHistoryState(view: FoliateView) {
       setHistoryState({
         canGoBack: view.history.canGoBack,
@@ -751,9 +820,11 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     async function showAnnotation(annotation: ReaderAnnotation) {
       const view = viewRef.current
       if (!view) return
-      await view.showAnnotation(annotation)
+      const range = await revealFoliateAnnotation(view, annotation)
       if (annotation.note?.trim()) {
         openAnnotationDialog(annotation)
+      } else if (range) {
+        openAnnotationSurface(annotation.value, range)
       }
     }
 
@@ -774,7 +845,11 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           created: now,
           modified: now,
         }
-        const info = await view.addAnnotation({
+        // Clear the native selection before Foliate paints the committed mark. If
+        // deselection happens after addAnnotation(), WebKit can leave the new SVG
+        // overlayer stale until the reader is resized or remounted.
+        dismissSelectionToolbar(true)
+        const info = await renderFoliateAnnotation(view, {
           ...annotation,
           color: resolveAnnotationColorValue(nextDialog.color, readerSurfaceRef.current),
         })
@@ -785,8 +860,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         setAnnotations((current) =>
           [...current, annotation].sort((a, b) => a.value.localeCompare(b.value)),
         )
+        scheduleAnnotationRefresh(view, [annotation], annotation.index)
         setAnnotationDialog(null)
-        dismissSelectionToolbar(true)
         return
       }
 
@@ -799,8 +874,8 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         color: getAnnotationColorValue(nextDialog.color),
         modified: new Date().toISOString(),
       }
-      await view.deleteAnnotation(existing)
-      const info = await view.addAnnotation({
+      await removeFoliateAnnotation(view, existing)
+      const info = await renderFoliateAnnotation(view, {
         ...updated,
         color: resolveAnnotationColorValue(nextDialog.color, readerSurfaceRef.current),
       })
@@ -819,7 +894,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       const view = viewRef.current
       const annotation = getAnnotationAtValue(annotations, value)
       if (!view || !annotation) return
-      await view.deleteAnnotation(annotation)
+      await removeFoliateAnnotation(view, annotation)
       setAnnotations((current) => current.filter((entry) => entry.value !== value))
       setAnnotationDialog(null)
       setAnnotationPopover(null)
@@ -1021,7 +1096,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
           const relocateListener = (event: CustomEvent<FoliateRelocationDetail>) => {
             clearPositionedOverlays()
-            const nextLocation = buildLocationState(event.detail)
+            const nextLocation = buildLocationState(event.detail, view.book)
             locationRef.current = nextLocation
             startTransition(() => setLocation(nextLocation))
             syncMarginals(view, snapshotRef.current, nextLocation)
@@ -1147,6 +1222,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
           await view.open(toFoliateInput(stableSource))
           if (cancelled) return
+          if (!benchSurfaceActiveRef.current) view.renderer.suspend()
 
           const currentReaderSource = readerSourceRef.current
           const persistenceReaderSource = currentReaderSource
@@ -1167,12 +1243,18 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           const coverUrlPromise = resolveCoverUrl(view.book)
 
           const requestedLastLocation = stableInitialLocation ?? persisted.lastLocation
+          const restorableLastLocation = await resolveRestorableNavigationTarget(
+            view,
+            requestedLastLocation,
+          )
           const shouldShowTextStart =
-            stableInitialLocation === undefined && persisted.lastLocation === undefined
+            restorableLastLocation === undefined &&
+            stableInitialLocation === undefined &&
+            persisted.lastLocation === undefined
 
           try {
             await view.init({
-              lastLocation: requestedLastLocation,
+              lastLocation: restorableLastLocation,
               showTextStart: shouldShowTextStart,
             })
           } catch (error) {
@@ -1185,8 +1267,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 error,
                 lastLocation: persisted.lastLocation,
               })
+              const fallbackLocation = await resolveRestorableNavigationTarget(view, undefined)
               await view.init({
-                showTextStart: true,
+                lastLocation: fallbackLocation,
+                showTextStart: fallbackLocation === undefined,
               })
             } else {
               throw error
@@ -1219,7 +1303,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           }
 
           coverUrlRef.current = coverUrl
-          const nextLocation = buildLocationState(view.lastLocation)
+          const nextLocation = buildLocationState(view.lastLocation, view.book)
           snapshotRef.current = nextSnapshot
           locationRef.current = nextLocation
           const nextPersistenceTarget: FoliateBookPersistenceTarget = {
@@ -1484,9 +1568,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             anchorRoot={readerSurfaceRef.current}
             onCopyText={(text: string) => void handleCopySelection(text)}
             onHighlight={(color) => {
-              removeCurrentChatSelection()
               const action = selectionActionRef.current
-              if (!action) return
+              const view = viewRef.current
+              if (!action || !view) return
               const now = new Date().toISOString()
               const annotation: ReaderAnnotation = {
                 value: action.cfi,
@@ -1497,17 +1581,15 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 created: now,
                 modified: now,
               }
+              // Foliate's annotation overlayer must be painted after the native
+              // selection is cleared or WebKit may not display it until a later
+              // layout refresh.
+              dismissSelectionToolbar(true)
               void (async () => {
-                const view = viewRef.current
-                const info = view
-                  ? await view.addAnnotation({
-                      ...annotation,
-                      color: resolveAnnotationColorValue(
-                        color,
-                        readerSurfaceRef.current,
-                      ),
-                    })
-                  : undefined
+                const info = await renderFoliateAnnotation(view, {
+                  ...annotation,
+                  color: resolveAnnotationColorValue(color, readerSurfaceRef.current),
+                })
                 if (info) {
                   annotation.index = info.index
                   annotation.label = info.label
@@ -1515,7 +1597,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 setAnnotations((current) =>
                   [...current, annotation].sort((a, b) => a.value.localeCompare(b.value)),
                 )
-                dismissSelectionToolbar(true)
+                scheduleAnnotationRefresh(view, [annotation], annotation.index)
               })()
             }}
             onOpenAnnotationDialog={() => {

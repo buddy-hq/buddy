@@ -22,10 +22,10 @@ export function ReaderAnnotationColorDots({
           type="button"
           aria-label={color.label}
           title={color.label}
-          aria-pressed={selected === color.id}
+          aria-pressed={selected === undefined ? undefined : selected === color.id}
           onClick={() => onSelect(color.id)}
           className={cn(
-            "shrink-0 rounded-full transition-transform hover:scale-110",
+            "shrink-0 rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised-stronger-non-alpha",
             large ? "size-6" : "size-5",
             color.previewClassName,
             selected === color.id &&
