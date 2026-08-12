@@ -12,6 +12,7 @@ import {
   type AppIcon,
 } from "@/icons/app-icons"
 import type { AssistantErrorModel } from "@/state/chat-error-model"
+import { formatChatGptPlan, formatRelativeTime } from "@/state/openai-usage-format"
 import "@/components/prompt/composer-surfaces.css"
 import buddyConfusedUrl from "../../../../../assets/mascot/buddy-mascot-confused.png"
 import buddyHeadsetUrl from "../../../../../assets/mascot/buddy-mascot-headset.png"
@@ -21,7 +22,7 @@ import buddyThinkUrl from "../../../../../assets/mascot/buddy-mascot-think.png"
 export type AssistantErrorActionID =
   | "open-settings"
   | "try-again"
-  | "switch-model"
+  | "stop"
   | "compact-and-continue"
   | "new-session"
   | "dismiss"
@@ -39,7 +40,7 @@ export type AssistantErrorCardSpec = {
   id: string
   headline: string
   detail?: string
-  primary: Action
+  primary?: Action
   secondary?: Action
   schemaName: string
   raw: string
@@ -47,6 +48,16 @@ export type AssistantErrorCardSpec = {
 
 const COPIED_FEEDBACK_MS = 1600
 const REGION_ERROR_TYPE = "RegionError"
+const MILLISECONDS_PER_SECOND = 1_000
+const RESET_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+})
+const RESET_CLOCK_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+})
 
 const MASCOT_BY_POSE = {
   headset: { url: buddyHeadsetUrl, alt: "Buddy wearing a support headset" },
@@ -165,7 +176,9 @@ export function AssistantErrorCard(props: {
           ) : null}
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <TerminalActionButton action={spec.primary} primary onAction={onAction} />
+            {spec.primary ? (
+              <TerminalActionButton action={spec.primary} primary onAction={onAction} />
+            ) : null}
             {spec.secondary ? (
               <TerminalActionButton action={spec.secondary} onAction={onAction} />
             ) : null}
@@ -234,6 +247,37 @@ function schemaName(model: AssistantErrorModel): string {
     : `${model.details.name} · statusCode ${model.details.statusCode}`
 }
 
+function usageLimitPlan(model: AssistantErrorModel) {
+  return formatChatGptPlan(model.details.providerError?.planType)
+}
+
+function usageLimitDetail(model: AssistantErrorModel) {
+  const providerError = model.details.providerError
+  const resetsAt = providerError?.resetsAt
+
+  if (resetsAt !== undefined) {
+    const resetDate = new Date(resetsAt * MILLISECONDS_PER_SECOND)
+    if (Number.isFinite(resetDate.getTime())) {
+      const relativeReset = formatRelativeTime(resetDate.toISOString())
+      const exactReset = `${RESET_DATE_FORMATTER.format(resetDate)}, ${RESET_CLOCK_FORMATTER.format(
+        resetDate,
+      )}`
+      return `Limit resets ${relativeReset} (${exactReset}). Choose a model from another provider or wait for the reset.`
+    }
+  }
+
+  if (providerError?.resetsInSeconds !== undefined) {
+    const resetDate = new Date(
+      Date.now() + providerError.resetsInSeconds * MILLISECONDS_PER_SECOND,
+    )
+    if (Number.isFinite(resetDate.getTime())) {
+      return `Limit resets ${formatRelativeTime(resetDate.toISOString())}. Choose a model from another provider or wait for the reset.`
+    }
+  }
+
+  return "Choose a model from another provider or wait for the reset."
+}
+
 export function createAssistantErrorCardSpec(
   model: AssistantErrorModel,
   providerName?: string,
@@ -258,24 +302,27 @@ export function createAssistantErrorCardSpec(
           label: providerName ? `Reconnect ${providerName}` : "Reconnect provider",
           icon: CogIcon,
         },
-        secondary: { id: "switch-model", label: "Switch model" },
+        secondary: { id: "stop", label: "Stop" },
         ...diagnostic,
       }
-    case "usage-limit":
+    case "usage-limit": {
+      const plan = usageLimitPlan(model)
       return {
         id: "rate_limit",
-        headline: "You've reached this model's usage limit",
-        detail: "Switch models to keep going.",
-        primary: { id: "switch-model", label: "Switch model" },
+        headline: plan
+          ? `ChatGPT ${plan} limit reached`
+          : `${providerName ?? "Account"} limit reached`,
+        detail: usageLimitDetail(model),
         ...diagnostic,
       }
+    }
     case "rate-limit":
       return {
         id: "rate_limit",
         headline: "You've hit the model's rate limit",
         detail: "It's capping requests for the next little while.",
         primary: { id: "try-again", label: "Try again", icon: RefreshCwIcon },
-        secondary: { id: "switch-model", label: "Switch model" },
+        secondary: { id: "stop", label: "Stop" },
         ...diagnostic,
       }
     case "temporarily-unavailable":
@@ -283,7 +330,7 @@ export function createAssistantErrorCardSpec(
         id: "overloaded",
         headline: "This model is temporarily unavailable",
         primary: { id: "try-again", label: "Try again", icon: RefreshCwIcon },
-        secondary: { id: "switch-model", label: "Switch model" },
+        secondary: { id: "stop", label: "Stop" },
         ...diagnostic,
       }
     case "model-unavailable":
@@ -291,7 +338,7 @@ export function createAssistantErrorCardSpec(
         id: "unknown",
         headline: "This model isn't available",
         detail: "Choose another model to keep going.",
-        primary: { id: "switch-model", label: "Switch model" },
+        primary: { id: "stop", label: "Stop" },
         ...diagnostic,
       }
     case "network":
@@ -339,7 +386,7 @@ export function createAssistantErrorCardSpec(
           ? "This model isn't available in your region"
           : "This model isn't available for your account",
         detail: "Choose another model to keep going.",
-        primary: { id: "switch-model", label: "Switch model" },
+        primary: { id: "stop", label: "Stop" },
         ...diagnostic,
       }
     }

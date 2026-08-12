@@ -341,11 +341,6 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     EMPTY_CHAT_LAYOUT_MEASUREMENTS,
   )
   const [dismissedTerminalMessageID, setDismissedTerminalMessageID] = useState<string>()
-  const [modelMenuOpenRequest, setModelMenuOpenRequest] = useState(0)
-  const [pendingModelSwitch, setPendingModelSwitch] = useState<{
-    selectedModel?: string
-  }>()
-  const modelSwitchAbortRef = useRef<Promise<void>>(Promise.resolve())
   const isGameVisible = useGameStore((state) => state.isGameVisible)
   const setGameVisible = useGameStore((state) => state.setGameVisible)
   const setGamePaused = useGameStore((state) => state.setPaused)
@@ -430,35 +425,13 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     attachmentsApiRef.current?.addAttachments(event.dataTransfer.files)
   }
 
-  useEffect(() => {
-    if (!pendingModelSwitch?.selectedModel) return
-    if (pendingModelSwitch.selectedModel !== promptComposerProps.selectedModel) return
-    if (!chatState.sessionID || !onContinueTerminalError) return
-
-    const sessionID = chatState.sessionID
-    setPendingModelSwitch(undefined)
-    void modelSwitchAbortRef.current
-      .then(() => onContinueTerminalError({ sessionID }))
-      .catch(() => undefined)
-  }, [
-    chatState.sessionID,
-    pendingModelSwitch,
-    promptComposerProps.selectedModel,
-    onContinueTerminalError,
-  ])
-
-  const requestModelSwitch = useCallback(() => {
-    if (chatState.isBusy && onStopTurn) {
-      modelSwitchAbortRef.current = Promise.resolve(onStopTurn())
-    } else if (chatState.isBusy) {
-      abortPromptComposer()
-      modelSwitchAbortRef.current = Promise.resolve()
-    } else {
-      modelSwitchAbortRef.current = Promise.resolve()
+  const stopTurn = useCallback(() => {
+    if (onStopTurn) {
+      void onStopTurn()
+      return
     }
-    setPendingModelSwitch({})
-    setModelMenuOpenRequest((current) => current + 1)
-  }, [abortPromptComposer, chatState.isBusy, onStopTurn])
+    abortPromptComposer()
+  }, [abortPromptComposer, onStopTurn])
 
   function handleTerminalAction(action: AssistantErrorActionID) {
     if (!terminalError || !chatState.sessionID) return
@@ -470,8 +443,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       case "try-again":
         void onContinueTerminalError?.({ sessionID: chatState.sessionID })
         return
-      case "switch-model":
-        requestModelSwitch()
+      case "stop":
+        stopTurn()
         return
       case "compact-and-continue":
         void onCompactTerminalError?.({
@@ -496,22 +469,15 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   const handleRetryAction = useCallback(
     (input: { action: RetryActionID; userMessageID: string; link?: string }) => {
       switch (input.action) {
-        case "switch-model":
-          requestModelSwitch()
-          return
         case "stop":
-          if (onStopTurn) {
-            void onStopTurn()
-          } else {
-            abortPromptComposer()
-          }
+          stopTurn()
           return
         case "open-action":
           if (input.link) platform.openLink(input.link)
           return
       }
     },
-    [abortPromptComposer, onStopTurn, platform, requestModelSwitch],
+    [platform, stopTurn],
   )
 
   const handleContinueTruncated = useCallback(() => {
@@ -739,13 +705,6 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               {!chatState.parentSession && (
                 <PromptComposer
                   {...promptComposerProps}
-                  onModelChange={(model) => {
-                    promptComposerProps.onModelChange(model)
-                    setPendingModelSwitch((pending) =>
-                      pending ? { ...pending, selectedModel: model } : pending,
-                    )
-                  }}
-                  modelMenuOpenRequest={modelMenuOpenRequest}
                   attachmentsApiRef={attachmentsApiRef}
                   selectorMode={promptSelectorMode}
                   compact={

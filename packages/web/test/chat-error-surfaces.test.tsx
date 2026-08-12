@@ -66,6 +66,12 @@ describe("locked chat error surfaces", () => {
     await act(async () => tryAgain?.click())
     expect(actions).toEqual(["try-again"])
 
+    const stop = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Stop",
+    )
+    await act(async () => stop?.click())
+    expect(actions).toEqual(["try-again", "stop"])
+
     const details = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent?.trim() === "Details",
     )
@@ -93,7 +99,7 @@ describe("locked chat error surfaces", () => {
       headline: "OpenAI disconnected",
       detail: "Your OpenAI sign-in expired or was revoked.",
       primary: { label: "Reconnect OpenAI" },
-      secondary: { label: "Switch model" },
+      secondary: { id: "stop", label: "Stop" },
     })
   })
 
@@ -115,7 +121,7 @@ describe("locked chat error surfaces", () => {
     expect(spec).toMatchObject({
       headline: "This model is temporarily unavailable",
       primary: { id: "try-again", label: "Try again" },
-      secondary: { id: "switch-model", label: "Switch model" },
+      secondary: { id: "stop", label: "Stop" },
     })
     expect(JSON.stringify(spec)).not.toContain("OpenCode Zen")
     expect(JSON.stringify(spec)).not.toContain("Reconnect")
@@ -123,16 +129,60 @@ describe("locked chat error surfaces", () => {
 
   test("uses the locked copy and actions for new terminal categories", () => {
     expect(
-      createAssistantErrorCardSpec({
+      createAssistantErrorCardSpec(
+        {
+          category: "usage-limit",
+          disposition: "terminal",
+          details: {
+            name: "APIError",
+            providerError: {
+              type: "usage_limit_reached",
+              message: "The usage limit has been reached",
+              planType: "plus",
+              resetsAt: 1_787_087_426,
+              resetsInSeconds: 539_958,
+            },
+          },
+        },
+        "OpenAI",
+      ),
+    ).toMatchObject({
+      headline: "ChatGPT Plus limit reached",
+    })
+    const usageLimitSpec = createAssistantErrorCardSpec(
+      {
         category: "usage-limit",
         disposition: "terminal",
-        details: { name: "APIError" },
-      }),
-    ).toMatchObject({
-      headline: "You've reached this model's usage limit",
-      detail: "Switch models to keep going.",
-      primary: { id: "switch-model", label: "Switch model" },
-    })
+        details: {
+          name: "APIError",
+          providerError: {
+            planType: "plus",
+            resetsAt: 1_787_087_426,
+          },
+        },
+      },
+      "OpenAI",
+    )
+    expect(usageLimitSpec.detail).toContain("Limit resets")
+    expect(usageLimitSpec.detail).toContain("Choose a model from another provider")
+    expect(usageLimitSpec.primary).toBeUndefined()
+
+    const invalidResetDurationSpec = createAssistantErrorCardSpec(
+      {
+        category: "usage-limit",
+        disposition: "terminal",
+        details: {
+          name: "APIError",
+          providerError: {
+            resetsInSeconds: Number.MAX_VALUE,
+          },
+        },
+      },
+      "OpenAI",
+    )
+    expect(invalidResetDurationSpec.detail).toBe(
+      "Choose a model from another provider or wait for the reset.",
+    )
 
     expect(
       createAssistantErrorCardSpec({
@@ -143,7 +193,7 @@ describe("locked chat error surfaces", () => {
     ).toMatchObject({
       headline: "This model isn't available",
       detail: "Choose another model to keep going.",
-      primary: { id: "switch-model", label: "Switch model" },
+      primary: { id: "stop", label: "Stop" },
     })
 
     expect(
@@ -161,7 +211,7 @@ describe("locked chat error surfaces", () => {
     ).toMatchObject({
       headline: "This model isn't available in your region",
       detail: "Choose another model to keep going.",
-      primary: { id: "switch-model", label: "Switch model" },
+      primary: { id: "stop", label: "Stop" },
     })
   })
 
@@ -190,11 +240,11 @@ describe("locked chat error surfaces", () => {
     expect(ticker?.textContent).not.toContain("Trying again in")
     expect(container.textContent).toContain("attempt 5")
 
-    const switchModel = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent?.trim() === "Switch model",
+    const stop = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Stop",
     )
-    await act(async () => switchModel?.click())
-    expect(actions).toEqual(["switch-model"])
+    await act(async () => stop?.click())
+    expect(actions).toEqual(["stop"])
   })
 
   test("renders the structured retry action copy and link label", async () => {
@@ -224,9 +274,15 @@ describe("locked chat error surfaces", () => {
     })
 
     expect(container.textContent).toContain("Go limit reached")
+    expect(container.textContent).toContain("Trying again in")
+    expect(container.textContent).toContain("attempt 1")
     expect(container.textContent).toContain("Enable usage from your available balance to continue.")
     expect(container.textContent).toContain("Open settings")
     expect(container.textContent).not.toContain("free model")
+
+    const ticker = container.querySelector('[role="status"]')
+    expect(ticker?.textContent).toContain("Retry attempt 1.")
+    expect(ticker?.textContent).not.toContain("Trying again in")
 
     const openSettings = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent?.trim() === "Open settings",

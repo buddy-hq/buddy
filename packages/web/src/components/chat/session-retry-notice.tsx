@@ -6,7 +6,7 @@ import "@/components/prompt/composer-surfaces.css"
 
 const RETRY_TICK_INTERVAL_MS = 1000
 
-export type RetryActionID = "switch-model" | "stop" | "open-action"
+export type RetryActionID = "stop" | "open-action"
 
 type RetryStage = "quiet" | "notice" | "persistent"
 
@@ -20,6 +20,7 @@ type RetryContent = {
   headline: string
   sub: string
   announcement: string
+  detail?: string
   actions?: RetryAction[]
 }
 
@@ -51,6 +52,12 @@ const RETRY_COPY_BY_CATEGORY: Record<RetryStateModel["category"], RetryCategoryC
 
 function secondsUntil(next: number) {
   return Math.max(0, Math.round((next - Date.now()) / 1000))
+}
+
+function retryTiming(attempt: number, seconds: number) {
+  return seconds > 0
+    ? `Trying again in ${seconds}s · attempt ${attempt}`
+    : `Retrying now · attempt ${attempt}`
 }
 
 function AmberPulse() {
@@ -106,14 +113,23 @@ function RetrySurface(props: { content: RetryContent; onAction: (action: RetryAc
       <span className="tabular-nums text-text-weak">{content.sub}</span>
     </div>
   )
+  const detail = content.detail ? (
+    <p className="mt-1 text-sm text-text-weak">{content.detail}</p>
+  ) : null
 
   if (actions.length === 0) {
-    return <div className="w-full py-1">{line}</div>
+    return (
+      <div className="w-full py-1">
+        {line}
+        {detail}
+      </div>
+    )
   }
 
   return (
     <div className="composer-surface composer-grain relative w-full overflow-hidden p-3.5">
       {line}
+      {detail}
       <div className="mt-3">
         <RetryActions actions={actions} onAction={props.onAction} />
       </div>
@@ -134,17 +150,9 @@ function RetryNotice(props: {
     <RetrySurface
       content={{
         headline: persistent ? copy.persistent : copy.notice,
-        sub:
-          props.seconds > 0
-            ? `Trying again in ${props.seconds}s · attempt ${props.attempt}`
-            : `Retrying now · attempt ${props.attempt}`,
+        sub: retryTiming(props.attempt, props.seconds),
         announcement: `Retry attempt ${props.attempt}.`,
-        actions: persistent
-          ? [
-              { id: "switch-model", label: "Switch model", primary: true },
-              { id: "stop", label: "Stop" },
-            ]
-          : undefined,
+        actions: persistent ? [{ id: "stop", label: "Stop", primary: true }] : undefined,
       }}
       onAction={props.onAction}
     />
@@ -153,9 +161,11 @@ function RetryNotice(props: {
 
 function RetryActionCard(props: {
   action: StructuredRetryAction
+  attempt: number
+  seconds: number
   onAction: (action: RetryActionID) => void
 }) {
-  const actions: RetryAction[] = [{ id: "switch-model", label: "Switch model", primary: true }]
+  const actions: RetryAction[] = [{ id: "stop", label: "Stop", primary: true }]
   if (props.action.link) {
     actions.push({ id: "open-action", label: props.action.label, icon: ExternalLinkIcon })
   }
@@ -164,8 +174,9 @@ function RetryActionCard(props: {
     <RetrySurface
       content={{
         headline: props.action.title,
-        sub: props.action.message,
-        announcement: props.action.message,
+        sub: retryTiming(props.attempt, props.seconds),
+        announcement: `Retry attempt ${props.attempt}.`,
+        detail: props.action.message,
         actions,
       }}
       onAction={props.onAction}
@@ -194,7 +205,14 @@ export function SessionRetryNotice(props: {
   if (props.model.stage === "quiet") return null
   if (props.model.stage === "actionable") {
     if (!props.model.action) return null
-    return <RetryActionCard action={props.model.action} onAction={props.onAction} />
+    return (
+      <RetryActionCard
+        action={props.model.action}
+        attempt={props.model.attempt}
+        seconds={secondsRemaining}
+        onAction={props.onAction}
+      />
+    )
   }
 
   return (
