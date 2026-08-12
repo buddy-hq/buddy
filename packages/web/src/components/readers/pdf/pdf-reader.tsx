@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -56,8 +57,6 @@ import { ReaderTocPopover } from "../ui/reader-toc-popover"
 import { useReaderRecentLocations } from "../ui/use-reader-recent-locations"
 import {
   DEFAULT_ANNOTATION_COLOR_ID,
-  READER_SELECTION_BACKGROUND,
-  READER_SELECTION_FOREGROUND,
   READER_THEMES,
 } from "../foliate-reader-constants"
 import { getThemeDefinition } from "../utils/foliate-themes"
@@ -81,6 +80,7 @@ import type {
   ReaderSearchResult,
   ReaderSearchRow,
   ReaderSearchViewModel,
+  ReaderSelection,
   ReaderShortcut,
   ReaderSnapshot,
   ReaderSource,
@@ -88,18 +88,29 @@ import type {
 } from "../reader-types"
 import { READER_SEARCH_SCOPE_DOCUMENT } from "../reader-types"
 import {
+  beginPdfWhitespaceSelectionDrag,
   clearPdfSelection,
-  indexPdfAnnotationsByPage,
   isPdfSelectionEventTarget,
   readPdfSelection,
+  updatePdfWhitespaceSelectionDrag,
+  type PdfWhitespaceSelectionDrag,
+} from "./pdf-dom-interactions"
+import {
+  indexPdfAnnotationsByPage,
+  pdfAnnotationAnchor,
+  pdfAnnotationAtPoint,
+  pdfOverlayAnchorEquals,
+  pdfSelectionAnchor,
+  PDF_SELECTION_WASH,
   removePdfAnnotationLayers,
   removePdfSearchLayers,
   removePdfSelectionLayers,
   renderPdfAnnotations,
   renderPdfSearchResult,
   renderPdfSelection,
-  type PdfSelectionAction,
-} from "./pdf-dom-interactions"
+  type PdfAnnotationMarkTarget,
+  type PdfOverlayAnchor,
+} from "./pdf-overlay-layers"
 import { shouldDismissPdfSelectionForRelocation } from "./pdf-reader-state"
 import { createPdfSearchRowBatcher } from "./pdf-search-row-batcher"
 import { shouldShowPdfPageTurnControls } from "./pdf-viewer-mode"
@@ -116,6 +127,7 @@ const PDF_PROGRESS_MAX = 1_000
 const PDF_ORDER_INTEGER_WIDTH = 8
 const PDF_ORDER_FRACTION_DIGITS = 6
 const PDF_DEFAULT_ANNOTATION_STYLE = "highlight" as const
+const PDF_LIVE_SELECTION_CLASS_NAME = "buddy-pdf-live-selection"
 const PDF_SELECTION_LIMIT_MESSAGE =
   "That selection is too large to save reliably. Select a smaller passage and try again."
 
@@ -164,7 +176,23 @@ type PdfHistoryState = {
 type PdfAnnotationEditorState = {
   view: ReaderAnnotationEditorViewModel
   annotationId?: string
-  selection?: PdfSelectionAction
+  selection?: ReaderSelection
+}
+
+/**
+ * A staged selection and an open annotation popover both float above a mark
+ * painted on the page. The anchor is recomputed from those marks whenever the
+ * page moves, and drops to undefined once the mark scrolls off the surface.
+ */
+type PdfSelectionState = {
+  selection: ReaderSelection
+  anchor: PdfOverlayAnchor | undefined
+}
+
+type PdfAnnotationPopoverState = {
+  annotationId: string
+  target: PdfAnnotationMarkTarget
+  anchor: PdfOverlayAnchor | undefined
 }
 
 function isEditingTarget(target: EventTarget | null): boolean {
@@ -297,7 +325,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
   const persistenceSourceRef = useRef<ReaderSource>(source)
   const hydratedRef = useRef(false)
   const stagedSelectionKeyRef = useRef<string | null>(null)
-  const selectionActionRef = useRef<PdfSelectionAction | null>(null)
+  const selectionActionRef = useRef<PdfSelectionState | null>(null)
   const activeSearchResultRef = useRef<ReaderSearchResult | undefined>(undefined)
   const pendingLocationRef = useRef<PdfPositionAnchor | null>(null)
   const searchAbortRef = useRef<AbortController | null>(null)
@@ -338,12 +366,10 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
   )
   const [, setScale] = useState(initialDocumentState.pdfMode?.scale ?? 1)
   const [layoutFallback, setLayoutFallback] = useState<string | null>(null)
-  const [selectionAction, setSelectionAction] = useState<PdfSelectionAction | null>(null)
-  const [annotationPopover, setAnnotationPopover] = useState<{
-    annotationId: string
-    x: number
-    y: number
-  } | null>(null)
+  const [selectionAction, setSelectionAction] = useState<PdfSelectionState | null>(null)
+  const [annotationPopover, setAnnotationPopover] = useState<PdfAnnotationPopoverState | null>(
+    null,
+  )
   const [annotationEditor, setAnnotationEditor] = useState<PdfAnnotationEditorState | null>(null)
   const [search, setSearch] = useState<ReaderSearchViewModel>(emptySearchViewModel)
   const searchRowsBatcher = useMemo(
@@ -383,6 +409,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     () => searchResults(search.rows).find((result) => result.id === search.activeResultId),
     [search.activeResultId, search.rows],
   )
+  const stagedSelection = selectionAction?.selection
   const recentLocations = useReaderRecentLocations({
     sourceKey: source.sourceId,
     relocation: location,
@@ -444,23 +471,39 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     [dismissSelection, removeStagedSelection],
   )
 
-  const renderAnnotations = useCallback(
-    (pageIndex?: number) => {
+  const openAnnotationPopover = useCallback(
+    (target: PdfAnnotationMarkTarget) => {
+      const root = readerSurfaceRef.current
+      if (!root) return
+      dismissSelection(true)
+      setAnnotationPopover({
+        annotationId: target.annotationId,
+        target,
+        anchor: pdfAnnotationAnchor(root, target),
+      })
+    },
+    [dismissSelection],
+  )
+
+  const paintAnnotations = useCallback(
+    (annotationsByPage: ReturnType<typeof indexPdfAnnotationsByPage>, pageIndex?: number) => {
       const root = readerSurfaceRef.current
       const session = sessionRef.current
       if (!root || !session) return
       renderPdfAnnotations({
         root,
         session,
-        annotationsByPage: annotationPageIndexRef.current,
+        annotationsByPage,
         ...(pageIndex !== undefined ? { pageIndex } : {}),
-        onActivate: (activation) => {
-          dismissSelection(true)
-          setAnnotationPopover(activation)
-        },
+        onActivate: openAnnotationPopover,
       })
     },
-    [dismissSelection],
+    [openAnnotationPopover],
+  )
+
+  const renderAnnotations = useCallback(
+    (pageIndex?: number) => paintAnnotations(annotationPageIndexRef.current, pageIndex),
+    [paintAnnotations],
   )
 
   const renderSelection = useCallback((pageIndex?: number) => {
@@ -472,6 +515,26 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       session,
       selection: selectionActionRef.current?.selection,
       ...(pageIndex !== undefined ? { pageIndex } : {}),
+    })
+  }, [])
+
+  /**
+   * Overlays follow the marks they point at. Any repaint of a page — scrolling,
+   * zooming, a re-render — moves those marks, so both anchors are recomputed
+   * from the live DOM instead of from where the page was when they opened.
+   */
+  const refreshOverlayAnchors = useCallback(() => {
+    const root = readerSurfaceRef.current
+    if (!root) return
+    setSelectionAction((current) => {
+      if (!current) return null
+      const anchor = pdfSelectionAnchor(root)
+      return pdfOverlayAnchorEquals(current.anchor, anchor) ? current : { ...current, anchor }
+    })
+    setAnnotationPopover((current) => {
+      if (!current) return null
+      const anchor = pdfAnnotationAnchor(root, current.target)
+      return pdfOverlayAnchorEquals(current.anchor, anchor) ? current : { ...current, anchor }
     })
   }, [])
 
@@ -572,10 +635,19 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     callbacksRef.current.onAnnotationsChange?.(documentState.annotations)
   }, [documentState.annotations])
 
-  useEffect(() => {
-    renderAnnotations()
-    renderSelection()
-  }, [documentState.annotations, mode, renderAnnotations, renderSelection])
+  useLayoutEffect(() => {
+    paintAnnotations(annotationPageIndex)
+    const root = readerSurfaceRef.current
+    const session = sessionRef.current
+    if (root && session) renderPdfSelection({ root, session, selection: stagedSelection })
+    refreshOverlayAnchors()
+  }, [
+    annotationPageIndex,
+    mode,
+    paintAnnotations,
+    refreshOverlayAnchors,
+    stagedSelection,
+  ])
 
   useEffect(() => {
     renderActiveSearchResult()
@@ -703,11 +775,13 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
           renderAnnotations(pageIndex)
           renderSelection(pageIndex)
           renderActiveSearchResult(pageIndex)
+          refreshOverlayAnchors()
         },
         onTextLayerRendered: (pageIndex) => {
           renderAnnotations(pageIndex)
           renderSelection(pageIndex)
           renderActiveSearchResult(pageIndex)
+          refreshOverlayAnchors()
         },
         onPassword: (updatePassword, reason) => {
           if (sessionRef.current !== session) return
@@ -734,52 +808,117 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     sessionRef.current = session
 
     let selectionFrame: number | null = null
-    const handleSelectionPointerDown = (event: PointerEvent) => {
-      if (
-        event.button !== 0 ||
-        !selectionActionRef.current ||
-        !isPdfSelectionEventTarget(event.target, container)
-      ) {
-        return
+    let liveSelectionFrame: number | null = null
+    let overlayAnchorFrame: number | null = null
+    let selectionPointerId: number | undefined
+    let whitespaceSelectionDrag: PdfWhitespaceSelectionDrag | undefined
+    const finishLiveSelection = () => {
+      if (liveSelectionFrame !== null) {
+        cancelAnimationFrame(liveSelectionFrame)
+        liveSelectionFrame = null
       }
+      selectionPointerId = undefined
+    }
+    const clearLiveSelection = () => {
+      finishLiveSelection()
+      root.classList.remove(PDF_LIVE_SELECTION_CLASS_NAME)
+      if (!selectionActionRef.current) removePdfSelectionLayers(root)
+    }
+    const clearStagedSelection = () => {
       removeStagedSelection()
       selectionActionRef.current = null
       setSelectionAction(null)
       removePdfSelectionLayers(root)
     }
-    const handleSelection = () => {
+    const handleSelectionPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || !isPdfSelectionEventTarget(event.target, container)) return
+      selectionPointerId = event.pointerId
+      setAnnotationPopover(null)
+      if (selectionActionRef.current) clearStagedSelection()
+      whitespaceSelectionDrag = beginPdfWhitespaceSelectionDrag({ root, pointer: event })
+      if (whitespaceSelectionDrag) {
+        event.preventDefault()
+        try {
+          container.setPointerCapture(event.pointerId)
+        } catch {
+          // Pointer capture is opportunistic; in-surface moves still keep working.
+        }
+      }
+    }
+    const handleSelectionPointerMove = (event: PointerEvent) => {
+      if (!whitespaceSelectionDrag) return
+      if (
+        updatePdfWhitespaceSelectionDrag({ root, drag: whitespaceSelectionDrag, pointer: event })
+      ) {
+        event.preventDefault()
+      }
+    }
+    const handleLiveSelectionChange = () => {
+      if (selectionPointerId === undefined || liveSelectionFrame !== null) return
+      liveSelectionFrame = requestAnimationFrame(() => {
+        liveSelectionFrame = null
+        if (selectionPointerId === undefined) return
+        const selection = readPdfSelection({ root, session })
+        if (!selection) {
+          root.classList.remove(PDF_LIVE_SELECTION_CLASS_NAME)
+          removePdfSelectionLayers(root)
+          return
+        }
+        renderPdfSelection({ root, session, selection })
+        root.classList.add(PDF_LIVE_SELECTION_CLASS_NAME)
+      })
+    }
+    /**
+     * During a pointer drag the native range drives Buddy's merged marks. On
+     * release it becomes the canonical staged selection and the native range is
+     * dropped, so the handoff to the toolbar and chat is visually continuous. A
+     * press that selected nothing is instead hit-tested against existing marks.
+     */
+    const handleSelection = (point?: { x: number; y: number }) => {
       if (selectionFrame !== null) cancelAnimationFrame(selectionFrame)
       selectionFrame = requestAnimationFrame(() => {
         selectionFrame = null
-        const action = readPdfSelection({
+        const read = readPdfSelection({
           root,
           session,
           onLimitExceeded: () => toast.error(PDF_SELECTION_LIMIT_MESSAGE),
         })
-        if (!action) {
-          removeStagedSelection()
-          selectionActionRef.current = null
-          setSelectionAction(null)
+        if (!read) {
+          root.classList.remove(PDF_LIVE_SELECTION_CLASS_NAME)
           removePdfSelectionLayers(root)
+          clearStagedSelection()
+          const annotationTarget = point ? pdfAnnotationAtPoint(root, point) : undefined
+          if (annotationTarget) openAnnotationPopover(annotationTarget)
           return
         }
-        const selection = {
-          ...action.selection,
-          selectionKey: createReaderRecordId("selection"),
-        }
+        const selection = { ...read, selectionKey: createReaderRecordId("selection") }
         removeStagedSelection()
         stagedSelectionKeyRef.current = selection.selectionKey
-        const nextAction = { ...action, selection }
-        selectionActionRef.current = nextAction
-        setSelectionAction(nextAction)
         renderPdfSelection({ root, session, selection })
         clearPdfSelection(root)
+        root.classList.remove(PDF_LIVE_SELECTION_CLASS_NAME)
+        const nextAction = { selection, anchor: pdfSelectionAnchor(root) }
+        selectionActionRef.current = nextAction
+        setSelectionAction(nextAction)
         callbacksRef.current.onChatSelection?.(selection)
       })
     }
     const handleSelectionPointerUp = (event: PointerEvent) => {
-      if (!isPdfSelectionEventTarget(event.target, container)) return
-      handleSelection()
+      const selectionTarget = isPdfSelectionEventTarget(event.target, container)
+      if (selectionPointerId === event.pointerId) finishLiveSelection()
+      if (whitespaceSelectionDrag?.pointerId === event.pointerId) {
+        updatePdfWhitespaceSelectionDrag({ root, drag: whitespaceSelectionDrag, pointer: event })
+        whitespaceSelectionDrag = undefined
+      } else if (!selectionTarget) {
+        return
+      }
+      handleSelection({ x: event.clientX, y: event.clientY })
+    }
+    const handleSelectionPointerCancel = (event: PointerEvent) => {
+      if (selectionPointerId === event.pointerId) clearLiveSelection()
+      if (whitespaceSelectionDrag?.pointerId === event.pointerId) {
+        whitespaceSelectionDrag = undefined
+      }
     }
     const handleSelectionKeyUp = (event: KeyboardEvent) => {
       if (!isPdfSelectionEventTarget(event.target, container)) return
@@ -787,15 +926,32 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
         handleSelection()
       }
     }
+    const handleViewportScroll = () => {
+      if (overlayAnchorFrame !== null) return
+      overlayAnchorFrame = requestAnimationFrame(() => {
+        overlayAnchorFrame = null
+        refreshOverlayAnchors()
+      })
+    }
     root.addEventListener("pointerdown", handleSelectionPointerDown)
+    root.addEventListener("pointermove", handleSelectionPointerMove)
     root.addEventListener("pointerup", handleSelectionPointerUp)
+    root.addEventListener("pointercancel", handleSelectionPointerCancel)
     root.addEventListener("keyup", handleSelectionKeyUp)
+    root.ownerDocument.addEventListener("selectionchange", handleLiveSelectionChange)
+    container.addEventListener("scroll", handleViewportScroll, { passive: true })
 
     return () => {
       root.removeEventListener("pointerdown", handleSelectionPointerDown)
+      root.removeEventListener("pointermove", handleSelectionPointerMove)
       root.removeEventListener("pointerup", handleSelectionPointerUp)
+      root.removeEventListener("pointercancel", handleSelectionPointerCancel)
       root.removeEventListener("keyup", handleSelectionKeyUp)
+      root.ownerDocument.removeEventListener("selectionchange", handleLiveSelectionChange)
+      container.removeEventListener("scroll", handleViewportScroll)
       if (selectionFrame !== null) cancelAnimationFrame(selectionFrame)
+      clearLiveSelection()
+      if (overlayAnchorFrame !== null) cancelAnimationFrame(overlayAnchorFrame)
       if (locationPersistTimerRef.current) {
         clearTimeout(locationPersistTimerRef.current)
         locationPersistTimerRef.current = null
@@ -825,8 +981,10 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     dismissSelection,
     handleScaleChange,
     initialLocation,
+    openAnnotationPopover,
     persistenceSuffix,
     queueLocationPersistence,
+    refreshOverlayAnchors,
     removeStagedSelection,
     renderAnnotations,
     renderActiveSearchResult,
@@ -921,7 +1079,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     if (!selectionAction) return
     removeStagedSelection()
     setAnnotationEditor({
-      selection: selectionAction,
+      selection: selectionAction.selection,
       view: {
         mode: "create",
         text: selectionAction.selection.text,
@@ -987,8 +1145,8 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     } else if (annotationEditor.selection) {
       const annotation: ReaderAnnotation = {
         id: createReaderRecordId("annotation"),
-        anchor: annotationEditor.selection.selection.anchor,
-        text: annotationEditor.selection.selection.text,
+        anchor: annotationEditor.selection.anchor,
+        text: annotationEditor.selection.text,
         note: annotationEditor.view.note,
         style: annotationEditor.view.style,
         color: annotationEditor.view.color,
@@ -1501,11 +1659,11 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
 
         <ReaderSelectionToolbar
           selectionAction={
-            selectionAction
+            selectionAction?.anchor
               ? {
                   text: selectionAction.selection.text,
-                  x: selectionAction.x,
-                  y: selectionAction.y,
+                  x: selectionAction.anchor.x,
+                  y: selectionAction.anchor.y,
                 }
               : null
           }
@@ -1521,7 +1679,15 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
           }}
         />
         <ReaderAnnotationPopover
-          popover={annotationPopover}
+          popover={
+            annotationPopover?.anchor
+              ? {
+                  annotationId: annotationPopover.annotationId,
+                  x: annotationPopover.anchor.x,
+                  y: annotationPopover.anchor.y,
+                }
+              : null
+          }
           anchorRoot={readerSurfaceRef.current}
           annotations={documentState.annotations}
           onChangeColor={(annotation, color) =>
@@ -1624,12 +1790,24 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
             isolation: isolate;
           }
 
+          /*
+           * The text layer is transparent text laid over the rendered canvas, so a
+           * selection may only tint it. Painting a selection foreground reveals the
+           * substitute glyphs on top of the real ones, which reads as the font
+           * changing mid-drag. Only the glyph spans take the wash: the structural
+           * nodes the text layer parks at the page origin — line breaks, the
+           * end-of-content sentinel — would otherwise paint a stray band down the
+           * left edge of the page.
+           */
           .buddy-pdfjs-scope .textLayer ::selection {
-            background: ${READER_SELECTION_BACKGROUND};
-            color: ${READER_SELECTION_FOREGROUND};
+            background: transparent;
           }
 
-          .buddy-pdfjs-scope .textLayer .endOfContent::selection {
+          .buddy-pdfjs-scope .textLayer span::selection {
+            background: ${PDF_SELECTION_WASH};
+          }
+
+          .${PDF_LIVE_SELECTION_CLASS_NAME} .textLayer span::selection {
             background: transparent;
           }
 

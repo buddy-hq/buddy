@@ -6,43 +6,54 @@ import {
   readerTextAnchorKey,
   type PdfTextAnchor,
 } from "@buddy/reader-contract"
-import { ANNOTATION_COLOR_TOKENS, READER_SELECTION_BACKGROUND } from "../foliate-reader-constants"
-import type { ReaderAnnotation, ReaderSearchResult, ReaderSelection } from "../reader-types"
-import {
-  pdfQuadFromClientRect,
-  viewportBoundsFromPdfQuad,
-  type PdfPageViewGeometry,
-  type RectCoordinates,
-} from "./pdf-geometry"
-import type { PdfViewerSession } from "./pdf-viewer-session"
+import type { ReaderSelection } from "../reader-types"
+import { pdfQuadFromClientRect, type PdfPageGeometryProvider } from "./pdf-geometry"
+import { collectRangeTextRects, rectCoordinates } from "./pdf-text-rects"
 
 const PDF_PAGE_NUMBER_OFFSET = 1
 const PDF_QUOTE_CONTEXT_LENGTH = 96
-const PDF_ANNOTATION_LAYER_CLASS_NAME = "buddy-pdf-annotation-layer"
-const PDF_ANNOTATION_MARK_CLASS_NAME = "buddy-pdf-annotation-mark"
-const PDF_SELECTION_LAYER_CLASS_NAME = "buddy-pdf-selection-layer"
-const PDF_SELECTION_MARK_CLASS_NAME = "buddy-pdf-selection-mark"
-const PDF_SEARCH_LAYER_CLASS_NAME = "buddy-pdf-search-layer"
-const PDF_SEARCH_MARK_CLASS_NAME = "buddy-pdf-search-mark"
-const PDF_ANNOTATION_LAYER_Z_INDEX = "4"
-const PDF_SELECTION_LAYER_Z_INDEX = "5"
-const PDF_SEARCH_LAYER_Z_INDEX = "6"
-const PDF_SELECTION_MARK_OPACITY = "0.34"
-const PDF_SEARCH_MARK_OPACITY = "0.52"
+const PDF_PAGE_SELECTOR = ".pdfViewer .page[data-page-number]"
+const PDF_TEXT_LAYER_SELECTOR = ".textLayer"
+const PDF_INTERACTIVE_TARGET_SELECTOR = [
+  "a[href]",
+  "button",
+  "input",
+  "label",
+  "select",
+  "textarea",
+  "summary",
+  "[contenteditable]:not([contenteditable='false'])",
+  "[role='button']",
+  "[role='link']",
+  "[role='checkbox']",
+  "[role='radio']",
+  "[role='switch']",
+  "[role='textbox']",
+  "[role='combobox']",
+  "[role='listbox']",
+  "[role='slider']",
+].join(",")
 
-type PdfPageGeometryProvider = Pick<PdfViewerSession, "getPageGeometry"> &
-  Partial<Pick<PdfViewerSession, "getPageLabel" | "getTocLabel">>
-
-export type PdfSelectionAction = {
-  selection: ReaderSelection
+type PdfClientPoint = {
   x: number
   y: number
 }
 
-export type PdfAnnotationActivation = {
-  annotationId: string
-  x: number
-  y: number
+type PdfTextCaret = {
+  node: Text
+  offset: number
+}
+
+export type PdfWhitespaceSelectionDrag = {
+  pointerId: number
+  anchor: PdfTextCaret | undefined
+}
+
+type PdfSelectionPointer = {
+  target: EventTarget | null
+  pointerId: number
+  clientX: number
+  clientY: number
 }
 
 export function isPdfSelectionEventTarget(
@@ -52,13 +63,120 @@ export function isPdfSelectionEventTarget(
   return target instanceof Node && viewerContainer.contains(target)
 }
 
-function rectCoordinates(rect: DOMRect | DOMRectReadOnly): RectCoordinates {
-  return {
-    left: rect.left,
-    top: rect.top,
-    right: rect.right,
-    bottom: rect.bottom,
+function textNodeAtBoundary(node: Node, offset: number): PdfTextCaret | undefined {
+  if (node instanceof Text) {
+    return { node, offset: Math.min(Math.max(offset, 0), node.length) }
   }
+  const after = node.childNodes.item(offset)
+  const before = offset > 0 ? node.childNodes.item(offset - 1) : null
+  const walkerRoot = after ?? before
+  if (!walkerRoot) return undefined
+  const walker = node.ownerDocument?.createTreeWalker(walkerRoot, NodeFilter.SHOW_TEXT)
+  const text = walkerRoot instanceof Text ? walkerRoot : walker?.nextNode()
+  if (!(text instanceof Text)) return undefined
+  return { node: text, offset: after ? 0 : text.length }
+}
+
+function caretFromPoint(document: Document, point: PdfClientPoint): PdfTextCaret | undefined {
+  const caretPositionFromPoint: unknown = Reflect.get(document, "caretPositionFromPoint")
+  if (typeof caretPositionFromPoint === "function") {
+    const position: unknown = Reflect.apply(caretPositionFromPoint, document, [point.x, point.y])
+    if (typeof position === "object" && position !== null) {
+      const offsetNode: unknown = Reflect.get(position, "offsetNode")
+      const offset: unknown = Reflect.get(position, "offset")
+      if (offsetNode instanceof Node && typeof offset === "number") {
+        return textNodeAtBoundary(offsetNode, offset)
+      }
+    }
+  }
+
+  const caretRangeFromPoint: unknown = Reflect.get(document, "caretRangeFromPoint")
+  if (typeof caretRangeFromPoint !== "function") return undefined
+  const range: unknown = Reflect.apply(caretRangeFromPoint, document, [point.x, point.y])
+  if (!(range instanceof Range)) return undefined
+  return textNodeAtBoundary(range.startContainer, range.startOffset)
+}
+
+function textNodeContainsPoint(node: Text, point: PdfClientPoint): boolean {
+  const range = node.ownerDocument.createRange()
+  range.selectNodeContents(node)
+  try {
+    return Array.from(range.getClientRects()).some(
+      (rect) =>
+        rect.width > 0 &&
+        rect.height > 0 &&
+        point.x >= rect.left &&
+        point.x <= rect.right &&
+        point.y >= rect.top &&
+        point.y <= rect.bottom,
+    )
+  } finally {
+    range.detach()
+  }
+}
+
+function pdfTextCaretAtPoint(root: HTMLElement, point: PdfClientPoint): PdfTextCaret | undefined {
+  const caret = caretFromPoint(root.ownerDocument, point)
+  if (
+    !caret ||
+    !root.contains(caret.node) ||
+    !caret.node.parentElement?.closest(PDF_TEXT_LAYER_SELECTOR)
+  ) {
+    return undefined
+  }
+  return textNodeContainsPoint(caret.node, point) ? caret : undefined
+}
+
+function pdfPageForTarget(root: HTMLElement, target: EventTarget | null): HTMLElement | undefined {
+  const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null
+  const page = element?.closest<HTMLElement>(PDF_PAGE_SELECTOR)
+  return page && root.contains(page) ? page : undefined
+}
+
+function isPdfInteractiveTarget(target: EventTarget | null, page: HTMLElement): boolean {
+  const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null
+  const interactive = element?.closest(PDF_INTERACTIVE_TARGET_SELECTOR)
+  return Boolean(interactive && page.contains(interactive))
+}
+
+/**
+ * Native browser selection has no anchor when a drag starts on blank canvas.
+ * Track that gesture only for whitespace inside a rendered PDF page; once it
+ * crosses real text, the first intercepted caret becomes the selection anchor.
+ */
+export function beginPdfWhitespaceSelectionDrag(input: {
+  root: HTMLElement
+  pointer: PdfSelectionPointer
+}): PdfWhitespaceSelectionDrag | undefined {
+  const point = { x: input.pointer.clientX, y: input.pointer.clientY }
+  const page = pdfPageForTarget(input.root, input.pointer.target)
+  if (!page || isPdfInteractiveTarget(input.pointer.target, page)) return undefined
+  if (pdfTextCaretAtPoint(input.root, point)) return undefined
+  return { pointerId: input.pointer.pointerId, anchor: undefined }
+}
+
+/** Extends a whitespace-origin drag once it intersects PDF text. */
+export function updatePdfWhitespaceSelectionDrag(input: {
+  root: HTMLElement
+  drag: PdfWhitespaceSelectionDrag
+  pointer: PdfSelectionPointer
+}): boolean {
+  if (input.pointer.pointerId !== input.drag.pointerId) return false
+  const focus = pdfTextCaretAtPoint(input.root, {
+    x: input.pointer.clientX,
+    y: input.pointer.clientY,
+  })
+  if (!focus) return false
+  input.drag.anchor ??= focus
+  const selection = input.root.ownerDocument.getSelection()
+  if (!selection) return false
+  selection.setBaseAndExtent(
+    input.drag.anchor.node,
+    input.drag.anchor.offset,
+    focus.node,
+    focus.offset,
+  )
+  return true
 }
 
 function rangeIntersection(range: Range, element: HTMLElement): Range | undefined {
@@ -90,26 +208,6 @@ function selectionBelongsToRoot(selection: Selection, root: HTMLElement): boolea
   const anchorNode = selection.anchorNode
   const focusNode = selection.focusNode
   return Boolean(anchorNode && focusNode && root.contains(anchorNode) && root.contains(focusNode))
-}
-
-function selectionToolbarBounds(range: Range): DOMRect | undefined {
-  const rects = Array.from(range.getClientRects()).filter(
-    (rect) => rect.width > 0 && rect.height > 0,
-  )
-  if (rects.length === 0) return undefined
-
-  const firstRect = rects.reduce((first, rect) => {
-    if (rect.top < first.top) return rect
-    return rect.top === first.top && rect.left < first.left ? rect : first
-  })
-  const firstLineRects = rects.filter(
-    (rect) => rect.top < firstRect.bottom && rect.bottom > firstRect.top,
-  )
-  const left = Math.min(...firstLineRects.map((rect) => rect.left))
-  const top = Math.min(...firstLineRects.map((rect) => rect.top))
-  const right = Math.max(...firstLineRects.map((rect) => rect.right))
-  const bottom = Math.max(...firstLineRects.map((rect) => rect.bottom))
-  return DOMRect.fromRect({ x: left, y: top, width: right - left, height: bottom - top })
 }
 
 function segmentOffsets(
@@ -188,11 +286,16 @@ function quoteContext(input: {
   }
 }
 
+/**
+ * Turns the live DOM selection into the canonical PDF anchor Buddy persists and
+ * repaints. Geometry comes from the selected text nodes only, merged per line,
+ * so the structural boxes PDF.js parks at the page origin never reach the anchor.
+ */
 export function readPdfSelection(input: {
   root: HTMLElement
   session: PdfPageGeometryProvider
   onLimitExceeded?: () => void
-}): PdfSelectionAction | undefined {
+}): ReaderSelection | undefined {
   const selection = input.root.ownerDocument.getSelection()
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) return undefined
   if (!selectionBelongsToRoot(selection, input.root)) return undefined
@@ -203,8 +306,6 @@ export function readPdfSelection(input: {
     return undefined
   }
   const range = selection.getRangeAt(0)
-  const bounds = selectionToolbarBounds(range)
-  if (!bounds) return undefined
 
   const segments: PdfTextAnchor["segments"] = []
   const segmentTextDetails: Array<{
@@ -227,11 +328,10 @@ export function readPdfSelection(input: {
     if (!pageRange) continue
     try {
       const textLayerBounds = rectCoordinates(geometry.textLayerDiv.getBoundingClientRect())
-      const quads = Array.from(pageRange.getClientRects())
-        .filter((rect) => rect.width > 0 && rect.height > 0)
+      const quads = collectRangeTextRects(pageRange, geometry.textLayerDiv)
         .map((rect) =>
           pdfQuadFromClientRect(
-            rectCoordinates(rect),
+            rect,
             textLayerBounds,
             geometry.viewport,
             geometry.cropBoxOrigin,
@@ -283,440 +383,16 @@ export function readPdfSelection(input: {
       ? firstPageLabel
       : `${firstPageLabel}–${input.session.getPageLabel?.(lastPageIndex) ?? String(lastPageIndex + PDF_PAGE_NUMBER_OFFSET)}`
   const tocLabel = input.session.getTocLabel?.(firstPageIndex)
-  const rootBounds = input.root.getBoundingClientRect()
   return {
-    selection: {
-      text,
-      anchor: validatedAnchor,
-      selectionKey: readerTextAnchorKey(validatedAnchor),
-      ...(tocLabel ? { tocLabel } : {}),
-      pageLabel,
-    },
-    x: bounds.left + bounds.width / 2 - rootBounds.left,
-    y: bounds.top - rootBounds.top,
-  }
-}
-
-function annotationStyle(annotation: ReaderAnnotation): Partial<CSSStyleDeclaration> {
-  const color = `var(${ANNOTATION_COLOR_TOKENS[annotation.color]})`
-  if (annotation.style === "underline") {
-    return { borderBottom: `2px solid ${color}` }
-  }
-  if (annotation.style === "squiggly") {
-    return {
-      backgroundImage: `linear-gradient(135deg, transparent 45%, ${color} 45%, ${color} 55%, transparent 55%), linear-gradient(45deg, transparent 45%, ${color} 45%, ${color} 55%, transparent 55%)`,
-      backgroundPosition: "0 100%, 3px 100%",
-      backgroundRepeat: "repeat-x",
-      backgroundSize: "6px 4px",
-    }
-  }
-  if (annotation.style === "strikethrough") {
-    return {
-      backgroundImage: `linear-gradient(to bottom, transparent 47%, ${color} 47%, ${color} 55%, transparent 55%)`,
-    }
-  }
-  return { backgroundColor: color, opacity: "0.34" }
-}
-
-function ensureAnnotationLayer(geometry: PdfPageViewGeometry): HTMLDivElement {
-  const existing = geometry.div.querySelector<HTMLDivElement>(
-    `:scope > .${PDF_ANNOTATION_LAYER_CLASS_NAME}`,
-  )
-  if (existing) {
-    existing.replaceChildren()
-    return existing
-  }
-  const layer = geometry.div.ownerDocument.createElement("div")
-  layer.className = PDF_ANNOTATION_LAYER_CLASS_NAME
-  layer.setAttribute("aria-label", "Reader annotations")
-  Object.assign(layer.style, {
-    position: "absolute",
-    inset: "0",
-    overflow: "hidden",
-    pointerEvents: "none",
-    zIndex: PDF_ANNOTATION_LAYER_Z_INDEX,
-  })
-  geometry.div.append(layer)
-  return layer
-}
-
-function ensureSelectionLayer(geometry: PdfPageViewGeometry): HTMLDivElement {
-  const existing = geometry.div.querySelector<HTMLDivElement>(
-    `:scope > .${PDF_SELECTION_LAYER_CLASS_NAME}`,
-  )
-  if (existing) {
-    existing.replaceChildren()
-    return existing
-  }
-  const layer = geometry.div.ownerDocument.createElement("div")
-  layer.className = PDF_SELECTION_LAYER_CLASS_NAME
-  layer.setAttribute("aria-hidden", "true")
-  Object.assign(layer.style, {
-    position: "absolute",
-    inset: "0",
-    overflow: "hidden",
-    pointerEvents: "none",
-    userSelect: "none",
-    zIndex: PDF_SELECTION_LAYER_Z_INDEX,
-  })
-  geometry.div.append(layer)
-  return layer
-}
-
-function ensureSearchLayer(geometry: PdfPageViewGeometry): HTMLDivElement {
-  const existing = geometry.div.querySelector<HTMLDivElement>(
-    `:scope > .${PDF_SEARCH_LAYER_CLASS_NAME}`,
-  )
-  if (existing) {
-    existing.replaceChildren()
-    return existing
-  }
-  const layer = geometry.div.ownerDocument.createElement("div")
-  layer.className = PDF_SEARCH_LAYER_CLASS_NAME
-  layer.setAttribute("aria-hidden", "true")
-  Object.assign(layer.style, {
-    position: "absolute",
-    inset: "0",
-    overflow: "hidden",
-    pointerEvents: "none",
-    userSelect: "none",
-    zIndex: PDF_SEARCH_LAYER_Z_INDEX,
-  })
-  geometry.div.append(layer)
-  return layer
-}
-
-function layerOffset(
-  geometry: PdfPageViewGeometry,
-  layer: HTMLDivElement,
-): { left: number; top: number } {
-  const textBounds = geometry.textLayerDiv.getBoundingClientRect()
-  const layerBounds = layer.getBoundingClientRect()
-  return {
-    left: textBounds.left - layerBounds.left,
-    top: textBounds.top - layerBounds.top,
-  }
-}
-
-function annotationMark(input: {
-  annotation: ReaderAnnotation
-  geometry: PdfPageViewGeometry
-  bounds: { left: number; top: number; width: number; height: number }
-  layerOffset: { left: number; top: number }
-  layer: HTMLDivElement
-  first: boolean
-  root: HTMLElement
-  onActivate: (activation: PdfAnnotationActivation) => void
-}): HTMLElement {
-  let mark: HTMLElement
-  if (input.first) {
-    const button = input.layer.ownerDocument.createElement("button")
-    button.type = "button"
-    button.setAttribute(
-      "aria-label",
-      input.annotation.note.trim()
-        ? `Annotation with note: ${input.annotation.text}`
-        : `Annotation: ${input.annotation.text}`,
-    )
-    mark = button
-  } else {
-    const continuation = input.layer.ownerDocument.createElement("span")
-    continuation.setAttribute("aria-hidden", "true")
-    mark = continuation
-  }
-  mark.className = PDF_ANNOTATION_MARK_CLASS_NAME
-  mark.dataset.annotationId = input.annotation.id
-  Object.assign(mark.style, {
-    position: "absolute",
-    left: `${input.layerOffset.left + input.bounds.left}px`,
-    top: `${input.layerOffset.top + input.bounds.top}px`,
-    width: `${input.bounds.width}px`,
-    height: `${input.bounds.height}px`,
-    padding: "0",
-    border: "0",
-    appearance: "none",
-    backgroundColor: "transparent",
-    cursor: "pointer",
-    pointerEvents: "auto",
-    ...annotationStyle(input.annotation),
-  })
-  if (input.first && input.annotation.note.trim()) {
-    mark.style.boxShadow = `inset 3px 0 0 var(${ANNOTATION_COLOR_TOKENS[input.annotation.color]})`
-  }
-  mark.addEventListener("click", (event) => {
-    event.preventDefault()
-    event.stopPropagation()
-    const markBounds = mark.getBoundingClientRect()
-    const rootBounds = input.root.getBoundingClientRect()
-    input.onActivate({
-      annotationId: input.annotation.id,
-      x: markBounds.left + markBounds.width / 2 - rootBounds.left,
-      y: markBounds.top - rootBounds.top,
-    })
-  })
-  return mark
-}
-
-export type PdfAnnotationsByPage = ReadonlyMap<number, readonly ReaderAnnotation[]>
-
-export function indexPdfAnnotationsByPage(
-  annotations: readonly ReaderAnnotation[],
-): PdfAnnotationsByPage {
-  const annotationsByPage = new Map<number, ReaderAnnotation[]>()
-  const annotationIdsByPage = new Map<number, Set<string>>()
-  for (const annotation of annotations) {
-    if (annotation.anchor.kind !== "pdf-text") continue
-    for (const segment of annotation.anchor.segments) {
-      const existingIds = annotationIdsByPage.get(segment.pageIndex) ?? new Set<string>()
-      if (existingIds.has(annotation.id)) continue
-      existingIds.add(annotation.id)
-      annotationIdsByPage.set(segment.pageIndex, existingIds)
-      const entries = annotationsByPage.get(segment.pageIndex) ?? []
-      entries.push(annotation)
-      annotationsByPage.set(segment.pageIndex, entries)
-    }
-  }
-  return annotationsByPage
-}
-
-function renderPdfAnnotationPage(input: {
-  root: HTMLElement
-  session: PdfPageGeometryProvider
-  pageIndex: number
-  annotations: readonly ReaderAnnotation[]
-  onActivate: (activation: PdfAnnotationActivation) => void
-}): void {
-  const geometry = input.session.getPageGeometry(input.pageIndex)
-  if (!geometry) return
-  const existingLayer = geometry.div.querySelector<HTMLDivElement>(
-    `:scope > .${PDF_ANNOTATION_LAYER_CLASS_NAME}`,
-  )
-  if (input.annotations.length === 0) {
-    existingLayer?.replaceChildren()
-    return
-  }
-  const layer = ensureAnnotationLayer(geometry)
-  const offset = layerOffset(geometry, layer)
-  for (const annotation of input.annotations) {
-    if (annotation.anchor.kind !== "pdf-text") continue
-    let first = true
-    for (const segment of annotation.anchor.segments) {
-      if (segment.pageIndex !== input.pageIndex) continue
-      for (const quad of segment.quads) {
-        const bounds = viewportBoundsFromPdfQuad(quad, geometry.viewport, geometry.cropBoxOrigin)
-        if (!bounds || bounds.width <= 0 || bounds.height <= 0) continue
-        layer.append(
-          annotationMark({
-            annotation,
-            geometry,
-            bounds,
-            layerOffset: offset,
-            layer,
-            first,
-            root: input.root,
-            onActivate: input.onActivate,
-          }),
-        )
-        first = false
-      }
-    }
-  }
-}
-
-function renderPdfSelectionPage(input: {
-  session: PdfPageGeometryProvider
-  pageIndex: number
-  selection: ReaderSelection
-}): void {
-  const geometry = input.session.getPageGeometry(input.pageIndex)
-  if (!geometry || input.selection.anchor.kind !== "pdf-text") return
-  const existingLayer = geometry.div.querySelector<HTMLDivElement>(
-    `:scope > .${PDF_SELECTION_LAYER_CLASS_NAME}`,
-  )
-  const segments = input.selection.anchor.segments.filter(
-    (segment) => segment.pageIndex === input.pageIndex,
-  )
-  if (segments.length === 0) {
-    existingLayer?.remove()
-    return
-  }
-
-  const layer = ensureSelectionLayer(geometry)
-  const offset = layerOffset(geometry, layer)
-  for (const segment of segments) {
-    for (const quad of segment.quads) {
-      const bounds = viewportBoundsFromPdfQuad(quad, geometry.viewport, geometry.cropBoxOrigin)
-      if (!bounds || bounds.width <= 0 || bounds.height <= 0) continue
-      const mark = layer.ownerDocument.createElement("div")
-      mark.className = PDF_SELECTION_MARK_CLASS_NAME
-      Object.assign(mark.style, {
-        position: "absolute",
-        left: `${offset.left + bounds.left}px`,
-        top: `${offset.top + bounds.top}px`,
-        width: `${bounds.width}px`,
-        height: `${bounds.height}px`,
-        backgroundColor: READER_SELECTION_BACKGROUND,
-        opacity: PDF_SELECTION_MARK_OPACITY,
-        pointerEvents: "none",
-      })
-      layer.append(mark)
-    }
-  }
-}
-
-function renderPdfSearchResultPage(input: {
-  session: PdfPageGeometryProvider
-  pageIndex: number
-  result: ReaderSearchResult
-}): void {
-  const geometry = input.session.getPageGeometry(input.pageIndex)
-  if (!geometry || input.result.anchor.kind !== "pdf-text") return
-  const existingLayer = geometry.div.querySelector<HTMLDivElement>(
-    `:scope > .${PDF_SEARCH_LAYER_CLASS_NAME}`,
-  )
-  const segments = input.result.anchor.segments.filter(
-    (segment) => segment.pageIndex === input.pageIndex,
-  )
-  if (segments.length === 0) {
-    existingLayer?.remove()
-    return
-  }
-
-  const layer = ensureSearchLayer(geometry)
-  const offset = layerOffset(geometry, layer)
-  for (const segment of segments) {
-    for (const quad of segment.quads) {
-      const bounds = viewportBoundsFromPdfQuad(quad, geometry.viewport, geometry.cropBoxOrigin)
-      if (!bounds || bounds.width <= 0 || bounds.height <= 0) continue
-      const mark = layer.ownerDocument.createElement("div")
-      mark.className = PDF_SEARCH_MARK_CLASS_NAME
-      Object.assign(mark.style, {
-        position: "absolute",
-        left: `${offset.left + bounds.left}px`,
-        top: `${offset.top + bounds.top}px`,
-        width: `${bounds.width}px`,
-        height: `${bounds.height}px`,
-        backgroundColor: "var(--surface-warning-base)",
-        opacity: PDF_SEARCH_MARK_OPACITY,
-        pointerEvents: "none",
-      })
-      layer.append(mark)
-    }
-  }
-}
-
-export function renderPdfSelection(input: {
-  root: HTMLElement
-  session: PdfPageGeometryProvider
-  selection: ReaderSelection | undefined
-  pageIndex?: number
-}): void {
-  if (!input.selection || input.selection.anchor.kind !== "pdf-text") {
-    input.root
-      .querySelectorAll<HTMLElement>(`.${PDF_SELECTION_LAYER_CLASS_NAME}`)
-      .forEach((layer) => layer.remove())
-    return
-  }
-
-  if (input.pageIndex !== undefined) {
-    renderPdfSelectionPage({
-      session: input.session,
-      pageIndex: input.pageIndex,
-      selection: input.selection,
-    })
-    return
-  }
-
-  input.root
-    .querySelectorAll<HTMLElement>(`.${PDF_SELECTION_LAYER_CLASS_NAME}`)
-    .forEach((layer) => layer.remove())
-  const pageIndexes = new Set(input.selection.anchor.segments.map((segment) => segment.pageIndex))
-  for (const pageIndex of pageIndexes) {
-    renderPdfSelectionPage({ session: input.session, pageIndex, selection: input.selection })
-  }
-}
-
-export function renderPdfSearchResult(input: {
-  root: HTMLElement
-  session: PdfPageGeometryProvider
-  result: ReaderSearchResult | undefined
-  pageIndex?: number
-}): void {
-  if (!input.result || input.result.anchor.kind !== "pdf-text") {
-    removePdfSearchLayers(input.root)
-    return
-  }
-
-  if (input.pageIndex !== undefined) {
-    renderPdfSearchResultPage({
-      session: input.session,
-      pageIndex: input.pageIndex,
-      result: input.result,
-    })
-    return
-  }
-
-  removePdfSearchLayers(input.root)
-  const pageIndexes = new Set(input.result.anchor.segments.map((segment) => segment.pageIndex))
-  for (const pageIndex of pageIndexes) {
-    renderPdfSearchResultPage({
-      session: input.session,
-      pageIndex,
-      result: input.result,
-    })
-  }
-}
-
-export function renderPdfAnnotations(input: {
-  root: HTMLElement
-  session: PdfPageGeometryProvider
-  annotationsByPage: PdfAnnotationsByPage
-  pageIndex?: number
-  onActivate: (activation: PdfAnnotationActivation) => void
-}): void {
-  if (input.pageIndex !== undefined) {
-    renderPdfAnnotationPage({
-      root: input.root,
-      session: input.session,
-      pageIndex: input.pageIndex,
-      annotations: input.annotationsByPage.get(input.pageIndex) ?? [],
-      onActivate: input.onActivate,
-    })
-    return
-  }
-  input.root
-    .querySelectorAll<HTMLElement>(`.${PDF_ANNOTATION_LAYER_CLASS_NAME}`)
-    .forEach((layer) => layer.replaceChildren())
-  for (const [pageIndex, annotations] of input.annotationsByPage) {
-    renderPdfAnnotationPage({
-      root: input.root,
-      session: input.session,
-      pageIndex,
-      annotations,
-      onActivate: input.onActivate,
-    })
+    text,
+    anchor: validatedAnchor,
+    selectionKey: readerTextAnchorKey(validatedAnchor),
+    ...(tocLabel ? { tocLabel } : {}),
+    pageLabel,
   }
 }
 
 export function clearPdfSelection(root: HTMLElement): void {
   const selection = root.ownerDocument.getSelection()
   if (selection && selectionBelongsToRoot(selection, root)) selection.removeAllRanges()
-}
-
-export function removePdfAnnotationLayers(root: HTMLElement): void {
-  root
-    .querySelectorAll<HTMLElement>(`.${PDF_ANNOTATION_LAYER_CLASS_NAME}`)
-    .forEach((layer) => layer.remove())
-}
-
-export function removePdfSelectionLayers(root: HTMLElement): void {
-  root
-    .querySelectorAll<HTMLElement>(`.${PDF_SELECTION_LAYER_CLASS_NAME}`)
-    .forEach((layer) => layer.remove())
-}
-
-export function removePdfSearchLayers(root: HTMLElement): void {
-  root
-    .querySelectorAll<HTMLElement>(`.${PDF_SEARCH_LAYER_CLASS_NAME}`)
-    .forEach((layer) => layer.remove())
 }

@@ -25,13 +25,16 @@ describe("PDF reader relocation state", () => {
     ).toBe(false)
   })
 
-  test("dismisses a selection after scrolling or changing pages", () => {
+  test("keeps a selection while scrolling within its page", () => {
     expect(
       shouldDismissPdfSelectionForRelocation(CURRENT_LOCATION, {
         ...CURRENT_LOCATION,
         anchor: { ...CURRENT_ANCHOR, yRatio: 0.5 },
       }),
-    ).toBe(true)
+    ).toBe(false)
+  })
+
+  test("dismisses a selection after changing pages", () => {
     expect(
       shouldDismissPdfSelectionForRelocation(CURRENT_LOCATION, {
         ...CURRENT_LOCATION,

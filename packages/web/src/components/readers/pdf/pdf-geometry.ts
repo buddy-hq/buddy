@@ -34,6 +34,13 @@ export type PdfPageViewGeometry = {
   cropBoxOrigin: PdfCropBoxOrigin
 }
 
+/** The slice of the viewer session that selection and overlay rendering need. */
+export type PdfPageGeometryProvider = {
+  getPageGeometry: (pageIndex: number) => PdfPageViewGeometry | undefined
+  getPageLabel?: (pageIndex: number) => string
+  getTocLabel?: (pageIndex: number) => string | undefined
+}
+
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }

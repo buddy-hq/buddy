@@ -1,22 +1,17 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { MAX_PDF_QUOTE_LENGTH, type PdfQuad } from "@buddy/reader-contract"
-import { READER_SELECTION_BACKGROUND } from "../src/components/readers/foliate-reader-constants"
+import { MAX_PDF_QUOTE_LENGTH } from "@buddy/reader-contract"
 import {
+  beginPdfWhitespaceSelectionDrag,
   isPdfSelectionEventTarget,
   readPdfSelection,
-  renderPdfAnnotations,
-  renderPdfSearchResult,
-  renderPdfSelection,
+  updatePdfWhitespaceSelectionDrag,
 } from "../src/components/readers/pdf/pdf-dom-interactions"
 import type { PdfPageViewGeometry } from "../src/components/readers/pdf/pdf-geometry"
-import type {
-  ReaderAnnotation,
-  ReaderSearchResult,
-  ReaderSelection,
-} from "../src/components/readers/reader-types"
 
 const PAGE_INDEX = 0
 const PAGE_NUMBER = "1"
+const TEXT_LAYER_LEFT = 100
+const TEXT_LAYER_TOP = 50
 
 function rect(x: number, y: number, width: number, height: number): DOMRect {
   return DOMRect.fromRect({ x, y, width, height })
@@ -57,7 +52,47 @@ function createPage(): {
   viewer.append(page)
   root.append(viewer)
   document.body.append(root)
+  Object.defineProperty(root, "getBoundingClientRect", {
+    value: () => rect(20, 10, 240, 340),
+  })
+  Object.defineProperty(textLayer, "getBoundingClientRect", {
+    value: () => rect(TEXT_LAYER_LEFT, TEXT_LAYER_TOP, 200, 300),
+  })
   return { root, page, textLayer }
+}
+
+function selectRange(configure: (range: Range) => void): void {
+  const range = document.createRange()
+  configure(range)
+  const selection = document.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+}
+
+/**
+ * PDF.js reports rects for structural nodes too, so the stub answers element
+ * ranges (the whole text layer) with the boxes a real page would report for its
+ * `<br>` sentinels, and text ranges with the boxes of their own glyphs.
+ */
+function stubClientRects(input: {
+  structural: DOMRect[]
+  byText: Record<string, DOMRect[]>
+}): () => void {
+  const original = Range.prototype.getClientRects
+  Object.defineProperty(Range.prototype, "getClientRects", {
+    configurable: true,
+    value: function getClientRects(this: Range) {
+      const container = this.startContainer
+      if (container instanceof Text) return input.byText[container.data] ?? []
+      return input.structural
+    },
+  })
+  return () => {
+    Object.defineProperty(Range.prototype, "getClientRects", {
+      configurable: true,
+      value: original,
+    })
+  }
 }
 
 afterEach(() => {
@@ -65,7 +100,7 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-describe("PDF DOM interactions", () => {
+describe("PDF selection reading", () => {
   test("keeps selection toolbar actions outside the PDF selection event boundary", () => {
     const root = document.createElement("div")
     const viewerContainer = document.createElement("div")
@@ -81,43 +116,112 @@ describe("PDF DOM interactions", () => {
     expect(isPdfSelectionEventTarget(root, viewerContainer)).toBe(false)
   })
 
+  test("starts selecting where a whitespace-origin drag first intersects text", () => {
+    const { root, page, textLayer } = createPage()
+    const paragraph = document.createElement("span")
+    const text = document.createTextNode("Paragraph text")
+    paragraph.append(text)
+    textLayer.append(paragraph)
+    const restoreRects = stubClientRects({
+      structural: [],
+      byText: { "Paragraph text": [rect(110, 60, 120, 18)] },
+    })
+    const originalCaretPosition = Object.getOwnPropertyDescriptor(
+      document,
+      "caretPositionFromPoint",
+    )
+    Object.defineProperty(document, "caretPositionFromPoint", {
+      configurable: true,
+      value: (x: number) => ({ offsetNode: text, offset: x < 150 ? 0 : 9 }),
+    })
+
+    try {
+      const drag = beginPdfWhitespaceSelectionDrag({
+        root,
+        pointer: { target: page, pointerId: 7, clientX: 120, clientY: 30 },
+      })
+      expect(drag).toBeDefined()
+      if (!drag) return
+
+      expect(
+        updatePdfWhitespaceSelectionDrag({
+          root,
+          drag,
+          pointer: { target: paragraph, pointerId: 7, clientX: 120, clientY: 65 },
+        }),
+      ).toBe(true)
+      expect(document.getSelection()?.isCollapsed).toBe(true)
+
+      expect(
+        updatePdfWhitespaceSelectionDrag({
+          root,
+          drag,
+          pointer: { target: paragraph, pointerId: 7, clientX: 180, clientY: 65 },
+        }),
+      ).toBe(true)
+      expect(document.getSelection()?.toString()).toBe("Paragraph")
+    } finally {
+      restoreRects()
+      if (originalCaretPosition) {
+        Object.defineProperty(document, "caretPositionFromPoint", originalCaretPosition)
+      } else {
+        Reflect.deleteProperty(document, "caretPositionFromPoint")
+      }
+    }
+  })
+
+  test("does not capture whitespace drags from PDF annotation controls", () => {
+    const { root, page } = createPage()
+    const annotationLayer = document.createElement("div")
+    annotationLayer.className = "annotationLayer"
+    const link = document.createElement("a")
+    link.href = "#reference"
+    const label = document.createElement("span")
+    label.textContent = "Reference"
+    link.append(label)
+    annotationLayer.append(link)
+    page.append(annotationLayer)
+
+    expect(
+      beginPdfWhitespaceSelectionDrag({
+        root,
+        pointer: { target: label, pointerId: 8, clientX: 120, clientY: 30 },
+      }),
+    ).toBeUndefined()
+    expect(
+      beginPdfWhitespaceSelectionDrag({
+        root,
+        pointer: { target: annotationLayer, pointerId: 9, clientX: 120, clientY: 30 },
+      }),
+    ).toEqual({ pointerId: 9, anchor: undefined })
+  })
+
   test("decodes an in-page text range into a canonical chat selection", () => {
     const { root, page, textLayer } = createPage()
     const text = document.createTextNode("Hello Buddy reader")
     textLayer.append(text)
-    Object.defineProperty(root, "getBoundingClientRect", {
-      value: () => rect(20, 10, 240, 340),
-    })
-    Object.defineProperty(textLayer, "getBoundingClientRect", {
-      value: () => rect(100, 50, 200, 300),
-    })
-
-    const originalGetClientRects = Range.prototype.getClientRects
-    Object.defineProperty(Range.prototype, "getClientRects", {
-      configurable: true,
-      value: () => [rect(110, 60, 20, 20)],
+    const restore = stubClientRects({
+      structural: [],
+      byText: { "Hello Buddy reader": [rect(110, 60, 20, 20)] },
     })
 
     try {
-      const selectedRange = document.createRange()
-      selectedRange.setStart(text, 6)
-      selectedRange.setEnd(text, 11)
-      const selection = document.getSelection()
-      selection?.removeAllRanges()
-      selection?.addRange(selectedRange)
+      selectRange((range) => {
+        range.setStart(text, 6)
+        range.setEnd(text, 11)
+      })
 
-      const geometry = createGeometry({ page, textLayer })
-      const action = readPdfSelection({
+      const selection = readPdfSelection({
         root,
         session: {
-          getPageGeometry: (pageIndex) => (pageIndex === PAGE_INDEX ? geometry : undefined),
+          getPageGeometry: (pageIndex) =>
+            pageIndex === PAGE_INDEX ? createGeometry({ page, textLayer }) : undefined,
           getPageLabel: () => "Sheet 7",
           getTocLabel: () => "Results",
         },
       })
 
-      expect(action).toBeDefined()
-      expect(action?.selection).toMatchObject({
+      expect(selection).toMatchObject({
         text: "Buddy",
         pageLabel: "Sheet 7",
         tocLabel: "Results",
@@ -141,13 +245,87 @@ describe("PDF DOM interactions", () => {
           ],
         },
       })
-      expect(action?.x).toBe(100)
-      expect(action?.y).toBe(50)
     } finally {
-      Object.defineProperty(Range.prototype, "getClientRects", {
-        configurable: true,
-        value: originalGetClientRects,
+      restore()
+    }
+  })
+
+  test("ignores the structural boxes the text layer parks at the page origin", () => {
+    const { root, page, textLayer } = createPage()
+    const first = document.createElement("span")
+    first.append(document.createTextNode("First line"))
+    const lineBreak = document.createElement("br")
+    const second = document.createElement("span")
+    second.append(document.createTextNode("Second line"))
+    textLayer.append(first, lineBreak, second)
+    const restore = stubClientRects({
+      // A selected `<br>` collapses onto the page origin and would paint a stray
+      // band down the left edge if it reached the anchor.
+      structural: [rect(TEXT_LAYER_LEFT, TEXT_LAYER_TOP, 2, 14)],
+      byText: {
+        "First line": [rect(110, 60, 40, 14)],
+        "Second line": [rect(110, 80, 50, 14)],
+      },
+    })
+
+    try {
+      selectRange((range) => range.selectNodeContents(textLayer))
+
+      const selection = readPdfSelection({
+        root,
+        session: {
+          getPageGeometry: (pageIndex) =>
+            pageIndex === PAGE_INDEX ? createGeometry({ page, textLayer }) : undefined,
+        },
       })
+
+      const quads = selection?.anchor.kind === "pdf-text" ? selection.anchor.segments[0]?.quads : []
+      expect(quads).toHaveLength(2)
+      expect(quads?.map((quad) => quad.topLeft)).toEqual([
+        { x: 10, y: 10 },
+        { x: 10, y: 30 },
+      ])
+    } finally {
+      restore()
+    }
+  })
+
+  test("merges the per-span rects of one visual line into a single quad", () => {
+    const { root, page, textLayer } = createPage()
+    const first = document.createElement("span")
+    first.append(document.createTextNode("One "))
+    const second = document.createElement("span")
+    second.append(document.createTextNode("line"))
+    textLayer.append(first, second)
+    const restore = stubClientRects({
+      structural: [],
+      byText: {
+        "One ": [rect(110, 60, 20, 14)],
+        line: [rect(131, 61, 25, 12)],
+      },
+    })
+
+    try {
+      selectRange((range) => range.selectNodeContents(textLayer))
+
+      const selection = readPdfSelection({
+        root,
+        session: {
+          getPageGeometry: (pageIndex) =>
+            pageIndex === PAGE_INDEX ? createGeometry({ page, textLayer }) : undefined,
+        },
+      })
+
+      const quads = selection?.anchor.kind === "pdf-text" ? selection.anchor.segments[0]?.quads : []
+      expect(quads).toHaveLength(1)
+      expect(quads?.[0]).toEqual({
+        topLeft: { x: 10, y: 10 },
+        topRight: { x: 56, y: 10 },
+        bottomRight: { x: 56, y: 24 },
+        bottomLeft: { x: 10, y: 24 },
+      })
+    } finally {
+      restore()
     }
   })
 
@@ -155,14 +333,10 @@ describe("PDF DOM interactions", () => {
     const { root, textLayer } = createPage()
     const text = document.createTextNode("x".repeat(MAX_PDF_QUOTE_LENGTH + 1))
     textLayer.append(text)
-    const selectedRange = document.createRange()
-    selectedRange.selectNodeContents(text)
-    const selection = document.getSelection()
-    selection?.removeAllRanges()
-    selection?.addRange(selectedRange)
+    selectRange((range) => range.selectNodeContents(text))
     let limitErrors = 0
 
-    const action = readPdfSelection({
+    const selection = readPdfSelection({
       root,
       session: { getPageGeometry: () => undefined },
       onLimitExceeded: () => {
@@ -170,243 +344,7 @@ describe("PDF DOM interactions", () => {
       },
     })
 
-    expect(action).toBeUndefined()
+    expect(selection).toBeUndefined()
     expect(limitErrors).toBe(1)
-  })
-
-  test("anchors the action menu to the first selected line instead of the full range box", () => {
-    const { root, page, textLayer } = createPage()
-    const text = document.createTextNode("One selected passage across several visual lines")
-    textLayer.append(text)
-    Object.defineProperty(root, "getBoundingClientRect", {
-      value: () => rect(20, 10, 240, 340),
-    })
-    Object.defineProperty(textLayer, "getBoundingClientRect", {
-      value: () => rect(100, 50, 200, 300),
-    })
-
-    const originalGetClientRects = Range.prototype.getClientRects
-    Object.defineProperty(Range.prototype, "getClientRects", {
-      configurable: true,
-      value: () => [rect(110, 60, 20, 20), rect(130, 60, 30, 20), rect(100, 90, 180, 20)],
-    })
-
-    try {
-      const selectedRange = document.createRange()
-      selectedRange.selectNodeContents(text)
-      const selection = document.getSelection()
-      selection?.removeAllRanges()
-      selection?.addRange(selectedRange)
-
-      const action = readPdfSelection({
-        root,
-        session: { getPageGeometry: () => createGeometry({ page, textLayer }) },
-      })
-
-      expect(action?.x).toBe(115)
-      expect(action?.y).toBe(50)
-    } finally {
-      Object.defineProperty(Range.prototype, "getClientRects", {
-        configurable: true,
-        value: originalGetClientRects,
-      })
-    }
-  })
-
-  test("positions Buddy annotations from the overlay origin without double-counting the page border", () => {
-    const { root, page, textLayer } = createPage()
-    const geometry = createGeometry({ page, textLayer })
-    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
-    Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
-      configurable: true,
-      value: function getBoundingClientRect(this: HTMLElement) {
-        if (this.classList.contains("page")) return rect(100, 100, 218, 318)
-        if (this.classList.contains("textLayer")) return rect(109, 109, 200, 300)
-        if (this.classList.contains("buddy-pdf-annotation-layer")) {
-          return rect(109, 109, 200, 300)
-        }
-        return originalGetBoundingClientRect.call(this)
-      },
-    })
-
-    const quad: PdfQuad = {
-      topLeft: { x: 10, y: 20 },
-      topRight: { x: 40, y: 20 },
-      bottomRight: { x: 40, y: 30 },
-      bottomLeft: { x: 10, y: 30 },
-    }
-    const annotation: ReaderAnnotation = {
-      id: "annotation-1",
-      anchor: {
-        kind: "pdf-text",
-        segments: [
-          {
-            pageIndex: PAGE_INDEX,
-            quads: [
-              quad,
-              {
-                topLeft: { x: 10, y: 40 },
-                topRight: { x: 35, y: 40 },
-                bottomRight: { x: 35, y: 50 },
-                bottomLeft: { x: 10, y: 50 },
-              },
-            ],
-          },
-        ],
-        quote: { exact: "Buddy" },
-      },
-      text: "Buddy",
-      note: "",
-      style: "highlight",
-      color: "sky",
-      created: "2026-07-15T00:00:00.000Z",
-      modified: "2026-07-15T00:00:00.000Z",
-    }
-
-    try {
-      renderPdfAnnotations({
-        root,
-        session: {
-          getPageGeometry: (pageIndex) => (pageIndex === PAGE_INDEX ? geometry : undefined),
-        },
-        annotationsByPage: new Map([[PAGE_INDEX, [annotation]]]),
-        onActivate: () => undefined,
-      })
-
-      const mark = page.querySelector<HTMLButtonElement>(".buddy-pdf-annotation-mark")
-      expect(mark).not.toBeNull()
-      expect(mark?.style.left).toBe("10px")
-      expect(mark?.style.top).toBe("20px")
-      expect(mark?.style.width).toBe("30px")
-      expect(mark?.style.height).toBe("10px")
-      expect(mark?.style.backgroundColor).toBe("var(--surface-info-base)")
-      expect(mark?.style.opacity).toBe("0.34")
-      expect(mark?.style.mixBlendMode).toBe("")
-      const marks = page.querySelectorAll<HTMLElement>(".buddy-pdf-annotation-mark")
-      expect(marks).toHaveLength(2)
-      expect(page.querySelectorAll("button.buddy-pdf-annotation-mark")).toHaveLength(1)
-      expect(marks[1]?.tagName).toBe("SPAN")
-      expect(marks[1]?.getAttribute("aria-hidden")).toBe("true")
-    } finally {
-      Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
-        configurable: true,
-        value: originalGetBoundingClientRect,
-      })
-    }
-  })
-
-  test("renders a persistent transient selection from canonical PDF quads", () => {
-    const { root, page, textLayer } = createPage()
-    const geometry = createGeometry({ page, textLayer })
-    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
-    Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
-      configurable: true,
-      value: function getBoundingClientRect(this: HTMLElement) {
-        if (this.classList.contains("page")) return rect(100, 100, 218, 318)
-        if (this.classList.contains("textLayer")) return rect(109, 109, 200, 300)
-        if (this.classList.contains("buddy-pdf-selection-layer")) {
-          return rect(109, 109, 200, 300)
-        }
-        return originalGetBoundingClientRect.call(this)
-      },
-    })
-    const quad: PdfQuad = {
-      topLeft: { x: 12, y: 24 },
-      topRight: { x: 52, y: 24 },
-      bottomRight: { x: 52, y: 36 },
-      bottomLeft: { x: 12, y: 36 },
-    }
-    const selection: ReaderSelection = {
-      text: "Persistent selection",
-      selectionKey: "selection-1",
-      anchor: {
-        kind: "pdf-text",
-        segments: [{ pageIndex: PAGE_INDEX, quads: [quad] }],
-        quote: { exact: "Persistent selection" },
-      },
-    }
-
-    try {
-      const session = {
-        getPageGeometry: (pageIndex: number) => (pageIndex === PAGE_INDEX ? geometry : undefined),
-      }
-      renderPdfSelection({ root, session, selection })
-
-      const mark = page.querySelector<HTMLElement>(".buddy-pdf-selection-mark")
-      expect(mark?.style.left).toBe("12px")
-      expect(mark?.style.top).toBe("24px")
-      expect(mark?.style.width).toBe("40px")
-      expect(mark?.style.height).toBe("12px")
-      expect(mark?.style.backgroundColor).toBe(READER_SELECTION_BACKGROUND)
-      expect(mark?.style.opacity).toBe("0.34")
-
-      renderPdfSelection({ root, session, selection: undefined })
-      expect(page.querySelector(".buddy-pdf-selection-layer")).toBeNull()
-    } finally {
-      Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
-        configurable: true,
-        value: originalGetBoundingClientRect,
-      })
-    }
-  })
-
-  test("renders and replaces the exact active PDF search result from canonical quads", () => {
-    const { root, page, textLayer } = createPage()
-    const geometry = createGeometry({ page, textLayer })
-    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
-    Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
-      configurable: true,
-      value: function getBoundingClientRect(this: HTMLElement) {
-        if (this.classList.contains("textLayer")) return rect(109, 109, 200, 300)
-        if (this.classList.contains("buddy-pdf-search-layer")) {
-          return rect(109, 109, 200, 300)
-        }
-        return originalGetBoundingClientRect.call(this)
-      },
-    })
-    const result: ReaderSearchResult = {
-      id: "result-1",
-      anchor: {
-        kind: "pdf-text",
-        segments: [
-          {
-            pageIndex: PAGE_INDEX,
-            quads: [
-              {
-                topLeft: { x: 22, y: 44 },
-                topRight: { x: 72, y: 44 },
-                bottomRight: { x: 72, y: 58 },
-                bottomLeft: { x: 22, y: 58 },
-              },
-            ],
-          },
-        ],
-        quote: { exact: "Active match" },
-      },
-      excerpt: { pre: "", match: "Active match", post: "" },
-    }
-
-    try {
-      const session = {
-        getPageGeometry: (pageIndex: number) => (pageIndex === PAGE_INDEX ? geometry : undefined),
-      }
-      renderPdfSearchResult({ root, session, result })
-
-      const mark = page.querySelector<HTMLElement>(".buddy-pdf-search-mark")
-      expect(mark?.style.left).toBe("22px")
-      expect(mark?.style.top).toBe("44px")
-      expect(mark?.style.width).toBe("50px")
-      expect(mark?.style.height).toBe("14px")
-      expect(mark?.style.backgroundColor).toBe("var(--surface-warning-base)")
-      expect(mark?.style.opacity).toBe("0.52")
-
-      renderPdfSearchResult({ root, session, result: undefined })
-      expect(page.querySelector(".buddy-pdf-search-layer")).toBeNull()
-    } finally {
-      Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
-        configurable: true,
-        value: originalGetBoundingClientRect,
-      })
-    }
   })
 })
