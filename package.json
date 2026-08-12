@@ -178,7 +178,6 @@
     "@tanstack/solid-virtual@3.13.28": "vendor/opencode/patches/@tanstack%2Fsolid-virtual@3.13.28.patch",
     "@tanstack/virtual-core@3.17.0": "patches/@tanstack%2Fvirtual-core@3.17.0.patch",
     "effect@4.0.0-beta.83": "vendor/opencode/patches/effect@4.0.0-beta.83.patch",
-    "foliate-js@github:johnfactotum/foliate-js#399248a": "patches/foliate-js@github%3Ajohnfactotum%2Ffoliate-js%23399248a.patch",
     "gcp-metadata@8.1.2": "vendor/opencode/patches/gcp-metadata@8.1.2.patch",
     "node-tikzjax@1.0.5": "patches/node-tikzjax@1.0.5.patch",
     "pacote@21.5.0": "vendor/opencode/patches/pacote@21.5.0.patch",

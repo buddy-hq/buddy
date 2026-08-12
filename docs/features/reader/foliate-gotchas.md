@@ -20,10 +20,11 @@ and the same investigation found a separate stale resource-preparation bug:
 2. The persisted location was a malformed range CFI rooted in that navigation section. Foliate
    could derive a section index from it, but applying the range anchor later failed inside
    `epubcfi.js`. Falling back to `showTextStart` returned to the same empty navigation document.
-3. Bench keeps inactive surfaces mounted. Foliate's own `ResizeObserver` callbacks measured a
-   parked WebKit iframe, cached a zero-width text range, and rewrote the paginator to `0px`. The
-   engine now exposes an explicit suspend/resume lifecycle; a parked book remains open while its
-   measurement observers are disconnected.
+3. Bench kept inactive readers mounted, but rendered them in its least-to-most-recently-used cache
+   order. React therefore physically moved an existing `foliate-view` and its iframe whenever the
+   reader became active. Chromium reset the moved iframe's browsing context, producing the blank
+   sentinel page, changed blob URLs, and cover/loading flashes. The fix is a stable mounted DOM
+   order that is independent of the cache's eviction order; no Foliate lifecycle patch is needed.
 4. The same EPUB referenced a missing manifest item from its package spine. `foliate-js` generated
    CFIs from that unfiltered spine but exposed a filtered `book.sections` array. The same CFI
    therefore identified section `3` in Buddy and resolved to native spine index `4` in Foliate.
@@ -46,7 +47,8 @@ evidence to identify the failing layer.
 | Symptom | Most likely layer | First evidence to collect |
 | --- | --- | --- |
 | Reader chrome and location footer are present, but the paper is blank | Publication spine, saved location, or Foliate renderer | Current rendered section ID/text and saved CFI |
-| OCR text renders but looks completely unstyled or full-width | Foliate iframe/style lifecycle | Rendered blob URL, iframe document styles, activation history |
+| OCR text renders but looks completely unstyled or full-width after a switch | Reader DOM ownership or a genuine publication style issue | Mounted node identity, rendered blob URL, iframe document styles |
+| Replacement characters or apparently binary text fill the page from first open | Unsupported encrypted publication | `META-INF/encryption.xml`, encryption algorithms, and the referenced license/key file |
 | Highlight exists in Notes/storage but no mark is visible | CFI-to-section index drift or overlay hydration | Native and canonical section indices, live overlayer child count |
 | `chrome-error://chromewebdata/` is the content URL | Browser/media-presentation navigation; the document reader did not mount | Route kind and Electron navigation policy |
 | Reader error UI and failed raw-byte request | Backend/source acquisition | HTTP status and backend log for the raw object request |
@@ -64,6 +66,26 @@ Resource-status polling is also easy to misread. Repeated `/api/find/file` and
 `/api/objects/resource` requests do not prove that the EPUB bytes are being refetched or that a
 backend restart is replacing the reader source. They came from the resource catalog query, not the
 Foliate source lifecycle.
+
+## Encrypted EPUBs are a separate failure class
+
+The Atomic Habits file used while verifying the switch crash is not an ordinary EPUB. Its
+`META-INF/encryption.xml` marks the stylesheet, images, and spine documents with Readium LCP
+AES-256-CBC encryption and points at `license.lcpl#/encryption/content_key`. The archive does not
+contain `META-INF/license.lcpl`, so it contains neither a usable license nor a content key.
+
+The pinned `foliate-js` EPUB loader only supplies decoders for IDPF and Adobe font obfuscation. For
+an unknown encryption algorithm it warns and leaves the blob unchanged. Chromium then attempts to
+parse ciphertext as a content document, which looks like a page of replacement characters and
+random symbols. This is not a tab-switch reload, a character-encoding bug, or stale backend data;
+the source cannot be decrypted from the bytes Buddy has.
+
+Do not add an AES decoder without implementing the complete LCP license, key, rights, and user
+interaction flow. Do not patch Foliate to suppress the symptom. Until Buddy deliberately supports
+LCP, ingestion should classify encrypted content resources as unsupported before extraction and
+the reader should show a clear protected-publication error instead of rendering ciphertext. Also
+do not let resource-pack extraction mark ciphertext as successful text: the affected resource was
+incorrectly recorded as `sourceValidity: valid`, `extractionStatus: ready`, with no warnings.
 
 ## The malformed-spine and CFI failure
 
@@ -244,122 +266,141 @@ packages/web/src/components/bench/bench-surface-activity.tsx
 ```
 
 Foliate owns custom elements, a renderer, iframe/blob documents, injected styles, history, search
-state, annotation overlays, and source resources. During this incident, a parked reader could
-return blank or unstyled even though its React component had never unmounted.
+state, annotation overlays, and source resources. Preserving the React component is not sufficient:
+the custom element and every ancestor down to its iframe must also stay mounted in the same DOM
+position.
 
-The following lighter recovery attempts did not solve the repeated failure reliably:
+### The actual tab-switch failure: LRU order leaked into DOM order
 
-- reapplying reader preferences/theme attributes;
-- forcing responsive-margin synchronization;
-- observing the host with `ResizeObserver`;
-- changing host positioning, `inert`, visibility, or opacity behavior; and
-- treating the source Blob identity as the primary cause.
+Bench keeps an array of resident surface instances in least-to-most-recently-used order so it can
+evict bounded surface classes. `retainBenchSurfaceInstance()` correctly moves a reactivated entry to
+the end of that array. The host incorrectly rendered that same array directly:
 
-Those were useful hypotheses, but the runtime evidence continued to show a bad current section or
-a stale Foliate iframe state. Do not reintroduce generic Bench layout mutations to hide an engine
-lifecycle failure.
-
-### What actually collapsed
-
-The reflowable renderer contains two independent observation loops in `paginator.js`:
-
-- `Paginator` observes its private container and calls `render()`.
-- its private `View` observes the iframe body and calls `expand()`.
-
-`View.expand()` measures a cached `Range` covering the iframe body, calculates the number of pages,
-then writes the iframe and sentinel geometry. After a Bench switch, live inspection showed:
-
-```text
-renderer.size                         736px
-iframe.getBoundingClientRect().width    0px
-iframe.style.width                      0px
-parent width                         1472px
-documentElement.scrollWidth           736px
-new Range(body).width                 non-zero
-private cached Range width               0px
+```tsx
+instances.map(instance => <BenchSurface key={instance.key} />)
 ```
 
-The parent width was exactly two pages because Foliate retained only its two sentinel pages after
-calculating zero content pages. The document, text, styles, source Blob, and React component were
-still alive. Accessibility could still see text while the painted iframe was blank.
+React preserves the keyed component instance during a reorder, but it still moves the corresponding
+DOM node. Moving the `foliate-view` subtree moves its live iframe. Chromium can reset or reload an
+iframe browsing context when it is reparented or moved, even though React never unmounted the
+component. That distinction explains the misleading evidence from this incident:
 
-Calling public `renderer.render()` is not a recovery API. It reuses the poisoned private range and
-can collapse the frame again; during the incident it also produced `Location NaN` and, in one
-state, an internal `setStylesImportant` null failure. Manually writing iframe dimensions only lasts
-until the next observer callback.
+- React mount/open counters stayed at one;
+- the host still contained the same logical Bench instance;
+- the frame briefly returned to Foliate's sentinel page zero or painted blank;
+- restored CFIs sometimes failed against a document that was still being recreated;
+- the footer could become `Location NaN`;
+- the frame's blob URL changed after a switch; and
+- the opening cover/loading layer became visible even though the source bytes were cached.
 
-### Engine suspend/resume contract
+The bug was deterministic but appeared intermittent because iframe reconstruction and Foliate
+layout raced the next paint.
 
-The pinned dependency is patched through:
+### Two orders, two responsibilities
 
-```text
-patches/foliate-js@github%3Ajohnfactotum%2Ffoliate-js%23399248a.patch
-package.json -> patchedDependencies
-```
+The durable fix keeps two independent sequences:
 
-The patch adds `suspend()` and `resume()` to both the reflowable paginator and fixed-layout
-renderer. The paginator contract is deliberately stronger than a public `render()` call:
+1. **LRU order** belongs to `bench-surface-keep-alive.ts` and may change on every activation. It is
+   used only to choose an eviction candidate.
+2. **Mounted DOM order** belongs to `BenchSurfaceHost`. Existing retained keys never change
+   position. Released keys are removed and genuinely new keys append.
 
-1. `suspend()` marks both paginator layers suspended and unobserves the paginator container and
-   iframe body. Queued observer callbacks also check the suspended flag before measuring.
-2. A private view created while suspended inherits that state and does not measure hidden content.
-3. `resume()` reconnects the observers, creates a **new Range from the live iframe document**,
-   selects the body again, recomputes the visible layout, restores the anchor, and redraws the
-   overlayer.
-4. `destroy()` unobserves the same private container that the constructor observed. The upstream
-   implementation observed `#container` but attempted to unobserve `this`.
+`BenchSurfaceHost` renders the stable mounted order while looking up current instance data by key.
+Activation changes only `data-surface-active`, visibility, `inert`, and activity context. It must not
+move, replace, reopen, or navigate the reader.
 
-Fixed-layout EPUBs do not use the cached content range, but their renderer has its own
-`ResizeObserver`. It implements the same lifecycle so the adapter contract is format-layout
-independent.
+This is the central invariant for any embedded browsing surface, not just Foliate:
 
-`FoliateReader` consumes Bench activity with `useLayoutEffect`. When inactive it suspends the
-existing renderer; when active it resumes it and schedules annotation hydration against the live
-layout. If async `view.open()` finishes after the surface has already been parked, the current
-activity ref suspends the newly created renderer before navigation initializes it.
+> Cache recency must never determine DOM position for a mounted iframe or custom element that owns
+> a browsing context.
 
-Do not move this logic back into generic Bench CSS. The host should continue to use its normal
-`inert`, `aria-hidden`, and invisible parking semantics; the document engine owns its continuously
-running measurement work.
+The host regression test records the actual DOM element references for three reader surfaces,
+reactivates the least-recently-used reader, and asserts that both DOM order and object identity are
+unchanged. A separate keep-alive test asserts that LRU order *does* change. Both tests are required;
+making the cache itself stable would hide the iframe bug by breaking eviction semantics.
 
-### Memory and performance implications
+### Residency and memory
 
-Suspend/resume retains one Foliate view and one parsed book for each kept-alive reader tab. It does
-not create a second view, reopen the source, reparse the archive, recreate iframe documents, or
-accumulate observers. Parked views still consume the memory required by Bench keep-alive, but their
-layout observers do no work until reactivation.
+Every open PDF or EPUB tab remains mounted until that tab is closed. This retains one parsed book,
+renderer, and iframe for each open EPUB, and the corresponding PDF.js state for each open PDF. The
+memory cost is intentional: the user's open reader tabs define reader residency. Whiteboards and
+widgets remain bounded separately at four heavy instances; light surfaces are bounded at eight.
 
-This is why returning to an EPUB must not show the `Opening…` state or issue another raw EPUB byte
-request. A source change or actual instance eviction still performs full cleanup and open. A mere
-activity change must leave the open/close counts unchanged and call exactly one suspend or resume.
+Do not create a second reader instance on activation. Do not reopen the source, rebuild Foliate,
+reparse the archive, recreate the iframe, or navigate to the saved CFI merely because visibility
+changed. A normal return to a resident reader must preserve:
 
-The lifecycle regression test asserts that stable source metadata does not reopen the book and that
-a park/return pair suspends and resumes the same renderer instance.
+- the Bench surface DOM node;
+- the `foliate-view` DOM node;
+- the child frame ID and blob URL;
+- the renderer start/page and current CFI; and
+- PDF page DOM for a PDF reader.
+
+A source change, explicit tab close, directory change, or real eviction still performs normal
+cleanup. Reader instances are not subject to the bounded heavy-surface eviction policy.
+
+### No Foliate lifecycle patch is used
+
+The final implementation does not patch `foliate-js`, does not edit `node_modules`, and does not add
+`renderer.suspend()` or `renderer.resume()`. Those methods are not part of the pinned upstream API.
+The temporary dependency patch created during diagnosis was removed from `patches/`,
+`patchedDependencies`, `bun.lock`, TypeScript declarations, and reader code.
+
+An app-owned activation CFI restore was also removed. It was a symptom workaround: it raced iframe
+reconstruction, sometimes applied a range to the wrong/replaced document, and produced range-offset
+or `nodeType` errors. With stable DOM ownership, there is nothing to restore on an ordinary switch.
 
 ### Failed approaches worth remembering
 
-These approaches were tested in a cold desktop process and rejected:
+These approaches were tested and rejected because they treated the iframe reset after it had
+already happened:
 
-- rebuilding the Foliate view on every activation fixed blank pages but flashed `Opening…`,
-  reparsed the EPUB, and refetched/recreated reader resources on every switch;
-- calling `renderer.render()` on activation reused the collapsed private Range;
-- repairing iframe width and sentinel geometry from Buddy was overwritten by Foliate's observer;
-- changing the parked wrapper from `invisible` to opacity, retaining absolute geometry, painting it
-  behind the active surface, or removing `inert`/`aria-hidden` did not prevent the collapse; and
-- reapplying theme/preferences, responsive margins, or a host `ResizeObserver` did not reset the
-  engine's cached measurement state.
+- rebuilding the Foliate view on every activation made pages return but flashed the cover and
+  `Opening…`, reparsed the EPUB, and recreated blob documents;
+- adding private `suspend()`/`resume()` methods to Foliate measured stale or hidden geometry and
+  eventually reproduced blank pages and `Location NaN`;
+- calling `renderer.render()` immediately or after animation-frame delays reused unstable internal
+  layout state;
+- navigating to the last CFI on activation raced the recreated iframe and threw invalid-range
+  errors;
+- manually repairing iframe width or sentinel geometry was overwritten by Foliate's observers;
+- reapplying theme/preferences or responsive margins did not restore browsing-context identity;
+- changing `inert`, `aria-hidden`, `visibility`, opacity, or absolute positioning did not prevent
+  React from moving the keyed DOM node; and
+- caching only the source Blob avoided some network work but did not preserve the live reader.
 
-If this recurs after a Foliate upgrade, inspect the observer and Range ownership before changing the
-Bench host again.
+When a switch-only failure recurs, first record mounted node identity, frame ID, blob URL, and DOM
+order before adding engine recovery code.
 
-### Maintaining the dependency patch
+### Why Foliate's own GUI did not reproduce this failure
 
-Always compare the patch against the commit pinned in `packages/web/package.json`. Run a dry patch
-application against an unmodified checkout before relying on an already-mutated `node_modules`.
-During this incident, `bun patch --commit node_modules/foliate-js` segfaulted in both Bun 1.3.13 and
-1.3.14 for the Git dependency. The patch was therefore generated as a normal unified diff and
-registered explicitly in `patchedDependencies`; `bun install --lockfile-only` accepted the key and
-wrote it to `bun.lock`.
+Foliate's GTK GUI and Buddy have different ownership models. The reference GUI owns a native
+WebKit `WebView` for a `BookViewer`; it does not maintain several resident readers and reorder those
+WebViews by LRU every time the selected tab changes. Buddy's failure was introduced by its shared
+React Bench host, outside `foliate-js`.
+
+The useful lesson from the GUI is ownership, not code to copy: a live book view stays attached to a
+stable browsing surface for its lifetime. Buddy now provides the same invariant while still keeping
+several open reader tabs resident.
+
+### Development restarts still matter
+
+Custom-element definitions cannot be replaced inside an existing JavaScript realm. HMR is therefore
+not proof that an installed Foliate dependency change is running. Stop the old desktop process and
+start a full `bun dev:desktop` process after dependency changes. Do not add a custom module loader or
+cache-busting scheme to compensate for editing installed files; installed files must not be edited.
+
+### An open reader tab must not be evicted by the generic heavy-surface limit
+
+Bench originally grouped resource readers with whiteboards, HTML widgets, and media presentations.
+With more than the heavy-surface limit open, returning to an evicted reader remounted it and exposed
+the cover/loading state even if TanStack Query still held its Blob. The absence of a raw-file request
+therefore did not prove that the live reader was preserved.
+
+Resource readers have their own unbounded-by-count residency class and are released by tab closure.
+This aligns memory lifetime with the user's explicit open tabs. The stable DOM-order rule remains
+necessary even when no reader is evicted: retained keyed nodes can still be physically moved during
+a React reorder.
 
 ### Preference writes are not free
 
@@ -375,10 +416,10 @@ not repair the stale reader in this incident.
 
 Responsive margin maintenance is a narrower, valid use of host size observation. Observe only the
 active reader surface, synchronize only the `margin` attribute when the computed value changes,
-ignore zero-width, fixed-layout, replaced, and parked views, and disconnect the observer before
-calling `renderer.suspend()`. On activation, resume the engine first and then synchronize the
-margin. Do not turn an ordinary responsive-margin update into a full preference/theme reapply or a
-renderer recovery attempt.
+and ignore zero-width, fixed-layout, replaced, and parked views. Disconnect the active-only observer
+when the surface parks and reconnect it when the same surface becomes active. Do not turn an
+ordinary responsive-margin update into a full preference/theme reapply or a renderer recovery
+attempt.
 
 ## Annotation commit and repaint ordering
 
@@ -484,9 +525,9 @@ bun dev:desktop
 
 Stop any older Buddy development process first. Do not rely on a `fast` process for this check;
 `fast` does not provide the full HMR/rebuild behavior needed to establish whether the running
-backend and renderer contain the patch. After the patch is ready, restart the full process once
-more and reproduce from the already-bad persisted state. Clearing persistence first removes the
-most important regression case.
+backend and renderer contain the current source. After the code change is ready, restart the full
+process once more and reproduce from the already-bad persisted state. Clearing persistence first
+removes the most important regression case.
 
 In Electron DevTools, start with the live Foliate element:
 
@@ -534,6 +575,9 @@ package CFI before `!` as described above.
 
 Other useful evidence:
 
+- the order and object identity of every `[data-component="bench-surface-instance"]` before and
+  after activation;
+- the `foliate-view` object identity and child frame ID;
 - the rendered content's blob URL before and after reactivation;
 - iframe document text and injected style elements;
 - `content.overlayer.element.children.length` and its SVG markup; the overlayer is owned by the
@@ -562,10 +606,17 @@ For this failure class, a single successful open is insufficient.
 ### Activation stability
 
 1. Open a real PDF through `DocumentReader` and the affected EPUB in separate Bench tabs.
-2. Switch PDF → EPUB at least four times.
-3. Wait for each activation to settle; verify visible styled text each time.
-4. Watch for a changing blob URL to confirm a controlled replacement view was created.
-5. Confirm the old view was closed rather than retained alongside the new one.
+2. Record the reader instance order, DOM object identities, Foliate frame IDs/blob URLs, renderer
+   positions, and PDF page count.
+3. Switch PDF → EPUB at least four times, including rapid consecutive switches.
+4. Inspect immediately after a click as well as after settling; neither point may show a cover,
+   `Opening…`, blank paper, or sentinel page zero.
+5. Confirm the mounted order and DOM identities are unchanged after every return. LRU order may
+   change internally, but DOM order may not.
+6. Confirm each rendered blob URL and frame ID is unchanged. A changed value means the browsing
+   context was recreated.
+7. Confirm there is still exactly one Foliate view for each tab, PDF page DOM remains present, and
+   no location footer becomes `NaN`.
 
 A browser-level media-presentation PDF route that resolves to `chrome-error://chromewebdata/` is not
 a valid PDF-reader counterpart for this test; the document reader never mounted. Use a known
@@ -601,8 +652,15 @@ packages/web/test/foliate-annotations.test.ts
 
 packages/web/test/foliate-reader-lifecycle.test.tsx
   - stable source does not reopen unnecessarily
-  - parked reader rebuilds once on reactivation
+  - activity changes do not navigate or reopen the resident view
   - preference changes do not reopen the source
+
+packages/web/test/bench-surface-host.test.tsx
+  - every open reader remains mounted
+  - LRU changes never reorder or replace mounted reader DOM nodes
+
+packages/web/test/bench-surface-keep-alive.test.ts
+  - reactivation still updates LRU order for correct eviction semantics
 
 packages/web/test/reader-floating-overlays.test.tsx
   - compact selection toolbar
@@ -619,6 +677,8 @@ bun test --preload ./happydom.ts \
   test/foliate-annotations.test.ts \
   test/reader-behavior.test.ts \
   test/foliate-reader-lifecycle.test.tsx \
+  test/bench-surface-host.test.tsx \
+  test/bench-surface-keep-alive.test.ts \
   test/reader-floating-overlays.test.tsx
 ```
 
@@ -636,8 +696,8 @@ incident, but require evidence before changing code:
   acquisition.
 - **Missing table of contents:** the publication did lack a useful TOC, but that did not prevent its
   readable spine sections from rendering.
-- **Host `position`, `inert`, visibility, or opacity:** generic Bench host changes did not repair the
-  engine state and risk regressions across unrelated surfaces.
+- **Host `position`, `inert`, visibility, or opacity:** these CSS attributes did not cause or repair
+  the failure. The host bug was rendering in LRU order, which physically moved the keyed node.
 - **Resize alone:** reapplying preferences, margins, and observer-driven layout synchronization did
   not consistently recover the Foliate iframe.
 - **Source Blob identity:** object/source churn was not the root cause of the deterministic
@@ -652,7 +712,7 @@ packages/web/src/components/readers/document-reader.tsx
   Product-level engine selection. Do not bypass it.
 
 packages/web/src/components/readers/foliate-reader.tsx
-  Foliate view lifecycle, suspend/resume, selection actions, annotation hydration,
+  Foliate view ownership, selection actions, annotation hydration,
   persistence orchestration, and reader callbacks.
 
 packages/web/src/components/readers/utils/foliate-helpers.ts
@@ -673,6 +733,12 @@ packages/web/src/components/readers/ui/reader-selection-toolbar.tsx
 
 packages/web/src/components/bench/bench-surface-activity.tsx
   Kept-alive Bench activity boundary.
+
+packages/web/src/components/bench/bench-surface-host.tsx
+  Stable mounted DOM order. Never render the mutable LRU sequence directly.
+
+packages/web/src/lib/bench-surface-keep-alive.ts
+  Reader residency, bounded non-reader eviction, LRU order, and stable render-order reconciliation.
 
 packages/reader-contract/src/index.ts
   Shared EPUB CFI anchors and neutral reader contracts.
@@ -710,6 +776,11 @@ integrates the installed commit, not whichever version happens to be current onl
 - Do not let async work from an old view mutate a replacement view.
 - Close/remove/destroy the old view and release object URLs before replacement.
 - Do not rebuild Foliate for ordinary renders or preference changes.
+- Never use LRU/cache recency as the render order of a mounted browsing surface.
+- Never physically move a retained `foliate-view`, iframe, PDF runtime, or other embedded browsing
+  context merely because it became active.
+- An ordinary activation must not navigate to the saved CFI; the resident view already owns the
+  current position.
 - Do not describe a persisted-but-unpainted annotation as a persistence failure until the notes
   list and storage state have been checked.
 - Clear native selection before painting a committed annotation.
@@ -727,7 +798,7 @@ integrates the installed commit, not whichever version happens to be current onl
   end-to-end without depending on a personal book.
 - Measure activation latency and memory across many parked reader tabs before attempting source or
   parsed-book caching. Caching without clear ownership can retain Blob documents and undo cleanup.
-- Re-evaluate the activation rebuild when upgrading `foliate-js`; keep it unless the full regression
-  matrix proves a lighter resume path is reliable.
+- Use a full desktop restart after upgrading Foliate so the new custom-element modules register in
+  a fresh renderer realm.
 - Consider reporting the minimal malformed-CFI reproduction upstream once it is isolated from Buddy
   persistence and Bench lifecycle behavior.

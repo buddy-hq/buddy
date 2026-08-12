@@ -1275,7 +1275,6 @@
     "@ai-sdk/xai@3.0.102": "vendor/opencode/patches/@ai-sdk%2Fxai@3.0.102.patch",
     "@modelcontextprotocol/sdk@1.29.0": "vendor/opencode/patches/@modelcontextprotocol%2Fsdk@1.29.0.patch",
     "gcp-metadata@8.1.2": "vendor/opencode/patches/gcp-metadata@8.1.2.patch",
-    "foliate-js@github:johnfactotum/foliate-js#399248a": "patches/foliate-js@github%3Ajohnfactotum%2Ffoliate-js%23399248a.patch",
     "@ai-sdk/provider-utils@4.0.21": "patches/@ai-sdk%2Fprovider-utils@4.0.21.patch",
     "@standard-community/standard-openapi@0.2.9": "patches/@standard-community%2Fstandard-openapi@0.2.9.patch",
     "effect@4.0.0-beta.83": "vendor/opencode/patches/effect@4.0.0-beta.83.patch",
