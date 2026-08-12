@@ -3,6 +3,12 @@ import matter from "gray-matter"
 import path from "node:path"
 import { readFile, stat, writeFile } from "node:fs/promises"
 import { app } from "../../src/index.ts"
+import {
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectIDSchema,
+  BuddyObjectManifestSchema,
+  BuddyObjectPath,
+} from "../../src/objects"
 import { RESOURCE_PACK_ENTRYPOINT_FILE_NAME } from "../../src/resource-packs"
 import { tmpdir } from "../helpers/tmpdir"
 import { createTestPdf } from "../helpers/pdf"
@@ -231,6 +237,62 @@ describe("resource routes", () => {
     await expect(
       readFile(path.join(project.path, created.sourceRelpath), "utf8"),
     ).resolves.toContain("%PDF-1.4")
+  })
+
+  test("resumes a persisted preparation interrupted by a backend restart", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourceRelpath = "interrupted.html"
+    await writeFile(
+      path.join(project.path, sourceRelpath),
+      "<!doctype html><html><body><h1>Interrupted</h1><p>Resume me.</p></body></html>",
+      "utf8",
+    )
+
+    const addResponse = await app.request("/api/objects/resource", {
+      method: "POST",
+      headers: {
+        [DIRECTORY_HEADER]: project.path,
+        "content-type": JSON_CONTENT_TYPE,
+      },
+      body: JSON.stringify({ sourcePath: sourceRelpath, alias: "interrupted" }),
+    })
+    expect(addResponse.status).toBe(200)
+    const addedResponseBody: unknown = await addResponse.json()
+    if (
+      typeof addedResponseBody !== "object" ||
+      addedResponseBody === null ||
+      !("objectID" in addedResponseBody)
+    ) {
+      throw new Error("Resource response did not include an object ID")
+    }
+    const objectID = BuddyObjectIDSchema.parse(addedResponseBody.objectID)
+    await waitForResource(project.path, "interrupted")
+    await Bun.sleep(RESOURCE_POLL_DELAY_MS)
+
+    const manifestPath = BuddyObjectPath.manifestFile(
+      project.path,
+      BUDDY_OBJECT_KINDS.resource,
+      objectID,
+    )
+    const manifest = BuddyObjectManifestSchema.parse(
+      JSON.parse(await readFile(manifestPath, "utf8")),
+    )
+    const interrupted = BuddyObjectManifestSchema.parse({
+      ...manifest,
+      status: "preparing",
+      updatedAt: new Date().toISOString(),
+      summary: {
+        ...manifest.summary,
+        extractionStatus: "preparing",
+        preparedAt: null,
+      },
+    })
+    await writeFile(manifestPath, `${JSON.stringify(interrupted, null, 2)}\n`, "utf8")
+
+    const preparing = await readResource(project.path, "interrupted")
+    expect(preparing.status).toBe("preparing")
+    const recovered = await waitForResource(project.path, "interrupted")
+    expect(recovered.status).toBe(RESOURCE_READY_STATUS)
   })
 
   test("normalizes fallback aliases to command-safe tokens", async () => {

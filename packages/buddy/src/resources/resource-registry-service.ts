@@ -550,9 +550,23 @@ export async function listResolvedResourceObjects(input: {
       }),
     ),
   )
-  return resources
+  const resolved = resources
     .filter((resource): resource is ResourceObjectResolved => resource !== undefined)
     .toSorted((left, right) => left.alias.localeCompare(right.alias))
+
+  // Preparation is intentionally asynchronous, so a process exit can leave a durable manifest in
+  // `preparing` after the in-memory task is gone. Listing is the first common boundary reached by
+  // the UI and tools after restart; resume those interrupted jobs here. The in-flight registry
+  // makes this idempotent for normal polling and for preparations already running in this process.
+  for (const resource of resolved) {
+    if (resource.status !== RESOURCE_PACK_STATUS_PREPARING) continue
+    void prepareResourceObject({
+      directory: input.directory,
+      objectID: resource.objectID,
+    })
+  }
+
+  return resolved
 }
 
 export async function resolveResourcePackPaths(input: {
