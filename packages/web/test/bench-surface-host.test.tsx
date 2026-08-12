@@ -235,9 +235,9 @@ describe("BenchSurfaceHost", () => {
       await renderHost(target, true, undefined, retainedTargets)
     }
 
-    const originalInstances = [...container.querySelectorAll<HTMLElement>(
-      '[data-component="bench-surface-instance"]',
-    )]
+    const originalInstances = [
+      ...container.querySelectorAll<HTMLElement>('[data-component="bench-surface-instance"]'),
+    ]
     expect(originalInstances.map((instance) => instance.dataset.targetKey)).toEqual(
       retainedTargets.map(benchTargetKey),
     )
@@ -246,9 +246,9 @@ describe("BenchSurfaceHost", () => {
     // first instance to the end, physically moving any reader iframe owned by that subtree.
     await renderHost(retainedTargets[0] ?? null, true, undefined, retainedTargets)
 
-    const reactivatedInstances = [...container.querySelectorAll<HTMLElement>(
-      '[data-component="bench-surface-instance"]',
-    )]
+    const reactivatedInstances = [
+      ...container.querySelectorAll<HTMLElement>('[data-component="bench-surface-instance"]'),
+    ]
     expect(reactivatedInstances.map((instance) => instance.dataset.targetKey)).toEqual(
       retainedTargets.map(benchTargetKey),
     )
