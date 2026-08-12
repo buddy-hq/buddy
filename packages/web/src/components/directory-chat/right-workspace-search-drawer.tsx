@@ -51,6 +51,7 @@ import {
   OBJECT_VARIANT_MD,
   objectCardHeightPx,
 } from "@/components/objects/types"
+import { RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX } from "@/lib/directory-chat/right-workspace-layout"
 import { CreationPreviewVisual, type CreationFeedItem } from "./right-workspace-catalog-drawers"
 import {
   notebookSearchOpenRequest,
@@ -91,8 +92,6 @@ const SEARCH_KIND_DEFINITIONS: SearchKindDefinition[] = [
 ]
 
 const SEARCH_FEATURED_COUNT = 3
-/** Drawer width minus the shell's horizontal padding, for card height estimation. */
-const RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX = 380
 
 function isNotebookSearchFilter(value: string): value is NotebookSearchFilter {
   return (
@@ -232,7 +231,6 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
         ) : undefined
       }
       onSearchValueChange={setQuery}
-      onClose={props.onClose}
     >
       {!search.hasQuery ? (
         <section className="flex flex-col gap-1">

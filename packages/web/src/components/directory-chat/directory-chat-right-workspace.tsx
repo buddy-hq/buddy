@@ -401,7 +401,6 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       return (
         <SourcesDrawer
           directory={props.directory}
-          onClose={closeSelector}
           onOpen={openWorkspaceRequest}
         />
       )
@@ -410,7 +409,6 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       return (
         <PracticeDrawer
           directory={props.directory}
-          onClose={closeSelector}
           onOpen={openWorkspaceRequest}
         />
       )
@@ -419,7 +417,6 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       return (
         <CreationsDrawer
           directory={props.directory}
-          onClose={closeSelector}
           onOpen={openWorkspaceRequest}
           onCreate={() => {
             closeSelector()
@@ -432,13 +429,12 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       return (
         <RightWorkspaceBoardsDrawer
           directory={props.directory}
-          onClose={closeSelector}
           onOpen={openWorkspaceRequest}
         />
       )
     }
     if (resolvedSelector === "skills") {
-      return <RightWorkspaceSkillsDrawer directory={props.directory} onClose={closeSelector} />
+      return <RightWorkspaceSkillsDrawer directory={props.directory} />
     }
     return (
       <RightWorkspaceDrawerShell
@@ -452,7 +448,6 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
         }}
         bodyClassName="overflow-hidden p-0"
         onSearchValueChange={setFileSearch}
-        onClose={closeSelector}
       >
         <ProjectFileExplorerPanel
           directory={props.directory}

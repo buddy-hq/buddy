@@ -8,9 +8,9 @@ import {
   type BenchViewport,
 } from "@/lib/bench-navigation"
 import {
-  RIGHT_WORKSPACE_DEFAULT_MAX_WIDTH_PX,
   RIGHT_WORKSPACE_DEFAULT_MIN_WIDTH_PX,
   RIGHT_WORKSPACE_RAIL_WIDTH_PX,
+  resolveRightWorkspaceMaxWidth,
 } from "@/lib/directory-chat/right-workspace-layout"
 import type { DrawerKind, EffectiveWorkspaceProjection } from "@/state/directory-workspace-store"
 
@@ -71,7 +71,7 @@ function selectorWorkspaceLayout(input: {
   const maxWidthPx = Math.max(
     0,
     Math.min(
-      RIGHT_WORKSPACE_DEFAULT_MAX_WIDTH_PX,
+      resolveRightWorkspaceMaxWidth(input.viewport.widthPx),
       shellWidthPx - WORKSPACE_PRESENTATION_CHAT_MIN_WIDTH_PX,
     ),
   )

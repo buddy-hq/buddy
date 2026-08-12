@@ -3,10 +3,10 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import { createPlatformJsonStorage } from "../context/platform"
+import { LEFT_SIDEBAR_DEFAULT_WIDTH_PX } from "@/lib/directory-chat/left-sidebar-layout"
 
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
 
-const DEFAULT_LEFT_SIDEBAR_WIDTH_PX = 344
 const DEFAULT_PROJECT_FILE_TREE_OPEN = false
 
 type PersistedUiPreferences = {
@@ -28,7 +28,7 @@ function isPersistedUiPreferences(value: unknown): value is PersistedUiPreferenc
 
 function readLegacyLeftSidebarWidth(state: PersistedUiPreferences | undefined) {
   if (!state || typeof state.leftSidebarWidth !== "number") {
-    return DEFAULT_LEFT_SIDEBAR_WIDTH_PX
+    return LEFT_SIDEBAR_DEFAULT_WIDTH_PX
   }
   return state.leftSidebarWidth
 }
@@ -133,8 +133,9 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       > = {
         collapsedChatSidebarDirectories: {},
         leftSidebarOpen: true,
-        chatLeftSidebarWidth: 280,
-        settingsSidebarWidth: 260,
+        // Settings shows the same directory/thread list, so both start at the same width.
+        chatLeftSidebarWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
+        settingsSidebarWidth: LEFT_SIDEBAR_DEFAULT_WIDTH_PX,
         projectFileTreeOpen: DEFAULT_PROJECT_FILE_TREE_OPEN,
         setChatSidebarDirectoryOpen(directory, open) {
           set((state) => {

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSearch } from "@tanstack/react-router"
 import {
-  Badge,
   Button,
   ContextMenu,
   ContextMenuContent,
@@ -30,7 +29,6 @@ import {
 } from "@buddy/ui"
 import {
   ChevronDownIcon,
-  Clock3Icon,
   Layers3Icon,
   ListChecksIcon,
   Loader2Icon,
@@ -39,7 +37,6 @@ import {
   ShapesIcon,
   Trash2Icon,
   UploadIcon,
-  XIcon,
 } from "@/icons/app-icons"
 import type { ObjectFlashcardDeckQueuedCardsResponse, ObjectsViewResponse } from "@buddy/sdk/types"
 import { language } from "@/context/language"
@@ -69,7 +66,7 @@ import {
   FlashcardPracticeDrawerRow,
   FlashcardPracticeDrawerRuledHead,
 } from "@/components/flashcard/flashcard-practice-drawer"
-import { useDurableScrollTop } from "@/lib/use-durable-scroll-top"
+import { RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX } from "@/lib/directory-chat/right-workspace-layout"
 import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
 import { HtmlWidgetFrame } from "@/components/media/renderers/html-widget-frame"
 import { relativeTime } from "@/components/layout/sidebar-helpers"
@@ -134,7 +131,6 @@ import { prepareFlashcardBenchTarget } from "@/components/flashcard/flashcard-be
 
 type CatalogDrawerProps = {
   directory: string
-  onClose: () => void
   onOpen: (request: RightWorkspaceOpenRequest) => Promise<RightWorkspaceOpenOutcome>
 }
 
@@ -191,9 +187,6 @@ const MEDIA_GALLERY_VIEW_ID = "gallery"
 const RENDERED_OBJECT_VIEW_ID = "rendered"
 const STICKY_READING_RESET_DELAY_MS = 500
 const EMPTY_RESOURCE_ITEMS: ResourceListItem[] = []
-
-/** Drawer width minus the shell's horizontal padding, for row height estimation. */
-const RIGHT_WORKSPACE_DRAWER_CONTENT_WIDTH_PX = 380
 
 const RESOURCE_OBJECT_KIND: BenchObjectKind = "resource"
 /** The shelf adds columns as the drawer widens, so this is a count, not a shape. */
@@ -382,15 +375,6 @@ function EmptyInventory(props: {
       </EmptyHeader>
       {props.action ? <EmptyContent>{props.action}</EmptyContent> : null}
     </Empty>
-  )
-}
-
-function RecentSortLabel() {
-  return (
-    <span className="ml-auto inline-flex h-8 items-center gap-1.5 px-2 text-xs font-medium text-text-weak">
-      <Clock3Icon className="size-4" aria-hidden />
-      Recent
-    </span>
   )
 }
 
@@ -599,7 +583,6 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
         </div>
       }
       onSearchValueChange={setSearch}
-      onClose={props.onClose}
     >
       <RightWorkspaceResourceDropzone
         enabled={!isAdding}
@@ -690,7 +673,6 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
   )
 }
 
-const PRACTICE_DRAWER_HEADER_H_PX = 44
 const PRACTICE_ROW_ESTIMATE_PX = 65
 const PRACTICE_MINUTE_MS = 60_000
 const PRACTICE_HOUR_MS = 60 * PRACTICE_MINUTE_MS
@@ -830,17 +812,8 @@ function QuestionSetPracticeRow(props: {
 }
 
 export function PracticeDrawer(props: CatalogDrawerProps) {
+  const [search, setSearch] = useState("")
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
-  const { containerRef, onScroll } = useDurableScrollTop(
-    workspaceDrawerUiKey({ directory: props.directory, drawer: "practice" }),
-  )
-  const setScrollNode = useCallback(
-    (node: HTMLDivElement | null) => {
-      containerRef.current = node
-      setScrollElement(node)
-    },
-    [containerRef],
-  )
   const objectsQuery = useQuery(workspaceObjectsQueryOptions(props.directory))
   useInvalidateQueryOnChatIdle({
     directory: props.directory,
@@ -861,60 +834,48 @@ export function PracticeDrawer(props: CatalogDrawerProps) {
     (total, query) => total + getFlashcardDueCount(query.data),
     0,
   )
+  const normalizedSearch = normalizeSearch(search)
   const items = useMemo(() => {
     const combined: PracticeFeedItem[] = [
       ...flashcards.map((object): PracticeFeedItem => ({ kind: "flashcards", object })),
       ...questionSets.map((object): PracticeFeedItem => ({ kind: "question-sets", object })),
     ]
-    return combined.toSorted((left, right) =>
-      right.object.updatedAt.localeCompare(left.object.updatedAt),
-    )
-  }, [flashcards, questionSets])
+    return combined
+      .filter((item) => includesSearch(item.object.title, normalizedSearch))
+      .toSorted((left, right) => right.object.updatedAt.localeCompare(left.object.updatedAt))
+  }, [flashcards, normalizedSearch, questionSets])
   const loadErrors = selectWorkspaceObjectLoadErrors(objectsQuery, [
     "flashcard-deck",
     "question-set",
   ])
 
   return (
-    <section
-      data-component="right-workspace-drawer"
-      className="flex h-full min-h-0 flex-col bg-background-base"
+    <RightWorkspaceDrawerShell
+      durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "practice" })}
+      title="Practice"
+      searchLabel="Search practice…"
+      searchValue={search}
+      scrollRef={setScrollElement}
+      bodyClassName="flex flex-col gap-4"
+      onSearchValueChange={setSearch}
     >
-      <header
-        className="flex shrink-0 items-center gap-2 border-b border-border-weaker-base px-4"
-        style={{ height: PRACTICE_DRAWER_HEADER_H_PX }}
-      >
-        <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-text-strong">
-          Practice
-        </h2>
-        <Badge variant="outline">{totalDue} due</Badge>
-        <button
-          type="button"
-          onClick={props.onClose}
-          aria-label="Close Practice"
-          className="cursor-pointer rounded-md p-1 text-text-weaker transition-colors hover:bg-surface-base hover:text-text-base"
-        >
-          <XIcon className="size-4" aria-hidden />
-        </button>
-      </header>
-
-      <div
-        ref={setScrollNode}
-        onScroll={onScroll}
-        data-component="right-workspace-drawer-scroll"
-        className="scrollbar-hover flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
-      >
+      <>
         <section className="flex flex-col gap-2">
+          {/* The count is the only thing a heading row here was carrying, so it rides the rule. */}
           <FlashcardPracticeDrawerRuledHead
-            label="Practice"
+            label={`${totalDue} due`}
             trailing={<FlashcardPracticeDrawerColumnLabel />}
           />
           {objectsQuery.isPending ? <RightWorkspaceListSkeleton /> : null}
           {!objectsQuery.isPending && !objectsQuery.error && items.length === 0 ? (
             <EmptyInventory
               icon={ListChecksIcon}
-              title="No practice yet"
-              description="Ask Buddy to create flashcards or a question set."
+              title={normalizedSearch ? "No matches" : "No practice yet"}
+              description={
+                normalizedSearch
+                  ? "No flashcard deck or question set matches that name."
+                  : "Ask Buddy to create flashcards or a question set."
+              }
             />
           ) : null}
           {items.length > 0 ? (
@@ -937,8 +898,8 @@ export function PracticeDrawer(props: CatalogDrawerProps) {
             message={error.message}
           />
         ))}
-      </div>
-    </section>
+      </>
+    </RightWorkspaceDrawerShell>
   )
 }
 
@@ -1359,9 +1320,7 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            <RecentSortLabel />
           </div>
-          <RightWorkspaceSectionLabel>Recent creations</RightWorkspaceSectionLabel>
           {objectsQuery.error ? (
             <CatalogError message={stringifyError(objectsQuery.error)} />
           ) : null}
@@ -1374,10 +1333,6 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
         </div>
       }
       onSearchValueChange={setSearch}
-      onClose={() => {
-        clearPreviewTimers()
-        props.onClose()
-      }}
     >
       {objectsQuery.isPending ? <RightWorkspaceListSkeleton /> : null}
       {!objectsQuery.isPending && !objectsQuery.error && items.length === 0 ? (

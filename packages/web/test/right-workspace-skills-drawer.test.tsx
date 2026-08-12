@@ -188,7 +188,7 @@ describe("RightWorkspaceSkillsDrawer", () => {
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <RightWorkspaceSkillsDrawer directory={TEST_DIRECTORY} onClose={() => undefined} />
+          <RightWorkspaceSkillsDrawer directory={TEST_DIRECTORY} />
         </QueryClientProvider>,
       )
       await flushEffects()
@@ -463,7 +463,7 @@ describe("RightWorkspaceSkillsDrawer", () => {
     })
 
     expect(practiceSwitch?.disabled).toBe(true)
-    expect(practiceSwitch?.parentElement?.getAttribute("aria-busy")).toBe("true")
+    expect(practiceSwitch?.getAttribute("aria-busy")).toBe("true")
 
     const practice = catalog.installed.find((skill) => skill.name === "practice")
     expect(practice).not.toBeUndefined()

@@ -19,7 +19,11 @@ import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
 import { useChatStore } from "@/state/chat-store"
 import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
-import { resourceFileExtensionFromFormat, resourcesQueryOptions } from "@/state/resources-query"
+import {
+  invalidateResourcesQueries,
+  resourceFileExtensionFromFormat,
+  resourcesQueryOptions,
+} from "@/state/resources-query"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { addResource, rebuildResource, type ResourceRecord } from "@/state/resource-actions"
 import type { BenchTarget } from "@/lib/bench-navigation"
@@ -229,9 +233,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       } else {
         await addResource(readyDirectory, { sourcePath: normalizedPath })
       }
-      await queryClient.invalidateQueries({
-        queryKey: resourcesQueryOptions(readyDirectory).queryKey,
-      })
+      await invalidateResourcesQueries(queryClient, readyDirectory)
     } catch (error) {
       setProcessingError(stringifyError(error))
       toast.error(stringifyError(error))

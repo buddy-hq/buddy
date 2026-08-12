@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useRef, useState, type ReactNode } from "react"
 import {
   Badge,
   Button,
@@ -15,8 +15,6 @@ import { language } from "@/context/language"
 import type { SessionInfo } from "@/state/chat-types"
 import { formatThreadAge } from "@/components/layout/chat-left-sidebar/thread-helpers"
 
-const HOVER_CLOSE_DELAY_MS = 100
-
 type ThreadHistoryPopoverProps = {
   sessions: SessionInfo[]
   activeSessionID?: string
@@ -24,7 +22,6 @@ type ThreadHistoryPopoverProps = {
   onSelectSession: (sessionID: string) => void | Promise<void>
   notebookName?: string
   trigger?: ReactNode
-  openOnTriggerHover?: boolean
   triggerClassName?: string
   triggerIconClassName?: string
 }
@@ -33,7 +30,6 @@ export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
   const [query, setQuery] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const hoverCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const hasQuery = query.trim().length > 0
   const linkedSessionID = props.linkedSessionID
   const notebookName = props.notebookName?.trim()
@@ -56,28 +52,6 @@ export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
     return session.title.trim() || language.t("sidebar.untitledThread")
   }
 
-  function clearHoverCloseTimeout() {
-    if (hoverCloseTimeoutRef.current === undefined) return
-    clearTimeout(hoverCloseTimeoutRef.current)
-    hoverCloseTimeoutRef.current = undefined
-  }
-
-  function openFromHover() {
-    clearHoverCloseTimeout()
-    setIsOpen(true)
-  }
-
-  function closeFromHover() {
-    clearHoverCloseTimeout()
-    hoverCloseTimeoutRef.current = setTimeout(() => {
-      setIsOpen(false)
-      setQuery("")
-      hoverCloseTimeoutRef.current = undefined
-    }, HOVER_CLOSE_DELAY_MS)
-  }
-
-  useEffect(() => clearHoverCloseTimeout, [])
-
   return (
     <Popover
       open={isOpen}
@@ -88,11 +62,9 @@ export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
         }
       }}
     >
-      <PopoverTrigger
-        asChild
-        onMouseEnter={props.openOnTriggerHover ? openFromHover : undefined}
-        onMouseLeave={props.openOnTriggerHover ? closeFromHover : undefined}
-      >
+      {/* Click only. Hover-to-open made the chat title a large accidental trigger, and the
+          history button beside it already opens this panel. */}
+      <PopoverTrigger asChild>
         {props.trigger ?? (
           <Button
             type="button"
@@ -114,8 +86,6 @@ export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
         align="start"
         sideOffset={12}
         className="flex max-h-[480px] w-80 flex-col overflow-hidden border-border-weaker-base/20 bg-background-base/95 p-0 shadow-2xl backdrop-blur-xl"
-        onMouseEnter={props.openOnTriggerHover ? clearHoverCloseTimeout : undefined}
-        onMouseLeave={props.openOnTriggerHover ? closeFromHover : undefined}
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           searchInputRef.current?.focus()

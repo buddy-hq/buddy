@@ -228,29 +228,18 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
     </div>
   ) : null
 
+  // Label only. The history button beside it is the single control that opens the thread list.
   const titleControl =
     hasTitle && title ? (
-      <ThreadHistoryPopover
-        sessions={props.sessions}
-        activeSessionID={props.activeSessionID}
-        linkedSessionID={props.linkedSessionID}
-        onSelectSession={props.onSelectSession}
-        notebookName={props.notebookName}
-        openOnTriggerHover
-        trigger={
-          <button
-            type="button"
-            className={cn(
-              "min-w-0 max-w-[20rem] shrink truncate text-left text-xs transition-colors hover:bg-surface-raised-base-hover [-webkit-app-region:no-drag]",
-              usePillChrome ? "rounded-none text-icon-base" : "rounded-full",
-              props.size === "titlebar" ? "h-6 px-2.5" : "h-6 px-2",
-            )}
-            aria-label={language.t("sidebar.showAllThreads")}
-          >
-            <TextShimmer text={title} active={props.titleActive ?? false} />
-          </button>
-        }
-      />
+      <span
+        className={cn(
+          "min-w-0 max-w-[20rem] shrink truncate text-left text-xs leading-6 select-none",
+          usePillChrome ? "text-icon-base" : undefined,
+          props.size === "titlebar" ? "h-6 px-2.5" : "h-6 px-2",
+        )}
+      >
+        <TextShimmer text={title} active={props.titleActive ?? false} />
+      </span>
     ) : null
 
   const showTitleSeparator = Boolean(titleControl && (hasLeadingControls || showWindowControls))

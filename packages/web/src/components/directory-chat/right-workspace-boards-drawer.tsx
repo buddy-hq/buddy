@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { workspaceDrawerUiKey } from "@/state/workspace-drawer-ui-state"
 import {
@@ -20,12 +21,10 @@ import {
   RightWorkspaceDrawerShell,
   RightWorkspaceListRow,
   RightWorkspaceListSkeleton,
-  RightWorkspaceSectionLabel,
 } from "./right-workspace-drawer-ui"
 
 type RightWorkspaceBoardsDrawerProps = {
   directory: string
-  onClose: () => void
   onOpen: (request: RightWorkspaceOpenRequest) => Promise<RightWorkspaceOpenOutcome>
 }
 
@@ -36,8 +35,12 @@ function formatBoardTimestamp(value: string): string {
 }
 
 export function RightWorkspaceBoardsDrawer(props: RightWorkspaceBoardsDrawerProps) {
+  const [search, setSearch] = useState("")
   const boardsQuery = useQuery(workspaceObjectsQueryOptions(props.directory, "whiteboard"))
-  const boards = boardsQuery.data?.objects ?? []
+  const normalizedSearch = search.trim().toLocaleLowerCase()
+  const boards = (boardsQuery.data?.objects ?? []).filter(
+    (board) => !normalizedSearch || board.title.toLocaleLowerCase().includes(normalizedSearch),
+  )
   const boardCreation = useCreateBoard({ directory: props.directory, open: props.onOpen })
 
   function openBoard(objectID: string) {
@@ -52,6 +55,9 @@ export function RightWorkspaceBoardsDrawer(props: RightWorkspaceBoardsDrawerProp
     <RightWorkspaceDrawerShell
       durableScrollKey={workspaceDrawerUiKey({ directory: props.directory, drawer: "boards" })}
       title="Boards"
+      searchLabel="Search boards…"
+      searchValue={search}
+      onSearchValueChange={setSearch}
       action={{
         label: "Create board",
         icon: PlusIcon,
@@ -60,7 +66,6 @@ export function RightWorkspaceBoardsDrawer(props: RightWorkspaceBoardsDrawerProp
           void boardCreation.createBoard()
         },
       }}
-      onClose={props.onClose}
     >
       {boardsQuery.isPending ? <RightWorkspaceListSkeleton count={3} /> : null}
       {boardsQuery.error ? (
@@ -101,7 +106,6 @@ export function RightWorkspaceBoardsDrawer(props: RightWorkspaceBoardsDrawerProp
       ) : null}
       {boards.length > 0 ? (
         <div className="flex flex-col gap-1">
-          <RightWorkspaceSectionLabel>Whiteboards</RightWorkspaceSectionLabel>
           {boards.map((board) => (
             <RightWorkspaceListRow
               key={board.objectID}

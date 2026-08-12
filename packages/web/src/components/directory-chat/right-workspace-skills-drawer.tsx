@@ -71,7 +71,6 @@ type SkillsCatalogSurfaceProps =
   | {
       directory: string
       layout: typeof SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN
-      onClose: () => void
     }
   | {
       directory: string
@@ -238,13 +237,13 @@ function SkillListSkeleton(props: { layout: SkillsCatalogLayout }) {
       role="status"
     >
       {Array.from({ length: SKILL_LIST_SKELETON_COUNT }, (_, index) => (
-        <div key={index} className="flex h-[4.5rem] items-center gap-3.5 px-2.5">
-          <Skeleton className="size-13 shrink-0 rounded-xl" />
+        <div key={index} className="flex h-[4.5rem] items-center gap-3 px-2.5">
+          <Skeleton className="size-11 shrink-0 rounded-xl" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <Skeleton className="h-4 w-2/5" />
+            <Skeleton className="h-3.5 w-2/5" />
             <Skeleton className="h-3 w-4/5" />
           </div>
-          <Skeleton className="h-6 w-20" />
+          <Skeleton className="h-5 w-9 shrink-0 rounded-full" />
         </div>
       ))}
     </div>
@@ -293,9 +292,9 @@ function SkillLoadErrorState(props: { message: string; retrying: boolean; onRetr
 }
 
 /**
- * The same control at two scales: a row's control has to sit inside a 72px row
- * without becoming the loudest thing in it, and a dialog's has to look like the
- * button you came to press.
+ * The same control at two scales: a row's control shares one line with the mark
+ * and the name without becoming the loudest thing there, and a dialog's has to
+ * look like the button you came to press.
  */
 function LibraryActionControl(props: {
   skill: SkillLibraryEntry
@@ -330,6 +329,12 @@ function LibraryActionControl(props: {
  * line of the summary — so the row reads as three competing text blocks with a
  * small toggle orbiting them. State survives without it: the switch says on or
  * off, and a switched-off row greys out.
+ *
+ * It takes only the width it needs. Reserving a column wide enough for the
+ * library's action button spends about 60px of a drawer that has none to spare,
+ * and every one of those pixels comes out of the summary. In-flight reads as a
+ * dimmed, inert switch for the same reason — a spinner beside it would put the
+ * column straight back.
  */
 function InstalledToggle(props: {
   skill: InstalledSkillInfo
@@ -338,15 +343,14 @@ function InstalledToggle(props: {
 }) {
   const active = props.skill.permissionAction !== "deny"
   return (
-    <div className="flex w-24 items-center justify-end gap-2" aria-busy={props.pending}>
-      {props.pending ? <Spinner className="size-3.5" /> : null}
-      <Switch
-        checked={active}
-        disabled={props.pending}
-        aria-label={language.t("skills.toggleAria", { name: props.skill.displayName })}
-        onCheckedChange={props.onToggle}
-      />
-    </div>
+    <Switch
+      checked={active}
+      disabled={props.pending}
+      aria-busy={props.pending}
+      className={cn("shrink-0", props.pending && "opacity-50")}
+      aria-label={language.t("skills.toggleAria", { name: props.skill.displayName })}
+      onCheckedChange={props.onToggle}
+    />
   )
 }
 
@@ -930,7 +934,6 @@ export function SkillsCatalogSurface(props: SkillsCatalogSurfaceProps) {
         }}
         bodyClassName="flex flex-col overflow-hidden p-0"
         onSearchValueChange={setSearch}
-        onClose={props.onClose}
       >
         {catalogBody}
       </RightWorkspaceDrawerShell>
@@ -978,12 +981,11 @@ export function SkillsCatalogSurface(props: SkillsCatalogSurfaceProps) {
   )
 }
 
-export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: () => void }) {
+export function RightWorkspaceSkillsDrawer(props: { directory: string }) {
   return (
     <SkillsCatalogSurface
       directory={props.directory}
       layout={SKILLS_CATALOG_LAYOUT_SINGLE_COLUMN}
-      onClose={props.onClose}
     />
   )
 }

@@ -8,7 +8,7 @@ import {
 } from "react"
 import { useDurableScrollTop } from "@/lib/use-durable-scroll-top"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { Badge, Button, Input, Skeleton, Spinner, XIcon, cn } from "@buddy/ui"
+import { Badge, Button, Input, Skeleton, Spinner, cn } from "@buddy/ui"
 import { ChevronRightIcon, SearchIcon } from "@/icons/app-icons"
 
 const RIGHT_WORKSPACE_LIST_OVERSCAN = 8
@@ -22,6 +22,11 @@ type RightWorkspaceDrawerAction = {
 }
 
 type RightWorkspaceDrawerShellProps = {
+  /**
+   * Names the drawer for assistive tech only. On screen the rail says which
+   * drawer is open and the search field repeats it — a heading row would be the
+   * third place, and it costs a whole row of a surface that cannot be resized.
+   */
   title: string
   searchLabel?: string
   searchValue?: string
@@ -35,7 +40,6 @@ type RightWorkspaceDrawerShellProps = {
   /** Restores and records this drawer's scroll position across the unmount every chat switch causes. */
   durableScrollKey?: string
   onSearchValueChange?: (value: string) => void
-  onClose: () => void
   children: ReactNode
 }
 
@@ -84,58 +88,67 @@ export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps)
   return (
     <section
       data-component="right-workspace-drawer"
+      aria-label={props.title}
       className="flex h-full min-h-0 flex-col bg-background-base"
     >
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border-weaker-base px-3">
-        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-text-strong">
-          {props.title}
-        </h2>
-        {props.action && ActionIcon ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={props.action.label}
-            title={props.action.label}
-            disabled={props.action.busy}
-            onClick={props.action.onClick}
-          >
-            <ActionIcon aria-hidden />
-          </Button>
-        ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Close ${props.title}`}
-          onClick={props.onClose}
-        >
-          <XIcon aria-hidden />
-        </Button>
-      </header>
-
-      {props.searchLabel ? (
-        <div className="shrink-0 border-b border-border-weaker-base p-3">
-          <div className="relative">
-            {props.searchPending ? (
-              <Spinner className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon-base" />
-            ) : (
-              <SearchIcon
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-icon-base"
-                aria-hidden
+      {/*
+       * The drawer's one head row. Beside a search field the action is an icon,
+       * since the field has already said what this drawer holds; on its own it
+       * spells itself out, because an unlabelled icon floating over a list is a
+       * guess.
+       */}
+      {props.searchLabel || props.action ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border-weaker-base p-3">
+          {props.searchLabel ? (
+            <div className="relative min-w-0 flex-1">
+              {props.searchPending ? (
+                <Spinner className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon-base" />
+              ) : (
+                <SearchIcon
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-icon-base"
+                  aria-hidden
+                />
+              )}
+              <Input
+                type="search"
+                autoFocus={props.searchAutoFocus}
+                maxLength={props.searchMaxLength}
+                value={props.searchValue ?? ""}
+                aria-label={props.searchLabel}
+                placeholder={props.searchLabel}
+                className="pl-9"
+                onChange={(event) => props.onSearchValueChange?.(event.currentTarget.value)}
               />
-            )}
-            <Input
-              type="search"
-              autoFocus={props.searchAutoFocus}
-              maxLength={props.searchMaxLength}
-              value={props.searchValue ?? ""}
-              aria-label={props.searchLabel}
-              placeholder={props.searchLabel}
-              className="pl-9"
-              onChange={(event) => props.onSearchValueChange?.(event.currentTarget.value)}
-            />
-          </div>
+            </div>
+          ) : null}
+          {props.action && ActionIcon ? (
+            props.searchLabel ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0"
+                aria-label={props.action.label}
+                title={props.action.label}
+                disabled={props.action.busy}
+                onClick={props.action.onClick}
+              >
+                <ActionIcon aria-hidden />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={props.action.busy}
+                onClick={props.action.onClick}
+              >
+                <ActionIcon data-icon="inline-start" aria-hidden />
+                {props.action.label}
+              </Button>
+            )
+          ) : null}
         </div>
       ) : null}
 

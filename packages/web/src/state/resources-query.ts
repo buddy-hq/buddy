@@ -11,6 +11,7 @@ import {
 } from "@/lib/workspace-file-paths"
 
 const RESOURCE_QUERY_KEY_ROOT = "resources"
+const RESOURCE_DISCOVERY_QUERY_KEY = "discovery"
 const RESOURCE_PROCESSED_QUERY_KEY = "processed"
 const RESOURCE_COVER_QUERY_KEY = "cover"
 const RESOURCE_READING_BLOB_QUERY_KEY = "reading-blob"
@@ -21,6 +22,7 @@ const RESOURCE_QUERY_AUTO_REFRESH_INTERVAL_MS = 1500
 const RESOURCE_DISCOVERY_LIMIT = 200
 const RESOURCE_STATUS_PREPARING = "preparing"
 const RESOURCE_COVER_STALE_TIME_MS = 5 * 60 * 1000
+const RESOURCE_DISCOVERY_STALE_TIME_MS = Number.POSITIVE_INFINITY
 const READING_BLOB_STALE_TIME_MS = 30 * 60 * 1000
 const READER_SOURCE_PREFIX_BYTES = 1024
 
@@ -258,7 +260,10 @@ export function resolveResourceReadingTarget(
   return item ? toResourceReadingTarget(item) : undefined
 }
 
-async function loadResourceDirectoryData(directory: string): Promise<ResourceDirectoryData> {
+async function loadResourceDirectoryData(
+  directory: string,
+  discovered: DiscoveredResource[],
+): Promise<ResourceDirectoryData> {
   if (!directory) {
     return {
       items: [],
@@ -266,10 +271,7 @@ async function loadResourceDirectoryData(directory: string): Promise<ResourceDir
     }
   }
 
-  const [discovered, processed] = await Promise.all([
-    discoverWorkspaceResources(directory),
-    loadResources(directory),
-  ])
+  const processed = await loadResources(directory)
 
   return {
     items: buildResourceListItems({ discovered, processed }),
@@ -329,6 +331,10 @@ export function resourcesQueryKey(directory: string) {
   return [RESOURCE_QUERY_KEY_ROOT, directory]
 }
 
+export function resourceDiscoveryQueryKey(directory: string) {
+  return [RESOURCE_QUERY_KEY_ROOT, RESOURCE_DISCOVERY_QUERY_KEY, directory]
+}
+
 export function processedResourcesQueryKey(directory: string) {
   return [RESOURCE_QUERY_KEY_ROOT, RESOURCE_PROCESSED_QUERY_KEY, directory]
 }
@@ -348,12 +354,22 @@ export function isSupportedReadingResourcePath(path: string) {
 export function resourcesQueryOptions(directory: string) {
   return queryOptions({
     queryKey: resourcesQueryKey(directory),
-    queryFn: () => loadResourceDirectoryData(directory),
+    queryFn: async ({ client }) => {
+      const discovered = await client.ensureQueryData(resourceDiscoveryQueryOptions(directory))
+      return loadResourceDirectoryData(directory, discovered)
+    },
     refetchInterval: (query) =>
       query.state.data?.processed.some((resource) => resource.status === RESOURCE_STATUS_PREPARING)
         ? RESOURCE_QUERY_AUTO_REFRESH_INTERVAL_MS
         : false,
-    refetchIntervalInBackground: true,
+  })
+}
+
+export function resourceDiscoveryQueryOptions(directory: string) {
+  return queryOptions({
+    queryKey: resourceDiscoveryQueryKey(directory),
+    queryFn: () => discoverWorkspaceResources(directory),
+    staleTime: RESOURCE_DISCOVERY_STALE_TIME_MS,
   })
 }
 
@@ -365,7 +381,6 @@ export function processedResourcesQueryOptions(directory: string) {
       query.state.data?.some((resource) => resource.status === RESOURCE_STATUS_PREPARING)
         ? RESOURCE_QUERY_AUTO_REFRESH_INTERVAL_MS
         : false,
-    refetchIntervalInBackground: true,
   })
 }
 
@@ -388,6 +403,13 @@ export function readingResourceBlobQueryOptions(directory: string, resourcePath:
 
 export async function invalidateResourcesQueries(queryClient: QueryClient, directory: string) {
   if (!directory) return
+
+  // Discovery is intentionally independent from preparation polling. Mark it stale first so the
+  // composite query's next load refreshes file paths exactly once after a resource mutation.
+  await queryClient.invalidateQueries({
+    queryKey: resourceDiscoveryQueryKey(directory),
+    refetchType: "none",
+  })
 
   await Promise.all([
     queryClient.invalidateQueries({

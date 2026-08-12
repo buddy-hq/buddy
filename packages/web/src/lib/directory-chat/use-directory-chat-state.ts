@@ -37,6 +37,11 @@ import { isSessionWorking } from "@/state/session-status"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import { formatSessionTitle } from "@/lib/session-title"
 import { DEVELOPMENT_FEATURES_ENABLED } from "@/lib/development-features"
+import {
+  resolveLeftSidebarMaxWidth,
+  resolveLeftSidebarWidth,
+} from "@/lib/directory-chat/left-sidebar-layout"
+import { useViewportWidth } from "@/lib/use-viewport-width"
 import type {
   MessageInfo,
   MessagePart,
@@ -357,6 +362,8 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   // ── UI preferences ─────────────────────────────────────────────────────────
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const leftSidebarWidth = useUiPreferences((state) => state.chatLeftSidebarWidth)
+  // The sidebar ceiling scales with the window, so the stored width is clamped against it on read.
+  const viewportWidth = useViewportWidth()
   const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
   const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
@@ -636,8 +643,11 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     selectedPersonaConfig?.surfaces ?? (["curriculum"] satisfies PersonaConfigOption["surfaces"])
   const selectedPersonaSupportsEditor = selectedPersonaSurfaces.includes("editor")
   const isInteractiveMode = !!sessionID && !!teachingWorkspace
-  const leftSidebarMaxWidth = 360
-  const leftSidebarDisplayWidth = Math.max(leftSidebarWidth, 220)
+  const leftSidebarMaxWidth = resolveLeftSidebarMaxWidth(viewportWidth)
+  const leftSidebarDisplayWidth = resolveLeftSidebarWidth({
+    widthPx: leftSidebarWidth,
+    viewportWidthPx: viewportWidth,
+  })
 
   return {
     // Chat store actions

@@ -20,6 +20,12 @@ import {
  * Density is a function of what the user is doing, not of what the skill is.
  * Browsing, every row is `default`. Searching, the top few results expand and a
  * long tail collapses — same rank, different amounts of room.
+ *
+ * The row is a contact card: mark on the left, name over summary in the middle,
+ * control on the right. It survives a narrow drawer by making its parts smaller
+ * rather than by restacking them — a name pushed onto the control's line has to
+ * truncate to nothing, and a summary pushed below the mark costs a row of height
+ * on every skill in the list.
  */
 
 export const SKILL_ROW_DENSITY_COMPACT = "compact"
@@ -34,7 +40,7 @@ export type SkillRowDensity =
 /** Constant per density, so a row never resizes as its state settles. */
 const ROW_SHELL_CLASS: Record<SkillRowDensity, string> = {
   [SKILL_ROW_DENSITY_COMPACT]: "h-10 items-center gap-3 rounded-lg px-2.5",
-  [SKILL_ROW_DENSITY_DEFAULT]: "h-[4.5rem] items-center gap-3.5 rounded-lg px-2.5",
+  [SKILL_ROW_DENSITY_DEFAULT]: "h-[4.5rem] items-center gap-3 rounded-lg px-2.5",
   [SKILL_ROW_DENSITY_EXPANDED]:
     "h-[8.5rem] flex-col gap-2 rounded-xl border border-border-base bg-surface-raised-base p-3 shadow-sm",
 }
@@ -128,14 +134,14 @@ export function SkillsListRow({
     />
   )
   const title = (
-    <span className="min-w-0 truncate text-sm font-medium text-text-base">
+    <span className="w-full truncate text-[13px] font-medium leading-tight text-text-base">
       <HighlightedText text={props.title} query={query} />
     </span>
   )
   const summary = (
     <span
       className={cn(
-        "w-full whitespace-normal text-xs leading-snug text-text-weak",
+        "w-full whitespace-normal text-[11px] leading-snug text-text-weak",
         expanded ? "line-clamp-3" : "line-clamp-2",
       )}
     >

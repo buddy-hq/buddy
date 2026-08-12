@@ -50,6 +50,12 @@ import { globalConfigQueryOptions } from "@/state/global-config-query"
 import { readPersonalization } from "@/state/project-config-readers"
 import { pickProjectDirectory } from "../lib/directory-picker"
 import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
+import {
+  LEFT_SIDEBAR_MIN_WIDTH_PX,
+  resolveLeftSidebarMaxWidth,
+  resolveLeftSidebarWidth,
+} from "@/lib/directory-chat/left-sidebar-layout"
+import { useViewportWidth } from "@/lib/use-viewport-width"
 import { sessionFamilyIDs } from "@/lib/session-family"
 import { getPromptScopeKey, usePromptStore } from "@/state/prompt-store"
 import {
@@ -70,7 +76,6 @@ import {
   experimentalFeaturesQueryOptions,
 } from "@/state/experimental-features-query"
 
-const SETTINGS_SIDEBAR_MIN_WIDTH_PX = 220
 const SETTINGS_TITLEBAR_HEIGHT_PX = 40
 
 function readSeededSessionList(directory: string) {
@@ -120,8 +125,13 @@ function SettingsRoute() {
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
   const clearDirectorySessionState = useUiPreferences((state) => state.clearDirectorySessionState)
-  const settingsSidebarWidth = useUiPreferences((state) => state.settingsSidebarWidth)
+  const storedSettingsSidebarWidth = useUiPreferences((state) => state.settingsSidebarWidth)
   const setSettingsSidebarWidth = useUiPreferences((state) => state.setSettingsSidebarWidth)
+  const viewportWidth = useViewportWidth()
+  const settingsSidebarWidth = resolveLeftSidebarWidth({
+    widthPx: storedSettingsSidebarWidth,
+    viewportWidthPx: viewportWidth,
+  })
   const { standardsEnabled, standardsStatus } = useStandardsRuntime({
     open: true,
     platform: platform.platform,
@@ -153,7 +163,7 @@ function SettingsRoute() {
 
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
-  const leftSidebarMaxWidth = 320
+  const leftSidebarMaxWidth = resolveLeftSidebarMaxWidth(viewportWidth)
   const visibleTabs = useMemo(
     () =>
       getVisibleSettingsTabDefinitions({
@@ -530,7 +540,7 @@ function SettingsRoute() {
           <ResizeHandle
             direction="horizontal"
             size={settingsSidebarWidth}
-            min={SETTINGS_SIDEBAR_MIN_WIDTH_PX}
+            min={LEFT_SIDEBAR_MIN_WIDTH_PX}
             max={leftSidebarMaxWidth}
             onResize={setSettingsSidebarWidth}
           />

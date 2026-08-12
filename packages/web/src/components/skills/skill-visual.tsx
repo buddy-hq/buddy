@@ -22,12 +22,12 @@ export type SkillVisualSize =
 
 /**
  * These are rendered icon assets, not glyphs — below about 44px they stop
- * reading as objects, which is why `md` is as large as it is and why the row
- * that carries it is as tall as it is.
+ * reading as objects, so `md` sits on that floor. It is not larger because in a
+ * drawer row every pixel it takes comes out of the name beside it.
  */
 const BOX_CLASS: Record<SkillVisualSize, string> = {
   [SKILL_VISUAL_SIZE_SM]: "size-8 rounded-md",
-  [SKILL_VISUAL_SIZE_MD]: "size-13 rounded-xl",
+  [SKILL_VISUAL_SIZE_MD]: "size-11 rounded-xl",
   [SKILL_VISUAL_SIZE_LG]: "size-14 rounded-2xl",
 }
 

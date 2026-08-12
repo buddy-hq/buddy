@@ -7,14 +7,24 @@ export type FlashcardPracticeRowAction =
   | { kind: "action"; label: string; onClick: () => void }
   | { kind: "note"; label: string }
 
-/** The ruled mixed-list language shared by the Easel and the live drawer. */
-export function FlashcardPracticeDrawerRuledHead(props: { label: string; trailing: ReactNode }) {
+/**
+ * The ruled mixed-list language shared by the Easel and the live drawer.
+ *
+ * The label is optional: a drawer whose header already names the list would only
+ * say the same word twice, and the rule plus the column label carry the head on
+ * their own. It stays available for surfaces that stack several lists.
+ */
+export function FlashcardPracticeDrawerRuledHead(props: { label?: string; trailing: ReactNode }) {
   return (
     <div className="shrink-0">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-text-weaker">
-          {props.label}
-        </span>
+        {props.label ? (
+          <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-text-weaker">
+            {props.label}
+          </span>
+        ) : (
+          <span />
+        )}
         {props.trailing}
       </div>
       <div className="mt-2 h-px w-full bg-border-base" />

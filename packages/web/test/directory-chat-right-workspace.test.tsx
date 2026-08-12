@@ -332,7 +332,9 @@ describe("DirectoryChatRightWorkspace", () => {
 
     expect(searchButton?.getAttribute("aria-pressed")).toBe("true")
     expect(
-      container.querySelector('[data-component="right-workspace-drawer"] h2')?.textContent,
+      container
+        .querySelector('[data-component="right-workspace-drawer"]')
+        ?.getAttribute("aria-label"),
     ).toBe("Search")
     expect(container.querySelector('[aria-label="Search this notebook…"]')).not.toBeNull()
   })
@@ -422,7 +424,9 @@ describe("DirectoryChatRightWorkspace", () => {
     })
 
     expect(
-      container.querySelector('[data-component="right-workspace-drawer"] h2')?.textContent,
+      container
+        .querySelector('[data-component="right-workspace-drawer"]')
+        ?.getAttribute("aria-label"),
     ).toBe("Boards")
     expect(container.textContent).toContain("No boards yet")
   })
@@ -445,7 +449,9 @@ describe("DirectoryChatRightWorkspace", () => {
     })
 
     expect(
-      container.querySelector('[data-component="right-workspace-drawer"] h2')?.textContent,
+      container
+        .querySelector('[data-component="right-workspace-drawer"]')
+        ?.getAttribute("aria-label"),
     ).toBe("Boards")
     expect(container.textContent).toContain("No boards yet")
     expect(container.textContent).toContain("Create board")
