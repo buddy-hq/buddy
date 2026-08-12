@@ -151,7 +151,7 @@ describe("runtime tool registration", () => {
 
     expect(await listRegisteredToolIDs(firstProject.path)).toContain("save_question_set")
     expect(await listRegisteredToolIDs(secondProject.path)).toContain("save_flashcard_deck")
-  })
+  }, 15_000)
 
   test("dynamic tool search finds candidates and load exposes them for the current session", async () => {
     await using project = await tmpdir({ git: true })

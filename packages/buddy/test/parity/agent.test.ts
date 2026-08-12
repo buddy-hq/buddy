@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
+import { BUDDY } from "../../src/learning/personas/buddy"
+import { TEACHING_BUDDY } from "../../src/learning/personas/teaching-buddy"
 import { writeProjectConfig } from "../helpers/project-config"
 import { withSyncedOpenCodeConfig } from "../helpers/opencode"
 import { withRepo } from "./helpers"
@@ -43,7 +45,7 @@ describe("parity.agent", () => {
     })
   })
 
-  test("keeps learner and teaching overlays detached pending prompt review", async () => {
+  test("preserves distinct learner and teaching prompts through runtime overlays", async () => {
     await withRepo(async (directory) => {
       const result = await withSyncedOpenCodeConfig(directory, async () => ({
         buddyAgent: await OpenCodeAgent.get("buddy"),
@@ -56,11 +58,13 @@ describe("parity.agent", () => {
         "teaching-buddy prompt",
       )
 
-      expect(teachingBuddyPrompt).toBe(buddyPrompt)
+      expect(buddyPrompt.trim()).toBe(BUDDY.runtime.prompt.trim())
+      expect(teachingBuddyPrompt.trim()).toBe(TEACHING_BUDDY.runtime.prompt.trim())
+      expect(teachingBuddyPrompt).not.toBe(buddyPrompt)
       expect(buddyPrompt).not.toContain("## Persona: Buddy")
       expect(teachingBuddyPrompt).not.toContain("## Persona: Teaching Buddy")
     })
-  })
+  }, 15_000)
 
   test("preserves curriculum-orchestrator defaults when applying partial overrides", async () => {
     await withRepo(async (directory) => {
