@@ -3,6 +3,7 @@ import { setTimeout as sleep } from "node:timers/promises"
 import type { AuthHook } from "@opencode-ai/plugin"
 import { Auth } from "@buddy/opencode-adapter/auth"
 import { BUDDY_BRANDING } from "@buddy/script/branding"
+import { APICallError } from "ai"
 import { BUDDY_ENV } from "../../storage/constants"
 import {
   extractOpenAICodexAccountId,
@@ -24,6 +25,9 @@ const OAUTH_POLLING_SAFETY_MARGIN_MS = 3_000
 export { OPENAI_PROVIDER_ID }
 const WINDOW_CLOSE_DELAY_MS = 1_500
 const HTTP_STATUS_UNAUTHORIZED = 401
+const HTTP_STATUS_TOO_MANY_REQUESTS = 429
+const OPENAI_USAGE_LIMIT_ERROR_TYPE = "usage_limit_reached"
+const OPENAI_USAGE_LIMIT_ERROR_MESSAGE = "The usage limit has been reached"
 const OPENCODE_OAUTH_USER_AGENT = "opencode/local"
 const CANCELLED_AUTHORIZATION_ERROR = "Authorization cancelled"
 const TOKEN_ERROR_DETAIL_MAX_LENGTH = 500
@@ -115,6 +119,45 @@ function errorMessage(error: unknown) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function readOpenAIUsageLimitMessage(responseBody: string) {
+  try {
+    const parsed: unknown = JSON.parse(responseBody)
+    if (!isRecord(parsed) || !isRecord(parsed.error)) return undefined
+
+    const errorType =
+      typeof parsed.error.type === "string"
+        ? parsed.error.type
+        : typeof parsed.error.code === "string"
+          ? parsed.error.code
+          : undefined
+    if (errorType !== OPENAI_USAGE_LIMIT_ERROR_TYPE) return undefined
+
+    return typeof parsed.error.message === "string" && parsed.error.message.trim().length > 0
+      ? parsed.error.message
+      : OPENAI_USAGE_LIMIT_ERROR_MESSAGE
+  } catch {
+    return undefined
+  }
+}
+
+async function createOpenAIUsageLimitError(response: Response, url: URL) {
+  if (response.status !== HTTP_STATUS_TOO_MANY_REQUESTS) return undefined
+
+  const responseBody = await response.clone().text()
+  const message = readOpenAIUsageLimitMessage(responseBody)
+  if (!message) return undefined
+
+  return new APICallError({
+    message,
+    url: url.toString(),
+    requestBodyValues: undefined,
+    statusCode: response.status,
+    responseHeaders: Object.fromEntries(response.headers.entries()),
+    responseBody,
+    isRetryable: false,
+  })
 }
 
 function readTokenErrorDetails(text: string) {
@@ -379,6 +422,8 @@ export function createBuddyCodexLoader(input: {
       if (response.status === HTTP_STATUS_UNAUTHORIZED) {
         input.onAuthenticationRejected?.(auth)
       }
+      const usageLimitError = await createOpenAIUsageLimitError(response, targetUrl)
+      if (usageLimitError) throw usageLimitError
       return response
     },
   }

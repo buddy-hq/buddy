@@ -2,6 +2,7 @@ import { afterEach, describe, expect, mock, test } from "bun:test"
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { APICallError } from "ai"
 import { BUDDY_ENV } from "../../src/storage/constants"
 import {
   buildBuddyCodexErrorHtml,
@@ -196,6 +197,82 @@ describe("OpenAI Codex auth hook", () => {
     expect(rejectedAuth).toHaveBeenCalledWith(
       expect.objectContaining({ access: "invalidated-access-token" }),
     )
+  })
+
+  test("marks ChatGPT subscription usage limits as non-retryable", async () => {
+    const responseBody = JSON.stringify({
+      error: {
+        type: "usage_limit_reached",
+        message: "The usage limit has been reached",
+        plan_type: "plus",
+        resets_at: 1_787_087_426,
+        eligible_promo: null,
+        resets_in_seconds: 539_958,
+      },
+    })
+    const fetchStub = Object.assign(
+      async () =>
+        new Response(responseBody, {
+          status: 429,
+          headers: {
+            "content-type": "application/json",
+            "x-codex-primary-used-percent": "100.0",
+          },
+        }),
+      { preconnect: originalFetch.preconnect },
+    )
+    globalThis.fetch = fetchStub
+
+    const loader = createBuddyCodexLoader({
+      getAuth: async () => ({
+        type: "oauth",
+        access: "access-token",
+        refresh: "refresh-token",
+        expires: Date.now() + 60_000,
+      }),
+      setAuth: async () => undefined,
+    })
+
+    const result = await loader.fetch("https://api.openai.com/v1/responses").catch(
+      (error: unknown) => error,
+    )
+
+    expect(APICallError.isInstance(result)).toBe(true)
+    if (!APICallError.isInstance(result)) throw new Error("Expected an API call error")
+    expect(result.message).toBe("The usage limit has been reached")
+    expect(result.statusCode).toBe(429)
+    expect(result.isRetryable).toBe(false)
+    expect(result.responseBody).toBe(responseBody)
+    expect(result.responseHeaders?.["x-codex-primary-used-percent"]).toBe("100.0")
+  })
+
+  test("leaves transient OpenAI rate limits retryable", async () => {
+    const responseBody = JSON.stringify({
+      error: {
+        type: "rate_limit_error",
+        message: "Too many requests",
+      },
+    })
+    const fetchStub = Object.assign(
+      async () => new Response(responseBody, { status: 429 }),
+      { preconnect: originalFetch.preconnect },
+    )
+    globalThis.fetch = fetchStub
+
+    const loader = createBuddyCodexLoader({
+      getAuth: async () => ({
+        type: "oauth",
+        access: "access-token",
+        refresh: "refresh-token",
+        expires: Date.now() + 60_000,
+      }),
+      setAuth: async () => undefined,
+    })
+
+    const response = await loader.fetch("https://api.openai.com/v1/responses")
+
+    expect(response.status).toBe(429)
+    expect(await response.text()).toBe(responseBody)
   })
 
   test("accepts refresh responses without rotated refresh or ID tokens", async () => {
