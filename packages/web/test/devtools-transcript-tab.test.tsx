@@ -52,6 +52,7 @@ describe("DevToolsTranscriptTab", () => {
       shell: {
         shellKind: "unknown",
         rowHeight: 180,
+        contentHeight: 180,
         rowTop: 100,
         rowBottom: 280,
         textPreview: "Streaming equation",

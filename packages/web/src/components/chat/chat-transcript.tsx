@@ -18,6 +18,7 @@ import {
 import { TooltipProvider, cn } from "@buddy/ui"
 import type {
   ToolCollectionToken,
+  ToolLayoutRole,
   ToolRendererToken,
 } from "@buddy/opencode-adapter/tool-presentation"
 import { useShallow } from "zustand/react/shallow"
@@ -37,7 +38,11 @@ import {
   useTranscriptSessionMeta,
 } from "@/state/transcript-repository"
 import type { MessagePart, ProviderInfo, SessionStatusInfo } from "@/state/chat-types"
-import { recordTranscriptPerfEvent } from "@/lib/directory-chat/transcript-performance-probe"
+import {
+  getTranscriptPerformanceProbe,
+  recordTranscriptPerfEvent,
+} from "@/lib/directory-chat/transcript-performance-probe"
+import type { TranscriptScrollWriteReason } from "@/lib/directory-chat/transcript-performance-probe"
 import {
   VIRTUAL_CHAT_OVERSCAN,
   VIRTUAL_CHAT_SESSION_CACHE_LIMIT,
@@ -46,9 +51,11 @@ import {
 import { ChatScrollProvider } from "./chat-scroll-context"
 import { InlineAssetLifecycleProvider, type InlineAssetSize } from "./inline-asset-boundary"
 import {
+  pendingEndOfTurnTailKey,
   latestLiveTimelineRowIndex,
   projectTimelineRows,
   reuseTimelineRows,
+  withRevealedEndOfTurnTail,
   type TimelineAssistantItem,
   type TimelineRow,
 } from "./chat-timeline-rows"
@@ -56,10 +63,19 @@ import { chatTranscriptEqual } from "./utils/message-utils"
 import { isHiddenFromUserMessage } from "./utils/message-visibility"
 import { isChatReasoningPart, isChatTextPart } from "./utils/part-guards"
 import { useAssistantMeta } from "./hooks/use-assistant-meta"
+import { useDelayedFlag } from "./hooks/use-delayed-flag"
 import { UserSection } from "./sections/user-section"
-import { ActivityRow, type ActivityRowExpansionState } from "./tools/activity-row"
+import {
+  ActivityRow,
+  END_OF_TURN_DEAD_ZONE_MS,
+  type ActivityRowExpansionState,
+} from "./tools/activity-row"
 import { ACTIVITY_THINKING_LABEL, activityWorkingLabel } from "./tools/activity-row/entries"
-import { transcriptGapClass } from "./transcript-layout"
+import {
+  collapsedActivityRowHeightPx,
+  proseRowHeightPx,
+  transcriptGapClass,
+} from "./transcript-layout"
 import { parseToolState } from "./tools/parse-tool-state"
 import { parseToolPresentation } from "./tools/parse-tool-presentation"
 import { GroupedIngestFullTextToolCard } from "./tools/render/ingest-full-text"
@@ -99,9 +115,18 @@ const TIMELINE_INITIAL_VIEWPORT_HEIGHT_PX = 800
 const VIEWPORT_SIZE_CHANGE_PIN_MULTIPLIER = 1
 const DEFERRED_TOOL_COLLAPSE_GUARD_MIN_PREVIOUS_SIZE_PX = 160
 const DEFERRED_TOOL_COLLAPSE_GUARD_MAX_NEXT_SIZE_PX = 128
-const USER_ROW_BASE_ESTIMATE_PX = 96
-const USER_ROW_CHARS_PER_LINE_ESTIMATE = 76
-const USER_ROW_LINE_HEIGHT_ESTIMATE_PX = 24
+// Derived from the rendered bubble, not tuned. `px-4 py-3` contributes 24px of
+// vertical padding, the hover action footer `mt-1 min-h-6` contributes 28px, and
+// the row's own leading gap contributes 16px — 68px of chrome around a `text-sm`
+// line box of 20px. A one-line user message measures 88px, which is exactly
+// 68 + 20.
+const USER_ROW_CHROME_ESTIMATE_PX = 68
+const USER_ROW_LINE_HEIGHT_ESTIMATE_PX = 20
+// The bubble is capped at `max-w-[min(82%,64ch)]`, so a line holds ~64 characters.
+const USER_ROW_CHARS_PER_LINE_ESTIMATE = 64
+// Each top-level attachment/chip/selection group adds a stacked row plus its
+// `gap-2`. The projection counts rendered groups, not serialized message parts.
+const USER_ROW_STACKED_CONTENT_ESTIMATE_PX = 44
 const USER_ROW_MAX_ESTIMATE_PX = 1_600
 const ASSISTANT_GROUPED_VISUAL_ROW_ESTIMATE_PX = 560
 const ASSISTANT_FIGURE_ROW_ESTIMATE_PX = 392
@@ -210,18 +235,45 @@ function assistantPartIsStreaming(part: MessagePart) {
   return typeof part.time?.end !== "number"
 }
 
-function estimateUserRowSize(row: Extract<TimelineRow, { type: "user" }>) {
-  const estimatedLines = Math.max(
-    row.partIDs.length,
-    Math.ceil(row.textLength / USER_ROW_CHARS_PER_LINE_ESTIMATE),
-  )
+/**
+ * A steered user row enters the timeline mid-stream, so its estimate is
+ * corrected in the same frame as the semantic-end write that revealed it. An
+ * overshoot therefore shows up as the steered message visibly jumping.
+ *
+ * The old estimate treated `partIDs.length` as a line count, so a two-part
+ * message was estimated at two lines regardless of its text. A recorded steer
+ * entered at 144px and measured 88px — a 56px jolt on the row the user was
+ * looking at.
+ */
+export function estimateUserRowSize(row: Extract<TimelineRow, { type: "user" }>) {
+  const textLines = Math.max(1, Math.ceil(row.textLength / USER_ROW_CHARS_PER_LINE_ESTIMATE))
   return Math.min(
     USER_ROW_MAX_ESTIMATE_PX,
-    USER_ROW_BASE_ESTIMATE_PX + estimatedLines * USER_ROW_LINE_HEIGHT_ESTIMATE_PX,
+    USER_ROW_CHROME_ESTIMATE_PX +
+      textLines * USER_ROW_LINE_HEIGHT_ESTIMATE_PX +
+      row.stackedContentCount * USER_ROW_STACKED_CONTENT_ESTIMATE_PX,
   )
 }
 
-function estimateAssistantToolRowSize(item: Extract<TimelineAssistantItem, { type: "part" }>) {
+export type TimelineTailSnapshot = {
+  lastRowKey: string | undefined
+  rowCount: number
+}
+
+/** True for an appended or same-length replacement tail, never a pure removal. */
+export function isSemanticTimelineTailAddition(
+  previous: TimelineTailSnapshot | undefined,
+  next: TimelineTailSnapshot,
+): boolean {
+  if (!previous || next.lastRowKey === undefined) return false
+  if (next.rowCount > previous.rowCount) return true
+  return next.rowCount === previous.rowCount && next.lastRowKey !== previous.lastRowKey
+}
+
+function estimateAssistantToolRowSize(
+  item: Extract<TimelineAssistantItem, { type: "part" }>,
+  input: { previousLayoutRole: ToolLayoutRole | undefined; hasActionFooter: boolean },
+) {
   switch (item.renderer) {
     case "figure":
       return ASSISTANT_FIGURE_ROW_ESTIMATE_PX
@@ -238,7 +290,12 @@ function estimateAssistantToolRowSize(item: Extract<TimelineAssistantItem, { typ
     case "bench-present":
       return OBJECT_ROW_HEIGHT_PX[OBJECT_VARIANT_MD]
     default:
-      return VIRTUAL_CHAT_TURN_ESTIMATE_PX
+      // No renderer means a text or reasoning part: prose, not a tool card.
+      return proseRowHeightPx({
+        previous: input.previousLayoutRole,
+        textLength: item.textLength,
+        hasActionFooter: input.hasActionFooter,
+      })
   }
 }
 
@@ -248,7 +305,10 @@ function estimateRowSize(row: TimelineRow | undefined) {
     case "turn-gap":
       return 24
     case "activity":
-      return row.partIDs.length > 0 ? 96 : 52
+      // Always mounts collapsed. Having parts does not mean expanded — an
+      // expanded row restored from the session cache carries its own
+      // measurement, which stays authoritative.
+      return collapsedActivityRowHeightPx(row.previousLayoutRole)
     case "turn-divider":
       // py-6 (24+24) + ~20px label row
       return 72
@@ -261,7 +321,10 @@ function estimateRowSize(row: TimelineRow | undefined) {
       if (row.item.type === "grouped-parts") {
         return groupedCollectionEstimate(row.item.collection)
       }
-      return estimateAssistantToolRowSize(row.item)
+      return estimateAssistantToolRowSize(row.item, {
+        previousLayoutRole: row.previousLayoutRole,
+        hasActionFooter: row.assistantActionsEnabled && row.assistantActionPartID === row.item.partID,
+      })
   }
 }
 
@@ -280,16 +343,47 @@ function distanceFromVirtualEnd(root: HTMLElement, totalSize: number) {
   return Math.max(totalSize - root.clientHeight - root.scrollTop, 0)
 }
 
-export function writeTranscriptVirtualEnd(
-  root: HTMLElement,
-  virtualContent: HTMLElement | null,
-  totalSize: number,
-) {
+/**
+ * The single operation for every Buddy-owned write to the virtual end.
+ *
+ * The virtualizer keeps its own logical scroll offset and refreshes it only from
+ * the scroll event installed by `observeElementOffset`. A native scroll event is
+ * asynchronous, so between a direct `scrollTop` assignment and that event the
+ * virtualizer still believes the viewport sits at the previous offset. Any row
+ * measurement landing in that window computes its correction from the stale base
+ * and reverses this write — the transcript's up/down flicker.
+ *
+ * Replaying the resulting offset as a synchronous `scroll` event closes that
+ * window: the virtualizer's own listener adopts the real DOM offset and resets
+ * its pending adjustments before the next measurement runs. It also covers the
+ * case where the write is a browser-level no-op — a transcript shorter than its
+ * viewport, where no native event ever arrives and the virtualizer would keep
+ * its end sentinel and omit the first rows.
+ *
+ * The tradeoff is deliberate: the virtualizer notifies with `isScrolling: true`,
+ * which reaches react-virtual's `flushSync` path, so this runs a synchronous
+ * React render inside whatever called it. Every call site is a timer, animation
+ * frame, ResizeObserver callback, or passive effect — never render — and the
+ * no-op branch has always behaved this way. Recorded traces across 1,588 events
+ * show the resulting writes monotonic with zero reversals and zero repairs.
+ * Assigning `virtualizer.scrollOffset` directly would avoid the render, but
+ * `scrollAdjustments` is private and would be left stale, double-counting the
+ * next correction.
+ */
+export function commitTranscriptVirtualEnd(input: {
+  root: HTMLElement
+  virtualContent: HTMLElement | null
+  totalSize: number
+  reason: TranscriptScrollWriteReason
+  markProgrammaticScroll?: (element: HTMLElement, top: number) => void
+}) {
+  const { root, virtualContent, totalSize, reason } = input
   if (virtualContent) {
     virtualContent.style.height = `${totalSize}px`
   }
   const requestedOffset = Math.max(totalSize - root.clientHeight, 0)
   const previousScrollTop = root.scrollTop
+  input.markProgrammaticScroll?.(root, requestedOffset)
   root.scrollTop = requestedOffset
   const nextScrollTop = root.scrollTop
   const noOp = Math.abs(previousScrollTop - nextScrollTop) < TIMELINE_SCROLL_WRITE_EPSILON_PX
@@ -300,13 +394,46 @@ export function writeTranscriptVirtualEnd(
     previousScrollTop,
     nextScrollTop,
     noOp,
+    reason,
   })
-  // A bottom write can be a browser-level no-op when the transcript is shorter
-  // than its viewport. No native scroll event fires in that case, so the
-  // virtualizer can retain its end sentinel and omit the first rows until the
-  // user scrolls. Replaying the current offset synchronizes its visible range.
-  if (noOp) {
-    root.dispatchEvent(new Event("scroll"))
+  root.dispatchEvent(new Event("scroll"))
+}
+
+/**
+ * Write each mounted row's geometry to the DOM in the same synchronous turn the
+ * virtualizer wrote `scrollTop`.
+ *
+ * `resizeItem` applies a bottom-following scroll adjustment directly to the
+ * scroll element and then calls `notify(false)`, which is an ordinary React
+ * re-render. The scroll write therefore lands before paint and the geometry it
+ * compensates for — every wrapper's height and every following row's
+ * `translateY` — lands a frame later. That single frame paints with the new
+ * offset against the old positions, so everything below the row that grew is
+ * drawn exactly one line too high, and the grown line is still clipped by the
+ * wrapper's stale height. Frame-by-frame capture of a steered message: `-24px`
+ * on a line, `-40px` on a paragraph break, one frame each, only while attached.
+ *
+ * react-virtual's own `directDomUpdates` does this, but it writes to the element
+ * registered with `measureElement` — for the transcript that is the inner
+ * measured child, not the wrapper that carries the transform. Hence our own.
+ *
+ * Idempotent with the React render that follows: both write the same values.
+ */
+export function syncVirtualRowGeometry(
+  items: readonly VirtualItem[],
+  wrappers: Map<string, HTMLElement>,
+) {
+  for (const item of items) {
+    const wrapper = wrappers.get(String(item.key))
+    if (!wrapper) continue
+    const height = `${item.size}px`
+    const transform = `translateY(${item.start}px)`
+    if (wrapper.style.height !== height) {
+      wrapper.style.height = height
+    }
+    if (wrapper.style.transform !== transform) {
+      wrapper.style.transform = transform
+    }
   }
 }
 
@@ -462,8 +589,22 @@ function useProjectedRows(input: {
     ],
   )
 
+  // Hold the end-of-turn tail row out of the timeline until its pause is real.
+  // A turn that ends inside the dead-zone window therefore never inserts and
+  // removes that row's height, and the transcript stays put at completion.
+  const pendingTailKey = pendingEndOfTurnTailKey(projected)
+  const endOfTurnTailRevealed = useDelayedFlag(
+    pendingTailKey !== undefined,
+    END_OF_TURN_DEAD_ZONE_MS,
+    pendingTailKey,
+  )
+  const revealed = useMemo(
+    () => withRevealedEndOfTurnTail(projected, endOfTurnTailRevealed),
+    [endOfTurnTailRevealed, projected],
+  )
+
   return {
-    rows: useStableTimelineRows(projected),
+    rows: useStableTimelineRows(revealed),
     visibleMessages,
   }
 }
@@ -616,7 +757,8 @@ function TimelineAssistantRow(props: {
             >
               <AssistantPartRenderer
                 part={itemPart}
-                copyPartID={props.row.assistantCopyPartID}
+                actionPartID={props.row.assistantActionPartID}
+                actionsEnabled={props.row.assistantActionsEnabled}
                 metaText={assistantMetaText}
                 interrupted={props.row.assistantAborted}
                 streaming={props.row.active && assistantPartIsStreaming(itemPart)}
@@ -637,7 +779,8 @@ function TimelineAssistantRow(props: {
           ) : (
             <AssistantPartRenderer
               part={itemPart}
-              copyPartID={props.row.assistantCopyPartID}
+              actionPartID={props.row.assistantActionPartID}
+              actionsEnabled={props.row.assistantActionsEnabled}
               metaText={assistantMetaText}
               interrupted={props.row.assistantAborted}
               streaming={props.row.active && assistantPartIsStreaming(itemPart)}
@@ -708,12 +851,12 @@ function TimelineActivityRow(props: {
           zeroEntryLabel={zeroEntryLabel}
           onOpenSession={props.onOpenSession}
           directory={props.directory}
-          copyPartID={props.row.assistantCopyPartID}
+          actionPartID={props.row.assistantActionPartID}
+          actionsEnabled={props.row.assistantActionsEnabled}
           metaText={assistantMetaText}
           interrupted={props.row.assistantAborted}
           isBusy={props.row.active}
           isCurrent={props.row.current}
-          initial={props.row.initial}
           expansionState={props.expansionState ?? EMPTY_ACTIVITY_ROW_EXPANSION_STATE}
           onExpansionStateChange={props.onExpansionStateChange}
         />
@@ -842,6 +985,7 @@ function TimelineVirtualRow(props: {
   row: TimelineRow
   measureElement: (node: HTMLDivElement | null) => void
   resizeItem: (index: number, size: number) => void
+  registerWrapper: (rowKey: string, node: HTMLElement | null) => void
   onInlineAssetContentReady: (rowKey: string) => void
   onInlineAssetSizeChange: (rowKey: string, size: InlineAssetSize) => void
   children: ReactNode
@@ -850,6 +994,7 @@ function TimelineVirtualRow(props: {
     children,
     measureElement,
     resizeItem,
+    registerWrapper,
     onInlineAssetContentReady,
     onInlineAssetSizeChange,
     row,
@@ -857,6 +1002,12 @@ function TimelineVirtualRow(props: {
   } = props
   const rowKey = row.key
   const elementRef = useRef<HTMLDivElement | null>(null)
+  const bindWrapper = useCallback(
+    (node: HTMLElement | null) => {
+      registerWrapper(rowKey, node)
+    },
+    [registerWrapper, rowKey],
+  )
   const contentMeasureFrameRef = useRef<number | undefined>(undefined)
   const bindElement = useCallback(
     (node: HTMLDivElement | null) => {
@@ -920,6 +1071,7 @@ function TimelineVirtualRow(props: {
 
   return (
     <div
+      ref={bindWrapper}
       data-timeline-key={rowKey}
       className="absolute inset-x-0 top-0 min-w-0 max-w-full"
       style={{
@@ -1152,6 +1304,15 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
 
   const activeRowIndex = useMemo(() => latestLiveTimelineRowIndex(rows), [rows])
 
+  const rowWrappersRef = useRef(new Map<string, HTMLElement>())
+  const registerRowWrapper = useCallback((rowKey: string, node: HTMLElement | null) => {
+    if (node) {
+      rowWrappersRef.current.set(rowKey, node)
+    } else {
+      rowWrappersRef.current.delete(rowKey)
+    }
+  }, [])
+
   const rowVirtualizer = useVirtualizer<HTMLElement, HTMLDivElement>({
     count: rows.length,
     getScrollElement: () => scrollViewportRef?.current ?? null,
@@ -1171,14 +1332,23 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       recordTranscriptPerfEvent({
         type: "scroll-write",
         at: performance.now(),
-        requestedOffset: offset,
+        // The virtualizer writes `offset + adjustments`; recording the bare
+        // offset makes a trace read as though the write missed its target.
+        requestedOffset: offset + (options.adjustments ?? 0),
         previousScrollTop,
         nextScrollTop,
         noOp:
           previousScrollTop !== undefined &&
           nextScrollTop !== undefined &&
-          Math.abs(previousScrollTop - nextScrollTop) < 0.5,
+          Math.abs(previousScrollTop - nextScrollTop) < TIMELINE_SCROLL_WRITE_EPSILON_PX,
+        reason: "virtualizer",
       })
+    },
+    // Runs synchronously from `notify`, which `resizeItem` calls immediately
+    // after it has written `scrollTop`. Without this the compensating geometry
+    // waits for React and paints a frame late — see `syncVirtualRowGeometry`.
+    onChange: (instance) => {
+      syncVirtualRowGeometry(instance.getVirtualItems(), rowWrappersRef.current)
     },
     getItemKey: (index) => rows[index]?.key ?? `removed:${index}`,
     measureElement: measureVirtualElement,
@@ -1187,7 +1357,12 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     scrollEndThreshold: TIMELINE_SCROLL_END_THRESHOLD_PX,
     overscan: VIRTUAL_CHAT_OVERSCAN,
     paddingEnd: TIMELINE_PADDING_END_PX,
-    useAnimationFrameWithResizeObserver: true,
+    // ResizeObserver fires after layout and before paint, which is the only
+    // moment a bottom-following correction can land in the same frame as the
+    // growth that caused it. Deferring it into requestAnimationFrame paints one
+    // frame with the row already taller and scrollTop not yet moved — every new
+    // line appears a line low and then settles.
+    useAnimationFrameWithResizeObserver: false,
     rangeExtractor: (range) => {
       void rangeVersion
       const base = defaultRangeExtractor(range)
@@ -1213,27 +1388,35 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
 
   const bottomRepairTimerRef = useRef<number | undefined>(undefined)
   const anchorShiftAnimator = useMemo(() => createAnchorShiftAnimator(), [])
-  const repairBottomAnchor = useCallback(() => {
-    if (!shouldAnchorBottom() || hasScrollGesture()) return
-    const root = scrollViewportRef?.current
-    if (!root) return
-    const totalSize = rowVirtualizer.getTotalSize()
-    const distanceFromEnd = distanceFromVirtualEnd(root, totalSize)
-    if (distanceFromEnd <= TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX) return
-    recordTranscriptPerfEvent({
-      type: "bottom-anchor-repair",
-      at: performance.now(),
-      distanceFromEnd,
-    })
-    markProgrammaticScroll?.(root, Math.max(totalSize - root.clientHeight, 0))
-    writeTranscriptVirtualEnd(root, virtualContentRef.current, totalSize)
-  }, [
-    hasScrollGesture,
-    markProgrammaticScroll,
-    rowVirtualizer,
-    scrollViewportRef,
-    shouldAnchorBottom,
-  ])
+  const repairBottomAnchor = useCallback(
+    (reason: TranscriptScrollWriteReason) => {
+      if (!shouldAnchorBottom() || hasScrollGesture()) return
+      const root = scrollViewportRef?.current
+      if (!root) return
+      const totalSize = rowVirtualizer.getTotalSize()
+      const distanceFromEnd = distanceFromVirtualEnd(root, totalSize)
+      if (distanceFromEnd <= TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX) return
+      recordTranscriptPerfEvent({
+        type: "bottom-anchor-repair",
+        at: performance.now(),
+        distanceFromEnd,
+      })
+      commitTranscriptVirtualEnd({
+        root,
+        virtualContent: virtualContentRef.current,
+        totalSize,
+        reason,
+        markProgrammaticScroll,
+      })
+    },
+    [
+      hasScrollGesture,
+      markProgrammaticScroll,
+      rowVirtualizer,
+      scrollViewportRef,
+      shouldAnchorBottom,
+    ],
+  )
 
   const scheduleResizeBottomRepair = useCallback(() => {
     if (hasScrollGesture()) return
@@ -1242,7 +1425,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     }
     bottomRepairTimerRef.current = window.setTimeout(() => {
       bottomRepairTimerRef.current = undefined
-      repairBottomAnchor()
+      repairBottomAnchor("trailing-repair")
     }, TIMELINE_RESIZE_BOTTOM_REPAIR_DELAY_MS)
   }, [hasScrollGesture, repairBottomAnchor])
 
@@ -1267,11 +1450,19 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       const measuredRowKey =
         element?.closest<HTMLElement>("[data-timeline-key]")?.dataset.timelineKey ??
         rows[index]?.key
-      const skipResize = isDeferredToolFallbackCollapse({
-        root: element,
-        previousSize: previous,
-        nextSize: size,
-      })
+      // Sub-pixel remeasures change nothing visually but still move the total
+      // size, which can flip a range boundary and unmount/remount the row that
+      // straddles it. On a very tall row that reads as the whole transcript
+      // blanking and coming back.
+      const subPixelJitter =
+        previous !== undefined && Math.abs(size - previous) < TIMELINE_SCROLL_WRITE_EPSILON_PX
+      const skipResize =
+        subPixelJitter ||
+        isDeferredToolFallbackCollapse({
+          root: element,
+          previousSize: previous,
+          nextSize: size,
+        })
       recordTranscriptPerfEvent({
         type: "row-size",
         at: performance.now(),
@@ -1377,7 +1568,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       if (!shouldAnchorBottom() || hasScrollGesture()) return
       // Growing the viewport is repaired by the browser's own scrollTop clamp,
       // so only the shrink direction needs an explicit write here.
-      repairBottomAnchor()
+      repairBottomAnchor("viewport-resize")
       anchorShiftAnimator.run(virtualContentRef.current, shiftPx)
     })
 
@@ -1417,7 +1608,13 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       if (!shouldAnchorBottom() || hasScrollGesture()) return
       const root = scrollViewportRef?.current
       if (!root) return
-      writeTranscriptVirtualEnd(root, virtualContentRef.current, rowVirtualizer.getTotalSize())
+      commitTranscriptVirtualEnd({
+        root,
+        virtualContent: virtualContentRef.current,
+        totalSize: rowVirtualizer.getTotalSize(),
+        reason: "initial-end",
+        markProgrammaticScroll,
+      })
     })
 
     return () => {
@@ -1430,23 +1627,81 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     cacheKey,
     hasRestoredInitialScrollOffset,
     hasScrollGesture,
+    markProgrammaticScroll,
     rowVirtualizer,
     rows.length,
     scrollViewportRef,
     shouldAnchorBottom,
   ])
 
+  const lastRowKey = rows.at(-1)?.key
+  // Record what entered and at what estimate. A capture started after a steer
+  // sees only ordinary streaming, so the moment the steered row appears — and
+  // the estimate it appears at — was invisible in every earlier trace.
+  const appendedRowsRef = useRef<Set<string>>(new Set())
   useEffect(() => {
+    const previousRowKeys = appendedRowsRef.current
+    const nextRowKeys = new Set(rows.map((row) => row.key))
+    appendedRowsRef.current = nextRowKeys
+    if (
+      previousRowKeys.size === 0 ||
+      getTranscriptPerformanceProbe()?.isRecording() !== true
+    ) {
+      return
+    }
+
+    const appendedRows = rows.flatMap((row, index) =>
+      previousRowKeys.has(row.key) ? [] : [{ row, index }],
+    )
+    if (appendedRows.length === 0) return
+
+    recordTranscriptPerfEvent({
+      type: "rows-appended",
+      at: performance.now(),
+      rowCount: rows.length,
+      previousRowCount: previousRowKeys.size,
+      appended: appendedRows.map(({ row, index }) => ({
+        key: row.key,
+        index,
+        // What the virtualizer holds, falling back to the projection's own
+        // number before the row reaches the measurement cache. Reporting only
+        // the latter hid a real gap: a row entered at 108 while this logged 88,
+        // because the estimate was recomputed after the message it describes
+        // had already changed.
+        estimatedSize:
+          rowVirtualizer.measurementsCache[index]?.size ?? estimateRowSize(row),
+      })),
+    })
+  }, [rowVirtualizer, rows])
+
+  // A genuinely new tail is the one structural change the virtualizer will not
+  // follow on its own. Track both count and identity so a same-length tail
+  // replacement repairs the anchor while a pure removal does not.
+  const timelineTailRef = useRef<TimelineTailSnapshot>()
+  useEffect(() => {
+    const nextTail = { lastRowKey, rowCount: rows.length }
+    const tailWasAdded = isSemanticTimelineTailAddition(timelineTailRef.current, nextTail)
+    timelineTailRef.current = nextTail
+    if (!tailWasAdded) return
     if (hasRestoredInitialScrollOffset && !rowCountChangedSinceRestoreRef.current) return
-    if (rows.length === 0 || !shouldAnchorBottom() || hasScrollGesture()) return
+    if (lastRowKey === undefined || !shouldAnchorBottom() || hasScrollGesture()) return
     const root = scrollViewportRef?.current
     if (!root) return
-    const distanceFromEnd = distanceFromVirtualEnd(root, rowVirtualizer.getTotalSize())
+    const totalSize = rowVirtualizer.getTotalSize()
+    const distanceFromEnd = distanceFromVirtualEnd(root, totalSize)
     if (distanceFromEnd <= TIMELINE_BOTTOM_REPAIR_MIN_DISTANCE_PX) return
-    writeTranscriptVirtualEnd(root, virtualContentRef.current, rowVirtualizer.getTotalSize())
+    commitTranscriptVirtualEnd({
+      root,
+      virtualContent: virtualContentRef.current,
+      totalSize,
+      reason: "semantic-row-addition",
+      markProgrammaticScroll,
+    })
   }, [
     hasRestoredInitialScrollOffset,
     hasScrollGesture,
+    lastRowKey,
+    markProgrammaticScroll,
     rowVirtualizer,
     rows.length,
     scrollViewportRef,
@@ -1601,6 +1856,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                   row={row}
                   measureElement={rowVirtualizer.measureElement}
                   resizeItem={rowVirtualizer.resizeItem}
+                  registerWrapper={registerRowWrapper}
                   onInlineAssetContentReady={handleInlineAssetContentReady}
                   onInlineAssetSizeChange={handleInlineAssetSizeChange}
                 >

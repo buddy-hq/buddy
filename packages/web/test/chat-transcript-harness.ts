@@ -50,9 +50,18 @@ export function createChatTranscriptTestViewport(
       configurable: true,
       get: () => scrollTop,
       set: (value: number) => {
-        scrollTop = options.clampScrollTop
+        const next = options.clampScrollTop
           ? Math.min(Math.max(0, value), Math.max(0, scrollHeight - viewportHeight))
           : value
+        if (next === scrollTop) return
+        scrollTop = next
+        // A real viewport notifies listeners when its offset changes, and the
+        // virtualizer refreshes its logical offset only from that event. Without
+        // it the virtualizer's offset silently diverges from the DOM here in a
+        // way it never does in a browser. Asynchronously, as browsers do — a
+        // synchronous dispatch would run React's flushSync inside whatever
+        // lifecycle wrote the offset.
+        queueMicrotask(() => element.dispatchEvent(new Event("scroll")))
       },
     },
   })

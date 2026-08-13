@@ -280,7 +280,87 @@ describe("chat transcript ActivityRow", () => {
     expect(container.querySelector("[data-activity-row]")).toBeNull()
   })
 
-  test("keeps delayed end-of-turn activity geometry mounted after text finishes", async () => {
+  test("keeps the running Markdown stream active without adding thinking beneath a steer", async () => {
+    const directory = "/repo-steered-markdown"
+    const sessionID = "ses_steered_markdown"
+    const firstUserMessageID = "msg_001_user_steered_markdown"
+    const assistantMessageID = "msg_002_assistant_steered_markdown"
+    const steerMessageID = "msg_003_user_steered_markdown"
+
+    await act(async () => {
+      seedDirectoryChatState(directory, {
+        sessionID,
+        isBusy: true,
+        sessionStatusByID: {
+          [sessionID]: { type: "busy" },
+        },
+        messages: [
+          createMessageWithParts(
+            createUserMessageInfo({
+              id: firstUserMessageID,
+              sessionID,
+              time: { created: 1 },
+            }),
+            [
+              {
+                id: "prt_001_user_steered_markdown",
+                sessionID,
+                messageID: firstUserMessageID,
+                type: "text",
+                text: "Write a long response",
+              },
+            ],
+          ),
+          createMessageWithParts(
+            createAssistantMessageInfo({
+              id: assistantMessageID,
+              sessionID,
+              parentID: firstUserMessageID,
+              time: { created: 2 },
+            }),
+            [
+              {
+                id: "prt_002_assistant_steered_markdown",
+                sessionID,
+                messageID: assistantMessageID,
+                type: "text",
+                text: "# Partial response\n\nStill streaming.",
+                time: { start: 2 },
+              },
+            ],
+          ),
+          createMessageWithParts(
+            createUserMessageInfo({
+              id: steerMessageID,
+              sessionID,
+              time: { created: 3 },
+            }),
+            [
+              {
+                id: "prt_003_user_steered_markdown",
+                sessionID,
+                messageID: steerMessageID,
+                type: "text",
+                text: "Steer the response",
+              },
+            ],
+          ),
+        ],
+      })
+      root.render(
+        <ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />,
+      )
+      await flushEffects()
+    })
+
+    const markdown = container.querySelector<HTMLElement>("[data-markdown-phase]")
+
+    expect(markdown?.getAttribute("data-markdown-phase")).toBe("streaming")
+    expect(container.textContent).toContain("Steer the response")
+    expect(container.querySelectorAll("[data-activity-row]")).toHaveLength(0)
+  })
+
+  test("withholds end-of-turn activity geometry until the pause is real", async () => {
     const directory = "/repo-end-of-turn-dead-zone"
     const sessionID = "ses_end_of_turn_dead_zone"
     const userMessageID = "msg_001_user_end_of_turn_dead_zone"
@@ -335,13 +415,13 @@ describe("chat transcript ActivityRow", () => {
     })
 
     const activityArticle = container.querySelector<HTMLElement>('[data-timeline-row="Activity"]')
-    const delayedRow = activityArticle?.querySelector<HTMLElement>("[data-activity-row]")
 
+    // The end-of-turn dead zone is withheld from the timeline until its pause is
+    // real. Mounting it hidden still reserved ~40px, so an ordinary turn ending
+    // inserted and then removed that height and moved the viewport twice.
     expect(assistantArticleByText(container, "Finished response")).not.toBeUndefined()
-    expect(activityArticle).not.toBeNull()
-    expect(delayedRow).not.toBeNull()
-    expect(delayedRow?.classList.contains("invisible")).toBe(true)
-    expect(delayedRow?.getAttribute("aria-hidden")).toBe("true")
+    expect(activityArticle).toBeNull()
+    expect(container.querySelector("[data-activity-row]")).toBeNull()
   })
 
   test("surfaces a streamed OpenAI reasoning heading while the turn is active", async () => {

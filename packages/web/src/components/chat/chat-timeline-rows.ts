@@ -6,10 +6,16 @@ import type {
 } from "@buddy/opencode-adapter/tool-presentation"
 import { buildTurns, groupAssistantParts } from "./utils/message-utils"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./utils/part-guards"
+import { visibleUserTextLength } from "./utils/user-message-text"
+import {
+  projectUserMessageStackedContent,
+  userMessageStackedContentCount,
+} from "./utils/user-message-stacked-content"
 import { parseToolState } from "./tools/parse-tool-state"
 import { parseToolPresentation } from "./tools/parse-tool-presentation"
 import type { AssistantRenderItem, ChatTurn } from "./types"
 import type { MessagePart, MessageWithParts, SessionStatusInfo } from "@/state/chat-types"
+import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
 import { isSessionStatusRetry } from "@/state/session-status"
 import {
   buildAssistantErrorModel,
@@ -26,6 +32,8 @@ export type TimelineAssistantItem =
       renderer: ToolRendererToken | undefined
       layoutRole: ToolLayoutRole
       imageAttachmentCount: number
+      /** Rendered characters of a text or reasoning part; 0 for tool parts. */
+      textLength: number
       previousPartID: string | undefined
     }
   | {
@@ -48,7 +56,10 @@ export type TimelineRow =
       key: string
       userMessageID: string
       partIDs: string[]
+      /** Characters the bubble renders. Hidden and synthetic text is excluded. */
       textLength: number
+      /** Top-level attachment/chip/selection rows stacked above the prose bubble. */
+      stackedContentCount: number
       anchor: boolean
     }
   | {
@@ -63,7 +74,13 @@ export type TimelineRow =
       userMessageID: string
       item: TimelineAssistantItem
       assistantMessageIDs: string[]
-      assistantCopyPartID: string | undefined
+      /**
+       * The part that owns the turn's copy/fork actions. Ownership stays stable
+       * while active; the footer itself mounts only once actions are enabled.
+       */
+      assistantActionPartID: string | undefined
+      /** Whether those actions are interactive yet. Flips at the terminal transition. */
+      assistantActionsEnabled: boolean
       /**
        * Vendor fork boundary: keep messages with id < this. The next turn's user
        * message includes this response; undefined clones the full session.
@@ -82,12 +99,24 @@ export type TimelineRow =
       userMessageID: string
       partIDs: string[]
       assistantMessageIDs: string[]
-      assistantCopyPartID: string | undefined
+      /**
+       * The part that owns the turn's copy/fork actions. Ownership stays stable
+       * while active; the footer itself mounts only once actions are enabled.
+       */
+      assistantActionPartID: string | undefined
+      /** Whether those actions are interactive yet. Flips at the terminal transition. */
+      assistantActionsEnabled: boolean
       assistantAborted: boolean
       turnDurationMs: number | undefined
       active: boolean
       current: boolean
       initial: boolean
+      /**
+       * An empty tail row waiting on a post-answer pause rather than showing
+       * anything. It must not reach the transcript until the pause is real —
+       * see `withRevealedEndOfTurnTail`.
+       */
+      endOfTurnDeadZone: boolean
       previousLayoutRole: ToolLayoutRole | undefined
     }
   | {
@@ -131,11 +160,9 @@ function assistantPartIDs(item: AssistantRenderItem): string[] {
   }
 }
 
-function messagePartsTextLength(parts: MessagePart[]) {
-  return parts.reduce((total, part) => {
-    if (!isChatTextPart(part)) return total
-    return total + part.text.length
-  }, 0)
+function assistantPartTextLength(part: MessagePart) {
+  if (!isChatTextPart(part) && !isChatReasoningPart(part)) return 0
+  return part.text.length
 }
 
 function imageAttachmentCount(part: MessagePart) {
@@ -172,6 +199,7 @@ function convertAssistantItem(
         renderer: isChatToolPart(item.part) ? visibleToolRenderer(item.part) : undefined,
         layoutRole: item.layoutRole,
         imageAttachmentCount: imageAttachmentCount(item.part),
+        textLength: assistantPartTextLength(item.part),
         previousPartID,
       }
   }
@@ -201,6 +229,32 @@ function turnHasVisibleUserRow(turn: ChatTurn) {
 
 function turnHasOptimisticUserInput(turn: ChatTurn) {
   return (turn.user?.parts ?? []).some((part) => part.optimistic === true)
+}
+
+function turnHasRunningAssistant(turn: ChatTurn) {
+  return turn.assistants.some((message) => !isTerminalAssistantMessageInfo(message.info))
+}
+
+function activeTurnIndex(turns: ChatTurn[], isBusy: boolean) {
+  if (turns.length === 0) return -1
+
+  if (isBusy) {
+    // A user-only steer follows the currently streaming assistant, so the
+    // latest assistant-bearing turn remains active. Older non-terminal records
+    // must not win after a newer assistant turn has already superseded them.
+    const latestAssistantTurnIndex = turns.findLastIndex((turn) => turn.assistants.length > 0)
+    const latestAssistantTurn = turns[latestAssistantTurnIndex]
+    if (latestAssistantTurn && turnHasRunningAssistant(latestAssistantTurn)) {
+      return latestAssistantTurnIndex
+    }
+    return turns.length - 1
+  }
+
+  const lastTurnIndex = turns.length - 1
+  const lastTurn = turns[lastTurnIndex]
+  return lastTurn && turnHasOptimisticUserInput(lastTurn) && lastTurn.assistants.length === 0
+    ? lastTurnIndex
+    : -1
 }
 
 function assistantAborted(messages: MessageWithParts[]) {
@@ -259,6 +313,34 @@ export function timelineRowKey(row: TimelineRow) {
   return row.key
 }
 
+/**
+ * The key of the trailing row when it is an empty tail waiting only on a
+ * post-answer pause, otherwise undefined. Drive `useDelayedFlag` from this — as
+ * both its condition *and* its reset key — then feed the result back through
+ * `withRevealedEndOfTurnTail`.
+ *
+ * The key matters because a completed output can replace one pending tail with
+ * another without the "is pending" boolean ever going false. Keyed only on the
+ * boolean, the successor would inherit the elapsed delay and reveal early.
+ */
+export function pendingEndOfTurnTailKey(rows: TimelineRow[]): string | undefined {
+  const last = rows.at(-1)
+  return last?.type === "activity" && last.endOfTurnDeadZone ? last.key : undefined
+}
+
+/**
+ * Withhold the end-of-turn tail row until the pause it represents is real.
+ *
+ * Reserving that row's ~40px up front and dropping it when the turn ends moves
+ * the whole viewport twice on every single turn: once when the row is inserted
+ * and once when the shrinking spacer makes the browser clamp `scrollTop`. Since
+ * the row is not shown during that window anyway, not creating it is free.
+ */
+export function withRevealedEndOfTurnTail(rows: TimelineRow[], revealed: boolean): TimelineRow[] {
+  if (revealed || pendingEndOfTurnTailKey(rows) === undefined) return rows
+  return rows.slice(0, -1)
+}
+
 export function latestLiveTimelineRowIndex(rows: readonly TimelineRow[]): number {
   return rows.findLastIndex(
     (row) =>
@@ -279,24 +361,25 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         userMessageID: key,
         partIDs: [],
         assistantMessageIDs: [],
-        assistantCopyPartID: undefined,
+        assistantActionPartID: undefined,
+        assistantActionsEnabled: false,
         assistantAborted: false,
         turnDurationMs: undefined,
         active: true,
         current: true,
         initial: true,
+        endOfTurnDeadZone: false,
         previousLayoutRole: undefined,
       },
     ]
   }
 
   const rows: TimelineRow[] = []
+  const activeIndex = activeTurnIndex(turns, input.isBusy)
 
   turns.forEach((turn, turnIndex) => {
     const isLastTurn = turnIndex === turns.length - 1
-    const pendingOptimisticInput =
-      isLastTurn && turnHasOptimisticUserInput(turn) && turn.assistants.length === 0
-    const active = isLastTurn && (input.isBusy || pendingOptimisticInput)
+    const active = turnIndex === activeIndex
     const userMessageID = turnUserMessageID(turn, `turn-${turnIndex}`)
     const assistantParts = turn.assistants.flatMap((message) => message.parts)
     const assistantItems = groupAssistantParts(assistantParts, true)
@@ -332,12 +415,14 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     }
 
     if (turn.user && turnHasVisibleUserRow(turn)) {
+      const stackedContent = projectUserMessageStackedContent(turn.user.parts)
       rows.push({
         type: "user",
         key: `user:${turn.user.info.id}`,
         userMessageID: turn.user.info.id,
         partIDs: turn.user.parts.map((part) => part.id),
-        textLength: messagePartsTextLength(turn.user.parts),
+        textLength: visibleUserTextLength(turn.user.parts),
+        stackedContentCount: userMessageStackedContentCount(stackedContent),
         anchor: true,
       })
     }
@@ -365,12 +450,14 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
           userMessageID,
           partIDs: assistantPartIDs(item),
           assistantMessageIDs: turn.assistants.map((message) => message.info.id),
-          assistantCopyPartID: active ? undefined : textPartID,
+          assistantActionPartID: textPartID,
+          assistantActionsEnabled: !active,
           assistantAborted: aborted,
           turnDurationMs: turnDurationMs(turn),
           active,
           current: active && isLastItem && !needsTailActivity,
           initial: item.key === "activity:0",
+          endOfTurnDeadZone: false,
           previousLayoutRole,
         })
         previousPartID = lastPartID(item) ?? previousPartID
@@ -385,7 +472,8 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         userMessageID,
         item: converted,
         assistantMessageIDs: turn.assistants.map((message) => message.info.id),
-        assistantCopyPartID: active ? undefined : textPartID,
+        assistantActionPartID: textPartID,
+        assistantActionsEnabled: !active,
         forkExclusiveMessageID,
         assistantAborted: aborted,
         turnDurationMs: turnDurationMs(turn),
@@ -407,12 +495,16 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         userMessageID,
         partIDs: [],
         assistantMessageIDs: turn.assistants.map((message) => message.info.id),
-        assistantCopyPartID: undefined,
+        assistantActionPartID: undefined,
+        assistantActionsEnabled: false,
         assistantAborted: aborted,
         turnDurationMs: turnDurationMs(turn),
         active: true,
         current: true,
         initial: boundaryOrdinal === 0,
+        // The start-of-turn "Thinking" placeholder is exempt: it must appear
+        // immediately so a submit feels acknowledged.
+        endOfTurnDeadZone: boundaryOrdinal > 0,
         previousLayoutRole,
       })
     }
@@ -464,7 +556,8 @@ function assistantItemsEqual(left: TimelineAssistantItem, right: TimelineAssista
       left.partID === right.partID &&
       left.renderer === right.renderer &&
       left.layoutRole === right.layoutRole &&
-      left.imageAttachmentCount === right.imageAttachmentCount
+      left.imageAttachmentCount === right.imageAttachmentCount &&
+      left.textLength === right.textLength
     )
   }
   if (left.type === "grouped-parts" && right.type === "grouped-parts") {
@@ -511,6 +604,7 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         left.userMessageID === right.userMessageID &&
         stringArraysEqual(left.partIDs, right.partIDs) &&
         left.textLength === right.textLength &&
+        left.stackedContentCount === right.stackedContentCount &&
         left.anchor === right.anchor
       )
     case "turn-divider":
@@ -525,7 +619,8 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         left.userMessageID === right.userMessageID &&
         assistantItemsEqual(left.item, right.item) &&
         stringArraysEqual(left.assistantMessageIDs, right.assistantMessageIDs) &&
-        left.assistantCopyPartID === right.assistantCopyPartID &&
+        left.assistantActionPartID === right.assistantActionPartID &&
+        left.assistantActionsEnabled === right.assistantActionsEnabled &&
         left.forkExclusiveMessageID === right.forkExclusiveMessageID &&
         left.assistantAborted === right.assistantAborted &&
         left.turnDurationMs === right.turnDurationMs &&
@@ -540,12 +635,14 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         left.userMessageID === right.userMessageID &&
         stringArraysEqual(left.partIDs, right.partIDs) &&
         stringArraysEqual(left.assistantMessageIDs, right.assistantMessageIDs) &&
-        left.assistantCopyPartID === right.assistantCopyPartID &&
+        left.assistantActionPartID === right.assistantActionPartID &&
+        left.assistantActionsEnabled === right.assistantActionsEnabled &&
         left.assistantAborted === right.assistantAborted &&
         left.turnDurationMs === right.turnDurationMs &&
         left.active === right.active &&
         left.current === right.current &&
         left.initial === right.initial &&
+        left.endOfTurnDeadZone === right.endOfTurnDeadZone &&
         left.previousLayoutRole === right.previousLayoutRole
       )
     case "retry":

@@ -4,11 +4,7 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { TooltipProvider } from "@buddy/ui"
 
-import {
-  ActivityRow,
-  END_OF_TURN_DEAD_ZONE_MS,
-  MID_TURN_DEAD_ZONE_MS,
-} from "../src/components/chat/tools/activity-row"
+import { ActivityRow, MID_TURN_DEAD_ZONE_MS } from "../src/components/chat/tools/activity-row"
 import {
   activityHeaderKey,
   createActivityEntry,
@@ -158,7 +154,6 @@ describe("ActivityRow", () => {
           zeroEntryLabel="Thinking"
           isBusy
           isCurrent
-          initial
         />,
       )
     })
@@ -169,10 +164,13 @@ describe("ActivityRow", () => {
     expect(container.querySelector(".bg-linear-to-r")).toBeNull()
   })
 
-  test("holds back the end-of-turn dead-zone word until the delay elapses", async () => {
-    // A non-initial, empty, busy+current row is the end-of-turn dead zone. Its
-    // working word must not paint immediately — otherwise it flashes under a
-    // finished answer when `isBusy` is about to flip off.
+  test("shows the working word immediately for an empty busy tail", async () => {
+    // The end-of-turn hold-back moved into row projection: a tail row that is
+    // still waiting on its pause is not created at all, because hiding it with
+    // `invisible` still reserved ~40px and made every turn ending move the
+    // transcript twice. By the time this component renders such a row, the
+    // decision to show it has already been made, so it must not hide anything.
+    // The withholding contract itself is covered in chat-timeline-rows.test.ts.
     await act(async () => {
       root.render(
         <ActivityRow
@@ -184,50 +182,12 @@ describe("ActivityRow", () => {
         />,
       )
     })
-    const hiddenRow = container.querySelector<HTMLElement>("[data-activity-row]")
-    expect(hiddenRow).not.toBeNull()
-    expect(hiddenRow?.classList.contains("invisible")).toBe(true)
-    expect(hiddenRow?.getAttribute("aria-hidden")).toBe("true")
 
-    await act(
-      () =>
-        new Promise((resolve) => {
-          setTimeout(resolve, END_OF_TURN_DEAD_ZONE_MS + 50)
-        }),
-    )
+    const row = container.querySelector<HTMLElement>("[data-activity-row]")
+    expect(row).not.toBeNull()
+    expect(row?.classList.contains("invisible")).toBe(false)
+    expect(row?.hasAttribute("aria-hidden")).toBe(false)
     expect(container.textContent).toContain("Pondering")
-    expect(hiddenRow?.classList.contains("invisible")).toBe(false)
-    expect(hiddenRow?.hasAttribute("aria-hidden")).toBe(false)
-  })
-
-  test("never reveals the word when the turn ends before the dead-zone delay", async () => {
-    await act(async () => {
-      root.render(
-        <ActivityRow
-          parts={[]}
-          seed="activity:turn:tail"
-          zeroEntryLabel="Pondering"
-          isBusy
-          isCurrent
-        />,
-      )
-    })
-    expect(
-      container.querySelector<HTMLElement>("[data-activity-row]")?.classList.contains("invisible"),
-    ).toBe(true)
-
-    // Turn ends (busy clears) well before END_OF_TURN_DEAD_ZONE_MS.
-    await act(
-      () =>
-        new Promise((resolve) => {
-          setTimeout(resolve, MID_TURN_DEAD_ZONE_MS)
-        }),
-    )
-    await act(async () => {
-      root.render(<ActivityRow parts={[]} seed="activity:turn:tail" zeroEntryLabel="Pondering" />)
-    })
-
-    expect(container.querySelector("[data-activity-row]")).toBeNull()
   })
 
   test("keeps the header mounted through a Panda gap between same-category tools", async () => {

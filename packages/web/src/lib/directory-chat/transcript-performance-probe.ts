@@ -20,6 +20,8 @@ const TRANSCRIPT_TRACE_LONG_TASK_CRITICAL_MS = 200
 const TRANSCRIPT_TRACE_ORIGIN_CORRELATION_WINDOW_MS = 100
 const ROW_TEXT_PREVIEW_LIMIT = 160
 const TIMELINE_KEY_ATTRIBUTE = "data-timeline-key"
+/** The measured child inside a virtual row wrapper; see `TimelineVirtualRow`. */
+const TRANSCRIPT_ROW_CONTENT_SELECTOR = "[data-index]"
 const TOOL_PART_WRAPPER_SELECTOR = '[data-component="tool-part-wrapper"]'
 const DEFERRED_TOOL_FALLBACK_SELECTOR = '[data-component="deferred-tool-fallback"]'
 const OBJECT_CARD_SELECTOR = '[data-component="object-card"]'
@@ -99,7 +101,17 @@ export type TranscriptMarkdownImageSnapshot = {
 
 export type TranscriptRowShellSnapshot = {
   shellKind: TranscriptRowShellKind
+  /**
+   * The virtual wrapper's height, which the virtualizer writes from its own
+   * size for this row — an estimate until the row is measured, not the content.
+   */
   rowHeight: number
+  /**
+   * What the row's content actually occupies. `rowHeight` diverging from this
+   * is a wrong estimate, and it is the only way to tell one from a real height
+   * change: every trace before this field read the wrapper and saw the estimate.
+   */
+  contentHeight: number | undefined
   rowTop: number
   rowBottom: number
   textPreview: string
@@ -205,6 +217,18 @@ export type TranscriptPerfRenderStateEvent = {
 
 type TranscriptGeometryRowSummaryDraft = TranscriptGeometryRowSummary
 
+/**
+ * Which owner produced a scroll write. Attached streaming should be dominated by
+ * `virtualizer`; a burst of the Buddy-owned reasons is the signal that semantic
+ * writes and measurement corrections are competing again.
+ */
+export type TranscriptScrollWriteReason =
+  | "virtualizer"
+  | "initial-end"
+  | "semantic-row-addition"
+  | "viewport-resize"
+  | "trailing-repair"
+
 export type TranscriptPerfEvent =
   | {
       type: "streaming-throughput"
@@ -232,15 +256,34 @@ export type TranscriptPerfEvent =
   | {
       type: "scroll-write"
       at: number
+      /** Effective target offset, including any virtualizer adjustments. */
       requestedOffset: number
       previousScrollTop: number | undefined
       nextScrollTop: number | undefined
       noOp: boolean
+      reason: TranscriptScrollWriteReason
     }
   | {
       type: "bottom-anchor-repair"
       at: number
       distanceFromEnd: number
+    }
+  | {
+      /**
+       * Rows appended at the tail — a steer, a send, or a new activity row. The
+       * moment a steered user row enters is the one the traces kept missing,
+       * because a capture started after the steer sees only ordinary streaming.
+       */
+      type: "rows-appended"
+      at: number
+      rowCount: number
+      previousRowCount: number
+      appended: {
+        key: string
+        index: number
+        /** Virtual estimate this row enters with, before it is measured. */
+        estimatedSize: number
+      }[]
     }
   | {
       type: "abort-lifecycle"
@@ -328,6 +371,7 @@ export type TranscriptPerformanceSummary = {
   scrollWrites: number
   scrollNoOps: number
   bottomAnchorRepairs: number
+  rowsAppended: number
   abortRequests: number
   maxAbortLatencyMs: number
   streamFlushes: number
@@ -644,6 +688,9 @@ function readTranscriptRowShellElement(row: HTMLElement): TranscriptRowShellSnap
   const audioCount = countSelector(row, AUDIO_SELECTOR)
   const snapshot = {
     rowHeight: rect.height,
+    contentHeight: row
+      .querySelector<HTMLElement>(TRANSCRIPT_ROW_CONTENT_SELECTOR)
+      ?.getBoundingClientRect().height,
     rowTop: rect.top,
     rowBottom: rect.bottom,
     textPreview: readRowTextPreview(row),
@@ -787,6 +834,9 @@ function summarizeTranscriptPerformance(
         case "bottom-anchor-repair":
           summary.bottomAnchorRepairs += 1
           break
+        case "rows-appended":
+          summary.rowsAppended += event.appended.length
+          break
         case "abort-lifecycle":
           if (event.phase === "requested") {
             summary.abortRequests += 1
@@ -840,6 +890,7 @@ function summarizeTranscriptPerformance(
       scrollWrites: 0,
       scrollNoOps: 0,
       bottomAnchorRepairs: 0,
+      rowsAppended: 0,
       abortRequests: 0,
       maxAbortLatencyMs: 0,
       streamFlushes: 0,

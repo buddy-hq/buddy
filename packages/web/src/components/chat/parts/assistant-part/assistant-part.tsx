@@ -16,7 +16,8 @@ function getToolStateHash(part: MessagePart): string {
 
 export type AssistantPartRendererProps = {
   part: MessagePart
-  copyPartID?: string
+  actionPartID?: string
+  actionsEnabled?: boolean
   metaText?: string
   interrupted?: boolean
   streaming?: boolean
@@ -36,7 +37,8 @@ function assistantPartRendererEqual(
   nextProps: AssistantPartRendererProps,
 ): boolean {
   if (prevProps.part.id !== nextProps.part.id) return false
-  if (prevProps.copyPartID !== nextProps.copyPartID) return false
+  if (prevProps.actionPartID !== nextProps.actionPartID) return false
+  if (prevProps.actionsEnabled !== nextProps.actionsEnabled) return false
   if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.streaming !== nextProps.streaming) return false
@@ -65,7 +67,8 @@ function assistantPartRendererEqual(
 
 export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   part,
-  copyPartID,
+  actionPartID,
+  actionsEnabled = false,
   interrupted,
   streaming = false,
   onOpenSession,
@@ -85,14 +88,15 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
     return (
       <AssistantTextPart
         part={part}
-        copyEnabled={copyPartID === part.id}
+        ownsActions={actionPartID === part.id}
+        actionsEnabled={actionsEnabled}
         interrupted={interrupted}
         streaming={streaming}
         stripLeadingFigureImage={stripLeadingFigureImage}
         stripLeadingMermaidSources={stripLeadingMermaidSources}
         directory={directory}
         onOpenResource={onOpenResource}
-        onForkMessage={copyPartID === part.id ? onForkMessage : undefined}
+        onForkMessage={actionsEnabled && actionPartID === part.id ? onForkMessage : undefined}
       />
     )
   }

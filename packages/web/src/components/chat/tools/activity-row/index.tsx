@@ -32,7 +32,7 @@ const HEADER_STATUS_TRANSITION = {
   ease: [0.23, 1, 0.32, 1],
 } as const
 
-// Dead-zone tuning. See docs/dead-zone.md for the vocabulary and the reasoning
+// Dead-zone tuning. See docs/features/chat-transcript/dead-zone.md for the vocabulary and reasoning
 // behind these numbers before changing them.
 //
 // Mid-turn dead zone: a gap between steps while more output is still coming; the
@@ -68,25 +68,6 @@ function useDelayedWorkingGapHeader(input: {
   return input.waitingBetweenEntries && !revealWorkingGap
     ? previousHeaderRef.current
     : input.resolved
-}
-
-// True only after `active` has held continuously for `delayMs`. Resets the
-// moment `active` goes false, so a state that clears before the delay (the
-// end-of-turn flash) never flips this on.
-function useDelayedFlag(active: boolean, delayMs: number): boolean {
-  const [elapsed, setElapsed] = useState(false)
-
-  useEffect(() => {
-    if (!active) {
-      setElapsed(false)
-      return
-    }
-
-    const timer = setTimeout(() => setElapsed(true), delayMs)
-    return () => clearTimeout(timer)
-  }, [active, delayMs])
-
-  return active && elapsed
 }
 
 function ActivityHeaderStatus(props: { icon: ToolIconRenderer; title: string; shimmer: boolean }) {
@@ -213,7 +194,8 @@ type ActivityItemProps = {
   entry: ActivityEntry
   directory?: string
   onOpenSession?: (sessionID: string) => void
-  copyPartID?: string
+  actionPartID?: string
+  actionsEnabled?: boolean
   metaText?: string
   interrupted?: boolean
   streaming: boolean
@@ -225,7 +207,8 @@ function ActivityItemContent({
   entry,
   directory,
   onOpenSession,
-  copyPartID,
+  actionPartID,
+  actionsEnabled,
   metaText,
   interrupted,
   streaming,
@@ -237,7 +220,8 @@ function ActivityItemContent({
       part={entry.part}
       onOpenSession={onOpenSession}
       directory={directory}
-      copyPartID={copyPartID}
+      actionPartID={actionPartID}
+      actionsEnabled={actionsEnabled}
       metaText={metaText}
       interrupted={interrupted}
       streaming={streaming}
@@ -307,14 +291,12 @@ type ActivityRowProps = {
   zeroEntryLabel: string
   onOpenSession?: (sessionID: string) => void
   directory?: string
-  copyPartID?: string
+  actionPartID?: string
+  actionsEnabled?: boolean
   metaText?: string
   interrupted?: boolean
   isBusy?: boolean
   isCurrent?: boolean
-  // The start-of-turn "Thinking" placeholder. Shows immediately (it's the
-  // "message received" signal); exempt from the end-of-turn dead-zone delay.
-  initial?: boolean
   expansionState?: ActivityRowExpansionState
   onExpansionStateChange?: (state: ActivityRowExpansionState) => void
 }
@@ -330,12 +312,12 @@ export function ActivityRow({
   zeroEntryLabel,
   onOpenSession,
   directory,
-  copyPartID,
+  actionPartID,
+  actionsEnabled,
   metaText,
   interrupted,
   isBusy = false,
   isCurrent = isBusy,
-  initial = false,
   expansionState,
   onExpansionStateChange,
 }: ActivityRowProps) {
@@ -359,13 +341,11 @@ export function ActivityRow({
     resolved: resolvedHeader,
     waitingBetweenEntries,
   })
-  // End-of-turn dead zone: an empty, busy tail row that is not the start-of-turn
-  // "Thinking" placeholder. Hold it back until END_OF_TURN_DEAD_ZONE_MS so the
-  // turn-ending case unmounts before its working word ever paints (the flash),
-  // while a genuinely long post-answer pause still reveals one.
-  const endOfTurnDeadZone = entries.length === 0 && isBusy && isCurrent && !initial
-  const endOfTurnDeadZoneRevealed = useDelayedFlag(endOfTurnDeadZone, END_OF_TURN_DEAD_ZONE_MS)
-  const hideEndOfTurnDeadZone = endOfTurnDeadZone && !endOfTurnDeadZoneRevealed
+  // The end-of-turn dead zone is held back in row projection, not here: hiding a
+  // mounted row with `invisible` still reserves ~40px, so the turn-ending case
+  // inserted and removed that height on every turn and moved the whole viewport
+  // twice. Projection now withholds the row itself until the pause is real, so
+  // by the time this renders there is something to show.
   const canOpen = entries.length > 0
   const stableStreamingDetails =
     isOpen && entries.some((entry) => activityEntryHasStreamingReasoning(entry, isBusy))
@@ -384,18 +364,15 @@ export function ActivityRow({
   const itemProps = {
     directory,
     onOpenSession,
-    copyPartID,
+    actionPartID,
+    actionsEnabled,
     metaText,
     interrupted,
     streaming: isBusy,
   }
 
   return (
-    <div
-      aria-hidden={hideEndOfTurnDeadZone ? true : undefined}
-      className={cn("w-full", hideEndOfTurnDeadZone && "invisible")}
-      data-activity-row={seed}
-    >
+    <div className="w-full" data-activity-row={seed}>
       <button
         type="button"
         onClick={() => {

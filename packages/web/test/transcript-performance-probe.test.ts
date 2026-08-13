@@ -31,6 +31,7 @@ describe("transcript performance probe", () => {
         previousScrollTop: 100,
         nextScrollTop: 100,
         noOp: true,
+        reason: "virtualizer",
       },
       {
         type: "visible-row-mount",
@@ -334,6 +335,7 @@ describe("transcript performance probe", () => {
       shell: {
         shellKind: "unknown",
         rowHeight: 120,
+        contentHeight: 120,
         rowTop: 0,
         rowBottom: 120,
         textPreview: "equation",
@@ -435,6 +437,7 @@ describe("transcript performance probe", () => {
         previousScrollTop: 1_017,
         nextScrollTop: 977,
         noOp: false,
+        reason: "virtualizer",
       },
       {
         type: "visible-row-mount",
@@ -449,6 +452,7 @@ describe("transcript performance probe", () => {
         previousScrollTop: 977,
         nextScrollTop: 1_029,
         noOp: false,
+        reason: "virtualizer",
       },
       {
         type: "visible-row-unmount",
@@ -463,6 +467,7 @@ describe("transcript performance probe", () => {
         previousScrollTop: 1_029,
         nextScrollTop: 977,
         noOp: false,
+        reason: "virtualizer",
       },
       {
         type: "visible-row-mount",

@@ -14,7 +14,10 @@ import { isSvgAutoRepairAssistantMessage } from "../../utils/message-visibility"
 
 type AssistantTextPartProps = {
   part: ChatTextPart
-  copyEnabled: boolean
+  /** This part owns the turn's actions; only the owner renders the footer. */
+  ownsActions: boolean
+  /** The turn is terminal, so the footer's controls exist. */
+  actionsEnabled: boolean
   interrupted?: boolean
   streaming?: boolean
   stripLeadingFigureImage?: boolean
@@ -63,7 +66,8 @@ function assistantTextPartEqual(
   nextProps: AssistantTextPartProps,
 ): boolean {
   if (prevProps.part.id !== nextProps.part.id) return false
-  if (prevProps.copyEnabled !== nextProps.copyEnabled) return false
+  if (prevProps.ownsActions !== nextProps.ownsActions) return false
+  if (prevProps.actionsEnabled !== nextProps.actionsEnabled) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.streaming !== nextProps.streaming) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
@@ -76,7 +80,8 @@ function assistantTextPartEqual(
 
 export const AssistantTextPart = memo(function AssistantTextPart({
   part,
-  copyEnabled,
+  ownsActions,
+  actionsEnabled,
   interrupted,
   streaming = false,
   stripLeadingFigureImage,
@@ -148,12 +153,25 @@ export const AssistantTextPart = memo(function AssistantTextPart({
           onOpenResource={onOpenResource}
         />
       </div>
-      {copyEnabled ? (
+      {ownsActions && actionsEnabled ? (
+        // Mounted at the terminal transition, which grows the row by 36px.
+        //
+        // This box used to be reserved through the whole turn so that height
+        // never changed. That removed the growth but paid for it with 36px of
+        // empty space under every streaming answer, visible as a gap above the
+        // live activity row. The growth is now harmless: the bottom-follow
+        // correction and the geometry it compensates land in the same frame
+        // (`syncVirtualRowGeometry`), and the ±40px tail row that used to
+        // collide with it at the same moment is no longer created. One clean
+        // downward step, followed in the same frame, reads as nothing moving.
         <div
+          data-component="assistant-actions"
+          data-actions-enabled="true"
           className={cn(
             "mt-3 flex min-h-6 items-center gap-2.5 text-text-weaker transition-opacity duration-200 ease-out",
-            "opacity-0 group-hover/text-part:opacity-100 group-focus-within/text-part:opacity-100",
-            "pointer-events-none group-hover/text-part:pointer-events-auto group-focus-within/text-part:pointer-events-auto",
+            "opacity-0 pointer-events-none",
+            "group-hover/text-part:opacity-100 group-focus-within/text-part:opacity-100",
+            "group-hover/text-part:pointer-events-auto group-focus-within/text-part:pointer-events-auto",
             interrupted && "w-full justify-end",
           )}
         >

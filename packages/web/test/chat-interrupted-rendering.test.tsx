@@ -150,7 +150,12 @@ describe("interrupted chat rendering", () => {
 
     await act(async () => {
       root.render(
-        <AssistantTextPart part={interruptedTextPart(firstText)} copyEnabled={false} streaming />,
+        <AssistantTextPart
+          part={interruptedTextPart(firstText)}
+          ownsActions={false}
+          actionsEnabled={false}
+          streaming
+        />,
       )
       await flushEffects()
     })
@@ -158,7 +163,12 @@ describe("interrupted chat rendering", () => {
 
     await act(async () => {
       root.render(
-        <AssistantTextPart part={interruptedTextPart(finalText)} copyEnabled={false} streaming />,
+        <AssistantTextPart
+          part={interruptedTextPart(finalText)}
+          ownsActions={false}
+          actionsEnabled={false}
+          streaming
+        />,
       )
       await flushEffects(30)
     })
@@ -169,7 +179,8 @@ describe("interrupted chat rendering", () => {
       root.render(
         <AssistantTextPart
           part={interruptedTextPart(finalText)}
-          copyEnabled={false}
+          ownsActions={false}
+          actionsEnabled={false}
           interrupted
           streaming
         />,
