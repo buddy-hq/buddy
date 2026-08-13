@@ -2,15 +2,12 @@ import { motion, useReducedMotion } from "motion/react"
 import { cn } from "@buddy/ui"
 import { language } from "@/context/language"
 import { Markdown } from "@/components/markdown/Markdown"
+import { ClozeMarkdown } from "./flashcard-cloze-markdown"
 import { REVIEW_HINGE_TRANSITION } from "./flashcard-review-motion"
 import { REVIEW_CARD_CHROME, REVIEW_CARD_RADIUS } from "./flashcard-review-surface"
-import {
-  isBasicFlashcardFields,
-  isClozeFlashcardFields,
-  parseClozeText,
-} from "./flashcard-card-content"
+import { isBasicFlashcardFields, isClozeFlashcardFields } from "./flashcard-card-content"
 import type { ReviewNote } from "./flashcard-review-session"
-import type { KeyboardEvent, ReactNode } from "react"
+import type { KeyboardEvent } from "react"
 
 /**
  * The index card.
@@ -19,48 +16,6 @@ import type { KeyboardEvent, ReactNode } from "react"
  * The answer face keeps the question above it as a caption, so the two faces
  * read as one document rather than as a thing and its replacement.
  */
-
-// ─── Cloze ─────────────────────────────────────────────────────────────────
-
-/** The blank a person could actually write on. Its width tracks the answer. */
-function ClozeBlank(props: { answer: string }) {
-  return (
-    <span className="relative mx-0.5 inline-block border-b-2 border-border-strong-base align-baseline">
-      <span className="invisible">{props.answer}</span>
-    </span>
-  )
-}
-
-function ClozeFilled(props: { answer: string }) {
-  return (
-    <span className="mx-0.5 inline-block border-b-2 border-border-interactive-base text-text-interactive-base">
-      {props.answer}
-    </span>
-  )
-}
-
-/**
- * Cloze text renders as React nodes rather than through `Markdown`, because the
- * blank has to be a real element — a rule you can see the width of. Markdown
- * inside cloze text is therefore not formatted; basic cards keep full Markdown.
- *
- * Non-target clozes render plain: only this card's own ordinal is the question.
- */
-export function ClozeText(props: { text: string; ordinal: number; revealed: boolean }) {
-  const pieces: ReactNode[] = parseClozeText(props.text).map((segment, index) => {
-    if (segment.kind === "text") return segment.text
-    const key = `${segment.ordinal}-${index}`
-
-    if (segment.ordinal !== props.ordinal) {
-      return <span key={key}>{segment.answer}</span>
-    } else if (props.revealed) {
-      return <ClozeFilled key={key} answer={segment.answer} />
-    }
-    return <ClozeBlank key={key} answer={segment.answer} />
-  })
-
-  return <>{pieces}</>
-}
 
 // ─── Card parts ────────────────────────────────────────────────────────────
 
@@ -106,13 +61,12 @@ export function ReviewCardFace(props: {
       <ReviewRuledHead label={faceLabel(note, props.templateIdx, props.revealed)} />
       <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-6">
         {isClozeFlashcardFields(note.fields) ? (
-          <p className="text-pretty text-[17px] leading-relaxed text-text-stronger">
-            <ClozeText
-              text={note.fields.text}
-              ordinal={props.templateIdx + 1}
-              revealed={props.revealed}
-            />
-          </p>
+          <ClozeMarkdown
+            text={note.fields.text}
+            ordinal={props.templateIdx + 1}
+            revealed={props.revealed}
+            className="text-pretty text-[17px] leading-relaxed text-text-stronger"
+          />
         ) : isBasicFlashcardFields(note.fields) ? (
           props.revealed ? (
             <>

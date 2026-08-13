@@ -7,6 +7,7 @@ import {
   markdownBlockBoundaryClassName,
   markdownClassName,
 } from "./markdown-html-segment"
+import type { MarkdownRenderedRootDecorator } from "./markdown-html-segment"
 import { MarkdownMermaidSegment, type MarkdownMermaidContext } from "./markdown-mermaid-segment"
 import { parseMarkdownSegments, type MarkdownSegment } from "./markdown-segments"
 import {
@@ -44,6 +45,7 @@ type MarkdownProps = {
   renderMermaid?: boolean
   directory?: string
   onOpenResource?: WorkspaceResourceOpener
+  decorateRenderedRoot?: MarkdownRenderedRootDecorator
 }
 
 type MarkdownChemistryContext = {
@@ -68,6 +70,7 @@ function markdownHtmlSegment(input: {
         onOpenResource={input.props.onOpenResource}
         streaming={input.props.isStreaming}
         interrupted={input.props.isInterrupted}
+        decorateRenderedRoot={input.props.decorateRenderedRoot}
       />
     )
   }
@@ -81,6 +84,7 @@ function markdownHtmlSegment(input: {
       onOpenResource={input.props.onOpenResource}
       streaming={input.props.isStreaming}
       interrupted={input.props.isInterrupted}
+      decorateRenderedRoot={input.props.decorateRenderedRoot}
     />
   )
 }

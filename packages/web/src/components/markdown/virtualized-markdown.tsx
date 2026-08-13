@@ -11,6 +11,7 @@ import {
 import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import { markdownContentHash } from "./markdown-content-hash"
 import { MarkdownHtmlSegment, markdownBlockBoundaryClassName } from "./markdown-html-segment"
+import type { MarkdownRenderedRootDecorator } from "./markdown-html-segment"
 
 const LAZY_MARKDOWN_BLOCK_PREFETCH_PX = 1200
 const MIN_MEASURED_BLOCK_HEIGHT_PX = 1
@@ -113,6 +114,7 @@ function LazyMarkdownBlock(props: {
   onOpenResource?: WorkspaceResourceOpener
   streaming?: boolean
   interrupted?: boolean
+  decorateRenderedRoot?: MarkdownRenderedRootDecorator
 }) {
   const scrollViewportRef = useChatScrollViewport()
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -220,6 +222,7 @@ function LazyMarkdownBlock(props: {
           onOpenResource={props.onOpenResource}
           streaming={props.streaming}
           interrupted={props.interrupted}
+          decorateRenderedRoot={props.decorateRenderedRoot}
         />
       ) : null}
     </div>
@@ -234,6 +237,7 @@ export function VirtualizedMarkdown(props: {
   onOpenResource?: WorkspaceResourceOpener
   streaming?: boolean
   interrupted?: boolean
+  decorateRenderedRoot?: MarkdownRenderedRootDecorator
 }) {
   const scrollViewportRef = useChatScrollViewport()
   const blocks = useMemo(() => splitMarkdownIntoBlocks(props.text), [props.text])
@@ -248,6 +252,7 @@ export function VirtualizedMarkdown(props: {
         onOpenResource={props.onOpenResource}
         streaming={props.streaming}
         interrupted={props.interrupted}
+        decorateRenderedRoot={props.decorateRenderedRoot}
       />
     )
   }
@@ -268,6 +273,7 @@ export function VirtualizedMarkdown(props: {
           onOpenResource={props.onOpenResource}
           streaming={props.streaming}
           interrupted={props.interrupted}
+          decorateRenderedRoot={props.decorateRenderedRoot}
         />
       ))}
     </div>

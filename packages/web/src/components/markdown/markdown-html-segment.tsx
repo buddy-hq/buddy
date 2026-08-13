@@ -680,6 +680,7 @@ function updateCodeTokens(input: {
   language: string
   raw: string
   result: MarkdownWorkerState
+  decorateRenderedRoot?: MarkdownRenderedRootDecorator
 }) {
   const code = input.root.querySelector("code")
   if (!(code instanceof HTMLElement)) return
@@ -717,7 +718,10 @@ function updateCodeTokens(input: {
     unstable: input.result.unstable,
     raw: input.raw,
   })
+  input.decorateRenderedRoot?.(input.root)
 }
+
+type MarkdownRenderedRootDecorator = (root: HTMLDivElement) => void
 
 type MarkdownHtmlSegmentProps = {
   text: string
@@ -727,6 +731,7 @@ type MarkdownHtmlSegmentProps = {
   onOpenResource?: WorkspaceResourceOpener
   streaming?: boolean
   interrupted?: boolean
+  decorateRenderedRoot?: MarkdownRenderedRootDecorator
 }
 
 type MarkdownHtmlBlockProps = MarkdownHtmlSegmentProps & {
@@ -742,6 +747,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
   const copySetupTimerRef = useRef<number | undefined>(undefined)
   const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
   const platform = usePlatform()
+  const decorateRenderedRoot = props.decorateRenderedRoot
   const { executePrimary } = useWorkspaceFileOpen(props.directory, props.onOpenResource)
   const sanitizeContextKey = markdownSanitizeContextKey()
   const fullCacheKey = useMemo(
@@ -785,6 +791,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
 
     touchMarkdownCache(fullCacheKey, cachedEntry)
     patchMarkdownRoot(root, nextRoot, copyLabels)
+    decorateRenderedRoot?.(root)
     markMarkdownParseState(root, { state: "cached", source: props.text })
     resetCodeCopy()
     resetMarkdownImages()
@@ -793,7 +800,15 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
       if (!root.isConnected) return
       copyCleanupRef.current = setupCodeCopy(root, copyLabels)
     }, 0)
-  }, [cachedEntry, copyLabels, fullCacheKey, props.text, resetCodeCopy, resetMarkdownImages])
+  }, [
+    cachedEntry,
+    copyLabels,
+    fullCacheKey,
+    decorateRenderedRoot,
+    props.text,
+    resetCodeCopy,
+    resetMarkdownImages,
+  ])
 
   useEffect(() => {
     const root = rootRef.current
@@ -852,6 +867,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
       )
       if (fallbackRoot) {
         root.replaceChildren(...Array.from(fallbackRoot.childNodes))
+        decorateRenderedRoot?.(root)
         resetCodeCopy()
       }
     }
@@ -886,6 +902,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
       if (!nextRoot) return
 
       patchMarkdownRoot(root, nextRoot, copyLabels)
+      decorateRenderedRoot?.(root)
       resetCodeCopy()
       resetMarkdownImages()
       imageCleanupRef.current = setupMarkdownImages(root)
@@ -908,6 +925,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
     platform.openPath,
     platform.revealPath,
     props.cacheKey,
+    decorateRenderedRoot,
     props.directory,
     props.text,
     props.streaming,
@@ -932,6 +950,7 @@ type MarkdownCodeBlockProps = {
   code: string
   language?: string
   complete?: boolean
+  decorateRenderedRoot?: MarkdownRenderedRootDecorator
 }
 
 const MarkdownCodeBlock = memo(function MarkdownCodeBlock(props: MarkdownCodeBlockProps) {
@@ -939,6 +958,7 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock(props: MarkdownCodeBlo
   const copyCleanupRef = useRef<(() => void) | undefined>(undefined)
   const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
   const language = props.language || "text"
+  const decorateRenderedRoot = props.decorateRenderedRoot
   const workerKey = props.blockKey
 
   useLayoutEffect(() => {
@@ -950,8 +970,9 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock(props: MarkdownCodeBlo
       labels: copyLabels,
     })
     root.replaceChildren(...Array.from(fallbackRoot.childNodes))
+    decorateRenderedRoot?.(root)
     copyCleanupRef.current = setupCodeCopy(root, copyLabels)
-  }, [copyLabels, language, props.code])
+  }, [copyLabels, decorateRenderedRoot, language, props.code])
 
   useEffect(() => {
     const root = rootRef.current
@@ -971,6 +992,7 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock(props: MarkdownCodeBlo
           language,
           raw: props.raw,
           result,
+          decorateRenderedRoot,
         })
       })
       .catch((error: unknown) => {
@@ -987,7 +1009,7 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock(props: MarkdownCodeBlo
     return () => {
       cancelled = true
     }
-  }, [language, props.code, props.complete, props.raw, workerKey])
+  }, [decorateRenderedRoot, language, props.code, props.complete, props.raw, workerKey])
 
   useEffect(() => {
     return () => {
@@ -1036,6 +1058,7 @@ export function MarkdownHtmlSegment(props: MarkdownHtmlSegmentProps) {
               code={block.src}
               language={block.language}
               complete={block.complete}
+              decorateRenderedRoot={props.decorateRenderedRoot}
             />
           )
         }
@@ -1051,11 +1074,14 @@ export function MarkdownHtmlSegment(props: MarkdownHtmlSegmentProps) {
             onOpenResource={props.onOpenResource}
             streaming={block.mode === "live"}
             interrupted={props.interrupted}
+            decorateRenderedRoot={props.decorateRenderedRoot}
           />
         )
       })}
     </div>
   )
 }
+
+export type { MarkdownRenderedRootDecorator }
 
 export { markdownBlockBoundaryClassName, markdownClassName }

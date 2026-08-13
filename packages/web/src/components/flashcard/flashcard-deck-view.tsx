@@ -7,7 +7,7 @@ import { VirtualizedRows } from "@/components/virtualization/virtualized-rows"
 import { isFlashcardLeech } from "@/lib/flashcard"
 import { REVIEW_CARD_RADIUS } from "./flashcard-review-surface"
 import { isBasicFlashcardFields, isClozeFlashcardFields } from "./flashcard-card-content"
-import { ClozeText } from "./flashcard-review-card"
+import { ClozeMarkdown } from "./flashcard-cloze-markdown"
 import type { FlashcardStanding } from "./flashcard-deck-standing"
 import type {
   ObjectFlashcardDeckQueuedCardsResponse,
@@ -95,12 +95,6 @@ function formatDue(card: DeckCard, now: number): string {
   return `${Math.round(deltaMs / DAY_MS)}d`
 }
 
-function noteFrontText(note: DeckNote): string {
-  if (isClozeFlashcardFields(note.fields)) return note.fields.text
-  if (isBasicFlashcardFields(note.fields)) return note.fields.front
-  return ""
-}
-
 function DeckCardRow(props: {
   card: DeckCard
   note: DeckNote | undefined
@@ -111,36 +105,53 @@ function DeckCardRow(props: {
 }) {
   const { note } = props
   const stateLabel = language.t(CARD_STATE_LABEL[props.card.state])
+  const frontClassName = cn(
+    "pointer-events-none relative z-10 min-w-0 flex-1 text-[13.5px] leading-relaxed text-text-base [&_a]:pointer-events-auto [&_button]:pointer-events-auto",
+    !props.open && "max-h-[2lh] overflow-hidden [&_[data-slot=markdown-copy-button]]:hidden",
+  )
 
   return (
     <div
       className={cn(
         "-mx-3 rounded-md px-3 transition-colors",
-        props.open ? "bg-surface-base" : "hover:bg-surface-base/50",
+        props.open && "bg-surface-base",
       )}
     >
       {/* Metadata sits in a right column, not under the question: underneath it
           reads as a continuation of the sentence and doubles the list's line
           count. State is the dot's job — the word only repeated the colour. */}
-      <button
-        type="button"
-        onClick={props.onToggle}
-        className="flex w-full cursor-pointer items-start gap-3 py-4 text-left"
-      >
-        <span
-          className={cn("mt-[7px] size-2 shrink-0 rounded-full", CARD_STATE_DOT[props.card.state])}
-          title={stateLabel}
-          aria-label={stateLabel}
+      <div className="relative flex w-full items-start gap-3 py-4 text-left">
+        <button
+          type="button"
+          data-action="flashcard-deck-row-toggle"
+          aria-expanded={props.open}
+          aria-label={language.t(
+            props.open ? "flashcardDeck.hideAnswer" : "flashcardDeck.showAnswer",
+          )}
+          onClick={props.onToggle}
+          className="absolute inset-0 z-0 cursor-pointer rounded-md transition-colors hover:bg-surface-base/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
         />
         <span
           className={cn(
-            "min-w-0 flex-1 text-[13.5px] leading-relaxed text-text-base",
-            !props.open && "line-clamp-2",
+            "pointer-events-none relative z-10 mt-[7px] size-2 shrink-0 rounded-full",
+            CARD_STATE_DOT[props.card.state],
           )}
-        >
-          {note ? noteFrontText(note) : ""}
-        </span>
-        <span className="mt-[3px] flex shrink-0 items-baseline gap-2 text-[11px] tabular-nums text-text-weaker">
+          title={stateLabel}
+          aria-label={stateLabel}
+        />
+        {note && isClozeFlashcardFields(note.fields) ? (
+          <ClozeMarkdown
+            text={note.fields.text}
+            ordinal={props.card.templateIdx + 1}
+            revealed={false}
+            className={frontClassName}
+          />
+        ) : note && isBasicFlashcardFields(note.fields) ? (
+          <Markdown text={note.fields.front} className={frontClassName} />
+        ) : (
+          <span className={frontClassName} />
+        )}
+        <span className="pointer-events-none relative z-10 mt-[3px] flex shrink-0 items-baseline gap-2 text-[11px] tabular-nums text-text-weaker">
           {props.leech ? (
             <span className="text-text-critical-base">
               {language.t("workspaceFlashcard.leechFlag")}
@@ -148,14 +159,17 @@ function DeckCardRow(props: {
           ) : null}
           <span>{formatDue(props.card, props.now)}</span>
         </span>
-      </button>
+      </div>
 
       {props.open && note ? (
         <div className="pb-5 pl-[20px]">
           {isClozeFlashcardFields(note.fields) ? (
-            <p className="max-w-[56ch] text-[13.5px] leading-relaxed text-text-interactive-base">
-              <ClozeText text={note.fields.text} ordinal={props.card.templateIdx + 1} revealed />
-            </p>
+            <ClozeMarkdown
+              text={note.fields.text}
+              ordinal={props.card.templateIdx + 1}
+              revealed
+              className="max-w-[56ch] text-[13.5px] leading-relaxed text-text-interactive-base"
+            />
           ) : isBasicFlashcardFields(note.fields) ? (
             <Markdown
               text={note.fields.back}
@@ -262,7 +276,7 @@ export function FlashcardDeckView(props: {
     <div
       ref={setScrollElement}
       data-component="flashcard-deck-view"
-      className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6"
+      className="absolute inset-0 flex min-h-0 flex-col overflow-y-auto px-6 py-6"
     >
       <div data-component="flashcard-deck-content" className="mx-auto w-full max-w-3xl">
         <VirtualizedRows
