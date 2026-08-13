@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import type { TitlebarTheme } from "../preload/types"
 import { BUDDY_DEV_INSTANCE_NAME_ENV } from "../shared/dev-app-name"
+import { encodeBuddyWindowVersionArg } from "../shared/window-preload-args"
 import { wireContextMenu } from "./context-menu"
 
 type WindowGlobals = {
@@ -114,10 +115,7 @@ export function createMainWindow(globals: WindowGlobals) {
           titleBarOverlay: titlebarOverlay(),
         }
       : {}),
-    webPreferences: {
-      preload: join(root, "../preload/index.mjs"),
-      sandbox: false,
-    },
+    webPreferences: resolveWebPreferences(globals),
   })
 
   state.manage(win)
@@ -155,10 +153,7 @@ export function createLoadingWindow(globals: WindowGlobals) {
           titleBarOverlay: titlebarOverlay(),
         }
       : {}),
-    webPreferences: {
-      preload: join(root, "../preload/index.mjs"),
-      sandbox: false,
-    },
+    webPreferences: resolveWebPreferences(globals),
   })
 
   lockWindowTitle(win)
@@ -177,6 +172,14 @@ function lockWindowTitle(win: BrowserWindow) {
     event.preventDefault()
     win.setTitle(title)
   })
+}
+
+function resolveWebPreferences(globals: WindowGlobals) {
+  return {
+    preload: join(root, "../preload/index.mjs"),
+    sandbox: false,
+    additionalArguments: [encodeBuddyWindowVersionArg(globals.version)],
+  }
 }
 
 function loadWindow(win: BrowserWindow, htmlFile: string) {

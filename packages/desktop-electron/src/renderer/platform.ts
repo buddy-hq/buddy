@@ -40,6 +40,23 @@ function normalizeDirectory(input: string) {
   return trimmed.replace(/\/+$/, "")
 }
 
+function normalizeAppVersion(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+function readDesktopAppVersion(): string | undefined {
+  const getAppVersion: unknown = Reflect.get(window.api, "getAppVersion")
+  if (typeof getAppVersion === "function") {
+    const apiVersion = normalizeAppVersion(getAppVersion())
+    if (apiVersion) return apiVersion
+  }
+
+  return normalizeAppVersion((window as BuddyWindow).__BUDDY__?.version)
+}
+
 function detectOs() {
   const userAgent = navigator.userAgent
   if (userAgent.includes("Mac")) return "macos" as const
@@ -152,7 +169,9 @@ export function createDesktopPlatform(): Platform {
     ...createBrowserPlatform(),
     platform: "desktop",
     os,
-    version: (window as BuddyWindow).__BUDDY__?.version,
+    get version() {
+      return readDesktopAppVersion()
+    },
     storage(name) {
       const storeName = name ?? DEFAULT_STORE_NAME
       const cached = apiCache.get(storeName)

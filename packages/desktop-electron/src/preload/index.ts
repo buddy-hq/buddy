@@ -1,5 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron"
+import { readBuddyWindowVersionArg } from "../shared/window-preload-args"
 import type { ElectronAPI, InitStep, SqliteMigrationProgress } from "./types"
+
+const appVersion = readBuddyWindowVersionArg(process.argv)
 
 const DROPPED_FILE_PATH_CACHE_MAX_ENTRIES = 200
 const droppedFilePathByFingerprint = new Map<string, string>()
@@ -148,6 +151,7 @@ const api: ElectronAPI = {
   setZoomFactor: (factor) => ipcRenderer.invoke("set-zoom-factor", factor),
   setTitlebar: (theme) => ipcRenderer.invoke("set-titlebar", theme),
   loadingWindowComplete: () => ipcRenderer.send("loading-window-complete"),
+  getAppVersion: () => appVersion,
   runUpdater: (alertOnFail) => ipcRenderer.invoke("run-updater", alertOnFail),
   checkUpdate: () => ipcRenderer.invoke("check-update"),
   getUpdateProgress: () => ipcRenderer.invoke("get-update-progress"),

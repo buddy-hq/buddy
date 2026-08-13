@@ -85,6 +85,7 @@ export type ElectronAPI = {
   setZoomFactor: (factor: number) => Promise<void>
   setTitlebar: (theme: TitlebarTheme) => Promise<void>
   loadingWindowComplete: () => void
+  getAppVersion: () => string | undefined
   runUpdater: (alertOnFail: boolean) => Promise<void>
   checkUpdate: () => Promise<{
     blocked?: boolean
