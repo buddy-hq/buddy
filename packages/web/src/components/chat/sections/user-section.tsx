@@ -8,39 +8,22 @@ import {
   isChatAgentPart,
   isChatFilePart,
   isChatTextPart,
-  readChatReadingSelectionPart,
   type ChatAgentPart,
   type ChatFilePart,
-  type ChatTextPart,
 } from "../utils/part-guards"
 import { isHiddenFromUserMessage } from "../utils/message-visibility"
+import { isVisibleUserTextPart } from "../utils/user-message-text"
 import {
-  readPromptReadingSelectionMetadata,
-  readPromptSelectionContextMetadata,
-  readPromptNativeResourceAttachmentMetadata,
-  readPromptNativeResourceAttachmentPart,
-  readPromptTextFileAttachmentMetadata,
+  isUserAttachmentFilePart,
+  projectUserMessageStackedContent,
+} from "../utils/user-message-stacked-content"
+import {
   OPENCODE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
 import type { MessagePart } from "@/state/chat-types"
 
 import type { UserSectionProps } from "../types"
-
-function isAttachmentFilePart(part: ChatFilePart) {
-  return part.mime.startsWith("image/") || part.mime === "application/pdf"
-}
-
-function isVisibleUserTextPart(part: MessagePart): part is ChatTextPart {
-  return (
-    isChatTextPart(part) &&
-    part.synthetic !== true &&
-    readPromptSelectionContextMetadata(part.metadata) === undefined &&
-    readPromptReadingSelectionMetadata(part.metadata) === undefined &&
-    readPromptNativeResourceAttachmentMetadata(part.metadata) === undefined &&
-    readPromptTextFileAttachmentMetadata(part.metadata) === undefined
-  )
-}
 
 type ChatWorkspaceFileReferencePart = MessagePart & {
   type: typeof WORKSPACE_FILE_REFERENCE_PART_TYPE
@@ -123,41 +106,15 @@ export const UserSection = memo(function UserSection({
 }: UserSectionProps) {
   const userParts = useMemo(() => userMessage?.parts ?? [], [userMessage?.parts])
   const userFileParts = useMemo(() => userParts.filter(isChatFilePart), [userParts])
-  const userNativeResourceParts = useMemo(
-    () =>
-      userParts.flatMap((part) => {
-        const attachment =
-          readPromptNativeResourceAttachmentPart(part) ??
-          readPromptNativeResourceAttachmentMetadata(part.metadata)
-        return attachment ? [{ id: part.id, attachment }] : []
-      }),
-    [userParts],
-  )
-  const userTextFileAttachmentParts = useMemo(
-    () =>
-      userParts.flatMap((part) => {
-        const attachment = readPromptTextFileAttachmentMetadata(part.metadata)
-        return attachment ? [{ id: part.id, attachment }] : []
-      }),
-    [userParts],
-  )
-  const nativeResourceSourcePaths = useMemo(
-    () => new Set(userNativeResourceParts.map(({ attachment }) => attachment.sourcePath)),
-    [userNativeResourceParts],
-  )
-  const userAttachmentParts = useMemo(
-    () =>
-      userFileParts.filter((part) => {
-        if (!isAttachmentFilePart(part)) return false
-        const sourceValue: unknown = part.source
-        const source = isRecord(sourceValue) ? sourceValue : undefined
-        const sourcePath = source && typeof source.path === "string" ? source.path : undefined
-        return !sourcePath || !nativeResourceSourcePaths.has(sourcePath)
-      }),
-    [nativeResourceSourcePaths, userFileParts],
-  )
+  const stackedContent = useMemo(() => projectUserMessageStackedContent(userParts), [userParts])
+  const {
+    attachmentParts: userAttachmentParts,
+    nativeResourceParts: userNativeResourceParts,
+    selectionContextParts: userSelectionContextParts,
+    textFileAttachmentParts: userTextFileAttachmentParts,
+  } = stackedContent
   const userInlineFileParts = useMemo(
-    () => userFileParts.filter((part) => !isAttachmentFilePart(part)),
+    () => userFileParts.filter((part) => !isUserAttachmentFilePart(part)),
     [userFileParts],
   )
   const userAgentParts = useMemo(() => userParts.filter(isChatAgentPart), [userParts])
@@ -167,10 +124,6 @@ export const UserSection = memo(function UserSection({
   )
   const userOpenCodeReferenceParts = useMemo(
     () => userParts.filter(isChatOpenCodeReferencePart),
-    [userParts],
-  )
-  const userSelectionContextParts = useMemo(
-    () => userParts.map(readChatReadingSelectionPart).filter((part) => part !== undefined),
     [userParts],
   )
   const userTextParts = useMemo(() => userParts.filter(isVisibleUserTextPart), [userParts])
