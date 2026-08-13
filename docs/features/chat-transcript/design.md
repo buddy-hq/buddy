@@ -2,11 +2,17 @@
 
 Date: 2026-06-28
 
-This document describes the current Buddy chat transcript implementation after the transcript refactor work. It is grounded in the current code, and should be read together with:
+This document describes Buddy's chat transcript architecture: data flow, state
+ownership, row projection, and rendering. Scroll and virtualization behavior has
+its own document and is authoritative there.
 
-- [invariants.md](./invariants.md)
-- [logs.md](./logs.md)
-- [findings.md](./findings.md)
+Read with:
+
+- [invariants.md](./invariants.md) — the contracts every change must preserve
+- [scroll-and-virtualization.md](./scroll-and-virtualization.md) — scroll ownership
+- [history.md](./history.md) — what broke before and why the current shape exists
+
+Date: 2026-06-28. Revised 2026-08-12 to match the code.
 
 ## Reference lock
 
@@ -189,9 +195,9 @@ History pagination uses `loadOlderTranscriptMessages()` with `mode: "prepend"`. 
 - `user`
 - `turn-divider`
 - `assistant`
-- `thinking`
+- `activity` (the row historically called "thinking")
 - `retry`
-- `error`
+- `caveat`
 
 Assistant rows contain one of:
 
@@ -203,12 +209,13 @@ Assistant rows contain one of:
 
 Row keys are logical:
 
-- `user:${messageID}`
+- `user:${userMessageID}`
+- `turn-gap:${userMessageID}`
 - `assistant:${userMessageID}:${item.key}`
-- `thinking:${userMessageID}`
+- `activity:${userMessageID}:${ordinal}`
 - `turn-divider:${userMessageID}:${label}`
 - `retry:${userMessageID}`
-- `error:${userMessageID}`
+- `caveat:${userMessageID}`
 
 `reuseTimelineRows()` preserves row object identity when row semantics have not changed. This is necessary so unrelated part updates do not remount stable rows.
 
@@ -239,18 +246,28 @@ current precedence as a newly resolved product rule.
 
 `chat-transcript.tsx` uses `@tanstack/react-virtual` for all timeline rows, including the active turn.
 
-Current virtualizer settings include:
+Current virtualizer settings are:
 
 - stable row keys via `getItemKey`
-- `anchorTo: "end"`
-- `followOnAppend: true`
+- `anchorTo: "end"` — while attached this is what follows row growth
+- `followOnAppend: false` — Buddy owns row-append following so it can gate on
+  attachment and gesture state
 - `scrollEndThreshold: 80`
 - `paddingEnd: 64`
-- `initialOffset: Number.MAX_SAFE_INTEGER`
+- `useAnimationFrameWithResizeObserver: false` — measurement must correct scroll
+  in the same frame as the growth, before paint
+- `initialOffset`: the task's restored offset when one exists, otherwise
+  `Number.MAX_SAFE_INTEGER` when attached and `0` when not
 - restored measurements from a 16-session timeline cache
 - active row kept in the extracted range
 - visible rows temporarily pinned during viewport-sized height changes
-- `shouldAdjustScrollPositionOnItemSizeChange` based on logical scroll offset
+- `shouldAdjustScrollPositionOnItemSizeChange` returns false while attached — but
+  see [scroll-and-virtualization.md](./scroll-and-virtualization.md) for why that
+  branch is not reached in the attached case
+
+The authoritative account of scroll ownership is
+[scroll-and-virtualization.md](./scroll-and-virtualization.md). Do not restate
+the ownership rules here.
 
 The transcript also caches memory-only per-session view state:
 
@@ -294,13 +311,14 @@ Code highlighting:
 - Worker startup failure returns a rejected promise instead of throwing synchronously into React render/effects.
 - Raw code fallback remains visible if highlighting is unavailable.
 
-Known current design debt:
+Resolved since this document was first written (see
+[history.md](./history.md)): streaming-to-final Markdown no longer collapses the
+response, tail block identity is ordinal rather than content-derived, and open
+fences stay in `MarkdownCodeBlock` across completion. `markdown-stream-rendering.test.tsx`
+holds those contracts.
 
-- Streaming-to-final Markdown can still rebuild too much of the rendered response.
-- Long virtualized Markdown tail block identity still needs stricter logical keys.
-- Mermaid-aware segmentation can still cause a root-mode transition.
-
-Those are tracked in [findings.md](./findings.md).
+The streaming projection additionally withholds the uncommitted trailing line of
+an open code fence, so a block never renders taller than its completed form.
 
 ## Inline artifacts and tool rows
 
@@ -427,14 +445,15 @@ Reasoning summaries are not just debug text. Buddy’s expected UX includes comp
 
 ## Known open issues
 
-The current implementation is not considered architecturally complete until the P1 Markdown findings are resolved:
+The first two of the original P1 Markdown findings are resolved. Still open:
 
-- final Markdown projection should not collapse visible streaming blocks while pending final parse completes
-- virtualized Markdown live-tail keys must be logical, not content-derived
-- Mermaid segmentation should avoid remounting all prior Markdown when the first Mermaid fence completes
-- references and footnotes need a coherent whole-response strategy that does not force expensive per-token whole-response parsing unless supported
+- Mermaid segmentation remounts prior Markdown when the first Mermaid fence
+  completes.
+- References and footnotes force whole-response parsing per token, and a
+  reference used before a Mermaid block with its definition after it does not
+  resolve.
 
-See [findings.md](./findings.md) for the detailed parked findings and proposed tests.
+See [history.md](./history.md) for the full record, including what was resolved.
 
 ## Regression coverage expectations
 

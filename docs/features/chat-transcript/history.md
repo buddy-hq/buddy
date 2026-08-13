@@ -1,4 +1,13 @@
-# Chat Transcript Refactor Logs
+# Chat transcript history
+
+The record of what broke, what was diagnosed, and what was resolved. Use it to
+avoid re-deriving a conclusion that already has evidence behind it.
+
+Current architecture lives in [design.md](./design.md) and
+[scroll-and-virtualization.md](./scroll-and-virtualization.md). The contracts
+live in [invariants.md](./invariants.md). Work in flight lives in
+[hypothesis.md](./hypothesis.md).
+
 
 ## 2026-06-28
 
@@ -78,10 +87,66 @@ The reliable path was:
 
 ### Open follow-up from this day
 
-The remaining larger Markdown architecture issue is still separate:
+The remaining larger Markdown architecture issues were tracked separately and are
+recorded under "Markdown projection findings" below.
 
-- Streaming-to-final Markdown projection can still rebuild too much of the response.
-- Virtualized Markdown live-tail identity must avoid content-derived remount keys.
-- Mermaid-aware segmentation and references still need a more coherent projection model.
+## Markdown projection findings (2026-06-28, verified read-only)
 
-Those are tracked in [findings.md](./findings.md).
+A verification pass ranked the reported Markdown symptoms. Its most useful result
+was negative: most of the individually reported flicker (math, code, tables,
+media rows, Mermaid shells) was **not** independently unstable. It was downstream
+of higher-level remounts.
+
+| Reported symptom | Verdict |
+| --- | --- |
+| End-of-turn rebuilds most Markdown | Confirmed, highest impact |
+| First completed Mermaid remounts prior Markdown | Confirmed |
+| References force whole-response parsing per token | Confirmed |
+| Large virtualized tail remounts repeatedly | Partial; only >12k chars, no Mermaid, no references |
+| Tables/lists repeatedly restructure | Mostly normal tail-local behavior |
+| Math / code flicker independently | Non-issue; caused by parent remounts |
+| Mermaid loading/error collapses shells | Mostly false; only persistence/replacement states |
+| `present_media` initially becomes file rows | Mostly false; only when persisted availability is stale |
+
+### Resolved
+
+**Streaming-to-final Markdown collapse (P1-A).** Finalization reduced the
+rendered response to its first block while asynchronously rebuilding the rest,
+blanking most of the answer, retrying images, and recreating KaTeX. Existing
+projected blocks are now retained through completion; live-to-full transitions
+reuse the same component. Covered by `markdown-stream-rendering.test.tsx`.
+
+**Content-derived tail keys (P1-B).** Growing tail blocks keyed by content
+checksum produced a new React key on every append. Block identity is now ordinal.
+
+### Still open
+
+**First completed Mermaid remounts the prior Markdown tree (P1-C).** Closing the
+first Mermaid fence switches the whole root from ordinary to segmented Markdown,
+remounting everything before it. The shell can be stable while the root-mode
+switch still remounts.
+
+**References force whole-response live parsing (P1-D).** Reference definitions
+collapse the streaming projection into one live block, so every later token
+reparses the whole response. A reference used before a Mermaid block with its
+definition after it lands in a different HTML segment and stays literal.
+Footnotes trigger this expensive path even though the current Marked setup does
+not render them as footnotes.
+
+Direction, unchanged: unify reference detection between parser and virtualizer,
+preserve document-global reference definitions across segmentation, and do not
+trigger whole-response work for unsupported footnotes.
+
+### Performance follow-ups
+
+- Mermaid segmentation rescans the whole growing response on each text change,
+  which is quadratic over a long stream.
+- Grouped `render_mermaid` eagerly queues every diagram, including hidden ones.
+- Inline Markdown Mermaid object persistence can run twice on first activation.
+
+### Guardrails that still apply
+
+- Do not solve projection problems with timing hacks, broad remount guards, or a
+  generic rendered-DOM cache.
+- Do not use viewport-wide geometry repair as a fix for Markdown remounting.
+- Prefer row/block-local identity and latest/pending projection state.

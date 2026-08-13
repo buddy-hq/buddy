@@ -11,11 +11,17 @@ read Section 2 so you know why the current numbers are what they are.
 
 Code lives in:
 - `packages/web/src/components/chat/tools/activity-row/index.tsx` — the timing
-  constants and the delay hooks.
+  constants and the mid-turn delay hook.
+- `packages/web/src/components/chat/hooks/use-delayed-flag.ts` — the shared
+  "held continuously for N ms" hook.
 - `packages/web/src/components/chat/tools/activity-row/entries.ts` — the working
   label list (`ACTIVITY_WORKING_LABELS`) and `activityWorkingLabel(seed)`.
 - `packages/web/src/components/chat/chat-timeline-rows.ts` — where the activity
-  rows (and the empty "tail" row) are projected, and where `initial` is set.
+  rows (and the empty "tail" row) are projected, where `initial` is set, and
+  where the end-of-turn tail is withheld until revealed.
+
+The geometry consequences of these rows are covered in
+[scroll-and-virtualization.md](./scroll-and-virtualization.md).
 
 ---
 
@@ -68,12 +74,21 @@ moment they happen — only by how long they last:
    lasts.
 
 Because (1) and (2) are indistinguishable except by duration, we **wait
-`END_OF_TURN_DEAD_ZONE_MS` before showing anything**. If the row is gone by then
-(the turn ended) → no flash. If it's still there → it was a real pause → show
-the working word. During the wait the space is simply blank beneath a
-finished-looking answer, which reads fine. The activity shell stays mounted at
-its normal height while its contents are hidden: removing the contents would
-collapse the measured virtual row and make bottom anchoring visibly jump.
+`END_OF_TURN_DEAD_ZONE_MS` before creating the row at all**. If the turn ends by
+then → no flash and no geometry. If the pause is still going → it was real → the
+row is projected and shows the working word.
+
+The delay lives in **row projection**, not in the component. An earlier version
+mounted the row immediately and hid it with `invisible`, on the theory that
+removing its contents would collapse the measured virtual row. That reasoning was
+backwards: `invisible` still reserves ~40px, so an ordinary turn ending inserted
+that height and removed it about 100ms later, moving the whole transcript twice
+on every single turn. Not creating a row that is not going to be shown costs
+nothing and moves nothing.
+
+`hasPendingEndOfTurnTail()` and `withRevealedEndOfTurnTail()` in
+`chat-timeline-rows.ts` implement this; the transcript drives them with
+`useDelayedFlag(pending, END_OF_TURN_DEAD_ZONE_MS)`.
 
 ### Working word / working label
 

@@ -1,8 +1,12 @@
 # Chat transcript flicker prevention
 
-This document describes the system that keeps chat and Bench transitions visually stable without
-breaking transcript virtualization, bottom anchoring, detached reading positions, streaming, or
-workspace restoration.
+This document describes the system that keeps chat and Bench **transitions**
+visually stable without breaking transcript virtualization, bottom anchoring,
+detached reading positions, streaming, or workspace restoration.
+
+It covers switching between chats and workspaces. Flicker *within* a single
+streaming turn is a different problem with a different owner — see
+[scroll-and-virtualization.md](./scroll-and-virtualization.md).
 
 The central rule is:
 
@@ -305,9 +309,14 @@ Returning to the bottom or using “jump to latest” reattaches the session.
 
 ### Attached row measurement
 
-While attached, TanStack Virtual does not independently adjust scroll position for every item-size
-change. The transcript's bottom owner repairs the semantic end after asynchronous measurement, and
-all repair paths stop when a real scroll gesture is active.
+While attached, TanStack Virtual **does** adjust scroll position for item-size
+changes: its `wasAtEnd` branch runs before Buddy's
+`shouldAdjustScrollPositionOnItemSizeChange` predicate and takes precedence.
+Buddy owns only row appends and a gated trailing repair. All repair paths stop
+when a real scroll gesture is active.
+
+[scroll-and-virtualization.md](./scroll-and-virtualization.md) is authoritative
+on this split; do not restate it here.
 
 Viewport-height changes are handled in `ResizeObserver`, after layout and before paint. A shrinking
 viewport receives the required bottom correction synchronously, and any perceived settle is replayed
