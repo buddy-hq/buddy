@@ -337,9 +337,26 @@ function codeLanguage(value: string | undefined) {
   return value?.trim().split(/\s+/u, 1)[0] || undefined
 }
 
+/**
+ * Body of a still-open fence, without the trailing line the stream has not
+ * committed to yet.
+ *
+ * A closing fence arrives one character at a time, so the body briefly ends in a
+ * partial fence run (`` ` `` then ``` `` ```). Rendering those characters shows a
+ * stray line inside the code block that disappears the instant the fence
+ * completes, and marked's completed `code.text` has no trailing newline either.
+ * Both make the block one line taller while streaming than when it finishes, so
+ * every code block ends with a one-line upward jolt. Dropping the uncommitted
+ * tail keeps the open block the same height as the completed one, and the block
+ * then only ever grows.
+ */
 function openCode(raw: string) {
   const newline = raw.indexOf("\n")
-  return newline < 0 ? "" : raw.slice(newline + 1)
+  if (newline < 0) return ""
+  const body = raw.slice(newline + 1)
+  const fenceChar = raw.match(/^[ \t]{0,3}(`|~)/u)?.[1]
+  if (!fenceChar) return body
+  return body.replace(new RegExp(`\\n[\\t ]{0,3}${fenceChar}*[\\t ]*$`, "u"), "")
 }
 
 function heal(text: string) {
@@ -442,14 +459,20 @@ export function projectMarkdownBlocks(
     return { text, blocks: streamBlocks(text, live) }
   }
 
+  // `raw` is authoritative; derive `src` from it rather than appending the
+  // suffix, so an incremental delta withholds the uncommitted trailing line on
+  // exactly the same terms as a full reprojection. Appending directly would let
+  // a partial closing fence through the fast path — which is the path every
+  // provider delta actually takes.
+  const raw = tail.raw + suffix
   return {
     text,
     blocks: [
       ...previous.blocks.slice(0, -1),
       {
         ...tail,
-        raw: tail.raw + suffix,
-        src: tail.src + suffix,
+        raw,
+        src: openCode(raw),
       },
     ],
   }

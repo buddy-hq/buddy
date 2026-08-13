@@ -552,7 +552,16 @@ export function sanitizeRawMarkdownFallback(text: string): string {
     .replace(/>/gu, "&gt;")
     .replace(/"/gu, "&quot;")
     .replace(/'/gu, "&#39;")
-  return sanitizeMarkdownHtml(escaped.replace(/\r\n?/gu, "\n").replace(/\n/gu, "<br>"))
+  return sanitizeMarkdownHtml(
+    escaped
+      .replace(/\r\n?/gu, "\n")
+      // A streaming block's text almost always ends in a newline. Each trailing
+      // newline paints a <br>, so this fallback is one line taller than the
+      // parsed HTML that replaces it a frame later, and the block visibly
+      // collapses upward. The parsed result has no such trailing line.
+      .replace(/\n+$/u, "")
+      .replace(/\n/gu, "<br>"),
+  )
 }
 
 function markdownSanitizeContextKey() {

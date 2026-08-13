@@ -30,6 +30,13 @@ const HTML_WIDGET_VIEWPORTS = {
 
 type HtmlWidgetViewportPreset = keyof typeof HTML_WIDGET_VIEWPORTS
 
+/**
+ * Box to reserve for a widget whose descriptor has not hydrated yet, so its
+ * preset is not known. Reserving the wrong aspect leaves a bounded correction;
+ * reserving nothing leaves a ~480px jump when the frame replaces a status row.
+ */
+export const HTML_WIDGET_FALLBACK_VIEWPORT_PRESET: HtmlWidgetViewportPreset = "standard_16_10"
+
 export type HtmlWidgetViewport = (typeof HTML_WIDGET_VIEWPORTS)[HtmlWidgetViewportPreset] & {
   preset: HtmlWidgetViewportPreset
 }
@@ -49,6 +56,8 @@ function isHtmlWidgetViewportPreset(value: string): value is HtmlWidgetViewportP
   return value in HTML_WIDGET_VIEWPORTS
 }
 
+export function resolveHtmlWidgetViewport(preset: HtmlWidgetViewportPreset): HtmlWidgetViewport
+export function resolveHtmlWidgetViewport(preset: string): HtmlWidgetViewport | undefined
 export function resolveHtmlWidgetViewport(preset: string): HtmlWidgetViewport | undefined {
   if (!isHtmlWidgetViewportPreset(preset)) return undefined
   return {

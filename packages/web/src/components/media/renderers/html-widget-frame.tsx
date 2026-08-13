@@ -164,6 +164,42 @@ function HtmlWidgetFrameOverlay(props: { loadState: HtmlWidgetFrameLoadState }) 
   return null
 }
 
+/**
+ * The frame's box before its widget descriptor has been hydrated.
+ *
+ * A widget's geometry is a pure function of its viewport preset, which is known
+ * as soon as the tool part is read. Rendering a one-line status row while the
+ * descriptor loads and then swapping in a ~480px frame moves everything below it
+ * twice. This reserves the identical box — same max width, max height, and
+ * aspect ratio as `HtmlWidgetInlineFrame` — so hydration only fills it in.
+ */
+export function HtmlWidgetFramePlaceholder(props: {
+  viewport: HtmlWidgetViewport
+  className?: string
+}) {
+  const windowSize = useWindowViewportSize()
+  const heightScale = resolveInlineViewportHeightScale({
+    viewport: props.viewport,
+    windowSize,
+  })
+
+  return (
+    <div className={cn("w-full min-w-0", props.className)}>
+      <div
+        className="relative mx-auto overflow-hidden rounded-xl bg-background-base"
+        style={{
+          width: "100%",
+          maxWidth: `${props.viewport.width * heightScale}px`,
+          maxHeight: `${props.viewport.height * heightScale}px`,
+          aspectRatio: `${props.viewport.width} / ${props.viewport.height}`,
+        }}
+      >
+        <HtmlWidgetFrameOverlay loadState="loading" />
+      </div>
+    </div>
+  )
+}
+
 function HtmlWidgetInlineFrame(props: {
   widget: HtmlWidgetPresentation
   reloadKey: number

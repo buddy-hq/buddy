@@ -10,4 +10,12 @@ describe("markdown html segment", () => {
     expect(html).toContain("<br>")
     expect(html).toContain("plain text")
   })
+
+  test("does not paint a trailing line the parsed HTML will not have", () => {
+    // The fallback shows for one frame before parsed HTML replaces it. A
+    // trailing <br> makes it a line taller, so the block collapses upward.
+    expect(sanitizeRawMarkdownFallback("The function returns.\n")).not.toContain("<br>")
+    expect(sanitizeRawMarkdownFallback("The function returns.\n\n")).not.toContain("<br>")
+    expect(sanitizeRawMarkdownFallback("first\nsecond\n")).toBe("first<br>second")
+  })
 })

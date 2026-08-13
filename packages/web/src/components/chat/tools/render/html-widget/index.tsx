@@ -11,6 +11,7 @@ import { ToolErrorPanel } from "../../tool-error-panel"
 import { TextShimmer } from "../../text-shimmer"
 import { ToolRow, ToolRowAction, ToolRowIcon } from "../../tool-row"
 import {
+  HTML_WIDGET_FALLBACK_VIEWPORT_PRESET,
   readHtmlWidgetSource,
   resolveHtmlWidgetViewport,
   type HtmlWidgetPresentation,
@@ -25,7 +26,12 @@ import {
   type BuddyPresentationDescriptor,
 } from "../buddy-object-result"
 import { useHydratedInlinePresentation } from "../use-hydrated-inline-presentation"
-import { HtmlWidgetFrame, Media, type MediaAction } from "@/components/media"
+import {
+  HtmlWidgetFrame,
+  HtmlWidgetFramePlaceholder,
+  Media,
+  type MediaAction,
+} from "@/components/media"
 
 function HtmlWidgetCard(props: {
   widget: HtmlWidgetPresentation
@@ -161,15 +167,29 @@ function CompletedHtmlWidgetTool(props: {
   )
 
   if (!renderedWidget) {
+    // Hold the widget's box while its descriptor loads. Collapsing to a status
+    // row and expanding to the frame afterwards moves the whole transcript below
+    // it, twice.
+    //
+    // `isPending` is true only while `presentation.data` is still null, which is
+    // exactly when the preset is unknown — so this reserves the fallback box
+    // rather than the real one. That leaves a bounded aspect correction instead
+    // of the full collapse-and-expand.
+    if (hydrated.isPending) {
+      const viewport = resolveHtmlWidgetViewport(HTML_WIDGET_FALLBACK_VIEWPORT_PRESET)
+
+      // Same outer shape as the resolved card below: the frame only, no status
+      // row. A status row that disappears on hydration is its own shift.
+      return <HtmlWidgetFramePlaceholder viewport={viewport} />
+    }
+
     return (
       <div className="flex flex-col gap-1.5">
         <ToolRow>
           <ToolRowIcon>
             {props.toolProps.icon?.("size-3.5") ?? <AppWindowIcon className="size-3.5" />}
           </ToolRowIcon>
-          <ToolRowAction>
-            <TextShimmer text={props.toolProps.info.title} active={hydrated.isPending} />
-          </ToolRowAction>
+          <ToolRowAction>{props.toolProps.info.title}</ToolRowAction>
         </ToolRow>
         {hydrated.error ? <ToolErrorPanel error="HTML widget is unavailable." /> : null}
       </div>

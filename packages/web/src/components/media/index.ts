@@ -10,7 +10,7 @@ export { MEDIA_IMAGE_GALLERY_CONTENT_CLASS_NAME, ToolImageGallery } from "./medi
 export { MediaThumbnail } from "./media-thumbnail"
 export { MultiViewShell } from "./multi-view-shell"
 export { PresentedMediaContent } from "./presented-media-content"
-export { HtmlWidgetFrame } from "./renderers/html-widget-frame"
+export { HtmlWidgetFrame, HtmlWidgetFramePlaceholder } from "./renderers/html-widget-frame"
 export { PresentedMediaPlayer } from "./renderers/presented-media-player"
 export type { MultiViewItem } from "./multi-view-shell"
 export type { ToolImageGalleryItem } from "./media-gallery"

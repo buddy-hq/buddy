@@ -242,7 +242,9 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
     expect(next.blocks[0]).toBe(previous.blocks[0])
     expect(next.blocks.at(-1)).toEqual({
       raw: "```ts\nconst one = 1\nconst two = 2\n",
-      src: "const one = 1\nconst two = 2\n",
+      // The trailing newline is an uncommitted line: rendering it makes the open
+      // block taller than the completed one will be.
+      src: "const one = 1\nconst two = 2",
       mode: "code",
       language: "ts",
     })
@@ -261,5 +263,62 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
       language: "ts",
       complete: true,
     })
+  })
+
+  test("keeps a partial closing fence out of the open block's rendered source", () => {
+    const open = projectMarkdownBlocks(undefined, "```ts\nconst x = 1\n", true)
+    const one = projectMarkdownBlocks(open, `${open.text}\``, true)
+    const two = projectMarkdownBlocks(one, `${one.text}\``, true)
+
+    expect(open.blocks.at(-1)?.src).toBe("const x = 1")
+    expect(one.blocks.at(-1)?.src).toBe("const x = 1")
+    expect(two.blocks.at(-1)?.src).toBe("const x = 1")
+  })
+
+  test("never shrinks a streaming projection's line count", () => {
+    const text = [
+      "Prose before the block.",
+      "",
+      "```kotlin",
+      "fun addOne(value: Int): Int {",
+      "    return value + 1",
+      "}",
+      "```",
+      "",
+      "Prose after the block.",
+    ].join("\n")
+
+    const shrinks: { at: number; delta: number }[] = []
+    let projection = projectMarkdownBlocks(undefined, text.slice(0, 1), true)
+    let previousLines = projection.blocks.reduce(
+      (total, block) => total + block.src.split("\n").length,
+      0,
+    )
+
+    for (let length = 2; length <= text.length; length += 1) {
+      projection = projectMarkdownBlocks(projection, text.slice(0, length), true)
+      const lines = projection.blocks.reduce(
+        (total, block) => total + block.src.split("\n").length,
+        0,
+      )
+      if (lines < previousLines) shrinks.push({ at: length, delta: lines - previousLines })
+      previousLines = lines
+    }
+
+    // A shrink is a visible upward jolt: content already painted is removed and
+    // everything below it moves. Streaming may only add lines.
+    expect(shrinks).toEqual([])
+  })
+
+  test("completing a fence does not change the block's line count", () => {
+    const body = "```kotlin\nfun addOne(value: Int): Int {\n    return value + 1\n}\n"
+    const open = projectMarkdownBlocks(undefined, `${body}\`\``, true)
+    const closed = projectMarkdownBlocks(open, `${body}\`\`\``, true)
+
+    const lineCount = (projection: typeof open) =>
+      projection.blocks.reduce((total, block) => total + block.src.split("\n").length, 0)
+
+    expect(closed.blocks.at(-1)?.complete).toBe(true)
+    expect(lineCount(closed)).toBe(lineCount(open))
   })
 })
