@@ -12,7 +12,11 @@ import {
   registerLiveDirectoryWorkspace,
   resetLiveDirectoryWorkspaceRegistryForTests,
 } from "../src/lib/directory-workspace-registry"
-import { BENCH_CHAT_LAYOUT_DOCKED, type BenchTarget } from "../src/lib/bench-navigation"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  type BenchTabTarget,
+  type BenchTarget,
+} from "../src/lib/bench-navigation"
 import { encodeDirectory } from "../src/lib/directory-token"
 import {
   BENCH_ROUTE_STATUS_CLOSED,
@@ -90,6 +94,12 @@ function routeLocation(directory: string, route: BenchRouteSnapshot) {
     return {
       pathname: `/${encodeDirectory(directory)}/${route.target.viewer}`,
       search: { path: route.target.path },
+    }
+  }
+  if (route.target.type === "session") {
+    return {
+      pathname: `/${encodeDirectory(directory)}/sessions/${encodeURIComponent(route.target.sessionID)}`,
+      search: {},
     }
   }
   return {
@@ -174,7 +184,7 @@ function registerRestoringWorkspace() {
       hydration: { status: "ready" },
     },
   })
-  const guardCalls: BenchTarget[] = []
+  const guardCalls: BenchTabTarget[] = []
   const sessionContexts: Array<string | undefined> = []
   const blocker = new DirectoryWorkspaceBlocker({
     directory: DIRECTORY,

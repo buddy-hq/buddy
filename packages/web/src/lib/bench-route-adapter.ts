@@ -8,12 +8,14 @@ import {
   isBenchObjectKind,
   readBenchChatLayoutMode,
   type BenchMode,
-  type BenchTarget,
+  type BenchTabTarget,
 } from "./bench-targets"
 import { resolveBenchSurfaceDefaults, type BenchOpenPolicyState } from "./bench-open-policy-core"
 
 const CHAT_ROUTE_CHILD = "chat"
 const BENCH_ROUTE_GROUP_CHILD = "_bench"
+const BENCH_SESSION_ROUTE_CHILD = "sessions"
+const BENCH_SESSION_ROUTE_CHILD_PREFIX = `${BENCH_SESSION_ROUTE_CHILD}/`
 const BENCH_OBJECT_ROUTE_CHILD = "objects"
 const BENCH_OBJECT_ROUTE_CHILD_PREFIX = `${BENCH_OBJECT_ROUTE_CHILD}/`
 const BENCH_ROUTE_CHILDREN = new Set(["markdown", "file"])
@@ -90,6 +92,10 @@ function isBenchRoutePathname(pathname: string): boolean {
   if (rawChildPath === BENCH_ROUTE_GROUP_CHILD) return true
   const childPath = normalizeBenchChildPath(rawChildPath)
   if (BENCH_ROUTE_CHILDREN.has(childPath)) return true
+  if (childPath.startsWith(BENCH_SESSION_ROUTE_CHILD_PREFIX)) {
+    const segments = childPath.split("/")
+    return segments.length === 2 && segments[1] !== undefined && segments[1].length > 0
+  }
   if (!childPath.startsWith(BENCH_OBJECT_ROUTE_CHILD_PREFIX)) return false
 
   const segments = childPath.split("/")
@@ -145,7 +151,7 @@ function readStringSearchValue(search: Record<string, unknown>, key: string): st
 function readBenchTargetFromLocation(input: {
   pathname: string
   search: unknown
-}): BenchTarget | undefined {
+}): BenchTabTarget | undefined {
   const rawChildPath = readDirectoryChildPath(input.pathname)
   if (!rawChildPath) return undefined
   const childPath = normalizeBenchChildPath(rawChildPath)
@@ -176,6 +182,14 @@ function readBenchTargetFromLocation(input: {
           viewer: "file",
           ...(fragment ? { fragment } : {}),
         }
+      : undefined
+  }
+
+  if (childPath.startsWith(BENCH_SESSION_ROUTE_CHILD_PREFIX)) {
+    const segments = childPath.split("/")
+    const sessionID = segments[1]
+    return segments.length === 2 && sessionID
+      ? { type: "session", sessionID: decodeURIComponent(sessionID) }
       : undefined
   }
 
@@ -239,11 +253,19 @@ function readBenchOpenPolicyStateFromLocation(input: {
 
 function buildBenchNavigation(input: {
   directory: string
-  target: BenchTarget
+  target: BenchTabTarget
   mode: BenchMode
 }): NavigateOptions {
   const encodedDirectory = encodeDirectory(input.directory)
   const { mode, target } = input
+
+  if (target.type === "session") {
+    return {
+      to: "/$directory/sessions/$sessionID",
+      params: { directory: encodedDirectory, sessionID: target.sessionID },
+      search: withBenchModeSearch({}, mode),
+    }
+  }
 
   if (target.type === "workspace-file") {
     const to = target.viewer === "markdown" ? "/$directory/markdown" : "/$directory/file"

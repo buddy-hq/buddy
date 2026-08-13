@@ -7,7 +7,7 @@ import {
   resolveBenchTabTitle,
   upsertBenchTab,
 } from "../src/lib/bench-tabs"
-import type { BenchTarget } from "../src/lib/bench-navigation"
+import type { BenchSessionTarget, BenchTarget } from "../src/lib/bench-navigation"
 
 const FIRST_FILE = {
   type: "workspace-file",
@@ -38,6 +38,10 @@ const OBJECT_REVISION_TWO = {
   ...OBJECT_REVISION_ONE,
   ref: { ...OBJECT_REVISION_ONE.ref, revisionID: "revision-2" },
 } satisfies BenchTarget
+const SUBAGENT_SESSION = {
+  type: "session",
+  sessionID: "session/child-1",
+} satisfies BenchSessionTarget
 
 function threeTabs() {
   return [FIRST_FILE, SECOND_FILE, THIRD_FILE].reduce(
@@ -74,6 +78,20 @@ describe("Bench tabs", () => {
       "Abhi Aiyer interview pack",
     )
     expect(resolveBenchTabTitle(tab, new Map())).toBe("Resource")
+  })
+
+  test("focuses an existing subagent tab instead of duplicating it", () => {
+    const opened = upsertBenchTab([], SUBAGENT_SESSION)
+    const reopened = upsertBenchTab(opened.tabs, { ...SUBAGENT_SESSION })
+    const tab = reopened.tabs[0]
+    if (!tab) throw new Error("Expected a subagent tab.")
+
+    expect(benchTabKey(SUBAGENT_SESSION)).toBe("session:session%2Fchild-1")
+    expect(reopened.tabs).toHaveLength(1)
+    expect(reopened.activeTabKey).toBe(benchTabKey(SUBAGENT_SESSION))
+    expect(resolveBenchTabTitle(tab, new Map(), new Map([[SUBAGENT_SESSION.sessionID, "Research"]]))).toBe(
+      "Research",
+    )
   })
 
   test("closing the selected tab chooses the tab to its right, then its left", () => {

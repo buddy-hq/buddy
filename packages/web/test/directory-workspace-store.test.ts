@@ -4,6 +4,7 @@ import {
   BENCH_CHAT_LAYOUT_FLOATING,
   benchTargetKey,
   isSameBenchTarget,
+  type BenchSessionTarget,
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import {
@@ -28,6 +29,7 @@ import {
   persistedDirectoryWorkspaceStateFromStore,
   readPersistedDirectoryWorkspace,
   readPersistedWorkspaceSlot,
+  removeSessionBenchTargetsFromSlots,
   writePersistedDirectoryWorkspace,
   writePersistedWorkspaceSlot,
   type BenchRouteSnapshot,
@@ -41,7 +43,7 @@ import {
   workspaceChatKeyForSession,
   workspaceChatKeyForTransition,
 } from "../src/lib/workspace-chat-key"
-import { upsertBenchTab } from "../src/lib/bench-tabs"
+import { benchTabKey, upsertBenchTab } from "../src/lib/bench-tabs"
 
 const FILE_TARGET = {
   type: "workspace-file",
@@ -76,6 +78,11 @@ const OBJECT_TARGET_NEXT_VIEW = {
   },
   viewID: "summary",
 } satisfies BenchTarget
+
+const SESSION_TARGET = {
+  type: "session",
+  sessionID: "subagent-1",
+} satisfies BenchSessionTarget
 
 const BENCH_TARGET_KEY_PART_SEPARATOR = "\u0000"
 const BENCH_TARGET_KEY_NULL_PART = "\u2400"
@@ -412,6 +419,41 @@ describe("effectiveWorkspaceProjection", () => {
 })
 
 describe("createDirectoryWorkspaceStore", () => {
+  test("repairs a saved chat slot after its selected subagent is deleted", () => {
+    const chatKey = workspaceChatKeyForSession("owner-session")
+    const sessionRoute = {
+      status: BENCH_ROUTE_STATUS_OPEN,
+      target: SESSION_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    } satisfies BenchRouteSnapshot
+    const slots = removeSessionBenchTargetsFromSlots({
+      slots: {
+        [chatKey]: workspaceSlot({
+          route: sessionRoute,
+          tabs: [
+            { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
+            { key: benchTabKey(SESSION_TARGET), target: SESSION_TARGET },
+          ],
+          docked: createExpandedWorkspaceState(null),
+          lastDrawer: WORKSPACE_DRAWER_SOURCES,
+        }),
+      },
+      sessionIDs: new Set([SESSION_TARGET.sessionID]),
+    })
+
+    expect(slots[chatKey]).toEqual(
+      workspaceSlot({
+        route: {
+          status: BENCH_ROUTE_STATUS_OPEN,
+          target: FILE_TARGET,
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+        },
+        docked: createExpandedWorkspaceState(null),
+        lastDrawer: WORKSPACE_DRAWER_SOURCES,
+      }),
+    )
+  })
+
   test("adds an auto-open target to an inactive chat without changing the active chat", () => {
     const activeChatKey = workspaceChatKeyForSession("active")
     const inactiveChatKey = workspaceChatKeyForSession("inactive")

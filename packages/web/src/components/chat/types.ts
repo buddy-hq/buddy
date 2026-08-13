@@ -35,6 +35,8 @@ export type ChatTurn = {
 
 export type ChatTranscriptProps = {
   directory?: string
+  /** Defaults to the directory's active session; Bench tabs bind an explicit parallel session. */
+  sessionID?: string
   canEditImages?: boolean
   scrollViewportRef?: RefObject<HTMLElement | null>
   initialScrollOffset?: () => number | undefined

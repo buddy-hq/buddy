@@ -667,9 +667,10 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   const leftPadding = SIDEBAR_ROW_PADDING_LEFT_PX + depth * SIDEBAR_ROW_CHILD_INDENT_PX
   const canToggleChildren = childSessions.length > 0
   const [childrenOpen, setChildrenOpen] = useState(false)
-  // Auto-open children when this session's family becomes active; stays open until user collapses
+  // Only the active chat owns visible subagent rows. Closing inactive branches also prevents a
+  // subagent from looking like it belongs to whichever chat the user opened afterward.
   useEffect(() => {
-    if (familyActive && canToggleChildren) setChildrenOpen(true)
+    if (canToggleChildren) setChildrenOpen(familyActive)
   }, [familyActive, canToggleChildren])
   const childrenVisible = childSessions.length > 0 && childrenOpen
   // childrenMounted: stays true through the closing animation so CSS grid collapse can play.
@@ -726,10 +727,6 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
     if (canToggleChildren && active) {
       setChildrenOpen((current) => !current)
       return
-    }
-
-    if (canToggleChildren) {
-      setChildrenOpen(true)
     }
 
     props.onSelectSession(props.session.id)

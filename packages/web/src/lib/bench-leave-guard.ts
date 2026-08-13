@@ -1,4 +1,4 @@
-import type { BenchTarget } from "./bench-targets"
+import type { BenchTabTarget } from "./bench-targets"
 
 type BenchLeaveIntent = "close" | "replace-target"
 
@@ -7,8 +7,8 @@ type BenchLeaveOrigin = "user" | "agent" | "auto-open" | "route"
 type BenchLeaveGuardInput = {
   intent: BenchLeaveIntent
   origin: BenchLeaveOrigin
-  current: BenchTarget
-  next: BenchTarget | null
+  current: BenchTabTarget
+  next: BenchTabTarget | null
 }
 
 type BenchLeaveGuardResult =

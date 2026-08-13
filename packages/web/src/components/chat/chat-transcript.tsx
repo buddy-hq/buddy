@@ -1091,6 +1091,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   const {
     canEditImages,
     directory,
+    sessionID: requestedSessionID,
     onForkMessage,
     onOpenSession,
     onOpenResource,
@@ -1107,7 +1108,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   const directoryState = useChatStore((state) =>
     directory ? state.directories[directory] : undefined,
   )
-  const sessionID = directoryState?.sessionID
+  const sessionID = requestedSessionID ?? directoryState?.sessionID
   const sessions = directoryState?.sessions ?? []
   const activeSession = sessionID ? sessions.find((session) => session.id === sessionID) : undefined
   const providers = directoryState?.providers ?? EMPTY_PROVIDERS
@@ -1147,6 +1148,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     lastUserMessage?.parts.some((part) => part.optimistic === true) ?? false
   const cacheKey = timelineCacheKey(directory, sessionID)
   const cached = cacheKey ? timelineCache.get(cacheKey) : undefined
+  const participatesInActiveChatTransition = requestedSessionID === undefined
   const [chatTransitionID] = useState(readActiveChatTransitionID)
   const initialLayoutReadyTimerRef = useRef<number | undefined>(undefined)
   const initialLayoutReadyRef = useRef(false)
@@ -1184,6 +1186,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   }, [cancelInitialLayoutReady, chatTransitionID, scrollViewportRef, transcriptMeta.loading])
 
   useLayoutEffect(() => {
+    if (!participatesInActiveChatTransition) return
     initialLayoutRegisteredRef.current = registerActiveChatDestinationLayout(chatTransitionID)
     if (!initialLayoutRegisteredRef.current) return
     if (!transcriptMeta.loading) {
@@ -1193,6 +1196,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   }, [
     cancelInitialLayoutReady,
     chatTransitionID,
+    participatesInActiveChatTransition,
     rows.length,
     scheduleInitialLayoutReady,
     transcriptMeta.loading,

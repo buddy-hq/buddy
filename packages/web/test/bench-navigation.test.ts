@@ -26,6 +26,7 @@ import {
   type BenchOpenPolicyState,
   type BenchOpenRequest,
   type BenchTarget,
+  type BenchSessionTarget,
 } from "../src/lib/bench-navigation"
 import { encodeDirectory } from "../src/lib/directory-token"
 import { resolveRightWorkspaceSelectorDrawerWidth } from "../src/lib/directory-chat/right-workspace-layout"
@@ -81,6 +82,10 @@ const FLASHCARD_DECK_OBJECT_TARGET = {
   },
   viewID: "review",
 } satisfies BenchTarget
+const SUBAGENT_SESSION_TARGET = {
+  type: "session",
+  sessionID: "session/child-1",
+} satisfies BenchSessionTarget
 
 const RIGHT_WORKSPACE_CHROME_WIDTH_PX = 44
 
@@ -550,6 +555,41 @@ describe("bench navigation policy", () => {
       directory: DIRECTORY,
       target: WHITEBOARD_OBJECT_TARGET,
       mode: BENCH_CHAT_LAYOUT_FLOATING,
+    })
+  })
+
+  test("round-trips subagent session targets through Bench navigation", () => {
+    const navigation = buildBenchNavigation({
+      directory: DIRECTORY,
+      target: SUBAGENT_SESSION_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+    const pathname = `/${encodeDirectory(DIRECTORY)}/sessions/${encodeURIComponent(
+      SUBAGENT_SESSION_TARGET.sessionID,
+    )}`
+
+    expect(navigation).toMatchObject({
+      to: "/$directory/sessions/$sessionID",
+      params: {
+        directory: encodeDirectory(DIRECTORY),
+        sessionID: SUBAGENT_SESSION_TARGET.sessionID,
+      },
+      search: {},
+    })
+    expect(isBenchRoutePathname(pathname)).toBe(true)
+    expect(readBenchTargetFromLocation({ pathname, search: navigation.search })).toEqual(
+      SUBAGENT_SESSION_TARGET,
+    )
+    expect(
+      readBenchOpenPolicyStateFromLocation({
+        directory: DIRECTORY,
+        pathname,
+        search: navigation.search,
+      }),
+    ).toMatchObject({
+      status: "open",
+      target: SUBAGENT_SESSION_TARGET,
+      layoutProfile: BENCH_LAYOUT_PROFILE_DOCUMENT,
     })
   })
 

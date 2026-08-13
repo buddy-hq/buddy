@@ -113,7 +113,7 @@ function cacheAutoScrollSessionState(
 }
 
 type AutoScrollResult = {
-  scrollRef: React.RefObject<HTMLElement | null>
+  scrollRef: React.MutableRefObject<HTMLElement | null>
   showJumpToLatest: boolean
   initialScrollOffset: () => number | undefined
   shouldAnchorBottom: () => boolean

@@ -7,7 +7,11 @@ import {
   retainBenchSurfaceRenderOrder,
   type BenchSurfaceInstance,
 } from "@/lib/bench-surface-keep-alive"
-import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
+import { benchTargetKey, type BenchTabTarget } from "@/lib/bench-navigation"
+
+type BenchSurfaceHostRuntimeState = Omit<BenchRuntimeState, "target"> & {
+  target: BenchTabTarget
+}
 
 /**
  * Renders every kept-alive Bench surface, with exactly one visible.
@@ -20,7 +24,7 @@ import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
  */
 export function BenchSurfaceHost(props: {
   directory: string
-  activeTarget: BenchTarget | null
+  activeTarget: BenchTabTarget | null
   retainedTargetKeys: readonly string[]
   /**
    * Whether the Bench is actually on screen. Separate from the active target on purpose: a docked
@@ -28,18 +32,18 @@ export function BenchSurfaceHost(props: {
    * visible, and a surface nobody can see must not keep playing media or polling.
    */
   benchVisible: boolean
-  activeRuntimeState: BenchRuntimeState | undefined
+  activeRuntimeState: BenchSurfaceHostRuntimeState | undefined
   /**
    * Wraps every instance with the *same* provider component. It must not vary by activity: a
    * different component type at this position makes React rebuild the surface on every switch.
    */
   renderContext: (input: {
     active: boolean
-    state: BenchRuntimeState
+    state: BenchSurfaceHostRuntimeState
     children: ReactNode
   }) => ReactNode
   /** Resolves a target to its surface. The host owns instance lifecycle, not surface resolution. */
-  renderSurface: (target: BenchTarget) => ReactNode
+  renderSurface: (target: BenchTabTarget) => ReactNode
 }) {
   const activeKey = props.activeTarget ? benchTargetKey(props.activeTarget) : null
   // Retention is derived during render rather than in an effect: computing it after commit would
@@ -141,9 +145,9 @@ export function BenchSurfaceHost(props: {
  */
 function parkedRuntimeState(input: {
   directory: string
-  target: BenchTarget
-  activeRuntimeState: BenchRuntimeState | undefined
-}): BenchRuntimeState {
+  target: BenchTabTarget
+  activeRuntimeState: BenchSurfaceHostRuntimeState | undefined
+}): BenchSurfaceHostRuntimeState {
   const active = input.activeRuntimeState
   return {
     directory: input.directory,

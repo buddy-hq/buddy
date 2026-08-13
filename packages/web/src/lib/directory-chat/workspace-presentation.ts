@@ -4,7 +4,7 @@ import {
   resolveDockedBenchShellLayout,
   type BenchChatLayoutMode,
   type BenchLayoutProfileID,
-  type BenchTarget,
+  type BenchTabTarget,
   type BenchViewport,
 } from "@/lib/bench-navigation"
 import {
@@ -28,7 +28,7 @@ export type WorkspacePresentationKind =
 export type WorkspacePresentation = {
   kind: WorkspacePresentationKind
   mode: BenchChatLayoutMode
-  benchTarget: BenchTarget | null
+  benchTarget: BenchTabTarget | null
   retainedBenchTarget: boolean
   benchVisible: boolean
   dockedBenchVisible: boolean

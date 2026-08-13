@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
+import { benchTargetKey, type BenchTabTarget } from "@/lib/bench-navigation"
 
 /**
  * Durable per-target UI state for Bench surfaces.
@@ -107,7 +107,7 @@ export const useBenchSurfaceUiState = create<BenchSurfaceUiStateStore>((set, get
     }),
 }))
 
-export function benchSurfaceUiKey(input: { directory: string; target: BenchTarget }): string {
+export function benchSurfaceUiKey(input: { directory: string; target: BenchTabTarget }): string {
   return JSON.stringify([input.directory, benchTargetKey(input.target)])
 }
 

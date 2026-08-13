@@ -15,6 +15,7 @@ import {
   type BenchMode,
   type BenchOpenRequest,
   type BenchSurfaceKey,
+  type BenchTabTarget,
   type BenchTarget,
 } from "./bench-targets"
 import { classifyWorkspaceMedia, isWorkspaceReaderPath } from "./workspace-file-media"
@@ -31,7 +32,7 @@ type BenchOpenPolicyState =
   | {
       status: "open"
       directory: string
-      target: BenchTarget
+      target: BenchTabTarget
       mode: BenchMode
       layoutProfile: BenchLayoutProfileID
     }
@@ -56,7 +57,7 @@ type BenchOpenDecision =
   | {
       action: "open"
       directory: string
-      target: BenchTarget
+      target: BenchTabTarget
       mode: BenchMode
       layoutProfile: BenchLayoutProfileID
       policyID: BenchResolvedOpenPolicyID
@@ -71,6 +72,9 @@ type ResolveBenchOpenPolicyInput = {
 }
 
 const BENCH_SURFACE_DEFAULTS = {
+  session: {
+    mode: BENCH_CHAT_LAYOUT_DOCKED,
+  },
   reading: {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
   },
@@ -145,7 +149,8 @@ function resolveObjectLayoutProfile(target: Extract<BenchTarget, { type: "object
   }
 }
 
-function resolveBenchLayoutProfile(target: BenchTarget): BenchLayoutProfileID {
+function resolveBenchLayoutProfile(target: BenchTabTarget): BenchLayoutProfileID {
+  if (target.type === "session") return BENCH_LAYOUT_PROFILE_DOCUMENT
   if (target.type === "workspace-file") {
     return resolveWorkspaceFileLayoutProfile(target)
   }
@@ -153,7 +158,7 @@ function resolveBenchLayoutProfile(target: BenchTarget): BenchLayoutProfileID {
   return resolveObjectLayoutProfile(target)
 }
 
-function resolveBenchSurfaceDefaults(target: BenchTarget): BenchSurfaceDefaults {
+function resolveBenchSurfaceDefaults(target: BenchTabTarget): BenchSurfaceDefaults {
   return {
     ...BENCH_SURFACE_DEFAULTS[benchSurfaceKey(target)],
     layoutProfile: resolveBenchLayoutProfile(target),

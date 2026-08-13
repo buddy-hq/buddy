@@ -3,6 +3,7 @@ import {
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
   BENCH_MODE_REQUEST_POLICY,
   benchTargetKey,
+  isBenchContentTarget,
   readBenchTarget,
   resolveBenchSurfaceDefaults,
   type BenchAutoOpenIdentity,
@@ -18,6 +19,7 @@ import {
   type DrawerKind,
   type DirectoryWorkspaceCommand,
   type DirectoryWorkspaceCommandResult,
+  type BenchRouteSnapshot,
 } from "@/state/directory-workspace-store"
 import { getPlatform } from "@/context/platform"
 import { workspaceChatKeyForSession } from "@/lib/workspace-chat-key"
@@ -40,6 +42,18 @@ const BENCH_TITLEBAR_SELECTOR =
   '[data-component="directory-chat-right-workspace-titlebar"]:not([hidden]), [data-component="desktop-titlebar-root-content"]'
 
 type UnknownRecord = Record<string, unknown>
+type BenchClientObservedRoute =
+  | { status: "closed" }
+  | {
+      status: "open"
+      target: BenchTarget
+      mode: Extract<BenchRouteSnapshot, { status: "open" }>["mode"]
+    }
+type BenchClientObservedState = {
+  observedRoute: BenchClientObservedRoute
+  observedVisibility: DirectoryWorkspaceCommandResult["projection"]["bench"]["visibility"]
+  drawer: DrawerKind | null
+}
 
 type BenchClientActionV2 = {
   version: typeof BENCH_CLIENT_ACTION_VERSION
@@ -284,11 +298,7 @@ function readBenchClientLeaseEvent(input: unknown): BenchClientLease | undefined
 function completionFromResult(
   result: DirectoryWorkspaceCommandResult,
 ): BenchClientActionCompletionDraft {
-  const observedState = {
-    observedRoute: result.projection.route,
-    observedVisibility: result.projection.bench.visibility,
-    drawer: result.projection.drawer,
-  }
+  const observedState = contentObservedState(result.projection)
   if (result.outcome === "committed") {
     return {
       outcome: "committed",
@@ -321,6 +331,31 @@ function completionFromResult(
     outcome: "superseded",
     reason: result.reason,
     ...observedState,
+  }
+}
+
+function contentObservedState(
+  projection: DirectoryWorkspaceCommandResult["projection"],
+): BenchClientObservedState {
+  const route = projection.route
+  if (route.status === "closed") {
+    return {
+      observedRoute: route,
+      observedVisibility: projection.bench.visibility,
+      drawer: projection.drawer,
+    }
+  }
+  if (!isBenchContentTarget(route.target)) {
+    return {
+      observedRoute: { status: "closed" },
+      observedVisibility: "closed",
+      drawer: null,
+    }
+  }
+  return {
+    observedRoute: { status: route.status, target: route.target, mode: route.mode },
+    observedVisibility: projection.bench.visibility,
+    drawer: projection.drawer,
   }
 }
 

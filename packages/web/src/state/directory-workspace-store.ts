@@ -1,16 +1,22 @@
 import { createStore, type StoreApi } from "zustand/vanilla"
 import { getPlatform } from "@/context/platform"
-import { benchTabKey, readBenchTab, upsertBenchTab, type BenchTab } from "@/lib/bench-tabs"
+import {
+  benchTabKey,
+  closeBenchTab,
+  readBenchTab,
+  upsertBenchTab,
+  type BenchTab,
+} from "@/lib/bench-tabs"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
   benchTargetKey,
   readBenchChatLayoutMode,
-  readBenchTarget,
+  readBenchTabTarget,
   isSameBenchTarget,
   type BenchMode,
   type BenchModeRequest,
-  type BenchTarget,
+  type BenchTabTarget,
 } from "@/lib/bench-targets"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import {
@@ -60,7 +66,7 @@ export type BenchRouteSnapshot =
   | { status: typeof BENCH_ROUTE_STATUS_CLOSED }
   | {
       status: typeof BENCH_ROUTE_STATUS_OPEN
-      target: BenchTarget
+      target: BenchTabTarget
       mode: BenchMode
     }
 
@@ -126,7 +132,7 @@ export type EffectiveWorkspaceProjection = {
   bench:
     | {
         visibility: "visible" | "parked"
-        target: BenchTarget
+        target: BenchTabTarget
         targetKey: string
         mode: BenchMode
       }
@@ -194,19 +200,20 @@ type DirectoryWorkspaceInitialState = Partial<DirectoryWorkspaceProjectionState>
 }
 
 export type DirectoryWorkspaceCommand =
-  | { type: "present"; directory: string; target: BenchTarget; mode: BenchModeRequest }
+  | { type: "present"; directory: string; target: BenchTabTarget; mode: BenchModeRequest }
   | { type: "close" }
   | { type: "focus-tab"; tabKey: string }
   | {
       type: "present-background"
       chatKey: PersistedWorkspaceChatKey
-      target: BenchTarget
+      target: BenchTabTarget
       mode: BenchMode
     }
   | { type: "close-tab"; tabKey: string }
   | { type: "close-other-tabs"; tabKey: string }
   | { type: "close-tabs-to-right"; tabKey: string }
   | { type: "close-all-tabs" }
+  | { type: "remove-session-targets"; sessionIDs: readonly string[] }
   | {
       type: "prepare-chat-change"
       outgoingChatKey: WorkspaceChatKey
@@ -271,8 +278,12 @@ export type DirectoryWorkspaceStoreState = DirectoryWorkspaceProjectionState & {
   promoteChatSlot: (input: { from: WorkspaceChatKey; to: PersistedWorkspaceChatKey }) => void
   presentBackground: (input: {
     chatKey: WorkspaceChatKey
-    target: BenchTarget
+    target: BenchTabTarget
     mode: BenchMode
+  }) => void
+  removeSessionTargets: (input: {
+    sessionIDs: readonly string[]
+    excludeChatKey?: WorkspaceChatKey
   }) => void
 }
 
@@ -328,7 +339,7 @@ function readBenchRouteSnapshot(value: unknown): BenchRouteSnapshot | undefined 
     return { status: BENCH_ROUTE_STATUS_CLOSED }
   }
   if (value.status !== BENCH_ROUTE_STATUS_OPEN) return undefined
-  const target = readBenchTarget(value.target)
+  const target = readBenchTabTarget(value.target)
   const mode = readBenchChatLayoutMode(value.mode)
   if (!target || !mode) return undefined
   return {
@@ -575,6 +586,67 @@ export function defaultWorkspacePresentationSlot(): WorkspacePresentationSlot {
 function tabsForRoute(tabs: readonly BenchTab[], route: BenchRouteSnapshot): BenchTab[] {
   if (route.status === BENCH_ROUTE_STATUS_CLOSED) return []
   return upsertBenchTab(tabs, route.target).tabs
+}
+
+export function removeSessionBenchTargetsFromSlot(input: {
+  slot: WorkspacePresentationSlot
+  sessionIDs: ReadonlySet<string>
+}): WorkspacePresentationSlot {
+  const removedTabKeys = input.slot.tabs
+    .filter(
+      (tab) => tab.target.type === "session" && input.sessionIDs.has(tab.target.sessionID),
+    )
+    .map((tab) => tab.key)
+  if (removedTabKeys.length === 0) return input.slot
+
+  let selection = {
+    tabs: input.slot.tabs,
+    activeTabKey:
+      input.slot.route.status === BENCH_ROUTE_STATUS_OPEN
+        ? benchTabKey(input.slot.route.target)
+        : null,
+  }
+  for (const tabKey of removedTabKeys) {
+    selection = closeBenchTab({ ...selection, tabKey })
+  }
+
+  const activeTab = selection.tabs.find((tab) => tab.key === selection.activeTabKey)
+  const route: BenchRouteSnapshot = activeTab
+    ? {
+        status: BENCH_ROUTE_STATUS_OPEN,
+        target: activeTab.target,
+        mode:
+          input.slot.route.status === BENCH_ROUTE_STATUS_OPEN
+            ? input.slot.route.mode
+            : BENCH_CHAT_LAYOUT_DOCKED,
+      }
+    : { status: BENCH_ROUTE_STATUS_CLOSED }
+
+  return {
+    ...input.slot,
+    route,
+    tabs: selection.tabs,
+    docked: activeTab ? input.slot.docked : createCollapsedWorkspaceState(),
+  }
+}
+
+export function removeSessionBenchTargetsFromSlots(input: {
+  slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
+  sessionIDs: ReadonlySet<string>
+  excludeChatKey?: WorkspaceChatKey
+}): Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> {
+  let changed = false
+  const slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
+  for (const [chatKey, slot] of Object.entries(input.slots)) {
+    if (!slot) continue
+    const nextSlot =
+      chatKey === input.excludeChatKey
+        ? slot
+        : removeSessionBenchTargetsFromSlot({ slot, sessionIDs: input.sessionIDs })
+    slots[chatKey as WorkspaceChatKey] = nextSlot
+    changed ||= nextSlot !== slot
+  }
+  return changed ? slots : input.slots
 }
 
 export function workspacePresentationSlotForChat(
@@ -1077,6 +1149,23 @@ export function createDirectoryWorkspaceStore(input: {
             touchedChatKey: chatKey,
             protectedChatKeys: [state.activeChatKey],
           }),
+        }
+      }),
+    removeSessionTargets: ({ sessionIDs, excludeChatKey }) =>
+      set((state) => {
+        const removedSessionIDs = new Set(sessionIDs)
+        if (removedSessionIDs.size === 0) return state
+        const slots = removeSessionBenchTargetsFromSlots({
+          slots: state.slots,
+          sessionIDs: removedSessionIDs,
+          ...(excludeChatKey ? { excludeChatKey } : {}),
+        })
+        if (slots === state.slots) return state
+        const activeSlot = workspacePresentationSlotForChat(slots, state.activeChatKey)
+        return {
+          slots,
+          docked: activeSlot.docked,
+          lastDrawer: activeSlot.lastDrawer,
         }
       }),
   }))

@@ -270,6 +270,7 @@ export function chatTranscriptEqual(
 ): boolean {
   return (
     prevProps.directory === nextProps.directory &&
+    prevProps.sessionID === nextProps.sessionID &&
     prevProps.canEditImages === nextProps.canEditImages &&
     prevProps.scrollViewportRef === nextProps.scrollViewportRef &&
     prevProps.initialScrollOffset === nextProps.initialScrollOffset &&

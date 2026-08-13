@@ -738,6 +738,10 @@ export class DirectoryWorkspaceController {
         })
       }
 
+      if (command.type === "remove-session-targets") {
+        return await this.#executeRemoveSessionTargetsCommand(commandID, command, options)
+      }
+
       if (
         command.type === "focus-tab" ||
         command.type === "close-tab" ||
@@ -1058,6 +1062,53 @@ export class DirectoryWorkspaceController {
           ? closeOtherBenchTabs({ tabs, tabKey: command.tabKey })
           : closeBenchTabsToRight({ tabs, activeTabKey, tabKey: command.tabKey })
     return this.#commitTabSelection(commandID, selection, options)
+  }
+
+  async #executeRemoveSessionTargetsCommand(
+    commandID: string,
+    command: Extract<DirectoryWorkspaceCommand, { type: "remove-session-targets" }>,
+    options: DirectoryWorkspaceCommandOptions,
+  ): Promise<DirectoryWorkspaceCommandResult> {
+    const state = this.#store.getState()
+    const activeChatKey = state.activeChatKey
+    const previousSlots = state.slots
+    state.removeSessionTargets({
+      sessionIDs: command.sessionIDs,
+      excludeChatKey: activeChatKey,
+    })
+    const backgroundChanged = this.#store.getState().slots !== previousSlots
+    const currentRoute = this.#routeForNextCommand()
+    const activeSlot = workspacePresentationSlotForChat(
+      this.#store.getState().slots,
+      activeChatKey,
+    )
+    const removedSessionIDs = new Set(command.sessionIDs)
+    const removedTabKeys = activeSlot.tabs
+      .filter(
+        (tab) =>
+          tab.target.type === "session" && removedSessionIDs.has(tab.target.sessionID),
+      )
+      .map((tab) => tab.key)
+    if (removedTabKeys.length === 0) {
+      return committedProjectionResult({
+        changed: backgroundChanged,
+        projection: this.#currentProjection(),
+      })
+    }
+
+    let selection: BenchTabSelection = {
+      tabs: activeSlot.tabs,
+      activeTabKey:
+        currentRoute.status === BENCH_ROUTE_STATUS_OPEN
+          ? benchTabKey(currentRoute.target)
+          : null,
+    }
+    for (const tabKey of removedTabKeys) {
+      selection = closeBenchTab({ ...selection, tabKey })
+    }
+    const result = await this.#commitTabSelection(commandID, selection, options)
+    if (result.outcome !== "committed" || !backgroundChanged) return result
+    return { ...result, changed: true }
   }
 
   async #commitTabSelection(

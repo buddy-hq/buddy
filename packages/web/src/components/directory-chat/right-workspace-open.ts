@@ -100,8 +100,8 @@ export function useRightWorkspaceOpen(options?: RightWorkspaceOpenOptions): Righ
 }
 
 /**
- * A search result as an open request. Chats are not Bench targets, so they come
- * back as `null` and the caller decides whether it can select one at all.
+ * A search result as an open request. General chats come back as `null`; subagent
+ * transcript tabs use the owner-aware session navigation path instead.
  */
 export function notebookSearchOpenRequest(input: {
   result: NotebookSearchResult

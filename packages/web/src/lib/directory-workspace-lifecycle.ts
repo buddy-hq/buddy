@@ -3,7 +3,11 @@ import { isSessionNotFoundResult } from "@/lib/session-request-result"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "@/lib/bench-leave-guard"
 import { allowBenchLeave } from "@/lib/bench-leave-guard"
-import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
+import {
+  benchTargetKey,
+  isBenchContentTarget,
+  type BenchTarget,
+} from "@/lib/bench-navigation"
 import { benchTabFallbackTitle, benchTabKey, type BenchTab } from "@/lib/bench-tabs"
 import type {
   DirectoryWorkspaceHydrationState,
@@ -236,7 +240,9 @@ function visibleBenchContext(input: {
 }
 
 function parkedBenchContext(input: {
-  route: Extract<EffectiveWorkspaceProjection["route"], { status: "open" }>
+  route: Extract<EffectiveWorkspaceProjection["route"], { status: "open" }> & {
+    target: BenchTarget
+  }
   tabs: readonly BenchContextTabSummary[]
 }): BenchReadContextOutput {
   const selectedTabKey = input.tabs.find(
@@ -912,15 +918,20 @@ export class DirectoryWorkspaceLifecycleService {
   }
 
   #captureProjectionMatches(
-    expected: { tabKey: string; target: BenchTarget; drawer: DrawerKind | null } | undefined,
+    expected:
+      | { tabKey: string; target: BenchTarget; drawer: DrawerKind | null }
+      | undefined,
     projection: EffectiveWorkspaceProjection,
   ): projection is EffectiveWorkspaceProjection & {
-    route: Extract<EffectiveWorkspaceProjection["route"], { status: "open" }>
     bench: EffectiveWorkspaceProjection["bench"] & { visibility: "visible" }
+    route: Extract<EffectiveWorkspaceProjection["route"], { status: "open" }> & {
+      target: BenchTarget
+    }
   } {
     if (
       !expected ||
       projection.route.status !== "open" ||
+      !isBenchContentTarget(projection.route.target) ||
       projection.bench.visibility !== "visible" ||
       projection.drawer !== expected.drawer ||
       benchTargetKey(projection.route.target) !== benchTargetKey(expected.target)
@@ -957,11 +968,17 @@ export class DirectoryWorkspaceLifecycleService {
   }
 
   #readTabSummaries(): BenchContextTabSummary[] {
-    return this.#getTabs().map((tab) => ({
-      tabKey: tab.key,
-      title: this.#getTabTitle(tab) ?? benchTabFallbackTitle(tab.target),
-      target: sharedBenchTarget(tab.target),
-    }))
+    return this.#getTabs().flatMap((tab) =>
+      isBenchContentTarget(tab.target)
+        ? [
+            {
+              tabKey: tab.key,
+              title: this.#getTabTitle(tab) ?? benchTabFallbackTitle(tab.target),
+              target: sharedBenchTarget(tab.target),
+            },
+          ]
+        : [],
+    )
   }
 
   #readPublishSnapshotForObservation(input: {
@@ -982,6 +999,19 @@ export class DirectoryWorkspaceLifecycleService {
       }
     }
 
+    const observedTarget = input.route.target
+    if (!isBenchContentTarget(observedTarget)) {
+      return {
+        status: "closed",
+        publicationKey: closedPublicationKey({
+          directory: this.#directory,
+          sessionID: input.sessionID,
+          visibility: input.visibility,
+        }),
+        value: closedBenchContext(),
+      }
+    }
+
     const tabs = this.#readTabSummaries()
     if (input.visibility === "parked") {
       return {
@@ -989,18 +1019,20 @@ export class DirectoryWorkspaceLifecycleService {
         publicationKey: openPublicationKey({
           directory: this.#directory,
           sessionID: input.sessionID,
-          targetKey: benchTargetKey(input.route.target),
+          targetKey: benchTargetKey(observedTarget),
           visibility: input.visibility,
           drawer: null,
           registrationOrder: DIRECTORY_WORKSPACE_FALLBACK_REGISTRATION_ORDER,
           semanticRevision: DIRECTORY_WORKSPACE_FALLBACK_REVISION,
           tabs,
         }),
-        value: parkedBenchContext({ route: input.route, tabs }),
+        value: parkedBenchContext({
+          route: { ...input.route, target: observedTarget },
+          tabs,
+        }),
       }
     }
 
-    const observedTarget = input.route.target
     const targetKey = benchTargetKey(observedTarget)
     const registeredSnapshot = this.#readRegisteredPublishSnapshotForObservation(input)
     if (registeredSnapshot) return registeredSnapshot
@@ -1065,7 +1097,11 @@ export class DirectoryWorkspaceLifecycleService {
     visibility: EffectiveWorkspaceProjection["bench"]["visibility"]
     drawer: DrawerKind | null
   }): BenchContextPublishSnapshot | null {
-    if (input.visibility !== "visible" || input.route.status === "closed") {
+    if (
+      input.visibility !== "visible" ||
+      input.route.status === "closed" ||
+      !isBenchContentTarget(input.route.target)
+    ) {
       return null
     }
 

@@ -56,9 +56,9 @@ function BenchNewTabSectionLabel(props: { children: string }) {
  * The picker itself, mounted only while the popover is open — the notebook
  * catalog is fetched when someone asks for it, never behind a closed popover.
  *
- * Chats are absent by construction: `useNotebookSearch` without `sessions` drops
- * them from both halves of the search, because a chat is not a Bench target and
- * so cannot become a tab.
+ * General chats are absent by construction: `useNotebookSearch` without `sessions`
+ * drops them from both halves of the search. Subagent transcript tabs enter through
+ * owner-aware subagent links, not this content picker.
  */
 function BenchNewTabSearch(props: BenchNewTabSearchProps) {
   const [query, setQuery] = useState("")

@@ -1,8 +1,12 @@
-import { isSameBenchTarget, readBenchTarget, type BenchTarget } from "@/lib/bench-targets"
+import {
+  isSameBenchTarget,
+  readBenchTabTarget,
+  type BenchTabTarget,
+} from "@/lib/bench-targets"
 
 export type BenchTab = {
   key: string
-  target: BenchTarget
+  target: BenchTabTarget
 }
 
 export type BenchTabSelection = {
@@ -10,11 +14,16 @@ export type BenchTabSelection = {
   activeTabKey: string | null
 }
 
+const EMPTY_BENCH_TAB_TITLES = new Map<string, string>()
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-export function benchTabKey(target: BenchTarget): string {
+export function benchTabKey(target: BenchTabTarget): string {
+  if (target.type === "session") {
+    return `session:${encodeURIComponent(target.sessionID)}`
+  }
   if (target.type === "workspace-file") {
     return `file:${target.viewer}:${encodeURIComponent(target.path)}`
   }
@@ -22,7 +31,8 @@ export function benchTabKey(target: BenchTarget): string {
   return `object:${target.ref.kind}:${encodeURIComponent(target.ref.objectID)}:${encodeURIComponent(target.viewID)}`
 }
 
-export function benchTabFallbackTitle(target: BenchTarget): string {
+export function benchTabFallbackTitle(target: BenchTabTarget): string {
+  if (target.type === "session") return "Subagent"
   if (target.type === "workspace-file") {
     return target.path.replaceAll("\\", "/").split("/").at(-1) ?? target.path
   }
@@ -51,7 +61,11 @@ export function benchTabFallbackTitle(target: BenchTarget): string {
 export function resolveBenchTabTitle(
   tab: BenchTab,
   objectTitles: ReadonlyMap<string, string>,
+  sessionTitles: ReadonlyMap<string, string> = EMPTY_BENCH_TAB_TITLES,
 ): string {
+  if (tab.target.type === "session") {
+    return sessionTitles.get(tab.target.sessionID) ?? benchTabFallbackTitle(tab.target)
+  }
   if (tab.target.type === "object") {
     return objectTitles.get(tab.target.ref.objectID) ?? benchTabFallbackTitle(tab.target)
   }
@@ -60,7 +74,7 @@ export function resolveBenchTabTitle(
 
 export function readBenchTab(value: unknown): BenchTab | undefined {
   if (!isRecord(value) || typeof value.key !== "string") return undefined
-  const target = readBenchTarget(value.target)
+  const target = readBenchTabTarget(value.target)
   if (!target || value.key !== benchTabKey(target)) return undefined
   return { key: value.key, target }
 }
@@ -75,7 +89,7 @@ export function areBenchTabsEqual(left: readonly BenchTab[], right: readonly Ben
   )
 }
 
-export function upsertBenchTab(tabs: readonly BenchTab[], target: BenchTarget): BenchTabSelection {
+export function upsertBenchTab(tabs: readonly BenchTab[], target: BenchTabTarget): BenchTabSelection {
   const key = benchTabKey(target)
   const index = tabs.findIndex((tab) => tab.key === key)
   if (index < 0) {

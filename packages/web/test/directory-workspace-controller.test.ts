@@ -7,6 +7,7 @@ import {
   BENCH_CHAT_LAYOUT_FLOATING,
   BENCH_CHAT_SEARCH_PARAM,
   BENCH_MODE_REQUEST_POLICY,
+  type BenchSessionTarget,
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "../src/lib/bench-leave-guard"
@@ -77,6 +78,10 @@ const HTML_WIDGET_TARGET = {
   },
   viewID: "runtime",
 } satisfies BenchTarget
+const SESSION_TARGET = {
+  type: "session",
+  sessionID: "subagent-1",
+} satisfies BenchSessionTarget
 
 const CLOSED_ROUTE = { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot
 const CHAT_A_KEY = workspaceChatKeyForSession(undefined)
@@ -116,6 +121,11 @@ const DOCKED_HTML_WIDGET_ROUTE = {
   target: HTML_WIDGET_TARGET,
   mode: BENCH_CHAT_LAYOUT_DOCKED,
 } satisfies BenchRouteSnapshot
+const DOCKED_SESSION_ROUTE = {
+  status: BENCH_ROUTE_STATUS_OPEN,
+  target: SESSION_TARGET,
+  mode: BENCH_CHAT_LAYOUT_DOCKED,
+} satisfies BenchRouteSnapshot
 
 const cleanupCallbacks: (() => void)[] = []
 
@@ -143,6 +153,13 @@ function routeLocation(
     return {
       pathname: `/${directory}/${route.target.viewer}`,
       search: { path: route.target.path, ...modeSearch },
+    }
+  }
+
+  if (route.target.type === "session") {
+    return {
+      pathname: `/${directory}/sessions/${encodeURIComponent(route.target.sessionID)}`,
+      search: modeSearch,
     }
   }
 
@@ -531,6 +548,42 @@ describe("DirectoryWorkspaceController", () => {
     })
     expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([
       { key: benchTabKey(NEXT_FILE_TARGET), target: NEXT_FILE_TARGET },
+    ])
+  })
+
+  test("removes a deleted subagent tab and restores the nearest surviving target", async () => {
+    const harness = createHarness()
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_FILE_ROUTE,
+    )
+    await harness.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: SESSION_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      DOCKED_SESSION_ROUTE,
+    )
+
+    const removed = await harness.execute(
+      { type: "remove-session-targets", sessionIDs: [SESSION_TARGET.sessionID] },
+      DOCKED_FILE_ROUTE,
+    )
+
+    expect(removed).toMatchObject({
+      outcome: "committed",
+      changed: true,
+      projection: { route: DOCKED_FILE_ROUTE },
+    })
+    expect(harness.store.getState().slots[CHAT_A_KEY]?.tabs).toEqual([
+      { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
     ])
   })
 

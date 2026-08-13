@@ -24,6 +24,7 @@ import {
 } from "@buddy/ui"
 import {
   ArrowExpand02Icon,
+  Bot,
   BookOpenIcon,
   FileIcon,
   FileTextIcon,
@@ -37,6 +38,8 @@ import {
 import type { BenchObjectKind } from "@/lib/bench-navigation"
 import { BenchNewTabPopover } from "@/components/bench/bench-new-tab-popover"
 import { resolveBenchTabTitle, type BenchTab } from "@/lib/bench-tabs"
+import { parseSubagentSession } from "@/lib/session-family"
+import { useChatStore } from "@/state/chat-store"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 
 type BenchTabsProps = {
@@ -100,14 +103,17 @@ function objectTabIcon(kind: BenchObjectKind): ComponentType<{ className?: strin
   }
 }
 
+function benchTabIcon(target: BenchTab["target"]): ComponentType<{ className?: string }> {
+  if (target.type === "session") return Bot
+  if (target.type === "workspace-file") {
+    return target.viewer === "markdown" ? FileTextIcon : FileIcon
+  }
+  return objectTabIcon(target.ref.kind)
+}
+
 function BenchTabItem(props: BenchTabItemProps) {
   const tabRef = useRef<HTMLDivElement>(null)
-  const Icon =
-    props.tab.target.type === "workspace-file"
-      ? props.tab.target.viewer === "markdown"
-        ? FileTextIcon
-        : FileIcon
-      : objectTabIcon(props.tab.target.ref.kind)
+  const Icon = benchTabIcon(props.tab.target)
 
   useEffect(() => {
     if (!props.active) return
@@ -195,6 +201,7 @@ function BenchTabItem(props: BenchTabItemProps) {
 
 export function BenchTabs(props: BenchTabsProps) {
   const placement = props.placement ?? "workspace"
+  const sessions = useChatStore((state) => state.directories[props.directory]?.sessions)
   const hasObjectTabs = props.tabs.some((tab) => tab.target.type === "object")
   const objectsQuery = useQuery({
     ...workspaceObjectsQueryOptions(props.directory),
@@ -207,6 +214,14 @@ export function BenchTabs(props: BenchTabsProps) {
     }
     return titles
   }, [objectsQuery.data?.objects])
+  const sessionTitles = useMemo(() => {
+    const titles = new Map<string, string>()
+    for (const session of sessions ?? []) {
+      const title = parseSubagentSession(session).title
+      if (title) titles.set(session.id, title)
+    }
+    return titles
+  }, [sessions])
   const stripStyle: CSSProperties & Record<typeof TAB_COUNT_PROPERTY, string> = {
     [TAB_COUNT_PROPERTY]: String(props.tabs.length),
   }
@@ -303,7 +318,7 @@ export function BenchTabs(props: BenchTabsProps) {
           style={stripStyle}
         >
           {props.tabs.map((tab, index) => {
-            const title = resolveBenchTabTitle(tab, objectTitles)
+            const title = resolveBenchTabTitle(tab, objectTitles, sessionTitles)
             return (
               <BenchTabItem
                 key={tab.key}

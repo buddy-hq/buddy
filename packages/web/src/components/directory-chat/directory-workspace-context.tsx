@@ -22,10 +22,12 @@ import {
   benchRouteFallbackContextFromTarget,
   routeString,
 } from "@/components/bench/bench-context-utils"
+import { isBenchContentTarget } from "@/lib/bench-navigation"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { resolveBenchTabTitle, upsertBenchTab } from "@/lib/bench-tabs"
 import { DirectoryWorkspaceLifecycleService } from "@/lib/directory-workspace-lifecycle"
 import { registerLiveDirectoryWorkspace } from "@/lib/directory-workspace-registry"
+import { subagentBenchSelection } from "@/lib/subagent-bench-target"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 import { workspaceChatKeyForSession, type WorkspaceChatKey } from "@/lib/workspace-chat-key"
 import { useChatStore } from "@/state/chat-store"
@@ -45,6 +47,7 @@ import {
   effectiveWorkspaceProjection,
   persistedDirectoryWorkspaceStateFromStore,
   readPersistedDirectoryWorkspace,
+  removeSessionBenchTargetsFromSlots,
   workspacePresentationSlotForChat,
   writePersistedDirectoryWorkspace,
   type DirectoryWorkspacePersistenceStorage,
@@ -72,6 +75,40 @@ function initialDockedState(route: BenchRouteSnapshot) {
     return createExpandedWorkspaceState(null)
   }
   return createCollapsedWorkspaceState()
+}
+
+function workspaceChatKeyForRoute(directory: string, route: BenchRouteSnapshot): WorkspaceChatKey {
+  const directoryState = useChatStore.getState().directories[directory]
+  if (route.status === BENCH_ROUTE_STATUS_OPEN && route.target.type === "session") {
+    const selection = subagentBenchSelection(
+      directoryState?.sessions ?? [],
+      route.target.sessionID,
+    )
+    if (selection) return workspaceChatKeyForSession(selection.ownerSessionID)
+  }
+  return workspaceChatKeyForSession(directoryState?.sessionID)
+}
+
+function unresolvedSessionBenchTargetIDs(input: {
+  slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
+  route: BenchRouteSnapshot
+  sessions: readonly { id: string; parentID?: string }[]
+}): Set<string> {
+  const sessionIDs = new Set<string>()
+  for (const slot of Object.values(input.slots)) {
+    for (const tab of slot?.tabs ?? []) {
+      if (tab.target.type === "session") sessionIDs.add(tab.target.sessionID)
+    }
+  }
+  if (input.route.status === BENCH_ROUTE_STATUS_OPEN && input.route.target.type === "session") {
+    sessionIDs.add(input.route.target.sessionID)
+  }
+
+  return new Set(
+    [...sessionIDs].filter(
+      (sessionID) => !subagentBenchSelection(input.sessions, sessionID),
+    ),
+  )
 }
 
 function BenchObjectTitleSynchronizer(props: {
@@ -124,9 +161,7 @@ export function DirectoryWorkspaceProvider(props: {
   navigateRef.current = navigate
 
   const [store] = useState(() => {
-    const activeChatKey = workspaceChatKeyForSession(
-      useChatStore.getState().directories[props.directory]?.sessionID,
-    )
+    const activeChatKey = workspaceChatKeyForRoute(props.directory, routeRef.current)
     const initialDocked = initialDockedState(routeRef.current)
     logBenchToggleStep("directory-workspace-provider-create-store", {
       directory: props.directory,
@@ -182,7 +217,12 @@ export function DirectoryWorkspaceProvider(props: {
         getTabTitle: (tab) => resolveBenchTabTitle(tab, objectTitlesRef.current),
         getHydrationStatus: () => store.getState().hydration.status,
         getRouteFallbackContext: (route) => {
-          if (route.status !== BENCH_ROUTE_STATUS_OPEN) return null
+          if (
+            route.status !== BENCH_ROUTE_STATUS_OPEN ||
+            !isBenchContentTarget(route.target)
+          ) {
+            return null
+          }
           const location = locationRef.current
           return benchRouteFallbackContextFromTarget({
             target: route.target,
@@ -318,13 +358,29 @@ export function DirectoryWorkspaceProvider(props: {
         })
         if (disposed) return
         const persistedState = result.status === WORKSPACE_HYDRATION_READY ? result.state : null
-        const activeChatKey = workspaceChatKeyForSession(
-          useChatStore.getState().directories[props.directory]?.sessionID,
-        )
+        const activeChatKey = workspaceChatKeyForRoute(props.directory, routeRef.current)
         const persistedSlots = persistedState?.slots ?? {}
-        const persistedSlot = workspacePresentationSlotForChat(persistedSlots, activeChatKey)
         const currentRoute = routeRef.current
-        const routeWins = currentRoute.status === BENCH_ROUTE_STATUS_OPEN
+        const directoryState = useChatStore.getState().directories[props.directory]
+        const unresolvedSessionIDs = directoryState
+          ? unresolvedSessionBenchTargetIDs({
+              slots: persistedSlots,
+              route: currentRoute,
+              sessions: directoryState.sessions,
+            })
+          : new Set<string>()
+        const restoredPersistedSlots = removeSessionBenchTargetsFromSlots({
+          slots: persistedSlots,
+          sessionIDs: unresolvedSessionIDs,
+        })
+        const persistedSlot = workspacePresentationSlotForChat(
+          restoredPersistedSlots,
+          activeChatKey,
+        )
+        const routeWins =
+          currentRoute.status === BENCH_ROUTE_STATUS_OPEN &&
+          (currentRoute.target.type !== "session" ||
+            !unresolvedSessionIDs.has(currentRoute.target.sessionID))
         const restoredRoute = routeWins ? currentRoute : persistedSlot.route
         const restoredTabs =
           restoredRoute.status === BENCH_ROUTE_STATUS_OPEN
@@ -339,7 +395,7 @@ export function DirectoryWorkspaceProvider(props: {
             ? initialDockedState(currentRoute)
             : persistedSlot.docked
         const restoredLastDrawer = persistedSlot.lastDrawer
-        if (!routeWins && restoredRoute.status === BENCH_ROUTE_STATUS_OPEN) {
+        if (!routeWins && !isSameBenchRouteSnapshot(currentRoute, restoredRoute)) {
           await navigateRef.current(
             buildWorkspaceRouteNavigation({
               directory: props.directory,
@@ -349,7 +405,7 @@ export function DirectoryWorkspaceProvider(props: {
           if (disposed) return
         }
         const slots = {
-          ...persistedSlots,
+          ...restoredPersistedSlots,
           [activeChatKey]: {
             route: restoredRoute,
             tabs: restoredTabs,
@@ -369,9 +425,7 @@ export function DirectoryWorkspaceProvider(props: {
         })
       } catch (error) {
         if (disposed) return
-        const activeChatKey = workspaceChatKeyForSession(
-          useChatStore.getState().directories[props.directory]?.sessionID,
-        )
+        const activeChatKey = workspaceChatKeyForRoute(props.directory, routeRef.current)
         const fallback = defaultWorkspacePresentationSlot()
         store.getState().finishHydration({
           activeChatKey,
@@ -451,6 +505,18 @@ export function DirectoryWorkspaceProvider(props: {
 
   useEffect(() => {
     return useChatStore.subscribe((state, previousState) => {
+      const nextSessions = state.directories[props.directory]?.sessions ?? []
+      const nextSessionIDs = new Set(nextSessions.map((session) => session.id))
+      const removedSessionIDs = (previousState.directories[props.directory]?.sessions ?? [])
+        .filter((session) => !nextSessionIDs.has(session.id))
+        .map((session) => session.id)
+      if (removedSessionIDs.length > 0) {
+        void controller.execute({
+          type: "remove-session-targets",
+          sessionIDs: removedSessionIDs,
+        })
+      }
+
       const nextSessionID = state.directories[props.directory]?.sessionID
       const previousSessionID = previousState.directories[props.directory]?.sessionID
       if (previousSessionID !== undefined || nextSessionID === undefined) return
@@ -465,7 +531,7 @@ export function DirectoryWorkspaceProvider(props: {
         to: workspaceChatKeyForSession(nextSessionID),
       })
     })
-  }, [props.directory, store])
+  }, [controller, props.directory, store])
 
   const projection = useStore(store, (state) =>
     effectiveWorkspaceProjection(

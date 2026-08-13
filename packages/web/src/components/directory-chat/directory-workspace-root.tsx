@@ -11,6 +11,7 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 import {
+  BenchClosedContextPublisher,
   BenchRouteContextProvider,
   type BenchRuntimeState,
 } from "@/components/bench/bench-route-context"
@@ -51,6 +52,7 @@ import {
   BENCH_LAYOUT_PROFILE_DOCUMENT,
   BENCH_LAYOUT_PROFILE_VISUAL,
   benchTargetKey as exactBenchTargetKey,
+  isBenchContentTarget,
   readBenchOpenPolicyStateFromLocation,
   resolveDockedBenchShellLayout,
   resolveDockedBenchResizeIntent,
@@ -59,7 +61,7 @@ import {
   type BenchChatLayoutMode,
   type BenchViewport,
   type BenchMode,
-  type BenchTarget,
+  type BenchTabTarget,
 } from "@/lib/bench-navigation"
 import { benchTabKey } from "@/lib/bench-tabs"
 import type { BenchFloatingChatState } from "@/components/bench/bench-route-context"
@@ -78,8 +80,13 @@ import {
   readActiveChatLayoutMotionSuppressed,
   subscribeActiveChatLayoutMotion,
 } from "@/lib/active-chat-transition-state"
+import { openOwnedSubagentBench } from "@/lib/subagent-bench-target"
+import { useOpenSubagentBench } from "@/lib/use-open-subagent-bench"
 
 type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
+type DirectoryWorkspaceBenchRuntimeState = Omit<BenchRuntimeState, "target"> & {
+  target: BenchTabTarget
+}
 
 const DOCKED_BENCH_DEFAULT_VIEWPORT_WIDTH_PX = 1280
 const DOCKED_BENCH_DEFAULT_VIEWPORT_HEIGHT_PX = 800
@@ -205,6 +212,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const { controller } = props
   const currentDirectory = controller.mainPaneProps.directory
   const activeSessionID = controller.mainPaneProps.chatState.sessionID
+  const openSubagentBench = useOpenSubagentBench()
   const [transientBenchSurface, setTransientBenchSurface] = useState<TransientBenchSurface | null>(
     null,
   )
@@ -244,7 +252,10 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const fallbackContextProvider = useMemo(
     () => ({
       read: () => {
-        if (benchPolicyState.status !== "open") {
+        if (
+          benchPolicyState.status !== "open" ||
+          !isBenchContentTarget(benchPolicyState.target)
+        ) {
           throw new Error("Bench fallback context is only available while Bench is open.")
         }
 
@@ -627,15 +638,57 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   }, [createBoard])
 
   const selectWorkspaceSession = useCallback(
-    async (nextSessionID: string): Promise<boolean> =>
-      controller.leftSidebarProps.onSelectSession(currentDirectory, nextSessionID),
-    [controller.leftSidebarProps, currentDirectory],
+    async (nextSessionID: string): Promise<boolean> => {
+      const subagentOpened = await openOwnedSubagentBench({
+        directory: currentDirectory,
+        sessionID: nextSessionID,
+        sessions: chatState.sessions,
+        activeDirectory: currentDirectory,
+        activeSessionID,
+        selectSession: controller.leftSidebarProps.onSelectSession,
+        openSubagentBench,
+      })
+      if (subagentOpened !== undefined) return subagentOpened
+      return controller.leftSidebarProps.onSelectSession(currentDirectory, nextSessionID)
+    },
+    [
+      activeSessionID,
+      chatState.sessions,
+      controller.leftSidebarProps,
+      currentDirectory,
+      openSubagentBench,
+    ],
   )
   const handleSelectSession = useCallback(
     async (nextSessionID: string): Promise<void> => {
       await selectWorkspaceSession(nextSessionID)
     },
     [selectWorkspaceSession],
+  )
+  const handleOpenSubagentSession = useCallback(
+    (nextSessionID: string) => {
+      void selectWorkspaceSession(nextSessionID)
+    },
+    [selectWorkspaceSession],
+  )
+  const handleSidebarSelectSession = useCallback(
+    async (directory: string, nextSessionID?: string): Promise<boolean> => {
+      if (nextSessionID) {
+        const sessions = controller.leftSidebarProps.sessionsByDirectory[directory] ?? []
+        const subagentOpened = await openOwnedSubagentBench({
+          directory,
+          sessionID: nextSessionID,
+          sessions,
+          activeDirectory: currentDirectory,
+          activeSessionID,
+          selectSession: controller.leftSidebarProps.onSelectSession,
+          openSubagentBench,
+        })
+        if (subagentOpened !== undefined) return subagentOpened
+      }
+      return controller.leftSidebarProps.onSelectSession(directory, nextSessionID)
+    },
+    [activeSessionID, controller.leftSidebarProps, currentDirectory, openSubagentBench],
   )
 
   const handleFloatChat = useCallback(() => {
@@ -693,23 +746,46 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const activeBenchTargetKey = workspace.projection.bench.targetKey ?? CLOSED_BENCH_TARGET_KEY
   const activeBenchTarget = benchRuntimeState?.target ?? null
   const renderBenchSurface = useCallback(
-    (target: BenchTarget) => <BenchSurfaceRenderer directory={currentDirectory} target={target} />,
-    [currentDirectory],
+    (target: BenchTabTarget) => (
+      <BenchSurfaceRenderer
+        directory={currentDirectory}
+        target={target}
+        onOpenSession={handleOpenSubagentSession}
+      />
+    ),
+    [currentDirectory, handleOpenSubagentSession],
   )
   const renderBenchContext = useCallback(
-    (input: { active: boolean; state: BenchRuntimeState; children: ReactNode }) => (
-      <BenchRouteContextProvider
-        state={input.state}
-        active={input.active}
-        visible={presentation.benchVisible}
-        activeSessionID={activeSessionID}
-        fallbackProvider={fallbackContextProvider}
-        setMode={setBenchMode}
-        setFloatingChatState={setFloatingChatSubstate}
-      >
-        {input.children}
-      </BenchRouteContextProvider>
-    ),
+    (input: {
+      active: boolean
+      state: DirectoryWorkspaceBenchRuntimeState
+      children: ReactNode
+    }) => {
+      const target = input.state.target
+      if (!isBenchContentTarget(target)) {
+        return (
+          <>
+            {input.active ? <BenchClosedContextPublisher activeSessionID={activeSessionID} /> : null}
+            {input.children}
+          </>
+        )
+      }
+
+      const contentState: BenchRuntimeState = { ...input.state, target }
+      return (
+        <BenchRouteContextProvider
+          state={contentState}
+          active={input.active}
+          visible={presentation.benchVisible}
+          activeSessionID={activeSessionID}
+          fallbackProvider={fallbackContextProvider}
+          setMode={setBenchMode}
+          setFloatingChatState={setFloatingChatSubstate}
+        >
+          {input.children}
+        </BenchRouteContextProvider>
+      )
+    },
     [
       activeSessionID,
       fallbackContextProvider,
@@ -798,7 +874,11 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         : null}
       <DirectoryChatShell
         leftSidebar={
-          <ChatLeftSidebar {...controller.leftSidebarProps} onNewBoard={handleNewBoard} />
+          <ChatLeftSidebar
+            {...controller.leftSidebarProps}
+            onSelectSession={handleSidebarSelectSession}
+            onNewBoard={handleNewBoard}
+          />
         }
         contentLayout={
           <DirectoryChatBenchPageLayout
@@ -879,6 +959,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
             conversation={() => (
               <DirectoryChatBenchConversationPane
                 {...controller.mainPaneProps}
+                onOpenSession={handleOpenSubagentSession}
                 compactPromptComposer={effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
                 showThreadBrowser={false}
                 onNewSession={handleNewSession}

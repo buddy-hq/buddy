@@ -6,6 +6,7 @@ import { benchTabKey, type BenchTab } from "../src/lib/bench-tabs"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   benchTargetKey,
+  isBenchContentTarget,
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import {
@@ -39,6 +40,12 @@ const RESOURCE_TARGET = {
 
 function tabsForTarget(target: BenchTarget): BenchTab[] {
   return [{ key: benchTabKey(target), target }]
+}
+
+function tabsForProjection(projection: EffectiveWorkspaceProjection): BenchTab[] {
+  return projection.route.status === "open" && isBenchContentTarget(projection.route.target)
+    ? tabsForTarget(projection.route.target)
+    : []
 }
 type PublishBodyProbe = {
   idempotencyKey: string
@@ -116,7 +123,7 @@ function readFirstPublishedTabTarget(value: unknown): Record<string, unknown> {
 function projectionFor(
   target: BenchTarget,
   drawer: DrawerKind | null = null,
-): EffectiveWorkspaceProjection {
+) {
   return {
     route: {
       status: BENCH_ROUTE_STATUS_OPEN,
@@ -133,7 +140,7 @@ function projectionFor(
     drawer,
     renderedSurface: "docked-bench",
     pending: { status: "none" },
-  }
+  } satisfies EffectiveWorkspaceProjection
 }
 
 function openSurfaceContext(target: Extract<BenchTarget, { type: "workspace-file" }> = TARGET) {
@@ -255,12 +262,11 @@ describe("DirectoryWorkspaceLifecycleService", () => {
   })
 
   test("selects the newest matching target registration and cleanup restores the previous one", async () => {
-    let projection = projectionFor(TARGET)
+    let projection: EffectiveWorkspaceProjection = projectionFor(TARGET)
     const service = new DirectoryWorkspaceLifecycleService({
       directory: DIRECTORY,
       getProjection: () => projection,
-      getTabs: () =>
-        projection.route.status === "open" ? tabsForTarget(projection.route.target) : [],
+      getTabs: () => tabsForProjection(projection),
       getHydrationStatus: () => "ready",
       getRouteFallbackContext: () => null,
     })
@@ -302,7 +308,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
   })
 
   test("forced context publishes use distinct backend idempotency keys for the same snapshot", async () => {
-    let projection = projectionFor(TARGET)
+    let projection: EffectiveWorkspaceProjection = projectionFor(TARGET)
     let hydrationStatus: "pending" | "ready" = "pending"
     const publishBodies: unknown[] = []
     setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
@@ -341,8 +347,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       const service = new DirectoryWorkspaceLifecycleService({
         directory: DIRECTORY,
         getProjection: () => projection,
-        getTabs: () =>
-          projection.route.status === "open" ? tabsForTarget(projection.route.target) : [],
+        getTabs: () => tabsForProjection(projection),
         getHydrationStatus: () => hydrationStatus,
         getRouteFallbackContext: () => null,
       })

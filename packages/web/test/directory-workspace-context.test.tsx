@@ -8,6 +8,7 @@ import {
 import { StrictMode, act, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { createPortal } from "react-dom"
+import { useStore } from "zustand"
 import { DesktopTitlebar } from "../src/components/layout/desktop-titlebar"
 import {
   DesktopTitlebarContentProvider,
@@ -46,14 +47,23 @@ import {
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import { resetActiveChatTransitionStateForTests } from "../src/lib/active-chat-transition-state"
-import { WORKSPACE_CHAT_DRAFT_KEY } from "../src/lib/workspace-chat-key"
+import {
+  WORKSPACE_CHAT_DRAFT_KEY,
+  workspaceChatKeyForSession,
+} from "../src/lib/workspace-chat-key"
 import { upsertBenchTab } from "../src/lib/bench-tabs"
 import { DESKTOP_TITLEBAR_HEIGHT_PX } from "../src/components/layout/desktop-titlebar-inset"
+import { useChatStore } from "../src/state/chat-store"
+import type { SessionInfo } from "../src/state/chat-types"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_STRICT_MODE_DIRECTORY = "/repo-strict-mode"
 const TEST_TITLEBAR_DIRECTORY = "/repo-titlebar"
 const TEST_DIRECT_BENCH_DIRECTORY = "/repo-direct-bench"
+const TEST_DIRECT_SESSION_DIRECTORY = "/repo-direct-session"
+const TEST_DIRECT_SESSION_OWNER_ID = "chat-a"
+const TEST_DIRECT_SESSION_CHILD_ID = "chat-a-subagent"
+const TEST_UNRELATED_SESSION_ID = "chat-b"
 const FLUSH_DELAY_MS = 0
 const TEST_DIRECT_BENCH_TARGET = {
   type: "workspace-file",
@@ -98,6 +108,12 @@ function WorkspaceProbe() {
       </button>
     </div>
   )
+}
+
+function WorkspaceChatKeyProbe() {
+  const workspace = useDirectoryWorkspace()
+  const activeChatKey = useStore(workspace.store, (state) => state.activeChatKey)
+  return <span data-testid="active-chat-key">{activeChatKey}</span>
 }
 
 function TitlebarWorkspaceProbe() {
@@ -298,6 +314,26 @@ function TestDirectBenchRouterProvider(props: {
   return <RouterProvider router={router} />
 }
 
+function TestDirectSessionBenchRouterProvider() {
+  const rootRoute = createRootRoute({
+    component: () => (
+      <DirectoryWorkspaceProvider directory={TEST_DIRECT_SESSION_DIRECTORY}>
+        <WorkspaceChatKeyProbe />
+      </DirectoryWorkspaceProvider>
+    ),
+  })
+  const router = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({
+      initialEntries: [
+        `/${encodeDirectory(TEST_DIRECT_SESSION_DIRECTORY)}/sessions/${TEST_DIRECT_SESSION_CHILD_ID}`,
+      ],
+    }),
+  })
+
+  return <RouterProvider router={router} />
+}
+
 function directBenchPersistedPayload(docked: DockedWorkspaceState): string {
   return JSON.stringify({
     version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
@@ -333,6 +369,7 @@ describe("DirectoryWorkspaceProvider", () => {
 
   afterEach(async () => {
     resetActiveChatTransitionStateForTests()
+    useChatStore.getState().resetRuntimeState()
     if (!root || !container) return
     await act(async () => {
       root?.unmount()
@@ -369,6 +406,44 @@ describe("DirectoryWorkspaceProvider", () => {
 
     expect(container.querySelector('[data-testid="visibility"]')?.textContent).toBe(
       WORKSPACE_VISIBILITY_EXPANDED,
+    )
+  })
+
+  test("associates a direct subagent Bench URL with its root owner chat", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const sessions = [
+      {
+        id: TEST_DIRECT_SESSION_OWNER_ID,
+        title: "Chat A",
+        time: { created: 1, updated: 1 },
+      },
+      {
+        id: TEST_DIRECT_SESSION_CHILD_ID,
+        parentID: TEST_DIRECT_SESSION_OWNER_ID,
+        title: "Chat A subagent",
+        time: { created: 2, updated: 2 },
+      },
+      {
+        id: TEST_UNRELATED_SESSION_ID,
+        title: "Chat B",
+        time: { created: 3, updated: 3 },
+      },
+    ] satisfies SessionInfo[]
+    const chatStore = useChatStore.getState()
+    chatStore.setSessions(TEST_DIRECT_SESSION_DIRECTORY, sessions)
+    chatStore.setActiveSession(TEST_DIRECT_SESSION_DIRECTORY, TEST_UNRELATED_SESSION_ID)
+    chatStore.setActiveDirectory(TEST_DIRECT_SESSION_DIRECTORY)
+
+    await act(async () => {
+      root?.render(<TestDirectSessionBenchRouterProvider />)
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-testid="active-chat-key"]')?.textContent).toBe(
+      workspaceChatKeyForSession(TEST_DIRECT_SESSION_OWNER_ID),
     )
   })
 

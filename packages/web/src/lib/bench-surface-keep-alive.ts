@@ -1,4 +1,4 @@
-import { benchTargetKey, isSameBenchTarget, type BenchTarget } from "@/lib/bench-navigation"
+import { benchTargetKey, isSameBenchTarget, type BenchTabTarget } from "@/lib/bench-navigation"
 
 /**
  * Bounded keep-alive policy for mounted Bench surfaces.
@@ -41,11 +41,11 @@ const BENCH_SURFACE_COST_CLASSES = [
 
 export type BenchSurfaceInstance = {
   key: string
-  target: BenchTarget
+  target: BenchTabTarget
   costClass: BenchSurfaceCostClass
 }
 
-export function benchSurfaceCostClass(target: BenchTarget): BenchSurfaceCostClass {
+export function benchSurfaceCostClass(target: BenchTabTarget): BenchSurfaceCostClass {
   if (target.type === "object") {
     if (target.ref.kind === "resource") return BENCH_SURFACE_COST_READER
     return HEAVY_OBJECT_KINDS.has(target.ref.kind)
@@ -62,7 +62,7 @@ export function benchSurfaceCostClass(target: BenchTarget): BenchSurfaceCostClas
  */
 export function retainBenchSurfaceInstance(input: {
   instances: BenchSurfaceInstance[]
-  target: BenchTarget | null
+  target: BenchTabTarget | null
   limits?: Record<BenchSurfaceCostClass, number>
 }): BenchSurfaceInstance[] {
   const limits = input.limits ?? BENCH_SURFACE_KEEP_ALIVE_LIMIT

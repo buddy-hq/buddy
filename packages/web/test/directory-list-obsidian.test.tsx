@@ -165,4 +165,90 @@ describe("Chat sidebar directory list", () => {
     expect(container.textContent).toContain("Show more")
     expect(container.textContent).not.toContain("Quick Chat 6")
   })
+
+  test("only expands subagents for the active chat", async () => {
+    const directory = "/tmp/subagent-ownership"
+    const chatA = {
+      id: "chat-a",
+      title: "Chat A",
+      time: { created: 1, updated: 1 },
+    } satisfies SessionInfo
+    const chatAChild = {
+      id: "chat-a-child",
+      parentID: chatA.id,
+      title: "Chat A subagent",
+      time: { created: 2, updated: 2 },
+    } satisfies SessionInfo
+    const chatB = {
+      id: "chat-b",
+      title: "Chat B",
+      time: { created: 3, updated: 3 },
+    } satisfies SessionInfo
+    const chatBChild = {
+      id: "chat-b-child",
+      parentID: chatB.id,
+      title: "Chat B subagent",
+      time: { created: 4, updated: 4 },
+    } satisfies SessionInfo
+    const rootSessions = [chatA, chatB]
+    const allSessions = [chatA, chatAChild, chatB, chatBChild]
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    async function render(activeSessionID: string) {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              <ChatLeftSidebarDirectoryList
+                directoryGroups={[{ directory, sessions: rootSessions }]}
+                currentDirectory={directory}
+                activeSessionID={activeSessionID}
+                sessionsByDirectory={{ [directory]: allSessions }}
+                sessionStatusByDirectory={{}}
+                pinnedByDirectory={{}}
+                unreadByDirectory={{}}
+                organizeMode="project"
+                expandedDirectories={{ [directory]: true }}
+                collapsedDirectories={{}}
+                dragOverPosition="after"
+                onToggleCollapsedDirectory={() => {}}
+                onToggleExpandedDirectory={() => {}}
+                onSelectSession={() => {}}
+                onTogglePin={() => {}}
+                onToggleUnread={() => {}}
+                onRequestArchive={() => {}}
+                onRequestDelete={() => {}}
+                onRequestRename={() => {}}
+                onLabelPointerDown={() => {}}
+                onSectionRef={() => () => {}}
+                onNewSession={() => {}}
+                onOpenNotebookSettings={() => {}}
+                onDisconnectObsidianVault={() => {}}
+                onCloseDirectory={() => {}}
+              />
+            </TooltipProvider>
+          </QueryClientProvider>,
+        )
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      })
+    }
+
+    await render(chatA.id)
+    const chatAChildRow = container.querySelector<HTMLButtonElement>(
+      `[data-session-id="${chatAChild.id}"]`,
+    )
+    expect(chatAChildRow).not.toBeNull()
+    expect(chatAChildRow?.closest("[aria-hidden=true]")).toBeNull()
+    expect(container.querySelector(`[data-session-id="${chatBChild.id}"]`)).toBeNull()
+
+    await render(chatB.id)
+    const chatBChildRow = container.querySelector<HTMLButtonElement>(
+      `[data-session-id="${chatBChild.id}"]`,
+    )
+    expect(chatBChildRow).not.toBeNull()
+    expect(chatBChildRow?.closest("[aria-hidden=true]")).toBeNull()
+    expect(chatAChildRow?.closest("[aria-hidden=true]")).not.toBeNull()
+  })
 })
