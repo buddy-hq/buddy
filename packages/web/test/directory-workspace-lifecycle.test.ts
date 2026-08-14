@@ -120,10 +120,7 @@ function readFirstPublishedTabTarget(value: unknown): Record<string, unknown> {
   return tabs[0].target
 }
 
-function projectionFor(
-  target: BenchTarget,
-  drawer: DrawerKind | null = null,
-) {
+function projectionFor(target: BenchTarget, drawer: DrawerKind | null = null) {
   return {
     route: {
       status: BENCH_ROUTE_STATUS_OPEN,

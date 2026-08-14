@@ -67,8 +67,7 @@ const MERMAID_AUTO_REPAIR_TIMEOUT_MESSAGE =
 const MERMAID_AUTO_REPAIR_COMPLETED_WITHOUT_REPLACEMENT_MESSAGE =
   "Automatic Mermaid repair completed without creating a replacement diagram."
 const MERMAID_AUTO_REPAIR_ENABLED = false
-const MERMAID_AUTO_REPAIR_DISABLED_MESSAGE =
-  "Automatic Mermaid repair is temporarily disabled."
+const MERMAID_AUTO_REPAIR_DISABLED_MESSAGE = "Automatic Mermaid repair is temporarily disabled."
 const MERMAID_AUTO_REPAIR_IDLE_EXHAUST_GRACE_MS = MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS * 2
 const OPENCODE_MESSAGE_UPDATED_EVENT_TYPE = "message.updated"
 const OPENCODE_SESSION_ERROR_EVENT_TYPE = "session.error"

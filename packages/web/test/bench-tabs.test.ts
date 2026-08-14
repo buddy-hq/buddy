@@ -89,9 +89,9 @@ describe("Bench tabs", () => {
     expect(benchTabKey(SUBAGENT_SESSION)).toBe("session:session%2Fchild-1")
     expect(reopened.tabs).toHaveLength(1)
     expect(reopened.activeTabKey).toBe(benchTabKey(SUBAGENT_SESSION))
-    expect(resolveBenchTabTitle(tab, new Map(), new Map([[SUBAGENT_SESSION.sessionID, "Research"]]))).toBe(
-      "Research",
-    )
+    expect(
+      resolveBenchTabTitle(tab, new Map(), new Map([[SUBAGENT_SESSION.sessionID, "Research"]])),
+    ).toBe("Research")
   })
 
   test("closing the selected tab chooses the tab to its right, then its left", () => {

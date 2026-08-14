@@ -89,7 +89,9 @@ describe("prose row estimate", () => {
   // streamed — captured while the action footer was still reserved, so they are
   // the terminal heights now.
   test("matches the measured geometry of a text part", () => {
-    expect(proseRowHeightPx({ previous: "activity", textLength: 0, hasActionFooter: true })).toBe(48)
+    expect(proseRowHeightPx({ previous: "activity", textLength: 0, hasActionFooter: true })).toBe(
+      48,
+    )
     expect(proseRowHeightPx({ previous: "activity", textLength: 34, hasActionFooter: true })).toBe(
       72,
     )

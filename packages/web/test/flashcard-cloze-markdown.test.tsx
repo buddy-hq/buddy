@@ -133,9 +133,7 @@ describe("flashcard cloze Markdown", () => {
       root.render(<ClozeMarkdown text={CLOZE_MARKDOWN} ordinal={1} revealed={false} />)
     })
     await act(async () => {
-      await waitFor(
-        () => container.querySelectorAll('[data-cloze-state="hidden"]').length === 3,
-      )
+      await waitFor(() => container.querySelectorAll('[data-cloze-state="hidden"]').length === 3)
     })
 
     const blanks = container.querySelectorAll<HTMLElement>('[data-cloze-state="hidden"]')
@@ -157,9 +155,7 @@ describe("flashcard cloze Markdown", () => {
       root.render(<ClozeMarkdown text={CLOZE_MARKDOWN} ordinal={1} revealed />)
     })
     await act(async () => {
-      await waitFor(
-        () => container.querySelectorAll('[data-cloze-state="revealed"]').length === 3,
-      )
+      await waitFor(() => container.querySelectorAll('[data-cloze-state="revealed"]').length === 3)
     })
 
     const answers = container.querySelectorAll<HTMLElement>('[data-cloze-state="revealed"]')
@@ -167,11 +163,9 @@ describe("flashcard cloze Markdown", () => {
     expect(Array.from(answers).every((answer) => answer.querySelector(".invisible") === null)).toBe(
       true,
     )
-    expect(Array.from(container.querySelectorAll("strong")).map((element) => element.textContent)).toEqual([
-      "formatting",
-      "rich answer",
-      "another answer",
-    ])
+    expect(
+      Array.from(container.querySelectorAll("strong")).map((element) => element.textContent),
+    ).toEqual(["formatting", "rich answer", "another answer"])
   })
 
   test("preserves block Markdown inside a line-isolated cloze", async () => {

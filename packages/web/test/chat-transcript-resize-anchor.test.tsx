@@ -721,7 +721,10 @@ describe("virtual row geometry sync", () => {
 
     // The row above grew by one prose line; the follower must move with it in
     // this same call, not on the next React commit.
-    syncVirtualRowGeometry([virtualItem({ key: "row:b", index: 1, start: 112, size: 88 })], wrappers)
+    syncVirtualRowGeometry(
+      [virtualItem({ key: "row:b", index: 1, start: 112, size: 88 })],
+      wrappers,
+    )
     expect(below.style.transform).toBe("translateY(112px)")
   })
 

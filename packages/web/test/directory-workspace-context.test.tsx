@@ -47,10 +47,7 @@ import {
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import { resetActiveChatTransitionStateForTests } from "../src/lib/active-chat-transition-state"
-import {
-  WORKSPACE_CHAT_DRAFT_KEY,
-  workspaceChatKeyForSession,
-} from "../src/lib/workspace-chat-key"
+import { WORKSPACE_CHAT_DRAFT_KEY, workspaceChatKeyForSession } from "../src/lib/workspace-chat-key"
 import { upsertBenchTab } from "../src/lib/bench-tabs"
 import { DESKTOP_TITLEBAR_HEIGHT_PX } from "../src/components/layout/desktop-titlebar-inset"
 import { useChatStore } from "../src/state/chat-store"

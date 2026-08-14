@@ -1,8 +1,4 @@
-import {
-  isSameBenchTarget,
-  readBenchTabTarget,
-  type BenchTabTarget,
-} from "@/lib/bench-targets"
+import { isSameBenchTarget, readBenchTabTarget, type BenchTabTarget } from "@/lib/bench-targets"
 
 export type BenchTab = {
   key: string
@@ -89,7 +85,10 @@ export function areBenchTabsEqual(left: readonly BenchTab[], right: readonly Ben
   )
 }
 
-export function upsertBenchTab(tabs: readonly BenchTab[], target: BenchTabTarget): BenchTabSelection {
+export function upsertBenchTab(
+  tabs: readonly BenchTab[],
+  target: BenchTabTarget,
+): BenchTabSelection {
   const key = benchTabKey(target)
   const index = tabs.findIndex((tab) => tab.key === key)
   if (index < 0) {

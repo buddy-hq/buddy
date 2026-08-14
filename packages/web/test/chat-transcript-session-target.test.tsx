@@ -4,11 +4,7 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import { useChatStore } from "../src/state/chat-store"
-import {
-  createMessageWithParts,
-  createUserMessageInfo,
-  seedDirectoryChatState,
-} from "./test-utils"
+import { createMessageWithParts, createUserMessageInfo, seedDirectoryChatState } from "./test-utils"
 import {
   createChatTranscriptTestViewport,
   type ChatTranscriptTestViewport,

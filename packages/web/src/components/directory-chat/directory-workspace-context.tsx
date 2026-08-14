@@ -80,10 +80,7 @@ function initialDockedState(route: BenchRouteSnapshot) {
 function workspaceChatKeyForRoute(directory: string, route: BenchRouteSnapshot): WorkspaceChatKey {
   const directoryState = useChatStore.getState().directories[directory]
   if (route.status === BENCH_ROUTE_STATUS_OPEN && route.target.type === "session") {
-    const selection = subagentBenchSelection(
-      directoryState?.sessions ?? [],
-      route.target.sessionID,
-    )
+    const selection = subagentBenchSelection(directoryState?.sessions ?? [], route.target.sessionID)
     if (selection) return workspaceChatKeyForSession(selection.ownerSessionID)
   }
   return workspaceChatKeyForSession(directoryState?.sessionID)
@@ -105,9 +102,7 @@ function unresolvedSessionBenchTargetIDs(input: {
   }
 
   return new Set(
-    [...sessionIDs].filter(
-      (sessionID) => !subagentBenchSelection(input.sessions, sessionID),
-    ),
+    [...sessionIDs].filter((sessionID) => !subagentBenchSelection(input.sessions, sessionID)),
   )
 }
 
@@ -217,10 +212,7 @@ export function DirectoryWorkspaceProvider(props: {
         getTabTitle: (tab) => resolveBenchTabTitle(tab, objectTitlesRef.current),
         getHydrationStatus: () => store.getState().hydration.status,
         getRouteFallbackContext: (route) => {
-          if (
-            route.status !== BENCH_ROUTE_STATUS_OPEN ||
-            !isBenchContentTarget(route.target)
-          ) {
+          if (route.status !== BENCH_ROUTE_STATUS_OPEN || !isBenchContentTarget(route.target)) {
             return null
           }
           const location = locationRef.current

@@ -30,5 +30,4 @@ describe("Bench navigation boundary", () => {
       expect(source).not.toMatch(CHAT_TRANSITION_CALL)
     }
   })
-
 })

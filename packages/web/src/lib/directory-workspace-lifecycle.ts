@@ -3,11 +3,7 @@ import { isSessionNotFoundResult } from "@/lib/session-request-result"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "@/lib/bench-leave-guard"
 import { allowBenchLeave } from "@/lib/bench-leave-guard"
-import {
-  benchTargetKey,
-  isBenchContentTarget,
-  type BenchTarget,
-} from "@/lib/bench-navigation"
+import { benchTargetKey, isBenchContentTarget, type BenchTarget } from "@/lib/bench-navigation"
 import { benchTabFallbackTitle, benchTabKey, type BenchTab } from "@/lib/bench-tabs"
 import type {
   DirectoryWorkspaceHydrationState,
@@ -918,9 +914,7 @@ export class DirectoryWorkspaceLifecycleService {
   }
 
   #captureProjectionMatches(
-    expected:
-      | { tabKey: string; target: BenchTarget; drawer: DrawerKind | null }
-      | undefined,
+    expected: { tabKey: string; target: BenchTarget; drawer: DrawerKind | null } | undefined,
     projection: EffectiveWorkspaceProjection,
   ): projection is EffectiveWorkspaceProjection & {
     bench: EffectiveWorkspaceProjection["bench"] & { visibility: "visible" }

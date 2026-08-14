@@ -1078,16 +1078,10 @@ export class DirectoryWorkspaceController {
     })
     const backgroundChanged = this.#store.getState().slots !== previousSlots
     const currentRoute = this.#routeForNextCommand()
-    const activeSlot = workspacePresentationSlotForChat(
-      this.#store.getState().slots,
-      activeChatKey,
-    )
+    const activeSlot = workspacePresentationSlotForChat(this.#store.getState().slots, activeChatKey)
     const removedSessionIDs = new Set(command.sessionIDs)
     const removedTabKeys = activeSlot.tabs
-      .filter(
-        (tab) =>
-          tab.target.type === "session" && removedSessionIDs.has(tab.target.sessionID),
-      )
+      .filter((tab) => tab.target.type === "session" && removedSessionIDs.has(tab.target.sessionID))
       .map((tab) => tab.key)
     if (removedTabKeys.length === 0) {
       return committedProjectionResult({
@@ -1099,9 +1093,7 @@ export class DirectoryWorkspaceController {
     let selection: BenchTabSelection = {
       tabs: activeSlot.tabs,
       activeTabKey:
-        currentRoute.status === BENCH_ROUTE_STATUS_OPEN
-          ? benchTabKey(currentRoute.target)
-          : null,
+        currentRoute.status === BENCH_ROUTE_STATUS_OPEN ? benchTabKey(currentRoute.target) : null,
     }
     for (const tabKey of removedTabKeys) {
       selection = closeBenchTab({ ...selection, tabKey })

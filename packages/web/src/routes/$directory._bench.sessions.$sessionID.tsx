@@ -18,8 +18,7 @@ type SessionBenchSearch = {
   [BENCH_CHAT_SEARCH_PARAM]?: BenchChatLayoutMode
 }
 
-const SESSION_BENCH_OWNER_SELECTION_ERROR =
-  "The subagent Bench could not activate its owner chat."
+const SESSION_BENCH_OWNER_SELECTION_ERROR = "The subagent Bench could not activate its owner chat."
 const SESSION_BENCH_PRESENTATION_ERROR = "The subagent Bench could not open its transcript."
 export const Route = createFileRoute("/$directory/_bench/sessions/$sessionID")({
   loader: async ({ context, params }) => {

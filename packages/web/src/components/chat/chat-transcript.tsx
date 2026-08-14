@@ -323,7 +323,8 @@ function estimateRowSize(row: TimelineRow | undefined) {
       }
       return estimateAssistantToolRowSize(row.item, {
         previousLayoutRole: row.previousLayoutRole,
-        hasActionFooter: row.assistantActionsEnabled && row.assistantActionPartID === row.item.partID,
+        hasActionFooter:
+          row.assistantActionsEnabled && row.assistantActionPartID === row.item.partID,
       })
   }
 }
@@ -1647,10 +1648,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     const previousRowKeys = appendedRowsRef.current
     const nextRowKeys = new Set(rows.map((row) => row.key))
     appendedRowsRef.current = nextRowKeys
-    if (
-      previousRowKeys.size === 0 ||
-      getTranscriptPerformanceProbe()?.isRecording() !== true
-    ) {
+    if (previousRowKeys.size === 0 || getTranscriptPerformanceProbe()?.isRecording() !== true) {
       return
     }
 
@@ -1672,8 +1670,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         // the latter hid a real gap: a row entered at 108 while this logged 88,
         // because the estimate was recomputed after the message it describes
         // had already changed.
-        estimatedSize:
-          rowVirtualizer.measurementsCache[index]?.size ?? estimateRowSize(row),
+        estimatedSize: rowVirtualizer.measurementsCache[index]?.size ?? estimateRowSize(row),
       })),
     })
   }, [rowVirtualizer, rows])

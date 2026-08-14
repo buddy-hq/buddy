@@ -593,9 +593,7 @@ export function removeSessionBenchTargetsFromSlot(input: {
   sessionIDs: ReadonlySet<string>
 }): WorkspacePresentationSlot {
   const removedTabKeys = input.slot.tabs
-    .filter(
-      (tab) => tab.target.type === "session" && input.sessionIDs.has(tab.target.sessionID),
-    )
+    .filter((tab) => tab.target.type === "session" && input.sessionIDs.has(tab.target.sessionID))
     .map((tab) => tab.key)
   if (removedTabKeys.length === 0) return input.slot
 

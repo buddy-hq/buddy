@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  openOwnedSubagentBench,
-  subagentBenchSelection,
-} from "../src/lib/subagent-bench-target"
+import { openOwnedSubagentBench, subagentBenchSelection } from "../src/lib/subagent-bench-target"
 
 const SESSIONS = [
   { id: "chat-a" },

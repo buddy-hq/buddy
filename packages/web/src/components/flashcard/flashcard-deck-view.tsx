@@ -111,12 +111,7 @@ function DeckCardRow(props: {
   )
 
   return (
-    <div
-      className={cn(
-        "-mx-3 rounded-md px-3 transition-colors",
-        props.open && "bg-surface-base",
-      )}
-    >
+    <div className={cn("-mx-3 rounded-md px-3 transition-colors", props.open && "bg-surface-base")}>
       {/* Metadata sits in a right column, not under the question: underneath it
           reads as a continuation of the sentence and doubles the list's line
           count. State is the dot's job — the word only repeated the colour. */}

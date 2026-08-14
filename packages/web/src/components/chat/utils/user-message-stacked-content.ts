@@ -39,9 +39,7 @@ export function isUserAttachmentFilePart(part: ChatFilePart): boolean {
  * Keeping this projection shared makes the virtual row estimate describe the
  * same groups the renderer mounts, including metadata-backed text parts.
  */
-export function projectUserMessageStackedContent(
-  parts: MessagePart[],
-): UserMessageStackedContent {
+export function projectUserMessageStackedContent(parts: MessagePart[]): UserMessageStackedContent {
   const nativeResourceParts = parts.flatMap((part) => {
     const attachment =
       readPromptNativeResourceAttachmentPart(part) ??

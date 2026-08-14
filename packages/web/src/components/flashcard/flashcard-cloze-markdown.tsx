@@ -37,14 +37,8 @@ function lineSuffixIsWhitespace(segment: FlashcardClozeSegment | undefined): boo
   return /(?:^|\r\n|\r|\n)[\t ]*$/u.test(segment.text)
 }
 
-function isLineIsolatedCloze(
-  segments: readonly FlashcardClozeSegment[],
-  index: number,
-): boolean {
-  return (
-    lineSuffixIsWhitespace(segments[index - 1]) &&
-    linePrefixIsWhitespace(segments[index + 1])
-  )
+function isLineIsolatedCloze(segments: readonly FlashcardClozeSegment[], index: number): boolean {
+  return lineSuffixIsWhitespace(segments[index - 1]) && linePrefixIsWhitespace(segments[index + 1])
 }
 
 function prepareClozeMarkdown(text: string, ordinal: number): PreparedClozeMarkdown {
@@ -131,10 +125,7 @@ function createInlineClozeElement(content: DocumentFragment, revealed: boolean):
   return cloze
 }
 
-function directRenderedChildContaining(
-  root: HTMLElement,
-  marker: string,
-): Element | undefined {
+function directRenderedChildContaining(root: HTMLElement, marker: string): Element | undefined {
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   for (let current = walker.nextNode(); current; current = walker.nextNode()) {
     if (!(current instanceof Text) || current.data !== marker) continue
@@ -164,11 +155,7 @@ function createBlockClozeElement(content: DocumentFragment, revealed: boolean): 
   return cloze
 }
 
-function decorateBlockCloze(
-  root: HTMLElement,
-  boundary: ClozeBoundary,
-  revealed: boolean,
-): void {
+function decorateBlockCloze(root: HTMLElement, boundary: ClozeBoundary, revealed: boolean): void {
   const start = directRenderedChildContaining(root, boundary.start)
   const end = directRenderedChildContaining(root, boundary.end)
   if (!start || !end || start.parentElement !== root || end.parentElement !== root) return
@@ -186,11 +173,7 @@ function decorateBlockCloze(
   end.remove()
 }
 
-function decorateInlineCloze(
-  root: HTMLElement,
-  boundary: ClozeBoundary,
-  revealed: boolean,
-): void {
+function decorateInlineCloze(root: HTMLElement, boundary: ClozeBoundary, revealed: boolean): void {
   const text = root.textContent ?? ""
   const startOffset = text.indexOf(boundary.start)
   if (startOffset < 0) return

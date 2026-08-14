@@ -252,10 +252,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const fallbackContextProvider = useMemo(
     () => ({
       read: () => {
-        if (
-          benchPolicyState.status !== "open" ||
-          !isBenchContentTarget(benchPolicyState.target)
-        ) {
+        if (benchPolicyState.status !== "open" || !isBenchContentTarget(benchPolicyState.target)) {
           throw new Error("Bench fallback context is only available while Bench is open.")
         }
 
@@ -765,7 +762,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       if (!isBenchContentTarget(target)) {
         return (
           <>
-            {input.active ? <BenchClosedContextPublisher activeSessionID={activeSessionID} /> : null}
+            {input.active ? (
+              <BenchClosedContextPublisher activeSessionID={activeSessionID} />
+            ) : null}
             {input.children}
           </>
         )
