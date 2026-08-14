@@ -103,7 +103,7 @@ async function seedCompletedRepairTurn(input: {
 }
 
 describe("mermaid repair routes", () => {
-  test("starts one repair attempt and rejects the second attempt", async () => {
+  test("rejects automatic repair without creating session work", async () => {
     await using project = await tmpdir({ git: true })
     const sessionID = await createSession()
     writeTeachingSessionState(project.path, {
@@ -146,80 +146,17 @@ describe("mermaid repair routes", () => {
       },
     )
 
-    expect(firstResponse.status).toBe(200)
-    const firstBody = (await firstResponse.json()) as {
-      repairRequestID: string
-      status: "running" | "exhausted"
-      lastErrorMessage?: string
-    }
-    expect(firstBody.repairRequestID.startsWith("msg_buddy_mermaid_auto_repair_")).toBe(true)
-    expect(firstBody.status).toBe("running")
-    expect(firstBody.lastErrorMessage).toBeUndefined()
-
-    const storedRequest = await readMermaidRepairRequest(project.path, firstBody.repairRequestID)
-    expect(storedRequest.objectID).toBe(object.objectID)
-    expect(storedRequest.revisionID).toBe(object.revisionID)
-    expect(storedRequest.failedRenderKey).toBe(failedRender.renderKey)
-
-    const outboundPayload = readTeachingSessionState(project.path, sessionID)?.lastLlmOutbound
-      ?.payload
-    if (!outboundPayload) {
-      throw new Error("Expected the transformed repair prompt payload to be traced.")
-    }
-    expect(outboundPayload).toMatchObject({
-      messageID: firstBody.repairRequestID,
-      agent: "buddy",
+    expect(firstResponse.status).toBe(503)
+    await expect(firstResponse.json()).resolves.toEqual({
+      error: "Automatic Mermaid repair is temporarily disabled.",
     })
-    expect(outboundPayload).not.toHaveProperty("metadata")
-    expect(outboundPayload).not.toHaveProperty("content")
-    expect(outboundPayload.parts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "text",
-          text: expect.stringContaining("repairOfObjectID"),
-        }),
-      ]),
-    )
-    expect(outboundPayload.parts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "text",
-          text: expect.stringContaining(
-            'Use exactly this alt text in the render_mermaid call: "Test diagram".',
-          ),
-        }),
-      ]),
-    )
-    expect(outboundPayload.parts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "text",
-          text: expect.stringContaining(
-            'Use exactly this caption in the render_mermaid call: "Original caption".',
-          ),
-        }),
-      ]),
-    )
+    expect(readTeachingSessionState(project.path, sessionID)?.lastLlmOutbound).toBeUndefined()
 
-    const secondResponse = await app.request(
-      `/api/session/${sessionID}/mermaid-repair-async?directory=${encodeURIComponent(project.path)}`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-buddy-directory": project.path,
-        },
-        body: JSON.stringify({
-          objectID: object.objectID,
-          failedRenderKey: failedRender.renderKey,
-        }),
-      },
-    )
-
-    expect(secondResponse.status).toBe(409)
-    await expect(secondResponse.json()).resolves.toEqual({
-      error: "Automatic Mermaid repair already used its single attempt.",
+    const storedObject = await readMermaidObject({
+      directory: project.path,
+      objectID: object.objectID,
     })
+    expect(storedObject.autoRepair).toEqual({ status: "eligible", attempts: 0 })
   })
 
   test("rejects repairing an object from a different session", async () => {
