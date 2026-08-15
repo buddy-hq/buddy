@@ -1,6 +1,6 @@
 {
   "name": "@buddy/desktop-electron",
-  "version": "0.0.62",
+  "version": "0.0.63",
   "private": true,
   "description": "Buddy Electron desktop shell",
   "homepage": "https://github.com/prashantbhudwal/buddy",
