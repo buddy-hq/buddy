@@ -147,7 +147,7 @@ function normalizeOpenApiValue(value: unknown): unknown {
   return Object.assign({}, ...layers, rest)
 }
 
-function normalizeSchemaForSdk(schema: OpenAPISchema): OpenAPISchema {
+function normalizeSchemaForSdk(schema: OpenAPISchema) {
   const normalized = normalizeOpenApiValue(schema)
   if (!isRecord(normalized)) {
     return schema

@@ -228,10 +228,7 @@ function printSummary(benchmarkResults: BenchmarkResult[]): void {
 function parseCliArguments(
   args: string[],
   reportDate: Date,
-): {
-  sourcePaths: string[]
-  outputPath: string
-} {
+) {
   const sourcePaths: string[] = []
   let outputPath = defaultOutputPath(reportDate)
 
