@@ -1,4 +1,5 @@
 import { language } from "@/context/language"
+import { readNonEmptyString } from "@/components/chat/tools/types"
 import type { PermissionRequest } from "@/state/chat-types"
 
 export type TPermissionDockTitleIcon = "read" | "edit" | "command" | "shield"
@@ -10,7 +11,7 @@ export type TPermissionDockHeadline = {
 
 function metadataString(metadata: PermissionRequest["metadata"], key: string): string | undefined {
   const value = metadata[key]
-  return typeof value === "string" && value.length > 0 ? value : undefined
+  return readNonEmptyString(value)
 }
 
 function pathBasename(path: string): string {

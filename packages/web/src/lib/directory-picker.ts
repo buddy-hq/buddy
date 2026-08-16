@@ -24,21 +24,20 @@ declare global {
 async function openDesktopDirectoryPicker() {
   const platform = getPlatform()
 
-  if (typeof platform.openDirectoryPickerDialog === "function") {
+  if (platform.openDirectoryPickerDialog) {
     try {
       const platformResult = await platform.openDirectoryPickerDialog({
         title: language.t("pickers.openNotebookTitle"),
         multiple: false,
       })
 
-      if (typeof platformResult === "string") {
+      if (Array.isArray(platformResult)) {
+        const firstPath = platformResult[0]
+        if (firstPath !== undefined) {
+          return normalizeDirectory(firstPath)
+        }
+      } else if (platformResult !== null) {
         return normalizeDirectory(platformResult)
-      }
-      if (Array.isArray(platformResult) && typeof platformResult[0] === "string") {
-        return normalizeDirectory(platformResult[0])
-      }
-      if (platformResult === null) {
-        return null
       }
     } catch (error) {
       console.error(language.t("pickers.openDirectoryPickerFailed"), error)
@@ -46,12 +45,13 @@ async function openDesktopDirectoryPicker() {
   }
 
   const electronResult = await window.electronAPI?.openDirectoryPickerDialog?.()
-  if (typeof electronResult === "string") {
+  if (Array.isArray(electronResult)) {
+    const firstPath = electronResult[0]
+    if (firstPath !== undefined) {
+      return normalizeDirectory(firstPath)
+    }
+  } else if (electronResult !== null && electronResult !== undefined) {
     return normalizeDirectory(electronResult)
-  }
-
-  if (Array.isArray(electronResult) && typeof electronResult[0] === "string") {
-    return normalizeDirectory(electronResult[0])
   }
 
   return null
@@ -60,8 +60,8 @@ async function openDesktopDirectoryPicker() {
 export async function pickProjectDirectory() {
   const platform = getPlatform()
   const hasDesktopBridge =
-    typeof platform.openDirectoryPickerDialog === "function" ||
-    typeof window.electronAPI?.openDirectoryPickerDialog === "function"
+    Boolean(platform.openDirectoryPickerDialog) ||
+    Boolean(window.electronAPI?.openDirectoryPickerDialog)
 
   const picked = await openDesktopDirectoryPicker()
   if (picked) return picked

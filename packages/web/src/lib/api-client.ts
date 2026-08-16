@@ -1,13 +1,16 @@
-export function stringifyError(error: unknown) {
+import { parseTString } from "@/components/chat/tools/types"
+
+export function stringifyError<TError>(error: TError) {
   if (error instanceof Error) {
     return error.message
   }
-  if (typeof error === "string") {
-    return error
+  const text = parseTString(error)
+  if (text !== undefined) {
+    return text
   }
   try {
     return JSON.stringify(error)
   } catch {
-    return String(error)
+    return `${error}`
   }
 }

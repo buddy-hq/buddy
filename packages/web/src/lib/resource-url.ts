@@ -2,7 +2,7 @@ import { getServerConnection } from "@/context/server"
 import { applyAuthToUrl, resolveServerEndpoint } from "./server-client"
 
 function readWindowOrigin(): string | null {
-  if (typeof window === "undefined") return null
+  if (!("window" in globalThis)) return null
   const origin = window.location.origin
   return origin && origin !== "null" ? origin : null
 }

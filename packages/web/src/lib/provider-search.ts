@@ -64,7 +64,6 @@ export function resolveProviderSearchResults(input: {
     return {
       connected: input.connectedProviders,
       available: input.availableProviders,
-      matchedIDs: undefined as ReadonlySet<string> | undefined,
     }
   }
 

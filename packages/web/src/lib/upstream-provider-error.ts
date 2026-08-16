@@ -1,4 +1,12 @@
 import { t } from "@/i18n"
+import {
+  parseTJsonObject,
+  parseTJsonText,
+  parseTNumber,
+  parseTString,
+  readNonEmptyString,
+  type TJsonObject,
+} from "@/components/chat/tools/types"
 
 const ZEN_IP_RATE_LIMIT_TABLE_NAME = "ip_rate_limit"
 const ZEN_QUERY_FAILURE_PREFIX = "Failed query:"
@@ -34,58 +42,46 @@ function isZenNetworkRateLimitFailure(message: string): boolean {
   )
 }
 
-function parseJsonValue(value: string): unknown {
-  try {
-    return JSON.parse(value) as unknown
-  } catch {
-    return undefined
-  }
+function parseFiniteNumber<TValue>(value: TValue): number | undefined {
+  const numeric = parseTNumber(value)
+  if (numeric === undefined || !Number.isFinite(numeric)) return undefined
+  return numeric
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
-}
-
-function readNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
-function readFiniteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined
-}
-
-function unwrapJsonErrorMessage(value: unknown, depth = 0): string | undefined {
+function unwrapJsonErrorMessage<TValue>(value: TValue, depth = 0): string | undefined {
   if (depth >= MAX_JSON_UNWRAP_DEPTH) return readNonEmptyString(value)
 
-  if (typeof value === "string") {
-    const parsed = parseJsonValue(value)
+  const text = parseTString(value)
+  if (text !== undefined) {
+    const parsed = parseTJsonText(text)
     if (parsed !== undefined) return unwrapJsonErrorMessage(parsed, depth + 1)
-    return readNonEmptyString(value)
+    return readNonEmptyString(text)
   }
 
-  if (!isRecord(value)) return undefined
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
 
-  const error = value.error
-  if (isRecord(error)) {
-    const nested = unwrapJsonErrorMessage(error, depth + 1)
+  const error = record.error
+  const nestedRecord = parseTJsonObject(error)
+  if (nestedRecord) {
+    const nested = unwrapJsonErrorMessage(nestedRecord, depth + 1)
     if (nested) return nested
   }
 
   return (
-    readNonEmptyString(value.message) ??
-    readNonEmptyString(value.error) ??
-    readNonEmptyString(value.code) ??
-    readNonEmptyString(value.type)
+    readNonEmptyString(record.message) ??
+    readNonEmptyString(record.error) ??
+    readNonEmptyString(record.code) ??
+    readNonEmptyString(record.type)
   )
 }
 
-function readErrorRecord(value: unknown): Record<string, unknown> | undefined {
-  if (isRecord(value)) return value
-  if (typeof value !== "string") return undefined
-  const parsed = parseJsonValue(value)
-  return isRecord(parsed) ? parsed : undefined
+function readErrorRecord<TValue>(value: TValue): TJsonObject | undefined {
+  const record = parseTJsonObject(value)
+  if (record) return record
+  const text = parseTString(value)
+  if (text === undefined) return undefined
+  return parseTJsonObject(parseTJsonText(text))
 }
 
 export function readUpstreamProviderErrorPayload(
@@ -100,8 +96,8 @@ export function readUpstreamProviderErrorPayload(
   const code = readNonEmptyString(source.code)
   const message = readNonEmptyString(source.message)
   const planType = readNonEmptyString(source.plan_type)
-  const resetsAt = readFiniteNumber(source.resets_at)
-  const resetsInSeconds = readFiniteNumber(source.resets_in_seconds)
+  const resetsAt = parseFiniteNumber(source.resets_at)
+  const resetsInSeconds = parseFiniteNumber(source.resets_in_seconds)
   if (
     !type &&
     !code &&
@@ -113,14 +109,17 @@ export function readUpstreamProviderErrorPayload(
     return undefined
   }
 
-  return {
-    ...(type ? { type } : {}),
-    ...(code ? { code } : {}),
-    ...(message ? { message } : {}),
-    ...(planType ? { planType } : {}),
-    ...(resetsAt !== undefined ? { resetsAt } : {}),
-    ...(resetsInSeconds !== undefined ? { resetsInSeconds } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      {},
+      type ? { type } : undefined,
+      code ? { code } : undefined,
+      message ? { message } : undefined,
+    ),
+    planType ? { planType } : undefined,
+    resetsAt !== undefined ? { resetsAt } : undefined,
+    resetsInSeconds !== undefined ? { resetsInSeconds } : undefined,
+  )
 }
 
 export function normalizeProviderErrorDetails(input: {

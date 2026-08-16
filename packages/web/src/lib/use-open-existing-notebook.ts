@@ -22,7 +22,7 @@ type ObsidianConnectionPrompt = {
 
 type OpenExistingNotebookFlowOptions = {
   onNotebookReady: (directory: string) => Promise<void>
-  onDeferredError: (error: unknown) => void
+  onDeferredError: (error: Error) => void
 }
 
 type OpenExistingNotebookFlow = {
@@ -65,7 +65,7 @@ export function useOpenExistingNotebook(
     try {
       await options.onNotebookReady(directory)
     } catch (error) {
-      options.onDeferredError(error)
+      options.onDeferredError(error instanceof Error ? error : new Error(`${error}`))
     }
   }
 
@@ -84,7 +84,7 @@ export function useOpenExistingNotebook(
       queryClient.setQueryData(obsidianVaultQueryKeys.profile(directory), profile)
     } catch (error) {
       setConnectionError(stringifyError(error))
-      options.onDeferredError(error)
+      options.onDeferredError(error instanceof Error ? error : new Error(`${error}`))
       setConnecting(false)
       return
     }
@@ -94,22 +94,24 @@ export function useOpenExistingNotebook(
     try {
       await options.onNotebookReady(directory)
     } catch (error) {
-      options.onDeferredError(error)
+      options.onDeferredError(error instanceof Error ? error : new Error(`${error}`))
     }
   }
 
   const obsidianConnectionPrompt: ObsidianConnectionPrompt | undefined = pendingDirectory
-    ? {
-        directory: pendingDirectory,
-        busy: connecting,
-        ...(connectionError ? { error: connectionError } : {}),
-        onConnect: () => {
-          void connectVault()
+    ? Object.assign(
+        {
+          directory: pendingDirectory,
+          busy: connecting,
+          onConnect: () => {
+            void connectVault()
+          },
+          onContinueAsNotebook: () => {
+            void continueAsNotebook()
+          },
         },
-        onContinueAsNotebook: () => {
-          void continueAsNotebook()
-        },
-      }
+        connectionError ? { error: connectionError } : undefined,
+      )
     : undefined
 
   return {

@@ -3,6 +3,7 @@ import type {
   SvgRenderingCompleteBrowserRenderResponses,
   SvgRenderingListBrowserRenderRequestsResponses,
 } from "@buddy/sdk"
+import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 
 const SVG_RENDER_REQUEST_EVENT_TYPE = "svg.render_request"
@@ -17,7 +18,6 @@ type BrowserSvgRenderRequest = SvgRenderingListBrowserRenderRequestsResponses[20
 type BrowserSvgRenderCompletion = NonNullable<SvgRenderingCompleteBrowserRenderData["body"]>
 type BrowserSvgRenderCompletionResponse = SvgRenderingCompleteBrowserRenderResponses[200]
 type BrowserSvgSourceFormat = (typeof BROWSER_SVG_SOURCE_FORMATS)[number]
-type UnknownRecord = Record<string, unknown>
 
 type BrowserSvgRenderRequestDependencies = {
   now(): number
@@ -50,18 +50,17 @@ type BrowserSvgRenderSynchronizationEntry = {
   operation: Promise<void>
 }
 
-function isRecord(value: unknown): value is UnknownRecord {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
+function readNonEmptyString<TValue>(value: TValue): string | undefined {
+  const text = parseTString(value)
+  return text && text.length > 0 ? text : undefined
 }
 
-function readNonEmptyString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined
-}
-
-function readBrowserSvgRenderRequestEvent(value: unknown): string | undefined {
-  if (!isRecord(value) || value.type !== SVG_RENDER_REQUEST_EVENT_TYPE) return undefined
-  if (!isRecord(value.properties)) return undefined
-  return readNonEmptyString(value.properties.requestID)
+function readBrowserSvgRenderRequestEvent<TValue>(value: TValue): string | undefined {
+  const record = parseTJsonObject(value)
+  if (!record || record.type !== SVG_RENDER_REQUEST_EVENT_TYPE) return undefined
+  const properties = parseTJsonObject(record.properties)
+  if (!properties) return undefined
+  return readNonEmptyString(properties.requestID)
 }
 
 function bytesToHex(bytes: Uint8Array): string {
@@ -104,8 +103,8 @@ async function listPendingBrowserSvgRenders(directory: string): Promise<BrowserS
   return requireBuddyData(await getBuddyClient(directory).svgRendering.listBrowserRenderRequests())
 }
 
-function errorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error)
+function errorMessage<TError>(error: TError): string {
+  const message = error instanceof Error ? error.message : `${error}`
   const normalized = message.trim() || "Browser SVG rendering failed."
   return normalized.slice(0, SVG_RENDER_MAX_ERROR_CHARACTERS)
 }
@@ -261,7 +260,7 @@ export class BrowserSvgRenderRequestExecutor {
     this.#completed.set(requestID, key)
     while (this.#completed.size > SVG_RENDER_COMPLETED_LEDGER_LIMIT) {
       const oldestRequestID = this.#completed.keys().next().value
-      if (typeof oldestRequestID !== "string") return
+      if (oldestRequestID === undefined) return
       this.#completed.delete(oldestRequestID)
     }
   }

@@ -1,3 +1,4 @@
+import { parseTString } from "@/components/chat/tools/types"
 import { useCallback } from "react"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 import type { SettingsTab } from "@/components/settings/settings-tabs"
@@ -26,12 +27,13 @@ function readDirectoryFromReturnPath(pathname: string): string | undefined {
   }
 }
 
-export function readSettingsReturnTo(value: unknown): string | undefined {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+export function readSettingsReturnTo<TValue>(value: TValue): string | undefined {
+  const text = parseTString(value)
+  if (text === undefined || !text.startsWith("/") || text.startsWith("//")) {
     return undefined
   }
 
-  const url = new URL(value, SETTINGS_RETURN_ORIGIN)
+  const url = new URL(text, SETTINGS_RETURN_ORIGIN)
   if (url.origin !== SETTINGS_RETURN_ORIGIN || url.hash) return undefined
   if (url.pathname === "/chat") return `${url.pathname}${url.search}`
 
@@ -50,10 +52,12 @@ export function readSettingsReturnTo(value: unknown): string | undefined {
 
 export function buildSettingsSearch(input: { tab: SettingsTab; returnTo: string }): SettingsSearch {
   const returnTo = readSettingsReturnTo(input.returnTo)
-  return {
-    tab: input.tab,
-    ...(returnTo ? { returnTo } : {}),
-  }
+  return Object.assign(
+    {
+      tab: input.tab,
+    },
+    returnTo ? { returnTo } : undefined,
+  )
 }
 
 export function settingsSearchForTab(
@@ -61,10 +65,12 @@ export function settingsSearchForTab(
   tab: SettingsTab,
 ): SettingsSearch {
   const returnTo = readSettingsReturnTo(search.returnTo)
-  return {
-    tab,
-    ...(returnTo ? { returnTo } : {}),
-  }
+  return Object.assign(
+    {
+      tab,
+    },
+    returnTo ? { returnTo } : undefined,
+  )
 }
 
 export function resolveSettingsReturnLocation(input: {

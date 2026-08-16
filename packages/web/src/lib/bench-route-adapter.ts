@@ -1,4 +1,5 @@
 import type { NavigateOptions } from "@tanstack/react-router"
+import { parseTJsonObject, readNonEmptyString } from "@/components/chat/tools/types"
 import { decodeDirectory, encodeDirectory } from "@/lib/directory-token"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
@@ -36,22 +37,14 @@ type BenchRouteLocationChangeInfo = {
   hrefChanged?: boolean
 }
 
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function withBenchModeSearch<TSearch extends Record<string, unknown> | undefined>(
-  search: TSearch,
-  mode: BenchMode,
-) {
+function withBenchModeSearch<TSearch>(search: TSearch, mode: BenchMode) {
   if (mode !== BENCH_CHAT_LAYOUT_FLOATING) {
     return search
   }
 
-  return {
-    ...search,
+  return Object.assign({}, search, {
     [BENCH_CHAT_SEARCH_PARAM]: BENCH_CHAT_LAYOUT_FLOATING,
-  }
+  })
 }
 
 function readDirectoryChildPath(pathname: string): string | undefined {
@@ -143,32 +136,35 @@ function readBenchOpenPolicyStateFromRouteLocation(
   })
 }
 
-function readStringSearchValue(search: Record<string, unknown>, key: string): string | undefined {
-  const value = search[key]
-  return typeof value === "string" && value.length > 0 ? value : undefined
+function readStringSearchValue<TSearch>(search: TSearch, key: string): string | undefined {
+  const record = parseTJsonObject(search)
+  if (!record) return undefined
+  return readNonEmptyString(record[key])
 }
 
-function readBenchTargetFromLocation(input: {
+function readBenchTargetFromLocation<TSearch>(input: {
   pathname: string
-  search: unknown
+  search: TSearch
 }): BenchTabTarget | undefined {
   const rawChildPath = readDirectoryChildPath(input.pathname)
   if (!rawChildPath) return undefined
   const childPath = normalizeBenchChildPath(rawChildPath)
   if (!childPath || childPath === BENCH_ROUTE_GROUP_CHILD) return undefined
 
-  const search = isUnknownRecord(input.search) ? input.search : {}
+  const search = parseTJsonObject(input.search) ?? {}
 
   if (childPath === "markdown") {
     const path = readStringSearchValue(search, "path")
     const fragment = readStringSearchValue(search, "fragment")
     return path
-      ? {
-          type: "workspace-file",
-          path,
-          viewer: "markdown",
-          ...(fragment ? { fragment } : {}),
-        }
+      ? Object.assign(
+          {
+            type: "workspace-file" as const,
+            path,
+            viewer: "markdown" as const,
+          },
+          fragment ? { fragment } : undefined,
+        )
       : undefined
   }
 
@@ -176,12 +172,14 @@ function readBenchTargetFromLocation(input: {
     const path = readStringSearchValue(search, "path")
     const fragment = readStringSearchValue(search, "fragment")
     return path
-      ? {
-          type: "workspace-file",
-          path,
-          viewer: "file",
-          ...(fragment ? { fragment } : {}),
-        }
+      ? Object.assign(
+          {
+            type: "workspace-file" as const,
+            path,
+            viewer: "file" as const,
+          },
+          fragment ? { fragment } : undefined,
+        )
       : undefined
   }
 
@@ -223,10 +221,10 @@ function readBenchTargetFromLocation(input: {
   }
 }
 
-function readBenchOpenPolicyStateFromLocation(input: {
+function readBenchOpenPolicyStateFromLocation<TSearch>(input: {
   directory: string
   pathname: string
-  search: unknown
+  search: TSearch
 }): BenchOpenPolicyState {
   if (readEncodedDirectoryPathSegment(input.pathname) !== encodeDirectory(input.directory)) {
     return { status: "closed" }
@@ -240,7 +238,7 @@ function readBenchOpenPolicyStateFromLocation(input: {
     return { status: "closed" }
   }
 
-  const search = isUnknownRecord(input.search) ? input.search : {}
+  const search = parseTJsonObject(input.search) ?? {}
   const mode = readBenchChatLayoutMode(search[BENCH_CHAT_SEARCH_PARAM]) ?? BENCH_CHAT_LAYOUT_DOCKED
   return {
     status: "open",
@@ -273,10 +271,10 @@ function buildBenchNavigation(input: {
       to,
       params: { directory: encodedDirectory },
       search: withBenchModeSearch(
-        {
-          path: target.path,
-          ...(target.fragment ? { fragment: target.fragment } : {}),
-        },
+        Object.assign(
+          { path: target.path },
+          target.fragment ? { fragment: target.fragment } : undefined,
+        ),
         mode,
       ),
     }
@@ -290,11 +288,11 @@ function buildBenchNavigation(input: {
       objectID: target.ref.objectID,
     },
     search: withBenchModeSearch(
-      {
-        view: target.viewID,
-        ...(target.ref.revisionID ? { revision: target.ref.revisionID } : {}),
-        ...(target.ref.itemID ? { item: target.ref.itemID } : {}),
-      },
+      Object.assign(
+        { view: target.viewID },
+        target.ref.revisionID ? { revision: target.ref.revisionID } : undefined,
+        target.ref.itemID ? { item: target.ref.itemID } : undefined,
+      ),
       mode,
     ),
   }

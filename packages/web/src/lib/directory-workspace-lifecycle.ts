@@ -878,14 +878,16 @@ export class DirectoryWorkspaceLifecycleService {
         lease: leaseIdentity,
         body:
           body.outcome === "committed" || body.outcome === "captured"
-            ? {
-                observedRoute: body.observedRoute,
-                observedVisibility: body.observedVisibility,
-                drawer: body.drawer,
-                ...(body.outcome === "committed" ? { changed: body.changed } : {}),
-                publicationSequence: body.publicationSequence,
-                context: contextTargetDiagnostic(body.context),
-              }
+            ? Object.assign(
+                {
+                  observedRoute: body.observedRoute,
+                  observedVisibility: body.observedVisibility,
+                  drawer: body.drawer,
+                  publicationSequence: body.publicationSequence,
+                  context: contextTargetDiagnostic(body.context),
+                },
+                body.outcome === "committed" ? { changed: body.changed } : undefined,
+              )
             : body,
       }))
       if (response.status === "conflict") {

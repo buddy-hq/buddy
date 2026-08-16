@@ -1,9 +1,9 @@
-export interface RetryOptions {
+type TRetryOptions = {
   attempts?: number
   delay?: number
   factor?: number
   maxDelay?: number
-  retryIf?: (error: unknown) => boolean
+  retryIf?: (error: Error) => boolean
 }
 
 const TRANSIENT_MESSAGES = [
@@ -17,13 +17,20 @@ const TRANSIENT_MESSAGES = [
   "socket hang up",
 ]
 
-function isTransientError(error: unknown): boolean {
-  if (!error) return false
-  const message = String(error instanceof Error ? error.message : error).toLowerCase()
+function isTransientError(error: Error): boolean {
+  const message = error.message.toLowerCase()
   return TRANSIENT_MESSAGES.some((m) => message.includes(m))
 }
 
-export async function retry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
+function toError(error: Error | string | number | boolean | null | undefined): Error {
+  if (error instanceof Error) return error
+  return new Error(`${error}`)
+}
+
+export async function retry<TResult>(
+  fn: () => Promise<TResult>,
+  options: TRetryOptions = {},
+): Promise<TResult> {
   const {
     attempts = 3,
     delay = 500,
@@ -32,16 +39,19 @@ export async function retry<T>(fn: () => Promise<T>, options: RetryOptions = {})
     retryIf = isTransientError,
   } = options
 
-  let lastError: unknown
+  let lastError: Error | undefined
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       return await fn()
     } catch (error) {
-      lastError = error
-      if (attempt === attempts - 1 || !retryIf(error)) throw error
+      const failure = toError(error instanceof Error ? error : `${error}`)
+      lastError = failure
+      if (attempt === attempts - 1 || !retryIf(failure)) throw error
       const wait = Math.min(delay * Math.pow(factor, attempt), maxDelay)
       await new Promise((resolve) => setTimeout(resolve, wait))
     }
   }
   throw lastError
 }
+
+export type { TRetryOptions as RetryOptions }

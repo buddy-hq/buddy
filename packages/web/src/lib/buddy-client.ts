@@ -1,4 +1,5 @@
 import { BuddyClient, createBuddyClient } from "@buddy/sdk"
+import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import {
   authorizationHeader,
   createServerFetchTransport,
@@ -22,33 +23,25 @@ export function getBuddyClient(directory?: string): BuddyClient {
   })
 }
 
-type BuddyResult<T> = {
-  data: T | undefined
+type TBuddyResult<TData> = {
+  data: TData | undefined
   error: unknown
   response: Response | undefined
 }
 
-function hasMessage(value: unknown): value is { message?: unknown } {
-  return Boolean(value && typeof value === "object")
-}
-
-function hasError(value: unknown): value is { error?: unknown } {
-  return Boolean(value && typeof value === "object")
-}
-
-function errorMessage(value: unknown): string | undefined {
-  if (typeof value === "string" && value) return value
-  if (hasError(value)) {
-    const nested = errorMessage(value.error)
-    if (nested) return nested
-  }
-  if (hasMessage(value) && typeof value.message === "string" && value.message) {
-    return value.message
-  }
+function errorMessage<TError>(value: TError): string | undefined {
+  const text = parseTString(value)
+  if (text) return text
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
+  const nested = errorMessage(record.error)
+  if (nested) return nested
+  const message = parseTString(record.message)
+  if (message) return message
   return undefined
 }
 
-export function requireBuddyData<T>(result: BuddyResult<T>): T {
+export function requireBuddyData<TData>(result: TBuddyResult<TData>): TData {
   if (!result.response) {
     throw new Error(errorMessage(result.error) ?? "Request failed (no response)")
   }
@@ -61,7 +54,10 @@ export function requireBuddyData<T>(result: BuddyResult<T>): T {
   return result.data
 }
 
-export function buddyResultMessage(result: { error: unknown; response: Response | undefined }) {
+export function buddyResultMessage(result: {
+  error: unknown
+  response: Response | undefined
+}) {
   return (
     errorMessage(result.error) ?? `Request failed (${result.response?.status ?? "no response"})`
   )

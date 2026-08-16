@@ -1,4 +1,10 @@
 import {
+  parseTJsonObject,
+  parseTNumber,
+  parseTString,
+  type TJsonObject,
+} from "@/components/chat/tools/types"
+import {
   BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
   BENCH_MODE_REQUEST_POLICY,
@@ -41,7 +47,6 @@ const BENCH_WORKSPACE_SELECTOR =
 const BENCH_TITLEBAR_SELECTOR =
   '[data-component="directory-chat-right-workspace-titlebar"]:not([hidden]), [data-component="desktop-titlebar-root-content"]'
 
-type UnknownRecord = Record<string, unknown>
 type BenchClientObservedRoute =
   | { status: "closed" }
   | {
@@ -135,45 +140,45 @@ type DirectoryWorkspaceActionCompletionSink = {
   }): Promise<boolean>
 }
 
-function isRecord(value: unknown): value is UnknownRecord {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+function readString<TValue>(value: TValue): string | undefined {
+  const text = parseTString(value)
+  return text ? text : undefined
 }
 
-function readString(value: unknown): string | undefined {
-  return typeof value === "string" && value ? value : undefined
-}
-
-function readNullableString(value: unknown): string | null | undefined {
+function readNullableString<TValue>(value: TValue): string | null | undefined {
   if (value === null) return null
   return readString(value)
 }
 
-function readBenchAutoOpenIdentity(value: unknown): BenchAutoOpenIdentity | null | undefined {
+function readBenchAutoOpenIdentity<TValue>(value: TValue): BenchAutoOpenIdentity | null | undefined {
   if (value === null) return null
-  if (!isRecord(value)) return undefined
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
   const policyID =
-    value.policyID === BENCH_AUTO_OPEN_POLICY_WHITEBOARD ||
-    value.policyID === BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET
-      ? value.policyID
+    record.policyID === BENCH_AUTO_OPEN_POLICY_WHITEBOARD ||
+    record.policyID === BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET
+      ? record.policyID
       : undefined
-  const eventKey = readString(value.eventKey)
+  const eventKey = readString(record.eventKey)
   return policyID && eventKey ? { policyID, eventKey } : undefined
 }
 
-function readBenchClientAction(value: unknown): BenchClientActionV2 | undefined {
-  if (!isRecord(value)) return undefined
-  if (value.version !== BENCH_CLIENT_ACTION_VERSION) return undefined
-  const actionID = readString(value.actionID)
-  const directory = readString(value.directory)
-  const sessionID = readString(value.sessionID)
-  const messageID = readString(value.messageID)
-  const callID = readNullableString(value.callID)
-  const origin = value.origin === "agent" || value.origin === "auto-open" ? value.origin : undefined
+function readBenchClientAction<TValue>(value: TValue): BenchClientActionV2 | undefined {
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
+  if (record.version !== BENCH_CLIENT_ACTION_VERSION) return undefined
+  const actionID = readString(record.actionID)
+  const directory = readString(record.directory)
+  const sessionID = readString(record.sessionID)
+  const messageID = readString(record.messageID)
+  const callID = readNullableString(record.callID)
+  const origin = record.origin === "agent" || record.origin === "auto-open" ? record.origin : undefined
   const acknowledgement =
-    value.acknowledgement === "required" || value.acknowledgement === "best-effort"
-      ? value.acknowledgement
+    record.acknowledgement === "required" || record.acknowledgement === "best-effort"
+      ? record.acknowledgement
       : undefined
-  const expiresAt = typeof value.expiresAt === "number" ? value.expiresAt : undefined
+  const expiresAt = parseTNumber(record.expiresAt)
+  const command = parseTJsonObject(record.command)
   if (
     !actionID ||
     !directory ||
@@ -183,11 +188,11 @@ function readBenchClientAction(value: unknown): BenchClientActionV2 | undefined 
     !origin ||
     !acknowledgement ||
     !expiresAt ||
-    !isRecord(value.command)
+    !command
   ) {
     return undefined
   }
-  if (value.command.type === "close") {
+  if (command.type === "close") {
     return {
       version: BENCH_CLIENT_ACTION_VERSION,
       actionID,
@@ -201,10 +206,10 @@ function readBenchClientAction(value: unknown): BenchClientActionV2 | undefined 
       command: { type: "close" },
     }
   }
-  const target = readBenchTarget(value.command.target)
+  const target = readBenchTarget(command.target)
   if (!target) return undefined
-  if (value.command.type === "focus_tab") {
-    const tabKey = readString(value.command.tabKey)
+  if (command.type === "focus_tab") {
+    const tabKey = readString(command.tabKey)
     if (!tabKey) return undefined
     return {
       version: BENCH_CLIENT_ACTION_VERSION,
@@ -219,13 +224,13 @@ function readBenchClientAction(value: unknown): BenchClientActionV2 | undefined 
       command: { type: "focus_tab", tabKey, target },
     }
   }
-  if (value.command.type === "capture_bench_screenshot") {
-    const tabKey = readString(value.command.tabKey)
+  if (command.type === "capture_bench_screenshot") {
+    const tabKey = readString(command.tabKey)
     const drawer =
-      value.command.drawer === null
+      command.drawer === null
         ? null
-        : isDrawerKind(value.command.drawer)
-          ? value.command.drawer
+        : isDrawerKind(command.drawer)
+          ? command.drawer
           : undefined
     if (!tabKey || drawer === undefined) return undefined
     return {
@@ -241,8 +246,8 @@ function readBenchClientAction(value: unknown): BenchClientActionV2 | undefined 
       command: { type: "capture_bench_screenshot", tabKey, target, drawer },
     }
   }
-  if (value.command.type !== "present") return undefined
-  const autoOpen = readBenchAutoOpenIdentity(value.command.autoOpen)
+  if (command.type !== "present") return undefined
+  const autoOpen = readBenchAutoOpenIdentity(command.autoOpen)
   if (autoOpen === undefined) return undefined
   return {
     version: BENCH_CLIENT_ACTION_VERSION,
@@ -262,12 +267,13 @@ function readBenchClientAction(value: unknown): BenchClientActionV2 | undefined 
   }
 }
 
-function readBenchClientLease(value: unknown): BenchClientLease | undefined {
-  if (!isRecord(value)) return undefined
-  const instanceID = readString(value.instanceID)
-  const generation = typeof value.generation === "number" ? value.generation : undefined
-  const leaseEpoch = typeof value.leaseEpoch === "number" ? value.leaseEpoch : undefined
-  const directory = readString(value.directory)
+function readBenchClientLease<TValue>(value: TValue): BenchClientLease | undefined {
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
+  const instanceID = readString(record.instanceID)
+  const generation = parseTNumber(record.generation)
+  const leaseEpoch = parseTNumber(record.leaseEpoch)
+  const directory = readString(record.directory)
   if (!instanceID || generation === undefined || leaseEpoch === undefined || !directory) {
     return undefined
   }
@@ -279,18 +285,19 @@ function readBenchClientLease(value: unknown): BenchClientLease | undefined {
   }
 }
 
-function readEventProperties(input: unknown, type: string): UnknownRecord | undefined {
-  if (!isRecord(input)) return undefined
-  if (input.type !== type) return undefined
-  return isRecord(input.properties) ? input.properties : undefined
+function readEventProperties<TInput>(input: TInput, type: string): TJsonObject | undefined {
+  const record = parseTJsonObject(input)
+  if (!record) return undefined
+  if (record.type !== type) return undefined
+  return parseTJsonObject(record.properties)
 }
 
-function readBenchClientActionEvent(input: unknown): BenchClientActionV2 | undefined {
+function readBenchClientActionEvent<TInput>(input: TInput): BenchClientActionV2 | undefined {
   const properties = readEventProperties(input, BENCH_CLIENT_ACTION_TYPE)
   return properties ? readBenchClientAction(properties.action) : undefined
 }
 
-function readBenchClientLeaseEvent(input: unknown): BenchClientLease | undefined {
+function readBenchClientLeaseEvent<TInput>(input: TInput): BenchClientLease | undefined {
   const properties = readEventProperties(input, BENCH_CLIENT_LEASE_TYPE)
   return properties ? readBenchClientLease(properties.lease) : undefined
 }
@@ -814,21 +821,25 @@ export class DirectoryWorkspaceClientActionLedger {
       action,
       completion,
     })
-    const completed = await this.#lifecycle.completeClientAction({
-      actionID: action.actionID,
-      sessionID: action.sessionID,
-      completion,
-      ...(completion.outcome === "captured" && action.command.type === "capture_bench_screenshot"
-        ? {
-            expectedCapture: {
-              tabKey: action.command.tabKey,
-              target: action.command.target,
-              drawer: action.command.drawer,
-            },
-          }
-        : {}),
-      getActiveSessionID: this.#getActiveSessionID,
-    })
+    const completed = await this.#lifecycle.completeClientAction(
+      Object.assign(
+        {
+          actionID: action.actionID,
+          sessionID: action.sessionID,
+          completion,
+          getActiveSessionID: this.#getActiveSessionID,
+        },
+        completion.outcome === "captured" && action.command.type === "capture_bench_screenshot"
+          ? {
+              expectedCapture: {
+                tabKey: action.command.tabKey,
+                target: action.command.target,
+                drawer: action.command.drawer,
+              },
+            }
+          : undefined,
+      ),
+    )
     logBenchToggleStep("client-action-ledger-complete-result", {
       action,
       completion,

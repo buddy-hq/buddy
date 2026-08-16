@@ -10,14 +10,18 @@ export function getOpenCodeClient(directory?: string) {
   const baseUrl = resolveServerApiBaseUrl()
   const transport = createServerFetchTransport(baseUrl)
 
-  return createOpencodeClient({
-    baseUrl,
-    ...(directory ? { directory } : {}),
-    headers: auth
-      ? {
-          authorization: auth,
-        }
-      : undefined,
-    fetch: transport,
-  })
+  return createOpencodeClient(
+    Object.assign(
+      {
+        baseUrl,
+        headers: auth
+          ? {
+              authorization: auth,
+            }
+          : undefined,
+        fetch: transport,
+      },
+      directory ? { directory } : undefined,
+    ),
+  )
 }

@@ -18,14 +18,19 @@ export type FetchImplementation = (
   init?: FetchTransportInit,
 ) => Promise<Response>
 
+type TFetchWithOptionalPreconnect = typeof fetch & {
+  preconnect?: FetchPreconnect
+}
+
 function getFetchPreconnect(transport: typeof fetch): FetchPreconnect | undefined {
-  const preconnect: unknown = Reflect.get(transport, "preconnect")
-  if (typeof preconnect !== "function") {
+  const source: TFetchWithOptionalPreconnect = transport
+  const preconnect = source.preconnect
+  if (!preconnect) {
     return undefined
   }
 
   return (url, options) => {
-    Reflect.apply(preconnect, transport, [url, options])
+    preconnect.call(transport, url, options)
   }
 }
 

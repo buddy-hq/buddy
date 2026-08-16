@@ -183,13 +183,13 @@ export function showDesktopUpdateProgressToast(args: {
 }
 
 function updateProgressDescription(progress: UpdateProgressSnapshot): string {
-  if (typeof progress.percent === "number" && Number.isFinite(progress.percent)) {
+  if (progress.percent !== undefined && Number.isFinite(progress.percent)) {
     return language.t("desktopUpdates.downloadProgressPercent", {
       percent: String(Math.round(progress.percent)),
     })
   }
 
-  if (typeof progress.transferredBytes === "number" && Number.isFinite(progress.transferredBytes)) {
+  if (progress.transferredBytes !== undefined && Number.isFinite(progress.transferredBytes)) {
     return language.t("desktopUpdates.downloadProgressBytes", {
       transferred: formatBytes(progress.transferredBytes),
     })

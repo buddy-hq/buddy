@@ -1,3 +1,4 @@
+import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import { isSameBenchTarget, readBenchTabTarget, type BenchTabTarget } from "@/lib/bench-targets"
 
 export type BenchTab = {
@@ -11,10 +12,6 @@ export type BenchTabSelection = {
 }
 
 const EMPTY_BENCH_TAB_TITLES = new Map<string, string>()
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
 
 export function benchTabKey(target: BenchTabTarget): string {
   if (target.type === "session") {
@@ -68,11 +65,14 @@ export function resolveBenchTabTitle(
   return benchTabFallbackTitle(tab.target)
 }
 
-export function readBenchTab(value: unknown): BenchTab | undefined {
-  if (!isRecord(value) || typeof value.key !== "string") return undefined
-  const target = readBenchTabTarget(value.target)
-  if (!target || value.key !== benchTabKey(target)) return undefined
-  return { key: value.key, target }
+export function readBenchTab<TValue>(value: TValue): BenchTab | undefined {
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
+  const key = parseTString(record.key)
+  if (key === undefined) return undefined
+  const target = readBenchTabTarget(record.target)
+  if (!target || key !== benchTabKey(target)) return undefined
+  return { key, target }
 }
 
 export function areBenchTabsEqual(left: readonly BenchTab[], right: readonly BenchTab[]): boolean {

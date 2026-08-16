@@ -68,13 +68,17 @@ export function useWorkspaceFileOpen(
       if (!directory) return
 
       if (target === WORKSPACE_FILE_OPEN_TARGET_READING) {
-        return onOpenResource?.(directory, {
-          path: input.path,
-          name: input.name ?? fileNameFromPath(input.path),
-          ...(input.objectID ? { objectID: input.objectID } : {}),
-          ...(input.resourceStatus ? { status: input.resourceStatus } : {}),
-        })
-        return
+        return onOpenResource?.(
+          directory,
+          Object.assign(
+            {
+              path: input.path,
+              name: input.name ?? fileNameFromPath(input.path),
+            },
+            input.objectID ? { objectID: input.objectID } : undefined,
+            input.resourceStatus ? { status: input.resourceStatus } : undefined,
+          ),
+        )
       }
 
       if (target === WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH) {
@@ -84,7 +88,6 @@ export function useWorkspaceFileOpen(
           mode: benchMode,
           autoOpen: null,
         })
-        return
       }
 
       if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) {
@@ -94,7 +97,6 @@ export function useWorkspaceFileOpen(
           mode: benchMode,
           autoOpen: null,
         })
-        return
       }
 
       if (target === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP) {
@@ -116,7 +118,7 @@ export function useWorkspaceFileOpen(
       const plan = resolvePlan(input)
       const target = plan.primaryTarget
       if (!target) return false
-      if (plan.requiresLargeFileApproval && typeof input.sizeBytes === "number") {
+      if (plan.requiresLargeFileApproval && input.sizeBytes !== undefined) {
         const choice = await useWorkspaceFileOpenDialogStore.getState().requestApproval({
           path: input.path,
           sizeBytes: input.sizeBytes,

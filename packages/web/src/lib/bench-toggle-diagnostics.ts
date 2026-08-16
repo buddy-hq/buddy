@@ -1,3 +1,4 @@
+import { parseTNumber } from "@/components/chat/tools/types"
 import { diagnosticLog, isDiagnosticLogEnabled } from "@/lib/diagnostic-log"
 
 export const BENCH_TOGGLE_DIAGNOSTIC_CHANNEL = "bench-toggle"
@@ -58,10 +59,10 @@ function elementInfo(target: EventTarget | null): ElementDiagnosticInfo | null {
 export function describeBenchToggleEvent(event: DiagnosticEventLike): DomEventDiagnostic {
   return {
     type: event.type,
-    button: typeof event.button === "number" ? event.button : null,
-    buttons: typeof event.buttons === "number" ? event.buttons : null,
-    clientX: typeof event.clientX === "number" ? event.clientX : null,
-    clientY: typeof event.clientY === "number" ? event.clientY : null,
+    button: parseTNumber(event.button) ?? null,
+    buttons: parseTNumber(event.buttons) ?? null,
+    clientX: parseTNumber(event.clientX) ?? null,
+    clientY: parseTNumber(event.clientY) ?? null,
     defaultPrevented: event.defaultPrevented,
     eventPhase: event.eventPhase,
     target: elementInfo(event.target),
@@ -76,18 +77,26 @@ export function isBenchToggleEventTarget(target: EventTarget | null): boolean {
   )
 }
 
-export function logBenchToggleStep(
+export function logBenchToggleStep<TDetails>(
   event: string,
-  details: Record<string, unknown> | (() => Record<string, unknown>) = {},
+  details?: TDetails | (() => TDetails),
 ): void {
-  if (typeof details === "function" && !isDiagnosticLogEnabled(BENCH_TOGGLE_DIAGNOSTIC_CHANNEL)) {
+  const lazyDetails = isLazyDiagnosticDetails(details)
+  if (lazyDetails && !isDiagnosticLogEnabled(BENCH_TOGGLE_DIAGNOSTIC_CHANNEL)) {
     return
   }
   diagnosticLog({
     channel: BENCH_TOGGLE_DIAGNOSTIC_CHANNEL,
     event,
-    details: typeof details === "function" ? details() : details,
+    details: lazyDetails ? details() : details,
   })
+}
+
+function isLazyDiagnosticDetails<TDetails>(
+  details: TDetails | (() => TDetails) | undefined,
+): details is () => TDetails {
+  const tag = Object.prototype.toString.call(details)
+  return tag === "[object Function]" || tag === "[object AsyncFunction]"
 }
 
 export function logBenchToggleDomEvent(event: string, source: DiagnosticEventLike): void {

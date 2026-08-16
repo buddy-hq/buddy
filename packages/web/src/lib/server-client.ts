@@ -13,7 +13,7 @@ export function resolveServerApiBaseUrl() {
     return `${server.url.replace(/\/+$/, "")}/api`
   }
 
-  const origin = typeof window !== "undefined" ? window.location.origin : ""
+  const origin = "window" in globalThis ? window.location.origin : ""
   if (origin && origin !== "null") {
     return `${origin.replace(/\/+$/, "")}/api`
   }
@@ -59,13 +59,10 @@ export function createServerFetchTransport(baseUrl: string): FetchTransport {
   const transport = getPlatform().fetch ?? fetch
   const useRelativeTransportUrls =
     baseUrl === "http://localhost/api" &&
-    typeof window !== "undefined" &&
+    "window" in globalThis &&
     window.location.origin === "null"
 
   const wrappedTransport = async (input: FetchTransportInput, init?: FetchTransportInit) => {
-    if (typeof input === "string") {
-      return transport(toRelativeUrl(input, useRelativeTransportUrls), init)
-    }
     if (input instanceof URL) {
       return transport(toRelativeUrl(input.toString(), useRelativeTransportUrls), init)
     }
@@ -89,7 +86,10 @@ export function createServerFetchTransport(baseUrl: string): FetchTransport {
         ...init,
       })
     }
-    return transport(input, init)
+    if (input instanceof Request) {
+      return transport(input, init)
+    }
+    return transport(toRelativeUrl(input, useRelativeTransportUrls), init)
   }
 
   return withFetchPreconnect(wrappedTransport, transport)

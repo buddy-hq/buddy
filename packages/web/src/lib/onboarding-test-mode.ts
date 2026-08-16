@@ -1,3 +1,5 @@
+import { parseTJsonObject } from "@/components/chat/tools/types"
+
 export const ONBOARDING_TEST_SEARCH_KEY = "test" as const
 export const ONBOARDING_TEST_SEARCH_VALUE = "onboarding" as const
 
@@ -25,14 +27,15 @@ export function buildOnboardingTestSearch(): OnboardingTestSearch {
   return { test: ONBOARDING_TEST_SEARCH_VALUE }
 }
 
-export function isOnboardingTestSearch(search: unknown): search is OnboardingTestSearch {
-  if (typeof search !== "object" || search === null) {
+export function isOnboardingTestSearch<TSearch>(search: TSearch): search is TSearch & OnboardingTestSearch {
+  const record = parseTJsonObject(search)
+  if (!record) {
     return false
   }
 
-  if (!(ONBOARDING_TEST_SEARCH_KEY in search)) {
+  if (!(ONBOARDING_TEST_SEARCH_KEY in record)) {
     return false
   }
 
-  return search.test === ONBOARDING_TEST_SEARCH_VALUE
+  return record.test === ONBOARDING_TEST_SEARCH_VALUE
 }

@@ -99,7 +99,7 @@ type RetainedFrameDocument = Document & {
 }
 
 function supportsRetainedFrameViewTransition(value: Document): value is RetainedFrameDocument {
-  return "startViewTransition" in value && typeof value.startViewTransition === "function"
+  return "startViewTransition" in value
 }
 
 async function runWithRetainedActiveChatFrame<T>(
@@ -107,7 +107,7 @@ async function runWithRetainedActiveChatFrame<T>(
   update: () => Promise<T>,
 ): Promise<T> {
   if (
-    typeof document === "undefined" ||
+    !("document" in globalThis) ||
     document.visibilityState === "hidden" ||
     !supportsRetainedFrameViewTransition(document)
   ) {
@@ -548,10 +548,14 @@ export function forkActiveChatSession(input: {
       initialization: WORKSPACE_DESTINATION_EMPTY,
     },
     mutate: () =>
-      forkSession(input.directory, {
-        ...(input.sessionID ? { sessionID: input.sessionID } : {}),
-        ...(input.messageID ? { messageID: input.messageID } : {}),
-      }),
+      forkSession(
+        input.directory,
+        Object.assign(
+          {},
+          input.sessionID ? { sessionID: input.sessionID } : undefined,
+          input.messageID ? { messageID: input.messageID } : undefined,
+        ),
+      ),
     navigate: input.navigate,
   })
 }

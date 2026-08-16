@@ -4,6 +4,8 @@ import {
   resolveNotebookLearnerMemorySelection,
 } from "@/state/learner-memory-settings"
 
+type TLearnerMemoryGlobalConfig = Parameters<typeof resolveNotebookLearnerMemorySelection>[0]
+
 type LearnerMemoryBootstrapInput = {
   directory: string
   enabled?: boolean
@@ -11,7 +13,7 @@ type LearnerMemoryBootstrapInput = {
 }
 
 export function buildLearnerMemoryNotebookBootstrapPatch(input: {
-  globalConfig: Record<string, unknown>
+  globalConfig: TLearnerMemoryGlobalConfig
   enabled?: boolean
   autoExtract?: boolean
 }) {

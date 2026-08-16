@@ -1,3 +1,5 @@
+import { parseTJsonObject, parseTString, readNonEmptyString } from "@/components/chat/tools/types"
+
 export const BENCH_CHAT_SEARCH_PARAM = "benchChat"
 export const BENCH_CHAT_LAYOUT_DOCKED = "docked"
 export const BENCH_CHAT_LAYOUT_FLOATING = "floating"
@@ -86,7 +88,7 @@ export type BenchSurfaceKey =
   | "whiteboard"
   | `artifact:${BenchNonFileObjectKind}`
 
-function isBenchMode(value: unknown): value is BenchMode {
+function isBenchMode<TValue>(value: TValue): value is TValue & BenchMode {
   return value === BENCH_CHAT_LAYOUT_FLOATING || value === BENCH_CHAT_LAYOUT_DOCKED
 }
 
@@ -104,42 +106,43 @@ function isBenchObjectKind(value: string): value is BenchObjectKind {
   )
 }
 
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function readNonEmptyString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined
-}
-
-function readNullableString(value: unknown): string | null | undefined {
+function readNullableString<TValue>(value: TValue): string | null | undefined {
   if (value === null) return null
   return readNonEmptyString(value)
 }
 
-function readBenchTarget(value: unknown): BenchTarget | undefined {
-  if (!isUnknownRecord(value)) return undefined
-  if (value.type === "workspace-file") {
-    const path = readNonEmptyString(value.path)
-    const viewer = value.viewer === "markdown" || value.viewer === "file" ? value.viewer : undefined
-    const fragment = value.fragment === undefined ? undefined : readNonEmptyString(value.fragment)
-    if (!path || !viewer || (value.fragment !== undefined && !fragment)) return undefined
-    return {
-      type: "workspace-file",
-      path,
-      viewer,
-      ...(fragment ? { fragment } : {}),
-    }
+function readBenchTarget<TValue>(value: TValue): BenchTarget | undefined {
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
+  if (record.type === "workspace-file") {
+    const path = readNonEmptyString(record.path)
+    const viewer =
+      record.viewer === "markdown"
+        ? ("markdown" as const)
+        : record.viewer === "file"
+          ? ("file" as const)
+          : undefined
+    const fragment = record.fragment === undefined ? undefined : readNonEmptyString(record.fragment)
+    if (!path || !viewer || (record.fragment !== undefined && !fragment)) return undefined
+    return Object.assign(
+      {
+        type: "workspace-file" as const,
+        path,
+        viewer,
+      },
+      fragment ? { fragment } : undefined,
+    )
   }
 
-  if (value.type !== "object" || !isUnknownRecord(value.ref)) return undefined
-  const kind = value.ref.kind
-  const objectID = readNonEmptyString(value.ref.objectID)
-  const revisionID = readNullableString(value.ref.revisionID)
-  const itemID = readNullableString(value.ref.itemID)
-  const viewID = readNonEmptyString(value.viewID)
+  const ref = parseTJsonObject(record.ref)
+  if (record.type !== "object" || !ref) return undefined
+  const kind = parseTString(ref.kind)
+  const objectID = readNonEmptyString(ref.objectID)
+  const revisionID = readNullableString(ref.revisionID)
+  const itemID = readNullableString(ref.itemID)
+  const viewID = readNonEmptyString(record.viewID)
   if (
-    typeof kind !== "string" ||
+    kind === undefined ||
     !isBenchObjectKind(kind) ||
     !objectID ||
     revisionID === undefined ||
@@ -160,15 +163,16 @@ function readBenchTarget(value: unknown): BenchTarget | undefined {
   }
 }
 
-function readBenchTabTarget(value: unknown): BenchTabTarget | undefined {
-  if (isUnknownRecord(value) && value.type === "session") {
-    const sessionID = readNonEmptyString(value.sessionID)
+function readBenchTabTarget<TValue>(value: TValue): BenchTabTarget | undefined {
+  const record = parseTJsonObject(value)
+  if (record && record.type === "session") {
+    const sessionID = readNonEmptyString(record.sessionID)
     return sessionID ? { type: "session", sessionID } : undefined
   }
   return readBenchTarget(value)
 }
 
-function readBenchChatLayoutMode(value: unknown): BenchChatLayoutMode | undefined {
+function readBenchChatLayoutMode<TValue>(value: TValue): BenchChatLayoutMode | undefined {
   return isBenchMode(value) ? value : undefined
 }
 

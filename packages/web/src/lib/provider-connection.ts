@@ -1,31 +1,25 @@
 import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
+import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import type { ProviderInfo } from "@/state/chat-types"
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined
-  }
-  return value as Record<string, unknown>
-}
-
-export function providerNeedsConfigDisable(
+export function providerNeedsConfigDisable<TConfig>(
   provider: ProviderInfo,
-  globalConfig?: Record<string, unknown>,
+  globalConfig?: TConfig,
 ) {
   if (provider.id === OPENCODE_PROVIDER_ID) {
     return false
   }
 
-  const providers = asRecord(globalConfig?.provider)
-  const configuredProvider = asRecord(providers?.[provider.id])
+  const providers = parseTJsonObject(parseTJsonObject(globalConfig)?.provider)
+  const configuredProvider = parseTJsonObject(providers?.[provider.id])
   if (!configuredProvider) {
     return false
   }
 
-  if (configuredProvider.npm !== "@ai-sdk/openai-compatible") {
+  if (parseTString(configuredProvider.npm) !== "@ai-sdk/openai-compatible") {
     return false
   }
 
-  const models = asRecord(configuredProvider.models)
+  const models = parseTJsonObject(configuredProvider.models)
   return Boolean(models && Object.keys(models).length > 0)
 }

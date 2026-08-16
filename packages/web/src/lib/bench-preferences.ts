@@ -1,3 +1,4 @@
+import { parseTJsonObject, parseTNumber } from "@/components/chat/tools/types"
 import { create, type StoreApi, type UseBoundStore } from "zustand"
 import { persist } from "zustand/middleware"
 import { createPlatformJsonStorage } from "@/context/platform"
@@ -5,10 +6,6 @@ import { RIGHT_WORKSPACE_DEFAULT_WIDTH_PX } from "@/lib/directory-chat/right-wor
 
 const BENCH_PRESENTATION_PREFERENCES_STORAGE_KEY = "buddy.bench.presentation.v2"
 const BENCH_PRESENTATION_PREFERENCES_STORAGE_FILE = "buddy.bench.presentation.v2.dat"
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
 
 export type BenchPresentationPreferences = {
   workspaceWidthPx: number
@@ -37,13 +34,13 @@ const useBenchPresentationPreferencesStore = create<BenchPresentationPreferences
         }
       },
       merge(persistedState, currentState) {
-        if (!isRecord(persistedState)) return currentState
+        const record = parseTJsonObject(persistedState)
+        if (!record) return currentState
 
+        const parsedWidth = parseTNumber(record.workspaceWidthPx)
         const workspaceWidthPx =
-          typeof persistedState.workspaceWidthPx === "number" &&
-          Number.isFinite(persistedState.workspaceWidthPx) &&
-          persistedState.workspaceWidthPx > 0
-            ? persistedState.workspaceWidthPx
+          parsedWidth !== undefined && Number.isFinite(parsedWidth) && parsedWidth > 0
+            ? parsedWidth
             : currentState.workspaceWidthPx
 
         return {

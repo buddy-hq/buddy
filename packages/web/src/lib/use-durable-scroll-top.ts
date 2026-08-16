@@ -56,7 +56,7 @@ export function useDurableScrollTop(key: string) {
     // tree being replaced with the real list. Both are needed because the scroll container itself
     // usually keeps a fixed height while only its scrollHeight changes.
     resizeObserver =
-      pendingRestoreRef.current !== undefined && typeof globalThis.ResizeObserver === "function"
+      pendingRestoreRef.current !== undefined && "ResizeObserver" in globalThis
         ? new globalThis.ResizeObserver(applyPendingRestore)
         : undefined
     resizeObserver?.observe(container)
@@ -64,7 +64,7 @@ export function useDurableScrollTop(key: string) {
       resizeObserver?.observe(child)
     }
     mutationObserver =
-      pendingRestoreRef.current !== undefined && typeof globalThis.MutationObserver === "function"
+      pendingRestoreRef.current !== undefined && "MutationObserver" in globalThis
         ? new globalThis.MutationObserver((records) => {
             for (const record of records) {
               for (const addedNode of record.addedNodes) {

@@ -177,7 +177,7 @@ function hasPendingMarkdownPdfRender(element: HTMLElement): boolean {
 }
 
 export async function waitForMarkdownPdfRenderReady(element: HTMLElement): Promise<void> {
-  if (!hasPendingMarkdownPdfRender(element) || typeof MutationObserver === "undefined") {
+  if (!hasPendingMarkdownPdfRender(element) || !("MutationObserver" in globalThis)) {
     return
   }
 

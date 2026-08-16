@@ -1,14 +1,21 @@
 import { useEffect, useRef } from "react"
 
-type StrictModeDeferredDisposalInput = {
-  ownerKey: unknown
-  dispose: () => void
-  eventPrefix?: string
-  getDiagnostics?: () => Record<string, unknown>
-  logEvent?: (event: string, details: Record<string, unknown>) => void
+type TDisposalLogDetails = {
+  disposalGeneration: number
+  currentDisposalGeneration?: number
 }
 
-export function useStrictModeDeferredDisposal(input: StrictModeDeferredDisposalInput): void {
+type TStrictModeDeferredDisposalInput<TOwnerKey, TDiagnostics> = {
+  ownerKey: TOwnerKey
+  dispose: () => void
+  eventPrefix?: string
+  getDiagnostics?: () => TDiagnostics
+  logEvent?: (event: string, details: TDiagnostics & TDisposalLogDetails) => void
+}
+
+export function useStrictModeDeferredDisposal<TOwnerKey, TDiagnostics>(
+  input: TStrictModeDeferredDisposalInput<TOwnerKey, TDiagnostics>,
+): void {
   const { eventPrefix, logEvent, ownerKey } = input
   const disposalGenerationRef = useRef(0)
   const disposeRef = useRef(input.dispose)
@@ -21,11 +28,12 @@ export function useStrictModeDeferredDisposal(input: StrictModeDeferredDisposalI
     disposalGenerationRef.current += 1
     const disposalGeneration = disposalGenerationRef.current
     const prefix = eventPrefix ?? "strict-mode-deferred-disposal"
-    const emitLog = (suffix: string, details: Record<string, unknown>) => {
+    const emitLog = (suffix: string, details: TDisposalLogDetails) => {
       if (!logEvent) return
-
-      const diagnostics = getDiagnosticsRef.current?.()
-      logEvent(`${prefix}-${suffix}`, diagnostics ? { ...diagnostics, ...details } : details)
+      logEvent(
+        `${prefix}-${suffix}`,
+        Object.assign({}, getDiagnosticsRef.current?.(), details),
+      )
     }
 
     emitLog("effect-mount", { disposalGeneration })

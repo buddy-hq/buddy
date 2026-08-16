@@ -11,15 +11,18 @@ function normalizePath(input: string) {
 }
 
 function toFirstPath(input: string | string[] | null) {
-  if (typeof input === "string") return normalizePath(input)
-  if (Array.isArray(input) && typeof input[0] === "string") return normalizePath(input[0])
-  return null
+  if (Array.isArray(input)) {
+    const firstPath = input[0]
+    return firstPath === undefined ? null : normalizePath(firstPath)
+  }
+  if (input === null) return null
+  return normalizePath(input)
 }
 
 export async function pickResourceFilePath(): Promise<string | null> {
   const platform = getPlatform()
 
-  if (typeof platform.openFilePickerDialog === "function") {
+  if (platform.openFilePickerDialog) {
     const platformResult = await platform.openFilePickerDialog({
       title: RESOURCE_PICKER_TITLE,
       multiple: false,

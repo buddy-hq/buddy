@@ -116,8 +116,8 @@ export type PresentedMediaInlineItem = {
   fileName: string | null
 }
 
-function readNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined
+function readNonEmptyString(value: string | null | undefined): string | undefined {
+  if (value === null || value === undefined) return undefined
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined
 }

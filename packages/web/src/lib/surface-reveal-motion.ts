@@ -84,7 +84,7 @@ export function resolveSurfaceRevealVariants(reduceMotion: boolean): Variants {
 }
 
 export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false
+  if (!("window" in globalThis) || !window.matchMedia) return false
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
 
@@ -130,7 +130,7 @@ const NO_OP_ANCHOR_SHIFT_ANIMATOR: AnchorShiftAnimator = {
 }
 
 export function createAnchorShiftAnimator(): AnchorShiftAnimator {
-  if (typeof window === "undefined") return NO_OP_ANCHOR_SHIFT_ANIMATOR
+  if (!("window" in globalThis)) return NO_OP_ANCHOR_SHIFT_ANIMATOR
 
   const running = new Set<Animation>()
 
@@ -142,7 +142,7 @@ export function createAnchorShiftAnimator(): AnchorShiftAnimator {
       running.clear()
     },
     run: (element, shiftPx) => {
-      if (!element || typeof element.animate !== "function") return
+      if (!element || !element.animate) return
       if (!shouldAnimateAnchorShift(shiftPx) || prefersReducedMotion()) return
 
       // `composite: "add"` layers this onto any in-flight catch-up instead of

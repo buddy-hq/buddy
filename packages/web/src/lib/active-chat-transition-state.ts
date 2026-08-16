@@ -145,7 +145,7 @@ export async function waitForActiveChatDestinationLayout(
 export function releaseActiveChatLayoutMotionAfterPaint(
   transitionID: ActiveChatTransitionID,
 ): void {
-  if (typeof globalThis.requestAnimationFrame !== "function") {
+  if (!globalThis.requestAnimationFrame) {
     releaseActiveChatLayoutMotion(transitionID)
     return
   }

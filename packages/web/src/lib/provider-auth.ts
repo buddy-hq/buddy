@@ -1,4 +1,5 @@
 import type { ProviderAuthAuthorization } from "@buddy/sdk/types"
+import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import type { ProviderInfo } from "@/state/chat-types"
 import { clearOpenAIUsageQuery } from "@/state/openai-usage-query"
 import { appQueryClient } from "@/state/query-client"
@@ -8,31 +9,19 @@ import { OPENAI_PROVIDER_ID } from "./provider-ids"
 const CANCELLED_AUTHORIZATION_ERROR = "Authorization cancelled"
 const SUPERSEDED_AUTHORIZATION_ERROR = "Superseded by a newer authorization request"
 
-function hasErrorData(error: unknown): error is { data?: { message?: unknown } } {
-  return Boolean(error && typeof error === "object" && "data" in error)
-}
+export function formatProviderAuthError<TError>(error: TError, fallback: string): string {
+  const record = parseTJsonObject(error)
+  const dataMessage = record ? parseTString(parseTJsonObject(record.data)?.message) : undefined
+  if (dataMessage) return dataMessage
 
-function hasNestedError(error: unknown): error is { error?: unknown } {
-  return Boolean(error && typeof error === "object" && "error" in error)
-}
+  const nested = record ? formatProviderAuthError(record.error, "") : ""
+  if (nested) return nested
 
-function hasMessage(error: unknown): error is { message?: unknown } {
-  return Boolean(error && typeof error === "object" && "message" in error)
-}
-
-export function formatProviderAuthError(error: unknown, fallback: string): string {
-  if (hasErrorData(error) && typeof error.data?.message === "string" && error.data.message) {
-    return error.data.message
-  }
-  if (hasNestedError(error)) {
-    const nested = formatProviderAuthError(error.error, "")
-    if (nested) return nested
-  }
-  if (hasMessage(error) && typeof error.message === "string" && error.message) {
-    return error.message
-  }
+  const message = record ? parseTString(record.message) : undefined
+  if (message) return message
   if (error instanceof Error && error.message) return error.message
-  if (typeof error === "string" && error) return error
+  const text = parseTString(error)
+  if (text) return text
   return fallback
 }
 
@@ -82,11 +71,13 @@ export async function completeProviderOAuth(input: {
 }) {
   const client = getBuddyClient(input.directory)
   await client.provider.oauth.callback(
-    {
-      providerID: input.providerID,
-      method: input.methodIndex,
-      ...(input.code ? { code: input.code } : {}),
-    },
+    Object.assign(
+      {
+        providerID: input.providerID,
+        method: input.methodIndex,
+      },
+      input.code ? { code: input.code } : undefined,
+    ),
     { throwOnError: true },
   )
   if (input.providerID === OPENAI_PROVIDER_ID) {
@@ -104,7 +95,7 @@ export async function cancelProviderOAuth(input: { directory?: string; providerI
   )
 }
 
-export function isProviderAuthFlowInterrupted(error: unknown) {
+export function isProviderAuthFlowInterrupted<TError>(error: TError) {
   const message = formatProviderAuthError(error, "")
   return message === CANCELLED_AUTHORIZATION_ERROR || message === SUPERSEDED_AUTHORIZATION_ERROR
 }

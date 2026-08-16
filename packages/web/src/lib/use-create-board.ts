@@ -24,7 +24,7 @@ export type CreateBoardController = {
 async function createEmptyBoardAndOpen(input: {
   directory: string
   create: () => Promise<{ objectID: string }>
-  refetch: () => Promise<unknown>
+  refetch: () => Promise<void>
   open: (request: RightWorkspaceOpenRequest) => Promise<RightWorkspaceOpenOutcome>
 }): Promise<RightWorkspaceOpenOutcome> {
   const board = await input.create()
@@ -66,7 +66,9 @@ export function useCreateBoard(input: {
       return await createEmptyBoardAndOpen({
         directory,
         create: () => mutateAsync(),
-        refetch: () => refetchActiveWorkspaceObjectQueries(queryClient, directory),
+        refetch: async () => {
+          await refetchActiveWorkspaceObjectQueries(queryClient, directory)
+        },
         open,
       })
     } catch (error) {

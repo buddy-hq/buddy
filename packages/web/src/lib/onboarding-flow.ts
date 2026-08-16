@@ -75,7 +75,7 @@ async function completeProviderOAuthUntilAborted(input: {
     signal.addEventListener("abort", handleAbort, { once: true })
     void input.completeProviderOAuth(input.request).then(
       () => settle(resolve),
-      (error: unknown) => settle(() => reject(error)),
+      (error) => settle(() => reject(error)),
     )
   })
 }
@@ -309,7 +309,11 @@ export async function configureNotebookForOnboarding(input: {
   refreshOpenAIModelAvailability?: (
     directory: string,
   ) => Promise<ProviderCatalogState["openAIModelAvailability"]>
-}) {
+}): Promise<{
+  directory: string
+  model: string
+  variant?: string
+}> {
   const nextDirectory = await input.prepareNotebook()
   let providerCatalog = await input.loadProviderCatalog(nextDirectory)
   if (
@@ -354,9 +358,11 @@ export async function configureNotebookForOnboarding(input: {
 
   const configuredModel = `${model.providerID}/${model.modelID}`
 
-  return {
-    directory: nextDirectory,
-    model: configuredModel,
-    ...(preferredModel ? { variant: preferredModel.variant } : {}),
-  }
+  return Object.assign(
+    {
+      directory: nextDirectory,
+      model: configuredModel,
+    },
+    preferredModel ? { variant: preferredModel.variant } : undefined,
+  )
 }

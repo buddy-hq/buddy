@@ -1245,33 +1245,38 @@ export class DirectoryWorkspaceController {
     })
     const state = this.#store.getState()
     const currentTabs = workspacePresentationSlotForChat(state.slots, state.activeChatKey).tabs
+    const expectedRoute: BenchRouteSnapshot = {
+      status: BENCH_ROUTE_STATUS_OPEN,
+      target: decision.target,
+      mode: decision.mode,
+    }
     return openExecutionResult(
       decision,
-      await this.#executeNavigationCommand({
-        commandID,
-        expectedDirectory: decision.directory,
-        expectedRoute: {
-          status: BENCH_ROUTE_STATUS_OPEN,
-          target: decision.target,
-          mode: decision.mode,
-        },
-        workspaceCommit:
-          decision.mode === BENCH_CHAT_LAYOUT_DOCKED
-            ? createExpandedWorkspaceState(null)
-            : createCollapsedWorkspaceState(),
-        ...(decision.directory === this.#directory
-          ? { tabs: upsertBenchTab(currentTabs, decision.target).tabs }
-          : {}),
-        navigateOptions: {
-          ...buildBenchNavigation({
-            directory: decision.directory,
-            target: decision.target,
-            mode: decision.mode,
-          }),
-          replace: currentRoute.status === BENCH_ROUTE_STATUS_OPEN,
-        },
-        origin: options.origin,
-      }),
+      await this.#executeNavigationCommand(
+        Object.assign(
+          {
+            commandID,
+            expectedDirectory: decision.directory,
+            expectedRoute,
+            workspaceCommit:
+              decision.mode === BENCH_CHAT_LAYOUT_DOCKED
+                ? createExpandedWorkspaceState(null)
+                : createCollapsedWorkspaceState(),
+            navigateOptions: {
+              ...buildBenchNavigation({
+                directory: decision.directory,
+                target: decision.target,
+                mode: decision.mode,
+              }),
+              replace: currentRoute.status === BENCH_ROUTE_STATUS_OPEN,
+            },
+            origin: options.origin,
+          },
+          decision.directory === this.#directory
+            ? { tabs: upsertBenchTab(currentTabs, decision.target).tabs }
+            : undefined,
+        ),
+      ),
     )
   }
 
@@ -1352,15 +1357,19 @@ export class DirectoryWorkspaceController {
         route: currentRoute,
       })
     }
-    this.#store.getState().stageChatTransition({
-      commandID,
-      chatKey: command.destinationChatKey,
-      ...(command.destinationInitialization === WORKSPACE_DESTINATION_EMPTY ||
-      command.destinationInitialization === WORKSPACE_DESTINATION_INHERIT_CURRENT
-        ? { destinationSlot }
-        : {}),
-      previousProjection,
-    })
+    this.#store.getState().stageChatTransition(
+      Object.assign(
+        {
+          commandID,
+          chatKey: command.destinationChatKey,
+          previousProjection,
+        },
+        command.destinationInitialization === WORKSPACE_DESTINATION_EMPTY ||
+          command.destinationInitialization === WORKSPACE_DESTINATION_INHERIT_CURRENT
+          ? { destinationSlot }
+          : undefined,
+      ),
+    )
     const projection = this.#currentProjection()
     return committedProjectionResult({
       changed: didProjectionChange({ previous: previousProjection, next: projection }),
@@ -1638,12 +1647,16 @@ export class DirectoryWorkspaceController {
       attemptID,
       finalRoute,
     })
-    this.#store.getState().commitDockedState({
-      commandID: input.commandID,
-      docked: input.workspaceCommit,
-      route: finalRoute,
-      ...(input.tabs ? { tabs: input.tabs } : {}),
-    })
+    this.#store.getState().commitDockedState(
+      Object.assign(
+        {
+          commandID: input.commandID,
+          docked: input.workspaceCommit,
+          route: finalRoute,
+        },
+        input.tabs ? { tabs: input.tabs } : undefined,
+      ),
+    )
     const projection = this.#projectionForRoute(finalRoute)
     const changed = didProjectionChange({ previous: previousProjection, next: projection })
     const result = committedProjectionResult({ changed, projection })
