@@ -23,8 +23,24 @@ export type FaqJsonLdItem = {
   readonly answer: string
 }
 
+export type FaqPageJsonLd = {
+  readonly "@type": "FAQPage"
+  readonly "@id": string
+  readonly mainEntity: readonly {
+    readonly "@type": "Question"
+    readonly name: string
+    readonly acceptedAnswer: {
+      readonly "@type": "Answer"
+      readonly text: string
+    }
+  }[]
+}
+
 /** FAQPage node for the @graph in SeoHead (no @context — graph owns that). */
-export function buildFaqPageJsonLd(pageUrl: string, items: readonly FaqJsonLdItem[]): JsonLdObject {
+export function buildFaqPageJsonLd(
+  pageUrl: string,
+  items: readonly FaqJsonLdItem[],
+): FaqPageJsonLd {
   return {
     "@type": "FAQPage",
     "@id": `${pageUrl}#faq`,

@@ -5,10 +5,10 @@ type InstallOperatingSystem = "mac" | "win"
 
 const analyticsHosts = new Set(["hibuddy.in", "www.hibuddy.in"])
 const eventInstallScriptRequested = "install_script_requested"
-const installScripts: Record<InstallOperatingSystem, string> = {
+const installScripts = {
   mac: "/install-buddy-macos.sh",
   win: "/install-buddy-windows.ps1",
-}
+} satisfies Record<InstallOperatingSystem, string>
 const postHogCaptureTimeoutMs = 750
 const windowsUserAgentPattern = /Windows|Win32|Win64/i
 

@@ -25,7 +25,7 @@ export type CompareLogoMeta = {
 
 export const BUDDY_ACCENT = "#FF6B35"
 
-export const COMPARE_LOGOS: Readonly<Record<CompareLogoId, CompareLogoMeta>> = {
+export const COMPARE_LOGOS = {
   "buddy-vs-chatgpt": {
     id: "buddy-vs-chatgpt",
     file: "chatgpt.svg",
@@ -80,7 +80,7 @@ export const COMPARE_LOGOS: Readonly<Record<CompareLogoId, CompareLogoMeta>> = {
     accent: "#506CF7",
     plate: "light",
   },
-}
+} satisfies Readonly<Record<CompareLogoId, CompareLogoMeta>>
 
 export function isCompareLogoId(value: string): value is CompareLogoId {
   return Object.hasOwn(COMPARE_LOGOS, value)
