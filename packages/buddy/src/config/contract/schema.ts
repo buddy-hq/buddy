@@ -118,14 +118,18 @@ export namespace ConfigSchema {
     })
   export type PersonaOverride = z.infer<typeof PersonaOverride>
 
-  const PERSONA_OVERRIDE_SHAPE = Object.fromEntries(
-    PERSONAS.map((personaID) => [personaID, PersonaOverride.optional()]),
-  ) as Record<(typeof PERSONAS)[number], z.ZodOptional<typeof PersonaOverride>>
+  const PERSONA_OVERRIDE_FIELDS = {
+    buddy: PersonaOverride.optional(),
+    "teaching-buddy": PersonaOverride.optional(),
+    code: PersonaOverride.optional(),
+  } satisfies {
+    [K in (typeof PERSONAS)[number]]: z.ZodOptional<typeof PersonaOverride>
+  }
 
-  export const Personas = z.object(PERSONA_OVERRIDE_SHAPE).strict()
+  export const Personas = z.object(PERSONA_OVERRIDE_FIELDS).strict()
   export type Personas = z.infer<typeof Personas>
 
-  const PROJECT_INFO_SHAPE = {
+  const PROJECT_INFO_FIELDS = {
     $schema: z.string().optional(),
     skills: Skills.optional(),
     disabled_providers: z.array(z.string()).optional(),
@@ -147,7 +151,7 @@ export namespace ConfigSchema {
     notebook_home: z.string().nullable().optional(),
   }
 
-  const ProjectInfoBase = z.object(PROJECT_INFO_SHAPE).strict()
+  const ProjectInfoBase = z.object(PROJECT_INFO_FIELDS).strict()
   type ProjectInfoBase = z.output<typeof ProjectInfoBase>
 
   function validateInfo(value: ProjectInfoBase, ctx: z.RefinementCtx): void {
@@ -187,7 +191,7 @@ export namespace ConfigSchema {
       })
     }
 
-    if (typeof value.notebook_home === "string") {
+    if (value.notebook_home !== undefined && value.notebook_home !== null) {
       const notebookHomePath = value.notebook_home.trim()
       if (!path.isAbsolute(notebookHomePath)) {
         ctx.addIssue({
@@ -204,7 +208,7 @@ export namespace ConfigSchema {
 
   export const Info = z
     .object({
-      ...PROJECT_INFO_SHAPE,
+      ...PROJECT_INFO_FIELDS,
       experimental_features: ExperimentalFeatures,
     })
     .strict()

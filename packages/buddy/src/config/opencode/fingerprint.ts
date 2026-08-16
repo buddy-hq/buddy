@@ -1,7 +1,8 @@
 import { Config } from "../config.js"
+import { parseConfigObject } from "../parse-values.js"
 
-function stableSerialize(value: unknown): string {
-  if (value === null || typeof value !== "object") {
+function stableSerialize<TValue>(value: TValue): string {
+  if (value === null) {
     return JSON.stringify(value)
   }
 
@@ -9,13 +10,16 @@ function stableSerialize(value: unknown): string {
     return `[${value.map((item) => stableSerialize(item)).join(",")}]`
   }
 
-  const entries = Object.entries(value as Record<string, unknown>).toSorted(([a], [b]) =>
-    a.localeCompare(b),
-  )
-  return `{${entries.map(([key, nested]) => `${JSON.stringify(key)}:${stableSerialize(nested)}`).join(",")}}`
+  const record = parseConfigObject(value)
+  if (record !== undefined) {
+    const entries = Object.entries(record).toSorted(([left], [right]) => left.localeCompare(right))
+    return `{${entries.map(([key, nested]) => `${JSON.stringify(key)}:${stableSerialize(nested)}`).join(",")}}`
+  }
+
+  return JSON.stringify(value)
 }
 
-function fingerprintOpenCodeConfig(config: Config.Info, overlay: unknown): string {
+function fingerprintOpenCodeConfig<TOverlay>(config: Config.Info, overlay: TOverlay): string {
   return stableSerialize({
     config,
     overlay,

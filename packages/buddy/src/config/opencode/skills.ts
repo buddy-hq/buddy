@@ -151,9 +151,8 @@ function resolveConfiguredSkillPaths(config: Config.Info, directory: string): st
   }
 
   return config.skills.paths
-    .filter((entry: unknown): entry is string => typeof entry === "string")
-    .map((entry: string) => entry.trim())
-    .filter((entry: string) => entry.length > 0)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
     .map((entry: string) => {
       const expanded = entry.startsWith("~/") ? path.join(Global.Path.home, entry.slice(2)) : entry
       return path.isAbsolute(expanded) ? path.resolve(expanded) : path.resolve(directory, expanded)

@@ -1,14 +1,13 @@
-function parseConfiguredModel(value: unknown):
-  | {
-      providerID: string
-      modelID: string
-    }
-  | undefined {
-  if (typeof value !== "string") return undefined
-  const trimmed = value.trim()
+import { parseConfigString, type TConfiguredModel } from "../parse-values.js"
+
+function parseConfiguredModel<TValue>(value: TValue): TConfiguredModel | undefined {
+  const parsed = parseConfigString(value)
+  if (parsed === undefined) return undefined
+  const trimmed = parsed.trim()
   if (!trimmed) return undefined
 
   const [providerID, ...rest] = trimmed.split("/")
+  if (providerID === undefined) return undefined
 
   return {
     providerID,
@@ -17,3 +16,4 @@ function parseConfiguredModel(value: unknown):
 }
 
 export { parseConfiguredModel }
+export type { TConfiguredModel }

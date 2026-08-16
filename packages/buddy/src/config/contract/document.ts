@@ -10,17 +10,24 @@ import {
 } from "jsonc-parser"
 import { ConfigSchema } from "./schema.js"
 import { InvalidError, JsonError } from "./errors.js"
+import {
+  parseConfigJsonValue,
+  parseConfigObject,
+  parseNodeErrorCode,
+  type TConfigJsonValue,
+} from "../parse-values.js"
 import type { ZodType } from "zod"
 
 const BUDDY_CONFIG_SCHEMA_URL = "https://buddy/config.json"
 
-type ConfigDocument = {
+type TConfigDocument = {
   $schema?: string
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
+const JSONC_FORMATTING = {
+  insertSpaces: true,
+  tabSize: 2,
+} as const
 
 function formatParseErrors(text: string, errors: JsoncParseError[]) {
   const lines = text.split("\n")
@@ -38,21 +45,20 @@ function formatParseErrors(text: string, errors: JsoncParseError[]) {
     .join("\n")
 }
 
-async function loadConfigFileWithSchema<T extends ConfigDocument>(
+async function loadConfigFileWithSchema<T extends TConfigDocument>(
   filepath: string,
   schema: ZodType<T>,
 ): Promise<T> {
-  const text = await fsp.readFile(filepath, "utf8").catch((err: unknown) => {
-    const maybe = err as { code?: string }
-    if (maybe.code === "ENOENT") return undefined
-    throw new JsonError({ path: filepath }, { cause: err })
+  const text = await fsp.readFile(filepath, "utf8").catch((error) => {
+    if (parseNodeErrorCode(error) === "ENOENT") return undefined
+    throw new JsonError({ path: filepath }, { cause: error })
   })
 
   if (!text) return schema.parse({})
   return loadConfigTextWithSchema(text, { path: filepath }, schema)
 }
 
-async function loadConfigTextWithSchema<T extends ConfigDocument>(
+async function loadConfigTextWithSchema<T extends TConfigDocument>(
   text: string,
   options: { path: string } | { dir: string; source: string },
   schema: ZodType<T>,
@@ -78,10 +84,9 @@ async function loadConfigTextWithSchema<T extends ConfigDocument>(
       }
 
       const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
-      const content = await fsp.readFile(resolvedPath, "utf8").catch((error: unknown) => {
-        const err = error as { code?: string }
+      const content = await fsp.readFile(resolvedPath, "utf8").catch((error) => {
         const base = `bad file reference: "${match}"`
-        if (err.code === "ENOENT") {
+        if (parseNodeErrorCode(error) === "ENOENT") {
           throw new InvalidError(
             { path: source, message: `${base} ${resolvedPath} does not exist` },
             { cause: error },
@@ -159,28 +164,26 @@ export function parseProjectConfigText(text: string, filepath: string): ConfigSc
   return parseConfigTextWithSchema(text, filepath, ConfigSchema.ProjectInfo)
 }
 
-export function patchJsoncDocument(
+export function patchJsoncDocument<TPatch>(
   input: string,
-  patch: unknown,
+  patch: TPatch,
   patchPath: string[] = [],
 ): string {
-  if (!isRecord(patch)) {
+  const record = parseConfigObject(patch)
+  if (record === undefined) {
     const edits = modify(input, patchPath, patch, {
-      formattingOptions: {
-        insertSpaces: true,
-        tabSize: 2,
-      },
+      formattingOptions: JSONC_FORMATTING,
     })
     return applyEdits(input, edits)
   }
 
-  return Object.entries(patch).reduce((result, [key, value]) => {
+  return Object.entries(record).reduce((result, [key, value]) => {
     if (value === undefined) return result
     return patchJsoncDocument(result, value, [...patchPath, key])
   }, input)
 }
 
-function parseJsoncValue(text: string): unknown {
+function parseJsoncValue(text: string): TConfigJsonValue | undefined {
   const errors: JsoncParseError[] = []
   const value = parseJsonc(text, errors, { allowTrailingComma: true })
   if (errors.length > 0) {
@@ -189,52 +192,55 @@ function parseJsoncValue(text: string): unknown {
       message: formatParseErrors(text, errors),
     })
   }
-  return value
+  if (value === undefined) return undefined
+  const parsed = parseConfigJsonValue(value)
+  if (parsed === undefined) {
+    throw new JsonError({
+      path: "<inline>",
+      message: formatParseErrors(text, errors),
+    })
+  }
+  return parsed
 }
 
-export function replaceJsoncDocument(
+export function replaceJsoncDocument<TValue>(
   input: string,
-  nextValue: unknown,
+  nextValue: TValue,
   patchPath: string[] = [],
 ): string {
   const currentValue = patchPath.length === 0 ? parseJsoncValue(input) : undefined
   return replaceJsoncDocumentValue(input, currentValue, nextValue, patchPath)
 }
 
-function replaceJsoncDocumentValue(
+function replaceJsoncDocumentValue<TCurrent, TNext>(
   input: string,
-  currentValue: unknown,
-  nextValue: unknown,
+  currentValue: TCurrent,
+  nextValue: TNext,
   patchPath: string[],
 ): string {
-  if (!isRecord(nextValue)) {
+  const nextRecord = parseConfigObject(nextValue)
+  if (nextRecord === undefined) {
     const edits = modify(input, patchPath, nextValue, {
-      formattingOptions: {
-        insertSpaces: true,
-        tabSize: 2,
-      },
+      formattingOptions: JSONC_FORMATTING,
     })
     return applyEdits(input, edits)
   }
 
-  const currentRecord = isRecord(currentValue) ? currentValue : {}
+  const currentRecord = parseConfigObject(currentValue) ?? {}
   let result = input
 
   for (const key of Object.keys(currentRecord)) {
-    if (key in nextValue) {
+    if (key in nextRecord) {
       continue
     }
 
     const edits = modify(result, [...patchPath, key], undefined, {
-      formattingOptions: {
-        insertSpaces: true,
-        tabSize: 2,
-      },
+      formattingOptions: JSONC_FORMATTING,
     })
     result = applyEdits(result, edits)
   }
 
-  for (const [key, value] of Object.entries(nextValue)) {
+  for (const [key, value] of Object.entries(nextRecord)) {
     result = replaceJsoncDocumentValue(result, currentRecord[key], value, [...patchPath, key])
   }
 

@@ -12,6 +12,7 @@ import { REGISTERED_BUDDY_PERSONAS } from "../../learning/personas/registry"
 import { listBuddySubagents } from "../../learning/runtime-subagents"
 import { deriveStaticPersonaToolPermissionsFromProfile } from "../../learning/runtime/persona-tool-permissions"
 import { Config } from "../config.js"
+import { parseConfigObject, parsePermissionAction } from "../parse-values.js"
 
 function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Config.Agent {
   const options =
@@ -44,11 +45,21 @@ function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Conf
 function permissionRuleEntries(
   rule: Config.PermissionRule,
 ): Array<[string, Config.PermissionAction]> {
-  if (typeof rule === "string") {
-    return [["*", rule]]
+  const action = parsePermissionAction(rule)
+  if (action !== undefined) {
+    return [["*", action]]
   }
 
-  return Object.entries(rule)
+  const record = parseConfigObject(rule)
+  if (record === undefined) return []
+
+  const entries: Array<[string, Config.PermissionAction]> = []
+  for (const [pattern, nested] of Object.entries(record)) {
+    const nestedAction = parsePermissionAction(nested)
+    if (nestedAction === undefined) continue
+    entries.push([pattern, nestedAction])
+  }
+  return entries
 }
 
 function mergePermissionRule(

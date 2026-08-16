@@ -1,4 +1,5 @@
 import type { ZodIssue } from "zod"
+import { parseConfigString } from "../parse-values.js"
 
 export class JsonError extends Error {
   readonly data: {
@@ -6,13 +7,13 @@ export class JsonError extends Error {
     message?: string
   }
 
-  constructor(data: { path: string; message?: string }, options?: { cause?: unknown }) {
-    super(data.message ?? `Invalid JSONC in ${data.path}`)
+  constructor(data: { path: string; message?: string }, options?: ErrorOptions) {
+    super(
+      data.message ?? `Invalid JSONC in ${data.path}`,
+      options?.cause !== undefined ? options : undefined,
+    )
     this.name = "ConfigJsonError"
     this.data = data
-    if (options?.cause !== undefined) {
-      ;(this as Error & { cause?: unknown }).cause = options.cause
-    }
   }
 }
 
@@ -25,22 +26,22 @@ export class InvalidError extends Error {
 
   constructor(
     data: { path: string; issues?: ZodIssue[]; message?: string },
-    options?: { cause?: unknown },
+    options?: ErrorOptions,
   ) {
-    super(data.message ?? `Invalid config: ${data.path}`)
+    super(
+      data.message ?? `Invalid config: ${data.path}`,
+      options?.cause !== undefined ? options : undefined,
+    )
     this.name = "ConfigInvalidError"
     this.data = data
-    if (options?.cause !== undefined) {
-      ;(this as Error & { cause?: unknown }).cause = options.cause
-    }
   }
 }
 
-export function isConfigValidationError(error: unknown): boolean {
+export function isConfigValidationError<TError>(error: TError): boolean {
   return error instanceof JsonError || error instanceof InvalidError
 }
 
-export function configErrorMessage(error: unknown): string {
+export function configErrorMessage<TError>(error: TError): string {
   if (error instanceof InvalidError && error.data.issues && error.data.issues.length > 0) {
     const issueText = error.data.issues
       .map((issue) => {
@@ -51,5 +52,5 @@ export function configErrorMessage(error: unknown): string {
     return `Invalid config: ${error.data.path} (${issueText})`
   }
   if (error instanceof Error && error.message) return error.message
-  return "Invalid config"
+  return parseConfigString(error) ?? "Invalid config"
 }

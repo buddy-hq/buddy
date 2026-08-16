@@ -1,6 +1,7 @@
 import { mergeDeep } from "remeda"
 import { Wildcard } from "@buddy/opencode-adapter/wildcard"
 import { InvalidError } from "../contract/errors.js"
+import { parseConfigJsonValue, parseConfigObject, parsePermissionAction } from "../parse-values.js"
 import { Permission } from "./types.js"
 import type { Info, PermissionAction, PermissionRule } from "./types.js"
 
@@ -11,8 +12,7 @@ const SKILL_ALLOWED_ACTION = "allow" as const
 const SKILL_DENIED_ACTION = "deny" as const
 
 export function applyEnvironmentPermission(config: Info, rawPermission: string): void {
-  const raw = JSON.parse(rawPermission) as unknown
-  const parsed = Permission.safeParse(raw)
+  const parsed = Permission.safeParse(parseConfigJsonValue(JSON.parse(rawPermission)))
   if (!parsed.success) {
     throw new InvalidError({
       path: "BUDDY_PERMISSION",
@@ -44,29 +44,45 @@ function normalizeSkillPermissionAction(action: PermissionAction): PermissionAct
 }
 
 function normalizeSkillPermissionRule(rule: PermissionRule): PermissionRule {
-  if (typeof rule === "string") {
-    return normalizeSkillPermissionAction(rule)
+  const action = parsePermissionAction(rule)
+  if (action !== undefined) {
+    return normalizeSkillPermissionAction(action)
   }
 
-  return Object.fromEntries(
-    Object.entries(rule).map(([pattern, action]) => [
-      pattern,
-      normalizeSkillPermissionAction(action),
-    ]),
-  )
+  const record = parseConfigObject(rule)
+  if (record === undefined) {
+    return SKILL_ALLOWED_ACTION
+  }
+
+  const entries: Array<[string, PermissionAction]> = []
+  for (const [pattern, nestedAction] of Object.entries(record)) {
+    const parsed = parsePermissionAction(nestedAction)
+    if (parsed === undefined) continue
+    entries.push([pattern, normalizeSkillPermissionAction(parsed)])
+  }
+  return Object.fromEntries(entries)
 }
 
 function normalizedSkillPermissionEntries(
   rule: PermissionRule,
 ): Array<[pattern: string, action: PermissionAction]> {
-  if (typeof rule === "string") {
-    return [[WILDCARD_PATTERN, normalizeSkillPermissionAction(rule)]]
+  const action = parsePermissionAction(rule)
+  if (action !== undefined) {
+    return [[WILDCARD_PATTERN, normalizeSkillPermissionAction(action)]]
   }
 
-  return Object.entries(rule).map(([pattern, action]) => [
-    pattern,
-    normalizeSkillPermissionAction(action),
-  ])
+  const record = parseConfigObject(rule)
+  if (record === undefined) {
+    return [[WILDCARD_PATTERN, SKILL_ALLOWED_ACTION]]
+  }
+
+  const entries: Array<[pattern: string, action: PermissionAction]> = []
+  for (const [pattern, nestedAction] of Object.entries(record)) {
+    const parsed = parsePermissionAction(nestedAction)
+    if (parsed === undefined) continue
+    entries.push([pattern, normalizeSkillPermissionAction(parsed)])
+  }
+  return entries
 }
 
 function buildSkillPermissionRule(

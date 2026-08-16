@@ -9,6 +9,7 @@ import {
   replaceJsoncDocument,
 } from "../contract/document.js"
 import { JsonError } from "../contract/errors.js"
+import { parseNodeErrorCode } from "../parse-values.js"
 import { resetGlobalConfigCache } from "./global-cache.js"
 import {
   resolveGlobalConfigFile,
@@ -27,14 +28,13 @@ async function ensureParentDirectory(filepath: string): Promise<void> {
 }
 
 async function readConfigTextOrDefault(filepath: string): Promise<string> {
-  return fsp.readFile(filepath, "utf8").catch((err: unknown) => {
-    const maybe = err as { code?: string }
-    if (maybe.code === "ENOENT") return "{}"
-    throw new JsonError({ path: filepath }, { cause: err })
+  return fsp.readFile(filepath, "utf8").catch((error) => {
+    if (parseNodeErrorCode(error) === "ENOENT") return "{}"
+    throw new JsonError({ path: filepath }, { cause: error })
   })
 }
 
-function writeJsonFile(filepath: string, value: unknown): Promise<void> {
+function writeJsonFile(filepath: string, value: ConfigInfo | ProjectConfigInfo): Promise<void> {
   return fsp.writeFile(filepath, JSON.stringify(value, null, 2) + "\n", "utf8")
 }
 

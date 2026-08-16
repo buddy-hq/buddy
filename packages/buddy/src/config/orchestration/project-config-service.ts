@@ -12,6 +12,13 @@ import {
 } from "../runtime/opencode-sync.js"
 import { resolveProjectConfigContext, resolveProjectConfigFile } from "../store/config-paths.js"
 import { InvalidError } from "../contract/errors.js"
+import {
+  parseCaughtErrorMessage,
+  parseConfigObject,
+  parseNodeErrorCode,
+  type TConfigJsonObject,
+  type TConfigJsonValue,
+} from "../parse-values.js"
 
 export async function listProjectPersonas(directory: string) {
   const config = await readProjectConfig(directory)
@@ -28,7 +35,7 @@ export async function listProjectAgents(directory: string) {
       throw error
     }
     throw new Error(
-      `Failed to sync config before listing agents: ${String(error instanceof Error ? error.message : error)}`,
+      `Failed to sync config before listing agents: ${parseCaughtErrorMessage(error)}`,
       { cause: error },
     )
   })
@@ -87,15 +94,14 @@ async function resolveProjectConfigPath(directory: string): Promise<string> {
 
 async function captureProjectConfigSnapshot(directory: string): Promise<ProjectConfigSnapshot> {
   const filepath = await resolveProjectConfigPath(directory)
-  const contents = await fsp.readFile(filepath, "utf8").catch((error: unknown) => {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") return undefined
+  const contents = await fsp.readFile(filepath, "utf8").catch((error) => {
+    if (parseNodeErrorCode(error) === "ENOENT") return undefined
     throw error
   })
 
   return {
     filepath,
-    existed: typeof contents === "string",
+    existed: contents !== undefined,
     contents,
   }
 }
@@ -121,16 +127,16 @@ async function applyAndSyncProjectConfigChange(input: {
       await input.apply()
       await syncOpenCodeProjectConfig(input.directory)
     } catch (error) {
-      let recoveryError: unknown
+      let recovered = true
 
       try {
         await restoreProjectConfigSnapshot(snapshot)
         await syncOpenCodeProjectConfig(input.directory, true)
-      } catch (syncError) {
-        recoveryError = syncError
+      } catch {
+        recovered = false
       }
 
-      if (recoveryError !== undefined) {
+      if (!recovered) {
         throw new Error(
           "Failed to apply project config change and failed to recover previous config",
           {
@@ -144,14 +150,17 @@ async function applyAndSyncProjectConfigChange(input: {
   })
 }
 
-export async function patchProjectConfig(input: { directory: string; payload: unknown }) {
+export async function patchProjectConfig<TPayload>(input: {
+  directory: string
+  payload: TPayload
+}) {
   await applyAndSyncProjectConfigChange({
     directory: input.directory,
     apply: async () => {
       const parsed = mergeAndValidateConfigPatch({
         current: await readProjectConfigFile(input.directory),
-        patch: input.payload,
-        parse: Config.ProjectInfo.parse,
+        patch: requireConfigPatchObject(input.payload),
+        parse: (value) => Config.ProjectInfo.parse(value),
       })
       await Config.updateProject(input.directory, parsed)
     },
@@ -160,29 +169,44 @@ export async function patchProjectConfig(input: { directory: string; payload: un
   return readProjectConfig(input.directory)
 }
 
-export async function patchGlobalConfig(payload: unknown) {
+export async function patchGlobalConfig<TPayload>(payload: TPayload) {
   return Config.mutateGlobal((current) =>
     mergeAndValidateConfigPatch({
       current,
-      patch: payload,
-      parse: Config.Info.parse,
+      patch: requireConfigPatchObject(payload),
+      parse: (value) => Config.Info.parse(value),
     }),
   )
 }
 
 const DELETE_PATCH_SENTINEL = Symbol("delete_patch_value")
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value))
+type TConfigPatchResult = TConfigJsonValue | typeof DELETE_PATCH_SENTINEL
+
+function requireConfigPatchObject<TPayload>(payload: TPayload): TConfigJsonObject {
+  const patch = parseConfigObject(payload)
+  if (patch === undefined) {
+    throw new InvalidError({
+      path: "<request>",
+      message: "Config patch payload must be an object",
+    })
+  }
+  return patch
 }
 
-function mergePatchValue(current: unknown, patch: unknown): unknown | typeof DELETE_PATCH_SENTINEL {
+function mergePatchValue(
+  current: TConfigJsonValue | undefined,
+  patch: TConfigJsonValue,
+): TConfigPatchResult {
   if (patch === null) return DELETE_PATCH_SENTINEL
-  if (!isRecord(patch)) return patch
+  const patchObject = parseConfigObject(patch)
+  if (patchObject === undefined) return patch
 
-  const base = isRecord(current) ? { ...current } : {}
+  const currentObject = parseConfigObject(current)
+  const base: TConfigJsonObject = currentObject === undefined ? {} : { ...currentObject }
 
-  for (const [key, patchValue] of Object.entries(patch)) {
+  for (const [key, patchValue] of Object.entries(patchObject)) {
+    if (patchValue === undefined) continue
     const merged = mergePatchValue(base[key], patchValue)
     if (merged === DELETE_PATCH_SENTINEL) {
       delete base[key]
@@ -194,33 +218,27 @@ function mergePatchValue(current: unknown, patch: unknown): unknown | typeof DEL
   return base
 }
 
-function mergeAndValidateConfigPatch<T>(input: {
-  current: T
-  patch: unknown
-  parse: (value: unknown) => T
-}): T {
-  if (!isRecord(input.patch)) {
-    throw new InvalidError({
-      path: "<request>",
-      message: "Config patch payload must be an object",
-    })
-  }
-
-  const merged = mergePatchValue(input.current, input.patch)
-  if (!isRecord(merged)) {
+function mergeAndValidateConfigPatch<TConfig>(input: {
+  current: TConfig
+  patch: TConfigJsonObject
+  parse: (value: TConfigJsonObject) => TConfig
+}): TConfig {
+  const merged = mergePatchValue(parseConfigObject(input.current), input.patch)
+  const mergedObject = merged === DELETE_PATCH_SENTINEL ? undefined : parseConfigObject(merged)
+  if (mergedObject === undefined) {
     throw new InvalidError({
       path: "<request>",
       message: "Config patch payload must resolve to an object",
     })
   }
 
-  return input.parse(merged)
+  return input.parse(mergedObject)
 }
 
-export async function putProjectMcpConfig(input: {
+export async function putProjectMcpConfig<TPayload>(input: {
   directory: string
   name: string
-  payload: unknown
+  payload: TPayload
 }) {
   const parsed = Config.Mcp.parse(input.payload)
   await applyAndSyncProjectConfigChange({

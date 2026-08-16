@@ -20,24 +20,44 @@ import { readProjectConfig, readProjectConfigFile } from "./project-config.js"
 const OPENCODE_SYNC_STATE_KEY = Symbol.for("buddy.opencodeSyncState")
 const OPENCODE_CONFIG_POLICY_FINGERPRINT = "runtime-policy:mcp-authoritative-v1"
 
-type OpenCodeSyncState = {
+type TOpenCodeSyncState = {
   configFingerprintByDirectory: Map<string, string>
   configSyncTaskByDirectory: Map<string, Promise<void>>
 }
 
-function getOpenCodeSyncState(): OpenCodeSyncState {
-  const globalObject = globalThis as typeof globalThis & {
-    [OPENCODE_SYNC_STATE_KEY]?: OpenCodeSyncState
+function parseOpenCodeSyncState<TValue>(value: TValue): TOpenCodeSyncState | undefined {
+  if (value === null || value === undefined) return undefined
+  if (Array.isArray(value)) return undefined
+  if (!(value instanceof Object)) return undefined
+  if (!("configFingerprintByDirectory" in value) || !("configSyncTaskByDirectory" in value)) {
+    return undefined
   }
 
-  if (!globalObject[OPENCODE_SYNC_STATE_KEY]) {
-    globalObject[OPENCODE_SYNC_STATE_KEY] = {
-      configFingerprintByDirectory: new Map<string, string>(),
-      configSyncTaskByDirectory: new Map<string, Promise<void>>(),
-    }
-  }
+  const fingerprints = value.configFingerprintByDirectory
+  const tasks = value.configSyncTaskByDirectory
+  if (!(fingerprints instanceof Map) || !(tasks instanceof Map)) return undefined
 
-  return globalObject[OPENCODE_SYNC_STATE_KEY]
+  return {
+    configFingerprintByDirectory: fingerprints,
+    configSyncTaskByDirectory: tasks,
+  }
+}
+
+function getOpenCodeSyncState(): TOpenCodeSyncState {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, OPENCODE_SYNC_STATE_KEY)
+  const existing = parseOpenCodeSyncState(descriptor?.value)
+  if (existing) return existing
+
+  const created: TOpenCodeSyncState = {
+    configFingerprintByDirectory: new Map<string, string>(),
+    configSyncTaskByDirectory: new Map<string, Promise<void>>(),
+  }
+  Object.defineProperty(globalThis, OPENCODE_SYNC_STATE_KEY, {
+    value: created,
+    configurable: true,
+    writable: true,
+  })
+  return created
 }
 
 export {
@@ -67,7 +87,10 @@ async function buildAndApplyProjectOverlay(directory: string) {
   }
 }
 
-async function resolveProjectConfigFingerprint(config: Config.Info, overlay: unknown) {
+async function resolveProjectConfigFingerprint<TOverlay>(
+  config: Config.Info,
+  overlay: TOverlay,
+) {
   const installedSystemSkillsFingerprint = await readInstalledSystemSkillsFingerprint().catch(
     () => undefined,
   )
