@@ -215,7 +215,7 @@ function selectionBelongsToRoot(selection: Selection, root: HTMLElement): boolea
 function segmentOffsets(
   pageElement: HTMLElement,
   selectedRange: Range,
-): { startOffset?: number; endOffset?: number } {
+) {
   const prefixRange = pageElement.ownerDocument.createRange()
   prefixRange.selectNodeContents(pageElement)
   try {
@@ -267,7 +267,7 @@ function quoteContext(input: {
   firstStartOffset?: number
   lastPageText: string
   lastEndOffset?: number
-}): { prefix?: string; suffix?: string } {
+}) {
   const prefix =
     input.firstStartOffset === undefined
       ? undefined

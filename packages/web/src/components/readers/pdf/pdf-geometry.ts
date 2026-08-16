@@ -199,7 +199,7 @@ export function pdfPageOffsetRatios(input: {
   textLayerBounds: RectCoordinates
   viewportLeft: number
   viewportTop: number
-}): { xRatio: number; yRatio: number } {
+}) {
   const width = input.textLayerBounds.right - input.textLayerBounds.left
   const height = input.textLayerBounds.bottom - input.textLayerBounds.top
   return {

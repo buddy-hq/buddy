@@ -548,7 +548,7 @@ function toTopViewportRect(rect: OverlayRect, view: Window | null): OverlayRect 
   return nextRect
 }
 
-export function getOverlayPosition(range: Range, container: HTMLElement): { x: number; y: number } {
+export function getOverlayPosition(range: Range, container: HTMLElement) {
   const ownerView = range.startContainer.ownerDocument?.defaultView ?? null
   const rangeRect = toTopViewportRect(toOverlayRect(range.getBoundingClientRect()), ownerView)
   const containerRect = container.getBoundingClientRect()

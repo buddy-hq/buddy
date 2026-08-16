@@ -22,6 +22,12 @@ type PdfTextDirection =
   | typeof PDF_TEXT_DIRECTION_RTL
   | typeof PDF_TEXT_DIRECTION_TTB
 
+type PdfTextItemGeometry = {
+  direction: PdfTextDirection
+  flow: PdfTextFlow
+  quad: PdfQuad
+}
+
 export type PdfPageTextSpan = {
   startOffset: number
   endOffset: number
@@ -115,11 +121,7 @@ function cropRelativePoint(point: PdfPoint, cropBox: PdfCropBox): PdfPoint {
 function textItemQuad(
   item: PdfTextContentItem,
   cropBox: PdfCropBox,
-): {
-  quad: PdfQuad
-  flow: PdfTextFlow
-  direction: PdfTextDirection
-} {
+): PdfTextItemGeometry {
   const [a, b, c, d, e, f] = item.transform
   const origin = { x: e, y: f }
   if (item.direction === "ttb") {
@@ -326,7 +328,7 @@ export function repairPdfTextAnchor(
 function spanPositionRatios(
   span: PdfPageTextSpan,
   cropBox: PdfCropBox,
-): { xRatio: number; yRatio: number } {
+) {
   const points = [
     span.quad.topLeft,
     span.quad.topRight,

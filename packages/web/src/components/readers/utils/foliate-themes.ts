@@ -30,15 +30,6 @@ export function isFoliateReaderThemeId(value: string): value is FoliateReaderThe
 // computed color values using a temporary DOM element before injection.
 // ---------------------------------------------------------------------------
 
-const COLOR_KEYS: (keyof FoliateReaderThemeDefinition)[] = [
-  "contentBackground",
-  "contentForeground",
-  "contentMuted",
-  "contentLink",
-  "contentHeading",
-  "contentAccent",
-]
-
 /** Resolve a CSS color expression (including var() and color-mix()) to a
  *  computed rgb/rgba string by temporarily applying it to a DOM element. */
 function resolveColor(value: string): string {
@@ -55,15 +46,16 @@ function resolveColor(value: string): string {
 /** Return a copy of the theme definition with all color fields resolved to
  *  concrete values so they work inside an iframe without access to the host
  *  document's CSS custom properties. */
-function resolveTheme(theme: FoliateReaderThemeDefinition): FoliateReaderThemeDefinition {
-  const resolved = { ...theme }
-  for (const key of COLOR_KEYS) {
-    const raw = resolved[key]
-    if (typeof raw === "string") {
-      ;(resolved as Record<string, string>)[key] = resolveColor(raw)
-    }
+function resolveTheme(theme: FoliateReaderThemeDefinition) {
+  return {
+    ...theme,
+    contentAccent: resolveColor(theme.contentAccent),
+    contentBackground: resolveColor(theme.contentBackground),
+    contentForeground: resolveColor(theme.contentForeground),
+    contentHeading: resolveColor(theme.contentHeading),
+    contentLink: resolveColor(theme.contentLink),
+    contentMuted: resolveColor(theme.contentMuted),
   }
-  return resolved
 }
 
 // ---------------------------------------------------------------------------

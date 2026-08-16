@@ -7,7 +7,11 @@ import {
   ANNOTATION_STYLE_SQUIGGLY,
   ANNOTATION_STYLE_UNDERLINE,
 } from "../foliate-reader-constants"
-import type { ReaderAnnotation, ReaderAnnotationColorId } from "../foliate-reader-types"
+import type {
+  ReaderAnnotation,
+  ReaderAnnotationColorId,
+  ReaderAnnotationDialogState,
+} from "../foliate-reader-types"
 import { getAnnotationColorId, getAnnotationStyle } from "./foliate-helpers"
 
 export function createSvgElement(tag: string) {
@@ -174,14 +178,9 @@ export function drawAnnotationRange(
   })
 }
 
-export function toAnnotationDialogState(annotation?: ReaderAnnotation): {
-  mode: "create" | "edit"
-  value: string
-  text: string
-  note: string
-  style: ReturnType<typeof getAnnotationStyle>
-  color: ReaderAnnotationColorId
-} {
+export function toAnnotationDialogState(
+  annotation?: ReaderAnnotation,
+): ReaderAnnotationDialogState {
   return {
     mode: annotation ? "edit" : "create",
     value: annotation?.value ?? "",

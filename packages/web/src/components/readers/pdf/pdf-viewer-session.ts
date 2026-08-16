@@ -125,6 +125,11 @@ export type PdfViewerSessionOptions = {
   callbacks: PdfViewerSessionCallbacks
 }
 
+type PdfWheelPageTurnGesture = {
+  direction: ReturnType<typeof resolvePdfWheelPageTurn>
+  lastEventAt: number | undefined
+}
+
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -280,10 +285,10 @@ export class PdfViewerSession {
   #destroyed = false
   #ready = false
   #resizeObserver: ResizeObserver | null = null
-  #wheelPageTurnGesture: {
-    direction: ReturnType<typeof resolvePdfWheelPageTurn>
-    lastEventAt: number | undefined
-  } = { direction: undefined, lastEventAt: undefined }
+  #wheelPageTurnGesture: PdfWheelPageTurnGesture = {
+    direction: undefined,
+    lastEventAt: undefined,
+  }
 
   constructor(options: PdfViewerSessionOptions) {
     this.#container = options.container
