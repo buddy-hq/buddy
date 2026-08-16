@@ -21,6 +21,7 @@ import {
 } from "./contracts"
 import { RESOURCE_PACK_UNIT_KIND_SECTION } from "./chunking-config"
 import { renderTocMarkdown } from "./markdown"
+import { parseTString } from "./json-value"
 import {
   SPREADSHEET_PARSER_EXTRACTOR_NAME,
   SPREADSHEET_PARSER_FULL_TEXT_SEPARATOR,
@@ -63,21 +64,21 @@ const LEGACY_XLS_COMPOUND_FILE_SIGNATURE = new Uint8Array([
 ])
 const LEGACY_XLS_BIFF_BOF_VERSIONS = new Set([0x00, 0x02, 0x04, 0x08])
 
-type FormulaAnnotation = {
+type TFormulaAnnotation = {
   address: string
   formula: string
   result: string
 }
 
-type SpreadsheetCell = {
+type TSpreadsheetCell = {
   rawValue?: string | number | boolean | Date
   formattedText?: string
   formula?: string
 }
 
-type PreparedWorksheet = {
+type TPreparedWorksheet = {
   name: string
-  rows: unknown[][]
+  rows: Array<Array<XLSX.CellObject | undefined>>
   visibility: "visible" | "hidden" | "very hidden"
   index: number
   csvPath: string
@@ -120,34 +121,21 @@ function columnLabel(columnNumber: number): string {
   return label
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isUnknownArray(value: unknown): value is unknown[] {
-  return Array.isArray(value)
-}
-
-function readSpreadsheetCell(value: unknown): SpreadsheetCell | undefined {
-  if (!isRecord(value) || typeof value.t !== "string" || value.t === "z") return undefined
+function readSpreadsheetCell(value: XLSX.CellObject | undefined): TSpreadsheetCell | undefined {
+  if (value === undefined || value.t === "z") return undefined
   const rawValue = value.v
-  const normalizedRawValue =
-    typeof rawValue === "string" ||
-    typeof rawValue === "number" ||
-    typeof rawValue === "boolean" ||
-    rawValue instanceof Date
-      ? rawValue
-      : undefined
-  const formattedText = typeof value.w === "string" ? value.w : undefined
-  const formula = typeof value.f === "string" && value.f.trim() ? value.f.trim() : undefined
-  if (normalizedRawValue === undefined && formattedText === undefined && formula === undefined) {
+  const formattedText = value.w
+  const formula = value.f !== undefined && value.f.trim() ? value.f.trim() : undefined
+  if (rawValue === undefined && formattedText === undefined && formula === undefined) {
     return undefined
   }
-  return {
-    ...(normalizedRawValue !== undefined ? { rawValue: normalizedRawValue } : {}),
-    ...(formattedText !== undefined ? { formattedText } : {}),
-    ...(formula ? { formula } : {}),
-  }
+  const cell: TSpreadsheetCell = Object.assign(
+    {},
+    rawValue !== undefined ? { rawValue } : undefined,
+    formattedText !== undefined ? { formattedText } : undefined,
+    formula ? { formula } : undefined,
+  )
+  return cell
 }
 
 function startsWithBytes(bytes: Uint8Array, signature: Uint8Array): boolean {
@@ -163,17 +151,14 @@ function assertLegacyXlsContainer(bytes: Uint8Array): void {
   throw new Error("XLS input is not a legacy Excel compound file or BIFF workbook.")
 }
 
-function cellDisplayText(cell: SpreadsheetCell): string {
+function cellDisplayText(cell: TSpreadsheetCell): string {
   if (cell.rawValue instanceof Date) return cell.rawValue.toISOString()
   if (cell.formattedText !== undefined) return cell.formattedText
   if (cell.rawValue !== undefined) return String(cell.rawValue)
   return ""
 }
 
-function displayCellValue(
-  value: unknown,
-  address: string,
-) {
+function displayCellValue(value: XLSX.CellObject | undefined, address: string) {
   const cell = readSpreadsheetCell(value)
   if (!cell) return { text: "" }
   const displayed = cellDisplayText(cell)
@@ -189,21 +174,23 @@ function displayCellValue(
   }
 }
 
-function denseWorksheetRows(value: unknown, sheetName: string): unknown[][] {
-  if (!isRecord(value)) throw new Error(`Spreadsheet is missing worksheet data for ${sheetName}.`)
-  const data = value["!data"]
-  if (!isUnknownArray(data)) return []
+function denseWorksheetRows(
+  worksheet: XLSX.WorkSheet,
+  sheetName: string,
+): Array<Array<XLSX.CellObject | undefined>> {
+  const data = worksheet["!data"]
+  if (!Array.isArray(data)) return []
   return Array.from({ length: data.length }, (_, rowIndex) => {
     const row = data[rowIndex]
     if (row === undefined) return []
-    if (!isUnknownArray(row)) {
+    if (!Array.isArray(row)) {
       throw new Error(`Spreadsheet worksheet ${sheetName} contains malformed row data.`)
     }
     return row
   })
 }
 
-function worksheetVisibility(value: 0 | 1 | 2 | undefined): PreparedWorksheet["visibility"] {
+function worksheetVisibility(value: 0 | 1 | 2 | undefined): TPreparedWorksheet["visibility"] {
   if (value === 1) return "hidden"
   if (value === 2) return "very hidden"
   return "visible"
@@ -216,15 +203,15 @@ function assertWorkbookSheetCount(sheetCount: number): void {
   )
 }
 
-function worksheetFullRowCount(value: unknown, sheetName: string): number | undefined {
-  if (!isRecord(value)) return undefined
-  const fullReference = value["!fullref"]
+function worksheetFullRowCount(worksheet: XLSX.WorkSheet, sheetName: string): number | undefined {
+  const fullReference = worksheet["!fullref"]
   if (fullReference === undefined) return undefined
-  if (typeof fullReference !== "string") {
+  const fullReferenceText = parseTString(fullReference)
+  if (fullReferenceText === undefined) {
     throw new Error(`Spreadsheet worksheet ${sheetName} contains a malformed full range.`)
   }
   try {
-    return XLSX.utils.decode_range(fullReference).e.r + 1
+    return XLSX.utils.decode_range(fullReferenceText).e.r + 1
   } catch (error) {
     throw new Error(`Spreadsheet worksheet ${sheetName} contains an invalid full range.`, {
       cause: error,
@@ -232,14 +219,17 @@ function worksheetFullRowCount(value: unknown, sheetName: string): number | unde
   }
 }
 
-function prepareWorksheets(workbook: XLSX.WorkBook): PreparedWorksheet[] {
+function prepareWorksheets(workbook: XLSX.WorkBook): TPreparedWorksheet[] {
   assertWorkbookSheetCount(workbook.SheetNames.length)
   const metadata = workbook.Workbook?.Sheets ?? []
   let nonEmptyCells = 0
   let materializedGridCells = 0
 
   return workbook.SheetNames.map((name, worksheetIndex) => {
-    const worksheetValue: unknown = workbook.Sheets[name]
+    const worksheetValue = workbook.Sheets[name]
+    if (worksheetValue === undefined) {
+      throw new Error(`Spreadsheet is missing worksheet data for ${name}.`)
+    }
     const fullRowCount = worksheetFullRowCount(worksheetValue, name)
     if (fullRowCount !== undefined && fullRowCount > SPREADSHEET_MAX_MATERIALIZED_ROWS_PER_SHEET) {
       throw new ResourceBudgetExceededError(
@@ -290,12 +280,12 @@ function prepareWorksheets(workbook: XLSX.WorkBook): PreparedWorksheet[] {
   })
 }
 
-function worksheetRows(input: PreparedWorksheet) {
+function worksheetRows(input: TPreparedWorksheet) {
   const rows: string[][] = []
-  const formulasByRow = new Map<number, FormulaAnnotation[]>()
+  const formulasByRow = new Map<number, TFormulaAnnotation[]>()
   for (let rowNumber = 1; rowNumber <= input.rowCount; rowNumber += 1) {
     const row: string[] = []
-    const annotations: FormulaAnnotation[] = []
+    const annotations: TFormulaAnnotation[] = []
     for (let columnNumber = 1; columnNumber <= input.columnCount; columnNumber += 1) {
       const address = `${columnLabel(columnNumber)}${rowNumber}`
       const value = displayCellValue(input.rows[rowNumber - 1]?.[columnNumber - 1], address)
@@ -309,9 +299,9 @@ function worksheetRows(input: PreparedWorksheet) {
 }
 
 function renderRowWindow(input: {
-  sheet: PreparedWorksheet
+  sheet: TPreparedWorksheet
   rows: string[][]
-  formulasByRow: Map<number, FormulaAnnotation[]>
+  formulasByRow: Map<number, TFormulaAnnotation[]>
   startRow: number
   endRow: number
 }): string {

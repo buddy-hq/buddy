@@ -9,18 +9,19 @@ import {
 } from "./contracts"
 import { extractSpreadsheetResourceInWorker } from "./spreadsheet-parser"
 import {
-  isSpreadsheetParserWorkerInput,
+  parseTSpreadsheetParserWorkerInput,
+  spreadsheetParserExtractorField,
   spreadsheetParserStagedArtifactFilename,
   SPREADSHEET_PARSER_EXTRACTOR_NAME,
   SPREADSHEET_PARSER_FULL_TEXT_SEPARATOR,
   SPREADSHEET_PARSER_STAGED_ARTIFACTS_DIRECTORY,
   SPREADSHEET_PARSER_STAGED_FULL_TEXT_FILENAME,
-  type SpreadsheetParserWorkerChunk,
-  type SpreadsheetParserWorkerOutput,
+  type TSpreadsheetParserWorkerChunk,
+  type TSpreadsheetParserWorkerOutput,
 } from "./spreadsheet-parser-worker-protocol"
 
-const input: unknown = workerData
-if (!isSpreadsheetParserWorkerInput(input)) {
+const input = parseTSpreadsheetParserWorkerInput(workerData)
+if (input === undefined) {
   throw new Error("Spreadsheet parser worker received invalid input.")
 }
 if (!parentPort) {
@@ -29,14 +30,14 @@ if (!parentPort) {
 
 const result = await extractSpreadsheetResourceInWorker(input.sourcePath, input.format)
 const output = await stageSpreadsheetExtraction(result, input.outputDirectory)
-// oxlint-disable-next-line unicorn(require-post-message-target-origin): Node MessagePort does not accept a target origin.
-parentPort.postMessage(output)
+const publishOutput = parentPort.postMessage.bind(parentPort)
+publishOutput(output)
 parentPort.close()
 
 async function stageSpreadsheetExtraction(
   result: ResourceExtractionResult,
   outputDirectory: string,
-): Promise<SpreadsheetParserWorkerOutput> {
+): Promise<TSpreadsheetParserWorkerOutput> {
   if (result.status !== RESOURCE_PACK_STATUS_READY) {
     throw new Error("Spreadsheet parser produced a non-ready extraction.")
   }
@@ -65,21 +66,24 @@ async function stageSpreadsheetExtraction(
     )
   }
 
-  return {
-    status: RESOURCE_PACK_STATUS_READY,
-    warnings: result.warnings,
-    extractor: SPREADSHEET_PARSER_EXTRACTOR_NAME,
-    tocMarkdown: result.tocMarkdown ?? "",
-    ...(result.title ? { title: result.title } : {}),
-    chunkUnits: stagedChunks,
-    textArtifacts: textArtifacts.map((artifact) => ({ relativePath: artifact.relativePath })),
-  }
+  const output: TSpreadsheetParserWorkerOutput = Object.assign(
+    {
+      status: RESOURCE_PACK_STATUS_READY,
+      warnings: result.warnings,
+      tocMarkdown: result.tocMarkdown ?? "",
+      chunkUnits: stagedChunks,
+      textArtifacts: textArtifacts.map((artifact) => ({ relativePath: artifact.relativePath })),
+    },
+    spreadsheetParserExtractorField,
+    result.title ? { title: result.title } : undefined,
+  )
+  return output
 }
 
 function stagedChunkDescriptors(
   fullText: string,
   chunkUnits: ResourceChunkUnitSeed[],
-): SpreadsheetParserWorkerChunk[] {
+): TSpreadsheetParserWorkerChunk[] {
   const chunkTextCharacters = chunkUnits.reduce((total, unit) => total + unit.text.length, 0)
   const workbookIndexCharacters =
     fullText.length -
@@ -90,11 +94,13 @@ function stagedChunkDescriptors(
   }
 
   let cursor = workbookIndexCharacters
-  const stagedChunks = chunkUnits.map((unit): SpreadsheetParserWorkerChunk => {
+  const stagedChunks = chunkUnits.map((unit): TSpreadsheetParserWorkerChunk => {
+    const unitTitle = unit.unitTitle
+    const unitIndex = unit.unitIndex
     if (
       unit.unitKind !== RESOURCE_PACK_UNIT_KIND_SECTION ||
-      typeof unit.unitTitle !== "string" ||
-      typeof unit.unitIndex !== "number"
+      unitTitle === undefined ||
+      unitIndex === undefined
     ) {
       throw new Error("Spreadsheet parser produced invalid chunk metadata.")
     }
@@ -107,8 +113,8 @@ function stagedChunkDescriptors(
     }
     return {
       unitKind: RESOURCE_PACK_UNIT_KIND_SECTION,
-      unitTitle: unit.unitTitle,
-      unitIndex: unit.unitIndex,
+      unitTitle,
+      unitIndex,
       textStart,
       textLength,
     }

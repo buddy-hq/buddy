@@ -132,21 +132,26 @@ export function createResourcePackKey(directory: string, sourcePath: string) {
 function resourceFormatForExtension(extension: string): ResourceFormat {
   switch (extension) {
     case ".html":
+      return "html"
     case ".htm":
+      return "htm"
     case ".xhtml":
-      return extension.slice(1) as Extract<ResourceFormat, "html" | "htm" | "xhtml">
+      return "xhtml"
     case ".md":
     case ".markdown":
       return "markdown"
     case ".txt":
       return "text"
     case ".json":
+      return "json"
     case ".jsonc":
-      return extension.slice(1) as Extract<ResourceFormat, "json" | "jsonc">
+      return "jsonc"
     case ".yaml":
+      return "yaml"
     case ".yml":
+      return "yml"
     case ".csv":
-      return extension.slice(1) as Extract<ResourceFormat, "yaml" | "yml" | "csv">
+      return "csv"
     default:
       return "unknown"
   }

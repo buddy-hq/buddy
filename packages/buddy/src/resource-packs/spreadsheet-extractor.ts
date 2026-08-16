@@ -8,7 +8,7 @@ import {
 } from "@buddy/workspace-file-policy"
 import type { ResourceExtractionResult, ResourceTextArtifact } from "./contracts"
 import {
-  isSpreadsheetParserWorkerOutput,
+  parseTSpreadsheetParserWorkerOutput,
   spreadsheetParserStagedArtifactFilename,
   SPREADSHEET_PARSER_MAX_OLD_GENERATION_SIZE_MB,
   SPREADSHEET_PARSER_MAX_YOUNG_GENERATION_SIZE_MB,
@@ -19,8 +19,8 @@ import {
   SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME,
   SPREADSHEET_PARSER_WORKER_NAME,
   SPREADSHEET_PARSER_WORKER_SOURCE_FILENAME,
-  type SpreadsheetParserWorkerInput,
-  type SpreadsheetParserWorkerOutput,
+  type TSpreadsheetParserWorkerInput,
+  type TSpreadsheetParserWorkerOutput,
 } from "./spreadsheet-parser-worker-protocol"
 
 const TYPESCRIPT_MODULE_SUFFIX = ".ts"
@@ -61,7 +61,7 @@ function spreadsheetParserError(format: NativeSpreadsheetFormat, cause: Error): 
   })
 }
 
-function errorFromUnknown(value: unknown): Error {
+function errorFromUnknown<TValue>(value: TValue): Error {
   return value instanceof Error ? value : new Error(String(value))
 }
 
@@ -123,8 +123,8 @@ async function cleanupStaleSpreadsheetParserDirectories(): Promise<void> {
 }
 
 function runSpreadsheetParserWorker(
-  input: SpreadsheetParserWorkerInput,
-): Promise<SpreadsheetParserWorkerOutput> {
+  input: TSpreadsheetParserWorkerInput,
+): Promise<TSpreadsheetParserWorkerOutput> {
   return new Promise((resolve, reject) => {
     let worker: Worker
     try {
@@ -151,17 +151,18 @@ function runSpreadsheetParserWorker(
       )
     }, SPREADSHEET_PARSER_TIMEOUT_MS)
 
-    worker.once("message", (value: unknown) => {
+    worker.once("message", (value) => {
       if (settled) return
       settled = true
       clearTimeout(timeout)
-      if (!isSpreadsheetParserWorkerOutput(value)) {
+      const output = parseTSpreadsheetParserWorkerOutput(value)
+      if (output === undefined) {
         void worker.terminate()
         reject(new Error("Spreadsheet parser worker returned invalid output metadata."))
         return
       }
       void worker.terminate()
-      resolve(value)
+      resolve(output)
     })
     worker.once("error", (error: Error) => {
       if (settled) return
@@ -180,7 +181,7 @@ function runSpreadsheetParserWorker(
 
 async function readStagedSpreadsheetExtraction(
   outputDirectory: string,
-  output: SpreadsheetParserWorkerOutput,
+  output: TSpreadsheetParserWorkerOutput,
 ): Promise<ResourceExtractionResult> {
   const fullText = await readFile(
     path.join(outputDirectory, SPREADSHEET_PARSER_STAGED_FULL_TEXT_FILENAME),
@@ -210,16 +211,19 @@ async function readStagedSpreadsheetExtraction(
     )
     textArtifacts.push({ relativePath: artifact.relativePath, content })
   }
-  return {
-    status: output.status,
-    warnings: output.warnings,
-    extractor: output.extractor,
-    fullText,
-    chunkUnits,
-    tocMarkdown: output.tocMarkdown,
-    textArtifacts,
-    ...(output.title ? { title: output.title } : {}),
-  }
+  const extraction: ResourceExtractionResult = Object.assign(
+    {
+      status: output.status,
+      warnings: output.warnings,
+      extractor: output.extractor,
+      fullText,
+      chunkUnits,
+      tocMarkdown: output.tocMarkdown,
+      textArtifacts,
+    },
+    output.title ? { title: output.title } : undefined,
+  )
+  return extraction
 }
 
 async function parseSpreadsheetInWorker(

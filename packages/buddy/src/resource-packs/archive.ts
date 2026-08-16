@@ -14,11 +14,21 @@ import {
   RESOURCE_DEFAULT_ARCHIVE_BUDGET,
   type ResourceArchiveBudget,
 } from "./budgets"
+import {
+  parseTJsonObject,
+  parseTNumber,
+  parseTString,
+  type TJsonObject,
+  type TJsonValue,
+} from "./json-value"
 
 const XML_ENTITY_MAX_TOTAL_EXPANSIONS = 10_000
 const XML_ENTITY_MAX_EXPANDED_LENGTH = 1_000_000
+const XML_TEXT_KEY = "#text"
+const XML_TEXT_ALIAS_KEY = "text"
 
-export type ResourceXmlRecord = Record<string, unknown>
+export type TResourceXmlValue = TJsonValue
+export type TResourceXmlRecord = TJsonObject
 export type ResourceArchiveEntry = FileEntry
 export type ResourceArchiveEntries = Map<string, ResourceArchiveEntry>
 export type OpenResourceArchive = {
@@ -42,8 +52,8 @@ function isFileEntry(entry: Entry): entry is ResourceArchiveEntry {
   return entry.directory === false
 }
 
-export function isResourceXmlRecord(value: unknown): value is ResourceXmlRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+export function parseTResourceXmlRecord<TValue>(value: TValue): TResourceXmlRecord | undefined {
+  return parseTJsonObject(value)
 }
 
 export function normalizeArchivePath(filename: string): string {
@@ -104,8 +114,7 @@ export async function readArchiveEntryText(
 ): Promise<string> {
   const entry = entries.get(normalizeArchivePath(filename))
   if (!entry) throw new Error(`Missing archive entry: ${filename}`)
-  const text = await entry.getData(new TextWriter())
-  return typeof text === "string" ? text : String(text)
+  return entry.getData(new TextWriter())
 }
 
 export async function readArchiveEntryBytes(
@@ -119,41 +128,62 @@ export async function readArchiveEntryBytes(
   return new Uint8Array(await blob.arrayBuffer())
 }
 
-export function parseResourceXml(xml: string): ResourceXmlRecord {
-  const parsed: unknown = resourceXMLParser.parse(xml)
-  if (!isResourceXmlRecord(parsed)) throw new Error("Archive XML did not contain an object root.")
+export function parseResourceXml(xml: string): TResourceXmlRecord {
+  const parsed = parseTResourceXmlRecord(resourceXMLParser.parse(xml))
+  if (parsed === undefined) throw new Error("Archive XML did not contain an object root.")
   return parsed
 }
 
-export function ensureResourceXmlArray(value: unknown): ResourceXmlRecord[] {
-  if (Array.isArray(value)) return value.filter(isResourceXmlRecord)
-  return isResourceXmlRecord(value) ? [value] : []
+export function ensureResourceXmlArray(value: TResourceXmlValue | undefined): TResourceXmlRecord[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => {
+      const record = parseTResourceXmlRecord(entry)
+      return record === undefined ? [] : [record]
+    })
+  }
+  const record = parseTResourceXmlRecord(value)
+  return record === undefined ? [] : [record]
 }
 
-export function getResourceXmlValue(value: unknown, pathSegments: string[]): unknown {
-  let current: unknown = value
+export function getResourceXmlValue(
+  value: TResourceXmlValue | undefined,
+  pathSegments: string[],
+): TResourceXmlValue | undefined {
+  let current: TResourceXmlValue | undefined = value
   for (const segment of pathSegments) {
-    if (!isResourceXmlRecord(current)) return undefined
-    current = current[segment]
+    const record = parseTResourceXmlRecord(current)
+    if (record === undefined) return undefined
+    current = record[segment]
   }
   return current
 }
 
-export function resourceXmlStringValue(record: unknown, key: string): string {
-  if (!isResourceXmlRecord(record)) return ""
-  const value = record[key]
-  if (typeof value === "string") return value
-  if (typeof value === "number") return String(value)
-  return ""
+export function resourceXmlStringValue(
+  record: TResourceXmlValue | undefined,
+  key: string,
+): string {
+  const parsed = parseTResourceXmlRecord(record)
+  if (parsed === undefined) return ""
+  return resourceXmlScalarText(parsed[key])
 }
 
-export function resourceXmlTextValue(value: unknown): string {
-  if (typeof value === "string" || typeof value === "number") return String(value)
+export function resourceXmlTextValue(value: TResourceXmlValue | undefined): string {
+  const scalar = resourceXmlScalarText(value)
+  if (scalar.length > 0) return scalar
   if (Array.isArray(value)) {
     return value.map(resourceXmlTextValue).filter(Boolean).join(" ")
   }
-  if (!isResourceXmlRecord(value)) return ""
-  if (typeof value["#text"] === "string") return value["#text"]
-  if (typeof value.text === "string") return value.text
-  return ""
+  const record = parseTResourceXmlRecord(value)
+  if (record === undefined) return ""
+  const textNode = parseTString(record[XML_TEXT_KEY])
+  if (textNode !== undefined) return textNode
+  const textAlias = parseTString(record[XML_TEXT_ALIAS_KEY])
+  return textAlias ?? ""
+}
+
+function resourceXmlScalarText(value: TResourceXmlValue | undefined): string {
+  const text = parseTString(value)
+  if (text !== undefined) return text
+  const numeric = parseTNumber(value)
+  return numeric === undefined ? "" : String(numeric)
 }

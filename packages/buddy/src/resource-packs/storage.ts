@@ -38,6 +38,13 @@ import {
   estimateTokenCountFromText,
 } from "./chunking-config"
 import { resourceSourceSnapshotMatches } from "./source-match"
+import {
+  parseTJsonArray,
+  parseTJsonObject,
+  parseTNumber,
+  parseTString,
+  type TJsonObject,
+} from "./json-value"
 
 const COVER_MEDIA_TYPE_JPEG = "image/jpeg" as const
 const COVER_MEDIA_TYPE_PNG = "image/png" as const
@@ -123,25 +130,30 @@ export async function writePreparingResourcePackMetadata(input: {
 }): Promise<string[]> {
   const previousMetadata = await loadResourcePackMetadata(input.build.packPaths.metadataPath)
   const resourceAlias = resourceAliasForBuild(input.build)
-  await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
-    ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
-    resource_alias: resourceAlias,
-    alias_at_build: resourceAlias,
-    source_path: input.build.sourcePath,
-    source_relpath: input.build.sourceRelpath,
-    format: input.build.classification.format,
-    status: RESOURCE_PACK_STATUS_PREPARING,
-    extractor: "pending",
-    prepared_at: new Date().toISOString(),
-    source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
-    source_size_bytes: Number(input.build.sourceStat.size),
-    chunk_count: 0,
-    page_count: undefined,
-    warnings: input.warnings,
-    cover_relpath: undefined,
-    title: undefined,
-    author: undefined,
-  })
+  await writeResourcePackMetadata(
+    input.build.packPaths.metadataPath,
+    Object.assign(
+      {
+        resource_alias: resourceAlias,
+        alias_at_build: resourceAlias,
+        source_path: input.build.sourcePath,
+        source_relpath: input.build.sourceRelpath,
+        format: input.build.classification.format,
+        status: RESOURCE_PACK_STATUS_PREPARING,
+        extractor: "pending",
+        prepared_at: new Date().toISOString(),
+        source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
+        source_size_bytes: Number(input.build.sourceStat.size),
+        chunk_count: 0,
+        page_count: undefined,
+        warnings: input.warnings,
+        cover_relpath: undefined,
+        title: undefined,
+        author: undefined,
+      },
+      input.build.objectID ? { object_id: input.build.objectID } : undefined,
+    ),
+  )
   return previousMetadata?.text_artifacts ?? []
 }
 
@@ -176,16 +188,21 @@ export async function writeResourcePackFiles(input: {
   })
   await writeTextFile(
     fullTextPath,
-    matter.stringify(fullTextBody, {
-      file_kind: RESOURCE_PACK_FILE_KIND_FULL_TEXT,
-      ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
-      resource_alias: resourceAlias,
-      alias_at_build: resourceAlias,
-      source_relpath: input.build.sourceRelpath,
-      format: input.build.classification.format,
-      chars: fullTextChars,
-      est_tokens: fullTextTokens,
-    }),
+    matter.stringify(
+      fullTextBody,
+      Object.assign(
+        {
+          file_kind: RESOURCE_PACK_FILE_KIND_FULL_TEXT,
+          resource_alias: resourceAlias,
+          alias_at_build: resourceAlias,
+          source_relpath: input.build.sourceRelpath,
+          format: input.build.classification.format,
+          chars: fullTextChars,
+          est_tokens: fullTextTokens,
+        },
+        input.build.objectID ? { object_id: input.build.objectID } : undefined,
+      ),
+    ),
   )
   if (input.build.packPaths.fullPath !== fullTextPath) {
     await fs.rm(input.build.packPaths.fullPath, { force: true }).catch(() => undefined)
@@ -194,14 +211,19 @@ export async function writeResourcePackFiles(input: {
   if (input.tocMarkdown && input.tocMarkdown.trim().length > 0) {
     await writeTextFile(
       input.build.packPaths.tocPath,
-      matter.stringify(normalizeText(input.tocMarkdown), {
-        file_kind: RESOURCE_PACK_FILE_KIND_TOC,
-        ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
-        resource_alias: resourceAlias,
-        alias_at_build: resourceAlias,
-        source_relpath: input.build.sourceRelpath,
-        format: input.build.classification.format,
-      }),
+      matter.stringify(
+        normalizeText(input.tocMarkdown),
+        Object.assign(
+          {
+            file_kind: RESOURCE_PACK_FILE_KIND_TOC,
+            resource_alias: resourceAlias,
+            alias_at_build: resourceAlias,
+            source_relpath: input.build.sourceRelpath,
+            format: input.build.classification.format,
+          },
+          input.build.objectID ? { object_id: input.build.objectID } : undefined,
+        ),
+      ),
     )
   } else {
     await fs.rm(input.build.packPaths.tocPath, { force: true }).catch(() => undefined)
@@ -228,27 +250,32 @@ export async function writeResourcePackFiles(input: {
 
   const coverRelpath = coverPath ? path.relative(input.build.directory, coverPath) : undefined
 
-  await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
-    ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
-    resource_alias: resourceAlias,
-    alias_at_build: resourceAlias,
-    source_path: input.build.sourcePath,
-    source_relpath: input.build.sourceRelpath,
-    format: input.build.classification.format,
-    status: input.status,
-    extractor: input.extractor,
-    prepared_at: new Date().toISOString(),
-    source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
-    source_size_bytes: Number(input.build.sourceStat.size),
-    chunk_count: input.chunkFiles.length,
-    full_text_file: fullTextFilename,
-    page_count: input.pageMarkdowns?.length,
-    warnings: input.warnings,
-    cover_relpath: coverRelpath,
-    title: input.title,
-    author: input.author,
-    text_artifacts: input.textArtifacts?.map((artifact) => artifact.relativePath),
-  })
+  await writeResourcePackMetadata(
+    input.build.packPaths.metadataPath,
+    Object.assign(
+      {
+        resource_alias: resourceAlias,
+        alias_at_build: resourceAlias,
+        source_path: input.build.sourcePath,
+        source_relpath: input.build.sourceRelpath,
+        format: input.build.classification.format,
+        status: input.status,
+        extractor: input.extractor,
+        prepared_at: new Date().toISOString(),
+        source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
+        source_size_bytes: Number(input.build.sourceStat.size),
+        chunk_count: input.chunkFiles.length,
+        full_text_file: fullTextFilename,
+        page_count: input.pageMarkdowns?.length,
+        warnings: input.warnings,
+        cover_relpath: coverRelpath,
+        title: input.title,
+        author: input.author,
+        text_artifacts: input.textArtifacts?.map((artifact) => artifact.relativePath),
+      },
+      input.build.objectID ? { object_id: input.build.objectID } : undefined,
+    ),
+  )
 }
 
 export async function writeErroredResourcePackMetadata(input: {
@@ -262,25 +289,30 @@ export async function writeErroredResourcePackMetadata(input: {
     artifacts: [],
   })
   const resourceAlias = resourceAliasForBuild(input.build)
-  await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
-    ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
-    resource_alias: resourceAlias,
-    alias_at_build: resourceAlias,
-    source_path: input.build.sourcePath,
-    source_relpath: input.build.sourceRelpath,
-    format: input.build.classification.format,
-    status: RESOURCE_PACK_STATUS_ERROR,
-    extractor: "error",
-    prepared_at: new Date().toISOString(),
-    source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
-    source_size_bytes: Number(input.build.sourceStat.size),
-    chunk_count: 0,
-    full_text_file: undefined,
-    warnings: [input.message],
-    cover_relpath: undefined,
-    title: undefined,
-    author: undefined,
-  })
+  await writeResourcePackMetadata(
+    input.build.packPaths.metadataPath,
+    Object.assign(
+      {
+        resource_alias: resourceAlias,
+        alias_at_build: resourceAlias,
+        source_path: input.build.sourcePath,
+        source_relpath: input.build.sourceRelpath,
+        format: input.build.classification.format,
+        status: RESOURCE_PACK_STATUS_ERROR,
+        extractor: "error",
+        prepared_at: new Date().toISOString(),
+        source_mtime_ms: Number(input.build.sourceStat.mtimeMs),
+        source_size_bytes: Number(input.build.sourceStat.size),
+        chunk_count: 0,
+        full_text_file: undefined,
+        warnings: [input.message],
+        cover_relpath: undefined,
+        title: undefined,
+        author: undefined,
+      },
+      input.build.objectID ? { object_id: input.build.objectID } : undefined,
+    ),
+  )
 }
 
 async function loadResourcePackMetadata(
@@ -290,28 +322,28 @@ async function loadResourcePackMetadata(
   if (!existing) return undefined
 
   const parsed = matter(existing)
-  const data = isPlainObject(parsed.data) ? parsed.data : undefined
+  const data = parseTJsonObject(parsed.data)
   if (!data) return undefined
 
-  const sourcePath = stringValue(data, "source_path")
-  const sourceRelpath = stringValue(data, "source_relpath")
-  const resourceAlias = stringValue(data, "resource_alias") || undefined
-  const objectID = stringValue(data, "object_id") || undefined
-  const aliasAtBuild = stringValue(data, "alias_at_build") || undefined
-  const format = normalizeResourceFormat(stringValue(data, "format"))
-  const status = normalizeResourcePackStatus(stringValue(data, "status"))
-  const extractor = stringValue(data, "extractor")
-  const preparedAt = stringValue(data, "prepared_at")
-  const sourceMtimeMs = numberValue(data, "source_mtime_ms")
-  const sourceSizeBytes = numberValue(data, "source_size_bytes")
-  const chunkCount = numberValue(data, "chunk_count")
-  const fullTextFile = stringValue(data, "full_text_file") || undefined
-  const warnings = stringArrayValue(data, "warnings")
-  const pageCount = numberValue(data, "page_count", true)
-  const coverRelpath = stringValue(data, "cover_relpath") || undefined
-  const title = stringValue(data, "title") || undefined
-  const author = stringValue(data, "author") || undefined
-  const textArtifacts = stringArrayValue(data, "text_artifacts")
+  const sourcePath = metadataStringValue(data, "source_path")
+  const sourceRelpath = metadataStringValue(data, "source_relpath")
+  const resourceAlias = metadataStringValue(data, "resource_alias") || undefined
+  const objectID = metadataStringValue(data, "object_id") || undefined
+  const aliasAtBuild = metadataStringValue(data, "alias_at_build") || undefined
+  const format = normalizeResourceFormat(metadataStringValue(data, "format"))
+  const status = normalizeResourcePackStatus(metadataStringValue(data, "status"))
+  const extractor = metadataStringValue(data, "extractor")
+  const preparedAt = metadataStringValue(data, "prepared_at")
+  const sourceMtimeMs = metadataNumberValue(data, "source_mtime_ms")
+  const sourceSizeBytes = metadataNumberValue(data, "source_size_bytes")
+  const chunkCount = metadataNumberValue(data, "chunk_count")
+  const fullTextFile = metadataStringValue(data, "full_text_file") || undefined
+  const warnings = metadataStringArrayValue(data, "warnings")
+  const pageCount = metadataNumberValue(data, "page_count", true)
+  const coverRelpath = metadataStringValue(data, "cover_relpath") || undefined
+  const title = metadataStringValue(data, "title") || undefined
+  const author = metadataStringValue(data, "author") || undefined
+  const textArtifacts = metadataStringArrayValue(data, "text_artifacts")
 
   if (
     !sourcePath ||
@@ -327,27 +359,34 @@ async function loadResourcePackMetadata(
     return undefined
   }
 
-  return {
-    ...(objectID ? { object_id: objectID } : {}),
-    resource_alias: resourceAlias,
-    ...(aliasAtBuild ? { alias_at_build: aliasAtBuild } : {}),
-    source_path: sourcePath,
-    source_relpath: sourceRelpath,
-    format,
-    status,
-    extractor,
-    prepared_at: preparedAt,
-    source_mtime_ms: sourceMtimeMs,
-    source_size_bytes: sourceSizeBytes,
-    chunk_count: chunkCount,
-    full_text_file: fullTextFile,
-    warnings,
-    ...(pageCount !== undefined ? { page_count: pageCount } : {}),
-    ...(coverRelpath ? { cover_relpath: coverRelpath } : {}),
-    ...(title ? { title } : {}),
-    ...(author ? { author } : {}),
-    ...(textArtifacts.length > 0 ? { text_artifacts: textArtifacts } : {}),
-  }
+  const metadata: ResourcePackMetadata = Object.assign(
+    Object.assign(
+      Object.assign(
+        {
+          resource_alias: resourceAlias,
+          source_path: sourcePath,
+          source_relpath: sourceRelpath,
+          format,
+          status,
+          extractor,
+          prepared_at: preparedAt,
+          source_mtime_ms: sourceMtimeMs,
+          source_size_bytes: sourceSizeBytes,
+          chunk_count: chunkCount,
+          full_text_file: fullTextFile,
+          warnings,
+        },
+        objectID ? { object_id: objectID } : undefined,
+        aliasAtBuild ? { alias_at_build: aliasAtBuild } : undefined,
+        pageCount !== undefined ? { page_count: pageCount } : undefined,
+      ),
+      coverRelpath ? { cover_relpath: coverRelpath } : undefined,
+      title ? { title } : undefined,
+      author ? { author } : undefined,
+    ),
+    textArtifacts.length > 0 ? { text_artifacts: textArtifacts } : undefined,
+  )
+  return metadata
 }
 
 async function writeResourcePackMetadata(metadataPath: string, metadata: ResourcePackMetadata) {
@@ -506,32 +545,34 @@ async function writeBinaryFile(filepath: string, data: Buffer) {
   await fs.writeFile(filepath, data)
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
+function metadataStringValue(record: TJsonObject, key: string) {
+  return parseTString(record[key]) ?? ""
 }
 
-function stringValue(record: Record<string, unknown>, key: string) {
+function metadataNumberValue(record: TJsonObject, key: string, optional = false) {
   const value = record[key]
-  return typeof value === "string" ? value : ""
-}
-
-function numberValue(record: Record<string, unknown>, key: string, optional = false) {
-  const value = record[key]
-  if (typeof value === "number") return value
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value)
+  const numeric = parseTNumber(value)
+  if (numeric !== undefined) return numeric
+  const text = parseTString(value)
+  if (text !== undefined && text.trim().length > 0) {
+    const parsed = Number(text)
     if (!Number.isNaN(parsed)) return parsed
   }
   return optional ? undefined : 0
 }
 
-function stringArrayValue(record: Record<string, unknown>, key: string) {
+function metadataStringArrayValue(record: TJsonObject, key: string) {
   const value = record[key]
-  if (Array.isArray(value)) {
-    return value.filter((entry): entry is string => typeof entry === "string")
+  const entries = parseTJsonArray(value)
+  if (entries !== undefined) {
+    return entries.flatMap((entry) => {
+      const text = parseTString(entry)
+      return text === undefined ? [] : [text]
+    })
   }
-  if (typeof value === "string" && value.trim().length > 0) {
-    return [value]
+  const text = parseTString(value)
+  if (text !== undefined && text.trim().length > 0) {
+    return [text]
   }
   return []
 }

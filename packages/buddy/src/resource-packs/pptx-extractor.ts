@@ -28,7 +28,7 @@ const PRESENTATION_SLIDE_RELATIONSHIP_PATTERN = /<p:sldId\b[^>]*\br:id="([^"]+)"
 const TABLE_PATTERN = /<a:tbl\b[\s\S]*?<\/a:tbl>/giu
 const TABLE_ROW_PATTERN = /<a:tr\b[\s\S]*?<\/a:tr>/giu
 const TABLE_CELL_PATTERN = /<a:tc\b[\s\S]*?<\/a:tc>/giu
-const SHAPE_PATTERN = /<p:sp\b[\s\S]*?<\/p:sp>/giu
+const SLIDE_OBJECT_PATTERN = /<p:sp\b[\s\S]*?<\/p:sp>/giu
 const TITLE_PLACEHOLDER_PATTERN = /<p:ph\b[^>]*\btype="(?:title|ctrTitle)"/iu
 const NON_VISUAL_PROPERTY_PATTERN = /<(?:p|a):cNvPr\b([^>]*)\/?\s*>/giu
 const XML_ATTRIBUTE_PATTERN = /([\w:.-]+)="([^"]*)"/gu
@@ -95,11 +95,11 @@ async function readRelationships(
 }
 
 function slideTitle(markup: string, slideNumber: number): string {
-  for (const shapeMatch of markup.matchAll(SHAPE_PATTERN)) {
-    const shape = shapeMatch[0]
-    if (!TITLE_PLACEHOLDER_PATTERN.test(shape)) continue
+  for (const slideObjectMatch of markup.matchAll(SLIDE_OBJECT_PATTERN)) {
+    const slideObjectMarkup = slideObjectMatch[0]
+    if (!TITLE_PLACEHOLDER_PATTERN.test(slideObjectMarkup)) continue
     TITLE_PLACEHOLDER_PATTERN.lastIndex = 0
-    const title = orderedText(shape).join(" ").trim()
+    const title = orderedText(slideObjectMarkup).join(" ").trim()
     if (title) return title
   }
   return orderedText(markup)[0] ?? `Slide ${slideNumber}`

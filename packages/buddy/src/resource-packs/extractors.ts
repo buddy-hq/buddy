@@ -5,6 +5,7 @@ import path from "node:path"
 import { promisify } from "node:util"
 import mammoth from "mammoth"
 import TurndownService from "turndown"
+import z from "zod"
 import {
   RESOURCE_PACK_STATUS_READY,
   RESOURCE_PACK_STATUS_UNSUPPORTED,
@@ -54,8 +55,9 @@ import {
   resourceXmlStringValue as stringValue,
   resourceXmlTextValue as xmlTextValue,
   type ResourceArchiveEntries,
-  type ResourceXmlRecord as XmlRecord,
+  type TResourceXmlRecord as XmlRecord,
 } from "./archive"
+import { parseTString } from "./json-value"
 import { extractPptxResource } from "./pptx-extractor"
 import { extractSpreadsheetResource } from "./spreadsheet-extractor"
 import { isNativeSpreadsheetFormat } from "@buddy/workspace-file-policy"
@@ -71,19 +73,32 @@ type PdfOutlineMetadata = {
   warning?: string
 }
 type PdfOutlineMetadataExtractor = (sourcePath: string) => Promise<PdfOutlineMetadata>
-type PdfTextContentLike = {
-  items: unknown[]
+type TPdfJsApi = typeof import("pdfjs-dist/legacy/build/pdf.mjs")
+type TPdfDocument = Awaited<ReturnType<TPdfJsApi["getDocument"]>["promise"]>
+type TPdfPageRef = {
+  num: number
+  gen: number
 }
-type PdfPageLike = {
-  getTextContent(): Promise<PdfTextContentLike>
+type TPdfOutlineDest =
+  | { kind: "name"; name: string }
+  | { kind: "explicit"; reference: TPdfPageRef }
+type TPdfOutlineNode = {
+  title: string
+  dest?: TPdfOutlineDest
+  items: TPdfOutlineNode[]
 }
-type PdfDocumentLike = {
-  numPages: number
-  getOutline(): Promise<unknown>
-  getPage(pageNumber: number): Promise<PdfPageLike>
-  getDestination(name: string): Promise<unknown>
-  getPageIndex(reference: unknown): Promise<number>
-}
+type TPdfTextContentItems = Awaited<
+  ReturnType<Awaited<ReturnType<TPdfDocument["getPage"]>>["getTextContent"]>
+>["items"]
+const pdfOutlineNodeSourceSchema = z.object({
+  title: z.string(),
+  dest: z.union([z.string(), z.array(z.unknown()), z.null()]).optional(),
+  items: z.array(z.unknown()).optional(),
+})
+const pdfPageRefSchema = z.object({
+  num: z.number(),
+  gen: z.number(),
+})
 
 const execFileAsync = promisify(execFile)
 const PDF_TEXT_COMMAND_BUFFER_BYTES = RESOURCE_MAX_FULL_TEXT_UTF8_BYTES
@@ -133,7 +148,7 @@ type PdfJsDOMMatrixInit =
     }
 
 function isPdfJsDOMMatrixArray(value: PdfJsDOMMatrixInit): value is PdfJsDOMMatrixArray {
-  return "length" in value && typeof value.length === "number"
+  return "length" in value && Number.isFinite(value.length)
 }
 
 class PdfJsDOMMatrixFallback {
@@ -408,7 +423,7 @@ async function extractPdfResourceWithPdfJsPipeline(
       useWorkerFetch: false,
       isEvalSupported: false,
     })
-    const document = asPdfDocument(await loadingTask.promise)
+    const document = await loadingTask.promise
     assertResourcePageCount(document.numPages)
     const pageMarkdowns: Array<{ pageNumber: number; markdown: string }> = []
     const pageTexts: string[] = []
@@ -416,7 +431,7 @@ async function extractPdfResourceWithPdfJsPipeline(
     const warnings: string[] = []
 
     const outline = await document.getOutline().catch(() => undefined)
-    const outlineNodes = Array.isArray(outline) ? outline : []
+    const outlineNodes = parseTPdfOutlineNodes(outline)
     if (outlineNodes.length > 0) {
       flattenPdfOutline(outlineNodes, tocLines)
     }
@@ -506,10 +521,10 @@ async function extractPdfOutlineMetadata(sourcePath: string): Promise<PdfOutline
     useWorkerFetch: false,
     isEvalSupported: false,
   })
-  const document = asPdfDocument(await loadingTask.promise)
+  const document = await loadingTask.promise
   assertResourcePageCount(document.numPages)
   const outline = await document.getOutline().catch(() => undefined)
-  const outlineNodes = Array.isArray(outline) ? outline : []
+  const outlineNodes = parseTPdfOutlineNodes(outline)
   const tocLines: string[] = []
   if (outlineNodes.length > 0) {
     flattenPdfOutline(outlineNodes, tocLines)
@@ -732,9 +747,12 @@ async function runPdfTextCommand(
       encoding: "utf8",
       maxBuffer: PDF_TEXT_COMMAND_BUFFER_BYTES,
     })
-    const output = `${stdout ?? ""}`.trim()
-    if (output.length === 0 && typeof stderr === "string" && stderr.trim().length > 0) {
-      return { ok: false, error: `${command} produced no output: ${stderr.trim()}` }
+    const output = parseTCommandText(stdout)
+    if (output.length === 0) {
+      const stderrMessage = parseTCommandText(stderr)
+      if (stderrMessage.length > 0) {
+        return { ok: false, error: `${command} produced no output: ${stderrMessage}` }
+      }
     }
     return { ok: true, output }
   } catch (error) {
@@ -754,9 +772,9 @@ async function runPdfBinaryCommand(
       encoding: "buffer",
       maxBuffer: PDF_COVER_COMMAND_BUFFER_BYTES,
     })
-    const output = normalizeCommandBufferOutput(stdout)
+    const output = parseTCommandBuffer(stdout)
     if (output.length === 0) {
-      const stderrMessage = normalizeCommandStringOutput(stderr)
+      const stderrMessage = parseTCommandText(stderr)
       if (stderrMessage.length > 0) {
         return { ok: false, error: `${command} produced no output: ${stderrMessage}` }
       }
@@ -1020,59 +1038,68 @@ function extractEpubAuthor(opf: XmlRecord, opfXml: string): string | undefined {
   return undefined
 }
 
-function asPdfDocument(value: unknown): PdfDocumentLike {
-  assertPdfDocument(value)
-  return value
+function parseTPdfOutlineNodes<TValue>(value: TValue): TPdfOutlineNode[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    const parsed = parseTPdfOutlineNode(entry)
+    return parsed === undefined ? [] : [parsed]
+  })
 }
 
-function assertPdfDocument(value: unknown): asserts value is PdfDocumentLike {
-  if (!isPlainObject(value)) {
-    throw new Error("Invalid PDF document result.")
-  }
-
-  if (
-    typeof value.numPages !== "number" ||
-    typeof value.getOutline !== "function" ||
-    typeof value.getPage !== "function" ||
-    typeof value.getDestination !== "function" ||
-    typeof value.getPageIndex !== "function"
-  ) {
-    throw new Error("Invalid PDF document contract.")
-  }
+function parseTPdfOutlineNode<TValue>(value: TValue): TPdfOutlineNode | undefined {
+  const parsed = pdfOutlineNodeSourceSchema.safeParse(value)
+  if (!parsed.success) return undefined
+  const dest = parseTPdfOutlineDest(parsed.data.dest)
+  return Object.assign(
+    {
+      title: parsed.data.title,
+      items: parseTPdfOutlineNodes(parsed.data.items),
+    },
+    dest !== undefined ? { dest } : undefined,
+  )
 }
 
-function flattenPdfOutline(nodes: unknown[], lines: string[], depth = 0) {
+function parseTPdfOutlineDest<TValue>(value: TValue): TPdfOutlineDest | undefined {
+  const name = parseTString(value)
+  if (name !== undefined) return { kind: "name", name }
+  if (!Array.isArray(value) || value.length === 0) return undefined
+  const reference = parseTPdfPageRef(value[0])
+  if (reference === undefined) return undefined
+  return { kind: "explicit", reference }
+}
+
+function parseTPdfPageRef<TValue>(value: TValue): TPdfPageRef | undefined {
+  const parsed = pdfPageRefSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function flattenPdfOutline(nodes: TPdfOutlineNode[], lines: string[], depth = 0) {
   for (const node of nodes) {
-    if (!isPlainObject(node)) continue
-    const title = stringValue(node, "title")
-    if (title) {
-      lines.push(`${"  ".repeat(depth)}- ${title}`)
+    if (node.title) {
+      lines.push(`${"  ".repeat(depth)}- ${node.title}`)
     }
-    const items = ensureArray(node.items)
-    if (items.length > 0) {
-      flattenPdfOutline(items, lines, depth + 1)
+    if (node.items.length > 0) {
+      flattenPdfOutline(node.items, lines, depth + 1)
     }
   }
 }
 
 async function buildPdfOutlinePoints(
-  document: PdfDocumentLike,
-  nodes: unknown[],
+  document: TPdfDocument,
+  nodes: TPdfOutlineNode[],
   depth = 0,
 ): Promise<PdfOutlinePoint[]> {
   const points: PdfOutlinePoint[] = []
 
   for (const node of nodes) {
-    if (!isPlainObject(node)) continue
-    const title = stringValue(node, "title").trim()
+    const title = node.title.trim()
     const pageNumber = await resolvePdfOutlinePageNumber(document, node.dest)
     if (title.length > 0 && pageNumber !== undefined) {
       points.push({ title, depth, pageNumber })
     }
 
-    const children = ensureArray(node.items as unknown[] | undefined)
-    if (children.length > 0) {
-      points.push(...(await buildPdfOutlinePoints(document, children, depth + 1)))
+    if (node.items.length > 0) {
+      points.push(...(await buildPdfOutlinePoints(document, node.items, depth + 1)))
     }
   }
 
@@ -1080,27 +1107,28 @@ async function buildPdfOutlinePoints(
 }
 
 async function resolvePdfOutlinePageNumber(
-  document: PdfDocumentLike,
-  destination: unknown,
+  document: TPdfDocument,
+  destination: TPdfOutlineDest | undefined,
 ): Promise<number | undefined> {
-  if (destination === undefined || destination === null) return undefined
+  if (destination === undefined) return undefined
 
-  let resolvedDestination: unknown = destination
-  if (typeof destination === "string") {
+  let reference: TPdfPageRef | undefined
+  if (destination.kind === "name") {
     try {
-      resolvedDestination = await document.getDestination(destination)
+      const resolvedDestination = await document.getDestination(destination.name)
+      if (!Array.isArray(resolvedDestination) || resolvedDestination.length === 0) return undefined
+      reference = parseTPdfPageRef(resolvedDestination[0])
     } catch {
-      resolvedDestination = undefined
+      return undefined
     }
+  } else {
+    reference = destination.reference
   }
 
-  if (!Array.isArray(resolvedDestination) || resolvedDestination.length === 0) return undefined
-  const reference = resolvedDestination[0]
-  if (!reference) return undefined
+  if (reference === undefined) return undefined
 
   const pageIndex = await document.getPageIndex(reference).catch(() => undefined)
-  if (typeof pageIndex !== "number" || !Number.isInteger(pageIndex) || pageIndex < 0)
-    return undefined
+  if (pageIndex === undefined || !Number.isInteger(pageIndex) || pageIndex < 0) return undefined
   return pageIndex + 1
 }
 
@@ -1305,14 +1333,14 @@ function buildStructuredChunkUnits(
   return units
 }
 
-function renderPdfTextContent(items: unknown[]): string {
+function renderPdfTextContent(items: TPdfTextContentItems): string {
   const lines: string[] = []
   let currentLine = ""
 
   for (const item of items) {
-    if (!isPlainObject(item) || typeof item.str !== "string") continue
+    if (!("str" in item)) continue
     const text = item.str.trim()
-    if (!text) continue
+    if (text.length === 0) continue
 
     if (currentLine.length === 0) {
       currentLine = text
@@ -1333,27 +1361,25 @@ function renderPdfTextContent(items: unknown[]): string {
   return lines.join("\n").trim()
 }
 
-function normalizeCommandBufferOutput(value: unknown) {
+function parseTCommandBuffer<TValue>(value: TValue): Buffer {
   if (Buffer.isBuffer(value)) return value
   if (value instanceof Uint8Array) return Buffer.from(value)
-  if (typeof value === "string") return Buffer.from(value)
+  const text = parseTString(value)
+  if (text !== undefined) return Buffer.from(text)
   return Buffer.alloc(0)
 }
 
-function normalizeCommandStringOutput(value: unknown) {
-  if (typeof value === "string") return value.trim()
+function parseTCommandText<TValue>(value: TValue): string {
+  const text = parseTString(value)
+  if (text !== undefined) return text.trim()
   if (Buffer.isBuffer(value)) return value.toString("utf8").trim()
   if (value instanceof Uint8Array) return Buffer.from(value).toString("utf8").trim()
   return ""
 }
 
-function isPlainObject(value: unknown): value is XmlRecord {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function ensureArray<T>(value: T | T[] | undefined): T[] {
-  if (value === undefined) return []
-  return Array.isArray(value) ? value : [value]
+function errorMessage<TValue>(error: TValue) {
+  if (error instanceof Error && error.message.trim().length > 0) return error.message
+  return String(error)
 }
 
 function buildNcxTocLines(ncxMarkup: string): string[] {
@@ -1377,9 +1403,4 @@ function appendNcxNavPoints(lines: string[], navPoints: XmlRecord[], depth: numb
       appendNcxNavPoints(lines, children, depth + 1)
     }
   }
-}
-
-function errorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim().length > 0) return error.message
-  return String(error)
 }

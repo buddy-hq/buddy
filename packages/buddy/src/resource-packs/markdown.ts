@@ -71,29 +71,35 @@ export function buildResourcePackEntryMarkdown(metadata: ResourcePackMetadata) {
       `- Pages: \`${RESOURCE_PACK_PAGES_DIR_NAME}/\``,
       ...artifactLines,
     ].join("\n"),
-    {
-      file_kind: RESOURCE_PACK_FILE_KIND_RESOURCE_INDEX,
-      ...(metadata.object_id ? { object_id: metadata.object_id } : {}),
-      resource_alias: metadata.resource_alias,
-      ...(metadata.alias_at_build ? { alias_at_build: metadata.alias_at_build } : {}),
-      source_path: metadata.source_path,
-      source_relpath: metadata.source_relpath,
-      format: metadata.format,
-      status: metadata.status,
-      extractor: metadata.extractor,
-      prepared_at: metadata.prepared_at,
-      source_mtime_ms: metadata.source_mtime_ms,
-      source_size_bytes: metadata.source_size_bytes,
-      chunk_count: metadata.chunk_count,
-      warnings: metadata.warnings,
-      ...(metadata.full_text_file ? { full_text_file: metadata.full_text_file } : {}),
-      ...(metadata.text_artifacts && metadata.text_artifacts.length > 0
-        ? { text_artifacts: metadata.text_artifacts }
-        : {}),
-      ...(metadata.page_count !== undefined ? { page_count: metadata.page_count } : {}),
-      ...(metadata.cover_relpath ? { cover_relpath: metadata.cover_relpath } : {}),
-      ...(metadata.title ? { title: metadata.title } : {}),
-      ...(metadata.author ? { author: metadata.author } : {}),
-    },
+    Object.assign(
+      Object.assign(
+        Object.assign(
+          {
+            file_kind: RESOURCE_PACK_FILE_KIND_RESOURCE_INDEX,
+            resource_alias: metadata.resource_alias,
+            source_path: metadata.source_path,
+            source_relpath: metadata.source_relpath,
+            format: metadata.format,
+            status: metadata.status,
+            extractor: metadata.extractor,
+            prepared_at: metadata.prepared_at,
+            source_mtime_ms: metadata.source_mtime_ms,
+            source_size_bytes: metadata.source_size_bytes,
+            chunk_count: metadata.chunk_count,
+            warnings: metadata.warnings,
+          },
+          metadata.object_id ? { object_id: metadata.object_id } : undefined,
+          metadata.alias_at_build ? { alias_at_build: metadata.alias_at_build } : undefined,
+          metadata.full_text_file ? { full_text_file: metadata.full_text_file } : undefined,
+        ),
+        metadata.text_artifacts && metadata.text_artifacts.length > 0
+          ? { text_artifacts: metadata.text_artifacts }
+          : undefined,
+        metadata.page_count !== undefined ? { page_count: metadata.page_count } : undefined,
+        metadata.cover_relpath ? { cover_relpath: metadata.cover_relpath } : undefined,
+      ),
+      metadata.title ? { title: metadata.title } : undefined,
+      metadata.author ? { author: metadata.author } : undefined,
+    ),
   )
 }

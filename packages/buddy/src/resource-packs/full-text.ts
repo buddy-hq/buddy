@@ -31,10 +31,12 @@ export async function resolveResourcePackFullTextMetadataFromRoot(input: {
   const match = RESOURCE_FULL_TEXT_FILENAME_REGEX.exec(fullTextFile)
   const fullTextPath = path.join(input.displayRootPath, fullTextFile)
 
-  return {
-    fullTextPath,
-    fullTextAbsolutePath: path.join(input.directory, fullTextPath),
-    ...(match?.[1] ? { fullTextEstimatedTokens: Number(match[1]) } : {}),
-    ...(match?.[2] ? { fullTextChars: Number(match[2]) } : {}),
-  }
+  return Object.assign(
+    {
+      fullTextPath,
+      fullTextAbsolutePath: path.join(input.directory, fullTextPath),
+    },
+    match?.[1] ? { fullTextEstimatedTokens: Number(match[1]) } : undefined,
+    match?.[2] ? { fullTextChars: Number(match[2]) } : undefined,
+  )
 }
