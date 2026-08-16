@@ -251,9 +251,9 @@ function node(at: LottieVector, enter: LottieVector, exit: LottieVector): Lottie
 
 function curvedPath(nodes: LottiePathNode[]): LottieBezierPath {
   return {
-    i: nodes.map((item) => [...item.enter] as LottieVector),
-    o: nodes.map((item) => [...item.exit] as LottieVector),
-    v: nodes.map((item) => [...item.at] as LottieVector),
+    i: nodes.map((item) => [item.enter[0], item.enter[1]] satisfies LottieVector),
+    o: nodes.map((item) => [item.exit[0], item.exit[1]] satisfies LottieVector),
+    v: nodes.map((item) => [item.at[0], item.at[1]] satisfies LottieVector),
     c: false,
   }
 }
@@ -538,7 +538,7 @@ const FLOW = {
       outline: { start: 90, end: 108 },
       content: { start: 104, end: 116 },
     },
-  ] as DiagramCard[],
+  ] satisfies DiagramCard[],
   connectors: [
     {
       nodes: [node([164, 72], [0, 0], [32, -18]), node([244, 72], [-32, -18], [0, 0])],
@@ -556,7 +556,7 @@ const FLOW = {
       nodes: [node([136, 195], [0, 0], [-18, -34]), node([96, 103], [16, 34], [0, 0])],
       draw: { start: 108, end: 126 },
     },
-  ] as Connector[],
+  ] satisfies Connector[],
 } as const
 
 export function buildFlowAnimation(): LottieAnimationData {
@@ -629,7 +629,7 @@ const BRANCH = {
       outline: { start: 94, end: 112 },
       content: { start: 106, end: 118 },
     },
-  ] as DiagramCard[],
+  ] satisfies DiagramCard[],
   connectors: [
     {
       nodes: [node([162, 150], [0, 0], [-30, -34]), node([132, 62], [26, 30], [0, 0])],
@@ -647,7 +647,7 @@ const BRANCH = {
       nodes: [node([318, 150], [0, 0], [30, 34]), node([348, 238], [-26, -30], [0, 0])],
       draw: { start: 80, end: 100 },
     },
-  ] as Connector[],
+  ] satisfies Connector[],
 } as const
 
 export function buildBranchAnimation(): LottieAnimationData {
@@ -686,7 +686,10 @@ const CURVE = {
   clear: { hold: 126, end: 150 },
   baselineWidth: 3,
   baselineOpacity: 32,
-  baseline: { from: [52, 256] as LottieVector, to: [436, 256] as LottieVector },
+  baseline: {
+    from: [52, 256] satisfies LottieVector,
+    to: [436, 256] satisfies LottieVector,
+  },
   baselineDraw: { start: 0, end: 24 },
   curveWidth: 4,
   curve: [
@@ -694,7 +697,7 @@ const CURVE = {
     node([166, 152], [-46, 28], [48, -30]),
     node([272, 172], [-42, -18], [46, 22]),
     node([382, 72], [-50, 38], [0, 0]),
-  ] as LottiePathNode[],
+  ] satisfies LottiePathNode[],
   curveDraw: { start: 16, end: 92 },
   ghostWidth: 3,
   ghostOpacity: 26,
@@ -703,14 +706,14 @@ const CURVE = {
     node([166, 202], [-44, 20], [46, -22]),
     node([272, 214], [-44, -8], [48, 10]),
     node([382, 156], [-52, 30], [0, 0]),
-  ] as LottiePathNode[],
+  ] satisfies LottiePathNode[],
   ghostDraw: { start: 34, end: 110 },
-  dotSize: [15, 15] as LottieVector,
+  dotSize: [15, 15] satisfies LottieVector,
   dotScaleFrom: 30,
   dots: [
-    { center: [166, 152] as LottieVector, appear: { start: 44, end: 56 } },
-    { center: [272, 172] as LottieVector, appear: { start: 62, end: 74 } },
-    { center: [382, 72] as LottieVector, appear: { start: 88, end: 100 } },
+    { center: [166, 152] satisfies LottieVector, appear: { start: 44, end: 56 } },
+    { center: [272, 172] satisfies LottieVector, appear: { start: 62, end: 74 } },
+    { center: [382, 72] satisfies LottieVector, appear: { start: 88, end: 100 } },
   ],
 } as const
 
