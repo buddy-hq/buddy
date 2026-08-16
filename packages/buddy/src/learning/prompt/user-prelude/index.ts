@@ -6,7 +6,7 @@ import {
   buildLearnerContextView,
   decideLearnerContextDelivery,
 } from "../../shared/learner-context-delivery"
-import { hasText } from "../utils"
+import { hasText, parsePromptString, type TJsonValue } from "../utils"
 import READING_TURN_CONTEXT_TEMPLATE_SOURCE from "./reading-turn-context.t.md"
 import TEACHING_TURN_CONTEXT_TEMPLATE_SOURCE from "./teaching-turn-context.t.md"
 import { definePromptTemplate } from "../template/engine"
@@ -190,7 +190,7 @@ function buildImageEditTurnContextPart(context: PromptContext): TurnContextPartB
   return context.imageEditIntent ? { text: "Edit the attached image" } : {}
 }
 
-function stringifyPromptData(value: unknown): string {
+function stringifyPromptData(value: TJsonValue): string {
   return JSON.stringify(value)
     .replaceAll("<", "\\u003c")
     .replaceAll(">", "\\u003e")
@@ -404,7 +404,8 @@ export function buildBuddyUserPrelude(input: {
     if (Array.isArray(rendered)) {
       return rendered.filter((line): line is string => hasText(line))
     }
-    return typeof rendered === "string" && hasText(rendered) ? [rendered] : []
+    const line = parsePromptString(rendered)
+    return line !== undefined && hasText(line) ? [line] : []
   })
 
   const readingTurnContext = buildReadingTurnContextPart(input.context)

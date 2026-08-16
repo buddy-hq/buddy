@@ -4,10 +4,12 @@ import { fileURLToPath } from "node:url"
 import { SessionTransformValidationError } from "../../session"
 import {
   isNativeResourceAttachmentPart,
+  nativeResourceAttachmentPromptPart,
   nativeResourcePromptAttachmentsFromParts,
   readNativeResourcePromptAttachment,
   type NativeResourcePromptAttachment,
 } from "./native-resource-attachments"
+import { parseJsonObject, parsePromptString, type TPromptPart } from "./utils"
 
 export const NATIVE_PDF_MAX_PAGES_PER_FILE = 30
 export const NATIVE_PDF_MAX_PAGES_PER_PROMPT = 50
@@ -16,38 +18,33 @@ const PROMPT_PART_TYPE_FILE = "file" as const
 const PDF_MIME = "application/pdf" as const
 const FILE_SOURCE_TYPE = "file" as const
 
-type NativePdfDeliveryDecision = {
+type TNativePdfDeliveryDecision = {
   delivery: NativeResourcePromptAttachment["delivery"]
   pageCount?: number
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isPdfFilePart(part: Record<string, unknown>): boolean {
+function isPdfFilePart(part: TPromptPart): boolean {
   return part.type === PROMPT_PART_TYPE_FILE && part.mime === PDF_MIME
 }
 
 function normalizedFilePartSourcePath(input: {
   directory: string
-  part: Record<string, unknown>
+  part: TPromptPart
 }): string | undefined {
   if (!isPdfFilePart(input.part)) return undefined
 
-  const source = input.part.source
-  if (
-    isRecord(source) &&
-    source.type === FILE_SOURCE_TYPE &&
-    typeof source.path === "string" &&
-    source.path.length > 0
-  ) {
-    return path.resolve(input.directory, source.path)
+  const source = parseJsonObject(input.part.source)
+  const sourcePath = source !== undefined && source.type === FILE_SOURCE_TYPE
+    ? parsePromptString(source.path)
+    : undefined
+  if (sourcePath !== undefined && sourcePath.length > 0) {
+    return path.resolve(input.directory, sourcePath)
   }
 
-  if (typeof input.part.url !== "string") return undefined
+  const urlValue = parsePromptString(input.part.url)
+  if (urlValue === undefined) return undefined
   try {
-    const url = new URL(input.part.url)
+    const url = new URL(urlValue)
     return url.protocol === "file:" ? path.resolve(fileURLToPath(url)) : undefined
   } catch {
     return undefined
@@ -80,8 +77,8 @@ export async function readPdfPageCount(sourcePath: string): Promise<number> {
 
 export async function applyNativePdfDeliveryPolicy(input: {
   directory: string
-  parts: Record<string, unknown>[]
-}): Promise<Record<string, unknown>[]> {
+  parts: TPromptPart[]
+}): Promise<TPromptPart[]> {
   const attachments = nativeResourcePromptAttachmentsFromParts(input.parts)
   const nativePdfFilePaths = new Set<string>()
   for (const part of input.parts) {
@@ -112,7 +109,7 @@ export async function applyNativePdfDeliveryPolicy(input: {
     }
   }
 
-  const decisions = new Map<string, NativePdfDeliveryDecision>()
+  const decisions = new Map<string, TNativePdfDeliveryDecision>()
   let admittedPageCount = 0
 
   for (const attachment of attachments) {
@@ -127,7 +124,7 @@ export async function applyNativePdfDeliveryPolicy(input: {
     const withinPerFileLimit = pageCount !== undefined && pageCount <= NATIVE_PDF_MAX_PAGES_PER_FILE
     const withinPromptLimit =
       pageCount !== undefined && admittedPageCount + pageCount <= NATIVE_PDF_MAX_PAGES_PER_PROMPT
-    const delivery: NativePdfDeliveryDecision["delivery"] =
+    const delivery: TNativePdfDeliveryDecision["delivery"] =
       withinPerFileLimit && withinPromptLimit ? "model-and-resource" : "resource-only"
 
     if (delivery === "model-and-resource" && pageCount !== undefined) {
@@ -143,10 +140,14 @@ export async function applyNativePdfDeliveryPolicy(input: {
   return input.parts.flatMap((part) => {
     if (isNativeResourceAttachmentPart(part)) {
       const attachment = readNativeResourcePromptAttachment(part)
-      if (attachment.format !== "pdf") return [attachment]
+      if (attachment.format !== "pdf") return [nativeResourceAttachmentPromptPart(attachment)]
 
       const decision = decisions.get(path.resolve(attachment.sourcePath))
-      return decision ? [{ ...attachment, ...decision }] : [attachment]
+      return [
+        nativeResourceAttachmentPromptPart(
+          decision ? Object.assign({}, attachment, decision) : attachment,
+        ),
+      ]
     }
 
     const sourcePath = normalizedFilePartSourcePath({

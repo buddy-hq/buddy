@@ -37,6 +37,17 @@ import type {
 import { listRegisteredResources } from "../../resources/resource-registry-service"
 import { IMAGE_EDIT_TARGET_MAX, type ImageEditIntent } from "../features/image-generation/contracts"
 import type { NativeResourcePromptAttachment } from "./native-resource-attachments"
+import {
+  parseJsonArray,
+  parseJsonObject,
+  parseNonEmptyPromptString,
+  parsePromptBoolean,
+  parsePromptFiniteNumber,
+  parsePromptStringList,
+  type TJsonObject,
+  type TJsonValue,
+  type TMessagePromptBody,
+} from "./utils"
 
 type MessagePromptProjectConfig = Awaited<ReturnType<typeof readProjectConfig>>
 
@@ -147,32 +158,32 @@ export type CreatePromptContextResult = {
 type CreatePromptContextInput = {
   directory: string
   sessionID: string
-  body: Record<string, unknown>
+  body: TMessagePromptBody
   projectConfig: MessagePromptProjectConfig
   previousState?: TeachingSessionState
   personaID: Persona
   nativeResourceAttachments: NativeResourcePromptAttachment[]
 }
 
-function resolveTeachingContext(body: Record<string, unknown>): TeachingPromptContext | undefined {
+function resolveTeachingContext(body: TMessagePromptBody): TeachingPromptContext | undefined {
   const result = TeachingPromptContextSchema.safeParse(body.teaching)
   return result.success ? result.data : undefined
 }
 
-function resolveImageEditIntent(body: Record<string, unknown>): ImageEditIntent | undefined {
-  const value = body.imageEdit
-  if (!value || typeof value !== "object" || !("targetPaths" in value)) return undefined
-  if (!Array.isArray(value.targetPaths)) return undefined
+function resolveImageEditIntent(body: TMessagePromptBody): ImageEditIntent | undefined {
+  const value = parseJsonObject(body.imageEdit)
+  if (value === undefined) return undefined
+  const targetPaths = parsePromptStringList(value.targetPaths)
+  if (targetPaths === undefined) return undefined
 
-  const targetPaths = value.targetPaths
+  const trimmedTargetPaths = targetPaths
     .flatMap((targetPath) => {
-      if (typeof targetPath !== "string") return []
       const trimmed = targetPath.trim()
       return trimmed ? [trimmed] : []
     })
     .slice(0, IMAGE_EDIT_TARGET_MAX)
 
-  return targetPaths.length > 0 ? { targetPaths } : undefined
+  return trimmedTargetPaths.length > 0 ? { targetPaths: trimmedTargetPaths } : undefined
 }
 
 const MAX_PASSAGE_TEXT_CHARS = 1200
@@ -182,29 +193,21 @@ function boundText(value: string, maxChars: number): string {
   return value.length <= maxChars ? value : value.slice(0, maxChars)
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function readTrimmedStringField(value: TJsonObject, key: string): string | undefined {
+  return parseNonEmptyPromptString(value[key])
 }
 
-function readTrimmedStringField(value: object, key: string): string | undefined {
-  const candidate = Reflect.get(value, key)
-  if (typeof candidate !== "string") return undefined
-  const trimmed = candidate.trim()
-  return trimmed ? trimmed : undefined
-}
-
-function readBoundedStringField(value: object, key: string, maxChars: number): string | undefined {
+function readBoundedStringField(value: TJsonObject, key: string, maxChars: number): string | undefined {
   const trimmed = readTrimmedStringField(value, key)
   if (!trimmed) return undefined
   return boundText(trimmed, maxChars)
 }
 
-function readFiniteNumberField(value: object, key: string): number | undefined {
-  const candidate = Reflect.get(value, key)
-  return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : undefined
+function readFiniteNumberField(value: TJsonObject, key: string): number | undefined {
+  return parsePromptFiniteNumber(value[key])
 }
 
-function readLegacyReaderLocation(value: object): ReaderLocation | undefined {
+function readLegacyReaderLocation(value: TJsonObject): ReaderLocation | undefined {
   const cfi = readTrimmedStringField(value, "cfi")
   if (!cfi) return undefined
   const sectionIndex = readFiniteNumberField(value, "index")
@@ -234,27 +237,29 @@ function readLegacyReaderLocation(value: object): ReaderLocation | undefined {
   )
 }
 
-function readActiveReaderLocation(value: object): ReaderLocation | undefined {
-  const location = Reflect.get(value, "location")
-  if (location !== undefined) return readReaderLocation(location)
+function readActiveReaderLocation(value: TJsonObject): ReaderLocation | undefined {
+  if (value.location !== undefined) return readReaderLocation(value.location)
   return readLegacyReaderLocation(value)
 }
 
-function readReadingTrail(value: unknown): ReaderTrailEntry[] | undefined {
-  if (!Array.isArray(value)) return undefined
-  const entries = value.flatMap((entry) => {
-    if (!entry || typeof entry !== "object") return []
-    const label =
-      readTrimmedStringField(entry, "label") ?? readTrimmedStringField(entry, "tocLabel")
+function readReadingTrail(value: TJsonValue | undefined): ReaderTrailEntry[] | undefined {
+  const entriesValue = parseJsonArray(value)
+  if (entriesValue === undefined) return undefined
+  const entries = entriesValue.flatMap((entry) => {
+    const object = parseJsonObject(entry)
+    if (object === undefined) return []
+    const label = readTrimmedStringField(object, "label") ?? readTrimmedStringField(object, "tocLabel")
     if (!label) return []
-    const fraction = readFiniteNumberField(entry, "fraction")
-    const anchor = Reflect.get(entry, "anchor")
+    const fraction = readFiniteNumberField(object, "fraction")
     const location =
-      anchor !== undefined
+      object.anchor !== undefined
         ? readReaderLocation(
-            Object.assign({ anchor }, fraction !== undefined ? { fraction } : undefined),
+            Object.assign(
+              { anchor: object.anchor },
+              fraction !== undefined ? { fraction } : undefined,
+            ),
           )
-        : readLegacyReaderLocation(entry)
+        : readLegacyReaderLocation(object)
     if (!location) return []
     return [
       Object.assign(
@@ -296,7 +301,7 @@ function resolvePromptPersonalization(
 }
 
 async function resolvePromptModel(input: {
-  body: Record<string, unknown>
+  body: TMessagePromptBody
   projectConfig: MessagePromptProjectConfig
 }) {
   const runtimeSnapshot = readPromptModelRuntimeSnapshot(input.body.modelRuntime)
@@ -325,31 +330,18 @@ async function resolvePromptModel(input: {
   )
 }
 
-function readPromptModelRuntimeSnapshot(value: unknown): PromptModelRuntimeSnapshot | undefined {
-  if (!isObjectRecord(value)) return undefined
+function readPromptModelRuntimeSnapshot(
+  value: TJsonValue | undefined,
+): PromptModelRuntimeSnapshot | undefined {
+  const record = parseJsonObject(value)
+  if (record === undefined) return undefined
 
-  const record = value
-  const providerID =
-    typeof record.providerID === "string" && record.providerID.trim().length > 0
-      ? record.providerID
-      : undefined
-  const modelID =
-    typeof record.modelID === "string" && record.modelID.trim().length > 0
-      ? record.modelID
-      : undefined
-  const contextWindow =
-    typeof record.contextWindow === "number" && Number.isFinite(record.contextWindow)
-      ? record.contextWindow
-      : undefined
-  const outputWindow =
-    typeof record.outputWindow === "number" && Number.isFinite(record.outputWindow)
-      ? record.outputWindow
-      : undefined
-  const inputWindow =
-    typeof record.inputWindow === "number" && Number.isFinite(record.inputWindow)
-      ? record.inputWindow
-      : undefined
-  const image = typeof record.image === "boolean" ? record.image : undefined
+  const providerID = parseNonEmptyPromptString(record.providerID)
+  const modelID = parseNonEmptyPromptString(record.modelID)
+  const contextWindow = parsePromptFiniteNumber(record.contextWindow)
+  const outputWindow = parsePromptFiniteNumber(record.outputWindow)
+  const inputWindow = parsePromptFiniteNumber(record.inputWindow)
+  const image = parsePromptBoolean(record.image)
 
   if (!providerID || !modelID || contextWindow === undefined || outputWindow === undefined) {
     return undefined
@@ -432,26 +424,29 @@ function resolvePromptResourceName(input: {
   return input.alias
 }
 
-function parseActiveReadingContext(value: unknown): ActiveReadingContext | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+function parseActiveReadingContext(
+  value: TJsonValue | undefined,
+): ActiveReadingContext | undefined {
+  const object = parseJsonObject(value)
+  if (object === undefined) return undefined
 
-  const title = readTrimmedStringField(value, "title") ?? ""
-  const path = readTrimmedStringField(value, "path") ?? ""
-  const resourceKey = readTrimmedStringField(value, "resourceKey")
-  const location = readActiveReaderLocation(value)
+  const title = readTrimmedStringField(object, "title") ?? ""
+  const path = readTrimmedStringField(object, "path") ?? ""
+  const resourceKey = readTrimmedStringField(object, "resourceKey")
+  const location = readActiveReaderLocation(object)
   const currentPassageText = readBoundedStringField(
-    value,
+    object,
     "currentPassageText",
     MAX_PASSAGE_TEXT_CHARS,
   )
   const visibleStartText = readBoundedStringField(
-    value,
+    object,
     "visibleStartText",
     MAX_START_END_TEXT_CHARS,
   )
-  const visibleEndText = readBoundedStringField(value, "visibleEndText", MAX_START_END_TEXT_CHARS)
-  const readingTrail = readReadingTrail(Reflect.get(value, "readingTrail"))
-  const annotationSummary = readAnnotationSummary(Reflect.get(value, "annotationSummary"))
+  const visibleEndText = readBoundedStringField(object, "visibleEndText", MAX_START_END_TEXT_CHARS)
+  const readingTrail = readReadingTrail(object.readingTrail)
+  const annotationSummary = readAnnotationSummary(object.annotationSummary)
   if (!title || !path) return undefined
 
   return Object.assign(
@@ -467,14 +462,18 @@ function parseActiveReadingContext(value: unknown): ActiveReadingContext | undef
   )
 }
 
-function readAnnotationSummary(value: unknown): ActiveAnnotationSummaryEntry[] | undefined {
-  if (!Array.isArray(value)) return undefined
-  const entries = value.flatMap((entry) => {
-    if (!entry || typeof entry !== "object") return []
-    const text = readTrimmedStringField(entry, "text")
+function readAnnotationSummary(
+  value: TJsonValue | undefined,
+): ActiveAnnotationSummaryEntry[] | undefined {
+  const entriesValue = parseJsonArray(value)
+  if (entriesValue === undefined) return undefined
+  const entries = entriesValue.flatMap((entry) => {
+    const object = parseJsonObject(entry)
+    if (object === undefined) return []
+    const text = readTrimmedStringField(object, "text")
     if (!text) return []
-    const tocLabel = readTrimmedStringField(entry, "tocLabel")
-    const note = readTrimmedStringField(entry, "note")
+    const tocLabel = readTrimmedStringField(object, "tocLabel")
+    const note = readTrimmedStringField(object, "note")
     return [Object.assign({ text }, tocLabel ? { tocLabel } : undefined, note ? { note } : undefined)]
   })
   return entries.length > 0 ? entries : undefined

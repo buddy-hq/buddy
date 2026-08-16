@@ -12,6 +12,12 @@ import {
 } from "../shared/targeting"
 import { resolveSubagentToolForwarding } from "../agent-execution/transforms/subagent-tool-forwarding"
 import type { PermissionRuleset } from "@buddy/opencode-adapter/permission"
+import {
+  parseJsonArray,
+  parseJsonObject,
+  parsePromptString,
+  type TMessagePromptBody,
+} from "./utils"
 
 export type MessagePromptPipelineContext = {
   directory: string
@@ -19,7 +25,7 @@ export type MessagePromptPipelineContext = {
 }
 
 export type MessagePromptPipelineResult = {
-  transformed: Record<string, unknown>
+  transformed: TMessagePromptBody
   subagentSessionPermission?: PermissionRuleset
   sessionRuntimeForPermissions?: CreatePromptContextResult["sessionRuntimeForPermissions"]
   nextTeachingState?: TeachingSessionState
@@ -38,19 +44,20 @@ export type MessagePromptPipelineResult = {
   }
 }
 
-export async function runMessagePromptPipeline(input: {
+export async function runMessagePromptPipeline<TBody>(input: {
   context: MessagePromptPipelineContext
-  body: Record<string, unknown>
+  body: TBody
   projectConfig: Awaited<ReturnType<typeof readProjectConfig>>
   previousState?: TeachingSessionState
 }): Promise<MessagePromptPipelineResult> {
-  assertNoLegacyRuntimeOverrides(input.body)
+  const body = parseJsonObject(input.body) ?? {}
+  assertNoLegacyRuntimeOverrides(body)
 
-  const content = typeof input.body.content === "string" ? input.body.content : ""
+  const content = parsePromptString(body.content) ?? ""
   const normalizedParts = await normalizePromptParts({
     directory: input.context.directory,
     content,
-    parts: Array.isArray(input.body.parts) ? [...input.body.parts] : [],
+    parts: parseJsonArray(body.parts) ?? [],
   })
   const parts = await applyNativePdfDeliveryPolicy({
     directory: input.context.directory,
@@ -59,12 +66,12 @@ export async function runMessagePromptPipeline(input: {
   const nativeResourceAttachments = nativeResourcePromptAttachmentsFromParts(parts)
 
   const target = normalizePersonaTarget({
-    body: input.body,
+    body,
     config: input.projectConfig,
     sessionPersona: input.previousState?.persona,
   })
 
-  const transformed = Object.assign({}, input.body, {
+  const transformed: TMessagePromptBody = Object.assign({}, body, {
     parts,
   })
 
@@ -74,14 +81,14 @@ export async function runMessagePromptPipeline(input: {
   let nextTeachingState: TeachingSessionState | undefined
   let learnerContextDelivery: MessagePromptPipelineResult["learnerContextDelivery"]
   let turnContextDelivery: MessagePromptPipelineResult["turnContextDelivery"]
-  const existingSystem = typeof input.body.system === "string" ? input.body.system.trim() : ""
+  const existingSystem = parsePromptString(body.system)?.trim() ?? ""
   let buddySystem = ""
 
   if (target.includeBuddySystem && target.personaID) {
     const promptContextResult = await createPromptContext({
       directory: input.context.directory,
       sessionID: input.context.sessionID,
-      body: input.body,
+      body,
       projectConfig: input.projectConfig,
       previousState: input.previousState,
       personaID: target.personaID,
@@ -106,7 +113,7 @@ export async function runMessagePromptPipeline(input: {
     transformed.system = mergedSystem
   }
   const configuredModel = parseConfiguredModel(input.projectConfig.model)
-  const explicitModel = hasExplicitModel(input.body.model)
+  const explicitModel = hasExplicitModel(body.model)
   if (!explicitModel && configuredModel) {
     transformed.model = configuredModel
   }

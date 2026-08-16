@@ -14,10 +14,20 @@ import { getOpenCodeClient } from "../../opencode-runtime/client"
 import { extractSdkErrorMessage } from "../../http/sdk-response"
 import {
   isNativeResourceAttachmentPart,
+  nativeResourceAttachmentPromptPart,
   normalizeNativeResourceAttachmentPart,
   readNativeResourcePromptAttachment,
 } from "./native-resource-attachments"
 import { BUDDY_PROMPT_PART_METADATA_KEY } from "./native-resource-metadata"
+import {
+  parseJsonObject,
+  parseNonEmptyPromptString,
+  parsePromptString,
+  parsePromptStringList,
+  type TJsonObject,
+  type TJsonValue,
+  type TPromptPart,
+} from "./utils"
 
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const OPENCODE_REFERENCE_PART_TYPE = "opencode-reference" as const
@@ -96,33 +106,23 @@ export type MarkdownSelectionContextPart = {
 
 export type SelectionContextPart = ReadingSelectionContextPart | MarkdownSelectionContextPart
 
-type ReadingSelectionPartInput = {
-  type: typeof READING_SELECTION_PART_TYPE
-  text: string
-  [key: string]: unknown
-}
-
-type SelectionContextPartInput = {
-  type: typeof SELECTION_CONTEXT_PART_TYPE
-  source: "reading" | "markdown"
-  text: string
-  selectionKey: string
-  [key: string]: unknown
+type TPromptTextPart = TPromptPart & {
+  type: typeof PROMPT_PART_TYPE_TEXT
 }
 
 export async function normalizePromptParts(input: {
   directory: string
   content: string
-  parts: unknown[]
-}): Promise<Record<string, unknown>[]> {
-  const normalizedParts: Record<string, unknown>[] = []
+  parts: readonly TJsonValue[]
+}): Promise<TPromptPart[]> {
+  const normalizedParts: TPromptPart[] = []
 
   if (input.content.trim().length > 0) {
     normalizedParts.push(
       ...(await expandPromptTextPart({
         directory: input.directory,
         part: {
-          type: "text",
+          type: PROMPT_PART_TYPE_TEXT,
           text: input.content,
         },
       })),
@@ -132,66 +132,77 @@ export async function normalizePromptParts(input: {
   for (const part of input.parts) {
     if (isNativeResourceAttachmentPart(part)) {
       normalizedParts.push(
-        await normalizeNativeResourceAttachmentPart({
-          directory: input.directory,
-          value: part,
-        }),
+        nativeResourceAttachmentPromptPart(
+          await normalizeNativeResourceAttachmentPart({
+            directory: input.directory,
+            value: part,
+          }),
+        ),
       )
       continue
     }
 
-    if (isOpenCodeReferencePart(part)) {
+    const openCodeReference = parseOpenCodeReferencePart(part)
+    if (openCodeReference) {
       normalizedParts.push(
         await expandOpenCodeReferencePart({
           directory: input.directory,
-          part,
+          part: openCodeReference,
         }),
       )
       continue
     }
 
-    if (isWorkspaceFileReferencePart(part)) {
+    const workspaceFileReference = parseWorkspaceFileReferencePart(part)
+    if (workspaceFileReference) {
       normalizedParts.push(
         ...(await expandWorkspaceFileReferencePart({
           directory: input.directory,
-          part,
+          part: workspaceFileReference,
         })),
       )
       continue
     }
 
-    if (isResourceReferencePart(part)) {
+    const resourceReference = parseResourceReferencePart(part)
+    if (resourceReference) {
       normalizedParts.push(
         ...(await expandResourceReferencePart({
           directory: input.directory,
-          part,
+          part: resourceReference,
         })),
       )
       continue
     }
 
-    if (isPromptTextPart(part)) {
+    const textPart = parsePromptTextPart(part)
+    if (textPart) {
       normalizedParts.push(
         ...(await expandPromptTextPart({
           directory: input.directory,
-          part,
+          part: textPart,
         })),
       )
       continue
     }
 
-    if (isReadingSelectionPart(part)) {
-      normalizedParts.push(normalizeReadingSelectionPart(part))
+    const readingSelection = parseReadingSelectionPart(part)
+    if (readingSelection) {
+      normalizedParts.push(readingSelectionPromptPart(normalizeReadingSelectionPart(readingSelection)))
       continue
     }
 
-    if (isSelectionContextPart(part)) {
-      normalizedParts.push(normalizeSelectionContextPart(part))
+    const selectionContext = parseSelectionContextPart(part)
+    if (selectionContext) {
+      normalizedParts.push(
+        selectionContextPromptPart(normalizeSelectionContextPart(selectionContext)),
+      )
       continue
     }
 
-    if (isPlainObject(part)) {
-      normalizedParts.push({ ...part })
+    const object = parseJsonObject(part)
+    if (object !== undefined) {
+      normalizedParts.push({ ...object })
     }
   }
 
@@ -205,7 +216,7 @@ export async function normalizePromptParts(input: {
 async function expandOpenCodeReferencePart(input: {
   directory: string
   part: OpenCodeReferencePart
-}): Promise<Record<string, unknown>> {
+}): Promise<TPromptPart> {
   const client = await getOpenCodeClient(input.directory)
   const result = await client.v2.reference.list()
   if (result.error !== undefined) {
@@ -242,8 +253,8 @@ async function expandOpenCodeReferencePart(input: {
 
 async function expandPromptTextPart(input: {
   directory: string
-  part: Record<string, unknown>
-}): Promise<Record<string, unknown>[]> {
+  part: TPromptTextPart
+}): Promise<TPromptPart[]> {
   const text = promptTextValue(input.part)
   if (text === undefined || text.length === 0) {
     return []
@@ -259,7 +270,7 @@ async function expandPromptTextPart(input: {
     return [normalizePromptTextPart(input.part, text)]
   }
 
-  const pieces: Record<string, unknown>[] = []
+  const pieces: TPromptPart[] = []
   let cursor = 0
 
   for (const match of text.matchAll(PROMPT_WORKSPACE_FILE_REFERENCE_REGEX)) {
@@ -300,7 +311,7 @@ async function expandPromptTextPart(input: {
 async function expandWorkspaceFileReferencePart(input: {
   directory: string
   part: WorkspaceFileReferencePart
-}): Promise<Record<string, unknown>[]> {
+}): Promise<TPromptPart[]> {
   return resolveWorkspaceReference({
     directory: input.directory,
     rawPath: input.part.path,
@@ -311,7 +322,7 @@ async function expandWorkspaceFileReferencePart(input: {
 async function expandResourceReferencePart(input: {
   directory: string
   part: ResourceReferencePart
-}): Promise<Record<string, unknown>[]> {
+}): Promise<TPromptPart[]> {
   const key = input.part.key.trim()
   if (!key) {
     throw new SessionTransformValidationError("resource-reference key is required")
@@ -357,7 +368,7 @@ async function resolveWorkspaceReference(input: {
   directory: string
   rawPath: string
   source: "raw" | "explicit"
-}): Promise<Record<string, unknown>[]> {
+}): Promise<TPromptPart[]> {
   const resolvedPath = resolveWorkspacePath(input.directory, input.rawPath)
   const isWorkspaceScopedPath =
     isWorkspaceRelativePath(input.rawPath) && isPathInsideWorkspace(input.directory, resolvedPath)
@@ -438,15 +449,11 @@ function relativeDisplayPath(directory: string, filePath: string) {
   return relpath.length > 0 ? relpath : path.basename(filePath)
 }
 
-function promptTextValue(part: Record<string, unknown>) {
-  const text = part.text
-  if (typeof text === "string") return text
-  const content = part.content
-  if (typeof content === "string") return content
-  return undefined
+function promptTextValue(part: TPromptPart) {
+  return parsePromptString(part.text) ?? parsePromptString(part.content)
 }
 
-function normalizePromptTextPart(part: Record<string, unknown>, text: string) {
+function normalizePromptTextPart(part: TPromptPart, text: string) {
   return {
     ...stripPromptTextValues(part),
     type: PROMPT_PART_TYPE_TEXT,
@@ -454,87 +461,156 @@ function normalizePromptTextPart(part: Record<string, unknown>, text: string) {
   }
 }
 
-function stripPromptTextValues(part: Record<string, unknown>) {
-  const next = { ...part } satisfies Record<string, unknown>
+function stripPromptTextValues(part: TPromptPart) {
+  const next = { ...part }
   delete next.content
   delete next.text
   return next
 }
 
-function isPromptTextPart(part: unknown): part is Record<string, unknown> {
-  if (!isPlainObject(part)) return false
-  if (part.type !== PROMPT_PART_TYPE_TEXT) return false
-  return typeof part.text === "string" || typeof part.content === "string"
+function parsePromptTextPart<T>(part: T): TPromptTextPart | undefined {
+  const object = parseJsonObject(part)
+  if (object === undefined || object.type !== PROMPT_PART_TYPE_TEXT) return undefined
+  if (parsePromptString(object.text) === undefined && parsePromptString(object.content) === undefined) {
+    return undefined
+  }
+  return Object.assign(object, { type: PROMPT_PART_TYPE_TEXT })
 }
 
-function isTextFileAttachmentPromptPart(part: Record<string, unknown>) {
-  if (!isPlainObject(part.metadata)) return false
-  const metadata = part.metadata[BUDDY_PROMPT_PART_METADATA_KEY]
+function isTextFileAttachmentPromptPart(part: TPromptPart) {
+  const metadataContainer = parseJsonObject(part.metadata)
+  if (metadataContainer === undefined) return false
+  const metadata = parseJsonObject(metadataContainer[BUDDY_PROMPT_PART_METADATA_KEY])
+  const filename = parsePromptString(metadata?.filename)
+  const mime = parsePromptString(metadata?.mime)
   return (
-    isPlainObject(metadata) &&
+    metadata !== undefined &&
     metadata.type === TEXT_FILE_ATTACHMENT_PART_TYPE &&
-    typeof metadata.filename === "string" &&
-    metadata.filename.length > 0 &&
-    typeof metadata.mime === "string" &&
-    metadata.mime.length > 0
+    filename !== undefined &&
+    filename.length > 0 &&
+    mime !== undefined &&
+    mime.length > 0
   )
 }
 
-function isOpenCodeReferencePart(part: unknown): part is OpenCodeReferencePart {
-  if (!isPlainObject(part)) return false
-  return (
-    part.type === OPENCODE_REFERENCE_PART_TYPE &&
-    typeof part.name === "string" &&
-    typeof part.path === "string"
-  )
+function parseOpenCodeReferencePart<T>(part: T): OpenCodeReferencePart | undefined {
+  const object = parseJsonObject(part)
+  const name = parsePromptString(object?.name)
+  const pathValue = parsePromptString(object?.path)
+  if (object === undefined || object.type !== OPENCODE_REFERENCE_PART_TYPE) return undefined
+  if (name === undefined || pathValue === undefined) return undefined
+  return {
+    type: OPENCODE_REFERENCE_PART_TYPE,
+    name,
+    path: pathValue,
+  }
 }
 
-function isWorkspaceFileReferencePart(part: unknown): part is WorkspaceFileReferencePart {
-  if (!isPlainObject(part)) return false
-  return part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && typeof part.path === "string"
+function parseWorkspaceFileReferencePart<T>(part: T): WorkspaceFileReferencePart | undefined {
+  const object = parseJsonObject(part)
+  const pathValue = parsePromptString(object?.path)
+  if (object === undefined || object.type !== WORKSPACE_FILE_REFERENCE_PART_TYPE) return undefined
+  if (pathValue === undefined) return undefined
+  return {
+    type: WORKSPACE_FILE_REFERENCE_PART_TYPE,
+    path: pathValue,
+  }
 }
 
-function isResourceReferencePart(part: unknown): part is ResourceReferencePart {
-  if (!isPlainObject(part)) return false
-  return part.type === RESOURCE_REFERENCE_PART_TYPE && typeof part.key === "string"
+function parseResourceReferencePart<T>(part: T): ResourceReferencePart | undefined {
+  const object = parseJsonObject(part)
+  const key = parsePromptString(object?.key)
+  if (object === undefined || object.type !== RESOURCE_REFERENCE_PART_TYPE) return undefined
+  if (key === undefined) return undefined
+  return {
+    type: RESOURCE_REFERENCE_PART_TYPE,
+    key,
+  }
 }
 
-function isReadingSelectionPart(part: unknown): part is ReadingSelectionPartInput {
-  if (!isPlainObject(part)) return false
-  return part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string"
+function parseReadingSelectionPart<T>(part: T): TJsonObject | undefined {
+  const object = parseJsonObject(part)
+  if (object === undefined || object.type !== READING_SELECTION_PART_TYPE) return undefined
+  if (parsePromptString(object.text) === undefined) return undefined
+  return object
 }
 
-function isSelectionContextPart(part: unknown): part is SelectionContextPartInput {
-  if (!isPlainObject(part)) return false
-  return (
-    part.type === SELECTION_CONTEXT_PART_TYPE &&
-    (part.source === "reading" || part.source === "markdown") &&
-    typeof part.text === "string" &&
-    typeof part.selectionKey === "string" &&
-    (part.headingPath === undefined ||
-      (Array.isArray(part.headingPath) &&
-        part.headingPath.every((entry) => typeof entry === "string")))
-  )
+function parseSelectionContextPart<T>(part: T): TJsonObject | undefined {
+  const object = parseJsonObject(part)
+  if (object === undefined || object.type !== SELECTION_CONTEXT_PART_TYPE) return undefined
+  if (object.source !== "reading" && object.source !== "markdown") return undefined
+  if (parsePromptString(object.text) === undefined) return undefined
+  if (parsePromptString(object.selectionKey) === undefined) return undefined
+  if (object.headingPath !== undefined && parsePromptStringList(object.headingPath) === undefined) {
+    return undefined
+  }
+  return object
 }
 
-function readSelectionTextAnchor(value: unknown): ReaderTextAnchor | undefined {
-  if (!isPlainObject(value)) return undefined
-  if (value.anchor !== undefined) return readReaderTextAnchor(value.anchor)
-  if (typeof value.cfi !== "string") return undefined
+function readSelectionTextAnchor(value: TJsonValue | undefined): ReaderTextAnchor | undefined {
+  const object = parseJsonObject(value)
+  if (object === undefined) return undefined
+  if (object.anchor !== undefined) return readReaderTextAnchor(object.anchor)
+  const cfi = parsePromptString(object.cfi)
+  if (cfi === undefined) return undefined
 
   return readReaderTextAnchor(
     Object.assign(
       {
         kind: READER_ANCHOR_KIND_CFI_TEXT,
-        cfi: value.cfi,
+        cfi,
       },
-      value.index !== undefined ? { sectionIndex: value.index } : undefined,
+      object.index !== undefined ? { sectionIndex: object.index } : undefined,
     ),
   )
 }
 
-function normalizeReadingSelectionPart(part: ReadingSelectionPartInput): ReadingSelectionPart {
-  const text = part.text.trim()
+function readingSelectionPromptPart(part: ReadingSelectionPart): TPromptPart {
+  return Object.assign(
+    {
+      type: part.type,
+      text: part.text,
+      anchor: part.anchor,
+    },
+    part.selectionKey !== undefined ? { selectionKey: part.selectionKey } : undefined,
+    part.resourceKey !== undefined ? { resourceKey: part.resourceKey } : undefined,
+    part.tocLabel !== undefined ? { tocLabel: part.tocLabel } : undefined,
+    part.pageLabel !== undefined ? { pageLabel: part.pageLabel } : undefined,
+    part.locationLabel !== undefined ? { locationLabel: part.locationLabel } : undefined,
+  )
+}
+
+function selectionContextPromptPart(part: SelectionContextPart): TPromptPart {
+  if (part.source === "markdown") {
+    return Object.assign(
+      {
+        type: part.type,
+        source: part.source,
+        text: part.text,
+        selectionKey: part.selectionKey,
+      },
+      part.path !== undefined ? { path: part.path } : undefined,
+      part.version !== undefined ? { version: part.version } : undefined,
+      part.headingPath !== undefined ? { headingPath: part.headingPath } : undefined,
+    )
+  }
+  return Object.assign(
+    {
+      type: part.type,
+      source: part.source,
+      text: part.text,
+      selectionKey: part.selectionKey,
+      anchor: part.anchor,
+    },
+    part.resourceKey !== undefined ? { resourceKey: part.resourceKey } : undefined,
+    part.tocLabel !== undefined ? { tocLabel: part.tocLabel } : undefined,
+    part.pageLabel !== undefined ? { pageLabel: part.pageLabel } : undefined,
+    part.locationLabel !== undefined ? { locationLabel: part.locationLabel } : undefined,
+  )
+}
+
+function normalizeReadingSelectionPart(part: TJsonObject): ReadingSelectionPart {
+  const text = parsePromptString(part.text)?.trim()
   if (!text) {
     throw new SessionTransformValidationError("reading-selection text is required")
   }
@@ -548,35 +624,30 @@ function normalizeReadingSelectionPart(part: ReadingSelectionPartInput): Reading
     text,
     anchor,
   }
+  const selectionKey = parseNonEmptyPromptString(part.selectionKey)
+  const resourceKey = parseNonEmptyPromptString(part.resourceKey)
+  const tocLabel = parseNonEmptyPromptString(part.tocLabel)
+  const pageLabel = parseNonEmptyPromptString(part.pageLabel)
+  const locationLabel = parseNonEmptyPromptString(part.locationLabel)
   return Object.assign(
     Object.assign(
       normalized,
-      typeof part.selectionKey === "string" && part.selectionKey.trim().length > 0
-        ? { selectionKey: part.selectionKey.trim() }
-        : undefined,
-      typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
-        ? { resourceKey: part.resourceKey.trim() }
-        : undefined,
-      typeof part.tocLabel === "string" && part.tocLabel.trim().length > 0
-        ? { tocLabel: part.tocLabel.trim() }
-        : undefined,
+      selectionKey !== undefined ? { selectionKey } : undefined,
+      resourceKey !== undefined ? { resourceKey } : undefined,
+      tocLabel !== undefined ? { tocLabel } : undefined,
     ),
-    typeof part.pageLabel === "string" && part.pageLabel.trim().length > 0
-      ? { pageLabel: part.pageLabel.trim() }
-      : undefined,
-    typeof part.locationLabel === "string" && part.locationLabel.trim().length > 0
-      ? { locationLabel: part.locationLabel.trim() }
-      : undefined,
+    pageLabel !== undefined ? { pageLabel } : undefined,
+    locationLabel !== undefined ? { locationLabel } : undefined,
   )
 }
 
-function normalizeSelectionContextPart(part: SelectionContextPartInput): SelectionContextPart {
-  const text = part.text.trim()
+function normalizeSelectionContextPart(part: TJsonObject): SelectionContextPart {
+  const text = parsePromptString(part.text)?.trim()
   if (!text) {
     throw new SessionTransformValidationError("selection-context text is required")
   }
 
-  const selectionKey = part.selectionKey.trim()
+  const selectionKey = parsePromptString(part.selectionKey)?.trim()
   if (!selectionKey) {
     throw new SessionTransformValidationError("selection-context selectionKey is required")
   }
@@ -587,19 +658,19 @@ function normalizeSelectionContextPart(part: SelectionContextPartInput): Selecti
       text,
       selectionKey,
     }
+    const headingPath = parsePromptStringList(part.headingPath)
+    const markdownPath = parseNonEmptyPromptString(part.path)
+    const version = parseNonEmptyPromptString(part.version)
     return Object.assign(
       markdownPart,
-      typeof part.path === "string" && part.path.trim().length > 0
-        ? { path: part.path.trim() }
-        : undefined,
-      typeof part.version === "string" && part.version.trim().length > 0
-        ? { version: part.version.trim() }
-        : undefined,
-      Array.isArray(part.headingPath)
+      markdownPath !== undefined ? { path: markdownPath } : undefined,
+      version !== undefined ? { version } : undefined,
+      headingPath !== undefined
         ? {
-            headingPath: part.headingPath.flatMap((entry) =>
-              typeof entry === "string" && entry.trim() ? [entry.trim()] : [],
-            ),
+            headingPath: headingPath.flatMap((entry) => {
+              const trimmed = entry.trim()
+              return trimmed ? [trimmed] : []
+            }),
           }
         : undefined,
     )
@@ -617,26 +688,22 @@ function normalizeSelectionContextPart(part: SelectionContextPartInput): Selecti
     selectionKey,
     anchor,
   }
+  const resourceKey = parseNonEmptyPromptString(part.resourceKey)
+  const tocLabel = parseNonEmptyPromptString(part.tocLabel)
+  const pageLabel = parseNonEmptyPromptString(part.pageLabel)
+  const locationLabel = parseNonEmptyPromptString(part.locationLabel)
   return Object.assign(
     Object.assign(
       readingPart,
-      typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
-        ? { resourceKey: part.resourceKey.trim() }
-        : undefined,
-      typeof part.tocLabel === "string" && part.tocLabel.trim().length > 0
-        ? { tocLabel: part.tocLabel.trim() }
-        : undefined,
-      typeof part.pageLabel === "string" && part.pageLabel.trim().length > 0
-        ? { pageLabel: part.pageLabel.trim() }
-        : undefined,
+      resourceKey !== undefined ? { resourceKey } : undefined,
+      tocLabel !== undefined ? { tocLabel } : undefined,
+      pageLabel !== undefined ? { pageLabel } : undefined,
     ),
-    typeof part.locationLabel === "string" && part.locationLabel.trim().length > 0
-      ? { locationLabel: part.locationLabel.trim() }
-      : undefined,
+    locationLabel !== undefined ? { locationLabel } : undefined,
   )
 }
 
-export function flattenPromptPartsForRuntime(parts: unknown[]): Record<string, unknown>[] {
+export function flattenPromptPartsForRuntime<T>(parts: readonly T[]): TPromptPart[] {
   return parts.flatMap((part) => {
     if (isNativeResourceAttachmentPart(part)) {
       const metadata = readNativeResourcePromptAttachment(part)
@@ -645,44 +712,43 @@ export function flattenPromptPartsForRuntime(parts: unknown[]): Record<string, u
           type: PROMPT_PART_TYPE_TEXT,
           text: `Attached native learning resource metadata: ${JSON.stringify({ filename: metadata.filename, format: metadata.format })}. Follow the preparation instructions in the system reminder before relying on this document's contents.`,
           metadata: {
-            [BUDDY_PROMPT_PART_METADATA_KEY]: metadata,
+            [BUDDY_PROMPT_PART_METADATA_KEY]: nativeResourceAttachmentPromptPart(metadata),
           },
         },
       ]
     }
 
-    if (isSelectionContextPart(part)) {
-      const normalized = normalizeSelectionContextPart(part)
+    const selectionContext = parseSelectionContextPart(part)
+    if (selectionContext) {
+      const normalized = normalizeSelectionContextPart(selectionContext)
       return [
         {
           type: PROMPT_PART_TYPE_TEXT,
           text: normalized.text,
           metadata: {
-            [BUDDY_PROMPT_PART_METADATA_KEY]: normalized,
+            [BUDDY_PROMPT_PART_METADATA_KEY]: selectionContextPromptPart(normalized),
           },
         },
       ]
     }
 
-    if (!isReadingSelectionPart(part)) {
-      return isPlainObject(part) ? [{ ...part }] : []
+    const readingSelection = parseReadingSelectionPart(part)
+    if (!readingSelection) {
+      const object = parseJsonObject(part)
+      return object !== undefined ? [{ ...object }] : []
     }
 
-    const normalized = normalizeReadingSelectionPart(part)
+    const normalized = normalizeReadingSelectionPart(readingSelection)
     return [
       {
         type: PROMPT_PART_TYPE_TEXT,
         text: normalized.text,
         metadata: {
-          [BUDDY_PROMPT_PART_METADATA_KEY]: normalized,
+          [BUDDY_PROMPT_PART_METADATA_KEY]: readingSelectionPromptPart(normalized),
         },
       },
     ]
   })
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
 function isWorkspaceRelativePath(filepath: string) {
