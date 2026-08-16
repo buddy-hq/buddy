@@ -3,20 +3,9 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ThemeProvider, useTheme } from "../src/theme"
 
-type ThemeApi = ReturnType<typeof useTheme>
+import { createThemeMediaQueryList } from "./parse-test-values"
 
-function createMediaQueryList(matches: boolean): MediaQueryList {
-  return {
-    matches,
-    media: "(prefers-color-scheme: dark)",
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => true,
-  } as MediaQueryList
-}
+type ThemeApi = ReturnType<typeof useTheme>
 
 async function flushEffects() {
   await Promise.resolve()
@@ -36,7 +25,7 @@ describe("ThemeProvider", () => {
   }
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     themeApi = null
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -49,7 +38,7 @@ describe("ThemeProvider", () => {
     localStorage.clear()
 
     Object.defineProperty(window, "matchMedia", {
-      value: () => createMediaQueryList(false),
+      value: () => createThemeMediaQueryList(false),
       configurable: true,
     })
   })
@@ -62,7 +51,7 @@ describe("ThemeProvider", () => {
     container.remove()
     document.getElementById("oc-theme")?.remove()
     document.getElementById("oc-theme-preload")?.remove()
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
   async function renderThemeProvider(): Promise<ThemeApi> {

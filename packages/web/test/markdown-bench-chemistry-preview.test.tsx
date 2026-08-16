@@ -5,6 +5,7 @@ import {
   BuddyChemistryPreview,
   MarkdownBenchChemistryViewProvider,
 } from "../src/components/bench/markdown-bench-chemistry-plugin"
+import { setBuddyTestGlobal, TEST_CHEMISTRY_RENDERER_KEY } from "./parse-test-values"
 
 const FIRST_CHEMISTRY_METADATA =
   'alt="Ethanol skeletal structure" caption="A two-carbon alcohol" unknown="preserved"'
@@ -22,9 +23,9 @@ describe("Markdown Bench chemistry previews", () => {
 
   beforeEach(() => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = async () => ({
+    setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, async () => ({
       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M0 0h10"/></svg>',
-    })
+    }))
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -36,7 +37,7 @@ describe("Markdown Bench chemistry previews", () => {
       await flushEffects()
     })
     container.remove()
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = undefined
+    setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, undefined)
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 

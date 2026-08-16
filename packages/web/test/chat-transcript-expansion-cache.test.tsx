@@ -38,7 +38,7 @@ describe("chat transcript expansion cache", () => {
   let originalResizeObserver: typeof globalThis.ResizeObserver | undefined
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -69,7 +69,7 @@ describe("chat transcript expansion cache", () => {
     } else {
       Reflect.deleteProperty(globalThis, "ResizeObserver")
     }
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
   test("restores expanded hidden steps after a brief transcript unmount", async () => {

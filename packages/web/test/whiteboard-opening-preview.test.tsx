@@ -9,6 +9,7 @@ import {
   TransientBenchSurfaceProvider,
   type TransientBenchSurface,
 } from "../src/components/bench/transient-bench-surface"
+import type { TJsonObject } from "../src/components/chat/tools/types"
 import type { AssistantMessageInfo, MessageWithParts } from "../src/state/chat-types"
 import {
   applyTranscriptMessageUpdated,
@@ -25,7 +26,7 @@ const DIRECTORY = "/repo"
 let container: HTMLDivElement | undefined
 let root: Root | undefined
 
-function createAssistantMessage(state: Record<string, unknown>): MessageWithParts {
+function createAssistantMessage(state: TJsonObject): MessageWithParts {
   const info = {
     id: "message-1",
     sessionID: SESSION_ID,

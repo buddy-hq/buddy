@@ -73,7 +73,7 @@ describe("chat forking", () => {
   let originalResizeObserver: typeof globalThis.ResizeObserver | undefined
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -104,7 +104,7 @@ describe("chat forking", () => {
     } else {
       Reflect.deleteProperty(globalThis, "ResizeObserver")
     }
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
   test("branches after the selected assistant response", async () => {

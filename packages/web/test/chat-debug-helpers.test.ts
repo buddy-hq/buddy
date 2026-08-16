@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { buildSessionTrace } from "../src/lib/directory-chat/chat-debug-helpers"
 import { resetTranscriptRepositoryForTests } from "../src/state/transcript-repository"
 import {
+  parseBuddyConfigObject,
+  parseJsonObjectText,
+} from "./parse-test-values"
+import {
   createAssistantMessageInfo,
   createDirectoryChatState,
   createMessageWithParts,
@@ -75,31 +79,34 @@ describe("chat debug helpers", () => {
     })
 
     seedTranscriptMessages(directory, firstMessages)
-    const firstTrace = JSON.parse(
+    const firstTrace = parseJsonObjectText(
       buildSessionTrace({
         directory,
         directoryState: firstState,
         sessionID: "session_1",
         streamStatus: "connected",
       }),
-    ) as Record<string, unknown>
+    )
     seedTranscriptMessages(directory, secondMessages)
-    const secondTrace = JSON.parse(
+    const secondTrace = parseJsonObjectText(
       buildSessionTrace({
         directory,
         directoryState: firstState,
         sessionID: "session_1",
         streamStatus: "connected",
       }),
-    ) as Record<string, unknown>
+    )
+    if (firstTrace === undefined || secondTrace === undefined) {
+      throw new Error("Expected session traces to parse.")
+    }
 
-    const firstDirectoryState = firstTrace.directoryState as Record<string, unknown>
-    const secondDirectoryState = secondTrace.directoryState as Record<string, unknown>
-    const firstTraceMessages = firstDirectoryState.messages as Array<Record<string, unknown>>
-    const secondTraceMessages = secondDirectoryState.messages as Array<Record<string, unknown>>
+    const firstDirectoryState = parseBuddyConfigObject(firstTrace.directoryState)
+    const secondDirectoryState = parseBuddyConfigObject(secondTrace.directoryState)
+    const firstTraceMessages = firstDirectoryState?.messages
+    const secondTraceMessages = secondDirectoryState?.messages
 
-    expect(firstTraceMessages).toHaveLength(1)
-    expect(secondTraceMessages).toHaveLength(2)
+    expect(Array.isArray(firstTraceMessages) ? firstTraceMessages : []).toHaveLength(1)
+    expect(Array.isArray(secondTraceMessages) ? secondTraceMessages : []).toHaveLength(2)
     expect(JSON.stringify(firstTrace)).not.toContain("second turn")
     expect(JSON.stringify(secondTrace)).toContain("second turn")
   })

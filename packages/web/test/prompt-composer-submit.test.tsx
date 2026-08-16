@@ -98,7 +98,7 @@ describe("prompt composer submit", () => {
   let root: Root
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     resetPromptStore()
     queryClient = createTestQueryClient()
     seedSkillPresentations(queryClient, TEST_DIRECTORY)
@@ -115,7 +115,7 @@ describe("prompt composer submit", () => {
     queryClient.clear()
     container.remove()
     resetPromptStore()
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
   test("clears the local editor immediately while preserving the store draft for submit", async () => {

@@ -64,7 +64,7 @@ describe("interrupted chat rendering", () => {
   let transcriptViewport: ChatTranscriptTestViewport
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -93,7 +93,7 @@ describe("interrupted chat rendering", () => {
     } else {
       Reflect.deleteProperty(globalThis, "ResizeObserver")
     }
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
   test("treats interrupted assistant finishes as tolerant markdown", async () => {

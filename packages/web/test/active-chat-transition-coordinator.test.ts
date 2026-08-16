@@ -33,6 +33,7 @@ import {
 import { workspaceChatKeyForSession, type WorkspaceChatKey } from "../src/lib/workspace-chat-key"
 import { upsertBenchTab } from "../src/lib/bench-tabs"
 import { useChatStore } from "../src/state/chat-store"
+import { browserLocalStorage } from "../src/state/parse-external"
 import { BUSY_SESSION_STATUS } from "../src/state/session-status"
 import type { SessionInfo } from "../src/state/chat-types"
 
@@ -231,7 +232,7 @@ afterEach(() => {
   resetLiveDirectoryWorkspaceRegistryForTests()
   resetActiveChatTransitionStateForTests()
   useChatStore.getState().resetRuntimeState()
-  if (typeof localStorage !== "undefined") localStorage.clear()
+  browserLocalStorage()?.clear()
 })
 
 describe("active chat transition coordinator", () => {

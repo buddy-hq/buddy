@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { PdfTextAnchor } from "@buddy/reader-contract"
 import {
+  parsePdfJsTextContentItems,
   pdfCurrentPassageText,
   pdfTextAnchorFromOffsets,
   readPdfPageText,
@@ -184,5 +185,19 @@ describe("PDF page text geometry", () => {
       startOffset: source.lastIndexOf("target"),
       endOffset: source.lastIndexOf("target") + "target".length,
     })
+  })
+
+  test("keeps valid text items when PDF.js mixes marked content and non-json entries", () => {
+    const items = parsePdfJsTextContentItems({
+      items: [
+        textItem({ text: "Hello Buddy", x: 20, y: 40, width: 110 }),
+        { type: "beginMarkedContent" },
+        () => "not json",
+        { str: "bad", transform: [1, 0, 0, 1, 0, 0], width: Number.NaN, height: 10 },
+      ],
+      styles: {},
+    })
+
+    expect(items.map((item) => item.str)).toEqual(["Hello Buddy"])
   })
 })

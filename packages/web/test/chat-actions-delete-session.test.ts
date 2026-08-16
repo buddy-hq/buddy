@@ -9,15 +9,17 @@ const DIRECTORY = "/workspace/delete-session-test"
 const DELETED_SESSION_ID = "session-deleted"
 
 function session(id: string, updated: number, parentID?: string): SessionInfo {
-  return {
-    id,
-    title: id,
-    ...(parentID ? { parentID } : {}),
-    time: {
-      created: updated,
-      updated,
+  return Object.assign(
+    {
+      id,
+      title: id,
+      time: {
+        created: updated,
+        updated,
+      },
     },
-  }
+    parentID === undefined ? undefined : { parentID },
+  )
 }
 
 describe("deleteSession", () => {

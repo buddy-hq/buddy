@@ -168,13 +168,17 @@ function RootFloatingBenchTitlebarProbe() {
   )
 }
 
+function DirectoryWorkspaceRoute() {
+  return (
+    <DirectoryWorkspaceProvider directory={TEST_DIRECTORY}>
+      <WorkspaceProbe />
+    </DirectoryWorkspaceProvider>
+  )
+}
+
 function TestRouterProvider() {
   const rootRoute = createRootRoute({
-    component: () => (
-      <DirectoryWorkspaceProvider directory={TEST_DIRECTORY}>
-        <WorkspaceProbe />
-      </DirectoryWorkspaceProvider>
-    ),
+    component: DirectoryWorkspaceRoute,
   })
   const router = createRouter({
     routeTree: rootRoute,
@@ -200,15 +204,19 @@ function TestRootFloatingBenchTitlebarRouterProvider() {
   return <RouterProvider router={router} />
 }
 
+function TitlebarWorkspaceRoute() {
+  return (
+    <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
+      <DirectoryWorkspaceProvider directory={TEST_TITLEBAR_DIRECTORY}>
+        <TitlebarWorkspaceProbe />
+      </DirectoryWorkspaceProvider>
+    </PlatformProvider>
+  )
+}
+
 function TestTitlebarRouterProvider() {
   const rootRoute = createRootRoute({
-    component: () => (
-      <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
-        <DirectoryWorkspaceProvider directory={TEST_TITLEBAR_DIRECTORY}>
-          <TitlebarWorkspaceProbe />
-        </DirectoryWorkspaceProvider>
-      </PlatformProvider>
-    ),
+    component: TitlebarWorkspaceRoute,
   })
   const router = createRouter({
     routeTree: rootRoute,
@@ -220,13 +228,20 @@ function TestTitlebarRouterProvider() {
   return <RouterProvider router={router} />
 }
 
+let threadControlsShowSidebar = false
+
+function ThreadControlsTitlebarRoute() {
+  return (
+    <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
+      <ThreadControlsTitlebarProbe showSidebarThreadControls={threadControlsShowSidebar} />
+    </PlatformProvider>
+  )
+}
+
 function TestThreadControlsTitlebarRouterProvider(props: { showSidebarThreadControls: boolean }) {
+  threadControlsShowSidebar = props.showSidebarThreadControls
   const rootRoute = createRootRoute({
-    component: () => (
-      <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
-        <ThreadControlsTitlebarProbe showSidebarThreadControls={props.showSidebarThreadControls} />
-      </PlatformProvider>
-    ),
+    component: ThreadControlsTitlebarRoute,
   })
   const router = createRouter({
     routeTree: rootRoute,
@@ -238,20 +253,27 @@ function TestThreadControlsTitlebarRouterProvider(props: { showSidebarThreadCont
   return <RouterProvider router={router} />
 }
 
+let strictModePersistenceStorage: DirectoryWorkspacePersistenceStorage | undefined
+
+function StrictModeDirectoryWorkspaceRoute() {
+  return (
+    <StrictMode>
+      <DirectoryWorkspaceProvider
+        directory={TEST_STRICT_MODE_DIRECTORY}
+        persistenceStorage={strictModePersistenceStorage}
+      >
+        <WorkspaceProbe />
+      </DirectoryWorkspaceProvider>
+    </StrictMode>
+  )
+}
+
 function TestStrictModeRouterProvider(props: {
   persistenceStorage?: DirectoryWorkspacePersistenceStorage
 }) {
+  strictModePersistenceStorage = props.persistenceStorage
   const rootRoute = createRootRoute({
-    component: () => (
-      <StrictMode>
-        <DirectoryWorkspaceProvider
-          directory={TEST_STRICT_MODE_DIRECTORY}
-          persistenceStorage={props.persistenceStorage}
-        >
-          <WorkspaceProbe />
-        </DirectoryWorkspaceProvider>
-      </StrictMode>
-    ),
+    component: StrictModeDirectoryWorkspaceRoute,
   })
   const router = createRouter({
     routeTree: rootRoute,
@@ -263,18 +285,25 @@ function TestStrictModeRouterProvider(props: {
   return <RouterProvider router={router} />
 }
 
+let pendingHydrationPersistenceStorage: DirectoryWorkspacePersistenceStorage | undefined
+
+function PendingHydrationDirectoryWorkspaceRoute() {
+  return (
+    <DirectoryWorkspaceProvider
+      directory={TEST_DIRECTORY}
+      persistenceStorage={pendingHydrationPersistenceStorage}
+    >
+      <WorkspaceProbe />
+    </DirectoryWorkspaceProvider>
+  )
+}
+
 function TestPendingHydrationRouterProvider(props: {
   persistenceStorage: DirectoryWorkspacePersistenceStorage
 }) {
+  pendingHydrationPersistenceStorage = props.persistenceStorage
   const rootRoute = createRootRoute({
-    component: () => (
-      <DirectoryWorkspaceProvider
-        directory={TEST_DIRECTORY}
-        persistenceStorage={props.persistenceStorage}
-      >
-        <WorkspaceProbe />
-      </DirectoryWorkspaceProvider>
-    ),
+    component: PendingHydrationDirectoryWorkspaceRoute,
   })
   const router = createRouter({
     routeTree: rootRoute,
@@ -286,18 +315,25 @@ function TestPendingHydrationRouterProvider(props: {
   return <RouterProvider router={router} />
 }
 
+let directBenchPersistenceStorage: DirectoryWorkspacePersistenceStorage | undefined
+
+function DirectBenchDirectoryWorkspaceRoute() {
+  return (
+    <DirectoryWorkspaceProvider
+      directory={TEST_DIRECT_BENCH_DIRECTORY}
+      persistenceStorage={directBenchPersistenceStorage}
+    >
+      <WorkspaceProbe />
+    </DirectoryWorkspaceProvider>
+  )
+}
+
 function TestDirectBenchRouterProvider(props: {
   persistenceStorage?: DirectoryWorkspacePersistenceStorage
 }) {
+  directBenchPersistenceStorage = props.persistenceStorage
   const rootRoute = createRootRoute({
-    component: () => (
-      <DirectoryWorkspaceProvider
-        directory={TEST_DIRECT_BENCH_DIRECTORY}
-        persistenceStorage={props.persistenceStorage}
-      >
-        <WorkspaceProbe />
-      </DirectoryWorkspaceProvider>
-    ),
+    component: DirectBenchDirectoryWorkspaceRoute,
   })
   const router = createRouter({
     routeTree: rootRoute,
@@ -311,13 +347,17 @@ function TestDirectBenchRouterProvider(props: {
   return <RouterProvider router={router} />
 }
 
+function DirectSessionDirectoryWorkspaceRoute() {
+  return (
+    <DirectoryWorkspaceProvider directory={TEST_DIRECT_SESSION_DIRECTORY}>
+      <WorkspaceChatKeyProbe />
+    </DirectoryWorkspaceProvider>
+  )
+}
+
 function TestDirectSessionBenchRouterProvider() {
   const rootRoute = createRootRoute({
-    component: () => (
-      <DirectoryWorkspaceProvider directory={TEST_DIRECT_SESSION_DIRECTORY}>
-        <WorkspaceChatKeyProbe />
-      </DirectoryWorkspaceProvider>
-    ),
+    component: DirectSessionDirectoryWorkspaceRoute,
   })
   const router = createRouter({
     routeTree: rootRoute,

@@ -24,20 +24,24 @@ function toolPart(input: {
   icon?: "edit" | "read" | "search" | "terminal" | "tool"
   outcome?: "failure" | "neutral"
 }): MessagePart {
-  const presentation = activityPresentation({
-    phase: input.phase,
-    action: input.action,
-    ...(input.detail ? { detail: input.detail } : {}),
-    category: input.category,
-    summary: input.summary,
-    icon: input.icon ?? "tool",
-    outcome:
-      input.outcome === "neutral"
-        ? { type: "neutral", reason: "permission-denied" }
-        : input.outcome === "failure"
-          ? { type: "failure" }
-          : undefined,
-  })
+  const presentation = activityPresentation(
+    Object.assign(
+      {
+        phase: input.phase,
+        action: input.action,
+        category: input.category,
+        summary: input.summary,
+        icon: input.icon ?? "tool",
+        outcome:
+          input.outcome === "neutral"
+            ? { type: "neutral" as const, reason: "permission-denied" as const }
+            : input.outcome === "failure"
+              ? { type: "failure" as const }
+              : undefined,
+      },
+      input.detail === undefined ? undefined : { detail: input.detail },
+    ),
+  )
   const base = {
     id: input.id,
     sessionID: "ses_activity",

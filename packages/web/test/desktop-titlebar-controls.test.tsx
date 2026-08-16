@@ -34,17 +34,28 @@ function TitlebarProbe(props: {
   )
 }
 
-function TitlebarRouterProvider(props: {
+function TitlebarRouterRoute() {
+  const props = titlebarRouterProps
+  if (!props) return null
+  return (
+    <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
+      <TitlebarProbe {...props} />
+    </PlatformProvider>
+  )
+}
+
+type TTitlebarRouterProps = {
   leftSidebarOpen: boolean
   showThreadBrowser: boolean
   onNewSession: () => void
-}) {
+}
+
+let titlebarRouterProps: TTitlebarRouterProps | undefined
+
+function TitlebarRouterProvider(props: TTitlebarRouterProps) {
+  titlebarRouterProps = props
   const rootRoute = createRootRoute({
-    component: () => (
-      <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
-        <TitlebarProbe {...props} />
-      </PlatformProvider>
-    ),
+    component: TitlebarRouterRoute,
   })
   const router = createRouter({
     routeTree: rootRoute,

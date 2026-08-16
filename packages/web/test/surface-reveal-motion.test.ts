@@ -11,6 +11,7 @@ import {
   resolveSurfaceRevealVariants,
   shouldAnimateAnchorShift,
 } from "../src/lib/surface-reveal-motion"
+import { parseBuddyConfigObject, parseStringValue } from "./parse-test-values"
 
 type RecordedAnimation = {
   keyframes: Keyframe[]
@@ -106,14 +107,16 @@ describe("surface reveal variants", () => {
 
   test("cancels the collapsed band so the surface fades in place", () => {
     const exit = resolveSurfaceRevealVariants(false).exit
-    if (typeof exit !== "object" || exit === null || "length" in exit) {
+    const exitTarget = parseBuddyConfigObject(exit)
+    if (exitTarget === undefined) {
       throw new Error("Expected the exit variant to be a target object")
     }
-    expect(exit.y).toBe("-100%")
-    expect(exit.transition).toEqual({
-      ...resolveSurfaceRevealTransition(false),
-      y: { duration: 0 },
-    })
+    expect(parseStringValue(exitTarget.y)).toBe("-100%")
+    expect(parseBuddyConfigObject(exitTarget.transition)).toEqual(
+      parseBuddyConfigObject(
+        Object.assign({}, resolveSurfaceRevealTransition(false), { y: { duration: 0 } }),
+      ),
+    )
   })
 
   test("keeps the fade on the same duration the transcript catch-up uses", () => {
@@ -127,10 +130,11 @@ describe("surface reveal variants", () => {
 
   test("drops the entrance drift when motion is reduced", () => {
     const enter = resolveSurfaceRevealVariants(true).enter
-    if (typeof enter !== "object" || enter === null || "length" in enter) {
+    const enterTarget = parseBuddyConfigObject(enter)
+    if (enterTarget === undefined) {
       throw new Error("Expected the enter variant to be a target object")
     }
-    expect(enter.y).toBe(0)
+    expect(enterTarget.y).toBe(0)
   })
 })
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { createScopedCache } from "../../../src/lib/scoped-cache"
 import { UI_PREFERENCES_STORAGE_KEY, useUiPreferences } from "../../../src/state/ui-preferences"
+import { parsePersistedStoreState } from "../../parse-test-values"
 
 function resetUiPreferences() {
   useUiPreferences.setState({
@@ -34,8 +35,8 @@ describe("ui preference persistence parity", () => {
     const raw = localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
     expect(raw).toBeTruthy()
 
-    const parsed = JSON.parse(raw as string) as { state: Record<string, unknown> }
-    expect(parsed.state).toMatchObject({
+    const parsedState = parsePersistedStoreState(raw)
+    expect(parsedState).toMatchObject({
       pinnedByDirectory: { "/repo": ["session_1"] },
       unreadByDirectory: { "/repo": { session_1: true } },
       collapsedChatSidebarDirectories: { "/repo": true },
@@ -44,10 +45,10 @@ describe("ui preference persistence parity", () => {
       settingsSidebarWidth: 320,
       teacherStandardsAutoSetupComplete: true,
     })
-    expect(parsed.state.togglePinned).toBeUndefined()
-    expect(parsed.state.rightSidebarOpen).toBeUndefined()
-    expect(parsed.state.rightSidebarWidth).toBeUndefined()
-    expect(parsed.state.rightSidebarTab).toBeUndefined()
+    expect(parsedState?.togglePinned).toBeUndefined()
+    expect(parsedState?.rightSidebarOpen).toBeUndefined()
+    expect(parsedState?.rightSidebarWidth).toBeUndefined()
+    expect(parsedState?.rightSidebarTab).toBeUndefined()
   })
 
   test("clears pinned and unread state for archived session", () => {

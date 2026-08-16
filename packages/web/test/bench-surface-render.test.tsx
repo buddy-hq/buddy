@@ -58,6 +58,7 @@ import type {
   ObjectFlashcardDeckReadDeckResponse,
   ObjectQuestionSetReadQuestionsResponse,
 } from "@buddy/sdk/types"
+import { parseRequestUrl } from "./parse-test-values"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_DECK_ID = "deck-1"
@@ -116,9 +117,16 @@ function createServerConnection(): ServerConnection {
   }
 }
 
+let testRouterChildren: ReactNode = null
+
+function TestRouterRoute() {
+  return <>{testRouterChildren}</>
+}
+
 function TestRouterProvider(props: { children: ReactNode }) {
+  testRouterChildren = props.children
   const rootRoute = createRootRoute({
-    component: () => <>{props.children}</>,
+    component: TestRouterRoute,
   })
   const router = createRouter({
     routeTree: rootRoute,
@@ -649,7 +657,12 @@ describe("bench surface rendering", () => {
           hideHeader
           surfaceClassName="bg-background-base"
         >
-          <iframe title="HTML widget" src="/widget" className="block h-full w-full border-0" />
+          <iframe
+            title="HTML widget"
+            src="/widget"
+            sandbox=""
+            className="block h-full w-full border-0"
+          />
         </BenchSurfaceViewer>,
       )
       await flushEffects()
@@ -876,7 +889,7 @@ describe("bench surface rendering", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         calls.push(`${method} ${url}`)
 
@@ -957,7 +970,7 @@ describe("bench surface rendering", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
@@ -1023,7 +1036,7 @@ describe("bench surface rendering", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_READ_PATH)) {
@@ -1089,7 +1102,7 @@ describe("bench surface rendering", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
@@ -1208,7 +1221,7 @@ describe("bench surface rendering", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
@@ -1277,7 +1290,7 @@ describe("bench surface rendering", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
@@ -1359,7 +1372,7 @@ describe("bench surface rendering", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {

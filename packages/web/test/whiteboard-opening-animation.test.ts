@@ -4,24 +4,29 @@ import {
   buildWhiteboardOpening,
   whiteboardOpeningVariant,
 } from "../src/components/whiteboard/whiteboard-opening-animation-data"
+import {
+  parseBuddyConfigObject,
+  parseBuddyConfigValue,
+  parseFiniteNumber,
+  type TBuddyConfigValue,
+} from "./parse-test-values"
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-function collectKeyframeTimes(value: unknown, into: number[]): number[] {
+function collectKeyframeTimes(value: TBuddyConfigValue | undefined, into: number[]): number[] {
   if (Array.isArray(value)) {
     for (const item of value) collectKeyframeTimes(item, into)
     return into
   }
-  if (!isRecord(value)) return into
-  if (value.a === 1 && Array.isArray(value.k)) {
-    for (const frame of value.k) {
-      if (isRecord(frame) && typeof frame.t === "number") into.push(frame.t)
+  const record = parseBuddyConfigObject(value)
+  if (record === undefined) return into
+  if (record.a === 1 && Array.isArray(record.k)) {
+    for (const frame of record.k) {
+      const frameRecord = parseBuddyConfigObject(frame)
+      const time = parseFiniteNumber(frameRecord?.t)
+      if (time !== undefined) into.push(time)
     }
     return into
   }
-  for (const nested of Object.values(value)) collectKeyframeTimes(nested, into)
+  for (const nested of Object.values(record)) collectKeyframeTimes(nested, into)
   return into
 }
 
@@ -92,7 +97,7 @@ describe("whiteboard opening animation", () => {
       const layerCount = variant.build().layers.length
       const layers = data.layers.slice(cursor, cursor + layerCount)
       cursor += layerCount
-      const times = collectKeyframeTimes(layers, [])
+      const times = collectKeyframeTimes(parseBuddyConfigValue(layers), [])
       expect(times.length).toBeGreaterThan(0)
       expect(Math.min(...times)).toBeGreaterThanOrEqual(windows[index].ip)
       expect(Math.max(...times)).toBeLessThanOrEqual(windows[index].op)

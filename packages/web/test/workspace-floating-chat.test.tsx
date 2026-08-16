@@ -126,16 +126,20 @@ function TestBenchPageLayout(props: {
         onCollapse: () => undefined,
       }}
       bench={<div data-component="bench-probe">Bench</div>}
-      conversation={(controls) => (
+      conversation={
         <div data-component="conversation-probe">
           <span>Conversation</span>
-          {controls.onFloatChat ? (
-            <button type="button" data-action="directory-chat-float" onClick={controls.onFloatChat}>
+          {mode !== BENCH_CHAT_LAYOUT_FLOATING ? (
+            <button
+              type="button"
+              data-action="directory-chat-float"
+              onClick={() => setMode(BENCH_CHAT_LAYOUT_FLOATING)}
+            >
               Float
             </button>
           ) : null}
         </div>
-      )}
+      }
     />
   )
 }
@@ -172,7 +176,7 @@ function StableWorkspaceLayoutHarness(props: { suppressLayoutMotion?: boolean })
         onCollapse: () => setWorkspaceOpen(false),
       }}
       bench={<div key={targetKey} data-component="stable-bench-probe" data-target={targetKey} />}
-      conversation={(controls) => (
+      conversation={
         <div data-component="stable-conversation-probe">
           <button
             type="button"
@@ -195,13 +199,17 @@ function StableWorkspaceLayoutHarness(props: { suppressLayoutMotion?: boolean })
           >
             Replace target
           </button>
-          {controls.onFloatChat ? (
-            <button type="button" data-action="float-workspace-chat" onClick={controls.onFloatChat}>
+          {mode !== BENCH_CHAT_LAYOUT_FLOATING ? (
+            <button
+              type="button"
+              data-action="float-workspace-chat"
+              onClick={() => setMode(BENCH_CHAT_LAYOUT_FLOATING)}
+            >
               Float
             </button>
           ) : null}
         </div>
-      )}
+      }
     />
   )
 }

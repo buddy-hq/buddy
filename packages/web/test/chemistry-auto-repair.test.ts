@@ -4,20 +4,21 @@ import {
   resetChemistryAutoRepairReportsForTests,
   shouldReportChemistryRenderFailure,
 } from "../src/components/media/renderers/chemistry/auto-repair"
-import { createFetchStub } from "./test-utils"
+import { installTestFetch, restoreTestFetch } from "./test-utils"
+import {
+  parseJsonObjectText,
+  parseStringValue,
+  type TBuddyConfigObject,
+} from "./parse-test-values"
 
 const originalFetch = globalThis.fetch
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
 
 beforeEach(() => {
   resetChemistryAutoRepairReportsForTests()
 })
 
 afterEach(() => {
-  globalThis.fetch = originalFetch
+  restoreTestFetch(originalFetch)
   resetChemistryAutoRepairReportsForTests()
 })
 
@@ -61,15 +62,16 @@ describe("chemistry auto-repair reporting", () => {
   })
 
   test("sends no frontend renderer error and deduplicates an accepted report", async () => {
-    const requests: Record<string, unknown>[] = []
-    globalThis.fetch = createFetchStub(async (input, init) => {
+    const requests: TBuddyConfigObject[] = []
+    installTestFetch(async (input, init) => {
+      const asString = parseStringValue(input)
       const requestInput =
-        typeof input === "string" && input.startsWith("/")
-          ? new URL(input, "http://localhost")
+        asString !== undefined && asString.startsWith("/")
+          ? new URL(asString, "http://localhost")
           : input
       const request = new Request(requestInput, init)
-      const body: unknown = JSON.parse(await request.text())
-      if (!isRecord(body)) throw new Error("Expected an object request body.")
+      const body = parseJsonObjectText(await request.text())
+      if (body === undefined) throw new Error("Expected an object request body.")
       requests.push(body)
       return new Response(
         JSON.stringify({

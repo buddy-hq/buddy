@@ -10,6 +10,7 @@ import {
 } from "../src/components/chat/chat-transcript"
 import {
   installTranscriptPerformanceProbe,
+  setTranscriptPerformanceProbe,
   type TranscriptPerformanceProbe,
 } from "../src/lib/directory-chat/transcript-performance-probe"
 import { useChatStore } from "../src/state/chat-store"
@@ -125,7 +126,7 @@ describe("chat transcript resize anchoring", () => {
       await flushAnimationFrames()
     })
     probe.stop()
-    globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
+    setTranscriptPerformanceProbe(undefined)
     useChatStore.setState({ directories: {} })
     resetTranscriptRepositoryForTests()
     transcriptViewport.cleanup()

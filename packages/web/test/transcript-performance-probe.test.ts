@@ -7,6 +7,7 @@ import {
   createTranscriptStreamTraceReport,
   formatTranscriptStreamTraceReport,
   recordTranscriptPerfEvent,
+  setTranscriptPerformanceProbe,
   type TranscriptPerfEvent,
 } from "../src/lib/directory-chat/transcript-performance-probe"
 
@@ -214,7 +215,7 @@ describe("transcript performance probe", () => {
       maxEvents: 10,
       observeBrowserEvents: false,
     })
-    globalThis.__BUDDY_TRANSCRIPT_PERF__ = probe
+    setTranscriptPerformanceProbe(probe)
 
     recordTranscriptPerfEvent({
       type: "row-size",
@@ -254,7 +255,7 @@ describe("transcript performance probe", () => {
     })
 
     probe.stop()
-    globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
+    setTranscriptPerformanceProbe(undefined)
     document.body.replaceChildren()
   })
 
@@ -292,7 +293,7 @@ describe("transcript performance probe", () => {
       maxEvents: 10,
       observeBrowserEvents: false,
     })
-    globalThis.__BUDDY_TRANSCRIPT_PERF__ = probe
+    setTranscriptPerformanceProbe(probe)
     recordTranscriptPerfEvent({
       type: "row-size",
       at: 1,
@@ -318,7 +319,7 @@ describe("transcript performance probe", () => {
     ])
 
     probe.stop()
-    globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
+    setTranscriptPerformanceProbe(undefined)
     document.body.replaceChildren()
   })
 

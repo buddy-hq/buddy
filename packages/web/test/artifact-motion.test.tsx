@@ -10,6 +10,35 @@ import type { MermaidViewportController } from "../src/components/media/renderer
 import { SubagentCard } from "../src/components/chat/tools/render/task/subagent-card"
 import { taskCardEnterInitial } from "../src/components/chat/tools/render/task-motion"
 import { ToolStatusIndicator } from "../src/components/chat/tools/tool-header"
+import { activityPresentation, presentationMetadata } from "./tool-presentation-fixtures"
+
+function createMermaidViewport(isInitialized: boolean): MermaidViewportController {
+  return {
+    viewportRef: createRef<HTMLDivElement>(),
+    svgHostRef: createRef<HTMLDivElement>(),
+    svgBounds: { width: 100, height: 100 },
+    renderedWidth: 100,
+    renderedHeight: 100,
+    svgHostWidth: 100,
+    svgHostHeight: 100,
+    canvasWidth: 100,
+    canvasHeight: 100,
+    contentOffsetX: 0,
+    contentOffsetY: 0,
+    canvasPadding: 0,
+    zoom: 1,
+    zoomLabel: "100%",
+    isAutoZoom: true,
+    isInitialized,
+    isDragging: false,
+    canZoomIn: true,
+    canZoomOut: true,
+    handlePointerDown: () => {},
+    zoomIn: () => {},
+    zoomOut: () => {},
+    resetZoom: () => {},
+  }
+}
 
 describe("transcript artifact motion", () => {
   let container: HTMLDivElement
@@ -41,6 +70,15 @@ describe("transcript artifact motion", () => {
             callID: "call_history_shell",
             type: "tool",
             tool: "bash",
+            metadata: presentationMetadata(
+              activityPresentation({
+                phase: "completed",
+                action: "Ran",
+                category: "command",
+                summary: "bash",
+                detail: "history-artifact",
+              }),
+            ),
             state: {
               status: "completed",
               input: {
@@ -119,34 +157,6 @@ describe("transcript artifact motion", () => {
     act(renderMermaidCard)
     expectMermaidCardAtFinalGeometry()
   })
-
-  function createMermaidViewport(isInitialized: boolean): MermaidViewportController {
-    return {
-      viewportRef: createRef<HTMLDivElement>(),
-      svgHostRef: createRef<HTMLDivElement>(),
-      svgBounds: { width: 100, height: 100 },
-      renderedWidth: 100,
-      renderedHeight: 100,
-      svgHostWidth: 100,
-      svgHostHeight: 100,
-      canvasWidth: 100,
-      canvasHeight: 100,
-      contentOffsetX: 0,
-      contentOffsetY: 0,
-      canvasPadding: 0,
-      zoom: 1,
-      zoomLabel: "100%",
-      isAutoZoom: true,
-      isInitialized,
-      isDragging: false,
-      canZoomIn: true,
-      canZoomOut: true,
-      handlePointerDown: () => {},
-      zoomIn: () => {},
-      zoomOut: () => {},
-      resetZoom: () => {},
-    }
-  }
 
   test("gates the Mermaid SVG until its first fit without fading on resize", () => {
     act(() => {

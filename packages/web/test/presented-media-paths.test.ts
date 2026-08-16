@@ -10,6 +10,7 @@ import {
   type PresentedMediaItem,
 } from "../src/lib/presented-media"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
+import { parseRequestUrl } from "./parse-test-values"
 
 const originalFetch = globalThis.fetch
 
@@ -74,7 +75,7 @@ describe("presented media path helpers", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         calls.push(`${method} ${url}`)
 
@@ -112,7 +113,7 @@ describe("presented media path helpers", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         calls.push(`${method} ${url}`)
 
@@ -151,7 +152,7 @@ describe("presented media path helpers", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
@@ -184,7 +185,7 @@ describe("presented media path helpers", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (

@@ -39,24 +39,27 @@ function installedSkill(
   input: Pick<InstalledSkillInfo, "name" | "displayName" | "permissionAction" | "source"> &
     Partial<Pick<InstalledSkillInfo, "icon" | "libraryID" | "scope" | "shortDescription">>,
 ): InstalledSkillInfo {
-  return {
+  const base = {
     name: input.name,
     description: input.shortDescription ?? `${input.displayName} instructions`,
     displayName: input.displayName,
     shortDescription: input.shortDescription ?? `${input.displayName} description`,
-    ...(input.icon ? { icon: input.icon } : {}),
     location: `/skills/${input.name}/SKILL.md`,
     directory: `/skills/${input.name}`,
     content: `# ${input.displayName}`,
     enabled: input.permissionAction !== "deny",
     permissionAction: input.permissionAction,
-    permissionSource: "explicit",
+    permissionSource: "explicit" as const,
     source: input.source,
-    scope: input.scope ?? "global",
+    scope: input.scope ?? ("global" as const),
     managed: true,
     removable: input.source !== "system",
-    ...(input.libraryID ? { libraryID: input.libraryID } : {}),
   }
+  return Object.assign(
+    base,
+    input.icon === undefined ? undefined : { icon: input.icon },
+    input.libraryID === undefined ? undefined : { libraryID: input.libraryID },
+  )
 }
 
 function populatedCatalog(): SkillsCatalog {
@@ -126,10 +129,18 @@ function emptyCatalog(): SkillsCatalog {
   }
 }
 
-function deferred<T>() {
-  let resolvePromise!: (value: T) => void
-  let rejectPromise!: (reason?: unknown) => void
-  const promise = new Promise<T>((resolve, reject) => {
+function ignoreDeferredResolve<TValue>(value: TValue): void {
+  void value
+}
+
+function ignoreDeferredReject(reason?: Error): void {
+  void reason
+}
+
+function deferred<TValue>() {
+  let resolvePromise = ignoreDeferredResolve<TValue>
+  let rejectPromise = ignoreDeferredReject
+  const promise = new Promise<TValue>((resolve, reject) => {
     resolvePromise = resolve
     rejectPromise = reject
   })

@@ -2,25 +2,14 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { applyThemePreload } from "../src/theme/preload-runtime"
 import { THEME_CACHE_VERSION } from "../src/theme/storage"
 
+import { createThemeMediaQueryList } from "./parse-test-values"
+
 const run = () =>
   applyThemePreload({
     document,
     storage: localStorage,
     matchMedia: window.matchMedia.bind(window),
   })
-
-function createMediaQueryList(matches: boolean): MediaQueryList {
-  return {
-    matches,
-    media: "(prefers-color-scheme: dark)",
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => true,
-  } as MediaQueryList
-}
 
 beforeEach(() => {
   document.head.innerHTML = ""
@@ -31,7 +20,7 @@ beforeEach(() => {
   localStorage.clear()
 
   Object.defineProperty(window, "matchMedia", {
-    value: () => createMediaQueryList(false),
+    value: () => createThemeMediaQueryList(false),
     configurable: true,
   })
 })
@@ -56,7 +45,7 @@ describe("theme preload", () => {
 
   test("applies the cached dark theme when system mode resolves dark", () => {
     Object.defineProperty(window, "matchMedia", {
-      value: () => createMediaQueryList(true),
+      value: () => createThemeMediaQueryList(true),
       configurable: true,
     })
 

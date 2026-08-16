@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ObjectRow } from "../src/components/objects/object-presentation"
 import { describeObject, thumbnailEarnsItsSpace } from "../src/components/objects/describe-object"
+import type { ObjectDescriptorInput } from "../src/components/objects/describe-object"
 import {
   OBJECT_KIND_WORKSPACE_FILE,
   OBJECT_ROW_HEIGHT_PX,
@@ -64,14 +65,18 @@ function render(node: React.ReactNode) {
 }
 
 function rowFor(status?: typeof OBJECT_STATUS_ERROR | typeof OBJECT_STATUS_PREPARING) {
-  const model = describeObject({
-    target: QUESTION_SET_TARGET,
-    kind: "question-set",
-    title: "Chapter 4 review",
-    meta: ["Question set", "6 questions"],
-    ...(status ? { status } : {}),
-    ...(status === OBJECT_STATUS_ERROR ? { statusMessage: "Object unavailable" } : {}),
-  })
+  const model = describeObject(
+    Object.assign(
+      {
+        target: QUESTION_SET_TARGET,
+        kind: "question-set" as const,
+        title: "Chapter 4 review",
+        meta: ["Question set", "6 questions"],
+      },
+      status === undefined ? undefined : { status },
+      status === OBJECT_STATUS_ERROR ? { statusMessage: "Object unavailable" } : undefined,
+    ),
+  )
   const container = render(<ObjectRow model={model} variant={OBJECT_VARIANT_MD} />)
   const row = container.querySelector("[data-component='object-row']")
   if (!(row instanceof HTMLElement)) throw new Error("row did not render")
@@ -245,16 +250,17 @@ describe("thumbnailEarnsItsSpace", () => {
   })
 })
 
-describe("workspace file defaults", () => {
-  function fileModel(path: string, directory?: string) {
-    return describeObject({
-      target: { type: "workspace-file", path, viewer: "file" },
-      kind: OBJECT_KIND_WORKSPACE_FILE,
-      title: path.slice(path.lastIndexOf("/") + 1),
-      ...(directory ? { directory } : {}),
-    })
+function fileModel(path: string, directory?: string) {
+  const input: ObjectDescriptorInput = {
+    target: { type: "workspace-file", path, viewer: "file" },
+    kind: OBJECT_KIND_WORKSPACE_FILE,
+    title: path.slice(path.lastIndexOf("/") + 1),
   }
+  if (directory === undefined) return describeObject(input)
+  return describeObject(Object.assign(input, { directory }))
+}
 
+describe("workspace file defaults", () => {
   test("a file describes itself without the call site opting in", () => {
     const model = fileModel("notes/week-3/slides.pptx")
     expect(model.thumbnail).toEqual({

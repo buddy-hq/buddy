@@ -118,36 +118,38 @@ function assistantMessage(input?: {
   parts?: MessagePart[]
 }): MessageWithParts {
   return {
-    info: {
-      id: "msg_assistant",
-      sessionID: "ses_error",
-      role: "assistant",
-      parentID: "msg_user",
-      providerID: "test",
-      modelID: "test-model",
-      mode: "buddy",
-      agent: "buddy",
-      path: {
-        cwd: "/repo",
-        root: "/",
-      },
-      time: {
-        created: 2,
-        completed: 3,
-      },
-      ...(input?.error ? { error: input.error } : {}),
-      tokens: {
-        total: 0,
-        input: 0,
-        output: 0,
-        reasoning: 0,
-        cache: {
-          read: 0,
-          write: 0,
+    info: Object.assign(
+      {
+        id: "msg_assistant",
+        sessionID: "ses_error",
+        role: "assistant" as const,
+        parentID: "msg_user",
+        providerID: "test",
+        modelID: "test-model",
+        mode: "buddy",
+        agent: "buddy",
+        path: {
+          cwd: "/repo",
+          root: "/",
         },
+        time: {
+          created: 2,
+          completed: 3,
+        },
+        tokens: {
+          total: 0,
+          input: 0,
+          output: 0,
+          reasoning: 0,
+          cache: {
+            read: 0,
+            write: 0,
+          },
+        },
+        cost: 0,
       },
-      cost: 0,
-    },
+      input?.error === undefined ? undefined : { error: input.error },
+    ),
     parts: input?.parts ?? [],
   }
 }
@@ -182,7 +184,7 @@ describe("chat error handling", () => {
   let transcriptViewport: ChatTranscriptTestViewport
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -209,7 +211,7 @@ describe("chat error handling", () => {
     } else {
       Reflect.deleteProperty(globalThis, "ResizeObserver")
     }
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
   test("keeps terminal assistant errors out of the transcript", async () => {

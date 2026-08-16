@@ -4,6 +4,7 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { GroupedBenchPresentToolCard } from "../src/components/chat/tools/render/bench-present"
+import type { TJsonObject } from "../src/components/chat/tools/types"
 import type { MessagePart } from "../src/state/chat-types"
 
 const DIRECTORY = "/notebook"
@@ -28,7 +29,7 @@ afterEach(() => {
   host = undefined
 })
 
-function presentPart(input: { id: string; metadata: Record<string, unknown> }): MessagePart {
+function presentPart(input: { id: string; metadata: TJsonObject }): MessagePart {
   return {
     id: input.id,
     type: "tool",
@@ -44,7 +45,7 @@ function presentPart(input: { id: string; metadata: Record<string, unknown> }): 
       title: "Bench Presentation",
       time: { start: 0, end: 1 },
     },
-  } as unknown as MessagePart
+  }
 }
 
 function objectMetadata(objectID: string, title: string) {

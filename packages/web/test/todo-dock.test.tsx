@@ -13,7 +13,7 @@ describe("TodoDock", () => {
   let root: Root
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     try {
       window.localStorage.clear()
     } catch {
@@ -29,7 +29,7 @@ describe("TodoDock", () => {
       root.unmount()
     })
     container.remove()
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
   test("renders a full-width scroll region under a quiet title", async () => {

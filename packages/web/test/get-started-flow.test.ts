@@ -9,6 +9,7 @@ import {
   GET_STARTED_FLOW_STORAGE_KEY,
   useGetStartedFlowStore,
 } from "../src/state/get-started-flow-store"
+import { parsePersistedStoreState } from "./parse-test-values"
 
 const ACTIVE_LEARNER_INPUT = {
   enabled: true,
@@ -183,11 +184,12 @@ describe("get started flow participation", () => {
 
     const raw = localStorage.getItem(GET_STARTED_FLOW_STORAGE_KEY)
     expect(raw).toBeTruthy()
-    const persisted = JSON.parse(raw as string) as { state: Record<string, unknown> }
-    expect(persisted.state).toEqual({ enabled: true })
+    const persistedState = parsePersistedStoreState(raw)
+    expect(persistedState).toEqual({ enabled: true })
 
     useGetStartedFlowStore.setState({ enabled: false })
-    localStorage.setItem(GET_STARTED_FLOW_STORAGE_KEY, raw as string)
+    if (raw === null) throw new Error("Expected persisted get-started state.")
+    localStorage.setItem(GET_STARTED_FLOW_STORAGE_KEY, raw)
     await useGetStartedFlowStore.persist.rehydrate()
 
     expect(useGetStartedFlowStore.getState().enabled).toBe(true)

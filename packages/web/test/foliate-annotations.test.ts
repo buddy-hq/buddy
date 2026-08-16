@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import type { FoliateNavigationTarget, FoliateResolvedNavigation } from "foliate-js/view.js"
 import type { Overlayer } from "foliate-js/overlayer.js"
 import {
   removeFoliateAnnotation,
@@ -36,7 +37,7 @@ function createMalformedSpineView(renderedIndex = 3) {
   const range = doc.createRange()
   range.selectNodeContents(paragraph)
   const { element, overlayer } = createOverlayer()
-  const navigationTargets: unknown[] = []
+  const navigationTargets: Array<FoliateNavigationTarget | FoliateResolvedNavigation> = []
   const sections = [
     { id: "EPUB/nav.xhtml", cfi: "epubcfi(/6/4)", load: () => "nav" },
     { id: "EPUB/notice.html", cfi: "epubcfi(/6/6)", load: () => "notice" },
@@ -48,7 +49,7 @@ function createMalformedSpineView(renderedIndex = 3) {
     book: { sections },
     renderer: {
       getContents: () => [{ index: renderedIndex, doc, overlayer }],
-      async goTo(target: unknown) {
+      async goTo(target: FoliateNavigationTarget | FoliateResolvedNavigation) {
         navigationTargets.push(target)
       },
     },

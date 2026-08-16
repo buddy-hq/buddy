@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import { renderToStaticMarkup } from "react-dom/server"
 import { DottedGlowLoading } from "../src/components/media/loading/dotted-glow"
 import {
@@ -15,6 +15,8 @@ import {
 import { startMermaidAutoRepair } from "../src/components/media/renderers/mermaid/lib/persisted-renders"
 import { scheduleMermaidRender } from "../src/components/media/renderers/mermaid/lib/scheduler"
 import type { MessagePart } from "../src/state/chat-types"
+import { parseRequestUrl, setBuddyTestGlobal, TEST_MERMAID_RUNTIME_KEY } from "./parse-test-values"
+import { installTestFetch, restoreTestFetch } from "./test-utils"
 
 const originalFetch = globalThis.fetch
 const MERMAID_OBJECT_ID = "object_1"
@@ -71,8 +73,8 @@ function createMermaidObjectResult(input: {
 }
 
 afterEach(() => {
-  globalThis.fetch = originalFetch
-  Reflect.deleteProperty(globalThis, "__BUDDY_TEST_MERMAID_RUNTIME__")
+  restoreTestFetch(originalFetch)
+  setBuddyTestGlobal(TEST_MERMAID_RUNTIME_KEY, undefined)
 })
 
 describe("mermaid render pipeline", () => {
@@ -183,16 +185,16 @@ describe("mermaid render pipeline", () => {
   })
 
   test("keeps a successful browser render when storing the persisted record fails", async () => {
-    globalThis.__BUDDY_TEST_MERMAID_RUNTIME__ = {
+    setBuddyTestGlobal(TEST_MERMAID_RUNTIME_KEY, {
       initialize: () => {},
       render: async () => ({
         svg: '<svg xmlns="http://www.w3.org/2000/svg"><g class="node"></g></svg>',
       }),
-    }
+    })
 
-    globalThis.fetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+    installTestFetch(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
-        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        parseRequestUrl(input)
       const method = init?.method ?? (input instanceof Request ? input.method : undefined) ?? "GET"
       if (
         url.includes("/api/objects/mermaid/object_1/render-record") &&
@@ -215,7 +217,7 @@ describe("mermaid render pipeline", () => {
         })
       }
       throw new Error(`Unexpected fetch: ${url}`)
-    }) as unknown as typeof fetch
+    })
 
     const result = await renderMermaidSvg({
       objectID: "object_1",
@@ -238,9 +240,11 @@ describe("mermaid render pipeline", () => {
   })
 
   test("dedupes concurrent auto-repair requests for the same object", async () => {
-    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+    let fetchCount = 0
+    installTestFetch(async (input: RequestInfo | URL) => {
+      fetchCount += 1
       const url =
-        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        parseRequestUrl(input)
       if (!url.includes("/api/session/ses_test/mermaid-repair-async")) {
         throw new Error(`Unexpected fetch: ${url}`)
       }
@@ -251,7 +255,7 @@ describe("mermaid render pipeline", () => {
           headers: { "content-type": "application/json" },
         },
       )
-    }) as unknown as typeof fetch
+    })
 
     const [first, second] = await Promise.all([
       startMermaidAutoRepair({
@@ -269,20 +273,20 @@ describe("mermaid render pipeline", () => {
     ])
 
     expect(first).toEqual(second)
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    expect(fetchCount).toBe(1)
   })
 
   test("preserves the browser syntax error when failed-record persistence also fails", async () => {
-    globalThis.__BUDDY_TEST_MERMAID_RUNTIME__ = {
+    setBuddyTestGlobal(TEST_MERMAID_RUNTIME_KEY, {
       initialize: () => {},
       render: async () => {
         throw new Error("Parse error on line 2")
       },
-    }
+    })
 
-    globalThis.fetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+    installTestFetch(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
-        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        parseRequestUrl(input)
       const method = init?.method ?? (input instanceof Request ? input.method : undefined) ?? "GET"
       if (
         url.includes("/api/objects/mermaid/object_2/render-record") &&
@@ -303,7 +307,7 @@ describe("mermaid render pipeline", () => {
         })
       }
       throw new Error(`Unexpected fetch: ${url}`)
-    }) as unknown as typeof fetch
+    })
 
     await expect(
       renderMermaidSvg({

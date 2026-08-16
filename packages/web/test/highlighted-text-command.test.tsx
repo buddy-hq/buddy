@@ -15,7 +15,7 @@ describe("highlighted text leading command", () => {
   let queryClient: ReturnType<typeof createTestQueryClient>
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     queryClient = createTestQueryClient()
     seedSkillPresentations(queryClient)
     container = document.createElement("div")

@@ -52,7 +52,7 @@ describe("chat transcript ActivityRow", () => {
   let transcriptViewport: ChatTranscriptTestViewport
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -81,7 +81,7 @@ describe("chat transcript ActivityRow", () => {
     } else {
       Reflect.deleteProperty(globalThis, "ResizeObserver")
     }
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
   test("shows inline thinking when an active session has no visible assistant events yet", async () => {

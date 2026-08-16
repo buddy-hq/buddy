@@ -21,12 +21,13 @@ describe("Conway glider", () => {
   })
 
   test("shares one clock while reserving distinct starting frames", async () => {
-    const originalSetInterval = globalThis.setInterval
+    const originalSetInterval = globalThis.setInterval.bind(globalThis)
     let scheduledIntervalCount = 0
-    Reflect.set(globalThis, "setInterval", (...args: unknown[]) => {
+    function countingSetInterval(handler: TimerHandler, timeout?: number) {
       scheduledIntervalCount += 1
-      return Reflect.apply(originalSetInterval, globalThis, args)
-    })
+      return originalSetInterval(handler, timeout)
+    }
+    Reflect.set(globalThis, "setInterval", countingSetInterval)
 
     try {
       await act(async () => {

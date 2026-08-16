@@ -24,6 +24,13 @@ import {
   CHEMISTRY_FORMATS,
   type ChemistryFormat,
 } from "../src/components/media/renderers/chemistry/formats"
+import {
+  parseBuddyConfigObject,
+  parseStringValue,
+  setBuddyTestGlobal,
+  TEST_CHEMISTRY_RENDERER_KEY,
+  type TBuddyConfigObject,
+} from "./parse-test-values"
 
 type SemanticChemistryFormat = Exclude<ChemistryFormat, "chemfig">
 type SemanticFixture = {
@@ -50,7 +57,7 @@ async function createSemanticFixtures(): Promise<SemanticFixture[]> {
 
 afterEach(() => {
   clearChemistryRenderCacheForTests()
-  globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = undefined
+  setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, undefined)
   Reflect.set(globalThis, "Worker", originalWorker)
 })
 
@@ -67,7 +74,7 @@ describe("production chemistry renderer", () => {
 
   test("leaves Chemfig identity and caching to the backend owner", async () => {
     let renderCount = 0
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = async () => {
+    setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, async () => {
       renderCount += 1
       return {
         svg: '<svg xmlns="http://www.w3.org/2000/svg" />',
@@ -75,7 +82,7 @@ describe("production chemistry renderer", () => {
         rendererVersion: "backend-version",
         renderConfigVersion: 42,
       }
-    }
+    })
 
     const input = {
       format: "chemfig",
@@ -161,10 +168,13 @@ describe("production chemistry renderer", () => {
   test("preserves exact authored source and rejects invalid input asynchronously", async () => {
     const exactSource = "C\uFEFFC"
     let renderedSource: string | undefined
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = async (input) => {
-      renderedSource = input.source
-      return { svg: '<svg xmlns="http://www.w3.org/2000/svg" />' }
-    }
+    setBuddyTestGlobal(
+      TEST_CHEMISTRY_RENDERER_KEY,
+      async (input: { source: string; format: ChemistryFormat; directory?: string }) => {
+        renderedSource = input.source
+        return { svg: '<svg xmlns="http://www.w3.org/2000/svg" />' }
+      },
+    )
 
     const rendered = await renderChemistrySvg({ format: "smiles", source: exactSource })
     expect(renderedSource).toBe(exactSource)
@@ -254,7 +264,7 @@ describe("production chemistry renderer", () => {
     class ControllableWorker {
       static instances: ControllableWorker[] = []
       listeners = new Map<string, EventListener>()
-      messages: unknown[] = []
+      messages: TBuddyConfigObject[] = []
       terminated = false
 
       constructor() {
@@ -262,13 +272,22 @@ describe("production chemistry renderer", () => {
       }
 
       addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
-        if (typeof listener === "function") {
-          this.listeners.set(type, listener)
-        }
+        this.listeners.set(
+          type,
+          (event) => {
+            if ("handleEvent" in listener) {
+              listener.handleEvent(event)
+              return
+            }
+            listener(event)
+          },
+        )
       }
 
-      postMessage(value: unknown): void {
-        this.messages.push(value)
+      postMessage<TValue>(value: TValue): void {
+        const parsed = parseBuddyConfigObject(value)
+        if (parsed === undefined) return
+        this.messages.push(parsed)
       }
 
       terminate(): void {
@@ -289,29 +308,23 @@ describe("production chemistry renderer", () => {
     await expect(first).rejects.toThrow("cancelled")
     expect(ControllableWorker.instances[0]?.terminated).toBe(true)
     const replacement = ControllableWorker.instances[1]
-    const request = replacement?.messages[0]
-    if (
-      !replacement ||
-      request === null ||
-      typeof request !== "object" ||
-      Array.isArray(request) ||
-      !("requestID" in request) ||
-      typeof request.requestID !== "string"
-    ) {
+    const request = parseBuddyConfigObject(replacement?.messages[0])
+    const requestID = parseStringValue(request?.requestID)
+    if (!replacement || requestID === undefined) {
       throw new Error("Expected the queued render to start on a replacement worker.")
     }
     replacement.listeners.get("message")?.(
       new MessageEvent("message", {
         data: {
           type: "rendered",
-          requestID: request.requestID,
+          requestID,
           rendererVersion: "test",
           svg: "<svg />",
           warnings: [],
         },
       }),
     )
-    await expect(second).resolves.toMatchObject({ requestID: request.requestID })
+    await expect(second).resolves.toMatchObject({ requestID })
     client.destroy()
   })
 
@@ -328,18 +341,22 @@ describe("production chemistry renderer", () => {
       }
 
       addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
-        if (typeof listener === "function") {
-          this.listeners.set(type, listener)
-        }
+        this.listeners.set(
+          type,
+          (event) => {
+            if ("handleEvent" in listener) {
+              listener.handleEvent(event)
+              return
+            }
+            listener(event)
+          },
+        )
       }
 
-      postMessage(value: unknown): void {
-        if (this.instanceIndex !== 1 || value === null || typeof value !== "object") {
-          return
-        }
-        if (Array.isArray(value) || !("requestID" in value)) return
-        const requestID = value.requestID
-        if (typeof requestID !== "string") return
+      postMessage<TValue>(value: TValue): void {
+        if (this.instanceIndex !== 1) return
+        const requestID = parseStringValue(parseBuddyConfigObject(value)?.requestID)
+        if (requestID === undefined) return
 
         this.listeners.get("message")?.(
           new MessageEvent("message", {

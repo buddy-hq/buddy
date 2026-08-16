@@ -5,6 +5,39 @@ import { createRoot, type Root } from "react-dom/client"
 import { Markdown } from "../src/components/markdown/Markdown"
 import { MarkdownHtmlSegment } from "../src/components/markdown/markdown-html-segment"
 import { resetMarkdownWorkerForTests } from "../src/components/markdown/markdown-worker"
+import {
+  parseBooleanValue,
+  parseBuddyConfigObject,
+  parseFiniteNumber,
+  parseStringValue,
+  type TBuddyConfigValue,
+} from "./parse-test-values"
+
+type THighlightWorkerMessage = {
+  type?: string
+  id?: number
+  key?: string
+  text?: string
+  complete?: boolean
+}
+
+function parseHighlightWorkerMessage<TValue>(value: TValue): THighlightWorkerMessage | undefined {
+  const record = parseBuddyConfigObject(value)
+  if (record === undefined) return undefined
+  const type = parseStringValue(record.type)
+  const id = parseFiniteNumber(record.id)
+  const key = parseStringValue(record.key)
+  const text = parseStringValue(record.text)
+  const complete = parseBooleanValue(record.complete)
+  return Object.assign(
+    {},
+    type === undefined ? undefined : { type },
+    id === undefined ? undefined : { id },
+    key === undefined ? undefined : { key },
+    text === undefined ? undefined : { text },
+    complete === undefined ? undefined : { complete },
+  )
+}
 
 async function flushEffects() {
   await Promise.resolve()
@@ -306,17 +339,17 @@ describe("streaming markdown rendering", () => {
   test("does not wait for the worker to render final non-code markdown", async () => {
     const originalWorker = globalThis.Worker
 
-    class HangingWorker extends EventTarget implements Worker {
-      onerror: ((this: AbstractWorker, event: ErrorEvent) => unknown) | null = null
-      onmessage: ((this: Worker, event: MessageEvent) => unknown) | null = null
-      onmessageerror: ((this: Worker, event: MessageEvent) => unknown) | null = null
+    class HangingWorker extends EventTarget {
+      onerror: ((this: AbstractWorker, event: ErrorEvent) => void) | null = null
+      onmessage: ((this: Worker, event: MessageEvent) => void) | null = null
+      onmessageerror: ((this: Worker, event: MessageEvent) => void) | null = null
 
       constructor(_url: string | URL, _options?: WorkerOptions) {
         super()
       }
 
       postMessage(
-        _message: unknown,
+        _message: THighlightWorkerMessage,
         _options?: StructuredSerializeOptions | Transferable[],
       ): void {}
       terminate(): void {}
@@ -433,52 +466,52 @@ $$\mathb{a} \times \mathbf{b} = \begin{vmatrix} \mathbf{i} & \mathbf{j} & \mathb
 
   test("patches only the code token tail and keeps completed code mounted at terminal", async () => {
     const originalWorker = globalThis.Worker
-    const requests: unknown[] = []
+    const requests: TBuddyConfigValue[] = []
 
-    class TokenWorker extends EventTarget implements Worker {
-      onerror: ((this: AbstractWorker, event: ErrorEvent) => unknown) | null = null
-      onmessage: ((this: Worker, event: MessageEvent) => unknown) | null = null
-      onmessageerror: ((this: Worker, event: MessageEvent) => unknown) | null = null
+    class TokenWorker extends EventTarget {
+      onerror: ((this: AbstractWorker, event: ErrorEvent) => void) | null = null
+      onmessage: ((this: Worker, event: MessageEvent) => void) | null = null
+      onmessageerror: ((this: Worker, event: MessageEvent) => void) | null = null
 
       constructor(_url: string | URL, _options?: WorkerOptions) {
         super()
       }
 
-      postMessage(message: unknown, _options?: StructuredSerializeOptions | Transferable[]): void {
-        requests.push(message)
-        if (!message || typeof message !== "object" || !("type" in message)) return
-        if (message.type !== "highlight") return
-        if (!("id" in message) || typeof message.id !== "number") return
-        if (!("key" in message) || typeof message.key !== "string") return
-        if (!("text" in message) || typeof message.text !== "string") return
+      postMessage(
+        message: THighlightWorkerMessage,
+        _options?: StructuredSerializeOptions | Transferable[],
+      ): void {
+        requests.push(parseBuddyConfigObject(message) ?? {})
+        const parsed = parseHighlightWorkerMessage(message)
+        if (parsed?.type !== "highlight") return
+        if (parsed.id === undefined || parsed.key === undefined || parsed.text === undefined) return
 
-        const complete =
-          "complete" in message && typeof message.complete === "boolean" && message.complete
+        const complete = parsed.complete === true
         const response = complete
           ? {
               type: "highlight" as const,
-              id: message.id,
-              key: message.key,
+              id: parsed.id,
+              key: parsed.key,
               reset: true,
-              stable: [["const x = 1", "color: purple"] as [string, string]],
+              stable: [["const x = 1", "color: purple"] as const],
               unstable: [],
             }
-          : message.text === "const x"
+          : parsed.text === "const x"
             ? {
                 type: "highlight" as const,
-                id: message.id,
-                key: message.key,
+                id: parsed.id,
+                key: parsed.key,
                 reset: true,
-                stable: [["const ", "color: blue"] as [string, string]],
-                unstable: [["x", "color: red"] as [string, string]],
+                stable: [["const ", "color: blue"] as const],
+                unstable: [["x", "color: red"] as const],
               }
             : {
                 type: "highlight" as const,
-                id: message.id,
-                key: message.key,
+                id: parsed.id,
+                key: parsed.key,
                 reset: false,
-                stable: [["x", "color: red"] as [string, string]],
-                unstable: [[" = 1", "color: green"] as [string, string]],
+                stable: [["x", "color: red"] as const],
+                unstable: [[" = 1", "color: green"] as const],
               }
         queueMicrotask(() => {
           this.dispatchEvent(new MessageEvent("message", { data: response }))
@@ -534,15 +567,10 @@ $$\mathb{a} \times \mathbf{b} = \begin{vmatrix} \mathbf{i} & \mathbf{j} & \mathb
       })
 
       expect(
-        requests.some(
-          (request) =>
-            !!request &&
-            typeof request === "object" &&
-            "type" in request &&
-            request.type === "highlight" &&
-            "complete" in request &&
-            request.complete === true,
-        ),
+        requests.some((request) => {
+          const parsed = parseHighlightWorkerMessage(request)
+          return parsed?.type === "highlight" && parsed.complete === true
+        }),
       ).toBe(true)
       const completedCodeBlock = container.querySelector(
         '[data-markdown-block-key="streaming-code:block:0"]',

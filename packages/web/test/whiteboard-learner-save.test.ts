@@ -21,7 +21,7 @@ async function flushMicrotasks(): Promise<void> {
 }
 
 function noopFinishWhiteboardSave(_result: WhiteboardLearnerSaveResult): void {}
-function noopFailWhiteboardSave(_reason?: unknown): void {}
+function noopFailWhiteboardSave(_reason?: Error): void {}
 
 describe("whiteboard learner save scheduler", () => {
   test("flushes the captured save handler", async () => {
@@ -284,7 +284,9 @@ describe("whiteboard learner save scheduler", () => {
       calls.push(input.elements[0]?.id ?? "missing")
       if (calls.length === 1) {
         return new Promise<WhiteboardLearnerSaveResult>((_resolve, reject) => {
-          failFirst = reject
+          failFirst = (reason?: Error) => {
+            reject(reason)
+          }
         })
       }
       return { status: "saved" }

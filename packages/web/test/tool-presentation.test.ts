@@ -7,6 +7,7 @@ import {
   assistantPartStartsFollowup,
   groupAssistantParts,
 } from "../src/components/chat/utils/message-utils"
+import type { TJsonObject } from "../src/components/chat/tools/types"
 import type { MessagePart } from "../src/state/chat-types"
 import {
   activityPresentation,
@@ -17,7 +18,7 @@ import {
 function completedToolPart(input: {
   id: string
   tool: string
-  metadata: Record<string, unknown>
+  metadata: TJsonObject
 }): MessagePart {
   return {
     id: input.id,

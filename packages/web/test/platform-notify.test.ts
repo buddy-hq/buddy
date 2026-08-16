@@ -58,7 +58,7 @@ describe("browser platform notifications", () => {
     const focusMock = mock(() => undefined)
     const assignMock = mock((_href: string | URL) => undefined)
     const clickSpy = mock((event: Event) => event)
-    globalThis.Notification = NotificationStub as unknown as typeof Notification
+    Reflect.set(globalThis, "Notification", NotificationStub)
     window.focus = focusMock
     window.location.assign = assignMock
     window.addEventListener("buddy:notification-click", clickSpy)
@@ -79,7 +79,10 @@ describe("browser platform notifications", () => {
 
       const event = clickSpy.mock.calls[0]?.[0]
       expect(event).toBeInstanceOf(CustomEvent)
-      expect((event as CustomEvent).detail).toEqual({
+      if (!(event instanceof CustomEvent)) {
+        throw new Error("Expected a CustomEvent")
+      }
+      expect(event.detail).toEqual({
         href: "/encoded/chat?session=ses_123",
       })
     } finally {
@@ -91,7 +94,7 @@ describe("browser platform notifications", () => {
     const { NotificationStub, instances } = createNotificationStub({ permission: "granted" })
     const focusMock = mock(() => undefined)
     const assignMock = mock((_href: string | URL) => undefined)
-    globalThis.Notification = NotificationStub as unknown as typeof Notification
+    Reflect.set(globalThis, "Notification", NotificationStub)
     window.focus = focusMock
     window.location.assign = assignMock
 

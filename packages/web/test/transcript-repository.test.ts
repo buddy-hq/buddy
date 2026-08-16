@@ -29,6 +29,11 @@ import {
   createUserMessageInfo,
 } from "./test-utils"
 import { inlinePresentation, presentationMetadata } from "./tool-presentation-fixtures"
+import {
+  parseBuddyConfigObject,
+  parseRequestUrl,
+  type TBuddyConfigObject,
+} from "./parse-test-values"
 
 const directory = "/repo"
 const sessionID = "session_1"
@@ -85,14 +90,24 @@ function toolPart(input: {
   status: "pending" | "running" | "completed" | "error"
   inline?: boolean
 }): MessagePart {
-  return {
-    id: input.id,
-    sessionID: input.sessionID ?? sessionID,
-    messageID: input.messageID,
-    callID: `${input.id}_call`,
-    type: "tool",
-    tool: "bench_present",
-    ...(input.inline
+  return Object.assign(
+    {
+      id: input.id,
+      sessionID: input.sessionID ?? sessionID,
+      messageID: input.messageID,
+      callID: `${input.id}_call`,
+      type: "tool" as const,
+      tool: "bench_present",
+      state: {
+        status: input.status,
+        input: {},
+        metadata: {},
+        time: {
+          start: 11,
+        },
+      },
+    },
+    input.inline
       ? {
           metadata: presentationMetadata(
             inlinePresentation({
@@ -104,25 +119,12 @@ function toolPart(input: {
             }),
           ),
         }
-      : {}),
-    state: {
-      status: input.status,
-      input: {},
-      metadata: {},
-      time: {
-        start: 11,
-      },
-    },
-  }
+      : undefined,
+  )
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false
-  return true
-}
-
-function recordValue(value: unknown): Record<string, unknown> | undefined {
-  return isRecord(value) ? value : undefined
+function recordValue<TValue>(value: TValue): TBuddyConfigObject | undefined {
+  return parseBuddyConfigObject(value)
 }
 
 function userMessage(id: string, created: number, text = id): MessageWithParts {
@@ -148,9 +150,7 @@ function assistantMessage(id: string, created: number, text = id): MessageWithPa
 }
 
 function requestURL(input: RequestInfo | URL) {
-  if (input instanceof Request) return input.url
-  if (input instanceof URL) return input.toString()
-  return input
+  return parseRequestUrl(input)
 }
 
 function responseFor(page: FetchPage) {

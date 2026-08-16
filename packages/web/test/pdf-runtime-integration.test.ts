@@ -4,7 +4,7 @@ import {
   pdfQuadFromClientRect,
   readPdfPageViewGeometry,
   viewportBoundsFromPdfQuad,
-  type PdfViewportGeometry,
+  type TPdfCoordinateResult,
 } from "../src/components/readers/pdf/pdf-geometry"
 import { findPdfTextMatches } from "../src/components/readers/pdf/pdf-search"
 import { pdfDocumentFingerprint } from "../src/components/readers/pdf/pdf-document-identity"
@@ -84,11 +84,11 @@ describe("PDF.js Vite integration", () => {
 })
 
 describe("PDF crop-relative geometry", () => {
-  const viewport: PdfViewportGeometry = {
+  const viewport = {
     width: 200,
     height: 200,
-    convertToPdfPoint: (x, y) => [x + 10, 220 - y],
-    convertToViewportPoint: (x, y) => [x - 10, 220 - y],
+    convertToPdfPoint: (x: number, y: number): TPdfCoordinateResult => [x + 10, 220 - y],
+    convertToViewportPoint: (x: number, y: number): TPdfCoordinateResult => [x - 10, 220 - y],
   }
   const textLayerBounds = { left: 100, top: 50, right: 300, bottom: 250 }
   const cropBoxOrigin = { x: 10, y: 20 }

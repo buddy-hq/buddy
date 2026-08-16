@@ -11,6 +11,10 @@ import {
 import { clearChemistryRenderCacheForTests } from "../src/components/media/renderers/chemistry/render"
 import { ChemfigRenderRequestError } from "../src/components/media/renderers/chemistry/chemfig-adapter"
 import { chemistryDiagramViewportClass } from "../src/components/media/renderers/chemistry/layout"
+import {
+  setBuddyTestGlobal,
+  TEST_CHEMISTRY_RENDERER_KEY,
+} from "./parse-test-values"
 
 const originalIntersectionObserver = globalThis.IntersectionObserver
 
@@ -44,7 +48,7 @@ describe("Markdown chemistry segments", () => {
 
   beforeEach(() => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
-    Reflect.set(globalThis, "IntersectionObserver", undefined)
+    Reflect.deleteProperty(globalThis, "IntersectionObserver")
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -56,7 +60,7 @@ describe("Markdown chemistry segments", () => {
       await flushEffects()
     })
     clearChemistryRenderCacheForTests()
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = undefined
+    setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, undefined)
     container.remove()
     Reflect.set(globalThis, "IntersectionObserver", originalIntersectionObserver)
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
@@ -202,9 +206,9 @@ describe("Markdown chemistry segments", () => {
   })
 
   test("renders chemistry automatically without enabling Mermaid", async () => {
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = async () => ({
+    setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, async () => ({
       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><path d="M0 20h80" /></svg>',
-    })
+    }))
 
     await act(async () => {
       root.render(<Markdown text={"Before\n\n```smiles\nCCO\n```\n\nAfter"} />)
@@ -237,9 +241,9 @@ describe("Markdown chemistry segments", () => {
   })
 
   test("keeps the document and completed HTML segment mounted when an embedded fence closes", async () => {
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = async () => ({
+    setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, async () => ({
       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><path d="M0 20h80" /></svg>',
-    })
+    }))
     const prefix = `${"Stable introduction with enough detail to form multiple lazy blocks. ".repeat(220)}\n\n`
     const openFence = `${prefix}\`\`\`smiles\nCCO`
     const closedFence = `${openFence}\n\`\`\``
@@ -289,7 +293,7 @@ describe("Markdown chemistry segments", () => {
   })
 
   test("keeps the fixed transparent viewport while chemistry is loading", async () => {
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = () => new Promise(() => undefined)
+    setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, () => new Promise(() => undefined))
 
     await act(async () => {
       root.render(<Markdown text={"```smiles\nCCO\n```"} />)
@@ -311,9 +315,9 @@ describe("Markdown chemistry segments", () => {
   })
 
   test("uses authored alt text without displaying caption metadata", async () => {
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = async () => ({
+    setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, async () => ({
       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><path d="M0 20h80" /></svg>',
-    })
+    }))
 
     await act(async () => {
       root.render(
@@ -338,12 +342,12 @@ describe("Markdown chemistry segments", () => {
   })
 
   test("does not blame backend conversion failures on Chemfig syntax", async () => {
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = async () => {
+    setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, async () => {
       throw new ChemfigRenderRequestError(
         "The chemfig backend could not convert the compiled TeX output to SVG.",
         "chemfig_dvi_conversion_failed",
       )
-    }
+    })
 
     const markdown = ["```chemfig", String.raw`\chemfig{C-C}`, "```"].join("\n")
     await act(async () => {
@@ -360,9 +364,9 @@ describe("Markdown chemistry segments", () => {
   })
 
   test("keeps raw Mermaid visible when chemistry activates segmentation", async () => {
-    globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = async () => ({
+    setBuddyTestGlobal(TEST_CHEMISTRY_RENDERER_KEY, async () => ({
       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><path d="M0 20h80" /></svg>',
-    })
+    }))
     const markdown = ["```mermaid", "graph TD", "A-->B", "```", "", "```smiles", "CCO", "```"].join(
       "\n",
     )

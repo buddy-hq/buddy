@@ -3,6 +3,7 @@ import {
   applyTranscriptMessageUpdated,
   applyTranscriptPartUpdated,
 } from "../src/state/transcript-repository"
+import { createBrowserPlatform, setRuntimePlatform } from "../src/context/platform"
 import { withFetchPreconnect, type FetchTransport } from "../src/lib/fetch-transport"
 import type {
   AssistantMessageInfo,
@@ -31,6 +32,21 @@ function inferSeededSessionID(input: DirectoryChatStateTestInput) {
 
 export function createFetchStub(implementation: FetchStub): FetchTransport {
   return withFetchPreconnect(implementation, globalThis.fetch)
+}
+
+export function installTestFetch(implementation: FetchStub): FetchTransport {
+  const stub = createFetchStub(implementation)
+  globalThis.fetch = stub
+  setRuntimePlatform({
+    ...createBrowserPlatform(),
+    fetch: stub,
+  })
+  return stub
+}
+
+export function restoreTestFetch(originalFetch: typeof fetch): void {
+  globalThis.fetch = originalFetch
+  setRuntimePlatform(createBrowserPlatform())
 }
 
 export function createDirectoryChatState(

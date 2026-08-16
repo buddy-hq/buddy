@@ -8,7 +8,9 @@ import {
   TOOL_PART_TYPE,
   TOOL_STATE_PENDING_STATUS,
 } from "../src/state/chat-stream-event-buffer"
+import type { TJsonObject } from "../src/components/chat/tools/types"
 import type { GlobalEvent } from "../src/state/chat-types"
+import { parseBuddyConfigObject } from "./parse-test-values"
 
 const DIRECTORY = "/repo"
 const SESSION_ID = "session_1"
@@ -16,7 +18,7 @@ const MESSAGE_ID = "message_1"
 const PART_ID = "part_1"
 const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view"
 
-function messagePartUpdated(part: Record<string, unknown>): GlobalEvent {
+function messagePartUpdated(part: TJsonObject): GlobalEvent {
   return {
     directory: DIRECTORY,
     payload: {
@@ -49,10 +51,6 @@ function messagePartDelta(input: { field: string; delta: string }): GlobalEvent 
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
-}
-
 function eventProperties(event: GlobalEvent | undefined) {
   const payload = event?.payload
   return payload && "properties" in payload ? payload.properties : undefined
@@ -60,12 +58,11 @@ function eventProperties(event: GlobalEvent | undefined) {
 
 function eventPart(event: GlobalEvent | undefined) {
   const part = eventProperties(event)?.part
-  return isRecord(part) ? part : undefined
+  return parseBuddyConfigObject(part)
 }
 
 function eventPartState(event: GlobalEvent | undefined) {
-  const state = eventPart(event)?.state
-  return isRecord(state) ? state : undefined
+  return parseBuddyConfigObject(eventPart(event)?.state)
 }
 
 describe("chat stream event buffer", () => {

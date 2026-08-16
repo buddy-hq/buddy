@@ -28,14 +28,16 @@ import {
 function userMessage(input: { id?: string; optimistic?: boolean } = {}): MessageWithParts {
   const id = input.id ?? "msg_user"
   return createMessageWithParts(createUserMessageInfo({ id, sessionID: "ses_rows" }), [
-    {
-      id: `${id}_part`,
-      sessionID: "ses_rows",
-      messageID: id,
-      type: "text",
-      text: "Prompt",
-      ...(input.optimistic ? { optimistic: true } : {}),
-    },
+    Object.assign(
+      {
+        id: `${id}_part`,
+        sessionID: "ses_rows",
+        messageID: id,
+        type: "text" as const,
+        text: "Prompt",
+      },
+      input.optimistic ? { optimistic: true as const } : undefined,
+    ),
   ])
 }
 
@@ -90,14 +92,18 @@ function inlineImage(input: {
   collection?: "image-gallery"
 }): MessagePart {
   const metadata = presentationMetadata(
-    inlinePresentation({
-      phase: input.phase,
-      action: input.phase === "running" ? "Generating" : "Generated",
-      renderer: "image-generation",
-      layoutRole: "media-output",
-      icon: "image",
-      ...(input.collection ? { collection: input.collection } : {}),
-    }),
+    inlinePresentation(
+      Object.assign(
+        {
+          phase: input.phase,
+          action: input.phase === "running" ? "Generating" : "Generated",
+          renderer: "image-generation" as const,
+          layoutRole: "media-output" as const,
+          icon: "image" as const,
+        },
+        input.collection === undefined ? undefined : { collection: input.collection },
+      ),
+    ),
   )
   const base = {
     id: input.id,
@@ -133,6 +139,14 @@ function rowsFor(messages: MessageWithParts[], isBusy = false): TimelineRow[] {
     activeSessionStatus: IDLE_SESSION_STATUS,
     showReasoningSummaries: true,
   })
+}
+
+function assistantRow(
+  rows: TimelineRow[],
+): Extract<TimelineRow, { type: "assistant" }> | undefined {
+  return rows.find(
+    (row): row is Extract<TimelineRow, { type: "assistant" }> => row.type === "assistant",
+  )
 }
 
 describe("chat timeline rows", () => {
@@ -363,11 +377,6 @@ describe("chat timeline rows", () => {
       [userMessage(), assistantMessage(assistantMessageID, [textPart("streaming-text")])],
       false,
     )
-
-    const assistantRow = (rows: TimelineRow[]) =>
-      rows.find(
-        (row): row is Extract<TimelineRow, { type: "assistant" }> => row.type === "assistant",
-      )
 
     // Ownership is stable; the footer mounts only once enablement flips.
     expect(assistantRow(streaming)?.assistantActionPartID).toBe("streaming-text")

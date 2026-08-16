@@ -4,7 +4,12 @@ import {
   parseMarkdownToHtml,
   projectMarkdownBlocks,
   streamBlocks,
+  type MarkdownProjection,
 } from "../src/components/markdown/markdown-parser"
+
+function markdownProjectionLineCount(projection: MarkdownProjection) {
+  return projection.blocks.reduce((total, block) => total + block.src.split("\n").length, 0)
+}
 
 describe("markdown parser", () => {
   test("renders external links like OpenCode", async () => {
@@ -315,10 +320,7 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
     const open = projectMarkdownBlocks(undefined, `${body}\`\``, true)
     const closed = projectMarkdownBlocks(open, `${body}\`\`\``, true)
 
-    const lineCount = (projection: typeof open) =>
-      projection.blocks.reduce((total, block) => total + block.src.split("\n").length, 0)
-
     expect(closed.blocks.at(-1)?.complete).toBe(true)
-    expect(lineCount(closed)).toBe(lineCount(open))
+    expect(markdownProjectionLineCount(closed)).toBe(markdownProjectionLineCount(open))
   })
 })

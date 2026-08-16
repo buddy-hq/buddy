@@ -81,7 +81,7 @@ describe("bench surface keep-alive", () => {
     const instances = retainAll(boards)
 
     expect(instances).toHaveLength(4)
-    expect(instances.at(-1)?.key).toBe(benchTargetKey(boards[4] as BenchTarget))
+    expect(instances.at(-1)?.key).toBe(benchTargetKey(boards[4] ?? boards[0]))
     expect(
       instances.every((instance) => instance.costClass === BENCH_SURFACE_COST_HEAVY),
     ).toBeTrue()

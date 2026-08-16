@@ -11,6 +11,7 @@ import {
   workspaceObjectsQueryKeys,
   workspaceObjectsQueryOptions,
 } from "../src/state/workspace-objects-query"
+import { parseRequestUrl } from "./parse-test-values"
 
 const originalFetch = globalThis.fetch
 
@@ -129,7 +130,7 @@ describe("workspace object query", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         calls.push(`${method} ${url}`)
 

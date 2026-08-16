@@ -8,6 +8,7 @@ import {
 import { act, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { GroupedFigureToolCard } from "../src/components/chat/tools/render/render-figure"
+import type { TJsonObject } from "../src/components/chat/tools/types"
 import type { MessagePart } from "../src/state/chat-types"
 
 function renderHarness(root: Root, element: ReactNode) {
@@ -37,7 +38,7 @@ function createFigureToolPart(input: {
   state: {
     status: "completed" | "error"
     input: Record<string, never>
-    metadata?: Record<string, unknown>
+    metadata?: TJsonObject
     attachments?: []
     output?: string
     error?: string

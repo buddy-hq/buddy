@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { useAdaptiveStreamingText } from "../src/components/chat/hooks/use-streaming-text"
-import { createTranscriptPerformanceProbe } from "../src/lib/directory-chat/transcript-performance-probe"
+import {
+  createTranscriptPerformanceProbe,
+  setTranscriptPerformanceProbe,
+} from "../src/lib/directory-chat/transcript-performance-probe"
 
 async function flushEffects(delay = 0) {
   await Promise.resolve()
@@ -24,7 +27,7 @@ describe("useAdaptiveStreamingText", () => {
   let root: Root
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -35,9 +38,9 @@ describe("useAdaptiveStreamingText", () => {
       root.unmount()
       await flushEffects()
     })
-    globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
+    setTranscriptPerformanceProbe(undefined)
     container.remove()
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
   test("renders the latest streaming value immediately", async () => {
@@ -87,7 +90,7 @@ describe("useAdaptiveStreamingText", () => {
 
   test("records the terminal display transition after the last live update", async () => {
     const probe = createTranscriptPerformanceProbe({ observeBrowserEvents: false })
-    globalThis.__BUDDY_TRANSCRIPT_PERF__ = probe
+    setTranscriptPerformanceProbe(probe)
 
     await act(async () => {
       root.render(<StreamingTextProbe value="Final text" live />)
@@ -100,6 +103,6 @@ describe("useAdaptiveStreamingText", () => {
 
     const streamEvents = probe.events.filter((event) => event.type === "streaming-throughput")
     expect(streamEvents.at(-1)?.live).toBe(false)
-    globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
+    setTranscriptPerformanceProbe(undefined)
   })
 })

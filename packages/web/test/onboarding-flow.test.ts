@@ -11,6 +11,7 @@ import {
   shouldShowOnboardingPrimaryUseStep,
 } from "../src/lib/onboarding-flow"
 import { ONBOARDING_STEPS } from "../src/components/onboarding/cinematic"
+import { browserLocalStorage } from "../src/state/parse-external"
 import {
   resolveDesktopEntryPath,
   resolveDesktopEntryPathWithSnapshots,
@@ -89,9 +90,7 @@ function createCatalog(input: {
 }
 
 beforeEach(() => {
-  if (typeof localStorage !== "undefined") {
-    localStorage.clear()
-  }
+  browserLocalStorage()?.clear()
   useOnboardingStore.getState().reset()
   useChatStore.getState().resetRuntimeState()
 })
@@ -600,7 +599,7 @@ describe("ChatGPT Plus onboarding auth", () => {
       async reloadProviderRuntime() {},
     }).then(
       () => undefined,
-      (error: unknown) => error,
+      (cause) => cause,
     )
 
     await completeReady
@@ -651,7 +650,7 @@ describe("ChatGPT Plus onboarding auth", () => {
       async reloadProviderRuntime() {},
     }).then(
       () => undefined,
-      (error: unknown) => error,
+      (cause) => cause,
     )
 
     await Bun.sleep(0)

@@ -94,10 +94,17 @@ mock.module("@/components/directory-chat/directory-workspace-context", () => ({
   useDirectoryWorkspaceOptional: () => undefined,
 }))
 
+type TWhiteboardPreferencesSlice = {
+  panelPlacement: "bottom"
+  togglePanelPlacement: () => void
+}
+
+function selectWhiteboardPreference<TValue>(selector: (state: TWhiteboardPreferencesSlice) => TValue) {
+  return selector({ panelPlacement: "bottom", togglePanelPlacement: () => undefined })
+}
+
 mock.module("@/state/whiteboard-preferences", () => ({
-  useWhiteboardPreferences: (
-    selector: (state: { panelPlacement: "bottom"; togglePanelPlacement: () => void }) => unknown,
-  ) => selector({ panelPlacement: "bottom", togglePanelPlacement: () => undefined }),
+  useWhiteboardPreferences: selectWhiteboardPreference,
 }))
 
 type WhiteboardCanvasModule = typeof import("../src/components/whiteboard/whiteboard-canvas")

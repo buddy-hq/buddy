@@ -17,6 +17,7 @@ import {
   seedSkillPresentations,
   TestQueryClientProvider,
 } from "./query-test-utils"
+import { parseBuddyConfigObject, parseJsonObjectText, parseStringValue } from "./parse-test-values"
 
 const TEST_DIRECTORY = "/repo"
 const SPINNER_SETTLE_MS = 175
@@ -44,10 +45,6 @@ function resetStore(): void {
     historyNavigationByKey: {},
   })
   flushPromptStorePersistence()
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function renderComposer(attachmentsApiRef: RefObject<PromptComposerAttachmentsApi | null>) {
@@ -87,7 +84,7 @@ describe("native resource attachment staging", () => {
   let root: Root
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     resetStore()
     queryClient = createTestQueryClient()
     seedSkillPresentations(queryClient, TEST_DIRECTORY)
@@ -105,7 +102,7 @@ describe("native resource attachment staging", () => {
     container.remove()
     resetStore()
     setRuntimePlatform(createBrowserPlatform())
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })
 
   test("shows immediate independent chips, delays spinners, limits copies to two, and gates only Send", async () => {
@@ -202,16 +199,17 @@ describe("native resource attachment staging", () => {
       platform: "desktop",
       resolveDroppedFilePath: (file) => `/external/${file.name}`,
       fetch: createTestFetch(async (request, init) => {
-        const body: unknown =
-          typeof init?.body === "string"
-            ? JSON.parse(init.body)
+        const bodyText = parseStringValue(init?.body)
+        const body =
+          bodyText !== undefined
+            ? parseJsonObjectText(bodyText)
             : request instanceof Request
-              ? await request.clone().json()
+              ? parseBuddyConfigObject(await request.clone().json())
               : undefined
-        if (!isRecord(body) || typeof body.sourcePath !== "string") {
+        const sourcePath = parseStringValue(body?.sourcePath)
+        if (sourcePath === undefined) {
           throw new Error("Expected a notebook upload source path")
         }
-        const sourcePath = body.sourcePath
         const definition = nativeResourceDefinitionFromPath(sourcePath)
         const displayName = sourcePath.split("/").at(-1)
         if (!definition || !displayName) throw new Error("Expected a native spreadsheet path")

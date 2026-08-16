@@ -12,11 +12,29 @@ import {
 } from "../src/state/chat-stream-event-buffer"
 import type { GlobalEvent } from "../src/state/chat-types"
 import { createFetchStub } from "./test-utils"
+import {
+  parseBuddyConfigObject,
+  parseRequestUrl,
+  parseStringValue,
+} from "./parse-test-values"
 
 const originalFetch = globalThis.fetch
 const originalSetTimeout = globalThis.setTimeout
 const originalDateNow = Date.now
 const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view"
+
+type TSetTimeout = typeof setTimeout
+type TTimeoutHandler = Parameters<TSetTimeout>[0]
+type TTimeoutDelay = Parameters<TSetTimeout>[1]
+
+function installSetTimeoutStub(
+  intercept: (handler: TTimeoutHandler, timeout: TTimeoutDelay) => ReturnType<TSetTimeout>,
+): void {
+  function stub(handler: TTimeoutHandler, timeout: TTimeoutDelay): ReturnType<TSetTimeout> {
+    return intercept(handler, timeout)
+  }
+  globalThis.setTimeout = Object.assign(stub, originalSetTimeout)
+}
 
 function requestHeaders(input: RequestInfo | URL, init?: RequestInit) {
   if (init?.headers) return new Headers(init.headers)
@@ -24,23 +42,17 @@ function requestHeaders(input: RequestInfo | URL, init?: RequestInit) {
   return new Headers()
 }
 
-function sseData(value: unknown) {
+function sseData<TValue>(value: TValue) {
   return `data: ${JSON.stringify(value)}`
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
 function eventPartState(event: GlobalEvent | undefined) {
   const payload = event?.payload
   if (!payload || !("properties" in payload)) return undefined
 
-  const part = payload.properties.part
-  if (!isRecord(part)) return undefined
-
-  const state = part.state
-  return isRecord(state) ? state : undefined
+  const part = parseBuddyConfigObject(payload.properties.part)
+  if (part === undefined) return undefined
+  return parseBuddyConfigObject(part.state)
 }
 
 function setServerConnection(input: {
@@ -220,8 +232,8 @@ describe("startChatSync fetch stream", () => {
       received.map((event) => {
         const payload = event.payload
         if (!("properties" in payload)) return payload.type
-        const info = payload.properties.info
-        return isRecord(info) && typeof info.id === "string" ? info.id : payload.type
+        const infoId = parseStringValue(parseBuddyConfigObject(payload.properties.info)?.id)
+        return infoId ?? payload.type
       }),
     ).toEqual([
       "background-session",
@@ -245,7 +257,7 @@ describe("startChatSync fetch stream", () => {
 
     globalThis.fetch = createFetchStub(async (input, init) => {
       receivedPath =
-        typeof input === "string" ? input : input instanceof Request ? input.url : input.toString()
+        parseRequestUrl(input)
       const headers = requestHeaders(input, init)
       receivedAuth = headers.get("authorization") ?? ""
       receivedAccept = headers.get("accept") ?? ""
@@ -365,8 +377,9 @@ describe("startChatSync fetch stream", () => {
     const firstEventPayload = events[0]?.payload
     let partText: string | undefined
     if (firstEventPayload && "properties" in firstEventPayload) {
-      partText = (firstEventPayload.properties as { part?: { text?: string } } | undefined)?.part
-        ?.text
+      partText = parseStringValue(
+        parseBuddyConfigObject(parseBuddyConfigObject(firstEventPayload.properties)?.part)?.text,
+      )
     }
     expect(partText).toBe("final")
   })
@@ -696,13 +709,13 @@ describe("startChatSync fetch stream", () => {
     const reconnectDelays: number[] = []
     const expectedReconnectDelays = [250, 500]
 
-    globalThis.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+    installSetTimeoutStub((handler, timeout) => {
       if (timeout === 250 || timeout === 500 || timeout === 1_000) {
         reconnectDelays.push(timeout)
-        return originalSetTimeout(handler, 0, ...args)
+        return originalSetTimeout(handler, 0)
       }
-      return originalSetTimeout(handler, timeout, ...args)
-    }) as typeof globalThis.setTimeout
+      return originalSetTimeout(handler, timeout)
+    })
 
     globalThis.fetch = createFetchStub(async () => {
       throw new Error("stream down")
@@ -746,10 +759,10 @@ describe("startChatSync fetch stream", () => {
   test("reconnects after the heartbeat timeout when a stream stalls", async () => {
     let fetchCount = 0
 
-    globalThis.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+    installSetTimeoutStub((handler, timeout) => {
       const nextTimeout = timeout === 15_000 ? 0 : timeout
-      return originalSetTimeout(handler, nextTimeout, ...args)
-    }) as typeof globalThis.setTimeout
+      return originalSetTimeout(handler, nextTimeout)
+    })
 
     globalThis.fetch = createFetchStub(async () => {
       fetchCount += 1

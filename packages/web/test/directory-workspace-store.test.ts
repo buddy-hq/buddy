@@ -592,8 +592,13 @@ describe("createDirectoryWorkspaceStore", () => {
 
     const slots = store.getState().slots
     expect(Object.keys(slots)).toHaveLength(24)
-    expect(slots[chatKeys[0] as (typeof chatKeys)[number]]).toBeUndefined()
-    expect(slots[chatKeys.at(-1) as (typeof chatKeys)[number]]).toBeDefined()
+    const oldestKey = chatKeys[0]
+    const newestKey = chatKeys.at(-1)
+    if (oldestKey === undefined || newestKey === undefined) {
+      throw new Error("Expected chat slot keys.")
+    }
+    expect(slots[oldestKey]).toBeUndefined()
+    expect(slots[newestKey]).toBeDefined()
   })
 
   test("keeps a re-touched chat slot instead of evicting it by insertion age", () => {

@@ -8,11 +8,13 @@ function session(id: string, updated: number, compacting?: number): SessionInfo 
   return {
     id,
     title: id,
-    time: {
-      created: updated - 1,
-      updated,
-      ...(typeof compacting === "number" ? { compacting } : {}),
-    },
+    time: Object.assign(
+      {
+        created: updated - 1,
+        updated,
+      },
+      compacting === undefined ? undefined : { compacting },
+    ),
   }
 }
 

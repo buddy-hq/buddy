@@ -167,12 +167,16 @@ function routeLocation(
     pathname: `/${directory}/objects/${route.target.ref.kind}/${encodeURIComponent(
       route.target.ref.objectID,
     )}`,
-    search: {
-      view: route.target.viewID,
-      ...(route.target.ref.revisionID ? { revision: route.target.ref.revisionID } : {}),
-      ...(route.target.ref.itemID ? { item: route.target.ref.itemID } : {}),
-      ...modeSearch,
-    },
+    search: Object.assign(
+      Object.assign(
+        {
+          view: route.target.viewID,
+        },
+        route.target.ref.revisionID ? { revision: route.target.ref.revisionID } : undefined,
+        route.target.ref.itemID ? { item: route.target.ref.itemID } : undefined,
+      ),
+      modeSearch,
+    ),
   }
 }
 

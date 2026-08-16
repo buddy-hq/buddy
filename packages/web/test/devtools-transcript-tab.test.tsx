@@ -4,7 +4,10 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
 import { DevToolsTranscriptTab } from "../src/components/debug/devtools-transcript-tab"
-import { getTranscriptPerformanceProbe } from "../src/lib/directory-chat/transcript-performance-probe"
+import {
+  getTranscriptPerformanceProbe,
+  setTranscriptPerformanceProbe,
+} from "../src/lib/directory-chat/transcript-performance-probe"
 
 function requireButton(container: ParentNode, label: string) {
   const button = Array.from(container.querySelectorAll("button")).find(
@@ -23,7 +26,7 @@ describe("DevToolsTranscriptTab", () => {
   beforeEach(() => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     getTranscriptPerformanceProbe()?.stop()
-    globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
+    setTranscriptPerformanceProbe(undefined)
     container = document.createElement("div")
     document.body.append(container)
     root = createRoot(container)
@@ -32,7 +35,7 @@ describe("DevToolsTranscriptTab", () => {
   afterEach(async () => {
     await act(async () => root.unmount())
     getTranscriptPerformanceProbe()?.stop()
-    globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
+    setTranscriptPerformanceProbe(undefined)
     container.remove()
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })

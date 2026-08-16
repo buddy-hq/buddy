@@ -15,6 +15,13 @@ import {
   type DrawerKind,
   type EffectiveWorkspaceProjection,
 } from "../src/state/directory-workspace-store"
+import {
+  parseBuddyConfigObject,
+  parseFiniteNumber,
+  parseJsonObjectText,
+  parseStringValue,
+  type TBuddyConfigObject,
+} from "./parse-test-values"
 
 const DIRECTORY = "/workspace/lifecycle-test"
 const TARGET = {
@@ -66,40 +73,35 @@ type ContextPublicationProbe = {
   status: string
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function readPublishBodyProbe(value: unknown): PublishBodyProbe {
-  if (!isRecord(value)) {
-    throw new Error("Expected publish body to be an object.")
-  }
-  const idempotencyKey = value.idempotencyKey
-  const publicationSequence = value.publicationSequence
-  const contextValue = value.value
+function readPublishBodyProbe<TValue>(value: TValue): PublishBodyProbe {
+  const record = parseBuddyConfigObject(value)
+  const idempotencyKey = parseStringValue(record?.idempotencyKey)
+  const publicationSequence = parseFiniteNumber(record?.publicationSequence)
+  const contextValue = parseBuddyConfigObject(record?.value)
+  const status = parseStringValue(contextValue?.status)
   if (
-    typeof idempotencyKey !== "string" ||
-    typeof publicationSequence !== "number" ||
-    !isRecord(contextValue) ||
-    typeof contextValue.status !== "string"
+    idempotencyKey === undefined ||
+    publicationSequence === undefined ||
+    status === undefined
   ) {
     throw new Error("Expected publish body idempotency key and sequence.")
   }
   return {
     idempotencyKey,
     publicationSequence,
-    value: { status: contextValue.status },
+    value: { status },
   }
 }
 
-function readPublishContextProbe(value: unknown): PublishContextProbe {
-  if (!isRecord(value)) {
+function readPublishContextProbe<TValue>(value: TValue): PublishContextProbe {
+  const record = parseBuddyConfigObject(value)
+  if (record === undefined) {
     throw new Error("Expected publish body to be an object.")
   }
-  const contextValue = value.value
-  if (!isRecord(contextValue)) return {}
-  const content = contextValue.content
-  if (typeof content !== "string") {
+  const contextValue = parseBuddyConfigObject(record.value)
+  if (contextValue === undefined) return {}
+  const content = parseStringValue(contextValue.content)
+  if (content === undefined) {
     return { value: {} }
   }
   return {
@@ -109,15 +111,18 @@ function readPublishContextProbe(value: unknown): PublishContextProbe {
   }
 }
 
-function readFirstPublishedTabTarget(value: unknown): Record<string, unknown> {
-  if (!isRecord(value) || !isRecord(value.value)) {
-    throw new Error("Expected a published Bench context value.")
-  }
-  const tabs = value.value.tabs
-  if (!Array.isArray(tabs) || !isRecord(tabs[0]) || !isRecord(tabs[0].target)) {
+function readFirstPublishedTabTarget<TValue>(value: TValue): TBuddyConfigObject {
+  const record = parseBuddyConfigObject(value)
+  const contextValue = parseBuddyConfigObject(record?.value)
+  const tabs = contextValue?.tabs
+  if (!Array.isArray(tabs)) {
     throw new Error("Expected a published Bench tab target.")
   }
-  return tabs[0].target
+  const target = parseBuddyConfigObject(parseBuddyConfigObject(tabs[0])?.target)
+  if (target === undefined) {
+    throw new Error("Expected a published Bench tab target.")
+  }
+  return target
 }
 
 function projectionFor(target: BenchTarget, drawer: DrawerKind | null = null) {
@@ -349,9 +354,9 @@ describe("DirectoryWorkspaceLifecycleService", () => {
         getRouteFallbackContext: () => null,
       })
       const leaseQuery = service.beginEventStreamLease()
-      const instanceID = leaseQuery.workspaceInstanceID
-      const generation = leaseQuery.connectionGeneration
-      if (typeof instanceID !== "string" || typeof generation !== "number") {
+      const instanceID = parseStringValue(leaseQuery.workspaceInstanceID)
+      const generation = parseFiniteNumber(leaseQuery.connectionGeneration)
+      if (instanceID === undefined || generation === undefined) {
         throw new Error("Expected lifecycle lease query identity.")
       }
       service.acceptLease({
@@ -2053,7 +2058,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
   })
 
   test("publishes closed context before releasing the lease on disposal", async () => {
-    const requests: Array<{ method: string; value?: unknown }> = []
+    const requests: Array<{ method: string; value?: TBuddyConfigObject[string] }> = []
     setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
@@ -2061,8 +2066,14 @@ describe("DirectoryWorkspaceLifecycleService", () => {
         const request = input instanceof Request ? input : null
         const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
         const body = init?.body ?? (request ? await request.clone().text() : undefined)
-        const parsedBody = body ? JSON.parse(String(body)) : undefined
-        requests.push({ method, ...(parsedBody ? { value: parsedBody.value } : {}) })
+        const parsedBody =
+          body === undefined ? undefined : parseJsonObjectText(String(body))
+        requests.push(
+          Object.assign(
+            { method },
+            parsedBody === undefined ? undefined : { value: parsedBody.value },
+          ),
+        )
         return new Response(
           JSON.stringify(method === "DELETE" ? { released: true } : { revision: 1 }),
           {

@@ -3,6 +3,10 @@ import { fileURLToPath } from "node:url"
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs"
 import { findPdfTextMatches } from "../src/components/readers/pdf/pdf-search"
 import { createSyntheticMultiPagePdf } from "./fixtures/synthetic-pdf"
+import {
+  parseBuddyConfigObject,
+  parseStringValue,
+} from "./parse-test-values"
 
 const SYNTHETIC_PAGE_TEXT = [
   "Buddy PDF page one alpha",
@@ -13,9 +17,8 @@ const STANDARD_FONT_DATA_URL = fileURLToPath(
   new URL("../standard_fonts/", import.meta.resolve("pdfjs-dist")),
 )
 
-function textItemValue(item: unknown): string {
-  if (typeof item !== "object" || item === null || !("str" in item)) return ""
-  return typeof item.str === "string" ? item.str : ""
+function textItemValue<TValue>(item: TValue): string {
+  return parseStringValue(parseBuddyConfigObject(item)?.str) ?? ""
 }
 
 describe("synthetic multi-page PDF smoke fixture", () => {
@@ -42,8 +45,9 @@ describe("synthetic multi-page PDF smoke fixture", () => {
       expect(document.numPages).toBe(SYNTHETIC_PAGE_TEXT.length)
 
       const metadata = await document.getMetadata()
-      expect(Reflect.get(metadata.info, "Title")).toBe("Buddy Synthetic PDF")
-      expect(Reflect.get(metadata.info, "Author")).toBe("Buddy Tests")
+      const info = parseBuddyConfigObject(metadata.info)
+      expect(parseStringValue(info?.Title)).toBe("Buddy Synthetic PDF")
+      expect(parseStringValue(info?.Author)).toBe("Buddy Tests")
 
       const outline = await document.getOutline()
       expect(outline?.map((item) => item.title)).toEqual(["Page one", "Page two", "Page three"])

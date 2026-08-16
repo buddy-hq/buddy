@@ -9,6 +9,7 @@ import type {
   ObjectFlashcardDeckQueuedCardsResponse,
   ObjectFlashcardDeckReadDeckResponse,
 } from "@buddy/sdk/types"
+import { parseRequestUrl } from "./parse-test-values"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_DECK_ID = "deck-1"
@@ -154,7 +155,7 @@ describe("flashcard review session", () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
-          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+          parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         if (method === "GET" && url.includes("/queued-cards")) {
           queueCalls++

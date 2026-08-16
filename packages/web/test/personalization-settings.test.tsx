@@ -7,6 +7,7 @@ import { useForm } from "@tanstack/react-form"
 import { SharedPersonalizationPrimaryUseField } from "../src/components/settings/shared-personalization-form"
 import { usePersonalizationSettingsAutosave } from "../src/state/personalization-settings"
 import { readPersonalization } from "../src/state/project-config-readers"
+import type { TBuddyConfigObject } from "./parse-test-values"
 
 const SAVED_GLOBAL_CONFIG = {
   personalization: {
@@ -15,7 +16,7 @@ const SAVED_GLOBAL_CONFIG = {
   },
 }
 
-function PersonalizationHydrationProbe(props: { globalConfig?: Record<string, unknown> }) {
+function PersonalizationHydrationProbe(props: { globalConfig?: TBuddyConfigObject }) {
   const form = useForm({
     defaultValues: readPersonalization({}),
     onSubmit: async () => undefined,
