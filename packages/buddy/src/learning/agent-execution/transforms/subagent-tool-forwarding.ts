@@ -365,16 +365,18 @@ async function resolveSubagentPolicyContext(input: {
     return undefined
   }
 
-  return {
-    personaID,
-    focusGoalIds,
-    hasParentSession: !!parentSessionID,
-    policy,
-    teachingWorkspaceState,
-    ...(session.permission ? { currentSessionPermission: session.permission } : {}),
-    ...(parentSession?.permission ? { parentSessionPermission: parentSession.permission } : {}),
-    ...(parentUserPrompt?.tools ? { parentUserTools: parentUserPrompt.tools } : {}),
-  }
+  return Object.assign(
+    {
+      personaID,
+      focusGoalIds,
+      hasParentSession: !!parentSessionID,
+      policy,
+      teachingWorkspaceState,
+    },
+    session.permission ? { currentSessionPermission: session.permission } : undefined,
+    parentSession?.permission ? { parentSessionPermission: parentSession.permission } : undefined,
+    parentUserPrompt?.tools ? { parentUserTools: parentUserPrompt.tools } : undefined,
+  )
 }
 
 async function resolvePersonaVisibility(input: {
@@ -615,20 +617,22 @@ export async function resolveSubagentToolForwarding(input: {
     }
   }
 
-  return {
-    sessionPermission: buildForwardedSessionPermission({
-      allowedToolIDs,
-      allToolIDs,
-      basePermission: baseSessionPermission,
-      existingPermission: context.currentSessionPermission,
-    }),
-    toolOverrides: buildToolOverrides({
-      allowedToolIDs,
-      allToolIDs,
-      existing: input.currentTools,
-      specializedToolIDs: specialized,
-    }),
-    ...(!input.previousState
+  return Object.assign(
+    {
+      sessionPermission: buildForwardedSessionPermission({
+        allowedToolIDs,
+        allToolIDs,
+        basePermission: baseSessionPermission,
+        existingPermission: context.currentSessionPermission,
+      }),
+      toolOverrides: buildToolOverrides({
+        allowedToolIDs,
+        allToolIDs,
+        existing: input.currentTools,
+        specializedToolIDs: specialized,
+      }),
+    },
+    !input.previousState
       ? {
           stateSeed: stateSeed({
             focusGoalIds: context.focusGoalIds,
@@ -638,6 +642,6 @@ export async function resolveSubagentToolForwarding(input: {
             teachingWorkspaceState: context.teachingWorkspaceState,
           }),
         }
-      : {}),
-  }
+      : undefined,
+  )
 }

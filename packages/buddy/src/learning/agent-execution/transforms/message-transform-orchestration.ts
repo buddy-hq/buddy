@@ -42,9 +42,11 @@ export async function orchestrateSessionMessageTransform(input: {
   if (pipelineResult.nextTeachingState) {
     const turnContextDelivery = pipelineResult.turnContextDelivery
     const readingDeliveryPatch = turnContextDelivery
-      ? {
-          readingTurnContextDigest: turnContextDelivery.currentReadingFingerprint,
-          ...(turnContextDelivery.deliveredReadingFingerprint
+      ? Object.assign(
+          {
+            readingTurnContextDigest: turnContextDelivery.currentReadingFingerprint,
+          },
+          turnContextDelivery.deliveredReadingFingerprint
             ? {
                 lastDeliveredReadingTurnContextDigest:
                   turnContextDelivery.deliveredReadingFingerprint,
@@ -53,13 +55,15 @@ export async function orchestrateSessionMessageTransform(input: {
               ? {
                   lastDeliveredReadingTurnContextDigest: undefined,
                 }
-              : {}),
-        }
+              : undefined,
+        )
       : {}
     const teachingDeliveryPatch = turnContextDelivery
-      ? {
-          teachingTurnContextDigest: turnContextDelivery.currentTeachingFingerprint,
-          ...(turnContextDelivery.deliveredTeachingFingerprint
+      ? Object.assign(
+          {
+            teachingTurnContextDigest: turnContextDelivery.currentTeachingFingerprint,
+          },
+          turnContextDelivery.deliveredTeachingFingerprint
             ? {
                 lastDeliveredTeachingTurnContextDigest:
                   turnContextDelivery.deliveredTeachingFingerprint,
@@ -68,13 +72,15 @@ export async function orchestrateSessionMessageTransform(input: {
               ? {
                   lastDeliveredTeachingTurnContextDigest: undefined,
                 }
-              : {}),
-        }
+              : undefined,
+        )
       : {}
     const benchDeliveryPatch = turnContextDelivery
-      ? {
-          benchTurnContextDigest: turnContextDelivery.currentBenchFingerprint,
-          ...(turnContextDelivery.deliveredBenchFingerprint
+      ? Object.assign(
+          {
+            benchTurnContextDigest: turnContextDelivery.currentBenchFingerprint,
+          },
+          turnContextDelivery.deliveredBenchFingerprint
             ? {
                 lastDeliveredBenchTurnContextDigest: turnContextDelivery.deliveredBenchFingerprint,
               }
@@ -82,8 +88,8 @@ export async function orchestrateSessionMessageTransform(input: {
               ? {
                   lastDeliveredBenchTurnContextDigest: undefined,
                 }
-              : {}),
-        }
+              : undefined,
+        )
       : {}
 
     rollbackTeachingState = () =>
@@ -92,52 +98,65 @@ export async function orchestrateSessionMessageTransform(input: {
         sessionID: input.context.sessionID,
         previousState,
       })
-    writeTeachingSessionState(input.context.directory, {
-      ...(previousState?.lastDeliveredLearnerContextDigest
-        ? {
-            lastDeliveredLearnerContextDigest: previousState.lastDeliveredLearnerContextDigest,
-          }
-        : {}),
-      ...(previousState?.lastDeliveredLearnerContextItems
-        ? {
-            lastDeliveredLearnerContextItems: previousState.lastDeliveredLearnerContextItems,
-          }
-        : {}),
-      ...(previousState?.lastDeliveredLearnerContextMessageId
-        ? {
-            lastDeliveredLearnerContextMessageId:
-              previousState.lastDeliveredLearnerContextMessageId,
-          }
-        : {}),
-      ...(previousState?.lastDeliveredReadingTurnContextDigest
-        ? {
-            lastDeliveredReadingTurnContextDigest:
-              previousState.lastDeliveredReadingTurnContextDigest,
-          }
-        : {}),
-      ...(previousState?.lastDeliveredBenchTurnContextDigest
-        ? {
-            lastDeliveredBenchTurnContextDigest: previousState.lastDeliveredBenchTurnContextDigest,
-          }
-        : {}),
-      ...(previousState?.lastDeliveredTeachingTurnContextDigest
-        ? {
-            lastDeliveredTeachingTurnContextDigest:
-              previousState.lastDeliveredTeachingTurnContextDigest,
-          }
-        : {}),
-      ...pipelineResult.nextTeachingState,
-      ...readingDeliveryPatch,
-      ...benchDeliveryPatch,
-      ...teachingDeliveryPatch,
-      ...(pipelineResult.learnerContextDelivery
-        ? {
-            lastDeliveredLearnerContextDigest: pipelineResult.learnerContextDelivery.fingerprint,
-            lastDeliveredLearnerContextItems: pipelineResult.learnerContextDelivery.items,
-            lastDeliveredLearnerContextMessageId: undefined,
-          }
-        : {}),
-    })
+    writeTeachingSessionState(
+      input.context.directory,
+      Object.assign(
+        Object.assign(
+          Object.assign(
+            Object.assign(
+              {},
+              previousState?.lastDeliveredLearnerContextDigest
+                ? {
+                    lastDeliveredLearnerContextDigest:
+                      previousState.lastDeliveredLearnerContextDigest,
+                  }
+                : undefined,
+              previousState?.lastDeliveredLearnerContextItems
+                ? {
+                    lastDeliveredLearnerContextItems:
+                      previousState.lastDeliveredLearnerContextItems,
+                  }
+                : undefined,
+              previousState?.lastDeliveredLearnerContextMessageId
+                ? {
+                    lastDeliveredLearnerContextMessageId:
+                      previousState.lastDeliveredLearnerContextMessageId,
+                  }
+                : undefined,
+            ),
+            previousState?.lastDeliveredReadingTurnContextDigest
+              ? {
+                  lastDeliveredReadingTurnContextDigest:
+                    previousState.lastDeliveredReadingTurnContextDigest,
+                }
+              : undefined,
+            previousState?.lastDeliveredBenchTurnContextDigest
+              ? {
+                  lastDeliveredBenchTurnContextDigest:
+                    previousState.lastDeliveredBenchTurnContextDigest,
+                }
+              : undefined,
+            previousState?.lastDeliveredTeachingTurnContextDigest
+              ? {
+                  lastDeliveredTeachingTurnContextDigest:
+                    previousState.lastDeliveredTeachingTurnContextDigest,
+                }
+              : undefined,
+          ),
+          pipelineResult.nextTeachingState,
+          readingDeliveryPatch,
+          benchDeliveryPatch,
+        ),
+        teachingDeliveryPatch,
+        pipelineResult.learnerContextDelivery
+          ? {
+              lastDeliveredLearnerContextDigest: pipelineResult.learnerContextDelivery.fingerprint,
+              lastDeliveredLearnerContextItems: pipelineResult.learnerContextDelivery.items,
+              lastDeliveredLearnerContextMessageId: undefined,
+            }
+          : undefined,
+      ),
+    )
   }
 
   await syncBuddyRuntimeSessionPermissions({
