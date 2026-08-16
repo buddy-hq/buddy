@@ -132,6 +132,7 @@
         "ai": "catalog:",
         "effect": "catalog:",
         "opencode": "workspace:*",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "typescript": "^5.0.0",
