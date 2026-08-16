@@ -113,10 +113,15 @@ const CLOSED_BENCH_POLICY_STATE = {
   status: "closed",
 } satisfies BenchOpenPolicyState
 
+type RightWorkspaceFilesPresentation = {
+  title: string
+  variant: "default" | "obsidian"
+}
+
 export function resolveRightWorkspaceFilesPresentation(input: {
   directory: string
   obsidianConnected: boolean
-}): { title: string; variant: "default" | "obsidian" } {
+}): RightWorkspaceFilesPresentation {
   return {
     title: getFilename(input.directory),
     variant: input.obsidianConnected ? "obsidian" : "default",

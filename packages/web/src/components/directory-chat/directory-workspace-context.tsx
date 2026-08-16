@@ -173,9 +173,9 @@ export function DirectoryWorkspaceProvider(props: {
       docked: initialDocked,
       lastDrawer: DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
     }
-    const slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {
+    const slots = {
       [activeChatKey]: initialSlot,
-    }
+    } satisfies Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
     return createDirectoryWorkspaceStore({
       directory: props.directory,
       initialState: {

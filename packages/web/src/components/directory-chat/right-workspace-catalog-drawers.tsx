@@ -173,11 +173,11 @@ type CreationPreviewDimensions = {
 }
 
 /** Hover-render geometry for the tail. The featured band renders inline instead. */
-const CREATION_PREVIEW_DIMENSIONS: Record<CreationFeedItem["kind"], CreationPreviewDimensions> = {
+const CREATION_PREVIEW_DIMENSIONS = {
   widgets: { widthClass: "w-96", aspectClass: null },
   diagrams: { widthClass: "w-96", aspectClass: "aspect-[4/3]" },
   media: { widthClass: "w-80", aspectClass: "aspect-video" },
-}
+} satisfies Record<CreationFeedItem["kind"], CreationPreviewDimensions>
 
 const CREATION_PREVIEW_PREFETCH_DELAY_MS = 120
 const CREATION_PREVIEW_OPEN_DELAY_MS = 500
