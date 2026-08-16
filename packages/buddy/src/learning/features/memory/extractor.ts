@@ -13,7 +13,7 @@ import { resolveLearnerMemoryModel } from "./models"
 import { LEARNER_MEMORY_EXTRACTION_TUNING } from "./tuning"
 import LEARNER_MEMORY_EXTRACTOR_PROMPT from "./extractor.md"
 
-const MODEL_EXTRACTION_JSON_SCHEMA: Record<string, unknown> = {
+const MODEL_EXTRACTION_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
@@ -55,7 +55,7 @@ const MODEL_EXTRACTION_JSON_SCHEMA: Record<string, unknown> = {
     },
   },
   required: ["session_summary", "session_slug", "raw_learner_memory", "candidates"],
-}
+} satisfies Record<string, unknown>
 
 const ModelCandidateSchema = z.object({
   operation: z.literal("create"),
@@ -236,12 +236,7 @@ function buildModelPrompt(fixture: EvaluationFixture): string {
   )
 }
 
-function candidatesFromModelOutput(input: { fixture: EvaluationFixture; structured: unknown }): {
-  patches: CandidateMemoryPatch[]
-  sessionSummary: string
-  sessionSlug?: string
-  rawLearnerMemory: string
-} {
+function candidatesFromModelOutput(input: { fixture: EvaluationFixture; structured: unknown }) {
   const parsed = ModelExtractionSchema.parse(input.structured)
 
   return {

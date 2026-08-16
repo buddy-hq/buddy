@@ -31,7 +31,7 @@ import {
   withRecoveredConsolidationPublication,
 } from "./consolidation-publication"
 
-const CONSOLIDATION_TOOLS: Record<string, boolean> = {
+const CONSOLIDATION_TOOLS = {
   apply_patch: false,
   bash: false,
   batch: false,
@@ -50,8 +50,8 @@ const CONSOLIDATION_TOOLS: Record<string, boolean> = {
   webfetch: false,
   websearch: false,
   write: true,
-}
-const CONSOLIDATION_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+} satisfies Record<string, boolean>
+const CONSOLIDATION_OUTPUT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
@@ -71,7 +71,7 @@ const CONSOLIDATION_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
     rationale: { type: "string" },
   },
   required: ["selectedCandidateIds", "rejectedCandidateIds", "filesWritten", "rationale"],
-}
+} satisfies Record<string, unknown>
 
 const ConsolidationModelOutputSchema = z.object({
   selectedCandidateIds: z.array(z.string().min(1)),
