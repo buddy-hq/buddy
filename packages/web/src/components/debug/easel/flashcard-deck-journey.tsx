@@ -64,14 +64,14 @@ const CARD_CHROME = cn(PAPER, "border border-border-strong-base shadow-md")
 const STACK_CHROME = cn(UNDER, "border border-border-base")
 const STAGE_BACKGROUND = "bg-background-strong"
 
-const RATING_TONE: Record<RatingID, { rule: string; text: string }> = {
+const RATING_TONE = {
   again: { rule: "bg-surface-critical-base", text: "text-text-critical-base" },
   hard: { rule: "bg-surface-warning-base", text: "text-text-warning-base" },
   good: { rule: "bg-surface-success-base", text: "text-text-success-base" },
   easy: { rule: "bg-surface-interactive-base", text: "text-text-interactive-base" },
-}
+} satisfies Record<RatingID, { rule: string; text: string }>
 
-const CARD_STATE_TONE: Record<CardStateID, { dot: string; text: string; label: string }> = {
+const CARD_STATE_TONE = {
   new: { dot: "bg-surface-interactive-base", text: "text-text-interactive-base", label: "new" },
   learning: { dot: "bg-surface-warning-base", text: "text-text-warning-base", label: "learning" },
   review: { dot: "bg-surface-success-base", text: "text-text-success-base", label: "review" },
@@ -80,7 +80,7 @@ const CARD_STATE_TONE: Record<CardStateID, { dot: string; text: string; label: s
     text: "text-text-critical-base",
     label: "relearning",
   },
-}
+} satisfies Record<CardStateID, { dot: string; text: string; label: string }>
 
 // ─── Geometry ──────────────────────────────────────────────────────────────
 
@@ -268,7 +268,7 @@ type Standing = {
  * readDeck does return) and let the boolean carry the fact that more is
  * waiting, which is exactly what the boolean means.
  */
-const STANDINGS: Record<StandingID, Standing> = {
+const STANDINGS = {
   due: {
     id: "due",
     eyebrow: "Ready",
@@ -330,19 +330,19 @@ const STANDINGS: Record<StandingID, Standing> = {
     tone: "limit",
     source: "completion.newLimitReached · config.newPerDay",
   },
-}
+} satisfies Record<StandingID, Standing>
 
-const STANDING_RULE: Record<Standing["tone"], string> = {
+const STANDING_RULE = {
   ready: "bg-border-interactive-base",
   calm: "bg-border-base",
   limit: "bg-surface-warning-base",
-}
+} satisfies Record<Standing["tone"], string>
 
-const STANDING_EYEBROW: Record<Standing["tone"], string> = {
+const STANDING_EYEBROW = {
   ready: "text-text-interactive-base",
   calm: "text-text-weaker",
   limit: "text-text-warning-base",
-}
+} satisfies Record<Standing["tone"], string>
 
 /**
  * What to do after this deck drains.
@@ -1411,12 +1411,12 @@ const API_LEDGER: LedgerRow[] = [
   },
 ]
 
-const LEDGER_TONE: Record<LedgerRow["status"], string> = {
+const LEDGER_TONE = {
   exists: "text-text-success-base",
   derived: "text-text-interactive-base",
   extend: "text-text-warning-base",
   missing: "text-text-critical-base",
-}
+} satisfies Record<LedgerRow["status"], string>
 
 // ─── Easel ─────────────────────────────────────────────────────────────────
 

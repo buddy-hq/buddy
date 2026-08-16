@@ -187,12 +187,12 @@ const SEED_HISTORY: RatingID[] = ["good", "good", "again", "good", "easy", "hard
 const AUTOPLAY_RATINGS: RatingID[] = ["good", "again", "easy", "hard"]
 
 /** One colour per rating, spent only on hairlines — never on a filled pill. */
-const RATING_TONE: Record<RatingID, { rule: string; text: string }> = {
+const RATING_TONE = {
   again: { rule: "bg-surface-critical-base", text: "text-text-critical-base" },
   hard: { rule: "bg-surface-warning-base", text: "text-text-warning-base" },
   good: { rule: "bg-surface-success-base", text: "text-text-success-base" },
   easy: { rule: "bg-surface-interactive-base", text: "text-text-interactive-base" },
-}
+} satisfies Record<RatingID, { rule: string; text: string }>
 
 // ─── Axes ──────────────────────────────────────────────────────────────────
 
@@ -243,21 +243,21 @@ function hingeTransition(speed: number) {
 }
 
 /** Where the rating throws the card. Again ← … → Easy; the two middles fall. */
-const THROW_VECTOR: Record<RatingID, { x: number; y: number; rotate: number }> = {
+const THROW_VECTOR = {
   again: { x: -520, y: 30, rotate: -18 },
   hard: { x: -330, y: 260, rotate: -11 },
   good: { x: 330, y: 260, rotate: 11 },
   easy: { x: 520, y: 30, rotate: 18 },
-}
+} satisfies Record<RatingID, { x: number; y: number; rotate: number }>
 const THROW_NEUTRAL = { x: 0, y: -300, rotate: 0 }
 
 /** Hovering a rating leans the card that way, so the throw is never a surprise. */
-const AIM_LEAN: Record<RatingID, { x: number; rotate: number }> = {
+const AIM_LEAN = {
   again: { x: -18, rotate: -2.4 },
   hard: { x: -8, rotate: -1.1 },
   good: { x: 8, rotate: 1.1 },
   easy: { x: 18, rotate: 2.4 },
-}
+} satisfies Record<RatingID, { x: number; rotate: number }>
 const NO_LEAN = { x: 0, rotate: 0 }
 
 const SWAP_PERSPECTIVE = 1500
@@ -449,12 +449,12 @@ function phaseCopy(phase: PhaseID, reviewed: number): PhaseCopy | null {
   }
 }
 
-const PHASE_ACCENT: Record<string, string> = {
-  loading: "text-text-weak",
-  "no-due": "text-text-weak",
-  complete: "text-text-success-base",
-  error: "text-text-critical-base",
-}
+const PHASE_ACCENT = new Map<PhaseID, string>([
+  ["loading", "text-text-weak"],
+  ["no-due", "text-text-weak"],
+  ["complete", "text-text-success-base"],
+  ["error", "text-text-critical-base"],
+])
 
 function isCardPhase(phase: PhaseID) {
   return phase === "front" || phase === "revealed" || phase === "leech"
@@ -486,7 +486,9 @@ function PhasePanel(props: { phase: PhaseID; copy: PhaseCopy }) {
     >
       <RuledHead label={props.copy.eyebrow} critical={critical} />
       <div className="flex min-h-0 flex-1 flex-col justify-center gap-2 px-8 pb-6">
-        <p className={cn("text-lg font-medium", PHASE_ACCENT[props.phase])}>{props.copy.title}</p>
+        <p className={cn("text-lg font-medium", PHASE_ACCENT.get(props.phase))}>
+          {props.copy.title}
+        </p>
         <p className="max-w-[46ch] text-[13px] leading-relaxed text-text-weak">{props.copy.body}</p>
         {props.copy.action ? (
           <button
