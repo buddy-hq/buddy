@@ -51,11 +51,6 @@ type ChunkPart = {
   splitReason: ResourceChunkSplitReason
 }
 
-type ChunkFrontmatter = Record<string, unknown> & {
-  page_start?: number
-  page_end?: number
-}
-
 const recursiveChunkerCache = new Map<number, Promise<RecursiveChunker>>()
 
 export async function buildResourceChunkFiles(input: {
@@ -147,32 +142,28 @@ export async function buildResourceChunkFiles(input: {
 
       const markdownBody = [`# ${label}`, "", part.text.trim()].join("\n")
 
-      // SAFETY: The fresh record is widened only to add the optional page bounds below.
-      const frontmatter = {
-        file_kind: fileKind,
-        resource_alias: input.resourceAlias,
-        source_relpath: input.sourceRelpath,
-        format: input.format,
-        unit_kind: seed.unitKind,
-        unit_title: baseTitle,
-        unit_index: unitIndex,
-        part_index: partIndex,
-        part_count: partCount,
-        part_key: partKey,
-        prev_part: prevPart,
-        next_part: nextPart,
-        chars,
-        est_tokens: estTokens,
-        threshold_tokens: threshold.maxTokens,
-        split_reason: part.splitReason,
-      } as ChunkFrontmatter
-
-      if (seed.pageStart !== undefined) {
-        frontmatter.page_start = seed.pageStart
-      }
-      if (seed.pageEnd !== undefined) {
-        frontmatter.page_end = seed.pageEnd
-      }
+      const frontmatter = Object.assign(
+        {
+          file_kind: fileKind,
+          resource_alias: input.resourceAlias,
+          source_relpath: input.sourceRelpath,
+          format: input.format,
+          unit_kind: seed.unitKind,
+          unit_title: baseTitle,
+          unit_index: unitIndex,
+          part_index: partIndex,
+          part_count: partCount,
+          part_key: partKey,
+          prev_part: prevPart,
+          next_part: nextPart,
+          chars,
+          est_tokens: estTokens,
+          threshold_tokens: threshold.maxTokens,
+          split_reason: part.splitReason,
+        },
+        seed.pageStart === undefined ? undefined : { page_start: seed.pageStart },
+        seed.pageEnd === undefined ? undefined : { page_end: seed.pageEnd },
+      )
 
       chunkFiles.push({
         filename,

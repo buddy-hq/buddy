@@ -41,22 +41,6 @@ type SessionSummarizeBody = {
   auto?: unknown
 }
 
-type SessionUpdateParams = {
-  sessionID: string
-  directory: string
-  title?: string
-  permission?: PermissionRuleset
-  time?: { archived?: number }
-}
-
-type SessionSummarizeParams = {
-  sessionID: string
-  directory: string
-  providerID?: string
-  modelID?: string
-  auto?: boolean
-}
-
 const SESSION_NOT_FOUND_ERROR = "Session not found"
 const NOT_FOUND_STATUS = 404
 const LINK_HEADER = "Link"
@@ -164,26 +148,18 @@ function buildSessionUpdateParams(input: {
   directory: string
   body: SessionPatchBody | undefined
 }) {
-  // SAFETY: The fresh request object is widened only for the validated optional fields populated below.
-  const params = {
-    sessionID: input.sessionID,
-    directory: input.directory,
-  } as SessionUpdateParams
+  const title = typeof input.body?.title === "string" ? { title: input.body.title } : undefined
+  const permission =
+    input.body?.permission === undefined ? undefined : { permission: input.body.permission }
+  const archived = isRecord(input.body?.time) ? input.body.time.archived : undefined
+  const time = typeof archived === "number" ? { time: { archived } } : undefined
 
-  if (typeof input.body?.title === "string") {
-    params.title = input.body.title
-  }
-  if (input.body?.permission !== undefined) {
-    params.permission = input.body.permission
-  }
-  if (isRecord(input.body?.time)) {
-    const archived = input.body.time.archived
-    if (typeof archived === "number") {
-      params.time = { archived }
-    }
-  }
-
-  return params
+  return Object.assign(
+    { sessionID: input.sessionID, directory: input.directory },
+    title,
+    permission,
+    time,
+  )
 }
 
 function buildSessionSummarizeParams(input: {
@@ -191,23 +167,18 @@ function buildSessionSummarizeParams(input: {
   directory: string
   body: SessionSummarizeBody | undefined
 }) {
-  // SAFETY: The fresh request object is widened only for the validated optional fields populated below.
-  const params = {
-    sessionID: input.sessionID,
-    directory: input.directory,
-  } as SessionSummarizeParams
+  const provider =
+    typeof input.body?.providerID === "string" ? { providerID: input.body.providerID } : undefined
+  const model =
+    typeof input.body?.modelID === "string" ? { modelID: input.body.modelID } : undefined
+  const auto = typeof input.body?.auto === "boolean" ? { auto: input.body.auto } : undefined
 
-  if (typeof input.body?.providerID === "string") {
-    params.providerID = input.body.providerID
-  }
-  if (typeof input.body?.modelID === "string") {
-    params.modelID = input.body.modelID
-  }
-  if (typeof input.body?.auto === "boolean") {
-    params.auto = input.body.auto
-  }
-
-  return params
+  return Object.assign(
+    { sessionID: input.sessionID, directory: input.directory },
+    provider,
+    model,
+    auto,
+  )
 }
 
 export async function proxySessionCollection(c: Context): Promise<Response> {
