@@ -1,41 +1,49 @@
 import type { Context } from "hono"
 import { isJsonContentType } from "../../http/http"
 import { invalidJsonResponse } from "../../http/request-json"
+import { extractSdkErrorMessage, type SdkResult } from "../../http/sdk-response"
 import { flattenPromptPartsForRuntime } from "../../learning/prompt/workspace-file-references"
+import {
+  parseTSessionJsonObject,
+  type TSessionJsonObject,
+} from "./parse-values"
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function validateJsonObjectBody(value: unknown): Record<string, unknown> | undefined {
-  if (!isRecord(value)) {
-    return undefined
-  }
-  return value
-}
-
-async function parseJsonObject(c: Context): Promise<Record<string, unknown> | Response> {
-  let value: unknown
+async function parseRequestJsonObject(c: Context): Promise<TSessionJsonObject | Response> {
   try {
-    value = await c.req.json()
+    const value = await c.req.json()
+    return parseTSessionJsonObject(value) ?? invalidJsonResponse()
   } catch {
     return invalidJsonResponse()
   }
-  return validateJsonObjectBody(value) ?? invalidJsonResponse()
 }
 
 export async function readValidatedJsonObject(
   c: Context,
-): Promise<Record<string, unknown> | Response> {
+): Promise<TSessionJsonObject | Response> {
   const contentType = c.req.header("content-type")
   if (!isJsonContentType(contentType)) {
     return invalidJsonResponse()
   }
 
-  return parseJsonObject(c)
+  return parseRequestJsonObject(c)
 }
 
-export function prepareRuntimePromptBody(body: Record<string, unknown>) {
+export function toSessionSdkResult<TData, TError>(result: {
+  data?: TData
+  error?: TError
+  response?: Response
+}): SdkResult<TData> {
+  return {
+    data: result.data,
+    error:
+      result.error === undefined
+        ? undefined
+        : (extractSdkErrorMessage(result.error) ?? "Request failed"),
+    response: result.response,
+  }
+}
+
+export function prepareRuntimePromptBody(body: TSessionJsonObject): TSessionJsonObject {
   if (!Array.isArray(body.parts)) {
     return body
   }
@@ -46,7 +54,7 @@ export function prepareRuntimePromptBody(body: Record<string, unknown>) {
   }
 }
 
-export function prepareRuntimeCommandBody(body: Record<string, unknown>) {
+export function prepareRuntimeCommandBody(body: TSessionJsonObject): TSessionJsonObject {
   const withRuntimeParts = Array.isArray(body.parts)
     ? {
         ...body,
@@ -67,14 +75,12 @@ export function prepareRuntimeCommandBody(body: Record<string, unknown>) {
 export function buildSessionSdkParameters(input: {
   sessionID: string
   directory: string
-  body: Record<string, unknown>
+  body: TSessionJsonObject
 }) {
-  const {
-    sessionID: _sessionID,
-    directory: _directory,
-    workspace: _workspace,
-    ...rest
-  } = input.body
+  const rest: TSessionJsonObject = { ...input.body }
+  delete rest.sessionID
+  delete rest.directory
+  delete rest.workspace
   return {
     sessionID: input.sessionID,
     directory: input.directory,

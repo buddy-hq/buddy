@@ -16,29 +16,38 @@ import {
 import { getOpenCodeClient } from "../../opencode-runtime/client"
 import { ensureBuddyToolPresentationCatalog } from "../../opencode-runtime/buddy-tool-presentation-catalog"
 import { resolveDirectory } from "../../project"
+import { toSessionSdkResult } from "./sdk-session"
 import {
   ensureRuntimeSessionExists,
   loadRuntimeSessionInDirectory,
   runtimeSessionLookupErrorResponse,
 } from "./lookup"
+import {
+  parseTSessionBoolean,
+  parseTSessionJsonObject,
+  parseTSessionJsonValidator,
+  parseTSessionNumber,
+  parseTSessionString,
+  type TSessionJsonObject,
+} from "./parse-values"
 
-type SessionMessagesQuery = {
+type TSessionMessagesQuery = {
   limit?: number
   before?: string
 }
 
-type SessionPatchBody = {
-  title?: unknown
+type TSessionPatchBody = {
+  title?: string
   permission?: PermissionRuleset
   time?: {
-    archived?: unknown
+    archived?: number
   }
 }
 
-type SessionSummarizeBody = {
-  providerID?: unknown
-  modelID?: unknown
-  auto?: unknown
+type TSessionSummarizeBody = {
+  providerID?: string
+  modelID?: string
+  auto?: boolean
 }
 
 const SESSION_NOT_FOUND_ERROR = "Session not found"
@@ -47,39 +56,73 @@ const LINK_HEADER = "Link"
 const NEXT_CURSOR_HEADER = "X-Next-Cursor"
 const EXPOSE_HEADERS_HEADER = "Access-Control-Expose-Headers"
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function parseSessionPatchBody(value: unknown): SessionPatchBody | undefined {
-  if (!isRecord(value)) {
+function parseTPermissionRuleset<TValue>(value: TValue): PermissionRuleset | undefined {
+  if (!Array.isArray(value)) {
     return undefined
   }
-  return value
+  const rules: PermissionRuleset = []
+  for (const entry of value) {
+    const record = parseTSessionJsonObject(entry)
+    const permission = parseTSessionString(record?.permission)
+    const pattern = parseTSessionString(record?.pattern)
+    const action = parseTSessionString(record?.action)
+    if (
+      permission === undefined ||
+      pattern === undefined ||
+      (action !== "allow" && action !== "deny" && action !== "ask")
+    ) {
+      return undefined
+    }
+    rules.push({ permission, pattern, action })
+  }
+  return rules
 }
 
-function parseSessionSummarizeBody(value: unknown): SessionSummarizeBody | undefined {
-  if (!isRecord(value)) {
+function parseTSessionPatchBody<TValue>(value: TValue): TSessionPatchBody | undefined {
+  const record = parseTSessionJsonObject(value)
+  if (record === undefined) {
     return undefined
   }
-  return value
+  const title = parseTSessionString(record.title)
+  const permission = parseTPermissionRuleset(record.permission)
+  const archived = parseTSessionNumber(parseTSessionJsonObject(record.time)?.archived)
+  return Object.assign(
+    {},
+    title === undefined ? undefined : { title },
+    permission === undefined ? undefined : { permission },
+    archived === undefined ? undefined : { time: { archived } },
+  )
 }
 
-function readValidatedJsonBody(c: Context): unknown {
-  const request: unknown = c.req
-  if (!request || typeof request !== "object" || !("valid" in request)) {
+function parseTSessionSummarizeBody<TValue>(value: TValue): TSessionSummarizeBody | undefined {
+  const record = parseTSessionJsonObject(value)
+  if (record === undefined) {
     return undefined
   }
-
-  const { valid } = request
-  if (typeof valid !== "function") {
-    return undefined
-  }
-
-  return Reflect.apply(valid, request, ["json"])
+  const providerID = parseTSessionString(record.providerID)
+  const modelID = parseTSessionString(record.modelID)
+  const auto = parseTSessionBoolean(record.auto)
+  return Object.assign(
+    {},
+    providerID === undefined ? undefined : { providerID },
+    modelID === undefined ? undefined : { modelID },
+    auto === undefined ? undefined : { auto },
+  )
 }
 
-function readSessionMessagesQuery(c: Context): SessionMessagesQuery {
+function readValidatedJsonBody(c: Context): TSessionJsonObject | undefined {
+  const valid = parseTSessionJsonValidator(c.req.valid.bind(c.req))
+  if (valid === undefined) {
+    return undefined
+  }
+  try {
+    return valid("json")
+  } catch {
+    return undefined
+  }
+}
+
+function readSessionMessagesQuery(c: Context): TSessionMessagesQuery {
   const params = new URL(c.req.url).searchParams
   const rawLimit = params.get("limit")
   const before = params.get("before") ?? undefined
@@ -135,8 +178,11 @@ function buildSessionListParams(c: Context) {
   return query
 }
 
-function buildSessionCreateParams(directory: string, body: Record<string, unknown>) {
-  const { directory: _directory, workspace: _workspace, sessionID: _sessionID, ...rest } = body
+function buildSessionCreateParams(directory: string, body: TSessionJsonObject) {
+  const rest: TSessionJsonObject = { ...body }
+  delete rest.directory
+  delete rest.workspace
+  delete rest.sessionID
   return {
     directory,
     ...rest,
@@ -146,38 +192,28 @@ function buildSessionCreateParams(directory: string, body: Record<string, unknow
 function buildSessionUpdateParams(input: {
   sessionID: string
   directory: string
-  body: SessionPatchBody | undefined
+  body: TSessionPatchBody | undefined
 }) {
-  const title = typeof input.body?.title === "string" ? { title: input.body.title } : undefined
-  const permission =
-    input.body?.permission === undefined ? undefined : { permission: input.body.permission }
-  const archived = isRecord(input.body?.time) ? input.body.time.archived : undefined
-  const time = typeof archived === "number" ? { time: { archived } } : undefined
-
   return Object.assign(
     { sessionID: input.sessionID, directory: input.directory },
-    title,
-    permission,
-    time,
+    input.body?.title === undefined ? undefined : { title: input.body.title },
+    input.body?.permission === undefined ? undefined : { permission: input.body.permission },
+    input.body?.time?.archived === undefined
+      ? undefined
+      : { time: { archived: input.body.time.archived } },
   )
 }
 
 function buildSessionSummarizeParams(input: {
   sessionID: string
   directory: string
-  body: SessionSummarizeBody | undefined
+  body: TSessionSummarizeBody | undefined
 }) {
-  const provider =
-    typeof input.body?.providerID === "string" ? { providerID: input.body.providerID } : undefined
-  const model =
-    typeof input.body?.modelID === "string" ? { modelID: input.body.modelID } : undefined
-  const auto = typeof input.body?.auto === "boolean" ? { auto: input.body.auto } : undefined
-
   return Object.assign(
     { sessionID: input.sessionID, directory: input.directory },
-    provider,
-    model,
-    auto,
+    input.body?.providerID === undefined ? undefined : { providerID: input.body.providerID },
+    input.body?.modelID === undefined ? undefined : { modelID: input.body.modelID },
+    input.body?.auto === undefined ? undefined : { auto: input.body.auto },
   )
 }
 
@@ -189,10 +225,12 @@ export async function proxySessionCollection(c: Context): Promise<Response> {
     if (!syncResult.ok) return syncResult.response
 
     const rawBody = readValidatedJsonBody(c)
-    const body = isRecord(rawBody) ? rawBody : {}
+    const body = rawBody ?? {}
     const client = await getOpenCodeClient(syncResult.value.directory)
-    const result = await client.session.create(
-      buildSessionCreateParams(syncResult.value.directory, body),
+    const result = toSessionSdkResult(
+      await client.session.create(
+        buildSessionCreateParams(syncResult.value.directory, body),
+      ),
     )
 
     if (result.error) {
@@ -204,8 +242,8 @@ export async function proxySessionCollection(c: Context): Promise<Response> {
       runLearnerMemoryStartupPipeline({
         directory: syncResult.value.directory,
         currentSessionID: session.id,
-      }).catch((error) => {
-        console.warn("Learner memory startup pipeline failed:", error)
+      }).catch((cause: unknown) => {
+        console.warn("Learner memory startup pipeline failed:", cause)
       })
     }
 
@@ -216,9 +254,11 @@ export async function proxySessionCollection(c: Context): Promise<Response> {
   if (!directoryResult.ok) return directoryResult.response
 
   const client = await getOpenCodeClient(directoryResult.directory)
-  const result = await client.session.list({
-    ...buildSessionListParams(c),
-  })
+  const result = toSessionSdkResult(
+    await client.session.list({
+      ...buildSessionListParams(c),
+    }),
+  )
 
   if (result.error) {
     return sdkErrorResponse(result)
@@ -232,9 +272,11 @@ export async function getSessionStatus(c: Context): Promise<Response> {
   if (!directoryResult.ok) return directoryResult.response
 
   const client = await getOpenCodeClient(directoryResult.directory)
-  const result = await client.session.status({
-    directory: directoryResult.directory,
-  })
+  const result = toSessionSdkResult(
+    await client.session.status({
+      directory: directoryResult.directory,
+    }),
+  )
 
   if (result.error) {
     return sdkErrorResponse(result)
@@ -290,10 +332,12 @@ export async function deleteSessionById(c: Context): Promise<Response> {
   const familySessionIDs = await collectSessionFamilyIDs(directoryResult.directory, sessionID)
 
   const client = await getOpenCodeClient(directoryResult.directory)
-  const result = await client.session.delete({
-    sessionID,
-    directory: directoryResult.directory,
-  })
+  const result = toSessionSdkResult(
+    await client.session.delete({
+      sessionID,
+      directory: directoryResult.directory,
+    }),
+  )
 
   if (result.error) {
     return sdkErrorResponse(result)
@@ -321,14 +365,16 @@ export async function patchSessionById(c: Context): Promise<Response> {
   const lookupResponse = await ensureRuntimeSessionExists(directoryResult.directory, sessionID)
   if (lookupResponse) return lookupResponse
 
-  const body = parseSessionPatchBody(readValidatedJsonBody(c))
+  const body = parseTSessionPatchBody(readValidatedJsonBody(c))
   const client = await getOpenCodeClient(directoryResult.directory)
-  const result = await client.session.update(
-    buildSessionUpdateParams({
-      sessionID,
-      directory: directoryResult.directory,
-      body,
-    }),
+  const result = toSessionSdkResult(
+    await client.session.update(
+      buildSessionUpdateParams({
+        sessionID,
+        directory: directoryResult.directory,
+        body,
+      }),
+    ),
   )
 
   if (result.error) {
@@ -359,14 +405,16 @@ export async function summarizeSessionById(c: Context): Promise<Response> {
   const lookupResponse = await ensureRuntimeSessionExists(syncResult.value.directory, sessionID)
   if (lookupResponse) return lookupResponse
 
-  const body = parseSessionSummarizeBody(readValidatedJsonBody(c))
+  const body = parseTSessionSummarizeBody(readValidatedJsonBody(c))
   const client = await getOpenCodeClient(syncResult.value.directory)
-  const result = await client.session.summarize(
-    buildSessionSummarizeParams({
-      sessionID,
-      directory: syncResult.value.directory,
-      body,
-    }),
+  const result = toSessionSdkResult(
+    await client.session.summarize(
+      buildSessionSummarizeParams({
+        sessionID,
+        directory: syncResult.value.directory,
+        body,
+      }),
+    ),
   )
 
   if (result.error) {
@@ -387,16 +435,19 @@ export async function revertSessionById(c: Context): Promise<Response> {
   if (lookupResponse) return lookupResponse
 
   const client = await getOpenCodeClient(syncResult.value.directory)
-  const rawBody = readValidatedJsonBody(c)
-  const body = isRecord(rawBody) ? rawBody : {}
-  const result = await client.session.revert(
-    Object.assign(
-      {
-        sessionID,
-        directory: syncResult.value.directory,
-      },
-      typeof body.messageID === "string" ? { messageID: body.messageID } : undefined,
-      typeof body.partID === "string" ? { partID: body.partID } : undefined,
+  const body = readValidatedJsonBody(c) ?? {}
+  const messageID = parseTSessionString(body.messageID)
+  const partID = parseTSessionString(body.partID)
+  const result = toSessionSdkResult(
+    await client.session.revert(
+      Object.assign(
+        {
+          sessionID,
+          directory: syncResult.value.directory,
+        },
+        messageID === undefined ? undefined : { messageID },
+        partID === undefined ? undefined : { partID },
+      ),
     ),
   )
 
@@ -418,15 +469,17 @@ export async function forkSessionById(c: Context): Promise<Response> {
   if (lookupResponse) return lookupResponse
 
   const client = await getOpenCodeClient(syncResult.value.directory)
-  const rawBody = readValidatedJsonBody(c)
-  const body = isRecord(rawBody) ? rawBody : {}
-  const result = await client.session.fork(
-    Object.assign(
-      {
-        sessionID,
-        directory: syncResult.value.directory,
-      },
-      typeof body.messageID === "string" ? { messageID: body.messageID } : undefined,
+  const body = readValidatedJsonBody(c) ?? {}
+  const messageID = parseTSessionString(body.messageID)
+  const result = toSessionSdkResult(
+    await client.session.fork(
+      Object.assign(
+        {
+          sessionID,
+          directory: syncResult.value.directory,
+        },
+        messageID === undefined ? undefined : { messageID },
+      ),
     ),
   )
 
@@ -448,10 +501,12 @@ export async function unrevertSessionById(c: Context): Promise<Response> {
   if (lookupResponse) return lookupResponse
 
   const client = await getOpenCodeClient(syncResult.value.directory)
-  const result = await client.session.unrevert({
-    sessionID,
-    directory: syncResult.value.directory,
-  })
+  const result = toSessionSdkResult(
+    await client.session.unrevert({
+      sessionID,
+      directory: syncResult.value.directory,
+    }),
+  )
 
   if (result.error) {
     return sdkErrorResponse(result, { forceBusyAs409: true })

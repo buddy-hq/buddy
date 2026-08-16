@@ -39,13 +39,24 @@ import {
   buildSessionSdkParameters,
   prepareRuntimePromptBody,
   readValidatedJsonObject,
+  toSessionSdkResult,
 } from "./sdk-session"
 import {
   MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS,
   type MermaidAutoRepairState,
 } from "../../learning/features/diagrams/service/types"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
-import { persistCommandInvocationDisplay, withCommandInvocationDisplay } from "./command-transcript"
+import {
+  persistCommandInvocationDisplay,
+  withCommandInvocationDisplay,
+} from "./command-transcript"
+import {
+  parseTSessionInteger,
+  parseTSessionJsonObject,
+  parseTSessionNumber,
+  parseTSessionString,
+  type TSessionJsonObject,
+} from "./parse-values"
 import {
   SVG_AUTO_REPAIR_MAX_RENDER_ATTEMPTS,
   createSvgAutoRepairRequest,
@@ -81,13 +92,13 @@ const COMMONMARK_TAB_WIDTH = 4
 
 type RuntimeSessionMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
 
-type SessionPromptAsyncTransport = (input: {
+type TSessionPromptAsyncTransport = (input: {
   directory: string
   sessionID: string
-  body: Record<string, unknown>
+  body: TSessionJsonObject
 }) => Promise<SdkResult<unknown>>
 
-type MermaidRepairPromptRuntime = {
+type TMermaidRepairPromptRuntime = {
   agent: string
   model: {
     providerID: string
@@ -96,56 +107,58 @@ type MermaidRepairPromptRuntime = {
   variant?: string
 }
 
-type MermaidRepairPromptRuntimeResolver = (input: {
+type TMermaidRepairPromptRuntimeResolver = (input: {
   object: MermaidObjectReadResult
   directory: string
-}) => Promise<MermaidRepairPromptRuntime | undefined>
+}) => Promise<TMermaidRepairPromptRuntime | undefined>
 
-type SvgAutoRepairOrigin = MermaidRepairPromptRuntime
+type TSvgAutoRepairOrigin = TMermaidRepairPromptRuntime
 
-type SvgAutoRepairOriginResolver = (input: {
+type TSvgAutoRepairOriginResolver = (input: {
   assistantMessageID: string
   directory: string
   partID: string
   rawFence: string
   sessionID: string
-}) => Promise<SvgAutoRepairOrigin | undefined>
+}) => Promise<TSvgAutoRepairOrigin | undefined>
 
 function encodeSvgAutoRepairPromptData(value: string): string {
   return JSON.stringify(value).replaceAll("<", "\\u003c")
 }
 
-type SessionInteractionRuntime = {
+type TSessionInteractionRuntime = {
   assertSessionExists: typeof assertSessionExistsInDirectory
   createPromptTransform: typeof createSessionMessageTransform
-  sendPromptAsync: SessionPromptAsyncTransport
-  resolveMermaidRepairPromptRuntime: MermaidRepairPromptRuntimeResolver
+  sendPromptAsync: TSessionPromptAsyncTransport
+  resolveMermaidRepairPromptRuntime: TMermaidRepairPromptRuntimeResolver
   hasCompletedMermaidRepairAssistantMessage: (input: {
     directory: string
     sessionID: string
     repairRequestID: string
   }) => Promise<boolean>
   isMermaidRepairSessionIdle: (input: { directory: string; sessionID: string }) => Promise<boolean>
-  resolveSvgAutoRepairOrigin: SvgAutoRepairOriginResolver
+  resolveSvgAutoRepairOrigin: TSvgAutoRepairOriginResolver
   subscribeSvgAutoRepairTurnSettlement: typeof subscribeSvgAutoRepairTurnSettlement
 }
 
 async function sendSessionPromptAsyncToOpenCode(input: {
   directory: string
   sessionID: string
-  body: Record<string, unknown>
+  body: TSessionJsonObject
 }): Promise<SdkResult<unknown>> {
   const client = await getOpenCodeClient(input.directory)
-  return client.session.promptAsync(
-    buildSessionSdkParameters({
-      sessionID: input.sessionID,
-      directory: input.directory,
-      body: input.body,
-    }),
+  return toSessionSdkResult(
+    await client.session.promptAsync(
+      buildSessionSdkParameters({
+        sessionID: input.sessionID,
+        directory: input.directory,
+        body: input.body,
+      }),
+    ),
   )
 }
 
-let sessionInteractionRuntime: SessionInteractionRuntime = {
+let sessionInteractionRuntime: TSessionInteractionRuntime = {
   assertSessionExists: assertSessionExistsInDirectory,
   createPromptTransform: createSessionMessageTransform,
   sendPromptAsync: sendSessionPromptAsyncToOpenCode,
@@ -157,7 +170,7 @@ let sessionInteractionRuntime: SessionInteractionRuntime = {
 }
 
 export function setSessionInteractionRuntimeOverrides(
-  overrides: Partial<SessionInteractionRuntime>,
+  overrides: Partial<TSessionInteractionRuntime>,
 ): () => void {
   const previousRuntime = sessionInteractionRuntime
   sessionInteractionRuntime = {
@@ -169,36 +182,35 @@ export function setSessionInteractionRuntimeOverrides(
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function noop(): void {}
-
 function svgAutoRepairTurnSettlementMessage(
   event: BuddyGlobalEvent,
   input: { directory: string; sessionID: string; repairRequestID: string },
 ): string | undefined {
-  if (event.directory !== input.directory || !isRecord(event.payload)) return undefined
-  const properties = event.payload.properties
-  if (!isRecord(properties) || properties.sessionID !== input.sessionID) return undefined
+  if (event.directory !== input.directory) return undefined
+  const payload = parseTSessionJsonObject(event.payload)
+  const properties = parseTSessionJsonObject(payload?.properties)
+  if (payload === undefined || properties === undefined || properties.sessionID !== input.sessionID) {
+    return undefined
+  }
 
-  if (event.payload.type === OPENCODE_SESSION_ERROR_EVENT_TYPE) {
+  if (payload.type === OPENCODE_SESSION_ERROR_EVENT_TYPE) {
     return SVG_AUTO_REPAIR_TURN_FAILED_MESSAGE
   }
-  if (event.payload.type !== OPENCODE_MESSAGE_UPDATED_EVENT_TYPE) return undefined
+  if (payload.type !== OPENCODE_MESSAGE_UPDATED_EVENT_TYPE) return undefined
 
-  const info = properties.info
-  if (!isRecord(info) || info.role !== "assistant" || info.parentID !== input.repairRequestID) {
+  const info = parseTSessionJsonObject(properties.info)
+  if (info === undefined || info.role !== "assistant" || info.parentID !== input.repairRequestID) {
     return undefined
   }
   if (info.error !== undefined) return SVG_AUTO_REPAIR_TURN_FAILED_MESSAGE
-  const time = info.time
-  if (!isRecord(time) || typeof time.completed !== "number" || !Number.isFinite(time.completed)) {
+  const completed = parseTSessionNumber(parseTSessionJsonObject(info.time)?.completed)
+  if (completed === undefined || !Number.isFinite(completed)) {
     return undefined
   }
   return SVG_AUTO_REPAIR_COMPLETED_WITHOUT_VALIDATION_MESSAGE
 }
+
+function noop(): void {}
 
 export function subscribeSvgAutoRepairTurnSettlement(input: {
   directory: string
@@ -211,18 +223,19 @@ export function subscribeSvgAutoRepairTurnSettlement(input: {
     const settlementMessage = svgAutoRepairTurnSettlementMessage(event, input)
     if (!settlementMessage) return
     unsubscribe()
-    void input.settle(settlementMessage).catch((error: unknown) => {
-      console.warn("Failed to settle an SVG auto-repair turn:", error)
+    void input.settle(settlementMessage).catch((cause: unknown) => {
+      console.warn("Failed to settle an SVG auto-repair turn:", cause)
     })
   })
   return unsubscribe
 }
 
-function isUserMessageWithParts(value: unknown): value is MessageV2.WithParts {
-  if (!isRecord(value)) return false
-  if (!Array.isArray(value.parts)) return false
-  const info = value.info
-  return isRecord(info) && info.role === "user"
+function isUserMessageWithParts<TValue>(value: TValue): value is TValue & MessageV2.WithParts {
+  const record = parseTSessionJsonObject(value)
+  if (record === undefined) return false
+  if (!Array.isArray(record.parts)) return false
+  const info = parseTSessionJsonObject(record.info)
+  return info !== undefined && info.role === "user"
 }
 
 async function resolveSvgAutoRepairOriginFromOpenCode(input: {
@@ -231,7 +244,7 @@ async function resolveSvgAutoRepairOriginFromOpenCode(input: {
   partID: string
   rawFence: string
   sessionID: string
-}): Promise<SvgAutoRepairOrigin | undefined> {
+}): Promise<TSvgAutoRepairOrigin | undefined> {
   return OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () => {
@@ -242,7 +255,7 @@ async function resolveSvgAutoRepairOriginFromOpenCode(input: {
       if (
         !message ||
         message.info.role !== "assistant" ||
-        typeof message.info.time.completed !== "number" ||
+        parseTSessionNumber(message.info.time.completed) === undefined ||
         isSvgAutoRepairMessageID(String(message.info.parentID))
       ) {
         return undefined
@@ -421,7 +434,7 @@ async function queueSessionPromptAsync(input: {
   directory: string
   sessionID: string
   request: Request
-  body: Record<string, unknown>
+  body: TSessionJsonObject
 }): Promise<Response> {
   const transformContext: SessionTransformContext = {
     directory: input.directory,
@@ -434,7 +447,7 @@ async function queueSessionPromptAsync(input: {
 
   try {
     const transformed = await promptTransform.onTransform(input.body)
-    const runtimeSafeBody = prepareRuntimePromptBody(transformed)
+    const runtimeSafeBody = prepareRuntimePromptBody(parseTSessionJsonObject(transformed) ?? {})
     const result = await sessionInteractionRuntime.sendPromptAsync({
       directory: input.directory,
       sessionID: input.sessionID,
@@ -446,8 +459,8 @@ async function queueSessionPromptAsync(input: {
       return sdkErrorResponse(result, { forceBusyAs409: true })
     }
 
-    await promptTransform.onAccepted?.().catch((error) => {
-      console.warn("Failed to record learner evidence after accepted prompt:", error)
+    await promptTransform.onAccepted?.().catch((cause: unknown) => {
+      console.warn("Failed to record learner evidence after accepted prompt:", cause)
     })
     return new Response(null, { status: 204 })
   } catch (error) {
@@ -471,12 +484,15 @@ async function responseErrorMessage(result: {
 
   const contentType = result.response.headers.get("content-type") ?? ""
   if (contentType.includes("application/json")) {
-    const payload: unknown = await result.response
-      .clone()
-      .json()
-      .catch(() => undefined)
-    if (isRecord(payload) && typeof payload.error === "string" && payload.error.trim().length > 0) {
-      return payload.error
+    const payload = parseTSessionJsonObject(
+      await result.response
+        .clone()
+        .json()
+        .catch(() => undefined),
+    )
+    const payloadError = parseTSessionString(payload?.error)
+    if (payloadError !== undefined && payloadError.trim().length > 0) {
+      return payloadError
     }
   }
   const text = (await result.response.clone().text()).trim()
@@ -498,8 +514,8 @@ function runningMermaidAutoRepairState(input: {
   }
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }
 
 function isCompletedMermaidRepairAssistantMessage(input: {
@@ -510,7 +526,7 @@ function isCompletedMermaidRepairAssistantMessage(input: {
   return (
     info.role === "assistant" &&
     info.parentID === input.repairRequestID &&
-    typeof info.time.completed === "number"
+    parseTSessionNumber(info.time.completed) !== undefined
   )
 }
 
@@ -651,7 +667,7 @@ function mermaidAutoRepairPrompt(input: {
 async function resolveMermaidRepairPromptRuntimeFromOpenCode(input: {
   object: MermaidObjectReadResult
   directory: string
-}): Promise<MermaidRepairPromptRuntime | undefined> {
+}): Promise<TMermaidRepairPromptRuntime | undefined> {
   const origin = mermaidSessionOrigin(input.object)
   if (!origin) return undefined
   return OpenCodeInstance.provide({
@@ -719,16 +735,18 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
       context: { directory, sessionID, request: c.req.raw },
     })
     const transformed = await promptTransform.onTransform(body)
-    const runtimeSafeBody = prepareRuntimePromptBody(transformed)
+    const runtimeSafeBody = prepareRuntimePromptBody(parseTSessionJsonObject(transformed) ?? {})
 
     const client = await getOpenCodeClient(directory)
-    const result = await client.session.prompt(
-      buildSessionSdkParameters({
-        sessionID,
-        directory,
-        body: runtimeSafeBody,
-      }),
-      { parseAs: "stream" },
+    const result = toSessionSdkResult(
+      await client.session.prompt(
+        buildSessionSdkParameters({
+          sessionID,
+          directory,
+          body: runtimeSafeBody,
+        }),
+        { parseAs: "stream" },
+      ),
     )
 
     if (result.error) {
@@ -736,8 +754,8 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
       return respondWithStreamSdkResult(c, result, { forceBusyAs409: true })
     }
 
-    await promptTransform.onAccepted?.().catch((error) => {
-      console.warn("Failed to record learner evidence after accepted prompt:", error)
+    await promptTransform.onAccepted?.().catch((cause: unknown) => {
+      console.warn("Failed to record learner evidence after accepted prompt:", cause)
     })
 
     return respondWithStreamSdkResult(c, result, { forceBusyAs409: true })
@@ -800,11 +818,9 @@ export async function postSessionCommand(c: Context): Promise<Response> {
       request: c.req.raw,
     })
 
-    const rawCommandMessageID = body.messageID
+    const commandMessageText = parseTSessionString(body.messageID)
     const commandMessageID =
-      typeof rawCommandMessageID === "string"
-        ? MessageID.make(rawCommandMessageID)
-        : MessageID.ascending()
+      commandMessageText === undefined ? MessageID.ascending() : MessageID.make(commandMessageText)
     const commandBody = {
       ...body,
       messageID: commandMessageID,
@@ -814,15 +830,17 @@ export async function postSessionCommand(c: Context): Promise<Response> {
       context: { directory, sessionID, request: c.req.raw },
     })
     const transformed = await commandTransform.onTransform(commandBody)
-    const runtimeSafeBody = prepareRuntimeCommandBody(transformed)
+    const runtimeSafeBody = prepareRuntimeCommandBody(parseTSessionJsonObject(transformed) ?? {})
 
     const client = await getOpenCodeClient(directory)
-    const result = await client.session.command(
-      buildSessionSdkParameters({
-        sessionID,
-        directory,
-        body: runtimeSafeBody,
-      }),
+    const result = toSessionSdkResult(
+      await client.session.command(
+        buildSessionSdkParameters({
+          sessionID,
+          directory,
+          body: runtimeSafeBody,
+        }),
+      ),
     )
 
     if (result.error) {
@@ -831,8 +849,8 @@ export async function postSessionCommand(c: Context): Promise<Response> {
     }
 
     const commandDisplay = {
-      command: typeof runtimeSafeBody.command === "string" ? runtimeSafeBody.command : "",
-      argumentsText: typeof runtimeSafeBody.arguments === "string" ? runtimeSafeBody.arguments : "",
+      command: parseTSessionString(runtimeSafeBody.command) ?? "",
+      argumentsText: parseTSessionString(runtimeSafeBody.arguments) ?? "",
       contextPartID: PartID.ascending(),
     }
     const rawResponseData: unknown = result.data
@@ -870,9 +888,8 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
   const body = await readValidatedJsonObject(c)
   if (body instanceof Response) return body
 
-  const objectID = typeof body.objectID === "string" ? body.objectID : undefined
-  const failedRenderKey =
-    typeof body.failedRenderKey === "string" ? body.failedRenderKey : undefined
+  const objectID = parseTSessionString(body.objectID)
+  const failedRenderKey = parseTSessionString(body.failedRenderKey)
   if (!objectID || !failedRenderKey) {
     return Response.json({ error: "objectID and failedRenderKey are required." }, { status: 400 })
   }
@@ -1025,14 +1042,10 @@ export async function postSessionSvgRepairAsync(c: Context): Promise<Response> {
   const body = await readValidatedJsonObject(c)
   if (body instanceof Response) return body
 
-  const assistantMessageID =
-    typeof body.assistantMessageID === "string" ? body.assistantMessageID : undefined
-  const partID = typeof body.partID === "string" ? body.partID : undefined
-  const segmentIndex =
-    typeof body.segmentIndex === "number" && Number.isInteger(body.segmentIndex)
-      ? body.segmentIndex
-      : undefined
-  const rawFence = typeof body.rawFence === "string" ? body.rawFence : undefined
+  const assistantMessageID = parseTSessionString(body.assistantMessageID)
+  const partID = parseTSessionString(body.partID)
+  const segmentIndex = parseTSessionInteger(body.segmentIndex)
+  const rawFence = parseTSessionString(body.rawFence)
   const formatResult = SvgSourceFormatSchema.safeParse(body.format)
   const sourceResult = SvgTextSourceSchema.safeParse(body.source)
   if (

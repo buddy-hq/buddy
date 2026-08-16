@@ -2,6 +2,7 @@ import { MessageID, PartID, SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import type { MessageV2 } from "@buddy/opencode-adapter/message"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { parseTSessionString } from "./parse-values"
 
 export type CommandInvocationDisplay = {
   command: string
@@ -29,7 +30,7 @@ function isTextPart(part: MessageV2.Part): part is MessageV2.Part & { type: "tex
 function isTextPartLike<Part extends CommandTranscriptPartLike>(
   part: Part,
 ): part is Part & { type: "text"; text: string } {
-  return part.type === "text" && typeof part.text === "string"
+  return part.type === "text" && parseTSessionString(part.text) !== undefined
 }
 
 function isVisibleTextPartLike<Part extends CommandTranscriptPartLike>(

@@ -15,16 +15,24 @@ export class SessionTransformValidationError extends Error {
   }
 }
 
+type TSessionErrorJsonBody = {
+  error: string
+}
+
+type TSessionErrorJsonContext = {
+  json: (body: TSessionErrorJsonBody, status?: number) => Response
+}
+
 export function mapSessionTransformError(
-  c: { json: (body: unknown, status?: number) => Response },
-  error: unknown,
+  c: TSessionErrorJsonContext,
+  cause: unknown,
 ): Response | undefined {
-  if (error instanceof SessionLookupError) {
-    return error.response
+  if (cause instanceof SessionLookupError) {
+    return cause.response
   }
 
-  if (error instanceof SessionTransformValidationError) {
-    return c.json({ error: error.message }, error.status)
+  if (cause instanceof SessionTransformValidationError) {
+    return c.json({ error: cause.message }, cause.status)
   }
 
   return undefined

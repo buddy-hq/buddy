@@ -3,21 +3,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { isSessionInRequestedProject } from "../../http"
 import { SessionLookupError } from "./errors"
-
-type OpenCodeNotFoundError = {
-  name?: unknown
-  message?: unknown
-  data?: {
-    message?: unknown
-  }
-}
-
-type OpenCodeErrorPayload = {
-  message?: unknown
-  data?: {
-    message?: unknown
-  }
-}
+import { parseTOpenCodeErrorPayload, parseTSessionString } from "./parse-values"
 
 export type RuntimeSessionInfo = Awaited<ReturnType<typeof OpenCodeSession.get>>
 
@@ -26,45 +12,51 @@ const REQUEST_FAILED_ERROR = "Request failed"
 const BAD_REQUEST_STATUS = 400
 const NOT_FOUND_STATUS = 404
 
-function readSessionNotFoundMessage(error: unknown): string | undefined {
-  if (!error || typeof error !== "object") return undefined
-  const payload = error as OpenCodeNotFoundError
-  const fromData = payload.data?.message
-  if (typeof fromData === "string") return fromData
-  if (typeof payload.message === "string") return payload.message
-  return undefined
-}
-
-export function isSessionNotFoundError(error: unknown): boolean {
-  if (typeof error === "string") {
-    return error.startsWith("Session not found")
+function readSessionNotFoundMessage(cause: unknown): string | undefined {
+  const payload = parseTOpenCodeErrorPayload(cause)
+  if (payload === undefined) {
+    return undefined
   }
-
-  if (!error || typeof error !== "object") return false
-  const errorName = "name" in error ? (error as OpenCodeNotFoundError).name : undefined
-  if (errorName !== "NotFoundError") return false
-
-  const message = readSessionNotFoundMessage(error)
-  return typeof message === "string" && message.startsWith("Session not found:")
-}
-
-function readOpenCodeErrorMessage(error: unknown): string | undefined {
-  if (!error || typeof error !== "object") return undefined
-  const payload = error as OpenCodeErrorPayload
-  if (typeof payload.data?.message === "string" && payload.data.message) {
+  if (payload.data?.message !== undefined) {
     return payload.data.message
   }
-  if (typeof payload.message === "string" && payload.message) {
+  return payload.message
+}
+
+export function isSessionNotFoundError(cause: unknown): boolean {
+  const text = parseTSessionString(cause)
+  if (text !== undefined) {
+    return text.startsWith("Session not found")
+  }
+
+  const payload = parseTOpenCodeErrorPayload(cause)
+  if (payload === undefined || payload.name !== "NotFoundError") {
+    return false
+  }
+
+  const message = readSessionNotFoundMessage(cause)
+  return message !== undefined && message.startsWith("Session not found:")
+}
+
+function readOpenCodeErrorMessage(cause: unknown): string | undefined {
+  const payload = parseTOpenCodeErrorPayload(cause)
+  if (payload === undefined) {
+    return undefined
+  }
+  if (payload.data?.message !== undefined && payload.data.message) {
+    return payload.data.message
+  }
+  if (payload.message !== undefined && payload.message) {
     return payload.message
   }
   return undefined
 }
 
-export function runtimeSessionLookupErrorResponse(error: unknown): Response {
-  const message = isSessionNotFoundError(error)
+export function runtimeSessionLookupErrorResponse(cause: unknown): Response {
+  const message = isSessionNotFoundError(cause)
     ? SESSION_NOT_FOUND_ERROR
-    : (readOpenCodeErrorMessage(error) ?? REQUEST_FAILED_ERROR)
-  const status = isSessionNotFoundError(error) ? NOT_FOUND_STATUS : BAD_REQUEST_STATUS
+    : (readOpenCodeErrorMessage(cause) ?? REQUEST_FAILED_ERROR)
+  const status = isSessionNotFoundError(cause) ? NOT_FOUND_STATUS : BAD_REQUEST_STATUS
   return Response.json({ error: message }, { status })
 }
 
