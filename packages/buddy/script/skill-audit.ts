@@ -2,6 +2,7 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { z } from "zod"
+import { stringifyCaughtError } from "./parse-values"
 import type { SkillSourceRef } from "../src/learning/skill-management/service/catalog-schemas"
 import type { OpenCodeSkill } from "../src/learning/skill-management/service/contracts"
 import {
@@ -335,8 +336,8 @@ function usage() {
   ].join("\n")
 }
 
-function withError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error)
+function withError<TError>(error: TError) {
+  const message = stringifyCaughtError(error)
   console.error(`skill-audit failed: ${message}`)
   process.exit(1)
 }
@@ -1143,20 +1144,24 @@ export async function runSkillAudit(
       schemaVersion: AUDIT_SCHEMA_VERSION,
       auditedAt,
       overallStatus: computeOverallStatus(checks),
-      target: {
-        kind: target.kind,
-        label: target.label,
-        ...(target.source ? { source: target.source } : {}),
-        ...(skill ? { skillName: skill.name } : {}),
-        ...(target.kind === TARGET_KIND.local ? { skillRoot: target.skillRoot } : {}),
-        integrity: {
-          algorithm: "tree-sha256-v1",
-          sha256,
-          fileCount: stats.fileCount,
-          sizeBytes: stats.sizeBytes,
-        },
-        dependencyManifests: manifests,
-      },
+      target: Object.assign(
+        Object.assign(
+          {
+            kind: target.kind,
+            label: target.label,
+            integrity: {
+              algorithm: "tree-sha256-v1" as const,
+              sha256,
+              fileCount: stats.fileCount,
+              sizeBytes: stats.sizeBytes,
+            },
+            dependencyManifests: manifests,
+          },
+          target.source ? { source: target.source } : undefined,
+          skill ? { skillName: skill.name } : undefined,
+        ),
+        target.kind === TARGET_KIND.local ? { skillRoot: target.skillRoot } : undefined,
+      ),
       checks,
       nextActions: nextActions(checks),
     } satisfies SkillAuditReport

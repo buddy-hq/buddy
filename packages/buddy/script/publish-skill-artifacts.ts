@@ -5,6 +5,7 @@ import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
+import { parseTJsonText, parseTJsonValue, type TJsonValue } from "./parse-values"
 import { verifySignedMessage } from "@buddy/script/minisign"
 import {
   BUDDY_SKILL_ARTIFACT_PUBLIC_KEY,
@@ -159,7 +160,7 @@ function run(command: string, args: string[], environment: NodeJS.ProcessEnv): v
 
 async function readPublishedPayload<T>(
   url: string,
-  parsePayload: (input: unknown) => T,
+  parsePayload: (input: TJsonValue) => T,
 ): Promise<PublishedPayload<T> | undefined> {
   const response = await fetch(url, {
     headers: {
@@ -174,7 +175,11 @@ async function readPublishedPayload<T>(
     )
   }
   const envelopeText = await response.text()
-  const envelope = parseSignedArtifactEnvelope(JSON.parse(envelopeText))
+  const envelopeJson = parseTJsonText(envelopeText)
+  if (envelopeJson === undefined) {
+    throw new Error("Published skill artifact envelope was not valid JSON")
+  }
+  const envelope = parseSignedArtifactEnvelope(envelopeJson)
   const bytes = Buffer.from(envelope.payload, "base64")
   const verified = await verifySignedMessage({
     message: bytes,
@@ -184,7 +189,12 @@ async function readPublishedPayload<T>(
   if (!verified) {
     throw new Error("Published skill artifact signature verification failed")
   }
-  const payloadJson: unknown = JSON.parse(new TextDecoder("utf8", { fatal: true }).decode(bytes))
+  const payloadJson = parseTJsonValue(
+    JSON.parse(new TextDecoder("utf8", { fatal: true }).decode(bytes)),
+  )
+  if (payloadJson === undefined) {
+    throw new Error("Published skill artifact payload was not valid JSON")
+  }
   return {
     bytes,
     envelopeText,
@@ -271,7 +281,7 @@ async function buildCatalogIconAssets(
     if (!entry.icon) continue
     const sourceFilename = `${SOURCE_CATALOG_ICON_FILENAME_PREFIX}${entry.id}${SOURCE_CATALOG_ICON_FILENAME_SUFFIX}`
     const sourcePath = path.join(SOURCE_CATALOG_ICON_DIRECTORY, sourceFilename)
-    const bytes = await fsp.readFile(sourcePath).catch((error: unknown) => {
+    const bytes = await fsp.readFile(sourcePath).catch((error) => {
       throw new Error(`Catalog icon source missing for ${entry.id}: ${sourcePath}`, {
         cause: error,
       })
@@ -300,7 +310,10 @@ if (signing.publicKey && signing.publicKey !== BUDDY_SKILL_ARTIFACT_PUBLIC_KEY) 
   throw new Error("Skill artifact signing key does not match the public key embedded in Buddy")
 }
 
-const catalogJson: unknown = JSON.parse(await fsp.readFile(SOURCE_CATALOG_PATH, "utf8"))
+const catalogJson = parseTJsonText(await fsp.readFile(SOURCE_CATALOG_PATH, "utf8"))
+if (catalogJson === undefined) {
+  throw new Error(`Catalog source was not valid JSON: ${SOURCE_CATALOG_PATH}`)
+}
 const catalog = parseSkillCatalogDocument(catalogJson)
 const catalogPayloadBytes = skillCatalogPayloadBytes(catalog)
 const catalogIconPaths = await buildCatalogIconAssets(catalog, outputDirectory)

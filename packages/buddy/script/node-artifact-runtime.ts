@@ -3,6 +3,12 @@ import { createServer } from "node:net"
 import path from "node:path"
 import * as XLSX from "xlsx"
 import { assertBackendNodeArtifactRuntimeFiles } from "../../../script/backend-node-artifact"
+import {
+  parseTJsonObject,
+  parseTJsonText,
+  parseTPortedAddress,
+  parseTString,
+} from "./parse-values"
 
 export const HOSTNAME = "127.0.0.1"
 export const USERNAME = "buddy"
@@ -23,7 +29,12 @@ const SPREADSHEET_ROUTE_SMOKE_FILENAME = "artifact-spreadsheet-route-smoke.xlsx"
 const RESOURCE_READY_STATUS = "ready" as const
 const RESOURCE_ROUTE_POLL_TIMEOUT_MS = 3_000
 
-type UnknownRecord = Record<PropertyKey, unknown>
+type TResourceRouteEntry = {
+  alias: string
+  fullTextPath?: string
+  packPath?: string
+  status: string
+}
 
 const BACKEND_DIR = path.resolve(import.meta.dir, "..")
 const DEFAULT_ENTRYPOINT = path.resolve(BACKEND_DIR, "dist/node/node.js")
@@ -56,8 +67,8 @@ export async function allocatePort(): Promise<number> {
     const server = createServer()
     server.on("error", reject)
     server.listen(0, HOSTNAME, () => {
-      const address = server.address()
-      if (!address || typeof address !== "object") {
+      const address = parseTPortedAddress(server.address())
+      if (address === undefined) {
         server.close()
         reject(new Error("Failed to allocate a Buddy Node backend port"))
         return
@@ -203,13 +214,16 @@ async function createAndWaitForReadyResource(input: {
       })
       last = await listResponse.text()
       if (listResponse.ok) {
-        const body: unknown = JSON.parse(last)
-        const resources = readResourceList(body)
+        const body = parseTJsonText(last)
+        if (body === undefined) {
+          throw new Error("Resource route list was not valid JSON")
+        }
+        const resources = parseTResourceList(body)
         const resource = resources.find((entry) => entry.alias === input.alias)
         if (
           resource?.status === RESOURCE_READY_STATUS &&
-          typeof resource.packPath === "string" &&
-          typeof resource.fullTextPath === "string"
+          resource.packPath !== undefined &&
+          resource.fullTextPath !== undefined
         ) {
           return
         }
@@ -237,13 +251,29 @@ function basicAuthorizationHeader(): string {
   return `Basic ${Buffer.from(`${USERNAME}:${PASSWORD}`).toString("base64")}`
 }
 
-function readResourceList(body: unknown): Array<Record<string, unknown>> {
-  if (!isUnknownRecord(body)) return []
-  const resources = body.resources
-  if (!Array.isArray(resources)) return []
-  return resources.filter(isUnknownRecord)
+function parseTResourceList<TValue>(body: TValue): TResourceRouteEntry[] {
+  const record = parseTJsonObject(body)
+  if (record === undefined) return []
+  if (!Array.isArray(record.resources)) return []
+  const resources: TResourceRouteEntry[] = []
+  for (const entry of record.resources) {
+    const parsed = parseTResourceRouteEntry(entry)
+    if (parsed !== undefined) resources.push(parsed)
+  }
+  return resources
 }
 
-function isUnknownRecord(value: unknown): value is UnknownRecord {
-  return typeof value === "object" && value !== null
+function parseTResourceRouteEntry<TValue>(value: TValue): TResourceRouteEntry | undefined {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
+  const alias = parseTString(record.alias)
+  const status = parseTString(record.status)
+  if (alias === undefined || status === undefined) return undefined
+  const packPath = parseTString(record.packPath)
+  const fullTextPath = parseTString(record.fullTextPath)
+  return Object.assign(
+    { alias, status },
+    packPath !== undefined ? { packPath } : undefined,
+    fullTextPath !== undefined ? { fullTextPath } : undefined,
+  )
 }

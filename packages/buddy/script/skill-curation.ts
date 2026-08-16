@@ -1,5 +1,6 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
+import { stringifyCaughtError } from "./parse-values"
 import type { SkillSourceRef } from "../src/learning/skill-management/service/catalog-schemas"
 import type { OpenCodeSkill } from "../src/learning/skill-management/service/contracts"
 import {
@@ -192,8 +193,8 @@ function usage() {
   ].join("\n")
 }
 
-function withError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error)
+function withError<TError>(error: TError) {
+  const message = stringifyCaughtError(error)
   console.error(`skill-curation failed: ${message}`)
   process.exit(1)
 }
@@ -396,18 +397,22 @@ export function buildCurationOutput(input: {
       sizeBytes: input.stats.totalBytes,
       fileCount: input.stats.fileCount,
     },
-    review: {
-      approvedAt: input.now ?? new Date().toISOString(),
-      ...(input.args.approvedBy ? { approvedBy: input.args.approvedBy } : {}),
-      policyVersion: input.args.policyVersion,
-      ...(reviewGate.approvedWarningRuleIDs.length > 0
-        ? { approvedWarningRuleIDs: reviewGate.approvedWarningRuleIDs }
-        : {}),
-      ...(reviewGate.approvedBlockRuleIDs.length > 0
+    review: Object.assign(
+      Object.assign(
+        {
+          approvedAt: input.now ?? new Date().toISOString(),
+          policyVersion: input.args.policyVersion,
+        },
+        input.args.approvedBy ? { approvedBy: input.args.approvedBy } : undefined,
+        reviewGate.approvedWarningRuleIDs.length > 0
+          ? { approvedWarningRuleIDs: reviewGate.approvedWarningRuleIDs }
+          : undefined,
+      ),
+      reviewGate.approvedBlockRuleIDs.length > 0
         ? { approvedBlockRuleIDs: reviewGate.approvedBlockRuleIDs }
-        : {}),
-      ...(input.args.notes ? { notes: input.args.notes } : {}),
-    },
+        : undefined,
+      input.args.notes ? { notes: input.args.notes } : undefined,
+    ),
     status: input.args.status,
   } satisfies SkillCatalogEntry
 

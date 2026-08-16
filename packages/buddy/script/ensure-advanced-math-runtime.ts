@@ -5,6 +5,7 @@ import {
   ADVANCED_MATH_VERSION_OVERRIDE_ENV,
   resolveAdvancedMathRuntimeVersion,
 } from "./advanced-math-version"
+import { parseTString } from "./parse-values"
 import {
   outputsAreFresh,
   resolveAdvancedMathRuntimeArchivePath,
@@ -55,8 +56,8 @@ function runBuild() {
       `Buddy will continue without the optional runtime until it is built successfully.`,
   )
   if (!verbose) {
-    const stdout = typeof result.stdout === "string" ? result.stdout.trim() : ""
-    const stderr = typeof result.stderr === "string" ? result.stderr.trim() : ""
+    const stdout = parseTString(result.stdout)?.trim() ?? ""
+    const stderr = parseTString(result.stderr)?.trim() ?? ""
     const output = [stdout, stderr].filter((value) => value.length > 0).join("\n")
     if (output) {
       console.warn(output)

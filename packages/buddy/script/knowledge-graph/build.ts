@@ -24,6 +24,11 @@ import {
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
 } from "../../src/learning/features/standards/constants"
 import {
+  parseTJsonValue,
+  parseTString,
+  type TJsonValue,
+} from "../parse-values"
+import {
   validateKnowledgeGraphNodeSchema,
   validateKnowledgeGraphRelationshipSchema,
   type KnowledgeGraphNode,
@@ -107,16 +112,17 @@ type SourceFileInfo = {
   url: string
 }
 
-function trimNonEmptyString(value: unknown) {
-  if (typeof value !== "string") {
+function trimNonEmptyString<TValue>(value: TValue) {
+  const text = parseTString(value)
+  if (text === undefined) {
     return null
   }
 
-  const trimmed = value.trim()
+  const trimmed = text.trim()
   return trimmed.length > 0 ? trimmed : null
 }
 
-function jsonText(value: unknown) {
+function jsonText<TValue>(value: TValue) {
   return JSON.stringify(value)
 }
 
@@ -440,10 +446,10 @@ async function downloadParallelHttpFiles(input: {
   })
 }
 
-async function fetchPreviewRecord<T>(input: {
+async function fetchPreviewRecord<TParsed>(input: {
   url: string
-  validate: (value: unknown) => T
-}): Promise<T> {
+  validate: (value: TJsonValue) => TParsed
+}): Promise<TParsed> {
   const text = isFileURL(input.url)
     ? readFileSync(fileURLPath(input.url), "utf8").slice(0, KNOWLEDGE_GRAPH_PREVIEW_BYTES)
     : await downloadPreviewText(input.url)
@@ -454,7 +460,9 @@ async function fetchPreviewRecord<T>(input: {
 
   for (const line of lines) {
     try {
-      return input.validate(JSON.parse(line))
+      const parsed = parseTJsonValue(JSON.parse(line))
+      if (parsed === undefined) continue
+      return input.validate(parsed)
     } catch {
       continue
     }
@@ -641,10 +649,10 @@ function preparedLearningComponentRecord(
   }
 }
 
-async function eachJsonlLine<T>(
+async function eachJsonlLine<TParsed>(
   filePath: string,
-  parse: (value: unknown) => T,
-  onValue: (value: T) => void,
+  parse: (value: TJsonValue) => TParsed,
+  onValue: (value: TParsed) => void,
 ) {
   const input = createReadStream(filePath, { encoding: "utf8" })
   const lines = readline.createInterface({
@@ -658,7 +666,11 @@ async function eachJsonlLine<T>(
       continue
     }
 
-    onValue(parse(JSON.parse(trimmed)))
+    const parsed = parseTJsonValue(JSON.parse(trimmed))
+    if (parsed === undefined) {
+      throw new Error(`Knowledge Graph JSONL in ${filePath} contained a non-JSON value.`)
+    }
+    onValue(parse(parsed))
   }
 }
 

@@ -3,6 +3,7 @@
 import { stat } from "node:fs/promises"
 import path from "node:path"
 import type { PageComplexityStats, ParsedPage } from "@llamaindex/liteparse"
+import { isObjectValue, type TJsonObject } from "./parse-values"
 import { extractResourcePack } from "../src/resource-packs/extractors"
 import {
   analyzePdfComplexityWithLiteParse,
@@ -163,7 +164,7 @@ async function traceExtractResourcePack(sourcePath: string): Promise<void> {
   })
 }
 
-async function tracePhase<T>(name: string, run: () => Promise<T | TraceValue<T>>): Promise<T> {
+async function tracePhase<T>(name: string, run: () => Promise<T | TTraceWrappedValue<T>>): Promise<T> {
   const startedAt = performance.now()
   trace(`${name}:start`, memorySnapshot())
   const heartbeat = setInterval(() => {
@@ -194,27 +195,28 @@ async function tracePhase<T>(name: string, run: () => Promise<T | TraceValue<T>>
   }
 }
 
-type TraceSummary = Record<string, unknown>
+type TTraceSummary = TJsonObject
 
-type TraceValue<T> = {
+type TTraceWrappedValue<T> = {
   value: T
-  summary: TraceSummary
+  summary: TTraceSummary
 }
 
-function withSummary<T>(value: T, summary: TraceSummary): TraceValue<T> {
+function withSummary<T>(value: T, summary: TTraceSummary): TTraceWrappedValue<T> {
   return { value, summary }
 }
 
-function unwrapTraceValue<T>(value: T | TraceValue<T>): TraceValue<T> {
-  if (isTraceValue(value)) return value
+function unwrapTraceValue<T>(value: T | TTraceWrappedValue<T>): TTraceWrappedValue<T> {
+  if (isTraceWrappedValue(value)) return value
   return {
     value,
     summary: {},
   }
 }
 
-function isTraceValue<T>(value: T | TraceValue<T>): value is TraceValue<T> {
-  return typeof value === "object" && value !== null && "value" in value && "summary" in value
+function isTraceWrappedValue<T>(value: T | TTraceWrappedValue<T>): value is TTraceWrappedValue<T> {
+  if (!isObjectValue(value)) return false
+  return "value" in value && "summary" in value
 }
 
 function summarizePages(pages: ParsedPage[]) {
@@ -230,7 +232,7 @@ function summarizePages(pages: ParsedPage[]) {
   }
 }
 
-function countComplexityReasons(complexity: PageComplexityStats[]): Record<string, number> {
+function countComplexityReasons(complexity: PageComplexityStats[]): TTraceSummary {
   const counts = new Map<string, number>()
   for (const page of complexity) {
     for (const reason of page.reasons) {
@@ -260,7 +262,7 @@ function memorySnapshot() {
   }
 }
 
-function trace(event: string, data: TraceSummary): void {
+function trace(event: string, data: TTraceSummary): void {
   console.log(
     JSON.stringify({
       at: new Date().toISOString(),
@@ -302,11 +304,13 @@ function parseCliOptions(args: string[]): CliOptions {
     throw new Error(`Unknown argument: ${argument}`)
   }
 
-  return {
-    sourcePath,
-    mode,
-    ...(targetPages ? { targetPages } : {}),
-  }
+  return Object.assign(
+    {
+      sourcePath,
+      mode,
+    },
+    targetPages ? { targetPages } : undefined,
+  )
 }
 
 function requireNextArgument(args: string[], index: number, option: string): string {

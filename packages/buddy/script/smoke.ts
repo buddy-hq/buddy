@@ -15,6 +15,15 @@
  */
 
 import { BUDDY_ENV } from "../src/storage"
+import {
+  parseTJsonArray,
+  parseTJsonObject,
+  parseTJsonText,
+  parseTString,
+  parseTStringArray,
+  type TJsonObject,
+  type TJsonValue,
+} from "./parse-values"
 
 const SMOKE_HOST = "127.0.0.1"
 const SMOKE_DEFAULT_PORT = 3000
@@ -34,15 +43,9 @@ const SMOKE_PROMPT_TEXT = [
   "Reply with exactly: SMOKE_OK",
 ].join("\n")
 
-type SmokeCheck = {
+type TSmokeCheck = {
   name: string
   run: () => Promise<void>
-}
-
-type JsonRecord = Record<string, unknown>
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function readSmokeBaseUrl() {
@@ -79,18 +82,22 @@ async function smokeFetch(path: string, init?: RequestInit & { query?: Record<st
     const response = await fetch(formatPath(path, init?.query), {
       ...init,
       signal: controller.signal,
-      headers: {
-        accept: "application/json",
-        ...(authorization ? { authorization } : {}),
-        ...init?.headers,
-      },
+      headers: Object.assign(
+        { accept: "application/json" as const },
+        authorization ? { authorization } : undefined,
+        init?.headers,
+      ),
     })
 
     const contentType = response.headers.get("content-type") ?? ""
     const bodyText = await response.text()
-    let body: unknown = bodyText
+    let body: TJsonValue | string = bodyText
     if (contentType.includes("application/json") && bodyText.length > 0) {
-      body = JSON.parse(bodyText)
+      const parsed = parseTJsonText(bodyText)
+      if (parsed === undefined) {
+        throw new Error(`invalid JSON from ${path}`)
+      }
+      body = parsed
     }
 
     return { response, body }
@@ -105,18 +112,20 @@ function assertStatus(actual: number, expected: number, context: string) {
   }
 }
 
-function assertRecord(body: unknown, context: string): JsonRecord {
-  if (!isRecord(body)) {
+function assertRecord<TValue>(body: TValue, context: string): TJsonObject {
+  const record = parseTJsonObject(body)
+  if (record === undefined) {
     throw new Error(`${context}: expected JSON object`)
   }
-  return body
+  return record
 }
 
-function assertArray(body: unknown, context: string): unknown[] {
-  if (!Array.isArray(body)) {
+function assertArray<TValue>(body: TValue, context: string): readonly TJsonValue[] {
+  const items = parseTJsonArray(body)
+  if (items === undefined) {
     throw new Error(`${context}: expected JSON array`)
   }
-  return body
+  return items
 }
 
 type SessionStatus = {
@@ -143,29 +152,32 @@ function sleep(ms: number) {
   })
 }
 
-function readSessionStatus(statusMap: JsonRecord, sessionId: string): SessionStatus | undefined {
-  const entry = statusMap[sessionId]
-  if (!isRecord(entry) || typeof entry.type !== "string") return undefined
-  return { type: entry.type }
+function readSessionStatus(statusMap: TJsonObject, sessionId: string): SessionStatus | undefined {
+  const entry = parseTJsonObject(statusMap[sessionId])
+  const type = entry === undefined ? undefined : parseTString(entry.type)
+  if (type === undefined) return undefined
+  return { type }
 }
 
-function countCompletedToolParts(messages: unknown[]) {
+function countCompletedToolParts(messages: readonly TJsonValue[]) {
   const toolNames: string[] = []
 
   for (const message of messages) {
-    if (!isRecord(message)) continue
-    const info = message.info
-    if (!isRecord(info) || info.role !== "assistant") continue
+    const record = parseTJsonObject(message)
+    if (record === undefined) continue
+    const info = parseTJsonObject(record.info)
+    if (info === undefined || parseTString(info.role) !== "assistant") continue
 
-    const parts = message.parts
-    if (!Array.isArray(parts)) continue
+    const parts = parseTJsonArray(record.parts)
+    if (parts === undefined) continue
 
     for (const part of parts) {
-      if (!isRecord(part) || part.type !== "tool") continue
-      const stateValue = part.state
-      if (!isRecord(stateValue) || stateValue.status !== "completed") continue
-      const toolName = part.tool
-      if (typeof toolName === "string" && toolName.length > 0) {
+      const partRecord = parseTJsonObject(part)
+      if (partRecord === undefined || parseTString(partRecord.type) !== "tool") continue
+      const stateValue = parseTJsonObject(partRecord.state)
+      if (stateValue === undefined || parseTString(stateValue.status) !== "completed") continue
+      const toolName = parseTString(partRecord.tool)
+      if (toolName !== undefined && toolName.length > 0) {
         toolNames.push(toolName)
       }
     }
@@ -177,17 +189,19 @@ function countCompletedToolParts(messages: unknown[]) {
   }
 }
 
-function assistantIncludesSmokeOk(messages: unknown[]) {
+function assistantIncludesSmokeOk(messages: readonly TJsonValue[]) {
   for (const message of messages) {
-    if (!isRecord(message)) continue
-    const info = message.info
-    if (!isRecord(info) || info.role !== "assistant") continue
-    const parts = message.parts
-    if (!Array.isArray(parts)) continue
+    const record = parseTJsonObject(message)
+    if (record === undefined) continue
+    const info = parseTJsonObject(record.info)
+    if (info === undefined || parseTString(info.role) !== "assistant") continue
+    const parts = parseTJsonArray(record.parts)
+    if (parts === undefined) continue
     for (const part of parts) {
-      if (!isRecord(part) || part.type !== "text") continue
-      const text = part.text
-      if (typeof text === "string" && text.includes("SMOKE_OK")) {
+      const partRecord = parseTJsonObject(part)
+      if (partRecord === undefined || parseTString(partRecord.type) !== "text") continue
+      const text = parseTString(partRecord.text)
+      if (text !== undefined && text.includes("SMOKE_OK")) {
         return true
       }
     }
@@ -235,7 +249,7 @@ async function fetchSessionMessages(input: { sessionId: string; directory: strin
   return assertArray(body, "session.messages (prompt)")
 }
 
-const checks: SmokeCheck[] = [
+const checks: TSmokeCheck[] = [
   {
     name: "buddy.healthz",
     run: async () => {
@@ -256,7 +270,8 @@ const checks: SmokeCheck[] = [
       if (record.healthy !== true) {
         throw new Error("opencode health: expected { healthy: true }")
       }
-      if (typeof record.version !== "string" || record.version.length === 0) {
+      const version = parseTString(record.version)
+      if (version === undefined || version.length === 0) {
         throw new Error("opencode health: missing version string")
       }
     },
@@ -267,12 +282,12 @@ const checks: SmokeCheck[] = [
       const { response, body } = await smokeFetch(`${API_PREFIX}/open-projects`)
       assertStatus(response.status, 200, "open-projects")
       const record = assertRecord(body, "open-projects")
-      const directories = record.directories
-      if (!Array.isArray(directories) || directories.length === 0) {
+      const directories = parseTStringArray(record.directories)
+      if (directories === undefined || directories.length === 0) {
         throw new Error("open-projects: expected non-empty directories array")
       }
       const first = directories[0]
-      if (typeof first !== "string" || first.trim().length === 0) {
+      if (first === undefined || first.trim().length === 0) {
         throw new Error("open-projects: first directory must be a non-empty string")
       }
       state.directory = first
@@ -292,8 +307,8 @@ const checks: SmokeCheck[] = [
       const first = sessions[0]
       if (first !== undefined) {
         const record = assertRecord(first, "session.list[0]")
-        const id = record.id
-        if (typeof id === "string" && id.length > 0) {
+        const id = parseTString(record.id)
+        if (id !== undefined && id.length > 0) {
           state.sessionId = id
         }
       }
@@ -323,8 +338,8 @@ const checks: SmokeCheck[] = [
       })
       assertStatus(response.status, 200, "skills.list")
       const record = assertRecord(body, "skills.list")
-      const installed = record.installed
-      if (!Array.isArray(installed)) {
+      const installed = parseTJsonArray(record.installed)
+      if (installed === undefined) {
         throw new Error("skills.list: expected installed[]")
       }
     },
@@ -365,8 +380,8 @@ const checks: SmokeCheck[] = [
 
       for (const entry of targets) {
         const record = assertRecord(entry, "session entry")
-        const sessionId = record.id
-        if (typeof sessionId !== "string" || sessionId.length === 0) continue
+        const sessionId = parseTString(record.id)
+        if (sessionId === undefined || sessionId.length === 0) continue
 
         const messagesResult = await smokeFetch(`${API_PREFIX}/session/${sessionId}/message`, {
           query: { directory: state.directory },
@@ -390,8 +405,8 @@ const checks: SmokeCheck[] = [
       })
       assertStatus(response.status, 200, "session.create")
       const record = assertRecord(body, "session.create")
-      const id = record.id
-      if (typeof id !== "string" || id.length === 0) {
+      const id = parseTString(record.id)
+      if (id === undefined || id.length === 0) {
         throw new Error("session.create: missing session id")
       }
       state.promptSessionId = id

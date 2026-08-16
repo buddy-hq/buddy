@@ -1,4 +1,5 @@
 import z from "zod"
+import type { TJsonObject, TJsonValue } from "../parse-values"
 
 const CORE_NODE_KEYS = ["identifier", "labels", "properties", "type"] as const
 const CORE_RELATIONSHIP_KEYS = [
@@ -12,14 +13,24 @@ const CORE_RELATIONSHIP_KEYS = [
   "type",
 ] as const
 
-const JsonRecordSchema = z.record(z.string(), z.unknown())
+const jsonValueSchema: z.ZodType<TJsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValueSchema),
+    z.record(z.string(), jsonValueSchema),
+  ]),
+)
+const jsonObjectSchema: z.ZodType<TJsonObject> = z.record(z.string(), jsonValueSchema)
 
 const KnowledgeGraphNodeSchema = z
   .object({
     type: z.literal("node"),
     identifier: z.string().min(1),
     labels: z.array(z.string().min(1)).min(1),
-    properties: JsonRecordSchema,
+    properties: jsonObjectSchema,
   })
   .strict()
 
@@ -28,7 +39,7 @@ const KnowledgeGraphRelationshipSchema = z
     type: z.literal("relationship"),
     identifier: z.string().min(1),
     label: z.string().min(1),
-    properties: JsonRecordSchema,
+    properties: jsonObjectSchema,
     source_identifier: z.string().min(1),
     source_labels: z.array(z.string().min(1)).min(1),
     target_identifier: z.string().min(1),
@@ -39,7 +50,7 @@ const KnowledgeGraphRelationshipSchema = z
 type KnowledgeGraphNode = z.infer<typeof KnowledgeGraphNodeSchema>
 type KnowledgeGraphRelationship = z.infer<typeof KnowledgeGraphRelationshipSchema>
 
-function sortedKeys(value: Record<string, unknown>) {
+function sortedKeys(value: KnowledgeGraphNode | KnowledgeGraphRelationship) {
   return Object.keys(value).toSorted((left, right) => left.localeCompare(right))
 }
 
@@ -49,7 +60,7 @@ function keysMatchExact(actual: string[], expected: readonly string[]) {
   )
 }
 
-export function validateKnowledgeGraphNodeSchema(value: unknown): KnowledgeGraphNode {
+export function validateKnowledgeGraphNodeSchema<TValue>(value: TValue): KnowledgeGraphNode {
   const parsed = KnowledgeGraphNodeSchema.parse(value)
   const actualKeys = sortedKeys(parsed)
   if (!keysMatchExact(actualKeys, CORE_NODE_KEYS)) {
@@ -61,8 +72,8 @@ export function validateKnowledgeGraphNodeSchema(value: unknown): KnowledgeGraph
   return parsed
 }
 
-export function validateKnowledgeGraphRelationshipSchema(
-  value: unknown,
+export function validateKnowledgeGraphRelationshipSchema<TValue>(
+  value: TValue,
 ): KnowledgeGraphRelationship {
   const parsed = KnowledgeGraphRelationshipSchema.parse(value)
   const actualKeys = sortedKeys(parsed)
