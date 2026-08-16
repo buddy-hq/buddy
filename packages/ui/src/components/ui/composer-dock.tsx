@@ -36,7 +36,7 @@ const ComposerDock = React.forwardRef<HTMLDivElement, ComposerDockProps>(
         if (typeof forwardedRef === "function") {
           forwardedRef(node)
         } else if (forwardedRef) {
-          ;(forwardedRef as React.MutableRefObject<HTMLDivElement | null>).current = node
+          forwardedRef.current = node
         }
       },
       [forwardedRef],

@@ -4,7 +4,7 @@ import * as React from "react"
 import { type VariantProps } from "class-variance-authority"
 import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui"
 
-import { cn } from "@buddy/ui/lib/utils"
+import { cn, cssVariables } from "@buddy/ui/lib/utils"
 import { toggleVariants } from "@buddy/ui/components/ui/toggle"
 
 const ToggleGroupContext = React.createContext<
@@ -36,6 +36,7 @@ function ToggleGroup({
     () => ({ variant, size, spacing, orientation }),
     [orientation, size, spacing, variant],
   )
+  const rootStyle = cssVariables({ "--gap": spacing })
 
   return (
     <ToggleGroupPrimitive.Root
@@ -44,7 +45,7 @@ function ToggleGroup({
       data-size={size}
       data-spacing={spacing}
       data-orientation={orientation}
-      style={{ "--gap": spacing } as React.CSSProperties}
+      style={rootStyle}
       className={cn(
         "rounded-lg data-[size=sm]:rounded-[min(var(--radius-md),10px)] group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] data-vertical:flex-col data-vertical:items-stretch",
         className,

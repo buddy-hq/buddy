@@ -2,6 +2,7 @@ import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Z_INDEX } from "@buddy/ui/lib/z-index"
+import { cssVariables } from "@buddy/ui/lib/utils"
 import {
   CheckmarkCircle02Icon,
   InformationCircleIcon,
@@ -12,10 +13,19 @@ import {
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
+  // SAFETY: Buddy configures next-themes with the same light, dark, and system values Sonner accepts.
+  const sonnerTheme = theme as ToasterProps["theme"]
+  const toasterStyle = cssVariables({
+    "--normal-bg": "var(--surface-raised-stronger-non-alpha)",
+    "--normal-text": "var(--text-base)",
+    "--normal-border": "var(--border-base)",
+    "--border-radius": "var(--radius)",
+    zIndex: Z_INDEX.notification,
+  })
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={sonnerTheme}
       className="toaster group"
       icons={{
         success: <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4" />,
@@ -28,15 +38,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} className="size-4 animate-spin" />
         ),
       }}
-      style={
-        {
-          "--normal-bg": "var(--surface-raised-stronger-non-alpha)",
-          "--normal-text": "var(--text-base)",
-          "--normal-border": "var(--border-base)",
-          "--border-radius": "var(--radius)",
-          zIndex: Z_INDEX.notification,
-        } as React.CSSProperties
-      }
+      style={toasterStyle}
       toastOptions={{
         classNames: {
           toast: "cn-toast",
