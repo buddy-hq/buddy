@@ -77,10 +77,10 @@ describe("production chemistry renderer", () => {
       }
     }
 
-    const input: { format: Extract<ChemistryFormat, "chemfig">; source: string } = {
+    const input = {
       format: "chemfig",
       source: String.raw`\chemfig{C-C}`,
-    }
+    } satisfies { format: Extract<ChemistryFormat, "chemfig">; source: string }
     const first = await renderChemistrySvg(input)
     const second = await renderChemistrySvg(input)
 

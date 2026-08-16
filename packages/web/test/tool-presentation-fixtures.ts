@@ -69,6 +69,6 @@ export function inlinePresentation(input: {
 
 export function presentationMetadata(
   presentation: ToolPresentationSnapshot,
-): Record<string, unknown> {
+) {
   return { buddy: { presentation } }
 }
