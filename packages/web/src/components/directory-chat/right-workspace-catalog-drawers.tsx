@@ -261,6 +261,14 @@ function resourceBenchTarget(resource: ResourceListItem): BenchTarget {
   return { type: "workspace-file", path: resource.path, viewer: "file" }
 }
 
+type TResourceCoverThumbnail = {
+  source: typeof OBJECT_THUMBNAIL_COVER
+  directory: string
+  coverRelpath?: string
+  extension: string
+  fileName: string
+}
+
 function describeResource(
   directory: string,
   resource: ResourceListItem,
@@ -270,25 +278,30 @@ function describeResource(
   const status = resourceObjectStatus(resource, busy)
   const detail = resourceMetadata(resource)
   const badge = variant === OBJECT_VARIANT_TILE ? resourceBadge(resource, busy) : undefined
-
-  return describeObject({
-    target: resourceBenchTarget(resource),
-    kind: RESOURCE_OBJECT_KIND,
-    title: resource.title || resource.name,
-    meta: [detail],
-    // The cover carries the relpath rather than a URL; ResourceCover fetches it
-    // itself and renders the same artwork at tile and thumbnail size.
-    thumbnail: {
+  const thumbnail: TResourceCoverThumbnail = Object.assign(
+    {
       source: OBJECT_THUMBNAIL_COVER,
       directory,
-      ...(resource.coverRelpath ? { coverRelpath: resource.coverRelpath } : {}),
       extension: resource.extension,
       fileName: resource.name,
-    },
-    ...(badge ? { badge } : {}),
-    ...(status === OBJECT_STATUS_ERROR ? { statusMessage: detail } : {}),
-    status,
-  })
+    } as const,
+    resource.coverRelpath ? { coverRelpath: resource.coverRelpath } : undefined,
+  )
+
+  return describeObject(
+    Object.assign(
+      {
+        target: resourceBenchTarget(resource),
+        kind: RESOURCE_OBJECT_KIND,
+        title: resource.title || resource.name,
+        meta: [detail],
+        thumbnail,
+        status,
+      },
+      badge ? { badge } : undefined,
+      status === OBJECT_STATUS_ERROR ? { statusMessage: detail } : undefined,
+    ),
+  )
 }
 
 function toSourceFeedRows(resources: readonly ResourceListItem[]): SourceFeedRow[] {
@@ -513,12 +526,16 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
   }
 
   function openResourceItem(resource: ResourceListItem) {
-    openResource({
-      path: resource.path,
-      name: resource.name,
-      ...(resource.objectID ? { objectID: resource.objectID } : {}),
-      status: resource.status,
-    })
+    openResource(
+      Object.assign(
+        {
+          path: resource.path,
+          name: resource.name,
+        },
+        resource.objectID ? { objectID: resource.objectID } : undefined,
+        { status: resource.status },
+      ),
+    )
   }
 
   function describe(resource: ResourceListItem, variant: ObjectVariant): ObjectModel {

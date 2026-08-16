@@ -1019,10 +1019,13 @@ export function useDirectoryChatPageController(
     }
 
     if (command.type === RESOURCE_COMMAND_ADD) {
-      await addResource(decodedDirectory, {
-        sourcePath: command.path,
-        ...(command.alias ? { alias: command.alias } : {}),
-      })
+      await addResource(
+        decodedDirectory,
+        Object.assign(
+          { sourcePath: command.path },
+          command.alias ? { alias: command.alias } : undefined,
+        ),
+      )
       openSourcesDrawer()
       return true
     }
@@ -1120,72 +1123,86 @@ export function useDirectoryChatPageController(
           })
         : undefined
 
-      const submittedSessionID = await sendPrompt(decodedDirectory, contentForSubmission, {
-        sessionID: input.targetSessionID,
-        parts: submissionParts,
-        optimisticParts,
-        ...(imageEdit ? { imageEdit } : {}),
-        persona: input.persona ?? cs.selectedPersona,
-        focusGoalIds: input.focusGoalIds,
-        agent: currentAgentName,
-        model: cs.effectiveModelSelection,
-        ...(cs.effectiveModelInfo
-          ? {
-              modelRuntime: {
-                providerID: cs.effectiveModelSelection?.providerID ?? "",
-                modelID: cs.effectiveModelSelection?.modelID ?? "",
-                contextWindow: cs.effectiveModelInfo.limit.context,
-                ...(cs.effectiveModelInfo.limit.input !== undefined
-                  ? { inputWindow: cs.effectiveModelInfo.limit.input }
-                  : {}),
-                outputWindow: cs.effectiveModelInfo.limit.output,
-                ...(cs.effectiveModelInfo.capabilities.input.image ? { image: true } : {}),
-              },
-            }
-          : {}),
-        variant,
-        ...(teachingContext ? { teaching: teachingContext } : {}),
-        optimistic: input.optimistic,
-        ...(includeActiveContext
-          ? {
-              beforePostPrompt: ({ sessionID }: { sessionID: string }) =>
-                workspace.lifecycle.flushContextBeforePrompt({
-                  sessionID,
-                }),
-            }
-          : {}),
-        ...(includeActiveContext && visibleReadingResource
-          ? {
-              reading: {
-                ...(visibleReadingResource.objectID
-                  ? { resourceKey: visibleReadingResource.objectID }
-                  : {}),
-                title: visibleReadingResource.name,
-                path: visibleReadingResource.path,
-                ...(visibleReadingResource.location
-                  ? { location: visibleReadingResource.location }
-                  : {}),
-                ...(visibleReadingResource.currentPassageText
-                  ? { currentPassageText: visibleReadingResource.currentPassageText }
-                  : {}),
-                ...(visibleReadingResource.visibleStartText
-                  ? { visibleStartText: visibleReadingResource.visibleStartText }
-                  : {}),
-                ...(visibleReadingResource.visibleEndText
-                  ? { visibleEndText: visibleReadingResource.visibleEndText }
-                  : {}),
-                ...(visibleReadingResource.readingTrail &&
-                visibleReadingResource.readingTrail.length > 0
-                  ? { readingTrail: visibleReadingResource.readingTrail }
-                  : {}),
-                ...(visibleReadingResource.annotationSummary &&
-                visibleReadingResource.annotationSummary.length > 0
-                  ? { annotationSummary: visibleReadingResource.annotationSummary }
-                  : {}),
-              },
-            }
-          : {}),
-      })
+      const submittedSessionID = await sendPrompt(
+        decodedDirectory,
+        contentForSubmission,
+        Object.assign(
+          {
+            sessionID: input.targetSessionID,
+            parts: submissionParts,
+            optimisticParts,
+          },
+          imageEdit ? { imageEdit } : undefined,
+          {
+            persona: input.persona ?? cs.selectedPersona,
+            focusGoalIds: input.focusGoalIds,
+            agent: currentAgentName,
+            model: cs.effectiveModelSelection,
+          },
+          cs.effectiveModelInfo
+            ? {
+                modelRuntime: Object.assign(
+                  {
+                    providerID: cs.effectiveModelSelection?.providerID ?? "",
+                    modelID: cs.effectiveModelSelection?.modelID ?? "",
+                    contextWindow: cs.effectiveModelInfo.limit.context,
+                    outputWindow: cs.effectiveModelInfo.limit.output,
+                  },
+                  cs.effectiveModelInfo.limit.input !== undefined
+                    ? { inputWindow: cs.effectiveModelInfo.limit.input }
+                    : undefined,
+                  cs.effectiveModelInfo.capabilities.input.image
+                    ? ({ image: true } as const)
+                    : undefined,
+                ),
+              }
+            : undefined,
+          { variant },
+          teachingContext ? { teaching: teachingContext } : undefined,
+          { optimistic: input.optimistic },
+          includeActiveContext
+            ? {
+                beforePostPrompt: ({ sessionID }: { sessionID: string }) =>
+                  workspace.lifecycle.flushContextBeforePrompt({
+                    sessionID,
+                  }),
+              }
+            : undefined,
+          includeActiveContext && visibleReadingResource
+            ? {
+                reading: Object.assign(
+                  {
+                    title: visibleReadingResource.name,
+                    path: visibleReadingResource.path,
+                  },
+                  visibleReadingResource.objectID
+                    ? { resourceKey: visibleReadingResource.objectID }
+                    : undefined,
+                  visibleReadingResource.location
+                    ? { location: visibleReadingResource.location }
+                    : undefined,
+                  visibleReadingResource.currentPassageText
+                    ? { currentPassageText: visibleReadingResource.currentPassageText }
+                    : undefined,
+                  visibleReadingResource.visibleStartText
+                    ? { visibleStartText: visibleReadingResource.visibleStartText }
+                    : undefined,
+                  visibleReadingResource.visibleEndText
+                    ? { visibleEndText: visibleReadingResource.visibleEndText }
+                    : undefined,
+                  visibleReadingResource.readingTrail &&
+                    visibleReadingResource.readingTrail.length > 0
+                    ? { readingTrail: visibleReadingResource.readingTrail }
+                    : undefined,
+                  visibleReadingResource.annotationSummary &&
+                    visibleReadingResource.annotationSummary.length > 0
+                    ? { annotationSummary: visibleReadingResource.annotationSummary }
+                    : undefined,
+                ),
+              }
+            : undefined,
+        ),
+      )
 
       if (input.clearDrafts ?? true) {
         clearSubmittedPromptDrafts(submittedSessionID)
@@ -1257,14 +1274,16 @@ export function useDirectoryChatPageController(
     if (!sessionID) return undefined
 
     const queuedDraft = cloneSubmittedPromptDraft(draft)
-    const item: QueuedFollowupDraft = {
-      id: createQueuedFollowupID(),
-      sessionID,
-      kind,
-      label: queuedFollowupLabel(queuedDraft),
-      draft: queuedDraft,
-      ...(focusGoalIds && focusGoalIds.length > 0 ? { focusGoalIds: [...focusGoalIds] } : {}),
-    }
+    const item: QueuedFollowupDraft = Object.assign(
+      {
+        id: createQueuedFollowupID(),
+        sessionID,
+        kind,
+        label: queuedFollowupLabel(queuedDraft),
+        draft: queuedDraft,
+      },
+      focusGoalIds && focusGoalIds.length > 0 ? { focusGoalIds: [...focusGoalIds] } : undefined,
+    )
 
     setQueuedFollowupsBySession((current) => ({
       ...current,
@@ -1764,11 +1783,15 @@ export function useDirectoryChatPageController(
       void syncTeachingRuntimeSelection()
     },
     onForkMessage: async ({ sessionID, messageID }) => {
-      const result = await forkActiveChatSession({
-        directory: decodedDirectory,
-        sessionID,
-        ...(messageID ? { messageID } : {}),
-      })
+      const result = await forkActiveChatSession(
+        Object.assign(
+          {
+            directory: decodedDirectory,
+            sessionID,
+          },
+          messageID ? { messageID } : undefined,
+        ),
+      )
       if (result.outcome !== "committed") {
         throw result.outcome === "failed"
           ? result.error

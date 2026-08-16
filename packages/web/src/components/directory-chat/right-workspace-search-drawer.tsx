@@ -172,12 +172,16 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
 
     return (
       <ObjectCard
-        model={model}
-        allowLive={creation !== undefined}
-        {...(creation
-          ? { preview: <CreationPreviewVisual directory={props.directory} item={creation} /> }
-          : {})}
-        onOpen={() => openResult(result)}
+        {...Object.assign(
+          {
+            model,
+            allowLive: creation !== undefined,
+            onOpen: () => openResult(result),
+          },
+          creation
+            ? { preview: <CreationPreviewVisual directory={props.directory} item={creation} /> }
+            : undefined,
+        )}
       />
     )
   }

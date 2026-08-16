@@ -263,13 +263,17 @@ export function DirectoryWorkspaceProvider(props: {
     // Failed hydration holds only a fallback slot for the active chat. Persisting that would erase
     // every other chat's stored presentation on the strength of one transient read error.
     if (state.hydration.status === WORKSPACE_HYDRATION_FAILED) return
-    await writePersistedDirectoryWorkspace({
-      directory: props.directory,
-      state: persistedDirectoryWorkspaceStateFromStore({
-        slots: state.slots,
-      }),
-      ...(props.persistenceStorage ? { storage: props.persistenceStorage } : {}),
-    })
+    await writePersistedDirectoryWorkspace(
+      Object.assign(
+        {
+          directory: props.directory,
+          state: persistedDirectoryWorkspaceStateFromStore({
+            slots: state.slots,
+          }),
+        },
+        props.persistenceStorage ? { storage: props.persistenceStorage } : undefined,
+      ),
+    )
   }, [props.directory, props.persistenceStorage, store])
 
   useBlocker({
@@ -338,10 +342,14 @@ export function DirectoryWorkspaceProvider(props: {
     })
     void (async () => {
       try {
-        const result = await readPersistedDirectoryWorkspace({
-          directory: props.directory,
-          ...(props.persistenceStorage ? { storage: props.persistenceStorage } : {}),
-        })
+        const result = await readPersistedDirectoryWorkspace(
+          Object.assign(
+            {
+              directory: props.directory,
+            },
+            props.persistenceStorage ? { storage: props.persistenceStorage } : undefined,
+          ),
+        )
         logBenchToggleStep("directory-workspace-provider-read-persisted-result", {
           directory: props.directory,
           disposed,

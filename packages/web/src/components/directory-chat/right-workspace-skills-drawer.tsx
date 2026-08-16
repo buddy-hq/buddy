@@ -54,9 +54,11 @@ import {
   SkillsListRow,
   SkillsSectionHeader,
   type SkillRowDensity,
+  type SkillsListRowProps,
 } from "@/components/skills/skills-drawer-ui"
 import { RightWorkspaceDrawerShell } from "./right-workspace-drawer-ui"
 
+type TSkillsListRowShared = Omit<SkillsListRowProps, "control" | "onSelect" | "dimmed" | "muted">
 type BusyOperation = "install" | "permission" | "remove" | "update"
 type SelectedSkill = { kind: "library"; skillID: string } | { kind: "installed"; skillName: string }
 
@@ -630,24 +632,31 @@ export function SkillsCatalogSurface(props: SkillsCatalogSurfaceProps) {
    * line and no row needs a badge repeating what its control already says.
    */
   function renderListItem(item: SkillListItem, density: SkillRowDensity) {
-    const shared = {
-      id: item.id,
-      title: item.title,
-      description: item.description,
-      ...(item.icon ? { icon: item.icon } : {}),
-      iconRetryToken,
-      density,
-      ariaLabel: language.t("skills.manageAria", { name: item.title }),
-      ...(searchActive ? { query: search } : {}),
-    }
+    const shared: TSkillsListRowShared = Object.assign(
+      {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+      },
+      item.icon ? { icon: item.icon } : undefined,
+      {
+        iconRetryToken,
+        density,
+        ariaLabel: language.t("skills.manageAria", { name: item.title }),
+      },
+      searchActive ? { query: search } : undefined,
+    )
 
     if (item.kind === "installed") {
       const off = item.skill.permissionAction === "deny"
       return (
         <SkillsListRow
           key={`installed:${item.skill.name}`}
-          {...shared}
-          {...(off ? { dimmed: true } : {})}
+          {...Object.assign(
+            {},
+            shared,
+            off ? { dimmed: true } : undefined,
+          )}
           control={
             <InstalledToggle
               skill={item.skill}
@@ -718,32 +727,36 @@ export function SkillsCatalogSurface(props: SkillsCatalogSurfaceProps) {
     if (selectedLibrarySkill) {
       const busyAction = libraryBusyAction(selectedLibrarySkill.id, busyOperations)
       const entry = selectedLibrarySkill
-      return {
-        id: entry.id,
-        title: entry.displayName,
-        description: entry.summary,
-        ...(entry.icon ? { icon: entry.icon } : {}),
-        fields: presentFields([
-          {
-            label: language.t("skills.detail.source"),
-            kind: SKILL_DETAIL_FIELD_TEXT,
-            values: [entry.sourceLabel],
-          },
-          {
-            label: language.t("skills.detail.category"),
-            kind: SKILL_DETAIL_FIELD_CHIPS,
-            values: entry.categories,
-          },
-          {
-            label: language.t("skills.detail.tags"),
-            kind: SKILL_DETAIL_FIELD_CHIPS,
-            values: entry.tags,
-          },
-        ]),
-        ...(selectedLibraryInstalledSkill
+      return Object.assign(
+        {
+          id: entry.id,
+          title: entry.displayName,
+          description: entry.summary,
+        },
+        entry.icon ? { icon: entry.icon } : undefined,
+        {
+          fields: presentFields([
+            {
+              label: language.t("skills.detail.source"),
+              kind: SKILL_DETAIL_FIELD_TEXT,
+              values: [entry.sourceLabel],
+            },
+            {
+              label: language.t("skills.detail.category"),
+              kind: SKILL_DETAIL_FIELD_CHIPS,
+              values: entry.categories,
+            },
+            {
+              label: language.t("skills.detail.tags"),
+              kind: SKILL_DETAIL_FIELD_CHIPS,
+              values: entry.tags,
+            },
+          ]),
+        },
+        selectedLibraryInstalledSkill
           ? { activation: skillActivation(selectedLibraryInstalledSkill) }
-          : {}),
-        ...(isInstalledLibrarySkill(entry.state)
+          : undefined,
+        isInstalledLibrarySkill(entry.state)
           ? {
               removal: {
                 disabled: busyAction !== undefined,
@@ -753,11 +766,11 @@ export function SkillsCatalogSurface(props: SkillsCatalogSurfaceProps) {
                 },
               },
             }
-          : {}),
+          : undefined,
         // An "Installed" button that cannot be pressed is a status wearing a
         // button's clothes; the switch above already says the skill is here.
-        ...(skillLibraryAction(entry.state) === "installed"
-          ? {}
+        skillLibraryAction(entry.state) === "installed"
+          ? undefined
           : {
               primaryAction: (
                 <LibraryActionControl
@@ -770,30 +783,34 @@ export function SkillsCatalogSurface(props: SkillsCatalogSurfaceProps) {
                   }}
                 />
               ),
-            }),
-      }
+            },
+      )
     }
 
     if (selectedInstalledSkill) {
-      return {
-        id: selectedInstalledSkill.name,
-        title: selectedInstalledSkill.displayName,
-        description: selectedInstalledSkill.shortDescription,
-        ...(selectedInstalledSkill.icon ? { icon: selectedInstalledSkill.icon } : {}),
-        fields: presentFields([
-          {
-            label: language.t("skills.detail.source"),
-            kind: SKILL_DETAIL_FIELD_TEXT,
-            values: [sourceLabel(selectedInstalledSkill.source)],
-          },
-          {
-            label: language.t("skills.detail.scope"),
-            kind: SKILL_DETAIL_FIELD_TEXT,
-            values: [scopeLabel(selectedInstalledSkill.scope)],
-          },
-        ]),
-        activation: skillActivation(selectedInstalledSkill),
-      }
+      return Object.assign(
+        {
+          id: selectedInstalledSkill.name,
+          title: selectedInstalledSkill.displayName,
+          description: selectedInstalledSkill.shortDescription,
+        },
+        selectedInstalledSkill.icon ? { icon: selectedInstalledSkill.icon } : undefined,
+        {
+          fields: presentFields([
+            {
+              label: language.t("skills.detail.source"),
+              kind: SKILL_DETAIL_FIELD_TEXT,
+              values: [sourceLabel(selectedInstalledSkill.source)],
+            },
+            {
+              label: language.t("skills.detail.scope"),
+              kind: SKILL_DETAIL_FIELD_TEXT,
+              values: [scopeLabel(selectedInstalledSkill.scope)],
+            },
+          ]),
+          activation: skillActivation(selectedInstalledSkill),
+        },
+      )
     }
 
     return undefined
@@ -971,11 +988,15 @@ export function SkillsCatalogSurface(props: SkillsCatalogSurfaceProps) {
       {surface}
 
       <SkillDetailDialog
-        {...(detail ? { detail } : {})}
-        iconRetryToken={iconRetryToken}
-        onOpenChange={(open) => {
-          if (!open) closeDetail()
-        }}
+        {...Object.assign(
+          {
+            iconRetryToken,
+            onOpenChange: (open: boolean) => {
+              if (!open) closeDetail()
+            },
+          },
+          detail ? { detail } : undefined,
+        )}
       />
     </>
   )

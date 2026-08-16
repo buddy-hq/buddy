@@ -106,11 +106,15 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
       kind: "blob",
       blob: readerBlobQuery.data,
       name: props.resourceName,
-      sourceId: buildWorkspaceReaderSourceId({
-        directory: props.directory,
-        resourcePath: props.resourcePath,
-        ...(props.objectID ? { objectID: props.objectID } : {}),
-      }),
+      sourceId: buildWorkspaceReaderSourceId(
+        Object.assign(
+          {
+            directory: props.directory,
+            resourcePath: props.resourcePath,
+          },
+          props.objectID ? { objectID: props.objectID } : undefined,
+        ),
+      ),
       format: readerFormat,
     }
   }, [

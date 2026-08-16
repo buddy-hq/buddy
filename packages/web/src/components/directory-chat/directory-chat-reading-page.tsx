@@ -301,18 +301,28 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
 
   useEffect(() => {
     if (!readyDirectory || !normalizedPath) return
-    setActiveReadingResource(readyDirectory, {
-      ...(resourceObjectID ? { objectID: resourceObjectID } : {}),
-      ...(resourceAlias ? { alias: resourceAlias } : {}),
-      name: resourceName,
-      path: normalizedPath,
-      ...(resourceStatus ? { status: resourceStatus } : {}),
-    })
-    setLastOpenedReadingResource(readyDirectory, {
-      ...(resourceObjectID ? { objectID: resourceObjectID } : {}),
-      name: resourceName,
-      path: normalizedPath,
-    })
+    setActiveReadingResource(
+      readyDirectory,
+      Object.assign(
+        {
+          name: resourceName,
+          path: normalizedPath,
+        },
+        resourceObjectID ? { objectID: resourceObjectID } : undefined,
+        resourceAlias ? { alias: resourceAlias } : undefined,
+        resourceStatus ? { status: resourceStatus } : undefined,
+      ),
+    )
+    setLastOpenedReadingResource(
+      readyDirectory,
+      Object.assign(
+        {
+          name: resourceName,
+          path: normalizedPath,
+        },
+        resourceObjectID ? { objectID: resourceObjectID } : undefined,
+      ),
+    )
   }, [
     normalizedPath,
     readyDirectory,
@@ -344,15 +354,20 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     const resourceKey = resourceRecord?.objectID ?? resourceRecord?.alias ?? props.resourceKey
     setPromptDraft(
       promptKey,
-      appendReadingSelectionToDraft(currentDraft, {
-        text: input.text,
-        selectionKey: input.selectionKey,
-        ...(resourceKey ? { resourceKey } : {}),
-        anchor: input.anchor,
-        ...(input.tocLabel ? { tocLabel: input.tocLabel } : {}),
-        ...(input.pageLabel ? { pageLabel: input.pageLabel } : {}),
-        ...(input.locationLabel ? { locationLabel: input.locationLabel } : {}),
-      }),
+      appendReadingSelectionToDraft(
+        currentDraft,
+        Object.assign(
+          {
+            text: input.text,
+            selectionKey: input.selectionKey,
+          },
+          resourceKey ? { resourceKey } : undefined,
+          { anchor: input.anchor },
+          input.tocLabel ? { tocLabel: input.tocLabel } : undefined,
+          input.pageLabel ? { pageLabel: input.pageLabel } : undefined,
+          input.locationLabel ? { locationLabel: input.locationLabel } : undefined,
+        ),
+      ),
     )
   }
 
@@ -413,11 +428,16 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
           onLocationChange={(location) => {
             updateActiveReadingResourceLocation(readyDirectory, location)
             if (location.tocLabel) {
-              appendReadingTrailEntry(readyDirectory, {
-                label: location.tocLabel,
-                anchor: location.anchor,
-                ...(location.fraction !== undefined ? { fraction: location.fraction } : {}),
-              })
+              appendReadingTrailEntry(
+                readyDirectory,
+                Object.assign(
+                  {
+                    label: location.tocLabel,
+                    anchor: location.anchor,
+                  },
+                  location.fraction !== undefined ? { fraction: location.fraction } : undefined,
+                ),
+              )
             }
           }}
           onChatSelection={(selection) => {

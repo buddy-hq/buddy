@@ -192,22 +192,27 @@ export function buildSessionTrace(input: {
       sessionID: sid,
       streamStatus: input.streamStatus,
       directoryState: directoryState
-        ? {
-            sessionTitle: directoryState.sessionTitle,
-            ...(sid && directoryState.sessionStatusByID[sid]
-              ? { sessionStatusByID: { [sid]: directoryState.sessionStatusByID[sid] } }
-              : { sessionStatusByID: directoryState.sessionStatusByID }),
-            isBusy: directoryState.isBusy,
-            isReady: directoryState.isReady,
-            ...(directoryState.error ? { error: directoryState.error } : {}),
-            ...(directoryState.pendingPermissions.length > 0
+        ? Object.assign(
+            {
+              sessionTitle: directoryState.sessionTitle,
+              sessionStatusByID:
+                sid && directoryState.sessionStatusByID[sid]
+                  ? { [sid]: directoryState.sessionStatusByID[sid] }
+                  : directoryState.sessionStatusByID,
+              isBusy: directoryState.isBusy,
+              isReady: directoryState.isReady,
+            },
+            directoryState.error ? { error: directoryState.error } : undefined,
+            directoryState.pendingPermissions.length > 0
               ? { pendingPermissions: directoryState.pendingPermissions }
-              : {}),
-            sessions: directoryState.sessions
-              .filter((s) => !sid || s.id === sid)
-              .map((s) => slimSession(s, s.id === sid)),
-            messages: getTranscriptMessages(input.directory, sid).map(slimMessage),
-          }
+              : undefined,
+            {
+              sessions: directoryState.sessions
+                .filter((s) => !sid || s.id === sid)
+                .map((s) => slimSession(s, s.id === sid)),
+              messages: getTranscriptMessages(input.directory, sid).map(slimMessage),
+            },
+          )
         : undefined,
     },
     null,

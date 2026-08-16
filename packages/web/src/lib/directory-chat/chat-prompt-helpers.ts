@@ -24,9 +24,13 @@ import type {
   PromptAttachmentPart,
   PromptComposerAttachment,
   PromptComposerPart,
+  PromptFilePart,
   PromptImageEditIntent,
+  PromptMarkdownSelectionContextPart,
   PromptModelAttachment,
   PromptNativeResourceAttachmentPart,
+  PromptReadingSelectionContextPart,
+  PromptReadingSelectionPart,
   PromptSubmissionPart,
   PromptTextFileAttachmentMetadata,
 } from "@/components/prompt/prompt-types"
@@ -240,15 +244,16 @@ function buildPromptAttachmentParts(
     }
 
     const source = promptAttachmentSource(attachment)
-    return [
+    const filePart: PromptFilePart = Object.assign(
       {
         type: PROMPT_PART_TYPE_FILE,
         mime: attachment.mime,
         url: useLocalPaths ? promptAttachmentUrl(attachment) : attachment.dataUrl,
         filename: attachment.filename,
-        ...(source ? { source } : {}),
       },
-    ]
+      source ? { source } : undefined,
+    )
+    return [filePart]
   })
 }
 
@@ -403,14 +408,22 @@ function toPromptComposerAttachment(part: MessagePart): PromptComposerAttachment
   const isImage = part.mime.startsWith("image/")
   const hasLocalPath = typeof localPath === "string" && localPath.length > 0
 
-  return {
-    id: part.id,
-    filename: part.filename,
-    mime: part.mime,
-    dataUrl: part.url,
-    ...(hasLocalPath ? { localPath, ...(isImage ? { editTarget: true } : {}) } : {}),
-    kind: isImage ? "image" : "file",
-  }
+  const attachment: PromptModelAttachment = Object.assign(
+    {
+      id: part.id,
+      filename: part.filename,
+      mime: part.mime,
+      dataUrl: part.url,
+      kind: isImage ? ("image" as const) : ("file" as const),
+    },
+    hasLocalPath
+      ? Object.assign(
+          { localPath },
+          isImage ? ({ editTarget: true } as const) : undefined,
+        )
+      : undefined,
+  )
+  return attachment
 }
 
 function toRelativeWorkspacePath(directory: string, filePath: string) {
@@ -579,50 +592,65 @@ export function buildPromptDraftFromUserMessage(
 
     if (isSelectionContextPart(part)) {
       if (part.source === "markdown") {
-        promptParts.push({
-          type: SELECTION_CONTEXT_PART_TYPE,
-          source: "markdown",
-          text: part.text,
-          selectionKey: part.selectionKey,
-          ...(typeof part.path === "string" ? { path: part.path } : {}),
-          ...(typeof part.version === "string" ? { version: part.version } : {}),
-          ...(Array.isArray(part.headingPath) &&
-          part.headingPath.every((entry) => typeof entry === "string")
-            ? { headingPath: part.headingPath }
-            : {}),
-        })
+        const headingPath =
+          Array.isArray(part.headingPath) &&
+          part.headingPath.every((entry): entry is string => typeof entry === "string")
+            ? part.headingPath
+            : undefined
+        const markdownPart: PromptMarkdownSelectionContextPart = Object.assign(
+          {
+            type: SELECTION_CONTEXT_PART_TYPE,
+            source: "markdown" as const,
+            text: part.text,
+            selectionKey: part.selectionKey,
+          },
+          typeof part.path === "string" ? { path: part.path } : undefined,
+          typeof part.version === "string" ? { version: part.version } : undefined,
+          headingPath ? { headingPath } : undefined,
+        )
+        promptParts.push(markdownPart)
         continue
       }
 
       const anchor = readPromptReaderTextAnchor(part)
       if (!anchor) continue
-      promptParts.push({
-        type: SELECTION_CONTEXT_PART_TYPE,
-        source: "reading",
-        text: part.text,
-        selectionKey: part.selectionKey,
-        ...(typeof part.resourceKey === "string" ? { resourceKey: part.resourceKey } : {}),
-        anchor,
-        ...(typeof part.tocLabel === "string" ? { tocLabel: part.tocLabel } : {}),
-        ...(typeof part.pageLabel === "string" ? { pageLabel: part.pageLabel } : {}),
-        ...(typeof part.locationLabel === "string" ? { locationLabel: part.locationLabel } : {}),
-      })
+      const readingContextPart: PromptReadingSelectionContextPart = Object.assign(
+        Object.assign(
+          {
+            type: SELECTION_CONTEXT_PART_TYPE,
+            source: "reading" as const,
+            text: part.text,
+            selectionKey: part.selectionKey,
+          },
+          typeof part.resourceKey === "string" ? { resourceKey: part.resourceKey } : undefined,
+          { anchor },
+        ),
+        typeof part.tocLabel === "string" ? { tocLabel: part.tocLabel } : undefined,
+        typeof part.pageLabel === "string" ? { pageLabel: part.pageLabel } : undefined,
+        typeof part.locationLabel === "string" ? { locationLabel: part.locationLabel } : undefined,
+      )
+      promptParts.push(readingContextPart)
       continue
     }
 
     if (isReadingSelectionPart(part)) {
       const anchor = readPromptReaderTextAnchor(part)
       if (!anchor) continue
-      promptParts.push({
-        type: READING_SELECTION_PART_TYPE,
-        text: part.text,
-        ...(typeof part.selectionKey === "string" ? { selectionKey: part.selectionKey } : {}),
-        ...(typeof part.resourceKey === "string" ? { resourceKey: part.resourceKey } : {}),
-        anchor,
-        ...(typeof part.tocLabel === "string" ? { tocLabel: part.tocLabel } : {}),
-        ...(typeof part.pageLabel === "string" ? { pageLabel: part.pageLabel } : {}),
-        ...(typeof part.locationLabel === "string" ? { locationLabel: part.locationLabel } : {}),
-      })
+      const readingPart: PromptReadingSelectionPart = Object.assign(
+        Object.assign(
+          {
+            type: READING_SELECTION_PART_TYPE,
+            text: part.text,
+          },
+          typeof part.selectionKey === "string" ? { selectionKey: part.selectionKey } : undefined,
+          typeof part.resourceKey === "string" ? { resourceKey: part.resourceKey } : undefined,
+          { anchor },
+        ),
+        typeof part.tocLabel === "string" ? { tocLabel: part.tocLabel } : undefined,
+        typeof part.pageLabel === "string" ? { pageLabel: part.pageLabel } : undefined,
+        typeof part.locationLabel === "string" ? { locationLabel: part.locationLabel } : undefined,
+      )
+      promptParts.push(readingPart)
       continue
     }
 

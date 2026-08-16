@@ -113,14 +113,16 @@ export function notebookSearchOpenRequest(input: {
 
   if (target.type === "resource") {
     return {
-      type: "resource",
+      type: "resource" as const,
       directory: input.directory,
-      resource: {
-        path: target.path,
-        name: target.name,
-        ...(target.objectID ? { objectID: target.objectID } : {}),
-        ...(target.status ? { status: target.status } : {}),
-      },
+      resource: Object.assign(
+        {
+          path: target.path,
+          name: target.name,
+        },
+        target.objectID ? { objectID: target.objectID } : undefined,
+        target.status ? { status: target.status } : undefined,
+      ),
     }
   }
 
