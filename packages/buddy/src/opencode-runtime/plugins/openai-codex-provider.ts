@@ -57,8 +57,8 @@ export function resolveOpenAICodexModelLimits(
 export function applyOpenAICodexAccountModels(
   models: Record<string, OpenCodeModel>,
   accountModels: OpenAICodexAccountModel[],
-): Record<string, OpenCodeModel> {
-  const result: Record<string, OpenCodeModel> = { ...models }
+) {
+  const result = { ...models } satisfies Record<string, OpenCodeModel>
 
   for (const accountModel of accountModels) {
     const model = models[accountModel.slug]

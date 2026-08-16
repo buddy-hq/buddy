@@ -23,11 +23,7 @@ function readOwnProperty(value: object, key: string): unknown {
 }
 
 /** OpenCode passes full tool context at runtime; the published plugin type omits these fields. */
-function readRuntimePluginFields(pluginCtx: ToolContext): {
-  callID: Tool.Context["callID"]
-  extra: Tool.Context["extra"]
-  messages: Tool.Context["messages"]
-} {
+function readRuntimePluginFields(pluginCtx: ToolContext) {
   const messagesUnknown = readOwnProperty(pluginCtx, "messages")
   const extraUnknown = readOwnProperty(pluginCtx, "extra")
   const callIDUnknown = readOwnProperty(pluginCtx, "callID")
