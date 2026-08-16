@@ -175,24 +175,30 @@ async function createWhiteboardObject(input: {
   const now = new Date().toISOString()
   const state = emptyState()
   const initialBoard = input.initialBoard ? writeCurrentBoard(state, input.initialBoard) : undefined
-  const manifest = whiteboardManifestSchema.parse({
-    version: 1,
-    kind: BUDDY_OBJECT_KINDS.whiteboard,
-    objectID,
-    title: input.title ?? DEFAULT_WHITEBOARD_TITLE,
-    status: "ready",
-    lifecycle: "live",
-    createdAt: now,
-    updatedAt: now,
-    ...(input.origin ? { origin: input.origin } : {}),
-    sourceRefs: [],
-    views: buildWhiteboardObjectViews(),
-    summary: {
-      kind: BUDDY_OBJECT_KINDS.whiteboard,
-      boardID: initialBoard?.boardID ?? null,
-      continuationHandle: WHITEBOARD_CONTINUATION_HANDLE,
-    },
-  })
+  const manifest = whiteboardManifestSchema.parse(
+    Object.assign(
+      {
+        version: 1 as const,
+        kind: BUDDY_OBJECT_KINDS.whiteboard,
+        objectID,
+        title: input.title ?? DEFAULT_WHITEBOARD_TITLE,
+        status: "ready" as const,
+        lifecycle: "live" as const,
+        createdAt: now,
+        updatedAt: now,
+      },
+      input.origin ? { origin: input.origin } : undefined,
+      {
+        sourceRefs: [],
+        views: buildWhiteboardObjectViews(),
+        summary: {
+          kind: BUDDY_OBJECT_KINDS.whiteboard,
+          boardID: initialBoard?.boardID ?? null,
+          continuationHandle: WHITEBOARD_CONTINUATION_HANDLE,
+        },
+      },
+    ),
+  )
   await writeObjectRecord({
     directory: input.directory,
     kind: BUDDY_OBJECT_KINDS.whiteboard,
@@ -213,14 +219,20 @@ async function createBlankWhiteboardObject(input: {
   directory: string
   origin?: BuddyObjectOrigin
 }): Promise<WhiteboardObjectRead> {
-  const manifest = await createWhiteboardObject({
-    directory: input.directory,
-    ...(input.origin ? { origin: input.origin } : {}),
-    initialBoard: {
-      origin: "learner",
-      elements: [],
-    },
-  })
+  const manifest = await createWhiteboardObject(
+    Object.assign(
+      {
+        directory: input.directory,
+      },
+      input.origin ? { origin: input.origin } : undefined,
+      {
+        initialBoard: {
+          origin: "learner" as const,
+          elements: [],
+        },
+      },
+    ),
+  )
   return readWhiteboardObject(input.directory, manifest.objectID)
 }
 
@@ -324,17 +336,23 @@ async function ensureWhiteboardObjectForToolCall(input: {
       })
     } catch (error) {
       if (!(error instanceof BuddyObjectNotFoundError)) throw error
-      await createWhiteboardObject({
-        directory: input.directory,
-        objectID: record.objectID,
-        ...(input.title ? { title: input.title } : {}),
-        origin: {
-          kind: "tool",
-          sessionID: reservation.sessionID,
-          messageID: reservation.messageID,
-          callID: reservation.callID,
-        },
-      })
+      await createWhiteboardObject(
+        Object.assign(
+          {
+            directory: input.directory,
+            objectID: record.objectID,
+          },
+          input.title ? { title: input.title } : undefined,
+          {
+            origin: {
+              kind: "tool" as const,
+              sessionID: reservation.sessionID,
+              messageID: reservation.messageID,
+              callID: reservation.callID,
+            },
+          },
+        ),
+      )
     }
 
     return WhiteboardCreationReservationResponseSchema.parse({
@@ -384,12 +402,16 @@ async function readState(directory: string, objectID: string): Promise<Whiteboar
       ),
     )
     const legacy = LegacyWhiteboardSessionStateSchema.parse(parsed)
-    const migrated = WhiteboardObjectStateSchema.parse({
-      version: STATE_VERSION,
-      ...(legacy.currentBoard ? { currentBoard: legacy.currentBoard } : {}),
-      ...(legacy.previousBoard ? { previousBoard: legacy.previousBoard } : {}),
-      ...(legacy.modelContext ? { modelContext: legacy.modelContext } : {}),
-    })
+    const migrated = WhiteboardObjectStateSchema.parse(
+      Object.assign(
+        {
+          version: STATE_VERSION,
+        },
+        legacy.currentBoard ? { currentBoard: legacy.currentBoard } : undefined,
+        legacy.previousBoard ? { previousBoard: legacy.previousBoard } : undefined,
+        legacy.modelContext ? { modelContext: legacy.modelContext } : undefined,
+      ),
+    )
     await writeAtomicJson(filepath, migrated)
     return migrated
   } catch (error) {
@@ -411,15 +433,21 @@ async function updateWhiteboardObjectManifestFromState(input: {
   })
   await writeObjectManifest({
     directory: input.directory,
-    manifest: whiteboardManifestSchema.parse({
-      ...manifest,
-      ...(input.title ? { title: input.title } : {}),
-      updatedAt: new Date().toISOString(),
-      summary: {
-        ...manifest.summary,
-        boardID: input.state.currentBoard?.boardID ?? null,
-      },
-    }),
+    manifest: whiteboardManifestSchema.parse(
+      Object.assign(
+        {
+          ...manifest,
+        },
+        input.title ? { title: input.title } : undefined,
+        {
+          updatedAt: new Date().toISOString(),
+          summary: {
+            ...manifest.summary,
+            boardID: input.state.currentBoard?.boardID ?? null,
+          },
+        },
+      ),
+    ),
   })
 }
 
@@ -438,12 +466,16 @@ async function mutateState<T>(
     const state = await readState(directory, manifest.objectID)
     const result = await mutate(state, manifest.objectID)
     await writeAtomicJson(filepath, state)
-    await updateWhiteboardObjectManifestFromState({
-      directory,
-      objectID: manifest.objectID,
-      state,
-      ...(title ? { title } : {}),
-    })
+    await updateWhiteboardObjectManifestFromState(
+      Object.assign(
+        {
+          directory,
+          objectID: manifest.objectID,
+          state,
+        },
+        title ? { title } : undefined,
+      ),
+    )
     return result
   })
 }
@@ -470,13 +502,17 @@ function createBoard(input: {
   elements: WhiteboardElement[]
   viewport?: WhiteboardViewport
 }): WhiteboardBoard {
-  return WhiteboardBoardSchema.parse({
-    boardID: createWhiteboardID(),
-    origin: input.origin,
-    updatedAt: new Date().toISOString(),
-    elements: input.elements,
-    ...(input.viewport ? { viewport: input.viewport } : {}),
-  })
+  return WhiteboardBoardSchema.parse(
+    Object.assign(
+      {
+        boardID: createWhiteboardID(),
+        origin: input.origin,
+        updatedAt: new Date().toISOString(),
+        elements: input.elements,
+      },
+      input.viewport ? { viewport: input.viewport } : undefined,
+    ),
+  )
 }
 
 function writeCurrentBoard(
@@ -507,17 +543,21 @@ function saveLearnerBoard(
     throw new WhiteboardStaleLearnerEditError()
   }
   state.previousBoard = toPreviousBoard(sanitizeBoard(currentBoard))
-  const board = WhiteboardBoardSchema.parse({
-    boardID: currentBoard.boardID,
-    origin: "learner",
-    updatedAt: new Date().toISOString(),
-    elements: input.elements,
-    ...(input.viewport
-      ? { viewport: input.viewport }
-      : currentBoard.viewport
-        ? { viewport: currentBoard.viewport }
-        : {}),
-  })
+  const board = WhiteboardBoardSchema.parse(
+    Object.assign(
+      {
+        boardID: currentBoard.boardID,
+        origin: "learner" as const,
+        updatedAt: new Date().toISOString(),
+        elements: input.elements,
+      },
+      input.viewport
+        ? { viewport: input.viewport }
+        : currentBoard.viewport
+          ? { viewport: currentBoard.viewport }
+          : undefined,
+    ),
+  )
   state.currentBoard = board
   return board
 }
@@ -558,10 +598,12 @@ async function readWhiteboardBoardContext(
 }> {
   const manifest = await readWhiteboardObjectManifest({ directory, objectID })
   const state = await readState(directory, manifest.objectID)
-  return {
-    currentBoard: state.currentBoard ? sanitizeBoard(state.currentBoard) : null,
-    ...(state.previousBoard ? { previousBoard: sanitizeBoard(state.previousBoard) } : {}),
-  }
+  return Object.assign(
+    {
+      currentBoard: state.currentBoard ? sanitizeBoard(state.currentBoard) : null,
+    },
+    state.previousBoard ? { previousBoard: sanitizeBoard(state.previousBoard) } : undefined,
+  )
 }
 
 async function readAndRecordWhiteboardBoardContext(
@@ -587,10 +629,12 @@ async function readAndRecordWhiteboardBoardContext(
         state,
       })
     }
-    return {
-      currentBoard: currentBoard ?? null,
-      ...(state.previousBoard ? { previousBoard: sanitizeBoard(state.previousBoard) } : {}),
-    }
+    return Object.assign(
+      {
+        currentBoard: currentBoard ?? null,
+      },
+      state.previousBoard ? { previousBoard: sanitizeBoard(state.previousBoard) } : undefined,
+    )
   })
 }
 
@@ -612,32 +656,41 @@ async function writeWhiteboardCurrentFromLatest(input: {
     input.objectID,
     (state, objectID) => {
       const currentBoard = state.currentBoard ? sanitizeBoard(state.currentBoard) : undefined
-      const base = {
-        ...(currentBoard ? { boardID: currentBoard.boardID, currentBoard } : {}),
-        elements: currentBoard?.elements.map((element) => ({ ...element })) ?? [],
-        hasCurrentBoard: currentBoard !== undefined,
-        ...(state.modelContext ? { modelContext: state.modelContext } : {}),
-        ...(currentBoard?.viewport ? { viewport: currentBoard.viewport } : {}),
-      }
+      const base: WhiteboardBoardBuildBase = Object.assign(
+        {
+          elements: currentBoard?.elements.map((element) => ({ ...element })) ?? [],
+          hasCurrentBoard: currentBoard !== undefined,
+        },
+        currentBoard ? { boardID: currentBoard.boardID, currentBoard } : undefined,
+        state.modelContext ? { modelContext: state.modelContext } : undefined,
+        currentBoard?.viewport ? { viewport: currentBoard.viewport } : undefined,
+      )
       input.validateBase?.(base)
       const next = input.buildBoard(base)
-      const validatedNext = {
-        elements: next.elements.map((element, index) =>
-          parsePersistableWhiteboardElement(element, index),
-        ),
-        ...(next.viewport ? { viewport: next.viewport } : {}),
-      }
+      const validatedNext: WhiteboardBoardBuildResult = Object.assign(
+        {
+          elements: next.elements.map((element, index) =>
+            parsePersistableWhiteboardElement(element, index),
+          ),
+        },
+        next.viewport ? { viewport: next.viewport } : undefined,
+      )
       if (input.shouldSave && !input.shouldSave({ base, next: validatedNext })) {
         return {
           state: toObjectRead({ state, objectID }),
           saved: false,
         }
       }
-      const board = writeCurrentBoard(state, {
-        origin: input.origin,
-        elements: validatedNext.elements,
-        ...(validatedNext.viewport ? { viewport: validatedNext.viewport } : {}),
-      })
+      const board = writeCurrentBoard(
+        state,
+        Object.assign(
+          {
+            origin: input.origin,
+            elements: validatedNext.elements,
+          },
+          validatedNext.viewport ? { viewport: validatedNext.viewport } : undefined,
+        ),
+      )
       if (input.recordModelContext) {
         state.modelContext = buildWhiteboardModelContext(board)
       }
@@ -699,10 +752,15 @@ async function saveWhiteboardLearnerEdit(input: {
     const elements = input.edit.elements.map((element, index) =>
       parsePersistableWhiteboardElement(element, index),
     )
-    saveLearnerBoard(state, {
-      elements,
-      ...(input.edit.viewport ? { viewport: input.edit.viewport } : {}),
-    })
+    saveLearnerBoard(
+      state,
+      Object.assign(
+        {
+          elements,
+        },
+        input.edit.viewport ? { viewport: input.edit.viewport } : undefined,
+      ),
+    )
     return toObjectRead({ state, objectID })
   })
 }

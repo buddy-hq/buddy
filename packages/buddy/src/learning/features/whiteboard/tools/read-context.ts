@@ -147,12 +147,14 @@ function formatContextElement(
 function formatVisibleTextElement(element: WhiteboardElement) {
   const text = readVisibleText(element)
   if (!text) return undefined
-  return {
-    id: element.id,
-    type: element.type,
-    text,
-    ...(typeof element.containerId === "string" ? { containerId: element.containerId } : {}),
-  }
+  return Object.assign(
+    {
+      id: element.id,
+      type: element.type,
+      text,
+    },
+    typeof element.containerId === "string" ? { containerId: element.containerId } : undefined,
+  )
 }
 
 function elementGeometrySignature(element: WhiteboardElement): string {
@@ -273,18 +275,24 @@ const readWhiteboardContextTool = createBuddyTool({
     const layout = buildWhiteboardLayoutDigest(currentBoard.renderReport)
     return {
       title: "Read Whiteboard",
-      output: JSON.stringify({
-        continuationHandle: WHITEBOARD_CONTINUATION_HANDLE,
-        currentBoardOrigin: currentBoard.origin,
-        elementCount: currentBoard.elements.length,
-        elementsTruncated: currentBoard.elements.length > elements.length,
-        visibleText,
-        visibleTextTruncated: allVisibleText.length > visibleText.length,
-        ...(layout ? { layout } : {}),
-        ...(currentBoard.viewport ? { viewport: currentBoard.viewport } : {}),
-        ...(latestLearnerEditSummary ? { latestLearnerEditSummary } : {}),
-        elements,
-      }),
+      output: JSON.stringify(
+        Object.assign(
+          {
+            continuationHandle: WHITEBOARD_CONTINUATION_HANDLE,
+            currentBoardOrigin: currentBoard.origin,
+            elementCount: currentBoard.elements.length,
+            elementsTruncated: currentBoard.elements.length > elements.length,
+            visibleText,
+            visibleTextTruncated: allVisibleText.length > visibleText.length,
+          },
+          layout ? { layout } : undefined,
+          currentBoard.viewport ? { viewport: currentBoard.viewport } : undefined,
+          latestLearnerEditSummary ? { latestLearnerEditSummary } : undefined,
+          {
+            elements,
+          },
+        ),
+      ),
       metadata: {
         objectID: params.objectID,
         boardID: currentBoard.boardID,

@@ -1,13 +1,13 @@
 // cspell:ignore Persistable
 import z from "zod"
 import { WHITEBOARD_CONTINUATION_HANDLE, writeWhiteboardCurrentFromLatest } from "./store"
+import type { WhiteboardBoardBuildBase } from "./store"
 import { WhiteboardElementValidationError } from "../errors"
 import { assertWhiteboardTouchedAnchorsFresh } from "./model-context"
 import {
   WhiteboardViewportSchema,
   parsePersistableWhiteboardElement,
   type WhiteboardBoard,
-  type WhiteboardBoardOrigin,
   type WhiteboardElement,
   type WhiteboardObjectRead,
   type WhiteboardViewport,
@@ -82,6 +82,7 @@ type WhiteboardProgramBase = {
 
 type WhiteboardProgramWriteMode = "auto" | "continue" | "replace"
 type WhiteboardProgramRequestedWriteMode = Exclude<WhiteboardProgramWriteMode, "auto">
+type TWriteWhiteboardCurrentFromLatestInput = Parameters<typeof writeWhiteboardCurrentFromLatest>[0]
 
 function parseDrawingProgram(elements: string): unknown[] {
   assertWhiteboardPayloadWithinLimit("Whiteboard drawing program", elements)
@@ -516,10 +517,12 @@ function buildWhiteboardProgramBoard(input: {
     throw new Error("Whiteboard program did not make any valid changes, so no board was saved.")
   }
 
-  return {
-    elements,
-    ...(viewport ? { viewport } : {}),
-  }
+  return Object.assign(
+    {
+      elements,
+    },
+    viewport ? { viewport } : undefined,
+  )
 }
 
 async function applyWhiteboardDrawingProgram(input: {
@@ -538,39 +541,46 @@ async function applyWhiteboardDrawingProgram(input: {
   })
   const layoutPriorityElementIDs = collectLayoutPriorityElementIDs(program)
   const touchedIDs = writeMode === "replace" ? new Set<string>() : collectTouchedIDs(program)
-  const writeResult = await writeWhiteboardCurrentFromLatest({
-    directory: input.directory,
-    objectID: input.objectID,
-    ...(input.title ? { title: input.title } : {}),
-    origin: "agent" satisfies WhiteboardBoardOrigin,
-    validateBase:
-      writeMode === "replace"
-        ? undefined
-        : (latestBase) => {
-            const continueCurrent = writeMode === "continue" || latestBase.hasCurrentBoard
-            if (!continueCurrent) return
-            assertWhiteboardTouchedAnchorsFresh({
-              currentBoard: latestBase.currentBoard,
-              modelContext: latestBase.modelContext,
-              touchedIDs,
-            })
-          },
-    buildBoard: (latestBase) => {
-      const continueCurrent =
-        writeMode === "continue" || (writeMode === "auto" && latestBase.hasCurrentBoard)
-      return buildWhiteboardProgramBoard({
-        program,
-        base: {
-          elements: latestBase.elements,
-          hasCurrentBoard: latestBase.hasCurrentBoard,
-          ...(latestBase.viewport ? { viewport: latestBase.viewport } : {}),
+  const writeResult = await writeWhiteboardCurrentFromLatest(
+    Object.assign(
+      {
+        directory: input.directory,
+        objectID: input.objectID,
+        origin: "agent" as const,
+        validateBase:
+          writeMode === "replace"
+            ? undefined
+            : (latestBase: WhiteboardBoardBuildBase) => {
+                const continueCurrent = writeMode === "continue" || latestBase.hasCurrentBoard
+                if (!continueCurrent) return
+                assertWhiteboardTouchedAnchorsFresh({
+                  currentBoard: latestBase.currentBoard,
+                  modelContext: latestBase.modelContext,
+                  touchedIDs,
+                })
+              },
+        buildBoard: (latestBase: WhiteboardBoardBuildBase) => {
+          const continueCurrent =
+            writeMode === "continue" || (writeMode === "auto" && latestBase.hasCurrentBoard)
+          const base: WhiteboardProgramBase = Object.assign(
+            {
+              elements: latestBase.elements,
+              hasCurrentBoard: latestBase.hasCurrentBoard,
+            },
+            latestBase.viewport ? { viewport: latestBase.viewport } : undefined,
+          )
+          return buildWhiteboardProgramBoard({
+            program,
+            base,
+            continueCurrent,
+            warnings,
+          })
         },
-        continueCurrent,
-        warnings,
-      })
-    },
-    recordModelContext: true,
-  })
+        recordModelContext: true,
+      } satisfies Omit<TWriteWhiteboardCurrentFromLatestInput, "title">,
+      input.title ? { title: input.title } : undefined,
+    ),
+  )
   const state = writeResult.state
   const currentBoard: WhiteboardBoard | null = state.currentBoard
   if (!currentBoard) {

@@ -158,10 +158,14 @@ function formatMeasuredLayoutForModel(layout: WhiteboardLayoutDigest | undefined
   }
   return [
     "Measured whiteboard layout issues from rendered bounds:",
-    JSON.stringify({
-      issues: layout.issues,
-      ...(layout.issuesTruncated ? { issuesTruncated: true } : {}),
-    }),
+    JSON.stringify(
+      Object.assign(
+        {
+          issues: layout.issues,
+        },
+        layout.issuesTruncated ? ({ issuesTruncated: true } as const) : undefined,
+      ),
+    ),
     'Before replying, make at most one follow-up whiteboard_create_view repair using boardAction="continue_current_board". Trust only these rendered-bounds issues. For text_too_small, increase the listed text font size, use a less dense local layout, or narrow the camera viewport. For text_overflow, fix the listed container/text ids in the reported axis. For text_occluded, redraw locally so the text is above the occluding filled shape or move/delete the occluder. For sibling_collision, separate the listed ids in the reported axis. Preserve all unrelated content.',
   ]
 }
@@ -205,15 +209,19 @@ const createWhiteboardViewTool = createBuddyTool({
     })
     const whiteboardObject = params.objectID
       ? await readWhiteboardObject(ctx.directory, params.objectID)
-      : await ensureWhiteboardObjectForToolCall({
-          directory: ctx.directory,
-          reservation: {
-            sessionID,
-            messageID,
-            callID: eventCallID,
-          },
-          ...(params.title ? { title: params.title } : {}),
-        })
+      : await ensureWhiteboardObjectForToolCall(
+          Object.assign(
+            {
+              directory: ctx.directory,
+              reservation: {
+                sessionID,
+                messageID,
+                callID: eventCallID,
+              },
+            },
+            params.title ? { title: params.title } : undefined,
+          ),
+        )
     const objectID = whiteboardObject.objectID
     await ctx.metadata({
       title: "Opening Whiteboard",
@@ -247,13 +255,19 @@ const createWhiteboardViewTool = createBuddyTool({
         viewID: WHITEBOARD_CURRENT_VIEW_ID,
       },
     })
-    const result = await applyWhiteboardDrawingProgram({
-      directory: ctx.directory,
-      objectID,
-      ...(params.title ? { title: params.title } : {}),
-      elements: params.elements,
-      writeMode: toWhiteboardProgramWriteMode(params.boardAction),
-    })
+    const result = await applyWhiteboardDrawingProgram(
+      Object.assign(
+        {
+          directory: ctx.directory,
+          objectID,
+        },
+        params.title ? { title: params.title } : undefined,
+        {
+          elements: params.elements,
+          writeMode: toWhiteboardProgramWriteMode(params.boardAction),
+        },
+      ),
+    )
     const measuredBoard = result.saved
       ? await waitForCurrentWhiteboardRenderReport({
           directory: ctx.directory,
@@ -295,16 +309,18 @@ const createWhiteboardViewTool = createBuddyTool({
           : []),
         ...(result.saved ? formatMeasuredLayoutForModel(layout) : []),
       ].join("\n"),
-      metadata: {
-        buddyObjectResult,
-        objectID,
-        continuationHandle: result.continuationHandle,
-        boardID: result.boardID,
-        saved: result.saved,
-        boardAction: params.boardAction,
-        warnings: result.warnings,
-        ...(layout ? { layout } : {}),
-      },
+      metadata: Object.assign(
+        {
+          buddyObjectResult,
+          objectID,
+          continuationHandle: result.continuationHandle,
+          boardID: result.boardID,
+          saved: result.saved,
+          boardAction: params.boardAction,
+          warnings: result.warnings,
+        },
+        layout ? { layout } : undefined,
+      ),
     }
   },
 })

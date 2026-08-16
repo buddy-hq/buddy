@@ -176,17 +176,19 @@ function buildDigestFromIssues(input: {
   issues: WhiteboardLayoutIssue[]
 }): WhiteboardLayoutDigest {
   const shown = input.issues.slice(0, MAX_LAYOUT_DIGEST_ISSUES)
-  return {
-    status: shown.length > 0 ? "issues" : "ok",
-    canvas: {
-      width: Math.round(input.report.canvas.width),
-      height: Math.round(input.report.canvas.height),
-      zoom: Math.round(input.report.canvas.zoom * 100) / 100,
+  return Object.assign(
+    {
+      status: shown.length > 0 ? ("issues" as const) : ("ok" as const),
+      canvas: {
+        width: Math.round(input.report.canvas.width),
+        height: Math.round(input.report.canvas.height),
+        zoom: Math.round(input.report.canvas.zoom * 100) / 100,
+      },
+      contentBounds: input.report.contentBounds ? roundBounds(input.report.contentBounds) : null,
     },
-    contentBounds: input.report.contentBounds ? roundBounds(input.report.contentBounds) : null,
-    ...(shown.length > 0 ? { issues: shown } : {}),
-    ...(input.issues.length > shown.length ? { issuesTruncated: true } : {}),
-  }
+    shown.length > 0 ? { issues: shown } : undefined,
+    input.issues.length > shown.length ? ({ issuesTruncated: true } as const) : undefined,
+  )
 }
 
 function prioritizeLayoutIssues(input: {
@@ -296,22 +298,25 @@ function buildSiblingCollisionIssue(input: {
   otherElement: WhiteboardRenderReportElement
 }): WhiteboardLayoutIssue {
   const overlapSize = readIntersectionSize(input.textElement.bounds, input.otherElement.bounds)
-  const separationAxis = overlapSize.width <= overlapSize.height ? "horizontal" : "vertical"
-  return {
-    code: "sibling_collision",
-    a: input.textElement.id,
-    b: input.otherElement.id,
-    separationAxis,
-    overlapPx: {
-      x: Math.round(overlapSize.width),
-      y: Math.round(overlapSize.height),
+  const separationAxis: SeparationAxis =
+    overlapSize.width <= overlapSize.height ? "horizontal" : "vertical"
+  return Object.assign(
+    {
+      code: "sibling_collision" as const,
+      a: input.textElement.id,
+      b: input.otherElement.id,
+      separationAxis,
+      overlapPx: {
+        x: Math.round(overlapSize.width),
+        y: Math.round(overlapSize.height),
+      },
+      repairHint:
+        separationAxis === "horizontal"
+          ? "Rendered overlap is horizontally separable. Increase horizontal gap/width or shorten local text; increasing height alone will not separate these elements."
+          : "Rendered overlap is vertically separable. Increase vertical gap or shorten/move the local content.",
     },
-    ...(input.textElement.containerId ? { moveTogetherId: input.textElement.containerId } : {}),
-    repairHint:
-      separationAxis === "horizontal"
-        ? "Rendered overlap is horizontally separable. Increase horizontal gap/width or shorten local text; increasing height alone will not separate these elements."
-        : "Rendered overlap is vertically separable. Increase vertical gap or shorten/move the local content.",
-  }
+    input.textElement.containerId ? { moveTogetherId: input.textElement.containerId } : undefined,
+  )
 }
 
 function shouldSkipCollisionPair(input: {
@@ -440,10 +445,11 @@ function compactOverflowPixels(overflowPx: {
   x: number
   y: number
 }): WhiteboardLayoutOverflowPixels {
-  return {
-    ...(overflowPx.x >= MIN_TEXT_OVERFLOW_PIXELS ? { x: Math.round(overflowPx.x) } : {}),
-    ...(overflowPx.y >= MIN_TEXT_OVERFLOW_PIXELS ? { y: Math.round(overflowPx.y) } : {}),
-  }
+  return Object.assign(
+    {},
+    overflowPx.x >= MIN_TEXT_OVERFLOW_PIXELS ? { x: Math.round(overflowPx.x) } : undefined,
+    overflowPx.y >= MIN_TEXT_OVERFLOW_PIXELS ? { y: Math.round(overflowPx.y) } : undefined,
+  )
 }
 
 function textOverflowRepairHint(direction: OverflowDirection): string {
