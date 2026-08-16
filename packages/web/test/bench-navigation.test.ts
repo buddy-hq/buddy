@@ -424,7 +424,8 @@ describe("bench navigation policy", () => {
     ).toMatchObject({
       action: "open",
       target: WHITEBOARD_OBJECT_TARGET,
-      mode: BENCH_CHAT_LAYOUT_DOCKED,
+      mode: BENCH_CHAT_LAYOUT_FLOATING,
+      policyID: "auto-open-surface-mode",
     })
   })
 
@@ -462,8 +463,72 @@ describe("bench navigation policy", () => {
     ).toMatchObject({
       action: "open",
       target: WHITEBOARD_OBJECT_TARGET,
-      mode: BENCH_CHAT_LAYOUT_DOCKED,
-      policyID: "preserved-current-mode",
+      mode: BENCH_CHAT_LAYOUT_FLOATING,
+      policyID: "auto-open-surface-mode",
+    })
+  })
+
+  test("whiteboard auto-open does not restyle an already-active whiteboard", () => {
+    expect(
+      resolveOpenPolicy({
+        request: {
+          directory: DIRECTORY,
+          target: WHITEBOARD_OBJECT_TARGET,
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: {
+            policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+            eventKey: "message-1:part-1",
+          },
+        },
+        current: {
+          status: "open",
+          directory: DIRECTORY,
+          target: WHITEBOARD_OBJECT_TARGET,
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+          layoutProfile: resolveBenchSurfaceDefaults(WHITEBOARD_OBJECT_TARGET).layoutProfile,
+        },
+      }),
+    ).toEqual({
+      action: "ignore",
+      policyID: "already-open",
+    })
+  })
+
+  test("whiteboard auto-open immerses a different whiteboard object", () => {
+    const currentTarget = {
+      type: "object",
+      ref: {
+        kind: "whiteboard",
+        objectID: "whiteboard-2",
+        revisionID: null,
+        itemID: null,
+      },
+      viewID: "current",
+    } satisfies BenchTarget
+    expect(
+      resolveOpenPolicy({
+        request: {
+          directory: DIRECTORY,
+          target: WHITEBOARD_OBJECT_TARGET,
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: {
+            policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+            eventKey: "message-1:part-1",
+          },
+        },
+        current: {
+          status: "open",
+          directory: DIRECTORY,
+          target: currentTarget,
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+          layoutProfile: resolveBenchSurfaceDefaults(currentTarget).layoutProfile,
+        },
+      }),
+    ).toMatchObject({
+      action: "open",
+      target: WHITEBOARD_OBJECT_TARGET,
+      mode: BENCH_CHAT_LAYOUT_FLOATING,
+      policyID: "auto-open-surface-mode",
     })
   })
 

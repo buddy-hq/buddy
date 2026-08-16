@@ -11,6 +11,7 @@ import {
   BENCH_MODE_REQUEST_POLICY,
   benchSurfaceKey,
   isSameBenchTarget,
+  type BenchAutoOpenPolicyID,
   type BenchLayoutProfileID,
   type BenchMode,
   type BenchOpenRequest,
@@ -48,6 +49,7 @@ type BenchResolvedOpenPolicyID =
   | "target-default-mode"
   | "docked-fallback"
   | "preserved-current-mode"
+  | "auto-open-surface-mode"
 
 type BenchOpenDecision =
   | {
@@ -110,6 +112,14 @@ const BENCH_SURFACE_DEFAULTS = {
   },
 } satisfies Record<BenchSurfaceKey, Pick<BenchSurfaceDefaults, "mode">>
 
+// An auto-open policy may claim the surface's default mode when it brings a new target forward.
+// Whiteboards are authored to open immersive; the transient opening preview shows them that way, so
+// the committed route must agree or the layout snaps when the preview tears down.
+const BENCH_AUTO_OPEN_MODE_AUTHORITY = {
+  [BENCH_AUTO_OPEN_POLICY_WHITEBOARD]: true,
+  [BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET]: false,
+} satisfies Record<BenchAutoOpenPolicyID, boolean>
+
 function resolveWorkspaceFileLayoutProfile(
   target: Extract<BenchTarget, { type: "workspace-file" }>,
 ) {
@@ -165,6 +175,19 @@ function resolveBenchSurfaceDefaults(target: BenchTabTarget): BenchSurfaceDefaul
   }
 }
 
+function autoOpenOverridesLiveMode(input: {
+  request: BenchOpenRequest
+  current: Extract<BenchOpenPolicyState, { status: "open" }>
+}): boolean {
+  const autoOpen = input.request.autoOpen
+  if (!autoOpen || !BENCH_AUTO_OPEN_MODE_AUTHORITY[autoOpen.policyID]) return false
+  // Re-presenting the live target must never restyle the learner's layout mid-edit.
+  return (
+    input.current.directory !== input.request.directory ||
+    !isSameBenchTarget(input.current.target, input.request.target)
+  )
+}
+
 function resolveBenchOpenMode(input: {
   request: BenchOpenRequest
   current: BenchOpenPolicyState
@@ -181,6 +204,13 @@ function resolveBenchOpenMode(input: {
   }
 
   if (input.current.status === "open") {
+    if (autoOpenOverridesLiveMode({ request: input.request, current: input.current })) {
+      return {
+        mode: input.defaults.mode,
+        policyID: "auto-open-surface-mode",
+      }
+    }
+
     return {
       mode: input.current.mode,
       policyID: "preserved-current-mode",
