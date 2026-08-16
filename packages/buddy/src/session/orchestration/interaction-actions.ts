@@ -251,14 +251,16 @@ async function resolveSvgAutoRepairOriginFromOpenCode(input: {
       if (part?.type !== "text" || !containsStandaloneReportedSvgFence(part.text, input.rawFence)) {
         return undefined
       }
-      return {
-        agent: message.info.agent,
-        model: {
-          providerID: message.info.providerID,
-          modelID: message.info.modelID,
+      return Object.assign(
+        {
+          agent: message.info.agent,
+          model: {
+            providerID: message.info.providerID,
+            modelID: message.info.modelID,
+          },
         },
-        ...(message.info.variant ? { variant: message.info.variant } : {}),
-      }
+        message.info.variant ? { variant: message.info.variant } : undefined,
+      )
     },
   })
 }
@@ -661,14 +663,16 @@ async function resolveMermaidRepairPromptRuntimeFromOpenCode(input: {
       })
       const v2Message = v2Messages.find((entry) => entry.id === origin.messageID)
       if (v2Message?.type === "assistant") {
-        return {
-          agent: v2Message.agent,
-          model: {
-            providerID: v2Message.model.providerID,
-            modelID: v2Message.model.id,
+        return Object.assign(
+          {
+            agent: v2Message.agent,
+            model: {
+              providerID: v2Message.model.providerID,
+              modelID: v2Message.model.id,
+            },
           },
-          ...(v2Message.model.variant ? { variant: v2Message.model.variant } : {}),
-        }
+          v2Message.model.variant ? { variant: v2Message.model.variant } : undefined,
+        )
       }
 
       const priorMessages = await OpenCodeSession.messages({
@@ -677,14 +681,16 @@ async function resolveMermaidRepairPromptRuntimeFromOpenCode(input: {
       const priorMessage = priorMessages.find((entry) => entry.info.id === origin.messageID)
       if (!priorMessage || priorMessage.info.role !== "assistant") return undefined
 
-      return {
-        agent: priorMessage.info.agent,
-        model: {
-          providerID: priorMessage.info.providerID,
-          modelID: priorMessage.info.modelID,
+      return Object.assign(
+        {
+          agent: priorMessage.info.agent,
+          model: {
+            providerID: priorMessage.info.providerID,
+            modelID: priorMessage.info.modelID,
+          },
         },
-        ...(priorMessage.info.variant ? { variant: priorMessage.info.variant } : {}),
-      }
+        priorMessage.info.variant ? { variant: priorMessage.info.variant } : undefined,
+      )
     },
   })
 }
@@ -949,25 +955,35 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
         directory: syncResult.value.directory,
         sessionID,
         request: c.req.raw,
-        body: {
-          messageID: request.repairRequestID,
-          ...(repairRuntime
-            ? {
-                agent: repairRuntime.agent,
-                model: repairRuntime.model,
-                ...(repairRuntime.variant ? { variant: repairRuntime.variant } : {}),
-              }
-            : {}),
-          content: mermaidAutoRepairPrompt({
-            repairRequestID: request.repairRequestID,
-            objectID: object.objectID,
-            failedRenderKey,
-            errorMessage: failedRender.errorMessage,
-            alt: object.alt,
-            ...(object.caption ? { caption: object.caption } : {}),
-            source: object.source,
-          }),
-        },
+        body: Object.assign(
+          {
+            messageID: request.repairRequestID,
+          },
+          repairRuntime
+            ? Object.assign(
+                {
+                  agent: repairRuntime.agent,
+                  model: repairRuntime.model,
+                },
+                repairRuntime.variant ? { variant: repairRuntime.variant } : undefined,
+              )
+            : undefined,
+          {
+            content: mermaidAutoRepairPrompt(
+              Object.assign(
+                {
+                  repairRequestID: request.repairRequestID,
+                  objectID: object.objectID,
+                  failedRenderKey,
+                  errorMessage: failedRender.errorMessage,
+                  alt: object.alt,
+                  source: object.source,
+                },
+                object.caption ? { caption: object.caption } : undefined,
+              ),
+            ),
+          },
+        ),
       })
     } catch (error) {
       return exhaustMermaidRepairAttempt({
@@ -1118,18 +1134,22 @@ export async function postSessionSvgRepairAsync(c: Context): Promise<Response> {
         directory,
         sessionID,
         request: c.req.raw,
-        body: {
-          messageID: created.request.repairRequestID,
-          agent: origin.agent,
-          model: origin.model,
-          ...(origin.variant ? { variant: origin.variant } : {}),
-          content: svgAutoRepairPrompt({
-            repairRequestID: created.request.repairRequestID,
-            format,
-            source,
-            temporaryFilePath,
-          }),
-        },
+        body: Object.assign(
+          {
+            messageID: created.request.repairRequestID,
+            agent: origin.agent,
+            model: origin.model,
+          },
+          origin.variant ? { variant: origin.variant } : undefined,
+          {
+            content: svgAutoRepairPrompt({
+              repairRequestID: created.request.repairRequestID,
+              format,
+              source,
+              temporaryFilePath,
+            }),
+          },
+        ),
       })
     } catch (error) {
       cancelTurnSettlement()
@@ -1220,16 +1240,20 @@ export async function getSessionMermaidRepairStatus(c: Context): Promise<Respons
           })
         : request
 
-    return Response.json({
-      repairRequestID: currentRequest.repairRequestID,
-      status: currentRequest.status,
-      ...(currentRequest.replacementRevisionID
-        ? { replacementRevisionID: currentRequest.replacementRevisionID }
-        : {}),
-      ...(currentRequest.lastErrorMessage
-        ? { lastErrorMessage: currentRequest.lastErrorMessage }
-        : {}),
-    })
+    return Response.json(
+      Object.assign(
+        {
+          repairRequestID: currentRequest.repairRequestID,
+          status: currentRequest.status,
+        },
+        currentRequest.replacementRevisionID
+          ? { replacementRevisionID: currentRequest.replacementRevisionID }
+          : undefined,
+        currentRequest.lastErrorMessage
+          ? { lastErrorMessage: currentRequest.lastErrorMessage }
+          : undefined,
+      ),
+    )
   } catch (error) {
     const mermaidResponse = mapBuddyObjectRouteError(error) ?? mapMermaidObjectRouteError(error)
     if (mermaidResponse) return mermaidResponse

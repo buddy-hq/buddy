@@ -389,12 +389,16 @@ export async function revertSessionById(c: Context): Promise<Response> {
   const client = await getOpenCodeClient(syncResult.value.directory)
   const rawBody = readValidatedJsonBody(c)
   const body = isRecord(rawBody) ? rawBody : {}
-  const result = await client.session.revert({
-    sessionID,
-    directory: syncResult.value.directory,
-    ...(typeof body.messageID === "string" ? { messageID: body.messageID } : {}),
-    ...(typeof body.partID === "string" ? { partID: body.partID } : {}),
-  })
+  const result = await client.session.revert(
+    Object.assign(
+      {
+        sessionID,
+        directory: syncResult.value.directory,
+      },
+      typeof body.messageID === "string" ? { messageID: body.messageID } : undefined,
+      typeof body.partID === "string" ? { partID: body.partID } : undefined,
+    ),
+  )
 
   if (result.error) {
     return sdkErrorResponse(result, { forceBusyAs409: true })
@@ -416,11 +420,15 @@ export async function forkSessionById(c: Context): Promise<Response> {
   const client = await getOpenCodeClient(syncResult.value.directory)
   const rawBody = readValidatedJsonBody(c)
   const body = isRecord(rawBody) ? rawBody : {}
-  const result = await client.session.fork({
-    sessionID,
-    directory: syncResult.value.directory,
-    ...(typeof body.messageID === "string" ? { messageID: body.messageID } : {}),
-  })
+  const result = await client.session.fork(
+    Object.assign(
+      {
+        sessionID,
+        directory: syncResult.value.directory,
+      },
+      typeof body.messageID === "string" ? { messageID: body.messageID } : undefined,
+    ),
+  )
 
   if (result.error) {
     return sdkErrorResponse(result, { forceBusyAs409: true })
