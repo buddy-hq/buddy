@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { z } from "zod"
 import { createPlatformJsonStorage } from "../context/platform"
 
 export const CHAT_SETTINGS_STORAGE_KEY = "buddy.chat-settings.v1"
@@ -20,14 +21,12 @@ type ChatSettingsStore = {
   setEditToolDefaultOpen: (value: boolean) => void
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function normalizeFollowupBehavior(value: unknown): FollowupBehavior {
-  if (value === FOLLOWUP_BEHAVIOR_QUEUE) return FOLLOWUP_BEHAVIOR_QUEUE
-  return FOLLOWUP_BEHAVIOR_STEER
-}
+const persistedChatSettingsSchema = z.object({
+  followupBehavior: z.enum([FOLLOWUP_BEHAVIOR_STEER, FOLLOWUP_BEHAVIOR_QUEUE]).optional(),
+  showReasoningSummaries: z.boolean().optional(),
+  shellToolDefaultOpen: z.boolean().optional(),
+  editToolDefaultOpen: z.boolean().optional(),
+})
 
 export const useChatSettings = create<ChatSettingsStore>()(
   persist(
@@ -45,23 +44,17 @@ export const useChatSettings = create<ChatSettingsStore>()(
       name: CHAT_SETTINGS_STORAGE_KEY,
       storage: createPlatformJsonStorage("buddy.chat-settings.dat"),
       merge(persistedState, currentState) {
-        if (!isRecord(persistedState)) return currentState
+        const persisted = persistedChatSettingsSchema.safeParse(persistedState)
+        if (!persisted.success) return currentState
 
         return {
           ...currentState,
-          followupBehavior: normalizeFollowupBehavior(persistedState.followupBehavior),
+          followupBehavior: persisted.data.followupBehavior ?? currentState.followupBehavior,
           showReasoningSummaries:
-            typeof persistedState.showReasoningSummaries === "boolean"
-              ? persistedState.showReasoningSummaries
-              : currentState.showReasoningSummaries,
+            persisted.data.showReasoningSummaries ?? currentState.showReasoningSummaries,
           shellToolDefaultOpen:
-            typeof persistedState.shellToolDefaultOpen === "boolean"
-              ? persistedState.shellToolDefaultOpen
-              : currentState.shellToolDefaultOpen,
-          editToolDefaultOpen:
-            typeof persistedState.editToolDefaultOpen === "boolean"
-              ? persistedState.editToolDefaultOpen
-              : currentState.editToolDefaultOpen,
+            persisted.data.shellToolDefaultOpen ?? currentState.shellToolDefaultOpen,
+          editToolDefaultOpen: persisted.data.editToolDefaultOpen ?? currentState.editToolDefaultOpen,
         }
       },
       partialize(state) {

@@ -12,6 +12,7 @@ import type {
   SessionStatusInfo,
   SessionInfo,
 } from "./chat-types"
+import { isRecord, parseString } from "./chat-types"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
 import { canonicalProjectDirectory } from "@/lib/project-directory"
 import {
@@ -145,53 +146,50 @@ function activeReadingResourceStatesEqual(
   )
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-function readStringRecord(value: unknown): Record<string, string> | undefined {
+function readStringRecord<TValue>(value: TValue): Record<string, string> | undefined {
   if (!isRecord(value)) {
     return undefined
   }
 
   const result: Record<string, string> = {}
   for (const [key, entry] of Object.entries(value)) {
-    if (typeof entry === "string") {
-      result[key] = entry
+    const parsed = parseString(entry)
+    if (parsed !== undefined) {
+      result[key] = parsed
     }
   }
   return result
 }
 
-function isLastOpenedReadingResource(value: unknown): value is LastOpenedReadingResource {
-  if (!isRecord(value)) return false
-  return (
-    typeof value.name === "string" &&
-    typeof value.path === "string" &&
-    (value.objectID === undefined || typeof value.objectID === "string")
-  )
+function readLastOpenedReadingResource<TValue>(value: TValue): LastOpenedReadingResource | undefined {
+  if (!isRecord(value)) return undefined
+  const name = parseString(value.name)
+  const path = parseString(value.path)
+  if (name === undefined || path === undefined) return undefined
+  const objectID = parseString(value.objectID)
+  if (value.objectID !== undefined && objectID === undefined) return undefined
+  return Object.assign({ name, path }, objectID ? { objectID } : undefined)
 }
 
-function readLastOpenedReadingResourceRecord(
-  value: unknown,
+function readLastOpenedReadingResourceRecord<TValue>(
+  value: TValue,
 ): Record<string, LastOpenedReadingResource> | undefined {
   if (!isRecord(value)) return undefined
   const result: Record<string, LastOpenedReadingResource> = {}
   for (const [key, entry] of Object.entries(value)) {
-    if (isLastOpenedReadingResource(entry)) {
-      result[key] = entry
-    }
+    const parsed = readLastOpenedReadingResource(entry)
+    if (parsed) result[key] = parsed
   }
   return result
 }
 
-function readPersistedChatStoreState(value: unknown): PersistedChatStoreState {
+function readPersistedChatStoreState<TValue>(value: TValue): PersistedChatStoreState {
   if (!isRecord(value)) {
     return {}
   }
 
   return {
-    activeDirectory: typeof value.activeDirectory === "string" ? value.activeDirectory : undefined,
+    activeDirectory: parseString(value.activeDirectory),
     lastSessionByDirectory: readStringRecord(value.lastSessionByDirectory),
     activeReadingResourceByDirectory: readActiveReadingResourceRecord(
       value.activeReadingResourceByDirectory,
@@ -203,7 +201,7 @@ function readPersistedChatStoreState(value: unknown): PersistedChatStoreState {
 }
 
 function isNonEmptyString(value: string | undefined): value is string {
-  return typeof value === "string" && value.length > 0
+  return value !== undefined && value.length > 0
 }
 
 function emptyDirectoryState(): DirectoryChatState {

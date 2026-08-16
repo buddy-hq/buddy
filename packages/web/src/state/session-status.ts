@@ -1,4 +1,6 @@
-import type { MessageWithParts, SessionInfo, SessionStatusInfo } from "./chat-types"
+import { z } from "zod"
+import type { MessageWithParts, SessionInfo, SessionStatusInfo, TRecord } from "./chat-types"
+import { isRecord, parseString } from "./chat-types"
 import { inferBusyFromMessages } from "./chat-reducer"
 import { normalizeUpstreamProviderErrorMessage } from "../lib/upstream-provider-error"
 
@@ -9,7 +11,7 @@ const DEFAULT_RETRY_ATTEMPT = 1
 const DEFAULT_RETRY_MESSAGE = "Retrying request"
 
 type RetryStatus = Extract<SessionStatusInfo, { type: "retry" }>
-type RetryAction = NonNullable<RetryStatus["action"]>
+export type TRetryAction = NonNullable<RetryStatus["action"]>
 
 export const IDLE_SESSION_STATUS: SessionStatusInfo = {
   type: SESSION_STATUS_IDLE,
@@ -19,77 +21,59 @@ export const BUSY_SESSION_STATUS: SessionStatusInfo = {
   type: SESSION_STATUS_BUSY,
 }
 
-function asFiniteNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+const retryActionSchema = z.object({
+  reason: z.string().trim().min(1),
+  provider: z.string().trim().min(1),
+  title: z.string().trim().min(1),
+  message: z.string().trim().min(1),
+  label: z.string().trim().min(1),
+  link: z.string().trim().min(1).optional(),
+}) satisfies z.ZodType<TRetryAction>
+
+const retryStatusFieldsSchema = z.object({
+  type: z.literal(SESSION_STATUS_RETRY),
+  attempt: z.number().finite().optional(),
+  message: z.string().optional(),
+  next: z.number().finite().optional(),
+  action: z.unknown().optional(),
+})
+
+function parseRetryAction<TValue>(value: TValue): TRetryAction | undefined {
+  const result = retryActionSchema.safeParse(value)
+  return result.success ? result.data : undefined
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function parseRetryMessage<TValue>(value: TValue, fallback: string) {
+  const parsed = parseString(value)?.trim()
+  if (!parsed || parsed.length === 0) return fallback
+  return normalizeUpstreamProviderErrorMessage(parsed)
 }
 
-function asString(value: unknown, fallback: string) {
-  if (typeof value !== "string") {
-    return fallback
-  }
-
-  const trimmed = value.trim()
-  if (trimmed.length === 0) {
-    return fallback
-  }
-
-  return normalizeUpstreamProviderErrorMessage(trimmed)
-}
-
-function asNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
-function normalizeRetryAction(value: unknown): RetryAction | undefined {
-  if (!isRecord(value)) return undefined
-
-  const reason = asNonEmptyString(value.reason)
-  const provider = asNonEmptyString(value.provider)
-  const title = asNonEmptyString(value.title)
-  const message = asNonEmptyString(value.message)
-  const label = asNonEmptyString(value.label)
-  if (!reason || !provider || !title || !message || !label) return undefined
-
-  const link = asNonEmptyString(value.link)
-  return Object.assign(
-    {
-      reason,
-      provider,
-      title,
-      message,
-      label,
-    },
-    link ? { link } : undefined,
-  )
-}
-
-export function normalizeSessionStatusValue(value: unknown): SessionStatusInfo {
+export function normalizeSessionStatusValue<TValue>(value: TValue): SessionStatusInfo {
   if (value === SESSION_STATUS_BUSY) return BUSY_SESSION_STATUS
   if (value === SESSION_STATUS_IDLE) return IDLE_SESSION_STATUS
+
+  const retryFields = retryStatusFieldsSchema.safeParse(value)
+  if (retryFields.success) {
+    const action = parseRetryAction(retryFields.data.action)
+    return Object.assign(
+      {
+        type: SESSION_STATUS_RETRY,
+        attempt: retryFields.data.attempt ?? DEFAULT_RETRY_ATTEMPT,
+        message: parseRetryMessage(retryFields.data.message, DEFAULT_RETRY_MESSAGE),
+        next: retryFields.data.next ?? Date.now(),
+      } as const,
+      action ? { action } : undefined,
+    )
+  }
 
   if (!isRecord(value)) {
     return IDLE_SESSION_STATUS
   }
 
-  if (value.type === SESSION_STATUS_BUSY) return BUSY_SESSION_STATUS
-  if (value.type !== SESSION_STATUS_RETRY) return IDLE_SESSION_STATUS
-
-  const action = normalizeRetryAction(value.action)
-  return Object.assign(
-    {
-      type: SESSION_STATUS_RETRY,
-      attempt: asFiniteNumber(value.attempt) ?? DEFAULT_RETRY_ATTEMPT,
-      message: asString(value.message, DEFAULT_RETRY_MESSAGE),
-      next: asFiniteNumber(value.next) ?? Date.now(),
-    } as const,
-    action ? { action } : undefined,
-  )
+  const record: TRecord = value
+  if (record.type === SESSION_STATUS_BUSY) return BUSY_SESSION_STATUS
+  return IDLE_SESSION_STATUS
 }
 
 export function isSessionStatusActive(status: SessionStatusInfo | undefined) {
@@ -106,7 +90,7 @@ export function isSessionWorking(input: {
   messages?: readonly MessageWithParts[]
 }) {
   if (isSessionStatusActive(input.status)) return true
-  if (typeof input.info?.time.compacting === "number") return true
+  if (Number.isFinite(input.info?.time.compacting)) return true
   return hasPendingAssistantMessages(input.messages)
 }
 
@@ -147,7 +131,7 @@ export function sessionStatusEquals(left: SessionStatusInfo, right: SessionStatu
   )
 }
 
-function retryActionEquals(left: RetryAction | undefined, right: RetryAction | undefined) {
+function retryActionEquals(left: TRetryAction | undefined, right: TRetryAction | undefined) {
   if (left === right) return true
   if (!left || !right) return false
   return (

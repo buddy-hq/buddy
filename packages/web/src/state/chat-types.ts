@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type {
   McpStatus as SdkMcpStatus,
   Message as SdkMessage,
@@ -9,7 +10,15 @@ import type {
   ProviderOpenaiModelAvailabilityGetResponses,
   Session as SdkSession,
   SessionStatus as SdkSessionStatus,
+  TextPart as SdkTextPart,
 } from "@buddy/sdk"
+import {
+  parseBooleanValue,
+  parseFiniteNumber as parseFiniteNumberValue,
+  parseFilteredStringArray,
+  parseStringValue,
+  parseWithSchema,
+} from "./parse-external"
 
 export type SessionInfo = Pick<SdkSession, "id" | "title" | "parentID" | "time" | "revert">
 
@@ -27,11 +36,20 @@ type MessageModel = {
 
 type SdkAssistantError = NonNullable<Extract<SdkMessage, { role: "assistant" }>["error"]>
 
+export type TRecord = NonNullable<SdkTextPart["metadata"]>
+
+export type TMessageErrorData = {
+  message?: string
+  providerID?: string
+  statusCode?: number
+  isRetryable?: boolean
+  responseBody?: string
+}
+
 export type MessageError = {
   name: SdkAssistantError["name"] | string
   message?: string
-  data?: unknown
-  [key: string]: unknown
+  data?: TMessageErrorData
 }
 
 export type UserMessageInfo = Omit<
@@ -58,8 +76,7 @@ type MessagePartID = Pick<SdkPart, "id" | "sessionID" | "messageID">
 // Keep dynamic field access and partial payloads available during incremental event handling.
 export type MessagePart = MessagePartID & {
   type: SdkPart["type"] | (string & {})
-  [key: string]: unknown
-}
+} & TRecord
 
 export type MessageWithParts = {
   info: MessageInfo
@@ -68,12 +85,12 @@ export type MessageWithParts = {
 
 export type GlobalBusPayload = {
   type: string
-  properties: Record<string, unknown>
+  properties: TRecord
 }
 
 export type GlobalSyncPayload = {
   type: "sync"
-  syncEvent: Record<string, unknown>
+  syncEvent: TRecord
 }
 
 export type GlobalEvent = {
@@ -158,4 +175,62 @@ export type DirectoryChatState = {
   isBusy: boolean
   isReady: boolean
   error?: string
+}
+
+export type TFailure = Error | string | TRecord
+
+export const messageErrorDataSchema = z.object({
+  message: z.string().optional(),
+  providerID: z.string().optional(),
+  statusCode: z.number().finite().optional(),
+  isRetryable: z.boolean().optional(),
+  responseBody: z.string().optional(),
+})
+
+export function isRecord<TValue>(value: TValue): value is TValue & TRecord {
+  return value instanceof Object && !Array.isArray(value)
+}
+
+export function parseString<TValue>(value: TValue): string | undefined {
+  return parseStringValue(value)
+}
+
+export function parseFiniteNumber<TValue>(value: TValue): number | undefined {
+  return parseFiniteNumberValue(value)
+}
+
+export function parseBoolean<TValue>(value: TValue): boolean | undefined {
+  return parseBooleanValue(value)
+}
+
+export function parseNonEmptyString<TValue>(value: TValue): string | undefined {
+  const parsed = parseStringValue(value)?.trim()
+  return parsed && parsed.length > 0 ? parsed : undefined
+}
+
+export function parseStringArray<TValue>(value: TValue): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const parsed: string[] = []
+  for (const entry of value) {
+    const item = parseStringValue(entry)
+    if (item === undefined) return undefined
+    parsed.push(item)
+  }
+  return parsed
+}
+
+export function filterStringArray<TValue>(value: TValue): string[] {
+  return parseFilteredStringArray(value) ?? []
+}
+
+export function parseFailure<TValue>(value: TValue): TFailure {
+  if (value instanceof Error) return value
+  const asString = parseStringValue(value)
+  if (asString !== undefined) return asString
+  if (isRecord(value)) return value
+  return String(value)
+}
+
+export function parseMessageErrorData<TValue>(value: TValue): TMessageErrorData | undefined {
+  return parseWithSchema(messageErrorDataSchema, value)
 }

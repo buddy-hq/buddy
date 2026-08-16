@@ -1,4 +1,6 @@
-import type { GlobalEvent } from "./chat-types"
+import type { GlobalEvent, TFailure, TRecord } from "./chat-types"
+import { isRecord, parseFailure, parseString } from "./chat-types"
+import { browserDocument } from "./parse-external"
 import { unstable_batchedUpdates } from "react-dom"
 import { getBuddyClient } from "../lib/buddy-client"
 import type { EventStreamData } from "@buddy/sdk/types"
@@ -12,7 +14,7 @@ type SyncHandlers = {
   eventQuery?: () => Partial<NonNullable<EventStreamData["query"]>>
   onOpen?: () => void
   onEvent: (event: GlobalEvent) => void
-  onError?: (error: unknown) => void
+  onError?: (error: TFailure) => void
   onStatus?: (status: "connecting" | "connected" | "error") => void
   onBufferActivity?: (activity: ChatSyncBufferActivity) => void
 }
@@ -50,8 +52,6 @@ type ChatSyncSessionFence = {
 }
 
 const chatSyncSessionFencesByDirectory = new Map<string, Set<ChatSyncSessionFence>>()
-
-type UnknownRecord = Record<string, unknown>
 
 const wait = (ms: number) => new Promise<void>((resolve) => globalThis.setTimeout(resolve, ms))
 
@@ -163,25 +163,20 @@ export function consumeSseBuffer(buffer: string) {
   }
 }
 
-function isRecord(value: unknown): value is UnknownRecord {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+function isGlobalBusPayload<TValue>(value: TValue): value is TValue & GlobalEvent["payload"] {
+  return isRecord(value) && parseString(value.type) !== undefined && isRecord(value.properties)
 }
 
-function isGlobalBusPayload(value: unknown): value is GlobalEvent["payload"] {
-  return isRecord(value) && typeof value.type === "string" && isRecord(value.properties)
-}
-
-function isGlobalSyncPayload(value: unknown): value is GlobalEvent["payload"] {
+function isGlobalSyncPayload<TValue>(value: TValue): value is TValue & GlobalEvent["payload"] {
   return isRecord(value) && value.type === "sync" && isRecord(value.syncEvent)
 }
 
-function isGlobalEventPayload(value: unknown): value is GlobalEvent["payload"] {
+function isGlobalEventPayload<TValue>(value: TValue): value is TValue & GlobalEvent["payload"] {
   return isGlobalBusPayload(value) || isGlobalSyncPayload(value)
 }
 
-function readOptionalString(record: UnknownRecord, key: string) {
-  const value = record[key]
-  return typeof value === "string" ? value : undefined
+function readOptionalString(record: TRecord, key: string) {
+  return parseString(record[key])
 }
 
 function fencedSessionID(event: GlobalEvent) {
@@ -211,8 +206,8 @@ function fencedSessionID(event: GlobalEvent) {
   return undefined
 }
 
-function normalizeGlobalEvent(
-  value: unknown,
+function normalizeGlobalEvent<TValue>(
+  value: TValue,
   fallbackDirectory: string | undefined,
 ): GlobalEvent | undefined {
   if (!isRecord(value)) return undefined
@@ -240,7 +235,7 @@ function normalizeGlobalEvent(
   return undefined
 }
 
-function eventErrorInfo(error: unknown) {
+function eventErrorInfo<TValue>(error: TValue) {
   if (error instanceof Error) {
     return {
       name: error.name,
@@ -252,9 +247,8 @@ function eventErrorInfo(error: unknown) {
   }
 }
 
-function isAbortError(error: unknown) {
-  if (!error || typeof error !== "object") return false
-  if (!("name" in error)) return false
+function isAbortError<TValue>(error: TValue) {
+  if (!isRecord(error)) return false
   return error.name === "AbortError"
 }
 
@@ -403,7 +397,7 @@ export function startChatSync(handlers: SyncHandlers) {
     scheduleFlush()
   }
 
-  const logStreamError = (error: unknown) => {
+  const logStreamError = <TValue>(error: TValue) => {
     if (streamErrorLogged) return
     streamErrorLogged = true
     console.warn("[chat-sync] error", {
@@ -422,10 +416,10 @@ export function startChatSync(handlers: SyncHandlers) {
 
         const currentAbort = new AbortController()
         streamAbort = currentAbort
-        let streamError: unknown
+        let streamError: TFailure | undefined
         let reportedFailure = false
 
-        const reportFailure = (error: unknown) => {
+        const reportFailure = (error: TFailure) => {
           if (reportedFailure) return
           reportedFailure = true
           handlers.onError?.(error)
@@ -447,9 +441,9 @@ export function startChatSync(handlers: SyncHandlers) {
               },
               signal: currentAbort.signal,
               sseMaxRetryAttempts: 0,
-              onSseError(error: unknown) {
+              onSseError(error) {
                 if (currentAbort.signal.aborted || isAbortError(error)) return
-                streamError = error
+                streamError = parseFailure(error)
                 logStreamError(error)
               },
             },
@@ -483,7 +477,7 @@ export function startChatSync(handlers: SyncHandlers) {
         } catch (error) {
           if (!currentAbort.signal.aborted && !isAbortError(error)) {
             logStreamError(error)
-            reportFailure(error)
+            reportFailure(parseFailure(error))
           }
         } finally {
           if (streamAbort === currentAbort) {
@@ -511,14 +505,16 @@ export function startChatSync(handlers: SyncHandlers) {
   }
 
   const onVisibilityChange = () => {
-    if (typeof document === "undefined") return
-    if (document.visibilityState !== DOCUMENT_VISIBILITY_VISIBLE) return
+    const documentNode = browserDocument()
+    if (!documentNode) return
+    if (documentNode.visibilityState !== DOCUMENT_VISIBILITY_VISIBLE) return
     if (Date.now() - lastEventAt < HEARTBEAT_TIMEOUT_MS) return
     streamAbort?.abort()
   }
 
-  if (typeof document !== "undefined") {
-    document.addEventListener("visibilitychange", onVisibilityChange)
+  const documentNode = browserDocument()
+  if (documentNode) {
+    documentNode.addEventListener("visibilitychange", onVisibilityChange)
   }
 
   void start()
@@ -527,8 +523,9 @@ export function startChatSync(handlers: SyncHandlers) {
     stop() {
       disposed = true
       unregisterSessionFence()
-      if (typeof document !== "undefined") {
-        document.removeEventListener("visibilitychange", onVisibilityChange)
+      const currentDocument = browserDocument()
+      if (currentDocument) {
+        currentDocument.removeEventListener("visibilitychange", onVisibilityChange)
       }
       clearHeartbeat()
       closeStream()

@@ -1,4 +1,5 @@
-import type { MessageInfo, MessagePart, MessageWithParts } from "./chat-types"
+import type { MessageInfo, MessagePart, MessageWithParts, TRecord } from "./chat-types"
+import { isRecord, parseString, parseStringArray } from "./chat-types"
 import { readerTextAnchorEquals } from "@buddy/reader-contract"
 import {
   OPENCODE_REFERENCE_PART_TYPE,
@@ -34,61 +35,42 @@ export function inferBusyFromMessages(messages: MessageWithParts[]) {
   return !lastAssistant.info.finish
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+function readString(record: TRecord, key: string) {
+  return parseString(record[key])
 }
 
-function readString(record: Record<string, unknown>, key: string) {
-  const value = record[key]
-  return typeof value === "string" ? value : undefined
+function readStringArray(record: TRecord, key: string) {
+  return parseStringArray(record[key])
 }
 
-function readStringArray(record: Record<string, unknown>, key: string) {
-  const value = record[key]
-  if (!Array.isArray(value)) return undefined
-  return value.every((entry) => typeof entry === "string") ? value : undefined
-}
-
-function readBuddyPromptPartMetadata(part: MessagePart): Record<string, unknown> | undefined {
+function readBuddyPromptPartMetadata(part: MessagePart): TRecord | undefined {
   if (part.type !== "text" || !isRecord(part.metadata)) return undefined
   const metadata = part.metadata.buddyPromptPart
   return isRecord(metadata) ? metadata : undefined
 }
 
-function optionalStringFieldMatches(
-  existing: MessagePart,
-  metadata: Record<string, unknown>,
-  key: string,
-) {
+function optionalStringFieldMatches(existing: MessagePart, metadata: TRecord, key: string) {
   const metadataValue = readString(metadata, key)
   return metadataValue === undefined || existing[key] === metadataValue
 }
 
-function optionalStringArrayFieldMatches(
-  existing: MessagePart,
-  metadata: Record<string, unknown>,
-  key: string,
-) {
+function optionalStringArrayFieldMatches(existing: MessagePart, metadata: TRecord, key: string) {
   const metadataValue = readStringArray(metadata, key)
   if (metadataValue === undefined) return true
   const existingValue = existing[key]
+  const existingArray = parseStringArray(existingValue)
   return (
-    Array.isArray(existingValue) &&
-    existingValue.length === metadataValue.length &&
-    existingValue.every(
-      (entry, index) => typeof entry === "string" && entry === metadataValue[index],
-    )
+    existingArray !== undefined &&
+    existingArray.length === metadataValue.length &&
+    existingArray.every((entry, index) => entry === metadataValue[index])
   )
 }
 
-function hasReaderTextAnchorInput(value: Record<string, unknown>): boolean {
+function hasReaderTextAnchorInput(value: TRecord): boolean {
   return value.anchor !== undefined || value.cfi !== undefined
 }
 
-function optionalReaderTextAnchorMatches(
-  existing: MessagePart,
-  metadata: Record<string, unknown>,
-): boolean {
+function optionalReaderTextAnchorMatches(existing: MessagePart, metadata: TRecord): boolean {
   if (!hasReaderTextAnchorInput(metadata)) return true
   const existingAnchor = readPromptReaderTextAnchor(existing)
   const metadataAnchor = readPromptReaderTextAnchor(metadata)
@@ -104,7 +86,7 @@ function readerTextAnchorsMatch(left: MessagePart, right: MessagePart): boolean 
   return readerTextAnchorEquals(leftAnchor, rightAnchor)
 }
 
-function promptSelectionMetadataMatches(existing: MessagePart, metadata: Record<string, unknown>) {
+function promptSelectionMetadataMatches(existing: MessagePart, metadata: TRecord) {
   if (metadata.type !== existing.type) return false
   if (metadata.type !== "reading-selection" && metadata.type !== SELECTION_CONTEXT_PART_TYPE) {
     return false
@@ -128,10 +110,7 @@ function promptSelectionMetadataMatches(existing: MessagePart, metadata: Record<
   )
 }
 
-function promptNativeResourceMetadataMatches(
-  existing: MessagePart,
-  metadata: Record<string, unknown>,
-) {
+function promptNativeResourceMetadataMatches(existing: MessagePart, metadata: TRecord) {
   return (
     existing.type === NATIVE_RESOURCE_ATTACHMENT_PART_TYPE &&
     metadata.type === NATIVE_RESOURCE_ATTACHMENT_PART_TYPE &&
@@ -176,7 +155,7 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
       }
       if (
         (existing.type === "reading-selection" || existing.type === SELECTION_CONTEXT_PART_TYPE) &&
-        typeof existing.text === "string"
+        parseString(existing.text) !== undefined
       ) {
         const metadata = readBuddyPromptPartMetadata(incoming)
         return metadata ? promptSelectionMetadataMatches(existing, metadata) : false
@@ -184,19 +163,19 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
       if (existing.type !== incoming.type) {
         return false
       }
-      return typeof existing.text === "string" && existing.text === incoming.text
+      return parseString(existing.text) !== undefined && existing.text === incoming.text
     case "file":
       if (
         existing.type === WORKSPACE_FILE_REFERENCE_PART_TYPE &&
-        typeof existing.path === "string" &&
-        typeof incoming.filename === "string"
+        parseString(existing.path) !== undefined &&
+        parseString(incoming.filename) !== undefined
       ) {
         return existing.path === incoming.filename
       }
       if (
         existing.type === OPENCODE_REFERENCE_PART_TYPE &&
-        typeof existing.name === "string" &&
-        typeof incoming.filename === "string"
+        parseString(existing.name) !== undefined &&
+        parseString(incoming.filename) !== undefined
       ) {
         return existing.name === incoming.filename
       }
@@ -204,9 +183,9 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
         return false
       }
       return (
-        typeof existing.mime === "string" &&
-        typeof existing.url === "string" &&
-        typeof existing.filename === "string" &&
+        parseString(existing.mime) !== undefined &&
+        parseString(existing.url) !== undefined &&
+        parseString(existing.filename) !== undefined &&
         existing.mime === incoming.mime &&
         existing.url === incoming.url &&
         existing.filename === incoming.filename
@@ -215,19 +194,19 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
       if (existing.type !== incoming.type) {
         return false
       }
-      return typeof existing.name === "string" && existing.name === incoming.name
+      return parseString(existing.name) !== undefined && existing.name === incoming.name
     case WORKSPACE_FILE_REFERENCE_PART_TYPE:
       if (existing.type !== incoming.type) {
         return false
       }
-      return typeof existing.path === "string" && existing.path === incoming.path
+      return parseString(existing.path) !== undefined && existing.path === incoming.path
     case OPENCODE_REFERENCE_PART_TYPE:
       if (existing.type !== incoming.type) {
         return false
       }
       return (
-        typeof existing.name === "string" &&
-        typeof existing.path === "string" &&
+        parseString(existing.name) !== undefined &&
+        parseString(existing.path) !== undefined &&
         existing.name === incoming.name &&
         existing.path === incoming.path
       )
@@ -235,7 +214,7 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
       if (existing.type !== incoming.type) {
         return false
       }
-      return typeof existing.key === "string" && existing.key === incoming.key
+      return parseString(existing.key) !== undefined && existing.key === incoming.key
     case "reading-selection":
     case SELECTION_CONTEXT_PART_TYPE:
       return promptSelectionPartsMatch(existing, incoming)
@@ -253,7 +232,7 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
   }
 }
 
-function shouldPreserveStreamingRawState(state: Record<string, unknown>) {
+function shouldPreserveStreamingRawState(state: TRecord) {
   const status = readString(state, "status")
   return status === TOOL_STATE_PENDING_STATUS || status === TOOL_STATE_RUNNING_STATUS
 }

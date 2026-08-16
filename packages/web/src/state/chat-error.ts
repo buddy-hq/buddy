@@ -1,10 +1,15 @@
+import { z } from "zod"
+import { isRecord, parseString } from "./chat-types"
+
 const ABORT_ERROR_NAMES = new Set(["MessageAbortedError", "AbortError", "Cancelled"])
 const ABORT_ERROR_MESSAGES = new Set(["aborted", "cancelled", "interrupted"])
 const ABORT_ERROR_MESSAGE_KEYWORDS = ["abort", "cancel", "interrupt"] as const
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
+const abortErrorRecordSchema = z.looseObject({
+  name: z.string().optional(),
+  message: z.string().optional(),
+  data: z.looseObject({ message: z.string().optional() }).optional(),
+})
 
 function messageLooksLikeAbort(value: string): boolean {
   const normalized = value.trim().toLowerCase()
@@ -12,17 +17,18 @@ function messageLooksLikeAbort(value: string): boolean {
   return ABORT_ERROR_MESSAGE_KEYWORDS.some((keyword) => normalized.includes(keyword))
 }
 
-export function isAbortLikeError(value: unknown): boolean {
-  if (typeof value === "string") {
-    return messageLooksLikeAbort(value)
+export function isAbortLikeError<TValue>(value: TValue): boolean {
+  const asString = parseString(value)
+  if (asString !== undefined) {
+    return messageLooksLikeAbort(asString)
   }
 
-  if (!isRecord(value)) return false
+  const parsed = abortErrorRecordSchema.safeParse(value)
+  if (!parsed.success) return false
 
-  const name = typeof value.name === "string" ? value.name : ""
-  const message = typeof value.message === "string" ? value.message : ""
-  const data = "data" in value && isRecord(value.data) ? value.data : undefined
-  const dataMessage = typeof data?.message === "string" ? data.message : ""
+  const name = parsed.data.name ?? ""
+  const message = parsed.data.message ?? ""
+  const dataMessage = isRecord(parsed.data.data) ? (parseString(parsed.data.data.message) ?? "") : ""
 
   return (
     ABORT_ERROR_NAMES.has(name) ||

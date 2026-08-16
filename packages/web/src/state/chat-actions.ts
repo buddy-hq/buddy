@@ -1,8 +1,4 @@
 import type {
-  CommandListResponses,
-  ConfigGetResponses,
-  ConfigGetRawResponses,
-  ConfigPersonasResponses,
   ExplorerFileEditReadResponses,
   ExplorerFileEditRenameResponses,
   ExplorerFileEditSaveResponses,
@@ -10,21 +6,8 @@ import type {
   FileContent,
   FileNode,
   FindFilesResponses,
-  GlobalConfigGetResponses,
-  GlobalNotebookHomeGetResponses,
-  GlobalNotebookHomeAccessResponses,
-  GlobalNotebookHomePutResponses,
-  GlobalNotebooksListResponses,
   LearnerMemoryListResponses,
   McpStatusResponses,
-  OpenProjectsCreateResponses,
-  OpenProjectsListResponses,
-  OpenProjectsRecoveryResponses,
-  OpenProjectsRestoreRecoveryResponses,
-  OpenProjectsStartFreshResponses,
-  PermissionListResponses,
-  ProjectListResponses,
-  SessionCommandResponses,
   SessionTeachingStateResponses,
   ProviderAuthMethod,
   ProviderAuthResponse,
@@ -45,6 +28,15 @@ import type {
   ProviderCatalogState,
   ProviderInfo,
   SessionInfo,
+  TFailure,
+  TRecord,
+} from "./chat-types"
+import {
+  filterStringArray,
+  isRecord,
+  parseBoolean,
+  parseFailure,
+  parseString,
 } from "./chat-types"
 import {
   applyTranscriptMessageRemoved,
@@ -225,7 +217,7 @@ export type TeachingSessionSnapshot = {
 export type TeachingLlmOutboundSnapshot = {
   kind: "message" | "command"
   createdAt: string
-  payload: Record<string, unknown>
+  payload: TRecord
   fullSystemPrompt?: string
 }
 
@@ -243,7 +235,7 @@ type TeachingStateSessionRuntimeResponse = {
   }
 }
 
-function readRuntimeActionMap(value: Record<string, unknown>) {
+function readRuntimeActionMap(value: TRecord) {
   const entries = Object.entries(value).flatMap(([key, action]) =>
     action === "allow" || action === "deny" ? ([[key, action]] as const) : [],
   )
@@ -271,12 +263,12 @@ function readSessionRuntimeFromResponse(
   const runtime = snapshot["sessionRuntime"]
   if (!isRecord(runtime)) return undefined
 
-  const persona = runtime["persona"]
+  const personaText = parseString(runtime["persona"])
   const teachingWorkspaceState = runtime["teachingWorkspaceState"]
   const access = runtime["access"]
   const ui = runtime["ui"]
 
-  if (typeof persona !== "string") return undefined
+  if (personaText === undefined) return undefined
   if (teachingWorkspaceState !== "inactive" && teachingWorkspaceState !== "active") {
     return undefined
   }
@@ -286,13 +278,13 @@ function readSessionRuntimeFromResponse(
   const skills = access["skills"]
   const subagents = access["subagents"]
   const visibleSurfaces = ui["visibleSurfaces"]
-  const defaultSurface = ui["defaultSurface"]
+  const defaultSurface = parseString(ui["defaultSurface"])
 
   if (!isRecord(tools) || !isRecord(skills) || !isRecord(subagents)) return undefined
-  if (!Array.isArray(visibleSurfaces) || typeof defaultSurface !== "string") return undefined
+  if (!Array.isArray(visibleSurfaces) || defaultSurface === undefined) return undefined
 
   return {
-    persona,
+    persona: personaText,
     teachingWorkspaceState,
     access: {
       tools: readRuntimeActionMap(tools),
@@ -300,9 +292,7 @@ function readSessionRuntimeFromResponse(
       subagents: readRuntimeActionMap(subagents),
     },
     ui: {
-      visibleSurfaces: visibleSurfaces.flatMap((surface) =>
-        typeof surface === "string" ? [surface] : [],
-      ),
+      visibleSurfaces: filterStringArray(visibleSurfaces),
       defaultSurface,
     },
   }
@@ -313,17 +303,13 @@ function normalizeProjectDirectory(directory: string) {
 }
 
 function isNonEmptyString(value: string | undefined): value is string {
-  return typeof value === "string" && value.length > 0
+  return value !== undefined && value.length > 0
 }
 
 function normalizeDirectoryList(directories: string[]) {
   return Array.from(
     new Set(directories.map((directory) => normalizeProjectDirectory(directory)).filter(Boolean)),
   ).filter(isNonEmptyString)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 export function resolveDefaultPersonaID(
@@ -494,18 +480,17 @@ function toLearnerPersona(persona?: string): LearnerSnapshotPersona | undefined 
   }
 }
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
+function asRecord<TValue>(value: TValue): TRecord | undefined {
   if (!isRecord(value)) return undefined
   return value
 }
 
-function asString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback
+function asString<TValue>(value: TValue, fallback = ""): string {
+  return parseString(value) ?? fallback
 }
 
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((item): item is string => typeof item === "string")
+function asStringArray<TValue>(value: TValue): string[] {
+  return filterStringArray(value)
 }
 
 function restoreSessionSelectionFromMessages(
@@ -687,7 +672,7 @@ function resolveOptimisticPromptModel(input: OptimisticPromptInput) {
   }
 }
 
-function parseAgentConfigEntry(value: unknown): AgentConfigOption | undefined {
+function parseAgentConfigEntry<TValue>(value: TValue): AgentConfigOption | undefined {
   const record = asRecord(value)
   if (!record) return undefined
 
@@ -702,17 +687,17 @@ function parseAgentConfigEntry(value: unknown): AgentConfigOption | undefined {
     name,
     description: asString(record.description) || undefined,
     mode: asString(record.mode) || undefined,
-    hidden: typeof record.hidden === "boolean" ? record.hidden : undefined,
+    hidden: parseBoolean(record.hidden),
     model: providerID && modelID ? { providerID, modelID } : undefined,
     variant: asString(record.variant) || undefined,
   }
 }
 
-function asBoolean(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback
+function asBoolean<TValue>(value: TValue, fallback = false): boolean {
+  return parseBoolean(value) ?? fallback
 }
 
-function parseWorkspaceView(workspace: unknown): LearnerCurriculumView["workspace"] {
+function parseWorkspaceView<TValue>(workspace: TValue): LearnerCurriculumView["workspace"] {
   const value = asRecord(workspace) ?? {}
 
   const preferredSurfaces = asStringArray(value.preferredSurfaces).filter(
@@ -762,20 +747,24 @@ function parseDefaultSurface(
 
 function normalizeMcpStatusMap(input: McpStatusResponses[200]): McpStatusMap {
   return Object.fromEntries(
-    Object.entries(input).map(([name, status]) => [
-      name,
-      Object.assign(
-        { status: status.status },
-        "error" in status && typeof status.error === "string" ? { error: status.error } : undefined,
-      ),
-    ]),
+    Object.entries(input).map(([name, status]) => {
+      const error = "error" in status ? parseString(status.error) : undefined
+      return [
+        name,
+        Object.assign({ status: status.status }, error ? { error } : undefined),
+      ]
+    }),
   )
 }
 
-function normalizeProviderSource(input: unknown, connected: boolean): ProviderInfo["source"] {
-  if (input === "env" || input === "config" || input === "custom" || input === "api") {
-    return input
-  }
+function normalizeProviderSource<TValue>(
+  input: TValue,
+  connected: boolean,
+): ProviderInfo["source"] {
+  if (input === "env") return "env"
+  if (input === "config") return "config"
+  if (input === "custom") return "custom"
+  if (input === "api") return "api"
   return connected ? "api" : "custom"
 }
 
@@ -921,8 +910,8 @@ async function fetchProviderCatalog(directory?: string) {
       : ({ status: "error" } as const)
 
   return normalizeProviderCatalog(
-    requireBuddyData<ProviderListResponse>(providerResult),
-    requireBuddyData<ProviderAuthResponse>(authResult),
+    requireBuddyData(providerResult),
+    requireBuddyData(authResult),
     openAIModelAvailability,
   )
 }
@@ -932,7 +921,7 @@ export async function loadProviderCatalogSnapshot(directory?: string) {
 }
 
 export async function loadOpenProjects() {
-  const response = requireBuddyData<OpenProjectsListResponses[200]>(
+  const response = requireBuddyData(
     await getBuddyClient().openProjects.list(),
   )
   const knownOpenProjects = normalizeDirectoryList(response.directories)
@@ -942,13 +931,13 @@ export async function loadOpenProjects() {
 }
 
 export async function loadOpenProjectRecovery() {
-  return requireBuddyData<OpenProjectsRecoveryResponses[200]>(
+  return requireBuddyData(
     await getBuddyClient().openProjects.recovery(),
   )
 }
 
 export async function restoreOpenProjectRecovery(directories: string[]) {
-  const response = requireBuddyData<OpenProjectsRestoreRecoveryResponses[200]>(
+  const response = requireBuddyData(
     await getBuddyClient().openProjects.restoreRecovery({
       directories: normalizeDirectoryList(directories),
     }),
@@ -960,7 +949,7 @@ export async function restoreOpenProjectRecovery(directories: string[]) {
 }
 
 export async function startFreshOpenProjectRecovery() {
-  const response = requireBuddyData<OpenProjectsStartFreshResponses[200]>(
+  const response = requireBuddyData(
     await getBuddyClient().openProjects.startFresh(),
   )
   const knownOpenProjects = normalizeDirectoryList(response.directories)
@@ -994,7 +983,7 @@ export async function createManagedNotebook(name: string) {
     throw new Error("Notebook name is required")
   }
 
-  const opened = requireBuddyData<OpenProjectsCreateResponses[200]>(
+  const opened = requireBuddyData(
     await getBuddyClient().openProjects.create({ name: notebookName }),
   )
   const canonicalDirectory = normalizeProjectDirectory(opened.directory)
@@ -1011,7 +1000,7 @@ export async function openInboxNotebook() {
 }
 
 export async function loadNotebookHome() {
-  const result = requireBuddyData<GlobalNotebookHomeGetResponses[200]>(
+  const result = requireBuddyData(
     await getBuddyClient().global.notebookHome.get(),
   )
   return {
@@ -1024,7 +1013,7 @@ export async function loadNotebookHome() {
 }
 
 export async function loadNotebookHomeAccess() {
-  const result = requireBuddyData<GlobalNotebookHomeAccessResponses[200]>(
+  const result = requireBuddyData(
     await getBuddyClient().global.notebookHome.access(),
   )
   return {
@@ -1039,7 +1028,7 @@ export async function saveNotebookHome(directory: string) {
     throw new Error("Notebook home is required")
   }
 
-  const result = requireBuddyData<GlobalNotebookHomePutResponses[200]>(
+  const result = requireBuddyData(
     await getBuddyClient().global.notebookHome.put({ directory: nextDirectory }),
   )
   return {
@@ -1052,7 +1041,7 @@ export async function saveNotebookHome(directory: string) {
 }
 
 export async function loadManagedNotebooks() {
-  const notebooks = requireBuddyData<GlobalNotebooksListResponses[200]>(
+  const notebooks = requireBuddyData(
     await getBuddyClient().global.notebooks.list(),
   )
   return notebooks.map((notebook) => ({
@@ -1062,7 +1051,7 @@ export async function loadManagedNotebooks() {
 }
 
 export async function loadKnownNotebooks() {
-  const projects = requireBuddyData<ProjectListResponses[200]>(
+  const projects = requireBuddyData(
     await getBuddyClient().project.list(),
   )
   return projects.map((project) => ({
@@ -1116,7 +1105,7 @@ export async function loadSessions(directory: string) {
   )
 
   try {
-    const sessions = requireBuddyData<SessionInfo[]>(
+    const sessions = requireBuddyData(
       await getBuddyClient(directory).session.list({ directory }),
     )
     if (latestSessionListRequestByDirectory.get(directory) !== requestSequence) {
@@ -1317,7 +1306,7 @@ export async function prefetchSessionMessages(directory: string, sessionID: stri
 export async function loadPermissions(directory: string): Promise<PermissionRequest[]> {
   const store = useChatStore.getState()
   try {
-    const requests: PermissionRequest[] = requireBuddyData<PermissionListResponses[200]>(
+    const requests: PermissionRequest[] = requireBuddyData(
       await getBuddyClient(directory).permission.list(),
     )
     store.setPendingPermissions(directory, requests)
@@ -1389,7 +1378,7 @@ async function createSession(directory: string) {
   }
 
   const createPromise = (async () => {
-    const info = requireBuddyData<SessionInfo>(await getBuddyClient(directory).session.create())
+    const info = requireBuddyData(await getBuddyClient(directory).session.create())
     selectCanonicalSession(directory, info)
     setTranscriptSessionEmpty(directory, info.id)
     useModelSelectionStore.getState().migrateWorkspaceSelection(directory, info.id)
@@ -1580,7 +1569,7 @@ export async function selectSession(
     const existing = current?.sessions.find((session) => session.id === sessionID)
     const info =
       existing ??
-      requireBuddyData<SessionInfo>(
+      requireBuddyData(
         await getBuddyClient(directory).session.get({
           sessionID,
         }),
@@ -1781,7 +1770,7 @@ export async function sendPrompt(
     } catch (error) {
       const shouldRecover =
         !requestedSessionID &&
-        (await shouldRecoverMissingSession(directory, resolvedSessionID, error))
+        (await shouldRecoverMissingSession(directory, resolvedSessionID, parseFailure(error)))
       if (!shouldRecover) {
         throw error
       }
@@ -1862,7 +1851,7 @@ export async function sendPrompt(
   }
 }
 
-function isMissingSessionError(error: unknown) {
+function isMissingSessionError<TValue>(error: TValue) {
   const message = stringifyError(error).toLowerCase()
   return message.includes(SESSION_NOT_FOUND_ERROR.toLowerCase())
 }
@@ -1874,7 +1863,7 @@ async function isSessionMissingInDirectory(directory: string, sessionID: string)
   return result.response?.status === HTTP_STATUS_NOT_FOUND
 }
 
-async function shouldRecoverMissingSession(directory: string, sessionID: string, error: unknown) {
+async function shouldRecoverMissingSession(directory: string, sessionID: string, error: TFailure) {
   if (isMissingSessionError(error)) return true
   return isSessionMissingInDirectory(directory, sessionID).catch(() => false)
 }
@@ -1918,7 +1907,7 @@ export async function sendCommand(
     )
 
     const postCommand = async (targetSessionID: string): Promise<SessionMutationResponse> =>
-      requireBuddyData<SessionCommandResponses[200]>(
+      requireBuddyData(
         await getBuddyClient(directory).session.command({
           sessionID: targetSessionID,
           body: commandBody,
@@ -1933,7 +1922,11 @@ export async function sendCommand(
         response,
       })
     } catch (error) {
-      const shouldRecover = await shouldRecoverMissingSession(directory, resolvedSessionID, error)
+      const shouldRecover = await shouldRecoverMissingSession(
+        directory,
+        resolvedSessionID,
+        parseFailure(error),
+      )
       if (!shouldRecover) {
         throw error
       }
@@ -2276,7 +2269,7 @@ export async function forkSession(
   }
 
   try {
-    const forkedSession = requireBuddyData<SessionInfo>(
+    const forkedSession = requireBuddyData(
       await getBuddyClient(directory).session.fork(
         Object.assign(
           { sessionID },
@@ -2469,7 +2462,7 @@ export async function updateSession(input: {
   }
 
   try {
-    const session = requireBuddyData<SessionInfo>(
+    const session = requireBuddyData(
       await getBuddyClient(input.directory).session.update({
         sessionID: input.sessionID,
         ...payload,
@@ -2505,7 +2498,7 @@ export async function deleteSession(input: {
       return true
     }
 
-    const deleted = requireBuddyData<boolean>(result)
+    const deleted = requireBuddyData(result)
     if (deleted) {
       applyDeletedSessionFamily(input)
     }
@@ -2753,20 +2746,20 @@ export async function loadLearnerProgress(directory: string) {
 }
 
 export async function loadProjectConfig(directory: string) {
-  const config = requireBuddyData<ConfigGetResponses[200]>(
+  const config = requireBuddyData(
     await getBuddyClient(directory).config.get(),
   )
   return asRecord(config) ?? {}
 }
 
 export async function loadRawProjectConfig(directory: string) {
-  const config = requireBuddyData<ConfigGetRawResponses[200]>(
+  const config = requireBuddyData(
     await getBuddyClient(directory).config.getRaw(),
   )
   return asRecord(config) ?? {}
 }
 
-export async function patchProjectConfig(directory: string, patch: Record<string, unknown>) {
+export async function patchProjectConfig(directory: string, patch: TRecord) {
   const result = await getBuddyClient(directory).config.update({
     body: patch,
   })
@@ -2774,13 +2767,13 @@ export async function patchProjectConfig(directory: string, patch: Record<string
 }
 
 export async function loadGlobalConfig() {
-  const config = requireBuddyData<GlobalConfigGetResponses[200]>(
+  const config = requireBuddyData(
     await getBuddyClient().global.config.get(),
   )
   return asRecord(config) ?? {}
 }
 
-export async function patchGlobalConfig(patch: Record<string, unknown>) {
+export async function patchGlobalConfig(patch: TRecord) {
   const result = await getBuddyClient().global.config.patch({
     body: patch,
   })
@@ -2818,7 +2811,7 @@ export async function saveProjectMcpConfig(
 
 export async function loadPersonaCatalog(directory?: string) {
   const result = await getBuddyClient(directory).config.personas()
-  const personas = requireBuddyData<ConfigPersonasResponses[200]>(result)
+  const personas = requireBuddyData(result)
   return personas.map((persona) => {
     const surfaces = parsePersonaSurfaces(persona.surfaces)
     return {
@@ -2841,7 +2834,7 @@ export async function loadAgentCatalog(directory: string) {
 
 export async function loadCommandCatalog(directory: string): Promise<PromptCommandOption[]> {
   const result = await getBuddyClient(directory).command.list()
-  const commands = requireBuddyData<CommandListResponses[200]>(result)
+  const commands = requireBuddyData(result)
   return commands.map((command) => ({
     name: command.name,
     description: command.description ?? undefined,
@@ -2852,7 +2845,7 @@ export async function loadCommandCatalog(directory: string): Promise<PromptComma
 export async function loadMcpStatus(directory: string) {
   const store = useChatStore.getState()
   const status = normalizeMcpStatusMap(
-    requireBuddyData<McpStatusResponses[200]>(await getBuddyClient(directory).mcp.status()),
+    requireBuddyData(await getBuddyClient(directory).mcp.status()),
   )
   store.setMcpStatus(directory, status)
   return status
@@ -2906,7 +2899,7 @@ export async function listProjectExplorerDirectory(input: {
   const response = await getBuddyClient(input.directory).explorer.file.list({
     path: input.path,
   })
-  return requireBuddyData<ProjectExplorerFileNode[]>(response)
+  return requireBuddyData(response)
 }
 
 export async function readProjectExplorerFile(input: {
@@ -2916,7 +2909,7 @@ export async function readProjectExplorerFile(input: {
   const response = await getBuddyClient(input.directory).explorer.file.read({
     path: input.path,
   })
-  return requireBuddyData<ProjectExplorerFileContent>(response)
+  return requireBuddyData(response)
 }
 
 export async function readProjectExplorerEditableFile(input: {
@@ -2926,7 +2919,7 @@ export async function readProjectExplorerEditableFile(input: {
   const response = await getBuddyClient(input.directory).explorer.file.edit.read({
     path: input.path,
   })
-  return requireBuddyData<ProjectExplorerEditableFileState>(response)
+  return requireBuddyData(response)
 }
 
 export async function readProjectExplorerEditableFileStatus(input: {
@@ -2936,7 +2929,7 @@ export async function readProjectExplorerEditableFileStatus(input: {
   const response = await getBuddyClient(input.directory).explorer.file.edit.status({
     path: input.path,
   })
-  return requireBuddyData<ProjectExplorerEditableFileStatus>(response)
+  return requireBuddyData(response)
 }
 
 export async function saveProjectExplorerEditableFile(input: {
@@ -2954,7 +2947,7 @@ export async function saveProjectExplorerEditableFile(input: {
   if (response.response?.status === 409) {
     throw new ProjectExplorerFileVersionConflictError(buddyResultMessage(response))
   }
-  const saved = requireBuddyData<ProjectExplorerEditableFileSaveResult>(response)
+  const saved = requireBuddyData(response)
   void invalidateObsidianFileCaches(appQueryClient, {
     directory: input.directory,
     path: input.path,
@@ -2978,7 +2971,7 @@ export async function renameProjectExplorerEditableFile(input: {
   if (response.response?.status === 409) {
     throw new ProjectExplorerFileVersionConflictError(buddyResultMessage(response))
   }
-  const renamed = requireBuddyData<ProjectExplorerEditableFileRenameResult>(response)
+  const renamed = requireBuddyData(response)
   await Promise.all([
     invalidateObsidianWatcherCaches(appQueryClient, {
       directory: input.directory,
@@ -3017,7 +3010,7 @@ export async function findWorkspaceFiles(
     limit,
   })
 
-  return requireBuddyData<FindFilesResponses[200]>(response)
+  return requireBuddyData(response)
 }
 
 export function shouldDeferTranscriptReload(directory: string, sessionID?: string) {

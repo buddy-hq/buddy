@@ -7,7 +7,7 @@ import {
   type AssistantErrorCategory,
 } from "../src/state/chat-error-model"
 import { normalizeSessionStatusValue, sessionStatusEquals } from "../src/state/session-status"
-import type { MessageError, SessionStatusInfo } from "../src/state/chat-types"
+import type { MessageError, SessionStatusInfo, TMessageErrorData } from "../src/state/chat-types"
 import {
   createAssistantMessageInfo,
   createMessageWithParts,
@@ -17,7 +17,7 @@ import {
 
 type RetryStatus = Extract<SessionStatusInfo, { type: "retry" }>
 
-function error(name: string, data: Record<string, unknown> = {}): MessageError {
+function error(name: string, data: TMessageErrorData = {}): MessageError {
   return { name, data }
 }
 

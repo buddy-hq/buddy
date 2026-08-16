@@ -1,5 +1,10 @@
-import type { SessionMessagesResponses } from "@buddy/sdk"
-import type { MessageWithParts } from "./chat-types"
+import { z } from "zod"
+import type { MessageWithParts, TFailure } from "./chat-types"
+import { isRecord } from "./chat-types"
+import {
+  MessageInfoEventSchema,
+  MessagePartEventSchema,
+} from "../lib/directory-chat/chat-event-schemas"
 import { getBuddyClient, requireBuddyData } from "../lib/buddy-client"
 import { retry } from "../lib/retry"
 
@@ -25,33 +30,22 @@ class RetryableTranscriptReloadError extends Error {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
+const messageWithPartsSchema = z.object({
+  info: MessageInfoEventSchema,
+  parts: z.array(MessagePartEventSchema),
+}) satisfies z.ZodType<MessageWithParts>
 
-function isMessageWithParts(value: unknown): value is MessageWithParts {
-  const record = isRecord(value) ? value : undefined
-  if (!record) return false
-  if (!("info" in record)) return false
-  if (!Array.isArray(record.parts)) return false
-  return true
-}
+const sessionMessagesPayloadSchema = z.union([
+  z.array(messageWithPartsSchema),
+  z.object({ messages: z.array(messageWithPartsSchema) }),
+])
 
-function isMessageWithPartsArray(value: unknown): value is MessageWithParts[] {
-  return Array.isArray(value) && value.every((entry) => isMessageWithParts(entry))
-}
-
-export function parseSessionMessagesPayload(value: unknown): MessageWithParts[] {
-  if (isMessageWithPartsArray(value)) {
-    return value
+export function parseSessionMessagesPayload<TValue>(value: TValue): MessageWithParts[] {
+  const parsed = sessionMessagesPayloadSchema.safeParse(value)
+  if (!parsed.success) {
+    throw new Error("Session messages payload must be an array of message parts.")
   }
-
-  const record = isRecord(value) ? value : undefined
-  if (record && isMessageWithPartsArray(record.messages)) {
-    return record.messages
-  }
-
-  throw new Error("Session messages payload must be an array of message parts.")
+  return Array.isArray(parsed.data) ? parsed.data : parsed.data.messages
 }
 
 export async function fetchSessionMessagesPage(
@@ -69,7 +63,7 @@ export async function fetchSessionMessagesPage(
       input?.before === undefined ? undefined : { before: input.before },
     ),
   )
-  const payload = requireBuddyData<SessionMessagesResponses[200]>(result)
+  const payload = requireBuddyData(result)
   const nextCursor = result.response?.headers.get(NEXT_CURSOR_HEADER) ?? undefined
 
   return {
@@ -83,7 +77,7 @@ export async function fetchSessionMessagesWithRetry(
   directory: string,
   sessionID: string,
   input?: {
-    shouldRetryMissing?: (error: unknown) => Promise<boolean>
+    shouldRetryMissing?: (error: TFailure) => Promise<boolean>
     limit?: number
     before?: string
   },
@@ -96,8 +90,9 @@ export async function fetchSessionMessagesWithRetry(
           before: input?.before,
         })
       } catch (error) {
+        const failure = error instanceof Error ? error : String(error)
         const shouldRetry = input?.shouldRetryMissing
-          ? await input.shouldRetryMissing(error)
+          ? await input.shouldRetryMissing(isRecord(error) ? error : failure)
           : false
         if (!shouldRetry) {
           throw error

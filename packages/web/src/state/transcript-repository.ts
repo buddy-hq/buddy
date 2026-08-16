@@ -5,7 +5,8 @@ import {
   INITIAL_TRANSCRIPT_MESSAGE_LIMIT,
   type SessionMessagesPage,
 } from "./session-messages"
-import type { MessageInfo, MessagePart, MessageWithParts } from "./chat-types"
+import type { MessageInfo, MessagePart, MessageWithParts, TFailure } from "./chat-types"
+import { isRecord, parseString } from "./chat-types"
 import { upsertMessagePart } from "./chat-reducer"
 import { STREAMING_PART_RAW_FIELD } from "./chat-stream-event-buffer"
 import { reconcileTerminalAssistantParts } from "./chat-tool-parts"
@@ -73,7 +74,7 @@ type LoadTranscriptInput = {
   limit?: number
   before?: string
   mode?: TranscriptPageMode
-  shouldRetryMissing?: (error: unknown) => Promise<boolean>
+  shouldRetryMissing?: (error: TFailure) => Promise<boolean>
 }
 
 type TranscriptSessionIdentity = {
@@ -385,13 +386,13 @@ function recordParts(record: TranscriptSessionRecord, messageID: string) {
   })
 }
 
-function toolPresentationMetadata(part: MessagePart): unknown {
+function toolPresentationMetadata(part: MessagePart) {
   if (!isRecord(part.metadata)) return undefined
   const buddy = part.metadata.buddy
   return isRecord(buddy) ? buddy.presentation : undefined
 }
 
-function toolStateStatus(part: MessagePart): unknown {
+function toolStateStatus(part: MessagePart) {
   return isRecord(part.state) ? part.state.status : undefined
 }
 
@@ -414,7 +415,8 @@ function partStructureChanged(previous: MessagePart | undefined, next: MessagePa
 
 function partTimelineRenderable(part: MessagePart) {
   if (part.type !== "text" && part.type !== "reasoning") return true
-  return typeof part.text === "string" && part.text.trim().length > 0
+  const text = parseString(part.text)
+  return text !== undefined && text.trim().length > 0
 }
 
 function upsertRecordPartSnapshot(record: TranscriptSessionRecord, part: MessagePart) {
@@ -485,10 +487,6 @@ function reconcileRecordTerminalAssistantMessage(
   return changed
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
 function appendStreamingField(
   record: TranscriptSessionRecord,
   part: MessagePart,
@@ -499,7 +497,7 @@ function appendStreamingField(
 
   if (input.field === STREAMING_PART_RAW_FIELD) {
     const state = isRecord(part.state) ? part.state : undefined
-    const current = accumulated ?? (typeof state?.raw === "string" ? state.raw : undefined)
+    const current = accumulated ?? parseString(state?.raw)
     if (current === undefined) return undefined
     const next = current + input.delta
     fields.set(input.field, next)
@@ -516,7 +514,7 @@ function appendStreamingField(
   // Match OpenCode's event reducer: streamed fields are string fragments, so a
   // sparse part snapshot uses an empty base instead of dropping its first delta.
   const existing = accumulated ?? part[input.field]
-  const currentValue = typeof existing === "string" ? existing : ""
+  const currentValue = parseString(existing) ?? ""
   const next = currentValue + input.delta
   fields.set(input.field, next)
   record.streamingFieldsByPartID.set(part.id, fields)
@@ -896,7 +894,7 @@ export function sealTranscriptAssistantMessages(
   for (const [messageID, message] of record.messagesByID) {
     if (message.role !== "assistant") continue
     const sealed =
-      typeof message.time.completed === "number"
+      Number.isFinite(message.time.completed)
         ? message
         : {
             ...message,
@@ -1053,7 +1051,7 @@ async function fetchInitialTranscriptPage(
   sessionID: string,
   input: {
     limit: number
-    shouldRetryMissing?: (error: unknown) => Promise<boolean>
+    shouldRetryMissing?: (error: TFailure) => Promise<boolean>
   },
 ) {
   let page = await fetchSessionMessagesWithRetry(directory, sessionID, {

@@ -2,6 +2,7 @@ import { readUpstreamProviderErrorPayload } from "@/lib/upstream-provider-error"
 import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 import type { UpstreamProviderErrorPayload } from "@/lib/upstream-provider-error"
 import type { MessageError, MessageWithParts, ProviderInfo, SessionStatusInfo } from "./chat-types"
+import { parseMessageErrorData, parseString } from "./chat-types"
 
 const PROVIDER_AUTH_ERROR_NAME = "ProviderAuthError"
 const UNKNOWN_ERROR_NAME = "UnknownError"
@@ -145,22 +146,9 @@ export type TerminalAssistantError = {
   model: AssistantErrorModel
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function readNonEmptyString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
-function readFiniteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined
-}
-
-function readBoolean(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined
+function readNonEmptyString(value: string | undefined): string | undefined {
+  const trimmed = value?.trim()
+  return trimmed && trimmed.length > 0 ? trimmed : undefined
 }
 
 function retryCategory(message: string): RetryCategory {
@@ -189,11 +177,11 @@ export function buildRetryStateModel(status: RetryStatus): RetryStateModel {
 }
 
 export function readAssistantErrorDetails(error: MessageError): AssistantErrorDetails {
-  const data = isRecord(error.data) ? error.data : undefined
+  const data = parseMessageErrorData(error.data)
   const message = readNonEmptyString(error.message) ?? readNonEmptyString(data?.message)
   const providerID = readNonEmptyString(data?.providerID)
-  const statusCode = readFiniteNumber(data?.statusCode)
-  const isRetryable = readBoolean(data?.isRetryable)
+  const statusCode = data?.statusCode
+  const isRetryable = data?.isRetryable
   const responseBody = readNonEmptyString(data?.responseBody)
   const providerError = readUpstreamProviderErrorPayload(responseBody)
 
@@ -360,9 +348,11 @@ export function buildAssistantErrorModel(
 }
 
 function messageHasVisibleText(message: MessageWithParts): boolean {
-  return message.parts.some(
-    (part) => part.type === "text" && typeof part.text === "string" && part.text.trim().length > 0,
-  )
+  return message.parts.some((part) => {
+    if (part.type !== "text") return false
+    const text = parseString(part.text)?.trim()
+    return text !== undefined && text.length > 0
+  })
 }
 
 export function resolveLatestTerminalAssistantError(

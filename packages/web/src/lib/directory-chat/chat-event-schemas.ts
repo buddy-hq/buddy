@@ -1,10 +1,11 @@
 import { z } from "zod"
-import type {
-  MessageInfo,
-  MessagePart,
-  PermissionRequest,
-  QuestionRequest,
-  SessionInfo,
+import {
+  messageErrorDataSchema,
+  type MessageInfo,
+  type MessagePart,
+  type PermissionRequest,
+  type QuestionRequest,
+  type SessionInfo,
 } from "@/state/chat-types"
 
 const SnapshotFileDiffSchema = z.object({
@@ -26,10 +27,10 @@ const MessageModelSchema = z.object({
   variant: z.string().nullable().optional(),
 })
 
-const MessageErrorSchema = z.looseObject({
+const MessageErrorSchema = z.object({
   name: z.string(),
   message: z.string().optional(),
-  data: z.unknown().optional(),
+  data: messageErrorDataSchema.optional(),
 })
 
 const OutputFormatSchema = z.union([

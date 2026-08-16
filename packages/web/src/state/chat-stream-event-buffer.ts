@@ -1,4 +1,5 @@
-import type { GlobalEvent } from "./chat-types"
+import type { GlobalEvent, TRecord } from "./chat-types"
+import { isRecord, parseString } from "./chat-types"
 
 export const CHAT_STREAM_GLOBAL_DIRECTORY = "global"
 export const MESSAGE_PART_UPDATED_EVENT_TYPE = "message.part.updated"
@@ -7,8 +8,6 @@ export const STREAMING_PART_RAW_FIELD = "state.raw"
 export const TOOL_PART_TYPE = "tool"
 export const TOOL_STATE_PENDING_STATUS = "pending"
 export const TOOL_STATE_RUNNING_STATUS = "running"
-
-type UnknownRecord = Record<string, unknown>
 
 type CoalescingInfo =
   | {
@@ -23,13 +22,8 @@ type CoalescingInfo =
       delta: string
     }
 
-function isRecord(value: unknown): value is UnknownRecord {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
-}
-
-function readString(record: UnknownRecord, key: string) {
-  const value = record[key]
-  return typeof value === "string" ? value : undefined
+function readString(record: TRecord, key: string) {
+  return parseString(record[key])
 }
 
 export function eventPayloadProperties(event: GlobalEvent) {
@@ -60,7 +54,7 @@ function readPartUpdateInfo(event: GlobalEvent) {
     directory: directoryKey(event),
     messageID,
     partID,
-    textSnapshot: part.type === "text" && typeof part.text === "string",
+    textSnapshot: part.type === "text" && parseString(part.text) !== undefined,
   }
 }
 
