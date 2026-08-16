@@ -61,8 +61,13 @@ const EMPTY_RECOVERY_CANDIDATES: Array<{ directory: string; name: string }> = []
 
 type EntryAction = (typeof ENTRY_ACTION)[keyof typeof ENTRY_ACTION]
 
+type TIncomingSearchValue = string | number | boolean
+type TIncomingSearch = {
+  readonly [key: string]: TIncomingSearchValue | readonly TIncomingSearchValue[] | undefined
+}
+
 export const Route = createFileRoute("/chat")({
-  validateSearch: (search: Record<string, unknown>): OnboardingTestSearch => {
+  validateSearch: (search: TIncomingSearch): OnboardingTestSearch => {
     if (search.test === ONBOARDING_TEST_SEARCH_VALUE) {
       return { test: ONBOARDING_TEST_SEARCH_VALUE }
     }
@@ -542,7 +547,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
     experimentalFeaturesQuery.data,
     EXPERIMENTAL_FEATURE_ID.learnerMemory,
   )
-  const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
+  const hasNativePicker = platform.openDirectoryPickerDialog !== undefined
   const learnerMemoryDefaults = resolveNotebookLearnerMemorySelection(
     globalConfigQuery.data ?? {},
     {},

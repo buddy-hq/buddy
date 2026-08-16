@@ -612,7 +612,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   const pendingQuestions = directoryState?.pendingQuestions ?? []
   const mcpStatus = directoryState?.mcpStatus ?? EMPTY_RECORD
   const mcpEntries = useMemo(
-    () => Object.entries(mcpStatus).sort(([left], [right]) => left.localeCompare(right)),
+    () => Object.entries(mcpStatus).toSorted(([left], [right]) => left.localeCompare(right)),
     [mcpStatus],
   )
   const connectedMcpCount = useMemo(

@@ -1,9 +1,11 @@
+import { z } from "zod"
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   readWorkspaceFileWatcherUpdatePayload,
   type WorkspaceFileWatcherEventKind,
 } from "@buddy/opencode-adapter/file-watcher"
+import { isChatTextPart } from "@/components/chat/utils/part-guards"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { startChatSync } from "@/state/chat-sync"
@@ -73,6 +75,12 @@ const NOTIFICATION_PREVIEW_MAX_LENGTH = 360
 const DEFAULT_SESSION_TITLE = "New chat"
 const GLOBAL_NOTIFICATION_SESSION = "global"
 
+function parseTNonEmptyString<T>(value: T): string | undefined {
+  const parsed = z.string().safeParse(value)
+  if (!parsed.success) return undefined
+  return parsed.data.length > 0 ? parsed.data : undefined
+}
+
 function sessionHref(directory: string, sessionID: string) {
   return `/${encodeDirectory(directory)}/chat?session=${encodeURIComponent(sessionID)}`
 }
@@ -121,10 +129,7 @@ function readLatestAssistantResponsePreview(directory: string, sessionID: string
 
   for (const message of messages.toReversed()) {
     if (message.info.role !== "assistant") continue
-    const text = message.parts
-      .filter((part) => part.type === "text" && typeof part.text === "string")
-      .map((part) => String(part.text))
-      .join("\n\n")
+    const text = message.parts.filter(isChatTextPart).map((part) => part.text).join("\n\n")
     const normalized = normalizeNotificationText(text)
     if (normalized) return truncateNotificationText(normalized)
   }
@@ -146,7 +151,7 @@ function appendTurnCompleteNotification(directory: string, sessionID: string) {
   }
 }
 
-function appendErrorNotification(directory: string, sessionID: string | undefined, error: unknown) {
+function appendErrorNotification<T>(directory: string, sessionID: string | undefined, error: T) {
   const viewed = isViewedInCurrentSession(directory, sessionID)
   const notificationSession = sessionID ?? GLOBAL_NOTIFICATION_SESSION
   useNotifications.getState().append({
@@ -268,7 +273,7 @@ export function useChatSync(props: UseChatSyncProps) {
       onStatus(status) {
         setStreamStatus(status)
         if (status === "connected") {
-          void synchronizeBrowserSvgRenderRequests(decodedDirectory).catch((error: unknown) => {
+          void synchronizeBrowserSvgRenderRequests(decodedDirectory).catch((error) => {
             console.error("Failed to recover pending browser SVG renders", error)
           })
           if (hasConnected && shouldRecoverOnReconnect && decodedDirectory !== "/") {
@@ -330,7 +335,7 @@ export function useChatSync(props: UseChatSyncProps) {
         const payload = event.payload
         const svgRenderRequestID = readBrowserSvgRenderRequestEvent(payload)
         if (svgRenderRequestID) {
-          void synchronizeBrowserSvgRenderRequests(directory).catch((error: unknown) => {
+          void synchronizeBrowserSvgRenderRequests(directory).catch((error) => {
             console.error(`Failed to synchronize browser SVG render ${svgRenderRequestID}`, error)
           })
           return
@@ -419,10 +424,7 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "session.error") {
-          const erroredSessionID =
-            typeof properties.sessionID === "string" && properties.sessionID
-              ? properties.sessionID
-              : undefined
+          const erroredSessionID = parseTNonEmptyString(properties.sessionID)
           if (erroredSessionID && !isParentSession(directory, erroredSessionID)) {
             return
           }

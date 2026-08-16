@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { useEffect, useRef, useState } from "react"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, Outlet, useLocation } from "@tanstack/react-router"
@@ -22,13 +23,31 @@ import { showDesktopUpdateProgressToast, showDesktopUpdateToast } from "../lib/d
 const RELEASE_UPDATE_POLL_INTERVAL_MS = 10 * 60 * 1000
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
 
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+type TIncomingSearchValue = string | number | boolean
+type TIncomingSearch = {
+  readonly [key: string]: TIncomingSearchValue | readonly TIncomingSearchValue[] | undefined
 }
 
-function readSearchParam(search: unknown, key: string): unknown {
-  if (!isUnknownRecord(search)) return undefined
-  return search[key]
+const incomingSearchSchema = z.record(
+  z.string(),
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.array(z.union([z.string(), z.number(), z.boolean()])),
+  ]),
+)
+
+function parseTIncomingSearch<T>(value: T): TIncomingSearch | undefined {
+  const parsed = incomingSearchSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function readSearchParam<T>(search: T, key: string): TIncomingSearchValue | undefined {
+  const record = parseTIncomingSearch(search)
+  const value = record?.[key]
+  if (Array.isArray(value)) return undefined
+  return value
 }
 
 function ReleaseUpdateWatcher() {

@@ -1,3 +1,5 @@
+import { z } from "zod"
+
 const DEFAULT_MAX_TRANSCRIPT_PERF_EVENTS = 2_000
 const RAF_GAP_REPORT_THRESHOLD_MS = 48
 const DEFAULT_GEOMETRY_JUMP_THRESHOLD_PX = 16
@@ -480,63 +482,58 @@ export type TranscriptGeometryDebugTools = {
   stop: () => void
 }
 
-declare global {
-  var __BUDDY_TRANSCRIPT_PERF__: TranscriptPerformanceProbe | undefined
-  var __BUDDY_CREATE_TRANSCRIPT_PERF_PROBE__:
-    | ((options?: TranscriptPerformanceProbeOptions) => TranscriptPerformanceProbe)
-    | undefined
-  var __BUDDY_TRANSCRIPT_GEOMETRY__: TranscriptGeometryDebugTools | undefined
+const TRANSCRIPT_PERF_GLOBAL_KEY = "__BUDDY_TRANSCRIPT_PERF__"
+const CREATE_TRANSCRIPT_PERF_PROBE_GLOBAL_KEY = "__BUDDY_CREATE_TRANSCRIPT_PERF_PROBE__"
+const TRANSCRIPT_GEOMETRY_GLOBAL_KEY = "__BUDDY_TRANSCRIPT_GEOMETRY__"
+
+type TTranscriptPerfGlobals = {
+  [TRANSCRIPT_PERF_GLOBAL_KEY]?: TranscriptPerformanceProbe
+  [CREATE_TRANSCRIPT_PERF_PROBE_GLOBAL_KEY]?: (
+    options?: TranscriptPerformanceProbeOptions,
+  ) => TranscriptPerformanceProbe
+  [TRANSCRIPT_GEOMETRY_GLOBAL_KEY]?: TranscriptGeometryDebugTools
 }
+
+declare global {
+  interface Window extends TTranscriptPerfGlobals {}
+}
+
+const rectSnapshotSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  width: z.number().finite(),
+  height: z.number().finite(),
+  top: z.number().finite(),
+  right: z.number().finite(),
+  bottom: z.number().finite(),
+  left: z.number().finite(),
+})
+const layoutShiftSourceSchema = z.looseObject({
+  node: z.instanceof(Node).optional(),
+  previousRect: rectSnapshotSchema.optional(),
+  currentRect: rectSnapshotSchema.optional(),
+})
+const layoutShiftEntrySchema = z.looseObject({
+  hadRecentInput: z.boolean().optional(),
+  value: z.number().finite(),
+  sources: z.array(layoutShiftSourceSchema).optional(),
+})
 
 function now() {
   return performance.now()
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-function readFiniteNumber(record: Record<string, unknown>, key: string): number | undefined {
-  const value = record[key]
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined
-}
-
-function readRectSnapshot(value: unknown): TranscriptRectSnapshot | undefined {
-  if (!isRecord(value)) return undefined
-  const x = readFiniteNumber(value, "x")
-  const y = readFiniteNumber(value, "y")
-  const width = readFiniteNumber(value, "width")
-  const height = readFiniteNumber(value, "height")
-  const top = readFiniteNumber(value, "top")
-  const right = readFiniteNumber(value, "right")
-  const bottom = readFiniteNumber(value, "bottom")
-  const left = readFiniteNumber(value, "left")
-  if (
-    x === undefined ||
-    y === undefined ||
-    width === undefined ||
-    height === undefined ||
-    top === undefined ||
-    right === undefined ||
-    bottom === undefined ||
-    left === undefined
-  ) {
-    return undefined
-  }
-  return { x, y, width, height, top, right, bottom, left }
-}
-
-function layoutShiftSourceElement(value: unknown): Element | undefined {
-  if (typeof Node === "undefined" || typeof Element === "undefined" || !(value instanceof Node)) {
-    return undefined
-  }
-  if (value instanceof Element) return value
+function layoutShiftSourceElement<T>(value: T): Element | undefined {
+  if (!("Node" in globalThis) || !("Element" in globalThis)) return undefined
+  if (!(value instanceof globalThis.Node)) return undefined
+  if (value instanceof globalThis.Element) return value
   return value.parentElement ?? undefined
 }
 
-function readLayoutShiftSource(value: unknown): TranscriptLayoutShiftSource | undefined {
-  if (!isRecord(value)) return undefined
-  const element = layoutShiftSourceElement(value.node)
+function readLayoutShiftSource<T>(value: T): TranscriptLayoutShiftSource | undefined {
+  const parsed = layoutShiftSourceSchema.safeParse(value)
+  if (!parsed.success) return undefined
+  const element = layoutShiftSourceElement(parsed.data.node)
   const timelineRoot = element?.closest(`[${TIMELINE_KEY_ATTRIBUTE}]`)
   const timelineContent =
     element?.closest("[data-timeline-row]") ?? timelineRoot?.querySelector("[data-timeline-row]")
@@ -551,40 +548,39 @@ function readLayoutShiftSource(value: unknown): TranscriptLayoutShiftSource | un
     component,
     nodeName,
     textPreview: textPreview && textPreview.length > 0 ? textPreview : undefined,
-    previousRect: readRectSnapshot(value.previousRect),
-    currentRect: readRectSnapshot(value.currentRect),
+    previousRect: parsed.data.previousRect,
+    currentRect: parsed.data.currentRect,
   }
 }
 
-function readLayoutShiftSources(entry: Record<string, unknown>): TranscriptLayoutShiftSource[] {
-  const sources = entry.sources
-  if (!Array.isArray(sources)) return []
-  return sources.flatMap((source) => {
+function readLayoutShiftSources<T>(entry: T): TranscriptLayoutShiftSource[] {
+  const parsed = layoutShiftEntrySchema.safeParse(entry)
+  if (!parsed.success || parsed.data.sources === undefined) return []
+  return parsed.data.sources.flatMap((source) => {
     const snapshot = readLayoutShiftSource(source)
     return snapshot ? [snapshot] : []
   })
 }
 
 function readLayoutShiftEvent(entry: PerformanceEntry) {
-  if (!isRecord(entry) || entry.hadRecentInput === true) return undefined
-  const value = readFiniteNumber(entry, "value")
-  if (value === undefined) return undefined
+  const parsed = layoutShiftEntrySchema.safeParse(entry)
+  if (!parsed.success || parsed.data.hadRecentInput === true) return undefined
   return {
-    value,
+    value: parsed.data.value,
     sources: readLayoutShiftSources(entry),
   }
 }
 
 function supportedPerformanceEntry(type: string) {
   return (
-    typeof PerformanceObserver !== "undefined" &&
-    PerformanceObserver.supportedEntryTypes.includes(type)
+    "PerformanceObserver" in globalThis &&
+    globalThis.PerformanceObserver.supportedEntryTypes.includes(type)
   )
 }
 
 function escapeTimelineKey(value: string) {
-  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
-    return CSS.escape(value)
+  if ("CSS" in globalThis && "escape" in globalThis.CSS) {
+    return globalThis.CSS.escape(value)
   }
   return value.replace(/\\/gu, "\\\\").replace(/"/gu, '\\"')
 }
@@ -719,7 +715,7 @@ function readTranscriptRowShellElement(row: HTMLElement): TranscriptRowShellSnap
 function readTranscriptRowShellSnapshot(
   rowKey: string | undefined,
 ): TranscriptRowShellSnapshot | undefined {
-  if (rowKey === undefined || typeof document === "undefined") return undefined
+  if (rowKey === undefined || !("document" in globalThis)) return undefined
   const row = document.querySelector(`[${TIMELINE_KEY_ATTRIBUTE}="${escapeTimelineKey(rowKey)}"]`)
   if (!(row instanceof HTMLElement)) return undefined
   return readTranscriptRowShellElement(row)
@@ -1652,7 +1648,7 @@ function collectTranscriptRows(node: Node, rows: Set<HTMLElement>) {
 }
 
 function installTranscriptRenderObserver(probe: TranscriptPerformanceProbe) {
-  if (typeof MutationObserver === "undefined" || typeof document === "undefined") return
+  if (!("MutationObserver" in globalThis) || !("document" in globalThis)) return
   const root = document.body
   if (!root) return
 
@@ -1689,7 +1685,7 @@ function installTranscriptRenderObserver(probe: TranscriptPerformanceProbe) {
       }
     }
     if (pendingMutationCountByRow.size > 0 && frameID === undefined) {
-      if (typeof requestAnimationFrame === "undefined") {
+      if (!("requestAnimationFrame" in globalThis)) {
         flush()
       } else {
         frameID = requestAnimationFrame(flush)
@@ -1704,7 +1700,7 @@ function installTranscriptRenderObserver(probe: TranscriptPerformanceProbe) {
   })
   return () => {
     observer.disconnect()
-    if (frameID !== undefined && typeof cancelAnimationFrame !== "undefined") {
+    if (frameID !== undefined && "cancelAnimationFrame" in globalThis) {
       cancelAnimationFrame(frameID)
     }
     pendingMutationCountByRow.clear()
@@ -1758,7 +1754,7 @@ export function createTranscriptPerformanceProbe(
     const disposeRenderObserver = installTranscriptRenderObserver(probe)
     if (disposeRenderObserver) disposers.push(disposeRenderObserver)
 
-    if (typeof requestAnimationFrame !== "undefined") {
+    if ("requestAnimationFrame" in globalThis) {
       let previous = now()
       let frameID = 0
       const tick = (timestamp: number) => {
@@ -1811,20 +1807,20 @@ export function createTranscriptPerformanceProbe(
 }
 
 export function getTranscriptPerformanceProbe(): TranscriptPerformanceProbe | undefined {
-  return globalThis.__BUDDY_TRANSCRIPT_PERF__
+  return globalThis[TRANSCRIPT_PERF_GLOBAL_KEY]
 }
 
 export function recordTranscriptPerfEvent(event: TranscriptPerfEvent) {
-  globalThis.__BUDDY_TRANSCRIPT_PERF__?.record(enrichTranscriptPerfEvent(event))
+  globalThis[TRANSCRIPT_PERF_GLOBAL_KEY]?.record(enrichTranscriptPerfEvent(event))
 }
 
 export function installTranscriptPerformanceProbe(
   options?: TranscriptPerformanceProbeOptions,
 ): TranscriptPerformanceProbe {
-  const current = globalThis.__BUDDY_TRANSCRIPT_PERF__
+  const current = globalThis[TRANSCRIPT_PERF_GLOBAL_KEY]
   if (current) return current
   const probe = createTranscriptPerformanceProbe(options)
-  globalThis.__BUDDY_TRANSCRIPT_PERF__ = probe
+  globalThis[TRANSCRIPT_PERF_GLOBAL_KEY] = probe
   return probe
 }
 
@@ -1833,7 +1829,7 @@ export function restartTranscriptPerformanceProbe(
 ): TranscriptPerformanceProbe {
   getTranscriptPerformanceProbe()?.stop()
   const probe = createTranscriptPerformanceProbe(options)
-  globalThis.__BUDDY_TRANSCRIPT_PERF__ = probe
+  globalThis[TRANSCRIPT_PERF_GLOBAL_KEY] = probe
   return probe
 }
 
@@ -1849,7 +1845,7 @@ export function createTranscriptGeometryDebugTools(): TranscriptGeometryDebugToo
       return createTranscriptGeometryReport(undefined, options)
     },
     async copy(options) {
-      const clipboard = typeof navigator !== "undefined" ? navigator.clipboard : undefined
+      const clipboard = "navigator" in globalThis ? globalThis.navigator.clipboard : undefined
       if (clipboard === undefined) return false
       await clipboard.writeText(
         formatTranscriptGeometryReport(createTranscriptGeometryReport(undefined, options)),
@@ -1858,10 +1854,10 @@ export function createTranscriptGeometryDebugTools(): TranscriptGeometryDebugToo
     },
     stop() {
       getTranscriptPerformanceProbe()?.stop()
-      globalThis.__BUDDY_TRANSCRIPT_PERF__ = undefined
+      globalThis[TRANSCRIPT_PERF_GLOBAL_KEY] = undefined
     },
   }
 }
 
-globalThis.__BUDDY_CREATE_TRANSCRIPT_PERF_PROBE__ = createTranscriptPerformanceProbe
-globalThis.__BUDDY_TRANSCRIPT_GEOMETRY__ = createTranscriptGeometryDebugTools()
+globalThis[CREATE_TRANSCRIPT_PERF_PROBE_GLOBAL_KEY] = createTranscriptPerformanceProbe
+globalThis[TRANSCRIPT_GEOMETRY_GLOBAL_KEY] = createTranscriptGeometryDebugTools()

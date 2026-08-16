@@ -10,6 +10,7 @@ import {
 } from "@/state/chat-actions"
 import { readCompactionAuto } from "@/state/project-config-readers"
 import { resolveDefaultAgentName } from "./agent-catalog"
+import { parseConfiguredModel } from "./chat-prompt-helpers"
 
 const DIRECTORY_CHAT_QUERY_SCOPE = "directory-chat" as const
 const COMPOSER_CONFIG_QUERY_KEY = "composer-config" as const
@@ -64,15 +65,6 @@ function withE2EBackendCommand(commands: PromptCommandOption[]): PromptCommandOp
       source: "command",
     },
   ]
-}
-
-function parseConfiguredModel(value: unknown): { providerID: string; modelID: string } | undefined {
-  if (typeof value !== "string") return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  const separator = trimmed.indexOf("/")
-  if (separator <= 0 || separator >= trimmed.length - 1) return undefined
-  return { providerID: trimmed.slice(0, separator), modelID: trimmed.slice(separator + 1) }
 }
 
 async function loadComposerConfig(directory: string): Promise<ComposerConfig> {

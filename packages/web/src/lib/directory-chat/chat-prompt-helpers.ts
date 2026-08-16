@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { serializePromptEditorParts } from "@/components/prompt/prompt-parts"
 import {
   BUDDY_PROMPT_PART_METADATA_KEY,
@@ -56,6 +57,46 @@ import {
 const DATA_URL_PREFIX = "data:" as const
 const TEXT_FILE_ATTACHMENT_PREFIX = "Attached file (" as const
 const TEXT_FILE_ATTACHMENT_SEPARATOR = "):\n" as const
+
+type TConfiguredModel = {
+  providerID: string
+  modelID: string
+}
+
+const stringSchema = z.string()
+const stringArraySchema = z.array(z.string())
+const fileSourcePathSchema = z.object({ path: z.string().min(1) })
+const errorDataSchema = z.looseObject({
+  message: z.string().optional(),
+  responseBody: z.string().optional(),
+})
+const sessionErrorSchema = z.looseObject({
+  message: z.string().optional(),
+  name: z.string().optional(),
+  data: errorDataSchema.optional(),
+})
+
+function parseTString<T>(value: T): string | undefined {
+  const parsed = stringSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseTNonEmptyString<T>(value: T): string | undefined {
+  const parsed = parseTString(value)
+  if (parsed === undefined) return undefined
+  const trimmed = parsed.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+function parseTStringArray<T>(value: T): string[] | undefined {
+  const parsed = stringArraySchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseTFileSourcePath<T>(value: T): string | undefined {
+  const parsed = fileSourcePathSchema.safeParse(value)
+  return parsed.success ? parsed.data.path : undefined
+}
 
 function textFileAttachmentPromptText(filename: string, content: string) {
   return `${TEXT_FILE_ATTACHMENT_PREFIX}${filename}${TEXT_FILE_ATTACHMENT_SEPARATOR}${content}`
@@ -129,58 +170,45 @@ export function buildPromptImageEditIntent(
   return targetPaths.length > 0 ? { targetPaths } : undefined
 }
 
-export function readSessionErrorMessage(error: unknown) {
-  if (typeof error === "string" && error.trim()) {
-    return normalizeUpstreamProviderErrorMessage(error)
-  }
-  if (!error || typeof error !== "object") return "An error occurred"
+export function readSessionErrorMessage<T>(error: T) {
+  const asString = parseTNonEmptyString(error)
+  if (asString) return normalizeUpstreamProviderErrorMessage(asString)
 
-  const message = "message" in error ? error.message : undefined
-  if (typeof message === "string" && message.trim()) {
-    const responseBody = readErrorResponseBody(error)
-    return normalizeProviderErrorDetails({ message, responseBody })
-  }
+  const parsed = sessionErrorSchema.safeParse(error)
+  if (!parsed.success) return "An error occurred"
 
-  const dataMessage = readErrorDataMessage(error)
-  if (typeof dataMessage === "string" && dataMessage.trim()) {
-    const responseBody = readErrorResponseBody(error)
-    return normalizeProviderErrorDetails({ message: dataMessage, responseBody })
+  const message = parseTNonEmptyString(parsed.data.message)
+  if (message) {
+    return normalizeProviderErrorDetails({
+      message,
+      responseBody: parseTNonEmptyString(parsed.data.data?.responseBody),
+    })
   }
 
-  const name = "name" in error ? error.name : undefined
-  if (typeof name === "string" && name.trim()) return normalizeUpstreamProviderErrorMessage(name)
+  const dataMessage = parseTNonEmptyString(parsed.data.data?.message)
+  if (dataMessage) {
+    return normalizeProviderErrorDetails({
+      message: dataMessage,
+      responseBody: parseTNonEmptyString(parsed.data.data?.responseBody),
+    })
+  }
+
+  const name = parseTNonEmptyString(parsed.data.name)
+  if (name) return normalizeUpstreamProviderErrorMessage(name)
 
   return "An error occurred"
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
-}
+export function parseConfiguredModel<T>(value: T): TConfiguredModel | undefined {
+  const parsed = parseTNonEmptyString(value)
+  if (parsed === undefined) return undefined
 
-function readErrorDataMessage(error: object): unknown {
-  if (!("data" in error) || !isRecord(error.data)) return undefined
-  return error.data.message
-}
-
-function readErrorResponseBody(error: object): string | undefined {
-  if (!("data" in error) || !isRecord(error.data)) return undefined
-  const responseBody = "responseBody" in error.data ? error.data.responseBody : undefined
-  return typeof responseBody === "string" && responseBody.trim().length > 0
-    ? responseBody
-    : undefined
-}
-
-export function parseConfiguredModel(value: unknown) {
-  if (typeof value !== "string") return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-
-  const separator = trimmed.indexOf("/")
-  if (separator <= 0 || separator >= trimmed.length - 1) return undefined
+  const separator = parsed.indexOf("/")
+  if (separator <= 0 || separator >= parsed.length - 1) return undefined
 
   return {
-    providerID: trimmed.slice(0, separator),
-    modelID: trimmed.slice(separator + 1),
+    providerID: parsed.slice(0, separator),
+    modelID: parsed.slice(separator + 1),
   }
 }
 
@@ -366,20 +394,20 @@ export function buildCommandAttachmentParts(attachments: PromptComposerAttachmen
 function isWorkspaceFileReferencePart(
   part: MessagePart,
 ): part is MessagePart & { type: typeof WORKSPACE_FILE_REFERENCE_PART_TYPE; path: string } {
-  return part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && typeof part.path === "string"
+  return part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && parseTString(part.path) !== undefined
 }
 
 function isResourceReferencePart(
   part: MessagePart,
 ): part is MessagePart & { type: typeof RESOURCE_REFERENCE_PART_TYPE; key: string } {
-  return part.type === RESOURCE_REFERENCE_PART_TYPE && typeof part.key === "string"
+  return part.type === RESOURCE_REFERENCE_PART_TYPE && parseTString(part.key) !== undefined
 }
 
 function isReadingSelectionPart(part: MessagePart): part is MessagePart & {
   type: typeof READING_SELECTION_PART_TYPE
   text: string
 } {
-  return part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string"
+  return part.type === READING_SELECTION_PART_TYPE && parseTString(part.text) !== undefined
 }
 
 function isSelectionContextPart(part: MessagePart): part is MessagePart & {
@@ -391,36 +419,31 @@ function isSelectionContextPart(part: MessagePart): part is MessagePart & {
   return (
     part.type === SELECTION_CONTEXT_PART_TYPE &&
     (part.source === "reading" || part.source === "markdown") &&
-    typeof part.text === "string" &&
-    typeof part.selectionKey === "string"
+    parseTString(part.text) !== undefined &&
+    parseTString(part.selectionKey) !== undefined
   )
 }
 
 function toPromptComposerAttachment(part: MessagePart): PromptComposerAttachment | undefined {
   if (!isChatFilePart(part)) return undefined
   if (!part.url.startsWith(DATA_URL_PREFIX)) return undefined
-  if (typeof part.filename !== "string" || part.filename.length === 0) return undefined
+  const filename = parseTString(part.filename)
+  if (filename === undefined || filename.length === 0) return undefined
 
-  const localPath =
-    part.source && typeof part.source === "object" && "path" in part.source
-      ? part.source.path
-      : undefined
+  const localPath = parseTFileSourcePath(part.source)
   const isImage = part.mime.startsWith("image/")
-  const hasLocalPath = typeof localPath === "string" && localPath.length > 0
+  const hasLocalPath = localPath !== undefined && localPath.length > 0
 
   const attachment: PromptModelAttachment = Object.assign(
     {
       id: part.id,
-      filename: part.filename,
+      filename,
       mime: part.mime,
       dataUrl: part.url,
       kind: isImage ? ("image" as const) : ("file" as const),
     },
     hasLocalPath
-      ? Object.assign(
-          { localPath },
-          isImage ? ({ editTarget: true } as const) : undefined,
-        )
+      ? Object.assign({ localPath }, isImage ? ({ editTarget: true } as const) : undefined)
       : undefined,
   )
   return attachment
@@ -492,16 +515,14 @@ function readFileUrlPath(url: string) {
 function readInlineReferencePath(part: MessagePart, directory: string) {
   if (!isChatFilePart(part) || part.url.startsWith(DATA_URL_PREFIX)) return undefined
 
-  const sourcePath =
-    part.source && typeof part.source === "object" && "path" in part.source
-      ? part.source.path
-      : undefined
-  if (typeof sourcePath === "string" && sourcePath.length > 0) {
+  const sourcePath = parseTFileSourcePath(part.source)
+  if (sourcePath !== undefined && sourcePath.length > 0) {
     return toRelativeWorkspacePath(directory, sourcePath)
   }
 
-  if (typeof part.filename === "string" && part.filename.length > 0) {
-    return part.filename
+  const filename = parseTString(part.filename)
+  if (filename !== undefined && filename.length > 0) {
+    return filename
   }
 
   const fileUrlPath = readFileUrlPath(part.url)
@@ -592,11 +613,9 @@ export function buildPromptDraftFromUserMessage(
 
     if (isSelectionContextPart(part)) {
       if (part.source === "markdown") {
-        const headingPath =
-          Array.isArray(part.headingPath) &&
-          part.headingPath.every((entry): entry is string => typeof entry === "string")
-            ? part.headingPath
-            : undefined
+        const headingPath = parseTStringArray(part.headingPath)
+        const markdownPath = parseTString(part.path)
+        const markdownVersion = parseTString(part.version)
         const markdownPart: PromptMarkdownSelectionContextPart = Object.assign(
           {
             type: SELECTION_CONTEXT_PART_TYPE,
@@ -604,8 +623,8 @@ export function buildPromptDraftFromUserMessage(
             text: part.text,
             selectionKey: part.selectionKey,
           },
-          typeof part.path === "string" ? { path: part.path } : undefined,
-          typeof part.version === "string" ? { version: part.version } : undefined,
+          markdownPath ? { path: markdownPath } : undefined,
+          markdownVersion ? { version: markdownVersion } : undefined,
           headingPath ? { headingPath } : undefined,
         )
         promptParts.push(markdownPart)
@@ -614,6 +633,10 @@ export function buildPromptDraftFromUserMessage(
 
       const anchor = readPromptReaderTextAnchor(part)
       if (!anchor) continue
+      const resourceKey = parseTString(part.resourceKey)
+      const tocLabel = parseTString(part.tocLabel)
+      const pageLabel = parseTString(part.pageLabel)
+      const locationLabel = parseTString(part.locationLabel)
       const readingContextPart: PromptReadingSelectionContextPart = Object.assign(
         Object.assign(
           {
@@ -622,12 +645,12 @@ export function buildPromptDraftFromUserMessage(
             text: part.text,
             selectionKey: part.selectionKey,
           },
-          typeof part.resourceKey === "string" ? { resourceKey: part.resourceKey } : undefined,
+          resourceKey ? { resourceKey } : undefined,
           { anchor },
         ),
-        typeof part.tocLabel === "string" ? { tocLabel: part.tocLabel } : undefined,
-        typeof part.pageLabel === "string" ? { pageLabel: part.pageLabel } : undefined,
-        typeof part.locationLabel === "string" ? { locationLabel: part.locationLabel } : undefined,
+        tocLabel ? { tocLabel } : undefined,
+        pageLabel ? { pageLabel } : undefined,
+        locationLabel ? { locationLabel } : undefined,
       )
       promptParts.push(readingContextPart)
       continue
@@ -636,29 +659,32 @@ export function buildPromptDraftFromUserMessage(
     if (isReadingSelectionPart(part)) {
       const anchor = readPromptReaderTextAnchor(part)
       if (!anchor) continue
+      const selectionKey = parseTString(part.selectionKey)
+      const resourceKey = parseTString(part.resourceKey)
+      const tocLabel = parseTString(part.tocLabel)
+      const pageLabel = parseTString(part.pageLabel)
+      const locationLabel = parseTString(part.locationLabel)
       const readingPart: PromptReadingSelectionPart = Object.assign(
         Object.assign(
           {
             type: READING_SELECTION_PART_TYPE,
             text: part.text,
           },
-          typeof part.selectionKey === "string" ? { selectionKey: part.selectionKey } : undefined,
-          typeof part.resourceKey === "string" ? { resourceKey: part.resourceKey } : undefined,
+          selectionKey ? { selectionKey } : undefined,
+          resourceKey ? { resourceKey } : undefined,
           { anchor },
         ),
-        typeof part.tocLabel === "string" ? { tocLabel: part.tocLabel } : undefined,
-        typeof part.pageLabel === "string" ? { pageLabel: part.pageLabel } : undefined,
-        typeof part.locationLabel === "string" ? { locationLabel: part.locationLabel } : undefined,
+        tocLabel ? { tocLabel } : undefined,
+        pageLabel ? { pageLabel } : undefined,
+        locationLabel ? { locationLabel } : undefined,
       )
       promptParts.push(readingPart)
       continue
     }
 
-    const directFileSource: unknown = isChatFilePart(part) ? part.source : undefined
-    const directFileSourcePath =
-      isRecord(directFileSource) && typeof directFileSource.path === "string"
-        ? directFileSource.path
-        : undefined
+    const directFileSourcePath = isChatFilePart(part)
+      ? parseTFileSourcePath(part.source)
+      : undefined
     if (directFileSourcePath && nativeResourceSourcePaths.has(directFileSourcePath)) continue
 
     const attachment = toPromptComposerAttachment(part)
@@ -695,7 +721,7 @@ export async function loadComposerConfiguration(directory: string) {
   const configuredDefault =
     resolveDefaultPersonaID(
       personas,
-      typeof config.default_persona === "string" ? config.default_persona : undefined,
+      parseTString(config.default_persona),
     ) ?? "buddy"
 
   return {

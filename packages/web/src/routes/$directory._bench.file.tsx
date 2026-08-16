@@ -1,9 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { z } from "zod"
 import { BenchTargetDeclaration } from "@/components/bench/bench-target-declaration"
 
 type ProjectFileBenchSearch = {
   fragment?: string
   path?: string
+}
+
+type TIncomingSearchValue = string | number | boolean
+type TIncomingSearch = {
+  readonly [key: string]: TIncomingSearchValue | readonly TIncomingSearchValue[] | undefined
+}
+
+function parseTSearchString<T>(value: T): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
 /**
@@ -12,9 +23,9 @@ type ProjectFileBenchSearch = {
  * mounted while this route is the active match.
  */
 export const Route = createFileRoute("/$directory/_bench/file")({
-  validateSearch: (search: Record<string, unknown>): ProjectFileBenchSearch => ({
-    fragment: typeof search.fragment === "string" ? search.fragment : undefined,
-    path: typeof search.path === "string" ? search.path : undefined,
+  validateSearch: (search: TIncomingSearch): ProjectFileBenchSearch => ({
+    fragment: parseTSearchString(search.fragment),
+    path: parseTSearchString(search.path),
   }),
   component: BenchTargetDeclaration,
 })

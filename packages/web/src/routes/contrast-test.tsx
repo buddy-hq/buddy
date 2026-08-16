@@ -451,7 +451,7 @@ function ContrastTestPage() {
 
   useEffect(() => {
     const getCssVar = (name: string) => {
-      if (typeof window === "undefined") return "#000000"
+      if (!("window" in globalThis)) return "#000000"
       const val = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
       return val || "#000000"
     }
@@ -685,16 +685,16 @@ function ContrastTestPage() {
                         <button
                           onMouseEnter={() => setHoveredKey(keyBefore)}
                           onMouseLeave={() => setHoveredKey(null)}
-                          style={{
-                            transition: "all 150ms cubic-bezier(0.4, 0, 0.2, 1)",
-                            ...(!v.isTransparent
+                          style={Object.assign(
+                            { transition: "all 150ms cubic-bezier(0.4, 0, 0.2, 1)" },
+                            !v.isTransparent
                               ? {
                                   backgroundColor: isHoveredBefore
                                     ? details.bgBeforeHover
                                     : details.bgBeforeNormal,
                                 }
-                              : {}),
-                          }}
+                              : undefined,
+                          )}
                           className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 cursor-pointer ${v.classesBefore}`}
                         >
                           Button{" "}
@@ -720,17 +720,21 @@ function ContrastTestPage() {
                         <button
                           onMouseEnter={() => setHoveredKey(keyAfter)}
                           onMouseLeave={() => setHoveredKey(null)}
-                          style={{
-                            transition: "all 150ms cubic-bezier(0.4, 0, 0.2, 1)",
-                            color: isHoveredAfter ? details.fgAfterHover : details.fgAfterNormal,
-                            ...(!v.isTransparent
+                          style={Object.assign(
+                            {
+                              transition: "all 150ms cubic-bezier(0.4, 0, 0.2, 1)",
+                              color: isHoveredAfter
+                                ? details.fgAfterHover
+                                : details.fgAfterNormal,
+                            },
+                            !v.isTransparent
                               ? {
                                   backgroundColor: isHoveredAfter
                                     ? details.bgAfterHover
                                     : details.bgAfterNormal,
                                 }
-                              : {}),
-                          }}
+                              : undefined,
+                          )}
                           className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 cursor-pointer ${v.classesAfter}`}
                         >
                           Button{" "}
@@ -810,10 +814,12 @@ function ContrastTestPage() {
                       </td>
                       <td className="p-4">
                         <span
-                          style={{
-                            color: details.fgAfterNormal,
-                            ...(!v.isTransparent ? { backgroundColor: details.bgAfterNormal } : {}),
-                          }}
+                          style={Object.assign(
+                            { color: details.fgAfterNormal },
+                            !v.isTransparent
+                              ? { backgroundColor: details.bgAfterNormal }
+                              : undefined,
+                          )}
                           className={`h-5 gap-1 rounded-4xl px-2 py-0.5 text-xs font-medium inline-flex items-center justify-center w-fit ${v.classesAfter}`}
                         >
                           Badge{" "}

@@ -756,7 +756,7 @@ export function useDirectoryChatPageController(
   }
 
   const reportCurrentDirectoryError = useCallback(
-    (error: unknown) => {
+    <T>(error: T) => {
       if (!decodedDirectory) return
       cs.setDirectoryError(decodedDirectory, stringifyError(error))
     },
@@ -827,7 +827,7 @@ export function useDirectoryChatPageController(
   async function commitSessionListRemoval(input: {
     directory: string
     affectedSessionIDs: string[]
-    mutate: () => Promise<unknown>
+    mutate: () => Promise<void>
   }): Promise<boolean> {
     const stateBeforeMutation = useChatStore.getState()
     const activeSessionBeforeMutation =
@@ -899,12 +899,13 @@ export function useDirectoryChatPageController(
       await commitSessionListRemoval({
         directory: targetDirectory,
         affectedSessionIDs: [targetSessionID],
-        mutate: () =>
-          updateSession({
+        mutate: async () => {
+          await updateSession({
             directory: targetDirectory,
             sessionID: targetSessionID,
             archivedAt: Date.now(),
-          }),
+          })
+        },
       })
     } catch {
       // Action layers keep directory-level error state.
@@ -923,11 +924,12 @@ export function useDirectoryChatPageController(
       return await commitSessionListRemoval({
         directory: targetDirectory,
         affectedSessionIDs,
-        mutate: () =>
-          deleteSession({
+        mutate: async () => {
+          await deleteSession({
             directory: targetDirectory,
             sessionID: targetSessionID,
-          }),
+          })
+        },
       })
     } catch {
       // Action layers keep directory-level error state.

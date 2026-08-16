@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { z } from "zod"
 import { BenchTargetDeclaration } from "@/components/bench/bench-target-declaration"
 import {
   BENCH_CHAT_SEARCH_PARAM,
@@ -13,19 +14,29 @@ type ObjectBenchSearch = {
   [BENCH_CHAT_SEARCH_PARAM]?: BenchChatLayoutMode
 }
 
-function readString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined
+type TIncomingSearchValue = string | number | boolean
+type TIncomingSearch = {
+  readonly [key: string]: TIncomingSearchValue | readonly TIncomingSearchValue[] | undefined
+}
+
+function parseTSearchString<T>(value: T): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success && parsed.data.length > 0 ? parsed.data : undefined
 }
 
 export const Route = createFileRoute("/$directory/_bench/objects/$kind/$objectID")({
-  validateSearch: (search: Record<string, unknown>): ObjectBenchSearch => {
+  validateSearch: (search: TIncomingSearch): ObjectBenchSearch => {
     const chatLayoutMode = readBenchChatLayoutMode(search[BENCH_CHAT_SEARCH_PARAM])
-    return {
-      ...(readString(search.view) ? { view: readString(search.view) } : {}),
-      ...(readString(search.revision) ? { revision: readString(search.revision) } : {}),
-      ...(readString(search.item) ? { item: readString(search.item) } : {}),
-      ...(chatLayoutMode ? { [BENCH_CHAT_SEARCH_PARAM]: chatLayoutMode } : {}),
-    }
+    const view = parseTSearchString(search.view)
+    const revision = parseTSearchString(search.revision)
+    const item = parseTSearchString(search.item)
+    return Object.assign(
+      {},
+      view ? { view } : undefined,
+      revision ? { revision } : undefined,
+      item ? { item } : undefined,
+      chatLayoutMode ? { [BENCH_CHAT_SEARCH_PARAM]: chatLayoutMode } : undefined,
+    )
   },
   component: BenchTargetDeclaration,
 })

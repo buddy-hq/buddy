@@ -90,6 +90,11 @@ const EMPTY_PROVIDER_CATALOG_SNAPSHOT: ProviderCatalogState = {
 }
 const DEFAULT_HOME_DIRECTORY = "~/Documents/Buddy"
 
+type TIncomingSearchValue = string | number | boolean
+type TIncomingSearch = {
+  readonly [key: string]: TIncomingSearchValue | readonly TIncomingSearchValue[] | undefined
+}
+
 type CinematicBrandStyle = CSSProperties & {
   "--brand-ring": string
   "--brand-ring2": string
@@ -100,7 +105,7 @@ type CinematicBrandStyle = CSSProperties & {
 }
 
 export const Route = createFileRoute("/onboarding")({
-  validateSearch: (search: Record<string, unknown>): OnboardingTestSearch => {
+  validateSearch: (search: TIncomingSearch): OnboardingTestSearch => {
     if (search.test === ONBOARDING_TEST_SEARCH_VALUE) {
       return { test: ONBOARDING_TEST_SEARCH_VALUE }
     }
@@ -190,7 +195,7 @@ function OnboardingRoute() {
           })
         : navigate({ to: "/chat", replace: true })
 
-      void navigation.catch((navigationError: unknown) => {
+      void navigation.catch((navigationError) => {
         setFinishDestination(undefined)
         setFinishExpanding(false)
         setError(

@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo } from "react"
+import { z } from "zod"
 import { Badge, Button, ResizeHandle, Separator, cn, toast } from "@buddy/ui"
 import { ArrowLeftIcon } from "@/icons/app-icons"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
@@ -78,28 +79,32 @@ import {
 
 const SETTINGS_TITLEBAR_HEIGHT_PX = 40
 
+type TIncomingSearchValue = string | number | boolean
+type TIncomingSearch = {
+  readonly [key: string]: TIncomingSearchValue | readonly TIncomingSearchValue[] | undefined
+}
+
+function parseTSearchString<T>(value: T): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
 function readSeededSessionList(directory: string) {
   const sessions = useChatStore.getState().directories[directory]?.sessions
   return sessions && sessions.length > 0 ? sessions : undefined
 }
 
 export const Route = createFileRoute("/settings")({
-  validateSearch: (search: Record<string, unknown>): SettingsSearch => {
-    const tab = search.tab
+  validateSearch: (search: TIncomingSearch): SettingsSearch => {
+    const tab = parseTSearchString(search.tab)
     const returnTo = readSettingsReturnTo(search.returnTo)
-    if (typeof tab === "string") {
+    if (tab !== undefined) {
       const resolvedTab = resolveSettingsTab(tab)
       if (resolvedTab) {
-        return {
-          tab: resolvedTab,
-          ...(returnTo ? { returnTo } : {}),
-        }
+        return Object.assign({ tab: resolvedTab }, returnTo ? { returnTo } : undefined)
       }
     }
-    return {
-      tab: DEFAULT_SETTINGS_TAB,
-      ...(returnTo ? { returnTo } : {}),
-    }
+    return Object.assign({ tab: DEFAULT_SETTINGS_TAB }, returnTo ? { returnTo } : undefined)
   },
   loader: async ({ context }) => {
     await Promise.allSettled([
@@ -527,10 +532,13 @@ function SettingsRoute() {
                 }}
                 onBack={() => {
                   void navigate({
-                    href: resolveSettingsReturnLocation({
-                      ...(returnTo ? { returnTo } : {}),
-                      ...(currentDirectory ? { activeDirectory: currentDirectory } : {}),
-                    }),
+                    href: resolveSettingsReturnLocation(
+                      Object.assign(
+                        {},
+                        returnTo ? { returnTo } : undefined,
+                        currentDirectory ? { activeDirectory: currentDirectory } : undefined,
+                      ),
+                    ),
                     replace: true,
                   })
                 }}

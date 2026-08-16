@@ -18,6 +18,11 @@ type SessionBenchSearch = {
   [BENCH_CHAT_SEARCH_PARAM]?: BenchChatLayoutMode
 }
 
+type TIncomingSearchValue = string | number | boolean
+type TIncomingSearch = {
+  readonly [key: string]: TIncomingSearchValue | readonly TIncomingSearchValue[] | undefined
+}
+
 const SESSION_BENCH_OWNER_SELECTION_ERROR = "The subagent Bench could not activate its owner chat."
 const SESSION_BENCH_PRESENTATION_ERROR = "The subagent Bench could not open its transcript."
 export const Route = createFileRoute("/$directory/_bench/sessions/$sessionID")({
@@ -81,7 +86,7 @@ export const Route = createFileRoute("/$directory/_bench/sessions/$sessionID")({
       throw new Error(SESSION_BENCH_PRESENTATION_ERROR)
     }
   },
-  validateSearch: (search: Record<string, unknown>): SessionBenchSearch => {
+  validateSearch: (search: TIncomingSearch): SessionBenchSearch => {
     const chatLayoutMode = readBenchChatLayoutMode(search[BENCH_CHAT_SEARCH_PARAM])
     return chatLayoutMode ? { [BENCH_CHAT_SEARCH_PARAM]: chatLayoutMode } : {}
   },
