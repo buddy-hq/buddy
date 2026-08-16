@@ -1,7 +1,7 @@
 import type { NotebookSearchResult } from "@/state/notebook-search"
 import type { BenchObjectKind } from "@/lib/bench-targets"
 import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/library-object-selectors"
-import { describeObject } from "./describe-object"
+import { describeObject, type ObjectDescriptorInput } from "./describe-object"
 import {
   OBJECT_KIND_THREAD,
   OBJECT_KIND_WORKSPACE_FILE,
@@ -11,6 +11,14 @@ import {
 } from "./types"
 
 const RESOURCE_OBJECT_KIND: BenchObjectKind = "resource"
+
+type TCoverThumbnail = {
+  source: typeof OBJECT_THUMBNAIL_COVER
+  directory: string
+  coverRelpath?: string
+  extension: string
+  fileName: string
+}
 
 /**
  * The target, not the filter bucket, decides how a result is drawn: it names the
@@ -30,27 +38,31 @@ export function describeNotebookSearchResult(input: {
   directory: string
 }): ObjectModel {
   const { result } = input
-
-  return describeObject({
-    kind: notebookSearchResultKind(result),
-    title: result.title,
-    meta: [result.metadata],
-    directory: input.directory,
-    ...(result.target.type === "resource" && result.resourceVisual
-      ? {
-          thumbnail: {
+  const thumbnail: TCoverThumbnail | undefined =
+    result.target.type === "resource" && result.resourceVisual
+      ? Object.assign(
+          {
             source: OBJECT_THUMBNAIL_COVER,
             directory: input.directory,
-            ...(result.resourceVisual.coverRelpath
-              ? { coverRelpath: result.resourceVisual.coverRelpath }
-              : {}),
             extension: result.resourceVisual.extension,
             fileName: result.target.name,
-          },
-        }
-      : {}),
+          } as const,
+          result.resourceVisual.coverRelpath
+            ? { coverRelpath: result.resourceVisual.coverRelpath }
+            : undefined,
+        )
+      : undefined
+
+  const descriptor: ObjectDescriptorInput = Object.assign(
+    {
+      kind: notebookSearchResultKind(result),
+      title: result.title,
+      meta: [result.metadata],
+      directory: input.directory,
+    },
+    result.target.type === "resource" && result.resourceVisual ? { thumbnail } : undefined,
     // An unprocessed source has no object yet, so the file on disk is its identity.
-    ...(result.target.type === "resource"
+    result.target.type === "resource"
       ? {
           target: result.target.objectID
             ? createBenchObjectTarget(RESOURCE_OBJECT_KIND, result.target.objectID)
@@ -60,18 +72,23 @@ export function describeNotebookSearchResult(input: {
                 viewer: "file" as const,
               },
         }
-      : {}),
-    ...(result.target.type === "object"
-      ? { target: createBenchObjectTarget(result.target.kind, result.target.objectID) }
-      : {}),
-    ...(result.target.type === "file"
-      ? {
-          target: {
-            type: "workspace-file" as const,
-            path: result.target.path,
-            viewer: result.target.viewer,
-          },
-        }
-      : {}),
-  })
+      : undefined,
+    Object.assign(
+      {},
+      result.target.type === "object"
+        ? { target: createBenchObjectTarget(result.target.kind, result.target.objectID) }
+        : undefined,
+      result.target.type === "file"
+        ? {
+            target: {
+              type: "workspace-file" as const,
+              path: result.target.path,
+              viewer: result.target.viewer,
+            },
+          }
+        : undefined,
+    ),
+  )
+
+  return describeObject(descriptor)
 }

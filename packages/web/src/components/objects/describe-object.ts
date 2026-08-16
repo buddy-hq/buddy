@@ -122,6 +122,12 @@ export function thumbnailEarnsItsSpace(
  * library already knows what a `.tsx` or a `.pptx` looks like, so no call site
  * should have to opt into a mark the descriptor can always derive.
  */
+type TFileTypeThumbnail = {
+  source: typeof OBJECT_THUMBNAIL_FILE_TYPE
+  path: string
+  directory?: string
+}
+
 function defaultThumbnail(input: ObjectDescriptorInput): ObjectThumbnail | undefined {
   if (input.thumbnail) return input.thumbnail
   if (input.kind !== OBJECT_KIND_WORKSPACE_FILE) return undefined
@@ -129,11 +135,14 @@ function defaultThumbnail(input: ObjectDescriptorInput): ObjectThumbnail | undef
   const path = input.target?.type === "workspace-file" ? input.target.path : input.title
   if (!path.trim()) return undefined
 
-  return {
-    source: OBJECT_THUMBNAIL_FILE_TYPE,
-    path,
-    ...(input.directory ? { directory: input.directory } : {}),
-  }
+  const thumbnail: TFileTypeThumbnail = Object.assign(
+    {
+      source: OBJECT_THUMBNAIL_FILE_TYPE,
+      path,
+    } as const,
+    input.directory ? { directory: input.directory } : undefined,
+  )
+  return thumbnail
 }
 
 export type ObjectDescriptorInput = {
@@ -164,16 +173,21 @@ export function describeObject(input: ObjectDescriptorInput): ObjectModel {
       : objectKindLabel(input.kind)
   const meta = (input.meta ?? [kindLabel]).filter((part) => part.trim().length > 0)
 
-  return {
-    kind: input.kind,
-    kindLabel,
-    title: input.title,
-    meta,
-    glyph: objectGlyph(input.kind),
-    ...(input.target ? { target: input.target } : {}),
-    ...(input.badge ? { badge: input.badge } : {}),
-    ...(thumbnail ? { thumbnail } : {}),
-    ...(input.status ? { status: input.status } : {}),
-    ...(input.statusMessage ? { statusMessage: input.statusMessage } : {}),
-  }
+  return Object.assign(
+    {
+      kind: input.kind,
+      kindLabel,
+      title: input.title,
+      meta,
+      glyph: objectGlyph(input.kind),
+    },
+    input.target ? { target: input.target } : undefined,
+    input.badge ? { badge: input.badge } : undefined,
+    Object.assign(
+      {},
+      thumbnail ? { thumbnail } : undefined,
+      input.status ? { status: input.status } : undefined,
+      input.statusMessage ? { statusMessage: input.statusMessage } : undefined,
+    ),
+  )
 }
