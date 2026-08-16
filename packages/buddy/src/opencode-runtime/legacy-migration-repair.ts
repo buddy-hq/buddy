@@ -1,41 +1,61 @@
 import { existsSync } from "node:fs"
 import { Database } from "#sqlite"
 import { DatabasePath as OpenCodeDatabasePath } from "@buddy/opencode-adapter/storage-db"
+import z from "zod"
 
 const DRIZZLE_MIGRATIONS_TABLE = "__drizzle_migrations" as const
 const EVENTS_MIGRATION_NAME = "20260323234822_events" as const
 const EVENTS_TABLE = "event" as const
 const EVENT_SEQUENCE_TABLE = "event_sequence" as const
 
-type MigrationJournalRow = {
-  rowid: number
+type TMigrationJournalRow = {
+  rowid?: number
   id: number | null
   created_at: number | null
   name: string | null
   applied_at: string | null
 }
 
-type LegacyMigrationRepair = {
+type TLegacyMigrationRepair = {
   migrationName: string
   requiredTables: readonly string[]
 }
 
-type SqliteStatement = {
-  all: (...params: (number | string)[]) => unknown[]
-  get: (...params: (number | string)[]) => unknown
-  run: (...params: (number | string)[]) => unknown
+type TSqliteRunResult = {
+  changes?: number
+  lastInsertRowid?: number | bigint
 }
 
-type SqliteDatabase = {
-  prepare: (sql: string) => SqliteStatement
+type TSqliteRawRow = object | null | undefined
+
+type TSqliteStatement = {
+  all: (...params: (number | string)[]) => TSqliteRawRow[]
+  get: (...params: (number | string)[]) => TSqliteRawRow
+  run: (...params: (number | string)[]) => TSqliteRunResult | undefined
 }
 
-const LEGACY_MIGRATION_REPAIRS: readonly LegacyMigrationRepair[] = [
+type TSqliteDatabase = {
+  prepare: (sql: string) => TSqliteStatement
+}
+
+const LEGACY_MIGRATION_REPAIRS: readonly TLegacyMigrationRepair[] = [
   {
     migrationName: EVENTS_MIGRATION_NAME,
     requiredTables: [EVENT_SEQUENCE_TABLE, EVENTS_TABLE],
   },
 ]
+
+const sqliteTableNameRowSchema = z.object({
+  name: z.string(),
+})
+
+const migrationJournalRowSchema = z.object({
+  rowid: z.number().optional(),
+  id: z.number().nullable(),
+  created_at: z.number().nullable(),
+  name: z.string().nullable(),
+  applied_at: z.string().nullable(),
+})
 
 function parseMigrationTimestamp(migrationName: string): number {
   const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(migrationName)
@@ -53,7 +73,7 @@ function parseMigrationTimestamp(migrationName: string): number {
   )
 }
 
-function hasTable(db: SqliteDatabase, tableName: string): boolean {
+function hasTable(db: TSqliteDatabase, tableName: string): boolean {
   const row = db
     .prepare("select 1 as present from sqlite_master where type = 'table' and name = ? limit 1")
     .get(tableName)
@@ -61,18 +81,19 @@ function hasTable(db: SqliteDatabase, tableName: string): boolean {
   return !!row
 }
 
-function listTables(db: SqliteDatabase): Set<string> {
-  const rows = db.prepare("select name from sqlite_master where type = 'table'").all() as Array<{
-    name: string
-  }>
-
-  return new Set(rows.map((row) => row.name))
+function listTables(db: TSqliteDatabase): Set<string> {
+  const names = new Set<string>()
+  for (const row of db.prepare("select name from sqlite_master where type = 'table'").all()) {
+    const parsed = sqliteTableNameRowSchema.safeParse(row)
+    if (parsed.success) names.add(parsed.data.name)
+  }
+  return names
 }
 
 function findRepairForRow(
-  row: MigrationJournalRow,
+  row: TMigrationJournalRow,
   existingTables: ReadonlySet<string>,
-): LegacyMigrationRepair | undefined {
+): TLegacyMigrationRepair | undefined {
   if (row.created_at === null) {
     return undefined
   }
@@ -86,7 +107,7 @@ function findRepairForRow(
   })
 }
 
-export function repairLegacyMigrationJournal(db: SqliteDatabase): string[] {
+export function repairLegacyMigrationJournal(db: TSqliteDatabase): string[] {
   if (!hasTable(db, DRIZZLE_MIGRATIONS_TABLE)) {
     return []
   }
@@ -98,7 +119,11 @@ export function repairLegacyMigrationJournal(db: SqliteDatabase): string[] {
       where name is null or applied_at is null
       order by created_at, rowid`,
     )
-    .all() as MigrationJournalRow[]
+    .all()
+    .flatMap((row) => {
+      const parsed = migrationJournalRowSchema.safeParse(row)
+      return parsed.success ? [parsed.data] : []
+    })
 
   if (incompleteRows.length === 0) {
     return []

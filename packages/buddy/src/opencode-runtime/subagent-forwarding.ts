@@ -1,59 +1,71 @@
 import { Effect } from "effect"
+import z from "zod"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { SessionPrompt } from "@buddy/opencode-adapter/session-prompt"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
+import { Tool } from "@buddy/opencode-adapter/tool"
 import { isPersonaDelegateId } from "../learning/shared/teaching-vocabulary"
 
 const TASK_TOOL_ID = "task" as const
 
-type ToolOverrides = Record<string, boolean>
-type PromptInput = {
+type TToolOverrides = Record<string, boolean>
+type TPromptInput = {
   agent: string
   model?: Parameters<typeof ToolRegistry.tools>[0]
   sessionID: string
-  tools?: ToolOverrides
+  tools?: TToolOverrides
 }
 
-type PromptOps = {
-  prompt: (input: PromptInput) => Effect.Effect<unknown>
+type TPromptOps = {
+  prompt: (input: TPromptInput) => Effect.Effect<unknown>
 }
-type ChildSessionMetadata = {
+type TChildSessionMetadata = {
   sessionId: string
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
+type TTaskToolArgs = {
+  subagent_type: string
 }
 
-function hasPromptOps(value: unknown): value is PromptOps {
-  return isRecord(value) && "prompt" in value && typeof value.prompt === "function"
+const promptOpsSchema = z.object({
+  prompt: z.function({
+    input: [z.custom<TPromptInput>()],
+    output: z.custom<Effect.Effect<unknown>>(),
+  }),
+})
+
+const childSessionMetadataSchema = z.object({
+  metadata: z.object({
+    sessionId: z.string().refine((value) => value.trim().length > 0),
+  }),
+})
+
+const taskToolArgsSchema = z
+  .object({
+    subagent_type: z.string().refine((value) => value.trim().length > 0),
+  })
+  .passthrough()
+
+function parseTPromptOps(extra: Tool.Context["extra"]): TPromptOps | undefined {
+  const parsed = promptOpsSchema.safeParse(extra?.promptOps)
+  return parsed.success ? parsed.data : undefined
 }
 
-function readChildSessionMetadata(value: unknown): ChildSessionMetadata | undefined {
-  if (!isRecord(value) || !isRecord(value.metadata)) {
-    return undefined
-  }
-
-  const sessionId =
-    typeof value.metadata.sessionId === "string" && value.metadata.sessionId.trim().length > 0
-      ? value.metadata.sessionId
-      : undefined
-  if (!sessionId) {
-    return undefined
-  }
-
+function parseTChildSessionMetadata(
+  input: Parameters<Tool.Context["metadata"]>[0],
+): TChildSessionMetadata | undefined {
+  const parsed = childSessionMetadataSchema.safeParse(input)
+  if (!parsed.success) return undefined
   return {
-    sessionId,
+    sessionId: parsed.data.metadata.sessionId,
   }
 }
 
-function isTaskToolArgs(value: unknown): value is { subagent_type: string } {
-  return (
-    isRecord(value) &&
-    "subagent_type" in value &&
-    typeof value.subagent_type === "string" &&
-    value.subagent_type.trim().length > 0
-  )
+type TToolExecuteArgs = Parameters<Tool.Def["execute"]>[0]
+
+function parseTTaskToolArgs(args: TToolExecuteArgs): TTaskToolArgs | undefined {
+  const parsed = taskToolArgsSchema.safeParse(args)
+  return parsed.success ? parsed.data : undefined
 }
 
 let promptInterceptorRegistered = false
@@ -70,7 +82,8 @@ export async function ensureSubagentForwardingPatched() {
   if (!promptInterceptorRegistered) {
     promptInterceptorRegistered = true
     SessionPrompt.registerPromptInputInterceptor(async ({ promptInput, run }) => {
-      if (typeof promptInput.agent !== "string" || !isPersonaDelegateId(promptInput.agent)) {
+      const agent = promptInput.agent
+      if (agent === undefined || !isPersonaDelegateId(agent)) {
         return run(promptInput)
       }
 
@@ -80,7 +93,7 @@ export async function ensureSubagentForwardingPatched() {
           directory: OpenCodeInstance.directory,
           promptInput: {
             ...promptInput,
-            agent: promptInput.agent,
+            agent,
           },
           run: (nextInput) => Effect.promise(() => run(nextInput)),
         }),
@@ -98,17 +111,18 @@ export async function ensureSubagentForwardingPatched() {
       return {
         ...tool,
         execute(args, ctx) {
-          if (!isTaskToolArgs(args) || !hasPromptOps(ctx.extra?.promptOps)) {
+          const taskArgs = parseTTaskToolArgs(args)
+          const promptOps = parseTPromptOps(ctx.extra)
+          if (!taskArgs || !promptOps) {
             return tool.execute(args, ctx)
           }
 
-          const promptOps = ctx.extra.promptOps
           const metadata = ctx.metadata
 
           return tool.execute(args, {
             ...ctx,
             metadata(input) {
-              const childSession = readChildSessionMetadata(input)
+              const childSession = parseTChildSessionMetadata(input)
               if (!childSession) {
                 return metadata(input)
               }
@@ -120,7 +134,7 @@ export async function ensureSubagentForwardingPatched() {
                     seedSubagentToolForwarding({
                       directory,
                       sessionID: childSession.sessionId,
-                      targetAgent: args.subagent_type,
+                      targetAgent: taskArgs.subagent_type,
                     }),
                 ),
               )
@@ -129,7 +143,7 @@ export async function ensureSubagentForwardingPatched() {
               ...ctx.extra,
               promptOps: {
                 ...promptOps,
-                prompt(input: PromptInput) {
+                prompt(input: TPromptInput) {
                   return Effect.flatMap(
                     Effect.promise(() => import("./subagent-tool-forwarding-runtime")),
                     ({ withSubagentToolForwarding }) =>

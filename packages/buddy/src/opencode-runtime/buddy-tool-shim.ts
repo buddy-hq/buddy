@@ -9,38 +9,53 @@ import type { BuddyTool, BuddyToolContext } from "../learning/runtime/create-bud
 import { ensureBuddyToolPresentationCatalog } from "./buddy-tool-presentation-catalog"
 import { runCompatiblePluginAskResult } from "./plugin-ask-compat"
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+type TPluginExecuteArgs = Parameters<ToolDefinition["execute"]>[0]
+type TPluginToolArgFields = ToolDefinition["args"]
+type TPluginRuntimeContext = ToolContext & {
+  callID?: string
+  extra?: BuddyToolContext["extra"]
+  messages?: BuddyToolContext["messages"]
+}
+type TPluginMessageEntry = NonNullable<BuddyToolContext["messages"]>[number]
+
+function parseTPluginRuntimeContext(pluginCtx: ToolContext): TPluginRuntimeContext {
+  return pluginCtx
 }
 
-function isMessageHistory(value: unknown): value is Tool.Context["messages"] {
-  if (!Array.isArray(value)) return false
-  return value.every((entry) => isRecord(entry) && isRecord(entry.info))
+function parseTCallID(value: string | undefined): Tool.Context["callID"] | undefined {
+  const parsed = z.string().min(1).safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
-function readOwnProperty(value: object, key: string): unknown {
-  return Object.prototype.hasOwnProperty.call(value, key) ? Reflect.get(value, key) : undefined
+function parseTMessageHistory(
+  value: BuddyToolContext["messages"] | undefined,
+): BuddyToolContext["messages"] {
+  if (value === undefined || !Array.isArray(value)) return []
+  return value.filter((entry: TPluginMessageEntry) => {
+    if (entry === null || Array.isArray(entry)) return false
+    if (entry.info === undefined || entry.info === null || Array.isArray(entry.info)) return false
+    return true
+  })
+}
+
+function parseTToolExtra(extra: BuddyToolContext["extra"]): BuddyToolContext["extra"] {
+  if (extra === undefined || Array.isArray(extra)) return undefined
+  return extra
 }
 
 /** OpenCode passes full tool context at runtime; the published plugin type omits these fields. */
 function readRuntimePluginFields(pluginCtx: ToolContext) {
-  const messagesUnknown = readOwnProperty(pluginCtx, "messages")
-  const extraUnknown = readOwnProperty(pluginCtx, "extra")
-  const callIDUnknown = readOwnProperty(pluginCtx, "callID")
-
-  const messages = isMessageHistory(messagesUnknown) ? messagesUnknown : []
-  const extra = isRecord(extraUnknown) ? extraUnknown : undefined
-  const callID =
-    typeof callIDUnknown === "string" && callIDUnknown.length > 0
-      ? (callIDUnknown as Tool.Context["callID"])
-      : undefined
+  const runtimeCtx = parseTPluginRuntimeContext(pluginCtx)
+  const messages = parseTMessageHistory(runtimeCtx.messages)
+  const extra = parseTToolExtra(runtimeCtx.extra)
+  const callID = parseTCallID(runtimeCtx.callID)
 
   return { callID, extra, messages }
 }
 
-function extractZodShape(parameters: z.ZodType): z.ZodRawShape {
+function extractZodObjectFields(parameters: z.ZodType): TPluginToolArgFields {
   if (parameters instanceof z.ZodObject) {
-    return { ...parameters.shape } as z.ZodRawShape
+    return { ...parameters["shape"] }
   }
 
   return { input: parameters }
@@ -49,32 +64,34 @@ function extractZodShape(parameters: z.ZodType): z.ZodRawShape {
 function bridgeContext(pluginCtx: ToolContext): BuddyToolContext {
   const { callID, extra, messages } = readRuntimePluginFields(pluginCtx)
 
-  return {
-    directory: pluginCtx.directory,
-    sessionID: SessionID.make(pluginCtx.sessionID),
-    messageID: MessageID.make(pluginCtx.messageID),
-    agent: pluginCtx.agent,
-    abort: pluginCtx.abort,
-    ...(callID ? { callID } : {}),
-    ...(extra ? { extra } : {}),
-    messages,
-    metadata: async (input) => {
-      pluginCtx.metadata({
-        title: input.title,
-        metadata: input.metadata,
-      })
+  return Object.assign(
+    {
+      directory: pluginCtx.directory,
+      sessionID: SessionID.make(pluginCtx.sessionID),
+      messageID: MessageID.make(pluginCtx.messageID),
+      agent: pluginCtx.agent,
+      abort: pluginCtx.abort,
+      messages,
+      metadata: async (input: Parameters<BuddyToolContext["metadata"]>[0]) => {
+        pluginCtx.metadata({
+          title: input.title,
+          metadata: input.metadata,
+        })
+      },
+      ask: async (input: Parameters<BuddyToolContext["ask"]>[0]) => {
+        await runCompatiblePluginAskResult(
+          pluginCtx.ask({
+            permission: input.permission,
+            patterns: [...input.patterns],
+            always: [...(input.always ?? [])],
+            metadata: input.metadata ?? {},
+          }),
+        )
+      },
     },
-    ask: async (input) => {
-      await runCompatiblePluginAskResult(
-        pluginCtx.ask({
-          permission: input.permission,
-          patterns: [...input.patterns],
-          always: [...(input.always ?? [])],
-          metadata: input.metadata ?? {},
-        }),
-      )
-    },
-  }
+    callID ? { callID } : undefined,
+    extra ? { extra } : undefined,
+  )
 }
 
 function normalizeDirectory(directory: string) {
@@ -92,7 +109,7 @@ function readCurrentInstanceDirectory(): string | undefined {
 async function executeBuddyTool(
   tool: BuddyTool,
   directory: string,
-  rawArgs: unknown,
+  rawArgs: TPluginExecuteArgs,
   buddyCtx: BuddyToolContext,
 ): Promise<Tool.ExecuteResult> {
   const run = () => tool.run(rawArgs, buddyCtx)
@@ -153,20 +170,22 @@ function toPluginToolResult(
   tool: BuddyTool,
   result: Tool.ExecuteResult,
 ): Exclude<ToolResult, string> {
-  return {
-    title: result.title ?? tool.id,
-    output: result.output,
-    metadata: result.metadata ?? {},
-    ...(result.attachments ? { attachments: result.attachments } : {}),
-  }
+  return Object.assign(
+    {
+      title: result.title ?? tool.id,
+      output: result.output,
+      metadata: result.metadata ?? {},
+    },
+    result.attachments ? { attachments: result.attachments } : undefined,
+  )
 }
 
 export function buddyToolToPluginTool(tool: BuddyTool, directory?: string): ToolDefinition {
   return {
     description: tool.description,
-    args: extractZodShape(tool.parameters),
+    args: extractZodObjectFields(tool.parameters),
 
-    async execute(rawArgs: unknown, pluginCtx: ToolContext): Promise<ToolResult> {
+    async execute(rawArgs, pluginCtx): Promise<ToolResult> {
       const resolvedDirectory = pluginCtx.directory || directory || ""
       const buddyCtx = bridgeContext({
         ...pluginCtx,

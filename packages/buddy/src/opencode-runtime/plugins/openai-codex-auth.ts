@@ -4,6 +4,7 @@ import type { AuthHook } from "@opencode-ai/plugin"
 import { Auth } from "@buddy/opencode-adapter/auth"
 import { BUDDY_BRANDING } from "@buddy/script/branding"
 import { APICallError } from "ai"
+import z from "zod"
 import { BUDDY_ENV } from "../../storage/constants"
 import {
   extractOpenAICodexAccountId,
@@ -113,29 +114,53 @@ function generateState() {
   return base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)).buffer)
 }
 
-function errorMessage(error: unknown) {
+function errorMessage(error: Error) {
   return error instanceof Error ? error.message : String(error)
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const openAIErrorRecordSchema = z.object({
+  error: z
+    .object({
+      type: z.string().optional(),
+      code: z.string().optional(),
+      message: z.string().optional(),
+    })
+    .optional(),
+})
+
+const tokenErrorDetailsSchema = z.object({
+  error: z.string().optional(),
+  error_description: z.string().optional(),
+  message: z.string().optional(),
+})
+
+type TTokenErrorDetails = {
+  errorCode?: string
+  errorDescription?: string
 }
+
+const deviceAuthorizationSchema = z.object({
+  device_auth_id: z.string(),
+  user_code: z.string(),
+  interval: z.string(),
+})
+
+const deviceAuthorizationTokenSchema = z.object({
+  authorization_code: z.string(),
+  code_verifier: z.string(),
+})
 
 function readOpenAIUsageLimitMessage(responseBody: string) {
   try {
-    const parsed: unknown = JSON.parse(responseBody)
-    if (!isRecord(parsed) || !isRecord(parsed.error)) return undefined
+    const parsed = openAIErrorRecordSchema.safeParse(JSON.parse(responseBody))
+    if (!parsed.success || parsed.data.error === undefined) return undefined
 
-    const errorType =
-      typeof parsed.error.type === "string"
-        ? parsed.error.type
-        : typeof parsed.error.code === "string"
-          ? parsed.error.code
-          : undefined
+    const errorType = parsed.data.error.type ?? parsed.data.error.code
     if (errorType !== OPENAI_USAGE_LIMIT_ERROR_TYPE) return undefined
 
-    return typeof parsed.error.message === "string" && parsed.error.message.trim().length > 0
-      ? parsed.error.message
+    const message = parsed.data.error.message
+    return message !== undefined && message.trim().length > 0
+      ? message
       : OPENAI_USAGE_LIMIT_ERROR_MESSAGE
   } catch {
     return undefined
@@ -160,21 +185,19 @@ async function createOpenAIUsageLimitError(response: Response, url: URL) {
   })
 }
 
-function readTokenErrorDetails(text: string) {
+function readTokenErrorDetails(text: string): TTokenErrorDetails {
   try {
-    const parsed: unknown = JSON.parse(text)
-    if (!isRecord(parsed)) return {}
-    const code = typeof parsed.error === "string" ? parsed.error : undefined
-    const description =
-      typeof parsed.error_description === "string"
-        ? parsed.error_description
-        : typeof parsed.message === "string"
-          ? parsed.message
-          : undefined
-    return {
-      errorCode: code?.slice(0, TOKEN_ERROR_DETAIL_MAX_LENGTH),
-      errorDescription: description?.slice(0, TOKEN_ERROR_DETAIL_MAX_LENGTH),
-    }
+    const parsed = tokenErrorDetailsSchema.safeParse(JSON.parse(text))
+    if (!parsed.success) return {}
+    const code = parsed.data.error
+    const description = parsed.data.error_description ?? parsed.data.message
+    return Object.assign(
+      {},
+      code !== undefined ? { errorCode: code.slice(0, TOKEN_ERROR_DETAIL_MAX_LENGTH) } : undefined,
+      description !== undefined
+        ? { errorDescription: description.slice(0, TOKEN_ERROR_DETAIL_MAX_LENGTH) }
+        : undefined,
+    )
   } catch {
     return {}
   }
@@ -408,7 +431,9 @@ export function createBuddyCodexLoader(input: {
       const originalUrl =
         requestInput instanceof URL
           ? requestInput
-          : new URL(typeof requestInput === "string" ? requestInput : requestInput.url)
+          : requestInput instanceof Request
+            ? new URL(requestInput.url)
+            : new URL(requestInput)
       const targetUrl =
         originalUrl.pathname.includes("/v1/responses") ||
         originalUrl.pathname.includes("/chat/completions")
@@ -494,7 +519,7 @@ async function startOAuthServer() {
           await traceOpenAIAuth("callback_resolved")
           current.resolve(tokens)
         })
-        .catch(async (oauthError: unknown) => {
+        .catch(async (oauthError: Error) => {
           await traceOpenAIAuth("callback_rejected", { error: errorMessage(oauthError) })
           current.reject(
             oauthError instanceof Error ? oauthError : new Error("Token exchange failed"),
@@ -592,13 +617,15 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
           if (nextAuth.type !== "oauth") {
             return { type: nextAuth.type }
           }
-          return {
-            type: "oauth",
-            access: nextAuth.access,
-            refresh: nextAuth.refresh,
-            expires: nextAuth.expires,
-            ...(nextAuth.accountId ? { accountId: nextAuth.accountId } : {}),
-          }
+          return Object.assign(
+            {
+              type: "oauth" as const,
+              access: nextAuth.access,
+              refresh: nextAuth.refresh,
+              expires: nextAuth.expires,
+            },
+            nextAuth.accountId ? { accountId: nextAuth.accountId } : undefined,
+          )
         },
         setAuth: async (nextAuth) => {
           await Auth.set(OPENAI_PROVIDER_ID, nextAuth)
@@ -636,15 +663,19 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
                 await traceOpenAIAuth("provider_callback_succeeded", {
                   hasAccountId: Boolean(accountId),
                 })
-                return {
-                  type: "success" as const,
-                  refresh: tokens.refresh_token,
-                  access: tokens.access_token,
-                  expires: Date.now() + (tokens.expires_in ?? 3_600) * 1_000,
-                  ...(accountId ? { accountId } : {}),
-                }
+                return Object.assign(
+                  {
+                    type: "success" as const,
+                    refresh: tokens.refresh_token,
+                    access: tokens.access_token,
+                    expires: Date.now() + (tokens.expires_in ?? 3_600) * 1_000,
+                  },
+                  accountId ? { accountId } : undefined,
+                )
               } catch (error) {
-                await traceOpenAIAuth("provider_callback_failed", { error: errorMessage(error) })
+                await traceOpenAIAuth("provider_callback_failed", {
+                  error: error instanceof Error ? errorMessage(error) : String(error),
+                })
                 throw error
               } finally {
                 stopOAuthServerIfIdle()
@@ -673,11 +704,7 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
             throw new Error("Failed to initiate device authorization")
           }
 
-          const deviceData = (await deviceResponse.json()) as {
-            device_auth_id: string
-            user_code: string
-            interval: string
-          }
+          const deviceData = deviceAuthorizationSchema.parse(await deviceResponse.json())
           const interval = Math.max(Number.parseInt(deviceData.interval, 10) || 5, 1) * 1_000
 
           return {
@@ -702,10 +729,7 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
                 )
 
                 if (response.ok) {
-                  const data = (await response.json()) as {
-                    authorization_code: string
-                    code_verifier: string
-                  }
+                  const data = deviceAuthorizationTokenSchema.parse(await response.json())
                   const tokenResponse = await fetch(`${OPENAI_CODEX_AUTH_ISSUER}/oauth/token`, {
                     method: "POST",
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -724,13 +748,15 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
 
                   const tokens = parseOpenAICodexTokenResponse(await tokenResponse.json())
                   const accountId = extractOpenAICodexAccountId(tokens)
-                  return {
-                    type: "success" as const,
-                    refresh: tokens.refresh_token,
-                    access: tokens.access_token,
-                    expires: Date.now() + (tokens.expires_in ?? 3_600) * 1_000,
-                    ...(accountId ? { accountId } : {}),
-                  }
+                  return Object.assign(
+                    {
+                      type: "success" as const,
+                      refresh: tokens.refresh_token,
+                      access: tokens.access_token,
+                      expires: Date.now() + (tokens.expires_in ?? 3_600) * 1_000,
+                    },
+                    accountId ? { accountId } : undefined,
+                  )
                 }
 
                 if (response.status !== 403 && response.status !== 404) {

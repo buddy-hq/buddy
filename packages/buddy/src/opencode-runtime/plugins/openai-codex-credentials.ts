@@ -74,22 +74,23 @@ let activeRefresh:
     }
   | undefined
 
+const openAICodexStoredAuthSchema = z.object({
+  type: z.literal("oauth"),
+  access: z.string(),
+  refresh: z.string(),
+  expires: z.number(),
+  accountId: z.string().optional(),
+})
+
 export function isOpenAICodexStoredAuth(
   value: OpenAICodexAuthValue,
 ): value is OpenAICodexStoredAuth {
-  return Boolean(
-    value &&
-    value.type === "oauth" &&
-    "access" in value &&
-    typeof value.access === "string" &&
-    "refresh" in value &&
-    typeof value.refresh === "string" &&
-    "expires" in value &&
-    typeof value.expires === "number",
-  )
+  return openAICodexStoredAuthSchema.safeParse(value).success
 }
 
-export function parseOpenAICodexTokenResponse(value: unknown): OpenAICodexTokenResponse {
+export function parseOpenAICodexTokenResponse(
+  value: z.input<typeof authorizationTokenResponseSchema>,
+): OpenAICodexTokenResponse {
   return authorizationTokenResponseSchema.parse(value)
 }
 
@@ -154,13 +155,15 @@ export async function resolveOpenAICodexAuth(
   if (!activeRefresh || activeRefresh.refreshToken !== auth.refresh) {
     const promise = refreshAccessToken(auth.refresh, input.issuer).then(async (tokens) => {
       const accountId = extractOpenAICodexAccountId(tokens) || auth.accountId
-      const nextAuth: OpenAICodexStoredAuth = {
-        type: "oauth",
-        refresh: tokens.refresh_token ?? auth.refresh,
-        access: tokens.access_token,
-        expires: Date.now() + (tokens.expires_in ?? DEFAULT_ACCESS_TOKEN_TTL_SECONDS) * 1_000,
-        ...(accountId ? { accountId } : {}),
-      }
+      const nextAuth: OpenAICodexStoredAuth = Object.assign(
+        {
+          type: "oauth" as const,
+          refresh: tokens.refresh_token ?? auth.refresh,
+          access: tokens.access_token,
+          expires: Date.now() + (tokens.expires_in ?? DEFAULT_ACCESS_TOKEN_TTL_SECONDS) * 1_000,
+        },
+        accountId ? { accountId } : undefined,
+      )
       const currentAuth = await input.getAuth()
       if (isOpenAICodexStoredAuth(currentAuth) && currentAuth.refresh === auth.refresh) {
         await input.setAuth(nextAuth)

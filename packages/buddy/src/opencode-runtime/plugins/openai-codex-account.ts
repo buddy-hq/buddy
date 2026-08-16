@@ -200,7 +200,7 @@ class OpenAIAccountRequestError extends Error {
   }
 }
 
-function resolveAccountFailureStatus(error: unknown): OpenAIAccountFailureStatus {
+function resolveAccountFailureStatus(error: Error): OpenAIAccountFailureStatus {
   if (error instanceof OpenAICodexTokenRefreshError && error.reconnectRequired) {
     return OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS
   }
@@ -210,17 +210,19 @@ function resolveAccountFailureStatus(error: unknown): OpenAIAccountFailureStatus
   return OPENAI_ACCOUNT_ERROR_STATUS
 }
 
-function isAbortError(error: unknown) {
-  return error instanceof Error && error.name === "AbortError"
+function isAbortError(error: Error) {
+  return error.name === "AbortError"
 }
 
 function accountHeaders(auth: OpenAICodexStoredAuth) {
-  return {
-    authorization: `Bearer ${auth.access}`,
-    accept: "application/json",
-    "user-agent": BUDDY_USER_AGENT,
-    ...(auth.accountId ? { "ChatGPT-Account-Id": auth.accountId } : {}),
-  }
+  return Object.assign(
+    {
+      authorization: `Bearer ${auth.access}`,
+      accept: "application/json",
+      "user-agent": BUDDY_USER_AGENT,
+    },
+    auth.accountId ? { "ChatGPT-Account-Id": auth.accountId } : undefined,
+  )
 }
 
 function normalizeUsageWindow(window: z.infer<typeof usageWindowSchema> | null | undefined) {
@@ -240,9 +242,11 @@ function normalizeRateLimit(rateLimit: z.infer<typeof usageRateLimitSchema> | nu
 }
 
 function normalizeCreditBalance(value: string | number | null | undefined) {
-  if (typeof value === "number" && Number.isFinite(value)) return value
-  if (typeof value !== "string") return null
-  const parsed = Number(value)
+  const numeric = z.number().finite().safeParse(value)
+  if (numeric.success) return numeric.data
+  const text = z.string().safeParse(value)
+  if (!text.success) return null
+  const parsed = Number(text.data)
   return Number.isFinite(parsed) ? parsed : null
 }
 
@@ -329,7 +333,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
         }
         return nextCache
       })
-      .catch((error: unknown) => {
+      .catch((error: Error) => {
         if (modelRefresh?.requestID === requestID && !isAbortError(error)) {
           modelFailure = {
             accountKey,
@@ -411,7 +415,12 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     try {
       auth = await resolveAuth(directory)
     } catch (error) {
-      return { status: resolveAccountFailureStatus(error) }
+      return {
+        status:
+          error instanceof Error
+            ? resolveAccountFailureStatus(error)
+            : OPENAI_ACCOUNT_ERROR_STATUS,
+      }
     }
     if (!auth) {
       modelCache = undefined
@@ -455,7 +464,12 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     try {
       auth = await resolveAuth(directory)
     } catch (error) {
-      return { status: resolveAccountFailureStatus(error) }
+      return {
+        status:
+          error instanceof Error
+            ? resolveAccountFailureStatus(error)
+            : OPENAI_ACCOUNT_ERROR_STATUS,
+      }
     }
     if (!auth) return { status: "not_connected" }
     if (isAuthenticationRejected(auth)) {
@@ -471,7 +485,12 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
         refreshing: false,
       }
     } catch (error) {
-      return { status: resolveAccountFailureStatus(error) }
+      return {
+        status:
+          error instanceof Error
+            ? resolveAccountFailureStatus(error)
+            : OPENAI_ACCOUNT_ERROR_STATUS,
+      }
     }
   }
 
@@ -527,7 +546,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
         }
         return nextCache.response
       })
-      .catch((error: unknown) => {
+      .catch((error: Error) => {
         if (usageRefresh?.requestID === requestID) {
           usageFailure = {
             accountKey,
@@ -555,7 +574,12 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     try {
       auth = await resolveAuth(directory)
     } catch (error) {
-      return { status: resolveAccountFailureStatus(error) }
+      return {
+        status:
+          error instanceof Error
+            ? resolveAccountFailureStatus(error)
+            : OPENAI_ACCOUNT_ERROR_STATUS,
+      }
     }
     if (!auth) {
       usageCache = undefined
@@ -588,7 +612,8 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     try {
       return await startUsageRefresh(auth)
     } catch (error) {
-      const status = resolveAccountFailureStatus(error)
+      const status =
+        error instanceof Error ? resolveAccountFailureStatus(error) : OPENAI_ACCOUNT_ERROR_STATUS
       if (status === OPENAI_ACCOUNT_RECONNECT_REQUIRED_STATUS) return { status }
       return currentCache?.response ?? { status }
     }

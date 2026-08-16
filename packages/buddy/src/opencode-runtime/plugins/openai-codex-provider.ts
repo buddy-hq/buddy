@@ -66,18 +66,16 @@ export function applyOpenAICodexAccountModels(
     const variants = resolveOpenAICodexModelVariants(accountModel)
     if (!model || (!limits && !variants)) continue
 
-    result[accountModel.slug] = {
-      ...model,
-      ...(limits
+    result[accountModel.slug] = Object.assign(
+      {},
+      model,
+      limits
         ? {
-            limit: {
-              ...model.limit,
-              ...limits,
-            },
+            limit: Object.assign({}, model.limit, limits),
           }
-        : {}),
-      ...(variants ? { variants } : {}),
-    }
+        : undefined,
+      variants ? { variants } : undefined,
+    )
   }
 
   return result

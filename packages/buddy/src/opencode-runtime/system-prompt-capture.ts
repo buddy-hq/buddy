@@ -4,22 +4,33 @@ import { resolve } from "node:path"
 const CAPTURE_LIMIT = 512
 const CAPTURE_STORE_KEY = "__buddySystemPromptCaptureStore__"
 
-type CaptureStore = {
+type TCaptureStore = {
   bySession: Map<string, string>
   bySessionID: Map<string, string>
 }
 
-function captureStore(): CaptureStore {
-  const globalStore = globalThis as typeof globalThis & {
-    [CAPTURE_STORE_KEY]?: CaptureStore
-  }
-  if (!globalStore[CAPTURE_STORE_KEY]) {
-    globalStore[CAPTURE_STORE_KEY] = {
-      bySession: new Map<string, string>(),
-      bySessionID: new Map<string, string>(),
+function captureStore(): TCaptureStore {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, CAPTURE_STORE_KEY)
+  const raw = descriptor?.value
+  if (raw instanceof Object && !Array.isArray(raw) && "bySession" in raw && "bySessionID" in raw) {
+    const bySession = raw.bySession
+    const bySessionID = raw.bySessionID
+    if (bySession instanceof Map && bySessionID instanceof Map) {
+      return { bySession, bySessionID }
     }
   }
-  return globalStore[CAPTURE_STORE_KEY]
+
+  const created: TCaptureStore = {
+    bySession: new Map<string, string>(),
+    bySessionID: new Map<string, string>(),
+  }
+  Object.defineProperty(globalThis, CAPTURE_STORE_KEY, {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: created,
+  })
+  return created
 }
 
 function normalizeDirectory(directory: string) {
@@ -49,15 +60,15 @@ function touchSessionID(sessionID: string, value: string) {
 function pruneIfNeeded() {
   const store = captureStore()
   while (store.bySession.size > CAPTURE_LIMIT) {
-    const oldest = store.bySession.keys().next().value as string | undefined
-    if (!oldest) return
-    store.bySession.delete(oldest)
+    const oldest = store.bySession.keys().next()
+    if (oldest.done) return
+    store.bySession.delete(oldest.value)
   }
 
   while (store.bySessionID.size > CAPTURE_LIMIT) {
-    const oldest = store.bySessionID.keys().next().value as string | undefined
-    if (!oldest) return
-    store.bySessionID.delete(oldest)
+    const oldest = store.bySessionID.keys().next()
+    if (oldest.done) return
+    store.bySessionID.delete(oldest.value)
   }
 }
 

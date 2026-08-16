@@ -28,9 +28,7 @@ export async function ensureRuntimeDirectories() {
     process.env[XDG_ENV.CONFIG_HOME],
     process.env[XDG_ENV.STATE_HOME],
     BUDDY_TMP_DIR,
-  ].filter(
-    (directory): directory is string => typeof directory === "string" && directory.length > 0,
-  )
+  ].filter((directory): directory is string => directory !== undefined && directory.length > 0)
 
   await Promise.all(directories.map((directory) => fs.mkdir(directory, { recursive: true })))
 }

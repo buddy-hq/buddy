@@ -16,14 +16,23 @@ function openCodeAuthHeaders(): Record<string, string> | undefined {
 }
 
 async function createInProcessClient(directory?: string) {
-  const runtimeFetch = (async (request: Request) =>
-    fetchOpenCodeApp(request, readOpenCodeRequestDirectory(request) ?? directory)) as typeof fetch
-  return createOpencodeClient({
-    baseUrl: "http://localhost:4096",
-    ...(directory ? { directory } : {}),
-    headers: openCodeAuthHeaders(),
-    fetch: runtimeFetch,
-  })
+  const runtimeFetch = Object.assign(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input, init)
+      return fetchOpenCodeApp(request, readOpenCodeRequestDirectory(request) ?? directory)
+    },
+    { preconnect: fetch.preconnect },
+  )
+  return createOpencodeClient(
+    Object.assign(
+      {
+        baseUrl: "http://localhost:4096" as const,
+        headers: openCodeAuthHeaders(),
+        fetch: runtimeFetch,
+      },
+      directory ? { directory } : undefined,
+    ),
+  )
 }
 
 export async function getOpenCodeClient(directory?: string) {
