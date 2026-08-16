@@ -13,9 +13,6 @@ function hasNonAscii(value: string) {
 
 export function createBuddyClient(config?: Config & { directory?: string }): BuddyClient {
   const { directory, ...rest } = config ?? {}
-  // SAFETY: This wrapper forwards the complete fetch input unchanged and preserves the native result.
-  const customFetch: typeof fetch = ((request: RequestInfo | URL, init?: RequestInit) =>
-    fetch(request, init)) as typeof fetch
 
   let headers = rest.headers
   if (directory) {
@@ -31,7 +28,7 @@ export function createBuddyClient(config?: Config & { directory?: string }): Bud
     baseUrl: "/api",
     ...rest,
     headers,
-    fetch: rest.fetch ?? customFetch,
+    fetch: rest.fetch ?? ((request, init) => globalThis.fetch(request, init)),
   })
   return new BuddyClient({ client })
 }

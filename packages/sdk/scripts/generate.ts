@@ -2,6 +2,7 @@
 import { createClient } from "@hey-api/openapi-ts"
 import fs from "fs/promises"
 import path from "path"
+import { z } from "zod"
 
 // Generate SDK from running backend
 const API_URL = process.env.API_URL || "http://localhost:3000/doc"
@@ -9,41 +10,31 @@ const OPENAPI_PATH = path.resolve("openapi.json")
 
 console.log(`Generating SDK from ${API_URL}...`)
 
-type OpenAPISchema = {
-  paths?: Record<string, unknown>
-  [key: string]: unknown
-}
+const JsonValueSchema = z.json()
+const JsonObjectSchema = z.record(z.string(), JsonValueSchema)
+const OpenApiDocumentSchema = JsonObjectSchema.and(
+  z.object({ paths: JsonObjectSchema.optional() }),
+)
+const ScalarAllOfSchema = z.object({
+  type: z.enum(["string", "number", "integer", "boolean"]),
+  allOf: z.array(JsonObjectSchema),
+})
 
-const SCALAR_OPENAPI_TYPES = new Set(["string", "number", "integer", "boolean"])
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-type OpenApiApp = {
-  request: (input: string) => Promise<Response>
-}
-
-function isOpenApiApp(value: unknown): value is OpenApiApp {
-  return isRecord(value) && typeof value.request === "function"
-}
+type JsonValue = z.infer<typeof JsonValueSchema>
+type JsonObject = z.infer<typeof JsonObjectSchema>
+type OpenApiDocument = z.infer<typeof OpenApiDocumentSchema>
 
 async function loadBackendApp() {
-  const backendModuleName: string = "@buddy/backend"
-  const loaded = await import(backendModuleName)
-  if (isRecord(loaded) && "app" in loaded && isOpenApiApp(loaded.app)) {
-    return loaded.app
-  }
-
-  throw new Error("Unable to load Buddy backend app for OpenAPI generation.")
+  const loaded = await import("@buddy/backend")
+  return loaded.app
 }
 
-function normalizePaths(schema: OpenAPISchema) {
+function normalizePaths(schema: OpenApiDocument): OpenApiDocument {
   if (!schema.paths) {
     return schema
   }
 
-  const normalized: Record<string, unknown> = {}
+  const normalized: JsonObject = {}
   for (const [routePath, definition] of Object.entries(schema.paths)) {
     if (routePath === "/api") {
       normalized["/"] = definition
@@ -64,34 +55,8 @@ function normalizePaths(schema: OpenAPISchema) {
   }
 }
 
-function isScalarAllOfSchema(value: Record<string, unknown>) {
-  return (
-    typeof value.type === "string" &&
-    SCALAR_OPENAPI_TYPES.has(value.type) &&
-    Array.isArray(value.allOf)
-  )
-}
-
-function getScalarAllOfLayers(value: Record<string, unknown>) {
-  if (!isScalarAllOfSchema(value)) {
-    return undefined
-  }
-
-  const allOf = value.allOf
-  if (!Array.isArray(allOf)) {
-    return undefined
-  }
-
-  const layers = allOf.filter(isRecord)
-  if (layers.length !== allOf.length) {
-    return undefined
-  }
-
-  return layers
-}
-
-function canFlattenScalarAllOf(parent: Record<string, unknown>, layers: Record<string, unknown>[]) {
-  const seen = new Map<string, unknown>()
+function canFlattenScalarAllOf(parent: JsonObject, layers: JsonObject[]) {
+  const seen = new Map<string, JsonValue>()
   for (const [key, value] of Object.entries(parent)) {
     if (key === "allOf") continue
     seen.set(key, value)
@@ -114,15 +79,19 @@ function canFlattenScalarAllOf(parent: Record<string, unknown>, layers: Record<s
   return true
 }
 
-function normalizeOpenApiValue(value: unknown): unknown {
+function normalizeOpenApiValue(value: JsonValue): JsonValue {
   if (Array.isArray(value)) {
     return value.map((item) => normalizeOpenApiValue(item))
   }
 
-  if (!isRecord(value)) {
+  if (!(value instanceof Object)) {
     return value
   }
 
+  return normalizeOpenApiObject(value)
+}
+
+function normalizeOpenApiObject(value: JsonObject): JsonObject {
   const normalized = Object.fromEntries(
     Object.entries(value).map(([key, item]) => [key, normalizeOpenApiValue(item)]),
   )
@@ -131,32 +100,20 @@ function normalizeOpenApiValue(value: unknown): unknown {
   // `{ type: "string", allOf: [{ pattern: "^ses" }] }` to `unknown`.
   // Flatten equivalent scalar constraints before generation so the SDK keeps
   // concrete string/number types without changing runtime validation.
-  if (!isScalarAllOfSchema(normalized)) {
+  const scalarAllOf = ScalarAllOfSchema.safeParse(normalized)
+  if (!scalarAllOf.success) {
     return normalized
   }
-
-  const layers = getScalarAllOfLayers(normalized)
-  if (!layers) {
-    return normalized
-  }
-  if (!canFlattenScalarAllOf(normalized, layers)) {
+  if (!canFlattenScalarAllOf(normalized, scalarAllOf.data.allOf)) {
     return normalized
   }
 
   const { allOf: _allOf, ...rest } = normalized
-  return Object.assign({}, ...layers, rest)
+  return Object.assign({}, ...scalarAllOf.data.allOf, rest)
 }
 
-function normalizeSchemaForSdk(schema: OpenAPISchema) {
-  const normalized = normalizeOpenApiValue(schema)
-  if (!isRecord(normalized)) {
-    return schema
-  }
-
-  return {
-    ...normalized,
-    ...(isRecord(normalized.paths) ? { paths: normalized.paths } : {}),
-  }
+function normalizeSchemaForSdk(schema: OpenApiDocument): OpenApiDocument {
+  return OpenApiDocumentSchema.parse(normalizeOpenApiObject(schema))
 }
 
 async function loadSchema() {
@@ -165,8 +122,7 @@ async function loadSchema() {
     if (!response.ok) {
       throw new Error(`Failed to fetch OpenAPI schema from ${API_URL}: ${response.status}`)
     }
-    // SAFETY: The endpoint is Buddy's OpenAPI document, normalized immediately before generation.
-    const schema = (await response.json()) as OpenAPISchema
+    const schema = OpenApiDocumentSchema.parse(await response.json())
     return normalizeSchemaForSdk(normalizePaths(schema))
   } catch {
     const app = await loadBackendApp()
@@ -174,8 +130,7 @@ async function loadSchema() {
     if (!response.ok) {
       throw new Error(`Failed to fetch OpenAPI schema from backend app: ${response.status}`)
     }
-    // SAFETY: The fallback endpoint is the same Buddy OpenAPI document served in process.
-    const schema = (await response.json()) as OpenAPISchema
+    const schema = OpenApiDocumentSchema.parse(await response.json())
     return normalizeSchemaForSdk(normalizePaths(schema))
   }
 }
