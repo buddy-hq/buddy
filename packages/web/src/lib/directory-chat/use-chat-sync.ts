@@ -59,6 +59,13 @@ import type {
 import type { EventStreamData } from "@buddy/sdk/types"
 import { encodeDirectory } from "../directory-token"
 import { getTranscriptPerformanceProbe } from "./transcript-performance-probe"
+import {
+  MessageInfoEventSchema,
+  MessagePartEventSchema,
+  PermissionRequestEventSchema,
+  QuestionRequestEventSchema,
+  SessionInfoEventSchema,
+} from "./chat-event-schemas"
 
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
 const PERMISSION_NOTIFICATION_COOLDOWN_MS = 15_000
@@ -362,8 +369,9 @@ export function useChatSync(props: UseChatSyncProps) {
         const properties = payload.properties
 
         if (payload.type === "session.created" || payload.type === "session.updated") {
-          // SAFETY: The event discriminator binds properties.info to the generated SessionInfo payload.
-          const sessionInfo = properties.info as SessionInfo
+          const sessionResult = SessionInfoEventSchema.safeParse(properties.info)
+          if (!sessionResult.success) return
+          const sessionInfo = sessionResult.data
           applySessionUpdated(directory, sessionInfo)
           upsertDirectorySessionQueryData(queryClient, directory, sessionInfo)
           return
@@ -441,8 +449,9 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "message.updated") {
-          // SAFETY: The event discriminator binds properties.info to the generated MessageInfo payload.
-          const info = properties.info as MessageInfo
+          const messageResult = MessageInfoEventSchema.safeParse(properties.info)
+          if (!messageResult.success) return
+          const info = messageResult.data
           if (info.role === "user" && info.sessionID) {
             markTranscriptSessionOptimistic(directory, info.sessionID, false)
           }
@@ -480,8 +489,9 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "message.part.updated") {
-          // SAFETY: The event discriminator binds properties.part to the generated MessagePart payload.
-          applyPartUpdated(directory, properties.part as MessagePart)
+          const partResult = MessagePartEventSchema.safeParse(properties.part)
+          if (!partResult.success) return
+          applyPartUpdated(directory, partResult.data)
           return
         }
 
@@ -506,8 +516,9 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "permission.asked") {
-          // SAFETY: The event discriminator binds properties to the generated permission request payload.
-          const permissionRequest = properties as PermissionRequest
+          const permissionResult = PermissionRequestEventSchema.safeParse(properties)
+          if (!permissionResult.success) return
+          const permissionRequest = permissionResult.data
           addTranscriptPendingInput(directory, {
             requestID: permissionRequest.id,
             sessionID: permissionRequest.sessionID,
@@ -541,8 +552,9 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "question.asked") {
-          // SAFETY: The event discriminator binds properties to the generated question request payload.
-          const questionRequest = properties as QuestionRequest
+          const questionResult = QuestionRequestEventSchema.safeParse(properties)
+          if (!questionResult.success) return
+          const questionRequest = questionResult.data
           addTranscriptPendingInput(directory, {
             requestID: questionRequest.id,
             sessionID: questionRequest.sessionID,

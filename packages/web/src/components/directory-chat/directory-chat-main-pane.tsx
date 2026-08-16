@@ -12,7 +12,6 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
-  type Ref,
   type RefObject,
   type TouchEvent,
   type UIEvent,
@@ -72,7 +71,7 @@ type PromptComposerProps = Omit<
 type DirectoryChatMainPaneProps = {
   directory: string
   chatState: DirectoryChatState
-  transcriptRef: RefObject<HTMLElement | null>
+  transcriptRef: RefObject<HTMLDivElement>
   showJumpToLatest: boolean
   initialScrollOffset: () => number | undefined
   shouldAnchorBottom: () => boolean
@@ -266,8 +265,6 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     promptComposerProps,
     compactPromptComposer,
   } = props
-  // SAFETY: ScrollArea owns a div viewport; the controller intentionally exposes its ref as HTMLElement.
-  const transcriptViewportRef = transcriptRef as Ref<HTMLDivElement>
   const abortPromptComposer = promptComposerProps.onAbort
   const providerCatalogQuery = useQuery(providerCatalogSnapshotQueryOptions(directory))
   const autoCompactionWarning = useMemo(() => resolveAutoCompactionWarning(chatState), [chatState])
@@ -523,7 +520,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           <div className="relative min-h-0 flex-1">
             <ScrollArea
               data-component="chat-transcript-scroll-area"
-              viewportRef={transcriptViewportRef}
+              viewportRef={transcriptRef}
               onScroll={onTranscriptScroll}
               onWheel={onTranscriptWheel}
               onKeyDown={onTranscriptKeyDown}

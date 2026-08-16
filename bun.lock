@@ -287,6 +287,7 @@
         "remend": "^1.3.0",
         "shiki": "^4.2.0",
         "yaml": "2.9.0",
+        "zod": "4.1.8",
         "zustand": "^4.5.0",
       },
       "devDependencies": {

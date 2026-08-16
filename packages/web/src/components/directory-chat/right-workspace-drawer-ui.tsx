@@ -2,8 +2,6 @@ import {
   forwardRef,
   useCallback,
   type ComponentType,
-  type MutableRefObject,
-  type Ref,
   type ReactNode,
 } from "react"
 import { useDurableScrollTop } from "@/lib/use-durable-scroll-top"
@@ -36,7 +34,7 @@ type RightWorkspaceDrawerShellProps = {
   action?: RightWorkspaceDrawerAction
   toolbar?: ReactNode
   bodyClassName?: string
-  scrollRef?: Ref<HTMLDivElement>
+  scrollRef?: (node: HTMLDivElement | null) => void
   /** Restores and records this drawer's scroll position across the unmount every chat switch causes. */
   durableScrollKey?: string
   onSearchValueChange?: (value: string) => void
@@ -76,12 +74,6 @@ export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps)
       durableScrollRef.current = node
       if (typeof scrollRef === "function") {
         scrollRef(node)
-        return
-      }
-      if (scrollRef) {
-        // SAFETY: The non-callback ref is the mutable object ref supplied by the drawer owner.
-        const mutableScrollRef = scrollRef as MutableRefObject<HTMLDivElement | null>
-        mutableScrollRef.current = node
       }
     },
     [durableScrollRef, scrollRef],

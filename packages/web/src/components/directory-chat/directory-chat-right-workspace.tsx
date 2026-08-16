@@ -8,7 +8,6 @@ import {
   useState,
   type ReactElement,
   type ReactNode,
-  type SVGProps,
 } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Button, Separator, cn, toast } from "@buddy/ui"
@@ -130,7 +129,7 @@ export function resolveRightWorkspaceFilesPresentation(input: {
 
 const RIGHT_RAIL_ICON_SIZE_CLASS = "size-3.5 shrink-0"
 
-function railIcon(icon: ReactElement<SVGProps<SVGSVGElement>>) {
+function railIcon(icon: ReactElement<{ className?: string }>) {
   return cloneElement(icon, {
     className: cn(RIGHT_RAIL_ICON_SIZE_CLASS, icon.props.className),
   })
@@ -149,9 +148,8 @@ function ObsidianRailIcon(props: { className?: string }) {
 }
 
 function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
-  // SAFETY: Valid React elements in this rail are SVG icon elements accepted by railIcon.
-  const icon = isValidElement(props.icon)
-    ? railIcon(props.icon as ReactElement<SVGProps<SVGSVGElement>>)
+  const icon = isValidElement<{ className?: string }>(props.icon)
+    ? railIcon(props.icon)
     : props.icon
   return (
     <Button

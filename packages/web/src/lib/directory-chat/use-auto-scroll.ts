@@ -113,7 +113,7 @@ function cacheAutoScrollSessionState(
 }
 
 type AutoScrollResult = {
-  scrollRef: React.MutableRefObject<HTMLElement | null>
+  scrollRef: React.MutableRefObject<HTMLDivElement | null>
   showJumpToLatest: boolean
   initialScrollOffset: () => number | undefined
   shouldAnchorBottom: () => boolean
@@ -136,7 +136,7 @@ type AutoScrollResult = {
 export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
   const attachmentKey = options?.attachmentKey
   const onUserScrolled = options?.onUserScrolled
-  const scrollRef = useRef<HTMLElement | null>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const sessionStateByKeyRef = useRef(new Map<string, AutoScrollSessionState>())
   const attachmentKeyRef = useRef(attachmentKey)
   const detachedRef = useRef(false)
@@ -197,7 +197,7 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
   }, [])
 
   const updateDetachedState = useCallback(
-    (detached: boolean, element = scrollRef.current) => {
+    (detached: boolean, element: HTMLElement | null = scrollRef.current) => {
       attachmentKeyRef.current = attachmentKey
       detachedRef.current = detached
       rememberSessionState({
