@@ -177,7 +177,7 @@ type MarkdownBenchEditorProps = Pick<
   renamingTitle?: boolean
 }
 
-const CODE_BLOCK_LANGUAGES: Record<string, string> = {
+const CODE_BLOCK_LANGUAGES = {
   txt: "Plain text",
   js: "JavaScript",
   jsx: "JSX",
@@ -189,7 +189,7 @@ const CODE_BLOCK_LANGUAGES: Record<string, string> = {
   markdown: "Markdown",
   bash: "Bash",
   python: "Python",
-}
+} satisfies Record<string, string>
 
 const MARKDOWN_SERIALIZATION_OPTIONS = {
   listItemIndent: "one",

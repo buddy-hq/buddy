@@ -123,7 +123,7 @@ const BLOCK_HTML_ELEMENT_NAMES = new Set([
 
 const VOID_HTML_ELEMENT_NAMES = new Set(["br", "hr", "img"])
 
-const STYLE_PROPERTY_NAMES: Record<string, string> = {
+const STYLE_PROPERTY_NAMES = new Map(Object.entries({
   "align-items": "alignItems",
   background: "background",
   "background-color": "backgroundColor",
@@ -160,31 +160,31 @@ const STYLE_PROPERTY_NAMES: Record<string, string> = {
   "padding-right": "paddingRight",
   "padding-top": "paddingTop",
   "text-align": "textAlign",
-}
+}))
 
-const ATTRIBUTE_NAME_OVERRIDES: Record<string, string> = {
+const ATTRIBUTE_NAME_OVERRIDES = new Map(Object.entries({
   class: "className",
   colspan: "colSpan",
   rowspan: "rowSpan",
   "xlink:href": "xlinkHref",
   "xml:space": "xmlSpace",
-}
+}))
 
 function reactAttributeName(name: string): string {
-  const override = ATTRIBUTE_NAME_OVERRIDES[name]
+  const override = ATTRIBUTE_NAME_OVERRIDES.get(name)
   if (override) return override
   if (name.startsWith("aria-") || name.startsWith("data-")) return name
   return name.replace(/-([a-z])/gu, (_, character: string) => character.toUpperCase())
 }
 
-function safeStyle(style: string): Record<string, string> {
+function safeStyle(style: string) {
   const result: Record<string, string> = {}
   for (const declaration of style.split(";")) {
     const separator = declaration.indexOf(":")
     if (separator < 0) continue
     const sourceName = declaration.slice(0, separator).trim().toLowerCase()
     const value = declaration.slice(separator + 1).trim()
-    const name = STYLE_PROPERTY_NAMES[sourceName]
+    const name = STYLE_PROPERTY_NAMES.get(sourceName)
     if (!name || !value) continue
     if (/expression\s*\(|javascript:|url\s*\(/iu.test(value)) continue
     result[name] = value
@@ -202,7 +202,7 @@ function isSafeImageSource(value: string): boolean {
 function safeProps(
   mdastNode: JsxEditorProps["mdastNode"],
   context: SafeMarkdownRenderContext,
-): Record<string, unknown> {
+) {
   const props: Record<string, unknown> = {}
   for (const attribute of mdastNode.attributes) {
     if (attribute.type !== "mdxJsxAttribute" || !attribute.name) continue
