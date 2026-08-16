@@ -19,6 +19,10 @@ import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/tran
 import type { SessionTransform, SessionTransformContext } from "./types"
 import { resolveSubagentToolForwarding } from "./subagent-tool-forwarding"
 
+type TransformedCommand = Record<string, unknown> & {
+  agent: string
+}
+
 export function createSessionCommandTransform(input: {
   context: SessionTransformContext
 }): SessionTransform {
@@ -93,7 +97,7 @@ export function createSessionCommandTransform(input: {
         })
       }
 
-      const transformed: Record<string, unknown> = {
+      const transformed: TransformedCommand = {
         ...body,
         agent: target.agent,
       }

@@ -70,7 +70,7 @@ function containedWorkspaceRelativePath(input: {
   return relativePath.replaceAll(pathTools.sep, "/")
 }
 
-function transformGlobalEventPayload(payload: unknown, directory: string): unknown {
+function transformGlobalEventPayload(payload: unknown, directory: string) {
   if (!isRecord(payload)) return payload
   const watcherUpdate = readWorkspaceFileWatcherUpdatePayload(payload.payload)
   if (watcherUpdate && isRecord(payload.payload) && isRecord(payload.payload.properties)) {

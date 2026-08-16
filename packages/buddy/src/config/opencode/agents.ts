@@ -131,7 +131,7 @@ function normalizeConfiguredAgentOverride(
 
 function applyPersonaLearningToolPermissions(
   agentOverlay: Record<string, Config.Agent>,
-): Record<string, Config.Agent> {
+) {
   const next = { ...agentOverlay }
 
   for (const [name, agent] of Object.entries(agentOverlay)) {
@@ -152,7 +152,7 @@ function applyPersonaLearningToolPermissions(
 function applyBuddyPersonaHiddenFlags(
   agentOverlay: Record<string, Config.Agent>,
   personaOverrides?: Partial<Record<BuddyPersona, { hidden?: boolean }>>,
-): Record<string, Config.Agent> {
+) {
   const next = { ...agentOverlay }
   const profiles = resolveBuddyPersonaProfiles(personaOverrides)
 

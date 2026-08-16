@@ -5,7 +5,7 @@ import {
 } from "../state/session-state"
 import type { TeachingSessionState } from "../../shared/teaching-session-state"
 
-function cloneTracePayload(input: Record<string, unknown>): Record<string, unknown> {
+function cloneTracePayload(input: Record<string, unknown>) {
   try {
     return JSON.parse(JSON.stringify(input)) as Record<string, unknown>
   } catch {

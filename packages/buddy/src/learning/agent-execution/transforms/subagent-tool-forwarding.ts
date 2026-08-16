@@ -259,7 +259,7 @@ function buildToolOverrides(input: {
   allToolIDs: readonly string[]
   existing: unknown
   specializedToolIDs: Set<string>
-}): ToolOverrideMap {
+}) {
   const existing = parseToolOverrides(input.existing) ?? {}
   const forwarded: ToolOverrideMap = {}
 

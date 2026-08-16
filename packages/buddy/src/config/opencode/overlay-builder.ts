@@ -29,7 +29,7 @@ const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
  * Commands injected into every session via the config overlay.
  * Keyed by slash-command name (e.g. "flashcard" → `/flashcard`).
  */
-const BUDDY_BUILTIN_COMMANDS: Record<string, { template: string; description: string }> = {
+const BUDDY_BUILTIN_COMMANDS = {
   flashcard: {
     description: "Generate flashcards from context in learn mode",
     template: [
@@ -44,7 +44,7 @@ const BUDDY_BUILTIN_COMMANDS: Record<string, { template: string; description: st
       "After delegation, do not add separate rendering instructions. Decks saved by flashcard-author are surfaced automatically from persisted state.",
     ].join("\n"),
   },
-}
+} satisfies Record<string, { template: string; description: string }>
 
 const EXTERNAL_DIRECTORY_PERMISSION = "external_directory" as const
 const ANY_PATTERN = "*" as const
