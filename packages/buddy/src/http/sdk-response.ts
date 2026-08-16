@@ -1,39 +1,65 @@
 import type { Context } from "hono"
-import type { ContentfulStatusCode } from "hono/utils/http-status"
+import { parseTJsonObject, parseTString, type TJsonValue } from "./parse"
 
-type ErrorPayload = {
-  error?: unknown
-  message?: unknown
-  data?: {
-    message?: unknown
-    name?: unknown
-  }
-  name?: unknown
+type TSdkErrorPayloadData = {
+  message?: string
+  name?: string
+}
+
+type TSdkErrorPayload = {
+  error?: string
+  message?: string
+  name?: string
+  data?: TSdkErrorPayloadData
 }
 
 export type SdkResult<T> = {
   data?: T
-  error?: unknown
+  error?: TJsonValue
   response?: Response
 }
 
-function asErrorPayload(payload: unknown): ErrorPayload | undefined {
-  if (!payload || typeof payload !== "object") return undefined
-  return payload as ErrorPayload
+function parseTSdkErrorPayloadData<TValue>(value: TValue): TSdkErrorPayloadData | undefined {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
+  const message = parseTString(record.message)
+  const name = parseTString(record.name)
+  return Object.assign(
+    {},
+    message !== undefined ? { message } : undefined,
+    name !== undefined ? { name } : undefined,
+  )
 }
 
-export function extractSdkErrorMessage(error: unknown): string | undefined {
-  if (typeof error === "string" && error.trim().length > 0) {
-    return error
+function parseTSdkErrorPayload<TValue>(value: TValue): TSdkErrorPayload | undefined {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
+  const error = parseTString(record.error)
+  const message = parseTString(record.message)
+  const name = parseTString(record.name)
+  const data = parseTSdkErrorPayloadData(record.data)
+  return Object.assign(
+    {},
+    error !== undefined ? { error } : undefined,
+    message !== undefined ? { message } : undefined,
+    name !== undefined ? { name } : undefined,
+    data !== undefined ? { data } : undefined,
+  )
+}
+
+export function extractSdkErrorMessage<TError>(error: TError): string | undefined {
+  const text = parseTString(error)
+  if (text !== undefined && text.trim().length > 0) {
+    return text
   }
 
-  const data = asErrorPayload(error)
-  if (!data) return undefined
+  const data = parseTSdkErrorPayload(error)
+  if (data === undefined) return undefined
 
-  if (typeof data.error === "string") return data.error
-  if (typeof data.message === "string") return data.message
-  if (typeof data.data?.message === "string") return data.data.message
-  if (typeof data.name === "string" && typeof data.data?.name === "string") {
+  if (data.error !== undefined) return data.error
+  if (data.message !== undefined) return data.message
+  if (data.data?.message !== undefined) return data.data.message
+  if (data.name !== undefined && data.data?.name !== undefined) {
     return `${data.name}: ${data.data.name}`
   }
   return undefined
@@ -43,11 +69,11 @@ export function openCodeDirectoryParams(directory?: string) {
   return directory ? { directory } : {}
 }
 
-export function sdkErrorResponse(
-  result: SdkResult<unknown>,
+export function sdkErrorResponse<TData>(
+  result: SdkResult<TData>,
   options?: { forceBusyAs409?: boolean },
 ): Response {
-  const status = (result.response?.status ?? 400) as ContentfulStatusCode
+  const status = result.response?.status ?? 400
   const message = extractSdkErrorMessage(result.error) ?? "Request failed"
   if (options?.forceBusyAs409 && /busy/i.test(message)) {
     return Response.json({ error: "Session is already running" }, { status: 409 })
@@ -67,9 +93,9 @@ export function respondWithSdkResult<T>(
   return c.json(result.data ?? null)
 }
 
-export function respondWithStreamSdkResult(
+export function respondWithStreamSdkResult<TData>(
   c: Context,
-  result: SdkResult<unknown>,
+  result: SdkResult<TData>,
   options?: { forceBusyAs409?: boolean },
 ): Response {
   if (result.error !== undefined) {

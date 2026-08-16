@@ -1,26 +1,29 @@
 import { Option, Schema } from "effect"
 import z from "zod"
 
-type Decoder<T = unknown> = Schema.Decoder<T, never>
-type Decoded<S extends Decoder> = S["Type"]
+type TEffectDecoder<TValue = unknown> = Schema.Decoder<TValue, never>
+type TDecoded<S extends TEffectDecoder> = S["Type"]
 
-export function toOpenApiSchema<S extends Decoder>(schema: S) {
+export function toOpenApiSchema<S extends TEffectDecoder>(schema: S) {
   return Schema.toStandardSchemaV1(schema)
 }
 
-export function decodeSchema<S extends Decoder>(schema: S, value: unknown): Decoded<S> {
+export function decodeSchema<S extends TEffectDecoder, TValue>(
+  schema: S,
+  value: TValue,
+): TDecoded<S> {
   return Schema.decodeUnknownSync(schema)(value)
 }
 
-export function safeDecodeSchema<S extends Decoder>(schema: S, value: unknown) {
+export function safeDecodeSchema<S extends TEffectDecoder, TValue>(schema: S, value: TValue) {
   const decoded = Schema.decodeUnknownOption(schema)(value)
   return Option.isSome(decoded)
     ? ({ success: true, data: decoded.value } as const)
     : ({ success: false } as const)
 }
 
-export function zodFromEffectSchema<S extends Decoder>(schema: S): z.ZodType<Decoded<S>> {
-  return z.unknown().transform((value, ctx) => {
+export function zodFromEffectSchema<S extends TEffectDecoder>(schema: S): z.ZodType<TDecoded<S>> {
+  return z.unknown().transform((value, ctx): TDecoded<S> => {
     const decoded = safeDecodeSchema(schema, value)
     if (decoded.success) {
       return decoded.data
@@ -30,5 +33,5 @@ export function zodFromEffectSchema<S extends Decoder>(schema: S): z.ZodType<Dec
       message: "Invalid value",
     })
     return z.NEVER
-  }) as z.ZodType<Decoded<S>>
+  })
 }

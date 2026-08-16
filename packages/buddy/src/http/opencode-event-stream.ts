@@ -1,8 +1,14 @@
 import path from "node:path"
-import type { EventMessagePartUpdated } from "@opencode-ai/sdk/v2"
 import { readWorkspaceFileWatcherUpdatePayload } from "@buddy/opencode-adapter/file-watcher"
-import type { BuddyGlobalEvent } from "@buddy/opencode-adapter/global-event"
 import { withToolPresentationOnUnknownPart } from "@buddy/opencode-adapter/session-tool-presentation"
+import {
+  parseTJsonObject,
+  parseTJsonValue,
+  parseTNumber,
+  parseTString,
+  type TJsonObject,
+  type TJsonValue,
+} from "./parse"
 
 const SSE_DATA_PREFIX = "data:"
 const SSE_FRAME_DELIMITER = "\n\n"
@@ -12,31 +18,72 @@ const CURRENT_DIRECTORY_RELATIVE_PATH = "."
 const PARENT_DIRECTORY_RELATIVE_PATH = ".."
 const WINDOWS_DRIVE_PATH_PREFIX_PATTERN = /^[a-zA-Z]:[\\/]/u
 
-type BuddyEventStreamMultiplexer = {
-  initialEvents?: readonly unknown[]
-  subscribe(listener: (event: unknown) => void): () => void
+type TBuddyEventStreamMultiplexer<TEvent> = {
+  initialEvents?: readonly TEvent[]
+  subscribe(listener: (event: TEvent) => void): () => void
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+type TMessagePartUpdatedProperties = TJsonObject & {
+  sessionID: string
+  time: number
+  part: TJsonValue
 }
 
-type MessagePartUpdatedGlobalEvent = BuddyGlobalEvent & {
+type TMessagePartUpdatedPayload = TJsonObject & {
+  type: typeof MESSAGE_PART_UPDATED
+  id: string
+  properties: TMessagePartUpdatedProperties
+}
+
+type TMessagePartUpdatedGlobalEvent = TJsonObject & {
   directory: string
-  payload: EventMessagePartUpdated
+  payload: TMessagePartUpdatedPayload
 }
 
-function isMessagePartUpdatedGlobalEvent(value: unknown): value is MessagePartUpdatedGlobalEvent {
-  if (!isRecord(value) || typeof value.directory !== "string") return false
-  const payload = value.payload
-  if (!isRecord(payload) || payload.type !== MESSAGE_PART_UPDATED) return false
-  if (typeof payload.id !== "string" || !isRecord(payload.properties)) return false
+function parseTMessagePartUpdatedProperties<TValue>(
+  value: TValue,
+): TMessagePartUpdatedProperties | undefined {
+  const properties = parseTJsonObject(value)
+  if (properties === undefined) return undefined
+  const sessionID = parseTString(properties.sessionID)
+  const time = parseTNumber(properties.time)
+  const part = parseTJsonValue(properties.part)
+  if (sessionID === undefined || time === undefined) return undefined
+  if (part === undefined || parseTJsonObject(part) === undefined) return undefined
+  return Object.assign({}, properties, {
+    sessionID,
+    time,
+    part,
+  })
+}
 
-  return (
-    typeof payload.properties.sessionID === "string" &&
-    typeof payload.properties.time === "number" &&
-    isRecord(payload.properties.part)
-  )
+function parseTMessagePartUpdatedPayload<TValue>(
+  value: TValue,
+): TMessagePartUpdatedPayload | undefined {
+  const payload = parseTJsonObject(value)
+  if (payload === undefined || payload.type !== MESSAGE_PART_UPDATED) return undefined
+  const id = parseTString(payload.id)
+  const properties = parseTMessagePartUpdatedProperties(payload.properties)
+  if (id === undefined || properties === undefined) return undefined
+  return Object.assign({}, payload, {
+    type: MESSAGE_PART_UPDATED,
+    id,
+    properties,
+  } as const)
+}
+
+function parseTMessagePartUpdatedGlobalEvent<TValue>(
+  value: TValue,
+): TMessagePartUpdatedGlobalEvent | undefined {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
+  const directory = parseTString(record.directory)
+  const payload = parseTMessagePartUpdatedPayload(record.payload)
+  if (directory === undefined || payload === undefined) return undefined
+  return Object.assign({}, record, {
+    directory,
+    payload,
+  })
 }
 
 function readSseDataValue(line: string) {
@@ -70,40 +117,51 @@ function containedWorkspaceRelativePath(input: {
   return relativePath.replaceAll(pathTools.sep, "/")
 }
 
-function transformGlobalEventPayload(payload: unknown, directory: string) {
-  if (!isRecord(payload)) return payload
-  const watcherUpdate = readWorkspaceFileWatcherUpdatePayload(payload.payload)
-  if (watcherUpdate && isRecord(payload.payload) && isRecord(payload.payload.properties)) {
-    const relativePath = containedWorkspaceRelativePath({
-      directory,
-      absolutePath: watcherUpdate.absolutePath,
-    })
-    if (!relativePath) return payload
+function transformWatcherEventPayload(record: TJsonObject, directory: string): TJsonObject | undefined {
+  const nestedPayload = parseTJsonObject(record.payload)
+  if (nestedPayload === undefined) return undefined
+  const watcherUpdate = readWorkspaceFileWatcherUpdatePayload(nestedPayload)
+  const nestedProperties = parseTJsonObject(nestedPayload.properties)
+  if (!watcherUpdate || nestedProperties === undefined) return undefined
 
-    return {
-      ...payload,
-      payload: {
-        ...payload.payload,
-        properties: {
-          ...payload.payload.properties,
-          relativePath,
-        },
-      },
-    }
-  }
+  const relativePath = containedWorkspaceRelativePath({
+    directory,
+    absolutePath: watcherUpdate.absolutePath,
+  })
+  if (!relativePath) return undefined
 
-  if (!isMessagePartUpdatedGlobalEvent(payload)) return payload
+  return Object.assign({}, record, {
+    payload: Object.assign({}, nestedPayload, {
+      properties: Object.assign({}, nestedProperties, { relativePath }),
+    }),
+  })
+}
 
-  return {
-    ...payload,
-    payload: {
-      ...payload.payload,
-      properties: {
-        ...payload.payload.properties,
-        part: withToolPresentationOnUnknownPart(payload.payload.properties.part, payload.directory),
-      },
-    },
-  }
+function transformMessagePartUpdatedPayload(record: TJsonObject): TJsonObject | undefined {
+  const event = parseTMessagePartUpdatedGlobalEvent(record)
+  if (event === undefined) return undefined
+  const presentedPart = parseTJsonValue(
+    withToolPresentationOnUnknownPart(event.payload.properties.part, event.directory),
+  )
+  if (presentedPart === undefined) return undefined
+
+  return Object.assign({}, event, {
+    payload: Object.assign({}, event.payload, {
+      properties: Object.assign({}, event.payload.properties, {
+        part: presentedPart,
+      }),
+    }),
+  })
+}
+
+function transformGlobalEventPayload<TPayload>(payload: TPayload, directory: string): TPayload | TJsonObject {
+  const record = parseTJsonObject(payload)
+  if (record === undefined) return payload
+  return (
+    transformWatcherEventPayload(record, directory) ??
+    transformMessagePartUpdatedPayload(record) ??
+    payload
+  )
 }
 
 function transformSseFrame(frame: string, directory: string) {
@@ -117,12 +175,13 @@ function transformSseFrame(frame: string, directory: string) {
 
   const data = dataLines.join("\n")
 
-  let payload: unknown
+  let payload: TJsonValue | undefined
   try {
-    payload = JSON.parse(data)
+    payload = parseTJsonValue(JSON.parse(data))
   } catch {
     return frame
   }
+  if (payload === undefined) return frame
 
   const transformed = transformGlobalEventPayload(payload, directory)
   if (transformed === payload) {
@@ -147,7 +206,7 @@ function transformSseFrame(frame: string, directory: string) {
   return nextLines.join("\n")
 }
 
-function encodeSseEvent(encoder: TextEncoder, event: unknown): Uint8Array {
+function encodeSseEvent<TEvent>(encoder: TextEncoder, event: TEvent): Uint8Array {
   return encoder.encode(`${SSE_DATA_PREFIX} ${JSON.stringify(event)}${SSE_FRAME_DELIMITER}`)
 }
 
@@ -157,10 +216,10 @@ export function buildOpenCodeEventStreamRequestHeaders(inbound: Headers): Header
   return headers
 }
 
-export function transformOpenCodeEventStreamResponse(input: {
+export function transformOpenCodeEventStreamResponse<TEvent>(input: {
   response: Response
   directory: string
-  buddyEvents?: BuddyEventStreamMultiplexer
+  buddyEvents?: TBuddyEventStreamMultiplexer<TEvent>
 }): Response {
   if (!input.response.body) {
     return input.response

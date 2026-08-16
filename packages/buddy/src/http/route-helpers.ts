@@ -7,17 +7,17 @@ import type { Context } from "hono"
 import type { DirectoryRequestContext, DirectoryRequestSource } from "./directory"
 import { resolveDirectoryRequestContext } from "./directory"
 
-type RouteSuccess<T> = {
+type TRouteSuccess<T> = {
   ok: true
   value: T
 }
 
-type RouteFailure = {
+type TRouteFailure = {
   ok: false
   response: Response
 }
 
-export type RouteResult<T> = RouteSuccess<T> | RouteFailure
+export type RouteResult<T> = TRouteSuccess<T> | TRouteFailure
 
 export function withDirectoryContext(
   source: DirectoryRequestSource,
@@ -96,14 +96,19 @@ export function createConfigSyncMiddleware(operation: string) {
   }
 }
 
+function parseTRouteTaskError<TValue>(value: TValue): Error {
+  if (value instanceof Error) return value
+  return new Error(String(value))
+}
+
 export async function runRouteTask(input: {
   task: () => Promise<Response>
-  mapError?: (error: unknown) => Response | undefined
+  mapError?(error: Error): Response | undefined
 }): Promise<Response> {
   try {
     return await input.task()
   } catch (error) {
-    const response = input.mapError?.(error)
+    const response = input.mapError?.(parseTRouteTaskError(error))
     if (response) return response
     throw error
   }

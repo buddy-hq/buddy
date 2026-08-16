@@ -1,18 +1,33 @@
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { resolveDirectory } from "../project"
+import { parseTJsonObject, parseTString } from "./parse"
 
-export async function isSessionInRequestedProject(
+type TSessionProjectScope = {
+  projectID?: string
+  directory?: string
+}
+
+function parseTSessionProjectScope<TValue>(value: TValue): TSessionProjectScope | undefined {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
+  const projectID = parseTString(record.projectID)
+  const directory = parseTString(record.directory)
+  return Object.assign(
+    {},
+    projectID !== undefined ? { projectID } : undefined,
+    directory !== undefined ? { directory } : undefined,
+  )
+}
+
+export async function isSessionInRequestedProject<TSession>(
   directory: string,
-  session: unknown,
+  session: TSession,
 ): Promise<boolean> {
-  if (!session || typeof session !== "object") return true
-  const payload = session as {
-    projectID?: unknown
-    directory?: unknown
-  }
+  const payload = parseTSessionProjectScope(session)
+  if (payload === undefined) return true
 
   const sessionDirectory =
-    typeof payload.directory === "string" ? resolveDirectory(payload.directory) : undefined
+    payload.directory !== undefined ? resolveDirectory(payload.directory) : undefined
   const requestedDirectory = resolveDirectory(directory)
   if (sessionDirectory && sessionDirectory === requestedDirectory) {
     return true
@@ -24,9 +39,9 @@ export async function isSessionInRequestedProject(
   })
 
   const sessionProjectID =
-    typeof payload.projectID === "string"
+    payload.projectID !== undefined
       ? payload.projectID
-      : typeof payload.directory === "string"
+      : payload.directory !== undefined
         ? await OpenCodeInstance.provide({
             directory: payload.directory,
             fn: () => OpenCodeInstance.project.id,

@@ -1,92 +1,107 @@
 import { isJsonContentType, safeReadJson } from "./http"
+import { parseTBoolean, parseTJsonObject, parseTNumber, parseTString } from "./parse"
 
-type ErrorPayload = {
-  error?: unknown
-  message?: unknown
-  data?: {
-    message?: unknown
-    name?: unknown
-  }
-  name?: unknown
+type TErrorPayloadData = {
+  message?: string
+  name?: string
 }
 
-type ValidationIssue = {
-  message?: unknown
-  path?: readonly unknown[]
+type TErrorPayload = {
+  error?: string
+  message?: string
+  name?: string
+  data?: TErrorPayloadData
 }
 
-type ValidationFailurePayload = {
-  success?: unknown
-  error?: unknown
+type TValidationIssue = {
+  message: string
+  path: readonly string[]
 }
 
-function asErrorPayload(payload: unknown): ErrorPayload | undefined {
-  // Intentional shallow assertion in asErrorPayload; extractErrorMessage validates field types.
-  if (!payload || typeof payload !== "object") return undefined
-  return payload as ErrorPayload
+function parseTErrorPayloadData<TValue>(value: TValue): TErrorPayloadData | undefined {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
+  const message = parseTString(record.message)
+  const name = parseTString(record.name)
+  return Object.assign(
+    {},
+    message !== undefined ? { message } : undefined,
+    name !== undefined ? { name } : undefined,
+  )
 }
 
-function extractErrorMessage(payload: unknown): string | undefined {
-  const data = asErrorPayload(payload)
-  if (!data) return undefined
+function parseTErrorPayload<TValue>(value: TValue): TErrorPayload | undefined {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
+  const error = parseTString(record.error)
+  const message = parseTString(record.message)
+  const name = parseTString(record.name)
+  const data = parseTErrorPayloadData(record.data)
+  return Object.assign(
+    {},
+    error !== undefined ? { error } : undefined,
+    message !== undefined ? { message } : undefined,
+    name !== undefined ? { name } : undefined,
+    data !== undefined ? { data } : undefined,
+  )
+}
 
-  if (typeof data.error === "string") return data.error
-  if (typeof data.message === "string") return data.message
-  if (typeof data.data?.message === "string") return data.data.message
-  if (typeof data.name === "string" && typeof data.data?.name === "string")
+function extractErrorMessage<TPayload>(payload: TPayload): string | undefined {
+  const data = parseTErrorPayload(payload)
+  if (data === undefined) return undefined
+
+  if (data.error !== undefined) return data.error
+  if (data.message !== undefined) return data.message
+  if (data.data?.message !== undefined) return data.data.message
+  if (data.name !== undefined && data.data?.name !== undefined) {
     return `${data.name}: ${data.data.name}`
+  }
   return undefined
 }
 
-function asValidationFailurePayload(payload: unknown): ValidationFailurePayload | undefined {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return undefined
-  }
+function parseTValidationPathSegment<TValue>(segment: TValue): string | undefined {
+  const text = parseTString(segment)
+  if (text !== undefined) return text
+  const numeric = parseTNumber(segment)
+  if (numeric !== undefined) return String(numeric)
 
-  return payload as ValidationFailurePayload
-}
-
-function asValidationIssue(value: unknown): ValidationIssue | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined
-  }
-
-  return value as ValidationIssue
-}
-
-function formatValidationPathSegment(segment: unknown): string | undefined {
-  if (typeof segment === "string" || typeof segment === "number") {
-    return String(segment)
-  }
-
-  if (!segment || typeof segment !== "object" || !("key" in segment)) {
-    return undefined
-  }
-
-  const key = segment.key
-  if (typeof key === "string" || typeof key === "number") {
-    return String(key)
-  }
-
+  const record = parseTJsonObject(segment)
+  if (record === undefined) return undefined
+  const keyText = parseTString(record.key)
+  if (keyText !== undefined) return keyText
+  const keyNumeric = parseTNumber(record.key)
+  if (keyNumeric !== undefined) return String(keyNumeric)
   return undefined
 }
 
-function extractValidationErrorMessage(payload: unknown): string | undefined {
-  const data = asValidationFailurePayload(payload)
-  if (!data || data.success !== false || !Array.isArray(data.error)) {
-    return undefined
-  }
+function parseTValidationIssue<TValue>(value: TValue): TValidationIssue | undefined {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
+  const message = parseTString(record.message)
+  if (message === undefined) return undefined
 
-  const firstIssue = asValidationIssue(data.error[0])
-  if (!firstIssue || typeof firstIssue.message !== "string") {
-    return undefined
-  }
-
-  const path = Array.isArray(firstIssue.path)
-    ? firstIssue.path.map(formatValidationPathSegment).filter((segment) => !!segment)
+  const path = Array.isArray(record.path)
+    ? record.path
+        .map(parseTValidationPathSegment)
+        .filter((segment): segment is string => segment !== undefined && segment.length > 0)
     : []
 
-  return path.length > 0 ? `${path.join(".")}: ${firstIssue.message}` : firstIssue.message
+  return { message, path }
+}
+
+function extractValidationErrorMessage<TPayload>(payload: TPayload): string | undefined {
+  const record = parseTJsonObject(payload)
+  if (record === undefined) return undefined
+  if (parseTBoolean(record.success) !== false || !Array.isArray(record.error)) {
+    return undefined
+  }
+
+  const firstIssue = parseTValidationIssue(record.error[0])
+  if (firstIssue === undefined) return undefined
+
+  return firstIssue.path.length > 0
+    ? `${firstIssue.path.join(".")}: ${firstIssue.message}`
+    : firstIssue.message
 }
 
 export async function normalizeErrorResponse(

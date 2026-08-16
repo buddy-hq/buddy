@@ -1,4 +1,5 @@
 import fs from "node:fs"
+import z from "zod"
 import { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "../project"
 import { isDirectoryInOpenProjectRegistry } from "../project/open-project-registry"
 
@@ -44,14 +45,22 @@ const DIRECTORY_CONFLICT_ERROR =
   "Conflicting directory scopes were provided. Use one directory or make every scope identical."
 const DIRECTORY_ACCESS_DENIED_ERROR_CODES = new Set(["EACCES", "EPERM"])
 
-type NodeErrorWithCode = {
-  code?: unknown
+type TNodeErrno = {
+  code: string
 }
 
-function readErrorCode(error: unknown): string | undefined {
-  if (!error || typeof error !== "object") return undefined
-  const candidate = error as NodeErrorWithCode
-  return typeof candidate.code === "string" ? candidate.code : undefined
+const nodeErrnoSchema = z.object({
+  code: z.string(),
+})
+
+function parseTNodeErrno<TValue>(value: TValue): TNodeErrno | undefined {
+  const parsed = nodeErrnoSchema.safeParse(value)
+  if (!parsed.success) return undefined
+  return { code: parsed.data.code }
+}
+
+function readErrorCode<TError>(error: TError): string | undefined {
+  return parseTNodeErrno(error)?.code
 }
 
 function inaccessibleDirectoryMessage(directory: string) {

@@ -17,7 +17,7 @@ export const idempotencyHeaderSchema = z.object({
   [IDEMPOTENCY_KEY_HEADER]: z.string().uuid(),
 })
 
-export function createIdempotencyRequestHash(payload: Record<string, unknown>): string {
+export function createIdempotencyRequestHash<TPayload>(payload: TPayload): string {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex")
 }
 
@@ -42,7 +42,7 @@ export function createIdempotentEventID(input: {
   return `evt_${input.namespace}_${digest}`
 }
 
-export function mapIdempotencyRouteError(error: unknown): Response | undefined {
+export function mapIdempotencyRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof IdempotencyPayloadConflictError) {
     return Response.json({ error: error.message }, { status: 409 })
   }
