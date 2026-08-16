@@ -173,10 +173,7 @@ function cellDisplayText(cell: SpreadsheetCell): string {
 function displayCellValue(
   value: unknown,
   address: string,
-): {
-  text: string
-  annotation?: FormulaAnnotation
-} {
+) {
   const cell = readSpreadsheetCell(value)
   if (!cell) return { text: "" }
   const displayed = cellDisplayText(cell)
@@ -293,10 +290,7 @@ function prepareWorksheets(workbook: XLSX.WorkBook): PreparedWorksheet[] {
   })
 }
 
-function worksheetRows(input: PreparedWorksheet): {
-  rows: string[][]
-  formulasByRow: Map<number, FormulaAnnotation[]>
-} {
+function worksheetRows(input: PreparedWorksheet) {
   const rows: string[][] = []
   const formulasByRow = new Map<number, FormulaAnnotation[]>()
   for (let rowNumber = 1; rowNumber <= input.rowCount; rowNumber += 1) {

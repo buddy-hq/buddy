@@ -142,7 +142,7 @@ export async function buildResourceChunkFiles(input: {
 
       const markdownBody = [`# ${label}`, "", part.text.trim()].join("\n")
 
-      const frontmatter: Record<string, unknown> = {
+      const frontmatter = {
         file_kind: fileKind,
         resource_alias: input.resourceAlias,
         source_relpath: input.sourceRelpath,
@@ -159,7 +159,7 @@ export async function buildResourceChunkFiles(input: {
         est_tokens: estTokens,
         threshold_tokens: threshold.maxTokens,
         split_reason: part.splitReason,
-      }
+      } satisfies Record<string, unknown>
 
       if (seed.pageStart !== undefined) {
         frontmatter.page_start = seed.pageStart
