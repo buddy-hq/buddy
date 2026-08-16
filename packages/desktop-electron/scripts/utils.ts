@@ -93,6 +93,7 @@ export function resolveExplicitRuntimeRootEnvironment(xdgRoot: string) {
 }
 
 export function updateDesktopPackageVersion(version: string) {
+  // SAFETY: This repository-owned package manifest always has the required version field.
   const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf8")) as {
     version: string
   }
@@ -101,6 +102,7 @@ export function updateDesktopPackageVersion(version: string) {
 }
 
 export function readDesktopPackageVersion() {
+  // SAFETY: This repository-owned package manifest always has the required version field.
   const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf8")) as {
     version: string
   }

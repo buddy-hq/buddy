@@ -15,6 +15,7 @@ export const RELEASE_VERSION_GIT_FILES = [...RELEASE_VERSION_PACKAGE_FILES, "bun
 export async function updateReleaseVersionPackageFiles(rootDir: string, version: string) {
   for (const relativePath of RELEASE_VERSION_PACKAGE_FILES) {
     const target = path.join(rootDir, relativePath)
+    // SAFETY: Every configured target is a repository-owned package manifest with a version field.
     const pkg = (await Bun.file(target).json()) as {
       version: string
     }

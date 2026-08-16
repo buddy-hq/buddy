@@ -49,16 +49,14 @@ export async function runKnowledgeGraphVerify() {
   requireFile(archivePath, "Knowledge Graph archive")
   requireFile(checksumPath, "Knowledge Graph checksum")
 
-  const lockfile = parseKnowledgeGraphLockfile(
-    JSON.parse(readFileSync(lockfilePath, "utf8")) as unknown,
-  )
+  const parsedLockfile: unknown = JSON.parse(readFileSync(lockfilePath, "utf8"))
+  const lockfile = parseKnowledgeGraphLockfile(parsedLockfile)
   if (!lockfile) {
     throw new Error(`Knowledge Graph lockfile is invalid at ${lockfilePath}`)
   }
 
-  const manifest = parseKnowledgeGraphArtifactManifest(
-    JSON.parse(readFileSync(manifestPath, "utf8")) as unknown,
-  )
+  const parsedManifest: unknown = JSON.parse(readFileSync(manifestPath, "utf8"))
+  const manifest = parseKnowledgeGraphArtifactManifest(parsedManifest)
   if (!manifest) {
     throw new Error(`Knowledge Graph manifest is invalid at ${manifestPath}`)
   }

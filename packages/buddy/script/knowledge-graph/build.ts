@@ -245,7 +245,8 @@ function readKnowledgeGraphLockfile(outputDir: string) {
   }
 
   try {
-    return parseKnowledgeGraphLockfile(JSON.parse(readFileSync(lockfilePath, "utf8")) as unknown)
+    const parsed: unknown = JSON.parse(readFileSync(lockfilePath, "utf8"))
+    return parseKnowledgeGraphLockfile(parsed)
   } catch {
     return undefined
   }

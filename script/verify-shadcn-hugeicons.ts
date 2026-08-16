@@ -94,6 +94,7 @@ async function fetchRegistry(name: string): Promise<string> {
 }
 
 function extractOfficialPlaceholders(registryJson: string): OfficialPlaceholder[] {
+  // SAFETY: The official shadcn registry contract exposes an optional files array with text content.
   const data = JSON.parse(registryJson) as {
     files?: Array<{ content?: string }>
   }

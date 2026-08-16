@@ -90,7 +90,7 @@ async function smokeFetch(path: string, init?: RequestInit & { query?: Record<st
     const bodyText = await response.text()
     let body: unknown = bodyText
     if (contentType.includes("application/json") && bodyText.length > 0) {
-      body = JSON.parse(bodyText) as unknown
+      body = JSON.parse(bodyText)
     }
 
     return { response, body }
@@ -159,6 +159,7 @@ function countCompletedToolParts(messages: unknown[]) {
 
   for (const message of messages) {
     if (!isRecord(message)) continue
+    // SAFETY: Only optional fields are read, and each nested collection is checked before iteration.
     const record = message as MessageWithParts
     const role = record.info?.role
     if (role !== "assistant") continue
@@ -186,6 +187,7 @@ function countCompletedToolParts(messages: unknown[]) {
 function assistantIncludesSmokeOk(messages: unknown[]) {
   for (const message of messages) {
     if (!isRecord(message)) continue
+    // SAFETY: Only optional fields are read, and each nested collection is checked before iteration.
     const record = message as MessageWithParts
     if (record.info?.role !== "assistant") continue
     const parts = record.parts

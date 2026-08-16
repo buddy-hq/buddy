@@ -91,8 +91,7 @@ async function persistWorkflowDispatchReleaseVersion(tag: string, releaseTarget:
 
   const dirtyPaths = parseStatusPaths(await $`git status --porcelain`.cwd(ROOT_DIR).text())
   const unexpectedDirtyPaths = dirtyPaths.filter(
-    (path) =>
-      !RELEASE_VERSION_GIT_FILES.includes(path as (typeof RELEASE_VERSION_GIT_FILES)[number]),
+    (path) => !RELEASE_VERSION_GIT_FILES.some((releasePath) => releasePath === path),
   )
   if (unexpectedDirtyPaths.length > 0) {
     throw new Error(

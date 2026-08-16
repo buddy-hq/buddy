@@ -49,6 +49,7 @@ export function latestReleaseVersionFromReleases(
 
 async function listGithubReleases(): Promise<GithubReleaseVersion[]> {
   const repo = releaseRepository()
+  // SAFETY: GitHub CLI is invoked with the exact GithubReleaseVersion field projection.
   const releases =
     (await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()) as GithubReleaseVersion[]
   return releases

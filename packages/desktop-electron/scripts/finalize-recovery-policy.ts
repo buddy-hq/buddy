@@ -54,6 +54,7 @@ async function loadRecoveryPolicy(): Promise<RecoveryPolicy> {
 }
 
 function parseRecoveryPolicy(content: string): RecoveryPolicy {
+  // SAFETY: The fields used below are validated before constructing the complete recovery policy.
   const parsed = JSON.parse(content) as Partial<RecoveryPolicy>
   if (parsed.schema !== RECOVERY_POLICY_SCHEMA_VERSION || !Array.isArray(parsed.badVersions)) {
     throw new Error("Invalid recovery policy payload")

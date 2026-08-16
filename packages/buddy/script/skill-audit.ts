@@ -277,9 +277,8 @@ function parseReviewStatus(
   name: string,
 ): ReviewOverrideStatus | undefined {
   if (!input) return undefined
-  if ((REVIEW_STATUS_VALUES as readonly string[]).includes(input)) {
-    return input as ReviewOverrideStatus
-  }
+  const status = REVIEW_STATUS_VALUES.find((value) => value === input)
+  if (status) return status
   throw new Error(`Invalid ${name} value "${input}". Use pass, warn, or block.`)
 }
 

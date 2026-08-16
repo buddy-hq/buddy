@@ -356,6 +356,7 @@ async function loadRelease(tag: string) {
     return undefined
   }
 
+  // SAFETY: GitHub CLI is invoked with the exact ReleaseSummary field projection.
   return (await $`gh release view ${tag} --repo ${releaseRepository()} --json name,body,isDraft,url,tagName`
     .cwd(ROOT_DIR)
     .json()) as ReleaseSummary
@@ -510,6 +511,7 @@ function runRequiredGates() {
 
 async function waitForRunUrl(version: string, targetSha: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
+    // SAFETY: GitHub CLI is invoked with the exact WorkflowRun field projection.
     const runs =
       (await $`gh run list --repo ${sourceRepository()} --workflow ${RELEASE_WORKFLOW_FILENAME} --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
         .cwd(ROOT_DIR)

@@ -59,10 +59,11 @@ function packageJsonPaths() {
 
 async function readPackageJson(filePath: string): Promise<PackageJsonShape> {
   const content = await Bun.file(filePath).text()
-  const parsed = JSON.parse(content) as unknown
+  const parsed: unknown = JSON.parse(content)
   if (!isRecord(parsed)) {
     throw new Error(`Invalid package.json at ${filePath}`)
   }
+  // SAFETY: Callers only consume package manifest dependency records from this validated object.
   return parsed as PackageJsonShape
 }
 

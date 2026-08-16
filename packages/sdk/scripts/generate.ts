@@ -165,6 +165,7 @@ async function loadSchema() {
     if (!response.ok) {
       throw new Error(`Failed to fetch OpenAPI schema from ${API_URL}: ${response.status}`)
     }
+    // SAFETY: The endpoint is Buddy's OpenAPI document, normalized immediately before generation.
     const schema = (await response.json()) as OpenAPISchema
     return normalizeSchemaForSdk(normalizePaths(schema))
   } catch {
@@ -173,6 +174,7 @@ async function loadSchema() {
     if (!response.ok) {
       throw new Error(`Failed to fetch OpenAPI schema from backend app: ${response.status}`)
     }
+    // SAFETY: The fallback endpoint is the same Buddy OpenAPI document served in process.
     const schema = (await response.json()) as OpenAPISchema
     return normalizeSchemaForSdk(normalizePaths(schema))
   }
