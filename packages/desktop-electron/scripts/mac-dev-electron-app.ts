@@ -11,6 +11,8 @@ const APP_EXECUTABLE_NAME = "Electron"
 const APP_INFO_PLIST_NAME = "Info.plist"
 const CACHE_DIRECTORY_NAME = "buddy-electron-dev"
 const CACHE_KEY_LENGTH = 16
+const CACHE_FORMAT_VERSION = "2"
+const CODESIGN_PATH = "/usr/bin/codesign"
 const PLUTIL_PATH = "/usr/bin/plutil"
 
 export function prepareMacDevElectronExecutable(input: {
@@ -22,6 +24,8 @@ export function prepareMacDevElectronExecutable(input: {
 
   const sourceAppPath = path.resolve(path.dirname(input.electronExecutablePath), "..", "..")
   const cacheKey = createHash("sha256")
+    .update(CACHE_FORMAT_VERSION)
+    .update("\0")
     .update(input.repositoryRoot)
     .update("\0")
     .update(sourceAppPath)
@@ -82,6 +86,9 @@ function prepareAppBundle(input: {
       "CFBundleIdentifier",
       `ai.buddy.desktop.dev.${input.cacheKey}`,
     )
+    execFileSync(CODESIGN_PATH, ["--force", "--deep", "--sign", "-", stagingAppPath], {
+      stdio: "ignore",
+    })
 
     rmSync(input.cacheRoot, { force: true, recursive: true })
     renameSync(stagingRoot, input.cacheRoot)
