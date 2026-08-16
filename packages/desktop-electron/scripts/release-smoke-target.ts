@@ -9,6 +9,17 @@ type ReleaseSmokeTarget = {
   platform: "darwin" | "win32"
 }
 
+export type ReleaseTargetEnvironment = {
+  BUDDY_NODE_ARTIFACT_TARGET_ARCH: ReleaseSmokeTarget["architecture"]
+  BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: ReleaseSmokeTarget["platform"]
+}
+
+export type ReleaseTargetSelectionEnvironment = {
+  BUDDY_RELEASE_TARGET_MACOS_ARM64: "true" | "false"
+  BUDDY_RELEASE_TARGET_MACOS_X64: "true" | "false"
+  BUDDY_RELEASE_TARGET_WINDOWS_X64: "true" | "false"
+}
+
 export const RELEASE_SMOKE_TARGETS = {
   "macos-arm64": {
     architecture: "arm64",
@@ -47,7 +58,7 @@ export function resolveNativeReleaseSmokeTarget(
 
 export function releaseTargetEnvironment(
   targetName: ReleaseSmokeTargetName,
-): Record<string, string> {
+): ReleaseTargetEnvironment {
   const target = RELEASE_SMOKE_TARGETS[targetName]
   return {
     BUDDY_NODE_ARTIFACT_TARGET_ARCH: target.architecture,
@@ -57,7 +68,7 @@ export function releaseTargetEnvironment(
 
 export function releaseTargetSelectionEnvironment(
   targetName: ReleaseSmokeTargetName,
-): Record<string, string> {
+): ReleaseTargetSelectionEnvironment {
   return {
     BUDDY_RELEASE_TARGET_MACOS_ARM64: targetName === "macos-arm64" ? "true" : "false",
     BUDDY_RELEASE_TARGET_MACOS_X64: targetName === "macos-x64" ? "true" : "false",

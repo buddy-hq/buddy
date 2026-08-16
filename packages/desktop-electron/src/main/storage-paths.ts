@@ -21,6 +21,20 @@ export const DESKTOP_XDG_ENV = {
   STATE_HOME: XDG_ENV.STATE_HOME,
 } as const
 
+export type RuntimeXdgEnvironment = {
+  [DESKTOP_XDG_ENV.DATA_HOME]: string
+  [DESKTOP_XDG_ENV.CACHE_HOME]: string
+  [DESKTOP_XDG_ENV.CONFIG_HOME]: string
+  [DESKTOP_XDG_ENV.STATE_HOME]: string
+}
+
+export type DevRuntimeEnvironment = RuntimeXdgEnvironment & {
+  [BUDDY_ENV.DATA_DIR]: string
+  [BUDDY_ENV.CACHE_DIR]: string
+  [BUDDY_ENV.GLOBAL_CONFIG_DIR]: string
+  [BUDDY_ENV.STATE_DIR]: string
+}
+
 export function resolveDefaultNotebookHome(home: string): string {
   return join(home, ...DEFAULT_NOTEBOOK_HOME_SEGMENTS)
 }
@@ -36,7 +50,7 @@ export function shouldUseDevRuntimeIsolation(input: {
   return !input.isPackaged || input.channel === "dev"
 }
 
-export function resolveRuntimeXdgEnvironment(runtimeRoot: string): Record<string, string> {
+export function resolveRuntimeXdgEnvironment(runtimeRoot: string): RuntimeXdgEnvironment {
   return {
     [DESKTOP_XDG_ENV.DATA_HOME]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.data),
     [DESKTOP_XDG_ENV.CACHE_HOME]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.cache),
@@ -49,7 +63,7 @@ export function resolveDevXdgEnvironment(userDataPath: string): Record<string, s
   return resolveRuntimeXdgEnvironment(join(userDataPath, DEV_XDG_DIRECTORY_NAME))
 }
 
-export function resolveDevRuntimeEnvironment(userDataPath: string): Record<string, string> {
+export function resolveDevRuntimeEnvironment(userDataPath: string): DevRuntimeEnvironment {
   const runtimeRoot = join(userDataPath, DEV_XDG_DIRECTORY_NAME)
 
   return {

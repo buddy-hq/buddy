@@ -138,10 +138,8 @@ function ensureDistHasMacArtifacts(rootDir: string) {
   }
 }
 
-type SigningEnvironment = Record<string, string>
-
-function resolveSigningEnvironment(): SigningEnvironment {
-  const signingEnv: SigningEnvironment = {
+function resolveSigningEnvironment() {
+  const signingEnv = {
     ...process.env,
     [VERSION_ENV_KEY]: version,
     [ELECTRON_DIST_DIR_ENV_KEY]: distDir,
@@ -149,6 +147,11 @@ function resolveSigningEnvironment(): SigningEnvironment {
     [UPDATE_ASSET_BASE_URL_ENV_KEY]: assetBaseUrl,
     [UPDATE_SKIP_UPLOAD_ENV_KEY]: TRUE_ENV_VALUE,
     [TAURI_SIGNER_BINARY_PATH_ENV_KEY]: resolveTauriSignerBinaryPath(Bun.env),
+    [TAURI_SIGNING_PRIVATE_KEY_ENV_KEY]: process.env[TAURI_SIGNING_PRIVATE_KEY_ENV_KEY],
+    [TAURI_SIGNING_PRIVATE_KEY_PATH_ENV_KEY]:
+      process.env[TAURI_SIGNING_PRIVATE_KEY_PATH_ENV_KEY],
+    [TAURI_SIGNING_PRIVATE_KEY_PASSWORD_ENV_KEY]:
+      process.env[TAURI_SIGNING_PRIVATE_KEY_PASSWORD_ENV_KEY],
   }
 
   const rawPrivateKey = Bun.env[TAURI_SIGNING_PRIVATE_KEY_ENV_KEY]?.trim()
@@ -193,7 +196,9 @@ function resolveSigningEnvironment(): SigningEnvironment {
   return signingEnv
 }
 
-async function generateLocalUpdateManifest(signingEnv: SigningEnvironment) {
+async function generateLocalUpdateManifest(
+  signingEnv: ReturnType<typeof resolveSigningEnvironment>,
+) {
   await $`bun ./scripts/finalize-latest-mac-json.ts`.cwd(packageDir).env(signingEnv)
 }
 

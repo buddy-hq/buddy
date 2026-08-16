@@ -14,11 +14,11 @@ import {
 export type ReleaseChannel = BuddyReleaseChannel
 
 const rawChannel = import.meta.env.BUDDY_CHANNEL
-const CHANNEL_NAME_HINTS: Record<ReleaseChannel, string> = {
+const CHANNEL_NAME_HINTS = {
   dev: "dev",
   beta: "beta",
   prod: "buddy",
-}
+} satisfies Record<ReleaseChannel, string>
 
 function resolvePackagedChannelFallback(): ReleaseChannel {
   const appName = app.getName().toLowerCase()
@@ -44,17 +44,17 @@ export const CHANNEL: ReleaseChannel = isBuddyReleaseChannel(rawChannel)
     ? resolvePackagedChannelFallback()
     : "dev"
 
-const APP_NAMES: Record<ReleaseChannel, string> = {
+const APP_NAMES = {
   dev: BUDDY_DEV_APP_NAME,
   beta: "Buddy Beta",
   prod: "Buddy",
-}
+} satisfies Record<ReleaseChannel, string>
 
-const APP_IDS: Record<ReleaseChannel, string> = {
+const APP_IDS = {
   dev: "ai.buddy.desktop.dev",
   beta: "ai.buddy.desktop.beta",
   prod: "ai.buddy.desktop",
-}
+} satisfies Record<ReleaseChannel, string>
 
 export const APP_PROTOCOL = BUDDY_BRANDING.appProtocol
 export const BACKEND_SERVER_USERNAME = "buddy"
