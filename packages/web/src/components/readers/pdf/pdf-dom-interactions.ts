@@ -282,10 +282,11 @@ function quoteContext(input: {
           input.lastEndOffset,
           input.lastEndOffset + PDF_QUOTE_CONTEXT_LENGTH,
         )
-  return {
-    ...(prefix ? { prefix } : {}),
-    ...(suffix ? { suffix } : {}),
-  }
+  return Object.assign(
+    {},
+    prefix ? { prefix } : undefined,
+    suffix ? { suffix } : undefined,
+  )
 }
 
 /**
@@ -380,13 +381,15 @@ export function readPdfSelection(input: {
       ? firstPageLabel
       : `${firstPageLabel}–${input.session.getPageLabel?.(lastPageIndex) ?? String(lastPageIndex + PDF_PAGE_NUMBER_OFFSET)}`
   const tocLabel = input.session.getTocLabel?.(firstPageIndex)
-  return {
-    text,
-    anchor: validatedAnchor,
-    selectionKey: readerTextAnchorKey(validatedAnchor),
-    ...(tocLabel ? { tocLabel } : {}),
-    pageLabel,
-  }
+  return Object.assign(
+    {
+      text,
+      anchor: validatedAnchor,
+      selectionKey: readerTextAnchorKey(validatedAnchor),
+      pageLabel,
+    },
+    tocLabel ? { tocLabel } : undefined,
+  )
 }
 
 export function clearPdfSelection(root: HTMLElement): void {

@@ -722,24 +722,32 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       selectionActionRef.current = action
       stagedSelectionKeyRef.current = action.selectionKey
       setAnnotationPopover(null)
-      setSelectionToolbar({
-        text: action.text,
-        cfi: action.cfi,
-        ...(action.tocLabel ? { tocLabel: action.tocLabel } : {}),
-        ...(action.pageLabel ? { pageLabel: action.pageLabel } : {}),
-        ...(action.locationLabel ? { locationLabel: action.locationLabel } : {}),
-        x: action.x,
-        y: action.y,
-      })
-      callbacksRef.current.onChatSelection?.({
-        text: action.text,
-        cfi: action.cfi,
-        index: action.index,
-        selectionKey: action.selectionKey,
-        ...(action.tocLabel ? { tocLabel: action.tocLabel } : {}),
-        ...(action.pageLabel ? { pageLabel: action.pageLabel } : {}),
-        ...(action.locationLabel ? { locationLabel: action.locationLabel } : {}),
-      })
+      setSelectionToolbar(
+        Object.assign(
+          {
+            text: action.text,
+            cfi: action.cfi,
+            x: action.x,
+            y: action.y,
+          },
+          action.tocLabel ? { tocLabel: action.tocLabel } : undefined,
+          action.pageLabel ? { pageLabel: action.pageLabel } : undefined,
+          action.locationLabel ? { locationLabel: action.locationLabel } : undefined,
+        ),
+      )
+      callbacksRef.current.onChatSelection?.(
+        Object.assign(
+          {
+            text: action.text,
+            cfi: action.cfi,
+            index: action.index,
+            selectionKey: action.selectionKey,
+          },
+          action.tocLabel ? { tocLabel: action.tocLabel } : undefined,
+          action.pageLabel ? { pageLabel: action.pageLabel } : undefined,
+          action.locationLabel ? { locationLabel: action.locationLabel } : undefined,
+        ),
+      )
     }
 
     function removeCurrentChatSelection() {
@@ -1298,10 +1306,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           const nextLocation = buildLocationState(view.lastLocation, view.book)
           snapshotRef.current = nextSnapshot
           locationRef.current = nextLocation
-          const nextPersistenceTarget: FoliateBookPersistenceTarget = {
-            bookKey: nextBookKey,
-            ...(persistenceReaderSource ? { readerSource: persistenceReaderSource } : {}),
-          }
+          const nextPersistenceTarget: FoliateBookPersistenceTarget = Object.assign(
+            { bookKey: nextBookKey },
+            persistenceReaderSource ? { readerSource: persistenceReaderSource } : undefined,
+          )
 
           startTransition(() => {
             setPersistenceTarget(nextPersistenceTarget)

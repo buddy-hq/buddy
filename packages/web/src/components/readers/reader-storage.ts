@@ -179,12 +179,14 @@ function readPdfReaderMode(value: unknown): PdfReaderMode | undefined {
     return undefined
   }
   if (value.scaleMode === "custom" && scale === undefined) return undefined
-  return {
-    layout: value.layout,
-    scaleMode: value.scaleMode,
-    rotation: value.rotation,
-    ...(scale !== undefined ? { scale } : {}),
-  }
+  return Object.assign(
+    {
+      layout: value.layout,
+      scaleMode: value.scaleMode,
+      rotation: value.rotation,
+    },
+    scale !== undefined ? { scale } : undefined,
+  )
 }
 
 export function defaultPdfReaderMode(): PdfReaderMode {
@@ -393,11 +395,15 @@ function readLegacyEpubAnnotation(value: unknown): ReaderAnnotation | undefined 
     typeof value.index === "number" && Number.isSafeInteger(value.index) && value.index >= 0
       ? value.index
       : undefined
-  const anchor = readReaderTextAnchor({
-    kind: READER_ANCHOR_KIND_CFI_TEXT,
-    cfi: value.value,
-    ...(sectionIndex !== undefined ? { sectionIndex } : {}),
-  })
+  const anchor = readReaderTextAnchor(
+    Object.assign(
+      {
+        kind: READER_ANCHOR_KIND_CFI_TEXT,
+        cfi: value.value,
+      },
+      sectionIndex !== undefined ? { sectionIndex } : undefined,
+    ),
+  )
   if (!anchor || anchor.kind !== READER_ANCHOR_KIND_CFI_TEXT) return undefined
   const created = legacyString(value.created, MAX_READER_LABEL_LENGTH, LEGACY_RECORD_TIMESTAMP)
   return {
@@ -420,19 +426,21 @@ export function migrateLegacyEpubReaderBookState(
     kind: READER_ANCHOR_KIND_CFI_POSITION,
     cfi: legacyState.lastLocation,
   })
-  return {
-    version: READER_STATE_VERSION,
-    identity: sourceIdentity(source),
-    bookmarks: legacyState.bookmarks
-      .slice(0, MAX_READER_BOOKMARKS)
-      .map(readLegacyEpubBookmark)
-      .filter((bookmark) => bookmark !== undefined),
-    annotations: legacyState.annotations
-      .slice(0, MAX_READER_ANNOTATIONS)
-      .map(readLegacyEpubAnnotation)
-      .filter((annotation) => annotation !== undefined),
-    ...(lastLocation?.kind === READER_ANCHOR_KIND_CFI_POSITION ? { lastLocation } : {}),
-  }
+  return Object.assign(
+    {
+      version: READER_STATE_VERSION,
+      identity: sourceIdentity(source),
+      bookmarks: legacyState.bookmarks
+        .slice(0, MAX_READER_BOOKMARKS)
+        .map(readLegacyEpubBookmark)
+        .filter((bookmark) => bookmark !== undefined),
+      annotations: legacyState.annotations
+        .slice(0, MAX_READER_ANNOTATIONS)
+        .map(readLegacyEpubAnnotation)
+        .filter((annotation) => annotation !== undefined),
+    },
+    lastLocation?.kind === READER_ANCHOR_KIND_CFI_POSITION ? { lastLocation } : undefined,
+  )
 }
 
 export function readerDocumentStateToLegacyEpubBookState(
@@ -442,38 +450,42 @@ export function readerDocumentStateToLegacyEpubBookState(
     state.lastLocation?.kind === READER_ANCHOR_KIND_CFI_POSITION
       ? state.lastLocation.cfi
       : undefined
-  return {
-    ...(lastLocation ? { lastLocation } : {}),
-    bookmarks: state.bookmarks.flatMap((bookmark) =>
-      bookmark.anchor.kind === READER_ANCHOR_KIND_CFI_POSITION
-        ? [
-            {
-              value: bookmark.anchor.cfi,
-              label: bookmark.label,
-              created: bookmark.created,
-            },
-          ]
-        : [],
-    ),
-    annotations: state.annotations.flatMap((annotation) =>
-      annotation.anchor.kind === READER_ANCHOR_KIND_CFI_TEXT
-        ? [
-            {
-              value: annotation.anchor.cfi,
-              text: annotation.text,
-              note: annotation.note,
-              style: annotation.style,
-              color: ANNOTATION_COLORS[annotation.color].value,
-              created: annotation.created,
-              modified: annotation.modified,
-              ...(annotation.anchor.sectionIndex !== undefined
-                ? { index: annotation.anchor.sectionIndex }
-                : {}),
-            },
-          ]
-        : [],
-    ),
-  }
+  return Object.assign(
+    {
+      bookmarks: state.bookmarks.flatMap((bookmark) =>
+        bookmark.anchor.kind === READER_ANCHOR_KIND_CFI_POSITION
+          ? [
+              {
+                value: bookmark.anchor.cfi,
+                label: bookmark.label,
+                created: bookmark.created,
+              },
+            ]
+          : [],
+      ),
+      annotations: state.annotations.flatMap((annotation) =>
+        annotation.anchor.kind === READER_ANCHOR_KIND_CFI_TEXT
+          ? [
+              Object.assign(
+                {
+                  value: annotation.anchor.cfi,
+                  text: annotation.text,
+                  note: annotation.note,
+                  style: annotation.style,
+                  color: ANNOTATION_COLORS[annotation.color].value,
+                  created: annotation.created,
+                  modified: annotation.modified,
+                },
+                annotation.anchor.sectionIndex !== undefined
+                  ? { index: annotation.anchor.sectionIndex }
+                  : undefined,
+              ),
+            ]
+          : [],
+      ),
+    },
+    lastLocation ? { lastLocation } : undefined,
+  )
 }
 
 function readLegacyPdfBookmark(value: unknown, legacyIndex: number): ReaderBookmark | undefined {
@@ -563,32 +575,36 @@ function migrateLegacyPdfDocumentState(
         .filter((annotation) => annotation !== undefined)
     : []
   const lastPageIndex = legacyPdfPageIndex(value.lastLocation)
-  const migrated: ReaderDocumentState = {
-    version: READER_STATE_VERSION,
-    identity: sourceIdentity(source),
-    bookmarks,
-    annotations,
-    ...(lastPageIndex !== undefined
+  const migrated: ReaderDocumentState = Object.assign(
+    {
+      version: READER_STATE_VERSION,
+      identity: sourceIdentity(source),
+      bookmarks,
+      annotations,
+    },
+    lastPageIndex !== undefined
       ? {
           lastLocation: {
-            kind: "pdf-position",
+            kind: "pdf-position" as const,
             pageIndex: lastPageIndex,
             xRatio: 0,
             yRatio: 0,
           },
         }
-      : {}),
-  }
+      : undefined,
+  )
   saveReaderDocumentState(source, migrated)
   return migrated
 }
 
 function sourceIdentity(source: ReaderSource): ReaderDocumentIdentity {
-  return {
-    sourceId: source.sourceId,
-    format: isPdfReaderSource(source) ? "pdf" : "epub",
-    ...(source.contentFingerprint ? { contentFingerprint: source.contentFingerprint } : {}),
-  }
+  return Object.assign(
+    {
+      sourceId: source.sourceId,
+      format: isPdfReaderSource(source) ? ("pdf" as const) : ("epub" as const),
+    },
+    source.contentFingerprint ? { contentFingerprint: source.contentFingerprint } : undefined,
+  )
 }
 
 export async function withReaderSourceContentFingerprint(
@@ -685,14 +701,16 @@ export function loadStoredReaderDocumentState(
       ? parsedLastLocation
       : undefined
   const pdfMode = readPdfReaderMode(value.pdfMode)
-  return {
-    version: READER_STATE_VERSION,
-    identity: sourceIdentity(source),
-    bookmarks,
-    annotations,
-    ...(lastLocation ? { lastLocation } : {}),
-    ...(pdfMode ? { pdfMode } : {}),
-  }
+  return Object.assign(
+    {
+      version: READER_STATE_VERSION,
+      identity: sourceIdentity(source),
+      bookmarks,
+      annotations,
+    },
+    lastLocation ? { lastLocation } : undefined,
+    pdfMode ? { pdfMode } : undefined,
+  )
 }
 
 export function saveReaderDocumentState(source: ReaderSource, state: ReaderDocumentState): void {

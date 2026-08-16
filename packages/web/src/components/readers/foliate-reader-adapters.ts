@@ -47,40 +47,46 @@ export function foliateTocItemsToReaderItems(items: FoliateTocItem[]): ReaderNav
 }
 
 function foliateLandmarksToReaderItems(landmarks: FoliateReaderLandmark[]): ReaderNavigationItem[] {
-  return landmarks.map((landmark) => ({
-    id: landmark.href,
-    label: landmark.label,
-    ...(landmark.typeLabel ? { description: landmark.typeLabel } : {}),
-    subitems: [],
-  }))
+  return landmarks.map((landmark) =>
+    Object.assign(
+      {
+        id: landmark.href,
+        label: landmark.label,
+        subitems: [],
+      },
+      landmark.typeLabel ? { description: landmark.typeLabel } : undefined,
+    ),
+  )
 }
 
 export function foliateSnapshotToReaderSnapshot(
   snapshot: FoliateReaderSnapshot | null,
 ): ReaderSnapshot | null {
   if (!snapshot) return null
-  return {
-    engine: READER_ENGINE_FOLIATE,
-    capabilities: {
-      textFlow: !snapshot.isFixedLayout,
-      pageLayouts: snapshot.isFixedLayout,
-      search: true,
-      outline: snapshot.toc.length > 0,
-      pageLabels: snapshot.pageList.length > 0,
-      textSelection: true,
-      annotations: true,
+  return Object.assign(
+    {
+      engine: READER_ENGINE_FOLIATE,
+      capabilities: {
+        textFlow: !snapshot.isFixedLayout,
+        pageLayouts: snapshot.isFixedLayout,
+        search: true,
+        outline: snapshot.toc.length > 0,
+        pageLabels: snapshot.pageList.length > 0,
+        textSelection: true,
+        annotations: true,
+      },
+      title: snapshot.title,
+      author: snapshot.author,
+      formatLabel: snapshot.formatLabel,
+      isFixedLayout: snapshot.isFixedLayout,
+      toc: foliateTocItemsToReaderItems(snapshot.toc),
+      pageList: foliateTocItemsToReaderItems(snapshot.pageList),
+      landmarks: foliateLandmarksToReaderItems(snapshot.landmarks),
+      metadata: buildMetadataRows(snapshot.metadata),
     },
-    title: snapshot.title,
-    author: snapshot.author,
-    formatLabel: snapshot.formatLabel,
-    isFixedLayout: snapshot.isFixedLayout,
-    toc: foliateTocItemsToReaderItems(snapshot.toc),
-    pageList: foliateTocItemsToReaderItems(snapshot.pageList),
-    landmarks: foliateLandmarksToReaderItems(snapshot.landmarks),
-    metadata: buildMetadataRows(snapshot.metadata),
-    ...(snapshot.coverUrl ? { coverUrl: snapshot.coverUrl } : {}),
-    ...(snapshot.fileName ? { fileName: snapshot.fileName } : {}),
-  }
+    snapshot.coverUrl ? { coverUrl: snapshot.coverUrl } : undefined,
+    snapshot.fileName ? { fileName: snapshot.fileName } : undefined,
+  )
 }
 
 export function foliateBookmarksToReaderBookmarks(bookmarks: FoliateBookmark[]): ReaderBookmark[] {
@@ -95,50 +101,58 @@ export function foliateBookmarksToReaderBookmarks(bookmarks: FoliateBookmark[]):
 export function foliateAnnotationsToReaderAnnotations(
   annotations: FoliateAnnotation[],
 ): ReaderAnnotationViewModel[] {
-  return annotations.map((annotation) => ({
-    id: annotation.value,
-    anchor: legacyCfiTextAnchor(annotation.value, annotation.index),
-    text: annotation.text ?? "",
-    note: annotation.note ?? "",
-    style: getAnnotationStyle(annotation),
-    color: getAnnotationColorId(annotation.color),
-    created: annotation.created ?? "",
-    modified: annotation.modified ?? annotation.created ?? "",
-    ...(annotation.label ? { locationLabel: annotation.label } : {}),
-  }))
+  return annotations.map((annotation) =>
+    Object.assign(
+      {
+        id: annotation.value,
+        anchor: legacyCfiTextAnchor(annotation.value, annotation.index),
+        text: annotation.text ?? "",
+        note: annotation.note ?? "",
+        style: getAnnotationStyle(annotation),
+        color: getAnnotationColorId(annotation.color),
+        created: annotation.created ?? "",
+        modified: annotation.modified ?? annotation.created ?? "",
+      },
+      annotation.label ? { locationLabel: annotation.label } : undefined,
+    ),
+  )
 }
 
 export function foliateSearchToReaderSearch(search: FoliateSearchState): ReaderSearchViewModel {
   const activeResultId = search.rows.find(
     (row) => row.kind === "result" && row.cfi === search.activeResultCfi,
   )?.key
-  return {
-    query: search.query,
-    scope:
-      search.scope === SEARCH_SCOPE_BOOK
-        ? READER_SEARCH_SCOPE_DOCUMENT
-        : READER_SEARCH_SCOPE_SECTION,
-    matchCase: search.matchCase,
-    matchWholeWords: search.matchWholeWords,
-    matchDiacritics: search.matchDiacritics,
-    running: search.running,
-    progress: search.progress,
-    rows: search.rows.map((row) =>
-      row.kind === "section"
-        ? { id: row.key, kind: "section", label: row.label }
-        : {
-            id: row.key,
-            kind: "result",
-            result: {
+  return Object.assign(
+    {
+      query: search.query,
+      scope:
+        search.scope === SEARCH_SCOPE_BOOK
+          ? READER_SEARCH_SCOPE_DOCUMENT
+          : READER_SEARCH_SCOPE_SECTION,
+      matchCase: search.matchCase,
+      matchWholeWords: search.matchWholeWords,
+      matchDiacritics: search.matchDiacritics,
+      running: search.running,
+      progress: search.progress,
+      rows: search.rows.map((row) =>
+        row.kind === "section"
+          ? { id: row.key, kind: "section" as const, label: row.label }
+          : {
               id: row.key,
-              ...(row.label ? { label: row.label } : {}),
-              anchor: legacyCfiTextAnchor(row.cfi),
-              excerpt: row.excerpt,
+              kind: "result" as const,
+              result: Object.assign(
+                {
+                  id: row.key,
+                  anchor: legacyCfiTextAnchor(row.cfi),
+                  excerpt: row.excerpt,
+                },
+                row.label ? { label: row.label } : undefined,
+              ),
             },
-          },
-    ),
-    ...(activeResultId ? { activeResultId } : {}),
-  }
+      ),
+    },
+    activeResultId ? { activeResultId } : undefined,
+  )
 }
 
 export function readerSearchScopeToFoliateScope(

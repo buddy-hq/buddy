@@ -30,36 +30,39 @@ export function readerSourceToFoliateSource(
   if (source.kind === "blob") {
     return { kind: "blob", blob: source.blob, name: source.name }
   }
-  return {
-    kind: "url",
-    url: source.url,
-    ...(source.name ? { name: source.name } : {}),
-  }
+  return Object.assign(
+    { kind: "url" as const, url: source.url },
+    source.name ? { name: source.name } : undefined,
+  )
 }
 
 export function foliateLocationToReaderRelocation(
   location: FoliateReaderLocation,
 ): ReaderRelocation | undefined {
   if (!location.cfi) return undefined
-  return {
-    anchor: legacyCfiPositionAnchor(location.cfi, location.index),
-    ...(location.fraction !== undefined ? { fraction: location.fraction } : {}),
-    ...(location.tocLabel ? { tocLabel: location.tocLabel } : {}),
-    ...(location.pageLabel ? { pageLabel: location.pageLabel } : {}),
-    ...(location.locationLabel ? { locationLabel: location.locationLabel } : {}),
-    ...(location.currentPassageText ? { currentPassageText: location.currentPassageText } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      { anchor: legacyCfiPositionAnchor(location.cfi, location.index) },
+      location.fraction !== undefined ? { fraction: location.fraction } : undefined,
+      location.tocLabel ? { tocLabel: location.tocLabel } : undefined,
+      location.pageLabel ? { pageLabel: location.pageLabel } : undefined,
+    ),
+    location.locationLabel ? { locationLabel: location.locationLabel } : undefined,
+    location.currentPassageText ? { currentPassageText: location.currentPassageText } : undefined,
+  )
 }
 
 export function foliateSelectionToReaderSelection(
   selection: FoliateReaderSelection,
 ): ReaderSelection {
-  return {
-    text: selection.text,
-    anchor: legacyCfiTextAnchor(selection.cfi, selection.index),
-    selectionKey: selection.selectionKey ?? createReaderRecordId("selection"),
-    ...(selection.tocLabel ? { tocLabel: selection.tocLabel } : {}),
-    ...(selection.pageLabel ? { pageLabel: selection.pageLabel } : {}),
-    ...(selection.locationLabel ? { locationLabel: selection.locationLabel } : {}),
-  }
+  return Object.assign(
+    {
+      text: selection.text,
+      anchor: legacyCfiTextAnchor(selection.cfi, selection.index),
+      selectionKey: selection.selectionKey ?? createReaderRecordId("selection"),
+    },
+    selection.tocLabel ? { tocLabel: selection.tocLabel } : undefined,
+    selection.pageLabel ? { pageLabel: selection.pageLabel } : undefined,
+    selection.locationLabel ? { locationLabel: selection.locationLabel } : undefined,
+  )
 }

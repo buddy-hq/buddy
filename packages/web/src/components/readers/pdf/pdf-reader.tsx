@@ -482,13 +482,17 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       const root = readerSurfaceRef.current
       const session = sessionRef.current
       if (!root || !session) return
-      renderPdfAnnotations({
-        root,
-        session,
-        annotationsByPage,
-        ...(pageIndex !== undefined ? { pageIndex } : {}),
-        onActivate: openAnnotationPopover,
-      })
+      renderPdfAnnotations(
+        Object.assign(
+          {
+            root,
+            session,
+            annotationsByPage,
+            onActivate: openAnnotationPopover,
+          },
+          pageIndex !== undefined ? { pageIndex } : undefined,
+        ),
+      )
     },
     [openAnnotationPopover],
   )
@@ -502,12 +506,16 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     const root = readerSurfaceRef.current
     const session = sessionRef.current
     if (!root || !session) return
-    renderPdfSelection({
-      root,
-      session,
-      selection: selectionActionRef.current?.selection,
-      ...(pageIndex !== undefined ? { pageIndex } : {}),
-    })
+    renderPdfSelection(
+      Object.assign(
+        {
+          root,
+          session,
+          selection: selectionActionRef.current?.selection,
+        },
+        pageIndex !== undefined ? { pageIndex } : undefined,
+      ),
+    )
   }, [])
 
   /**
@@ -534,12 +542,16 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
     const root = readerSurfaceRef.current
     const session = sessionRef.current
     if (!root || !session) return
-    renderPdfSearchResult({
-      root,
-      session,
-      result: activeSearchResultRef.current,
-      ...(pageIndex !== undefined ? { pageIndex } : {}),
-    })
+    renderPdfSearchResult(
+      Object.assign(
+        {
+          root,
+          session,
+          result: activeSearchResultRef.current,
+        },
+        pageIndex !== undefined ? { pageIndex } : undefined,
+      ),
+    )
   }, [])
 
   const updateHistory = useCallback((anchor: PdfPositionAnchor) => {
@@ -986,10 +998,10 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
       nextMode.scaleMode === "custom"
         ? clampPdfCustomScale(nextMode.scale ?? sessionRef.current?.currentScale ?? 1)
         : undefined
-    const normalized: PdfReaderMode = {
-      ...nextMode,
-      ...(scaleValue !== undefined ? { scale: scaleValue } : {}),
-    }
+    const normalized: PdfReaderMode = Object.assign(
+      { ...nextMode },
+      scaleValue !== undefined ? { scale: scaleValue } : undefined,
+    )
     setModeState(normalized)
     setPreferences((current) => ({ ...current, pdfMode: normalized }))
     setDocumentState((current) => ({ ...current, pdfMode: normalized }))
@@ -1252,18 +1264,22 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
           kind: "result",
           result,
         }))
-        setSearch((current) => ({
-          ...current,
-          running: false,
-          progress: 1,
-          rows,
-          ...(current.activeResultId &&
-          results.some((result) => result.id === current.activeResultId)
-            ? { activeResultId: current.activeResultId }
-            : results[0]
-              ? { activeResultId: results[0].id }
-              : {}),
-        }))
+        setSearch((current) =>
+          Object.assign(
+            {
+              ...current,
+              running: false,
+              progress: 1,
+              rows,
+            },
+            current.activeResultId &&
+              results.some((result) => result.id === current.activeResultId)
+              ? { activeResultId: current.activeResultId }
+              : results[0]
+                ? { activeResultId: results[0].id }
+                : undefined,
+          ),
+        )
       } catch (searchError) {
         if (abortController.signal.aborted) return
         cancelQueuedSearchProgress()

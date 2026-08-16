@@ -144,12 +144,15 @@ function readPdfViewerEvent(value: unknown): PdfViewerEvent {
   const pageLabel = typeof value.pageLabel === "string" ? value.pageLabel : undefined
   const scale = readFiniteNumber(value.scale)
   const presetValue = typeof value.presetValue === "string" ? value.presetValue : undefined
-  return {
-    ...(pageNumber !== undefined ? { pageNumber } : {}),
-    ...(pageLabel !== undefined ? { pageLabel } : {}),
-    ...(scale !== undefined ? { scale } : {}),
-    ...(presetValue !== undefined ? { presetValue } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      {},
+      pageNumber !== undefined ? { pageNumber } : undefined,
+      pageLabel !== undefined ? { pageLabel } : undefined,
+      scale !== undefined ? { scale } : undefined,
+    ),
+    presetValue !== undefined ? { presetValue } : undefined,
+  )
 }
 
 function readCoordinatePair(value: unknown): readonly [number, number] | undefined {
@@ -229,12 +232,16 @@ function readOutline(value: unknown): PdfOutlineValue[] {
     const destination =
       typeof entry.dest === "string" || Array.isArray(entry.dest) ? entry.dest : undefined
     const href = typeof entry.url === "string" && entry.url ? entry.url : undefined
-    items.push({
-      title,
-      ...(destination ? { destination } : {}),
-      ...(href ? { href } : {}),
-      items: readOutline(entry.items),
-    })
+    items.push(
+      Object.assign(
+        {
+          title,
+          items: readOutline(entry.items),
+        },
+        destination ? { destination } : undefined,
+        href ? { href } : undefined,
+      ),
+    )
   }
   return items
 }
@@ -710,17 +717,19 @@ export class PdfViewerSession {
     const fraction = this.pagesCount
       ? clampRatio((anchor.pageIndex + anchor.yRatio) / this.pagesCount)
       : undefined
-    const base: ReaderRelocation = {
-      anchor,
-      ...(fraction !== undefined ? { fraction } : {}),
-      ...(tocLabel ? { tocLabel } : {}),
-      pageLabel: resolvedLabel,
-      locationLabel: pdfLocationLabel({
-        pageIndex: anchor.pageIndex,
-        pageCount: this.pagesCount,
+    const base: ReaderRelocation = Object.assign(
+      {
+        anchor,
         pageLabel: resolvedLabel,
-      }),
-    }
+        locationLabel: pdfLocationLabel({
+          pageIndex: anchor.pageIndex,
+          pageCount: this.pagesCount,
+          pageLabel: resolvedLabel,
+        }),
+      },
+      fraction !== undefined ? { fraction } : undefined,
+      tocLabel ? { tocLabel } : undefined,
+    )
     const cachedPageText = this.#readCachedPageText(anchor.pageIndex)
     const currentPassageText = cachedPageText
       ? pdfCurrentPassageText(cachedPageText, anchor)
@@ -846,17 +855,21 @@ export class PdfViewerSession {
   }
 
   zoomIn(origin?: readonly [number, number]): void {
-    this.#viewer?.updateScale({
-      steps: 1,
-      ...(origin ? { origin: [...origin] } : {}),
-    })
+    this.#viewer?.updateScale(
+      Object.assign(
+        { steps: 1 },
+        origin ? { origin: [...origin] } : undefined,
+      ),
+    )
   }
 
   zoomOut(origin?: readonly [number, number]): void {
-    this.#viewer?.updateScale({
-      steps: -1,
-      ...(origin ? { origin: [...origin] } : {}),
-    })
+    this.#viewer?.updateScale(
+      Object.assign(
+        { steps: -1 },
+        origin ? { origin: [...origin] } : undefined,
+      ),
+    )
   }
 
   setCustomScale(scale: number): void {
@@ -954,11 +967,11 @@ export class PdfViewerSession {
       const pageResults: ReaderSearchResult[] = []
       for (const match of matches) {
         if (results.length >= PDF_SEARCH_RESULT_LIMIT) break
-        const quote = {
-          exact: match.match,
-          ...(match.pre ? { prefix: match.pre.slice(-PDF_SEARCH_CONTEXT_LENGTH) } : {}),
-          ...(match.post ? { suffix: match.post.slice(0, PDF_SEARCH_CONTEXT_LENGTH) } : {}),
-        }
+        const quote = Object.assign(
+          { exact: match.match },
+          match.pre ? { prefix: match.pre.slice(-PDF_SEARCH_CONTEXT_LENGTH) } : undefined,
+          match.post ? { suffix: match.post.slice(0, PDF_SEARCH_CONTEXT_LENGTH) } : undefined,
+        )
         const anchor =
           pdfTextAnchorFromOffsets({
             pageIndex,
