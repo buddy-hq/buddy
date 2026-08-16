@@ -10,7 +10,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function cssVariables(properties: CSSProperties & CSSVariableProperties): CSSProperties {
-  // SAFETY: CSS custom properties are valid React style entries even though CSSProperties omits them.
-  return properties as CSSProperties
+export function cssVariables(properties: CSSProperties & CSSVariableProperties) {
+  return properties
 }

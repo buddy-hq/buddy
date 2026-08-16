@@ -11,10 +11,16 @@ import {
   Loading03Icon,
 } from "@hugeicons/core-free-icons"
 
+type TSonnerTheme = "light" | "dark" | "system"
+
+function readSonnerTheme(theme: string | undefined): TSonnerTheme {
+  if (theme === "light" || theme === "dark" || theme === "system") return theme
+  return "system"
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
-  // SAFETY: Buddy configures next-themes with the same light, dark, and system values Sonner accepts.
-  const sonnerTheme = theme as ToasterProps["theme"]
+  const { theme } = useTheme()
+  const sonnerTheme = readSonnerTheme(theme)
   const toasterStyle = cssVariables({
     "--normal-bg": "var(--surface-raised-stronger-non-alpha)",
     "--normal-text": "var(--text-base)",

@@ -8,14 +8,8 @@ import {
   setUpdateRing,
 } from "./updater"
 
-type BuddyWindow = Window & {
-  __BUDDY__?: {
-    version?: string
-  }
-}
-
-type StoreLike = {
-  get<T>(key: string): Promise<T | undefined>
+type TStoreLike = {
+  get(key: string): Promise<string | undefined>
   set(key: string, value: string): Promise<void>
   delete(key: string): Promise<void>
   clear(): Promise<void>
@@ -23,10 +17,10 @@ type StoreLike = {
   length(): Promise<number>
 }
 
-type DesktopStateStorage = {
+type TDesktopStateStorage = {
   getItem(name: string): string | null | Promise<string | null>
-  setItem(name: string, value: string): unknown | Promise<unknown>
-  removeItem(name: string): unknown | Promise<unknown>
+  setItem(name: string, value: string): Promise<void>
+  removeItem(name: string): Promise<void>
   flush: () => Promise<void>
 }
 
@@ -40,22 +34,25 @@ function normalizeDirectory(input: string) {
   return trimmed.replace(/\/+$/, "")
 }
 
-function normalizeAppVersion(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined
+function normalizeAppVersion(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
 
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined
 }
 
 function readDesktopAppVersion(): string | undefined {
-  const getAppVersion: unknown = Reflect.get(window.api, "getAppVersion")
-  if (typeof getAppVersion === "function") {
-    const apiVersion = normalizeAppVersion(getAppVersion())
-    if (apiVersion) return apiVersion
-  }
+  const apiVersion = normalizeAppVersion(window.api.getAppVersion())
+  if (apiVersion) return apiVersion
+  return normalizeAppVersion(window.__BUDDY__?.version)
+}
 
-  // SAFETY: The desktop preload may install Buddy's optional boot metadata on the renderer window.
-  return normalizeAppVersion((window as BuddyWindow).__BUDDY__?.version)
+function normalizePickerResult(result: string | string[] | null): string | string[] | null {
+  if (result === null) return null
+  if (Array.isArray(result)) {
+    return result.map((value) => normalizeDirectory(value))
+  }
+  return normalizeDirectory(result)
 }
 
 function detectOs() {
@@ -66,13 +63,12 @@ function detectOs() {
   return undefined
 }
 
-function createStore(name: string): StoreLike {
+function createStore(name: string): TStoreLike {
   return {
-    get: async <T>(key: string) => {
+    get: async (key: string) => {
       const value = await window.api.storeGet(name, key)
       if (value === null) return undefined
-      // SAFETY: StoreLike callers own each key's value contract; the bridge preserves stored values.
-      return value as T
+      return value
     },
     set: async (key: string, value: string) => {
       await window.api.storeSet(name, key, value)
@@ -126,13 +122,13 @@ function createStorage(name: string) {
     }, WRITE_DEBOUNCE_MS)
   }
 
-  const storage: DesktopStateStorage = {
+  const storage: TDesktopStateStorage = {
     async getItem(key) {
       const next = pending.get(key)
       if (next !== undefined) return next
 
-      const value = await store.get<string>(key).catch(() => null)
-      return typeof value === "string" ? value : null
+      const value = await store.get(key).catch(() => undefined)
+      return value === undefined ? null : value
     },
     async setItem(key, value) {
       pending.set(key, value)
@@ -150,7 +146,7 @@ function createStorage(name: string) {
 
 export function createDesktopPlatform(): Platform {
   const os = detectOs()
-  const apiCache = new Map<string, DesktopStateStorage>()
+  const apiCache = new Map<string, TDesktopStateStorage>()
 
   const flushAll = async () => {
     const apis = Array.from(apiCache.values())
@@ -224,17 +220,7 @@ export function createDesktopPlatform(): Platform {
         title: opts?.title ?? "Open project",
       })
 
-      if (typeof result === "string") {
-        return normalizeDirectory(result)
-      }
-
-      if (Array.isArray(result)) {
-        return result
-          .filter((value): value is string => typeof value === "string")
-          .map((value) => normalizeDirectory(value))
-      }
-
-      return null
+      return normalizePickerResult(result)
     },
     async openFilePickerDialog(opts) {
       const result = await window.api.openFilePicker({
@@ -242,17 +228,7 @@ export function createDesktopPlatform(): Platform {
         title: opts?.title ?? "Select file",
       })
 
-      if (typeof result === "string") {
-        return normalizeDirectory(result)
-      }
-
-      if (Array.isArray(result)) {
-        return result
-          .filter((value): value is string => typeof value === "string")
-          .map((value) => normalizeDirectory(value))
-      }
-
-      return null
+      return normalizePickerResult(result)
     },
     async resolveDroppedFilePath(file) {
       const resolvedPath = window.api.getPathForFile(file)
