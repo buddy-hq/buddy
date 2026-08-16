@@ -42,15 +42,15 @@ let pdfReaderComponentPromise: Promise<PdfReaderComponent> | undefined
 function loadPdfReaderComponent(): Promise<PdfReaderComponent> {
   pdfReaderComponentPromise ??= import("./pdf/pdf-reader")
     .then((module) => module.PdfReader)
-    .catch((error: unknown) => {
+    .catch((error) => {
       pdfReaderComponentPromise = undefined
       throw error
     })
   return pdfReaderComponentPromise
 }
 
-function toError(value: unknown): Error {
-  return value instanceof Error ? value : new Error(String(value))
+function toError(value: Error | string): Error {
+  return value instanceof Error ? value : new Error(value)
 }
 
 const PdfDocumentReader = forwardRef<DocumentReaderHandle, PdfDocumentReaderProps>(
@@ -63,8 +63,10 @@ const PdfDocumentReader = forwardRef<DocumentReaderHandle, PdfDocumentReaderProp
         (component) => {
           if (active) setPdfReader(() => component)
         },
-        (error: unknown) => {
-          if (active) onError?.(toError(error))
+        (error) => {
+          if (active) {
+            onError?.(error instanceof Error ? toError(error) : toError(String(error)))
+          }
         },
       )
       return () => {

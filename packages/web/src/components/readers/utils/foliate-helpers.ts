@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type {
   FoliateNavigationTarget,
   FoliateReaderLocation,
@@ -32,17 +33,19 @@ import {
   DEPENDENCY_REFERENCE_ID_START,
   METADATA_FIELDS,
 } from "../foliate-reader-constants"
-import { formatMetadataValue, toPercentLabel } from "./foliate-formatters"
+import { formatMetadataValue, FoliateMetadataValueSchema, toPercentLabel } from "./foliate-formatters"
 import type { View as FoliateView } from "foliate-js/view.js"
 
 // ============================================================
 // Dependency Tracking
 // ============================================================
 
-const dependencyReferenceIds = new WeakMap<object, number>()
+type TDependencyHost = File | Blob | FoliateBook | { fraction: number }
+
+const dependencyReferenceIds = new WeakMap<TDependencyHost, number>()
 let nextDependencyReferenceId = DEPENDENCY_REFERENCE_ID_START
 
-export function getDependencyReferenceId(reference: object): number {
+export function getDependencyReferenceId(reference: TDependencyHost): number {
   const existingId = dependencyReferenceIds.get(reference)
   if (existingId) return existingId
   const createdId = nextDependencyReferenceId
@@ -84,22 +87,18 @@ export function buildNavigationTargetDependencyKey(
 ): string {
   if (target === undefined || target === null) return DEPENDENCY_KEY_EMPTY
 
-  if (
-    typeof target === "string" ||
-    typeof target === "number" ||
-    typeof target === "boolean" ||
-    typeof target === "bigint"
-  ) {
-    return [typeof target, String(target)].join(DEPENDENCY_KEY_SEPARATOR)
-  }
-
-  if (typeof target === "object") {
+  if (target instanceof Object) {
     return [DEPENDENCY_KEY_KIND_REFERENCE, getDependencyReferenceId(target)].join(
       DEPENDENCY_KEY_SEPARATOR,
     )
   }
 
-  return [typeof target, String(target)].join(DEPENDENCY_KEY_SEPARATOR)
+  const asNumber = z.number().safeParse(target)
+  if (asNumber.success) {
+    return ["number", String(asNumber.data)].join(DEPENDENCY_KEY_SEPARATOR)
+  }
+
+  return ["string", String(target)].join(DEPENDENCY_KEY_SEPARATOR)
 }
 
 // ============================================================
@@ -164,8 +163,9 @@ type FoliateNavigationResolver = {
 const EPUB_NAV_DOCUMENT_PATTERN = /(?:^|\/)nav\.x?html?$/i
 
 function isNavigationSection(section: FoliateSection): boolean {
-  const sectionId = typeof section.id === "string" ? section.id.split(/[?#]/, 1)[0] : ""
-  return EPUB_NAV_DOCUMENT_PATTERN.test(sectionId)
+  const sectionIdResult = z.string().safeParse(section.id)
+  const sectionId = sectionIdResult.success ? sectionIdResult.data.split(/[?#]/, 1)[0] : ""
+  return EPUB_NAV_DOCUMENT_PATTERN.test(sectionId ?? "")
 }
 
 function canRestoreSection(section: FoliateSection | undefined): boolean {
@@ -184,10 +184,11 @@ function findFirstRestorableSectionIndex(
 }
 
 function getTargetSectionCfi(target: FoliateEngineNavigationTarget): string | undefined {
-  if (typeof target !== "string" || !target.startsWith("epubcfi(")) return undefined
-  const indirectionIndex = target.indexOf("!")
-  if (indirectionIndex < 0) return target
-  return `${target.slice(0, indirectionIndex)})`
+  const asCfi = z.string().safeParse(target)
+  if (!asCfi.success || !asCfi.data.startsWith("epubcfi(")) return undefined
+  const indirectionIndex = asCfi.data.indexOf("!")
+  if (indirectionIndex < 0) return asCfi.data
+  return `${asCfi.data.slice(0, indirectionIndex)})`
 }
 
 function getCanonicalSectionIndex(
@@ -263,7 +264,9 @@ export function buildMetadataRows(metadata?: FoliateMetadata): MetadataRow[] {
 
   const rows: MetadataRow[] = []
   for (const field of METADATA_FIELDS) {
-    const value = formatMetadataValue(metadata[field.key])
+    const parsed = FoliateMetadataValueSchema.safeParse(metadata[field.key])
+    if (!parsed.success) continue
+    const value = formatMetadataValue(parsed.data)
     if (!value) continue
     rows.push({
       key: String(field.key),
@@ -348,10 +351,10 @@ export function buildLocationState(
   let locationLabel: string | undefined
   const locationCurrent = detail.location?.current
   const locationTotal = detail.location?.total
-  if (typeof locationCurrent === "number") {
+  if (locationCurrent !== undefined && Number.isFinite(locationCurrent)) {
     const displayLocation = locationCurrent + 1
     locationLabel =
-      typeof locationTotal === "number"
+      locationTotal !== undefined && Number.isFinite(locationTotal)
         ? `Location ${displayLocation} / ${locationTotal}`
         : `Location ${displayLocation}`
   }
@@ -457,16 +460,16 @@ export function resolveAnnotationColorValue(
   colorId: ReaderAnnotationColorId,
   element: HTMLElement | null,
 ): string {
-  if (typeof window === "undefined") {
+  try {
+    const token = ANNOTATION_COLOR_TOKENS[colorId]
+    const computedValue = globalThis.window
+      .getComputedStyle(element ?? globalThis.document.documentElement)
+      .getPropertyValue(token)
+    const trimmedValue = computedValue.trim()
+    return trimmedValue || getAnnotationColorValue(colorId)
+  } catch {
     return getAnnotationColorValue(colorId)
   }
-
-  const token = ANNOTATION_COLOR_TOKENS[colorId]
-  const computedValue = window
-    .getComputedStyle(element ?? document.documentElement)
-    .getPropertyValue(token)
-  const trimmedValue = computedValue.trim()
-  return trimmedValue || getAnnotationColorValue(colorId)
 }
 
 export function getAnnotationStyle(annotation: ReaderAnnotation): FoliateReaderAnnotationStyle {
@@ -623,32 +626,21 @@ export function cleanupView(view: FoliateView | null, coverUrl: string | undefin
 
   const book = view.book
   try {
-    // Foliate's view.close() can sometimes fail if called before the view is fully ready
-    // or during rapid unmounts when internals are nullified.
-    if (typeof view.close === "function") {
-      view.close()
-    }
+    view.close()
   } catch (error) {
     console.warn("Foliate view.close() failed during cleanup", error)
   }
 
   try {
-    if (typeof view.remove === "function") {
-      view.remove()
-    }
+    view.remove()
   } catch {
     // Ignore removal errors
   }
 
   // Destroy the book/source reference if it exists
-  if (book && typeof book.destroy === "function") {
+  if (book?.destroy) {
     Promise.resolve(book.destroy()).catch((error) => {
       console.warn("Foliate book.destroy() failed during cleanup", error)
     })
   }
-}
-
-export function createError(error: unknown): Error {
-  if (error instanceof Error) return error
-  return new Error("Buddy could not initialize the foliate renderer for this source.")
 }

@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type {
   PdfPoint,
   PdfPositionAnchor,
@@ -42,6 +43,35 @@ export type PdfPageText = {
   cropBox: PdfCropBox
 }
 
+const PdfTextTransformSchema = z.tuple([
+  z.number().finite(),
+  z.number().finite(),
+  z.number().finite(),
+  z.number().finite(),
+  z.number().finite(),
+  z.number().finite(),
+])
+
+export const PdfTextContentItemSchema = z.object({
+  str: z.string(),
+  dir: z.string().optional(),
+  transform: z.array(z.number().finite()).min(PDF_TEXT_TRANSFORM_LENGTH),
+  width: z.number().finite(),
+  height: z.number().finite(),
+  hasEOL: z.boolean().optional(),
+})
+
+export const PdfPageTextContentSchema = z.object({
+  items: z.array(PdfTextContentItemSchema),
+})
+
+export const PdfJsTextContentHostSchema = z.object({
+  items: z.array(PdfTextContentItemSchema.catch(undefined)),
+})
+
+export type TPdfTextContentItem = z.infer<typeof PdfTextContentItemSchema>
+export type TPdfPageTextContent = z.infer<typeof PdfPageTextContentSchema>
+
 type PdfTextContentItem = {
   text: string
   direction: string
@@ -51,51 +81,15 @@ type PdfTextContentItem = {
   hasEndOfLine: boolean
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function readFiniteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined
-}
-
-function readTransform(
-  value: unknown,
-): readonly [number, number, number, number, number, number] | undefined {
-  if (!Array.isArray(value) || value.length < PDF_TEXT_TRANSFORM_LENGTH) return undefined
-  const a = readFiniteNumber(value[0])
-  const b = readFiniteNumber(value[1])
-  const c = readFiniteNumber(value[2])
-  const d = readFiniteNumber(value[3])
-  const e = readFiniteNumber(value[4])
-  const f = readFiniteNumber(value[5])
-  if (
-    a === undefined ||
-    b === undefined ||
-    c === undefined ||
-    d === undefined ||
-    e === undefined ||
-    f === undefined
-  ) {
-    return undefined
-  }
-  return [a, b, c, d, e, f]
-}
-
-function readTextContentItem(value: unknown): PdfTextContentItem | undefined {
-  if (!isObjectRecord(value) || typeof value.str !== "string") return undefined
-  const transform = readTransform(value.transform)
-  const width = readFiniteNumber(value.width)
-  const height = readFiniteNumber(value.height)
-  if (!transform || width === undefined || height === undefined || width < 0 || height < 0) {
-    return undefined
-  }
+function readTextContentItem(value: TPdfTextContentItem): PdfTextContentItem | undefined {
+  const transform = PdfTextTransformSchema.safeParse(value.transform.slice(0, PDF_TEXT_TRANSFORM_LENGTH))
+  if (!transform.success || value.width < 0 || value.height < 0) return undefined
   return {
     text: value.str,
-    direction: typeof value.dir === "string" ? value.dir : "ltr",
-    transform,
-    width,
-    height,
+    direction: value.dir ?? "ltr",
+    transform: transform.data,
+    width: value.width,
+    height: value.height,
     hasEndOfLine: value.hasEOL === true,
   }
 }
@@ -157,11 +151,7 @@ function textItemQuad(
   }
 }
 
-export function readPdfPageText(value: unknown, cropBox: PdfCropBox): PdfPageText {
-  if (!isObjectRecord(value) || !Array.isArray(value.items)) {
-    return { text: "", spans: [], cropBox }
-  }
-
+export function readPdfPageText(value: TPdfPageTextContent, cropBox: PdfCropBox): PdfPageText {
   const parts: string[] = []
   const spans: PdfPageTextSpan[] = []
   let offset = 0

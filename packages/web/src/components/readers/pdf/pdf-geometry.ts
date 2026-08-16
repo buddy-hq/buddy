@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type { PdfPoint, PdfQuad } from "@buddy/reader-contract"
 
 export type RectCoordinates = {
@@ -19,11 +20,15 @@ export type PdfCropBox = {
   yMax: number
 }
 
+export type TPdfCoordinatePair = readonly [number, number]
+
+export type TPdfCoordinateResult = TPdfCoordinatePair | PdfPoint
+
 export type PdfViewportGeometry = {
   width: number
   height: number
-  convertToPdfPoint: (x: number, y: number) => unknown
-  convertToViewportPoint: (x: number, y: number) => unknown
+  convertToPdfPoint: (x: number, y: number) => TPdfCoordinateResult | undefined
+  convertToViewportPoint: (x: number, y: number) => TPdfCoordinateResult | undefined
 }
 
 export type PdfPageViewGeometry = {
@@ -41,79 +46,79 @@ export type PdfPageGeometryProvider = {
   getTocLabel?: (pageIndex: number) => string | undefined
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
+const PdfCoordinatePairSchema = z.tuple([z.number().finite(), z.number().finite()])
+const PdfPointSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+})
+const PdfCoordinateResultSchema = z.union([PdfCoordinatePairSchema, PdfPointSchema])
+const PdfCropBoxValuesSchema = z.tuple([
+  z.number().finite(),
+  z.number().finite(),
+  z.number().finite(),
+  z.number().finite(),
+])
+const PdfCoordinateConverterSchema = z.custom<(x: number, y: number) => TPdfCoordinateResult>(
+  (value) => z.function().safeParse(value).success,
+)
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value)
-}
+export const PdfJsPageViewSchema = z.object({
+  div: z.instanceof(HTMLDivElement),
+  textLayer: z.object({
+    div: z.instanceof(HTMLDivElement),
+  }),
+  viewport: z.object({
+    width: z.number().finite(),
+    height: z.number().finite(),
+    convertToPdfPoint: PdfCoordinateConverterSchema,
+    convertToViewportPoint: PdfCoordinateConverterSchema,
+  }),
+  pdfPage: z.object({
+    view: z.array(z.number().finite()).min(4),
+  }),
+})
 
-function readCoordinatePair(value: unknown): PdfPoint | undefined {
-  if (!Array.isArray(value) || value.length < 2) return undefined
-  const x = value[0]
-  const y = value[1]
-  if (!isFiniteNumber(x) || !isFiniteNumber(y)) return undefined
-  return { x, y }
-}
+export type TPdfJsPageView = z.infer<typeof PdfJsPageViewSchema>
 
-function readCropBox(value: unknown): PdfCropBox | undefined {
-  if (!Array.isArray(value) || value.length < 4) return undefined
-  const xMin = value[0]
-  const yMin = value[1]
-  const xMax = value[2]
-  const yMax = value[3]
-  if (
-    !isFiniteNumber(xMin) ||
-    !isFiniteNumber(yMin) ||
-    !isFiniteNumber(xMax) ||
-    !isFiniteNumber(yMax) ||
-    xMax <= xMin ||
-    yMax <= yMin
-  ) {
-    return undefined
+function readCoordinatePair(value: TPdfCoordinateResult | undefined): PdfPoint | undefined {
+  if (value === undefined) return undefined
+  const parsed = PdfCoordinateResultSchema.safeParse(value)
+  if (!parsed.success) return undefined
+  if (Array.isArray(parsed.data)) {
+    return { x: parsed.data[0], y: parsed.data[1] }
   }
+  return parsed.data
+}
+
+function readCropBox(values: readonly number[]): PdfCropBox | undefined {
+  const parsed = PdfCropBoxValuesSchema.safeParse(values.slice(0, 4))
+  if (!parsed.success) return undefined
+  const [xMin, yMin, xMax, yMax] = parsed.data
+  if (xMax <= xMin || yMax <= yMin) return undefined
   return { xMin, yMin, xMax, yMax }
 }
 
-function hasCoordinateConverter(
-  value: Record<string, unknown>,
-  key: "convertToPdfPoint" | "convertToViewportPoint",
-): boolean {
-  return typeof value[key] === "function"
-}
-
-export function readPdfPageViewGeometry(value: unknown): PdfPageViewGeometry | undefined {
-  if (!isObjectRecord(value)) return undefined
-  const div = value.div
-  const textLayer = value.textLayer
-  const viewport = value.viewport
-  const pdfPage = value.pdfPage
-  if (!(div instanceof HTMLDivElement)) return undefined
-  if (!isObjectRecord(textLayer) || !(textLayer.div instanceof HTMLDivElement)) return undefined
-  if (!isObjectRecord(viewport) || !isObjectRecord(pdfPage)) return undefined
-  if (!isFiniteNumber(viewport.width) || !isFiniteNumber(viewport.height)) return undefined
-  if (!hasCoordinateConverter(viewport, "convertToPdfPoint")) return undefined
-  if (!hasCoordinateConverter(viewport, "convertToViewportPoint")) return undefined
-  const cropBox = readCropBox(pdfPage.view)
+export function readPdfPageViewGeometry(value: TPdfJsPageView): PdfPageViewGeometry | undefined {
+  const cropBox = readCropBox(value.pdfPage.view)
   if (!cropBox) return undefined
   const cropBoxOrigin = { x: cropBox.xMin, y: cropBox.yMin }
+  const { viewport } = value
 
   return {
-    div,
-    textLayerDiv: textLayer.div,
+    div: value.div,
+    textLayerDiv: value.textLayer.div,
     cropBox,
     cropBoxOrigin,
     viewport: {
       width: viewport.width,
       height: viewport.height,
       convertToPdfPoint: (x, y) => {
-        const converter = viewport.convertToPdfPoint
-        return typeof converter === "function" ? converter.call(viewport, x, y) : undefined
+        const result = PdfCoordinateResultSchema.safeParse(viewport.convertToPdfPoint(x, y))
+        return result.success ? result.data : undefined
       },
       convertToViewportPoint: (x, y) => {
-        const converter = viewport.convertToViewportPoint
-        return typeof converter === "function" ? converter.call(viewport, x, y) : undefined
+        const result = PdfCoordinateResultSchema.safeParse(viewport.convertToViewportPoint(x, y))
+        return result.success ? result.data : undefined
       },
     },
   }

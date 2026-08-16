@@ -58,7 +58,7 @@ export async function loadPdfDocument(input: {
   if (input.signal.aborted) throw new DOMException("PDF loading was cancelled.", "AbortError")
 
   const loadingTask = getDocument({
-    ...(typeof source === "string" || source instanceof URL ? { url: source } : { data: source }),
+    ...(source instanceof Uint8Array ? { data: source } : { url: source }),
     cMapUrl: urls.cMapUrl,
     cMapPacked: true,
     standardFontDataUrl: urls.standardFontDataUrl,

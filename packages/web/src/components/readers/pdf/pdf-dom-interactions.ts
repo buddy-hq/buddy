@@ -77,22 +77,24 @@ function textNodeAtBoundary(node: Node, offset: number): PdfTextCaret | undefine
   return { node: text, offset: after ? 0 : text.length }
 }
 
+type TCaretPosition = {
+  offsetNode: Node
+  offset: number
+}
+
+type TCaretCapableDocument = Document & {
+  caretPositionFromPoint?: (x: number, y: number) => TCaretPosition | null | undefined
+  caretRangeFromPoint?: (x: number, y: number) => Range | null | undefined
+}
+
 function caretFromPoint(document: Document, point: PdfClientPoint): PdfTextCaret | undefined {
-  const caretPositionFromPoint: unknown = Reflect.get(document, "caretPositionFromPoint")
-  if (typeof caretPositionFromPoint === "function") {
-    const position: unknown = Reflect.apply(caretPositionFromPoint, document, [point.x, point.y])
-    if (typeof position === "object" && position !== null) {
-      const offsetNode: unknown = Reflect.get(position, "offsetNode")
-      const offset: unknown = Reflect.get(position, "offset")
-      if (offsetNode instanceof Node && typeof offset === "number") {
-        return textNodeAtBoundary(offsetNode, offset)
-      }
-    }
+  const lookup: TCaretCapableDocument = document
+  const position = lookup.caretPositionFromPoint?.(point.x, point.y)
+  if (position && position.offsetNode instanceof Node && Number.isFinite(position.offset)) {
+    return textNodeAtBoundary(position.offsetNode, position.offset)
   }
 
-  const caretRangeFromPoint: unknown = Reflect.get(document, "caretRangeFromPoint")
-  if (typeof caretRangeFromPoint !== "function") return undefined
-  const range: unknown = Reflect.apply(caretRangeFromPoint, document, [point.x, point.y])
+  const range = lookup.caretRangeFromPoint?.(point.x, point.y)
   if (!(range instanceof Range)) return undefined
   return textNodeAtBoundary(range.startContainer, range.startOffset)
 }

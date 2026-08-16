@@ -1,3 +1,4 @@
+import { z } from "zod"
 import {
   READER_ANCHOR_KIND_CFI_POSITION,
   READER_ANCHOR_KIND_CFI_TEXT,
@@ -97,12 +98,6 @@ export type LegacyEpubReaderBookState = {
   annotations: LegacyEpubReaderAnnotation[]
 }
 
-export type LegacyEpubReaderBookStateInput = {
-  lastLocation?: unknown
-  bookmarks: readonly unknown[]
-  annotations: readonly unknown[]
-}
-
 export type ReaderStateRepository = {
   loadPreferences: (defaultTheme: ReaderThemeId) => ReaderPreferences
   savePreferences: (preferences: ReaderPreferences) => void
@@ -110,83 +105,131 @@ export type ReaderStateRepository = {
   saveDocument: (source: ReaderSource, state: ReaderDocumentState) => void
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const ReaderThemeIdSchema = z.enum(["paper", "sepia", "night", "mist", "graphite"])
+const PdfReaderLayoutSchema = z.enum(["continuous", "single-page", "two-up"])
+const PdfReaderScaleModeSchema = z.enum(["fit-width", "fit-page", "custom"])
+const PdfReaderRotationSchema = z.union([
+  z.literal(0),
+  z.literal(90),
+  z.literal(180),
+  z.literal(270),
+])
+const ReaderAnnotationStyleSchema = z.enum([
+  "highlight",
+  "underline",
+  "squiggly",
+  "strikethrough",
+])
+const ReaderAnnotationColorIdSchema = z.enum(["amber", "mint", "sky", "rose"])
+const FoliateFlowSchema = z.union([z.literal(FLOW_PAGINATED), z.literal(FLOW_SCROLLED)])
+
+const PdfReaderModeSchema = z
+  .object({
+    layout: PdfReaderLayoutSchema,
+    scaleMode: PdfReaderScaleModeSchema,
+    rotation: PdfReaderRotationSchema,
+    scale: z.number().finite().min(MIN_PDF_CUSTOM_SCALE).max(MAX_PDF_CUSTOM_SCALE).optional(),
+  })
+  .refine((mode) => mode.scaleMode !== "custom" || mode.scale !== undefined)
+
+const StoredPreferencesSchema = z.object({
+  themeId: ReaderThemeIdSchema.optional(),
+  reduceMotion: z.boolean().optional(),
+  autohideCursor: z.boolean().optional(),
+  pdfMode: PdfReaderModeSchema.optional(),
+})
+
+const LegacyPreferencesSchema = z.object({
+  themeId: ReaderThemeIdSchema.optional(),
+  reduceMotion: z.boolean().optional(),
+  autohideCursor: z.boolean().optional(),
+  flow: FoliateFlowSchema.optional(),
+})
+
+const StoredBookmarkSchema = z.object({
+  id: z.string().max(MAX_READER_LABEL_LENGTH),
+  anchor: z.unknown(),
+  label: z.string().max(MAX_READER_LABEL_LENGTH),
+  created: z.string().max(MAX_READER_LABEL_LENGTH),
+})
+
+const StoredAnnotationSchema = z.object({
+  id: z.string().max(MAX_READER_LABEL_LENGTH),
+  anchor: z.unknown(),
+  text: z.string().max(MAX_READER_NOTE_LENGTH),
+  note: z.string().max(MAX_READER_NOTE_LENGTH),
+  style: ReaderAnnotationStyleSchema,
+  color: ReaderAnnotationColorIdSchema,
+  created: z.string().max(MAX_READER_LABEL_LENGTH),
+  modified: z.string().max(MAX_READER_LABEL_LENGTH),
+})
+
+const ReaderDocumentIdentitySchema = z.object({
+  sourceId: z.string(),
+  format: z.enum(["epub", "pdf"]),
+  contentFingerprint: z.string().max(MAX_READER_LABEL_LENGTH).optional(),
+})
+
+const StoredDocumentStateSchema = z.object({
+  version: z.literal(READER_STATE_VERSION),
+  identity: ReaderDocumentIdentitySchema,
+  lastLocation: z.unknown().optional(),
+  bookmarks: z.array(StoredBookmarkSchema).max(MAX_READER_BOOKMARKS).optional(),
+  annotations: z.array(StoredAnnotationSchema).max(MAX_READER_ANNOTATIONS).optional(),
+  pdfMode: PdfReaderModeSchema.optional(),
+})
+
+const LegacyPdfRecordSchema = z.object({
+  value: z.string().optional(),
+  index: z.number().int().nonnegative().optional(),
+  label: z.string().optional(),
+  text: z.string().optional(),
+  note: z.string().optional(),
+  style: z.string().optional(),
+  color: z.string().optional(),
+  created: z.string().optional(),
+  modified: z.string().optional(),
+})
+
+const LegacyPdfBookStateSchema = z.object({
+  lastLocation: z.string().optional(),
+  bookmarks: z.array(LegacyPdfRecordSchema).optional(),
+  annotations: z.array(LegacyPdfRecordSchema).optional(),
+})
+
+type TStoredBookmark = z.infer<typeof StoredBookmarkSchema>
+type TStoredAnnotation = z.infer<typeof StoredAnnotationSchema>
+type TLegacyPreferences = z.infer<typeof LegacyPreferencesSchema>
+type TLegacyPdfRecord = z.infer<typeof LegacyPdfRecordSchema>
+
+function parseStoredJson<T>(raw: string | null, schema: z.ZodType<T>): T | undefined {
+  if (!raw) return undefined
+  try {
+    const result = schema.safeParse(JSON.parse(raw))
+    return result.success ? result.data : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function safeReadStorage(key: string): string | null {
-  if (typeof window === "undefined") return null
   try {
-    return window.localStorage.getItem(key)
+    return globalThis.localStorage.getItem(key)
   } catch {
     return null
   }
 }
 
 function safeWriteStorage(key: string, value: string): void {
-  if (typeof window === "undefined") return
   try {
-    window.localStorage.setItem(key, value)
+    globalThis.localStorage.setItem(key, value)
   } catch {
     // Reader state is best-effort when local storage is unavailable or full.
   }
 }
 
-function parseJson(value: string | null): unknown {
-  if (!value) return undefined
-  try {
-    return JSON.parse(value)
-  } catch {
-    return undefined
-  }
-}
-
-function isReaderThemeId(value: unknown): value is ReaderThemeId {
-  return (
-    value === "paper" ||
-    value === "sepia" ||
-    value === "night" ||
-    value === "mist" ||
-    value === "graphite"
-  )
-}
-
-function isPdfReaderLayout(value: unknown): value is PdfReaderLayout {
-  return value === "continuous" || value === "single-page" || value === "two-up"
-}
-
-function isPdfReaderScaleMode(value: unknown): value is PdfReaderScaleMode {
-  return value === "fit-width" || value === "fit-page" || value === "custom"
-}
-
-function isPdfReaderRotation(value: unknown): value is PdfReaderRotation {
-  return value === 0 || value === 90 || value === 180 || value === 270
-}
-
-function readPdfReaderMode(value: unknown): PdfReaderMode | undefined {
-  if (!isObjectRecord(value)) return undefined
-  if (!isPdfReaderLayout(value.layout)) return undefined
-  if (!isPdfReaderScaleMode(value.scaleMode)) return undefined
-  if (!isPdfReaderRotation(value.rotation)) return undefined
-  const scale = value.scale
-  if (
-    scale !== undefined &&
-    (typeof scale !== "number" ||
-      !Number.isFinite(scale) ||
-      scale < MIN_PDF_CUSTOM_SCALE ||
-      scale > MAX_PDF_CUSTOM_SCALE)
-  ) {
-    return undefined
-  }
-  if (value.scaleMode === "custom" && scale === undefined) return undefined
-  return Object.assign(
-    {
-      layout: value.layout,
-      scaleMode: value.scaleMode,
-      rotation: value.rotation,
-    },
-    scale !== undefined ? { scale } : undefined,
-  )
+function readPdfReaderMode(value: z.infer<typeof PdfReaderModeSchema> | undefined): PdfReaderMode | undefined {
+  return value
 }
 
 export function defaultPdfReaderMode(): PdfReaderMode {
@@ -208,10 +251,10 @@ function defaultReaderPreferences(defaultTheme: ReaderThemeId): ReaderPreference
 
 function readLegacyPreferences(defaultTheme: ReaderThemeId): ReaderPreferences {
   const defaults = defaultReaderPreferences(defaultTheme)
-  const value = parseJson(safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY))
-  if (!isObjectRecord(value)) return defaults
+  const value = parseStoredJson(safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY), LegacyPreferencesSchema)
+  if (!value) return defaults
   return {
-    themeId: isReaderThemeId(value.themeId) ? value.themeId : defaults.themeId,
+    themeId: value.themeId ?? defaults.themeId,
     reduceMotion: value.reduceMotion === true,
     autohideCursor: value.autohideCursor === true,
     pdfMode: defaults.pdfMode,
@@ -220,14 +263,12 @@ function readLegacyPreferences(defaultTheme: ReaderThemeId): ReaderPreferences {
 
 export function loadReaderPreferences(defaultTheme: ReaderThemeId): ReaderPreferences {
   const legacy = readLegacyPreferences(defaultTheme)
-  const value = parseJson(safeReadStorage(READER_PREFERENCES_STORAGE_KEY))
-  if (!isObjectRecord(value)) return legacy
+  const value = parseStoredJson(safeReadStorage(READER_PREFERENCES_STORAGE_KEY), StoredPreferencesSchema)
+  if (!value) return legacy
   return {
-    themeId: isReaderThemeId(value.themeId) ? value.themeId : legacy.themeId,
-    reduceMotion:
-      typeof value.reduceMotion === "boolean" ? value.reduceMotion : legacy.reduceMotion,
-    autohideCursor:
-      typeof value.autohideCursor === "boolean" ? value.autohideCursor : legacy.autohideCursor,
+    themeId: value.themeId ?? legacy.themeId,
+    reduceMotion: value.reduceMotion ?? legacy.reduceMotion,
+    autohideCursor: value.autohideCursor ?? legacy.autohideCursor,
     pdfMode: readPdfReaderMode(value.pdfMode) ?? legacy.pdfMode,
   }
 }
@@ -235,74 +276,45 @@ export function loadReaderPreferences(defaultTheme: ReaderThemeId): ReaderPrefer
 export function saveReaderPreferences(preferences: ReaderPreferences): void {
   safeWriteStorage(READER_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences))
 
-  const legacyValue = parseJson(safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY))
-  const legacyRecord = isObjectRecord(legacyValue) ? legacyValue : {}
+  const legacyValue =
+    parseStoredJson(safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY), LegacyPreferencesSchema) ??
+    ({} satisfies TLegacyPreferences)
   safeWriteStorage(
     GLOBAL_PREFERENCES_STORAGE_KEY,
     JSON.stringify({
-      ...legacyRecord,
+      ...legacyValue,
       themeId: preferences.themeId,
       reduceMotion: preferences.reduceMotion,
       autohideCursor: preferences.autohideCursor,
-      flow:
-        legacyRecord.flow === "paginated" || legacyRecord.flow === "scrolled"
-          ? legacyRecord.flow
-          : FLOW_PAGINATED,
+      flow: legacyValue.flow ?? FLOW_PAGINATED,
     }),
   )
 }
 
-function isReaderAnnotationStyle(value: unknown): value is ReaderAnnotationStyle {
-  return (
-    value === "highlight" ||
-    value === "underline" ||
-    value === "squiggly" ||
-    value === "strikethrough"
-  )
-}
-
-function isReaderAnnotationColorId(value: unknown): value is ReaderAnnotationColorId {
-  return value === "amber" || value === "mint" || value === "sky" || value === "rose"
-}
-
-function readBoundedString(value: unknown, maximumLength: number): string | undefined {
-  return typeof value === "string" && value.length <= maximumLength ? value : undefined
-}
-
-function readReaderAnnotation(value: unknown): ReaderAnnotation | undefined {
-  if (!isObjectRecord(value)) return undefined
-  const id = readBoundedString(value.id, MAX_READER_LABEL_LENGTH)
+function readReaderAnnotation(value: TStoredAnnotation): ReaderAnnotation | undefined {
   const anchor = readReaderTextAnchor(value.anchor)
-  const text = readBoundedString(value.text, MAX_READER_NOTE_LENGTH)
-  const note = readBoundedString(value.note, MAX_READER_NOTE_LENGTH)
-  const created = readBoundedString(value.created, MAX_READER_LABEL_LENGTH)
-  const modified = readBoundedString(value.modified, MAX_READER_LABEL_LENGTH)
-  if (!id || !anchor || text === undefined || note === undefined || !created || !modified) {
-    return undefined
-  }
-  if (!isReaderAnnotationStyle(value.style) || !isReaderAnnotationColorId(value.color)) {
-    return undefined
-  }
+  if (!anchor) return undefined
   return {
-    id,
+    id: value.id,
     anchor,
-    text,
-    note,
+    text: value.text,
+    note: value.note,
     style: value.style,
     color: value.color,
-    created,
-    modified,
+    created: value.created,
+    modified: value.modified,
   }
 }
 
-function readReaderBookmark(value: unknown): ReaderBookmark | undefined {
-  if (!isObjectRecord(value)) return undefined
-  const id = readBoundedString(value.id, MAX_READER_LABEL_LENGTH)
+function readReaderBookmark(value: TStoredBookmark): ReaderBookmark | undefined {
   const anchor = readReaderPositionAnchor(value.anchor)
-  const label = readBoundedString(value.label, MAX_READER_LABEL_LENGTH)
-  const created = readBoundedString(value.created, MAX_READER_LABEL_LENGTH)
-  if (!id || !anchor || label === undefined || !created) return undefined
-  return { id, anchor, label, created }
+  if (!anchor) return undefined
+  return {
+    id: value.id,
+    anchor,
+    label: value.label,
+    created: value.created,
+  }
 }
 
 function legacyStorageSegment(value: string | undefined): string {
@@ -327,8 +339,7 @@ function legacySourceName(source: ReaderSource): string {
   }
 }
 
-function legacyPdfPageIndex(value: unknown): number | undefined {
-  if (typeof value !== "string") return undefined
+function legacyPdfPageIndex(value: string): number | undefined {
   const match = LEGACY_PDF_CFI_PAGE_PATTERN.exec(value)
   const step = match?.[1] ? Number(match[1]) : Number.NaN
   if (!Number.isSafeInteger(step) || step < 2 || step % 2 !== 0) return undefined
@@ -349,20 +360,20 @@ function textAnchorMatchesFormat(
   return format === "pdf" ? anchor.kind === "pdf-text" : anchor.kind === "cfi-text"
 }
 
-function legacyRecordPageIndex(value: Record<string, unknown>): number | undefined {
-  const cfiPageIndex = legacyPdfPageIndex(value.value)
+function legacyRecordPageIndex(value: TLegacyPdfRecord): number | undefined {
+  const cfiPageIndex = value.value === undefined ? undefined : legacyPdfPageIndex(value.value)
   if (cfiPageIndex !== undefined) return cfiPageIndex
-  return Number.isSafeInteger(value.index) && typeof value.index === "number" && value.index >= 0
-    ? value.index
-    : undefined
+  return value.index
 }
 
-function legacyAnnotationStyle(value: unknown): ReaderAnnotationStyle {
-  return isReaderAnnotationStyle(value) ? value : "highlight"
+function legacyAnnotationStyle(value: string | undefined): ReaderAnnotationStyle {
+  const parsed = ReaderAnnotationStyleSchema.safeParse(value)
+  return parsed.success ? parsed.data : "highlight"
 }
 
-function legacyAnnotationColor(value: unknown): ReaderAnnotationColorId {
-  if (isReaderAnnotationColorId(value)) return value
+function legacyAnnotationColor(value: string | undefined): ReaderAnnotationColorId {
+  const parsed = ReaderAnnotationColorIdSchema.safeParse(value)
+  if (parsed.success) return parsed.data
   if (value === ANNOTATION_COLORS.amber.value) return "amber"
   if (value === ANNOTATION_COLORS.mint.value) return "mint"
   if (value === ANNOTATION_COLORS.sky.value) return "sky"
@@ -370,12 +381,11 @@ function legacyAnnotationColor(value: unknown): ReaderAnnotationColorId {
   return DEFAULT_ANNOTATION_COLOR_ID
 }
 
-function legacyString(value: unknown, maximumLength: number, fallback = ""): string {
-  return typeof value === "string" ? value.slice(0, maximumLength) : fallback
+function legacyString(value: string | undefined, maximumLength: number, fallback = ""): string {
+  return value === undefined ? fallback : value.slice(0, maximumLength)
 }
 
-function readLegacyEpubBookmark(value: unknown): ReaderBookmark | undefined {
-  if (!isObjectRecord(value)) return undefined
+function readLegacyEpubBookmark(value: LegacyEpubReaderBookmark): ReaderBookmark | undefined {
   const anchor = readReaderPositionAnchor({
     kind: READER_ANCHOR_KIND_CFI_POSITION,
     cfi: value.value,
@@ -389,12 +399,8 @@ function readLegacyEpubBookmark(value: unknown): ReaderBookmark | undefined {
   }
 }
 
-function readLegacyEpubAnnotation(value: unknown): ReaderAnnotation | undefined {
-  if (!isObjectRecord(value)) return undefined
-  const sectionIndex =
-    typeof value.index === "number" && Number.isSafeInteger(value.index) && value.index >= 0
-      ? value.index
-      : undefined
+function readLegacyEpubAnnotation(value: LegacyEpubReaderAnnotation): ReaderAnnotation | undefined {
+  const sectionIndex = value.index
   const anchor = readReaderTextAnchor(
     Object.assign(
       {
@@ -420,7 +426,7 @@ function readLegacyEpubAnnotation(value: unknown): ReaderAnnotation | undefined 
 
 export function migrateLegacyEpubReaderBookState(
   source: ReaderSource,
-  legacyState: LegacyEpubReaderBookStateInput,
+  legacyState: LegacyEpubReaderBookState,
 ): ReaderDocumentState {
   const lastLocation = readReaderPositionAnchor({
     kind: READER_ANCHOR_KIND_CFI_POSITION,
@@ -488,8 +494,8 @@ export function readerDocumentStateToLegacyEpubBookState(
   )
 }
 
-function readLegacyPdfBookmark(value: unknown, legacyIndex: number): ReaderBookmark | undefined {
-  if (!isObjectRecord(value)) return undefined
+function readLegacyPdfBookmark(value: TLegacyPdfRecord, legacyIndex: number): ReaderBookmark | undefined {
+  if (value.value === undefined) return undefined
   const pageIndex = legacyPdfPageIndex(value.value)
   if (pageIndex === undefined) return undefined
   return {
@@ -501,10 +507,9 @@ function readLegacyPdfBookmark(value: unknown, legacyIndex: number): ReaderBookm
 }
 
 function readLegacyPdfAnnotation(
-  value: unknown,
+  value: TLegacyPdfRecord,
   legacyIndex: number,
 ): ReaderAnnotation | undefined {
-  if (!isObjectRecord(value)) return undefined
   const pageIndex = legacyRecordPageIndex(value)
   if (pageIndex === undefined) return undefined
   const text = legacyString(value.text, MAX_READER_NOTE_LENGTH)
@@ -530,14 +535,13 @@ function findLegacyPdfStateKey(
   source: ReaderSource,
   persistenceSuffix: string | undefined,
 ): string | undefined {
-  if (typeof window === "undefined") return undefined
   const sourceSegment = legacyStorageSegment(legacySourceName(source))
   const suffixSegment = legacyStorageSegment(persistenceSuffix)
   if (!sourceSegment) return undefined
   const matches: string[] = []
   try {
-    for (let index = 0; index < window.localStorage.length; index += 1) {
-      const key = window.localStorage.key(index)
+    for (let index = 0; index < globalThis.localStorage.length; index += 1) {
+      const key = globalThis.localStorage.key(index)
       if (!key?.startsWith(BOOK_STATE_STORAGE_KEY_PREFIX)) continue
       const segments = key.slice(BOOK_STATE_STORAGE_KEY_PREFIX.length).split("__")
       const sourceIndex = segments.lastIndexOf(sourceSegment)
@@ -560,21 +564,18 @@ function migrateLegacyPdfDocumentState(
   if (!isPdfReaderSource(source)) return undefined
   const legacyKey = findLegacyPdfStateKey(source, persistenceSuffix)
   if (!legacyKey) return undefined
-  const value = parseJson(safeReadStorage(legacyKey))
-  if (!isObjectRecord(value)) return undefined
-  const bookmarks = Array.isArray(value.bookmarks)
-    ? value.bookmarks
-        .slice(0, MAX_READER_BOOKMARKS)
-        .map(readLegacyPdfBookmark)
-        .filter((bookmark) => bookmark !== undefined)
-    : []
-  const annotations = Array.isArray(value.annotations)
-    ? value.annotations
-        .slice(0, MAX_READER_ANNOTATIONS)
-        .map(readLegacyPdfAnnotation)
-        .filter((annotation) => annotation !== undefined)
-    : []
-  const lastPageIndex = legacyPdfPageIndex(value.lastLocation)
+  const value = parseStoredJson(safeReadStorage(legacyKey), LegacyPdfBookStateSchema)
+  if (!value) return undefined
+  const bookmarks = (value.bookmarks ?? [])
+    .slice(0, MAX_READER_BOOKMARKS)
+    .map(readLegacyPdfBookmark)
+    .filter((bookmark) => bookmark !== undefined)
+  const annotations = (value.annotations ?? [])
+    .slice(0, MAX_READER_ANNOTATIONS)
+    .map(readLegacyPdfAnnotation)
+    .filter((annotation) => annotation !== undefined)
+  const lastPageIndex =
+    value.lastLocation === undefined ? undefined : legacyPdfPageIndex(value.lastLocation)
   const migrated: ReaderDocumentState = Object.assign(
     {
       version: READER_STATE_VERSION,
@@ -669,32 +670,30 @@ export function loadStoredReaderDocumentState(
   source: ReaderSource,
 ): ReaderDocumentState | undefined {
   const empty = emptyReaderDocumentState(source)
-  const value = parseJson(safeReadStorage(readerDocumentStorageKey(source.sourceId)))
-  if (!isObjectRecord(value) || value.version !== READER_STATE_VERSION) return undefined
+  const value = parseStoredJson(
+    safeReadStorage(readerDocumentStorageKey(source.sourceId)),
+    StoredDocumentStateSchema,
+  )
+  if (!value) return undefined
   const identity = value.identity
-  if (!isObjectRecord(identity) || identity.sourceId !== source.sourceId) return undefined
-  if (identity.format !== "pdf" && identity.format !== "epub") return undefined
+  if (identity.sourceId !== source.sourceId) return undefined
   const format = identity.format
   if (format !== empty.identity.format) return undefined
-  const storedFingerprint = readBoundedString(identity.contentFingerprint, MAX_READER_LABEL_LENGTH)
-  if (identity.contentFingerprint !== undefined && storedFingerprint === undefined) {
-    return undefined
-  }
   if (source.contentFingerprint && identity.contentFingerprint !== source.contentFingerprint) {
     return undefined
   }
-  const bookmarks = Array.isArray(value.bookmarks)
-    ? value.bookmarks.slice(0, MAX_READER_BOOKMARKS).flatMap((entry) => {
-        const bookmark = readReaderBookmark(entry)
-        return bookmark && positionAnchorMatchesFormat(bookmark.anchor, format) ? [bookmark] : []
-      })
-    : []
-  const annotations = Array.isArray(value.annotations)
-    ? value.annotations.slice(0, MAX_READER_ANNOTATIONS).flatMap((entry) => {
-        const annotation = readReaderAnnotation(entry)
-        return annotation && textAnchorMatchesFormat(annotation.anchor, format) ? [annotation] : []
-      })
-    : []
+  const bookmarks = (value.bookmarks ?? [])
+    .slice(0, MAX_READER_BOOKMARKS)
+    .flatMap((entry) => {
+      const bookmark = readReaderBookmark(entry)
+      return bookmark && positionAnchorMatchesFormat(bookmark.anchor, format) ? [bookmark] : []
+    })
+  const annotations = (value.annotations ?? [])
+    .slice(0, MAX_READER_ANNOTATIONS)
+    .flatMap((entry) => {
+      const annotation = readReaderAnnotation(entry)
+      return annotation && textAnchorMatchesFormat(annotation.anchor, format) ? [annotation] : []
+    })
   const parsedLastLocation = readReaderPositionAnchor(value.lastLocation)
   const lastLocation =
     parsedLastLocation && positionAnchorMatchesFormat(parsedLastLocation, format)
@@ -725,9 +724,8 @@ export function saveReaderDocumentState(source: ReaderSource, state: ReaderDocum
 }
 
 export function createReaderRecordId(prefix: "annotation" | "bookmark" | "selection"): string {
-  if (typeof globalThis.crypto?.randomUUID === "function") {
-    return `${prefix}_${globalThis.crypto.randomUUID()}`
-  }
+  const uuid = globalThis.crypto?.randomUUID?.()
+  if (uuid) return `${prefix}_${uuid}`
   const random = Math.random()
     .toString(36)
     .slice(2, 2 + FALLBACK_ID_RANDOM_LENGTH)

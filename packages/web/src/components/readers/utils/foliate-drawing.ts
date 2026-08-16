@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type { Overlayer } from "foliate-js/overlayer.js"
 import type { FoliateAnnotationPayload, FoliateDrawAnnotationEventDetail } from "foliate-js/view.js"
 import {
@@ -7,11 +8,7 @@ import {
   ANNOTATION_STYLE_SQUIGGLY,
   ANNOTATION_STYLE_UNDERLINE,
 } from "../foliate-reader-constants"
-import type {
-  ReaderAnnotation,
-  ReaderAnnotationColorId,
-  ReaderAnnotationDialogState,
-} from "../foliate-reader-types"
+import type { ReaderAnnotation, ReaderAnnotationDialogState } from "../foliate-reader-types"
 import { getAnnotationColorId, getAnnotationStyle } from "./foliate-helpers"
 
 export function createSvgElement(tag: string) {
@@ -128,10 +125,13 @@ export function drawLinearMark(
   return group
 }
 
+const FoliateAnnotationColorSchema = z.string()
+const FoliateAnnotationNoteSchema = z.string()
+
 function drawAnnotationDetail(detail: FoliateDrawAnnotationEventDetail) {
   const annotation = detail.annotation
-  const color =
-    typeof annotation.color === "string" ? annotation.color : ANNOTATION_COLORS.amber.value
+  const parsedColor = FoliateAnnotationColorSchema.safeParse(annotation.color)
+  const color = parsedColor.success ? parsedColor.data : ANNOTATION_COLORS.amber.value
   const style =
     annotation.style === ANNOTATION_STYLE_UNDERLINE ||
     annotation.style === ANNOTATION_STYLE_SQUIGGLY ||
@@ -141,7 +141,8 @@ function drawAnnotationDetail(detail: FoliateDrawAnnotationEventDetail) {
   const writingMode = detail.doc.defaultView?.getComputedStyle(
     detail.range.startContainer.parentElement ?? detail.doc.body,
   ).writingMode
-  const hasNote = typeof annotation.note === "string" && annotation.note.trim().length > 0
+  const parsedNote = FoliateAnnotationNoteSchema.safeParse(annotation.note)
+  const hasNote = parsedNote.success && parsedNote.data.trim().length > 0
 
   if (style === ANNOTATION_STYLE_HIGHLIGHT) {
     detail.draw((rects) => {

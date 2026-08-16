@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { AnnotationEditorType, AnnotationMode, type PDFDocumentProxy } from "pdfjs-dist"
 import {
   EventBus,
@@ -10,10 +11,15 @@ import {
 import type { PdfPositionAnchor, PdfTextAnchor, ReaderRelocation } from "@buddy/reader-contract"
 import { findPdfTextMatches, type PdfTextMatchOptions } from "./pdf-search"
 import { pdfDocumentFingerprint } from "./pdf-document-identity"
-import { readPdfPageViewGeometry, type PdfPageViewGeometry } from "./pdf-geometry"
+import {
+  PdfJsPageViewSchema,
+  readPdfPageViewGeometry,
+  type PdfPageViewGeometry,
+} from "./pdf-geometry"
 import {
   pdfCurrentPassageText,
   pdfTextAnchorFromOffsets,
+  PdfJsTextContentHostSchema,
   readPdfPageText,
   repairPdfTextAnchor,
   type PdfPageText,
@@ -77,7 +83,7 @@ type PdfViewerSessionCallbacks = {
 }
 
 type PdfNavigationTarget =
-  | { kind: "destination"; destination: string | unknown[] }
+  | { kind: "destination"; destination: TPdfDestination }
   | { kind: "page"; pageNumber: number }
   | { kind: "external"; href: string }
 
@@ -90,7 +96,7 @@ type PdfViewerEvent = {
 
 type PdfOutlineValue = {
   title: string
-  destination?: string | unknown[]
+  destination?: TPdfDestination
   href?: string
   items: PdfOutlineValue[]
 }
@@ -104,6 +110,26 @@ type PdfOutlineLocation = {
 type PdfPageReference = {
   num: number
   gen: number
+}
+
+type TPdfDestinationElement =
+  | string
+  | number
+  | boolean
+  | null
+  | PdfPageReference
+  | readonly TPdfDestinationElement[]
+
+type TPdfExplicitDestination = readonly TPdfDestinationElement[]
+type TPdfDestination = string | TPdfExplicitDestination
+
+type TPdfDocumentInfo = {
+  Title?: string
+  Author?: string
+  Subject?: string
+  Keywords?: string
+  Creator?: string
+  Producer?: string
 }
 
 export type PdfSearchRequest = PdfTextMatchOptions & {
@@ -130,59 +156,83 @@ type PdfWheelPageTurnGesture = {
   lastEventAt: number | undefined
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
+const PdfViewerEventSchema = z.object({
+  pageNumber: z.number().finite().optional(),
+  pageLabel: z.string().optional(),
+  scale: z.number().finite().optional(),
+  presetValue: z.string().optional(),
+})
 
-function readFiniteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined
-}
+const PdfPageReferenceSchema = z.object({
+  num: z.number().int(),
+  gen: z.number().int(),
+})
 
-function readPdfViewerEvent(value: unknown): PdfViewerEvent {
-  if (!isObjectRecord(value)) return {}
-  const pageNumber = readFiniteNumber(value.pageNumber)
-  const pageLabel = typeof value.pageLabel === "string" ? value.pageLabel : undefined
-  const scale = readFiniteNumber(value.scale)
-  const presetValue = typeof value.presetValue === "string" ? value.presetValue : undefined
-  return Object.assign(
+const PdfDestinationElementSchema: z.ZodType<TPdfDestinationElement> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    PdfPageReferenceSchema,
+    z.array(PdfDestinationElementSchema),
+  ]),
+)
+
+const PdfDestinationSchema: z.ZodType<TPdfDestination> = z.union([
+  z.string(),
+  z.array(PdfDestinationElementSchema),
+])
+
+const PdfDocumentInfoSchema = z.object({
+  Title: z.string().optional(),
+  Author: z.string().optional(),
+  Subject: z.string().optional(),
+  Keywords: z.string().optional(),
+  Creator: z.string().optional(),
+  Producer: z.string().optional(),
+})
+
+const PdfOutlineItemSchema: z.ZodType<PdfOutlineValue> = z.lazy(() =>
+  z.object({
+    title: z.string(),
+    dest: PdfDestinationSchema.optional(),
+    url: z.string().optional(),
+    items: z.array(PdfOutlineItemSchema).optional(),
+  }).transform((item) =>
     Object.assign(
-      {},
-      pageNumber !== undefined ? { pageNumber } : undefined,
-      pageLabel !== undefined ? { pageLabel } : undefined,
-      scale !== undefined ? { scale } : undefined,
+      {
+        title: item.title.trim(),
+        items: item.items ?? [],
+      },
+      item.dest ? { destination: item.dest } : undefined,
+      item.url ? { href: item.url } : undefined,
     ),
-    presetValue !== undefined ? { presetValue } : undefined,
-  )
+  ),
+)
+
+const PdfCropBoxValuesSchema = z.tuple([
+  z.number().finite(),
+  z.number().finite(),
+  z.number().finite(),
+  z.number().finite(),
+])
+
+function readPdfViewerEvent(value: z.infer<typeof PdfViewerEventSchema>): PdfViewerEvent {
+  return value
 }
 
-function readCoordinatePair(value: unknown): readonly [number, number] | undefined {
-  if (!Array.isArray(value) || value.length < 2) return undefined
-  const x = readFiniteNumber(value[0])
-  const y = readFiniteNumber(value[1])
-  return x === undefined || y === undefined ? undefined : [x, y]
-}
-
-function readCropBox(value: unknown): readonly [number, number, number, number] | undefined {
-  if (!Array.isArray(value) || value.length < 4) return undefined
-  const x1 = readFiniteNumber(value[0])
-  const y1 = readFiniteNumber(value[1])
-  const x2 = readFiniteNumber(value[2])
-  const y2 = readFiniteNumber(value[3])
-  if (x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined) {
-    return undefined
-  }
+function readCropBox(value: readonly number[]): readonly [number, number, number, number] | undefined {
+  const parsed = PdfCropBoxValuesSchema.safeParse(value.slice(0, 4))
+  if (!parsed.success) return undefined
+  const [x1, y1, x2, y2] = parsed.data
   if (x2 <= x1 || y2 <= y1) return undefined
-  return [x1, y1, x2, y2]
+  return parsed.data
 }
 
-function readPdfReference(value: unknown): PdfPageReference | undefined {
-  if (!isObjectRecord(value)) return undefined
-  const num = readFiniteNumber(value.num)
-  const gen = readFiniteNumber(value.gen)
-  if (num === undefined || gen === undefined || !Number.isInteger(num) || !Number.isInteger(gen)) {
-    return undefined
-  }
-  return { num, gen }
+function readPdfReference(value: TPdfDestinationElement): PdfPageReference | undefined {
+  const parsed = PdfPageReferenceSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
 function clampRatio(value: number): number {
@@ -216,47 +266,22 @@ function sourceName(source: ReaderSource): string {
   }
 }
 
-function readInfoString(info: unknown, key: string): string | undefined {
-  if (!isObjectRecord(info)) return undefined
+function readInfoString(info: TPdfDocumentInfo, key: keyof TPdfDocumentInfo): string | undefined {
   const value = info[key]
-  return typeof value === "string" && value.trim() ? value.trim() : undefined
+  if (value === undefined) return undefined
+  const trimmed = value.trim()
+  return trimmed ? trimmed : undefined
 }
 
-function readOutline(value: unknown): PdfOutlineValue[] {
-  if (!Array.isArray(value)) return []
-  const items: PdfOutlineValue[] = []
-  for (const entry of value) {
-    if (!isObjectRecord(entry) || typeof entry.title !== "string") continue
-    const title = entry.title.trim()
-    if (!title) continue
-    const destination =
-      typeof entry.dest === "string" || Array.isArray(entry.dest) ? entry.dest : undefined
-    const href = typeof entry.url === "string" && entry.url ? entry.url : undefined
-    items.push(
-      Object.assign(
-        {
-          title,
-          items: readOutline(entry.items),
-        },
-        destination ? { destination } : undefined,
-        href ? { href } : undefined,
-      ),
-    )
-  }
-  return items
+function readOutline(value: PdfOutlineValue[]): PdfOutlineValue[] {
+  return value.filter((item) => item.title.length > 0)
 }
 
 function abortError(): DOMException {
   return new DOMException("PDF operation was cancelled.", "AbortError")
 }
 
-function clearViewerDocument(viewer: unknown): void {
-  if (!isObjectRecord(viewer)) return
-  const setDocument = viewer.setDocument
-  if (typeof setDocument === "function") setDocument.call(viewer, null)
-}
-
-function metadataRows(info: unknown, fingerprint: string | undefined): ReaderMetadataRow[] {
+function metadataRows(info: TPdfDocumentInfo, fingerprint: string | undefined): ReaderMetadataRow[] {
   const rows: ReaderMetadataRow[] = []
   for (const [key, label] of PDF_METADATA_KEYS) {
     const value = readInfoString(info, key)
@@ -305,7 +330,7 @@ export class PdfViewerSession {
     this.#callbacks = options.callbacks
     this.#installDomListeners()
     this.#opening = {
-      task: this.#open(options.initialLocation).catch((error: unknown) => {
+      task: this.#open(options.initialLocation).catch((error) => {
         if (this.#lifecycle.signal.aborted) return
         this.#callbacks.onError(
           error instanceof Error ? error : new Error("The PDF reader could not open this file."),
@@ -331,7 +356,8 @@ export class PdfViewerSession {
   }
 
   getPageGeometry(pageIndex: number): PdfPageViewGeometry | undefined {
-    return readPdfPageViewGeometry(this.#viewer?.getPageView(pageIndex))
+    const parsed = PdfJsPageViewSchema.safeParse(this.#viewer?.getPageView(pageIndex))
+    return parsed.success ? readPdfPageViewGeometry(parsed.data) : undefined
   }
 
   getPageLabel(pageIndex: number): string {
@@ -363,14 +389,17 @@ export class PdfViewerSession {
       if (this.#lifecycle.signal.aborted) return
       this.#pageLabels = pageLabels
       const fingerprint = pdfDocumentFingerprint(loaded.document.fingerprints)
+      const parsedOutline = z.array(PdfOutlineItemSchema).safeParse(outline)
+      const parsedInfo = PdfDocumentInfoSchema.safeParse(metadata.info)
+      const info = parsedInfo.success ? parsedInfo.data : {}
       const navigation = await this.#buildNavigation(
         loaded.document,
-        readOutline(outline),
+        readOutline(parsedOutline.success ? parsedOutline.data : []),
         pageLabels,
       )
       if (this.#lifecycle.signal.aborted) return
-      const title = readInfoString(metadata.info, "Title") ?? sourceName(this.#source)
-      const author = readInfoString(metadata.info, "Author") ?? "Unknown author"
+      const title = readInfoString(info, "Title") ?? sourceName(this.#source)
+      const author = readInfoString(info, "Author") ?? "Unknown author"
       const snapshot: ReaderSnapshot = {
         engine: "pdf",
         capabilities: {
@@ -389,7 +418,7 @@ export class PdfViewerSession {
         toc: navigation.toc,
         pageList: navigation.pageList,
         landmarks: [],
-        metadata: metadataRows(metadata.info, fingerprint),
+        metadata: metadataRows(info, fingerprint),
         pageCount: loaded.document.numPages,
         fileName: sourceName(this.#source),
       }
@@ -453,8 +482,10 @@ export class PdfViewerSession {
     )
     eventBus.on(
       PDFJS_EVENT_PAGE_CHANGING,
-      (value: unknown) => {
-        const event = readPdfViewerEvent(value)
+      (value) => {
+        const parsed = PdfViewerEventSchema.safeParse(value)
+        if (!parsed.success) return
+        const event = readPdfViewerEvent(parsed.data)
         const pageIndex = pageIndexFromViewerEvent(event.pageNumber, this.pagesCount)
         if (pageIndex === undefined) return
         this.#currentPageIndex = pageIndex
@@ -464,8 +495,10 @@ export class PdfViewerSession {
     )
     eventBus.on(
       PDFJS_EVENT_SCALE_CHANGING,
-      (value: unknown) => {
-        const event = readPdfViewerEvent(value)
+      (value) => {
+        const parsed = PdfViewerEventSchema.safeParse(value)
+        if (!parsed.success) return
+        const event = readPdfViewerEvent(parsed.data)
         if (event.scale !== undefined) {
           this.#mode = pdfModeAfterViewerScaleChange(this.#mode, event.scale, event.presetValue)
           this.#callbacks.onScaleChange(event.scale, event.presetValue)
@@ -475,8 +508,10 @@ export class PdfViewerSession {
     )
     eventBus.on(
       PDFJS_EVENT_PAGE_RENDERED,
-      (value: unknown) => {
-        const event = readPdfViewerEvent(value)
+      (value) => {
+        const parsed = PdfViewerEventSchema.safeParse(value)
+        if (!parsed.success) return
+        const event = readPdfViewerEvent(parsed.data)
         const pageIndex = pageIndexFromViewerEvent(event.pageNumber, this.pagesCount)
         if (pageIndex !== undefined) this.#callbacks.onPageRendered(pageIndex)
       },
@@ -484,8 +519,10 @@ export class PdfViewerSession {
     )
     eventBus.on(
       PDFJS_EVENT_TEXT_LAYER_RENDERED,
-      (value: unknown) => {
-        const event = readPdfViewerEvent(value)
+      (value) => {
+        const parsed = PdfViewerEventSchema.safeParse(value)
+        if (!parsed.success) return
+        const event = readPdfViewerEvent(parsed.data)
         const pageIndex = pageIndexFromViewerEvent(event.pageNumber, this.pagesCount)
         if (pageIndex !== undefined) this.#callbacks.onTextLayerRendered(pageIndex)
       },
@@ -564,16 +601,20 @@ export class PdfViewerSession {
 
   async #destinationPageIndex(
     document: PDFDocumentProxy,
-    destination: string | unknown[],
+    destination: TPdfDestination,
   ): Promise<number | undefined> {
-    const explicitDestination: unknown =
-      typeof destination === "string"
-        ? await document.getDestination(destination).catch(() => null)
-        : destination
-    if (!Array.isArray(explicitDestination)) return undefined
-    const reference: unknown = explicitDestination[0]
-    if (Number.isInteger(reference) && typeof reference === "number") {
-      return reference >= 0 && reference < document.numPages ? reference : undefined
+    const resolvedDestination = Array.isArray(destination)
+      ? destination
+      : await document.getDestination(destination).catch(() => null)
+    const explicitDestination = z.array(PdfDestinationElementSchema).safeParse(resolvedDestination)
+    if (!explicitDestination.success) return undefined
+    const reference = explicitDestination.data[0]
+    if (reference === undefined) return undefined
+    const asPageIndex = z.number().int().safeParse(reference)
+    if (asPageIndex.success) {
+      return asPageIndex.data >= 0 && asPageIndex.data < document.numPages
+        ? asPageIndex.data
+        : undefined
     }
     const pageReference = readPdfReference(reference)
     if (!pageReference) return undefined
@@ -780,14 +821,17 @@ export class PdfViewerSession {
       0,
       Math.min(surfaceBounds.height, containerBounds.top - surfaceBounds.top),
     )
-    const pdfPoint = readCoordinatePair(geometry.viewport.convertToPdfPoint(viewportX, viewportY))
+    const converted = geometry.viewport.convertToPdfPoint(viewportX, viewportY)
+    const pdfPoint = Array.isArray(converted)
+      ? { x: converted[0], y: converted[1] }
+      : converted
     if (!pdfPoint) return { kind: "pdf-position", pageIndex, xRatio: 0, yRatio: 0 }
     const { xMin, yMin, xMax, yMax } = geometry.cropBox
     return {
       kind: "pdf-position",
       pageIndex,
-      xRatio: clampRatio((pdfPoint[0] - xMin) / (xMax - xMin)),
-      yRatio: clampRatio((yMax - pdfPoint[1]) / (yMax - yMin)),
+      xRatio: clampRatio((pdfPoint.x - xMin) / (xMax - xMin)),
+      yRatio: clampRatio((yMax - pdfPoint.y) / (yMax - yMin)),
     }
   }
 
@@ -897,7 +941,7 @@ export class PdfViewerSession {
     try {
       const page = await document.getPage(pageIndex + PDF_PAGE_NUMBER_OFFSET)
       if (this.#lifecycle.signal.aborted) throw abortError()
-      const content: unknown = await page.getTextContent({ disableNormalization: true })
+      const content = await page.getTextContent({ disableNormalization: true })
       if (this.#lifecycle.signal.aborted) throw abortError()
       const cropBoxValues = readCropBox(page.view)
       const cropBox = cropBoxValues
@@ -908,7 +952,15 @@ export class PdfViewerSession {
             yMax: cropBoxValues[3],
           }
         : { xMin: 0, yMin: 0, xMax: 1, yMax: 1 }
-      const pageText = readPdfPageText(content, cropBox)
+      const parsedContent = PdfJsTextContentHostSchema.safeParse(content)
+      const pageText = readPdfPageText(
+        {
+          items: (parsedContent.success ? parsedContent.data.items : []).filter(
+            (item) => item !== undefined,
+          ),
+        },
+        cropBox,
+      )
       this.#cachePageText(pageIndex, pageText)
       return pageText
     } finally {
@@ -1093,7 +1145,7 @@ export class PdfViewerSession {
     this.#resizeObserver = null
     this.#linkService?.setDocument(null)
     this.#viewer?.cleanup()
-    clearViewerDocument(this.#viewer)
+    this.#viewer?.setDocument(null)
     const loadingTask = this.#loaded?.loadingTask
     this.#loaded = null
     this.#viewer = null

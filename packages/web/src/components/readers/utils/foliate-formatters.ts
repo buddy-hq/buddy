@@ -1,19 +1,29 @@
+import { z } from "zod"
 import { createElement } from "react"
 import type { FoliateReaderLocation } from "../foliate-reader-types"
 import type { FoliateSearchExcerpt } from "foliate-js/view.js"
 
-export function isLocalizedTextRecord(value: unknown): value is Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false
-  return Object.values(value).every((entry) => typeof entry === "string")
-}
+const FoliateLocalizedTextRecordSchema = z.record(z.string(), z.string())
+const FoliateLocalizedTextSchema = z.union([z.string(), FoliateLocalizedTextRecordSchema])
+const FoliateNamedContributorSchema = z.object({
+  name: FoliateLocalizedTextSchema.optional(),
+})
+const FoliateContributorSchema = z.union([FoliateLocalizedTextSchema, FoliateNamedContributorSchema])
+export const FoliateMetadataValueSchema = z.union([
+  FoliateContributorSchema,
+  z.array(FoliateContributorSchema),
+])
 
-export function readLocalizedText(value: unknown): string | undefined {
-  if (typeof value === "string") {
-    const trimmed = value.trim()
+export type TFoliateLocalizedText = z.infer<typeof FoliateLocalizedTextSchema>
+export type TFoliateContributor = z.infer<typeof FoliateContributorSchema>
+export type TFoliateMetadataValue = z.infer<typeof FoliateMetadataValueSchema>
+
+export function readLocalizedText(value: TFoliateLocalizedText): string | undefined {
+  const asString = z.string().safeParse(value)
+  if (asString.success) {
+    const trimmed = asString.data.trim()
     return trimmed.length > 0 ? trimmed : undefined
   }
-
-  if (!isLocalizedTextRecord(value)) return undefined
 
   for (const entry of Object.values(value)) {
     const trimmed = entry.trim()
@@ -23,35 +33,32 @@ export function readLocalizedText(value: unknown): string | undefined {
   return undefined
 }
 
-export function formatContributor(value: unknown): string | undefined {
-  if (Array.isArray(value)) {
-    const entries = value.map(formatContributor).filter((entry): entry is string => Boolean(entry))
-    return entries.length > 0 ? entries.join(", ") : undefined
-  }
+function formatNamedContributor(value: TFoliateContributor): string | undefined {
+  const asLocalized = FoliateLocalizedTextSchema.safeParse(value)
+  if (asLocalized.success) return readLocalizedText(asLocalized.data)
 
-  const directText = readLocalizedText(value)
-  if (directText) return directText
-
-  if (!value || typeof value !== "object" || !("name" in value)) return undefined
-  return readLocalizedText(value.name)
+  const asNamed = FoliateNamedContributorSchema.safeParse(value)
+  if (!asNamed.success || asNamed.data.name === undefined) return undefined
+  return readLocalizedText(asNamed.data.name)
 }
 
-export function formatMetadataValue(value: unknown): string | undefined {
+export function formatContributor(value: TFoliateContributor | TFoliateContributor[]): string | undefined {
   if (Array.isArray(value)) {
     const entries = value
-      .map(formatMetadataValue)
+      .map(formatNamedContributor)
       .filter((entry): entry is string => Boolean(entry))
     return entries.length > 0 ? entries.join(", ") : undefined
   }
 
-  const contributor = formatContributor(value)
-  if (contributor) return contributor
+  return formatNamedContributor(value)
+}
 
-  return readLocalizedText(value)
+export function formatMetadataValue(value: TFoliateMetadataValue): string | undefined {
+  return formatContributor(value) ?? undefined
 }
 
 export function toPercentLabel(fraction?: number) {
-  if (typeof fraction !== "number") return undefined
+  if (fraction === undefined || !Number.isFinite(fraction)) return undefined
   const percent = Math.max(0, Math.min(100, Math.round(fraction * 100)))
   return `${percent}%`
 }

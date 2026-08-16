@@ -8,6 +8,11 @@ import type { Overlayer } from "foliate-js/overlayer.js"
 import { drawAnnotationRange } from "./foliate-drawing"
 import { resolveCanonicalNavigationTarget } from "./foliate-helpers"
 
+type TFoliateRendererGoToTarget = {
+  index: number
+  anchor?: (doc: Document) => Element | Range | null
+}
+
 type FoliateAnnotationView = {
   book: FoliateBook
   renderer: {
@@ -16,7 +21,7 @@ type FoliateAnnotationView = {
       doc: Document
       overlayer?: Overlayer
     }>
-    goTo: (target: unknown) => Promise<void>
+    goTo: (target: TFoliateRendererGoToTarget) => Promise<void>
   }
   resolveNavigation: (
     target: FoliateNavigationTarget,

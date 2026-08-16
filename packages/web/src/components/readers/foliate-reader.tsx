@@ -47,17 +47,13 @@ import type {
   FoliateSearchResult,
   View as FoliateView,
 } from "foliate-js/view.js"
+import { FoliateMetadataValueSchema, formatContributor, formatMetadataValue } from "./utils/foliate-formatters"
 import type {
-  FoliateReaderAnnotationStyle,
-  FoliateReaderFlow,
-  FoliateReaderFontPreset,
   FoliateReaderHandle,
-  FoliateReaderLandmark,
   FoliateReaderLocation,
   FoliateReaderProps,
   FoliateReaderSnapshot,
   FoliateReaderSource,
-  FoliateReaderThemeId,
   ReaderAnnotation,
   ReaderAnnotationDialogState,
   ReaderAnnotationPopoverState,
@@ -92,7 +88,6 @@ import {
   buildSourceDependencyKey,
   cleanupView,
   copyText,
-  createError,
   flattenTocItems,
   getAnnotationAtValue,
   getAnnotationColorId,
@@ -139,7 +134,6 @@ import {
   renderFoliateAnnotation,
   revealFoliateAnnotation,
 } from "./utils/foliate-annotations"
-import { formatContributor, formatMetadataValue } from "./utils/foliate-formatters"
 import { withReaderSourceContentFingerprint } from "./reader-storage"
 import type {
   ReaderAnnotationViewModel,
@@ -164,6 +158,10 @@ const WHEEL_GESTURE_IDLE_THRESHOLD_MS = 180
 const READER_PERCENT_MAX = 100
 const HOST_THEME_ATTRIBUTE_FILTER = ["class", "style", "data-theme", "data-color-scheme"]
 
+function drawAnnotationListener(event: CustomEvent<FoliateDrawAnnotationEventDetail>) {
+  drawAnnotation(event)
+}
+
 function foliateBookmarkOrder(bookmark: CommonReaderBookmark): string {
   return bookmark.anchor.kind === "cfi-position" ? bookmark.anchor.cfi : ""
 }
@@ -173,9 +171,10 @@ function foliateAnnotationOrder(annotation: ReaderAnnotationViewModel): string {
 }
 
 function readAnnotationThemeSignature(): string {
-  if (typeof document === "undefined") return ""
+  const root = globalThis.document?.documentElement
+  if (!root) return ""
   return ANNOTATION_COLOR_IDS.map((colorId) =>
-    resolveAnnotationColorValue(colorId, document.documentElement),
+    resolveAnnotationColorValue(colorId, root),
   ).join("\0")
 }
 
@@ -185,7 +184,7 @@ function useAnnotationThemeSignature(): string {
   useEffect(() => {
     const syncSignature = () => setSignature(readAnnotationThemeSignature())
     syncSignature()
-    if (typeof MutationObserver === "undefined") return
+    if (!("MutationObserver" in globalThis)) return
 
     const observer = new MutationObserver(syncSignature)
     observer.observe(document.documentElement, {
@@ -515,7 +514,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       // Activation position restoration is deliberately separate from responsive layout. This
       // observer watches only the visible host and writes the margin only when the value changes.
       syncResponsiveMargin()
-      if (typeof ResizeObserver === "undefined") return
+      if (!("ResizeObserver" in globalThis)) return
       const resizeObserver = new ResizeObserver(syncResponsiveMargin)
       responsiveMarginObserverRef.current = resizeObserver
       resizeObserver.observe(surface)
@@ -570,7 +569,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     useEffect(() => {
       if (!persistenceTarget) return
       const state = {
-        lastLocation: typeof location.cfi === "string" ? location.cfi : undefined,
+        lastLocation: location.cfi,
         bookmarks,
         annotations,
       }
@@ -859,7 +858,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           annotation.label = info.label
         }
         setAnnotations((current) =>
-          [...current, annotation].sort((a, b) => a.value.localeCompare(b.value)),
+          [...current, annotation].toSorted((a, b) => a.value.localeCompare(b.value)),
         )
         scheduleAnnotationRefresh(view, [annotation], annotation.index)
         setAnnotationDialog(null)
@@ -915,7 +914,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         created: new Date().toISOString(),
       }
       setBookmarks((current) =>
-        [...current, bookmark].sort((a, b) => a.value.localeCompare(b.value)),
+        [...current, bookmark].toSorted((a, b) => a.value.localeCompare(b.value)),
       )
     }
 
@@ -1110,10 +1109,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             callbacksRef.current.onOpenExternalLink(event.detail.href)
           }
 
-          const drawAnnotationListener = (event: CustomEvent<FoliateDrawAnnotationEventDetail>) => {
-            drawAnnotation(event)
-          }
-
           const overlayListener = (event: CustomEvent<{ index: number }>) => {
             void hydrateAnnotations(view, annotationsRef.current, event.detail.index)
           }
@@ -1204,7 +1199,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                 })
               }
 
-              if (typeof requestAnimationFrame === "function") {
+              if ("requestAnimationFrame" in globalThis) {
                 requestAnimationFrame(readSelection)
               } else {
                 readSelection()
@@ -1283,14 +1278,19 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
             return
           }
 
+          const titleParsed = FoliateMetadataValueSchema.safeParse(view.book.metadata?.title)
+          const authorParsed = FoliateMetadataValueSchema.safeParse(view.book.metadata?.author)
+          const contributorParsed = FoliateMetadataValueSchema.safeParse(
+            view.book.metadata?.contributor,
+          )
           const nextSnapshot: FoliateReaderSnapshot = {
             title:
-              formatMetadataValue(view.book.metadata?.title) ??
+              (titleParsed.success ? formatMetadataValue(titleParsed.data) : undefined) ??
               getSourceName(stableSource) ??
               DEFAULT_TITLE,
             author:
-              formatContributor(view.book.metadata?.author) ??
-              formatContributor(view.book.metadata?.contributor) ??
+              (authorParsed.success ? formatContributor(authorParsed.data) : undefined) ??
+              (contributorParsed.success ? formatContributor(contributorParsed.data) : undefined) ??
               DEFAULT_AUTHOR,
             formatLabel: getSourceFormatLabel(stableSource),
             isFixedLayout: view.isFixedLayout,
@@ -1332,7 +1332,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           viewRef.current = null
           coverUrlRef.current = undefined
           host.replaceChildren()
-          const nextError = createError(caughtError)
+          const nextError =
+            caughtError instanceof Error
+              ? caughtError
+              : new Error("Buddy could not initialize the foliate renderer for this source.")
           setError(nextError)
           setStatus("error")
           callbacksRef.current.onError?.(nextError)
@@ -1593,7 +1596,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                   annotation.label = info.label
                 }
                 setAnnotations((current) =>
-                  [...current, annotation].sort((a, b) => a.value.localeCompare(b.value)),
+                  [...current, annotation].toSorted((a, b) => a.value.localeCompare(b.value)),
                 )
                 scheduleAnnotationRefresh(view, [annotation], annotation.index)
               })()

@@ -1,3 +1,4 @@
+import { z } from "zod"
 import {
   BOOK_STATE_STORAGE_KEY_PREFIX,
   DEFAULT_FONT_SCALE_REM,
@@ -23,7 +24,11 @@ import type {
 } from "../foliate-reader-types"
 import type { FoliateBook } from "foliate-js/view.js"
 import { clamp, getSourceName } from "./foliate-helpers"
-import { formatContributor, formatMetadataValue } from "./foliate-formatters"
+import {
+  FoliateMetadataValueSchema,
+  formatContributor,
+  formatMetadataValue,
+} from "./foliate-formatters"
 import {
   hasStoredReaderDocumentRecord,
   loadReaderPreferences,
@@ -46,110 +51,104 @@ export type FoliateBookPersistenceTarget = {
   readerSource?: ReaderSource
 }
 
-export function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
-}
+const FoliateReaderThemeIdSchema = z.enum(["paper", "sepia", "night", "mist", "graphite"])
+const FoliateReaderFlowSchema = z.union([z.literal(FLOW_PAGINATED), z.literal(FLOW_SCROLLED)])
+const FoliateReaderFontPresetSchema = z.union([
+  z.literal(FONT_PUBLISHER),
+  z.literal(FONT_SERIF),
+  z.literal(FONT_SANS),
+])
 
-export function parseJsonObject(value: string | null): Record<string, unknown> | null {
-  if (!value) return null
+const FoliatePreferencesSchema = z.object({
+  themeId: FoliateReaderThemeIdSchema.optional(),
+  flow: FoliateReaderFlowSchema.optional(),
+  fontPreset: FoliateReaderFontPresetSchema.optional(),
+  fontScaleRem: z.number().optional(),
+  lineHeight: z.number().optional(),
+  marginPx: z.number().optional(),
+  gapPercent: z.number().optional(),
+  maxInlineSizePx: z.number().optional(),
+  maxBlockSizePx: z.number().optional(),
+  justify: z.boolean().optional(),
+  hyphenate: z.boolean().optional(),
+})
+
+const FoliateBookmarkSchema = z.object({
+  value: z.string(),
+  label: z.string(),
+  created: z.string(),
+})
+
+const FoliateAnnotationSchema = z.object({
+  value: z.string(),
+  color: z.string().optional(),
+  text: z.string().optional(),
+  note: z.string().optional(),
+  created: z.string().optional(),
+  modified: z.string().optional(),
+  style: z.string().optional(),
+  label: z.string().optional(),
+  index: z.number().optional(),
+})
+
+const FoliateBookStateSchema = z.object({
+  lastLocation: z.string().optional(),
+  bookmarks: z.array(FoliateBookmarkSchema).optional(),
+  annotations: z.array(FoliateAnnotationSchema).optional(),
+})
+
+function parseStoredJson<T>(raw: string | null, schema: z.ZodType<T>): T | undefined {
+  if (!raw) return undefined
   try {
-    const parsed = JSON.parse(value)
-    return isObjectRecord(parsed) ? parsed : null
+    const result = schema.safeParse(JSON.parse(raw))
+    return result.success ? result.data : undefined
   } catch {
-    return null
+    return undefined
   }
 }
 
 export function safeReadStorage(key: string) {
-  if (typeof window === "undefined") return null
   try {
-    return window.localStorage.getItem(key)
+    return globalThis.localStorage.getItem(key)
   } catch {
     return null
   }
 }
 
 export function safeWriteStorage(key: string, value: string) {
-  if (typeof window === "undefined") return
   try {
-    window.localStorage.setItem(key, value)
+    globalThis.localStorage.setItem(key, value)
   } catch {}
-}
-
-function isFoliateReaderThemeId(value: string): value is FoliateReaderThemeId {
-  return (
-    value === "paper" ||
-    value === "sepia" ||
-    value === "night" ||
-    value === "mist" ||
-    value === "graphite"
-  )
-}
-
-function isFoliateReaderFlow(value: unknown): value is FoliateReaderFlow {
-  return value === FLOW_PAGINATED || value === FLOW_SCROLLED
-}
-
-function isFoliateReaderFontPreset(
-  value: unknown,
-): value is FoliateReaderPreferences["fontPreset"] {
-  return value === FONT_PUBLISHER || value === FONT_SERIF || value === FONT_SANS
-}
-
-export function isReaderBookmark(value: unknown): value is ReaderBookmark {
-  return (
-    isObjectRecord(value) &&
-    "value" in value &&
-    "label" in value &&
-    "created" in value &&
-    typeof value.value === "string" &&
-    typeof value.label === "string" &&
-    typeof value.created === "string"
-  )
-}
-
-export function isReaderAnnotation(value: unknown): value is ReaderAnnotation {
-  return isObjectRecord(value) && "value" in value && typeof value.value === "string"
 }
 
 export function loadGlobalPreferences(
   defaultTheme: FoliateReaderThemeId,
   defaultFlow: FoliateReaderFlow,
 ): FoliateReaderPreferences {
-  const parsed = parseJsonObject(safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY))
-  const flow = parsed?.flow
-  const fontPreset = parsed?.fontPreset
-  const legacyThemeId =
-    typeof parsed?.themeId === "string" && isFoliateReaderThemeId(parsed.themeId)
-      ? parsed.themeId
-      : defaultTheme
+  const parsed = parseStoredJson(safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY), FoliatePreferencesSchema)
+  const legacyThemeId = parsed?.themeId ?? defaultTheme
   const readerPreferences = loadReaderPreferences(legacyThemeId)
   return {
     themeId: readerPreferences.themeId,
-    flow: isFoliateReaderFlow(flow) ? flow : defaultFlow,
-    fontPreset: isFoliateReaderFontPreset(fontPreset) ? fontPreset : FONT_SERIF,
+    flow: parsed?.flow ?? defaultFlow,
+    fontPreset: parsed?.fontPreset ?? FONT_SERIF,
     fontScaleRem:
-      typeof parsed?.fontScaleRem === "number"
-        ? clamp(parsed.fontScaleRem, 0.85, 1.4)
-        : DEFAULT_FONT_SCALE_REM,
+      parsed?.fontScaleRem === undefined
+        ? DEFAULT_FONT_SCALE_REM
+        : clamp(parsed.fontScaleRem, 0.85, 1.4),
     lineHeight:
-      typeof parsed?.lineHeight === "number"
-        ? clamp(parsed.lineHeight, 1.2, 2)
-        : DEFAULT_LINE_HEIGHT,
-    marginPx:
-      typeof parsed?.marginPx === "number" ? clamp(parsed.marginPx, 16, 120) : DEFAULT_MARGIN_PX,
+      parsed?.lineHeight === undefined ? DEFAULT_LINE_HEIGHT : clamp(parsed.lineHeight, 1.2, 2),
+    marginPx: parsed?.marginPx === undefined ? DEFAULT_MARGIN_PX : clamp(parsed.marginPx, 16, 120),
     gapPercent:
-      typeof parsed?.gapPercent === "number"
-        ? clamp(parsed.gapPercent, 0, 18)
-        : DEFAULT_GAP_PERCENT,
+      parsed?.gapPercent === undefined ? DEFAULT_GAP_PERCENT : clamp(parsed.gapPercent, 0, 18),
     maxInlineSizePx:
-      typeof parsed?.maxInlineSizePx === "number"
-        ? clamp(parsed.maxInlineSizePx, 520, 1100)
-        : DEFAULT_MAX_INLINE_SIZE_PX,
+      parsed?.maxInlineSizePx === undefined
+        ? DEFAULT_MAX_INLINE_SIZE_PX
+        : clamp(parsed.maxInlineSizePx, 520, 1100),
     maxBlockSizePx:
-      typeof parsed?.maxBlockSizePx === "number"
-        ? clamp(parsed.maxBlockSizePx, 900, 2200)
-        : DEFAULT_MAX_BLOCK_SIZE_PX,
+      parsed?.maxBlockSizePx === undefined
+        ? DEFAULT_MAX_BLOCK_SIZE_PX
+        : clamp(parsed.maxBlockSizePx, 900, 2200),
     justify: parsed?.justify !== false,
     hyphenate: parsed?.hyphenate !== false,
     reduceMotion: readerPreferences.reduceMotion,
@@ -169,18 +168,11 @@ export function saveGlobalPreferences(preferences: FoliateReaderPreferences) {
 }
 
 export function loadBookState(bookKey: string): FoliateBookState {
-  const parsed = parseJsonObject(safeReadStorage(bookKey))
-  const bookmarks = Array.isArray(parsed?.bookmarks)
-    ? parsed.bookmarks.filter(isReaderBookmark)
-    : []
-  const annotations = Array.isArray(parsed?.annotations)
-    ? parsed.annotations.filter(isReaderAnnotation)
-    : []
-  const lastLocation = typeof parsed?.lastLocation === "string" ? parsed.lastLocation : undefined
+  const parsed = parseStoredJson(safeReadStorage(bookKey), FoliateBookStateSchema)
   return {
-    lastLocation,
-    bookmarks,
-    annotations,
+    lastLocation: parsed?.lastLocation,
+    bookmarks: parsed?.bookmarks ?? [],
+    annotations: parsed?.annotations ?? [],
   }
 }
 
@@ -254,10 +246,17 @@ export function buildBookPersistenceKey(
   book: FoliateBook,
   suffix?: string,
 ): string {
-  const identifier = formatMetadataValue(book.metadata?.identifier)
-  const title = formatMetadataValue(book.metadata?.title)
-  const author =
-    formatContributor(book.metadata?.author) ?? formatContributor(book.metadata?.contributor)
+  const identifierParsed = FoliateMetadataValueSchema.safeParse(book.metadata?.identifier)
+  const titleParsed = FoliateMetadataValueSchema.safeParse(book.metadata?.title)
+  const authorParsed = FoliateMetadataValueSchema.safeParse(book.metadata?.author)
+  const contributorParsed = FoliateMetadataValueSchema.safeParse(book.metadata?.contributor)
+  const identifier = identifierParsed.success ? formatMetadataValue(identifierParsed.data) : undefined
+  const title = titleParsed.success ? formatMetadataValue(titleParsed.data) : undefined
+  const author = authorParsed.success
+    ? formatContributor(authorParsed.data)
+    : contributorParsed.success
+      ? formatContributor(contributorParsed.data)
+      : undefined
   const sourceName = getSourceName(source)
   const pieces = [identifier, title, author, sourceName, suffix]
     .map(normalizeStorageSegment)
