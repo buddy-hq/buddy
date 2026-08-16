@@ -29,7 +29,7 @@ export type TodoProgress = {
   state: TodoProgressState
 }
 
-const STATUS_ALIASES: Readonly<Record<string, TodoStatus>> = {
+const STATUS_ALIASES = new Map<string, TodoStatus>(Object.entries({
   in_progress: "in_progress",
   "in-progress": "in_progress",
   inprogress: "in_progress",
@@ -43,10 +43,10 @@ const STATUS_ALIASES: Readonly<Record<string, TodoStatus>> = {
   cancelled: "cancelled",
   canceled: "cancelled",
   skipped: "cancelled",
-}
+}))
 
 function normalizeStatus(status: string): TodoStatus {
-  return STATUS_ALIASES[status.trim().toLowerCase()] ?? "pending"
+  return STATUS_ALIASES.get(status.trim().toLowerCase()) ?? "pending"
 }
 
 export function readTodoItems(value: unknown): TodoItem[] | undefined {

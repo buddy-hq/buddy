@@ -626,7 +626,7 @@ function presentationBenchTarget(presentation: BuddyPresentationDescriptor): Ben
 function metadataWithInlinePresentation(
   metadata: Record<string, unknown>,
   presentation: BuddyPresentationDescriptor,
-): Record<string, unknown> {
+) {
   const result = readBuddyObjectResult(metadata)
   if (!result) return metadata
   return {

@@ -104,7 +104,7 @@ function collectConsecutiveToolParts(
   parts: MessagePart[],
   startIndex: number,
   collection: ToolCollectionToken,
-): { parts: MessagePart[]; nextIndex: number } {
+) {
   const groupedParts: MessagePart[] = []
   let nextIndex = startIndex
 

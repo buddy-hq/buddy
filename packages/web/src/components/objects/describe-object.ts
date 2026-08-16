@@ -31,7 +31,7 @@ import {
  * thumbnail is worth its space. No kind owns a component.
  */
 
-const OBJECT_GLYPH: Record<ObjectPresentationKind, AppIcon> = {
+const OBJECT_GLYPH = {
   resource: BookOpenIcon,
   whiteboard: PresentationIcon,
   mermaid: WorkflowIcon,
@@ -43,9 +43,9 @@ const OBJECT_GLYPH: Record<ObjectPresentationKind, AppIcon> = {
   "flashcard-deck": Layers3Icon,
   [OBJECT_KIND_WORKSPACE_FILE]: FileTextIcon,
   [OBJECT_KIND_THREAD]: MessageSquareTextIcon,
-}
+} satisfies Record<ObjectPresentationKind, AppIcon>
 
-const OBJECT_KIND_LABEL_KEY: Record<ObjectPresentationKind, string> = {
+const OBJECT_KIND_LABEL_KEY = {
   resource: "objectPresentation.kind.resource",
   whiteboard: "objectPresentation.kind.whiteboard",
   mermaid: "objectPresentation.kind.mermaid",
@@ -57,23 +57,23 @@ const OBJECT_KIND_LABEL_KEY: Record<ObjectPresentationKind, string> = {
   "flashcard-deck": "objectPresentation.kind.flashcardDeck",
   [OBJECT_KIND_WORKSPACE_FILE]: "objectPresentation.kind.workspaceFile",
   [OBJECT_KIND_THREAD]: "objectPresentation.kind.thread",
-}
+} satisfies Record<ObjectPresentationKind, string>
 
 /**
  * "File" is what a thing is to the filesystem, not what it is to a reader. A
  * workspace file says image, spreadsheet or PDF instead, which is both what the
  * learner is looking for and what the file icon beside it already shows.
  */
-const WORKSPACE_MEDIA_LABEL_KEY: Partial<Record<WorkspaceMediaKind, string>> = {
-  image: "objectPresentation.media.image",
-  pdf: "objectPresentation.media.pdf",
-  presentation: "objectPresentation.media.presentation",
-  document: "objectPresentation.media.document",
-  spreadsheet: "objectPresentation.media.spreadsheet",
-  video: "objectPresentation.media.video",
-  audio: "objectPresentation.media.audio",
-  archive: "objectPresentation.media.archive",
-}
+const WORKSPACE_MEDIA_LABEL_KEY = new Map<WorkspaceMediaKind, string>([
+  ["image", "objectPresentation.media.image"],
+  ["pdf", "objectPresentation.media.pdf"],
+  ["presentation", "objectPresentation.media.presentation"],
+  ["document", "objectPresentation.media.document"],
+  ["spreadsheet", "objectPresentation.media.spreadsheet"],
+  ["video", "objectPresentation.media.video"],
+  ["audio", "objectPresentation.media.audio"],
+  ["archive", "objectPresentation.media.archive"],
+])
 
 export function objectGlyph(kind: ObjectPresentationKind): AppIcon {
   return OBJECT_GLYPH[kind]
@@ -90,7 +90,7 @@ export function objectFileLabel(path: string): string {
     mimeType: undefined,
     sizeBytes: undefined,
   })
-  const key = WORKSPACE_MEDIA_LABEL_KEY[mediaKind]
+  const key = WORKSPACE_MEDIA_LABEL_KEY.get(mediaKind)
   return key ? language.t(key) : objectKindLabel(OBJECT_KIND_WORKSPACE_FILE)
 }
 
