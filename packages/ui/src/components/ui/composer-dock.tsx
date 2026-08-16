@@ -1,6 +1,13 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@buddy/ui/lib/utils"
+import { hasFunctionValue } from "@buddy/ui/lib/parse-values"
+
+type TCallbackRef<TNode> = (instance: TNode | null) => void
+
+function isCallbackRef<TNode>(value: React.ForwardedRef<TNode>): value is TCallbackRef<TNode> {
+  return hasFunctionValue(value)
+}
 
 const composerDockVariants = cva(
   "relative flex flex-col overflow-hidden rounded-2xl border border-border-base bg-surface-raised-base backdrop-blur-xl shadow-lg outline-none",
@@ -33,7 +40,7 @@ const ComposerDock = React.forwardRef<HTMLDivElement, ComposerDockProps>(
     const setRefs = React.useCallback(
       (node: HTMLDivElement | null) => {
         internalRef.current = node
-        if (typeof forwardedRef === "function") {
+        if (isCallbackRef(forwardedRef)) {
           forwardedRef(node)
         } else if (forwardedRef) {
           forwardedRef.current = node

@@ -4,6 +4,7 @@ import { Slot } from "radix-ui"
 
 import { useIsMobile } from "../../hooks/use-mobile"
 import { cn, cssVariables } from "@buddy/ui/lib/utils"
+import { isBooleanValue, isStringValue } from "@buddy/ui/lib/parse-values"
 import { Button } from "@buddy/ui/components/ui/button"
 import { Input } from "@buddy/ui/components/ui/input"
 import { Separator } from "@buddy/ui/components/ui/separator"
@@ -68,8 +69,8 @@ function SidebarProvider({
   const [_open, _setOpen] = React.useState(defaultOpen)
   const open = openProp ?? _open
   const setOpen = React.useCallback(
-    (value: boolean | ((value: boolean) => boolean)) => {
-      const openState = typeof value === "function" ? value(open) : value
+    (value: boolean | ((current: boolean) => boolean)) => {
+      const openState = isBooleanValue(value) ? value : value(open)
       if (setOpenProp) {
         setOpenProp(openState)
       } else {
@@ -496,7 +497,7 @@ function SidebarMenuButton({
     return button
   }
 
-  if (typeof tooltip === "string") {
+  if (isStringValue(tooltip)) {
     tooltip = {
       children: tooltip,
     }

@@ -10,7 +10,10 @@ import {
   readString,
   requireFlagValue,
   UUID_PATTERN,
+  type TJsonObject,
+  type TJsonValue,
 } from "./post-compaction-recall-shared"
+import { parseTBoolean, parseTString, stringifyCaughtError } from "./parse-values"
 
 const LOCAL_SESSION_PATTERN =
   /^local_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -60,7 +63,7 @@ export type ClaudePostCompactionTranscript = {
 }
 
 type ClaudeTranscriptBuilder = {
-  addRecord: (record: unknown) => void
+  addRecord: (record: TJsonValue) => void
   finish: (skippedTrailingRecord?: boolean) => ClaudePostCompactionTranscript
 }
 
@@ -80,12 +83,11 @@ function stripInjectedUserBlocks(value: string): string {
   return normalizeText(stripped)
 }
 
-function readBoolean(record: Record<string, unknown>, key: string): boolean | undefined {
-  const value = record[key]
-  return typeof value === "boolean" ? value : undefined
+function readBoolean(record: TJsonObject, key: string): boolean | undefined {
+  return parseTBoolean(record[key])
 }
 
-function parseQuestionOption(value: unknown): ClaudeQuestionOption {
+function parseQuestionOption<TValue>(value: TValue): ClaudeQuestionOption {
   if (!isRecord(value)) throw new Error("Claude question option is not an object")
 
   const description = readString(value, "description")
@@ -96,7 +98,7 @@ function parseQuestionOption(value: unknown): ClaudeQuestionOption {
   return { description, label }
 }
 
-function parseQuestion(value: unknown): ClaudeQuestion {
+function parseQuestion<TValue>(value: TValue): ClaudeQuestion {
   if (!isRecord(value)) throw new Error("Claude question is not an object")
 
   const question = readString(value, "question")
@@ -106,15 +108,17 @@ function parseQuestion(value: unknown): ClaudeQuestion {
   }
 
   const header = readString(value, "header")
-  return {
-    ...(header ? { header } : {}),
-    multiSelect: readBoolean(value, "multiSelect") ?? false,
-    options: value.options.map(parseQuestionOption),
-    question,
-  }
+  return Object.assign(
+    {
+      multiSelect: readBoolean(value, "multiSelect") ?? false,
+      options: value.options.map(parseQuestionOption),
+      question,
+    },
+    header ? { header } : undefined,
+  )
 }
 
-function parseQuestionCall(content: Record<string, unknown>): ClaudeQuestion[] {
+function parseQuestionCall(content: TJsonObject): ClaudeQuestion[] {
   if (!isRecord(content.input) || !Array.isArray(content.input.questions)) {
     throw new Error("Claude question request has invalid input")
   }
@@ -147,7 +151,7 @@ function parseJsonStringAt(value: string, start: number): string | undefined {
     if (character !== '"') continue
 
     const parsed = parseJson(value.slice(start, index + 1))
-    return typeof parsed === "string" ? parsed : undefined
+    return parseTString(parsed)
   }
   return undefined
 }
@@ -160,9 +164,10 @@ function extractQuestionAnswer(value: string, question: ClaudeQuestion): string 
   return parseJsonStringAt(value, markerIndex + marker.length)
 }
 
-function toolResultText(content: Record<string, unknown>): string | undefined {
+function toolResultText(content: TJsonObject): string | undefined {
   const rawContent = content.content
-  if (typeof rawContent === "string") return normalizeText(rawContent)
+  const asString = parseTString(rawContent)
+  if (asString !== undefined) return normalizeText(asString)
   if (!Array.isArray(rawContent)) return undefined
 
   const parts: string[] = []
@@ -174,10 +179,12 @@ function toolResultText(content: Record<string, unknown>): string | undefined {
   return parts.length > 0 ? normalizeText(parts.join("\n")) : undefined
 }
 
-function messageContent(record: Record<string, unknown>): unknown[] | string | undefined {
+function messageContent(record: TJsonObject): readonly TJsonValue[] | string | undefined {
   if (!isRecord(record.message)) return undefined
   const content = record.message.content
-  return typeof content === "string" || Array.isArray(content) ? content : undefined
+  const asString = parseTString(content)
+  if (asString !== undefined) return asString
+  return Array.isArray(content) ? content : undefined
 }
 
 export function createClaudePostCompactionTranscriptBuilder(
@@ -209,7 +216,7 @@ export function createClaudePostCompactionTranscriptBuilder(
     entries.push({ body, kind })
   }
 
-  const addQuestionCall = (content: Record<string, unknown>): void => {
+  const addQuestionCall = (content: TJsonObject): void => {
     const toolUseId = readString(content, "id")
     if (!toolUseId) throw new Error("Claude question request is missing its tool-use id")
 
@@ -221,7 +228,7 @@ export function createClaudePostCompactionTranscriptBuilder(
     }
   }
 
-  const addQuestionResult = (content: Record<string, unknown>): void => {
+  const addQuestionResult = (content: TJsonObject): void => {
     const toolUseId = readString(content, "tool_use_id")
     if (!toolUseId) return
     const questions = questionsByToolUseId.get(toolUseId)
@@ -248,10 +255,11 @@ export function createClaudePostCompactionTranscriptBuilder(
     addEntry("R", result)
   }
 
-  const addUserRecord = (record: Record<string, unknown>): void => {
+  const addUserRecord = (record: TJsonObject): void => {
     const content = messageContent(record)
-    if (typeof content === "string") {
-      const text = stripInjectedUserBlocks(content)
+    const textContent = parseTString(content)
+    if (textContent !== undefined) {
+      const text = stripInjectedUserBlocks(textContent)
       if (text.length === 0) return
       userMessages += 1
       addEntry("U", text)
@@ -282,7 +290,7 @@ export function createClaudePostCompactionTranscriptBuilder(
     if (containsUserText) userMessages += 1
   }
 
-  const addAssistantRecord = (record: Record<string, unknown>): void => {
+  const addAssistantRecord = (record: TJsonObject): void => {
     const content = messageContent(record)
     if (!Array.isArray(content)) return
 
@@ -313,7 +321,7 @@ export function createClaudePostCompactionTranscriptBuilder(
     }
   }
 
-  const addRecord = (value: unknown): void => {
+  const addRecord = (value: TJsonValue): void => {
     if (!isRecord(value) || value.isMeta === true || value.isSidechain === true) return
     if (value.type === "user") {
       addUserRecord(value)
@@ -452,13 +460,15 @@ function parseCliOptions(args: string[]): CliParseResult {
 
   return {
     kind: "run",
-    options: {
-      claudeAppHome,
-      claudeHome,
-      ...(outputPath ? { outputPath } : {}),
-      sessionReference,
-      ...(sourcePath ? { sourcePath } : {}),
-    },
+    options: Object.assign(
+      {
+        claudeAppHome,
+        claudeHome,
+        sessionReference,
+      },
+      outputPath ? { outputPath } : undefined,
+      sourcePath ? { sourcePath } : undefined,
+    ),
   }
 }
 
@@ -514,8 +524,8 @@ async function main(): Promise<void> {
 }
 
 if (import.meta.main) {
-  main().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error))
+  main().catch((error) => {
+    console.error(stringifyCaughtError(error))
     process.exitCode = 1
   })
 }

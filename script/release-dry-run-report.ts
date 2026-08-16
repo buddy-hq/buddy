@@ -2,6 +2,8 @@
 
 import { $ } from "bun"
 import { appendFile } from "node:fs/promises"
+import { z } from "zod"
+import { isJsonObject, parseTString } from "./parse-values"
 
 const RUN_ID_ENV_KEY = "GITHUB_RUN_ID"
 const REPOSITORY_ENV_KEY = "GITHUB_REPOSITORY"
@@ -41,6 +43,18 @@ type JobTiming = {
   weightedMinutes: number | undefined
   weight: number
 }
+
+const optionalStringSchema = z.string().optional().nullable()
+const githubRunJobSchema = z.object({
+  completedAt: optionalStringSchema,
+  conclusion: optionalStringSchema,
+  name: z.string(),
+  startedAt: optionalStringSchema,
+  status: optionalStringSchema,
+})
+const githubRunViewSchema = z.object({
+  jobs: z.array(z.unknown()),
+})
 
 const runId = readRequiredEnvironmentVariable(RUN_ID_ENV_KEY)
 const repository = readRequiredEnvironmentVariable(REPOSITORY_ENV_KEY)
@@ -178,48 +192,41 @@ function escapeTableCell(value: string): string {
   return value.replaceAll("|", "\\|")
 }
 
-function parseGithubRunView(value: unknown): GithubRunView {
-  if (!isRecord(value)) {
-    throw new Error("GitHub run view response was not an object")
-  }
-
-  const jobs = value.jobs
-  if (!Array.isArray(jobs)) {
+function parseGithubRunView<TValue>(value: TValue): GithubRunView {
+  const parsed = githubRunViewSchema.safeParse(value)
+  if (!parsed.success) {
+    if (!isJsonObject(value)) {
+      throw new Error("GitHub run view response was not an object")
+    }
     throw new Error("GitHub run view response was missing jobs")
   }
 
   return {
-    jobs: jobs.map(parseGithubRunJob),
+    jobs: parsed.data.jobs.map(parseGithubRunJob),
   }
 }
 
-function parseGithubRunJob(value: unknown): GithubRunJob {
-  if (!isRecord(value)) {
-    throw new Error("GitHub run job entry was not an object")
-  }
+function parseOptionalJobString<TValue>(value: TValue): string | undefined {
+  if (value === undefined || value === null) return undefined
+  return parseTString(value)
+}
 
-  const completedAt = value.completedAt
-  const conclusion = value.conclusion
-  const name = value.name
-  const startedAt = value.startedAt
-  const status = value.status
-
-  if (
-    typeof name !== "string" ||
-    !isOptionalString(completedAt) ||
-    !isOptionalString(conclusion) ||
-    !isOptionalString(startedAt) ||
-    !isOptionalString(status)
-  ) {
-    throw new Error("GitHub run job entry was missing timing fields")
+function parseGithubRunJob<TValue>(value: TValue): GithubRunJob {
+  const parsed = githubRunJobSchema.safeParse(value)
+  if (!parsed.success) {
+    throw new Error(
+      isJsonObject(value)
+        ? "GitHub run job entry was missing timing fields"
+        : "GitHub run job entry was not an object",
+    )
   }
 
   return {
-    completedAt,
-    conclusion,
-    name,
-    startedAt,
-    status,
+    completedAt: parseOptionalJobString(parsed.data.completedAt),
+    conclusion: parseOptionalJobString(parsed.data.conclusion),
+    name: parsed.data.name,
+    startedAt: parseOptionalJobString(parsed.data.startedAt),
+    status: parseOptionalJobString(parsed.data.status),
   }
 }
 
@@ -235,12 +242,4 @@ function readRequiredEnvironmentVariable(name: string): string {
 function readOptionalEnvironmentVariable(name: string): string | undefined {
   const value = process.env[name]?.trim()
   return value || undefined
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-function isOptionalString(value: unknown): value is string | undefined {
-  return value === undefined || value === null || typeof value === "string"
 }

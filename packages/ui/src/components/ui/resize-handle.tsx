@@ -1,4 +1,5 @@
 import type { HTMLAttributes, PointerEvent as ReactPointerEvent } from "react"
+import { hasFunctionValue } from "@buddy/ui/lib/parse-values"
 
 const NOOP = () => undefined
 
@@ -68,7 +69,7 @@ export function ResizeHandle(props: ResizeHandleProps) {
     const scheduleResize = (intent: ResizeHandleIntent) => {
       pendingIntent = intent
       if (resizeFrameID !== undefined) return
-      if (typeof globalThis.requestAnimationFrame !== "function") {
+      if (!hasFunctionValue(globalThis.requestAnimationFrame)) {
         flushPendingResize()
         return
       }
@@ -78,7 +79,7 @@ export function ResizeHandle(props: ResizeHandleProps) {
     const finishResize = () => {
       if (finished) return
       finished = true
-      if (resizeFrameID !== undefined && typeof globalThis.cancelAnimationFrame === "function") {
+      if (resizeFrameID !== undefined && hasFunctionValue(globalThis.cancelAnimationFrame)) {
         globalThis.cancelAnimationFrame(resizeFrameID)
       }
       flushPendingResize()

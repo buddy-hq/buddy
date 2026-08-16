@@ -4,6 +4,7 @@ import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 
 import { cn, cssVariables } from "@buddy/ui/lib/utils"
+import { isObjectValue, isStringValue, parseTString } from "@buddy/ui/lib/parse-values"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
@@ -134,7 +135,7 @@ function ChartTooltipContent({
     const key = `${labelKey || item?.dataKey || item?.name || "value"}`
     const itemConfig = getPayloadConfigFromPayload(config, item, key)
     const value =
-      !labelKey && typeof label === "string"
+      !labelKey && isStringValue(label)
         ? config[label]?.label || label
         : itemConfig?.label
 
@@ -292,7 +293,11 @@ function ChartLegendContent({
   )
 }
 
-function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key: string) {
+function getPayloadConfigFromPayload<TPayload>(
+  config: ChartConfig,
+  payload: TPayload,
+  key: string,
+) {
   if (!isChartPayload(payload)) {
     return undefined
   }
@@ -300,20 +305,33 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
   const payloadPayload = isChartPayload(payload.payload) ? payload.payload : undefined
 
   let configLabelKey: string = key
-  const payloadValue = payload[key]
-  const nestedPayloadValue = payloadPayload?.[key]
+  const payloadValue = parseTString(payload[key])
+  const nestedPayloadValue = payloadPayload ? parseTString(payloadPayload[key]) : undefined
 
-  if (typeof payloadValue === "string") {
+  if (payloadValue !== undefined) {
     configLabelKey = payloadValue
-  } else if (typeof nestedPayloadValue === "string") {
+  } else if (nestedPayloadValue !== undefined) {
     configLabelKey = nestedPayloadValue
   }
 
   return configLabelKey in config ? config[configLabelKey] : config[key]
 }
 
-function isChartPayload(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+type TChartPayloadField =
+  | string
+  | number
+  | boolean
+  | null
+  | TChartPayloadRecord
+  | readonly TChartPayloadField[]
+  | undefined
+
+type TChartPayloadRecord = {
+  readonly [key: string]: TChartPayloadField
+}
+
+function isChartPayload<TValue>(value: TValue): value is TValue & TChartPayloadRecord {
+  return isObjectValue(value) && !Array.isArray(value)
 }
 
 export {

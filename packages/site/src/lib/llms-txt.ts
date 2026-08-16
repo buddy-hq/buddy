@@ -10,6 +10,13 @@ import {
   MAC_INSTALL_CMD,
   WIN_INSTALL_CMD,
 } from "./constants"
+import {
+  isJsonObject,
+  parseTBoolean,
+  parseTNumber,
+  parseTString,
+  parseTStringArray,
+} from "./parse-values"
 
 export type LlmsCompareLink = {
   readonly title: string
@@ -27,10 +34,6 @@ const REDACTED_KEY_FRAGMENTS = [
   "projecttoken",
 ] as const
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
 function shouldRedactKey(key: string): boolean {
   const normalized = key.toLowerCase()
   return REDACTED_KEY_FRAGMENTS.some((fragment) => normalized.includes(fragment))
@@ -43,18 +46,29 @@ function humanizeKey(key: string): string {
     .replace(/^\w/, (c) => c.toUpperCase())
 }
 
+function renderPrimitive<TValue>(value: TValue): string | undefined {
+  const text = parseTString(value)
+  if (text !== undefined) return text
+  const numeric = parseTNumber(value)
+  if (numeric !== undefined) return String(numeric)
+  const flag = parseTBoolean(value)
+  if (flag !== undefined) return String(flag)
+  return undefined
+}
+
 /**
  * Walk any JSON-like value from `site.ts` into Markdown.
  * Structure follows the object; no field-by-field templates.
  */
-function renderValue(value: unknown, depth: number, lines: string[]): void {
+function renderValue<TValue>(value: TValue, depth: number, lines: string[]): void {
   if (value === null || value === undefined) {
     lines.push(`${"  ".repeat(depth)}- (empty)`)
     return
   }
 
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    lines.push(`${"  ".repeat(depth)}- ${String(value)}`)
+  const primitive = renderPrimitive(value)
+  if (primitive !== undefined) {
+    lines.push(`${"  ".repeat(depth)}- ${primitive}`)
     return
   }
 
@@ -63,15 +77,15 @@ function renderValue(value: unknown, depth: number, lines: string[]): void {
       lines.push(`${"  ".repeat(depth)}- (empty list)`)
       return
     }
-    // Homogeneous string lists stay compact.
-    if (value.every((item) => typeof item === "string")) {
-      for (const item of value) {
+    const stringItems = parseTStringArray(value)
+    if (stringItems !== undefined) {
+      for (const item of stringItems) {
         lines.push(`${"  ".repeat(depth)}- ${item}`)
       }
       return
     }
     for (const [index, item] of value.entries()) {
-      if (isPlainObject(item) || Array.isArray(item)) {
+      if (isJsonObject(item) || Array.isArray(item)) {
         lines.push(`${"  ".repeat(depth)}- Item ${index + 1}:`)
         renderValue(item, depth + 1, lines)
       } else {
@@ -81,25 +95,21 @@ function renderValue(value: unknown, depth: number, lines: string[]): void {
     return
   }
 
-  if (isPlainObject(value)) {
+  if (isJsonObject(value)) {
     for (const [key, child] of Object.entries(value)) {
       if (shouldRedactKey(key)) continue
       const label = humanizeKey(key)
-      if (
-        typeof child === "string" ||
-        typeof child === "number" ||
-        typeof child === "boolean" ||
-        child === null ||
-        child === undefined
-      ) {
+      const childPrimitive = renderPrimitive(child)
+      if (child === null || child === undefined || childPrimitive !== undefined) {
         lines.push(
-          `${"  ".repeat(depth)}- **${label}:** ${child === undefined || child === null ? "(empty)" : String(child)}`,
+          `${"  ".repeat(depth)}- **${label}:** ${child === undefined || child === null ? "(empty)" : childPrimitive}`,
         )
         continue
       }
-      if (Array.isArray(child) && child.every((item) => typeof item === "string")) {
+      const childStrings = parseTStringArray(child)
+      if (childStrings !== undefined) {
         lines.push(`${"  ".repeat(depth)}- **${label}:**`)
-        for (const item of child) {
+        for (const item of childStrings) {
           lines.push(`${"  ".repeat(depth + 1)}- ${item}`)
         }
         continue
@@ -110,7 +120,7 @@ function renderValue(value: unknown, depth: number, lines: string[]): void {
   }
 }
 
-function renderSection(title: string, value: unknown): string {
+function renderSection<TValue>(title: string, value: TValue): string {
   const lines: string[] = [`## ${title}`, ""]
   renderValue(value, 0, lines)
   lines.push("")

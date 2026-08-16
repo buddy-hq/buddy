@@ -1,3 +1,10 @@
+import {
+  isJsonObject,
+  parseTFiniteNumber,
+  parseTNonNegativeInteger,
+  parseTString,
+} from "./parse-values"
+
 export const READER_ANCHOR_KIND_CFI_POSITION = "cfi-position" as const
 export const READER_ANCHOR_KIND_CFI_TEXT = "cfi-text" as const
 export const READER_ANCHOR_KIND_PDF_POSITION = "pdf-position" as const
@@ -82,54 +89,48 @@ export type ReaderTrailEntry = {
   fraction?: number
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-export function readAllowedExternalLink(
-  value: unknown,
+export function readAllowedExternalLink<TValue>(
+  value: TValue,
   allowedProtocols: readonly string[],
 ): string | undefined {
-  if (typeof value !== "string" || !value.trim()) return undefined
+  const href = parseTString(value)?.trim()
+  if (!href) return undefined
   try {
-    const url = new URL(value)
+    const url = new URL(href)
     return allowedProtocols.includes(url.protocol) ? url.href : undefined
   } catch {
     return undefined
   }
 }
 
-export function readReaderExternalLink(value: unknown): string | undefined {
+export function readReaderExternalLink<TValue>(value: TValue): string | undefined {
   return readAllowedExternalLink(value, READER_EXTERNAL_LINK_PROTOCOLS)
 }
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value)
+function isUnitInterval(value: number): boolean {
+  return value >= 0 && value <= 1
 }
 
-function isNonNegativeInteger(value: unknown): value is number {
-  return Number.isInteger(value) && isFiniteNumber(value) && value >= 0
-}
-
-function readOptionalNonNegativeInteger(value: unknown): number | undefined | null {
+function readOptionalNonNegativeInteger<TValue>(value: TValue): number | undefined | null {
   if (value === undefined) return undefined
-  return isNonNegativeInteger(value) ? value : null
+  return parseTNonNegativeInteger(value) ?? null
 }
 
-function readOptionalBoundedString(
-  value: unknown,
+function readOptionalBoundedString<TValue>(
+  value: TValue,
   maximumLength: number,
 ): string | undefined | null {
   if (value === undefined) return undefined
-  if (typeof value !== "string" || value.length > maximumLength) return null
-  return value
+  const text = parseTString(value)
+  if (text === undefined || text.length > maximumLength) return null
+  return text
 }
 
-function readPdfPoint(value: unknown): PdfPoint | undefined {
-  if (!isObjectRecord(value)) return undefined
-  const x = value.x
-  const y = value.y
-  if (!isFiniteNumber(x) || !isFiniteNumber(y)) return undefined
+function readPdfPoint<TValue>(value: TValue): PdfPoint | undefined {
+  if (!isJsonObject(value)) return undefined
+  const x = parseTFiniteNumber(value.x)
+  const y = parseTFiniteNumber(value.y)
+  if (x === undefined || y === undefined) return undefined
   if (
     Math.abs(x) > MAX_PDF_COORDINATE_ABSOLUTE_VALUE ||
     Math.abs(y) > MAX_PDF_COORDINATE_ABSOLUTE_VALUE
@@ -139,8 +140,8 @@ function readPdfPoint(value: unknown): PdfPoint | undefined {
   return { x, y }
 }
 
-function readPdfQuad(value: unknown): PdfQuad | undefined {
-  if (!isObjectRecord(value)) return undefined
+function readPdfQuad<TValue>(value: TValue): PdfQuad | undefined {
+  if (!isJsonObject(value)) return undefined
   const topLeft = readPdfPoint(value.topLeft)
   const topRight = readPdfPoint(value.topRight)
   const bottomRight = readPdfPoint(value.bottomRight)
@@ -149,9 +150,10 @@ function readPdfQuad(value: unknown): PdfQuad | undefined {
   return { topLeft, topRight, bottomRight, bottomLeft }
 }
 
-function readPdfTextSegment(value: unknown): PdfTextSegment | undefined {
-  if (!isObjectRecord(value)) return undefined
-  if (!isNonNegativeInteger(value.pageIndex)) return undefined
+function readPdfTextSegment<TValue>(value: TValue): PdfTextSegment | undefined {
+  if (!isJsonObject(value)) return undefined
+  const pageIndex = parseTNonNegativeInteger(value.pageIndex)
+  if (pageIndex === undefined) return undefined
   if (!Array.isArray(value.quads) || value.quads.length > MAX_PDF_QUADS_PER_SEGMENT) {
     return undefined
   }
@@ -164,80 +166,79 @@ function readPdfTextSegment(value: unknown): PdfTextSegment | undefined {
     return undefined
   }
 
-  return {
-    pageIndex: value.pageIndex,
-    quads: quads.filter((quad) => quad !== undefined),
-    ...(startOffset !== undefined ? { startOffset } : {}),
-    ...(endOffset !== undefined ? { endOffset } : {}),
-  }
+  return Object.assign(
+    {
+      pageIndex,
+      quads: quads.filter((quad) => quad !== undefined),
+    },
+    startOffset !== undefined ? { startOffset } : undefined,
+    endOffset !== undefined ? { endOffset } : undefined,
+  )
 }
 
-function readPdfTextQuote(value: unknown): PdfTextQuote | undefined {
-  if (!isObjectRecord(value)) return undefined
-  if (
-    typeof value.exact !== "string" ||
-    value.exact.length === 0 ||
-    value.exact.length > MAX_PDF_QUOTE_LENGTH
-  ) {
+function readPdfTextQuote<TValue>(value: TValue): PdfTextQuote | undefined {
+  if (!isJsonObject(value)) return undefined
+  const exact = parseTString(value.exact)
+  if (exact === undefined || exact.length === 0 || exact.length > MAX_PDF_QUOTE_LENGTH) {
     return undefined
   }
   const prefix = readOptionalBoundedString(value.prefix, MAX_PDF_QUOTE_CONTEXT_LENGTH)
   const suffix = readOptionalBoundedString(value.suffix, MAX_PDF_QUOTE_CONTEXT_LENGTH)
   if (prefix === null || suffix === null) return undefined
-  return {
-    exact: value.exact,
-    ...(prefix !== undefined ? { prefix } : {}),
-    ...(suffix !== undefined ? { suffix } : {}),
-  }
+  return Object.assign(
+    { exact },
+    prefix !== undefined ? { prefix } : undefined,
+    suffix !== undefined ? { suffix } : undefined,
+  )
 }
 
-export function readReaderPositionAnchor(value: unknown): ReaderPositionAnchor | undefined {
-  if (!isObjectRecord(value)) return undefined
+export function readReaderPositionAnchor<TValue>(value: TValue): ReaderPositionAnchor | undefined {
+  if (!isJsonObject(value)) return undefined
   if (value.kind === READER_ANCHOR_KIND_CFI_POSITION) {
-    if (
-      typeof value.cfi !== "string" ||
-      value.cfi.length === 0 ||
-      value.cfi.length > MAX_CFI_LENGTH
-    ) {
+    const cfi = parseTString(value.cfi)
+    if (cfi === undefined || cfi.length === 0 || cfi.length > MAX_CFI_LENGTH) {
       return undefined
     }
     const sectionIndex = readOptionalNonNegativeInteger(value.sectionIndex)
     if (sectionIndex === null) return undefined
-    return {
-      kind: READER_ANCHOR_KIND_CFI_POSITION,
-      cfi: value.cfi,
-      ...(sectionIndex !== undefined ? { sectionIndex } : {}),
-    }
+    return Object.assign(
+      {
+        kind: READER_ANCHOR_KIND_CFI_POSITION,
+        cfi,
+      },
+      sectionIndex !== undefined ? { sectionIndex } : undefined,
+    )
   }
   if (value.kind !== READER_ANCHOR_KIND_PDF_POSITION) return undefined
-  if (!isNonNegativeInteger(value.pageIndex)) return undefined
-  if (!isFiniteNumber(value.xRatio) || value.xRatio < 0 || value.xRatio > 1) return undefined
-  if (!isFiniteNumber(value.yRatio) || value.yRatio < 0 || value.yRatio > 1) return undefined
+  const pageIndex = parseTNonNegativeInteger(value.pageIndex)
+  const xRatio = parseTFiniteNumber(value.xRatio)
+  const yRatio = parseTFiniteNumber(value.yRatio)
+  if (pageIndex === undefined || xRatio === undefined || yRatio === undefined) return undefined
+  if (!isUnitInterval(xRatio) || !isUnitInterval(yRatio)) return undefined
   return {
     kind: READER_ANCHOR_KIND_PDF_POSITION,
-    pageIndex: value.pageIndex,
-    xRatio: value.xRatio,
-    yRatio: value.yRatio,
+    pageIndex,
+    xRatio,
+    yRatio,
   }
 }
 
-export function readReaderTextAnchor(value: unknown): ReaderTextAnchor | undefined {
-  if (!isObjectRecord(value)) return undefined
+export function readReaderTextAnchor<TValue>(value: TValue): ReaderTextAnchor | undefined {
+  if (!isJsonObject(value)) return undefined
   if (value.kind === READER_ANCHOR_KIND_CFI_TEXT) {
-    if (
-      typeof value.cfi !== "string" ||
-      value.cfi.length === 0 ||
-      value.cfi.length > MAX_CFI_LENGTH
-    ) {
+    const cfi = parseTString(value.cfi)
+    if (cfi === undefined || cfi.length === 0 || cfi.length > MAX_CFI_LENGTH) {
       return undefined
     }
     const sectionIndex = readOptionalNonNegativeInteger(value.sectionIndex)
     if (sectionIndex === null) return undefined
-    return {
-      kind: READER_ANCHOR_KIND_CFI_TEXT,
-      cfi: value.cfi,
-      ...(sectionIndex !== undefined ? { sectionIndex } : {}),
-    }
+    return Object.assign(
+      {
+        kind: READER_ANCHOR_KIND_CFI_TEXT,
+        cfi,
+      },
+      sectionIndex !== undefined ? { sectionIndex } : undefined,
+    )
   }
   if (value.kind !== READER_ANCHOR_KIND_PDF_TEXT) return undefined
   if (
@@ -258,41 +259,47 @@ export function readReaderTextAnchor(value: unknown): ReaderTextAnchor | undefin
   }
 }
 
-export function readReaderLocation(value: unknown): ReaderLocation | undefined {
-  if (!isObjectRecord(value)) return undefined
+export function readReaderLocation<TValue>(value: TValue): ReaderLocation | undefined {
+  if (!isJsonObject(value)) return undefined
   const anchor = readReaderPositionAnchor(value.anchor)
   if (!anchor) return undefined
-  const fraction = value.fraction
-  if (fraction !== undefined && (!isFiniteNumber(fraction) || fraction < 0 || fraction > 1)) {
+  const fraction = value.fraction === undefined ? undefined : parseTFiniteNumber(value.fraction)
+  if (value.fraction !== undefined && (fraction === undefined || !isUnitInterval(fraction))) {
     return undefined
   }
   const tocLabel = readOptionalBoundedString(value.tocLabel, MAX_PDF_QUOTE_CONTEXT_LENGTH)
   const pageLabel = readOptionalBoundedString(value.pageLabel, MAX_PDF_QUOTE_CONTEXT_LENGTH)
   const locationLabel = readOptionalBoundedString(value.locationLabel, MAX_PDF_QUOTE_CONTEXT_LENGTH)
   if (tocLabel === null || pageLabel === null || locationLabel === null) return undefined
-  return {
-    anchor,
-    ...(fraction !== undefined ? { fraction } : {}),
-    ...(tocLabel !== undefined ? { tocLabel } : {}),
-    ...(pageLabel !== undefined ? { pageLabel } : {}),
-    ...(locationLabel !== undefined ? { locationLabel } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      { anchor },
+      fraction !== undefined ? { fraction } : undefined,
+      tocLabel !== undefined ? { tocLabel } : undefined,
+    ),
+    pageLabel !== undefined ? { pageLabel } : undefined,
+    locationLabel !== undefined ? { locationLabel } : undefined,
+  )
 }
 
 export function legacyCfiPositionAnchor(cfi: string, sectionIndex?: number): CfiPositionAnchor {
-  return {
-    kind: READER_ANCHOR_KIND_CFI_POSITION,
-    cfi,
-    ...(sectionIndex !== undefined ? { sectionIndex } : {}),
-  }
+  return Object.assign(
+    {
+      kind: READER_ANCHOR_KIND_CFI_POSITION,
+      cfi,
+    },
+    sectionIndex !== undefined ? { sectionIndex } : undefined,
+  )
 }
 
 export function legacyCfiTextAnchor(cfi: string, sectionIndex?: number): CfiTextAnchor {
-  return {
-    kind: READER_ANCHOR_KIND_CFI_TEXT,
-    cfi,
-    ...(sectionIndex !== undefined ? { sectionIndex } : {}),
-  }
+  return Object.assign(
+    {
+      kind: READER_ANCHOR_KIND_CFI_TEXT,
+      cfi,
+    },
+    sectionIndex !== undefined ? { sectionIndex } : undefined,
+  )
 }
 
 export function readerPositionAnchorEquals(

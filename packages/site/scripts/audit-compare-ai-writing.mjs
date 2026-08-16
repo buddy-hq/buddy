@@ -22,17 +22,22 @@ import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
 
 const require = createRequire(import.meta.url)
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 
-const SITE_ROOT = path.resolve(__dirname, "..")
+const SITE_ROOT = path.resolve(scriptDirectory, "..")
 const COMPARE_DIR = path.join(SITE_ROOT, "src/content/compares")
 const HOME = process.env.HOME ?? ""
+function parseNonEmptyString(value) {
+  if (Object.prototype.toString.call(value) !== "[object String]") return undefined
+  return value.length > 0 ? value : undefined
+}
+
 const DETECTOR_CANDIDATES = [
   process.env.AVOID_AI_DETECTOR,
   path.join(HOME, "code/avoid-ai-writing/detector/patterns.js"),
   path.resolve(SITE_ROOT, "../../../code/avoid-ai-writing/detector/patterns.js"),
   path.resolve(SITE_ROOT, "../../../../code/avoid-ai-writing/detector/patterns.js"),
-].filter((candidate) => typeof candidate === "string" && candidate.length > 0)
+].filter((candidate) => parseNonEmptyString(candidate) !== undefined)
 
 const DETECTOR_PATH =
   DETECTOR_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ?? DETECTOR_CANDIDATES[0]
@@ -94,7 +99,7 @@ function extractHumanFacing(yamlText) {
     }
   }
 
-  for (const match of yamlText.matchAll(/^\s+-\s+([^"'#\n\[][^\n]{18,})\s*$/gm)) {
+  for (const match of yamlText.matchAll(/^\s+-\s+([^"'#\n[][^\n]{18,})\s*$/gm)) {
     chunks.push(match[1].trim())
   }
 
@@ -141,7 +146,7 @@ function main() {
   const files = fs
     .readdirSync(COMPARE_DIR)
     .filter((name) => name.startsWith("buddy-vs-") && name.endsWith(".yaml"))
-    .sort()
+    .toSorted()
 
   if (files.length === 0) {
     console.error(`No buddy-vs-*.yaml files in ${COMPARE_DIR}`)

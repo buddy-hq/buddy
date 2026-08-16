@@ -10,7 +10,10 @@ import {
   readString,
   requireFlagValue,
   UUID_PATTERN,
+  type TJsonObject,
+  type TJsonValue,
 } from "./post-compaction-recall-shared"
+import { isStringValue, stringifyCaughtError } from "./parse-values"
 
 const DEFAULT_TRANSCRIPT_DIRECTORY = path.join("docs", "local", "post-compaction-recall")
 const INJECTED_USER_PREFIXES = [
@@ -51,7 +54,7 @@ export type PostCompactionTranscript = {
 }
 
 type TranscriptBuilder = {
-  addRecord: (record: unknown) => void
+  addRecord: (record: TJsonValue) => void
   finish: (skippedTrailingRecord?: boolean) => PostCompactionTranscript
 }
 
@@ -71,7 +74,7 @@ function quoteMarkdown(value: string): string {
     .join("\n")
 }
 
-function parseQuestionOption(value: unknown): QuestionOption {
+function parseQuestionOption<TValue>(value: TValue): QuestionOption {
   if (!isRecord(value)) {
     throw new Error("Question option is not an object")
   }
@@ -85,7 +88,7 @@ function parseQuestionOption(value: unknown): QuestionOption {
   return { description, label }
 }
 
-function parseQuestionPrompt(value: unknown): QuestionPrompt {
+function parseQuestionPrompt<TValue>(value: TValue): QuestionPrompt {
   if (!isRecord(value)) {
     throw new Error("Question prompt is not an object")
   }
@@ -102,16 +105,17 @@ function parseQuestionPrompt(value: unknown): QuestionPrompt {
   }
 
   const header = readString(value, "header")
-  const prompt: QuestionPrompt = {
-    id,
-    options: rawOptions.map(parseQuestionOption),
-    question,
-  }
-  if (header) prompt.header = header
-  return prompt
+  return Object.assign(
+    {
+      id,
+      options: rawOptions.map(parseQuestionOption),
+      question,
+    },
+    header ? { header } : undefined,
+  )
 }
 
-function parseQuestionCall(payload: Record<string, unknown>): QuestionPrompt[] {
+function parseQuestionCall(payload: TJsonObject): QuestionPrompt[] {
   const argumentsJson = readString(payload, "arguments")
   const callId = readString(payload, "call_id")
   if (!argumentsJson || !callId) {
@@ -149,7 +153,7 @@ function renderQuestionAnswer(question: QuestionPrompt, answers: string[]): stri
 }
 
 function messageTextParts(
-  payload: Record<string, unknown>,
+  payload: TJsonObject,
   contentType: "input_text" | "output_text",
 ): string[] {
   if (!Array.isArray(payload.content)) return []
@@ -187,7 +191,7 @@ export function createPostCompactionTranscriptBuilder(
     entries.push({ body, heading })
   }
 
-  const addMessage = (payload: Record<string, unknown>): void => {
+  const addMessage = (payload: TJsonObject): void => {
     const role = readString(payload, "role")
     if (role === "user") {
       const parts = messageTextParts(payload, "input_text").filter(
@@ -208,7 +212,7 @@ export function createPostCompactionTranscriptBuilder(
     addEntry(heading, parts.map(quoteMarkdown).join("\n\n"))
   }
 
-  const addQuestionCall = (payload: Record<string, unknown>): void => {
+  const addQuestionCall = (payload: TJsonObject): void => {
     const callId = readString(payload, "call_id")
     if (!callId) throw new Error("Question request is missing its call id")
 
@@ -220,7 +224,7 @@ export function createPostCompactionTranscriptBuilder(
     }
   }
 
-  const addQuestionAnswer = (payload: Record<string, unknown>): void => {
+  const addQuestionAnswer = (payload: TJsonObject): void => {
     const callId = readString(payload, "call_id")
     if (!callId) return
     const questions = questionsByCallId.get(callId)
@@ -229,12 +233,7 @@ export function createPostCompactionTranscriptBuilder(
     const outputJson = readString(payload, "output")
     if (!outputJson) return
 
-    let outputValue: unknown
-    try {
-      outputValue = parseJson(outputJson)
-    } catch {
-      return
-    }
+    const outputValue = parseJson(outputJson)
     if (!isRecord(outputValue) || !isRecord(outputValue.answers)) return
 
     for (const question of questions) {
@@ -243,9 +242,7 @@ export function createPostCompactionTranscriptBuilder(
         continue
       }
 
-      const answers = answerValue.answers.filter(
-        (answer): answer is string => typeof answer === "string",
-      )
+      const answers = answerValue.answers.filter(isStringValue)
       if (answers.length === 0) continue
 
       questionAnswers += 1
@@ -253,7 +250,7 @@ export function createPostCompactionTranscriptBuilder(
     }
   }
 
-  const addRecord = (record: unknown): void => {
+  const addRecord = (record: TJsonValue): void => {
     if (!isRecord(record) || record.type !== "response_item") return
     if (!isRecord(record.payload)) return
 
@@ -378,13 +375,15 @@ function parseCliOptions(args: string[]): CliParseResult {
 
   return {
     kind: "run",
-    options: {
-      codexHome,
-      outputPath:
-        outputPath ?? path.resolve(process.cwd(), DEFAULT_TRANSCRIPT_DIRECTORY, `${threadId}.md`),
-      ...(sourcePath ? { sourcePath } : {}),
-      threadId,
-    },
+    options: Object.assign(
+      {
+        codexHome,
+        outputPath:
+          outputPath ?? path.resolve(process.cwd(), DEFAULT_TRANSCRIPT_DIRECTORY, `${threadId}.md`),
+        threadId,
+      },
+      sourcePath ? { sourcePath } : undefined,
+    ),
   }
 }
 
@@ -432,8 +431,8 @@ async function main(): Promise<void> {
 }
 
 if (import.meta.main) {
-  main().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error))
+  main().catch((error) => {
+    console.error(stringifyCaughtError(error))
     process.exitCode = 1
   })
 }

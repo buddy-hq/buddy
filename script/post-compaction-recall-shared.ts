@@ -1,20 +1,23 @@
 import { createReadStream } from "node:fs"
 import { createInterface } from "node:readline"
+import {
+  isJsonObject,
+  parseTJsonText,
+  parseTString,
+  type TJsonObject,
+  type TJsonValue,
+} from "./parse-values"
 
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+export { isJsonObject as isRecord, parseTString, type TJsonObject, type TJsonValue }
+
+export function readString(record: TJsonObject, key: string): string | undefined {
+  return parseTString(record[key])
 }
 
-export function readString(record: Record<string, unknown>, key: string): string | undefined {
-  const value = record[key]
-  return typeof value === "string" ? value : undefined
-}
-
-export function parseJson(value: string): unknown {
-  const parsed: unknown = JSON.parse(value)
-  return parsed
+export function parseJson(value: string): TJsonValue | undefined {
+  return parseTJsonText(value)
 }
 
 export function normalizeText(value: string): string {
@@ -31,7 +34,7 @@ export function requireFlagValue(args: string[], index: number, flag: string): s
 
 export async function consumeJsonl(
   sourcePath: string,
-  addRecord: (record: unknown) => void,
+  addRecord: (record: TJsonValue) => void,
 ): Promise<boolean> {
   const input = createReadStream(sourcePath, { encoding: "utf8" })
   const lines = createInterface({ crlfDelay: Infinity, input })
@@ -47,10 +50,8 @@ export async function consumeJsonl(
       )
     }
 
-    let record: unknown
-    try {
-      record = parseJson(line)
-    } catch {
+    const record = parseJson(line)
+    if (record === undefined) {
       pendingMalformedLine = lineNumber
       continue
     }

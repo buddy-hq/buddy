@@ -3,6 +3,13 @@ import path from "node:path"
 
 import { BUDDY_LAUNCH_DURATION_FRAMES } from "../src/timeline/launchTimeline"
 import { BUDDY_LAUNCH_FPS, BUDDY_LAUNCH_HEIGHT_PX, BUDDY_LAUNCH_WIDTH_PX } from "../src/videoConfig"
+import {
+  isJsonObject,
+  parseTErrorCode,
+  parseTNumber,
+  parseTString,
+  type TJsonObject,
+} from "./parse-values"
 
 const COMPOSITION_ID = "BuddyLaunch"
 const OUTPUT_DIRECTORY = path.resolve(import.meta.dir, "../out/buddy-launch")
@@ -85,14 +92,11 @@ const DELIVERY_TARGETS = [
 
 const textDecoder = new TextDecoder()
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null
+const hasString = (value: TJsonObject, key: keyof LoudnessMeasurement): boolean =>
+  parseTString(value[key]) !== undefined
 
-const hasString = (value: Record<string, unknown>, key: keyof LoudnessMeasurement): boolean =>
-  typeof value[key] === "string"
-
-const isLoudnessMeasurement = (value: unknown): value is LoudnessMeasurement =>
-  isRecord(value) &&
+const isLoudnessMeasurement = <TValue>(value: TValue): value is TValue & LoudnessMeasurement =>
+  isJsonObject(value) &&
   hasString(value, "input_i") &&
   hasString(value, "input_lra") &&
   hasString(value, "input_thresh") &&
@@ -102,7 +106,7 @@ const isLoudnessMeasurement = (value: unknown): value is LoudnessMeasurement =>
 const isRenderTarget = (value: string): value is RenderTarget =>
   Object.hasOwn(RENDER_TARGETS, value)
 
-const isMissingPathError = (error: unknown): boolean => isRecord(error) && error.code === "ENOENT"
+const isMissingPathError = <TError>(error: TError): boolean => parseTErrorCode(error) === "ENOENT"
 
 const runInherited = (command: readonly string[], label: string): void => {
   const result = Bun.spawnSync([...command], {
@@ -140,7 +144,7 @@ const parseLoudnessMeasurement = (output: string): LoudnessMeasurement => {
     throw new Error("FFmpeg did not return a loudness measurement.")
   }
 
-  const parsed: unknown = JSON.parse(output.slice(jsonStart, jsonEnd + 1))
+  const parsed = JSON.parse(output.slice(jsonStart, jsonEnd + 1))
   if (!isLoudnessMeasurement(parsed)) {
     throw new Error("FFmpeg returned an invalid loudness measurement.")
   }
@@ -244,15 +248,11 @@ const verifyDecode = (inputPath: string): void => {
   runInherited(["ffmpeg", "-v", "error", "-i", inputPath, "-f", "null", "-"], "Decode verification")
 }
 
-const stringValue = (record: Record<string, unknown>, key: string): string | null => {
-  const value = record[key]
-  return typeof value === "string" ? value : null
-}
+const stringValue = (record: TJsonObject, key: string): string | null =>
+  parseTString(record[key]) ?? null
 
-const numberValue = (record: Record<string, unknown>, key: string): number | null => {
-  const value = record[key]
-  return typeof value === "number" ? value : null
-}
+const numberValue = (record: TJsonObject, key: string): number | null =>
+  parseTNumber(record[key]) ?? null
 
 const expectedFrameCount = (target: RenderTarget): number =>
   target === "preview" ? PREVIEW_LAST_FRAME - FIRST_FRAME + 1 : BUDDY_LAUNCH_DURATION_FRAMES
@@ -272,22 +272,25 @@ const verifyStructure = (inputPath: string, target: RenderTarget): void => {
     ],
     "Structure verification",
   )
-  const parsed: unknown = JSON.parse(output)
+  const parsed = JSON.parse(output)
 
-  if (!isRecord(parsed)) {
+  if (!isJsonObject(parsed)) {
     throw new Error("FFprobe returned an invalid result.")
   }
 
-  const rawStreams: unknown = parsed.streams
+  const rawStreams = parsed.streams
   if (!Array.isArray(rawStreams)) {
     throw new Error("FFprobe returned no media streams.")
   }
 
-  const streams: readonly unknown[] = rawStreams
-  const videoStream = streams.find((stream) => isRecord(stream) && stream.codec_type === "video")
-  const audioStream = streams.find((stream) => isRecord(stream) && stream.codec_type === "audio")
+  const videoStream = rawStreams.find(
+    (stream) => isJsonObject(stream) && stream.codec_type === "video",
+  )
+  const audioStream = rawStreams.find(
+    (stream) => isJsonObject(stream) && stream.codec_type === "audio",
+  )
 
-  if (!isRecord(videoStream) || !isRecord(audioStream)) {
+  if (!isJsonObject(videoStream) || !isJsonObject(audioStream)) {
     throw new Error("The rendered file must contain video and audio streams.")
   }
 

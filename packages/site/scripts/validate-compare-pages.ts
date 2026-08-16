@@ -4,6 +4,13 @@ import { fileURLToPath } from "node:url"
 import { parse, type HTMLElement } from "node-html-parser"
 import { content } from "../src/content/site"
 import { COMPARE_PATH } from "../src/lib/constants"
+import {
+  isJsonObject,
+  parseTJsonText,
+  parseTString,
+  parseTStringArray,
+  type TJsonObject,
+} from "../src/lib/parse-values"
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const DIST_ROOT = join(PACKAGE_ROOT, "dist")
@@ -26,8 +33,6 @@ const RUNTIME_ROUTE_PATHS = new Set([
   "/install-buddy-windows.ps1",
 ])
 
-type JsonObject = Record<string, unknown>
-
 type CompareOutput = {
   readonly slug: string
   readonly outputPath: string
@@ -38,18 +43,16 @@ type VisibleFaq = {
   readonly answer: string
 }
 
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function getString(value: TJsonObject, key: string): string | undefined {
+  return parseTString(value[key])
 }
 
-function getString(value: JsonObject, key: string): string | undefined {
-  const candidate = value[key]
-  return typeof candidate === "string" ? candidate : undefined
-}
-
-function hasSchemaType(value: JsonObject, schemaType: string): boolean {
+function hasSchemaType(value: TJsonObject, schemaType: string): boolean {
   const type = value["@type"]
-  return type === schemaType || (Array.isArray(type) && type.includes(schemaType))
+  const typeText = parseTString(type)
+  if (typeText === schemaType) return true
+  const typeList = parseTStringArray(type)
+  return typeList !== undefined && typeList.includes(schemaType)
 }
 
 function normalizeText(value: string): string {
@@ -119,17 +122,17 @@ async function loadIndexedRoutes(): Promise<ReadonlySet<string>> {
   return indexedRoutes
 }
 
-function getJsonLdGraph(document: HTMLElement, failures: string[]): readonly JsonObject[] {
-  const graph: JsonObject[] = []
+function getJsonLdGraph(document: HTMLElement, failures: string[]): readonly TJsonObject[] {
+  const graph: TJsonObject[] = []
 
   for (const script of document.querySelectorAll("script[type='application/ld+json']")) {
     try {
-      const parsedValue: unknown = JSON.parse(script.text)
-      if (!isObject(parsedValue)) continue
+      const parsedValue = parseTJsonText(script.text)
+      if (!isJsonObject(parsedValue)) continue
 
       const parsedGraph = parsedValue["@graph"]
       if (!Array.isArray(parsedGraph)) continue
-      graph.push(...parsedGraph.filter(isObject))
+      graph.push(...parsedGraph.filter(isJsonObject))
     } catch {
       failures.push("contains invalid JSON-LD")
     }
@@ -138,7 +141,7 @@ function getJsonLdGraph(document: HTMLElement, failures: string[]): readonly Jso
   return graph
 }
 
-function getVisibleFaqs(faqNode: JsonObject | undefined): readonly VisibleFaq[] {
+function getVisibleFaqs(faqNode: TJsonObject | undefined): readonly VisibleFaq[] {
   if (!faqNode) return []
 
   const mainEntity = faqNode.mainEntity
@@ -146,11 +149,11 @@ function getVisibleFaqs(faqNode: JsonObject | undefined): readonly VisibleFaq[] 
 
   const faqs: VisibleFaq[] = []
   for (const entity of mainEntity) {
-    if (!isObject(entity)) continue
+    if (!isJsonObject(entity)) continue
 
     const question = getString(entity, "name")
     const acceptedAnswer = entity.acceptedAnswer
-    if (!question || !isObject(acceptedAnswer)) continue
+    if (!question || !isJsonObject(acceptedAnswer)) continue
 
     const answer = getString(acceptedAnswer, "text")
     if (answer) faqs.push({ question, answer })

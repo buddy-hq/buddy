@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process"
 import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { z } from "zod"
 
 const RELEASE_SOURCE_METADATA_FILENAME = "buddy-release-source.json"
 const RELEASE_SOURCE_METADATA_SCHEMA_VERSION = 1
@@ -20,10 +21,11 @@ type ReleaseSourceMetadata = {
 
 type ReleaseSourceMode = typeof RELEASE_SOURCE_MODE_RECORD | typeof RELEASE_SOURCE_MODE_VERIFY
 
-function objectRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
-  return Object.fromEntries(Object.entries(value))
-}
+const releaseSourceMetadataSchema = z.object({
+  schemaVersion: z.literal(RELEASE_SOURCE_METADATA_SCHEMA_VERSION),
+  sourceRepository: z.string(),
+  sourceSha: z.string(),
+})
 
 function normalizeSourceSha(value: string): string {
   const normalized = value.trim().toLowerCase()
@@ -33,22 +35,21 @@ function normalizeSourceSha(value: string): string {
   return normalized
 }
 
-function parseReleaseSourceMetadata(value: unknown): ReleaseSourceMetadata {
-  const record = objectRecord(value)
-  if (
-    !record ||
-    record.schemaVersion !== RELEASE_SOURCE_METADATA_SCHEMA_VERSION ||
-    typeof record.sourceRepository !== "string" ||
-    !record.sourceRepository.trim() ||
-    typeof record.sourceSha !== "string"
-  ) {
+function parseReleaseSourceMetadata<TValue>(value: TValue): ReleaseSourceMetadata {
+  const parsed = releaseSourceMetadataSchema.safeParse(value)
+  if (!parsed.success) {
+    throw new Error("Invalid release source metadata")
+  }
+
+  const sourceRepository = parsed.data.sourceRepository.trim()
+  if (!sourceRepository) {
     throw new Error("Invalid release source metadata")
   }
 
   return {
     schemaVersion: RELEASE_SOURCE_METADATA_SCHEMA_VERSION,
-    sourceRepository: record.sourceRepository.trim(),
-    sourceSha: normalizeSourceSha(record.sourceSha),
+    sourceRepository,
+    sourceSha: normalizeSourceSha(parsed.data.sourceSha),
   }
 }
 

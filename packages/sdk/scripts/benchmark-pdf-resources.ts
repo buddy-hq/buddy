@@ -4,6 +4,7 @@ import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { createBuddyClient } from "../src/index"
+import { hasFunctionValue, isObjectValue } from "./parse-values"
 
 const PDF_EXTRACTION_MODE_ENV = "BUDDY_PDF_EXTRACTION_MODE" as const
 const PDF_EXTRACTION_MODES = [
@@ -69,7 +70,7 @@ if (sourcePaths.length === 0) {
 }
 
 const backendModuleName: string = "@buddy/backend"
-const backendModule: unknown = await import(backendModuleName)
+const backendModule = await import(backendModuleName)
 const app = readBackendApp(backendModule)
 const benchmarkRoot = await mkdtemp(path.join(os.tmpdir(), "buddy-pdf-resource-benchmark-"))
 const results: BenchmarkResult[] = []
@@ -110,18 +111,20 @@ try {
       })
       const durationMs = performance.now() - startedAt
       const extractor = await readExtractor(workspace, completed.packPath)
-      const result: BenchmarkResult = {
-        sourcePath,
-        sourceBytes: sourceStats.size,
-        mode,
-        durationMs,
-        status: completed.status,
-        extractor,
-        ...(completed.fullTextCharacters !== undefined
+      const result = Object.assign(
+        {
+          sourcePath,
+          sourceBytes: sourceStats.size,
+          mode,
+          durationMs,
+          status: completed.status,
+          extractor,
+          warnings: completed.warnings,
+        },
+        completed.fullTextCharacters !== undefined
           ? { characters: completed.fullTextCharacters }
-          : {}),
-        warnings: completed.warnings,
-      }
+          : undefined,
+      )
       results.push(result)
       printResult(result)
     }
@@ -161,25 +164,15 @@ async function waitForResource(input: {
   throw new Error(`Timed out waiting for resource ${input.objectID}`)
 }
 
-function readBackendApp(moduleValue: unknown): BackendApp {
-  if (
-    typeof moduleValue === "object" &&
-    moduleValue !== null &&
-    "app" in moduleValue &&
-    isBackendApp(moduleValue.app)
-  ) {
+function readBackendApp<TValue>(moduleValue: TValue): BackendApp {
+  if (isObjectValue(moduleValue) && "app" in moduleValue && isBackendApp(moduleValue.app)) {
     return moduleValue.app
   }
   throw new Error("Unable to load the Buddy backend app.")
 }
 
-function isBackendApp(value: unknown): value is BackendApp {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "fetch" in value &&
-    typeof value.fetch === "function"
-  )
+function isBackendApp<TValue>(value: TValue): value is TValue & BackendApp {
+  return isObjectValue(value) && "fetch" in value && hasFunctionValue(value.fetch)
 }
 
 async function readExtractor(workspace: string, packPath: string | undefined): Promise<string> {

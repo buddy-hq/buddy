@@ -1,4 +1,5 @@
 import { cancel, confirm, isCancel, select } from "@clack/prompts"
+import { isJsonObject, parseTString, stringifyCaughtError } from "./parse-values"
 import { typePromptConfig, typePromptTiming } from "./type-prompt.config"
 
 const EXIT_SUCCESS = 0
@@ -55,17 +56,14 @@ Options:
   --submit                 Press Return after typing a supplied prompt.
 `
 
-const isPromptDefinition = (value: unknown): value is PromptDefinition => {
-  if (typeof value !== "object" || value === null) {
+const isPromptDefinition = <TValue>(value: TValue): value is TValue & PromptDefinition => {
+  if (!isJsonObject(value)) {
     return false
   }
 
-  return (
-    "id" in value &&
-    typeof value.id === "string" &&
-    "prompt" in value &&
-    typeof value.prompt === "string"
-  )
+  const id = parseTString(value.id)
+  const prompt = parseTString(value.prompt)
+  return id !== undefined && prompt !== undefined
 }
 
 const parseArguments = (args: readonly string[]): CommandOptions => {
@@ -107,7 +105,7 @@ const loadPrompts = async (): Promise<readonly PromptDefinition[]> => {
     throw new Error("The prompt catalog is missing.")
   }
 
-  const value: unknown = await promptCatalog.json()
+  const value = await promptCatalog.json()
 
   if (!Array.isArray(value)) {
     throw new Error("The prompt catalog must contain a JSON array.")
@@ -251,8 +249,8 @@ const run = async (): Promise<void> => {
   }
 }
 
-run().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : "Typing failed."
+run().catch((error) => {
+  const message = error instanceof Error ? error.message : stringifyCaughtError(error)
   process.stderr.write(`${message}\n`)
   process.exit(EXIT_FAILURE)
 })

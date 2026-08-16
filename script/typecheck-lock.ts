@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { z } from "zod"
+import { parseTErrorCode } from "./parse-values"
 
 const LOCK_ENV_KEY = "BUDDY_TYPECHECK_LOCK_TOKEN"
 const LOCK_INITIALIZATION_GRACE_MS = 5_000
@@ -14,39 +16,31 @@ type LockOwner = {
   command: string[]
 }
 
-function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === code
+const lockOwnerSchema = z.object({
+  pid: z.number(),
+  token: z.string(),
+  startedAt: z.string(),
+  command: z.array(z.string()),
+})
+
+function hasErrorCode<TError>(error: TError, code: string): boolean {
+  return parseTErrorCode(error) === code
 }
 
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string")
-}
-
-function lockOwnerFromUnknown(value: unknown): LockOwner | undefined {
-  if (typeof value !== "object" || value === null) return undefined
-  if (!("pid" in value) || typeof value.pid !== "number") return undefined
-  if (!("token" in value) || typeof value.token !== "string") return undefined
-  if (!("startedAt" in value) || typeof value.startedAt !== "string") return undefined
-  if (!("command" in value) || !isStringArray(value.command)) return undefined
-
-  return {
-    pid: value.pid,
-    token: value.token,
-    startedAt: value.startedAt,
-    command: value.command,
-  }
+function lockOwnerFromValue<TValue>(value: TValue): LockOwner | undefined {
+  const parsed = lockOwnerSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
 async function readLockOwner(): Promise<LockOwner | undefined> {
-  const text = await fs.readFile(LOCK_OWNER_FILE, "utf8").catch((error: unknown) => {
+  const text = await fs.readFile(LOCK_OWNER_FILE, "utf8").catch((error) => {
     if (hasErrorCode(error, "ENOENT")) return undefined
     throw error
   })
   if (text === undefined) return undefined
 
   try {
-    const parsed: unknown = JSON.parse(text)
-    return lockOwnerFromUnknown(parsed)
+    return lockOwnerFromValue(JSON.parse(text))
   } catch {
     return undefined
   }
@@ -100,7 +94,7 @@ async function acquireLock(token: string, command: string[]): Promise<boolean> {
       }
       await fs.writeFile(LOCK_OWNER_FILE, `${JSON.stringify(owner, null, 2)}\n`)
       return true
-    } catch (error: unknown) {
+    } catch (error) {
       if (!hasErrorCode(error, "EEXIST")) throw error
 
       const owner = await readLockOwner()
@@ -110,7 +104,7 @@ async function acquireLock(token: string, command: string[]): Promise<boolean> {
       }
 
       if (!owner) {
-        const stat = await fs.stat(LOCK_DIRECTORY).catch((statError: unknown) => {
+        const stat = await fs.stat(LOCK_DIRECTORY).catch((statError) => {
           if (hasErrorCode(statError, "ENOENT")) return undefined
           throw statError
         })

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { isJsonObject, parseTJsonValue, parseTString, type TJsonValue } from "./parse-values"
 import { releaseRepository } from "./release-repositories"
 import {
   resolveMacOsReleaseArtifactFilename,
@@ -102,12 +103,8 @@ function parseBooleanFlag(value: string | undefined): boolean {
   usage()
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-function parseReleaseAssets(value: unknown): GithubReleaseAsset[] {
-  if (!isRecord(value)) {
+function parseReleaseAssets<TValue>(value: TValue): GithubReleaseAsset[] {
+  if (!isJsonObject(value)) {
     throw new Error("GitHub release response was not an object")
   }
 
@@ -117,13 +114,13 @@ function parseReleaseAssets(value: unknown): GithubReleaseAsset[] {
   }
 
   return rawAssets.map((asset) => {
-    if (!isRecord(asset)) {
+    if (!isJsonObject(asset)) {
       throw new Error("GitHub release asset was not an object")
     }
 
-    const name = asset.name
-    const browserDownloadUrl = asset.browser_download_url ?? asset.url
-    if (typeof name !== "string" || typeof browserDownloadUrl !== "string") {
+    const name = parseTString(asset.name)
+    const browserDownloadUrl = parseTString(asset.browser_download_url) ?? parseTString(asset.url)
+    if (name === undefined || browserDownloadUrl === undefined) {
       throw new Error("GitHub release asset was missing name or browser_download_url")
     }
 
@@ -132,11 +129,11 @@ function parseReleaseAssets(value: unknown): GithubReleaseAsset[] {
 }
 
 async function fetchDraftReleaseAssets(repo: string, tag: string): Promise<GithubReleaseAsset[]> {
-  const value: unknown = await $`gh release view ${tag} --repo ${repo} --json assets`.quiet().json()
+  const value = await $`gh release view ${tag} --repo ${repo} --json assets`.quiet().json()
   return parseReleaseAssets(value)
 }
 
-async function fetchJson(url: string): Promise<unknown> {
+async function fetchJson(url: string): Promise<TJsonValue> {
   for (let attempt = 1; attempt <= VERIFICATION_ATTEMPTS; attempt += 1) {
     const response = await fetch(url, {
       headers: {
@@ -147,7 +144,11 @@ async function fetchJson(url: string): Promise<unknown> {
     })
 
     if (response.ok) {
-      return await response.json()
+      const parsed = parseTJsonValue(await response.json())
+      if (parsed === undefined) {
+        throw new Error(`Failed to parse ${url}`)
+      }
+      return parsed
     }
     if (attempt === VERIFICATION_ATTEMPTS) {
       throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`)
@@ -160,9 +161,9 @@ async function fetchJson(url: string): Promise<unknown> {
 
 function findAsset(assets: GithubReleaseAsset[], required: RequiredAsset): GithubReleaseAsset {
   const asset = assets.find((candidate) =>
-    typeof required.matcher === "string"
-      ? candidate.name === required.matcher
-      : required.matcher.test(candidate.name),
+    required.matcher instanceof RegExp
+      ? required.matcher.test(candidate.name)
+      : candidate.name === required.matcher,
   )
   if (!asset) {
     throw new Error(`Missing required release asset: ${required.label}`)

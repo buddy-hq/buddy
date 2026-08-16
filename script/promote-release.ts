@@ -2,6 +2,8 @@
 
 import { $ } from "bun"
 import path from "node:path"
+import { z } from "zod"
+import { isJsonObject } from "./parse-values"
 import { releaseRepository, repositoryParts } from "./release-repositories"
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
@@ -12,6 +14,12 @@ export type GithubReleasePromotionState = {
   isPrerelease: boolean
   tagName: string
 }
+
+const githubReleasePromotionStateSchema = z.object({
+  isDraft: z.boolean(),
+  isPrerelease: z.boolean(),
+  tagName: z.string().min(1),
+})
 
 function usage(): never {
   throw new Error("Usage: bun run release:promote vX.Y.Z")
@@ -26,32 +34,15 @@ export function normalizePromotionTag(value: string | undefined): string {
   return tag
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-export function parseGithubReleasePromotionState(value: unknown): GithubReleasePromotionState {
-  if (!isRecord(value)) {
+export function parseGithubReleasePromotionState<TValue>(
+  value: TValue,
+): GithubReleasePromotionState {
+  const parsed = githubReleasePromotionStateSchema.safeParse(value)
+  if (parsed.success) return parsed.data
+  if (!isJsonObject(value)) {
     throw new Error("GitHub release response was not an object")
   }
-
-  const isDraft = value.isDraft
-  const isPrerelease = value.isPrerelease
-  const tagName = value.tagName
-  if (
-    typeof isDraft !== "boolean" ||
-    typeof isPrerelease !== "boolean" ||
-    typeof tagName !== "string" ||
-    tagName.length === 0
-  ) {
-    throw new Error("GitHub release response was missing promotion fields")
-  }
-
-  return {
-    isDraft,
-    isPrerelease,
-    tagName,
-  }
+  throw new Error("GitHub release response was missing promotion fields")
 }
 
 export function assertPromotableRelease(
@@ -96,7 +87,7 @@ function parseArgs() {
 }
 
 async function readRelease(repo: string, tag: string): Promise<GithubReleasePromotionState> {
-  const value: unknown =
+  const value =
     await $`gh release view ${tag} --json isDraft,isPrerelease,tagName --repo ${repo}`.json()
   return parseGithubReleasePromotionState(value)
 }

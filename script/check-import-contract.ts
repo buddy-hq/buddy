@@ -2,6 +2,7 @@
 
 import { readFileSync } from "node:fs"
 import path from "node:path"
+import { isJsonObject, parseTString } from "./parse-values"
 
 type Finding = {
   file: string
@@ -11,10 +12,6 @@ type Finding = {
 const REPO_ROOT = path.resolve(import.meta.dir, "..")
 const DESKTOP_PACKAGE_MANIFEST = "packages/desktop-electron/package.json"
 const WORKSPACE_VERSION_PREFIX = "workspace:"
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
 
 function toPosix(value: string) {
   return value.split(path.sep).join("/")
@@ -88,13 +85,14 @@ function checkViteAliasContract(findings: Finding[]) {
 }
 
 function checkDesktopRuntimeDependencies(findings: Finding[]) {
-  const manifest: unknown = JSON.parse(
+  const manifest = JSON.parse(
     readFileSync(path.join(REPO_ROOT, DESKTOP_PACKAGE_MANIFEST), "utf8"),
   )
-  if (!isRecord(manifest) || !isRecord(manifest.dependencies)) return
+  if (!isJsonObject(manifest) || !isJsonObject(manifest.dependencies)) return
 
   for (const [packageName, version] of Object.entries(manifest.dependencies)) {
-    if (typeof version !== "string" || !version.startsWith(WORKSPACE_VERSION_PREFIX)) continue
+    const versionText = parseTString(version)
+    if (versionText === undefined || !versionText.startsWith(WORKSPACE_VERSION_PREFIX)) continue
     findings.push({
       file: DESKTOP_PACKAGE_MANIFEST,
       message: `Workspace package "${packageName}" is a desktop runtime dependency, so electron-vite will externalize it. Put it in devDependencies so it is bundled into Electron instead.`,

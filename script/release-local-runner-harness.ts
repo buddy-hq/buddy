@@ -6,6 +6,14 @@ import { homedir } from "node:os"
 import { resolve } from "node:path"
 import { BUDDY_CHANNEL_ENV, BUDDY_PACKAGED_FALLBACK_CHANNEL } from "@buddy/script/channel"
 import desktopPackage from "../packages/desktop-electron/package.json"
+import {
+  isJsonObject,
+  parseTJsonText,
+  parseTNumber,
+  parseTString,
+  type TJsonObject,
+  type TJsonValue,
+} from "./parse-values"
 
 const BYTES_PER_MEBIBYTE = 1_024 * 1_024
 const MILLISECONDS_PER_SECOND = 1_000
@@ -229,11 +237,13 @@ async function runMeasuredCommand(): Promise<void> {
   const cwd = readFlag("--cwd")
   const outputPath = readRequiredEnvironmentVariable(HARNESS_OUTPUT_ENV_KEY)
   const metrics = await readMetrics(outputPath)
-  await appendCommandMetric(outputPath, metrics, {
-    command,
-    ...(cwd === undefined ? {} : { cwd: resolve(repositoryRoot, cwd) }),
-    name,
-  })
+  await appendCommandMetric(outputPath, metrics, Object.assign(
+    {
+      command,
+      name,
+    },
+    cwd === undefined ? undefined : { cwd: resolve(repositoryRoot, cwd) },
+  ))
 }
 
 async function runAllMeasuredCommands(): Promise<void> {
@@ -532,8 +542,8 @@ async function writeMetrics(path: string, metrics: HarnessMetrics): Promise<void
 }
 
 async function readMetrics(path: string): Promise<HarnessMetrics> {
-  const parsed: unknown = JSON.parse(await Bun.file(path).text())
-  if (!isRecord(parsed)) {
+  const parsed = parseTJsonText(await Bun.file(path).text())
+  if (!isJsonObject(parsed)) {
     throw new Error(`Invalid harness metrics file: ${path}`)
   }
 
@@ -546,27 +556,29 @@ async function readMetrics(path: string): Promise<HarnessMetrics> {
   const totalDurationMilliseconds = readOptionalNumber(parsed, "totalDurationMilliseconds")
   const finishedAt = readOptionalString(parsed, "finishedAt")
 
-  return {
-    architecture: readString(parsed, "architecture"),
-    bunVersion: readString(parsed, "bunVersion"),
-    cachePaths,
-    commands,
-    directories,
-    ...(finishedAt === undefined ? {} : { finishedAt }),
-    hostArchitecture: readString(parsed, "hostArchitecture"),
-    hostPlatform: readString(parsed, "hostPlatform"),
-    outputFiles,
-    profile,
-    repositoryRoot: readString(parsed, "repositoryRoot"),
-    schemaVersion,
-    startedAt: readString(parsed, "startedAt"),
-    targetPlatform: readString(parsed, "targetPlatform"),
-    ...(totalDurationMilliseconds === undefined ? {} : { totalDurationMilliseconds }),
-    version: readString(parsed, "version"),
-  }
+  return Object.assign(
+    {
+      architecture: readString(parsed, "architecture"),
+      bunVersion: readString(parsed, "bunVersion"),
+      cachePaths,
+      commands,
+      directories,
+      hostArchitecture: readString(parsed, "hostArchitecture"),
+      hostPlatform: readString(parsed, "hostPlatform"),
+      outputFiles,
+      profile,
+      repositoryRoot: readString(parsed, "repositoryRoot"),
+      schemaVersion,
+      startedAt: readString(parsed, "startedAt"),
+      targetPlatform: readString(parsed, "targetPlatform"),
+      version: readString(parsed, "version"),
+    },
+    finishedAt === undefined ? undefined : { finishedAt },
+    totalDurationMilliseconds === undefined ? undefined : { totalDurationMilliseconds },
+  )
 }
 
-function readCachePaths(value: Record<string, unknown>): CachePaths {
+function readCachePaths(value: TJsonObject): CachePaths {
   return {
     bunInstallCacheDirectory: readString(value, "bunInstallCacheDirectory"),
     electronBuilderCacheDirectory: readString(value, "electronBuilderCacheDirectory"),
@@ -575,9 +587,9 @@ function readCachePaths(value: Record<string, unknown>): CachePaths {
   }
 }
 
-function readCommandMetrics(values: unknown[]): CommandMetric[] {
+function readCommandMetrics(values: readonly TJsonValue[]): CommandMetric[] {
   return values.map((value) => {
-    if (!isRecord(value)) {
+    if (!isJsonObject(value)) {
       throw new Error("Invalid command metric")
     }
 
@@ -592,9 +604,9 @@ function readCommandMetrics(values: unknown[]): CommandMetric[] {
   })
 }
 
-function readDirectoryMetricArray(values: unknown[]): DirectoryMetric[] {
+function readDirectoryMetricArray(values: readonly TJsonValue[]): DirectoryMetric[] {
   return values.map((value) => {
-    if (!isRecord(value)) {
+    if (!isJsonObject(value)) {
       throw new Error("Invalid directory metric")
     }
 
@@ -607,9 +619,9 @@ function readDirectoryMetricArray(values: unknown[]): DirectoryMetric[] {
   })
 }
 
-function readOutputFileMetricArray(values: unknown[]): OutputFileMetric[] {
+function readOutputFileMetricArray(values: readonly TJsonValue[]): OutputFileMetric[] {
   return values.map((value) => {
-    if (!isRecord(value)) {
+    if (!isJsonObject(value)) {
       throw new Error("Invalid output file metric")
     }
 
@@ -620,80 +632,66 @@ function readOutputFileMetricArray(values: unknown[]): OutputFileMetric[] {
   })
 }
 
-function readStringArray(values: unknown[]): string[] {
+function readStringArray(values: readonly TJsonValue[]): string[] {
   return values.map((value) => {
-    if (typeof value !== "string") {
+    const text = parseTString(value)
+    if (text === undefined) {
       throw new Error("Expected string array value")
     }
-
-    return value
+    return text
   })
 }
 
-function readString(record: Record<string, unknown>, key: string): string {
-  const value = Reflect.get(record, key)
-  if (typeof value !== "string") {
+function readString(record: TJsonObject, key: string): string {
+  const value = parseTString(record[key])
+  if (value === undefined) {
     throw new Error(`Expected ${key} to be a string`)
   }
-
   return value
 }
 
-function readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
-  const value = Reflect.get(record, key)
+function readOptionalString(record: TJsonObject, key: string): string | undefined {
+  const raw = record[key]
+  if (raw === undefined) return undefined
+  const value = parseTString(raw)
   if (value === undefined) {
-    return undefined
-  }
-
-  if (typeof value !== "string") {
     throw new Error(`Expected ${key} to be a string`)
   }
-
   return value
 }
 
-function readNumber(record: Record<string, unknown>, key: string): number {
-  const value = Reflect.get(record, key)
-  if (typeof value !== "number") {
-    throw new Error(`Expected ${key} to be a number`)
-  }
-
-  return value
-}
-
-function readOptionalNumber(record: Record<string, unknown>, key: string): number | undefined {
-  const value = Reflect.get(record, key)
+function readNumber(record: TJsonObject, key: string): number {
+  const value = parseTNumber(record[key])
   if (value === undefined) {
-    return undefined
-  }
-
-  if (typeof value !== "number") {
     throw new Error(`Expected ${key} to be a number`)
   }
-
   return value
 }
 
-function readRecord(record: Record<string, unknown>, key: string): Record<string, unknown> {
-  const value = Reflect.get(record, key)
-  if (!isRecord(value)) {
+function readOptionalNumber(record: TJsonObject, key: string): number | undefined {
+  const raw = record[key]
+  if (raw === undefined) return undefined
+  const value = parseTNumber(raw)
+  if (value === undefined) {
+    throw new Error(`Expected ${key} to be a number`)
+  }
+  return value
+}
+
+function readRecord(record: TJsonObject, key: string): TJsonObject {
+  const value = record[key]
+  if (!isJsonObject(value)) {
     throw new Error(`Expected ${key} to be an object`)
   }
-
   return value
 }
 
-function readArray(record: Record<string, unknown>, key: string): unknown[] {
-  const value = Reflect.get(record, key)
+function readArray(record: TJsonObject, key: string): readonly TJsonValue[] {
+  const value = record[key]
   if (!Array.isArray(value)) {
     throw new Error(`Expected ${key} to be an array`)
   }
-
   return value
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function parseProfile(value: string | undefined): HarnessProfile {

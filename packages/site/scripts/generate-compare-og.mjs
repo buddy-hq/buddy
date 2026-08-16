@@ -9,8 +9,8 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import sharp from "sharp"
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const SITE_ROOT = path.join(__dirname, "..")
+const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
+const SITE_ROOT = path.join(scriptDirectory, "..")
 const COMPETITORS_DIR = path.join(SITE_ROOT, "src/assets/competitors")
 const BUDDY_ICON_PATH = path.join(SITE_ROOT, "src/assets/buddy-app-icon.png")
 const OUT_DIR = path.join(SITE_ROOT, "public/og")
@@ -152,6 +152,14 @@ async function makeIconTile(filePath, size, plate, alreadyAppIcon = false) {
     .toBuffer()
 }
 
+function escapeXml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+}
+
 /**
  * @param {CompareOgSpec} spec
  * @param {Buffer} buddyTile
@@ -162,13 +170,6 @@ async function renderOg(spec, buddyTile, competitorTile) {
   const rightX = Math.round(OG_WIDTH / 2 + 70)
   const iconY = Math.round(OG_HEIGHT / 2 - ICON_SIZE / 2 - 28)
   const labelY = iconY + ICON_SIZE + 28
-
-  const escapeXml = (value) =>
-    value
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
 
   // Plain black base + soft radial brand glows (no muddy multi-stop wash)
   const overlay = Buffer.from(`
