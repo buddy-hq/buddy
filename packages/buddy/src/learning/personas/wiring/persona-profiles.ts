@@ -27,7 +27,7 @@ function derivePersonaSurfaces(features: readonly DefinedBuddyFeature[]): Surfac
   return [...surfaces] as Surface[]
 }
 
-function derivePersonaTools(features: readonly DefinedBuddyFeature[]): Record<string, "allow"> {
+function derivePersonaTools(features: readonly DefinedBuddyFeature[]) {
   const tools: Record<string, "allow"> = {}
   for (const feature of features) {
     for (const tool of feature.tools) {
@@ -40,7 +40,7 @@ function derivePersonaTools(features: readonly DefinedBuddyFeature[]): Record<st
 
 function derivePersonaDynamicTools(
   features: readonly DefinedBuddyFeature[],
-): Record<string, "allow"> {
+) {
   const tools: Record<string, "allow"> = {}
   for (const feature of features) {
     for (const tool of feature.tools) {
@@ -51,7 +51,7 @@ function derivePersonaDynamicTools(
   return tools
 }
 
-function derivePersonaSkills(features: readonly DefinedBuddyFeature[]): Record<string, "allow"> {
+function derivePersonaSkills(features: readonly DefinedBuddyFeature[]) {
   const skills: Record<string, "allow"> = {}
   for (const feature of features) {
     for (const skill of feature.skills) {
@@ -63,7 +63,7 @@ function derivePersonaSkills(features: readonly DefinedBuddyFeature[]): Record<s
 
 function deriveFeaturePersonaSubagents(
   features: readonly DefinedBuddyFeature[],
-): Record<string, "allow"> {
+) {
   const subagents: Record<string, "allow"> = {}
   for (const feature of features) {
     for (const subagent of feature.subagents) {

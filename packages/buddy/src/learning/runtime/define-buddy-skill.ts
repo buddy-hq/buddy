@@ -29,7 +29,7 @@ const SHORT_DESCRIPTION_MAX_LENGTH = 64
 const ICON_MIN_LENGTH = 1
 const ICON_MAX_LENGTH = 512
 
-function parseSkillFrontmatter(content: string): { name: string; description: string } {
+function parseSkillFrontmatter(content: string) {
   const nameMatch = SKILL_NAME_RE.exec(content)
   const descriptionMatch = SKILL_DESCRIPTION_RE.exec(content)
 

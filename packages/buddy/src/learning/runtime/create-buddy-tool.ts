@@ -95,7 +95,7 @@ function isNullJsonSchema(value: unknown): boolean {
   return isJsonSchemaObject(value) && value.type === "null"
 }
 
-function normalizeNullableAnyOf(schema: Record<string, unknown>): Record<string, unknown> {
+function normalizeNullableAnyOf(schema: Record<string, unknown>) {
   const anyOf = schema.anyOf
   if (!Array.isArray(anyOf) || anyOf.length !== 2) {
     return schema
@@ -107,13 +107,13 @@ function normalizeNullableAnyOf(schema: Record<string, unknown>): Record<string,
     return schema
   }
 
-  const normalized: Record<string, unknown> = {
+  const normalized = {
     ...schema,
     ...Object.fromEntries(
       Object.entries(valueSchema).filter(([key]) => key !== "type" && key !== "description"),
     ),
     type: [valueSchema.type, "null"],
-  }
+  } satisfies Record<string, unknown>
   delete normalized.anyOf
 
   if (Array.isArray(normalized.enum) && !normalized.enum.includes(null)) {

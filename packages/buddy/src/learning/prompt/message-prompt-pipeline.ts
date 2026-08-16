@@ -64,10 +64,10 @@ export async function runMessagePromptPipeline(input: {
     sessionPersona: input.previousState?.persona,
   })
 
-  const transformed: Record<string, unknown> = {
+  const transformed = {
     ...input.body,
     parts,
-  }
+  } satisfies Record<string, unknown>
 
   let sessionRuntimeForPermissions:
     | CreatePromptContextResult["sessionRuntimeForPermissions"]

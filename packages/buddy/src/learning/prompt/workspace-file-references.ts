@@ -455,7 +455,7 @@ function normalizePromptTextPart(part: Record<string, unknown>, text: string) {
 }
 
 function stripPromptTextValues(part: Record<string, unknown>) {
-  const next: Record<string, unknown> = { ...part }
+  const next = { ...part } satisfies Record<string, unknown>
   delete next.content
   delete next.text
   return next

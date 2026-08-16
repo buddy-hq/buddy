@@ -69,7 +69,7 @@ function collectPersonaDefaultAllowedToolIDs(persona: PersonaDefinition): Set<To
   return allowed
 }
 
-function buildSkillPermissions(persona: PersonaDefinition): SkillPermissionMap {
+function buildSkillPermissions(persona: PersonaDefinition) {
   const skills: SkillPermissionMap = {}
   for (const [skillName, access] of Object.entries(persona.skills)) {
     if (!access || access === "inherit") continue
@@ -85,10 +85,7 @@ function personaHasDynamicTools(persona: PersonaDefinition): boolean {
 export function compileRuntimeLearningToolPermissions(input: {
   persona: PersonaDefinition
   configuredToolToggles?: Config.Info["tools"]
-}): {
-  tools: ToolPermissionMap
-  skills: Record<string, ToolPermissionAction>
-} {
+}) {
   const tools = createDenyToolMap()
   applyPersonaDefaultTools(tools, input.persona)
   applyRuntimeToolConstraints(tools)
