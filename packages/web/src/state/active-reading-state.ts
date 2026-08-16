@@ -6,6 +6,14 @@ import {
   type ReaderRelocation,
   type ReaderTrailEntry,
 } from "@buddy/reader-contract"
+import { z } from "zod"
+import {
+  parseBuddyConfigObject,
+  parseOptionalStringField,
+  parseStringValue,
+  parseWithSchema,
+  type TBuddyConfigObject,
+} from "./parse-external"
 
 export type ReadingResourceStatus =
   | "preparing"
@@ -39,32 +47,23 @@ export type ActiveReadingLocationUpdate = ReaderRelocation
 
 export const READING_TRAIL_MAX_ENTRIES = 20
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
+const readingStatusSchema = z.enum([
+  "preparing",
+  "ready",
+  "unsupported",
+  "error",
+  "stale",
+  "unprocessed",
+])
 
-function readOptionalString(value: unknown): string | undefined | null {
+function parseReadingStatus<TValue>(value: TValue): ReadingResourceStatus | undefined | null {
   if (value === undefined) return undefined
-  return typeof value === "string" ? value : null
+  return parseWithSchema(readingStatusSchema, value) ?? null
 }
 
-function readStatus(value: unknown): ReadingResourceStatus | undefined | null {
-  if (value === undefined) return undefined
-  if (
-    value === "preparing" ||
-    value === "ready" ||
-    value === "unsupported" ||
-    value === "error" ||
-    value === "stale" ||
-    value === "unprocessed"
-  ) {
-    return value
-  }
-  return null
-}
-
-function readLegacyLocation(value: Record<string, unknown>): ReaderLocation | undefined {
-  if (typeof value.cfi !== "string" || value.cfi.length === 0) return undefined
+function readLegacyLocation(value: TBuddyConfigObject): ReaderLocation | undefined {
+  const cfi = parseStringValue(value.cfi)
+  if (cfi === undefined || cfi.length === 0) return undefined
 
   return readReaderLocation(
     Object.assign(
@@ -73,7 +72,7 @@ function readLegacyLocation(value: Record<string, unknown>): ReaderLocation | un
           anchor: Object.assign(
             {
               kind: READER_ANCHOR_KIND_CFI_POSITION,
-              cfi: value.cfi,
+              cfi,
             },
             value.index !== undefined ? { sectionIndex: value.index } : undefined,
           ),
@@ -87,30 +86,26 @@ function readLegacyLocation(value: Record<string, unknown>): ReaderLocation | un
   )
 }
 
-function readLocation(value: Record<string, unknown>): ReaderLocation | undefined {
+function readLocation(value: TBuddyConfigObject): ReaderLocation | undefined {
   if (value.location !== undefined) return readReaderLocation(value.location)
   return readLegacyLocation(value)
 }
 
-function readTrailEntry(value: unknown): ReaderTrailEntry | undefined {
-  if (!isRecord(value)) return undefined
-  const label =
-    typeof value.label === "string"
-      ? value.label
-      : typeof value.tocLabel === "string"
-        ? value.tocLabel
-        : undefined
+function readTrailEntry<TValue>(value: TValue): ReaderTrailEntry | undefined {
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  const label = parseStringValue(record.label) ?? parseStringValue(record.tocLabel)
   if (!label) return undefined
 
   const location =
-    value.anchor !== undefined
+    record.anchor !== undefined
       ? readReaderLocation(
           Object.assign(
-            { anchor: value.anchor },
-            value.fraction !== undefined ? { fraction: value.fraction } : undefined,
+            { anchor: record.anchor },
+            record.fraction !== undefined ? { fraction: record.fraction } : undefined,
           ),
         )
-      : readLegacyLocation(value)
+      : readLegacyLocation(record)
   if (!location) return undefined
 
   return Object.assign(
@@ -122,7 +117,7 @@ function readTrailEntry(value: unknown): ReaderTrailEntry | undefined {
   )
 }
 
-function readTrail(value: unknown): ReaderTrailEntry[] | undefined {
+function readTrail<TValue>(value: TValue): ReaderTrailEntry[] | undefined {
   if (value === undefined) return undefined
   if (!Array.isArray(value)) return undefined
   const entries = value.flatMap((entry) => {
@@ -132,19 +127,21 @@ function readTrail(value: unknown): ReaderTrailEntry[] | undefined {
   return entries.length > 0 ? entries : undefined
 }
 
-function readAnnotationSummaryEntry(value: unknown): AnnotationSummaryEntry | undefined {
-  if (!isRecord(value) || typeof value.text !== "string") return undefined
-  const tocLabel = readOptionalString(value.tocLabel)
-  const note = readOptionalString(value.note)
+function readAnnotationSummaryEntry<TValue>(value: TValue): AnnotationSummaryEntry | undefined {
+  const record = parseBuddyConfigObject(value)
+  const text = parseStringValue(record?.text)
+  if (!record || text === undefined) return undefined
+  const tocLabel = parseOptionalStringField(record.tocLabel)
+  const note = parseOptionalStringField(record.note)
   if (tocLabel === null || note === null) return undefined
   return Object.assign(
-    { text: value.text },
+    { text },
     tocLabel !== undefined ? { tocLabel } : undefined,
     note !== undefined ? { note } : undefined,
   )
 }
 
-function readAnnotationSummary(value: unknown): AnnotationSummaryEntry[] | undefined {
+function readAnnotationSummary<TValue>(value: TValue): AnnotationSummaryEntry[] | undefined {
   if (value === undefined) return undefined
   if (!Array.isArray(value)) return undefined
   const entries = value.flatMap((entry) => {
@@ -154,19 +151,22 @@ function readAnnotationSummary(value: unknown): AnnotationSummaryEntry[] | undef
   return entries.length > 0 ? entries : undefined
 }
 
-export function readActiveReadingResourceState(
-  value: unknown,
+export function readActiveReadingResourceState<TValue>(
+  value: TValue,
 ): ActiveReadingResourceState | undefined {
-  if (!isRecord(value) || typeof value.name !== "string" || typeof value.path !== "string") {
+  const record = parseBuddyConfigObject(value)
+  const name = parseStringValue(record?.name)
+  const path = parseStringValue(record?.path)
+  if (!record || name === undefined || path === undefined) {
     return undefined
   }
 
-  const objectID = readOptionalString(value.objectID)
-  const alias = readOptionalString(value.alias)
-  const status = readStatus(value.status)
-  const currentPassageText = readOptionalString(value.currentPassageText)
-  const visibleStartText = readOptionalString(value.visibleStartText)
-  const visibleEndText = readOptionalString(value.visibleEndText)
+  const objectID = parseOptionalStringField(record.objectID)
+  const alias = parseOptionalStringField(record.alias)
+  const status = parseReadingStatus(record.status)
+  const currentPassageText = parseOptionalStringField(record.currentPassageText)
+  const visibleStartText = parseOptionalStringField(record.visibleStartText)
+  const visibleEndText = parseOptionalStringField(record.visibleEndText)
   if (
     objectID === null ||
     alias === null ||
@@ -178,16 +178,16 @@ export function readActiveReadingResourceState(
     return undefined
   }
 
-  const location = readLocation(value)
-  const readingTrail = readTrail(value.readingTrail)
-  const annotationSummary = readAnnotationSummary(value.annotationSummary)
+  const location = readLocation(record)
+  const readingTrail = readTrail(record.readingTrail)
+  const annotationSummary = readAnnotationSummary(record.annotationSummary)
   const state: ActiveReadingResourceState = Object.assign(
     Object.assign(
       Object.assign(
         {},
         objectID !== undefined ? { objectID } : undefined,
         alias !== undefined ? { alias } : undefined,
-        { name: value.name, path: value.path },
+        { name, path },
       ),
       Object.assign(
         {},
@@ -221,12 +221,13 @@ export function stripTransientActiveReadingResourceFields(
   return persisted
 }
 
-export function readActiveReadingResourceRecord(
-  value: unknown,
+export function readActiveReadingResourceRecord<TValue>(
+  value: TValue,
 ): Record<string, ActiveReadingResourceState> | undefined {
-  if (!isRecord(value)) return undefined
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
   const result: Record<string, ActiveReadingResourceState> = {}
-  for (const [key, entry] of Object.entries(value)) {
+  for (const [key, entry] of Object.entries(record)) {
     const parsed = readActiveReadingResourceState(entry)
     if (parsed) result[key] = stripTransientActiveReadingResourceFields(parsed)
   }

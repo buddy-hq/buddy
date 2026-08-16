@@ -12,6 +12,8 @@ import {
 } from "./teaching-runtime"
 import { buddyResultMessage, getBuddyClient, requireBuddyData } from "../lib/buddy-client"
 import { stringifyError } from "../lib/api-client"
+import { z } from "zod"
+import { parseStringValue, parseWithSchema } from "./parse-external"
 
 export type TeachingConflictPayload = {
   error: string
@@ -28,140 +30,117 @@ export type TeachingConflictPayload = {
   | "diagnostics"
 >
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const teachingDiagnosticSchema = z.object({
+  message: z.string(),
+  severity: z.enum(["error", "warning", "info", "hint"]),
+  source: z.string().optional(),
+  code: z.union([z.string(), z.number()]).optional(),
+  startLine: z.number().finite(),
+  startColumn: z.number().finite(),
+  endLine: z.number().finite(),
+  endColumn: z.number().finite(),
+})
+
+const teachingWorkspaceFileFieldsSchema = z.object({
+  relativePath: z.string(),
+  filePath: z.string(),
+  checkpointFilePath: z.string(),
+  language: z.string(),
+})
+
+const teachingWorkspaceFieldsSchema = z.object({
+  sessionID: z.string(),
+  workspaceRoot: z.string(),
+  language: z.string(),
+  lessonFilePath: z.string(),
+  checkpointFilePath: z.string(),
+  files: z.array(z.unknown()),
+  activeRelativePath: z.string(),
+  revision: z.number().finite(),
+  code: z.string(),
+  lspAvailable: z.boolean(),
+  diagnostics: z.array(z.unknown()),
+})
+
+const teachingConflictFieldsSchema = z.object({
+  error: z.string(),
+  revision: z.number().finite(),
+  code: z.string(),
+  files: z.array(z.unknown()),
+  activeRelativePath: z.string(),
+  lessonFilePath: z.string(),
+  checkpointFilePath: z.string(),
+  language: z.string(),
+  lspAvailable: z.boolean(),
+  diagnostics: z.array(z.unknown()),
+})
+
+function parseTeachingLanguage<TValue>(value: TValue): TeachingLanguage | undefined {
+  const text = parseStringValue(value)
+  if (text === undefined) return undefined
+  return TEACHING_LANGUAGE_OPTIONS.find((option) => option.value === text)?.value
 }
 
-function isTeachingLanguage(value: unknown): value is TeachingLanguage {
-  if (typeof value !== "string") {
-    return false
+function parseTeachingWorkspaceFile<TValue>(value: TValue): TeachingWorkspace["files"][number] | undefined {
+  const parsed = parseWithSchema(teachingWorkspaceFileFieldsSchema, value)
+  if (!parsed) return undefined
+  const language = parseTeachingLanguage(parsed.language)
+  if (!language) return undefined
+  return {
+    relativePath: parsed.relativePath,
+    filePath: parsed.filePath,
+    checkpointFilePath: parsed.checkpointFilePath,
+    language,
   }
-  return TEACHING_LANGUAGE_OPTIONS.some((option) => option.value === value)
 }
 
-function isTeachingDiagnosticSeverity(
-  value: unknown,
-): value is TeachingWorkspace["diagnostics"][number]["severity"] {
-  return value === "error" || value === "warning" || value === "info" || value === "hint"
-}
-
-function readOptionalString(value: unknown) {
-  return typeof value === "string" ? value : undefined
-}
-
-function readOptionalCode(value: unknown) {
-  return typeof value === "string" || typeof value === "number" ? value : undefined
-}
-
-function parseTeachingDiagnostics(value: unknown): TeachingWorkspace["diagnostics"] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined
-  }
-
+function parseTeachingDiagnostics<TValue>(
+  value: TValue,
+): TeachingWorkspace["diagnostics"] | undefined {
+  if (!Array.isArray(value)) return undefined
   const diagnostics: TeachingWorkspace["diagnostics"] = []
   for (const entry of value) {
-    if (!isRecord(entry)) {
-      return undefined
-    }
-    if (
-      typeof entry.message !== "string" ||
-      !isTeachingDiagnosticSeverity(entry.severity) ||
-      typeof entry.startLine !== "number" ||
-      !Number.isFinite(entry.startLine) ||
-      typeof entry.startColumn !== "number" ||
-      !Number.isFinite(entry.startColumn) ||
-      typeof entry.endLine !== "number" ||
-      !Number.isFinite(entry.endLine) ||
-      typeof entry.endColumn !== "number" ||
-      !Number.isFinite(entry.endColumn)
-    ) {
-      return undefined
-    }
-    diagnostics.push({
-      message: entry.message,
-      severity: entry.severity,
-      source: readOptionalString(entry.source),
-      code: readOptionalCode(entry.code),
-      startLine: entry.startLine,
-      startColumn: entry.startColumn,
-      endLine: entry.endLine,
-      endColumn: entry.endColumn,
-    })
+    const parsed = parseWithSchema(teachingDiagnosticSchema, entry)
+    if (!parsed) return undefined
+    diagnostics.push(parsed)
   }
-
   return diagnostics
 }
 
-function parseTeachingWorkspaceFiles(value: unknown): TeachingWorkspace["files"] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined
-  }
-
+function parseTeachingWorkspaceFiles<TValue>(value: TValue): TeachingWorkspace["files"] | undefined {
+  if (!Array.isArray(value)) return undefined
   const files: TeachingWorkspace["files"] = []
   for (const entry of value) {
-    if (!isRecord(entry)) {
-      return undefined
-    }
-    if (
-      typeof entry.relativePath !== "string" ||
-      typeof entry.filePath !== "string" ||
-      typeof entry.checkpointFilePath !== "string" ||
-      !isTeachingLanguage(entry.language)
-    ) {
-      return undefined
-    }
-    files.push({
-      relativePath: entry.relativePath,
-      filePath: entry.filePath,
-      checkpointFilePath: entry.checkpointFilePath,
-      language: entry.language,
-    })
+    const parsed = parseTeachingWorkspaceFile(entry)
+    if (!parsed) return undefined
+    files.push(parsed)
   }
-
   return files
 }
 
-function parseTeachingWorkspace(value: unknown): TeachingWorkspace | undefined {
-  if (!isRecord(value)) {
-    return undefined
-  }
-
-  const diagnostics = parseTeachingDiagnostics(value.diagnostics)
-  const files = parseTeachingWorkspaceFiles(value.files)
-
-  if (
-    typeof value.sessionID !== "string" ||
-    typeof value.workspaceRoot !== "string" ||
-    !isTeachingLanguage(value.language) ||
-    typeof value.lessonFilePath !== "string" ||
-    typeof value.checkpointFilePath !== "string" ||
-    files === undefined ||
-    typeof value.activeRelativePath !== "string" ||
-    typeof value.revision !== "number" ||
-    !Number.isFinite(value.revision) ||
-    typeof value.code !== "string" ||
-    typeof value.lspAvailable !== "boolean" ||
-    diagnostics === undefined
-  ) {
-    return undefined
-  }
-
+function parseTeachingWorkspace<TValue>(value: TValue): TeachingWorkspace | undefined {
+  const parsed = parseWithSchema(teachingWorkspaceFieldsSchema, value)
+  if (!parsed) return undefined
+  const language = parseTeachingLanguage(parsed.language)
+  const files = parseTeachingWorkspaceFiles(parsed.files)
+  const diagnostics = parseTeachingDiagnostics(parsed.diagnostics)
+  if (!language || files === undefined || diagnostics === undefined) return undefined
   return {
-    sessionID: value.sessionID,
-    workspaceRoot: value.workspaceRoot,
-    language: value.language,
-    lessonFilePath: value.lessonFilePath,
-    checkpointFilePath: value.checkpointFilePath,
+    sessionID: parsed.sessionID,
+    workspaceRoot: parsed.workspaceRoot,
+    language,
+    lessonFilePath: parsed.lessonFilePath,
+    checkpointFilePath: parsed.checkpointFilePath,
     files,
-    activeRelativePath: value.activeRelativePath,
-    revision: value.revision,
-    code: value.code,
-    lspAvailable: value.lspAvailable,
+    activeRelativePath: parsed.activeRelativePath,
+    revision: parsed.revision,
+    code: parsed.code,
+    lspAvailable: parsed.lspAvailable,
     diagnostics,
   }
 }
 
-function requireTeachingWorkspace(value: unknown): TeachingWorkspace {
+function requireTeachingWorkspace<TValue>(value: TValue): TeachingWorkspace {
   const workspace = parseTeachingWorkspace(value)
   if (!workspace) {
     throw new Error("Invalid teaching workspace response")
@@ -169,21 +148,25 @@ function requireTeachingWorkspace(value: unknown): TeachingWorkspace {
   return workspace
 }
 
-function isTeachingConflictPayload(value: unknown): value is TeachingConflictPayload {
-  if (!isRecord(value)) return false
-  return (
-    typeof value.error === "string" &&
-    typeof value.revision === "number" &&
-    Number.isFinite(value.revision) &&
-    typeof value.code === "string" &&
-    parseTeachingWorkspaceFiles(value.files) !== undefined &&
-    typeof value.activeRelativePath === "string" &&
-    typeof value.lessonFilePath === "string" &&
-    typeof value.checkpointFilePath === "string" &&
-    isTeachingLanguage(value.language) &&
-    typeof value.lspAvailable === "boolean" &&
-    parseTeachingDiagnostics(value.diagnostics) !== undefined
-  )
+function parseTeachingConflictPayload<TValue>(value: TValue): TeachingConflictPayload | undefined {
+  const parsed = parseWithSchema(teachingConflictFieldsSchema, value)
+  if (!parsed) return undefined
+  const language = parseTeachingLanguage(parsed.language)
+  const files = parseTeachingWorkspaceFiles(parsed.files)
+  const diagnostics = parseTeachingDiagnostics(parsed.diagnostics)
+  if (!language || files === undefined || diagnostics === undefined) return undefined
+  return {
+    error: parsed.error,
+    revision: parsed.revision,
+    code: parsed.code,
+    files,
+    activeRelativePath: parsed.activeRelativePath,
+    lessonFilePath: parsed.lessonFilePath,
+    checkpointFilePath: parsed.checkpointFilePath,
+    language,
+    lspAvailable: parsed.lspAvailable,
+    diagnostics,
+  }
 }
 
 export class TeachingConflictError extends Error {
@@ -265,8 +248,11 @@ export async function saveTeachingWorkspace(input: {
     language: input.language,
   })
 
-  if (result.response?.status === 409 && isTeachingConflictPayload(result.error)) {
-    throw new TeachingConflictError(result.error)
+  if (result.response?.status === 409) {
+    const conflict = parseTeachingConflictPayload(result.error)
+    if (conflict) {
+      throw new TeachingConflictError(conflict)
+    }
   }
 
   if (

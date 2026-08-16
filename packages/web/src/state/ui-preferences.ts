@@ -2,14 +2,16 @@ import { useSyncExternalStore } from "react"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
+import { z } from "zod"
 import { createPlatformJsonStorage } from "../context/platform"
 import { LEFT_SIDEBAR_DEFAULT_WIDTH_PX } from "@/lib/directory-chat/left-sidebar-layout"
+import { parseFiniteNumber, parseWithSchema } from "./parse-external"
 
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
 
 const DEFAULT_PROJECT_FILE_TREE_OPEN = false
 
-type PersistedUiPreferences = {
+type TPersistedUiPreferences = {
   pinnedByDirectory?: Record<string, string[]>
   unreadByDirectory?: Record<string, Record<string, true>>
   collapsedChatSidebarDirectories?: Record<string, true>
@@ -19,18 +21,26 @@ type PersistedUiPreferences = {
   settingsSidebarWidth?: number
   projectFileTreeOpen?: boolean
   teacherStandardsAutoSetupComplete?: boolean
-  mainPaneTab?: unknown
 }
 
-function isPersistedUiPreferences(value: unknown): value is PersistedUiPreferences {
-  return typeof value === "object" && value !== null
+const persistedUiPreferencesSchema = z.object({
+  pinnedByDirectory: z.record(z.string(), z.array(z.string())).optional(),
+  unreadByDirectory: z.record(z.string(), z.record(z.string(), z.literal(true))).optional(),
+  collapsedChatSidebarDirectories: z.record(z.string(), z.literal(true)).optional(),
+  leftSidebarOpen: z.boolean().optional(),
+  leftSidebarWidth: z.number().finite().optional(),
+  chatLeftSidebarWidth: z.number().finite().optional(),
+  settingsSidebarWidth: z.number().finite().optional(),
+  projectFileTreeOpen: z.boolean().optional(),
+  teacherStandardsAutoSetupComplete: z.boolean().optional(),
+})
+
+function parsePersistedUiPreferences<TValue>(value: TValue): TPersistedUiPreferences | undefined {
+  return parseWithSchema(persistedUiPreferencesSchema, value)
 }
 
-function readLegacyLeftSidebarWidth(state: PersistedUiPreferences | undefined) {
-  if (!state || typeof state.leftSidebarWidth !== "number") {
-    return LEFT_SIDEBAR_DEFAULT_WIDTH_PX
-  }
-  return state.leftSidebarWidth
+function readLegacyLeftSidebarWidth(state: TPersistedUiPreferences | undefined) {
+  return parseFiniteNumber(state?.leftSidebarWidth) ?? LEFT_SIDEBAR_DEFAULT_WIDTH_PX
 }
 
 export type UiPreferencesStore = {
@@ -191,7 +201,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
       version: 19,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
-        const state = isPersistedUiPreferences(persistedState) ? persistedState : undefined
+        const state = parsePersistedUiPreferences(persistedState)
         const legacyLeftSidebarWidth = readLegacyLeftSidebarWidth(state)
         return {
           pinnedByDirectory: state?.pinnedByDirectory ?? {},

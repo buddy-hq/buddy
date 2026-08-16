@@ -1,8 +1,10 @@
+import { z } from "zod"
 import {
   authorizationHeader,
   createServerFetchTransport,
   resolveServerApiBaseUrl,
 } from "../lib/server-client"
+import { parseBuddyConfigObject, parseStringValue, parseWithSchema } from "./parse-external"
 
 export type AdvancedMathRuntimeState =
   | "not_installed"
@@ -27,64 +29,40 @@ export type AdvancedMathRuntimeStatus = {
   supportedLibraries: string[]
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const advancedMathRuntimeStatusSchema = z.object({
+  enabled: z.boolean(),
+  state: z.enum([
+    "not_installed",
+    "downloading",
+    "installing",
+    "ready",
+    "repairing",
+    "removing",
+    "error",
+  ]),
+  ready: z.boolean(),
+  targetTriple: z.string(),
+  supportedLibraries: z.array(z.string()),
+  installedRuntimeVersion: z.string().optional(),
+  executablePath: z.string().optional(),
+  lastHealthyAt: z.string().optional(),
+  lastError: z.string().optional(),
+  progressPercent: z.number().finite().optional(),
+  progressMessage: z.string().optional(),
+})
+
+function parseRuntimeErrorMessage<TValue>(value: TValue): string | undefined {
+  const text = parseStringValue(value)
+  if (text !== undefined && text.length > 0) return text
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  return parseRuntimeErrorMessage(record.error)
 }
 
-function errorMessage(value: unknown) {
-  if (typeof value === "string" && value.length > 0) return value
-  if (isRecord(value) && "error" in value) {
-    const errorValue = value.error
-    return errorMessage(errorValue)
-  }
-  return undefined
-}
-
-function parseAdvancedMathRuntimeStatus(value: unknown): AdvancedMathRuntimeStatus | undefined {
-  if (!isRecord(value)) {
-    return undefined
-  }
-  if (typeof value.enabled !== "boolean") {
-    return undefined
-  }
-  if (
-    value.state !== "not_installed" &&
-    value.state !== "downloading" &&
-    value.state !== "installing" &&
-    value.state !== "ready" &&
-    value.state !== "repairing" &&
-    value.state !== "removing" &&
-    value.state !== "error"
-  ) {
-    return undefined
-  }
-  if (typeof value.ready !== "boolean" || typeof value.targetTriple !== "string") {
-    return undefined
-  }
-  if (!Array.isArray(value.supportedLibraries)) {
-    return undefined
-  }
-  const supportedLibraries = value.supportedLibraries.filter(
-    (entry): entry is string => typeof entry === "string",
-  )
-
-  return {
-    enabled: value.enabled,
-    state: value.state,
-    ready: value.ready,
-    targetTriple: value.targetTriple,
-    supportedLibraries,
-    installedRuntimeVersion:
-      typeof value.installedRuntimeVersion === "string" ? value.installedRuntimeVersion : undefined,
-    executablePath: typeof value.executablePath === "string" ? value.executablePath : undefined,
-    lastHealthyAt: typeof value.lastHealthyAt === "string" ? value.lastHealthyAt : undefined,
-    lastError: typeof value.lastError === "string" ? value.lastError : undefined,
-    progressPercent:
-      typeof value.progressPercent === "number" && Number.isFinite(value.progressPercent)
-        ? value.progressPercent
-        : undefined,
-    progressMessage: typeof value.progressMessage === "string" ? value.progressMessage : undefined,
-  }
+function parseAdvancedMathRuntimeStatus<TValue>(
+  value: TValue,
+): AdvancedMathRuntimeStatus | undefined {
+  return parseWithSchema(advancedMathRuntimeStatusSchema, value)
 }
 
 async function requestRuntimeStatus(
@@ -96,16 +74,12 @@ async function requestRuntimeStatus(
   const auth = authorizationHeader()
   const response = await transport(`${baseUrl}${pathname}`, {
     ...init,
-    headers: Object.assign(
-      {},
-      auth ? { authorization: auth } : undefined,
-      init?.headers,
-    ),
+    headers: Object.assign({}, auth ? { authorization: auth } : undefined, init?.headers),
   })
 
   const body = await response.json().catch(() => undefined)
   if (!response.ok) {
-    throw new Error(errorMessage(body) ?? `Request failed (${response.status})`)
+    throw new Error(parseRuntimeErrorMessage(body) ?? `Request failed (${response.status})`)
   }
 
   const status = parseAdvancedMathRuntimeStatus(body)

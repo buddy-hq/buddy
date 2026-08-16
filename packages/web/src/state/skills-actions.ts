@@ -1,15 +1,12 @@
 import type {
   SkillsCreateData,
-  SkillsCreateResponses,
-  SkillsDeleteResponses,
-  SkillsLibraryDeleteResponses,
-  SkillsLibraryInstallResponses,
   SkillsListResponses,
   SkillsPresentationsResponses,
-  SkillsSettingsPatchResponses,
   SkillsUpdateResponses,
 } from "@buddy/sdk"
 import { getBuddyClient, requireBuddyData } from "../lib/buddy-client"
+import { z } from "zod"
+import { parseWithSchema } from "./parse-external"
 
 export type SkillLibraryEntry = {
   id: string
@@ -23,7 +20,6 @@ export type SkillLibraryEntry = {
   state: "available" | "installed" | "update_available" | "withdrawn_installed"
 }
 
-type TSkillLibraryState = SkillLibraryEntry["state"]
 export type SkillPermissionAction = "allow" | "deny"
 type RawInstalledSkillInfo = SkillsListResponses[200]["installed"][number]
 export type InstalledSkillInfo = Omit<RawInstalledSkillInfo, "permissionAction"> & {
@@ -43,61 +39,35 @@ export type SkillRuleAction = SkillPermissionAction
 export type SkillSource = InstalledSkillInfo["source"]
 export type SkillScope = InstalledSkillInfo["scope"]
 
-function objectRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
-  return Object.fromEntries(Object.entries(value))
-}
+const skillLibraryEntrySchema = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  icon: z.string().optional(),
+  summary: z.string(),
+  categories: z.array(z.string()),
+  tags: z.array(z.string()),
+  sourceKind: z.literal("github"),
+  sourceLabel: z.string(),
+  state: z.enum(["available", "installed", "update_available", "withdrawn_installed"]),
+})
 
-function stringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) return undefined
-  return value
-}
-
-function readSkillLibraryState(value: unknown): TSkillLibraryState | undefined {
-  if (
-    value === "available" ||
-    value === "installed" ||
-    value === "update_available" ||
-    value === "withdrawn_installed"
-  ) {
-    return value
-  }
-  return undefined
-}
-
-function parseSkillLibraryEntry(value: unknown): SkillLibraryEntry {
-  const record = objectRecord(value)
-  const categories = stringArray(record?.categories)
-  const tags = stringArray(record?.tags)
-  const state = readSkillLibraryState(record?.state)
-  if (
-    !record ||
-    typeof record.id !== "string" ||
-    typeof record.displayName !== "string" ||
-    (record.icon !== undefined && typeof record.icon !== "string") ||
-    typeof record.summary !== "string" ||
-    !categories ||
-    !tags ||
-    record.sourceKind !== "github" ||
-    typeof record.sourceLabel !== "string" ||
-    !state
-  ) {
+function parseSkillLibraryEntry<TValue>(value: TValue): SkillLibraryEntry {
+  const entry = parseWithSchema(skillLibraryEntrySchema, value)
+  if (!entry) {
     throw new Error("Invalid skill library response")
   }
-
-  const entry: SkillLibraryEntry = {
-    id: record.id,
-    displayName: record.displayName,
-    summary: record.summary,
-    categories,
-    tags,
-    sourceKind: "github",
-    sourceLabel: record.sourceLabel,
-    state,
-  }
   return Object.assign(
-    entry,
-    typeof record.icon === "string" ? { icon: record.icon } : undefined,
+    {
+      id: entry.id,
+      displayName: entry.displayName,
+      summary: entry.summary,
+      categories: entry.categories,
+      tags: entry.tags,
+      sourceKind: "github" as const,
+      sourceLabel: entry.sourceLabel,
+      state: entry.state,
+    },
+    entry.icon ? { icon: entry.icon } : undefined,
   )
 }
 
@@ -125,7 +95,7 @@ export async function loadSkillsCatalog(
   const result = await getBuddyClient(directory).skills.list({
     refresh: options?.refresh ? "1" : undefined,
   })
-  return parseSkillsCatalog(requireBuddyData<SkillsListResponses[200]>(result))
+  return parseSkillsCatalog(requireBuddyData(result))
 }
 
 export type SkillPresentation = SkillsPresentationsResponses[200][number]
@@ -137,28 +107,28 @@ export type SkillPresentation = SkillsPresentationsResponses[200][number]
  */
 export async function loadSkillPresentations(directory?: string) {
   const result = await getBuddyClient(directory).skills.presentations()
-  return requireBuddyData<SkillsPresentationsResponses[200]>(result)
+  return requireBuddyData(result)
 }
 
 export async function installLibrarySkill(skillID: string, directory?: string) {
   const result = await getBuddyClient(directory).skills.library.install({
     skillID,
   })
-  return requireBuddyData<SkillsLibraryInstallResponses[200]>(result)
+  return requireBuddyData(result)
 }
 
 export async function removeLibrarySkill(skillID: string, directory?: string) {
   const result = await getBuddyClient(directory).skills.library.delete({
     skillID,
   })
-  return requireBuddyData<SkillsLibraryDeleteResponses[200]>(result)
+  return requireBuddyData(result)
 }
 
 export async function createCustomSkill(input: CreateCustomSkillInput, directory?: string) {
   const result = await getBuddyClient(directory).skills.create({
     ...input,
   })
-  return requireBuddyData<SkillsCreateResponses[200]>(result)
+  return requireBuddyData(result)
 }
 
 export async function setSkillPermissionAction(
@@ -170,7 +140,7 @@ export async function setSkillPermissionAction(
     name,
     action,
   })
-  const raw = requireBuddyData<SkillsUpdateResponses[200]>(result)
+  const raw = requireBuddyData(result)
   return {
     ...raw,
     action: raw.action === "deny" ? "deny" : "allow",
@@ -185,7 +155,7 @@ export async function removeSkill(name: string, directory?: string) {
   const result = await getBuddyClient(directory).skills.delete({
     name,
   })
-  return requireBuddyData<SkillsDeleteResponses[200]>(result)
+  return requireBuddyData(result)
 }
 
 export async function updateSkillsSettings(
@@ -195,5 +165,5 @@ export async function updateSkillsSettings(
   const result = await getBuddyClient(directory).skills.settings.patch({
     externalVendorRootsEnabled,
   })
-  return requireBuddyData<SkillsSettingsPatchResponses[200]>(result)
+  return requireBuddyData(result)
 }

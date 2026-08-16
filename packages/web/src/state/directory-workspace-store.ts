@@ -21,10 +21,19 @@ import {
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import {
   WORKSPACE_CHAT_DRAFT_KEY,
+  WORKSPACE_CHAT_TRANSITION_KEY_PREFIX,
   isPersistedWorkspaceChatKey,
+  workspaceChatKeyForTransition,
   type PersistedWorkspaceChatKey,
   type WorkspaceChatKey,
 } from "@/lib/workspace-chat-key"
+import { z } from "zod"
+import {
+  browserLocalStorage,
+  hasFunctionValue,
+  parseBuddyConfigObject,
+  parseWithSchema,
+} from "./parse-external"
 
 export const WORKSPACE_DRAWER_SOURCES = "sources"
 export const WORKSPACE_DRAWER_SEARCH = "search"
@@ -306,43 +315,59 @@ function normalizeDockedState(state: DockedWorkspaceState): DockedWorkspaceState
   return state
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const drawerKindSchema = z.enum([
+  WORKSPACE_DRAWER_SEARCH,
+  WORKSPACE_DRAWER_SOURCES,
+  WORKSPACE_DRAWER_PRACTICE,
+  WORKSPACE_DRAWER_CREATIONS,
+  WORKSPACE_DRAWER_BOARDS,
+  WORKSPACE_DRAWER_FILES,
+  WORKSPACE_DRAWER_SKILLS,
+])
+const workspaceVisibilitySchema = z.enum([
+  WORKSPACE_VISIBILITY_COLLAPSED,
+  WORKSPACE_VISIBILITY_EXPANDED,
+])
+
+export function isDrawerKind<TValue>(value: TValue): value is TValue & DrawerKind {
+  return parseWithSchema(drawerKindSchema, value) !== undefined
 }
 
-export function isDrawerKind(value: unknown): value is DrawerKind {
-  return (
-    value === WORKSPACE_DRAWER_SEARCH ||
-    value === WORKSPACE_DRAWER_SOURCES ||
-    value === WORKSPACE_DRAWER_PRACTICE ||
-    value === WORKSPACE_DRAWER_CREATIONS ||
-    value === WORKSPACE_DRAWER_BOARDS ||
-    value === WORKSPACE_DRAWER_FILES ||
-    value === WORKSPACE_DRAWER_SKILLS
-  )
+function parseWorkspaceVisibility<TValue>(
+  value: TValue,
+): DockedWorkspaceState["visibility"] | undefined {
+  return parseWithSchema(workspaceVisibilitySchema, value)
 }
 
-function isWorkspaceVisibility(value: unknown): value is DockedWorkspaceState["visibility"] {
-  return value === WORKSPACE_VISIBILITY_COLLAPSED || value === WORKSPACE_VISIBILITY_EXPANDED
+function parseWorkspaceChatKey(value: string): WorkspaceChatKey | undefined {
+  if (isPersistedWorkspaceChatKey(value)) return value
+  if (!value.startsWith(WORKSPACE_CHAT_TRANSITION_KEY_PREFIX)) return undefined
+  const suffix = value.slice(WORKSPACE_CHAT_TRANSITION_KEY_PREFIX.length)
+  const id = Number(suffix)
+  if (!Number.isInteger(id) || String(id) !== suffix) return undefined
+  return workspaceChatKeyForTransition(id)
 }
 
-function readDockedWorkspaceState(value: unknown): DockedWorkspaceState | undefined {
-  if (!isRecord(value) || !isWorkspaceVisibility(value.visibility)) return undefined
-  if (value.visibility === WORKSPACE_VISIBILITY_COLLAPSED) {
-    return value.drawer === null ? createCollapsedWorkspaceState() : undefined
+function readDockedWorkspaceState<TValue>(value: TValue): DockedWorkspaceState | undefined {
+  const record = parseBuddyConfigObject(value)
+  const visibility = parseWorkspaceVisibility(record?.visibility)
+  if (!record || visibility === undefined) return undefined
+  if (visibility === WORKSPACE_VISIBILITY_COLLAPSED) {
+    return record.drawer === null ? createCollapsedWorkspaceState() : undefined
   }
-  if (value.drawer !== null && !isDrawerKind(value.drawer)) return undefined
-  return createExpandedWorkspaceState(value.drawer)
+  if (record.drawer !== null && !isDrawerKind(record.drawer)) return undefined
+  return createExpandedWorkspaceState(record.drawer)
 }
 
-function readBenchRouteSnapshot(value: unknown): BenchRouteSnapshot | undefined {
-  if (!isRecord(value)) return undefined
-  if (value.status === BENCH_ROUTE_STATUS_CLOSED) {
+function readBenchRouteSnapshot<TValue>(value: TValue): BenchRouteSnapshot | undefined {
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  if (record.status === BENCH_ROUTE_STATUS_CLOSED) {
     return { status: BENCH_ROUTE_STATUS_CLOSED }
   }
-  if (value.status !== BENCH_ROUTE_STATUS_OPEN) return undefined
-  const target = readBenchTabTarget(value.target)
-  const mode = readBenchChatLayoutMode(value.mode)
+  if (record.status !== BENCH_ROUTE_STATUS_OPEN) return undefined
+  const target = readBenchTabTarget(record.target)
+  const mode = readBenchChatLayoutMode(record.mode)
   if (!target || !mode) return undefined
   return {
     status: BENCH_ROUTE_STATUS_OPEN,
@@ -351,13 +376,14 @@ function readBenchRouteSnapshot(value: unknown): BenchRouteSnapshot | undefined 
   }
 }
 
-function readWorkspacePresentationSlot(value: unknown): WorkspacePresentationSlot | undefined {
-  if (!isRecord(value)) return undefined
-  const route = readBenchRouteSnapshot(value.route)
-  if (!Array.isArray(value.tabs)) return undefined
-  const tabs = value.tabs.map(readBenchTab)
-  const docked = readDockedWorkspaceState(value.docked)
-  const lastDrawer = value.lastDrawer
+function readWorkspacePresentationSlot<TValue>(value: TValue): WorkspacePresentationSlot | undefined {
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  const route = readBenchRouteSnapshot(record.route)
+  if (!Array.isArray(record.tabs)) return undefined
+  const tabs = record.tabs.map(readBenchTab)
+  const docked = readDockedWorkspaceState(record.docked)
+  const lastDrawer = record.lastDrawer
   if (!route || tabs.some((tab) => !tab) || !docked || !isDrawerKind(lastDrawer)) return undefined
   const parsedTabs = tabs.flatMap((tab) => (tab ? [tab] : []))
   return {
@@ -375,20 +401,13 @@ function storageKeyForDirectory(directory: string): string {
 const memoryWorkspaceStorage = new Map<string, string>()
 const directoryWorkspaceWriteQueue = new Map<string, Promise<void>>()
 
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "then" in value &&
-    typeof value.then === "function"
-  )
-}
-
-function discardStorageWriteResult(result: unknown): void | Promise<void> {
-  if (isThenable(result)) {
-    return Promise.resolve(result).then(() => undefined)
+function discardStorageWriteResult<TResult>(result: TResult): void | Promise<void> {
+  if (result instanceof Promise) {
+    return result.then(() => undefined)
   }
-  return undefined
+  if (!(result instanceof Object) || Array.isArray(result)) return undefined
+  if (!("then" in result) || !hasFunctionValue(result.then)) return undefined
+  return Promise.resolve(result).then(() => undefined)
 }
 
 function defaultDirectoryWorkspaceStorage(): DirectoryWorkspacePersistenceStorage {
@@ -406,7 +425,8 @@ function defaultDirectoryWorkspaceStorage(): DirectoryWorkspacePersistenceStorag
       },
     }
   }
-  if (typeof localStorage !== "undefined") return localStorage
+  const localStorageNode = browserLocalStorage()
+  if (localStorageNode) return localStorageNode
   return {
     getItem(name) {
       return memoryWorkspaceStorage.get(name) ?? null
@@ -451,12 +471,14 @@ async function waitForDirectoryWorkspaceWrites(directory: string): Promise<void>
   await directoryWorkspaceWriteQueue.get(persistenceQueueKey(directory))?.catch(() => undefined)
 }
 
-function readPersistedDirectoryWorkspaceState(
-  value: unknown,
+function readPersistedDirectoryWorkspaceState<TValue>(
+  value: TValue,
 ): PersistedDirectoryWorkspaceState | undefined {
-  if (!isRecord(value) || !isRecord(value.slots)) return undefined
+  const record = parseBuddyConfigObject(value)
+  const slotsRecord = parseBuddyConfigObject(record?.slots)
+  if (!record || !slotsRecord) return undefined
   const slots: Partial<Record<PersistedWorkspaceChatKey, WorkspacePresentationSlot>> = {}
-  for (const [key, slotValue] of Object.entries(value.slots)) {
+  for (const [key, slotValue] of Object.entries(slotsRecord)) {
     if (!isPersistedWorkspaceChatKey(key)) continue
     const slot = readWorkspacePresentationSlot(slotValue)
     if (slot) slots[key] = slot
@@ -464,12 +486,13 @@ function readPersistedDirectoryWorkspaceState(
   return { slots }
 }
 
-function readPersistedDirectoryWorkspacePayload(
-  value: unknown,
+function readPersistedDirectoryWorkspacePayload<TValue>(
+  value: TValue,
 ): PersistedDirectoryWorkspacePayload | undefined {
-  if (!isRecord(value)) return undefined
-  if (value.version !== DIRECTORY_WORKSPACE_PERSISTENCE_VERSION) return undefined
-  const state = readPersistedDirectoryWorkspaceState(value.state)
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  if (record.version !== DIRECTORY_WORKSPACE_PERSISTENCE_VERSION) return undefined
+  const state = readPersistedDirectoryWorkspaceState(record.state)
   if (!state) return undefined
   return {
     version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
@@ -641,13 +664,15 @@ export function removeSessionBenchTargetsFromSlots(input: {
 }): Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> {
   let changed = false
   const slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
-  for (const [chatKey, slot] of Object.entries(input.slots)) {
+  for (const [key, slot] of Object.entries(input.slots)) {
     if (!slot) continue
+    const chatKey = parseWorkspaceChatKey(key)
+    if (!chatKey) continue
     const nextSlot =
       chatKey === input.excludeChatKey
         ? slot
         : removeSessionBenchTargetsFromSlot({ slot, sessionIDs: input.sessionIDs })
-    slots[chatKey as WorkspaceChatKey] = nextSlot
+    slots[chatKey] = nextSlot
     changed ||= nextSlot !== slot
   }
   return changed ? slots : input.slots
@@ -680,7 +705,9 @@ function retainWorkspaceChatSlots(input: {
   const ordered: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
   for (const [key, slot] of Object.entries(input.slots)) {
     if (key === input.touchedChatKey || !slot) continue
-    ordered[key as WorkspaceChatKey] = slot
+    const chatKey = parseWorkspaceChatKey(key)
+    if (!chatKey) continue
+    ordered[chatKey] = slot
   }
   if (touched) ordered[input.touchedChatKey] = touched
 
@@ -698,7 +725,9 @@ function retainWorkspaceChatSlots(input: {
   const bounded: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
   for (const [key, slot] of Object.entries(ordered)) {
     if (evicted.has(key) || !slot) continue
-    bounded[key as WorkspaceChatKey] = slot
+    const chatKey = parseWorkspaceChatKey(key)
+    if (!chatKey) continue
+    bounded[chatKey] = slot
   }
   return bounded
 }

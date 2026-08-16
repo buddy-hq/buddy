@@ -2,6 +2,14 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import { createPlatformJsonStorage } from "@/context/platform"
+import { z } from "zod"
+import {
+  parseBooleanValue,
+  parseBuddyConfigObject,
+  parseFiniteNumber,
+  parseStringValue,
+  parseWithSchema,
+} from "./parse-external"
 
 type NotificationBase = {
   directory?: string
@@ -123,27 +131,27 @@ function markListProjectViewed(list: BuddyNotification[], directory: string) {
   )
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const notificationTypeSchema = z.enum(["turn-complete", "error"])
+
+function parseNotificationType<TValue>(value: TValue): BuddyNotification["type"] | undefined {
+  return parseWithSchema(notificationTypeSchema, value)
 }
 
-function isNotificationType(value: unknown): value is BuddyNotification["type"] {
-  return value === "turn-complete" || value === "error"
-}
-
-function readPersistedNotification(value: unknown): BuddyNotification | undefined {
-  if (!isRecord(value)) return undefined
-  if (!isNotificationType(value.type)) return undefined
-  if (typeof value.time !== "number" || !Number.isFinite(value.time)) return undefined
+function readPersistedNotification<TValue>(value: TValue): BuddyNotification | undefined {
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  const type = parseNotificationType(record.type)
+  const time = parseFiniteNumber(record.time)
+  if (!type || time === undefined) return undefined
 
   const base = {
-    directory: typeof value.directory === "string" ? value.directory : undefined,
-    session: typeof value.session === "string" ? value.session : undefined,
-    time: value.time,
-    viewed: typeof value.viewed === "boolean" ? value.viewed : false,
+    directory: parseStringValue(record.directory),
+    session: parseStringValue(record.session),
+    time,
+    viewed: parseBooleanValue(record.viewed) ?? false,
   }
 
-  if (value.type === "turn-complete") {
+  if (type === "turn-complete") {
     return {
       ...base,
       type: "turn-complete",
@@ -153,14 +161,15 @@ function readPersistedNotification(value: unknown): BuddyNotification | undefine
   return {
     ...base,
     type: "error",
-    error: value.error,
+    error: record.error,
   }
 }
 
-function readPersistedList(value: unknown) {
-  if (!isRecord(value)) return []
-  if (!Array.isArray(value.list)) return []
-  return pruneNotifications(value.list.flatMap((item) => readPersistedNotification(item) ?? []))
+function readPersistedList<TValue>(value: TValue) {
+  const record = parseBuddyConfigObject(value)
+  if (!record) return []
+  if (!Array.isArray(record.list)) return []
+  return pruneNotifications(record.list.flatMap((item) => readPersistedNotification(item) ?? []))
 }
 
 export const useNotifications = create<NotificationsStore>()(

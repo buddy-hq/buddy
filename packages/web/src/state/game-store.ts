@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { parseBuddyConfigObject, parseFiniteNumber } from "./parse-external"
 
 export const GAME_PROMPT_PREFERENCE_STANDARD = "standard"
 export const GAME_PROMPT_PREFERENCE_REDUCED = "reduced"
@@ -39,27 +40,24 @@ type TGameStore = {
   updateHighScore: (game: TGameType, score: number) => void
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function normalizeGamePromptPreference(value: unknown): TGamePromptPreference {
+function parseGamePromptPreference<TValue>(value: TValue): TGamePromptPreference {
   if (value === GAME_PROMPT_PREFERENCE_REDUCED) return GAME_PROMPT_PREFERENCE_REDUCED
   if (value === GAME_PROMPT_PREFERENCE_DISABLED) return GAME_PROMPT_PREFERENCE_DISABLED
   return GAME_PROMPT_PREFERENCE_STANDARD
 }
 
-function normalizeTimestamp(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null
+function parseTimestamp<TValue>(value: TValue): number | null {
+  return parseFiniteNumber(value) ?? null
 }
 
-function normalizeHighScores(value: unknown, fallback: THighScores) {
-  if (!isRecord(value)) return fallback
+function parseHighScores<TValue>(value: TValue, fallback: THighScores) {
+  const record = parseBuddyConfigObject(value)
+  if (!record) return fallback
 
   return {
-    snake: typeof value.snake === "number" ? value.snake : fallback.snake,
-    reaction: typeof value.reaction === "number" ? value.reaction : fallback.reaction,
-    memory: typeof value.memory === "number" ? value.memory : fallback.memory,
+    snake: parseFiniteNumber(record.snake) ?? fallback.snake,
+    reaction: parseFiniteNumber(record.reaction) ?? fallback.reaction,
+    memory: parseFiniteNumber(record.memory) ?? fallback.memory,
   }
 }
 
@@ -127,14 +125,15 @@ export const useGameStore = create<TGameStore>()(
     {
       name: "buddy-game-store",
       merge(persistedState, currentState) {
-        if (!isRecord(persistedState)) return currentState
+        const record = parseBuddyConfigObject(persistedState)
+        if (!record) return currentState
 
         return {
           ...currentState,
-          highScores: normalizeHighScores(persistedState.highScores, currentState.highScores),
-          gamePromptPreference: normalizeGamePromptPreference(persistedState.gamePromptPreference),
-          gamePromptDismissedUntil: normalizeTimestamp(persistedState.gamePromptDismissedUntil),
-          gamePromptLastShownAt: normalizeTimestamp(persistedState.gamePromptLastShownAt),
+          highScores: parseHighScores(record.highScores, currentState.highScores),
+          gamePromptPreference: parseGamePromptPreference(record.gamePromptPreference),
+          gamePromptDismissedUntil: parseTimestamp(record.gamePromptDismissedUntil),
+          gamePromptLastShownAt: parseTimestamp(record.gamePromptLastShownAt),
         }
       },
       partialize: (state) => ({

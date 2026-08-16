@@ -1,4 +1,5 @@
 import type { AssistantMessageInfo, MessageWithParts, ProviderInfo } from "./chat-types"
+import { parseFiniteNumber } from "./parse-external"
 
 export type TokenContextMetrics = {
   used: number
@@ -69,6 +70,7 @@ export function getSessionContextMetrics(
   const model = provider?.models.find((item) => item.id === message.modelID)
   const limit = model?.limit.context
   const total = tokenTotal(message)
+  const parsedLimit = parseFiniteNumber(limit)
 
   return {
     totalCost,
@@ -85,8 +87,8 @@ export function getSessionContextMetrics(
       cacheRead: message.tokens.cache.read,
       cacheWrite: message.tokens.cache.write,
       total,
-      usage: limit ? Math.round((total / limit) * 100) : null,
-      remaining: typeof limit === "number" ? Math.max(limit - total, 0) : undefined,
+      usage: parsedLimit ? Math.round((total / parsedLimit) * 100) : null,
+      remaining: parsedLimit === undefined ? undefined : Math.max(parsedLimit - total, 0),
     },
   }
 }
@@ -101,13 +103,14 @@ export function computeTokenContextMetrics(input: {
   const model = provider?.models.find((item) => item.id === input.assistant.modelID)
   const limit = model?.limit.context
 
-  if (typeof limit !== "number" || limit <= 0) {
+  const parsedLimit = parseFiniteNumber(limit)
+  if (parsedLimit === undefined || parsedLimit <= 0) {
     return { used }
   }
 
   return {
     used,
-    limit,
-    remaining: Math.max(limit - used, 0),
+    limit: parsedLimit,
+    remaining: Math.max(parsedLimit - used, 0),
   }
 }

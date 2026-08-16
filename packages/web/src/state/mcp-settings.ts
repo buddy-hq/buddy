@@ -1,30 +1,24 @@
 import type { McpConfig } from "@/components/mcp-dialog/mcp-config-schema"
 import { readRecord } from "./project-config-readers"
+import { parseBooleanValue, parseBuddyConfigObject, parseStringValue } from "./parse-external"
+import type { TBuddyConfigObject } from "./parse-external"
 
-type McpConfigMap = Record<string, McpConfig>
-type NotebookMcpOverridePatch = {
+type TMcpConfigMap = Record<string, McpConfig>
+type TNotebookMcpOverridePatch = {
   mcp: Record<string, { enabled: boolean | null } | null>
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function readNotebookMcpEntry<TConfig>(input: TConfig, name: string) {
+  const mcpConfig = readRecord(input, "mcp")
+  return parseBuddyConfigObject(mcpConfig?.[name])
 }
 
-function readNotebookMcpEntry(rawProjectConfig: Record<string, unknown>, name: string) {
-  const mcpConfig = readRecord(rawProjectConfig, "mcp")
-  const entry = mcpConfig?.[name]
-
-  return isRecord(entry) ? entry : undefined
+function isNotebookMcpDefinition(entry: TBuddyConfigObject | undefined) {
+  const type = parseStringValue(entry?.type)
+  return type === "local" || type === "remote"
 }
 
-function isNotebookMcpDefinition(entry: Record<string, unknown> | undefined) {
-  return entry?.type === "local" || entry?.type === "remote"
-}
-
-export function notebookDefinesMcp(
-  rawProjectConfig: Record<string, unknown>,
-  name: string,
-): boolean {
+export function notebookDefinesMcp<TConfig>(rawProjectConfig: TConfig, name: string): boolean {
   return isNotebookMcpDefinition(readNotebookMcpEntry(rawProjectConfig, name))
 }
 
@@ -32,22 +26,18 @@ export function mcpEnabledByDefault(config: McpConfig | undefined) {
   return config?.enabled !== false
 }
 
-export function readNotebookMcpEnabledOverride(
-  rawProjectConfig: Record<string, unknown>,
-  name: string,
-) {
+export function readNotebookMcpEnabledOverride<TConfig>(rawProjectConfig: TConfig, name: string) {
   const entry = readNotebookMcpEntry(rawProjectConfig, name)
   if (!entry) {
     return undefined
   }
 
-  const enabled = entry.enabled
-  return typeof enabled === "boolean" ? enabled : undefined
+  return parseBooleanValue(entry.enabled)
 }
 
-export function resolveNotebookMcpEnabled(
-  globalConfigByName: McpConfigMap,
-  rawProjectConfig: Record<string, unknown>,
+export function resolveNotebookMcpEnabled<TConfig>(
+  globalConfigByName: TMcpConfigMap,
+  rawProjectConfig: TConfig,
   name: string,
 ) {
   const override = readNotebookMcpEnabledOverride(rawProjectConfig, name)
@@ -58,12 +48,12 @@ export function resolveNotebookMcpEnabled(
   return mcpEnabledByDefault(globalConfigByName[name])
 }
 
-export function buildNotebookMcpOverridePatch(input: {
-  globalConfigByName: McpConfigMap
-  rawProjectConfig: Record<string, unknown>
+export function buildNotebookMcpOverridePatch<TConfig>(input: {
+  globalConfigByName: TMcpConfigMap
+  rawProjectConfig: TConfig
   name: string
   enabled: boolean
-}): NotebookMcpOverridePatch | undefined {
+}): TNotebookMcpOverridePatch | undefined {
   const currentOverride = readNotebookMcpEnabledOverride(input.rawProjectConfig, input.name)
   const hasNotebookDefinition = notebookDefinesMcp(input.rawProjectConfig, input.name)
   const defaultEnabled = mcpEnabledByDefault(input.globalConfigByName[input.name])

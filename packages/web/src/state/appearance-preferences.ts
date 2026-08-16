@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { createPlatformJsonStorage } from "../context/platform"
+import { browserDocument } from "./parse-external"
 
 export const APPEARANCE_PREFERENCES_STORAGE_KEY = "buddy.appearance.v1"
 
@@ -67,19 +68,24 @@ export function normalizeAppearanceFontSize(value: number, fallback: number): nu
 }
 
 function ensureAppearanceStyleElement(): HTMLStyleElement {
-  const existing = document.getElementById(APPEARANCE_STYLE_ID)
+  const documentNode = browserDocument()
+  if (!documentNode) {
+    throw new Error("Appearance preferences require a document.")
+  }
+  const existing = documentNode.getElementById(APPEARANCE_STYLE_ID)
   if (existing instanceof HTMLStyleElement) return existing
 
-  const element = document.createElement("style")
+  const element = documentNode.createElement("style")
   element.id = APPEARANCE_STYLE_ID
-  document.head.appendChild(element)
+  documentNode.head.appendChild(element)
   return element
 }
 
 export function applyAppearancePreferences(preferences: AppearancePreferences): void {
-  if (typeof document === "undefined") return
+  const documentNode = browserDocument()
+  if (!documentNode) return
 
-  const root = document.documentElement
+  const root = documentNode.documentElement
   const uiFontSize = normalizeAppearanceFontSize(preferences.uiFontSize, DEFAULT_UI_FONT_SIZE)
   const codeFontSize = normalizeAppearanceFontSize(preferences.codeFontSize, DEFAULT_CODE_FONT_SIZE)
 

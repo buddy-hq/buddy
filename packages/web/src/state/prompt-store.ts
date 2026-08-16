@@ -36,7 +36,19 @@ import {
   isPromptModelAttachment,
   isPromptReadyNativeResourceAttachment,
 } from "@/components/prompt/prompt-types"
+import { z } from "zod"
 import { getPlatform } from "../context/platform"
+import {
+  browserLocalStorage,
+  browserWindow,
+  hasFunctionValue,
+  parseBuddyConfigObject,
+  parseFiniteNumber,
+  parseFilteredStringArray,
+  parseOptionalStringField,
+  parseStringValue,
+  parseWithSchema,
+} from "./parse-external"
 
 export const PROMPT_STORE_STORAGE_KEY = "buddy.prompt.v1"
 export const PROMPT_STORE_STORAGE_FILE = "buddy.prompt.dat"
@@ -91,99 +103,156 @@ const EMPTY_PROMPT_DRAFT: PromptDraftState = {
   updatedAt: 0,
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
+const modelAttachmentKindSchema = z.enum(["image", "file"])
+const nativeResourceDeliverySchema = z.enum(["model-and-resource", "resource-only"])
 
-function isPromptComposerAttachment(value: unknown): value is PromptComposerAttachment {
-  if (!isRecord(value)) {
-    return false
-  }
-  const isModelAttachment =
-    typeof value.id === "string" &&
-    typeof value.filename === "string" &&
-    typeof value.mime === "string" &&
-    typeof value.dataUrl === "string" &&
-    (value.localPath === undefined || typeof value.localPath === "string") &&
-    (value.editTarget === undefined || value.editTarget === true) &&
-    (value.kind === "image" || value.kind === "file")
-  if (isModelAttachment) return true
+function parsePromptComposerAttachment<TValue>(
+  value: TValue,
+): PromptComposerAttachment | undefined {
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  const id = parseStringValue(record.id)
+  const filename = parseStringValue(record.filename)
+  const mime = parseStringValue(record.mime)
+  if (!id || !filename || !mime) return undefined
 
+  const localPath = parseOptionalStringField(record.localPath)
+  if (localPath === null) return undefined
+  const dataUrl = parseStringValue(record.dataUrl)
+  const modelKind = parseWithSchema(modelAttachmentKindSchema, record.kind)
   if (
-    typeof value.id !== "string" ||
-    typeof value.filename !== "string" ||
-    typeof value.mime !== "string" ||
-    value.kind !== "native-resource" ||
-    typeof value.format !== "string" ||
-    !isNativeResourceFormat(value.format) ||
-    (value.delivery !== "model-and-resource" && value.delivery !== "resource-only")
+    dataUrl !== undefined &&
+    (record.editTarget === undefined || record.editTarget === true) &&
+    modelKind !== undefined
   ) {
-    return false
+    return Object.assign(
+      {
+        id,
+        filename,
+        mime,
+        dataUrl,
+        kind: modelKind,
+      },
+      localPath !== undefined ? { localPath } : undefined,
+      record.editTarget === true ? { editTarget: true as const } : undefined,
+    )
   }
-  if (value.status === "copying") return true
-  if (value.status === "error") return typeof value.error === "string"
-  return (
-    value.status === "ready" &&
-    typeof value.uploadID === "string" &&
-    typeof value.workspacePath === "string" &&
-    typeof value.localPath === "string" &&
-    typeof value.sizeBytes === "number" &&
-    Number.isFinite(value.sizeBytes)
-  )
+
+  const formatValue = parseStringValue(record.format)
+  const delivery = parseWithSchema(nativeResourceDeliverySchema, record.delivery)
+  if (
+    record.kind !== "native-resource" ||
+    !formatValue ||
+    !isNativeResourceFormat(formatValue) ||
+    delivery === undefined
+  ) {
+    return undefined
+  }
+  if (record.status === "copying") {
+    return Object.assign(
+      {
+        id,
+        filename,
+        mime,
+        kind: "native-resource" as const,
+        format: formatValue,
+        delivery,
+        status: "copying" as const,
+      },
+      localPath !== undefined ? { localPath } : undefined,
+    )
+  }
+  if (record.status === "error") {
+    const error = parseStringValue(record.error)
+    if (error === undefined) return undefined
+    return Object.assign(
+      {
+        id,
+        filename,
+        mime,
+        kind: "native-resource" as const,
+        format: formatValue,
+        delivery,
+        status: "error" as const,
+        error,
+      },
+      localPath !== undefined ? { localPath } : undefined,
+    )
+  }
+  const uploadID = parseStringValue(record.uploadID)
+  const workspacePath = parseStringValue(record.workspacePath)
+  const readyLocalPath = parseStringValue(record.localPath)
+  const sizeBytes = parseFiniteNumber(record.sizeBytes)
+  if (
+    record.status !== "ready" ||
+    !uploadID ||
+    !workspacePath ||
+    !readyLocalPath ||
+    sizeBytes === undefined
+  ) {
+    return undefined
+  }
+  return {
+    id,
+    filename,
+    mime,
+    kind: "native-resource",
+    format: formatValue,
+    delivery,
+    status: "ready",
+    uploadID,
+    workspacePath,
+    localPath: readyLocalPath,
+    sizeBytes,
+  }
 }
 
-function readOptionalString(value: unknown): string | undefined | null {
+function parseOptionalStringArrayField<TValue>(value: TValue): string[] | undefined | null {
   if (value === undefined) return undefined
-  return typeof value === "string" ? value : null
+  return parseFilteredStringArray(value) ?? null
 }
 
-function readOptionalStringArray(value: unknown): string[] | undefined | null {
-  if (value === undefined) return undefined
-  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) return null
-  return [...value]
-}
-
-function readPromptComposerPart(value: unknown): PromptComposerPart | undefined {
-  if (!isRecord(value) || typeof value.type !== "string") return undefined
-  if (value.type === PROMPT_PART_TYPE_TEXT) {
-    return typeof value.text === "string"
-      ? { type: PROMPT_PART_TYPE_TEXT, text: value.text }
+function parsePromptComposerPart<TValue>(value: TValue): PromptComposerPart | undefined {
+  const record = parseBuddyConfigObject(value)
+  const type = parseStringValue(record?.type)
+  if (!record || type === undefined) return undefined
+  if (type === PROMPT_PART_TYPE_TEXT) {
+    const text = parseStringValue(record.text)
+    return text !== undefined ? { type: PROMPT_PART_TYPE_TEXT, text } : undefined
+  }
+  if (type === PROMPT_PART_TYPE_AGENT) {
+    const name = parseStringValue(record.name)
+    return name !== undefined ? { type: PROMPT_PART_TYPE_AGENT, name } : undefined
+  }
+  if (type === PROMPT_PART_TYPE_SKILL) {
+    const name = parseStringValue(record.name)
+    return name !== undefined ? { type: PROMPT_PART_TYPE_SKILL, name } : undefined
+  }
+  if (type === OPENCODE_REFERENCE_PART_TYPE) {
+    const name = parseStringValue(record.name)
+    const path = parseStringValue(record.path)
+    return name !== undefined && path !== undefined
+      ? { type: OPENCODE_REFERENCE_PART_TYPE, name, path }
       : undefined
   }
-  if (value.type === PROMPT_PART_TYPE_AGENT) {
-    return typeof value.name === "string"
-      ? { type: PROMPT_PART_TYPE_AGENT, name: value.name }
-      : undefined
+  if (type === WORKSPACE_FILE_REFERENCE_PART_TYPE) {
+    const path = parseStringValue(record.path)
+    return path !== undefined ? { type: WORKSPACE_FILE_REFERENCE_PART_TYPE, path } : undefined
   }
-  if (value.type === PROMPT_PART_TYPE_SKILL) {
-    return typeof value.name === "string"
-      ? { type: PROMPT_PART_TYPE_SKILL, name: value.name }
-      : undefined
+  if (type === RESOURCE_REFERENCE_PART_TYPE) {
+    const key = parseStringValue(record.key)
+    return key !== undefined ? { type: RESOURCE_REFERENCE_PART_TYPE, key } : undefined
   }
-  if (value.type === OPENCODE_REFERENCE_PART_TYPE) {
-    return typeof value.name === "string" && typeof value.path === "string"
-      ? { type: OPENCODE_REFERENCE_PART_TYPE, name: value.name, path: value.path }
-      : undefined
-  }
-  if (value.type === WORKSPACE_FILE_REFERENCE_PART_TYPE) {
-    return typeof value.path === "string"
-      ? { type: WORKSPACE_FILE_REFERENCE_PART_TYPE, path: value.path }
-      : undefined
-  }
-  if (value.type === RESOURCE_REFERENCE_PART_TYPE) {
-    return typeof value.key === "string"
-      ? { type: RESOURCE_REFERENCE_PART_TYPE, key: value.key }
-      : undefined
-  }
-  if (value.type === READING_SELECTION_PART_TYPE) {
-    if (typeof value.text !== "string") return undefined
-    const anchor = readPromptReaderTextAnchor(value)
+  if (type === READING_SELECTION_PART_TYPE) {
+    const text = parseStringValue(record.text)
+    if (text === undefined) return undefined
+    const anchor = readPromptReaderTextAnchor(record)
     if (!anchor) return undefined
-    const selectionKey = readOptionalString(value.selectionKey)
-    const resourceKey = readOptionalString(value.resourceKey)
-    const tocLabel = readOptionalString(value.tocLabel)
-    const pageLabel = readOptionalString(value.pageLabel)
-    const locationLabel = readOptionalString(value.locationLabel)
+    const selectionKey = parseOptionalStringField(record.selectionKey)
+    const resourceKey = parseOptionalStringField(record.resourceKey)
+    const tocLabel = parseOptionalStringField(record.tocLabel)
+    const pageLabel = parseOptionalStringField(record.pageLabel)
+    const locationLabel = parseOptionalStringField(record.locationLabel)
     if (
       selectionKey === null ||
       resourceKey === null ||
@@ -197,7 +266,7 @@ function readPromptComposerPart(value: unknown): PromptComposerPart | undefined 
       Object.assign(
         {
           type: READING_SELECTION_PART_TYPE,
-          text: value.text,
+          text,
         },
         selectionKey !== undefined ? { selectionKey } : undefined,
         resourceKey !== undefined ? { resourceKey } : undefined,
@@ -209,21 +278,23 @@ function readPromptComposerPart(value: unknown): PromptComposerPart | undefined 
     )
     return part
   }
-  if (value.type === SELECTION_CONTEXT_PART_TYPE) {
-    if (typeof value.text !== "string" || typeof value.selectionKey !== "string") {
+  if (type === SELECTION_CONTEXT_PART_TYPE) {
+    const text = parseStringValue(record.text)
+    const selectionKey = parseStringValue(record.selectionKey)
+    if (text === undefined || selectionKey === undefined) {
       return undefined
     }
-    if (value.source === "markdown") {
-      const path = readOptionalString(value.path)
-      const version = readOptionalString(value.version)
-      const headingPath = readOptionalStringArray(value.headingPath)
+    if (record.source === "markdown") {
+      const path = parseOptionalStringField(record.path)
+      const version = parseOptionalStringField(record.version)
+      const headingPath = parseOptionalStringArrayField(record.headingPath)
       if (path === null || version === null || headingPath === null) return undefined
       const part: PromptMarkdownSelectionContextPart = Object.assign(
         {
           type: SELECTION_CONTEXT_PART_TYPE,
           source: "markdown" as const,
-          text: value.text,
-          selectionKey: value.selectionKey,
+          text,
+          selectionKey,
         },
         path !== undefined ? { path } : undefined,
         version !== undefined ? { version } : undefined,
@@ -231,13 +302,13 @@ function readPromptComposerPart(value: unknown): PromptComposerPart | undefined 
       )
       return part
     }
-    if (value.source !== "reading") return undefined
-    const anchor = readPromptReaderTextAnchor(value)
+    if (record.source !== "reading") return undefined
+    const anchor = readPromptReaderTextAnchor(record)
     if (!anchor) return undefined
-    const resourceKey = readOptionalString(value.resourceKey)
-    const tocLabel = readOptionalString(value.tocLabel)
-    const pageLabel = readOptionalString(value.pageLabel)
-    const locationLabel = readOptionalString(value.locationLabel)
+    const resourceKey = parseOptionalStringField(record.resourceKey)
+    const tocLabel = parseOptionalStringField(record.tocLabel)
+    const pageLabel = parseOptionalStringField(record.pageLabel)
+    const locationLabel = parseOptionalStringField(record.locationLabel)
     if (resourceKey === null || tocLabel === null || pageLabel === null || locationLabel === null) {
       return undefined
     }
@@ -246,8 +317,8 @@ function readPromptComposerPart(value: unknown): PromptComposerPart | undefined 
         {
           type: SELECTION_CONTEXT_PART_TYPE,
           source: "reading" as const,
-          text: value.text,
-          selectionKey: value.selectionKey,
+          text,
+          selectionKey,
         },
         resourceKey !== undefined ? { resourceKey } : undefined,
         { anchor },
@@ -261,84 +332,93 @@ function readPromptComposerPart(value: unknown): PromptComposerPart | undefined 
   return undefined
 }
 
-function readPromptComposerParts(value: unknown): PromptComposerPart[] | undefined {
+function parsePromptComposerParts<TValue>(value: TValue): PromptComposerPart[] | undefined {
   if (!Array.isArray(value)) return undefined
   const parts: PromptComposerPart[] = []
   for (const part of value) {
-    const parsed = readPromptComposerPart(part)
+    const parsed = parsePromptComposerPart(part)
     if (!parsed) return undefined
     parts.push(parsed)
   }
   return parts
 }
 
-function readPromptDraftState(value: unknown): PromptDraftState | undefined {
-  if (!isRecord(value)) return undefined
-  const parts = readPromptComposerParts(value.parts)
-  if (
-    typeof value.value !== "string" ||
-    !parts ||
-    !Array.isArray(value.attachments) ||
-    !value.attachments.every(isPromptComposerAttachment) ||
-    typeof value.cursor !== "number" ||
-    !Number.isFinite(value.cursor) ||
-    typeof value.updatedAt !== "number" ||
-    !Number.isFinite(value.updatedAt)
-  ) {
+function parsePromptAttachments<TValue>(value: TValue): PromptComposerAttachment[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const attachments: PromptComposerAttachment[] = []
+  for (const item of value) {
+    const parsed = parsePromptComposerAttachment(item)
+    if (!parsed) return undefined
+    attachments.push(parsed)
+  }
+  return attachments
+}
+
+function parsePromptDraftState<TValue>(value: TValue): PromptDraftState | undefined {
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  const draftValue = parseStringValue(record.value)
+  const parts = parsePromptComposerParts(record.parts)
+  const attachments = parsePromptAttachments(record.attachments)
+  const cursor = parseFiniteNumber(record.cursor)
+  const updatedAt = parseFiniteNumber(record.updatedAt)
+  if (draftValue === undefined || !parts || !attachments || cursor === undefined || updatedAt === undefined) {
     return undefined
   }
 
   return {
-    value: value.value,
+    value: draftValue,
     parts,
-    attachments: value.attachments,
-    cursor: value.cursor,
-    updatedAt: value.updatedAt,
+    attachments,
+    cursor,
+    updatedAt,
   }
 }
 
-function readPromptHistoryEntry(value: unknown): PromptHistoryEntry | undefined {
-  if (!isRecord(value)) return undefined
-  const parts = readPromptComposerParts(value.parts)
-  if (
-    typeof value.value !== "string" ||
-    !parts ||
-    !Array.isArray(value.attachments) ||
-    !value.attachments.every(isPromptComposerAttachment)
-  ) {
+function parsePromptHistoryEntry<TValue>(value: TValue): PromptHistoryEntry | undefined {
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  const entryValue = parseStringValue(record.value)
+  const parts = parsePromptComposerParts(record.parts)
+  const attachments = parsePromptAttachments(record.attachments)
+  if (entryValue === undefined || !parts || !attachments) {
     return undefined
   }
 
   return {
-    value: value.value,
+    value: entryValue,
     parts,
-    attachments: value.attachments,
+    attachments,
   }
 }
 
-function readDraftsByKey(value: unknown): Record<string, PromptDraftState> | undefined {
-  if (!isRecord(value)) {
+function parseDraftsByKey<TValue>(value: TValue): Record<string, PromptDraftState> | undefined {
+  const record = parseBuddyConfigObject(value)
+  if (!record) {
     return undefined
   }
 
   const result: Record<string, PromptDraftState> = {}
-  for (const [key, entry] of Object.entries(value)) {
-    const draft = readPromptDraftState(entry)
+  for (const [key, entry] of Object.entries(record)) {
+    const draft = parsePromptDraftState(entry)
     if (draft) result[key] = draft
   }
   return result
 }
 
-function readHistoryByDirectory(value: unknown): Record<string, PromptHistoryEntry[]> | undefined {
-  if (!isRecord(value)) {
+function parseHistoryByDirectory<TValue>(
+  value: TValue,
+): Record<string, PromptHistoryEntry[]> | undefined {
+  const record = parseBuddyConfigObject(value)
+  if (!record) {
     return undefined
   }
 
   const result: Record<string, PromptHistoryEntry[]> = {}
-  for (const [key, entry] of Object.entries(value)) {
+  for (const [key, entry] of Object.entries(record)) {
     if (Array.isArray(entry)) {
       const historyEntries = entry.flatMap((historyEntry) => {
-        const parsed = readPromptHistoryEntry(historyEntry)
+        const parsed = parsePromptHistoryEntry(historyEntry)
         return parsed ? [parsed] : []
       })
       result[key] = historyEntries
@@ -347,14 +427,15 @@ function readHistoryByDirectory(value: unknown): Record<string, PromptHistoryEnt
   return result
 }
 
-function readPersistedPromptStoreState(value: unknown): PersistedPromptStoreState {
-  if (!isRecord(value)) {
+function parsePersistedPromptStoreState<TValue>(value: TValue): PersistedPromptStoreState {
+  const record = parseBuddyConfigObject(value)
+  if (!record) {
     return {}
   }
 
   return {
-    draftsByKey: readDraftsByKey(value.draftsByKey),
-    historyByDirectory: readHistoryByDirectory(value.historyByDirectory),
+    draftsByKey: parseDraftsByKey(record.draftsByKey),
+    historyByDirectory: parseHistoryByDirectory(record.historyByDirectory),
   }
 }
 
@@ -378,37 +459,35 @@ const fallbackPromptStorage: StateStorage = {
   },
 }
 
-function parseJson(value: string): unknown {
+function parsePersistedPromptStorageValue(raw: string): PersistedPromptStorageValue | null {
   try {
-    return JSON.parse(value)
+    const record = parseBuddyConfigObject(JSON.parse(raw))
+    if (!record) return null
+    return Object.assign(
+      {
+        state: parsePersistedPromptStoreState(record.state),
+      },
+      parseFiniteNumber(record.version) !== undefined
+        ? { version: parseFiniteNumber(record.version) }
+        : undefined,
+    )
   } catch {
-    return undefined
+    return null
   }
 }
 
 function getPromptStateStorage(): StateStorage {
   const platformStorage = getPlatform().storage?.(PROMPT_STORE_STORAGE_FILE)
   if (platformStorage) return platformStorage
-  if (typeof localStorage !== "undefined") return localStorage
+  const localStorageNode = browserLocalStorage()
+  if (localStorageNode) return localStorageNode
   return fallbackPromptStorage
 }
 
 function isFlushableStorage(
   storage: StateStorage,
 ): storage is StateStorage & { flush: () => Promise<void> | void } {
-  return "flush" in storage && typeof storage.flush === "function"
-}
-
-function readPersistedPromptStorageValue(raw: string): PersistedPromptStorageValue | null {
-  const parsed = parseJson(raw)
-  if (!isRecord(parsed)) return null
-
-  return Object.assign(
-    {
-      state: readPersistedPromptStoreState(parsed.state),
-    },
-    typeof parsed.version === "number" ? { version: parsed.version } : undefined,
-  )
+  return "flush" in storage && hasFunctionValue(storage.flush)
 }
 
 export function flushPromptStorePersistence() {
@@ -442,12 +521,13 @@ function schedulePromptStorePersistence() {
 }
 
 function installPromptStorePersistenceFlushEvents() {
-  if (promptStorageFlushEventsInstalled || typeof window === "undefined") return
+  const windowNode = browserWindow()
+  if (promptStorageFlushEventsInstalled || !windowNode) return
   promptStorageFlushEventsInstalled = true
 
-  window.addEventListener("pagehide", flushPromptStorePersistence)
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState !== "hidden") return
+  windowNode.addEventListener("pagehide", flushPromptStorePersistence)
+  windowNode.document.addEventListener("visibilitychange", () => {
+    if (windowNode.document.visibilityState !== "hidden") return
     flushPromptStorePersistence()
   })
 }
@@ -462,13 +542,15 @@ function createPromptStoreStorage(): PersistStorage<PersistedPromptStoreState> {
       }
 
       const raw = getPromptStateStorage().getItem(name)
-      if (raw !== null && typeof raw === "object") {
-        return raw.then((value) =>
-          typeof value === "string" ? readPersistedPromptStorageValue(value) : null,
-        )
+      if (raw instanceof Promise) {
+        return raw.then((value) => {
+          const text = parseStringValue(value)
+          return text === undefined ? null : parsePersistedPromptStorageValue(text)
+        })
       }
-      if (typeof raw !== "string") return null
-      return readPersistedPromptStorageValue(raw)
+      const text = parseStringValue(raw)
+      if (text === undefined) return null
+      return parsePersistedPromptStorageValue(text)
     },
     setItem(name, value) {
       pendingPromptStorageName = name
@@ -772,7 +854,7 @@ export const usePromptStore = create<PromptStore>()(
         }
       },
       migrate(persistedState) {
-        const state = readPersistedPromptStoreState(persistedState)
+        const state = parsePersistedPromptStoreState(persistedState)
 
         return {
           draftsByKey: state?.draftsByKey ?? {},

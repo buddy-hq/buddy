@@ -1,4 +1,5 @@
 import { readRecord, readToolToggle } from "./project-config-readers"
+import { parseBooleanValue } from "./parse-external"
 
 export const STANDARDS_TOOL_IDS = [
   "search_standards",
@@ -36,9 +37,7 @@ export const STANDARDS_TOOL_DESCRIPTIONS = {
   query_standards_sql: "Run a raw read-only SQLite query against the standards database",
 } satisfies Record<StandardsToolId, string>
 
-export function buildGlobalStandardsDefaults(
-  globalConfig: Record<string, unknown>,
-) {
+export function buildGlobalStandardsDefaults<TConfig>(globalConfig: TConfig) {
   return {
     search_standards: readToolToggle(globalConfig, "search_standards", DEFAULT_TOOL_ENABLED),
     get_standard: readToolToggle(globalConfig, "get_standard", DEFAULT_TOOL_ENABLED),
@@ -54,8 +53,8 @@ export function buildGlobalStandardsDefaults(
   }
 }
 
-export function buildGlobalStandardsPatch(
-  globalConfig: Record<string, unknown>,
+export function buildGlobalStandardsPatch<TConfig>(
+  globalConfig: TConfig,
   nextDefaults: StandardsToolDefaults,
 ) {
   const toolsPatch: Record<string, boolean> = {}
@@ -70,34 +69,30 @@ export function buildGlobalStandardsPatch(
   return Object.keys(toolsPatch).length > 0 ? { tools: toolsPatch } : undefined
 }
 
-function readNotebookStandardsOverride(
-  rawProjectConfig: Record<string, unknown>,
-  toolId: StandardsToolId,
-) {
+function readNotebookStandardsOverride<TConfig>(rawProjectConfig: TConfig, toolId: StandardsToolId) {
   const tools = readRecord(rawProjectConfig, "tools")
-  const value = tools?.[toolId]
-  return typeof value === "boolean" ? value : undefined
+  return parseBooleanValue(tools?.[toolId])
 }
 
-export function resolveNotebookStandardEnabled(
-  globalConfig: Record<string, unknown>,
-  rawProjectConfig: Record<string, unknown>,
+export function resolveNotebookStandardEnabled<TConfig>(
+  globalConfig: TConfig,
+  rawProjectConfig: TConfig,
   toolId: StandardsToolId,
 ) {
   const override = readNotebookStandardsOverride(rawProjectConfig, toolId)
   return override ?? readToolToggle(globalConfig, toolId, DEFAULT_TOOL_ENABLED)
 }
 
-export function notebookStandardUsesGlobalDefault(
-  rawProjectConfig: Record<string, unknown>,
+export function notebookStandardUsesGlobalDefault<TConfig>(
+  rawProjectConfig: TConfig,
   toolId: StandardsToolId,
 ) {
   return readNotebookStandardsOverride(rawProjectConfig, toolId) === undefined
 }
 
-export function buildNotebookStandardsOverridePatch(input: {
-  globalConfig: Record<string, unknown>
-  rawProjectConfig: Record<string, unknown>
+export function buildNotebookStandardsOverridePatch<TConfig>(input: {
+  globalConfig: TConfig
+  rawProjectConfig: TConfig
   toolId: StandardsToolId
   enabled: boolean
 }) {

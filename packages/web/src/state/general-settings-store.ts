@@ -1,5 +1,6 @@
 import { createStore } from "zustand/vanilla"
 import { readCompactionAuto, readToolToggle } from "./project-config-readers"
+import type { TBuddyConfigObject } from "./parse-external"
 import type { GeneralSettingsBundle } from "./general-settings-query"
 
 export type GeneralSettingsDraft = {
@@ -21,9 +22,7 @@ const EMPTY_DRAFT: GeneralSettingsDraft = {
   autoCompactionEnabled: true,
 }
 
-export function buildGeneralSettingsDraft(
-  globalConfig: Record<string, unknown>,
-): GeneralSettingsDraft {
+export function buildGeneralSettingsDraft(globalConfig: TBuddyConfigObject): GeneralSettingsDraft {
   return {
     fullTextReadingEnabled: readToolToggle(globalConfig, FULL_TEXT_TOOL_ID, true),
     autoCompactionEnabled: readCompactionAuto(globalConfig, true),

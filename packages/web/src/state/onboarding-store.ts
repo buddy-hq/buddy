@@ -2,11 +2,12 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { createPlatformJsonStorage } from "../context/platform"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
+import { parseBooleanValue, parseBuddyConfigObject, parseStringValue } from "./parse-external"
 
 export const ONBOARDING_STORAGE_KEY = "buddy.onboarding.v1"
 const ONBOARDING_STORAGE_VERSION = 3 as const
 
-type OnboardingStore = {
+type TOnboardingStore = {
   setupCompleted: boolean
   authChoice?: OnboardingAuthChoice
   setAuthChoice: (choice: OnboardingAuthChoice) => void
@@ -22,30 +23,24 @@ const DEFAULT_STATE = {
   authChoice: OnboardingAuthChoice | undefined
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function parseOnboardingAuthChoice<TValue>(value: TValue): OnboardingAuthChoice | undefined {
+  const text = parseStringValue(value)
+  if (text === "chatgpt_plus" || text === "free_models") return text
+  return undefined
 }
 
-function isOnboardingAuthChoice(value: unknown): value is OnboardingAuthChoice {
-  return value === "chatgpt_plus" || value === "free_models"
-}
-
-function migrateOnboardingState(persistedState: unknown) {
-  const state = isRecord(persistedState) ? persistedState : {}
+function migrateOnboardingState<TValue>(persistedState: TValue) {
+  const state = parseBuddyConfigObject(persistedState) ?? {}
   const setupCompleted =
-    typeof state.setupCompleted === "boolean"
-      ? state.setupCompleted
-      : typeof state.completed === "boolean"
-        ? state.completed
-        : false
+    parseBooleanValue(state.setupCompleted) ?? parseBooleanValue(state.completed) ?? false
 
   return {
     setupCompleted,
-    authChoice: isOnboardingAuthChoice(state.authChoice) ? state.authChoice : undefined,
+    authChoice: parseOnboardingAuthChoice(state.authChoice),
   }
 }
 
-export const useOnboardingStore = create<OnboardingStore>()(
+export const useOnboardingStore = create<TOnboardingStore>()(
   persist(
     (set) => ({
       ...DEFAULT_STATE,

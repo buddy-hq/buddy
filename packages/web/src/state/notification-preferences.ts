@@ -1,15 +1,16 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { createPlatformJsonStorage } from "@/context/platform"
+import { parseBooleanValue, parseBuddyConfigObject } from "./parse-external"
 
-type NotificationPreferences = {
+type TNotificationPreferences = {
   agent: boolean
   permissions: boolean
   errors: boolean
 }
 
-type NotificationPreferencesStore = {
-  preferences: NotificationPreferences
+type TNotificationPreferencesStore = {
+  preferences: TNotificationPreferences
   setAgent: (agent: boolean) => void
   setPermissions: (permissions: boolean) => void
   setErrors: (errors: boolean) => void
@@ -18,21 +19,17 @@ type NotificationPreferencesStore = {
 const NOTIFICATION_PREFERENCES_STORAGE_FILE = "buddy.notifications.dat"
 const NOTIFICATION_PREFERENCES_STORAGE_KEY = "buddy.notifications.v1"
 
-export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+export const DEFAULT_NOTIFICATION_PREFERENCES: TNotificationPreferences = {
   agent: true,
   permissions: true,
   errors: false,
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function readBoolean<TValue>(value: TValue, fallback: boolean) {
+  return parseBooleanValue(value) ?? fallback
 }
 
-function readBoolean(value: unknown, fallback: boolean) {
-  return typeof value === "boolean" ? value : fallback
-}
-
-export const useNotificationPreferences = create<NotificationPreferencesStore>()(
+export const useNotificationPreferences = create<TNotificationPreferencesStore>()(
   persist(
     (set) => ({
       preferences: DEFAULT_NOTIFICATION_PREFERENCES,
@@ -68,11 +65,12 @@ export const useNotificationPreferences = create<NotificationPreferencesStore>()
         preferences: state.preferences,
       }),
       merge: (persisted, current) => {
-        if (!isRecord(persisted)) {
+        const record = parseBuddyConfigObject(persisted)
+        if (!record) {
           return current
         }
 
-        const preferences = isRecord(persisted.preferences) ? persisted.preferences : undefined
+        const preferences = parseBuddyConfigObject(record.preferences)
 
         return {
           ...current,

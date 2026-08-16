@@ -1,6 +1,15 @@
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
+import { z } from "zod"
+import {
+  EMPTY_BUDDY_CONFIG,
+  parseBooleanValue,
+  parseBuddyConfigObject,
+  parseFiniteNumber,
+  parseStringValue,
+  parseWithSchema,
+  type TBuddyConfigObject,
+} from "./parse-external"
+
+export type { TBuddyConfigObject }
 
 export type PersonalizationSettings = {
   primaryUse?: PrimaryUse
@@ -26,8 +35,21 @@ export const EMPTY_PERSONALIZATION_SETTINGS: PersonalizationSettings = {
   moreAboutYou: "",
 }
 
+const personalizationSettingsSchema = z.object({
+  primaryUse: z.enum(PRIMARY_USES).optional(),
+  preferredName: z.string(),
+  occupation: z.string(),
+  moreAboutYou: z.string(),
+})
+
 export function isPrimaryUse(value: string): value is PrimaryUse {
   return PRIMARY_USES.some((primaryUse) => primaryUse === value)
+}
+
+export function parsePersonalizationSettings<TValue>(
+  value: TValue,
+): PersonalizationSettings | undefined {
+  return parseWithSchema(personalizationSettingsSchema, value)
 }
 
 export function normalizePersonalizationSettings(
@@ -72,74 +94,62 @@ export function shouldResetPersonalizationForm(input: {
   return personalizationSettingsMatch(input.nextValues, input.lastSavedValues)
 }
 
-export function readString(input: Record<string, unknown>, key: string) {
-  const value = input[key]
-  return typeof value === "string" ? value : ""
+function configObject<TConfig>(input: TConfig): TBuddyConfigObject {
+  return parseBuddyConfigObject(input) ?? EMPTY_BUDDY_CONFIG
 }
 
-export function readRecord(input: Record<string, unknown>, key: string) {
-  const value = input[key]
-  if (!isRecord(value)) {
-    return undefined
-  }
-  return value
+export function readString<TConfig>(input: TConfig, key: string) {
+  return parseStringValue(configObject(input)[key]) ?? ""
 }
 
-export function readToolToggle(input: Record<string, unknown>, toolId: string, fallback: boolean) {
+export function readRecord<TConfig>(input: TConfig, key: string) {
+  return parseBuddyConfigObject(configObject(input)[key])
+}
+
+export function readToolToggle<TConfig>(input: TConfig, toolId: string, fallback: boolean) {
   const tools = readRecord(input, "tools")
-  const value = tools?.[toolId]
-  return typeof value === "boolean" ? value : fallback
+  return parseBooleanValue(tools?.[toolId]) ?? fallback
 }
 
-export function readCompactionAuto(input: Record<string, unknown>, fallback: boolean) {
+export function readCompactionAuto<TConfig>(input: TConfig, fallback: boolean) {
   const compaction = readRecord(input, "compaction")
-  const value = compaction?.auto
-  return typeof value === "boolean" ? value : fallback
+  return parseBooleanValue(compaction?.auto) ?? fallback
 }
 
-export function readLearnerMemoryEnabled(input: Record<string, unknown>, fallback: boolean) {
+export function readLearnerMemoryEnabled<TConfig>(input: TConfig, fallback: boolean) {
   const learnerMemory = readRecord(input, "learner_memory")
-  const value = learnerMemory?.enabled
-  return typeof value === "boolean" ? value : fallback
+  return parseBooleanValue(learnerMemory?.enabled) ?? fallback
 }
 
-export function readLearnerMemoryAutoExtract(input: Record<string, unknown>, fallback: boolean) {
+export function readLearnerMemoryAutoExtract<TConfig>(input: TConfig, fallback: boolean) {
   const learnerMemory = readRecord(input, "learner_memory")
-  const value = learnerMemory?.auto_extract
-  return typeof value === "boolean" ? value : fallback
+  return parseBooleanValue(learnerMemory?.auto_extract) ?? fallback
 }
 
-export function readLearnerMemoryNumber(
-  input: Record<string, unknown>,
-  key: string,
-  fallback: number,
-) {
+export function readLearnerMemoryNumber<TConfig>(input: TConfig, key: string, fallback: number) {
   const learnerMemory = readRecord(input, "learner_memory")
-  const value = learnerMemory?.[key]
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback
+  return parseFiniteNumber(learnerMemory?.[key]) ?? fallback
 }
 
-export function readLearnerMemoryString(input: Record<string, unknown>, key: string) {
+export function readLearnerMemoryString<TConfig>(input: TConfig, key: string) {
   const learnerMemory = readRecord(input, "learner_memory")
-  const value = learnerMemory?.[key]
-  return typeof value === "string" ? value : ""
+  return parseStringValue(learnerMemory?.[key]) ?? ""
 }
 
-export function readPersonalization(input: Record<string, unknown>): PersonalizationSettings {
+export function readPersonalization<TConfig>(input: TConfig): PersonalizationSettings {
   const personalization = readRecord(input, "personalization")
   if (!personalization) {
     return EMPTY_PERSONALIZATION_SETTINGS
   }
 
-  const primaryUse = personalization.primary_use
+  const primaryUseValue = parseStringValue(personalization.primary_use)
 
   return {
-    primaryUse: typeof primaryUse === "string" && isPrimaryUse(primaryUse) ? primaryUse : undefined,
-    preferredName:
-      typeof personalization.preferred_name === "string" ? personalization.preferred_name : "",
-    occupation: typeof personalization.occupation === "string" ? personalization.occupation : "",
-    moreAboutYou:
-      typeof personalization.more_about_you === "string" ? personalization.more_about_you : "",
+    primaryUse:
+      primaryUseValue !== undefined && isPrimaryUse(primaryUseValue) ? primaryUseValue : undefined,
+    preferredName: parseStringValue(personalization.preferred_name) ?? "",
+    occupation: parseStringValue(personalization.occupation) ?? "",
+    moreAboutYou: parseStringValue(personalization.more_about_you) ?? "",
   }
 }
 

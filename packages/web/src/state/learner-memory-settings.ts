@@ -17,14 +17,24 @@ import {
   readLearnerMemoryString,
   readRecord,
 } from "./project-config-readers"
+import { EMPTY_BUDDY_CONFIG, parseBooleanValue, stringifyCaughtError } from "./parse-external"
 
 const AUTO_SAVE_DELAY_MS = 250
-const EMPTY_CONFIG: Record<string, unknown> = {}
+
+type TLearnerMemoryFieldValue = boolean | number | string | null
+type TLearnerMemoryFieldPatch = {
+  enabled?: boolean
+  auto_extract?: boolean
+  [key: string]: TLearnerMemoryFieldValue | undefined
+}
+type TLearnerMemoryConfigPatch = {
+  learner_memory: TLearnerMemoryFieldPatch
+}
 
 type PersistSnapshot = {
   loading: boolean
   saving: boolean
-  patch?: Record<string, unknown>
+  patch?: TLearnerMemoryConfigPatch
   patchKey?: string
   failedPatchKey?: string
 }
@@ -149,18 +159,8 @@ const EMPTY_GLOBAL_DRAFT: LearnerMemoryGlobalSettingsDraft = {
   learnerMemoryMaxUnusedStageOneDays: 30,
 }
 
-function stringifyError(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (typeof error === "string") return error
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return String(error)
-  }
-}
-
-export function buildGlobalLearnerMemoryDraft(
-  globalConfig: Record<string, unknown>,
+export function buildGlobalLearnerMemoryDraft<TConfig>(
+  globalConfig: TConfig,
 ): LearnerMemoryGlobalSettingsDraft {
   const draft: LearnerMemoryGlobalSettingsDraft = {
     ...EMPTY_GLOBAL_DRAFT,
@@ -183,11 +183,11 @@ export function buildGlobalLearnerMemoryDraft(
   return draft
 }
 
-export function buildGlobalLearnerMemoryPatch(
-  globalConfig: Record<string, unknown>,
+export function buildGlobalLearnerMemoryPatch<TConfig>(
+  globalConfig: TConfig,
   draft: LearnerMemoryGlobalSettingsDraft,
 ) {
-  const learnerMemoryPatch: Record<string, unknown> = {}
+  const learnerMemoryPatch: TLearnerMemoryFieldPatch = {}
 
   if (draft.learnerMemoryDefaultEnabled !== readLearnerMemoryEnabled(globalConfig, false)) {
     learnerMemoryPatch.enabled = draft.learnerMemoryDefaultEnabled
@@ -219,18 +219,17 @@ export function buildGlobalLearnerMemoryPatch(
     : undefined
 }
 
-function readNotebookLearnerMemoryOverride(
-  rawProjectConfig: Record<string, unknown>,
+function readNotebookLearnerMemoryOverride<TConfig>(
+  rawProjectConfig: TConfig,
   key: "enabled" | "auto_extract",
 ) {
   const learnerMemory = readRecord(rawProjectConfig, "learner_memory")
-  const value = learnerMemory?.[key]
-  return typeof value === "boolean" ? value : undefined
+  return parseBooleanValue(learnerMemory?.[key])
 }
 
-export function resolveNotebookLearnerMemorySelection(
-  globalConfig: Record<string, unknown>,
-  rawProjectConfig: Record<string, unknown>,
+export function resolveNotebookLearnerMemorySelection<TConfig>(
+  globalConfig: TConfig,
+  rawProjectConfig: TConfig,
 ) {
   const defaultEnabled = readLearnerMemoryEnabled(globalConfig, false)
   const defaultAutoExtract = readLearnerMemoryAutoExtract(globalConfig, false)
@@ -256,9 +255,9 @@ export async function loadNotebookLearnerMemoryDefaults(queryClient: QueryClient
   return resolveNotebookLearnerMemorySelection(globalConfig, {})
 }
 
-export function buildNotebookLearnerMemoryPatch(input: {
-  globalConfig: Record<string, unknown>
-  rawProjectConfig: Record<string, unknown>
+export function buildNotebookLearnerMemoryPatch<TConfig>(input: {
+  globalConfig: TConfig
+  rawProjectConfig: TConfig
   enabled: boolean
   autoExtract: boolean
 }) {
@@ -309,7 +308,7 @@ export function useGlobalLearnerMemorySettings() {
   const [initialized, setInitialized] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
-  const globalConfig = globalConfigQuery.data ?? EMPTY_CONFIG
+  const globalConfig = globalConfigQuery.data ?? EMPTY_BUDDY_CONFIG
   const patch = useMemo(
     () => buildGlobalLearnerMemoryPatch(globalConfig, draft),
     [draft, globalConfig],
@@ -366,7 +365,7 @@ export function useGlobalLearnerMemorySettings() {
         return true
       } catch (nextError) {
         failedPatchKeyRef.current = patchKey
-        setError(stringifyError(nextError))
+        setError(stringifyCaughtError(nextError))
         setSaving(false)
         return false
       }
@@ -444,9 +443,9 @@ export function useGlobalLearnerMemorySettings() {
       error:
         error ??
         (globalConfigQuery.error
-          ? stringifyError(globalConfigQuery.error)
+          ? stringifyCaughtError(globalConfigQuery.error)
           : providerCatalogQuery.error
-            ? stringifyError(providerCatalogQuery.error)
+            ? stringifyCaughtError(providerCatalogQuery.error)
             : undefined),
       hasPendingChanges: Boolean(patch),
     },

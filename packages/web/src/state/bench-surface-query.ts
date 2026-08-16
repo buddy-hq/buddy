@@ -94,11 +94,9 @@ export function markdownBenchFileQueryOptions(input: { directory: string; path: 
         throw new Error("Only Markdown and MDX files can open on the Markdown Bench.")
       }
       const metadata = await readWorkspaceFileRawMetadata(input)
-      if (
-        typeof metadata.sizeBytes === "number" &&
-        metadata.sizeBytes > LARGE_TEXT_FILE_LIMIT_BYTES
-      ) {
-        return { status: "requires-approval", sizeBytes: metadata.sizeBytes }
+      const sizeBytes = metadata.sizeBytes
+      if (sizeBytes !== undefined && sizeBytes > LARGE_TEXT_FILE_LIMIT_BYTES) {
+        return { status: "requires-approval", sizeBytes }
       }
       const initialFile = await readProjectExplorerEditableFile(input)
       return { status: "ready", initialFile, sizeBytes: metadata.sizeBytes }

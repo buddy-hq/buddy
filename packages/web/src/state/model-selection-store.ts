@@ -1,8 +1,16 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
+import { z } from "zod"
 import { createPlatformJsonStorage } from "../context/platform"
 import { getPromptScopeKey } from "./prompt-store"
+import {
+  parseBuddyConfigObject,
+  parseFiniteNumber,
+  parseFilteredStringArray,
+  parseStringValue,
+  parseWithSchema,
+} from "./parse-external"
 
 const MODEL_SELECTION_STORAGE_FILE = "buddy.model-selection.dat"
 export const MODEL_SELECTION_STORAGE_KEY = "buddy.model-selection.v1"
@@ -49,87 +57,80 @@ type PersistedModelSelectionState = {
   recentModelKeys?: string[]
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
+const selectionSourceSchema = z.enum(["local", "restored"])
+const selectionSourceRecordSchema = z.record(z.string(), selectionSourceSchema)
+const numberRecordSchema = z.record(z.string(), z.number().finite())
+const stringRecordSchema = z.record(z.string(), z.string())
+const variantRecordSchema = z.record(z.string(), z.string().nullable())
 
-function readSelectionSourceRecord(value: unknown): Record<string, SelectionSource> | undefined {
-  if (!isRecord(value)) {
-    return undefined
-  }
-
+function parseSelectionSourceRecord<TValue>(value: TValue): Record<string, SelectionSource> | undefined {
+  const parsed = parseWithSchema(selectionSourceRecordSchema, value)
+  if (parsed) return parsed
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
   const result: Record<string, SelectionSource> = {}
-  for (const [key, entry] of Object.entries(value)) {
-    if (entry === "local" || entry === "restored") {
-      result[key] = entry
-    }
+  for (const [key, entry] of Object.entries(record)) {
+    if (entry === "local" || entry === "restored") result[key] = entry
   }
   return result
 }
 
-function readNumberRecord(value: unknown): Record<string, number> | undefined {
-  if (!isRecord(value)) {
-    return undefined
-  }
-
+function parseNumberRecord<TValue>(value: TValue): Record<string, number> | undefined {
+  const parsed = parseWithSchema(numberRecordSchema, value)
+  if (parsed) return parsed
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
   const result: Record<string, number> = {}
-  for (const [key, entry] of Object.entries(value)) {
-    if (typeof entry === "number" && Number.isFinite(entry)) {
-      result[key] = entry
-    }
+  for (const [key, entry] of Object.entries(record)) {
+    const numberValue = parseFiniteNumber(entry)
+    if (numberValue !== undefined) result[key] = numberValue
   }
   return result
 }
 
-function readStringRecord(value: unknown): Record<string, string> | undefined {
-  if (!isRecord(value)) {
-    return undefined
-  }
-
+function parseStringRecord<TValue>(value: TValue): Record<string, string> | undefined {
+  const parsed = parseWithSchema(stringRecordSchema, value)
+  if (parsed) return parsed
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
   const result: Record<string, string> = {}
-  for (const [key, entry] of Object.entries(value)) {
-    if (typeof entry === "string") {
-      result[key] = entry
-    }
+  for (const [key, entry] of Object.entries(record)) {
+    const text = parseStringValue(entry)
+    if (text !== undefined) result[key] = text
   }
   return result
 }
 
-function readVariantRecord(value: unknown): Record<string, string | null> | undefined {
-  if (!isRecord(value)) {
-    return undefined
-  }
-
+function parseVariantRecord<TValue>(value: TValue): Record<string, string | null> | undefined {
+  const parsed = parseWithSchema(variantRecordSchema, value)
+  if (parsed) return parsed
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
   const result: Record<string, string | null> = {}
-  for (const [key, entry] of Object.entries(value)) {
-    if (entry === null || typeof entry === "string") {
-      result[key] = entry
+  for (const [key, entry] of Object.entries(record)) {
+    if (entry === null) {
+      result[key] = null
+      continue
     }
+    const text = parseStringValue(entry)
+    if (text !== undefined) result[key] = text
   }
   return result
 }
 
-function readPersistedModelSelectionState(value: unknown): PersistedModelSelectionState {
-  if (!isRecord(value)) {
+function readPersistedModelSelectionState<TValue>(value: TValue): PersistedModelSelectionState {
+  const record = parseBuddyConfigObject(value)
+  if (!record) {
     return {}
   }
 
-  const selectionSourceByKey = readSelectionSourceRecord(value.selectionSourceByKey)
-  const restoredSelectionCreatedAtByKey = readNumberRecord(value.restoredSelectionCreatedAtByKey)
-  const selectedAgentByKey = readStringRecord(value.selectedAgentByKey)
-  const selectedModelByKey = readStringRecord(value.selectedModelByKey)
-  const selectedVariantByKey = readVariantRecord(value.selectedVariantByKey)
-  const recentModelKeys = Array.isArray(value.recentModelKeys)
-    ? value.recentModelKeys.filter((entry): entry is string => typeof entry === "string")
-    : undefined
-
   return {
-    selectionSourceByKey,
-    restoredSelectionCreatedAtByKey,
-    selectedAgentByKey,
-    selectedModelByKey,
-    selectedVariantByKey,
-    recentModelKeys,
+    selectionSourceByKey: parseSelectionSourceRecord(record.selectionSourceByKey),
+    restoredSelectionCreatedAtByKey: parseNumberRecord(record.restoredSelectionCreatedAtByKey),
+    selectedAgentByKey: parseStringRecord(record.selectedAgentByKey),
+    selectedModelByKey: parseStringRecord(record.selectedModelByKey),
+    selectedVariantByKey: parseVariantRecord(record.selectedVariantByKey),
+    recentModelKeys: parseFilteredStringArray(record.recentModelKeys),
   }
 }
 

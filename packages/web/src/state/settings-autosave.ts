@@ -1,10 +1,12 @@
+import { z } from "zod"
+import { parseWithSchema } from "./parse-external"
+
 export type AutosaveAttemptOptions = {
   force?: boolean
 }
 
-function createAutosavePayloadKey(payload: unknown): string | undefined {
-  const key = JSON.stringify(payload)
-  return typeof key === "string" ? key : undefined
+function createAutosavePayloadKey<TPayload>(payload: TPayload): string | undefined {
+  return parseWithSchema(z.string(), JSON.stringify(payload))
 }
 
 function shouldSkipFailedAutosave(input: {

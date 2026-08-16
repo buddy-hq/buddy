@@ -1,8 +1,10 @@
+import { z } from "zod"
 import {
   authorizationHeader,
   createServerFetchTransport,
   resolveServerApiBaseUrl,
 } from "../lib/server-client"
+import { parseBuddyConfigObject, parseStringValue, parseWithSchema } from "./parse-external"
 
 export type StandardsRuntimeState =
   | "not_installed"
@@ -26,60 +28,37 @@ export type StandardsRuntimeStatus = {
   progressMessage?: string
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const standardsRuntimeStatusSchema = z.object({
+  enabled: z.boolean(),
+  state: z.enum([
+    "not_installed",
+    "downloading",
+    "installing",
+    "ready",
+    "repairing",
+    "removing",
+    "error",
+  ]),
+  ready: z.boolean(),
+  installedDatasetVersion: z.string().optional(),
+  installedArchiveChecksum: z.string().optional(),
+  databasePath: z.string().optional(),
+  lastHealthyAt: z.string().optional(),
+  lastError: z.string().optional(),
+  progressPercent: z.number().finite().optional(),
+  progressMessage: z.string().optional(),
+})
+
+function parseRuntimeErrorMessage<TValue>(value: TValue): string | undefined {
+  const text = parseStringValue(value)
+  if (text !== undefined && text.length > 0) return text
+  const record = parseBuddyConfigObject(value)
+  if (!record) return undefined
+  return parseRuntimeErrorMessage(record.error)
 }
 
-function errorMessage(value: unknown) {
-  if (typeof value === "string" && value.length > 0) return value
-  if (isRecord(value) && "error" in value) {
-    const errorValue = value.error
-    return errorMessage(errorValue)
-  }
-  return undefined
-}
-
-function parseStandardsRuntimeStatus(value: unknown): StandardsRuntimeStatus | undefined {
-  if (!isRecord(value)) {
-    return undefined
-  }
-  if (typeof value.enabled !== "boolean") {
-    return undefined
-  }
-  if (
-    value.state !== "not_installed" &&
-    value.state !== "downloading" &&
-    value.state !== "installing" &&
-    value.state !== "ready" &&
-    value.state !== "repairing" &&
-    value.state !== "removing" &&
-    value.state !== "error"
-  ) {
-    return undefined
-  }
-  if (typeof value.ready !== "boolean") {
-    return undefined
-  }
-
-  return {
-    enabled: value.enabled,
-    state: value.state,
-    ready: value.ready,
-    installedDatasetVersion:
-      typeof value.installedDatasetVersion === "string" ? value.installedDatasetVersion : undefined,
-    installedArchiveChecksum:
-      typeof value.installedArchiveChecksum === "string"
-        ? value.installedArchiveChecksum
-        : undefined,
-    databasePath: typeof value.databasePath === "string" ? value.databasePath : undefined,
-    lastHealthyAt: typeof value.lastHealthyAt === "string" ? value.lastHealthyAt : undefined,
-    lastError: typeof value.lastError === "string" ? value.lastError : undefined,
-    progressPercent:
-      typeof value.progressPercent === "number" && Number.isFinite(value.progressPercent)
-        ? value.progressPercent
-        : undefined,
-    progressMessage: typeof value.progressMessage === "string" ? value.progressMessage : undefined,
-  }
+function parseStandardsRuntimeStatus<TValue>(value: TValue): StandardsRuntimeStatus | undefined {
+  return parseWithSchema(standardsRuntimeStatusSchema, value)
 }
 
 async function requestRuntimeStatus(
@@ -91,16 +70,12 @@ async function requestRuntimeStatus(
   const auth = authorizationHeader()
   const response = await transport(`${baseUrl}${pathname}`, {
     ...init,
-    headers: Object.assign(
-      {},
-      auth ? { authorization: auth } : undefined,
-      init?.headers,
-    ),
+    headers: Object.assign({}, auth ? { authorization: auth } : undefined, init?.headers),
   })
 
   const body = await response.json().catch(() => undefined)
   if (!response.ok) {
-    throw new Error(errorMessage(body) ?? `Request failed (${response.status})`)
+    throw new Error(parseRuntimeErrorMessage(body) ?? `Request failed (${response.status})`)
   }
 
   const status = parseStandardsRuntimeStatus(body)

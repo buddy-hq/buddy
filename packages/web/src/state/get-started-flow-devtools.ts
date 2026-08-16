@@ -5,20 +5,25 @@ import {
   isGetStartedFlowDevtoolsMode,
   type GetStartedFlowDevtoolsMode,
 } from "@/lib/get-started-chats"
+import { parseBuddyConfigObject, parseStringValue } from "./parse-external"
 
 const GET_STARTED_FLOW_DEVTOOLS_STORAGE_KEY = "buddy.devtools.get-started-flow.v3"
 
-type GetStartedFlowDevtoolsStore = {
+type TGetStartedFlowDevtoolsStore = {
   mode: GetStartedFlowDevtoolsMode
   setMode: (mode: GetStartedFlowDevtoolsMode) => void
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function parseGetStartedFlowDevtoolsMode<TValue>(
+  value: TValue,
+): GetStartedFlowDevtoolsMode | undefined {
+  const mode = parseStringValue(value)
+  if (mode !== undefined && isGetStartedFlowDevtoolsMode(mode)) return mode
+  return undefined
 }
 
 // Persisted app store: this developer-only selection survives local page reloads.
-export const useGetStartedFlowDevtools = create<GetStartedFlowDevtoolsStore>()(
+export const useGetStartedFlowDevtools = create<TGetStartedFlowDevtoolsStore>()(
   persist(
     (set) => ({
       mode: GET_STARTED_FLOW_DEVTOOLS_MODE.appState,
@@ -31,14 +36,12 @@ export const useGetStartedFlowDevtools = create<GetStartedFlowDevtoolsStore>()(
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({ mode: state.mode }),
       merge(persistedState, currentState) {
-        if (!isRecord(persistedState)) return currentState
-        const mode = persistedState.mode
+        const record = parseBuddyConfigObject(persistedState)
+        if (!record) return currentState
+        const mode = parseGetStartedFlowDevtoolsMode(record.mode)
         return {
           ...currentState,
-          mode:
-            typeof mode === "string" && isGetStartedFlowDevtoolsMode(mode)
-              ? mode
-              : currentState.mode,
+          mode: mode ?? currentState.mode,
         }
       },
     },

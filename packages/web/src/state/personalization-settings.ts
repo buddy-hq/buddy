@@ -6,6 +6,7 @@ import { patchGlobalConfig } from "./chat-actions"
 import {
   shouldResetPersonalizationForm,
   buildPersonalizationPatch,
+  parsePersonalizationSettings,
   personalizationSettingsMatch,
   readPersonalization,
   type PersonalizationSettings,
@@ -13,6 +14,7 @@ import {
 import { setPersonalizationSettingsQueryData } from "./personalization-settings-query"
 import { directoryChatQueryKeys } from "@/lib/directory-chat/chat-config-query"
 import { globalConfigQueryKeys } from "./global-config-query"
+import { stringifyCaughtError } from "./parse-external"
 
 const AUTO_SAVE_DELAY_MS = 250
 const PERSONALIZATION_HYDRATION_OPTIONS = {
@@ -36,20 +38,10 @@ function hydratePersonalizationForm(form: AnyFormApi, personalization: Personali
   )
 }
 
-function stringifyError(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (typeof error === "string") return error
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return String(error)
-  }
-}
-
-export function usePersonalizationSettingsAutosave(
+export function usePersonalizationSettingsAutosave<TConfig>(
   form: AnyFormApi,
   input: {
-    globalConfig?: Record<string, unknown>
+    globalConfig?: TConfig
     isPending: boolean
   },
 ) {
@@ -84,14 +76,15 @@ export function usePersonalizationSettingsAutosave(
   }, [form, input.globalConfig, values])
 
   const performSave = useCallback(async () => {
-    const globalConfig = queryClient.getQueryData<Record<string, unknown>>(
-      globalConfigQueryKeys.bundle(),
-    )
+    const globalConfig = queryClient.getQueryData(globalConfigQueryKeys.bundle())
     if (!globalConfig) {
       return false
     }
 
-    const nextValues = form.state.values as PersonalizationSettings
+    const nextValues = parsePersonalizationSettings(form.state.values)
+    if (!nextValues) {
+      return false
+    }
     const currentValues = readPersonalization(globalConfig)
     if (personalizationSettingsMatch(nextValues, currentValues)) {
       lastSavedValuesRef.current = currentValues
@@ -113,7 +106,7 @@ export function usePersonalizationSettingsAutosave(
     } catch (error) {
       form.setErrorMap({
         onSubmit: {
-          form: stringifyError(error),
+          form: stringifyCaughtError(error),
           fields: {},
         },
       })

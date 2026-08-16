@@ -18,10 +18,16 @@ import {
   shouldSkipFailedAutosave,
   type AutosaveAttemptOptions,
 } from "./settings-autosave"
+import { EMPTY_BUDDY_CONFIG, parseBuddyConfigObject, stringifyCaughtError } from "./parse-external"
+import type { TBuddyConfigObject } from "./parse-external"
 
-type GeneralSettingsPatch = Record<string, unknown>
+type TGeneralSettingsToolPatch = Record<string, boolean | null>
+type TGeneralSettingsGlobalPatch = {
+  tools?: TGeneralSettingsToolPatch
+  compaction?: { auto: boolean | null }
+}
 type GeneralSettingsPatches = {
-  globalPatch?: GeneralSettingsPatch
+  globalPatch?: TGeneralSettingsGlobalPatch
 }
 
 const AUTO_SAVE_DELAY_MS = 250
@@ -32,7 +38,7 @@ const GENERAL_OVERRIDE_CLEANUP_PATCH = {
   compaction: {
     auto: null,
   },
-} satisfies Record<string, unknown>
+} satisfies TGeneralSettingsGlobalPatch
 const CLEANUP_FAILURE_MESSAGE =
   "Saved global settings, but could not clear some notebook overrides."
 
@@ -44,21 +50,11 @@ function normalizeDirectories(directories: string[]) {
   )
 }
 
-function stringifyError(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (typeof error === "string") return error
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return String(error)
-  }
-}
-
 function buildGeneralSettingsPatch(input: {
-  globalConfig: Record<string, unknown>
+  globalConfig: TBuddyConfigObject
   draft: GeneralSettingsDraft
 }): GeneralSettingsPatches | undefined {
-  const globalPatch: GeneralSettingsPatch = {}
+  const globalPatch: TGeneralSettingsGlobalPatch = {}
   const currentFullTextReadingEnabled = readToolToggle(input.globalConfig, FULL_TEXT_TOOL_ID, true)
   const currentAutoCompactionEnabled = readCompactionAuto(input.globalConfig, true)
 
@@ -118,7 +114,7 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
   const loading =
     settingsQuery.isPending || (initialized !== GLOBAL_KEY && settingsQuery.isFetching)
   const error =
-    storeError ?? (settingsQuery.error ? stringifyError(settingsQuery.error) : undefined)
+    storeError ?? (settingsQuery.error ? stringifyCaughtError(settingsQuery.error) : undefined)
 
   useEffect(() => {
     if (!bundle) {
@@ -171,7 +167,7 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
         )
 
         queryClient.setQueryData<GeneralSettingsBundle>(generalSettingsQueryOptions().queryKey, {
-          globalConfig: updatedGlobal,
+          globalConfig: parseBuddyConfigObject(updatedGlobal) ?? EMPTY_BUDDY_CONFIG,
         })
 
         await Promise.all(
@@ -189,7 +185,7 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
         return cleanupFailures.length === 0
       } catch (error) {
         failedPatchKeyRef.current = patchKey
-        store.getState().failSaving(stringifyError(error))
+        store.getState().failSaving(stringifyCaughtError(error))
         return false
       }
     },

@@ -313,7 +313,9 @@ export async function loadObjectMediaAvailability(
   )
 }
 
-function objectMediaAvailabilityError(error: unknown): ObjectMediaPresentationAvailabilityResponse {
+function objectMediaAvailabilityError<TError>(
+  error: TError,
+): ObjectMediaPresentationAvailabilityResponse {
   return {
     status: "error",
     message: error instanceof Error ? error.message : String(error),
