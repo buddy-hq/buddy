@@ -1,8 +1,18 @@
 import { fromMarkdown } from "mdast-util-from-markdown"
 import type { Nodes, Root } from "mdast"
-import type { Position } from "unist"
 import { matchBuddyBlockMath, matchBuddyInlineMath } from "@/components/markdown/markdown-math"
 import { prepareObsidianCalloutsForMdxEditor } from "@/components/bench/markdown-bench-obsidian-callouts"
+
+type TMarkdownPoint = {
+  line: number
+  column: number
+  offset?: number
+}
+
+type TMarkdownPosition = {
+  start: TMarkdownPoint
+  end: TMarkdownPoint
+}
 
 type MarkdownReplacement = {
   start: number
@@ -37,15 +47,15 @@ function markdownAstChildren(node: Nodes): readonly Nodes[] {
   return "children" in node ? node.children : []
 }
 
-function readStartOffset(position: Position | undefined): number | undefined {
+function readStartOffset(position: TMarkdownPosition | undefined): number | undefined {
   return position?.start.offset
 }
 
-function readEndOffset(position: Position | undefined): number | undefined {
+function readEndOffset(position: TMarkdownPosition | undefined): number | undefined {
   return position?.end.offset
 }
 
-function readOffset(position: Position | undefined): number | undefined {
+function readOffset(position: TMarkdownPosition | undefined): number | undefined {
   const start = readStartOffset(position)
   const end = readEndOffset(position)
   if (start === undefined || end === undefined) return undefined

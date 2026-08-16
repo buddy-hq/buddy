@@ -298,25 +298,14 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   const sessionsToRender = visibleSessions
 
   const [popoverOpen, setPopoverOpen] = useState(false)
-  const popoverTimeoutRef = useRef<any>(null)
-  const popoverOpenTimeoutRef = useRef<any>(null)
+  const popoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const popoverOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const justCollapsedRef = useRef(false)
-
-  const handleMouseEnter = () => {
-    // Hover-to-preview popout disabled for now — keeping the logic here to re-enable easily.
-    // if (props.collapsed && !justCollapsedRef.current) {
-    //   clearTimeout(popoverTimeoutRef.current)
-    //   if (!popoverOpen) {
-    //     popoverOpenTimeoutRef.current = setTimeout(() => {
-    //       setPopoverOpen(true)
-    //     }, 250)
-    //   }
-    // }
-  }
 
   const handleMouseLeave = () => {
     justCollapsedRef.current = false
-    clearTimeout(popoverOpenTimeoutRef.current)
+    const openTimer = popoverOpenTimeoutRef.current
+    if (openTimer !== null) clearTimeout(openTimer)
     popoverTimeoutRef.current = setTimeout(() => {
       setPopoverOpen(false)
     }, 150)
@@ -458,7 +447,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         >
           {isQuickChatGroup ? (
             <PopoverTrigger asChild>
-              <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+              <div onMouseLeave={handleMouseLeave}>
                 {headerNode}
               </div>
             </PopoverTrigger>
@@ -466,7 +455,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
             <ContextMenu>
               <ContextMenuTrigger asChild>
                 <PopoverTrigger asChild>
-                  <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+                  <div onMouseLeave={handleMouseLeave}>
                     {headerNode}
                   </div>
                 </PopoverTrigger>
@@ -507,7 +496,6 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               align="start"
               sideOffset={12}
               className="p-1 max-h-[60vh] overflow-y-auto scrollbar-hover"
-              onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
             >
               <div className="flex flex-col">

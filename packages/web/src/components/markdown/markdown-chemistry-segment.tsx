@@ -37,6 +37,43 @@ function ChemistryDiagramFallback(props: { format: ChemistryFormat }): ReactNode
   )
 }
 
+function renderChemistryRendererUnavailable(input: {
+  error: Error
+  retry: () => void
+  source: string
+  viewportClass: string
+  onReload: () => void
+}): ReactNode {
+  return (
+    <div className={`${input.viewportClass} flex flex-col gap-3 overflow-auto`}>
+      <Alert variant="destructive">
+        <AlertTitle>Chemistry renderer unavailable</AlertTitle>
+        <AlertDescription>{input.error.message}</AlertDescription>
+      </Alert>
+      <details className="rounded-md border border-border-base bg-surface-weak">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-text-weak">
+          View preserved chemistry source
+        </summary>
+        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words border-t border-border-base p-3 text-xs text-text-base">
+          <code>{input.source}</code>
+        </pre>
+      </details>
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            input.onReload()
+            input.retry()
+          }}
+        >
+          Retry chemistry renderer
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function MarkdownChemistrySegment(props: {
   format: ChemistryFormat
   source: string
@@ -104,34 +141,17 @@ export function MarkdownChemistrySegment(props: {
     >
       <ChemistryErrorBoundary
         resetKeys={[props.format, props.source, loadAttempt]}
-        fallback={({ error, retry }) => (
-          <div className={`${viewportClass} flex flex-col gap-3 overflow-auto`}>
-            <Alert variant="destructive">
-              <AlertTitle>Chemistry renderer unavailable</AlertTitle>
-              <AlertDescription>{error.message}</AlertDescription>
-            </Alert>
-            <details className="rounded-md border border-border-base bg-surface-weak">
-              <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-text-weak">
-                View preserved chemistry source
-              </summary>
-              <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words border-t border-border-base p-3 text-xs text-text-base">
-                <code>{props.source}</code>
-              </pre>
-            </details>
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                  setLoadAttempt((attempt) => attempt + 1)
-                  retry()
-                }}
-              >
-                Retry chemistry renderer
-              </Button>
-            </div>
-          </div>
-        )}
+        fallback={(input) =>
+          renderChemistryRendererUnavailable({
+            error: input.error,
+            retry: input.retry,
+            source: props.source,
+            viewportClass,
+            onReload: () => {
+              setLoadAttempt((attempt) => attempt + 1)
+            },
+          })
+        }
       >
         <Suspense fallback={<ChemistryDiagramFallback format={props.format} />}>
           <ChemistryDiagram

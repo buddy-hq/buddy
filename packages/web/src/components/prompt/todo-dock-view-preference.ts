@@ -6,7 +6,8 @@ import type { TodoDockView } from "./todo-dock-views"
 const STORAGE_KEY = "buddy.todoDock.view"
 
 function parseTTodoDockView<TValue>(value: TValue): TodoDockView | undefined {
-  if (value === "list" || value === "board") return value
+  if (value === "list") return "list"
+  if (value === "board") return "board"
   return undefined
 }
 

@@ -26,6 +26,7 @@ export function advancedMathRuntimeDescription(os: Platform["os"]) {
 }
 
 export function AdvancedMathRuntimeControl(props: AdvancedMathRuntimeControlProps) {
+  const progressPercent = parseTNumber(props.status?.progressPercent)
   if (!isAdvancedMathRuntimeSupported(props.os)) {
     return (
       <Badge variant="outline" className="h-7 px-3 text-text-weak">
@@ -67,17 +68,17 @@ export function AdvancedMathRuntimeControl(props: AdvancedMathRuntimeControlProp
           {formatRuntimeVersion(props.status.installedRuntimeVersion)}
         </span>
       ) : null}
-      {props.status?.progressMessage || parseTNumber(props.status?.progressPercent) !== undefined ? (
+      {props.status?.progressMessage || progressPercent !== undefined ? (
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
             <span className="truncate">
               {props.status?.progressMessage ?? language.t("settings.appearance.working")}
             </span>
-            {parseTNumber(props.status?.progressPercent) !== undefined ? (
-              <span>{Math.round(props.status.progressPercent)}%</span>
+            {progressPercent !== undefined ? (
+              <span>{Math.round(progressPercent)}%</span>
             ) : null}
           </div>
-          <Progress value={props.status?.progressPercent ?? 0} className="h-1.5" />
+          <Progress value={progressPercent ?? 0} className="h-1.5" />
         </div>
       ) : null}
       {props.status?.lastError ? (

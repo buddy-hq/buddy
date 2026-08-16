@@ -3,6 +3,7 @@ import {
   measureElement as measureVirtualElement,
   observeElementRect,
   useVirtualizer,
+  type Virtualizer,
 } from "@tanstack/react-virtual"
 import { cn } from "@buddy/ui"
 import { VIRTUAL_DEFAULT_OVERSCAN } from "./virtualization-defaults"
@@ -36,16 +37,16 @@ export function VirtualizedRows<TItem, TScrollElement extends Element = HTMLDivE
       fallbackRect
         ? {
             observeElementRect: (
-              instance: Parameters<typeof observeElementRect>[0],
+              instance: Virtualizer<TScrollElement, HTMLDivElement>,
               callback: Parameters<typeof observeElementRect>[1],
             ) =>
               observeElementRect(instance, (rect) =>
                 callback(rect.height > 0 ? rect : fallbackRect),
               ),
             measureElement: (
-              element: Parameters<typeof measureVirtualElement>[0],
-              entry: Parameters<typeof measureVirtualElement>[1],
-              instance: Parameters<typeof measureVirtualElement>[2],
+              element: HTMLDivElement,
+              entry: ResizeObserverEntry | undefined,
+              instance: Virtualizer<TScrollElement, HTMLDivElement>,
             ) => {
               const measured = measureVirtualElement(element, entry, instance)
               if (measured > 0) return measured

@@ -1,4 +1,5 @@
 import createIndigoRuntime from "indigo-ketcher/binaryWasm"
+import { stringifyCaughtError } from "./parse-values"
 import type { ChemistryFormat } from "../src/components/media/renderers/chemistry/formats"
 import {
   IndigoWorkerClient,
@@ -73,9 +74,8 @@ function readConfiguration(): StressConfiguration {
   }
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  return String(error)
+function errorMessage<TError>(error: TError): string {
+  return stringifyCaughtError(error)
 }
 
 function percentile(values: number[], fraction: number): number {
@@ -192,26 +192,30 @@ async function runCase(
     }
     const svg = prepareChemistrySvg(rendered.svg)
     const validSvg = svg.startsWith("<svg") && !svg.includes("<?xml")
-    return {
-      durationMs: performance.now() - startedAt,
-      ...(validSvg ? {} : { error: "Renderer returned an invalid SVG document." }),
-      format: testCase.format,
-      name: testCase.name,
-      passed: validSvg,
-      svg,
-    }
+    return Object.assign(
+      {
+        durationMs: performance.now() - startedAt,
+        format: testCase.format,
+        name: testCase.name,
+        passed: validSvg,
+        svg,
+      },
+      validSvg ? undefined : { error: "Renderer returned an invalid SVG document." },
+    )
   } catch (error) {
     const message = errorMessage(error)
     const passed =
       testCase.expectation.outcome === "rejected" &&
       message.includes(testCase.expectation.messageIncludes)
-    return {
-      durationMs: performance.now() - startedAt,
-      ...(passed ? {} : { error: `operation ${operationID}: ${message}` }),
-      format: testCase.format,
-      name: testCase.name,
-      passed,
-    }
+    return Object.assign(
+      {
+        durationMs: performance.now() - startedAt,
+        format: testCase.format,
+        name: testCase.name,
+        passed,
+      },
+      passed ? undefined : { error: `operation ${operationID}: ${message}` },
+    )
   }
 }
 

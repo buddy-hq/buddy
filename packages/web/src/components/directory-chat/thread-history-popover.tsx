@@ -26,6 +26,10 @@ type ThreadHistoryPopoverProps = {
   triggerIconClassName?: string
 }
 
+function getThreadTitle(session: SessionInfo) {
+  return session.title.trim() || language.t("sidebar.untitledThread")
+}
+
 export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
   const [query, setQuery] = useState("")
   const [isOpen, setIsOpen] = useState(false)
@@ -47,10 +51,6 @@ export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
           if (aLinked === bLinked) return 0
           return aLinked ? -1 : 1
         })
-
-  function getThreadTitle(session: SessionInfo) {
-    return session.title.trim() || language.t("sidebar.untitledThread")
-  }
 
   return (
     <Popover

@@ -18,7 +18,6 @@ import {
   cn,
 } from "@buddy/ui"
 import { Gamepad2Icon, PenLineIcon } from "@/icons/app-icons"
-import { hasFunctionValue } from "@/state/parse-external"
 import {
   lazy,
   startTransition,
@@ -743,7 +742,7 @@ export function PromptComposer(props: PromptComposerProps) {
         | ((attachments: PromptComposerAttachment[]) => PromptComposerAttachment[]),
     ) => {
       const currentDraft = draftRef.current
-      const attachments = hasFunctionValue(update) ? update(currentDraft.attachments) : update
+      const attachments = Array.isArray(update) ? update : update(currentDraft.attachments)
       replaceDraftFromComposer({
         value: currentDraft.value,
         parts: currentDraft.parts,

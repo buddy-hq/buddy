@@ -292,14 +292,6 @@ function Stage({ children }: { children: ReactNode }) {
   )
 }
 
-function Keycap({ children }: { children: ReactNode }) {
-  return (
-    <kbd className="inline-flex min-w-[1.25rem] items-center justify-center rounded border border-border-weaker-base bg-surface-raised-base px-1 py-0.5 font-mono text-[10px] text-text-weak">
-      {children}
-    </kbd>
-  )
-}
-
 function PendingLine({ count }: { count: number }) {
   if (count <= 0) return null
   return (
@@ -313,20 +305,23 @@ function PendingLine({ count }: { count: number }) {
 
 function Latexish({ text, className }: { text: string; className?: string }) {
   const parts = text.split(/(\$[^$]+\$)/g)
+  let offset = 0
   return (
     <span className={cn("align-middle", className)}>
-      {parts.map((part, i) =>
-        part.startsWith("$") && part.endsWith("$") ? (
+      {parts.map((part) => {
+        const key = `${offset}:${part}`
+        offset += part.length
+        return part.startsWith("$") && part.endsWith("$") ? (
           <span
-            key={i}
+            key={key}
             className="mx-0.5 inline rounded bg-surface-raised-base px-1 font-mono text-[0.92em] leading-none text-text-base"
           >
             {part.slice(1, -1)}
           </span>
         ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
+          <span key={key}>{part}</span>
+        )
+      })}
     </span>
   )
 }

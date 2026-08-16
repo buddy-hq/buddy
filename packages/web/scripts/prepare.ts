@@ -9,7 +9,7 @@ type ConfigResolvedPlugin = Plugin & {
 }
 
 function hasConfigResolved(plugin: Plugin): plugin is ConfigResolvedPlugin {
-  return typeof plugin.configResolved === "function"
+  return plugin.configResolved !== undefined
 }
 
 const webDir = path.resolve(import.meta.dir, "..")

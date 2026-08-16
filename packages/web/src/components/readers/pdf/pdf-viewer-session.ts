@@ -13,13 +13,14 @@ import { findPdfTextMatches, type PdfTextMatchOptions } from "./pdf-search"
 import { pdfDocumentFingerprint } from "./pdf-document-identity"
 import {
   PdfJsPageViewSchema,
+  readCoordinatePair,
   readPdfPageViewGeometry,
   type PdfPageViewGeometry,
 } from "./pdf-geometry"
 import {
   pdfCurrentPassageText,
   pdfTextAnchorFromOffsets,
-  PdfJsTextContentHostSchema,
+  parsePdfJsTextContentItems,
   readPdfPageText,
   repairPdfTextAnchor,
   type PdfPageText,
@@ -31,6 +32,15 @@ import {
   resolvePdfWheelPageTurn,
 } from "./pdf-viewer-mode"
 import { pdfLocationLabel } from "./pdf-location-label"
+import {
+  parsePdfOutline,
+  PdfDestinationElementSchema,
+  PdfPageReferenceSchema,
+  type TPdfDestination,
+  type TPdfDestinationElement,
+  type TPdfOutlineValue,
+  type TPdfPageReference,
+} from "./pdf-outline"
 import type {
   PdfReaderMode,
   ReaderMetadataRow,
@@ -94,34 +104,11 @@ type PdfViewerEvent = {
   presetValue?: string
 }
 
-type PdfOutlineValue = {
-  title: string
-  destination?: TPdfDestination
-  href?: string
-  items: PdfOutlineValue[]
-}
-
 type PdfOutlineLocation = {
   label: string
   pageIndex: number
   order: number
 }
-
-type PdfPageReference = {
-  num: number
-  gen: number
-}
-
-type TPdfDestinationElement =
-  | string
-  | number
-  | boolean
-  | null
-  | PdfPageReference
-  | readonly TPdfDestinationElement[]
-
-type TPdfExplicitDestination = readonly TPdfDestinationElement[]
-type TPdfDestination = string | TPdfExplicitDestination
 
 type TPdfDocumentInfo = {
   Title?: string
@@ -163,26 +150,30 @@ const PdfViewerEventSchema = z.object({
   presetValue: z.string().optional(),
 })
 
-const PdfPageReferenceSchema = z.object({
-  num: z.number().int(),
-  gen: z.number().int(),
-})
+type TPdfViewerBusEvent = {
+  pageNumber?: number
+  pageLabel?: string
+  scale?: number
+  presetValue?: string
+}
 
-const PdfDestinationElementSchema: z.ZodType<TPdfDestinationElement> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    PdfPageReferenceSchema,
-    z.array(PdfDestinationElementSchema),
-  ]),
+type TPdfJsSetDocument = (document: PDFDocumentProxy | null) => void
+
+const pdfSetDocumentSchema = z.custom<TPdfJsSetDocument>(
+  (value) => z.function().safeParse(value).success,
 )
 
-const PdfDestinationSchema: z.ZodType<TPdfDestination> = z.union([
-  z.string(),
-  z.array(PdfDestinationElementSchema),
-])
+function clearPdfViewerDocument(viewer: PDFViewer): void {
+  const parsed = pdfSetDocumentSchema.safeParse(viewer.setDocument)
+  if (!parsed.success) return
+  parsed.data.call(viewer, null)
+}
+
+function toPdfJsLinkDestination(destination: TPdfDestination): string | TPdfDestinationElement[] {
+  const named = z.string().safeParse(destination)
+  if (named.success) return named.data
+  return [...destination]
+}
 
 const PdfDocumentInfoSchema = z.object({
   Title: z.string().optional(),
@@ -192,24 +183,6 @@ const PdfDocumentInfoSchema = z.object({
   Creator: z.string().optional(),
   Producer: z.string().optional(),
 })
-
-const PdfOutlineItemSchema: z.ZodType<PdfOutlineValue> = z.lazy(() =>
-  z.object({
-    title: z.string(),
-    dest: PdfDestinationSchema.optional(),
-    url: z.string().optional(),
-    items: z.array(PdfOutlineItemSchema).optional(),
-  }).transform((item) =>
-    Object.assign(
-      {
-        title: item.title.trim(),
-        items: item.items ?? [],
-      },
-      item.dest ? { destination: item.dest } : undefined,
-      item.url ? { href: item.url } : undefined,
-    ),
-  ),
-)
 
 const PdfCropBoxValuesSchema = z.tuple([
   z.number().finite(),
@@ -230,7 +203,7 @@ function readCropBox(value: readonly number[]): readonly [number, number, number
   return parsed.data
 }
 
-function readPdfReference(value: TPdfDestinationElement): PdfPageReference | undefined {
+function readPdfReference(value: TPdfDestinationElement): TPdfPageReference | undefined {
   const parsed = PdfPageReferenceSchema.safeParse(value)
   return parsed.success ? parsed.data : undefined
 }
@@ -271,10 +244,6 @@ function readInfoString(info: TPdfDocumentInfo, key: keyof TPdfDocumentInfo): st
   if (value === undefined) return undefined
   const trimmed = value.trim()
   return trimmed ? trimmed : undefined
-}
-
-function readOutline(value: PdfOutlineValue[]): PdfOutlineValue[] {
-  return value.filter((item) => item.title.length > 0)
 }
 
 function abortError(): DOMException {
@@ -389,12 +358,11 @@ export class PdfViewerSession {
       if (this.#lifecycle.signal.aborted) return
       this.#pageLabels = pageLabels
       const fingerprint = pdfDocumentFingerprint(loaded.document.fingerprints)
-      const parsedOutline = z.array(PdfOutlineItemSchema).safeParse(outline)
       const parsedInfo = PdfDocumentInfoSchema.safeParse(metadata.info)
       const info = parsedInfo.success ? parsedInfo.data : {}
       const navigation = await this.#buildNavigation(
         loaded.document,
-        readOutline(parsedOutline.success ? parsedOutline.data : []),
+        parsePdfOutline(outline),
         pageLabels,
       )
       if (this.#lifecycle.signal.aborted) return
@@ -482,7 +450,7 @@ export class PdfViewerSession {
     )
     eventBus.on(
       PDFJS_EVENT_PAGE_CHANGING,
-      (value) => {
+      (value: TPdfViewerBusEvent) => {
         const parsed = PdfViewerEventSchema.safeParse(value)
         if (!parsed.success) return
         const event = readPdfViewerEvent(parsed.data)
@@ -495,7 +463,7 @@ export class PdfViewerSession {
     )
     eventBus.on(
       PDFJS_EVENT_SCALE_CHANGING,
-      (value) => {
+      (value: TPdfViewerBusEvent) => {
         const parsed = PdfViewerEventSchema.safeParse(value)
         if (!parsed.success) return
         const event = readPdfViewerEvent(parsed.data)
@@ -508,7 +476,7 @@ export class PdfViewerSession {
     )
     eventBus.on(
       PDFJS_EVENT_PAGE_RENDERED,
-      (value) => {
+      (value: TPdfViewerBusEvent) => {
         const parsed = PdfViewerEventSchema.safeParse(value)
         if (!parsed.success) return
         const event = readPdfViewerEvent(parsed.data)
@@ -519,7 +487,7 @@ export class PdfViewerSession {
     )
     eventBus.on(
       PDFJS_EVENT_TEXT_LAYER_RENDERED,
-      (value) => {
+      (value: TPdfViewerBusEvent) => {
         const parsed = PdfViewerEventSchema.safeParse(value)
         if (!parsed.success) return
         const event = readPdfViewerEvent(parsed.data)
@@ -603,9 +571,10 @@ export class PdfViewerSession {
     document: PDFDocumentProxy,
     destination: TPdfDestination,
   ): Promise<number | undefined> {
-    const resolvedDestination = Array.isArray(destination)
-      ? destination
-      : await document.getDestination(destination).catch(() => null)
+    const namedDestination = z.string().safeParse(destination)
+    const resolvedDestination = namedDestination.success
+      ? await document.getDestination(namedDestination.data).catch(() => null)
+      : destination
     const explicitDestination = z.array(PdfDestinationElementSchema).safeParse(resolvedDestination)
     if (!explicitDestination.success) return undefined
     const reference = explicitDestination.data[0]
@@ -625,13 +594,13 @@ export class PdfViewerSession {
 
   async #buildNavigation(
     document: PDFDocumentProxy,
-    outline: PdfOutlineValue[],
+    outline: TPdfOutlineValue[],
     pageLabels: string[] | null,
   ): Promise<{ toc: ReaderNavigationItem[]; pageList: ReaderNavigationItem[] }> {
     this.#navigationTargets.clear()
     this.#outlineLocations = []
     let outlineIndex = 0
-    const buildItems = async (values: PdfOutlineValue[]): Promise<ReaderNavigationItem[]> =>
+    const buildItems = async (values: TPdfOutlineValue[]): Promise<ReaderNavigationItem[]> =>
       Promise.all(
         values.map(async (value) => {
           const id = `${PDFJS_OUTLINE_ID_PREFIX}${outlineIndex}`
@@ -822,9 +791,7 @@ export class PdfViewerSession {
       Math.min(surfaceBounds.height, containerBounds.top - surfaceBounds.top),
     )
     const converted = geometry.viewport.convertToPdfPoint(viewportX, viewportY)
-    const pdfPoint = Array.isArray(converted)
-      ? { x: converted[0], y: converted[1] }
-      : converted
+    const pdfPoint = readCoordinatePair(converted)
     if (!pdfPoint) return { kind: "pdf-position", pageIndex, xRatio: 0, yRatio: 0 }
     const { xMin, yMin, xMax, yMax } = geometry.cropBox
     return {
@@ -870,7 +837,7 @@ export class PdfViewerSession {
       this.#openExternalLink(target.href)
       return
     }
-    await this.#linkService.goToDestination(target.destination)
+    await this.#linkService.goToDestination(toPdfJsLinkDestination(target.destination))
   }
 
   nextPage(): boolean {
@@ -952,12 +919,9 @@ export class PdfViewerSession {
             yMax: cropBoxValues[3],
           }
         : { xMin: 0, yMin: 0, xMax: 1, yMax: 1 }
-      const parsedContent = PdfJsTextContentHostSchema.safeParse(content)
       const pageText = readPdfPageText(
         {
-          items: (parsedContent.success ? parsedContent.data.items : []).filter(
-            (item) => item !== undefined,
-          ),
+          items: parsePdfJsTextContentItems(content),
         },
         cropBox,
       )
@@ -1145,7 +1109,7 @@ export class PdfViewerSession {
     this.#resizeObserver = null
     this.#linkService?.setDocument(null)
     this.#viewer?.cleanup()
-    this.#viewer?.setDocument(null)
+    if (this.#viewer) clearPdfViewerDocument(this.#viewer)
     const loadingTask = this.#loaded?.loadingTask
     this.#loaded = null
     this.#viewer = null

@@ -111,6 +111,7 @@ export function StandardsSettings() {
     open: true,
     platform: platform.platform,
   })
+  const standardsProgressPercent = parseTNumber(standardsStatus?.progressPercent)
   const defaults = buildGlobalStandardsDefaults(globalConfigQuery.data ?? {})
   const allGlobalEnabled = STANDARDS_TOOL_IDS.every((toolId) => defaults[toolId])
   const someGlobalEnabled = STANDARDS_TOOL_IDS.some((toolId) => defaults[toolId])
@@ -157,16 +158,15 @@ export function StandardsSettings() {
               />
             }
           />
-          {standardsStatus?.progressMessage ||
-          parseTNumber(standardsStatus?.progressPercent) !== undefined ? (
+          {standardsStatus?.progressMessage || standardsProgressPercent !== undefined ? (
             <div className="space-y-1 border-t border-border-base/60 px-4 py-3 sm:px-5">
               <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
-                <span>{standardsStatus.progressMessage}</span>
-                {parseTNumber(standardsStatus.progressPercent) !== undefined ? (
-                  <span>{Math.round(standardsStatus.progressPercent)}%</span>
+                <span>{standardsStatus?.progressMessage}</span>
+                {standardsProgressPercent !== undefined ? (
+                  <span>{Math.round(standardsProgressPercent)}%</span>
                 ) : null}
               </div>
-              <Progress value={standardsStatus.progressPercent ?? 0} className="h-1.5" />
+              <Progress value={standardsProgressPercent ?? 0} className="h-1.5" />
             </div>
           ) : null}
         </SettingsListCard>

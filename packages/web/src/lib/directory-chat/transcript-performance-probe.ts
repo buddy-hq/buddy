@@ -494,8 +494,22 @@ type TTranscriptPerfGlobals = {
   [TRANSCRIPT_GEOMETRY_GLOBAL_KEY]?: TranscriptGeometryDebugTools
 }
 
-declare global {
-  interface Window extends TTranscriptPerfGlobals {}
+const transcriptPerfState: TTranscriptPerfGlobals = {}
+
+function transcriptPerfGlobals(): TTranscriptPerfGlobals {
+  return transcriptPerfState
+}
+
+function publishTranscriptPerfGlobals(): void {
+  Object.assign(globalThis, transcriptPerfState)
+}
+
+function writeTranscriptPerfSlot<TKey extends keyof TTranscriptPerfGlobals>(
+  key: TKey,
+  value: TTranscriptPerfGlobals[TKey],
+): void {
+  transcriptPerfState[key] = value
+  publishTranscriptPerfGlobals()
 }
 
 const rectSnapshotSchema = z.object({
@@ -1807,20 +1821,26 @@ export function createTranscriptPerformanceProbe(
 }
 
 export function getTranscriptPerformanceProbe(): TranscriptPerformanceProbe | undefined {
-  return globalThis[TRANSCRIPT_PERF_GLOBAL_KEY]
+  return transcriptPerfGlobals()[TRANSCRIPT_PERF_GLOBAL_KEY]
+}
+
+export function setTranscriptPerformanceProbe(
+  probe: TranscriptPerformanceProbe | undefined,
+): void {
+  writeTranscriptPerfSlot(TRANSCRIPT_PERF_GLOBAL_KEY, probe)
 }
 
 export function recordTranscriptPerfEvent(event: TranscriptPerfEvent) {
-  globalThis[TRANSCRIPT_PERF_GLOBAL_KEY]?.record(enrichTranscriptPerfEvent(event))
+  transcriptPerfGlobals()[TRANSCRIPT_PERF_GLOBAL_KEY]?.record(enrichTranscriptPerfEvent(event))
 }
 
 export function installTranscriptPerformanceProbe(
   options?: TranscriptPerformanceProbeOptions,
 ): TranscriptPerformanceProbe {
-  const current = globalThis[TRANSCRIPT_PERF_GLOBAL_KEY]
+  const current = transcriptPerfGlobals()[TRANSCRIPT_PERF_GLOBAL_KEY]
   if (current) return current
   const probe = createTranscriptPerformanceProbe(options)
-  globalThis[TRANSCRIPT_PERF_GLOBAL_KEY] = probe
+  writeTranscriptPerfSlot(TRANSCRIPT_PERF_GLOBAL_KEY, probe)
   return probe
 }
 
@@ -1829,7 +1849,7 @@ export function restartTranscriptPerformanceProbe(
 ): TranscriptPerformanceProbe {
   getTranscriptPerformanceProbe()?.stop()
   const probe = createTranscriptPerformanceProbe(options)
-  globalThis[TRANSCRIPT_PERF_GLOBAL_KEY] = probe
+  writeTranscriptPerfSlot(TRANSCRIPT_PERF_GLOBAL_KEY, probe)
   return probe
 }
 
@@ -1854,10 +1874,10 @@ export function createTranscriptGeometryDebugTools(): TranscriptGeometryDebugToo
     },
     stop() {
       getTranscriptPerformanceProbe()?.stop()
-      globalThis[TRANSCRIPT_PERF_GLOBAL_KEY] = undefined
+      writeTranscriptPerfSlot(TRANSCRIPT_PERF_GLOBAL_KEY, undefined)
     },
   }
 }
 
-globalThis[CREATE_TRANSCRIPT_PERF_PROBE_GLOBAL_KEY] = createTranscriptPerformanceProbe
-globalThis[TRANSCRIPT_GEOMETRY_GLOBAL_KEY] = createTranscriptGeometryDebugTools()
+writeTranscriptPerfSlot(CREATE_TRANSCRIPT_PERF_PROBE_GLOBAL_KEY, createTranscriptPerformanceProbe)
+writeTranscriptPerfSlot(TRANSCRIPT_GEOMETRY_GLOBAL_KEY, createTranscriptGeometryDebugTools())

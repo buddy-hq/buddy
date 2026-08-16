@@ -80,7 +80,7 @@ export const PdfJsPageViewSchema = z.object({
 
 export type TPdfJsPageView = z.infer<typeof PdfJsPageViewSchema>
 
-function readCoordinatePair(value: TPdfCoordinateResult | undefined): PdfPoint | undefined {
+export function readCoordinatePair(value: TPdfCoordinateResult | undefined): PdfPoint | undefined {
   if (value === undefined) return undefined
   const parsed = PdfCoordinateResultSchema.safeParse(value)
   if (!parsed.success) return undefined

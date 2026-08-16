@@ -65,12 +65,22 @@ export const PdfPageTextContentSchema = z.object({
   items: z.array(PdfTextContentItemSchema),
 })
 
-export const PdfJsTextContentHostSchema = z.object({
-  items: z.array(PdfTextContentItemSchema.catch(undefined)),
-})
-
 export type TPdfTextContentItem = z.infer<typeof PdfTextContentItemSchema>
 export type TPdfPageTextContent = z.infer<typeof PdfPageTextContentSchema>
+
+export const PdfJsTextContentHostSchema = z.object({
+  items: z.array(z.unknown()).transform((items) =>
+    items.flatMap((item) => {
+      const parsed = PdfTextContentItemSchema.safeParse(item)
+      return parsed.success ? [parsed.data] : []
+    }),
+  ),
+})
+
+export function parsePdfJsTextContentItems<TValue>(value: TValue): TPdfTextContentItem[] {
+  const parsed = PdfJsTextContentHostSchema.safeParse(value)
+  return parsed.success ? parsed.data.items : []
+}
 
 type PdfTextContentItem = {
   text: string

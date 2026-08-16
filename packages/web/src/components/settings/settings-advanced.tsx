@@ -127,6 +127,7 @@ export function AdvancedSettings() {
     open: true,
     platform: platform.platform,
   })
+  const standardsProgressPercent = parseTNumber(standardsStatus?.progressPercent)
 
   useEffect(() => {
     if (!globalConfigQuery.error) return
@@ -341,19 +342,18 @@ export function AdvancedSettings() {
                         {standardsStatus.installedDatasetVersion}
                       </span>
                     ) : null}
-                    {standardsStatus?.progressMessage ||
-                    parseTNumber(standardsStatus?.progressPercent) !== undefined ? (
+                    {standardsStatus?.progressMessage || standardsProgressPercent !== undefined ? (
                       <div className="space-y-1">
                         <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
                           <span className="truncate">
                             {standardsStatus?.progressMessage ??
                               language.t("settings.appearance.working")}
                           </span>
-                          {parseTNumber(standardsStatus?.progressPercent) !== undefined ? (
-                            <span>{Math.round(standardsStatus.progressPercent)}%</span>
+                          {standardsProgressPercent !== undefined ? (
+                            <span>{Math.round(standardsProgressPercent)}%</span>
                           ) : null}
                         </div>
-                        <Progress value={standardsStatus?.progressPercent ?? 0} className="h-1.5" />
+                        <Progress value={standardsProgressPercent ?? 0} className="h-1.5" />
                       </div>
                     ) : null}
                     {standardsStatus?.lastError ? (

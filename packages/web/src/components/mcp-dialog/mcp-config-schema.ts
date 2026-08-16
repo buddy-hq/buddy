@@ -123,13 +123,16 @@ export function getFieldErrorId(field: McpFieldName) {
   return `mcp-${field}-error`
 }
 
-function parseTStringRecord<TValue>(value: TValue) {
+function parseTStringRecord<TValue>(value: TValue, allowPartial: boolean) {
   const record = parseTJsonObject(value)
   if (!record) return undefined
   const entries = new Map<string, string>()
   for (const [key, entry] of Object.entries(record)) {
     const text = parseTString(entry)
-    if (text === undefined) return undefined
+    if (text === undefined) {
+      if (!allowPartial) return undefined
+      continue
+    }
     entries.set(key, text)
   }
   return Object.fromEntries(entries)
@@ -171,7 +174,7 @@ export function parseMcpConfigMap<TConfig>(config: TConfig) {
 
     const command = parseStringArray(candidate.command)
     if (candidate.type === "local" && command) {
-      const environment = parseTStringRecord(candidate.environment)
+      const environment = parseTStringRecord(candidate.environment, true)
       const enabled = parseTBoolean(candidate.enabled)
       const timeout = parseTPositiveInteger(candidate.timeout)
       const localConfig: McpLocalConfig = Object.assign(
@@ -191,14 +194,15 @@ export function parseMcpConfigMap<TConfig>(config: TConfig) {
 
     const url = parseTString(candidate.url)
     if (candidate.type === "remote" && url !== undefined) {
-      const oauth =
-        candidate.oauth === false
-          ? false
+      const oauthDisabled = candidate.oauth === false
+      const oauthObject =
+        oauthDisabled
+          ? undefined
           : parseTJsonObject(candidate.oauth)
             ? parseOAuthObject(candidate.oauth)
             : undefined
 
-      const headers = parseTStringRecord(candidate.headers)
+      const headers = parseTStringRecord(candidate.headers, true)
       const enabled = parseTBoolean(candidate.enabled)
       const timeout = parseTPositiveInteger(candidate.timeout)
       const remoteConfig: McpRemoteConfig = Object.assign(
@@ -212,7 +216,8 @@ export function parseMcpConfigMap<TConfig>(config: TConfig) {
         ),
         Object.assign(
           {},
-          oauth !== undefined ? { oauth } : undefined,
+          oauthDisabled ? ({ oauth: false } as const) : undefined,
+          oauthObject ? { oauth: oauthObject } : undefined,
           timeout === undefined ? undefined : { timeout },
         ),
       )
@@ -258,10 +263,8 @@ export function buildDraft(name: string, config: McpConfig): McpFormDraft {
     }
   }
 
-  const oauthObject =
-    config.oauth && config.oauth !== false && parseTJsonObject(config.oauth)
-      ? config.oauth
-      : undefined
+  const oauthCandidate = config.oauth === false ? undefined : config.oauth
+  const oauthObject = parseTJsonObject(oauthCandidate) ? oauthCandidate : undefined
 
   return {
     name,
@@ -288,7 +291,7 @@ function parseOptionalStringMap(label: string, field: McpFieldName, value: strin
   }
 
   try {
-    const parsed = parseTStringRecord(JSON.parse(trimmed))
+    const parsed = parseTStringRecord(JSON.parse(trimmed), false)
     if (!parsed) {
       return {
         fieldError: createFieldError(
@@ -427,7 +430,7 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
     draft.clientSecret.trim() ? { clientSecret: draft.clientSecret.trim() } : undefined,
     draft.scope.trim() ? { scope: draft.scope.trim() } : undefined,
   )
-  const oauth = draft.oauthEnabled ? oauthObject : false
+  const oauth = draft.oauthEnabled ? oauthObject : (false as const)
 
   const remoteConfig: McpRemoteConfig = Object.assign(
     {

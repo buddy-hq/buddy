@@ -43,10 +43,16 @@ function parseTIncomingSearch<T>(value: T): TIncomingSearch | undefined {
   return parsed.success ? parsed.data : undefined
 }
 
+function isIncomingSearchList(
+  value: TIncomingSearchValue | readonly TIncomingSearchValue[] | undefined,
+): value is readonly TIncomingSearchValue[] {
+  return Array.isArray(value)
+}
+
 function readSearchParam<T>(search: T, key: string): TIncomingSearchValue | undefined {
   const record = parseTIncomingSearch(search)
   const value = record?.[key]
-  if (Array.isArray(value)) return undefined
+  if (value === undefined || isIncomingSearchList(value)) return undefined
   return value
 }
 
