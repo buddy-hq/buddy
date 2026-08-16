@@ -82,7 +82,7 @@ export function resolveExplicitRuntimeRootPaths(runtimeRoot: string) {
   }
 }
 
-export function resolveExplicitRuntimeRootEnvironment(xdgRoot: string): Record<string, string> {
+export function resolveExplicitRuntimeRootEnvironment(xdgRoot: string) {
   return {
     [BUDDY_ENV.RUNTIME_ROOT]: xdgRoot,
     [XDG_ENV.CACHE_HOME]: path.join(xdgRoot, RUNTIME_ROOT_SEGMENTS.cache),

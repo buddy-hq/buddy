@@ -125,48 +125,50 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
   delete base[OPENCODE_ENV.DISABLE_CHANNEL_DB]
   ensureDirectories(Object.values(isolatedRuntimeEnvironment))
 
-  const environment: Record<string, string> = {
-    ...base,
-    ...isolatedRuntimeEnvironment,
-    [BUDDY_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
-    [BUDDY_ENV.SERVER_PASSWORD]: password,
-    [OPENCODE_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
-    [OPENCODE_ENV.SERVER_PASSWORD]: password,
-    [BUDDY_ENV.APP_VERSION]: app.getVersion(),
-    [BUDDY_ENV.BACKEND_RESOURCES_DIR]: getBackendResourcesDir(),
-    [BUDDY_ENV.TESSDATA_DIR]: getTessdataDir(),
-    [BUDDY_ENV.MIGRATION_DIR]: getBuddyMigrationDir(),
-    [BUDDY_ENV.DIRECTORY_BASE]: resolveDefaultNotebookHome(home),
-    [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: resolveAllowedDirectoryRoots({
-      home,
+  const environment = new Map<string, string>(
+    Object.entries({
+      ...base,
+      ...isolatedRuntimeEnvironment,
+      [BUDDY_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
+      [BUDDY_ENV.SERVER_PASSWORD]: password,
+      [OPENCODE_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
+      [OPENCODE_ENV.SERVER_PASSWORD]: password,
+      [BUDDY_ENV.APP_VERSION]: app.getVersion(),
+      [BUDDY_ENV.BACKEND_RESOURCES_DIR]: getBackendResourcesDir(),
+      [BUDDY_ENV.TESSDATA_DIR]: getTessdataDir(),
+      [BUDDY_ENV.MIGRATION_DIR]: getBuddyMigrationDir(),
+      [BUDDY_ENV.DIRECTORY_BASE]: resolveDefaultNotebookHome(home),
+      [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: resolveAllowedDirectoryRoots({
+        home,
+      }),
+      PORT: String(port),
+      [OPENCODE_ENV.EXPERIMENTAL_ICON_DISCOVERY]: "true",
+      [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]: "true",
+      [OPENCODE_ENV.DB]: OPENCODE_DB_FILENAME,
+      [OPENCODE_ENV.CLIENT]: "desktop",
+      ...(app.isPackaged
+        ? { [BUDDY_ENV.DESKTOP_CALLBACK_URL]: `${APP_PROTOCOL}://auth/callback` }
+        : {}),
     }),
-    PORT: String(port),
-    [OPENCODE_ENV.EXPERIMENTAL_ICON_DISCOVERY]: "true",
-    [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]: "true",
-    [OPENCODE_ENV.DB]: OPENCODE_DB_FILENAME,
-    [OPENCODE_ENV.CLIENT]: "desktop",
-    ...(app.isPackaged
-      ? { [BUDDY_ENV.DESKTOP_CALLBACK_URL]: `${APP_PROTOCOL}://auth/callback` }
-      : {}),
-  }
+  )
   if (shouldIsolateDevRuntime) {
-    environment[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE] = path.join(
-      app.getPath("logs"),
-      OPENAI_AUTH_TRACE_FILENAME,
+    environment.set(
+      BUDDY_ENV.OPENAI_AUTH_TRACE_FILE,
+      path.join(app.getPath("logs"), OPENAI_AUTH_TRACE_FILENAME),
     )
   }
 
   const advancedMathAssetDir = resolveDevelopmentAdvancedMathAssetDir()
   if (advancedMathAssetDir) {
-    environment[BUDDY_ENV.ADVANCED_MATH_LOCAL_ASSET_DIR] = advancedMathAssetDir
+    environment.set(BUDDY_ENV.ADVANCED_MATH_LOCAL_ASSET_DIR, advancedMathAssetDir)
   }
 
   const standardsAssetDir = resolveStandardsAssetDir()
   if (standardsAssetDir) {
-    environment[BUDDY_ENV.STANDARDS_LOCAL_ASSET_DIR] = standardsAssetDir
+    environment.set(BUDDY_ENV.STANDARDS_LOCAL_ASSET_DIR, standardsAssetDir)
   }
 
-  return environment
+  return Object.fromEntries(environment)
 }
 
 function ensureDirectories(directories: string[]) {

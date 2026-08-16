@@ -132,7 +132,7 @@ function createBackendEnvironment(input: {
   port: number
   runtimeRoot: string
   tessdata: string
-}): Record<string, string> {
+}) {
   const { notebookRoot, xdgRoot } = resolveExplicitRuntimeRootPaths(input.runtimeRoot)
   mkdirSync(notebookRoot, { recursive: true })
   mkdirSync(xdgRoot, { recursive: true })

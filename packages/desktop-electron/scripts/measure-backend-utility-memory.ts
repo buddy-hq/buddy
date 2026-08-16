@@ -139,7 +139,7 @@ function createBackendEnvironment(input: {
   port: number
   runtimeRoot: string
   tessdata: string
-}): Record<string, string> {
+}) {
   const { notebookRoot, xdgRoot } = resolveExplicitRuntimeRootPaths(input.runtimeRoot)
   mkdirSync(notebookRoot, { recursive: true })
   mkdirSync(xdgRoot, { recursive: true })
@@ -167,10 +167,7 @@ function createBackendEnvironment(input: {
   }
 }
 
-function createIsolatedMainOutput(smokeRoot: string): {
-  isolatedMainDir: string
-  utilityPath: string
-} {
+function createIsolatedMainOutput(smokeRoot: string) {
   const isolatedMainDir = path.join(smokeRoot, "main")
   cpSync(mainOutputDir, isolatedMainDir, { recursive: true, dereference: false })
   return {
@@ -310,7 +307,7 @@ async function record(input: {
   })
 }
 
-function scenario(mode: Mode): Array<{
+type ScenarioStep = {
   endpoint: string
   label: string
   request?: (context: {
@@ -318,7 +315,9 @@ function scenario(mode: Mode): Array<{
     directory: string
   }) => Promise<{ bodyBytes: number; status: number }>
   settleMs?: number
-}> {
+}
+
+function scenario(mode: Mode): ScenarioStep[] {
   if (mode === MODE_HEALTHZ_ONLY) {
     return [
       endpointStep("cycle-1", HEALTHZ_PATH),
@@ -366,14 +365,7 @@ function scenario(mode: Mode): Array<{
 function endpointStep(
   label: string,
   endpoint: string,
-): {
-  endpoint: string
-  label: string
-  request: (context: {
-    baseUrl: string
-    directory: string
-  }) => Promise<{ bodyBytes: number; status: number }>
-} {
+): ScenarioStep {
   return {
     endpoint,
     label,
