@@ -451,12 +451,14 @@ export async function resolveResourceReference(input: {
   if (!resource.entrypointPath) {
     return { ok: false, reason: "invalid_pack", record }
   }
-  return {
-    ok: true,
-    record,
-    entrypointPath: path.resolve(input.directory, resource.entrypointPath),
-    ...(resource.tocPath ? { tocPath: path.resolve(input.directory, resource.tocPath) } : {}),
-  }
+  return Object.assign(
+    {
+      ok: true as const,
+      record,
+      entrypointPath: path.resolve(input.directory, resource.entrypointPath),
+    },
+    resource.tocPath ? { tocPath: path.resolve(input.directory, resource.tocPath) } : undefined,
+  )
 }
 
 export async function resolveResourceObjectIDByKey(
@@ -765,11 +767,13 @@ async function readResourceObjectView(input: {
         sourceRoot,
         entryPath: path.posix.basename(sourcePath),
         files: [
-          {
-            path: path.posix.basename(sourcePath),
-            kind: "file",
-            ...(resource.sourceSizeBytes !== null ? { sizeBytes: resource.sourceSizeBytes } : {}),
-          },
+          Object.assign(
+            {
+              path: path.posix.basename(sourcePath),
+              kind: "file" as const,
+            },
+            resource.sourceSizeBytes !== null ? { sizeBytes: resource.sourceSizeBytes } : undefined,
+          ),
         ],
         content: null,
       },
@@ -779,63 +783,83 @@ async function readResourceObjectView(input: {
 }
 
 function stripRegisteredResourceRecord(record: ResourceRecord): ResourceRecord {
-  return {
-    objectID: record.objectID,
-    alias: record.alias,
-    sourceRelpath: record.sourceRelpath,
-    ...(record.sourceOriginRelpath ? { sourceOriginRelpath: record.sourceOriginRelpath } : {}),
-    format: record.format,
-    status: record.status,
-    sourceValidity: record.sourceValidity,
-    extractionStatus: record.extractionStatus,
-    warnings: record.warnings,
-    ...(record.preparedAt ? { preparedAt: record.preparedAt } : {}),
-    ...(record.sourceMtimeMs !== undefined ? { sourceMtimeMs: record.sourceMtimeMs } : {}),
-    ...(record.sourceSizeBytes !== undefined ? { sourceSizeBytes: record.sourceSizeBytes } : {}),
-    ...(record.coverRelpath ? { coverRelpath: record.coverRelpath } : {}),
-    ...(record.title ? { title: record.title } : {}),
-    ...(record.author ? { author: record.author } : {}),
-    ...(record.packPath ? { packPath: record.packPath } : {}),
-    ...(record.fullTextPath ? { fullTextPath: record.fullTextPath } : {}),
-    ...(record.fullTextEstimatedTokens !== undefined
+  return Object.assign(
+    Object.assign(
+      Object.assign(
+        Object.assign(
+          {
+            objectID: record.objectID,
+            alias: record.alias,
+            sourceRelpath: record.sourceRelpath,
+            format: record.format,
+            status: record.status,
+            sourceValidity: record.sourceValidity,
+            extractionStatus: record.extractionStatus,
+            warnings: record.warnings,
+          },
+          record.sourceOriginRelpath
+            ? { sourceOriginRelpath: record.sourceOriginRelpath }
+            : undefined,
+          record.preparedAt ? { preparedAt: record.preparedAt } : undefined,
+          record.sourceMtimeMs !== undefined ? { sourceMtimeMs: record.sourceMtimeMs } : undefined,
+        ),
+        record.sourceSizeBytes !== undefined
+          ? { sourceSizeBytes: record.sourceSizeBytes }
+          : undefined,
+        record.coverRelpath ? { coverRelpath: record.coverRelpath } : undefined,
+        record.title ? { title: record.title } : undefined,
+      ),
+      record.author ? { author: record.author } : undefined,
+      record.packPath ? { packPath: record.packPath } : undefined,
+      record.fullTextPath ? { fullTextPath: record.fullTextPath } : undefined,
+    ),
+    record.fullTextEstimatedTokens !== undefined
       ? { fullTextEstimatedTokens: record.fullTextEstimatedTokens }
-      : {}),
-    ...(record.fullTextCharacters !== undefined
+      : undefined,
+    record.fullTextCharacters !== undefined
       ? { fullTextCharacters: record.fullTextCharacters }
-      : {}),
-    ...(record.readerPath ? { readerPath: record.readerPath } : {}),
-  }
+      : undefined,
+    record.readerPath ? { readerPath: record.readerPath } : undefined,
+  )
 }
 
 function resourceResolvedToRegisteredRecord(resource: ResourceObjectResolved): ResourceRecord {
   const sourceRelpath = resource.managedSourceRef.workspacePath ?? resource.managedSourceRef.path
   const sourceOriginRelpath = resource.originalSourceRef?.workspacePath ?? undefined
-  return {
-    objectID: resource.objectID,
-    alias: resource.alias,
-    sourceRelpath,
-    ...(sourceOriginRelpath ? { sourceOriginRelpath } : {}),
-    format: resource.format,
-    status: resource.status,
-    sourceValidity: resource.sourceValidity,
-    extractionStatus: resource.extractionStatus,
-    warnings: resource.warnings,
-    ...(resource.preparedAt ? { preparedAt: resource.preparedAt } : {}),
-    ...(resource.sourceMtimeMs !== null ? { sourceMtimeMs: resource.sourceMtimeMs } : {}),
-    ...(resource.sourceSizeBytes !== null ? { sourceSizeBytes: resource.sourceSizeBytes } : {}),
-    ...(resource.coverRelpath ? { coverRelpath: resource.coverRelpath } : {}),
-    ...(resource.title ? { title: resource.title } : {}),
-    ...(resource.author ? { author: resource.author } : {}),
-    ...(resource.packPath ? { packPath: resource.packPath } : {}),
-    ...(resource.fullTextPath ? { fullTextPath: resource.fullTextPath } : {}),
-    ...(resource.fullTextEstimatedTokens !== null
+  return Object.assign(
+    Object.assign(
+      Object.assign(
+        Object.assign(
+          {
+            objectID: resource.objectID,
+            alias: resource.alias,
+            sourceRelpath,
+            format: resource.format,
+            status: resource.status,
+            sourceValidity: resource.sourceValidity,
+            extractionStatus: resource.extractionStatus,
+            warnings: resource.warnings,
+          },
+          sourceOriginRelpath ? { sourceOriginRelpath } : undefined,
+          resource.preparedAt ? { preparedAt: resource.preparedAt } : undefined,
+          resource.sourceMtimeMs !== null ? { sourceMtimeMs: resource.sourceMtimeMs } : undefined,
+        ),
+        resource.sourceSizeBytes !== null ? { sourceSizeBytes: resource.sourceSizeBytes } : undefined,
+        resource.coverRelpath ? { coverRelpath: resource.coverRelpath } : undefined,
+        resource.title ? { title: resource.title } : undefined,
+      ),
+      resource.author ? { author: resource.author } : undefined,
+      resource.packPath ? { packPath: resource.packPath } : undefined,
+      resource.fullTextPath ? { fullTextPath: resource.fullTextPath } : undefined,
+    ),
+    resource.fullTextEstimatedTokens !== null
       ? { fullTextEstimatedTokens: resource.fullTextEstimatedTokens }
-      : {}),
-    ...(resource.fullTextCharacters !== null
+      : undefined,
+    resource.fullTextCharacters !== null
       ? { fullTextCharacters: resource.fullTextCharacters }
-      : {}),
-    ...(resource.readerPath ? { readerPath: resource.readerPath } : {}),
-  }
+      : undefined,
+    resource.readerPath ? { readerPath: resource.readerPath } : undefined,
+  )
 }
 
 async function createResourceObject(input: {
