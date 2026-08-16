@@ -217,7 +217,7 @@ function isTraceValue<T>(value: T | TraceValue<T>): value is TraceValue<T> {
   return typeof value === "object" && value !== null && "value" in value && "summary" in value
 }
 
-function summarizePages(pages: ParsedPage[]): TraceSummary {
+function summarizePages(pages: ParsedPage[]) {
   const pageChars = pages.map((page) => page.text.length)
   const nonEmptyPages = pageChars.filter((chars) => chars > 0).length
   return {
@@ -251,7 +251,7 @@ function mergeParsedPages(nativePages: ParsedPage[], ocrPages: ParsedPage[]): Pa
   return [...pagesByNumber.values()].toSorted((left, right) => left.pageNum - right.pageNum)
 }
 
-function memorySnapshot(): TraceSummary {
+function memorySnapshot() {
   const memory = process.memoryUsage()
   return {
     rssMiB: Math.round(memory.rss / BYTES_PER_MIB),

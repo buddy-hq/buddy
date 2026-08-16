@@ -128,12 +128,14 @@ type MessageWithParts = {
   parts?: unknown[]
 }
 
-const state: {
+type SmokeState = {
   baseUrl: string
   directory: string | undefined
   sessionId: string | undefined
   promptSessionId: string | undefined
-} = {
+}
+
+const state: SmokeState = {
   baseUrl: readSmokeBaseUrl(),
   directory: undefined,
   sessionId: undefined,
