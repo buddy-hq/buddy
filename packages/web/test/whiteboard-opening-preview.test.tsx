@@ -1,3 +1,4 @@
+import "../happydom"
 import { afterEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
@@ -82,6 +83,78 @@ function LiveWhiteboardPreviewProbe(props: { messages: MessageWithParts[] }) {
 }
 
 describe("whiteboard opening preview", () => {
+  test("opens the loading surface before objectID or the first element arrives", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const opened: TransientBenchSurface[] = []
+    const closed: TransientBenchSurface[] = []
+    const transientValue = {
+      activeSurface: null,
+      host: null,
+      open: (surface: TransientBenchSurface) => {
+        opened.push(surface)
+      },
+      close: (surface: TransientBenchSurface) => {
+        closed.push(surface)
+      },
+    }
+
+    await act(async () => {
+      root?.render(
+        <TransientBenchSurfaceProvider value={transientValue}>
+          <WhiteboardOpeningPreview
+            directory={DIRECTORY}
+            sessionID={SESSION_ID}
+            messages={[
+              createAssistantMessage({
+                status: "pending",
+                input: {},
+                raw: "",
+                metadata: { objectID: "reserved-object" },
+              }),
+            ]}
+          />
+        </TransientBenchSurfaceProvider>,
+      )
+    })
+
+    expect(opened).toEqual([
+      {
+        type: "whiteboard-opening",
+        toolKey: ACTIVE_TOOL_KEY,
+      },
+    ])
+
+    await act(async () => {
+      root?.render(
+        <TransientBenchSurfaceProvider value={transientValue}>
+          <WhiteboardOpeningPreview
+            directory={DIRECTORY}
+            sessionID={SESSION_ID}
+            messages={[
+              createAssistantMessage({
+                status: "running",
+                input: { objectID: null },
+                raw: JSON.stringify({
+                  elements: JSON.stringify([
+                    { type: "rectangle", id: "first", x: 0, y: 0 },
+                  ]),
+                  objectID: null,
+                }),
+                metadata: { objectID: "reserved-object" },
+              }),
+            ]}
+          />
+        </TransientBenchSurfaceProvider>,
+      )
+    })
+
+    expect(opened).toHaveLength(1)
+    expect(closed).toHaveLength(0)
+  })
+
   test("closes a denied new-board preview without reserving a persistent object", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")

@@ -59,6 +59,8 @@ import { BENCH_CHAT_LAYOUT_FLOATING } from "@/lib/bench-targets"
 
 const LEARNER_EDIT_DEBOUNCE_MS = 2_000
 const WHITEBOARD_CANVAS_REFRESH_FRAME_COUNT = 2
+const WHITEBOARD_CANVAS_INITIAL_SCENE_FALLBACK_DELAY_MS = 100
+const WHITEBOARD_CANVAS_SETTLE_FALLBACK_DELAY_MS = 250
 const WHITEBOARD_CANVAS_POST_SETTLE_REFRESH_DELAY_MS = 260
 const WHITEBOARD_FONT_LOADS = [
   "20px Excalifont",
@@ -328,6 +330,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   const togglePanelPlacement = useWhiteboardPreferences((state) => state.togglePanelPlacement)
   const rootRef = useRef<HTMLDivElement>(null)
   const apiRef = useRef<ExcalidrawImperativeAPI>()
+  const latestElementsRef = useRef<OrderedExcalidrawElement[]>([])
   const autosaveReadyRef = useRef(false)
   const baselineRef = useRef("")
   const viewportRef = useRef(props.viewportOverride ?? props.board.viewport)
@@ -343,9 +346,11 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   const pendingBoardIDRef = useRef(props.board.boardID)
   const lastRenderReportSignatureRef = useRef<string>()
   const pendingInitialViewportFrameRef = useRef<number>()
+  const pendingInitialViewportFallbackTimeoutRef = useRef<number>()
   const initialViewportScenePendingRef = useRef(false)
   const pendingInitialSceneFrameRef = useRef<number>()
   const pendingCanvasRefreshFrameRef = useRef<number>()
+  const pendingCanvasSettleFallbackTimeoutRef = useRef<number>()
   const pendingPostSettleRefreshTimeoutRef = useRef<number>()
   const pendingRenderReportFrameRef = useRef<number>()
   const remoteSceneUpdateDepthRef = useRef(0)
@@ -372,6 +377,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
     }
   }, [fontsReady, props.board.elements])
   const elements = conversion.elements
+  latestElementsRef.current = elements
   const viewport = props.viewportOverride ?? props.board.viewport
   const initialData = useMemo(
     () => ({
@@ -394,10 +400,22 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
     initialViewportScenePendingRef.current = false
   }, [])
 
+  const cancelPendingInitialViewportFallback = useCallback(() => {
+    if (pendingInitialViewportFallbackTimeoutRef.current === undefined) return
+    window.clearTimeout(pendingInitialViewportFallbackTimeoutRef.current)
+    pendingInitialViewportFallbackTimeoutRef.current = undefined
+  }, [])
+
   const cancelPendingCanvasRefreshFrame = useCallback(() => {
     if (pendingCanvasRefreshFrameRef.current === undefined) return
     window.cancelAnimationFrame(pendingCanvasRefreshFrameRef.current)
     pendingCanvasRefreshFrameRef.current = undefined
+  }, [])
+
+  const cancelPendingCanvasSettleFallback = useCallback(() => {
+    if (pendingCanvasSettleFallbackTimeoutRef.current === undefined) return
+    window.clearTimeout(pendingCanvasSettleFallbackTimeoutRef.current)
+    pendingCanvasSettleFallbackTimeoutRef.current = undefined
   }, [])
 
   const cancelPendingPostSettleRefresh = useCallback(() => {
@@ -443,6 +461,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
     (api: ExcalidrawImperativeAPI) => {
       cancelPendingInitialSceneFrame()
       cancelPendingCanvasRefreshFrame()
+      cancelPendingCanvasSettleFallback()
       cancelPendingPostSettleRefresh()
       const nextBoardID = pendingBoardIDRef.current
       const refreshVisibleCanvas = () => {
@@ -452,6 +471,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
       }
       const completeSettle = () => {
         if (apiRef.current !== api || pendingBoardIDRef.current !== nextBoardID) return
+        cancelPendingCanvasSettleFallback()
         baselineRef.current = elementVersionSignature(api.getSceneElements())
         boardIDRef.current = nextBoardID
         autosaveReadyRef.current = !readOnlyRef.current
@@ -487,9 +507,18 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
         if (apiRef.current !== api || pendingBoardIDRef.current !== nextBoardID) return
         scheduleRefreshFrame(WHITEBOARD_CANVAS_REFRESH_FRAME_COUNT)
       })
+      pendingCanvasSettleFallbackTimeoutRef.current = window.setTimeout(() => {
+        pendingCanvasSettleFallbackTimeoutRef.current = undefined
+        if (apiRef.current !== api || pendingBoardIDRef.current !== nextBoardID) return
+        cancelPendingInitialSceneFrame()
+        cancelPendingCanvasRefreshFrame()
+        api.refresh()
+        completeSettle()
+      }, WHITEBOARD_CANVAS_SETTLE_FALLBACK_DELAY_MS)
     },
     [
       cancelPendingCanvasRefreshFrame,
+      cancelPendingCanvasSettleFallback,
       cancelPendingInitialSceneFrame,
       cancelPendingPostSettleRefresh,
       scheduleRenderReport,
@@ -596,8 +625,10 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
   useEffect(
     () => () => {
       cancelPendingInitialViewportFrame()
+      cancelPendingInitialViewportFallback()
       cancelPendingInitialSceneFrame()
       cancelPendingCanvasRefreshFrame()
+      cancelPendingCanvasSettleFallback()
       cancelPendingPostSettleRefresh()
       cancelPendingRenderReportFrame()
       autosaveReadyRef.current = false
@@ -607,7 +638,9 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
     [
       cancelPendingInitialSceneFrame,
       cancelPendingInitialViewportFrame,
+      cancelPendingInitialViewportFallback,
       cancelPendingCanvasRefreshFrame,
+      cancelPendingCanvasSettleFallback,
       cancelPendingPostSettleRefresh,
       cancelPendingRenderReportFrame,
     ],
@@ -645,28 +678,49 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
     }
     void saveSchedulerRef.current.flush()
     settleScene(api)
-  }, [applySceneToApi, elements, props.readOnly, props.reportReadOnlyBoard, settleScene])
+  }, [
+    applySceneToApi,
+    elements,
+    props.board.boardID,
+    props.readOnly,
+    props.reportReadOnlyBoard,
+    settleScene,
+  ])
 
   const setApi = useCallback(
     (api: ExcalidrawImperativeAPI) => {
       apiRef.current = api
       setCanvasSettled(false)
       cancelPendingInitialViewportFrame()
+      cancelPendingInitialViewportFallback()
       if (viewportRef.current) {
         initialViewportScenePendingRef.current = true
-        const nextBoardID = pendingBoardIDRef.current
-        pendingInitialViewportFrameRef.current = window.requestAnimationFrame(() => {
-          pendingInitialViewportFrameRef.current = undefined
-          initialViewportScenePendingRef.current = false
-          if (apiRef.current !== api || pendingBoardIDRef.current !== nextBoardID) return
-          applySceneToApi(api, [...api.getSceneElements()], "initial-mount")
+        const applyInitialViewportScene = () => {
+          if (!initialViewportScenePendingRef.current || apiRef.current !== api) return
+          cancelPendingInitialViewportFrame()
+          cancelPendingInitialViewportFallback()
+          // A progressive preview can acquire its persisted board ID and final elements between
+          // scheduling this frame and running it. Apply the latest render input, then let
+          // settleScene capture the latest pending board ID instead of dropping that handoff.
+          applySceneToApi(api, latestElementsRef.current, "initial-mount")
           settleScene(api)
-        })
+        }
+        pendingInitialViewportFrameRef.current =
+          window.requestAnimationFrame(applyInitialViewportScene)
+        pendingInitialViewportFallbackTimeoutRef.current = window.setTimeout(
+          applyInitialViewportScene,
+          WHITEBOARD_CANVAS_INITIAL_SCENE_FALLBACK_DELAY_MS,
+        )
         return
       }
       settleScene(api)
     },
-    [applySceneToApi, cancelPendingInitialViewportFrame, settleScene],
+    [
+      applySceneToApi,
+      cancelPendingInitialViewportFallback,
+      cancelPendingInitialViewportFrame,
+      settleScene,
+    ],
   )
 
   const handleChange = useCallback(

@@ -48,6 +48,35 @@ function createAssistantMessage(
 }
 
 describe("whiteboard progressive drawing", () => {
+  test("exposes an active whiteboard before its object reference streams", () => {
+    const messages = [
+      createAssistantMessage([
+        {
+          id: "part-1",
+          callID: "call-1",
+          sessionID: "session-1",
+          messageID: "message-1",
+          type: "tool",
+          tool: "whiteboard_create_view",
+          state: {
+            status: "pending",
+            input: {},
+            raw: '{"elements":"[',
+            metadata: { objectID: "reserved-object" },
+          },
+        },
+      ]),
+    ] satisfies MessageWithParts[]
+
+    expect(readLatestActiveWhiteboardCreate(messages)).toEqual({
+      toolKey: "message-1:part-1",
+      sessionID: "session-1",
+      phase: "authorized",
+      requestKind: "unknown",
+      objectID: "reserved-object",
+    })
+  })
+
   test("keeps an unapproved new-board stream transient", () => {
     const raw = JSON.stringify({
       objectID: null,

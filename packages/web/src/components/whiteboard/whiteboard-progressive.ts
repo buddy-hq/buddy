@@ -18,13 +18,13 @@ type ActiveWhiteboardCreate =
       toolKey: string
       sessionID: string
       phase: "awaiting-permission"
-      requestKind: "new" | "existing"
+      requestKind: "new" | "existing" | "unknown"
     }
   | {
       toolKey: string
       sessionID: string
       phase: "authorized"
-      requestKind: "new" | "existing"
+      requestKind: "new" | "existing" | "unknown"
       objectID: string
     }
 
@@ -587,13 +587,10 @@ function readLatestActiveWhiteboardCreate(
           toolKey,
           sessionID: part.sessionID,
           phase: "authorized",
-          // Authorized metadata is enough to present the real object. Only an explicit null
-          // request may retain the zero-content transient preview during that handoff.
-          requestKind: requestedReference.status === "new" ? "new" : "existing",
+          requestKind: requestedReference.status,
           objectID: authorizedObjectID,
         }
       }
-      if (requestedReference.status === "unknown") return undefined
       return {
         toolKey,
         sessionID: part.sessionID,

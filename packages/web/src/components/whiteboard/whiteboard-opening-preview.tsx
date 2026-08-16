@@ -22,7 +22,7 @@ function WhiteboardOpeningPreview(props: WhiteboardOpeningPreviewProps) {
   const activeTool = useMemo(() => readLatestActiveWhiteboardCreate(messages), [messages])
   const previewToolKey = (() => {
     if (!activeTool) return undefined
-    if (activeTool.sessionID !== props.sessionID || activeTool.requestKind !== "new") {
+    if (activeTool.sessionID !== props.sessionID || activeTool.requestKind === "existing") {
       return undefined
     }
     return activeTool.toolKey
