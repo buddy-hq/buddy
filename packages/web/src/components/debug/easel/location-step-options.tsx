@@ -149,17 +149,17 @@ function joinAncestors(trail: string[]): string {
 const LOCATION_VARIANTS = ["chip", "row", "shelf"] as const
 type LocationVariant = (typeof LOCATION_VARIANTS)[number]
 
-const VARIANT_LABEL: Record<LocationVariant, string> = {
+const VARIANT_LABEL = {
   chip: "A · Chip",
   row: "B · Row",
   shelf: "C · Shelf",
-}
+} satisfies Record<LocationVariant, string>
 
-const VARIANT_NOTE: Record<LocationVariant, string> = {
+const VARIANT_NOTE = {
   chip: "Hugs the path — an object you could pick up, not a field waiting for input",
   row: "Full column width, same fill — anchors to the heading and the button below it",
   shelf: "No box at all. One hairline under it, so the path sits on something",
-}
+} satisfies Record<LocationVariant, string>
 
 // ── Atoms ─────────────────────────────────────────────────────────────────
 

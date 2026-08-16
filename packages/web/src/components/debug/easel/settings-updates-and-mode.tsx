@@ -94,7 +94,7 @@ type ChannelCopy = {
   meaning: string
 }
 
-const CHANNEL_COPY: Record<UpdateChannel, ChannelCopy> = {
+const CHANNEL_COPY = {
   stable: {
     label: "Stable",
     meaning: "Installs releases after they have been approved.",
@@ -103,7 +103,7 @@ const CHANNEL_COPY: Record<UpdateChannel, ChannelCopy> = {
     label: "Preview",
     meaning: "Installs release candidates first. Switching back does not roll you off one.",
   },
-}
+} satisfies Record<UpdateChannel, ChannelCopy>
 
 function pendingVersion(channel: UpdateChannel): string {
   return channel === "preview" ? PREVIEW_PENDING_VERSION : PENDING_VERSION
@@ -544,11 +544,11 @@ function updateBanner(state: UpdateState, channel: UpdateChannel): UpdateBanner 
   }
 }
 
-const BANNER_SURFACE: Record<BannerTone, string> = {
+const BANNER_SURFACE = {
   neutral: "bg-surface-weak text-text-base",
   positive: "bg-surface-success-weak text-text-on-success-weak",
   critical: "bg-surface-critical-weak text-text-on-critical-weak",
-}
+} satisfies Record<BannerTone, string>
 
 function UpdatesDirectionB(props: {
   state: UpdateState
@@ -798,7 +798,7 @@ type ModeOption = {
   consequence: string
 }
 
-const MODE_OPTION_BY_VALUE: Record<BuddyMode, ModeOption> = {
+const MODE_OPTION_BY_VALUE = {
   learn: {
     value: "learn",
     shortLabel: "Learning",
@@ -815,7 +815,7 @@ const MODE_OPTION_BY_VALUE: Record<BuddyMode, ModeOption> = {
     icon: SchoolIcon,
     consequence: "Adds Standards to your main Settings tabs.",
   },
-}
+} satisfies Record<BuddyMode, ModeOption>
 
 const MODE_OPTIONS: ModeOption[] = [MODE_OPTION_BY_VALUE.learn, MODE_OPTION_BY_VALUE.teach]
 

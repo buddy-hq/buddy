@@ -56,7 +56,7 @@ const DEFAULT_DIRECTORY = `${HOME_DIRECTORY}/Documents/Buddy`
 const PICKED_DIRECTORY = `${HOME_DIRECTORY}/Projects/Study Room`
 const DIRECTORY_SEPARATOR = "/"
 
-const MODE_COPY: Record<Mode, { verb: string; sentence: string; blurb: string }> = {
+const MODE_COPY = {
   learn: {
     verb: "Learn",
     sentence: "I'm here to learn.",
@@ -67,9 +67,9 @@ const MODE_COPY: Record<Mode, { verb: string; sentence: string; blurb: string }>
     sentence: "I'm here to teach.",
     blurb: "For school teachers and homeschoolers.",
   },
-}
+} satisfies Record<Mode, { verb: string; sentence: string; blurb: string }>
 
-const STEP_TITLE: Record<StepID, string> = { mode: "Mode", engine: "Engine", location: "Space" }
+const STEP_TITLE = { mode: "Mode", engine: "Engine", location: "Space" } satisfies Record<StepID, string>
 
 type DirectoryDescription = { name: string; parent?: string; short: string }
 
@@ -715,10 +715,10 @@ const APERTURE_INK = "#08090C"
 const APERTURE_PAPER = "#EDEEF2"
 const APERTURE_ACCENT = "#FF6A2C"
 
-const APERTURE_MOOD: Record<Mode, { a: string; b: string }> = {
+const APERTURE_MOOD = {
   learn: { a: "rgba(56,189,248,0.55)", b: "rgba(129,140,248,0.45)" },
   teach: { a: "rgba(255,138,76,0.55)", b: "rgba(244,114,182,0.42)" },
-}
+} satisfies Record<Mode, { a: string; b: string }>
 
 function ApertureArt({
   step,

@@ -92,11 +92,11 @@ function accountName(data: AccountData) {
  */
 type MeterTone = "normal" | "warning" | "critical"
 
-const METER_FILL: Record<MeterTone, string> = {
+const METER_FILL = {
   normal: "bg-icon-interactive-base",
   warning: "bg-icon-warning-base",
   critical: "bg-icon-critical-base",
-}
+} satisfies Record<MeterTone, string>
 
 const WARNING_USED_PERCENT = 75
 const CRITICAL_USED_PERCENT = 90
@@ -328,15 +328,15 @@ function ShippedCard(props: { data: AccountData }) {
 const STATES = ["plus", "two-limits", "running-low", "no-plan", "reconnect"] as const
 type StateID = (typeof STATES)[number]
 
-const STATE_LABEL: Record<StateID, string> = {
+const STATE_LABEL = {
   plus: "Plus · 1 limit",
   "two-limits": "Plus · 2 limits",
   "running-low": "Running low",
   "no-plan": "No plan",
   reconnect: "Reconnect",
-}
+} satisfies Record<StateID, string>
 
-const STATE_DATA: Record<StateID, AccountData> = {
+const STATE_DATA = {
   plus: {
     plan: "Plus",
     updated: "1 minute ago",
@@ -368,15 +368,15 @@ const STATE_DATA: Record<StateID, AccountData> = {
     reconnectRequired: true,
     windows: [],
   },
-}
+} satisfies Record<StateID, AccountData>
 
 const MODES = ["card", "compare"] as const
 type Mode = (typeof MODES)[number]
 
-const MODE_LABEL: Record<Mode, string> = {
+const MODE_LABEL = {
   card: "Card",
   compare: "vs shipped",
-}
+} satisfies Record<Mode, string>
 
 function SegmentedControl<Value extends string>(props: {
   value: Value

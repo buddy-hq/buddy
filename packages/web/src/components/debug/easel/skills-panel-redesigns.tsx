@@ -85,14 +85,14 @@ type SkillCard = {
 
 type Tab = "installed" | "discover"
 
-const AVATAR_SURFACE: Record<Family, string> = {
+const AVATAR_SURFACE = {
   purple: "bg-avatar-background-purple text-avatar-text-purple",
   cyan: "bg-avatar-background-cyan text-avatar-text-cyan",
   mint: "bg-avatar-background-mint text-avatar-text-mint",
   orange: "bg-avatar-background-orange text-avatar-text-orange",
   lime: "bg-avatar-background-lime text-avatar-text-lime",
   pink: "bg-avatar-background-pink text-avatar-text-pink",
-}
+} satisfies Record<Family, string>
 
 /** Deterministic, zero-maintenance colour assignment — no per-item curation, ever. */
 function familyForID(id: string): Family {
@@ -118,12 +118,12 @@ function chipLabel(card: SkillCard): string | undefined {
 }
 
 // Real, bounded 4-value field — matches the shipped drawer's own sourceLabel().
-const SOURCE_TEXT: Record<InstalledSkillInfo["source"], string> = {
+const SOURCE_TEXT = {
   custom: "Custom skill",
   system: "Built into Buddy",
   library: "From your library",
   external: "External integration",
-}
+} satisfies Record<InstalledSkillInfo["source"], string>
 
 /** Prefers a resolved library category; falls back to the guaranteed `source` field. */
 function categoryForInstalledSkill(
@@ -287,22 +287,22 @@ const FIXTURE_INSTALLED: SkillCard[] = FIXTURE_SKILLS.map((skill) =>
 // / system skills don't appear in the library), so they're excluded here.
 // Most are installable, a few already installed, one has an update. Installed
 // / update float to the top, matching compareLibrarySkills.
-const DISCOVER_STATE: Record<
+const DISCOVER_STATE = new Map<
   string,
   Extract<RowControl, { kind: "install" | "installed" | "update" }>["kind"]
-> = {
+>(Object.entries({
   arxiv: "installed",
   docx: "installed",
   powerpoint: "installed",
   excalidraw: "update",
-}
+}))
 
 function discoverRank(control: RowControl): number {
   return control.kind === "install" ? 1 : 0
 }
 
 const FIXTURE_DISCOVER: SkillCard[] = FIXTURE_SKILLS.filter((skill) => "category" in skill)
-  .map((skill) => toFixtureCard(skill, { kind: DISCOVER_STATE[skill.id] ?? "install" }))
+  .map((skill) => toFixtureCard(skill, { kind: DISCOVER_STATE.get(skill.id) ?? "install" }))
   .toSorted(
     (left, right) =>
       discoverRank(left.control) - discoverRank(right.control) ||

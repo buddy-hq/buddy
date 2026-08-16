@@ -45,15 +45,15 @@ import { Separator, ToggleGroup, ToggleGroupItem, cn } from "@buddy/ui"
 
 type Surface = "page" | "raised"
 
-const SURFACE_CLASS: Record<Surface, string> = {
+const SURFACE_CLASS = {
   page: "bg-background-base",
   raised: "bg-surface-raised-stronger-non-alpha",
-}
+} satisfies Record<Surface, string>
 
-const SURFACE_LABEL: Record<Surface, string> = {
+const SURFACE_LABEL = {
   page: "on the page · background-base",
   raised: "in a popover · surface-raised-stronger-non-alpha",
-}
+} satisfies Record<Surface, string>
 
 const SURFACES: Surface[] = ["page", "raised"]
 

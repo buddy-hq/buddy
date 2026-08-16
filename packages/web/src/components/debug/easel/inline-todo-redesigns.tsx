@@ -157,12 +157,12 @@ const STATE_PRESETS: StatePreset[] = [
 ]
 
 function cycleTodoStatus(current: TodoStatus): TodoStatus {
-  const map: Record<TodoStatus, TodoStatus> = {
+  const map = {
     pending: "in_progress",
     in_progress: "completed",
     completed: "cancelled",
     cancelled: "pending",
-  }
+  } satisfies Record<TodoStatus, TodoStatus>
   return map[current]
 }
 

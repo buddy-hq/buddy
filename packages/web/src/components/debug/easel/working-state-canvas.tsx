@@ -954,7 +954,7 @@ function chladniCells(n: number, samples: number): FieldCell[] {
 }
 
 /** Lorenz attractor, integrated then projected onto x–z. */
-function lorenzTrack(samples: number): { xs: number[]; ys: number[] } {
+function lorenzTrack(samples: number) {
   let x = 0.9
   let y = 1.2
   let z = 22
@@ -987,7 +987,7 @@ function logisticSeries(count: number, seed: number): number[] {
 }
 
 /** Curl-ish flow field: u = sin(ky), v = cos(kx). */
-function flowTrack(seedX: number, seedY: number, samples: number): { xs: number[]; ys: number[] } {
+function flowTrack(seedX: number, seedY: number, samples: number) {
   let x = seedX
   let y = seedY
   const xs: number[] = []
@@ -2012,12 +2012,12 @@ const STATES: WorkingState[] = [
 
 const FAMILIES = ["Chaotic", "Field", "Blob", "Tile", "Orbital", "Path", "Physical", "Form"]
 
-const FAMILY_NOTES: Record<string, string> = {
+const FAMILY_NOTES = new Map(Object.entries({
   Chaotic: "Integrated live on a canvas — no keyframe loop, so the picture never repeats.",
   Field: "Many particles, one equation.",
   Blob: "One organic form, driven by a curve equation.",
   Tile: "Big grids. Delay comes from the maths, not from a stagger.",
-}
+}))
 
 // ─── canvas ──────────────────────────────────────────────────────────────────
 
@@ -2117,8 +2117,8 @@ export function WorkingStateCanvasEasel() {
                     <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-text-weak">
                       {family}
                     </h3>
-                    {FAMILY_NOTES[family] ? (
-                      <span className="text-xs text-text-weaker">{FAMILY_NOTES[family]}</span>
+                    {FAMILY_NOTES.get(family) ? (
+                      <span className="text-xs text-text-weaker">{FAMILY_NOTES.get(family)}</span>
                     ) : null}
                     <span className="h-px min-w-8 flex-1 bg-border-weaker-base" />
                   </div>

@@ -81,30 +81,30 @@ type CalmDensity = typeof SKILL_DENSITY_SM | typeof SKILL_DENSITY_MD
  * object still reads as an object, and the extra height buys the summary its
  * second line — one truncated line was the reason descriptions were unreadable.
  */
-const SKILL_ROW_HEIGHT_PX: Record<SkillDensity, number> = {
+const SKILL_ROW_HEIGHT_PX = {
   [SKILL_DENSITY_SM]: 40,
   // 10px padding ×2 + 17 name + 2 gap + 33 two-line summary.
   [SKILL_DENSITY_MD]: 72,
   // 12px padding ×2 + 48 icon row + 8 gap + 33 summary + 8 gap + 15 meta.
   [SKILL_DENSITY_LG]: 136,
-}
+} satisfies Record<SkillDensity, number>
 
-const SKILL_ROW_SHELL_CLASS: Record<CalmDensity, string> = {
+const SKILL_ROW_SHELL_CLASS = {
   [SKILL_DENSITY_SM]: "h-10 items-center gap-3 px-2.5",
   [SKILL_DENSITY_MD]: "h-[4.5rem] items-center gap-3.5 px-2.5",
-}
+} satisfies Record<CalmDensity, string>
 
-const SKILL_VISUAL_CLASS: Record<SkillDensity, string> = {
+const SKILL_VISUAL_CLASS = {
   [SKILL_DENSITY_SM]: "size-7 rounded-md",
   [SKILL_DENSITY_MD]: "size-11 rounded-xl",
   [SKILL_DENSITY_LG]: "size-12 rounded-xl",
-}
+} satisfies Record<SkillDensity, string>
 
-const SKILL_MONOGRAM_TEXT_CLASS: Record<SkillDensity, string> = {
+const SKILL_MONOGRAM_TEXT_CLASS = {
   [SKILL_DENSITY_SM]: "text-[10px]",
   [SKILL_DENSITY_MD]: "text-sm",
   [SKILL_DENSITY_LG]: "text-base",
-}
+} satisfies Record<SkillDensity, string>
 
 /** How many top-ranked rows may expand purely for being top-ranked. */
 const PROMOTED_RESULT_COUNT = 3
@@ -119,14 +119,14 @@ const TAIL_COLLAPSE_START_INDEX = 8
 type Family = "purple" | "cyan" | "mint" | "orange" | "lime" | "pink"
 const FAMILIES: Family[] = ["purple", "cyan", "mint", "orange", "lime", "pink"]
 
-const AVATAR_SURFACE: Record<Family, string> = {
+const AVATAR_SURFACE = {
   purple: "bg-avatar-background-purple text-avatar-text-purple",
   cyan: "bg-avatar-background-cyan text-avatar-text-cyan",
   mint: "bg-avatar-background-mint text-avatar-text-mint",
   orange: "bg-avatar-background-orange text-avatar-text-orange",
   lime: "bg-avatar-background-lime text-avatar-text-lime",
   pink: "bg-avatar-background-pink text-avatar-text-pink",
-}
+} satisfies Record<Family, string>
 
 type RowControl =
   | { kind: "toggle"; enabled: boolean }
@@ -695,11 +695,11 @@ function PanelShell(props: {
 
 function DensityLegend(props: { densities: readonly SkillDensity[]; searching: boolean }) {
   if (!props.searching) return null
-  const counts: Record<SkillDensity, number> = {
+  const counts = {
     [SKILL_DENSITY_SM]: props.densities.filter((density) => density === SKILL_DENSITY_SM).length,
     [SKILL_DENSITY_MD]: props.densities.filter((density) => density === SKILL_DENSITY_MD).length,
     [SKILL_DENSITY_LG]: props.densities.filter((density) => density === SKILL_DENSITY_LG).length,
-  }
+  } satisfies Record<SkillDensity, number>
 
   return (
     <div className="flex items-center gap-3 px-3 pb-1 pt-2 text-[10px] text-text-weaker">
@@ -882,12 +882,12 @@ type FixtureSkill = {
   tags: string[]
 } & ({ category: string } | { sourceLabel: string })
 
-const SOURCE_TEXT: Record<InstalledSkillInfo["source"], string> = {
+const SOURCE_TEXT = {
   custom: "Custom skill",
   system: "Built into Buddy",
   library: "From your library",
   external: "External integration",
-}
+} satisfies Record<InstalledSkillInfo["source"], string>
 
 const FIXTURE_SKILLS: FixtureSkill[] = [
   {
@@ -1032,36 +1032,36 @@ function toFixtureCard(skill: FixtureSkill, control: RowControl): SkillCard {
 }
 
 /** Everything not listed here is installed and on. */
-const FIXTURE_STATE_OVERRIDES: Record<string, SkillState> = {
+const FIXTURE_STATE_OVERRIDES = new Map<string, SkillState>(Object.entries({
   "nousresearch-hermes-agent-duckduckgo-search": SKILL_STATE_OFF,
   "nousresearch-hermes-agent-maps": SKILL_STATE_OFF,
   "hermes-excalidraw": SKILL_STATE_UPDATE,
-}
+}))
 
 function fixtureState(id: string): SkillState {
-  return FIXTURE_STATE_OVERRIDES[id] ?? SKILL_STATE_ON
+  return FIXTURE_STATE_OVERRIDES.get(id) ?? SKILL_STATE_ON
 }
 
 const FIXTURE_INSTALLED: SkillCard[] = FIXTURE_SKILLS.map((skill) =>
   toFixtureCard(skill, controlForState(fixtureState(skill.id))),
 )
 
-const DISCOVER_STATE: Record<
+const DISCOVER_STATE = new Map<
   string,
   Extract<RowControl, { kind: "install" | "installed" | "update" }>["kind"]
-> = {
+>(Object.entries({
   "nousresearch-hermes-agent-arxiv": "installed",
   "anthropics-skills-docx": "installed",
   "anthropic-pptx": "installed",
   "hermes-excalidraw": "update",
-}
+}))
 
 function discoverRank(control: RowControl): number {
   return control.kind === "install" ? 1 : 0
 }
 
 const FIXTURE_DISCOVER: SkillCard[] = FIXTURE_SKILLS.filter((skill) => "category" in skill)
-  .map((skill) => toFixtureCard(skill, { kind: DISCOVER_STATE[skill.id] ?? "install" }))
+  .map((skill) => toFixtureCard(skill, { kind: DISCOVER_STATE.get(skill.id) ?? "install" }))
   .toSorted(
     (left, right) =>
       discoverRank(left.control) - discoverRank(right.control) ||

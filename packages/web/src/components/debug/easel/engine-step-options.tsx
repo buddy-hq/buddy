@@ -78,10 +78,10 @@ const ENGINE_ROWS: { id: EngineChoice; title: string; blurb: string }[] = [
 const BREADTH_NOTE =
   "Anthropic, Gemini, OpenRouter, Ollama and 100+ more. Add any of them in Settings once you're in."
 
-const CHOSEN_NOTE: Record<EngineChoice, string> = {
+const CHOSEN_NOTE = {
   chatgpt: "ChatGPT connected",
   free: "Running on free models",
-}
+} satisfies Record<EngineChoice, string>
 
 // ── State ─────────────────────────────────────────────────────────────────
 
