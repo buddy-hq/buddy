@@ -44,7 +44,8 @@
     "electron-updater": "^6.6.2",
     "electron-window-state": "^5.0.3",
     "marked": "^17.0.1",
-    "tree-kill": "^1.2.2"
+    "tree-kill": "^1.2.2",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@buddy/reader-contract": "workspace:*",

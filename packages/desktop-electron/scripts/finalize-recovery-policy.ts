@@ -3,6 +3,7 @@
 import { $ } from "bun"
 import { access, mkdir } from "node:fs/promises"
 import path from "node:path"
+import { z } from "zod"
 import { resolveTauriSignerBinaryPath } from "./utils"
 
 const RELEASE_REPOSITORY_ENV_KEY = "GH_REPO"
@@ -15,11 +16,12 @@ const TRUE_ENV_VALUE = "1"
 const DEFAULT_OUTPUT_DIRECTORY = "/tmp"
 const RECOVERY_POLICY_FILENAME = "recovery-policy.json"
 const RECOVERY_POLICY_SCHEMA_VERSION = 1
+const RecoveryPolicySchema = z.object({
+  schema: z.literal(RECOVERY_POLICY_SCHEMA_VERSION),
+  badVersions: z.array(z.json()),
+})
 
-type RecoveryPolicy = {
-  schema: typeof RECOVERY_POLICY_SCHEMA_VERSION
-  badVersions: unknown[]
-}
+type RecoveryPolicy = z.infer<typeof RecoveryPolicySchema>
 
 const repo = process.env[RELEASE_REPOSITORY_ENV_KEY]?.trim() || ""
 const version = process.env[VERSION_ENV_KEY]?.trim() || ""
@@ -54,16 +56,11 @@ async function loadRecoveryPolicy(): Promise<RecoveryPolicy> {
 }
 
 function parseRecoveryPolicy(content: string): RecoveryPolicy {
-  // SAFETY: The fields used below are validated before constructing the complete recovery policy.
-  const parsed = JSON.parse(content) as Partial<RecoveryPolicy>
-  if (parsed.schema !== RECOVERY_POLICY_SCHEMA_VERSION || !Array.isArray(parsed.badVersions)) {
+  const policy = RecoveryPolicySchema.safeParse(JSON.parse(content))
+  if (!policy.success) {
     throw new Error("Invalid recovery policy payload")
   }
-
-  return {
-    schema: RECOVERY_POLICY_SCHEMA_VERSION,
-    badVersions: parsed.badVersions,
-  }
+  return policy.data
 }
 
 async function requireTauriSignerBinaryPath() {

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { access, mkdir, readFile, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { spawn } from "node:child_process"
+import { z } from "zod"
 import {
   BUDDY_MINISIGN_PUBLIC_KEY,
   BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
@@ -35,12 +36,23 @@ type LoggerLike = {
   error: (...args: unknown[]) => void
 }
 
-type FileEntry = {
-  url: string
-  sha512: string
-  size: number
-}
+const FileEntrySchema = z.looseObject({
+  url: z.string(),
+  sha512: z.string(),
+  size: z.number(),
+})
+const LatestManifestBoundarySchema = z.object({
+  version: z.string(),
+  files: z.array(z.unknown()),
+})
+const MacInstallerResultBoundarySchema = z.looseObject({
+  status: z.unknown(),
+  exitCode: z.unknown().optional(),
+})
+const MacInstallerStatusSchema = z.enum(["failed", "running", "succeeded"])
+const MacInstallerExitCodeSchema = z.number().int()
 
+type FileEntry = z.infer<typeof FileEntrySchema>
 type LatestManifest = {
   version: string
   files: FileEntry[]
@@ -343,7 +355,7 @@ async function fetchLatestManifest(
     } catch (error) {
       lastError = error
       const fallbackUrl = metadataUrls[index + 1]
-      if (!fallbackUrl || !isMissingSignedManifest(error)) {
+      if (!fallbackUrl || !(error instanceof Error) || !isMissingSignedManifest(error)) {
         throw error
       }
 
@@ -358,33 +370,20 @@ async function fetchLatestManifest(
 }
 
 function parseLatestManifest(content: string): LatestManifest {
-  // SAFETY: Required manifest fields and every file entry are validated before this value is returned.
-  const parsed = JSON.parse(content) as Partial<LatestManifest>
-
-  if (typeof parsed.version !== "string" || !Array.isArray(parsed.files)) {
+  const manifest = LatestManifestBoundarySchema.safeParse(JSON.parse(content))
+  if (!manifest.success) {
     throw new Error("Invalid macOS update manifest payload")
   }
 
-  const files = parsed.files.filter(isFileEntry)
-  if (files.length !== parsed.files.length) {
+  const files = z.array(FileEntrySchema).safeParse(manifest.data.files)
+  if (!files.success) {
     throw new Error("Invalid macOS update manifest file entries")
   }
 
   return {
-    version: parsed.version,
-    files,
+    version: manifest.data.version,
+    files: files.data,
   }
-}
-
-function isFileEntry(value: unknown): value is FileEntry {
-  if (!value || typeof value !== "object") {
-    return false
-  }
-
-  const url = Reflect.get(value, "url")
-  const sha512 = Reflect.get(value, "sha512")
-  const size = Reflect.get(value, "size")
-  return typeof url === "string" && typeof sha512 === "string" && typeof size === "number"
 }
 
 function resolveArchiveEntry(version: string, files: FileEntry[]) {
@@ -548,26 +547,27 @@ export function resolveMacInstallerResultPath(logsPath: string) {
 }
 
 export function parseMacInstallerResult(content: string): MacInstallerResult {
-  const parsed: unknown = JSON.parse(content)
-  if (!parsed || typeof parsed !== "object") {
+  const parsed = MacInstallerResultBoundarySchema.safeParse(JSON.parse(content))
+  if (!parsed.success) {
     throw new Error("Invalid mac installer result payload")
   }
 
-  const status = Reflect.get(parsed, "status")
-  if (status !== "failed" && status !== "running" && status !== "succeeded") {
+  const status = MacInstallerStatusSchema.safeParse(parsed.data.status)
+  if (!status.success) {
     throw new Error("Invalid mac installer result status")
   }
 
-  const exitCode = Reflect.get(parsed, "exitCode")
+  const exitCode = parsed.data.exitCode
   if (exitCode === undefined) {
-    return { status }
+    return { status: status.data }
   }
 
-  if (typeof exitCode !== "number" || !Number.isInteger(exitCode)) {
+  const parsedExitCode = MacInstallerExitCodeSchema.safeParse(exitCode)
+  if (!parsedExitCode.success) {
     throw new Error("Invalid mac installer result exitCode")
   }
 
-  return { exitCode, status }
+  return { exitCode: parsedExitCode.data, status: status.data }
 }
 
 export function isMacUpdateAvailable(input: MacUpdateAvailabilityInput) {
@@ -618,6 +618,6 @@ export function resolveMacRecoveryMetadataUrls(version: string): readonly string
   })
 }
 
-function isMissingSignedManifest(error: unknown): boolean {
+function isMissingSignedManifest(error: Error): boolean {
   return error instanceof SignedUpdateFetchError && error.status === 404
 }

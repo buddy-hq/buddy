@@ -2,41 +2,25 @@ import { Buffer } from "node:buffer"
 import * as http from "node:http"
 import * as tls from "node:tls"
 import { BUDDY_ENV } from "@buddy/script/storage-env"
+import { z } from "zod"
 
 const DEFAULT_BACKEND_SERVER_USERNAME = "buddy"
 const GLOBAL_DISPOSE_PATH = "/api/global/dispose" as const
 const RUNTIME_DISPOSE_TIMEOUT_MS = 3_000
 
-type NodeHttpWithEnvProxy = typeof http & {
-  setGlobalProxyFromEnv: () => void
-}
+const UtilityCommandSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("start"), hostname: z.string(), port: z.number() }),
+  z.object({ type: z.literal("stop") }),
+])
+const FunctionSchema = z.function()
 
-type NodeTlsWithSystemCertificates = typeof tls & {
-  getCACertificates: (type: "default" | "system") => string[]
-  setDefaultCACertificates: (certificates: string[]) => void
-}
-
-type StartCommand = {
-  type: "start"
-  hostname: string
-  port: number
-}
-
-type StopCommand = {
-  type: "stop"
-}
-
-type UtilityCommand = StartCommand | StopCommand
+type UtilityCommand = z.infer<typeof UtilityCommandSchema>
+type StartCommand = Extract<UtilityCommand, { type: "start" }>
 
 type UtilityMessage =
   | { type: "ready" }
   | { type: "stopped" }
   | { type: "error"; error: { message: string; stack?: string } }
-
-type ParentPort = {
-  postMessage(message: UtilityMessage): void
-  on(event: "message", listener: (event: { data: unknown }) => void): void
-}
 
 type Listener = {
   stop: (close?: boolean) => Promise<void>
@@ -59,8 +43,9 @@ let activeServer: ActiveServer | undefined
 let backendModuleTask: Promise<BackendModule> | undefined
 
 parentPort.on("message", (event) => {
-  const command = parseCommand(event.data)
-  if (!command) return
+  const parsedCommand = UtilityCommandSchema.safeParse(event.data)
+  if (!parsedCommand.success) return
+  const command = parsedCommand.data
   if (command.type === "stop") {
     void stop()
     return
@@ -92,7 +77,9 @@ async function start(command: StartCommand) {
     }
     postParentMessage({ type: "ready" })
   } catch (error) {
-    postParentMessage({ type: "error", error: serializeError(error) })
+    const serializedError =
+      error instanceof Error ? serializeError(error) : { message: String(error) }
+    postParentMessage({ type: "error", error: serializedError })
     setImmediate(() => process.exit(1))
   }
 }
@@ -136,8 +123,8 @@ function serverBaseUrl(server: ActiveServer): string {
 async function loadBackendModule(): Promise<BackendModule> {
   backendModuleTask ??= (async () => {
     await assertNodeSqliteAvailable()
-    const loaded: unknown = await import("virtual:buddy-server")
-    if (!isBackendModule(loaded)) {
+    const loaded = await import("virtual:buddy-server")
+    if (!FunctionSchema.safeParse(loaded.listen).success) {
       throw new Error("Buddy Node backend artifact does not export listen()")
     }
     return loaded
@@ -148,8 +135,8 @@ async function loadBackendModule(): Promise<BackendModule> {
 
 async function assertNodeSqliteAvailable() {
   try {
-    const sqliteModule: unknown = await import("node:sqlite")
-    if (isRecord(sqliteModule) && typeof sqliteModule.DatabaseSync === "function") return
+    const sqliteModule = await import("node:sqlite")
+    if (FunctionSchema.safeParse(sqliteModule.DatabaseSync).success) return
     throw new Error("node:sqlite loaded without DatabaseSync")
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error)
@@ -182,10 +169,8 @@ function ensureLoopbackNoProxy() {
 
 function useSystemCertificates() {
   try {
-    // SAFETY: Buddy's supported Node runtime provides the system-certificate TLS extensions.
-    const nodeTls = tls as NodeTlsWithSystemCertificates
-    nodeTls.setDefaultCACertificates([
-      ...new Set([...nodeTls.getCACertificates("default"), ...nodeTls.getCACertificates("system")]),
+    tls.setDefaultCACertificates([
+      ...new Set([...tls.getCACertificates("default"), ...tls.getCACertificates("system")]),
     ])
   } catch (error) {
     console.warn("failed to load system certificates", error)
@@ -194,48 +179,23 @@ function useSystemCertificates() {
 
 function useEnvProxy() {
   try {
-    // SAFETY: Buddy's supported Node runtime provides the environment-proxy HTTP extension.
-    const nodeHttp = http as NodeHttpWithEnvProxy
-    nodeHttp.setGlobalProxyFromEnv()
+    http.setGlobalProxyFromEnv()
   } catch (error) {
     console.warn("failed to load proxy environment", error)
   }
 }
 
 function postParentMessage(message: UtilityMessage) {
-  // oxlint-disable-next-line unicorn(require-post-message-target-origin): Electron utility process messages do not accept a targetOrigin.
+  // oxlint-disable-next-line unicorn/require-post-message-target-origin -- Electron utility process messages do not accept a targetOrigin.
   parentPort.postMessage(message)
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-function isBackendModule(value: unknown): value is BackendModule {
-  return isRecord(value) && typeof value.listen === "function"
-}
-
-function parseCommand(value: unknown): UtilityCommand | undefined {
-  if (!isRecord(value)) return undefined
-  if (value.type === "stop") return { type: "stop" }
-  if (value.type !== "start") return undefined
-  if (typeof value.hostname !== "string") return undefined
-  if (typeof value.port !== "number") return undefined
-  return {
-    type: "start",
-    hostname: value.hostname,
-    port: value.port,
-  }
-}
-
-function serializeError(error: unknown) {
-  if (error instanceof Error) return { message: error.message, stack: error.stack }
-  return { message: String(error) }
+function serializeError(error: Error) {
+  return { message: error.message, stack: error.stack }
 }
 
 function getParentPort() {
-  // SAFETY: Electron exposes parentPort on utility-process instances; availability is checked below.
-  const port = process.parentPort as ParentPort | undefined
+  const port = process.parentPort
   if (!port) throw new Error("Backend utility parent port unavailable")
   return port
 }

@@ -8,6 +8,7 @@ import {
 } from "../../../script/desktop-runtime-resources"
 import { type BuddyReleaseChannel, readBuddyReleaseChannel } from "@buddy/script/channel"
 import { BUDDY_ENV, RUNTIME_ROOT_SEGMENTS, XDG_ENV } from "@buddy/script/storage-env"
+import { z } from "zod"
 
 export type Channel = BuddyReleaseChannel
 
@@ -21,6 +22,7 @@ const TAURI_SIGNER_BINARY_RELATIVE_PATH = "node_modules/.bin/tauri"
 const LEGACY_BACKEND_EXECUTABLE_RESOURCE_NAMES = ["buddy-backend", "buddy-backend.exe"] as const
 const EXPLICIT_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
 const EXPLICIT_RUNTIME_NOTEBOOK_DIRECTORY_NAME = "notebook"
+const DesktopPackageManifestSchema = z.looseObject({ version: z.string() })
 
 export function resolveChannel(): Channel {
   return readBuddyReleaseChannel()
@@ -93,19 +95,17 @@ export function resolveExplicitRuntimeRootEnvironment(xdgRoot: string) {
 }
 
 export function updateDesktopPackageVersion(version: string) {
-  // SAFETY: This repository-owned package manifest always has the required version field.
-  const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf8")) as {
-    version: string
-  }
+  const pkg = DesktopPackageManifestSchema.parse(
+    JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf8")),
+  )
   pkg.version = version
   writeFileSync(PACKAGE_JSON_PATH, `${JSON.stringify(pkg, null, 2)}\n`)
 }
 
 export function readDesktopPackageVersion() {
-  // SAFETY: This repository-owned package manifest always has the required version field.
-  const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf8")) as {
-    version: string
-  }
+  const pkg = DesktopPackageManifestSchema.parse(
+    JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf8")),
+  )
   return pkg.version
 }
 

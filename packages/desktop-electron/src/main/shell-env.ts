@@ -31,10 +31,9 @@ function probeShellEnv(shell: string, mode: "-il" | "-l"): Probe {
     windowsHide: true,
   })
 
-  // SAFETY: Node spawn errors expose the optional errno code used to distinguish timeouts.
-  const err = out.error as NodeJS.ErrnoException | undefined
+  const err = out.error
   if (err) {
-    if (err.code === "ETIMEDOUT") return { type: "Timeout" }
+    if ("code" in err && err.code === "ETIMEDOUT") return { type: "Timeout" }
     console.log(`[cli] Shell env probe failed for ${shell} ${mode}: ${err.message}`)
     return { type: "Unavailable" }
   }
@@ -112,7 +111,7 @@ export function mergeShellEnv(shell: Record<string, string> | null, env: Record<
 function pathKeyForEnvironment(env: Record<string, string>) {
   for (const key of PATH_ENV_KEYS) {
     const value = env[key]
-    if (typeof value === "string" && value.trim().length > 0) {
+    if (value?.trim()) {
       return key
     }
   }
@@ -122,7 +121,7 @@ function pathKeyForEnvironment(env: Record<string, string>) {
 function readPathValue(env: Record<string, string>) {
   for (const key of PATH_ENV_KEYS) {
     const value = env[key]
-    if (typeof value === "string" && value.trim().length > 0) {
+    if (value?.trim()) {
       return value
     }
   }
