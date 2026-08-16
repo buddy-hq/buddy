@@ -2,70 +2,21 @@ import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { ProjectID } from "@buddy/opencode-adapter/id"
 import { safeDecodeSchema } from "../../http/effect-schema"
 import { isAllowedDirectory, resolveDirectory } from "../directory"
+import {
+  parseOpenProjectDirectory,
+  parseProjectErrorPayload,
+  parseProjectString,
+} from "../parse-values"
 
 const projectUpdateBodySchema = OpenCodeProject.UpdatePayload
+const PROJECT_NOT_FOUND_ERROR_PREFIX = "Project not found:"
+const INVALID_PROJECT_UPDATE_ERROR = "Invalid project update"
+const DIRECTORY_REQUIRED_ERROR = "Directory is required"
+const DIRECTORY_OUTSIDE_ALLOWED_ROOTS_ERROR = "Directory is outside allowed roots"
+const NOT_FOUND_ERROR_NAME = "NotFoundError"
+const PROJECT_ERROR_CAUSE_MAX_DEPTH = 10
 
-export function readOpenProjectDirectory(payload: unknown): string | undefined {
-  if (!payload || typeof payload !== "object" || !("directory" in payload)) {
-    return undefined
-  }
-
-  const rawDirectory = (payload as { directory?: unknown }).directory
-  return typeof rawDirectory === "string" ? rawDirectory : undefined
-}
-
-export function parseProjectUpdateBody(payload: unknown) {
-  return safeDecodeSchema(projectUpdateBodySchema, payload)
-}
-
-export function projectUpdateErrorMessage(error: unknown) {
-  if (error && typeof error === "object") {
-    const directMessage = projectErrorMessage(error)
-    if (directMessage) return directMessage
-  }
-  if (typeof error === "string") return error
-  if (error instanceof Error && error.message.trim().length > 0) return error.message
-  return "Invalid project update"
-}
-
-function projectErrorMessage(payload: unknown, depth = 0): string | undefined {
-  if (!payload || typeof payload !== "object") return undefined
-  const value = payload as {
-    message?: unknown
-    data?: {
-      message?: unknown
-    }
-    cause?: unknown
-  }
-  if (typeof value.data?.message === "string") return value.data.message
-  if (depth < 10) {
-    const causeMessage = projectErrorMessage(value.cause, depth + 1)
-    if (causeMessage) return causeMessage
-  }
-  if (typeof value.message === "string") return value.message
-  return undefined
-}
-
-/**
- * Handles Error shapes from OpenCode:
- * - Error with `cause` containing `{ data?: { message?: string }, message?: string }`
- * - Error-like payloads with `{ data?: { message?: string }, message?: string }`
- */
-function isProjectNotFoundError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false
-  const payload = error as {
-    name?: unknown
-  }
-  if (payload.name === "NotFoundError") return true
-
-  const message =
-    (error instanceof Error ? projectErrorMessage(error.cause) : undefined) ??
-    projectErrorMessage(error) ??
-    ""
-  return message.startsWith("Project not found:")
-}
-
-export async function openProjectFromPayload(payload: unknown): Promise<
+export type TOpenProjectFromPayloadResult =
   | {
       ok: true
       directory: string
@@ -75,13 +26,71 @@ export async function openProjectFromPayload(payload: unknown): Promise<
       status: 400 | 403
       error: string
     }
-> {
+
+export type TUpdateProjectFromPayloadResult =
+  | {
+      ok: true
+      project: Awaited<ReturnType<typeof OpenCodeProject.update>>
+    }
+  | {
+      ok: false
+      status: 400 | 404
+      error: string
+    }
+
+export function readOpenProjectDirectory<TValue>(payload: TValue): string | undefined {
+  return parseOpenProjectDirectory(payload)
+}
+
+export function parseProjectUpdateBody<TValue>(payload: TValue) {
+  return safeDecodeSchema(projectUpdateBodySchema, payload)
+}
+
+export function projectUpdateErrorMessage<TValue>(error: TValue) {
+  const directMessage = projectErrorMessage(error)
+  if (directMessage) return directMessage
+  const text = parseProjectString(error)
+  if (text !== undefined) return text
+  if (error instanceof Error && error.message.trim().length > 0) return error.message
+  return INVALID_PROJECT_UPDATE_ERROR
+}
+
+function projectErrorMessage<TValue>(payload: TValue, depth = 0): string | undefined {
+  const value = parseProjectErrorPayload(payload)
+  if (value === undefined) return undefined
+  if (value.data?.message !== undefined) return value.data.message
+  if (depth < PROJECT_ERROR_CAUSE_MAX_DEPTH) {
+    const causeMessage = projectErrorMessage(value.cause, depth + 1)
+    if (causeMessage) return causeMessage
+  }
+  return value.message
+}
+
+/**
+ * Handles Error shapes from OpenCode:
+ * - Error with `cause` containing `{ data?: { message?: string }, message?: string }`
+ * - Error-like payloads with `{ data?: { message?: string }, message?: string }`
+ */
+function isProjectNotFoundError<TValue>(error: TValue): boolean {
+  const payload = parseProjectErrorPayload(error)
+  if (payload?.name === NOT_FOUND_ERROR_NAME) return true
+
+  const message =
+    (error instanceof Error ? projectErrorMessage(error.cause) : undefined) ??
+    projectErrorMessage(error) ??
+    ""
+  return message.startsWith(PROJECT_NOT_FOUND_ERROR_PREFIX)
+}
+
+export async function openProjectFromPayload<TValue>(
+  payload: TValue,
+): Promise<TOpenProjectFromPayloadResult> {
   const rawDirectory = readOpenProjectDirectory(payload)
-  if (typeof rawDirectory !== "string") {
+  if (rawDirectory === undefined) {
     return {
       ok: false,
       status: 400,
-      error: "Directory is required",
+      error: DIRECTORY_REQUIRED_ERROR,
     }
   }
 
@@ -91,7 +100,7 @@ export async function openProjectFromPayload(payload: unknown): Promise<
       return {
         ok: false,
         status: 403,
-        error: "Directory is outside allowed roots",
+        error: DIRECTORY_OUTSIDE_ALLOWED_ROOTS_ERROR,
       }
     }
 
@@ -109,26 +118,16 @@ export async function openProjectFromPayload(payload: unknown): Promise<
   }
 }
 
-export async function updateProjectFromPayload(input: {
+export async function updateProjectFromPayload<TPayload>(input: {
   projectID: string
-  payload: unknown
-}): Promise<
-  | {
-      ok: true
-      project: Awaited<ReturnType<typeof OpenCodeProject.update>>
-    }
-  | {
-      ok: false
-      status: 400 | 404
-      error: string
-    }
-> {
+  payload: TPayload
+}): Promise<TUpdateProjectFromPayloadResult> {
   const body = parseProjectUpdateBody(input.payload)
   if (!body.success) {
     return {
       ok: false,
       status: 400,
-      error: "Invalid project update",
+      error: INVALID_PROJECT_UPDATE_ERROR,
     }
   }
 

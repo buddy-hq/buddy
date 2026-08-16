@@ -12,6 +12,12 @@ import { resolveBuddyHomeState } from "./buddy-home"
 import { resolveDirectory } from "./directory"
 import { INBOX_NOTEBOOK_NAME } from "./notebook-constants"
 import { projectUpdateErrorMessage } from "./orchestration/project-operations"
+import {
+  parseProjectJsonObject,
+  parseProjectNodeErrnoCode,
+  parseProjectString,
+  PROJECT_NODE_ERRNO,
+} from "./parse-values"
 
 const OPEN_PROJECTS_FILENAME = "desktop-notebooks.json"
 const REGISTRY_BACKUP_EXTENSION = "bak"
@@ -79,15 +85,16 @@ function normalizeRegistryDirectory(raw: string) {
   return directory
 }
 
-function normalizeRegistryDirectories(entries: unknown) {
+function normalizeRegistryDirectories<TValue>(entries: TValue) {
   if (!Array.isArray(entries)) return []
 
   const unique = new Set<string>()
   const directories: string[] = []
 
   for (const entry of entries) {
-    if (typeof entry !== "string") continue
-    const normalized = normalizeRegistryDirectory(entry)
+    const raw = parseProjectString(entry)
+    if (raw === undefined) continue
+    const normalized = normalizeRegistryDirectory(raw)
     if (!normalized || unique.has(normalized)) continue
     unique.add(normalized)
     directories.push(normalized)
@@ -96,15 +103,11 @@ function normalizeRegistryDirectories(entries: unknown) {
   return directories
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function hasErrorCode<TValue>(error: TValue, code: string): boolean {
+  return parseProjectNodeErrnoCode(error) === code
 }
 
-function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === code
-}
-
-function registryStorageError(action: string, error: unknown): OpenProjectRegistryError {
+function registryStorageError<TValue>(action: string, error: TValue): OpenProjectRegistryError {
   const message = error instanceof Error ? error.message : String(error)
   return new OpenProjectRegistryError(
     500,
@@ -114,7 +117,7 @@ function registryStorageError(action: string, error: unknown): OpenProjectRegist
 
 function parseRegistryDirectories(raw: string): RegistryParseResult {
   try {
-    const parsed: unknown = JSON.parse(raw)
+    const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) {
       return { ok: false }
     }
@@ -133,13 +136,15 @@ function readConfiguredNotebookHomePath(): string | undefined {
     const configPath = resolveGlobalConfigFile()
     const rawConfig = fsSync.readFileSync(configPath, "utf8")
     const parseErrors: JsoncParseError[] = []
-    const parsed: unknown = parseJsonc(rawConfig, parseErrors, { allowTrailingComma: true })
-    if (parseErrors.length > 0 || !isRecord(parsed)) {
+    const parsed = parseProjectJsonObject(
+      parseJsonc(rawConfig, parseErrors, { allowTrailingComma: true }),
+    )
+    if (parseErrors.length > 0 || parsed === undefined) {
       return undefined
     }
 
-    const configuredHome = parsed.notebook_home
-    if (typeof configuredHome !== "string") {
+    const configuredHome = parseProjectString(parsed.notebook_home)
+    if (configuredHome === undefined) {
       return undefined
     }
 
@@ -150,13 +155,16 @@ function readConfiguredNotebookHomePath(): string | undefined {
 }
 
 function notebookHomeRecoveryRoots() {
-  return Array.from(
-    new Set(
-      [readConfiguredNotebookHomePath(), resolveBuddyHomeState().resolvedPath].filter(
-        (directory): directory is string => typeof directory === "string" && directory.length > 0,
-      ),
-    ),
-  )
+  const roots: string[] = []
+  const configured = readConfiguredNotebookHomePath()
+  if (configured !== undefined && configured.length > 0) {
+    roots.push(configured)
+  }
+  const resolved = resolveBuddyHomeState().resolvedPath
+  if (resolved.length > 0) {
+    roots.push(resolved)
+  }
+  return Array.from(new Set(roots))
 }
 
 function sortRecoveredDirectories(directories: string[]) {
@@ -232,7 +240,7 @@ async function quarantineRegistryFile() {
   try {
     await fs.rename(registryPath(), corruptRegistryPath())
   } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) {
+    if (hasErrorCode(error, PROJECT_NODE_ERRNO.notFound)) {
       return
     }
     throw registryStorageError("recover", error)
@@ -243,7 +251,7 @@ function quarantineRegistryFileSync() {
   try {
     fsSync.renameSync(registryPath(), corruptRegistryPath())
   } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) {
+    if (hasErrorCode(error, PROJECT_NODE_ERRNO.notFound)) {
       return
     }
     throw registryStorageError("recover", error)
@@ -305,7 +313,7 @@ async function readRegistryFileUnlocked() {
 
     return recoverRegistryFileUnlocked()
   } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) {
+    if (hasErrorCode(error, PROJECT_NODE_ERRNO.notFound)) {
       return restoreMissingRegistryFileUnlocked()
     }
     throw registryStorageError("read", error)
@@ -323,7 +331,7 @@ function readRegistryFileSyncUnlocked() {
 
     return recoverRegistryFileSyncUnlocked()
   } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) {
+    if (hasErrorCode(error, PROJECT_NODE_ERRNO.notFound)) {
       return restoreMissingRegistryFileSyncUnlocked()
     }
     throw registryStorageError("read", error)
@@ -434,14 +442,21 @@ function sameDirectorySet(left: string[], right: string[]) {
   return true
 }
 
-export async function listOpenProjects() {
+export type TOpenProjectsList = {
+  directories: string[]
+  recovery?: {
+    needed: true
+  }
+}
+
+export async function listOpenProjects(): Promise<TOpenProjectsList> {
   return withRegistryLock(async () => {
     const directories = await readRegistryFileUnlocked()
     const recoveryNeeded = await registryRecoveryIsNeededUnlocked()
-    return {
-      directories,
-      ...(recoveryNeeded ? { recovery: { needed: true } } : {}),
-    }
+    return Object.assign(
+      { directories } satisfies TOpenProjectsList,
+      recoveryNeeded ? ({ recovery: { needed: true } } as const) : undefined,
+    )
   })
 }
 
@@ -548,11 +563,13 @@ export function isDirectoryInOpenProjectRegistry(directory: string): boolean {
   }
 }
 
-export function isOpenProjectRegistryError(error: unknown): error is OpenProjectRegistryError {
+export function isOpenProjectRegistryError<TValue>(
+  error: TValue,
+): error is TValue & OpenProjectRegistryError {
   return error instanceof OpenProjectRegistryError
 }
 
-export function mapOpenProjectRegistryError(error: unknown): Response | undefined {
+export function mapOpenProjectRegistryError<TValue>(error: TValue): Response | undefined {
   if (!isOpenProjectRegistryError(error)) return undefined
   return Response.json({ error: error.message }, { status: error.status })
 }

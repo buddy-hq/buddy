@@ -8,6 +8,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { writeTextFileAtomic } from "../storage/atomic-file"
 import { withFileLock } from "../storage/file-lock"
 import { textFileWriteLockPath } from "../storage/locked-atomic-file"
+import { parseProjectNodeErrnoCode } from "./parse-values"
 
 const PROJECT_FILE_ESCAPE_ERROR = "Access denied: path escapes project directory"
 const PROJECT_FILE_NOT_FOUND_ERROR = "File not found"
@@ -66,15 +67,12 @@ type ProjectContainedFile = {
 
 type FileSystemErrorCode = (typeof FILE_SYSTEM_ERROR_CODE)[keyof typeof FILE_SYSTEM_ERROR_CODE]
 
-function fileSystemErrorCode(error: unknown): string | undefined {
-  if (typeof error !== "object" || error === null || !("code" in error)) {
-    return undefined
-  }
-  return typeof error.code === "string" ? error.code : undefined
+function fileSystemErrorCode<TValue>(error: TValue): string | undefined {
+  return parseProjectNodeErrnoCode(error)
 }
 
-function isFileSystemError(error: unknown, code: FileSystemErrorCode) {
-  return typeof error === "object" && error !== null && "code" in error && error.code === code
+function isFileSystemError<TValue>(error: TValue, code: FileSystemErrorCode) {
+  return parseProjectNodeErrnoCode(error) === code
 }
 
 function normalizeRelativePath(filepath: string) {
@@ -87,7 +85,7 @@ function contentVersion(content: string | undefined) {
 }
 
 async function readFileContent(filePath: string) {
-  const content = await fs.readFile(filePath).catch((error: unknown) => {
+  const content = await fs.readFile(filePath).catch((error) => {
     if (isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.notFound)) {
       return undefined
     }
@@ -105,7 +103,7 @@ async function resolveContainedFile(
   relativePath: string,
 ): Promise<ProjectContainedFile> {
   const absolutePath = path.resolve(directory, relativePath)
-  const realPath = await fs.realpath(absolutePath).catch((error: unknown) => {
+  const realPath = await fs.realpath(absolutePath).catch((error) => {
     if (isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.notFound)) {
       return undefined
     }
@@ -132,7 +130,7 @@ async function resolveContainedFile(
 
 async function assertContainedParentDirectory(directory: string, relativePath: string) {
   const absoluteParentPath = path.dirname(path.resolve(directory, relativePath))
-  const realParentPath = await fs.realpath(absoluteParentPath).catch((error: unknown) => {
+  const realParentPath = await fs.realpath(absoluteParentPath).catch((error) => {
     if (isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.notFound)) {
       return undefined
     }
@@ -174,7 +172,7 @@ async function createFileLinkWithoutOverwrite(sourcePath: string, destinationPat
 }
 
 async function renameFileWithoutOverwrite(source: ProjectContainedFile, destinationPath: string) {
-  const destinationStats = await fs.lstat(destinationPath).catch((error: unknown) => {
+  const destinationStats = await fs.lstat(destinationPath).catch((error) => {
     if (isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.notFound)) return undefined
     throw error
   })
@@ -204,7 +202,7 @@ async function renameFileWithoutOverwrite(source: ProjectContainedFile, destinat
   }
 }
 
-export function mapProjectTextFileEditorError(error: unknown): Response | undefined {
+export function mapProjectTextFileEditorError<TValue>(error: TValue): Response | undefined {
   if (error instanceof ProjectFilePathEscapeError) {
     return Response.json({ error: error.message }, { status: 403 })
   }
@@ -253,7 +251,7 @@ export async function readProjectTextFileStatus(input: {
     fn: async () => {
       const realPath = await fs
         .realpath(path.resolve(input.directory, normalizedPath))
-        .catch((error: unknown) => {
+        .catch((error) => {
           if (isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.notFound)) {
             return undefined
           }
@@ -302,7 +300,7 @@ export async function saveProjectTextFile(input: {
       const initialContainedFile = await resolveContainedFile(
         input.directory,
         normalizedPath,
-      ).catch((error: unknown) => {
+      ).catch((error) => {
         if (error instanceof ProjectFileNotFoundError) {
           return undefined
         }
@@ -320,7 +318,7 @@ export async function saveProjectTextFile(input: {
 
       return withFileLock(lockPath, async () => {
         const containedFile = await resolveContainedFile(input.directory, normalizedPath).catch(
-          (error: unknown) => {
+          (error) => {
             if (error instanceof ProjectFileNotFoundError) {
               return undefined
             }
@@ -340,7 +338,7 @@ export async function saveProjectTextFile(input: {
             const latestContainedFile = await resolveContainedFile(
               input.directory,
               normalizedPath,
-            ).catch((error: unknown) => {
+            ).catch((error) => {
               if (error instanceof ProjectFileNotFoundError) return undefined
               throw error
             })

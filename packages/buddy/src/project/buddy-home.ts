@@ -4,6 +4,7 @@ import { Config } from "../config"
 import { Global } from "../storage/global"
 import { resolveDirectory } from "./directory"
 import { BUDDY_HOME_DEFAULT_PATH_SEGMENTS, INBOX_NOTEBOOK_NAME } from "./notebook-constants"
+import { parseProjectNodeErrnoCode, parseProjectString, PROJECT_NODE_ERRNO } from "./parse-values"
 
 export type BuddyHomeState = {
   configuredPath: string | null
@@ -17,11 +18,10 @@ export type BuddyHomeAccessState = {
 }
 
 const BUDDY_HOME_ACCESS_MODE = fs.constants.R_OK | fs.constants.W_OK
-const DIRECTORY_ACCESS_DENIED_ERROR_CODES = new Set(["EACCES", "EPERM"])
-
-type NodeErrorWithCode = {
-  code?: unknown
-}
+const DIRECTORY_ACCESS_DENIED_ERROR_CODES = new Set<string>([
+  PROJECT_NODE_ERRNO.accessDenied,
+  PROJECT_NODE_ERRNO.permissionDenied,
+])
 
 export class BuddyHomeError extends Error {
   readonly status: 400 | 403
@@ -33,10 +33,20 @@ export class BuddyHomeError extends Error {
   }
 }
 
-function readErrorCode(error: unknown): string | undefined {
-  if (!error || typeof error !== "object") return undefined
-  const candidate = error as NodeErrorWithCode
-  return typeof candidate.code === "string" ? candidate.code : undefined
+function hasDirectoryAccess(directory: string) {
+  const directoryToCheck = findExistingDirectoryAncestor(directory) ?? directory
+
+  try {
+    fs.accessSync(directoryToCheck, BUDDY_HOME_ACCESS_MODE)
+    return true
+  } catch (error) {
+    const code = parseProjectNodeErrnoCode(error)
+    if (code === PROJECT_NODE_ERRNO.notFound || DIRECTORY_ACCESS_DENIED_ERROR_CODES.has(code ?? "")) {
+      return false
+    }
+
+    return false
+  }
 }
 
 function findExistingDirectoryAncestor(directory: string) {
@@ -56,28 +66,8 @@ function findExistingDirectoryAncestor(directory: string) {
   }
 }
 
-function hasDirectoryAccess(directory: string) {
-  const directoryToCheck = findExistingDirectoryAncestor(directory) ?? directory
-
-  try {
-    fs.accessSync(directoryToCheck, BUDDY_HOME_ACCESS_MODE)
-    return true
-  } catch (error) {
-    const code = readErrorCode(error)
-    if (code === "ENOENT" || DIRECTORY_ACCESS_DENIED_ERROR_CODES.has(code ?? "")) {
-      return false
-    }
-
-    return false
-  }
-}
-
-function isBuddyHomeError(error: unknown): error is BuddyHomeError {
-  return error instanceof BuddyHomeError
-}
-
-export function mapBuddyHomeError(error: unknown): Response | undefined {
-  if (!isBuddyHomeError(error)) return undefined
+export function mapBuddyHomeError<TValue>(error: TValue): Response | undefined {
+  if (!(error instanceof BuddyHomeError)) return undefined
   return Response.json({ error: error.message }, { status: error.status })
 }
 
@@ -108,8 +98,9 @@ function normalizeConfiguredBuddyHomePath(configuredPath: string) {
 
 export function resolveBuddyHomeState(configuredPath?: string | null): BuddyHomeState {
   const defaultPath = resolveBuddyHomeDefaultPath()
+  const configured = parseProjectString(configuredPath)
   const configuredResolvedPath =
-    typeof configuredPath === "string" ? normalizeConfiguredBuddyHomePath(configuredPath) : null
+    configured === undefined ? null : normalizeConfiguredBuddyHomePath(configured)
   const resolvedPath = configuredResolvedPath ?? defaultPath
 
   return {

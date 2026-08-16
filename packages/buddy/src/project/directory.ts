@@ -8,6 +8,7 @@ import {
   resolveDefaultBuddyGlobalConfigDir,
 } from "../storage"
 import { BUDDY_HOME_DEFAULT_PATH_SEGMENTS } from "./notebook-constants"
+import { monorepoPackageJsonDeclaresWorkspaces, parseMonorepoPackageJson } from "./parse-values"
 
 const BUDDY_BOOTSTRAP_DIRECTORY_PATH_SEGMENTS = ["bootstrap", "http-proxy"] as const
 
@@ -28,18 +29,8 @@ function findMonorepoRoot(start: string) {
     const packageJSON = path.join(current, "package.json")
     if (fs.existsSync(packageJSON)) {
       try {
-        const parsed = JSON.parse(fs.readFileSync(packageJSON, "utf8")) as {
-          workspaces?: unknown
-        }
-        if (Array.isArray(parsed.workspaces)) {
-          return current
-        }
-        if (
-          typeof parsed.workspaces === "object" &&
-          parsed.workspaces !== null &&
-          "packages" in parsed.workspaces &&
-          Array.isArray((parsed.workspaces as { packages?: unknown }).packages)
-        ) {
+        const parsed = parseMonorepoPackageJson(JSON.parse(fs.readFileSync(packageJSON, "utf8")))
+        if (parsed !== undefined && monorepoPackageJsonDeclaresWorkspaces(parsed)) {
           return current
         }
       } catch {
