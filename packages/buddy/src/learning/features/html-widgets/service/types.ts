@@ -29,14 +29,7 @@ export const HTML_WIDGET_VIEWPORT_PRESET_VALUES = [
 
 export type HtmlWidgetViewportPreset = (typeof HTML_WIDGET_VIEWPORT_PRESET_VALUES)[number]
 
-export const HTML_WIDGET_VIEWPORT_PRESETS: Record<
-  HtmlWidgetViewportPreset,
-  {
-    width: number
-    height: number
-    label: string
-  }
-> = {
+export const HTML_WIDGET_VIEWPORT_PRESETS = {
   compact_4_3: {
     width: 640,
     height: 480,
@@ -62,7 +55,14 @@ export const HTML_WIDGET_VIEWPORT_PRESETS: Record<
     height: 844,
     label: "Tall mobile",
   },
-}
+} satisfies Record<
+  HtmlWidgetViewportPreset,
+  {
+    width: number
+    height: number
+    label: string
+  }
+>
 
 export const HtmlWidgetViewportPresetSchema = z.enum(HTML_WIDGET_VIEWPORT_PRESET_VALUES)
 

@@ -33,22 +33,22 @@ import TEACHING_ASSISTANT_DOCUMENT from "./teaching-assistant.p.md"
  * choosing a teaching model is the educator's call, not Buddy's — the teaching
  * assistant simply omits it. Documents are not required to mirror each other.
  */
-const PERSONA_PROMPT_SECTIONS: Readonly<Record<string, string>> = {
-  "constitution/guidance-is-not-law": GUIDANCE_IS_NOT_LAW,
-  "constitution/respect": RESPECT,
-  "constitution/share-ideas-not-mechanics": SHARE_IDEAS_NOT_MECHANICS,
-  "constitution/student/show-dont-tell": STUDENT_SHOW_DONT_TELL,
-  "constitution/student/teach-through-conversation": STUDENT_TEACH_THROUGH_CONVERSATION,
-  "constitution/teacher/show-dont-tell": TEACHER_SHOW_DONT_TELL,
-  "constitution/teacher/teach-through-conversation": TEACHER_TEACH_THROUGH_CONVERSATION,
-  "product/about-buddy": ABOUT_BUDDY,
-  "product/formatting": FORMATTING,
-  "product/skills": SKILLS,
-  "product/vocabulary": VOCABULARY,
-  "teaching/principles": TEACHING_PRINCIPLES,
-  "teaching/resources": TEACHING_RESOURCES,
-  "teaching/student/pick-a-teaching-model": PICK_A_TEACHING_MODEL,
-}
+const PERSONA_PROMPT_SECTIONS = new Map([
+  ["constitution/guidance-is-not-law", GUIDANCE_IS_NOT_LAW],
+  ["constitution/respect", RESPECT],
+  ["constitution/share-ideas-not-mechanics", SHARE_IDEAS_NOT_MECHANICS],
+  ["constitution/student/show-dont-tell", STUDENT_SHOW_DONT_TELL],
+  ["constitution/student/teach-through-conversation", STUDENT_TEACH_THROUGH_CONVERSATION],
+  ["constitution/teacher/show-dont-tell", TEACHER_SHOW_DONT_TELL],
+  ["constitution/teacher/teach-through-conversation", TEACHER_TEACH_THROUGH_CONVERSATION],
+  ["product/about-buddy", ABOUT_BUDDY],
+  ["product/formatting", FORMATTING],
+  ["product/skills", SKILLS],
+  ["product/vocabulary", VOCABULARY],
+  ["teaching/principles", TEACHING_PRINCIPLES],
+  ["teaching/resources", TEACHING_RESOURCES],
+  ["teaching/student/pick-a-teaching-model", PICK_A_TEACHING_MODEL],
+])
 
 /**
  * One document per persona, at the top level of `prompts/`. Which sections it
@@ -74,7 +74,7 @@ const PERSONA_PROMPT_ID = {
 } as const satisfies Readonly<Record<string, PersonaPromptID>>
 
 function resolveSection(name: string, personaPromptID: PersonaPromptID): string {
-  const section = PERSONA_PROMPT_SECTIONS[name]
+  const section = PERSONA_PROMPT_SECTIONS.get(name)
   if (section === undefined) {
     throw new Error(`persona document "${personaPromptID}" references unknown section "${name}"`)
   }

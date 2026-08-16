@@ -7,14 +7,14 @@ const TRAILING_LINE_WHITESPACE_PATTERN = /[ \f\v]+$/gu
 const COMMENT_LINE = /^%%.*$/u
 const DIRECTIVE_LINE = /^%%\{.*\}%%$/u
 const FLOWCHART_TYPES = new Set(["flowchart", "graph"])
-const DIAGRAM_HEADER_ALIASES: Record<string, string> = {
-  gitgraph: "gitGraph",
-  "git-graph": "gitGraph",
-  git_graph: "gitGraph",
-  "quadrant-chart": "quadrantChart",
-  quadrantchart: "quadrantChart",
-  quadrant_chart: "quadrantChart",
-}
+const DIAGRAM_HEADER_ALIASES = new Map([
+  ["gitgraph", "gitGraph"],
+  ["git-graph", "gitGraph"],
+  ["git_graph", "gitGraph"],
+  ["quadrant-chart", "quadrantChart"],
+  ["quadrantchart", "quadrantChart"],
+  ["quadrant_chart", "quadrantChart"],
+])
 const KNOWN_DIAGRAM_START_LINE =
   /^(?:flowchart|graph|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|mindmap|timeline|gitGraph|quadrantChart|requirementDiagram|C4(?:Context|Container|Component|Dynamic|Deployment)|zenuml|sankey-beta|xychart-beta|block-beta|packet-beta|kanban|architecture)\b/iu
 const ER_RELATIONSHIP_LINE = /^(\s*[A-Za-z0-9_.-]+\s+\S+\s+[A-Za-z0-9_.-]+\s*:\s*)(.+\S)\s*$/u
@@ -169,7 +169,7 @@ function canonicalizeDiagramHeaderAlias(source: string, repairs: MermaidPrefligh
     if (!token) {
       return source
     }
-    const canonical = DIAGRAM_HEADER_ALIASES[token.toLowerCase()]
+    const canonical = DIAGRAM_HEADER_ALIASES.get(token.toLowerCase())
     if (!canonical || canonical === token) {
       return source
     }

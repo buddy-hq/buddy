@@ -43,13 +43,13 @@ const RENDERED_MARKDOWN_TAGS = new Set([
   "ul",
 ])
 
-const HTML_ENTITIES: Readonly<Record<string, string>> = {
-  amp: "&",
-  apos: "'",
-  gt: ">",
-  lt: "<",
-  quot: '"',
-}
+const HTML_ENTITIES = new Map([
+  ["amp", "&"],
+  ["apos", "'"],
+  ["gt", ">"],
+  ["lt", "<"],
+  ["quot", '"'],
+])
 
 type TemplateParseErrorKind =
   | "empty-placeholder"
@@ -213,7 +213,7 @@ function decodeHtmlEntity(input: string): string {
         return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match
       }
 
-      return named !== undefined ? (HTML_ENTITIES[named] ?? match) : match
+      return named !== undefined ? (HTML_ENTITIES.get(named) ?? match) : match
     },
   )
 }

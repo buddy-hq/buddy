@@ -13,21 +13,21 @@ export const jsonErrorContent = {
   [JSON_CONTENT_TYPE]: { schema: resolver(RouteErrorSchema) },
 } as const
 
-const ERROR_DESCRIPTIONS: Record<number, string> = {
-  400: "Bad request",
-  403: "Directory is outside allowed roots",
-  404: "Not found",
-  409: "Conflict",
-  413: "Payload too large",
-  500: "Internal server error",
-}
+const ERROR_DESCRIPTIONS = new Map([
+  [400, "Bad request"],
+  [403, "Directory is outside allowed roots"],
+  [404, "Not found"],
+  [409, "Conflict"],
+  [413, "Payload too large"],
+  [500, "Internal server error"],
+])
 
 export function routeErrors(...codes: number[]) {
   return Object.fromEntries(
     codes.map((code) => [
       code,
       {
-        description: ERROR_DESCRIPTIONS[code] ?? "Request failed",
+        description: ERROR_DESCRIPTIONS.get(code) ?? "Request failed",
         content: jsonErrorContent,
       },
     ]),

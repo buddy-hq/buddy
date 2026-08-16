@@ -29,10 +29,10 @@ describe("persona prompts", () => {
   })
 
   test("a document never mixes a forked section's two variants", () => {
-    const VARIANT_BY_PERSONA: Readonly<Record<PersonaPromptID, string>> = {
+    const VARIANT_BY_PERSONA = {
       "learning-companion": "student",
       "teaching-assistant": "teacher",
-    }
+    } satisfies Readonly<Record<PersonaPromptID, string>>
 
     for (const [personaPromptID, variant] of Object.entries(VARIANT_BY_PERSONA)) {
       const document = readFileSync(
