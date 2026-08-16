@@ -29,6 +29,11 @@ import {
 import { isTitlebarInteractiveTarget } from "./desktop-titlebar-helpers"
 import { DESKTOP_TITLEBAR_HEIGHT_PX } from "./desktop-titlebar-inset"
 import { TextShimmer } from "@/components/chat/tools/text-shimmer"
+import { parseTBoolean, parseTJsonObject } from "@/components/chat/tools/types"
+
+function onDockFloatingBench() {
+  window.dispatchEvent(new CustomEvent(BENCH_DOCK_FLOATING_CHAT_EVENT))
+}
 
 type DesktopTitlebarProps = {
   placement?: "root" | "chat" | "settings"
@@ -180,12 +185,13 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   useEffect(() => {
     if (!isMac) return
     void platform.getIsFullscreen?.().then((v) => {
-      if (typeof v === "boolean") setIsFullscreen(v)
+      const nextIsFullscreen = parseTBoolean(v)
+      if (nextIsFullscreen !== undefined) setIsFullscreen(nextIsFullscreen)
     })
     const handler = (e: Event) => {
       if (!(e instanceof CustomEvent)) return
-      const nextIsFullscreen = e.detail?.isFullscreen
-      if (typeof nextIsFullscreen === "boolean") {
+      const nextIsFullscreen = parseTBoolean(parseTJsonObject(e.detail)?.isFullscreen)
+      if (nextIsFullscreen !== undefined) {
         setIsFullscreen(nextIsFullscreen)
       }
     }
@@ -293,10 +299,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     }
 
     setLeftSidebarOpen(!resolvedLeftSidebarOpen)
-  }
-
-  function onDockFloatingBench() {
-    window.dispatchEvent(new CustomEvent(BENCH_DOCK_FLOATING_CHAT_EVENT))
   }
 
   function onMouseDown(event: MouseEvent<HTMLElement>) {

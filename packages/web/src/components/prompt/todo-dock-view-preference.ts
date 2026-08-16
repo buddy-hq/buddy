@@ -1,18 +1,20 @@
 import { useCallback, useState } from "react"
 
+import { browserLocalStorage } from "@/state/parse-external"
 import type { TodoDockView } from "./todo-dock-views"
 
 const STORAGE_KEY = "buddy.todoDock.view"
 
-function isTodoDockView(value: unknown): value is TodoDockView {
-  return value === "list" || value === "board"
+function parseTTodoDockView<TValue>(value: TValue): TodoDockView | undefined {
+  if (value === "list" || value === "board") return value
+  return undefined
 }
 
 function readStoredView(): TodoDockView {
-  if (typeof window === "undefined") return "list"
+  const storage = browserLocalStorage()
+  if (!storage) return "list"
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY)
-    return isTodoDockView(stored) ? stored : "list"
+    return parseTTodoDockView(storage.getItem(STORAGE_KEY)) ?? "list"
   } catch {
     return "list"
   }
@@ -28,9 +30,10 @@ export function useTodoDockView(): readonly [TodoDockView, (view: TodoDockView) 
 
   const setView = useCallback((next: TodoDockView) => {
     setViewState(next)
-    if (typeof window === "undefined") return
+    const storage = browserLocalStorage()
+    if (!storage) return
     try {
-      window.localStorage.setItem(STORAGE_KEY, next)
+      storage.setItem(STORAGE_KEY, next)
     } catch {
       // ignore persistence failures
     }

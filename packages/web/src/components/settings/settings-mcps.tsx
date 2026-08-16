@@ -25,11 +25,11 @@ import { globalConfigQueryOptions, setGlobalConfigQueryData } from "@/state/glob
 import { mcpStatusQueryOptions } from "@/state/mcp-directory-query"
 import { notebookDefinesMcp } from "@/state/mcp-settings"
 import { notebookRawProjectConfigQueryOptions } from "@/state/notebook-settings-query"
+import { EMPTY_BUDDY_CONFIG } from "@/state/parse-external"
 import { useChatStore } from "@/state/chat-store"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
 
 const MCP_SEARCH_VISIBLE_THRESHOLD = 3
-const EMPTY_CONFIG: Record<string, unknown> = {}
 const EMPTY_MCP_STATUS: McpStatusMap = {}
 
 function isEnabledLabel(config: McpConfig) {
@@ -72,7 +72,7 @@ export function McpsSettings() {
     ...notebookRawProjectConfigQueryOptions(connectionDirectory ?? ""),
     enabled: Boolean(connectionDirectory),
   })
-  const activeProjectConfig = activeProjectConfigQuery.data ?? EMPTY_CONFIG
+  const activeProjectConfig = activeProjectConfigQuery.data ?? EMPTY_BUDDY_CONFIG
   const activeMcpStatusByName = activeMcpStatusQuery.data ?? EMPTY_MCP_STATUS
 
   const mcpEditor = useMcpEditor({
@@ -89,7 +89,7 @@ export function McpsSettings() {
     [globalConfigQuery.data],
   )
   const allNames = useMemo(
-    () => Object.keys(configByName).sort((left, right) => left.localeCompare(right)),
+    () => Object.keys(configByName).toSorted((left, right) => left.localeCompare(right)),
     [configByName],
   )
   const showSearch = allNames.length >= MCP_SEARCH_VISIBLE_THRESHOLD

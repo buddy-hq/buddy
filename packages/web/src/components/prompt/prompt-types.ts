@@ -5,6 +5,8 @@ import {
 } from "@buddy/reader-contract"
 import { isNativeResourceFormat } from "@buddy/workspace-file-policy"
 import type { NativeResourceDelivery, NativeResourceFormat } from "@buddy/workspace-file-policy"
+import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
+import { parseStringArray } from "@/state/chat-types"
 
 export type PromptModelAttachment = {
   id: string
@@ -218,78 +220,104 @@ export type PromptNativeResourceAttachmentPart = {
   mime: string
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function parseTNonEmptyString<TValue>(value: TValue): string | undefined {
+  const text = parseTString(value)
+  if (text === undefined || text.length === 0) return undefined
+  return text
 }
 
-function readStringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined
-  if (!value.every((entry) => typeof entry === "string")) return undefined
-  return value
+function optionalStringField<TValue>(value: TValue) {
+  const text = parseTString(value)
+  return text === undefined ? undefined : ({ value: text } as const)
 }
 
-export function readPromptReaderTextAnchor(value: unknown): ReaderTextAnchor | undefined {
-  if (!isRecord(value)) return undefined
-  if (value.anchor !== undefined) return readReaderTextAnchor(value.anchor)
-  if (typeof value.cfi !== "string") return undefined
+function optionalLabelFields(input: {
+  tocLabel: ReturnType<typeof parseTString>
+  pageLabel: ReturnType<typeof parseTString>
+  locationLabel: ReturnType<typeof parseTString>
+}) {
+  return Object.assign(
+    Object.assign(
+      {},
+      input.tocLabel === undefined ? undefined : ({ tocLabel: input.tocLabel } as const),
+      input.pageLabel === undefined ? undefined : ({ pageLabel: input.pageLabel } as const),
+    ),
+    input.locationLabel === undefined
+      ? undefined
+      : ({ locationLabel: input.locationLabel } as const),
+  )
+}
+
+export function readPromptReaderTextAnchor<TValue>(value: TValue): ReaderTextAnchor | undefined {
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
+  if (record.anchor !== undefined) return readReaderTextAnchor(record.anchor)
+  const cfi = parseTString(record.cfi)
+  if (cfi === undefined) return undefined
 
   return readReaderTextAnchor(
     Object.assign(
       {
         kind: READER_ANCHOR_KIND_CFI_TEXT,
-        cfi: value.cfi,
-      },
-      value.index !== undefined ? { sectionIndex: value.index } : undefined,
+        cfi,
+      } as const,
+      record.index !== undefined ? { sectionIndex: record.index } : undefined,
     ),
   )
 }
 
-export function readPromptReadingSelectionMetadata(
-  metadata: unknown,
+export function readPromptReadingSelectionMetadata<TMetadata>(
+  metadata: TMetadata,
 ): PromptReadingSelectionPart | undefined {
-  if (!isRecord(metadata)) return undefined
+  const record = parseTJsonObject(metadata)
+  if (!record) return undefined
 
-  const candidate = metadata[BUDDY_PROMPT_PART_METADATA_KEY]
-  if (!isRecord(candidate)) return undefined
+  const candidate = parseTJsonObject(record[BUDDY_PROMPT_PART_METADATA_KEY])
+  if (!candidate) return undefined
   if (candidate.type !== READING_SELECTION_PART_TYPE) return undefined
-  if (typeof candidate.text !== "string") return undefined
+  const text = parseTString(candidate.text)
+  if (text === undefined) return undefined
   const anchor = readPromptReaderTextAnchor(candidate)
   if (!anchor) return undefined
 
+  const selectionKey = optionalStringField(candidate.selectionKey)
+  const resourceKey = optionalStringField(candidate.resourceKey)
   return Object.assign(
-    {
-      type: READING_SELECTION_PART_TYPE,
-      text: candidate.text,
-      anchor,
-    },
-    typeof candidate.selectionKey === "string" ? { selectionKey: candidate.selectionKey } : undefined,
-    typeof candidate.resourceKey === "string" ? { resourceKey: candidate.resourceKey } : undefined,
     Object.assign(
-      {},
-      typeof candidate.tocLabel === "string" ? { tocLabel: candidate.tocLabel } : undefined,
-      typeof candidate.pageLabel === "string" ? { pageLabel: candidate.pageLabel } : undefined,
-      typeof candidate.locationLabel === "string"
-        ? { locationLabel: candidate.locationLabel }
-        : undefined,
+      {
+        type: READING_SELECTION_PART_TYPE,
+        text,
+        anchor,
+      } as const,
+      selectionKey === undefined ? undefined : { selectionKey: selectionKey.value },
+      resourceKey === undefined ? undefined : { resourceKey: resourceKey.value },
     ),
+    optionalLabelFields({
+      tocLabel: parseTString(candidate.tocLabel),
+      pageLabel: parseTString(candidate.pageLabel),
+      locationLabel: parseTString(candidate.locationLabel),
+    }),
   )
 }
 
-export function readPromptSelectionContextMetadata(
-  metadata: unknown,
+export function readPromptSelectionContextMetadata<TMetadata>(
+  metadata: TMetadata,
 ): PromptSelectionContextPart | PromptReadingSelectionPart | undefined {
-  if (!isRecord(metadata)) return undefined
+  const record = parseTJsonObject(metadata)
+  if (!record) return undefined
 
-  const candidate = metadata[BUDDY_PROMPT_PART_METADATA_KEY]
-  if (!isRecord(candidate)) return undefined
+  const candidate = parseTJsonObject(record[BUDDY_PROMPT_PART_METADATA_KEY])
+  if (!candidate) return undefined
   if (candidate.type === READING_SELECTION_PART_TYPE) {
     return readPromptReadingSelectionMetadata(metadata)
   }
   if (candidate.type !== SELECTION_CONTEXT_PART_TYPE) return undefined
   if (candidate.source !== "reading" && candidate.source !== "markdown") return undefined
-  if (typeof candidate.text !== "string") return undefined
-  if (typeof candidate.selectionKey !== "string") return undefined
-  const headingPath = readStringArray(candidate.headingPath)
+  const text = parseTString(candidate.text)
+  if (text === undefined) return undefined
+  const selectionKey = parseTString(candidate.selectionKey)
+  if (selectionKey === undefined) return undefined
+  const headingPath = parseStringArray(candidate.headingPath)
   if (candidate.source === "markdown") {
     const markdownSelection: Pick<
       PromptMarkdownSelectionContextPart,
@@ -297,13 +325,17 @@ export function readPromptSelectionContextMetadata(
     > = {
       type: SELECTION_CONTEXT_PART_TYPE,
       source: "markdown",
-      text: candidate.text,
-      selectionKey: candidate.selectionKey,
+      text,
+      selectionKey,
     }
+    const pathField = optionalStringField(candidate.path)
+    const versionField = optionalStringField(candidate.version)
     return Object.assign(
-      markdownSelection,
-      typeof candidate.path === "string" ? { path: candidate.path } : undefined,
-      typeof candidate.version === "string" ? { version: candidate.version } : undefined,
+      Object.assign(
+        markdownSelection,
+        pathField === undefined ? undefined : { path: pathField.value },
+        versionField === undefined ? undefined : { version: versionField.value },
+      ),
       headingPath ? { headingPath } : undefined,
     )
   }
@@ -316,62 +348,67 @@ export function readPromptSelectionContextMetadata(
   > = {
     type: SELECTION_CONTEXT_PART_TYPE,
     source: "reading",
-    text: candidate.text,
-    selectionKey: candidate.selectionKey,
+    text,
+    selectionKey,
     anchor,
   }
+  const resourceKey = optionalStringField(candidate.resourceKey)
   return Object.assign(
     readingSelection,
-    typeof candidate.resourceKey === "string" ? { resourceKey: candidate.resourceKey } : undefined,
-    Object.assign(
-      {},
-      typeof candidate.tocLabel === "string" ? { tocLabel: candidate.tocLabel } : undefined,
-      typeof candidate.pageLabel === "string" ? { pageLabel: candidate.pageLabel } : undefined,
-      typeof candidate.locationLabel === "string"
-        ? { locationLabel: candidate.locationLabel }
-        : undefined,
-    ),
+    resourceKey === undefined ? undefined : { resourceKey: resourceKey.value },
+    optionalLabelFields({
+      tocLabel: parseTString(candidate.tocLabel),
+      pageLabel: parseTString(candidate.pageLabel),
+      locationLabel: parseTString(candidate.locationLabel),
+    }),
   )
 }
 
-export function readPromptNativeResourceAttachmentPart(
-  value: unknown,
+export function readPromptNativeResourceAttachmentPart<TValue>(
+  value: TValue,
 ): PromptNativeResourceAttachmentPart | undefined {
-  if (!isRecord(value) || value.type !== NATIVE_RESOURCE_ATTACHMENT_PART_TYPE) return undefined
-  if (typeof value.filename !== "string" || value.filename.length === 0) return undefined
-  if (typeof value.sourcePath !== "string" || value.sourcePath.length === 0) return undefined
-  if (typeof value.format !== "string" || !isNativeResourceFormat(value.format)) return undefined
-  if (typeof value.alias !== "string" || value.alias.length === 0) return undefined
-  if (typeof value.mime !== "string" || value.mime.length === 0) return undefined
+  const record = parseTJsonObject(value)
+  if (!record || record.type !== NATIVE_RESOURCE_ATTACHMENT_PART_TYPE) return undefined
+  const filename = parseTNonEmptyString(record.filename)
+  const sourcePath = parseTNonEmptyString(record.sourcePath)
+  const format = parseTString(record.format)
+  const alias = parseTNonEmptyString(record.alias)
+  const mime = parseTNonEmptyString(record.mime)
+  if (!filename || !sourcePath || !format || !isNativeResourceFormat(format) || !alias || !mime) {
+    return undefined
+  }
   return {
     type: NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
-    filename: value.filename,
-    sourcePath: value.sourcePath,
-    format: value.format,
-    alias: value.alias,
-    mime: value.mime,
+    filename,
+    sourcePath,
+    format,
+    alias,
+    mime,
   }
 }
 
-export function readPromptNativeResourceAttachmentMetadata(
-  metadata: unknown,
+export function readPromptNativeResourceAttachmentMetadata<TMetadata>(
+  metadata: TMetadata,
 ): PromptNativeResourceAttachmentPart | undefined {
-  if (!isRecord(metadata)) return undefined
-  return readPromptNativeResourceAttachmentPart(metadata[BUDDY_PROMPT_PART_METADATA_KEY])
+  const record = parseTJsonObject(metadata)
+  if (!record) return undefined
+  return readPromptNativeResourceAttachmentPart(record[BUDDY_PROMPT_PART_METADATA_KEY])
 }
 
-export function readPromptTextFileAttachmentMetadata(
-  metadata: unknown,
+export function readPromptTextFileAttachmentMetadata<TMetadata>(
+  metadata: TMetadata,
 ): PromptTextFileAttachmentMetadata | undefined {
-  if (!isRecord(metadata)) return undefined
-  const candidate = metadata[BUDDY_PROMPT_PART_METADATA_KEY]
-  if (!isRecord(candidate) || candidate.type !== TEXT_FILE_ATTACHMENT_PART_TYPE) return undefined
-  if (typeof candidate.filename !== "string" || candidate.filename.length === 0) return undefined
-  if (typeof candidate.mime !== "string" || candidate.mime.length === 0) return undefined
+  const record = parseTJsonObject(metadata)
+  if (!record) return undefined
+  const candidate = parseTJsonObject(record[BUDDY_PROMPT_PART_METADATA_KEY])
+  if (!candidate || candidate.type !== TEXT_FILE_ATTACHMENT_PART_TYPE) return undefined
+  const filename = parseTNonEmptyString(candidate.filename)
+  const mime = parseTNonEmptyString(candidate.mime)
+  if (!filename || !mime) return undefined
   return {
     type: TEXT_FILE_ATTACHMENT_PART_TYPE,
-    filename: candidate.filename,
-    mime: candidate.mime,
+    filename,
+    mime,
   }
 }
 

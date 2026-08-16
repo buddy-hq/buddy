@@ -29,7 +29,7 @@ const keys = new Set<string>()
 const latest = new Map<string, number>()
 const transport = createWorkerTransport<HighlightRequest>({
   post: (request) => {
-    worker?.postMessage(request)
+    worker?.postMessage(request, [])
   },
   supersede: (request) => {
     const result = pending.get(request.id)
@@ -101,13 +101,13 @@ export function disposeMarkdownWorkerKey(key: string) {
     pending.delete(id)
     request.reject(new MarkdownWorkerDisposedError())
   })
-  worker?.postMessage({ type: "dispose", key } satisfies MarkdownWorkerRequest)
+  worker?.postMessage({ type: "dispose", key } satisfies MarkdownWorkerRequest, [])
 }
 
 function getWorker() {
   if (worker) return worker
   if (disabled) throw new MarkdownWorkerUnavailableError(disabled.message)
-  if (typeof Worker === "undefined") {
+  if (!("Worker" in globalThis)) {
     disabled = new Error("Markdown worker is unavailable in this runtime")
     throw new MarkdownWorkerUnavailableError(disabled.message)
   }

@@ -14,16 +14,18 @@ import {
   PresentationIcon,
   RotateCcwIcon,
   SearchIcon,
-  ShapesIcon,
   XIcon,
   type AppIcon,
 } from "@/icons/app-icons"
+import * as AppIcons from "@/icons/app-icons"
 import {
   FLASHCARD_PRACTICE_ROW_ACTION_W_PX,
   FlashcardPracticeDrawerColumnLabel,
   FlashcardPracticeDrawerRow,
   FlashcardPracticeDrawerRuledHead,
 } from "@/components/flashcard/flashcard-practice-drawer"
+
+const FigureGlyph = AppIcons["ShapesIcon"]
 
 /**
  * Easel · Flashcard deck · the surface around the reviewer
@@ -378,7 +380,7 @@ const RAIL_ITEMS: { id: string; label: string; icon: AppIcon }[] = [
   { id: "search", label: "Search", icon: SearchIcon },
   { id: "sources", label: "Sources", icon: BookOpenIcon },
   { id: "practice", label: "Practice", icon: BrainIcon },
-  { id: "creations", label: "Creations", icon: ShapesIcon },
+  { id: "creations", label: "Creations", icon: FigureGlyph },
   { id: "boards", label: "Boards", icon: PresentationIcon },
   { id: "files", label: "Files", icon: FolderIcon },
 ]

@@ -350,7 +350,7 @@ export function useFlashcardReviewSession(
         )
         applyQueue(loadedQueue)
       })
-      .catch((error: unknown) => {
+      .catch((error) => {
         if (generationRef.current !== generation) return
         applyPhase({ kind: "error", message: describeError(error) })
       })
@@ -387,6 +387,6 @@ export function useFlashcardReviewSession(
   }
 }
 
-function describeError(error: unknown): string {
+function describeError<TError>(error: TError): string {
   return error instanceof Error ? error.message : String(error)
 }

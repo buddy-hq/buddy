@@ -1,5 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react"
 import { createJSONStorage, type StateStorage } from "zustand/middleware"
+import { browserLocalStorage } from "@/state/parse-external"
 
 export type OpenDirectoryPickerOptions = {
   title?: string
@@ -171,8 +172,7 @@ export function createPlatformJsonStorage<S>(name?: string) {
   return createJSONStorage<S>(() => {
     const storage = currentPlatform.storage?.(name)
     if (storage) return storage
-    if (typeof localStorage !== "undefined") return localStorage
-    return memoryStorage
+    return browserLocalStorage() ?? memoryStorage
   })
 }
 

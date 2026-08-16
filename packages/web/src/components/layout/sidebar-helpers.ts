@@ -1,3 +1,5 @@
+import { parseTString } from "@/components/chat/tools/types"
+
 export function getFilename(input: string) {
   const cleaned = input.replace(/[\\/]+$/, "")
   const parts = cleaned.split(/[\\/]/).filter(Boolean)
@@ -34,21 +36,25 @@ export function relativeTime(timestamp: number) {
   return formatter.format(Math.round(delta / 2_592_000_000), "month")
 }
 
-export function getDraggableId(event: unknown): string | undefined {
-  if (typeof event !== "object" || event === null) return undefined
+export function getDraggableId<TEvent>(event: TEvent): string | undefined {
+  if (!(event instanceof Object) || Array.isArray(event)) return undefined
   if (!("draggable" in event)) return undefined
-  const draggable = (event as { draggable?: { id?: unknown } }).draggable
-  if (!draggable) return undefined
-  return typeof draggable.id === "string" ? draggable.id : undefined
+  const draggable = event.draggable
+  if (!(draggable instanceof Object) || Array.isArray(draggable)) return undefined
+  if (!("id" in draggable)) return undefined
+  return parseTString(draggable.id)
 }
 
 export const displayName = (project: { name?: string; worktree: string }) =>
   project.name || getFilename(project.worktree)
 
-export const errorMessage = (err: unknown, fallback: string) => {
-  if (err && typeof err === "object" && "data" in err) {
-    const data = (err as { data?: { message?: string } }).data
-    if (data?.message) return data.message
+export function errorMessage<TError>(err: TError, fallback: string) {
+  if (err instanceof Object && !Array.isArray(err) && "data" in err) {
+    const data = err.data
+    if (data instanceof Object && !Array.isArray(data) && "message" in data) {
+      const message = parseTString(data.message)
+      if (message) return message
+    }
   }
   if (err instanceof Error) return err.message
   return fallback

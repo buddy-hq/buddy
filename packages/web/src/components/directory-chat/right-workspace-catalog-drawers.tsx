@@ -34,10 +34,11 @@ import {
   Loader2Icon,
   PlusIcon,
   RefreshCwIcon,
-  ShapesIcon,
   Trash2Icon,
   UploadIcon,
 } from "@/icons/app-icons"
+import * as AppIcons from "@/icons/app-icons"
+import type { AppIcon } from "@/icons/app-icons"
 import type { ObjectFlashcardDeckQueuedCardsResponse, ObjectsViewResponse } from "@buddy/sdk/types"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
@@ -128,6 +129,9 @@ import type { MediaAction } from "@/components/media/types"
 import type { BenchObjectKind, BenchTarget } from "@/lib/bench-targets"
 import type { FlashcardDeckSurfaceMode } from "@/state/bench-surface-ui-state"
 import { prepareFlashcardBenchTarget } from "@/components/flashcard/flashcard-bench-target"
+import { parseTString } from "@/components/chat/tools/types"
+
+const FigureGlyph = AppIcons["ShapesIcon"]
 
 type CatalogDrawerProps = {
   directory: string
@@ -370,7 +374,7 @@ function CatalogError(props: { message: string }) {
 }
 
 function EmptyInventory(props: {
-  icon: typeof ShapesIcon
+  icon: AppIcon
   title: string
   description: string
   action?: ReactNode
@@ -393,7 +397,8 @@ function EmptyInventory(props: {
 
 function useStickyReadingPath() {
   const search = useSearch({ strict: false })
-  const readingPath = "path" in search && typeof search.path === "string" ? search.path : undefined
+  const readingPath =
+    "path" in search ? parseTString(search.path) : undefined
   const [stickyReadingPath, setStickyReadingPath] = useState<string | undefined>(readingPath)
 
   useEffect(() => {
@@ -900,7 +905,7 @@ export function PracticeDrawer(props: CatalogDrawerProps) {
               items={items}
               scrollElement={scrollElement}
               getKey={(item) => `${item.kind}:${item.object.objectID}`}
-              estimateSize={PRACTICE_ROW_ESTIMATE_PX}
+              estimateSize={() => PRACTICE_ROW_ESTIMATE_PX}
               gap={0}
               renderItem={(item) => (
                 <PracticeRow directory={props.directory} item={item} onOpen={props.onOpen} />
@@ -1309,7 +1314,7 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button type="button" variant="outline" size="sm">
-                  <ShapesIcon data-icon="inline-start" aria-hidden />
+                  <FigureGlyph data-icon="inline-start" aria-hidden />
                   {creationFilterLabel(filter)}
                   <ChevronDownIcon data-icon="inline-end" aria-hidden />
                 </Button>
@@ -1354,7 +1359,7 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
       {objectsQuery.isPending ? <RightWorkspaceListSkeleton /> : null}
       {!objectsQuery.isPending && !objectsQuery.error && items.length === 0 ? (
         <EmptyInventory
-          icon={ShapesIcon}
+          icon={FigureGlyph}
           title={
             widgets.length + diagrams.length + media.length === 0
               ? "No creations yet"

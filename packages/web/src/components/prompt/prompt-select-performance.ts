@@ -1,3 +1,4 @@
+import { parseTString } from "@/components/chat/tools/types"
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
 import { parseToolState } from "@/components/chat/tools/parse-tool-state"
 import { isChatToolPart } from "@/components/chat/utils/part-guards"
@@ -41,7 +42,7 @@ export type PromptSelectPerformanceSummary = {
 }
 
 function getPartTextLength(part: MessagePart) {
-  return typeof part.text === "string" ? part.text.length : 0
+  return parseTString(part.text)?.length ?? 0
 }
 
 function countMathSignals(text: string) {
@@ -119,10 +120,11 @@ export function getPromptSelectPerformanceSummary(
     maxMessageTextLength = Math.max(maxMessageTextLength, messageTextLength)
 
     for (const part of message.parts) {
-      if (typeof part.text === "string" && part.text.length > 0) {
-        const mermaidCount = countMermaidSignals(part.text)
-        const fencedBlockCount = countFencedCodeBlocks(part.text)
-        mathSignalCount += countMathSignals(part.text)
+      const text = parseTString(part.text)
+      if (text !== undefined && text.length > 0) {
+        const mermaidCount = countMermaidSignals(text)
+        const fencedBlockCount = countFencedCodeBlocks(text)
+        mathSignalCount += countMathSignals(text)
         mermaidSignalCount += mermaidCount
         fencedCodeBlockCount += Math.max(0, fencedBlockCount - mermaidCount)
       }

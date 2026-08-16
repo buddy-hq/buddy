@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Input, toast } from "@buddy/ui"
 import { useTheme } from "@/theme"
+import { browserDocument } from "@/state/parse-external"
 import { ThemeSelectors } from "./theme-selectors"
 
 type ColorToken = {
@@ -45,9 +46,10 @@ function parseColorToRgb(colorStr: string) {
     }
   }
 
-  if (typeof document !== "undefined") {
+  const documentNode = browserDocument()
+  if (documentNode) {
     try {
-      const canvas = document.createElement("canvas")
+      const canvas = documentNode.createElement("canvas")
       canvas.width = 1
       canvas.height = 1
       const ctx = canvas.getContext("2d", { willReadFrequently: true })
@@ -129,9 +131,10 @@ const COLOR_FAMILY_ORDER = new Map(Object.entries({
 const UNKNOWN_COLOR_FAMILY_ORDER = COLOR_FAMILY_ORDER.size
 
 function getColorTokens(): EnrichedColorToken[] {
-  if (typeof document === "undefined") return []
+  const documentNode = browserDocument()
+  if (!documentNode) return []
 
-  const computedStyle = getComputedStyle(document.documentElement)
+  const computedStyle = getComputedStyle(documentNode.documentElement)
   const tokens: EnrichedColorToken[] = []
 
   const colorTokenRegex = /^--color-/
@@ -247,7 +250,7 @@ export function PalettePanel({ className }: PalettePanelProps) {
         groups.get(category)!.push(token)
       }
       // Sort groups by color family order and sort tokens inside by Lightness progression
-      const sortedEntries = Array.from(groups.entries()).sort(
+      const sortedEntries = Array.from(groups.entries()).toSorted(
         (a, b) =>
           (COLOR_FAMILY_ORDER.get(a[0]) ?? UNKNOWN_COLOR_FAMILY_ORDER) -
           (COLOR_FAMILY_ORDER.get(b[0]) ?? UNKNOWN_COLOR_FAMILY_ORDER),

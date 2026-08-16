@@ -611,7 +611,7 @@ export function SkillsCatalogSurface(props: SkillsCatalogSurfaceProps) {
           }),
         )
       })
-      .catch((error: unknown) => {
+      .catch((error) => {
         toast.error(error instanceof Error ? error.message : language.t("skills.requestFailed"))
       })
       .finally(() => clearBusyOperation(key))

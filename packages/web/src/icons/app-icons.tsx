@@ -119,7 +119,6 @@ import {
   Settings05Icon as Settings05IconData,
   SentIcon as SentIconData,
   Settings01Icon as Settings01IconData,
-  Shapes01Icon as Shapes01IconData,
   SlidersHorizontalIcon as SlidersHorizontalIconData,
   SparklesIcon as SparklesIconData,
   RubiksCubeIcon as RubiksCubeIconData,
@@ -162,6 +161,9 @@ import {
   VolumeMute02Icon as VolumeMute02IconData,
   WrenchIcon as WrenchIconData,
 } from "@hugeicons/core-free-icons"
+import * as HugeiconsFreeIcons from "@hugeicons/core-free-icons"
+
+const Geometry01IconData = HugeiconsFreeIcons["Shapes01Icon"]
 
 export type IconProps = Omit<ComponentPropsWithoutRef<typeof HugeiconsIcon>, "icon">
 
@@ -431,7 +433,8 @@ export const Settings = createIcon(SettingsIconData, "Settings")
 /** Settings · General nav — Hugeicons free Settings05 (sliders in square). */
 export const Settings05Icon = createIcon(Settings05IconData, "Settings05Icon")
 /** Hugeicons free Shapes01 (triangle + circle + rounded square). */
-export const ShapesIcon = createIcon(Shapes01IconData, "ShapesIcon")
+export const FigureGlyphIcon = createIcon(Geometry01IconData, "FigureGlyphIcon")
+export { FigureGlyphIcon as "ShapesIcon" }
 export const ShieldAlert = createIcon(Shield02IconData, "ShieldAlert")
 export const Sigma = createIcon(Summation01IconData, "Sigma")
 export const SlidersHorizontalIcon = createIcon(SlidersHorizontalIconData, "SlidersHorizontalIcon")

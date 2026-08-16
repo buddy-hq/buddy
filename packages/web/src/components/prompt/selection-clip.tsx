@@ -1,6 +1,7 @@
 import { cn } from "@buddy/ui"
 import { language } from "@/context/language"
 import { QuoteIcon, XIcon } from "@/icons/app-icons"
+import { parseTString } from "@/components/chat/tools/types"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
 
 /**
@@ -46,7 +47,10 @@ function clipLocation(data: SelectionClipData): string | undefined {
     data.tocLabel,
     data.pageLabel,
     data.locationLabel,
-  ].filter((value): value is string => typeof value === "string" && value.length > 0)
+  ].flatMap((value) => {
+    const text = parseTString(value)
+    return text !== undefined && text.length > 0 ? [text] : []
+  })
   return parts.length > 0 ? parts.join(" · ") : undefined
 }
 
@@ -66,7 +70,10 @@ export function SelectionClip({
 
   if (variant === "chip") {
     const detail = [data.path ? basename(data.path) : undefined, location]
-      .filter((value): value is string => typeof value === "string" && value.length > 0)
+      .flatMap((value) => {
+        const text = parseTString(value)
+        return text !== undefined && text.length > 0 ? [text] : []
+      })
       .join(" · ")
     return (
       <div

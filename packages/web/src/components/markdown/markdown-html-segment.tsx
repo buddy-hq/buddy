@@ -32,8 +32,9 @@ import { shouldResetCodeTokens, type RenderedCodeState } from "./markdown-code-s
 import type { MarkdownToken, MarkdownWorkerState } from "./markdown-worker-protocol"
 import { markdownContentHash } from "./markdown-content-hash"
 import { hasOpenStreamingMath } from "./markdown-math"
+import { browserWindow } from "@/state/parse-external"
 
-if (typeof window !== "undefined" && DOMPurify.isSupported) {
+if (browserWindow() !== undefined && DOMPurify.isSupported) {
   DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
     if (node instanceof HTMLAnchorElement) {
       if (node.target !== "_blank") return
@@ -995,7 +996,7 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock(props: MarkdownCodeBlo
           decorateRenderedRoot,
         })
       })
-      .catch((error: unknown) => {
+      .catch((error) => {
         if (
           error instanceof MarkdownWorkerDisposedError ||
           error instanceof MarkdownWorkerSupersededError ||

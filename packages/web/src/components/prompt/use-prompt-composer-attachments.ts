@@ -47,7 +47,7 @@ type QueuedResourceCopy = {
   directory: string
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage<TError>(error: TError): string {
   if (error instanceof Error && error.message.trim()) return error.message
   return RESOURCE_COPY_FAILED_MESSAGE
 }

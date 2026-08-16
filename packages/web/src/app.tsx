@@ -19,14 +19,24 @@ import { resolveBenchRouteViewTransitionTypes } from "@/lib/bench-navigation"
 import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import { ThemeProvider } from "@/theme"
 import type { ThemeAppliedDetails } from "@/theme"
+import {
+  browserWindow,
+  parseBuddyConfigObject,
+  parseStringValue,
+} from "@/state/parse-external"
 import { routeTree } from "./routeTree.gen"
 import "@/state/appearance-preferences"
 import "./bench-view-transitions.css"
 
 const FILE_PROTOCOL = "file:"
 
+type TNotificationClickDetail = {
+  href: string
+}
+
 function createAppHistory() {
-  if (typeof window !== "undefined" && window.location.protocol === FILE_PROTOCOL) {
+  const windowNode = browserWindow()
+  if (windowNode !== undefined && windowNode.location.protocol === FILE_PROTOCOL) {
     return createHashHistory()
   }
 
@@ -74,12 +84,15 @@ export function resetAppRuntimeState() {
   useChatStore.getState().resetRuntimeState()
 }
 
+function parseNotificationClickDetail<TValue>(value: TValue): TNotificationClickDetail | undefined {
+  const href = parseStringValue(parseBuddyConfigObject(value)?.href)
+  if (href === undefined) return undefined
+  return { href }
+}
+
 function readNotificationClickHref(event: Event) {
   if (!(event instanceof CustomEvent)) return undefined
-  const detail = event.detail
-  if (typeof detail !== "object" || detail === null) return undefined
-  if (!("href" in detail) || typeof detail.href !== "string") return undefined
-  return detail.href
+  return parseNotificationClickDetail(event.detail)?.href
 }
 
 async function activateNotificationHref(href: string) {

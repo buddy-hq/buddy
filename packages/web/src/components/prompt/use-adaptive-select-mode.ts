@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 
+import { parseTString } from "@/components/chat/tools/types"
+import { hasFunctionValue } from "@/state/parse-external"
 import type { MessageWithParts } from "@/state/chat-types"
 
 import {
@@ -19,7 +21,7 @@ function buildPerformanceSignature(messages: MessageWithParts[]) {
   const lastMessage = messages[messages.length - 1]
   const lastMessageTextLength =
     lastMessage?.parts.reduce(
-      (total, part) => total + (typeof part.text === "string" ? part.text.length : 0),
+      (total, part) => total + (parseTString(part.text)?.length ?? 0),
       0,
     ) ?? 0
 
@@ -56,7 +58,7 @@ export function useAdaptiveSelectMode(input: UseAdaptiveSelectModeInput): Prompt
     }
 
     timerHandle = window.setTimeout(() => {
-      if ("requestIdleCallback" in window && typeof window.requestIdleCallback === "function") {
+      if ("requestIdleCallback" in window && hasFunctionValue(window.requestIdleCallback)) {
         idleHandle = window.requestIdleCallback(evaluate, {
           timeout: PROMPT_SELECT_MODE_IDLE_TIMEOUT_MS,
         })
@@ -73,7 +75,7 @@ export function useAdaptiveSelectMode(input: UseAdaptiveSelectModeInput): Prompt
       if (
         idleHandle !== undefined &&
         "cancelIdleCallback" in window &&
-        typeof window.cancelIdleCallback === "function"
+        hasFunctionValue(window.cancelIdleCallback)
       ) {
         window.cancelIdleCallback(idleHandle)
       }

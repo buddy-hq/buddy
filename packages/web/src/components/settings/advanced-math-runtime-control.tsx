@@ -1,5 +1,6 @@
 import { Badge, Progress, Switch, cn } from "@buddy/ui"
 import { language } from "@/context/language"
+import { parseTNumber } from "@/components/chat/tools/types"
 import type { Platform } from "@/context/platform"
 import type { AdvancedMathRuntimeStatus } from "@/state/advanced-math-runtime"
 import { advancedMathStatusLabel, formatRuntimeVersion } from "./use-advanced-math-runtime"
@@ -66,13 +67,13 @@ export function AdvancedMathRuntimeControl(props: AdvancedMathRuntimeControlProp
           {formatRuntimeVersion(props.status.installedRuntimeVersion)}
         </span>
       ) : null}
-      {props.status?.progressMessage || typeof props.status?.progressPercent === "number" ? (
+      {props.status?.progressMessage || parseTNumber(props.status?.progressPercent) !== undefined ? (
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
             <span className="truncate">
               {props.status?.progressMessage ?? language.t("settings.appearance.working")}
             </span>
-            {typeof props.status?.progressPercent === "number" ? (
+            {parseTNumber(props.status?.progressPercent) !== undefined ? (
               <span>{Math.round(props.status.progressPercent)}%</span>
             ) : null}
           </div>

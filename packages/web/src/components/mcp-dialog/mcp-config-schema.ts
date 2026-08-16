@@ -1,6 +1,14 @@
 import { stringifyError } from "../../lib/api-client"
 import { language } from "@/context/language"
 import type { McpStatusInfo } from "@/state/chat-types"
+import { parseTJsonObject, parseTString, parseTBoolean, parseTNumber } from "@/components/chat/tools/types"
+import { parseStringArray } from "@/state/chat-types"
+
+type TMcpOAuthObject = {
+  clientId?: string
+  clientSecret?: string
+  scope?: string
+}
 
 export type McpLocalConfig = {
   type: "local"
@@ -15,13 +23,7 @@ export type McpRemoteConfig = {
   url: string
   enabled?: boolean
   headers?: Record<string, string>
-  oauth?:
-    | false
-    | {
-        clientId?: string
-        clientSecret?: string
-        scope?: string
-      }
+  oauth?: false | TMcpOAuthObject
   timeout?: number
 }
 
@@ -82,7 +84,7 @@ export function mcpNeedsClientRegistration(status: McpStatusInfo | undefined) {
   return status?.status === "needs_client_registration"
 }
 
-export function formatMcpError(error: unknown) {
+export function formatMcpError<TError>(error: TError) {
   const message = stringifyError(error)
   const normalized = message.toLowerCase()
 
@@ -110,15 +112,6 @@ export function formatMcpError(error: unknown) {
   return message
 }
 
-function isStringRecord(value: unknown): value is Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false
-  return Object.values(value).every((entry) => typeof entry === "string")
-}
-
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
 function createFieldError(field: McpFieldName, message: string): McpFieldError {
   return {
     field,
@@ -130,67 +123,104 @@ export function getFieldErrorId(field: McpFieldName) {
   return `mcp-${field}-error`
 }
 
-function parseOAuthObject(value: Record<string, unknown>) {
-  return {
-    ...(typeof value.clientId === "string" ? { clientId: value.clientId } : {}),
-    ...(typeof value.clientSecret === "string" ? { clientSecret: value.clientSecret } : {}),
-    ...(typeof value.scope === "string" ? { scope: value.scope } : {}),
+function parseTStringRecord<TValue>(value: TValue) {
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
+  const entries = new Map<string, string>()
+  for (const [key, entry] of Object.entries(record)) {
+    const text = parseTString(entry)
+    if (text === undefined) return undefined
+    entries.set(key, text)
   }
+  return Object.fromEntries(entries)
 }
 
-export function parseMcpConfigMap(config: Record<string, unknown>): Record<string, McpConfig> {
-  const raw = config.mcp
-  if (!isUnknownRecord(raw)) return {}
+function parseTPositiveInteger<TValue>(value: TValue) {
+  const numeric = parseTNumber(value)
+  if (numeric === undefined || !Number.isInteger(numeric) || numeric <= 0) return undefined
+  return numeric
+}
 
-  const entries: Record<string, McpConfig> = {}
+function parseOAuthObject<TValue>(value: TValue): TMcpOAuthObject {
+  const record = parseTJsonObject(value)
+  if (!record) return {}
+  const clientId = parseTString(record.clientId)
+  const clientSecret = parseTString(record.clientSecret)
+  const scope = parseTString(record.scope)
+  return Object.assign(
+    Object.assign(
+      {},
+      clientId === undefined ? undefined : { clientId },
+      clientSecret === undefined ? undefined : { clientSecret },
+    ),
+    scope === undefined ? undefined : { scope },
+  )
+}
+
+export function parseMcpConfigMap<TConfig>(config: TConfig) {
+  const record = parseTJsonObject(config)
+  if (!record) return {}
+  const raw = parseTJsonObject(record.mcp)
+  if (!raw) return {}
+
+  const entries = new Map<string, McpConfig>()
 
   for (const [name, value] of Object.entries(raw)) {
-    if (!isUnknownRecord(value)) continue
-    const candidate = value
+    const candidate = parseTJsonObject(value)
+    if (!candidate) continue
 
-    if (
-      candidate.type === "local" &&
-      Array.isArray(candidate.command) &&
-      candidate.command.every((item) => typeof item === "string")
-    ) {
-      entries[name] = {
-        type: "local",
-        command: candidate.command,
-        ...(isStringRecord(candidate.environment) ? { environment: candidate.environment } : {}),
-        ...(typeof candidate.enabled === "boolean" ? { enabled: candidate.enabled } : {}),
-        ...(typeof candidate.timeout === "number" &&
-        Number.isInteger(candidate.timeout) &&
-        candidate.timeout > 0
-          ? { timeout: candidate.timeout }
-          : {}),
-      }
+    const command = parseStringArray(candidate.command)
+    if (candidate.type === "local" && command) {
+      const environment = parseTStringRecord(candidate.environment)
+      const enabled = parseTBoolean(candidate.enabled)
+      const timeout = parseTPositiveInteger(candidate.timeout)
+      const localConfig: McpLocalConfig = Object.assign(
+        Object.assign(
+          {
+            type: "local" as const,
+            command,
+          },
+          environment === undefined ? undefined : { environment },
+          enabled === undefined ? undefined : { enabled },
+        ),
+        timeout === undefined ? undefined : { timeout },
+      )
+      entries.set(name, localConfig)
       continue
     }
 
-    if (candidate.type === "remote" && typeof candidate.url === "string") {
+    const url = parseTString(candidate.url)
+    if (candidate.type === "remote" && url !== undefined) {
       const oauth =
         candidate.oauth === false
           ? false
-          : isUnknownRecord(candidate.oauth)
+          : parseTJsonObject(candidate.oauth)
             ? parseOAuthObject(candidate.oauth)
             : undefined
 
-      entries[name] = {
-        type: "remote",
-        url: candidate.url,
-        ...(isStringRecord(candidate.headers) ? { headers: candidate.headers } : {}),
-        ...(typeof candidate.enabled === "boolean" ? { enabled: candidate.enabled } : {}),
-        ...(oauth !== undefined ? { oauth } : {}),
-        ...(typeof candidate.timeout === "number" &&
-        Number.isInteger(candidate.timeout) &&
-        candidate.timeout > 0
-          ? { timeout: candidate.timeout }
-          : {}),
-      }
+      const headers = parseTStringRecord(candidate.headers)
+      const enabled = parseTBoolean(candidate.enabled)
+      const timeout = parseTPositiveInteger(candidate.timeout)
+      const remoteConfig: McpRemoteConfig = Object.assign(
+        Object.assign(
+          {
+            type: "remote" as const,
+            url,
+          },
+          headers === undefined ? undefined : { headers },
+          enabled === undefined ? undefined : { enabled },
+        ),
+        Object.assign(
+          {},
+          oauth !== undefined ? { oauth } : undefined,
+          timeout === undefined ? undefined : { timeout },
+        ),
+      )
+      entries.set(name, remoteConfig)
     }
   }
 
-  return entries
+  return Object.fromEntries(entries)
 }
 
 export function emptyDraft(): McpFormDraft {
@@ -216,7 +246,7 @@ export function buildDraft(name: string, config: McpConfig): McpFormDraft {
       name,
       type: "local",
       enabled: config.enabled !== false,
-      timeout: typeof config.timeout === "number" ? String(config.timeout) : "",
+      timeout: parseTNumber(config.timeout) === undefined ? "" : String(config.timeout),
       url: "",
       command: JSON.stringify(config.command, null, 2),
       headersText: "",
@@ -228,13 +258,16 @@ export function buildDraft(name: string, config: McpConfig): McpFormDraft {
     }
   }
 
-  const oauthObject = config.oauth && typeof config.oauth === "object" ? config.oauth : undefined
+  const oauthObject =
+    config.oauth && config.oauth !== false && parseTJsonObject(config.oauth)
+      ? config.oauth
+      : undefined
 
   return {
     name,
     type: "remote",
     enabled: config.enabled !== false,
-    timeout: typeof config.timeout === "number" ? String(config.timeout) : "",
+    timeout: parseTNumber(config.timeout) === undefined ? "" : String(config.timeout),
     url: config.url,
     command: "",
     headersText: config.headers ? JSON.stringify(config.headers, null, 2) : "",
@@ -255,8 +288,8 @@ function parseOptionalStringMap(label: string, field: McpFieldName, value: strin
   }
 
   try {
-    const parsed: unknown = JSON.parse(trimmed)
-    if (!isStringRecord(parsed)) {
+    const parsed = parseTStringRecord(JSON.parse(trimmed))
+    if (!parsed) {
       return {
         fieldError: createFieldError(
           field,
@@ -301,8 +334,8 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
 
     const command = (() => {
       try {
-        const parsed: unknown = JSON.parse(commandInput)
-        if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+        const parsed = parseStringArray(JSON.parse(commandInput))
+        if (parsed) {
           return {
             value: parsed,
           } as const
@@ -337,15 +370,18 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
       } as const
     }
 
-    return {
-      name,
-      config: {
+    const localConfig: McpLocalConfig = Object.assign(
+      {
         type: "local" as const,
         command: command.value,
         enabled: draft.enabled,
-        ...(environment.value ? { environment: environment.value } : {}),
-        ...(timeout ? { timeout } : {}),
-      } satisfies McpConfig,
+      },
+      environment.value ? { environment: environment.value } : undefined,
+      timeout ? { timeout } : undefined,
+    )
+    return {
+      name,
+      config: localConfig,
     } as const
   }
 
@@ -385,23 +421,26 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
     } as const
   }
 
-  const oauth = draft.oauthEnabled
-    ? {
-        ...(draft.clientId.trim() ? { clientId: draft.clientId.trim() } : {}),
-        ...(draft.clientSecret.trim() ? { clientSecret: draft.clientSecret.trim() } : {}),
-        ...(draft.scope.trim() ? { scope: draft.scope.trim() } : {}),
-      }
-    : false
+  const oauthObject: TMcpOAuthObject = Object.assign(
+    {},
+    draft.clientId.trim() ? { clientId: draft.clientId.trim() } : undefined,
+    draft.clientSecret.trim() ? { clientSecret: draft.clientSecret.trim() } : undefined,
+    draft.scope.trim() ? { scope: draft.scope.trim() } : undefined,
+  )
+  const oauth = draft.oauthEnabled ? oauthObject : false
 
-  return {
-    name,
-    config: {
+  const remoteConfig: McpRemoteConfig = Object.assign(
+    {
       type: "remote" as const,
       url,
       enabled: draft.enabled,
-      ...(headers.value ? { headers: headers.value } : {}),
       oauth,
-      ...(timeout ? { timeout } : {}),
-    } satisfies McpConfig,
+    },
+    headers.value ? { headers: headers.value } : undefined,
+    timeout ? { timeout } : undefined,
+  )
+  return {
+    name,
+    config: remoteConfig,
   } as const
 }

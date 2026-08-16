@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, SquarePenIcon, toast } from "@buddy/ui"
+import { parseTBoolean, parseTJsonObject } from "@/components/chat/tools/types"
 import { PresentationIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
@@ -208,7 +209,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           setTeacherStandardsAutoSetupComplete(true)
         }
       })
-      .catch((error: unknown) => {
+      .catch((error) => {
         console.warn("Could not enable Standards for Teaching Buddy:", error)
       })
   }, [
@@ -223,11 +224,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   useEffect(() => {
     if (!isMacDesktop) return
     void platform.getIsFullscreen?.().then((v) => {
-      if (typeof v === "boolean") setIsFullscreen(v)
+      const nextIsFullscreen = parseTBoolean(v)
+      if (nextIsFullscreen !== undefined) setIsFullscreen(nextIsFullscreen)
     })
     const handler = (e: Event) => {
-      if (e instanceof CustomEvent && typeof e.detail?.isFullscreen === "boolean") {
-        setIsFullscreen(e.detail.isFullscreen as boolean)
+      if (!(e instanceof CustomEvent)) return
+      const nextIsFullscreen = parseTBoolean(parseTJsonObject(e.detail)?.isFullscreen)
+      if (nextIsFullscreen !== undefined) {
+        setIsFullscreen(nextIsFullscreen)
       }
     }
     window.addEventListener("buddy:fullscreen-changed", handler)

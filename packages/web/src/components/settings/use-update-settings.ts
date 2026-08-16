@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "@buddy/ui"
 import { language } from "@/context/language"
+import { parseFiniteNumber } from "@/state/parse-external"
 import {
   usePlatform,
   type UpdateCheckResult,
@@ -55,11 +56,12 @@ function isBusyStatus(progress: UpdateProgressSnapshot): boolean {
 }
 
 function clampPercent(percent: number | undefined): number | undefined {
-  if (typeof percent !== "number" || !Number.isFinite(percent)) {
+  const parsed = parseFiniteNumber(percent)
+  if (parsed === undefined) {
     return undefined
   }
 
-  return Math.min(100, Math.max(0, percent))
+  return Math.min(100, Math.max(0, parsed))
 }
 
 function downloadDetail(progress: UpdateProgressSnapshot): string {

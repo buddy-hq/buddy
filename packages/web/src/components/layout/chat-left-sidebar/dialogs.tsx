@@ -46,7 +46,7 @@ import {
   patchProjectConfig,
   saveProjectMcpConfig,
 } from "@/state/chat-actions"
-import type { McpStatusInfo, McpStatusMap } from "@/state/chat-types"
+import type { McpStatusInfo, McpStatusMap, TRecord } from "@/state/chat-types"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
 import {
   buildNotebookLearnerMemoryPatch,
@@ -73,8 +73,8 @@ import {
   experimentalFeatureIsEnabled,
   experimentalFeaturesQueryOptions,
 } from "@/state/experimental-features-query"
+import { EMPTY_BUDDY_CONFIG } from "@/state/parse-external"
 
-const EMPTY_CONFIG: Record<string, unknown> = {}
 const EMPTY_MCP_STATUS: McpStatusMap = {}
 
 type NotebookCreationDialogProps = {
@@ -372,8 +372,8 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
     open: props.open,
     platform: platform.platform,
   })
-  const globalConfig = globalConfigQuery.data ?? EMPTY_CONFIG
-  const rawProjectConfig = rawProjectConfigQuery.data ?? EMPTY_CONFIG
+  const globalConfig = globalConfigQuery.data ?? EMPTY_BUDDY_CONFIG
+  const rawProjectConfig = rawProjectConfigQuery.data ?? EMPTY_BUDDY_CONFIG
   const learnerMemorySelection = resolveNotebookLearnerMemorySelection(
     globalConfig,
     rawProjectConfig,
@@ -401,7 +401,7 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
           ...Object.keys(notebookMcpConfigByName),
           ...Object.keys(mcpStatusByName),
         ]),
-      ).sort((left, right) => left.localeCompare(right)),
+      ).toSorted((left, right) => left.localeCompare(right)),
     [globalMcpConfigByName, notebookMcpConfigByName, mcpStatusByName],
   )
   const notebookMcpQueryError =
@@ -420,7 +420,7 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
 
   async function persistNotebookSettings(
     nextKey: string,
-    patch: Record<string, unknown> | undefined,
+    patch: TRecord | undefined,
     invalidateMcpStatus = false,
   ) {
     if (!patch) {

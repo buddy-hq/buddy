@@ -14,6 +14,7 @@ import {
   teachingSessionQueryKeys,
   teachingSessionStateQueryOptions,
 } from "@/state/teaching-session-query"
+import { parseTString } from "@/components/chat/tools/types"
 
 function isPatchAdditionLine(line: string) {
   return line.startsWith("+") && !line.startsWith("+++")
@@ -101,8 +102,9 @@ type SystemPromptPanelProps = {
 
 function readSystemPromptText(entry: TeachingLlmOutboundSnapshot | undefined) {
   if (!entry) return undefined
-  if (typeof entry.fullSystemPrompt === "string" && entry.fullSystemPrompt.trim().length > 0) {
-    return entry.fullSystemPrompt
+  const prompt = parseTString(entry.fullSystemPrompt)
+  if (prompt !== undefined && prompt.trim().length > 0) {
+    return prompt
   }
   return undefined
 }

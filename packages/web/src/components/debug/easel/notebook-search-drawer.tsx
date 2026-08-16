@@ -27,9 +27,11 @@ import {
   MessageSquareTextIcon,
   PresentationIcon,
   SearchIcon,
-  ShapesIcon,
   type AppIcon,
 } from "@/icons/app-icons"
+import * as AppIcons from "@/icons/app-icons"
+
+const FigureGlyph = AppIcons["ShapesIcon"]
 
 type EaselSearchResultKind = "thread" | "source" | "creation" | "practice" | "board" | "file"
 
@@ -78,7 +80,7 @@ const SEARCH_KIND_DEFINITIONS: SearchKindDefinition[] = [
     kind: "creation",
     label: "Creations",
     singularLabel: "Creation",
-    icon: ShapesIcon,
+    icon: FigureGlyph,
   },
   {
     kind: "practice",

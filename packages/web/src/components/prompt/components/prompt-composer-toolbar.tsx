@@ -16,6 +16,7 @@ import {
   XIcon,
 } from "@buddy/ui"
 import { ImageIcon } from "@/icons/app-icons"
+import { hasFunctionValue } from "@/state/parse-external"
 import type { RefObject } from "react"
 import * as React from "react"
 import { language } from "@/context/language"
@@ -81,7 +82,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
       trigger.focus()
 
       if (props.selectorMode === "native") {
-        if ("showPicker" in trigger && typeof trigger.showPicker === "function") {
+        if (trigger instanceof HTMLSelectElement && hasFunctionValue(trigger.showPicker)) {
           trigger.showPicker()
         }
         return

@@ -5,6 +5,7 @@ import remend from "remend"
 import { markdownContentHash } from "./markdown-content-hash"
 import { buddyMathExtension, hasOpenStreamingMath } from "./markdown-math"
 import { resolveBundledShikiLanguage } from "./markdown-shiki-language"
+import { parseTString } from "@/components/chat/tools/types"
 
 type ParsedCodeToken = {
   raw: string
@@ -13,12 +14,17 @@ type ParsedCodeToken = {
 }
 
 function parseCodeToken(token: Token): ParsedCodeToken | undefined {
-  if (token.type !== "code" || typeof token.text !== "string") return undefined
-  return {
-    raw: token.raw,
-    text: token.text,
-    ...(typeof token.lang === "string" ? { lang: token.lang } : {}),
-  }
+  if (token.type !== "code") return undefined
+  const text = parseTString(token.text)
+  if (text === undefined) return undefined
+  const lang = parseTString(token.lang)
+  return Object.assign(
+    {
+      raw: token.raw,
+      text,
+    },
+    lang === undefined ? undefined : { lang },
+  )
 }
 
 let highlighterPromise: ReturnType<typeof createHighlighter> | undefined

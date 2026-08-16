@@ -24,6 +24,15 @@ function formatFileSize(sizeBytes: number) {
   return `${(sizeBytes / BYTES_PER_MEGABYTE).toFixed(1)} MB`
 }
 
+function runWorkspaceFileAction(action: () => Promise<void>, successMessage?: string) {
+  void action().then(
+    () => {
+      if (successMessage) toast(successMessage)
+    },
+    (error) => toast.error(stringifyError(error)),
+  )
+}
+
 export function WorkspaceFileActionsMenu(props: { directory: string; path: string }) {
   const platform = usePlatform()
   const absolutePath = absoluteWorkspaceFilePath({
@@ -31,15 +40,6 @@ export function WorkspaceFileActionsMenu(props: { directory: string; path: strin
     path: props.path,
   })
   const revealLabel = platform.os === "macos" ? "Reveal in Finder" : "Reveal in File Explorer"
-
-  const run = (action: () => Promise<void>, successMessage?: string) => {
-    void action().then(
-      () => {
-        if (successMessage) toast(successMessage)
-      },
-      (error: unknown) => toast.error(stringifyError(error)),
-    )
-  }
 
   return (
     <DropdownMenu>
@@ -58,7 +58,7 @@ export function WorkspaceFileActionsMenu(props: { directory: string; path: strin
       <DropdownMenuContent align="end">
         {platform.openPath ? (
           <DropdownMenuItem
-            onSelect={() => run(() => platform.openPath?.(absolutePath) ?? Promise.resolve())}
+            onSelect={() => runWorkspaceFileAction(() => platform.openPath?.(absolutePath) ?? Promise.resolve())}
           >
             <ExternalLinkIcon className="size-4" aria-hidden />
             Open in default app
@@ -66,14 +66,14 @@ export function WorkspaceFileActionsMenu(props: { directory: string; path: strin
         ) : null}
         {platform.revealPath ? (
           <DropdownMenuItem
-            onSelect={() => run(() => platform.revealPath?.(absolutePath) ?? Promise.resolve())}
+            onSelect={() => runWorkspaceFileAction(() => platform.revealPath?.(absolutePath) ?? Promise.resolve())}
           >
             <FolderOpenIcon className="size-4" aria-hidden />
             {revealLabel}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem
-          onSelect={() => run(() => navigator.clipboard.writeText(absolutePath), "Path copied")}
+          onSelect={() => runWorkspaceFileAction(() => navigator.clipboard.writeText(absolutePath), "Path copied")}
         >
           <ClipboardCopyIcon className="size-4" aria-hidden />
           Copy path

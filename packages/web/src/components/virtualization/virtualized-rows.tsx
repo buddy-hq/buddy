@@ -23,27 +23,40 @@ export function VirtualizedRows<TItem, TScrollElement extends Element = HTMLDivE
   props: VirtualizedRowsProps<TItem, TScrollElement>,
 ) {
   const fallbackRect = props.initialRect
-  const virtualizer = useVirtualizer<TScrollElement, HTMLDivElement>({
-    count: props.items.length,
-    getScrollElement: props.getScrollElement,
-    getItemKey: (index) => props.getItemKey(props.items[index]!, index),
-    estimateSize: (index) => props.estimateSize(props.items[index]!, index),
-    overscan: props.overscan ?? VIRTUAL_DEFAULT_OVERSCAN,
-    initialRect: fallbackRect,
-    ...(fallbackRect
-      ? {
-          observeElementRect: (instance, callback) =>
-            observeElementRect(instance, (rect) => callback(rect.height > 0 ? rect : fallbackRect)),
-          measureElement: (element, entry, instance) => {
-            const measured = measureVirtualElement(element, entry, instance)
-            if (measured > 0) return measured
-            const index = Number(element.getAttribute("data-index"))
-            const item = props.items[index]
-            return item === undefined ? 0 : props.estimateSize(item, index)
-          },
-        }
-      : {}),
-  })
+  const virtualizer = useVirtualizer<TScrollElement, HTMLDivElement>(
+    Object.assign(
+      {
+        count: props.items.length,
+        getScrollElement: props.getScrollElement,
+        getItemKey: (index: number) => props.getItemKey(props.items[index]!, index),
+        estimateSize: (index: number) => props.estimateSize(props.items[index]!, index),
+        overscan: props.overscan ?? VIRTUAL_DEFAULT_OVERSCAN,
+        initialRect: fallbackRect,
+      },
+      fallbackRect
+        ? {
+            observeElementRect: (
+              instance: Parameters<typeof observeElementRect>[0],
+              callback: Parameters<typeof observeElementRect>[1],
+            ) =>
+              observeElementRect(instance, (rect) =>
+                callback(rect.height > 0 ? rect : fallbackRect),
+              ),
+            measureElement: (
+              element: Parameters<typeof measureVirtualElement>[0],
+              entry: Parameters<typeof measureVirtualElement>[1],
+              instance: Parameters<typeof measureVirtualElement>[2],
+            ) => {
+              const measured = measureVirtualElement(element, entry, instance)
+              if (measured > 0) return measured
+              const index = Number(element.getAttribute("data-index"))
+              const item = props.items[index]
+              return item === undefined ? 0 : props.estimateSize(item, index)
+            },
+          }
+        : undefined,
+    ),
+  )
 
   const virtualRows = virtualizer.getVirtualItems()
 

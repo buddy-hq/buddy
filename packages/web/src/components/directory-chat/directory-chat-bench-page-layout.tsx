@@ -11,6 +11,7 @@ import {
 import { Button, ResizeHandle, cn, type ResizeHandleIntent } from "@buddy/ui"
 import { MessageSquareIcon } from "@/icons/app-icons"
 import { readDesktopTitlebarBottomOffset } from "@/components/layout/desktop-titlebar-inset"
+import { browserDocument, browserWindow } from "@/state/parse-external"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
@@ -34,7 +35,7 @@ type DirectoryChatBenchPageLayoutProps = {
   floatingRect: FloatingChatRect
   floatingChatState: BenchFloatingChatState
   bench: ReactNode
-  conversation: (controls: DirectoryChatBenchConversationControls) => ReactNode
+  conversation: ReactNode
   onChatLayoutModeChange: (mode: BenchChatLayoutMode) => void
   onFloatingRectChange: (rect: FloatingChatRect) => void
   onFloatingChatStateChange: (state: BenchFloatingChatState) => void
@@ -61,10 +62,6 @@ type DirectoryChatDockedBenchLayout = {
   maxWidthPx: number
   onResizeIntent: (intent: ResizeHandleIntent) => void
   onCollapse: () => void
-}
-
-export type DirectoryChatBenchConversationControls = {
-  onFloatChat?: () => void
 }
 
 const BENCH_CHAT_RESTORE_LABEL = "Restore chat"
@@ -138,7 +135,7 @@ function benchViewportFromContainerSize(containerSize: FloatingChatContainerSize
 }
 
 function readFloatingChatSafeTop(layoutNode: HTMLElement | null) {
-  if (typeof document === "undefined") {
+  if (!browserDocument()) {
     return FLOATING_CHAT_DEFAULT_SAFE_TOP_PX
   }
 
@@ -152,7 +149,7 @@ function readFloatingChatSafeTop(layoutNode: HTMLElement | null) {
 
 export function resolveInitialFloatingChatContainerSize(): FloatingChatContainerSize {
   if (
-    typeof window !== "undefined" &&
+    browserWindow() &&
     hasUsableDimension(window.innerWidth) &&
     hasUsableDimension(window.innerHeight)
   ) {
@@ -488,8 +485,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
   const dockedBenchOpen = props.dockedBenchLayout.open
   const benchInteractive = props.benchInteractive ?? true
   const suppressLayoutMotion = props.suppressLayoutMotion ?? false
-  const conversationControls = isFloating ? {} : { onFloatChat: floatChat }
-  const conversation = props.conversation(conversationControls)
+  const conversation = props.conversation
   const floatingLayoutDefaults = resolveBenchLayoutDefaults({
     profile: props.layoutProfile,
     viewport: benchViewportFromContainerSize(containerSize),
@@ -571,7 +567,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
     syncContainerSize()
     window.addEventListener("resize", syncContainerSize)
 
-    if (typeof ResizeObserver === "undefined") {
+    if (!("ResizeObserver" in globalThis)) {
       return () => {
         window.removeEventListener("resize", syncContainerSize)
       }
@@ -632,11 +628,6 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
 
   function readCurrentContainerSize() {
     return readFloatingChatContainerSize(layoutRef.current, containerSizeRef.current)
-  }
-
-  function floatChat() {
-    setFloatingEntryAnimation(true)
-    props.onChatLayoutModeChange(BENCH_CHAT_LAYOUT_FLOATING)
   }
 
   function dockChat() {

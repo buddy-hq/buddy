@@ -25,7 +25,7 @@ type MarkdownWysiwygFileEditorProps = {
     content: string
     expectedVersion?: string | null
   }) => Promise<{ path: string; content: string; version: string }>
-  isVersionConflictError: (error: unknown) => boolean
+  isVersionConflictError: <TError>(error: TError) => boolean
 }
 
 function MarkdownWysiwygSurface(props: {

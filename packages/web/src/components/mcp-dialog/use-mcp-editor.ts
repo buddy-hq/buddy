@@ -1,3 +1,4 @@
+import { parseTJsonObject } from "@/components/chat/tools/types"
 import { useState, type Dispatch, type SetStateAction } from "react"
 import {
   buildConfigFromDraft,
@@ -90,11 +91,9 @@ export function useMcpEditor(options: UseMcpEditorOptions): McpEditorState {
   function openEditEditor(name: string, config: McpConfig) {
     setEditorMode("edit")
     setDraft(buildDraft(name, config))
-    setShowOAuthClientFields(
-      config.type === "remote" &&
-        typeof config.oauth === "object" &&
-        Object.keys(config.oauth).length > 0,
-    )
+    const oauthObject =
+      config.type === "remote" && config.oauth !== false ? parseTJsonObject(config.oauth) : undefined
+    setShowOAuthClientFields(oauthObject !== undefined && Object.keys(oauthObject).length > 0)
     setFieldErrors({})
     setEditorError(undefined)
     setEditorOpen(true)

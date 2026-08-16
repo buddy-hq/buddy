@@ -18,9 +18,9 @@ export function prepareFlashcardBenchTarget(input: {
   mode: FlashcardDeckSurfaceMode
 }): BenchTarget {
   const target = createBenchObjectTarget("flashcard-deck", input.objectID)
-  writeFlashcardDeckSurfaceState(benchSurfaceUiKey({ directory: input.directory, target }), {
-    mode: input.mode,
-    ...(input.mode === "review" ? { reviewTally: emptyFlashcardReviewTally() } : {}),
-  })
+  writeFlashcardDeckSurfaceState(benchSurfaceUiKey({ directory: input.directory, target }), Object.assign(
+    { mode: input.mode },
+    input.mode === "review" ? { reviewTally: emptyFlashcardReviewTally() } : undefined,
+  ))
   return target
 }

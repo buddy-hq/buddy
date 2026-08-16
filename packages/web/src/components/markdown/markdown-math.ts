@@ -1,6 +1,7 @@
 import katex, { type KatexOptions } from "katex"
 import "katex/contrib/mhchem"
 import type { MarkedExtension, Tokens } from "marked"
+import { parseTString } from "@/components/chat/tools/types"
 import {
   MARKDOWN_MATH_PLACEHOLDER_BLOCK_DISPLAY,
   MARKDOWN_MATH_PLACEHOLDER_COMPONENT,
@@ -398,8 +399,8 @@ export function renderBuddyMathToHtml(
 }
 
 function renderMathToken(token: Tokens.Generic, options: BuddyMathExtensionOptions): string {
-  const text = typeof token["text"] === "string" ? token["text"] : ""
-  const raw = typeof token["raw"] === "string" ? token["raw"] : text
+  const text = parseTString(token["text"]) ?? ""
+  const raw = parseTString(token["raw"]) ?? text
   const displayMode = token["displayMode"] === true
 
   try {

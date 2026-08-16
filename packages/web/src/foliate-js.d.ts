@@ -1,5 +1,10 @@
 declare module "foliate-js/view.js" {
   export type FoliateNavigationTarget = string | number | { fraction: number }
+  export type TFoliateTocFragmentId = string | number
+  export type TFoliateCalibreBookmark = {
+    title?: string
+    src?: string
+  }
   export type FoliateResolvedNavigation = {
     index: number
     anchor?: (doc: Document) => Element | Range | null
@@ -13,6 +18,12 @@ declare module "foliate-js/view.js" {
         name?: FoliateLocalizedText
       }
 
+  export type TFoliateMetadataFieldValue =
+    | FoliateLocalizedText
+    | FoliateContributor
+    | FoliateContributor[]
+    | undefined
+
   export type FoliateMetadata = {
     title?: FoliateLocalizedText
     author?: FoliateContributor | FoliateContributor[]
@@ -24,7 +35,8 @@ declare module "foliate-js/view.js" {
     identifier?: FoliateLocalizedText
     source?: FoliateLocalizedText
     rights?: FoliateLocalizedText
-  } & Record<string, unknown>
+    readonly [key: string]: TFoliateMetadataFieldValue
+  }
 
   export type FoliateTocItem = {
     label: string
@@ -32,12 +44,18 @@ declare module "foliate-js/view.js" {
     subitems?: FoliateTocItem[] | null
   }
 
+  export type TFoliateSectionMediaOverlay = {
+    duration?: number
+    activeClass?: string
+    playbackActiveClass?: string
+  }
+
   export type FoliateSection = {
     id?: string | number
     linear?: string
     cfi?: string
     size?: number
-    mediaOverlay?: unknown
+    mediaOverlay?: TFoliateSectionMediaOverlay
     load: () => Promise<string> | string
     unload?: () => void
     createDocument?: () => Promise<Document> | Document
@@ -73,12 +91,12 @@ declare module "foliate-js/view.js" {
         }
     splitTOCHref?: (
       href: string,
-    ) => Promise<[string | number, unknown]> | [string | number, unknown]
-    getTOCFragment?: (doc: Document, id: unknown) => Node | null
+    ) => Promise<[string | number, TFoliateTocFragmentId]> | [string | number, TFoliateTocFragmentId]
+    getTOCFragment?: (doc: Document, id: TFoliateTocFragmentId) => Node | null
     isExternal?: (href: string) => boolean
     getCover?: () => Promise<Blob | null> | Blob | null
     getMediaOverlay?: () => EventTarget
-    getCalibreBookmarks?: () => Promise<unknown[] | null> | unknown[] | null
+    getCalibreBookmarks?: () => Promise<TFoliateCalibreBookmark[] | null> | TFoliateCalibreBookmark[] | null
     destroy?: () => void | Promise<void>
     transformTarget?: EventTarget
   }
@@ -93,7 +111,7 @@ declare module "foliate-js/view.js" {
     setStyles?: (styles: string | [string, string]) => void
     prev: (distance?: number) => Promise<void>
     next: (distance?: number) => Promise<void>
-    goTo: (target: unknown) => Promise<void>
+    goTo: (target: FoliateNavigationTarget | FoliateResolvedNavigation) => Promise<void>
     getContents: () => Array<{
       index?: number
       doc: Document
@@ -159,6 +177,8 @@ declare module "foliate-js/view.js" {
     ): void
   }
 
+  export type TFoliateAnnotationExtraValue = string | number | boolean | null
+
   export type FoliateAnnotationPayload = {
     value: string
     color?: string
@@ -167,12 +187,22 @@ declare module "foliate-js/view.js" {
     created?: string
     modified?: string
     style?: string
-  } & Record<string, unknown>
+    readonly [key: string]: TFoliateAnnotationExtraValue | undefined
+  }
+
+  export type TFoliateDrawOptionValue = string | number | boolean
+
+  export type TFoliateDrawOptions = {
+    readonly color?: string
+    readonly fill?: string
+    readonly stroke?: string
+    readonly [key: string]: TFoliateDrawOptionValue | undefined
+  }
 
   export type FoliateDrawAnnotationEventDetail = {
     draw: (
-      painter: (rects: DOMRectList, options?: Record<string, unknown>) => SVGElement,
-      options?: Record<string, unknown>,
+      painter: (rects: DOMRectList, options?: TFoliateDrawOptions) => SVGElement,
+      options?: TFoliateDrawOptions,
     ) => void
     annotation: FoliateAnnotationPayload
     doc: Document
@@ -313,8 +343,11 @@ declare module "foliate-js/overlayer.js" {
     add(
       key: string,
       range: Range,
-      draw: (rects: DOMRectList, options?: Record<string, unknown>) => SVGElement,
-      options?: Record<string, unknown>,
+      draw: (
+        rects: DOMRectList,
+        options?: import("foliate-js/view.js").TFoliateDrawOptions,
+      ) => SVGElement,
+      options?: import("foliate-js/view.js").TFoliateDrawOptions,
     ): void
     remove(key: string): void
     redraw(): void

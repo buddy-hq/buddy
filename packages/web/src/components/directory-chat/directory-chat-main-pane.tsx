@@ -28,6 +28,7 @@ import {
   type QueuedFollowupItem,
 } from "@/components/directory-chat/session-followup-dock"
 import { language } from "@/context/language"
+import { parseTNumber } from "@/components/chat/tools/types"
 import {
   PromptComposer,
   type PromptComposerAttachmentsApi,
@@ -163,23 +164,18 @@ export function resolveAutoCompactionWarning(input: {
   }
 
   const model = context.model
-  const contextLimit =
-    typeof model?.limit.context === "number"
-      ? model.limit.context
-      : typeof context.limit === "number"
-        ? context.limit
-        : undefined
-  if (typeof contextLimit !== "number" || contextLimit <= 0) {
+  const contextLimit = parseTNumber(model?.limit.context) ?? parseTNumber(context.limit)
+  if (contextLimit === undefined || contextLimit <= 0) {
     return undefined
   }
 
-  const outputLimit = typeof model?.limit.output === "number" ? model.limit.output : undefined
-  const inputLimit = typeof model?.limit.input === "number" ? model.limit.input : undefined
+  const outputLimit = parseTNumber(model?.limit.output)
+  const inputLimit = parseTNumber(model?.limit.input)
   const maxOutputTokens = resolveMaxOutputTokens(outputLimit)
   const reserved = Math.min(COMPACTION_BUFFER_TOKENS, maxOutputTokens)
 
   const threshold =
-    typeof inputLimit === "number" && inputLimit > 0
+    inputLimit !== undefined && inputLimit > 0
       ? Math.max(inputLimit - reserved, 0)
       : Math.max(contextLimit - maxOutputTokens, 0)
 
@@ -381,7 +377,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     }
 
     sync()
-    if (typeof ResizeObserver === "undefined") return
+    if (!("ResizeObserver" in globalThis)) return
 
     const observer = new ResizeObserver(scheduleSync)
     observer.observe(pane)

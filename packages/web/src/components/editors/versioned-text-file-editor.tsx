@@ -23,6 +23,7 @@ import type { editor as MonacoEditor } from "monaco-editor"
 import { restoreMonacoViewState, saveMonacoViewState } from "@/lib/monaco-view-state"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import { language } from "@/context/language"
+import { stringifyError } from "@/lib/api-client"
 import { useTheme } from "@/theme"
 
 const AUTO_SAVE_DELAY_MS = 1000
@@ -142,23 +143,13 @@ type VersionedTextFileEditorProps = {
     content: string
     expectedVersion?: string | null
   }) => Promise<VersionedTextFileSaveResult>
-  isVersionConflictError: (error: unknown) => boolean
+  isVersionConflictError: <TError>(error: TError) => boolean
 }
 
 export type VersionedTextFileEditorHandle = {
   flushPendingSave: () => Promise<boolean>
   hasUnsavedChanges: () => boolean
   reloadFromDisk: (options?: VersionedTextFileReloadOptions) => Promise<void>
-}
-
-function stringifyError(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (typeof error === "string") return error
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return String(error)
-  }
 }
 
 export function shouldSkipVersionedTextFileFlush(input: VersionedTextFileFlushState): boolean {

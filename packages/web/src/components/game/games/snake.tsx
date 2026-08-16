@@ -129,7 +129,7 @@ export function Snake({ onStatusChange }: SnakeProps) {
       if (
         document.activeElement instanceof HTMLInputElement ||
         document.activeElement instanceof HTMLTextAreaElement ||
-        (document.activeElement as HTMLElement)?.isContentEditable
+        (document.activeElement instanceof HTMLElement && document.activeElement.isContentEditable)
       ) {
         return
       }
@@ -172,7 +172,7 @@ export function Snake({ onStatusChange }: SnakeProps) {
       onAction: resetGame,
       extraControls: (
         <div className="flex items-center gap-0.5 bg-surface-weak p-0.5 rounded-lg border border-border-weak-base">
-          {([1, 2, 3] as Level[]).map((lvl) => (
+          {([1, 2, 3] satisfies readonly Level[]).map((lvl) => (
             <button
               key={lvl}
               onClick={() => setLevel(lvl)}

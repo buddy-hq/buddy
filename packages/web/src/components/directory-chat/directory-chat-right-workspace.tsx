@@ -19,9 +19,9 @@ import {
   RefreshCwIcon,
   ScrollTextIcon,
   SearchIcon,
-  ShapesIcon,
   StudyLampIcon,
 } from "@/icons/app-icons"
+import * as AppIcons from "@/icons/app-icons"
 import obsidianIconUrl from "@/assets/obsidian-icon.svg"
 import type { SessionInfo } from "@/state/chat-types"
 import {
@@ -64,6 +64,8 @@ import { getFilename } from "@/components/layout/sidebar-helpers"
 import { obsidianVaultProfileQueryOptions } from "@/state/obsidian-vault-query"
 import { BenchTabs } from "@/components/bench/bench-tabs"
 import type { BenchTab } from "@/lib/bench-tabs"
+
+const FigureGlyph = AppIcons["ShapesIcon"]
 
 type DirectoryChatRightWorkspaceProps = {
   directory: string
@@ -503,7 +505,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     {
       id: "creations",
       label: "Creations",
-      icon: <ShapesIcon />,
+      icon: <FigureGlyph />,
       active: resolvedSelector === "creations",
       onClick: () => openSelector("creations"),
     },

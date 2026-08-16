@@ -1,3 +1,5 @@
+import { parseTString } from "@/components/chat/tools/types"
+import { parseStringArray } from "@/state/chat-types"
 import { basename } from "../chat/utils/path"
 import { createFileTypeIconElement } from "../files/file-type-icon"
 import {
@@ -147,7 +149,7 @@ function createSelectionContextPart(part: SelectionContextPartInput): PromptSele
   )
 }
 
-function optionalReaderTextAnchorsEqual(left: unknown, right: unknown): boolean {
+function optionalReaderTextAnchorsEqual<TLeft, TRight>(left: TLeft, right: TRight): boolean {
   const leftAnchor = readPromptReaderTextAnchor(left)
   const rightAnchor = readPromptReaderTextAnchor(right)
   if (!leftAnchor || !rightAnchor) return leftAnchor === rightAnchor
@@ -404,10 +406,8 @@ function readElementReaderTextAnchor(element: HTMLElement): ReaderTextAnchor | u
 function readDatasetStringArray(value: string | undefined) {
   if (!value) return undefined
   try {
-    const parsed: unknown = JSON.parse(value)
-    if (!Array.isArray(parsed)) return undefined
-    if (!parsed.every((entry) => typeof entry === "string")) return undefined
-    return parsed
+    const parsed = JSON.parse(value)
+    return parseStringArray(parsed)
   } catch {
     return undefined
   }
@@ -637,7 +637,10 @@ function appendSelectionCard(
     part.pageLabel,
     part.locationLabel,
   ]
-    .filter((value) => typeof value === "string" && value.length > 0)
+    .flatMap((value) => {
+      const text = parseTString(value)
+      return text !== undefined && text.length > 0 ? [text] : []
+    })
     .join(" • ")
 
   card.append(heading, excerpt)

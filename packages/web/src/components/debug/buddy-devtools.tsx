@@ -95,6 +95,10 @@ import {
   isGetStartedFlowDevtoolsMode,
 } from "@/lib/get-started-chats"
 import { GET_STARTED_FLOW_STATUS, type GetStartedFlowStatus } from "@/lib/get-started-flow"
+import { parseTJsonObject, parseTNumber, parseTString } from "@/components/chat/tools/types"
+
+const BUDDY_WINDOW_GLOBALS_KEY = "__BUDDY__"
+
 type BuddyDevToolsTab =
   | "palette"
   | "trace"
@@ -261,24 +265,26 @@ function getDefaultDevToolsRect(position: DevToolsAffordancePosition): Rect {
   }
 }
 
-function isStoredRect(value: unknown): value is Rect {
-  if (!value || typeof value !== "object") {
-    return false
+function parseStoredRect<TValue>(value: TValue): Rect | undefined {
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
+  const left = parseTNumber(record.left)
+  const top = parseTNumber(record.top)
+  const width = parseTNumber(record.width)
+  const height = parseTNumber(record.height)
+  if (
+    left === undefined ||
+    top === undefined ||
+    width === undefined ||
+    height === undefined ||
+    !Number.isFinite(left) ||
+    !Number.isFinite(top) ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height)
+  ) {
+    return undefined
   }
-  return (
-    "left" in value &&
-    typeof value.left === "number" &&
-    Number.isFinite(value.left) &&
-    "top" in value &&
-    typeof value.top === "number" &&
-    Number.isFinite(value.top) &&
-    "width" in value &&
-    typeof value.width === "number" &&
-    Number.isFinite(value.width) &&
-    "height" in value &&
-    typeof value.height === "number" &&
-    Number.isFinite(value.height)
-  )
+  return { left, top, width, height }
 }
 
 function readStoredDevToolsRect(): Rect | undefined {
@@ -287,8 +293,8 @@ function readStoredDevToolsRect(): Rect | undefined {
     if (!raw) {
       return undefined
     }
-    const parsed: unknown = JSON.parse(raw)
-    if (!isStoredRect(parsed)) {
+    const parsed = parseStoredRect(JSON.parse(raw))
+    if (!parsed) {
       return undefined
     }
     return clampRectToViewport(parsed)
@@ -2523,8 +2529,9 @@ function CapabilitiesChips(props: { directory: string }) {
     const names = new Set<string>()
     for (const msg of messages) {
       for (const part of msg.parts) {
-        if (part.type === "tool" && typeof part.tool === "string") {
-          names.add(part.tool)
+        if (part.type === "tool") {
+          const toolName = parseTString(part.tool)
+          if (toolName !== undefined) names.add(toolName)
         }
       }
     }
@@ -2583,11 +2590,11 @@ function CapabilitiesChips(props: { directory: string }) {
 }
 
 function readDevInstanceName(): string | undefined {
-  const buddyGlobals = Reflect.get(window, "__BUDDY__")
-  if (!buddyGlobals || typeof buddyGlobals !== "object") return undefined
-
-  const value = Reflect.get(buddyGlobals, "devInstanceName")
-  if (typeof value !== "string") return undefined
+  const buddyGlobals = parseTJsonObject(
+    Object.getOwnPropertyDescriptor(window, BUDDY_WINDOW_GLOBALS_KEY)?.value,
+  )
+  const value = parseTString(buddyGlobals?.devInstanceName)
+  if (value === undefined) return undefined
 
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined

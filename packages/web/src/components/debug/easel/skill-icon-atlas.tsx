@@ -6,6 +6,8 @@ import { SearchIcon } from "@/icons/app-icons"
 import { resolveSkillIconURL } from "@/components/skills/skill-icon-assets"
 import { skillsCatalogQueryOptions } from "@/state/skills-catalog-query"
 import iconDesignSystemSource from "../../../../../../assets/skills/skill-icon-design-system.yaml?raw"
+import { parseTJsonObject, parseTString, parseTNumber, type TJsonObject } from "@/components/chat/tools/types"
+import { parseStringArray } from "@/state/chat-types"
 
 type SkillIconPlan = {
   id: string
@@ -61,82 +63,63 @@ const PALETTE_SURFACES = new Map(Object.entries({
 const DEFAULT_PALETTE_SURFACE = "bg-surface-raised-base"
 const FILENAME_ID_TOKEN = "{id}"
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function requiredRecord(
-  parent: Readonly<Record<string, unknown>>,
-  key: string,
-): Record<string, unknown> {
-  const value = parent[key]
-  if (!isRecord(value)) throw new Error(`Skill icon design system requires an object at ${key}`)
+function requiredRecord(parent: TJsonObject, key: string): TJsonObject {
+  const value = parseTJsonObject(parent[key])
+  if (!value) throw new Error(`Skill icon design system requires an object at ${key}`)
   return value
 }
 
-function requiredString(
-  parent: Readonly<Record<string, unknown>>,
-  key: string,
-  context: string,
-): string {
-  const value = parent[key]
-  if (typeof value !== "string" || !value.trim()) {
+function requiredString(parent: TJsonObject, key: string, context: string): string {
+  const value = parseTString(parent[key])
+  if (value === undefined || !value.trim()) {
     throw new Error(`Skill icon design system requires ${context}.${key}`)
   }
   return value
 }
 
-function requiredStringArray(
-  parent: Readonly<Record<string, unknown>>,
-  key: string,
-  context: string,
-): string[] {
-  const value = parent[key]
-  if (!Array.isArray(value) || !value.every((item) => typeof item === "string" && item.trim())) {
+function requiredStringArray(parent: TJsonObject, key: string, context: string): string[] {
+  const parsed = parseStringArray(parent[key])
+  if (!parsed || parsed.some((item) => !item.trim())) {
     throw new Error(`Skill icon design system requires ${context}.${key} as strings`)
   }
-  return value
+  return parsed
 }
 
-function optionalString(
-  parent: Readonly<Record<string, unknown>>,
-  key: string,
-  context: string,
-): string | undefined {
-  const value = parent[key]
-  if (value === undefined) return undefined
-  if (typeof value !== "string" || !value.trim()) {
+function optionalString(parent: TJsonObject, key: string, context: string): string | undefined {
+  if (parent[key] === undefined) return undefined
+  const value = parseTString(parent[key])
+  if (value === undefined || !value.trim()) {
     throw new Error(`Skill icon design system requires ${context}.${key} as a string`)
   }
   return value
 }
 
-function skillIconStatus(
-  parent: Readonly<Record<string, unknown>>,
-  context: string,
-): SkillIconStatus {
+function skillIconStatus(parent: TJsonObject, context: string): SkillIconStatus {
   const value = parent.status ?? "locked"
   if (value === "candidate" || value === "locked" || value === "planned") return value
   throw new Error(`Skill icon design system has invalid ${context}.status`)
 }
 
+function parseTPositiveInteger<TValue>(value: TValue) {
+  const numeric = parseTNumber(value)
+  if (numeric === undefined || !Number.isInteger(numeric) || numeric <= 0) return undefined
+  return numeric
+}
+
 function parseIconDesignSystem(source: string): SkillIconDesignSystem {
-  const parsed: unknown = parse(source)
-  if (!isRecord(parsed)) throw new Error("Skill icon design system must be an object")
-  if (parsed.schemaVersion !== 1) throw new Error("Unsupported skill icon design system version")
+  const parsed = parseTJsonObject(parse(source))
+  if (!parsed) throw new Error("Skill icon design system must be an object")
+  if (parseTNumber(parsed.schemaVersion) !== 1) {
+    throw new Error("Unsupported skill icon design system version")
+  }
 
   const assetSource = requiredRecord(parsed, "asset")
-  const width = assetSource.width
-  if (typeof width !== "number" || !Number.isInteger(width) || width <= 0) {
+  const width = parseTPositiveInteger(assetSource.width)
+  if (width === undefined) {
     throw new Error("Skill icon design system requires a positive asset.width")
   }
-  const visibleContentMax = assetSource.visibleContentMax
-  if (
-    typeof visibleContentMax !== "number" ||
-    !Number.isInteger(visibleContentMax) ||
-    visibleContentMax <= 0 ||
-    visibleContentMax > width
-  ) {
+  const visibleContentMax = parseTPositiveInteger(assetSource.visibleContentMax)
+  if (visibleContentMax === undefined || visibleContentMax > width) {
     throw new Error("Skill icon design system requires asset.visibleContentMax within asset.width")
   }
   const filenamePattern = requiredString(assetSource, "filenamePattern", "asset")
@@ -147,12 +130,13 @@ function parseIconDesignSystem(source: string): SkillIconDesignSystem {
   const paletteSource = requiredRecord(parsed, "palette")
   const paletteEntries: [string, PaletteDefinition][] = []
   for (const [key, value] of Object.entries(paletteSource)) {
-    if (!isRecord(value)) throw new Error(`Skill icon palette ${key} must be an object`)
+    const paletteValue = parseTJsonObject(value)
+    if (!paletteValue) throw new Error(`Skill icon palette ${key} must be an object`)
     paletteEntries.push([
       key,
       {
-        label: requiredString(value, "label", `palette.${key}`),
-        reviewDescription: requiredString(value, "reviewDescription", `palette.${key}`),
+        label: requiredString(paletteValue, "label", `palette.${key}`),
+        reviewDescription: requiredString(paletteValue, "reviewDescription", `palette.${key}`),
       },
     ])
   }
@@ -162,19 +146,20 @@ function parseIconDesignSystem(source: string): SkillIconDesignSystem {
   if (!Array.isArray(skillSource)) throw new Error("Skill icon design system requires skills")
   const ids = new Set<string>()
   const skills = skillSource.map((value, index): SkillIconPlan => {
-    if (!isRecord(value)) throw new Error(`Skill icon plan ${index} must be an object`)
+    const planRecord = parseTJsonObject(value)
+    if (!planRecord) throw new Error(`Skill icon plan ${index} must be an object`)
     const context = `skills.${index}`
-    const id = requiredString(value, "id", context)
+    const id = requiredString(planRecord, "id", context)
     if (ids.has(id)) throw new Error(`Duplicate skill icon plan: ${id}`)
     ids.add(id)
 
-    const skillPalette = requiredStringArray(value, "palette", context)
+    const skillPalette = requiredStringArray(planRecord, "palette", context)
     for (const paletteKey of skillPalette) {
       if (!palette[paletteKey]) throw new Error(`Unknown palette ${paletteKey} on skill ${id}`)
     }
 
-    const status = skillIconStatus(value, context)
-    const lockedPrompt = optionalString(value, "lockedPrompt", context)
+    const status = skillIconStatus(planRecord, context)
+    const lockedPrompt = optionalString(planRecord, "lockedPrompt", context)
     if (status !== "locked" && lockedPrompt) {
       throw new Error(`Only locked skill icons may retain a lockedPrompt: ${id}`)
     }
@@ -182,10 +167,10 @@ function parseIconDesignSystem(source: string): SkillIconDesignSystem {
     const plan: SkillIconPlan = {
       id,
       status,
-      displayName: requiredString(value, "displayName", context),
-      purpose: requiredString(value, "purpose", context),
-      symbol: requiredString(value, "symbol", context),
-      material: requiredString(value, "material", context),
+      displayName: requiredString(planRecord, "displayName", context),
+      purpose: requiredString(planRecord, "purpose", context),
+      symbol: requiredString(planRecord, "symbol", context),
+      material: requiredString(planRecord, "material", context),
       palette: skillPalette,
     }
     if (lockedPrompt) plan.lockedPrompt = lockedPrompt

@@ -1,3 +1,5 @@
+import { parseTNumber } from "@/components/chat/tools/types"
+
 const PROMPT_COMPOSER_FOCUS_EVENT = "buddy:prompt-composer-focus"
 
 const pendingFocusRequestsByDirectory = new Map<string, number>()
@@ -34,7 +36,7 @@ export function subscribePromptComposerFocusRequests(
     if (!(event instanceof CustomEvent)) return
     if (event.detail?.directory !== directory) return
     const requestID = event.detail?.requestID
-    if (typeof requestID !== "number") return
+    if (parseTNumber(requestID) === undefined) return
     onRequest(requestID)
   }
 

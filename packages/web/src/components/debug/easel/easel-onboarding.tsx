@@ -18,6 +18,7 @@ import {
 import buddyMascotWaveUrl from "../../../../../../assets/mascot/buddy-mascot-wave.png"
 import { findSelectValue } from "./select-value"
 import buddyMascotPeekUrl from "../../../../../../assets/mascot/buddy-mascot-peek.png"
+import { parseTString } from "@/components/chat/tools/types"
 import buddyMascotApproveUrl from "../../../../../../assets/mascot/buddy-mascot-approve.png"
 
 type InterviewConceptID = "standard" | "scrolling" | "chatSim" | "splitScreen" | "hud"
@@ -77,7 +78,10 @@ function FloatingNotes(props: FloatingNotesProps) {
             </p>
             <ul className="text-[10px] text-text-weak space-y-2 list-disc list-inside leading-relaxed">
               {props.bullets
-                .filter((b): b is string => typeof b === "string")
+                .flatMap((bullet) => {
+                  const text = parseTString(bullet)
+                  return text !== undefined ? [text] : []
+                })
                 .map((bullet) => (
                   <li key={bullet}>{bullet}</li>
                 ))}

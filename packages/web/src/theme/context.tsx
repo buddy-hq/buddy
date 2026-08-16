@@ -36,8 +36,8 @@ function applyDocumentState(themeId: string, mode: "light" | "dark") {
 }
 
 function ensureThemeStyleElement(): HTMLStyleElement {
-  const existing = document.getElementById(THEME_STYLE_ID) as HTMLStyleElement | null
-  if (existing) return existing
+  const existing = document.getElementById(THEME_STYLE_ID)
+  if (existing instanceof HTMLStyleElement) return existing
   const element = document.createElement("style")
   element.id = THEME_STYLE_ID
   document.head.appendChild(element)

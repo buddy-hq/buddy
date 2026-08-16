@@ -79,11 +79,11 @@ function sleep(ms: number) {
   })
 }
 
-function errorMessage(error: unknown) {
+function errorMessage<TError>(error: TError) {
   return error instanceof Error ? error.message : String(error)
 }
 
-function safeStringify(value: unknown) {
+function safeStringify<TValue>(value: TValue) {
   try {
     return JSON.stringify(value, null, 2)
   } catch (error) {

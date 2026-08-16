@@ -24,9 +24,9 @@ import {
   MessageSquareTextIcon,
   PresentationIcon,
   SearchIcon,
-  ShapesIcon,
   type AppIcon,
 } from "@/icons/app-icons"
+import * as AppIcons from "@/icons/app-icons"
 import type { SessionInfo } from "@/state/chat-types"
 import {
   NOTEBOOK_SEARCH_FILTER_ALL,
@@ -65,6 +65,8 @@ import {
   RightWorkspaceVirtualList,
 } from "./right-workspace-drawer-ui"
 
+const FigureGlyph = AppIcons["ShapesIcon"]
+
 type RightWorkspaceSearchDrawerProps = {
   directory: string
   sessionID?: string
@@ -85,7 +87,7 @@ const SEARCH_FILTER_ALL_LABEL = "All types"
 const SEARCH_KIND_DEFINITIONS: SearchKindDefinition[] = [
   { kind: "thread", label: "Chats", icon: MessageSquareTextIcon },
   { kind: "source", label: "Sources", icon: BookOpenIcon },
-  { kind: "creation", label: "Creations", icon: ShapesIcon },
+  { kind: "creation", label: "Creations", icon: FigureGlyph },
   { kind: "practice", label: "Practice", icon: BrainIcon },
   { kind: "board", label: "Boards", icon: PresentationIcon },
   { kind: "file", label: "Files", icon: FileIcon },

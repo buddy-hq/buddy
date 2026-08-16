@@ -4,8 +4,21 @@ import {
   estimateDevToolsTokensFromText,
   estimateDevToolsTokensFromUnknown,
 } from "./devtools-context-breakdown"
+import {
+  parseTJsonObject,
+  parseTString,
+  parseTNumber,
+  type TJsonObject,
+} from "@/components/chat/tools/types"
 
 export type DevToolsContextRowKind = "message" | "tool" | "step"
+
+export type TDevToolsContextRowJson =
+  | {
+      message: MessageInfo
+      parts: MessagePart[]
+    }
+  | MessagePart
 
 export type DevToolsContextRow = {
   key: string
@@ -16,7 +29,7 @@ export type DevToolsContextRow = {
   status?: string
   createdAt?: number
   tokens: DevToolsRowTokenSummary
-  json: unknown
+  json: TDevToolsContextRowJson
   nested: boolean
 }
 
@@ -32,23 +45,17 @@ const TOOL_STATUS_ERROR = "error"
 const TOKEN_TOTAL_FALLBACK_INPUT = 0
 const TOKEN_TOTAL_FALLBACK_OUTPUT = 0
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function stringField(value: TJsonObject, key: string) {
+  return parseTString(value[key])
 }
 
-function stringField(value: Record<string, unknown>, key: string) {
-  const entry = value[key]
-  return typeof entry === "string" ? entry : undefined
+function numberField(value: TJsonObject, key: string) {
+  const entry = parseTNumber(value[key])
+  return entry !== undefined && Number.isFinite(entry) ? entry : undefined
 }
 
-function numberField(value: Record<string, unknown>, key: string) {
-  const entry = value[key]
-  return typeof entry === "number" && Number.isFinite(entry) ? entry : undefined
-}
-
-function recordField(value: Record<string, unknown>, key: string) {
-  const entry = value[key]
-  return isRecord(entry) ? entry : undefined
+function recordField(value: TJsonObject, key: string) {
+  return parseTJsonObject(value[key])
 }
 
 function tokenValue(value: number, estimated: boolean): DevToolsTokenValue {
@@ -73,13 +80,13 @@ function assistantTokens(message: Extract<MessageInfo, { role: "assistant" }>) {
   }
 }
 
-function fileText(part: Record<string, unknown>) {
+function fileText(part: TJsonObject) {
   const source = recordField(part, "source")
   const text = source ? recordField(source, "text") : undefined
   return text ? stringField(text, "value") : undefined
 }
 
-function agentText(part: Record<string, unknown>) {
+function agentText(part: TJsonObject) {
   const source = recordField(part, "source")
   return source ? stringField(source, "value") : undefined
 }
@@ -87,15 +94,17 @@ function agentText(part: Record<string, unknown>) {
 function estimateUserInputTokens(message: MessageWithParts) {
   const partsTokens = message.parts.reduce((sum, part) => {
     if (part.type === TEXT_PART_TYPE) {
-      return sum + (typeof part.text === "string" ? estimateDevToolsTokensFromText(part.text) : 0)
+      const text = parseTString(part.text)
+      return sum + (text === undefined ? 0 : estimateDevToolsTokensFromText(text))
     }
-    if (!isRecord(part)) return sum
+    const record = parseTJsonObject(part)
+    if (!record) return sum
     if (part.type === FILE_PART_TYPE) {
-      const text = fileText(part)
+      const text = fileText(record)
       return sum + (text ? estimateDevToolsTokensFromText(text) : 0)
     }
     if (part.type === AGENT_PART_TYPE) {
-      const text = agentText(part)
+      const text = agentText(record)
       return sum + (text ? estimateDevToolsTokensFromText(text) : 0)
     }
     return sum
@@ -118,11 +127,11 @@ function messageTokens(message: MessageWithParts): DevToolsRowTokenSummary {
   }
 }
 
-function toolInputTokens(state: Record<string, unknown>) {
+function toolInputTokens(state: TJsonObject) {
   return estimatedTokenValue(estimateDevToolsTokensFromUnknown(recordField(state, "input")))
 }
 
-function toolOutputTokens(state: Record<string, unknown>) {
+function toolOutputTokens(state: TJsonObject) {
   const status = stringField(state, "status")
   if (status === TOOL_STATUS_PENDING) {
     return estimatedTokenValue(estimateDevToolsTokensFromUnknown(stringField(state, "raw")))
@@ -138,8 +147,9 @@ function toolOutputTokens(state: Record<string, unknown>) {
 }
 
 function toolTokens(part: MessagePart): DevToolsRowTokenSummary {
-  if (!isRecord(part)) return {}
-  const state = recordField(part, "state")
+  const record = parseTJsonObject(part)
+  if (!record) return {}
+  const state = recordField(record, "state")
   if (!state) return {}
 
   return {
@@ -149,8 +159,9 @@ function toolTokens(part: MessagePart): DevToolsRowTokenSummary {
 }
 
 function stepTokens(part: MessagePart): DevToolsRowTokenSummary {
-  if (!isRecord(part)) return {}
-  const tokens = recordField(part, "tokens")
+  const record = parseTJsonObject(part)
+  if (!record) return {}
+  const tokens = recordField(record, "tokens")
   if (!tokens) return {}
 
   return {
@@ -179,11 +190,12 @@ function messageRow(message: MessageWithParts): DevToolsContextRow {
 
 function toolRow(message: MessageWithParts, part: MessagePart): DevToolsContextRow | undefined {
   if (part.type !== TOOL_PART_TYPE) return undefined
-  if (!isRecord(part)) return undefined
+  const record = parseTJsonObject(part)
+  if (!record) return undefined
 
-  const tool = stringField(part, "tool") ?? "tool"
-  const callID = stringField(part, "callID") ?? part.id
-  const state = recordField(part, "state")
+  const tool = stringField(record, "tool") ?? "tool"
+  const callID = stringField(record, "callID") ?? part.id
+  const state = recordField(record, "state")
   const status = state ? stringField(state, "status") : undefined
 
   return {
@@ -202,9 +214,10 @@ function toolRow(message: MessageWithParts, part: MessagePart): DevToolsContextR
 
 function stepRow(message: MessageWithParts, part: MessagePart): DevToolsContextRow | undefined {
   if (part.type !== STEP_FINISH_PART_TYPE) return undefined
-  if (!isRecord(part)) return undefined
+  const record = parseTJsonObject(part)
+  if (!record) return undefined
 
-  const reason = stringField(part, "reason")
+  const reason = stringField(record, "reason")
   return {
     key: `step:${part.id}`,
     kind: "step",

@@ -120,7 +120,7 @@ function LazyMarkdownBlock(props: {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const root = scrollViewportRef?.current
   const viewportWidth =
-    typeof HTMLElement !== "undefined" && root instanceof HTMLElement ? root.clientWidth : 0
+    "HTMLElement" in globalThis && root instanceof HTMLElement ? root.clientWidth : 0
   const blockKey = `${props.cacheKey ?? "markdown"}:virtual-block:${props.block.ordinal}`
   const measurementKey = markdownBlockMeasurementKey({
     blockKey,
@@ -139,9 +139,9 @@ function LazyMarkdownBlock(props: {
     placeholderMeasurement?.key === measurementKey ? placeholderMeasurement.height : cachedHeight
   const shouldCacheMeasurement = !(props.streaming === true && props.forceResident)
   const canObserve =
-    typeof HTMLElement !== "undefined" &&
+    "HTMLElement" in globalThis &&
     root instanceof HTMLElement &&
-    typeof IntersectionObserver !== "undefined"
+    "IntersectionObserver" in globalThis
   const resident = !canObserve || props.forceResident || nearViewport
 
   useEffect(() => {
@@ -152,7 +152,7 @@ function LazyMarkdownBlock(props: {
       setNearViewport(true)
       return
     }
-    if (typeof IntersectionObserver === "undefined") {
+    if (!("IntersectionObserver" in globalThis)) {
       setNearViewport(true)
       return
     }
@@ -198,7 +198,7 @@ function LazyMarkdownBlock(props: {
       }
     }
     rememberHeight()
-    if (typeof ResizeObserver === "undefined") return
+    if (!("ResizeObserver" in globalThis)) return
 
     const observer = new ResizeObserver(rememberHeight)
     observer.observe(element)

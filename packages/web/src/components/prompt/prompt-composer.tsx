@@ -18,6 +18,7 @@ import {
   cn,
 } from "@buddy/ui"
 import { Gamepad2Icon, PenLineIcon } from "@/icons/app-icons"
+import { hasFunctionValue } from "@/state/parse-external"
 import {
   lazy,
   startTransition,
@@ -413,7 +414,7 @@ export function PromptComposer(props: PromptComposerProps) {
     }
 
     syncComposerHeight()
-    if (typeof ResizeObserver === "undefined") return
+    if (!("ResizeObserver" in globalThis)) return
 
     const observer = new ResizeObserver(syncComposerHeight)
     observer.observe(root)
@@ -742,7 +743,7 @@ export function PromptComposer(props: PromptComposerProps) {
         | ((attachments: PromptComposerAttachment[]) => PromptComposerAttachment[]),
     ) => {
       const currentDraft = draftRef.current
-      const attachments = typeof update === "function" ? update(currentDraft.attachments) : update
+      const attachments = hasFunctionValue(update) ? update(currentDraft.attachments) : update
       replaceDraftFromComposer({
         value: currentDraft.value,
         parts: currentDraft.parts,

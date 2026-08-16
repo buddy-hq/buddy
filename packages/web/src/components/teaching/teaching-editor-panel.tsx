@@ -201,7 +201,12 @@ export function TeachingEditorPanel(props: TeachingEditorPanelProps) {
           data-action="teaching-language"
           className="h-8 rounded-md border bg-background-base px-2 text-xs"
           value={props.workspace.language}
-          onChange={(event) => props.onLanguageChange(event.target.value as TeachingLanguage)}
+          onChange={(event) => {
+            const nextLanguage = TEACHING_LANGUAGE_OPTIONS.find(
+              (option) => option.value === event.target.value,
+            )?.value
+            if (nextLanguage !== undefined) props.onLanguageChange(nextLanguage)
+          }}
           disabled={props.isBusy}
           aria-label={language.t("teaching.editor.lessonLanguageAria")}
         >

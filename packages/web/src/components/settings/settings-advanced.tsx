@@ -26,6 +26,8 @@ import {
   globalConfigQueryOptions,
   setGlobalConfigQueryData,
 } from "@/state/global-config-query"
+import { parseTNumber, parseTString } from "@/components/chat/tools/types"
+import type { TBuddyConfigObject } from "@/state/parse-external"
 import { ConfirmRemoveMathRuntimeDialog } from "./confirm-remove-math-runtime-dialog"
 import { ConfirmRemoveStandardsRuntimeDialog } from "./confirm-remove-standards-runtime-dialog"
 import {
@@ -138,8 +140,8 @@ export function AdvancedSettings() {
 
   useEffect(() => {
     if (!globalConfigQuery.data) return
-    const level = globalConfigQuery.data.logLevel
-    if (typeof level === "string" && isAdvancedLogLevel(level)) {
+    const level = parseTString(globalConfigQuery.data.logLevel)
+    if (level !== undefined && isAdvancedLogLevel(level)) {
       setLogLevelDraft(level)
     } else {
       setLogLevelDraft(DEFAULT_LOG_LEVEL_VALUE)
@@ -147,7 +149,7 @@ export function AdvancedSettings() {
   }, [globalConfigQuery.data])
 
   function setExternalVendorRootsEnabled(enabled: boolean) {
-    queryClient.setQueryData<Record<string, unknown> | undefined>(
+    queryClient.setQueryData<TBuddyConfigObject | undefined>(
       globalConfigQueryKeys.bundle(),
       (current) =>
         current
@@ -340,14 +342,14 @@ export function AdvancedSettings() {
                       </span>
                     ) : null}
                     {standardsStatus?.progressMessage ||
-                    typeof standardsStatus?.progressPercent === "number" ? (
+                    parseTNumber(standardsStatus?.progressPercent) !== undefined ? (
                       <div className="space-y-1">
                         <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
                           <span className="truncate">
                             {standardsStatus?.progressMessage ??
                               language.t("settings.appearance.working")}
                           </span>
-                          {typeof standardsStatus?.progressPercent === "number" ? (
+                          {parseTNumber(standardsStatus?.progressPercent) !== undefined ? (
                             <span>{Math.round(standardsStatus.progressPercent)}%</span>
                           ) : null}
                         </div>

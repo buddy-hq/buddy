@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { getLocale, setLocale as applyLocale, t as translate, type Locale } from "@/i18n"
+import { browserDocument } from "@/state/parse-external"
 
 type TranslationParams = Record<string, string | number>
 
@@ -29,8 +30,9 @@ export function LanguageProvider(props: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => getLocale())
 
   useEffect(() => {
-    if (typeof document !== "object") return
-    document.documentElement.lang = locale
+    const documentNode = browserDocument()
+    if (documentNode === undefined) return
+    documentNode.documentElement.lang = locale
   }, [locale])
 
   const value = useMemo<LanguageContextValue>(

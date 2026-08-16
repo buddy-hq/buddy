@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { useDropzone, type DropEvent } from "react-dropzone"
 import { UploadIcon } from "@/icons/app-icons"
 import { getPlatform } from "@/context/platform"
+import { parseTString } from "@/components/chat/tools/types"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
 
 const RESOURCE_EXTENSIONS = new Set(["pdf", "epub"])
@@ -29,10 +30,27 @@ function normalizeFilesystemPath(path: string): string {
   return path.trim().replaceAll("\\", "/")
 }
 
+function readNamedPropertyValue<THost>(target: THost, key: string) {
+  if (!(target instanceof Object)) return undefined
+  let current: THost | null = target
+  while (current instanceof Object) {
+    const descriptor = Object.getOwnPropertyDescriptor(current, key)
+    if (descriptor) {
+      if (descriptor.get) return descriptor.get.call(target)
+      return descriptor.value
+    }
+    const proto = Object.getPrototypeOf(current)
+    if (!(proto instanceof Object) || proto === current) break
+    current = proto
+  }
+  return undefined
+}
+
 function readFilePathValue(file: File): string | undefined {
-  const pathValue = Reflect.get(file, "path")
-  if (typeof pathValue !== "string") return undefined
-  return normalizeFilesystemPath(pathValue)
+  const pathValue = readNamedPropertyValue(file, "path")
+  const path = parseTString(pathValue)
+  if (path === undefined) return undefined
+  return normalizeFilesystemPath(path)
 }
 
 function parsePathFromFileUri(input: string): string | undefined {
@@ -68,18 +86,17 @@ function parseDropDataTransferUris(rawText: string): string[] {
   return paths
 }
 
-function isDataTransfer(value: unknown): value is DataTransfer {
-  return !!value && typeof value === "object" && "files" in value && "getData" in value
+function parseTDropDataTransfer<TValue>(value: TValue): DataTransfer | undefined {
+  return value instanceof DataTransfer ? value : undefined
 }
 
 function readDataTransferFromDropEvent(event: DropEvent): DataTransfer | undefined {
-  if (Array.isArray(event) || !event || typeof event !== "object") return undefined
-  const directDataTransfer = Reflect.get(event, "dataTransfer")
-  if (isDataTransfer(directDataTransfer)) return directDataTransfer
-  const nativeEvent = Reflect.get(event, "nativeEvent")
-  if (!nativeEvent || typeof nativeEvent !== "object") return undefined
-  const nativeDataTransfer = Reflect.get(nativeEvent, "dataTransfer")
-  return isDataTransfer(nativeDataTransfer) ? nativeDataTransfer : undefined
+  if (Array.isArray(event) || !(event instanceof Object)) return undefined
+  const directDataTransfer = parseTDropDataTransfer(readNamedPropertyValue(event, "dataTransfer"))
+  if (directDataTransfer) return directDataTransfer
+  const nativeEvent = readNamedPropertyValue(event, "nativeEvent")
+  if (!(nativeEvent instanceof Object)) return undefined
+  return parseTDropDataTransfer(readNamedPropertyValue(nativeEvent, "dataTransfer"))
 }
 
 async function extractAbsoluteResourcePathsFromDrop(input: {

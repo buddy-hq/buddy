@@ -206,7 +206,7 @@ function TodoBoardCard(props: { todo: TodoItem; turnActive: boolean; reduceMotio
     if (!el) return
     const measure = () => setTruncated(el.scrollHeight - el.clientHeight > 1)
     measure()
-    if (typeof ResizeObserver === "undefined") return
+    if (!("ResizeObserver" in globalThis)) return
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()

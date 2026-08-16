@@ -1,4 +1,9 @@
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
+import {
+  parseTJsonObject,
+  parseTString,
+  type TJsonObject,
+} from "@/components/chat/tools/types"
 
 export type DevToolsContextBreakdownKey = "system" | "user" | "assistant" | "tool" | "other"
 
@@ -24,18 +29,12 @@ const TOOL_STATUS_PENDING = "pending"
 const TOOL_STATUS_COMPLETED = "completed"
 const TOOL_STATUS_ERROR = "error"
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function stringField(value: TJsonObject, key: string) {
+  return parseTString(value[key])
 }
 
-function stringField(value: Record<string, unknown>, key: string) {
-  const entry = value[key]
-  return typeof entry === "string" ? entry : undefined
-}
-
-function recordField(value: Record<string, unknown>, key: string) {
-  const entry = value[key]
-  return isRecord(entry) ? entry : undefined
+function recordField(value: TJsonObject, key: string) {
+  return parseTJsonObject(value[key])
 }
 
 export function estimateDevToolsTokensFromCharacters(chars: number) {
@@ -46,9 +45,10 @@ export function estimateDevToolsTokensFromText(text: string) {
   return estimateDevToolsTokensFromCharacters(text.length)
 }
 
-export function estimateDevToolsTokensFromUnknown(value: unknown) {
+export function estimateDevToolsTokensFromUnknown<TValue>(value: TValue) {
   if (value === undefined || value === null) return undefined
-  if (typeof value === "string") return estimateDevToolsTokensFromText(value)
+  const text = parseTString(value)
+  if (text !== undefined) return estimateDevToolsTokensFromText(text)
 
   try {
     return estimateDevToolsTokensFromText(JSON.stringify(value))
@@ -65,14 +65,14 @@ function percentLabel(tokens: number, input: number) {
   return Math.round(percent(tokens, input) * PERCENT_LABEL_PRECISION) / PERCENT_LABEL_PRECISION
 }
 
-function fileSourceTextLength(part: Record<string, unknown>) {
+function fileSourceTextLength(part: TJsonObject) {
   const source = recordField(part, "source")
   const text = source ? recordField(source, "text") : undefined
   const value = text ? stringField(text, "value") : undefined
   return value?.length ?? 0
 }
 
-function agentSourceLength(part: Record<string, unknown>) {
+function agentSourceLength(part: TJsonObject) {
   const source = recordField(part, "source")
   const value = source ? stringField(source, "value") : undefined
   return value?.length ?? 0
@@ -80,15 +80,16 @@ function agentSourceLength(part: Record<string, unknown>) {
 
 function userPartChars(part: MessagePart) {
   if (part.type === TEXT_PART_TYPE) {
-    return typeof part.text === "string" ? part.text.length : 0
+    return parseTString(part.text)?.length ?? 0
   }
-  if (!isRecord(part)) return 0
-  if (part.type === FILE_PART_TYPE) return fileSourceTextLength(part)
-  if (part.type === AGENT_PART_TYPE) return agentSourceLength(part)
+  const record = parseTJsonObject(part)
+  if (!record) return 0
+  if (part.type === FILE_PART_TYPE) return fileSourceTextLength(record)
+  if (part.type === AGENT_PART_TYPE) return agentSourceLength(record)
   return 0
 }
 
-function toolPartChars(part: Record<string, unknown>) {
+function toolPartChars(part: TJsonObject) {
   const state = recordField(part, "state")
   if (!state) return { assistant: 0, tool: 0 }
 
@@ -111,13 +112,14 @@ function toolPartChars(part: Record<string, unknown>) {
 function assistantPartChars(part: MessagePart) {
   if (part.type === TEXT_PART_TYPE || part.type === REASONING_PART_TYPE) {
     return {
-      assistant: typeof part.text === "string" ? part.text.length : 0,
+      assistant: parseTString(part.text)?.length ?? 0,
       tool: 0,
     }
   }
-  if (!isRecord(part)) return { assistant: 0, tool: 0 }
+  const record = parseTJsonObject(part)
+  if (!record) return { assistant: 0, tool: 0 }
   if (part.type !== TOOL_PART_TYPE) return { assistant: 0, tool: 0 }
-  return toolPartChars(part)
+  return toolPartChars(record)
 }
 
 function buildSegments(

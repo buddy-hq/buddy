@@ -82,6 +82,7 @@ import {
 } from "@/lib/active-chat-transition-state"
 import { openOwnedSubagentBench } from "@/lib/subagent-bench-target"
 import { useOpenSubagentBench } from "@/lib/use-open-subagent-bench"
+import { browserWindow, hasFunctionValue } from "@/state/parse-external"
 
 type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
 type DirectoryWorkspaceBenchRuntimeState = Omit<BenchRuntimeState, "target"> & {
@@ -99,7 +100,7 @@ function hasUsableDimension(value: number) {
 }
 
 function readDockedBenchViewport(): BenchViewport {
-  if (typeof window === "undefined") {
+  if (!browserWindow()) {
     return {
       widthPx: DOCKED_BENCH_DEFAULT_VIEWPORT_WIDTH_PX,
       heightPx: DOCKED_BENCH_DEFAULT_VIEWPORT_HEIGHT_PX,
@@ -128,7 +129,7 @@ function useRetainedChatLayoutMotionSuppression(input: {
 
   useLayoutEffect(() => {
     function cancelRelease(): void {
-      if (typeof globalThis.cancelAnimationFrame === "function") {
+      if (hasFunctionValue(globalThis.cancelAnimationFrame)) {
         if (releaseFrameRef.current !== undefined) {
           globalThis.cancelAnimationFrame(releaseFrameRef.current)
         }
@@ -148,7 +149,7 @@ function useRetainedChatLayoutMotionSuppression(input: {
     if (!retained || !input.destinationReady) {
       return cancelRelease
     }
-    if (typeof globalThis.requestAnimationFrame !== "function") {
+    if (!hasFunctionValue(globalThis.requestAnimationFrame)) {
       setRetained(false)
       return cancelRelease
     }
@@ -570,7 +571,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           result,
         })
       })
-      .catch((error: unknown) => {
+      .catch((error) => {
         logBenchToggleStep("directory-workspace-root-right-toggle-controller-error", {
           commandType,
           error,
@@ -604,7 +605,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           result,
         })
       })
-      .catch((error: unknown) => {
+      .catch((error) => {
         logBenchToggleStep("directory-workspace-root-right-collapse-controller-error", {
           error,
         })
@@ -955,7 +956,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                   }
                 : undefined
             }
-            conversation={() => (
+            conversation={
               <DirectoryChatBenchConversationPane
                 {...controller.mainPaneProps}
                 onOpenSession={handleOpenSubagentSession}
@@ -964,7 +965,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
                 onNewSession={handleNewSession}
                 onSelectSession={handleSelectSession}
               />
-            )}
+            }
           />
         }
         {...controller.shellProps}

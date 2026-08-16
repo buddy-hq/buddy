@@ -7,10 +7,10 @@ import {
   MessageSquareTextIcon,
   PanelsTopLeftIcon,
   PresentationIcon,
-  ShapesIcon,
   WorkflowIcon,
   type AppIcon,
 } from "@/icons/app-icons"
+import * as AppIcons from "@/icons/app-icons"
 import { language } from "@/context/language"
 import type { BenchTarget } from "@/lib/bench-targets"
 import { classifyWorkspaceMedia, type WorkspaceMediaKind } from "@/lib/workspace-file-media"
@@ -24,6 +24,8 @@ import {
   type ObjectThumbnail,
 } from "./types"
 
+const FigureGlyph = AppIcons["ShapesIcon"]
+
 /**
  * The only per-kind surface area in the system.
  *
@@ -36,8 +38,8 @@ const OBJECT_GLYPH = {
   whiteboard: PresentationIcon,
   mermaid: WorkflowIcon,
   "html-widget": PanelsTopLeftIcon,
-  figure: ShapesIcon,
-  "freeform-figure": ShapesIcon,
+  figure: FigureGlyph,
+  "freeform-figure": FigureGlyph,
   "media-presentation": ImagesIcon,
   "question-set": ListChecksIcon,
   "flashcard-deck": Layers3Icon,

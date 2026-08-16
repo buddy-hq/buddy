@@ -1,4 +1,6 @@
 import { NATIVE_RESOURCE_FILE_DEFINITIONS } from "@buddy/workspace-file-policy"
+import { parseTString } from "@/components/chat/tools/types"
+import { hasFunctionValue } from "@/state/parse-external"
 import type { PromptComposerAttachment, PromptModelAttachment } from "./prompt-types"
 
 export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"]
@@ -146,8 +148,9 @@ export function cloneAttachments(attachments: PromptComposerAttachment[]) {
 }
 
 export function createAttachmentID() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID()
+  const cryptoRef = "crypto" in globalThis ? globalThis.crypto : undefined
+  if (cryptoRef && hasFunctionValue(cryptoRef.randomUUID)) {
+    return cryptoRef.randomUUID()
   }
   return `attachment-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
@@ -156,18 +159,19 @@ export function readFileAsDataUrl(file: File, resolvedMime?: string) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     const onLoad = () => {
-      if (typeof reader.result === "string") {
+      const result = parseTString(reader.result)
+      if (result !== undefined) {
         if (!resolvedMime) {
-          resolve(reader.result)
+          resolve(result)
           return
         }
 
-        const separator = reader.result.indexOf(",")
+        const separator = result.indexOf(",")
         if (separator === -1) {
           reject(new Error("Failed to read attachment"))
           return
         }
-        resolve(`data:${resolvedMime};base64,${reader.result.slice(separator + 1)}`)
+        resolve(`data:${resolvedMime};base64,${result.slice(separator + 1)}`)
         return
       }
       reject(new Error("Failed to read attachment"))

@@ -9,11 +9,13 @@ import {
   ListChecksIcon,
   PanelsTopLeftIcon,
   PresentationIcon,
-  ShapesIcon,
   WorkflowIcon,
   ZapIcon,
   type AppIcon,
 } from "@/icons/app-icons"
+import * as AppIcons from "@/icons/app-icons"
+
+const FigureGlyph = AppIcons["ShapesIcon"]
 
 /**
  * Easel · Inline object language
@@ -89,7 +91,7 @@ const KIND_LABEL = {
 const KIND_ICON = {
   resource: FileTextIcon,
   image: ImagesIcon,
-  figure: ShapesIcon,
+  figure: FigureGlyph,
   mermaid: WorkflowIcon,
   widget: PanelsTopLeftIcon,
   "question-set": ListChecksIcon,
@@ -646,7 +648,7 @@ function DriftSection() {
 /* 2 · All five variants                                                   */
 /* ---------------------------------------------------------------------- */
 
-function ShapeSection() {
+function VariantsSection() {
   const widget = modelFor("widget")
   const book = modelFor("resource")
 
@@ -903,7 +905,7 @@ export function ObjectRowLanguageEasel() {
       <div className="min-h-0 flex-1 overflow-y-auto bg-surface-inset-base">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-6">
           {section === "problem" ? <DriftSection /> : null}
-          {section === "shape" ? <ShapeSection /> : null}
+          {section === "shape" ? <VariantsSection /> : null}
           {section === "covers" ? <CoversSection /> : null}
           {section === "kinds" ? <KindsSection variant={variant} /> : null}
           {section === "transcript" ? <TranscriptSection variant={variant} /> : null}

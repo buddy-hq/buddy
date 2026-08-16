@@ -27,7 +27,7 @@ type MarkdownFileEditorProps = {
     content: string
     expectedVersion?: string | null
   }) => Promise<MarkdownFileSaveResult>
-  isVersionConflictError: (error: unknown) => boolean
+  isVersionConflictError: <TError>(error: TError) => boolean
 }
 
 export function MarkdownFileEditor(props: MarkdownFileEditorProps) {

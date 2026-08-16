@@ -35,11 +35,11 @@ import {
   PlayIcon,
   PresentationIcon,
   SearchIcon,
-  ShapesIcon,
   ScrollTextIcon,
   WorkflowIcon,
   type AppIcon,
 } from "@/icons/app-icons"
+import * as AppIcons from "@/icons/app-icons"
 import { NotebookSearchDrawer, type EaselSearchResult } from "./easel/notebook-search-drawer"
 import { EaselOnboarding } from "./easel/easel-onboarding"
 import { OnboardingNocturne } from "./easel/onboarding-nocturne"
@@ -73,6 +73,8 @@ import { SegmentedActiveStateEasel } from "./easel/segmented-active-state"
 import { SettingsUpdatesAndModeEasel } from "./easel/settings-updates-and-mode"
 import { ThemeSelectors } from "./theme-selectors"
 import { findCatalogID } from "./easel/select-value"
+
+const FigureGlyph = AppIcons["ShapesIcon"]
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
 type EaselRailItemID = EaselSectionID | "agents"
@@ -369,7 +371,7 @@ const EASEL_RAIL_ITEMS: EaselRailItem[] = [
   { id: "search", label: "Search", icon: SearchIcon },
   { id: "sources", label: "Sources", icon: BookOpenIcon },
   { id: "practice", label: "Practice", icon: BrainIcon },
-  { id: "creations", label: "Creations", icon: ShapesIcon },
+  { id: "creations", label: "Creations", icon: FigureGlyph },
   { id: "boards", label: "Boards", icon: PresentationIcon },
   { id: "files", label: "Files", icon: FolderIcon },
   { id: "agents", label: "Agents", icon: ScrollTextIcon },
@@ -865,7 +867,7 @@ function CreationsDrawer(props: {
     >
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm">
-          <ShapesIcon data-icon="inline-start" aria-hidden />
+          <FigureGlyph data-icon="inline-start" aria-hidden />
           All types
           <ChevronDownIcon data-icon="inline-end" aria-hidden />
         </Button>

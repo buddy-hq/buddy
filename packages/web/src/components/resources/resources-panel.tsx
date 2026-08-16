@@ -130,7 +130,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
     }
   }
 
-  async function runResourceAction(key: string, action: () => Promise<unknown>) {
+  async function runResourceAction(key: string, action: () => Promise<void>) {
     setBusyKey(key)
     setActionError(undefined)
 

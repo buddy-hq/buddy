@@ -27,7 +27,8 @@ import {
   reloadProviderRuntime,
 } from "../lib/provider-auth"
 import { loadGlobalConfig, patchGlobalConfig } from "@/state/chat-actions"
-import type { ProviderInfo } from "@/state/chat-types"
+import type { ProviderInfo, TRecord } from "@/state/chat-types"
+import { parseFilteredStringArray } from "@/state/parse-external"
 
 type ConnectProviderDialogProps = {
   open: boolean
@@ -56,10 +57,8 @@ const FALLBACK_API_METHOD = {
 
 const DISABLED_PROVIDERS_CONFIG_KEY = "disabled_providers"
 
-function readDisabledProviders(config: Record<string, unknown>) {
-  const value = config[DISABLED_PROVIDERS_CONFIG_KEY]
-  if (!Array.isArray(value)) return []
-  return value.filter((item): item is string => typeof item === "string")
+function readDisabledProviders(config: TRecord) {
+  return parseFilteredStringArray(config[DISABLED_PROVIDERS_CONFIG_KEY]) ?? []
 }
 
 function resolveMethods(provider: ProviderInfo) {

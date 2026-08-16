@@ -23,12 +23,14 @@ import {
   PlayIcon,
   PlusIcon,
   SearchIcon,
-  ShapesIcon,
   VideoIcon,
   WorkflowIcon,
   XIcon,
   ZapIcon,
 } from "@/icons/app-icons"
+import * as AppIcons from "@/icons/app-icons"
+
+const FigureGlyph = AppIcons["ShapesIcon"]
 
 /**
  * Easel · Creations drawer redesigns
@@ -1001,7 +1003,7 @@ function FilterBar() {
   return (
     <div className="flex shrink-0 items-center gap-2 px-3 py-2">
       <Button type="button" variant="outline" size="sm" className="gap-1.5">
-        <ShapesIcon className="size-4" aria-hidden />
+        <FigureGlyph className="size-4" aria-hidden />
         All types
         <ChevronDownIcon className="size-4" aria-hidden />
       </Button>

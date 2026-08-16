@@ -115,7 +115,7 @@ export function MemoryGame({ onStatusChange }: MemoryGameProps) {
       if (
         document.activeElement instanceof HTMLInputElement ||
         document.activeElement instanceof HTMLTextAreaElement ||
-        (document.activeElement as HTMLElement)?.isContentEditable
+        (document.activeElement instanceof HTMLElement && document.activeElement.isContentEditable)
       ) {
         return
       }

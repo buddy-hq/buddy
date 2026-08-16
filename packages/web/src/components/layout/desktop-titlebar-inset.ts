@@ -1,4 +1,5 @@
 import { useLayoutEffect, useState } from "react"
+import { browserWindow } from "@/state/parse-external"
 
 export const DESKTOP_TITLEBAR_SELECTOR = '[data-component="desktop-titlebar"]'
 
@@ -39,7 +40,7 @@ export function useDesktopTitlebarInset(enabled = true) {
   const [inset, setInset] = useState(0)
 
   useLayoutEffect(() => {
-    if (!enabled || typeof window === "undefined") {
+    if (!enabled || !browserWindow()) {
       setInset(0)
       return
     }
@@ -51,7 +52,7 @@ export function useDesktopTitlebarInset(enabled = true) {
     update()
 
     const cleanups: Array<() => void> = []
-    if (typeof ResizeObserver !== "undefined") {
+    if ("ResizeObserver" in globalThis) {
       const observer = new ResizeObserver(update)
       for (const titlebar of document.querySelectorAll(DESKTOP_TITLEBAR_SELECTOR)) {
         if (titlebar instanceof HTMLElement) {

@@ -20,17 +20,9 @@ import {
 } from "./settings-primitives"
 import { usePlatform } from "@/context/platform"
 import { standardsStatusLabel, useStandardsRuntime } from "./use-standards-runtime"
+import { stringifyError } from "@/lib/api-client"
+import { parseTNumber } from "@/components/chat/tools/types"
 import { ConfirmRemoveStandardsRuntimeDialog } from "./confirm-remove-standards-runtime-dialog"
-
-function stringifyError(error: unknown) {
-  if (error instanceof Error) return error.message
-  if (typeof error === "string") return error
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return String(error)
-  }
-}
 
 function toolStateLabel(enabled: boolean) {
   return enabled ? language.t("settings.tools.enabled") : language.t("settings.tools.disabled")
@@ -166,11 +158,11 @@ export function StandardsSettings() {
             }
           />
           {standardsStatus?.progressMessage ||
-          typeof standardsStatus?.progressPercent === "number" ? (
+          parseTNumber(standardsStatus?.progressPercent) !== undefined ? (
             <div className="space-y-1 border-t border-border-base/60 px-4 py-3 sm:px-5">
               <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
                 <span>{standardsStatus.progressMessage}</span>
-                {typeof standardsStatus.progressPercent === "number" ? (
+                {parseTNumber(standardsStatus.progressPercent) !== undefined ? (
                   <span>{Math.round(standardsStatus.progressPercent)}%</span>
                 ) : null}
               </div>
@@ -195,11 +187,11 @@ export function StandardsSettings() {
             mixed={!allGlobalEnabled && someGlobalEnabled}
             disabled={toolControlsDisabled}
             onToggleAll={(enabled) => {
-              void applyDefaults(
-                Object.fromEntries(
-                  STANDARDS_TOOL_IDS.map((toolId) => [toolId, enabled] as const),
-                ) as typeof defaults,
-              )
+              const nextDefaults = { ...defaults }
+              for (const toolId of STANDARDS_TOOL_IDS) {
+                nextDefaults[toolId] = enabled
+              }
+              void applyDefaults(nextDefaults)
             }}
             last={false}
           />
