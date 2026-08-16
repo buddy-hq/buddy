@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { ToggleGroup, ToggleGroupItem } from "@buddy/ui"
+import { findSelectValue } from "./select-value"
 import type { AssistantErrorCategory, AssistantErrorModel } from "@/state/chat-error-model"
 import {
   AssistantErrorCard,
@@ -121,6 +122,7 @@ function modelFor(preview: PreviewCase): AssistantErrorModel {
 }
 
 type Density = "single" | "gallery"
+const DENSITIES = ["single", "gallery"] satisfies Density[]
 
 export function ErrorCardPreviewEasel() {
   const [density, setDensity] = useState<Density>("gallery")
@@ -136,10 +138,8 @@ export function ErrorCardPreviewEasel() {
           type="single"
           value={density}
           onValueChange={(v) => {
-            if (v) {
-              // SAFETY: This select only emits values from the configured density items.
-              setDensity(v as Density)
-            }
+            const nextDensity = findSelectValue(v, DENSITIES)
+            if (nextDensity) setDensity(nextDensity)
           }}
           variant="outline"
           size="sm"

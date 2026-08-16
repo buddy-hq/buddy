@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@buddy/ui"
+import { findCatalogID } from "./select-value"
 
 /**
  * Easel · Question Dock · Spotlight
@@ -831,10 +832,8 @@ export function QuestionDockRedesignsEasel() {
           type="single"
           value={scenarioId}
           onValueChange={(v) => {
-            if (v) {
-              // SAFETY: This select only emits identifiers from the configured scenario list.
-              setScenarioId(v as ScenarioId)
-            }
+            const nextScenarioID = findCatalogID(v, SCENARIOS)
+            if (nextScenarioID) setScenarioId(nextScenarioID)
           }}
           variant="outline"
           size="sm"

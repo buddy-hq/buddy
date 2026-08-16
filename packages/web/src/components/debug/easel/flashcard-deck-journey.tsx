@@ -1,6 +1,7 @@
 import { useCallback, useState, type ReactNode } from "react"
 import { motion } from "motion/react"
 import { Badge, Button, ToggleGroup, ToggleGroupItem, cn } from "@buddy/ui"
+import { findSelectValue } from "./select-value"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -106,6 +107,7 @@ const HINGE_TRANSITION = { type: "spring", stiffness: 260, damping: 30 } as cons
 type RatingID = "again" | "hard" | "good" | "easy"
 type CardStateID = "new" | "learning" | "review" | "relearning"
 type FrameID = "workspace" | "beside-chat"
+const FRAME_IDS = ["workspace", "beside-chat"] satisfies FrameID[]
 
 type DeckCard = {
   id: string
@@ -1452,10 +1454,8 @@ export function FlashcardDeckJourneyEasel() {
             size="sm"
             aria-label="Frame"
             onValueChange={(value) => {
-              if (value) {
-                // SAFETY: This select only emits identifiers from the configured frame list.
-                setFrameID(value as FrameID)
-              }
+              const nextFrameID = findSelectValue(value, FRAME_IDS)
+              if (nextFrameID) setFrameID(nextFrameID)
             }}
           >
             <ToggleGroupItem value="beside-chat">Beside chat</ToggleGroupItem>

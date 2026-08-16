@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Badge, ToggleGroup, ToggleGroupItem, cn } from "@buddy/ui"
+import { findCatalogID } from "./select-value"
 import {
   ChevronRightIcon,
   FileTextIcon,
@@ -864,10 +865,8 @@ export function ObjectRowLanguageEasel() {
           type="single"
           value={section}
           onValueChange={(value) => {
-            if (value) {
-              // SAFETY: This select only emits values from the configured EaselSection items.
-              setSection(value as EaselSection)
-            }
+            const nextSection = findCatalogID(value, SECTIONS)
+            if (nextSection) setSection(nextSection)
           }}
           variant="outline"
           size="sm"
@@ -885,10 +884,8 @@ export function ObjectRowLanguageEasel() {
               type="single"
               value={variant}
               onValueChange={(value) => {
-                if (value) {
-                  // SAFETY: This select only emits values from the configured ObjectVariant items.
-                  setVariant(value as ObjectVariant)
-                }
+                const nextVariant = findCatalogID(value, VARIANTS)
+                if (nextVariant) setVariant(nextVariant)
               }}
               variant="outline"
               size="sm"

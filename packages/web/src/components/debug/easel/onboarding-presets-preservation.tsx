@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { PaintbrushIcon, ChevronDownIcon } from "@/icons/app-icons"
+import { findSelectValue } from "./select-value"
 
 // ── TYPES PRESERVATION ──
 
@@ -20,6 +21,15 @@ export type SpaceColorId =
   | "amber"
   | "ruby"
   | "monochrome"
+const SPACE_COLOR_IDS = [
+  "theme",
+  "emerald",
+  "amethyst",
+  "sapphire",
+  "amber",
+  "ruby",
+  "monochrome",
+] satisfies SpaceColorId[]
 export type TransitionId = "diagonal" | "ripple" | "warp" | "dissolve" | "eclipse"
 export type MoodKey = "neutral" | "learn" | "teach"
 
@@ -580,8 +590,8 @@ export function ControlPanel({
                       key={id}
                       type="button"
                       onClick={() => {
-                        // SAFETY: Object entries originate from the SpaceColorId-keyed color catalog.
-                        onSpaceColorChange(id as SpaceColorId)
+                        const spaceColorID = findSelectValue(id, SPACE_COLOR_IDS)
+                        if (spaceColorID) onSpaceColorChange(spaceColorID)
                       }}
                       className={`size-6 rounded-full border transition-all relative ${
                         isActive

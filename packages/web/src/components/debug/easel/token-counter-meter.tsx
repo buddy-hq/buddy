@@ -7,6 +7,7 @@ import {
   formatUsageWindowLabel,
 } from "@/components/settings/settings-providers"
 import type { OpenAIUsageSnapshot } from "@/state/openai-usage-query"
+import { findSelectValue } from "./select-value"
 
 /**
  * Easel · Token counter meter
@@ -290,6 +291,10 @@ function TokenCounterPopover(props: {
 type ProviderChoice = "openai" | "anthropic"
 type UsageState = "ready" | "loading" | "error" | "reconnect"
 type LoadLevel = "light" | "typical" | "heavy"
+const PROVIDER_CHOICES = ["openai", "anthropic"] satisfies ProviderChoice[]
+const USAGE_STATES = ["ready", "loading", "error", "reconnect"] satisfies UsageState[]
+const LOAD_LEVELS = ["light", "typical", "heavy"] satisfies LoadLevel[]
+const METER_FRAMINGS = ["used", "remaining"] satisfies MeterFraming[]
 
 const LOAD_PROFILES = {
   light: { context: 8, contextTotal: 16_000, primary: 18, secondary: 27, cost: 0.02 },
@@ -456,10 +461,8 @@ export function TokenCounterMeterEasel() {
             variant="outline"
             size="sm"
             onValueChange={(value) => {
-              if (value) {
-                // SAFETY: This select only emits values from the configured ProviderChoice items.
-                setProvider(value as ProviderChoice)
-              }
+              const provider = findSelectValue(value, PROVIDER_CHOICES)
+              if (provider) setProvider(provider)
             }}
           >
             <ToggleGroupItem value="openai" className="text-xs">
@@ -482,10 +485,8 @@ export function TokenCounterMeterEasel() {
               variant="outline"
               size="sm"
               onValueChange={(value) => {
-                if (value) {
-                  // SAFETY: This select only emits values from the configured UsageState items.
-                  setUsageState(value as UsageState)
-                }
+                const state = findSelectValue(value, USAGE_STATES)
+                if (state) setUsageState(state)
               }}
             >
               <ToggleGroupItem value="ready" className="text-xs">
@@ -514,10 +515,8 @@ export function TokenCounterMeterEasel() {
             variant="outline"
             size="sm"
             onValueChange={(value) => {
-              if (value) {
-                // SAFETY: This select only emits values from the configured LoadLevel items.
-                setLoad(value as LoadLevel)
-              }
+              const level = findSelectValue(value, LOAD_LEVELS)
+              if (level) setLoad(level)
             }}
           >
             <ToggleGroupItem value="light" className="text-xs">
@@ -542,10 +541,8 @@ export function TokenCounterMeterEasel() {
             variant="outline"
             size="sm"
             onValueChange={(value) => {
-              if (value) {
-                // SAFETY: This select only emits values from the configured MeterFraming items.
-                setFraming(value as MeterFraming)
-              }
+              const nextFraming = findSelectValue(value, METER_FRAMINGS)
+              if (nextFraming) setFraming(nextFraming)
             }}
           >
             <ToggleGroupItem value="used" className="text-xs">

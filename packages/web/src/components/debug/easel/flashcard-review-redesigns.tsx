@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion, type Variants } from "motion/react"
 import { Badge, Button, ToggleGroup, ToggleGroupItem, cn } from "@buddy/ui"
 import { PauseIcon, PlayIcon, RotateCcwIcon } from "@/icons/app-icons"
+import { findCatalogID } from "./select-value"
 
 /**
  * Easel · Flashcard review · the index card
@@ -129,7 +130,7 @@ type MockCard = {
 const DECK_TITLE = "GLM-5: Main Ideas and Learning Path"
 const DECK_TOTAL = 24
 
-const CARDS: MockCard[] = [
+const CARDS = [
   {
     id: "mla",
     label: "long answer",
@@ -173,7 +174,7 @@ const CARDS: MockCard[] = [
     intervals: { again: "<1m", hard: "5m", good: "10m", easy: "3d" },
     stats: { ease: "1.95", reps: 6, lapses: 4, due: "today" },
   },
-]
+] satisfies [MockCard, ...MockCard[]]
 
 const RATINGS: { id: RatingID; label: string; key: string }[] = [
   { id: "again", label: "Again", key: "1" },
@@ -727,8 +728,7 @@ export function FlashcardReviewRedesignsEasel() {
   const stageBox = useElementSize<HTMLDivElement>()
   const contactColumn = useElementSize<HTMLDivElement>()
 
-  // SAFETY: CARDS is a non-empty static fixture and the modulo index is always in bounds.
-  const card = CARDS[cardIndex % CARDS.length] as MockCard
+  const card = CARDS[cardIndex % CARDS.length] ?? CARDS[0]
   const stageConfig = STAGES.find((entry) => entry.id === stage) ?? STAGES[0]
   const speed = SPEEDS.find((entry) => entry.id === speedID)?.factor ?? 1
   const reviewed = Math.min(DECK_TOTAL, history.length)
@@ -826,10 +826,8 @@ export function FlashcardReviewRedesignsEasel() {
             size="sm"
             aria-label="Stage size"
             onValueChange={(value) => {
-              if (value) {
-                // SAFETY: This select only emits identifiers from the configured stage list.
-                setStage(value as StageID)
-              }
+              const nextStage = findCatalogID(value, STAGES)
+              if (nextStage) setStage(nextStage)
             }}
           >
             {STAGES.map((entry) => (
@@ -959,10 +957,8 @@ export function FlashcardReviewRedesignsEasel() {
                   size="sm"
                   aria-label="Motion speed"
                   onValueChange={(value) => {
-                    if (value) {
-                      // SAFETY: This select only emits identifiers from the configured speed list.
-                      setSpeedID(value as SpeedID)
-                    }
+                    const nextSpeedID = findCatalogID(value, SPEEDS)
+                    if (nextSpeedID) setSpeedID(nextSpeedID)
                   }}
                 >
                   {SPEEDS.map((entry) => (
@@ -1000,10 +996,8 @@ export function FlashcardReviewRedesignsEasel() {
                 size="sm"
                 aria-label="Preview zoom"
                 onValueChange={(value) => {
-                  if (value) {
-                    // SAFETY: This select only emits identifiers from the configured zoom list.
-                    setContactZoomID(value as ContactZoomID)
-                  }
+                  const nextZoomID = findCatalogID(value, CONTACT_ZOOMS)
+                  if (nextZoomID) setContactZoomID(nextZoomID)
                 }}
               >
                 {CONTACT_ZOOMS.map((entry) => (

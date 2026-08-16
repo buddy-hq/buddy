@@ -1,5 +1,6 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react"
 import { Badge, Button, cn, ToggleGroup, ToggleGroupItem } from "@buddy/ui"
+import { findCatalogID } from "./select-value"
 import {
   ArrowRightIcon,
   Clock3Icon,
@@ -1067,10 +1068,8 @@ export function ErrorSystemRedesignEasel() {
           type="single"
           value={view}
           onValueChange={(v) => {
-            if (v) {
-              // SAFETY: This select only emits values from the configured view items.
-              setView(v as View)
-            }
+            const nextView = findCatalogID(v, VIEWS)
+            if (nextView) setView(nextView)
           }}
           variant="outline"
           size="sm"

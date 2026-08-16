@@ -72,6 +72,7 @@ import { ReaderLayoutConsistencyEasel } from "./easel/reader-layout-consistency"
 import { SegmentedActiveStateEasel } from "./easel/segmented-active-state"
 import { SettingsUpdatesAndModeEasel } from "./easel/settings-updates-and-mode"
 import { ThemeSelectors } from "./theme-selectors"
+import { findCatalogID } from "./easel/select-value"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
 type EaselRailItemID = EaselSectionID | "agents"
@@ -1314,8 +1315,8 @@ export function DevToolsEaselTab(props: { directory?: string }) {
           <Select
             value={prototype}
             onValueChange={(value) => {
-              // SAFETY: This select only emits values from the EaselPrototype item set below.
-              setPrototype(value as EaselPrototype)
+              const nextPrototype = findCatalogID(value, EASEL_PROTOTYPES)
+              if (nextPrototype) setPrototype(nextPrototype)
             }}
           >
             <SelectTrigger

@@ -16,10 +16,18 @@ import {
 
 // Import mascot assets directly
 import buddyMascotWaveUrl from "../../../../../../assets/mascot/buddy-mascot-wave.png"
+import { findSelectValue } from "./select-value"
 import buddyMascotPeekUrl from "../../../../../../assets/mascot/buddy-mascot-peek.png"
 import buddyMascotApproveUrl from "../../../../../../assets/mascot/buddy-mascot-approve.png"
 
 type InterviewConceptID = "standard" | "scrolling" | "chatSim" | "splitScreen" | "hud"
+const INTERVIEW_CONCEPT_IDS = [
+  "standard",
+  "scrolling",
+  "chatSim",
+  "splitScreen",
+  "hud",
+] satisfies InterviewConceptID[]
 
 type OnboardingOption = "overview" | InterviewConceptID
 
@@ -1857,10 +1865,10 @@ export function EaselOnboarding() {
           <select
             value={activeConcept}
             onChange={(e) => {
-              // SAFETY: The native select options are the complete OnboardingOption set.
-              setActiveTab(e.target.value as OnboardingOption)
-              // SAFETY: The same option values are also the complete InterviewConceptID set.
-              setActiveConcept(e.target.value as InterviewConceptID)
+              const conceptID = findSelectValue(e.target.value, INTERVIEW_CONCEPT_IDS)
+              if (!conceptID) return
+              setActiveTab(conceptID)
+              setActiveConcept(conceptID)
               resetAll()
             }}
             className="h-8 rounded-lg border border-border-base bg-background-base text-xs font-semibold text-text-strong px-3 outline-none focus:border-border-interactive-base cursor-pointer"
