@@ -540,7 +540,7 @@ async function scanObjectDirectories(input: {
 function buildObjectListFromScan(input: {
   directory: string
   scanned: ObjectDirectoryScanResult
-}): { list: BuddyObjectListResult; cache: BuddyObjectIndexCache } {
+}) {
   const liveByID = new Map<
     string,
     Array<{ manifest: BuddyObjectManifest; objectDirectory: string }>

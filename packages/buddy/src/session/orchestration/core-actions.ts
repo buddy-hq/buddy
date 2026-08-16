@@ -148,15 +148,15 @@ function buildSessionUpdateParams(input: {
   directory: string
   body: SessionPatchBody | undefined
 }) {
-  const params: {
+  const params = {
+    sessionID: input.sessionID,
+    directory: input.directory,
+  } satisfies {
     sessionID: string
     directory: string
     title?: string
     permission?: PermissionRuleset
     time?: { archived?: number }
-  } = {
-    sessionID: input.sessionID,
-    directory: input.directory,
   }
 
   if (typeof input.body?.title === "string") {
@@ -180,15 +180,15 @@ function buildSessionSummarizeParams(input: {
   directory: string
   body: SessionSummarizeBody | undefined
 }) {
-  const params: {
+  const params = {
+    sessionID: input.sessionID,
+    directory: input.directory,
+  } satisfies {
     sessionID: string
     directory: string
     providerID?: string
     modelID?: string
     auto?: boolean
-  } = {
-    sessionID: input.sessionID,
-    directory: input.directory,
   }
 
   if (typeof input.body?.providerID === "string") {
