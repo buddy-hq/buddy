@@ -365,10 +365,10 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
     const prepared = toEditorElementConversion(props.board.elements)
     try {
       const converted = prepareConvertedElements(convertPreparedElements(prepared))
-      return {
-        elements: converted,
-        ...(prepared.warning ? { warning: prepared.warning } : {}),
-      }
+      return Object.assign(
+        { elements: converted },
+        prepared.warning ? { warning: prepared.warning } : undefined,
+      )
     } catch (error) {
       return {
         elements: [],
@@ -531,20 +531,26 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
       nextElements: OrderedExcalidrawElement[],
       phase: "initial-mount" | "mounted-update",
     ) => {
-      const viewport = resolveWhiteboardRemoteSceneViewport({
-        phase,
-        ...(viewportRef.current ? { viewport: viewportRef.current } : {}),
-      })
+      const viewport = resolveWhiteboardRemoteSceneViewport(
+        Object.assign(
+          { phase },
+          viewportRef.current ? { viewport: viewportRef.current } : undefined,
+        ),
+      )
       const appState = viewport
         ? viewportToRestoredAppState(viewport, api.getAppState())
         : undefined
       remoteSceneUpdateDepthRef.current += 1
       try {
-        api.updateScene({
-          elements: nextElements,
-          ...(appState ? { appState } : {}),
-          captureUpdate: CaptureUpdateAction.NEVER,
-        })
+        api.updateScene(
+          Object.assign(
+            {
+              elements: nextElements,
+              captureUpdate: CaptureUpdateAction.NEVER,
+            },
+            appState ? { appState } : undefined,
+          ),
+        )
       } finally {
         window.requestAnimationFrame(() => {
           remoteSceneUpdateDepthRef.current = Math.max(0, remoteSceneUpdateDepthRef.current - 1)
@@ -766,7 +772,7 @@ export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: Whiteboard
 
     updateDensity()
 
-    if (typeof ResizeObserver === "undefined") {
+    if (!("ResizeObserver" in globalThis)) {
       window.addEventListener("resize", updateDensity)
       return () => window.removeEventListener("resize", updateDensity)
     }

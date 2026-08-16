@@ -219,14 +219,18 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   const boardID = currentBoard?.boardID
   const computedProgressivePreview = useMemo(
     () =>
-      buildProgressiveWhiteboardPreviewFromMessages({
-        messages,
-        objectID,
-        toolKey: previewToolKey,
-        baseBoardID: boardID,
-        baseElements: currentBoard?.elements ?? [],
-        ...(currentBoard?.viewport ? { baseViewport: currentBoard.viewport } : {}),
-      }),
+      buildProgressiveWhiteboardPreviewFromMessages(
+        Object.assign(
+          {
+            messages,
+            objectID,
+            toolKey: previewToolKey,
+            baseBoardID: boardID,
+            baseElements: currentBoard?.elements ?? [],
+          },
+          currentBoard?.viewport ? { baseViewport: currentBoard.viewport } : undefined,
+        ),
+      ),
     [boardID, currentBoard?.elements, currentBoard?.viewport, messages, objectID, previewToolKey],
   )
   const completedWhiteboardCreateCount = useMemo(
@@ -258,18 +262,20 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   })
   const displayedBoard = useMemo(() => {
     if (currentBoard && progressivePreview && !shouldUseFetchedBoardDuringActiveCreate) {
-      return {
-        ...currentBoard,
-        elements: progressivePreview.elements,
-        ...(progressivePreview.viewport ? { viewport: progressivePreview.viewport } : {}),
-      }
+      return Object.assign(
+        {
+          ...currentBoard,
+          elements: progressivePreview.elements,
+        },
+        progressivePreview.viewport ? { viewport: progressivePreview.viewport } : undefined,
+      )
     }
     if (currentBoard) return currentBoard
     if (!progressivePreview) return undefined
-    return {
-      elements: progressivePreview.elements,
-      ...(progressivePreview.viewport ? { viewport: progressivePreview.viewport } : {}),
-    }
+    return Object.assign(
+      { elements: progressivePreview.elements },
+      progressivePreview.viewport ? { viewport: progressivePreview.viewport } : undefined,
+    )
   }, [currentBoard, progressivePreview, shouldUseFetchedBoardDuringActiveCreate])
   const showOpeningAnimation = shouldShowWhiteboardOpeningAnimation({
     hasDisplayedBoard: Boolean(displayedBoard),

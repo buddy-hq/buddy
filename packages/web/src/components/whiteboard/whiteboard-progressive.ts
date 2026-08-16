@@ -1,4 +1,5 @@
-import type { MessageWithParts } from "@/state/chat-types"
+import { z } from "zod"
+import type { MessageWithParts, MessagePart } from "@/state/chat-types"
 import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
 import type { PersistedWhiteboardElement, WhiteboardViewport } from "./whiteboard-elements"
 
@@ -35,7 +36,24 @@ type WhiteboardCreateObjectReference =
 
 type ProgramReadMode = "complete" | "streaming"
 type ProgramWriteMode = "auto" | "continue" | "replace" | "invalid"
+
+type TJsonPrimitive = string | number | boolean | null
+type TJsonObject = { readonly [key: string]: TJsonValue }
+type TJsonValue = TJsonPrimitive | TJsonObject | readonly TJsonValue[]
+
+type TWhiteboardCreateToolState = {
+  status: string
+  input?: TJsonObject
+  metadata?: TJsonObject
+  raw?: string
+}
+
 const WHITEBOARD_CONTINUATION_HANDLE = "current"
+const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view"
+const WHITEBOARD_TOOL_PENDING_STATUS = "pending"
+const WHITEBOARD_TOOL_RUNNING_STATUS = "running"
+const WHITEBOARD_TOOL_COMPLETED_STATUS = "completed"
+const WHITEBOARD_TOOL_ERROR_STATUS = "error"
 const SUPPORTED_WHITEBOARD_DRAWN_TYPES = new Set([
   "arrow",
   "diamond",
@@ -46,8 +64,80 @@ const SUPPORTED_WHITEBOARD_DRAWN_TYPES = new Set([
   "text",
 ])
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const jsonValueSchema: z.ZodType<TJsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValueSchema),
+    z.record(z.string(), jsonValueSchema),
+  ]),
+)
+
+const jsonObjectSchema: z.ZodType<TJsonObject> = z.lazy(() =>
+  z.record(z.string(), jsonValueSchema),
+)
+
+const whiteboardCreateToolStateSchema = z.object({
+  status: z.string(),
+  input: jsonObjectSchema.optional(),
+  metadata: jsonObjectSchema.optional(),
+  raw: z.string().optional(),
+})
+
+const whiteboardViewportSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  width: z.number().finite(),
+  height: z.number().finite(),
+})
+
+const elementPositionSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+})
+
+const elementContainerIdSchema = z.object({
+  containerId: z.string().optional(),
+})
+
+function parseJsonObject(value: TJsonValue): TJsonObject | undefined {
+  const parsed = jsonObjectSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseJsonString(value: TJsonValue | undefined): string | undefined {
+  if (value === undefined) return undefined
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseJsonFiniteNumber(value: TJsonValue | undefined): number | undefined {
+  if (value === undefined) return undefined
+  const parsed = z.number().finite().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseJsonBoolean(value: TJsonValue | undefined): boolean | undefined {
+  if (value === undefined) return undefined
+  const parsed = z.boolean().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseWhiteboardCreateToolState(
+  part: MessagePart,
+): TWhiteboardCreateToolState | undefined {
+  const parsed = whiteboardCreateToolStateSchema.safeParse(part.state)
+  return parsed.success ? parsed.data : undefined
+}
+
+function isPersistedWhiteboardElement(
+  value: TJsonObject,
+): value is TJsonObject & PersistedWhiteboardElement {
+  const id = parseJsonString(value.id)
+  const type = parseJsonString(value.type)
+  return id !== undefined && type !== undefined && SUPPORTED_WHITEBOARD_DRAWN_TYPES.has(type)
 }
 
 function decodeJsonEscape(value: string): string | undefined {
@@ -119,16 +209,17 @@ function decodePartialElementsArgument(raw: string): string | undefined {
   return decodePartialStringArgument(raw, "elements")
 }
 
-function readJsonArray(value: string): unknown[] | undefined {
+function readJsonArray(value: string): TJsonValue[] | undefined {
   try {
-    const parsed: unknown = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed : undefined
+    const parsed = jsonValueSchema.safeParse(JSON.parse(value))
+    if (!parsed.success || !Array.isArray(parsed.data)) return undefined
+    return [...parsed.data]
   } catch {
     return undefined
   }
 }
 
-function parsePartialElements(value: string | undefined): unknown[] {
+function parsePartialElements(value: string | undefined): TJsonValue[] {
   if (!value?.trim().startsWith("[")) return []
   const complete = readJsonArray(value)
   if (complete) return complete
@@ -137,31 +228,38 @@ function parsePartialElements(value: string | undefined): unknown[] {
   return readJsonArray(`${value.slice(0, lastCompleteObject + 1)}]`) ?? []
 }
 
-function readStreamingProgram(elements: string | undefined): unknown[] {
+function readStreamingProgram(elements: string | undefined): TJsonValue[] {
   return parsePartialElements(elements)
 }
 
 function readProgramFromElementsString(
   elements: string | undefined,
   mode: ProgramReadMode,
-): unknown[] {
+): TJsonValue[] {
   if (mode === "streaming") return readStreamingProgram(elements)
   return elements ? (readJsonArray(elements) ?? []) : []
 }
 
-function readProgramFromRaw(raw: string | undefined, mode: ProgramReadMode): unknown[] {
+function readProgramFromRaw(raw: string | undefined, mode: ProgramReadMode): TJsonValue[] {
   return readProgramFromElementsString(raw ? decodePartialElementsArgument(raw) : undefined, mode)
 }
 
-function isPersistedElement(value: unknown): value is PersistedWhiteboardElement {
-  if (!isRecord(value) || typeof value.id !== "string" || typeof value.type !== "string") {
-    return false
-  }
-  return SUPPORTED_WHITEBOARD_DRAWN_TYPES.has(value.type)
+function parsePersistedElement(value: TJsonValue): PersistedWhiteboardElement | undefined {
+  const record = parseJsonObject(value)
+  if (record === undefined || !isPersistedWhiteboardElement(record)) return undefined
+  return record
 }
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value)
+function parseElementContainerId(element: PersistedWhiteboardElement): string | undefined {
+  const parsed = elementContainerIdSchema.safeParse(element)
+  return parsed.success ? parsed.data.containerId : undefined
+}
+
+function parseElementPosition(
+  element: PersistedWhiteboardElement,
+): { x: number; y: number } | undefined {
+  const parsed = elementPositionSchema.safeParse(element)
+  return parsed.success ? parsed.data : undefined
 }
 
 function deleteElements(
@@ -170,14 +268,14 @@ function deleteElements(
 ): PersistedWhiteboardElement[] {
   return elements.filter((element) => {
     if (ids.has(element.id)) return false
-    return typeof element.containerId !== "string" || !ids.has(element.containerId)
+    const containerId = parseElementContainerId(element)
+    return containerId === undefined || !ids.has(containerId)
   })
 }
 
-function parseDeleteIDs(value: unknown): Set<string> {
-  if (!isRecord(value)) return new Set()
-  const raw = typeof value.ids === "string" ? value.ids : value.id
-  if (typeof raw !== "string") return new Set()
+function parseDeleteIDs(value: TJsonObject): Set<string> {
+  const raw = parseJsonString(value.ids) ?? parseJsonString(value.id)
+  if (raw === undefined) return new Set()
   return new Set(
     raw
       .split(",")
@@ -188,52 +286,38 @@ function parseDeleteIDs(value: unknown): Set<string> {
 
 function translateElements(
   elements: PersistedWhiteboardElement[],
-  value: Record<string, unknown>,
+  value: TJsonObject,
 ): PersistedWhiteboardElement[] {
-  if (typeof value.ids !== "string" || !isFiniteNumber(value.dx) || !isFiniteNumber(value.dy)) {
-    return elements
-  }
-  const dx = value.dx
-  const dy = value.dy
+  const idsValue = parseJsonString(value.ids)
+  const dx = parseJsonFiniteNumber(value.dx)
+  const dy = parseJsonFiniteNumber(value.dy)
+  if (idsValue === undefined || dx === undefined || dy === undefined) return elements
   const ids = new Set(
-    value.ids
+    idsValue
       .split(",")
       .map((id) => id.trim())
       .filter(Boolean),
   )
   for (const element of elements) {
-    if (typeof element.containerId === "string" && ids.has(element.containerId)) {
+    const containerId = parseElementContainerId(element)
+    if (containerId !== undefined && ids.has(containerId)) {
       ids.add(element.id)
     }
   }
   return elements.map((element) => {
-    if (!ids.has(element.id) || !isFiniteNumber(element.x) || !isFiniteNumber(element.y)) {
-      return element
-    }
-    return {
-      ...element,
-      x: element.x + dx,
-      y: element.y + dy,
-    }
+    if (!ids.has(element.id)) return element
+    const position = parseElementPosition(element)
+    if (position === undefined) return element
+    return Object.assign({}, element, {
+      x: position.x + dx,
+      y: position.y + dy,
+    })
   })
 }
 
-function parseCameraViewport(value: unknown): WhiteboardViewport | undefined {
-  if (!isRecord(value)) return undefined
-  if (
-    !isFiniteNumber(value.x) ||
-    !isFiniteNumber(value.y) ||
-    !isFiniteNumber(value.width) ||
-    !isFiniteNumber(value.height)
-  ) {
-    return undefined
-  }
-  return {
-    x: value.x,
-    y: value.y,
-    width: value.width,
-    height: value.height,
-  }
+function parseCameraViewport(value: TJsonObject): WhiteboardViewport | undefined {
+  const parsed = whiteboardViewportSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
 function readElementSignature(element: PersistedWhiteboardElement): string {
@@ -251,14 +335,18 @@ function buildProgressiveWhiteboardSignature(input: {
 }
 
 function toPreview(state: ProgressiveWhiteboardState): ProgressiveWhiteboardPreview {
-  return {
-    elements: state.elements,
-    ...(state.viewport ? { viewport: state.viewport } : {}),
-    signature: buildProgressiveWhiteboardSignature({
+  return Object.assign(
+    {
       elements: state.elements,
-      ...(state.viewport ? { viewport: state.viewport } : {}),
-    }),
-  }
+      signature: buildProgressiveWhiteboardSignature(
+        Object.assign(
+          { elements: state.elements },
+          state.viewport ? { viewport: state.viewport } : undefined,
+        ),
+      ),
+    },
+    state.viewport ? { viewport: state.viewport } : undefined,
+  )
 }
 
 function toVisiblePreview(
@@ -267,19 +355,21 @@ function toVisiblePreview(
   return state.elements.length > 0 ? toPreview(state) : undefined
 }
 
-function readProgramWriteMode(program: unknown[]): ProgramWriteMode {
+function readProgramWriteMode(program: TJsonValue[]): ProgramWriteMode {
   let hasRestore = false
   let hasReplacement = false
   for (let index = 0; index < program.length; index += 1) {
-    const value = program[index]
-    if (!isRecord(value) || typeof value.type !== "string") continue
-    if (value.type === "replaceCurrentBoard") {
+    const record = parseJsonObject(program[index])
+    if (record === undefined) continue
+    const type = parseJsonString(record.type)
+    if (type === undefined) continue
+    if (type === "replaceCurrentBoard") {
       if (index !== 0) return "invalid"
       hasReplacement = true
       continue
     }
-    if (value.type === "restoreCheckpoint") {
-      if (typeof value.id !== "string" || value.id !== WHITEBOARD_CONTINUATION_HANDLE) {
+    if (type === "restoreCheckpoint") {
+      if (parseJsonString(record.id) !== WHITEBOARD_CONTINUATION_HANDLE) {
         return "invalid"
       }
       hasRestore = true
@@ -313,7 +403,7 @@ function readBoardActionFromRaw(raw: string | undefined): ProgramWriteMode {
 }
 
 function resolveProgramWriteMode(input: {
-  program: unknown[]
+  program: TJsonValue[]
   requestedWriteMode: ProgramWriteMode
 }): ProgramWriteMode {
   const embeddedWriteMode = readProgramWriteMode(input.program)
@@ -329,7 +419,7 @@ function resolveProgramWriteMode(input: {
 
 function applyProgressiveProgram(input: {
   current: ProgressiveWhiteboardState
-  program: unknown[]
+  program: TJsonValue[]
   requestedWriteMode: ProgramWriteMode
 }): ProgressiveWhiteboardState {
   const writeMode = resolveProgramWriteMode({
@@ -342,30 +432,30 @@ function applyProgressiveProgram(input: {
   let viewport = continuesCurrentBoard ? input.current.viewport : undefined
 
   for (let index = 0; index < input.program.length; index += 1) {
-    const value = input.program[index]
-    if (!isRecord(value) || typeof value.type !== "string") continue
-    if (value.type === "restoreCheckpoint") continue
-    if (value.type === "replaceCurrentBoard") continue
-    if (value.type === "cameraUpdate") {
-      viewport = parseCameraViewport(value) ?? viewport
+    const record = parseJsonObject(input.program[index])
+    if (record === undefined) continue
+    const type = parseJsonString(record.type)
+    if (type === undefined) continue
+    if (type === "restoreCheckpoint") continue
+    if (type === "replaceCurrentBoard") continue
+    if (type === "cameraUpdate") {
+      viewport = parseCameraViewport(record) ?? viewport
       continue
     }
-    if (value.type === "delete") {
-      elements = deleteElements(elements, parseDeleteIDs(value))
+    if (type === "delete") {
+      elements = deleteElements(elements, parseDeleteIDs(record))
       continue
     }
-    if (value.type === "translate") {
-      elements = translateElements(elements, value)
+    if (type === "translate") {
+      elements = translateElements(elements, record)
       continue
     }
-    if (!isPersistedElement(value)) continue
-    if (elements.some((element) => element.id === value.id)) continue
-    elements.push(value)
+    const persisted = parsePersistedElement(record)
+    if (persisted === undefined) continue
+    if (elements.some((element) => element.id === persisted.id)) continue
+    elements.push(persisted)
   }
-  return {
-    elements,
-    ...(viewport ? { viewport } : {}),
-  }
+  return Object.assign({ elements }, viewport ? { viewport } : undefined)
 }
 
 function buildProgressiveWhiteboardPreview(input: {
@@ -393,35 +483,31 @@ function buildProgressiveWhiteboardElements(input: {
   return buildProgressiveWhiteboardPreview(input)?.elements
 }
 
-function readToolInputElements(state: Record<string, unknown>): string | undefined {
-  if (!isRecord(state.input)) return undefined
-  return typeof state.input.elements === "string" ? state.input.elements : undefined
+function readToolInputElements(state: TWhiteboardCreateToolState): string | undefined {
+  return parseJsonString(state.input?.elements)
 }
 
-function readToolInputBoardAction(state: Record<string, unknown>): ProgramWriteMode {
-  if (!isRecord(state.input)) return "auto"
-  return boardActionToProgramWriteMode(
-    typeof state.input.boardAction === "string" ? state.input.boardAction : undefined,
-  )
+function readToolInputBoardAction(state: TWhiteboardCreateToolState): ProgramWriteMode {
+  return boardActionToProgramWriteMode(parseJsonString(state.input?.boardAction))
 }
 
 function readRequestedWhiteboardCreateObjectReference(
-  state: Record<string, unknown>,
+  state: TWhiteboardCreateToolState,
 ): WhiteboardCreateObjectReference {
-  if (isRecord(state.input)) {
-    if (typeof state.input.objectID === "string") {
-      return { status: "existing", objectID: state.input.objectID }
-    }
-    if (state.input.objectID === null) return { status: "new" }
+  const inputObjectID = state.input?.objectID
+  const existingObjectID = parseJsonString(inputObjectID)
+  if (existingObjectID !== undefined) {
+    return { status: "existing", objectID: existingObjectID }
   }
-  if (typeof state.raw !== "string") return { status: "unknown" }
+  if (inputObjectID === null) return { status: "new" }
+  if (state.raw === undefined) return { status: "unknown" }
   const rawObjectID = decodePartialStringArgument(state.raw, "objectID")
   if (rawObjectID) return { status: "existing", objectID: rawObjectID }
   return hasPartialNullArgument(state.raw, "objectID") ? { status: "new" } : { status: "unknown" }
 }
 
 function readWhiteboardCreateObjectReference(
-  state: Record<string, unknown>,
+  state: TWhiteboardCreateToolState,
 ): WhiteboardCreateObjectReference {
   const metadataObjectID = readToolMetadataString(state, "objectID")
   if (metadataObjectID) return { status: "existing", objectID: metadataObjectID }
@@ -429,7 +515,7 @@ function readWhiteboardCreateObjectReference(
 }
 
 function whiteboardCreateTargetsObject(
-  state: Record<string, unknown>,
+  state: TWhiteboardCreateToolState,
   objectID: string | undefined,
 ): boolean {
   if (objectID === undefined) return true
@@ -438,21 +524,25 @@ function whiteboardCreateTargetsObject(
   return false
 }
 
-function readToolMetadataString(state: Record<string, unknown>, key: string): string | undefined {
-  if (!isRecord(state.metadata)) return undefined
-  return typeof state.metadata[key] === "string" ? state.metadata[key] : undefined
+function readToolMetadataString(
+  state: TWhiteboardCreateToolState,
+  key: string,
+): string | undefined {
+  return parseJsonString(state.metadata?.[key])
 }
 
-function readToolMetadataBoolean(state: Record<string, unknown>, key: string): boolean | undefined {
-  if (!isRecord(state.metadata)) return undefined
-  return typeof state.metadata[key] === "boolean" ? state.metadata[key] : undefined
+function readToolMetadataBoolean(
+  state: TWhiteboardCreateToolState,
+  key: string,
+): boolean | undefined {
+  return parseJsonBoolean(state.metadata?.[key])
 }
 
 function whiteboardCreateToolKey(messageID: string, partID: string): string {
   return `${messageID}:${partID}`
 }
 
-function didCompletedWhiteboardCreateSave(state: Record<string, unknown>): boolean {
+function didCompletedWhiteboardCreateSave(state: TWhiteboardCreateToolState): boolean {
   return readToolMetadataBoolean(state, "saved") !== false
 }
 
@@ -472,10 +562,10 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
   baseElements: PersistedWhiteboardElement[]
   baseViewport?: WhiteboardViewport
 }): ProgressiveWhiteboardPreview | undefined {
-  let state: ProgressiveWhiteboardState = {
-    elements: [...input.baseElements],
-    ...(input.baseViewport ? { viewport: input.baseViewport } : {}),
-  }
+  let state: ProgressiveWhiteboardState = Object.assign(
+    { elements: [...input.baseElements] },
+    input.baseViewport ? { viewport: input.baseViewport } : undefined,
+  )
   let appliedProgram = false
   let hasStreamingTool = false
 
@@ -483,21 +573,22 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
     const messageAllowsStreaming =
       message.info.role === "assistant" && !isTerminalAssistantMessageInfo(message.info)
     for (const part of message.parts) {
-      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
-      if (!isRecord(part.state)) continue
+      if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) continue
+      const toolState = parseWhiteboardCreateToolState(part)
+      if (toolState === undefined) continue
       if (
         input.toolKey !== undefined &&
         whiteboardCreateToolKey(message.info.id, part.id) !== input.toolKey
       ) {
         continue
       }
-      if (!whiteboardCreateTargetsObject(part.state, input.objectID)) {
+      if (!whiteboardCreateTargetsObject(toolState, input.objectID)) {
         continue
       }
 
-      if (part.state.status === "completed") {
-        if (!didCompletedWhiteboardCreateSave(part.state)) continue
-        const boardID = readToolMetadataString(part.state, "boardID")
+      if (toolState.status === WHITEBOARD_TOOL_COMPLETED_STATUS) {
+        if (!didCompletedWhiteboardCreateSave(toolState)) continue
+        const boardID = readToolMetadataString(toolState, "boardID")
         if (
           !shouldApplyCompletedWhiteboardCreate({
             boardID,
@@ -506,31 +597,34 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
         ) {
           continue
         }
-        const program = readProgramFromElementsString(readToolInputElements(part.state), "complete")
+        const program = readProgramFromElementsString(
+          readToolInputElements(toolState),
+          "complete",
+        )
         if (program.length === 0) continue
         state = applyProgressiveProgram({
           current: state,
           program,
-          requestedWriteMode: readToolInputBoardAction(part.state),
+          requestedWriteMode: readToolInputBoardAction(toolState),
         })
         appliedProgram = true
         continue
       }
 
       if (!messageAllowsStreaming) continue
-      if (part.state.status !== "pending" && part.state.status !== "running") continue
+      if (
+        toolState.status !== WHITEBOARD_TOOL_PENDING_STATUS &&
+        toolState.status !== WHITEBOARD_TOOL_RUNNING_STATUS
+      ) {
+        continue
+      }
       hasStreamingTool = true
-      const program = readProgramFromRaw(
-        typeof part.state.raw === "string" ? part.state.raw : undefined,
-        "streaming",
-      )
+      const program = readProgramFromRaw(toolState.raw, "streaming")
       if (program.length === 0) continue
       state = applyProgressiveProgram({
         current: state,
         program,
-        requestedWriteMode: readBoardActionFromRaw(
-          typeof part.state.raw === "string" ? part.state.raw : undefined,
-        ),
+        requestedWriteMode: readBoardActionFromRaw(toolState.raw),
       })
       appliedProgram = true
     }
@@ -551,18 +645,22 @@ function hasActiveWhiteboardCreate(
       message.info.role === "assistant" &&
       !isTerminalAssistantMessageInfo(message.info) &&
       message.parts.some((part) => {
-        if (part.type !== "tool" || part.tool !== "whiteboard_create_view") return false
-        if (!isRecord(part.state)) return false
+        if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) return false
+        const toolState = parseWhiteboardCreateToolState(part)
+        if (toolState === undefined) return false
         if (
           toolKey !== undefined &&
           whiteboardCreateToolKey(message.info.id, part.id) !== toolKey
         ) {
           return false
         }
-        if (!whiteboardCreateTargetsObject(part.state, objectID)) {
+        if (!whiteboardCreateTargetsObject(toolState, objectID)) {
           return false
         }
-        return part.state.status === "pending" || part.state.status === "running"
+        return (
+          toolState.status === WHITEBOARD_TOOL_PENDING_STATUS ||
+          toolState.status === WHITEBOARD_TOOL_RUNNING_STATUS
+        )
       }),
   )
 }
@@ -576,12 +674,18 @@ function readLatestActiveWhiteboardCreate(
     }
 
     for (const part of message.parts.toReversed()) {
-      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
-      if (!isRecord(part.state)) continue
-      if (part.state.status !== "pending" && part.state.status !== "running") continue
+      if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) continue
+      const toolState = parseWhiteboardCreateToolState(part)
+      if (toolState === undefined) continue
+      if (
+        toolState.status !== WHITEBOARD_TOOL_PENDING_STATUS &&
+        toolState.status !== WHITEBOARD_TOOL_RUNNING_STATUS
+      ) {
+        continue
+      }
       const toolKey = whiteboardCreateToolKey(message.info.id, part.id)
-      const requestedReference = readRequestedWhiteboardCreateObjectReference(part.state)
-      const authorizedObjectID = readToolMetadataString(part.state, "objectID")
+      const requestedReference = readRequestedWhiteboardCreateObjectReference(toolState)
+      const authorizedObjectID = readToolMetadataString(toolState, "objectID")
       if (authorizedObjectID) {
         return {
           toolKey,
@@ -614,11 +718,12 @@ function hasUnfetchedCompletedWhiteboardCreate(input: {
 }): boolean {
   for (const message of input.messages) {
     for (const part of message.parts) {
-      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
-      if (!isRecord(part.state) || part.state.status !== "completed") continue
-      if (!whiteboardCreateTargetsObject(part.state, input.objectID)) continue
-      if (!didCompletedWhiteboardCreateSave(part.state)) continue
-      const boardID = readToolMetadataString(part.state, "boardID")
+      if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) continue
+      const toolState = parseWhiteboardCreateToolState(part)
+      if (toolState === undefined || toolState.status !== WHITEBOARD_TOOL_COMPLETED_STATUS) continue
+      if (!whiteboardCreateTargetsObject(toolState, input.objectID)) continue
+      if (!didCompletedWhiteboardCreateSave(toolState)) continue
+      const boardID = readToolMetadataString(toolState, "boardID")
       if (
         boardID !== undefined &&
         shouldApplyCompletedWhiteboardCreate({
@@ -636,12 +741,13 @@ function hasUnfetchedCompletedWhiteboardCreate(input: {
 function hasLatestFailedWhiteboardCreate(messages: MessageWithParts[], objectID?: string): boolean {
   for (const message of messages.toReversed()) {
     for (const part of message.parts.toReversed()) {
-      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
-      if (!isRecord(part.state)) continue
-      if (!whiteboardCreateTargetsObject(part.state, objectID)) {
+      if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) continue
+      const toolState = parseWhiteboardCreateToolState(part)
+      if (toolState === undefined) continue
+      if (!whiteboardCreateTargetsObject(toolState, objectID)) {
         continue
       }
-      return part.state.status === "error"
+      return toolState.status === WHITEBOARD_TOOL_ERROR_STATUS
     }
   }
   return false
@@ -662,9 +768,10 @@ function countCompletedWhiteboardCreate(messages: MessageWithParts[], objectID?:
   let count = 0
   for (const message of messages) {
     for (const part of message.parts) {
-      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
-      if (!isRecord(part.state) || part.state.status !== "completed") continue
-      if (!whiteboardCreateTargetsObject(part.state, objectID)) continue
+      if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) continue
+      const toolState = parseWhiteboardCreateToolState(part)
+      if (toolState === undefined || toolState.status !== WHITEBOARD_TOOL_COMPLETED_STATUS) continue
+      if (!whiteboardCreateTargetsObject(toolState, objectID)) continue
       count += 1
     }
   }
@@ -674,9 +781,10 @@ function countCompletedWhiteboardCreate(messages: MessageWithParts[], objectID?:
 function hasWhiteboardCreate(messages: MessageWithParts[], objectID?: string): boolean {
   return messages.some((message) =>
     message.parts.some((part) => {
-      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") return false
-      if (!isRecord(part.state)) return objectID === undefined
-      return whiteboardCreateTargetsObject(part.state, objectID)
+      if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) return false
+      const toolState = parseWhiteboardCreateToolState(part)
+      if (toolState === undefined) return objectID === undefined
+      return whiteboardCreateTargetsObject(toolState, objectID)
     }),
   )
 }
@@ -688,10 +796,16 @@ function readLatestStreamingWhiteboardRaw(messages: MessageWithParts[]): string 
     }
 
     for (const part of message.parts.toReversed()) {
-      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
-      if (!isRecord(part.state)) continue
-      if (part.state.status !== "pending" && part.state.status !== "running") continue
-      return typeof part.state.raw === "string" ? part.state.raw : undefined
+      if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) continue
+      const toolState = parseWhiteboardCreateToolState(part)
+      if (toolState === undefined) continue
+      if (
+        toolState.status !== WHITEBOARD_TOOL_PENDING_STATUS &&
+        toolState.status !== WHITEBOARD_TOOL_RUNNING_STATUS
+      ) {
+        continue
+      }
+      return toolState.raw
     }
   }
   return undefined

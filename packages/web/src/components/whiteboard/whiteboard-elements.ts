@@ -6,6 +6,7 @@ import type {
   ObjectWhiteboardObjectReadResponse,
   ObjectWhiteboardObjectSaveLearnerEditData,
 } from "@buddy/sdk"
+import { z } from "zod"
 
 type CurrentWhiteboardBoard = NonNullable<ObjectWhiteboardObjectReadResponse["currentBoard"]>
 type PersistedWhiteboardElement = CurrentWhiteboardBoard["elements"][number]
@@ -74,7 +75,35 @@ type WhiteboardRenderedElementInput = {
   fillStyle?: string
   opacity?: number
   fontSize?: number
+  text?: string
+  containerId?: string | null
 }
+
+type TWhiteboardElementLabel = {
+  text: string
+  textAlign?: string
+  verticalAlign?: string
+}
+
+type TWhiteboardDrawnElement = {
+  id: string
+  type: string
+  x: number
+  y: number
+  width?: number
+  height?: number
+  text?: string
+  seed?: number
+  isDeleted?: boolean
+  angle?: number
+  version?: number
+  versionNonce?: number
+  groupIds?: readonly string[]
+  containerId?: string | null
+  label?: TWhiteboardElementLabel
+}
+
+type TEditorElementCandidate = TWhiteboardDrawnElement
 type WhiteboardElementBoundsReader<Element extends WhiteboardRenderedElementInput> = (
   elements: readonly Element[],
 ) => Bounds
@@ -95,26 +124,57 @@ const MAX_UNSUPPORTED_ELEMENT_DESCRIPTIONS = 3
 const RENDER_REPORT_SIGNATURE_PRECISION = 100
 const MIN_RENDERABLE_VIEWPORT_DIMENSION = 0
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const whiteboardElementLabelSchema = z.object({
+  text: z.string(),
+  textAlign: z.string().optional(),
+  verticalAlign: z.string().optional(),
+})
+
+const whiteboardDrawnElementSchema = z
+  .object({
+    id: z.string(),
+    type: z.string(),
+    x: z.number(),
+    y: z.number(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    text: z.string().optional(),
+    seed: z.number().optional(),
+    isDeleted: z.boolean().optional(),
+    angle: z.number().optional(),
+    version: z.number().optional(),
+    versionNonce: z.number().optional(),
+    groupIds: z.array(z.string()).optional(),
+    containerId: z.string().nullable().optional(),
+    label: whiteboardElementLabelSchema.optional(),
+  })
+  .passthrough()
+
+const whiteboardElementIdentitySchema = z.object({
+  id: z.string().optional(),
+  type: z.string().optional(),
+})
+
+function isFiniteNumber(value: number | undefined): value is number {
+  return value !== undefined && Number.isFinite(value)
 }
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value)
+function parseDrawnElement(element: PersistedWhiteboardElement): TWhiteboardDrawnElement | undefined {
+  const parsed = whiteboardDrawnElementSchema.safeParse(element)
+  return parsed.success ? parsed.data : undefined
 }
 
-function normalizeLabel(value: unknown) {
-  if (!isRecord(value) || !isRecord(value.label) || typeof value.label.text !== "string") {
-    return value
-  }
-  return {
-    ...value,
-    label: {
-      textAlign: "center",
-      verticalAlign: "middle",
-      ...value.label,
-    },
-  }
+function normalizeLabel(element: TWhiteboardDrawnElement): TWhiteboardDrawnElement {
+  if (element.label === undefined) return element
+  return Object.assign({}, element, {
+    label: Object.assign(
+      {
+        textAlign: "center",
+        verticalAlign: "middle",
+      },
+      element.label,
+    ),
+  })
 }
 
 function stablePositiveHash(value: string): number {
@@ -126,42 +186,44 @@ function stablePositiveHash(value: string): number {
   return (hash % EXCALIDRAW_MAX_SEED) + 1
 }
 
-function normalizeElement(value: unknown) {
-  const normalized = normalizeLabel(value)
-  if (!isRecord(normalized)) return normalized
-  if (typeof normalized.id !== "string" || typeof normalized.type !== "string") return normalized
+function normalizeElement(element: TWhiteboardDrawnElement): TWhiteboardDrawnElement {
+  const normalized = normalizeLabel(element)
   if (isFiniteNumber(normalized.seed)) return normalized
-  return {
-    ...normalized,
+  return Object.assign({}, normalized, {
     seed: stablePositiveHash(`${normalized.type}:${normalized.id}`),
-  }
+  })
 }
 
-function isSupportedSkeleton(value: unknown): value is ExcalidrawElementSkeleton {
-  if (!isRecord(value) || typeof value.type !== "string") return false
-  if (!SUPPORTED_ELEMENT_TYPES.has(value.type)) return false
-  if (!isFiniteNumber(value.x) || !isFiniteNumber(value.y)) return false
-  if (value.type === "text") return typeof value.text === "string"
+function isSupportedSkeleton(
+  element: TWhiteboardDrawnElement,
+): element is TWhiteboardDrawnElement & ExcalidrawElementSkeleton {
+  if (!SUPPORTED_ELEMENT_TYPES.has(element.type)) return false
+  if (!Number.isFinite(element.x) || !Number.isFinite(element.y)) return false
+  if (element.type === "text") return element.text !== undefined
   return true
 }
 
-function isNativeExcalidrawElement(value: unknown): value is OrderedExcalidrawElement {
-  if (!isRecord(value)) return false
-  const record: Record<string, unknown> = value
-  if (!isSupportedSkeleton(value)) return false
+function isNativeExcalidrawElement(
+  element: TWhiteboardDrawnElement,
+): element is TWhiteboardDrawnElement & OrderedExcalidrawElement {
+  if (!isSupportedSkeleton(element)) return false
   return (
-    isFiniteNumber(record["angle"]) &&
-    isFiniteNumber(record["version"]) &&
-    isFiniteNumber(record["versionNonce"]) &&
-    typeof record["isDeleted"] === "boolean" &&
-    Array.isArray(record["groupIds"])
+    isFiniteNumber(element.angle) &&
+    isFiniteNumber(element.version) &&
+    isFiniteNumber(element.versionNonce) &&
+    (element.isDeleted === true || element.isDeleted === false) &&
+    element.groupIds !== undefined
   )
 }
 
-function describeUnsupportedElement(value: unknown, index: number): string {
-  if (!isRecord(value)) return `#${index}: non-object`
-  const id = typeof value.id === "string" ? value.id : "missing-id"
-  const type = typeof value.type === "string" ? value.type : "missing-type"
+function describeUnsupportedElement(
+  element: PersistedWhiteboardElement,
+  index: number,
+): string {
+  const parsed = whiteboardElementIdentitySchema.safeParse(element)
+  if (!parsed.success) return `#${index}: non-object`
+  const id = parsed.data.id ?? "missing-id"
+  const type = parsed.data.type ?? "missing-type"
   return `#${index}: ${type}:${id}`
 }
 
@@ -214,21 +276,26 @@ function toEditorElementConversion(
   const unsupported: string[] = []
   for (let index = 0; index < elements.length; index += 1) {
     const original = elements[index]
-    if (isNativeExcalidrawElement(original)) {
+    const parsed = parseDrawnElement(original)
+    if (parsed === undefined) {
+      unsupported.push(describeUnsupportedElement(original, index))
+      continue
+    }
+    if (isNativeExcalidrawElement(parsed)) {
       pushPreparedGroup({
         groups,
-        group: { kind: "native", element: original },
+        group: { kind: "native", element: parsed },
       })
       continue
     }
-    const element = normalizeElement(original)
+    const element = normalizeElement(parsed)
     if (isSupportedSkeleton(element)) {
       pushPreparedGroup({
         groups,
         group: { kind: "skeleton", element },
       })
     } else {
-      unsupported.push(describeUnsupportedElement(element, index))
+      unsupported.push(describeUnsupportedElement(original, index))
     }
   }
 
@@ -236,15 +303,20 @@ function toEditorElementConversion(
   return warning ? { groups, warning } : { groups }
 }
 
-function isPersistableEditorElement(value: unknown): value is PersistedWhiteboardElement {
-  if (!isRecord(value)) return false
-  if (value.isDeleted === true) return false
-  if (typeof value.id !== "string" || value.id.trim().length === 0) return false
-  if (!isSupportedSkeleton(value)) return false
+function isPersistableEditorElement(
+  element: TEditorElementCandidate,
+): element is TEditorElementCandidate & PersistedWhiteboardElement {
+  if (element.isDeleted === true) return false
+  if (element.id.trim().length === 0) return false
+  if (!SUPPORTED_ELEMENT_TYPES.has(element.type)) return false
+  if (!Number.isFinite(element.x) || !Number.isFinite(element.y)) return false
+  if (element.type === "text" && element.text === undefined) return false
   return true
 }
 
-function toPersistedElements(elements: readonly unknown[]): PersistedWhiteboardElement[] {
+function toPersistedElements(
+  elements: readonly TEditorElementCandidate[],
+): PersistedWhiteboardElement[] {
   return elements.filter(isPersistableEditorElement).map((element) => Object.assign({}, element))
 }
 
@@ -258,15 +330,13 @@ function boundsToRenderBounds(bounds: Bounds): WhiteboardRenderBounds {
 }
 
 function readRenderedElementText(element: WhiteboardRenderedElementInput): string | undefined {
-  return "text" in element && typeof element.text === "string" ? element.text : undefined
+  return element.text
 }
 
 function readRenderedElementContainerID(
   element: WhiteboardRenderedElementInput,
 ): string | undefined {
-  return "containerId" in element && typeof element.containerId === "string"
-    ? element.containerId
-    : undefined
+  return element.containerId ?? undefined
 }
 
 function createWhiteboardRenderReport<Element extends WhiteboardRenderedElementInput>(input: {

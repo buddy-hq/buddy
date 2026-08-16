@@ -1,12 +1,20 @@
 import { useMemo } from "react"
+import { z } from "zod"
 import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
 import { useTranscriptParts } from "@/state/transcript-repository"
 
 const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view" as const
+const WHITEBOARD_TOOL_PENDING_STATUS = "pending"
+const WHITEBOARD_TOOL_RUNNING_STATUS = "running"
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const whiteboardCreateToolStatusSchema = z.object({
+  status: z.string(),
+})
+
+function parseWhiteboardCreateToolStatus(part: MessagePart): string | undefined {
+  const parsed = whiteboardCreateToolStatusSchema.safeParse(part.state)
+  return parsed.success ? parsed.data.status : undefined
 }
 
 function activeWhiteboardCreatePartIDs(messages: MessageWithParts[]): string[] {
@@ -17,8 +25,10 @@ function activeWhiteboardCreatePartIDs(messages: MessageWithParts[]): string[] {
     }
     for (const part of message.parts) {
       if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) continue
-      if (!isRecord(part.state)) continue
-      if (part.state.status !== "pending" && part.state.status !== "running") continue
+      const status = parseWhiteboardCreateToolStatus(part)
+      if (status !== WHITEBOARD_TOOL_PENDING_STATUS && status !== WHITEBOARD_TOOL_RUNNING_STATUS) {
+        continue
+      }
       partIDs.push(part.id)
     }
   }

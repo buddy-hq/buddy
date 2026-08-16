@@ -20,7 +20,7 @@ const FRAMES_PER_SECOND = 30
 const STAGE_WIDTH = 480
 const STAGE_HEIGHT = 300
 
-const SHAPE_LAYER_TYPE = 4
+const FIGURE_LAYER_TYPE = 4
 const LINE_CAP_ROUND = 2
 const LINE_JOIN_ROUND = 2
 const TRIM_SIMULTANEOUSLY = 1
@@ -138,7 +138,7 @@ type LottieGroupTransform = {
   nm: string
 }
 
-type LottieShapeItem =
+type TLottieMarkItem =
   | LottiePathItem
   | LottieRectItem
   | LottieEllipseItem
@@ -149,11 +149,11 @@ type LottieShapeItem =
 
 type LottieGroup = {
   ty: "gr"
-  it: LottieShapeItem[]
+  it: TLottieMarkItem[]
   nm: string
 }
 
-type LottieShapeLayer = {
+type TLottieFigureLayer = {
   ddd: number
   ind: number
   ty: number
@@ -167,7 +167,7 @@ type LottieShapeLayer = {
     s: LottieMultiValue
   }
   ao: number
-  shapes: LottieGroup[]
+  "shapes": LottieGroup[]
   ip: number
   op: number
   st: number
@@ -184,7 +184,7 @@ export type LottieAnimationData = {
   nm: string
   ddd: number
   assets: never[]
-  layers: LottieShapeLayer[]
+  layers: TLottieFigureLayer[]
 }
 
 type TimeSpan = { start: number; end: number }
@@ -329,21 +329,21 @@ function groupTransform(input?: {
   }
 }
 
-function group(name: string, items: LottieShapeItem[]): LottieGroup {
+function group(name: string, items: TLottieMarkItem[]): LottieGroup {
   return { ty: "gr", it: items, nm: name }
 }
 
-function shapeLayer(input: {
+function figureLayer(input: {
   index: number
   name: string
   opacity: LottieScalar
   duration: number
-  shapes: LottieGroup[]
-}): LottieShapeLayer {
+  groups: LottieGroup[]
+}): TLottieFigureLayer {
   return {
     ddd: NO_3D,
     ind: input.index,
-    ty: SHAPE_LAYER_TYPE,
+    ty: FIGURE_LAYER_TYPE,
     nm: input.name,
     sr: NO_TIME_STRETCH,
     ks: {
@@ -354,7 +354,7 @@ function shapeLayer(input: {
       s: fixedVector(IDENTITY_SCALE_3D),
     },
     ao: NO_AUTO_ORIENT,
-    shapes: input.shapes,
+    "shapes": input.groups,
     ip: 0,
     op: input.duration,
     st: 0,
@@ -365,7 +365,7 @@ function shapeLayer(input: {
 function animation(input: {
   name: string
   duration: number
-  layers: LottieShapeLayer[]
+  layers: TLottieFigureLayer[]
 }): LottieAnimationData {
   return {
     v: LOTTIE_FORMAT_VERSION,
@@ -436,9 +436,9 @@ function cardLayer(input: {
   card: DiagramCard
   clear: ClearSpan
   duration: number
-}): LottieShapeLayer {
+}): TLottieFigureLayer {
   const { card } = input
-  return shapeLayer({
+  return figureLayer({
     index: input.index,
     name: input.name,
     opacity: appearThenClear({
@@ -447,7 +447,7 @@ function cardLayer(input: {
       clear: input.clear,
     }),
     duration: input.duration,
-    shapes: [
+    groups: [
       group("Outline", [
         {
           ty: "rc",
@@ -479,9 +479,9 @@ function connectorLayer(input: {
   connectors: Connector[]
   clear: ClearSpan
   duration: number
-}): LottieShapeLayer {
+}): TLottieFigureLayer {
   const firstStart = Math.min(...input.connectors.map((item) => item.draw.start))
-  return shapeLayer({
+  return figureLayer({
     index: input.index,
     name: input.name,
     opacity: appearThenClear({
@@ -490,7 +490,7 @@ function connectorLayer(input: {
       clear: input.clear,
     }),
     duration: input.duration,
-    shapes: input.connectors.map((connector, index) =>
+    groups: input.connectors.map((connector, index) =>
       group(`Connector ${index + 1}`, [
         { ty: "sh", ks: { a: 0, k: curvedPath(connector.nodes) }, nm: "Path" },
         strokeItem(INK.connectorWidth, "Stroke"),
@@ -721,12 +721,12 @@ export function buildCurveAnimation(): LottieAnimationData {
   const clear = { ...CURVE.clear }
 
   const dotLayers = CURVE.dots.map((dot, index) =>
-    shapeLayer({
+    figureLayer({
       index: index + 1,
       name: `Point ${index + 1}`,
       opacity: appearThenClear({ peak: FULL_OPACITY, appear: dot.appear, clear }),
       duration: CURVE.duration,
-      shapes: [
+      groups: [
         group(`Dot ${index + 1}`, [
           {
             ty: "el",
@@ -744,7 +744,7 @@ export function buildCurveAnimation(): LottieAnimationData {
     }),
   )
 
-  const curveLayer = shapeLayer({
+  const curveLayer = figureLayer({
     index: dotLayers.length + 1,
     name: "Curve",
     opacity: appearThenClear({
@@ -753,7 +753,7 @@ export function buildCurveAnimation(): LottieAnimationData {
       clear,
     }),
     duration: CURVE.duration,
-    shapes: [
+    groups: [
       group("Curve", [
         {
           ty: "sh",
@@ -767,7 +767,7 @@ export function buildCurveAnimation(): LottieAnimationData {
     ],
   })
 
-  const ghostLayer = shapeLayer({
+  const ghostLayer = figureLayer({
     index: dotLayers.length + 2,
     name: "Second series",
     opacity: appearThenClear({
@@ -776,7 +776,7 @@ export function buildCurveAnimation(): LottieAnimationData {
       clear,
     }),
     duration: CURVE.duration,
-    shapes: [
+    groups: [
       group("Ghost", [
         {
           ty: "sh",
@@ -790,7 +790,7 @@ export function buildCurveAnimation(): LottieAnimationData {
     ],
   })
 
-  const baselineLayer = shapeLayer({
+  const baselineLayer = figureLayer({
     index: dotLayers.length + 3,
     name: "Baseline",
     opacity: appearThenClear({
@@ -799,7 +799,7 @@ export function buildCurveAnimation(): LottieAnimationData {
       clear,
     }),
     duration: CURVE.duration,
-    shapes: [
+    groups: [
       group("Baseline", [
         {
           ty: "sh",
@@ -879,29 +879,67 @@ export function whiteboardOpeningVariant(id: WhiteboardOpeningVariantID): Whiteb
  */
 const SEQUENCE_GAP_FRAMES = 14
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function shiftKeyframeList(frames: LottieKeyframe[], offset: number): void {
+  for (const frame of frames) {
+    frame.t += offset
+  }
 }
 
-/**
- * Walks a layer and pushes every animated keyframe later by `offset`. Generic rather than
- * a field-by-field list: keyframed properties appear at many depths (layer transform,
- * group transform, trim, stroke, fill), and a walker cannot miss one when a variant grows
- * a new animated property.
- */
-function shiftKeyframeTimes(value: unknown, offset: number): void {
-  if (Array.isArray(value)) {
-    for (const item of value) shiftKeyframeTimes(item, offset)
-    return
+function shiftScalarTimes(value: LottieScalar, offset: number): void {
+  if (value.a === 1) shiftKeyframeList(value.k, offset)
+}
+
+function shiftMultiValueTimes(value: LottieMultiValue, offset: number): void {
+  if (value.a === 1) shiftKeyframeList(value.k, offset)
+}
+
+function shiftMarkItemTimes(item: TLottieMarkItem, offset: number): void {
+  switch (item.ty) {
+    case "sh":
+      return
+    case "rc":
+      shiftMultiValueTimes(item.p, offset)
+      shiftMultiValueTimes(item.s, offset)
+      shiftScalarTimes(item.r, offset)
+      return
+    case "el":
+      shiftMultiValueTimes(item.p, offset)
+      shiftMultiValueTimes(item.s, offset)
+      return
+    case "st":
+      shiftMultiValueTimes(item.c, offset)
+      shiftScalarTimes(item.o, offset)
+      shiftScalarTimes(item.w, offset)
+      return
+    case "fl":
+      shiftMultiValueTimes(item.c, offset)
+      shiftScalarTimes(item.o, offset)
+      return
+    case "tm":
+      shiftScalarTimes(item.s, offset)
+      shiftScalarTimes(item.e, offset)
+      shiftScalarTimes(item.o, offset)
+      return
+    case "tr":
+      shiftMultiValueTimes(item.p, offset)
+      shiftMultiValueTimes(item.a, offset)
+      shiftMultiValueTimes(item.s, offset)
+      shiftScalarTimes(item.r, offset)
+      shiftScalarTimes(item.o, offset)
   }
-  if (!isRecord(value)) return
-  if (value.a === 1 && Array.isArray(value.k)) {
-    for (const frame of value.k) {
-      if (isRecord(frame) && typeof frame.t === "number") frame.t += offset
-    }
-    return
-  }
-  for (const nested of Object.values(value)) shiftKeyframeTimes(nested, offset)
+}
+
+function shiftGroupTimes(group: LottieGroup, offset: number): void {
+  for (const item of group.it) shiftMarkItemTimes(item, offset)
+}
+
+function shiftFigureLayerTimes(layer: TLottieFigureLayer, offset: number): void {
+  shiftScalarTimes(layer.ks.o, offset)
+  shiftScalarTimes(layer.ks.r, offset)
+  shiftMultiValueTimes(layer.ks.p, offset)
+  shiftMultiValueTimes(layer.ks.a, offset)
+  shiftMultiValueTimes(layer.ks.s, offset)
+  for (const group of layer["shapes"]) shiftGroupTimes(group, offset)
 }
 
 /**
@@ -914,12 +952,12 @@ function sequenceAnimations(input: {
   segments: LottieAnimationData[]
   gap: number
 }): LottieAnimationData {
-  const layers: LottieShapeLayer[] = []
+  const layers: TLottieFigureLayer[] = []
   let offset = 0
 
   for (const segment of input.segments) {
     for (const layer of segment.layers) {
-      shiftKeyframeTimes(layer, offset)
+      shiftFigureLayerTimes(layer, offset)
       layer.ind = layers.length + 1
       layer.ip += offset
       layer.op += offset
