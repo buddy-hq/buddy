@@ -31,8 +31,8 @@ import {
   Globe,
   ImageIcon,
   PresentationIcon,
-  ShapesIcon,
   StudyLampIcon,
+  WorkflowIcon,
   XIcon,
 } from "@/icons/app-icons"
 import type { BenchObjectKind } from "@/lib/bench-navigation"
@@ -88,7 +88,7 @@ function objectTabIcon(kind: BenchObjectKind): ComponentType<{ className?: strin
     case "whiteboard":
       return PresentationIcon
     case "mermaid":
-      return ShapesIcon
+      return WorkflowIcon
     case "html-widget":
       return Globe
     case "figure":

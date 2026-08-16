@@ -170,6 +170,30 @@ const ATTRIBUTE_NAME_OVERRIDES = new Map(Object.entries({
   "xml:space": "xmlSpace",
 }))
 
+type TCssStyleDeclarations = {
+  [property: string]: string
+}
+
+type TMdxJsxAttribute = Extract<
+  JsxEditorProps["mdastNode"]["attributes"][number],
+  { type: "mdxJsxAttribute" }
+>
+
+type TMdxJsxAttributeValue = TMdxJsxAttribute["value"]
+
+type TIntrinsicElementProp = string | boolean | TCssStyleDeclarations
+
+type TIntrinsicElementProps = {
+  [name: string]: TIntrinsicElementProp
+}
+
+function readMdxJsxAttributeLiteral(value: TMdxJsxAttributeValue): string | undefined {
+  if (value === null || value === undefined) return undefined
+  const literal = `${value}`
+  if (literal === value) return literal
+  return undefined
+}
+
 function reactAttributeName(name: string): string {
   const override = ATTRIBUTE_NAME_OVERRIDES.get(name)
   if (override) return override
@@ -178,7 +202,7 @@ function reactAttributeName(name: string): string {
 }
 
 function safeStyle(style: string) {
-  const result: Record<string, string> = {}
+  const result: TCssStyleDeclarations = {}
   for (const declaration of style.split(";")) {
     const separator = declaration.indexOf(":")
     if (separator < 0) continue
@@ -203,39 +227,40 @@ function safeProps(
   mdastNode: JsxEditorProps["mdastNode"],
   context: SafeMarkdownRenderContext,
 ) {
-  const props: Record<string, unknown> = {}
+  const props: TIntrinsicElementProps = {}
   for (const attribute of mdastNode.attributes) {
     if (attribute.type !== "mdxJsxAttribute" || !attribute.name) continue
     const name = reactAttributeName(attribute.name)
     if (name.toLowerCase().startsWith("on")) continue
     if (name === "srcDoc") continue
+    const literal = readMdxJsxAttributeLiteral(attribute.value)
     if (name === "style") {
-      if (typeof attribute.value === "string") {
-        props.style = safeStyle(attribute.value)
+      if (literal !== undefined) {
+        props.style = safeStyle(literal)
       }
       continue
     }
     if (name === "href" || name === "xlinkHref") {
-      if (typeof attribute.value !== "string" || !attribute.value.startsWith("#")) continue
+      if (literal === undefined || !literal.startsWith("#")) continue
     }
     if (name === "src") {
-      if (typeof attribute.value !== "string" || !isSafeImageSource(attribute.value)) {
+      if (literal === undefined || !isSafeImageSource(literal)) {
         continue
       }
-      props[name] = resolveIntrinsicImageSrc(attribute.value, context.imageContext)
+      props[name] = resolveIntrinsicImageSrc(literal, context.imageContext)
       continue
     }
     if (
-      typeof attribute.value === "string" &&
-      /url\s*\(/iu.test(attribute.value) &&
-      !/^\s*url\(\s*#[^)]+\s*\)\s*$/iu.test(attribute.value)
+      literal !== undefined &&
+      /url\s*\(/iu.test(literal) &&
+      !/^\s*url\(\s*#[^)]+\s*\)\s*$/iu.test(literal)
     ) {
       continue
     }
     if (attribute.value === null) {
       props[name] = true
-    } else if (typeof attribute.value === "string") {
-      props[name] = attribute.value
+    } else if (literal !== undefined) {
+      props[name] = literal
     }
   }
   return props
@@ -334,7 +359,10 @@ function renderSafeMarkdownNode(
     case "list":
       return createElement(
         node.ordered ? "ol" : "ul",
-        { key, ...(node.ordered && node.start !== null ? { start: node.start } : {}) },
+        Object.assign(
+          { key },
+          node.ordered && node.start !== null ? { start: node.start } : undefined,
+        ),
         node.children.map((child, index) =>
           renderSafeMarkdownNode(child, `${key}-${index}`, context),
         ),
@@ -357,14 +385,19 @@ function renderSafeMarkdownNode(
     }
     case "image":
       return isSafeImageSource(node.url)
-        ? createElement("img", {
-            key,
-            "data-component": "markdown-bench-image",
-            src: resolveIntrinsicImageSrc(node.url, context.imageContext),
-            alt: node.alt ?? "",
-            ...(node.title ? { title: node.title } : {}),
-            className: MARKDOWN_BENCH_IMAGE_SCREEN_CLASS_NAME,
-          })
+        ? createElement(
+            "img",
+            Object.assign(
+              {
+                key,
+                "data-component": "markdown-bench-image",
+                src: resolveIntrinsicImageSrc(node.url, context.imageContext),
+                alt: node.alt ?? "",
+                className: MARKDOWN_BENCH_IMAGE_SCREEN_CLASS_NAME,
+              },
+              node.title ? { title: node.title } : undefined,
+            ),
+          )
         : null
     case "thematicBreak":
       return createElement("hr", { key })

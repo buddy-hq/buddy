@@ -30,11 +30,16 @@ type MarkdownBenchImageProps = {
  * still get print-safe sizing.
  */
 export function MarkdownBenchImage(props: MarkdownBenchImageProps) {
-  return createElement("img", {
-    "data-component": "markdown-bench-image",
-    src: props.src,
-    alt: props.alt ?? "",
-    ...(props.title ? { title: props.title } : {}),
-    className: cn(MARKDOWN_BENCH_IMAGE_SCREEN_CLASS_NAME, props.className),
-  })
+  return createElement(
+    "img",
+    Object.assign(
+      {
+        "data-component": "markdown-bench-image",
+        src: props.src,
+        alt: props.alt ?? "",
+        className: cn(MARKDOWN_BENCH_IMAGE_SCREEN_CLASS_NAME, props.className),
+      },
+      props.title ? { title: props.title } : undefined,
+    ),
+  )
 }

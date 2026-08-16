@@ -57,9 +57,11 @@ export function resolveMarkdownBenchLink(
     : documentPath.replaceAll("\\", "/")
   if (!path) return undefined
   const fragment = decodeLinkPart(rawFragment).trim()
-  return {
-    type: "workspace-file",
-    path,
-    ...(fragment ? { fragment } : {}),
-  }
+  return Object.assign(
+    {
+      type: "workspace-file" as const,
+      path,
+    },
+    fragment ? { fragment } : undefined,
+  )
 }

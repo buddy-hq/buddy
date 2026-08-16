@@ -165,7 +165,8 @@ function MarkdownBenchAdmonitionEditor({
 
 function readDirectiveAttribute(node: ContainerDirectiveNode, name: string): string | undefined {
   const value = node.attributes?.[name]
-  return typeof value === "string" && value.length > 0 ? value : undefined
+  if (value === null || value === undefined || value.length === 0) return undefined
+  return value
 }
 
 function MarkdownBenchObsidianCalloutEditor({

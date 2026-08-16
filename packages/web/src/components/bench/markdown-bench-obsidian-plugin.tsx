@@ -280,15 +280,15 @@ export const obsidianWikiLinkToMarkdownExtension: ToMarkdownExtension = {
 }
 
 class ObsidianWikiLinkNode extends DecoratorNode<JSX.Element> {
-  __target: string
-  __alias?: string
-  __embed: boolean
+  wikiLinkTarget: string
+  wikiLinkAlias?: string
+  wikiLinkEmbed: boolean
 
   constructor(input: { target: string; alias?: string; embed: boolean }, key?: NodeKey) {
     super(key)
-    this.__target = input.target
-    this.__alias = input.alias
-    this.__embed = input.embed
+    this.wikiLinkTarget = input.target
+    this.wikiLinkAlias = input.alias
+    this.wikiLinkEmbed = input.embed
   }
 
   static getType(): string {
@@ -297,8 +297,12 @@ class ObsidianWikiLinkNode extends DecoratorNode<JSX.Element> {
 
   static clone(node: ObsidianWikiLinkNode): ObsidianWikiLinkNode {
     return new ObsidianWikiLinkNode(
-      { target: node.__target, alias: node.__alias, embed: node.__embed },
-      node.__key,
+      {
+        target: node.wikiLinkTarget,
+        alias: node.wikiLinkAlias,
+        embed: node.wikiLinkEmbed,
+      },
+      node.getKey(),
     )
   }
 
@@ -307,17 +311,19 @@ class ObsidianWikiLinkNode extends DecoratorNode<JSX.Element> {
   }
 
   exportJSON(): SerializedObsidianWikiLinkNode {
-    return {
-      type: OBSIDIAN_WIKILINK_TYPE,
-      version: 1,
-      target: this.__target,
-      embed: this.__embed,
-      ...(this.__alias ? { alias: this.__alias } : {}),
-    }
+    return Object.assign(
+      {
+        type: OBSIDIAN_WIKILINK_TYPE,
+        version: 1,
+        target: this.wikiLinkTarget,
+        embed: this.wikiLinkEmbed,
+      },
+      this.wikiLinkAlias ? { alias: this.wikiLinkAlias } : undefined,
+    )
   }
 
   createDOM(): HTMLElement {
-    return document.createElement(this.__embed ? "div" : "span")
+    return document.createElement(this.wikiLinkEmbed ? "div" : "span")
   }
 
   updateDOM(_previousNode: this, _dom: HTMLElement, _config: EditorConfig): boolean {
@@ -325,7 +331,7 @@ class ObsidianWikiLinkNode extends DecoratorNode<JSX.Element> {
   }
 
   isInline(): boolean {
-    return !this.__embed
+    return !this.wikiLinkEmbed
   }
 
   isKeyboardSelectable(): boolean {
@@ -333,17 +339,23 @@ class ObsidianWikiLinkNode extends DecoratorNode<JSX.Element> {
   }
 
   decorate(): JSX.Element {
-    return <ObsidianWikiLinkView target={this.__target} alias={this.__alias} embed={this.__embed} />
+    return (
+      <ObsidianWikiLinkView
+        target={this.wikiLinkTarget}
+        alias={this.wikiLinkAlias}
+        embed={this.wikiLinkEmbed}
+      />
+    )
   }
 
   toMdast(): ObsidianWikiLinkMdastNode {
     return {
       type: OBSIDIAN_WIKILINK_TYPE,
-      value: this.__target,
-      data: {
-        embed: this.__embed,
-        ...(this.__alias ? { alias: this.__alias } : {}),
-      },
+      value: this.wikiLinkTarget,
+      data: Object.assign(
+        { embed: this.wikiLinkEmbed },
+        this.wikiLinkAlias ? { alias: this.wikiLinkAlias } : undefined,
+      ),
     }
   }
 }

@@ -49,9 +49,9 @@ export function SessionBenchSurface(props: SessionBenchSurfaceProps) {
   useEffect(() => {
     let current = true
     setLoadError(undefined)
-    void prefetchSessionMessages(props.directory, props.sessionID).catch((error: unknown) => {
+    void prefetchSessionMessages(props.directory, props.sessionID).catch((cause) => {
       if (!current) return
-      setLoadError(error instanceof Error ? error.message : String(error))
+      setLoadError(cause instanceof Error ? cause.message : String(cause))
     })
     return () => {
       current = false

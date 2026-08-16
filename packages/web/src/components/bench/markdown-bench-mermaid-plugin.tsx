@@ -6,7 +6,7 @@ import {
   type LexicalExportVisitor,
   type MdastImportVisitor,
 } from "@mdxeditor/editor"
-import { DecoratorNode } from "lexical"
+import { DecoratorNode, type LexicalEditor, type LexicalNode, type NodeKey, type SerializedLexicalNode, type Spread } from "lexical"
 import {
   createContext,
   useContext,
@@ -16,7 +16,6 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react"
-import type { LexicalEditor, NodeKey, SerializedLexicalNode, Spread } from "lexical"
 import type { Code } from "mdast"
 import { Button } from "@buddy/ui"
 import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
@@ -156,15 +155,15 @@ function BuddyMermaidEditor(props: BuddyMermaidEditorProps): ReactElement {
 }
 
 export class BuddyMermaidNode extends DecoratorNode<ReactElement> {
-  __meta: string
-  __source: string
+  diagramMeta: string
+  diagramSource: string
 
   static getType(): string {
     return "buddy-mermaid"
   }
 
   static clone(node: BuddyMermaidNode): BuddyMermaidNode {
-    return new BuddyMermaidNode(node.__source, node.__meta, node.__key)
+    return new BuddyMermaidNode(node.diagramSource, node.diagramMeta, node.getKey())
   }
 
   static importJSON(serializedNode: SerializedBuddyMermaidNode): BuddyMermaidNode {
@@ -173,8 +172,8 @@ export class BuddyMermaidNode extends DecoratorNode<ReactElement> {
 
   constructor(source: string, meta: string, key?: NodeKey) {
     super(key)
-    this.__source = source
-    this.__meta = meta
+    this.diagramSource = source
+    this.diagramMeta = meta
   }
 
   exportJSON(): SerializedBuddyMermaidNode {
@@ -196,16 +195,16 @@ export class BuddyMermaidNode extends DecoratorNode<ReactElement> {
   }
 
   getMeta(): string {
-    return this.getLatest().__meta
+    return this.getLatest().diagramMeta
   }
 
   getSource(): string {
-    return this.getLatest().__source
+    return this.getLatest().diagramSource
   }
 
   setSource(source: string): void {
-    if (source !== this.__source) {
-      this.getWritable().__source = source
+    if (source !== this.diagramSource) {
+      this.getWritable().diagramSource = source
     }
   }
 
@@ -226,7 +225,7 @@ function createBuddyMermaidNode(source: string, meta: string): BuddyMermaidNode 
   return new BuddyMermaidNode(source, meta)
 }
 
-function isBuddyMermaidNode(node: unknown): node is BuddyMermaidNode {
+function isBuddyMermaidNode(node: LexicalNode | null | undefined): node is BuddyMermaidNode {
   return node instanceof BuddyMermaidNode
 }
 

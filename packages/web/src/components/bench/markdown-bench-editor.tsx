@@ -39,7 +39,9 @@ import {
 } from "lexical"
 import {
   forwardRef,
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useId,
   useImperativeHandle,
@@ -425,6 +427,13 @@ function MarkdownBenchAdvancedToolbarPortal(props: { container?: HTMLElement | n
   )
 }
 
+const MarkdownBenchToolbarContainerContext = createContext<HTMLElement | null>(null)
+
+function MarkdownBenchToolbarContents() {
+  const container = useContext(MarkdownBenchToolbarContainerContext)
+  return <MarkdownBenchAdvancedToolbarPortal container={container} />
+}
+
 const MARKDOWN_CONTENT_BASE_CLASS_NAME = [
   markdownClassName,
   "focus:outline-none",
@@ -806,10 +815,12 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         const range = selection.getRangeAt(0)
         setSelectionSection(resolveMarkdownBenchSelectionSection({ range, scrollRoot: editorRoot }))
         const headingPath = resolveSelectionHeadingPath(editorRoot, range)
-        onSelectionChange({
-          text: selection.toString().trim(),
-          ...(headingPath ? { headingPath } : {}),
-        })
+        onSelectionChange(
+          Object.assign(
+            { text: selection.toString().trim() },
+            headingPath ? { headingPath } : undefined,
+          ),
+        )
       })
     }, [onSelectionChange])
     const onOpenLink = props.onOpenLink
@@ -879,9 +890,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         markdownShortcutPlugin(),
         toolbarPlugin({
           toolbarClassName: "!hidden",
-          toolbarContents: () => (
-            <MarkdownBenchAdvancedToolbarPortal container={props.advancedToolbarContainer} />
-          ),
+          toolbarContents: MarkdownBenchToolbarContents,
         }),
         markdownBenchHistoryControlsPlugin({
           onChange: handleHistoryControlsChange,
@@ -891,7 +900,6 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         handleHistoryControlsChange,
         handleProcessingErrorChange,
         obsidianWikiLinkContext,
-        props.advancedToolbarContainer,
         props.directory,
         props.documentFormat,
         props.path,
@@ -1006,32 +1014,36 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
               onKeyDown={handleNoteTitleKeyDown}
             />
           </div>
-          <MDXEditor
-            ref={editorRef}
-            className={cn(
-              "min-h-full bg-background-base text-text-base",
-              MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME,
-              MDX_EDITOR_THEME_CLASS_NAME,
-            )}
-            markdown={editorMarkdown}
-            plugins={plugins}
-            readOnly={isPrintView || props.renamingTitle}
-            placeholder={props.placeholder}
-            suppressHtmlProcessing={props.documentFormat === "mdx"}
-            toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}
-            onChange={(nextMarkdown, initialMarkdownNormalize) => {
-              if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
-                return
-              }
-              props.onChange(restoreEditorMarkdown(nextMarkdown))
-            }}
-            contentEditableClassName={cn(
-              MARKDOWN_CONTENT_BASE_CLASS_NAME,
-              isPlainAppearance
-                ? MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME
-                : MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME,
-            )}
-          />
+          <MarkdownBenchToolbarContainerContext.Provider
+            value={props.advancedToolbarContainer ?? null}
+          >
+            <MDXEditor
+              ref={editorRef}
+              className={cn(
+                "min-h-full bg-background-base text-text-base",
+                MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME,
+                MDX_EDITOR_THEME_CLASS_NAME,
+              )}
+              markdown={editorMarkdown}
+              plugins={plugins}
+              readOnly={isPrintView || props.renamingTitle}
+              placeholder={props.placeholder}
+              suppressHtmlProcessing={props.documentFormat === "mdx"}
+              toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}
+              onChange={(nextMarkdown, initialMarkdownNormalize) => {
+                if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
+                  return
+                }
+                props.onChange(restoreEditorMarkdown(nextMarkdown))
+              }}
+              contentEditableClassName={cn(
+                MARKDOWN_CONTENT_BASE_CLASS_NAME,
+                isPlainAppearance
+                  ? MARKDOWN_CONTENT_PLAIN_LAYOUT_CLASS_NAME
+                  : MARKDOWN_CONTENT_PAPER_LAYOUT_CLASS_NAME,
+              )}
+            />
+          </MarkdownBenchToolbarContainerContext.Provider>
         </div>
       </div>
     )

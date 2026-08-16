@@ -113,6 +113,17 @@ function renderDirectiveStart(attributes: ObsidianCalloutAttributes): string {
   return `:::obsidian-callout{${serialized.join(" ")}}`
 }
 
+function parseJsonStringLiteral(rawValue: string): string | undefined {
+  try {
+    const parsed = JSON.parse(rawValue)
+    const literal = `${parsed}`
+    if (literal === parsed) return literal
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
 function parseDirectiveAttributes(
   source: string | undefined,
 ): ObsidianCalloutAttributes | undefined {
@@ -122,22 +133,15 @@ function parseDirectiveAttributes(
     const name = match[1]
     const rawValue = match[2]
     if (!name || !rawValue) continue
-    try {
-      const parsed: unknown = JSON.parse(rawValue)
-      if (typeof parsed === "string") attributes.set(name, parsed)
-    } catch {
-      continue
-    }
+    const parsed = parseJsonStringLiteral(rawValue)
+    if (parsed === undefined) continue
+    attributes.set(name, parsed)
   }
   const kind = attributes.get("kind")
   if (!kind) return undefined
   const fold = attributes.get("fold")
   const title = attributes.get("title")
-  return {
-    kind,
-    ...(fold ? { fold } : {}),
-    ...(title ? { title } : {}),
-  }
+  return Object.assign({ kind }, fold ? { fold } : undefined, title ? { title } : undefined)
 }
 
 export function prepareObsidianCalloutsForMdxEditor(markdown: string): string {

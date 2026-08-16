@@ -111,13 +111,17 @@ function benchContextTargetFromBenchTarget(input: {
   title?: string
 }): BenchContextTarget {
   if (input.target.type === "workspace-file") {
-    return workspaceFileTarget({
-      directory: input.directory,
-      path: input.target.path,
-      route: input.route,
-      status: input.status,
-      ...(input.title ? { title: input.title } : {}),
-    })
+    return workspaceFileTarget(
+      Object.assign(
+        {
+          directory: input.directory,
+          path: input.target.path,
+          route: input.route,
+          status: input.status,
+        },
+        input.title ? { title: input.title } : undefined,
+      ),
+    )
   }
 
   return objectTarget({
@@ -196,13 +200,17 @@ function buildBenchSurfaceContextSnapshot(input: {
     context: {
       status: "open",
       targetKey: benchTargetKey(input.target),
-      target: benchContextTargetFromBenchTarget({
-        target: input.target,
-        directory: input.directory,
-        route: input.route,
-        status: input.enrichment.targetStatus,
-        ...(input.enrichment.title ? { title: input.enrichment.title } : {}),
-      }),
+      target: benchContextTargetFromBenchTarget(
+        Object.assign(
+          {
+            target: input.target,
+            directory: input.directory,
+            route: input.route,
+            status: input.enrichment.targetStatus,
+          },
+          input.enrichment.title ? { title: input.enrichment.title } : undefined,
+        ),
+      ),
       metadata: input.enrichment.metadata,
       content: input.enrichment.content,
       refs: input.enrichment.refs ?? benchContextRefsFromBenchTarget(input.target),

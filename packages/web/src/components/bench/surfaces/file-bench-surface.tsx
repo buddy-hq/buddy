@@ -77,12 +77,14 @@ export function FileBenchSurface(props: { directory: string; path: string; fragm
       <DirectoryChatReadingPage
         directory={props.directory}
         resourcePath={props.path}
-        target={{
-          type: "workspace-file",
-          path: props.path,
-          viewer: "file",
-          ...(props.fragment ? { fragment: props.fragment } : {}),
-        }}
+        target={Object.assign(
+          {
+            type: "workspace-file" as const,
+            path: props.path,
+            viewer: "file" as const,
+          },
+          props.fragment ? { fragment: props.fragment } : undefined,
+        )}
       />
     )
   }
@@ -110,7 +112,7 @@ function ProjectFileBenchView(props: {
   const classification = classifyWorkspaceMedia({ path: props.path, ...props.metadata })
   const overSoftLimit = isWorkspaceFileOverSoftLimit({ path: props.path, ...props.metadata })
 
-  if (overSoftLimit && !approved && typeof props.metadata.sizeBytes === "number") {
+  if (overSoftLimit && !approved && props.metadata.sizeBytes !== undefined) {
     return (
       <BenchStaticContextProvider
         status="ready"

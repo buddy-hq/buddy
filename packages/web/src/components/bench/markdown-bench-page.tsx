@@ -213,11 +213,12 @@ function filePathMatchesTarget(candidate: string | undefined, targetPath: string
 }
 
 function toolMetadataTargetsPath(part: MessagePart, targetPath: string) {
-  if (part.type !== "tool" || typeof part.tool !== "string") return false
-  if (!FILE_EDIT_TOOL_NAMES.has(part.tool)) return false
+  const toolName = readString(part.tool)
+  if (part.type !== "tool" || !toolName) return false
+  if (!FILE_EDIT_TOOL_NAMES.has(toolName)) return false
 
   const state = parseToolState(part)
-  if (part.tool === "apply_patch") {
+  if (toolName === "apply_patch") {
     const files = state.metadata.files
     if (!Array.isArray(files)) return false
     return files.some((file) => {
@@ -374,12 +375,14 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       if (resolution.status !== "resolved" || !resolution.path) return
       void openBenchRoute({
         directory: props.directory,
-        target: {
-          type: "workspace-file",
-          path: resolution.path,
-          viewer: viewerForObsidianResolution(resolution),
-          ...(resolution.fragment ? { fragment: resolution.fragment } : {}),
-        },
+        target: Object.assign(
+          {
+            type: "workspace-file" as const,
+            path: resolution.path,
+            viewer: viewerForObsidianResolution(resolution),
+          },
+          resolution.fragment ? { fragment: resolution.fragment } : undefined,
+        ),
         mode: BENCH_MODE_REQUEST_POLICY,
         autoOpen: null,
       })
@@ -396,12 +399,16 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       }
       void openBenchRoute({
         directory: props.directory,
-        target: {
-          type: "workspace-file",
-          path: target.path,
-          viewer: isMarkdownBenchPath(target.path) ? "markdown" : "file",
-          ...(target.fragment ? { fragment: target.fragment } : {}),
-        },
+        target: Object.assign(
+          {
+            type: "workspace-file" as const,
+            path: target.path,
+            viewer: isMarkdownBenchPath(target.path)
+              ? ("markdown" as const)
+              : ("file" as const),
+          },
+          target.fragment ? { fragment: target.fragment } : undefined,
+        ),
         mode: BENCH_MODE_REQUEST_POLICY,
         autoOpen: null,
       })
@@ -486,12 +493,15 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     }
   }, [])
   const contextTarget = useMemo<BenchTarget>(
-    () => ({
-      type: "workspace-file",
-      path: props.path,
-      viewer: "markdown",
-      ...(props.fragment ? { fragment: props.fragment } : {}),
-    }),
+    () =>
+      Object.assign(
+        {
+          type: "workspace-file" as const,
+          path: props.path,
+          viewer: "markdown" as const,
+        },
+        props.fragment ? { fragment: props.fragment } : undefined,
+      ),
     [props.fragment, props.path],
   )
   const contextSemanticKey = useMemo(
@@ -1200,14 +1210,19 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       stagedSelectionKeyRef.current = selectionKey
       setPromptDraft(
         promptKey,
-        appendSelectionContextToDraft(draftWithoutPreviousSelection, {
-          source: "markdown",
-          text,
-          selectionKey,
-          path: props.path,
-          version,
-          ...(selection.headingPath ? { headingPath: selection.headingPath } : {}),
-        }),
+        appendSelectionContextToDraft(
+          draftWithoutPreviousSelection,
+          Object.assign(
+            {
+              source: "markdown" as const,
+              text,
+              selectionKey,
+              path: props.path,
+              version,
+            },
+            selection.headingPath ? { headingPath: selection.headingPath } : undefined,
+          ),
+        ),
       )
     },
     [controller, props.path, setPromptDraft, version],

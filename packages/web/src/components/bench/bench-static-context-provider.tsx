@@ -18,14 +18,17 @@ export function BenchStaticContextProvider(props: BenchStaticContextProviderProp
   const benchContext = useBenchRouteContext()
   const contextProvider = useMemo(
     () => ({
-      read: () => ({
-        targetStatus: props.status,
-        ...(props.title ? { title: props.title } : {}),
-        metadata: props.metadata,
-        content: props.content,
-        ...(props.refs ? { refs: props.refs } : {}),
-        hints: props.hints ?? [],
-      }),
+      read: () =>
+        Object.assign(
+          {
+            targetStatus: props.status,
+            metadata: props.metadata,
+            content: props.content,
+            hints: props.hints ?? [],
+          },
+          props.title ? { title: props.title } : undefined,
+          props.refs ? { refs: props.refs } : undefined,
+        ),
     }),
     [props.content, props.hints, props.metadata, props.refs, props.status, props.title],
   )

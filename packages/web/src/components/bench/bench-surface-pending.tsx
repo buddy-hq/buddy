@@ -48,25 +48,27 @@ export function useDelayedPendingVisible(input?: {
   return visible || held
 }
 
-export type BenchSurfacePendingShape = "document" | "canvas" | "media"
+export type TBenchSurfacePendingLayout = "document" | "canvas" | "media"
 
 /**
  * Renders nothing until the load is slow enough to be worth acknowledging, then a quiet skeleton
  * shaped like the surface being opened.
  */
-export function BenchSurfacePending(props: { shape?: BenchSurfacePendingShape }) {
+export function BenchSurfacePending(props: { layout?: TBenchSurfacePendingLayout }) {
   const visible = useDelayedPendingVisible()
   if (!visible) return <div data-component="bench-surface-pending-idle" className="h-full w-full" />
+
+  const pendingLayout = props.layout ?? "document"
 
   return (
     <div
       data-component="bench-surface-pending"
-      data-pending-shape={props.shape ?? "document"}
+      data-pending-layout={pendingLayout}
       className="flex h-full min-h-0 w-full min-w-0 flex-col gap-3 p-6"
       role="status"
       aria-busy
     >
-      {props.shape === "canvas" || props.shape === "media" ? (
+      {pendingLayout === "canvas" || pendingLayout === "media" ? (
         <Skeleton className="min-h-0 w-full flex-1" />
       ) : (
         <>

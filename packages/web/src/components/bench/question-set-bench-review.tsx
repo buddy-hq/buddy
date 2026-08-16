@@ -194,15 +194,19 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
           `result_state: ${resultState}`,
         ],
         content: [
-          buildQuestionSetVisibleContext({
-            questionSet: props.questionSet,
-            answers,
-            currentStep,
-            evaluationByQuestionID,
-            orderedChoicesByQuestionID,
-            ...(result ? { result } : {}),
-            viewMode,
-          }),
+          buildQuestionSetVisibleContext(
+            Object.assign(
+              {
+                questionSet: props.questionSet,
+                answers,
+                currentStep,
+                evaluationByQuestionID,
+                orderedChoicesByQuestionID,
+                viewMode,
+              },
+              result ? { result } : undefined,
+            ),
+          ),
           `Edit path: ${editPath}`,
         ].join("\n\n"),
         refs: [

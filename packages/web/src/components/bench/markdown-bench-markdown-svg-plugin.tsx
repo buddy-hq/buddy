@@ -7,8 +7,9 @@ import {
   type LexicalExportVisitor,
   type MdastImportVisitor,
 } from "@mdxeditor/editor"
-import { $isElementNode, DecoratorNode } from "lexical"
+import { $isElementNode, DecoratorNode, type LexicalNode } from "lexical"
 import type { NodeKey, SerializedLexicalNode, Spread } from "lexical"
+import type { Nodes } from "mdast"
 import type { ReactElement } from "react"
 import { MarkdownBenchMdxIntrinsicPreview } from "@/components/bench/markdown-bench-mdx-intrinsic"
 
@@ -25,24 +26,15 @@ type SerializedBuddyMarkdownSvgNode = Spread<
 
 const MARKDOWN_SVG_IMPORT_PRIORITY = 100
 
-function isMarkdownSvgMdastNode(node: unknown): node is MarkdownSvgMdastNode {
-  if (!node || typeof node !== "object" || !("type" in node) || !("name" in node)) {
-    return false
-  }
-  return (
-    (node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement") && node.name === "svg"
-  )
-}
-
 export class BuddyMarkdownSvgNode extends DecoratorNode<ReactElement> {
-  __mdastNode: MarkdownSvgMdastNode
+  svgMdastNode: MarkdownSvgMdastNode
 
   static getType(): string {
     return "buddy-markdown-svg"
   }
 
   static clone(node: BuddyMarkdownSvgNode): BuddyMarkdownSvgNode {
-    return new BuddyMarkdownSvgNode(node.__mdastNode, node.__key)
+    return new BuddyMarkdownSvgNode(node.svgMdastNode, node.getKey())
   }
 
   static importJSON(serializedNode: SerializedBuddyMarkdownSvgNode): BuddyMarkdownSvgNode {
@@ -51,7 +43,7 @@ export class BuddyMarkdownSvgNode extends DecoratorNode<ReactElement> {
 
   constructor(mdastNode: MarkdownSvgMdastNode, key?: NodeKey) {
     super(key)
-    this.__mdastNode = mdastNode
+    this.svgMdastNode = mdastNode
   }
 
   exportJSON(): SerializedBuddyMarkdownSvgNode {
@@ -72,7 +64,7 @@ export class BuddyMarkdownSvgNode extends DecoratorNode<ReactElement> {
   }
 
   getMdastNode(): MarkdownSvgMdastNode {
-    return this.getLatest().__mdastNode
+    return this.getLatest().svgMdastNode
   }
 
   decorate(): ReactElement {
@@ -88,11 +80,21 @@ export class BuddyMarkdownSvgNode extends DecoratorNode<ReactElement> {
   }
 }
 
+function isMarkdownSvgMdastNode(node: Nodes): node is MarkdownSvgMdastNode {
+  if (!("name" in node)) return false
+  return (
+    (node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement") &&
+    node.name === "svg"
+  )
+}
+
 function createBuddyMarkdownSvgNode(mdastNode: MarkdownSvgMdastNode): BuddyMarkdownSvgNode {
   return new BuddyMarkdownSvgNode(mdastNode)
 }
 
-function isBuddyMarkdownSvgNode(node: unknown): node is BuddyMarkdownSvgNode {
+function isBuddyMarkdownSvgNode(
+  node: LexicalNode | null | undefined,
+): node is BuddyMarkdownSvgNode {
   return node instanceof BuddyMarkdownSvgNode
 }
 

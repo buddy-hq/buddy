@@ -6,9 +6,8 @@ import {
   type LexicalExportVisitor,
   type MdastImportVisitor,
 } from "@mdxeditor/editor"
-import { DecoratorNode } from "lexical"
+import { DecoratorNode, type LexicalNode, type NodeKey, type SerializedLexicalNode, type Spread } from "lexical"
 import { createContext, useContext, type ReactElement, type ReactNode } from "react"
-import type { NodeKey, SerializedLexicalNode, Spread } from "lexical"
 import type { Code } from "mdast"
 import { ChemistryDiagram } from "@/components/media/renderers/chemistry/chemistry-diagram"
 import {
@@ -101,10 +100,10 @@ export function BuddyChemistryPreview(props: BuddyChemistryPreviewProps): ReactE
 }
 
 export class BuddyChemistryNode extends DecoratorNode<ReactElement> {
-  __format: ChemistryFormat
-  __language: string
-  __meta: string | null
-  __source: string
+  chemistryFormat: ChemistryFormat
+  fenceLanguage: string
+  fenceMeta: string | null
+  fenceSource: string
 
   static getType(): string {
     return "buddy-chemistry"
@@ -112,11 +111,11 @@ export class BuddyChemistryNode extends DecoratorNode<ReactElement> {
 
   static clone(node: BuddyChemistryNode): BuddyChemistryNode {
     return new BuddyChemistryNode(
-      node.__format,
-      node.__language,
-      node.__source,
-      node.__meta,
-      node.__key,
+      node.chemistryFormat,
+      node.fenceLanguage,
+      node.fenceSource,
+      node.fenceMeta,
+      node.getKey(),
     )
   }
 
@@ -137,10 +136,10 @@ export class BuddyChemistryNode extends DecoratorNode<ReactElement> {
     key?: NodeKey,
   ) {
     super(key)
-    this.__format = format
-    this.__language = language
-    this.__source = source
-    this.__meta = meta
+    this.chemistryFormat = format
+    this.fenceLanguage = language
+    this.fenceSource = source
+    this.fenceMeta = meta
   }
 
   exportJSON(): SerializedBuddyChemistryNode {
@@ -164,19 +163,19 @@ export class BuddyChemistryNode extends DecoratorNode<ReactElement> {
   }
 
   getFormat(): ChemistryFormat {
-    return this.getLatest().__format
+    return this.getLatest().chemistryFormat
   }
 
   getLanguage(): string {
-    return this.getLatest().__language
+    return this.getLatest().fenceLanguage
   }
 
   getMeta(): string | null {
-    return this.getLatest().__meta
+    return this.getLatest().fenceMeta
   }
 
   getSource(): string {
-    return this.getLatest().__source
+    return this.getLatest().fenceSource
   }
 
   decorate(): ReactElement {
@@ -207,7 +206,9 @@ function createBuddyChemistryNode(input: {
   return new BuddyChemistryNode(input.format, input.language, input.source, input.meta)
 }
 
-function isBuddyChemistryNode(node: unknown): node is BuddyChemistryNode {
+function isBuddyChemistryNode(
+  node: LexicalNode | null | undefined,
+): node is BuddyChemistryNode {
   return node instanceof BuddyChemistryNode
 }
 

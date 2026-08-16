@@ -26,29 +26,41 @@ export function BenchSurfaceRenderer(props: {
     if (props.target.viewer === "markdown") {
       return (
         <MarkdownBenchSurface
-          directory={props.directory}
-          path={props.target.path}
-          {...(props.target.fragment ? { fragment: props.target.fragment } : {})}
+          {...Object.assign(
+            {
+              directory: props.directory,
+              path: props.target.path,
+            },
+            props.target.fragment ? { fragment: props.target.fragment } : undefined,
+          )}
         />
       )
     }
     return (
       <FileBenchSurface
-        directory={props.directory}
-        path={props.target.path}
-        {...(props.target.fragment ? { fragment: props.target.fragment } : {})}
+        {...Object.assign(
+          {
+            directory: props.directory,
+            path: props.target.path,
+          },
+          props.target.fragment ? { fragment: props.target.fragment } : undefined,
+        )}
       />
     )
   }
 
   return (
     <ObjectBenchSurface
-      directory={props.directory}
-      kind={props.target.ref.kind}
-      objectID={props.target.ref.objectID}
-      viewID={props.target.viewID}
-      {...(props.target.ref.revisionID ? { revisionID: props.target.ref.revisionID } : {})}
-      {...(props.target.ref.itemID ? { itemID: props.target.ref.itemID } : {})}
+      {...Object.assign(
+        {
+          directory: props.directory,
+          kind: props.target.ref.kind,
+          objectID: props.target.ref.objectID,
+          viewID: props.target.viewID,
+        },
+        props.target.ref.revisionID ? { revisionID: props.target.ref.revisionID } : undefined,
+        props.target.ref.itemID ? { itemID: props.target.ref.itemID } : undefined,
+      )}
     />
   )
 }

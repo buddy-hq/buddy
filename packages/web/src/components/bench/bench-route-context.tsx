@@ -141,13 +141,17 @@ export function BenchRouteContextProvider(props: {
       ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
     }) => {
       if (!active) return () => undefined
-      return workspace.lifecycle.registerSurface({
-        target: input.target,
-        getSnapshot: input.getSnapshot,
-        subscribe: input.subscribe,
-        ...(input.synchronize ? { synchronize: input.synchronize } : {}),
-        ...(input.leaveGuard ? { guardLeave: input.leaveGuard } : {}),
-      })
+      return workspace.lifecycle.registerSurface(
+        Object.assign(
+          {
+            target: input.target,
+            getSnapshot: input.getSnapshot,
+            subscribe: input.subscribe,
+          },
+          input.synchronize ? { synchronize: input.synchronize } : undefined,
+          input.leaveGuard ? { guardLeave: input.leaveGuard } : undefined,
+        ),
+      )
     },
     [active, workspace.lifecycle],
   )

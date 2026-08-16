@@ -120,6 +120,17 @@ function hasMeasuredSize(size: BenchSize) {
   return size.width > 0 && size.height > 0
 }
 
+function observeElementSize(element: Element, onSize: () => void): () => void {
+  const SizeObserver = globalThis.ResizeObserver
+  if (!SizeObserver) {
+    window.addEventListener("resize", onSize)
+    return () => window.removeEventListener("resize", onSize)
+  }
+  const observer = new SizeObserver(onSize)
+  observer.observe(element)
+  return () => observer.disconnect()
+}
+
 export function resolveBenchFitZoom(input: {
   viewportSize: BenchSize
   contentSize: BenchSize
@@ -527,15 +538,7 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
     }
 
     updateViewportSize()
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateViewportSize)
-      return () => window.removeEventListener("resize", updateViewportSize)
-    }
-
-    const observer = new ResizeObserver(updateViewportSize)
-    observer.observe(viewport)
-    return () => observer.disconnect()
+    return observeElementSize(viewport, updateViewportSize)
   }, [])
 
   useLayoutEffect(() => {
@@ -555,15 +558,7 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
     }
 
     updateContentSize()
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateContentSize)
-      return () => window.removeEventListener("resize", updateContentSize)
-    }
-
-    const observer = new ResizeObserver(updateContentSize)
-    observer.observe(content)
-    return () => observer.disconnect()
+    return observeElementSize(content, updateContentSize)
   }, [props.children])
 
   const effectiveZoom = useMemo(
@@ -615,13 +610,18 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
     if (!viewportKey) return
     const viewport = viewportRef.current
     return () => {
-      writeBenchSurfaceViewport(viewportKey, {
-        zoom: zoomStateRef.current.zoom,
-        autoFit: zoomStateRef.current.isAutoFit,
-        ...(!zoomStateRef.current.isAutoFit && viewport
-          ? { panX: viewport.scrollLeft, panY: viewport.scrollTop }
-          : {}),
-      })
+      writeBenchSurfaceViewport(
+        viewportKey,
+        Object.assign(
+          {
+            zoom: zoomStateRef.current.zoom,
+            autoFit: zoomStateRef.current.isAutoFit,
+          },
+          !zoomStateRef.current.isAutoFit && viewport
+            ? { panX: viewport.scrollLeft, panY: viewport.scrollTop }
+            : undefined,
+        ),
+      )
     }
   }, [viewportKey])
 

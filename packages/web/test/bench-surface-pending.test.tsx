@@ -23,7 +23,7 @@ async function renderPending() {
   document.body.appendChild(container)
   root = createRoot(container)
   await act(async () => {
-    root?.render(<BenchSurfacePending shape="canvas" />)
+    root?.render(<BenchSurfacePending layout="canvas" />)
   })
 }
 
@@ -48,7 +48,7 @@ describe("BenchSurfacePending", () => {
 
     const pending = container?.querySelector('[data-component="bench-surface-pending"]')
     expect(pending).not.toBeNull()
-    expect(pending?.getAttribute("data-pending-shape")).toBe("canvas")
+    expect(pending?.getAttribute("data-pending-layout")).toBe("canvas")
     expect(pending?.getAttribute("aria-busy")).not.toBeNull()
     // No product-facing copy at all, and none of Buddy's internal vocabulary.
     expect(container?.textContent).toBe("")

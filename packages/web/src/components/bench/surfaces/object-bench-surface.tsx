@@ -21,7 +21,7 @@ import { ReadOnlySourceBenchView } from "@/components/bench/read-only-source-ben
 import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import {
   BenchSurfacePending,
-  type BenchSurfacePendingShape,
+  type TBenchSurfacePendingLayout,
 } from "@/components/bench/bench-surface-pending"
 import { useBenchSurfaceActive } from "@/components/bench/bench-surface-activity"
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
@@ -105,7 +105,7 @@ type ObjectMediaAvailability = {
 const HTML_WIDGET_LIVE_VIEW_REFETCH_INTERVAL_MS = 1500
 
 /** The skeleton should resemble what is opening, which the target kind already tells us. */
-function pendingShapeForKind(kind: BenchObjectKind): BenchSurfacePendingShape {
+function pendingLayoutForKind(kind: BenchObjectKind): TBenchSurfacePendingLayout {
   if (kind === "whiteboard" || kind === "figure" || kind === "freeform-figure") return "canvas"
   if (kind === "media-presentation" || kind === "html-widget") return "media"
   return "document"
@@ -163,6 +163,10 @@ function mediaAvailabilityFromItem(item: ObjectMediaGalleryItem): ObjectMediaAva
   }
 }
 
+function isPresentContentLine(line: string | null | undefined): line is string {
+  return line !== null && line !== undefined && line.length > 0
+}
+
 function objectBenchTarget(view: ObjectsViewResponse): Extract<BenchTarget, { type: "object" }> {
   return {
     type: "object",
@@ -171,7 +175,7 @@ function objectBenchTarget(view: ObjectsViewResponse): Extract<BenchTarget, { ty
   }
 }
 
-function ObjectBenchPending(props: { shape?: BenchSurfacePendingShape }) {
+function ObjectBenchPending(props: { layout?: TBenchSurfacePendingLayout }) {
   return (
     <BenchStaticContextProvider
       status="loading"
@@ -179,7 +183,7 @@ function ObjectBenchPending(props: { shape?: BenchSurfacePendingShape }) {
       content="Object view is visible on Bench and loading."
       hints={["Try bench_read_context again after the object view finishes loading."]}
     >
-      <BenchSurfacePending {...(props.shape ? { shape: props.shape } : {})} />
+      <BenchSurfacePending layout={props.layout} />
     </BenchStaticContextProvider>
   )
 }
@@ -251,18 +255,22 @@ export function ObjectBenchSurface(props: {
   itemID?: string
 }) {
   const surfaceQuery = useQuery(
-    objectBenchSurfaceQueryOptions({
-      directory: props.directory,
-      kind: props.kind,
-      objectID: props.objectID,
-      ...(props.viewID ? { viewID: props.viewID } : {}),
-      ...(props.revisionID ? { revisionID: props.revisionID } : {}),
-      ...(props.itemID ? { itemID: props.itemID } : {}),
-    }),
+    objectBenchSurfaceQueryOptions(
+      Object.assign(
+        {
+          directory: props.directory,
+          kind: props.kind,
+          objectID: props.objectID,
+        },
+        props.viewID ? { viewID: props.viewID } : undefined,
+        props.revisionID ? { revisionID: props.revisionID } : undefined,
+        props.itemID ? { itemID: props.itemID } : undefined,
+      ),
+    ),
   )
 
   if (!props.directory) return <DirectoryInvalidNotebook />
-  if (surfaceQuery.isPending) return <ObjectBenchPending shape={pendingShapeForKind(props.kind)} />
+  if (surfaceQuery.isPending) return <ObjectBenchPending layout={pendingLayoutForKind(props.kind)} />
   if (surfaceQuery.isError || !surfaceQuery.data) return <ObjectBenchError />
 
   return (
@@ -288,14 +296,18 @@ function LoadedObjectBenchSurface(props: {
   const isSessionBusy =
     controller.status === "ready" ? controller.mainPaneProps.chatState.isBusy : false
   const { data: liveViewData, refetch: refetchLiveView } = useQuery({
-    ...objectViewQueryOptions({
-      directory: loaderData.directory,
-      kind: loaderData.kind,
-      objectID: loaderData.objectID,
-      viewID: loaderData.view?.viewID ?? defaultBenchObjectViewID(loaderData.kind),
-      ...(props.revisionID ? { revisionID: props.revisionID } : {}),
-      ...(props.itemID ? { itemID: props.itemID } : {}),
-    }),
+    ...objectViewQueryOptions(
+      Object.assign(
+        {
+          directory: loaderData.directory,
+          kind: loaderData.kind,
+          objectID: loaderData.objectID,
+          viewID: loaderData.view?.viewID ?? defaultBenchObjectViewID(loaderData.kind),
+        },
+        props.revisionID ? { revisionID: props.revisionID } : undefined,
+        props.itemID ? { itemID: props.itemID } : undefined,
+      ),
+    ),
     enabled: isHtmlWidgetView,
     initialData: loaderData.view ?? undefined,
     refetchInterval:
@@ -727,7 +739,7 @@ function SelectedMediaObjectBenchView(props: {
                   localPath: props.item.source.path,
                 })
                   .then(() => toast("Image added to composer"))
-                  .catch((error: unknown) => toast(stringifyError(error)))
+                  .catch((cause) => toast(stringifyError(cause)))
                   .finally(() => setIsStagingEdit(false))
               },
             } satisfies BenchViewerAction,
@@ -740,7 +752,7 @@ function SelectedMediaObjectBenchView(props: {
         onClick: () => {
           void navigator.clipboard.writeText(sourcePath).then(
             () => toast("Path copied"),
-            (error: unknown) => toast(stringifyError(error)),
+            (cause) => toast(stringifyError(cause)),
           )
         },
       },
@@ -1296,7 +1308,7 @@ function LibraryObjectBenchView(props: {
         props.data.badge ? `Badge: ${props.data.badge}` : undefined,
         ...props.data.metrics.map((metric) => `${metric.label}: ${String(metric.value)}`),
       ]
-        .filter((line): line is string => typeof line === "string" && line.length > 0)
+        .filter(isPresentContentLine)
         .join("\n")}
     >
       <BenchZoomableViewer

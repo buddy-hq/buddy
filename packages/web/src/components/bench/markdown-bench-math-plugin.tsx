@@ -9,11 +9,10 @@ import {
   type LexicalExportVisitor,
   type MdastImportVisitor,
 } from "@mdxeditor/editor"
-import { DecoratorNode } from "lexical"
+import { DecoratorNode, type EditorConfig, type LexicalEditor, type LexicalNode, type NodeKey, type SerializedLexicalNode, type Spread } from "lexical"
 import { mathFromMarkdown, mathToMarkdown, type InlineMath, type Math } from "mdast-util-math"
 import { math } from "micromark-extension-math"
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react"
-import type { EditorConfig, LexicalEditor, NodeKey, SerializedLexicalNode, Spread } from "lexical"
 import { renderBuddyMathToHtml } from "@/components/markdown/markdown-math"
 
 type SerializedBuddyMathNode = Spread<
@@ -152,15 +151,15 @@ function BuddyMathEditor(props: BuddyMathEditorProps): ReactElement {
 }
 
 export class BuddyMathNode extends DecoratorNode<ReactElement> {
-  __displayMode: boolean
-  __value: string
+  mathDisplayMode: boolean
+  latexSource: string
 
   static getType(): string {
     return "buddy-math"
   }
 
   static clone(node: BuddyMathNode): BuddyMathNode {
-    return new BuddyMathNode(node.__value, node.__displayMode, node.__key)
+    return new BuddyMathNode(node.latexSource, node.mathDisplayMode, node.getKey())
   }
 
   static importJSON(serializedNode: SerializedBuddyMathNode): BuddyMathNode {
@@ -169,8 +168,8 @@ export class BuddyMathNode extends DecoratorNode<ReactElement> {
 
   constructor(value: string, displayMode: boolean, key?: NodeKey) {
     super(key)
-    this.__value = value
-    this.__displayMode = displayMode
+    this.latexSource = value
+    this.mathDisplayMode = displayMode
   }
 
   exportJSON(): SerializedBuddyMathNode {
@@ -184,26 +183,28 @@ export class BuddyMathNode extends DecoratorNode<ReactElement> {
   }
 
   createDOM(): HTMLElement {
-    return document.createElement(this.__displayMode ? "div" : "span")
+    return document.createElement(this.mathDisplayMode ? "div" : "span")
   }
 
   updateDOM(previousNode: BuddyMathNode, dom: HTMLElement, _config: EditorConfig): boolean {
-    const expectedTagName = this.__displayMode ? "DIV" : "SPAN"
-    return previousNode.__displayMode !== this.__displayMode || dom.tagName !== expectedTagName
+    const expectedTagName = this.mathDisplayMode ? "DIV" : "SPAN"
+    return (
+      previousNode.mathDisplayMode !== this.mathDisplayMode || dom.tagName !== expectedTagName
+    )
   }
 
   getValue(): string {
-    return this.getLatest().__value
+    return this.getLatest().latexSource
   }
 
   setValue(value: string): void {
-    if (value !== this.__value) {
-      this.getWritable().__value = value
+    if (value !== this.latexSource) {
+      this.getWritable().latexSource = value
     }
   }
 
   getDisplayMode(): boolean {
-    return this.getLatest().__displayMode
+    return this.getLatest().mathDisplayMode
   }
 
   decorate(editor: LexicalEditor): ReactElement {
@@ -218,7 +219,7 @@ export class BuddyMathNode extends DecoratorNode<ReactElement> {
   }
 
   isInline(): boolean {
-    return !this.__displayMode
+    return !this.mathDisplayMode
   }
 }
 
@@ -226,7 +227,7 @@ function createBuddyMathNode(value: string, displayMode: boolean): BuddyMathNode
   return new BuddyMathNode(value, displayMode)
 }
 
-function isBuddyMathNode(node: unknown): node is BuddyMathNode {
+function isBuddyMathNode(node: LexicalNode | null | undefined): node is BuddyMathNode {
   return node instanceof BuddyMathNode
 }
 

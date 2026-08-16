@@ -53,14 +53,18 @@ function SvgBenchViewContent(props: SvgBenchViewProps) {
 
   return (
     <BenchZoomableViewer
-      title={title}
-      subtitle={subtitle}
-      actions={actions}
-      toolbar={toolbar}
-      {...(props.viewportKey ? { viewportKey: props.viewportKey } : {})}
-      controlsPlacement="dock"
-      hideHeader
-      fitContent
+      {...Object.assign(
+        {
+          title,
+          subtitle,
+          actions,
+          toolbar,
+          controlsPlacement: "dock" as const,
+          hideHeader: true,
+          fitContent: true,
+        },
+        props.viewportKey ? { viewportKey: props.viewportKey } : undefined,
+      )}
     >
       <div
         data-component="svg-bench-surface"

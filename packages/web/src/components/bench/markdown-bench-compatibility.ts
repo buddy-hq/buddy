@@ -1,4 +1,6 @@
 import { fromMarkdown } from "mdast-util-from-markdown"
+import type { Nodes, Root } from "mdast"
+import type { Position } from "unist"
 import { matchBuddyBlockMath, matchBuddyInlineMath } from "@/components/markdown/markdown-math"
 import { prepareObsidianCalloutsForMdxEditor } from "@/components/bench/markdown-bench-obsidian-callouts"
 
@@ -31,28 +33,23 @@ const MARKDOWN_HTML_COMMENT_PATTERN = /<!--[\s\S]*?-->/gu
 const MARKDOWN_HTML_DECLARATION_PATTERN = /<![A-Za-z][^<>\r\n]*>/gu
 const MARKDOWN_BLOCK_BOUNDARY_PATTERN = /\r?\n[ \t]*(?:[-+*]|\d+[.)])[ \t]+/u
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function markdownAstChildren(node: Nodes): readonly Nodes[] {
+  return "children" in node ? node.children : []
 }
 
-function readOffset(value: unknown): number | undefined {
-  if (!isRecord(value) || !isRecord(value.start) || !isRecord(value.end)) {
-    return
-  }
-  const start = value.start.offset
-  const end = value.end.offset
-  if (typeof start !== "number" || typeof end !== "number") {
-    return
-  }
+function readStartOffset(position: Position | undefined): number | undefined {
+  return position?.start.offset
+}
+
+function readEndOffset(position: Position | undefined): number | undefined {
+  return position?.end.offset
+}
+
+function readOffset(position: Position | undefined): number | undefined {
+  const start = readStartOffset(position)
+  const end = readEndOffset(position)
+  if (start === undefined || end === undefined) return undefined
   return start <= end ? start : undefined
-}
-
-function readEndOffset(value: unknown): number | undefined {
-  if (!isRecord(value) || !isRecord(value.end)) {
-    return
-  }
-  const end = value.end.offset
-  return typeof end === "number" ? end : undefined
 }
 
 function escapeLinkLabel(value: string): string {
@@ -68,13 +65,11 @@ function applyReplacements(markdown: string, replacements: MarkdownReplacement[]
 }
 
 function collectAutolinkReplacements(
-  node: unknown,
+  node: Nodes,
   markdown: string,
   replacements: MarkdownReplacement[],
 ): void {
-  if (!isRecord(node)) return
-
-  if (node.type === "link" && typeof node.url === "string") {
+  if (node.type === "link") {
     const start = readOffset(node.position)
     const end = readEndOffset(node.position)
     if (start !== undefined && end !== undefined) {
@@ -93,8 +88,7 @@ function collectAutolinkReplacements(
     }
   }
 
-  if (!Array.isArray(node.children)) return
-  for (const child of node.children) {
+  for (const child of markdownAstChildren(node)) {
     collectAutolinkReplacements(child, markdown, replacements)
   }
 }
@@ -152,7 +146,7 @@ function restoreMarkedEscapedAngles(markdown: string): string {
 }
 
 function collectMarkdownAnglePlaceholderReplacements(
-  tree: unknown,
+  tree: Root,
   markdown: string,
   replacements: MarkdownReplacement[],
 ): void {
@@ -221,14 +215,18 @@ function collectSafeMarkdownHtmlRanges(
     if (!name || !isMarkdownHtmlTagName(name)) continue
     if (rangeContainsOffset(protectedRanges, match.index)) continue
     const listItemStart = containingRangeStart(listItemRanges, match.index)
-    tags.push({
-      start: match.index,
-      end: match.index + raw.length,
-      closing: raw.startsWith("</"),
-      ...(listItemStart !== undefined ? { listItemStart } : {}),
-      name: name.toLocaleLowerCase(),
-      selfClosing: raw.slice(0, -1).trimEnd().endsWith("/"),
-    })
+    tags.push(
+      Object.assign(
+        {
+          start: match.index,
+          end: match.index + raw.length,
+          closing: raw.startsWith("</"),
+          name: name.toLocaleLowerCase(),
+          selfClosing: raw.slice(0, -1).trimEnd().endsWith("/"),
+        },
+        listItemStart !== undefined ? { listItemStart } : undefined,
+      ),
+    )
   }
 
   const openingStack: MarkdownHtmlTag[] = []
@@ -252,24 +250,22 @@ function collectSafeMarkdownHtmlRanges(
   return safeRanges.toSorted((left, right) => left.start - right.start)
 }
 
-function collectNodeTypeRanges(node: unknown, type: string, ranges: MarkdownRange[]): void {
-  if (!isRecord(node)) return
+function collectNodeTypeRanges(node: Nodes, type: string, ranges: MarkdownRange[]): void {
   if (node.type === type) {
     const start = readOffset(node.position)
     const end = readEndOffset(node.position)
     if (start !== undefined && end !== undefined) ranges.push({ start, end })
   }
-  if (!Array.isArray(node.children)) return
-  for (const child of node.children) collectNodeTypeRanges(child, type, ranges)
+  for (const child of markdownAstChildren(node)) {
+    collectNodeTypeRanges(child, type, ranges)
+  }
 }
 
 function collectMdxPlaceholderProtectedRanges(
-  node: unknown,
+  node: Nodes,
   markdown: string,
   ranges: MarkdownRange[],
 ): void {
-  if (!isRecord(node)) return
-
   if (node.type === "inlineCode" || node.type === "code") {
     const start = readOffset(node.position)
     const end = readEndOffset(node.position)
@@ -281,15 +277,12 @@ function collectMdxPlaceholderProtectedRanges(
     return
   }
 
-  if (!Array.isArray(node.children)) return
-  for (const child of node.children) {
+  for (const child of markdownAstChildren(node)) {
     collectMdxPlaceholderProtectedRanges(child, markdown, ranges)
   }
 }
 
-function collectCodeRanges(node: unknown, ranges: MarkdownRange[]): void {
-  if (!isRecord(node)) return
-
+function collectCodeRanges(node: Nodes, ranges: MarkdownRange[]): void {
   if (node.type === "code" || node.type === "inlineCode") {
     const start = readOffset(node.position)
     const end = readEndOffset(node.position)
@@ -299,14 +292,13 @@ function collectCodeRanges(node: unknown, ranges: MarkdownRange[]): void {
     return
   }
 
-  if (!Array.isArray(node.children)) return
-  for (const child of node.children) {
+  for (const child of markdownAstChildren(node)) {
     collectCodeRanges(child, ranges)
   }
 }
 
 function collectHtmlCommentReplacements(
-  tree: unknown,
+  tree: Root,
   markdown: string,
   replacements: MarkdownReplacement[],
 ): void {
@@ -334,9 +326,7 @@ function collectHtmlCommentReplacements(
   }
 }
 
-function collectProtectedRanges(node: unknown, ranges: MarkdownRange[]): void {
-  if (!isRecord(node)) return
-
+function collectProtectedRanges(node: Nodes, ranges: MarkdownRange[]): void {
   if (node.type === "code" || node.type === "inlineCode" || node.type === "html") {
     const start = readOffset(node.position)
     const end = readEndOffset(node.position)
@@ -346,8 +336,7 @@ function collectProtectedRanges(node: unknown, ranges: MarkdownRange[]): void {
     return
   }
 
-  if (!Array.isArray(node.children)) return
-  for (const child of node.children) {
+  for (const child of markdownAstChildren(node)) {
     collectProtectedRanges(child, ranges)
   }
 }
@@ -356,7 +345,7 @@ function normalizeBuddyMathForMdxEditor(markdown: string): string {
   const markdownWithoutLegacyMarkers = markdown
     .replaceAll(LEGACY_BUDDY_DISPLAY_MATH_MARKER, "")
     .replace(/^\$\$\$\r?$/gmu, () => "$$")
-  let tree: unknown
+  let tree: Root
   try {
     tree = fromMarkdown(markdownWithoutLegacyMarkers)
   } catch {
@@ -419,7 +408,7 @@ function prepareForMdxEditor(markdown: string, protectAnglePlaceholders: boolean
   const normalizedMarkdown = normalizeBuddyMathForMdxEditor(
     prepareObsidianCalloutsForMdxEditor(markdown),
   )
-  let tree: unknown
+  let tree: Root
   try {
     tree = fromMarkdown(normalizedMarkdown)
   } catch {
@@ -451,7 +440,7 @@ export function restoreMarkdownFromMdxEditor(markdown: string): string {
 
 export function prepareMdxForMdxEditor(mdx: string): string {
   const preparedMdx = prepareForMdxEditor(mdx, false)
-  let tree: unknown
+  let tree: Root
   try {
     tree = fromMarkdown(preparedMdx)
   } catch {
