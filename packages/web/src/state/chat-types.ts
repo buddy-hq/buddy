@@ -39,17 +39,17 @@ type SdkAssistantError = NonNullable<Extract<SdkMessage, { role: "assistant" }>[
 export type TRecord = NonNullable<SdkTextPart["metadata"]>
 
 export type TMessageErrorData = {
-  message?: string
-  providerID?: string
-  statusCode?: number
-  isRetryable?: boolean
-  responseBody?: string
+  message?: string | null
+  providerID?: string | null
+  statusCode?: number | null
+  isRetryable?: boolean | null
+  responseBody?: string | null
 }
 
 export type MessageError = {
   name: SdkAssistantError["name"] | string
   message?: string
-  data?: TMessageErrorData
+  data?: SdkAssistantError["data"] | TMessageErrorData
 }
 
 export type UserMessageInfo = Omit<
@@ -180,11 +180,11 @@ export type DirectoryChatState = {
 export type TFailure = Error | string | TRecord
 
 export const messageErrorDataSchema = z.object({
-  message: z.string().optional(),
-  providerID: z.string().optional(),
-  statusCode: z.number().finite().optional(),
-  isRetryable: z.boolean().optional(),
-  responseBody: z.string().optional(),
+  message: z.string().nullable().optional(),
+  providerID: z.string().nullable().optional(),
+  statusCode: z.number().finite().nullable().optional(),
+  isRetryable: z.boolean().nullable().optional(),
+  responseBody: z.string().nullable().optional(),
 })
 
 export function isRecord<TValue>(value: TValue): value is TValue & TRecord {

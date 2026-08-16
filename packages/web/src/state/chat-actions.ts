@@ -13,6 +13,8 @@ import type {
   ProviderAuthResponse,
   ProviderListResponse,
   ProviderOpenaiModelAvailabilityGetResponses,
+  Message,
+  Part,
 } from "@buddy/sdk"
 import type { ReaderLocation, ReaderTrailEntry } from "@buddy/reader-contract"
 import { useChatStore } from "./chat-store"
@@ -449,6 +451,13 @@ const pendingDirectorySessionLoads = new Map<string, Promise<DirectorySessionLoa
 type SessionMutationResponse = {
   info: MessageInfo
   parts: MessagePart[]
+}
+
+function readSessionMutationResponse(payload: {
+  info: Message
+  parts: Part[]
+}): SessionMutationResponse {
+  return { info: payload.info, parts: payload.parts }
 }
 
 type OptimisticPromptInput = {
@@ -1907,11 +1916,13 @@ export async function sendCommand(
     )
 
     const postCommand = async (targetSessionID: string): Promise<SessionMutationResponse> =>
-      requireBuddyData(
-        await getBuddyClient(directory).session.command({
-          sessionID: targetSessionID,
-          body: commandBody,
-        }),
+      readSessionMutationResponse(
+        requireBuddyData(
+          await getBuddyClient(directory).session.command({
+            sessionID: targetSessionID,
+            body: commandBody,
+          }),
+        ),
       )
 
     try {
@@ -2256,7 +2267,7 @@ export async function forkSession(
     /** Exclusive upper bound. Omit to clone the full session. */
     messageID?: string
   },
-) {
+): Promise<SessionInfo> {
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
 
@@ -2447,7 +2458,7 @@ export async function updateSession(input: {
   sessionID: string
   title?: string
   archivedAt?: number
-}) {
+}): Promise<SessionInfo> {
   const store = useChatStore.getState()
   const payload: SessionUpdatePayload = {}
 
