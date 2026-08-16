@@ -12,6 +12,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
+  type Ref,
   type RefObject,
   type TouchEvent,
   type UIEvent,
@@ -265,6 +266,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     promptComposerProps,
     compactPromptComposer,
   } = props
+  // SAFETY: ScrollArea owns a div viewport; the controller intentionally exposes its ref as HTMLElement.
+  const transcriptViewportRef = transcriptRef as Ref<HTMLDivElement>
   const abortPromptComposer = promptComposerProps.onAbort
   const providerCatalogQuery = useQuery(providerCatalogSnapshotQueryOptions(directory))
   const autoCompactionWarning = useMemo(() => resolveAutoCompactionWarning(chatState), [chatState])
@@ -416,7 +419,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     if (!isFileDragging) setIsFileDragging(true)
   }
   const handlePaneDragLeave = (event: DragEvent<HTMLElement>) => {
-    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+    const relatedNode = event.relatedTarget instanceof Node ? event.relatedTarget : null
+    if (event.currentTarget.contains(relatedNode)) return
     setIsFileDragging(false)
   }
   const handlePaneDrop = (event: DragEvent<HTMLElement>) => {
@@ -519,15 +523,15 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           <div className="relative min-h-0 flex-1">
             <ScrollArea
               data-component="chat-transcript-scroll-area"
-              viewportRef={transcriptRef as React.Ref<HTMLDivElement>}
-              onScroll={onTranscriptScroll as React.UIEventHandler<HTMLDivElement>}
-              onWheel={onTranscriptWheel as React.WheelEventHandler<HTMLDivElement>}
-              onKeyDown={onTranscriptKeyDown as React.KeyboardEventHandler<HTMLDivElement>}
-              onPointerDown={onTranscriptPointerDown as React.PointerEventHandler<HTMLDivElement>}
-              onTouchStart={onTranscriptTouchStart as React.TouchEventHandler<HTMLDivElement>}
-              onTouchMove={onTranscriptTouchMove as React.TouchEventHandler<HTMLDivElement>}
-              onTouchEnd={onTranscriptTouchEnd as React.TouchEventHandler<HTMLDivElement>}
-              onTouchCancel={onTranscriptTouchCancel as React.TouchEventHandler<HTMLDivElement>}
+              viewportRef={transcriptViewportRef}
+              onScroll={onTranscriptScroll}
+              onWheel={onTranscriptWheel}
+              onKeyDown={onTranscriptKeyDown}
+              onPointerDown={onTranscriptPointerDown}
+              onTouchStart={onTranscriptTouchStart}
+              onTouchMove={onTranscriptTouchMove}
+              onTouchEnd={onTranscriptTouchEnd}
+              onTouchCancel={onTranscriptTouchCancel}
               fillContentWidth
               className="h-full min-w-0 min-h-0"
             >

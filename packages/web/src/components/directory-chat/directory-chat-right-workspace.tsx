@@ -149,6 +149,7 @@ function ObsidianRailIcon(props: { className?: string }) {
 }
 
 function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
+  // SAFETY: Valid React elements in this rail are SVG icon elements accepted by railIcon.
   const icon = isValidElement(props.icon)
     ? railIcon(props.icon as ReactElement<SVGProps<SVGSVGElement>>)
     : props.icon

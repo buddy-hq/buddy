@@ -647,7 +647,8 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
 
   function startFloatingChatDrag(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.pointerType === "mouse" && event.button !== 0) return
-    const target = event.target as HTMLElement
+    const target = event.target
+    if (!(target instanceof Element)) return
     if (
       target.closest("button") ||
       target.closest("a") ||

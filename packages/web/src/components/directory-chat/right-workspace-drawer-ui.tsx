@@ -79,7 +79,9 @@ export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps)
         return
       }
       if (scrollRef) {
-        ;(scrollRef as MutableRefObject<HTMLDivElement | null>).current = node
+        // SAFETY: The non-callback ref is the mutable object ref supplied by the drawer owner.
+        const mutableScrollRef = scrollRef as MutableRefObject<HTMLDivElement | null>
+        mutableScrollRef.current = node
       }
     },
     [durableScrollRef, scrollRef],
