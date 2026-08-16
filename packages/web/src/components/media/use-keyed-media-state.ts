@@ -1,15 +1,17 @@
 import { useCallback, useRef, useState } from "react"
 
-type KeyedMediaState<T> = {
-  key: unknown
-  value: T
+type TKeyedMediaSnapshot<TValue, TKey> = {
+  key: TKey
+  value: TValue
 }
 
-export function useKeyedMediaState<T>(
-  key: unknown,
-  initialValue: T,
-): readonly [T, (value: T) => void] {
-  const [snapshot, setSnapshot] = useState<KeyedMediaState<T>>({
+type TMediaStateKey = string | number | boolean | bigint | symbol | null | undefined | object
+
+export function useKeyedMediaState<TValue, TKey = TMediaStateKey>(
+  key: TKey,
+  initialValue: TValue,
+): readonly [TValue, (value: TValue) => void] {
+  const [snapshot, setSnapshot] = useState<TKeyedMediaSnapshot<TValue, TKey>>({
     key,
     value: initialValue,
   })
@@ -17,7 +19,7 @@ export function useKeyedMediaState<T>(
   currentKeyRef.current = key
   const value = Object.is(snapshot.key, key) ? snapshot.value : initialValue
   const setValue = useCallback(
-    (nextValue: T) => {
+    (nextValue: TValue) => {
       if (!Object.is(currentKeyRef.current, key)) {
         return
       }

@@ -13,6 +13,7 @@ const TEST_RENDERER_NAME = "test-renderer"
 const TEST_RENDERER_VERSION = "test"
 const TEST_RENDER_CONFIG_VERSION = 0
 const TEST_BACKEND_CACHE_PREFIX = "test-backend"
+const TEST_CHEMISTRY_RENDERER_KEY = "__BUDDY_TEST_CHEMISTRY_RENDERER__"
 
 export type ChemistryRenderResult = {
   svg: string
@@ -38,8 +39,8 @@ type ChemistryTestRenderer = (input: {
   directory?: string
 }) => Promise<ChemistryTestRendererResult>
 
-declare global {
-  var __BUDDY_TEST_CHEMISTRY_RENDERER__: ChemistryTestRenderer | undefined
+type TGlobalTestChemistryRenderer = typeof globalThis & {
+  readonly [TEST_CHEMISTRY_RENDERER_KEY]?: ChemistryTestRenderer
 }
 
 type ChemistryCacheEntry = {
@@ -61,6 +62,11 @@ const svgCache = new Map<string, ChemistryCacheEntry[]>()
 const inFlightRenders = new Map<string, ChemistryInFlightEntry[]>()
 const indigoWorkerClient = new IndigoWorkerClient()
 let svgCacheBytes = 0
+
+function readTestChemistryRenderer(): ChemistryTestRenderer | undefined {
+  const globals: TGlobalTestChemistryRenderer = globalThis
+  return globals[TEST_CHEMISTRY_RENDERER_KEY]
+}
 
 function hashSource(source: string): string {
   let hash = 0xcbf29ce484222325n
@@ -107,7 +113,7 @@ function touchCache(key: string, entry: ChemistryCacheEntry): void {
     svgCacheBytes > CHEMISTRY_RENDER_CACHE_MAX_BYTES
   ) {
     const oldestKey = svgCache.keys().next().value
-    if (typeof oldestKey !== "string") return
+    if (oldestKey === undefined) return
     const evicted = svgCache.get(oldestKey) ?? []
     svgCache.delete(oldestKey)
     for (const candidate of evicted) {
@@ -172,7 +178,7 @@ function subscribeToInFlightRender(
       (value) => {
         if (release(false)) resolve(value)
       },
-      (error: unknown) => {
+      (error) => {
         if (release(false)) reject(error)
       },
     )
@@ -187,7 +193,7 @@ async function renderBrowserChemistryUncached(input: {
   cacheKey: string
   signal: AbortSignal
 }): Promise<ChemistryRenderResult> {
-  const testRenderer = globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__
+  const testRenderer = readTestChemistryRenderer()
   if (testRenderer) {
     const rendered = await testRenderer({
       source: input.source,
@@ -227,7 +233,7 @@ async function renderBackendChemistry(input: {
   directory?: string
   signal?: AbortSignal
 }): Promise<ChemistryRenderResult> {
-  const testRenderer = globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__
+  const testRenderer = readTestChemistryRenderer()
   if (testRenderer) {
     const rendered = await testRenderer(input)
     const sourceHash = hashSource(input.source)
@@ -348,4 +354,10 @@ export function clearChemistryRenderCacheForTests(): void {
   svgCache.clear()
   inFlightRenders.clear()
   svgCacheBytes = 0
+}
+
+declare global {
+  interface Window {
+    "__BUDDY_TEST_CHEMISTRY_RENDERER__"?: ChemistryTestRenderer
+  }
 }

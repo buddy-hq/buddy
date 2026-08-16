@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { z } from "zod"
 import { ChemfigRenderRequestError } from "./chemfig-adapter"
 import type { ChemistryFormat } from "./formats"
 import { readCachedChemistrySvg, renderChemistrySvg, type ChemistryRenderResult } from "./render"
@@ -26,6 +27,7 @@ type ChemistryRenderSnapshot = {
 }
 
 const CHEMISTRY_LOADING_STATE: ChemistryRenderState = { status: "loading" }
+const codedFailureSchema = z.object({ code: z.string() })
 
 function snapshotMatches(
   snapshot: ChemistryRenderSnapshot,
@@ -44,23 +46,20 @@ function snapshotMatches(
   )
 }
 
-function renderErrorState(error: unknown): ChemistryRenderState {
+function renderErrorState(error: Error): ChemistryRenderState {
   if (error instanceof ChemfigRenderRequestError) {
-    return { status: "error", message: error.message, code: error.code }
+    return Object.assign(
+      { status: "error" as const, message: error.message },
+      error.code ? { code: error.code } : undefined,
+    )
   }
-  const code =
-    error !== null && typeof error === "object" && "code" in error && typeof error.code === "string"
-      ? error.code
-      : undefined
-  if (error instanceof Error && error.message.trim()) {
-    return {
-      status: "error",
-      message: error.message.trim(),
-      ...(code ? { code } : {}),
-    }
-  }
-  if (typeof error === "string" && error.trim()) {
-    return { status: "error", message: error.trim() }
+  const coded = codedFailureSchema.safeParse(error)
+  const code = coded.success ? coded.data.code : undefined
+  if (error.message.trim()) {
+    return Object.assign(
+      { status: "error" as const, message: error.message.trim() },
+      code ? { code } : undefined,
+    )
   }
   return { status: "error", message: "Unable to render this chemistry source." }
 }
@@ -134,14 +133,18 @@ export function useChemistryRender(input: {
           })
         }
       },
-      (error: unknown) => {
+      (error) => {
         if (requestTokenRef.current === requestToken) {
           setSnapshot({
             source,
             format,
             directory,
             enabled,
-            state: renderErrorState(error),
+            state: renderErrorState(
+              error instanceof Error
+                ? error
+                : new Error("Unable to render this chemistry source."),
+            ),
           })
         }
       },

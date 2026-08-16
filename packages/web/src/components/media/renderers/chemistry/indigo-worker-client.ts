@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type { IndigoSemanticFormat } from "./validation"
 import type {
   IndigoWorkerRenderFailure,
@@ -17,6 +18,25 @@ const INDIGO_WORKER_ERROR_CODES = [
   "invalid_source",
 ] as const satisfies readonly IndigoWorkerRenderFailure["code"][]
 
+const indigoWorkerErrorCodeSchema = z.enum(INDIGO_WORKER_ERROR_CODES)
+const indigoWorkerSuccessSchema = z.object({
+  type: z.literal("rendered"),
+  requestID: z.string(),
+  rendererVersion: z.string(),
+  svg: z.string(),
+  warnings: z.array(z.string()),
+})
+const indigoWorkerFailureSchema = z.object({
+  type: z.literal("error"),
+  requestID: z.string(),
+  code: indigoWorkerErrorCodeSchema,
+  message: z.string(),
+})
+const indigoWorkerResponseSchema = z.discriminatedUnion("type", [
+  indigoWorkerSuccessSchema,
+  indigoWorkerFailureSchema,
+])
+
 type QueuedRender = {
   source: string
   format: IndigoSemanticFormat
@@ -30,10 +50,6 @@ type QueuedRender = {
 type ActiveRender = {
   queued: QueuedRender
   requestID: string
-}
-
-function isIndigoWorkerErrorCode(value: unknown): value is IndigoWorkerRenderFailure["code"] {
-  return INDIGO_WORKER_ERROR_CODES.some((code) => code === value)
 }
 
 type IndigoClientRenderErrorCode =
@@ -52,35 +68,9 @@ class IndigoClientRenderError extends Error {
   }
 }
 
-function isWorkerResponse(value: unknown): value is IndigoWorkerRenderResponse {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false
-  }
-  if (
-    !("requestID" in value) ||
-    typeof value.requestID !== "string" ||
-    !("type" in value) ||
-    (value.type !== "rendered" && value.type !== "error")
-  ) {
-    return false
-  }
-  if (value.type === "error") {
-    return (
-      "message" in value &&
-      typeof value.message === "string" &&
-      "code" in value &&
-      isIndigoWorkerErrorCode(value.code)
-    )
-  }
-  return (
-    "rendererVersion" in value &&
-    typeof value.rendererVersion === "string" &&
-    "svg" in value &&
-    typeof value.svg === "string" &&
-    "warnings" in value &&
-    Array.isArray(value.warnings) &&
-    value.warnings.every((warning) => typeof warning === "string")
-  )
+function parseWorkerResponse(event: MessageEvent): IndigoWorkerRenderResponse | undefined {
+  const parsed = indigoWorkerResponseSchema.safeParse(event.data)
+  return parsed.success ? parsed.data : undefined
 }
 
 export class IndigoWorkerClient {
@@ -112,14 +102,16 @@ export class IndigoWorkerClient {
       )
     }
     return new Promise((resolve, reject) => {
-      const queued: QueuedRender = {
-        source: input.source,
-        format: input.format,
-        resolve,
-        reject,
-        timeout: setTimeout(() => this.handleRenderTimeout(queued), INDIGO_RENDER_TIMEOUT_MS),
-        ...(input.signal ? { signal: input.signal } : {}),
-      }
+      const queued: QueuedRender = Object.assign(
+        {
+          source: input.source,
+          format: input.format,
+          resolve,
+          reject,
+          timeout: setTimeout(() => this.handleRenderTimeout(queued), INDIGO_RENDER_TIMEOUT_MS),
+        },
+        input.signal ? { signal: input.signal } : undefined,
+      )
       this.queue.push(queued)
       if (queued.signal) {
         queued.abortListener = () => this.cancelRender(queued)
@@ -148,7 +140,7 @@ export class IndigoWorkerClient {
   }
 
   private createWorker(): Worker {
-    if (typeof Worker === "undefined") {
+    if (!("Worker" in globalThis)) {
       throw new IndigoClientRenderError(
         "indigo_runtime_unavailable",
         "This environment does not support the Indigo chemistry worker.",
@@ -158,9 +150,7 @@ export class IndigoWorkerClient {
       name: INDIGO_WORKER_NAME,
       type: "module",
     })
-    worker.addEventListener("message", (event: MessageEvent<unknown>) =>
-      this.handleMessage(event.data),
-    )
+    worker.addEventListener("message", (event: MessageEvent) => this.handleMessage(event))
     worker.addEventListener("error", (event) => {
       event.preventDefault()
       this.handleWorkerFailure(
@@ -240,8 +230,9 @@ export class IndigoWorkerClient {
     }
   }
 
-  private handleMessage(value: unknown): void {
-    if (!isWorkerResponse(value) || value.requestID !== this.active?.requestID) {
+  private handleMessage(event: MessageEvent): void {
+    const value = parseWorkerResponse(event)
+    if (!value || value.requestID !== this.active?.requestID) {
       return
     }
     const active = this.active

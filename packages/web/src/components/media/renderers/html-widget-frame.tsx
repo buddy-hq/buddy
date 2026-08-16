@@ -29,7 +29,7 @@ type HtmlWidgetFrameProps = {
 export type HtmlWidgetFrameLoadState = "loading" | "loaded" | "error"
 
 function readWindowViewportSize(): ViewportSize {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return {
       width: 1024,
       height: 768,
@@ -72,7 +72,7 @@ function useContainerWidth() {
     }
     updateWidth()
 
-    if (typeof ResizeObserver === "undefined") {
+    if (!("ResizeObserver" in globalThis)) {
       window.addEventListener("resize", updateWidth)
       return () => window.removeEventListener("resize", updateWidth)
     }

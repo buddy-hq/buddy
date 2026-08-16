@@ -118,7 +118,7 @@ function touchMermaidObjectCache(key: string, value: MermaidObjectRecord): void 
   }
 
   const oldest = mermaidObjectCache.keys().next().value
-  if (typeof oldest === "string") {
+  if (oldest !== undefined) {
     mermaidObjectCache.delete(oldest)
   }
 }
@@ -133,16 +133,18 @@ function parseRenderMermaidReference(
     inferMermaidDiagramTypeFromSource(source) ?? language.t("chatTools.defaultMermaidType")
   const caption = presentation.data.caption
 
-  return {
-    objectID: presentation.ref.objectID,
-    revisionID: presentation.ref.revisionID,
-    source,
-    sourceHash: hashMermaidSource(source),
-    diagramType,
-    alt: presentation.data.alt,
-    viewID: presentation.viewID,
-    ...(caption ? { caption } : {}),
-  }
+  return Object.assign(
+    {
+      objectID: presentation.ref.objectID,
+      revisionID: presentation.ref.revisionID,
+      source,
+      sourceHash: hashMermaidSource(source),
+      diagramType,
+      alt: presentation.data.alt,
+      viewID: presentation.viewID,
+    },
+    caption ? { caption } : undefined,
+  )
 }
 
 export function parseRenderMermaidObjectOutput(
@@ -153,15 +155,17 @@ export function parseRenderMermaidObjectOutput(
     return undefined
   }
 
-  return {
-    objectID: parsed.objectID,
-    revisionID: parsed.revisionID,
-    source: parsed.source,
-    sourceHash: parsed.sourceHash,
-    diagramType: parsed.diagramType,
-    alt: parsed.alt,
-    ...(parsed.caption ? { caption: parsed.caption } : {}),
-  }
+  return Object.assign(
+    {
+      objectID: parsed.objectID,
+      revisionID: parsed.revisionID,
+      source: parsed.source,
+      sourceHash: parsed.sourceHash,
+      diagramType: parsed.diagramType,
+      alt: parsed.alt,
+    },
+    parsed.caption ? { caption: parsed.caption } : undefined,
+  )
 }
 
 export function parseRenderMermaidSources(state: ToolPartProps["state"]): RenderMermaidToolSources {

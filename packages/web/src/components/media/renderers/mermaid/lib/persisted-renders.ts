@@ -28,11 +28,15 @@ async function readMermaidObject(
   revisionID?: string | null,
 ): Promise<MermaidObjectRecord> {
   return requireBuddyData(
-    await getBuddyClient(directory).objectMermaid.readSource({
-      objectID,
-      directory,
-      ...(revisionID ? { revisionID } : {}),
-    }),
+    await getBuddyClient(directory).objectMermaid.readSource(
+      Object.assign(
+        {
+          objectID,
+          directory,
+        },
+        revisionID ? { revisionID } : undefined,
+      ),
+    ),
   )
 }
 
@@ -47,16 +51,20 @@ async function createInlineMermaidObject(input: {
   source: string
 }): Promise<MermaidInlineCreateResponse> {
   return requireBuddyData(
-    await getBuddyClient(input.directory).objectMermaid.createInline({
-      directory: input.directory,
-      sessionID: input.sessionID,
-      messageID: input.messageID,
-      partID: input.partID,
-      segmentIndex: input.segmentIndex,
-      source: input.source,
-      ...(input.alt ? { alt: input.alt } : {}),
-      ...(input.caption ? { caption: input.caption } : {}),
-    }),
+    await getBuddyClient(input.directory).objectMermaid.createInline(
+      Object.assign(
+        {
+          directory: input.directory,
+          sessionID: input.sessionID,
+          messageID: input.messageID,
+          partID: input.partID,
+          segmentIndex: input.segmentIndex,
+          source: input.source,
+        },
+        input.alt ? { alt: input.alt } : undefined,
+        input.caption ? { caption: input.caption } : undefined,
+      ),
+    ),
   )
 }
 
@@ -69,14 +77,18 @@ async function resolvePersistedMermaidRender(input: {
   themeSignature: string
 }): Promise<MermaidResolvedRenderResponse> {
   return requireBuddyData(
-    await getBuddyClient(input.directory).objectMermaid.resolveRender({
-      objectID: input.objectID,
-      directory: input.directory,
-      ...(input.revisionID ? { revisionID: input.revisionID } : {}),
-      renderConfigVersion: input.renderConfigVersion,
-      rendererVersion: input.rendererVersion,
-      themeSignature: input.themeSignature,
-    }),
+    await getBuddyClient(input.directory).objectMermaid.resolveRender(
+      Object.assign(
+        {
+          objectID: input.objectID,
+          directory: input.directory,
+          renderConfigVersion: input.renderConfigVersion,
+          rendererVersion: input.rendererVersion,
+          themeSignature: input.themeSignature,
+        },
+        input.revisionID ? { revisionID: input.revisionID } : undefined,
+      ),
+    ),
   )
 }
 
@@ -105,28 +117,32 @@ async function storePersistedMermaidRender(
       },
 ): Promise<MermaidStoredRenderRecord> {
   return requireBuddyData(
-    await getBuddyClient(input.directory).objectMermaid.storeRender({
-      objectID: input.objectID,
-      directory: input.directory,
-      ...(input.revisionID ? { revisionID: input.revisionID } : {}),
-      body:
-        input.status === "rendered"
-          ? {
-              themeSignature: input.themeSignature,
-              rendererVersion: input.rendererVersion,
-              renderConfigVersion: input.renderConfigVersion,
-              status: "rendered",
-              svg: input.svg,
-              contrastAdjustments: input.contrastAdjustments,
-            }
-          : {
-              themeSignature: input.themeSignature,
-              rendererVersion: input.rendererVersion,
-              renderConfigVersion: input.renderConfigVersion,
-              status: "failed",
-              errorMessage: input.errorMessage,
-            },
-    }),
+    await getBuddyClient(input.directory).objectMermaid.storeRender(
+      Object.assign(
+        {
+          objectID: input.objectID,
+          directory: input.directory,
+          body:
+            input.status === "rendered"
+              ? {
+                  themeSignature: input.themeSignature,
+                  rendererVersion: input.rendererVersion,
+                  renderConfigVersion: input.renderConfigVersion,
+                  status: "rendered" as const,
+                  svg: input.svg,
+                  contrastAdjustments: input.contrastAdjustments,
+                }
+              : {
+                  themeSignature: input.themeSignature,
+                  rendererVersion: input.rendererVersion,
+                  renderConfigVersion: input.renderConfigVersion,
+                  status: "failed" as const,
+                  errorMessage: input.errorMessage,
+                },
+        },
+        input.revisionID ? { revisionID: input.revisionID } : undefined,
+      ),
+    ),
   )
 }
 

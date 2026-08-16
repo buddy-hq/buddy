@@ -5,23 +5,30 @@ type ChemistryErrorFallbackInput = {
   retry(): void
 }
 
+type TBoundaryResetKey = string | number | boolean | bigint | symbol | null | undefined | object
+
 type ChemistryErrorBoundaryProps = {
   children: ReactNode
   fallback(input: ChemistryErrorFallbackInput): ReactNode
-  resetKeys: readonly unknown[]
+  resetKeys: readonly TBoundaryResetKey[]
 }
 
 type ChemistryErrorBoundaryState = {
   error: Error | null
+  resetKeys: readonly TBoundaryResetKey[]
 }
 
-function normalizeChemistryBoundaryError(error: unknown): Error {
+type TBoundaryFailure = Error | string
+
+function parseBoundaryFailure(error: TBoundaryFailure): Error {
   if (error instanceof Error) return error
-  if (typeof error === "string" && error.trim()) return new Error(error.trim())
-  return new Error("The chemistry interface could not be loaded.")
+  return new Error(error.trim() || "The chemistry interface could not be loaded.")
 }
 
-function resetKeysChanged(previous: readonly unknown[], current: readonly unknown[]): boolean {
+function resetKeysChanged(
+  previous: readonly TBoundaryResetKey[],
+  current: readonly TBoundaryResetKey[],
+): boolean {
   return (
     previous.length !== current.length ||
     previous.some((value, index) => !Object.is(value, current[index]))
@@ -32,15 +39,24 @@ export class ChemistryErrorBoundary extends Component<
   ChemistryErrorBoundaryProps,
   ChemistryErrorBoundaryState
 > {
-  state: ChemistryErrorBoundaryState = { error: null }
+  state: ChemistryErrorBoundaryState = { error: null, resetKeys: [] }
 
-  static getDerivedStateFromError(error: unknown): ChemistryErrorBoundaryState {
-    return { error: normalizeChemistryBoundaryError(error) }
+  static getDerivedStateFromError(
+    error: TBoundaryFailure,
+  ): Pick<ChemistryErrorBoundaryState, "error"> {
+    return { error: parseBoundaryFailure(error) }
   }
 
-  componentDidUpdate(previousProps: ChemistryErrorBoundaryProps): void {
-    if (this.state.error && resetKeysChanged(previousProps.resetKeys, this.props.resetKeys)) {
-      this.setState({ error: null })
+  static getDerivedStateFromProps(
+    props: ChemistryErrorBoundaryProps,
+    state: ChemistryErrorBoundaryState,
+  ): Partial<ChemistryErrorBoundaryState> | null {
+    if (!resetKeysChanged(state.resetKeys, props.resetKeys)) {
+      return null
+    }
+    return {
+      error: null,
+      resetKeys: props.resetKeys,
     }
   }
 

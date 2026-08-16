@@ -112,7 +112,7 @@ export function prepareChemistrySvg(rawSvg: string): string {
   if (!SVG_ROOT_PATTERN.test(sanitized)) {
     throw new Error("Chemistry renderer returned an invalid SVG document.")
   }
-  if (typeof DOMParser === "undefined" || typeof XMLSerializer === "undefined") {
+  if (!("DOMParser" in globalThis) || !("XMLSerializer" in globalThis)) {
     return sanitized
   }
 
@@ -167,7 +167,7 @@ export function prepareChemistrySvg(rawSvg: string): string {
 }
 
 export function scopeChemistrySvgIDs(svg: string, rawPrefix: string): string {
-  if (typeof DOMParser === "undefined" || typeof XMLSerializer === "undefined") {
+  if (!("DOMParser" in globalThis) || !("XMLSerializer" in globalThis)) {
     return svg
   }
   const document = new DOMParser().parseFromString(svg, "image/svg+xml")

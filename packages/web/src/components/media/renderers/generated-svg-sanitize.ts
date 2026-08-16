@@ -151,7 +151,7 @@ function stripExecutableSvgElements(source: string): string {
 
 export function sanitizeGeneratedSvg(svg: string): string {
   const trimmed = sanitizeSvgTagAttributes(stripExecutableSvgElements(svg.trim()))
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return trimmed
   }
 

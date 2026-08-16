@@ -110,7 +110,7 @@ function parseSvgDimension(value: string | null): number | undefined {
 }
 
 function measureSvgBounds(svgMarkup: string): MermaidSvgBounds {
-  if (typeof DOMParser === "undefined") {
+  if (!("DOMParser" in globalThis)) {
     return {
       width: mermaidConstants.svg.DEFAULT_WIDTH,
       height: mermaidConstants.svg.DEFAULT_HEIGHT,
@@ -173,7 +173,7 @@ function readViewportSize(viewport: HTMLDivElement | null): MermaidViewportSize 
     return undefined
   }
 
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return undefined
   }
 
@@ -393,7 +393,7 @@ export function useMermaidViewport({
       return
     }
 
-    if (typeof window === "undefined") {
+    if (!("window" in globalThis)) {
       applyAutoZoom()
       return
     }
@@ -403,7 +403,7 @@ export function useMermaidViewport({
       return
     }
 
-    if (typeof window.requestAnimationFrame !== "function") {
+    if (!("requestAnimationFrame" in window)) {
       applyAutoZoom()
       return
     }
@@ -525,13 +525,13 @@ export function useMermaidViewport({
 
     const cleanupCallbacks: Array<() => void> = []
 
-    if (typeof ResizeObserver !== "undefined") {
+    if ("ResizeObserver" in globalThis) {
       const observer = new ResizeObserver(handleViewportChange)
       observer.observe(viewport)
       cleanupCallbacks.push(() => observer.disconnect())
     }
 
-    if (typeof window !== "undefined") {
+    if ("window" in globalThis) {
       window.addEventListener("resize", handleViewportChange)
       cleanupCallbacks.push(() => window.removeEventListener("resize", handleViewportChange))
     }
@@ -577,8 +577,8 @@ export function useMermaidViewport({
       dragAbortControllerRef.current?.abort()
       if (
         fitFrameRef.current !== undefined &&
-        typeof window !== "undefined" &&
-        typeof window.cancelAnimationFrame === "function"
+        "window" in globalThis &&
+        "cancelAnimationFrame" in window
       ) {
         window.cancelAnimationFrame(fitFrameRef.current)
       }
@@ -593,7 +593,7 @@ export function useMermaidViewport({
     if (
       viewport &&
       pointerID !== undefined &&
-      typeof viewport.hasPointerCapture === "function" &&
+      "hasPointerCapture" in viewport &&
       viewport.hasPointerCapture(pointerID)
     ) {
       viewport.releasePointerCapture(pointerID)
@@ -623,7 +623,7 @@ export function useMermaidViewport({
         scrollTop: viewport.scrollTop,
       }
 
-      if (typeof viewport.setPointerCapture === "function") {
+      if ("setPointerCapture" in viewport) {
         viewport.setPointerCapture(event.pointerId)
       }
 

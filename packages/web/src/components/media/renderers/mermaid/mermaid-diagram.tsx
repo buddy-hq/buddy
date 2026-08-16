@@ -1,5 +1,6 @@
 import { Button, CheckIcon, CopyIcon, cn } from "@buddy/ui"
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { z } from "zod"
 import { language } from "@/context/language"
 import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidInlineView } from "./mermaid-inline-view"
@@ -32,24 +33,33 @@ function buildMermaidErrorClipboardText(input: { message: string; source?: strin
   return sections.join("\n")
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
+type TMermaidErrorValue = string | TMermaidErrorObject | readonly TMermaidErrorValue[]
+type TMermaidErrorObject = { readonly message: string }
+
+const mermaidErrorValueSchema: z.ZodType<TMermaidErrorValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.array(z.lazy(() => mermaidErrorValueSchema)),
+    z.object({ message: z.string() }),
+  ]),
+)
+
+function collectMermaidErrorMessages(value: TMermaidErrorValue): string[] {
+  const asObject = z.object({ message: z.string() }).safeParse(value)
+  if (asObject.success) {
+    return asObject.data.message.trim() ? [asObject.data.message.trim()] : []
+  }
+  const asText = z.string().safeParse(value)
+  if (asText.success) {
+    return asText.data.trim() ? [asText.data.trim()] : []
+  }
+  const asList = z.array(mermaidErrorValueSchema).safeParse(value)
+  if (!asList.success) return []
+  return asList.data.flatMap(collectMermaidErrorMessages)
 }
 
-function readErrorMessages(value: unknown): string[] {
-  if (typeof value === "string" && value.trim()) {
-    return [value.trim()]
-  }
-  if (Array.isArray(value)) {
-    return value.flatMap((item) => readErrorMessages(item))
-  }
-  if (isRecord(value)) {
-    const directMessage = value.message
-    if (typeof directMessage === "string" && directMessage.trim()) {
-      return [directMessage.trim()]
-    }
-  }
-  return []
+function isPlainErrorText(value: React.ReactNode): value is string {
+  return value === String(value)
 }
 
 function normalizeUnsupportedTypeMessage(message: string): string | undefined {
@@ -75,8 +85,8 @@ function summarizeMermaidErrorText(message: string): string {
 
   if (trimmed.startsWith("{")) {
     try {
-      const parsed: unknown = JSON.parse(trimmed)
-      const messages = readErrorMessages(parsed)
+      const parsed = mermaidErrorValueSchema.safeParse(JSON.parse(trimmed))
+      const messages = parsed.success ? collectMermaidErrorMessages(parsed.data) : []
       if (messages.some((entry) => entry.includes('must start with "msg"'))) {
         return language.t("chatTools.mermaidDiagram.renderAutoRepairFailed")
       }
@@ -192,11 +202,15 @@ export function MermaidDiagram(props: {
     if (state.status !== "error") {
       return
     }
-    onRenderFailure?.({
-      message: state.message,
-      persisted: state.persisted,
-      ...(state.renderKey ? { renderKey: state.renderKey } : {}),
-    })
+    onRenderFailure?.(
+      Object.assign(
+        {
+          message: state.message,
+          persisted: state.persisted,
+        },
+        state.renderKey ? { renderKey: state.renderKey } : undefined,
+      ),
+    )
   }, [onRenderFailure, state])
 
   useEffect(() => {
@@ -214,10 +228,14 @@ export function MermaidDiagram(props: {
 
     try {
       await navigator.clipboard.writeText(
-        buildMermaidErrorClipboardText({
-          message: state.message,
-          ...(showRawSourceOnError ? { source } : {}),
-        }),
+        buildMermaidErrorClipboardText(
+          Object.assign(
+            {
+              message: state.message,
+            },
+            showRawSourceOnError ? { source } : undefined,
+          ),
+        ),
       )
       setCopiedErrorDetails(true)
       if (copyResetTimeoutRef.current !== undefined) {
@@ -268,10 +286,9 @@ export function MermaidDiagram(props: {
   }, [initialZoomState, source])
   const errorSummary =
     state.status === "error" ? summarizeMermaidErrorText(state.message) : undefined
-  const errorMetaSummary =
-    typeof props.errorMeta === "string"
-      ? summarizeMermaidErrorText(props.errorMeta)
-      : props.errorMeta
+  const errorMetaSummary = isPlainErrorText(props.errorMeta)
+    ? summarizeMermaidErrorText(props.errorMeta)
+    : props.errorMeta
   const inlineViewport = useMermaidViewport({
     value: mountedReadyValue,
     enabled: isInteractive && state.status === "ready",

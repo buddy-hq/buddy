@@ -38,7 +38,7 @@ type UseMermaidRenderResult = {
   state: MermaidRenderState
 }
 
-function errorMessage(error: unknown): MermaidRenderState {
+function errorMessage(error: Error): MermaidRenderState {
   if (error instanceof MermaidRenderFailureError) {
     return {
       status: "error",
@@ -47,17 +47,10 @@ function errorMessage(error: unknown): MermaidRenderState {
       persisted: error.persisted,
     }
   }
-  if (error instanceof Error && error.message.trim()) {
+  if (error.message.trim()) {
     return {
       status: "error",
       message: error.message.trim(),
-      persisted: false,
-    }
-  }
-  if (typeof error === "string" && error.trim()) {
-    return {
-      status: "error",
-      message: error.trim(),
       persisted: false,
     }
   }
@@ -140,7 +133,13 @@ export function useMermaidRender({
         if (requestTokenRef.current !== requestToken) {
           return
         }
-        setState(errorMessage(error))
+        setState(
+          errorMessage(
+            error instanceof Error
+              ? error
+              : new Error(language.t("chatTools.mermaidDiagram.renderErrorDefault")),
+          ),
+        )
       })
   }, [directory, enabled, objectID, priority, revisionID, source, themeConfig, themeDependencyKey])
 

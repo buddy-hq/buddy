@@ -34,7 +34,7 @@ const TARGET_GROUP_SELECTORS = [
   "g.note",
   "g.actor",
 ] as const
-const SHAPE_SELECTORS = "rect, polygon, circle, ellipse, path"
+const NODE_GEOMETRY_SELECTORS = "rect, polygon, circle, ellipse, path"
 const TEXT_CLASS_MATCHERS = ["nodeLabel", "edgeLabel", "label", "actor", "noteText", "messageText"]
 
 function parseStyleDeclaration(style: string): Map<string, string> {
@@ -275,15 +275,17 @@ function resolveBackgroundColor(
   fallback: ParsedColor,
   rules: StylesheetRule[],
 ): ParsedColor {
-  const shape = Array.from(group.querySelectorAll(SHAPE_SELECTORS)).find((element) => {
-    const fill = resolveElementProperty(element, "fill", rules)
-    const parsed = parseColor(fill ?? undefined)
-    return !!parsed && parsed.alpha > 0
-  })
-  if (!shape) {
+  const geometryElement = Array.from(group.querySelectorAll(NODE_GEOMETRY_SELECTORS)).find(
+    (element) => {
+      const fill = resolveElementProperty(element, "fill", rules)
+      const parsed = parseColor(fill ?? undefined)
+      return !!parsed && parsed.alpha > 0
+    },
+  )
+  if (!geometryElement) {
     return fallback
   }
-  const fill = resolveElementProperty(shape, "fill", rules)
+  const fill = resolveElementProperty(geometryElement, "fill", rules)
   const parsed = parseColor(fill ?? undefined)
   return parsed && parsed.alpha > 0 ? parsed : fallback
 }
@@ -339,7 +341,7 @@ function serializeSvg(root: SVGSVGElement): string {
 }
 
 export function normalizeMermaidSvgContrast(input: NormalizeMermaidSvgContrastInput) {
-  if (typeof DOMParser === "undefined" || typeof XMLSerializer === "undefined") {
+  if (!("DOMParser" in globalThis) || !("XMLSerializer" in globalThis)) {
     return {
       contrastAdjustments: [],
       svg: input.svg,

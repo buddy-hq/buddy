@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type { ChemistryFormat } from "./formats"
 
 const MAX_SEMANTIC_CHEMISTRY_SOURCE_BYTES = 1_000_000
@@ -28,9 +29,10 @@ export class ChemistrySourceError extends Error {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-}
+const ketNodeSchema = z.object({ $ref: z.string() })
+const ketRootSchema = z.object({ nodes: z.array(ketNodeSchema) })
+const ketDocumentSchema = z.object({ root: ketRootSchema }).passthrough()
+const ketFragmentSchema = z.object({}).passthrough()
 
 function requireSingleLine(format: BrowserChemistryFormat, source: string): void {
   if (!SINGLE_LINE_FORMATS.has(format) || !/[\r\n]/u.test(source)) {
@@ -49,32 +51,34 @@ function validateReactionSmiles(source: string): void {
 }
 
 function validateKet(source: string): void {
-  let parsed: unknown
   try {
-    parsed = JSON.parse(source)
-  } catch {
-    throw new ChemistrySourceError("KET source must be valid JSON.")
-  }
-  if (!isRecord(parsed)) {
-    throw new ChemistrySourceError("KET source must contain a JSON object.")
-  }
-  if (!isRecord(parsed.root) || !Array.isArray(parsed.root.nodes)) {
-    throw new ChemistrySourceError('KET source must contain a "root.nodes" array.')
-  }
-  if (parsed.root.nodes.length === 0) {
-    throw new ChemistrySourceError("KET source must contain at least one root node.")
-  }
-  for (const node of parsed.root.nodes) {
-    if (
-      !isRecord(node) ||
-      typeof node.$ref !== "string" ||
-      !Object.hasOwn(parsed, node.$ref) ||
-      !isRecord(parsed[node.$ref])
-    ) {
-      throw new ChemistrySourceError(
-        "Every KET root node must reference an object in the document.",
-      )
+    const parsed = ketDocumentSchema.safeParse(JSON.parse(source))
+    if (!parsed.success) {
+      throw new ChemistrySourceError('KET source must contain a "root.nodes" array.')
     }
+    if (parsed.data.root.nodes.length === 0) {
+      throw new ChemistrySourceError("KET source must contain at least one root node.")
+    }
+    const document = parsed.data
+    const fragmentIDs = new Set(Object.keys(document))
+    for (const node of document.root.nodes) {
+      if (!fragmentIDs.has(node.$ref)) {
+        throw new ChemistrySourceError(
+          "Every KET root node must reference an object in the document.",
+        )
+      }
+      const fragment = ketFragmentSchema.safeParse(
+        Object.entries(document).find(([key]) => key === node.$ref)?.[1],
+      )
+      if (!fragment.success) {
+        throw new ChemistrySourceError(
+          "Every KET root node must reference an object in the document.",
+        )
+      }
+    }
+  } catch (error) {
+    if (error instanceof ChemistrySourceError) throw error
+    throw new ChemistrySourceError("KET source must be valid JSON.")
   }
 }
 

@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type { ChemistryRenderChemfigResponses } from "@buddy/sdk/types"
 import { buddyResultMessage, getBuddyClient } from "@/lib/buddy-client"
 
@@ -13,10 +14,7 @@ export class ChemfigRenderRequestError extends Error {
   }
 }
 
-function errorCode(value: unknown): string | undefined {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined
-  return "code" in value && typeof value.code === "string" ? value.code : undefined
-}
+const chemfigErrorSchema = z.object({ code: z.string() })
 
 export async function renderChemfigWithBuddy(input: {
   directory?: string
@@ -33,5 +31,9 @@ export async function renderChemfigWithBuddy(input: {
   if (result.response?.ok && result.error === undefined && result.data !== undefined) {
     return result.data
   }
-  throw new ChemfigRenderRequestError(buddyResultMessage(result), errorCode(result.error))
+  const parsedError = chemfigErrorSchema.safeParse(result.error)
+  throw new ChemfigRenderRequestError(
+    buddyResultMessage(result),
+    parsedError.success ? parsedError.data.code : undefined,
+  )
 }

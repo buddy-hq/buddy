@@ -102,7 +102,7 @@ export function ToolImageGallery({
     if (!onEditItem || !inlineItem?.src) return
     setEditingItemID(inlineItem.id)
     void onEditItem(inlineItem, inlineIndex)
-      .catch((error: unknown) => {
+      .catch((error) => {
         toast.error(error instanceof Error ? error.message : String(error))
       })
       .finally(() => {

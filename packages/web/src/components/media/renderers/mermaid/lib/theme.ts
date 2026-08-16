@@ -23,7 +23,7 @@ type MermaidThemeConfig = {
 }
 
 function readTokenValue(name: string, fallback: string): string {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     return fallback
   }
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()

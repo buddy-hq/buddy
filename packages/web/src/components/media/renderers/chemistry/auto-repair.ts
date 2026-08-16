@@ -18,7 +18,7 @@ const acceptedRepairReports = new Map<string, ChemistryAutoRepairStartResponse>(
 function shouldReportChemistryRenderFailure(state: ChemistryDiagramRenderState): boolean {
   return (
     state.status === "error" &&
-    typeof state.code === "string" &&
+    state.code !== undefined &&
     REPAIRABLE_CHEMISTRY_RENDER_ERROR_CODES.has(state.code)
   )
 }
@@ -49,7 +49,7 @@ function rememberAcceptedRepairReport(
   acceptedRepairReports.set(key, response)
   while (acceptedRepairReports.size > CHEMISTRY_AUTO_REPAIR_REPORT_CACHE_LIMIT) {
     const oldestKey = acceptedRepairReports.keys().next().value
-    if (typeof oldestKey !== "string") return
+    if (oldestKey === undefined) return
     acceptedRepairReports.delete(oldestKey)
   }
 }

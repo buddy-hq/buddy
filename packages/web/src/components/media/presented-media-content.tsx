@@ -144,18 +144,19 @@ function usePresentedFileMediaModel(props: {
     onOpenResource,
   )
   const actionInput = useMemo<WorkspaceFileActionInput>(
-    () => ({
-      ...buildPresentedMediaFileActionInput({
-        item: {
-          ...item,
-          availability: item.resolvedAvailability,
-        },
-        canOpenDefaultApp: !!platform.openPath,
-        canReveal: !!platform.revealPath,
-      }),
-      ...(resource?.objectID ? { objectID: resource.objectID } : {}),
-      ...(resource?.status ? { resourceStatus: resource.status } : {}),
-    }),
+    () =>
+      Object.assign(
+        buildPresentedMediaFileActionInput({
+          item: {
+            ...item,
+            availability: item.resolvedAvailability,
+          },
+          canOpenDefaultApp: !!platform.openPath,
+          canReveal: !!platform.revealPath,
+        }),
+        resource?.objectID ? { objectID: resource.objectID } : undefined,
+        resource?.status ? { resourceStatus: resource.status } : undefined,
+      ),
     [item, platform.openPath, platform.revealPath, resource],
   )
   const plan = resolvePlan(actionInput)
@@ -166,17 +167,19 @@ function usePresentedFileMediaModel(props: {
     resourceProcessingReady && item.mediaKind === "pdf" && item.workspacePath
       ? resourceProcessLabel(resource)
       : undefined
-  const data: FileMediaData = {
-    name: item.fileName,
-    detail: fileRowStatusLabel({
-      item,
-      isMissing,
-      primaryTarget,
-      revealLabel,
-    }),
-    mediaKind: item.mediaKind,
-    ...(item.mimeType ? { mediaType: item.mimeType } : {}),
-  }
+  const data: FileMediaData = Object.assign(
+    {
+      name: item.fileName,
+      detail: fileRowStatusLabel({
+        item,
+        isMissing,
+        primaryTarget,
+        revealLabel,
+      }),
+      mediaKind: item.mediaKind,
+    },
+    item.mimeType ? { mediaType: item.mimeType } : undefined,
+  )
   const state: FileMediaItem["state"] = isMissing
     ? {
         status: "error",
@@ -191,7 +194,7 @@ function usePresentedFileMediaModel(props: {
 
   const runTarget = useCallback(
     (target: WorkspaceFileOpenTarget) => {
-      void executeTarget(actionInput, target).catch((error: unknown) => {
+      void executeTarget(actionInput, target).catch((error) => {
         toast.error(error instanceof Error ? error.message : String(error))
       })
     },
@@ -202,7 +205,7 @@ function usePresentedFileMediaModel(props: {
     if (!item.workspacePath || !onProcessResource || processing) return
     setProcessing(true)
     void onProcessResource(resource, item.workspacePath)
-      .catch((error: unknown) => {
+      .catch((error) => {
         toast.error(error instanceof Error ? error.message : String(error))
       })
       .finally(() => setProcessing(false))
@@ -211,7 +214,7 @@ function usePresentedFileMediaModel(props: {
   const onOpen = useMemo(() => {
     if (!primaryTarget) return undefined
     return () => {
-      void executePrimary(actionInput).catch((error: unknown) => {
+      void executePrimary(actionInput).catch((error) => {
         toast.error(error instanceof Error ? error.message : String(error))
       })
     }
@@ -277,14 +280,16 @@ function usePresentedFileMediaModel(props: {
     runTarget,
   ])
 
-  return {
-    item: {
-      kind: "file",
-      state,
+  return Object.assign(
+    {
+      item: {
+        kind: "file" as const,
+        state,
+      },
+      actions,
     },
-    actions,
-    ...(onOpen ? { onOpen } : {}),
-  }
+    onOpen ? { onOpen } : undefined,
+  )
 }
 
 function PresentedFileMedia(props: {
@@ -335,7 +340,7 @@ function MediaImageGallery(
     (item) =>
       item.mediaKind === "image" &&
       item.resolvedAvailability.status === "available" &&
-      (typeof item.sizeBytes !== "number" || item.sizeBytes <= MAX_INLINE_PRESENTED_MEDIA_BYTES),
+      (item.sizeBytes === null || item.sizeBytes <= MAX_INLINE_PRESENTED_MEDIA_BYTES),
   )
   const fallbackFiles = props.items.filter(
     (item) => !previewable.some((candidate) => candidate.id === item.id),
@@ -426,14 +431,16 @@ function PresentedPlaybackMedia(
       autoOpen: null,
     })
   }, [openBenchRoute, props.directory, props.item.id, props.objectID])
-  const playbackData = {
-    item: props.item,
-    playbackKey: `${props.objectID}:${props.item.id}`,
-    onOpen: openOnBench,
-    shouldLoad: props.shouldLoad,
-    fallback,
-    ...(props.compact !== undefined ? { compact: props.compact } : {}),
-  }
+  const playbackData = Object.assign(
+    {
+      item: props.item,
+      playbackKey: `${props.objectID}:${props.item.id}`,
+      onOpen: openOnBench,
+      shouldLoad: props.shouldLoad,
+      fallback,
+    },
+    props.compact !== undefined ? { compact: props.compact } : undefined,
+  )
   const mediaItem: AudioMediaItem | VideoMediaItem =
     props.item.mediaKind === "video"
       ? {

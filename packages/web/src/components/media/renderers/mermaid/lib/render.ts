@@ -1,4 +1,4 @@
-import { initializeMermaidRuntime, loadMermaidRuntime } from "./loader"
+import { initializeMermaidRuntime, loadMermaidRuntime, type TMermaidRenderOutput } from "./loader"
 import {
   readMermaidThemeConfig,
   MERMAID_RENDER_CONFIG_VERSION,
@@ -53,12 +53,11 @@ const mermaidSvgCache = new Map<string, MermaidRenderResult>()
 
 let renderCounter = 0
 
-function isBindFunctions(value: unknown): value is (element: Element) => void {
-  return typeof value === "function"
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
+function parseMermaidRenderOutput(rendered: string | TMermaidRenderOutput): TMermaidRenderOutput {
+  if (rendered instanceof Object) {
+    return rendered
+  }
+  return { svg: rendered }
 }
 
 function normalizeMermaidSource(source: string): string {
@@ -91,7 +90,7 @@ function touchSvgCache(key: string, value: MermaidRenderResult): void {
   }
 
   const oldest = mermaidSvgCache.keys().next().value
-  if (typeof oldest === "string") {
+  if (oldest !== undefined) {
     mermaidSvgCache.delete(oldest)
   }
 }
@@ -115,14 +114,8 @@ function toCacheKey(input: {
   ].join("|")
 }
 
-function renderFailureMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message.trim()
-  }
-  if (typeof error === "string" && error.trim()) {
-    return error.trim()
-  }
-  return "Unable to render diagram."
+function renderFailureMessage(error: Error): string {
+  return error.message.trim() || "Unable to render diagram."
 }
 
 function sourceUsesMermaidBindings(source: string): boolean {
@@ -173,19 +166,9 @@ async function browserRenderMermaidSvg(input: {
 
   const renderID = `buddy_mermaid_${input.sourceHash}_${renderCounter}`
   renderCounter += 1
-  const rendered = await runtime.render(renderID, input.source)
-
-  let rawSvg: string | undefined
-  let bindFunctions: ((element: Element) => void) | undefined
-  if (typeof rendered === "string") {
-    rawSvg = rendered
-  } else if (isRecord(rendered) && typeof rendered.svg === "string") {
-    rawSvg = rendered.svg
-    const maybeBind = rendered.bindFunctions
-    if (isBindFunctions(maybeBind)) {
-      bindFunctions = maybeBind
-    }
-  }
+  const rendered = parseMermaidRenderOutput(await runtime.render(renderID, input.source))
+  const rawSvg = rendered.svg
+  const bindFunctions = rendered.bindFunctions
 
   if (!rawSvg) {
     throw new Error("Renderer did not return SVG output.")
@@ -199,11 +182,13 @@ async function browserRenderMermaidSvg(input: {
     textFallbackColor: theme.tokens.textBase,
   })
 
-  return {
-    svg: normalized.svg,
-    contrastAdjustments: normalized.contrastAdjustments,
-    ...(bindFunctions ? { bindFunctions } : {}),
-  }
+  return Object.assign(
+    {
+      svg: normalized.svg,
+      contrastAdjustments: normalized.contrastAdjustments,
+    },
+    bindFunctions ? { bindFunctions } : undefined,
+  )
 }
 
 function normalizePersistedRenderRecord(input: {
@@ -220,14 +205,16 @@ function normalizePersistedRenderRecord(input: {
       renderKey: input.record.renderKey,
     })
   }
-  const result: MermaidRenderResult = {
-    svg: input.record.svg,
-    sourceHash: input.sourceHash,
-    cacheKey: input.cacheKey,
-    renderKey: input.record.renderKey,
-    contrastAdjustments: input.record.contrastAdjustments,
-    ...(input.bindFunctions ? { bindFunctions: input.bindFunctions } : {}),
-  }
+  const result: MermaidRenderResult = Object.assign(
+    {
+      svg: input.record.svg,
+      sourceHash: input.sourceHash,
+      cacheKey: input.cacheKey,
+      renderKey: input.record.renderKey,
+      contrastAdjustments: input.record.contrastAdjustments,
+    },
+    input.bindFunctions ? { bindFunctions: input.bindFunctions } : undefined,
+  )
   touchSvgCache(input.cacheKey, result)
   return result
 }
@@ -249,11 +236,8 @@ async function restorePersistedMermaidBindFunctions(input: {
 
   const renderID = `buddy_mermaid_bind_${input.sourceHash}_${renderCounter}`
   renderCounter += 1
-  const rendered = await runtime.render(renderID, input.source)
-  if (isRecord(rendered) && isBindFunctions(rendered.bindFunctions)) {
-    return rendered.bindFunctions
-  }
-  return undefined
+  const rendered = parseMermaidRenderOutput(await runtime.render(renderID, input.source))
+  return rendered.bindFunctions
 }
 
 async function renderPersistedMermaidSvg(input: {
@@ -302,14 +286,18 @@ async function renderPersistedMermaidSvg(input: {
             themeConfig: theme,
           }).catch(() => undefined)
         : undefined
-    return normalizePersistedRenderRecord({
-      objectID: input.objectID,
-      revisionID: input.revisionID,
-      sourceHash,
-      cacheKey,
-      record: resolved.render,
-      ...(bindFunctions ? { bindFunctions } : {}),
-    })
+    return normalizePersistedRenderRecord(
+      Object.assign(
+        {
+          objectID: input.objectID,
+          revisionID: input.revisionID,
+          sourceHash,
+          cacheKey,
+          record: resolved.render,
+        },
+        bindFunctions ? { bindFunctions } : undefined,
+      ),
+    )
   }
 
   return scheduleMermaidRender({
@@ -322,15 +310,17 @@ async function renderPersistedMermaidSvg(input: {
           sourceHash,
           themeConfig: theme,
         })
-        const result: MermaidRenderResult = {
-          svg: browserRendered.svg,
-          sourceHash,
-          cacheKey,
-          contrastAdjustments: browserRendered.contrastAdjustments,
-          ...(browserRendered.bindFunctions
+        const result: MermaidRenderResult = Object.assign(
+          {
+            svg: browserRendered.svg,
+            sourceHash,
+            cacheKey,
+            contrastAdjustments: browserRendered.contrastAdjustments,
+          },
+          browserRendered.bindFunctions
             ? { bindFunctions: browserRendered.bindFunctions }
-            : {}),
-        }
+            : undefined,
+        )
         const stored = await storePersistedMermaidRender({
           contrastAdjustments: browserRendered.contrastAdjustments,
           directory: input.directory,
@@ -348,7 +338,9 @@ async function renderPersistedMermaidSvg(input: {
         touchSvgCache(cacheKey, result)
         return result
       } catch (error) {
-        const errorMessage = renderFailureMessage(error)
+        const errorMessage = renderFailureMessage(
+          error instanceof Error ? error : new Error("Unable to render diagram."),
+        )
         const stored = await storePersistedMermaidRender({
           directory: input.directory,
           errorMessage,
@@ -359,10 +351,13 @@ async function renderPersistedMermaidSvg(input: {
           status: "failed",
           themeSignature: theme.themeSignature,
         }).catch(() => undefined)
-        throw new MermaidRenderFailureError(errorMessage, {
-          persisted: false,
-          ...(stored ? { renderKey: stored.renderKey } : {}),
-        })
+        throw new MermaidRenderFailureError(
+          errorMessage,
+          Object.assign(
+            { persisted: false },
+            stored ? { renderKey: stored.renderKey } : undefined,
+          ),
+        )
       }
     },
   })
@@ -404,13 +399,17 @@ async function renderEphemeralMermaidSvg(input: {
         sourceHash,
         themeConfig: theme,
       })
-      const result: MermaidRenderResult = {
-        svg: browserRendered.svg,
-        sourceHash,
-        cacheKey,
-        contrastAdjustments: browserRendered.contrastAdjustments,
-        ...(browserRendered.bindFunctions ? { bindFunctions: browserRendered.bindFunctions } : {}),
-      }
+      const result: MermaidRenderResult = Object.assign(
+        {
+          svg: browserRendered.svg,
+          sourceHash,
+          cacheKey,
+          contrastAdjustments: browserRendered.contrastAdjustments,
+        },
+        browserRendered.bindFunctions
+          ? { bindFunctions: browserRendered.bindFunctions }
+          : undefined,
+      )
       touchSvgCache(cacheKey, result)
       return result
     },

@@ -1,3 +1,4 @@
+import { z } from "zod"
 import createIndigoRuntime from "indigo-ketcher/binaryWasm"
 import type {
   IndigoWorkerRenderFailure,
@@ -21,7 +22,15 @@ const MAX_INDIGO_WARNING_CHARACTERS = 1_000
 const MAX_INDIGO_ERROR_CHARACTERS = 2_000
 const SVG_DATA_URL_PREFIX = "data:image/svg+xml;base64,"
 const XML_DECLARATION_PATTERN = /^\s*<\?xml\b[\s\S]*?\?>\s*/iu
-const INDIGO_SEMANTIC_FORMATS = ["smiles", "ket"] as const
+
+const indigoSemanticFormatSchema = z.enum(["smiles", "ket"])
+const indigoRenderRequestSchema = z.object({
+  type: z.literal("render"),
+  requestID: z.string(),
+  source: z.string(),
+  format: indigoSemanticFormatSchema,
+})
+const indigoWarningTableSchema = z.record(z.string(), z.string())
 
 type IndigoRuntime = Awaited<ReturnType<typeof createIndigoRuntime>>
 type IndigoRenderErrorCode = IndigoWorkerRenderFailure["code"]
@@ -40,7 +49,7 @@ let runtimePromise: Promise<IndigoRuntime> | undefined
 
 function loadIndigoRuntime(): Promise<IndigoRuntime> {
   if (!runtimePromise) {
-    runtimePromise = createIndigoRuntime().catch((error: unknown) => {
+    runtimePromise = createIndigoRuntime().catch((error) => {
       runtimePromise = undefined
       throw error
     })
@@ -95,9 +104,9 @@ function readWarnings(value: string): string[] {
     return []
   }
   try {
-    const parsed: unknown = JSON.parse(value)
-    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return normalizeWarnings(Object.values(parsed))
+    const parsed = indigoWarningTableSchema.safeParse(JSON.parse(value))
+    if (parsed.success) {
+      return normalizeWarnings(Object.values(parsed.data))
     }
   } catch {
     // Some Indigo builds return a plain warning string.
@@ -105,47 +114,25 @@ function readWarnings(value: string): string[] {
   return normalizeWarnings([value])
 }
 
-function normalizeWarnings(values: readonly unknown[]): string[] {
+function normalizeWarnings(values: readonly string[]): string[] {
   return values
-    .flatMap((value) => (typeof value === "string" && value.trim() ? [value.trim()] : []))
+    .flatMap((warning) => (warning.trim() ? [warning.trim()] : []))
     .slice(0, MAX_INDIGO_WARNINGS)
     .map((warning) => warning.slice(0, MAX_INDIGO_WARNING_CHARACTERS))
 }
 
-function isIndigoSemanticFormat(value: unknown): value is IndigoWorkerRenderRequest["format"] {
-  return typeof value === "string" && INDIGO_SEMANTIC_FORMATS.some((format) => format === value)
-}
-
-export function indigoErrorMessage(error: unknown): string {
-  let message: string
-  if (error instanceof Error && error.message.trim()) {
-    message = error.message.trim()
-  } else if (typeof error === "string" && error.trim()) {
-    message = error.trim()
-  } else {
-    message = "Indigo could not render this chemistry source."
-  }
+export function indigoErrorMessage(error: Error): string {
+  const message = error.message.trim() || "Indigo could not render this chemistry source."
   return message.slice(0, MAX_INDIGO_ERROR_CHARACTERS)
 }
 
-export function indigoErrorCode(error: unknown): IndigoRenderErrorCode {
+export function indigoErrorCode(error: Error): IndigoRenderErrorCode {
   return error instanceof IndigoRenderError ? error.code : "indigo_render_failed"
 }
 
-export function isIndigoRenderRequest(value: unknown): value is IndigoWorkerRenderRequest {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return false
-  }
-  return (
-    "type" in value &&
-    value.type === "render" &&
-    "requestID" in value &&
-    typeof value.requestID === "string" &&
-    "source" in value &&
-    typeof value.source === "string" &&
-    "format" in value &&
-    isIndigoSemanticFormat(value.format)
-  )
+export function parseIndigoWorkerMessage(event: MessageEvent): IndigoWorkerRenderRequest | undefined {
+  const parsed = indigoRenderRequestSchema.safeParse(event.data)
+  return parsed.success ? parsed.data : undefined
 }
 
 export async function renderWithIndigo(
@@ -155,9 +142,17 @@ export async function renderWithIndigo(
   try {
     runtime = await loadIndigoRuntime()
   } catch (error) {
-    throw new IndigoRenderError("indigo_runtime_unavailable", indigoErrorMessage(error), {
-      cause: error,
-    })
+    throw new IndigoRenderError(
+      "indigo_runtime_unavailable",
+      indigoErrorMessage(
+        error instanceof Error
+          ? error
+          : new Error("Indigo could not render this chemistry source."),
+      ),
+      {
+        cause: error,
+      },
+    )
   }
   const validationOptions = new runtime.MapStringString()
   let renderOptions: InstanceType<IndigoRuntime["MapStringString"]> | undefined
@@ -184,9 +179,17 @@ export async function renderWithIndigo(
     }
   } catch (error) {
     if (error instanceof IndigoRenderError) throw error
-    throw new IndigoRenderError("invalid_source", indigoErrorMessage(error), {
-      cause: error,
-    })
+    throw new IndigoRenderError(
+      "invalid_source",
+      indigoErrorMessage(
+        error instanceof Error
+          ? error
+          : new Error("Indigo could not render this chemistry source."),
+      ),
+      {
+        cause: error,
+      },
+    )
   } finally {
     validationOptions.delete()
     renderOptions?.delete()
