@@ -66,17 +66,25 @@ function readStatus(value: unknown): ReadingResourceStatus | undefined | null {
 function readLegacyLocation(value: Record<string, unknown>): ReaderLocation | undefined {
   if (typeof value.cfi !== "string" || value.cfi.length === 0) return undefined
 
-  return readReaderLocation({
-    anchor: {
-      kind: READER_ANCHOR_KIND_CFI_POSITION,
-      cfi: value.cfi,
-      ...(value.index !== undefined ? { sectionIndex: value.index } : {}),
-    },
-    ...(value.fraction !== undefined ? { fraction: value.fraction } : {}),
-    ...(value.tocLabel !== undefined ? { tocLabel: value.tocLabel } : {}),
-    ...(value.pageLabel !== undefined ? { pageLabel: value.pageLabel } : {}),
-    ...(value.locationLabel !== undefined ? { locationLabel: value.locationLabel } : {}),
-  })
+  return readReaderLocation(
+    Object.assign(
+      Object.assign(
+        {
+          anchor: Object.assign(
+            {
+              kind: READER_ANCHOR_KIND_CFI_POSITION,
+              cfi: value.cfi,
+            },
+            value.index !== undefined ? { sectionIndex: value.index } : undefined,
+          ),
+        },
+        value.fraction !== undefined ? { fraction: value.fraction } : undefined,
+        value.tocLabel !== undefined ? { tocLabel: value.tocLabel } : undefined,
+        value.pageLabel !== undefined ? { pageLabel: value.pageLabel } : undefined,
+      ),
+      value.locationLabel !== undefined ? { locationLabel: value.locationLabel } : undefined,
+    ),
+  )
 }
 
 function readLocation(value: Record<string, unknown>): ReaderLocation | undefined {
@@ -96,18 +104,22 @@ function readTrailEntry(value: unknown): ReaderTrailEntry | undefined {
 
   const location =
     value.anchor !== undefined
-      ? readReaderLocation({
-          anchor: value.anchor,
-          ...(value.fraction !== undefined ? { fraction: value.fraction } : {}),
-        })
+      ? readReaderLocation(
+          Object.assign(
+            { anchor: value.anchor },
+            value.fraction !== undefined ? { fraction: value.fraction } : undefined,
+          ),
+        )
       : readLegacyLocation(value)
   if (!location) return undefined
 
-  return {
-    label,
-    anchor: location.anchor,
-    ...(location.fraction !== undefined ? { fraction: location.fraction } : {}),
-  }
+  return Object.assign(
+    {
+      label,
+      anchor: location.anchor,
+    },
+    location.fraction !== undefined ? { fraction: location.fraction } : undefined,
+  )
 }
 
 function readTrail(value: unknown): ReaderTrailEntry[] | undefined {
@@ -125,11 +137,11 @@ function readAnnotationSummaryEntry(value: unknown): AnnotationSummaryEntry | un
   const tocLabel = readOptionalString(value.tocLabel)
   const note = readOptionalString(value.note)
   if (tocLabel === null || note === null) return undefined
-  return {
-    text: value.text,
-    ...(tocLabel !== undefined ? { tocLabel } : {}),
-    ...(note !== undefined ? { note } : {}),
-  }
+  return Object.assign(
+    { text: value.text },
+    tocLabel !== undefined ? { tocLabel } : undefined,
+    note !== undefined ? { note } : undefined,
+  )
 }
 
 function readAnnotationSummary(value: unknown): AnnotationSummaryEntry[] | undefined {
@@ -169,19 +181,30 @@ export function readActiveReadingResourceState(
   const location = readLocation(value)
   const readingTrail = readTrail(value.readingTrail)
   const annotationSummary = readAnnotationSummary(value.annotationSummary)
-  return {
-    ...(objectID !== undefined ? { objectID } : {}),
-    ...(alias !== undefined ? { alias } : {}),
-    name: value.name,
-    path: value.path,
-    ...(status !== undefined ? { status } : {}),
-    ...(location ? { location } : {}),
-    ...(currentPassageText !== undefined ? { currentPassageText } : {}),
-    ...(visibleStartText !== undefined ? { visibleStartText } : {}),
-    ...(visibleEndText !== undefined ? { visibleEndText } : {}),
-    ...(readingTrail ? { readingTrail } : {}),
-    ...(annotationSummary ? { annotationSummary } : {}),
-  }
+  const state: ActiveReadingResourceState = Object.assign(
+    Object.assign(
+      Object.assign(
+        {},
+        objectID !== undefined ? { objectID } : undefined,
+        alias !== undefined ? { alias } : undefined,
+        { name: value.name, path: value.path },
+      ),
+      Object.assign(
+        {},
+        status !== undefined ? { status } : undefined,
+        location ? { location } : undefined,
+        currentPassageText !== undefined ? { currentPassageText } : undefined,
+      ),
+      Object.assign(
+        {},
+        visibleStartText !== undefined ? { visibleStartText } : undefined,
+        visibleEndText !== undefined ? { visibleEndText } : undefined,
+        readingTrail ? { readingTrail } : undefined,
+      ),
+    ),
+    annotationSummary ? { annotationSummary } : undefined,
+  )
+  return state
 }
 
 export function stripTransientActiveReadingResourceFields(

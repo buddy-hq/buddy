@@ -166,14 +166,18 @@ export function objectBenchSurfaceQueryOptions(input: {
       }
 
       const view = await client.ensureQueryData(
-        objectViewQueryOptions({
-          directory,
-          kind,
-          objectID,
-          viewID,
-          ...(input.revisionID ? { revisionID: input.revisionID } : {}),
-          ...(input.itemID ? { itemID: input.itemID } : {}),
-        }),
+        objectViewQueryOptions(
+          Object.assign(
+            {
+              directory,
+              kind,
+              objectID,
+              viewID,
+            },
+            input.revisionID ? { revisionID: input.revisionID } : undefined,
+            input.itemID ? { itemID: input.itemID } : undefined,
+          ),
+        ),
       )
 
       if (view.data.renderer === "resource-reader") {
@@ -190,17 +194,19 @@ export function objectBenchSurfaceQueryOptions(input: {
           viewerPath?.viewer === "markdown"
             ? await readProjectExplorerEditableFile({ directory, path: viewerPath.path })
             : undefined
-        return {
-          directory,
-          kind,
-          objectID,
-          view,
-          ...(viewerPath
+        return Object.assign(
+          {
+            directory,
+            kind,
+            objectID,
+            view,
+          },
+          viewerPath
             ? { resourcePath: viewerPath.path, resourceViewer: viewerPath.viewer }
-            : {}),
-          ...(resourceMarkdown ? { resourceMarkdown } : {}),
-          resourceKey: record?.objectID ?? objectID,
-        }
+            : undefined,
+          resourceMarkdown ? { resourceMarkdown } : undefined,
+          { resourceKey: record?.objectID ?? objectID },
+        )
       }
 
       if (view.data.renderer === "question-set") {

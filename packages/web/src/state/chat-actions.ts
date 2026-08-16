@@ -648,11 +648,13 @@ function addOptimisticPromptMessage(input: OptimisticPromptInput) {
     sessionID: input.sessionID,
     role: "user",
     agent: input.agent ?? input.persona ?? DEFAULT_OPTIMISTIC_AGENT,
-    model: {
-      providerID: optimisticModel.providerID,
-      modelID: optimisticModel.modelID,
-      ...(input.variant ? { variant: input.variant } : {}),
-    },
+    model: Object.assign(
+      {
+        providerID: optimisticModel.providerID,
+        modelID: optimisticModel.modelID,
+      },
+      input.variant ? { variant: input.variant } : undefined,
+    ),
     time: {
       created: Date.now(),
     },
@@ -762,10 +764,10 @@ function normalizeMcpStatusMap(input: McpStatusResponses[200]): McpStatusMap {
   return Object.fromEntries(
     Object.entries(input).map(([name, status]) => [
       name,
-      {
-        status: status.status,
-        ...("error" in status && typeof status.error === "string" ? { error: status.error } : {}),
-      },
+      Object.assign(
+        { status: status.status },
+        "error" in status && typeof status.error === "string" ? { error: status.error } : undefined,
+      ),
     ]),
   )
 }
@@ -1717,21 +1719,31 @@ export async function sendPrompt(
     optimisticMessageID = createOptimisticID(OPTIMISTIC_MESSAGE_ID_PREFIX)
     const promptParts = input?.parts ?? []
     const target = resolvePromptTarget(input)
-    const promptBody = {
-      messageID: optimisticMessageID,
-      content,
-      ...(promptParts.length > 0 ? { parts: promptParts } : {}),
-      ...(input?.imageEdit ? { imageEdit: input.imageEdit } : {}),
-      ...target,
-      ...(input?.focusGoalIds && input.focusGoalIds.length > 0
-        ? { focusGoalIds: input.focusGoalIds }
-        : {}),
-      ...(input?.model ? { model: input.model } : {}),
-      ...(input?.modelRuntime ? { modelRuntime: input.modelRuntime } : {}),
-      ...(input?.variant ? { variant: input.variant } : {}),
-      ...(input?.teaching ? { teaching: input.teaching } : {}),
-      ...(input?.reading ? { reading: input.reading } : {}),
-    }
+    const promptBody = Object.assign(
+      Object.assign(
+        {
+          messageID: optimisticMessageID,
+          content,
+        },
+        promptParts.length > 0 ? { parts: promptParts } : undefined,
+        input?.imageEdit ? { imageEdit: input.imageEdit } : undefined,
+        target,
+      ),
+      Object.assign(
+        {},
+        input?.focusGoalIds && input.focusGoalIds.length > 0
+          ? { focusGoalIds: input.focusGoalIds }
+          : undefined,
+        input?.model ? { model: input.model } : undefined,
+        input?.modelRuntime ? { modelRuntime: input.modelRuntime } : undefined,
+      ),
+      Object.assign(
+        {},
+        input?.variant ? { variant: input.variant } : undefined,
+        input?.teaching ? { teaching: input.teaching } : undefined,
+        input?.reading ? { reading: input.reading } : undefined,
+      ),
+    )
     optimisticAdded = shouldAddOptimistic
       ? addOptimisticPromptMessage({
           directory,
@@ -1892,14 +1904,18 @@ export async function sendCommand(
     store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
 
     const target = resolvePromptTarget(input)
-    const commandBody = {
-      command,
-      arguments: argumentsText,
-      ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
-      ...target,
-      ...(input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : {}),
-      ...(input?.variant ? { variant: input.variant } : {}),
-    }
+    const commandBody = Object.assign(
+      Object.assign(
+        {
+          command,
+          arguments: argumentsText,
+        },
+        input?.parts && input.parts.length > 0 ? { parts: input.parts } : undefined,
+        target,
+      ),
+      input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : undefined,
+      input?.variant ? { variant: input.variant } : undefined,
+    )
 
     const postCommand = async (targetSessionID: string): Promise<SessionMutationResponse> =>
       requireBuddyData<SessionCommandResponses[200]>(
@@ -1969,12 +1985,16 @@ export async function compactSession(
 
   try {
     requireBuddyData(
-      await getBuddyClient(directory).session.summarize({
-        sessionID,
-        providerID: input.providerID,
-        modelID: input.modelID,
-        ...(input.auto === undefined ? {} : { auto: input.auto }),
-      }),
+      await getBuddyClient(directory).session.summarize(
+        Object.assign(
+          {
+            sessionID,
+            providerID: input.providerID,
+            modelID: input.modelID,
+          },
+          input.auto === undefined ? undefined : { auto: input.auto },
+        ),
+      ),
     )
   } catch (error) {
     const missingSession = isMissingSessionError(error)
@@ -1990,7 +2010,10 @@ export async function compactSession(
   }
 }
 
-export async function loadTeachingSessionState(directory: string, sessionID: string) {
+export async function loadTeachingSessionState(
+  directory: string,
+  sessionID: string,
+): Promise<TeachingSessionSnapshot | undefined> {
   const result = await getBuddyClient(directory).session.teachingState({
     sessionID,
   })
@@ -2010,20 +2033,24 @@ export async function loadTeachingSessionState(directory: string, sessionID: str
 
   const snapshot = result.data
   const sessionRuntime = readSessionRuntimeFromResponse(snapshot)
-  return {
-    sessionId: snapshot.sessionId,
-    persona: snapshot.persona,
-    currentSurface: snapshot.currentSurface,
-    teachingWorkspaceState: readTeachingWorkspaceStateFromResponse(snapshot),
-    focusGoalIds: snapshot.focusGoalIds,
-    ...(sessionRuntime
+  return Object.assign(
+    {
+      sessionId: snapshot.sessionId,
+      persona: snapshot.persona,
+      currentSurface: snapshot.currentSurface,
+      teachingWorkspaceState: readTeachingWorkspaceStateFromResponse(snapshot),
+      focusGoalIds: snapshot.focusGoalIds,
+    },
+    sessionRuntime
       ? {
           sessionRuntime: buildSessionRuntimeView(sessionRuntime),
         }
-      : {}),
-    lastLlmOutbound: snapshot.lastLlmOutbound,
-    llmOutboundHistory: snapshot.llmOutboundHistory,
-  }
+      : undefined,
+    {
+      lastLlmOutbound: snapshot.lastLlmOutbound,
+      llmOutboundHistory: snapshot.llmOutboundHistory,
+    },
+  )
 }
 
 export async function abortPrompt(directory: string) {
@@ -2250,10 +2277,12 @@ export async function forkSession(
 
   try {
     const forkedSession = requireBuddyData<SessionInfo>(
-      await getBuddyClient(directory).session.fork({
-        sessionID,
-        ...(input?.messageID ? { messageID: input.messageID } : {}),
-      }),
+      await getBuddyClient(directory).session.fork(
+        Object.assign(
+          { sessionID },
+          input?.messageID ? { messageID: input.messageID } : undefined,
+        ),
+      ),
     )
 
     selectCanonicalSession(directory, forkedSession)
@@ -2630,11 +2659,13 @@ export async function loadLearnerSnapshotViews(
       : Promise.resolve(undefined),
   ])
 
-  return {
-    snapshot,
-    curriculum: buildCurriculumViewFromSnapshot(snapshot),
-    ...(teachingState?.sessionRuntime ? { sessionRuntime: teachingState.sessionRuntime } : {}),
-  }
+  return Object.assign(
+    {
+      snapshot,
+      curriculum: buildCurriculumViewFromSnapshot(snapshot),
+    },
+    teachingState?.sessionRuntime ? { sessionRuntime: teachingState.sessionRuntime } : undefined,
+  )
 }
 
 export async function loadSessionRuntimeView(directory: string, input: { sessionID: string }) {

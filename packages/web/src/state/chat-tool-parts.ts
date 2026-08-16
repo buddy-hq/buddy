@@ -94,24 +94,27 @@ function reconcileInterruptedToolPart(
   const start = typeof time?.start === "number" ? time.start : terminalAt
   const partMetadata = reconcileInterruptedPartMetadata(part)
 
-  return {
-    ...part,
-    ...(partMetadata ? { metadata: partMetadata } : {}),
-    state: {
-      ...part.state,
-      status: "error",
-      error: toolPartInterruptionError(info),
-      metadata: {
-        ...metadata,
-        interrupted: true,
-      },
-      time: {
-        ...time,
-        start,
-        end: terminalAt,
+  return Object.assign(
+    {},
+    part,
+    partMetadata ? { metadata: partMetadata } : undefined,
+    {
+      state: {
+        ...part.state,
+        status: "error",
+        error: toolPartInterruptionError(info),
+        metadata: {
+          ...metadata,
+          interrupted: true,
+        },
+        time: {
+          ...time,
+          start,
+          end: terminalAt,
+        },
       },
     },
-  }
+  )
 }
 
 function reconcileTerminalAssistantPart(

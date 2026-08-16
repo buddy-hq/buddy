@@ -155,18 +155,24 @@ function buildResourceListItemFromProcessedRecord(
   if (extension !== RESOURCE_FILE_EXTENSION_PDF && extension !== RESOURCE_FILE_EXTENSION_EPUB) {
     return undefined
   }
+  const fileExtension: ResourceFileExtension =
+    extension === RESOURCE_FILE_EXTENSION_PDF
+      ? RESOURCE_FILE_EXTENSION_PDF
+      : RESOURCE_FILE_EXTENSION_EPUB
 
-  return {
-    key: `${RESOURCE_RECORD_KEY_PREFIX}${record.objectID}`,
-    path: resolvedPath,
-    name: fileNameFromPath(resolvedPath) || record.alias,
-    extension,
-    status: record.status,
-    objectID: record.objectID,
-    ...(record.coverRelpath ? { coverRelpath: record.coverRelpath } : {}),
-    ...(record.title ? { title: record.title } : {}),
-    ...(record.author ? { author: record.author } : {}),
-  }
+  return Object.assign(
+    {
+      key: `${RESOURCE_RECORD_KEY_PREFIX}${record.objectID}`,
+      path: resolvedPath,
+      name: fileNameFromPath(resolvedPath) || record.alias,
+      extension: fileExtension,
+      status: record.status,
+      objectID: record.objectID,
+    },
+    record.coverRelpath ? { coverRelpath: record.coverRelpath } : undefined,
+    record.title ? { title: record.title } : undefined,
+    record.author ? { author: record.author } : undefined,
+  )
 }
 
 function buildResourceListItems(input: {
@@ -193,17 +199,23 @@ function buildResourceListItems(input: {
       continue
     }
 
-    items.push({
-      key: discoveredResource.path,
-      path: discoveredResource.path,
-      name: discoveredResource.name,
-      extension: discoveredResource.extension,
-      status: mapped?.status ?? "unprocessed",
-      ...(mapped ? { objectID: mapped.objectID } : {}),
-      ...(mapped?.coverRelpath ? { coverRelpath: mapped.coverRelpath } : {}),
-      ...(mapped?.title ? { title: mapped.title } : {}),
-      ...(mapped?.author ? { author: mapped.author } : {}),
-    })
+    items.push(
+      Object.assign(
+        Object.assign(
+          {
+            key: discoveredResource.path,
+            path: discoveredResource.path,
+            name: discoveredResource.name,
+            extension: discoveredResource.extension,
+            status: mapped?.status ?? "unprocessed",
+          },
+          mapped ? { objectID: mapped.objectID } : undefined,
+          mapped?.coverRelpath ? { coverRelpath: mapped.coverRelpath } : undefined,
+          mapped?.title ? { title: mapped.title } : undefined,
+        ),
+        mapped?.author ? { author: mapped.author } : undefined,
+      ),
+    )
     seenPaths.add(discoveredResource.path)
     if (mapped?.objectID) {
       seenObjectIDs.add(mapped.objectID)
@@ -231,12 +243,14 @@ export type ResourceReadingTarget = {
 }
 
 function toResourceReadingTarget(item: ResourceListItem): ResourceReadingTarget {
-  return {
-    path: item.path,
-    name: item.name,
-    ...(item.objectID ? { objectID: item.objectID } : {}),
-    status: item.status,
-  }
+  return Object.assign(
+    {
+      path: item.path,
+      name: item.name,
+    },
+    item.objectID ? { objectID: item.objectID } : undefined,
+    { status: item.status },
+  )
 }
 
 export function findProcessedResourceByKey(

@@ -126,6 +126,12 @@ export type WorkspaceTransitionFrame =
   | { kind: "docked-bench" }
   | { kind: "floating-bench" }
 
+type TRetainedPreviousPending = {
+  status: "retained-previous"
+  commandID: string
+  transitionFrame?: WorkspaceTransitionFrame
+}
+
 export type EffectiveWorkspaceProjection = {
   route: BenchRouteSnapshot
   dockedState: DockedWorkspaceState
@@ -152,11 +158,7 @@ export type EffectiveWorkspaceProjection = {
     | "drawer-over-bench"
   pending:
     | { status: "none" }
-    | {
-        status: "retained-previous"
-        commandID: string
-        transitionFrame?: WorkspaceTransitionFrame
-      }
+    | TRetainedPreviousPending
     | { status: "expected-route"; commandID: string }
     | { status: "workspace-only"; commandID: string }
     | {
@@ -561,16 +563,20 @@ export async function writePersistedWorkspaceSlot(input: {
     const persisted = await readPersistedDirectoryWorkspaceImmediately(input)
     const slots =
       persisted.status === WORKSPACE_HYDRATION_READY && persisted.state ? persisted.state.slots : {}
-    await writePersistedDirectoryWorkspaceImmediately({
-      directory: input.directory,
-      state: {
-        slots: {
-          ...slots,
-          [input.chatKey]: input.slot,
+    await writePersistedDirectoryWorkspaceImmediately(
+      Object.assign(
+        {
+          directory: input.directory,
+          state: {
+            slots: {
+              ...slots,
+              [input.chatKey]: input.slot,
+            },
+          },
         },
-      },
-      ...(input.storage ? { storage: input.storage } : {}),
-    })
+        input.storage ? { storage: input.storage } : undefined,
+      ),
+    )
   })
 }
 
@@ -875,13 +881,16 @@ export function effectiveWorkspaceProjection(
 
   if (!isSameBenchRouteSnapshot(route, pendingIntent.expectedRoute)) {
     const transitionFrame = retainedTransitionFrame(pendingIntent.previousProjection)
+    const pending: TRetainedPreviousPending = Object.assign(
+      {
+        status: "retained-previous" as const,
+        commandID: pendingIntent.commandID,
+      },
+      transitionFrame ? { transitionFrame } : undefined,
+    )
     return {
       ...pendingIntent.previousProjection,
-      pending: {
-        status: "retained-previous",
-        commandID: pendingIntent.commandID,
-        ...(transitionFrame ? { transitionFrame } : {}),
-      },
+      pending,
     }
   }
 
@@ -1153,11 +1162,15 @@ export function createDirectoryWorkspaceStore(input: {
       set((state) => {
         const removedSessionIDs = new Set(sessionIDs)
         if (removedSessionIDs.size === 0) return state
-        const slots = removeSessionBenchTargetsFromSlots({
-          slots: state.slots,
-          sessionIDs: removedSessionIDs,
-          ...(excludeChatKey ? { excludeChatKey } : {}),
-        })
+        const slots = removeSessionBenchTargetsFromSlots(
+          Object.assign(
+            {
+              slots: state.slots,
+              sessionIDs: removedSessionIDs,
+            },
+            excludeChatKey ? { excludeChatKey } : undefined,
+          ),
+        )
         if (slots === state.slots) return state
         const activeSlot = workspacePresentationSlotForChat(slots, state.activeChatKey)
         return {

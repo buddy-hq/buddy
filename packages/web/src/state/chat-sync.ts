@@ -433,10 +433,11 @@ export function startChatSync(handlers: SyncHandlers) {
         }
 
         try {
-          const query = {
-            ...(handlers.directory ? { directory: handlers.directory } : {}),
-            ...handlers.eventQuery?.(),
-          }
+          const query = Object.assign(
+            {},
+            handlers.directory ? { directory: handlers.directory } : undefined,
+            handlers.eventQuery?.(),
+          )
           const events = await getBuddyClient(handlers.directory).event.stream(
             Object.keys(query).length > 0 ? query : undefined,
             {

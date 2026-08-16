@@ -128,10 +128,10 @@ function notebookSearchResultFromResource(
     },
   }
   if (extension) {
-    result.resourceVisual = {
-      extension,
-      ...(resource.coverRelpath ? { coverRelpath: resource.coverRelpath } : {}),
-    }
+    result.resourceVisual = Object.assign(
+      { extension },
+      resource.coverRelpath ? { coverRelpath: resource.coverRelpath } : undefined,
+    )
   }
   return result
 }

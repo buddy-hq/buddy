@@ -9,6 +9,13 @@ export type PersonalizationSettings = {
   moreAboutYou: string
 }
 
+type TPersonalizationPatch = {
+  primary_use?: PrimaryUse
+  preferred_name?: string
+  occupation?: string
+  more_about_you?: string
+}
+
 export const PRIMARY_USES = ["learn", "teach"] as const
 export type PrimaryUse = (typeof PRIMARY_USES)[number]
 
@@ -147,12 +154,15 @@ export function buildPersonalizationPatch(input: PersonalizationSettings) {
     return { personalization: null }
   }
 
-  return {
-    personalization: {
-      ...(primaryUse ? { primary_use: primaryUse } : {}),
-      ...(preferredName ? { preferred_name: preferredName } : {}),
-      ...(occupation ? { occupation } : {}),
-      ...(moreAboutYou ? { more_about_you: moreAboutYou } : {}),
-    },
-  }
+  const personalization: TPersonalizationPatch = Object.assign(
+    Object.assign(
+      {},
+      primaryUse ? { primary_use: primaryUse } : undefined,
+      preferredName ? { preferred_name: preferredName } : undefined,
+      occupation ? { occupation } : undefined,
+    ),
+    moreAboutYou ? { more_about_you: moreAboutYou } : undefined,
+  )
+
+  return { personalization }
 }

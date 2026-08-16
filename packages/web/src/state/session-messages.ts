@@ -62,11 +62,13 @@ export async function fetchSessionMessagesPage(
     before?: string
   },
 ): Promise<SessionMessagesPage> {
-  const result = await getBuddyClient(directory).session.messages({
-    sessionID,
-    ...(input?.limit === undefined ? {} : { limit: input.limit }),
-    ...(input?.before === undefined ? {} : { before: input.before }),
-  })
+  const result = await getBuddyClient(directory).session.messages(
+    Object.assign(
+      { sessionID },
+      input?.limit === undefined ? undefined : { limit: input.limit },
+      input?.before === undefined ? undefined : { before: input.before },
+    ),
+  )
   const payload = requireBuddyData<SessionMessagesResponses[200]>(result)
   const nextCursor = result.response?.headers.get(NEXT_CURSOR_HEADER) ?? undefined
 

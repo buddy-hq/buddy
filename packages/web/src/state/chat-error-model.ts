@@ -197,15 +197,17 @@ export function readAssistantErrorDetails(error: MessageError): AssistantErrorDe
   const responseBody = readNonEmptyString(data?.responseBody)
   const providerError = readUpstreamProviderErrorPayload(responseBody)
 
-  return {
-    name: error.name,
-    ...(message ? { message } : {}),
-    ...(providerID ? { providerID } : {}),
-    ...(statusCode !== undefined ? { statusCode } : {}),
-    ...(isRetryable !== undefined ? { isRetryable } : {}),
-    ...(responseBody ? { responseBody } : {}),
-    ...(providerError ? { providerError } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      { name: error.name },
+      message ? { message } : undefined,
+      providerID ? { providerID } : undefined,
+      statusCode !== undefined ? { statusCode } : undefined,
+    ),
+    isRetryable !== undefined ? { isRetryable } : undefined,
+    responseBody ? { responseBody } : undefined,
+    providerError ? { providerError } : undefined,
+  )
 }
 
 function normalizedProviderErrorIdentifiers(
@@ -389,11 +391,16 @@ export function resolveLatestTerminalAssistantError(
 
   const providerID = latestAssistant.info.providerID
   const provider = providers.find((item) => item.id === providerID)
-  const model = buildAssistantErrorModel(latestAssistant.info.error, {
-    hasVisibleText: messageHasVisibleText(latestAssistant),
-    providerID,
-    ...(provider ? { providerConnected: provider.connected } : {}),
-  })
+  const model = buildAssistantErrorModel(
+    latestAssistant.info.error,
+    Object.assign(
+      {
+        hasVisibleText: messageHasVisibleText(latestAssistant),
+        providerID,
+      },
+      provider ? { providerConnected: provider.connected } : undefined,
+    ),
+  )
   if (model.disposition !== "terminal") return undefined
 
   return {

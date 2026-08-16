@@ -96,10 +96,11 @@ async function requestRuntimeStatus(
   const auth = authorizationHeader()
   const response = await transport(`${baseUrl}${pathname}`, {
     ...init,
-    headers: {
-      ...(auth ? { authorization: auth } : {}),
-      ...init?.headers,
-    },
+    headers: Object.assign(
+      {},
+      auth ? { authorization: auth } : undefined,
+      init?.headers,
+    ),
   })
 
   const body = await response.json().catch(() => undefined)

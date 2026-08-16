@@ -144,10 +144,9 @@ export async function loadWorkspaceObjects(
   kind?: WorkspaceObjectKind,
 ): Promise<ObjectsListResponse> {
   return requireBuddyData(
-    await getBuddyClient(directory).objects.list({
-      directory,
-      ...(kind ? { kind } : {}),
-    }),
+    await getBuddyClient(directory).objects.list(
+      Object.assign({ directory }, kind ? { kind } : undefined),
+    ),
   )
 }
 
@@ -179,14 +178,18 @@ export function workspaceHtmlWidgetObjectsQueryOptions(directory: string) {
 
 export async function loadObjectView(input: ObjectViewQueryInput): Promise<ObjectsViewResponse> {
   return requireBuddyData(
-    await getBuddyClient(input.directory).objects.view({
-      directory: input.directory,
-      kind: input.kind,
-      objectID: input.objectID,
-      viewID: input.viewID,
-      ...(input.revisionID ? { revisionID: input.revisionID } : {}),
-      ...(input.itemID ? { itemID: input.itemID } : {}),
-    }),
+    await getBuddyClient(input.directory).objects.view(
+      Object.assign(
+        {
+          directory: input.directory,
+          kind: input.kind,
+          objectID: input.objectID,
+          viewID: input.viewID,
+        },
+        input.revisionID ? { revisionID: input.revisionID } : undefined,
+        input.itemID ? { itemID: input.itemID } : undefined,
+      ),
+    ),
   )
 }
 

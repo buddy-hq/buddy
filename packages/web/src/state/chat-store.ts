@@ -820,12 +820,13 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const current = state.activeReadingResourceByDirectory[normalized]
           if (!current) return
           const currentLocation = current.location
-            ? {
-                ...current.location,
-                ...(current.currentPassageText !== undefined
+            ? Object.assign(
+                {},
+                current.location,
+                current.currentPassageText !== undefined
                   ? { currentPassageText: current.currentPassageText }
-                  : {}),
-              }
+                  : undefined,
+              )
             : undefined
           if (activeReadingLocationUpdatesEqual(currentLocation, input)) return
           state.activeReadingResourceByDirectory[normalized] = {

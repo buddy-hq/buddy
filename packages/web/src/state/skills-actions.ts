@@ -22,6 +22,8 @@ export type SkillLibraryEntry = {
   sourceLabel: string
   state: "available" | "installed" | "update_available" | "withdrawn_installed"
 }
+
+type TSkillLibraryState = SkillLibraryEntry["state"]
 export type SkillPermissionAction = "allow" | "deny"
 type RawInstalledSkillInfo = SkillsListResponses[200]["installed"][number]
 export type InstalledSkillInfo = Omit<RawInstalledSkillInfo, "permissionAction"> & {
@@ -51,10 +53,23 @@ function stringArray(value: unknown): string[] | undefined {
   return value
 }
 
+function readSkillLibraryState(value: unknown): TSkillLibraryState | undefined {
+  if (
+    value === "available" ||
+    value === "installed" ||
+    value === "update_available" ||
+    value === "withdrawn_installed"
+  ) {
+    return value
+  }
+  return undefined
+}
+
 function parseSkillLibraryEntry(value: unknown): SkillLibraryEntry {
   const record = objectRecord(value)
   const categories = stringArray(record?.categories)
   const tags = stringArray(record?.tags)
+  const state = readSkillLibraryState(record?.state)
   if (
     !record ||
     typeof record.id !== "string" ||
@@ -65,25 +80,25 @@ function parseSkillLibraryEntry(value: unknown): SkillLibraryEntry {
     !tags ||
     record.sourceKind !== "github" ||
     typeof record.sourceLabel !== "string" ||
-    (record.state !== "available" &&
-      record.state !== "installed" &&
-      record.state !== "update_available" &&
-      record.state !== "withdrawn_installed")
+    !state
   ) {
     throw new Error("Invalid skill library response")
   }
 
-  return {
+  const entry: SkillLibraryEntry = {
     id: record.id,
     displayName: record.displayName,
-    ...(typeof record.icon === "string" ? { icon: record.icon } : {}),
     summary: record.summary,
     categories,
     tags,
-    sourceKind: record.sourceKind,
+    sourceKind: "github",
     sourceLabel: record.sourceLabel,
-    state: record.state,
+    state,
   }
+  return Object.assign(
+    entry,
+    typeof record.icon === "string" ? { icon: record.icon } : undefined,
+  )
 }
 
 function normalizeInstalledSkill(skill: RawInstalledSkillInfo): InstalledSkillInfo {

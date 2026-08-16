@@ -30,6 +30,9 @@ import {
   readPromptReaderTextAnchor,
   type PromptComposerAttachment,
   type PromptComposerPart,
+  type PromptMarkdownSelectionContextPart,
+  type PromptReadingSelectionContextPart,
+  type PromptReadingSelectionPart,
   isPromptModelAttachment,
   isPromptReadyNativeResourceAttachment,
 } from "@/components/prompt/prompt-types"
@@ -190,16 +193,21 @@ function readPromptComposerPart(value: unknown): PromptComposerPart | undefined 
     ) {
       return undefined
     }
-    return {
-      type: READING_SELECTION_PART_TYPE,
-      text: value.text,
-      ...(selectionKey !== undefined ? { selectionKey } : {}),
-      ...(resourceKey !== undefined ? { resourceKey } : {}),
-      anchor,
-      ...(tocLabel !== undefined ? { tocLabel } : {}),
-      ...(pageLabel !== undefined ? { pageLabel } : {}),
-      ...(locationLabel !== undefined ? { locationLabel } : {}),
-    }
+    const part: PromptReadingSelectionPart = Object.assign(
+      Object.assign(
+        {
+          type: READING_SELECTION_PART_TYPE,
+          text: value.text,
+        },
+        selectionKey !== undefined ? { selectionKey } : undefined,
+        resourceKey !== undefined ? { resourceKey } : undefined,
+        { anchor },
+      ),
+      tocLabel !== undefined ? { tocLabel } : undefined,
+      pageLabel !== undefined ? { pageLabel } : undefined,
+      locationLabel !== undefined ? { locationLabel } : undefined,
+    )
+    return part
   }
   if (value.type === SELECTION_CONTEXT_PART_TYPE) {
     if (typeof value.text !== "string" || typeof value.selectionKey !== "string") {
@@ -210,15 +218,18 @@ function readPromptComposerPart(value: unknown): PromptComposerPart | undefined 
       const version = readOptionalString(value.version)
       const headingPath = readOptionalStringArray(value.headingPath)
       if (path === null || version === null || headingPath === null) return undefined
-      return {
-        type: SELECTION_CONTEXT_PART_TYPE,
-        source: "markdown",
-        text: value.text,
-        selectionKey: value.selectionKey,
-        ...(path !== undefined ? { path } : {}),
-        ...(version !== undefined ? { version } : {}),
-        ...(headingPath !== undefined ? { headingPath } : {}),
-      }
+      const part: PromptMarkdownSelectionContextPart = Object.assign(
+        {
+          type: SELECTION_CONTEXT_PART_TYPE,
+          source: "markdown" as const,
+          text: value.text,
+          selectionKey: value.selectionKey,
+        },
+        path !== undefined ? { path } : undefined,
+        version !== undefined ? { version } : undefined,
+        headingPath !== undefined ? { headingPath } : undefined,
+      )
+      return part
     }
     if (value.source !== "reading") return undefined
     const anchor = readPromptReaderTextAnchor(value)
@@ -230,17 +241,22 @@ function readPromptComposerPart(value: unknown): PromptComposerPart | undefined 
     if (resourceKey === null || tocLabel === null || pageLabel === null || locationLabel === null) {
       return undefined
     }
-    return {
-      type: SELECTION_CONTEXT_PART_TYPE,
-      source: "reading",
-      text: value.text,
-      selectionKey: value.selectionKey,
-      ...(resourceKey !== undefined ? { resourceKey } : {}),
-      anchor,
-      ...(tocLabel !== undefined ? { tocLabel } : {}),
-      ...(pageLabel !== undefined ? { pageLabel } : {}),
-      ...(locationLabel !== undefined ? { locationLabel } : {}),
-    }
+    const part: PromptReadingSelectionContextPart = Object.assign(
+      Object.assign(
+        {
+          type: SELECTION_CONTEXT_PART_TYPE,
+          source: "reading" as const,
+          text: value.text,
+          selectionKey: value.selectionKey,
+        },
+        resourceKey !== undefined ? { resourceKey } : undefined,
+        { anchor },
+      ),
+      tocLabel !== undefined ? { tocLabel } : undefined,
+      pageLabel !== undefined ? { pageLabel } : undefined,
+      locationLabel !== undefined ? { locationLabel } : undefined,
+    )
+    return part
   }
   return undefined
 }
@@ -387,10 +403,12 @@ function readPersistedPromptStorageValue(raw: string): PersistedPromptStorageVal
   const parsed = parseJson(raw)
   if (!isRecord(parsed)) return null
 
-  return {
-    state: readPersistedPromptStoreState(parsed.state),
-    ...(typeof parsed.version === "number" ? { version: parsed.version } : {}),
-  }
+  return Object.assign(
+    {
+      state: readPersistedPromptStoreState(parsed.state),
+    },
+    typeof parsed.version === "number" ? { version: parsed.version } : undefined,
+  )
 }
 
 export function flushPromptStorePersistence() {

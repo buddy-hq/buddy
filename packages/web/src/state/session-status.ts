@@ -57,14 +57,16 @@ function normalizeRetryAction(value: unknown): RetryAction | undefined {
   if (!reason || !provider || !title || !message || !label) return undefined
 
   const link = asNonEmptyString(value.link)
-  return {
-    reason,
-    provider,
-    title,
-    message,
-    label,
-    ...(link ? { link } : {}),
-  }
+  return Object.assign(
+    {
+      reason,
+      provider,
+      title,
+      message,
+      label,
+    },
+    link ? { link } : undefined,
+  )
 }
 
 export function normalizeSessionStatusValue(value: unknown): SessionStatusInfo {
@@ -79,13 +81,15 @@ export function normalizeSessionStatusValue(value: unknown): SessionStatusInfo {
   if (value.type !== SESSION_STATUS_RETRY) return IDLE_SESSION_STATUS
 
   const action = normalizeRetryAction(value.action)
-  return {
-    type: SESSION_STATUS_RETRY,
-    attempt: asFiniteNumber(value.attempt) ?? DEFAULT_RETRY_ATTEMPT,
-    message: asString(value.message, DEFAULT_RETRY_MESSAGE),
-    next: asFiniteNumber(value.next) ?? Date.now(),
-    ...(action ? { action } : {}),
-  }
+  return Object.assign(
+    {
+      type: SESSION_STATUS_RETRY,
+      attempt: asFiniteNumber(value.attempt) ?? DEFAULT_RETRY_ATTEMPT,
+      message: asString(value.message, DEFAULT_RETRY_MESSAGE),
+      next: asFiniteNumber(value.next) ?? Date.now(),
+    } as const,
+    action ? { action } : undefined,
+  )
 }
 
 export function isSessionStatusActive(status: SessionStatusInfo | undefined) {
