@@ -6,9 +6,9 @@ import {
   createHighlighter,
   getTokenStyleObject,
   stringifyTokenStyle,
-  type BundledLanguage,
   type ThemedToken,
 } from "shiki"
+import { resolveBundledShikiLanguage } from "./markdown-shiki-language"
 import { createLatestWorkerQueue } from "./markdown-worker-queue"
 import type {
   MarkdownToken,
@@ -56,14 +56,15 @@ async function highlight(request: HighlightRequest) {
   try {
     const instance = await highlighter
     if (!instance) throw new Error("Shiki worker is not initialized")
-    const language = request.language in bundledLanguages ? request.language : "text"
-    if (!instance.getLoadedLanguages().includes(language)) {
-      await instance.loadLanguage(bundledLanguages[language as BundledLanguage])
+    const bundledLanguage = resolveBundledShikiLanguage(request.language)
+    const language = bundledLanguage ?? "text"
+    if (bundledLanguage && !instance.getLoadedLanguages().includes(bundledLanguage)) {
+      await instance.loadLanguage(bundledLanguages[bundledLanguage])
     }
 
     if (request.complete) {
       const result = instance.codeToTokens(request.text, {
-        lang: language as BundledLanguage,
+        lang: bundledLanguage,
         theme: "OpenCode",
       })
       streams.delete(request.key)

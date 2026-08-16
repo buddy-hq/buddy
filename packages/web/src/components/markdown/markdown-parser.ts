@@ -1,9 +1,25 @@
-import { Marked, marked, type Tokens } from "marked"
+import { Marked, marked, type Token } from "marked"
 import markedShiki from "marked-shiki"
-import { bundledLanguages, createHighlighter, type BundledLanguage } from "shiki"
+import { createHighlighter } from "shiki"
 import remend from "remend"
 import { markdownContentHash } from "./markdown-content-hash"
 import { buddyMathExtension, hasOpenStreamingMath } from "./markdown-math"
+import { resolveBundledShikiLanguage } from "./markdown-shiki-language"
+
+type ParsedCodeToken = {
+  raw: string
+  text: string
+  lang?: string
+}
+
+function parseCodeToken(token: Token): ParsedCodeToken | undefined {
+  if (token.type !== "code" || typeof token.text !== "string") return undefined
+  return {
+    raw: token.raw,
+    text: token.text,
+    ...(typeof token.lang === "string" ? { lang: token.lang } : {}),
+  }
+}
 
 let highlighterPromise: ReturnType<typeof createHighlighter> | undefined
 
@@ -382,8 +398,8 @@ export function streamBlocks(text: string, live: boolean): Block[] {
       index += 1
       raw += tokens[index]?.raw ?? ""
     }
-    if (token.type === "code") {
-      const code = token as Tokens.Code
+    const code = parseCodeToken(token)
+    if (code) {
       blocks.push({
         raw,
         src: code.text,
@@ -400,11 +416,11 @@ export function streamBlocks(text: string, live: boolean): Block[] {
     .slice(tail)
     .map((token) => token.raw)
     .join("")
-  if (last.type !== "code") {
+  const code = parseCodeToken(last)
+  if (!code) {
     return [...blocks, { raw, src: hasOpenStreamingMath(raw) ? raw : heal(raw), mode: "live" }]
   }
 
-  const code = last as import("marked").Tokens.Code
   if (!fenceOpen(code.raw)) {
     return [
       ...blocks,
@@ -508,14 +524,12 @@ function createParser(options: { suppressMathErrors?: boolean }) {
     markedShiki({
       async highlight(code, lang) {
         const highlighter = await getSharedHighlighter()
-        if (!(lang in bundledLanguages)) {
-          lang = "text"
-        }
-        if (!highlighter.getLoadedLanguages().includes(lang)) {
-          await highlighter.loadLanguage(lang as BundledLanguage)
+        const bundledLanguage = resolveBundledShikiLanguage(lang)
+        if (bundledLanguage && !highlighter.getLoadedLanguages().includes(bundledLanguage)) {
+          await highlighter.loadLanguage(bundledLanguage)
         }
         return highlighter.codeToHtml(code, {
-          lang: lang || "text",
+          lang: bundledLanguage ?? "text",
           theme: "OpenCode",
           tabindex: false,
         })

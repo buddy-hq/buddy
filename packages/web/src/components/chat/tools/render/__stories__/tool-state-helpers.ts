@@ -19,7 +19,7 @@ function makePart(overrides: MakePartOverrides = {}): MessagePart {
       args: {},
       state: "result",
     },
-  } as MessagePart
+  } satisfies MessagePart
 }
 
 type MakeToolStateOverrides = Partial<ToolState>

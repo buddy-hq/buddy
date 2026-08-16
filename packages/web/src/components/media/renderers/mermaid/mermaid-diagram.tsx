@@ -75,7 +75,7 @@ function summarizeMermaidErrorText(message: string): string {
 
   if (trimmed.startsWith("{")) {
     try {
-      const parsed = JSON.parse(trimmed) as unknown
+      const parsed: unknown = JSON.parse(trimmed)
       const messages = readErrorMessages(parsed)
       if (messages.some((entry) => entry.includes('must start with "msg"'))) {
         return language.t("chatTools.mermaidDiagram.renderAutoRepairFailed")

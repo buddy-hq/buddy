@@ -48,7 +48,7 @@ function isTriggerTitle(val: unknown): val is BasicToolTrigger {
     typeof val === "object" &&
     val !== null &&
     "title" in val &&
-    typeof (val as BasicToolTrigger).title === "string"
+    typeof val.title === "string"
   )
 }
 

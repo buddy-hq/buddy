@@ -298,9 +298,7 @@ export function getToolInfo(
       )
     case "learning_tool_search": {
       const matchedToolIds = Array.isArray(state.metadata.matchedToolIds)
-        ? (state.metadata.matchedToolIds as unknown[]).filter(
-            (id): id is string => typeof id === "string",
-          )
+        ? state.metadata.matchedToolIds.filter((id): id is string => typeof id === "string")
         : []
       const MAX_VISIBLE_TOOLS = 4
       const matchedNames =

@@ -115,6 +115,10 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   return Object.values(value).every((entry) => typeof entry === "string")
 }
 
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
 function createFieldError(field: McpFieldName, message: string): McpFieldError {
   return {
     field,
@@ -134,18 +138,15 @@ function parseOAuthObject(value: Record<string, unknown>) {
   }
 }
 
-export function parseMcpConfigMap(config: Record<string, unknown>) {
+export function parseMcpConfigMap(config: Record<string, unknown>): Record<string, McpConfig> {
   const raw = config.mcp
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return {} as Record<string, McpConfig>
-  }
+  if (!isUnknownRecord(raw)) return {}
 
   const entries: Record<string, McpConfig> = {}
 
   for (const [name, value] of Object.entries(raw)) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) continue
-
-    const candidate = value as Record<string, unknown>
+    if (!isUnknownRecord(value)) continue
+    const candidate = value
 
     if (
       candidate.type === "local" &&
@@ -170,10 +171,8 @@ export function parseMcpConfigMap(config: Record<string, unknown>) {
       const oauth =
         candidate.oauth === false
           ? false
-          : candidate.oauth &&
-              typeof candidate.oauth === "object" &&
-              !Array.isArray(candidate.oauth)
-            ? parseOAuthObject(candidate.oauth as Record<string, unknown>)
+          : isUnknownRecord(candidate.oauth)
+            ? parseOAuthObject(candidate.oauth)
             : undefined
 
       entries[name] = {
@@ -256,7 +255,7 @@ function parseOptionalStringMap(label: string, field: McpFieldName, value: strin
   }
 
   try {
-    const parsed = JSON.parse(trimmed) as unknown
+    const parsed: unknown = JSON.parse(trimmed)
     if (!isStringRecord(parsed)) {
       return {
         fieldError: createFieldError(
@@ -302,7 +301,7 @@ export function buildConfigFromDraft(draft: McpFormDraft): McpDraftParseResult {
 
     const command = (() => {
       try {
-        const parsed = JSON.parse(commandInput) as unknown
+        const parsed: unknown = JSON.parse(commandInput)
         if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
           return {
             value: parsed,

@@ -1,17 +1,16 @@
-type MermaidScheduledTask<T> = {
+type MermaidScheduledTask = {
   insertedAt: number
   key: string
   priority: number
   reject: (error: unknown) => void
-  resolve: (value: T) => void
-  run: () => Promise<T>
+  run: () => Promise<void>
 }
 
 const MERMAID_RENDER_CONCURRENCY = 1
 
-const queuedTasks: MermaidScheduledTask<unknown>[] = []
+const queuedTasks: MermaidScheduledTask[] = []
 const pendingTasks = new Map<string, Promise<unknown>>()
-const queuedTaskByKey = new Map<string, MermaidScheduledTask<unknown>>()
+const queuedTaskByKey = new Map<string, MermaidScheduledTask>()
 
 let activeTaskCount = 0
 let taskCounter = 0
@@ -34,9 +33,6 @@ function pumpQueue(): void {
     activeTaskCount += 1
     void task
       .run()
-      .then((value) => {
-        task.resolve(value)
-      })
       .catch((error) => {
         task.reject(error)
       })
@@ -61,6 +57,7 @@ export function scheduleMermaidRender<T>(input: {
       queued.priority = input.priority
       sortQueuedTasks()
     }
+    // SAFETY: A task key is stable for its lifetime and callers reuse the same result contract.
     return existing as Promise<T>
   }
 
@@ -71,13 +68,10 @@ export function scheduleMermaidRender<T>(input: {
       key: input.key,
       priority: input.priority,
       reject,
-      resolve: (value) => resolve(value as T),
-      run: input.run,
+      run: async () => resolve(await input.run()),
     })
-    queuedTaskByKey.set(
-      input.key,
-      queuedTasks[queuedTasks.length - 1] as MermaidScheduledTask<unknown>,
-    )
+    const queuedTask = queuedTasks[queuedTasks.length - 1]
+    if (queuedTask) queuedTaskByKey.set(input.key, queuedTask)
     sortQueuedTasks()
     pumpQueue()
   })

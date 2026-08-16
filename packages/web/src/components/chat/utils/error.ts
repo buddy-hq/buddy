@@ -7,7 +7,8 @@ import {
 
 function parseJsonValue(value: string) {
   try {
-    return JSON.parse(value) as unknown
+    const parsed: unknown = JSON.parse(value)
+    return parsed
   } catch {
     return undefined
   }
