@@ -24,7 +24,7 @@ type EnrichedColorToken = ColorToken & {
 
 type GroupMode = "category" | "shades" | "spectrum"
 
-function parseColorToRgb(colorStr: string): { r: number; g: number; b: number; a: number } {
+function parseColorToRgb(colorStr: string) {
   const trimmed = colorStr.trim()
 
   if (/^#([0-9a-f]{3,8})$/i.test(trimmed)) {
@@ -116,7 +116,7 @@ function getColorFamily(hsl: HslColor): string {
   return "Neutrals & Grays"
 }
 
-const COLOR_FAMILY_ORDER: Record<string, number> = {
+const COLOR_FAMILY_ORDER = new Map(Object.entries({
   "Neutrals & Grays": 0,
   "Reds & Pinks": 1,
   "Oranges & Browns": 2,
@@ -125,7 +125,8 @@ const COLOR_FAMILY_ORDER: Record<string, number> = {
   "Cyans & Teals": 5,
   Blues: 6,
   "Purples & Violets": 7,
-}
+}))
+const UNKNOWN_COLOR_FAMILY_ORDER = COLOR_FAMILY_ORDER.size
 
 function getColorTokens(): EnrichedColorToken[] {
   if (typeof document === "undefined") return []
@@ -247,7 +248,9 @@ export function PalettePanel({ className }: PalettePanelProps) {
       }
       // Sort groups by color family order and sort tokens inside by Lightness progression
       const sortedEntries = Array.from(groups.entries()).sort(
-        (a, b) => (COLOR_FAMILY_ORDER[a[0]] ?? 99) - (COLOR_FAMILY_ORDER[b[0]] ?? 99),
+        (a, b) =>
+          (COLOR_FAMILY_ORDER.get(a[0]) ?? UNKNOWN_COLOR_FAMILY_ORDER) -
+          (COLOR_FAMILY_ORDER.get(b[0]) ?? UNKNOWN_COLOR_FAMILY_ORDER),
       )
       const sortedMap = new Map<string, EnrichedColorToken[]>()
       for (const [cat, list] of sortedEntries) {
@@ -260,8 +263,8 @@ export function PalettePanel({ className }: PalettePanelProps) {
     } else {
       // Spectrum: single group sorted smoothly by Hue & Lightness
       const spectrumTokens = filteredTokens.toSorted((a, b) => {
-        const famA = COLOR_FAMILY_ORDER[a.colorFamily] ?? 99
-        const famB = COLOR_FAMILY_ORDER[b.colorFamily] ?? 99
+        const famA = COLOR_FAMILY_ORDER.get(a.colorFamily) ?? UNKNOWN_COLOR_FAMILY_ORDER
+        const famB = COLOR_FAMILY_ORDER.get(b.colorFamily) ?? UNKNOWN_COLOR_FAMILY_ORDER
         if (famA !== famB) return famA - famB
         return a.hsl.l - b.hsl.l || a.hsl.h - b.hsl.h
       })

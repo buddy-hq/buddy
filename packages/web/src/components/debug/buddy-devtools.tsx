@@ -140,12 +140,12 @@ const MEMORY_TEST_DEFAULT_QUERY = "bridge validation boundary structured errors"
 const MEMORY_TEST_MILLISECONDS_PER_MINUTE = 60_000
 const MEMORY_TEST_MILLISECONDS_PER_HOUR = 60 * MEMORY_TEST_MILLISECONDS_PER_MINUTE
 const MEMORY_TEST_MILLISECONDS_PER_DAY = 24 * MEMORY_TEST_MILLISECONDS_PER_HOUR
-const DEVTOOLS_AFFORDANCE_POSITION_LABELS: Record<DevToolsAffordancePosition, string> = {
+const DEVTOOLS_AFFORDANCE_POSITION_LABELS = {
   "bottom-right": "Bottom right",
   "top-right": "Top right",
   "bottom-left": "Bottom left",
   "top-left": "Top left",
-}
+} satisfies Record<DevToolsAffordancePosition, string>
 const GET_STARTED_FLOW_STATUS_LABELS = {
   [GET_STARTED_FLOW_STATUS.loading]: "Loading saved state",
   [GET_STARTED_FLOW_STATUS.dismissed]: "Hidden by app preference",
@@ -153,12 +153,12 @@ const GET_STARTED_FLOW_STATUS_LABELS = {
   [GET_STARTED_FLOW_STATUS.outOfScope]: "Only shown in Inbox",
   [GET_STARTED_FLOW_STATUS.active]: "Visible",
 } as const satisfies Record<GetStartedFlowStatus, string>
-const DEVTOOLS_AFFORDANCE_POSITION_CLASS_NAMES: Record<DevToolsAffordancePosition, string> = {
+const DEVTOOLS_AFFORDANCE_POSITION_CLASS_NAMES = {
   "bottom-right": "bottom-3 right-3 items-end",
   "top-right": "right-3 items-end",
   "bottom-left": "bottom-3 left-3 items-start",
   "top-left": "left-3 items-start",
-}
+} satisfies Record<DevToolsAffordancePosition, string>
 
 type LearnerMemoryRecord = LearnerMemoryListResponses[200]["memories"][number]
 type LearnerMemoryEvaluationReport = LearnerMemoryEvaluationRunResponses[200]
@@ -1077,10 +1077,7 @@ function describeMemoryTestSkipReason(reason: string | undefined): string {
   }
 }
 
-function memoryTestRunToastMessage(run: MemoryTestRunResult): {
-  title: string
-  tone: "success" | "error"
-} {
+function memoryTestRunToastMessage(run: MemoryTestRunResult) {
   if (run.sessionExtraction?.skippedReason) {
     return {
       title: `Memory lab skipped: ${describeMemoryTestSkipReason(run.sessionExtraction.skippedReason)}`,

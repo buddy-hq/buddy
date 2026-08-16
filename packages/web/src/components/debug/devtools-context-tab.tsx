@@ -58,20 +58,20 @@ const EMPTY_PROVIDERS: ProviderInfo[] = []
 const TRANSCRIPT_LOAD_POLL_MS = 50
 const VERBOSE_SWITCH_ID = "buddy-devtools-context-verbose"
 const SYSTEM_PROMPT_CACHE_KEY = "buddy-devtools-context-system-prompt"
-const BREAKDOWN_COLORS: Record<DevToolsContextBreakdownKey, string> = {
+const BREAKDOWN_COLORS = {
   system: "var(--syntax-info)",
   user: "var(--syntax-success)",
   assistant: "var(--syntax-property)",
   tool: "var(--syntax-warning)",
   other: "var(--syntax-comment)",
-}
-const BREAKDOWN_LABELS: Record<DevToolsContextBreakdownKey, string> = {
+} satisfies Record<DevToolsContextBreakdownKey, string>
+const BREAKDOWN_LABELS = {
   system: "System",
   user: "User",
   assistant: "Assistant",
   tool: "Tool Calls",
   other: "Other",
-}
+} satisfies Record<DevToolsContextBreakdownKey, string>
 
 function sleep(ms: number) {
   return new Promise((resolve) => {
