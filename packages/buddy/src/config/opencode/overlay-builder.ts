@@ -109,28 +109,34 @@ async function buildOpenCodeConfigOverlay(input: { config: Config.Info; director
   )
   const orderedAgents = orderAgentsWithDefaultFirst(mergedAgents, defaultAgent)
 
-  return {
-    permission: buildOpenCodePermissionOverlay(input.config.permission, skillPaths),
-    ...(input.config.compaction ? { compaction: input.config.compaction } : {}),
-    ...(input.config.model ? { model: input.config.model } : {}),
-    ...(input.config.small_model ? { small_model: input.config.small_model } : {}),
-    ...(defaultAgent ? { default_agent: defaultAgent } : {}),
-    ...(input.config.disabled_providers
-      ? { disabled_providers: input.config.disabled_providers }
-      : {}),
-    ...(input.config.enabled_providers
-      ? { enabled_providers: input.config.enabled_providers }
-      : {}),
-    ...(input.config.provider ? { provider: input.config.provider } : {}),
-    ...(skillPaths ? { skills: { paths: skillPaths } } : {}),
-    ...(input.config.mcp ? { mcp: input.config.mcp } : {}),
-    command: {
-      ...BUDDY_BUILTIN_COMMANDS,
-    },
-    agent: {
-      ...orderedAgents,
-    },
-  }
+  return Object.assign(
+    Object.assign(
+      Object.assign(
+        {
+          permission: buildOpenCodePermissionOverlay(input.config.permission, skillPaths),
+          command: {
+            ...BUDDY_BUILTIN_COMMANDS,
+          },
+          agent: {
+            ...orderedAgents,
+          },
+        },
+        input.config.compaction ? { compaction: input.config.compaction } : undefined,
+        input.config.model ? { model: input.config.model } : undefined,
+        input.config.small_model ? { small_model: input.config.small_model } : undefined,
+      ),
+      defaultAgent ? { default_agent: defaultAgent } : undefined,
+      input.config.disabled_providers
+        ? { disabled_providers: input.config.disabled_providers }
+        : undefined,
+      input.config.enabled_providers
+        ? { enabled_providers: input.config.enabled_providers }
+        : undefined,
+    ),
+    input.config.provider ? { provider: input.config.provider } : undefined,
+    skillPaths ? { skills: { paths: skillPaths } } : undefined,
+    input.config.mcp ? { mcp: input.config.mcp } : undefined,
+  )
 }
 
 export {

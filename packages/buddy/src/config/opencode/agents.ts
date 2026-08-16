@@ -23,18 +23,22 @@ function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Conf
       ? mergePermissionConfig(base.permission ?? {}, override.permission ?? {})
       : undefined
 
-  return {
-    ...base,
-    ...override,
-    ...((override.steps ?? base.steps !== undefined)
-      ? { steps: override.steps ?? base.steps }
-      : {}),
-    ...((override.maxSteps ?? base.maxSteps !== undefined)
-      ? { maxSteps: override.maxSteps ?? base.maxSteps }
-      : {}),
-    ...(options ? { options } : {}),
-    ...(permission ? { permission } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      {
+        ...base,
+        ...override,
+      },
+      override.steps ?? base.steps !== undefined
+        ? { steps: override.steps ?? base.steps }
+        : undefined,
+      override.maxSteps ?? base.maxSteps !== undefined
+        ? { maxSteps: override.maxSteps ?? base.maxSteps }
+        : undefined,
+      options ? { options } : undefined,
+    ),
+    permission ? { permission } : undefined,
+  )
 }
 
 function permissionRuleEntries(
