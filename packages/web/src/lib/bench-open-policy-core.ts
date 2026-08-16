@@ -51,6 +51,11 @@ type BenchResolvedOpenPolicyID =
   | "preserved-current-mode"
   | "auto-open-surface-mode"
 
+type ResolvedBenchOpenMode = {
+  mode: BenchMode
+  policyID: BenchResolvedOpenPolicyID
+}
+
 type BenchOpenDecision =
   | {
       action: "ignore"
@@ -192,10 +197,7 @@ function resolveBenchOpenMode(input: {
   request: BenchOpenRequest
   current: BenchOpenPolicyState
   defaults: BenchSurfaceDefaults
-}): {
-  mode: BenchMode
-  policyID: BenchResolvedOpenPolicyID
-} {
+}): ResolvedBenchOpenMode {
   if (input.request.mode !== BENCH_MODE_REQUEST_POLICY) {
     return {
       mode: input.request.mode,

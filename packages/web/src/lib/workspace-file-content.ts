@@ -5,7 +5,7 @@ const REPLACEMENT_CHARACTER = "\uFFFD"
 const FORM_FEED = "\f"
 const ALLOWED_CONTROL_CHARACTERS = new Set(["\t", "\n", "\r", FORM_FEED])
 
-const EXTENSION_TO_MONACO_LANGUAGE: Record<string, string> = {
+const EXTENSION_TO_MONACO_LANGUAGE = new Map(Object.entries({
   bash: "shell",
   c: "c",
   cc: "cpp",
@@ -43,7 +43,7 @@ const EXTENSION_TO_MONACO_LANGUAGE: Record<string, string> = {
   yaml: "yaml",
   yml: "yaml",
   zsh: "shell",
-}
+}))
 
 export type WorkspaceTextEncoding = "utf-8" | "utf-8-bom"
 
@@ -66,5 +66,5 @@ export function isReadableWorkspaceText(content: string): boolean {
 }
 
 export function monacoLanguageForWorkspacePath(path: string): string {
-  return EXTENSION_TO_MONACO_LANGUAGE[fileExtensionFromPath(path)] ?? "plaintext"
+  return EXTENSION_TO_MONACO_LANGUAGE.get(fileExtensionFromPath(path)) ?? "plaintext"
 }

@@ -64,12 +64,13 @@ function expandedDirectoryPaths(state: DirectoryStateMap): string[] {
     .map(([path]) => path)
 }
 
-function restoreExpandedDirectoryState(expandedPaths: string[] | undefined): DirectoryStateMap {
-  const state: DirectoryStateMap = { [ROOT_DIRECTORY_PATH]: ROOT_DIRECTORY_STATE }
-  for (const path of expandedPaths ?? []) {
-    state[path] = { ...ROOT_DIRECTORY_STATE, expanded: true }
-  }
-  return state
+function restoreExpandedDirectoryState(expandedPaths: string[] | undefined) {
+  return Object.fromEntries([
+    [ROOT_DIRECTORY_PATH, ROOT_DIRECTORY_STATE],
+    ...(expandedPaths ?? []).map(
+      (path) => [path, { ...ROOT_DIRECTORY_STATE, expanded: true }] as const,
+    ),
+  ])
 }
 
 function sortedNodes(paths: string[], nodesByPath: NodeMap) {

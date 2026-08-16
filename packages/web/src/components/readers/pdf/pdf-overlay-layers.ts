@@ -163,7 +163,7 @@ function ensureLayer(geometry: PdfPageViewGeometry, spec: PdfLayerSpec): HTMLDiv
 function layerOffset(
   geometry: PdfPageViewGeometry,
   layer: HTMLDivElement,
-): { left: number; top: number } {
+) {
   const textBounds = geometry.textLayerDiv.getBoundingClientRect()
   const layerBounds = layer.getBoundingClientRect()
   return {

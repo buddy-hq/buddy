@@ -178,10 +178,10 @@ export function mostConstrainedTodoPresentation(
   first: TodoAccessoryPresentation,
   second: TodoAccessoryPresentation,
 ): TodoAccessoryPresentation {
-  const priority: Record<TodoAccessoryPresentation, number> = {
+  const priority = {
     hidden: 0,
     expanded: 1,
-  }
+  } satisfies Record<TodoAccessoryPresentation, number>
   return priority[first] <= priority[second] ? first : second
 }
 

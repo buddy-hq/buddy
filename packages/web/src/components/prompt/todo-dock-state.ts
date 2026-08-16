@@ -16,9 +16,9 @@ export function todoDockModeForScope(state: TodoDockViewState, scope: string): T
 export function resetTodoDockAfterTurn(
   current: TodoDockViewState,
   scope: string,
-): TodoDockViewState {
+) {
   if (todoDockModeForScope(current, scope) !== TODO_DOCK_MODE_OPEN) return current
-  return { ...current, [scope]: TODO_DOCK_MODE_UNSEEN }
+  return { ...current, [scope]: TODO_DOCK_MODE_UNSEEN } satisfies TodoDockViewState
 }
 
 export function reconcileTodoDockViewState(input: {
@@ -26,12 +26,15 @@ export function reconcileTodoDockViewState(input: {
   scope: string
   hasTodos: boolean
   autoOpenBlocked: boolean
-}): TodoDockViewState {
+}) {
   const currentMode = todoDockModeForScope(input.current, input.scope)
 
   if (!input.hasTodos) {
     if (currentMode === TODO_DOCK_MODE_UNSEEN) return input.current
-    return { ...input.current, [input.scope]: TODO_DOCK_MODE_UNSEEN }
+    return {
+      ...input.current,
+      [input.scope]: TODO_DOCK_MODE_UNSEEN,
+    } satisfies TodoDockViewState
   }
 
   if (currentMode !== TODO_DOCK_MODE_UNSEEN) return input.current
@@ -39,5 +42,5 @@ export function reconcileTodoDockViewState(input: {
   return {
     ...input.current,
     [input.scope]: input.autoOpenBlocked ? TODO_DOCK_MODE_HIDDEN : TODO_DOCK_MODE_OPEN,
-  }
+  } satisfies TodoDockViewState
 }

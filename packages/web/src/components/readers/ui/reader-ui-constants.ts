@@ -34,12 +34,12 @@ export const READER_ANNOTATION_COLOR_OPTIONS: ReaderAnnotationColorOption[] = [
   },
 ]
 
-export const READER_ANNOTATION_STYLE_LABELS: Record<ReaderAnnotationStyle, string> = {
+export const READER_ANNOTATION_STYLE_LABELS = {
   highlight: "Highlight",
   underline: "Underline",
   squiggly: "Squiggly",
   strikethrough: "Strike",
-}
+} satisfies Record<ReaderAnnotationStyle, string>
 
 export const READER_EMPTY_TOC_MESSAGE = "This publication does not expose a table of contents."
 export const READER_EMPTY_SEARCH_MESSAGE = "Search inside the current document."

@@ -163,7 +163,7 @@ export function resolveReaderContentFilter(input: {
 // Annotation Colors
 // ============================================================
 
-export const ANNOTATION_COLORS: Record<ReaderAnnotationColorId, ReaderAnnotationColor> = {
+export const ANNOTATION_COLORS = {
   amber: {
     label: "Amber",
     value: "#f59e0b",
@@ -184,25 +184,25 @@ export const ANNOTATION_COLORS: Record<ReaderAnnotationColorId, ReaderAnnotation
     value: "#fb7185",
     previewClassName: "bg-rose-400",
   },
-}
+} satisfies Record<ReaderAnnotationColorId, ReaderAnnotationColor>
 
 export const ANNOTATION_COLOR_IDS: ReaderAnnotationColorId[] = ["amber", "mint", "sky", "rose"]
 
 export const DEFAULT_ANNOTATION_COLOR_ID: ReaderAnnotationColorId = "amber"
 
-export const ANNOTATION_COLOR_TOKENS: Record<ReaderAnnotationColorId, string> = {
+export const ANNOTATION_COLOR_TOKENS = {
   amber: "--surface-warning-base",
   mint: "--surface-success-base",
   sky: "--surface-info-base",
   rose: "--surface-critical-base",
-}
+} satisfies Record<ReaderAnnotationColorId, string>
 
-export const ANNOTATION_STYLE_LABELS: Record<FoliateReaderAnnotationStyle, string> = {
+export const ANNOTATION_STYLE_LABELS = {
   highlight: "Highlight",
   underline: "Underline",
   squiggly: "Squiggly",
   strikethrough: "Strike",
-}
+} satisfies Record<FoliateReaderAnnotationStyle, string>
 
 // ============================================================
 // Shortcuts

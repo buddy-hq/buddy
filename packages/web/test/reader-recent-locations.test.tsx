@@ -37,11 +37,7 @@ async function settle(): Promise<void> {
 }
 
 /** Renders the hook and reports every value it has produced. */
-function mountHook(): {
-  render: (input: { sourceKey: string; relocation: ReaderRelocation | null }) => Promise<void>
-  latest: () => readonly ReaderRecentLocation[]
-  renderCount: () => number
-} {
+function mountHook() {
   Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
   container = document.createElement("div")
   document.body.appendChild(container)
@@ -57,7 +53,7 @@ function mountHook(): {
   }
 
   return {
-    render: async (input) => {
+    render: async (input: { sourceKey: string; relocation: ReaderRelocation | null }) => {
       await act(async () => {
         root?.render(<Probe sourceKey={input.sourceKey} relocation={input.relocation} />)
       })

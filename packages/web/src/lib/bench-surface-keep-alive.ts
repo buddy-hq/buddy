@@ -26,11 +26,11 @@ export type BenchSurfaceCostClass =
   | typeof BENCH_SURFACE_COST_READER
 
 /** Desktop-sized residency budgets; readers are governed by their open tabs instead. */
-export const BENCH_SURFACE_KEEP_ALIVE_LIMIT: Record<BenchSurfaceCostClass, number> = {
+export const BENCH_SURFACE_KEEP_ALIVE_LIMIT = {
   [BENCH_SURFACE_COST_HEAVY]: 4,
   [BENCH_SURFACE_COST_LIGHT]: 8,
   [BENCH_SURFACE_COST_READER]: Number.POSITIVE_INFINITY,
-}
+} satisfies Record<BenchSurfaceCostClass, number>
 
 const HEAVY_OBJECT_KINDS = new Set(["whiteboard", "html-widget", "media-presentation"])
 const BENCH_SURFACE_COST_CLASSES = [

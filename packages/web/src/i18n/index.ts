@@ -3,9 +3,7 @@ import { dict as enDict } from "./en"
 export type Locale = "en"
 type Dictionary = Record<string, string>
 
-const dictionaries: Record<Locale, Dictionary> = {
-  en: enDict,
-}
+const dictionaries = new Map<Locale, Dictionary>([["en", enDict]])
 
 let currentLocale: Locale = "en"
 
@@ -26,7 +24,8 @@ export function getLocale(): Locale {
 }
 
 export function t(key: string, params?: Record<string, string | number>): string {
-  const dictionary = dictionaries[currentLocale]
-  const template = dictionary[key] ?? dictionaries.en[key] ?? key
+  const fallbackDictionary = dictionaries.get("en")
+  const dictionary = dictionaries.get(currentLocale) ?? fallbackDictionary
+  const template = dictionary?.[key] ?? fallbackDictionary?.[key] ?? key
   return interpolate(template, params)
 }

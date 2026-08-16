@@ -45,12 +45,7 @@ function createGeometry(input: {
   }
 }
 
-function createPage(): {
-  root: HTMLDivElement
-  page: HTMLDivElement
-  textLayer: HTMLDivElement
-  session: { getPageGeometry: (pageIndex: number) => PdfPageViewGeometry | undefined }
-} {
+function createPage() {
   const root = document.createElement("div")
   const page = document.createElement("div")
   const textLayer = document.createElement("div")
@@ -68,7 +63,9 @@ function createPage(): {
     root,
     page,
     textLayer,
-    session: { getPageGeometry: (pageIndex) => (pageIndex === PAGE_INDEX ? geometry : undefined) },
+    session: {
+      getPageGeometry: (pageIndex: number) => (pageIndex === PAGE_INDEX ? geometry : undefined),
+    },
   }
 }
 

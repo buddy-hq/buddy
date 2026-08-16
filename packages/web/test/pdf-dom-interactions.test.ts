@@ -35,11 +35,7 @@ function createGeometry(input: {
   }
 }
 
-function createPage(): {
-  root: HTMLDivElement
-  page: HTMLDivElement
-  textLayer: HTMLDivElement
-} {
+function createPage() {
   const root = document.createElement("div")
   const page = document.createElement("div")
   const textLayer = document.createElement("div")
