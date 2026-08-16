@@ -338,10 +338,7 @@ function serializeSvg(root: SVGSVGElement): string {
   return new XMLSerializer().serializeToString(root)
 }
 
-export function normalizeMermaidSvgContrast(input: NormalizeMermaidSvgContrastInput): {
-  contrastAdjustments: MermaidContrastAdjustment[]
-  svg: string
-} {
+export function normalizeMermaidSvgContrast(input: NormalizeMermaidSvgContrastInput) {
   if (typeof DOMParser === "undefined" || typeof XMLSerializer === "undefined") {
     return {
       contrastAdjustments: [],

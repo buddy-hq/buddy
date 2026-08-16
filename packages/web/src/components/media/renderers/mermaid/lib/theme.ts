@@ -59,7 +59,7 @@ function uniqueValues(values: string[]): string[] {
   return unique
 }
 
-function buildMermaidThemeVariables(tokens: MermaidThemeTokens): Record<string, string> {
+function buildMermaidThemeVariables(tokens: MermaidThemeTokens) {
   return {
     background: tokens.backgroundBase,
     mainBkg: tokens.surfaceBase,

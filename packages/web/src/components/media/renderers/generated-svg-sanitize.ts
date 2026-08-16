@@ -7,7 +7,7 @@ const EXECUTABLE_SVG_ELEMENT_NAMES = [
   "meta",
 ] as const
 
-const HTML_CHARACTER_REFERENCES: Record<string, string> = {
+const HTML_CHARACTER_REFERENCES = new Map(Object.entries({
   amp: "&",
   apos: "'",
   colon: ":",
@@ -16,7 +16,7 @@ const HTML_CHARACTER_REFERENCES: Record<string, string> = {
   NewLine: "\n",
   quot: '"',
   Tab: "\t",
-}
+}))
 
 const HTML_CHARACTER_REFERENCE_PATTERN = /&(?:#x([\da-f]+)|#(\d+)|([A-Za-z][A-Za-z\d]+));?/giu
 const UNSAFE_REFERENCE_SCHEME_PATTERN = /^(?:javascript:|data:text\/html)/iu
@@ -46,7 +46,7 @@ function decodeHtmlCharacterReference(
   }
 
   if (namedValue !== undefined) {
-    return HTML_CHARACTER_REFERENCES[namedValue] ?? match
+    return HTML_CHARACTER_REFERENCES.get(namedValue) ?? match
   }
 
   return match
