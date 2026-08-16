@@ -3,9 +3,9 @@ import path from "node:path"
 import { latestReleaseVersionFromReleases, type GithubReleaseVersion } from "./release-version"
 
 const rootPkgPath = path.resolve(import.meta.dir, "../../../package.json")
-const rootPkg = (await Bun.file(rootPkgPath).json()) as {
+const rootPkg: {
   packageManager?: string
-}
+} = await Bun.file(rootPkgPath).json()
 const expectedBunVersion = rootPkg.packageManager?.split("@")[1]
 
 if (!expectedBunVersion) {
@@ -59,8 +59,8 @@ function githubTagVersion() {
 
 async function getLatestReleaseVersion() {
   const repo = releaseRepo()
-  const releases =
-    (await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()) as GithubReleaseVersion[]
+  const releases: GithubReleaseVersion[] =
+    await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()
   return latestReleaseVersionFromReleases(releases)
 }
 

@@ -142,6 +142,11 @@ export type WorkspaceMediaKind =
   | "other"
 
 export type WorkspaceMediaRenderMode = "image" | "audio" | "video" | "pdf" | "file"
+export type WorkspaceMediaClassification = {
+  mediaKind: WorkspaceMediaKind
+  renderMode: WorkspaceMediaRenderMode
+  fileName: string
+}
 export type ReaderSourceFormat = "pdf" | "epub"
 export type ReaderSourceValidity = "valid" | "invalid" | "unknown"
 export type ReaderSourceInspection = {
@@ -288,7 +293,7 @@ export function isWorkspaceFileOverSoftLimit(input: {
   sizeBytes: number | undefined
   mimeType: string | undefined
 }) {
-  if (typeof input.sizeBytes !== "number") return false
+  if (input.sizeBytes === undefined) return false
   if (input.sizeBytes <= LARGE_TEXT_FILE_LIMIT_BYTES) return false
   const classification = classifyWorkspaceMedia(input)
   return classification.renderMode === "file"
@@ -300,11 +305,7 @@ export function classifyWorkspaceMedia(input: {
   path: string
   mimeType: string | undefined
   sizeBytes: number | undefined
-}): {
-  mediaKind: WorkspaceMediaKind
-  renderMode: WorkspaceMediaRenderMode
-  fileName: string
-} {
+}): WorkspaceMediaClassification {
   const normalizedPath = normalizeRelativePath(input.path)
   const extension = fileExtensionFromPath(normalizedPath)
   const mimeType = input.mimeType?.toLowerCase()
