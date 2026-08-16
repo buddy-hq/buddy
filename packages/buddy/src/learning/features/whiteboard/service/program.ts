@@ -454,7 +454,7 @@ function buildWhiteboardProgramBoard(input: {
   base: WhiteboardProgramBase
   continueCurrent: boolean
   warnings: string[]
-}): { elements: WhiteboardElement[]; viewport?: WhiteboardViewport } {
+}) {
   let elements = input.continueCurrent ? input.base.elements.map((element) => ({ ...element })) : []
   let viewport = input.continueCurrent ? input.base.viewport : undefined
   const initialSignature = buildProgramStateSignature({ elements, viewport })

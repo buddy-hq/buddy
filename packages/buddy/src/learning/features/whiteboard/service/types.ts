@@ -246,7 +246,7 @@ function readMalformedLabelTextFallback(label: Record<string, unknown>): string 
   )
 }
 
-function normalizePersistableElementLabel(value: Record<string, unknown>): Record<string, unknown> {
+function normalizePersistableElementLabel(value: Record<string, unknown>) {
   if (value.label === undefined) return value
   if (isRecord(value.label)) {
     const text = readMalformedLabelTextFallback(value.label)

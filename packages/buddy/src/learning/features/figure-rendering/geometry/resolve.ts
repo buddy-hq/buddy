@@ -40,7 +40,7 @@ function interpolate(
   from: GeometryPoint,
   to: GeometryPoint,
   position: number,
-): { x: number; y: number } {
+) {
   return {
     x: from.x + (to.x - from.x) * position,
     y: from.y + (to.y - from.y) * position,
@@ -216,10 +216,7 @@ function resolveConstraint(
   return resolveLineIntersection(constraint, points, record)
 }
 
-function resolveGeometryFigureSpec(spec: GeometryFigureSpec): {
-  spec: GeometryFigureSpec
-  issues: FigureValidationIssue[]
-} {
+function resolveGeometryFigureSpec(spec: GeometryFigureSpec) {
   if (!spec.constraints || spec.constraints.length === 0) {
     return { spec, issues: [] }
   }

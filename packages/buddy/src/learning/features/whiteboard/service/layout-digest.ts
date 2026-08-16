@@ -413,7 +413,7 @@ function readRenderedTextOverflow(input: {
 function readOverflowPixels(input: {
   textBounds: WhiteboardBounds
   containerBounds: WhiteboardBounds
-}): { x: number; y: number } {
+}) {
   return {
     x: Math.max(
       input.containerBounds.x - input.textBounds.x,
@@ -545,7 +545,7 @@ function readIntersectionArea(a: WhiteboardBounds, b: WhiteboardBounds): number 
 function readIntersectionSize(
   a: WhiteboardBounds,
   b: WhiteboardBounds,
-): { width: number; height: number } {
+) {
   const left = Math.max(a.x, b.x)
   const top = Math.max(a.y, b.y)
   const intersectionRight = Math.min(right(a), right(b))
