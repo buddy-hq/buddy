@@ -50,7 +50,7 @@ type BuiltInSceneDefinition = {
   readonly label: string
 }
 
-const BUILT_IN_SCENES: Record<BuiltInSceneId, BuiltInSceneDefinition> = {
+const BUILT_IN_SCENES = {
   "argos-prompt": {
     component: ArgosPromptScene,
     durationInFrames: ARGOS_PROMPT_SCENE_DURATION_FRAMES,
@@ -105,7 +105,7 @@ const BUILT_IN_SCENES: Record<BuiltInSceneId, BuiltInSceneDefinition> = {
     fadeOutDurationInFrames: PROMPT_TO_RESULT_FADE_OUT_FRAMES,
     label: "Wormhole prompt",
   },
-}
+} satisfies Record<BuiltInSceneId, BuiltInSceneDefinition>
 
 type SceneSlotProps = {
   readonly slot: SceneSlotDefinition
@@ -161,9 +161,17 @@ export const SceneSlot = ({ slot }: SceneSlotProps) => {
         <Sequence durationInFrames={builtInScene.durationInFrames}>
           <SceneBoundaryFade
             durationInFrames={builtInScene.durationInFrames}
-            fadeInDurationInFrames={builtInScene.fadeInDurationInFrames}
-            fadeOutCurve={builtInScene.fadeOutCurve}
-            fadeOutDurationInFrames={builtInScene.fadeOutDurationInFrames}
+            fadeInDurationInFrames={
+              "fadeInDurationInFrames" in builtInScene
+                ? builtInScene.fadeInDurationInFrames
+                : undefined
+            }
+            fadeOutCurve={"fadeOutCurve" in builtInScene ? builtInScene.fadeOutCurve : undefined}
+            fadeOutDurationInFrames={
+              "fadeOutDurationInFrames" in builtInScene
+                ? builtInScene.fadeOutDurationInFrames
+                : undefined
+            }
           >
             <BuiltInComponent />
           </SceneBoundaryFade>

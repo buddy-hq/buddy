@@ -10,10 +10,7 @@ const THIRD_PROMPT_KEYBOARD_TRACK_DURATION_FRAMES = 68
 
 export type PromptTypingSoundTrack = "first" | "second" | "third"
 
-const KEYBOARD_TRACKS: Record<
-  PromptTypingSoundTrack,
-  { readonly durationInFrames: number; readonly source: string }
-> = {
+const KEYBOARD_TRACKS = {
   first: {
     durationInFrames: FIRST_PROMPT_KEYBOARD_TRACK_DURATION_FRAMES,
     source: FIRST_PROMPT_KEYBOARD_TRACK,
@@ -26,7 +23,10 @@ const KEYBOARD_TRACKS: Record<
     durationInFrames: THIRD_PROMPT_KEYBOARD_TRACK_DURATION_FRAMES,
     source: THIRD_PROMPT_KEYBOARD_TRACK,
   },
-}
+} satisfies Record<
+  PromptTypingSoundTrack,
+  { readonly durationInFrames: number; readonly source: string }
+>
 
 type PromptTypingSoundsProps = {
   readonly track: PromptTypingSoundTrack
