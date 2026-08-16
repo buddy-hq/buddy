@@ -258,7 +258,7 @@ async function bundledPack(sourceRoots: string[], skills: readonly BuddySkill[])
   const task = buildBundledSystemSkillPack({
     roots: sourceRoots,
     skills,
-  }).catch((error: unknown) => {
+  }).catch((error) => {
     bundledPackBySource.delete(key)
     throw error
   })
@@ -300,10 +300,12 @@ export async function refreshSystemSkillPack(
   if (changed) {
     await (dependencies?.refreshSkillRuntime ?? OpenCodeInstance.disposeAll)()
   }
-  return {
-    changed,
-    ...(resolution.syncError ? { syncError: resolution.syncError } : {}),
-  }
+  return Object.assign(
+    {
+      changed,
+    },
+    resolution.syncError ? { syncError: resolution.syncError } : undefined,
+  )
 }
 
 export async function readInstalledSystemSkillsFingerprint(): Promise<string | undefined> {

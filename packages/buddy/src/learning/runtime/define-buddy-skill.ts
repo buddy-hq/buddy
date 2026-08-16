@@ -80,20 +80,22 @@ function validatePresentationField(input: {
 }
 
 function validateSkillPresentation(presentation: BuddySkillPresentation): BuddySkillPresentation {
-  return {
-    displayName: validatePresentationField({
-      field: "displayName",
-      value: presentation.displayName,
-      minLength: DISPLAY_NAME_MIN_LENGTH,
-      maxLength: DISPLAY_NAME_MAX_LENGTH,
-    }),
-    shortDescription: validatePresentationField({
-      field: "shortDescription",
-      value: presentation.shortDescription,
-      minLength: SHORT_DESCRIPTION_MIN_LENGTH,
-      maxLength: SHORT_DESCRIPTION_MAX_LENGTH,
-    }),
-    ...(presentation.icon
+  return Object.assign(
+    {
+      displayName: validatePresentationField({
+        field: "displayName",
+        value: presentation.displayName,
+        minLength: DISPLAY_NAME_MIN_LENGTH,
+        maxLength: DISPLAY_NAME_MAX_LENGTH,
+      }),
+      shortDescription: validatePresentationField({
+        field: "shortDescription",
+        value: presentation.shortDescription,
+        minLength: SHORT_DESCRIPTION_MIN_LENGTH,
+        maxLength: SHORT_DESCRIPTION_MAX_LENGTH,
+      }),
+    },
+    presentation.icon
       ? {
           icon: validatePresentationField({
             field: "icon",
@@ -102,8 +104,8 @@ function validateSkillPresentation(presentation: BuddySkillPresentation): BuddyS
             maxLength: ICON_MAX_LENGTH,
           }),
         }
-      : {}),
-  }
+      : undefined,
+  )
 }
 
 function defineBuddySkill(input: BuddySkillDefinition): BuddySkill {

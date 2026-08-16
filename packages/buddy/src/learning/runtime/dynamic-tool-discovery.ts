@@ -9,6 +9,7 @@ import type {
 } from "./dynamic-tool-search"
 import { isPersona, type Persona } from "../shared/teaching-vocabulary"
 import type { PersonaDefinition } from "../shared/runtime-types"
+import { parsePromptString } from "../prompt/utils"
 
 const LEARNING_TOOL_SEARCH_TOOL_ID = "learning_tool_search"
 const LEARNING_TOOL_LOAD_TOOL_ID = "learning_tool_load"
@@ -213,19 +214,19 @@ function createLearningToolSearchTool(): BuddyTool {
       phases: {
         pending: {
           action: "Searching learning tools",
-          detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+          detail: ({ input }) => parsePromptString(input.query),
         },
         running: {
           action: "Searching learning tools",
-          detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+          detail: ({ input }) => parsePromptString(input.query),
         },
         completed: {
           action: "Searched learning tools",
-          detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+          detail: ({ input }) => parsePromptString(input.query),
         },
         error: {
           action: "Failed to search learning tools",
-          detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+          detail: ({ input }) => parsePromptString(input.query),
         },
       },
       summary: {

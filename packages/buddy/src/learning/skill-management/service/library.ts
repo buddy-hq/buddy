@@ -10,6 +10,8 @@ import {
   type SkillSourceRef,
 } from "./catalog-schemas"
 import { SkillServiceError, type SkillLibraryItemView } from "./contracts"
+import { parseTErrorMessage } from "../../shared/parse-values"
+import { parseJsonValue, type TJsonValue } from "../../prompt/utils"
 import {
   readInstalledSkillLock,
   type InstalledSkillLockEntry,
@@ -104,7 +106,7 @@ function catalogValidationError(error: z.ZodError) {
   return new Error(`Invalid skill catalog: ${issues.join("; ")}`)
 }
 
-export function parseSkillCatalogDocument(input: unknown): SkillCatalogDocument {
+export function parseSkillCatalogDocument<TValue>(input: TValue): SkillCatalogDocument {
   const result = skillCatalogDocumentSchema.safeParse(input)
   if (!result.success) {
     throw catalogValidationError(result.error)
@@ -153,17 +155,19 @@ function toSkillLibraryItemView(input: {
   entry: SkillCatalogEntry
   state: SkillLibraryItemView["state"]
 }): SkillLibraryItemView {
-  return {
-    id: input.entry.id,
-    displayName: input.entry.displayName,
-    ...(input.entry.icon ? { icon: catalogIconRoutePath(input.entry.id, input.entry.icon) } : {}),
-    summary: input.entry.summary,
-    categories: input.entry.categories,
-    tags: input.entry.tags,
-    sourceKind: "github",
-    sourceLabel: sourceLabel(input.entry.source),
-    state: input.state,
-  }
+  return Object.assign(
+    {
+      id: input.entry.id,
+      displayName: input.entry.displayName,
+      summary: input.entry.summary,
+      categories: input.entry.categories,
+      tags: input.entry.tags,
+      sourceKind: "github" as const,
+      sourceLabel: sourceLabel(input.entry.source),
+      state: input.state,
+    },
+    input.entry.icon ? { icon: catalogIconRoutePath(input.entry.id, input.entry.icon) } : undefined,
+  )
 }
 
 export function isCatalogSkillUpdateAvailable(input: {
@@ -190,12 +194,15 @@ export function resolveCatalogSkillState(input: {
   return isCatalogSkillUpdateAvailable(input) ? "update_available" : "installed"
 }
 
-function parseCatalogJson(source: string): unknown {
+function parseCatalogJson(source: string): TJsonValue {
   try {
-    const parsed: unknown = JSON.parse(source)
+    const parsed = parseJsonValue(JSON.parse(source))
+    if (parsed === undefined) {
+      throw new Error("Invalid skill catalog JSON")
+    }
     return parsed
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = parseTErrorMessage(error)
     throw new Error(`Invalid skill catalog JSON: ${message}`, { cause: error })
   }
 }

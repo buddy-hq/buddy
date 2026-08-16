@@ -1,9 +1,10 @@
 import fsp from "node:fs/promises"
 import matter from "gray-matter"
 import type { OpenCodeSkill } from "./contracts"
+import { parseNonEmptyPromptString } from "../../prompt/utils"
 
-export function readOptionalString(value: unknown) {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined
+export function readOptionalString<TValue>(value: TValue) {
+  return parseNonEmptyPromptString(value)
 }
 
 export function sanitizeSkillName(input: string) {

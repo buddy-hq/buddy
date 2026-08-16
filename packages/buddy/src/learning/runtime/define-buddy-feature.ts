@@ -30,15 +30,17 @@ type DefinedBuddyFeature<Id extends string = string> = BuddyFeatureDefinition<Id
 function defineBuddyFeature<const Id extends string>(
   input: BuddyFeatureDefinition<Id>,
 ): DefinedBuddyFeature<Id> {
-  return {
-    ...input,
-    ...(input.release ? { release: { ...input.release } } : {}),
-    ...(input.prompt ? { prompt: { ...input.prompt } } : {}),
-    tools: [...input.tools],
-    skills: [...input.skills],
-    subagents: [...input.subagents],
-    surfaces: [...input.surfaces],
-  }
+  return Object.assign(
+    {
+      ...input,
+      tools: [...input.tools],
+      skills: [...input.skills],
+      subagents: [...input.subagents],
+      surfaces: [...input.surfaces],
+    },
+    input.release ? { release: { ...input.release } } : undefined,
+    input.prompt ? { prompt: { ...input.prompt } } : undefined,
+  )
 }
 
 export { defineBuddyFeature }

@@ -20,11 +20,13 @@ const BUDDY_SUBAGENTS = [
 type BuddySubagentDefinition = (typeof BUDDY_SUBAGENTS)[number]
 
 function cloneBuddySubagentDefinition(input: BuddySubagentDefinition): BuddySubagentDefinition {
-  return {
-    ...input,
-    prompt: input.prompt,
-    ...(input.permission ? { permission: input.permission } : {}),
-  }
+  return Object.assign(
+    {
+      ...input,
+      prompt: input.prompt,
+    },
+    input.permission ? { permission: input.permission } : undefined,
+  )
 }
 
 function listBuddySubagentDefinitions(): BuddySubagentDefinition[] {

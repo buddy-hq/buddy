@@ -3,6 +3,7 @@ import path from "node:path"
 import { parse } from "yaml"
 import z from "zod"
 import type { BuddySkillPresentation } from "../../runtime/define-buddy-skill"
+import { parseTErrorMessage } from "../../shared/parse-values"
 
 const BUDDY_SKILL_MANIFEST_RELATIVE_PATH = path.join("agents", "buddy.yaml")
 const DISPLAY_NAME_MIN_LENGTH = 1
@@ -55,8 +56,8 @@ async function loadBuddySkillManifest(
   skillDirectory: string,
 ): Promise<BuddySkillManifest | undefined> {
   const manifestPath = path.join(skillDirectory, BUDDY_SKILL_MANIFEST_RELATIVE_PATH)
-  const source = await fsp.readFile(manifestPath, "utf8").catch((error: unknown) => {
-    const reason = error instanceof Error ? error.message : "failed to read manifest"
+  const source = await fsp.readFile(manifestPath, "utf8").catch((error) => {
+    const reason = parseTErrorMessage(error) || "failed to read manifest"
     warnInvalidManifestOnce(manifestPath, reason)
     return undefined
   })
@@ -68,7 +69,7 @@ async function loadBuddySkillManifest(
   try {
     parsed = parse(source)
   } catch (error) {
-    const reason = error instanceof Error ? error.message : "invalid YAML"
+    const reason = parseTErrorMessage(error) || "invalid YAML"
     warnInvalidManifestOnce(manifestPath, reason)
     return undefined
   }
@@ -87,11 +88,13 @@ function resolveSkillPresentation(input: {
   description: string
   manifest: BuddySkillManifest | undefined
 }): ResolvedSkillPresentation {
-  return {
-    displayName: input.manifest?.interface.display_name ?? input.name,
-    shortDescription: input.manifest?.interface.short_description ?? input.description,
-    ...(input.manifest?.interface.icon ? { icon: input.manifest.interface.icon } : {}),
-  }
+  return Object.assign(
+    {
+      displayName: input.manifest?.interface.display_name ?? input.name,
+      shortDescription: input.manifest?.interface.short_description ?? input.description,
+    },
+    input.manifest?.interface.icon ? { icon: input.manifest.interface.icon } : undefined,
+  )
 }
 
 export {

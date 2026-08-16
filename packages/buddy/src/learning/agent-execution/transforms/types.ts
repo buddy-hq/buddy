@@ -1,3 +1,5 @@
+import type { TJsonObject } from "../../prompt/utils"
+
 export type SessionTransformContext = {
   directory: string
   sessionID: string
@@ -5,7 +7,7 @@ export type SessionTransformContext = {
 }
 
 export type SessionTransform = {
-  onTransform: (body: Record<string, unknown>) => Promise<Record<string, unknown>>
+  onTransform: (body: TJsonObject) => Promise<TJsonObject>
   onAccepted?: () => Promise<void>
   rollbackState?: () => void
 }

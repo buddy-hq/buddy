@@ -1,4 +1,5 @@
 import { Config } from "@buddy/backend/config"
+import { parseTPermissionAction } from "./shared/parse-values"
 
 type BuddyAgentAuthoring = Parameters<(typeof Config.Agent)["parse"]>[0]
 type BuddyPermissionRuleInput = Config.PermissionRule
@@ -54,6 +55,12 @@ function taskPermission(
   }
 }
 
+function isPermissionMap(
+  permission: BuddyPermissionInput,
+): permission is Record<string, Config.PermissionRule> {
+  return parseTPermissionAction(permission) === undefined
+}
+
 function mergePermission(
   permission: BuddyPermissionInput | undefined,
   task: BuddyPermissionRuleInput | undefined,
@@ -63,7 +70,7 @@ function mergePermission(
     return { task }
   }
 
-  if (typeof permission === "string") {
+  if (!isPermissionMap(permission)) {
     return {
       "*": permission,
       task,
@@ -82,11 +89,11 @@ function mergePermissionPreset(
 ): BuddyPermissionInput {
   if (permission === undefined) return preset
 
-  if (typeof preset === "string") {
+  if (!isPermissionMap(preset)) {
     return mergePermission(permission, preset) ?? permission
   }
 
-  if (typeof permission === "string") {
+  if (!isPermissionMap(permission)) {
     return {
       ...preset,
       "*": permission,
@@ -108,7 +115,7 @@ function mergeDynamicToolDeny(
   }
   if (permission === undefined) return dynamicDeny
 
-  if (typeof permission === "string") {
+  if (!isPermissionMap(permission)) {
     return {
       "*": permission,
       ...dynamicDeny,

@@ -3,6 +3,7 @@ import { AdvancedMathRuntimeService } from "../../local-runtimes/advanced-math/s
 import { StandardsRuntimeService } from "../../local-runtimes/standards/service"
 import type { DefinedBuddyFeature } from "../runtime/define-buddy-feature"
 import type { BuddyTool } from "../runtime/create-buddy-tool"
+import type { Surface } from "../shared/teaching-vocabulary"
 import type { ResolvedSessionRuntime, TeachingWorkspaceState } from "./types"
 
 function toolMatchesTeachingWorkspaceConstraints(
@@ -107,8 +108,8 @@ function buildSubagentPermissions(
   return permissions
 }
 
-function buildVisibleSurfaces(features: readonly DefinedBuddyFeature[]): string[] {
-  const surfaces = new Set<string>()
+function buildVisibleSurfaces(features: readonly DefinedBuddyFeature[]): Surface[] {
+  const surfaces = new Set<Surface>()
 
   for (const feature of features) {
     for (const surface of feature.surfaces) {
@@ -123,7 +124,7 @@ function buildResolvedSessionRuntime(input: {
   features: readonly DefinedBuddyFeature[]
   teachingWorkspaceState: TeachingWorkspaceState
   configuredToolToggles?: Config.Info["tools"]
-}): ResolvedSessionRuntime["access"] & { visibleSurfaces: string[] } {
+}): ResolvedSessionRuntime["access"] & { visibleSurfaces: Surface[] } {
   return {
     tools: buildToolPermissions(
       input.features,

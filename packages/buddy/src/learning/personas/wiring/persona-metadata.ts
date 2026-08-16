@@ -4,6 +4,7 @@ import type { PersonaCatalogEntry, PersonaOverride } from "../../shared/runtime-
 import type { PersonaSurface } from "../../shared/teaching-vocabulary"
 import { resolvePreferredBuddyPersona } from "./default-persona"
 import { DEVELOPMENT_PERSONAS_ENABLED, personaIsAvailable } from "./persona-availability"
+import { PERSONAS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 
 type BuddyPersonaMetadata = {
   id: BuddyPersona
@@ -15,6 +16,12 @@ type BuddyPersonaMetadata = {
 }
 
 type BuddyPersonaOverrides = Partial<Record<BuddyPersona, PersonaOverride>>
+
+type TBuddyPersonaMetadataMap = {
+  buddy: BuddyPersonaMetadata
+  "teaching-buddy": BuddyPersonaMetadata
+  code: BuddyPersonaMetadata
+}
 
 const BUILTIN_BUDDY_PERSONA_METADATA = {
   buddy: {
@@ -43,7 +50,7 @@ const BUILTIN_BUDDY_PERSONA_METADATA = {
   },
 } as const satisfies Record<BuddyPersona, BuddyPersonaMetadata>
 
-const BUILTIN_BUDDY_PERSONA_IDS = Object.keys(BUILTIN_BUDDY_PERSONA_METADATA) as BuddyPersona[]
+const BUILTIN_BUDDY_PERSONA_IDS: readonly BuddyPersona[] = PERSONAS
 
 function cloneBuddyPersonaMetadata(input: BuddyPersonaMetadata): BuddyPersonaMetadata {
   return {
@@ -52,16 +59,19 @@ function cloneBuddyPersonaMetadata(input: BuddyPersonaMetadata): BuddyPersonaMet
   }
 }
 
+function emptyBuddyPersonaProfiles(): TBuddyPersonaMetadataMap {
+  return {
+    buddy: cloneBuddyPersonaMetadata(BUILTIN_BUDDY_PERSONA_METADATA.buddy),
+    "teaching-buddy": cloneBuddyPersonaMetadata(BUILTIN_BUDDY_PERSONA_METADATA["teaching-buddy"]),
+    code: cloneBuddyPersonaMetadata(BUILTIN_BUDDY_PERSONA_METADATA.code),
+  }
+}
+
 function resolveBuddyPersonaMetadata(
   overrides?: BuddyPersonaOverrides,
   developmentPersonasEnabled = DEVELOPMENT_PERSONAS_ENABLED,
-): Record<BuddyPersona, BuddyPersonaMetadata> {
-  const profiles = Object.fromEntries(
-    BUILTIN_BUDDY_PERSONA_IDS.map((personaID) => [
-      personaID,
-      cloneBuddyPersonaMetadata(BUILTIN_BUDDY_PERSONA_METADATA[personaID]),
-    ]),
-  ) as Record<BuddyPersona, BuddyPersonaMetadata>
+): TBuddyPersonaMetadataMap {
+  const profiles = emptyBuddyPersonaProfiles()
 
   for (const personaID of BUILTIN_BUDDY_PERSONA_IDS) {
     const override = overrides?.[personaID]
@@ -75,7 +85,7 @@ function resolveBuddyPersonaMetadata(
           override.surfaces ? { surfaces: [...override.surfaces] } : undefined,
         ),
         override.defaultSurface ? { defaultSurface: override.defaultSurface } : undefined,
-        typeof override.hidden === "boolean" ? { hidden: override.hidden } : undefined,
+        override.hidden !== undefined ? { hidden: override.hidden } : undefined,
       )
     }
 

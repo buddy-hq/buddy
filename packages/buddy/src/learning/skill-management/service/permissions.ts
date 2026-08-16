@@ -7,6 +7,8 @@ import type {
   SkillPermissionSource,
   SkillRuleAction,
 } from "./contracts"
+import { parseTPermissionAction } from "../../shared/parse-values"
+import { parseJsonObject } from "../../prompt/utils"
 
 const SKILL_RULE_DEFAULTS = {
   permission: "skill",
@@ -46,13 +48,10 @@ function normalizeSkillAction(action: PermissionAction): SkillRuleAction {
     : SKILL_RULE_DEFAULTS.allowedAction
 }
 
-function isPermissionAction(value: unknown): value is PermissionAction {
-  return value === "allow" || value === "deny" || value === "ask"
-}
-
-function normalizeExistingSkillAction(action: unknown): SkillRuleAction {
-  return isPermissionAction(action)
-    ? normalizeSkillAction(action)
+function normalizeExistingSkillAction<TValue>(action: TValue): SkillRuleAction {
+  const parsed = parseTPermissionAction(action)
+  return parsed !== undefined
+    ? normalizeSkillAction(parsed)
     : SKILL_RULE_DEFAULTS.defaultAction
 }
 
@@ -106,16 +105,18 @@ export function resolvePermissionSource(input: {
 export async function setSkillPermission(pattern: string, action: SkillRuleAction) {
   const current = await Config.getGlobal()
   const existingPermission = current.permission
+  const existingPermissionAction = parseTPermissionAction(existingPermission)
   const existingSkillPermission =
-    existingPermission && typeof existingPermission !== "string"
+    existingPermission && existingPermissionAction === undefined
       ? existingPermission.skill
       : undefined
 
+  const existingSkillAction = parseTPermissionAction(existingSkillPermission)
   const normalizedExistingSkillPermission =
-    typeof existingSkillPermission === "string"
+    existingSkillAction !== undefined
       ? {
           [SKILL_RULE_DEFAULTS.wildcardPattern]:
-            normalizeExistingSkillAction(existingSkillPermission),
+            normalizeExistingSkillAction(existingSkillAction),
         }
       : Object.fromEntries(
           Object.entries(existingSkillPermission ?? {}).map(([rulePattern, ruleAction]) => [
@@ -130,9 +131,9 @@ export async function setSkillPermission(pattern: string, action: SkillRuleActio
   }
 
   const nextPermission = Config.Permission.parse(
-    typeof existingPermission === "string"
+    existingPermissionAction !== undefined
       ? {
-          [SKILL_RULE_DEFAULTS.wildcardPattern]: existingPermission,
+          [SKILL_RULE_DEFAULTS.wildcardPattern]: existingPermissionAction,
           [SKILL_RULE_DEFAULTS.permission]: nextSkillPermission,
         }
       : {
@@ -149,13 +150,15 @@ export async function setSkillPermission(pattern: string, action: SkillRuleActio
 export async function clearSkillPermission(pattern: string) {
   const current = await Config.getGlobal()
   const existingPermission = current.permission
-  if (!existingPermission || typeof existingPermission === "string") {
+  const existingPermissionAction = parseTPermissionAction(existingPermission)
+  if (!existingPermission || existingPermissionAction !== undefined) {
     return
   }
 
   const { skill: existingSkillPermission, ...permissionWithoutSkill } = existingPermission
 
-  if (typeof existingSkillPermission === "string") {
+  const existingSkillAction = parseTPermissionAction(existingSkillPermission)
+  if (existingSkillAction !== undefined) {
     if (pattern !== SKILL_RULE_DEFAULTS.wildcardPattern) {
       return
     }
@@ -166,11 +169,12 @@ export async function clearSkillPermission(pattern: string) {
     return
   }
 
-  if (!existingSkillPermission || !(pattern in existingSkillPermission)) {
+  const skillMap = parseJsonObject(existingSkillPermission)
+  if (skillMap === undefined || !(pattern in skillMap)) {
     return
   }
 
-  const nextSkillPermission = { ...existingSkillPermission }
+  const nextSkillPermission = { ...skillMap }
   delete nextSkillPermission[pattern]
 
   const nextPermission =

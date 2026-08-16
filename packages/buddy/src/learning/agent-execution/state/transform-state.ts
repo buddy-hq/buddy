@@ -4,10 +4,11 @@ import {
   writeTeachingSessionState,
 } from "../state/session-state"
 import type { TeachingSessionState } from "../../shared/teaching-session-state"
+import { parseJsonObject, type TJsonObject } from "../../prompt/utils"
 
-function cloneTracePayload(input: Record<string, unknown>) {
+function cloneTracePayload(input: TJsonObject): TJsonObject {
   try {
-    return JSON.parse(JSON.stringify(input)) as Record<string, unknown>
+    return parseJsonObject(JSON.parse(JSON.stringify(input))) ?? {}
   } catch {
     return {
       _traceError: "failed to clone transformed payload",
@@ -21,7 +22,7 @@ export function writeLastLlmOutbound(input: {
   directory: string
   sessionID: string
   kind: "message" | "command"
-  payload: Record<string, unknown>
+  payload: TJsonObject
 }) {
   const state = readTeachingSessionState(input.directory, input.sessionID)
   if (!state) return

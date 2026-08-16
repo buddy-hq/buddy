@@ -1,3 +1,4 @@
+import type { TJsonObject } from "../../prompt/utils"
 import type { SessionTransform, SessionTransformContext } from "./types"
 import { orchestrateSessionMessageTransform } from "./message-transform-orchestration"
 
@@ -8,7 +9,7 @@ export function createSessionMessageTransform(input: {
   let onAcceptedTransform: (() => Promise<void>) | undefined
 
   return {
-    onTransform: async (body: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    onTransform: async (body: TJsonObject): Promise<TJsonObject> => {
       const result = await orchestrateSessionMessageTransform({
         context: input.context,
         body,

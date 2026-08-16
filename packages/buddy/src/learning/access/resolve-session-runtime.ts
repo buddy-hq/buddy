@@ -17,17 +17,17 @@ function resolveSessionRuntime(input: {
   const { defaultSurface } = input.persona
   const features = enabledBuddyFeatures(input.persona.features, input.config)
 
-  if (!buildVisibleSurfaces(features).includes(defaultSurface)) {
-    throw new Error(
-      `Persona "${input.persona.id}" defaultSurface "${defaultSurface}" must exist in derived feature surfaces`,
-    )
-  }
-
   const runtime = buildResolvedSessionRuntime({
     features,
     teachingWorkspaceState: input.teachingWorkspaceState,
     configuredToolToggles: input.config.tools,
   })
+
+  if (!runtime.visibleSurfaces.includes(defaultSurface)) {
+    throw new Error(
+      `Persona "${input.persona.id}" defaultSurface "${defaultSurface}" must exist in derived feature surfaces`,
+    )
+  }
 
   return {
     persona: input.persona.id,
@@ -39,22 +39,10 @@ function resolveSessionRuntime(input: {
       subagents: runtime.subagents,
     },
     ui: {
-      visibleSurfaces: runtime.visibleSurfaces as Surface[],
+      visibleSurfaces: runtime.visibleSurfaces,
       defaultSurface,
     },
   }
-}
-
-function buildVisibleSurfaces(features: readonly DefinedBuddyFeature[]): string[] {
-  const surfaces = new Set<string>()
-
-  for (const feature of features) {
-    for (const surface of feature.surfaces) {
-      surfaces.add(surface)
-    }
-  }
-
-  return [...surfaces]
 }
 
 export { resolveSessionRuntime }

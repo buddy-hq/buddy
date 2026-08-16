@@ -9,16 +9,17 @@ import { readTeachingSessionState, writeTeachingSessionState } from "../state/se
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
 import type { SessionTransformContext } from "./types"
 import { runMessagePromptPipeline } from "../../prompt/message-prompt-pipeline"
+import type { TJsonObject } from "../../prompt/utils"
 
 export type SessionMessageTransformOrchestrationResult = {
-  transformed: Record<string, unknown>
+  transformed: TJsonObject
   rollbackState?: () => void
   onAccepted?: () => Promise<void>
 }
 
 export async function orchestrateSessionMessageTransform(input: {
   context: SessionTransformContext
-  body: Record<string, unknown>
+  body: TJsonObject
 }): Promise<SessionMessageTransformOrchestrationResult> {
   await OpenCodeInstance.provide({
     directory: input.context.directory,

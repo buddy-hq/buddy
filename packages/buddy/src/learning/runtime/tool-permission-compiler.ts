@@ -11,14 +11,12 @@ const LEARNING_TOOL_SEARCH_TOOL_ID = "learning_tool_search" as const
 const LEARNING_TOOL_LOAD_TOOL_ID = "learning_tool_load" as const
 
 function createDenyToolMap(): ToolPermissionMap {
-  return {} as ToolPermissionMap
+  return {}
 }
 
 function applyPersonaDefaultTools(tools: ToolPermissionMap, persona: PersonaDefinition): void {
-  for (const [toolId, access] of Object.entries(persona.tools.static) as Array<
-    [ToolId, "inherit" | "allow" | "deny"]
-  >) {
-    if (access === "inherit") continue
+  for (const [toolId, access] of Object.entries(persona.tools.static)) {
+    if (access === undefined || access === "inherit") continue
     tools[toolId] = access
   }
 

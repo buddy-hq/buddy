@@ -11,6 +11,7 @@ import {
   DEFAULT_SKILL_TREE_LIMITS,
   type SkillTreeLimits,
 } from "./tree-limits"
+import { parsePromptString } from "../../prompt/utils"
 
 const DEFAULT_GITHUB_REMOTE_BASE_URL = "https://github.com"
 const GIT_FETCH_TIMEOUT_MS = 120_000
@@ -96,20 +97,22 @@ async function runGitCommand(input: {
   }
 }
 
+function parseStreamChunk<TValue>(chunk: TValue): Buffer | undefined {
+  if (Buffer.isBuffer(chunk)) return chunk
+  if (chunk instanceof Uint8Array) return Buffer.from(chunk)
+  const text = parsePromptString(chunk)
+  if (text !== undefined) return Buffer.from(text)
+  return undefined
+}
+
 function readStreamUtf8(stream: Readable): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
 
-    stream.on("data", (chunk: unknown) => {
-      if (Buffer.isBuffer(chunk)) {
-        chunks.push(chunk)
-        return
-      }
-      if (typeof chunk === "string") {
-        chunks.push(Buffer.from(chunk))
-        return
-      }
-      chunks.push(Buffer.from(String(chunk)))
+    stream.on("data", (chunk) => {
+      const buffer = parseStreamChunk(chunk)
+      if (buffer === undefined) return
+      chunks.push(buffer)
     })
     stream.on("error", reject)
     stream.on("end", () => {

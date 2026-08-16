@@ -1,13 +1,8 @@
-const BUDDY_BOOTSTRAP_PRELOAD_KEY = Symbol.for("buddy.bootstrapPreload")
-
-type BuddyBootstrapGlobal = typeof globalThis & {
-  [BUDDY_BOOTSTRAP_PRELOAD_KEY]?: Promise<void>
-}
+let buddyBootstrapPreload: Promise<void> | undefined
 
 async function preloadBuddyBootstrapGraph(): Promise<void> {
-  const globalObject = globalThis as BuddyBootstrapGlobal
-  if (globalObject[BUDDY_BOOTSTRAP_PRELOAD_KEY]) {
-    return globalObject[BUDDY_BOOTSTRAP_PRELOAD_KEY]
+  if (buddyBootstrapPreload) {
+    return buddyBootstrapPreload
   }
 
   const task = (async () => {
@@ -18,7 +13,7 @@ async function preloadBuddyBootstrapGraph(): Promise<void> {
     await import("../personas/wiring/create-buddy-persona-agent")
   })()
 
-  globalObject[BUDDY_BOOTSTRAP_PRELOAD_KEY] = task
+  buddyBootstrapPreload = task
   return task
 }
 

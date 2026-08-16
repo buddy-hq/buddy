@@ -4,6 +4,8 @@ import path from "node:path"
 import { verifySignedMessage } from "@buddy/script/minisign"
 import { z } from "zod"
 import { writeTextFileAtomic } from "../../../storage/atomic-file"
+import { parseJsonValue, type TJsonValue } from "../../prompt/utils"
+import { parseTErrorMessage, parseTNodeErrorCode } from "../../shared/parse-values"
 
 const ENVELOPE_SCHEMA_VERSION = 1
 const ARTIFACT_STATE_SCHEMA_VERSION = 1
@@ -56,7 +58,7 @@ type SignedArtifactStoreOptions<T> = {
   artifactLabel: string
   cacheRoot: () => string
   loadBundled: () => Promise<RevisionedArtifactPayload<T>>
-  parsePayload: (input: unknown) => T
+  parsePayload: (input: TJsonValue) => T
   publicKey: () => string
   remoteUrl: () => string | undefined
   revision: (value: T) => number
@@ -71,13 +73,16 @@ type VerifiedEnvelope<T> = {
   resolution: SignedArtifactResolution<T>
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function errorMessage<TError>(error: TError): string {
+  return parseTErrorMessage(error)
 }
 
-function parseJson(source: string, label: string): unknown {
+function parseJson(source: string, label: string): TJsonValue {
   try {
-    const parsed: unknown = JSON.parse(source)
+    const parsed = parseJsonValue(JSON.parse(source))
+    if (parsed === undefined) {
+      throw new Error(`Invalid ${label} JSON`)
+    }
     return parsed
   } catch (error) {
     throw new Error(`Invalid ${label} JSON: ${errorMessage(error)}`, { cause: error })
@@ -113,8 +118,8 @@ function decodeTauriSignature(value: string): string {
 }
 
 async function readOptionalFile(filepath: string): Promise<string | undefined> {
-  return await fsp.readFile(filepath, "utf8").catch((error: unknown) => {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+  return await fsp.readFile(filepath, "utf8").catch((error) => {
+    if (parseTNodeErrorCode(error) === "ENOENT") {
       return undefined
     }
     throw error
@@ -129,7 +134,7 @@ async function readState(cacheRoot: string): Promise<SignedArtifactState | undef
 
 async function writeState(
   cacheRoot: string,
-  resolution: SignedArtifactResolution<unknown>,
+  resolution: Pick<SignedArtifactResolution<TJsonValue>, "revision" | "payloadSha256">,
 ): Promise<void> {
   const state = signedArtifactStateSchema.parse({
     schemaVersion: ARTIFACT_STATE_SCHEMA_VERSION,
@@ -208,7 +213,7 @@ async function fetchEnvelopeText(fetcher: ArtifactFetch, url: string): Promise<s
   return source
 }
 
-export function parseSignedArtifactEnvelope(input: unknown): SignedArtifactEnvelope {
+export function parseSignedArtifactEnvelope<TValue>(input: TValue): SignedArtifactEnvelope {
   return signedArtifactEnvelopeSchema.parse(input)
 }
 
@@ -328,16 +333,17 @@ export function createSignedArtifactStore<T>(options: SignedArtifactStoreOptions
 
   async function refreshOnce(): Promise<SignedArtifactResolution<T>> {
     let current: SignedArtifactResolution<T> | undefined
-    let currentResolutionError: unknown
+    let currentResolutionError: Error | undefined
     try {
       current = await resolveActive()
     } catch (error) {
-      currentResolutionError = error
+      currentResolutionError = error instanceof Error ? error : new Error(errorMessage(error))
     }
     const url = options.remoteUrl()
     if (!url) {
       if (current) return current
-      throw currentResolutionError
+      if (currentResolutionError) throw currentResolutionError
+      throw new Error(`${options.artifactLabel} has no usable local artifact`)
     }
 
     try {

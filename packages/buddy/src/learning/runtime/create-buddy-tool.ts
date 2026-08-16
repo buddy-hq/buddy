@@ -15,9 +15,17 @@ import {
 } from "../runtime/tool-constraint-types"
 import type { DynamicBuddyToolMetadata } from "./dynamic-tool-metadata"
 import { BuddyObjectResultSchema } from "../../objects/result"
+import {
+  parseJsonObject,
+  parseJsonValue,
+  parsePromptBoolean,
+  parsePromptString,
+  type TJsonObject,
+  type TJsonValue,
+} from "../prompt/utils"
 
-type BuddyToolMetadata = Record<string, unknown>
-type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> = {
+type TBuddyToolMetadata = { [key: string]: TJsonValue | undefined }
+type BuddyToolContext<Metadata extends TBuddyToolMetadata = TBuddyToolMetadata> = {
   directory: string
   sessionID: Tool.Context<Metadata>["sessionID"]
   messageID: Tool.Context<Metadata>["messageID"]
@@ -33,7 +41,7 @@ type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> = 
 type BuddyToolDefinition<
   Id extends string,
   Parameters extends z.ZodType,
-  Metadata extends BuddyToolMetadata,
+  Metadata extends TBuddyToolMetadata,
 > = {
   id: Id
   description: string
@@ -42,7 +50,7 @@ type BuddyToolDefinition<
     args: z.infer<Parameters>,
     ctx: BuddyToolContext<Metadata>,
   ): Promise<Tool.ExecuteResult<Metadata>> | Tool.ExecuteResult<Metadata>
-  normalizeInput?(rawArgs: unknown): unknown
+  normalizeInput?(rawArgs: TJsonObject): TJsonObject
   formatValidationError?(error: z.ZodError): string
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
@@ -63,7 +71,7 @@ type BuddyToolProducesPolicy = {
 type BuddyTool<
   Id extends string = string,
   Parameters extends z.ZodType = z.ZodType,
-  Metadata extends BuddyToolMetadata = BuddyToolMetadata,
+  Metadata extends TBuddyToolMetadata = TBuddyToolMetadata,
 > = {
   id: Id
   description: string
@@ -73,7 +81,7 @@ type BuddyTool<
   dynamic?: DynamicBuddyToolMetadata
   presentation: ToolPresentationDescriptor
   output?: BuddyToolOutputPolicy
-  run(rawArgs: unknown, ctx: BuddyToolContext<Metadata>): Promise<Tool.ExecuteResult<Metadata>>
+  run(rawArgs: TJsonObject, ctx: BuddyToolContext<Metadata>): Promise<Tool.ExecuteResult<Metadata>>
   toTool(directory: string): Effect.Effect<
     Tool.Info<typeof Schema.Unknown, Metadata>,
     never,
@@ -87,15 +95,12 @@ function createAbortError() {
   return new DOMException("Aborted", "AbortError")
 }
 
-function isJsonSchemaObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function isNullJsonSchema<TValue>(value: TValue): boolean {
+  const schema = parseJsonObject(value)
+  return schema !== undefined && parsePromptString(schema.type) === "null"
 }
 
-function isNullJsonSchema(value: unknown): boolean {
-  return isJsonSchemaObject(value) && value.type === "null"
-}
-
-function normalizeNullableAnyOf(schema: Record<string, unknown>) {
+function normalizeNullableAnyOf(schema: TJsonObject): TJsonObject {
   const anyOf = schema.anyOf
   if (!Array.isArray(anyOf) || anyOf.length !== 2) {
     return schema
@@ -103,17 +108,19 @@ function normalizeNullableAnyOf(schema: Record<string, unknown>) {
 
   const nullSchema = anyOf.find(isNullJsonSchema)
   const valueSchema = anyOf.find((item) => !isNullJsonSchema(item))
-  if (!nullSchema || !isJsonSchemaObject(valueSchema) || typeof valueSchema.type !== "string") {
+  const parsedValueSchema = parseJsonObject(valueSchema)
+  const valueType = parsedValueSchema === undefined ? undefined : parsePromptString(parsedValueSchema.type)
+  if (!nullSchema || parsedValueSchema === undefined || valueType === undefined) {
     return schema
   }
 
-  const normalized = Object.assign(
+  const normalized: TJsonObject = Object.assign(
     {},
     schema,
     Object.fromEntries(
-      Object.entries(valueSchema).filter(([key]) => key !== "type" && key !== "description"),
+      Object.entries(parsedValueSchema).filter(([key]) => key !== "type" && key !== "description"),
     ),
-    { type: [valueSchema.type, "null"] },
+    { type: [valueType, "null"] },
   )
   delete normalized.anyOf
 
@@ -124,19 +131,20 @@ function normalizeNullableAnyOf(schema: Record<string, unknown>) {
   return normalized
 }
 
-function normalizeZodJsonSchema(value: unknown): unknown {
+function normalizeZodJsonSchema(value: TJsonValue): TJsonValue {
   if (Array.isArray(value)) {
     return value.map((item) => normalizeZodJsonSchema(item))
   }
-  if (!isJsonSchemaObject(value)) {
+  const schema = parseJsonObject(value)
+  if (schema === undefined) {
     return value
   }
-  const normalized = Object.fromEntries(
-    Object.entries(value)
+  const normalized: TJsonObject = Object.fromEntries(
+    Object.entries(schema)
       .filter(([key, item]) => {
         return !(
           (key === "exclusiveMaximum" || key === "exclusiveMinimum") &&
-          typeof item === "boolean"
+          parsePromptBoolean(item) !== undefined
         )
       })
       .map(([key, item]) => [key, normalizeZodJsonSchema(item)]),
@@ -145,22 +153,24 @@ function normalizeZodJsonSchema(value: unknown): unknown {
 }
 
 function toToolJsonSchema(id: string, parameters: z.ZodType) {
-  const raw = z.toJSONSchema(parameters, { io: "input" })
-  const normalized = normalizeZodJsonSchema(raw)
-  if (!isJsonSchemaObject(normalized)) {
+  const raw = parseJsonValue(z.toJSONSchema(parameters, { io: "input" }))
+  const normalized = raw === undefined ? undefined : normalizeZodJsonSchema(raw)
+  const schema = parseJsonObject(normalized)
+  if (schema === undefined) {
     throw new Error(`Tool ${id} produced a non-object JSON Schema.`)
   }
-  if (normalized.type !== "object") {
+  if (parsePromptString(schema.type) !== "object") {
     throw new Error(`Tool ${id} parameters must be a JSON Schema object.`)
   }
 
-  const schema = { ...normalized }
-  delete schema.$schema
-  if (isJsonSchemaObject(schema.$defs)) {
-    schema.definitions = schema.$defs
+  const next: TJsonObject = { ...schema }
+  delete next.$schema
+  const defs = parseJsonObject(next.$defs)
+  if (defs !== undefined) {
+    next.definitions = defs
   }
-  delete schema.$defs
-  return schema
+  delete next.$defs
+  return next
 }
 
 async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T>) {
@@ -183,35 +193,38 @@ async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T
   }
 }
 
-function buddyToolContextFromEffectContext<Metadata extends BuddyToolMetadata>(
+function buddyToolContextFromEffectContext<Metadata extends TBuddyToolMetadata>(
   directory: string,
   ctx: Tool.Context<Metadata>,
 ): BuddyToolContext<Metadata> {
-  return {
-    directory,
-    sessionID: ctx.sessionID,
-    messageID: ctx.messageID,
-    agent: ctx.agent,
-    abort: ctx.abort,
-    ...(ctx.callID ? { callID: ctx.callID } : {}),
-    ...(ctx.extra ? { extra: ctx.extra } : {}),
-    messages: ctx.messages,
-    metadata(input) {
-      return Effect.runPromise(withCurrentInstance(ctx.metadata(input)))
+  const context: BuddyToolContext<Metadata> = Object.assign(
+    {
+      directory,
+      sessionID: ctx.sessionID,
+      messageID: ctx.messageID,
+      agent: ctx.agent,
+      abort: ctx.abort,
+      messages: ctx.messages,
+      metadata(input: { title?: string; metadata?: Metadata }) {
+        return Effect.runPromise(withCurrentInstance(ctx.metadata(input)))
+      },
+      ask(input: Parameters<Tool.Context<Metadata>["ask"]>[0]) {
+        return Effect.runPromise(withCurrentInstance(ctx.ask(input)))
+      },
     },
-    ask(input) {
-      return Effect.runPromise(withCurrentInstance(ctx.ask(input)))
-    },
-  }
+    ctx.callID ? { callID: ctx.callID } : undefined,
+    ctx.extra ? { extra: ctx.extra } : undefined,
+  )
+  return context
 }
 
 async function runBuddyTool<
   const Id extends string,
   Parameters extends z.ZodType,
-  Metadata extends BuddyToolMetadata,
+  Metadata extends TBuddyToolMetadata,
 >(
   definition: BuddyToolDefinition<Id, Parameters, Metadata>,
-  rawArgs: unknown,
+  rawArgs: TJsonObject,
   ctx: BuddyToolContext<Metadata>,
 ): Promise<Tool.ExecuteResult<Metadata>> {
   const normalizedArgs = definition.normalizeInput ? definition.normalizeInput(rawArgs) : rawArgs
@@ -234,7 +247,7 @@ async function runBuddyTool<
 function validateProducedToolMetadata<
   const Id extends string,
   Parameters extends z.ZodType,
-  Metadata extends BuddyToolMetadata,
+  Metadata extends TBuddyToolMetadata,
 >(
   definition: BuddyToolDefinition<Id, Parameters, Metadata>,
   result: Tool.ExecuteResult<Metadata>,
@@ -248,7 +261,7 @@ function validateProducedToolMetadata<
 function createBuddyTool<
   const Id extends string,
   Parameters extends z.ZodType,
-  Metadata extends BuddyToolMetadata,
+  Metadata extends TBuddyToolMetadata,
 >(definition: BuddyToolDefinition<Id, Parameters, Metadata>): BuddyTool<Id, Parameters, Metadata> {
   const clonedConstraints = cloneConstraints(definition.constraints)
   const clonedDynamic = cloneDynamicMetadata(definition.dynamic)
@@ -256,55 +269,64 @@ function createBuddyTool<
   const clonedOutput = cloneOutputPolicy(definition.output)
   const jsonSchema = toToolJsonSchema(definition.id, definition.parameters)
 
-  return {
-    id: definition.id,
-    description: definition.description,
-    parameters: definition.parameters,
-    jsonSchema,
-    constraints: clonedConstraints,
-    presentation,
-    ...(clonedDynamic ? { dynamic: clonedDynamic } : {}),
-    ...(clonedOutput ? { output: clonedOutput } : {}),
-    run(rawArgs, ctx) {
-      return runBuddyTool(definition, rawArgs, ctx)
+  const tool: BuddyTool<Id, Parameters, Metadata> = Object.assign(
+    {
+      id: definition.id,
+      description: definition.description,
+      parameters: definition.parameters,
+      jsonSchema,
+      constraints: clonedConstraints,
+      presentation,
+      run(rawArgs: TJsonObject, ctx: BuddyToolContext<Metadata>) {
+        return runBuddyTool(definition, rawArgs, ctx)
+      },
+      toTool(directory: string) {
+        return Tool.define(
+          definition.id,
+          Effect.promise(async () => {
+            return {
+              ...definition,
+              parameters: Schema.Unknown,
+              jsonSchema,
+              execute(args, ctx: Tool.Context<Metadata>) {
+                const nextCtx = buddyToolContextFromEffectContext(directory, ctx)
+                return Effect.promise(() =>
+                  runBuddyTool(definition, parseJsonObject(args) ?? {}, nextCtx),
+                )
+              },
+            }
+          }),
+        )
+      },
     },
-    toTool(directory: string) {
-      return Tool.define(
-        definition.id,
-        Effect.promise(async () => {
-          return {
-            ...definition,
-            parameters: Schema.Unknown,
-            jsonSchema,
-            execute(args: unknown, ctx: Tool.Context<Metadata>) {
-              const nextCtx = buddyToolContextFromEffectContext(directory, ctx)
-              return Effect.promise(() => runBuddyTool(definition, args, nextCtx))
-            },
-          }
-        }),
-      )
-    },
-  }
+    clonedDynamic ? { dynamic: clonedDynamic } : undefined,
+    clonedOutput ? { output: clonedOutput } : undefined,
+  )
+  return tool
 }
 
 function cloneOutputPolicy(
   policy: BuddyToolOutputPolicy | undefined,
 ): BuddyToolOutputPolicy | undefined {
   if (!policy) return undefined
-  return {
-    ...(policy.maxLines !== undefined ? { maxLines: policy.maxLines } : {}),
-    ...(policy.maxBytes !== undefined ? { maxBytes: policy.maxBytes } : {}),
-  }
+  const cloned: BuddyToolOutputPolicy = Object.assign(
+    {},
+    policy.maxLines !== undefined ? { maxLines: policy.maxLines } : undefined,
+    policy.maxBytes !== undefined ? { maxBytes: policy.maxBytes } : undefined,
+  )
+  return cloned
 }
 
 function cloneConstraints(
   constraints: BuddyToolConstraints | undefined,
 ): BuddyToolConstraints | undefined {
   if (!constraints) return undefined
-  return {
-    ...(constraints.teachingWorkspace ? { teachingWorkspace: constraints.teachingWorkspace } : {}),
-    ...(constraints.runtime ? { runtime: constraints.runtime } : {}),
-  }
+  const cloned: BuddyToolConstraints = Object.assign(
+    {},
+    constraints.teachingWorkspace ? { teachingWorkspace: constraints.teachingWorkspace } : undefined,
+    constraints.runtime ? { runtime: constraints.runtime } : undefined,
+  )
+  return cloned
 }
 
 function cloneDynamicMetadata(
@@ -312,18 +334,23 @@ function cloneDynamicMetadata(
 ): DynamicBuddyToolMetadata | undefined {
   if (!metadata) return undefined
 
-  return {
-    title: metadata.title,
-    useCase: metadata.useCase,
-    keywords: [...metadata.keywords],
-    ...(metadata.searchText ? { searchText: metadata.searchText } : {}),
-    ...(metadata.description ? { description: metadata.description } : {}),
-    ...(metadata.sideEffects ? { sideEffects: [...metadata.sideEffects] } : {}),
-    ...(metadata.mutatesLearnerState !== undefined
+  const cloned: DynamicBuddyToolMetadata = Object.assign(
+    Object.assign(
+      {
+        title: metadata.title,
+        useCase: metadata.useCase,
+        keywords: [...metadata.keywords],
+      },
+      metadata.searchText ? { searchText: metadata.searchText } : undefined,
+      metadata.description ? { description: metadata.description } : undefined,
+      metadata.sideEffects ? { sideEffects: [...metadata.sideEffects] } : undefined,
+    ),
+    metadata.mutatesLearnerState !== undefined
       ? { mutatesLearnerState: metadata.mutatesLearnerState }
-      : {}),
-    ...(metadata.renderer ? { renderer: metadata.renderer } : {}),
-  }
+      : undefined,
+    metadata.renderer ? { renderer: metadata.renderer } : undefined,
+  )
+  return cloned
 }
 
 export { createBuddyTool }

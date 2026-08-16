@@ -10,6 +10,7 @@ import type { DefinedBuddyFeature } from "../../runtime/define-buddy-feature"
 import { REGISTERED_BUDDY_PERSONAS } from "../registry"
 import { resolvePreferredBuddyPersona } from "./default-persona"
 import { DEVELOPMENT_PERSONAS_ENABLED, personaIsAvailable } from "./persona-availability"
+import { isPersonaSurface } from "../../shared/teaching-vocabulary"
 
 const BUILTIN_BUDDY_PERSONA_DEFINITIONS = REGISTERED_BUDDY_PERSONAS
 
@@ -17,14 +18,21 @@ type BuiltinBuddyPersonaDefinition = (typeof BUILTIN_BUDDY_PERSONA_DEFINITIONS)[
 type BuiltinBuddyPersonaID = BuiltinBuddyPersonaDefinition["id"]
 type BuddyPersonaOverrides = Partial<Record<BuddyPersona, BuddyPersonaOverride>>
 
+type TBuddyPersonaProfileMap = {
+  buddy: BuddyPersonaProfile
+  "teaching-buddy": BuddyPersonaProfile
+  code: BuddyPersonaProfile
+}
+
 function derivePersonaSurfaces(features: readonly DefinedBuddyFeature[]): Surface[] {
-  const surfaces = new Set<string>()
+  const surfaces = new Set<Surface>()
   for (const feature of features) {
     for (const surface of feature.surfaces) {
+      if (!isPersonaSurface(surface)) continue
       surfaces.add(surface)
     }
   }
-  return [...surfaces] as Surface[]
+  return [...surfaces]
 }
 
 function derivePersonaTools(features: readonly DefinedBuddyFeature[]) {
@@ -139,26 +147,42 @@ function buildPersonaProfileFromDefinition(definition: {
   }
 }
 
-const BUILTIN_BUDDY_PERSONAS = Object.fromEntries(
-  BUILTIN_BUDDY_PERSONA_DEFINITIONS.map((definition) => {
-    return [definition.id, buildPersonaProfileFromDefinition(definition)]
-  }),
-) as Record<BuddyPersona, BuddyPersonaProfile>
+function indexBuiltinBuddyPersonas(): TBuddyPersonaProfileMap {
+  const byId = new Map<string, BuddyPersonaProfile>()
+  for (const definition of BUILTIN_BUDDY_PERSONA_DEFINITIONS) {
+    byId.set(definition.id, buildPersonaProfileFromDefinition(definition))
+  }
+  const buddy = byId.get("buddy")
+  const teachingBuddy = byId.get("teaching-buddy")
+  const code = byId.get("code")
+  if (!buddy || !teachingBuddy || !code) {
+    throw new Error("Built-in Buddy personas are incomplete")
+  }
+  return {
+    buddy,
+    "teaching-buddy": teachingBuddy,
+    code,
+  }
+}
 
-const BUILTIN_BUDDY_PERSONA_IDS = BUILTIN_BUDDY_PERSONA_DEFINITIONS.map(
-  (definition) => definition.id,
-) as readonly BuiltinBuddyPersonaID[]
+const BUILTIN_BUDDY_PERSONAS = indexBuiltinBuddyPersonas()
+
+const BUILTIN_BUDDY_PERSONA_IDS: readonly BuiltinBuddyPersonaID[] =
+  BUILTIN_BUDDY_PERSONA_DEFINITIONS.map((definition) => definition.id)
+
+function cloneIndexedPersonaProfiles(source: TBuddyPersonaProfileMap): TBuddyPersonaProfileMap {
+  return {
+    buddy: cloneBuddyPersonaProfile(source.buddy),
+    "teaching-buddy": cloneBuddyPersonaProfile(source["teaching-buddy"]),
+    code: cloneBuddyPersonaProfile(source.code),
+  }
+}
 
 function resolveBuddyPersonaProfiles(
   overrides?: BuddyPersonaOverrides,
   developmentPersonasEnabled = DEVELOPMENT_PERSONAS_ENABLED,
-): Record<BuddyPersona, BuddyPersonaProfile> {
-  const profiles = Object.fromEntries(
-    Object.entries(BUILTIN_BUDDY_PERSONAS).map(([personaID, profile]) => [
-      personaID,
-      cloneBuddyPersonaProfile(profile),
-    ]),
-  ) as Record<BuddyPersona, BuddyPersonaProfile>
+): TBuddyPersonaProfileMap {
+  const profiles = cloneIndexedPersonaProfiles(BUILTIN_BUDDY_PERSONAS)
 
   for (const personaID of BUILTIN_BUDDY_PERSONA_IDS) {
     const override = overrides?.[personaID]
@@ -172,7 +196,7 @@ function resolveBuddyPersonaProfiles(
           override.surfaces ? { surfaces: [...override.surfaces] } : undefined,
         ),
         override.defaultSurface ? { defaultSurface: override.defaultSurface } : undefined,
-        typeof override.hidden === "boolean" ? { hidden: override.hidden } : undefined,
+        override.hidden !== undefined ? { hidden: override.hidden } : undefined,
       )
     }
 

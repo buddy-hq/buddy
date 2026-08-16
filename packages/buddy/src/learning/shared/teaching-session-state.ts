@@ -5,11 +5,12 @@ import type {
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { ResolvedSessionRuntime } from "../access/types"
 import type { LearnerContextItem } from "./learner-context-delivery"
+import type { TJsonObject } from "../prompt/utils"
 
 export type TeachingLlmOutboundEntry = {
   kind: "message" | "command"
   createdAt: string
-  payload: Record<string, unknown>
+  payload: TJsonObject
   fullSystemPrompt?: string
 }
 

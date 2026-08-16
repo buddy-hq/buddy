@@ -11,24 +11,27 @@ import {
 import { getBuddyPersona, getDefaultBuddyPersona } from "../personas/wiring/persona-profiles"
 import type { TeachingSessionState } from "./teaching-session-state"
 import { SessionTransformValidationError } from "../../session"
+import { parsePromptString, type TJsonObject } from "../prompt/utils"
+import { parseTExplicitModel, type TExplicitModel } from "./parse-values"
 
-export function hasExplicitModel(value: unknown): value is { providerID: string; modelID: string } {
-  if (!value || typeof value !== "object") return false
-  if (!("providerID" in value) || !("modelID" in value)) return false
-  return typeof value.providerID === "string" && typeof value.modelID === "string"
+export type TSessionTransformBody = TJsonObject
+
+export function hasExplicitModel<TValue>(value: TValue): value is TValue & TExplicitModel {
+  return parseTExplicitModel(value) !== undefined
 }
 
-export function hasExplicitCommandModel(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0
+export function hasExplicitCommandModel<TValue>(value: TValue): boolean {
+  const text = parsePromptString(value)
+  return text !== undefined && text.trim().length > 0
 }
 
 export function normalizePersonaTarget(input: {
-  body: Record<string, unknown>
+  body: TSessionTransformBody
   config: Awaited<ReturnType<typeof readProjectConfig>>
   sessionPersona?: BuddyPersona
 }) {
-  const rawPersona = typeof input.body.persona === "string" ? input.body.persona.trim() : ""
-  const rawAgent = typeof input.body.agent === "string" ? input.body.agent : undefined
+  const rawPersona = parsePromptString(input.body.persona)?.trim() ?? ""
+  const rawAgent = parsePromptString(input.body.agent)
 
   if (rawPersona && rawAgent) {
     throw new SessionTransformValidationError('Provide either "persona" or "agent", not both')
@@ -92,14 +95,19 @@ export function normalizePersonaTarget(input: {
   }
 }
 
-export function resolveFocusGoalIds(body: Record<string, unknown>): string[] {
+export function resolveFocusGoalIds(body: TSessionTransformBody): string[] {
   if (!Array.isArray(body.focusGoalIds)) return []
-  return body.focusGoalIds.filter(
-    (value): value is string => typeof value === "string" && value.trim().length > 0,
-  )
+  const ids: string[] = []
+  for (const value of body.focusGoalIds) {
+    const text = parsePromptString(value)
+    if (text === undefined) continue
+    const trimmed = text.trim()
+    if (trimmed.length > 0) ids.push(trimmed)
+  }
+  return ids
 }
 
-export function assertNoLegacyRuntimeOverrides(body: Record<string, unknown>) {
+export function assertNoLegacyRuntimeOverrides(body: TSessionTransformBody) {
   const legacyFields = ["strategy", "adaptivity", "currentGoalIds", "intent"] as const
   const present = legacyFields.filter((field) => field in body)
   if (present.length === 0) return

@@ -29,9 +29,9 @@ function touchStateEntry(key: string, entry: RuntimeStateEntry) {
 
 function evictOldestEntriesIfNeeded() {
   while (runtimeState.size > RUNTIME_STATE_LIMIT) {
-    const oldest = runtimeState.keys().next().value as string | undefined
-    if (!oldest) return
-    runtimeState.delete(oldest)
+    const oldest = runtimeState.keys().next()
+    if (oldest.done) return
+    runtimeState.delete(oldest.value)
   }
 }
 

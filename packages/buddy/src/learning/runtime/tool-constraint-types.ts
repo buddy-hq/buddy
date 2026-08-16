@@ -3,8 +3,8 @@ type BuddyToolConstraints = {
   runtime?: "standards" | "advanced-math"
 }
 
-const EDITOR_PERSONA_SURFACE = undefined as never
-const FIGURE_PERSONA_SURFACE = undefined as never
+const EDITOR_PERSONA_SURFACE = undefined
+const FIGURE_PERSONA_SURFACE = undefined
 const ACTIVE_TEACHING_WORKSPACE = "active" as const
 const ADVANCED_MATH_RUNTIME = "advancedMath" as const
 const STANDARDS_RUNTIME = "standards" as const

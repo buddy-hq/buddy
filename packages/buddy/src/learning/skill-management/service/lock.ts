@@ -3,6 +3,7 @@ import { z } from "zod"
 import { writeJsonFileAtomic } from "../../../storage/atomic-file"
 import { skillArtifactIntegritySchema, skillSourceRefSchema } from "./catalog-schemas"
 import { installedSkillLockPath } from "./paths"
+import { parseTNodeErrorCode } from "../../shared/parse-values"
 
 const LOCK_SCHEMA_VERSION = 1
 
@@ -54,7 +55,7 @@ function lockValidationError(error: z.ZodError) {
   return new Error(`Invalid installed skill lock: ${issues.join("; ")}`)
 }
 
-export function parseInstalledSkillLock(input: unknown): InstalledSkillLock {
+export function parseInstalledSkillLock<TValue>(input: TValue): InstalledSkillLock {
   const result = installedSkillLockSchema.safeParse(input)
   if (!result.success) {
     throw lockValidationError(result.error)
@@ -64,8 +65,8 @@ export function parseInstalledSkillLock(input: unknown): InstalledSkillLock {
 
 export async function readInstalledSkillLock(): Promise<InstalledSkillLock> {
   const filepath = installedSkillLockPath()
-  const source = await fsp.readFile(filepath, "utf8").catch((error: unknown) => {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+  const source = await fsp.readFile(filepath, "utf8").catch((error) => {
+    if (parseTNodeErrorCode(error) === "ENOENT") {
       return undefined
     }
     throw error

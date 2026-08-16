@@ -42,7 +42,7 @@ export function resolveTeachingProvisionPersona(input: {
   })
 }
 
-export function mapTeachingWorkspaceError(error: unknown): Response | undefined {
+export function mapTeachingWorkspaceError<TError>(error: TError): Response | undefined {
   if (error instanceof TeachingWorkspaceNotFoundError) {
     return Response.json({ error: error.message }, { status: 404 })
   }

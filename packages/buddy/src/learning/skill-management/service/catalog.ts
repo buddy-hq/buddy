@@ -70,11 +70,13 @@ async function resolveSkillDisplay(input: {
     : undefined
   const icon = catalogIcon ?? presentation.icon
 
-  return {
-    displayName: presentation.displayName,
-    shortDescription: presentation.shortDescription,
-    ...(icon ? { icon } : {}),
-  }
+  return Object.assign(
+    {
+      displayName: presentation.displayName,
+      shortDescription: presentation.shortDescription,
+    },
+    icon ? { icon } : undefined,
+  )
 }
 
 async function toInstalledSkillInfo(input: {
@@ -95,29 +97,31 @@ async function toInstalledSkillInfo(input: {
     }),
   ])
 
-  return {
-    name: input.skill.name,
-    description: input.skill.description,
-    displayName: presentation.displayName,
-    shortDescription: presentation.shortDescription,
-    ...(presentation.icon ? { icon: presentation.icon } : {}),
-    location: input.skill.location,
-    directory: skillDirectory,
-    content: input.skill.content,
-    examplePrompt: metadata.examplePrompt,
-    enabled: enabledAction(permissionRule.rule.action),
-    permissionAction: permissionRule.rule.action,
-    permissionSource: resolvePermissionSource({
-      explicit: permissionRule.explicit,
-      matchedPattern: permissionRule.rule.pattern,
-      skillName: input.skill.name,
-    }),
-    source: source.source,
-    scope,
-    managed: source.managed,
-    removable: source.removable,
-    ...(source.libraryID ? { libraryID: source.libraryID } : {}),
-  }
+  return Object.assign(
+    {
+      name: input.skill.name,
+      description: input.skill.description,
+      displayName: presentation.displayName,
+      shortDescription: presentation.shortDescription,
+      location: input.skill.location,
+      directory: skillDirectory,
+      content: input.skill.content,
+      examplePrompt: metadata.examplePrompt,
+      enabled: enabledAction(permissionRule.rule.action),
+      permissionAction: permissionRule.rule.action,
+      permissionSource: resolvePermissionSource({
+        explicit: permissionRule.explicit,
+        matchedPattern: permissionRule.rule.pattern,
+        skillName: input.skill.name,
+      }),
+      source: source.source,
+      scope,
+      managed: source.managed,
+      removable: source.removable,
+    },
+    presentation.icon ? { icon: presentation.icon } : undefined,
+    source.libraryID ? { libraryID: source.libraryID } : undefined,
+  )
 }
 
 function sortSkillsByName(skills: OpenCodeSkill[]) {
@@ -177,14 +181,16 @@ export async function listSkillsCatalog(
     Config.getGlobal(),
   ])
 
-  return {
-    directory,
-    managedRoot: managedSkillsRoot(),
-    externalVendorRootsEnabled: globalConfig.skills_external_vendor_roots_enabled === true,
-    installed,
-    library: library.entries,
-    ...(catalogSnapshot.syncError ? { librarySyncError: catalogSnapshot.syncError } : {}),
-  }
+  return Object.assign(
+    {
+      directory,
+      managedRoot: managedSkillsRoot(),
+      externalVendorRootsEnabled: globalConfig.skills_external_vendor_roots_enabled === true,
+      installed,
+      library: library.entries,
+    },
+    catalogSnapshot.syncError ? { librarySyncError: catalogSnapshot.syncError } : undefined,
+  )
 }
 
 /**

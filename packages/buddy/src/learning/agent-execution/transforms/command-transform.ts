@@ -19,7 +19,9 @@ import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/tran
 import type { SessionTransform, SessionTransformContext } from "./types"
 import { resolveSubagentToolForwarding } from "./subagent-tool-forwarding"
 
-type TransformedCommand = Record<string, unknown> & {
+import type { TJsonObject } from "../../prompt/utils"
+
+type TransformedCommand = TJsonObject & {
   agent: string
 }
 
@@ -29,7 +31,7 @@ export function createSessionCommandTransform(input: {
   let rollbackTeachingState: (() => void) | undefined
 
   return {
-    onTransform: async (body: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    onTransform: async (body: TJsonObject): Promise<TJsonObject> => {
       assertNoLegacyRuntimeOverrides(body)
 
       await OpenCodeInstance.provide({

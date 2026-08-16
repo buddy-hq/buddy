@@ -1,5 +1,6 @@
 import { readSkillCatalogSnapshot, reconcileWithdrawnLibrarySkills } from "./library"
 import { refreshSystemSkillPack } from "./system-installer"
+import { parseTErrorMessage } from "../../shared/parse-values"
 
 const SKILL_ARTIFACT_REFRESH_INTERVAL_MS = 60 * 60 * 1_000
 
@@ -59,8 +60,8 @@ function reportBackgroundRefresh(result: SkillArtifactRefreshResult): void {
 }
 
 function runBackgroundRefresh(): void {
-  void refreshSkillArtifacts().then(reportBackgroundRefresh, (error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error)
+  void refreshSkillArtifacts().then(reportBackgroundRefresh, (error) => {
+    const message = parseTErrorMessage(error)
     console.warn(`Skill artifact refresh failed: ${message}`)
   })
 }

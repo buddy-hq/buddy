@@ -3,19 +3,16 @@ import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { resolveAtomicWriteTarget } from "../../storage/locked-atomic-file"
 import type { BuddyToolContext } from "./create-buddy-tool"
+import { parseTNodeErrorCode } from "../shared/parse-values"
 
 const EXTERNAL_DIRECTORY_PERMISSION = "external_directory" as const
 const DIRECTORY_CHILD_PATTERN = "*" as const
 
 type ExternalFileAuthorizationContext = Pick<BuddyToolContext, "ask" | "directory">
 
-function isMissingPathError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error.code === "ENOENT" || error.code === "ENOTDIR")
-  )
+function isMissingPathError<TError>(error: TError): boolean {
+  const code = parseTNodeErrorCode(error)
+  return code === "ENOENT" || code === "ENOTDIR"
 }
 
 function uniqueValues(values: readonly string[]): string[] {
@@ -103,7 +100,7 @@ async function authorizeFileReadPaths(
 
   const canonicalPaths = await Promise.all(
     lexicalPaths.map((filePath) =>
-      fs.realpath(filePath).catch((error: unknown) => {
+      fs.realpath(filePath).catch((error) => {
         if (isMissingPathError(error)) return filePath
         throw error
       }),

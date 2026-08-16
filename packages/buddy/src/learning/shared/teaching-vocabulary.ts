@@ -36,7 +36,7 @@ export const PERSONA_DELEGATE_IDS = [...SUBAGENT_IDS, ...NATIVE_DELEGATE_IDS] as
 export type PersonaDelegateId = (typeof PERSONA_DELEGATE_IDS)[number]
 
 export function isPersona(value: string): value is Persona {
-  return PERSONAS.includes(value as Persona)
+  return PERSONAS.some((persona) => persona === value)
 }
 
 export function isPrimaryUse(value: string): value is PrimaryUse {
@@ -44,13 +44,13 @@ export function isPrimaryUse(value: string): value is PrimaryUse {
 }
 
 export function isPersonaSurface(value: string): value is PersonaSurface {
-  return PERSONA_SURFACES.includes(value as PersonaSurface)
+  return PERSONA_SURFACES.some((surface) => surface === value)
 }
 
 export function isSubagentId(value: string): value is SubagentId {
-  return SUBAGENT_IDS.includes(value as SubagentId)
+  return SUBAGENT_IDS.some((subagentId) => subagentId === value)
 }
 
 export function isPersonaDelegateId(value: string): value is PersonaDelegateId {
-  return PERSONA_DELEGATE_IDS.includes(value as PersonaDelegateId)
+  return PERSONA_DELEGATE_IDS.some((delegateId) => delegateId === value)
 }

@@ -9,6 +9,7 @@ import {
   CATALOG_ICON_MEDIA_TYPE,
   type CatalogIconArtifact,
 } from "./catalog-icon-reference"
+import { parseTNodeErrorCode } from "../../shared/parse-values"
 
 const CATALOG_ICON_FETCH_TIMEOUT_MS = 10_000
 export const CATALOG_ICON_MAX_BYTES = 2 * 1024 * 1024
@@ -64,8 +65,8 @@ async function readCachedIcon(
   filepath: string,
   icon: CatalogIconArtifact,
 ): Promise<CachedCatalogIcon | undefined> {
-  const bytes = await fsp.readFile(filepath).catch((error: unknown) => {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined
+  const bytes = await fsp.readFile(filepath).catch((error) => {
+    if (parseTNodeErrorCode(error) === "ENOENT") return undefined
     throw error
   })
   if (!bytes) return undefined

@@ -23,6 +23,8 @@ import { toolMatchesRuntimeConstraints } from "../../runtime/tool-constraints"
 import { getBuddySubagentDefinition } from "../../subagent-manifest"
 import { isDynamicLearningToolSessionRule } from "../../runtime/dynamic-tool-permissions"
 import type { ResolvedSessionRuntime } from "../../access/types"
+import { parseJsonObject, parsePromptBoolean, type TJsonValue } from "../../prompt/utils"
+import { parseTOpenCodeErrorPayload, parseTPermissionAction } from "../../shared/parse-values"
 
 const EDIT_PERMISSION_TOOL_IDS = new Set(["apply_patch", "edit", "multiedit", "write"])
 
@@ -51,48 +53,35 @@ type SubagentForwardingResult = {
 
 type ToolModelInput = Parameters<typeof ToolRegistry.tools>[0]
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function isSessionNotFoundError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
+function isSessionNotFoundError<TError>(error: TError): boolean {
+  const payload = parseTOpenCodeErrorPayload(error)
+  if (payload === undefined || payload.name !== "NotFoundError") {
     return false
   }
-  const payload = error as {
-    name?: unknown
-    message?: unknown
-    data?: { message?: unknown }
-  }
-  if (payload.name !== "NotFoundError") {
-    return false
-  }
-  const message =
-    typeof payload.data?.message === "string"
-      ? payload.data.message
-      : typeof payload.message === "string"
-        ? payload.message
-        : undefined
-  return typeof message === "string" && message.startsWith("Session not found:")
+  const message = payload.data?.message ?? payload.message
+  return message !== undefined && message.startsWith("Session not found:")
 }
 
 function toolPermissionKey(toolID: string): string {
   return EDIT_PERMISSION_TOOL_IDS.has(toolID) ? "edit" : toolID
 }
 
-function parseToolOverrides(value: unknown): ToolOverrideMap | undefined {
-  if (!isRecord(value)) {
+function parseToolOverrides<TValue>(value: TValue): ToolOverrideMap | undefined {
+  const record = parseJsonObject(value)
+  if (record === undefined) {
     return undefined
   }
 
-  const entries = Object.entries(value).filter(
-    (entry): entry is [string, boolean] => typeof entry[1] === "boolean",
-  )
-  if (entries.length === 0) {
+  const forwarded: ToolOverrideMap = {}
+  for (const [key, entry] of Object.entries(record)) {
+    const flag = parsePromptBoolean(entry)
+    if (flag === undefined) continue
+    forwarded[key] = flag
+  }
+  if (Object.keys(forwarded).length === 0) {
     return undefined
   }
-
-  return Object.fromEntries(entries)
+  return forwarded
 }
 
 function clonePermissionRules(
@@ -125,11 +114,15 @@ function visibleToolIDs(input: {
   )
 }
 
+function isPermissionRuleMap<TValue>(rule: TValue): boolean {
+  return parseTPermissionAction(rule) === undefined && parseJsonObject(rule) !== undefined
+}
+
 function collectPermissionKeys(
   permission: BuddyPermissionInput | undefined,
   action: "allow" | "deny",
 ): Set<string> {
-  if (!permission || typeof permission === "string") {
+  if (!permission || parseTPermissionAction(permission) !== undefined) {
     return new Set()
   }
 
@@ -139,20 +132,19 @@ function collectPermissionKeys(
       continue
     }
 
-    if (typeof rule === "string") {
-      if (rule === action) {
+    const ruleAction = parseTPermissionAction(rule)
+    if (ruleAction !== undefined) {
+      if (ruleAction === action) {
         keys.add(permissionKey)
       }
       continue
     }
 
-    if (
-      rule &&
-      typeof rule === "object" &&
-      !Array.isArray(rule) &&
-      Object.values(rule).some((value) => value === action)
-    ) {
-      keys.add(permissionKey)
+    if (isPermissionRuleMap(rule)) {
+      const record = parseJsonObject(rule)
+      if (record !== undefined && Object.values(record).some((value) => value === action)) {
+        keys.add(permissionKey)
+      }
     }
   }
 
@@ -257,7 +249,7 @@ function specializedToolIDs(input: {
 function buildToolOverrides(input: {
   allowedToolIDs: Set<string>
   allToolIDs: readonly string[]
-  existing: unknown
+  existing: TJsonValue | undefined
   specializedToolIDs: Set<string>
 }) {
   const existing = parseToolOverrides(input.existing) ?? {}
@@ -544,7 +536,7 @@ function stateSeed(input: {
 }
 
 export async function resolveSubagentToolForwarding(input: {
-  currentTools: unknown
+  currentTools: TJsonValue | undefined
   directory: string
   model?: ToolModelInput
   previousState?: TeachingSessionState

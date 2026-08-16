@@ -1,6 +1,8 @@
 import type { BuddyPermissionInput, CoreAgentDefinition } from "../../agent-factories"
 import type { PersonaContextPolicy } from "../../shared/runtime-types"
 import type { PersonaDelegateId, Surface } from "../../shared/teaching-vocabulary"
+import { isPersonaDelegateId } from "../../shared/teaching-vocabulary"
+import { parseJsonObject, parsePromptStringList } from "../../prompt/utils"
 import type { DefinedBuddyFeature } from "../../runtime/define-buddy-feature"
 
 type BuddyPersonaDefinitionInput<Id extends string = string> = {
@@ -38,6 +40,14 @@ type BuddyPersonaFullDefinitionInput<Id extends string> = BuddyPersonaDefinition
 
 type DefinedBuddyPersona<Id extends string = string> = BuddyPersonaFullDefinitionInput<Id>
 
+function cloneSubagentPolicy<TValue>(value: TValue): true | PersonaSubagentPolicy | undefined {
+  if (value === true) return true
+  const record = parseJsonObject(value)
+  if (record === undefined) return undefined
+  const denyTools = parsePromptStringList(record.denyTools)
+  return denyTools === undefined ? {} : { denyTools }
+}
+
 function cloneSubagentConfig(
   config: PersonaSubagentConfig | undefined,
 ): PersonaSubagentConfig | undefined {
@@ -45,12 +55,14 @@ function cloneSubagentConfig(
     return undefined
   }
 
-  return Object.fromEntries(
-    Object.entries(config).map(([key, value]) => [
-      key,
-      value === true ? true : value.denyTools ? { denyTools: [...value.denyTools] } : {},
-    ]),
-  ) as PersonaSubagentConfig
+  const cloned: PersonaSubagentConfig = {}
+  for (const [key, value] of Object.entries(config)) {
+    if (!isPersonaDelegateId(key) || value === undefined) continue
+    const policy = cloneSubagentPolicy(value)
+    if (policy === undefined) continue
+    cloned[key] = policy
+  }
+  return cloned
 }
 
 function assertRuntimeSubagentsAreDelegatable(input: {

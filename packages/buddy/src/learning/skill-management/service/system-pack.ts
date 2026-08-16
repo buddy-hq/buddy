@@ -204,8 +204,8 @@ function validateCompatibility(
   return pack
 }
 
-export function parseSystemSkillPack(
-  input: unknown,
+export function parseSystemSkillPack<TValue>(
+  input: TValue,
   compatibility?: SystemSkillPackCompatibility,
 ): SystemSkillPack {
   const pack = validateSystemSkillPackContents(systemSkillPackSchema.parse(input))

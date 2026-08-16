@@ -5,6 +5,7 @@ import { BUDDY_SUBAGENTS } from "./subagent-manifest"
 import type { BuddySubagentDefinition } from "./subagent-manifest"
 import type { RegisteredBuddyAgent } from "./register-buddy-agent"
 import type { BuddyPermissionInput } from "./agent-factories"
+import { parseTPermissionAction } from "./shared/parse-values"
 
 type OwnedToolPermissionMap = Record<string, "allow">
 
@@ -16,6 +17,12 @@ function subagentToolPermissions(
   )
 
   return Object.keys(permissions).length > 0 ? permissions : undefined
+}
+
+function isBuddyPermissionMap(
+  permission: BuddyPermissionInput,
+): permission is Exclude<BuddyPermissionInput, string> {
+  return parseTPermissionAction(permission) === undefined
 }
 
 function mergeOwnedToolPermissions(
@@ -30,7 +37,7 @@ function mergeOwnedToolPermissions(
     return ownedToolPermissions
   }
 
-  if (typeof permission === "string") {
+  if (!isBuddyPermissionMap(permission)) {
     return {
       "*": permission,
       ...ownedToolPermissions,

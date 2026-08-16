@@ -20,11 +20,15 @@ function allLearningToolMetadata(): LearningToolMetadata[] {
     for (const tool of tools) {
       if (seen.has(tool.id)) continue
       seen.add(tool.id)
-      metadata.push({
-        id: tool.id,
-        featureID: feature.id,
-        ...(tool.constraints ? { constraints: tool.constraints } : {}),
-      })
+      metadata.push(
+        Object.assign(
+          {
+            id: tool.id,
+            featureID: feature.id,
+          },
+          tool.constraints ? { constraints: tool.constraints } : undefined,
+        ),
+      )
     }
   }
 
