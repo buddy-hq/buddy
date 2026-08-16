@@ -20,6 +20,7 @@ import { REGISTERED_BUDDY_PERSONAS } from "../../src/learning/personas/registry"
 import { getBuddyPersona } from "../../src/learning/personas/wiring/persona-profiles"
 import { LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY } from "../../src/learning/features/memory/subagents/memory-consolidator"
 import { loadOpenCodeApp } from "../../src/opencode-runtime"
+import { parseJsonObject, parsePromptString } from "../helpers/parse"
 import { TEST_TOOL_MODEL, requireTool } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 
@@ -37,10 +38,13 @@ async function createSession(input: {
   return OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () => {
-      const session = await OpenCodeSession.create({
-        ...(input.parentID ? { parentID: SessionID.make(input.parentID) } : {}),
-        ...(input.permission ? { permission: input.permission } : {}),
-      })
+      const session = await OpenCodeSession.create(
+        Object.assign(
+          {},
+          input.parentID ? { parentID: SessionID.make(input.parentID) } : undefined,
+          input.permission ? { permission: input.permission } : undefined,
+        ),
+      )
       return session.id
     },
   })
@@ -231,7 +235,7 @@ describe("subagent tool forwarding", () => {
     const transformed = await transform.onTransform({
       agent: "question-set-author",
     })
-    const tools = (transformed.tools ?? {}) as Record<string, boolean>
+    const tools = parseJsonObject(transformed.tools) ?? {}
 
     expect(transformed.agent).toBe("question-set-author")
     expect(tools.save_flashcard_deck).toBe(false)
@@ -308,7 +312,7 @@ describe("subagent tool forwarding", () => {
     const transformed = await childTransform.onTransform({
       agent: "question-set-author",
     })
-    const tools = (transformed.tools ?? {}) as Record<string, boolean>
+    const tools = parseJsonObject(transformed.tools) ?? {}
 
     expect(tools.debug_attempt).toBe(false)
     expect(tools.save_flashcard_deck).toBe(false)
@@ -477,6 +481,7 @@ describe("subagent tool forwarding", () => {
       agent: "buddy",
     })
 
+    let cancelCalls = 0
     let capturedChildPrompt:
       | {
           agent: string
@@ -515,7 +520,10 @@ describe("subagent tool forwarding", () => {
             extra: {
               bypassAgentCheck: true,
               promptOps: {
-                cancel() {},
+                cancel() {
+                  cancelCalls += 1
+                  return Effect.void
+                },
                 resolvePromptParts(template: string) {
                   return Effect.succeed([
                     {
@@ -525,14 +533,15 @@ describe("subagent tool forwarding", () => {
                   ])
                 },
                 prompt(input: PromptInput) {
-                  if (!input.messageID || !input.model || typeof input.agent !== "string") {
+                  const agent = parsePromptString(input.agent)
+                  if (!input.messageID || !input.model || agent === undefined) {
                     throw new Error(
                       "Expected delegated task prompt input to include agent metadata.",
                     )
                   }
 
                   capturedChildPrompt = {
-                    agent: input.agent,
+                    agent,
                     sessionID: input.sessionID,
                     tools: input.tools,
                   }
@@ -578,6 +587,7 @@ describe("subagent tool forwarding", () => {
       throw new Error("Expected task prompt forwarding to capture the child prompt.")
     }
 
+    expect(cancelCalls).toBeGreaterThan(0)
     expect(capturedChildPrompt.agent).toBe("question-set-author")
     expect(capturedChildPrompt.tools?.websearch).toBe(false)
     expect(capturedChildPrompt.tools?.save_flashcard_deck).toBe(false)
@@ -662,14 +672,15 @@ describe("subagent tool forwarding", () => {
                     ])
                   },
                   prompt(input: PromptInput) {
-                    if (!input.messageID || !input.model || typeof input.agent !== "string") {
+                    const agent = parsePromptString(input.agent)
+                    if (!input.messageID || !input.model || agent === undefined) {
                       throw new Error(
                         "Expected delegated task prompt input to include agent metadata.",
                       )
                     }
 
                     capturedChildPrompt = {
-                      agent: input.agent,
+                      agent,
                       sessionID: input.sessionID,
                       tools: input.tools,
                     }
@@ -796,14 +807,15 @@ describe("subagent tool forwarding", () => {
                   ])
                 },
                 prompt(input: PromptInput) {
-                  if (!input.messageID || !input.model || typeof input.agent !== "string") {
+                  const agent = parsePromptString(input.agent)
+                  if (!input.messageID || !input.model || agent === undefined) {
                     throw new Error(
                       "Expected delegated task prompt input to include agent metadata.",
                     )
                   }
 
                   capturedChildPrompt = {
-                    agent: input.agent,
+                    agent,
                     sessionID: input.sessionID,
                     tools: input.tools,
                   }

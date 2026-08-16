@@ -17,6 +17,8 @@ type TPromptInput = {
 }
 
 type TPromptOps = {
+  cancel: (sessionID: string) => Effect.Effect<unknown>
+  resolvePromptParts: (template: string) => Effect.Effect<unknown>
   prompt: (input: TPromptInput) => Effect.Effect<unknown>
 }
 type TChildSessionMetadata = {
@@ -27,12 +29,20 @@ type TTaskToolArgs = {
   subagent_type: string
 }
 
-const promptOpsSchema = z.object({
-  prompt: z.function({
-    input: [z.custom<TPromptInput>()],
-    output: z.custom<Effect.Effect<unknown>>(),
-  }),
-})
+const promptOpsFunctionSchema = z.function()
+const promptOpsSchema = z
+  .object({
+    cancel: z.custom<TPromptOps["cancel"]>(
+      (value) => promptOpsFunctionSchema.safeParse(value).success,
+    ),
+    resolvePromptParts: z.custom<TPromptOps["resolvePromptParts"]>(
+      (value) => promptOpsFunctionSchema.safeParse(value).success,
+    ),
+    prompt: z.custom<TPromptOps["prompt"]>(
+      (value) => promptOpsFunctionSchema.safeParse(value).success,
+    ),
+  })
+  .passthrough()
 
 const childSessionMetadataSchema = z.object({
   metadata: z.object({
