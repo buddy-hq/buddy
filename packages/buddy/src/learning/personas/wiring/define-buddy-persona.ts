@@ -107,12 +107,12 @@ export function defineBuddyPersona<const Id extends string>(
     ...profile,
     features: [...profile.features],
     context: { ...profile.context },
-    runtime: {
-      ...runtime,
-      ...(runtime.description ? { description: runtime.description } : {}),
-      permission: runtime.permission ?? PRIMARY_PERSONA_PERMISSION,
-      ...(runtime.subagents ? { subagents: cloneSubagentConfig(runtime.subagents) } : {}),
-    },
+    runtime: Object.assign(
+      { ...runtime },
+      runtime.description ? { description: runtime.description } : undefined,
+      { permission: runtime.permission ?? PRIMARY_PERSONA_PERMISSION },
+      runtime.subagents ? { subagents: cloneSubagentConfig(runtime.subagents) } : undefined,
+    ),
   }
 }
 

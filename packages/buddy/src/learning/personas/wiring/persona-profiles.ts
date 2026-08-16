@@ -164,14 +164,16 @@ function resolveBuddyPersonaProfiles(
     const override = overrides?.[personaID]
     if (override) {
       const base = profiles[personaID]
-      profiles[personaID] = {
-        ...base,
-        ...(override.label ? { label: override.label } : {}),
-        ...(override.description ? { description: override.description } : {}),
-        ...(override.surfaces ? { surfaces: [...override.surfaces] } : {}),
-        ...(override.defaultSurface ? { defaultSurface: override.defaultSurface } : {}),
-        ...(typeof override.hidden === "boolean" ? { hidden: override.hidden } : {}),
-      }
+      profiles[personaID] = Object.assign(
+        Object.assign(
+          { ...base },
+          override.label ? { label: override.label } : undefined,
+          override.description ? { description: override.description } : undefined,
+          override.surfaces ? { surfaces: [...override.surfaces] } : undefined,
+        ),
+        override.defaultSurface ? { defaultSurface: override.defaultSurface } : undefined,
+        typeof override.hidden === "boolean" ? { hidden: override.hidden } : undefined,
+      )
     }
 
     if (!personaIsAvailable(personaID, developmentPersonasEnabled)) {
