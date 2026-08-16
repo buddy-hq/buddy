@@ -934,10 +934,7 @@ export type WhiteboardOpeningSelection = WhiteboardOpeningVariantID | "sequence"
 /** What the whiteboard pane ships: every composition in turn, evenly spaced. */
 export const WHITEBOARD_OPENING_DEFAULT_SELECTION = "sequence" satisfies WhiteboardOpeningSelection
 
-export function buildWhiteboardOpening(selection: WhiteboardOpeningSelection): {
-  data: LottieAnimationData
-  restFrame: number
-} {
+export function buildWhiteboardOpening(selection: WhiteboardOpeningSelection) {
   if (selection !== "sequence") {
     const variant = whiteboardOpeningVariant(selection)
     return { data: variant.build(), restFrame: variant.restFrame }

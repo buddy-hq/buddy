@@ -103,7 +103,7 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value)
 }
 
-function normalizeLabel(value: unknown): unknown {
+function normalizeLabel(value: unknown) {
   if (!isRecord(value) || !isRecord(value.label) || typeof value.label.text !== "string") {
     return value
   }
@@ -126,7 +126,7 @@ function stablePositiveHash(value: string): number {
   return (hash % EXCALIDRAW_MAX_SEED) + 1
 }
 
-function normalizeElement(value: unknown): unknown {
+function normalizeElement(value: unknown) {
   const normalized = normalizeLabel(value)
   if (!isRecord(normalized)) return normalized
   if (typeof normalized.id !== "string" || typeof normalized.type !== "string") return normalized
@@ -397,10 +397,7 @@ function resolveWhiteboardRemoteSceneUpdate(input: {
   nextElementSignature: string
   wasReadOnly: boolean
   isReadOnly: boolean
-}): {
-  shouldApply: boolean
-  preserveCurrentElements: boolean
-} {
+}) {
   if (input.currentElementSignature !== input.nextElementSignature) {
     return {
       shouldApply: true,
