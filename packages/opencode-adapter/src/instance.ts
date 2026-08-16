@@ -7,26 +7,35 @@ import {
 import { InstanceRuntime } from "opencode/project/instance-runtime"
 import type { Project } from "./project"
 
-type ProvideInput<R> = {
+type TProvideInput<TResult> = {
   directory: string
   worktree?: string
   project?: Project.Info
-  init?: () => Promise<unknown>
-  fn: () => R
+  init?: () => Promise<void>
+  fn: () => TResult
+}
+
+type TInstanceLoadInput = {
+  directory: string
+  worktree?: string
+  project?: Project.Info
 }
 
 function resolveDirectory(directory: string) {
   return path.resolve(directory)
 }
 
+function toRuntimeLoadInput(input: TInstanceLoadInput) {
+  return Object.assign(
+    { directory: resolveDirectory(input.directory) },
+    input.worktree ? { worktree: input.worktree } : undefined,
+    input.project ? { project: input.project } : undefined,
+  )
+}
+
 export const Instance = {
-  async provide<R>(input: ProvideInput<R>): Promise<R> {
-    const directory = resolveDirectory(input.directory)
-    const ctx = await InstanceRuntime.load({
-      directory,
-      ...(input.worktree ? { worktree: input.worktree } : {}),
-      ...(input.project ? { project: input.project } : {}),
-    })
+  async provide<TResult>(input: TProvideInput<TResult>): Promise<TResult> {
+    const ctx = await InstanceRuntime.load(toRuntimeLoadInput(input))
 
     return instanceContext.provide(ctx, async () => {
       if (input.init) {
@@ -50,23 +59,17 @@ export const Instance = {
   containsPath(filepath: string, ctx?: InstanceContext): boolean {
     return withinInstancePath(filepath, ctx ?? Instance.current)
   },
-  bind<F extends (...args: unknown[]) => unknown>(
-    fn: F,
-  ): (...args: Parameters<F>) => ReturnType<F> {
+  bind<TArgs extends readonly unknown[], TResult>(
+    fn: (...args: TArgs) => TResult,
+  ): (...args: TArgs) => TResult {
     const ctx = Instance.current
-    return (...args: Parameters<F>) =>
-      // SAFETY: The context provider returns the wrapped function's result without transforming it.
-      instanceContext.provide(ctx, () => fn(...args)) as ReturnType<F>
+    return (...args: TArgs) => instanceContext.provide(ctx, () => fn(...args))
   },
-  restore<R>(ctx: InstanceContext, fn: () => R): R {
+  restore<TResult>(ctx: InstanceContext, fn: () => TResult): TResult {
     return instanceContext.provide(ctx, fn)
   },
-  async reload(input: Omit<ProvideInput<unknown>, "fn">): Promise<InstanceContext> {
-    return InstanceRuntime.reloadInstance({
-      directory: resolveDirectory(input.directory),
-      ...(input.worktree ? { worktree: input.worktree } : {}),
-      ...(input.project ? { project: input.project } : {}),
-    })
+  async reload(input: TInstanceLoadInput): Promise<InstanceContext> {
+    return InstanceRuntime.reloadInstance(toRuntimeLoadInput(input))
   },
   async dispose() {
     return InstanceRuntime.disposeInstance(Instance.current)

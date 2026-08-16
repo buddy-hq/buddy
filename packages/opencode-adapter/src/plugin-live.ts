@@ -18,7 +18,7 @@ const configRuntime = makeRuntime(
 const patchedServices = new WeakSet<OpenCodePlugin.Interface>()
 const runtimePluginFactories = new Set<RuntimePluginFactory>()
 const hookPromisesByInstance = new Map<string, Promise<RuntimeHooks[]>>()
-const configuredRuntimeHookConfigs = new WeakMap<RuntimeHooks, WeakSet<object>>()
+const configuredRuntimeHookConfigs = new WeakMap<RuntimeHooks, WeakSet<ConfigV1.Info>>()
 const RUNTIME_HOOK_LOAD_FAILURE_MESSAGE = "Buddy runtime plugin hook load failed"
 const RUNTIME_HOOK_TRIGGER_FAILURE_MESSAGE = "Buddy runtime plugin hook trigger failed"
 const RUNTIME_HOOK_CONFIG_FAILURE_MESSAGE = "Buddy runtime plugin config hook failed"
@@ -36,8 +36,8 @@ export type RuntimeHooks = Omit<Hooks, "config"> & {
 }
 
 type RuntimePluginFactory = (context: RuntimePluginContext) => Promise<RuntimeHooks>
-type TriggerName = {
-  [K in keyof Hooks]-?: NonNullable<Hooks[K]> extends (input: any, output: any) => Promise<void>
+type TTriggerName = {
+  [K in keyof Hooks]-?: NonNullable<Hooks[K]> extends (input: never, output: never) => Promise<void>
     ? K
     : never
 }[keyof Hooks]
@@ -104,7 +104,7 @@ const getRuntimeHooks = Effect.fn("BuddyPlugin.getRuntimeHooks")(function* () {
   )
 })
 
-function markRuntimeHookConfigApplied(hook: RuntimeHooks, config: object) {
+function markRuntimeHookConfigApplied(hook: RuntimeHooks, config: ConfigV1.Info) {
   const configured = configuredRuntimeHookConfigs.get(hook)
   if (configured) {
     if (configured.has(config)) return false
@@ -145,16 +145,54 @@ const applyRuntimeConfigHooks = Effect.fn("BuddyPlugin.applyRuntimeConfigHooks")
   }
 })
 
-async function invokeRuntimeTrigger(
+function dispatchRuntimeTrigger(
   hook: RuntimeHooks,
-  name: TriggerName,
-  input: unknown,
-  output: unknown,
-) {
-  // SAFETY: TriggerName is the runtime-hook subset whose members share this two-argument contract.
-  const fn = hook[name] as ((input: unknown, output: unknown) => Promise<void>) | undefined
-  if (typeof fn !== "function") return
-  await fn(input, output)
+  name: TTriggerName,
+  input: never,
+  output: never,
+): Promise<void> {
+  switch (name) {
+    case "dispose":
+      return hook.dispose?.() ?? Promise.resolve()
+    case "event":
+      return hook.event?.(input) ?? Promise.resolve()
+    case "config":
+      return hook.config?.(input) ?? Promise.resolve()
+    case "chat.message":
+      return hook["chat.message"]?.(input, output) ?? Promise.resolve()
+    case "chat.params":
+      return hook["chat.params"]?.(input, output) ?? Promise.resolve()
+    case "chat.headers":
+      return hook["chat.headers"]?.(input, output) ?? Promise.resolve()
+    case "permission.ask":
+      return hook["permission.ask"]?.(input, output) ?? Promise.resolve()
+    case "command.execute.before":
+      return hook["command.execute.before"]?.(input, output) ?? Promise.resolve()
+    case "tool.execute.before":
+      return hook["tool.execute.before"]?.(input, output) ?? Promise.resolve()
+    case "shell.env":
+      return hook["shell.env"]?.(input, output) ?? Promise.resolve()
+    case "tool.execute.after":
+      return hook["tool.execute.after"]?.(input, output) ?? Promise.resolve()
+    case "experimental.chat.messages.transform":
+      return hook["experimental.chat.messages.transform"]?.(input, output) ?? Promise.resolve()
+    case "experimental.chat.system.transform":
+      return hook["experimental.chat.system.transform"]?.(input, output) ?? Promise.resolve()
+    case "experimental.provider.small_model":
+      return hook["experimental.provider.small_model"]?.(input, output) ?? Promise.resolve()
+    case "experimental.session.compacting":
+      return hook["experimental.session.compacting"]?.(input, output) ?? Promise.resolve()
+    case "experimental.compaction.autocontinue":
+      return hook["experimental.compaction.autocontinue"]?.(input, output) ?? Promise.resolve()
+    case "experimental.text.complete":
+      return hook["experimental.text.complete"]?.(input, output) ?? Promise.resolve()
+    case "tool.definition":
+      return hook["tool.definition"]?.(input, output) ?? Promise.resolve()
+    default: {
+      const _exhaustive: never = name
+      return Promise.resolve(_exhaustive)
+    }
+  }
 }
 
 function exposeRuntimeHook(hook: RuntimeHooks): Hooks {
@@ -184,7 +222,7 @@ function ensurePatched(service: OpenCodePlugin.Interface) {
   })
 
   const trigger = Effect.fn("BuddyPlugin.trigger")(function* <
-    Name extends TriggerName,
+    Name extends TTriggerName,
     Input = Parameters<Required<Hooks>[Name]>[0],
     Output = Parameters<Required<Hooks>[Name]>[1],
   >(name: Name, input: Input, output: Output) {
@@ -193,7 +231,9 @@ function ensurePatched(service: OpenCodePlugin.Interface) {
 
     for (const hook of runtimeHooks) {
       yield* Effect.tryPromise({
-        try: () => invokeRuntimeTrigger(hook, name, input, next),
+        try: () =>
+          // SAFETY: `name` already selected this hook's input/output pair; TS cannot re-prove that after widening to the trigger union.
+          dispatchRuntimeTrigger(hook, name, input as never, next as never),
         catch: (error) => error,
       }).pipe(
         Effect.catch((error) =>
