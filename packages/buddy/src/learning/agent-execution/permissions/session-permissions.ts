@@ -60,10 +60,7 @@ function appendRuleByAction(input: {
   appendRule(input.allowRules, input.rule)
 }
 
-function buildManagedRuntimeRules(sessionRuntime: ResolvedSessionRuntime): {
-  allowRules: PermissionRuleset
-  denyRules: PermissionRuleset
-} {
+function buildManagedRuntimeRules(sessionRuntime: ResolvedSessionRuntime) {
   const allowRules: PermissionRuleset = []
   const denyRules: PermissionRuleset = []
 

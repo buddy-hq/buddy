@@ -23,7 +23,7 @@ function dynamicLearningToolDefaultDenyRules(): PermissionRuleset {
   return dynamicLearningToolIDs().map(dynamicLearningToolDenyRule)
 }
 
-function dynamicLearningToolAgentPermission(): DynamicLearningToolAgentPermission {
+function dynamicLearningToolAgentPermission() {
   const permission: DynamicLearningToolAgentPermission = {}
 
   for (const toolID of dynamicLearningToolIDs()) {

@@ -52,7 +52,7 @@ function buildToolPermissions(
   features: readonly DefinedBuddyFeature[],
   teachingWorkspaceState: TeachingWorkspaceState,
   configuredToolToggles?: Config.Info["tools"],
-): Record<string, "allow" | "deny"> {
+) {
   const tools = collectFeatureTools(features)
   const permissions: Record<string, "allow" | "deny"> = {}
 
@@ -74,7 +74,7 @@ function buildToolPermissions(
 
 function buildSkillPermissions(
   features: readonly DefinedBuddyFeature[],
-): Record<string, "allow" | "deny"> {
+) {
   const permissions: Record<string, "allow" | "deny"> = {}
   const seen = new Set<string>()
 
@@ -91,7 +91,7 @@ function buildSkillPermissions(
 
 function buildSubagentPermissions(
   features: readonly DefinedBuddyFeature[],
-): Record<string, "allow" | "deny"> {
+) {
   const permissions: Record<string, "allow" | "deny"> = {}
   const seen = new Set<string>()
 
