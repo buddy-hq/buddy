@@ -64,10 +64,11 @@ export async function runMessagePromptPipeline(input: {
     sessionPersona: input.previousState?.persona,
   })
 
+  // SAFETY: This widens a fresh copy of the validated record so the pipeline can add and remove fields.
   const transformed = {
     ...input.body,
     parts,
-  } satisfies Record<string, unknown>
+  } as MessagePromptPipelineResult["transformed"]
 
   let sessionRuntimeForPermissions:
     | CreatePromptContextResult["sessionRuntimeForPermissions"]

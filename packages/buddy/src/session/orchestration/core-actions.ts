@@ -41,6 +41,22 @@ type SessionSummarizeBody = {
   auto?: unknown
 }
 
+type SessionUpdateParams = {
+  sessionID: string
+  directory: string
+  title?: string
+  permission?: PermissionRuleset
+  time?: { archived?: number }
+}
+
+type SessionSummarizeParams = {
+  sessionID: string
+  directory: string
+  providerID?: string
+  modelID?: string
+  auto?: boolean
+}
+
 const SESSION_NOT_FOUND_ERROR = "Session not found"
 const NOT_FOUND_STATUS = 404
 const LINK_HEADER = "Link"
@@ -148,16 +164,11 @@ function buildSessionUpdateParams(input: {
   directory: string
   body: SessionPatchBody | undefined
 }) {
+  // SAFETY: The fresh request object is widened only for the validated optional fields populated below.
   const params = {
     sessionID: input.sessionID,
     directory: input.directory,
-  } satisfies {
-    sessionID: string
-    directory: string
-    title?: string
-    permission?: PermissionRuleset
-    time?: { archived?: number }
-  }
+  } as SessionUpdateParams
 
   if (typeof input.body?.title === "string") {
     params.title = input.body.title
@@ -180,16 +191,11 @@ function buildSessionSummarizeParams(input: {
   directory: string
   body: SessionSummarizeBody | undefined
 }) {
+  // SAFETY: The fresh request object is widened only for the validated optional fields populated below.
   const params = {
     sessionID: input.sessionID,
     directory: input.directory,
-  } satisfies {
-    sessionID: string
-    directory: string
-    providerID?: string
-    modelID?: string
-    auto?: boolean
-  }
+  } as SessionSummarizeParams
 
   if (typeof input.body?.providerID === "string") {
     params.providerID = input.body.providerID
@@ -498,7 +504,7 @@ export async function listSessionMessages(c: Context): Promise<Response> {
           const messages = await OpenCodeSession.messages({ sessionID: runtimeSessionID })
           return {
             items: messages,
-            cursor: undefined as string | undefined,
+            cursor: undefined,
           }
         }
 

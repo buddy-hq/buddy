@@ -51,6 +51,11 @@ type ChunkPart = {
   splitReason: ResourceChunkSplitReason
 }
 
+type ChunkFrontmatter = Record<string, unknown> & {
+  page_start?: number
+  page_end?: number
+}
+
 const recursiveChunkerCache = new Map<number, Promise<RecursiveChunker>>()
 
 export async function buildResourceChunkFiles(input: {
@@ -142,6 +147,7 @@ export async function buildResourceChunkFiles(input: {
 
       const markdownBody = [`# ${label}`, "", part.text.trim()].join("\n")
 
+      // SAFETY: The fresh record is widened only to add the optional page bounds below.
       const frontmatter = {
         file_kind: fileKind,
         resource_alias: input.resourceAlias,
@@ -159,7 +165,7 @@ export async function buildResourceChunkFiles(input: {
         est_tokens: estTokens,
         threshold_tokens: threshold.maxTokens,
         split_reason: part.splitReason,
-      } satisfies Record<string, unknown>
+      } as ChunkFrontmatter
 
       if (seed.pageStart !== undefined) {
         frontmatter.page_start = seed.pageStart

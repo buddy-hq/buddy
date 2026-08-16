@@ -223,16 +223,16 @@ const MERMAID_EXECUTABLE_SVG_ELEMENT_NAMES = [
   "link",
   "meta",
 ] as const
-const MERMAID_HTML_CHARACTER_REFERENCES = {
-  amp: "&",
-  apos: "'",
-  colon: ":",
-  gt: ">",
-  lt: "<",
-  NewLine: "\n",
-  quot: '"',
-  Tab: "\t",
-} satisfies Record<string, string>
+const MERMAID_HTML_CHARACTER_REFERENCES = new Map([
+  ["amp", "&"],
+  ["apos", "'"],
+  ["colon", ":"],
+  ["gt", ">"],
+  ["lt", "<"],
+  ["NewLine", "\n"],
+  ["quot", '"'],
+  ["Tab", "\t"],
+])
 const MERMAID_HTML_CHARACTER_REFERENCE_PATTERN =
   /&(?:#x([\da-f]+)|#(\d+)|([A-Za-z][A-Za-z\d]+));?/giu
 const MERMAID_UNSAFE_REFERENCE_SCHEME_PATTERN = /^(?:javascript:|data:text\/html)/iu
@@ -262,7 +262,7 @@ function decodeHtmlCharacterReference(
   }
 
   if (namedValue !== undefined) {
-    return MERMAID_HTML_CHARACTER_REFERENCES[namedValue] ?? match
+    return MERMAID_HTML_CHARACTER_REFERENCES.get(namedValue) ?? match
   }
 
   return match
