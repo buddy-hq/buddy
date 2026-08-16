@@ -354,7 +354,7 @@ export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): Res
   )
 }
 
-export function resolveTheme(theme: DesktopTheme): { light: ResolvedTheme; dark: ResolvedTheme } {
+export function resolveTheme(theme: DesktopTheme) {
   return {
     light: resolveThemeVariant(theme.light, false),
     dark: resolveThemeVariant(theme.dark, true),

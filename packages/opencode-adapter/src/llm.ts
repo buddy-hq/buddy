@@ -60,7 +60,7 @@ type ProviderMetadataInput = Parameters<typeof OpenCodeSession.getUsage>[0]["met
 
 type ModelOptions = Record<string, unknown>
 
-function buildSmallModelHeaders(input: SmallTextInput): Record<string, string> {
+function buildSmallModelHeaders(input: SmallTextInput) {
   return {
     "x-session-affinity": input.sessionID,
     ...input.model.headers,
@@ -114,10 +114,10 @@ async function generateSmallText(input: SmallTextInput): Promise<SmallTextResult
     withCurrentInstance(
       Effect.gen(function* () {
         const languageModel = yield* svc.getLanguage(input.model)
-        const options: ModelOptions = {
+        const options = {
           ...ProviderTransform.smallOptions(input.model),
           ...input.model.options,
-        }
+        } satisfies ModelOptions
         const messages = ProviderTransform.message(
           [{ role: "user", content: input.prompt }],
           input.model,
@@ -170,10 +170,10 @@ async function generateStructuredText(input: StructuredTextInput): Promise<Struc
     withCurrentInstance(
       Effect.gen(function* () {
         const languageModel = yield* svc.getLanguage(input.model)
-        const options: ModelOptions = {
+        const options = {
           ...ProviderTransform.smallOptions(input.model),
           ...input.model.options,
-        }
+        } satisfies ModelOptions
         const messages = ProviderTransform.message(
           [{ role: "user", content: input.prompt }],
           input.model,

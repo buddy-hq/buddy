@@ -508,8 +508,6 @@ export function getRuntimeToolPresentationDescriptor(): ToolPresentationDescript
   return runtimeToolPresentation
 }
 
-export function coreToolPresentationCatalog(): Readonly<
-  Record<IntegratedToolPresentationID, ToolPresentationDescriptor>
-> {
+export function coreToolPresentationCatalog() {
   return catalog
 }
