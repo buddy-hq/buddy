@@ -31,6 +31,7 @@ import {
   syncDesktopRuntimeResources,
 } from "./utils"
 import { BUDDY_ENV, OPENCODE_ENV } from "@buddy/script/storage-env"
+import { parseTJsonObject, parseTNumber, parseTString } from "../src/shared/parse-external"
 
 const BACKEND_UTILITY_SCRIPT = "backend-utility.js" as const
 const ELECTRON_RUN_AS_NODE_ENV = "ELECTRON_RUN_AS_NODE" as const
@@ -128,7 +129,7 @@ function baseEnvironment(): Record<string, string> {
       (entry): entry is [string, string] =>
         entry[0] !== NODE_PATH_ENV_KEY &&
         entry[0] !== ELECTRON_RUN_AS_NODE_ENV &&
-        typeof entry[1] === "string",
+        parseTString(entry[1]) !== undefined,
     ),
   )
 }
@@ -197,10 +198,12 @@ async function request(input: {
   }
   const response = await fetch(url, {
     method: input.method ?? "GET",
-    headers: {
-      authorization: authorizationHeader(),
-      ...(input.body === undefined ? {} : { "content-type": "application/json" }),
-    },
+    headers: Object.assign(
+      {
+        authorization: authorizationHeader(),
+      },
+      input.body === undefined ? undefined : { "content-type": "application/json" },
+    ),
     body: input.body === undefined ? undefined : JSON.stringify(input.body),
   })
   const body = await response.text()
@@ -392,15 +395,11 @@ function currentCommit(): string {
   )
 }
 
-function isReadyFile(value: unknown): value is ReadyFile {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "ready" in value &&
-    value.ready === true &&
-    "pid" in value &&
-    typeof value.pid === "number"
-  )
+function isReadyFile<TValue>(value: TValue): value is TValue & ReadyFile {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return false
+  if (record.ready !== true) return false
+  return parseTNumber(record.pid) !== undefined
 }
 
 function roundMb(value: number): number {

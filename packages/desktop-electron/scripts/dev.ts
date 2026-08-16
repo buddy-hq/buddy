@@ -160,22 +160,24 @@ const child = spawn(DEV_COMMAND, DEV_ARGUMENTS, {
   stdio: "inherit",
   detached: SHOULD_DETACH_CHILD,
   shell: process.platform === "win32",
-  env: {
-    ...process.env,
-    PATH: resolveShellPath(),
-    [BUDDY_DEV_INSTANCE_NAME_ENV]: devInstanceName,
-    ...(macDevElectronExecutablePath
+  env: Object.assign(
+    {
+      ...process.env,
+      PATH: resolveShellPath(),
+      [BUDDY_DEV_INSTANCE_NAME_ENV]: devInstanceName,
+    },
+    macDevElectronExecutablePath
       ? { [ELECTRON_EXECUTABLE_PATH_ENV]: macDevElectronExecutablePath }
-      : {}),
-    ...(backendReloadSignalPath
+      : undefined,
+    backendReloadSignalPath
       ? { [BACKEND_DEVELOPMENT_RELOAD_SIGNAL_ENV]: backendReloadSignalPath }
-      : {}),
-    ...(backendReloadAcknowledgementPath
+      : undefined,
+    backendReloadAcknowledgementPath
       ? {
           [BACKEND_DEVELOPMENT_RELOAD_ACKNOWLEDGEMENT_ENV]: backendReloadAcknowledgementPath,
         }
-      : {}),
-  },
+      : undefined,
+  ),
 })
 
 if (backendDevelopmentReloadEnabled) {

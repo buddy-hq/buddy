@@ -11,6 +11,8 @@ import {
   mkdirSync,
 } from "node:fs"
 
+import { parseTErrorCode } from "../shared/parse-external"
+
 const MAX_LOG_AGE_DAYS = 7
 const LOG_SIZE_LIMIT_BYTES = 5 * 1024 * 1024
 const LOG_TAIL_LINES = 1000
@@ -102,15 +104,7 @@ function resolveLogFilePath() {
   return join(logsDirectory, MAIN_LOG_FILENAME)
 }
 
-function isBrokenStandardIoError(error: unknown) {
-  if (!(error && typeof error === "object")) {
-    return false
-  }
-
-  if (!("code" in error)) {
-    return false
-  }
-
-  const { code } = error
-  return typeof code === "string" && BROKEN_STANDARD_IO_ERROR_CODES.has(code)
+function isBrokenStandardIoError<TError>(error: TError) {
+  const code = parseTErrorCode(error)
+  return code !== undefined && BROKEN_STANDARD_IO_ERROR_CODES.has(code)
 }

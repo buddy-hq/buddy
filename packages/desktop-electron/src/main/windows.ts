@@ -89,34 +89,38 @@ export function createMainWindow(globals: WindowGlobals) {
     defaultHeight: 800,
   })
 
-  const win = new BrowserWindow({
-    x: state.x,
-    y: state.y,
-    width: state.width,
-    height: state.height,
-    show: false,
-    title: resolveWindowTitle(),
-    icon: iconPath(),
-    backgroundColor: resolveBackgroundColor(),
-    ...(process.platform === "darwin"
-      ? {
-          titleBarStyle: "hidden" as const,
-          // Centres the traffic lights against the titlebar controls, calibrated by eye rather
-          // than derived: macOS positions the button frame here, not the visible circle, and the
-          // circle ends up centred at y + 7. So this is DESKTOP_TITLEBAR_HEIGHT_PX / 2 - 7.
-          // Keep in sync with packages/web/src/components/layout/desktop-titlebar-inset.ts.
-          trafficLightPosition: { x: 12, y: 13 },
-        }
-      : {}),
-    ...(process.platform === "win32"
-      ? {
-          frame: false,
-          titleBarStyle: "hidden" as const,
-          titleBarOverlay: titlebarOverlay(),
-        }
-      : {}),
-    webPreferences: resolveWebPreferences(globals),
-  })
+  const win = new BrowserWindow(
+    Object.assign(
+      {
+        x: state.x,
+        y: state.y,
+        width: state.width,
+        height: state.height,
+        show: false,
+        title: resolveWindowTitle(),
+        icon: iconPath(),
+        backgroundColor: resolveBackgroundColor(),
+      },
+      process.platform === "darwin"
+        ? {
+            titleBarStyle: "hidden" as const,
+            // Centres the traffic lights against the titlebar controls, calibrated by eye rather
+            // than derived: macOS positions the button frame here, not the visible circle, and the
+            // circle ends up centred at y + 7. So this is DESKTOP_TITLEBAR_HEIGHT_PX / 2 - 7.
+            // Keep in sync with packages/web/src/components/layout/desktop-titlebar-inset.ts.
+            trafficLightPosition: { x: 12, y: 13 },
+          }
+        : undefined,
+      process.platform === "win32"
+        ? {
+            frame: false,
+            titleBarStyle: "hidden" as const,
+            titleBarOverlay: titlebarOverlay(),
+          }
+        : undefined,
+      { webPreferences: resolveWebPreferences(globals) },
+    ),
+  )
 
   state.manage(win)
   lockWindowTitle(win)
@@ -136,25 +140,29 @@ export function createMainWindow(globals: WindowGlobals) {
 
 export function createLoadingWindow(globals: WindowGlobals) {
   const title = resolveWindowTitle()
-  const win = new BrowserWindow({
-    title,
-    width: 640,
-    height: 480,
-    resizable: false,
-    center: true,
-    show: true,
-    icon: iconPath(),
-    backgroundColor: resolveBackgroundColor(),
-    ...(process.platform === "darwin" ? { titleBarStyle: "hidden" as const } : {}),
-    ...(process.platform === "win32"
-      ? {
-          frame: false,
-          titleBarStyle: "hidden" as const,
-          titleBarOverlay: titlebarOverlay(),
-        }
-      : {}),
-    webPreferences: resolveWebPreferences(globals),
-  })
+  const win = new BrowserWindow(
+    Object.assign(
+      {
+        title,
+        width: 640,
+        height: 480,
+        resizable: false,
+        center: true,
+        show: true,
+        icon: iconPath(),
+        backgroundColor: resolveBackgroundColor(),
+      },
+      process.platform === "darwin" ? { titleBarStyle: "hidden" as const } : undefined,
+      process.platform === "win32"
+        ? {
+            frame: false,
+            titleBarStyle: "hidden" as const,
+            titleBarOverlay: titlebarOverlay(),
+          }
+        : undefined,
+      { webPreferences: resolveWebPreferences(globals) },
+    ),
+  )
 
   lockWindowTitle(win)
   loadWindow(win, "loading.html")
@@ -198,18 +206,20 @@ function injectGlobals(win: BrowserWindow, globals: WindowGlobals) {
     const deepLinks = globals.deepLinks ?? []
     const assetBaseUrl = resolveAssetBaseUrl(win)
     const resolvedIconUrl = resolveWindowIconUrl(win)
-    const payload = {
-      updaterEnabled: globals.updaterEnabled,
-      deepLinks: Array.isArray(deepLinks) ? [...deepLinks] : [],
-      version: globals.version,
-      assetBaseUrl,
-      devInstanceName: app.isPackaged
-        ? undefined
-        : process.env[BUDDY_DEV_INSTANCE_NAME_ENV]?.trim() || undefined,
-      ...(globals.iconUrl || resolvedIconUrl
+    const payload = Object.assign(
+      {
+        updaterEnabled: globals.updaterEnabled,
+        deepLinks: Array.isArray(deepLinks) ? [...deepLinks] : [],
+        version: globals.version,
+        assetBaseUrl,
+        devInstanceName: app.isPackaged
+          ? undefined
+          : process.env[BUDDY_DEV_INSTANCE_NAME_ENV]?.trim() || undefined,
+      },
+      globals.iconUrl || resolvedIconUrl
         ? { iconUrl: globals.iconUrl ?? resolvedIconUrl }
-        : {}),
-    }
+        : undefined,
+    )
 
     void win.webContents.executeJavaScript(
       `window.__BUDDY__ = Object.assign(window.__BUDDY__ ?? {}, ${JSON.stringify(payload)})`,

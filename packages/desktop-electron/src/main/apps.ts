@@ -50,6 +50,38 @@ function checkMacosApp(appName: string) {
   }
 }
 
+function hasExt(path: string, ext: string) {
+  return extname(path).toLowerCase() === `.${ext}`
+}
+
+function resolveCmd(path: string) {
+  const content = readFileSync(path, "utf8")
+  for (const token of content.split('"').map((value: string) => value.trim())) {
+    const lower = token.toLowerCase()
+    if (!lower.includes(".exe")) continue
+
+    const index = lower.indexOf("%~dp0")
+    if (index >= 0) {
+      const base = dirname(path)
+      const suffix = token.slice(index + 5)
+      const resolved = suffix
+        .replace(/\//g, "\\")
+        .split("\\")
+        .filter((part: string) => part && part !== ".")
+        .reduce((current: string, part: string) => {
+          if (part === "..") return dirname(current)
+          return join(current, part)
+        }, base)
+
+      if (existsSync(resolved)) return resolved
+    }
+
+    if (existsSync(token)) return token
+  }
+
+  return null
+}
+
 function resolveWindowsAppPath(appName: string): string | null {
   let output: string
   try {
@@ -63,38 +95,8 @@ function resolveWindowsAppPath(appName: string): string | null {
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
 
-  const hasExt = (path: string, ext: string) => extname(path).toLowerCase() === `.${ext}`
-
   const exe = paths.find((path) => hasExt(path, "exe"))
   if (exe) return exe
-
-  const resolveCmd = (path: string) => {
-    const content = readFileSync(path, "utf8")
-    for (const token of content.split('"').map((value: string) => value.trim())) {
-      const lower = token.toLowerCase()
-      if (!lower.includes(".exe")) continue
-
-      const index = lower.indexOf("%~dp0")
-      if (index >= 0) {
-        const base = dirname(path)
-        const suffix = token.slice(index + 5)
-        const resolved = suffix
-          .replace(/\//g, "\\")
-          .split("\\")
-          .filter((part: string) => part && part !== ".")
-          .reduce((current: string, part: string) => {
-            if (part === "..") return dirname(current)
-            return join(current, part)
-          }, base)
-
-        if (existsSync(resolved)) return resolved
-      }
-
-      if (existsSync(token)) return token
-    }
-
-    return null
-  }
 
   for (const path of paths) {
     if (hasExt(path, "cmd") || hasExt(path, "bat")) {

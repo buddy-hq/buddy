@@ -2,6 +2,7 @@ import React from "react"
 import ReactDOM from "react-dom/client"
 import { PlatformProvider, setRuntimePlatform, type Platform } from "@buddy/web/context/platform"
 import { ServerProvider } from "@buddy/web/context/server"
+import { parseTNonEmptyString, readBuddyRendererGlobals } from "../shared/parse-external"
 import { createDesktopPlatform } from "./platform"
 import { createDesktopServerConnection } from "./server"
 import "./styles.css"
@@ -98,13 +99,9 @@ function StartupOverlay() {
 }
 
 function resolveBuddyIconUrl() {
-  const buddyGlobals = Reflect.get(window, "__BUDDY__")
-  const assetBaseUrl =
-    buddyGlobals && typeof buddyGlobals === "object"
-      ? Reflect.get(buddyGlobals, "assetBaseUrl")
-      : undefined
+  const assetBaseUrl = parseTNonEmptyString(readBuddyRendererGlobals(window)?.assetBaseUrl)
 
-  if (typeof assetBaseUrl === "string" && assetBaseUrl.length > 0) {
+  if (assetBaseUrl !== undefined) {
     try {
       return new URL(BUDDY_ICON_FILENAME, assetBaseUrl).toString()
     } catch {

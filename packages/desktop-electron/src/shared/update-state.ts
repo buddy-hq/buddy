@@ -27,11 +27,11 @@ export type UpdateProgressSnapshot = {
   version?: string
 }
 
-export function isUpdateRing(value: unknown): value is UpdateRing {
+export function isUpdateRing<TValue>(value: TValue): value is TValue & UpdateRing {
   return value === UPDATE_RING_STABLE || value === UPDATE_RING_PREVIEW
 }
 
-export function normalizeUpdateRing(value: unknown): UpdateRing {
+export function normalizeUpdateRing<TValue>(value: TValue): UpdateRing {
   return isUpdateRing(value) ? value : UPDATE_RING_STABLE
 }
 

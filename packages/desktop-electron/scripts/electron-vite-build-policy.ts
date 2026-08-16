@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
+import { parseTJsonObject, parseTString } from "../src/shared/parse-external"
 
 export type ElectronViteCommand = "build" | "serve"
 
@@ -25,8 +26,16 @@ const BACKEND_DEVELOPMENT_ADDITIONAL_WATCH_ROOTS = [
   "packages/script/src",
 ] as const
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function parseTWorkspacePackageFields<TValue>(
+  value: TValue,
+): { dependencies: string[]; name: string } | undefined {
+  const parsed = parseTJsonObject(value)
+  if (parsed === undefined) return undefined
+  const name = parseTString(parsed.name)
+  if (name === undefined) return undefined
+  const dependenciesRecord = parseTJsonObject(parsed.dependencies)
+  const dependencies = dependenciesRecord === undefined ? [] : Object.keys(dependenciesRecord)
+  return { dependencies, name }
 }
 
 function workspacePackageManifestPaths(repositoryRoot: string): string[] {
@@ -51,14 +60,13 @@ function workspacePackageManifestPaths(repositoryRoot: string): string[] {
 }
 
 function readWorkspacePackage(manifestPath: string): WorkspacePackage | undefined {
-  const parsed: unknown = JSON.parse(readFileSync(manifestPath, "utf8"))
-  if (!isRecord(parsed) || typeof parsed.name !== "string") return undefined
-  const dependencies = isRecord(parsed.dependencies) ? Object.keys(parsed.dependencies) : []
+  const fields = parseTWorkspacePackageFields(JSON.parse(readFileSync(manifestPath, "utf8")))
+  if (fields === undefined) return undefined
 
   return {
-    dependencies,
+    dependencies: fields.dependencies,
     directory: path.dirname(manifestPath),
-    name: parsed.name,
+    name: fields.name,
   }
 }
 

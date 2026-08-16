@@ -3,15 +3,10 @@ import type {
   UpdateProgressSnapshot,
   UpdateRing,
 } from "@buddy/web/context/platform"
+import { readBuddyRendererGlobals } from "../shared/parse-external"
 
 function isUpdaterEnabled() {
-  const buddyGlobals = Reflect.get(window, "__BUDDY__")
-  if (!buddyGlobals || typeof buddyGlobals !== "object") {
-    return false
-  }
-
-  const updaterEnabled = Reflect.get(buddyGlobals, "updaterEnabled")
-  return typeof updaterEnabled === "boolean" ? updaterEnabled : false
+  return readBuddyRendererGlobals(window)?.updaterEnabled === true
 }
 
 export async function checkForUpdate(): Promise<UpdateCheckResult> {

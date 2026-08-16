@@ -8,14 +8,14 @@ export const BACKEND_DEVELOPMENT_RELOAD_ACKNOWLEDGEMENT_ENV =
 
 const DEVELOPMENT_GENERATION_DEBOUNCE_MS = 50
 
-type DevelopmentGenerationWatcherInput = {
+type TDevelopmentGenerationWatcherInput = {
   generationPath: string
-  onError: (error: unknown) => void
+  onError: <TError>(error: TError) => void
   onGeneration: (generation: string) => Promise<void>
 }
 
 export function watchDevelopmentGenerationFile(
-  input: DevelopmentGenerationWatcherInput,
+  input: TDevelopmentGenerationWatcherInput,
 ): () => void {
   let closed = false
   let lastGeneration: string

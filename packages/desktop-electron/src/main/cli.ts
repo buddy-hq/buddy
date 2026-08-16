@@ -5,6 +5,7 @@ import { app } from "electron"
 import { OPENCODE_DB_FILENAME } from "@buddy/script/channel"
 import { BUDDY_ENV, OPENCODE_ENV } from "@buddy/script/storage-env"
 import { APP_PROTOCOL, BACKEND_SERVER_USERNAME, CHANNEL } from "./constants"
+import { parseTString } from "../shared/parse-external"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 import {
   resolveAllowedDirectoryRoots,
@@ -115,7 +116,7 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
     : {}
   const appEnvironment = Object.fromEntries(
     Object.entries(process.env).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string",
+      (entry): entry is [string, string] => parseTString(entry[1]) !== undefined,
     ),
   )
   const shellEnvironment = process.platform === "win32" ? null : loadShellEnv(getUserShell())
@@ -126,30 +127,34 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
   ensureDirectories(Object.values(isolatedRuntimeEnvironment))
 
   const environment = new Map<string, string>(
-    Object.entries({
-      ...base,
-      ...isolatedRuntimeEnvironment,
-      [BUDDY_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
-      [BUDDY_ENV.SERVER_PASSWORD]: password,
-      [OPENCODE_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
-      [OPENCODE_ENV.SERVER_PASSWORD]: password,
-      [BUDDY_ENV.APP_VERSION]: app.getVersion(),
-      [BUDDY_ENV.BACKEND_RESOURCES_DIR]: getBackendResourcesDir(),
-      [BUDDY_ENV.TESSDATA_DIR]: getTessdataDir(),
-      [BUDDY_ENV.MIGRATION_DIR]: getBuddyMigrationDir(),
-      [BUDDY_ENV.DIRECTORY_BASE]: resolveDefaultNotebookHome(home),
-      [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: resolveAllowedDirectoryRoots({
-        home,
-      }),
-      PORT: String(port),
-      [OPENCODE_ENV.EXPERIMENTAL_ICON_DISCOVERY]: "true",
-      [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]: "true",
-      [OPENCODE_ENV.DB]: OPENCODE_DB_FILENAME,
-      [OPENCODE_ENV.CLIENT]: "desktop",
-      ...(app.isPackaged
-        ? { [BUDDY_ENV.DESKTOP_CALLBACK_URL]: `${APP_PROTOCOL}://auth/callback` }
-        : {}),
-    }),
+    Object.entries(
+      Object.assign(
+        {
+          ...base,
+          ...isolatedRuntimeEnvironment,
+          [BUDDY_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
+          [BUDDY_ENV.SERVER_PASSWORD]: password,
+          [OPENCODE_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
+          [OPENCODE_ENV.SERVER_PASSWORD]: password,
+          [BUDDY_ENV.APP_VERSION]: app.getVersion(),
+          [BUDDY_ENV.BACKEND_RESOURCES_DIR]: getBackendResourcesDir(),
+          [BUDDY_ENV.TESSDATA_DIR]: getTessdataDir(),
+          [BUDDY_ENV.MIGRATION_DIR]: getBuddyMigrationDir(),
+          [BUDDY_ENV.DIRECTORY_BASE]: resolveDefaultNotebookHome(home),
+          [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: resolveAllowedDirectoryRoots({
+            home,
+          }),
+          PORT: String(port),
+          [OPENCODE_ENV.EXPERIMENTAL_ICON_DISCOVERY]: "true",
+          [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]: "true",
+          [OPENCODE_ENV.DB]: OPENCODE_DB_FILENAME,
+          [OPENCODE_ENV.CLIENT]: "desktop",
+        },
+        app.isPackaged
+          ? { [BUDDY_ENV.DESKTOP_CALLBACK_URL]: `${APP_PROTOCOL}://auth/callback` }
+          : undefined,
+      ),
+    ),
   )
   if (shouldIsolateDevRuntime) {
     environment.set(

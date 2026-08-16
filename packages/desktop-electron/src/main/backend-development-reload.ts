@@ -1,13 +1,13 @@
 import { watchDevelopmentGenerationFile } from "../shared/backend-development-reload"
 
-type BackendDevelopmentReloadWatcherInput = {
-  onError: (error: unknown) => void
+type TBackendDevelopmentReloadWatcherInput = {
+  onError: <TError>(error: TError) => void
   onReload: (generation: string) => Promise<void>
   signalPath: string
 }
 
 export function watchBackendDevelopmentReloadSignal(
-  input: BackendDevelopmentReloadWatcherInput,
+  input: TBackendDevelopmentReloadWatcherInput,
 ): () => void {
   return watchDevelopmentGenerationFile({
     generationPath: input.signalPath,

@@ -1,6 +1,8 @@
 import { latestReleaseVersionFromReleases } from "@buddy/script/release-version"
 import { verifySignedMessage } from "@buddy/script/minisign"
+import { z } from "zod"
 import type { UpdateRing } from "../shared/update-state"
+import { parseWithSchema } from "../shared/parse-external"
 import { UPDATE_RING_PREVIEW } from "../shared/update-state"
 
 const SIGNATURE_SUFFIX = ".sig"
@@ -15,12 +17,19 @@ export const RELEASE_REPOSITORY = `${RELEASE_REPOSITORY_OWNER}/${RELEASE_REPOSIT
 export const BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY = "BUDDY_UPDATE_PUBLIC_KEY"
 export const BUDDY_MINISIGN_PUBLIC_KEY = "RWTcBSYzKsK7Gf1M2w9kTDB2fvSRlsZejPWt+AaMGvGiNk3mxAW+Wh3f"
 
-type GithubRelease = {
+type TGithubRelease = {
   draft: boolean
   prerelease: boolean
   publishedAt: string
   tagName: string
 }
+
+const githubReleaseSchema = z.object({
+  draft: z.boolean(),
+  prerelease: z.boolean(),
+  published_at: z.string(),
+  tag_name: z.string().min(1),
+})
 
 type VersionedReleaseAssetUrlInput = {
   legacyFilename?: string
@@ -104,9 +113,9 @@ export async function resolveLatestRingAssetUrl(input: {
   return resolveLatestReleaseAssetUrl(input.filename)
 }
 
-async function fetchLatestGithubPrerelease(): Promise<GithubRelease | undefined> {
+async function fetchLatestGithubPrerelease(): Promise<TGithubRelease | undefined> {
   const releases = await fetchGithubReleases()
-  let latestPrerelease: GithubRelease | undefined
+  let latestPrerelease: TGithubRelease | undefined
   for (const release of releases) {
     if (release.draft || !release.prerelease) continue
     if (
@@ -120,7 +129,7 @@ async function fetchLatestGithubPrerelease(): Promise<GithubRelease | undefined>
   return latestPrerelease
 }
 
-async function fetchLatestGithubPreviewRelease(): Promise<GithubRelease | undefined> {
+async function fetchLatestGithubPreviewRelease(): Promise<TGithubRelease | undefined> {
   const releases = await fetchGithubReleases()
   const latestVersion = latestReleaseVersionFromReleases(
     releases.map((release) => ({
@@ -136,7 +145,7 @@ async function fetchLatestGithubPreviewRelease(): Promise<GithubRelease | undefi
   )
 }
 
-async function fetchGithubReleases(): Promise<GithubRelease[]> {
+async function fetchGithubReleases(): Promise<TGithubRelease[]> {
   const response = await fetch(
     `https://api.github.com/repos/${RELEASE_REPOSITORY}/releases?per_page=${LATEST_PRERELEASE_SEARCH_LIMIT}`,
     {
@@ -158,7 +167,7 @@ async function fetchGithubReleases(): Promise<GithubRelease[]> {
     throw new Error("GitHub releases response was not an array")
   }
 
-  const releases: GithubRelease[] = []
+  const releases: TGithubRelease[] = []
   for (const item of body) {
     const release = parseGithubRelease(item)
     if (release) releases.push(release)
@@ -167,38 +176,21 @@ async function fetchGithubReleases(): Promise<GithubRelease[]> {
   return releases
 }
 
-function releasePublishedAtTime(release: GithubRelease): number {
+function releasePublishedAtTime(release: TGithubRelease): number {
   const time = Date.parse(release.publishedAt)
   return Number.isNaN(time) ? 0 : time
 }
 
-function parseGithubRelease(value: unknown): GithubRelease | undefined {
-  if (!isRecord(value)) return undefined
-
-  const draft = Reflect.get(value, "draft")
-  const prerelease = Reflect.get(value, "prerelease")
-  const publishedAt = Reflect.get(value, "published_at")
-  const tagName = Reflect.get(value, "tag_name")
-  if (
-    typeof draft !== "boolean" ||
-    typeof prerelease !== "boolean" ||
-    typeof publishedAt !== "string" ||
-    typeof tagName !== "string" ||
-    tagName.length === 0
-  ) {
-    return undefined
-  }
+function parseGithubRelease<TValue>(value: TValue): TGithubRelease | undefined {
+  const parsed = parseWithSchema(githubReleaseSchema, value)
+  if (parsed === undefined) return undefined
 
   return {
-    draft,
-    prerelease,
-    publishedAt,
-    tagName,
+    draft: parsed.draft,
+    prerelease: parsed.prerelease,
+    publishedAt: parsed.published_at,
+    tagName: parsed.tag_name,
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 export async function fetchSignedText(input: { publicKey?: string; url: string }): Promise<string> {

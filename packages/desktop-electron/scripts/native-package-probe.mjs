@@ -8,6 +8,38 @@ const MAIN_DIR_ENV = "BUDDY_NATIVE_PACKAGE_PROBE_MAIN_DIR"
 const PACKAGE_NAME_ENV = "BUDDY_NATIVE_PACKAGE_PROBE_PACKAGE"
 const LITEPARSE_PACKAGE_NAME = "@llamaindex/liteparse"
 const LITEPARSE_SMOKE_TEXT = "Buddy LiteParse Electron smoke"
+const OBJECT_FUNCTION_TAG = "[object Function]"
+const OBJECT_ASYNC_FUNCTION_TAG = "[object AsyncFunction]"
+const OBJECT_GENERATOR_FUNCTION_TAG = "[object GeneratorFunction]"
+const OBJECT_STRING_TAG = "[object String]"
+
+function objectTag(value) {
+  return Object.prototype.toString.call(value)
+}
+
+function parseString(value) {
+  return objectTag(value) === OBJECT_STRING_TAG ? value : undefined
+}
+
+function isFunctionValue(value) {
+  const tag = objectTag(value)
+  return (
+    tag === OBJECT_FUNCTION_TAG ||
+    tag === OBJECT_ASYNC_FUNCTION_TAG ||
+    tag === OBJECT_GENERATOR_FUNCTION_TAG
+  )
+}
+
+function isObjectValue(value) {
+  if (value === null || value === undefined) return false
+  if (isFunctionValue(value)) return false
+  return Object(value) === value
+}
+
+function parseErrorCode(error) {
+  if (!isObjectValue(error) || !("code" in error)) return undefined
+  return parseString(error.code)
+}
 
 function requiredEnv(name) {
   const value = process.env[name]
@@ -35,15 +67,15 @@ function resolvePackageEntry(name) {
   try {
     return require.resolve(name)
   } catch (error) {
-    if (!error || typeof error !== "object" || error.code !== "ERR_PACKAGE_PATH_NOT_EXPORTED") {
+    if (parseErrorCode(error) !== "ERR_PACKAGE_PATH_NOT_EXPORTED") {
       throw error
     }
   }
 
   const manifestPath = require.resolve(`${name}/package.json`)
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
-  const importEntry = manifest.exports?.["."]?.import ?? manifest.module ?? manifest.main
-  if (typeof importEntry !== "string" || importEntry.length === 0) {
+  const importEntry = parseString(manifest.exports?.["."]?.import ?? manifest.module ?? manifest.main)
+  if (importEntry === undefined || importEntry.length === 0) {
     throw new Error(`${name} does not expose a loadable package entry`)
   }
   return path.resolve(path.dirname(manifestPath), importEntry)
@@ -53,7 +85,7 @@ async function loadPackage(packagePath) {
   try {
     return require(packagePath)
   } catch (error) {
-    if (!error || typeof error !== "object" || error.code !== "ERR_REQUIRE_ESM") {
+    if (parseErrorCode(error) !== "ERR_REQUIRE_ESM") {
       throw error
     }
     return await import(pathToFileURL(packagePath).href)
@@ -61,11 +93,7 @@ async function loadPackage(packagePath) {
 }
 
 async function assertLiteParseCanParse(loadedPackage) {
-  if (
-    !loadedPackage ||
-    typeof loadedPackage !== "object" ||
-    typeof loadedPackage.LiteParse !== "function"
-  ) {
+  if (!loadedPackage || !isObjectValue(loadedPackage) || !isFunctionValue(loadedPackage.LiteParse)) {
     throw new Error("LiteParse package does not export LiteParse")
   }
 
@@ -81,12 +109,8 @@ async function assertLiteParseCanParse(loadedPackage) {
       quiet: true,
     })
     const result = await parser.parse(pdfPath)
-    if (
-      !result ||
-      typeof result !== "object" ||
-      typeof result.text !== "string" ||
-      !result.text.includes(LITEPARSE_SMOKE_TEXT)
-    ) {
+    const text = isObjectValue(result) ? parseString(result.text) : undefined
+    if (text === undefined || !text.includes(LITEPARSE_SMOKE_TEXT)) {
       throw new Error("LiteParse Electron smoke did not extract the expected PDF text")
     }
   } finally {

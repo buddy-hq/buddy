@@ -1,47 +1,53 @@
 import type { BuddyReleaseChannel } from "@buddy/script/channel"
+import {
+  parseTJsonObject,
+  parseTNonEmptyString,
+  parseTNumber,
+  parseWithSchema,
+} from "../shared/parse-external"
+import { z } from "zod"
 
 const RECOVERY_POLICY_SCHEMA_VERSION = 1
 
-type ReleaseChannel = BuddyReleaseChannel
-type RecoveryMode = "roll-forward" | "downgrade"
-type RecoveryPlatform = "darwin" | "win32"
+type TReleaseChannel = BuddyReleaseChannel
+type TRecoveryMode = "roll-forward" | "downgrade"
+type TRecoveryPlatform = "darwin" | "win32"
 
-type RecoveryPolicyEntry = {
+type TRecoveryPolicyEntry = {
   blockVersion: boolean
-  mode: RecoveryMode
-  platforms: RecoveryPlatform[]
+  mode: TRecoveryMode
+  platforms: TRecoveryPlatform[]
   reason?: string
   rollbackSafe: boolean
   targetVersion: string
   version: string
 }
 
-type RecoveryPolicy = {
-  badVersions: RecoveryPolicyEntry[]
+type TRecoveryPolicy = {
+  badVersions: TRecoveryPolicyEntry[]
   schema: typeof RECOVERY_POLICY_SCHEMA_VERSION
 }
 
-type RecoveryTarget = RecoveryPolicyEntry
+type TRecoveryTarget = TRecoveryPolicyEntry
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+const recoveryModeSchema = z.enum(["roll-forward", "downgrade"])
+const recoveryPlatformSchema = z.enum(["darwin", "win32"])
+
+function parseTRecoveryMode<TValue>(value: TValue): TRecoveryMode | undefined {
+  return parseWithSchema(recoveryModeSchema, value)
 }
 
-function isRecoveryMode(value: unknown): value is RecoveryMode {
-  return value === "roll-forward" || value === "downgrade"
+function parseTRecoveryPlatform<TValue>(value: TValue): TRecoveryPlatform | undefined {
+  return parseWithSchema(recoveryPlatformSchema, value)
 }
 
-function isRecoveryPlatform(value: unknown): value is RecoveryPlatform {
-  return value === "darwin" || value === "win32"
-}
-
-function parseRecoveryPolicy(content: string): RecoveryPolicy {
-  const parsed: unknown = JSON.parse(content)
-  if (!isRecord(parsed)) {
+function parseRecoveryPolicy(content: string): TRecoveryPolicy {
+  const parsed = parseTJsonObject(JSON.parse(content))
+  if (parsed === undefined) {
     throw new Error("Recovery policy must be an object")
   }
 
-  if (parsed.schema !== RECOVERY_POLICY_SCHEMA_VERSION) {
+  if (parseTNumber(parsed.schema) !== RECOVERY_POLICY_SCHEMA_VERSION) {
     throw new Error("Unsupported recovery policy schema")
   }
 
@@ -56,42 +62,46 @@ function parseRecoveryPolicy(content: string): RecoveryPolicy {
   }
 }
 
-function parseRecoveryPolicyEntry(value: unknown): RecoveryPolicyEntry {
-  if (!isRecord(value)) {
+function parseRecoveryPolicyEntry<TValue>(value: TValue): TRecoveryPolicyEntry {
+  const record = parseTJsonObject(value)
+  if (record === undefined) {
     throw new Error("Recovery policy entry must be an object")
   }
 
-  if (typeof value.version !== "string" || value.version.length === 0) {
+  const version = parseTNonEmptyString(record.version)
+  if (version === undefined) {
     throw new Error("Recovery policy entry requires version")
   }
 
-  if (typeof value.targetVersion !== "string" || value.targetVersion.length === 0) {
+  const targetVersion = parseTNonEmptyString(record.targetVersion)
+  if (targetVersion === undefined) {
     throw new Error("Recovery policy entry requires targetVersion")
   }
 
-  const mode = value.mode === undefined ? "roll-forward" : value.mode
-  if (!isRecoveryMode(mode)) {
+  const mode = record.mode === undefined ? "roll-forward" : parseTRecoveryMode(record.mode)
+  if (mode === undefined) {
     throw new Error("Recovery policy entry has invalid mode")
   }
 
-  const rollbackSafe = value.rollbackSafe === true
-  const blockVersion = value.blockVersion !== false
-  const platforms = parseRecoveryPlatforms(value.platforms)
-  const reason =
-    typeof value.reason === "string" && value.reason.length > 0 ? value.reason : undefined
+  const rollbackSafe = record.rollbackSafe === true
+  const blockVersion = record.blockVersion !== false
+  const platforms = parseRecoveryPlatforms(record.platforms)
+  const reason = parseTNonEmptyString(record.reason)
 
-  return {
-    blockVersion,
-    mode,
-    platforms,
-    ...(reason ? { reason } : {}),
-    rollbackSafe,
-    targetVersion: value.targetVersion,
-    version: value.version,
-  }
+  return Object.assign(
+    {
+      blockVersion,
+      mode,
+      platforms,
+      rollbackSafe,
+      targetVersion,
+      version,
+    },
+    reason ? { reason } : undefined,
+  )
 }
 
-function parseRecoveryPlatforms(value: unknown): RecoveryPlatform[] {
+function parseRecoveryPlatforms<TValue>(value: TValue): TRecoveryPlatform[] {
   if (value === undefined) {
     return ["darwin", "win32"]
   }
@@ -100,20 +110,24 @@ function parseRecoveryPlatforms(value: unknown): RecoveryPlatform[] {
     throw new Error("Recovery policy platforms must be an array")
   }
 
-  const platforms = value.filter(isRecoveryPlatform)
-  if (platforms.length !== value.length) {
-    throw new Error("Recovery policy platforms contains unsupported platform")
+  const platforms: TRecoveryPlatform[] = []
+  for (const entry of value) {
+    const platform = parseTRecoveryPlatform(entry)
+    if (platform === undefined) {
+      throw new Error("Recovery policy platforms contains unsupported platform")
+    }
+    platforms.push(platform)
   }
 
   return [...new Set(platforms)]
 }
 
 function findRecoveryTarget(input: {
-  channel: ReleaseChannel
+  channel: TReleaseChannel
   currentVersion: string
   platform: NodeJS.Platform
-  policy: RecoveryPolicy
-}): RecoveryTarget | undefined {
+  policy: TRecoveryPolicy
+}): TRecoveryTarget | undefined {
   return input.policy.badVersions.find(
     (entry) =>
       entry.version === input.currentVersion &&
@@ -123,14 +137,15 @@ function findRecoveryTarget(input: {
 }
 
 function isCurrentPlatformAllowed(
-  platforms: RecoveryPlatform[],
+  platforms: TRecoveryPlatform[],
   platform: NodeJS.Platform,
 ): boolean {
-  return isRecoveryPlatform(platform) && platforms.includes(platform)
+  const currentPlatform = parseTRecoveryPlatform(platform)
+  return currentPlatform !== undefined && platforms.includes(currentPlatform)
 }
 
 function validateRecoveryTarget(
-  target: RecoveryTarget,
+  target: TRecoveryTarget,
   currentVersion: string,
 ): string | undefined {
   if (target.targetVersion === currentVersion) {
@@ -148,7 +163,7 @@ function validateRecoveryTarget(
   return undefined
 }
 
-function isChannelEligible(channel: ReleaseChannel): boolean {
+function isChannelEligible(channel: TReleaseChannel): boolean {
   return channel === "prod" || channel === "beta"
 }
 
@@ -179,6 +194,6 @@ export {
   findRecoveryTarget,
   parseRecoveryPolicy,
   validateRecoveryTarget,
-  type RecoveryPolicy,
-  type RecoveryTarget,
+  type TRecoveryPolicy as RecoveryPolicy,
+  type TRecoveryTarget as RecoveryTarget,
 }

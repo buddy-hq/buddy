@@ -8,6 +8,7 @@ import {
   resolveMacOsReleaseArtifactFilename,
   resolveWindowsReleaseArtifactFilename,
 } from "../src/shared/release-asset-names"
+import { parseTErrorCode } from "../src/shared/parse-external"
 import { RELEASE_SMOKE_TARGETS, resolveNativeReleaseSmokeTarget } from "./release-smoke-target"
 
 const VERSION_FLAG = "--version"
@@ -34,8 +35,8 @@ type RunningApp = {
   label: string
 }
 
-function isNoSuchProcessError(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "ESRCH"
+function isNoSuchProcessError<TError>(error: TError): boolean {
+  return error instanceof Error && parseTErrorCode(error) === "ESRCH"
 }
 
 function readRequiredFlag(name: string): string {

@@ -88,6 +88,7 @@ import type {
   UpdateProgressSnapshot,
   UpdateRing,
 } from "../shared/update-state"
+import { parseTErrorCode, parseTPortedAddress } from "../shared/parse-external"
 import { UPDATE_RING_PREVIEW, createIdleUpdateProgress, isUpdateRing } from "../shared/update-state"
 import { getUpdateRing, setUpdateRing as persistUpdateRing } from "./update-ring"
 import {
@@ -399,7 +400,10 @@ async function initialize() {
   }
 }
 
-async function handleInitializationFailure(error: unknown, overlay: BrowserWindow | null) {
+async function handleInitializationFailure<TError>(
+  error: TError,
+  overlay: BrowserWindow | null,
+) {
   logger.error("initialization failed", error)
 
   if (overlay && !overlay.isDestroyed()) {
@@ -415,7 +419,7 @@ async function handleInitializationFailure(error: unknown, overlay: BrowserWindo
   app.quit()
 }
 
-async function offerStartupFailureUpdateRecovery(error: unknown): Promise<boolean> {
+async function offerStartupFailureUpdateRecovery<TError>(error: TError): Promise<boolean> {
   if (!updaterEnabled) {
     await showStartupFailureDialog(error)
     return false
@@ -585,11 +589,11 @@ async function openInstallerLog(logPath: string): Promise<void> {
   }
 }
 
-function isNodeErrorCode(error: unknown, code: string): boolean {
-  return error instanceof Error && Reflect.get(error, "code") === code
+function isNodeErrorCode<TError>(error: TError, code: string): boolean {
+  return error instanceof Error && parseTErrorCode(error) === code
 }
 
-async function showStartupFailureDialog(error: unknown): Promise<void> {
+async function showStartupFailureDialog<TError>(error: TError): Promise<void> {
   try {
     await dialog.showMessageBox({
       type: "error",
@@ -630,7 +634,7 @@ function startupFailureUpdateMissingMessage(
   return "No updates available."
 }
 
-function startupFailureDetail(error: unknown) {
+function startupFailureDetail<TError>(error: TError) {
   if (error instanceof Error && error.message.length > 0) {
     return error.message
   }
@@ -649,7 +653,7 @@ function wireMenu() {
       }
     },
     installCli: () => {
-      void installCli().catch((error: unknown) => {
+      void installCli().catch((error) => {
         logger.error("Failed to install CLI", error)
       })
     },
@@ -851,8 +855,8 @@ async function getBackendPort() {
     const server = createServer()
     server.on("error", reject)
     server.listen(0, LOOPBACK_HOSTNAME, () => {
-      const address = server.address()
-      if (!address || typeof address !== "object") {
+      const address = parseTPortedAddress(server.address())
+      if (!address) {
         server.close()
         reject(new Error("Failed to allocate local port"))
         return
@@ -967,13 +971,18 @@ async function checkCustomMacUpdate(ring: UpdateRing): Promise<UpdateCheckResult
   }
 
   if (result.failed) {
-    setUpdateError({
-      ring,
-      stage: downloadStarted ? "download" : "check",
-      ...(!previousUpdateStillReady && previousReadyUpdate?.ring === ring
-        ? { version: previousReadyUpdate.version }
-        : {}),
-    })
+    const errorStage: UpdateProgressErrorStage = downloadStarted ? "download" : "check"
+    setUpdateError(
+      Object.assign(
+        {
+          ring,
+          stage: errorStage,
+        },
+        !previousUpdateStillReady && previousReadyUpdate?.ring === ring
+          ? { version: previousReadyUpdate.version }
+          : undefined,
+      ),
+    )
     return result
   }
 
@@ -1066,11 +1075,16 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
     }
   } catch (error) {
     logger.error("update check failed", error)
-    setUpdateError({
-      ring,
-      stage: downloadStarted ? "download" : "check",
-      ...(signedFeed ? { version: signedFeed.version } : {}),
-    })
+    const errorStage: UpdateProgressErrorStage = downloadStarted ? "download" : "check"
+    setUpdateError(
+      Object.assign(
+        {
+          ring,
+          stage: errorStage,
+        },
+        signedFeed ? { version: signedFeed.version } : undefined,
+      ),
+    )
     return { updateAvailable: false, failed: true }
   } finally {
     activeWindowsDownload = undefined
@@ -1272,7 +1286,7 @@ async function fetchSignedWindowsUpdateManifest(
     : new Error("Failed to fetch Windows update manifest")
 }
 
-function isMissingSignedManifest(error: unknown): boolean {
+function isMissingSignedManifest<TError>(error: TError): boolean {
   return error instanceof SignedUpdateFetchError && error.status === 404
 }
 
@@ -1389,10 +1403,10 @@ function delay(ms: number) {
   })
 }
 
-function defer<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
+function defer<TValue>() {
+  let resolve!: (value: TValue) => void
+  let reject!: (reason: Error) => void
+  const promise = new Promise<TValue>((res, rej) => {
     resolve = res
     reject = rej
   })

@@ -9,6 +9,7 @@ import {
   resolveMacOsReleaseArtifactFilename,
   resolveMacOsUpdateManifestFilename,
 } from "../src/shared/release-asset-names"
+import { parseTNumber, parseTString } from "../src/shared/parse-external"
 import { resolveTauriSignerBinaryPath } from "./utils"
 
 const LATEST_YML_DIR_ENV_KEY = "LATEST_YML_DIR"
@@ -64,15 +65,14 @@ function parse(content: string): LatestYml {
   let current: Partial<FileEntry> | undefined
 
   const flush = () => {
-    if (
-      typeof current?.url === "string" &&
-      typeof current.sha512 === "string" &&
-      typeof current.size === "number"
-    ) {
+    const url = parseTString(current?.url)
+    const sha512 = parseTString(current?.sha512)
+    const size = parseTNumber(current?.size)
+    if (url !== undefined && sha512 !== undefined && size !== undefined) {
       files.push({
-        url: current.url,
-        sha512: current.sha512,
-        size: current.size,
+        url,
+        sha512,
+        size,
       })
     }
 

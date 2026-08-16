@@ -1,3 +1,4 @@
+import { parseTNonEmptyString } from "../shared/parse-external"
 import { getStore } from "./store"
 import {
   BUDDY_MINISIGN_PUBLIC_KEY,
@@ -60,7 +61,12 @@ function readBlockedUpdateVersions(): string[] {
     return []
   }
 
-  return value.filter((entry): entry is string => typeof entry === "string" && entry.length > 0)
+  const versions: string[] = []
+  for (const entry of value) {
+    const text = parseTNonEmptyString(entry)
+    if (text !== undefined) versions.push(text)
+  }
+  return versions
 }
 
 function blockUpdateVersion(version: string): void {

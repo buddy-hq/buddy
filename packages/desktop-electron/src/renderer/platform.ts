@@ -1,4 +1,5 @@
 import { createBrowserPlatform, type Platform } from "@buddy/web/context/platform"
+import { readBuddyRendererGlobals } from "../shared/parse-external"
 import {
   checkForUpdate,
   getUpdateProgress,
@@ -44,7 +45,7 @@ function normalizeAppVersion(value: string | undefined): string | undefined {
 function readDesktopAppVersion(): string | undefined {
   const apiVersion = normalizeAppVersion(window.api.getAppVersion())
   if (apiVersion) return apiVersion
-  return normalizeAppVersion(window.__BUDDY__?.version)
+  return normalizeAppVersion(readBuddyRendererGlobals(window)?.version)
 }
 
 function normalizePickerResult(result: string | string[] | null): string | string[] | null {

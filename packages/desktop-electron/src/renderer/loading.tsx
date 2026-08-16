@@ -1,5 +1,6 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
+import { parseTNonEmptyString, readBuddyRendererGlobals } from "../shared/parse-external"
 import "./styles.css"
 
 const BUDDY_ICON_FILENAME = "buddy-icon.png"
@@ -22,13 +23,9 @@ function LoadingWindow() {
 }
 
 function resolveBuddyIconUrl() {
-  const buddyGlobals = Reflect.get(window, "__BUDDY__")
-  const assetBaseUrl =
-    buddyGlobals && typeof buddyGlobals === "object"
-      ? Reflect.get(buddyGlobals, "assetBaseUrl")
-      : undefined
+  const assetBaseUrl = parseTNonEmptyString(readBuddyRendererGlobals(window)?.assetBaseUrl)
 
-  if (typeof assetBaseUrl === "string" && assetBaseUrl.length > 0) {
+  if (assetBaseUrl !== undefined) {
     try {
       return new URL(BUDDY_ICON_FILENAME, assetBaseUrl).toString()
     } catch {

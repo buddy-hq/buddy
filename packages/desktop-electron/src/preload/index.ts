@@ -1,5 +1,11 @@
+import type { IpcRendererEvent } from "electron"
 import { contextBridge, ipcRenderer, webUtils } from "electron"
 import { readBuddyWindowVersionArg } from "../shared/window-preload-args"
+import {
+  isFunctionValue,
+  isObjectValue,
+  parseTString,
+} from "../shared/parse-external"
 import type { ElectronAPI, InitStep, SqliteMigrationProgress } from "./types"
 
 const appVersion = readBuddyWindowVersionArg(process.argv)
@@ -8,30 +14,39 @@ const DROPPED_FILE_PATH_CACHE_MAX_ENTRIES = 200
 const droppedFilePathByFingerprint = new Map<string, string>()
 let lastDroppedFilePaths: string[] = []
 
-type UnknownRecord = Record<PropertyKey, unknown>
+type TDropListenerEvent = {
+  dataTransfer?: {
+    files?: Iterable<File>
+  }
+}
+type TEventTargetLike = {
+  addEventListener: (
+    type: string,
+    listener: (event: TDropListenerEvent) => void,
+    capture?: boolean,
+  ) => void
+}
 
 function fileFingerprint(file: Pick<File, "name" | "size" | "lastModified" | "type">) {
   return `${file.name}\n${file.size}\n${file.lastModified}\n${file.type}`
 }
 
-function isObjectRecord(value: unknown): value is UnknownRecord {
-  return typeof value === "object" && value !== null
+function isIterable<TValue>(value: TValue): value is TValue & Iterable<File | TValue> {
+  if (!isObjectValue(value)) return false
+  if (!(Symbol.iterator in value)) return false
+  return isFunctionValue(value[Symbol.iterator])
 }
 
-function isIterable(value: unknown): value is Iterable<unknown> {
-  if (!isObjectRecord(value)) return false
-  const iterator = value[Symbol.iterator]
-  return typeof iterator === "function"
-}
-
-function isFile(value: unknown): value is File {
+function isFile<TValue>(value: TValue): value is TValue & File {
   return value instanceof File
 }
 
-function getDroppedFilePaths(event: unknown): string[] {
-  if (!isObjectRecord(event)) return []
+function getDroppedFilePaths<TValue>(event: TValue): string[] {
+  if (!isObjectValue(event)) return []
+  if (!("dataTransfer" in event)) return []
   const dataTransfer = event.dataTransfer
-  if (!isObjectRecord(dataTransfer)) return []
+  if (!isObjectValue(dataTransfer)) return []
+  if (!("files" in dataTransfer)) return []
   const files = dataTransfer.files
   if (!isIterable(files)) return []
 
@@ -52,8 +67,8 @@ function getDroppedFilePaths(event: unknown): string[] {
   }
 
   while (droppedFilePathByFingerprint.size > DROPPED_FILE_PATH_CACHE_MAX_ENTRIES) {
-    const oldestKey = droppedFilePathByFingerprint.keys().next().value
-    if (typeof oldestKey !== "string") {
+    const oldestKey = parseTString(droppedFilePathByFingerprint.keys().next().value)
+    if (oldestKey === undefined) {
       break
     }
     droppedFilePathByFingerprint.delete(oldestKey)
@@ -62,27 +77,40 @@ function getDroppedFilePaths(event: unknown): string[] {
   return nextDroppedFilePaths
 }
 
-function hasAddEventListener(value: unknown): value is {
-  addEventListener: (type: string, listener: (event: unknown) => void, capture?: boolean) => void
-} {
-  if (!isObjectRecord(value)) return false
-  return typeof value.addEventListener === "function"
+function readAddEventListener<TValue>(
+  source: TValue,
+): TEventTargetLike["addEventListener"] | undefined {
+  if (!isObjectValue(source)) return undefined
+  if (!("addEventListener" in source)) return undefined
+
+  let current: TValue | undefined = source
+  while (current !== undefined && isObjectValue(current)) {
+    const descriptor = Object.getOwnPropertyDescriptor(current, "addEventListener")
+    if (descriptor !== undefined) {
+      if (!isFunctionValue(descriptor.value)) return undefined
+      return descriptor.value.bind(source)
+    }
+    const proto = Object.getPrototypeOf(current)
+    current = isObjectValue(proto) ? proto : undefined
+  }
+
+  return undefined
 }
 
-function cacheDroppedFilePaths(event: unknown) {
+function cacheDroppedFilePaths(event: TDropListenerEvent) {
   lastDroppedFilePaths = getDroppedFilePaths(event)
 }
 
-const globalEventTarget: unknown = globalThis
-if (hasAddEventListener(globalEventTarget)) {
-  globalEventTarget.addEventListener("drop", cacheDroppedFilePaths, true)
+const addDropListener = readAddEventListener(globalThis)
+if (addDropListener) {
+  addDropListener("drop", cacheDroppedFilePaths, true)
 }
 
 const api: ElectronAPI = {
   killBackendUtility: () => ipcRenderer.invoke("kill-backend-utility"),
   installCli: () => ipcRenderer.invoke("install-cli"),
   awaitInitialization: (onStep) => {
-    const handler = (_: unknown, step: InitStep) => onStep(step)
+    const handler = (_: IpcRendererEvent, step: InitStep) => onStep(step)
     ipcRenderer.on("init-step", handler)
     return ipcRenderer.invoke("await-initialization").finally(() => {
       ipcRenderer.removeListener("init-step", handler)
@@ -107,22 +135,22 @@ const api: ElectronAPI = {
 
   getWindowCount: () => ipcRenderer.invoke("get-window-count"),
   onSqliteMigrationProgress: (cb) => {
-    const handler = (_: unknown, progress: SqliteMigrationProgress) => cb(progress)
+    const handler = (_: IpcRendererEvent, progress: SqliteMigrationProgress) => cb(progress)
     ipcRenderer.on("sqlite-migration-progress", handler)
     return () => ipcRenderer.removeListener("sqlite-migration-progress", handler)
   },
   onMenuCommand: (cb) => {
-    const handler = (_: unknown, id: string) => cb(id)
+    const handler = (_: IpcRendererEvent, id: string) => cb(id)
     ipcRenderer.on("menu-command", handler)
     return () => ipcRenderer.removeListener("menu-command", handler)
   },
   onDeepLink: (cb) => {
-    const handler = (_: unknown, urls: string[]) => cb(urls)
+    const handler = (_: IpcRendererEvent, urls: string[]) => cb(urls)
     ipcRenderer.on("deep-link", handler)
     return () => ipcRenderer.removeListener("deep-link", handler)
   },
   onFullscreenChanged: (cb) => {
-    const handler = (_: unknown, isFullscreen: boolean) => cb(isFullscreen)
+    const handler = (_: IpcRendererEvent, isFullscreen: boolean) => cb(isFullscreen)
     ipcRenderer.on("fullscreen-changed", handler)
     return () => ipcRenderer.removeListener("fullscreen-changed", handler)
   },
@@ -139,7 +167,7 @@ const api: ElectronAPI = {
   readClipboardImage: () => ipcRenderer.invoke("read-clipboard-image"),
   showNotification: (title, body, href) => ipcRenderer.send("show-notification", title, body, href),
   onNotificationClick: (cb) => {
-    const handler = (_: unknown, href: string) => cb(href)
+    const handler = (_: IpcRendererEvent, href: string) => cb(href)
     ipcRenderer.on("notification-click", handler)
     return () => ipcRenderer.removeListener("notification-click", handler)
   },
@@ -157,7 +185,7 @@ const api: ElectronAPI = {
   getUpdateProgress: () => ipcRenderer.invoke("get-update-progress"),
   getUpdateRing: () => ipcRenderer.invoke("get-update-ring"),
   onUpdateProgress: (cb) => {
-    const handler = (_: unknown, snapshot: Parameters<typeof cb>[0]) => cb(snapshot)
+    const handler = (_: IpcRendererEvent, snapshot: Parameters<typeof cb>[0]) => cb(snapshot)
     ipcRenderer.on("update-progress", handler)
     return () => ipcRenderer.removeListener("update-progress", handler)
   },

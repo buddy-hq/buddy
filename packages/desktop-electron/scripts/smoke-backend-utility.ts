@@ -56,6 +56,7 @@ import {
   resolvePackagedResourcesDirectory,
 } from "./packaged-resources"
 import { createBuddyClient } from "@buddy/sdk"
+import { isObjectValue, parseTErrorCode, parseTString } from "../src/shared/parse-external"
 
 const BACKEND_UTILITY_SCRIPT = "backend-utility.js" as const
 const ELECTRON_RUN_AS_NODE_ENV = "ELECTRON_RUN_AS_NODE" as const
@@ -117,7 +118,7 @@ function baseEnvironment(): Record<string, string> {
         entry[0] !== NODE_PATH_ENV_KEY &&
         entry[0] !== ELECTRON_RUN_AS_NODE_ENV &&
         !USER_CONFIG_ENVIRONMENT_KEYS.has(entry[0]) &&
-        typeof entry[1] === "string",
+        parseTString(entry[1]) !== undefined,
     ),
   )
 }
@@ -226,8 +227,7 @@ async function smokeApiRoutes(input: { baseUrl: string; directory: string }): Pr
   ).data
   if (
     !Array.isArray(providerList.all) ||
-    typeof providerList.default !== "object" ||
-    providerList.default === null ||
+    !isObjectValue(providerList.default) ||
     !Array.isArray(providerList.connected)
   ) {
     throw new Error(`${API_PROVIDER_PATH} returned an invalid provider list`)
@@ -445,13 +445,9 @@ async function stopProcessAfterFailure(input: {
   await processExitCode(input.child, SMOKE_FORCED_EXIT_TIMEOUT_MS)
 }
 
-function isRetryableCleanupError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    "code" in error &&
-    typeof error.code === "string" &&
-    RETRYABLE_CLEANUP_ERROR_CODES.has(error.code)
-  )
+function isRetryableCleanupError<TError>(error: TError): boolean {
+  const code = parseTErrorCode(error)
+  return error instanceof Error && code !== undefined && RETRYABLE_CLEANUP_ERROR_CODES.has(code)
 }
 
 async function removeSmokeRoot(smokeRoot: string): Promise<void> {

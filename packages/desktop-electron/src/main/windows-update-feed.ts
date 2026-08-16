@@ -1,4 +1,5 @@
 import { createServer, type Server } from "node:http"
+import { parseTPortedAddress } from "../shared/parse-external"
 import { isAbsoluteUrl, resolveReleaseAssetUrl } from "./update-common"
 
 const WINDOWS_UPDATE_FEED_HOSTNAME = "127.0.0.1"
@@ -53,8 +54,8 @@ export async function startWindowsUpdateFeed(input: {
 
   await listen(server)
 
-  const address = server.address()
-  if (!address || typeof address !== "object") {
+  const address = parseTPortedAddress(server.address())
+  if (!address) {
     await closeServer(server)
     throw new Error("Windows update feed did not expose a TCP address")
   }

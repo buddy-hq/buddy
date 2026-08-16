@@ -4,7 +4,7 @@ import { dirname, join } from "node:path"
 import readline from "node:readline"
 import { fileURLToPath } from "node:url"
 import { app, utilityProcess } from "electron"
-import type { Details } from "electron"
+import type { Details, Event } from "electron"
 import treeKill from "tree-kill"
 import {
   API_HEALTH_PATH,
@@ -15,6 +15,7 @@ import {
   WSL_ENABLED_KEY,
 } from "./constants"
 import { store } from "./store"
+import { parseTBoolean, parseTString } from "../shared/parse-external"
 
 export type WslConfig = {
   enabled: boolean
@@ -54,8 +55,7 @@ const BACKEND_UTILITY_TERMINATION_SIGNAL: NodeJS.Signals = "SIGTERM"
 const BACKEND_UTILITY_FORCE_KILL_SIGNAL: NodeJS.Signals = "SIGKILL"
 
 export function getDefaultServerUrl(): string | null {
-  const value = store.get(DEFAULT_SERVER_URL_KEY)
-  return typeof value === "string" ? value : null
+  return parseTString(store.get(DEFAULT_SERVER_URL_KEY)) ?? null
 }
 
 export function setDefaultServerUrl(url: string | null) {
@@ -68,8 +68,7 @@ export function setDefaultServerUrl(url: string | null) {
 }
 
 export function getWslConfig(): WslConfig {
-  const value = store.get(WSL_ENABLED_KEY)
-  return { enabled: typeof value === "boolean" ? value : false }
+  return { enabled: parseTBoolean(store.get(WSL_ENABLED_KEY)) ?? false }
 }
 
 export function setWslConfig(config: WslConfig) {
@@ -95,7 +94,7 @@ export async function spawnLocalServer(
   let stopping: NodeJS.Timeout | undefined
   const exit = defer<TerminatedPayload>()
 
-  const onProcessGone = (_event: unknown, details: Details) => {
+  const onProcessGone = (_event: Event, details: Details) => {
     if (details.type !== "Utility" || details.name !== BACKEND_UTILITY_SERVICE_NAME) return
     events.emit(
       "stderr",
@@ -257,7 +256,7 @@ async function waitForUtilityReady(input: {
         exitHandled = true
         onExit(payload)
       })
-      .catch((error: unknown) => {
+      .catch((error) => {
         fail(error instanceof Error ? error : new Error(String(error)))
       })
     timeout = setTimeout(() => {
@@ -322,7 +321,7 @@ function defer<T>(): Deferred<T> {
 }
 
 function postUtilityCommand(child: Electron.UtilityProcess, command: UtilityCommand) {
-  // oxlint-disable-next-line unicorn(require-post-message-target-origin): Electron utility process messages do not accept a targetOrigin.
+  // oxlint-disable-next-line unicorn/require-post-message-target-origin -- Electron utility process messages do not accept a targetOrigin.
   child.postMessage(command)
 }
 

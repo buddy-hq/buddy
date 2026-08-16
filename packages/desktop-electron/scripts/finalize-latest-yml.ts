@@ -8,6 +8,7 @@ import {
   resolveAllMacOsReleaseArchiveFilenames,
   resolveWindowsReleaseArtifactFilename,
 } from "../src/shared/release-asset-names"
+import { parseTNumber, parseTString } from "../src/shared/parse-external"
 import { resolveTauriSignerBinaryPath } from "./utils"
 
 const rawLatestYmlDir = process.env.LATEST_YML_DIR
@@ -51,17 +52,21 @@ function parse(content: string): LatestYml {
   let current: Partial<FileEntry> | undefined
 
   const flush = () => {
-    if (
-      typeof current?.url === "string" &&
-      typeof current.sha512 === "string" &&
-      typeof current.size === "number"
-    ) {
-      files.push({
-        url: current.url,
-        sha512: current.sha512,
-        size: current.size,
-        ...(typeof current.blockMapSize === "number" ? { blockMapSize: current.blockMapSize } : {}),
-      })
+    const url = parseTString(current?.url)
+    const sha512 = parseTString(current?.sha512)
+    const size = parseTNumber(current?.size)
+    if (url !== undefined && sha512 !== undefined && size !== undefined) {
+      const blockMapSize = parseTNumber(current?.blockMapSize)
+      files.push(
+        Object.assign(
+          {
+            url,
+            sha512,
+            size,
+          },
+          blockMapSize !== undefined ? { blockMapSize } : undefined,
+        ),
+      )
     }
     current = undefined
   }
@@ -162,12 +167,14 @@ async function toFileEntry(filepath: string): Promise<FileEntry> {
   const [fileBuffer, fileStats] = await Promise.all([readFile(filepath), stat(filepath)])
   const blockmapPath = `${filepath}.blockmap`
   const blockMapStats = (await fileExists(blockmapPath)) ? await stat(blockmapPath) : undefined
-  return {
-    url: path.basename(filepath),
-    sha512: createHash("sha512").update(fileBuffer).digest("base64"),
-    size: fileStats.size,
-    ...(blockMapStats ? { blockMapSize: blockMapStats.size } : {}),
-  }
+  return Object.assign(
+    {
+      url: path.basename(filepath),
+      sha512: createHash("sha512").update(fileBuffer).digest("base64"),
+      size: fileStats.size,
+    },
+    blockMapStats ? { blockMapSize: blockMapStats.size } : undefined,
+  )
 }
 
 async function synthesizeLatest(platform: "mac" | "windows") {

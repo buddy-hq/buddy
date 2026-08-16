@@ -4,6 +4,7 @@ import type { IpcMainEvent, IpcMainInvokeEvent } from "electron"
 import { READER_EXTERNAL_LINK_PROTOCOLS, readAllowedExternalLink } from "@buddy/reader-contract"
 
 import type {
+  BenchCaptureRectangle,
   InitStep,
   LinuxDisplayBackend,
   MarkdownPdfExportInput,
@@ -14,6 +15,7 @@ import type {
 } from "../preload/types"
 import type { UpdateProgressSnapshot, UpdateRing } from "../shared/update-state"
 import { isValidBenchCaptureRectangle } from "./bench-capture"
+import { parseTString } from "../shared/parse-external"
 import { getStore } from "./store"
 import { setTitlebar } from "./windows"
 
@@ -114,10 +116,14 @@ export function registerIpcHandlers(deps: Deps) {
   ipcMain.handle("store-get", (_event: IpcMainInvokeEvent, name: string, key: string) => {
     const store = getStore(name)
     const value = store.get(key)
+    const text = parseTString(value)
+    if (text !== undefined) {
+      return text
+    }
     if (value === undefined || value === null) {
       return null
     }
-    return typeof value === "string" ? value : JSON.stringify(value)
+    return JSON.stringify(value)
   })
   ipcMain.handle(
     "store-set",
@@ -195,8 +201,10 @@ export function registerIpcHandlers(deps: Deps) {
     },
   )
 
-  ipcMain.on("open-link", (_event: IpcMainEvent, url: unknown) => {
-    const safeUrl = readAllowedExternalLink(url, DESKTOP_EXTERNAL_LINK_PROTOCOLS)
+  ipcMain.on("open-link", (_event: IpcMainEvent, url: string) => {
+    const parsedUrl = parseTString(url)
+    if (parsedUrl === undefined) return
+    const safeUrl = readAllowedExternalLink(parsedUrl, DESKTOP_EXTERNAL_LINK_PROTOCOLS)
     if (!safeUrl) return
     void shell.openExternal(safeUrl)
   })
@@ -249,7 +257,7 @@ export function registerIpcHandlers(deps: Deps) {
 
   ipcMain.handle(
     "capture-bench-screenshot",
-    async (event: IpcMainInvokeEvent, rectangle: unknown) => {
+    async (event: IpcMainInvokeEvent, rectangle: BenchCaptureRectangle) => {
       const window = BrowserWindow.fromWebContents(event.sender)
       if (!window) throw new Error("Bench capture window is unavailable.")
       const [width, height] = window.getContentSize()

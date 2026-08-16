@@ -1,42 +1,53 @@
 import type { BenchCaptureRectangle } from "../preload/types"
+import { parseTJsonObject, parseTNumber } from "../shared/parse-external"
 
-type BenchCaptureBounds = {
+type TBenchCaptureBounds = {
   width: number
   height: number
 }
 
-type UnknownRecord = Record<PropertyKey, unknown>
-
-function isObjectRecord(value: unknown): value is UnknownRecord {
-  return typeof value === "object" && value !== null
+function parseTNonNegativeSafeInteger<TValue>(value: TValue): number | undefined {
+  const numeric = parseTNumber(value)
+  if (numeric === undefined || !Number.isSafeInteger(numeric) || numeric < 0) {
+    return undefined
+  }
+  return numeric
 }
 
-function isNonNegativeSafeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+function parseTPositiveSafeInteger<TValue>(value: TValue): number | undefined {
+  const numeric = parseTNonNegativeSafeInteger(value)
+  if (numeric === undefined || numeric <= 0) {
+    return undefined
+  }
+  return numeric
 }
 
-function isPositiveSafeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
-}
+function isValidBenchCaptureRectangle<TValue>(
+  value: TValue,
+  bounds: TBenchCaptureBounds,
+): value is TValue & BenchCaptureRectangle {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return false
 
-function isValidBenchCaptureRectangle(
-  value: unknown,
-  bounds: BenchCaptureBounds,
-): value is BenchCaptureRectangle {
+  const x = parseTNonNegativeSafeInteger(record.x)
+  const y = parseTNonNegativeSafeInteger(record.y)
+  const width = parseTPositiveSafeInteger(record.width)
+  const height = parseTPositiveSafeInteger(record.height)
+  const boundWidth = parseTPositiveSafeInteger(bounds.width)
+  const boundHeight = parseTPositiveSafeInteger(bounds.height)
   if (
-    !isObjectRecord(value) ||
-    !isNonNegativeSafeInteger(value.x) ||
-    !isNonNegativeSafeInteger(value.y) ||
-    !isPositiveSafeInteger(value.width) ||
-    !isPositiveSafeInteger(value.height) ||
-    !isPositiveSafeInteger(bounds.width) ||
-    !isPositiveSafeInteger(bounds.height)
+    x === undefined ||
+    y === undefined ||
+    width === undefined ||
+    height === undefined ||
+    boundWidth === undefined ||
+    boundHeight === undefined
   ) {
     return false
   }
 
-  return value.x <= bounds.width - value.width && value.y <= bounds.height - value.height
+  return x <= boundWidth - width && y <= boundHeight - height
 }
 
 export { isValidBenchCaptureRectangle }
-export type { BenchCaptureBounds }
+export type { TBenchCaptureBounds as BenchCaptureBounds }

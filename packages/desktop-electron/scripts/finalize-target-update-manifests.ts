@@ -12,7 +12,14 @@ import {
   type MacOsReleaseArch,
   type WindowsReleaseArch,
 } from "../src/shared/release-asset-names"
+import {
+  parseTJsonObject,
+  parseTNumber,
+  parseTString,
+  parseWithSchema,
+} from "../src/shared/parse-external"
 import { resolveTauriSignerBinaryPath } from "./utils"
+import { z } from "zod"
 
 const RELEASE_REPOSITORY_ENV_KEY = "BUDDY_RELEASE_REPO"
 const LEGACY_RELEASE_REPOSITORY_ENV_KEY = "GH_REPO"
@@ -51,10 +58,22 @@ type WindowsUpdateManifest = {
   version: string
 }
 
-type GithubRelease = {
+type TGithubRelease = {
   publishedAt: string
   tagName: string
 }
+
+const githubReleaseSchema = z.object({
+  publishedAt: z.string(),
+  tagName: z.string(),
+})
+
+const fileEntrySchema = z.object({
+  blockMapSize: z.number().optional(),
+  sha512: z.string(),
+  size: z.number(),
+  url: z.string(),
+})
 
 type MacOsTarget = {
   arch: MacOsReleaseArch
@@ -344,22 +363,24 @@ async function readFileEntry(filepath: string): Promise<Omit<FileEntry, "url">> 
   const blockmapPath = `${filepath}.blockmap`
   const blockMapStats = (await fileExists(blockmapPath)) ? await stat(blockmapPath) : undefined
 
-  return {
-    ...(blockMapStats ? { blockMapSize: blockMapStats.size } : {}),
-    sha512: createHash(SHA512_HASH_ALGORITHM).update(fileBuffer).digest("base64"),
-    size: fileStats.size,
-  }
+  return Object.assign(
+    {
+      sha512: createHash(SHA512_HASH_ALGORITHM).update(fileBuffer).digest("base64"),
+      size: fileStats.size,
+    },
+    blockMapStats ? { blockMapSize: blockMapStats.size } : undefined,
+  )
 }
 
 function parseMacOsManifest(content: string): MacOsUpdateManifest {
-  const parsed: unknown = JSON.parse(content)
-  if (!isRecord(parsed)) {
+  const parsed = parseTJsonObject(JSON.parse(content))
+  if (parsed === undefined) {
     throw new Error("macOS legacy manifest was not an object")
   }
 
-  const version = parsed.version
+  const version = parseTString(parsed.version)
   const files = parsed.files
-  if (typeof version !== "string" || !Array.isArray(files)) {
+  if (version === undefined || !Array.isArray(files)) {
     throw new Error("macOS legacy manifest was missing version or files")
   }
 
@@ -377,17 +398,21 @@ function parseWindowsManifest(content: string): WindowsUpdateManifest {
   let current: Partial<FileEntry> | undefined
 
   const flush = () => {
-    if (
-      typeof current?.url === "string" &&
-      typeof current.sha512 === "string" &&
-      typeof current.size === "number"
-    ) {
-      files.push({
-        url: current.url,
-        sha512: current.sha512,
-        size: current.size,
-        ...(typeof current.blockMapSize === "number" ? { blockMapSize: current.blockMapSize } : {}),
-      })
+    const url = parseTString(current?.url)
+    const sha512 = parseTString(current?.sha512)
+    const size = parseTNumber(current?.size)
+    if (url !== undefined && sha512 !== undefined && size !== undefined) {
+      const blockMapSize = parseTNumber(current?.blockMapSize)
+      files.push(
+        Object.assign(
+          {
+            url,
+            sha512,
+            size,
+          },
+          blockMapSize !== undefined ? { blockMapSize } : undefined,
+        ),
+      )
     }
     current = undefined
   }
@@ -424,25 +449,25 @@ function parseWindowsManifest(content: string): WindowsUpdateManifest {
   }
 }
 
-function parseFileEntry(value: unknown): FileEntry {
-  if (!isRecord(value)) {
+function parseFileEntry<TValue>(value: TValue): FileEntry {
+  const record = parseTJsonObject(value)
+  if (record === undefined) {
     throw new Error("Manifest file entry was not an object")
   }
 
-  const url = value.url
-  const sha512 = value.sha512
-  const size = value.size
-  const blockMapSize = value.blockMapSize
-  if (typeof url !== "string" || typeof sha512 !== "string" || typeof size !== "number") {
+  const parsed = parseWithSchema(fileEntrySchema, record)
+  if (parsed === undefined) {
     throw new Error("Manifest file entry was missing url, sha512, or size")
   }
 
-  return {
-    ...(typeof blockMapSize === "number" ? { blockMapSize } : {}),
-    sha512,
-    size,
-    url,
-  }
+  return Object.assign(
+    {
+      sha512: parsed.sha512,
+      size: parsed.size,
+      url: parsed.url,
+    },
+    parsed.blockMapSize !== undefined ? { blockMapSize: parsed.blockMapSize } : undefined,
+  )
 }
 
 function serializeWindowsUpdateManifest(data: WindowsUpdateManifest): string {
@@ -477,30 +502,30 @@ async function resolvePreviousStableReleaseTag(): Promise<string> {
   return previous.tagName
 }
 
-function parseGithubReleases(value: unknown): GithubRelease[] {
+function parseGithubReleases<TValue>(value: TValue): TGithubRelease[] {
   if (!Array.isArray(value)) {
     throw new Error("GitHub release list response was not an array")
   }
 
   return value.map((item) => {
-    if (!isRecord(item)) {
+    const record = parseTJsonObject(item)
+    if (record === undefined) {
       throw new Error("GitHub release entry was not an object")
     }
 
-    const tagName = item.tagName
-    const publishedAt = item.publishedAt
-    if (typeof tagName !== "string" || typeof publishedAt !== "string") {
+    const parsed = parseWithSchema(githubReleaseSchema, record)
+    if (parsed === undefined) {
       throw new Error("GitHub release entry was missing tagName or publishedAt")
     }
 
     return {
-      publishedAt,
-      tagName,
+      publishedAt: parsed.publishedAt,
+      tagName: parsed.tagName,
     }
   })
 }
 
-function releasePublishedAtTime(release: GithubRelease): number {
+function releasePublishedAtTime(release: TGithubRelease): number {
   const time = Date.parse(release.publishedAt)
   return Number.isNaN(time) ? 0 : time
 }
@@ -652,8 +677,4 @@ function readRequiredBooleanEnvironmentVariable(name: string): boolean {
   }
 
   throw new Error(`${name} must be true or false`)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
