@@ -12,6 +12,12 @@ const TRUE_ENV_VALUE = "1"
 const DRY_RUN_RELEASE_ID = "dry-run"
 const LOCAL_RUN_ID = "local"
 
+type CreatedRelease = {
+  databaseId: number | string
+  isDraft?: boolean
+  tagName: string
+}
+
 function currentTag() {
   if (process.env.GITHUB_REF_TYPE !== "tag") {
     return undefined
@@ -79,11 +85,7 @@ async function createRelease(file: string) {
   await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --repo ${releaseRepo}`
 }
 
-let release: {
-  databaseId: number | string
-  isDraft?: boolean
-  tagName: string
-}
+let release: CreatedRelease
 
 if (dryRun) {
   const runId = process.env.GITHUB_RUN_ID?.trim() || LOCAL_RUN_ID
@@ -94,6 +96,7 @@ if (dryRun) {
 } else {
   const existing = await $`gh release view ${tag} --repo ${releaseRepo}`.quiet().nothrow()
   if (existing.exitCode === 0) {
+    // SAFETY: `gh release view --json` returns the requested scalar fields with these documented types.
     release =
       (await $`gh release view ${tag} --json tagName,databaseId,isDraft --repo ${releaseRepo}`.json()) as {
         databaseId: number
@@ -116,6 +119,7 @@ if (dryRun) {
 
     await createRelease(file)
 
+    // SAFETY: `gh release view --json` returns the requested scalar fields with these documented types.
     release =
       (await $`gh release view ${tag} --json tagName,databaseId --repo ${releaseRepo}`.json()) as {
         databaseId: number
