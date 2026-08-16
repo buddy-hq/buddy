@@ -25,16 +25,16 @@ const sqliteCellSchema: z.ZodType<TSqliteCell> = z.union([
 ])
 const sqliteRowSchema: z.ZodType<TSqliteRow> = z.record(z.string(), sqliteCellSchema)
 
-type TNativeStatement = {
-  all: (...params: SQLInputValue[]) => readonly TSqliteRow[]
-  get: (...params: SQLInputValue[]) => TSqliteRow | null | undefined
+type TNativeStatement<TRow = TSqliteRow> = {
+  all: (...params: SQLInputValue[]) => readonly TRow[]
+  get: (...params: SQLInputValue[]) => TRow | null | undefined
   run: (...params: SQLInputValue[]) => RunResult
 }
 
 type TNativeDatabase = {
   close: () => void
   exec: (sql: string) => void
-  prepare: (sql: string) => TNativeStatement
+  prepare: <TRow = TSqliteRow>(sql: string) => TNativeStatement<TRow>
 }
 
 type TNativeSqliteConstructor = new (
@@ -73,10 +73,6 @@ function isNativeSqliteModule<TValue>(value: TValue): value is TValue & TNativeS
   return isFunctionValue(record.DatabaseSync)
 }
 
-function isPreparedRow<TRow>(row: TSqliteRow): row is TRow {
-  return parseSqliteRow(row) !== undefined
-}
-
 function loadNativeSqlite(): TNativeSqliteModule {
   const loaded = require("node:sqlite")
   if (!isNativeSqliteModule(loaded)) {
@@ -85,42 +81,32 @@ function loadNativeSqlite(): TNativeSqliteModule {
   return loaded
 }
 
-function parseSqliteRow<TValue>(value: TValue): TSqliteRow | undefined {
-  const parsed = sqliteRowSchema.safeParse(value)
-  return parsed.success ? parsed.data : undefined
+function parsePreparedRow<TRow>(row: TRow): TRow {
+  const parsed = sqliteRowSchema.safeParse(row)
+  if (!parsed.success) {
+    throw new Error("SQLite query returned a non-object row.")
+  }
+  return row
 }
 
-function normalizeRow<TRow>(row: TSqliteRow | null | undefined): TRow | null {
+function normalizeRow<TRow>(row: TRow | null | undefined): TRow | null {
   if (row === undefined || row === null) return null
-  const parsed = parseSqliteRow(row)
-  if (parsed === undefined) {
-    throw new Error("SQLite query returned a non-object row.")
-  }
-  if (!isPreparedRow<TRow>(parsed)) {
-    throw new Error("SQLite query returned a non-object row.")
-  }
-  return parsed
+  return parsePreparedRow(row)
 }
 
-function normalizeRows<TRow>(rows: readonly TSqliteRow[]): TRow[] {
-  return rows.map((row) => {
-    const normalized = normalizeRow<TRow>(row)
-    if (normalized === null) {
-      throw new Error("SQLite query returned an empty row.")
-    }
-    return normalized
-  })
+function normalizeRows<TRow>(rows: readonly TRow[]): TRow[] {
+  return rows.map((row) => parsePreparedRow(row))
 }
 
 class NodeStatement<TRow> implements Statement<TRow> {
-  constructor(private readonly statement: TNativeStatement) {}
+  constructor(private readonly statement: TNativeStatement<TRow>) {}
 
   all(...params: SQLInputValue[]): TRow[] {
-    return normalizeRows<TRow>(this.statement.all(...params))
+    return normalizeRows(this.statement.all(...params))
   }
 
   get(...params: SQLInputValue[]): TRow | null {
-    return normalizeRow<TRow>(this.statement.get(...params))
+    return normalizeRow(this.statement.get(...params))
   }
 
   run(...params: SQLInputValue[]): RunResult {
@@ -150,6 +136,6 @@ export class Database {
   }
 
   prepare<TRow = TSqliteRow>(sql: string): Statement<TRow> {
-    return new NodeStatement<TRow>(this.native.prepare(sql))
+    return new NodeStatement<TRow>(this.native.prepare<TRow>(sql))
   }
 }

@@ -5,7 +5,7 @@ import {
 } from "../learning/agent-execution/state/session-state"
 import { recomputeTeachingSessionState } from "../learning/agent-execution/state/recompute-session-state"
 
-function describeError(error: unknown) {
+function describeError<TError>(error: TError) {
   if (error instanceof Error) {
     return error.message
   }

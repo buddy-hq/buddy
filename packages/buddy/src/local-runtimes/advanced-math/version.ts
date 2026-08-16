@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { parseTString } from "../../http/parse"
 
 const RUNTIME_SOURCE_RELATIVE_PATH = "runtime/main.py"
 const RUNTIME_BUILD_SCRIPT_RELATIVE_PATH = "../../../script/build-advanced-math-runtime.ts"
@@ -43,11 +44,18 @@ function readVersionOverride() {
 }
 
 function readBundledVersion() {
-  if (typeof BUDDY_ADVANCED_MATH_RUNTIME_BUNDLED_VERSION !== "string") {
+  let declaredVersion: string | undefined
+  try {
+    declaredVersion = BUDDY_ADVANCED_MATH_RUNTIME_BUNDLED_VERSION
+  } catch {
     return undefined
   }
-  const bundled = BUDDY_ADVANCED_MATH_RUNTIME_BUNDLED_VERSION.trim()
-  if (bundled.length === 0 || bundled === BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_SENTINEL) {
+  const bundled = parseTString(declaredVersion)?.trim()
+  if (
+    bundled === undefined ||
+    bundled.length === 0 ||
+    bundled === BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_SENTINEL
+  ) {
     return undefined
   }
   return bundled

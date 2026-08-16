@@ -72,10 +72,21 @@ function isObjectValue<TValue>(value: TValue): value is TValue & object {
   )
 }
 
+type TBoundProcedure = () => void
+
+function isBoundProcedure<TValue>(value: TValue): value is TValue & TBoundProcedure {
+  return isFunctionValue(value)
+}
+
 function parseCloseableConnections<TValue>(value: TValue): TCloseableConnections | undefined {
   if (!isObjectValue(value) || !("closeAllConnections" in value)) return undefined
-  if (!isFunctionValue(value.closeAllConnections)) return undefined
-  return value
+  const method = value.closeAllConnections
+  if (!isBoundProcedure(method)) return undefined
+  return {
+    closeAllConnections: () => {
+      method.call(value)
+    },
+  }
 }
 
 function closeAllConnections<TServer>(server: TServer) {

@@ -1,4 +1,5 @@
 import z from "zod"
+import type { TJsonValue } from "../../prompt/utils"
 
 const GOAL_WRITER_AGENT_NAME = "goal-writer" as const
 
@@ -96,12 +97,20 @@ const GoalStateSetSummarySchema = z.object({
   createdAt: z.string().datetime(),
 })
 
+const GoalStateRawEntrySchema = z.object({
+  goalId: z.string().min(1),
+  setId: z.string().min(1),
+  scope: GoalScopeSchema,
+  contextLabel: z.string().min(1),
+  createdAt: z.string().datetime(),
+})
+
 const GoalStateSchema = z.object({
   filePath: z.string().min(1),
   exists: z.boolean(),
   activeSetCount: z.number().int().nonnegative(),
   activeSets: z.array(GoalStateSetSummarySchema),
-  raw: z.unknown().optional(),
+  raw: z.array(GoalStateRawEntrySchema),
 })
 type GoalState = z.infer<typeof GoalStateSchema>
 
@@ -322,7 +331,7 @@ function dedupeGoalStrings(values: readonly string[]): string[] {
   return [...deduped]
 }
 
-function createGoalToolResult<T>(artifact: GoalArtifactName, value: T) {
+function createGoalToolResult<T extends TJsonValue>(artifact: GoalArtifactName, value: T) {
   return {
     title: artifact,
     output: JSON.stringify(value, null, 2),

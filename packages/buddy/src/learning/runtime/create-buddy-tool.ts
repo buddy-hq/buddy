@@ -81,7 +81,7 @@ type BuddyTool<
   dynamic?: DynamicBuddyToolMetadata
   presentation: ToolPresentationDescriptor
   output?: BuddyToolOutputPolicy
-  run(rawArgs: TJsonObject, ctx: BuddyToolContext<Metadata>): Promise<Tool.ExecuteResult<Metadata>>
+  run<TRaw>(rawArgs: TRaw, ctx: BuddyToolContext<Metadata>): Promise<Tool.ExecuteResult<Metadata>>
   toTool(directory: string): Effect.Effect<
     Tool.Info<typeof Schema.Unknown, Metadata>,
     never,
@@ -277,8 +277,8 @@ function createBuddyTool<
       jsonSchema,
       constraints: clonedConstraints,
       presentation,
-      run(rawArgs: TJsonObject, ctx: BuddyToolContext<Metadata>) {
-        return runBuddyTool(definition, rawArgs, ctx)
+      run<TRaw>(rawArgs: TRaw, ctx: BuddyToolContext<Metadata>) {
+        return runBuddyTool(definition, parseJsonObject(rawArgs) ?? {}, ctx)
       },
       toTool(directory: string) {
         return Tool.define(

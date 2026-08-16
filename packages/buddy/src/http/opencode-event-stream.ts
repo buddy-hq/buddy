@@ -18,7 +18,7 @@ const CURRENT_DIRECTORY_RELATIVE_PATH = "."
 const PARENT_DIRECTORY_RELATIVE_PATH = ".."
 const WINDOWS_DRIVE_PATH_PREFIX_PATTERN = /^[a-zA-Z]:[\\/]/u
 
-type TBuddyEventStreamMultiplexer<TEvent> = {
+export type TBuddyEventStreamMultiplexer<TEvent> = {
   initialEvents?: readonly TEvent[]
   subscribe(listener: (event: TEvent) => void): () => void
 }

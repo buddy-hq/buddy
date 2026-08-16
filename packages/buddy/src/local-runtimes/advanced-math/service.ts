@@ -6,6 +6,7 @@ import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import z from "zod"
+import { parseTJsonObject, parseTString, type TJsonObject } from "../../http/parse"
 import { BUDDY_ENV } from "../../storage"
 import { Global } from "../../storage/global"
 import { resolveAdvancedMathRuntimeVersion } from "./version"
@@ -120,30 +121,33 @@ function runtimeStateDefaults() {
   } satisfies z.input<typeof advancedMathRuntimeStateSchema>
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function isNonEmptyText(value: string | undefined): value is string {
+  return value !== undefined && value.length > 0
 }
 
-function readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
-  const value = record[key]
-  return typeof value === "string" && value.length > 0 ? value : undefined
+function readOptionalString(record: TJsonObject, key: string): string | undefined {
+  const value = parseTString(record[key])
+  return isNonEmptyText(value) ? value : undefined
 }
 
-function normalizeRuntimeState(input: unknown) {
-  const inputRecord = isRecord(input) ? input : {}
+function normalizeRuntimeState<TInput>(input: TInput) {
+  const inputRecord = parseTJsonObject(input) ?? {}
   const installedRuntimeVersion = readOptionalString(inputRecord, INSTALLED_RUNTIME_VERSION_KEY)
   const legacyInstalledVersion = readOptionalString(inputRecord, LEGACY_INSTALLED_VERSION_KEY)
 
-  const parsed = advancedMathRuntimeStateSchema.safeParse({
-    ...runtimeStateDefaults(),
-    ...inputRecord,
-    ...(installedRuntimeVersion
-      ? {}
-      : legacyInstalledVersion
-        ? { installedRuntimeVersion: legacyInstalledVersion }
-        : {}),
-    targetTriple: currentTargetTriple(),
-  })
+  const parsed = advancedMathRuntimeStateSchema.safeParse(
+    Object.assign(
+      {},
+      runtimeStateDefaults(),
+      inputRecord,
+      installedRuntimeVersion
+        ? undefined
+        : legacyInstalledVersion
+          ? { installedRuntimeVersion: legacyInstalledVersion }
+          : undefined,
+      { targetTriple: currentTargetTriple() },
+    ),
+  )
 
   if (!parsed.success) {
     return advancedMathRuntimeStateSchema.parse(runtimeStateDefaults())
@@ -199,14 +203,14 @@ function cacheDownloadPath(filename: string) {
   return path.join(ADVANCED_MATH_CACHE_DIR, filename)
 }
 
-function errorMessage(error: unknown) {
+function errorMessage<TError>(error: TError) {
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message
   }
   return String(error)
 }
 
-function logRuntimeEvent(event: string, details?: Record<string, unknown>) {
+function logRuntimeEvent<TDetails>(event: string, details?: TDetails) {
   const suffix = details ? ` ${JSON.stringify(details)}` : ""
   console.error(`[advanced-math-runtime] ${event}${suffix}`)
 }
@@ -312,10 +316,9 @@ function nextStatus(
   state: z.infer<typeof advancedMathRuntimeStateSchema>,
 ): AdvancedMathRuntimeStatus {
   const currentVersion = runtimeVersion()
+  const executablePath = state.executablePath
   const executableExists =
-    typeof state.executablePath === "string" &&
-    state.executablePath.length > 0 &&
-    fs.existsSync(state.executablePath)
+    isNonEmptyText(executablePath) && fs.existsSync(executablePath)
   const versionMatches = state.installedRuntimeVersion === currentVersion
   const localAssetState = currentLocalAssetChecksumState()
   const localAssetError =
@@ -350,13 +353,12 @@ function nextStatus(
             : state.lastError))
       : state.lastError
 
-  return {
-    ...state,
+  return Object.assign({}, state, {
     state: effectiveState,
-    ...(effectiveError ? { lastError: effectiveError } : {}),
+    lastError: effectiveError,
     ready,
     supportedLibraries: SUPPORTED_LIBRARY_NAMES,
-  }
+  })
 }
 
 function sanitizedRuntimeEnv() {
@@ -551,7 +553,7 @@ async function extractRuntimeBundle(bundlePath: string, destinationDir: string) 
 }
 
 async function installBundleFromRelease(
-  reportProgress: (input: RuntimeProgressUpdate) => Promise<unknown>,
+  reportProgress: (input: RuntimeProgressUpdate) => Promise<AdvancedMathRuntimeStatus>,
 ) {
   await fsp.mkdir(ADVANCED_MATH_CACHE_DIR, { recursive: true })
 
@@ -729,8 +731,7 @@ function shouldAutoUpdate(): boolean {
   // Has a previous version installed that needs updating
   return (
     runtimeState.state === READY_STATE &&
-    typeof runtimeState.installedRuntimeVersion === "string" &&
-    runtimeState.installedRuntimeVersion.length > 0
+    isNonEmptyText(runtimeState.installedRuntimeVersion)
   )
 }
 
@@ -769,8 +770,7 @@ async function installRuntime() {
       (!!runtimeState.lastError ||
         runtimeState.state === "error" ||
         runtimeState.installedRuntimeVersion !== runtimeVersion() ||
-        (typeof runtimeState.executablePath === "string" &&
-          runtimeState.executablePath.length > 0 &&
+        (isNonEmptyText(runtimeState.executablePath) &&
           !fs.existsSync(runtimeState.executablePath)))
     await updateRuntimeState({
       enabled: true,

@@ -18,6 +18,7 @@ import {
   KNOWLEDGE_GRAPH_DB_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
 } from "../../learning/features/standards/constants"
+import { parseTJsonObject, parseTString, type TJsonObject } from "../../http/parse"
 import { BUDDY_ENV } from "../../storage"
 import { fileLockIsActiveSync, withFileLock } from "../../storage/file-lock"
 import { Global } from "../../storage/global"
@@ -95,29 +96,32 @@ function runtimeStateDefaults() {
   } satisfies z.input<typeof standardsRuntimeStateSchema>
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function isNonEmptyText(value: string | undefined): value is string {
+  return value !== undefined && value.length > 0
 }
 
-function readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
-  const value = record[key]
-  return typeof value === "string" && value.length > 0 ? value : undefined
+function readOptionalString(record: TJsonObject, key: string): string | undefined {
+  const value = parseTString(record[key])
+  return isNonEmptyText(value) ? value : undefined
 }
 
-function normalizeRuntimeState(input: unknown) {
-  const inputRecord = isRecord(input) ? input : {}
+function normalizeRuntimeState<TInput>(input: TInput) {
+  const inputRecord = parseTJsonObject(input) ?? {}
   const installedDatasetVersion = readOptionalString(inputRecord, INSTALLED_DATASET_VERSION_KEY)
   const legacyInstalledVersion = readOptionalString(inputRecord, LEGACY_INSTALLED_VERSION_KEY)
 
-  const parsed = standardsRuntimeStateSchema.safeParse({
-    ...runtimeStateDefaults(),
-    ...inputRecord,
-    ...(installedDatasetVersion
-      ? {}
-      : legacyInstalledVersion
-        ? { installedDatasetVersion: legacyInstalledVersion }
-        : {}),
-  })
+  const parsed = standardsRuntimeStateSchema.safeParse(
+    Object.assign(
+      {},
+      runtimeStateDefaults(),
+      inputRecord,
+      installedDatasetVersion
+        ? undefined
+        : legacyInstalledVersion
+          ? { installedDatasetVersion: legacyInstalledVersion }
+          : undefined,
+    ),
+  )
 
   if (!parsed.success) {
     return standardsRuntimeStateSchema.parse(runtimeStateDefaults())
@@ -257,14 +261,14 @@ function cacheDownloadPath(filename: string) {
   return path.join(STANDARDS_CACHE_DIR, filename)
 }
 
-function errorMessage(error: unknown) {
+function errorMessage<TError>(error: TError) {
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message
   }
   return String(error)
 }
 
-function logStandardsEvent(event: string, details?: Record<string, unknown>) {
+function logStandardsEvent<TDetails>(event: string, details?: TDetails) {
   const suffix = details ? ` ${JSON.stringify(details)}` : ""
   console.error(`[standards-runtime] ${event}${suffix}`)
 }
@@ -333,7 +337,7 @@ function parseChecksum(input: string) {
   return checksum.trim().toLowerCase()
 }
 
-function parseManifest(input: unknown): KnowledgeGraphArtifactManifest {
+function parseManifest<TInput>(input: TInput): KnowledgeGraphArtifactManifest {
   const parsed = parseKnowledgeGraphArtifactManifest(input)
   if (!parsed) {
     throw new Error("Standards runtime manifest asset is invalid")
@@ -390,12 +394,9 @@ function setKnowledgeGraphDatabaseEnv(databasePath: string | undefined) {
 
 function nextStatus(state: z.infer<typeof standardsRuntimeStateSchema>): StandardsRuntimeStatus {
   const externalDatabasePath = externalKnowledgeGraphDatabasePath()
-  const databaseExists =
-    typeof state.databasePath === "string" &&
-    state.databasePath.length > 0 &&
-    fs.existsSync(state.databasePath)
-  const versionExists =
-    typeof state.installedDatasetVersion === "string" && state.installedDatasetVersion.length > 0
+  const databasePath = state.databasePath
+  const databaseExists = isNonEmptyText(databasePath) && fs.existsSync(databasePath)
+  const versionExists = isNonEmptyText(state.installedDatasetVersion)
 
   const installerReady =
     state.enabled && state.state === READY_STATE && versionExists && databaseExists
@@ -415,17 +416,18 @@ function nextStatus(state: z.infer<typeof standardsRuntimeStateSchema>): Standar
           : undefined))
       : state.lastError
 
-  return {
-    ...state,
-    ...(state.databasePath
-      ? {}
+  return Object.assign(
+    Object.assign({}, state, {
+      state: effectiveState,
+      lastError: effectiveError,
+      ready,
+    }),
+    state.databasePath
+      ? undefined
       : externalDatabasePath
         ? { databasePath: externalDatabasePath }
-        : {}),
-    state: effectiveState,
-    ...(effectiveError ? { lastError: effectiveError } : {}),
-    ready,
-  }
+        : undefined,
+  )
 }
 
 async function cleanupStaleInstallVersions(activeVersion: string) {
@@ -446,7 +448,7 @@ async function cleanupStaleInstallVersions(activeVersion: string) {
 }
 
 async function installBundleFromRelease(
-  reportProgress: (input: StandardsProgressUpdate) => Promise<unknown>,
+  reportProgress: (input: StandardsProgressUpdate) => Promise<StandardsRuntimeStatus>,
 ) {
   await fsp.mkdir(STANDARDS_CACHE_DIR, { recursive: true })
   const archiveCachePath = cacheDownloadPath(DATABASE_CACHE_FILENAME)
@@ -690,8 +692,7 @@ function shouldAutoUpdate() {
 
   return (
     runtimeState.state === READY_STATE &&
-    typeof runtimeState.installedDatasetVersion === "string" &&
-    runtimeState.installedDatasetVersion.length > 0
+    isNonEmptyText(runtimeState.installedDatasetVersion)
   )
 }
 

@@ -10,11 +10,12 @@ import { toOpenApiSchema } from "../http/effect-schema"
 import {
   buildOpenCodeEventStreamRequestHeaders,
   transformOpenCodeEventStreamResponse,
+  type TBuddyEventStreamMultiplexer,
 } from "../http/opencode-event-stream"
 import {
   SSE_EVENT_TYPE_CLIENT_LEASE,
   benchClientActionBroker,
-  type BenchClientActionListener,
+  type BenchClientSseEvent,
 } from "../learning/features/bench/client-actions"
 import { updateObsidianVaultIndex } from "../learning/features/obsidian-vault/service"
 import {
@@ -179,7 +180,7 @@ export const CompatibilityRoutes = new Hono()
         directory: directoryContext.context.directory,
         buddyEvents:
           eventQuery.workspaceInstanceID && eventQuery.connectionGeneration !== undefined
-            ? (() => {
+            ? ((): TBuddyEventStreamMultiplexer<BenchClientSseEvent> => {
                 const lease = benchClientActionBroker.connectLease({
                   directory: directoryContext.context.directory,
                   instanceID: eventQuery.workspaceInstanceID,
@@ -200,14 +201,14 @@ export const CompatibilityRoutes = new Hono()
                           },
                         },
                       ],
-                  subscribe: accepted
-                    ? (listener: BenchClientActionListener) =>
-                        benchClientActionBroker.subscribe({
+                  subscribe: (listener) =>
+                    accepted
+                      ? benchClientActionBroker.subscribe({
                           directory: directoryContext.context.directory,
                           lease,
                           listener,
                         })
-                    : () => () => undefined,
+                      : () => undefined,
                 }
               })()
             : undefined,
