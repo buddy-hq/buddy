@@ -39,12 +39,7 @@ function usage(): never {
   )
 }
 
-function parseArgs(): {
-  draft: boolean
-  repo: string
-  tag: string
-  targets: ReleaseTargetSelection
-} {
+function parseArgs() {
   const args = process.argv.slice(2)
   let draft = false
   let repo = releaseRepository()

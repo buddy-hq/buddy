@@ -69,7 +69,7 @@ export function assertPromotableRelease(
   }
 }
 
-function parseArgs(): { repo: string; tag: string } {
+function parseArgs() {
   const args = process.argv.slice(2)
   let repo = releaseRepository()
   let tag = ""

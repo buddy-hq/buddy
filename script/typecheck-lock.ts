@@ -61,7 +61,7 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-function inheritedEnvironment(token: string): Record<string, string> {
+function inheritedEnvironment(token: string) {
   const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined) env[key] = value
