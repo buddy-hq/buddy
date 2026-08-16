@@ -51,7 +51,7 @@ export type SpaceConfig = {
 
 // ── THEMES PRESERVATION ──
 
-export const THEMES: Record<ThemeId, ThemeConfig> = {
+export const THEMES = {
   nocturne: {
     id: "nocturne",
     name: "Ember Nocturne",
@@ -112,37 +112,37 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
     ink: "#000308",
     bloom: "rgba(0, 196, 180, 0.4)",
   },
-}
+} satisfies Record<ThemeId, ThemeConfig>
 
 // ── COLOR FILTERS PRESERVATION ──
 
 export function getBgFilter(spaceColorId: SpaceColorId, themeId: ThemeId): string {
   if (spaceColorId === "theme") {
-    const themeRotations: Record<ThemeId, string> = {
+    const themeRotations = {
       nocturne: "none",
       bamboo: "hue-rotate(110deg)",
       cosmic: "hue-rotate(295deg) saturate(1.3)",
       lyceum: "hue-rotate(35deg)",
       cyber: "hue-rotate(190deg)",
       abyssal: "hue-rotate(155deg)",
-    }
+    } satisfies Record<ThemeId, string>
     return themeRotations[themeId] || "none"
   }
 
-  const overrides: Record<Exclude<SpaceColorId, "theme">, string> = {
+  const overrides = {
     emerald: "hue-rotate(110deg)",
     amethyst: "hue-rotate(295deg) saturate(1.3)",
     sapphire: "hue-rotate(190deg)",
     amber: "hue-rotate(35deg)",
     ruby: "hue-rotate(325deg)",
     monochrome: "saturate(0) brightness(1.05) contrast(1.05)",
-  }
+  } satisfies Record<Exclude<SpaceColorId, "theme">, string>
   return overrides[spaceColorId] || "none"
 }
 
 // ── SPACES PRESERVATION ──
 
-export const SPACES: Record<SpaceId, SpaceConfig> = {
+export const SPACES = {
   nocturne: {
     id: "nocturne",
     name: "Night Aurora Sky",
@@ -299,7 +299,7 @@ export const SPACES: Record<SpaceId, SpaceConfig> = {
     },
     grainOpacity: 0.05,
   },
-}
+} satisfies Record<SpaceId, SpaceConfig>
 
 // ── BACKGROUND COMPONENTS PRESERVATION ──
 
@@ -467,7 +467,7 @@ export function ControlPanel({
 
   const currentTheme = THEMES[themeId]
 
-  const schemeColors: Record<SpaceColorId, string> = {
+  const schemeColors = {
     theme: "linear-gradient(135deg, #FF6A2C 0%, #d946ef 50%, #00f0ff 100%)",
     emerald: "#10b981",
     amethyst: "#a855f7",
@@ -475,7 +475,7 @@ export function ControlPanel({
     amber: "#f59e0b",
     ruby: "#ef4444",
     monochrome: "#ffffff",
-  }
+  } satisfies Record<SpaceColorId, string>
 
   return (
     <div ref={containerRef} className="absolute top-6 right-8 z-50 flex flex-col items-end">
@@ -598,13 +598,13 @@ export function ControlPanel({
               <div className="flex flex-wrap gap-1">
                 {(["diagonal", "ripple", "warp", "dissolve", "eclipse"] as const).map((tId) => {
                   const isActive = tId === transitionId
-                  const labels: Record<TransitionId, string> = {
+                  const labels = {
                     diagonal: "Diagonal",
                     ripple: "Ripple",
                     warp: "Warp",
                     dissolve: "Dissolve",
                     eclipse: "Eclipse",
-                  }
+                  } satisfies Record<TransitionId, string>
                   return (
                     <button
                       key={tId}

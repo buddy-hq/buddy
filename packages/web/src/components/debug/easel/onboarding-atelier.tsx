@@ -72,17 +72,17 @@ const MOCK_PICKED_HOME = "~/Projects/StudyRoom"
 const STEPS = ["mode", "engine", "location", "details"] as const
 type Step = (typeof STEPS)[number]
 
-const STEP_LABELS: Record<Step, string> = {
+const STEP_LABELS = {
   mode: "Your goal",
   engine: "Your engine",
   location: "Your space",
   details: "About you",
-}
+} satisfies Record<Step, string>
 
-const MODE_META: Record<Mode, { label: string; tag: string; tint: string; ink: string }> = {
+const MODE_META = {
   learn: { label: "Learning", tag: "Here to learn", tint: "#0f766e", ink: "#ccfbf1" },
   teach: { label: "Teaching", tag: "Here to teach", tint: "#c2410c", ink: "#ffedd5" },
-}
+} satisfies Record<Mode, { label: string; tag: string; tint: string; ink: string }>
 
 const PAPER = "#f4f1ea"
 const CARD_BG = "#fffdf8"
