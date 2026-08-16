@@ -182,6 +182,7 @@ function ensureLoopbackNoProxy() {
 
 function useSystemCertificates() {
   try {
+    // SAFETY: Buddy's supported Node runtime provides the system-certificate TLS extensions.
     const nodeTls = tls as NodeTlsWithSystemCertificates
     nodeTls.setDefaultCACertificates([
       ...new Set([...nodeTls.getCACertificates("default"), ...nodeTls.getCACertificates("system")]),
@@ -193,7 +194,9 @@ function useSystemCertificates() {
 
 function useEnvProxy() {
   try {
-    ;(http as NodeHttpWithEnvProxy).setGlobalProxyFromEnv()
+    // SAFETY: Buddy's supported Node runtime provides the environment-proxy HTTP extension.
+    const nodeHttp = http as NodeHttpWithEnvProxy
+    nodeHttp.setGlobalProxyFromEnv()
   } catch (error) {
     console.warn("failed to load proxy environment", error)
   }
@@ -231,6 +234,7 @@ function serializeError(error: unknown) {
 }
 
 function getParentPort() {
+  // SAFETY: Electron exposes parentPort on utility-process instances; availability is checked below.
   const port = process.parentPort as ParentPort | undefined
   if (!port) throw new Error("Backend utility parent port unavailable")
   return port

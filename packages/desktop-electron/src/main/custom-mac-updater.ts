@@ -358,6 +358,7 @@ async function fetchLatestManifest(
 }
 
 function parseLatestManifest(content: string): LatestManifest {
+  // SAFETY: Required manifest fields and every file entry are validated before this value is returned.
   const parsed = JSON.parse(content) as Partial<LatestManifest>
 
   if (typeof parsed.version !== "string" || !Array.isArray(parsed.files)) {

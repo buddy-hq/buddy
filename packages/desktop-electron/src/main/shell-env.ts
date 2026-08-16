@@ -31,6 +31,7 @@ function probeShellEnv(shell: string, mode: "-il" | "-l"): Probe {
     windowsHide: true,
   })
 
+  // SAFETY: Node spawn errors expose the optional errno code used to distinguish timeouts.
   const err = out.error as NodeJS.ErrnoException | undefined
   if (err) {
     if (err.code === "ETIMEDOUT") return { type: "Timeout" }

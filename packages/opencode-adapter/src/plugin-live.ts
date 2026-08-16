@@ -151,6 +151,7 @@ async function invokeRuntimeTrigger(
   input: unknown,
   output: unknown,
 ) {
+  // SAFETY: TriggerName is the runtime-hook subset whose members share this two-argument contract.
   const fn = hook[name] as ((input: unknown, output: unknown) => Promise<void>) | undefined
   if (typeof fn !== "function") return
   await fn(input, output)

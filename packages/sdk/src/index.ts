@@ -13,6 +13,7 @@ function hasNonAscii(value: string) {
 
 export function createBuddyClient(config?: Config & { directory?: string }): BuddyClient {
   const { directory, ...rest } = config ?? {}
+  // SAFETY: This wrapper forwards the complete fetch input unchanged and preserves the native result.
   const customFetch: typeof fetch = ((request: RequestInfo | URL, init?: RequestInit) =>
     fetch(request, init)) as typeof fetch
 

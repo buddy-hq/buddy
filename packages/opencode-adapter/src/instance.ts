@@ -55,6 +55,7 @@ export const Instance = {
   ): (...args: Parameters<F>) => ReturnType<F> {
     const ctx = Instance.current
     return (...args: Parameters<F>) =>
+      // SAFETY: The context provider returns the wrapped function's result without transforming it.
       instanceContext.provide(ctx, () => fn(...args)) as ReturnType<F>
   },
   restore<R>(ctx: InstanceContext, fn: () => R): R {

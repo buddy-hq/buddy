@@ -54,6 +54,7 @@ function readDesktopAppVersion(): string | undefined {
     if (apiVersion) return apiVersion
   }
 
+  // SAFETY: The desktop preload may install Buddy's optional boot metadata on the renderer window.
   return normalizeAppVersion((window as BuddyWindow).__BUDDY__?.version)
 }
 
@@ -70,6 +71,7 @@ function createStore(name: string): StoreLike {
     get: async <T>(key: string) => {
       const value = await window.api.storeGet(name, key)
       if (value === null) return undefined
+      // SAFETY: StoreLike callers own each key's value contract; the bridge preserves stored values.
       return value as T
     },
     set: async (key: string, value: string) => {

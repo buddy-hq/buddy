@@ -26,6 +26,7 @@ type RuntimeConfigOverlayState = {
 const EMPTY_AUTHORITATIVE_KEYS: readonly RuntimeConfigOverlayAuthoritativeKey[] = []
 
 function getRuntimeConfigOverlayState(): RuntimeConfigOverlayState {
+  // SAFETY: This symbol-keyed global slot is exclusively owned by the config-overlay module.
   const globalObject = globalThis as typeof globalThis & {
     [RUNTIME_CONFIG_OVERLAY_STATE_KEY]?: RuntimeConfigOverlayState
   }
