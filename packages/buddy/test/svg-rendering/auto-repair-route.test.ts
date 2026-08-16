@@ -13,35 +13,34 @@ import {
   subscribeSvgAutoRepairTurnSettlement,
 } from "../../src/session/orchestration/interaction-actions"
 import { tmpdir } from "../helpers/tmpdir"
+import {
+  parseJsonObject,
+  parsePromptString,
+  requireJsonObject,
+  requireString,
+  type TJsonObject,
+} from "../helpers/parse"
 
 const SESSION_ID = "ses_svg_repair_route"
 const ASSISTANT_MESSAGE_ID = "msg_failed_chemistry"
 const PART_ID = "prt_failed_chemistry"
 const RAW_FENCE = "```smiles\ninvalid structure\n```"
 
-let queuedPromptBodies: Record<string, unknown>[] = []
+let queuedPromptBodies: TJsonObject[] = []
 let repairTurnSettlements: Array<{
   repairRequestID: string
   settle(errorMessage: string): Promise<void>
 }> = []
 let restoreRuntime: () => void = () => undefined
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
 async function repairResponseBody(response: Response): Promise<{
   repairRequestID: string
   status?: string
 }> {
-  const value: unknown = await response.json()
-  if (!isRecord(value) || typeof value.repairRequestID !== "string") {
-    throw new Error("Expected an SVG repair response body.")
-  }
-  return {
-    repairRequestID: value.repairRequestID,
-    ...(typeof value.status === "string" ? { status: value.status } : {}),
-  }
+  const value = requireJsonObject(await response.json(), "SVG repair response body")
+  const repairRequestID = requireString(value.repairRequestID, "repairRequestID")
+  const status = parsePromptString(value.status)
+  return Object.assign({ repairRequestID }, status !== undefined ? { status } : undefined)
 }
 
 beforeEach(() => {
@@ -53,7 +52,7 @@ beforeEach(() => {
       onTransform: async (body) => body,
     }),
     sendPromptAsync: async (input) => {
-      queuedPromptBodies.push(input.body)
+      queuedPromptBodies.push(parseJsonObject(input.body) ?? {})
       return {}
     },
     resolveSvgAutoRepairOrigin: async () => ({
@@ -196,7 +195,7 @@ describe("SVG auto-repair route", () => {
         modelID: "claude-sonnet",
       },
     })
-    const content = typeof promptBody?.content === "string" ? promptBody.content : ""
+    const content = parsePromptString(promptBody?.content) ?? ""
     expect(content).toContain("render_svg")
     expect(content).toContain("at most 4 times")
     expect(content).toContain('"invalid structure"')
@@ -268,8 +267,8 @@ describe("SVG auto-repair route", () => {
   test("rejects a report that does not match the preserved fence", async () => {
     await using project = await tmpdir({ git: true })
     const request = repairRequest(project.path)
-    const body: unknown = await request.json()
-    if (!isRecord(body)) throw new Error("Expected the seeded request body.")
+    const body = parseJsonObject(await request.json())
+    if (body === undefined) throw new Error("Expected the seeded request body.")
     const response = await app.request(
       new Request(request.url, {
         method: "POST",

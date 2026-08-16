@@ -54,7 +54,7 @@ describe("python_calculator runtime", () => {
       const execution = AdvancedMathRuntimeService.runCalculator("__sleep__")
         .then(
           () => ({ ok: true as const }),
-          (error: unknown) => ({ ok: false as const, error }),
+          (cause) => ({ ok: false as const, error: cause }),
         )
         .finally(() => {
           calculatorSettled = true

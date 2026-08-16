@@ -7,6 +7,13 @@ import { Config } from "../../src/config"
 import { Global } from "../../src/storage"
 import { projectConfigFile, writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
+import {
+  parseJsonObject,
+  parsePromptString,
+  requireJsonArray,
+  requireJsonObject,
+  requireString,
+} from "../helpers/parse"
 
 function normalizePathForAssertion(value: string): string {
   if (process.platform !== "darwin") {
@@ -34,8 +41,8 @@ describe("config routes", () => {
     })
 
     expect(response.status).toBe(200)
-    const personas = (await response.json()) as Array<{ id: string }>
-    expect(personas[0]?.id).toBe("teaching-buddy")
+    const personas = requireJsonArray(await response.json())
+    expect(parseJsonObject(personas[0])?.id).toBe("teaching-buddy")
   })
 
   test("patches and returns project config", async () => {
@@ -62,10 +69,7 @@ describe("config routes", () => {
     })
 
     expect(getResponse.status).toBe(200)
-    const body = (await getResponse.json()) as {
-      default_persona?: string
-      model?: string
-    }
+    const body = requireJsonObject(await getResponse.json())
 
     expect(body.default_persona).toBe("teaching-buddy")
     expect(body.model).toBe("anthropic/route-project")
@@ -135,9 +139,7 @@ describe("config routes", () => {
     })
 
     expect(getResponse.status).toBe(200)
-    const body = (await getResponse.json()) as {
-      default_persona?: string
-    }
+    const body = requireJsonObject(await getResponse.json())
 
     expect(body.default_persona).toBe("teaching-buddy")
     expect(fs.readFileSync(projectConfigFile(nested), "utf8")).toContain(
@@ -174,7 +176,7 @@ describe("config routes", () => {
 
       const getAfter = await app.request("/api/global/config")
       expect(getAfter.status).toBe(200)
-      const afterBody = (await getAfter.json()) as { model?: string }
+      const afterBody = requireJsonObject(await getAfter.json())
       expect(afterBody.model).toBe("anthropic/route-global")
     } finally {
       if (previousGlobal === undefined) {
@@ -237,13 +239,11 @@ describe("config routes", () => {
       })
       expect(removeResponse.status).toBe(200)
 
-      const body = (await removeResponse.json()) as {
-        model?: string
-        mcp?: Record<string, unknown>
-      }
+      const body = requireJsonObject(await removeResponse.json())
+      const bodyMcp = parseJsonObject(body.mcp)
       expect(body.model).toBe("anthropic/global-delete-regression")
-      expect(body.mcp?.linear).toBeUndefined()
-      expect(body.mcp?.docs).toEqual({
+      expect(bodyMcp?.linear).toBeUndefined()
+      expect(bodyMcp?.docs).toEqual({
         type: "remote",
         url: "https://example.com/mcp",
         enabled: false,
@@ -251,9 +251,10 @@ describe("config routes", () => {
 
       const getAfter = await app.request("/api/global/config")
       expect(getAfter.status).toBe(200)
-      const afterBody = (await getAfter.json()) as { mcp?: Record<string, unknown> }
-      expect(afterBody.mcp?.linear).toBeUndefined()
-      expect(afterBody.mcp?.docs).toBeDefined()
+      const afterBody = requireJsonObject(await getAfter.json())
+      const afterMcp = parseJsonObject(afterBody.mcp)
+      expect(afterMcp?.linear).toBeUndefined()
+      expect(afterMcp?.docs).toBeDefined()
       expect(fs.readFileSync(globalFile, "utf8")).not.toContain('"linear"')
     } finally {
       if (previousGlobal === undefined) {
@@ -324,13 +325,11 @@ describe("config routes", () => {
 
       const getAfter = await app.request("/api/global/config")
       expect(getAfter.status).toBe(200)
-      const afterBody = (await getAfter.json()) as {
-        model?: string
-        mcp?: Record<string, unknown>
-      }
+      const afterBody = requireJsonObject(await getAfter.json())
+      const afterMcp = parseJsonObject(afterBody.mcp)
       expect(afterBody.model).toBe("anthropic/global-concurrent-patch")
-      expect(afterBody.mcp?.linear).toBeUndefined()
-      expect(afterBody.mcp?.docs).toEqual({
+      expect(afterMcp?.linear).toBeUndefined()
+      expect(afterMcp?.docs).toEqual({
         type: "remote",
         url: "https://example.com/mcp",
         enabled: false,
@@ -390,15 +389,12 @@ describe("config routes", () => {
       })
 
       expect(rawResponse.status).toBe(200)
-      const rawBody = (await rawResponse.json()) as {
-        default_persona?: string
-        model?: string
-        tools?: Record<string, boolean>
-      }
+      const rawBody = requireJsonObject(await rawResponse.json())
+      const rawTools = parseJsonObject(rawBody.tools)
       expect(rawBody.default_persona).toBe("teaching-buddy")
       expect(rawBody.model).toBeUndefined()
-      expect(rawBody.tools?.get_next_standards).toBe(true)
-      expect(rawBody.tools?.search_standards).toBeUndefined()
+      expect(rawTools?.get_next_standards).toBe(true)
+      expect(rawTools?.search_standards).toBeUndefined()
 
       const mergedResponse = await app.request("/api/config", {
         headers: {
@@ -549,10 +545,8 @@ describe("config routes", () => {
         },
       })
       expect(rawResponse.status).toBe(200)
-      const rawBody = (await rawResponse.json()) as {
-        tools?: Record<string, boolean>
-      }
-      expect(rawBody.tools?.search_standards).toBeUndefined()
+      const rawBody = requireJsonObject(await rawResponse.json())
+      expect(parseJsonObject(rawBody.tools)?.search_standards).toBeUndefined()
       expect(fs.readFileSync(projectConfigFile(repo), "utf8")).not.toContain("search_standards")
     } finally {
       if (previousGlobal === undefined) {
@@ -585,18 +579,13 @@ describe("config routes", () => {
     try {
       const getBefore = await app.request("/api/global/notebook-home")
       expect(getBefore.status).toBe(200)
-      const beforeBody = (await getBefore.json()) as {
-        configuredDirectory?: string
-        defaultDirectory: string
-        resolvedDirectory: string
-        inboxDirectory: string
-        inboxName: string
-      }
+      const beforeBody = requireJsonObject(await getBefore.json())
+      const beforeResolvedDirectory = requireString(beforeBody.resolvedDirectory)
+      const beforeDefaultDirectory = requireString(beforeBody.defaultDirectory)
+      const beforeConfiguredDirectory = parsePromptString(beforeBody.configuredDirectory)
 
-      expect(beforeBody.resolvedDirectory).toBe(
-        beforeBody.configuredDirectory ?? beforeBody.defaultDirectory,
-      )
-      expect(beforeBody.inboxDirectory).toBe(path.join(beforeBody.resolvedDirectory, "Inbox"))
+      expect(beforeResolvedDirectory).toBe(beforeConfiguredDirectory ?? beforeDefaultDirectory)
+      expect(beforeBody.inboxDirectory).toBe(path.join(beforeResolvedDirectory, "Inbox"))
       expect(beforeBody.inboxName).toBe("Inbox")
 
       const putResponse = await app.request("/api/global/notebook-home", {
@@ -610,23 +599,18 @@ describe("config routes", () => {
       })
       expect(putResponse.status).toBe(200)
 
-      const afterBody = (await putResponse.json()) as {
-        configuredDirectory?: string
-        resolvedDirectory: string
-      }
-      expect(normalizePathForAssertion(afterBody.configuredDirectory ?? "")).toBe(
+      const afterBody = requireJsonObject(await putResponse.json())
+      expect(normalizePathForAssertion(parsePromptString(afterBody.configuredDirectory) ?? "")).toBe(
         normalizePathForAssertion(configuredDirectory),
       )
-      expect(normalizePathForAssertion(afterBody.resolvedDirectory)).toBe(
+      expect(normalizePathForAssertion(requireString(afterBody.resolvedDirectory))).toBe(
         normalizePathForAssertion(configuredDirectory),
       )
 
       const getAfter = await app.request("/api/global/config")
       expect(getAfter.status).toBe(200)
-      const persistedGlobal = (await getAfter.json()) as {
-        notebook_home?: string
-      }
-      expect(normalizePathForAssertion(persistedGlobal.notebook_home ?? "")).toBe(
+      const persistedGlobal = requireJsonObject(await getAfter.json())
+      expect(normalizePathForAssertion(parsePromptString(persistedGlobal.notebook_home) ?? "")).toBe(
         normalizePathForAssertion(configuredDirectory),
       )
     } finally {
@@ -684,15 +668,15 @@ describe("config routes", () => {
 
       const listResponse = await app.request("/api/global/notebooks")
       expect(listResponse.status).toBe(200)
-      const listBody = (await listResponse.json()) as Array<{
-        name: string
-        directory: string
-      }>
+      const listBody = requireJsonArray(await listResponse.json())
       expect(
-        listBody.map((entry) => ({
-          name: entry.name,
-          directory: normalizePathForAssertion(entry.directory),
-        })),
+        listBody.map((entry) => {
+          const notebook = requireJsonObject(entry)
+          return {
+            name: notebook.name,
+            directory: normalizePathForAssertion(requireString(notebook.directory)),
+          }
+        }),
       ).toEqual([
         {
           name: "Algebra",

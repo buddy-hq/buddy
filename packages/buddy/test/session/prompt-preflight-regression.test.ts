@@ -3,9 +3,10 @@ import path from "node:path"
 import { mkdirSync } from "node:fs"
 import { app } from "../../src/index.ts"
 import { createGitRepo } from "../helpers/repo"
+import { requireJsonObject } from "../helpers/parse"
 
 async function readJson(response: Response) {
-  return (await response.json()) as Record<string, unknown>
+  return requireJsonObject(await response.json())
 }
 
 describe("session prompt preflight regression", () => {

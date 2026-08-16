@@ -3,6 +3,7 @@ import { app } from "../../src/index.ts"
 import { TeachingService } from "../../src/learning/features/lesson-workspace/service/operations"
 import { writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
+import { parseJsonArray, parseJsonObject, requireJsonObject } from "../helpers/parse"
 
 describe("teaching routes", () => {
   test("serializes saves that use the same lesson revision", async () => {
@@ -95,11 +96,10 @@ describe("teaching routes", () => {
     })
 
     expect(conflictResponse.status).toBe(409)
-    const body = (await conflictResponse.json()) as {
-      activeRelativePath?: unknown
-      files?: { relativePath?: unknown }[]
-    }
+    const body = requireJsonObject(await conflictResponse.json())
     expect(body.activeRelativePath).toBe("remote.ts")
-    expect(body.files?.map((file) => file.relativePath)).toContain("remote.ts")
+    expect(
+      (parseJsonArray(body.files) ?? []).map((file) => parseJsonObject(file)?.relativePath),
+    ).toContain("remote.ts")
   })
 })

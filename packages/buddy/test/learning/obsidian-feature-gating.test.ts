@@ -5,6 +5,18 @@ import { resolveSessionRuntime } from "../../src/learning/access/resolve-session
 import { obsidianVaultFeature } from "../../src/learning/features/obsidian-vault/feature"
 import { BUDDY } from "../../src/learning/personas/buddy"
 
+function resolveObsidianSkills(config: Config.Info) {
+  return resolveSessionRuntime({
+    persona: {
+      id: BUDDY.id,
+      features: BUDDY.features,
+      defaultSurface: BUDDY.defaultSurface,
+    },
+    teachingWorkspaceState: "inactive",
+    config,
+  }).access.skills
+}
+
 describe("Obsidian feature gating", () => {
   test("requires an explicit per-notebook connection", () => {
     expect(enabledBuddyFeatures([obsidianVaultFeature], Config.Info.parse({}))).toEqual([])
@@ -23,19 +35,8 @@ describe("Obsidian feature gating", () => {
   })
 
   test("grants the Obsidian skill only to connected notebook sessions", () => {
-    const resolveSkills = (config: Config.Info) =>
-      resolveSessionRuntime({
-        persona: {
-          id: BUDDY.id,
-          features: BUDDY.features,
-          defaultSurface: BUDDY.defaultSurface,
-        },
-        teachingWorkspaceState: "inactive",
-        config,
-      }).access.skills
-
-    expect(resolveSkills(Config.Info.parse({})).obsidian).toBeUndefined()
-    expect(resolveSkills(Config.Info.parse({ obsidian_vault: { connected: true } })).obsidian).toBe(
+    expect(resolveObsidianSkills(Config.Info.parse({})).obsidian).toBeUndefined()
+    expect(resolveObsidianSkills(Config.Info.parse({ obsidian_vault: { connected: true } })).obsidian).toBe(
       "allow",
     )
   })

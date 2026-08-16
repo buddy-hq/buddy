@@ -8,6 +8,12 @@ import { FLASHCARD_AUTHOR_AGENT } from "../../src/learning/features/flashcards/s
 import { QUESTION_SET_AUTHOR_AGENT } from "../../src/learning/features/question-sets/subagents/question-set-author"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import { tmpdir } from "../helpers/tmpdir"
+import {
+  parseJsonObject,
+  parsePromptString,
+  requireJsonArray,
+  type TJsonArray,
+} from "../helpers/parse"
 
 const SESSION_ID = "ses_flashcard_edit_context"
 const OBJECT_ID = "01KG1A0KH77HJ9QGAQ5QK0N4BD"
@@ -16,26 +22,14 @@ const QUESTION_SET_REVISION_ID = "01KG1A0KH77HJ9QGAQ5QK0N4BF"
 const FLASHCARD_TAB_KEY = `object:flashcard-deck:${OBJECT_ID}:review`
 const QUESTION_SET_TAB_KEY = `object:question-set:${QUESTION_SET_OBJECT_ID}:practice`
 
-function readSyntheticReminderText(parts: unknown): string {
-  if (!Array.isArray(parts)) throw new Error("Expected transformed prompt parts")
-  const reminder = parts.find(
-    (part) =>
-      typeof part === "object" &&
-      part !== null &&
-      "synthetic" in part &&
-      part.synthetic === true &&
-      "text" in part &&
-      typeof part.text === "string",
-  )
-  if (
-    typeof reminder !== "object" ||
-    reminder === null ||
-    !("text" in reminder) ||
-    typeof reminder.text !== "string"
-  ) {
-    throw new Error("Expected a synthetic Bench reminder")
+function readSyntheticReminderText(parts: TJsonArray): string {
+  for (const part of parts) {
+    const object = parseJsonObject(part)
+    if (object === undefined || object.synthetic !== true) continue
+    const text = parsePromptString(object.text)
+    if (text !== undefined) return text
   }
-  return reminder.text
+  throw new Error("Expected a synthetic Bench reminder")
 }
 
 afterEach(() => {
@@ -128,7 +122,9 @@ describe("flashcard edit context", () => {
       },
       projectConfig,
     })
-    const reminderText = readSyntheticReminderText(result.transformed.parts)
+    const reminderText = readSyntheticReminderText(
+      requireJsonArray(result.transformed.parts, "transformed prompt parts"),
+    )
 
     expect(reminderText).toContain(`- edit_path: ${editPath}`)
     expect(reminderText).toContain("edit only notes[].fields text at edit_path")
@@ -236,7 +232,9 @@ describe("flashcard edit context", () => {
       },
       projectConfig,
     })
-    const reminderText = readSyntheticReminderText(result.transformed.parts)
+    const reminderText = readSyntheticReminderText(
+      requireJsonArray(result.transformed.parts, "transformed prompt parts"),
+    )
 
     expect(reminderText).toContain(`- edit_path: ${editPath}`)
     expect(reminderText).toContain("questions[].payload.choices[].content")

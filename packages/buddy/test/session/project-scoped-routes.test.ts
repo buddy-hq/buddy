@@ -3,9 +3,10 @@ import path from "node:path"
 import { mkdirSync } from "node:fs"
 import { app } from "../../src/index.ts"
 import { createGitRepo } from "../helpers/repo"
+import { requireJsonArray, requireJsonObject } from "../helpers/parse"
 
 async function json(response: Response) {
-  return (await response.json()) as Record<string, unknown>
+  return requireJsonObject(await response.json())
 }
 
 function createMarkedGitRepo(prefix: string) {
@@ -147,21 +148,21 @@ describe("project-scoped session routes", () => {
       },
     })
     expect(projectWide.status).toBe(200)
-    const projectWideBody = (await projectWide.json()) as Array<{ id: string }>
+    const projectWideBody = requireJsonArray(await projectWide.json())
     expect(projectWideBody).toHaveLength(2)
 
     const rootOnly = await app.request(
       `/api/session?directory=${encodeURIComponent(rootDirectory)}`,
     )
     expect(rootOnly.status).toBe(200)
-    const rootOnlyBody = (await rootOnly.json()) as Array<{ id: string }>
+    const rootOnlyBody = requireJsonArray(await rootOnly.json())
     expect(rootOnlyBody).toHaveLength(1)
 
     const nestedOnly = await app.request(
       `/api/session?directory=${encodeURIComponent(nestedDirectory)}`,
     )
     expect(nestedOnly.status).toBe(200)
-    const nestedOnlyBody = (await nestedOnly.json()) as Array<{ id: string }>
+    const nestedOnlyBody = requireJsonArray(await nestedOnly.json())
     expect(nestedOnlyBody).toHaveLength(1)
   })
 })

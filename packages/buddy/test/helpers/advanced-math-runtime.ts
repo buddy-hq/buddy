@@ -157,16 +157,20 @@ export async function withMockAdvancedMathRuntimeAssets<T>(run: () => Promise<T>
   await AdvancedMathRuntimeService.remove().catch(() => undefined)
 
   const assetInfo = AdvancedMathRuntimeService.runtimeAssetInfo()
-  globalThis.fetch = (async (input) => {
-    const url = String(input)
-    if (url === `${baseUrl}/${assetInfo.bundleFilename}`) {
-      return new Response(Uint8Array.from(archiveBytes), { status: 200 })
-    }
-    if (url === `${baseUrl}/${assetInfo.checksumFilename}`) {
-      return new Response(`${checksum}  ${assetInfo.bundleFilename}\n`, { status: 200 })
-    }
-    return new Response("not found", { status: 404 })
-  }) as typeof fetch
+  const mockFetch: typeof fetch = Object.assign(
+    async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === `${baseUrl}/${assetInfo.bundleFilename}`) {
+        return new Response(Uint8Array.from(archiveBytes), { status: 200 })
+      }
+      if (url === `${baseUrl}/${assetInfo.checksumFilename}`) {
+        return new Response(`${checksum}  ${assetInfo.bundleFilename}\n`, { status: 200 })
+      }
+      return new Response("not found", { status: 404 })
+    },
+    { preconnect: previousFetch.preconnect },
+  )
+  globalThis.fetch = mockFetch
 
   try {
     return await run()

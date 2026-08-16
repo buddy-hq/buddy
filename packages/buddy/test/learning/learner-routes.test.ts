@@ -11,6 +11,12 @@ import {
   writeLearnerEvidenceForEvent,
 } from "../../src/learning/features/memory"
 import { tmpdir } from "../helpers/tmpdir"
+import {
+  requireJsonObject,
+  requireJsonArray,
+  requireNumber,
+  requireString,
+} from "../helpers/parse"
 
 async function withLearnerMemoryExperiment<T>(testBody: () => Promise<T>): Promise<T> {
   const previous = await Config.getGlobal()
@@ -44,12 +50,9 @@ describe("learner memory routes", () => {
       )
 
       expect(response.status).toBe(200)
-      const body = (await response.json()) as {
-        fingerprint: string
-        itemCount: number
-      }
-      expect(body.fingerprint.length).toBeGreaterThan(0)
-      expect(body.itemCount).toBeGreaterThan(0)
+      const body = requireJsonObject(await response.json())
+      expect(requireString(body.fingerprint, "fingerprint").length).toBeGreaterThan(0)
+      expect(requireNumber(body.itemCount, "itemCount")).toBeGreaterThan(0)
     })
   })
 
@@ -102,14 +105,15 @@ describe("learner memory routes", () => {
       )
 
       expect(sourcesResponse.status).toBe(200)
-      const sourcesBody = (await sourcesResponse.json()) as {
-        memoryId: string
-        sources: Array<{ eventId: string; note: string; path: string }>
-      }
+      const sourcesBody = requireJsonObject(await sourcesResponse.json())
       expect(sourcesBody.memoryId).toBe(memory.id)
-      expect(sourcesBody.sources.length).toBeGreaterThan(0)
-      expect(sourcesBody.sources[0]?.path).toContain(".buddy/learner-memory/evidence/")
-      expect(sourcesBody.sources[0]?.eventId).toBe(event.id)
+      const sources = requireJsonArray(sourcesBody.sources, "sources")
+      expect(sources.length).toBeGreaterThan(0)
+      const firstSource = requireJsonObject(sources[0], "first source")
+      expect(requireString(firstSource.path, "source path")).toContain(
+        ".buddy/learner-memory/evidence/",
+      )
+      expect(firstSource.eventId).toBe(event.id)
     })
   })
 
@@ -126,17 +130,14 @@ describe("learner memory routes", () => {
       )
 
       expect(rebuildResponse.status).toBe(200)
-      const body = (await rebuildResponse.json()) as {
-        indexPath: string
-        memoryCount: number
-        eventCount: number
-      }
-      expect(path.resolve(await fs.realpath(body.indexPath))).toBe(
+      const body = requireJsonObject(await rebuildResponse.json())
+      const indexPath = requireString(body.indexPath, "index path")
+      expect(path.resolve(await fs.realpath(indexPath))).toBe(
         path.resolve(await fs.realpath(LearnerMemoryPath.indexFile(project.path))),
       )
-      expect(body.memoryCount).toBeGreaterThanOrEqual(0)
-      expect(body.eventCount).toBeGreaterThanOrEqual(0)
-      await expect(fs.stat(body.indexPath)).resolves.toBeDefined()
+      expect(requireNumber(body.memoryCount, "memoryCount")).toBeGreaterThanOrEqual(0)
+      expect(requireNumber(body.eventCount, "eventCount")).toBeGreaterThanOrEqual(0)
+      await expect(fs.stat(indexPath)).resolves.toBeDefined()
     })
   })
 
@@ -152,20 +153,13 @@ describe("learner memory routes", () => {
       )
 
       expect(response.status).toBe(200)
-      const body = (await response.json()) as {
-        stageOneJobs: unknown[]
-        stageOneOutputs: unknown[]
-        inputWatermarkMs: number
-        budget: {
-          todayCount: number
-          totalCount: number
-        }
-      }
+      const body = requireJsonObject(await response.json())
       expect(Array.isArray(body.stageOneJobs)).toBe(true)
       expect(Array.isArray(body.stageOneOutputs)).toBe(true)
       expect(body.inputWatermarkMs).toBeGreaterThanOrEqual(0)
-      expect(body.budget.todayCount).toBeGreaterThanOrEqual(0)
-      expect(body.budget.totalCount).toBeGreaterThanOrEqual(0)
+      const budget = requireJsonObject(body.budget, "budget")
+      expect(budget.todayCount).toBeGreaterThanOrEqual(0)
+      expect(budget.totalCount).toBeGreaterThanOrEqual(0)
     })
   })
 })

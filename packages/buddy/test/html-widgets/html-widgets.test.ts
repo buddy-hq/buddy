@@ -16,6 +16,7 @@ import {
 } from "../../src/learning/features/html-widgets/tools/present-html-widget"
 import { createBuddyToolContext } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
+import { parseJsonArray, parseJsonObject, requireJsonObject } from "../helpers/parse"
 
 describe("HTML widget objects", () => {
   test("uses invocation identity for repeated widget auto-open events", () => {
@@ -114,10 +115,10 @@ describe("HTML widget objects", () => {
       `/api/objects?directory=${encodeURIComponent(project.path)}&kind=html-widget`,
     )
     expect(listResponse.status).toBe(200)
-    const list = (await listResponse.json()) as {
-      objects: Array<{ objectID: string }>
-    }
-    expect(list.objects.map((entry) => entry.objectID)).toContain(widget.manifest.objectID)
+    const list = requireJsonObject(await listResponse.json())
+    expect(
+      (parseJsonArray(list.objects) ?? []).map((entry) => parseJsonObject(entry)?.objectID),
+    ).toContain(widget.manifest.objectID)
   })
 
   test("blocks source reads that escape the managed source root", async () => {

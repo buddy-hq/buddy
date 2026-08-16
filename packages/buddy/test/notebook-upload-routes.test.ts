@@ -4,6 +4,7 @@ import path from "node:path"
 import { NATIVE_RESOURCE_FORMATS } from "@buddy/workspace-file-policy"
 import { app } from "../src/index.ts"
 import { tmpdir } from "./helpers/tmpdir"
+import { parseJsonObject, requireString } from "./helpers/parse"
 
 const DIRECTORY_HEADER = "x-buddy-directory" as const
 const JSON_CONTENT_TYPE = "application/json" as const
@@ -21,10 +22,6 @@ async function uploadRequest(directory: string, sourcePath: string): Promise<Res
   })
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
 describe("notebook upload route", () => {
   test("copies every native format into flat uploads with unique published names", async () => {
     await using project = await tmpdir({ git: true })
@@ -34,13 +31,11 @@ describe("notebook upload route", () => {
       await writeFile(sourcePath, `content-${format}`, "utf8")
       const response = await uploadRequest(project.path, sourcePath)
       expect(response.status).toBe(200)
-      const result: unknown = await response.json()
-      expect(isRecord(result)).toBe(true)
-      if (!isRecord(result)) throw new Error("Expected an upload response object")
+      const result = parseJsonObject(await response.json())
+      if (result === undefined) throw new Error("Expected an upload response object")
       expect(result.displayName).toBe(`lesson.${format}`)
       expect(result.format).toBe(format)
-      expect(typeof result.uploadID).toBe("string")
-      expect(String(result.uploadID).length).toBe(10)
+      expect(requireString(result.uploadID, "uploadID").length).toBe(10)
       expect(String(result.workspacePath)).toMatch(
         new RegExp(`^uploads/lesson--[A-Za-z0-9_-]{10}\\.${format}$`, "u"),
       )
@@ -59,9 +54,9 @@ describe("notebook upload route", () => {
     const firstResponse = await uploadRequest(project.path, sourcePath)
     await writeFile(sourcePath, "second", "utf8")
     const secondResponse = await uploadRequest(project.path, sourcePath)
-    const first: unknown = await firstResponse.json()
-    const second: unknown = await secondResponse.json()
-    if (!isRecord(first) || !isRecord(second)) throw new Error("Expected upload results")
+    const first = parseJsonObject(await firstResponse.json())
+    const second = parseJsonObject(await secondResponse.json())
+    if (first === undefined || second === undefined) throw new Error("Expected upload results")
 
     expect(first.absolutePath).not.toBe(second.absolutePath)
     expect(await readFile(String(first.absolutePath), "utf8")).toBe("first")

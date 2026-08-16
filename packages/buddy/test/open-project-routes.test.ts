@@ -14,6 +14,7 @@ import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { app } from "../src/index.ts"
 import { Global } from "../src/storage/global"
 import { createGitRepo } from "./helpers/repo"
+import { parseJsonArray, requireJsonArray, requireJsonObject, requireString } from "./helpers/parse"
 
 const registryPath = path.join(Global.Path.state, "desktop-notebooks.json")
 const registryBackupPath = `${registryPath}.bak`
@@ -24,12 +25,16 @@ const registryCorruptSuffix = ".json"
 const globalConfigPath = path.join(Global.Path.config, "buddy.jsonc")
 const JSON_INDENT_SPACES = 2
 
-function readRegistryFile() {
-  return JSON.parse(readFileSync(registryPath, "utf8")) as string[]
+function readRegistryFile(): string[] {
+  return (parseJsonArray(JSON.parse(readFileSync(registryPath, "utf8"))) ?? []).map((entry) =>
+    requireString(entry, "registry directory"),
+  )
 }
 
-function readRegistryBackupFile() {
-  return JSON.parse(readFileSync(registryBackupPath, "utf8")) as string[]
+function readRegistryBackupFile(): string[] {
+  return (parseJsonArray(JSON.parse(readFileSync(registryBackupPath, "utf8"))) ?? []).map((entry) =>
+    requireString(entry, "registry backup directory"),
+  )
 }
 
 function writeRegistryFile(filePath: string, directories: string[]) {
@@ -544,10 +549,8 @@ describe("open project routes", () => {
       })
 
       expect(createResponse.status).toBe(200)
-      const createdBody = (await createResponse.json()) as {
-        directory: string
-      }
-      expect(normalizePathForAssertion(createdBody.directory)).toBe(
+      const createdBody = requireJsonObject(await createResponse.json())
+      expect(normalizePathForAssertion(requireString(createdBody.directory, "directory"))).toBe(
         normalizePathForAssertion(expectedDirectory),
       )
       expect(readRegistryFile().map(normalizePathForAssertion)).toEqual([
@@ -629,8 +632,10 @@ describe("open project routes", () => {
       expect(response.status).toBe(200)
       expect((await OpenCodeProject.list()).map((project) => project.worktree)).toEqual(before)
 
-      const listed = (await response.json()) as { directories: string[] }
-      expect(listed.directories.includes(canonicalRepo)).toBe(false)
+      const listed = requireJsonObject(await response.json())
+      expect(requireJsonArray(listed.directories, "directories").includes(canonicalRepo)).toBe(
+        false,
+      )
     } finally {
       process.chdir(originalCwd)
     }

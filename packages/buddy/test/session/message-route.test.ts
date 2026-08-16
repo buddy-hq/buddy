@@ -1,14 +1,20 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { MessageID, ModelID, PartID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
+import { requireJsonArray, requireJsonObject, requireString } from "../helpers/parse"
 
 type RouteMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
 type RouteMessageID = ReturnType<typeof MessageID.ascending>
+
+function routeMessageIDs(body: Awaited<ReturnType<Response["json"]>>): string[] {
+  return requireJsonArray(body, "session messages").map((message) =>
+    requireString(requireJsonObject(requireJsonObject(message, "message").info, "message info").id, "message id"),
+  )
+}
 
 afterEach(async () => {
   await OpenCodeInstance.disposeAll()
@@ -131,8 +137,8 @@ describe("Buddy session message route", () => {
     })
 
     expect(response.status).toBe(200)
-    const body = (await response.json()) as OpenCodeMessage.WithParts[]
-    expect(body.map((message) => message.info.id)).toEqual(seeded.ids)
+    const body = routeMessageIDs(await response.json())
+    expect(body).toEqual(seeded.ids)
   })
 
   test("enriches Buddy tool history before the runtime plugin initializes", async () => {
@@ -189,8 +195,8 @@ describe("Buddy session message route", () => {
     })
 
     expect(firstPage.status).toBe(200)
-    const firstBody = (await firstPage.json()) as OpenCodeMessage.WithParts[]
-    expect(firstBody.map((message) => message.info.id)).toEqual(seeded.ids.slice(-2))
+    const firstBody = routeMessageIDs(await firstPage.json())
+    expect(firstBody).toEqual(seeded.ids.slice(-2))
     const cursor = firstPage.headers.get("x-next-cursor")
     expect(cursor).toBeTruthy()
     expect(firstPage.headers.get("link")).toContain('rel="next"')
@@ -205,8 +211,8 @@ describe("Buddy session message route", () => {
     )
 
     expect(secondPage.status).toBe(200)
-    const secondBody = (await secondPage.json()) as OpenCodeMessage.WithParts[]
-    expect(secondBody.map((message) => message.info.id)).toEqual(seeded.ids.slice(-4, -2))
+    const secondBody = routeMessageIDs(await secondPage.json())
+    expect(secondBody).toEqual(seeded.ids.slice(-4, -2))
   })
 
   test("returns not found for paginated transcript reads on missing sessions", async () => {

@@ -22,23 +22,33 @@ import {
   NATIVE_PDF_MAX_PAGES_PER_PROMPT,
 } from "../../src/learning/prompt/native-pdf-delivery"
 import { tmpdir } from "../helpers/tmpdir"
+import {
+  findPartContaining,
+  parseJsonObject,
+  parsePromptString,
+  requireJsonArray,
+  type TJsonArray,
+  type TJsonObject,
+} from "../helpers/parse"
 import { createTestPdf } from "../helpers/pdf"
 
 function nativePdfPromptParts(input: {
   filename: string
   sourcePath: string
-  metadataOverrides?: Record<string, unknown>
-}): Record<string, unknown>[] {
+  metadataOverrides?: TJsonObject
+}): TJsonObject[] {
   return [
-    {
-      type: NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
-      filename: input.filename,
-      sourcePath: input.sourcePath,
-      format: "pdf",
-      alias: input.filename,
-      mime: "application/pdf",
-      ...input.metadataOverrides,
-    },
+    Object.assign(
+      {
+        type: NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+        filename: input.filename,
+        sourcePath: input.sourcePath,
+        format: "pdf",
+        alias: input.filename,
+        mime: "application/pdf",
+      },
+      input.metadataOverrides,
+    ),
     {
       type: "file",
       filename: input.filename,
@@ -57,36 +67,27 @@ function nativePdfPromptParts(input: {
   ]
 }
 
-function transformedParts(result: Awaited<ReturnType<typeof runMessagePromptPipeline>>) {
-  const parts = result.transformed.parts
-  if (!Array.isArray(parts)) throw new Error("Expected transformed prompt parts")
-  return parts
+function transformedParts(result: Awaited<ReturnType<typeof runMessagePromptPipeline>>): TJsonArray {
+  return requireJsonArray(result.transformed.parts, "transformed prompt parts")
 }
 
-function nativePdfMetadata(parts: unknown[]) {
+function nativePdfMetadata(parts: TJsonArray) {
   return parts
     .filter(isNativeResourceAttachmentPart)
     .map(readNativeResourcePromptAttachment)
     .filter((attachment) => attachment.format === "pdf")
 }
 
-function nativePdfFilePaths(parts: unknown[]) {
-  return parts.flatMap((part) => {
-    if (
-      typeof part !== "object" ||
-      part === null ||
-      !("type" in part) ||
-      part.type !== "file" ||
-      !("source" in part) ||
-      typeof part.source !== "object" ||
-      part.source === null ||
-      !("path" in part.source) ||
-      typeof part.source.path !== "string"
-    ) {
-      return []
-    }
-    return [part.source.path]
-  })
+function nativePdfFilePaths(parts: TJsonArray): string[] {
+  const paths: string[] = []
+  for (const part of parts) {
+    const object = parseJsonObject(part)
+    if (object === undefined || object.type !== "file") continue
+    const source = parseJsonObject(object.source)
+    const sourcePath = parsePromptString(source?.path)
+    if (sourcePath !== undefined) paths.push(sourcePath)
+  }
+  return paths
 }
 
 describe("native resource prompt handoff", () => {
@@ -116,27 +117,18 @@ describe("native resource prompt handoff", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts
-    expect(Array.isArray(parts)).toBe(true)
-    if (!Array.isArray(parts)) throw new Error("Expected transformed prompt parts")
-    const reminder = parts.find(
-      (part) =>
-        typeof part === "object" && part !== null && "synthetic" in part && part.synthetic === true,
-    )
+    const parts = requireJsonArray(result.transformed.parts, "transformed prompt parts")
+    const reminder = parts.find((part) => parseJsonObject(part)?.synthetic === true)
     expect(reminder).toBeDefined()
-    expect(reminder).toHaveProperty("text")
-    if (!reminder || typeof reminder !== "object" || !("text" in reminder)) {
+    const reminderText = parsePromptString(parseJsonObject(reminder)?.text)
+    if (reminderText === undefined) {
       throw new Error("Expected a native resource reminder")
     }
-    expect(String(reminder.text)).toContain("call prepare_resource exactly once")
-    expect(String(reminder.text)).toContain("read the returned Markdown pack entrypoint")
-    expect(String(reminder.text)).toContain("full_text only when whole-document text is useful")
+    expect(reminderText).toContain("call prepare_resource exactly once")
+    expect(reminderText).toContain("read the returned Markdown pack entrypoint")
+    expect(reminderText).toContain("full_text only when whole-document text is useful")
     const normalizedAttachmentPart = parts.find(
-      (part) =>
-        typeof part === "object" &&
-        part !== null &&
-        "type" in part &&
-        part.type === NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
+      (part) => parseJsonObject(part)?.type === NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
     )
     const expectedAttachment = {
       ...attachment,
@@ -378,8 +370,7 @@ describe("native resource prompt handoff", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts
-    if (!Array.isArray(parts)) throw new Error("Expected transformed prompt parts")
+    const parts = requireJsonArray(result.transformed.parts, "transformed prompt parts")
     const normalizedAttachments = parts.filter(isNativeResourceAttachmentPart)
     expect(normalizedAttachments.map((attachment) => attachment.format)).toEqual([
       ...NATIVE_SPREADSHEET_FORMATS,
@@ -387,21 +378,14 @@ describe("native resource prompt handoff", () => {
     expect(normalizedAttachments.map((attachment) => attachment.mime)).toEqual(
       NATIVE_SPREADSHEET_FORMATS.map((format) => nativeResourceDefinitionForFormat(format).mime),
     )
-    const reminder = parts.find(
-      (part) =>
-        typeof part === "object" &&
-        part !== null &&
-        "synthetic" in part &&
-        part.synthetic === true &&
-        "text" in part &&
-        typeof part.text === "string" &&
-        part.text.includes("<native_resource_attachments>"),
+    const reminderText = parsePromptString(
+      findPartContaining(parts, "<native_resource_attachments>")?.text,
     )
-    if (!reminder || typeof reminder !== "object" || !("text" in reminder)) {
+    if (reminderText === undefined) {
       throw new Error("Expected a native resource reminder")
     }
     for (const format of NATIVE_SPREADSHEET_FORMATS) {
-      expect(String(reminder.text)).toContain(`Attendance.${format}`)
+      expect(reminderText).toContain(`Attendance.${format}`)
     }
   })
 
@@ -461,22 +445,13 @@ describe("native resource prompt handoff", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts
-    if (!Array.isArray(parts)) throw new Error("Expected transformed prompt parts")
-    const reminder = parts.find(
-      (part) =>
-        typeof part === "object" &&
-        part !== null &&
-        "synthetic" in part &&
-        part.synthetic === true &&
-        "text" in part &&
-        typeof part.text === "string" &&
-        part.text.includes("<native_resource_attachments>"),
+    const parts = requireJsonArray(result.transformed.parts, "transformed prompt parts")
+    const reminderText = parsePromptString(
+      findPartContaining(parts, "<native_resource_attachments>")?.text,
     )
-    if (!reminder || typeof reminder !== "object" || !("text" in reminder)) {
+    if (reminderText === undefined) {
       throw new Error("Expected a native resource reminder")
     }
-    const reminderText = String(reminder.text)
     expect(reminderText.match(/<\/native_resource_attachments>/gu)).toHaveLength(1)
     expect(reminderText).toContain("\\u003c/native_resource_attachments\\u003e")
   })

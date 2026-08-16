@@ -18,7 +18,10 @@ import {
   KNOWLEDGE_GRAPH_LOCKFILE_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
 } from "../src/learning/features/standards/constants"
+import { parseKnowledgeGraphArtifactManifest } from "../src/learning/features/standards/artifact"
+import { parseKnowledgeGraphLockfile } from "../src/learning/features/standards/lockfile"
 import { tmpdir } from "./helpers/tmpdir"
+import { requireParsed } from "./helpers/parse"
 
 describe("knowledge graph build script", () => {
   test("validates the expected core schema envelopes", () => {
@@ -192,14 +195,20 @@ describe("knowledge graph build script", () => {
         expect(relationshipCount?.count).toBe(2)
         expect(graphRelationshipCount?.count).toBe(2)
 
-        const manifest = JSON.parse(await Bun.file(manifestPath).text()) as Record<string, unknown>
+        const manifest = requireParsed(
+          parseKnowledgeGraphArtifactManifest(JSON.parse(await Bun.file(manifestPath).text())),
+          "knowledge graph artifact manifest",
+        )
         expect(manifest.version).toBe("test-version")
         expect(manifest.archiveFilename).toBe(KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME)
         expect(manifest.databaseFilename).toBe(KNOWLEDGE_GRAPH_DB_FILENAME)
 
-        const lockfile = JSON.parse(await Bun.file(lockfilePath).text()) as Record<string, unknown>
-        expect((lockfile.source as Record<string, unknown>).version).toBe("test-version")
-        expect((lockfile.build as Record<string, unknown>).schemaVersion).toBe("1")
+        const lockfile = requireParsed(
+          parseKnowledgeGraphLockfile(JSON.parse(await Bun.file(lockfilePath).text())),
+          "knowledge graph lockfile",
+        )
+        expect(lockfile.source.version).toBe("test-version")
+        expect(lockfile.build.schemaVersion).toBe("1")
 
         const checksumText = await Bun.file(checksumPath).text()
         expect(checksumText).toContain(KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME)

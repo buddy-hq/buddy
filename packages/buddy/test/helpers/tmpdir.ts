@@ -59,7 +59,7 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
     )
   }
 
-  const extra = await options?.init?.(dirpath)
+  const extra = options?.init !== undefined ? await options.init(dirpath) : undefined
 
   return {
     [Symbol.asyncDispose]: async () => {
@@ -67,6 +67,6 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
       await fs.rm(dirpath, { recursive: true, force: true })
     },
     path: dirpath,
-    extra: extra as T,
+    extra,
   }
 }

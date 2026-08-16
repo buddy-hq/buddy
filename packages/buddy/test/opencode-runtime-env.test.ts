@@ -5,6 +5,21 @@ import os from "node:os"
 import path from "node:path"
 import { configureOpenCodeEnvironment } from "../src/opencode-runtime"
 import { BUDDY_ENV, OPENCODE_ENV, XDG_ENV } from "../src/storage/constants"
+import z from "zod"
+import { parseJsonText, parseWithSchema, requireJsonObject } from "./helpers/parse"
+
+const xdgPathsSchema = z.object({
+  data: z.string(),
+  cache: z.string(),
+  config: z.string(),
+  state: z.string(),
+  tmp: z.string(),
+})
+type TXdgPaths = z.infer<typeof xdgPathsSchema>
+
+function parseXdgPaths(text: string): TXdgPaths {
+  return parseWithSchema(xdgPathsSchema, parseJsonText(text), "xdg paths")
+}
 
 const originalCwd = process.cwd()
 const originalBuddyMigrationDir = process.env[BUDDY_ENV.MIGRATION_DIR]
@@ -80,13 +95,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      data: string
-      cache: string
-      config: string
-      state: string
-      tmp: string
-    }
+    const parsed = parseXdgPaths(result.stdout.trim())
 
     expect(parsed.data).toBe(path.join(runtimeRoot, "data"))
     expect(parsed.cache).toBe(path.join(runtimeRoot, "cache"))
@@ -120,10 +129,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      config: string
-      tmp: string
-    }
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
 
     expect(parsed.config).toBe(path.join(testHome, ".buddy"))
     expect(parsed.tmp).toBe(path.join(runtimeRoot, "tmp", "buddy", "opencode"))
@@ -165,13 +171,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      data: string
-      cache: string
-      config: string
-      state: string
-      tmp: string
-    }
+    const parsed = parseXdgPaths(result.stdout.trim())
 
     expect(parsed.data).toBe(xdg.data)
     expect(parsed.cache).toBe(xdg.cache)
@@ -217,13 +217,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      data: string
-      cache: string
-      config: string
-      state: string
-      tmp: string
-    }
+    const parsed = parseXdgPaths(result.stdout.trim())
 
     expect(parsed.data).toBe(xdg.data)
     expect(parsed.cache).toBe(xdg.cache)
@@ -261,11 +255,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      data: string
-      cache: string
-      state: string
-    }
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
 
     expect(parsed.data).toBe(path.join(runtimeRoot, "data", "buddy"))
     expect(parsed.cache).toBe(path.join(runtimeRoot, "cache", "buddy"))
@@ -309,12 +299,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      data: string
-      cache: string
-      config: string
-      state: string
-    }
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
 
     expect(parsed.data).toBe(path.join(xdg.data, "buddy"))
     expect(parsed.cache).toBe(path.join(xdg.cache, "buddy"))
@@ -363,16 +348,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      data: string
-      cache: string
-      config: string
-      state: string
-      tmp: string
-      db: string
-      opencodeDb: string
-      channelDbDisable?: string
-    }
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
 
     const expectedData = path.join(xdg.data, "buddy", "opencode")
     expect(parsed.data).toBe(expectedData)
@@ -417,16 +393,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      data: string
-      cache: string
-      config: string
-      state: string
-      tmp: string
-      db: string
-      opencodeDb: string
-      channelDbDisable?: string
-    }
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
 
     const expectedData = path.join(testHome, ".local", "share", "buddy", "opencode")
     expect(parsed.data).toBe(expectedData)
@@ -476,15 +443,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      data: string
-      cache: string
-      config: string
-      state: string
-      db: string
-      buddyConfigDir: string
-      opencodeConfigDir: string
-    }
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
 
     const expectedData = path.join(dataDir, "opencode")
     expect(parsed.data).toBe(expectedData)
@@ -525,13 +484,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      data: string
-      cache: string
-      state: string
-      tmp: string
-      db: string
-    }
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
 
     const expectedData = path.join(runtimeRoot, "data", "buddy", "opencode")
     expect(parsed.data).toBe(expectedData)
@@ -578,10 +531,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      buddyGlobalConfigDir: string
-      opencodeConfigDir: string
-    }
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
 
     const expected = path.join(testHome, ".buddy")
     expect(parsed.buddyGlobalConfigDir).toBe(expected)
@@ -617,10 +567,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      opencodeDb: string
-      channelDbDisable?: string
-    }
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
 
     expect(parsed.opencodeDb).toBe("opencode.db")
     expect(parsed.channelDbDisable).toBeUndefined()
@@ -742,10 +689,7 @@ describe("opencode runtime env", () => {
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      client: string
-      questionTool: string
-    }
+    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
 
     expect(parsed.client).toBe("web")
     expect(parsed.questionTool).toBe("1")

@@ -17,6 +17,12 @@ import { createCompatiblePluginAskHandler } from "../../src/opencode-runtime/plu
 import { getDynamicToolSearchTools } from "../../src/learning/runtime/dynamic-tool-discovery"
 import { allBuddyTools } from "../../src/learning/runtime/feature-registry"
 import { tmpdir } from "../helpers/tmpdir"
+import {
+  parseJsonObject,
+  requireString,
+  requireToolObjectResult,
+  type TJsonObject,
+} from "../helpers/parse"
 
 const TEST_TOOL_PRESENTATION = defineToolPresentation({ archetype: "silent" })
 
@@ -25,11 +31,7 @@ afterEach(async () => {
 })
 
 function expectToolObject(result: ToolResult) {
-  expect(typeof result).toBe("object")
-  if (typeof result === "string") {
-    throw new Error("Expected tool result object")
-  }
-  return result
+  return requireToolObjectResult(result, "tool result object")
 }
 
 function createUserMessageHistory(sessionID: string): MessageV2.WithParts[] {
@@ -51,30 +53,28 @@ function createUserMessageHistory(sessionID: string): MessageV2.WithParts[] {
   ]
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
 function createPluginExecuteContext(input: {
   directory: string
   messages?: MessageV2.WithParts[]
-  extra?: Record<string, unknown>
+  extra?: TJsonObject
 }): ToolContext & {
   messages: MessageV2.WithParts[]
-  extra?: Record<string, unknown>
+  extra?: TJsonObject
 } {
-  return {
-    sessionID: "ses_test",
-    messageID: "msg_test",
-    agent: "buddy",
-    directory: input.directory,
-    worktree: input.directory,
-    abort: new AbortController().signal,
-    metadata() {},
-    ask: createCompatiblePluginAskHandler(),
-    messages: input.messages ?? [],
-    ...(input.extra ? { extra: input.extra } : {}),
-  }
+  return Object.assign(
+    {
+      sessionID: "ses_test",
+      messageID: "msg_test",
+      agent: "buddy",
+      directory: input.directory,
+      worktree: input.directory,
+      abort: new AbortController().signal,
+      metadata() {},
+      ask: createCompatiblePluginAskHandler(),
+      messages: input.messages ?? [],
+    },
+    input.extra ? { extra: input.extra } : undefined,
+  )
 }
 
 describe("buddyToolToPluginTool shim", () => {
@@ -133,7 +133,7 @@ describe("buddyToolToPluginTool shim", () => {
     expect(pluginTool.description).toBe("A test tool")
     expect(pluginTool.args).toHaveProperty("input")
     expect(pluginTool.args).toHaveProperty("count")
-    expect(typeof pluginTool.execute).toBe("function")
+    expect(pluginTool.execute).toBeInstanceOf(Function)
   })
 
   test("converts non-object Zod schemas to { input: schema } shape", () => {
@@ -198,14 +198,14 @@ describe("buddyToolToPluginTool shim", () => {
     )
 
     expect(result.output).toBe("hello world")
-    expect(typeof result.title).toBe("string")
+    expect(requireString(result.title, "title").length).toBeGreaterThan(0)
   })
 
   test("forwards ctx.ask through the plugin shim without InstanceRef errors", async () => {
     await using project = await tmpdir({ git: true })
     await loadOpenCodeApp()
 
-    const asks: Array<Record<string, unknown>> = []
+    const asks: TJsonObject[] = []
     const tool = createBuddyTool({
       id: "ask_test",
       description: "Ask test",
@@ -252,7 +252,7 @@ describe("buddyToolToPluginTool shim", () => {
 
   test("metadata updates are forwarded through the shim", async () => {
     await using project = await tmpdir({ git: true })
-    const updates: Array<{ title?: string; metadata?: Record<string, unknown> }> = []
+    const updates: Array<{ title?: string; metadata?: TJsonObject }> = []
 
     const tool = createBuddyTool({
       id: "meta_test",
@@ -357,7 +357,9 @@ describe("buddyToolToPluginTool shim", () => {
           title: "messages_forward_test",
           output: `messages=${ctx.messages.length}`,
           metadata: {
-            hasExtraModel: isRecord(ctx.extra) && isRecord(ctx.extra.model),
+            hasExtraModel:
+              parseJsonObject(ctx.extra) !== undefined &&
+              parseJsonObject(parseJsonObject(ctx.extra)?.model) !== undefined,
           },
         }
       },

@@ -12,6 +12,7 @@ import {
 import { RESOURCE_PACK_ENTRYPOINT_FILE_NAME } from "../../src/resource-packs"
 import { tmpdir } from "../helpers/tmpdir"
 import { createTestPdf } from "../helpers/pdf"
+import { requireJsonObject, requireJsonArray, requireString, parseJsonObject, parsePromptString } from "../helpers/parse"
 
 const DIRECTORY_HEADER = "x-buddy-directory" as const
 const JSON_CONTENT_TYPE = "application/json" as const
@@ -107,11 +108,13 @@ describe("resource routes", () => {
     )
     expect(responses.map((response) => response.status)).toEqual([200, 200])
     const created = await Promise.all(
-      responses.map((response) => response.json() as Promise<{ objectID: string; alias: string }>),
+      responses.map(async (response) => requireJsonObject(await response.json())),
     )
 
-    expect(new Set(created.map((resource) => resource.objectID)).size).toBe(2)
-    expect(new Set(created.map((resource) => resource.alias))).toEqual(
+    expect(new Set(created.map((resource) => requireString(resource.objectID, "objectID"))).size).toBe(
+      2,
+    )
+    expect(new Set(created.map((resource) => requireString(resource.alias, "alias")))).toEqual(
       new Set(["shared", "shared-2"]),
     )
   })
@@ -138,24 +141,17 @@ describe("resource routes", () => {
       }),
     })
     expect(addResponse.status).toBe(200)
-    const added = (await addResponse.json()) as {
-      objectID: string
-      alias: string
-      status: string
-      sourceValidity: string
-      extractionStatus: string
-      sourceRelpath: string
-      sourceOriginRelpath?: string
-    }
+    const added = requireJsonObject(await addResponse.json())
     expect(added.alias).toBe("guide")
     expect(added.status).toBe("preparing")
     expect(added.sourceValidity).toBe("unknown")
     expect(added.extractionStatus).toBe("preparing")
-    expect(added.sourceRelpath.startsWith(".buddy/objects/v1/resource/")).toBe(true)
-    expect(added.sourceRelpath.endsWith("/guide.html")).toBe(true)
+    const storedSourceRelpath = requireString(added.sourceRelpath, "sourceRelpath")
+    expect(storedSourceRelpath.startsWith(".buddy/objects/v1/resource/")).toBe(true)
+    expect(storedSourceRelpath.endsWith("/guide.html")).toBe(true)
     expect(added.sourceOriginRelpath).toBe(sourceRelpath)
     await expect(stat(sourcePath)).resolves.toBeDefined()
-    await expect(readFile(path.join(project.path, added.sourceRelpath), "utf8")).resolves.toContain(
+    await expect(readFile(path.join(project.path, storedSourceRelpath), "utf8")).resolves.toContain(
       "Guide",
     )
 
@@ -165,10 +161,11 @@ describe("resource routes", () => {
       },
     })
     expect(listResponse.status).toBe(200)
-    const listed = (await listResponse.json()) as {
-      resources: Array<{ objectID: string; alias: string }>
-    }
-    expect(listed.resources.some((entry) => entry.objectID === added.objectID)).toBe(true)
+    const listed = requireJsonObject(await listResponse.json())
+    const listedResources = requireJsonArray(listed.resources, "resources")
+    expect(
+      listedResources.some((entry) => parseJsonObject(entry)?.objectID === added.objectID),
+    ).toBe(true)
 
     const renameResponse = await app.request(`/api/objects/resource/${added.objectID}`, {
       method: "PATCH",
@@ -181,7 +178,7 @@ describe("resource routes", () => {
       }),
     })
     expect(renameResponse.status).toBe(200)
-    const renamed = (await renameResponse.json()) as { alias: string }
+    const renamed = requireJsonObject(await renameResponse.json())
     expect(renamed.alias).toBe("guide-renamed")
 
     const rebuildResponse = await app.request(
@@ -194,7 +191,7 @@ describe("resource routes", () => {
       },
     )
     expect(rebuildResponse.status).toBe(200)
-    const rebuilt = (await rebuildResponse.json()) as { status: string }
+    const rebuilt = requireJsonObject(await rebuildResponse.json())
     expect(rebuilt.status).toBe("preparing")
 
     const removeResponse = await app.request("/api/objects/resource/by-key/guide-renamed", {
@@ -225,17 +222,14 @@ describe("resource routes", () => {
     })
 
     expect(response.status).toBe(200)
-    const created = (await response.json()) as {
-      sourceRelpath: string
-      sourceValidity: string
-      extractionStatus: string
-    }
-    expect(created.sourceRelpath.startsWith(".buddy/objects/v1/resource/")).toBe(true)
+    const created = requireJsonObject(await response.json())
+    const createdSourceRelpath = requireString(created.sourceRelpath, "sourceRelpath")
+    expect(createdSourceRelpath.startsWith(".buddy/objects/v1/resource/")).toBe(true)
     expect(created.sourceValidity).toBe("valid")
     expect(created.extractionStatus).toBe("preparing")
     await expect(readFile(externalSourcePath, "utf8")).resolves.toContain("%PDF-1.4")
     await expect(
-      readFile(path.join(project.path, created.sourceRelpath), "utf8"),
+      readFile(path.join(project.path, createdSourceRelpath), "utf8"),
     ).resolves.toContain("%PDF-1.4")
   })
 
@@ -257,15 +251,8 @@ describe("resource routes", () => {
       body: JSON.stringify({ sourcePath: sourceRelpath, alias: "interrupted" }),
     })
     expect(addResponse.status).toBe(200)
-    const addedResponseBody: unknown = await addResponse.json()
-    if (
-      typeof addedResponseBody !== "object" ||
-      addedResponseBody === null ||
-      !("objectID" in addedResponseBody)
-    ) {
-      throw new Error("Resource response did not include an object ID")
-    }
-    const objectID = BuddyObjectIDSchema.parse(addedResponseBody.objectID)
+    const added = requireJsonObject(await addResponse.json())
+    const objectID = BuddyObjectIDSchema.parse(added.objectID)
     await waitForResource(project.path, "interrupted")
     await Bun.sleep(RESOURCE_POLL_DELAY_MS)
 
@@ -313,7 +300,7 @@ describe("resource routes", () => {
     })
 
     expect(response.status).toBe(200)
-    const created = (await response.json()) as { alias: string }
+    const created = requireJsonObject(await response.json())
     expect(created.alias).toBe("shape-up-2019")
   })
 
@@ -345,7 +332,7 @@ describe("resource routes", () => {
 
     const metadataPath = path.join(
       project.path,
-      readyResource.packPath,
+      requireString(readyResource.packPath, "pack path"),
       RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
     )
     const metadata = matter(await readFile(metadataPath, "utf8"))
@@ -385,8 +372,7 @@ describe("resource routes", () => {
     expect(addResponse.status).toBe(200)
 
     const readyResource = await waitForResource(project.path, "guide")
-    const packPath = readyResource.packPath
-    expect(typeof packPath).toBe("string")
+    const packPath = requireString(readyResource.packPath, "pack path")
     await writeFile(path.join(project.path, packPath, "cover.jpg"), "fake-cover", "utf8")
 
     const metadataPath = path.join(project.path, packPath, RESOURCE_PACK_ENTRYPOINT_FILE_NAME)
@@ -456,7 +442,10 @@ describe("resource routes", () => {
     const rebuiltResource = await waitForResource(project.path, "guide")
     expect(rebuiltResource.status).toBe(RESOURCE_READY_STATUS)
     await expect(
-      readFile(path.join(project.path, rebuiltResource.sourceRelpath), "utf8"),
+      readFile(
+        path.join(project.path, requireString(rebuiltResource.sourceRelpath, "sourceRelpath")),
+        "utf8",
+      ),
     ).resolves.toContain("Version two is longer.")
   })
 })
@@ -468,18 +457,13 @@ async function readResource(directory: string, alias: string) {
     },
   })
   expect(listResponse.status).toBe(200)
-  const listed = (await listResponse.json()) as {
-    resources: Array<{
-      alias: string
-      status: string
-      sourceRelpath: string
-      packPath: string
-      coverRelpath?: string
-    }>
-  }
-  const resource = listed.resources.find((entry) => entry.alias === alias)
+  const listed = requireJsonObject(await listResponse.json())
+  const resources = requireJsonArray(listed.resources, "resource list")
+  const resource = resources.find(
+    (entry) => parsePromptString(parseJsonObject(entry)?.alias) === alias,
+  )
   expect(resource).toBeDefined()
-  return resource!
+  return requireJsonObject(resource, `resource ${alias}`)
 }
 
 async function waitForResource(directory: string, alias: string) {

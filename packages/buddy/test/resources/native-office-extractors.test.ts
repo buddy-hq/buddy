@@ -104,11 +104,14 @@ async function writeSpreadsheetFixture(input: {
   format: NativeSpreadsheetFormat
   workbook: XLSX.WorkBook
 }): Promise<void> {
-  const output: unknown = XLSX.write(input.workbook, {
-    type: "buffer",
-    bookType: input.format,
-    ...(input.format === "numbers" ? { numbers: XLSX_ZAHL_PAYLOAD } : {}),
-  })
+  const writeOptions = Object.assign(
+    {
+      type: "buffer" as const,
+      bookType: input.format,
+    },
+    input.format === "numbers" ? { numbers: XLSX_ZAHL_PAYLOAD } : undefined,
+  )
+  const output: unknown = XLSX.write(input.workbook, writeOptions)
   if (!(output instanceof Uint8Array)) {
     throw new Error(`SheetJS did not produce bytes for ${input.format}.`)
   }

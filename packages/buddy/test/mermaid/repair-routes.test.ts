@@ -15,6 +15,7 @@ import {
 } from "../../src/learning/features/diagrams/service/store"
 import { setSessionInteractionRuntimeOverrides } from "../../src/session/orchestration/interaction-actions"
 import { tmpdir } from "../helpers/tmpdir"
+import { parsePromptString } from "../helpers/parse"
 
 const MERMAID_REPAIR_IDLE_TEST_POLL_INTERVAL_MULTIPLIER = 3
 const MERMAID_REPAIR_TEST_PROVIDER_ID = "opencode"
@@ -23,14 +24,6 @@ const MERMAID_REPAIR_TEST_MODEL_ID = "claude-sonnet"
 const completedRepairRequests = new Set<string>()
 let nextSessionIndex = 0
 let restoreSessionInteractionRuntime = () => {}
-
-type RepairPrompt = {
-  agent?: string
-  messageID?: string
-  model?: unknown
-  parts: Array<{ text: string; type: "text" }>
-  variant?: string
-}
 
 function repairRequestKey(input: { sessionID: string; repairRequestID: string }): string {
   return `${input.sessionID}:${input.repairRequestID}`
@@ -42,27 +35,24 @@ beforeEach(() => {
     assertSessionExists: async () => undefined,
     createPromptTransform: ({ context }) => ({
       onTransform: async (body) => {
-        const content = typeof body.content === "string" ? body.content : ""
-        const transformed: RepairPrompt = {
-          parts: [
-            {
-              type: "text",
-              text: content,
-            },
-          ],
-        }
-        if (typeof body.messageID === "string") {
-          transformed.messageID = body.messageID
-        }
-        if (typeof body.agent === "string") {
-          transformed.agent = body.agent
-        }
-        if (body.model !== undefined) {
-          transformed.model = body.model
-        }
-        if (typeof body.variant === "string") {
-          transformed.variant = body.variant
-        }
+        const content = parsePromptString(body.content) ?? ""
+        const messageID = parsePromptString(body.messageID)
+        const agent = parsePromptString(body.agent)
+        const variant = parsePromptString(body.variant)
+        const transformed = Object.assign(
+          {
+            parts: [
+              {
+                type: "text",
+                text: content,
+              },
+            ],
+          },
+          messageID !== undefined ? { messageID } : undefined,
+          agent !== undefined ? { agent } : undefined,
+          body.model !== undefined ? { model: body.model } : undefined,
+          variant !== undefined ? { variant } : undefined,
+        )
         writeLastLlmOutbound({
           directory: context.directory,
           sessionID: context.sessionID,

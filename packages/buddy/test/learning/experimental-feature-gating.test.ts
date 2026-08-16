@@ -18,6 +18,14 @@ import { runWithLearnerMemoryLabContext } from "../../src/learning/features/memo
 import { listLearnerMemories } from "../../src/learning/features/memory/storage"
 import { resolveSessionRuntime } from "../../src/learning/access/resolve-session-runtime"
 import { BUDDY } from "../../src/learning/personas/buddy"
+
+async function setLearnerMemoryExperiment(enabled: boolean): Promise<Response> {
+  return app.request(`/api/global/experimental-features/${EXPERIMENTAL_FEATURE_ID.learnerMemory}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  })
+}
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY } from "../../src/learning/features/memory/subagents/memory-consolidator"
@@ -205,19 +213,8 @@ describe("experimental feature gating", () => {
       config: { learner_memory: { enabled: true } },
     })
 
-    async function setExperiment(enabled: boolean): Promise<Response> {
-      return app.request(
-        `/api/global/experimental-features/${EXPERIMENTAL_FEATURE_ID.learnerMemory}`,
-        {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ enabled }),
-        },
-      )
-    }
-
     try {
-      expect((await setExperiment(true)).status).toBe(200)
+      expect((await setLearnerMemoryExperiment(true)).status).toBe(200)
 
       const enabledSettingsResponse = await app.request("/api/learner/memory/settings", {
         headers: { "x-buddy-directory": project.path },
@@ -240,7 +237,7 @@ describe("experimental feature gating", () => {
       const memoriesAfterEnabledIngestion = await listLearnerMemories(project.path)
       expect(memoriesAfterEnabledIngestion).toHaveLength(1)
 
-      expect((await setExperiment(false)).status).toBe(200)
+      expect((await setLearnerMemoryExperiment(false)).status).toBe(200)
       await ingestQuestionSetAttempt({
         directory: project.path,
         objectID: "question-set-disabled",
@@ -260,7 +257,7 @@ describe("experimental feature gating", () => {
       })
       expect(disabledSettingsResponse.status).toBe(403)
     } finally {
-      await setExperiment(false)
+      await setLearnerMemoryExperiment(false)
     }
   })
 })

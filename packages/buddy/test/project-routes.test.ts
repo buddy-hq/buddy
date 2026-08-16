@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import { app } from "../src/index.ts"
 import { createGitRepo } from "./helpers/repo"
+import { requireJsonObject, requireJsonArray, requireString, parseJsonObject } from "./helpers/parse"
 
 function createFixedDateGitRepo(prefix: string) {
   const root = mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
@@ -38,6 +39,18 @@ function createFixedDateGitRepo(prefix: string) {
   return root
 }
 
+async function openProject(directory: string) {
+  const response = await app.request("/api/open-projects", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ directory }),
+  })
+
+  expect(response.status).toBe(200)
+}
+
 describe("project routes", () => {
   test("returns the canonical project for nested directories", async () => {
     const repo = createGitRepo("buddy-route-project-current")
@@ -69,34 +82,32 @@ describe("project routes", () => {
     })
 
     expect(currentResponse.status).toBe(200)
-    const current = (await currentResponse.json()) as {
-      id: string
-      worktree: string
-      name?: string
-    }
+    const current = requireJsonObject(await currentResponse.json())
 
     const listResponse = await app.request("/api/project")
     expect(listResponse.status).toBe(200)
-    const list = (await listResponse.json()) as Array<{
-      id: string
-      worktree: string
-      name?: string
-    }>
+    const list = requireJsonArray(await listResponse.json())
 
     expect(Array.isArray(list)).toBe(true)
     expect(
-      list.some((project) => project.id === current.id && project.worktree === canonicalRepo),
+      list.some((project) => {
+        const record = parseJsonObject(project)
+        return record?.id === current.id && record.worktree === canonicalRepo
+      }),
     ).toBe(true)
 
-    const updateResponse = await app.request(`/api/project/${encodeURIComponent(current.id)}`, {
-      method: "PATCH",
-      headers: {
-        "content-type": "application/json",
+    const updateResponse = await app.request(
+      `/api/project/${encodeURIComponent(requireString(current.id, "project id"))}`,
+      {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Renamed project",
+        }),
       },
-      body: JSON.stringify({
-        name: "Renamed project",
-      }),
-    })
+    )
 
     expect(updateResponse.status).toBe(200)
     await expect(updateResponse.json()).resolves.toMatchObject({
@@ -127,18 +138,6 @@ describe("project routes", () => {
     const nested = path.join(targetRepo, "nested")
     mkdirSync(nested, { recursive: true })
 
-    const openProject = async (directory: string) => {
-      const response = await app.request("/api/open-projects", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ directory }),
-      })
-
-      expect(response.status).toBe(200)
-    }
-
     await openProject(firstRepo)
     await openProject(secondRepo)
 
@@ -149,22 +148,19 @@ describe("project routes", () => {
     })
 
     expect(currentResponse.status).toBe(200)
-    const current = (await currentResponse.json()) as {
-      id: string
-      worktree: string
-    }
+    const current = requireJsonObject(await currentResponse.json())
 
     expect(current.worktree).toBe(targetRepo)
 
     const listResponse = await app.request("/api/project")
     expect(listResponse.status).toBe(200)
-    const list = (await listResponse.json()) as Array<{
-      id: string
-      worktree: string
-    }>
+    const list = requireJsonArray(await listResponse.json())
 
     expect(
-      list.some((project) => project.id === current.id && project.worktree === targetRepo),
+      list.some((project) => {
+        const record = parseJsonObject(project)
+        return record?.id === current.id && record.worktree === targetRepo
+      }),
     ).toBe(true)
   })
 })

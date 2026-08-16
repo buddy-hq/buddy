@@ -10,6 +10,7 @@ import { StandardsRuntimeService } from "../../src/local-runtimes/standards/serv
 import { loadOpenCodeApp } from "../../src/opencode-runtime"
 import { TEST_TOOL_MODEL } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
+import { parseJsonObject, type TJsonObject } from "../helpers/parse"
 
 const CREATED_BUDDY_TOOL_IDS = new Set([
   ...allBuddyTools().map((tool) => tool.id),
@@ -44,26 +45,20 @@ afterEach(async () => {
   await OpenCodeInstance.disposeAll()
 })
 
-type JsonSchemaObject = Record<string, unknown>
+type TJsonSchemaObject = TJsonObject
 
-function isJsonSchemaObject(value: unknown): value is JsonSchemaObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function expectJsonSchemaObject(value: unknown, label: string): JsonSchemaObject {
-  expect(typeof value).toBe("object")
-  expect(value).not.toBeNull()
-  expect(Array.isArray(value)).toBe(false)
-  if (!isJsonSchemaObject(value)) {
+function expectJsonSchemaObject<TValue>(value: TValue, label: string): TJsonSchemaObject {
+  const parsed = parseJsonObject(value)
+  if (parsed === undefined) {
     throw new Error(`${label} must be a JSON Schema object.`)
   }
-  return value
+  return parsed
 }
 
 function expectStringNullableProperty(
-  properties: JsonSchemaObject,
+  properties: TJsonSchemaObject,
   propertyName: string,
-): JsonSchemaObject {
+): TJsonSchemaObject {
   const property = expectJsonSchemaObject(
     properties[propertyName],
     `schema property ${propertyName}`,

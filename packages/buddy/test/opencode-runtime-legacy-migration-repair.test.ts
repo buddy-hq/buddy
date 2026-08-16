@@ -1,9 +1,17 @@
 import { describe, expect, test } from "bun:test"
 import { Database } from "bun:sqlite"
+import z from "zod"
 import { repairLegacyMigrationJournal } from "../src/opencode-runtime/legacy-migration-repair"
+import { parseWithSchema, requireJsonValue } from "./helpers/parse"
 
 const EVENTS_MIGRATION_NAME = "20260323234822_events" as const
 const EVENTS_MIGRATION_CREATED_AT = Date.UTC(2026, 2, 23, 23, 48, 22)
+
+const journalRowSchema = z.object({
+  journal_rowid: z.number(),
+  name: z.string().nullable(),
+  applied_at: z.string().nullable(),
+})
 
 function createMigrationFixture() {
   const db = new Database(":memory:")
@@ -49,17 +57,19 @@ describe("legacy OpenCode migration repair", () => {
 
     expect(repaired).toEqual([EVENTS_MIGRATION_NAME])
 
-    const row = db
-      .query(
-        `select rowid as journal_rowid, name, applied_at
+    const row = parseWithSchema(
+      journalRowSchema,
+      requireJsonValue(
+        db
+          .query(
+            `select rowid as journal_rowid, name, applied_at
            from "__drizzle_migrations"
           where created_at = ?`,
-      )
-      .get(EVENTS_MIGRATION_CREATED_AT) as {
-      journal_rowid: number
-      name: string
-      applied_at: string
-    }
+          )
+          .get(EVENTS_MIGRATION_CREATED_AT),
+      ),
+      "events journal row",
+    )
 
     expect(row.journal_rowid).toBeGreaterThan(0)
     expect(row.name).toBe(EVENTS_MIGRATION_NAME)
@@ -78,17 +88,19 @@ describe("legacy OpenCode migration repair", () => {
 
     expect(repaired).toEqual([])
 
-    const row = db
-      .query(
-        `select rowid as journal_rowid, name, applied_at
+    const row = parseWithSchema(
+      journalRowSchema,
+      requireJsonValue(
+        db
+          .query(
+            `select rowid as journal_rowid, name, applied_at
            from "__drizzle_migrations"
           where created_at = ?`,
-      )
-      .get(EVENTS_MIGRATION_CREATED_AT) as {
-      journal_rowid: number
-      name: string | null
-      applied_at: string | null
-    }
+          )
+          .get(EVENTS_MIGRATION_CREATED_AT),
+      ),
+      "incomplete journal row",
+    )
 
     expect(row.journal_rowid).toBeGreaterThan(0)
     expect(row.name).toBeNull()

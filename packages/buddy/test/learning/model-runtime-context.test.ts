@@ -4,6 +4,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import { tmpdir } from "../helpers/tmpdir"
+import { requireString } from "../helpers/parse"
 
 const HTML_TAG_NAMES = new Set([
   "a",
@@ -126,12 +127,12 @@ describe("model runtime context", () => {
     })
 
     expect(result.transformed).not.toHaveProperty("modelRuntime")
-    expect(typeof result.transformed.system).toBe("string")
-    expect(result.transformed.system).toContain("Active model: missing-provider/missing-model")
-    expect(result.transformed.system).toContain("Context window: 321000")
-    expect(result.transformed.system).toContain("Input window: 123000")
-    expect(result.transformed.system).toContain("Output window: 8000")
-    expect(result.transformed.system).toContain(
+    const system = requireString(result.transformed.system, "system")
+    expect(system).toContain("Active model: missing-provider/missing-model")
+    expect(system).toContain("Context window: 321000")
+    expect(system).toContain("Input window: 123000")
+    expect(system).toContain("Output window: 8000")
+    expect(system).toContain(
       "vision: yes [this model supports vision; you can use read tool to view images]",
     )
   })
@@ -152,8 +153,7 @@ describe("model runtime context", () => {
       projectConfig: config,
     })
 
-    const systemPrompt =
-      typeof result.transformed.system === "string" ? result.transformed.system : ""
+    const systemPrompt = requireString(result.transformed.system, "system")
     const { openings, closings } = countNonHtmlTags(systemPrompt)
 
     expect(openings.size).toBeGreaterThan(0)

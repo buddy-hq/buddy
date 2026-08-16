@@ -4,6 +4,7 @@ import {
   stripToolPresentationFromMessages,
   stripToolPresentationFromModelMessages,
 } from "../../src/opencode-runtime/tool-presentation-strip"
+import { parseJsonObject } from "../helpers/parse"
 
 describe("tool-presentation-strip", () => {
   test("removes buddy.presentation and collapses empty buddy metadata", () => {
@@ -75,9 +76,10 @@ describe("tool-presentation-strip", () => {
     const stripped = stripToolPresentationFromModelMessages(messages)
     const part = stripped[0]?.parts[0]
     expect(part).toBeDefined()
-    if (!part || typeof part !== "object") {
+    const parsedPart = parseJsonObject(part)
+    if (parsedPart === undefined) {
       throw new Error("expected model message part")
     }
-    expect("callProviderMetadata" in part).toBe(false)
+    expect("callProviderMetadata" in parsedPart).toBe(false)
   })
 })

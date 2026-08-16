@@ -116,19 +116,23 @@ export async function withMockStandardsRuntimeAssets<T>(run: () => Promise<T>) {
   await StandardsRuntimeService.remove().catch(() => undefined)
 
   const assetInfo = StandardsRuntimeService.runtimeAssetInfo()
-  globalThis.fetch = (async (input) => {
-    const url = String(input)
-    if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.archiveFilename}`) {
-      return new Response(Uint8Array.from(bundle.archiveBytes), { status: 200 })
-    }
-    if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.checksumFilename}`) {
-      return new Response(bundle.checksumText, { status: 200 })
-    }
-    if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.manifestFilename}`) {
-      return new Response(bundle.manifestJson, { status: 200 })
-    }
-    return new Response("not found", { status: 404 })
-  }) as typeof fetch
+  const mockFetch: typeof fetch = Object.assign(
+    async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.archiveFilename}`) {
+        return new Response(Uint8Array.from(bundle.archiveBytes), { status: 200 })
+      }
+      if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.checksumFilename}`) {
+        return new Response(bundle.checksumText, { status: 200 })
+      }
+      if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.manifestFilename}`) {
+        return new Response(bundle.manifestJson, { status: 200 })
+      }
+      return new Response("not found", { status: 404 })
+    },
+    { preconnect: previousFetch.preconnect },
+  )
+  globalThis.fetch = mockFetch
 
   try {
     return await run()

@@ -27,6 +27,7 @@ import {
   imagegenTool,
 } from "../../src/learning/features/image-generation/tools/imagegen"
 import { tmpdir } from "../helpers/tmpdir"
+import { requireString } from "../helpers/parse"
 
 const SESSION_ID = SessionID.make("ses_imagegen")
 const OTHER_SESSION_ID = SessionID.make("ses_imagegen_other")
@@ -165,10 +166,10 @@ function assistantMessageWithSavedImage(input: {
           input: { prompt: "draw it" },
           output: "generated",
           title: "Generated image",
-          metadata: {
-            savedPath: input.savedPath,
-            ...(input.provenance ? { generatedImageProvenance: input.provenance } : {}),
-          },
+          metadata: Object.assign(
+            { savedPath: input.savedPath },
+            input.provenance ? { generatedImageProvenance: input.provenance } : undefined,
+          ),
           time: { start: input.created, end: input.created + 1 },
           attachments: [],
         },
@@ -660,11 +661,8 @@ describe("imagegen feature tool", () => {
     expect(generateHeaders.get("authorization")).toBe("Bearer access-token")
     expect(generateHeaders.get("chatgpt-account-id")).toBe("account-id")
 
-    const generateBody = requests[0].init.body
-    const editBody = requests[1].init.body
-    if (typeof generateBody !== "string" || typeof editBody !== "string") {
-      throw new Error("Expected JSON request bodies")
-    }
+    const generateBody = requireString(requests[0].init.body, "generate JSON body")
+    const editBody = requireString(requests[1].init.body, "edit JSON body")
     expect(JSON.parse(generateBody)).toEqual({
       prompt: "a red fox",
       background: "auto",

@@ -3,6 +3,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
+import { requireJsonObject, requireJsonArray, requireString } from "../helpers/parse"
 
 afterEach(async () => {
   await OpenCodeInstance.disposeAll()
@@ -18,34 +19,34 @@ async function createSession(directory: string) {
   })
 }
 
-describe("inline mermaid objects", () => {
-  async function postInlineMermaidObject(input: {
-    directory: string
-    sessionID: string
-    messageID: string
-    partID: string
-    segmentIndex: number
-    source: string
-  }): Promise<Response> {
-    return app.request(
-      `/api/objects/mermaid/inline?directory=${encodeURIComponent(input.directory)}`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-buddy-directory": input.directory,
-        },
-        body: JSON.stringify({
-          sessionID: input.sessionID,
-          messageID: input.messageID,
-          partID: input.partID,
-          segmentIndex: input.segmentIndex,
-          source: input.source,
-        }),
+async function postInlineMermaidObject(input: {
+  directory: string
+  sessionID: string
+  messageID: string
+  partID: string
+  segmentIndex: number
+  source: string
+}): Promise<Response> {
+  return app.request(
+    `/api/objects/mermaid/inline?directory=${encodeURIComponent(input.directory)}`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-buddy-directory": input.directory,
       },
-    )
-  }
+      body: JSON.stringify({
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+        partID: input.partID,
+        segmentIndex: input.segmentIndex,
+        source: input.source,
+      }),
+    },
+  )
+}
 
+describe("inline mermaid objects", () => {
   test("creates inline objects for assistant markdown mermaid blocks", async () => {
     await using project = await tmpdir({ git: true })
     const sessionID = await createSession(project.path)
@@ -64,20 +65,7 @@ describe("inline mermaid objects", () => {
     })
 
     expect(firstResponse.status).toBe(200)
-    const firstBody = (await firstResponse.json()) as {
-      objectID: string
-      revisionID: string
-      kind: string
-      origin: {
-        kind: string
-        sessionID: string
-        messageID: string
-        partID: string
-        segmentIndex: number
-      }
-      source: string
-      alt: string
-    }
+    const firstBody = requireJsonObject(await firstResponse.json())
     expect(firstBody.kind).toBe("mermaid")
     expect(firstBody.origin).toEqual({
       kind: "markdown",
@@ -95,23 +83,18 @@ describe("inline mermaid objects", () => {
     })
 
     expect(secondResponse.status).toBe(200)
-    const secondBody = (await secondResponse.json()) as { objectID: string }
+    const secondBody = requireJsonObject(await secondResponse.json())
     expect(secondBody.objectID).toBe(firstBody.objectID)
 
     const indexResponse = await app.request(
       `/api/objects?directory=${encodeURIComponent(project.path)}&kind=mermaid`,
     )
     expect(indexResponse.status).toBe(200)
-    const index = (await indexResponse.json()) as {
-      objects: Array<{
-        objectID: string
-        kind: string
-      }>
-      loadErrors: unknown[]
-    }
-    expect(index.objects).toHaveLength(1)
+    const index = requireJsonObject(await indexResponse.json())
+    const objects = requireJsonArray(index.objects, "mermaid objects")
+    expect(objects).toHaveLength(1)
     expect(index.loadErrors).toEqual([])
-    expect(index.objects).toEqual(
+    expect(objects).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           objectID: firstBody.objectID,
@@ -143,21 +126,19 @@ describe("inline mermaid objects", () => {
     for (const response of responses) {
       expect(response.status).toBe(200)
     }
-    const bodies = (await Promise.all(responses.map((response) => response.json()))) as Array<{
-      objectID: string
-    }>
-    expect(new Set(bodies.map((body) => body.objectID)).size).toBe(1)
+    const bodies = await Promise.all(
+      responses.map(async (response) => requireJsonObject(await response.json())),
+    )
+    expect(new Set(bodies.map((body) => requireString(body.objectID, "objectID"))).size).toBe(1)
 
     const indexResponse = await app.request(
       `/api/objects?directory=${encodeURIComponent(project.path)}&kind=mermaid`,
     )
     expect(indexResponse.status).toBe(200)
-    const index = (await indexResponse.json()) as {
-      objects: Array<{ objectID: string }>
-      loadErrors: unknown[]
-    }
-    expect(index.objects).toHaveLength(1)
-    expect(index.objects[0]?.objectID).toBe(bodies[0]?.objectID)
+    const index = requireJsonObject(await indexResponse.json())
+    const objects = requireJsonArray(index.objects, "mermaid objects")
+    expect(objects).toHaveLength(1)
+    expect(requireJsonObject(objects[0], "mermaid object").objectID).toBe(bodies[0]?.objectID)
     expect(index.loadErrors).toEqual([])
   })
 })

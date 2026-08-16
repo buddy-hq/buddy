@@ -22,6 +22,7 @@ import {
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "../../src/learning/prompt/workspace-file-references"
 import { tmpdir } from "../helpers/tmpdir"
+import { requireJsonArray } from "../helpers/parse"
 
 const RESOURCE_REFERENCE_WAIT_ATTEMPTS = 40
 const RESOURCE_REFERENCE_WAIT_MS = 25
@@ -75,7 +76,7 @@ describe("message prompt resource references", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts as Array<Record<string, unknown>>
+    const parts = requireJsonArray(result.transformed.parts)
     expect(parts).toHaveLength(3)
     expect(parts[0]).toEqual({
       type: "text",
@@ -234,7 +235,7 @@ describe("message prompt resource references", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts as Array<Record<string, unknown>>
+    const parts = requireJsonArray(result.transformed.parts)
     expect(parts).toEqual([
       {
         type: "text",
@@ -307,7 +308,7 @@ describe("message prompt resource references", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts as Array<Record<string, unknown>>
+    const parts = requireJsonArray(result.transformed.parts)
     expect(parts).toEqual([
       {
         type: "selection-context",
@@ -458,7 +459,7 @@ describe("message prompt resource references", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts as Array<Record<string, unknown>>
+    const parts = requireJsonArray(result.transformed.parts)
     expect(parts).toEqual([
       {
         type: "text",
@@ -527,7 +528,7 @@ describe("message prompt resource references", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts as Array<Record<string, unknown>>
+    const parts = requireJsonArray(result.transformed.parts)
     expect(parts).toEqual([
       {
         type: "text",
@@ -558,7 +559,7 @@ describe("message prompt resource references", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts as Array<Record<string, unknown>>
+    const parts = requireJsonArray(result.transformed.parts)
     expect(parts).toEqual([
       {
         type: "text",
@@ -587,7 +588,7 @@ describe("message prompt resource references", () => {
         projectConfig: config,
       })
 
-      const parts = result.transformed.parts as Array<Record<string, unknown>>
+      const parts = requireJsonArray(result.transformed.parts)
       expect(parts).toEqual([
         {
           type: "text",

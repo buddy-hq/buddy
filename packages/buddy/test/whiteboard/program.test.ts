@@ -27,20 +27,7 @@ import {
 import type { WhiteboardRenderReport } from "../../src/learning/features/whiteboard/service/types"
 import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
 import { tmpdir } from "../helpers/tmpdir"
-
-type LayoutMetadataForTest = {
-  layout?: {
-    status: string
-    issues?: Array<{
-      code: string
-      id?: string
-      containerId?: string
-      overflowDirection?: string
-      overflowPx?: { x?: number; y?: number }
-    }>
-    issuesTruncated?: boolean
-  }
-}
+import { parseJsonArray, parseJsonObject, requireJsonObject, type TJsonObject } from "../helpers/parse"
 
 type OverflowFixture = {
   programElements: unknown[]
@@ -58,6 +45,14 @@ function createContext(input: { directory: string; sessionID: string }): BuddyTo
     metadata: async () => {},
     ask: async () => {},
   }
+}
+
+function layoutIssueRecords(output: TJsonObject): TJsonObject[] | undefined {
+  const layout = parseJsonObject(output.layout)
+  if (layout === undefined) return undefined
+  const issues = parseJsonArray(layout.issues)
+  if (issues === undefined) return undefined
+  return issues.map((issue) => requireJsonObject(issue, "layout issue"))
 }
 
 const testWhiteboardObjectBySession = new Map<string, ReturnType<typeof createWhiteboardObject>>()
@@ -520,13 +515,14 @@ describe("whiteboard drawing program", () => {
     })()
 
     const [result] = await Promise.all([toolResult, reportResult])
-    const metadata = result.metadata as LayoutMetadataForTest
+    const metadata = parseJsonObject(result.metadata)
+    const layout = parseJsonObject(metadata?.layout)
 
     expect(result.output).toContain('"issuesTruncated":true')
     expect(result.output).toContain('"id":"r3-body"')
-    expect(metadata.layout?.status).toBe("issues")
-    expect(metadata.layout?.issuesTruncated).toBe(true)
-    expect(metadata.layout?.issues?.[0]).toMatchObject({
+    expect(layout?.status).toBe("issues")
+    expect(layout?.issuesTruncated).toBe(true)
+    expect(parseJsonObject((parseJsonArray(layout?.issues) ?? [])[0])).toMatchObject({
       code: "text_overflow",
       id: "r3-body",
       containerId: "r3-card",
@@ -811,34 +807,18 @@ describe("whiteboard drawing program", () => {
       {},
       createContext({ directory: project.path, sessionID: "ses_render_layout_context" }),
     )
-    const output = JSON.parse(result.output) as {
-      layout?: {
-        status: string
-        issues?: Array<{
-          code: string
-          id?: string
-          containerId?: string
-          overflowDirection?: string
-        }>
-      }
-      elements?: Array<{
-        id: string
-        renderBounds?: {
-          x: number
-          y: number
-          width: number
-          height: number
-        }
-      }>
-      renderReport?: unknown
-    }
+    const output = requireJsonObject(JSON.parse(result.output))
 
     expect(output.renderReport).toBeUndefined()
-    expect(output.elements?.find((element) => element.id === "box-text")).toMatchObject({
+    expect(
+      (parseJsonArray(output.elements) ?? []).find(
+        (element) => parseJsonObject(element)?.id === "box-text",
+      ),
+    ).toMatchObject({
       renderBounds: { x: 10, y: 20, width: 180, height: 24 },
     })
-    expect(output.layout?.status).toBe("issues")
-    expect(output.layout?.issues?.[0]).toMatchObject({
+    expect(parseJsonObject(output.layout)?.status).toBe("issues")
+    expect(layoutIssueRecords(output)?.[0]).toMatchObject({
       code: "text_overflow",
       id: "box-text",
       containerId: "box",
@@ -908,21 +888,10 @@ describe("whiteboard drawing program", () => {
         sessionID: "ses_render_layout_text_too_small",
       }),
     )
-    const output = JSON.parse(result.output) as {
-      layout?: {
-        status: string
-        issues?: Array<{
-          code: string
-          id?: string
-          fontSize?: number
-          renderedFontPx?: number
-          zoom?: number
-        }>
-      }
-    }
+    const output = requireJsonObject(JSON.parse(result.output))
 
-    expect(output.layout?.status).toBe("issues")
-    expect(output.layout?.issues?.[0]).toMatchObject({
+    expect(parseJsonObject(output.layout)?.status).toBe("issues")
+    expect(layoutIssueRecords(output)?.[0]).toMatchObject({
       code: "text_too_small",
       id: "small-note",
       fontSize: 13,
@@ -978,10 +947,10 @@ describe("whiteboard drawing program", () => {
         sessionID: "ses_render_layout_no_false_overflow",
       }),
     )
-    const output = JSON.parse(result.output) as { layout?: { status: string; issues?: unknown[] } }
+    const output = requireJsonObject(JSON.parse(result.output))
 
-    expect(output.layout?.status).toBe("ok")
-    expect(output.layout?.issues).toBeUndefined()
+    expect(parseJsonObject(output.layout)?.status).toBe("ok")
+    expect(layoutIssueRecords(output)).toBeUndefined()
   })
 
   test("render layout digest ignores text contained by earlier background panels", async () => {
@@ -1056,10 +1025,10 @@ describe("whiteboard drawing program", () => {
       {},
       createContext({ directory: project.path, sessionID: "ses_render_layout_background_panels" }),
     )
-    const output = JSON.parse(result.output) as { layout?: { status: string; issues?: unknown[] } }
+    const output = requireJsonObject(JSON.parse(result.output))
 
-    expect(output.layout?.status).toBe("ok")
-    expect(output.layout?.issues).toBeUndefined()
+    expect(parseJsonObject(output.layout)?.status).toBe("ok")
+    expect(layoutIssueRecords(output)).toBeUndefined()
   })
 
   test("render layout digest reports implicit container text overflow instead of overlap", async () => {
@@ -1104,28 +1073,16 @@ describe("whiteboard drawing program", () => {
         sessionID: "ses_render_layout_implicit_container_overflow",
       }),
     )
-    const output = JSON.parse(result.output) as {
-      layout?: {
-        status: string
-        issues?: {
-          code: string
-          id?: string
-          containerId?: string
-          a?: string
-          b?: string
-          overflowDirection?: string
-        }[]
-      }
-    }
+    const output = requireJsonObject(JSON.parse(result.output))
 
-    expect(output.layout?.status).toBe("issues")
-    expect(output.layout?.issues?.[0]).toMatchObject({
+    expect(parseJsonObject(output.layout)?.status).toBe("issues")
+    expect(layoutIssueRecords(output)?.[0]).toMatchObject({
       code: "text_overflow",
       id: "rules-line",
       containerId: "rules-box",
       overflowDirection: "vertical",
     })
-    expect(output.layout?.issues?.[0]?.code).not.toBe("sibling_collision")
+    expect(layoutIssueRecords(output)?.[0]?.code).not.toBe("sibling_collision")
   })
 
   test("render layout digest reports horizontal text overflow and sibling collision separately", async () => {
@@ -1174,32 +1131,17 @@ describe("whiteboard drawing program", () => {
         sessionID: "ses_render_layout_horizontal_overflow_cascade",
       }),
     )
-    const output = JSON.parse(result.output) as {
-      layout?: {
-        status: string
-        issues?: Array<{
-          code: string
-          id?: string
-          containerId?: string
-          overflowDirection?: string
-          overflowPx?: { x?: number; y?: number }
-          a?: string
-          b?: string
-          separationAxis?: string
-          overlapPx?: { x: number; y: number }
-        }>
-      }
-    }
+    const output = requireJsonObject(JSON.parse(result.output))
 
-    expect(output.layout?.status).toBe("issues")
-    expect(output.layout?.issues?.[0]).toMatchObject({
+    expect(parseJsonObject(output.layout)?.status).toBe("issues")
+    expect(layoutIssueRecords(output)?.[0]).toMatchObject({
       code: "text_overflow",
       id: "p1b",
       containerId: "p1",
       overflowDirection: "horizontal",
       overflowPx: { x: 92 },
     })
-    expect(output.layout?.issues?.[1]).toMatchObject({
+    expect(layoutIssueRecords(output)?.[1]).toMatchObject({
       code: "sibling_collision",
       a: "p1b",
       b: "p2",
@@ -1258,21 +1200,10 @@ describe("whiteboard drawing program", () => {
         sessionID: "ses_render_layout_text_anchor_overflow",
       }),
     )
-    const output = JSON.parse(result.output) as {
-      layout?: {
-        status: string
-        issues?: Array<{
-          code: string
-          id?: string
-          containerId?: string
-          overflowDirection?: string
-          overflowPx?: { x?: number; y?: number }
-        }>
-      }
-    }
+    const output = requireJsonObject(JSON.parse(result.output))
 
-    expect(output.layout?.status).toBe("issues")
-    expect(output.layout?.issues?.[0]).toMatchObject({
+    expect(parseJsonObject(output.layout)?.status).toBe("issues")
+    expect(layoutIssueRecords(output)?.[0]).toMatchObject({
       code: "text_overflow",
       id: "test-card-1-body",
       containerId: "test-card-1",
@@ -1319,16 +1250,8 @@ describe("whiteboard drawing program", () => {
       {},
       createContext({ directory: project.path, sessionID: "ses_render_layout_bound_label" }),
     )
-    const output = JSON.parse(result.output) as {
-      layout?: {
-        issues?: Array<{
-          code: string
-          a?: string
-          moveTogetherId?: string
-        }>
-      }
-    }
-    const issue = output.layout?.issues?.find(
+    const output = requireJsonObject(JSON.parse(result.output))
+    const issue = layoutIssueRecords(output)?.find(
       (candidate) => candidate.code === "sibling_collision" && candidate.a === "box-text",
     )
 
@@ -1386,28 +1309,17 @@ describe("whiteboard drawing program", () => {
       {},
       createContext({ directory: project.path, sessionID: "ses_render_layout_text_occlusion" }),
     )
-    const output = JSON.parse(result.output) as {
-      layout?: {
-        status: string
-        issues?: Array<{
-          code: string
-          textId?: string
-          occluderId?: string
-          overlapPx?: { x: number; y: number }
-          occluderOpacity?: number
-        }>
-      }
-    }
+    const output = requireJsonObject(JSON.parse(result.output))
 
-    expect(output.layout?.status).toBe("issues")
-    expect(output.layout?.issues?.[0]).toMatchObject({
+    expect(parseJsonObject(output.layout)?.status).toBe("issues")
+    expect(layoutIssueRecords(output)?.[0]).toMatchObject({
       code: "text_occluded",
       textId: "covered-text",
       occluderId: "cover",
       overlapPx: { x: 90, y: 24 },
       occluderOpacity: 100,
     })
-    expect(output.layout?.issues?.some((issue) => issue.code === "sibling_collision")).toBeFalse()
+    expect(layoutIssueRecords(output)?.some((issue) => issue.code === "sibling_collision")).toBeFalse()
   })
 
   test("rebases concurrent continuation writes against the latest locked board", async () => {
@@ -1868,13 +1780,7 @@ describe("whiteboard drawing program", () => {
       {},
       createContext({ directory: project.path, sessionID: "ses_read_context" }),
     )
-    const output = JSON.parse(result.output) as {
-      continuationHandle: string
-      currentBoardOrigin: string
-      elementCount: number
-      visibleText: Array<{ id: string; type: string; text: string }>
-      latestLearnerEditSummary?: { added?: string[] }
-    }
+    const output = requireJsonObject(JSON.parse(result.output))
 
     expect(output.continuationHandle).toBe("current")
     expect(output.currentBoardOrigin).toBe("learner")
@@ -1883,8 +1789,8 @@ describe("whiteboard drawing program", () => {
       { id: "solid", type: "rectangle", text: "Solid" },
       { id: "learner-note", type: "text", text: "Particles are packed tightly" },
     ])
-    expect(output.latestLearnerEditSummary?.added?.join("\n")).toContain(
-      'text "Particles are packed tightly" (learner-note)',
-    )
+    expect(
+      (parseJsonArray(parseJsonObject(output.latestLearnerEditSummary)?.added) ?? []).join("\n"),
+    ).toContain('text "Particles are packed tightly" (learner-note)')
   })
 })

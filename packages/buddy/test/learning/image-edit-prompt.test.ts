@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import { tmpdir } from "../helpers/tmpdir"
+import { findPartContaining, parsePromptString, requireJsonArray } from "../helpers/parse"
 
 describe("image edit prompt", () => {
   test("adds Codex's minimal hidden image edit instruction", async () => {
@@ -22,17 +23,14 @@ describe("image edit prompt", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts as Array<Record<string, unknown>>
-    const reminder = parts.find(
-      (part) =>
-        part.synthetic === true &&
-        typeof part.text === "string" &&
-        part.text.includes("Edit the attached image"),
+    const parts = requireJsonArray(result.transformed.parts)
+    const reminderText = parsePromptString(
+      findPartContaining(parts, "Edit the attached image")?.text,
     )
 
-    expect(reminder?.text).toContain("<system-reminder>\nEdit the attached image\n")
-    expect(reminder?.text).not.toContain("image_edit_request")
-    expect(reminder?.text).not.toContain("referenced_image_paths")
+    expect(reminderText).toContain("<system-reminder>\nEdit the attached image\n")
+    expect(reminderText).not.toContain("image_edit_request")
+    expect(reminderText).not.toContain("referenced_image_paths")
     expect(result.transformed).not.toHaveProperty("imageEdit")
   })
 })

@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { describe, expect, test } from "bun:test"
+import z from "zod"
+import { parseWithSchema, parseJsonText } from "./helpers/parse"
 
 type RuntimeAssetProbe = {
   baseUrl: string
@@ -22,6 +24,26 @@ type StandardsAssetProbe = {
   manifestFilename: string
   operationInProgress: boolean
 }
+
+const runtimeAssetProbeSchema = z.object({
+  baseUrl: z.string(),
+  bundleFilename: z.string(),
+  checksumFilename: z.string(),
+  installRoot: z.string(),
+  executablePath: z.string(),
+  targetTriple: z.string(),
+  version: z.string(),
+  operationInProgress: z.boolean(),
+})
+
+const standardsAssetProbeSchema = z.object({
+  archiveFilename: z.string(),
+  baseUrl: z.string(),
+  checksumFilename: z.string(),
+  localAssetRoot: z.string(),
+  manifestFilename: z.string(),
+  operationInProgress: z.boolean(),
+})
 
 const advancedMathServicePath = path.resolve(
   import.meta.dir,
@@ -76,7 +98,11 @@ function runRuntimeAssetProbe(input: {
     )
   }
 
-  return JSON.parse(result.stdout.toString("utf8")) as RuntimeAssetProbe
+  return parseWithSchema(
+    runtimeAssetProbeSchema,
+    parseJsonText(result.stdout.toString("utf8")),
+    "runtime asset probe",
+  )
 }
 
 function runStandardsAssetProbe(input: { repo?: string; version: string }): StandardsAssetProbe {
@@ -109,7 +135,11 @@ function runStandardsAssetProbe(input: { repo?: string; version: string }): Stan
     )
   }
 
-  return JSON.parse(result.stdout.toString("utf8")) as StandardsAssetProbe
+  return parseWithSchema(
+    standardsAssetProbeSchema,
+    parseJsonText(result.stdout.toString("utf8")),
+    "standards asset probe",
+  )
 }
 
 describe("advanced math runtime asset resolution", () => {

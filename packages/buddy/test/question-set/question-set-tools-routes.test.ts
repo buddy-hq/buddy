@@ -232,22 +232,26 @@ async function createStoredQuestionSetObject(directory: string): Promise<SavedQu
   const input = sampleQuestionSetInput()
   const saved = await saveQuestionSetObject({
     directory,
-    payload: {
-      objectID: generateObjectID(),
-      kind: BUDDY_OBJECT_KINDS.questionSet,
-      groupType: input.groupType ?? "quiz",
-      title: input.title,
-      ...(input.instructions ? { instructions: input.instructions } : {}),
-      questions: input.questions,
-      createdAt: new Date().toISOString(),
-      createdBy: {
-        kind: "tool",
-        sessionID: "ses_storage_fixture",
-        messageID: "msg_storage_fixture",
-        callID: "call_storage_fixture",
-        subagent: "question-set-author",
-      },
-    },
+    payload: QuestionSetObjectPayloadSchema.omit({ revisionID: true }).parse(
+      Object.assign(
+        {
+          objectID: generateObjectID(),
+          kind: BUDDY_OBJECT_KINDS.questionSet,
+          groupType: input.groupType ?? "quiz",
+          title: input.title,
+          questions: input.questions,
+          createdAt: new Date().toISOString(),
+          createdBy: {
+            kind: "tool",
+            sessionID: "ses_storage_fixture",
+            messageID: "msg_storage_fixture",
+            callID: "call_storage_fixture",
+            subagent: "question-set-author",
+          },
+        },
+        input.instructions ? { instructions: input.instructions } : undefined,
+      ),
+    ),
   })
   return saved.payload
 }

@@ -26,6 +26,9 @@ import {
 import { createBuddyToolContext } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 import { createTestPdf } from "../helpers/pdf"
+import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
+
+type TBuddyToolMetadataUpdate = Parameters<BuddyToolContext["metadata"]>[0]
 
 const SESSION_ID = "session-bench-present"
 const TEST_CLIENT_INSTANCE_ID = "test-bench-client"
@@ -205,12 +208,16 @@ function completeCommittedAction(input: {
           },
           observedVisibility: "visible" as const,
           drawer: null,
-          context: openContextForAction({
-            directory: input.client.directory,
-            action: input.action,
-            ...(input.contextStatus ? { status: input.contextStatus } : {}),
-            ...(input.contextContent ? { content: input.contextContent } : {}),
-          }),
+          context: openContextForAction(
+            Object.assign(
+              {
+                directory: input.client.directory,
+                action: input.action,
+              },
+              input.contextStatus ? { status: input.contextStatus } : undefined,
+              input.contextContent ? { content: input.contextContent } : undefined,
+            ),
+          ),
           changed: input.changed,
         }
   return benchClientActionBroker.completeAction({
@@ -313,7 +320,7 @@ describe("bench_present", () => {
   test("has a registered Bench resolver for every Buddy object kind", () => {
     expect(
       BUDDY_OBJECT_KIND_VALUES.filter(
-        (kind) => typeof getBuddyObjectKindDefinition(kind)?.resolveBenchView !== "function",
+        (kind) => getBuddyObjectKindDefinition(kind)?.resolveBenchView === undefined,
       ),
     ).toEqual([])
   })
@@ -534,10 +541,7 @@ describe("bench_present", () => {
     })
     const client = connectTestBenchClient({ directory: project.path })
 
-    const metadataUpdates: Array<{
-      title?: string
-      metadata?: Record<string, unknown>
-    }> = []
+    const metadataUpdates: TBuddyToolMetadataUpdate[] = []
     const context = createBuddyToolContext({
       directory: project.path,
       sessionID: SESSION_ID,
@@ -594,10 +598,7 @@ describe("bench_present", () => {
 
   test("returns blocked presentations as failed tool calls", async () => {
     await using project = await tmpdir()
-    const metadataUpdates: Array<{
-      title?: string
-      metadata?: Record<string, unknown>
-    }> = []
+    const metadataUpdates: TBuddyToolMetadataUpdate[] = []
     const context = createBuddyToolContext({
       directory: project.path,
       sessionID: SESSION_ID,
@@ -1131,16 +1132,22 @@ describe("bench_present", () => {
   })
 })
 
+function snapshotFor(input: { phase: "running" | "completed" | "error"; benchStatus?: string }) {
+  return resolveToolPresentationSnapshot(
+    benchPresentTool.presentation,
+    Object.assign(
+      {
+        toolID: "bench_present",
+        phase: input.phase,
+        input: { action: "present_object" },
+        metadata: input.benchStatus ? { benchStatus: input.benchStatus } : {},
+      },
+      input.phase === "error" ? { error: "boom" } : undefined,
+    ),
+  )
+}
+
 describe("bench_present presentation", () => {
-  function snapshotFor(input: { phase: "running" | "completed" | "error"; benchStatus?: string }) {
-    return resolveToolPresentationSnapshot(benchPresentTool.presentation, {
-      toolID: "bench_present",
-      phase: input.phase,
-      input: { action: "present_object" },
-      metadata: input.benchStatus ? { benchStatus: input.benchStatus } : {},
-      ...(input.phase === "error" ? { error: "boom" } : {}),
-    })
-  }
 
   test("a successful presentation is an inline receipt, not an activity line", () => {
     const snapshot = snapshotFor({ phase: "completed", benchStatus: "presented" })

@@ -7,6 +7,18 @@ import { app } from "../../src/index.ts"
 import { Config } from "@buddy/backend/config"
 import { Global } from "../../src/storage"
 import { createGitRepo } from "../helpers/repo"
+import {
+  requireJsonObject,
+  requireJsonArray,
+  parseJsonObject,
+  parseJsonObjectText,
+  type TJsonValue,
+  type TJsonObject,
+} from "../helpers/parse"
+
+function skillRecords(value: TJsonValue | undefined, label: string): TJsonObject[] {
+  return requireJsonArray(value, label).map((entry) => requireJsonObject(entry, label))
+}
 
 describe("skills routes", () => {
   test("applies skills v2 roots, external toggle, and curated install flow", async () => {
@@ -92,30 +104,22 @@ Use the local review workflow for this repository.
       })
 
       expect(listBefore.status).toBe(200)
-      const beforeBody = (await listBefore.json()) as {
-        managedRoot: string
-        externalVendorRootsEnabled: boolean
-        installed: Array<{
-          name: string
-          source: string
-          displayName: string
-          shortDescription: string
-        }>
-        library: Array<{ id: string; state: string }>
-      }
+      const beforeBody = requireJsonObject(await listBefore.json())
+      const beforeInstalled = skillRecords(beforeBody.installed, "installed skills")
+      const beforeLibrary = skillRecords(beforeBody.library, "skill library")
 
       expect(beforeBody.managedRoot).toBe(path.join(fakeHome, ".buddy", "skills"))
       expect(beforeBody.externalVendorRootsEnabled).toBe(false)
-      expect(beforeBody.installed.some((skill) => skill.name === "local-review")).toBe(false)
+      expect(beforeInstalled.some((skill) => skill.name === "local-review")).toBe(false)
       expect(
-        beforeBody.installed.some((skill) => skill.name === "reading" && skill.source === "system"),
+        beforeInstalled.some((skill) => skill.name === "reading" && skill.source === "system"),
       ).toBe(true)
-      expect(beforeBody.installed.find((skill) => skill.name === "reading")).toMatchObject({
+      expect(beforeInstalled.find((skill) => skill.name === "reading")).toMatchObject({
         displayName: "Reading",
         shortDescription: "Read and analyze books, papers, articles, and resources",
       })
       expect(
-        beforeBody.library.some(
+        beforeLibrary.some(
           (entry) => entry.id === "anthropic-pptx" && entry.state === "available",
         ),
       ).toBe(true)
@@ -142,10 +146,10 @@ Use the local review workflow for this repository.
         fs.existsSync(path.join(fakeHome, ".buddy", "skills", ".system", "reading", "SKILL.md")),
       ).toBe(true)
       expect(fs.existsSync(installedSystemManifestPath)).toBe(true)
-      const reconciledLock = JSON.parse(fs.readFileSync(installedLockPath, "utf8")) as {
-        installed: Record<string, unknown>
-      }
-      expect(Object.keys(reconciledLock.installed)).toHaveLength(0)
+      const reconciledLock = parseJsonObjectText(fs.readFileSync(installedLockPath, "utf8"))
+      expect(Object.keys(requireJsonObject(reconciledLock.installed, "installed skills"))).toHaveLength(
+        0,
+      )
 
       const toggleOnResponse = await app.request("/api/skills/settings", {
         method: "PATCH",
@@ -165,29 +169,18 @@ Use the local review workflow for this repository.
         },
       })
       expect(listAfterToggle.status).toBe(200)
-      const afterToggleBody = (await listAfterToggle.json()) as {
-        externalVendorRootsEnabled: boolean
-        installed: Array<{
-          name: string
-          description: string
-          displayName: string
-          shortDescription: string
-          scope: string
-          permissionAction: string
-        }>
-      }
+      const afterToggleBody = requireJsonObject(await listAfterToggle.json())
+      const afterToggleInstalled = skillRecords(afterToggleBody.installed, "installed skills")
       expect(afterToggleBody.externalVendorRootsEnabled).toBe(true)
       expect(
-        afterToggleBody.installed.some(
+        afterToggleInstalled.some(
           (skill) =>
             skill.name === "local-review" &&
             skill.scope === "workspace" &&
             skill.permissionAction === "allow",
         ),
       ).toBe(true)
-      expect(
-        afterToggleBody.installed.find((skill) => skill.name === "local-review"),
-      ).toMatchObject({
+      expect(afterToggleInstalled.find((skill) => skill.name === "local-review")).toMatchObject({
         displayName: "local-review",
         shortDescription: "Workspace-local review workflow.",
       })
@@ -209,16 +202,13 @@ Use the local review workflow for this repository.
         },
       })
       expect(listAfterLocalRule.status).toBe(200)
-      const afterLocalRuleBody = (await listAfterLocalRule.json()) as {
-        installed: Array<{
-          name: string
-          scope: string
-          enabled: boolean
-          permissionAction: string
-        }>
-      }
+      const afterLocalRuleBody = requireJsonObject(await listAfterLocalRule.json())
+      const afterLocalRuleInstalled = skillRecords(
+        afterLocalRuleBody.installed,
+        "installed skills",
+      )
       expect(
-        afterLocalRuleBody.installed.some(
+        afterLocalRuleInstalled.some(
           (skill) =>
             skill.name === "local-review" &&
             skill.scope === "workspace" &&
@@ -228,12 +218,7 @@ Use the local review workflow for this repository.
       ).toBe(true)
 
       const configAfterLocalRule = await Config.getGlobal()
-      const skillRules =
-        configAfterLocalRule.permission &&
-        typeof configAfterLocalRule.permission !== "string" &&
-        typeof configAfterLocalRule.permission.skill !== "string"
-          ? configAfterLocalRule.permission.skill
-          : undefined
+      const skillRules = parseJsonObject(parseJsonObject(configAfterLocalRule.permission)?.skill)
       expect(skillRules?.["local-review"]).toBe("deny")
 
       const createResponse = await app.request("/api/skills", {
@@ -271,11 +256,9 @@ Use the local review workflow for this repository.
         },
       })
       expect(listAfterCreate.status).toBe(200)
-      const afterCreateBody = (await listAfterCreate.json()) as {
-        installed: Array<{ name: string; source: string }>
-      }
+      const afterCreateBody = requireJsonObject(await listAfterCreate.json())
       expect(
-        afterCreateBody.installed.some(
+        skillRecords(afterCreateBody.installed, "installed skills").some(
           (skill) => skill.name === "plan-helper" && skill.source === "custom",
         ),
       ).toBe(true)
@@ -294,10 +277,12 @@ Use the local review workflow for this repository.
         },
       })
       expect(listAfterRemove.status).toBe(200)
-      const afterRemoveBody = (await listAfterRemove.json()) as {
-        installed: Array<{ name: string }>
-      }
-      expect(afterRemoveBody.installed.some((skill) => skill.name === "plan-helper")).toBe(false)
+      const afterRemoveBody = requireJsonObject(await listAfterRemove.json())
+      expect(
+        skillRecords(afterRemoveBody.installed, "installed skills").some(
+          (skill) => skill.name === "plan-helper",
+        ),
+      ).toBe(false)
     } finally {
       process.env.HOME = previousHome
       process.env.BUDDY_TEST_HOME = previousBuddyHome

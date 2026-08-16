@@ -5,6 +5,7 @@ import {
   writeTeachingSessionState,
 } from "../../src/learning/agent-execution/state/session-state"
 import { tmpdir } from "../helpers/tmpdir"
+import { requireJsonObject } from "../helpers/parse"
 
 describe("session route regressions", () => {
   test("returns 400 for malformed prompt JSON payloads", async () => {
@@ -184,7 +185,7 @@ describe("session route regressions", () => {
     })
 
     expect(response.status).toBe(200)
-    const body = (await response.json()) as Record<string, unknown>
+    const body = requireJsonObject(await response.json())
     expect(Array.isArray(body)).toBe(false)
     expect(body.error).toBeUndefined()
   })

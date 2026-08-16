@@ -3,6 +3,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { app } from "../src/index.ts"
 import { createGitRepo } from "./helpers/repo"
+import { requireJsonObject, requireString } from "./helpers/parse"
 
 describe("project file editor routes", () => {
   test("reads exact text content and saves with version updates", async () => {
@@ -18,12 +19,9 @@ describe("project file editor routes", () => {
     })
 
     expect(readResponse.status).toBe(200)
-    const readBody = (await readResponse.json()) as {
-      content: string
-      version: string | null
-    }
+    const readBody = requireJsonObject(await readResponse.json())
     expect(readBody.content).toBe("const answer = 42  \n\n")
-    expect(typeof readBody.version).toBe("string")
+    expect(requireString(readBody.version, "version").length).toBeGreaterThan(0)
 
     const statusResponse = await app.request("/api/file/edit/status?path=src/app.ts", {
       headers: {
@@ -51,10 +49,7 @@ describe("project file editor routes", () => {
     })
 
     expect(saveResponse.status).toBe(200)
-    const saveBody = (await saveResponse.json()) as {
-      content: string
-      version: string
-    }
+    const saveBody = requireJsonObject(await saveResponse.json())
     expect(saveBody.content).toBe("const answer = 43\n")
     expect(saveBody.version).not.toBe(readBody.version)
     await expect(fs.readFile(targetPath, "utf8")).resolves.toBe("const answer = 43\n")
@@ -74,12 +69,9 @@ describe("project file editor routes", () => {
     })
 
     expect(readResponse.status).toBe(200)
-    const readBody = (await readResponse.json()) as {
-      content: string
-      version: string | null
-    }
+    const readBody = requireJsonObject(await readResponse.json())
     expect(readBody.content).toBe(content)
-    expect(typeof readBody.version).toBe("string")
+    expect(requireString(readBody.version, "version").length).toBeGreaterThan(0)
   })
 
   test("rejects invalid UTF-8 text files instead of replacement-decoding them", async () => {
@@ -114,9 +106,7 @@ describe("project file editor routes", () => {
         "x-buddy-directory": repo,
       },
     })
-    const readBody = (await readResponse.json()) as {
-      version: string | null
-    }
+    const readBody = requireJsonObject(await readResponse.json())
 
     await fs.writeFile(targetPath, "export const value = 2\n", "utf8")
 
@@ -146,7 +136,7 @@ describe("project file editor routes", () => {
         "x-buddy-directory": repo,
       },
     })
-    const readBody = (await readResponse.json()) as { version: string | null }
+    const readBody = requireJsonObject(await readResponse.json())
 
     const save = (content: string) =>
       app.request("/api/file/edit?path=src/app.ts", {
@@ -240,7 +230,7 @@ describe("project file editor routes", () => {
         "x-buddy-directory": repo,
       },
     })
-    const readBody = (await readResponse.json()) as { version: string | null }
+    const readBody = requireJsonObject(await readResponse.json())
 
     const renameResponse = await app.request("/api/file/edit?path=notes/Original.md", {
       method: "PATCH",

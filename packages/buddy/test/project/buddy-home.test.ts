@@ -7,15 +7,22 @@ import {
 } from "../../src/project/buddy-home"
 import { Global } from "../../src/storage"
 
+function documentsDirectoryExistsSync(filepath: fs.PathLike): boolean {
+  return String(filepath) === path.join(Global.Path.home, "Documents")
+}
+
+function noopAccessSync(): void {}
+
 describe("buddy home", () => {
   test("resolves the default path without probing the filesystem", () => {
     const originalExistsSync = fs.existsSync
     let accessedFilesystem = false
 
-    fs.existsSync = ((...args: Parameters<typeof originalExistsSync>) => {
+    const existsSync: typeof fs.existsSync = (...args) => {
       accessedFilesystem = true
       return originalExistsSync(...args)
-    }) as typeof fs.existsSync
+    }
+    fs.existsSync = existsSync
 
     try {
       expect(resolveBuddyHomeDefaultPath()).toBe(path.join(Global.Path.home, "Documents", "Buddy"))
@@ -28,10 +35,10 @@ describe("buddy home", () => {
   test("reports granted access when the documents ancestor is accessible", () => {
     const originalExistsSync = fs.existsSync
     const originalAccessSync = fs.accessSync
-
-    fs.existsSync = ((filepath: fs.PathLike) =>
-      String(filepath) === path.join(Global.Path.home, "Documents")) as typeof fs.existsSync
-    fs.accessSync = (() => undefined) as typeof fs.accessSync
+    const existsSync: typeof fs.existsSync = documentsDirectoryExistsSync
+    const accessSync: typeof fs.accessSync = noopAccessSync
+    fs.existsSync = existsSync
+    fs.accessSync = accessSync
 
     try {
       expect(readBuddyHomeDefaultAccessState()).toEqual({

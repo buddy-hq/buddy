@@ -21,6 +21,12 @@ import {
 } from "../../src/learning/features/bench/model-tabs"
 import { createBuddyToolContext } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
+import {
+  parseJsonObjectText,
+  requireJsonObject,
+  requireString,
+  type TJsonObject,
+} from "../helpers/parse"
 
 const SESSION_ID = "session-bench-read-context"
 const ONE_PIXEL_PNG_BASE64 =
@@ -45,10 +51,6 @@ async function nextAction(actions: BenchClientAction[]): Promise<BenchClientActi
     await sleep(0)
   }
   throw new Error("Expected a Bench capture action.")
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 describe("bench_read_context", () => {
@@ -167,8 +169,7 @@ describe("bench_read_context", () => {
         agent: "buddy",
       }),
     )
-    const output: unknown = JSON.parse(result.output)
-    if (!isRecord(output)) throw new Error("Expected compact Bench context output.")
+    const output = parseJsonObjectText(result.output)
 
     expect(Object.keys(output).toSorted()).toEqual([
       "content",
@@ -234,12 +235,12 @@ describe("bench_read_context", () => {
       },
     })
 
-    const read = async (tabSearch?: string): Promise<Record<string, unknown>> => {
+    const read = async (tabSearch?: string): Promise<TJsonObject> => {
       const result = await benchReadContextTool.run(
-        {
-          responseFormat: "context_only",
-          ...(tabSearch ? { tabSearch } : {}),
-        },
+        Object.assign(
+          { responseFormat: "context_only" as const },
+          tabSearch ? { tabSearch } : undefined,
+        ),
         createBuddyToolContext({
           directory: project.path,
           sessionID: SESSION_ID,
@@ -247,11 +248,7 @@ describe("bench_read_context", () => {
           agent: "buddy",
         }),
       )
-      const output: unknown = JSON.parse(result.output)
-      if (!isRecord(output)) {
-        throw new Error("Expected object Bench context output.")
-      }
-      return output
+      return parseJsonObjectText(result.output)
     }
 
     const recent = await read()
@@ -388,10 +385,10 @@ describe("bench_read_context", () => {
     ] as const
     for (const [index, testCase] of cases.entries()) {
       const run = benchReadContextTool.run(
-        {
-          responseFormat: testCase.responseFormat,
-          ...("tabSearch" in testCase ? { tabSearch: testCase.tabSearch } : {}),
-        },
+        Object.assign(
+          { responseFormat: testCase.responseFormat },
+          "tabSearch" in testCase ? { tabSearch: testCase.tabSearch } : undefined,
+        ),
         createBuddyToolContext({
           directory: project.path,
           sessionID: SESSION_ID,
@@ -432,14 +429,11 @@ describe("bench_read_context", () => {
       ).toEqual({ status: "completed" })
 
       const result = await run
-      const output: unknown = JSON.parse(result.output)
-      if (!output || typeof output !== "object" || Array.isArray(output)) {
-        throw new Error("Expected object Bench capture output.")
-      }
-      const temporaryPath =
-        "temporaryBenchScreenshotPath" in output ? output.temporaryBenchScreenshotPath : undefined
-      expect(typeof temporaryPath).toBe("string")
-      if (typeof temporaryPath !== "string") throw new Error("Expected capture path.")
+      const output = parseJsonObjectText(result.output)
+      const temporaryPath = requireString(
+        output.temporaryBenchScreenshotPath,
+        "temporary Bench screenshot path",
+      )
       expect(temporaryPath).toContain("bench-capture-")
       expect(output).toMatchObject({
         capture: {
@@ -448,13 +442,8 @@ describe("bench_read_context", () => {
           drawer: capturedContext.drawer.kind,
         },
       })
-      if (!("capture" in output) || !output.capture || typeof output.capture !== "object") {
-        throw new Error("Expected capture receipt.")
-      }
-      if (!("capturedAt" in output.capture) || typeof output.capture.capturedAt !== "string") {
-        throw new Error("Expected capture timestamp.")
-      }
-      expect(Number.isNaN(Date.parse(output.capture.capturedAt))).toBeFalse()
+      const capture = requireJsonObject(output.capture, "capture receipt")
+      expect(Number.isNaN(Date.parse(requireString(capture.capturedAt, "capture timestamp")))).toBeFalse()
       if (testCase.includesContext) {
         expect(output).toMatchObject({
           status: "open",

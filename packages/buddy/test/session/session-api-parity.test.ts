@@ -9,6 +9,7 @@ import {
 } from "../../src/learning/runtime/dynamic-tool-grants"
 import { resolveDirectory } from "../../src/project"
 import { tmpdir } from "../helpers/tmpdir"
+import { parseJsonObject, requireJsonObject, requireString } from "../helpers/parse"
 
 const DYNAMIC_TEST_TOOL_ID = "dynamic-test-tool"
 
@@ -63,22 +64,11 @@ async function seedMultiPartMessage(input: { directory: string; sessionID: strin
   })
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
 async function readRevertBoundary(response: Response): Promise<string | undefined> {
-  const body: unknown = await response.json()
-  if (!isRecord(body)) {
-    throw new Error("Expected session response")
-  }
-
-  const revert = body.revert
+  const body = requireJsonObject(await response.json(), "session response")
+  const revert = parseJsonObject(body.revert)
   if (revert === undefined) return undefined
-  if (!isRecord(revert) || typeof revert.messageID !== "string") {
-    throw new Error("Expected a valid session revert boundary")
-  }
-  return revert.messageID
+  return requireString(revert.messageID, "session revert messageID")
 }
 
 describe("Buddy session API parity", () => {
@@ -147,11 +137,8 @@ describe("Buddy session API parity", () => {
     })
 
     expect(response.status).toBe(200)
-    const body: unknown = await response.json()
-    if (!isRecord(body) || typeof body.id !== "string") {
-      throw new Error("Expected fork route to return a session")
-    }
-    const forkedSessionID = body.id
+    const body = requireJsonObject(await response.json(), "fork session")
+    const forkedSessionID = requireString(body.id, "forked session id")
     expect(body.title).toBe("Fork title (2)")
 
     const forkedMessages = await OpenCodeInstance.provide({
@@ -168,10 +155,7 @@ describe("Buddy session API parity", () => {
       },
     })
     expect(secondForkResponse.status).toBe(200)
-    const secondFork: unknown = await secondForkResponse.json()
-    if (!isRecord(secondFork)) {
-      throw new Error("Expected second fork route to return a session")
-    }
+    const secondFork = requireJsonObject(await secondForkResponse.json(), "second fork session")
     expect(secondFork.title).toBe("Fork title (3)")
   })
 
@@ -197,11 +181,8 @@ describe("Buddy session API parity", () => {
     })
 
     expect(response.status).toBe(200)
-    const body: unknown = await response.json()
-    if (!isRecord(body) || typeof body.id !== "string") {
-      throw new Error("Expected fork route to return a session")
-    }
-    const forkedSessionID = body.id
+    const body = requireJsonObject(await response.json(), "fork session")
+    const forkedSessionID = requireString(body.id, "forked session id")
 
     const forkedMessages = await OpenCodeInstance.provide({
       directory: project.path,
@@ -232,9 +213,10 @@ describe("Buddy session API parity", () => {
 
     expect(response.status).toBe(200)
 
-    const body = (await response.json()) as { revert?: { messageID: string; partID?: string } }
-    expect(body.revert?.messageID).toBe(seeded.messageID)
-    expect(body.revert?.partID).toBe(seeded.secondPartID)
+    const body = requireJsonObject(await response.json())
+    const revert = parseJsonObject(body.revert)
+    expect(revert?.messageID).toBe(seeded.messageID)
+    expect(revert?.partID).toBe(seeded.secondPartID)
   })
 
   test("revert and unrevert routes preserve the vendor undo and redo sequence", async () => {

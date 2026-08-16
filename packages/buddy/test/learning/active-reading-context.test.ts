@@ -3,17 +3,18 @@ import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { READER_ANCHOR_KIND_PDF_POSITION } from "@buddy/reader-contract"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import { tmpdir } from "../helpers/tmpdir"
+import {
+  findPartContaining,
+  parseJsonArray,
+  parsePromptString,
+  requireString,
+  type TJsonValue,
+} from "../helpers/parse"
 
-function readSystemReminder(value: unknown): string | undefined {
-  if (!Array.isArray(value)) return undefined
-  const parts: unknown[] = value
-  for (const part of parts) {
-    if (typeof part !== "object" || part === null || !("text" in part)) continue
-    if (typeof part.text === "string" && part.text.includes("<system-reminder>")) {
-      return part.text
-    }
-  }
-  return undefined
+function readSystemReminder(value: TJsonValue | undefined): string | undefined {
+  const parts = parseJsonArray(value)
+  if (parts === undefined) return undefined
+  return parsePromptString(findPartContaining(parts, "<system-reminder>")?.text)
 }
 
 describe("active reading context", () => {
@@ -46,16 +47,14 @@ describe("active reading context", () => {
       projectConfig: config,
     })
 
-    const reminderText = readSystemReminder(result.transformed.parts)
-    const systemText = result.transformed.system
+    const reminderText = requireString(readSystemReminder(result.transformed.parts), "reminder")
+    const systemText = requireString(result.transformed.system, "system")
 
-    expect(typeof reminderText).toBe("string")
     expect(reminderText).toContain("current_passage:")
     expect(reminderText).toContain(
       "This is the visible excerpt the learner is currently looking at in the reader.",
     )
     expect(reminderText).toContain("position=CFI epubcfi(/6/2)")
-    expect(typeof systemText).toBe("string")
     expect(systemText).toContain("title=Example Book")
     expect(systemText).toContain("path=books/example.epub")
     expect(systemText).not.toContain("current_passage:")

@@ -7,6 +7,11 @@ import { createCompatiblePluginAskHandler } from "../../src/opencode-runtime/plu
 import { buddyToolToPluginTool } from "../../src/opencode-runtime/buddy-tool-shim"
 import { createBuddyTool } from "../../src/learning/runtime/create-buddy-tool"
 import { tmpdir } from "../helpers/tmpdir"
+import { requireToolObjectResult } from "../helpers/parse"
+import type { ToolContext } from "@opencode-ai/plugin"
+
+type TPluginAskInput = Parameters<ReturnType<typeof createCompatiblePluginAskHandler>>[0]
+type TPluginMetadataUpdate = Parameters<ToolContext["metadata"]>[0]
 
 const TEST_TOOL_PRESENTATION = defineToolPresentation({ archetype: "silent" })
 
@@ -82,37 +87,33 @@ describe("buddy tool abort handling", () => {
     await using project = await tmpdir({ git: true })
     await loadOpenCodeApp()
 
-    const asks: Array<Record<string, unknown>> = []
-    const metadataUpdates: Array<{ title?: string; metadata?: Record<string, unknown> }> = []
+    const asks: TPluginAskInput[] = []
+    const metadataUpdates: TPluginMetadataUpdate[] = []
 
     const pluginTool = buddyToolToPluginTool(permissionBridgeTool, project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
       fn: async () => {
-        const execution = await pluginTool.execute(
-          {},
-          {
-            sessionID: "ses_test",
-            messageID: "msg_test",
-            agent: "buddy",
-            directory: project.path,
-            worktree: project.path,
-            abort: new AbortController().signal,
-            metadata(input) {
-              metadataUpdates.push(input)
+        return requireToolObjectResult(
+          await pluginTool.execute(
+            {},
+            {
+              sessionID: "ses_test",
+              messageID: "msg_test",
+              agent: "buddy",
+              directory: project.path,
+              worktree: project.path,
+              abort: new AbortController().signal,
+              metadata(input) {
+                metadataUpdates.push(input)
+              },
+              ask: createCompatiblePluginAskHandler((input) => {
+                asks.push(input)
+              }),
             },
-            ask: createCompatiblePluginAskHandler((input) => {
-              asks.push(input)
-            }),
-          },
+          ),
         )
-
-        if (typeof execution === "string") {
-          throw new Error("Expected tool result object")
-        }
-
-        return execution
       },
     })
 

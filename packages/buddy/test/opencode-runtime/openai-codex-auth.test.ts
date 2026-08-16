@@ -64,7 +64,7 @@ describe("OpenAI Codex auth hook", () => {
     if (!firstState) throw new Error("First OAuth state is missing")
     const firstCompletion = firstAuthorization.callback().then(
       () => undefined,
-      (error: unknown) => error,
+      (cause) => cause,
     )
 
     const secondAuthorization = await method.authorize()
@@ -73,7 +73,7 @@ describe("OpenAI Codex auth hook", () => {
     }
     const secondCompletion = secondAuthorization.callback().then(
       () => undefined,
-      (error: unknown) => error,
+      (cause) => cause,
     )
 
     await expect(firstCompletion).resolves.toEqual(
@@ -235,7 +235,7 @@ describe("OpenAI Codex auth hook", () => {
 
     const result = await loader
       .fetch("https://api.openai.com/v1/responses")
-      .catch((error: unknown) => error)
+      .catch((cause) => cause)
 
     expect(APICallError.isInstance(result)).toBe(true)
     if (!APICallError.isInstance(result)) throw new Error("Expected an API call error")

@@ -7,6 +7,13 @@ import {
   buildOpenCodeEventStreamRequestHeaders,
   transformOpenCodeEventStreamResponse,
 } from "../../src/http/opencode-event-stream"
+import {
+  parseJsonObject,
+  parseJsonObjectText,
+  parsePromptString,
+  requireJsonObject,
+  type TJsonValue,
+} from "../helpers/parse"
 
 const BACKPRESSURE_UPSTREAM_CHUNK_COUNT = 64
 const BACKPRESSURE_OBSERVATION_DELAY_MS = 10
@@ -68,7 +75,7 @@ function sseResponse(body: string) {
   )
 }
 
-function eventFrame(payload: unknown) {
+function eventFrame(payload: TJsonValue) {
   return ["id: evt_watcher", `data: ${JSON.stringify(payload)}`, ""].join("\n")
 }
 
@@ -226,15 +233,10 @@ describe("transformOpenCodeEventStreamResponse", () => {
     const text = await response.text()
     const dataLine = text.split("\n").find((line) => line.startsWith("data: "))
     expect(dataLine).toBeDefined()
-    const payload = JSON.parse((dataLine ?? "").slice("data: ".length)) as {
-      payload: {
-        properties?: {
-          relativePath?: string
-        }
-      }
-    }
-
-    expect(payload.payload.properties?.relativePath).toBe("src/app.ts")
+    const payload = parseJsonObjectText((dataLine ?? "").slice("data: ".length))
+    const inner = requireJsonObject(payload.payload, "event payload")
+    const properties = parseJsonObject(inner.properties)
+    expect(parsePromptString(properties?.relativePath)).toBe("src/app.ts")
   })
 
   test("normalizes Windows watcher paths at the stream boundary", async () => {
@@ -257,15 +259,10 @@ describe("transformOpenCodeEventStreamResponse", () => {
     const text = await response.text()
     const dataLine = text.split("\n").find((line) => line.startsWith("data: "))
     expect(dataLine).toBeDefined()
-    const payload = JSON.parse((dataLine ?? "").slice("data: ".length)) as {
-      payload: {
-        properties?: {
-          relativePath?: string
-        }
-      }
-    }
-
-    expect(payload.payload.properties?.relativePath).toBe("docs/intro.md")
+    const payload = parseJsonObjectText((dataLine ?? "").slice("data: ".length))
+    const inner = requireJsonObject(payload.payload, "event payload")
+    const properties = parseJsonObject(inner.properties)
+    expect(parsePromptString(properties?.relativePath)).toBe("docs/intro.md")
   })
 
   test("does not drain the transformed upstream while the downstream is paused", async () => {

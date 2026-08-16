@@ -7,6 +7,11 @@ import {
 } from "../../src/learning/features/bench/context"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import { tmpdir } from "../helpers/tmpdir"
+import {
+  parseJsonObject,
+  parsePromptString,
+  requireJsonArray,
+} from "../helpers/parse"
 
 const SESSION_ID = "session-bench-turn-context"
 
@@ -15,23 +20,15 @@ afterEach(() => {
 })
 
 function syntheticPromptText(result: Awaited<ReturnType<typeof runMessagePromptPipeline>>): string {
-  const parts = result.transformed.parts
-  if (!Array.isArray(parts)) throw new Error("Expected transformed prompt parts.")
-  return parts
-    .flatMap((part) => {
-      if (
-        typeof part !== "object" ||
-        part === null ||
-        !("synthetic" in part) ||
-        part.synthetic !== true ||
-        !("text" in part) ||
-        typeof part.text !== "string"
-      ) {
-        return []
-      }
-      return [part.text]
-    })
-    .join("\n")
+  const parts = requireJsonArray(result.transformed.parts, "transformed prompt parts")
+  const texts: string[] = []
+  for (const part of parts) {
+    const object = parseJsonObject(part)
+    if (object === undefined || object.synthetic !== true) continue
+    const text = parsePromptString(object.text)
+    if (text !== undefined) texts.push(text)
+  }
+  return texts.join("\n")
 }
 
 describe("parked Bench turn context", () => {

@@ -23,6 +23,7 @@ import {
   clearDynamicLearningToolsForEndedSession,
   clearDynamicLearningToolGrantsForSession,
 } from "../../src/learning/runtime/dynamic-tool-grants"
+import { parseTPermissionAction } from "../../src/learning/shared/parse-values"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 
@@ -529,14 +530,15 @@ describe("runtime tool registration", () => {
 
   test("runtime subagents default-deny directory-registered dynamic tools", () => {
     const practiceAgent = listBuddySubagents().find((agent) => agent.key === "practice-agent")
-    if (!practiceAgent?.agent.permission || typeof practiceAgent.agent.permission === "string") {
+    const agentPermission = practiceAgent?.agent.permission
+    if (!agentPermission || parseTPermissionAction(agentPermission) !== undefined) {
       throw new Error("Practice agent must define structured permissions for this test")
     }
 
     expect(
       disabledByModelToolFilter({
         toolIDs: [DYNAMIC_REFLECTION_TOOL_ID],
-        agentPermission: practiceAgent.agent.permission,
+        agentPermission,
       }).has(DYNAMIC_REFLECTION_TOOL_ID),
     ).toBe(true)
   })

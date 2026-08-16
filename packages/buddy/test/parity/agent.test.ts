@@ -5,15 +5,8 @@ import { BUDDY } from "../../src/learning/personas/buddy"
 import { TEACHING_BUDDY } from "../../src/learning/personas/teaching-buddy"
 import { writeProjectConfig } from "../helpers/project-config"
 import { withSyncedOpenCodeConfig } from "../helpers/opencode"
+import { parsePromptFiniteNumber, requireParsed } from "../helpers/parse"
 import { withRepo } from "./helpers"
-
-function requireValue<T>(value: T | undefined, label: string): T {
-  if (value !== undefined) {
-    return value
-  }
-
-  throw new Error(`Missing ${label}`)
-}
 
 describe("parity.agent", () => {
   test("preserves Buddy agent defaults when applying partial overrides", async () => {
@@ -29,18 +22,18 @@ describe("parity.agent", () => {
         }),
       )
 
-      const teachingBuddyAgent = requireValue(
+      const teachingBuddyAgent = requireParsed(
         await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("teaching-buddy")),
         "teaching-buddy agent",
       )
 
       expect(teachingBuddyAgent.description).toBe("patched only")
       expect(teachingBuddyAgent.mode).toBe("primary")
-      if (typeof teachingBuddyAgent.steps === "number") {
-        expect(teachingBuddyAgent.steps).toBe(8)
+      const steps = parsePromptFiniteNumber(teachingBuddyAgent.steps)
+      if (steps !== undefined) {
+        expect(steps).toBe(8)
       }
-      const teachingBuddyPrompt = requireValue(teachingBuddyAgent.prompt, "teaching-buddy prompt")
-      expect(typeof teachingBuddyPrompt).toBe("string")
+      const teachingBuddyPrompt = requireParsed(teachingBuddyAgent.prompt, "teaching-buddy prompt")
       expect(teachingBuddyPrompt.length).toBeGreaterThan(0)
     })
   })
@@ -52,8 +45,8 @@ describe("parity.agent", () => {
         teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
       }))
 
-      const buddyPrompt = requireValue(result.buddyAgent?.prompt, "buddy prompt")
-      const teachingBuddyPrompt = requireValue(
+      const buddyPrompt = requireParsed(result.buddyAgent?.prompt, "buddy prompt")
+      const teachingBuddyPrompt = requireParsed(
         result.teachingBuddyAgent?.prompt,
         "teaching-buddy prompt",
       )
@@ -79,7 +72,7 @@ describe("parity.agent", () => {
         }),
       )
 
-      const curriculumAgent = requireValue(
+      const curriculumAgent = requireParsed(
         await withSyncedOpenCodeConfig(directory, () =>
           OpenCodeAgent.get("curriculum-orchestrator"),
         ),
@@ -88,14 +81,14 @@ describe("parity.agent", () => {
 
       expect(curriculumAgent.description).toBe("patched curriculum only")
       expect(curriculumAgent.mode).toBe("subagent")
-      if (typeof curriculumAgent.steps === "number") {
-        expect(curriculumAgent.steps).toBe(8)
+      const curriculumSteps = parsePromptFiniteNumber(curriculumAgent.steps)
+      if (curriculumSteps !== undefined) {
+        expect(curriculumSteps).toBe(8)
       }
-      const curriculumPrompt = requireValue(
+      const curriculumPrompt = requireParsed(
         curriculumAgent.prompt,
         "curriculum-orchestrator prompt",
       )
-      expect(typeof curriculumPrompt).toBe("string")
       expect(curriculumPrompt.length).toBeGreaterThan(0)
       expect(PermissionNext.evaluate("task", "general", curriculumAgent.permission).action).toBe(
         "allow",
@@ -120,7 +113,7 @@ describe("parity.agent", () => {
         }),
       )
 
-      const teachingBuddyAgent = requireValue(
+      const teachingBuddyAgent = requireParsed(
         await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("teaching-buddy")),
         "teaching-buddy agent",
       )
@@ -141,8 +134,8 @@ describe("parity.agent", () => {
         teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
       }))
 
-      const buddyAgent = requireValue(result.buddyAgent, "buddy agent")
-      const teachingBuddyAgent = requireValue(result.teachingBuddyAgent, "teaching-buddy agent")
+      const buddyAgent = requireParsed(result.buddyAgent, "buddy agent")
+      const teachingBuddyAgent = requireParsed(result.teachingBuddyAgent, "teaching-buddy agent")
 
       expect(
         PermissionNext.evaluate("task", "curriculum-orchestrator", buddyAgent.permission).action,
@@ -202,8 +195,8 @@ describe("parity.agent", () => {
         teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
       }))
 
-      const buddyAgent = requireValue(result.buddyAgent, "buddy agent")
-      const teachingBuddyAgent = requireValue(result.teachingBuddyAgent, "teaching-buddy agent")
+      const buddyAgent = requireParsed(result.buddyAgent, "buddy agent")
+      const teachingBuddyAgent = requireParsed(result.teachingBuddyAgent, "teaching-buddy agent")
 
       expect(PermissionNext.evaluate("search_standards", "*", buddyAgent.permission).action).toBe(
         "allow",
@@ -235,8 +228,8 @@ describe("parity.agent", () => {
       }))
 
       const agents = [
-        requireValue(result.buddyAgent, "buddy agent"),
-        requireValue(result.teachingBuddyAgent, "teaching-buddy agent"),
+        requireParsed(result.buddyAgent, "buddy agent"),
+        requireParsed(result.teachingBuddyAgent, "teaching-buddy agent"),
       ]
 
       for (const agent of agents) {
