@@ -1,16 +1,16 @@
-type MermaidScheduledTask = {
+type TMermaidScheduledTask = {
   insertedAt: number
   key: string
   priority: number
-  reject: (error: unknown) => void
+  reject: (cause: unknown) => void
   run: () => Promise<void>
 }
 
 const MERMAID_RENDER_CONCURRENCY = 1
 
-const queuedTasks: MermaidScheduledTask[] = []
+const queuedTasks: TMermaidScheduledTask[] = []
 const pendingTasks = new Map<string, Promise<unknown>>()
-const queuedTaskByKey = new Map<string, MermaidScheduledTask>()
+const queuedTaskByKey = new Map<string, TMermaidScheduledTask>()
 
 let activeTaskCount = 0
 let taskCounter = 0
@@ -33,8 +33,8 @@ function pumpQueue(): void {
     activeTaskCount += 1
     void task
       .run()
-      .catch((error) => {
-        task.reject(error)
+      .catch((cause) => {
+        task.reject(cause)
       })
       .finally(() => {
         activeTaskCount = Math.max(activeTaskCount - 1, 0)
@@ -57,7 +57,7 @@ export function scheduleMermaidRender<T>(input: {
       queued.priority = input.priority
       sortQueuedTasks()
     }
-    // SAFETY: A task key is stable for its lifetime and callers reuse the same result contract.
+    // SAFETY: pendingTasks stores the original Promise<T> for this key; callers reuse that same result.
     return existing as Promise<T>
   }
 

@@ -123,11 +123,6 @@ type SessionStatus = {
   type: string
 }
 
-type MessageWithParts = {
-  info?: { role?: string }
-  parts?: unknown[]
-}
-
 type SmokeState = {
   baseUrl: string
   directory: string | undefined
@@ -159,12 +154,10 @@ function countCompletedToolParts(messages: unknown[]) {
 
   for (const message of messages) {
     if (!isRecord(message)) continue
-    // SAFETY: Only optional fields are read, and each nested collection is checked before iteration.
-    const record = message as MessageWithParts
-    const role = record.info?.role
-    if (role !== "assistant") continue
+    const info = message.info
+    if (!isRecord(info) || info.role !== "assistant") continue
 
-    const parts = record.parts
+    const parts = message.parts
     if (!Array.isArray(parts)) continue
 
     for (const part of parts) {
@@ -187,10 +180,9 @@ function countCompletedToolParts(messages: unknown[]) {
 function assistantIncludesSmokeOk(messages: unknown[]) {
   for (const message of messages) {
     if (!isRecord(message)) continue
-    // SAFETY: Only optional fields are read, and each nested collection is checked before iteration.
-    const record = message as MessageWithParts
-    if (record.info?.role !== "assistant") continue
-    const parts = record.parts
+    const info = message.info
+    if (!isRecord(info) || info.role !== "assistant") continue
+    const parts = message.parts
     if (!Array.isArray(parts)) continue
     for (const part of parts) {
       if (!isRecord(part) || part.type !== "text") continue
