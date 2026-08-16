@@ -137,10 +137,7 @@ async function runWithRetainedActiveChatFrame<T>(
   return completedUpdate.value
 }
 
-function activeChatState(directory: string): {
-  chatKey: PersistedWorkspaceChatKey
-  sessionID: string | undefined
-} {
+function activeChatState(directory: string) {
   const sessionID = useChatStore.getState().directories[directory]?.sessionID
   return {
     chatKey: workspaceChatKeyForSession(sessionID),

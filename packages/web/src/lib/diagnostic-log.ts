@@ -27,7 +27,7 @@ function hasFlush(storage: unknown): storage is FlushableStorage {
   )
 }
 
-function normalizeDiagnosticValue(key: string, value: unknown): unknown {
+function normalizeDiagnosticValue(key: string, value: unknown) {
   if (key === "pngBase64" && typeof value === "string") {
     return `[redacted ${value.length} characters]`
   }
@@ -54,7 +54,7 @@ function stringifyDiagnosticEntry(value: unknown): string {
   }
 }
 
-function normalizedDiagnosticDetailsFromEntry(entry: string): DiagnosticDetails {
+function normalizedDiagnosticDetailsFromEntry(entry: string) {
   const parsed: unknown = JSON.parse(entry)
   if (isDiagnosticDetails(parsed) && "details" in parsed && isDiagnosticDetails(parsed.details)) {
     return parsed.details

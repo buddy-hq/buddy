@@ -69,13 +69,13 @@ const THINKING_DEFAULT_KEY = "default" as const
 const DEVELOPMENT_PERSONA_ID = "code" as const
 const THINKING_LEVEL_ORDER = ["none", "low", "medium", "high", "xhigh"] as const
 type ThinkingLevel = (typeof THINKING_LEVEL_ORDER)[number]
-const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
+const THINKING_LEVEL_LABELS = {
   none: "None",
   low: "Low",
   medium: "Medium",
   high: "High",
   xhigh: "Extra High",
-}
+} satisfies Record<ThinkingLevel, string>
 
 function asThinkingLevel(value: string): ThinkingLevel | undefined {
   const normalized = value.trim().toLowerCase()

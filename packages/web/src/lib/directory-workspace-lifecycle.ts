@@ -284,7 +284,7 @@ function workspaceFileSignalMatchesTarget(input: {
 
 function contextTargetDiagnosticValue(
   target: BenchReadContextOpenOutput["target"],
-): Record<string, unknown> {
+) {
   if (target.type === "workspace-file") {
     return {
       type: target.type,
@@ -306,7 +306,7 @@ function contextTargetDiagnosticValue(
   }
 }
 
-function contextTargetDiagnostic(value: BenchReadContextOutput): Record<string, unknown> {
+function contextTargetDiagnostic(value: BenchReadContextOutput) {
   if (value.status === "closed") return { status: value.status }
   if (value.visibility === "parked") {
     return {
@@ -325,7 +325,7 @@ function contextTargetDiagnostic(value: BenchReadContextOutput): Record<string, 
 
 function surfaceContextDiagnostic(
   value: BenchReadSurfaceContextOpenOutput,
-): Record<string, unknown> {
+) {
   return {
     status: value.status,
     targetKey: value.targetKey,
@@ -333,7 +333,7 @@ function surfaceContextDiagnostic(
   }
 }
 
-function snapshotDiagnostic(snapshot: BenchContextPublishSnapshot | null): Record<string, unknown> {
+function snapshotDiagnostic(snapshot: BenchContextPublishSnapshot | null) {
   if (!snapshot) return { status: "missing" }
   return {
     status: snapshot.status,

@@ -2,6 +2,12 @@ import type { DirectoryChatState, MessagePart, MessageWithParts } from "@/state/
 import { getTranscriptMessages } from "@/state/transcript-repository"
 
 type SlimRecord = Record<string, unknown>
+type SlimSession = {
+  id: unknown
+  permission?: { allowed: string[]; denied: string[] }
+  time: unknown
+  title: unknown
+}
 
 const FILE_PART_TYPE = "file"
 const IMAGE_MIME_PREFIX = "image/"
@@ -22,7 +28,7 @@ function isRecord(value: unknown): value is SlimRecord {
 
 function slimSession(session: unknown, isCurrent: boolean) {
   if (!isRecord(session)) return {}
-  const result: SlimRecord = {
+  const result: SlimSession = {
     id: session.id,
     title: session.title,
     time: session.time,
@@ -122,7 +128,7 @@ function slimPart(part: MessagePart): SlimRecord | null {
   return omitKeys(part, PART_OMIT_KEYS)
 }
 
-function omitKeys<T extends SlimRecord>(obj: T, keys: Set<string>): SlimRecord {
+function omitKeys<T extends SlimRecord>(obj: T, keys: Set<string>) {
   const result: SlimRecord = {}
   for (const [key, value] of Object.entries(obj)) {
     if (keys.has(key)) continue
