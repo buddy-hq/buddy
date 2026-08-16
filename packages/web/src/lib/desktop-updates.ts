@@ -4,14 +4,16 @@ import type { Platform, UpdateProgressSnapshot } from "@/context/platform"
 
 const UPDATE_TOAST_ID_PREFIX = "buddy-desktop-update"
 let updateToastSequence = 0
+type UpdateToastHandlers = {
+  onDeferred?: () => void
+  onInstallFailed?: () => void
+}
+
 let activeToast: {
   id: string
   status: UpdateProgressSnapshot["status"]
 } | null = null
-let activeHandlers: {
-  onDeferred?: () => void
-  onInstallFailed?: () => void
-} = {}
+let activeHandlers: UpdateToastHandlers = {}
 
 function clearUpdateToastTransitionOptions() {
   return {
