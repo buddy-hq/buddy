@@ -16,13 +16,15 @@ import {
 } from "../src/tool-presentation"
 
 function context(phase: "pending" | "running" | "completed" | "error") {
-  return {
-    toolID: "read",
-    phase,
-    input: { filePath: "/workspace/App.tsx" },
-    metadata: {},
-    ...(phase === "error" ? { error: "boom" } : {}),
-  }
+  return Object.assign(
+    {
+      toolID: "read",
+      phase,
+      input: { filePath: "/workspace/App.tsx" },
+      metadata: {},
+    },
+    phase === "error" ? { error: "boom" } : undefined,
+  )
 }
 
 describe("tool presentation contract", () => {

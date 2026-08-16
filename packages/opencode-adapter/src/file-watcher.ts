@@ -31,11 +31,13 @@ export function readWorkspaceFileWatcherUpdatePayload(
     return undefined
   }
 
-  return {
-    event,
-    absolutePath,
-    ...(typeof relativePath === "string" ? { relativePath } : {}),
-  }
+  return Object.assign(
+    {
+      event,
+      absolutePath,
+    },
+    typeof relativePath === "string" ? { relativePath } : undefined,
+  )
 }
 
 export { WORKSPACE_FILE_WATCHER_UPDATED_EVENT_TYPE }

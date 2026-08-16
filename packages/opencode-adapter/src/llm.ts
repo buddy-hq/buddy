@@ -239,13 +239,15 @@ async function generateStructuredText(input: StructuredTextInput): Promise<Struc
     }
   }
 
-  return {
-    text,
-    structured,
-    providerID: input.model.providerID,
-    modelID: input.model.id,
-    ...(usage ? { usage } : {}),
-  }
+  return Object.assign(
+    {
+      text,
+      structured,
+      providerID: input.model.providerID,
+      modelID: input.model.id,
+    },
+    usage ? { usage } : undefined,
+  )
 }
 
 function extractJsonFromText(text: string): unknown | undefined {

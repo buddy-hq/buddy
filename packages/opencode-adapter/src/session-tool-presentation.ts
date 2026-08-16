@@ -30,15 +30,17 @@ function presentationContext(part: ToolPart): ToolPresentationResolutionContext 
   const state = part.state
   const metadata = state.status === "pending" || !isRecord(state.metadata) ? {} : state.metadata
 
-  return {
-    toolID: part.tool,
-    phase: state.status,
-    input: state.input,
-    metadata,
-    ...(state.status === "running" || state.status === "completed" ? { title: state.title } : {}),
-    ...(state.status === "completed" ? { output: state.output } : {}),
-    ...(state.status === "error" ? { error: state.error } : {}),
-  }
+  return Object.assign(
+    {
+      toolID: part.tool,
+      phase: state.status,
+      input: state.input,
+      metadata,
+    },
+    state.status === "running" || state.status === "completed" ? { title: state.title } : undefined,
+    state.status === "completed" ? { output: state.output } : undefined,
+    state.status === "error" ? { error: state.error } : undefined,
+  )
 }
 
 function metadataWithPresentation(
@@ -48,10 +50,11 @@ function metadataWithPresentation(
   const stripped = stripBuddyToolPresentation(metadata)
   return {
     ...stripped,
-    buddy: {
-      ...(isRecord(stripped?.buddy) ? stripped.buddy : {}),
-      presentation,
-    },
+    buddy: Object.assign(
+      {},
+      isRecord(stripped?.buddy) ? stripped.buddy : undefined,
+      { presentation },
+    ),
   }
 }
 
@@ -66,10 +69,7 @@ function stripPresentationFromState(state: ToolState): ToolState {
     }
   }
 
-  return {
-    ...state,
-    ...(metadata ? { metadata } : {}),
-  }
+  return Object.assign({ ...state }, metadata ? { metadata } : undefined)
 }
 
 export function withToolPresentationOnPart<T extends MessageV2.Part>(

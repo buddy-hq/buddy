@@ -52,11 +52,13 @@ function publishFileSystemChange(input: {
     directory: input.directory,
     payload: {
       type: WORKSPACE_FILE_WATCHER_UPDATED_EVENT_TYPE,
-      properties: {
-        file: input.filePath,
-        event: input.event,
-        ...(relativePath ? { relativePath } : {}),
-      },
+      properties: Object.assign(
+        {
+          file: input.filePath,
+          event: input.event,
+        },
+        relativePath ? { relativePath } : undefined,
+      ),
     },
   })
 }

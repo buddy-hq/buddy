@@ -168,10 +168,10 @@ export function defineToolPresentation<const Descriptor extends ToolPresentation
 }
 
 function clonePhaseCopy(copy: ToolPresentationPhaseCopy): ToolPresentationPhaseCopy {
-  return {
-    action: copy.action,
-    ...(copy.detail !== undefined ? { detail: copy.detail } : {}),
-  }
+  return Object.assign(
+    { action: copy.action },
+    copy.detail !== undefined ? { detail: copy.detail } : undefined,
+  )
 }
 
 function clonePhaseMap(phases: ToolPresentationPhaseMap): ToolPresentationPhaseMap {
@@ -424,15 +424,17 @@ export function resolveToolPresentationSnapshot(
   )
   const action = neutralAction(outcome) ?? copy.action
   const detail = outcome.type === "neutral" ? undefined : resolvePhaseDetail(copy, context)
-  const common = {
-    version: 1 as const,
-    phase: context.phase,
-    action,
-    ...(detail ? { detail } : {}),
-    icon: descriptor.icon,
-    renderer: descriptor.renderer,
-    outcome,
-  }
+  const common = Object.assign(
+    {
+      version: 1 as const,
+      phase: context.phase,
+      action,
+      icon: descriptor.icon,
+      renderer: descriptor.renderer,
+      outcome,
+    },
+    detail ? { detail } : undefined,
+  )
 
   switch (descriptor.archetype) {
     case "activity":
@@ -446,13 +448,15 @@ export function resolveToolPresentationSnapshot(
         },
       }
     case "inline-output":
-      return {
-        ...common,
-        archetype: "inline-output",
-        layoutRole: descriptor.layoutRole,
-        ...(descriptor.activeDisplay ? { activeDisplay: descriptor.activeDisplay } : {}),
-        ...(descriptor.collection ? { collection: descriptor.collection } : {}),
-      }
+      return Object.assign(
+        {
+          ...common,
+          archetype: "inline-output" as const,
+          layoutRole: descriptor.layoutRole,
+        },
+        descriptor.activeDisplay ? { activeDisplay: descriptor.activeDisplay } : undefined,
+        descriptor.collection ? { collection: descriptor.collection } : undefined,
+      )
     case "interaction":
       return {
         ...common,

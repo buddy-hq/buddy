@@ -68,10 +68,11 @@ function getCustomToolPresentation(
 
 function cloneToolOutputPolicy(policy: ToolOutputPolicy | undefined): ToolOutputPolicy | undefined {
   if (!policy) return undefined
-  return {
-    ...(policy.maxLines !== undefined ? { maxLines: policy.maxLines } : {}),
-    ...(policy.maxBytes !== undefined ? { maxBytes: policy.maxBytes } : {}),
-  }
+  return Object.assign(
+    {},
+    policy.maxLines !== undefined ? { maxLines: policy.maxLines } : undefined,
+    policy.maxBytes !== undefined ? { maxBytes: policy.maxBytes } : undefined,
+  )
 }
 
 function getCustomToolOutputPolicy(

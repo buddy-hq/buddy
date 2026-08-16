@@ -37,16 +37,20 @@ function brandClientMetadata(input: unknown, fallbackRedirectUrl: string): McpOA
   const responseTypes = readStringArray(metadata.response_types)
   const scope = readString(metadata.scope)
 
-  return {
-    redirect_uris: redirectUris,
-    client_name: BUDDY_MCP_OAUTH_CLIENT_NAME,
-    client_uri: BUDDY_MCP_OAUTH_CLIENT_URI,
-    logo_uri: BUDDY_MCP_OAUTH_LOGO_URI,
-    ...(tokenEndpointAuthMethod ? { token_endpoint_auth_method: tokenEndpointAuthMethod } : {}),
-    ...(grantTypes ? { grant_types: grantTypes } : {}),
-    ...(responseTypes ? { response_types: responseTypes } : {}),
-    ...(scope ? { scope } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      {
+        redirect_uris: redirectUris,
+        client_name: BUDDY_MCP_OAUTH_CLIENT_NAME,
+        client_uri: BUDDY_MCP_OAUTH_CLIENT_URI,
+        logo_uri: BUDDY_MCP_OAUTH_LOGO_URI,
+      },
+      tokenEndpointAuthMethod ? { token_endpoint_auth_method: tokenEndpointAuthMethod } : undefined,
+      grantTypes ? { grant_types: grantTypes } : undefined,
+      responseTypes ? { response_types: responseTypes } : undefined,
+    ),
+    scope ? { scope } : undefined,
+  )
 }
 
 export function buildBuddyMcpOAuthSuccessHtml() {
