@@ -21,11 +21,11 @@ const GRID_CELLS = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => (
 }))
 const GRID_LINE_INDICES = Array.from({ length: GRID_SIZE * GRID_SIZE }, (_, index) => index)
 
-const SPEED_BY_LEVEL: Record<Level, number> = {
+const SPEED_BY_LEVEL = {
   1: 170, // Slow
   2: 120, // Medium
   3: 75, // Fast
-}
+} satisfies Record<Level, number>
 
 function isSamePoint(a: Point, b: Point): boolean {
   return a.x === b.x && a.y === b.y

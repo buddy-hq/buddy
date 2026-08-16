@@ -91,7 +91,7 @@ function getTextLengthToPosition(
   node: Node,
   target: Node,
   offset: number,
-): { found: boolean; length: number } {
+) {
   if (node === target) {
     if (node.nodeType === Node.TEXT_NODE) {
       return {

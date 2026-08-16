@@ -62,13 +62,13 @@ export type McpDraftParseResult =
       config: McpConfig
     }
 
-export const STATUS_LABELS: Record<McpStatusInfo["status"], string> = {
+export const STATUS_LABELS = {
   connected: language.t("mcp.statusLabels.connected"),
   disabled: language.t("mcp.statusLabels.disabled"),
   failed: language.t("mcp.statusLabels.failed"),
   needs_auth: language.t("mcp.statusLabels.needsAuth"),
   needs_client_registration: language.t("mcp.statusLabels.needsClientRegistration"),
-}
+} satisfies Record<McpStatusInfo["status"], string>
 
 export function getMcpStatusLabel(status: McpStatusInfo["status"]) {
   return STATUS_LABELS[status]
