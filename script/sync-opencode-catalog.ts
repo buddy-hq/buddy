@@ -1,15 +1,18 @@
 #!/usr/bin/env bun
 
 import path from "node:path"
+import { z } from "zod"
 
-type WorkspaceDefinition = {
-  packages?: string[]
-  catalog?: Record<string, string>
-}
+const PackageJsonSchema = z.looseObject({
+  workspaces: z
+    .looseObject({
+      packages: z.array(z.string()).optional(),
+      catalog: z.record(z.string(), z.string()).optional(),
+    })
+    .optional(),
+})
 
-type PackageJsonShape = {
-  workspaces?: WorkspaceDefinition
-}
+type PackageManifest = z.infer<typeof PackageJsonSchema>
 
 const CHECK_FLAG = "--check"
 
@@ -19,11 +22,7 @@ function sortRecord(input: Record<string, string>) {
   )
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function readCatalog(source: PackageJsonShape | undefined) {
+function readCatalog(source: PackageManifest | undefined) {
   return source?.workspaces?.catalog ?? {}
 }
 
@@ -57,14 +56,10 @@ function packageJsonPaths() {
   }
 }
 
-async function readPackageJson(filePath: string): Promise<PackageJsonShape> {
+async function readPackageJson(filePath: string): Promise<PackageManifest> {
   const content = await Bun.file(filePath).text()
   const parsed: unknown = JSON.parse(content)
-  if (!isRecord(parsed)) {
-    throw new Error(`Invalid package.json at ${filePath}`)
-  }
-  // SAFETY: Callers only consume package manifest dependency records from this validated object.
-  return parsed as PackageJsonShape
+  return PackageJsonSchema.parse(parsed)
 }
 
 async function main() {

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { z } from "zod"
 import os from "node:os"
 import path from "node:path"
 import { Script } from "@buddy/script"
@@ -17,6 +18,17 @@ type CreatedRelease = {
   isDraft?: boolean
   tagName: string
 }
+
+const ExistingReleaseSchema = z.object({
+  databaseId: z.number(),
+  isDraft: z.boolean(),
+  tagName: z.string(),
+})
+
+const CreatedReleaseSchema = z.object({
+  databaseId: z.number(),
+  tagName: z.string(),
+})
 
 function currentTag() {
   if (process.env.GITHUB_REF_TYPE !== "tag") {
@@ -96,13 +108,9 @@ if (dryRun) {
 } else {
   const existing = await $`gh release view ${tag} --repo ${releaseRepo}`.quiet().nothrow()
   if (existing.exitCode === 0) {
-    // SAFETY: `gh release view --json` returns the requested scalar fields with these documented types.
-    release =
-      (await $`gh release view ${tag} --json tagName,databaseId,isDraft --repo ${releaseRepo}`.json()) as {
-        databaseId: number
-        isDraft: boolean
-        tagName: string
-      }
+    const releasePayload =
+      await $`gh release view ${tag} --json tagName,databaseId,isDraft --repo ${releaseRepo}`.json()
+    release = ExistingReleaseSchema.parse(releasePayload)
 
     if (!release.isDraft) {
       throw new Error(`Release ${tag} already exists`)
@@ -119,12 +127,9 @@ if (dryRun) {
 
     await createRelease(file)
 
-    // SAFETY: `gh release view --json` returns the requested scalar fields with these documented types.
-    release =
-      (await $`gh release view ${tag} --json tagName,databaseId --repo ${releaseRepo}`.json()) as {
-        databaseId: number
-        tagName: string
-      }
+    const releasePayload =
+      await $`gh release view ${tag} --json tagName,databaseId --repo ${releaseRepo}`.json()
+    release = CreatedReleaseSchema.parse(releasePayload)
   }
 }
 

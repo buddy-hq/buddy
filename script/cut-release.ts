@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process"
 import { createInterface } from "node:readline/promises"
 import { stdin as input, stdout as output } from "node:process"
 import { cancel, isCancel, multiselect } from "@clack/prompts"
+import { z } from "zod"
 import { buildNotes, getLatestPublishedRelease, getLatestRelease } from "./changelog.ts"
 import { releaseRepository, sourceRepository } from "./release-repositories"
 
@@ -26,14 +27,22 @@ type ReleaseSummary = {
   url: string
 }
 
-type WorkflowRun = {
-  createdAt: string
-  displayTitle: string
-  event: string
-  headBranch: string
-  headSha: string
-  url: string
-}
+const ReleaseSummarySchema = z.object({
+  body: z.string(),
+  isDraft: z.boolean(),
+  name: z.string(),
+  tagName: z.string(),
+  url: z.string(),
+})
+
+const WorkflowRunSchema = z.object({
+  createdAt: z.string(),
+  displayTitle: z.string(),
+  event: z.string(),
+  headBranch: z.string(),
+  headSha: z.string(),
+  url: z.string(),
+})
 
 type ReleaseTargets = {
   macosArm64: boolean
@@ -356,10 +365,10 @@ async function loadRelease(tag: string) {
     return undefined
   }
 
-  // SAFETY: GitHub CLI is invoked with the exact ReleaseSummary field projection.
-  return (await $`gh release view ${tag} --repo ${releaseRepository()} --json name,body,isDraft,url,tagName`
+  const payload = await $`gh release view ${tag} --repo ${releaseRepository()} --json name,body,isDraft,url,tagName`
     .cwd(ROOT_DIR)
-    .json()) as ReleaseSummary
+    .json()
+  return ReleaseSummarySchema.parse(payload)
 }
 
 async function ensureVersionIsAvailable(version: string) {
@@ -511,11 +520,10 @@ function runRequiredGates() {
 
 async function waitForRunUrl(version: string, targetSha: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    // SAFETY: GitHub CLI is invoked with the exact WorkflowRun field projection.
-    const runs =
-      (await $`gh run list --repo ${sourceRepository()} --workflow ${RELEASE_WORKFLOW_FILENAME} --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
-        .cwd(ROOT_DIR)
-        .json()) as WorkflowRun[]
+    const payload = await $`gh run list --repo ${sourceRepository()} --workflow ${RELEASE_WORKFLOW_FILENAME} --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
+      .cwd(ROOT_DIR)
+      .json()
+    const runs = z.array(WorkflowRunSchema).parse(payload)
 
     const exact = runs.find(
       (run) =>
@@ -925,7 +933,7 @@ async function main() {
   }
 }
 
-await main().catch((error: unknown) => {
+await main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error)
   console.error(`\nRelease wizard failed: ${message}`)
   process.exit(1)

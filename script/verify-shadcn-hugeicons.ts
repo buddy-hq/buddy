@@ -12,6 +12,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join, relative } from "node:path"
+import { z } from "zod"
 
 const REPO_ROOT = join(import.meta.dir, "..")
 const UI_ROOT = join(REPO_ROOT, "packages/ui/src/components/ui")
@@ -21,6 +22,9 @@ const REGISTRY_BASE = `https://ui.shadcn.com/r/styles/${STYLE}`
 
 /** Official shadcn CLI hugeicons usage default. */
 const EXPECTED_STROKE_WIDTH = "2"
+const OfficialRegistrySchema = z.object({
+  files: z.array(z.object({ content: z.string().optional() })).optional(),
+})
 
 /**
  * Components that embed icons in the official registry.
@@ -94,10 +98,7 @@ async function fetchRegistry(name: string): Promise<string> {
 }
 
 function extractOfficialPlaceholders(registryJson: string): OfficialPlaceholder[] {
-  // SAFETY: The official shadcn registry contract exposes an optional files array with text content.
-  const data = JSON.parse(registryJson) as {
-    files?: Array<{ content?: string }>
-  }
+  const data = OfficialRegistrySchema.parse(JSON.parse(registryJson))
   const content = (data.files ?? []).map((f) => f.content ?? "").join("\n")
   const out: OfficialPlaceholder[] = []
   const re = /<IconPlaceholder\s*([\s\S]*?)\/>/g

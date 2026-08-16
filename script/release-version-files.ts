@@ -1,5 +1,8 @@
 import { $ } from "bun"
 import path from "node:path"
+import { z } from "zod"
+
+const PackageManifestSchema = z.looseObject({ version: z.string() })
 
 export const RELEASE_VERSION_PACKAGE_FILES = [
   "packages/desktop-electron/package.json",
@@ -15,10 +18,7 @@ export const RELEASE_VERSION_GIT_FILES = [...RELEASE_VERSION_PACKAGE_FILES, "bun
 export async function updateReleaseVersionPackageFiles(rootDir: string, version: string) {
   for (const relativePath of RELEASE_VERSION_PACKAGE_FILES) {
     const target = path.join(rootDir, relativePath)
-    // SAFETY: Every configured target is a repository-owned package manifest with a version field.
-    const pkg = (await Bun.file(target).json()) as {
-      version: string
-    }
+    const pkg = PackageManifestSchema.parse(await Bun.file(target).json())
     pkg.version = version
     await Bun.write(target, `${JSON.stringify(pkg, null, 2)}\n`)
   }

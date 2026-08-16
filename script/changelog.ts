@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { z } from "zod"
 import {
   latestReleaseVersionFromReleases as selectLatestReleaseVersionFromReleases,
   type GithubReleaseVersion,
@@ -13,6 +14,12 @@ type Commit = {
   message: string
   areas: Set<string>
 }
+
+const GithubReleaseVersionSchema = z.object({
+  tagName: z.string(),
+  isDraft: z.boolean(),
+  isPrerelease: z.boolean(),
+})
 
 const SECTION_PRIORITY = [
   "Desktop",
@@ -49,10 +56,8 @@ export function latestReleaseVersionFromReleases(
 
 async function listGithubReleases(): Promise<GithubReleaseVersion[]> {
   const repo = releaseRepository()
-  // SAFETY: GitHub CLI is invoked with the exact GithubReleaseVersion field projection.
-  const releases =
-    (await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()) as GithubReleaseVersion[]
-  return releases
+  const releases = await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()
+  return z.array(GithubReleaseVersionSchema).parse(releases)
 }
 
 export async function getLatestRelease(skip?: string) {
