@@ -83,11 +83,13 @@ async function runWithConcurrency<T>(
 function startupSessionSummary(
   session: OpenCodeSession.Info,
 ): Omit<LearnerMemoryStartupSessionResult, "extraction" | "error"> {
-  return {
-    sessionID: session.id,
-    ...(session.title ? { title: session.title } : {}),
-    updatedAtMs: session.time.updated,
-  }
+  return Object.assign(
+    {
+      sessionID: session.id,
+      updatedAtMs: session.time.updated,
+    },
+    session.title ? { title: session.title } : undefined,
+  )
 }
 
 async function buildLearnerMemoryStartupPlan(input: {

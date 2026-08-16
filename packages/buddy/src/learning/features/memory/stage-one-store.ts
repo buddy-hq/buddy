@@ -971,34 +971,52 @@ async function getLearnerMemoryPipelineDiagnostics(
 
   const records = await listLearnerMemoryStageOneOutputRecords(directory)
   const phaseTwoRow = jobRows.find((row) => row.job_key === PHASE_TWO_JOB_KEY)
-  return {
-    memoryRoot: LearnerMemoryPath.root(directory),
-    stageOneJobs: jobRows
-      .filter((row) => row.job_key !== PHASE_TWO_JOB_KEY)
-      .map(diagnosticsJobFromRow),
-    ...(phaseTwoRow ? { phaseTwoJob: diagnosticsJobFromRow(phaseTwoRow) } : {}),
-    stageOneOutputs: records.map((record) => ({
-      sessionId: record.sessionID,
-      sourceUpdatedAtMs: record.sourceUpdatedAtMs,
-      selectedForConsolidation: record.selectedForConsolidation,
-      ...(record.selectedSourceUpdatedAtMs !== undefined
-        ? { selectedSourceUpdatedAtMs: record.selectedSourceUpdatedAtMs }
-        : {}),
-      usageCount: record.usageCount,
-      ...(record.lastUsageMs !== undefined ? { lastUsageMs: record.lastUsageMs } : {}),
-      updatedAtMs: record.updatedAtMs,
-      outputPath: record.outputPath,
-      candidateCount: record.output.candidatePatches.length,
-      hasRawMemory: record.output.rawMemory.trim().length > 0,
-      ...(record.output.extractionModel ? { extractionModel: record.output.extractionModel } : {}),
-      ...(record.output.extractionUsage ? { extractionUsage: record.output.extractionUsage } : {}),
-    })),
-    inputWatermarkMs: Math.max(0, ...records.map((record) => record.sourceUpdatedAtMs)),
-    budget: {
-      todayCount,
-      totalCount,
+  return Object.assign(
+    {
+      memoryRoot: LearnerMemoryPath.root(directory),
+      stageOneJobs: jobRows
+        .filter((row) => row.job_key !== PHASE_TWO_JOB_KEY)
+        .map(diagnosticsJobFromRow),
     },
-  }
+    phaseTwoRow ? { phaseTwoJob: diagnosticsJobFromRow(phaseTwoRow) } : undefined,
+    {
+      stageOneOutputs: records.map((record) =>
+        Object.assign(
+          Object.assign(
+            {
+              sessionId: record.sessionID,
+              sourceUpdatedAtMs: record.sourceUpdatedAtMs,
+              selectedForConsolidation: record.selectedForConsolidation,
+            },
+            record.selectedSourceUpdatedAtMs !== undefined
+              ? { selectedSourceUpdatedAtMs: record.selectedSourceUpdatedAtMs }
+              : undefined,
+            {
+              usageCount: record.usageCount,
+            },
+            record.lastUsageMs !== undefined ? { lastUsageMs: record.lastUsageMs } : undefined,
+          ),
+          {
+            updatedAtMs: record.updatedAtMs,
+            outputPath: record.outputPath,
+            candidateCount: record.output.candidatePatches.length,
+            hasRawMemory: record.output.rawMemory.trim().length > 0,
+          },
+          record.output.extractionModel
+            ? { extractionModel: record.output.extractionModel }
+            : undefined,
+          record.output.extractionUsage
+            ? { extractionUsage: record.output.extractionUsage }
+            : undefined,
+        ),
+      ),
+      inputWatermarkMs: Math.max(0, ...records.map((record) => record.sourceUpdatedAtMs)),
+      budget: {
+        todayCount,
+        totalCount,
+      },
+    },
+  )
 }
 
 async function tryClaimLearnerMemoryPhaseTwoJob(input: {

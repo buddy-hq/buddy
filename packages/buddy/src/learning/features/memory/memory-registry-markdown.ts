@@ -121,33 +121,34 @@ function parseMemoryBlock(
   })
   const now = new Date().toISOString()
   const body = bodyStart >= 0 ? lines.slice(bodyStart).join("\n").trim() : title
-  const parsed = LearnerMemorySchema.safeParse({
-    id: metadata.get("id") ?? "",
-    schemaVersion: 1,
-    memoryType: readAliasedMetadata(metadata, "memoryType", RETENTION_TYPE_ALIASES),
-    pedagogyKind: readAliasedMetadata(metadata, "pedagogyKind", PEDAGOGY_TYPE_ALIASES),
-    type: readAliasedMetadata(metadata, "type", PEDAGOGY_TYPE_ALIASES),
-    status: normalizeMetadataValue(metadata.get("status")),
-    pinned: parseBoolean(metadata.get("pinned")),
-    title,
-    body,
-    tags: parseList(metadata.get("tags")),
-    ...(parseOptional(metadata.get("projectPath"))
-      ? { projectPath: parseOptional(metadata.get("projectPath")) }
-      : {}),
-    confidence: parseNumber(normalizeMetadataValue(metadata.get("confidence")), DEFAULT_CONFIDENCE),
-    strength: parseNumber(normalizeMetadataValue(metadata.get("strength")), DEFAULT_CONFIDENCE),
-    ...(parseOptional(metadata.get("lastUsedAt"))
-      ? { lastUsedAt: parseOptional(metadata.get("lastUsedAt")) }
-      : {}),
-    ...(parseOptional(metadata.get("supersededById"))
-      ? { supersededById: parseOptional(metadata.get("supersededById")) }
-      : {}),
-    source: readSourceMetadata(metadata),
-    sourceEventIds: parseList(metadata.get("sources")),
-    createdAt: metadata.get("createdAt") ?? now,
-    updatedAt: metadata.get("updatedAt") ?? now,
-  })
+  const projectPath = parseOptional(metadata.get("projectPath"))
+  const lastUsedAt = parseOptional(metadata.get("lastUsedAt"))
+  const supersededById = parseOptional(metadata.get("supersededById"))
+  const parsed = LearnerMemorySchema.safeParse(
+    Object.assign(
+      {
+        id: metadata.get("id") ?? "",
+        schemaVersion: 1 as const,
+        memoryType: readAliasedMetadata(metadata, "memoryType", RETENTION_TYPE_ALIASES),
+        pedagogyKind: readAliasedMetadata(metadata, "pedagogyKind", PEDAGOGY_TYPE_ALIASES),
+        type: readAliasedMetadata(metadata, "type", PEDAGOGY_TYPE_ALIASES),
+        status: normalizeMetadataValue(metadata.get("status")),
+        pinned: parseBoolean(metadata.get("pinned")),
+        title,
+        body,
+        tags: parseList(metadata.get("tags")),
+        confidence: parseNumber(normalizeMetadataValue(metadata.get("confidence")), DEFAULT_CONFIDENCE),
+        strength: parseNumber(normalizeMetadataValue(metadata.get("strength")), DEFAULT_CONFIDENCE),
+        source: readSourceMetadata(metadata),
+        sourceEventIds: parseList(metadata.get("sources")),
+        createdAt: metadata.get("createdAt") ?? now,
+        updatedAt: metadata.get("updatedAt") ?? now,
+      },
+      projectPath ? { projectPath } : undefined,
+      lastUsedAt ? { lastUsedAt } : undefined,
+      supersededById ? { supersededById } : undefined,
+    ),
+  )
   return parsed.success ? { memory: parsed.data } : { error: parsed.error.message }
 }
 

@@ -96,18 +96,22 @@ function createLearnerEvent(input: {
   sourceId?: string
 }): LearnerEvent {
   const createdAt = input.createdAt ?? new Date().toISOString()
-  return LearnerEventSchema.parse({
-    id: input.id ?? `evt_${ulid()}`,
-    schemaVersion: 1,
-    type: input.type,
-    createdAt,
-    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-    ...(input.projectPath ? { projectPath: input.projectPath } : {}),
-    sourceKind: input.sourceKind,
-    ...(input.sourceId ? { sourceId: input.sourceId } : {}),
-    payload: input.payload ?? {},
-    searchableText: input.searchableText,
-  })
+  return LearnerEventSchema.parse(
+    Object.assign(
+      {
+        id: input.id ?? `evt_${ulid()}`,
+        schemaVersion: 1 as const,
+        type: input.type,
+        createdAt,
+        sourceKind: input.sourceKind,
+        payload: input.payload ?? {},
+        searchableText: input.searchableText,
+      },
+      input.sessionId ? { sessionId: input.sessionId } : undefined,
+      input.projectPath ? { projectPath: input.projectPath } : undefined,
+      input.sourceId ? { sourceId: input.sourceId } : undefined,
+    ),
+  )
 }
 
 async function appendLearnerEventInternal(input: {
@@ -180,29 +184,33 @@ async function writeLearnerMemory(directory: string, memory: LearnerMemory): Pro
 
 function createLearnerMemoryRecord(input: CreateLearnerMemoryRecordInput): LearnerMemory {
   const now = new Date().toISOString()
-  return LearnerMemorySchema.parse({
-    id: `mem_${ulid()}`,
-    schemaVersion: 1,
-    memoryType: retentionTypeForPedagogyKind(input.type),
-    pedagogyKind: input.type,
-    type: input.type,
-    status: input.status ?? "active",
-    pinned: false,
-    title: input.title,
-    body: input.body,
-    tags: input.tags,
-    ...(input.projectPath ? { projectPath: input.projectPath } : {}),
-    confidence: input.confidence ?? 1,
-    strength:
-      input.strength ??
-      (input.source === "learner_authored"
-        ? LEARNER_MEMORY_STORAGE_TUNING.learnerAuthoredMemoryStrength
-        : LEARNER_MEMORY_STORAGE_TUNING.defaultMemoryStrength),
-    source: input.source,
-    sourceEventIds: input.sourceEventIds ?? [],
-    createdAt: now,
-    updatedAt: now,
-  })
+  return LearnerMemorySchema.parse(
+    Object.assign(
+      {
+        id: `mem_${ulid()}`,
+        schemaVersion: 1 as const,
+        memoryType: retentionTypeForPedagogyKind(input.type),
+        pedagogyKind: input.type,
+        type: input.type,
+        status: input.status ?? "active",
+        pinned: false,
+        title: input.title,
+        body: input.body,
+        tags: input.tags,
+        confidence: input.confidence ?? 1,
+        strength:
+          input.strength ??
+          (input.source === "learner_authored"
+            ? LEARNER_MEMORY_STORAGE_TUNING.learnerAuthoredMemoryStrength
+            : LEARNER_MEMORY_STORAGE_TUNING.defaultMemoryStrength),
+        source: input.source,
+        sourceEventIds: input.sourceEventIds ?? [],
+        createdAt: now,
+        updatedAt: now,
+      },
+      input.projectPath ? { projectPath: input.projectPath } : undefined,
+    ),
+  )
 }
 
 async function upsertLearnerMemoryAtomically(input: {
@@ -331,25 +339,29 @@ function memoryFromCandidate(input: {
   projectPath?: string
 }): LearnerMemory {
   const now = new Date().toISOString()
-  return LearnerMemorySchema.parse({
-    id: `mem_${ulid()}`,
-    schemaVersion: 1,
-    memoryType: retentionTypeForPedagogyKind(input.patch.memoryType),
-    pedagogyKind: input.patch.memoryType,
-    type: input.patch.memoryType,
-    status: "active",
-    pinned: false,
-    title: input.patch.title,
-    body: input.patch.body,
-    tags: input.patch.tags,
-    ...(input.projectPath ? { projectPath: input.projectPath } : {}),
-    confidence: input.patch.confidence,
-    strength: LEARNER_MEMORY_STORAGE_TUNING.defaultMemoryStrength,
-    source: input.source,
-    sourceEventIds: input.patch.sourceEventIds,
-    createdAt: now,
-    updatedAt: now,
-  })
+  return LearnerMemorySchema.parse(
+    Object.assign(
+      {
+        id: `mem_${ulid()}`,
+        schemaVersion: 1 as const,
+        memoryType: retentionTypeForPedagogyKind(input.patch.memoryType),
+        pedagogyKind: input.patch.memoryType,
+        type: input.patch.memoryType,
+        status: "active" as const,
+        pinned: false,
+        title: input.patch.title,
+        body: input.patch.body,
+        tags: input.patch.tags,
+        confidence: input.patch.confidence,
+        strength: LEARNER_MEMORY_STORAGE_TUNING.defaultMemoryStrength,
+        source: input.source,
+        sourceEventIds: input.patch.sourceEventIds,
+        createdAt: now,
+        updatedAt: now,
+      },
+      input.projectPath ? { projectPath: input.projectPath } : undefined,
+    ),
+  )
 }
 
 async function updateLearnerMemoryStatus(input: {
@@ -449,14 +461,18 @@ async function editLearnerMemory(input: {
   const mutation = await mutateLearnerMemory({
     ...input,
     update: (memory) =>
-      LearnerMemorySchema.parse({
-        ...memory,
-        ...(input.title ? { title: input.title } : {}),
-        ...(input.body ? { body: input.body } : {}),
-        ...(input.tags ? { tags: input.tags } : {}),
-        ...(input.projectPath ? { projectPath: input.projectPath } : {}),
-        updatedAt: new Date().toISOString(),
-      }),
+      LearnerMemorySchema.parse(
+        Object.assign(
+          Object.assign(
+            { ...memory },
+            input.title ? { title: input.title } : undefined,
+            input.body ? { body: input.body } : undefined,
+            input.tags ? { tags: input.tags } : undefined,
+          ),
+          input.projectPath ? { projectPath: input.projectPath } : undefined,
+          { updatedAt: new Date().toISOString() },
+        ),
+      ),
   })
   if (!mutation) return undefined
   await appendLearnerEvent(

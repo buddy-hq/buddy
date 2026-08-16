@@ -269,23 +269,27 @@ function buildInitialLabState(input: {
         ]
       : []
 
-  return {
-    runID: input.runID,
-    directory: input.directory,
-    memoryRoot: input.memoryRoot,
-    statusPath: makeLabStatusPath(input.memoryRoot),
-    tracePath: makeLabTracePath(input.memoryRoot),
-    startedAt,
-    status: "running",
-    selection: input.selection,
-    settingsOverride: input.settingsOverride,
-    ...(input.sessionID ? { sessionID: input.sessionID } : {}),
-    ...(input.probeQuery ? { probeQuery: input.probeQuery } : {}),
-    steps,
-    progress: buildInitialLabProgress(steps.length, sessions.length),
-    trace: [],
-    sessions,
-  }
+  return Object.assign(
+    {
+      runID: input.runID,
+      directory: input.directory,
+      memoryRoot: input.memoryRoot,
+      statusPath: makeLabStatusPath(input.memoryRoot),
+      tracePath: makeLabTracePath(input.memoryRoot),
+      startedAt,
+      status: "running" as const,
+      selection: input.selection,
+      settingsOverride: input.settingsOverride,
+    },
+    input.sessionID ? { sessionID: input.sessionID } : undefined,
+    input.probeQuery ? { probeQuery: input.probeQuery } : undefined,
+    {
+      steps,
+      progress: buildInitialLabProgress(steps.length, sessions.length),
+      trace: [],
+      sessions,
+    },
+  )
 }
 
 function recomputeLabProgress(state: LearnerMemoryLabRunState): LearnerMemoryLabProgress {
@@ -439,26 +443,35 @@ function createLabStateWriter(initialState: LearnerMemoryLabRunState): LearnerMe
   return {
     snapshot: () => state,
     log: async (input) =>
-      enqueue(undefined, {
-        id: `trace_${ulid()}`,
-        at: nowIso(),
-        level: input.level,
-        ...(input.step ? { step: input.step } : {}),
-        ...(input.sessionID ? { sessionID: input.sessionID } : {}),
-        message: input.message,
-        ...(input.details ? { details: input.details } : {}),
-      }),
+      enqueue(
+        undefined,
+        Object.assign(
+          Object.assign(
+            {
+              id: `trace_${ulid()}`,
+              at: nowIso(),
+              level: input.level,
+            },
+            input.step ? { step: input.step } : undefined,
+            input.sessionID ? { sessionID: input.sessionID } : undefined,
+            { message: input.message },
+          ),
+          input.details ? { details: input.details } : undefined,
+        ),
+      ),
     update: async (fn) => enqueue(fn),
     startStep: async (key, summary) =>
       enqueue((current) => {
         current.steps = current.steps.map((step) =>
           step.key === key
-            ? {
-                ...step,
-                status: "running",
-                startedAt: step.startedAt ?? nowIso(),
-                ...(summary ? { summary } : {}),
-              }
+            ? Object.assign(
+                {
+                  ...step,
+                  status: "running" as const,
+                  startedAt: step.startedAt ?? nowIso(),
+                },
+                summary ? { summary } : undefined,
+              )
             : step,
         )
       }),
@@ -594,20 +607,24 @@ async function executeLearnerMemoryLabRun(
 
         const currentExtraction = result.sessionExtraction
         if (currentExtraction) {
-          await writer.finishSession({
-            scope: "current_session",
-            sessionID: currentExtraction.sessionID,
-            status: sessionStatusFromExtraction(currentExtraction),
-            candidateCount: currentExtraction.candidateCount,
-            approvedCount: currentExtraction.approvedCount,
-            ...(currentExtraction.skippedReason
-              ? { skippedReason: currentExtraction.skippedReason }
-              : {}),
-            ...(currentExtraction.consolidationError
-              ? { error: currentExtraction.consolidationError }
-              : {}),
-            ...(currentExtraction.decision ? { decision: currentExtraction.decision } : {}),
-          })
+          await writer.finishSession(
+            Object.assign(
+              {
+                scope: "current_session" as const,
+                sessionID: currentExtraction.sessionID,
+                status: sessionStatusFromExtraction(currentExtraction),
+                candidateCount: currentExtraction.candidateCount,
+                approvedCount: currentExtraction.approvedCount,
+              },
+              currentExtraction.skippedReason
+                ? { skippedReason: currentExtraction.skippedReason }
+                : undefined,
+              currentExtraction.consolidationError
+                ? { error: currentExtraction.consolidationError }
+                : undefined,
+              currentExtraction.decision ? { decision: currentExtraction.decision } : undefined,
+            ),
+          )
           await writer.finishStep("currentSessionExtraction", {
             status: currentExtraction.skippedReason ? "skipped" : "completed",
             summary: summaryFromExtraction(currentExtraction),
@@ -644,13 +661,18 @@ async function executeLearnerMemoryLabRun(
             onPlan: async (plan: LearnerMemoryStartupPlan) => {
               await writer.update((current) => {
                 const startupSessions = plan.eligible.map(
-                  (session): LearnerMemoryLabSessionTrace => ({
-                    scope: "startup_sweep",
-                    sessionID: session.id,
-                    ...(session.title ? { title: session.title } : {}),
-                    updatedAtMs: session.time.updated,
-                    status: "pending",
-                  }),
+                  (session): LearnerMemoryLabSessionTrace =>
+                    Object.assign(
+                      {
+                        scope: "startup_sweep" as const,
+                        sessionID: session.id,
+                      },
+                      session.title ? { title: session.title } : undefined,
+                      {
+                        updatedAtMs: session.time.updated,
+                        status: "pending" as const,
+                      },
+                    ),
                 )
                 current.sessions = [
                   ...current.sessions.filter((session) => session.scope !== "startup_sweep"),
@@ -672,13 +694,19 @@ async function executeLearnerMemoryLabRun(
               })
             },
             onSessionStart: async (session: LearnerMemoryStartupSessionResult) => {
-              await writer.startSession({
-                scope: "startup_sweep",
-                sessionID: session.sessionID,
-                ...(session.title ? { title: session.title } : {}),
-                updatedAtMs: session.updatedAtMs,
-                status: "pending",
-              })
+              await writer.startSession(
+                Object.assign(
+                  {
+                    scope: "startup_sweep" as const,
+                    sessionID: session.sessionID,
+                  },
+                  session.title ? { title: session.title } : undefined,
+                  {
+                    updatedAtMs: session.updatedAtMs,
+                    status: "pending" as const,
+                  },
+                ),
+              )
               await writer.log({
                 level: "info",
                 step: "startupSweep",
@@ -697,20 +725,34 @@ async function executeLearnerMemoryLabRun(
                 : extraction
                   ? sessionStatusFromExtraction(extraction)
                   : "failed"
-              await writer.finishSession({
-                scope: "startup_sweep",
-                sessionID: session.sessionID,
-                ...(session.title ? { title: session.title } : {}),
-                updatedAtMs: session.updatedAtMs,
-                status,
-                ...(extraction ? { candidateCount: extraction.candidateCount } : {}),
-                ...(extraction ? { approvedCount: extraction.approvedCount } : {}),
-                ...(extraction?.skippedReason ? { skippedReason: extraction.skippedReason } : {}),
-                ...(extraction?.decision ? { decision: extraction.decision } : {}),
-                ...(session.error || extraction?.consolidationError
-                  ? { error: session.error ?? extraction?.consolidationError }
-                  : {}),
-              })
+              await writer.finishSession(
+                Object.assign(
+                  Object.assign(
+                    {
+                      scope: "startup_sweep" as const,
+                      sessionID: session.sessionID,
+                    },
+                    session.title ? { title: session.title } : undefined,
+                    {
+                      updatedAtMs: session.updatedAtMs,
+                      status,
+                    },
+                    extraction
+                      ? {
+                          candidateCount: extraction.candidateCount,
+                          approvedCount: extraction.approvedCount,
+                        }
+                      : undefined,
+                  ),
+                  extraction?.skippedReason
+                    ? { skippedReason: extraction.skippedReason }
+                    : undefined,
+                  extraction?.decision ? { decision: extraction.decision } : undefined,
+                  session.error || extraction?.consolidationError
+                    ? { error: session.error ?? extraction?.consolidationError }
+                    : undefined,
+                ),
+              )
               await writer.log({
                 level:
                   session.error || extraction?.skippedReason || extraction?.consolidationError

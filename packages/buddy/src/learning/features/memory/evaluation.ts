@@ -367,22 +367,26 @@ async function runLearnerMemoryEvaluation(input: {
         result.passed ? [] : [`${result.action}:${result.memoryId}: ${result.reasons.join(", ")}`],
       ),
     )
-  const report = EvaluationReportSchema.parse({
-    generatedAt: new Date().toISOString(),
-    root: LearnerMemoryPath.root(input.directory),
-    extractionMode,
-    ...(modelExtractions[0] ? { extractionModel: modelExtractions[0].model } : {}),
-    fixtureCount: fixtures.length,
-    extractionCalls: eligibleFixtures.length,
-    attentionDecisions,
-    candidateCount: candidatePatches.length,
-    approvedCount: approved.length,
-    retrievalResults,
-    rubricResults: rubric,
-    teachingEvalResults: teachingEval,
-    correctionResults,
-    failures,
-  })
+  const report = EvaluationReportSchema.parse(
+    Object.assign(
+      {
+        generatedAt: new Date().toISOString(),
+        root: LearnerMemoryPath.root(input.directory),
+        extractionMode,
+        fixtureCount: fixtures.length,
+        extractionCalls: eligibleFixtures.length,
+        attentionDecisions,
+        candidateCount: candidatePatches.length,
+        approvedCount: approved.length,
+        retrievalResults,
+        rubricResults: rubric,
+        teachingEvalResults: teachingEval,
+        correctionResults,
+        failures,
+      },
+      modelExtractions[0] ? { extractionModel: modelExtractions[0].model } : undefined,
+    ),
+  )
 
   await writeJsonFile(LearnerMemoryPath.evaluationReportFile(input.directory), report)
   return report

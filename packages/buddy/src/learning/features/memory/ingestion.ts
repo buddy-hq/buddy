@@ -30,19 +30,23 @@ async function ingestQuestionSetAttempt(input: {
   if (!(await learnerMemoryIsActive(input.directory))) return
   if (input.eventID && (await findLearnerEvidence(input.directory, input.eventID))) return
 
-  const learnerEvent = createLearnerEvent({
-    ...(input.eventID ? { id: input.eventID } : {}),
-    ...(input.eventCreatedAt ? { createdAt: input.eventCreatedAt } : {}),
-    type: "question_set_attempt_ingested",
-    sourceKind: "question_set_attempt",
-    sourceId: input.attemptID,
-    searchableText: `Question set attempt ${input.objectID}: ${input.correctQuestions}/${input.totalQuestions} correct, status ${input.status}.`,
-    payload: {
-      objectID: input.objectID,
-      attemptID: input.attemptID,
-      result: input.result,
-    },
-  })
+  const learnerEvent = createLearnerEvent(
+    Object.assign(
+      {
+        type: "question_set_attempt_ingested" as const,
+        sourceKind: "question_set_attempt",
+        sourceId: input.attemptID,
+        searchableText: `Question set attempt ${input.objectID}: ${input.correctQuestions}/${input.totalQuestions} correct, status ${input.status}.`,
+        payload: {
+          objectID: input.objectID,
+          attemptID: input.attemptID,
+          result: input.result,
+        },
+      },
+      input.eventID ? { id: input.eventID } : undefined,
+      input.eventCreatedAt ? { createdAt: input.eventCreatedAt } : undefined,
+    ),
+  )
   await appendLearnerEventOnce(input.directory, learnerEvent)
   const memory = await recordQuestionSetAttemptMemory({
     directory: input.directory,
@@ -104,22 +108,26 @@ async function ingestFlashcardReview(input: {
   if (!(await learnerMemoryIsActive(input.directory))) return
   if (input.eventID && (await findLearnerEvidence(input.directory, input.eventID))) return
 
-  const learnerEvent = createLearnerEvent({
-    ...(input.eventID ? { id: input.eventID } : {}),
-    ...(input.eventCreatedAt ? { createdAt: input.eventCreatedAt } : {}),
-    type: "flashcard_review_ingested",
-    sourceKind: "flashcard_review",
-    sourceId: input.cardID,
-    searchableText: `Flashcard review ${input.objectID}/${input.cardID}: rating ${input.rating}, ${input.previousState} -> ${input.newState}.`,
-    payload: {
-      objectID: input.objectID,
-      cardID: input.cardID,
-      rating: input.rating,
-      previousState: input.previousState,
-      newState: input.newState,
-      isLeech: input.isLeech,
-    },
-  })
+  const learnerEvent = createLearnerEvent(
+    Object.assign(
+      {
+        type: "flashcard_review_ingested" as const,
+        sourceKind: "flashcard_review",
+        sourceId: input.cardID,
+        searchableText: `Flashcard review ${input.objectID}/${input.cardID}: rating ${input.rating}, ${input.previousState} -> ${input.newState}.`,
+        payload: {
+          objectID: input.objectID,
+          cardID: input.cardID,
+          rating: input.rating,
+          previousState: input.previousState,
+          newState: input.newState,
+          isLeech: input.isLeech,
+        },
+      },
+      input.eventID ? { id: input.eventID } : undefined,
+      input.eventCreatedAt ? { createdAt: input.eventCreatedAt } : undefined,
+    ),
+  )
   await appendLearnerEventOnce(input.directory, learnerEvent)
   const memory = await recordFlashcardReviewMemory({
     directory: input.directory,
@@ -149,14 +157,16 @@ async function ingestFlashcardReview(input: {
       nextDue: input.nextDue,
     },
     memoryEffects: [
-      {
-        ...(memory ? { memoryId: memory.id } : {}),
-        effect: input.isLeech || input.rating === "again" ? "reinforced" : "noted",
-        reason:
-          input.isLeech || input.rating === "again"
-            ? "Repeated difficulty on this card suggests the topic remains fragile."
-            : "Stable review evidence recorded for this card.",
-      },
+      Object.assign(
+        {
+          effect: input.isLeech || input.rating === "again" ? "reinforced" : "noted",
+          reason:
+            input.isLeech || input.rating === "again"
+              ? "Repeated difficulty on this card suggests the topic remains fragile."
+              : "Stable review evidence recorded for this card.",
+        } as const,
+        memory ? { memoryId: memory.id } : undefined,
+      ),
     ],
   })
 }
@@ -212,13 +222,15 @@ async function ingestTeachingCheckpoint(input: {
       changedSinceLastCheckpoint: input.changedSinceLastCheckpoint,
     },
     memoryEffects: [
-      {
-        ...(memory ? { memoryId: memory.id } : {}),
-        effect: "noted",
-        reason: input.changedSinceLastCheckpoint
-          ? "Checkpoint evidence captured a meaningful learner workspace update."
-          : "Checkpoint evidence captured a stable learner workspace state.",
-      },
+      Object.assign(
+        {
+          effect: "noted" as const,
+          reason: input.changedSinceLastCheckpoint
+            ? "Checkpoint evidence captured a meaningful learner workspace update."
+            : "Checkpoint evidence captured a stable learner workspace state.",
+        },
+        memory ? { memoryId: memory.id } : undefined,
+      ),
     ],
   })
 }

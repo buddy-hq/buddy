@@ -133,14 +133,16 @@ function filteredMessage(message: SessionV2.Message): FilteredSessionMessage | u
   if (!text) return undefined
 
   const outputTokens = message.type === "assistant" ? assistantOutputTokens(message) : undefined
-  return {
-    id: message.id,
-    role: message.type,
-    createdAt: messageCreatedAt(message),
-    text,
-    toolNames: messageToolNames(message),
-    ...(outputTokens !== undefined ? { outputTokens } : {}),
-  }
+  return Object.assign(
+    {
+      id: message.id,
+      role: message.type,
+      createdAt: messageCreatedAt(message),
+      text,
+      toolNames: messageToolNames(message),
+    },
+    outputTokens !== undefined ? { outputTokens } : undefined,
+  )
 }
 
 function sourceUpdatedAt(messages: readonly FilteredSessionMessage[]): string {
@@ -176,14 +178,18 @@ function renderStructuredSource(input: {
   return JSON.stringify(
     {
       kind: "buddy_learner_memory_extraction_source",
-      messages: input.messages.map((message) => ({
-        id: message.id,
-        role: message.role,
-        createdAt: message.createdAt,
-        text: message.text,
-        toolNames: message.toolNames,
-        ...(message.outputTokens !== undefined ? { outputTokens: message.outputTokens } : {}),
-      })),
+      messages: input.messages.map((message) =>
+        Object.assign(
+          {
+            id: message.id,
+            role: message.role,
+            createdAt: message.createdAt,
+            text: message.text,
+            toolNames: message.toolNames,
+          },
+          message.outputTokens !== undefined ? { outputTokens: message.outputTokens } : undefined,
+        ),
+      ),
       learningEvents: input.learningEvents.map((event) => ({
         id: event.id,
         type: event.type,

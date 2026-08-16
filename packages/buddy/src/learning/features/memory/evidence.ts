@@ -39,20 +39,24 @@ async function writeLearnerEvidenceForEvent(input: {
   payload?: Record<string, unknown>
   memoryEffects?: LearnerEvidence["memoryEffects"]
 }): Promise<LearnerEvidence> {
-  const evidence = LearnerEvidenceSchema.parse({
-    schemaVersion: 1,
-    id: input.event.id,
-    kind: input.event.type,
-    createdAt: input.event.createdAt,
-    ...(input.event.sessionId ? { sessionId: input.event.sessionId } : {}),
-    ...(input.event.projectPath ? { projectPath: input.event.projectPath } : {}),
-    ...(input.objectId ? { objectId: input.objectId } : {}),
-    title: input.title,
-    tags: input.tags ?? [],
-    note: input.note,
-    payload: input.payload ?? input.event.payload,
-    memoryEffects: input.memoryEffects ?? [],
-  })
+  const evidence = LearnerEvidenceSchema.parse(
+    Object.assign(
+      {
+        schemaVersion: 1 as const,
+        id: input.event.id,
+        kind: input.event.type,
+        createdAt: input.event.createdAt,
+        title: input.title,
+        tags: input.tags ?? [],
+        note: input.note,
+        payload: input.payload ?? input.event.payload,
+        memoryEffects: input.memoryEffects ?? [],
+      },
+      input.event.sessionId ? { sessionId: input.event.sessionId } : undefined,
+      input.event.projectPath ? { projectPath: input.event.projectPath } : undefined,
+      input.objectId ? { objectId: input.objectId } : undefined,
+    ),
+  )
   await writeLearnerEvidence(input.directory, evidence)
   return evidence
 }

@@ -76,6 +76,13 @@ const ModelExtractionSchema = z.object({
     .max(LEARNER_MEMORY_EXTRACTION_TUNING.maxModelCandidates),
 })
 
+type TModelExtractionCandidates = {
+  patches: CandidateMemoryPatch[]
+  sessionSummary: string
+  sessionSlug?: string
+  rawLearnerMemory: string
+}
+
 type ModelExtractionResult = {
   patches: CandidateMemoryPatch[]
   sessionSummary: string
@@ -236,25 +243,32 @@ function buildModelPrompt(fixture: EvaluationFixture): string {
   )
 }
 
-function candidatesFromModelOutput(input: { fixture: EvaluationFixture; structured: unknown }) {
+function candidatesFromModelOutput(input: {
+  fixture: EvaluationFixture
+  structured: unknown
+}): TModelExtractionCandidates {
   const parsed = ModelExtractionSchema.parse(input.structured)
 
-  return {
-    sessionSummary: redactSecrets(parsed.session_summary),
-    ...(parsed.session_slug ? { sessionSlug: parsed.session_slug } : {}),
-    rawLearnerMemory: redactSecrets(parsed.raw_learner_memory),
-    patches: parsed.candidates.map((candidate) =>
-      createCandidate({
-        fixture: input.fixture,
-        memoryType: candidate.memoryType,
-        title: redactSecrets(candidate.title),
-        body: redactSecrets(candidate.body),
-        tags: candidate.tags,
-        confidence: candidate.confidence,
-        rationale: redactSecrets(candidate.rationale),
-      }),
-    ),
-  }
+  return Object.assign(
+    {
+      sessionSummary: redactSecrets(parsed.session_summary),
+    },
+    parsed.session_slug ? { sessionSlug: parsed.session_slug } : undefined,
+    {
+      rawLearnerMemory: redactSecrets(parsed.raw_learner_memory),
+      patches: parsed.candidates.map((candidate) =>
+        createCandidate({
+          fixture: input.fixture,
+          memoryType: candidate.memoryType,
+          title: redactSecrets(candidate.title),
+          body: redactSecrets(candidate.body),
+          tags: candidate.tags,
+          confidence: candidate.confidence,
+          rationale: redactSecrets(candidate.rationale),
+        }),
+      ),
+    },
+  )
 }
 
 function resolveLearnerMemoryExtractionModel(
@@ -294,17 +308,19 @@ async function extractCandidatePatchesWithModel(input: {
       }),
   })
 
-  return {
-    ...candidatesFromModelOutput({
+  return Object.assign(
+    candidatesFromModelOutput({
       fixture: input.fixture,
       structured: response.structured,
     }),
-    model: {
-      providerID: response.providerID,
-      modelID: response.modelID,
+    {
+      model: {
+        providerID: response.providerID,
+        modelID: response.modelID,
+      },
     },
-    ...(response.usage ? { usage: response.usage } : {}),
-  }
+    response.usage ? { usage: response.usage } : undefined,
+  )
 }
 
 function buildStageOneModelPrompt(input: {
@@ -361,17 +377,19 @@ async function extractLearnerMemoryStageOneWithModel(input: {
       }),
   })
 
-  return {
-    ...candidatesFromModelOutput({
+  return Object.assign(
+    candidatesFromModelOutput({
       fixture: input.fixture,
       structured: response.structured,
     }),
-    model: {
-      providerID: response.providerID,
-      modelID: response.modelID,
+    {
+      model: {
+        providerID: response.providerID,
+        modelID: response.modelID,
+      },
     },
-    ...(response.usage ? { usage: response.usage } : {}),
-  }
+    response.usage ? { usage: response.usage } : undefined,
+  )
 }
 
 export {

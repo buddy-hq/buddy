@@ -74,14 +74,18 @@ async function loadSessionMessages(input: {
 function toEvaluationMessagesFromFilteredSource(
   source: ReturnType<typeof buildFilteredSessionSource>,
 ): EvaluationMessage[] {
-  return source.messages.map((message) => ({
-    id: message.id,
-    role: message.role,
-    createdAt: message.createdAt,
-    text: message.text,
-    toolNames: message.toolNames.length > 0 ? message.toolNames : undefined,
-    ...(message.outputTokens !== undefined ? { outputTokens: message.outputTokens } : {}),
-  }))
+  return source.messages.map((message) =>
+    Object.assign(
+      {
+        id: message.id,
+        role: message.role,
+        createdAt: message.createdAt,
+        text: message.text,
+        toolNames: message.toolNames.length > 0 ? message.toolNames : undefined,
+      },
+      message.outputTokens !== undefined ? { outputTokens: message.outputTokens } : undefined,
+    ),
+  )
 }
 
 async function buildSessionExtractionSource(input: {
@@ -342,29 +346,37 @@ async function extractLearnerMemoryFromSession(input: {
       await markLearnerMemoryStageOneJobSucceeded({
         directory: input.directory,
         claim: claimOutcome.claim,
-        output: {
-          id: `stage1_${safeSessionID}`,
-          schemaVersion: 1,
-          sessionId: input.sessionID,
-          projectPath: input.directory,
-          sourceUpdatedAt: source.sourceUpdatedAt,
-          sourceMessageCount: source.sourceMessageCount,
-          sourceFingerprint: source.sourceFingerprint,
-          attentionDecision: decision,
-          truncation: {
-            truncated: truncatedSource.truncation.truncated,
-            estimatedOriginalTokens: truncatedSource.truncation.estimatedOriginalTokens,
-            estimatedKeptTokens: truncatedSource.truncation.estimatedKeptTokens,
+        output: Object.assign(
+          Object.assign(
+            {
+              id: `stage1_${safeSessionID}`,
+              schemaVersion: 1 as const,
+              sessionId: input.sessionID,
+              projectPath: input.directory,
+              sourceUpdatedAt: source.sourceUpdatedAt,
+              sourceMessageCount: source.sourceMessageCount,
+              sourceFingerprint: source.sourceFingerprint,
+              attentionDecision: decision,
+              truncation: {
+                truncated: truncatedSource.truncation.truncated,
+                estimatedOriginalTokens: truncatedSource.truncation.estimatedOriginalTokens,
+                estimatedKeptTokens: truncatedSource.truncation.estimatedKeptTokens,
+              },
+              rolloutSummary: extraction.sessionSummary,
+            },
+            extraction.sessionSlug ? { rolloutSlug: extraction.sessionSlug } : undefined,
+            {
+              rawMemory: extraction.rawLearnerMemory,
+              candidatePatches: extraction.patches,
+              extractionModel: extraction.model,
+            },
+            extraction.usage ? { extractionUsage: extraction.usage } : undefined,
+          ),
+          {
+            createdAt: now,
+            updatedAt: now,
           },
-          rolloutSummary: extraction.sessionSummary,
-          ...(extraction.sessionSlug ? { rolloutSlug: extraction.sessionSlug } : {}),
-          rawMemory: extraction.rawLearnerMemory,
-          candidatePatches: extraction.patches,
-          extractionModel: extraction.model,
-          ...(extraction.usage ? { extractionUsage: extraction.usage } : {}),
-          createdAt: now,
-          updatedAt: now,
-        },
+        ),
       })
     }
     const consolidation = await runLearnerMemoryConsolidation({
@@ -380,17 +392,19 @@ async function extractLearnerMemoryFromSession(input: {
       }
     })
 
-    return {
-      enabled: true,
-      sessionID: input.sessionID,
-      decision,
-      candidateCount: extraction.patches.length,
-      approvedCount: consolidation.selectedCandidateCount,
-      memoryIds: consolidation.memoryIds,
-      ...("consolidationError" in consolidation
+    return Object.assign(
+      {
+        enabled: true as const,
+        sessionID: input.sessionID,
+        decision,
+        candidateCount: extraction.patches.length,
+        approvedCount: consolidation.selectedCandidateCount,
+        memoryIds: consolidation.memoryIds,
+      },
+      "consolidationError" in consolidation
         ? { consolidationError: consolidation.consolidationError }
-        : {}),
-    }
+        : undefined,
+    )
   } catch (error) {
     await markLearnerMemoryStageOneJobFailed({
       directory: input.directory,

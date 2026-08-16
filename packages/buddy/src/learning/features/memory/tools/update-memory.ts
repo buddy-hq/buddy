@@ -156,15 +156,21 @@ const learnerMemoryUpdateTool = createBuddyTool({
 
     if (params.operation === "correct") {
       const correctParams = LearnerMemoryCorrectInputSchema.parse(params)
-      const memory = await editLearnerMemory({
-        directory: ctx.directory,
-        memoryId: correctParams.memoryId,
-        ...(correctParams.title ? { title: correctParams.title } : {}),
-        ...(correctParams.body ? { body: correctParams.body } : {}),
-        ...(correctParams.tags ? { tags: correctParams.tags } : {}),
-        ...(correctParams.projectPath ? { projectPath: correctParams.projectPath } : {}),
-        reason: correctParams.reason,
-      })
+      const memory = await editLearnerMemory(
+        Object.assign(
+          Object.assign(
+            {
+              directory: ctx.directory,
+              memoryId: correctParams.memoryId,
+            },
+            correctParams.title ? { title: correctParams.title } : undefined,
+            correctParams.body ? { body: correctParams.body } : undefined,
+            correctParams.tags ? { tags: correctParams.tags } : undefined,
+          ),
+          correctParams.projectPath ? { projectPath: correctParams.projectPath } : undefined,
+          { reason: correctParams.reason },
+        ),
+      )
       await regenerateLearnerMemoryMarkdown(ctx.directory)
       return {
         title: memory ? "Memory corrected" : "Memory not found",
