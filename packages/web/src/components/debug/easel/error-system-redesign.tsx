@@ -823,13 +823,13 @@ function TodayErrorBox(props: { name: string; text: string }) {
 // notice and a toast is visible, not just described. TreatmentTag labels which.
 type Treatment = "terminal" | "inline" | "divider" | "retry" | "toast"
 
-const TREATMENT_META: Record<Treatment, { label: string; hint: string }> = {
+const TREATMENT_META = {
   terminal: { label: "Terminal card", hint: "in the transcript, above the composer" },
   inline: { label: "Inline note", hint: "under the visible text" },
   divider: { label: "Divider", hint: "between turns" },
   retry: { label: "Retry notice", hint: "amber, transient — never red" },
   toast: { label: "Toast / hint", hint: "outside the transcript" },
-}
+} satisfies Record<Treatment, { label: string; hint: string }>
 
 function TreatmentTag(props: { treatment: Treatment }) {
   const m = TREATMENT_META[props.treatment]

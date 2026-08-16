@@ -409,19 +409,19 @@ const CREATIONS: Creation[] = [
 // asset). Drawn to survive at 56px wide and hold up at 380px, since the
 // concepts below reuse the same component at both extremes.
 
-const ACCENT: Record<Family, string> = {
+const ACCENT = {
   widget: "text-avatar-text-purple",
   diagram: "text-avatar-text-cyan",
   gallery: "text-avatar-text-orange",
   figure: "text-avatar-text-mint",
-}
+} satisfies Record<Family, string>
 
-const ACCENT_SURFACE: Record<Family, string> = {
+const ACCENT_SURFACE = {
   widget: "bg-avatar-background-purple",
   diagram: "bg-avatar-background-cyan",
   gallery: "bg-avatar-background-orange",
   figure: "bg-avatar-background-mint",
-}
+} satisfies Record<Family, string>
 
 /** Scaffolding strokes stay neutral; the accent colour carries the payload. */
 const LINE = "stroke-border-strong-base"

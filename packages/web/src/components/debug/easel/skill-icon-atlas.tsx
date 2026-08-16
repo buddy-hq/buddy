@@ -43,7 +43,7 @@ type PaletteSwatch = {
   surfaceClassName: string
 }
 
-const PALETTE_SURFACES: Readonly<Record<string, string>> = {
+const PALETTE_SURFACES = new Map(Object.entries({
   amber: "bg-avatar-background-orange",
   brick: "bg-avatar-background-pink",
   cobalt: "bg-avatar-background-cyan",
@@ -57,7 +57,7 @@ const PALETTE_SURFACES: Readonly<Record<string, string>> = {
   slate: "bg-surface-raised-base",
   teal: "bg-avatar-background-mint",
   violet: "bg-avatar-background-purple",
-}
+}))
 const DEFAULT_PALETTE_SURFACE = "bg-surface-raised-base"
 const FILENAME_ID_TOKEN = "{id}"
 
@@ -209,7 +209,7 @@ function swatchesForPlan(plan: SkillIconPlan): PaletteSwatch[] {
       {
         label: definition.label,
         reviewDescription: definition.reviewDescription,
-        surfaceClassName: PALETTE_SURFACES[key] ?? DEFAULT_PALETTE_SURFACE,
+        surfaceClassName: PALETTE_SURFACES.get(key) ?? DEFAULT_PALETTE_SURFACE,
       },
     ]
   })

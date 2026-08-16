@@ -62,19 +62,19 @@ type MeterTone = "normal" | "warning" | "critical" | "empty"
 // which is reserved for backgrounds and the track groove. Base reads as the
 // interactive accent; it escalates to the system's real warning / critical
 // colours as spend crosses the thresholds below.
-const METER_FILL: Record<MeterTone, string> = {
+const METER_FILL = {
   normal: "bg-icon-interactive-base",
   warning: "bg-icon-warning-base",
   critical: "bg-icon-critical-base",
   empty: "bg-transparent",
-}
+} satisfies Record<MeterTone, string>
 
-const RING_ARC: Record<MeterTone, string> = {
+const RING_ARC = {
   normal: "var(--icon-interactive-base)",
   warning: "var(--icon-warning-base)",
   critical: "var(--icon-critical-base)",
   empty: "var(--icon-weak-base)",
-}
+} satisfies Record<MeterTone, string>
 
 function clampPercent(value: number) {
   return Math.max(0, Math.min(value, 100))
@@ -291,14 +291,14 @@ type ProviderChoice = "openai" | "anthropic"
 type UsageState = "ready" | "loading" | "error" | "reconnect"
 type LoadLevel = "light" | "typical" | "heavy"
 
-const LOAD_PROFILES: Record<
-  LoadLevel,
-  { context: number; contextTotal: number; primary: number; secondary: number; cost: number }
-> = {
+const LOAD_PROFILES = {
   light: { context: 8, contextTotal: 16_000, primary: 18, secondary: 27, cost: 0.02 },
   typical: { context: 34, contextTotal: 68_000, primary: 52, secondary: 61, cost: 0.24 },
   heavy: { context: 82, contextTotal: 164_000, primary: 88, secondary: 94, cost: 1.42 },
-}
+} satisfies Record<
+  LoadLevel,
+  { context: number; contextTotal: number; primary: number; secondary: number; cost: number }
+>
 
 const CONTEXT_LIMIT = 200_000
 

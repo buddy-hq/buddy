@@ -73,7 +73,7 @@ const VARIANTS: { id: ObjectVariant; label: string }[] = [
   { id: "tile", label: "tile" },
 ]
 
-const KIND_LABEL: Record<ObjectKind, string> = {
+const KIND_LABEL = {
   resource: "Resource",
   image: "Image",
   figure: "Figure",
@@ -83,9 +83,9 @@ const KIND_LABEL: Record<ObjectKind, string> = {
   flashcards: "Flashcards",
   whiteboard: "Whiteboard",
   file: "File",
-}
+} satisfies Record<ObjectKind, string>
 
-const KIND_ICON: Record<ObjectKind, AppIcon> = {
+const KIND_ICON = {
   resource: FileTextIcon,
   image: ImagesIcon,
   figure: ShapesIcon,
@@ -95,9 +95,9 @@ const KIND_ICON: Record<ObjectKind, AppIcon> = {
   flashcards: Layers3Icon,
   whiteboard: PresentationIcon,
   file: FileTextIcon,
-}
+} satisfies Record<ObjectKind, AppIcon>
 
-const KIND_ACCENT: Record<ObjectKind, { surface: string; text: string }> = {
+const KIND_ACCENT = {
   resource: { surface: "bg-avatar-background-orange", text: "text-avatar-text-orange" },
   image: { surface: "bg-avatar-background-mint", text: "text-avatar-text-mint" },
   figure: { surface: "bg-avatar-background-lime", text: "text-avatar-text-lime" },
@@ -107,14 +107,14 @@ const KIND_ACCENT: Record<ObjectKind, { surface: string; text: string }> = {
   flashcards: { surface: "bg-avatar-background-lime", text: "text-avatar-text-lime" },
   whiteboard: { surface: "bg-avatar-background-cyan", text: "text-avatar-text-cyan" },
   file: { surface: "bg-avatar-background-orange", text: "text-avatar-text-orange" },
-}
+} satisfies Record<ObjectKind, { surface: string; text: string }>
 
-const COVER_TONE_CLASS: Record<CoverTone, { hero: string; accent: string }> = {
+const COVER_TONE_CLASS = {
   pdf: { hero: "bg-surface-critical-weak", accent: "text-icon-critical-base" },
   document: { hero: "bg-surface-info-weak", accent: "text-icon-info-base" },
   spreadsheet: { hero: "bg-surface-success-weak", accent: "text-icon-success-base" },
   presentation: { hero: "bg-surface-warning-weak", accent: "text-icon-warning-base" },
-}
+} satisfies Record<CoverTone, { hero: string; accent: string }>
 
 const OBJECT_MODELS: ObjectRowModel[] = [
   {
