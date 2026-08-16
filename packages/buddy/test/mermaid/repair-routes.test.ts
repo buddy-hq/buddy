@@ -24,6 +24,14 @@ const completedRepairRequests = new Set<string>()
 let nextSessionIndex = 0
 let restoreSessionInteractionRuntime = () => {}
 
+type RepairPrompt = {
+  agent?: string
+  messageID?: string
+  model?: unknown
+  parts: Array<{ text: string; type: "text" }>
+  variant?: string
+}
+
 function repairRequestKey(input: { sessionID: string; repairRequestID: string }): string {
   return `${input.sessionID}:${input.repairRequestID}`
 }
@@ -35,7 +43,7 @@ beforeEach(() => {
     createPromptTransform: ({ context }) => ({
       onTransform: async (body) => {
         const content = typeof body.content === "string" ? body.content : ""
-        const transformed: Record<string, unknown> = {
+        const transformed: RepairPrompt = {
           parts: [
             {
               type: "text",

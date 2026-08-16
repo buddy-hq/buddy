@@ -153,17 +153,15 @@ export async function clearSkillPermission(pattern: string) {
     return
   }
 
-  const existingSkillPermission = existingPermission.skill
-  const nextPermission = { ...existingPermission } as Record<string, unknown>
+  const { skill: existingSkillPermission, ...permissionWithoutSkill } = existingPermission
 
   if (typeof existingSkillPermission === "string") {
     if (pattern !== SKILL_RULE_DEFAULTS.wildcardPattern) {
       return
     }
 
-    delete nextPermission[SKILL_RULE_DEFAULTS.permission]
     await Config.updateGlobal({
-      permission: Config.Permission.parse(nextPermission),
+      permission: Config.Permission.parse(permissionWithoutSkill),
     })
     return
   }
@@ -175,11 +173,10 @@ export async function clearSkillPermission(pattern: string) {
   const nextSkillPermission = { ...existingSkillPermission }
   delete nextSkillPermission[pattern]
 
-  if (Object.keys(nextSkillPermission).length === 0) {
-    delete nextPermission[SKILL_RULE_DEFAULTS.permission]
-  } else {
-    nextPermission[SKILL_RULE_DEFAULTS.permission] = nextSkillPermission
-  }
+  const nextPermission =
+    Object.keys(nextSkillPermission).length === 0
+      ? permissionWithoutSkill
+      : { ...permissionWithoutSkill, skill: nextSkillPermission }
 
   await Config.updateGlobal({
     permission: Config.Permission.parse(nextPermission),
