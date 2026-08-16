@@ -1,3 +1,5 @@
+import { isJsonObject, parseStringValue } from "./parse-external"
+
 const WORKSPACE_FILE_WATCHER_UPDATED_EVENT_TYPE = "file.watcher.updated"
 
 export type WorkspaceFileWatcherEventKind = "add" | "change" | "unlink"
@@ -8,26 +10,27 @@ export type WorkspaceFileWatcherUpdate = {
   relativePath?: string
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function parseWorkspaceFileWatcherEventKind<TValue>(
+  value: TValue,
+): WorkspaceFileWatcherEventKind | undefined {
+  if (value === "add") return "add"
+  if (value === "change") return "change"
+  if (value === "unlink") return "unlink"
+  return undefined
 }
 
-function isWorkspaceFileWatcherEventKind(value: unknown): value is WorkspaceFileWatcherEventKind {
-  return value === "add" || value === "change" || value === "unlink"
-}
-
-export function readWorkspaceFileWatcherUpdatePayload(
-  payload: unknown,
+export function readWorkspaceFileWatcherUpdatePayload<TPayload>(
+  payload: TPayload,
 ): WorkspaceFileWatcherUpdate | undefined {
-  if (!isRecord(payload)) return undefined
+  if (!isJsonObject(payload)) return undefined
   if (payload.type !== WORKSPACE_FILE_WATCHER_UPDATED_EVENT_TYPE) return undefined
-  if (!isRecord(payload.properties)) return undefined
+  if (!isJsonObject(payload.properties)) return undefined
 
-  const absolutePath = payload.properties.file
-  const event = payload.properties.event
-  const relativePath = payload.properties.relativePath
+  const absolutePath = parseStringValue(payload.properties.file)
+  const event = parseWorkspaceFileWatcherEventKind(payload.properties.event)
+  const relativePath = parseStringValue(payload.properties.relativePath)
 
-  if (typeof absolutePath !== "string" || !isWorkspaceFileWatcherEventKind(event)) {
+  if (absolutePath === undefined || event === undefined) {
     return undefined
   }
 
@@ -35,8 +38,8 @@ export function readWorkspaceFileWatcherUpdatePayload(
     {
       event,
       absolutePath,
-    },
-    typeof relativePath === "string" ? { relativePath } : undefined,
+    } as const,
+    relativePath !== undefined ? { relativePath } : undefined,
   )
 }
 

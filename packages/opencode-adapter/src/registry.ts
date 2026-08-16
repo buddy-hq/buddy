@@ -12,6 +12,7 @@ import { withConfigOverlay } from "./config"
 import { withCurrentInstance } from "./effect-runtime"
 import { Instance } from "./instance"
 import { getCoreToolPresentationDescriptor } from "./core-tool-presentations"
+import { parseStringValue } from "./parse-external"
 import {
   cloneToolPresentationDescriptor,
   type ToolPresentationDescriptor,
@@ -90,8 +91,9 @@ function getCustomToolJsonSchema(directory: string, toolID: string): ToolJsonSch
   return cloneToolJsonSchema(customToolJsonSchemas.get(directoryKey(directory))?.get(toolID))
 }
 
-function readNonEmptyString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0 ? value : undefined
+function readNonEmptyString<TValue>(value: TValue): string | undefined {
+  const parsed = parseStringValue(value)?.trim()
+  return parsed && parsed.length > 0 ? parsed : undefined
 }
 
 function outputFitsPolicy(output: string, policy: ToolOutputPolicy) {
@@ -260,16 +262,18 @@ async function ensureRuntimePatched() {
   )
 }
 
+function isToolAgentName(value: ToolAgentInput): value is string {
+  return parseStringValue(value) !== undefined
+}
+
 async function resolveToolAgent(agent?: ToolAgentInput): Promise<ToolAgentInfo> {
-  if (typeof agent === "string") {
+  if (agent === undefined) {
+    return Agent.get(await Agent.defaultAgent())
+  }
+  if (isToolAgentName(agent)) {
     return Agent.get(agent)
   }
-
-  if (agent) {
-    return agent
-  }
-
-  return Agent.get(await Agent.defaultAgent())
+  return agent
 }
 
 export namespace ToolRegistry {

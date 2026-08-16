@@ -39,10 +39,7 @@ export {
 } from "../../../vendor/opencode/packages/ui/src/theme/color"
 
 import { blend, mixColors } from "../../../vendor/opencode/packages/ui/src/theme/color"
-import {
-  resolveThemeVariant as resolveVendorThemeVariant,
-  themeToCss,
-} from "../../../vendor/opencode/packages/ui/src/theme/resolve"
+import { resolveThemeVariant as resolveVendorThemeVariant } from "../../../vendor/opencode/packages/ui/src/theme/resolve"
 export { themeToCss } from "../../../vendor/opencode/packages/ui/src/theme/resolve"
 
 export * from "../../../vendor/opencode/packages/ui/src/theme/default-themes"

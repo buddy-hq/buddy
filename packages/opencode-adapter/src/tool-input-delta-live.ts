@@ -4,7 +4,10 @@ import * as OpenCodeEffectBridge from "opencode/effect/bridge"
 import * as OpenCodeLLM from "opencode/session/llm"
 import * as OpenCodeSession from "opencode/session/session"
 import { withCurrentInstance } from "./effect-runtime"
+import type { AppRuntime } from "./app-runtime"
 import type { MessageV2 } from "./message"
+import { parseWithSchema } from "./parse-external"
+import { z } from "zod"
 
 const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view" as const
 const TOOL_INPUT_DELTA_EVENT_TYPE = "tool-input-delta" as const
@@ -43,44 +46,26 @@ const pendingWhiteboardToolPartOrder = new Map<string, PendingWhiteboardToolPart
 const callbackDeltaReceipts = new Map<string, CallbackDeltaReceipt[]>()
 const queuedCallbackDeltas = new Map<string, CallbackDeltaReceipt[]>()
 
+const toolInputDeltaEventSchema = z.object({
+  type: z.literal(TOOL_INPUT_DELTA_EVENT_TYPE),
+  id: z.string(),
+  name: z.string(),
+  text: z.string(),
+})
+
 let patchPromise: Promise<void> | undefined
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function parseToolInputDeltaEvent<TValue>(event: TValue): ToolInputDeltaEvent | undefined {
+  return parseWithSchema(toolInputDeltaEventSchema, event)
 }
 
-function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
-  return isRecord(value) && typeof value.then === "function"
-}
+type TAppRuntimeEffect = Parameters<(typeof AppRuntime)["runPromise"]>[0]
 
-function isToolInputDeltaEvent(event: unknown): event is ToolInputDeltaEvent {
-  return (
-    isRecord(event) &&
-    event.type === TOOL_INPUT_DELTA_EVENT_TYPE &&
-    typeof event.id === "string" &&
-    typeof event.name === "string" &&
-    typeof event.text === "string"
-  )
-}
-
-async function runOpenCodeAppEffect<E, R>(effect: Effect.Effect<void, E, R>): Promise<void> {
+async function runOpenCodeAppEffect(effect: TAppRuntimeEffect): Promise<void> {
   // Keep this as a literal local import so Bun bundles the vendored runtime into
   // compiled sidecars. Non-literal package imports are left unresolved at runtime.
-  const appRuntimeModule: unknown = await import("./app-runtime")
-  if (!isRecord(appRuntimeModule) || !isRecord(appRuntimeModule.AppRuntime)) {
-    throw new Error("OpenCode AppRuntime module is missing")
-  }
-
-  const runPromise = appRuntimeModule.AppRuntime.runPromise
-  if (typeof runPromise !== "function") {
-    throw new Error("OpenCode AppRuntime.runPromise is missing")
-  }
-
-  const result: unknown = Reflect.apply(runPromise, appRuntimeModule.AppRuntime, [effect])
-  if (!isPromiseLike(result)) {
-    throw new Error("OpenCode AppRuntime.runPromise did not return a promise")
-  }
-  await result
+  const appRuntimeModule = await import("./app-runtime")
+  await appRuntimeModule.AppRuntime.runPromise(effect)
 }
 
 function sessionPendingToolParts(
@@ -218,15 +203,19 @@ function rollbackCallbackDelta(
   deleteEmptyCallbackDeltaQueue(queuedCallbackDeltas, key)
 }
 
-function consumeCallbackDeltaReceipt(input: { event: unknown; sessionID: string }): boolean {
-  if (!isToolInputDeltaEvent(input.event)) return false
+function consumeCallbackDeltaReceipt<TEvent>(input: {
+  event: TEvent
+  sessionID: string
+}): boolean {
+  const event = parseToolInputDeltaEvent(input.event)
+  if (!event) return false
 
   const key = pendingWhiteboardToolPartKey({
-    callID: input.event.id,
+    callID: event.id,
     sessionID: input.sessionID,
   })
   const receipts = callbackDeltaReceipts.get(key)
-  if (receipts?.[0]?.delta !== input.event.text) return false
+  if (receipts?.[0]?.delta !== event.text) return false
 
   receipts.shift()
   deleteEmptyCallbackDeltaQueue(callbackDeltaReceipts, key)
@@ -259,21 +248,22 @@ function takeQueuedCallbackPartDeltas(part: MessageV2.Part): PartDelta[] {
   }))
 }
 
-function toPendingWhiteboardToolPartDelta(input: {
+function toPendingWhiteboardToolPartDelta<TEvent>(input: {
   sessionID: string
-  event: unknown
+  event: TEvent
 }): PartDelta | undefined {
-  if (!isToolInputDeltaEvent(input.event) || input.event.name !== WHITEBOARD_CREATE_VIEW_TOOL_ID) {
+  const event = parseToolInputDeltaEvent(input.event)
+  if (!event || event.name !== WHITEBOARD_CREATE_VIEW_TOOL_ID) {
     return undefined
   }
 
-  const part = pendingWhiteboardToolParts.get(input.sessionID)?.get(input.event.id)
+  const part = pendingWhiteboardToolParts.get(input.sessionID)?.get(event.id)
   if (!part) return undefined
 
   return {
     ...part,
     field: TOOL_RAW_DELTA_FIELD,
-    delta: input.event.text,
+    delta: event.text,
   }
 }
 

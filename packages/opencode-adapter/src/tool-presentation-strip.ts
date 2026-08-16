@@ -1,9 +1,11 @@
+import { isJsonObject, parseJsonObject, type TJsonObject, type TJsonValue } from "./parse-external"
+
 export type ToolPresentationStripToolPart = {
   type: "tool"
-  metadata?: Record<string, unknown>
+  metadata?: TJsonObject
   state: {
     status: string
-    metadata?: Record<string, unknown>
+    metadata?: TJsonObject
   }
 }
 
@@ -13,25 +15,24 @@ export type ToolPresentationStripMessage = {
   parts: ToolPresentationStripPart[]
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
 function isToolPart(part: ToolPresentationStripPart): part is ToolPresentationStripToolPart {
   return part.type === "tool" && "state" in part && part.state !== undefined
 }
 
 export function stripBuddyToolPresentation(
-  metadata: Record<string, unknown> | undefined,
-): Record<string, unknown> | undefined {
-  if (!metadata || !isRecord(metadata)) return metadata
-  if (!isRecord(metadata.buddy)) return metadata
+  metadata: TJsonObject | undefined,
+): TJsonObject | undefined {
+  if (!metadata || !isJsonObject(metadata)) return metadata
+  const buddy = parseJsonObject(metadata.buddy)
+  if (buddy === undefined) return metadata
+  if (buddy.presentation === undefined) return metadata
 
-  const { presentation: _presentation, ...restBuddy } = metadata.buddy
-  if (_presentation === undefined) return metadata
+  const restBuddy: TJsonObject = { ...buddy }
+  delete restBuddy.presentation
 
   if (Object.keys(restBuddy).length === 0) {
-    const { buddy: _buddy, ...restMetadata } = metadata
+    const restMetadata: TJsonObject = { ...metadata }
+    delete restMetadata.buddy
     return Object.keys(restMetadata).length > 0 ? restMetadata : undefined
   }
 
@@ -47,13 +48,13 @@ export function stripToolPresentationFromMessages(messages: ToolPresentationStri
       if (!isToolPart(part)) continue
 
       part.metadata = stripBuddyToolPresentation(
-        isRecord(part.metadata) ? part.metadata : undefined,
+        isJsonObject(part.metadata) ? part.metadata : undefined,
       )
 
       if (part.state.status === "pending") continue
 
       const strippedStateMetadata = stripBuddyToolPresentation(
-        isRecord(part.state.metadata) ? part.state.metadata : undefined,
+        isJsonObject(part.state.metadata) ? part.state.metadata : undefined,
       )
       part.state.metadata =
         part.state.status === "completed" ? (strippedStateMetadata ?? {}) : strippedStateMetadata
@@ -61,19 +62,27 @@ export function stripToolPresentationFromMessages(messages: ToolPresentationStri
   }
 }
 
-function stripToolPresentationFromModelMessageNode(value: unknown): void {
+function isJsonObjectValue(value: TJsonValue | TJsonValue[] | undefined): value is TJsonObject {
+  return !Array.isArray(value) && isJsonObject(value)
+}
+
+function stripToolPresentationFromModelMessageNode(value: TJsonObject | TJsonValue[]): void {
   if (Array.isArray(value)) {
     for (const item of value) {
-      stripToolPresentationFromModelMessageNode(item)
+      if (Array.isArray(item)) {
+        stripToolPresentationFromModelMessageNode(item)
+        continue
+      }
+      if (isJsonObjectValue(item)) {
+        stripToolPresentationFromModelMessageNode(item)
+      }
     }
     return
   }
 
-  if (!isRecord(value)) return
-
   if ("providerMetadata" in value) {
     const stripped = stripBuddyToolPresentation(
-      isRecord(value.providerMetadata) ? value.providerMetadata : undefined,
+      isJsonObjectValue(value.providerMetadata) ? value.providerMetadata : undefined,
     )
     if (stripped) {
       value.providerMetadata = stripped
@@ -84,7 +93,7 @@ function stripToolPresentationFromModelMessageNode(value: unknown): void {
 
   if ("callProviderMetadata" in value) {
     const stripped = stripBuddyToolPresentation(
-      isRecord(value.callProviderMetadata) ? value.callProviderMetadata : undefined,
+      isJsonObjectValue(value.callProviderMetadata) ? value.callProviderMetadata : undefined,
     )
     if (stripped) {
       value.callProviderMetadata = stripped
@@ -94,12 +103,22 @@ function stripToolPresentationFromModelMessageNode(value: unknown): void {
   }
 
   for (const child of Object.values(value)) {
-    stripToolPresentationFromModelMessageNode(child)
+    if (Array.isArray(child)) {
+      stripToolPresentationFromModelMessageNode(child)
+      continue
+    }
+    if (isJsonObjectValue(child)) {
+      stripToolPresentationFromModelMessageNode(child)
+    }
   }
 }
 
 export function stripToolPresentationFromModelMessages<T>(messages: T): T {
   const next = structuredClone(messages)
-  stripToolPresentationFromModelMessageNode(next)
+  if (Array.isArray(next)) {
+    stripToolPresentationFromModelMessageNode(next)
+  } else if (isJsonObject(next)) {
+    stripToolPresentationFromModelMessageNode(next)
+  }
   return next
 }

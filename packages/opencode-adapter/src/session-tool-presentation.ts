@@ -1,5 +1,6 @@
 import type { MessageV2 } from "./message"
 import { getRuntimeToolPresentationDescriptor } from "./core-tool-presentations"
+import { isJsonObject, parseStringValue, type TJsonObject } from "./parse-external"
 import { ToolRegistry } from "./registry"
 import {
   resolveToolPresentationSnapshot,
@@ -11,24 +12,19 @@ import { stripBuddyToolPresentation } from "./tool-presentation-strip"
 type ToolPart = MessageV2.ToolPart
 type ToolState = ToolPart["state"]
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isToolPart(value: unknown): value is ToolPart {
-  return (
-    isRecord(value) &&
-    value.type === "tool" &&
-    typeof value.callID === "string" &&
-    typeof value.tool === "string" &&
-    isRecord(value.state) &&
-    typeof value.state.status === "string"
-  )
+function isToolPart<TValue>(value: TValue): value is TValue & ToolPart {
+  if (!isJsonObject(value)) return false
+  if (value.type !== "tool") return false
+  if (parseStringValue(value.callID) === undefined) return false
+  if (parseStringValue(value.tool) === undefined) return false
+  if (!isJsonObject(value.state)) return false
+  return parseStringValue(value.state.status) !== undefined
 }
 
 function presentationContext(part: ToolPart): ToolPresentationResolutionContext {
   const state = part.state
-  const metadata = state.status === "pending" || !isRecord(state.metadata) ? {} : state.metadata
+  const metadata =
+    state.status === "pending" || !isJsonObject(state.metadata) ? {} : state.metadata
 
   return Object.assign(
     {
@@ -44,24 +40,22 @@ function presentationContext(part: ToolPart): ToolPresentationResolutionContext 
 }
 
 function metadataWithPresentation(
-  metadata: Record<string, unknown> | undefined,
+  metadata: TJsonObject | undefined,
   presentation: ToolPresentationSnapshot,
 ) {
   const stripped = stripBuddyToolPresentation(metadata)
   return {
     ...stripped,
-    buddy: Object.assign(
-      {},
-      isRecord(stripped?.buddy) ? stripped.buddy : undefined,
-      { presentation },
-    ),
+    buddy: Object.assign({}, isJsonObject(stripped?.buddy) ? stripped.buddy : undefined, {
+      presentation,
+    }),
   }
 }
 
 function stripPresentationFromState(state: ToolState): ToolState {
   if (state.status === "pending") return state
 
-  const metadata = stripBuddyToolPresentation(isRecord(state.metadata) ? state.metadata : undefined)
+  const metadata = stripBuddyToolPresentation(isJsonObject(state.metadata) ? state.metadata : undefined)
   if (state.status === "completed") {
     return {
       ...state,
@@ -87,14 +81,14 @@ export function withToolPresentationOnPart<T extends MessageV2.Part>(
   return {
     ...part,
     metadata: metadataWithPresentation(
-      isRecord(part.metadata) ? part.metadata : undefined,
+      isJsonObject(part.metadata) ? part.metadata : undefined,
       presentation,
     ),
     state,
   }
 }
 
-export function withToolPresentationOnUnknownPart(part: unknown, directory?: string): unknown {
+export function withToolPresentationOnUnknownPart<TPart>(part: TPart, directory?: string): TPart {
   return isToolPart(part) ? withToolPresentationOnPart(part, directory) : part
 }
 

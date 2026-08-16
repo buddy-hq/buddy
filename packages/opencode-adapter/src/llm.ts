@@ -6,6 +6,7 @@ import * as ProviderTransform from "opencode/provider/transform"
 import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
+import { parseJsonObjectFromText, parseJsonValue, type TJsonObject, type TJsonValue } from "./parse-external"
 import type { Provider } from "./provider"
 
 const runtime = makeRuntime(OpenCodeProvider.Service, AppNodeBuilderV1.build(OpenCodeProvider.node))
@@ -23,7 +24,7 @@ type SmallTextInput = {
 }
 
 type StructuredTextInput = SmallTextInput & {
-  schema: Record<string, unknown>
+  schema: TJsonObject
 }
 
 type SmallTextResult = {
@@ -48,7 +49,7 @@ type SmallTextUsage = {
 }
 
 type StructuredTextResult = SmallTextResult & {
-  structured: unknown
+  structured: TJsonValue
 }
 
 const DEFAULT_RETRIES = 1
@@ -58,7 +59,7 @@ const STRUCTURED_OUTPUT_SYSTEM_PROMPT =
 
 type ProviderMetadataInput = Parameters<typeof OpenCodeSession.getUsage>[0]["metadata"]
 
-type ModelOptions = Record<string, unknown>
+type TModelOptions = ReturnType<typeof ProviderTransform.smallOptions>
 
 function buildSmallModelHeaders(input: SmallTextInput) {
   return {
@@ -117,7 +118,7 @@ async function generateSmallText(input: SmallTextInput): Promise<SmallTextResult
         const options = {
           ...ProviderTransform.smallOptions(input.model),
           ...input.model.options,
-        } satisfies ModelOptions
+        } satisfies TModelOptions
         const messages = ProviderTransform.message(
           [{ role: "user", content: input.prompt }],
           input.model,
@@ -165,7 +166,7 @@ async function generateSmallText(input: SmallTextInput): Promise<SmallTextResult
 }
 
 async function generateStructuredText(input: StructuredTextInput): Promise<StructuredTextResult> {
-  let structured: unknown
+  let structured: TJsonValue | undefined
   const { text, usage } = await runtime.runPromise((svc) =>
     withCurrentInstance(
       Effect.gen(function* () {
@@ -173,7 +174,7 @@ async function generateStructuredText(input: StructuredTextInput): Promise<Struc
         const options = {
           ...ProviderTransform.smallOptions(input.model),
           ...input.model.options,
-        } satisfies ModelOptions
+        } satisfies TModelOptions
         const messages = ProviderTransform.message(
           [{ role: "user", content: input.prompt }],
           input.model,
@@ -201,7 +202,7 @@ async function generateStructuredText(input: StructuredTextInput): Promise<Struc
                 description: "Return the final answer using the required JSON schema.",
                 inputSchema: jsonSchema(input.schema),
                 execute: async (output) => {
-                  structured = output
+                  structured = parseJsonValue(output)
                   return {
                     ok: true,
                   }
@@ -250,7 +251,7 @@ async function generateStructuredText(input: StructuredTextInput): Promise<Struc
   )
 }
 
-function extractJsonFromText(text: string): unknown | undefined {
+function extractJsonFromText(text: string): TJsonObject | undefined {
   if (!text || text.trim().length === 0) return undefined
 
   // Try to find JSON in markdown code blocks
@@ -260,7 +261,7 @@ function extractJsonFromText(text: string): unknown | undefined {
   }
 
   const trimmed = text.trim()
-  const wholeTextJson = parseJsonObject(trimmed)
+  const wholeTextJson = parseJsonObjectFromText(trimmed)
   if (wholeTextJson !== undefined) {
     return wholeTextJson
   }
@@ -279,24 +280,15 @@ function markdownCodeBlockContents(text: string): string[] {
   return contents
 }
 
-function extractSingleJsonObject(candidates: Iterable<string>): unknown | undefined {
-  let parsed: unknown | undefined
+function extractSingleJsonObject(candidates: Iterable<string>): TJsonObject | undefined {
+  let parsed: TJsonObject | undefined
   for (const candidate of candidates) {
-    const next = parseJsonObject(candidate.trim())
+    const next = parseJsonObjectFromText(candidate.trim())
     if (next === undefined) continue
     if (parsed !== undefined) return undefined
     parsed = next
   }
   return parsed
-}
-
-function parseJsonObject(value: string): unknown | undefined {
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : undefined
-  } catch {
-    return undefined
-  }
 }
 
 function* jsonObjectCandidates(text: string): Generator<string> {

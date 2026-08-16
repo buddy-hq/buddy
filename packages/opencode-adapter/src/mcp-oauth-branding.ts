@@ -1,5 +1,10 @@
 import { ServerResponse } from "node:http"
 import { McpOAuthProvider } from "opencode/mcp/oauth-provider"
+import {
+  hasFunctionValue,
+  parseStringArray,
+  parseStringValue,
+} from "./parse-external"
 
 export const BUDDY_MCP_OAUTH_CLIENT_NAME = "Buddy"
 export const BUDDY_MCP_OAUTH_CLIENT_URI = "https://hibuddy.in"
@@ -15,27 +20,15 @@ type McpOAuthClientMetadata = McpOAuthProvider["clientMetadata"]
 let clientMetadataBrandingPatched = false
 let callbackHtmlBrandingPatched = false
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function readString(value: unknown) {
-  return typeof value === "string" ? value : undefined
-}
-
-function readStringArray(value: unknown) {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string")
-    ? value
-    : undefined
-}
-
-function brandClientMetadata(input: unknown, fallbackRedirectUrl: string): McpOAuthClientMetadata {
-  const metadata = isRecord(input) ? input : {}
-  const redirectUris = readStringArray(metadata.redirect_uris) ?? [fallbackRedirectUrl]
-  const tokenEndpointAuthMethod = readString(metadata.token_endpoint_auth_method)
-  const grantTypes = readStringArray(metadata.grant_types)
-  const responseTypes = readStringArray(metadata.response_types)
-  const scope = readString(metadata.scope)
+function brandClientMetadata(
+  input: McpOAuthClientMetadata,
+  fallbackRedirectUrl: string,
+): McpOAuthClientMetadata {
+  const redirectUris = parseStringArray(input.redirect_uris) ?? [fallbackRedirectUrl]
+  const tokenEndpointAuthMethod = parseStringValue(input.token_endpoint_auth_method)
+  const grantTypes = parseStringArray(input.grant_types)
+  const responseTypes = parseStringArray(input.response_types)
+  const scope = parseStringValue(input.scope)
 
   return Object.assign(
     Object.assign(
@@ -127,8 +120,9 @@ export function brandMcpOAuthCallbackHtml(html: string) {
     .replace("background: rgba(248,113,113,0.1);", "background: #3c140d;")
 }
 
-function brandMcpOAuthCallbackChunk(chunk: unknown) {
-  return typeof chunk === "string" ? brandMcpOAuthCallbackHtml(chunk) : chunk
+function brandMcpOAuthCallbackChunk<TChunk>(chunk: TChunk) {
+  const text = parseStringValue(chunk)
+  return text !== undefined ? brandMcpOAuthCallbackHtml(text) : chunk
 }
 
 function ensureMcpOAuthClientMetadataBrandingPatched() {
@@ -145,12 +139,28 @@ function ensureMcpOAuthClientMetadataBrandingPatched() {
   Object.defineProperty(McpOAuthProvider.prototype, "clientMetadata", {
     configurable: true,
     get(this: McpOAuthProvider) {
-      const original: unknown = originalGet.call(this)
+      const original = originalGet.call(this)
       return brandClientMetadata(original, this.redirectUrl)
     },
   })
 
   clientMetadataBrandingPatched = true
+}
+
+type THttpEndCallback = () => void
+type THttpEndArg = string | Uint8Array | BufferEncoding | THttpEndCallback | undefined
+
+function isEndCallback<TValue>(value: TValue): value is TValue & THttpEndCallback {
+  return hasFunctionValue(value)
+}
+
+function applyOriginalEnd(
+  originalEnd: ServerResponse["end"],
+  response: ServerResponse,
+  args: readonly THttpEndArg[],
+): ServerResponse {
+  const applied: unknown = Function.prototype.apply.call(originalEnd, response, args)
+  return applied instanceof ServerResponse ? applied : response
 }
 
 export function createMcpOAuthCallbackBrandedEnd(
@@ -170,28 +180,28 @@ export function createMcpOAuthCallbackBrandedEnd(
   ): ServerResponse
   function brandedEnd(
     this: ServerResponse,
-    chunkOrCallback?: string | Uint8Array | (() => void),
-    encodingOrCallback?: BufferEncoding | (() => void),
-    callback?: () => void,
+    chunkOrCallback?: string | Uint8Array | THttpEndCallback,
+    encodingOrCallback?: BufferEncoding | THttpEndCallback,
+    callback?: THttpEndCallback,
   ): ServerResponse {
-    if (typeof chunkOrCallback === "function") {
-      return Reflect.apply(originalEnd, this, [chunkOrCallback])
+    if (isEndCallback(chunkOrCallback)) {
+      return applyOriginalEnd(originalEnd, this, [chunkOrCallback])
     }
 
     const chunk = brandMcpOAuthCallbackChunk(chunkOrCallback)
-    if (typeof encodingOrCallback === "function") {
-      return Reflect.apply(originalEnd, this, [chunk, encodingOrCallback])
+    if (isEndCallback(encodingOrCallback)) {
+      return applyOriginalEnd(originalEnd, this, [chunk, encodingOrCallback])
     }
     if (callback) {
-      return Reflect.apply(originalEnd, this, [chunk, encodingOrCallback, callback])
+      return applyOriginalEnd(originalEnd, this, [chunk, encodingOrCallback, callback])
     }
     if (encodingOrCallback) {
-      return Reflect.apply(originalEnd, this, [chunk, encodingOrCallback])
+      return applyOriginalEnd(originalEnd, this, [chunk, encodingOrCallback])
     }
     if (chunk === undefined) {
-      return Reflect.apply(originalEnd, this, [])
+      return applyOriginalEnd(originalEnd, this, [])
     }
-    return Reflect.apply(originalEnd, this, [chunk])
+    return applyOriginalEnd(originalEnd, this, [chunk])
   }
 
   return brandedEnd

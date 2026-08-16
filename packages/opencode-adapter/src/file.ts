@@ -6,6 +6,7 @@ import { NonNegativeInt } from "@opencode-ai/core/schema"
 import { Schema } from "effect"
 import { makeRuntime } from "opencode/effect/run-service"
 import { Instance } from "./instance"
+import { parseErrorCode } from "./parse-external"
 
 const FileInfo = Schema.Struct({
   path: Schema.String,
@@ -121,8 +122,8 @@ export type NotebookFileSearchResult = {
   partial: boolean
 }
 
-function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === code
+function hasErrorCode<TError>(error: TError, code: string): boolean {
+  return parseErrorCode(error) === code
 }
 
 function toRelativePath(filePath: string): string {
@@ -130,7 +131,7 @@ function toRelativePath(filePath: string): string {
 }
 
 async function realpathIfExists(filePath: string): Promise<string | undefined> {
-  return fs.realpath(filePath).catch((error: unknown) => {
+  return fs.realpath(filePath).catch((error) => {
     if (hasErrorCode(error, "ENOENT")) return undefined
     throw error
   })
@@ -151,7 +152,7 @@ async function resolveContainedPath(filePath: string): Promise<string> {
 }
 
 async function readFileBytes(filePath: string): Promise<Uint8Array | undefined> {
-  return fs.readFile(filePath).catch((error: unknown) => {
+  return fs.readFile(filePath).catch((error) => {
     if (hasErrorCode(error, "ENOENT")) return undefined
     throw error
   })

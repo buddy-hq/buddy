@@ -20,8 +20,10 @@ import {
   setRuntimeConfigOverlay,
   type RuntimeConfigOverlayAuthoritativeKey,
   type RuntimeConfigOverlayOptions,
+  type TRuntimeConfigOverlay,
 } from "./config-overlay"
 import { withCurrentInstance } from "./effect-runtime"
+import { isJsonObject, type TJsonObject, type TJsonValue } from "./parse-external"
 
 type RuntimeConfig = ConfigV1.Info & {
   plugin_origins?: OpenCodeConfigPlugin.Origin[]
@@ -33,17 +35,14 @@ const patchedServices = new WeakSet<OpenCodeConfig.Interface>()
 const appliedRuntimeConfigOverlays = new WeakSet<RuntimeConfig>()
 let patchPromise: Promise<void> | undefined
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function mergeRuntimeConfigValueInto(base: unknown, overlay: unknown): unknown {
+function mergeRuntimeConfigValueInto(
+  base: TJsonValue | undefined,
+  overlay: TJsonValue | undefined,
+): TJsonValue | undefined {
   if (overlay === undefined) return base
-  if (!isPlainObject(overlay)) {
-    return overlay
-  }
+  if (!isJsonObject(overlay)) return overlay
 
-  const target: Record<string, unknown> = isPlainObject(base) ? base : {}
+  const target: TJsonObject = isJsonObject(base) ? base : {}
   for (const [key, value] of Object.entries(overlay)) {
     target[key] = mergeRuntimeConfigValueInto(target[key], value)
   }
@@ -54,7 +53,9 @@ function applyRuntimeConfigOverlay(base: RuntimeConfig, overlay: Partial<Runtime
   const baseInstructions = base.instructions ? [...base.instructions] : undefined
   const basePluginOrigins = base.plugin_origins ? [...base.plugin_origins] : []
 
-  mergeRuntimeConfigValueInto(base, overlay)
+  if (isJsonObject(overlay)) {
+    mergeRuntimeConfigValueInto(isJsonObject(base) ? base : {}, overlay)
+  }
 
   if (baseInstructions && overlay.instructions) {
     base.instructions = Array.from(new Set([...baseInstructions, ...overlay.instructions]))
@@ -88,9 +89,9 @@ function runtimeConfigOverlayPluginOrigin(spec: ConfigPluginV1.Spec): OpenCodeCo
   }
 }
 
-function normalizeLoadedConfig(data: unknown) {
-  if (!isPlainObject(data)) return data
-  const copy = { ...data }
+function normalizeLoadedConfig<TData>(data: TData) {
+  if (!isJsonObject(data)) return data
+  const copy: TJsonObject = { ...data }
   const hasDeprecatedTuiKeys = "theme" in copy || "keybinds" in copy || "tui" in copy
   if (!hasDeprecatedTuiKeys) return copy
   delete copy.theme
@@ -126,7 +127,7 @@ function preserveRuntimeConfigPermissionPrecedence(config: RuntimeConfig): Runti
 }
 
 const parseRuntimeConfigOverlay = Effect.fn("BuddyConfig.parseRuntimeConfigOverlay")(
-  function* (input: { directory: string; overlay: unknown }) {
+  function* (input: { directory: string; overlay: TRuntimeConfigOverlay }) {
     const text = JSON.stringify(input.overlay)
     const expanded = yield* Effect.promise(() =>
       OpenCodeConfigVariable.substitute({

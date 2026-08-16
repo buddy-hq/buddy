@@ -1,5 +1,6 @@
 import { realpathSync } from "node:fs"
 import path from "node:path"
+import type { ConfigV1 } from "@opencode-ai/core/v1/config/config"
 
 export const RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS = {
   mcp: "mcp",
@@ -12,8 +13,10 @@ export type RuntimeConfigOverlayOptions = {
   authoritativeKeys?: readonly RuntimeConfigOverlayAuthoritativeKey[]
 }
 
+export type TRuntimeConfigOverlay = Partial<ConfigV1.Info>
+
 export type RuntimeConfigOverlayEntry = {
-  overlay: unknown
+  overlay: TRuntimeConfigOverlay
   authoritativeKeys: readonly RuntimeConfigOverlayAuthoritativeKey[]
 }
 
@@ -31,7 +34,7 @@ export function canonicalizeRuntimeConfigDirectory(directory: string) {
 
 export function setRuntimeConfigOverlay(
   directory: string,
-  overlay: unknown,
+  overlay: TRuntimeConfigOverlay,
   options?: RuntimeConfigOverlayOptions,
 ) {
   overlaysByDirectory.set(canonicalizeRuntimeConfigDirectory(directory), {

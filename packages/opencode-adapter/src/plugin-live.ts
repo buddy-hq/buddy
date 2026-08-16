@@ -189,8 +189,8 @@ function dispatchRuntimeTrigger(
     case "tool.definition":
       return hook["tool.definition"]?.(input, output) ?? Promise.resolve()
     default: {
-      const _exhaustive: never = name
-      return Promise.resolve(_exhaustive)
+      const exhaustiveName: never = name
+      return Promise.resolve(exhaustiveName)
     }
   }
 }

@@ -1,4 +1,5 @@
 import { Option, Schema } from "effect"
+import { hasFunctionValue, type TJsonObject } from "./parse-external"
 
 export const TOOL_PRESENTATION_PHASES = ["pending", "running", "completed", "error"] as const
 export const TOOL_PRESENTATION_ARCHETYPES = [
@@ -89,8 +90,8 @@ export type ToolSilentOutcome = (typeof TOOL_SILENT_OUTCOMES)[number]
 export type ToolPresentationResolutionContext = {
   toolID: string
   phase: ToolPresentationPhase
-  input: Readonly<Record<string, unknown>>
-  metadata: Readonly<Record<string, unknown>>
+  input: Readonly<TJsonObject>
+  metadata: Readonly<TJsonObject>
   title?: string
   output?: string
   error?: string
@@ -288,8 +289,8 @@ export type ToolPresentationSnapshot = Schema.Schema.Type<typeof ToolPresentatio
 
 const INTERRUPTED_PRESENTATION_ACTION = "Interrupted"
 
-export function decodeToolPresentationSnapshot(
-  value: unknown,
+export function decodeToolPresentationSnapshot<TValue>(
+  value: TValue,
 ): ToolPresentationSnapshot | undefined {
   const decoded = Schema.decodeUnknownOption(ToolPresentationSnapshotSchema)(value)
   return Option.isSome(decoded) ? decoded.value : undefined
@@ -384,11 +385,19 @@ function normalizePresentationText(value: string | undefined): string | undefine
   return normalized ? normalized : undefined
 }
 
+function isPresentationDetailResolver(
+  value: ToolPresentationPhaseCopy["detail"],
+): value is ToolPresentationDetailResolver {
+  return hasFunctionValue(value)
+}
+
 function resolvePhaseDetail(
   copy: ToolPresentationPhaseCopy,
   context: ToolPresentationResolutionContext,
 ): string | undefined {
-  const detail = typeof copy.detail === "function" ? copy.detail(context) : copy.detail
+  const detail = isPresentationDetailResolver(copy.detail)
+    ? copy.detail(context)
+    : copy.detail
   return normalizePresentationText(detail)
 }
 

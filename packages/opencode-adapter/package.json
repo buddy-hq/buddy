@@ -62,7 +62,8 @@
     "@parcel/watcher": "2.5.1",
     "ai": "catalog:",
     "effect": "catalog:",
-    "opencode": "workspace:*"
+    "opencode": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

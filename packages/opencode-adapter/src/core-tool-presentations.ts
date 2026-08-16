@@ -1,5 +1,6 @@
 import path from "node:path"
 
+import { isJsonObject, parseStringValue } from "./parse-external"
 import {
   defineToolPresentation,
   type ToolPresentationDescriptor,
@@ -35,9 +36,10 @@ export type CoreToolPresentationID = (typeof CORE_TOOL_PRESENTATION_IDS)[number]
 type LegacyToolPresentationID = (typeof LEGACY_TOOL_PRESENTATION_IDS)[number]
 type IntegratedToolPresentationID = CoreToolPresentationID | LegacyToolPresentationID
 
-function readString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined
-  const normalized = value.trim()
+function readString<TValue>(value: TValue): string | undefined {
+  const parsed = parseStringValue(value)
+  if (parsed === undefined) return undefined
+  const normalized = parsed.trim()
   return normalized ? normalized : undefined
 }
 
@@ -64,9 +66,9 @@ function patchFileDetail(context: ToolPresentationResolutionContext): string | u
   if (files.length > 1) return `${files.length.toLocaleString()} files`
 
   const file = files[0]
-  if (typeof file !== "object" || file === null || Array.isArray(file)) return undefined
-  const relativePath = readString(Reflect.get(file, "relativePath"))
-  const filePath = readString(Reflect.get(file, "filePath"))
+  if (!isJsonObject(file)) return undefined
+  const relativePath = readString(file.relativePath)
+  const filePath = readString(file.filePath)
   const resolvedPath = relativePath ?? filePath
   return resolvedPath ? path.basename(resolvedPath) : undefined
 }

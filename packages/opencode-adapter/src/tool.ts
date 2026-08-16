@@ -1,12 +1,13 @@
 import type * as OpenCodeAgent from "opencode/agent/agent"
 import type * as OpenCodeTruncate from "opencode/tool/truncate"
+import type { TJsonObject } from "./parse-external"
 
 export type ToolContext = {
   ask(input: {
     permission: string
     patterns: string[]
     always: string[]
-    metadata: Record<string, unknown>
+    metadata: TJsonObject
   }): Promise<void>
 }
 

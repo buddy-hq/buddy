@@ -53,7 +53,7 @@ describe("ensureMcpOAuthBrandingPatched", () => {
     }
     const brandedEnd = createMcpOAuthCallbackBrandedEnd(originalEnd)
 
-    Reflect.apply(brandedEnd, undefined, ["response", undefined, callback])
+    brandedEnd("response", undefined, callback)
 
     expect(receivedArgs).toEqual(["response", undefined, callback])
     expect(callbackInvoked).toBe(false)
