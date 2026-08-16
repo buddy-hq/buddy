@@ -270,15 +270,21 @@ type DismissedSelectionPreview = {
 
 /** Map a composer selection-context part onto the shared clip's data shape. */
 function selectionClipDataFromChipPart(part: SelectionContextChipPart): SelectionClipData {
-  return {
-    text: part.text,
-    ...("source" in part && part.source ? { source: part.source } : {}),
-    ...("path" in part && part.path ? { path: part.path } : {}),
-    ...("headingPath" in part && part.headingPath ? { headingPath: part.headingPath } : {}),
-    ...(part.tocLabel ? { tocLabel: part.tocLabel } : {}),
-    ...(part.pageLabel ? { pageLabel: part.pageLabel } : {}),
-    ...(part.locationLabel ? { locationLabel: part.locationLabel } : {}),
-  }
+  return Object.assign(
+    { text: part.text },
+    "source" in part && part.source ? { source: part.source } : undefined,
+    Object.assign(
+      {},
+      "path" in part && part.path ? { path: part.path } : undefined,
+      "headingPath" in part && part.headingPath ? { headingPath: part.headingPath } : undefined,
+    ),
+    Object.assign(
+      {},
+      part.tocLabel ? { tocLabel: part.tocLabel } : undefined,
+      part.pageLabel ? { pageLabel: part.pageLabel } : undefined,
+      part.locationLabel ? { locationLabel: part.locationLabel } : undefined,
+    ),
+  )
 }
 
 function createEmptyPromptDraftState() {

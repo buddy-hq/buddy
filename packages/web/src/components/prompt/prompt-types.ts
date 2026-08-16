@@ -233,11 +233,15 @@ export function readPromptReaderTextAnchor(value: unknown): ReaderTextAnchor | u
   if (value.anchor !== undefined) return readReaderTextAnchor(value.anchor)
   if (typeof value.cfi !== "string") return undefined
 
-  return readReaderTextAnchor({
-    kind: READER_ANCHOR_KIND_CFI_TEXT,
-    cfi: value.cfi,
-    ...(value.index !== undefined ? { sectionIndex: value.index } : {}),
-  })
+  return readReaderTextAnchor(
+    Object.assign(
+      {
+        kind: READER_ANCHOR_KIND_CFI_TEXT,
+        cfi: value.cfi,
+      },
+      value.index !== undefined ? { sectionIndex: value.index } : undefined,
+    ),
+  )
 }
 
 export function readPromptReadingSelectionMetadata(
@@ -252,18 +256,23 @@ export function readPromptReadingSelectionMetadata(
   const anchor = readPromptReaderTextAnchor(candidate)
   if (!anchor) return undefined
 
-  return {
-    type: READING_SELECTION_PART_TYPE,
-    text: candidate.text,
-    ...(typeof candidate.selectionKey === "string" ? { selectionKey: candidate.selectionKey } : {}),
-    ...(typeof candidate.resourceKey === "string" ? { resourceKey: candidate.resourceKey } : {}),
-    anchor,
-    ...(typeof candidate.tocLabel === "string" ? { tocLabel: candidate.tocLabel } : {}),
-    ...(typeof candidate.pageLabel === "string" ? { pageLabel: candidate.pageLabel } : {}),
-    ...(typeof candidate.locationLabel === "string"
-      ? { locationLabel: candidate.locationLabel }
-      : {}),
-  }
+  return Object.assign(
+    {
+      type: READING_SELECTION_PART_TYPE,
+      text: candidate.text,
+      anchor,
+    },
+    typeof candidate.selectionKey === "string" ? { selectionKey: candidate.selectionKey } : undefined,
+    typeof candidate.resourceKey === "string" ? { resourceKey: candidate.resourceKey } : undefined,
+    Object.assign(
+      {},
+      typeof candidate.tocLabel === "string" ? { tocLabel: candidate.tocLabel } : undefined,
+      typeof candidate.pageLabel === "string" ? { pageLabel: candidate.pageLabel } : undefined,
+      typeof candidate.locationLabel === "string"
+        ? { locationLabel: candidate.locationLabel }
+        : undefined,
+    ),
+  )
 }
 
 export function readPromptSelectionContextMetadata(
@@ -282,32 +291,47 @@ export function readPromptSelectionContextMetadata(
   if (typeof candidate.selectionKey !== "string") return undefined
   const headingPath = readStringArray(candidate.headingPath)
   if (candidate.source === "markdown") {
-    return {
+    const markdownSelection: Pick<
+      PromptMarkdownSelectionContextPart,
+      "type" | "source" | "text" | "selectionKey"
+    > = {
       type: SELECTION_CONTEXT_PART_TYPE,
       source: "markdown",
       text: candidate.text,
       selectionKey: candidate.selectionKey,
-      ...(typeof candidate.path === "string" ? { path: candidate.path } : {}),
-      ...(typeof candidate.version === "string" ? { version: candidate.version } : {}),
-      ...(headingPath ? { headingPath } : {}),
     }
+    return Object.assign(
+      markdownSelection,
+      typeof candidate.path === "string" ? { path: candidate.path } : undefined,
+      typeof candidate.version === "string" ? { version: candidate.version } : undefined,
+      headingPath ? { headingPath } : undefined,
+    )
   }
 
   const anchor = readPromptReaderTextAnchor(candidate)
   if (!anchor) return undefined
-  return {
+  const readingSelection: Pick<
+    PromptReadingSelectionContextPart,
+    "type" | "source" | "text" | "selectionKey" | "anchor"
+  > = {
     type: SELECTION_CONTEXT_PART_TYPE,
     source: "reading",
     text: candidate.text,
     selectionKey: candidate.selectionKey,
-    ...(typeof candidate.resourceKey === "string" ? { resourceKey: candidate.resourceKey } : {}),
     anchor,
-    ...(typeof candidate.tocLabel === "string" ? { tocLabel: candidate.tocLabel } : {}),
-    ...(typeof candidate.pageLabel === "string" ? { pageLabel: candidate.pageLabel } : {}),
-    ...(typeof candidate.locationLabel === "string"
-      ? { locationLabel: candidate.locationLabel }
-      : {}),
   }
+  return Object.assign(
+    readingSelection,
+    typeof candidate.resourceKey === "string" ? { resourceKey: candidate.resourceKey } : undefined,
+    Object.assign(
+      {},
+      typeof candidate.tocLabel === "string" ? { tocLabel: candidate.tocLabel } : undefined,
+      typeof candidate.pageLabel === "string" ? { pageLabel: candidate.pageLabel } : undefined,
+      typeof candidate.locationLabel === "string"
+        ? { locationLabel: candidate.locationLabel }
+        : undefined,
+    ),
+  )
 }
 
 export function readPromptNativeResourceAttachmentPart(

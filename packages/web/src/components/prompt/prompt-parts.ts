@@ -93,16 +93,21 @@ function createResourceReferencePart(key: string): PromptResourceReferencePart {
 function createReadingSelectionPart(
   part: Omit<PromptReadingSelectionPart, "type">,
 ): PromptReadingSelectionPart {
-  return {
-    type: READING_SELECTION_PART_TYPE,
-    text: part.text,
-    ...(part.selectionKey ? { selectionKey: part.selectionKey } : {}),
-    ...(part.resourceKey ? { resourceKey: part.resourceKey } : {}),
-    anchor: part.anchor,
-    ...(part.tocLabel ? { tocLabel: part.tocLabel } : {}),
-    ...(part.pageLabel ? { pageLabel: part.pageLabel } : {}),
-    ...(part.locationLabel ? { locationLabel: part.locationLabel } : {}),
-  }
+  return Object.assign(
+    {
+      type: READING_SELECTION_PART_TYPE,
+      text: part.text,
+      anchor: part.anchor,
+    },
+    part.selectionKey ? { selectionKey: part.selectionKey } : undefined,
+    part.resourceKey ? { resourceKey: part.resourceKey } : undefined,
+    Object.assign(
+      {},
+      part.tocLabel ? { tocLabel: part.tocLabel } : undefined,
+      part.pageLabel ? { pageLabel: part.pageLabel } : undefined,
+      part.locationLabel ? { locationLabel: part.locationLabel } : undefined,
+    ),
+  )
 }
 
 type SelectionContextPartInput =
@@ -111,28 +116,35 @@ type SelectionContextPartInput =
 
 function createSelectionContextPart(part: SelectionContextPartInput): PromptSelectionContextPart {
   if (part.source === "markdown") {
-    return {
-      type: SELECTION_CONTEXT_PART_TYPE,
-      source: "markdown",
-      text: part.text,
-      selectionKey: part.selectionKey,
-      ...(part.path ? { path: part.path } : {}),
-      ...(part.version ? { version: part.version } : {}),
-      ...(part.headingPath ? { headingPath: [...part.headingPath] } : {}),
-    }
+    return Object.assign(
+      {
+        type: SELECTION_CONTEXT_PART_TYPE,
+        source: "markdown" as const,
+        text: part.text,
+        selectionKey: part.selectionKey,
+      },
+      part.path ? { path: part.path } : undefined,
+      part.version ? { version: part.version } : undefined,
+      part.headingPath ? { headingPath: [...part.headingPath] } : undefined,
+    )
   }
 
-  return {
-    type: SELECTION_CONTEXT_PART_TYPE,
-    source: "reading",
-    text: part.text,
-    selectionKey: part.selectionKey,
-    ...(part.resourceKey ? { resourceKey: part.resourceKey } : {}),
-    anchor: part.anchor,
-    ...(part.tocLabel ? { tocLabel: part.tocLabel } : {}),
-    ...(part.pageLabel ? { pageLabel: part.pageLabel } : {}),
-    ...(part.locationLabel ? { locationLabel: part.locationLabel } : {}),
-  }
+  return Object.assign(
+    {
+      type: SELECTION_CONTEXT_PART_TYPE,
+      source: "reading" as const,
+      text: part.text,
+      selectionKey: part.selectionKey,
+      anchor: part.anchor,
+    },
+    part.resourceKey ? { resourceKey: part.resourceKey } : undefined,
+    Object.assign(
+      {},
+      part.tocLabel ? { tocLabel: part.tocLabel } : undefined,
+      part.pageLabel ? { pageLabel: part.pageLabel } : undefined,
+      part.locationLabel ? { locationLabel: part.locationLabel } : undefined,
+    ),
+  )
 }
 
 function optionalReaderTextAnchorsEqual(left: unknown, right: unknown): boolean {
@@ -381,10 +393,12 @@ function readElementReaderTextAnchor(element: HTMLElement): ReaderTextAnchor | u
   if (serializedAnchor !== undefined) return readSerializedReaderTextAnchor(serializedAnchor)
 
   const sectionIndex = readDatasetNumber(element.dataset.index)
-  return readPromptReaderTextAnchor({
-    cfi: element.dataset.cfi,
-    ...(sectionIndex !== undefined ? { index: sectionIndex } : {}),
-  })
+  return readPromptReaderTextAnchor(
+    Object.assign(
+      { cfi: element.dataset.cfi },
+      sectionIndex !== undefined ? { index: sectionIndex } : undefined,
+    ),
+  )
 }
 
 function readDatasetStringArray(value: string | undefined) {
@@ -483,17 +497,25 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       const anchor = readElementReaderTextAnchor(element)
       if (text && anchor) {
         parts.push(
-          createReadingSelectionPart({
-            text,
-            anchor,
-            ...(element.dataset.selectionKey ? { selectionKey: element.dataset.selectionKey } : {}),
-            ...(element.dataset.resourceKey ? { resourceKey: element.dataset.resourceKey } : {}),
-            ...(element.dataset.tocLabel ? { tocLabel: element.dataset.tocLabel } : {}),
-            ...(element.dataset.pageLabel ? { pageLabel: element.dataset.pageLabel } : {}),
-            ...(element.dataset.locationLabel
-              ? { locationLabel: element.dataset.locationLabel }
-              : {}),
-          }),
+          createReadingSelectionPart(
+            Object.assign(
+              { text, anchor },
+              element.dataset.selectionKey
+                ? { selectionKey: element.dataset.selectionKey }
+                : undefined,
+              element.dataset.resourceKey
+                ? { resourceKey: element.dataset.resourceKey }
+                : undefined,
+              Object.assign(
+                {},
+                element.dataset.tocLabel ? { tocLabel: element.dataset.tocLabel } : undefined,
+                element.dataset.pageLabel ? { pageLabel: element.dataset.pageLabel } : undefined,
+                element.dataset.locationLabel
+                  ? { locationLabel: element.dataset.locationLabel }
+                  : undefined,
+              ),
+            ),
+          ),
         )
       }
       return
@@ -507,32 +529,36 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       if (text && source === "markdown" && selectionKey) {
         const headingPath = readDatasetStringArray(element.dataset.headingPath)
         parts.push(
-          createSelectionContextPart({
-            source,
-            text,
-            selectionKey,
-            ...(element.dataset.path ? { path: element.dataset.path } : {}),
-            ...(element.dataset.version ? { version: element.dataset.version } : {}),
-            ...(headingPath ? { headingPath } : {}),
-          }),
+          createSelectionContextPart(
+            Object.assign(
+              { source: "markdown" as const, text, selectionKey },
+              element.dataset.path ? { path: element.dataset.path } : undefined,
+              element.dataset.version ? { version: element.dataset.version } : undefined,
+              headingPath ? { headingPath } : undefined,
+            ),
+          ),
         )
       }
       if (text && source === "reading" && selectionKey) {
         const anchor = readElementReaderTextAnchor(element)
         if (!anchor) return
         parts.push(
-          createSelectionContextPart({
-            source,
-            text,
-            selectionKey,
-            anchor,
-            ...(element.dataset.resourceKey ? { resourceKey: element.dataset.resourceKey } : {}),
-            ...(element.dataset.tocLabel ? { tocLabel: element.dataset.tocLabel } : {}),
-            ...(element.dataset.pageLabel ? { pageLabel: element.dataset.pageLabel } : {}),
-            ...(element.dataset.locationLabel
-              ? { locationLabel: element.dataset.locationLabel }
-              : {}),
-          }),
+          createSelectionContextPart(
+            Object.assign(
+              { source: "reading" as const, text, selectionKey, anchor },
+              element.dataset.resourceKey
+                ? { resourceKey: element.dataset.resourceKey }
+                : undefined,
+              Object.assign(
+                {},
+                element.dataset.tocLabel ? { tocLabel: element.dataset.tocLabel } : undefined,
+                element.dataset.pageLabel ? { pageLabel: element.dataset.pageLabel } : undefined,
+                element.dataset.locationLabel
+                  ? { locationLabel: element.dataset.locationLabel }
+                  : undefined,
+              ),
+            ),
+          ),
         )
       }
       return
