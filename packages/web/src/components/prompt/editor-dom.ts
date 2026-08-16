@@ -10,29 +10,39 @@ import {
 
 const MAX_BREAKS = 200
 
-function getStructuredPromptLength(node: Node): number | undefined {
-  if (node.nodeType !== Node.ELEMENT_NODE) return undefined
+function isBreakNode(node: Node): boolean {
+  return node.nodeType === Node.ELEMENT_NODE && node.nodeName === "BR"
+}
 
-  const element = node as HTMLElement
+function isStructuredPromptNode(node: Node): boolean {
+  if (!(node instanceof HTMLElement)) return false
+  return (
+    node.dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
+    node.dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
+    node.dataset.type === PROMPT_PART_TYPE_AGENT ||
+    node.dataset.type === PROMPT_PART_TYPE_SKILL ||
+    node.dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
+    node.dataset.type === SELECTION_CONTEXT_PART_TYPE ||
+    node.dataset.type === READING_SELECTION_PART_TYPE
+  )
+}
+
+function getStructuredPromptLength(node: Node): number | undefined {
+  if (!(node instanceof HTMLElement)) return undefined
+
   if (
-    element.dataset.type === READING_SELECTION_PART_TYPE ||
-    element.dataset.type === SELECTION_CONTEXT_PART_TYPE
+    node.dataset.type === READING_SELECTION_PART_TYPE ||
+    node.dataset.type === SELECTION_CONTEXT_PART_TYPE
   ) {
-    return `"${element.dataset.text ?? ""}"`.length
+    return `"${node.dataset.text ?? ""}"`.length
   }
-  if (
-    element.dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
-    element.dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
-    element.dataset.type === PROMPT_PART_TYPE_AGENT ||
-    element.dataset.type === PROMPT_PART_TYPE_SKILL ||
-    element.dataset.type === RESOURCE_REFERENCE_PART_TYPE
-  ) {
+  if (isStructuredPromptNode(node)) {
     // A pill's logical length is its serialized text (e.g. `@full/path`), which
     // can differ from what it renders (a short basename + icon). Prefer the
     // serialized form so cursor math stays correct regardless of the display.
-    const serialized = element.dataset.serialized
+    const serialized = node.dataset.serialized
     if (serialized !== undefined) return serialized.length
-    return (element.textContent ?? "").replace(/\u200B/g, "").length
+    return (node.textContent ?? "").replace(/\u200B/g, "").length
   }
 
   return undefined
@@ -66,7 +76,7 @@ export function createTextFragment(content: string): DocumentFragment {
 }
 
 export function getNodeLength(node: Node): number {
-  if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR") return 1
+  if (isBreakNode(node)) return 1
   const structuredLength = getStructuredPromptLength(node)
   if (structuredLength !== undefined) return structuredLength
   return (node.textContent ?? "").replace(/\u200B/g, "").length
@@ -75,7 +85,7 @@ export function getNodeLength(node: Node): number {
 export function getTextLength(node: Node): number {
   if (node.nodeType === Node.TEXT_NODE)
     return (node.textContent ?? "").replace(/\u200B/g, "").length
-  if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR") return 1
+  if (isBreakNode(node)) return 1
   const structuredLength = getStructuredPromptLength(node)
   if (structuredLength !== undefined) return structuredLength
 
@@ -147,16 +157,8 @@ export function setCursorPosition(parent: HTMLElement, position: number) {
   while (node) {
     const length = getNodeLength(node)
     const isText = node.nodeType === Node.TEXT_NODE
-    const isStructured =
-      node.nodeType === Node.ELEMENT_NODE &&
-      ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
-        (node as HTMLElement).dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
-        (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
-        (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_SKILL ||
-        (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
-        (node as HTMLElement).dataset.type === SELECTION_CONTEXT_PART_TYPE ||
-        (node as HTMLElement).dataset.type === READING_SELECTION_PART_TYPE)
-    const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
+    const isStructured = isStructuredPromptNode(node)
+    const isBreak = isBreakNode(node)
 
     if (isText && remaining <= length) {
       const range = document.createRange()
@@ -221,16 +223,8 @@ export function setRangeEdge(
   for (const node of Array.from(parent.childNodes)) {
     const length = getNodeLength(node)
     const isText = node.nodeType === Node.TEXT_NODE
-    const isStructured =
-      node.nodeType === Node.ELEMENT_NODE &&
-      ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
-        (node as HTMLElement).dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
-        (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
-        (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_SKILL ||
-        (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
-        (node as HTMLElement).dataset.type === SELECTION_CONTEXT_PART_TYPE ||
-        (node as HTMLElement).dataset.type === READING_SELECTION_PART_TYPE)
-    const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
+    const isStructured = isStructuredPromptNode(node)
+    const isBreak = isBreakNode(node)
 
     if (isText && remaining <= length) {
       if (edge === "start") range.setStart(node, remaining)
