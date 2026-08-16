@@ -192,7 +192,7 @@ function applyTemporaryEnvironment(environment: Record<string, string>): () => v
   }
 }
 
-function openCodeImportEnvironment(): Record<string, string> {
+function openCodeImportEnvironment() {
   return {
     [XDG_ENV.DATA_HOME]: BUDDY_DATA_DIR,
     [XDG_ENV.CACHE_HOME]: BUDDY_CACHE_DIR,

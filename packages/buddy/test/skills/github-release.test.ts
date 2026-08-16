@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
   ensureGitHubReleaseExists,
-  type GitHubReleaseDependencies,
   type GitHubReleaseTarget,
 } from "../../script/github-release"
 
@@ -16,7 +15,7 @@ const TARGET: GitHubReleaseTarget = {
 function createDependencies(input: {
   createStatus?: number | null
   responseStatuses: readonly number[]
-}): { createCount: () => number; dependencies: GitHubReleaseDependencies } {
+}) {
   const responseStatuses = [...input.responseStatuses]
   let createCount = 0
 

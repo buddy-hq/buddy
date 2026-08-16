@@ -89,7 +89,7 @@ const svgRenderingErrorSchema = z
   })
   .strict()
 
-function invalidRequest(message: string): { error: string } {
+function invalidRequest(message: string) {
   return { error: message }
 }
 

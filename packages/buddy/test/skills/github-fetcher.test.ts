@@ -9,6 +9,11 @@ import {
 
 const COMMIT_SHA = "0123456789abcdef0123456789abcdef01234567"
 
+type MockGitRunner = {
+  commands: string[][]
+  runGit: GitCommandRunner
+}
+
 function githubSource(pathValue: string): SkillSourceRef {
   return {
     type: "github",
@@ -18,10 +23,7 @@ function githubSource(pathValue: string): SkillSourceRef {
   }
 }
 
-function mockGitRunner(onCheckout: (cwd: string) => Promise<void>): {
-  commands: string[][]
-  runGit: GitCommandRunner
-} {
+function mockGitRunner(onCheckout: (cwd: string) => Promise<void>): MockGitRunner {
   const commands: string[][] = []
   return {
     commands,

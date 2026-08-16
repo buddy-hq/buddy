@@ -37,20 +37,14 @@ function chemistryErrorResponse(description: string) {
   }
 }
 
-function chemistryValidationError(message: string): {
-  error: string
-  code: "invalid_source"
-} {
+function chemistryValidationError(message: string) {
   return {
     error: message,
     code: "invalid_source",
   }
 }
 
-function requestBodyTooLargeResponse(): {
-  error: string
-  code: "source_too_large"
-} {
+function requestBodyTooLargeResponse() {
   return {
     error: `chemfig request body exceeds the ${CHEMFIG_MAX_REQUEST_BODY_BYTES}-byte limit.`,
     code: "source_too_large",

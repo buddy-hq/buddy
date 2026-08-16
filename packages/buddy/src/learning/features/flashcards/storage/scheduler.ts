@@ -376,7 +376,7 @@ function passingReviewIntervals(input: {
   card: FlashcardCard
   config: DeckConfig
   timing: SchedulerTiming
-}): { hard: number; good: number; easy: number } {
+}) {
   const currentInterval = Math.max(1, input.card.interval)
   const daysLate = schedulingDaysLate(input.card.due, input.timing.now, input.config.rolloverHour)
   const fuzzFactor = stableFuzzFactor(input.card.cardID, input.card.reps)
