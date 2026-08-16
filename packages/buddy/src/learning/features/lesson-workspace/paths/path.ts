@@ -44,9 +44,15 @@ const LANGUAGE_EXTENSIONS = {
   xml: ".xml",
 } satisfies Record<TeachingLanguage, string>
 
-const EXTENSION_TO_LANGUAGE = Object.fromEntries(
-  Object.entries(LANGUAGE_EXTENSIONS).map(([language, extension]) => [extension, language]),
-) as Record<string, TeachingLanguage>
+function isTeachingLanguage(value: string): value is TeachingLanguage {
+  return value in LANGUAGE_EXTENSIONS
+}
+
+const EXTENSION_TO_LANGUAGE: { [extension: string]: TeachingLanguage } = {}
+for (const language of Object.keys(LANGUAGE_EXTENSIONS)) {
+  if (!isTeachingLanguage(language)) continue
+  EXTENSION_TO_LANGUAGE[LANGUAGE_EXTENSIONS[language]] = language
+}
 const DOT_PATH_SEGMENTS = new Set([".", ".."])
 
 EXTENSION_TO_LANGUAGE[".yaml"] = "yaml"

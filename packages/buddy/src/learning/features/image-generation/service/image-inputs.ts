@@ -1,5 +1,6 @@
 import fs from "node:fs/promises"
 import path from "node:path"
+import z from "zod"
 import type { MessageV2 } from "@buddy/opencode-adapter/message"
 import { mimeTypeForPath } from "../../../../http/mime"
 import { resolveTrustedGeneratedImagePath } from "./generated-image-authorization"
@@ -44,9 +45,9 @@ function imageSourcesFromPart(part: MessageV2.Part): RecentImageSource[] {
   )
   if (attachments.length > 0) return attachments
 
-  const savedPath = part.state.metadata.savedPath
-  return part.tool === "imagegen" && typeof savedPath === "string"
-    ? [{ type: "path", value: savedPath }]
+  const savedPathParsed = z.string().safeParse(part.state.metadata.savedPath)
+  return part.tool === "imagegen" && savedPathParsed.success
+    ? [{ type: "path", value: savedPathParsed.data }]
     : []
 }
 

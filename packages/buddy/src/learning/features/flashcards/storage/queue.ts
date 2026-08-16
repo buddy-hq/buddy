@@ -34,18 +34,20 @@ function effectiveCardQueue(card: FlashcardCard): CardQueue {
 }
 
 function flashcardQueueCardSnapshot(card: FlashcardCard): FlashcardQueueCardSnapshot {
-  return {
-    cardID: card.cardID,
-    state: card.state,
-    ...(card.queue === undefined ? {} : { queue: card.queue }),
-    due: card.due,
-    interval: card.interval,
-    easeFactor: card.easeFactor,
-    reps: card.reps,
-    lapses: card.lapses,
-    remainingSteps: card.remainingSteps,
-    ...(card.lastReviewAt === undefined ? {} : { lastReviewAt: card.lastReviewAt }),
-  }
+  return Object.assign(
+    {
+      cardID: card.cardID,
+      state: card.state,
+      due: card.due,
+      interval: card.interval,
+      easeFactor: card.easeFactor,
+      reps: card.reps,
+      lapses: card.lapses,
+      remainingSteps: card.remainingSteps,
+    },
+    card.queue === undefined ? undefined : { queue: card.queue },
+    card.lastReviewAt === undefined ? undefined : { lastReviewAt: card.lastReviewAt },
+  )
 }
 
 function createFlashcardQueueLease(card: FlashcardCard, queuedAt: number): FlashcardQueueLease {

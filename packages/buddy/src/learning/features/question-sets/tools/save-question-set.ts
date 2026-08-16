@@ -54,8 +54,15 @@ const SaveQuestionSetInputSchema = z.object({
 
 type SaveQuestionSetInput = z.infer<typeof SaveQuestionSetInputSchema>
 
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
 function createdByCallID(ctx: BuddyToolContext): string {
-  return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
+  const callID = ctx.callID
+  if (callID !== undefined && callID.trim().length > 0) return callID
+  return "unknown"
 }
 
 function buildSaveQuestionSetObjectResult(input: {
@@ -114,19 +121,19 @@ const saveQuestionSetTool = createBuddyTool({
     phases: {
       pending: {
         action: "Saving question set",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       running: {
         action: "Saving question set",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       completed: {
         action: "Saved question set",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       error: {
         action: "Failed to save question set",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
     },
   },
@@ -146,23 +153,25 @@ const saveQuestionSetTool = createBuddyTool({
 
     const saved = await saveQuestionSetObject({
       directory: ctx.directory,
-      payload: {
-        objectID,
-        kind: BUDDY_OBJECT_KINDS.questionSet,
-        groupType: parsed.groupType ?? "quiz",
-        title: parsed.title,
-        ...(parsed.instructions ? { instructions: parsed.instructions } : {}),
-        ...(parsed.contextSummary ? { contextSummary: parsed.contextSummary } : {}),
-        createdAt,
-        createdBy: {
-          kind: "tool",
-          sessionID: String(ctx.sessionID),
-          messageID: String(ctx.messageID),
-          callID: createdByCallID(ctx),
-          subagent: QUESTION_SET_SUBAGENT_ID,
+      payload: Object.assign(
+        {
+          objectID,
+          kind: BUDDY_OBJECT_KINDS.questionSet,
+          groupType: parsed.groupType ?? "quiz",
+          title: parsed.title,
+          createdAt,
+          createdBy: {
+            kind: "tool" as const,
+            sessionID: String(ctx.sessionID),
+            messageID: String(ctx.messageID),
+            callID: createdByCallID(ctx),
+            subagent: QUESTION_SET_SUBAGENT_ID,
+          },
+          questions: parsed.questions,
         },
-        questions: parsed.questions,
-      },
+        parsed.instructions ? { instructions: parsed.instructions } : undefined,
+        parsed.contextSummary ? { contextSummary: parsed.contextSummary } : undefined,
+      ),
     })
 
     const buddyObjectResult = buildSaveQuestionSetObjectResult({

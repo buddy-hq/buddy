@@ -37,7 +37,7 @@ async function readGoalStore(directory: string): Promise<GoalStore> {
   const filePath = goalsFile(directory)
   const raw = await fs.readFile(filePath, "utf8").catch(() => undefined)
   if (!raw) return { schemaVersion: 1, goals: [] }
-  return GoalStoreSchema.parse(JSON.parse(raw) as unknown)
+  return GoalStoreSchema.parse(JSON.parse(raw))
 }
 
 async function writeGoalStore(directory: string, store: GoalStore): Promise<void> {

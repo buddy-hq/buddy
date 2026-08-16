@@ -7,6 +7,11 @@ import { TeachingLanguageSchema, type TeachingLanguage } from "../model/types"
 import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
 import { executeWriteWithoutPrompt } from "./write-without-prompt"
 
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
 const teachingAddFileTool = createBuddyTool({
   id: "teaching_add_file",
   description: ADD_FILE_DESCRIPTION,
@@ -31,23 +36,19 @@ const teachingAddFileTool = createBuddyTool({
     phases: {
       pending: {
         action: "Adding",
-        detail: ({ input }) =>
-          typeof input.relativePath === "string" ? input.relativePath : undefined,
+        detail: ({ input }) => parseToolInputString(input.relativePath),
       },
       running: {
         action: "Adding",
-        detail: ({ input }) =>
-          typeof input.relativePath === "string" ? input.relativePath : undefined,
+        detail: ({ input }) => parseToolInputString(input.relativePath),
       },
       completed: {
         action: "Added",
-        detail: ({ input }) =>
-          typeof input.relativePath === "string" ? input.relativePath : undefined,
+        detail: ({ input }) => parseToolInputString(input.relativePath),
       },
       error: {
         action: "Failed to add",
-        detail: ({ input }) =>
-          typeof input.relativePath === "string" ? input.relativePath : undefined,
+        detail: ({ input }) => parseToolInputString(input.relativePath),
       },
     },
     summary: {

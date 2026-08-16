@@ -1,3 +1,4 @@
+import z from "zod"
 import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,
@@ -5,65 +6,30 @@ import {
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
 } from "./constants"
 
-export type KnowledgeGraphArtifactManifest = {
-  archiveChecksum: string
-  archiveFilename: string
-  archiveSizeBytes: number
-  builtAt: string
-  databaseChecksum: string
-  databaseFilename: string
-  databaseSizeBytes: number
-  nodesURL: string
-  relationshipsURL: string
-  schemaVersion: string
-  version: string
-}
+const nonEmptyStringSchema = z.string().refine((value) => value.trim().length > 0)
+const nonNegativeIntegerSchema = z.number().int().nonnegative()
 
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0
-}
+const knowledgeGraphArtifactManifestSchema = z.object({
+  archiveChecksum: nonEmptyStringSchema,
+  archiveFilename: nonEmptyStringSchema,
+  archiveSizeBytes: nonNegativeIntegerSchema,
+  builtAt: nonEmptyStringSchema,
+  databaseChecksum: nonEmptyStringSchema,
+  databaseFilename: nonEmptyStringSchema,
+  databaseSizeBytes: nonNegativeIntegerSchema,
+  nodesURL: nonEmptyStringSchema,
+  relationshipsURL: nonEmptyStringSchema,
+  schemaVersion: nonEmptyStringSchema,
+  version: nonEmptyStringSchema,
+})
 
-function isPositiveInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0
-}
+export type KnowledgeGraphArtifactManifest = z.infer<typeof knowledgeGraphArtifactManifestSchema>
 
-export function parseKnowledgeGraphArtifactManifest(
-  value: unknown,
+export function parseKnowledgeGraphArtifactManifest<TValue>(
+  value: TValue,
 ): KnowledgeGraphArtifactManifest | undefined {
-  if (typeof value !== "object" || value === null) {
-    return undefined
-  }
-
-  const record = value as Record<string, unknown>
-  if (
-    !isNonEmptyString(record.archiveChecksum) ||
-    !isNonEmptyString(record.archiveFilename) ||
-    !isPositiveInteger(record.archiveSizeBytes) ||
-    !isNonEmptyString(record.builtAt) ||
-    !isNonEmptyString(record.databaseChecksum) ||
-    !isNonEmptyString(record.databaseFilename) ||
-    !isPositiveInteger(record.databaseSizeBytes) ||
-    !isNonEmptyString(record.nodesURL) ||
-    !isNonEmptyString(record.relationshipsURL) ||
-    !isNonEmptyString(record.schemaVersion) ||
-    !isNonEmptyString(record.version)
-  ) {
-    return undefined
-  }
-
-  return {
-    archiveChecksum: record.archiveChecksum,
-    archiveFilename: record.archiveFilename,
-    archiveSizeBytes: record.archiveSizeBytes,
-    builtAt: record.builtAt,
-    databaseChecksum: record.databaseChecksum,
-    databaseFilename: record.databaseFilename,
-    databaseSizeBytes: record.databaseSizeBytes,
-    nodesURL: record.nodesURL,
-    relationshipsURL: record.relationshipsURL,
-    schemaVersion: record.schemaVersion,
-    version: record.version,
-  }
+  const parsed = knowledgeGraphArtifactManifestSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
 export function createKnowledgeGraphArtifactManifest(input: {

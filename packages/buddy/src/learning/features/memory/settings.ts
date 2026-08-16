@@ -37,11 +37,11 @@ function readLearnerMemorySettings(
 ): LearnerMemorySettings {
   const learnerMemory = config.learner_memory
   const extractModel =
-    typeof learnerMemory?.extract_model === "string" && learnerMemory.extract_model.length > 0
+    learnerMemory?.extract_model !== undefined && learnerMemory.extract_model.length > 0
       ? learnerMemory.extract_model
       : undefined
   const consolidationModel =
-    typeof learnerMemory?.consolidation_model === "string" &&
+    learnerMemory?.consolidation_model !== undefined &&
     learnerMemory.consolidation_model.length > 0
       ? learnerMemory.consolidation_model
       : undefined

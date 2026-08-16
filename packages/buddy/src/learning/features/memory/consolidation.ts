@@ -71,7 +71,7 @@ const CONSOLIDATION_OUTPUT_JSON_SCHEMA = {
     rationale: { type: "string" },
   },
   required: ["selectedCandidateIds", "rejectedCandidateIds", "filesWritten", "rationale"],
-} satisfies Record<string, unknown>
+}
 
 const ConsolidationModelOutputSchema = z.object({
   selectedCandidateIds: z.array(z.string().min(1)),

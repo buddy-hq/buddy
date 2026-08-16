@@ -30,7 +30,9 @@ const knowledgeGraphLockfileSchema = z.object({
 
 export type KnowledgeGraphLockfile = z.infer<typeof knowledgeGraphLockfileSchema>
 
-export function parseKnowledgeGraphLockfile(value: unknown): KnowledgeGraphLockfile | undefined {
+export function parseKnowledgeGraphLockfile<TValue>(
+  value: TValue,
+): KnowledgeGraphLockfile | undefined {
   const parsed = knowledgeGraphLockfileSchema.safeParse(value)
   return parsed.success ? parsed.data : undefined
 }

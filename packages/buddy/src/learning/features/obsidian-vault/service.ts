@@ -260,7 +260,7 @@ function aliasesFromFrontmatter(source: string): string[] {
     const data: unknown = matter(source).data
     const parsed = obsidianAliasesSchema.safeParse(data)
     if (!parsed.success || parsed.data.aliases === undefined) return []
-    return typeof parsed.data.aliases === "string" ? [parsed.data.aliases] : parsed.data.aliases
+    return Array.isArray(parsed.data.aliases) ? parsed.data.aliases : [parsed.data.aliases]
   } catch {
     return []
   }
@@ -458,7 +458,7 @@ function enqueueVaultIndexUpdate(
         invalidateVaultIndexEntry(directory, entry)
       }
     })
-    .catch((error: unknown) => {
+    .catch((error) => {
       invalidateVaultIndexEntry(directory, entry)
       const message = error instanceof Error ? error.message : String(error)
       console.warn(`Obsidian vault index update failed: ${message}`)
@@ -483,7 +483,7 @@ function createObsidianVaultIndexEntry(directory: string): ObsidianVaultIndexCac
       onUpdate(update) {
         void enqueueVaultIndexUpdate(directory, entry, update)
       },
-    }).catch((error: unknown) => {
+    }).catch((error) => {
       const message = error instanceof Error ? error.message : String(error)
       console.warn(`Obsidian vault watcher unavailable: ${message}`)
       return undefined
@@ -491,7 +491,7 @@ function createObsidianVaultIndexEntry(directory: string): ObsidianVaultIndexCac
   )
   const task = Promise.all([detectionTask, subscriptionTask])
     .then(([detection]) => buildObsidianVaultIndex(directory, detection))
-    .catch((error: unknown) => {
+    .catch((error) => {
       invalidateVaultIndexEntry(directory, entry)
       throw error
     })
@@ -519,17 +519,22 @@ async function getObsidianVaultIndex(directory: string): Promise<ObsidianVaultIn
   return index
 }
 
-function parseObsidianTarget(target: string) {
+type TObsidianParsedTarget = {
+  file: string
+  fragment?: string
+}
+
+function parseObsidianTarget(target: string): TObsidianParsedTarget {
   const normalized = target.trim()
   const fragmentStart = normalized.indexOf("#")
   if (fragmentStart < 0) {
     return { file: normalized }
   }
   const fragment = normalized.slice(fragmentStart + 1).trim()
-  return {
-    file: normalized.slice(0, fragmentStart).trim(),
-    ...(fragment ? { fragment } : {}),
-  }
+  return Object.assign(
+    { file: normalized.slice(0, fragmentStart).trim() },
+    fragment ? { fragment } : undefined,
+  )
 }
 
 function selectBestEntry(
@@ -623,13 +628,15 @@ async function resolveTargetsWithIndex(input: {
           links[linkIndex] = { target, status: "unresolved" }
           continue
         }
-        links[linkIndex] = {
-          target,
-          status: "resolved",
-          path: entry.path,
-          kind: resolvedLinkKind(entry),
-          ...(parsed.fragment ? { fragment: parsed.fragment } : {}),
-        }
+        links[linkIndex] = Object.assign(
+          {
+            target,
+            status: "resolved" as const,
+            path: entry.path,
+            kind: resolvedLinkKind(entry),
+          },
+          parsed.fragment ? { fragment: parsed.fragment } : undefined,
+        )
       }
     }),
   )

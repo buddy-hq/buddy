@@ -33,7 +33,7 @@ class WhiteboardStaleLearnerEditError extends Error {
   }
 }
 
-function mapWhiteboardRouteError(error: unknown): Response | undefined {
+function mapWhiteboardRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof WhiteboardPayloadTooLargeError) {
     return Response.json({ error: error.message }, { status: 400 })
   }

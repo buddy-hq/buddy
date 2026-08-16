@@ -200,10 +200,10 @@ function renderGeometryFigure(spec: GeometryFigureSpec): string {
   const polygonElements = (spec.polygons ?? [])
     .map((polygon) => {
       const polygonPoints = polygon.points.map((pointID) => points.get(pointID)!)
-      const shape = `<polygon points="${polygonPoints.map(pointRef).join(" ")}" fill="${polygon.fill === "shade" ? "#dbeafe" : "none"}" stroke="#1d4ed8" stroke-width="2" ${polygon.outline === "dashed" ? 'stroke-dasharray="6 4"' : ""} />`
+      const polygonMarkup = `<polygon points="${polygonPoints.map(pointRef).join(" ")}" fill="${polygon.fill === "shade" ? "#dbeafe" : "none"}" stroke="#1d4ed8" stroke-width="2" ${polygon.outline === "dashed" ? 'stroke-dasharray="6 4"' : ""} />`
 
       if (!polygon.label) {
-        return shape
+        return polygonMarkup
       }
 
       const centroid = polygonPoints.reduce(
@@ -214,7 +214,7 @@ function renderGeometryFigure(spec: GeometryFigureSpec): string {
         { x: 0, y: 0 },
       )
 
-      return `${shape}${renderText(polygon.label, centroid.x, centroid.y)}`
+      return `${polygonMarkup}${renderText(polygon.label, centroid.x, centroid.y)}`
     })
     .join("")
 

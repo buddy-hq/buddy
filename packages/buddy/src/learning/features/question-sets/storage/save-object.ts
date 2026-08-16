@@ -117,35 +117,47 @@ function validateQuestionSetPayload(input: { title: string; questions: SavedQues
 function toPublicQuestionSetObject(payload: QuestionSetObjectPayload): PublicQuestionSetObject {
   const publicPayload = {
     ...payload,
-    questions: payload.questions.map((question) => ({
-      id: question.id,
-      type: question.type,
-      prompt: question.prompt,
-      goalIds: [...question.goalIds],
-      ...(question.explanation ? { explanation: question.explanation } : {}),
-      payload: {
-        multipleSelect: question.payload.multipleSelect,
-        ...(question.payload.countChoices !== undefined
-          ? { countChoices: question.payload.countChoices }
-          : {}),
-        ...(question.payload.numCorrect !== undefined
-          ? { numCorrect: question.payload.numCorrect }
-          : {}),
-        ...(question.payload.hasNoneOfTheAbove !== undefined
-          ? { hasNoneOfTheAbove: question.payload.hasNoneOfTheAbove }
-          : {}),
-        ...(question.payload.randomize !== undefined
-          ? { randomize: question.payload.randomize }
-          : {}),
-        choices: question.payload.choices.map((choice) => ({
-          id: choice.id,
-          content: choice.content,
-          ...(choice.isNoneOfTheAbove !== undefined
-            ? { isNoneOfTheAbove: choice.isNoneOfTheAbove }
-            : {}),
-        })),
-      },
-    })),
+    questions: payload.questions.map((question) =>
+      Object.assign(
+        {
+          id: question.id,
+          type: question.type,
+          prompt: question.prompt,
+          goalIds: [...question.goalIds],
+          payload: Object.assign(
+            Object.assign(
+              {
+                multipleSelect: question.payload.multipleSelect,
+                choices: question.payload.choices.map((choice) =>
+                  Object.assign(
+                    {
+                      id: choice.id,
+                      content: choice.content,
+                    },
+                    choice.isNoneOfTheAbove !== undefined
+                      ? { isNoneOfTheAbove: choice.isNoneOfTheAbove }
+                      : undefined,
+                  ),
+                ),
+              },
+              question.payload.countChoices !== undefined
+                ? { countChoices: question.payload.countChoices }
+                : undefined,
+              question.payload.numCorrect !== undefined
+                ? { numCorrect: question.payload.numCorrect }
+                : undefined,
+              question.payload.hasNoneOfTheAbove !== undefined
+                ? { hasNoneOfTheAbove: question.payload.hasNoneOfTheAbove }
+                : undefined,
+            ),
+            question.payload.randomize !== undefined
+              ? { randomize: question.payload.randomize }
+              : undefined,
+          ),
+        },
+        question.explanation ? { explanation: question.explanation } : undefined,
+      ),
+    ),
   }
 
   return PublicQuestionSetObjectReadSchema.parse(publicPayload)

@@ -55,6 +55,11 @@ const RenderSvgInputSchema = z
 
 type RenderSvgInput = z.infer<typeof RenderSvgInputSchema>
 
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
 function renderSvgOutput(filePath: string, warnings: readonly string[]): string {
   return [`Rendered SVG to ${filePath}.`, ...warnings.map((warning) => `Warning: ${warning}`)].join(
     "\n",
@@ -88,23 +93,31 @@ const renderSvgTool = createBuddyTool({
     phases: {
       pending: {
         action: "Rendering SVG",
-        detail: ({ input }) =>
-          typeof input.filePath === "string" ? path.basename(input.filePath) : undefined,
+        detail: ({ input }) => {
+          const filePath = parseToolInputString(input.filePath)
+          return filePath === undefined ? undefined : path.basename(filePath)
+        },
       },
       running: {
         action: "Rendering SVG",
-        detail: ({ input }) =>
-          typeof input.filePath === "string" ? path.basename(input.filePath) : undefined,
+        detail: ({ input }) => {
+          const filePath = parseToolInputString(input.filePath)
+          return filePath === undefined ? undefined : path.basename(filePath)
+        },
       },
       completed: {
         action: "Rendered SVG",
-        detail: ({ input }) =>
-          typeof input.filePath === "string" ? path.basename(input.filePath) : undefined,
+        detail: ({ input }) => {
+          const filePath = parseToolInputString(input.filePath)
+          return filePath === undefined ? undefined : path.basename(filePath)
+        },
       },
       error: {
         action: "Failed to render SVG",
-        detail: ({ input }) =>
-          typeof input.filePath === "string" ? path.basename(input.filePath) : undefined,
+        detail: ({ input }) => {
+          const filePath = parseToolInputString(input.filePath)
+          return filePath === undefined ? undefined : path.basename(filePath)
+        },
       },
     },
     summary: {

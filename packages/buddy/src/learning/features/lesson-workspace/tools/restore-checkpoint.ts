@@ -30,7 +30,7 @@ const teachingRestoreCheckpointTool = createBuddyTool({
   constraints: {
     teachingWorkspace: "active",
   },
-  async execute(_params: unknown, ctx: BuddyToolContext) {
+  async execute(_params, ctx: BuddyToolContext) {
     try {
       const current = await TeachingService.read(ctx.directory, ctx.sessionID)
       await ctx.ask({

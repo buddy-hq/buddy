@@ -224,7 +224,7 @@ function touchBenchContextEntry(entry: StoredBenchContextEntry): void {
 function evictOldestBenchContextEntriesIfNeeded(): void {
   while (benchContextRegistry.size > BENCH_CONTEXT_REGISTRY_LIMIT) {
     const oldest = benchContextRegistry.keys().next().value
-    if (typeof oldest !== "string") return
+    if (oldest === undefined) return
     benchContextRegistry.delete(oldest)
   }
 }
@@ -242,7 +242,7 @@ function setBoundedContextHistoryEntry<Value>(
   history.set(key, value)
   while (history.size > BENCH_CONTEXT_HISTORY_LIMIT) {
     const oldestKey = history.keys().next().value
-    if (typeof oldestKey !== "string") return
+    if (oldestKey === undefined) return
     history.delete(oldestKey)
   }
 }

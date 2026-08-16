@@ -56,7 +56,7 @@ function normalizeGeometryCanvas(
       width: canvas.width,
       height: canvas.height,
     },
-    typeof canvas.padding === "number" ? { padding: canvas.padding } : undefined,
+    canvas.padding === undefined ? undefined : { padding: canvas.padding },
   )
 }
 
@@ -78,7 +78,7 @@ function normalizeGeometrySegment(segment: GeometrySegment): GeometrySegment {
       to: segment.to,
     },
     segment.style ? { style: segment.style } : undefined,
-    typeof segment.strokeWidth === "number" ? { strokeWidth: segment.strokeWidth } : undefined,
+    segment.strokeWidth === undefined ? undefined : { strokeWidth: segment.strokeWidth },
     segment.label ? { label: segment.label } : undefined,
   )
 }
@@ -103,7 +103,7 @@ function normalizeGeometryConstraint(constraint: GeometryConstraint): GeometryCo
         from: constraint.from,
         to: constraint.to,
       },
-      typeof constraint.position === "number" ? { position: constraint.position } : undefined,
+      constraint.position === undefined ? undefined : { position: constraint.position },
     )
   }
 
@@ -135,7 +135,7 @@ function normalizeGeometryMarker(marker: GeometryMarker): GeometryMarker {
         from: marker.from,
         to: marker.to,
       },
-      typeof marker.count === "number" ? { count: marker.count } : undefined,
+      marker.count === undefined ? undefined : { count: marker.count },
     )
   }
 

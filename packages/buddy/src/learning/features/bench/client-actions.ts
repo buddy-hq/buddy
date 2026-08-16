@@ -751,7 +751,7 @@ export class BenchClientActionBroker {
     }
     while (state.tombstones.size > TERMINAL_TOMBSTONE_LIMIT) {
       const oldestKey = state.tombstones.keys().next().value
-      if (typeof oldestKey !== "string") return
+      if (oldestKey === undefined) return
       state.tombstones.delete(oldestKey)
     }
   }

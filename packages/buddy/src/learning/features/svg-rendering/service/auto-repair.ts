@@ -82,8 +82,8 @@ const DEFAULT_SVG_AUTO_REPAIR_RECORD_LIMITS: SvgAutoRepairRecordLimits = {
   maxBytes: SVG_AUTO_REPAIR_RECORD_MAX_BYTES,
 }
 
-function isNodeErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === code
+function isNodeErrorCode<TError>(error: TError, code: string): boolean {
+  return error instanceof Error && "code" in error && error.code === code
 }
 
 function parseSvgAutoRepairRequest(rawText: string): SvgAutoRepairRequest | undefined {
@@ -384,7 +384,7 @@ async function listSvgAutoRepairRecordCandidates(
               modifiedAt: stats.mtimeMs,
             }),
           )
-          .catch((error: unknown) => {
+          .catch((error) => {
             if (isNodeErrorCode(error, "ENOENT")) return undefined
             throw error
           }),
@@ -624,8 +624,9 @@ async function exhaustSvgAutoRepairRequest(input: {
   )
 }
 
-function isSvgAutoRepairMessageID(value: unknown): boolean {
-  return typeof value === "string" && SVG_AUTO_REPAIR_ID_PATTERN.test(value)
+function isSvgAutoRepairMessageID<TValue>(value: TValue): boolean {
+  const parsed = z.string().safeParse(value)
+  return parsed.success && SVG_AUTO_REPAIR_ID_PATTERN.test(parsed.data)
 }
 
 export {

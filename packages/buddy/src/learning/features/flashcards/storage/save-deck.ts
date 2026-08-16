@@ -85,14 +85,16 @@ function buildFlashcardNotesAndCards(
 
   for (const input of inputs) {
     const noteID = ulid()
-    const note: FlashcardNote = {
-      noteID,
-      objectID,
-      type: input.type,
-      fields: input.fields,
-      tags: input.tags ?? [],
-      ...(input.source ? { source: input.source } : {}),
-    }
+    const note: FlashcardNote = Object.assign(
+      {
+        noteID,
+        objectID,
+        type: input.type,
+        fields: input.fields,
+        tags: input.tags ?? [],
+      },
+      input.source ? { source: input.source } : undefined,
+    )
     notes.push(note)
     cards.push(...generateFlashcardCardsForNote(note, config))
   }

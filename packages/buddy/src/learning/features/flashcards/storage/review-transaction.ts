@@ -58,18 +58,12 @@ const FlashcardReviewTransactionSchema = z.object({
 type CommittedFlashcardReview = z.infer<typeof CommittedFlashcardReviewSchema>
 type FlashcardReviewTransaction = z.infer<typeof FlashcardReviewTransactionSchema>
 
-function isNodeErrorCode(error: unknown, code: string): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof error.code === "string" &&
-    error.code === code
-  )
+function isNodeErrorCode<TError>(error: TError, code: string): boolean {
+  return error instanceof Error && "code" in error && error.code === code
 }
 
 async function readJsonFile<T>(filePath: string, schema: z.ZodSchema<T>): Promise<T> {
-  const parsed: unknown = JSON.parse(await fs.readFile(filePath, "utf8"))
+  const parsed = JSON.parse(await fs.readFile(filePath, "utf8"))
   return schema.parse(parsed)
 }
 

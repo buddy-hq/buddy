@@ -153,19 +153,25 @@ function evaluateQuestionSet(input: {
       : true
     const correct = exactMatch && choiceCountSatisfied
 
-    return {
-      questionID: question.id,
-      correct,
-      selectedChoiceIds,
-      correctChoiceIds,
-      ...(question.explanation ? { explanation: question.explanation } : {}),
-      choices: question.payload.choices.map((choice) => ({
-        choiceID: choice.id,
-        selected: selectedChoiceIds.includes(choice.id),
-        correct: choice.correct,
-        ...(choice.rationale ? { rationale: choice.rationale } : {}),
-      })),
-    }
+    return Object.assign(
+      {
+        questionID: question.id,
+        correct,
+        selectedChoiceIds,
+        correctChoiceIds,
+        choices: question.payload.choices.map((choice) =>
+          Object.assign(
+            {
+              choiceID: choice.id,
+              selected: selectedChoiceIds.includes(choice.id),
+              correct: choice.correct,
+            },
+            choice.rationale ? { rationale: choice.rationale } : undefined,
+          ),
+        ),
+      },
+      question.explanation ? { explanation: question.explanation } : undefined,
+    )
   })
 
   const correctQuestions = evaluatedQuestions.filter((question) => question.correct).length
@@ -263,19 +269,22 @@ function pendingAttemptIngestionFile(input: {
   })
 }
 
+function isNodeFsErrorCode<TError>(error: TError, code: string): boolean {
+  return error instanceof Error && "code" in error && error.code === code
+}
+
 async function readJsonIfPresent<T>(
   filePath: string,
   schema: z.ZodSchema<T>,
 ): Promise<T | undefined> {
-  const raw = await fs.readFile(filePath, "utf8").catch((error: unknown) => {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+  const raw = await fs.readFile(filePath, "utf8").catch((error) => {
+    if (isNodeFsErrorCode(error, "ENOENT")) {
       return undefined
     }
     throw error
   })
   if (raw === undefined) return undefined
-  const parsed: unknown = JSON.parse(raw)
-  return schema.parse(parsed)
+  return schema.parse(JSON.parse(raw))
 }
 
 function questionSetAttemptRequestHash(answers: QuestionSetAttemptAnswer[]): string {
@@ -299,12 +308,7 @@ async function listPendingQuestionSetAttemptIngestions(input: {
   const entries = await fs
     .readdir(pendingIngestionDirectory, { withFileTypes: true })
     .catch((error) => {
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        error.code === "ENOENT"
-      ) {
+      if (isNodeFsErrorCode(error, "ENOENT")) {
         return []
       }
       throw error
@@ -382,7 +386,7 @@ async function recoverPendingQuestionSetAttemptTransactions(input: {
     relativePath: QUESTION_SET_PENDING_ATTEMPT_DIRECTORY,
   })
   const entries = await fs.readdir(pendingDirectory, { withFileTypes: true }).catch((error) => {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+    if (isNodeFsErrorCode(error, "ENOENT")) {
       return []
     }
     throw error

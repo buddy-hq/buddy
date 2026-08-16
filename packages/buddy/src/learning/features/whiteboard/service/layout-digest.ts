@@ -7,7 +7,7 @@ const MIN_TEXT_OCCLUSION_PIXELS = 4
 const MIN_TEXT_OCCLUDER_OPACITY = 85
 const MIN_READABLE_RENDERED_FONT_PIXELS = 12
 const RENDERED_FONT_PIXEL_PRECISION = 10
-const CONTAINER_LIKE_SHAPE_TYPES = new Set(["diamond", "ellipse", "rectangle"])
+const CONTAINER_LIKE_ELEMENT_TYPES = new Set(["diamond", "ellipse", "rectangle"])
 const OPAQUE_FILL_STYLE = "solid"
 const TRANSPARENT_BACKGROUND_COLOR = "transparent"
 
@@ -226,15 +226,16 @@ function layoutIssueTouchesAnyID(issue: WhiteboardLayoutIssue, ids: ReadonlySet<
 function findTextTooSmallAtCurrentZoom(context: LayoutContext): WhiteboardLayoutIssue[] {
   const issues: WhiteboardLayoutIssue[] = []
   for (const textElement of context.textElements) {
-    if (typeof textElement.fontSize !== "number" || !Number.isFinite(textElement.fontSize)) {
+    const fontSize = textElement.fontSize
+    if (fontSize === undefined || !Number.isFinite(fontSize)) {
       continue
     }
-    const renderedFontPx = textElement.fontSize * context.report.canvas.zoom
+    const renderedFontPx = fontSize * context.report.canvas.zoom
     if (renderedFontPx >= MIN_READABLE_RENDERED_FONT_PIXELS) continue
     issues.push({
       code: "text_too_small",
       id: textElement.id,
-      fontSize: roundRenderedFontValue(textElement.fontSize),
+      fontSize: roundRenderedFontValue(fontSize),
       renderedFontPx: roundRenderedFontValue(renderedFontPx),
       zoom: Math.round(context.report.canvas.zoom * 100) / 100,
       repairHint:
@@ -250,7 +251,7 @@ function findTextOcclusions(context: LayoutContext): WhiteboardLayoutIssue[] {
     for (let index = context.report.elements.length - 1; index >= 0; index -= 1) {
       const occluder = context.report.elements[index]
       if (!occluder) continue
-      if (!isTextOccludedByOpaqueShape({ context, textElement, occluder })) continue
+      if (!isTextOccludedByOpaqueElement({ context, textElement, occluder })) continue
       const overlapSize = readIntersectionSize(textElement.bounds, occluder.bounds)
       if (
         overlapSize.width < MIN_TEXT_OCCLUSION_PIXELS ||
@@ -328,7 +329,7 @@ function shouldSkipCollisionPair(input: {
   if (input.textElement.containerId === input.otherElement.id) return true
   if (input.otherElement.containerId === input.textElement.id) return true
   if (
-    isTextOccludedByOpaqueShape({
+    isTextOccludedByOpaqueElement({
       context: input.context,
       textElement: input.textElement,
       occluder: input.otherElement,
@@ -342,7 +343,7 @@ function shouldSkipCollisionPair(input: {
   ) {
     return true
   }
-  return isTextAnchoredInEarlierContainerLikeShape({
+  return isTextAnchoredInEarlierContainerLikeElement({
     context: input.context,
     textElement: input.textElement,
     containerCandidate: input.otherElement,
@@ -356,7 +357,7 @@ function readImplicitContainerForText(input: {
   let best: WhiteboardRenderReportElement | undefined
   for (const candidate of input.context.report.elements) {
     if (
-      !isTextAnchoredInEarlierContainerLikeShape({
+      !isTextAnchoredInEarlierContainerLikeElement({
         context: input.context,
         textElement: input.textElement,
         containerCandidate: candidate,
@@ -369,7 +370,7 @@ function readImplicitContainerForText(input: {
   return best
 }
 
-function isTextAnchoredInEarlierContainerLikeShape(input: {
+function isTextAnchoredInEarlierContainerLikeElement(input: {
   context: LayoutContext
   textElement: WhiteboardRenderReportElement
   containerCandidate: WhiteboardRenderReportElement
@@ -377,7 +378,7 @@ function isTextAnchoredInEarlierContainerLikeShape(input: {
   return (
     input.textElement.id !== input.containerCandidate.id &&
     input.textElement.containerId !== input.containerCandidate.id &&
-    isContainerLikeShape(input.containerCandidate) &&
+    isContainerLikeElement(input.containerCandidate) &&
     wasCandidateRenderedBeforeText(input) &&
     isTextAnchorInsideBounds(input.textElement.bounds, input.containerCandidate.bounds)
   )
@@ -464,14 +465,14 @@ function textOverflowRepairHint(direction: OverflowDirection): string {
 }
 
 function isTextLike(element: WhiteboardRenderReportElement): boolean {
-  return element.type === "text" || typeof element.text === "string"
+  return element.type === "text" || element.text !== undefined
 }
 
-function isContainerLikeShape(element: WhiteboardRenderReportElement): boolean {
-  return CONTAINER_LIKE_SHAPE_TYPES.has(element.type) && !isTextLike(element)
+function isContainerLikeElement(element: WhiteboardRenderReportElement): boolean {
+  return CONTAINER_LIKE_ELEMENT_TYPES.has(element.type) && !isTextLike(element)
 }
 
-function isTextOccludedByOpaqueShape(input: {
+function isTextOccludedByOpaqueElement(input: {
   context: LayoutContext
   textElement: WhiteboardRenderReportElement
   occluder: WhiteboardRenderReportElement
@@ -483,7 +484,7 @@ function isTextOccludedByOpaqueShape(input: {
       textElement: input.textElement,
       candidate: input.occluder,
     }) &&
-    isOpaqueFilledShape(input.occluder) &&
+    isOpaqueFilledElement(input.occluder) &&
     boundsOverlap(input.textElement.bounds, input.occluder.bounds)
   )
 }
@@ -498,9 +499,9 @@ function isElementRenderedAfterText(input: {
   return textOrder !== undefined && candidateOrder !== undefined && candidateOrder > textOrder
 }
 
-function isOpaqueFilledShape(element: WhiteboardRenderReportElement): boolean {
+function isOpaqueFilledElement(element: WhiteboardRenderReportElement): boolean {
   return (
-    isContainerLikeShape(element) &&
+    isContainerLikeElement(element) &&
     element.fillStyle === OPAQUE_FILL_STYLE &&
     hasVisibleBackgroundColor(element.backgroundColor) &&
     readElementOpacity(element) >= MIN_TEXT_OCCLUDER_OPACITY
@@ -508,17 +509,14 @@ function isOpaqueFilledShape(element: WhiteboardRenderReportElement): boolean {
 }
 
 function hasVisibleBackgroundColor(backgroundColor: string | undefined): boolean {
-  return (
-    typeof backgroundColor === "string" &&
-    backgroundColor.trim().length > 0 &&
-    backgroundColor.trim().toLowerCase() !== TRANSPARENT_BACKGROUND_COLOR
-  )
+  if (backgroundColor === undefined) return false
+  const trimmed = backgroundColor.trim()
+  return trimmed.length > 0 && trimmed.toLowerCase() !== TRANSPARENT_BACKGROUND_COLOR
 }
 
 function readElementOpacity(element: WhiteboardRenderReportElement): number {
-  return typeof element.opacity === "number" && Number.isFinite(element.opacity)
-    ? Math.round(element.opacity)
-    : 100
+  const opacity = element.opacity
+  return opacity !== undefined && Number.isFinite(opacity) ? Math.round(opacity) : 100
 }
 
 function isTextAnchorInsideBounds(

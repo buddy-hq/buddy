@@ -172,19 +172,32 @@ const DEFAULT_BENCH_VIEW_BY_KIND = {
   [BUDDY_OBJECT_KINDS.flashcardDeck]: "review",
 } satisfies Record<BuddyObjectKind, string>
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+type TJsonValue = string | number | boolean | null | TJsonValue[] | TJsonObject
+type TJsonObject = { [key: string]: TJsonValue }
+
+const jsonObjectSchema: z.ZodType<TJsonObject> = z.record(z.string(), z.json())
+const jsonStringSchema = z.string()
+
+function parseTJsonObject<TValue>(value: TValue): TJsonObject | undefined {
+  const parsed = jsonObjectSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
-function normalizeBenchPresentInput(rawArgs: unknown) {
-  if (!isRecord(rawArgs)) return rawArgs
+function parseTString<TValue>(value: TValue): string | undefined {
+  const parsed = jsonStringSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function normalizeBenchPresentInput<TArgs>(rawArgs: TArgs) {
+  const record = parseTJsonObject(rawArgs)
+  if (record === undefined) return rawArgs
 
   return {
-    ...rawArgs,
-    path: rawArgs.path ?? null,
-    resourceKey: rawArgs.resourceKey ?? null,
-    objectID: rawArgs.objectID ?? null,
-    tabKey: rawArgs.tabKey ?? null,
+    ...record,
+    path: record.path ?? null,
+    resourceKey: record.resourceKey ?? null,
+    objectID: record.objectID ?? null,
+    tabKey: record.tabKey ?? null,
   }
 }
 
@@ -1362,36 +1375,38 @@ function buildBenchPresentToolMetadata(input: {
   action: BenchPresentAction
   result: BenchPresentOutput
 }): BenchPresentToolMetadata {
-  return BenchPresentToolMetadataSchema.parse({
-    benchAction: input.action,
-    benchStatus: input.result.status,
-    reason: input.result.reason,
-    benchTarget: input.result.benchTarget,
-    ...(input.result.objectResult ? { buddyObjectResult: input.result.objectResult } : {}),
-  })
+  return BenchPresentToolMetadataSchema.parse(
+    Object.assign(
+      {
+        benchAction: input.action,
+        benchStatus: input.result.status,
+        reason: input.result.reason,
+        benchTarget: input.result.benchTarget,
+      },
+      input.result.objectResult ? { buddyObjectResult: input.result.objectResult } : undefined,
+    ),
+  )
 }
 
-function readPresentationString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined
-  const normalized = value.trim()
+function readPresentationString<TValue>(value: TValue): string | undefined {
+  const parsed = parseTString(value)
+  if (parsed === undefined) return undefined
+  const normalized = parsed.trim()
   return normalized ? normalized : undefined
-}
-
-function isPresentationRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function resolveBenchPresentationTarget(
   context: ToolPresentationResolutionContext,
 ): string | undefined {
-  const benchTarget = context.metadata.benchTarget
-  if (isPresentationRecord(benchTarget)) {
+  const benchTarget = parseTJsonObject(context.metadata.benchTarget)
+  if (benchTarget !== undefined) {
     if (benchTarget.type === "workspace-file") {
       const targetPath = readPresentationString(benchTarget.path)
       if (targetPath) return path.basename(targetPath)
     }
-    if (benchTarget.type === "object" && isPresentationRecord(benchTarget.ref)) {
-      const objectID = readPresentationString(benchTarget.ref.objectID)
+    const objectRef = parseTJsonObject(benchTarget.ref)
+    if (benchTarget.type === "object" && objectRef !== undefined) {
+      const objectID = readPresentationString(objectRef.objectID)
       if (objectID) return objectID
     }
   }

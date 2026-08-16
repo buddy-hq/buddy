@@ -176,9 +176,13 @@ function normalizeInputSourcePath(directory: string, inputPath: string) {
   return path.resolve(directory, normalizeRelativePath(trimmed))
 }
 
+function isNodeFsErrorCode<TError>(error: TError, code: string): boolean {
+  return error instanceof Error && "code" in error && error.code === code
+}
+
 async function resolveExistingFile(absolutePath: string) {
-  const realPath = await fs.realpath(absolutePath).catch((error: unknown) => {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+  const realPath = await fs.realpath(absolutePath).catch((error) => {
+    if (isNodeFsErrorCode(error, "ENOENT")) {
       return undefined
     }
     throw error
@@ -188,8 +192,8 @@ async function resolveExistingFile(absolutePath: string) {
     throw new PresentedMediaValidationError(PROJECT_FILE_NOT_FOUND_ERROR)
   }
 
-  const stats = await fs.stat(realPath).catch((error: unknown) => {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+  const stats = await fs.stat(realPath).catch((error) => {
+    if (isNodeFsErrorCode(error, "ENOENT")) {
       return undefined
     }
     throw error
@@ -215,10 +219,9 @@ function isPathWithinBoundary(boundaryPath: string, targetPath: string) {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
 }
 
-function isMissingPresentedMediaError(error: unknown): boolean {
+function isMissingPresentedMediaError<TError>(error: TError): boolean {
   return (
-    typeof error === "object" &&
-    error !== null &&
+    error instanceof Error &&
     "code" in error &&
     (error.code === "ENOENT" || error.code === "ENOTDIR")
   )
@@ -323,8 +326,8 @@ function buildPresentedMediaObjectRawUrl(input: {
   return `/api/objects/media-presentation/${encodeURIComponent(input.objectID)}/raw/${encodeURIComponent(input.itemID)}?directory=${encodeURIComponent(input.directory)}&fileName=${encodeURIComponent(input.fileName)}`
 }
 
-function readStatNumber(value: number | bigint) {
-  return typeof value === "bigint" ? Number(value) : value
+function readStatNumber(value: number | bigint): number {
+  return Number(value)
 }
 
 function buildActionCapabilities(input: {
@@ -370,18 +373,20 @@ export async function resolvePresentedMediaPathInfo(input: {
 }
 
 function mediaItemSourceRef(item: PresentedMediaItem): BuddyObjectSourceRef {
-  return {
-    role: "external",
-    path: item.absolutePath,
-    displayPath: item.displayPath,
-    workspacePath: item.workspacePath,
-    mutable: false,
-    copied: false,
-    availability: item.availability.status,
-    exists: item.availability.status === "available",
-    ...(item.sizeBytes !== null ? { sizeBytes: item.sizeBytes } : {}),
-    ...(item.modifiedAt !== null ? { modifiedAt: item.modifiedAt } : {}),
-  }
+  return Object.assign(
+    {
+      role: "external" as const,
+      path: item.absolutePath,
+      displayPath: item.displayPath,
+      workspacePath: item.workspacePath,
+      mutable: false,
+      copied: false,
+      availability: item.availability.status,
+      exists: item.availability.status === "available",
+    },
+    item.sizeBytes !== null ? { sizeBytes: item.sizeBytes } : undefined,
+    item.modifiedAt !== null ? { modifiedAt: item.modifiedAt } : undefined,
+  )
 }
 
 function buildMediaGalleryData(input: {

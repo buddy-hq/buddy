@@ -17,10 +17,54 @@ const SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_SET = new Set<string>(
 const SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_LIST =
   SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPES.join(", ")
 
+const jsonStringSchema = z.string()
+const jsonFiniteNumberSchema = z.number().finite()
+const jsonBooleanSchema = z.boolean()
+const jsonObjectSchema: z.ZodType<TJsonObject> = z.record(z.string(), z.json())
+
+type TJsonValue = string | number | boolean | null | TJsonValue[] | TJsonObject
+type TJsonObject = { [key: string]: TJsonValue }
+
+function parseTString<TValue>(value: TValue): string | undefined {
+  const parsed = jsonStringSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseTFiniteNumber<TValue>(value: TValue): number | undefined {
+  const parsed = jsonFiniteNumberSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseTBoolean<TValue>(value: TValue): boolean | undefined {
+  const parsed = jsonBooleanSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseTJsonObject<TValue>(value: TValue): TJsonObject | undefined {
+  const parsed = jsonObjectSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseNonEmptyTString<TValue>(value: TValue): string | undefined {
+  const parsed = parseTString(value)
+  if (parsed === undefined || parsed.trim().length === 0) return undefined
+  return parsed
+}
+
 const WhiteboardElementSchema = z
   .object({
     id: z.string().trim().min(1),
     type: z.string().trim().min(1),
+    x: z.number().finite().optional(),
+    y: z.number().finite().optional(),
+    width: z.number().finite().optional(),
+    height: z.number().finite().optional(),
+    text: z.string().optional(),
+    originalText: z.string().optional(),
+    containerId: z.string().optional(),
+    label: z.union([z.string(), jsonObjectSchema]).optional(),
+    startBinding: jsonObjectSchema.optional(),
+    endBinding: jsonObjectSchema.optional(),
   })
   .loose()
 
@@ -190,53 +234,45 @@ type WhiteboardCreationReservationResponse = z.infer<
 type LegacyWhiteboardSessionState = z.infer<typeof LegacyWhiteboardSessionStateSchema>
 type WhiteboardLearnerEditRequest = z.infer<typeof WhiteboardLearnerEditRequestSchema>
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value)
-}
-
 function formatElementLocation(index: number | undefined) {
   return index === undefined ? "Whiteboard element" : `Whiteboard element at index ${index}`
 }
 
 function requireElementString(input: {
-  value: Record<string, unknown>
+  value: TJsonObject
   key: string
   index: number | undefined
 }): string {
-  const value = input.value[input.key]
-  if (typeof value === "string" && value.trim().length > 0) {
-    return value
-  }
+  const value = parseNonEmptyTString(input.value[input.key])
+  if (value !== undefined) return value
   throw new WhiteboardElementValidationError(
     `${formatElementLocation(input.index)} must have a non-empty string ${input.key}.`,
   )
 }
 
 function requireElementNumber(input: {
-  value: Record<string, unknown>
+  value: TJsonObject
   key: string
   index: number | undefined
 }): number {
-  const value = input.value[input.key]
-  if (isFiniteNumber(value)) {
-    return value
-  }
+  const value = parseTFiniteNumber(input.value[input.key])
+  if (value !== undefined) return value
   throw new WhiteboardElementValidationError(
     `${formatElementLocation(input.index)} must have a finite number ${input.key}.`,
   )
 }
 
-function readLabelTextCandidate(value: unknown): string | undefined {
-  if (typeof value === "string" && value.trim().length > 0) return value
-  if (typeof value === "number" || typeof value === "boolean") return String(value)
+function readLabelTextCandidate<TValue>(value: TValue): string | undefined {
+  const text = parseNonEmptyTString(value)
+  if (text !== undefined) return text
+  const numeric = parseTFiniteNumber(value)
+  if (numeric !== undefined) return String(numeric)
+  const flag = parseTBoolean(value)
+  if (flag !== undefined) return String(flag)
   return undefined
 }
 
-function readMalformedLabelTextFallback(label: Record<string, unknown>): string | undefined {
+function readMalformedLabelTextFallback(label: TJsonObject): string | undefined {
   return (
     readLabelTextCandidate(label.text) ??
     readLabelTextCandidate(label.value) ??
@@ -246,15 +282,16 @@ function readMalformedLabelTextFallback(label: Record<string, unknown>): string 
   )
 }
 
-function normalizePersistableElementLabel(value: Record<string, unknown>) {
+function normalizePersistableElementLabel(value: TJsonObject) {
   if (value.label === undefined) return value
-  if (isRecord(value.label)) {
-    const text = readMalformedLabelTextFallback(value.label)
+  const labelObject = parseTJsonObject(value.label)
+  if (labelObject !== undefined) {
+    const text = readMalformedLabelTextFallback(labelObject)
     if (text) {
       return {
         ...value,
         label: {
-          ...value.label,
+          ...labelObject,
           text,
         },
       }
@@ -271,29 +308,33 @@ function normalizePersistableElementLabel(value: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "label"))
 }
 
-function parsePersistableWhiteboardElement(value: unknown, index?: number): WhiteboardElement {
-  if (!isRecord(value)) {
+function parsePersistableWhiteboardElement<TValue>(
+  value: TValue,
+  index?: number,
+): WhiteboardElement {
+  const record = parseTJsonObject(value)
+  if (record === undefined) {
     throw new WhiteboardElementValidationError(`${formatElementLocation(index)} must be an object.`)
   }
 
-  const id = requireElementString({ value, key: "id", index })
-  const type = requireElementString({ value, key: "type", index })
+  const id = requireElementString({ value: record, key: "id", index })
+  const type = requireElementString({ value: record, key: "type", index })
   if (!SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_SET.has(type)) {
     throw new WhiteboardElementValidationError(
       `${formatElementLocation(index)} has unsupported type '${type}'. Supported drawn types: ${SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_LIST}. Keep cameraUpdate, delete, and translate as program instructions only; they are not stored canvas elements. Deprecated restoreCheckpoint and replaceCurrentBoard markers are accepted only as previous board-action controls.`,
     )
   }
 
-  requireElementNumber({ value, key: "x", index })
-  requireElementNumber({ value, key: "y", index })
-  if (type === "text" && typeof value.text !== "string") {
+  requireElementNumber({ value: record, key: "x", index })
+  requireElementNumber({ value: record, key: "y", index })
+  if (type === "text" && parseTString(record.text) === undefined) {
     throw new WhiteboardElementValidationError(
       `${formatElementLocation(index)} with type 'text' must include string text.`,
     )
   }
 
   return WhiteboardElementSchema.parse({
-    ...normalizePersistableElementLabel(value),
+    ...normalizePersistableElementLabel(record),
     id,
     type,
   })
@@ -328,10 +369,16 @@ export {
   WhiteboardObjectStateSchema,
   WhiteboardViewportSchema,
   parsePersistableWhiteboardElement,
+  parseNonEmptyTString,
+  parseTFiniteNumber,
+  parseTJsonObject,
+  parseTString,
   sanitizeWhiteboardElements,
 }
 
 export type {
+  TJsonObject,
+  TJsonValue,
   WhiteboardBoard,
   WhiteboardBoardOrigin,
   WhiteboardBounds,

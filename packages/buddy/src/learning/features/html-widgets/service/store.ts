@@ -468,31 +468,35 @@ async function adoptHtmlWidgetSource(input: {
       sizeBytes: Number(sourceStat.size),
       modifiedAt: sourceStat.mtime.toISOString(),
     }
-    const manifest = BuddyObjectManifestSchema.parse({
-      version: 1,
-      kind: BUDDY_OBJECT_KINDS.htmlWidget,
-      objectID,
-      title: input.input.title,
-      ...(input.input.description ? { description: input.input.description } : {}),
-      status: "ready",
-      lifecycle: "live",
-      origin: input.input.origin,
-      createdAt: now,
-      updatedAt: now,
-      sourceRefs: [originalSourceRef, sourceRef],
-      views: buildHtmlWidgetObjectViews({
-        objectID,
-        entryPath: input.source.entryPath,
-        viewportPreset: input.input.viewportPreset,
-      }),
-      summary: HtmlWidgetObjectSummarySchema.parse({
-        kind: BUDDY_OBJECT_KINDS.htmlWidget,
-        entryPath: input.source.entryPath,
-        viewportPreset: input.input.viewportPreset,
-        sourceVersion,
-        warnings: collectHtmlWidgetWarnings(entrySource).map((warning) => warning.message),
-      }),
-    })
+    const manifest = BuddyObjectManifestSchema.parse(
+      Object.assign(
+        {
+          version: 1,
+          kind: BUDDY_OBJECT_KINDS.htmlWidget,
+          objectID,
+          title: input.input.title,
+          status: "ready",
+          lifecycle: "live",
+          origin: input.input.origin,
+          createdAt: now,
+          updatedAt: now,
+          sourceRefs: [originalSourceRef, sourceRef],
+          views: buildHtmlWidgetObjectViews({
+            objectID,
+            entryPath: input.source.entryPath,
+            viewportPreset: input.input.viewportPreset,
+          }),
+          summary: HtmlWidgetObjectSummarySchema.parse({
+            kind: BUDDY_OBJECT_KINDS.htmlWidget,
+            entryPath: input.source.entryPath,
+            viewportPreset: input.input.viewportPreset,
+            sourceVersion,
+            warnings: collectHtmlWidgetWarnings(entrySource).map((warning) => warning.message),
+          }),
+        },
+        input.input.description ? { description: input.input.description } : undefined,
+      ),
+    )
     await writeJsonFileAtomic(path.join(stagingDirectory, OBJECT_MANIFEST_FILE_NAME), manifest)
     await fs.rename(stagingDirectory, targetDirectory)
     await upsertObjectIndexRecord({ directory: input.input.directory, manifest }).catch(

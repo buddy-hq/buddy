@@ -26,7 +26,7 @@ class MermaidRepairRequestNotFoundError extends Error {
   }
 }
 
-function mapMermaidObjectRouteError(error: unknown): Response | undefined {
+function mapMermaidObjectRouteError<TError>(error: TError): Response | undefined {
   if (
     error instanceof InvalidMermaidRenderKeyError ||
     error instanceof InvalidMermaidRepairRequestIDError

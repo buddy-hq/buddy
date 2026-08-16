@@ -118,15 +118,15 @@ function withWhiteboardObjectMutationLock<T>(
   })
 }
 
-function isFileNotFound(error: unknown): boolean {
-  return error !== null && typeof error === "object" && "code" in error && error.code === "ENOENT"
+function isFileNotFound<TError>(error: TError): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT"
 }
 
-function isFileAlreadyExists(error: unknown): boolean {
-  return error !== null && typeof error === "object" && "code" in error && error.code === "EEXIST"
+function isFileAlreadyExists<TError>(error: TError): boolean {
+  return error instanceof Error && "code" in error && error.code === "EEXIST"
 }
 
-async function writeAtomicJson(targetPath: string, value: unknown): Promise<void> {
+async function writeAtomicJson<TValue>(targetPath: string, value: TValue): Promise<void> {
   await fs.mkdir(path.dirname(targetPath), { recursive: true })
   const temporaryPath = path.join(
     path.dirname(targetPath),

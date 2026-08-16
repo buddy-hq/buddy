@@ -67,22 +67,33 @@ const PresentHtmlWidgetInputSchema = z
   .superRefine(validatePresentHtmlWidgetInput)
 
 type PresentHtmlWidgetInput = z.infer<typeof PresentHtmlWidgetInputSchema>
+type TJsonValue = string | number | boolean | null | TJsonValue[] | TJsonObject
+type TJsonObject = { [key: string]: TJsonValue }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+const jsonObjectSchema: z.ZodType<TJsonObject> = z.record(z.string(), z.json())
+
+function parseTJsonObject<TValue>(value: TValue): TJsonObject | undefined {
+  const parsed = jsonObjectSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
-function normalizePresentHtmlWidgetInput(rawArgs: unknown) {
-  if (!isRecord(rawArgs)) return rawArgs
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function normalizePresentHtmlWidgetInput<TArgs>(rawArgs: TArgs) {
+  const record = parseTJsonObject(rawArgs)
+  if (record === undefined) return rawArgs
 
   return {
-    action: rawArgs.action,
-    path: rawArgs.path ?? null,
-    objectID: rawArgs.objectID ?? null,
-    entryPath: rawArgs.entryPath ?? null,
-    title: rawArgs.title ?? null,
-    description: rawArgs.description ?? null,
-    viewportPreset: rawArgs.viewportPreset ?? null,
+    action: record.action,
+    path: record.path ?? null,
+    objectID: record.objectID ?? null,
+    entryPath: record.entryPath ?? null,
+    title: record.title ?? null,
+    description: record.description ?? null,
+    viewportPreset: record.viewportPreset ?? null,
   }
 }
 
@@ -127,11 +138,15 @@ function validatePresentHtmlWidgetInput(input: PresentHtmlWidgetInput, ctx: z.Re
 }
 
 function createdByCallID(ctx: BuddyToolContext): string {
-  return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
+  const callID = ctx.callID
+  if (callID !== undefined && callID.trim().length > 0) return callID
+  return "unknown"
 }
 
 function nullableCallID(ctx: BuddyToolContext): string | null {
-  return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : null
+  const callID = ctx.callID
+  if (callID !== undefined && callID.trim().length > 0) return callID
+  return null
 }
 
 function formatPresentHtmlWidgetValidationError(error: z.ZodError): string {
@@ -274,19 +289,19 @@ const presentHtmlWidgetTool = createBuddyTool({
     phases: {
       pending: {
         action: "Preparing widget",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       running: {
         action: "Presenting widget",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       completed: {
         action: "Presented widget",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       error: {
         action: "Failed to present widget",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
     },
   },
@@ -310,23 +325,25 @@ const presentHtmlWidgetTool = createBuddyTool({
 
     const result = await presentHtmlWidgetObject(
       params.action === "present_path"
-        ? {
-            action: "present_path",
-            directory: ctx.directory,
-            path: params.path ?? "",
-            entryPath: params.entryPath,
-            title: params.title ?? "",
-            ...(params.description ? { description: params.description } : {}),
-            viewportPreset: params.viewportPreset ?? "standard_16_10",
-            origin: {
-              kind: "tool",
-              sessionID,
-              messageID,
-              callID: createdByCallID(ctx),
+        ? Object.assign(
+            {
+              action: "present_path" as const,
+              directory: ctx.directory,
+              path: params.path ?? "",
+              entryPath: params.entryPath,
+              title: params.title ?? "",
+              viewportPreset: params.viewportPreset ?? "standard_16_10",
+              origin: {
+                kind: "tool" as const,
+                sessionID,
+                messageID,
+                callID: createdByCallID(ctx),
+              },
             },
-          }
+            params.description ? { description: params.description } : undefined,
+          )
         : {
-            action: "present_object",
+            action: "present_object" as const,
             directory: ctx.directory,
             objectID: params.objectID ?? "",
           },

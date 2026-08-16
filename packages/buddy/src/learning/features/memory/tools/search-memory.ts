@@ -14,6 +14,11 @@ const LearnerMemorySearchInputSchema = z.object({
   includeSources: z.boolean().optional(),
 })
 
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
 const learnerMemorySearchTool = createBuddyTool({
   id: "learner_memory_search",
   description:
@@ -27,19 +32,19 @@ const learnerMemorySearchTool = createBuddyTool({
     phases: {
       pending: {
         action: "Searching memory",
-        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        detail: ({ input }) => parseToolInputString(input.query),
       },
       running: {
         action: "Searching memory",
-        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        detail: ({ input }) => parseToolInputString(input.query),
       },
       completed: {
         action: "Searched memory",
-        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        detail: ({ input }) => parseToolInputString(input.query),
       },
       error: {
         action: "Failed to search memory",
-        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        detail: ({ input }) => parseToolInputString(input.query),
       },
     },
     summary: {

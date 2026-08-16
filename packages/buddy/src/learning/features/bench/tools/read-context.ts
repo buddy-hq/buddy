@@ -20,28 +20,42 @@ type CapturedBench = {
 
 type OpenBenchContext = Extract<ReturnType<typeof readCurrentBenchContext>, { status: "open" }>
 
+type TJsonValue = string | number | boolean | null | TJsonValue[] | TJsonObject
+type TJsonObject = { [key: string]: TJsonValue }
+type TToolExecuteResult = {
+  title: string
+  output: string
+  metadata: TJsonObject
+}
+
 function projectModelVisibleBenchContext(input: {
   context: OpenBenchContext
   directory: string
   tabSearch?: string
 }) {
   const { context } = input
-  const projectedTabs = projectModelVisibleBenchTabs({
-    directory: input.directory,
-    tabs: context.tabs,
-    selectedTabKey: context.selectedTabKey,
-    ...(context.visibility === "visible" ? { selectedTabTitle: context.target.title } : {}),
-    limit: BENCH_READ_CONTEXT_TAB_LIMIT,
-    ...(input.tabSearch ? { tabSearch: input.tabSearch } : {}),
-  })
-  const tabContext = {
-    openTabCount: projectedTabs.openTabCount,
-    ...(input.tabSearch ? { matchingTabCount: projectedTabs.matchingTabCount } : {}),
-    ...(projectedTabs.omittedTabCount > 0
+  const projectedTabs = projectModelVisibleBenchTabs(
+    Object.assign(
+      {
+        directory: input.directory,
+        tabs: context.tabs,
+        selectedTabKey: context.selectedTabKey,
+        limit: BENCH_READ_CONTEXT_TAB_LIMIT,
+      },
+      context.visibility === "visible" ? { selectedTabTitle: context.target.title } : undefined,
+      input.tabSearch ? { tabSearch: input.tabSearch } : undefined,
+    ),
+  )
+  const tabContext = Object.assign(
+    {
+      openTabCount: projectedTabs.openTabCount,
+      tabs: projectedTabs.tabs,
+    },
+    input.tabSearch ? { matchingTabCount: projectedTabs.matchingTabCount } : undefined,
+    projectedTabs.omittedTabCount > 0
       ? { omittedTabCount: projectedTabs.omittedTabCount }
-      : {}),
-    tabs: projectedTabs.tabs,
-  }
+      : undefined,
+  )
   if (context.visibility === "parked") {
     return {
       status: context.status,
@@ -49,17 +63,23 @@ function projectModelVisibleBenchContext(input: {
       ...tabContext,
     }
   }
-  return {
-    status: context.status,
-    visibility: context.visibility,
-    ...(context.target.status === "ready" ? {} : { surfaceStatus: context.target.status }),
-    ...(context.drawer ? { drawer: context.drawer } : {}),
-    ...(context.metadata.length > 0 ? { metadata: context.metadata } : {}),
-    ...(context.content ? { content: context.content } : {}),
-    ...(context.refs.length > 0 ? { refs: context.refs } : {}),
-    ...(context.hints.length > 0 ? { hints: context.hints } : {}),
-    ...tabContext,
-  }
+  return Object.assign(
+    Object.assign(
+      Object.assign(
+        {
+          status: context.status,
+          visibility: context.visibility,
+        },
+        context.target.status === "ready" ? undefined : { surfaceStatus: context.target.status },
+        context.drawer ? { drawer: context.drawer } : undefined,
+        context.metadata.length > 0 ? { metadata: context.metadata } : undefined,
+      ),
+      context.content ? { content: context.content } : undefined,
+      context.refs.length > 0 ? { refs: context.refs } : undefined,
+      context.hints.length > 0 ? { hints: context.hints } : undefined,
+    ),
+    tabContext,
+  )
 }
 
 async function captureCurrentBench(input: {
@@ -154,7 +174,7 @@ const benchReadContextTool = createBuddyTool({
       error: "Failed to read Bench",
     },
   },
-  async execute(params, ctx) {
+  async execute(params, ctx): Promise<TToolExecuteResult> {
     const result = BenchReadContextOutputSchema.parse(
       readCurrentBenchContext({
         directory: ctx.directory,
@@ -193,11 +213,15 @@ const benchReadContextTool = createBuddyTool({
         params.responseFormat === "bench_screenshot_only"
           ? screenshot
           : {
-              ...projectModelVisibleBenchContext({
-                context: synchronizedContext,
-                directory: ctx.directory,
-                ...(params.tabSearch ? { tabSearch: params.tabSearch } : {}),
-              }),
+              ...projectModelVisibleBenchContext(
+                Object.assign(
+                  {
+                    context: synchronizedContext,
+                    directory: ctx.directory,
+                  },
+                  params.tabSearch ? { tabSearch: params.tabSearch } : undefined,
+                ),
+              ),
               ...screenshot,
             }
       return {
@@ -229,11 +253,15 @@ const benchReadContextTool = createBuddyTool({
       return {
         title: "Read Bench",
         output: JSON.stringify(
-          projectModelVisibleBenchContext({
-            context: result,
-            directory: ctx.directory,
-            ...(params.tabSearch ? { tabSearch: params.tabSearch } : {}),
-          }),
+          projectModelVisibleBenchContext(
+            Object.assign(
+              {
+                context: result,
+                directory: ctx.directory,
+              },
+              params.tabSearch ? { tabSearch: params.tabSearch } : undefined,
+            ),
+          ),
           null,
           2,
         ),
@@ -248,11 +276,15 @@ const benchReadContextTool = createBuddyTool({
     return {
       title: "Read Bench",
       output: JSON.stringify(
-        projectModelVisibleBenchContext({
-          context: result,
-          directory: ctx.directory,
-          ...(params.tabSearch ? { tabSearch: params.tabSearch } : {}),
-        }),
+        projectModelVisibleBenchContext(
+          Object.assign(
+            {
+              context: result,
+              directory: ctx.directory,
+            },
+            params.tabSearch ? { tabSearch: params.tabSearch } : undefined,
+          ),
+        ),
         null,
         2,
       ),

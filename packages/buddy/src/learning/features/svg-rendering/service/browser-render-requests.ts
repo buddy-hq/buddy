@@ -391,7 +391,7 @@ export class BrowserSvgRenderRequests {
     }
     while (state.tombstones.size > SVG_RENDER_TERMINAL_TOMBSTONE_LIMIT) {
       const oldestRequestID = state.tombstones.keys().next().value
-      if (typeof oldestRequestID !== "string") return
+      if (oldestRequestID === undefined) return
       this.#deleteTombstone(state, oldestRequestID)
     }
     this.#scheduleStateCleanup(state, releaseEmptyState)
@@ -405,7 +405,7 @@ export class BrowserSvgRenderRequests {
   #evictGlobalTombstones(): void {
     while (this.#tombstoneOrder.size > SVG_RENDER_TERMINAL_TOMBSTONE_TOTAL_LIMIT) {
       const oldestRequestID = this.#tombstoneOrder.keys().next().value
-      if (typeof oldestRequestID !== "string") return
+      if (oldestRequestID === undefined) return
       const oldest = this.#tombstoneOrder.get(oldestRequestID)
       if (!oldest) {
         this.#tombstoneOrder.delete(oldestRequestID)

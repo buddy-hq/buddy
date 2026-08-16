@@ -14,21 +14,23 @@ function createWriteToolDefinition() {
 }
 
 function createWriteToolContext(ctx: BuddyToolContext): Tool.Context {
-  return {
-    sessionID: ctx.sessionID,
-    messageID: ctx.messageID,
-    agent: ctx.agent,
-    abort: ctx.abort,
-    ...(ctx.callID ? { callID: ctx.callID } : {}),
-    ...(ctx.extra ? { extra: ctx.extra } : {}),
-    messages: ctx.messages,
-    metadata(input) {
-      return Effect.promise(() => ctx.metadata(input))
+  return Object.assign(
+    {
+      sessionID: ctx.sessionID,
+      messageID: ctx.messageID,
+      agent: ctx.agent,
+      abort: ctx.abort,
+      messages: ctx.messages,
+      metadata(input: Parameters<BuddyToolContext["metadata"]>[0]) {
+        return Effect.promise(() => ctx.metadata(input))
+      },
+      ask() {
+        return Effect.void
+      },
     },
-    ask() {
-      return Effect.void
-    },
-  }
+    ctx.callID ? { callID: ctx.callID } : undefined,
+    ctx.extra ? { extra: ctx.extra } : undefined,
+  )
 }
 
 export async function executeWriteWithoutPrompt(

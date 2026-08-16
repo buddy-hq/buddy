@@ -105,15 +105,17 @@ function modelVisibleTarget(input: {
       viewer: target.viewer,
     }
   }
-  return {
-    type: target.type,
-    kind: target.ref.kind,
-    objectID: target.ref.objectID,
-    absolutePath,
-    ...(target.ref.revisionID ? { revisionID: target.ref.revisionID } : {}),
-    ...(target.ref.itemID ? { itemID: target.ref.itemID } : {}),
-    viewID: target.viewID,
-  }
+  return Object.assign(
+    {
+      type: target.type,
+      kind: target.ref.kind,
+      objectID: target.ref.objectID,
+      absolutePath,
+      viewID: target.viewID,
+    },
+    target.ref.revisionID ? { revisionID: target.ref.revisionID } : undefined,
+    target.ref.itemID ? { itemID: target.ref.itemID } : undefined,
+  )
 }
 
 function projectModelVisibleBenchTabs(input: {

@@ -128,11 +128,11 @@ function resolvePointOnSegment(
   if (!point || !from || !to) return false
 
   const inferredPosition =
-    typeof constraint.position === "number"
+    constraint.position !== undefined
       ? constraint.position
       : projectToSegmentPosition(point, from, to)
 
-  if (typeof inferredPosition !== "number") {
+  if (inferredPosition === undefined) {
     record({
       code: "INVALID_CONSTRAINT",
       message: `Constraint '${constraint.type}' needs a non-zero support segment: ${constraint.from} -> ${constraint.to}.`,
@@ -155,7 +155,7 @@ function resolvePerpendicularFoot(
   if (!point || !source || !from || !to) return false
 
   const projectedPosition = projectToSegmentPosition(source, from, to)
-  if (typeof projectedPosition !== "number") {
+  if (projectedPosition === undefined) {
     record({
       code: "INVALID_CONSTRAINT",
       message: `Constraint '${constraint.type}' needs a non-zero support segment: ${constraint.from} -> ${constraint.to}.`,

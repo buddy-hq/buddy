@@ -4,6 +4,7 @@ import { LLM } from "@buddy/opencode-adapter/llm"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import {
   CandidateMemoryPatchSchema,
+  LearnerMemoryTypeSchema,
   type CandidateMemoryPatch,
   type EvaluationFixture,
 } from "./types"
@@ -55,11 +56,11 @@ const MODEL_EXTRACTION_JSON_SCHEMA = {
     },
   },
   required: ["session_summary", "session_slug", "raw_learner_memory", "candidates"],
-} satisfies Record<string, unknown>
+}
 
 const ModelCandidateSchema = z.object({
   operation: z.literal("create"),
-  memoryType: CandidateMemoryPatchSchema.shape.memoryType,
+  memoryType: LearnerMemoryTypeSchema,
   title: z.string().min(1),
   body: z.string().min(1),
   tags: z.array(z.string().min(1)),

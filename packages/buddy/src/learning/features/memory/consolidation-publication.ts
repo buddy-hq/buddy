@@ -17,15 +17,15 @@ function consolidationPublicationJournalFile(directory: string): string {
   return path.join(LearnerMemoryPath.root(directory), CONSOLIDATION_PUBLICATION_JOURNAL_FILE_NAME)
 }
 
-function isMissingFileError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT"
+function isMissingFileError<TError>(error: TError): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT"
 }
 
 async function readPublicationJournal(
   directory: string,
 ): Promise<z.infer<typeof ConsolidationPublicationJournalSchema> | undefined> {
   const filePath = consolidationPublicationJournalFile(directory)
-  const raw = await fs.readFile(filePath, "utf8").catch((error: unknown) => {
+  const raw = await fs.readFile(filePath, "utf8").catch((error) => {
     if (isMissingFileError(error)) return undefined
     throw error
   })

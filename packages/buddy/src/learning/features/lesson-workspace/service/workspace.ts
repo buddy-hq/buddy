@@ -21,13 +21,8 @@ export function hashContent(value: string) {
   return createHash("sha1").update(value).digest("hex")
 }
 
-function isNotFoundError(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "ENOENT"
-  )
+function isNotFoundError<TError>(error: TError) {
+  return error instanceof Error && "code" in error && error.code === "ENOENT"
 }
 
 export function initialCode() {
@@ -59,7 +54,7 @@ async function readRecordRaw(directory: string, sessionID: string) {
   const raw = await fs.readFile(filepath, "utf8").catch(() => undefined)
   if (!raw) return undefined
 
-  const parsed = JSON.parse(raw) as unknown
+  const parsed = JSON.parse(raw)
   return TeachingWorkspaceRecordSchema.parse(parsed)
 }
 

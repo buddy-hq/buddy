@@ -6,7 +6,11 @@ import { WhiteboardElementValidationError } from "../errors"
 import { assertWhiteboardTouchedAnchorsFresh } from "./model-context"
 import {
   WhiteboardViewportSchema,
+  parseNonEmptyTString,
   parsePersistableWhiteboardElement,
+  parseTJsonObject,
+  parseTString,
+  type TJsonValue,
   type WhiteboardBoard,
   type WhiteboardElement,
   type WhiteboardObjectRead,
@@ -84,12 +88,12 @@ type WhiteboardProgramWriteMode = "auto" | "continue" | "replace"
 type WhiteboardProgramRequestedWriteMode = Exclude<WhiteboardProgramWriteMode, "auto">
 type TWriteWhiteboardCurrentFromLatestInput = Parameters<typeof writeWhiteboardCurrentFromLatest>[0]
 
-function parseDrawingProgram(elements: string): unknown[] {
+function parseDrawingProgram(elements: string): TJsonValue[] {
   assertWhiteboardPayloadWithinLimit("Whiteboard drawing program", elements)
 
-  let parsed: unknown
+  let parsed: TJsonValue
   try {
-    parsed = JSON.parse(elements) as unknown
+    parsed = z.json().parse(JSON.parse(elements))
   } catch (error) {
     throw new Error(
       `Whiteboard elements must be a valid compact JSON array string. ${error instanceof Error ? error.message : String(error)}`,
@@ -103,15 +107,10 @@ function parseDrawingProgram(elements: string): unknown[] {
   return parsed
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function readElementType(value: unknown): string | undefined {
-  if (!isRecord(value) || typeof value.type !== "string" || value.type.trim().length === 0) {
-    return undefined
-  }
-  return value.type
+function readElementType<TValue>(value: TValue): string | undefined {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
+  return parseNonEmptyTString(record.type)
 }
 
 function parseCommaSeparatedIDs(raw: string | undefined): string[] | undefined {
@@ -135,15 +134,14 @@ function addIDsToSet(input: { ids: string[] | undefined; target: Set<string> }):
   }
 }
 
-function addReferencedElementID(value: unknown, touchedIDs: Set<string>): void {
-  if (!isRecord(value)) return
-  const elementID = value.elementId
-  if (typeof elementID === "string" && elementID.trim().length > 0) {
-    touchedIDs.add(elementID)
-  }
+function addReferencedElementID<TValue>(value: TValue, touchedIDs: Set<string>): void {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return
+  const elementID = parseNonEmptyTString(record.elementId)
+  if (elementID !== undefined) touchedIDs.add(elementID)
 }
 
-function collectTouchedIDs(program: unknown[]): Set<string> {
+function collectTouchedIDs(program: TJsonValue[]): Set<string> {
   const touchedIDs = new Set<string>()
   for (const value of program) {
     const type = readElementType(value)
@@ -161,24 +159,26 @@ function collectTouchedIDs(program: unknown[]): Set<string> {
       }
       continue
     }
-    if (!isRecord(value) || PSEUDO_ELEMENT_TYPES.has(type ?? "")) continue
-    if (typeof value.containerId === "string" && value.containerId.trim().length > 0) {
-      touchedIDs.add(value.containerId)
+    const record = parseTJsonObject(value)
+    if (record === undefined || PSEUDO_ELEMENT_TYPES.has(type ?? "")) continue
+    const containerId = parseNonEmptyTString(record.containerId)
+    if (containerId !== undefined) {
+      touchedIDs.add(containerId)
     }
-    addReferencedElementID(value.startBinding, touchedIDs)
-    addReferencedElementID(value.endBinding, touchedIDs)
+    addReferencedElementID(record.startBinding, touchedIDs)
+    addReferencedElementID(record.endBinding, touchedIDs)
   }
   return touchedIDs
 }
 
-function addOwnElementID(value: unknown, elementIDs: Set<string>): void {
-  if (!isRecord(value)) return
-  if (typeof value.id === "string" && value.id.trim().length > 0) {
-    elementIDs.add(value.id)
-  }
+function addOwnElementID<TValue>(value: TValue, elementIDs: Set<string>): void {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return
+  const id = parseNonEmptyTString(record.id)
+  if (id !== undefined) elementIDs.add(id)
 }
 
-function collectLayoutPriorityElementIDs(program: unknown[]): Set<string> {
+function collectLayoutPriorityElementIDs(program: TJsonValue[]): Set<string> {
   const elementIDs = new Set<string>()
   for (const value of program) {
     const type = readElementType(value)
@@ -199,13 +199,15 @@ function collectLayoutPriorityElementIDs(program: unknown[]): Set<string> {
       }
       continue
     }
-    if (!isRecord(value) || PSEUDO_ELEMENT_TYPES.has(type ?? "")) continue
-    addOwnElementID(value, elementIDs)
-    if (typeof value.containerId === "string" && value.containerId.trim().length > 0) {
-      elementIDs.add(value.containerId)
+    const record = parseTJsonObject(value)
+    if (record === undefined || PSEUDO_ELEMENT_TYPES.has(type ?? "")) continue
+    addOwnElementID(record, elementIDs)
+    const containerId = parseNonEmptyTString(record.containerId)
+    if (containerId !== undefined) {
+      elementIDs.add(containerId)
     }
-    addReferencedElementID(value.startBinding, elementIDs)
-    addReferencedElementID(value.endBinding, elementIDs)
+    addReferencedElementID(record.startBinding, elementIDs)
+    addReferencedElementID(record.endBinding, elementIDs)
   }
   return elementIDs
 }
@@ -216,7 +218,7 @@ function withoutDeletedElements(
 ): WhiteboardElement[] {
   return elements.filter((element) => {
     if (ids.has(element.id)) return false
-    return typeof element.containerId !== "string" || !ids.has(element.containerId)
+    return element.containerId === undefined || !ids.has(element.containerId)
   })
 }
 
@@ -230,15 +232,16 @@ function buildProgramStateSignature(input: {
   })
 }
 
-function describeProgramValue(value: unknown): string {
-  if (!isRecord(value)) return "non-object"
-  const type = typeof value.type === "string" ? value.type : "missing-type"
-  const id = typeof value.id === "string" ? value.id : "missing-id"
+function describeProgramValue<TValue>(value: TValue): string {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return "non-object"
+  const type = parseTString(record.type) ?? "missing-type"
+  const id = parseTString(record.id) ?? "missing-id"
   return `${type}:${id}`
 }
 
 function readProgramWriteMode(input: {
-  program: unknown[]
+  program: TJsonValue[]
   warnings: string[]
 }): WhiteboardProgramWriteMode {
   let hasRestore = false
@@ -292,7 +295,7 @@ function readProgramWriteMode(input: {
 }
 
 function resolveProgramWriteMode(input: {
-  program: unknown[]
+  program: TJsonValue[]
   requestedWriteMode?: WhiteboardProgramRequestedWriteMode
   warnings: string[]
 }): WhiteboardProgramWriteMode {
@@ -315,7 +318,7 @@ function resolveProgramWriteMode(input: {
 
 function applyDeletion(input: {
   elements: WhiteboardElement[]
-  value: unknown
+  value: TJsonValue
   index: number
   warnings: string[]
 }): WhiteboardElement[] {
@@ -342,13 +345,13 @@ function translateElements(input: {
 }): WhiteboardElement[] {
   const expandedIDs = new Set(input.ids)
   for (const element of input.elements) {
-    if (typeof element.containerId === "string" && input.ids.has(element.containerId)) {
+    if (element.containerId !== undefined && input.ids.has(element.containerId)) {
       expandedIDs.add(element.id)
     }
   }
   return input.elements.map((element) => {
     if (!expandedIDs.has(element.id)) return element
-    if (typeof element.x !== "number" || typeof element.y !== "number") return element
+    if (element.x === undefined || element.y === undefined) return element
     return {
       ...element,
       x: element.x + input.dx,
@@ -359,7 +362,7 @@ function translateElements(input: {
 
 function applyTranslation(input: {
   elements: WhiteboardElement[]
-  value: unknown
+  value: TJsonValue
   index: number
   warnings: string[]
 }): WhiteboardElement[] {
@@ -410,7 +413,7 @@ function appendCameraRatioHint(input: { camera: WhiteboardViewport; warnings: st
 }
 
 function applyCameraUpdate(input: {
-  value: unknown
+  value: TJsonValue
   index: number
   viewport: WhiteboardViewport | undefined
   warnings: string[]
@@ -433,7 +436,7 @@ function applyCameraUpdate(input: {
 }
 
 function parseDrawableElement(input: {
-  value: unknown
+  value: TJsonValue
   index: number
   warnings: string[]
 }): WhiteboardElement | undefined {
@@ -451,7 +454,7 @@ function parseDrawableElement(input: {
 }
 
 function buildWhiteboardProgramBoard(input: {
-  program: unknown[]
+  program: TJsonValue[]
   base: WhiteboardProgramBase
   continueCurrent: boolean
   warnings: string[]

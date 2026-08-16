@@ -78,6 +78,19 @@ type LearnerMemoryLabStepTrace = {
   summary?: string
 }
 
+type TLabTraceValue =
+  | string
+  | number
+  | boolean
+  | null
+  | TLabTraceValue[]
+  | TLabTraceDetails
+  | undefined
+
+type TLabTraceDetails = {
+  [key: string]: TLabTraceValue
+}
+
 type LearnerMemoryLabTraceEvent = {
   id: string
   at: string
@@ -85,7 +98,7 @@ type LearnerMemoryLabTraceEvent = {
   step?: LearnerMemoryLabStepKey
   sessionID?: string
   message: string
-  details?: Record<string, unknown>
+  details?: TLabTraceDetails
 }
 
 type LearnerMemoryLabSessionTrace = {
@@ -143,7 +156,7 @@ type LearnerMemoryLabStateWriter = {
     message: string
     step?: LearnerMemoryLabStepKey
     sessionID?: string
-    details?: Record<string, unknown>
+    details?: TLabTraceDetails
   }) => Promise<void>
   update: (fn: (state: LearnerMemoryLabRunState) => void) => Promise<void>
   startStep: (key: LearnerMemoryLabStepKey, summary?: string) => Promise<void>
@@ -180,7 +193,7 @@ function makeLabTracePath(memoryRoot: string): string {
   return path.join(memoryRoot, LAB_TRACE_FILE_NAME)
 }
 
-function isSessionNotFoundError(error: unknown): boolean {
+function isSessionNotFoundError<TError>(error: TError): boolean {
   if (!(error instanceof Error)) return false
   if (error.name === SESSION_NOT_FOUND_ERROR_NAME) return true
   return error.message.includes(SESSION_NOT_FOUND_ERROR_NAME)

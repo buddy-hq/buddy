@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import { DateTime } from "effect"
+import z from "zod"
 import type { SessionV2 } from "@buddy/opencode-adapter/session-v2"
 import type { LearnerEvent } from "./types"
 import { redactSecrets } from "./redaction"
@@ -48,8 +49,9 @@ type ToolOutputContent = Extract<
   { status: "completed" }
 >["content"][number]
 
-function jsonText(value: unknown): string | undefined {
-  if (typeof value === "string") return value
+function jsonText<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  if (parsed.success) return parsed.data
   try {
     return JSON.stringify(value)
   } catch {

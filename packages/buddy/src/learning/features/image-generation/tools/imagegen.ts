@@ -68,6 +68,11 @@ const ImagegenInputSchema = z
 
 type ImagegenInput = z.infer<typeof ImagegenInputSchema>
 
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
 async function authorizeReferencedImagePaths(
   imagePaths: readonly string[],
   ctx: Pick<BuddyToolContext, "ask" | "directory" | "messages" | "sessionID">,
@@ -134,19 +139,19 @@ const imagegenTool = createBuddyTool({
     phases: {
       pending: {
         action: "Generating image",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       running: {
         action: "Generating image",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       completed: {
         action: "Generated image",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       error: {
         action: "Failed to generate image",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
     },
   },
@@ -160,12 +165,16 @@ const imagegenTool = createBuddyTool({
     })
     ctx.abort.throwIfAborted()
 
-    const savedImage = await saveGeneratedImage({
-      sessionID: String(ctx.sessionID),
-      ...(ctx.callID ? { callID: ctx.callID } : {}),
-      title: imageTitle,
-      base64: generated.base64,
-    })
+    const savedImage = await saveGeneratedImage(
+      Object.assign(
+        {
+          sessionID: String(ctx.sessionID),
+          title: imageTitle,
+          base64: generated.base64,
+        },
+        ctx.callID ? { callID: ctx.callID } : undefined,
+      ),
+    )
     const savedPath = savedImage.path
     try {
       const presentation = await buildPresentedMediaObjectOutput({
@@ -185,10 +194,14 @@ const imagegenTool = createBuddyTool({
           buddyObjectResult.message,
           ...formatBuddyObjectRefLines(buddyObjectResult.primaryRef),
         ].join("\n"),
-        metadata: {
-          buddyObjectResult,
-          savedPath,
-          ...(ctx.callID
+        metadata: Object.assign(
+          {
+            buddyObjectResult,
+            savedPath,
+            operation: generated.operation,
+            referenceImageCount: imageDataUrls.length,
+          },
+          ctx.callID
             ? {
                 generatedImageProvenance: generatedImageProvenance({
                   image: savedImage,
@@ -196,10 +209,8 @@ const imagegenTool = createBuddyTool({
                   callID: ctx.callID,
                 }),
               }
-            : {}),
-          operation: generated.operation,
-          referenceImageCount: imageDataUrls.length,
-        },
+            : undefined,
+        ),
       }
     } catch (error) {
       if (error instanceof PresentedMediaValidationError) {

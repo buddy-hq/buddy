@@ -9,7 +9,7 @@ function parserErrorMessage(document: Document): string | undefined {
 function rootTagName(document: Document): string | undefined {
   const root = document.documentElement
   if (!root) return undefined
-  if (typeof root.localName === "string" && root.localName.length > 0) return root.localName
+  if (root.localName.length > 0) return root.localName
   return root.tagName
 }
 
@@ -124,9 +124,10 @@ function lintSvg(source: string): FreeformFigureLintIssue[] {
     ]
   }
 
-  if (typeof DOMParser === "function") {
+  const Parser = globalThis.DOMParser
+  if (Parser !== undefined) {
     try {
-      const document = new DOMParser().parseFromString(trimmed, "image/svg+xml")
+      const document = new Parser().parseFromString(trimmed, "image/svg+xml")
       const parseError = parserErrorMessage(document)
       if (parseError) {
         issues.push({

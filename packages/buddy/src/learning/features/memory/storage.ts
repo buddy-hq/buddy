@@ -72,12 +72,12 @@ async function ensureLearnerMemoryLayout(directory: string): Promise<void> {
   await fs.rm(LearnerMemoryPath.memoriesDirectory(directory), { recursive: true, force: true })
 }
 
-async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
+async function writeJsonFile<TValue>(filePath: string, value: TValue): Promise<void> {
   await writeJsonFileAtomic(filePath, value, LEARNER_MEMORY_STORAGE_TUNING.jsonIndentSpaces)
 }
 
-async function readJsonFile(filePath: string): Promise<unknown> {
-  return JSON.parse(await fs.readFile(filePath, "utf8")) as unknown
+async function readJsonFile(filePath: string) {
+  return JSON.parse(await fs.readFile(filePath, "utf8"))
 }
 
 function eventYearMonth(createdAt: string): string {
@@ -90,7 +90,7 @@ function createLearnerEvent(input: {
   type: LearnerEvent["type"]
   sourceKind: string
   searchableText: string
-  payload?: Record<string, unknown>
+  payload?: LearnerEvent["payload"]
   sessionId?: string
   projectPath?: string
   sourceId?: string

@@ -1,7 +1,13 @@
+import z from "zod"
 import SEARCH_STANDARDS_DESCRIPTION from "./search-standards.md"
 import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
 import { getKnowledgeGraphService } from "../service"
 import { searchStandardsParameters } from "./parameters"
+
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
 
 export const searchStandardsTool = createBuddyTool({
   id: "search_standards",
@@ -15,19 +21,19 @@ export const searchStandardsTool = createBuddyTool({
     phases: {
       pending: {
         action: "Searching standards",
-        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        detail: ({ input }) => parseToolInputString(input.query),
       },
       running: {
         action: "Searching standards",
-        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        detail: ({ input }) => parseToolInputString(input.query),
       },
       completed: {
         action: "Searched standards",
-        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        detail: ({ input }) => parseToolInputString(input.query),
       },
       error: {
         action: "Failed to search standards",
-        detail: ({ input }) => (typeof input.query === "string" ? input.query : undefined),
+        detail: ({ input }) => parseToolInputString(input.query),
       },
     },
     summary: {

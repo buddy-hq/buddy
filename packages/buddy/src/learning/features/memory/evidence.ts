@@ -18,7 +18,7 @@ type LearnerEventRecord = {
   path: string
 }
 
-async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
+async function writeJsonFile<TValue>(filePath: string, value: TValue): Promise<void> {
   await writeJsonFileAtomic(filePath, value, LEARNER_MEMORY_STORAGE_TUNING.jsonIndentSpaces)
 }
 
@@ -36,7 +36,7 @@ async function writeLearnerEvidenceForEvent(input: {
   note: string
   tags?: string[]
   objectId?: string
-  payload?: Record<string, unknown>
+  payload?: LearnerEvidence["payload"]
   memoryEffects?: LearnerEvidence["memoryEffects"]
 }): Promise<LearnerEvidence> {
   const evidence = LearnerEvidenceSchema.parse(
@@ -62,7 +62,7 @@ async function writeLearnerEvidenceForEvent(input: {
 }
 
 async function readLearnerEvidence(filePath: string): Promise<LearnerEvidence> {
-  return LearnerEvidenceSchema.parse(JSON.parse(await fs.readFile(filePath, "utf8")) as unknown)
+  return LearnerEvidenceSchema.parse(JSON.parse(await fs.readFile(filePath, "utf8")))
 }
 
 async function listLearnerEvidence(directory: string): Promise<LearnerEvidence[]> {

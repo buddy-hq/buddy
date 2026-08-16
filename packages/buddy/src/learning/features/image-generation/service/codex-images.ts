@@ -52,26 +52,30 @@ export function createCodexImagesClient(dependencies: CodexImagesClientDependenc
 
       const operation: ImageOperation = request.imageDataUrls.length === 0 ? "generate" : "edit"
       const endpointPath = operation === "generate" ? IMAGE_GENERATION_PATH : IMAGE_EDIT_PATH
-      const body = {
-        prompt: request.prompt,
-        background: "auto",
-        model: IMAGE_MODEL,
-        quality: "auto",
-        size: "auto",
-        ...(operation === "edit"
+      const body = Object.assign(
+        {
+          prompt: request.prompt,
+          background: "auto",
+          model: IMAGE_MODEL,
+          quality: "auto",
+          size: "auto",
+        },
+        operation === "edit"
           ? { images: request.imageDataUrls.map((image_url) => ({ image_url })) }
-          : {}),
-      }
+          : undefined,
+      )
 
       const response = await dependencies.fetch(`${CHATGPT_CODEX_BASE_URL}/${endpointPath}`, {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${auth.access}`,
-          "Content-Type": "application/json",
-          ...(auth.accountId ? { "ChatGPT-Account-Id": auth.accountId } : {}),
-          originator: IMAGE_ORIGINATOR,
-        },
+          headers: Object.assign(
+            {
+              Accept: "application/json",
+              Authorization: `Bearer ${auth.access}`,
+              "Content-Type": "application/json",
+              originator: IMAGE_ORIGINATOR,
+            },
+            auth.accountId ? { "ChatGPT-Account-Id": auth.accountId } : undefined,
+          ),
         body: JSON.stringify(body),
         signal: request.signal,
       })

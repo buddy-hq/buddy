@@ -1,26 +1,23 @@
 import { WhiteboardStaleWriteError } from "../errors"
-import type {
-  WhiteboardBoard,
-  WhiteboardBounds,
-  WhiteboardElement,
-  WhiteboardModelContext,
-  WhiteboardModelContextAnchor,
+import {
+  parseNonEmptyTString,
+  parseTJsonObject,
+  type WhiteboardBoard,
+  type WhiteboardBounds,
+  type WhiteboardElement,
+  type WhiteboardModelContext,
+  type WhiteboardModelContextAnchor,
 } from "./types"
 
 const MAX_STALE_DETAIL_COUNT = 5
 const MAX_CONTEXT_TEXT_CHARS = 500
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value)
-}
-
-function readFiniteNumber(value: Record<string, unknown>, key: string): number | undefined {
-  const candidate = value[key]
-  return isFiniteNumber(candidate) ? Math.round(candidate) : undefined
+function readFiniteNumber(
+  element: WhiteboardElement,
+  key: "x" | "y" | "width" | "height",
+): number | undefined {
+  const candidate = element[key]
+  return candidate === undefined ? undefined : Math.round(candidate)
 }
 
 function truncateText(value: string): string {
@@ -29,8 +26,9 @@ function truncateText(value: string): string {
     : value
 }
 
-function readTextCandidate(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0 ? truncateText(value) : undefined
+function readTextCandidate<TValue>(value: TValue): string | undefined {
+  const text = parseNonEmptyTString(value)
+  return text === undefined ? undefined : truncateText(text)
 }
 
 function readElementText(element: WhiteboardElement): string | undefined {
@@ -38,8 +36,9 @@ function readElementText(element: WhiteboardElement): string | undefined {
 }
 
 function readLabelText(element: WhiteboardElement): string | undefined {
-  if (!isRecord(element.label)) return undefined
-  return readTextCandidate(element.label.text)
+  const label = parseTJsonObject(element.label)
+  if (label === undefined) return undefined
+  return readTextCandidate(label.text)
 }
 
 function roundBounds(bounds: WhiteboardBounds): WhiteboardBounds {
@@ -71,7 +70,7 @@ function anchorForElement(input: {
   if (height !== undefined) anchor.height = height
   if (text) anchor.text = text
   if (labelText) anchor.labelText = labelText
-  if (typeof input.element.containerId === "string") anchor.containerId = input.element.containerId
+  if (input.element.containerId !== undefined) anchor.containerId = input.element.containerId
   if (input.renderBounds) anchor.renderBounds = roundBounds(input.renderBounds)
   return anchor
 }

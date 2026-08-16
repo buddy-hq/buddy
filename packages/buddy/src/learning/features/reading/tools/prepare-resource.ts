@@ -20,6 +20,19 @@ import {
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 import { authorizeFileReadPath } from "../../../runtime/external-file-authorization"
 
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+type TJsonValue = string | number | boolean | null | TJsonValue[] | TJsonObject
+type TJsonObject = { [key: string]: TJsonValue }
+type TToolExecuteResult = {
+  title: string
+  output: string
+  metadata: TJsonObject
+}
+
 const PREPARE_RESOURCE_TOOL_ID = "prepare_resource" as const
 const RESOURCE_PREPARATION_POLL_INTERVAL_MS = 500
 const RESOURCE_PREPARATION_DEFAULT_MAX_WAIT_MS = 120_000
@@ -248,23 +261,31 @@ export const prepareResourceTool = createBuddyTool({
     phases: {
       pending: {
         action: "Preparing resource",
-        detail: ({ input }) =>
-          typeof input.sourcePath === "string" ? path.basename(input.sourcePath) : undefined,
+        detail: ({ input }) => {
+          const sourcePath = parseToolInputString(input.sourcePath)
+          return sourcePath === undefined ? undefined : path.basename(sourcePath)
+        },
       },
       running: {
         action: "Preparing resource",
-        detail: ({ input }) =>
-          typeof input.sourcePath === "string" ? path.basename(input.sourcePath) : undefined,
+        detail: ({ input }) => {
+          const sourcePath = parseToolInputString(input.sourcePath)
+          return sourcePath === undefined ? undefined : path.basename(sourcePath)
+        },
       },
       completed: {
         action: "Prepared resource",
-        detail: ({ input }) =>
-          typeof input.sourcePath === "string" ? path.basename(input.sourcePath) : undefined,
+        detail: ({ input }) => {
+          const sourcePath = parseToolInputString(input.sourcePath)
+          return sourcePath === undefined ? undefined : path.basename(sourcePath)
+        },
       },
       error: {
         action: "Failed to prepare resource",
-        detail: ({ input }) =>
-          typeof input.sourcePath === "string" ? path.basename(input.sourcePath) : undefined,
+        detail: ({ input }) => {
+          const sourcePath = parseToolInputString(input.sourcePath)
+          return sourcePath === undefined ? undefined : path.basename(sourcePath)
+        },
       },
     },
     summary: {
@@ -275,7 +296,7 @@ export const prepareResourceTool = createBuddyTool({
       error: "Failed to prepare resources",
     },
   },
-  async execute(params, ctx) {
+  async execute(params, ctx): Promise<TToolExecuteResult> {
     const sourcePath = await authorizeFileReadPath(
       resolveResourceSourcePath(ctx.directory, params.sourcePath),
       ctx,
@@ -368,27 +389,31 @@ export const prepareResourceTool = createBuddyTool({
         maxWaitMs,
         buddyObjectResult,
       }),
-      metadata: {
-        buddyObjectResult,
-        resource: finalResult.resource.alias,
-        objectID: finalResult.resource.objectID,
-        status: finalResult.resource.status,
-        sourceValidity: finalResult.resource.sourceValidity,
-        extractionStatus: finalResult.resource.extractionStatus,
-        format: finalResult.resource.format,
-        managedSourcePath: finalResult.resource.sourceRelpath,
-        benchReaderPath: finalResult.resource.readerPath ?? null,
-        packPath: finalResult.resource.packPath ?? null,
-        fullTextPath: finalResult.resource.fullTextPath ?? null,
-        warnings: finalResult.resource.warnings,
-        nextStep: resolveNextStep({
+      metadata: Object.assign(
+        {
+          buddyObjectResult,
+          resource: finalResult.resource.alias,
+          objectID: finalResult.resource.objectID,
           status: finalResult.resource.status,
+          sourceValidity: finalResult.resource.sourceValidity,
+          extractionStatus: finalResult.resource.extractionStatus,
+          managedSourcePath: finalResult.resource.sourceRelpath,
+          benchReaderPath: finalResult.resource.readerPath ?? null,
+          packPath: finalResult.resource.packPath ?? null,
+          fullTextPath: finalResult.resource.fullTextPath ?? null,
+          warnings: finalResult.resource.warnings,
+          nextStep: resolveNextStep({
+            status: finalResult.resource.status,
+            timedOut: finalResult.timedOut,
+          }),
           timedOut: finalResult.timedOut,
-        }),
-        timedOut: finalResult.timedOut,
-        waitUntilReady: shouldWait,
-        maxWaitMs,
-      },
+          waitUntilReady: shouldWait,
+          maxWaitMs,
+        },
+        finalResult.resource.format !== undefined
+          ? { format: finalResult.resource.format }
+          : undefined,
+      ),
     }
   },
 })

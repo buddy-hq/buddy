@@ -35,11 +35,18 @@ const RenderMermaidInputSchema = z.object({
 
 type RenderMermaidInput = z.infer<typeof RenderMermaidInputSchema>
 
-function createdByCallID(ctx: BuddyToolContext): string {
-  return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
-function isAutoRepairMessage(messageID: unknown): boolean {
+function createdByCallID(ctx: BuddyToolContext): string {
+  const callID = ctx.callID
+  if (callID !== undefined && callID.trim().length > 0) return callID
+  return "unknown"
+}
+
+function isAutoRepairMessage<TMessageID>(messageID: TMessageID): boolean {
   return String(messageID).startsWith(MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX)
 }
 
@@ -173,19 +180,19 @@ const renderMermaidTool = createBuddyTool({
     phases: {
       pending: {
         action: "Rendering diagram",
-        detail: ({ input }) => (typeof input.alt === "string" ? input.alt : undefined),
+        detail: ({ input }) => parseToolInputString(input.alt),
       },
       running: {
         action: "Rendering diagram",
-        detail: ({ input }) => (typeof input.alt === "string" ? input.alt : undefined),
+        detail: ({ input }) => parseToolInputString(input.alt),
       },
       completed: {
         action: "Rendered diagram",
-        detail: ({ input }) => (typeof input.alt === "string" ? input.alt : undefined),
+        detail: ({ input }) => parseToolInputString(input.alt),
       },
       error: {
         action: "Failed to render diagram",
-        detail: ({ input }) => (typeof input.alt === "string" ? input.alt : undefined),
+        detail: ({ input }) => parseToolInputString(input.alt),
       },
     },
   },
@@ -205,14 +212,18 @@ const renderMermaidTool = createBuddyTool({
       messages: ctx.messages,
       currentMessageID: ctx.messageID,
     })
-    const { previousObjectID, ignoredRepairOfObjectID } = await resolveRepairTarget({
-      directory: ctx.directory,
-      isAutoRepair: isAutoRepairTurn({
-        messages: ctx.messages,
-        currentMessageID: ctx.messageID,
-      }),
-      ...(repairOfObjectID ? { repairOfObjectID } : {}),
-    })
+    const { previousObjectID, ignoredRepairOfObjectID } = await resolveRepairTarget(
+      Object.assign(
+        {
+          directory: ctx.directory,
+          isAutoRepair: isAutoRepairTurn({
+            messages: ctx.messages,
+            currentMessageID: ctx.messageID,
+          }),
+        },
+        repairOfObjectID ? { repairOfObjectID } : undefined,
+      ),
+    )
     if (previousObjectID) {
       const manifest = await readMermaidObjectManifest(ctx.directory, previousObjectID)
       if (manifest.origin?.kind === "tool" && manifest.origin.sessionID !== String(ctx.sessionID)) {
@@ -226,18 +237,27 @@ const renderMermaidTool = createBuddyTool({
       throw new Error("Mermaid repair request does not match the requested object.")
     }
 
-    const object = await createToolMermaidObject({
-      directory: ctx.directory,
-      sessionID: String(ctx.sessionID),
-      messageID: String(ctx.messageID),
-      callID: createdByCallID(ctx),
-      alt: parsed.alt,
-      ...(parsed.caption ? { caption: parsed.caption } : {}),
-      source: parsed.source,
-      ...(previousObjectID ? { repairOfObjectID: previousObjectID } : {}),
-      ...(previousObjectID && autoRepairRequestID ? { autoRepairRequestID } : {}),
-      ...(autoRepairRequest ? { expectedSupersededRevisionID: autoRepairRequest.revisionID } : {}),
-    })
+    const object = await createToolMermaidObject(
+      Object.assign(
+        {
+          directory: ctx.directory,
+          sessionID: String(ctx.sessionID),
+          messageID: String(ctx.messageID),
+          callID: createdByCallID(ctx),
+          alt: parsed.alt,
+          source: parsed.source,
+        },
+        parsed.caption ? { caption: parsed.caption } : undefined,
+        previousObjectID ? { repairOfObjectID: previousObjectID } : undefined,
+        Object.assign(
+          {},
+          previousObjectID && autoRepairRequestID ? { autoRepairRequestID } : undefined,
+          autoRepairRequest
+            ? { expectedSupersededRevisionID: autoRepairRequest.revisionID }
+            : undefined,
+        ),
+      ),
+    )
 
     const buddyObjectResult = buildRenderMermaidObjectResult({
       objectID: object.objectID,

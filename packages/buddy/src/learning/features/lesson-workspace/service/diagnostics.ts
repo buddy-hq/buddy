@@ -1,8 +1,17 @@
+import z from "zod"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { LSP } from "@buddy/opencode-adapter/lsp"
 import { loadOpenCodeApp } from "@buddy/backend/opencode-runtime/runtime"
 import type { TeachingDiagnostic, TeachingWorkspaceRecord } from "../model/types"
 import { syncDerivedFields } from "./workspace"
+
+const EMPTY_TEACHING_DIAGNOSTICS: TeachingDiagnostic[] = []
+const diagnosticCodeSchema = z.union([z.string(), z.number()])
+
+function parseDiagnosticCode<TValue>(value: TValue): string | number | undefined {
+  const parsed = diagnosticCodeSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
 
 function normalizeDiagnosticSeverity(severity?: number): TeachingDiagnostic["severity"] {
   switch (severity) {
@@ -39,10 +48,7 @@ function normalizeDiagnostics(
     message: diagnostic.message ?? "Unknown diagnostic",
     severity: normalizeDiagnosticSeverity(diagnostic.severity),
     source: diagnostic.source,
-    code:
-      typeof diagnostic.code === "string" || typeof diagnostic.code === "number"
-        ? diagnostic.code
-        : undefined,
+    code: parseDiagnosticCode(diagnostic.code),
     startLine: (diagnostic.range?.start?.line ?? 0) + 1,
     startColumn: (diagnostic.range?.start?.character ?? 0) + 1,
     endLine: (diagnostic.range?.end?.line ?? diagnostic.range?.start?.line ?? 0) + 1,
@@ -78,7 +84,7 @@ export async function readActiveDiagnostics(directory: string, record: TeachingW
         if (!available) {
           return {
             lspAvailable: false,
-            diagnostics: [] as TeachingDiagnostic[],
+            diagnostics: EMPTY_TEACHING_DIAGNOSTICS,
           }
         }
 
@@ -94,7 +100,7 @@ export async function readActiveDiagnostics(directory: string, record: TeachingW
   } catch {
     return {
       lspAvailable: false,
-      diagnostics: [] as TeachingDiagnostic[],
+            diagnostics: EMPTY_TEACHING_DIAGNOSTICS,
     }
   }
 }

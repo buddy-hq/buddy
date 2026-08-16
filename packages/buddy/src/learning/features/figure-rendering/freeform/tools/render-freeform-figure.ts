@@ -22,6 +22,11 @@ const RenderFreeformFigureInputSchema = z.object({
 
 type RenderFreeformFigureInput = z.infer<typeof RenderFreeformFigureInputSchema>
 
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
 function buildRenderFreeformFigureObjectResult(input: {
   figure: RenderFreeformFigureOutput
 }): BuddyObjectResult {
@@ -82,19 +87,19 @@ const renderFreeformFigureTool = createBuddyTool({
     phases: {
       pending: {
         action: "Rendering figure",
-        detail: ({ input }) => (typeof input.caption === "string" ? input.caption : undefined),
+        detail: ({ input }) => parseToolInputString(input.caption),
       },
       running: {
         action: "Rendering figure",
-        detail: ({ input }) => (typeof input.caption === "string" ? input.caption : undefined),
+        detail: ({ input }) => parseToolInputString(input.caption),
       },
       completed: {
         action: "Rendered figure",
-        detail: ({ input }) => (typeof input.caption === "string" ? input.caption : undefined),
+        detail: ({ input }) => parseToolInputString(input.caption),
       },
       error: {
         action: "Failed to render figure",
-        detail: ({ input }) => (typeof input.caption === "string" ? input.caption : undefined),
+        detail: ({ input }) => parseToolInputString(input.caption),
       },
     },
   },

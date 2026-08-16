@@ -7,7 +7,19 @@ import {
   WHITEBOARD_CONTINUATION_HANDLE,
 } from "../service/store"
 import { buildWhiteboardLayoutDigest } from "../service/layout-digest"
-import type { WhiteboardBoard, WhiteboardBounds, WhiteboardElement } from "../service/types"
+import type {
+  TJsonObject,
+  WhiteboardBoard,
+  WhiteboardBounds,
+  WhiteboardElement,
+} from "../service/types"
+import { parseNonEmptyTString, parseTJsonObject } from "../service/types"
+
+type TToolExecuteResult = {
+  title: string
+  output: string
+  metadata: TJsonObject
+}
 
 const ReadWhiteboardContextInputSchema = z
   .object({
@@ -41,17 +53,11 @@ type LearnerEditSummary = {
   textChanged?: string[]
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value)
-}
-
-function readFiniteNumber(value: Record<string, unknown>, key: string): number | undefined {
-  const candidate = value[key]
-  return isFiniteNumber(candidate) ? candidate : undefined
+function readFiniteNumber(
+  element: WhiteboardElement,
+  key: "x" | "y" | "width" | "height",
+): number | undefined {
+  return element[key]
 }
 
 function truncateText(value: string): string {
@@ -60,8 +66,9 @@ function truncateText(value: string): string {
     : value
 }
 
-function readTextCandidate(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0 ? truncateText(value) : undefined
+function readTextCandidate<TValue>(value: TValue): string | undefined {
+  const text = parseNonEmptyTString(value)
+  return text === undefined ? undefined : truncateText(text)
 }
 
 function readElementText(element: WhiteboardElement): string | undefined {
@@ -69,8 +76,9 @@ function readElementText(element: WhiteboardElement): string | undefined {
 }
 
 function readLabelText(element: WhiteboardElement): string | undefined {
-  if (!isRecord(element.label)) return undefined
-  return readTextCandidate(element.label.text)
+  const label = parseTJsonObject(element.label)
+  if (label === undefined) return undefined
+  return readTextCandidate(label.text)
 }
 
 function readVisibleText(element: WhiteboardElement): string | undefined {
@@ -136,7 +144,7 @@ function formatContextElement(
   if (height !== undefined) formatted.height = round(height)
   if (text) formatted.text = text
   if (labelText) formatted.labelText = labelText
-  if (typeof element.containerId === "string") formatted.containerId = element.containerId
+  if (element.containerId !== undefined) formatted.containerId = element.containerId
   const rawBounds = readElementBounds(element)
   if (renderBounds && (!rawBounds || boundsDiffer(rawBounds, renderBounds))) {
     formatted.renderBounds = roundBounds(renderBounds)
@@ -153,7 +161,7 @@ function formatVisibleTextElement(element: WhiteboardElement) {
       type: element.type,
       text,
     },
-    typeof element.containerId === "string" ? { containerId: element.containerId } : undefined,
+    element.containerId !== undefined ? { containerId: element.containerId } : undefined,
   )
 }
 
@@ -247,7 +255,7 @@ const readWhiteboardContextTool = createBuddyTool({
       error: "Failed to read Whiteboard",
     },
   },
-  async execute(params, ctx) {
+  async execute(params, ctx): Promise<TToolExecuteResult> {
     const context = await readAndRecordWhiteboardBoardContext(ctx.directory, params.objectID)
     const currentBoard = context.currentBoard
     if (!currentBoard) {

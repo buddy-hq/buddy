@@ -66,17 +66,42 @@ const ActiveModelSchema = z.object({
   }),
 })
 
-function readOptionalNumber(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) return value
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value)
+type TJsonValue = string | number | boolean | null | TJsonValue[] | TJsonObject
+type TJsonObject = { [key: string]: TJsonValue }
+type TToolExecuteResult = {
+  title: string
+  output: string
+  metadata: TJsonObject
+}
+
+const jsonStringSchema = z.string()
+const jsonFiniteNumberSchema = z.number().finite()
+const jsonObjectSchema: z.ZodType<TJsonObject> = z.record(z.string(), z.json())
+
+function parseTString<TValue>(value: TValue): string | undefined {
+  const parsed = jsonStringSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseTFiniteNumber<TValue>(value: TValue): number | undefined {
+  const parsed = jsonFiniteNumberSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseTJsonObject<TValue>(value: TValue): TJsonObject | undefined {
+  const parsed = jsonObjectSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function readOptionalNumber<TValue>(value: TValue) {
+  const numeric = parseTFiniteNumber(value)
+  if (numeric !== undefined) return numeric
+  const text = parseTString(value)
+  if (text !== undefined && text.trim().length > 0) {
+    const parsed = Number(text)
     if (Number.isFinite(parsed)) return parsed
   }
   return undefined
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function resourceSourceReferencePaths(resource: ResourceObjectResolved): string[] {
@@ -99,19 +124,20 @@ function resourceSourceBasenames(resource: ResourceObjectResolved): Set<string> 
 }
 
 function nativePdfSourcePathFromMessagePart(part: MessageV2.Part): string | undefined {
-  if (part.type !== "text" || !isRecord(part.metadata)) return undefined
+  if (part.type !== "text") return undefined
+  const metadataContainer = parseTJsonObject(part.metadata)
+  if (metadataContainer === undefined) return undefined
 
-  const metadata: unknown = part.metadata[BUDDY_PROMPT_PART_METADATA_KEY]
+  const metadata = parseTJsonObject(metadataContainer[BUDDY_PROMPT_PART_METADATA_KEY])
   if (
-    !isRecord(metadata) ||
+    metadata === undefined ||
     metadata.type !== NATIVE_RESOURCE_ATTACHMENT_PART_TYPE ||
     metadata.format !== "pdf" ||
-    metadata.delivery !== "model-and-resource" ||
-    typeof metadata.sourcePath !== "string"
+    metadata.delivery !== "model-and-resource"
   ) {
     return undefined
   }
-  return metadata.sourcePath
+  return parseTString(metadata.sourcePath)
 }
 
 function findNativePdfDelivery(input: {
@@ -139,31 +165,33 @@ function findNativePdfDelivery(input: {
   return undefined
 }
 
-function readModelLimit(value: unknown) {
-  if (!isRecord(value)) return undefined
-  const context = readOptionalNumber(value.context)
+function readModelLimit<TValue>(value: TValue) {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
+  const context = readOptionalNumber(record.context)
   if (context === undefined) return undefined
   return {
     context,
-    input: readOptionalNumber(value.input),
-    output: readOptionalNumber(value.output),
+    input: readOptionalNumber(record.input),
+    output: readOptionalNumber(record.output),
   }
 }
 
-function normalizeActiveModel(value: unknown): z.infer<typeof ActiveModelSchema> | undefined {
+function normalizeActiveModel<TValue>(value: TValue): z.infer<typeof ActiveModelSchema> | undefined {
   const direct = ActiveModelSchema.safeParse(value)
   if (direct.success) {
     return direct.data
   }
 
-  if (!isRecord(value)) return undefined
+  const record = parseTJsonObject(value)
+  if (record === undefined) return undefined
 
-  const limit = readModelLimit(value.limit)
+  const limit = readModelLimit(record.limit)
   if (!limit) return undefined
 
-  const providerID = value.providerID
-  const modelID = value.id ?? value.modelID
-  if (typeof providerID !== "string" || typeof modelID !== "string") {
+  const providerID = parseTString(record.providerID)
+  const modelID = parseTString(record.id) ?? parseTString(record.modelID)
+  if (providerID === undefined || modelID === undefined) {
     return undefined
   }
 
@@ -251,7 +279,7 @@ function clampPostFullTextIngestReserve(value: number) {
   )
 }
 
-async function resolveActiveModel(messages: MessageV2.WithParts[], extra: unknown) {
+async function resolveActiveModel<TExtra>(messages: MessageV2.WithParts[], extra: TExtra) {
   const fromExtra = normalizeActiveModel(extra)
   if (fromExtra) {
     return fromExtra
@@ -363,23 +391,19 @@ export const ingestFullTextTool = createBuddyTool({
     phases: {
       pending: {
         action: "Loading full text",
-        detail: ({ input }) =>
-          typeof input.resourceKey === "string" ? input.resourceKey : undefined,
+        detail: ({ input }) => parseTString(input.resourceKey),
       },
       running: {
         action: "Loading full text",
-        detail: ({ input }) =>
-          typeof input.resourceKey === "string" ? input.resourceKey : undefined,
+        detail: ({ input }) => parseTString(input.resourceKey),
       },
       completed: {
         action: "Loaded full text",
-        detail: ({ input }) =>
-          typeof input.resourceKey === "string" ? input.resourceKey : undefined,
+        detail: ({ input }) => parseTString(input.resourceKey),
       },
       error: {
         action: "Failed to load full text",
-        detail: ({ input }) =>
-          typeof input.resourceKey === "string" ? input.resourceKey : undefined,
+        detail: ({ input }) => parseTString(input.resourceKey),
       },
     },
     resolveSilentOutcome: ({ phase, metadata }) =>
@@ -394,7 +418,7 @@ export const ingestFullTextTool = createBuddyTool({
     maxLines: FULL_TEXT_TOOL_MAX_OUTPUT_LINES,
     maxBytes: FULL_TEXT_TOOL_MAX_OUTPUT_BYTES,
   },
-  async execute(params, ctx) {
+  async execute(params, ctx): Promise<TToolExecuteResult> {
     await ctx.ask({
       permission: "ingest_full_text",
       patterns: [params.resourceKey],

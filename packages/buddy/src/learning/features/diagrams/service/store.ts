@@ -477,25 +477,27 @@ function toMermaidObjectRead(input: {
   if (!input.manifest.origin) {
     throw new Error(`Mermaid object '${input.manifest.objectID}' has no origin.`)
   }
-  return {
-    objectID: input.manifest.objectID,
-    revisionID: input.revisionID,
-    kind: BUDDY_OBJECT_KINDS.mermaid,
-    origin: input.manifest.origin,
-    title: input.manifest.title,
-    diagramType: input.manifest.summary.diagramType ?? "unknown",
-    alt: input.manifest.summary.alt,
-    ...(input.manifest.summary.caption ? { caption: input.manifest.summary.caption } : {}),
-    source: input.source,
-    sourceHash: input.sourceHash,
-    preflightRepairs: input.preflightRepairs,
-    autoRepair: input.autoRepair,
-    renderStatus: input.manifest.summary.renderStatus,
-    repairOfObjectID: input.manifest.summary.repairOfObjectID,
-    supersedesRevisionID: input.manifest.summary.supersedesRevisionID,
-    replacementRevisionID: input.manifest.summary.replacementRevisionID,
-    ...(input.render ? { render: input.render } : {}),
-  }
+  return Object.assign(
+    {
+      objectID: input.manifest.objectID,
+      revisionID: input.revisionID,
+      kind: BUDDY_OBJECT_KINDS.mermaid,
+      origin: input.manifest.origin,
+      title: input.manifest.title,
+      diagramType: input.manifest.summary.diagramType ?? "unknown",
+      alt: input.manifest.summary.alt,
+      source: input.source,
+      sourceHash: input.sourceHash,
+      preflightRepairs: input.preflightRepairs,
+      autoRepair: input.autoRepair,
+      renderStatus: input.manifest.summary.renderStatus,
+      repairOfObjectID: input.manifest.summary.repairOfObjectID,
+      supersedesRevisionID: input.manifest.summary.supersedesRevisionID,
+      replacementRevisionID: input.manifest.summary.replacementRevisionID,
+    },
+    input.manifest.summary.caption ? { caption: input.manifest.summary.caption } : undefined,
+    input.render ? { render: input.render } : undefined,
+  )
 }
 
 function buildMermaidObjectViews(input: {
@@ -548,21 +550,22 @@ async function createToolMermaidObject(
     : defaultAutoRepairState({ isRepairRevision: false })
   const manifest = BuddyObjectManifestSchema.safeExtend({
     summary: MermaidObjectSummarySchema,
-  }).parse({
-    version: 1,
-    kind: BUDDY_OBJECT_KINDS.mermaid,
-    objectID,
-    title: input.alt,
-    ...(input.caption ? { description: input.caption } : {}),
-    status: "ready",
-    lifecycle: "revisioned",
-    currentRevisionID: revisionID,
-    origin: {
-      kind: "tool",
-      sessionID: input.sessionID,
-      messageID: input.messageID,
-      callID: input.callID,
-    },
+  }).parse(
+    Object.assign(
+      {
+        version: 1,
+        kind: BUDDY_OBJECT_KINDS.mermaid,
+        objectID,
+        title: input.alt,
+        status: "ready",
+        lifecycle: "revisioned",
+        currentRevisionID: revisionID,
+        origin: {
+          kind: "tool" as const,
+          sessionID: input.sessionID,
+          messageID: input.messageID,
+          callID: input.callID,
+        },
     createdAt: previousManifest?.createdAt ?? createdAt,
     updatedAt: createdAt,
     sourceRefs: [
@@ -588,8 +591,11 @@ async function createToolMermaidObject(
       repairOfObjectID: input.repairOfObjectID ?? null,
       supersedesRevisionID,
       replacementRevisionID: input.repairOfObjectID ? revisionID : null,
-    },
-  })
+        },
+      },
+      input.caption ? { description: input.caption } : undefined,
+    ),
+  )
   await writeObjectRecord({
     directory: input.directory,
     kind: BUDDY_OBJECT_KINDS.mermaid,
@@ -672,17 +678,18 @@ async function createMarkdownMermaidObject(
       const autoRepair = defaultAutoRepairState({ isRepairRevision: false })
       const manifest = BuddyObjectManifestSchema.safeExtend({
         summary: MermaidObjectSummarySchema,
-      }).parse({
-        version: 1,
-        kind: BUDDY_OBJECT_KINDS.mermaid,
-        objectID,
-        title: input.alt,
-        ...(input.caption ? { description: input.caption } : {}),
-        status: "ready",
-        lifecycle: "revisioned",
-        currentRevisionID: revisionID,
-        origin: {
-          kind: "markdown",
+      }).parse(
+        Object.assign(
+          {
+            version: 1,
+            kind: BUDDY_OBJECT_KINDS.mermaid,
+            objectID,
+            title: input.alt,
+            status: "ready",
+            lifecycle: "revisioned",
+            currentRevisionID: revisionID,
+            origin: {
+              kind: "markdown" as const,
           sessionID: input.sessionID,
           messageID: input.messageID,
           partID: input.partID,
@@ -713,8 +720,11 @@ async function createMarkdownMermaidObject(
           repairOfObjectID: input.repairOfObjectID ?? null,
           supersedesRevisionID: null,
           replacementRevisionID: null,
-        },
-      })
+            },
+          },
+          input.caption ? { description: input.caption } : undefined,
+        ),
+      )
       await writeObjectRecord({
         directory: input.directory,
         kind: BUDDY_OBJECT_KINDS.mermaid,
@@ -940,15 +950,19 @@ async function readMermaidObject(input: {
         })
       : Promise.resolve(undefined),
   ])
-  return toMermaidObjectRead({
-    manifest,
-    revisionID,
-    source,
-    sourceHash: preflight.sourceHash,
-    preflightRepairs: preflight.repairs,
-    autoRepair,
-    ...(render ? { render } : {}),
-  })
+  return toMermaidObjectRead(
+    Object.assign(
+      {
+        manifest,
+        revisionID,
+        source,
+        sourceHash: preflight.sourceHash,
+        preflightRepairs: preflight.repairs,
+        autoRepair,
+      },
+      render ? { render } : undefined,
+    ),
+  )
 }
 
 async function resolveMermaidObjectRenderRecord(
@@ -978,10 +992,9 @@ async function resolveMermaidObjectRenderRecord(
     }
     throw error
   })
-  return MermaidObjectResolvedRenderRecordSchema.parse({
-    renderKey,
-    ...(render ? { render } : {}),
-  })
+  return MermaidObjectResolvedRenderRecordSchema.parse(
+    Object.assign({ renderKey }, render ? { render } : undefined),
+  )
 }
 
 async function storeMermaidObjectRenderRecord(

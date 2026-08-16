@@ -57,8 +57,15 @@ const SaveFlashcardDeckInputSchema = z.object({
 type SaveFlashcardNoteInput = z.infer<typeof SaveFlashcardNoteInputSchema>
 type SaveFlashcardDeckInput = z.infer<typeof SaveFlashcardDeckInputSchema>
 
+function parseToolInputString<TValue>(value: TValue): string | undefined {
+  const parsed = z.string().safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
 function createdByCallID(ctx: BuddyToolContext): string {
-  return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
+  const callID = ctx.callID
+  if (callID !== undefined && callID.trim().length > 0) return callID
+  return "unknown"
 }
 
 function buildSaveFlashcardDeckObjectResult(input: {
@@ -122,19 +129,19 @@ const saveFlashcardDeckTool = createBuddyTool({
     phases: {
       pending: {
         action: "Saving flashcard deck",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       running: {
         action: "Saving flashcard deck",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       completed: {
         action: "Saved flashcard deck",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
       error: {
         action: "Failed to save flashcard deck",
-        detail: ({ input }) => (typeof input.title === "string" ? input.title : undefined),
+        detail: ({ input }) => parseToolInputString(input.title),
       },
     },
   },
@@ -160,27 +167,29 @@ const saveFlashcardDeckTool = createBuddyTool({
 
     const saved = await saveFlashcardDeckObject({
       directory: ctx.directory,
-      deck: {
-        objectID,
-        kind: FLASHCARD_DECK_KIND,
-        title: parsed.title,
-        config: {
-          ...DECK_CONFIG_DEFAULTS,
-          learnSteps: [...DECK_CONFIG_DEFAULTS.learnSteps],
-          relearnSteps: [...DECK_CONFIG_DEFAULTS.relearnSteps],
+      deck: Object.assign(
+        {
+          objectID,
+          kind: FLASHCARD_DECK_KIND,
+          title: parsed.title,
+          config: {
+            ...DECK_CONFIG_DEFAULTS,
+            learnSteps: [...DECK_CONFIG_DEFAULTS.learnSteps],
+            relearnSteps: [...DECK_CONFIG_DEFAULTS.relearnSteps],
+          },
+          notes,
+          cards,
+          createdAt,
+          createdBy: {
+            kind: "tool" as const,
+            sessionID: String(ctx.sessionID),
+            messageID: String(ctx.messageID),
+            callID: createdByCallID(ctx),
+            subagent: FLASHCARD_SUBAGENT_ID,
+          },
         },
-        notes,
-        cards,
-        ...(parsed.source ? { source: parsed.source } : {}),
-        createdAt,
-        createdBy: {
-          kind: "tool",
-          sessionID: String(ctx.sessionID),
-          messageID: String(ctx.messageID),
-          callID: createdByCallID(ctx),
-          subagent: FLASHCARD_SUBAGENT_ID,
-        },
-      },
+        parsed.source ? { source: parsed.source } : undefined,
+      ),
     })
 
     const buddyObjectResult = buildSaveFlashcardDeckObjectResult({

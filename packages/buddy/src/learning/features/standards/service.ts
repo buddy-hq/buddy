@@ -33,6 +33,29 @@ import type {
   KnowledgeGraphStandardRecord,
   KnowledgeGraphStandardResolution,
 } from "./types"
+import z from "zod"
+
+type TSqliteRawCell = string | number | boolean | null | Uint8Array | bigint
+type TSqliteRawRow = { [column: string]: TSqliteRawCell }
+
+const jsonStringSchema = z.string()
+const jsonFiniteNumberSchema = z.number().finite()
+const jsonBooleanSchema = z.boolean()
+
+function parseTString<TValue>(value: TValue): string | undefined {
+  const parsed = jsonStringSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseTFiniteNumber<TValue>(value: TValue): number | undefined {
+  const parsed = jsonFiniteNumberSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function parseTBoolean<TValue>(value: TValue): boolean | undefined {
+  const parsed = jsonBooleanSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
 
 type KnowledgeGraphServiceConfig = {
   databasePath?: string
@@ -151,24 +174,21 @@ function normalizeSqlStatement(sql: string) {
   return withoutTrailingSemicolons
 }
 
-function normalizeSqlValue(value: unknown): KnowledgeGraphSqlValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value
-  }
-
+function normalizeSqlValue<TValue>(value: TValue): KnowledgeGraphSqlValue {
+  if (value === null) return null
+  const text = parseTString(value)
+  if (text !== undefined) return text
+  const numeric = parseTFiniteNumber(value)
+  if (numeric !== undefined) return numeric
+  const flag = parseTBoolean(value)
+  if (flag !== undefined) return flag
   if (value instanceof Uint8Array) {
     return `[blob ${value.byteLength} bytes]`
   }
-
   return String(value)
 }
 
-function normalizeSqlRow(row: Record<string, unknown>): KnowledgeGraphSqlRow {
+function normalizeSqlRow(row: TSqliteRawRow): KnowledgeGraphSqlRow {
   return Object.fromEntries(
     Object.entries(row).map(([key, value]) => [key, normalizeSqlValue(value)]),
   )
@@ -185,9 +205,9 @@ function parseGradeLevels(value: string | null) {
   }
 
   try {
-    const parsed: unknown = JSON.parse(trimmed)
-    if (Array.isArray(parsed)) {
-      return parsed.filter((entry): entry is string => typeof entry === "string")
+    const parsed = z.array(z.string()).safeParse(JSON.parse(trimmed))
+    if (parsed.success) {
+      return parsed.data
     }
   } catch {
     // Fall back to treating the value as a single scalar.
@@ -408,7 +428,7 @@ export class KnowledgeGraphService {
   runSqlQuery(input: KnowledgeGraphSqlQueryInput): KnowledgeGraphSqlQueryResult {
     const sql = normalizeSqlStatement(input.sql)
     const rowLimit = normalizeSqlRowLimit(input.rowLimit)
-    const rawRows = this.connection().prepare<Record<string, unknown>>(sql).all()
+    const rawRows = this.connection().prepare<TSqliteRawRow>(sql).all()
     const rows = rawRows.slice(0, rowLimit).map(normalizeSqlRow)
 
     return {
@@ -561,10 +581,10 @@ export class KnowledgeGraphService {
     if (exactMatches.length > 0) {
       const [selected, ...alternatives] = exactMatches
       return {
-        query: {
-          code: input.code,
-          ...(input.jurisdiction ? { jurisdiction: input.jurisdiction } : {}),
-        },
+        query: Object.assign(
+          { code: input.code },
+          input.jurisdiction ? { jurisdiction: input.jurisdiction } : undefined,
+        ),
         matchStrategy:
           alternatives.length === 0 || input.jurisdiction ? "exact_code" : "ranked_code_match",
         standard: selected,
@@ -586,10 +606,10 @@ export class KnowledgeGraphService {
     }
 
     return {
-      query: {
-        code: input.code,
-        ...(input.jurisdiction ? { jurisdiction: input.jurisdiction } : {}),
-      },
+      query: Object.assign(
+        { code: input.code },
+        input.jurisdiction ? { jurisdiction: input.jurisdiction } : undefined,
+      ),
       matchStrategy: "search_fallback",
       standard: selected,
       alternatives,

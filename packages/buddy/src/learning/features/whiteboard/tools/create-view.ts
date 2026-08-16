@@ -63,11 +63,15 @@ const CreateWhiteboardViewInputSchema = z
 type CreateWhiteboardViewInput = z.infer<typeof CreateWhiteboardViewInputSchema>
 
 function createdByCallID(ctx: BuddyToolContext): string {
-  return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
+  const callID = ctx.callID
+  if (callID !== undefined && callID.trim().length > 0) return callID
+  return "unknown"
 }
 
 function nullableCallID(ctx: BuddyToolContext): string | null {
-  return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : null
+  const callID = ctx.callID
+  if (callID !== undefined && callID.trim().length > 0) return callID
+  return null
 }
 
 function buildWhiteboardObjectResult(input: {

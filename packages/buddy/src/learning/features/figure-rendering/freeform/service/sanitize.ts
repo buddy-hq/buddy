@@ -44,21 +44,21 @@ function sanitizeStyleAttribute(rawValue: string): string {
 function sanitizeTagAttributes(source: string): string {
   return source.replace(
     /<([A-Za-z_][\w:.-]*)(\s[^<>]*?)?(\/?)>/gu,
-    (fullMatch, tagName, rawAttributes = "", selfClosing) => {
+    (fullMatch: string, tagName: string, rawAttributes = "", selfClosing: string) => {
       if (fullMatch.startsWith("</")) return fullMatch
 
-      let attributes = rawAttributes as string
+      let attributes = rawAttributes
 
       attributes = attributes.replace(/\s+on[\w:.-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/giu, "")
       attributes = attributes.replace(
         /\s+(href|xlink:href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/giu,
-        (_, attributeName, rawValue) => {
+        (_match: string, attributeName: string, rawValue: string) => {
           return sanitizeExternalReferenceAttribute(attributeName, rawValue)
         },
       )
       attributes = attributes.replace(
         /\s+style\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/giu,
-        (_, rawValue) => {
+        (_match: string, rawValue: string) => {
           return sanitizeStyleAttribute(rawValue)
         },
       )
