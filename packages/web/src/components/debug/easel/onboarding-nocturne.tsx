@@ -1,5 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion, useInView, type Transition } from "motion/react"
 import { cn } from "@buddy/ui"
+import { cssVariables } from "@buddy/ui/lib/utils"
 import { ArrowLeftIcon, ArrowUpRightIcon, FolderIcon, SparklesIcon, XIcon } from "@/icons/app-icons"
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
@@ -763,16 +764,16 @@ export function OnboardingNocturne() {
   return (
     <div
       className="relative flex h-full w-full flex-col overflow-hidden text-[#ffffff]"
-      style={{
+      style={cssVariables({
         background: space.bg,
         fontFamily: SANS,
-        ["--brand-ring" as any]: theme.ring,
-        ["--brand-ring2" as any]: theme.ring2,
-        ["--brand-soft" as any]: theme.soft,
-        ["--brand-word" as any]: theme.word,
-        ["--brand-ink" as any]: theme.ink,
-        ["--brand-bloom" as any]: theme.bloom,
-      }}
+        "--brand-ring": theme.ring,
+        "--brand-ring2": theme.ring2,
+        "--brand-soft": theme.soft,
+        "--brand-word": theme.word,
+        "--brand-ink": theme.ink,
+        "--brand-bloom": theme.bloom,
+      })}
     >
       {/*
       <ControlPanel

@@ -1313,7 +1313,10 @@ export function DevToolsEaselTab(props: { directory?: string }) {
         <div className="flex min-w-0 flex-col">
           <Select
             value={prototype}
-            onValueChange={(value) => setPrototype(value as EaselPrototype)}
+            onValueChange={(value) => {
+              // SAFETY: This select only emits values from the EaselPrototype item set below.
+              setPrototype(value as EaselPrototype)
+            }}
           >
             <SelectTrigger
               size="sm"

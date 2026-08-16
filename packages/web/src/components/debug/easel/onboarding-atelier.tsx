@@ -26,6 +26,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react"
+import { cssVariables } from "@buddy/ui/lib/utils"
 
 /**
  * Brief B — "Atelier"
@@ -597,7 +598,7 @@ export function OnboardingAtelier() {
   return (
     <div
       className="relative flex h-full w-full overflow-hidden"
-      style={{ background: PAPER, ["--ob-accent" as string]: ACCENT }}
+      style={cssVariables({ background: PAPER, "--ob-accent": ACCENT })}
     >
       {/* ── Left: living identity card ── */}
       <div className="relative hidden w-[42%] shrink-0 md:block" style={{ background: "#efeadd" }}>

@@ -265,16 +265,19 @@ function isStoredRect(value: unknown): value is Rect {
   if (!value || typeof value !== "object") {
     return false
   }
-  const record = value as Record<string, unknown>
   return (
-    typeof record.left === "number" &&
-    Number.isFinite(record.left) &&
-    typeof record.top === "number" &&
-    Number.isFinite(record.top) &&
-    typeof record.width === "number" &&
-    Number.isFinite(record.width) &&
-    typeof record.height === "number" &&
-    Number.isFinite(record.height)
+    "left" in value &&
+    typeof value.left === "number" &&
+    Number.isFinite(value.left) &&
+    "top" in value &&
+    typeof value.top === "number" &&
+    Number.isFinite(value.top) &&
+    "width" in value &&
+    typeof value.width === "number" &&
+    Number.isFinite(value.width) &&
+    "height" in value &&
+    typeof value.height === "number" &&
+    Number.isFinite(value.height)
   )
 }
 

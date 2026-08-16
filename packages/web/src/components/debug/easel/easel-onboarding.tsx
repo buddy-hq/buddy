@@ -1857,7 +1857,9 @@ export function EaselOnboarding() {
           <select
             value={activeConcept}
             onChange={(e) => {
+              // SAFETY: The native select options are the complete OnboardingOption set.
               setActiveTab(e.target.value as OnboardingOption)
+              // SAFETY: The same option values are also the complete InterviewConceptID set.
               setActiveConcept(e.target.value as InterviewConceptID)
               resetAll()
             }}

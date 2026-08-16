@@ -727,6 +727,7 @@ export function FlashcardReviewRedesignsEasel() {
   const stageBox = useElementSize<HTMLDivElement>()
   const contactColumn = useElementSize<HTMLDivElement>()
 
+  // SAFETY: CARDS is a non-empty static fixture and the modulo index is always in bounds.
   const card = CARDS[cardIndex % CARDS.length] as MockCard
   const stageConfig = STAGES.find((entry) => entry.id === stage) ?? STAGES[0]
   const speed = SPEEDS.find((entry) => entry.id === speedID)?.factor ?? 1
@@ -825,7 +826,10 @@ export function FlashcardReviewRedesignsEasel() {
             size="sm"
             aria-label="Stage size"
             onValueChange={(value) => {
-              if (value) setStage(value as StageID)
+              if (value) {
+                // SAFETY: This select only emits identifiers from the configured stage list.
+                setStage(value as StageID)
+              }
             }}
           >
             {STAGES.map((entry) => (
@@ -955,7 +959,10 @@ export function FlashcardReviewRedesignsEasel() {
                   size="sm"
                   aria-label="Motion speed"
                   onValueChange={(value) => {
-                    if (value) setSpeedID(value as SpeedID)
+                    if (value) {
+                      // SAFETY: This select only emits identifiers from the configured speed list.
+                      setSpeedID(value as SpeedID)
+                    }
                   }}
                 >
                   {SPEEDS.map((entry) => (
@@ -993,7 +1000,10 @@ export function FlashcardReviewRedesignsEasel() {
                 size="sm"
                 aria-label="Preview zoom"
                 onValueChange={(value) => {
-                  if (value) setContactZoomID(value as ContactZoomID)
+                  if (value) {
+                    // SAFETY: This select only emits identifiers from the configured zoom list.
+                    setContactZoomID(value as ContactZoomID)
+                  }
                 }}
               >
                 {CONTACT_ZOOMS.map((entry) => (

@@ -1067,7 +1067,10 @@ export function ErrorSystemRedesignEasel() {
           type="single"
           value={view}
           onValueChange={(v) => {
-            if (v) setView(v as View)
+            if (v) {
+              // SAFETY: This select only emits values from the configured view items.
+              setView(v as View)
+            }
           }}
           variant="outline"
           size="sm"

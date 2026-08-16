@@ -679,7 +679,7 @@ function SpotlightDock({
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault()
-                            const v = (e.target as HTMLInputElement).value.trim()
+                            const v = e.currentTarget.value.trim()
                             if (!v) {
                               setState((s) => ({ ...s, editing: false }))
                               return
@@ -831,7 +831,10 @@ export function QuestionDockRedesignsEasel() {
           type="single"
           value={scenarioId}
           onValueChange={(v) => {
-            if (v) setScenarioId(v as ScenarioId)
+            if (v) {
+              // SAFETY: This select only emits identifiers from the configured scenario list.
+              setScenarioId(v as ScenarioId)
+            }
           }}
           variant="outline"
           size="sm"

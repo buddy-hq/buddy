@@ -3024,7 +3024,7 @@ function ViewSurfaceReview() {
       </div>
 
       <div className="flex flex-wrap gap-4">
-        {(["epub", "epub-fixed", "pdf"] as ViewVariant[]).map((variant) => (
+        {(["epub", "epub-fixed", "pdf"] satisfies ViewVariant[]).map((variant) => (
           <div key={variant} className="flex w-[330px] shrink-0 flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-xs font-medium text-text-strong">

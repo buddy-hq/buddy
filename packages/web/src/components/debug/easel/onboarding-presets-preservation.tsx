@@ -457,7 +457,11 @@ export function ControlPanel({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        event.target instanceof Node &&
+        !containerRef.current.contains(event.target)
+      ) {
         setOpen(false)
       }
     }
@@ -575,7 +579,10 @@ export function ControlPanel({
                     <button
                       key={id}
                       type="button"
-                      onClick={() => onSpaceColorChange(id as SpaceColorId)}
+                      onClick={() => {
+                        // SAFETY: Object entries originate from the SpaceColorId-keyed color catalog.
+                        onSpaceColorChange(id as SpaceColorId)
+                      }}
                       className={`size-6 rounded-full border transition-all relative ${
                         isActive
                           ? "border-white scale-110 shadow-[0_0_12px_rgba(255,255,255,0.4)]"

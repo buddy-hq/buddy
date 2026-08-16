@@ -109,7 +109,7 @@ function Meter(props: {
   caption?: string
 }) {
   const known = props.usedPercent != null
-  const used = known ? clampPercent(props.usedPercent as number) : 0
+  const used = props.usedPercent === null ? 0 : clampPercent(props.usedPercent)
   const shown = props.framing === "remaining" ? 100 - used : used
   const tone: MeterTone = known ? meterTone(used) : "empty"
 
@@ -456,7 +456,10 @@ export function TokenCounterMeterEasel() {
             variant="outline"
             size="sm"
             onValueChange={(value) => {
-              if (value) setProvider(value as ProviderChoice)
+              if (value) {
+                // SAFETY: This select only emits values from the configured ProviderChoice items.
+                setProvider(value as ProviderChoice)
+              }
             }}
           >
             <ToggleGroupItem value="openai" className="text-xs">
@@ -479,7 +482,10 @@ export function TokenCounterMeterEasel() {
               variant="outline"
               size="sm"
               onValueChange={(value) => {
-                if (value) setUsageState(value as UsageState)
+                if (value) {
+                  // SAFETY: This select only emits values from the configured UsageState items.
+                  setUsageState(value as UsageState)
+                }
               }}
             >
               <ToggleGroupItem value="ready" className="text-xs">
@@ -508,7 +514,10 @@ export function TokenCounterMeterEasel() {
             variant="outline"
             size="sm"
             onValueChange={(value) => {
-              if (value) setLoad(value as LoadLevel)
+              if (value) {
+                // SAFETY: This select only emits values from the configured LoadLevel items.
+                setLoad(value as LoadLevel)
+              }
             }}
           >
             <ToggleGroupItem value="light" className="text-xs">
@@ -533,7 +542,10 @@ export function TokenCounterMeterEasel() {
             variant="outline"
             size="sm"
             onValueChange={(value) => {
-              if (value) setFraming(value as MeterFraming)
+              if (value) {
+                // SAFETY: This select only emits values from the configured MeterFraming items.
+                setFraming(value as MeterFraming)
+              }
             }}
           >
             <ToggleGroupItem value="used" className="text-xs">

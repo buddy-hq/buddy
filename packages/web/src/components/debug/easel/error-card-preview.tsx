@@ -136,7 +136,10 @@ export function ErrorCardPreviewEasel() {
           type="single"
           value={density}
           onValueChange={(v) => {
-            if (v) setDensity(v as Density)
+            if (v) {
+              // SAFETY: This select only emits values from the configured density items.
+              setDensity(v as Density)
+            }
           }}
           variant="outline"
           size="sm"

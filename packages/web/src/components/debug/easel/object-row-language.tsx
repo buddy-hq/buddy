@@ -864,7 +864,10 @@ export function ObjectRowLanguageEasel() {
           type="single"
           value={section}
           onValueChange={(value) => {
-            if (value) setSection(value as EaselSection)
+            if (value) {
+              // SAFETY: This select only emits values from the configured EaselSection items.
+              setSection(value as EaselSection)
+            }
           }}
           variant="outline"
           size="sm"
@@ -882,7 +885,10 @@ export function ObjectRowLanguageEasel() {
               type="single"
               value={variant}
               onValueChange={(value) => {
-                if (value) setVariant(value as ObjectVariant)
+                if (value) {
+                  // SAFETY: This select only emits values from the configured ObjectVariant items.
+                  setVariant(value as ObjectVariant)
+                }
               }}
               variant="outline"
               size="sm"

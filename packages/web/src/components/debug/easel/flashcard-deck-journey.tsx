@@ -1452,7 +1452,10 @@ export function FlashcardDeckJourneyEasel() {
             size="sm"
             aria-label="Frame"
             onValueChange={(value) => {
-              if (value) setFrameID(value as FrameID)
+              if (value) {
+                // SAFETY: This select only emits identifiers from the configured frame list.
+                setFrameID(value as FrameID)
+              }
             }}
           >
             <ToggleGroupItem value="beside-chat">Beside chat</ToggleGroupItem>
