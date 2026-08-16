@@ -45,10 +45,7 @@ export function threadStatusLabel(status: ThreadStatus) {
 // Pulsing is the only channel separating `working` from `unread` — both are solid
 // interactive dots. When motion is suppressed the pulse can't carry that, so the
 // active states fall back to a static ring.
-const THREAD_STATUS_DOT_CLASSES: Record<
-  Exclude<ThreadStatus, "idle">,
-  { fill: string; motion?: string }
-> = {
+const THREAD_STATUS_DOT_CLASSES = {
   unread: { fill: "bg-surface-interactive-base" },
   working: {
     fill: "bg-surface-interactive-base",
@@ -60,20 +57,24 @@ const THREAD_STATUS_DOT_CLASSES: Record<
     motion:
       "motion-safe:animate-pulse motion-reduce:ring-2 motion-reduce:ring-surface-warning-base/40",
   },
-}
+} satisfies Record<
+  Exclude<ThreadStatus, "idle">,
+  { fill: string; motion?: string }
+>
 
 export function ThreadStatusIndicator(props: { status: ThreadStatus }) {
   if (props.status === "idle") return null
 
   const label = threadStatusLabel(props.status)
   const dot = THREAD_STATUS_DOT_CLASSES[props.status]
+  const motion = "motion" in dot ? dot.motion : undefined
 
   return (
     <span
       role="img"
       aria-label={label}
       title={label}
-      className={cn("inline-block size-1.5 shrink-0 rounded-full", dot.fill, dot.motion)}
+      className={cn("inline-block size-1.5 shrink-0 rounded-full", dot.fill, motion)}
     />
   )
 }

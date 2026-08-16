@@ -133,7 +133,7 @@ export type ThemeConfig = {
   bloom: string
 }
 
-export const THEMES: Record<ThemeId, ThemeConfig> = {
+export const THEMES = {
   nocturne: {
     id: "nocturne",
     name: "Ember Nocturne",
@@ -144,7 +144,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
     ink: "#180b04",
     bloom: "rgba(255, 120, 60, 0.45)",
   },
-}
+} satisfies Record<ThemeId, ThemeConfig>
 
 // ── Background Space ──
 export type SpaceId = "nebula-orion"
@@ -161,7 +161,7 @@ export type SpaceConfig = {
   grainOpacity?: number
 }
 
-export const SPACES: Record<SpaceId, SpaceConfig> = {
+export const SPACES = {
   "nebula-orion": {
     id: "nebula-orion",
     name: "Cosmic Orion Nebula",
@@ -188,7 +188,7 @@ export const SPACES: Record<SpaceId, SpaceConfig> = {
     },
     grainOpacity: 0.05,
   },
-}
+} satisfies Record<SpaceId, SpaceConfig>
 
 export function getBgFilter(): string {
   return "hue-rotate(295deg) saturate(1.3)"

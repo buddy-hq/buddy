@@ -2,11 +2,11 @@ import type { ReactNode } from "react"
 import { Badge, Switch, cn } from "@buddy/ui"
 import type { ProviderInfo } from "@/state/chat-types"
 
-const PROVIDER_SOURCE_LABELS: Record<string, string> = {
-  env: "Environment",
-  api: "API key",
-  custom: "Custom",
-}
+const PROVIDER_SOURCE_LABELS = new Map<ProviderInfo["source"], string>([
+  ["env", "Environment"],
+  ["api", "API key"],
+  ["custom", "Custom"],
+])
 
 export function SettingsContent(props: { children: ReactNode; fillHeight?: boolean }) {
   return (
@@ -155,7 +155,7 @@ export function SettingsSwitchControl(props: {
 }
 
 export function ProviderSourceBadge(props: { provider: ProviderInfo }) {
-  const label = PROVIDER_SOURCE_LABELS[props.provider.source] ?? "Config"
+  const label = PROVIDER_SOURCE_LABELS.get(props.provider.source) ?? "Config"
 
   return (
     <Badge variant="outline" className="h-5">

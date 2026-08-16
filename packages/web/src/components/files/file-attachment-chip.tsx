@@ -15,7 +15,7 @@ import { FileTypeIcon } from "./file-type-icon"
 
 // Friendlier labels for the common office/document types; everything else falls
 // back to the uppercased extension (e.g. "SVG"), then the mime subtype.
-const FRIENDLY_FILE_TYPE_BY_EXTENSION: Record<string, string> = {
+const FRIENDLY_FILE_TYPE_BY_EXTENSION = new Map(Object.entries({
   xls: "Excel spreadsheet",
   xlsb: "Excel spreadsheet",
   xlsm: "Excel spreadsheet",
@@ -38,11 +38,11 @@ const FRIENDLY_FILE_TYPE_BY_EXTENSION: Record<string, string> = {
   odp: "Presentation",
   json: "JSON",
   zip: "Archive",
-}
+}))
 
 function describeFileType(fileName: string, mime?: string): string {
   const extension = fileExtensionFromPath(fileName)
-  const friendly = FRIENDLY_FILE_TYPE_BY_EXTENSION[extension]
+  const friendly = FRIENDLY_FILE_TYPE_BY_EXTENSION.get(extension)
   if (friendly) return friendly
   if (extension) return extension.toUpperCase()
   const subtype = mime?.split("/")[1]

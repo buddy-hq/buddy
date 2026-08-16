@@ -31,7 +31,7 @@ type RetryCategoryCopy = {
 
 type StructuredRetryAction = NonNullable<RetryStateModel["action"]>
 
-const RETRY_COPY_BY_CATEGORY: Record<RetryStateModel["category"], RetryCategoryCopy> = {
+const RETRY_COPY_BY_CATEGORY = {
   overloaded: {
     notice: "The model is busy",
     persistent: "Still busy — this is taking longer than usual",
@@ -48,7 +48,7 @@ const RETRY_COPY_BY_CATEGORY: Record<RetryStateModel["category"], RetryCategoryC
     notice: "Retrying the request",
     persistent: "Still retrying — this is taking longer than usual",
   },
-}
+} satisfies Record<RetryStateModel["category"], RetryCategoryCopy>
 
 function secondsUntil(next: number) {
   return Math.max(0, Math.round((next - Date.now()) / 1000))

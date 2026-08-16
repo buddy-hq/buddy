@@ -58,12 +58,12 @@ export const REVIEW_STACK_CHROME = `${REVIEW_UNDER} border border-border-base`
 export const REVIEW_STAGE_BACKGROUND = "bg-background-strong"
 
 /** One colour per rating, spent only on hairlines — never on a filled pill. */
-export const REVIEW_RATING_TONE: Record<
-  "again" | "hard" | "good" | "easy",
-  { rule: string; text: string }
-> = {
+export const REVIEW_RATING_TONE = {
   again: { rule: "bg-surface-critical-base", text: "text-text-critical-base" },
   hard: { rule: "bg-surface-warning-base", text: "text-text-warning-base" },
   good: { rule: "bg-surface-success-base", text: "text-text-success-base" },
   easy: { rule: "bg-surface-interactive-base", text: "text-text-interactive-base" },
-}
+} satisfies Record<
+  "again" | "hard" | "good" | "easy",
+  { rule: string; text: string }
+>

@@ -52,11 +52,11 @@ const THEME_GRADIENT_ANIMATION_COLORS = {
   pointerColor: `var(--theme-primary-base, ${DEFAULT_GRADIENT_ANIMATION_COLORS.pointerColor})`,
 } satisfies GradientAnimationColors
 
-const SPEED_MULTIPLIER: Record<GradientAnimationSpeed, number> = {
+const SPEED_MULTIPLIER = {
   normal: 1,
   fast: 0.6,
   faster: 0.35,
-}
+} satisfies Record<GradientAnimationSpeed, number>
 
 // keyframe name, base duration (s), direction — matches official Aceternity defaults
 const BLOB_ANIMATIONS = [

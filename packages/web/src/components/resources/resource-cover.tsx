@@ -28,26 +28,24 @@ const RESOURCE_COVER_DEFAULT_PALETTE: ResourceCoverPalette = {
   heroClass: "bg-surface-interactive-weak",
 }
 
-const RESOURCE_COVER_PALETTE_BY_MEDIA_KIND: Partial<
-  Record<WorkspaceMediaKind, ResourceCoverPalette>
-> = {
-  document: {
+const RESOURCE_COVER_PALETTE_BY_MEDIA_KIND = new Map<WorkspaceMediaKind, ResourceCoverPalette>([
+  ["document", {
     accentClass: "text-icon-info-base",
     heroClass: "bg-surface-info-weak",
-  },
-  spreadsheet: {
+  }],
+  ["spreadsheet", {
     accentClass: "text-icon-success-base",
     heroClass: "bg-surface-success-weak",
-  },
-  presentation: {
+  }],
+  ["presentation", {
     accentClass: "text-icon-warning-base",
     heroClass: "bg-surface-warning-weak",
-  },
-  pdf: {
+  }],
+  ["pdf", {
     accentClass: "text-icon-critical-base",
     heroClass: "bg-surface-critical-weak",
-  },
-}
+  }],
+])
 
 type ResourceCoverPresentation =
   | typeof RESOURCE_COVER_PRESENTATION_TILE
@@ -122,7 +120,8 @@ function ResourceCoverContent({
     mimeType: undefined,
     sizeBytes: undefined,
   }).mediaKind
-  const palette = RESOURCE_COVER_PALETTE_BY_MEDIA_KIND[mediaKind] ?? RESOURCE_COVER_DEFAULT_PALETTE
+  const palette =
+    RESOURCE_COVER_PALETTE_BY_MEDIA_KIND.get(mediaKind) ?? RESOURCE_COVER_DEFAULT_PALETTE
 
   return (
     <div

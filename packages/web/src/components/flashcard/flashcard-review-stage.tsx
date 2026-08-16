@@ -39,12 +39,12 @@ import type { CardRating, FlashcardReviewSession, ReviewPhase } from "./flashcar
  * is what lets the deck disappear without the card shifting.
  */
 
-const CARD_STATE_LABEL: Record<string, string> = {
+const CARD_STATE_LABEL = {
   new: "workspaceFlashcard.cardStateNew",
   learning: "workspaceFlashcard.cardStateLearning",
   review: "workspaceFlashcard.cardStateReview",
   relearning: "workspaceFlashcard.cardStateRelearning",
-}
+} satisfies Record<string, string>
 
 type PhaseCopy = { eyebrow: string; title: string; body: string; critical?: boolean }
 
@@ -80,12 +80,12 @@ function phaseCopy(phase: ReviewPhase, cardsReviewed: number): PhaseCopy | null 
   }
 }
 
-const PHASE_ACCENT: Record<string, string> = {
-  loading: "text-text-weak",
-  "no-due": "text-text-weak",
-  complete: "text-text-success-base",
-  error: "text-text-critical-base",
-}
+const PHASE_ACCENT = new Map<ReviewPhase["kind"], string>([
+  ["loading", "text-text-weak"],
+  ["no-due", "text-text-weak"],
+  ["complete", "text-text-success-base"],
+  ["error", "text-text-critical-base"],
+])
 
 /**
  * Is there a deck under the card at all? Dealing means the next card is on its
@@ -112,7 +112,7 @@ function PhasePanel(props: { phase: ReviewPhase; copy: PhaseCopy; onRetry?: () =
     >
       <ReviewRuledHead label={props.copy.eyebrow} critical={props.copy.critical} />
       <div className="flex min-h-0 flex-1 flex-col justify-center gap-2 px-8 pb-6">
-        <p className={cn("text-lg font-medium", PHASE_ACCENT[props.phase.kind])}>
+        <p className={cn("text-lg font-medium", PHASE_ACCENT.get(props.phase.kind))}>
           {props.copy.title}
         </p>
         <p className="max-w-[46ch] text-[13px] leading-relaxed text-text-weak">{props.copy.body}</p>

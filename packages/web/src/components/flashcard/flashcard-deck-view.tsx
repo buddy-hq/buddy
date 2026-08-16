@@ -30,31 +30,31 @@ import type {
 type DeckCard = ObjectFlashcardDeckReadDeckResponse["cards"][number]
 type DeckNote = ObjectFlashcardDeckReadDeckResponse["notes"][number]
 
-const CARD_STATE_DOT: Record<DeckCard["state"], string> = {
+const CARD_STATE_DOT = {
   new: "bg-surface-interactive-base",
   learning: "bg-surface-warning-base",
   review: "bg-surface-success-base",
   relearning: "bg-surface-critical-base",
-}
+} satisfies Record<DeckCard["state"], string>
 
-const CARD_STATE_LABEL: Record<DeckCard["state"], string> = {
+const CARD_STATE_LABEL = {
   new: "workspaceFlashcard.cardStateNew",
   learning: "workspaceFlashcard.cardStateLearning",
   review: "workspaceFlashcard.cardStateReview",
   relearning: "workspaceFlashcard.cardStateRelearning",
-}
+} satisfies Record<DeckCard["state"], string>
 
-const STANDING_RULE: Record<FlashcardStanding["tone"], string> = {
+const STANDING_RULE = {
   ready: "bg-border-interactive-base",
   calm: "bg-border-base",
   limit: "bg-surface-warning-base",
-}
+} satisfies Record<FlashcardStanding["tone"], string>
 
-const STANDING_EYEBROW: Record<FlashcardStanding["tone"], string> = {
+const STANDING_EYEBROW = {
   ready: "text-text-interactive-base",
   calm: "text-text-weaker",
   limit: "text-text-warning-base",
-}
+} satisfies Record<FlashcardStanding["tone"], string>
 
 const EYEBROW = "text-[10px] font-medium uppercase tracking-[0.14em]"
 

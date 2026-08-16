@@ -98,7 +98,7 @@ const MENU_CHOICE_NEUTRAL_TONE: MenuChoiceTone = {
   descriptionColor: "rgba(255,255,255,0.45)",
 }
 
-const MENU_CHOICE_TONE: Record<MenuChoiceEmphasis, MenuChoiceTone> = {
+const MENU_CHOICE_TONE = {
   recommended: {
     titleSize: 24,
     titleColor: "#f7f1e8",
@@ -111,7 +111,7 @@ const MENU_CHOICE_TONE: Record<MenuChoiceEmphasis, MenuChoiceTone> = {
     descriptionSize: 13,
     descriptionColor: "rgba(255,255,255,0.3)",
   },
-}
+} satisfies Record<MenuChoiceEmphasis, MenuChoiceTone>
 
 export function MenuChoice(props: MenuChoiceProps) {
   const [considering, setConsidering] = useState(false)

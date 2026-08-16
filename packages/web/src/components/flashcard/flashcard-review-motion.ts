@@ -23,22 +23,22 @@ export const REVIEW_HINGE_TRANSITION = HINGE_SPRING
 export const REVIEW_AIM_TRANSITION = { duration: 0.22, ease: EASE_SETTLE }
 
 /** Where the rating throws the card. Again ← … → Easy; the two middles fall. */
-const THROW_VECTOR: Record<CardRating, { x: number; y: number; rotate: number }> = {
+const THROW_VECTOR = {
   again: { x: -520, y: 30, rotate: -18 },
   hard: { x: -330, y: 260, rotate: -11 },
   good: { x: 330, y: 260, rotate: 11 },
   easy: { x: 520, y: 30, rotate: 18 },
-}
+} satisfies Record<CardRating, { x: number; y: number; rotate: number }>
 
 /** No rating — the card was replaced rather than graded, so it lifts straight out. */
 const THROW_NEUTRAL = { x: 0, y: -300, rotate: 0 }
 
-export const REVIEW_AIM_LEAN: Record<CardRating, { x: number; rotate: number }> = {
+export const REVIEW_AIM_LEAN = {
   again: { x: -18, rotate: -2.4 },
   hard: { x: -8, rotate: -1.1 },
   good: { x: 8, rotate: 1.1 },
   easy: { x: 18, rotate: 2.4 },
-}
+} satisfies Record<CardRating, { x: number; rotate: number }>
 
 export const REVIEW_NO_LEAN = { x: 0, rotate: 0 }
 

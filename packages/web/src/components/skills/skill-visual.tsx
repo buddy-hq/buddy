@@ -25,30 +25,30 @@ export type SkillVisualSize =
  * reading as objects, so `md` sits on that floor. It is not larger because in a
  * drawer row every pixel it takes comes out of the name beside it.
  */
-const BOX_CLASS: Record<SkillVisualSize, string> = {
+const BOX_CLASS = {
   [SKILL_VISUAL_SIZE_SM]: "size-8 rounded-md",
   [SKILL_VISUAL_SIZE_MD]: "size-11 rounded-xl",
   [SKILL_VISUAL_SIZE_LG]: "size-14 rounded-2xl",
-}
+} satisfies Record<SkillVisualSize, string>
 
-const MONOGRAM_TEXT_CLASS: Record<SkillVisualSize, string> = {
+const MONOGRAM_TEXT_CLASS = {
   [SKILL_VISUAL_SIZE_SM]: "text-[11px]",
   [SKILL_VISUAL_SIZE_MD]: "text-base",
   [SKILL_VISUAL_SIZE_LG]: "text-lg",
-}
+} satisfies Record<SkillVisualSize, string>
 
 type AvatarFamily = "purple" | "cyan" | "mint" | "orange" | "lime" | "pink"
 
 const AVATAR_FAMILIES: AvatarFamily[] = ["purple", "cyan", "mint", "orange", "lime", "pink"]
 
-const AVATAR_SURFACE: Record<AvatarFamily, string> = {
+const AVATAR_SURFACE = {
   purple: "bg-avatar-background-purple text-avatar-text-purple",
   cyan: "bg-avatar-background-cyan text-avatar-text-cyan",
   mint: "bg-avatar-background-mint text-avatar-text-mint",
   orange: "bg-avatar-background-orange text-avatar-text-orange",
   lime: "bg-avatar-background-lime text-avatar-text-lime",
   pink: "bg-avatar-background-pink text-avatar-text-pink",
-}
+} satisfies Record<AvatarFamily, string>
 
 function avatarFamily(id: string): AvatarFamily {
   let hash = 0

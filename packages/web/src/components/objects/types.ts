@@ -109,12 +109,12 @@ export type ObjectModel = {
  * These are the measurements a virtualiser can size rows with; nothing in this
  * module may use `min-h`, wrap a title, or add a state-only line.
  */
-export const OBJECT_ROW_HEIGHT_PX: Record<ObjectRowVariant, number> = {
+export const OBJECT_ROW_HEIGHT_PX = {
   [OBJECT_VARIANT_SM]: 36,
   [OBJECT_VARIANT_MD]: 56,
   // Tall enough for a cover to read as a cover rather than as an icon.
   [OBJECT_VARIANT_LG]: 80,
-}
+} satisfies Record<ObjectRowVariant, number>
 
 export const OBJECT_CARD_FOOTER_HEIGHT_PX = 72
 export const OBJECT_CARD_PREVIEW_ASPECT_RATIO = 16 / 9

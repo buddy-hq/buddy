@@ -27,29 +27,29 @@ const CRITICAL_USED_PERCENT = 90
  *  percent would round away to nothing — any spend at all is worth a tick. */
 const MINIMUM_FILL_WIDTH = "3px"
 
-const METER_FILL: Record<UsageMeterTone, string> = {
+const METER_FILL = {
   normal: "bg-icon-interactive-base",
   warning: "bg-icon-warning-base",
   critical: "bg-icon-critical-base",
   empty: "bg-transparent",
-}
+} satisfies Record<UsageMeterTone, string>
 
-export const USAGE_METER_RING_ARC: Record<UsageMeterTone, string> = {
+export const USAGE_METER_RING_ARC = {
   normal: "var(--icon-interactive-base)",
   warning: "var(--icon-warning-base)",
   critical: "var(--icon-critical-base)",
   empty: "var(--icon-weak-base)",
-}
+} satisfies Record<UsageMeterTone, string>
 
-const ROW_TEXT: Record<UsageMeterSize, string> = {
+const ROW_TEXT = {
   sm: "text-[11px]",
   md: "text-xs",
-}
+} satisfies Record<UsageMeterSize, string>
 
-const CAPTION_TEXT: Record<UsageMeterSize, string> = {
+const CAPTION_TEXT = {
   sm: "text-[10px]",
   md: "text-[11px]",
-}
+} satisfies Record<UsageMeterSize, string>
 
 /**
  * The popover is 288px wide and stacked with three other blocks, so it is tight
@@ -57,15 +57,15 @@ const CAPTION_TEXT: Record<UsageMeterSize, string> = {
  * popover's spacing its three lines collapse into a stripe, so `md` opens the
  * gaps and thickens the rail to match the room it is given.
  */
-const STACK_GAP: Record<UsageMeterSize, string> = {
+const STACK_GAP = {
   sm: "gap-1.5",
   md: "gap-2.5",
-}
+} satisfies Record<UsageMeterSize, string>
 
-const BAR_HEIGHT: Record<UsageMeterSize, string> = {
+const BAR_HEIGHT = {
   sm: "h-1.5",
   md: "h-2",
-}
+} satisfies Record<UsageMeterSize, string>
 
 export function clampUsagePercent(value: number) {
   return Math.max(0, Math.min(value, 100))

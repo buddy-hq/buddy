@@ -19,21 +19,21 @@ import {
   type UpdateBannerTone,
 } from "./use-update-settings"
 
-const BANNER_SURFACE: Record<UpdateBannerTone, string> = {
+const BANNER_SURFACE = {
   neutral: "bg-surface-weak text-text-base",
   positive: "bg-surface-success-weak text-text-on-success-weak",
   critical: "bg-surface-critical-weak text-text-on-critical-weak",
-}
+} satisfies Record<UpdateBannerTone, string>
 
-const RING_LABEL_KEYS: Record<UpdateRing, string> = {
+const RING_LABEL_KEYS = {
   stable: "settings.updates.ringStable",
   preview: "settings.updates.ringPreview",
-}
+} satisfies Record<UpdateRing, string>
 
-const RING_DESCRIPTION_KEYS: Record<UpdateRing, string> = {
+const RING_DESCRIPTION_KEYS = {
   stable: "settings.updates.channelStableDescription",
   preview: "settings.updates.channelPreviewDescription",
-}
+} satisfies Record<UpdateRing, string>
 
 function bannerActionLabel(banner: UpdateBanner): string | undefined {
   switch (banner.action) {

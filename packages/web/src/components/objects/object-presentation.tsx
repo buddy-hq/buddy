@@ -38,28 +38,28 @@ import {
 const ROW_SHELL_CLASS =
   "group/object relative flex w-full min-w-0 items-center overflow-hidden rounded-xl border border-border-weaker-base bg-surface-base text-left"
 
-const ROW_HEIGHT_CLASS: Record<ObjectRowVariant, string> = {
+const ROW_HEIGHT_CLASS = {
   sm: "h-9 gap-2.5 px-2.5",
   md: "h-14 gap-3 px-3 shadow-sm",
   lg: "h-20 gap-3.5 px-3 shadow-sm",
-}
+} satisfies Record<ObjectRowVariant, string>
 
 /**
  * Only a cover is portrait — that is what a book is. A file icon, an image and
  * a glyph are not, so they share one square box; letterboxing them into 3:4
  * wasted the sides and cropped wide images down to a strip.
  */
-const ROW_COVER_CLASS: Record<ObjectRowVariant, string> = {
+const ROW_COVER_CLASS = {
   sm: "h-6 w-[1.125rem]",
   md: "h-8 w-6",
   lg: "h-14 w-[2.625rem]",
-}
+} satisfies Record<ObjectRowVariant, string>
 
-const ROW_BOX_CLASS: Record<ObjectRowVariant, string> = {
+const ROW_BOX_CLASS = {
   sm: "size-6",
   md: "size-8",
   lg: "size-12",
-}
+} satisfies Record<ObjectRowVariant, string>
 
 /**
  * Only a monochrome glyph is framed. Real artwork — a file mark, an image, a
@@ -70,29 +70,29 @@ const ROW_BOX_CLASS: Record<ObjectRowVariant, string> = {
 const ROW_BOX_SHELL_CLASS =
   "flex shrink-0 items-center justify-center overflow-hidden rounded-md border border-border-weaker-base bg-surface-raised-base text-icon-base"
 
-const ROW_GLYPH_CLASS: Record<ObjectRowVariant, string> = {
+const ROW_GLYPH_CLASS = {
   sm: "size-3.5",
   md: "size-4",
   lg: "size-6",
-}
+} satisfies Record<ObjectRowVariant, string>
 
-const ROW_TITLE_CLASS: Record<ObjectRowVariant, string> = {
+const ROW_TITLE_CLASS = {
   sm: "text-[13px] leading-tight",
   md: "text-sm leading-tight",
   lg: "text-[15px] leading-tight",
-}
+} satisfies Record<ObjectRowVariant, string>
 
-const ROW_DETAIL_CLASS: Record<ObjectRowVariant, string> = {
+const ROW_DETAIL_CLASS = {
   sm: "text-[11px] leading-tight",
   md: "text-[11px] leading-tight",
   lg: "text-xs leading-tight",
-}
+} satisfies Record<ObjectRowVariant, string>
 
-const ROW_CONTENT_GAP_CLASS: Record<ObjectRowVariant, string> = {
+const ROW_CONTENT_GAP_CLASS = {
   sm: "gap-2.5",
   md: "gap-3",
   lg: "gap-3.5",
-}
+} satisfies Record<ObjectRowVariant, string>
 
 const TILE_FRAME_CLASS = "w-[9.5rem] max-w-full"
 const SVG_EXTENSION = "svg"

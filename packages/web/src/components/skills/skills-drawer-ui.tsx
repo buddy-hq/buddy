@@ -38,12 +38,12 @@ export type SkillRowDensity =
   | typeof SKILL_ROW_DENSITY_EXPANDED
 
 /** Constant per density, so a row never resizes as its state settles. */
-const ROW_SHELL_CLASS: Record<SkillRowDensity, string> = {
+const ROW_SHELL_CLASS = {
   [SKILL_ROW_DENSITY_COMPACT]: "h-10 items-center gap-3 rounded-lg px-2.5",
   [SKILL_ROW_DENSITY_DEFAULT]: "h-[4.5rem] items-center gap-3 rounded-lg px-2.5",
   [SKILL_ROW_DENSITY_EXPANDED]:
     "h-[8.5rem] flex-col gap-2 rounded-xl border border-border-base bg-surface-raised-base p-3 shadow-sm",
-}
+} satisfies Record<SkillRowDensity, string>
 
 /**
  * At 52px the mark is as tall as the title-plus-summary block beside it, so a
@@ -51,11 +51,11 @@ const ROW_SHELL_CLASS: Record<SkillRowDensity, string> = {
  * wall of text. An expanded result is a taller card, not a bigger skill, so it
  * carries the same mark.
  */
-const VISUAL_SIZE: Record<SkillRowDensity, SkillVisualSize> = {
+const VISUAL_SIZE = {
   [SKILL_ROW_DENSITY_COMPACT]: SKILL_VISUAL_SIZE_SM,
   [SKILL_ROW_DENSITY_DEFAULT]: SKILL_VISUAL_SIZE_MD,
   [SKILL_ROW_DENSITY_EXPANDED]: SKILL_VISUAL_SIZE_MD,
-}
+} satisfies Record<SkillRowDensity, SkillVisualSize>
 
 function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")
