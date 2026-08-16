@@ -3,6 +3,7 @@
 import os from "node:os"
 import path from "node:path"
 import { Database } from "bun:sqlite"
+import { z } from "zod"
 import {
   BUDDY_APP_NAME,
   BUDDY_ENV,
@@ -30,6 +31,12 @@ const TRACE_CHANNELS = ["dev", "prod"] as const
 
 type SqliteValue = bigint | number | string | Uint8Array | null
 type DatabaseRow = Record<string, SqliteValue>
+const TraceValueSchema = z.json()
+const SqliteBigIntSchema = z.bigint()
+const SqliteStringSchema = z.string()
+const SqliteScalarSchema = z.union([z.number(), z.null()])
+type TraceValue = boolean | number | string | null | TraceValue[] | TraceRecord
+type TraceRecord = { [key: string]: TraceValue }
 
 type SessionLookupRow = {
   directory: string
@@ -72,10 +79,10 @@ type SessionTrace = {
     requestedTitle?: string
     resolvedSessionID: string
   }
-  session: Record<string, unknown>
-  sessionTables: Record<string, Array<Record<string, unknown>>>
-  durableEvents: Array<Record<string, unknown>>
-  eventSequence: Record<string, unknown> | null
+  session: TraceRecord
+  sessionTables: Record<string, TraceRecord[]>
+  durableEvents: TraceRecord[]
+  eventSequence: TraceRecord | null
   source: {
     channel: TraceChannel
     databasePath: string
@@ -130,7 +137,7 @@ function exportSessionTrace(input: {
     throw new Error(`Session does not exist: ${input.sessionID}`)
   }
 
-  const sessionTables: Record<string, Array<Record<string, unknown>>> = {}
+  const sessionTables: Record<string, TraceRecord[]> = {}
   for (const table of listSessionScopedTables(input.database)) {
     sessionTables[table.name] = readSessionTable(input.database, table, input.sessionID)
   }
@@ -240,7 +247,7 @@ function readSessionTable(
     name: string
   },
   sessionID: string,
-): Array<Record<string, unknown>> {
+): TraceRecord[] {
   const orderBy = resolveOrderBy(table.columns)
   const sql =
     `select * from ${quoteIdentifier(table.name)} where session_id = ?` +
@@ -261,27 +268,33 @@ function quoteIdentifier(value: string): string {
   return `"${value.replaceAll('"', '""')}"`
 }
 
-function normalizeRow(row: DatabaseRow): Record<string, unknown> {
+function normalizeRow(row: DatabaseRow): TraceRecord {
   return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, normalizeValue(value)]))
 }
 
-function normalizeValue(value: SqliteValue): unknown {
-  if (typeof value === "bigint") return value.toString()
+function normalizeValue(value: SqliteValue): TraceValue {
   if (value instanceof Uint8Array) {
     return {
       encoding: "base64",
       value: Buffer.from(value).toString("base64"),
     }
   }
-  if (typeof value !== "string") return value
 
-  const trimmed = value.trimStart()
-  if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) return value
+  const bigintResult = SqliteBigIntSchema.safeParse(value)
+  if (bigintResult.success) return bigintResult.data.toString()
+
+  const stringResult = SqliteStringSchema.safeParse(value)
+  if (!stringResult.success) return SqliteScalarSchema.parse(value)
+
+  const stringValue = stringResult.data
+  const trimmed = stringValue.trimStart()
+  if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) return stringValue
 
   try {
-    return JSON.parse(value)
+    const parsed: unknown = JSON.parse(stringValue)
+    return TraceValueSchema.parse(parsed)
   } catch {
-    return value
+    return stringValue
   }
 }
 
