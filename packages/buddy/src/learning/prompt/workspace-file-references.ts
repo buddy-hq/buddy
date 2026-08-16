@@ -522,11 +522,15 @@ function readSelectionTextAnchor(value: unknown): ReaderTextAnchor | undefined {
   if (value.anchor !== undefined) return readReaderTextAnchor(value.anchor)
   if (typeof value.cfi !== "string") return undefined
 
-  return readReaderTextAnchor({
-    kind: READER_ANCHOR_KIND_CFI_TEXT,
-    cfi: value.cfi,
-    ...(value.index !== undefined ? { sectionIndex: value.index } : {}),
-  })
+  return readReaderTextAnchor(
+    Object.assign(
+      {
+        kind: READER_ANCHOR_KIND_CFI_TEXT,
+        cfi: value.cfi,
+      },
+      value.index !== undefined ? { sectionIndex: value.index } : undefined,
+    ),
+  )
 }
 
 function normalizeReadingSelectionPart(part: ReadingSelectionPartInput): ReadingSelectionPart {
@@ -539,26 +543,31 @@ function normalizeReadingSelectionPart(part: ReadingSelectionPartInput): Reading
     throw new SessionTransformValidationError("reading-selection anchor is required")
   }
 
-  return {
+  const normalized: ReadingSelectionPart = {
     type: READING_SELECTION_PART_TYPE,
     text,
-    ...(typeof part.selectionKey === "string" && part.selectionKey.trim().length > 0
-      ? { selectionKey: part.selectionKey.trim() }
-      : {}),
-    ...(typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
-      ? { resourceKey: part.resourceKey.trim() }
-      : {}),
     anchor,
-    ...(typeof part.tocLabel === "string" && part.tocLabel.trim().length > 0
-      ? { tocLabel: part.tocLabel.trim() }
-      : {}),
-    ...(typeof part.pageLabel === "string" && part.pageLabel.trim().length > 0
-      ? { pageLabel: part.pageLabel.trim() }
-      : {}),
-    ...(typeof part.locationLabel === "string" && part.locationLabel.trim().length > 0
-      ? { locationLabel: part.locationLabel.trim() }
-      : {}),
   }
+  return Object.assign(
+    Object.assign(
+      normalized,
+      typeof part.selectionKey === "string" && part.selectionKey.trim().length > 0
+        ? { selectionKey: part.selectionKey.trim() }
+        : undefined,
+      typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
+        ? { resourceKey: part.resourceKey.trim() }
+        : undefined,
+      typeof part.tocLabel === "string" && part.tocLabel.trim().length > 0
+        ? { tocLabel: part.tocLabel.trim() }
+        : undefined,
+    ),
+    typeof part.pageLabel === "string" && part.pageLabel.trim().length > 0
+      ? { pageLabel: part.pageLabel.trim() }
+      : undefined,
+    typeof part.locationLabel === "string" && part.locationLabel.trim().length > 0
+      ? { locationLabel: part.locationLabel.trim() }
+      : undefined,
+  )
 }
 
 function normalizeSelectionContextPart(part: SelectionContextPartInput): SelectionContextPart {
@@ -572,25 +581,28 @@ function normalizeSelectionContextPart(part: SelectionContextPartInput): Selecti
     throw new SessionTransformValidationError("selection-context selectionKey is required")
   }
   if (part.source === "markdown") {
-    return {
+    const markdownPart: MarkdownSelectionContextPart = {
       type: SELECTION_CONTEXT_PART_TYPE,
       source: "markdown",
       text,
       selectionKey,
-      ...(typeof part.path === "string" && part.path.trim().length > 0
+    }
+    return Object.assign(
+      markdownPart,
+      typeof part.path === "string" && part.path.trim().length > 0
         ? { path: part.path.trim() }
-        : {}),
-      ...(typeof part.version === "string" && part.version.trim().length > 0
+        : undefined,
+      typeof part.version === "string" && part.version.trim().length > 0
         ? { version: part.version.trim() }
-        : {}),
-      ...(Array.isArray(part.headingPath)
+        : undefined,
+      Array.isArray(part.headingPath)
         ? {
             headingPath: part.headingPath.flatMap((entry) =>
               typeof entry === "string" && entry.trim() ? [entry.trim()] : [],
             ),
           }
-        : {}),
-    }
+        : undefined,
+    )
   }
 
   const anchor = readSelectionTextAnchor(part)
@@ -598,25 +610,30 @@ function normalizeSelectionContextPart(part: SelectionContextPartInput): Selecti
     throw new SessionTransformValidationError("reading selection-context anchor is required")
   }
 
-  return {
+  const readingPart: ReadingSelectionContextPart = {
     type: SELECTION_CONTEXT_PART_TYPE,
     source: "reading",
     text,
     selectionKey,
-    ...(typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
-      ? { resourceKey: part.resourceKey.trim() }
-      : {}),
     anchor,
-    ...(typeof part.tocLabel === "string" && part.tocLabel.trim().length > 0
-      ? { tocLabel: part.tocLabel.trim() }
-      : {}),
-    ...(typeof part.pageLabel === "string" && part.pageLabel.trim().length > 0
-      ? { pageLabel: part.pageLabel.trim() }
-      : {}),
-    ...(typeof part.locationLabel === "string" && part.locationLabel.trim().length > 0
-      ? { locationLabel: part.locationLabel.trim() }
-      : {}),
   }
+  return Object.assign(
+    Object.assign(
+      readingPart,
+      typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
+        ? { resourceKey: part.resourceKey.trim() }
+        : undefined,
+      typeof part.tocLabel === "string" && part.tocLabel.trim().length > 0
+        ? { tocLabel: part.tocLabel.trim() }
+        : undefined,
+      typeof part.pageLabel === "string" && part.pageLabel.trim().length > 0
+        ? { pageLabel: part.pageLabel.trim() }
+        : undefined,
+    ),
+    typeof part.locationLabel === "string" && part.locationLabel.trim().length > 0
+      ? { locationLabel: part.locationLabel.trim() }
+      : undefined,
+  )
 }
 
 export function flattenPromptPartsForRuntime(parts: unknown[]): Record<string, unknown>[] {

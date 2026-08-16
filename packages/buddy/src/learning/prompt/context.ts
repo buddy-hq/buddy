@@ -213,17 +213,25 @@ function readLegacyReaderLocation(value: object): ReaderLocation | undefined {
   const pageLabel = readTrimmedStringField(value, "pageLabel")
   const locationLabel = readTrimmedStringField(value, "locationLabel")
 
-  return readReaderLocation({
-    anchor: {
-      kind: READER_ANCHOR_KIND_CFI_POSITION,
-      cfi,
-      ...(sectionIndex !== undefined ? { sectionIndex } : {}),
-    },
-    ...(fraction !== undefined ? { fraction } : {}),
-    ...(tocLabel ? { tocLabel } : {}),
-    ...(pageLabel ? { pageLabel } : {}),
-    ...(locationLabel ? { locationLabel } : {}),
-  })
+  return readReaderLocation(
+    Object.assign(
+      Object.assign(
+        {
+          anchor: Object.assign(
+            {
+              kind: READER_ANCHOR_KIND_CFI_POSITION,
+              cfi,
+            },
+            sectionIndex !== undefined ? { sectionIndex } : undefined,
+          ),
+        },
+        fraction !== undefined ? { fraction } : undefined,
+        tocLabel ? { tocLabel } : undefined,
+        pageLabel ? { pageLabel } : undefined,
+      ),
+      locationLabel ? { locationLabel } : undefined,
+    ),
+  )
 }
 
 function readActiveReaderLocation(value: object): ReaderLocation | undefined {
@@ -243,18 +251,19 @@ function readReadingTrail(value: unknown): ReaderTrailEntry[] | undefined {
     const anchor = Reflect.get(entry, "anchor")
     const location =
       anchor !== undefined
-        ? readReaderLocation({
-            anchor,
-            ...(fraction !== undefined ? { fraction } : {}),
-          })
+        ? readReaderLocation(
+            Object.assign({ anchor }, fraction !== undefined ? { fraction } : undefined),
+          )
         : readLegacyReaderLocation(entry)
     if (!location) return []
     return [
-      {
-        label,
-        anchor: location.anchor,
-        ...(location.fraction !== undefined ? { fraction: location.fraction } : {}),
-      },
+      Object.assign(
+        {
+          label,
+          anchor: location.anchor,
+        },
+        location.fraction !== undefined ? { fraction: location.fraction } : undefined,
+      ),
     ]
   })
   return entries.length > 0 ? entries : undefined
@@ -275,12 +284,15 @@ function resolvePromptPersonalization(
     return undefined
   }
 
-  return {
-    ...(primaryUse ? { primaryUse } : {}),
-    ...(preferredName ? { preferredName } : {}),
-    ...(occupation ? { occupation } : {}),
-    ...(moreAboutYou ? { moreAboutYou } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      {},
+      primaryUse ? { primaryUse } : undefined,
+      preferredName ? { preferredName } : undefined,
+      occupation ? { occupation } : undefined,
+    ),
+    moreAboutYou ? { moreAboutYou } : undefined,
+  )
 }
 
 async function resolvePromptModel(input: {
@@ -301,14 +313,16 @@ async function resolvePromptModel(input: {
 
   const image = resolvedModel.capabilities?.input?.image ?? false
 
-  return {
-    providerID: resolvedModel.providerID,
-    modelID: resolvedModel.id,
-    contextWindow: resolvedModel.limit.context,
-    ...(resolvedModel.limit.input !== undefined ? { inputWindow: resolvedModel.limit.input } : {}),
-    outputWindow: resolvedModel.limit.output,
-    ...(image ? { image } : {}),
-  }
+  return Object.assign(
+    {
+      providerID: resolvedModel.providerID,
+      modelID: resolvedModel.id,
+      contextWindow: resolvedModel.limit.context,
+    },
+    resolvedModel.limit.input !== undefined ? { inputWindow: resolvedModel.limit.input } : undefined,
+    { outputWindow: resolvedModel.limit.output },
+    image ? { image } : undefined,
+  )
 }
 
 function readPromptModelRuntimeSnapshot(value: unknown): PromptModelRuntimeSnapshot | undefined {
@@ -341,14 +355,16 @@ function readPromptModelRuntimeSnapshot(value: unknown): PromptModelRuntimeSnaps
     return undefined
   }
 
-  return {
-    providerID,
-    modelID,
-    contextWindow,
-    ...(inputWindow !== undefined ? { inputWindow } : {}),
-    ...(image ? { image } : {}),
-    outputWindow,
-  }
+  return Object.assign(
+    {
+      providerID,
+      modelID,
+      contextWindow,
+    },
+    inputWindow !== undefined ? { inputWindow } : undefined,
+    image ? { image } : undefined,
+    { outputWindow },
+  )
 }
 
 async function resolvePromptResource(input: {
@@ -369,24 +385,28 @@ async function resolvePromptResource(input: {
     readerPath?: string
   }
 }): Promise<PromptResource> {
-  return {
-    objectID: input.resource.objectID,
-    name: resolvePromptResourceName(input.resource),
-    alias: input.resource.alias,
-    managedSource: input.resource.sourceRelpath,
-    format: input.resource.format,
-    status: input.resource.status,
-    warnings: input.resource.warnings,
-    ...(input.resource.readerPath ? { benchReaderRelpath: input.resource.readerPath } : {}),
-    ...(input.resource.packPath ? { packPath: input.resource.packPath } : {}),
-    ...(input.resource.fullTextPath ? { fullTextPath: input.resource.fullTextPath } : {}),
-    ...(input.resource.fullTextEstimatedTokens !== undefined
+  return Object.assign(
+    Object.assign(
+      {
+        objectID: input.resource.objectID,
+        name: resolvePromptResourceName(input.resource),
+        alias: input.resource.alias,
+        managedSource: input.resource.sourceRelpath,
+        format: input.resource.format,
+        status: input.resource.status,
+        warnings: input.resource.warnings,
+      },
+      input.resource.readerPath ? { benchReaderRelpath: input.resource.readerPath } : undefined,
+      input.resource.packPath ? { packPath: input.resource.packPath } : undefined,
+      input.resource.fullTextPath ? { fullTextPath: input.resource.fullTextPath } : undefined,
+    ),
+    input.resource.fullTextEstimatedTokens !== undefined
       ? { fullTextEstimatedTokens: input.resource.fullTextEstimatedTokens }
-      : {}),
-    ...(input.resource.fullTextCharacters !== undefined
+      : undefined,
+    input.resource.fullTextCharacters !== undefined
       ? { fullTextChars: input.resource.fullTextCharacters }
-      : {}),
-  }
+      : undefined,
+  )
 }
 
 function resolvePromptResourceName(input: {
@@ -434,17 +454,17 @@ function parseActiveReadingContext(value: unknown): ActiveReadingContext | undef
   const annotationSummary = readAnnotationSummary(Reflect.get(value, "annotationSummary"))
   if (!title || !path) return undefined
 
-  return {
-    ...(resourceKey ? { resourceKey } : {}),
-    title,
-    path,
-    ...(location ? { location } : {}),
-    ...(currentPassageText ? { currentPassageText } : {}),
-    ...(visibleStartText ? { visibleStartText } : {}),
-    ...(visibleEndText ? { visibleEndText } : {}),
-    ...(readingTrail ? { readingTrail } : {}),
-    ...(annotationSummary ? { annotationSummary } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      Object.assign({ title, path }, resourceKey ? { resourceKey } : undefined),
+      location ? { location } : undefined,
+      currentPassageText ? { currentPassageText } : undefined,
+      visibleStartText ? { visibleStartText } : undefined,
+    ),
+    visibleEndText ? { visibleEndText } : undefined,
+    readingTrail ? { readingTrail } : undefined,
+    annotationSummary ? { annotationSummary } : undefined,
+  )
 }
 
 function readAnnotationSummary(value: unknown): ActiveAnnotationSummaryEntry[] | undefined {
@@ -455,13 +475,7 @@ function readAnnotationSummary(value: unknown): ActiveAnnotationSummaryEntry[] |
     if (!text) return []
     const tocLabel = readTrimmedStringField(entry, "tocLabel")
     const note = readTrimmedStringField(entry, "note")
-    return [
-      {
-        text,
-        ...(tocLabel ? { tocLabel } : {}),
-        ...(note ? { note } : {}),
-      },
-    ]
+    return [Object.assign({ text }, tocLabel ? { tocLabel } : undefined, note ? { note } : undefined)]
   })
   return entries.length > 0 ? entries : undefined
 }
@@ -480,33 +494,40 @@ function buildActiveResource(
       )
     : undefined
 
-  return {
-    ...(matchedResource
-      ? {
-          objectID: matchedResource.objectID,
-          alias: matchedResource.alias,
-          status: matchedResource.status,
-        }
-      : {}),
-    title: activeReadingContext.title,
-    path: activeReadingContext.path,
-    ...(activeReadingContext.location ? { location: activeReadingContext.location } : {}),
-    ...(activeReadingContext.currentPassageText
-      ? { currentPassageText: activeReadingContext.currentPassageText }
-      : {}),
-    ...(activeReadingContext.visibleStartText
-      ? { visibleStartText: activeReadingContext.visibleStartText }
-      : {}),
-    ...(activeReadingContext.visibleEndText
-      ? { visibleEndText: activeReadingContext.visibleEndText }
-      : {}),
-    ...(activeReadingContext.readingTrail
+  return Object.assign(
+    Object.assign(
+      Object.assign(
+        {},
+        matchedResource
+          ? {
+              objectID: matchedResource.objectID,
+              alias: matchedResource.alias,
+              status: matchedResource.status,
+            }
+          : undefined,
+        {
+          title: activeReadingContext.title,
+          path: activeReadingContext.path,
+        },
+        activeReadingContext.location ? { location: activeReadingContext.location } : undefined,
+      ),
+      activeReadingContext.currentPassageText
+        ? { currentPassageText: activeReadingContext.currentPassageText }
+        : undefined,
+      activeReadingContext.visibleStartText
+        ? { visibleStartText: activeReadingContext.visibleStartText }
+        : undefined,
+      activeReadingContext.visibleEndText
+        ? { visibleEndText: activeReadingContext.visibleEndText }
+        : undefined,
+    ),
+    activeReadingContext.readingTrail
       ? { readingTrail: activeReadingContext.readingTrail }
-      : {}),
-    ...(activeReadingContext.annotationSummary
+      : undefined,
+    activeReadingContext.annotationSummary
       ? { annotationSummary: activeReadingContext.annotationSummary }
-      : {}),
-  }
+      : undefined,
+  )
 }
 
 function readSynchronizedBenchContext(input: {
@@ -575,62 +596,79 @@ async function buildPromptContext(
     sessionID: input.sessionID,
   })
 
+  const context: PromptContext = {
+    directory: input.directory,
+    sessionID: input.sessionID,
+    persona: sessionRuntime.persona,
+    sessionRuntime,
+    visibleSurfaces: sessionRuntime.ui.visibleSurfaces,
+    teachingWorkspaceState,
+    learnerSnapshot,
+    learnerContextDigest,
+    focusGoalIds,
+    resources: promptResources,
+  }
+  Object.assign(
+    context,
+    input.previousState?.lastDeliveredLearnerContextDigest
+      ? {
+          priorLearnerContextDigest: input.previousState.lastDeliveredLearnerContextDigest,
+        }
+      : undefined,
+    input.previousState?.lastDeliveredLearnerContextItems
+      ? { priorLearnerContextItems: input.previousState.lastDeliveredLearnerContextItems }
+      : undefined,
+    input.previousState?.lastDeliveredReadingTurnContextDigest
+      ? {
+          priorDeliveredReadingTurnContextDigest:
+            input.previousState.lastDeliveredReadingTurnContextDigest,
+        }
+      : undefined,
+  )
+  Object.assign(
+    context,
+    input.previousState?.lastDeliveredBenchTurnContextDigest
+      ? {
+          priorDeliveredBenchTurnContextDigest:
+            input.previousState.lastDeliveredBenchTurnContextDigest,
+        }
+      : undefined,
+    input.previousState?.lastDeliveredTeachingTurnContextDigest
+      ? {
+          priorDeliveredTeachingTurnContextDigest:
+            input.previousState.lastDeliveredTeachingTurnContextDigest,
+        }
+      : undefined,
+    model ? { model } : undefined,
+  )
+  Object.assign(
+    context,
+    personalization ? { personalization } : undefined,
+    teachingContext ? { teachingContext } : undefined,
+    imageEditIntent ? { imageEditIntent } : undefined,
+  )
+  Object.assign(
+    context,
+    input.nativeResourceAttachments.length > 0
+      ? { nativeResourceAttachments: input.nativeResourceAttachments }
+      : undefined,
+    activeResource ? { activeResource } : undefined,
+    benchContext ? { benchContext } : undefined,
+  )
+  Object.assign(
+    context,
+    input.previousState
+      ? {
+          priorTurn: {
+            persona: input.previousState.persona,
+            teachingWorkspaceState: input.previousState.teachingWorkspaceState,
+          } satisfies PromptTurnSnapshot,
+        }
+      : undefined,
+  )
+
   return {
-    context: {
-      directory: input.directory,
-      sessionID: input.sessionID,
-      persona: sessionRuntime.persona,
-      sessionRuntime,
-      visibleSurfaces: sessionRuntime.ui.visibleSurfaces,
-      teachingWorkspaceState,
-      learnerSnapshot,
-      learnerContextDigest,
-      ...(input.previousState?.lastDeliveredLearnerContextDigest
-        ? {
-            priorLearnerContextDigest: input.previousState.lastDeliveredLearnerContextDigest,
-          }
-        : {}),
-      ...(input.previousState?.lastDeliveredLearnerContextItems
-        ? { priorLearnerContextItems: input.previousState.lastDeliveredLearnerContextItems }
-        : {}),
-      ...(input.previousState?.lastDeliveredReadingTurnContextDigest
-        ? {
-            priorDeliveredReadingTurnContextDigest:
-              input.previousState.lastDeliveredReadingTurnContextDigest,
-          }
-        : {}),
-      ...(input.previousState?.lastDeliveredBenchTurnContextDigest
-        ? {
-            priorDeliveredBenchTurnContextDigest:
-              input.previousState.lastDeliveredBenchTurnContextDigest,
-          }
-        : {}),
-      ...(input.previousState?.lastDeliveredTeachingTurnContextDigest
-        ? {
-            priorDeliveredTeachingTurnContextDigest:
-              input.previousState.lastDeliveredTeachingTurnContextDigest,
-          }
-        : {}),
-      focusGoalIds,
-      resources: promptResources,
-      ...(model ? { model } : {}),
-      ...(personalization ? { personalization } : {}),
-      ...(teachingContext ? { teachingContext } : {}),
-      ...(imageEditIntent ? { imageEditIntent } : {}),
-      ...(input.nativeResourceAttachments.length > 0
-        ? { nativeResourceAttachments: input.nativeResourceAttachments }
-        : {}),
-      ...(activeResource ? { activeResource } : {}),
-      ...(benchContext ? { benchContext } : {}),
-      ...(input.previousState
-        ? {
-            priorTurn: {
-              persona: input.previousState.persona,
-              teachingWorkspaceState: input.previousState.teachingWorkspaceState,
-            } satisfies PromptTurnSnapshot,
-          }
-        : {}),
-    },
+    context,
     sessionRuntimeForPermissions: sessionRuntime,
     nextTeachingState: {
       sessionId: input.sessionID,

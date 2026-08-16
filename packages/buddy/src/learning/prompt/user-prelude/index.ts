@@ -441,25 +441,28 @@ export function buildBuddyUserPrelude(input: {
 
   return {
     parts: preludeParts,
-    turnContextDelivery: {
-      ...(readingTurnContext.fingerprint
-        ? { currentReadingFingerprint: readingTurnContext.fingerprint }
-        : {}),
-      ...(readingTurnContext.text && readingTurnContext.fingerprint
-        ? { deliveredReadingFingerprint: readingTurnContext.fingerprint }
-        : {}),
-      ...(benchTurnContext.fingerprint
-        ? { currentBenchFingerprint: benchTurnContext.fingerprint }
-        : {}),
-      ...(benchTurnContext.text && benchTurnContext.fingerprint
+    turnContextDelivery: Object.assign(
+      Object.assign(
+        {},
+        readingTurnContext.fingerprint
+          ? { currentReadingFingerprint: readingTurnContext.fingerprint }
+          : undefined,
+        readingTurnContext.text && readingTurnContext.fingerprint
+          ? { deliveredReadingFingerprint: readingTurnContext.fingerprint }
+          : undefined,
+        benchTurnContext.fingerprint
+          ? { currentBenchFingerprint: benchTurnContext.fingerprint }
+          : undefined,
+      ),
+      benchTurnContext.text && benchTurnContext.fingerprint
         ? { deliveredBenchFingerprint: benchTurnContext.fingerprint }
-        : {}),
-      ...(teachingTurnContext.fingerprint
+        : undefined,
+      teachingTurnContext.fingerprint
         ? { currentTeachingFingerprint: teachingTurnContext.fingerprint }
-        : {}),
-      ...(teachingTurnContext.text && teachingTurnContext.fingerprint
+        : undefined,
+      teachingTurnContext.text && teachingTurnContext.fingerprint
         ? { deliveredTeachingFingerprint: teachingTurnContext.fingerprint }
-        : {}),
-    },
+        : undefined,
+    ),
   }
 }

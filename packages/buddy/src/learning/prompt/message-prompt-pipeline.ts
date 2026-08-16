@@ -133,14 +133,18 @@ export async function runMessagePromptPipeline(input: {
   delete transformed.imageEdit
   delete transformed.nativeResourceAttachments
 
-  return {
-    transformed,
-    sessionRuntimeForPermissions,
-    ...(subagentForwarding.sessionPermission
-      ? { subagentSessionPermission: subagentForwarding.sessionPermission }
-      : {}),
-    ...(nextTeachingState ? { nextTeachingState } : {}),
-    ...(learnerContextDelivery ? { learnerContextDelivery } : {}),
-    ...(turnContextDelivery ? { turnContextDelivery } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      {
+        transformed,
+        sessionRuntimeForPermissions,
+      },
+      subagentForwarding.sessionPermission
+        ? { subagentSessionPermission: subagentForwarding.sessionPermission }
+        : undefined,
+      nextTeachingState ? { nextTeachingState } : undefined,
+      learnerContextDelivery ? { learnerContextDelivery } : undefined,
+    ),
+    turnContextDelivery ? { turnContextDelivery } : undefined,
+  )
 }

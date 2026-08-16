@@ -127,16 +127,16 @@ export async function applyNativePdfDeliveryPolicy(input: {
     const withinPerFileLimit = pageCount !== undefined && pageCount <= NATIVE_PDF_MAX_PAGES_PER_FILE
     const withinPromptLimit =
       pageCount !== undefined && admittedPageCount + pageCount <= NATIVE_PDF_MAX_PAGES_PER_PROMPT
-    const delivery =
+    const delivery: NativePdfDeliveryDecision["delivery"] =
       withinPerFileLimit && withinPromptLimit ? "model-and-resource" : "resource-only"
 
     if (delivery === "model-and-resource" && pageCount !== undefined) {
       admittedPageCount += pageCount
     }
-    decisions.set(sourcePath, {
-      delivery,
-      ...(pageCount !== undefined ? { pageCount } : {}),
-    })
+    decisions.set(
+      sourcePath,
+      Object.assign({ delivery }, pageCount !== undefined ? { pageCount } : undefined),
+    )
   }
 
   const retainedNativePdfPaths = new Set<string>()

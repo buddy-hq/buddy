@@ -40,12 +40,14 @@ export async function buildBuddyPromptEnvelope(input: PromptContext): Promise<Bu
     changedSinceCheckpoint: runtimeContext.changedSinceCheckpoint,
   })
 
-  return {
-    systemContext: runtimeContext.runtimeContext,
-    userPreludeParts: userPrelude.parts,
-    changedSinceCheckpoint: runtimeContext.changedSinceCheckpoint,
-    turnContextDelivery: userPrelude.turnContextDelivery,
-    ...(learnerContextDelivery
+  return Object.assign(
+    {
+      systemContext: runtimeContext.runtimeContext,
+      userPreludeParts: userPrelude.parts,
+      changedSinceCheckpoint: runtimeContext.changedSinceCheckpoint,
+      turnContextDelivery: userPrelude.turnContextDelivery,
+    },
+    learnerContextDelivery
       ? {
           deliveredLearnerContext: {
             fingerprint: learnerContextDelivery.fingerprint,
@@ -53,6 +55,6 @@ export async function buildBuddyPromptEnvelope(input: PromptContext): Promise<Bu
             kind: learnerContextDelivery.kind,
           },
         }
-      : {}),
-  }
+      : undefined,
+  )
 }

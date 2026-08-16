@@ -57,7 +57,7 @@ export function readNativeResourcePromptAttachment(
   ) {
     throw new SessionTransformValidationError("native resource attachment metadata is invalid")
   }
-  return {
+  const attachment: NativeResourcePromptAttachment = {
     type: NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
     filename: value.filename,
     sourcePath: value.sourcePath,
@@ -65,8 +65,11 @@ export function readNativeResourcePromptAttachment(
     alias: value.alias,
     mime: value.mime,
     delivery: value.delivery,
-    ...(typeof value.pageCount === "number" ? { pageCount: value.pageCount } : {}),
   }
+  return Object.assign(
+    attachment,
+    typeof value.pageCount === "number" ? { pageCount: value.pageCount } : undefined,
+  )
 }
 
 export function nativeResourcePromptAttachmentsFromParts(
