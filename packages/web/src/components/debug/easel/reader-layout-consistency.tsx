@@ -106,12 +106,12 @@ const DIRECTIONS: Array<{ id: Direction; label: string; tagline: string }> = [
  * column, and any control that cannot hold its shape there is wrong — so the
  * fixed widths are a test to run, not the way to read the mock.
  */
-const FRAME_WIDTH_PX: Record<Exclude<FrameWidth, "fill">, number> = { docked: 480, wide: 900 }
-const FRAME_WIDTH_LABEL: Record<FrameWidth, string> = {
+const FRAME_WIDTH_PX = { docked: 480, wide: 900 } satisfies Record<Exclude<FrameWidth, "fill">, number>
+const FRAME_WIDTH_LABEL = {
   fill: "fill",
   docked: "480px · Bench docked",
   wide: "900px",
-}
+} satisfies Record<FrameWidth, string>
 const FRAME_HEIGHT = "min(74vh, 860px)"
 
 /**
@@ -125,10 +125,10 @@ const FRAME_HEIGHT = "min(74vh, 860px)"
  */
 type SurfaceFlow = "paged" | "scrolled"
 
-const FLOW_LABEL: Record<ReaderEngine, Record<SurfaceFlow, string>> = {
+const FLOW_LABEL = {
   epub: { paged: "paginated flow", scrolled: "scrolled flow" },
   pdf: { paged: "single page", scrolled: "continuous" },
-}
+} satisfies Record<ReaderEngine, Record<SurfaceFlow, string>>
 
 /** One engine at a time by default; Both is there to check them against each other. */
 type EngineView = ReaderEngine | "both"
@@ -139,10 +139,10 @@ const ENGINE_VIEWS: Array<{ id: EngineView; label: string }> = [
   { id: "both", label: "Both" },
 ]
 
-const ENGINE_LABEL: Record<ReaderEngine, string> = {
+const ENGINE_LABEL = {
   epub: "EPUB · foliate-js",
   pdf: "PDF · pdf.js",
-}
+} satisfies Record<ReaderEngine, string>
 
 /** Real-ish content so truncation and collision are testable, not theoretical. */
 const DOCUMENT = {
@@ -166,10 +166,10 @@ const DOCUMENT = {
  * token and flips with it, which is exactly why one hardcoded accent could not
  * stay legible on both.
  */
-const READER_PAPER: Record<ReaderEngine, { background: string; ink: string }> = {
+const READER_PAPER = {
   epub: { background: "#faf7f0", ink: "#2b2723" },
   pdf: { background: "var(--surface-inset-base)", ink: "var(--text-base)" },
-}
+} satisfies Record<ReaderEngine, { background: string; ink: string }>
 
 const PROSE = [
   "The schoolmasters of the fifteenth century inherited a curriculum they did not choose and could not easily refuse. Grammar came first, because grammar was the gate; and behind the gate stood rhetoric, and behind rhetoric, dialectic.",
@@ -1339,17 +1339,17 @@ function PanelToggle(props: { label: string; checked: boolean }) {
  */
 type ViewVariant = "epub" | "epub-fixed" | "pdf"
 
-const VIEW_VARIANT_LABEL: Record<ViewVariant, string> = {
+const VIEW_VARIANT_LABEL = {
   epub: "EPUB · reflowable",
   "epub-fixed": "EPUB · fixed-layout",
   pdf: "PDF",
-}
+} satisfies Record<ViewVariant, string>
 
-const VIEW_VARIANT_CAPABILITY: Record<ViewVariant, string> = {
+const VIEW_VARIANT_CAPABILITY = {
   epub: "textFlow ✓  pageLayouts ✗",
   "epub-fixed": "textFlow ✗  pageLayouts ✓",
   pdf: "textFlow ✗  pageLayouts ✓",
-}
+} satisfies Record<ViewVariant, string>
 
 /**
  * Review commentary, kept strictly OUTSIDE the mock. Anything that explains a
@@ -1357,12 +1357,12 @@ const VIEW_VARIANT_CAPABILITY: Record<ViewVariant, string> = {
  * part of it — putting it in the panel makes the panel unreviewable, because
  * you can no longer tell which words a reader would actually see.
  */
-const VIEW_VARIANT_NOTE: Record<ViewVariant, string> = {
+const VIEW_VARIANT_NOTE = {
   epub: "Every typography control lives here; the bar carries none of it.",
   "epub-fixed":
     "Note what is missing: no Text, no Flow, and no Page either. foliate reports pageLayouts: true and then ships no layout, fit, rotation or zoom — so this document cannot be made bigger by any means. That is the gap, shown rather than described.",
   pdf: "Zoom and Fit are absent on purpose — both act on the page, so they are the three magnifiers in the bar. Reduce motion renders here but the PDF reader never reads it.",
-}
+} satisfies Record<ViewVariant, string>
 
 function viewVariantEngine(variant: ViewVariant): ReaderEngine {
   return variant === "pdf" ? "pdf" : "epub"
@@ -2347,7 +2347,7 @@ function FallbackNotice() {
 
 // ── Direction · Original (faithful reproduction) ──────────────────────────
 
-const ORIGINAL_READER_SHORTCUTS: Record<ReaderEngine, Array<{ keys: string; label: string }>> = {
+const ORIGINAL_READER_SHORTCUTS = {
   epub: [
     { keys: "Ctrl/Cmd + F", label: "Open search" },
     { keys: "Ctrl/Cmd + L", label: "Open location and landmarks" },
@@ -2372,7 +2372,7 @@ const ORIGINAL_READER_SHORTCUTS: Record<ReaderEngine, Array<{ keys: string; labe
     { keys: "?", label: "Open keyboard help" },
     { keys: "Esc", label: "Close reader overlays" },
   ],
-}
+} satisfies Record<ReaderEngine, Array<{ keys: string; label: string }>>
 
 const ORIGINAL_LANDMARKS = [
   { id: "cover", label: "Cover", type: "cover" },
@@ -3054,11 +3054,11 @@ function ViewSurfaceReview() {
 
 // ── Every surface, flat ───────────────────────────────────────────────────
 
-const ENGINE_TAG: Record<"both" | "epub" | "pdf", string> = {
+const ENGINE_TAG = {
   both: "both",
   epub: "epub only",
   pdf: "pdf only",
-}
+} satisfies Record<"both" | "epub" | "pdf", string>
 
 /**
  * One tile per surface. The label and the engine tag sit above the frame and
