@@ -11,7 +11,14 @@ import {
 import { repairGeometryFigureSpec } from "./repair"
 import { renderGeometryFigure as renderGeometryFigureSvg } from "./render"
 import { resolveGeometryFigureSpec } from "./resolve"
-import { type GeometryFigureSpec } from "./types"
+import {
+  type GeometryConstraint,
+  type GeometryFigureSpec,
+  type GeometryMarker,
+  type GeometryPoint,
+  type GeometryPolygon,
+  type GeometrySegment,
+} from "./types"
 import { validateGeometryFigureSpec, type FigureValidationIssue } from "./validate"
 import { escapeFigureMarkdownAlt, resolveFigureAlt } from "../shared/presentation"
 const MAX_TOTAL_ATTEMPTS = 3
@@ -41,119 +48,147 @@ type RenderGeometryFigureObjectOutput = {
   repairAttempts: number
 }
 
-function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSpec {
-  return {
-    canvas: {
-      width: spec.canvas.width,
-      height: spec.canvas.height,
-      ...(typeof spec.canvas.padding === "number" ? { padding: spec.canvas.padding } : {}),
+function normalizeGeometryCanvas(
+  canvas: GeometryFigureSpec["canvas"],
+): GeometryFigureSpec["canvas"] {
+  return Object.assign(
+    {
+      width: canvas.width,
+      height: canvas.height,
     },
-    points: spec.points.map((point) => ({
+    typeof canvas.padding === "number" ? { padding: canvas.padding } : undefined,
+  )
+}
+
+function normalizeGeometryPoint(point: GeometryPoint): GeometryPoint {
+  return Object.assign(
+    {
       id: point.id,
       x: point.x,
       y: point.y,
-      ...(point.label ? { label: point.label } : {}),
-    })),
-    ...(spec.segments && spec.segments.length > 0
-      ? {
-          segments: spec.segments.map((segment) => ({
-            from: segment.from,
-            to: segment.to,
-            ...(segment.style ? { style: segment.style } : {}),
-            ...(typeof segment.strokeWidth === "number"
-              ? { strokeWidth: segment.strokeWidth }
-              : {}),
-            ...(segment.label ? { label: segment.label } : {}),
-          })),
-        }
-      : {}),
-    ...(spec.polygons && spec.polygons.length > 0
-      ? {
-          polygons: spec.polygons.map((polygon) => ({
-            points: [...polygon.points],
-            ...(polygon.fill ? { fill: polygon.fill } : {}),
-            ...(polygon.outline ? { outline: polygon.outline } : {}),
-            ...(polygon.label ? { label: polygon.label } : {}),
-          })),
-        }
-      : {}),
-    ...(spec.labels && spec.labels.length > 0
-      ? {
-          labels: spec.labels.map((label) => ({
-            text: label.text,
-            x: label.x,
-            y: label.y,
-          })),
-        }
-      : {}),
-    ...(spec.constraints && spec.constraints.length > 0
-      ? {
-          constraints: spec.constraints.map((constraint) => {
-            if (constraint.type === "point-on-segment") {
-              return {
-                type: constraint.type,
-                point: constraint.point,
-                from: constraint.from,
-                to: constraint.to,
-                ...(typeof constraint.position === "number"
-                  ? { position: constraint.position }
-                  : {}),
-              }
-            }
+    },
+    point.label ? { label: point.label } : undefined,
+  )
+}
 
-            if (constraint.type === "perpendicular-foot") {
-              return {
-                type: constraint.type,
-                point: constraint.point,
-                source: constraint.source,
-                from: constraint.from,
-                to: constraint.to,
-              }
-            }
+function normalizeGeometrySegment(segment: GeometrySegment): GeometrySegment {
+  return Object.assign(
+    {
+      from: segment.from,
+      to: segment.to,
+    },
+    segment.style ? { style: segment.style } : undefined,
+    typeof segment.strokeWidth === "number" ? { strokeWidth: segment.strokeWidth } : undefined,
+    segment.label ? { label: segment.label } : undefined,
+  )
+}
 
-            return {
-              type: constraint.type,
-              point: constraint.point,
-              lineAFrom: constraint.lineAFrom,
-              lineATo: constraint.lineATo,
-              lineBFrom: constraint.lineBFrom,
-              lineBTo: constraint.lineBTo,
-            }
-          }),
-        }
-      : {}),
-    ...(spec.markers && spec.markers.length > 0
-      ? {
-          markers: spec.markers.map((marker) => {
-            if (marker.type === "tick") {
-              return {
-                type: marker.type,
-                from: marker.from,
-                to: marker.to,
-                ...(typeof marker.count === "number" ? { count: marker.count } : {}),
-              }
-            }
+function normalizeGeometryPolygon(polygon: GeometryPolygon): GeometryPolygon {
+  return Object.assign(
+    {
+      points: [...polygon.points],
+    },
+    polygon.fill ? { fill: polygon.fill } : undefined,
+    polygon.outline ? { outline: polygon.outline } : undefined,
+    polygon.label ? { label: polygon.label } : undefined,
+  )
+}
 
-            if (marker.type === "right-angle") {
-              return {
-                type: marker.type,
-                at: marker.at,
-                alongA: marker.alongA,
-                alongB: marker.alongB,
-              }
-            }
-
-            return {
-              type: marker.type,
-              at: marker.at,
-              from: marker.from,
-              to: marker.to,
-              ...(marker.label ? { label: marker.label } : {}),
-            }
-          }),
-        }
-      : {}),
+function normalizeGeometryConstraint(constraint: GeometryConstraint): GeometryConstraint {
+  if (constraint.type === "point-on-segment") {
+    return Object.assign(
+      {
+        type: constraint.type,
+        point: constraint.point,
+        from: constraint.from,
+        to: constraint.to,
+      },
+      typeof constraint.position === "number" ? { position: constraint.position } : undefined,
+    )
   }
+
+  if (constraint.type === "perpendicular-foot") {
+    return {
+      type: constraint.type,
+      point: constraint.point,
+      source: constraint.source,
+      from: constraint.from,
+      to: constraint.to,
+    }
+  }
+
+  return {
+    type: constraint.type,
+    point: constraint.point,
+    lineAFrom: constraint.lineAFrom,
+    lineATo: constraint.lineATo,
+    lineBFrom: constraint.lineBFrom,
+    lineBTo: constraint.lineBTo,
+  }
+}
+
+function normalizeGeometryMarker(marker: GeometryMarker): GeometryMarker {
+  if (marker.type === "tick") {
+    return Object.assign(
+      {
+        type: marker.type,
+        from: marker.from,
+        to: marker.to,
+      },
+      typeof marker.count === "number" ? { count: marker.count } : undefined,
+    )
+  }
+
+  if (marker.type === "right-angle") {
+    return {
+      type: marker.type,
+      at: marker.at,
+      alongA: marker.alongA,
+      alongB: marker.alongB,
+    }
+  }
+
+  return Object.assign(
+    {
+      type: marker.type,
+      at: marker.at,
+      from: marker.from,
+      to: marker.to,
+    },
+    marker.label ? { label: marker.label } : undefined,
+  )
+}
+
+function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSpec {
+  return Object.assign(
+    Object.assign(
+      {
+        canvas: normalizeGeometryCanvas(spec.canvas),
+        points: spec.points.map(normalizeGeometryPoint),
+      },
+      spec.segments && spec.segments.length > 0
+        ? { segments: spec.segments.map(normalizeGeometrySegment) }
+        : undefined,
+      spec.polygons && spec.polygons.length > 0
+        ? { polygons: spec.polygons.map(normalizeGeometryPolygon) }
+        : undefined,
+      spec.labels && spec.labels.length > 0
+        ? {
+            labels: spec.labels.map((label) => ({
+              text: label.text,
+              x: label.x,
+              y: label.y,
+            })),
+          }
+        : undefined,
+    ),
+    spec.constraints && spec.constraints.length > 0
+      ? { constraints: spec.constraints.map(normalizeGeometryConstraint) }
+      : undefined,
+    spec.markers && spec.markers.length > 0
+      ? { markers: spec.markers.map(normalizeGeometryMarker) }
+      : undefined,
+  )
 }
 
 function validateGeometrySvgSanity(svg: string): FigureValidationIssue[] {
@@ -231,53 +266,57 @@ async function writeGeometryFigureObject(input: {
   )
   const manifest = BuddyObjectManifestSchema.safeExtend({
     summary: FigureObjectSummarySchema,
-  }).parse({
-    version: 1,
-    kind: BUDDY_OBJECT_KINDS.figure,
-    objectID: input.objectID,
-    title: input.alt,
-    ...(input.caption ? { description: input.caption } : {}),
-    status: "ready",
-    lifecycle: "revisioned",
-    currentRevisionID: input.revisionID,
-    createdAt: input.createdAt,
-    updatedAt: input.createdAt,
-    sourceRefs: [
+  }).parse(
+    Object.assign(
       {
-        role: "payload",
-        path: `${sourceRoot}/${figureRevisionSvgPath(input.revisionID)}`,
-        displayPath: `${sourceRoot}/${figureRevisionSvgPath(input.revisionID)}`,
-        workspacePath: null,
-        mutable: false,
-        copied: false,
-        availability: "available",
-        exists: true,
-        contentHash: input.sourceHash,
-      },
-    ],
-    views: [
-      {
-        viewID: FIGURE_RENDERED_VIEW_ID,
-        label: "Figure",
-        surfaces: ["inline", "bench", "library"],
-        availability: { status: "available" },
-        inline: {
-          renderer: "figure",
-          params: {
-            renderer: "figure",
-            figureKind: "geometry",
+        version: 1,
+        kind: BUDDY_OBJECT_KINDS.figure,
+        objectID: input.objectID,
+        title: input.alt,
+        status: "ready",
+        lifecycle: "revisioned",
+        currentRevisionID: input.revisionID,
+        createdAt: input.createdAt,
+        updatedAt: input.createdAt,
+        sourceRefs: [
+          {
+            role: "payload",
+            path: `${sourceRoot}/${figureRevisionSvgPath(input.revisionID)}`,
+            displayPath: `${sourceRoot}/${figureRevisionSvgPath(input.revisionID)}`,
+            workspacePath: null,
+            mutable: false,
+            copied: false,
+            availability: "available",
+            exists: true,
+            contentHash: input.sourceHash,
           },
+        ],
+        views: [
+          {
+            viewID: FIGURE_RENDERED_VIEW_ID,
+            label: "Figure",
+            surfaces: ["inline", "bench", "library"],
+            availability: { status: "available" },
+            inline: {
+              renderer: "figure",
+              params: {
+                renderer: "figure",
+                figureKind: "geometry",
+              },
+            },
+            bench: { resolver: "object-view" },
+            library: { section: "diagrams" },
+          },
+        ],
+        summary: {
+          kind: BUDDY_OBJECT_KINDS.figure,
+          caption: input.caption ?? null,
+          renderStatus: "ready",
         },
-        bench: { resolver: "object-view" },
-        library: { section: "diagrams" },
       },
-    ],
-    summary: {
-      kind: BUDDY_OBJECT_KINDS.figure,
-      caption: input.caption ?? null,
-      renderStatus: "ready",
-    },
-  })
+      input.caption ? { description: input.caption } : undefined,
+    ),
+  )
   await writeObjectRecord({
     directory: input.directory,
     kind: BUDDY_OBJECT_KINDS.figure,
@@ -332,17 +371,21 @@ async function renderGeometryFigure(
               fallback: "Geometry figure",
             })
             const createdAt = new Date().toISOString()
-            await writeGeometryFigureObject({
-              directory,
-              objectID,
-              revisionID,
-              svg,
-              sourceHash,
-              alt,
-              ...(input.caption ? { caption: input.caption } : {}),
-              repairAttempts,
-              createdAt,
-            })
+            await writeGeometryFigureObject(
+              Object.assign(
+                {
+                  directory,
+                  objectID,
+                  revisionID,
+                  svg,
+                  sourceHash,
+                  alt,
+                  repairAttempts,
+                  createdAt,
+                },
+                input.caption ? { caption: input.caption } : undefined,
+              ),
+            )
             const rawUrl = buildFigureObjectRawUrl({ directory, objectID, revisionID })
             const relativePath = `${BuddyObjectPath.relativeObjectDirectory(
               BUDDY_OBJECT_KINDS.figure,

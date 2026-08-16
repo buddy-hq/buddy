@@ -120,15 +120,19 @@ function repairGeometryFigureSpec(
     }),
   )
 
-  return {
-    canvas: spec.canvas,
-    points,
-    ...(segments ? { segments } : {}),
-    ...(polygons ? { polygons } : {}),
-    ...(labels ? { labels } : {}),
-    ...(constraints ? { constraints } : {}),
-    ...(markers ? { markers } : {}),
-  }
+  return Object.assign(
+    Object.assign(
+      {
+        canvas: spec.canvas,
+        points,
+      },
+      segments ? { segments } : undefined,
+      polygons ? { polygons } : undefined,
+      labels ? { labels } : undefined,
+    ),
+    constraints ? { constraints } : undefined,
+    markers ? { markers } : undefined,
+  )
 }
 
 export { repairGeometryFigureSpec }

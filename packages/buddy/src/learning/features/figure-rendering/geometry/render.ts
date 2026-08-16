@@ -58,12 +58,14 @@ function scale(vector: Vector, amount: number): Vector {
 }
 
 function add(point: GeometryPoint, vector: Vector): GeometryPoint {
-  return {
-    id: point.id,
-    x: point.x + vector.x,
-    y: point.y + vector.y,
-    ...(point.label ? { label: point.label } : {}),
-  }
+  return Object.assign(
+    {
+      id: point.id,
+      x: point.x + vector.x,
+      y: point.y + vector.y,
+    },
+    point.label ? { label: point.label } : undefined,
+  )
 }
 
 function midpoint(pointA: GeometryPoint, pointB: GeometryPoint): GeometryPoint {

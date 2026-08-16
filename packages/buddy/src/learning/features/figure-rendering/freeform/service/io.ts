@@ -97,53 +97,57 @@ async function writeFreeformFigureObject(input: {
   )
   const manifest = BuddyObjectManifestSchema.safeExtend({
     summary: FreeformFigureObjectSummarySchema,
-  }).parse({
-    version: 1,
-    kind: BUDDY_OBJECT_KINDS.freeformFigure,
-    objectID: input.objectID,
-    title: input.alt,
-    ...(input.caption ? { description: input.caption } : {}),
-    status: "ready",
-    lifecycle: "revisioned",
-    currentRevisionID: input.revisionID,
-    createdAt: input.createdAt,
-    updatedAt: input.createdAt,
-    sourceRefs: [
+  }).parse(
+    Object.assign(
       {
-        role: "payload",
-        path: `${objectRoot}/${freeformFigureRevisionSvgPath(input.revisionID)}`,
-        displayPath: `${objectRoot}/${freeformFigureRevisionSvgPath(input.revisionID)}`,
-        workspacePath: null,
-        mutable: false,
-        copied: false,
-        availability: "available",
-        exists: true,
-        contentHash: input.sourceHash,
-      },
-    ],
-    views: [
-      {
-        viewID: FREEFORM_FIGURE_RENDERED_VIEW_ID,
-        label: "Rendered",
-        surfaces: ["inline", "bench", "library"],
-        availability: { status: "available" },
-        inline: {
-          renderer: "figure",
-          params: {
-            renderer: "figure",
-            figureKind: "freeform",
+        version: 1,
+        kind: BUDDY_OBJECT_KINDS.freeformFigure,
+        objectID: input.objectID,
+        title: input.alt,
+        status: "ready",
+        lifecycle: "revisioned",
+        currentRevisionID: input.revisionID,
+        createdAt: input.createdAt,
+        updatedAt: input.createdAt,
+        sourceRefs: [
+          {
+            role: "payload",
+            path: `${objectRoot}/${freeformFigureRevisionSvgPath(input.revisionID)}`,
+            displayPath: `${objectRoot}/${freeformFigureRevisionSvgPath(input.revisionID)}`,
+            workspacePath: null,
+            mutable: false,
+            copied: false,
+            availability: "available",
+            exists: true,
+            contentHash: input.sourceHash,
           },
+        ],
+        views: [
+          {
+            viewID: FREEFORM_FIGURE_RENDERED_VIEW_ID,
+            label: "Rendered",
+            surfaces: ["inline", "bench", "library"],
+            availability: { status: "available" },
+            inline: {
+              renderer: "figure",
+              params: {
+                renderer: "figure",
+                figureKind: "freeform",
+              },
+            },
+            bench: { resolver: "object-view" },
+            library: { section: "diagrams" },
+          },
+        ],
+        summary: {
+          kind: BUDDY_OBJECT_KINDS.freeformFigure,
+          caption: input.caption ?? null,
+          renderStatus: "ready",
         },
-        bench: { resolver: "object-view" },
-        library: { section: "diagrams" },
       },
-    ],
-    summary: {
-      kind: BUDDY_OBJECT_KINDS.freeformFigure,
-      caption: input.caption ?? null,
-      renderStatus: "ready",
-    },
-  })
+      input.caption ? { description: input.caption } : undefined,
+    ),
+  )
 
   await writeObjectRecord({
     directory: input.directory,

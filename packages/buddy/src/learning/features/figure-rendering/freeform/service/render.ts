@@ -61,16 +61,20 @@ async function renderFreeformFigure(
   })
   const rawUrl = buildFreeformFigureObjectRawUrl({ directory, objectID, revisionID })
 
-  await writeFreeformFigureObject({
-    directory,
-    objectID,
-    revisionID,
-    svg: applyTextHalo(sanitizedSource),
-    sourceHash,
-    alt,
-    ...(input.caption ? { caption: input.caption } : {}),
-    createdAt: new Date().toISOString(),
-  })
+  await writeFreeformFigureObject(
+    Object.assign(
+      {
+        directory,
+        objectID,
+        revisionID,
+        svg: applyTextHalo(sanitizedSource),
+        sourceHash,
+        alt,
+        createdAt: new Date().toISOString(),
+      },
+      input.caption ? { caption: input.caption } : undefined,
+    ),
+  )
 
   return RenderFreeformFigureOutputSchema.parse({
     objectID,
