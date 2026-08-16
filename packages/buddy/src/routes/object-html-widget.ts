@@ -58,7 +58,7 @@ const runtimeDocumentHeaders = {
   "content-security-policy": HTML_WIDGET_RUNTIME_CSP,
 }
 
-function mapHtmlWidgetObjectRouteError(error: unknown): Response | undefined {
+function mapHtmlWidgetObjectRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof HtmlWidgetValidationError) {
     return Response.json({ error: error.message }, { status: 400 })
   }
@@ -144,11 +144,13 @@ export const ObjectHtmlWidgetRoutes = new Hono()
           if (!fileRecord.ok) return fileRecord.response
 
           return new Response(createRawFileStream(fileRecord), {
-            headers: {
-              ...(runtime.immutable ? immutableRuntimeHeaders : liveRuntimeHeaders),
-              ...(runtime.isDocument ? runtimeDocumentHeaders : {}),
-              "content-type": runtime.contentType,
-            },
+            headers: Object.assign(
+              {
+                "content-type": runtime.contentType,
+              },
+              runtime.immutable ? immutableRuntimeHeaders : liveRuntimeHeaders,
+              runtime.isDocument ? runtimeDocumentHeaders : undefined,
+            ),
           })
         },
         mapError: mapHtmlWidgetObjectRouteError,

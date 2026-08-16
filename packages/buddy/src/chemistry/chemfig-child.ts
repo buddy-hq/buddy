@@ -43,7 +43,7 @@ async function renderDocument(): Promise<void> {
   }
 }
 
-function writeFailure(stage: ChemfigChildFailureStage, error: unknown): void {
+function writeFailure<TError>(stage: ChemfigChildFailureStage, error: TError): void {
   const message = error instanceof Error ? error.message : String(error)
   const stack = error instanceof Error ? error.stack : undefined
   process.stderr.write(JSON.stringify({ stage, message, stack }))

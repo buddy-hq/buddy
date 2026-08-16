@@ -94,10 +94,14 @@ export const ObjectsRoutes = new Hono()
         runRouteTask({
           task: async () => {
             const { kind } = c.req.valid("query")
-            const result = await listObjects({
-              directory: context.directory,
-              ...(kind ? { kind } : {}),
-            })
+            const result = await listObjects(
+              Object.assign(
+                {
+                  directory: context.directory,
+                },
+                kind ? { kind } : undefined,
+              ),
+            )
             return c.json(objectListResponseSchema.parse(result))
           },
           mapError: mapBuddyObjectRouteError,
@@ -166,18 +170,22 @@ export const ObjectsRoutes = new Hono()
             const params = c.req.valid("param")
             const query = c.req.valid("query")
             const definition = requireBuddyObjectKindDefinition(params.kind)
-            const result = await definition.readView({
-              directory: context.directory,
-              ref: {
-                kind: params.kind,
-                objectID: params.objectID,
-                revisionID: query.revisionID ?? null,
-                itemID: query.itemID ?? null,
-              },
-              viewID: params.viewID,
-              ...(query.revisionID ? { revisionID: query.revisionID } : {}),
-              ...(query.itemID ? { itemID: query.itemID } : {}),
-            })
+            const result = await definition.readView(
+              Object.assign(
+                {
+                  directory: context.directory,
+                  ref: {
+                    kind: params.kind,
+                    objectID: params.objectID,
+                    revisionID: query.revisionID ?? null,
+                    itemID: query.itemID ?? null,
+                  },
+                  viewID: params.viewID,
+                },
+                query.revisionID ? { revisionID: query.revisionID } : undefined,
+                query.itemID ? { itemID: query.itemID } : undefined,
+              ),
+            )
             return c.json(BuddyObjectViewResponseSchema.parse(result))
           },
           mapError: mapBuddyObjectRouteError,

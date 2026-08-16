@@ -37,7 +37,7 @@ class BuddyObjectDuplicateIDError extends Error {
   }
 }
 
-function mapBuddyObjectRouteError(error: unknown): Response | undefined {
+function mapBuddyObjectRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof BuddyObjectValidationError) {
     return Response.json({ error: error.message }, { status: 400 })
   }

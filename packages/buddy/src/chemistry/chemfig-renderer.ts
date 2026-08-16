@@ -366,7 +366,7 @@ async function enforceChemfigCacheLimits(
   const cacheDirectory = chemfigRenderCacheDirectory(directory)
   const directoryEntries = await fs
     .readdir(cacheDirectory, { withFileTypes: true })
-    .catch((error: unknown) => {
+    .catch((error) => {
       if (isNodeErrorCode(error, "ENOENT")) return []
       throw error
     })
@@ -799,7 +799,7 @@ function awaitInFlightChemfigRender(
       cleanup()
       resolve(record)
     }
-    const settleReject = (error: unknown): void => {
+    const settleReject = <TError>(error: TError): void => {
       if (completed) return
       completed = true
       cleanup()

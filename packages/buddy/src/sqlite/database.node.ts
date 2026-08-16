@@ -1,53 +1,108 @@
 import { createRequire } from "node:module"
-import type { DatabaseOptions, RunResult, SQLInputValue, Statement } from "./shared"
+import z from "zod"
+import type {
+  DatabaseOptions,
+  RunResult,
+  SQLInputValue,
+  Statement,
+  TSqliteCell,
+  TSqliteRow,
+} from "./shared"
 
-type NativeStatement = {
-  all: (...params: SQLInputValue[]) => unknown[]
-  get: (...params: SQLInputValue[]) => unknown
+const OBJECT_FUNCTION_TAG = "[object Function]"
+const OBJECT_ASYNC_FUNCTION_TAG = "[object AsyncFunction]"
+const OBJECT_GENERATOR_FUNCTION_TAG = "[object GeneratorFunction]"
+const DEFAULT_BUSY_TIMEOUT_MS = 5_000
+const require = createRequire(import.meta.url)
+
+const sqliteCellSchema: z.ZodType<TSqliteCell> = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.bigint(),
+  z.instanceof(Uint8Array),
+])
+const sqliteRowSchema: z.ZodType<TSqliteRow> = z.record(z.string(), sqliteCellSchema)
+
+type TNativeStatement = {
+  all: (...params: SQLInputValue[]) => readonly TSqliteRow[]
+  get: (...params: SQLInputValue[]) => TSqliteRow | null | undefined
   run: (...params: SQLInputValue[]) => RunResult
 }
 
-type NativeDatabase = {
+type TNativeDatabase = {
   close: () => void
   exec: (sql: string) => void
-  prepare: (sql: string) => NativeStatement
+  prepare: (sql: string) => TNativeStatement
 }
 
-type NativeSqliteModule = {
-  DatabaseSync: new (filename: string, options: NativeDatabaseOptions) => NativeDatabase
+type TNativeSqliteConstructor = new (
+  filename: string,
+  options: TNativeDatabaseOptions,
+) => TNativeDatabase
+
+type TNativeSqliteModule = {
+  DatabaseSync: TNativeSqliteConstructor
 }
 
-type NativeDatabaseOptions = {
+type TNativeDatabaseOptions = {
   open: true
   readOnly: boolean
   timeout: number
   enableForeignKeyConstraints: true
 }
 
-const DEFAULT_BUSY_TIMEOUT_MS = 5_000
-const require = createRequire(import.meta.url)
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function objectTag<TValue>(value: TValue): string {
+  return Object.prototype.toString.call(value)
 }
 
-function loadNativeSqlite(): NativeSqliteModule {
-  const loaded: unknown = require("node:sqlite")
-  if (!isRecord(loaded) || typeof loaded.DatabaseSync !== "function") {
+function isFunctionValue<TValue>(value: TValue): boolean {
+  const tag = objectTag(value)
+  return (
+    tag === OBJECT_FUNCTION_TAG ||
+    tag === OBJECT_ASYNC_FUNCTION_TAG ||
+    tag === OBJECT_GENERATOR_FUNCTION_TAG
+  )
+}
+
+function isNativeSqliteModule<TValue>(value: TValue): value is TValue & TNativeSqliteModule {
+  if (value === null || value === undefined) return false
+  const record = Object(value)
+  if (!("DatabaseSync" in record)) return false
+  return isFunctionValue(record.DatabaseSync)
+}
+
+function isPreparedRow<TRow>(row: TSqliteRow): row is TRow {
+  return parseSqliteRow(row) !== undefined
+}
+
+function loadNativeSqlite(): TNativeSqliteModule {
+  const loaded = require("node:sqlite")
+  if (!isNativeSqliteModule(loaded)) {
     throw new Error("node:sqlite DatabaseSync is unavailable.")
   }
-  return loaded as NativeSqliteModule
+  return loaded
 }
 
-function normalizeRow<TRow>(row: unknown): TRow | null {
+function parseSqliteRow<TValue>(value: TValue): TSqliteRow | undefined {
+  const parsed = sqliteRowSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
+}
+
+function normalizeRow<TRow>(row: TSqliteRow | null | undefined): TRow | null {
   if (row === undefined || row === null) return null
-  if (!isRecord(row)) {
+  const parsed = parseSqliteRow(row)
+  if (parsed === undefined) {
     throw new Error("SQLite query returned a non-object row.")
   }
-  return Object.fromEntries(Object.entries(row)) as TRow
+  if (!isPreparedRow<TRow>(parsed)) {
+    throw new Error("SQLite query returned a non-object row.")
+  }
+  return parsed
 }
 
-function normalizeRows<TRow>(rows: unknown[]): TRow[] {
+function normalizeRows<TRow>(rows: readonly TSqliteRow[]): TRow[] {
   return rows.map((row) => {
     const normalized = normalizeRow<TRow>(row)
     if (normalized === null) {
@@ -58,7 +113,7 @@ function normalizeRows<TRow>(rows: unknown[]): TRow[] {
 }
 
 class NodeStatement<TRow> implements Statement<TRow> {
-  constructor(private readonly statement: NativeStatement) {}
+  constructor(private readonly statement: TNativeStatement) {}
 
   all(...params: SQLInputValue[]): TRow[] {
     return normalizeRows<TRow>(this.statement.all(...params))
@@ -74,7 +129,7 @@ class NodeStatement<TRow> implements Statement<TRow> {
 }
 
 export class Database {
-  private readonly native: NativeDatabase
+  private readonly native: TNativeDatabase
 
   constructor(filename: string, options: DatabaseOptions = {}) {
     const { DatabaseSync } = loadNativeSqlite()
@@ -94,7 +149,7 @@ export class Database {
     this.native.exec(sql)
   }
 
-  prepare<TRow = Record<string, unknown>>(sql: string): Statement<TRow> {
+  prepare<TRow = TSqliteRow>(sql: string): Statement<TRow> {
     return new NodeStatement<TRow>(this.native.prepare(sql))
   }
 }

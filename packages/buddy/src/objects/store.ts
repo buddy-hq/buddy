@@ -5,6 +5,7 @@ import path from "node:path"
 import { ulid } from "ulid"
 import z from "zod"
 import { writeJsonFileAtomic, writeTextFileAtomic } from "../storage/atomic-file"
+import { parseNodeErrorCode } from "../storage/parse-node-error"
 import {
   BuddyObjectDuplicateIDError,
   BuddyObjectLoadException,
@@ -16,7 +17,9 @@ import {
   BuddyObjectLoadErrorSchema,
   BuddyObjectManifestSchema,
   BuddyObjectReadResponseSchema,
+  BuddyObjectStatusSchema,
   BuddyObjectTombstoneSchema,
+  nonEmptyString,
   type BuddyObjectIndexItem,
   type BuddyObjectLoadError as BuddyObjectLoadErrorRecord,
   type BuddyObjectManifest,
@@ -42,8 +45,8 @@ const OBJECT_STAGING_DIRECTORY_SUFFIX = ".tmp"
 const BuddyObjectIndexCacheRecordSchema = z
   .object({
     kind: BuddyObjectKindSchema,
-    status: BuddyObjectManifestSchema.shape.status,
-    title: BuddyObjectManifestSchema.shape.title,
+    status: BuddyObjectStatusSchema,
+    title: nonEmptyString,
     objectPath: z.string().trim().min(1),
   })
   .strict()
@@ -119,14 +122,8 @@ type ObjectDirectoryScanResult = {
 
 const objectIndexLocks = new Map<string, Promise<void>>()
 
-function isNodeErrorCode(error: unknown, code: string): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof error.code === "string" &&
-    error.code === code
-  )
+function isNodeErrorCode<TError>(error: TError, code: string): boolean {
+  return parseNodeErrorCode(error) === code
 }
 
 function generateObjectID(): string {
@@ -434,7 +431,7 @@ function manifestToIndexItem(input: {
 
 async function readObjectIndexCache(directory: string): Promise<BuddyObjectIndexCache> {
   return readJsonFile(BuddyObjectPath.indexFile(directory), BuddyObjectIndexCacheSchema).catch(
-    (error: unknown) => {
+    (error) => {
       if (isNodeErrorCode(error, "ENOENT")) {
         return {}
       }
@@ -756,21 +753,25 @@ async function deleteObject(input: {
     directory: input.directory,
     kind: input.kind,
     objectID,
-  }).catch((error: unknown) => {
+  }).catch((error) => {
     if (error instanceof BuddyObjectUnavailableError) {
       return undefined
     }
     throw error
   })
 
-  const tombstone = BuddyObjectTombstoneSchema.parse({
-    version: 1,
-    kind: input.kind,
-    objectID,
-    deletedAt: new Date().toISOString(),
-    ...(manifest?.title ? { title: manifest.title } : {}),
-    ...(input.reason ? { reason: input.reason } : { reason: "user_deleted" }),
-  })
+  const tombstone = BuddyObjectTombstoneSchema.parse(
+    Object.assign(
+      {
+        version: 1 as const,
+        kind: input.kind,
+        objectID,
+        deletedAt: new Date().toISOString(),
+        reason: input.reason ?? ("user_deleted" as const),
+      },
+      manifest?.title ? { title: manifest.title } : undefined,
+    ),
+  )
   await writeJsonFileAtomic(
     BuddyObjectPath.tombstoneFile(input.directory, input.kind, objectID),
     tombstone,

@@ -401,7 +401,7 @@ const storedBenchContextSnapshotOpenApiSchema = {
   },
 }
 
-function mapBenchRouteError(error: unknown): Response | undefined {
+function mapBenchRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof SessionLookupError) {
     return error.response
   }

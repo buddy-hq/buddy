@@ -99,7 +99,7 @@ const mermaidObjectReadResponseSchema = z
   })
   .strict()
 
-function mapMermaidObjectRouteError(error: unknown): Response | undefined {
+function mapMermaidObjectRouteError<TError>(error: TError): Response | undefined {
   return mapBuddyObjectRouteError(error) ?? mapMermaidFeatureRouteError(error)
 }
 
@@ -133,16 +133,20 @@ export const ObjectMermaidRoutes = new Hono()
               sessionID: body.sessionID,
               request: c.req.raw,
             })
-            const object = await createMarkdownMermaidObject({
-              directory: context.directory,
-              sessionID: body.sessionID,
-              messageID: body.messageID,
-              partID: body.partID,
-              segmentIndex: body.segmentIndex,
-              source: body.source,
-              alt: body.alt ?? "Mermaid diagram",
-              ...(body.caption ? { caption: body.caption } : {}),
-            })
+            const object = await createMarkdownMermaidObject(
+              Object.assign(
+                {
+                  directory: context.directory,
+                  sessionID: body.sessionID,
+                  messageID: body.messageID,
+                  partID: body.partID,
+                  segmentIndex: body.segmentIndex,
+                  source: body.source,
+                  alt: body.alt ?? "Mermaid diagram",
+                },
+                body.caption ? { caption: body.caption } : undefined,
+              ),
+            )
             return c.json(mermaidObjectReadResponseSchema.parse(object))
           },
           mapError: mapMermaidObjectRouteError,

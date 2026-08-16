@@ -26,7 +26,7 @@ const NotebookUploadSchema = z
   })
   .strict()
 
-function mapNotebookUploadRouteError(error: unknown): Response | undefined {
+function mapNotebookUploadRouteError<TError>(error: TError): Response | undefined {
   if (!(error instanceof NotebookUploadError)) return undefined
   return Response.json({ error: error.message }, { status: 400 })
 }

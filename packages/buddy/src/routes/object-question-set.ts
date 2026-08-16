@@ -35,7 +35,7 @@ const SubmitQuestionSetObjectAttemptOutputSchema = z
   })
   .strict()
 
-function mapQuestionSetObjectRouteError(error: unknown): Response | undefined {
+function mapQuestionSetObjectRouteError<TError>(error: TError): Response | undefined {
   return mapIdempotencyRouteError(error) ?? mapBuddyObjectRouteError(error)
 }
 

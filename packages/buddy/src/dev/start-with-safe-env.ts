@@ -1,6 +1,7 @@
 import path from "node:path"
 import { spawn } from "node:child_process"
 import { mergeSafeRepoEnv } from "./safe-env"
+import { parseTString } from "../http/parse"
 import { OPENCODE_ENV } from "../storage"
 
 const repoRoot = path.resolve(import.meta.dir, "../../../..")
@@ -16,9 +17,10 @@ const args = [
 ]
 const baseChildEnv = mergeSafeRepoEnv(
   Object.fromEntries(
-    Object.entries(process.env).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string",
-    ),
+    Object.entries(process.env).flatMap(([key, value]) => {
+      const parsed = parseTString(value)
+      return parsed === undefined ? [] : [[key, parsed]]
+    }),
   ),
   repoRoot,
 )

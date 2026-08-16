@@ -19,6 +19,7 @@ import {
   resolveResourcePackFullTextMetadataFromRoot,
 } from "../resource-packs"
 import { writeJsonFileAtomic } from "../storage/atomic-file"
+import { parseTJsonObject, parseTNumber, parseTString, type TJsonObject } from "../http/parse"
 import {
   BUDDY_OBJECT_KINDS,
   BuddyObjectIDSchema,
@@ -265,7 +266,7 @@ export async function getResourceByKey(
   key: string,
 ): Promise<ResourceRecord | undefined> {
   const resource = await resolveResourceObjectByKey({ directory, resourceKey: key }).catch(
-    (error: unknown) => {
+    (error) => {
       if (error instanceof ResourceNotFoundError) return undefined
       throw error
     },
@@ -280,7 +281,7 @@ export async function getRegisteredResourceByKey(
   key: string,
 ): Promise<ResourceRecord | undefined> {
   const resource = await resolveResourceObjectByKey({ directory, resourceKey: key }).catch(
-    (error: unknown) => {
+    (error) => {
       if (error instanceof ResourceNotFoundError) return undefined
       throw error
     },
@@ -436,7 +437,7 @@ export async function resolveResourceReference(input: {
   const resource = await resolveResourceObjectByKey({
     directory: input.directory,
     resourceKey: input.key,
-  }).catch((error: unknown) => {
+  }).catch((error) => {
     if (error instanceof ResourceNotFoundError) return undefined
     throw error
   })
@@ -478,7 +479,7 @@ export async function resolveResourceObjectByKey(
     const byID = await resolveResourceObjectByID({
       directory: input.directory,
       objectID: trimmed,
-    }).catch((error: unknown) => {
+    }).catch((error) => {
       if (error instanceof ResourceNotFoundError || error instanceof BuddyObjectNotFoundError) {
         return undefined
       }
@@ -496,7 +497,7 @@ export async function resolveResourceObjectByKey(
     const resource = await resolveResourceObjectByID({
       directory: input.directory,
       objectID,
-    }).catch((error: unknown) => {
+    }).catch((error) => {
       if (
         error instanceof BuddyObjectNotFoundError ||
         error instanceof BuddyObjectUnavailableError
@@ -546,7 +547,7 @@ export async function listResolvedResourceObjects(input: {
       resolveResourceObjectByID({
         directory: input.directory,
         objectID: object.objectID,
-      }).catch((error: unknown) => {
+      }).catch((error) => {
         if (error instanceof ResourceNotFoundError) return undefined
         throw error
       }),
@@ -626,7 +627,7 @@ export async function buildResourceObjectPack(
   })
 }
 
-export function mapResourceRouteError(error: unknown): Response | undefined {
+export function mapResourceRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof ResourceValidationError || error instanceof BuddyObjectValidationError) {
     return Response.json({ error: error.message }, { status: 400 })
   }
@@ -1222,7 +1223,7 @@ async function resourceManifestToResolved(
   const status =
     manifest.status === RESOURCE_PACK_STATUS_READY && originalSourceChanged
       ? "stale"
-      : (manifest.status as ResourceStatus)
+      : resourceStatusFromManifest(manifest.status)
   const warnings =
     manifest.status === RESOURCE_PACK_STATUS_READY && originalSourceChanged
       ? [...new Set([...manifest.summary.warnings, RESOURCE_STALE_WARNING])]
@@ -1243,7 +1244,7 @@ async function resourceManifestToResolved(
         ? "stale"
         : manifest.summary.extractionStatus === RESOURCE_PACK_STATUS_PREPARING &&
             manifest.status !== RESOURCE_PACK_STATUS_PREPARING
-          ? (manifest.status as ResourceStatus)
+          ? resourceStatusFromManifest(manifest.status)
           : manifest.summary.extractionStatus,
     managedSourceRef,
     originalSourceRef,
@@ -1341,8 +1342,8 @@ async function readResourcePackMetadataFromPackRoot(
     .catch(() => undefined)
   if (!content) return undefined
   const parsed = matter(content)
-  const data = parsed.data
-  if (!isPlainObject(data)) return undefined
+  const data = parseTJsonObject(parsed.data)
+  if (data === undefined) return undefined
   return {
     format: stringValue(data, "format") || undefined,
     status: normalizeResourceStatus(stringValue(data, "status")),
@@ -1590,31 +1591,39 @@ function normalizeResourceStatus(value: string): ResourceStatus | undefined {
   return undefined
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+function resourceStatusFromManifest(status: string): ResourceStatus {
+  return normalizeResourceStatus(status) ?? RESOURCE_PACK_STATUS_ERROR
 }
 
-function stringValue(record: Record<string, unknown>, key: string): string {
-  const value = record[key]
-  return typeof value === "string" ? value.trim() : ""
+function stringValue(record: TJsonObject, key: string): string {
+  const value = parseTString(record[key])
+  return value !== undefined ? value.trim() : ""
 }
 
-function stringArrayValue(record: Record<string, unknown>, key: string): string[] {
+function stringArrayValue(record: TJsonObject, key: string): string[] {
   const value = record[key]
-  if (!Array.isArray(value)) {
-    const single = typeof value === "string" ? value.trim() : ""
-    return single ? [single] : []
+  if (Array.isArray(value)) {
+    const entries: string[] = []
+    for (const entry of value) {
+      const text = parseTString(entry)
+      if (text !== undefined) entries.push(text)
+    }
+    return entries
   }
-  return value.filter((entry): entry is string => typeof entry === "string")
+  const single = parseTString(value)
+  if (single === undefined) return []
+  const trimmed = single.trim()
+  return trimmed ? [trimmed] : []
 }
 
-function numberValue(record: Record<string, unknown>, key: string): number | undefined {
+function numberValue(record: TJsonObject, key: string): number | undefined {
   const value = record[key]
-  if (typeof value === "number" && Number.isFinite(value)) return value
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
+  const numeric = parseTNumber(value)
+  if (numeric !== undefined && Number.isFinite(numeric)) return numeric
+  const text = parseTString(value)
+  if (text === undefined || text.trim().length === 0) return undefined
+  const parsed = Number(text)
+  if (Number.isFinite(parsed)) return parsed
   return undefined
 }
 
@@ -1622,7 +1631,7 @@ async function fileExists(filePath: string): Promise<boolean> {
   return fs
     .stat(filePath)
     .then((stats) => stats.isFile())
-    .catch((error: unknown) => {
+    .catch((error) => {
       if (isNodeErrorCode(error, "ENOENT")) return false
       throw error
     })
@@ -1632,7 +1641,7 @@ async function directoryExists(directoryPath: string): Promise<boolean> {
   return fs
     .stat(directoryPath)
     .then((stats) => stats.isDirectory())
-    .catch((error: unknown) => {
+    .catch((error) => {
       if (isNodeErrorCode(error, "ENOENT")) return false
       throw error
     })

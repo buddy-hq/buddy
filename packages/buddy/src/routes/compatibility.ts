@@ -14,6 +14,7 @@ import {
 import {
   SSE_EVENT_TYPE_CLIENT_LEASE,
   benchClientActionBroker,
+  type BenchClientActionListener,
 } from "../learning/features/bench/client-actions"
 import { updateObsidianVaultIndex } from "../learning/features/obsidian-vault/service"
 import {
@@ -200,7 +201,7 @@ export const CompatibilityRoutes = new Hono()
                         },
                       ],
                   subscribe: accepted
-                    ? (listener: (event: unknown) => void) =>
+                    ? (listener: BenchClientActionListener) =>
                         benchClientActionBroker.subscribe({
                           directory: directoryContext.context.directory,
                           lease,

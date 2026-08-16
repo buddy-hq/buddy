@@ -1,4 +1,3 @@
-import type { SkillServiceErrorCode } from "../learning/skill-management"
 import { SkillServiceError } from "../learning/skill-management"
 import {
   HTTP_STATUS,
@@ -13,36 +12,51 @@ type SkillToggleInput = {
   enabled?: boolean
 }
 
-export function skillErrorMessage(error: unknown) {
+export function skillErrorMessage<TError>(error: TError) {
   if (error instanceof SkillServiceError && error.message.trim()) {
     return error.message
   }
   return SKILL_ROUTE_ERRORS.fallback
 }
 
-function skillErrorStatus<TStatus extends number>(
-  error: unknown,
-  codeMap: Partial<Record<SkillServiceErrorCode, TStatus>>,
-  defaultStatus: TStatus,
-): TStatus {
-  if (!(error instanceof SkillServiceError)) return HTTP_STATUS.INTERNAL_SERVER_ERROR as TStatus
-  return codeMap[error.code] ?? defaultStatus
+export function createSkillErrorStatus<TError>(error: TError): 400 | 409 | 500 {
+  if (!(error instanceof SkillServiceError)) return HTTP_STATUS.INTERNAL_SERVER_ERROR
+  switch (error.code) {
+    case "conflict":
+      return SKILL_ERROR_STATUS.create.conflict
+    case "invalid_input":
+      return SKILL_ERROR_STATUS.create.invalid_input
+    default:
+      return HTTP_STATUS.INTERNAL_SERVER_ERROR
+  }
 }
 
-export function createSkillErrorStatus(error: unknown): 400 | 409 | 500 {
-  return skillErrorStatus(error, SKILL_ERROR_STATUS.create, HTTP_STATUS.INTERNAL_SERVER_ERROR)
+export function installLibrarySkillErrorStatus<TError>(error: TError): 400 | 403 | 404 | 409 | 500 {
+  if (!(error instanceof SkillServiceError)) return HTTP_STATUS.INTERNAL_SERVER_ERROR
+  switch (error.code) {
+    case "not_found":
+      return SKILL_ERROR_STATUS.installLibrary.not_found
+    case "invalid_input":
+      return SKILL_ERROR_STATUS.installLibrary.invalid_input
+    case "conflict":
+      return SKILL_ERROR_STATUS.installLibrary.conflict
+    case "forbidden":
+      return SKILL_ERROR_STATUS.installLibrary.forbidden
+    default:
+      return HTTP_STATUS.INTERNAL_SERVER_ERROR
+  }
 }
 
-export function installLibrarySkillErrorStatus(error: unknown): 400 | 403 | 404 | 409 | 500 {
-  return skillErrorStatus(
-    error,
-    SKILL_ERROR_STATUS.installLibrary,
-    HTTP_STATUS.INTERNAL_SERVER_ERROR,
-  )
-}
-
-export function notFoundSkillErrorStatus(error: unknown): 400 | 403 | 404 | 500 {
-  return skillErrorStatus(error, SKILL_ERROR_STATUS.byName, HTTP_STATUS.BAD_REQUEST)
+export function notFoundSkillErrorStatus<TError>(error: TError): 400 | 403 | 404 | 500 {
+  if (!(error instanceof SkillServiceError)) return HTTP_STATUS.INTERNAL_SERVER_ERROR
+  switch (error.code) {
+    case "forbidden":
+      return SKILL_ERROR_STATUS.byName.forbidden
+    case "not_found":
+      return SKILL_ERROR_STATUS.byName.not_found
+    default:
+      return HTTP_STATUS.BAD_REQUEST
+  }
 }
 
 export function shouldRefreshSkillCatalog(refreshValue: string | undefined): boolean {

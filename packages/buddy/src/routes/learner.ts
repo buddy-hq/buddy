@@ -171,17 +171,17 @@ const learnerMemorySettingsResponseSchema = z.object({
   maxUnusedStageOneDays: z.number().int().positive(),
 })
 
+const learnerMemorySessionExtractDecisionSchema = z.object({
+  fixtureId: z.string(),
+  decision: z.enum(["skip", "extract"]),
+  score: z.number(),
+  reasons: z.array(z.string()),
+})
+
 const learnerMemorySessionExtractResponseSchema = z.object({
   enabled: z.boolean(),
   sessionID: z.string(),
-  decision: z
-    .object({
-      fixtureId: z.string(),
-      decision: z.enum(["skip", "extract"]),
-      score: z.number(),
-      reasons: z.array(z.string()),
-    })
-    .optional(),
+  decision: learnerMemorySessionExtractDecisionSchema.optional(),
   candidateCount: z.number().int().nonnegative(),
   approvedCount: z.number().int().nonnegative(),
   memoryIds: z.array(z.string()),
@@ -333,14 +333,16 @@ const learnerMemoryLabRunResponseSchema = z.object({
     .optional(),
 })
 
+const learnerMemoryLabStepKeySchema = z.enum([
+  "currentSessionExtraction",
+  "startupSweep",
+  "deterministicHarness",
+  "modelHarness",
+  "searchProbe",
+])
+
 const learnerMemoryLabStepTraceSchema = z.object({
-  key: z.enum([
-    "currentSessionExtraction",
-    "startupSweep",
-    "deterministicHarness",
-    "modelHarness",
-    "searchProbe",
-  ]),
+  key: learnerMemoryLabStepKeySchema,
   label: z.string().min(1),
   status: z.enum(["pending", "running", "completed", "skipped", "failed"]),
   startedAt: z.string().datetime().optional(),
@@ -352,7 +354,7 @@ const learnerMemoryLabTraceEventSchema = z.object({
   id: z.string().min(1),
   at: z.string().datetime(),
   level: z.enum(["info", "warn", "error"]),
-  step: learnerMemoryLabStepTraceSchema.shape.key.optional(),
+  step: learnerMemoryLabStepKeySchema.optional(),
   sessionID: z.string().min(1).optional(),
   message: z.string().min(1),
   details: z.record(z.string(), z.unknown()).optional(),
@@ -370,7 +372,7 @@ const learnerMemoryLabSessionTraceSchema = z.object({
   approvedCount: z.number().int().nonnegative().optional(),
   skippedReason: z.string().optional(),
   error: z.string().optional(),
-  decision: learnerMemorySessionExtractResponseSchema.shape.decision.optional(),
+  decision: learnerMemorySessionExtractDecisionSchema.optional(),
 })
 
 const learnerMemoryLabProgressSchema = z.object({
@@ -412,13 +414,15 @@ async function readTextArtifact(input: {
   filePath: string
 }): Promise<z.infer<typeof learnerMemoryArtifactSchema>> {
   const content = await fs.readFile(input.filePath, "utf8").catch(() => undefined)
-  return {
-    key: input.key,
-    label: input.label,
-    path: input.filePath,
-    exists: content !== undefined,
-    ...(content !== undefined ? { content } : {}),
-  }
+  return Object.assign(
+    {
+      key: input.key,
+      label: input.label,
+      path: input.filePath,
+      exists: content !== undefined,
+    },
+    content !== undefined ? { content } : undefined,
+  )
 }
 
 export const LearnerRoutes = new Hono()
@@ -906,15 +910,21 @@ export const LearnerRoutes = new Hono()
     async (c) =>
       withDirectoryRoute(c, async (context) => {
         const body = c.req.valid("json")
-        const memory = await editLearnerMemory({
-          directory: context.directory,
-          memoryId: body.memoryId,
-          ...(body.title ? { title: body.title } : {}),
-          ...(body.body ? { body: body.body } : {}),
-          ...(body.tags ? { tags: body.tags } : {}),
-          ...(body.projectPath ? { projectPath: body.projectPath } : {}),
-          reason: body.reason,
-        })
+        const memory = await editLearnerMemory(
+          Object.assign(
+            Object.assign(
+              {
+                directory: context.directory,
+                memoryId: body.memoryId,
+                reason: body.reason,
+              },
+              body.title ? { title: body.title } : undefined,
+              body.body ? { body: body.body } : undefined,
+            ),
+            body.tags ? { tags: body.tags } : undefined,
+            body.projectPath ? { projectPath: body.projectPath } : undefined,
+          ),
+        )
         await regenerateLearnerMemoryMarkdown(context.directory)
         return c.json(memory ? { memory } : {})
       }),

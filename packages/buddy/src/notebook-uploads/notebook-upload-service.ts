@@ -7,6 +7,7 @@ import {
   nativeResourceDefinitionFromPath,
   type NativeResourceFormat,
 } from "@buddy/workspace-file-policy"
+import { parseNodeErrorCode } from "../storage/parse-node-error"
 import { RESOURCE_MAX_SOURCE_BYTES } from "../resource-packs/budgets"
 
 const NOTEBOOK_UPLOAD_DIRECTORY = "uploads"
@@ -67,9 +68,8 @@ function uploadStem(displayName: string): string {
   return sanitized || "resource"
 }
 
-function errorCode(error: unknown): string | undefined {
-  if (!error || typeof error !== "object" || !("code" in error)) return undefined
-  return typeof error.code === "string" ? error.code : undefined
+function errorCode<TError>(error: TError): string | undefined {
+  return parseNodeErrorCode(error)
 }
 
 async function removePartialFile(partialPath: string): Promise<void> {

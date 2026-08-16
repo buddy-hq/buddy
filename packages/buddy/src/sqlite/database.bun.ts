@@ -1,5 +1,5 @@
 import { Database as BunSqliteDatabase } from "bun:sqlite"
-import type { DatabaseOptions, SQLInputValue, Statement } from "./shared"
+import type { DatabaseOptions, SQLInputValue, Statement, TSqliteRow } from "./shared"
 
 type BunStatement<TRow> = {
   all(...params: SQLInputValue[]): TRow[]
@@ -41,7 +41,7 @@ export class Database {
     this.native.exec(sql)
   }
 
-  prepare<TRow = Record<string, unknown>>(sql: string): Statement<TRow> {
+  prepare<TRow = TSqliteRow>(sql: string): Statement<TRow> {
     return createStatement(this.native.query<TRow, SQLInputValue[]>(sql))
   }
 }

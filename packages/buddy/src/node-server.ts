@@ -39,11 +39,45 @@ export function listenNodeServer(config: NodeServerConfig): NodeServerListener {
   }
 }
 
-function closeAllConnections(server: unknown) {
-  if (typeof server !== "object" || server === null) return
-  if (!("closeAllConnections" in server)) return
+type TCloseableConnections = {
+  closeAllConnections: () => void
+}
 
-  const close = server.closeAllConnections
-  if (typeof close !== "function") return
-  close.call(server)
+const OBJECT_FUNCTION_TAG = "[object Function]"
+const OBJECT_ASYNC_FUNCTION_TAG = "[object AsyncFunction]"
+const OBJECT_STRING_TAG = "[object String]"
+const OBJECT_NUMBER_TAG = "[object Number]"
+const OBJECT_BOOLEAN_TAG = "[object Boolean]"
+const OBJECT_SYMBOL_TAG = "[object Symbol]"
+const OBJECT_BIGINT_TAG = "[object BigInt]"
+
+function objectTag<TValue>(value: TValue): string {
+  return Object.prototype.toString.call(value)
+}
+
+function isFunctionValue<TValue>(value: TValue): boolean {
+  const tag = objectTag(value)
+  return tag === OBJECT_FUNCTION_TAG || tag === OBJECT_ASYNC_FUNCTION_TAG
+}
+
+function isObjectValue<TValue>(value: TValue): value is TValue & object {
+  if (value === null || value === undefined) return false
+  const tag = objectTag(value)
+  return (
+    tag !== OBJECT_STRING_TAG &&
+    tag !== OBJECT_NUMBER_TAG &&
+    tag !== OBJECT_BOOLEAN_TAG &&
+    tag !== OBJECT_SYMBOL_TAG &&
+    tag !== OBJECT_BIGINT_TAG
+  )
+}
+
+function parseCloseableConnections<TValue>(value: TValue): TCloseableConnections | undefined {
+  if (!isObjectValue(value) || !("closeAllConnections" in value)) return undefined
+  if (!isFunctionValue(value.closeAllConnections)) return undefined
+  return value
+}
+
+function closeAllConnections<TServer>(server: TServer) {
+  parseCloseableConnections(server)?.closeAllConnections()
 }

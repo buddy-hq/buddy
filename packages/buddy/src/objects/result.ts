@@ -1,5 +1,5 @@
 import z from "zod"
-import { BuddyObjectIDSchema } from "./kinds"
+import { BuddyObjectIDSchema, BuddyObjectKindSchema } from "./kinds"
 import {
   BuddyObjectLifecycleSchema,
   BuddyObjectRefSchema,
@@ -28,7 +28,7 @@ const BuddyPresentationDescriptorSchema = z
 
 const BuddyObjectSummaryBaseSchema = z
   .object({
-    kind: BuddyObjectRefSchema.shape.kind,
+    kind: BuddyObjectKindSchema,
     objectID: BuddyObjectIDSchema,
     title: nonEmptyString,
     status: BuddyObjectStatusSchema,
@@ -55,7 +55,7 @@ type BuddyObjectSummaryBase = z.infer<typeof BuddyObjectSummaryBaseSchema>
 type BuddyObjectResult = z.infer<typeof BuddyObjectResultSchema>
 type BuddyObjectToolMetadata = {
   buddyObjectResult: BuddyObjectResult
-} & Record<string, unknown>
+}
 
 function objectSummaryBaseFromManifest(input: {
   kind: BuddyObjectSummaryBase["kind"]

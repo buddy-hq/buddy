@@ -1,5 +1,9 @@
 export type SQLInputValue = null | number | bigint | string | Uint8Array
 
+export type TSqliteCell = SQLInputValue | boolean
+
+export type TSqliteRow = { readonly [column: string]: TSqliteCell }
+
 export type DatabaseOptions = {
   create?: boolean
   readonly?: boolean

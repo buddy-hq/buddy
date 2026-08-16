@@ -30,7 +30,7 @@ import { TeachingRoutes } from "./routes"
 import { isJsonContentType, normalizeValidationFailureResponse } from "./http"
 import { BUDDY_ENV } from "./storage"
 
-export function describeFatalError(error: unknown): string {
+export function describeFatalError<TError>(error: TError): string {
   if (error instanceof Error) {
     return error.stack ?? `${error.name}: ${error.message}`
   }

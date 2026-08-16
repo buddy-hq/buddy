@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import fsp from "node:fs/promises"
 import path from "node:path"
+import { parseNodeErrorCode } from "../storage/parse-node-error"
 import { Global } from "../storage"
 
 const AGENTS_MD_FILE_NAME = "AGENTS.md"
@@ -20,7 +21,7 @@ export type AgentsMdSaveResult = {
 
 export class AgentsMdVersionConflictError extends Error {}
 
-export function mapAgentsMdConflictError(error: unknown): Response | undefined {
+export function mapAgentsMdConflictError<TError>(error: TError): Response | undefined {
   if (error instanceof AgentsMdVersionConflictError) {
     return Response.json({ error: error.message }, { status: 409 })
   }
@@ -33,9 +34,9 @@ function contentVersion(content: string | undefined) {
 }
 
 async function readFileContent(filePath: string) {
-  return fsp.readFile(filePath, "utf8").catch((error: unknown) => {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
+  return fsp.readFile(filePath, "utf8").catch((error) => {
+    const maybeCode = parseNodeErrorCode(error)
+    if (maybeCode === "ENOENT") {
       return undefined
     }
     throw error
@@ -46,7 +47,7 @@ async function readAgentsMd(filePath: string): Promise<AgentsMdState> {
   const content = await readFileContent(filePath)
   return {
     path: filePath,
-    exists: typeof content === "string",
+    exists: content !== undefined,
     content: content ?? "",
     version: contentVersion(content),
   }

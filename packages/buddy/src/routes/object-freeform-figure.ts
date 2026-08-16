@@ -22,7 +22,7 @@ const freeformFigureSvgHeaders = {
   "x-content-type-options": "nosniff",
 }
 
-function mapFreeformFigureObjectRouteError(error: unknown): Response | undefined {
+function mapFreeformFigureObjectRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof FreeformFigureRenderError) {
     return Response.json({ error: error.message }, { status: 400 })
   }

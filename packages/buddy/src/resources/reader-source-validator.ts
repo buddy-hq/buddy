@@ -38,12 +38,20 @@ const PDF_STARTXREF_MARKER = "startxref" as const
 const PDF_XREF_TABLE_MARKER = "xref" as const
 const PDF_XREF_STREAM_PATTERN = /^\s*\d+\s+\d+\s+obj\b[\s\S]*?\/Type\s*\/XRef\b/u
 
-function errorMessage(error: unknown): string {
+function errorMessage<TError>(error: TError): string {
   return error instanceof Error ? error.message : String(error)
 }
 
 function isFileEntry(entry: Entry): entry is FileEntry {
-  return !entry.directory && typeof entry.getData === "function"
+  return !entry.directory && isFunctionValue(entry.getData)
+}
+
+const OBJECT_FUNCTION_TAG = "[object Function]"
+const OBJECT_ASYNC_FUNCTION_TAG = "[object AsyncFunction]"
+
+function isFunctionValue<TValue>(value: TValue): boolean {
+  const tag = Object.prototype.toString.call(value)
+  return tag === OBJECT_FUNCTION_TAG || tag === OBJECT_ASYNC_FUNCTION_TAG
 }
 
 async function readEntryText(entry: FileEntry): Promise<string> {

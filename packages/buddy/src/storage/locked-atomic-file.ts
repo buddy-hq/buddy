@@ -4,6 +4,7 @@ import path from "node:path"
 import { writeTextFileAtomic } from "./atomic-file"
 import { withFileLock } from "./file-lock"
 import { Global } from "./global"
+import { nodeErrorHasCode } from "./parse-node-error"
 
 const TEXT_FILE_WRITE_LOCK_DIRECTORY = "text-file-locks"
 const TEXT_FILE_WRITE_LOCK_EXTENSION = ".lock"
@@ -16,8 +17,8 @@ type TextFileWriteSnapshot = {
   version: string | null
 }
 
-function isNodeErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === code
+function isNodeErrorCode<TError>(error: TError, code: string): boolean {
+  return nodeErrorHasCode(error, code)
 }
 
 function textFileWriteLockPath(targetPath: string): string {

@@ -4,6 +4,8 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { clearInterval, setInterval } from "node:timers"
 import { setTimeout as sleep } from "node:timers/promises"
+import z from "zod"
+import { parseNodeErrorCode } from "./parse-node-error"
 
 const MILLISECONDS_PER_SECOND = 1000
 const SECONDS_PER_MINUTE = 60
@@ -59,41 +61,24 @@ function lockSettings(options: FileLockOptions = {}): FileLockSettings {
   }
 }
 
-function errorCode(error: unknown): string | undefined {
-  if (typeof error !== "object" || error === null || !("code" in error)) {
-    return undefined
-  }
-
-  return typeof error.code === "string" ? error.code : undefined
+function errorCode<TError>(error: TError): string | undefined {
+  return parseNodeErrorCode(error)
 }
 
 function lockPayload(token: string): string {
   return `${JSON.stringify({ token, pid: process.pid, createdAt: new Date().toISOString() })}\n`
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
+const fileLockPayloadSchema = z.object({
+  token: z.string(),
+  pid: z.number().int().positive(),
+  createdAt: z.string(),
+})
 
 function parseLockPayload(raw: string): FileLockPayload | undefined {
   try {
-    const parsed: unknown = JSON.parse(raw)
-    if (
-      !isRecord(parsed) ||
-      typeof parsed.token !== "string" ||
-      typeof parsed.pid !== "number" ||
-      !Number.isInteger(parsed.pid) ||
-      parsed.pid <= 0 ||
-      typeof parsed.createdAt !== "string"
-    ) {
-      return undefined
-    }
-
-    return {
-      token: parsed.token,
-      pid: parsed.pid,
-      createdAt: parsed.createdAt,
-    }
+    const parsed = fileLockPayloadSchema.safeParse(JSON.parse(raw))
+    return parsed.success ? parsed.data : undefined
   } catch {
     return undefined
   }

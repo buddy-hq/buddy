@@ -3,6 +3,7 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import { Schema } from "effect"
 import z from "zod"
 import { MCP as OpenCodeMcp } from "@buddy/opencode-adapter/mcp"
+import type { McpLocalConfig, McpRemoteConfig } from "@opencode-ai/sdk/v2/client"
 import { toOpenApiSchema } from "../http/effect-schema"
 import {
   booleanJsonResponse,
@@ -17,6 +18,7 @@ import {
   runSdkRoute,
   openCodeDirectoryParams,
 } from "../http"
+import { parseTJsonObject } from "../http/parse"
 import { getOpenCodeClient } from "../opencode-runtime/client"
 
 const mcpStatusMapSchema = toOpenApiSchema(Schema.Record(Schema.String, OpenCodeMcp.Status))
@@ -34,9 +36,41 @@ const mcpAuthRemovedSchema = z.object({
   success: z.literal(true),
 })
 
+const mcpStringRecordSchema = z.record(z.string(), z.string())
+const mcpOAuthSchema = z.union([
+  z.literal(false),
+  z.object({
+    clientId: z.string().optional(),
+    clientSecret: z.string().optional(),
+    scope: z.string().optional(),
+    callbackPort: z.number().optional(),
+    redirectUri: z.string().optional(),
+  }),
+])
+const mcpLocalConfigSchema = z.object({
+  type: z.literal("local"),
+  command: z.array(z.string()),
+  cwd: z.string().optional(),
+  environment: mcpStringRecordSchema.optional(),
+  enabled: z.boolean().optional(),
+  timeout: z.number().optional(),
+})
+const mcpRemoteConfigSchema = z.object({
+  type: z.literal("remote"),
+  url: z.string(),
+  enabled: z.boolean().optional(),
+  headers: mcpStringRecordSchema.optional(),
+  oauth: mcpOAuthSchema.optional(),
+  timeout: z.number().optional(),
+})
+const mcpConfigSchema: z.ZodType<McpLocalConfig | McpRemoteConfig> = z.discriminatedUnion("type", [
+  mcpLocalConfigSchema,
+  mcpRemoteConfigSchema,
+])
+
 const mcpAddPayloadSchema = z.object({
   name: z.string().min(1),
-  config: z.unknown(),
+  config: mcpConfigSchema,
 })
 
 async function readMcpAddPayload(c: Context) {
@@ -51,16 +85,12 @@ async function readMcpAddPayload(c: Context) {
   }
 
   const parsed = parseJsonText(raw)
-  if (
-    !parsed.ok ||
-    !parsed.value ||
-    typeof parsed.value !== "object" ||
-    Array.isArray(parsed.value)
-  ) {
+  const record = parsed.ok ? parseTJsonObject(parsed.value) : undefined
+  if (record === undefined) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  return parsed.value as Record<string, unknown>
+  return record
 }
 
 export const McpRoutes = new Hono()
@@ -124,11 +154,7 @@ export const McpRoutes = new Hono()
         const result = await client.mcp.add({
           ...openCodeDirectoryParams(directoryResult.directory),
           name: parsedPayload.data.name,
-          config: parsedPayload.data.config as Parameters<typeof client.mcp.add>[0] extends infer T
-            ? T extends { config?: infer C }
-              ? C
-              : never
-            : never,
+          config: parsedPayload.data.config,
         })
         return respondWithSdkResult(c, result)
       }),

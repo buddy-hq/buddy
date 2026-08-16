@@ -22,7 +22,7 @@ const figureSvgHeaders = {
   "x-content-type-options": "nosniff",
 }
 
-function mapFigureObjectRouteError(error: unknown): Response | undefined {
+function mapFigureObjectRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof FigureRenderError) {
     return Response.json({ error: error.message }, { status: 400 })
   }

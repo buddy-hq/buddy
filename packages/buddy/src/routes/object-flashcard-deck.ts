@@ -44,7 +44,7 @@ const queuedCardsQuerySchema = directoryQuerySchema.extend({
     .default(DEFAULT_FLASHCARD_QUEUE_FETCH_LIMIT),
 })
 
-function mapFlashcardObjectRouteError(error: unknown): Response | undefined {
+function mapFlashcardObjectRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof FlashcardCardNotFoundError) {
     return Response.json({ error: error.message }, { status: 404 })
   }

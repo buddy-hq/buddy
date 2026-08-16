@@ -1,4 +1,5 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser"
+import { parseTJsonObject, parseTJsonValue, parseTString, type TJsonValue } from "../http/parse"
 import { ChemistryRenderError } from "./errors"
 import { CHEMISTRY_SVG_MAX_BYTES } from "./limits"
 
@@ -149,13 +150,19 @@ type SvgAttribute = {
   value: string
 }
 
-type SanitizedSvgNode = {
-  name: string
-  attributes: SvgAttribute[]
-  children: SanitizedSvgChild[]
+type TSanitizedSvgText = {
+  kind: "text"
+  value: string
 }
 
-type SanitizedSvgChild = SanitizedSvgNode | string
+type TSanitizedSvgElement = {
+  kind: "element"
+  name: string
+  attributes: SvgAttribute[]
+  children: TSanitizedSvgChild[]
+}
+
+type TSanitizedSvgChild = TSanitizedSvgText | TSanitizedSvgElement
 
 type SvgReference = {
   attributes: SvgAttribute[]
@@ -170,16 +177,16 @@ type SanitizerState = {
 }
 
 function invalidSvg(message: string, cause?: unknown): ChemistryRenderError {
-  return new ChemistryRenderError({
-    code: "chemfig_invalid_svg",
-    httpStatus: 422,
-    message,
-    ...(cause === undefined ? {} : { cause }),
-  })
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
+  return new ChemistryRenderError(
+    Object.assign(
+      {
+        code: "chemfig_invalid_svg" as const,
+        httpStatus: 422 as const,
+        message,
+      },
+      cause === undefined ? undefined : { cause },
+    ),
+  )
 }
 
 function xmlByteLength(value: string): number {
@@ -207,8 +214,10 @@ function containsXmlControlCharacter(value: string): boolean {
   return false
 }
 
-function validateXmlComplexity(parsed: unknown): void {
-  const stack: Array<{ value: unknown; depth: number }> = [{ value: parsed, depth: 0 }]
+function validateXmlComplexity<TParsed>(parsed: TParsed): void {
+  const stack: Array<{ value: TJsonValue | undefined; depth: number }> = [
+    { value: parseTJsonValue(parsed), depth: 0 },
+  ]
   let nodeCount = 0
   let attributeCount = 0
   let textBytes = 0
@@ -223,21 +232,23 @@ function validateXmlComplexity(parsed: unknown): void {
       }
       continue
     }
-    if (!isRecord(current.value)) continue
+    const record = parseTJsonObject(current.value)
+    if (record === undefined) continue
 
-    const attributes = current.value[":@"]
-    if (isRecord(attributes)) {
+    const attributes = parseTJsonObject(record[":@"])
+    if (attributes !== undefined) {
       attributeCount += Object.keys(attributes).length
       if (attributeCount > CHEMISTRY_SVG_MAX_ATTRIBUTES) {
         throw invalidSvg("Chemistry renderer produced an SVG with too many attributes.")
       }
     }
 
-    for (const [name, child] of Object.entries(current.value)) {
+    for (const [name, child] of Object.entries(record)) {
       if (name === ":@") continue
       if (name === "#text") {
-        if (typeof child === "string") {
-          textBytes += xmlByteLength(child)
+        const text = parseTString(child)
+        if (text !== undefined) {
+          textBytes += xmlByteLength(text)
           if (textBytes > CHEMISTRY_SVG_MAX_TEXT_BYTES) {
             throw invalidSvg("Chemistry renderer produced an SVG with too much text.")
           }
@@ -258,11 +269,13 @@ function validateXmlComplexity(parsed: unknown): void {
   }
 }
 
-function parsedAttributeEntries(value: unknown): Array<[string, string]> {
-  if (!isRecord(value)) return []
+function parsedAttributeEntries<TValue>(value: TValue): Array<[string, string]> {
+  const record = parseTJsonObject(value)
+  if (record === undefined) return []
   const entries: Array<[string, string]> = []
-  for (const [name, rawValue] of Object.entries(value)) {
-    if (typeof rawValue === "string") entries.push([name, rawValue])
+  for (const [name, rawValue] of Object.entries(record)) {
+    const text = parseTString(rawValue)
+    if (text !== undefined) entries.push([name, text])
   }
   return entries
 }
@@ -276,8 +289,8 @@ function registerReference(
   state.references.push({ attributes, attribute, targetID })
 }
 
-function sanitizeSvgAttributes(
-  rawAttributes: unknown,
+function sanitizeSvgAttributes<TAttributes>(
+  rawAttributes: TAttributes,
   elementName: string,
   state: SanitizerState,
 ): SvgAttribute[] {
@@ -318,28 +331,30 @@ function sanitizeSvgAttributes(
   return attributes
 }
 
-function sanitizeOrderedNode(
-  value: unknown,
+function sanitizeOrderedNode<TValue>(
+  value: TValue,
   state: SanitizerState,
   depth: number,
-): SanitizedSvgChild | undefined {
-  if (!isRecord(value)) throw invalidSvg("Chemistry renderer produced malformed SVG XML.")
-  const names = Object.keys(value).filter((name) => name !== ":@")
+): TSanitizedSvgChild | undefined {
+  const record = parseTJsonObject(value)
+  if (record === undefined) throw invalidSvg("Chemistry renderer produced malformed SVG XML.")
+  const names = Object.keys(record).filter((name) => name !== ":@")
   if (names.length !== 1) {
     throw invalidSvg("Chemistry renderer produced malformed SVG XML.")
   }
 
   const name = names[0]
   if (!name) throw invalidSvg("Chemistry renderer produced malformed SVG XML.")
-  const rawChildren = value[name]
+  const rawChildren = record[name]
   if (name === "#text") {
-    if (typeof rawChildren !== "string") {
+    const text = parseTString(rawChildren)
+    if (text === undefined) {
       throw invalidSvg("Chemistry renderer produced malformed SVG text.")
     }
-    if (containsXmlControlCharacter(rawChildren)) {
+    if (containsXmlControlCharacter(text)) {
       throw invalidSvg("Chemistry renderer produced invalid SVG text.")
     }
-    return rawChildren
+    return { kind: "text", value: text }
   }
 
   if (!SAFE_SVG_ELEMENTS.has(name)) return undefined
@@ -350,15 +365,16 @@ function sanitizeOrderedNode(
     throw invalidSvg("Chemistry renderer produced an SVG nested too deeply.")
   }
 
-  const children: SanitizedSvgChild[] = []
+  const children: TSanitizedSvgChild[] = []
   for (const rawChild of rawChildren) {
     const child = sanitizeOrderedNode(rawChild, state, depth + 1)
     if (child !== undefined) children.push(child)
   }
 
   return {
+    kind: "element",
     name,
-    attributes: sanitizeSvgAttributes(value[":@"], name, state),
+    attributes: sanitizeSvgAttributes(record[":@"], name, state),
     children,
   }
 }
@@ -379,13 +395,15 @@ function escapeXmlAttribute(value: string): string {
   return escapeXmlText(value).replaceAll('"', "&quot;")
 }
 
-function serializeSvgNode(node: SanitizedSvgNode): string {
+function serializeSvgNode(node: TSanitizedSvgElement): string {
   const attributes = node.attributes
     .map((attribute) => ` ${attribute.name}="${escapeXmlAttribute(attribute.value)}"`)
     .join("")
   if (node.children.length === 0) return `<${node.name}${attributes}/>`
   const children = node.children
-    .map((child) => (typeof child === "string" ? escapeXmlText(child) : serializeSvgNode(child)))
+    .map((child) =>
+      child.kind === "text" ? escapeXmlText(child.value) : serializeSvgNode(child),
+    )
     .join("")
   return `<${node.name}${attributes}>${children}</${node.name}>`
 }
@@ -407,9 +425,9 @@ function sanitizeChemistrySvg(source: string): string {
     throw invalidSvg("Chemistry renderer did not produce a valid SVG document.", validation)
   }
 
-  let parsed: unknown
+  let parsed: TJsonValue | undefined
   try {
-    parsed = SVG_XML_PARSER.parse(xml)
+    parsed = parseTJsonValue(SVG_XML_PARSER.parse(xml))
   } catch (error) {
     throw invalidSvg("Chemistry renderer did not produce a valid SVG document.", error)
   }
@@ -423,11 +441,11 @@ function sanitizeChemistrySvg(source: string): string {
     references: [],
     usesXlink: false,
   }
-  const roots: SanitizedSvgNode[] = []
+  const roots: TSanitizedSvgElement[] = []
   for (const rawRoot of parsed) {
     const root = sanitizeOrderedNode(rawRoot, state, 1)
-    if (typeof root === "string") {
-      if (root.trim().length > 0) {
+    if (root?.kind === "text") {
+      if (root.value.trim().length > 0) {
         throw invalidSvg("Chemistry renderer produced text outside the SVG root.")
       }
       continue

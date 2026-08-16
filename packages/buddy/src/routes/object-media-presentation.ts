@@ -28,7 +28,7 @@ const mediaObjectAvailabilityResponseSchema = z
   })
   .strict()
 
-function mapMediaObjectRouteError(error: unknown): Response | undefined {
+function mapMediaObjectRouteError<TError>(error: TError): Response | undefined {
   if (error instanceof PresentedMediaValidationError) {
     const status = error.message === PROJECT_FILE_NOT_FOUND_ERROR ? 404 : 400
     return Response.json({ error: error.message }, { status })

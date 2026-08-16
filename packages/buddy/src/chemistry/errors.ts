@@ -17,7 +17,7 @@ class ChemistryRenderError extends Error {
   }
 }
 
-function mapChemistryRouteError(error: unknown): Response | undefined {
+function mapChemistryRouteError<TError>(error: TError): Response | undefined {
   if (!(error instanceof ChemistryRenderError)) return undefined
 
   return Response.json(

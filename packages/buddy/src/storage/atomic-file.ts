@@ -44,17 +44,17 @@ function writeTextFileAtomicSync(targetPath: string, content: string): void {
   }
 }
 
-async function writeJsonFileAtomic(
+async function writeJsonFileAtomic<TValue>(
   targetPath: string,
-  value: unknown,
+  value: TValue,
   indentSpaces = DEFAULT_JSON_INDENT_SPACES,
 ): Promise<void> {
   await writeTextFileAtomic(targetPath, `${JSON.stringify(value, null, indentSpaces)}\n`)
 }
 
-function writeJsonFileAtomicSync(
+function writeJsonFileAtomicSync<TValue>(
   targetPath: string,
-  value: unknown,
+  value: TValue,
   indentSpaces = DEFAULT_JSON_INDENT_SPACES,
 ): void {
   writeTextFileAtomicSync(targetPath, `${JSON.stringify(value, null, indentSpaces)}\n`)

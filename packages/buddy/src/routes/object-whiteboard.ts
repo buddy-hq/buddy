@@ -27,7 +27,7 @@ const objectIDParamSchema = z.object({
 })
 const WHITEBOARD_DIRECT_CREATE_ORIGIN_REASON = "direct-whiteboard-creation"
 
-function mapWhiteboardObjectRouteError(error: unknown): Response | undefined {
+function mapWhiteboardObjectRouteError<TError>(error: TError): Response | undefined {
   return mapWhiteboardRouteError(error) ?? mapBuddyObjectRouteError(error)
 }
 
