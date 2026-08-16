@@ -53,7 +53,7 @@ function normalizeTimestamp(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
-function normalizeHighScores(value: unknown, fallback: THighScores): THighScores {
+function normalizeHighScores(value: unknown, fallback: THighScores) {
   if (!isRecord(value)) return fallback
 
   return {

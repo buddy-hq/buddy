@@ -2413,6 +2413,13 @@ export async function rejectQuestion(input: { directory: string; requestID: stri
   return result
 }
 
+type SessionUpdatePayload = {
+  title?: string
+  time?: {
+    archived?: number
+  }
+}
+
 export async function updateSession(input: {
   directory: string
   sessionID: string
@@ -2420,12 +2427,7 @@ export async function updateSession(input: {
   archivedAt?: number
 }) {
   const store = useChatStore.getState()
-  const payload: {
-    title?: string
-    time?: {
-      archived?: number
-    }
-  } = {}
+  const payload: SessionUpdatePayload = {}
 
   if (input.title !== undefined) {
     payload.title = input.title

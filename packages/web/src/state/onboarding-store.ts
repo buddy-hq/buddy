@@ -14,12 +14,12 @@ type OnboardingStore = {
   reset: () => void
 }
 
-const DEFAULT_STATE: {
-  setupCompleted: boolean
-  authChoice: OnboardingAuthChoice | undefined
-} = {
+const DEFAULT_STATE = {
   setupCompleted: false,
   authChoice: undefined,
+} satisfies {
+  setupCompleted: boolean
+  authChoice: OnboardingAuthChoice | undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -669,7 +669,7 @@ function retainWorkspaceChatSlots(input: {
   slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
   touchedChatKey: WorkspaceChatKey
   protectedChatKeys?: readonly WorkspaceChatKey[]
-}): Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> {
+}) {
   const touched = input.slots[input.touchedChatKey]
   const ordered: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>> = {}
   for (const [key, slot] of Object.entries(input.slots)) {

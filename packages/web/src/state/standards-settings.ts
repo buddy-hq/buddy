@@ -16,7 +16,7 @@ export type StandardsToolDefaults = Record<StandardsToolId, boolean>
 
 const DEFAULT_TOOL_ENABLED = true
 
-export const STANDARDS_TOOL_DISPLAY_NAMES: Record<StandardsToolId, string> = {
+export const STANDARDS_TOOL_DISPLAY_NAMES = {
   search_standards: "Search Standards",
   get_standard: "Get Standard",
   get_learning_components: "Get Learning Components",
@@ -24,9 +24,9 @@ export const STANDARDS_TOOL_DISPLAY_NAMES: Record<StandardsToolId, string> = {
   get_next_standards: "Get Next Standards",
   get_crosswalk: "Get Crosswalk",
   query_standards_sql: "Query Standards SQL",
-}
+} satisfies Record<StandardsToolId, string>
 
-export const STANDARDS_TOOL_DESCRIPTIONS: Record<StandardsToolId, string> = {
+export const STANDARDS_TOOL_DESCRIPTIONS = {
   search_standards: "Search for educational standards by query",
   get_standard: "Retrieve detailed information about a specific standard",
   get_learning_components: "Get learning components associated with a standard",
@@ -34,11 +34,11 @@ export const STANDARDS_TOOL_DESCRIPTIONS: Record<StandardsToolId, string> = {
   get_next_standards: "Get standards that follow a given standard",
   get_crosswalk: "Get crosswalk mappings between different standard jurisdictions",
   query_standards_sql: "Run a raw read-only SQLite query against the standards database",
-}
+} satisfies Record<StandardsToolId, string>
 
 export function buildGlobalStandardsDefaults(
   globalConfig: Record<string, unknown>,
-): StandardsToolDefaults {
+) {
   return {
     search_standards: readToolToggle(globalConfig, "search_standards", DEFAULT_TOOL_ENABLED),
     get_standard: readToolToggle(globalConfig, "get_standard", DEFAULT_TOOL_ENABLED),

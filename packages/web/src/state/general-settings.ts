@@ -25,14 +25,14 @@ type GeneralSettingsPatches = {
 }
 
 const AUTO_SAVE_DELAY_MS = 250
-const GENERAL_OVERRIDE_CLEANUP_PATCH: Record<string, unknown> = {
+const GENERAL_OVERRIDE_CLEANUP_PATCH = {
   tools: {
     [FULL_TEXT_TOOL_ID]: null,
   },
   compaction: {
     auto: null,
   },
-}
+} satisfies Record<string, unknown>
 const CLEANUP_FAILURE_MESSAGE =
   "Saved global settings, but could not clear some notebook overrides."
 
