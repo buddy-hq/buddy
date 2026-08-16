@@ -49,7 +49,7 @@ function normalizeStatus(status: string): TodoStatus {
   return STATUS_ALIASES.get(status.trim().toLowerCase()) ?? "pending"
 }
 
-export function readTodoItems(value: unknown): TodoItem[] | undefined {
+export function readTodoItems<TValue>(value: TValue): TodoItem[] | undefined {
   if (!Array.isArray(value)) return undefined
 
   return value.flatMap((item, index): TodoItem[] => {

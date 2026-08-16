@@ -24,6 +24,7 @@ import {
 import type { MessagePart } from "@/state/chat-types"
 
 import type { UserSectionProps } from "../types"
+import { parseTString } from "../tools/types"
 
 type ChatWorkspaceFileReferencePart = MessagePart & {
   type: typeof WORKSPACE_FILE_REFERENCE_PART_TYPE
@@ -45,19 +46,15 @@ type StandaloneReferencePart =
 function isChatWorkspaceFileReferencePart(
   part: MessagePart,
 ): part is ChatWorkspaceFileReferencePart {
-  return part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && typeof part.path === "string"
+  return part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && parseTString(part.path) !== undefined
 }
 
 function isChatOpenCodeReferencePart(part: MessagePart): part is ChatOpenCodeReferencePart {
   return (
     part.type === OPENCODE_REFERENCE_PART_TYPE &&
-    typeof part.name === "string" &&
-    typeof part.path === "string"
+    parseTString(part.name) !== undefined &&
+    parseTString(part.path) !== undefined
   )
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 function isStandaloneReferencePart(part: MessagePart): part is StandaloneReferencePart {
@@ -70,16 +67,15 @@ function isStandaloneReferencePart(part: MessagePart): part is StandaloneReferen
 }
 
 function hasTextSource(part: ChatAgentPart | ChatFilePart) {
-  if (isChatAgentPart(part)) return isRecord(part.source)
-  const source = isRecord(part.source) ? part.source : undefined
-  return source ? isRecord(source.text) : false
+  return part.source !== null && part.source !== undefined
 }
 
 function getReferencePath(part: StandaloneReferencePart) {
   if (isChatAgentPart(part)) return part.name
   if (isChatOpenCodeReferencePart(part)) return part.name
   if (isChatWorkspaceFileReferencePart(part)) return part.path
-  return typeof part.filename === "string" && part.filename.length > 0 ? part.filename : part.url
+  const filename = parseTString(part.filename)
+  return filename !== undefined && filename.length > 0 ? filename : part.url
 }
 
 function getReferenceText(part: StandaloneReferencePart) {

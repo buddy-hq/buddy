@@ -7,6 +7,7 @@ import { seedPhase } from "../../seed-phase"
 import { ToolErrorPanel } from "../../tool-error-panel"
 import { Markdown } from "@/components/markdown/Markdown"
 import { TASK_CARD_ENTER_ANIMATE, TASK_CARD_TRANSITION, taskCardEnterInitial } from "../task-motion"
+import { parseTString } from "../../types"
 
 export type SubagentCardStatus = "pending" | "running" | "completed" | "error"
 
@@ -169,6 +170,7 @@ export function SubagentCard({
   const displayTaskTitle = taskTitle ?? DEFAULT_TASK_TITLE
   const reducedMotion = useReducedMotion() === true
   const working = status === "pending" || status === "running"
+  const childText = parseTString(children)
 
   return (
     <div
@@ -217,7 +219,7 @@ export function SubagentCard({
             transition={TASK_CARD_TRANSITION}
             className="flex flex-col"
           >
-            {typeof children === "string" ? <ExpandableMarkdown text={children} /> : children}
+            {childText !== undefined ? <ExpandableMarkdown text={childText} /> : children}
           </motion.div>
         ) : null}
       </AnimatePresence>

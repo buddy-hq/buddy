@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react"
-import { isRecord } from "../../tools/types"
 import { language } from "@/context/language"
+import { isRecord, parseTString, type TJsonObject } from "../../tools/types"
 import { ToolRow, ToolRowAction, ToolRowIcon } from "../tool-row"
 import { TextShimmer } from "../../tools/text-shimmer"
 import { TASK_CARD_TRANSITION } from "./task-motion"
@@ -15,24 +15,28 @@ type ToolQuestion = {
   question: string
 }
 
-function readQuestions(input: Record<string, unknown>): ToolQuestion[] {
+function readQuestions(input: TJsonObject): ToolQuestion[] {
   const value = input.questions
   if (!Array.isArray(value)) return []
 
   return value.flatMap((entry): ToolQuestion[] => {
     if (!isRecord(entry)) return []
-    if (typeof entry.question !== "string") return []
-    return [{ question: entry.question }]
+    const question = parseTString(entry.question)
+    if (question === undefined) return []
+    return [{ question }]
   })
 }
 
-function readQuestionAnswers(metadata: Record<string, unknown>): string[][] {
+function readQuestionAnswers(metadata: TJsonObject): string[][] {
   const value = metadata.answers
   if (!Array.isArray(value)) return []
 
   return value.map((entry) => {
     if (!Array.isArray(entry)) return []
-    return entry.filter((answer): answer is string => typeof answer === "string")
+    return entry.flatMap((answer) => {
+      const text = parseTString(answer)
+      return text === undefined ? [] : [text]
+    })
   })
 }
 

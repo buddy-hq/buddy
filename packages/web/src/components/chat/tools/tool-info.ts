@@ -10,7 +10,7 @@ import {
   humanizeSkillDisplayName,
   resolveSkillReference,
 } from "./skill-reference"
-import { isRecord, readNonEmptyString, readNonNegativeInt } from "./types"
+import { isRecord, parseTJsonObject, parseTJsonText, parseTNumber, parseTString, readNonEmptyString, readNonNegativeInt } from "./types"
 import { readBuddyObjectResult } from "./render/buddy-object-result"
 import type { ToolInfo, ToolState } from "./types"
 import { parseToolPresentation } from "./parse-tool-presentation"
@@ -47,16 +47,11 @@ function countNonEmptyLines(value: string): number {
   return trimmed.split(/\r?\n/u).filter((line) => line.trim().length > 0).length
 }
 
-function parseJsonRecord(value: string): Record<string, unknown> | undefined {
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return isRecord(parsed) ? parsed : undefined
-  } catch {
-    return undefined
-  }
+function parseJsonRecord(value: string) {
+  return parseTJsonObject(parseTJsonText(value))
 }
 
-function readArrayLength(value: unknown): number | undefined {
+function readArrayLength<TValue>(value: TValue): number | undefined {
   return Array.isArray(value) ? value.length : undefined
 }
 
@@ -64,12 +59,13 @@ function formatCountSummary(count: number, singular: string, plural: string): st
   return `${count.toLocaleString()} ${count === 1 ? singular : plural}`
 }
 
-function knowledgeGraphValue(state: ToolState): Record<string, unknown> | undefined {
-  if (isRecord(state.metadata.value)) {
-    return state.metadata.value
+function knowledgeGraphValue(state: ToolState) {
+  const metadataValue = parseTJsonObject(state.metadata.value)
+  if (metadataValue) {
+    return metadataValue
   }
 
-  if (typeof state.output === "string") {
+  if (state.output !== undefined) {
     return parseJsonRecord(state.output)
   }
 
@@ -154,22 +150,21 @@ export function getToolInfo(
   presentation: VisibleToolPresentationSnapshot,
 ): ToolInfo {
   const { input, output } = state
-  const filePath = typeof input.filePath === "string" ? input.filePath : undefined
-  const path = typeof input.path === "string" ? input.path : undefined
-  const pattern = typeof input.pattern === "string" ? input.pattern : undefined
-  const include = typeof input.include === "string" ? input.include : undefined
-  const url = typeof input.url === "string" ? input.url : undefined
-  const query = typeof input.query === "string" ? input.query : undefined
-  const description = typeof input.description === "string" ? input.description : undefined
-  const subagent = typeof input.subagent_type === "string" ? input.subagent_type : undefined
-  const alt = typeof input.alt === "string" ? input.alt : undefined
-  const caption = typeof input.caption === "string" ? input.caption : undefined
-  const code = typeof input.code === "string" ? input.code : undefined
-  const jurisdiction = typeof input.jurisdiction === "string" ? input.jurisdiction : undefined
-  const targetJurisdiction =
-    typeof input.targetJurisdiction === "string" ? input.targetJurisdiction : undefined
-  const sql = typeof input.sql === "string" ? input.sql : undefined
-  const title = typeof input.title === "string" ? input.title : undefined
+  const filePath = parseTString(input.filePath)
+  const path = parseTString(input.path)
+  const pattern = parseTString(input.pattern)
+  const include = parseTString(input.include)
+  const url = parseTString(input.url)
+  const query = parseTString(input.query)
+  const description = parseTString(input.description)
+  const subagent = parseTString(input.subagent_type)
+  const alt = parseTString(input.alt)
+  const caption = parseTString(input.caption)
+  const code = parseTString(input.code)
+  const jurisdiction = parseTString(input.jurisdiction)
+  const targetJurisdiction = parseTString(input.targetJurisdiction)
+  const sql = parseTString(input.sql)
+  const title = parseTString(input.title)
 
   const active = state.status === "pending" || state.status === "running"
   const metadataTitle = presentation
@@ -177,7 +172,7 @@ export function getToolInfo(
   let summary: string | undefined
   if (KNOWLEDGE_GRAPH_TOOL_NAMES.has(tool)) {
     summary = knowledgeGraphSummary(tool, state)
-  } else if (output && typeof output === "string") {
+  } else if (output) {
     if (tool === "read") {
       summary = `${output.length.toLocaleString()} chars`
     } else if (
@@ -200,8 +195,10 @@ export function getToolInfo(
   switch (tool) {
     case "read": {
       const args: string[] = []
-      if (typeof input.offset === "number") args.push(`offset=${input.offset}`)
-      if (typeof input.limit === "number") args.push(`limit=${input.limit}`)
+      const offset = parseTNumber(input.offset)
+      const limit = parseTNumber(input.limit)
+      if (offset !== undefined) args.push(`offset=${offset}`)
+      if (limit !== undefined) args.push(`limit=${limit}`)
       const isImage = isImageFilePath(filePath) || hasImageAttachments(state)
       const skillReference = resolveSkillReference(filePath)
       if (skillReference) {
@@ -298,7 +295,10 @@ export function getToolInfo(
       )
     case "learning_tool_search": {
       const matchedToolIds = Array.isArray(state.metadata.matchedToolIds)
-        ? state.metadata.matchedToolIds.filter((id): id is string => typeof id === "string")
+        ? state.metadata.matchedToolIds.flatMap((id) => {
+            const text = parseTString(id)
+            return text === undefined ? [] : [text]
+          })
         : []
       const MAX_VISIBLE_TOOLS = 4
       const matchedNames =
@@ -329,7 +329,7 @@ export function getToolInfo(
             ? `${input.toolIds.length.toLocaleString()} requested`
             : undefined,
           summary:
-            typeof registeredToolCount === "number" ? `${registeredToolCount} loaded` : undefined,
+            registeredToolCount !== undefined ? `${registeredToolCount} loaded` : undefined,
         },
         metadataTitle,
       )
@@ -437,7 +437,7 @@ export function getToolInfo(
         {
           title: active ? "Preparing Resource" : "Prepare Resource",
           subtitle:
-            typeof state.metadata.resource === "string" ? state.metadata.resource : description,
+            parseTString(state.metadata.resource) ?? description,
         },
         metadataTitle,
       )
@@ -464,7 +464,7 @@ export function getToolInfo(
       return withMetadataTitle(
         {
           title: active ? "Searching Memory" : "Search Memory",
-          subtitle: typeof state.metadata.query === "string" ? state.metadata.query : undefined,
+          subtitle: parseTString(state.metadata.query),
         },
         metadataTitle,
       )
@@ -600,8 +600,10 @@ export function getToolInfo(
 }
 
 export function getToolInfoForPart(part: MessagePart, state: ToolState): ToolInfo | undefined {
-  if (part.type !== "tool" || typeof part.tool !== "string") return undefined
+  if (part.type !== "tool") return undefined
+  const tool = parseTString(part.tool)
+  if (tool === undefined) return undefined
   const presentation = parseToolPresentation(part)
   if (!presentation || presentation.archetype === "silent") return undefined
-  return getToolInfo(part.tool, state, presentation)
+  return getToolInfo(tool, state, presentation)
 }

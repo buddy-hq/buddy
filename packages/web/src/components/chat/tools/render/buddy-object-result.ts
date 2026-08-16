@@ -5,6 +5,14 @@ import {
   type BenchObjectRef,
   type BenchTarget,
 } from "@/lib/bench-navigation"
+import {
+  isRecord,
+  parseTBoolean,
+  parseTNumber,
+  parseTString,
+  readNonEmptyString,
+  type TJsonObject,
+} from "../types"
 
 type BuddyObjectResultStatus = "ok" | "blocked" | "error"
 type BuddyObjectLifecycle = "revisioned" | "live" | "imported" | "external-reference"
@@ -143,52 +151,33 @@ type TQuestionSetChoice = QuestionSetInlineChoice
 type TQuestionSetPayload = QuestionSetInlineQuestion["payload"]
 type TQuestionSetQuestion = QuestionSetInlineQuestion
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function readString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined
-}
-
-function readNullableString(value: unknown): string | null | undefined {
+function parseTNullableString<TValue>(value: TValue): string | null | undefined {
   if (value === null) return null
-  return readString(value)
+  return readNonEmptyString(value)
 }
 
-function readNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined
-}
-
-function readBoolean(value: unknown): boolean | undefined {
-  return typeof value === "boolean" ? value : undefined
-}
-
-function readOptionalBooleanField(
-  record: Record<string, unknown>,
-  key: string,
-): boolean | undefined {
+function readOptionalBooleanField(record: TJsonObject, key: string): boolean | undefined {
   if (!(key in record)) return undefined
-  return readBoolean(record[key])
+  return parseTBoolean(record[key])
 }
 
-function readStringArray(value: unknown): string[] | undefined {
+function readStringArray<TValue>(value: TValue): string[] | undefined {
   if (!Array.isArray(value)) return undefined
   const items: string[] = []
   for (const item of value) {
-    const text = readString(item)
+    const text = readNonEmptyString(item)
     if (!text) return undefined
     items.push(text)
   }
   return items
 }
 
-function readObjectRef(value: unknown): BenchObjectRef | undefined {
+function readObjectRef<TValue>(value: TValue): BenchObjectRef | undefined {
   if (!isRecord(value)) return undefined
-  const kind = readString(value.kind)
-  const objectID = readString(value.objectID)
-  const revisionID = readNullableString(value.revisionID)
-  const itemID = readNullableString(value.itemID)
+  const kind = readNonEmptyString(value.kind)
+  const objectID = readNonEmptyString(value.objectID)
+  const revisionID = parseTNullableString(value.revisionID)
+  const itemID = parseTNullableString(value.itemID)
   if (!kind || !isBenchObjectKind(kind) || !objectID) return undefined
   if (revisionID === undefined || itemID === undefined) return undefined
   return {
@@ -199,40 +188,42 @@ function readObjectRef(value: unknown): BenchObjectRef | undefined {
   }
 }
 
-function readLifecycle(value: unknown): BuddyObjectLifecycle | undefined {
+function readLifecycle<TValue>(value: TValue): BuddyObjectLifecycle | undefined {
+  const lifecycle = parseTString(value)
   if (
-    value === "revisioned" ||
-    value === "live" ||
-    value === "imported" ||
-    value === "external-reference"
+    lifecycle === "revisioned" ||
+    lifecycle === "live" ||
+    lifecycle === "imported" ||
+    lifecycle === "external-reference"
   ) {
-    return value
+    return lifecycle
   }
   return undefined
 }
 
-function readStatus(value: unknown): BuddyObjectStatus | undefined {
+function readStatus<TValue>(value: TValue): BuddyObjectStatus | undefined {
+  const status = parseTString(value)
   if (
-    value === "ready" ||
-    value === "preparing" ||
-    value === "stale" ||
-    value === "unsupported" ||
-    value === "error" ||
-    value === "unavailable"
+    status === "ready" ||
+    status === "preparing" ||
+    status === "stale" ||
+    status === "unsupported" ||
+    status === "error" ||
+    status === "unavailable"
   ) {
-    return value
+    return status
   }
   return undefined
 }
 
-function readObjectSummary(value: unknown): BuddyObjectSummary | undefined {
+function readObjectSummary<TValue>(value: TValue): BuddyObjectSummary | undefined {
   if (!isRecord(value)) return undefined
-  const kind = readString(value.kind)
-  const objectID = readString(value.objectID)
-  const title = readString(value.title)
+  const kind = readNonEmptyString(value.kind)
+  const objectID = readNonEmptyString(value.objectID)
+  const title = readNonEmptyString(value.title)
   const status = readStatus(value.status)
   const lifecycle = readLifecycle(value.lifecycle)
-  const sourceRoot = readNullableString(value.sourceRoot)
+  const sourceRoot = parseTNullableString(value.sourceRoot)
   if (!kind || !isBenchObjectKind(kind) || !objectID || !title || !status || !lifecycle) {
     return undefined
   }
@@ -247,8 +238,8 @@ function readObjectSummary(value: unknown): BuddyObjectSummary | undefined {
   }
 }
 
-function readSourceData(
-  value: unknown,
+function readSourceData<TValue>(
+  value: TValue,
 ): MediaGalleryInlineData["items"][number]["source"] | undefined {
   if (!isRecord(value)) return undefined
   const role =
@@ -258,9 +249,9 @@ function readSourceData(
     value.role === "external"
       ? value.role
       : undefined
-  const path = readString(value.path)
-  const displayPath = readString(value.displayPath)
-  const workspacePath = readNullableString(value.workspacePath)
+  const path = readNonEmptyString(value.path)
+  const displayPath = readNonEmptyString(value.displayPath)
+  const workspacePath = parseTNullableString(value.workspacePath)
   const availability =
     value.availability === "available" ||
     value.availability === "missing" ||
@@ -282,12 +273,12 @@ function readSourceData(
   return source
 }
 
-function readMediaItem(value: unknown): MediaGalleryInlineData["items"][number] | undefined {
+function readMediaItem<TValue>(value: TValue): MediaGalleryInlineData["items"][number] | undefined {
   if (!isRecord(value)) return undefined
-  const itemID = readString(value.itemID)
-  const title = readNullableString(value.title)
-  const mediaType = readString(value.mediaType)
-  const mimeType = readNullableString(value.mimeType)
+  const itemID = readNonEmptyString(value.itemID)
+  const title = parseTNullableString(value.title)
+  const mediaType = readNonEmptyString(value.mediaType)
+  const mimeType = parseTNullableString(value.mimeType)
   const source = readSourceData(value.source)
   const availability =
     value.availability === "available" ||
@@ -296,8 +287,8 @@ function readMediaItem(value: unknown): MediaGalleryInlineData["items"][number] 
     value.availability === "unavailable"
       ? value.availability
       : undefined
-  const rawUrl = readNullableString(value.rawUrl)
-  const fileName = readNullableString(value.fileName)
+  const rawUrl = parseTNullableString(value.rawUrl)
+  const fileName = parseTNullableString(value.fileName)
   if (
     !itemID ||
     title === undefined ||
@@ -321,10 +312,10 @@ function readMediaItem(value: unknown): MediaGalleryInlineData["items"][number] 
   }
 }
 
-function readQuestionSetChoice(value: unknown): QuestionSetInlineChoice | undefined {
+function readQuestionSetChoice<TValue>(value: TValue): QuestionSetInlineChoice | undefined {
   if (!isRecord(value)) return undefined
-  const id = readString(value.id)
-  const content = readString(value.content)
+  const id = readNonEmptyString(value.id)
+  const content = readNonEmptyString(value.content)
   const isNoneOfTheAbove = readOptionalBooleanField(value, "isNoneOfTheAbove")
   if (!id || !content) return undefined
   if ("isNoneOfTheAbove" in value && isNoneOfTheAbove === undefined) return undefined
@@ -338,11 +329,11 @@ function readQuestionSetChoice(value: unknown): QuestionSetInlineChoice | undefi
   return choice
 }
 
-function readQuestionSetPayload(value: unknown): QuestionSetInlineQuestion["payload"] | undefined {
+function readQuestionSetPayload<TValue>(value: TValue): QuestionSetInlineQuestion["payload"] | undefined {
   if (!isRecord(value)) return undefined
-  const multipleSelect = readBoolean(value.multipleSelect)
+  const multipleSelect = parseTBoolean(value.multipleSelect)
   const countChoices = readOptionalBooleanField(value, "countChoices")
-  const numCorrect = readNumber(value.numCorrect)
+  const numCorrect = parseTNumber(value.numCorrect)
   const hasNoneOfTheAbove = readOptionalBooleanField(value, "hasNoneOfTheAbove")
   const randomize = readOptionalBooleanField(value, "randomize")
   if (!Array.isArray(value.choices)) return undefined
@@ -378,12 +369,12 @@ function readQuestionSetPayload(value: unknown): QuestionSetInlineQuestion["payl
   return payload
 }
 
-function readQuestionSetQuestion(value: unknown): QuestionSetInlineQuestion | undefined {
+function readQuestionSetQuestion<TValue>(value: TValue): QuestionSetInlineQuestion | undefined {
   if (!isRecord(value)) return undefined
-  const id = readString(value.id)
-  const prompt = readString(value.prompt)
+  const id = readNonEmptyString(value.id)
+  const prompt = readNonEmptyString(value.prompt)
   const goalIds = readStringArray(value.goalIds)
-  const explanation = readString(value.explanation)
+  const explanation = readNonEmptyString(value.explanation)
   const payload = readQuestionSetPayload(value.payload)
   if (!id || !prompt || !goalIds || !payload) return undefined
   if ("explanation" in value && !explanation) return undefined
@@ -399,10 +390,10 @@ function readQuestionSetQuestion(value: unknown): QuestionSetInlineQuestion | un
   return question
 }
 
-function readQuestionSetInlineObject(value: unknown): QuestionSetInlineObject | undefined {
+function readQuestionSetInlineObject<TValue>(value: TValue): QuestionSetInlineObject | undefined {
   if (!isRecord(value)) return undefined
-  const objectID = readString(value.objectID)
-  const title = readString(value.title)
+  const objectID = readNonEmptyString(value.objectID)
+  const title = readNonEmptyString(value.title)
   const groupType =
     value.groupType === "quiz" || value.groupType === "practice" || value.groupType === "assessment"
       ? value.groupType
@@ -423,14 +414,14 @@ function readQuestionSetInlineObject(value: unknown): QuestionSetInlineObject | 
   }
 }
 
-function readInlineData(value: unknown): BuddyInlineViewData | undefined {
+function readInlineData<TValue>(value: TValue): BuddyInlineViewData | undefined {
   if (!isRecord(value)) return undefined
   if (value.renderer === "html-widget") {
-    const runtimeUrl = readString(value.runtimeUrl)
-    const sourceRoot = readString(value.sourceRoot)
-    const entryPath = readString(value.entryPath)
-    const sourceVersion = readNullableString(value.sourceVersion)
-    const viewportPreset = readString(value.viewportPreset)
+    const runtimeUrl = readNonEmptyString(value.runtimeUrl)
+    const sourceRoot = readNonEmptyString(value.sourceRoot)
+    const entryPath = readNonEmptyString(value.entryPath)
+    const sourceVersion = parseTNullableString(value.sourceVersion)
+    const viewportPreset = readNonEmptyString(value.viewportPreset)
     if (
       !runtimeUrl ||
       !sourceRoot ||
@@ -463,17 +454,17 @@ function readInlineData(value: unknown): BuddyInlineViewData | undefined {
     return { renderer: "media-gallery", layout, items }
   }
   if (value.renderer === "mermaid") {
-    const source = readString(value.source)
-    const svgUrl = readNullableString(value.svgUrl)
-    const alt = readString(value.alt)
-    const caption = readNullableString(value.caption)
+    const source = readNonEmptyString(value.source)
+    const svgUrl = parseTNullableString(value.svgUrl)
+    const alt = readNonEmptyString(value.alt)
+    const caption = parseTNullableString(value.caption)
     const renderStatus =
       value.renderStatus === "ready" ||
       value.renderStatus === "stale" ||
       value.renderStatus === "error"
         ? value.renderStatus
         : undefined
-    const failedRenderKey = readNullableString(value.failedRenderKey)
+    const failedRenderKey = parseTNullableString(value.failedRenderKey)
     if (
       !source ||
       svgUrl === undefined ||
@@ -487,10 +478,10 @@ function readInlineData(value: unknown): BuddyInlineViewData | undefined {
     return { renderer: "mermaid", source, svgUrl, alt, caption, renderStatus, failedRenderKey }
   }
   if (value.renderer === "figure") {
-    const svgUrl = readNullableString(value.svgUrl)
-    const source = readNullableString(value.source)
-    const alt = readNullableString(value.alt)
-    const caption = readNullableString(value.caption)
+    const svgUrl = parseTNullableString(value.svgUrl)
+    const source = parseTNullableString(value.source)
+    const alt = parseTNullableString(value.alt)
+    const caption = parseTNullableString(value.caption)
     const renderStatus =
       value.renderStatus === "ready" ||
       value.renderStatus === "stale" ||
@@ -513,19 +504,19 @@ function readInlineData(value: unknown): BuddyInlineViewData | undefined {
     return questionSet ? { renderer: "question-set", questionSet } : undefined
   }
   if (value.renderer === "flashcard-deck") {
-    const title = readString(value.title)
-    const noteCount = readNumber(value.noteCount)
-    const cardCount = readNumber(value.cardCount)
+    const title = readNonEmptyString(value.title)
+    const noteCount = parseTNumber(value.noteCount)
+    const cardCount = parseTNumber(value.cardCount)
     if (!title || noteCount === undefined || cardCount === undefined) return undefined
     return { renderer: "flashcard-deck", title, noteCount, cardCount }
   }
   return undefined
 }
 
-function readPresentation(value: unknown): BuddyPresentationDescriptor | undefined {
+function readPresentation<TValue>(value: TValue): BuddyPresentationDescriptor | undefined {
   if (!isRecord(value)) return undefined
   const ref = readObjectRef(value.ref)
-  const viewID = readString(value.viewID)
+  const viewID = readNonEmptyString(value.viewID)
   const surface =
     value.surface === "inline" || value.surface === "bench" || value.surface === "library"
       ? value.surface
@@ -539,14 +530,14 @@ function readPresentation(value: unknown): BuddyPresentationDescriptor | undefin
       autoOpen.policyID === "whiteboard" || autoOpen.policyID === "fullscreen-html-widget"
         ? autoOpen.policyID
         : undefined
-    const eventKey = readString(autoOpen.eventKey)
+    const eventKey = readNonEmptyString(autoOpen.eventKey)
     if (!policyID || !eventKey) return undefined
     return { ref, viewID, surface, data, autoOpen: { policyID, eventKey } }
   }
   return { ref, viewID, surface, data, autoOpen: null }
 }
 
-function readBuddyObjectResult(metadata: Record<string, unknown>): BuddyObjectResult | undefined {
+function readBuddyObjectResult(metadata: TJsonObject): BuddyObjectResult | undefined {
   const value = metadata.buddyObjectResult
   if (!isRecord(value)) return undefined
   const version = value.version === 1 ? 1 : undefined
@@ -554,8 +545,8 @@ function readBuddyObjectResult(metadata: Record<string, unknown>): BuddyObjectRe
     value.status === "ok" || value.status === "blocked" || value.status === "error"
       ? value.status
       : undefined
-  const reason = readNullableString(value.reason)
-  const message = readString(value.message)
+  const reason = parseTNullableString(value.reason)
+  const message = readNonEmptyString(value.message)
   const primaryRef = value.primaryRef === null ? null : readObjectRef(value.primaryRef)
   const objects = Array.isArray(value.objects)
     ? value.objects
@@ -582,7 +573,7 @@ function readBuddyObjectResult(metadata: Record<string, unknown>): BuddyObjectRe
 }
 
 function readInlinePresentation(
-  metadata: Record<string, unknown>,
+  metadata: TJsonObject,
   renderer: BuddyInlineViewData["renderer"],
 ): BuddyPresentationDescriptor | undefined {
   const result = readBuddyObjectResult(metadata)
@@ -646,24 +637,27 @@ function presentationBenchTarget(presentation: BuddyPresentationDescriptor): Ben
 }
 
 function metadataWithInlinePresentation(
-  metadata: Record<string, unknown>,
+  metadata: TJsonObject,
   presentation: BuddyPresentationDescriptor,
-) {
+): TJsonObject {
   const result = readBuddyObjectResult(metadata)
   if (!result) return metadata
+  const nextResult = {
+    ...result,
+    presentations: result.presentations.map((candidate) =>
+      candidate.surface === presentation.surface &&
+      candidate.viewID === presentation.viewID &&
+      candidate.ref.kind === presentation.ref.kind &&
+      candidate.ref.objectID === presentation.ref.objectID
+        ? presentation
+        : candidate,
+    ),
+  }
+  const parsed = isRecord(nextResult) ? nextResult : undefined
+  if (!parsed) return metadata
   return {
     ...metadata,
-    buddyObjectResult: {
-      ...result,
-      presentations: result.presentations.map((candidate) =>
-        candidate.surface === presentation.surface &&
-        candidate.viewID === presentation.viewID &&
-        candidate.ref.kind === presentation.ref.kind &&
-        candidate.ref.objectID === presentation.ref.objectID
-          ? presentation
-          : candidate,
-      ),
-    },
+    buddyObjectResult: parsed,
   }
 }
 

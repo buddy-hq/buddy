@@ -1,4 +1,4 @@
-import { isRecord } from "../../tools/types"
+import { isRecord, parseTString } from "../../tools/types"
 import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject } from "../tool-row"
 import type { ToolPartProps } from "../registry"
 
@@ -14,10 +14,7 @@ export function renderApplyPatchTool({ state, icon }: ToolPartProps) {
   const patchFiles = Array.isArray(files) ? files.filter(isRecord) : []
   const fileCount = patchFiles.length
 
-  const firstRelativePath =
-    fileCount === 1 && typeof patchFiles[0]?.relativePath === "string"
-      ? patchFiles[0].relativePath
-      : undefined
+  const firstRelativePath = fileCount === 1 ? parseTString(patchFiles[0]?.relativePath) : undefined
 
   const subject = firstRelativePath
     ? basename(firstRelativePath)

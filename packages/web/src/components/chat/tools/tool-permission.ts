@@ -12,9 +12,10 @@ const PERMISSION_DENIED_PREFIX = "The user rejected permission to use this speci
  * indicators instead of red error panels.
  */
 export function isPermissionDenied(state: ToolState): boolean {
+  const error = state.error
   return (
     state.status === "error" &&
-    typeof state.error === "string" &&
-    state.error.startsWith(PERMISSION_DENIED_PREFIX)
+    error !== undefined &&
+    error.startsWith(PERMISSION_DENIED_PREFIX)
   )
 }

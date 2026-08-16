@@ -1,25 +1,24 @@
 import type { MessageInfo, MessageWithParts } from "@/state/chat-types"
 
+import { parseTJsonObject, parseTString } from "../tools/types"
+
 const MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX = "msg_buddy_mermaid_auto_repair_"
 const SVG_AUTO_REPAIR_MESSAGE_ID_PREFIX = "msg_buddy_svg_auto_repair_"
 
-export function isSvgAutoRepairMessageID(value: unknown): boolean {
-  return typeof value === "string" && value.startsWith(SVG_AUTO_REPAIR_MESSAGE_ID_PREFIX)
+export function isSvgAutoRepairMessageID<TValue>(value: TValue): boolean {
+  const text = parseTString(value)
+  return text !== undefined && text.startsWith(SVG_AUTO_REPAIR_MESSAGE_ID_PREFIX)
 }
 
 export function isSvgAutoRepairAssistantMessage(message: MessageInfo | undefined): boolean {
   return message?.role === "assistant" && isSvgAutoRepairMessageID(message.parentID)
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function messageMetadata(message: MessageWithParts): Record<string, unknown> | undefined {
+function messageMetadata(message: MessageWithParts) {
   if (!("metadata" in message.info)) {
     return undefined
   }
-  return isRecord(message.info.metadata) ? message.info.metadata : undefined
+  return parseTJsonObject(message.info.metadata)
 }
 
 export function isHiddenFromUserMessage(message: MessageWithParts): boolean {

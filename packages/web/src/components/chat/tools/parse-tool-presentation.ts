@@ -5,15 +5,16 @@ import {
 
 import type { MessagePart } from "@/state/chat-types"
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
+import { parseTJsonObject } from "./types"
 
-export function parseToolPresentationMetadata(
-  metadata: unknown,
+export function parseToolPresentationMetadata<TValue>(
+  metadata: TValue,
 ): ToolPresentationSnapshot | undefined {
-  if (!isRecord(metadata) || !isRecord(metadata.buddy)) return undefined
-  return decodeToolPresentationSnapshot(metadata.buddy.presentation)
+  const record = parseTJsonObject(metadata)
+  if (!record) return undefined
+  const buddy = parseTJsonObject(record.buddy)
+  if (!buddy) return undefined
+  return decodeToolPresentationSnapshot(buddy.presentation)
 }
 
 export function parseToolPresentation(part: MessagePart): ToolPresentationSnapshot | undefined {

@@ -155,8 +155,8 @@ function IngestFullTextTool({
 
   const openResource = useCallback(() => {
     if (!openInput) return
-    void executePrimary(openInput).catch((error: unknown) => {
-      toast.error(stringifyError(error))
+    void executePrimary(openInput).catch((cause: unknown) => {
+      toast.error(stringifyError(cause))
     })
   }, [executePrimary, openInput])
 

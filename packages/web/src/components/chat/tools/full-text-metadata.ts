@@ -1,4 +1,4 @@
-import { readNonEmptyString, readNonNegativeInt } from "./types"
+import { parseTBoolean, parseTString, readNonEmptyString, readNonNegativeInt } from "./types"
 import type { ToolState } from "./types"
 
 export const INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL = "context_too_full"
@@ -43,22 +43,32 @@ export function isLegacyIngestFullTextScopedReadingError(error: string | undefin
   )
 }
 
-function readIngestFullTextReason(value: unknown): IngestFullTextMetadata["reason"] {
-  return value === INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL ? value : undefined
+function readIngestFullTextReason<TValue>(value: TValue): IngestFullTextMetadata["reason"] {
+  const reason = parseTString(value)
+  return reason === INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL ? reason : undefined
 }
 
-function readIngestFullTextFallback(value: unknown): IngestFullTextMetadata["fallback"] {
-  return value === INGEST_FULL_TEXT_FALLBACK_SCOPED_READING ? value : undefined
+function readIngestFullTextFallback<TValue>(value: TValue): IngestFullTextMetadata["fallback"] {
+  const fallback = parseTString(value)
+  return fallback === INGEST_FULL_TEXT_FALLBACK_SCOPED_READING ? fallback : undefined
 }
 
 export function readIngestFullTextMetadata(state: ToolState): IngestFullTextMetadata {
-  return {
-    resource: readNonEmptyString(state.metadata.resource),
-    completed: typeof state.metadata.completed === "boolean" ? state.metadata.completed : undefined,
-    reason: readIngestFullTextReason(state.metadata.reason),
-    fallback: readIngestFullTextFallback(state.metadata.fallback),
-    fullTextEstimatedTokens: readNonNegativeInt(state.metadata.fullTextEstimatedTokens),
-    truncated: state.metadata.truncated === true,
-    fullTextPath: readNonEmptyString(state.metadata.fullTextPath),
-  }
+  const resource = readNonEmptyString(state.metadata.resource)
+  const completed = parseTBoolean(state.metadata.completed)
+  const reason = readIngestFullTextReason(state.metadata.reason)
+  const fallback = readIngestFullTextFallback(state.metadata.fallback)
+  const fullTextEstimatedTokens = readNonNegativeInt(state.metadata.fullTextEstimatedTokens)
+  const fullTextPath = readNonEmptyString(state.metadata.fullTextPath)
+  return Object.assign(
+    Object.assign(
+      { truncated: state.metadata.truncated === true },
+      resource !== undefined ? { resource } : undefined,
+      completed !== undefined ? { completed } : undefined,
+      reason !== undefined ? { reason } : undefined,
+    ),
+    fallback !== undefined ? { fallback } : undefined,
+    fullTextEstimatedTokens !== undefined ? { fullTextEstimatedTokens } : undefined,
+    fullTextPath !== undefined ? { fullTextPath } : undefined,
+  )
 }

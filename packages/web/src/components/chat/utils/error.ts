@@ -1,72 +1,72 @@
-import { isRecord } from "../tools/types"
 import { isAbortLikeError } from "@/state/chat-error"
 import {
   normalizeProviderErrorDetails,
   normalizeUpstreamProviderErrorMessage,
 } from "@/lib/upstream-provider-error"
 
-function parseJsonValue(value: string) {
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return parsed
-  } catch {
-    return undefined
-  }
+import {
+  parseTJsonObject,
+  parseTJsonText,
+  parseTString,
+  readNonEmptyString,
+} from "../tools/types"
+
+function unwrapJsonPayload(value: string) {
+  const first = parseTJsonText(value)
+  const nestedText = parseTString(first)
+  if (nestedText === undefined) return first
+  return parseTJsonText(nestedText.trim())
 }
 
 export function unwrapError(message: string): string {
   const text = message.replace(/^Error:\s*/, "").trim()
 
-  const read = (value: string) => {
-    const first = parseJsonValue(value)
-    if (typeof first !== "string") return first
-    return parseJsonValue(first.trim())
-  }
-
-  let json = read(text)
+  let json = unwrapJsonPayload(text)
   if (json === undefined) {
     const start = text.indexOf("{")
     const end = text.lastIndexOf("}")
     if (start !== -1 && end > start) {
-      json = read(text.slice(start, end + 1))
+      json = unwrapJsonPayload(text.slice(start, end + 1))
     }
   }
 
-  if (!isRecord(json)) return normalizeUpstreamProviderErrorMessage(message)
+  const record = parseTJsonObject(json)
+  if (!record) return normalizeUpstreamProviderErrorMessage(message)
 
-  const error = isRecord(json.error) ? json.error : undefined
+  const error = parseTJsonObject(record.error)
   if (error) {
-    const type = typeof error.type === "string" ? error.type : undefined
-    const innerMessage = typeof error.message === "string" ? error.message : undefined
+    const type = parseTString(error.type)
+    const innerMessage = parseTString(error.message)
     if (type && innerMessage)
       return normalizeUpstreamProviderErrorMessage(`${type}: ${innerMessage}`)
     if (innerMessage) return normalizeUpstreamProviderErrorMessage(innerMessage)
     if (type) return normalizeUpstreamProviderErrorMessage(type)
-    const code = typeof error.code === "string" ? error.code : undefined
+    const code = parseTString(error.code)
     if (code) return normalizeUpstreamProviderErrorMessage(code)
   }
 
-  const fallbackMessage = typeof json.message === "string" ? json.message : undefined
+  const fallbackMessage = parseTString(record.message)
   if (fallbackMessage) return normalizeUpstreamProviderErrorMessage(fallbackMessage)
 
-  const fallbackError = typeof json.error === "string" ? json.error : undefined
+  const fallbackError = parseTString(record.error)
   if (fallbackError) return normalizeUpstreamProviderErrorMessage(fallbackError)
 
   return normalizeUpstreamProviderErrorMessage(message)
 }
 
-export function isMessageAbortError(value: unknown): boolean {
+export function isMessageAbortError<TValue>(value: TValue): boolean {
   return isAbortLikeError(value)
 }
 
-export function formatMessageError(value: unknown): string {
-  if (!isRecord(value)) return ""
+export function formatMessageError<TValue>(value: TValue): string {
+  const record = parseTJsonObject(value)
+  if (!record) return ""
 
-  const data = isRecord(value.data) ? value.data : undefined
+  const data = parseTJsonObject(record.data)
   const message =
-    readNonEmptyString(value.message) ??
+    readNonEmptyString(record.message) ??
     (data ? readNonEmptyString(data.message) : undefined) ??
-    readNonEmptyString(value.name)
+    readNonEmptyString(record.name)
 
   if (!message) return ""
 
@@ -75,5 +75,3 @@ export function formatMessageError(value: unknown): string {
     responseBody: data ? readNonEmptyString(data.responseBody) : undefined,
   })
 }
-
-import { readNonEmptyString } from "../tools/types"

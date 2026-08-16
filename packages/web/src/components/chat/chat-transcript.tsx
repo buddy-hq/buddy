@@ -62,6 +62,7 @@ import {
 import { chatTranscriptEqual } from "./utils/message-utils"
 import { isHiddenFromUserMessage } from "./utils/message-visibility"
 import { isChatReasoningPart, isChatTextPart } from "./utils/part-guards"
+import { parseTNumber, parseTPartTime } from "./tools/types"
 import { useAssistantMeta } from "./hooks/use-assistant-meta"
 import { useDelayedFlag } from "./hooks/use-delayed-flag"
 import { UserSection } from "./sections/user-section"
@@ -232,7 +233,7 @@ function cloneTimelineViewState(state: TimelineViewState | undefined): TimelineV
 
 function assistantPartIsStreaming(part: MessagePart) {
   if (!isChatTextPart(part) && !isChatReasoningPart(part)) return true
-  return typeof part.time?.end !== "number"
+  return parseTNumber(parseTPartTime(part.time)?.end) === undefined
 }
 
 /**
@@ -708,7 +709,7 @@ function TimelineAssistantRow(props: {
     partIsRenderMermaidTool(previousPart) &&
     previousPartState?.status === "completed"
       ? Object.values(parseRenderMermaidSources(previousPartState)).filter(
-          (source): source is string => typeof source === "string" && source.trim().length > 0,
+          (source): source is string => source !== undefined && source.trim().length > 0,
         )
       : undefined
   const itemPart = props.row.item.type === "part" ? parts[0] : undefined
@@ -1559,7 +1560,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   // no scroll events, and no React renders.
   useEffect(() => {
     const root = scrollViewportRef?.current
-    if (!root || typeof ResizeObserver === "undefined") return
+    if (!root || !("ResizeObserver" in globalThis)) return
 
     let previousHeight = root.clientHeight
     const observer = new ResizeObserver((entries) => {

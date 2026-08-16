@@ -19,6 +19,7 @@ import {
 import { stringifyError } from "@/lib/api-client"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import type { ToolPartProps } from "../../registry"
+import type { TJsonObject } from "../../types"
 import {
   presentationBenchTarget,
   readBuddyObjectResult,
@@ -116,7 +117,7 @@ function HtmlWidgetCard(props: {
 }
 
 function readHtmlWidgetPresentation(
-  metadata: Record<string, unknown>,
+  metadata: TJsonObject,
   presentation: BuddyPresentationDescriptor,
 ):
   | {

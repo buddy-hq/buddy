@@ -49,7 +49,7 @@ export function stripLeadingRenderMermaidMarkdown(text: string, sources: string[
   const match = text.match(
     /^\s*(`{3,}|~{3,})\s*mermaid(?:[ \t][^\n]*)?\r?\n([\s\S]*?)\r?\n\1(?:\r?\n\s*)*/u,
   )
-  if (!match?.[0] || typeof match[2] !== "string") {
+  if (!match?.[0] || match[2] === undefined) {
     return text
   }
 

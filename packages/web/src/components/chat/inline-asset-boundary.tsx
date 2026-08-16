@@ -58,7 +58,7 @@ export function useInlineAssetActivation(options?: {
     if (!(element instanceof HTMLDivElement)) {
       return
     }
-    if (!(root instanceof HTMLElement) || typeof IntersectionObserver === "undefined") {
+    if (!(root instanceof HTMLElement) || !("IntersectionObserver" in globalThis)) {
       setActive(true)
       return
     }
@@ -127,7 +127,7 @@ export function useInlineAssetLifecycleReporter<TElement extends HTMLElement>(in
     }
 
     notify()
-    if (typeof ResizeObserver === "undefined") {
+    if (!("ResizeObserver" in globalThis)) {
       return
     }
 

@@ -26,8 +26,11 @@ export type UserMessageStackedContent = {
   textFileAttachmentParts: IdentifiedAttachment<PromptTextFileAttachmentMetadata>[]
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
+function filePartSourcePath(part: ChatFilePart): string | undefined {
+  const source = part.source
+  if (source === null || source === undefined) return undefined
+  if (source.type === "file" || source.type === "symbol") return source.path
+  return undefined
 }
 
 export function isUserAttachmentFilePart(part: ChatFilePart): boolean {
@@ -51,9 +54,7 @@ export function projectUserMessageStackedContent(parts: MessagePart[]): UserMess
   )
   const attachmentParts = parts.filter(isChatFilePart).filter((part) => {
     if (!isUserAttachmentFilePart(part)) return false
-    const sourceValue: unknown = part.source
-    const source = isRecord(sourceValue) ? sourceValue : undefined
-    const sourcePath = source && typeof source.path === "string" ? source.path : undefined
+    const sourcePath = filePartSourcePath(part)
     return !sourcePath || !nativeResourceSourcePaths.has(sourcePath)
   })
 

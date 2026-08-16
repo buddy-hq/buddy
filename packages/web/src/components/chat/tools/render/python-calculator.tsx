@@ -3,6 +3,7 @@ import { ToolOutputPanel } from "../../tools/tool-output-panel"
 import { Media, MediaThumbnail, MultiViewShell, type ImageMediaItem } from "@/components/media"
 import { language } from "@/context/language"
 import { resolveAssetUrl } from "@/lib/resource-url"
+import { parseTString } from "../types"
 import type { ToolPartProps } from "../registry"
 
 function resolvePlotUrl(url: string): string {
@@ -13,8 +14,8 @@ function resolvePlotUrl(url: string): string {
 export function renderPythonCalculatorTool({ state, info }: ToolPartProps) {
   const running = state.status === "pending" || state.status === "running"
 
-  const codeFirstLine =
-    typeof state.input.code === "string" ? state.input.code.split("\n")[0]?.trim() : undefined
+  const code = parseTString(state.input.code)
+  const codeFirstLine = code?.split("\n")[0]?.trim()
 
   if (running) {
     return (

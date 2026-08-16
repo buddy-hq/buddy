@@ -11,6 +11,7 @@ import {
   projectUserMessageStackedContent,
   userMessageStackedContentCount,
 } from "./utils/user-message-stacked-content"
+import { parseTNumber, parseTPartTime } from "./tools/types"
 import { parseToolState } from "./tools/parse-tool-state"
 import { parseToolPresentation } from "./tools/parse-tool-presentation"
 import type { AssistantRenderItem, ChatTurn } from "./types"
@@ -147,7 +148,7 @@ type ProjectTimelineRowsInput = {
 const ASSISTANT_ABORT_FINISH_REASONS = new Set(["aborted", "cancelled", "interrupted"])
 
 function isAssistantAbortFinish(finish: string | null | undefined): boolean {
-  return typeof finish === "string" && ASSISTANT_ABORT_FINISH_REASONS.has(finish)
+  return finish !== null && finish !== undefined && ASSISTANT_ABORT_FINISH_REASONS.has(finish)
 }
 
 function assistantPartIDs(item: AssistantRenderItem): string[] {
@@ -278,12 +279,12 @@ function lastTextPartID(parts: MessagePart[]) {
 function turnDurationMs(turn: ChatTurn) {
   const completed = turn.assistants.reduce<number | undefined>((max, message) => {
     const value = message.info.time?.completed
-    if (typeof value !== "number") return max
-    if (typeof max !== "number") return value
+    if (value === null || value === undefined) return max
+    if (max === null || max === undefined) return value
     return Math.max(max, value)
   }, undefined)
   const started = turn.user?.info.time?.created ?? turn.assistants[0]?.info.time?.created
-  if (typeof started !== "number" || typeof completed !== "number") return undefined
+  if (started === undefined || completed === undefined) return undefined
   if (completed < started) return undefined
   return completed - started
 }
@@ -293,7 +294,7 @@ function partIsVisiblyActive(part: MessagePart): boolean {
     return parseToolPresentation(part)?.outcome.type === "active"
   }
   if (isChatTextPart(part) || isChatReasoningPart(part)) {
-    return typeof part.time?.end !== "number"
+    return parseTNumber(parseTPartTime(part.time)?.end) === undefined
   }
   return false
 }

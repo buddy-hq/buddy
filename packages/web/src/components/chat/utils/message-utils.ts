@@ -5,6 +5,7 @@ import type { ToolLayoutRole } from "@buddy/opencode-adapter/tool-presentation"
 import { parseToolPresentation } from "../tools/parse-tool-presentation"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./part-guards"
 import type { AssistantRenderItem, ChatTranscriptProps, ChatTurn } from "../types"
+import { parseTString } from "../tools/types"
 
 export function modelLabel(info: MessageInfo): string {
   if ("modelID" in info && info.modelID) {
@@ -17,8 +18,8 @@ export function modelLabel(info: MessageInfo): string {
 }
 
 function messageProviderID(info: MessageInfo): string | undefined {
-  if ("providerID" in info && typeof info.providerID === "string") {
-    return info.providerID
+  if ("providerID" in info) {
+    return parseTString(info.providerID)
   }
   if ("model" in info && info.model?.providerID) {
     return info.model.providerID

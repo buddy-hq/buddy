@@ -1,5 +1,5 @@
 export function formatDuration(ms?: number): string {
-  if (typeof ms !== "number" || ms < 0) return ""
+  if (ms === undefined || ms < 0) return ""
   const totalSeconds = Math.round(ms / 1000)
   if (totalSeconds < 60) return `${totalSeconds}s`
   const minutes = Math.floor(totalSeconds / 60)
@@ -20,7 +20,7 @@ export function formatThoughtForLabel(ms: number): string {
 }
 
 export function formatTime(ms?: number): string {
-  if (typeof ms !== "number") return ""
+  if (ms === undefined) return ""
   const date = new Date(ms)
   const hours = date.getHours()
   const hour12 = hours % 12 || 12

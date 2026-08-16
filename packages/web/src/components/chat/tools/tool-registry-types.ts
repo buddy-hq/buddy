@@ -2,7 +2,7 @@ import type { MessagePart } from "@/state/chat-types"
 import type { ReactNode } from "react"
 
 import type { ResourceReadingTarget } from "@/state/resources-query"
-import type { ToolAttachment, ToolInfo, ToolState } from "./types"
+import type { ToolInfo, ToolState } from "./types"
 
 /** Draws the semantic action icon selected by the resolved presentation snapshot. */
 export type ToolIconRenderer = (className: string) => ReactNode

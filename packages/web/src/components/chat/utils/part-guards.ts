@@ -17,6 +17,7 @@ import {
   type PromptMarkdownSelectionContextPart,
   type PromptSelectionContextPart,
 } from "@/components/prompt/prompt-types"
+import { parseTString } from "../tools/types"
 
 type TReadingSelectionBase = Pick<PromptReadingSelectionPart, "type" | "text" | "anchor">
 type TMarkdownSelectionContextBase = Pick<
@@ -49,41 +50,49 @@ export type ChatReadingSelectionPart = MessagePart & {
 }
 
 export function isChatFilePart(part: MessagePart): part is ChatFilePart {
-  return part.type === "file" && typeof part.mime === "string" && typeof part.url === "string"
+  return (
+    part.type === "file" &&
+    parseTString(part.mime) !== undefined &&
+    parseTString(part.url) !== undefined
+  )
 }
 
 export function isChatAgentPart(part: MessagePart): part is ChatAgentPart {
-  return part.type === "agent" && typeof part.name === "string"
+  return part.type === "agent" && parseTString(part.name) !== undefined
 }
 
 export function isChatTextPart(part: MessagePart): part is ChatTextPart {
-  return part.type === "text" && typeof part.text === "string"
+  return part.type === "text" && parseTString(part.text) !== undefined
 }
 
 export function isChatReasoningPart(part: MessagePart): part is ChatReasoningPart {
-  return part.type === "reasoning" && typeof part.text === "string"
+  return part.type === "reasoning" && parseTString(part.text) !== undefined
 }
 
 export function isChatToolPart(part: MessagePart): part is ChatToolPart {
-  return part.type === "tool" && typeof part.tool === "string"
+  return part.type === "tool" && parseTString(part.tool) !== undefined
 }
 
 export function isChatReadingSelectionPart(part: MessagePart): boolean {
   return (
     (part.type === READING_SELECTION_PART_TYPE || part.type === SELECTION_CONTEXT_PART_TYPE) &&
-    typeof part.text === "string"
+    parseTString(part.text) !== undefined
   )
 }
 
-function readOptionalString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined
+function readOptionalString<TValue>(value: TValue): string | undefined {
+  return parseTString(value)
 }
 
-function readOptionalStringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
-    return undefined
+function readOptionalStringArray<TValue>(value: TValue): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const items: string[] = []
+  for (const entry of value) {
+    const text = parseTString(entry)
+    if (text === undefined) return undefined
+    items.push(text)
   }
-  return value
+  return items
 }
 
 function addMessageIdentity(
@@ -102,17 +111,18 @@ export function readChatReadingSelectionPart(
   part: MessagePart,
 ): ChatReadingSelectionPart | undefined {
   if (isChatReadingSelectionPart(part)) {
-    if (part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string") {
+    const text = parseTString(part.text)
+    const selectionKey = readOptionalString(part.selectionKey)
+    if (part.type === READING_SELECTION_PART_TYPE && text !== undefined) {
       const anchor = readPromptReaderTextAnchor(part)
       if (!anchor) return undefined
-      const selectionKey = readOptionalString(part.selectionKey)
       const resourceKey = readOptionalString(part.resourceKey)
       const tocLabel = readOptionalString(part.tocLabel)
       const pageLabel = readOptionalString(part.pageLabel)
       const locationLabel = readOptionalString(part.locationLabel)
       const readingSelection: TReadingSelectionBase = {
         type: READING_SELECTION_PART_TYPE,
-        text: part.text,
+        text,
         anchor,
       }
       return addMessageIdentity(
@@ -133,8 +143,8 @@ export function readChatReadingSelectionPart(
 
     if (
       part.type === SELECTION_CONTEXT_PART_TYPE &&
-      typeof part.text === "string" &&
-      typeof part.selectionKey === "string" &&
+      text !== undefined &&
+      selectionKey !== undefined &&
       part.source === "markdown"
     ) {
       const path = readOptionalString(part.path)
@@ -143,8 +153,8 @@ export function readChatReadingSelectionPart(
       const markdownSelection: TMarkdownSelectionContextBase = {
         type: SELECTION_CONTEXT_PART_TYPE,
         source: "markdown",
-        text: part.text,
-        selectionKey: part.selectionKey,
+        text,
+        selectionKey,
       }
       return addMessageIdentity(
         part,
@@ -159,8 +169,8 @@ export function readChatReadingSelectionPart(
 
     if (
       part.type === SELECTION_CONTEXT_PART_TYPE &&
-      typeof part.text === "string" &&
-      typeof part.selectionKey === "string" &&
+      text !== undefined &&
+      selectionKey !== undefined &&
       part.source === "reading"
     ) {
       const anchor = readPromptReaderTextAnchor(part)
@@ -172,8 +182,8 @@ export function readChatReadingSelectionPart(
       const readingContext: TReadingSelectionContextBase = {
         type: SELECTION_CONTEXT_PART_TYPE,
         source: "reading",
-        text: part.text,
-        selectionKey: part.selectionKey,
+        text,
+        selectionKey,
         anchor,
       }
       return addMessageIdentity(

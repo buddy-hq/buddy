@@ -4,7 +4,7 @@ import { BasicTool } from "../../tools/basic-tool"
 import { ToolOutputPanel } from "../../tools/tool-output-panel"
 import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { language } from "@/context/language"
-import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../tools/types"
+import { isRecord, parseTBoolean, parseTJsonObject, parseTJsonText, parseTNumber, parseTString, readNonEmptyString, readNonNegativeInt } from "../../tools/types"
 import type { ToolPartProps } from "../registry"
 
 const KNOWLEDGE_GRAPH_PREVIEW_LIMIT = 4
@@ -102,14 +102,14 @@ type CrosswalkResult = {
   crosswalks: KnowledgeGraphStandard[]
 }
 
-type SqlQueryRow = Record<string, string | number | boolean | null>
+type TSqlQueryRow = Record<string, string | number | boolean | null>
 
 type SqlQueryResult = {
   kind: "query_standards_sql"
   sql?: string
   rowCount: number
   truncated: boolean
-  rows: SqlQueryRow[]
+  rows: TSqlQueryRow[]
 }
 
 type KnowledgeGraphParsedResult =
@@ -120,13 +120,16 @@ type KnowledgeGraphParsedResult =
   | CrosswalkResult
   | SqlQueryResult
 
-function readStringArray(value: unknown): string[] {
+function readStringArray<TValue>(value: TValue): string[] {
   return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
+    ? value.flatMap((entry) => {
+        const text = parseTString(entry)
+        return text === undefined ? [] : [text]
+      })
     : []
 }
 
-function parseStandard(value: unknown): KnowledgeGraphStandard | undefined {
+function parseStandard<TValue>(value: TValue): KnowledgeGraphStandard | undefined {
   if (!isRecord(value)) {
     return undefined
   }
@@ -147,7 +150,7 @@ function parseStandard(value: unknown): KnowledgeGraphStandard | undefined {
   }
 }
 
-function parseStandardArray(value: unknown): KnowledgeGraphStandard[] {
+function parseStandardArray<TValue>(value: TValue): KnowledgeGraphStandard[] {
   if (!Array.isArray(value)) {
     return []
   }
@@ -158,20 +161,16 @@ function parseStandardArray(value: unknown): KnowledgeGraphStandard[] {
   })
 }
 
-function parseSqlValue(value: unknown): string | number | boolean | null | undefined {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value
-  }
-
-  return undefined
+function parseSqlValue<TValue>(value: TValue): string | number | boolean | null | undefined {
+  if (value === null) return null
+  const text = parseTString(value)
+  if (text !== undefined) return text
+  const numeric = parseTNumber(value)
+  if (numeric !== undefined) return numeric
+  return parseTBoolean(value)
 }
 
-function parseSqlRows(value: unknown): SqlQueryRow[] {
+function parseSqlRows<TValue>(value: TValue): TSqlQueryRow[] {
   if (!Array.isArray(value)) {
     return []
   }
@@ -181,7 +180,7 @@ function parseSqlRows(value: unknown): SqlQueryRow[] {
       return []
     }
 
-    const row: SqlQueryRow = {}
+    const row: TSqlQueryRow = {}
     for (const [key, cellValue] of Object.entries(entry)) {
       const parsedValue = parseSqlValue(cellValue)
       if (parsedValue !== undefined) {
@@ -193,7 +192,7 @@ function parseSqlRows(value: unknown): SqlQueryRow[] {
   })
 }
 
-function parseResolution(value: unknown): KnowledgeGraphResolution | undefined {
+function parseResolution<TValue>(value: TValue): KnowledgeGraphResolution | undefined {
   if (!isRecord(value)) {
     return undefined
   }
@@ -219,21 +218,17 @@ function parseResolution(value: unknown): KnowledgeGraphResolution | undefined {
   }
 }
 
-function knowledgeGraphValue(state: ToolPartProps["state"]): Record<string, unknown> | undefined {
-  if (isRecord(state.metadata.value)) {
-    return state.metadata.value
+function knowledgeGraphValue(state: ToolPartProps["state"]) {
+  const metadataValue = parseTJsonObject(state.metadata.value)
+  if (metadataValue) {
+    return metadataValue
   }
 
-  if (typeof state.output !== "string") {
+  if (state.output === undefined) {
     return undefined
   }
 
-  try {
-    const parsed: unknown = JSON.parse(state.output)
-    return isRecord(parsed) ? parsed : undefined
-  } catch {
-    return undefined
-  }
+  return parseTJsonObject(parseTJsonText(state.output))
 }
 
 function parseKnowledgeGraphResult(
@@ -374,7 +369,7 @@ function KnowledgeGraphSection(props: { title: string; count?: number; children:
         <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-weak/55">
           {props.title}
         </div>
-        {typeof props.count === "number" ? (
+        {props.count !== undefined ? (
           <Badge variant="outline" className="text-[10px] text-text-weak/60">
             {props.count.toLocaleString()}
           </Badge>
@@ -518,7 +513,7 @@ function KnowledgeGraphBody(props: { parsed: KnowledgeGraphParsedResult }) {
             <StandardList
               standards={props.parsed.standards}
               badgeForStandard={(standard) =>
-                typeof standard.distance === "number" ? `Depth ${standard.distance}` : undefined
+                standard.distance !== undefined ? `Depth ${standard.distance}` : undefined
               }
             />
           </KnowledgeGraphSection>

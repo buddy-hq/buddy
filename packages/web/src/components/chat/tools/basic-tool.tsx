@@ -6,6 +6,7 @@ import { MOTION_SNAPPY } from "../tools/tool-motion"
 import { TextShimmer } from "../tools/text-shimmer"
 import { ToolRowAction, ToolRowSubject, ToolRowArg } from "../tools/tool-row"
 import type { ToolState } from "../tools/registry"
+import { parseTJsonObject, parseTString } from "./types"
 
 export type BasicToolTrigger = {
   title: string
@@ -43,13 +44,9 @@ export function ToolExpansionStateProvider(props: {
   )
 }
 
-function isTriggerTitle(val: unknown): val is BasicToolTrigger {
-  return (
-    typeof val === "object" &&
-    val !== null &&
-    "title" in val &&
-    typeof val.title === "string"
-  )
+function isTriggerTitle(val: BasicToolTrigger | ReactNode): val is BasicToolTrigger {
+  const record = parseTJsonObject(val)
+  return record !== undefined && parseTString(record.title) !== undefined
 }
 
 export function BasicTool({

@@ -1,6 +1,7 @@
 import { memo } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
 import type { ChatReasoningPart } from "../../utils/part-guards"
+import { parseTNumber } from "../../tools/types"
 
 type ReasoningPartProps = {
   part: ChatReasoningPart
@@ -12,7 +13,7 @@ export const ReasoningPart = memo(function ReasoningPart({
   streaming = false,
 }: ReasoningPartProps) {
   const text = part.text
-  const isStreaming = streaming || typeof part.time.end !== "number"
+  const isStreaming = streaming || parseTNumber(part.time.end) === undefined
 
   if (!text.trim()) return null
 

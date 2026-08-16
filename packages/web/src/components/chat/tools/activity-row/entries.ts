@@ -12,7 +12,7 @@ import { parseToolState } from "../parse-tool-state"
 import { getToolInfo } from "../tool-info"
 import type { ToolIconRenderer, ToolInfo, ToolState } from "../tool-registry-types"
 import { resolveToolIcon } from "../tool-renderer-resolver"
-import { isRecord } from "../types"
+import { parseTJsonObject, parseTNumber, parseTString } from "../types"
 
 export const ACTIVITY_THINKING_LABEL = "Thinking"
 const ACTIVITY_THOUGHT_LABEL = "Thought"
@@ -80,8 +80,8 @@ function entryHeaderIdentity(entry: ActivityEntry): string {
 
 function isReasoningActive(part: MessagePart): boolean {
   if (part.type !== "reasoning") return false
-  const time = isRecord(part.time) ? part.time : undefined
-  return typeof time?.end !== "number"
+  const time = parseTJsonObject(part.time)
+  return parseTNumber(time?.end) === undefined
 }
 
 function isToolActive(state: ToolState): boolean {
@@ -119,7 +119,7 @@ export function activityEntryIsActive(entry: ActivityEntry): boolean {
 }
 
 function reasoningEntryHeading(entry: ReasoningActivityEntry): string | undefined {
-  return reasoningHeading(typeof entry.part.text === "string" ? entry.part.text.trim() : "")
+  return reasoningHeading(parseTString(entry.part.text)?.trim() ?? "")
 }
 
 function reasoningEntryLabel(entry: ReasoningActivityEntry): string {
@@ -127,9 +127,9 @@ function reasoningEntryLabel(entry: ReasoningActivityEntry): string {
   if (heading) return heading
   if (activityEntryIsActive(entry)) return ACTIVITY_THINKING_LABEL
 
-  const time = isRecord(entry.part.time) ? entry.part.time : undefined
-  const start = typeof time?.start === "number" ? time.start : undefined
-  const end = typeof time?.end === "number" ? time.end : undefined
+  const time = parseTJsonObject(entry.part.time)
+  const start = parseTNumber(time?.start)
+  const end = parseTNumber(time?.end)
   return start !== undefined && end !== undefined
     ? formatThoughtForLabel(end - start)
     : ACTIVITY_THOUGHT_LABEL
@@ -156,9 +156,9 @@ function totalReasoningDurationLabel(entries: ActivityEntry[]): string {
 
   for (const entry of entries) {
     if (entry.kind !== "reasoning") continue
-    const time = isRecord(entry.part.time) ? entry.part.time : undefined
-    const start = typeof time?.start === "number" ? time.start : undefined
-    const end = typeof time?.end === "number" ? time.end : undefined
+    const time = parseTJsonObject(entry.part.time)
+    const start = parseTNumber(time?.start)
+    const end = parseTNumber(time?.end)
     if (start === undefined || end === undefined) continue
     totalMs += end - start
     hasTiming = true

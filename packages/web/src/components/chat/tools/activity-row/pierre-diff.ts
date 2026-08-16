@@ -23,7 +23,7 @@ export type PierreDiffInput = {
 }
 
 function patch(diff: PierreDiffInput) {
-  if (typeof diff.patch === "string") {
+  if (diff.patch !== undefined) {
     return { before: "", after: "", patch: diff.patch, preferRawPatch: true }
   }
 

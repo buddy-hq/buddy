@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { cn } from "@buddy/ui"
-import { isRecord } from "./tools/types"
+import { parseTJsonObject, parseTNumber } from "./tools/types"
 import { FileTypeIcon } from "../files/file-type-icon"
 import { SkillIconMark } from "../skills/skill-icon-mark"
 import { useSkillPresentationLookup } from "../skills/skill-presentation"
@@ -29,12 +29,13 @@ function readLeadingCommandReference(text: string): HighlightReference | undefin
   return { start: 0, end: match[0].length, type: "command" }
 }
 
-function readSourceRange(value: unknown): { start: number; end: number } | undefined {
-  if (!isRecord(value)) return undefined
+function readSourceRange<TValue>(value: TValue): { start: number; end: number } | undefined {
+  const record = parseTJsonObject(value)
+  if (!record) return undefined
 
-  const start = value.start
-  const end = value.end
-  if (typeof start !== "number" || typeof end !== "number") return undefined
+  const start = parseTNumber(record.start)
+  const end = parseTNumber(record.end)
+  if (start === undefined || end === undefined) return undefined
   if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start)
     return undefined
 
@@ -42,12 +43,13 @@ function readSourceRange(value: unknown): { start: number; end: number } | undef
 }
 
 function readFileHighlightReference(part: ChatFilePart): HighlightReference | undefined {
-  const source = isRecord(part.source) ? part.source : undefined
-  const textSource = source ? readSourceRange(source.text) : undefined
+  const textSource = part.source?.text
   if (!textSource) return undefined
+  const range = readSourceRange(textSource)
+  if (!range) return undefined
 
   return {
-    ...textSource,
+    ...range,
     type: "file",
   }
 }
@@ -62,12 +64,14 @@ function readAgentHighlightReference(part: ChatAgentPart): HighlightReference | 
   }
 }
 
-interface HighlightedTextProps {
+type THighlightedTextProps = {
   text: string
   references: ChatFilePart[]
   agents: ChatAgentPart[]
   inlineReferences?: string[]
 }
+
+const EMPTY_INLINE_REFERENCES: string[] = []
 
 function stripMentionPrefix(value: string) {
   return value.startsWith("@") ? value.slice(1) : value
@@ -118,8 +122,8 @@ export function HighlightedText({
   text,
   references,
   agents,
-  inlineReferences = [],
-}: HighlightedTextProps) {
+  inlineReferences = EMPTY_INLINE_REFERENCES,
+}: THighlightedTextProps) {
   const segments = useMemo(() => {
     const allRefs = [
       readLeadingCommandReference(text),

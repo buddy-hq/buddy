@@ -12,7 +12,7 @@ import { FileText } from "@/icons/app-icons"
 import { language } from "@/context/language"
 
 import { basename, dirname } from "../../utils/path"
-import { isRecord, readNonEmptyString, readNonNegativeInt, readString } from "../types"
+import { isRecord, parseTString, readNonEmptyString, readNonNegativeInt, readString } from "../types"
 import { PierreContentCode, PierreContentDiff } from "./pierre-content"
 import {
   normalizePierreDiff,
@@ -34,9 +34,10 @@ type FileChangeDetails =
   | { type: "write"; path: string; content: string }
   | { type: "patch"; files: FilePatch[] }
 
-function patchKind(value: unknown): FilePatchKind | undefined {
-  if (value === "add" || value === "update" || value === "delete" || value === "move") {
-    return value
+function patchKind<TValue>(value: TValue): FilePatchKind | undefined {
+  const kind = parseTString(value)
+  if (kind === "add" || kind === "update" || kind === "delete" || kind === "move") {
+    return kind
   }
   return undefined
 }

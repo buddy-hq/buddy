@@ -13,7 +13,7 @@ import { MOTION_SNAPPY } from "../tool-motion"
 import { ToolOutputPanel } from "../tool-output-panel"
 import { TextShimmer } from "../text-shimmer"
 import type { ToolIconRenderer } from "../tool-registry-types"
-import { readString } from "../types"
+import { parseTString, readString } from "../types"
 import {
   activityEntryIsActive,
   activityEntryLabel,
@@ -103,8 +103,9 @@ function ActivityHeaderStatus(props: { icon: ToolIconRenderer; title: string; sh
   )
 }
 
-function hasStringContent(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0
+function hasStringContent<TValue>(value: TValue): boolean {
+  const text = parseTString(value)
+  return text !== undefined && text.length > 0
 }
 
 function toolShellText(entry: ToolActivityEntry): string | undefined {
@@ -235,8 +236,7 @@ function ActivityItemRow(props: ActivityItemProps) {
   const isOpen = props.open ?? localOpen
   const hasDetails = activityEntryHasDetails(entry)
   const stableStreamingDetails = activityEntryHasStreamingReasoning(entry, props.streaming)
-  const setIsOpen = (next: boolean | ((current: boolean) => boolean)) => {
-    const value = typeof next === "function" ? next(isOpen) : next
+  const setIsOpen = (value: boolean) => {
     if (props.onOpenChange) {
       props.onOpenChange(value)
       return
@@ -249,7 +249,7 @@ function ActivityItemRow(props: ActivityItemProps) {
       <button
         type="button"
         onClick={() => {
-          if (hasDetails) setIsOpen((value) => !value)
+          if (hasDetails) setIsOpen(!isOpen)
         }}
         className={cn(
           "group flex w-full cursor-default items-center gap-2 rounded-md px-1 py-1.5 text-xs text-text-weaker transition-colors",
@@ -352,8 +352,7 @@ export function ActivityRow({
 
   if (entries.length === 0 && !isBusy) return null
 
-  const setIsOpen = (next: boolean | ((current: boolean) => boolean)) => {
-    const value = typeof next === "function" ? next(isOpen) : next
+  const setIsOpen = (value: boolean) => {
     if (expansionState && onExpansionStateChange) {
       onExpansionStateChange({ ...expansionState, open: value })
       return
@@ -376,7 +375,7 @@ export function ActivityRow({
       <button
         type="button"
         onClick={() => {
-          if (canOpen) setIsOpen((value) => !value)
+          if (canOpen) setIsOpen(!isOpen)
         }}
         className="group flex min-w-0 w-full cursor-default items-center gap-2 py-1.5 text-xs text-text-weaker transition-colors duration-200 hover:text-text-weak active:scale-[0.98]"
       >
