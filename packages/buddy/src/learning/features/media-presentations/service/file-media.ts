@@ -268,10 +268,7 @@ function fileMimeType(filepath: string) {
   return mimeTypeForPath(filepath, DEFAULT_BINARY_MIME_TYPE)
 }
 
-function classifyPresentedMedia(input: { path: string; mimeType: string | undefined }): {
-  mediaKind: PresentedMediaKind
-  renderMode: PresentedMediaRenderMode
-} {
+function classifyPresentedMedia(input: { path: string; mimeType: string | undefined }) {
   const classification = classifyWorkspaceMedia({
     path: input.path,
     mimeType: input.mimeType,

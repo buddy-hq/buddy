@@ -301,10 +301,7 @@ function ignoreBenchBrokerTerminal(_terminal: BenchBrokerTerminal): void {
   return undefined
 }
 
-function createBenchBrokerDeferred(): {
-  completion: Promise<BenchBrokerTerminal>
-  resolve: (terminal: BenchBrokerTerminal) => void
-} {
+function createBenchBrokerDeferred() {
   let resolveCompletion: (terminal: BenchBrokerTerminal) => void = ignoreBenchBrokerTerminal
   const completion = new Promise<BenchBrokerTerminal>((resolve) => {
     resolveCompletion = resolve

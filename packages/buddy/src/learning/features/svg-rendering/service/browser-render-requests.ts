@@ -109,10 +109,7 @@ function ignoreBrowserSvgRenderTerminal(_terminal: BrowserSvgRenderTerminal): vo
   return undefined
 }
 
-function createBrowserSvgRenderDeferred(): {
-  completion: Promise<BrowserSvgRenderTerminal>
-  resolve: (terminal: BrowserSvgRenderTerminal) => void
-} {
+function createBrowserSvgRenderDeferred() {
   let resolveCompletion: (terminal: BrowserSvgRenderTerminal) => void =
     ignoreBrowserSvgRenderTerminal
   const completion = new Promise<BrowserSvgRenderTerminal>((resolve) => {

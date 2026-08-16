@@ -223,7 +223,7 @@ const MERMAID_EXECUTABLE_SVG_ELEMENT_NAMES = [
   "link",
   "meta",
 ] as const
-const MERMAID_HTML_CHARACTER_REFERENCES: Record<string, string> = {
+const MERMAID_HTML_CHARACTER_REFERENCES = {
   amp: "&",
   apos: "'",
   colon: ":",
@@ -232,7 +232,7 @@ const MERMAID_HTML_CHARACTER_REFERENCES: Record<string, string> = {
   NewLine: "\n",
   quot: '"',
   Tab: "\t",
-}
+} satisfies Record<string, string>
 const MERMAID_HTML_CHARACTER_REFERENCE_PATTERN =
   /&(?:#x([\da-f]+)|#(\d+)|([A-Za-z][A-Za-z\d]+));?/giu
 const MERMAID_UNSAFE_REFERENCE_SCHEME_PATTERN = /^(?:javascript:|data:text\/html)/iu

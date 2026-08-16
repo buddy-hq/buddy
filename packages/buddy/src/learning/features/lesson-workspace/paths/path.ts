@@ -1,7 +1,7 @@
 import path from "node:path"
 import type { TeachingLanguage } from "../model/types"
 
-const LANGUAGE_EXTENSIONS: Record<TeachingLanguage, string> = {
+const LANGUAGE_EXTENSIONS = {
   txt: ".txt",
   ts: ".ts",
   tsx: ".tsx",
@@ -42,7 +42,7 @@ const LANGUAGE_EXTENSIONS: Record<TeachingLanguage, string> = {
   hs: ".hs",
   jl: ".jl",
   xml: ".xml",
-}
+} satisfies Record<TeachingLanguage, string>
 
 const EXTENSION_TO_LANGUAGE = Object.fromEntries(
   Object.entries(LANGUAGE_EXTENSIONS).map(([language, extension]) => [extension, language]),

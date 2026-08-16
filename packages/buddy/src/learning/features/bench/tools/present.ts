@@ -176,7 +176,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function normalizeBenchPresentInput(rawArgs: unknown): unknown {
+function normalizeBenchPresentInput(rawArgs: unknown) {
   if (!isRecord(rawArgs)) return rawArgs
 
   return {

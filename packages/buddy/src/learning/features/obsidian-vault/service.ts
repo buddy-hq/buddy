@@ -519,7 +519,7 @@ async function getObsidianVaultIndex(directory: string): Promise<ObsidianVaultIn
   return index
 }
 
-function parseObsidianTarget(target: string): { file: string; fragment?: string } {
+function parseObsidianTarget(target: string) {
   const normalized = target.trim()
   const fragmentStart = normalized.indexOf("#")
   if (fragmentStart < 0) {

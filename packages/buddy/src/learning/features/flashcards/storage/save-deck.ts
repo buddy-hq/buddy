@@ -79,7 +79,7 @@ function buildFlashcardNotesAndCards(
   objectID: string,
   inputs: SaveFlashcardNoteInput[],
   config: typeof DECK_CONFIG_DEFAULTS,
-): { notes: FlashcardNote[]; cards: FlashcardCard[] } {
+) {
   const notes: FlashcardNote[] = []
   const cards: FlashcardCard[] = []
 
