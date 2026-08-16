@@ -13,8 +13,20 @@ import {
   readPromptSelectionContextMetadata,
   SELECTION_CONTEXT_PART_TYPE,
   type PromptReadingSelectionPart,
+  type PromptReadingSelectionContextPart,
+  type PromptMarkdownSelectionContextPart,
   type PromptSelectionContextPart,
 } from "@/components/prompt/prompt-types"
+
+type TReadingSelectionBase = Pick<PromptReadingSelectionPart, "type" | "text" | "anchor">
+type TMarkdownSelectionContextBase = Pick<
+  PromptMarkdownSelectionContextPart,
+  "type" | "source" | "text" | "selectionKey"
+>
+type TReadingSelectionContextBase = Pick<
+  PromptReadingSelectionContextPart,
+  "type" | "source" | "text" | "selectionKey" | "anchor"
+>
 
 export type ChatFilePart = MessagePart & SdkFilePart
 export type ChatAgentPart = MessagePart & SdkAgentPart
@@ -98,16 +110,25 @@ export function readChatReadingSelectionPart(
       const tocLabel = readOptionalString(part.tocLabel)
       const pageLabel = readOptionalString(part.pageLabel)
       const locationLabel = readOptionalString(part.locationLabel)
-      return addMessageIdentity(part, {
+      const readingSelection: TReadingSelectionBase = {
         type: READING_SELECTION_PART_TYPE,
         text: part.text,
-        ...(selectionKey ? { selectionKey } : {}),
-        ...(resourceKey ? { resourceKey } : {}),
         anchor,
-        ...(tocLabel ? { tocLabel } : {}),
-        ...(pageLabel ? { pageLabel } : {}),
-        ...(locationLabel ? { locationLabel } : {}),
-      })
+      }
+      return addMessageIdentity(
+        part,
+        Object.assign(
+          readingSelection,
+          selectionKey ? { selectionKey } : undefined,
+          resourceKey ? { resourceKey } : undefined,
+          Object.assign(
+            {},
+            tocLabel ? { tocLabel } : undefined,
+            pageLabel ? { pageLabel } : undefined,
+            locationLabel ? { locationLabel } : undefined,
+          ),
+        ),
+      )
     }
 
     if (
@@ -119,15 +140,21 @@ export function readChatReadingSelectionPart(
       const path = readOptionalString(part.path)
       const version = readOptionalString(part.version)
       const headingPath = readOptionalStringArray(part.headingPath)
-      return addMessageIdentity(part, {
+      const markdownSelection: TMarkdownSelectionContextBase = {
         type: SELECTION_CONTEXT_PART_TYPE,
         source: "markdown",
         text: part.text,
         selectionKey: part.selectionKey,
-        ...(path ? { path } : {}),
-        ...(version ? { version } : {}),
-        ...(headingPath ? { headingPath } : {}),
-      })
+      }
+      return addMessageIdentity(
+        part,
+        Object.assign(
+          markdownSelection,
+          path ? { path } : undefined,
+          version ? { version } : undefined,
+          headingPath ? { headingPath } : undefined,
+        ),
+      )
     }
 
     if (
@@ -142,17 +169,26 @@ export function readChatReadingSelectionPart(
       const tocLabel = readOptionalString(part.tocLabel)
       const pageLabel = readOptionalString(part.pageLabel)
       const locationLabel = readOptionalString(part.locationLabel)
-      return addMessageIdentity(part, {
+      const readingContext: TReadingSelectionContextBase = {
         type: SELECTION_CONTEXT_PART_TYPE,
         source: "reading",
         text: part.text,
         selectionKey: part.selectionKey,
-        ...(resourceKey ? { resourceKey } : {}),
         anchor,
-        ...(tocLabel ? { tocLabel } : {}),
-        ...(pageLabel ? { pageLabel } : {}),
-        ...(locationLabel ? { locationLabel } : {}),
-      })
+      }
+      return addMessageIdentity(
+        part,
+        Object.assign(
+          readingContext,
+          resourceKey ? { resourceKey } : undefined,
+          Object.assign(
+            {},
+            tocLabel ? { tocLabel } : undefined,
+            pageLabel ? { pageLabel } : undefined,
+            locationLabel ? { locationLabel } : undefined,
+          ),
+        ),
+      )
     }
   }
 

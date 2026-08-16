@@ -99,7 +99,7 @@ import {
   readActiveChatTransitionID,
   registerActiveChatDestinationLayout,
 } from "@/lib/active-chat-transition-state"
-import type { ChatTranscriptProps } from "./types"
+import type { ChatTranscriptProps, TForkMessageInput, TRetryActionInput } from "./types"
 
 const HISTORY_PREPEND_TOP_THRESHOLD_PX = 160
 const TIMELINE_PADDING_END_PX = 64
@@ -718,10 +718,11 @@ function TimelineAssistantRow(props: {
   const rowActive = props.row.active
   const onForkMessage = useCallback(() => {
     if (!requestFork || !assistantSessionID || rowActive) return
-    return requestFork({
-      sessionID: assistantSessionID,
-      ...(forkExclusiveMessageID ? { messageID: forkExclusiveMessageID } : {}),
-    })
+    const input: TForkMessageInput = Object.assign(
+      { sessionID: assistantSessionID },
+      forkExclusiveMessageID ? { messageID: forkExclusiveMessageID } : undefined,
+    )
+    return requestFork(input)
   }, [assistantSessionID, forkExclusiveMessageID, requestFork, rowActive])
   const availableOnForkMessage =
     requestFork && assistantSessionID && !rowActive ? onForkMessage : undefined
@@ -953,13 +954,16 @@ function TimelineRowRenderer(props: {
         >
           <SessionRetryNotice
             model={retryRow.model}
-            onAction={(action) =>
-              props.onRetryAction?.({
-                action,
-                userMessageID: retryRow.userMessageID,
-                ...(retryRow.model.action?.link ? { link: retryRow.model.action.link } : {}),
-              })
-            }
+            onAction={(action) => {
+              const input: TRetryActionInput = Object.assign(
+                {
+                  action,
+                  userMessageID: retryRow.userMessageID,
+                },
+                retryRow.model.action?.link ? { link: retryRow.model.action.link } : undefined,
+              )
+              props.onRetryAction?.(input)
+            }}
           />
         </article>
       )

@@ -122,21 +122,23 @@ function IngestFullTextTool({
   const canOpenDefaultApp = platform.openPath !== undefined
   const openInput = useMemo<WorkspaceFileActionInput | undefined>(() => {
     if (!directory || !resourcePath || !matchedResource) return undefined
-    return {
-      path: resourcePath,
-      absolutePath: absoluteWorkspaceFilePath({
-        directory,
+    return Object.assign(
+      {
         path: resourcePath,
-      }),
-      name: resourceName,
-      ...(resourceObjectID ? { objectID: resourceObjectID } : {}),
-      ...(resourceStatus ? { resourceStatus } : {}),
-      ...(sourceSizeBytes !== undefined ? { sizeBytes: sourceSizeBytes } : {}),
-      available: completed && matchedResource.status === "ready",
-      canOpenInBuddy: true,
-      canOpenDefaultApp,
-      canReveal: false,
-    }
+        absolutePath: absoluteWorkspaceFilePath({
+          directory,
+          path: resourcePath,
+        }),
+        name: resourceName,
+        available: completed && matchedResource.status === "ready",
+        canOpenInBuddy: true,
+        canOpenDefaultApp,
+        canReveal: false,
+      },
+      resourceObjectID ? { objectID: resourceObjectID } : undefined,
+      resourceStatus ? { resourceStatus } : undefined,
+      sourceSizeBytes !== undefined ? { sizeBytes: sourceSizeBytes } : undefined,
+    )
   }, [
     canOpenDefaultApp,
     completed,

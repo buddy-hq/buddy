@@ -63,9 +63,9 @@ export type SubmitQuestionSetAttemptOutput = {
   result: QuestionSetEvaluationResult
 }
 
-type AnswerState = Record<string, string[]>
-type QuestionSetInlineSessionState = {
-  answers: AnswerState
+type TAnswerState = Record<string, string[]>
+type TQuestionSetInlineSessionState = {
+  answers: TAnswerState
   error?: string
   randomizeSeed: number
   result?: QuestionSetEvaluationResult
@@ -74,7 +74,7 @@ type QuestionSetInlineSessionState = {
 
 const HASH_OFFSET_BASIS = 2166136261
 const HASH_MULTIPLIER = 16777619
-const questionSetInlineSessionState = new Map<string, QuestionSetInlineSessionState>()
+const questionSetInlineSessionState = new Map<string, TQuestionSetInlineSessionState>()
 
 function questionStatusLabel(correct: boolean | undefined): string | undefined {
   if (correct === undefined) {
@@ -135,7 +135,7 @@ export function QuestionSetInlineView(props: {
 }) {
   const persistKey = props.persistKey ?? props.questionSet.objectID
   const cachedState = questionSetInlineSessionState.get(persistKey)
-  const [answers, setAnswers] = useState<AnswerState>(cachedState?.answers ?? {})
+  const [answers, setAnswers] = useState<TAnswerState>(cachedState?.answers ?? {})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | undefined>(cachedState?.error)
   const [result, setResult] = useState<QuestionSetEvaluationResult | undefined>(cachedState?.result)
@@ -170,13 +170,16 @@ export function QuestionSetInlineView(props: {
   const [slideDirection, setSlideDirection] = useState<1 | -1>(1)
 
   useEffect(() => {
-    questionSetInlineSessionState.set(persistKey, {
-      answers,
-      ...(error ? { error } : {}),
-      randomizeSeed,
-      ...(result ? { result } : {}),
-      submissionID,
-    })
+    const sessionState: TQuestionSetInlineSessionState = Object.assign(
+      {
+        answers,
+        randomizeSeed,
+        submissionID,
+      },
+      error ? { error } : undefined,
+      result ? { result } : undefined,
+    )
+    questionSetInlineSessionState.set(persistKey, sessionState)
   }, [answers, error, persistKey, randomizeSeed, result, submissionID])
 
   function updateAnswer(questionID: string, nextSelectedChoiceIds: string[]) {

@@ -137,6 +137,12 @@ type BuddyObjectResult = {
   presentations: BuddyPresentationDescriptor[]
 }
 
+type TMediaGallerySource = MediaGalleryInlineData["items"][number]["source"]
+type TMediaGallerySourceBase = Pick<TMediaGallerySource, "role" | "path" | "availability">
+type TQuestionSetChoice = QuestionSetInlineChoice
+type TQuestionSetPayload = QuestionSetInlineQuestion["payload"]
+type TQuestionSetQuestion = QuestionSetInlineQuestion
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -263,13 +269,17 @@ function readSourceData(
       : undefined
   if (!role || !path || !availability) return undefined
   if (workspacePath === undefined && "workspacePath" in value) return undefined
-  return {
+  const sourceBase: TMediaGallerySourceBase = {
     role,
     path,
-    ...(displayPath ? { displayPath } : {}),
-    ...(workspacePath !== undefined ? { workspacePath } : {}),
     availability,
   }
+  const source: TMediaGallerySource = Object.assign(
+    sourceBase,
+    displayPath ? { displayPath } : undefined,
+    workspacePath !== undefined ? { workspacePath } : undefined,
+  )
+  return source
 }
 
 function readMediaItem(value: unknown): MediaGalleryInlineData["items"][number] | undefined {
@@ -318,11 +328,14 @@ function readQuestionSetChoice(value: unknown): QuestionSetInlineChoice | undefi
   const isNoneOfTheAbove = readOptionalBooleanField(value, "isNoneOfTheAbove")
   if (!id || !content) return undefined
   if ("isNoneOfTheAbove" in value && isNoneOfTheAbove === undefined) return undefined
-  return {
-    id,
-    content,
-    ...(isNoneOfTheAbove !== undefined ? { isNoneOfTheAbove } : {}),
-  }
+  const choice: TQuestionSetChoice = Object.assign(
+    {
+      id,
+      content,
+    },
+    isNoneOfTheAbove !== undefined ? { isNoneOfTheAbove } : undefined,
+  )
+  return choice
 }
 
 function readQuestionSetPayload(value: unknown): QuestionSetInlineQuestion["payload"] | undefined {
@@ -349,14 +362,20 @@ function readQuestionSetPayload(value: unknown): QuestionSetInlineQuestion["payl
   }
   if ("hasNoneOfTheAbove" in value && hasNoneOfTheAbove === undefined) return undefined
   if ("randomize" in value && randomize === undefined) return undefined
-  return {
-    multipleSelect,
-    ...(countChoices !== undefined ? { countChoices } : {}),
-    ...(numCorrect !== undefined ? { numCorrect } : {}),
-    ...(hasNoneOfTheAbove !== undefined ? { hasNoneOfTheAbove } : {}),
-    ...(randomize !== undefined ? { randomize } : {}),
-    choices,
-  }
+  const payload: TQuestionSetPayload = Object.assign(
+    {
+      multipleSelect,
+      choices,
+    },
+    countChoices !== undefined ? { countChoices } : undefined,
+    numCorrect !== undefined ? { numCorrect } : undefined,
+    Object.assign(
+      {},
+      hasNoneOfTheAbove !== undefined ? { hasNoneOfTheAbove } : undefined,
+      randomize !== undefined ? { randomize } : undefined,
+    ),
+  )
+  return payload
 }
 
 function readQuestionSetQuestion(value: unknown): QuestionSetInlineQuestion | undefined {
@@ -368,13 +387,16 @@ function readQuestionSetQuestion(value: unknown): QuestionSetInlineQuestion | un
   const payload = readQuestionSetPayload(value.payload)
   if (!id || !prompt || !goalIds || !payload) return undefined
   if ("explanation" in value && !explanation) return undefined
-  return {
-    id,
-    prompt,
-    goalIds,
-    ...(explanation ? { explanation } : {}),
-    payload,
-  }
+  const question: TQuestionSetQuestion = Object.assign(
+    {
+      id,
+      prompt,
+      goalIds,
+      payload,
+    },
+    explanation ? { explanation } : undefined,
+  )
+  return question
 }
 
 function readQuestionSetInlineObject(value: unknown): QuestionSetInlineObject | undefined {

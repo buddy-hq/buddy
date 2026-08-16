@@ -31,16 +31,23 @@ import type { ToolState } from "../types"
  * never a card: a reference to the thing, not a copy of it.
  */
 
-type BenchPresentReceipt = {
+type TBenchPresentReceipt = {
   key: string
   target: BenchTarget
   model: ObjectModel
 }
 
+type TBenchPresentDescriptorBase = {
+  target: BenchTarget
+  kind: ObjectPresentationKind
+  title: string
+  status: typeof OBJECT_STATUS_READY
+}
+
 function readBenchPresentReceipt(
   state: ToolState,
   directory: string | undefined,
-): BenchPresentReceipt | undefined {
+): TBenchPresentReceipt | undefined {
   if (state.metadata.benchStatus !== "presented") return undefined
   const target = readBenchTarget(state.metadata.benchTarget)
   if (!target) return undefined
@@ -57,21 +64,26 @@ function readBenchPresentReceipt(
     summary?.title ?? (target.type === "workspace-file" ? fileNameFromPath(target.path) : "")
   if (!title) return undefined
 
+  const descriptor: TBenchPresentDescriptorBase = {
+    target,
+    kind,
+    title,
+    status: OBJECT_STATUS_READY,
+  }
   return {
     key: benchTargetKey(target),
     target,
-    model: describeObject({
-      target,
-      kind,
-      title,
-      status: OBJECT_STATUS_READY,
-      // Lets a presented image show itself rather than a generic file mark.
-      ...(directory ? { directory } : {}),
-    }),
+    model: describeObject(
+      Object.assign(
+        descriptor,
+        // Lets a presented image show itself rather than a generic file mark.
+        directory ? { directory } : undefined,
+      ),
+    ),
   }
 }
 
-function BenchPresentReceiptRow(props: { receipt: BenchPresentReceipt; directory?: string }) {
+function BenchPresentReceiptRow(props: { receipt: TBenchPresentReceipt; directory?: string }) {
   const openBench = useOpenBench()
   const directory = props.directory
 
@@ -110,7 +122,7 @@ export function renderBenchPresentTool(props: ToolPartProps) {
  * first receipt did not.
  */
 export function GroupedBenchPresentToolCard(props: { parts: MessagePart[]; directory?: string }) {
-  const receipts: BenchPresentReceipt[] = []
+  const receipts: TBenchPresentReceipt[] = []
   const seen = new Set<string>()
 
   for (const part of props.parts) {

@@ -33,6 +33,18 @@ export type ChatTurn = {
   assistants: MessageWithParts[]
 }
 
+export type TForkMessageInput = {
+  sessionID: string
+  /** Exclusive upper bound (keep id < messageID). Omit to clone the full session. */
+  messageID?: string
+}
+
+export type TRetryActionInput = {
+  action: RetryActionID
+  userMessageID: string
+  link?: string
+}
+
 export type ChatTranscriptProps = {
   directory?: string
   /** Defaults to the directory's active session; Bench tabs bind an explicit parallel session. */
@@ -46,13 +58,9 @@ export type ChatTranscriptProps = {
   markProgrammaticScroll?: (element: HTMLElement, top: number) => void
   onOpenSession?: (sessionID: string) => void
   onOpenResource?: (directory: string, resource: ResourceReadingTarget) => void
-  onForkMessage?: (input: {
-    sessionID: string
-    /** Exclusive upper bound (keep id < messageID). Omit to clone the full session. */
-    messageID?: string
-  }) => Promise<void> | void
+  onForkMessage?: (input: TForkMessageInput) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
-  onRetryAction?: (input: { action: RetryActionID; userMessageID: string; link?: string }) => void
+  onRetryAction?: (input: TRetryActionInput) => void
   onContinueTruncated?: (input: { userMessageID: string }) => void
 }
 
