@@ -59,18 +59,21 @@ const FoliateReaderFontPresetSchema = z.union([
   z.literal(FONT_SANS),
 ])
 
+// Every field is read independently, as origin did with per-field typeof checks. A single stale
+// or out-of-enum preference must not discard the whole record — that silently reverts every
+// reader preference to its default.
 const FoliatePreferencesSchema = z.object({
-  themeId: FoliateReaderThemeIdSchema.optional(),
-  flow: FoliateReaderFlowSchema.optional(),
-  fontPreset: FoliateReaderFontPresetSchema.optional(),
-  fontScaleRem: z.number().optional(),
-  lineHeight: z.number().optional(),
-  marginPx: z.number().optional(),
-  gapPercent: z.number().optional(),
-  maxInlineSizePx: z.number().optional(),
-  maxBlockSizePx: z.number().optional(),
-  justify: z.boolean().optional(),
-  hyphenate: z.boolean().optional(),
+  themeId: FoliateReaderThemeIdSchema.optional().catch(undefined),
+  flow: FoliateReaderFlowSchema.optional().catch(undefined),
+  fontPreset: FoliateReaderFontPresetSchema.optional().catch(undefined),
+  fontScaleRem: z.number().optional().catch(undefined),
+  lineHeight: z.number().optional().catch(undefined),
+  marginPx: z.number().optional().catch(undefined),
+  gapPercent: z.number().optional().catch(undefined),
+  maxInlineSizePx: z.number().optional().catch(undefined),
+  maxBlockSizePx: z.number().optional().catch(undefined),
+  justify: z.boolean().optional().catch(undefined),
+  hyphenate: z.boolean().optional().catch(undefined),
 })
 
 const FoliateBookmarkSchema = z.object({
@@ -91,10 +94,18 @@ const FoliateAnnotationSchema = z.object({
   index: z.number().optional(),
 })
 
+// Each field and each array item is read independently: a malformed bookmark must not
+// discard lastLocation or its sibling records, which is how a stored position gets lost.
 const FoliateBookStateSchema = z.object({
-  lastLocation: z.string().optional(),
-  bookmarks: z.array(FoliateBookmarkSchema).optional(),
-  annotations: z.array(FoliateAnnotationSchema).optional(),
+  lastLocation: z.string().optional().catch(undefined),
+  bookmarks: z
+    .array(FoliateBookmarkSchema.optional().catch(undefined))
+    .optional()
+    .catch(undefined),
+  annotations: z
+    .array(FoliateAnnotationSchema.optional().catch(undefined))
+    .optional()
+    .catch(undefined),
 })
 
 function parseStoredJson<T>(raw: string | null, schema: z.ZodType<T>): T | undefined {
@@ -167,12 +178,17 @@ export function saveGlobalPreferences(preferences: FoliateReaderPreferences) {
   })
 }
 
+function definedItems<TItem>(values: readonly (TItem | undefined)[] | undefined): TItem[] {
+  if (values === undefined) return []
+  return values.filter((value): value is TItem => value !== undefined)
+}
+
 export function loadBookState(bookKey: string): FoliateBookState {
   const parsed = parseStoredJson(safeReadStorage(bookKey), FoliateBookStateSchema)
   return {
     lastLocation: parsed?.lastLocation,
-    bookmarks: parsed?.bookmarks ?? [],
-    annotations: parsed?.annotations ?? [],
+    bookmarks: definedItems(parsed?.bookmarks),
+    annotations: definedItems(parsed?.annotations),
   }
 }
 

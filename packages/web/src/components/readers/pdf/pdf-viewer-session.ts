@@ -143,11 +143,13 @@ type PdfWheelPageTurnGesture = {
   lastEventAt: number | undefined
 }
 
+// Each field is read independently: PDF.js sends `pageLabel: null` for documents without
+// /PageLabels, and a mismatched field must not discard the rest of the event.
 const PdfViewerEventSchema = z.object({
-  pageNumber: z.number().finite().optional(),
-  pageLabel: z.string().optional(),
-  scale: z.number().finite().optional(),
-  presetValue: z.string().optional(),
+  pageNumber: z.number().finite().optional().catch(undefined),
+  pageLabel: z.string().optional().catch(undefined),
+  scale: z.number().finite().optional().catch(undefined),
+  presetValue: z.string().optional().catch(undefined),
 })
 
 type TPdfViewerBusEvent = {

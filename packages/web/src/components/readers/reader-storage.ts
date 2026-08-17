@@ -140,11 +140,16 @@ const StoredPreferencesSchema = z.object({
   pdfMode: PdfReaderModeSchema.optional(),
 })
 
-const LegacyPreferencesSchema = z.object({
-  themeId: ReaderThemeIdSchema.optional(),
-  reduceMotion: z.boolean().optional(),
-  autohideCursor: z.boolean().optional(),
-  flow: FoliateFlowSchema.optional(),
+// Loose on purpose. saveReaderPreferences reads this record, merges three fields over it, and
+// writes it back to the shared foliate key, which also holds marginPx, fontScaleRem, lineHeight,
+// gapPercent, maxInlineSizePx, maxBlockSizePx, justify and hyphenate. A non-loose z.object strips
+// undeclared keys, so the write-back would delete those eight preferences from storage. Origin
+// spread the whole raw record (`isObjectRecord(legacyValue) ? legacyValue : {}`).
+const LegacyPreferencesSchema = z.looseObject({
+  themeId: ReaderThemeIdSchema.optional().catch(undefined),
+  reduceMotion: z.boolean().optional().catch(undefined),
+  autohideCursor: z.boolean().optional().catch(undefined),
+  flow: FoliateFlowSchema.optional().catch(undefined),
 })
 
 const StoredBookmarkSchema = z.object({
@@ -171,13 +176,25 @@ const ReaderDocumentIdentitySchema = z.object({
   contentFingerprint: z.string().max(MAX_READER_LABEL_LENGTH).optional(),
 })
 
+// `version` and `identity` are the envelope and must hold. Everything else is read
+// independently so one stale sibling — a bookmark missing `created`, a pdfMode whose
+// custom scaleMode lost its scale — cannot discard the saved reading position.
+// Items are validated per entry below by readReaderBookmark / readReaderAnnotation.
 const StoredDocumentStateSchema = z.object({
   version: z.literal(READER_STATE_VERSION),
   identity: ReaderDocumentIdentitySchema,
   lastLocation: z.unknown().optional(),
-  bookmarks: z.array(StoredBookmarkSchema).max(MAX_READER_BOOKMARKS).optional(),
-  annotations: z.array(StoredAnnotationSchema).max(MAX_READER_ANNOTATIONS).optional(),
-  pdfMode: PdfReaderModeSchema.optional(),
+  bookmarks: z
+    .array(StoredBookmarkSchema.optional().catch(undefined))
+    .max(MAX_READER_BOOKMARKS)
+    .optional()
+    .catch(undefined),
+  annotations: z
+    .array(StoredAnnotationSchema.optional().catch(undefined))
+    .max(MAX_READER_ANNOTATIONS)
+    .optional()
+    .catch(undefined),
+  pdfMode: PdfReaderModeSchema.optional().catch(undefined),
 })
 
 const LegacyPdfRecordSchema = z.object({
@@ -686,12 +703,14 @@ export function loadStoredReaderDocumentState(
   const bookmarks = (value.bookmarks ?? [])
     .slice(0, MAX_READER_BOOKMARKS)
     .flatMap((entry) => {
+      if (entry === undefined) return []
       const bookmark = readReaderBookmark(entry)
       return bookmark && positionAnchorMatchesFormat(bookmark.anchor, format) ? [bookmark] : []
     })
   const annotations = (value.annotations ?? [])
     .slice(0, MAX_READER_ANNOTATIONS)
     .flatMap((entry) => {
+      if (entry === undefined) return []
       const annotation = readReaderAnnotation(entry)
       return annotation && textAnchorMatchesFormat(annotation.anchor, format) ? [annotation] : []
     })

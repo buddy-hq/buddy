@@ -62,17 +62,34 @@ const PdfCoordinateConverterSchema = z.custom<(x: number, y: number) => TPdfCoor
   (value) => z.function().safeParse(value).success,
 )
 
+type TPdfJsViewport = {
+  width: number
+  height: number
+  convertToPdfPoint: (x: number, y: number) => TPdfCoordinateResult
+  convertToViewportPoint: (x: number, y: number) => TPdfCoordinateResult
+}
+
+const pdfJsViewportContractSchema = z.object({
+  width: z.number().finite(),
+  height: z.number().finite(),
+  convertToPdfPoint: PdfCoordinateConverterSchema,
+  convertToViewportPoint: PdfCoordinateConverterSchema,
+})
+
+// PDF.js viewport methods read internal state off `this` (notably `this.transform`), and a
+// zod object schema rebuilds its output as a plain object — which strips that state and makes
+// the converters throw on the first coordinate conversion. Validate the shape, then pass the
+// original PageViewport instance through by reference.
+const PdfJsViewportSchema = z.custom<TPdfJsViewport>(
+  (value) => pdfJsViewportContractSchema.safeParse(value).success,
+)
+
 export const PdfJsPageViewSchema = z.object({
   div: z.instanceof(HTMLDivElement),
   textLayer: z.object({
     div: z.instanceof(HTMLDivElement),
   }),
-  viewport: z.object({
-    width: z.number().finite(),
-    height: z.number().finite(),
-    convertToPdfPoint: PdfCoordinateConverterSchema,
-    convertToViewportPoint: PdfCoordinateConverterSchema,
-  }),
+  viewport: PdfJsViewportSchema,
   pdfPage: z.object({
     view: z.array(z.number().finite()).min(4),
   }),

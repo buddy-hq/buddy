@@ -5,12 +5,17 @@ export type TPdfPageReference = {
   gen: number
 }
 
+export type TPdfDestinationMode = {
+  name: string
+}
+
 export type TPdfDestinationElement =
   | string
   | number
   | boolean
   | null
   | TPdfPageReference
+  | TPdfDestinationMode
   | readonly TPdfDestinationElement[]
 
 export type TPdfExplicitDestination = readonly TPdfDestinationElement[]
@@ -28,6 +33,13 @@ export const PdfPageReferenceSchema = z.object({
   gen: z.number().int(),
 })
 
+// PDF.js explicit destinations carry a mode object after the page reference —
+// `[{ num, gen }, { name: "Fit" }]`, `[{ num, gen }, { name: "XYZ" }, left, top, zoom]`.
+// Only element [0] is ever inspected, so trailing slots must not fail the array.
+export const PdfDestinationModeSchema = z.object({
+  name: z.string(),
+})
+
 export const PdfDestinationElementSchema: z.ZodType<TPdfDestinationElement> = z.lazy(() =>
   z.union([
     z.string(),
@@ -35,6 +47,7 @@ export const PdfDestinationElementSchema: z.ZodType<TPdfDestinationElement> = z.
     z.boolean(),
     z.null(),
     PdfPageReferenceSchema,
+    PdfDestinationModeSchema,
     z.array(PdfDestinationElementSchema),
   ]),
 )
