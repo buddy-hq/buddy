@@ -1,4 +1,4 @@
-import { app } from "electron"
+import { app, dialog } from "electron"
 import log from "electron-log/main.js"
 import { dirname, join } from "node:path"
 import {
@@ -11,26 +11,39 @@ import {
   mkdirSync,
 } from "node:fs"
 
-import { parseTErrorCode } from "../shared/parse-external"
+import {
+  attachBrokenStandardIoErrorHandler,
+  isBrokenStandardIoError,
+} from "./broken-standard-io"
 
 const MAX_LOG_AGE_DAYS = 7
 const LOG_SIZE_LIMIT_BYTES = 5 * 1024 * 1024
 const LOG_TAIL_LINES = 1000
 const MAIN_LOG_FILENAME = "main.log"
-const BROKEN_STANDARD_IO_ERROR_CODES = new Set(["EIO", "EPIPE", "ERR_STREAM_DESTROYED"])
+const UNCAUGHT_MAIN_PROCESS_ERROR_TITLE = "A JavaScript error occurred in the main process"
+const CONSOLE_TRANSPORT_DISABLED_LEVEL = false
+
+let consoleTransportDisabled = false
+let brokenStandardIoGuardsInstalled = false
 
 export function initLogging() {
+  installBrokenStandardIoGuards()
   log.transports.file.resolvePathFn = () => ensureLogFilePath()
   log.transports.file.maxSize = LOG_SIZE_LIMIT_BYTES
   const writeConsoleTransport = log.transports.console.writeFn
   log.transports.console.writeFn = (options) => {
+    if (consoleTransportDisabled) return
     try {
       writeConsoleTransport(options)
     } catch (error) {
       if (!isBrokenStandardIoError(error)) {
         throw error
       }
+      disableConsoleTransport()
     }
+  }
+  if (app.isPackaged) {
+    disableConsoleTransport()
   }
   ensureLogFilePath()
   cleanupOldLogs()
@@ -39,11 +52,16 @@ export function initLogging() {
 
 export function safelyWriteToStandardStream(stream: NodeJS.WriteStream, chunk: string) {
   try {
-    stream.write(chunk)
+    stream.write(chunk, (error) => {
+      if (isBrokenStandardIoError(error)) {
+        disableConsoleTransport()
+      }
+    })
   } catch (error) {
     if (!isBrokenStandardIoError(error)) {
       throw error
     }
+    disableConsoleTransport()
   }
 }
 
@@ -56,6 +74,33 @@ export function tailLogs() {
   } catch {
     return ""
   }
+}
+
+function installBrokenStandardIoGuards() {
+  if (brokenStandardIoGuardsInstalled) return
+  brokenStandardIoGuardsInstalled = true
+
+  const onBrokenStandardIo = () => {
+    disableConsoleTransport()
+  }
+
+  attachBrokenStandardIoErrorHandler(process.stdout, onBrokenStandardIo)
+  attachBrokenStandardIoErrorHandler(process.stderr, onBrokenStandardIo)
+
+  process.on("uncaughtException", (error) => {
+    if (isBrokenStandardIoError(error)) {
+      disableConsoleTransport()
+      return
+    }
+
+    dialog.showErrorBox(UNCAUGHT_MAIN_PROCESS_ERROR_TITLE, error.stack ?? error.message)
+  })
+}
+
+function disableConsoleTransport() {
+  if (consoleTransportDisabled) return
+  consoleTransportDisabled = true
+  log.transports.console.level = CONSOLE_TRANSPORT_DISABLED_LEVEL
 }
 
 function cleanupOldLogs() {
@@ -102,9 +147,4 @@ function ensureLogFilePath() {
 function resolveLogFilePath() {
   const logsDirectory = app.getPath("logs")
   return join(logsDirectory, MAIN_LOG_FILENAME)
-}
-
-function isBrokenStandardIoError<TError>(error: TError) {
-  const code = parseTErrorCode(error)
-  return code !== undefined && BROKEN_STANDARD_IO_ERROR_CODES.has(code)
 }
