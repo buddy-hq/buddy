@@ -106,10 +106,13 @@ export function stringifyCaughtError<TError>(error: TError): string {
   }
 }
 
+// Presence check only, matching origin's `typeof document === "undefined"` guards and the sibling
+// browserWindow. An `instanceof Document` narrowing is realm-sensitive: it is false for a live
+// document whose constructor came from another realm, and callers then silently no-op — the
+// visibilitychange listener never attaches, and appearance/language never reach the document.
 export function browserDocument(): Document | undefined {
   if (!("document" in globalThis)) return undefined
-  const candidate = globalThis.document
-  return candidate instanceof Document ? candidate : undefined
+  return globalThis.document
 }
 
 export function browserWindow(): Window | undefined {
