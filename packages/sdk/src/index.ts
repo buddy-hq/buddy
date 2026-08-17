@@ -24,11 +24,13 @@ export function createBuddyClient(config?: Config & { directory?: string }): Bud
     }
   }
 
+  // No `fetch` fallback here. `...rest` already forwards a caller-supplied one, and the generated
+  // client falls back to `globalThis.fetch` itself, so restating it only duplicated that default --
+  // as a bare arrow that cannot satisfy `typeof fetch`, which carries Bun's `preconnect`.
   const client = createClient({
     baseUrl: "/api",
     ...rest,
     headers,
-    fetch: rest.fetch ?? ((request, init) => globalThis.fetch(request, init)),
   })
   return new BuddyClient({ client })
 }

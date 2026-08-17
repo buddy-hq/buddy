@@ -2,16 +2,22 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023", "DOM"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
     "composite": false,
+    "declaration": false,
+    "declarationMap": false,
     "noEmit": true,
     "strict": true,
     "types": ["node"]
   },
-  "include": ["scripts/**/*.ts"]
+  "include": [
+    "scripts/**/*.ts",
+    "../buddy/src/types/vendor-modules.d.ts",
+    "../buddy/src/node-zstd.d.ts"
+  ]
 }

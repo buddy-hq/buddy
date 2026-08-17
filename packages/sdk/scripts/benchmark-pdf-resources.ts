@@ -75,6 +75,16 @@ const app = readBackendApp(backendModule)
 const benchmarkRoot = await mkdtemp(path.join(os.tmpdir(), "buddy-pdf-resource-benchmark-"))
 const results: BenchmarkResult[] = []
 
+// The generated client types this as `typeof fetch`, which under Bun's globals is callable *and*
+// carries a `preconnect` method, so a bare async arrow does not satisfy it. Borrow the real
+// `preconnect` rather than asserting the shape. Requests are served by the in-process app, so it is
+// never actually reached.
+const appFetch: typeof fetch = Object.assign(
+  async (request: RequestInfo | URL, init?: RequestInit) =>
+    await app.fetch(new Request(request, init)),
+  { preconnect: globalThis.fetch.preconnect },
+)
+
 try {
   for (const mode of PDF_EXTRACTION_MODES) {
     process.env[PDF_EXTRACTION_MODE_ENV] = mode
@@ -89,11 +99,7 @@ try {
       const client = createBuddyClient({
         baseUrl: "http://buddy.local/api",
         directory: workspace,
-        fetch: async (request, init) => {
-          const normalizedRequest =
-            request instanceof Request ? new Request(request, init) : new Request(request, init)
-          return await app.fetch(normalizedRequest)
-        },
+        fetch: appFetch,
       })
       const startedAt = performance.now()
       const createdResponse = await client.objectResource.create(
