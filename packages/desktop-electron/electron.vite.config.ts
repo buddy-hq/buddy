@@ -79,7 +79,12 @@ export default defineConfig(({ command }) => ({
           "backend-utility": "src/main/backend-utility.ts",
         },
       },
-      externalizeDeps: { include: [...runtimePackages] },
+      // zod must be bundled, not externalized. backend-utility.ts parses its runtime boundaries
+      // with it, and that entry is forked on its own -- the smoke harness copies out/main to a
+      // temp directory with no node_modules beside it, so a bare `import { z } from "zod"` fails
+      // to resolve and the utility exits before it can report ready. Everything in
+      // runtimePackages is native or too heavy to inline and stays external.
+      externalizeDeps: { include: [...runtimePackages], exclude: ["zod"] },
     },
     plugins: [
       {
