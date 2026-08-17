@@ -85,9 +85,19 @@ const WhiteboardElementSchema = z
     // holding undefined, which the JSON record parse in parsePersistableWhiteboardElement
     // rejects. Readers coalesce with `?? undefined`, matching whiteboard-elements.ts.
     containerId: z.string().nullable().optional(),
-    label: z.union([z.string(), jsonObjectSchema]).nullable().optional(),
-    startBinding: jsonObjectSchema.nullable().optional(),
-    endBinding: jsonObjectSchema.nullable().optional(),
+    // Label and binding payloads stay opaque in the API contract. jsonObjectSchema admits
+    // `undefined` and NaN so live elements survive the round trip, but JSON Schema can represent
+    // neither: embedding it here made zod throw while building GET /doc, which 500s the route and
+    // takes SDK generation -- and therefore the whole release pipeline -- down with it.
+    // Nothing is validated away by loosening these. parsePersistableWhiteboardElement runs
+    // normalizePersistableElementLabel first, which already reduces every label to an object or
+    // drops the key, and program.ts reads bindings off the parseTJsonObject result rather than
+    // this inferred type.
+    // `.optional()` is load-bearing: zod 4 keeps a bare `z.unknown()` key required in the
+    // inferred type, which would force every caller to pass all three.
+    label: z.unknown().optional(),
+    startBinding: z.unknown().optional(),
+    endBinding: z.unknown().optional(),
   })
   .loose()
 
