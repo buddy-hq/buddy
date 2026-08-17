@@ -1,17 +1,5 @@
 import type { Context } from "hono"
-import { parseTJsonObject, parseTString, type TJsonValue } from "./parse"
-
-type TSdkErrorPayloadData = {
-  message?: string
-  name?: string
-}
-
-type TSdkErrorPayload = {
-  error?: string
-  message?: string
-  name?: string
-  data?: TSdkErrorPayloadData
-}
+import { parseTString, type TJsonValue } from "./parse"
 
 export type SdkResult<T> = {
   data?: T
@@ -19,32 +7,25 @@ export type SdkResult<T> = {
   response?: Response
 }
 
-function parseTSdkErrorPayloadData<TValue>(value: TValue): TSdkErrorPayloadData | undefined {
-  const record = parseTJsonObject(value)
-  if (record === undefined) return undefined
-  const message = parseTString(record.message)
-  const name = parseTString(record.name)
-  return Object.assign(
-    {},
-    message !== undefined ? { message } : undefined,
-    name !== undefined ? { name } : undefined,
-  )
+function readSdkStringField<TValue>(value: TValue, field: "error" | "message" | "name") {
+  if (!(value instanceof Object)) return undefined
+  if (field === "error") {
+    if (!("error" in value)) return undefined
+    return parseTString(value.error)
+  }
+  if (field === "message") {
+    if (!("message" in value)) return undefined
+    return parseTString(value.message)
+  }
+  if (!("name" in value)) return undefined
+  return parseTString(value.name)
 }
 
-function parseTSdkErrorPayload<TValue>(value: TValue): TSdkErrorPayload | undefined {
-  const record = parseTJsonObject(value)
-  if (record === undefined) return undefined
-  const error = parseTString(record.error)
-  const message = parseTString(record.message)
-  const name = parseTString(record.name)
-  const data = parseTSdkErrorPayloadData(record.data)
-  return Object.assign(
-    {},
-    error !== undefined ? { error } : undefined,
-    message !== undefined ? { message } : undefined,
-    name !== undefined ? { name } : undefined,
-    data !== undefined ? { data } : undefined,
-  )
+function readSdkErrorData<TValue>(value: TValue) {
+  if (!(value instanceof Object) || !("data" in value)) return undefined
+  const nested = value.data
+  if (!(nested instanceof Object)) return undefined
+  return nested
 }
 
 export function extractSdkErrorMessage<TError>(error: TError): string | undefined {
@@ -53,14 +34,20 @@ export function extractSdkErrorMessage<TError>(error: TError): string | undefine
     return text
   }
 
-  const data = parseTSdkErrorPayload(error)
-  if (data === undefined) return undefined
+  if (!(error instanceof Object)) return undefined
 
-  if (data.error !== undefined) return data.error
-  if (data.message !== undefined) return data.message
-  if (data.data?.message !== undefined) return data.data.message
-  if (data.name !== undefined && data.data?.name !== undefined) {
-    return `${data.name}: ${data.data.name}`
+  const payloadError = readSdkStringField(error, "error")
+  if (payloadError !== undefined) return payloadError
+  const payloadMessage = readSdkStringField(error, "message")
+  if (payloadMessage !== undefined) return payloadMessage
+  const nested = readSdkErrorData(error)
+  if (nested === undefined) return undefined
+  const nestedMessage = readSdkStringField(nested, "message")
+  if (nestedMessage !== undefined) return nestedMessage
+  const payloadName = readSdkStringField(error, "name")
+  const nestedName = readSdkStringField(nested, "name")
+  if (payloadName !== undefined && nestedName !== undefined) {
+    return `${payloadName}: ${nestedName}`
   }
   return undefined
 }

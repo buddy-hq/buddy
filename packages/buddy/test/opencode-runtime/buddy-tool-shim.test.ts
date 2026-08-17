@@ -201,6 +201,46 @@ describe("buddyToolToPluginTool shim", () => {
     expect(requireString(result.title, "title").length).toBeGreaterThan(0)
   })
 
+  test("keeps optional tool args when a sibling field is undefined", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const tool = createBuddyTool({
+      id: "optional_exec_test",
+      description: "Optional field execution test",
+      presentation: TEST_TOOL_PRESENTATION,
+      parameters: z.object({
+        name: z.string(),
+        count: z.number().optional(),
+      }),
+      async execute(args, _ctx) {
+        return {
+          title: "optional_exec_test",
+          output: args.name,
+          metadata: {},
+        }
+      },
+    })
+
+    const pluginTool = buddyToolToPluginTool(tool, project.path)
+    const result = expectToolObject(
+      await pluginTool.execute(
+        { name: "keep", count: undefined },
+        {
+          sessionID: "ses_test",
+          messageID: "msg_test",
+          agent: "buddy",
+          directory: project.path,
+          worktree: project.path,
+          abort: new AbortController().signal,
+          metadata() {},
+          ask: createCompatiblePluginAskHandler(),
+        },
+      ),
+    )
+
+    expect(result.output).toBe("keep")
+  })
+
   test("forwards ctx.ask through the plugin shim without InstanceRef errors", async () => {
     await using project = await tmpdir({ git: true })
     await loadOpenCodeApp()

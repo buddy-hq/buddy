@@ -50,7 +50,7 @@ type BuddyToolDefinition<
     args: z.infer<Parameters>,
     ctx: BuddyToolContext<Metadata>,
   ): Promise<Tool.ExecuteResult<Metadata>> | Tool.ExecuteResult<Metadata>
-  normalizeInput?(rawArgs: TJsonObject): TJsonObject
+  normalizeInput?<TRaw>(rawArgs: TRaw): TRaw | TJsonObject
   formatValidationError?(error: z.ZodError): string
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
@@ -222,9 +222,10 @@ async function runBuddyTool<
   const Id extends string,
   Parameters extends z.ZodType,
   Metadata extends TBuddyToolMetadata,
+  TRaw,
 >(
   definition: BuddyToolDefinition<Id, Parameters, Metadata>,
-  rawArgs: TJsonObject,
+  rawArgs: TRaw,
   ctx: BuddyToolContext<Metadata>,
 ): Promise<Tool.ExecuteResult<Metadata>> {
   const normalizedArgs = definition.normalizeInput ? definition.normalizeInput(rawArgs) : rawArgs
@@ -278,7 +279,7 @@ function createBuddyTool<
       constraints: clonedConstraints,
       presentation,
       run<TRaw>(rawArgs: TRaw, ctx: BuddyToolContext<Metadata>) {
-        return runBuddyTool(definition, parseJsonObject(rawArgs) ?? {}, ctx)
+        return runBuddyTool(definition, rawArgs, ctx)
       },
       toTool(directory: string) {
         return Tool.define(
@@ -290,9 +291,7 @@ function createBuddyTool<
               jsonSchema,
               execute(args, ctx: Tool.Context<Metadata>) {
                 const nextCtx = buddyToolContextFromEffectContext(directory, ctx)
-                return Effect.promise(() =>
-                  runBuddyTool(definition, parseJsonObject(args) ?? {}, nextCtx),
-                )
+                return Effect.promise(() => runBuddyTool(definition, args, nextCtx))
               },
             }
           }),

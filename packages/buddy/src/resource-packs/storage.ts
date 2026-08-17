@@ -38,13 +38,7 @@ import {
   estimateTokenCountFromText,
 } from "./chunking-config"
 import { resourceSourceSnapshotMatches } from "./source-match"
-import {
-  parseTJsonArray,
-  parseTJsonObject,
-  parseTNumber,
-  parseTString,
-  type TJsonObject,
-} from "./json-value"
+import { parseTNumber, parseTString } from "./json-value"
 
 const COVER_MEDIA_TYPE_JPEG = "image/jpeg" as const
 const COVER_MEDIA_TYPE_PNG = "image/png" as const
@@ -322,8 +316,8 @@ async function loadResourcePackMetadata(
   if (!existing) return undefined
 
   const parsed = matter(existing)
-  const data = parseTJsonObject(parsed.data)
-  if (!data) return undefined
+  const data = parsed.data
+  if (!isPlainMetadataRecord(data)) return undefined
 
   const sourcePath = metadataStringValue(data, "source_path")
   const sourceRelpath = metadataStringValue(data, "source_relpath")
@@ -545,12 +539,26 @@ async function writeBinaryFile(filepath: string, data: Buffer) {
   await fs.writeFile(filepath, data)
 }
 
-function metadataStringValue(record: TJsonObject, key: string) {
-  return parseTString(record[key]) ?? ""
+function isPlainMetadataRecord<TValue>(value: TValue): value is TValue & object {
+  if (value === null || value === undefined) return false
+  if (Array.isArray(value)) return false
+  return Object.prototype.toString.call(value) === "[object Object]"
 }
 
-function metadataNumberValue(record: TJsonObject, key: string, optional = false) {
-  const value = record[key]
+function metadataField<TRecord>(record: TRecord, key: string) {
+  if (!isPlainMetadataRecord(record)) return undefined
+  for (const [entryKey, entryValue] of Object.entries(record)) {
+    if (entryKey === key) return entryValue
+  }
+  return undefined
+}
+
+function metadataStringValue<TRecord>(record: TRecord, key: string) {
+  return parseTString(metadataField(record, key)) ?? ""
+}
+
+function metadataNumberValue<TRecord>(record: TRecord, key: string, optional = false) {
+  const value = metadataField(record, key)
   const numeric = parseTNumber(value)
   if (numeric !== undefined) return numeric
   const text = parseTString(value)
@@ -561,14 +569,15 @@ function metadataNumberValue(record: TJsonObject, key: string, optional = false)
   return optional ? undefined : 0
 }
 
-function metadataStringArrayValue(record: TJsonObject, key: string) {
-  const value = record[key]
-  const entries = parseTJsonArray(value)
-  if (entries !== undefined) {
-    return entries.flatMap((entry) => {
+function metadataStringArrayValue<TRecord>(record: TRecord, key: string) {
+  const value = metadataField(record, key)
+  if (Array.isArray(value)) {
+    const items: string[] = []
+    for (const entry of value) {
       const text = parseTString(entry)
-      return text === undefined ? [] : [text]
-    })
+      if (text !== undefined) items.push(text)
+    }
+    return items
   }
   const text = parseTString(value)
   if (text !== undefined && text.trim().length > 0) {
