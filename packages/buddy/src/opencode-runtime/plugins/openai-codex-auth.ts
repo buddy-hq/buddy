@@ -139,10 +139,13 @@ type TTokenErrorDetails = {
   errorDescription?: string
 }
 
+// Origin read these off a cast, so a numeric or absent `interval` still worked:
+// Number.parseInt coerces a number, and a missing value fell back to 5 seconds. Requiring a
+// string here would throw out of the OAuth authorize path instead.
 const deviceAuthorizationSchema = z.object({
   device_auth_id: z.string(),
   user_code: z.string(),
-  interval: z.string(),
+  interval: z.union([z.string(), z.number()]).optional(),
 })
 
 const deviceAuthorizationTokenSchema = z.object({
@@ -705,7 +708,8 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
           }
 
           const deviceData = deviceAuthorizationSchema.parse(await deviceResponse.json())
-          const interval = Math.max(Number.parseInt(deviceData.interval, 10) || 5, 1) * 1_000
+          const interval =
+            Math.max(Number.parseInt(String(deviceData.interval ?? ""), 10) || 5, 1) * 1_000
 
           return {
             url: `${OPENAI_CODEX_AUTH_ISSUER}/codex/device`,
