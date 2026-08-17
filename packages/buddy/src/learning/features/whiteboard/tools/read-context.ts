@@ -7,13 +7,13 @@ import {
   WHITEBOARD_CONTINUATION_HANDLE,
 } from "../service/store"
 import { buildWhiteboardLayoutDigest } from "../service/layout-digest"
-import type {
-  TJsonObject,
-  WhiteboardBoard,
-  WhiteboardBounds,
-  WhiteboardElement,
+import type { TJsonObject } from "../../../prompt/utils"
+import type { WhiteboardBoard, WhiteboardBounds, WhiteboardElement } from "../service/types"
+import {
+  parseNonEmptyTString,
+  parseTJsonObject,
+  readElementContainerID,
 } from "../service/types"
-import { parseNonEmptyTString, parseTJsonObject } from "../service/types"
 
 type TToolExecuteResult = {
   title: string
@@ -144,7 +144,8 @@ function formatContextElement(
   if (height !== undefined) formatted.height = round(height)
   if (text) formatted.text = text
   if (labelText) formatted.labelText = labelText
-  if (element.containerId !== undefined) formatted.containerId = element.containerId
+  const containerId = readElementContainerID(element)
+  if (containerId !== undefined) formatted.containerId = containerId
   const rawBounds = readElementBounds(element)
   if (renderBounds && (!rawBounds || boundsDiffer(rawBounds, renderBounds))) {
     formatted.renderBounds = roundBounds(renderBounds)
@@ -161,7 +162,9 @@ function formatVisibleTextElement(element: WhiteboardElement) {
       type: element.type,
       text,
     },
-    element.containerId !== undefined ? { containerId: element.containerId } : undefined,
+    readElementContainerID(element) !== undefined
+      ? { containerId: readElementContainerID(element) }
+      : undefined,
   )
 }
 

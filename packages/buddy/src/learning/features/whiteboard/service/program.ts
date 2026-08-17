@@ -8,6 +8,7 @@ import {
   WhiteboardViewportSchema,
   parseNonEmptyTString,
   parsePersistableWhiteboardElement,
+  readElementContainerID,
   parseTJsonObject,
   parseTString,
   type TJsonValue,
@@ -218,7 +219,8 @@ function withoutDeletedElements(
 ): WhiteboardElement[] {
   return elements.filter((element) => {
     if (ids.has(element.id)) return false
-    return element.containerId === undefined || !ids.has(element.containerId)
+    const containerId = readElementContainerID(element)
+    return containerId === undefined || !ids.has(containerId)
   })
 }
 
@@ -345,7 +347,8 @@ function translateElements(input: {
 }): WhiteboardElement[] {
   const expandedIDs = new Set(input.ids)
   for (const element of input.elements) {
-    if (element.containerId !== undefined && input.ids.has(element.containerId)) {
+    const containerId = readElementContainerID(element)
+    if (containerId !== undefined && input.ids.has(containerId)) {
       expandedIDs.add(element.id)
     }
   }

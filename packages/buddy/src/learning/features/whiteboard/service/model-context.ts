@@ -2,6 +2,7 @@ import { WhiteboardStaleWriteError } from "../errors"
 import {
   parseNonEmptyTString,
   parseTJsonObject,
+  readElementContainerID,
   type WhiteboardBoard,
   type WhiteboardBounds,
   type WhiteboardElement,
@@ -70,7 +71,8 @@ function anchorForElement(input: {
   if (height !== undefined) anchor.height = height
   if (text) anchor.text = text
   if (labelText) anchor.labelText = labelText
-  if (input.element.containerId !== undefined) anchor.containerId = input.element.containerId
+  const containerId = readElementContainerID(input.element)
+  if (containerId !== undefined) anchor.containerId = containerId
   if (input.renderBounds) anchor.renderBounds = roundBounds(input.renderBounds)
   return anchor
 }

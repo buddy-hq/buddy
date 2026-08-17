@@ -20,9 +20,25 @@ const SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_LIST =
 const jsonStringSchema = z.string()
 const jsonFiniteNumberSchema = z.number().finite()
 const jsonBooleanSchema = z.boolean()
-const jsonObjectSchema: z.ZodType<TJsonObject> = z.record(z.string(), z.json())
+// Origin guarded elements with a plain isRecord check and never inspected property values, so
+// every key survived. z.json() rejects keys holding undefined and non-finite numbers, both of
+// which live Excalidraw elements carry, and rejecting one key rejects the whole element. Accept
+// the same value range origin did so no key is lost.
+const jsonValueSchema: z.ZodType<TJsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.nan(),
+    z.boolean(),
+    z.null(),
+    z.undefined(),
+    z.array(jsonValueSchema),
+    z.record(z.string(), jsonValueSchema),
+  ]),
+)
+const jsonObjectSchema: z.ZodType<TJsonObject> = z.record(z.string(), jsonValueSchema)
 
-type TJsonValue = string | number | boolean | null | TJsonValue[] | TJsonObject
+type TJsonValue = string | number | boolean | null | undefined | TJsonValue[] | TJsonObject
 type TJsonObject = { [key: string]: TJsonValue }
 
 function parseTString<TValue>(value: TValue): string | undefined {
@@ -61,10 +77,17 @@ const WhiteboardElementSchema = z
     height: z.number().finite().optional(),
     text: z.string().optional(),
     originalText: z.string().optional(),
-    containerId: z.string().optional(),
-    label: z.union([z.string(), jsonObjectSchema]).optional(),
-    startBinding: jsonObjectSchema.optional(),
-    endBinding: jsonObjectSchema.optional(),
+    // Excalidraw persists these as null when a text element or arrow end is unbound.
+    // Accept null at the I/O boundary and normalize it to undefined so the domain type
+    // stays `string | undefined` for every reader of a parsed element.
+    // Sync with packages/web/src/components/whiteboard/whiteboard-elements.ts.
+    // Kept nullable rather than normalized to undefined: a transform would leave an own key
+    // holding undefined, which the JSON record parse in parsePersistableWhiteboardElement
+    // rejects. Readers coalesce with `?? undefined`, matching whiteboard-elements.ts.
+    containerId: z.string().nullable().optional(),
+    label: z.union([z.string(), jsonObjectSchema]).nullable().optional(),
+    startBinding: jsonObjectSchema.nullable().optional(),
+    endBinding: jsonObjectSchema.nullable().optional(),
   })
   .loose()
 
@@ -238,6 +261,14 @@ function formatElementLocation(index: number | undefined) {
   return index === undefined ? "Whiteboard element" : `Whiteboard element at index ${index}`
 }
 
+/**
+ * Excalidraw persists an unbound container as null, so null and absent mean the same thing.
+ * Mirrors readRenderedElementContainerID in packages/web/src/components/whiteboard/whiteboard-elements.ts.
+ */
+function readElementContainerID(element: WhiteboardElement): string | undefined {
+  return element.containerId ?? undefined
+}
+
 function requireElementString(input: {
   value: TJsonObject
   key: string
@@ -369,6 +400,7 @@ export {
   WhiteboardObjectStateSchema,
   WhiteboardViewportSchema,
   parsePersistableWhiteboardElement,
+  readElementContainerID,
   parseNonEmptyTString,
   parseTFiniteNumber,
   parseTJsonObject,
