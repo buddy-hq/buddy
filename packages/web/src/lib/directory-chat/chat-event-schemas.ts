@@ -158,10 +158,14 @@ export const QuestionRequestEventSchema = z.object({
       custom: z.boolean().optional(),
     }),
   ),
+  // Nullable to match the sibling permission schema above. Origin cast this payload
+  // (`properties as QuestionRequest`) without validating, so a `tool: null` still reached the
+  // question dock; a bare `.optional()` rejects it and use-chat-sync drops the whole ask.
   tool: z
     .object({
       messageID: z.string(),
       callID: z.string(),
     })
+    .nullable()
     .optional(),
 }) satisfies z.ZodType<QuestionRequest>

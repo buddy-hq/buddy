@@ -119,10 +119,12 @@ export type QuestionRequest = {
   id: string
   sessionID: string
   questions: QuestionInfo[]
+  // Nullable like the SDK's PermissionRequest.tool, so a null from the event stream is carried
+  // rather than dropping the whole ask. No consumer reads this field today.
   tool?: {
     messageID: string
     callID: string
-  }
+  } | null
 }
 
 type SdkProviderModel = SdkProvider["models"][string]
