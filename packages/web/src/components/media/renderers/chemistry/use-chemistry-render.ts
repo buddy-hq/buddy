@@ -27,7 +27,7 @@ type ChemistryRenderSnapshot = {
 }
 
 const CHEMISTRY_LOADING_STATE: ChemistryRenderState = { status: "loading" }
-const codedFailureSchema = z.object({ code: z.string() })
+const failureCodeSchema = z.string()
 
 function snapshotMatches(
   snapshot: ChemistryRenderSnapshot,
@@ -46,20 +46,30 @@ function snapshotMatches(
   )
 }
 
-function renderErrorState(error: Error): ChemistryRenderState {
+function readFailureCode<TValue>(value: TValue): string | undefined {
+  if (!(value instanceof Object) || !("code" in value)) return undefined
+  const parsed = failureCodeSchema.safeParse(value.code)
+  return parsed.success ? parsed.data : undefined
+}
+
+function renderErrorState<TValue>(error: TValue): ChemistryRenderState {
   if (error instanceof ChemfigRenderRequestError) {
-    return Object.assign(
-      { status: "error" as const, message: error.message },
-      error.code ? { code: error.code } : undefined,
-    )
+    return {
+      status: "error",
+      message: error.message,
+      code: error.code,
+    }
   }
-  const coded = codedFailureSchema.safeParse(error)
-  const code = coded.success ? coded.data.code : undefined
-  if (error.message.trim()) {
+  const code = readFailureCode(error)
+  if (error instanceof Error && error.message.trim()) {
     return Object.assign(
       { status: "error" as const, message: error.message.trim() },
       code ? { code } : undefined,
     )
+  }
+  const text = failureCodeSchema.safeParse(error)
+  if (text.success && text.data.trim()) {
+    return { status: "error", message: text.data.trim() }
   }
   return { status: "error", message: "Unable to render this chemistry source." }
 }
@@ -140,11 +150,7 @@ export function useChemistryRender(input: {
             format,
             directory,
             enabled,
-            state: renderErrorState(
-              error instanceof Error
-                ? error
-                : new Error("Unable to render this chemistry source."),
-            ),
+            state: renderErrorState(error),
           })
         }
       },

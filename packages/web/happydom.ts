@@ -56,13 +56,11 @@ function createTestCanvas2dContext(canvas: HTMLCanvasElement): TTestCanvas2dCont
 
 HTMLCanvasElement.prototype.getContext = new Proxy(originalGetContext, {
   apply(target, thisArg, argArray) {
-    const contextType = parseTString(argArray[0])
-    if (contextType === "2d" && thisArg instanceof HTMLCanvasElement) {
+    const contextType = argArray[0]
+    const options = argArray[1]
+    if (parseTString(contextType) === "2d" && thisArg instanceof HTMLCanvasElement) {
       return createTestCanvas2dContext(thisArg)
     }
-    if (contextType === undefined) {
-      return null
-    }
-    return target.call(thisArg, contextType, argArray[1])
+    return target.call(thisArg, contextType, options)
   },
 })
