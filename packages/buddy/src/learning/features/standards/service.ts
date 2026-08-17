@@ -205,9 +205,14 @@ function parseGradeLevels(value: string | null) {
   }
 
   try {
-    const parsed = z.array(z.string()).safeParse(JSON.parse(trimmed))
+    // Filtered per entry, as origin did: a mixed array such as ["K", 1] must keep its string
+    // entries rather than fail the whole array and fall through to the single-scalar branch.
+    const parsed = z.array(z.unknown()).safeParse(JSON.parse(trimmed))
     if (parsed.success) {
-      return parsed.data
+      return parsed.data.flatMap((entry) => {
+        const value = z.string().safeParse(entry)
+        return value.success ? [value.data] : []
+      })
     }
   } catch {
     // Fall back to treating the value as a single scalar.
