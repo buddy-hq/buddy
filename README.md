@@ -1,45 +1,65 @@
-# Buddy - A Learning App for Everyone.
+# Buddy
 
-NOTE: find latest releases here: https://github.com/prashantbhudwal/buddy-releases
+A learning app for anyone who wants to learn anything. A student preparing for exams, an adult chasing a curiosity, or a teacher building a lesson for a class.
 
-> Licensed under the O’Saasy License (see LICENSE).
+Buddy runs on your own machine. Downloads are at [buddy-releases](https://github.com/prashantbhudwal/buddy-releases/releases).
 
-Buddy is made for anyone who wants to learn anything. You can be a student preparing for your exams or an adult exploring a curiosity. Or a teacher, teaching your class.
+## Built on OpenCode
 
-## Built In
+Buddy is built on [OpenCode](https://github.com/sst/opencode), and it is not a small dependency. A full copy of OpenCode lives in `vendor/`, roughly 6,450 files, and it is the agent runtime underneath everything here: the loop, sessions, tools, and permissions all run from those modules.
 
-### Pedagogical Layer
-- CCSS, NGSS, digital literacy standards, and standards from all 50 U.S. states
-- Ebook reader and PDF reader
-- Drawing canvas
-- Advanced math and graphing with Python
-- Flashcards
-- MCQ tests
-- Teaching models: Socratic, project-based learning, case studies, ...
-- Resource design: assessments, practice sets, revision sets, ...
-- Resource creation: DOCX, PPTs, sheets, ...
-- Learning frameworks: Bloom's Taxonomy, DOK, Gagne's model, formative assessment, SOLO, GRR, ...
+What Buddy adds is the teaching layer on top. Curriculum and standards, the reading and drawing and math surfaces, the pedagogical models, and the desktop app around it. `packages/opencode-adapter` is the seam between the two.
 
-### Agent Layer
-- Subagents
-- MCPs
-- Skills
-- Agent files
-- Custom tools
-- ChatGPT login, GitHub Copilot login, BYOK, and 50+ other providers
+The vendored code stays MIT and belongs to the OpenCode authors. Buddy does not patch it. It is refreshed from upstream wholesale, and a CI job fails the build if anything drifts.
 
-## Install (macOS)
+## Install
 
-Paste this in your terminal, and run:
+macOS:
 
 ```bash
 curl -fsSL https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/install-buddy-macos.sh | bash
 ```
 
-## Install (Windows)
-
-Run in PowerShell/Terminal, and run:
+Windows, in PowerShell:
 
 ```powershell
 irm -UseBasicParsing https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/install-buddy-windows.ps1 | iex
 ```
+
+## What's built in
+
+Teaching and curriculum:
+
+- CCSS, NGSS, digital literacy standards, and standards from all 50 U.S. states
+- Ebook and PDF readers
+- A drawing canvas
+- Advanced math and graphing, backed by Python
+- Flashcards and MCQ tests
+- Teaching models: Socratic, project-based learning, case studies, and more
+- Resource design and creation: assessments, practice sets, revision sets, DOCX, slides, sheets
+- Learning frameworks: Bloom's Taxonomy, DOK, Gagné's model, formative assessment, SOLO, GRR
+
+Agent capabilities:
+
+- Subagents, skills, and custom tools
+- MCP servers
+- Agent files
+- ChatGPT login, GitHub Copilot login, BYOK, and 50+ other providers
+
+## Licensing
+
+Two licenses apply, and the split matters.
+
+Buddy's own code is under the [O'Saasy License](LICENSE). It grants what MIT grants, including commercial use, modification, and redistribution, with one restriction: you may not offer Buddy to third parties as a hosted or managed service that competes with the original author.
+
+That restriction means **Buddy is not open source** under the OSI definition, which does not allow limits on field of use. Source-available is the accurate term. Read the license rather than relying on a label.
+
+Everything under `vendor/opencode/` is MIT, and stays MIT. Its license is at `vendor/opencode/LICENSE`.
+
+## Contributing
+
+Issues and pull requests are open, with no promises attached. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the checks a PR has to pass, and the rule about not patching `vendor/`.
+
+Found a security problem? [SECURITY.md](SECURITY.md) has the private reporting route. Please don't file it as a public issue.
+
+By participating you agree to the [code of conduct](CODE_OF_CONDUCT.md).
