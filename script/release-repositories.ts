@@ -1,4 +1,4 @@
-const DEFAULT_SOURCE_REPOSITORY = "prashantbhudwal/buddy"
+const DEFAULT_SOURCE_REPOSITORY = "buddy-hq/buddy"
 const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
 
 export type RepositoryParts = {

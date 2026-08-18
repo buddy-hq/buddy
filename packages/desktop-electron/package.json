@@ -3,7 +3,7 @@
   "version": "0.0.63",
   "private": true,
   "description": "Buddy Electron desktop shell",
-  "homepage": "https://github.com/prashantbhudwal/buddy",
+  "homepage": "https://github.com/buddy-hq/buddy",
   "license": "MIT",
   "author": {
     "name": "Buddy"

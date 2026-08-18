@@ -16,7 +16,7 @@ This is the canonical process to cut **Electron-only** Buddy desktop releases.
 ## Inputs
 - Repo root: `/Users/prashantbhudwal/Code/buddy`
 - Release branch: `main`
-- GitHub repo: `prashantbhudwal/buddy`
+- GitHub repo: `buddy-hq/buddy`
 - Workflow: [`.github/workflows/publish.yml`](/Users/prashantbhudwal/Code/buddy/.github/workflows/publish.yml)
 - Preview candidate command: `bun run release:cut:electron`
 - Stable promotion command: `bun run release:promote vX.Y.Z`

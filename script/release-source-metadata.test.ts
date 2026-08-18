@@ -7,13 +7,13 @@ describe("release source metadata", () => {
   test("round-trips a normalized source repository and SHA", () => {
     const parsed = parseReleaseSourceMetadata({
       schemaVersion: 1,
-      sourceRepository: " prashantbhudwal/buddy ",
+      sourceRepository: " buddy-hq/buddy ",
       sourceSha: SOURCE_SHA.toUpperCase(),
     })
 
     expect(parsed).toEqual({
       schemaVersion: 1,
-      sourceRepository: "prashantbhudwal/buddy",
+      sourceRepository: "buddy-hq/buddy",
       sourceSha: SOURCE_SHA,
     })
     expect(JSON.parse(renderReleaseSourceMetadata(parsed))).toEqual(parsed)
@@ -23,14 +23,14 @@ describe("release source metadata", () => {
     expect(() =>
       parseReleaseSourceMetadata({
         schemaVersion: 1,
-        sourceRepository: "prashantbhudwal/buddy",
+        sourceRepository: "buddy-hq/buddy",
         sourceSha: SOURCE_SHA.slice(0, 12),
       }),
     ).toThrow("full 40-character Git commit SHA")
     expect(() =>
       parseReleaseSourceMetadata({
         schemaVersion: 2,
-        sourceRepository: "prashantbhudwal/buddy",
+        sourceRepository: "buddy-hq/buddy",
         sourceSha: SOURCE_SHA,
       }),
     ).toThrow("Invalid release source metadata")

@@ -6,9 +6,9 @@ export const LEARNER_PATH = "/"
 export const EDUCATOR_PATH = "/teachers/"
 export const DOCS_PATH = "/docs/"
 export const COMPARE_PATH = "/compare/"
-export const GITHUB_URL = "https://github.com/prashantbhudwal/buddy"
-export const GITHUB_RELEASES_URL = "https://github.com/prashantbhudwal/buddy/releases"
-export const GITHUB_DISCUSSIONS_URL = "https://github.com/prashantbhudwal/buddy/discussions"
+export const GITHUB_URL = "https://github.com/buddy-hq/buddy"
+export const GITHUB_RELEASES_URL = "https://github.com/prashantbhudwal/buddy-releases/releases"
+export const GITHUB_DISCUSSIONS_URL = "https://github.com/buddy-hq/buddy/discussions"
 /**
  * The launch video. `nocookie` and `rel=0` keep YouTube from setting tracking
  * cookies before playback and from ending on other channels' videos.

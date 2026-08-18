@@ -108,7 +108,7 @@ export function createMenu(deps: MenuDeps) {
       submenu: [
         {
           label: "Buddy Repository",
-          click: () => shell.openExternal("https://github.com/prashantbhudwal/buddy"),
+          click: () => shell.openExternal("https://github.com/buddy-hq/buddy"),
         },
       ],
     },

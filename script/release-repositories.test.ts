@@ -3,7 +3,7 @@ import { releaseRepository, repositoryParts, sourceRepository } from "./release-
 
 describe("release repositories", () => {
   test("defaults source and release repositories independently", () => {
-    expect(sourceRepository({})).toBe("prashantbhudwal/buddy")
+    expect(sourceRepository({})).toBe("buddy-hq/buddy")
     expect(releaseRepository({})).toBe("prashantbhudwal/buddy-releases")
   })
 

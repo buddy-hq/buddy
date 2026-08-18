@@ -356,7 +356,7 @@ Used the GitHub Actions API (via `gh` CLI) to retrieve step-level timing for the
 
 ### Data: Windows build times by release
 
-Retrieved via `gh run view <run-id> --repo prashantbhudwal/buddy --json jobs --jq '.jobs[] | select(.name == "build-electron-windows-x64")'` for each release run.
+Retrieved via `gh run view <run-id> --repo buddy-hq/buddy --json jobs --jq '.jobs[] | select(.name == "build-electron-windows-x64")'` for each release run.
 
 **Full release list with run IDs:**
 

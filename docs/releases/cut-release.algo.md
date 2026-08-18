@@ -17,7 +17,7 @@ The current release shape is:
 ## Inputs
 - Repo root: `/Users/prashantbhudwal/Code/buddy`
 - Release branch: `main`
-- GitHub repo: `prashantbhudwal/buddy`
+- GitHub repo: `buddy-hq/buddy`
 - Release workflow: [`.github/workflows/publish.yml`](/Users/prashantbhudwal/Code/buddy/.github/workflows/publish.yml)
 - Release scripts:
   - [`script/cut-release.ts`](/Users/prashantbhudwal/Code/buddy/script/cut-release.ts)
@@ -43,7 +43,7 @@ The current release shape is:
      - requires a clean working tree
      - checks GitHub auth and updater-signing secret presence
      - syncs local `main` with `origin/main`
-     - suggests the next release version from the latest stable GitHub release in `prashantbhudwal/buddy`
+     - suggests the next release version from the latest stable GitHub release in `buddy-hq/buddy`
      - does not read `package.json` to decide the next release version
      - lets you edit the draft release title and notes in your editor
      - `EDITOR` and `VISUAL` only control the notes editor; they do not remove the interactive requirement
@@ -52,7 +52,7 @@ The current release shape is:
      - triggers the GitHub `publish` workflow with `workflow_dispatch`
      - can watch the workflow and then pull the release-sync commit back to local `main`
      - force-syncs local tags from `origin` before that pull so stale local `vX.Y.Z` tags do not block with `would clobber existing tag`
-   - If you use manual `gh` fallback commands, always pass `--repo prashantbhudwal/buddy`. Never rely on the default `gh` repo context.
+   - If you use manual `gh` fallback commands, always pass `--repo buddy-hq/buddy`. Never rely on the default `gh` repo context.
 
 1. Ensure local state is clean.
    - `git branch --show-current`

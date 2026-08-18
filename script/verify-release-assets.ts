@@ -10,7 +10,7 @@ import {
   resolveWindowsUpdateManifestFilename,
 } from "../packages/desktop-electron/src/shared/release-asset-names"
 
-const DEFAULT_SOURCE_REPOSITORY = "prashantbhudwal/buddy"
+const DEFAULT_SOURCE_REPOSITORY = "buddy-hq/buddy"
 const GITHUB_API_VERSION = "2022-11-28"
 const GITHUB_USER_AGENT = "buddy-release-asset-verifier"
 const VERIFICATION_ATTEMPTS = 5
