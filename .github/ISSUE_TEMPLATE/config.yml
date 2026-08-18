@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/buddy-hq/buddy/security/advisories/new
+    about: Report privately. Never in a public issue.
+  - name: Questions and ideas
+    url: https://github.com/buddy-hq/buddy/discussions
+    about: For anything that isn't a bug or a specific request.

@@ -1,0 +1,20 @@
+name: Feature request
+description: Something Buddy should be able to do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What were you trying to do
+      description: Describe the problem before the solution. What were you trying to learn or teach when Buddy got in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+      description: Optional. A rough shape is fine.
+  - type: markdown
+    attributes:
+      value: |
+        Buddy is maintained by one person, so a request can sit for a while or be declined because it points somewhere the project isn't going. Ask here before building anything large.

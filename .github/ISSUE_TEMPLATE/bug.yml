@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in Buddy behaves differently than it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problems do not go here. See [SECURITY.md](https://github.com/buddy-hq/buddy/blob/main/SECURITY.md) for the private route.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, and what Buddy did instead of what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The most useful thing in the whole report. Include a stack trace if you have one rather than describing it.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Buddy version
+      description: Buddy > About, or the filename of the installer you ran.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Model provider, relevant settings, whether it started recently.
