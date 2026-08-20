@@ -28,6 +28,13 @@ export type TPluginToolObjectResult = {
   attachments?: TJsonArray
 }
 
+const pluginToolObjectResultSchema = z.object({
+  title: z.string().optional(),
+  output: z.string(),
+  metadata: z.record(z.string(), z.json()).optional(),
+  attachments: z.array(z.json()).optional(),
+})
+
 export function requireParsed<TValue>(value: TValue | undefined, label: string): TValue {
   if (value !== undefined) return value
   throw new Error(`Expected ${label}`)
@@ -81,23 +88,11 @@ export function requireToolObjectResult<TValue>(
   value: TValue,
   label = "tool result object",
 ): TPluginToolObjectResult {
-  const record = parseJsonObject(value)
-  if (record === undefined) {
+  const parsed = pluginToolObjectResultSchema.safeParse(value)
+  if (!parsed.success) {
     throw new Error(`Expected ${label}`)
   }
-  const output = parsePromptString(record.output)
-  if (output === undefined) {
-    throw new Error(`Expected ${label} output`)
-  }
-  const title = parsePromptString(record.title)
-  const metadata = parseJsonObject(record.metadata)
-  const attachments = parseJsonArray(record.attachments)
-  return Object.assign(
-    { output },
-    title !== undefined ? { title } : undefined,
-    metadata !== undefined ? { metadata } : undefined,
-    attachments !== undefined ? { attachments } : undefined,
-  )
+  return parsed.data
 }
 
 export function parsePartText(part: TJsonValue): string | undefined {
