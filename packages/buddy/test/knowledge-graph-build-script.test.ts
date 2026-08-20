@@ -1,8 +1,8 @@
 import { mkdirSync } from "node:fs"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
+import { zstdDecompressSync } from "node:zlib"
 import { describe, expect, test } from "bun:test"
-import { decompress, init as initZstd } from "@bokuweb/zstd-wasm"
 import { Database } from "bun:sqlite"
 import { runKnowledgeGraphUpdate } from "../script/knowledge-graph/build"
 import {
@@ -167,9 +167,8 @@ describe("knowledge graph build script", () => {
         materializedDatabase.close()
       }
 
-      await initZstd()
       const archiveBytes = await Bun.file(archivePath).bytes()
-      await Bun.write(extractedDatabasePath, Buffer.from(decompress(archiveBytes)))
+      await Bun.write(extractedDatabasePath, zstdDecompressSync(archiveBytes))
 
       const database = new Database(extractedDatabasePath, {
         readonly: true,

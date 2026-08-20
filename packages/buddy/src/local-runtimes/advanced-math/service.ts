@@ -499,40 +499,8 @@ async function ensureExecutablePermissions(executablePath: string) {
   await fsp.chmod(executablePath, 0o755)
 }
 
-async function extractRuntimeBundle(bundlePath: string, destinationDir: string) {
-  await fsp.mkdir(path.dirname(destinationDir), { recursive: true })
-
-  if (process.platform === "win32") {
-    const child = spawn(
-      "powershell.exe",
-      [
-        "-NoProfile",
-        "-Command",
-        `Expand-Archive -LiteralPath '${bundlePath.replace(/'/g, "''")}' -DestinationPath '${destinationDir.replace(/'/g, "''")}' -Force`,
-      ],
-      {
-        env: sanitizedRuntimeEnv(),
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    )
-    const stdoutChunks: Buffer[] = []
-    const stderrChunks: Buffer[] = []
-    child.stdout?.on("data", (chunk: Buffer | string) => {
-      stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-    })
-    child.stderr?.on("data", (chunk: Buffer | string) => {
-      stderrChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-    })
-    const result = await waitForProcess(child, stdoutChunks, stderrChunks)
-    if (result.code !== 0) {
-      const details =
-        result.stderr.trim() || result.stdout.trim() || `exit code ${result.code ?? "unknown"}`
-      throw new Error(`Failed to extract advanced math runtime bundle: ${details}`)
-    }
-    return
-  }
-
-  const child = spawn("ditto", ["-x", "-k", bundlePath, destinationDir], {
+async function runBundleExtraction(command: string, args: readonly string[]) {
+  const child = spawn(command, args, {
     env: sanitizedRuntimeEnv(),
     stdio: ["ignore", "pipe", "pipe"],
   })
@@ -550,6 +518,26 @@ async function extractRuntimeBundle(bundlePath: string, destinationDir: string) 
       result.stderr.trim() || result.stdout.trim() || `exit code ${result.code ?? "unknown"}`
     throw new Error(`Failed to extract advanced math runtime bundle: ${details}`)
   }
+}
+
+async function extractRuntimeBundle(bundlePath: string, destinationDir: string) {
+  await fsp.mkdir(path.dirname(destinationDir), { recursive: true })
+
+  if (process.platform === "win32") {
+    await runBundleExtraction("powershell.exe", [
+      "-NoProfile",
+      "-Command",
+      `Expand-Archive -LiteralPath '${bundlePath.replace(/'/g, "''")}' -DestinationPath '${destinationDir.replace(/'/g, "''")}' -Force`,
+    ])
+    return
+  }
+
+  if (process.platform === "darwin") {
+    await runBundleExtraction("ditto", ["-x", "-k", bundlePath, destinationDir])
+    return
+  }
+
+  await runBundleExtraction("unzip", ["-q", bundlePath, "-d", destinationDir])
 }
 
 async function installBundleFromRelease(
