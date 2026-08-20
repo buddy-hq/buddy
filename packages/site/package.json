@@ -19,7 +19,7 @@
     "@astrojs/sitemap": "^3.7.3",
     "@astrojs/starlight": "0.34.3",
     "@buddy/script": "workspace:*",
-    "astro": "5.7.13",
+    "astro": "7.1.1",
     "cf-workers-og": "^3.0.1"
   },
   "devDependencies": {
