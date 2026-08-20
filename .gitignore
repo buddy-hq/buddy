@@ -91,3 +91,6 @@ bugeera/
 
 # Temp screenshots
 .tmp-*/
+
+# Open-sourcing audit workspace — quotes sensitive material verbatim, never publish
+.oss/
