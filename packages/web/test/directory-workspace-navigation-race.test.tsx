@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
   createBrowserHistory,
   createMemoryHistory,
@@ -25,6 +26,7 @@ import type { DirectoryWorkspaceController } from "../src/lib/directory-workspac
 import type { BenchSurfaceSnapshot } from "../src/lib/directory-workspace-lifecycle"
 import { encodeDirectory } from "../src/lib/directory-token"
 import type { DirectoryWorkspaceCommandResult } from "../src/state/directory-workspace-store"
+import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
 
 const DIRECTORY = "/workspace/navigation-race"
 const ENCODED_DIRECTORY = encodeDirectory(DIRECTORY)
@@ -86,7 +88,17 @@ function createRouteTree(input: {
   onController: (controller: DirectoryWorkspaceController) => void
   onWorkspace?: (workspace: DirectoryWorkspaceHandle) => void
 }) {
-  const rootRoute = createRootRoute({ component: () => <Outlet /> })
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { refetchOnMount: false, retry: false } },
+  })
+  queryClient.setQueryData(workspaceObjectsQueryKeys.all(DIRECTORY), { objects: [] })
+  const rootRoute = createRootRoute({
+    component: () => (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    ),
+  })
   const directoryRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "$directory",

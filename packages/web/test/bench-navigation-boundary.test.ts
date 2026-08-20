@@ -21,7 +21,7 @@ describe("Bench navigation boundary", () => {
     expect(source).not.toContain("linkedSessionByResource")
     expect(source).not.toContain("selectActiveChatSessionAndPresent")
     expect(source).not.toContain("sessionPreference")
-    expect(source).toContain("openBenchRoute")
+    expect(source).toContain("buildWorkspaceRouteNavigation")
   })
 
   test("presentation-only modules cannot invoke chat transitions", async () => {

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
   createMemoryHistory,
   createRootRoute,
@@ -17,6 +18,7 @@ import {
   type OpenBenchResult,
 } from "../src/lib/bench-navigation"
 import { decodeDirectory, encodeDirectory } from "../src/lib/directory-token"
+import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
 
 const CURRENT_DIRECTORY = "/workspace/current"
 const TARGET_DIRECTORY = "/workspace/target"
@@ -81,7 +83,18 @@ function OpenBenchWithoutProviderProbe(props: { onResult: (result: OpenBenchResu
 }
 
 function createTestRouter(onResult: (result: OpenBenchResult) => void) {
-  const rootRoute = createRootRoute({ component: () => <Outlet /> })
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { refetchOnMount: false, retry: false } },
+  })
+  queryClient.setQueryData(workspaceObjectsQueryKeys.all(CURRENT_DIRECTORY), { objects: [] })
+  queryClient.setQueryData(workspaceObjectsQueryKeys.all(TARGET_DIRECTORY), { objects: [] })
+  const rootRoute = createRootRoute({
+    component: () => (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    ),
+  })
   const directoryRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "$directory",

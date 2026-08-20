@@ -4,6 +4,7 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
+import { useChatSettings } from "../src/state/chat-settings"
 import { useChatStore } from "../src/state/chat-store"
 import { BUSY_SESSION_STATUS } from "../src/state/session-status"
 import { resetTranscriptRepositoryForTests } from "../src/state/transcript-repository"
@@ -25,10 +26,12 @@ async function flushEffects() {
   })
 }
 
-function findButtonByText(container: HTMLElement, text: string): HTMLButtonElement | undefined {
-  return Array.from(container.querySelectorAll("button")).find(
-    (button) => button.textContent?.includes(text) ?? false,
-  )
+async function waitFor(predicate: () => boolean): Promise<void> {
+  const timeoutAt = Date.now() + 2_000
+  while (!predicate()) {
+    if (Date.now() >= timeoutAt) throw new Error("Timed out waiting for transcript content")
+    await flushEffects()
+  }
 }
 
 describe("chat transcript expansion cache", () => {
@@ -52,6 +55,7 @@ describe("chat transcript expansion cache", () => {
     }
     globalThis.ResizeObserver = MockResizeObserver
     resetTranscriptRepositoryForTests()
+    useChatSettings.setState({ showReasoningSummaries: true })
     useChatStore.setState({ directories: {} })
   })
 
@@ -100,6 +104,7 @@ describe("chat transcript expansion cache", () => {
           createAssistantMessageInfo({
             id: "msg_b_expansion_assistant",
             sessionID: "ses_expansion_cache",
+            parentID: "msg_a_expansion_user",
           }),
           [
             {
@@ -122,13 +127,25 @@ describe("chat transcript expansion cache", () => {
       await flushEffects()
     })
 
-    const planningButton = findButtonByText(container, "Planning")
-    expect(planningButton).toBeDefined()
+    const planningButton = container.querySelector<HTMLButtonElement>("[data-activity-row] > button")
+    expect(planningButton).not.toBeNull()
 
     await act(async () => {
       planningButton?.click()
       await flushEffects()
     })
+    await waitFor(() => container.querySelector("[data-activity-entry]") !== null)
+
+    const planningDetailsButton = container.querySelector<HTMLButtonElement>(
+      "[data-activity-entry] > button",
+    )
+    expect(planningDetailsButton).not.toBeNull()
+
+    await act(async () => {
+      planningDetailsButton?.click()
+      await flushEffects()
+    })
+    await waitFor(() => container.textContent?.includes("Checking the route.") === true)
     expect(container.textContent).toContain("Checking the route.")
 
     await act(async () => {

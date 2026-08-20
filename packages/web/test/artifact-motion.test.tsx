@@ -77,6 +77,7 @@ describe("transcript artifact motion", () => {
                 category: "command",
                 summary: "bash",
                 detail: "history-artifact",
+                renderer: "bash",
               }),
             ),
             state: {

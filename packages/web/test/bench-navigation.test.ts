@@ -295,13 +295,13 @@ describe("bench navigation policy", () => {
         selector: "sources",
         workspaceWidthPx: 900,
       }),
-    ).toBe(404)
+    ).toBe(320)
     expect(
       resolveRightWorkspaceSelectorDrawerWidth({
         selector: "creations",
         workspaceWidthPx: 900,
       }),
-    ).toBe(404)
+    ).toBe(320)
     expect(
       resolveRightWorkspaceSelectorDrawerWidth({
         selector: "files",

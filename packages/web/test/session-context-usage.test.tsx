@@ -57,7 +57,7 @@ describe("SessionContextUsage", () => {
     return trigger
   }
 
-  test("keeps composer focus when the usage popover opens and closes from hover", async () => {
+  test("does not open the usage popover or move composer focus on hover", async () => {
     const trigger = await renderUsage()
     composerInput.focus()
 
@@ -65,12 +65,11 @@ describe("SessionContextUsage", () => {
       trigger.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))
     })
 
-    expect(document.querySelector('[data-slot="popover-content"]')).not.toBeNull()
+    expect(document.querySelector('[data-slot="popover-content"]')).toBeNull()
     expect(document.activeElement).toBe(composerInput)
 
     await act(async () => {
       trigger.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }))
-      await new Promise((resolve) => setTimeout(resolve, 150))
     })
 
     expect(document.querySelector('[data-slot="popover-content"]')).toBeNull()

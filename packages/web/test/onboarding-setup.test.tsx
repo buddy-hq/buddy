@@ -9,6 +9,7 @@ describe("OnboardingSetup", () => {
   let root: Root
 
   beforeEach(() => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.append(container)
     root = createRoot(container)
@@ -19,6 +20,7 @@ describe("OnboardingSetup", () => {
       root.unmount()
     })
     container.remove()
+    Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
   test("hides buddy home controls on the happy path", async () => {
@@ -88,7 +90,7 @@ describe("OnboardingSetup", () => {
     })
 
     const text = container.textContent ?? ""
-    expect(text.includes("Data is stored in your documents folder.")).toBe(true)
+    expect(text.includes("Your data stays in Documents.")).toBe(true)
     expect(text.includes("Documents")).toBe(true)
     expect(text.includes("Next")).toBe(true)
     expect(text.includes("Choose a different location")).toBe(false)
