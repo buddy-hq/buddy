@@ -94,6 +94,17 @@ function sha256Bytes(value: Uint8Array) {
   return createHash("sha256").update(value).digest("hex")
 }
 
+function assertArchiveCreated(result: ReturnType<typeof spawnSync>) {
+  if (result.status === 0) return
+
+  const failureDetails =
+    result.error?.message ||
+    result.stderr?.toString("utf8") ||
+    result.stdout?.toString("utf8") ||
+    "unknown archive command failure"
+  throw new Error(`Failed to create mock advanced math runtime archive: ${failureDetails}`)
+}
+
 function createArchive(sourceDir: string, outputArchive: string) {
   if (process.platform === "win32") {
     const result = spawnSync("powershell.exe", [
@@ -101,27 +112,29 @@ function createArchive(sourceDir: string, outputArchive: string) {
       "-Command",
       `Compress-Archive -LiteralPath '${sourceDir.replace(/'/g, "''")}' -DestinationPath '${outputArchive.replace(/'/g, "''")}' -Force`,
     ])
-    if (result.status !== 0) {
-      throw new Error(
-        `Failed to create mock advanced math runtime archive: ${result.stderr?.toString("utf8") || result.stdout?.toString("utf8")}`,
-      )
-    }
+    assertArchiveCreated(result)
     return
   }
 
-  const result = spawnSync("ditto", [
-    "-c",
-    "-k",
-    "--sequesterRsrc",
-    "--keepParent",
-    sourceDir,
-    outputArchive,
-  ])
-  if (result.status !== 0) {
-    throw new Error(
-      `Failed to create mock advanced math runtime archive: ${result.stderr?.toString("utf8") || result.stdout?.toString("utf8")}`,
-    )
+  if (process.platform === "darwin") {
+    const result = spawnSync("ditto", [
+      "-c",
+      "-k",
+      "--sequesterRsrc",
+      "--keepParent",
+      sourceDir,
+      outputArchive,
+    ])
+    assertArchiveCreated(result)
+    return
   }
+
+  const result = spawnSync(
+    "zip",
+    ["-r", outputArchive, path.basename(sourceDir)],
+    { cwd: path.dirname(sourceDir) },
+  )
+  assertArchiveCreated(result)
 }
 
 async function buildMockRuntimeBundle(options: MockRuntimeBundleOptions = {}) {
