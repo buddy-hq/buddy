@@ -11,6 +11,7 @@ import { Agent } from "@buddy/opencode-adapter/agent"
 import { SessionTransformValidationError } from "../../session"
 import { resolveResourceReference } from "../../resources/resource-registry-service"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
+import { syncOpenCodeProjectConfig } from "../../config/runtime"
 import { extractSdkErrorMessage } from "../../http/sdk-response"
 import {
   isNativeResourceAttachmentPart,
@@ -217,20 +218,12 @@ async function expandOpenCodeReferencePart(input: {
   directory: string
   part: OpenCodeReferencePart
 }): Promise<TPromptPart> {
-  const client = await getOpenCodeClient(input.directory)
-  const result = await client.v2.reference.list()
-  if (result.error !== undefined) {
-    throw new SessionTransformValidationError(
-      extractSdkErrorMessage(result.error) ?? "Failed to resolve workspace reference",
-    )
+  let reference = await findOpenCodeReference(input)
+  if (!reference) {
+    await syncOpenCodeProjectConfig(input.directory, true)
+    reference = await findOpenCodeReference(input)
   }
 
-  const reference = result.data?.data.find(
-    (candidate) =>
-      candidate.name === input.part.name &&
-      candidate.path === input.part.path &&
-      candidate.hidden !== true,
-  )
   if (!reference) {
     throw new SessionTransformValidationError(
       `Workspace reference is no longer available: ${input.part.name}`,
@@ -249,6 +242,26 @@ async function expandOpenCodeReferencePart(input: {
     filename: reference.name,
     mime: FILE_MIME_DIRECTORY,
   })
+}
+
+async function findOpenCodeReference(input: {
+  directory: string
+  part: OpenCodeReferencePart
+}) {
+  const client = await getOpenCodeClient(input.directory)
+  const result = await client.v2.reference.list()
+  if (result.error !== undefined) {
+    throw new SessionTransformValidationError(
+      extractSdkErrorMessage(result.error) ?? "Failed to resolve workspace reference",
+    )
+  }
+
+  return result.data?.data.find(
+    (candidate) =>
+      candidate.name === input.part.name &&
+      candidate.path === input.part.path &&
+      candidate.hidden !== true,
+  )
 }
 
 async function expandPromptTextPart(input: {
