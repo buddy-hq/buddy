@@ -90,7 +90,6 @@ describe("shared reader UI", () => {
     const onHighlight = mock(() => undefined)
     const onOpenAnnotationDialog = mock(() => undefined)
     const onSearch = mock(() => undefined)
-    const onClose = mock(() => undefined)
     const selectedText = "Selection spanning PDF text layers"
 
     await act(async () => {
@@ -102,13 +101,12 @@ describe("shared reader UI", () => {
           onHighlight={onHighlight}
           onOpenAnnotationDialog={onOpenAnnotationDialog}
           onSearch={onSearch}
-          onClose={onClose}
         />,
       )
       await flushEffects()
     })
 
-    const labels = ["Copy text", "Highlight", "Add note", "Search selection", "Dismiss"]
+    const labels = ["Amber", "Add note", "Copy", "Search for this"]
     for (const label of labels) {
       const button = requireElement(
         container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`),
@@ -123,7 +121,6 @@ describe("shared reader UI", () => {
     expect(onHighlight).toHaveBeenCalledTimes(1)
     expect(onOpenAnnotationDialog).toHaveBeenCalledTimes(1)
     expect(onSearch).toHaveBeenCalledWith(selectedText)
-    expect(onClose).toHaveBeenCalledTimes(1)
     expect(container.querySelector(".animate-in")).toBeNull()
     expect(container.querySelector('[role="toolbar"]')?.getAttribute("aria-label")).toBe(
       "Selection actions",
@@ -193,7 +190,9 @@ describe("shared reader UI", () => {
     })
 
     expect(container.textContent).toContain("Page Sheet 7")
-    expect(inputRef.current).toBe(container.querySelector<HTMLInputElement>("#reader-search-input"))
+    expect(inputRef.current).toBe(
+      container.querySelector<HTMLInputElement>('input[aria-label="Search this document"]'),
+    )
     const result = requireElement(
       container.querySelector<HTMLButtonElement>('button[aria-current="true"]'),
     )

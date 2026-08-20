@@ -44,6 +44,7 @@ export function ReaderSelectionToolbar({
       <div className="relative flex flex-col items-center">
         <ReaderFloatingSurface
           role="toolbar"
+          aria-label="Selection actions"
           className="flex-row items-center rounded-full px-2.5 py-1.5"
         >
           <ReaderAnnotationColorDots onSelect={onHighlight} />
