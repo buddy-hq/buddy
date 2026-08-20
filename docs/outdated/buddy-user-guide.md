@@ -2,7 +2,7 @@
 
 This guide explains how Buddy works today, how to use it well, and what actually happens in the backend when you interact with it.
 
-It is intentionally transparent. Buddy is an open-source agent product. The point of this guide is not only to tell you which buttons to click, but also to help you understand the runtime model behind those buttons.
+It is intentionally transparent. Buddy is a source-available agent product. The point of this guide is not only to tell you which buttons to click, but also to help you understand the runtime model behind those buttons.
 
 If you want the implementation source of truth, read:
 
@@ -644,7 +644,7 @@ The current UI does not expose:
 
 Those are deliberate product choices in the current build.
 
-If you are using Buddy as an open-source project and want to inspect or extend those parts, use the code or the HTTP routes rather than expecting the web UI to expose everything directly.
+If you are using Buddy as a source-available project and want to inspect or extend those parts, use the code or the HTTP routes rather than expecting the web UI to expose everything directly.
 
 ## 17. Useful API Surfaces for Inspection
 

@@ -3,6 +3,7 @@
   "name": "buddy",
   "private": true,
   "description": "Buddy monorepo",
+  "license": "SEE LICENSE IN LICENSE",
   "workspaces": {
     "packages": [
       "packages/*",

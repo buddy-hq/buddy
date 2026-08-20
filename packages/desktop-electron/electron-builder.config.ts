@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 import type { Configuration } from "electron-builder"
 import { BUDDY_BRANDING, formatCopyrightNotice } from "@buddy/script/branding"
 import { readBuddyReleaseChannel } from "@buddy/script/channel"
@@ -11,9 +12,11 @@ import {
 } from "./src/shared/release-asset-names"
 
 const WINDOWS_RELEASE_TARGET_ARCH = WINDOWS_RELEASE_ARCHS[0]
+const PACKAGE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url))
 
 const channel = readBuddyReleaseChannel()
 const runtimeResourceNames = ["backend", "knowledge-graph", "migrations", "tessdata"] as const
+const legalResourceNames = ["LICENSE", "THIRD_PARTY_NOTICES.md"] as const
 const DEV_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Dev`
 const BETA_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Beta`
 const MACOS_AD_HOC_SIGNING_IDENTITY = "-"
@@ -39,6 +42,18 @@ function requiredRuntimeResource(name: (typeof runtimeResourceNames)[number]) {
 }
 
 const runtimeResources = runtimeResourceNames.map((name) => requiredRuntimeResource(name))
+const repositoryRoot = path.resolve(PACKAGE_DIRECTORY, "../..")
+const legalResources = legalResourceNames.map((name) => {
+  const source = path.resolve(repositoryRoot, name)
+  if (!existsSync(source)) {
+    throw new Error(`Required legal resource missing: ${source}`)
+  }
+
+  return {
+    from: source,
+    to: name,
+  }
+})
 
 const BASE_CONFIGURATION: Configuration = {
   copyright: formatCopyrightNotice(),
@@ -58,6 +73,7 @@ const BASE_CONFIGURATION: Configuration = {
   files: ["out/**/*"],
   extraResources: [
     ...runtimeResources,
+    ...legalResources,
     {
       from: "resources",
       to: "",

@@ -56,6 +56,10 @@ That restriction means **Buddy is not open source** under the OSI definition, wh
 
 Everything under `vendor/opencode/` is MIT, and stays MIT. Its license is at `vendor/opencode/LICENSE`.
 
+Third-party code, data, models, fonts, and other assets retain their own
+licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution
+and source details.
+
 ## Contributing
 
 Issues and pull requests are open, with no promises attached. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the checks a PR has to pass, and the rule about not patching `vendor/`.
