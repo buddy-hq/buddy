@@ -166,7 +166,7 @@
     "@types/node": "22.13.9",
     "drizzle-orm": "catalog:"
   },
-  "packageManager": "bun@1.3.14",
+  "packageManager": "bun@1.3.13",
   "patchedDependencies": {
     "@ai-sdk/anthropic@3.0.64": "patches/@ai-sdk%2Fanthropic@3.0.64.patch",
     "@ai-sdk/google@3.0.73": "vendor/opencode/patches/@ai-sdk%2Fgoogle@3.0.73.patch",

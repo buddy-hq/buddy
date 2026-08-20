@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  BUN_VERSION: "1.3.14"
+  BUN_VERSION: "1.3.13"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   CURRENT_METRICS: docs/features/release/pipeline/measurements/local-runner-macos-arm64-current-${{ github.run_id }}.json
   OPTIMIZED_METRICS: docs/features/release/pipeline/measurements/local-runner-macos-arm64-optimized-${{ github.run_id }}.json
