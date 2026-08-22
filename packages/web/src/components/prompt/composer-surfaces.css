@@ -2,7 +2,7 @@
  * Composer surface system — one material for every surface the composer
  * spawns (the composer itself, its dropdowns, the @/slash menus, the arcade
  * and sketch docks, the context popover) plus the chat transcript's sent
- * user-message bubble. See docs/design/grain.md.
+ * user-message bubble. See docs/architecture/design/grain.md.
  *
  * Every visual knob is a CSS custom property declared here, so the whole
  * system is retuned from one place — and a future grain controller only has

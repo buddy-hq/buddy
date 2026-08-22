@@ -38,7 +38,7 @@ import { Separator, ToggleGroup, ToggleGroupItem, cn } from "@buddy/ui"
  * One string, one consumer. Everything below is the real ToggleGroup from
  * @buddy/ui — its real variants, its real sizes. The audit for other components
  * carrying the same class of defect is in
- * docs/known-issues/state-collapsed-into-hover.md.
+ * docs/reviews/state-collapsed-into-hover.md.
  */
 
 // ── Domain ────────────────────────────────────────────────────────────────

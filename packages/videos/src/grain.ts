@@ -2,7 +2,7 @@
  * Buddy's surface grain, mirrored for video.
  *
  * Source of truth: packages/web/src/components/prompt/composer-surfaces.css
- * (`--composer-grain-*`) — see docs/design/grain.md. Video can't read the app's
+ * (`--composer-grain-*`) — see docs/architecture/design/grain.md. Video can't read the app's
  * CSS variables, so these values track the tokens by hand. Don't retune them
  * here; retune the tokens.
  */
