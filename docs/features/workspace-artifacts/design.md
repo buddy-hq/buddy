@@ -168,7 +168,7 @@ Kind-specific stores still own domain behavior:
 
 - Mermaid owns preflight repair, source snapshots, browser render records, failed-render records, supersession, and auto-repair state.
 - Question sets own public answer stripping, attempt records, and attempt evaluation.
-- Flashcards own authoritative queue/count construction, scheduling, pending review recovery, and review records. Their current contract is documented in [Flashcards](../../library-resources/flashcards.md).
+- Flashcards own authoritative queue/count construction, scheduling, pending review recovery, and review records. Their current contract is documented in [Flashcards](../../learning/library/flashcards.md).
 - Media presentations own local-file resolution, media classification, raw-file serving metadata, and current availability.
 - HTML widgets own file-first snapshotting, viewport presets, source/runtime URLs, warnings, and sandbox/CSP behavior.
 - Figures own SVG generation, repair attempts, and raw SVG serving.

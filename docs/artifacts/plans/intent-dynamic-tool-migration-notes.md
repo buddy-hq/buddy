@@ -4,7 +4,7 @@ This document captures the decision record for removing Buddy's runtime intent s
 
 Use this as the handoff document for future sessions before revisiting the architecture.
 
-Implementation plan: `docs/plans/dynamic-tool-addition-plan.md`.
+Implementation plan: `docs/artifacts/plans/dynamic-tool-addition-plan.md`.
 
 ## User Intention
 

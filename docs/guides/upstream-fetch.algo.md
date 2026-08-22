@@ -29,14 +29,14 @@ The algorithm is a safety and evidence scaffold, not the objective. Deviate from
    - migrate connected contracts together (for example session API + SDK + events + web streaming, or permission requests + replies + persistence + location/project identity)
    - preserve Buddy-owned teaching, persona, feature, skill, and subagent policy when upstream only replaces the generic runtime mechanism
    - delete superseded Buddy bridges only after the replacement path passes focused regression and live smoke checks
-10. For a combined v2 adoption sync, the current vendored source is the implementation baseline and `docs/v2/**` is a research aid. Revalidate dated findings against the selected tag because v2 implementation status and hook surfaces can change between snapshots.
+10. For a combined v2 adoption sync, the current vendored source is the implementation baseline and `docs/architecture/v2-upstream/**` is a research aid. Revalidate dated findings against the selected tag because v2 implementation status and hook surfaces can change between snapshots.
 11. Do not adapt upstream v2 surfaces back into Buddy's v1 contracts. For every adopted capability, migrate the connected Buddy backend, adapter call sites, generated SDK, frontend, and tests to the v2 contract directly. Do not add dual-protocol fallbacks or v2-to-v1 translation shims. `@buddy/opencode-adapter` may remain for in-process embedding and Buddy-owned seams, but it must not disguise v2 as v1. If a capability cannot be migrated coherently end to end, leave it wholly on v1 and record the blocker instead of creating a hybrid path.
 12. Use the selected tag's OpenCode desktop/app as the v2 adoption map. If the vendor app uses v2 for a product surface, Buddy must migrate that surface to v2 as part of a combined adoption sync. Audit `packages/app`, the desktop wrapper, SDK v2 calls/types, server handlers, and core implementation together. Defer only surfaces the stable vendor app itself still keeps on v1 or Buddy-specific behavior with no v2 equivalent, and record exact source evidence.
 13. Treat the stable desktop as the mandatory compatibility floor, not the complete v2 horizon. Every combined v2 sync must also inspect the current `upstream/dev` and `upstream/v2` tips so Buddy sees upcoming cutovers before they reach a stable tag. Do not adopt an untagged branch implementation merely because it exists; distinguish backend implementation, desktop activation, and stable release explicitly.
 
 ## Algorithm
 1. Create a checkpoint log entry.
-   - File: `docs/logs/upstream-fetch.<date>.md`.
+   - File: `docs/ops/logs/upstream-fetch.<date>.md`.
    - Record current date/time, branch, short `git status`, and whether the run is a mechanical sync or a combined sync plus v2 adoption.
    - For v2 adoption runs, initialize a capability ledger with: upstream capability, current Buddy bridge, intended disposition, end-to-end adoption gate, validation, and status.
 
@@ -107,7 +107,7 @@ The algorithm is a safety and evidence scaffold, not the objective. Deviate from
        - do not restore tool UI mutation by patching vendored runtime methods
      - Config/tool/permission overlay isolation across directory changes and runtime disposal/recreation.
      - Desktop renderer asset paths after package moves or build-config changes, especially `publicDir`, loading screens, and chat empty-state assets.
-   - For a combined v2 adoption sync, also compare the selected snapshot against `docs/v2/**` and update the capability ledger. At minimum audit:
+   - For a combined v2 adoption sync, also compare the selected snapshot against `docs/architecture/v2-upstream/**` and update the capability ledger. At minimum audit:
      - session create/prompt/read/context/event support and any still-unavailable operations
      - SDK and route availability for the v2 session contract
      - `session.next.*` message and tool-input streaming through the Buddy web client

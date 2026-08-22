@@ -135,7 +135,7 @@ This log records implementation decisions for
   writes revisioned flashcard-deck objects, stores mutable review scheduler
   state in `state/deck.json`, writes pending/committed review records under
   `state/reviews`, and exposes object deck/queued-cards/review routes. Current
-  scheduler details live in [Flashcards](../../library-resources/flashcards.md).
+  scheduler details live in [Flashcards](../../learning/library/flashcards.md).
 - Renamed the flashcard object payload/state/review path away from old identity
   vocabulary. Decks, notes, review records, review inputs, object routes, and
   flashcard tests now use `objectID` for the managed deck identity.

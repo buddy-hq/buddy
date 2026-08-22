@@ -24,7 +24,7 @@ Buddy has object system, where everything durable is stored as an object. One of
 </about>
 
 - We are operating with a singular focus right now, launch buddy, and get everything ready for it.
-- context in: /Users/prashantbhudwal/Code/buddy/docs/launch/critical-path.md
+- context in: /Users/prashantbhudwal/Code/buddy/docs/ops/launch/critical-path.md
 
 HARD CONSTRAINT: Don't let the developer drift into fixing things that don't fulfill this the objective of launching buddy on the 15th of July.
 
