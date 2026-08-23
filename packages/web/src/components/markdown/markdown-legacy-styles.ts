@@ -25,7 +25,7 @@ export const legacyMarkdownClassName = [
   "[&_blockquote]:my-6 [&_blockquote]:border-l-2 [&_blockquote]:border-border-weak-base [&_blockquote]:pl-2 [&_blockquote]:not-italic [&_blockquote]:text-text-weak",
   "[&_hr]:my-10 [&_hr]:border-t [&_hr]:border-border-weak-base",
   "[&_pre]:mt-3 [&_pre]:mb-8 [&_pre]:overflow-auto [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden",
-  "[&_.shiki]:rounded [&_.shiki]:border [&_.shiki]:border-border-weak-base [&_.shiki]:p-3 [&_.shiki]:text-[13px]",
+  "[&_.shiki]:rounded [&_.shiki]:border [&_.shiki]:border-border-weak-base [&_.shiki]:p-3 [&_.shiki]:[font-size:var(--buddy-code-font-size)]",
   "[&_code]:font-mono [&_code]:[font-feature-settings:var(--font-family-mono--font-feature-settings)] [&_code]:text-syntax-string [&_code]:font-medium",
   "[&_pre_code]:border-0 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit",
   "[&_table]:my-6 [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-sm",

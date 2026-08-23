@@ -98,7 +98,7 @@ const markdownClassName = [
   // Code block overrides — use our shiki/mono styling
   "[&_code]:font-mono [&_code]:[font-feature-settings:var(--font-family-mono--font-feature-settings)] [&_code]:font-medium [&_code]:break-words",
   "[&_code]:before:content-none [&_code]:after:content-none",
-  "[&_.shiki]:rounded [&_.shiki]:border [&_.shiki]:border-border-weak-base [&_.shiki]:p-3 [&_.shiki]:text-[13px]",
+  "[&_.shiki]:rounded [&_.shiki]:border [&_.shiki]:border-border-weak-base [&_.shiki]:p-3 [&_.shiki]:[font-size:var(--buddy-code-font-size)]",
   "[&_pre_code]:border-0 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit",
   "[&_pre]:overflow-auto [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden",
   // Links and tables must contain pathological long output inside the chat column.

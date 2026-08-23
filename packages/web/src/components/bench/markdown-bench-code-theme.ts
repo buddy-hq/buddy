@@ -7,11 +7,11 @@ const buddyCodeMirrorTheme = EditorView.theme({
   "&": {
     backgroundColor: "var(--background-stronger)",
     color: "var(--text-base)",
-    fontSize: "13px",
+    fontSize: "var(--buddy-code-font-size)",
   },
   ".cm-content": {
     caretColor: "var(--text-strong)",
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontFamily: "var(--buddy-font-family-mono)",
     fontFeatureSettings: "var(--font-family-mono--font-feature-settings)",
     padding: "12px 0",
   },

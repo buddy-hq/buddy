@@ -9,6 +9,7 @@ import {
   UI_FONT_PLACEHOLDER,
   applyAppearancePreferences,
   codeFontFamily,
+  documentRootFontSize,
   normalizeAppearanceFontSize,
   uiFontFamily,
   useAppearancePreferences,
@@ -45,6 +46,9 @@ describe("appearance preferences", () => {
 
     expect(document.documentElement.style.getPropertyValue("--buddy-ui-font-size")).toBe("15px")
     expect(document.documentElement.style.getPropertyValue("--buddy-code-font-size")).toBe("12px")
+    expect(Number.parseFloat(document.documentElement.style.fontSize)).toBeCloseTo(
+      documentRootFontSize(15),
+    )
     expect(document.documentElement.style.getPropertyValue("--font-sans")).toBe(
       "var(--buddy-font-family-sans)",
     )
@@ -52,7 +56,7 @@ describe("appearance preferences", () => {
       "var(--buddy-font-family-mono)",
     )
     expect(document.getElementById("buddy-appearance-preferences")?.textContent).toContain(
-      '[data-component="markdown-code"] code',
+      '[data-component="markdown-code"] .shiki',
     )
   })
 

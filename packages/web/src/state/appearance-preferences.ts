@@ -13,6 +13,7 @@ export const UI_FONT_PLACEHOLDER = "System Sans"
 export const CODE_FONT_PLACEHOLDER = "System Mono"
 
 const APPEARANCE_STYLE_ID = "buddy-appearance-preferences"
+const DEFAULT_DOCUMENT_ROOT_FONT_SIZE = 16
 const UI_FONT_BASE =
   'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const CODE_FONT_BASE =
@@ -67,6 +68,11 @@ export function normalizeAppearanceFontSize(value: number, fallback: number): nu
   return Math.min(MAX_APPEARANCE_FONT_SIZE, Math.max(MIN_APPEARANCE_FONT_SIZE, Math.round(value)))
 }
 
+export function documentRootFontSize(uiFontSize: number): number {
+  const normalized = normalizeAppearanceFontSize(uiFontSize, DEFAULT_UI_FONT_SIZE)
+  return (normalized / DEFAULT_UI_FONT_SIZE) * DEFAULT_DOCUMENT_ROOT_FONT_SIZE
+}
+
 function ensureAppearanceStyleElement(): HTMLStyleElement {
   const documentNode = browserDocument()
   if (!documentNode) {
@@ -93,6 +99,10 @@ export function applyAppearancePreferences(preferences: AppearancePreferences): 
   root.style.setProperty("--buddy-font-family-mono", codeFontFamily(preferences.codeFont))
   root.style.setProperty("--font-sans", "var(--buddy-font-family-sans)")
   root.style.setProperty("--font-mono", "var(--buddy-font-family-mono)")
+  // Tailwind dimensions are rem-based. Scaling the document root keeps text,
+  // controls, spacing, and layout in proportion while preserving Buddy's
+  // existing 14 px default UI text at a 16 px browser root.
+  root.style.fontSize = `${documentRootFontSize(uiFontSize)}px`
   root.style.setProperty("--buddy-ui-font-size", `${uiFontSize}px`)
   root.style.setProperty("--buddy-code-font-size", `${codeFontSize}px`)
   root.style.setProperty("--buddy-font-size-xs", "calc(var(--buddy-ui-font-size) * 0.857142857)")
@@ -115,10 +125,8 @@ samp {
   font-family: var(--buddy-font-family-mono);
 }
 
-pre,
-pre code,
-[data-component="markdown-code"] code,
-[data-component="markdown-code"] pre {
+[data-component="markdown-code"] .shiki,
+[data-component="markdown-code"] pre code {
   font-size: var(--buddy-code-font-size);
 }
 `
