@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Input,
   Select,
@@ -31,7 +31,6 @@ import {
   MIN_APPEARANCE_FONT_SIZE,
   UI_FONT_PLACEHOLDER,
   codeFontFamily,
-  normalizeAppearanceFontSize,
   uiFontFamily,
   useAppearancePreferences,
 } from "@/state/appearance-preferences"
@@ -78,12 +77,18 @@ function FontTextInput(props: {
   )
 }
 
-function FontSizeInput(props: {
+export function FontSizeInput(props: {
   value: number
   ariaLabel: string
   dataAction: string
   onChange: (value: number) => void
 }) {
+  const [draft, setDraft] = useState(String(props.value))
+
+  useEffect(() => {
+    setDraft(String(props.value))
+  }, [props.value])
+
   return (
     <div className="flex items-center justify-end gap-2">
       <Input
@@ -92,15 +97,22 @@ function FontSizeInput(props: {
         min={MIN_APPEARANCE_FONT_SIZE}
         max={MAX_APPEARANCE_FONT_SIZE}
         step={1}
-        value={props.value}
+        value={draft}
         aria-label={props.ariaLabel}
         className="h-8 w-20 text-right text-xs tabular-nums"
         onChange={(event) => {
-          const value = Number(event.currentTarget.value)
-          if (Number.isFinite(value)) {
-            props.onChange(normalizeAppearanceFontSize(value, props.value))
+          const nextDraft = event.currentTarget.value
+          setDraft(nextDraft)
+          const value = Number(nextDraft)
+          if (
+            Number.isInteger(value) &&
+            value >= MIN_APPEARANCE_FONT_SIZE &&
+            value <= MAX_APPEARANCE_FONT_SIZE
+          ) {
+            props.onChange(value)
           }
         }}
+        onBlur={() => setDraft(String(props.value))}
       />
       <span className="w-5 text-xs text-text-weak">px</span>
     </div>

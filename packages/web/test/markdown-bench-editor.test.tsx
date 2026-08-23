@@ -136,6 +136,8 @@ describe("MarkdownBenchEditor", () => {
     expect(container.querySelector(".cm-editor")).not.toBeNull()
     expect(document.head.textContent).toContain("var(--background-stronger)")
     expect(document.head.textContent).toContain("var(--syntax-keyword)")
+    expect(document.head.textContent).toContain("var(--buddy-code-font-size)")
+    expect(document.head.textContent).toContain("var(--buddy-font-family-mono)")
     expect(container.querySelector(".mdxeditor-toolbar")?.classList.contains("!hidden")).toBe(true)
     expect(container.querySelector(".mdxeditor-source-editor")).toBeNull()
     expect(historyControls).toEqual({ canRedo: false, canUndo: false })
