@@ -116,7 +116,7 @@ export function BenchSurfaceHost(props: {
             className={
               active
                 ? "h-full min-h-0 w-full min-w-0"
-                : "pointer-events-none invisible absolute inset-0 h-full w-full"
+                : "pointer-events-none invisible absolute inset-0 h-full w-full opacity-0"
             }
           >
             {props.renderContext({
