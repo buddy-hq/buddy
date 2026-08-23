@@ -143,6 +143,13 @@ describe("BenchSurfaceHost", () => {
       .filter((node) => node.getAttribute("data-surface-active") === "true")
       .map((node) => node.getAttribute("data-target-key"))
     expect(activeKeys).toEqual([benchTargetKey(SECOND_TARGET)])
+
+    const parkedInstance = [...instances].find(
+      (node) => node.getAttribute("data-surface-active") === "false",
+    )
+    expect(parkedInstance?.classList.contains("opacity-0")).toBeTrue()
+    expect(parkedInstance?.hasAttribute("inert")).toBeTrue()
+    expect(parkedInstance?.getAttribute("aria-hidden")).toBe("true")
   })
 
   test("releases a surface when no chat tab retains its exact target", async () => {
