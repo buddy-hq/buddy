@@ -18,6 +18,14 @@ import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-sessi
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
 import type { SessionTransform, SessionTransformContext } from "./types"
 import { resolveSubagentToolForwarding } from "./subagent-tool-forwarding"
+import {
+  persistConciseResponseChatState,
+  readConciseResponseChatState,
+} from "./concise-response-chat-state"
+import {
+  resolveConciseResponses,
+  type ConciseResponseChatState,
+} from "../../shared/concise-responses"
 
 import type { TJsonObject } from "../../prompt/utils"
 
@@ -29,9 +37,11 @@ export function createSessionCommandTransform(input: {
   context: SessionTransformContext
 }): SessionTransform {
   let rollbackTeachingState: (() => void) | undefined
+  let acceptedConciseResponseChatState: ConciseResponseChatState | undefined
 
   return {
     onTransform: async (body: TJsonObject): Promise<TJsonObject> => {
+      acceptedConciseResponseChatState = undefined
       assertNoLegacyRuntimeOverrides(body)
 
       await OpenCodeInstance.provide({
@@ -49,8 +59,26 @@ export function createSessionCommandTransform(input: {
         config: projectConfig,
         sessionPersona: previousState?.persona,
       })
+      let conciseResponseChatState: ConciseResponseChatState | undefined
+      const resolveConciseResponseChatState = async (): Promise<ConciseResponseChatState> => {
+        if (conciseResponseChatState) return conciseResponseChatState
+
+        conciseResponseChatState = previousState
+          ? {
+              base:
+                previousState.baseConciseResponses ?? previousState.conciseResponses ?? true,
+              applied: previousState.conciseResponses ?? true,
+            }
+          : await readConciseResponseChatState({
+              directory: input.context.directory,
+              sessionID: input.context.sessionID,
+              configured: resolveConciseResponses(projectConfig),
+            })
+        return conciseResponseChatState
+      }
 
       if (target.includeBuddySystem && target.personaID) {
+        const responseStyle = await resolveConciseResponseChatState()
         const teachingWorkspaceState = previousState?.teachingWorkspaceState ?? "inactive"
         const persona = getBuddyPersona(target.personaID, projectConfig.personas)
         const personaDefinition = REGISTERED_BUDDY_PERSONAS.find(
@@ -84,9 +112,12 @@ export function createSessionCommandTransform(input: {
             teachingWorkspaceState,
           }),
           teachingWorkspaceState,
+          baseConciseResponses: responseStyle.base,
+          conciseResponses: responseStyle.applied,
           sessionRuntime,
           focusGoalIds,
         })
+        acceptedConciseResponseChatState = responseStyle
         await syncBuddyRuntimeSessionPermissions({
           directory: input.context.directory,
           sessionID: input.context.sessionID,
@@ -115,13 +146,19 @@ export function createSessionCommandTransform(input: {
         targetAgent: target.agent,
       })
       if (subagentForwarding.stateSeed && !previousState) {
+        const responseStyle = await resolveConciseResponseChatState()
         rollbackTeachingState = () =>
           restoreTeachingSessionState({
             directory: input.context.directory,
             sessionID: input.context.sessionID,
             previousState,
           })
-        writeTeachingSessionState(input.context.directory, subagentForwarding.stateSeed)
+        writeTeachingSessionState(input.context.directory, {
+          ...subagentForwarding.stateSeed,
+          baseConciseResponses: responseStyle.base,
+          conciseResponses: responseStyle.applied,
+        })
+        acceptedConciseResponseChatState = responseStyle
       }
       if (subagentForwarding.toolOverrides) {
         transformed.tools = subagentForwarding.toolOverrides
@@ -149,6 +186,15 @@ export function createSessionCommandTransform(input: {
     },
     rollbackState: () => {
       rollbackTeachingState?.()
+    },
+    onAccepted: async () => {
+      if (!acceptedConciseResponseChatState) return
+
+      await persistConciseResponseChatState({
+        directory: input.context.directory,
+        sessionID: input.context.sessionID,
+        ...acceptedConciseResponseChatState,
+      })
     },
   }
 }

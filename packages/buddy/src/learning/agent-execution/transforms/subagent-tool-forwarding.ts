@@ -12,6 +12,7 @@ import { readTeachingSessionState } from "../state/session-state"
 import { getBuddyPersona, getDefaultBuddyPersona } from "../../personas/wiring/persona-profiles"
 import { REGISTERED_BUDDY_PERSONAS } from "../../personas/registry"
 import { resolveCurrentSurface } from "../../shared/targeting"
+import { resolveConciseResponses } from "../../shared/concise-responses"
 import type { TeachingSessionState } from "../../shared/teaching-session-state"
 import {
   isPersonaDelegateId,
@@ -45,7 +46,12 @@ type SubagentPolicyContext = {
 type SubagentForwardingResult = {
   stateSeed?: Pick<
     TeachingSessionState,
-    "currentSurface" | "focusGoalIds" | "persona" | "sessionId" | "teachingWorkspaceState"
+    | "conciseResponses"
+    | "currentSurface"
+    | "focusGoalIds"
+    | "persona"
+    | "sessionId"
+    | "teachingWorkspaceState"
   >
   sessionPermission?: PermissionRuleset
   toolOverrides?: ToolOverrideMap
@@ -520,7 +526,12 @@ function stateSeed(input: {
   teachingWorkspaceState: TeachingWorkspaceState
 }): Pick<
   TeachingSessionState,
-  "currentSurface" | "focusGoalIds" | "persona" | "sessionId" | "teachingWorkspaceState"
+  | "conciseResponses"
+  | "currentSurface"
+  | "focusGoalIds"
+  | "persona"
+  | "sessionId"
+  | "teachingWorkspaceState"
 > {
   return {
     sessionId: input.sessionID,
@@ -531,6 +542,7 @@ function stateSeed(input: {
       teachingWorkspaceState: input.teachingWorkspaceState,
     }),
     teachingWorkspaceState: input.teachingWorkspaceState,
+    conciseResponses: resolveConciseResponses(input.projectConfig),
     focusGoalIds: [...input.focusGoalIds],
   }
 }

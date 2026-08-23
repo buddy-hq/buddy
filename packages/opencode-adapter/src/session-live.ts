@@ -94,6 +94,7 @@ function mutateCachedSession(sessionID: string, update: (session: OpenCodeSessio
 export function updateCachedSession(input: {
   sessionID: string
   title?: string
+  metadata?: OpenCodeSession.Info["metadata"]
   archived?: OpenCodeSession.Info["time"]["archived"]
   permission?: SessionPermissionInput
   updated?: OpenCodeSession.Info["time"]["updated"]
@@ -101,6 +102,10 @@ export function updateCachedSession(input: {
   mutateCachedSession(input.sessionID, (session) => {
     if (input.title !== undefined) {
       session.title = input.title
+    }
+
+    if (input.metadata !== undefined) {
+      session.metadata = structuredClone(input.metadata)
     }
 
     if (input.permission !== undefined) {

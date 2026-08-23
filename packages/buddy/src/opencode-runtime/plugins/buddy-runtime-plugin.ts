@@ -1,5 +1,7 @@
 import path from "node:path"
 import type { Hooks, Plugin } from "@opencode-ai/plugin"
+import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { PRODUCTION_PERSONAS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { MessageID, PartID } from "@buddy/opencode-adapter/id"
 import { createOpenAICodexAuthHook } from "./openai-codex-auth"
 import { createOpenAICodexProviderHook } from "./openai-codex-provider"
@@ -11,6 +13,9 @@ import {
   withCommandInvocationDisplayParts,
 } from "../../session/orchestration/command-transcript"
 import { cleanupBenchCapturesForSession } from "../../learning/features/bench/captures"
+import { readTeachingSessionState } from "../../learning/agent-execution/state/session-state"
+import { resolveConciseResponses } from "../../learning/shared/concise-responses"
+import { stripConciseResponseInstructions } from "../../learning/personas/prompts/concise-response-control"
 
 type SystemTransformInput = {
   sessionID?: string
@@ -18,6 +23,44 @@ type SystemTransformInput = {
 
 type SystemTransformOutput = {
   system: string[]
+}
+
+const PRODUCTION_PERSONA_IDS = new Set<string>(PRODUCTION_PERSONAS)
+const LOW_TEXT_VERBOSITY = "low"
+const MEDIUM_TEXT_VERBOSITY = "medium"
+
+type TextVerbosityOptions = {
+  textVerbosity?: unknown
+}
+
+export function applyConciseResponseTextVerbosity(input: {
+  agent: string
+  conciseResponses: boolean
+  options: TextVerbosityOptions
+}): void {
+  if (!PRODUCTION_PERSONA_IDS.has(input.agent)) return
+  if (input.conciseResponses) return
+  if (input.options.textVerbosity !== LOW_TEXT_VERBOSITY) return
+
+  input.options.textVerbosity = MEDIUM_TEXT_VERBOSITY
+}
+
+function createTextVerbosityHook(input: {
+  directory: string
+}): NonNullable<Hooks["chat.params"]> {
+  return async (hookInput, output) => {
+    if (!PRODUCTION_PERSONA_IDS.has(hookInput.agent)) return
+
+    const sessionState = readTeachingSessionState(input.directory, hookInput.sessionID)
+    const conciseResponses =
+      sessionState?.conciseResponses ??
+      resolveConciseResponses(await readProjectConfig(input.directory))
+    applyConciseResponseTextVerbosity({
+      agent: hookInput.agent,
+      conciseResponses,
+      options: output.options,
+    })
+  }
 }
 
 function normalizeForComparison(value: string) {
@@ -150,17 +193,33 @@ const cleanupBenchCapturesOnIdle: EventHook = async ({ event }) => {
   }
 }
 
-function createSystemPromptGuard(input: { directory: string }) {
+function createBuddyRuntimeBehaviorHooks(input: { directory: string }) {
   return {
     "command.execute.before": compactCommandInvocationBeforeExecute,
+    "chat.params": createTextVerbosityHook(input),
     "experimental.chat.messages.transform": stripToolPresentationFromChatMessages,
     "experimental.chat.system.transform": async (
       hookInput: SystemTransformInput,
       output: SystemTransformOutput,
     ) => {
-      const filtered = normalizeSystemSegments(
+      let filtered = normalizeSystemSegments(
         output.system.map((segment) => filterInstructionBlocks(segment)),
       )
+      const sessionState = hookInput.sessionID
+        ? readTeachingSessionState(input.directory, hookInput.sessionID)
+        : undefined
+      const baseConciseResponses =
+        sessionState?.baseConciseResponses ?? sessionState?.conciseResponses ?? true
+      if (sessionState && !baseConciseResponses) {
+        filtered = normalizeSystemSegments(
+          filtered.map((segment) =>
+            stripConciseResponseInstructions({
+              persona: sessionState.persona,
+              systemPrompt: segment,
+            }),
+          ),
+        )
+      }
       output.system.length = 0
       output.system.push(...filtered)
 
@@ -194,7 +253,7 @@ export async function createBuddyRuntimeHooks(input: { directory: string; worktr
     auth: createOpenAICodexAuthHook(),
     provider: createOpenAICodexProviderHook({ directory: input.directory }),
     event: cleanupBenchCapturesOnIdle,
-    ...createSystemPromptGuard({ directory: input.directory }),
+    ...createBuddyRuntimeBehaviorHooks({ directory: input.directory }),
   }
 }
 

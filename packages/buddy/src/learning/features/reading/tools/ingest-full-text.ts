@@ -16,6 +16,8 @@ import {
   NATIVE_RESOURCE_ATTACHMENT_PART_TYPE,
 } from "../../../prompt/native-resource-metadata"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
+import { readTeachingSessionState } from "../../../agent-execution/state/session-state"
+import { DEFAULT_CONCISE_RESPONSES } from "../../../shared/concise-responses"
 
 // Full-text ingestion fills the next model request with prepared source text, so the
 // relevant capacity is the model's usable input window: `limit.input` when the
@@ -530,6 +532,15 @@ export const ingestFullTextTool = createBuddyTool({
       }
     }
 
+    const conciseResponses =
+      readTeachingSessionState(ctx.directory, ctx.sessionID)?.conciseResponses ??
+      DEFAULT_CONCISE_RESPONSES
+    const longResponseCaution = conciseResponses
+      ? `<caution>
+        Long Response Caution: default to responding in Buddy's normal style — 1-4 sentences, ~15-60 words per turn, WhatsApp-style, casual. Break this rule only when the user is explicitly demanding something verbose. Answer only the user's actual question.
+        </caution>`
+      : ""
+
     const output = [
       `<resource_full_text_ingestion resource="${resource.alias}" completed="true">`,
       `object_kind=resource`,
@@ -552,9 +563,7 @@ export const ingestFullTextTool = createBuddyTool({
       `<buddy_system_reminder>
         Now that you have the full text of ${resource.alias}, you don't need to read individual chunks of this resource again. You can answer the questions about this resource from memory.
         Only exception is when the user explicly asks you to read a specific chunk or when you need to reference a specific location in the text.
-        <caution>
-        Long Response Caution: default to responding in Buddy's normal style — 1-4 sentences, ~15-60 words per turn, WhatsApp-style, casual. Break this rule only when the user is explicitly demanding something verbose. Answer only the user's actual question.
-        </caution>
+        ${longResponseCaution}
         </buddy_system_reminder>
         `,
       "</resource_full_text_ingestion>",

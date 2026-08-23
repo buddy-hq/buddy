@@ -8,6 +8,8 @@ import STUDENT_TEACH_THROUGH_CONVERSATION from "./sections/constitution/student/
 import TEACHER_SHOW_DONT_TELL from "./sections/constitution/teacher/show-dont-tell.p.md"
 import TEACHER_TEACH_THROUGH_CONVERSATION from "./sections/constitution/teacher/teach-through-conversation.p.md"
 import ABOUT_BUDDY from "./sections/product/about-buddy.p.md"
+import STUDENT_CONCISE_RESPONSES from "./sections/product/concise-responses/student.p.md"
+import TEACHER_CONCISE_RESPONSES from "./sections/product/concise-responses/teacher.p.md"
 import FORMATTING from "./sections/product/formatting.p.md"
 import SKILLS from "./sections/product/skills.p.md"
 import VOCABULARY from "./sections/product/vocabulary.p.md"
@@ -42,6 +44,8 @@ const PERSONA_PROMPT_SECTIONS = new Map([
   ["constitution/teacher/show-dont-tell", TEACHER_SHOW_DONT_TELL],
   ["constitution/teacher/teach-through-conversation", TEACHER_TEACH_THROUGH_CONVERSATION],
   ["product/about-buddy", ABOUT_BUDDY],
+  ["product/concise-responses/student", STUDENT_CONCISE_RESPONSES],
+  ["product/concise-responses/teacher", TEACHER_CONCISE_RESPONSES],
   ["product/formatting", FORMATTING],
   ["product/skills", SKILLS],
   ["product/vocabulary", VOCABULARY],

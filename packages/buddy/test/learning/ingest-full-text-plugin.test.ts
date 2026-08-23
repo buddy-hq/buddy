@@ -17,6 +17,7 @@ import { tmpdir } from "../helpers/tmpdir"
 import { requireString, requireToolMetadata, requireToolObjectResult } from "../helpers/parse"
 import { ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 import { createTextPdf } from "../helpers/pdf"
+import { writeTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
 
 type ActiveProviderModel = {
   providerID: string
@@ -251,6 +252,25 @@ describe("ingest_full_text via plugin shim", () => {
         expect(parsed_ingestResult.output).not.toContain(
           "Could not resolve the active model for full-text ingestion.",
         )
+
+        writeTeachingSessionState(project.path, {
+          sessionId: sessionID,
+          persona: "buddy",
+          currentSurface: "curriculum",
+          teachingWorkspaceState: "inactive",
+          conciseResponses: false,
+          focusGoalIds: [],
+        })
+        const flexibleResult = await ingestPlugin.execute(
+          { resourceKey: "frames-md" },
+          createPluginExecuteContext(pluginContext),
+        )
+        const parsedFlexibleResult = requireToolObjectResult(
+          flexibleResult,
+          "Expected flexible ingest_full_text object result",
+        )
+        expect(parsedFlexibleResult.output).not.toBe(parsed_ingestResult.output)
+        expect(parsedFlexibleResult.output.length).toBeLessThan(parsed_ingestResult.output.length)
       },
     })
   })
