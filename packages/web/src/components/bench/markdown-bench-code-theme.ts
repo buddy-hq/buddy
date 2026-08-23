@@ -13,18 +13,21 @@ const buddyCodeMirrorTheme = EditorView.theme({
     caretColor: "var(--text-strong)",
     fontFamily: "var(--buddy-font-family-mono)",
     fontFeatureSettings: "var(--font-family-mono--font-feature-settings)",
-    padding: "12px 0",
+    padding: "8px 0",
   },
   ".cm-line": {
-    padding: "0 12px",
+    padding: "0 10px",
   },
   ".cm-gutters": {
     backgroundColor: "var(--background-stronger)",
-    borderRight: "1px solid var(--border-weaker-base)",
+    borderRight: "none",
     color: "var(--text-weaker)",
   },
+  ".cm-lineNumbers .cm-gutterElement": {
+    padding: "0 6px 0 8px",
+  },
   ".cm-activeLine, .cm-activeLineGutter": {
-    backgroundColor: "var(--surface-base-hover)",
+    backgroundColor: "transparent",
   },
   ".cm-cursor, .cm-dropCursor": {
     borderLeftColor: "var(--text-strong)",
