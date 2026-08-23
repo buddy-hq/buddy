@@ -27,7 +27,14 @@ const CREATE_WHITEBOARD_VIEW_BOARD_ACTIONS = [
   "continue_current_board",
   "destructively_replace_current_board",
 ] as const
+const CREATE_WHITEBOARD_VIEW_OBJECT_ACTIONS = ["create", "update"] as const
 const WHITEBOARD_TITLE_MAX_CHARACTERS = 80
+
+const CreateWhiteboardViewObjectActionSchema = z
+  .enum(CREATE_WHITEBOARD_VIEW_OBJECT_ACTIONS)
+  .describe(
+    "Whether this call creates a distinct whiteboard object or updates an existing one. Use create with no objectID for a new whiteboard. Use update with the stable objectID returned by Buddy for every continuation, repair, or revision.",
+  )
 
 const CreateWhiteboardViewBoardActionSchema = z
   .enum(CREATE_WHITEBOARD_VIEW_BOARD_ACTIONS)
@@ -37,8 +44,9 @@ const CreateWhiteboardViewBoardActionSchema = z
 
 const CreateWhiteboardViewInputSchema = z
   .object({
-    objectID: BuddyObjectIDSchema.nullable().describe(
-      "Stable whiteboard object id to update. Pass null only when creating a new directory whiteboard. Reuse the same object id when continuing or revising an existing whiteboard, including from another chat.",
+    objectAction: CreateWhiteboardViewObjectActionSchema,
+    objectID: BuddyObjectIDSchema.optional().describe(
+      "Stable whiteboard object id returned by Buddy. Required when objectAction is update and omitted when objectAction is create. Reuse the same object id when continuing or revising an existing whiteboard, including from another chat.",
     ),
     title: z
       .string()
@@ -59,8 +67,29 @@ const CreateWhiteboardViewInputSchema = z
       ),
   })
   .strict()
+  .superRefine(validateCreateWhiteboardViewInput)
 
 type CreateWhiteboardViewInput = z.infer<typeof CreateWhiteboardViewInputSchema>
+
+function validateCreateWhiteboardViewInput(
+  input: CreateWhiteboardViewInput,
+  ctx: z.RefinementCtx,
+): void {
+  if (input.objectAction === "create" && input.objectID !== undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["objectID"],
+      message: "objectID must be omitted when objectAction is create.",
+    })
+  }
+  if (input.objectAction === "update" && input.objectID === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["objectID"],
+      message: "objectID is required when objectAction is update.",
+    })
+  }
+}
 
 function createdByCallID(ctx: BuddyToolContext): string {
   const callID = ctx.callID
@@ -170,7 +199,7 @@ function formatMeasuredLayoutForModel(layout: WhiteboardLayoutDigest | undefined
         layout.issuesTruncated ? ({ issuesTruncated: true } as const) : undefined,
       ),
     ),
-    'Before replying, make at most one follow-up whiteboard_create_view repair using boardAction="continue_current_board". Trust only these rendered-bounds issues. For text_too_small, increase the listed text font size, use a less dense local layout, or narrow the camera viewport. For text_overflow, fix the listed container/text ids in the reported axis. For text_occluded, redraw locally so the text is above the occluding filled shape or move/delete the occluder. For sibling_collision, separate the listed ids in the reported axis. Preserve all unrelated content.',
+    'Before replying, make at most one follow-up whiteboard_create_view repair using objectAction="update" and boardAction="continue_current_board". Trust only these rendered-bounds issues. For text_too_small, increase the listed text font size, use a less dense local layout, or narrow the camera viewport. For text_overflow, fix the listed container/text ids in the reported axis. For text_occluded, redraw locally so the text is above the occluding filled shape or move/delete the occluder. For sibling_collision, separate the listed ids in the reported axis. Preserve all unrelated content.',
   ]
 }
 
@@ -211,21 +240,27 @@ const createWhiteboardViewTool = createBuddyTool({
       always: ["*"],
       metadata: {},
     })
-    const whiteboardObject = params.objectID
-      ? await readWhiteboardObject(ctx.directory, params.objectID)
-      : await ensureWhiteboardObjectForToolCall(
-          Object.assign(
-            {
-              directory: ctx.directory,
-              reservation: {
-                sessionID,
-                messageID,
-                callID: eventCallID,
-              },
+    let whiteboardObject
+    if (params.objectAction === "update") {
+      if (params.objectID === undefined) {
+        throw new Error("objectID is required when objectAction is update.")
+      }
+      whiteboardObject = await readWhiteboardObject(ctx.directory, params.objectID)
+    } else {
+      whiteboardObject = await ensureWhiteboardObjectForToolCall(
+        Object.assign(
+          {
+            directory: ctx.directory,
+            reservation: {
+              sessionID,
+              messageID,
+              callID: eventCallID,
             },
-            params.title ? { title: params.title } : undefined,
-          ),
-        )
+          },
+          params.title ? { title: params.title } : undefined,
+        ),
+      )
+    }
     const objectID = whiteboardObject.objectID
     await ctx.metadata({
       title: "Opening Whiteboard",
@@ -301,7 +336,7 @@ const createWhiteboardViewTool = createBuddyTool({
           ? `Whiteboard updated. Continuation handle: '${result.continuationHandle}'.`
           : `Whiteboard unchanged. Continuation handle: '${result.continuationHandle}'.`,
         ...formatBuddyObjectRefLines(buddyObjectResult.primaryRef),
-        `If you need to edit this board again, first call whiteboard_read_context with objectID='${objectID}', then call whiteboard_create_view with the same objectID and boardAction='continue_current_board'.`,
+        `If you need to edit this board again, first call whiteboard_read_context with objectID='${objectID}', then call whiteboard_create_view with objectAction='update', the same objectID, and boardAction='continue_current_board'.`,
         "Use boardAction='destructively_replace_current_board' only when the user explicitly asked to discard, clear, overwrite, or replace the entire current board; the viewer has no in-app way back to the overwritten board.",
         'To remove elements, use {"type":"delete","ids":"<id1>,<id2>"} or {"type":"delete","id":"<id>"} before adding replacements.',
         'To move related elements together, use {"type":"translate","ids":"<id1>,<id2>","dx":180,"dy":0}. For local redesigns, delete the old ids and redraw that area with new ids.',
@@ -320,6 +355,7 @@ const createWhiteboardViewTool = createBuddyTool({
           continuationHandle: result.continuationHandle,
           boardID: result.boardID,
           saved: result.saved,
+          objectAction: params.objectAction,
           boardAction: params.boardAction,
           warnings: result.warnings,
         },

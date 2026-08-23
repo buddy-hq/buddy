@@ -1069,7 +1069,7 @@ function PanelLabel(props: { children: ReactNode }) {
  * So the same treatment the ToggleGroup on-state uses: one step up the raised
  * ramp, plus a text-colour signal. That is deliberate — a selected row and a
  * selected segment are the same state, so they must not be two different colours.
- * See docs/known-issues/state-collapsed-into-hover.md for why fill alone is not
+ * See docs/reviews/state-collapsed-into-hover.md for why fill alone is not
  * enough, and why the hover companion is required.
  */
 const SELECTED_ROW = "bg-surface-raised-strong text-text-strong hover:bg-surface-raised-strong"
@@ -1790,7 +1790,7 @@ const SEARCH_HITS: SearchHit[] = [
  * These are states, not actions, so unlike A−/A+ they genuinely are a
  * ToggleGroup — `type="multiple"`, because the three are independent. Which
  * makes this panel the one place in the reader where the fixed on-state has to
- * carry three simultaneous selections; see docs/known-issues.
+ * carry three simultaneous selections; see docs/reviews.
  */
 const SEARCH_MATCH_OPTIONS = [
   { id: "case", glyph: "Aa", label: "Match case" },

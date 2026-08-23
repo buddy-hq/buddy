@@ -12,7 +12,7 @@ import { cn } from "@buddy/ui/lib/utils"
  * and a merely-hovered one are the same pixels, with no secondary signal — same
  * text colour, same weight, same border. On a raised surface `surface-weak` is
  * also close to the container's own fill, so inside a popover the selected item
- * reads as unselected. See docs/known-issues/state-collapsed-into-hover.md.
+ * reads as unselected. See docs/reviews/state-collapsed-into-hover.md.
  *
  * Three parts to the fix, all load-bearing:
  *   · a distinct fill, one step further up the raised ramp than hover

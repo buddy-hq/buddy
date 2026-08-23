@@ -2,9 +2,9 @@
 
 Implementation-ready plan to add production dynamic learning tools after Buddy's runtime intent removal is complete.
 
-Do not execute this plan in parallel with `docs/plans/intent-removal-plan.md`. This plan assumes runtime `Intent` no longer exists in Buddy's UI, API, session state, learner snapshot query, prompt context, capability profile, or permission compiler.
+Do not execute this plan in parallel with `docs/artifacts/plans/intent-removal-plan.md`. This plan assumes runtime `Intent` no longer exists in Buddy's UI, API, session state, learner snapshot query, prompt context, capability profile, or permission compiler.
 
-Reference handoff and smoke-test findings: `docs/plans/intent-dynamic-tool-migration-notes.md`.
+Reference handoff and smoke-test findings: `docs/artifacts/plans/intent-dynamic-tool-migration-notes.md`.
 
 ## Target End State
 

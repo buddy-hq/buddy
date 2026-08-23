@@ -1,1 +1,1 @@
-- docs/context-engineering/tools/tool-rendering-audit.md
+- docs/research/context-engineering/tools/tool-rendering-audit.md

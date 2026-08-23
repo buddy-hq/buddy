@@ -79,7 +79,7 @@ describe("whiteboard progressive drawing", () => {
 
   test("keeps an unapproved new-board stream transient", () => {
     const raw = JSON.stringify({
-      objectID: null,
+      objectAction: "create",
       boardAction: "continue_current_board",
       elements: JSON.stringify([
         { type: "rectangle", id: "streamed", x: 0, y: 0, width: 120, height: 60 },
@@ -96,7 +96,7 @@ describe("whiteboard progressive drawing", () => {
           tool: "whiteboard_create_view",
           state: {
             status: "running",
-            input: { objectID: null },
+            input: { objectAction: "create" },
             raw,
           },
         },

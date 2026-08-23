@@ -2,7 +2,7 @@
 
 Implementation-ready plan to remove Buddy's runtime `Intent` concept without mixing in the later dynamic-tool migration.
 
-This plan is intentionally linear. Do not implement dynamic tool discovery, dynamic tool registration, dynamic tool permissions, or dynamic tool lifecycle cleanup while executing this plan. The dynamic-tool follow-up is documented separately in `docs/plans/intent-dynamic-tool-migration-notes.md`.
+This plan is intentionally linear. Do not implement dynamic tool discovery, dynamic tool registration, dynamic tool permissions, or dynamic tool lifecycle cleanup while executing this plan. The dynamic-tool follow-up is documented separately in `docs/artifacts/plans/intent-dynamic-tool-migration-notes.md`.
 
 ## Target End State
 

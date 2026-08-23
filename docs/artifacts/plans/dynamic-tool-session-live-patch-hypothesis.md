@@ -18,7 +18,7 @@ The relevant production code is:
 
 The dynamic-tool migration notes document this assumption:
 
-- `docs/plans/intent-dynamic-tool-migration-notes.md`
+- `docs/artifacts/plans/intent-dynamic-tool-migration-notes.md`
 
 ## Hypothesis
 

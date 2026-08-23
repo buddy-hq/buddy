@@ -21,7 +21,7 @@ import {
   type AppIcon,
 } from "@/icons/app-icons"
 // Grain material (composer-surface / composer-grain) — the terminal card wears it
-// so it belongs to the composer region it sits above. See docs/design/grain.md.
+// so it belongs to the composer region it sits above. See docs/architecture/design/grain.md.
 import "@/components/prompt/composer-surfaces.css"
 // Companion-variant mascots only (transparent-bg poses; see assets/mascot/AGENTS.md).
 import buddyConfusedUrl from "../../../../../../assets/mascot/buddy-mascot-confused.png"
@@ -32,7 +32,7 @@ import buddyThinkUrl from "../../../../../../assets/mascot/buddy-mascot-think.pn
 /**
  * Easel · Error system redesign
  *
- * Low-fidelity, real-component prototype for docs/errors/proposed-design.md.
+ * Low-fidelity, real-component prototype for docs/features/error-handling/proposed-design.md.
  * Four views:
  *   1. Retry ladder   — a retry is not an error; it surfaces only once it stops
  *                        behaving like normal weather (attempt 3+). The runtime has

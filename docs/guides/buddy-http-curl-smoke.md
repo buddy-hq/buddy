@@ -326,7 +326,7 @@ their feature is in scope:
   save a one-card deck. The main chat renders the saved object from task
   metadata, so verify the `task` flow completes, the new `flashcard-deck`
   object appears in the managed object index, then verify `queued-cards` and
-  `reviews`. See [Flashcards](../library-resources/flashcards.md) for the
+  `reviews`. See [Flashcards](../learning/library/flashcards.md) for the
   scheduler contract.
 - `render_figure`: prompt for a small geometry spec and verify the SVG raw
   route.

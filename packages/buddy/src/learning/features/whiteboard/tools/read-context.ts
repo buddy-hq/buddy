@@ -265,7 +265,7 @@ const readWhiteboardContextTool = createBuddyTool({
       return {
         title: "Read Whiteboard",
         output:
-          'No whiteboard board exists. Create the first board with whiteboard_create_view using boardAction: "continue_current_board".',
+          'No whiteboard board exists. Create a distinct board with whiteboard_create_view using objectAction: "create", omitting objectID, and boardAction: "continue_current_board".',
         metadata: { objectID: params.objectID },
       }
     }

@@ -101,28 +101,28 @@ const BenchPresentInputSchema = z
       .string()
       .trim()
       .min(1)
-      .nullable()
+      .optional()
       .describe(
-        "Existing local file path for present_file. Accepts workspace-relative paths, absolute paths, file:// URLs, and ~/ home-relative paths. A path that resolves outside the workspace requires external-folder permission. Must be null for every other action. Do not invent paths. Use present_html_widget for .html or .htm teaching widgets.",
+        "Existing local file path for present_file. Accepts workspace-relative paths, absolute paths, file:// URLs, and ~/ home-relative paths. A path that resolves outside the workspace requires external-folder permission. Omit for every other action. Do not invent paths. Use present_html_widget for .html or .htm teaching widgets.",
       ),
     resourceKey: z
       .string()
       .trim()
       .min(1)
-      .nullable()
+      .optional()
       .describe(
-        "Prepared reading resource object id or alias, usually copied from resource inventory or prepare_resource output. Required only for present_resource. Only use resources that expose a Bench reader source, such as bench_reader=<path>. Must be null for every other action. Do not invent resource ids or aliases.",
+        "Prepared reading resource object id or alias, usually copied from resource inventory or prepare_resource output. Required only for present_resource. Only use resources that expose a Bench reader source, such as bench_reader=<path>. Omit for every other action. Do not invent resource ids or aliases.",
       ),
-    objectID: BuddyObjectIDSchema.nullable().describe(
-      "Buddy object id copied from a prior tool result. Required only for present_object. Must be null for every other action.",
+    objectID: BuddyObjectIDSchema.optional().describe(
+      "Buddy object id copied from a prior tool result. Required only for present_object. Omit for every other action.",
     ),
     tabKey: z
       .string()
       .trim()
       .min(1)
-      .nullable()
+      .optional()
       .describe(
-        "Exact logical tabKey copied from bench_read_context. Required only for focus_tab. Must be null for every other action.",
+        "Exact logical tabKey copied from bench_read_context. Required only for focus_tab. Omit for every other action.",
       ),
   })
   .strict()
@@ -188,19 +188,6 @@ function parseTString<TValue>(value: TValue): string | undefined {
   return parsed.success ? parsed.data : undefined
 }
 
-function normalizeBenchPresentInput<TArgs>(rawArgs: TArgs) {
-  const record = parseTJsonObject(rawArgs)
-  if (record === undefined) return rawArgs
-
-  return {
-    ...record,
-    path: record.path ?? null,
-    resourceKey: record.resourceKey ?? null,
-    objectID: record.objectID ?? null,
-    tabKey: record.tabKey ?? null,
-  }
-}
-
 function formatBenchPresentValidationError(error: z.ZodError): string {
   return [
     `The bench_present tool was called with invalid arguments: ${error.message}`,
@@ -212,9 +199,6 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
       {
         action: "present_file",
         path: "notes/derivatives.md",
-        resourceKey: null,
-        objectID: null,
-        tabKey: null,
       },
       null,
       2,
@@ -224,10 +208,7 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
     JSON.stringify(
       {
         action: "present_resource",
-        path: null,
         resourceKey: "calculus",
-        objectID: null,
-        tabKey: null,
       },
       null,
       2,
@@ -237,10 +218,7 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
     JSON.stringify(
       {
         action: "present_object",
-        path: null,
-        resourceKey: null,
         objectID: "01KG1A0KH77HJ9QGAQ5QK0N4BD",
-        tabKey: null,
       },
       null,
       2,
@@ -250,9 +228,6 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
     JSON.stringify(
       {
         action: "focus_tab",
-        path: null,
-        resourceKey: null,
-        objectID: null,
         tabKey: "object:whiteboard:01KG1A0KH77HJ9QGAQ5QK0N4BD:current",
       },
       null,
@@ -260,119 +235,109 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
     ),
     "",
     "Close Bench:",
-    JSON.stringify(
-      {
-        action: "close",
-        path: null,
-        resourceKey: null,
-        objectID: null,
-        tabKey: null,
-      },
-      null,
-      2,
-    ),
+    JSON.stringify({ action: "close" }, null, 2),
   ].join("\n")
 }
 
 function validateBenchPresentInput(input: BenchPresentInput, ctx: z.RefinementCtx): void {
   if (input.action === "present_file") {
-    if (input.path === null) {
+    if (input.path === undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["path"],
         message: "path is required when action is present_file.",
       })
     }
-    if (input.resourceKey !== null) {
+    if (input.resourceKey !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["resourceKey"],
-        message: "resourceKey must be null when action is present_file.",
+        message: "resourceKey must be omitted when action is present_file.",
       })
     }
-    if (input.objectID !== null) {
+    if (input.objectID !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["objectID"],
-        message: "objectID must be null when action is present_file.",
+        message: "objectID must be omitted when action is present_file.",
       })
     }
-    if (input.tabKey !== null) {
+    if (input.tabKey !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["tabKey"],
-        message: "tabKey must be null when action is present_file.",
+        message: "tabKey must be omitted when action is present_file.",
       })
     }
     return
   }
 
   if (input.action === "present_resource") {
-    if (input.resourceKey === null) {
+    if (input.resourceKey === undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["resourceKey"],
         message: "resourceKey is required when action is present_resource.",
       })
     }
-    if (input.path !== null) {
+    if (input.path !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["path"],
-        message: "path must be null when action is present_resource.",
+        message: "path must be omitted when action is present_resource.",
       })
     }
-    if (input.objectID !== null) {
+    if (input.objectID !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["objectID"],
-        message: "objectID must be null when action is present_resource.",
+        message: "objectID must be omitted when action is present_resource.",
       })
     }
-    if (input.tabKey !== null) {
+    if (input.tabKey !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["tabKey"],
-        message: "tabKey must be null when action is present_resource.",
+        message: "tabKey must be omitted when action is present_resource.",
       })
     }
     return
   }
 
   if (input.action === "present_object") {
-    if (input.objectID === null) {
+    if (input.objectID === undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["objectID"],
         message: "objectID is required when action is present_object.",
       })
     }
-    if (input.path !== null) {
+    if (input.path !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["path"],
-        message: "path must be null when action is present_object.",
+        message: "path must be omitted when action is present_object.",
       })
     }
-    if (input.resourceKey !== null) {
+    if (input.resourceKey !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["resourceKey"],
-        message: "resourceKey must be null when action is present_object.",
+        message: "resourceKey must be omitted when action is present_object.",
       })
     }
-    if (input.tabKey !== null) {
+    if (input.tabKey !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["tabKey"],
-        message: "tabKey must be null when action is present_object.",
+        message: "tabKey must be omitted when action is present_object.",
       })
     }
     return
   }
 
   if (input.action === "focus_tab") {
-    if (input.tabKey === null) {
+    if (input.tabKey === undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["tabKey"],
@@ -380,43 +345,43 @@ function validateBenchPresentInput(input: BenchPresentInput, ctx: z.RefinementCt
       })
     }
     for (const field of ["path", "resourceKey", "objectID"] as const) {
-      if (input[field] !== null) {
+      if (input[field] !== undefined) {
         ctx.addIssue({
           code: "custom",
           path: [field],
-          message: `${field} must be null when action is focus_tab.`,
+          message: `${field} must be omitted when action is focus_tab.`,
         })
       }
     }
     return
   }
 
-  if (input.path !== null) {
+  if (input.path !== undefined) {
     ctx.addIssue({
       code: "custom",
       path: ["path"],
-      message: "path must be null unless action is present_file.",
+      message: "path must be omitted unless action is present_file.",
     })
   }
-  if (input.resourceKey !== null) {
+  if (input.resourceKey !== undefined) {
     ctx.addIssue({
       code: "custom",
       path: ["resourceKey"],
-      message: "resourceKey must be null unless action is present_resource.",
+      message: "resourceKey must be omitted unless action is present_resource.",
     })
   }
-  if (input.objectID !== null) {
+  if (input.objectID !== undefined) {
     ctx.addIssue({
       code: "custom",
       path: ["objectID"],
-      message: "objectID must be null unless action is present_object.",
+      message: "objectID must be omitted unless action is present_object.",
     })
   }
-  if (input.tabKey !== null) {
+  if (input.tabKey !== undefined) {
     ctx.addIssue({
       code: "custom",
       path: ["tabKey"],
-      message: "tabKey must be null unless action is focus_tab.",
+      message: "tabKey must be omitted unless action is focus_tab.",
     })
   }
 }
@@ -1449,7 +1414,6 @@ const benchPresentTool = createBuddyTool({
     "This tool does not author or modify content. For an approved external file it creates only a managed reference needed by Bench. Do not use it to render media inline, create an HTML widget, edit a whiteboard, choose layout pixels, change user preferences, or build routes.",
   ].join("\n"),
   parameters: BenchPresentInputSchema,
-  normalizeInput: normalizeBenchPresentInput,
   formatValidationError: formatBenchPresentValidationError,
   /**
    * A successful presentation leaves a receipt inline rather than a line in the
@@ -1480,10 +1444,10 @@ const benchPresentTool = createBuddyTool({
       callID: ctx.callID ? String(ctx.callID) : null,
       abort: ctx.abort,
       action: params.action,
-      path: params.path,
-      resourceKey: params.resourceKey,
-      objectID: params.objectID,
-      tabKey: params.tabKey,
+      path: params.path ?? null,
+      resourceKey: params.resourceKey ?? null,
+      objectID: params.objectID ?? null,
+      tabKey: params.tabKey ?? null,
       ask: ctx.ask,
     })
     const metadata = buildBenchPresentToolMetadata({

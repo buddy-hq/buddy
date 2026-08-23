@@ -2,7 +2,7 @@
 
 Implementation-ready blueprint for cleaning up frontend tool UI naming and classification without changing current UI or behavior.
 
-This file supersedes the exploratory iterations in `docs/plans/tool-ui-display-api-plan.md`.
+This file supersedes the exploratory iterations in `docs/artifacts/plans/tool-ui-display-api-plan.md`.
 
 ## Goals
 

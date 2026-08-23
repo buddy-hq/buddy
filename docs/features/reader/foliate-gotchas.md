@@ -6,7 +6,7 @@ activations. The same investigation exposed a second malformed-spine failure tha
 highlights while silently painting them into no live overlay.
 
 The goal is to make the next Foliate investigation evidence-driven. Read this together with
-[`docs/commands/build-reader.md`](../../commands/build-reader.md). Buddy owns the product reader
+[`docs/guides/commands/build-reader.md`](../../guides/commands/build-reader.md). Buddy owns the product reader
 surface; `foliate-js` is the EPUB engine behind `FoliateReader`.
 
 ## Executive summary

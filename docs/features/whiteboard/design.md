@@ -8,10 +8,10 @@
 - A whiteboard is a directory-owned managed object with a stable `objectID`. It is not owned by a chat session.
 - Any existing chat, fork, or draft in the notebook may open and edit the same board without changing the active chat.
 - Chat/session identifiers on tool calls are action origin and idempotency metadata only. They never resolve “the board for this session” and never authorize navigation.
-- `whiteboard_create_view` requires `objectID`: pass `null` to create a new board or a concrete ID to update an existing board. `whiteboard_read_context` always requires a concrete `objectID`.
+- `whiteboard_create_view` requires an explicit `objectAction`: use `create` with no `objectID` for a new board, or `update` with the concrete stable `objectID` for an existing board. `whiteboard_read_context` always requires a concrete `objectID`.
 - Storage, mutation locks, learner saves, render reports, sharing, and UI queries are keyed by `objectID`. Legacy `state/session.json` and summary `sessionID` data migrate in place on read.
-- A streamed call with `objectID: null` is a new-board request. Before permission, the frontend may open a transient, non-routed Bench preview scoped to that tool part. It creates no object, reservation, route, or `.buddy` state. Denial or failure removes it and reveals the previous Bench target.
-- A streamed call with a concrete `objectID` is an existing-board update. It never opens the objectless transient preview: the populated board remains mounted and visible while complete streamed elements compose over its fetched board state.
+- A streamed call with `objectAction: "create"` is a new-board request. Before permission, the frontend may open a transient, non-routed Bench preview scoped to that tool part. It creates no object, reservation, route, or `.buddy` state. Denial or failure removes it and reveals the previous Bench target.
+- A streamed call with `objectAction: "update"` and a concrete `objectID` is an existing-board update. It never opens the objectless transient preview: the populated board remains mounted and visible while complete streamed elements compose over its fetched board state.
 - The new-board opening animation is only the zero-drawable-content state. The first complete drawable element replaces it with the progressive canvas immediately; every later complete element applies individually, while an incomplete JSON object stays buffered.
 - `part.id` remains the transcript/UI identity and `part.callID` remains the backend tool-call identity. Active whiteboard surfaces subscribe directly to their live transcript parts because raw `state.raw` deltas are part-level transient events; session message snapshots intentionally do not rerender for every fragment.
 - After permission succeeds, execution idempotently creates or resolves the directory-owned object and publishes its stable `objectID`. A new-board preview hands off to that real object surface; an existing-board update continues on the already mounted object surface.
@@ -24,7 +24,8 @@ Current tool contracts:
 
 ```ts
 whiteboard_create_view({
-  objectID: string | null,
+  objectAction: "create" | "update",
+  objectID?: string,
   boardAction: "continue_current_board" | "destructively_replace_current_board",
   elements: string,
 })
@@ -88,6 +89,8 @@ The material below records the previous session-owned design and rendering ratio
 
 ```ts
 whiteboard_create_view({
+  objectAction: "create" | "update",
+  objectID?: string,
   boardAction: "continue_current_board" | "destructively_replace_current_board",
   elements: string,
 })

@@ -1,6 +1,6 @@
 Deadend Policy: The plan is meant to be exhaustive and complete but some deadends and hurdles can only be encountered while implementation; as map is not the territory. In such situation the agent is free to make a judgement call that preserves the intent and spirit of the plan. But it must document the divergences in bench-refactor.divergences.md.
 
-Closing Policy: If plan is done, dispatch 2 paralel review subagents; one for faithfulness pass and another for review pass. for review use these instrucions added at /Users/prashantbhudwal/Code/buddy/docs/commands/review.md
+Closing Policy: If plan is done, dispatch 2 paralel review subagents; one for faithfulness pass and another for review pass. for review use these instrucions added at /Users/prashantbhudwal/Code/buddy/docs/guides/commands/review.md
 
 user comment: as of 0215 local time; the right sidebar toggle does nto work. when calling the bench tool; the tool times out; check the latest taken screenshot on desktop; even after you latest typechecks this is broekn
 
