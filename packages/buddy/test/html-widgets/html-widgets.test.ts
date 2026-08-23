@@ -170,8 +170,6 @@ describe("HTML widget objects", () => {
       {
         action: "present_path",
         path: "widgets/quiz.html",
-        objectID: null,
-        entryPath: null,
         title: "Quick Quiz",
         description: "Try one practice question.",
         viewportPreset: "standard_16_10",
@@ -215,7 +213,7 @@ describe("HTML widget objects", () => {
     })
   })
 
-  test("accepts omitted inactive nullable fields for first presentation", async () => {
+  test("accepts omitted inactive fields for first presentation", async () => {
     await using project = await tmpdir({ git: true })
     await fs.mkdir(path.join(project.path, "widgets"), { recursive: true })
     await fs.writeFile(

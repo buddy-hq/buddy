@@ -124,7 +124,7 @@ async function saveWhiteboardLearnerEdit(
 }
 
 type TestCreateWhiteboardViewInput = {
-  objectID?: string | null
+  objectID?: string
   title?: string
   boardAction: "continue_current_board" | "destructively_replace_current_board"
   elements: string
@@ -138,7 +138,10 @@ const createWhiteboardViewTool = {
           directory: ctx.directory,
           sessionID: String(ctx.sessionID),
         })
-    return createWhiteboardViewToolForObject.run({ ...input, objectID: object.objectID }, ctx)
+    return createWhiteboardViewToolForObject.run(
+      { ...input, objectAction: "update", objectID: object.objectID },
+      ctx,
+    )
   },
 }
 

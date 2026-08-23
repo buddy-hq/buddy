@@ -5,6 +5,9 @@ import { ToolJsonSchema } from "@buddy/opencode-adapter/tool"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { getDynamicToolSearchTools } from "../../src/learning/runtime/dynamic-tool-discovery"
 import { allBuddyTools } from "../../src/learning/runtime/feature-registry"
+import { BenchPresentInputSchema } from "../../src/learning/features/bench/tools/present"
+import { PresentHtmlWidgetInputSchema } from "../../src/learning/features/html-widgets/tools/present-html-widget"
+import { CreateWhiteboardViewInputSchema } from "../../src/learning/features/whiteboard/tools/create-view"
 import { AdvancedMathRuntimeService } from "../../src/local-runtimes/advanced-math/service"
 import { StandardsRuntimeService } from "../../src/local-runtimes/standards/service"
 import { loadOpenCodeApp } from "../../src/opencode-runtime"
@@ -16,23 +19,14 @@ const CREATED_BUDDY_TOOL_IDS = new Set([
   ...allBuddyTools().map((tool) => tool.id),
   ...getDynamicToolSearchTools().map((tool) => tool.id),
 ])
-const PRESENT_HTML_WIDGET_REQUIRED_FIELDS = [
-  "action",
-  "path",
-  "objectID",
-  "entryPath",
-  "title",
-  "description",
-  "viewportPreset",
+const PRESENT_HTML_WIDGET_REQUIRED_FIELDS = ["action"] as const
+const BENCH_PRESENT_REQUIRED_FIELDS = ["action"] as const
+const WHITEBOARD_CREATE_REQUIRED_FIELDS = [
+  "objectAction",
+  "boardAction",
+  "elements",
 ] as const
-const BENCH_PRESENT_REQUIRED_FIELDS = [
-  "action",
-  "path",
-  "resourceKey",
-  "objectID",
-  "tabKey",
-] as const
-const WHITEBOARD_CREATE_REQUIRED_FIELDS = ["objectID", "boardAction", "elements"] as const
+const TEST_OBJECT_ID = "01KG1A0KH77HJ9QGAQ5QK0N4BD"
 
 const originalAdvancedMathReady = AdvancedMathRuntimeService.isReady.bind(
   AdvancedMathRuntimeService,
@@ -55,7 +49,7 @@ function expectJsonSchemaObject<TValue>(value: TValue, label: string): TJsonSche
   return parsed
 }
 
-function expectStringNullableProperty(
+function expectStringProperty(
   properties: TJsonSchemaObject,
   propertyName: string,
 ): TJsonSchemaObject {
@@ -64,7 +58,8 @@ function expectStringNullableProperty(
     `schema property ${propertyName}`,
   )
   expect(property.anyOf).toBeUndefined()
-  expect(property.type).toEqual(["string", "null"])
+  expect(property.type).toBe("string")
+  expect(Array.isArray(property.enum) ? property.enum.includes(null) : false).toBeFalse()
   return property
 }
 
@@ -120,17 +115,16 @@ describe("tool schema compatibility", () => {
     const actionProperty = expectJsonSchemaObject(properties.action, "present_html_widget.action")
     expect(actionProperty.type).toBe("string")
     expect(actionProperty.enum).toEqual(["present_path", "present_object"])
-    const pathProperty = expectStringNullableProperty(properties, "path")
+    const pathProperty = expectStringProperty(properties, "path")
     expect(pathProperty.description).toContain("workspace-relative")
     expect(pathProperty.description).toContain("absolute paths")
     expect(pathProperty.description).toContain("resolve inside the current workspace")
-    expectStringNullableProperty(properties, "objectID")
-    expectStringNullableProperty(properties, "entryPath")
-    expectStringNullableProperty(properties, "title")
-    expectStringNullableProperty(properties, "description")
-    const viewportPresetProperty = expectStringNullableProperty(properties, "viewportPreset")
+    expectStringProperty(properties, "objectID")
+    expectStringProperty(properties, "entryPath")
+    expectStringProperty(properties, "title")
+    expectStringProperty(properties, "description")
+    const viewportPresetProperty = expectStringProperty(properties, "viewportPreset")
     expect(viewportPresetProperty.enum).toContain("standard_16_10")
-    expect(viewportPresetProperty.enum).toContain(null)
 
     const benchPresentSchema = expectJsonSchemaObject(
       toolSchemas.find((entry) => entry.id === "bench_present")?.schema,
@@ -154,14 +148,14 @@ describe("tool schema compatibility", () => {
       "focus_tab",
       "close",
     ])
-    const benchPathProperty = expectStringNullableProperty(benchProperties, "path")
+    const benchPathProperty = expectStringProperty(benchProperties, "path")
     expect(benchPathProperty.description).toContain("workspace-relative")
     expect(benchPathProperty.description).toContain("absolute paths")
     expect(benchPathProperty.description).toContain("external-folder permission")
     expect(benchPathProperty.description).toContain("present_html_widget")
-    const resourceKeyProperty = expectStringNullableProperty(benchProperties, "resourceKey")
+    const resourceKeyProperty = expectStringProperty(benchProperties, "resourceKey")
     expect(resourceKeyProperty.description).toContain("object id or alias")
-    const benchObjectIDProperty = expectStringNullableProperty(benchProperties, "objectID")
+    const benchObjectIDProperty = expectStringProperty(benchProperties, "objectID")
     expect(benchObjectIDProperty.description).toContain("Buddy object id")
 
     const whiteboardCreateSchema = expectJsonSchemaObject(
@@ -173,7 +167,13 @@ describe("tool schema compatibility", () => {
       whiteboardCreateSchema.properties,
       "whiteboard_create_view properties",
     )
-    expectStringNullableProperty(whiteboardCreateProperties, "objectID")
+    const whiteboardObjectActionProperty = expectJsonSchemaObject(
+      whiteboardCreateProperties.objectAction,
+      "whiteboard_create_view.objectAction",
+    )
+    expect(whiteboardObjectActionProperty.type).toBe("string")
+    expect(whiteboardObjectActionProperty.enum).toEqual(["create", "update"])
+    expectStringProperty(whiteboardCreateProperties, "objectID")
     const whiteboardTitleProperty = expectJsonSchemaObject(
       whiteboardCreateProperties.title,
       "whiteboard_create_view.title",
@@ -187,4 +187,85 @@ describe("tool schema compatibility", () => {
     )
     expect(whiteboardReadSchema.required).toEqual(["objectID"])
   }, 180_000)
+
+  test("portable action contracts use omission and reject null sentinels", () => {
+    expect(BenchPresentInputSchema.safeParse({ action: "close" }).success).toBeTrue()
+    expect(
+      BenchPresentInputSchema.safeParse({ action: "present_file", path: "notes.md" }).success,
+    ).toBeTrue()
+    expect(BenchPresentInputSchema.safeParse({ action: "close", path: null }).success).toBeFalse()
+    expect(
+      BenchPresentInputSchema.safeParse({ action: "present_file", objectID: TEST_OBJECT_ID })
+        .success,
+    ).toBeFalse()
+
+    expect(
+      PresentHtmlWidgetInputSchema.safeParse({
+        action: "present_path",
+        path: "widgets/lesson.html",
+        title: "Lesson",
+        viewportPreset: "standard_16_10",
+      }).success,
+    ).toBeTrue()
+    expect(
+      PresentHtmlWidgetInputSchema.safeParse({
+        action: "present_object",
+        objectID: TEST_OBJECT_ID,
+      }).success,
+    ).toBeTrue()
+    expect(
+      PresentHtmlWidgetInputSchema.safeParse({
+        action: "present_path",
+        path: "widgets/lesson.html",
+        objectID: null,
+        title: "Lesson",
+        viewportPreset: "standard_16_10",
+      }).success,
+    ).toBeFalse()
+
+    const whiteboardBase = {
+      boardAction: "continue_current_board",
+      elements: "[]",
+    } as const
+    expect(
+      CreateWhiteboardViewInputSchema.safeParse({
+        ...whiteboardBase,
+        objectAction: "create",
+      }).success,
+    ).toBeTrue()
+    expect(
+      CreateWhiteboardViewInputSchema.safeParse({
+        ...whiteboardBase,
+        objectAction: "update",
+        objectID: TEST_OBJECT_ID,
+      }).success,
+    ).toBeTrue()
+    expect(
+      CreateWhiteboardViewInputSchema.safeParse({
+        ...whiteboardBase,
+        objectAction: "create",
+        objectID: TEST_OBJECT_ID,
+      }).success,
+    ).toBeFalse()
+    expect(
+      CreateWhiteboardViewInputSchema.safeParse({
+        ...whiteboardBase,
+        objectAction: "update",
+      }).success,
+    ).toBeFalse()
+    expect(
+      CreateWhiteboardViewInputSchema.safeParse({
+        ...whiteboardBase,
+        objectAction: "create",
+        objectID: null,
+      }).success,
+    ).toBeFalse()
+    expect(
+      CreateWhiteboardViewInputSchema.safeParse({
+        ...whiteboardBase,
+        objectAction: "update",
+        objectID: "null",
+      }).success,
+    ).toBeFalse()
+  })
 })

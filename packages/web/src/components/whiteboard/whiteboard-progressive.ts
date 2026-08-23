@@ -494,6 +494,8 @@ function readToolInputBoardAction(state: TWhiteboardCreateToolState): ProgramWri
 function readRequestedWhiteboardCreateObjectReference(
   state: TWhiteboardCreateToolState,
 ): WhiteboardCreateObjectReference {
+  const inputObjectAction = parseJsonString(state.input?.objectAction)
+  if (inputObjectAction === "create") return { status: "new" }
   const inputObjectID = state.input?.objectID
   const existingObjectID = parseJsonString(inputObjectID)
   if (existingObjectID !== undefined) {
@@ -501,6 +503,8 @@ function readRequestedWhiteboardCreateObjectReference(
   }
   if (inputObjectID === null) return { status: "new" }
   if (state.raw === undefined) return { status: "unknown" }
+  const rawObjectAction = decodePartialStringArgument(state.raw, "objectAction")
+  if (rawObjectAction === "create") return { status: "new" }
   const rawObjectID = decodePartialStringArgument(state.raw, "objectID")
   if (rawObjectID) return { status: "existing", objectID: rawObjectID }
   return hasPartialNullArgument(state.raw, "objectID") ? { status: "new" } : { status: "unknown" }

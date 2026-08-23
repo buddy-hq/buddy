@@ -5,10 +5,10 @@
 ## Current authoritative facts
 
 - Whiteboards are directory-owned managed objects addressed by stable `objectID`. Any chat, fork, or draft may open and edit the same board. Opening a board never changes the active chat.
-- `whiteboard_create_view.objectID` is explicit: `null` requests a new board; a concrete ID updates that exact existing board. `whiteboard_read_context` always names a concrete object.
+- `whiteboard_create_view.objectAction` is explicit: `create` requests a distinct new board and omits `objectID`; `update` requires the concrete stable ID of the existing board. `whiteboard_read_context` always names a concrete object.
 - Session, message, part, and call identifiers are action origin, correlation, and idempotency metadata. They never resolve “the board for this session” and never authorize navigation.
 - Before permission, only a new-board request may display a transient, non-routed preview. It creates no object, reservation, workspace route, or `.buddy` state. Denial removes it and restores the prior Bench target.
-- An existing-board update never uses the objectless preview or opening animation. The populated board remains mounted, and streamed elements compose over its fetched content.
+- An `objectAction: "update"` call never uses the objectless preview or opening animation. The populated board remains mounted, and streamed elements compose over its fetched content.
 - A new-board preview shows the opening animation only while it has zero complete drawable elements. The first complete drawable replaces the animation immediately; later complete elements render one by one. Incomplete JSON remains buffered.
 - Raw drawing fragments arrive as transient part-level `message.part.delta` updates in `state.raw`. Active whiteboard UI subscribes to the relevant live part IDs and merges only those parts into its session snapshot; the whole chat must not rerender for every drawing fragment.
 - `part.id` is the transcript/UI tool key. `part.callID`/`ctx.callID` is the backend tool-call and creation-idempotency identity. They are not interchangeable.
@@ -69,7 +69,7 @@ The bullets below preserve the original research and implementation reasoning. S
 - The current analogy-first recommendation is a feature-owned `whiteboard-authoring` skill plus model-visible `whiteboard_create_view` and `whiteboard_read_context` tools.
 - Buddy's existing system prompt tells the agent to load matching skills with the `skill` tool, and skill tool output is protected from session-output pruning.
 - The `whiteboard-authoring` skill should be Buddy's equivalent of Excalidraw MCP's `read_me` tool.
-- The current recommended `whiteboard_create_view` outer schema is a strict object with `boardAction` and `elements`; it avoids provider-facing discriminated unions.
+- The current recommended `whiteboard_create_view` outer schema is a strict object with `objectAction`, `boardAction`, and `elements`; action-specific fields remain optional and are validated by the full runtime schema instead of a provider-facing discriminated union.
 - The current recommended `whiteboard_create_view.elements` value is a compact JSON-array drawing program validated after parsing with an internal Zod DSL and actionable errors.
 - Buddy's `whiteboard_create_view` wording should stay close to Excalidraw MCP's `create_view` for the drawing string, but Buddy separates app-owned board persistence into the `boardAction` enum because official tool-design guidance favors explicit, named parameters and enums for important choices.
 - `boardAction: "continue_current_board"` preserves the current board and applies `elements`; if no board exists yet, it creates the first board from an empty base.
