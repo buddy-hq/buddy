@@ -2,11 +2,17 @@ import { describe, expect, test } from "bun:test"
 import {
   buildPersonalizationPatch,
   normalizePersonalizationSettings,
+  readConciseResponses,
   readPersonalization,
   shouldResetPersonalizationForm,
 } from "../src/state/project-config-readers"
 
 describe("project-config personalization helpers", () => {
+  test("defaults concise responses on and reads an explicit override", () => {
+    expect(readConciseResponses({})).toBe(true)
+    expect(readConciseResponses({ concise_responses: false })).toBe(false)
+  })
+
   test("reads missing personalization as empty values", () => {
     expect(readPersonalization({})).toEqual({
       primaryUse: undefined,

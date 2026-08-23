@@ -138,6 +138,11 @@ describe("MarkdownBenchEditor", () => {
     expect(document.head.textContent).toContain("var(--syntax-keyword)")
     expect(document.head.textContent).toContain("var(--buddy-code-font-size)")
     expect(document.head.textContent).toContain("var(--buddy-font-family-mono)")
+    const editorChromeStyle = container.querySelector<HTMLStyleElement>(
+      "style[data-markdown-bench-mdx-popup-layer-style]",
+    )
+    expect(editorChromeStyle?.textContent).toContain('[class*="_codeMirrorWrapper_"]')
+    expect(editorChromeStyle?.textContent).toContain("position: static")
     expect(container.querySelector(".mdxeditor-toolbar")?.classList.contains("!hidden")).toBe(true)
     expect(container.querySelector(".mdxeditor-source-editor")).toBeNull()
     expect(historyControls).toEqual({ canRedo: false, canUndo: false })

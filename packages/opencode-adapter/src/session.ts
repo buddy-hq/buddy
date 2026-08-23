@@ -67,6 +67,17 @@ export namespace Session {
     })
   }
 
+  export async function setMetadata(
+    input: Parameters<OpenCodeSession.Interface["setMetadata"]>[0],
+  ) {
+    await runtime.runPromise((svc) => withCurrentInstance(svc.setMetadata(input)))
+    updateCachedSession({
+      sessionID: input.sessionID,
+      metadata: input.metadata,
+      updated: Date.now(),
+    })
+  }
+
   export async function setPermission(
     input: Parameters<OpenCodeSession.Interface["setPermission"]>[0],
   ) {

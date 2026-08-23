@@ -10,6 +10,11 @@ import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/tran
 import type { SessionTransformContext } from "./types"
 import { runMessagePromptPipeline } from "../../prompt/message-prompt-pipeline"
 import type { TJsonObject } from "../../prompt/utils"
+import { resolveConciseResponses } from "../../shared/concise-responses"
+import {
+  persistConciseResponseChatState,
+  readConciseResponseChatState,
+} from "./concise-response-chat-state"
 
 export type SessionMessageTransformOrchestrationResult = {
   transformed: TJsonObject
@@ -28,6 +33,13 @@ export async function orchestrateSessionMessageTransform(input: {
 
   const projectConfig = await readProjectConfig(input.context.directory)
   const previousState = readTeachingSessionState(input.context.directory, input.context.sessionID)
+  const conciseResponseSnapshot = previousState
+    ? undefined
+    : await readConciseResponseChatState({
+        directory: input.context.directory,
+        sessionID: input.context.sessionID,
+        configured: resolveConciseResponses(projectConfig),
+      })
 
   const pipelineResult = await runMessagePromptPipeline({
     context: {
@@ -37,7 +49,26 @@ export async function orchestrateSessionMessageTransform(input: {
     body: input.body,
     projectConfig,
     previousState,
+    conciseResponseChatState: conciseResponseSnapshot,
   })
+
+  const conciseResponseChatState = pipelineResult.nextTeachingState
+    ? {
+        base: pipelineResult.nextTeachingState.baseConciseResponses ?? true,
+        applied: pipelineResult.nextTeachingState.conciseResponses ?? true,
+      }
+    : undefined
+  if (conciseResponseChatState) {
+    const previouslyApplied = previousState
+      ? (previousState.conciseResponses ?? true)
+      : (conciseResponseSnapshot?.applied ?? conciseResponseChatState.applied)
+    await persistConciseResponseChatState({
+      directory: input.context.directory,
+      sessionID: input.context.sessionID,
+      base: conciseResponseChatState.base,
+      applied: previouslyApplied,
+    })
+  }
 
   let rollbackTeachingState: (() => void) | undefined
   if (pipelineResult.nextTeachingState) {
@@ -178,7 +209,6 @@ export async function orchestrateSessionMessageTransform(input: {
   }
 
   const learnerContextDelivery = pipelineResult.learnerContextDelivery
-
   writeLastLlmOutbound({
     directory: input.context.directory,
     sessionID: input.context.sessionID,
@@ -191,24 +221,49 @@ export async function orchestrateSessionMessageTransform(input: {
     rollbackState: () => {
       rollbackTeachingState?.()
     },
-    onAccepted: learnerContextDelivery
+    onAccepted: conciseResponseChatState || learnerContextDelivery
       ? async () => {
-          const state = readTeachingSessionState(input.context.directory, input.context.sessionID)
-          if (!state) return
+          let failure: { cause: unknown } | undefined
 
-          const messageId = `learner_ctx_${input.context.sessionID}_${Date.now()}`
-          writeTeachingSessionState(input.context.directory, {
-            ...state,
-            lastDeliveredLearnerContextMessageId: messageId,
-          })
-          await ingestLearnerContextDelivery({
-            directory: input.context.directory,
-            sessionID: input.context.sessionID,
-            messageID: messageId,
-            deliveryKind: learnerContextDelivery.kind,
-            fingerprint: learnerContextDelivery.fingerprint,
-            itemCount: learnerContextDelivery.items?.length ?? 0,
-          })
+          if (conciseResponseChatState) {
+            try {
+              await persistConciseResponseChatState({
+                directory: input.context.directory,
+                sessionID: input.context.sessionID,
+                ...conciseResponseChatState,
+              })
+            } catch (cause) {
+              failure = { cause }
+            }
+          }
+
+          if (learnerContextDelivery) {
+            try {
+              const state = readTeachingSessionState(
+                input.context.directory,
+                input.context.sessionID,
+              )
+              if (state) {
+                const messageId = `learner_ctx_${input.context.sessionID}_${Date.now()}`
+                writeTeachingSessionState(input.context.directory, {
+                  ...state,
+                  lastDeliveredLearnerContextMessageId: messageId,
+                })
+                await ingestLearnerContextDelivery({
+                  directory: input.context.directory,
+                  sessionID: input.context.sessionID,
+                  messageID: messageId,
+                  deliveryKind: learnerContextDelivery.kind,
+                  fingerprint: learnerContextDelivery.fingerprint,
+                  itemCount: learnerContextDelivery.items?.length ?? 0,
+                })
+              }
+            } catch (cause) {
+              failure ??= { cause }
+            }
+          }
+
+          if (failure) throw failure.cause
         }
       : undefined,
   }

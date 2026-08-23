@@ -209,6 +209,7 @@ export namespace ConfigSchema {
   export const Info = z
     .object({
       ...PROJECT_INFO_FIELDS,
+      concise_responses: z.boolean().optional(),
       experimental_features: ExperimentalFeatures,
     })
     .strict()
