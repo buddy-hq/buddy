@@ -28,6 +28,9 @@ type TPersonalizationPatch = {
 export const PRIMARY_USES = ["learn", "teach"] as const
 export type PrimaryUse = (typeof PRIMARY_USES)[number]
 
+export const DEFAULT_CONCISE_RESPONSES = true
+export const CONCISE_RESPONSES_CONFIG_KEY = "concise_responses"
+
 export const EMPTY_PERSONALIZATION_SETTINGS: PersonalizationSettings = {
   primaryUse: undefined,
   preferredName: "",
@@ -100,6 +103,13 @@ function configObject<TConfig>(input: TConfig): TBuddyConfigObject {
 
 export function readString<TConfig>(input: TConfig, key: string) {
   return parseStringValue(configObject(input)[key]) ?? ""
+}
+
+export function readConciseResponses<TConfig>(input: TConfig): boolean {
+  return (
+    parseBooleanValue(configObject(input)[CONCISE_RESPONSES_CONFIG_KEY]) ??
+    DEFAULT_CONCISE_RESPONSES
+  )
 }
 
 export function readRecord<TConfig>(input: TConfig, key: string) {

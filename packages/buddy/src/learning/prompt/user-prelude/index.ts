@@ -14,6 +14,7 @@ import { checkpointReminder } from "./checkpoint-reminder"
 import type { TurnReminderDefinition, TurnReminderContext } from "./definition"
 import { learnerMemoryReminder } from "./learner-memory-reminder"
 import { turnTransitionReminder } from "./turn-transitions"
+import { conciseResponsesTransitionReminder } from "./concise-responses-transition"
 import {
   BENCH_TURN_CONTEXT_TAB_LIMIT,
   benchTargetAbsolutePath,
@@ -55,6 +56,7 @@ const TEACHING_TURN_CONTEXT_TEMPLATE = definePromptTemplate({
 
 const TURN_REMINDERS: readonly TurnReminderDefinition[] = [
   learnerMemoryReminder,
+  conciseResponsesTransitionReminder,
   turnTransitionReminder,
   checkpointReminder,
 ]

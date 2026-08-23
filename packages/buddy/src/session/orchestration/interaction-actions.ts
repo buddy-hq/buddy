@@ -460,7 +460,7 @@ async function queueSessionPromptAsync(input: {
     }
 
     await promptTransform.onAccepted?.().catch((cause: unknown) => {
-      console.warn("Failed to record learner evidence after accepted prompt:", cause)
+      console.warn("Failed to record state after accepted prompt:", cause)
     })
     return new Response(null, { status: 204 })
   } catch (error) {
@@ -755,7 +755,7 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
     }
 
     await promptTransform.onAccepted?.().catch((cause: unknown) => {
-      console.warn("Failed to record learner evidence after accepted prompt:", cause)
+      console.warn("Failed to record state after accepted prompt:", cause)
     })
 
     return respondWithStreamSdkResult(c, result, { forceBusyAs409: true })
@@ -847,6 +847,10 @@ export async function postSessionCommand(c: Context): Promise<Response> {
       commandTransform.rollbackState?.()
       return sdkErrorResponse(result, { forceBusyAs409: true })
     }
+
+    await commandTransform.onAccepted?.().catch((cause: unknown) => {
+      console.warn("Failed to record state after accepted command:", cause)
+    })
 
     const commandDisplay = {
       command: parseTSessionString(runtimeSafeBody.command) ?? "",

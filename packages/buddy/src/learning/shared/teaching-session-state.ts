@@ -19,6 +19,8 @@ export type TeachingSessionState = {
   persona: Persona
   currentSurface: Surface
   teachingWorkspaceState: TeachingWorkspaceState
+  baseConciseResponses?: boolean
+  conciseResponses?: boolean
   sessionRuntime?: ResolvedSessionRuntime
   focusGoalIds: string[]
   learnerContextDigest?: string

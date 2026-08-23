@@ -18,6 +18,7 @@ import {
   parsePromptString,
   type TMessagePromptBody,
 } from "./utils"
+import type { ConciseResponseChatState } from "../shared/concise-responses"
 
 export type MessagePromptPipelineContext = {
   directory: string
@@ -49,6 +50,7 @@ export async function runMessagePromptPipeline<TBody>(input: {
   body: TBody
   projectConfig: Awaited<ReturnType<typeof readProjectConfig>>
   previousState?: TeachingSessionState
+  conciseResponseChatState?: ConciseResponseChatState
 }): Promise<MessagePromptPipelineResult> {
   const body = parseJsonObject(input.body) ?? {}
   assertNoLegacyRuntimeOverrides(body)
@@ -93,6 +95,7 @@ export async function runMessagePromptPipeline<TBody>(input: {
       previousState: input.previousState,
       personaID: target.personaID,
       nativeResourceAttachments,
+      conciseResponseChatState: input.conciseResponseChatState,
     })
     const promptEnvelope = await buildBuddyPromptEnvelope(promptContextResult.context)
 

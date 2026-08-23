@@ -29,6 +29,7 @@ import {
   type BenchReadContextOutput,
 } from "../features/bench/context"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
+import { resolveConciseResponses } from "../shared/concise-responses"
 import { hasExplicitModel, resolveCurrentSurface, resolveFocusGoalIds } from "../shared/targeting"
 import type {
   Persona,
@@ -130,6 +131,9 @@ export type PromptContext = {
   sessionRuntime: ResolvedSessionRuntime
   visibleSurfaces: ResolvedSessionRuntime["ui"]["visibleSurfaces"]
   teachingWorkspaceState: TeachingWorkspaceState
+  baseConciseResponses: boolean
+  conciseResponses: boolean
+  priorConciseResponses?: boolean
   learnerSnapshot: LearnerRuntimeSnapshot
   learnerContextDigest?: string
   priorLearnerContextDigest?: string
@@ -163,6 +167,10 @@ type CreatePromptContextInput = {
   previousState?: TeachingSessionState
   personaID: Persona
   nativeResourceAttachments: NativeResourcePromptAttachment[]
+  conciseResponseChatState?: {
+    base: boolean
+    applied: boolean
+  }
 }
 
 function resolveTeachingContext(body: TMessagePromptBody): TeachingPromptContext | undefined {
@@ -561,6 +569,14 @@ async function buildPromptContext(
   const teachingWorkspaceState: TeachingWorkspaceState = teachingContext?.active
     ? "active"
     : "inactive"
+  const conciseResponses = resolveConciseResponses(input.projectConfig)
+  const baseConciseResponses =
+    input.previousState?.baseConciseResponses ??
+    input.conciseResponseChatState?.base ??
+    (input.previousState ? (input.previousState.conciseResponses ?? true) : conciseResponses)
+  const priorConciseResponses = input.previousState
+    ? (input.previousState.conciseResponses ?? true)
+    : input.conciseResponseChatState?.applied
   const learnerSnapshot = await buildLearnerRuntimeSnapshot(input.directory)
   const learnerContextView = buildLearnerContextView(learnerSnapshot)
   const learnerContextDigest = learnerContextView.fingerprint
@@ -602,6 +618,8 @@ async function buildPromptContext(
     sessionRuntime,
     visibleSurfaces: sessionRuntime.ui.visibleSurfaces,
     teachingWorkspaceState,
+    baseConciseResponses,
+    conciseResponses,
     learnerSnapshot,
     learnerContextDigest,
     focusGoalIds,
@@ -653,6 +671,7 @@ async function buildPromptContext(
       : undefined,
     activeResource ? { activeResource } : undefined,
     benchContext ? { benchContext } : undefined,
+    priorConciseResponses !== undefined ? { priorConciseResponses } : undefined,
   )
   Object.assign(
     context,
@@ -678,6 +697,8 @@ async function buildPromptContext(
         teachingWorkspaceState,
       }),
       teachingWorkspaceState,
+      baseConciseResponses,
+      conciseResponses,
       sessionRuntime,
       focusGoalIds,
       learnerContextDigest,
