@@ -59,6 +59,7 @@ describe("release skill artifacts", () => {
     expect(source).toContain("workflow_call:")
     expect(source).toContain("BUDDY_SKILL_SIGNING_PRIVATE_KEY:")
     expect(source).toContain("BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD:")
+    expect(source).toContain("BUDDY_SKILLS_REPOSITORY_TOKEN:")
     expect(source).toContain("ref: ${{ github.sha }}")
     expect(source).toContain("if: ${{ inputs.release_source_mode != '' }}")
     expect(source).toContain("run: bun ./script/release-source-metadata.ts")
@@ -68,6 +69,9 @@ describe("release skill artifacts", () => {
     expect(source).not.toContain("actions/upload-artifact")
     expect(source).not.toContain("actions/download-artifact")
     expect(source).toContain("bun ./script/publish-skill-artifacts.ts")
+    expect(source).toContain(
+      "BUDDY_SKILLS_REPOSITORY_TOKEN: ${{ secrets.BUDDY_SKILLS_REPOSITORY_TOKEN }}",
+    )
   })
 
   test("runs the signed artifact smoke before a local cut-release dispatch", async () => {

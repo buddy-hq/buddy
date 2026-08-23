@@ -41,7 +41,7 @@
     "test:learning": "bun test --preload ./test/preload.ts test/learning",
     "test:session": "bun test --preload ./test/preload.ts test/session",
     "test:skills": "bun test --preload ./test/preload.ts test/skills",
-    "test:release-skill-artifacts": "bun test --preload ./test/preload.ts test/skills/signed-artifact.test.ts test/skills/system-pack.test.ts test/skills/library.test.ts test/skills/catalog-icon-cache.test.ts test/skills/skill-curation.test.ts test/skills/github-release.test.ts",
+    "test:release-skill-artifacts": "bun test --preload ./test/preload.ts test/skills/signed-artifact.test.ts test/skills/system-pack.test.ts test/skills/library.test.ts test/skills/catalog-icon-cache.test.ts test/skills/skill-curation.test.ts test/skills/github-release.test.ts test/skills/public-skill-repository.test.ts",
     "test:parity": "bun test --preload ./test/preload.ts test/parity",
     "test:contracts": "bun test --preload ./test/preload.ts test/parity",
     "learner-memory:evaluate": "bun ./script/learner-memory-evaluation.ts",

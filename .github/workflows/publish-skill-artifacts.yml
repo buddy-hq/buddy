@@ -43,6 +43,8 @@ on:
         required: true
       BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD:
         required: true
+      BUDDY_SKILLS_REPOSITORY_TOKEN:
+        required: true
   workflow_dispatch:
     inputs:
       base_fingerprint:
@@ -107,6 +109,7 @@ jobs:
         env:
           BUDDY_SKILL_SIGNING_PRIVATE_KEY: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY }}
           BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD }}
+          BUDDY_SKILLS_REPOSITORY_TOKEN: ${{ secrets.BUDDY_SKILLS_REPOSITORY_TOKEN }}
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
           INPUT_BASE_FINGERPRINT: ${{ inputs.base_fingerprint }}
           INPUT_PUBLISH: ${{ inputs.publish }}

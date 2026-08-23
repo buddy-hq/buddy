@@ -24,6 +24,7 @@ The publishing workflow reads:
 - `BUDDY_SKILL_SIGNING_PRIVATE_KEY`
 - `BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD`
 - `BUDDY_RELEASE_TOKEN`
+- `BUDDY_SKILLS_REPOSITORY_TOKEN`
 
 The first two are intentionally separate from the desktop updater signing key.
 
@@ -40,6 +41,11 @@ Publish them:
 ```bash
 bun run skills:artifacts:publish
 ```
+
+The publish command also updates `buddy-hq/buddy-skills` from the final validated system pack. It
+does not discover or copy the skill sources a second time. The public repository is advanced only
+after the signed release artifacts have been uploaded and downloaded for verification. Its remote
+files are then checked byte-for-byte against that same pack before publishing succeeds.
 
 The same operation is available through the `publish-skill-artifacts` GitHub Actions workflow.
 

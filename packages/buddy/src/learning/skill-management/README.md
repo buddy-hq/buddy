@@ -17,6 +17,7 @@ This folder owns Buddy's skills facade. The runtime still comes from vendored Op
 - The same explicit refresh checks the signed library catalog and compatible system-skill pack. The backend also refreshes these artifacts periodically without blocking startup.
 - Every app retains bundled catalog and system-skill fallbacks. Remote artifacts are accepted only after signature, schema, revision, integrity, and compatibility validation.
 - Catalog icon metadata is part of the signed catalog. The artifact publisher uploads content-addressed WebP assets directly to the fixed `skill-artifacts` GitHub Release; it does not use GitHub Actions artifacts or create a release per app version.
+- The same artifact publisher materializes `buddy-hq/buddy-skills` directly from its final validated system pack. The public repository never performs a separate scan of Buddy's source tree.
 - Catalog icons are fetched by the backend on demand, verified against the signed SHA-256, cached under Buddy's skill-artifact cache, and served to the authenticated renderer through a digest-versioned API URL. Built-in system-skill icons remain packaged for offline use.
 - Buddy shows `scope` as the discovery location (`global` vs `workspace`), but the permission control still follows the core name-based model. The scope label is informational; it is not a separate permission boundary.
 
