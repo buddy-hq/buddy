@@ -21,6 +21,29 @@ function jobSource(source: string, jobName: string): string {
     : source.slice(start, start + marker.length + nextJobOffset)
 }
 
+function workflowCallSecretsSource(source: string): string {
+  const marker = "  workflow_call:\n"
+  const start = source.indexOf(marker)
+  const end = source.indexOf("  workflow_dispatch:\n", start)
+  if (start < 0 || end < 0) throw new Error("Reusable workflow declaration not found")
+  const workflowCall = source.slice(start, end)
+  const secretsMarker = "    secrets:\n"
+  const secretsStart = workflowCall.indexOf(secretsMarker)
+  if (secretsStart < 0) throw new Error("Reusable workflow secrets not found")
+  return workflowCall.slice(secretsStart)
+}
+
+function namedStepSource(source: string, stepName: string): string {
+  const marker = `      - name: ${stepName}\n`
+  const start = source.indexOf(marker)
+  if (start < 0) throw new Error(`Workflow step not found: ${stepName}`)
+  const remaining = source.slice(start + marker.length)
+  const nextStepOffset = remaining.search(/^      - /m)
+  return nextStepOffset < 0
+    ? source.slice(start)
+    : source.slice(start, start + marker.length + nextStepOffset)
+}
+
 describe("release skill artifacts", () => {
   test("gates desktop publication on the same-SHA skill artifact workflow", async () => {
     const source = await workflowSource("publish-shared.yml")
@@ -55,21 +78,27 @@ describe("release skill artifacts", () => {
 
   test("keeps manual and release-driven artifact builds on the triggering SHA", async () => {
     const source = await workflowSource("publish-skill-artifacts.yml")
+    const workflowCallSecrets = workflowCallSecretsSource(source)
+    const publishStep = namedStepSource(
+      source,
+      "Build and optionally publish signed skill artifacts",
+    )
 
-    expect(source).toContain("workflow_call:")
-    expect(source).toContain("BUDDY_SKILL_SIGNING_PRIVATE_KEY:")
-    expect(source).toContain("BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD:")
-    expect(source).toContain("BUDDY_SKILLS_REPOSITORY_TOKEN:")
+    expect(workflowCallSecrets).toContain("BUDDY_SKILL_SIGNING_PRIVATE_KEY:")
+    expect(workflowCallSecrets).toContain("BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD:")
+    expect(workflowCallSecrets).toContain(
+      "BUDDY_SKILLS_REPOSITORY_TOKEN:\n        required: false",
+    )
     expect(source).toContain("ref: ${{ github.sha }}")
     expect(source).toContain("if: ${{ inputs.release_source_mode != '' }}")
     expect(source).toContain("run: bun ./script/release-source-metadata.ts")
     expect(source).toContain("if: ${{ !inputs.prevalidated }}")
     expect(source).toContain("run: bun run release:validate-skill-artifacts")
-    expect(source).toContain('if [[ "$INPUT_PUBLISH" == "true" ]]')
+    expect(publishStep).toContain('if [[ "$INPUT_PUBLISH" == "true" ]]')
     expect(source).not.toContain("actions/upload-artifact")
     expect(source).not.toContain("actions/download-artifact")
-    expect(source).toContain("bun ./script/publish-skill-artifacts.ts")
-    expect(source).toContain(
+    expect(publishStep).toContain("bun ./script/publish-skill-artifacts.ts")
+    expect(publishStep).toContain(
       "BUDDY_SKILLS_REPOSITORY_TOKEN: ${{ secrets.BUDDY_SKILLS_REPOSITORY_TOKEN }}",
     )
   })

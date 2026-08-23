@@ -53,6 +53,12 @@ function normalizedSourceSha(sourceSha: string): string {
   return normalized
 }
 
+function requirePublicSkillRepositoryToken(environment: NodeJS.ProcessEnv): void {
+  if (!environment[PUBLIC_SKILLS_REPOSITORY_TOKEN_ENV]?.trim()) {
+    throw new Error(`${PUBLIC_SKILLS_REPOSITORY_TOKEN_ENV} is required to publish public skills`)
+  }
+}
+
 function gitEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const token = environment[PUBLIC_SKILLS_REPOSITORY_TOKEN_ENV]?.trim()
   if (!token) {
@@ -83,11 +89,16 @@ function runGit(input: {
     encoding: "utf8",
     env: gitEnvironment(input.environment),
   })
+  if (result.error) {
+    throw new Error(`git ${input.args.join(" ")} failed to start: ${result.error.message}`, {
+      cause: result.error,
+    })
+  }
   if (result.status !== GIT_SUCCESS_STATUS) {
-    const detail = result.stderr.trim() || result.stdout.trim() || "unknown Git failure"
+    const detail = result.stderr?.trim() || result.stdout?.trim() || "unknown Git failure"
     throw new Error(`git ${input.args.join(" ")} failed: ${detail}`)
   }
-  return result.stdout.trim()
+  return result.stdout?.trim() ?? ""
 }
 
 function expectedSkillFiles(pack: SystemSkillPack): ReadonlyMap<string, Uint8Array> {
@@ -314,6 +325,7 @@ export {
   materializePublicSkillRepository,
   preparePublicSkillRepository,
   publishPreparedPublicSkillRepository,
+  requirePublicSkillRepositoryToken,
   verifyPublicSkillRepositoryDirectory,
 }
 

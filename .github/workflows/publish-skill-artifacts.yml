@@ -44,7 +44,7 @@ on:
       BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD:
         required: true
       BUDDY_SKILLS_REPOSITORY_TOKEN:
-        required: true
+        required: false
   workflow_dispatch:
     inputs:
       base_fingerprint:

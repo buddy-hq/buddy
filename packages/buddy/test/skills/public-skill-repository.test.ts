@@ -8,6 +8,7 @@ import {
   materializePublicSkillRepository,
   preparePublicSkillRepository,
   publishPreparedPublicSkillRepository,
+  requirePublicSkillRepositoryToken,
   verifyPublicSkillRepositoryDirectory,
 } from "../../script/public-skill-repository"
 import {
@@ -124,6 +125,24 @@ describe("public skill repository", () => {
     await expect(verifyPublicSkillRepositoryDirectory(pack, root)).rejects.toThrow(
       "file list does not match",
     )
+    await fsp.rm(path.join(root, "skills", "unexpected.txt"))
+    await fsp.writeFile(
+      path.join(root, "skills", "example-skill", "references", "guide.md"),
+      "# Tampered\n",
+      "utf8",
+    )
+    await expect(verifyPublicSkillRepositoryDirectory(pack, root)).rejects.toThrow(
+      "differs from the system pack",
+    )
+  })
+
+  test("requires repository credentials only for public publishing", () => {
+    expect(() => requirePublicSkillRepositoryToken({})).toThrow(
+      "BUDDY_SKILLS_REPOSITORY_TOKEN is required",
+    )
+    expect(() =>
+      requirePublicSkillRepositoryToken({ BUDDY_SKILLS_REPOSITORY_TOKEN: "token" }),
+    ).not.toThrow()
   })
 
   test("publishes and verifies the prepared pack without creating duplicate commits", async () => {

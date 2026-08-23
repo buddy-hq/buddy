@@ -36,6 +36,7 @@ import {
   disposePreparedPublicSkillRepository,
   preparePublicSkillRepository,
   publishPreparedPublicSkillRepository,
+  requirePublicSkillRepositoryToken,
 } from "./public-skill-repository"
 
 const RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
@@ -174,11 +175,16 @@ function sourceCommitSha(): string {
     cwd: REPOSITORY_ROOT,
     encoding: "utf8",
   })
+  if (result.error) {
+    throw new Error(`Failed to resolve the Buddy source commit: ${result.error.message}`, {
+      cause: result.error,
+    })
+  }
   if (result.status !== GIT_SUCCESS_STATUS) {
-    const detail = result.stderr.trim() || result.stdout.trim() || "unknown Git failure"
+    const detail = result.stderr?.trim() || result.stdout?.trim() || "unknown Git failure"
     throw new Error(`Failed to resolve the Buddy source commit: ${detail}`)
   }
-  return result.stdout.trim()
+  return result.stdout?.trim() ?? ""
 }
 
 async function readPublishedPayload<T>(
@@ -437,6 +443,7 @@ await Promise.all([
 ])
 
 if (process.argv.includes(PUBLISH_FLAG)) {
+  requirePublicSkillRepositoryToken(process.env)
   const preparedPublicRepository = await preparePublicSkillRepository({
     environment: process.env,
     pack: systemPack,

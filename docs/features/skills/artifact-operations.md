@@ -44,8 +44,9 @@ bun run skills:artifacts:publish
 
 The publish command also updates `buddy-hq/buddy-skills` from the final validated system pack. It
 does not discover or copy the skill sources a second time. The public repository is advanced only
-after the signed release artifacts have been uploaded and downloaded for verification. Its remote
-files are then checked byte-for-byte against that same pack before publishing succeeds.
+after the signed release artifacts have been uploaded and downloaded for verification. Its skill
+files are then checked byte-for-byte against that same pack before publishing succeeds, while
+allowed repository-level files such as `README.md` are preserved.
 
 The same operation is available through the `publish-skill-artifacts` GitHub Actions workflow.
 
