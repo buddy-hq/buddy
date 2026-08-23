@@ -32,12 +32,19 @@ import { resolveBuddyBundledSkillRoots } from "../src/config/opencode/skills"
 import { allBuddySkills } from "../src/learning/runtime/feature-registry"
 import { catalogIconReleaseFilename } from "../src/learning/skill-management/service/catalog-icon-reference"
 import { ensureGitHubReleaseExists } from "./github-release"
+import {
+  disposePreparedPublicSkillRepository,
+  preparePublicSkillRepository,
+  publishPreparedPublicSkillRepository,
+  requirePublicSkillRepositoryToken,
+} from "./public-skill-repository"
 
 const RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
 const RELEASE_TAG = "skill-artifacts"
 const RELEASE_TITLE = "Buddy Skill Artifacts"
 const RELEASE_NOTES =
   "Signed catalogs and system skill packs consumed independently of Buddy app releases."
+const PUBLIC_SKILL_REPOSITORY_URL = "https://github.com/buddy-hq/buddy-skills.git"
 const OUTPUT_FLAG = "--output"
 const BASE_FINGERPRINT_FLAG = "--base-fingerprint"
 const SYSTEM_REVISION_FLAG = "--system-revision"
@@ -52,8 +59,10 @@ const TAURI_PRIVATE_KEY_ENV = "TAURI_SIGNING_PRIVATE_KEY"
 const TAURI_PRIVATE_KEY_PATH_ENV = "TAURI_SIGNING_PRIVATE_KEY_PATH"
 const TAURI_PRIVATE_KEY_PASSWORD_ENV = "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
 const PUBLIC_KEY_PREFIX = "RW"
+const GIT_SUCCESS_STATUS = 0
 const PUBLISHED_ARTIFACT_VERIFICATION_DIRECTORY_PREFIX = "buddy-skill-artifacts-verify-"
 const DEFAULT_OUTPUT_DIRECTORY = path.resolve(import.meta.dir, "../dist/skill-artifacts")
+const REPOSITORY_ROOT = path.resolve(import.meta.dir, "../../..")
 const TAURI_SIGNER_PATH = path.resolve(
   import.meta.dir,
   "../../desktop-electron/node_modules/.bin/tauri",
@@ -149,13 +158,33 @@ async function signingConfiguration(): Promise<SigningConfiguration> {
 
 function run(command: string, args: string[], environment: NodeJS.ProcessEnv): void {
   const result = spawnSync(command, args, {
-    cwd: path.resolve(import.meta.dir, "../../.."),
+    cwd: REPOSITORY_ROOT,
     env: environment,
     stdio: "inherit",
   })
   if (result.status !== 0) {
     throw new Error(`${path.basename(command)} ${args.join(" ")} failed`)
   }
+}
+
+function sourceCommitSha(): string {
+  const workflowSha = process.env.GITHUB_SHA?.trim()
+  if (workflowSha) return workflowSha
+
+  const result = spawnSync("git", ["rev-parse", "HEAD"], {
+    cwd: REPOSITORY_ROOT,
+    encoding: "utf8",
+  })
+  if (result.error) {
+    throw new Error(`Failed to resolve the Buddy source commit: ${result.error.message}`, {
+      cause: result.error,
+    })
+  }
+  if (result.status !== GIT_SUCCESS_STATUS) {
+    const detail = result.stderr?.trim() || result.stdout?.trim() || "unknown Git failure"
+    throw new Error(`Failed to resolve the Buddy source commit: ${detail}`)
+  }
+  return result.stdout?.trim() ?? ""
 }
 
 async function readPublishedPayload<T>(
@@ -414,20 +443,48 @@ await Promise.all([
 ])
 
 if (process.argv.includes(PUBLISH_FLAG)) {
-  await ensureGitHubReleaseExists({
+  requirePublicSkillRepositoryToken(process.env)
+  const preparedPublicRepository = await preparePublicSkillRepository({
     environment: process.env,
-    notes: RELEASE_NOTES,
-    repository: RELEASE_REPOSITORY,
-    tag: RELEASE_TAG,
-    title: RELEASE_TITLE,
+    pack: systemPack,
+    remoteUrl: PUBLIC_SKILL_REPOSITORY_URL,
+    sourceSha: sourceCommitSha(),
   })
-  const artifactPaths = [libraryEnvelopePath, systemEnvelopePath, ...catalogIconPaths]
-  run(
-    "gh",
-    ["release", "upload", RELEASE_TAG, ...artifactPaths, "--clobber", "--repo", RELEASE_REPOSITORY],
-    process.env,
-  )
-  await verifyPublishedArtifacts(artifactPaths, process.env)
+
+  try {
+    await ensureGitHubReleaseExists({
+      environment: process.env,
+      notes: RELEASE_NOTES,
+      repository: RELEASE_REPOSITORY,
+      tag: RELEASE_TAG,
+      title: RELEASE_TITLE,
+    })
+    const artifactPaths = [libraryEnvelopePath, systemEnvelopePath, ...catalogIconPaths]
+    run(
+      "gh",
+      [
+        "release",
+        "upload",
+        RELEASE_TAG,
+        ...artifactPaths,
+        "--clobber",
+        "--repo",
+        RELEASE_REPOSITORY,
+      ],
+      process.env,
+    )
+    await verifyPublishedArtifacts(artifactPaths, process.env)
+    const publicRepository = await publishPreparedPublicSkillRepository(
+      preparedPublicRepository,
+    )
+    console.log(
+      publicRepository.changed
+        ? `Published public skill repository commit ${publicRepository.commitSha}`
+        : `Public skill repository already matches commit ${publicRepository.commitSha}`,
+    )
+  } finally {
+    await disposePreparedPublicSkillRepository(preparedPublicRepository)
+  }
 }
 
 console.log(`Built signed library catalog revision ${catalog.revision}`)
