@@ -33,10 +33,6 @@ const HTML_WIDGET_AUTO_OPEN_VIEWPORT_PRESETS = new Set([
   "tall_mobile",
 ])
 
-const nullableStringField = nonEmptyString.nullable()
-const nullableObjectIDField = BuddyObjectIDSchema.nullable()
-const nullableViewportPresetField = HtmlWidgetViewportPresetSchema.nullable()
-
 const PresentHtmlWidgetInputSchema = z
   .object({
     action: z
@@ -44,94 +40,69 @@ const PresentHtmlWidgetInputSchema = z
       .describe(
         "Choose one exact mode. Use present_path only when you have a real local HTML file or widget folder to adopt for the first presentation. Use present_object only after Buddy returned an html-widget object_id and you want to show that same managed widget again.",
       ),
-    path: nullableStringField.describe(
-      "For present_path only: local .html/.htm file or widget folder, for example widgets/fraction-builder.html. Prefer workspace-relative paths; absolute paths, file:// URLs, Windows drive paths, and ~/ paths are accepted only when they resolve inside the current workspace. Must be null for present_object. Do not put the widget title or object_id here.",
+    path: nonEmptyString.optional().describe(
+      "For present_path only: local .html/.htm file or widget folder, for example widgets/fraction-builder.html. Prefer workspace-relative paths; absolute paths, file:// URLs, Windows drive paths, and ~/ paths are accepted only when they resolve inside the current workspace. Omit for present_object. Do not put the widget title or object_id here.",
     ),
-    objectID: nullableObjectIDField.describe(
-      "For present_object only: the returned 26-character html-widget object_id, supplied here as objectID, copied from a previous successful Buddy tool output. Must be null for present_path. Never invent it; never put the title, filename, path, display name, or description here.",
+    objectID: BuddyObjectIDSchema.optional().describe(
+      "For present_object only: the returned 26-character html-widget object_id, supplied here as objectID, copied from a previous successful Buddy tool output. Omit for present_path. Never invent it; never put the title, filename, path, display name, or description here.",
     ),
-    entryPath: nullableStringField.describe(
-      "For present_path when path is a folder only: .html/.htm entry file inside that folder, relative to path, for example index.html. Use null when path points directly to an HTML file. Must be null for present_object. Do not pass a workspace-absolute path here.",
+    entryPath: nonEmptyString.optional().describe(
+      "For present_path when path is a folder only: .html/.htm entry file inside that folder, relative to path, for example index.html. Omit when path points directly to an HTML file and for present_object. Do not pass a workspace-absolute path here.",
     ),
-    title: nullableStringField.describe(
-      "Required for present_path: learner-facing display title, for example Fraction Builder or Counter Widget. This is where the widget name goes. Must be null for present_object. Never put the title in objectID.",
+    title: nonEmptyString.optional().describe(
+      "Required for present_path: learner-facing display title, for example Fraction Builder or Counter Widget. This is where the widget name goes. Omit for present_object. Never put the title in objectID.",
     ),
-    description: nullableStringField.describe(
-      "Optional short learner-facing description for present_path. Use null when not needed. Must be null for present_object. Do not use this for path, title, or objectID.",
+    description: nonEmptyString.optional().describe(
+      "Optional short learner-facing description for present_path. Omit when not needed and for present_object. Do not use this for path, title, or objectID.",
     ),
-    viewportPreset: nullableViewportPresetField.describe(
-      "Required for present_path: choose compact_4_3, standard_16_10, wide_16_9, square, or tall_mobile based on the authored layout. Must be null for present_object.",
+    viewportPreset: HtmlWidgetViewportPresetSchema.optional().describe(
+      "Required for present_path: choose compact_4_3, standard_16_10, wide_16_9, square, or tall_mobile based on the authored layout. Omit for present_object.",
     ),
   })
   .strict()
   .superRefine(validatePresentHtmlWidgetInput)
 
 type PresentHtmlWidgetInput = z.infer<typeof PresentHtmlWidgetInputSchema>
-type TJsonValue = string | number | boolean | null | TJsonValue[] | TJsonObject
-type TJsonObject = { [key: string]: TJsonValue }
-
-const jsonObjectSchema: z.ZodType<TJsonObject> = z.record(z.string(), z.json())
-
-function parseTJsonObject<TValue>(value: TValue): TJsonObject | undefined {
-  const parsed = jsonObjectSchema.safeParse(value)
-  return parsed.success ? parsed.data : undefined
-}
-
 function parseToolInputString<TValue>(value: TValue): string | undefined {
   const parsed = z.string().safeParse(value)
   return parsed.success ? parsed.data : undefined
 }
 
-function normalizePresentHtmlWidgetInput<TArgs>(rawArgs: TArgs) {
-  const record = parseTJsonObject(rawArgs)
-  if (record === undefined) return rawArgs
-
-  return {
-    action: record.action,
-    path: record.path ?? null,
-    objectID: record.objectID ?? null,
-    entryPath: record.entryPath ?? null,
-    title: record.title ?? null,
-    description: record.description ?? null,
-    viewportPreset: record.viewportPreset ?? null,
-  }
-}
-
 function validatePresentHtmlWidgetInput(input: PresentHtmlWidgetInput, ctx: z.RefinementCtx): void {
   if (input.action === "present_path") {
-    if (input.path === null) {
+    if (input.path === undefined) {
       ctx.addIssue({ code: "custom", path: ["path"], message: "path is required." })
     }
-    if (input.title === null) {
+    if (input.title === undefined) {
       ctx.addIssue({ code: "custom", path: ["title"], message: "title is required." })
     }
-    if (input.viewportPreset === null) {
+    if (input.viewportPreset === undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["viewportPreset"],
         message: "viewportPreset is required.",
       })
     }
-    if (input.objectID !== null) {
+    if (input.objectID !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: ["objectID"],
         message:
-          "objectID must be null for present_path. Put the learner-facing display name in title, not objectID.",
+          "objectID must be omitted for present_path. Put the learner-facing display name in title, not objectID.",
       })
     }
     return
   }
 
-  if (input.objectID === null) {
+  if (input.objectID === undefined) {
     ctx.addIssue({ code: "custom", path: ["objectID"], message: "objectID is required." })
   }
   for (const key of ["path", "entryPath", "title", "description", "viewportPreset"] as const) {
-    if (input[key] !== null) {
+    if (input[key] !== undefined) {
       ctx.addIssue({
         code: "custom",
         path: [key],
-        message: `${key} must be null for present_object.`,
+        message: `${key} must be omitted for present_object.`,
       })
     }
   }
@@ -160,10 +131,7 @@ function formatPresentHtmlWidgetValidationError(error: z.ZodError): string {
       {
         action: "present_path",
         path: "widgets/fraction-builder.html",
-        objectID: null,
-        entryPath: null,
         title: "Fraction Builder",
-        description: null,
         viewportPreset: "standard_16_10",
       },
       null,
@@ -175,10 +143,8 @@ function formatPresentHtmlWidgetValidationError(error: z.ZodError): string {
       {
         action: "present_path",
         path: "widgets/projectile-sim",
-        objectID: null,
         entryPath: "index.html",
         title: "Projectile Motion Simulator",
-        description: null,
         viewportPreset: "wide_16_9",
       },
       null,
@@ -189,12 +155,7 @@ function formatPresentHtmlWidgetValidationError(error: z.ZodError): string {
     JSON.stringify(
       {
         action: "present_object",
-        path: null,
         objectID: "01KG1A0KH77HJ9QGAQ5QK0N4BD",
-        entryPath: null,
-        title: null,
-        description: null,
-        viewportPreset: null,
       },
       null,
       2,
@@ -305,7 +266,6 @@ const presentHtmlWidgetTool = createBuddyTool({
       },
     },
   },
-  normalizeInput: normalizePresentHtmlWidgetInput,
   formatValidationError: formatPresentHtmlWidgetValidationError,
   async execute(params: PresentHtmlWidgetInput, ctx: BuddyToolContext) {
     const sessionID = String(ctx.sessionID)
@@ -330,7 +290,7 @@ const presentHtmlWidgetTool = createBuddyTool({
               action: "present_path" as const,
               directory: ctx.directory,
               path: params.path ?? "",
-              entryPath: params.entryPath,
+              entryPath: params.entryPath ?? null,
               title: params.title ?? "",
               viewportPreset: params.viewportPreset ?? "standard_16_10",
               origin: {

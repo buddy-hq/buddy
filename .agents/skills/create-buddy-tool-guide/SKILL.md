@@ -16,6 +16,34 @@ This skill only has information about OpenAI and Anthropic tool use and function
 
 An invariant of after triggering this skill is if you are refactoring a tool or writing a schema or writing a tool prompt, you must do research from the links given below before moving on. The whole point of this skill is that. 
 
+## Portable optional parameters
+
+JSON `null` and nullable unions are valid schema constructs. Do not add a global ban on nullable parameters and do not assume every provider mishandles them. OpenAI strict function tools require every property to be listed in `required`; their documented way to express an optional value is a nullable type. If Buddy actually enables strict mode for a route, follow that provider contract and qualify the exact schema against every supported route.
+
+Buddy also runs tools through mixed-provider routes where strict mode is not the active contract. On that portable, non-strict surface, do not make an inactive string field required only so the model can send `null`. Prefer these rules:
+
+* Give multi-mode tools an explicit, well-named action discriminator.
+* Make action-specific string, path, id, and enum fields optional but non-nullable in the model-facing schema.
+* Tell the model to omit fields owned by other actions. Examples must omit inactive fields instead of filling them with `null`.
+* Add cross-field validation that requires the active action's fields and rejects fields owned by inactive actions.
+* Run this validation before permissions, reads, writes, metadata updates, background work, or UI dispatch.
+* Do not use `normalizeInput` to turn omitted fields back into `null` before schema validation. Normalize to an internal representation only after the portable input contract has validated, and only when a downstream non-model API needs it.
+* Never coerce the string `"null"` to JSON `null`. A literal string may be valid user data, and transport repair would hide an upstream conformance bug.
+
+For create-versus-update tools, omission alone must not choose a destructive or identity-changing operation. Add an explicit create/update discriminator, require the stable id for update, forbid it for create, and test both invalid combinations. This prevents a missing update id from silently creating a second object.
+
+When changing a nullable action-sentinel contract, add regression coverage for:
+
+* each valid action with only its owned fields;
+* omitted optional fields;
+* explicit JSON `null` rejection on the portable schema;
+* literal `"null"` rejection when the field has a stronger format such as a Buddy object id;
+* missing active fields and supplied inactive fields;
+* the serialized JSON Schema's `required`, `type`, `enum`, and `additionalProperties` shape;
+* denial before side effects when the tool has a permission boundary.
+
+This is a tool-contract design rule, not a provider adapter. If a route still corrupts a schema that genuinely needs nullable values, keep the schema semantically correct, capture raw-versus-normalized evidence, and fix or report that route rather than adding per-tool coercion.
+
 
 ## Side-Effects
 When refactoring a tool—changing its name, schema, metadata, triggers, prompts, or return values—check for side effects before closing the issue.

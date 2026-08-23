@@ -325,7 +325,7 @@ describe("bench_present", () => {
     ).toEqual([])
   })
 
-  test("accepts omitted inactive nullable fields for close", async () => {
+  test("accepts omitted inactive fields for close", async () => {
     await using project = await tmpdir({ git: true })
     const client = connectTestBenchClient({ directory: project.path })
 
@@ -471,9 +471,6 @@ describe("bench_present", () => {
       benchPresentTool.run(
         {
           action: "close",
-          path: null,
-          resourceKey: null,
-          objectID: null,
           route: "/_bench/file",
         },
         createBuddyToolContext({
@@ -552,8 +549,6 @@ describe("bench_present", () => {
       {
         action: "present_file",
         path: "broken.mdx",
-        resourceKey: null,
-        objectID: null,
       },
       {
         ...context,
@@ -610,8 +605,6 @@ describe("bench_present", () => {
       {
         action: "present_file",
         path: "missing.md",
-        resourceKey: null,
-        objectID: null,
       },
       {
         ...context,
@@ -648,8 +641,6 @@ describe("bench_present", () => {
       {
         action: "present_file",
         path: "ready.md",
-        resourceKey: null,
-        objectID: null,
       },
       createBuddyToolContext({
         directory: project.path,
@@ -771,8 +762,6 @@ describe("bench_present", () => {
       {
         action: "present_file",
         path: path.join(project.path, "notes.md"),
-        resourceKey: null,
-        objectID: null,
       },
       context,
     )
@@ -818,8 +807,6 @@ describe("bench_present", () => {
       {
         action: "present_file",
         path: externalPath,
-        resourceKey: null,
-        objectID: null,
       },
       context,
     )
