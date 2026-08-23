@@ -409,6 +409,71 @@ const MARKDOWN_BENCH_MDX_POPUP_LAYER_CSS = `
 .${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME}.mdxeditor-popup-container [role="dialog"] {
   z-index: ${MARKDOWN_BENCH_MDX_DIALOG_Z_INDEX};
 }
+
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorWrapper_"] {
+  margin-block: 0.75em 1em;
+  padding: 0;
+  background: var(--background-stronger);
+}
+
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorToolbar_"] {
+  position: static;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 1.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.25rem 0 0.5rem;
+  border-bottom: 1px solid var(--border-weaker-base);
+  border-radius: 0;
+  background: transparent;
+}
+
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorToolbar_"] [class*="_selectTrigger_"] {
+  width: auto;
+  min-height: 1.5rem;
+  margin: 0;
+  padding: 0 0.125rem;
+  background: transparent;
+  color: var(--text-weaker);
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorToolbar_"] > button {
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-base);
+  color: var(--icon-weak);
+  cursor: pointer;
+}
+
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorToolbar_"] > button:disabled {
+  cursor: default;
+}
+
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorToolbar_"] > button svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorWrapper_"] .cm-editor {
+  padding: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorToolbar_"] > button {
+    opacity: 0;
+  }
+
+  .${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorWrapper_"]:hover [class*="_codeMirrorToolbar_"] > button,
+  .${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME} [class*="_codeMirrorWrapper_"]:focus-within [class*="_codeMirrorToolbar_"] > button {
+    opacity: 1;
+  }
+}
 `
 
 function MarkdownBenchAdvancedToolbarPortal(props: { container?: HTMLElement | null }) {
