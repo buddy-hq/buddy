@@ -6,6 +6,7 @@ import z from "zod"
 import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
 import type { MessageV2 } from "@buddy/opencode-adapter/message"
 import { Provider } from "@buddy/opencode-adapter/provider"
+import { readProjectConfig } from "../../../../config/runtime/project-config.js"
 import { RESOURCE_PACK_STATUS_READY, estimateTokenCountFromText } from "../../../../resource-packs"
 import {
   resolveResourceObjectByKey,
@@ -17,7 +18,7 @@ import {
 } from "../../../prompt/native-resource-metadata"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 import { readTeachingSessionState } from "../../../agent-execution/state/session-state"
-import { DEFAULT_CONCISE_RESPONSES } from "../../../shared/concise-responses"
+import { resolveConciseResponses } from "../../../shared/concise-responses"
 
 // Full-text ingestion fills the next model request with prepared source text, so the
 // relevant capacity is the model's usable input window: `limit.input` when the
@@ -534,7 +535,7 @@ export const ingestFullTextTool = createBuddyTool({
 
     const conciseResponses =
       readTeachingSessionState(ctx.directory, ctx.sessionID)?.conciseResponses ??
-      DEFAULT_CONCISE_RESPONSES
+      resolveConciseResponses(await readProjectConfig(ctx.directory))
     const longResponseCaution = conciseResponses
       ? `<caution>
         Long Response Caution: default to responding in Buddy's normal style — 1-4 sentences, ~15-60 words per turn, WhatsApp-style, casual. Break this rule only when the user is explicitly demanding something verbose. Answer only the user's actual question.

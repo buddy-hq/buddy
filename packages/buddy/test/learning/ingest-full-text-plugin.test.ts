@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { mkdirSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import type { ToolContext } from "@opencode-ai/plugin"
+import { Config } from "@buddy/backend/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import type { MessageV2 } from "@buddy/opencode-adapter/message"
@@ -249,6 +250,7 @@ describe("ingest_full_text via plugin shim", () => {
         expect(parsed_ingestResult.output).toContain("<resource_full_text_ingestion")
         expect(parsed_ingestResult.output).toContain('resource="frames-md"')
         expect(parsed_ingestResult.output).toContain("<full_text>")
+        expect(parsed_ingestResult.output).toContain("Long Response Caution")
         expect(parsed_ingestResult.output).not.toContain(
           "Could not resolve the active model for full-text ingestion.",
         )
@@ -271,6 +273,32 @@ describe("ingest_full_text via plugin shim", () => {
         )
         expect(parsedFlexibleResult.output).not.toBe(parsed_ingestResult.output)
         expect(parsedFlexibleResult.output.length).toBeLessThan(parsed_ingestResult.output.length)
+        expect(parsedFlexibleResult.output).not.toContain("Long Response Caution")
+
+        const previousGlobalConfig = await Config.getGlobal()
+        try {
+          await Config.replaceGlobal({
+            ...previousGlobalConfig,
+            concise_responses: false,
+          })
+
+          const configuredFlexibleSessionID = "ses_ingest_full_text_configured_flexible"
+          const configuredFlexibleResult = await ingestPlugin.execute(
+            { resourceKey: "frames-md" },
+            createPluginExecuteContext({
+              ...pluginContext,
+              sessionID: configuredFlexibleSessionID,
+              messages: createUserMessageHistory(configuredFlexibleSessionID),
+            }),
+          )
+          const parsedConfiguredFlexibleResult = requireToolObjectResult(
+            configuredFlexibleResult,
+            "Expected configured flexible ingest_full_text object result",
+          )
+          expect(parsedConfiguredFlexibleResult.output).not.toContain("Long Response Caution")
+        } finally {
+          await Config.replaceGlobal(previousGlobalConfig)
+        }
       },
     })
   })
