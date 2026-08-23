@@ -1105,6 +1105,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     onRetryAction,
     onContinueTruncated,
     onViewportHeightChange,
+    onContentSizeChange,
     markProgrammaticScroll,
     scrollViewportRef,
     initialScrollOffset = DEFAULT_INITIAL_SCROLL_OFFSET,
@@ -1513,6 +1514,13 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         })
       }
       resizeItem(index, size)
+      if (root) {
+        const totalSize = rowVirtualizer.getTotalSize()
+        if (virtualContentRef.current) {
+          virtualContentRef.current.style.height = `${totalSize}px`
+        }
+        onContentSizeChange?.(root)
+      }
       if (
         root &&
         shouldAnchorBottom() &&
@@ -1543,6 +1551,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   }, [
     hasRestoredInitialScrollOffset,
     hasScrollGesture,
+    onContentSizeChange,
     rowVirtualizer,
     rows,
     scheduleInitialLayoutReady,

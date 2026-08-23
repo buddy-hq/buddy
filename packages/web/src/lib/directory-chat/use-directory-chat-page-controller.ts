@@ -1773,7 +1773,7 @@ export function useDirectoryChatPageController(
     onTranscriptTouchEnd: autoScroll.handleTouchEnd,
     onTranscriptTouchCancel: autoScroll.handleTouchCancel,
     onTranscriptInteraction: autoScroll.handleInteraction,
-    onTranscriptViewportHeightChange: autoScroll.handleViewportHeightChange,
+    onTranscriptScrollGeometryChange: autoScroll.handleScrollGeometryChange,
     markTranscriptProgrammaticScroll: autoScroll.markProgrammaticScroll,
     onOpenSession: handleOpenCurrentDirectorySession,
     onRevertMessage: async ({ sessionID, messageID }) => {
