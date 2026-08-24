@@ -1,6 +1,7 @@
 import { analogiesFeature } from "../features/analogies/feature"
 import { assessmentFeature } from "../features/assessment/feature"
 import { benchFeature } from "../features/bench/feature"
+import { browserFeature } from "../features/browser/feature"
 import { calculatorFeature } from "../features/calculator/feature"
 import { curriculumFeature } from "../features/curriculum/feature"
 import { diagramsFeature } from "../features/diagrams/feature"
@@ -27,6 +28,7 @@ export const BUDDY_SHARED_FEATURES = [
   memoryFeature,
   standardsFeature,
   benchFeature,
+  browserFeature,
   readingFeature,
   teachingGuidanceFeature,
   analogiesFeature,

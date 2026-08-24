@@ -142,6 +142,32 @@ function openContextForAction(input: {
       hints: [],
     }
   }
+  if (target.type === "browser") {
+    const tabKey = `browser:${encodeURIComponent(target.tabID)}`
+    return {
+      status: "open" as const,
+      visibility: "visible" as const,
+      mode: "docked" as const,
+      selectedTabKey: tabKey,
+      tabs: [{ tabKey, title: "Browser", target }],
+      targetKey: benchTargetKey(target),
+      target: {
+        type: "browser" as const,
+        title: "Browser",
+        workspaceRoot: input.directory,
+        tabID: target.tabID,
+        url: target.url,
+        loading: false,
+        route: `/_bench/browser/${encodeURIComponent(target.tabID)}?url=${encodeURIComponent(target.url)}`,
+        status: input.status ?? "ready",
+      },
+      drawer: null,
+      metadata: ["control: user-only"],
+      content: input.content ?? "User-controlled Browser tab.",
+      refs: [{ kind: "url" as const, value: target.url, note: "Browser URL." }],
+      hints: [],
+    }
+  }
   return {
     status: "open" as const,
     visibility: "visible" as const,
@@ -428,6 +454,71 @@ describe("bench_present", () => {
       reason: "focused_tab",
       benchTarget: backgroundTarget,
     })
+  })
+
+  test("refuses to focus an existing Browser tab", async () => {
+    await using project = await tmpdir({ git: true })
+    const client = connectTestBenchClient({ directory: project.path })
+    const target = {
+      type: "browser" as const,
+      tabID: "browser-focus-tab",
+      url: "https://hibuddy.in/",
+    }
+    const tabKey = `browser:${encodeURIComponent(target.tabID)}`
+    publishSequencedBenchContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      body: {
+        lease: leaseIdentity(client.lease),
+        publicationSequence: nextPublicationSequence(client),
+        idempotencyKey: "browser-focus-context",
+        value: {
+          status: "open",
+          visibility: "visible",
+          mode: "docked",
+          selectedTabKey: tabKey,
+          tabs: [{ tabKey, title: "HiBuddy", target }],
+          targetKey: benchTargetKey(target),
+          target: {
+            type: "browser",
+            title: "HiBuddy",
+            workspaceRoot: project.path,
+            tabID: target.tabID,
+            url: target.url,
+            loading: false,
+            route: "/_bench/browser/browser-focus-tab",
+            status: "ready",
+          },
+          drawer: null,
+          metadata: ["control: user-only"],
+          content: "User-controlled Browser tab.",
+          refs: [],
+          hints: [],
+        },
+      },
+    })
+
+    await expect(
+      presentOnBench({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        messageID: "browser-focus-message",
+        callID: null,
+        abort: new AbortController().signal,
+        action: "focus_tab",
+        path: null,
+        resourceKey: null,
+        objectID: null,
+        tabKey,
+        ask: async () => undefined,
+      }),
+    ).resolves.toMatchObject({
+      status: "error",
+      reason: "tab_not_found",
+      message: expect.stringContaining("inapp_browser_open"),
+    })
+    expect(client.actions).toHaveLength(0)
+    client.unsubscribe()
   })
 
   test("rejects a stale focus tab key with a re-read instruction", async () => {

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import { IN_APP_BROWSER_URL_MAX_LENGTH } from "@buddy/browser-contract"
 import {
   BENCH_CONTEXT_HISTORY_LIMIT,
   BENCH_DRAWER_KIND_VALUES,
@@ -60,11 +61,38 @@ describe("Bench read context contract", () => {
           target: { type: "workspace-file", path: "notes.md", viewer: "markdown" },
         },
       ],
+      selectedBrowser: null,
       drawer: null,
     })
 
     expect(value).not.toHaveProperty("content")
     expect(value).not.toHaveProperty("targetKey")
+  })
+
+  test("rejects oversized Browser URLs at the published context boundary", () => {
+    const oversizedUrl = `https://example.com/${"x".repeat(IN_APP_BROWSER_URL_MAX_LENGTH)}`
+    expect(() =>
+      BenchReadContextOutputSchema.parse({
+        status: "open",
+        visibility: "parked",
+        mode: "docked",
+        selectedTabKey: "browser:oversized",
+        tabs: [
+          {
+            tabKey: "browser:oversized",
+            title: "Oversized",
+            target: { type: "browser", tabID: "oversized", url: oversizedUrl },
+          },
+        ],
+        selectedBrowser: {
+          tabID: "oversized",
+          url: oversizedUrl,
+          title: "Oversized",
+          loading: false,
+        },
+        drawer: null,
+      }),
+    ).toThrow()
   })
 })
 
