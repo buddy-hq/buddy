@@ -53,6 +53,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "2.0.62",
     "@bokuweb/zstd-wasm": "^0.0.27",
+    "@buddy/browser-contract": "workspace:*",
     "@buddy/opencode-adapter": "workspace:*",
     "@buddy/reader-contract": "workspace:*",
     "@buddy/workspace-file-policy": "workspace:*",
