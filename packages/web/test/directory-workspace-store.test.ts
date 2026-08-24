@@ -37,6 +37,7 @@ import {
   type DirectoryWorkspaceProjectionState,
   type EffectiveWorkspaceProjection,
   type PendingWorkspaceIntent,
+  type PersistedDirectoryWorkspaceState,
   type WorkspacePresentationSlot,
 } from "../src/state/directory-workspace-store"
 import {
@@ -850,6 +851,43 @@ describe("directory workspace persistence", () => {
         },
       },
     })
+  })
+
+  test("bounds persistence after removing transient Browser state", async () => {
+    const storage = createMemoryStorage()
+    const slots: PersistedDirectoryWorkspaceState["slots"] = {}
+    const chatKeys = Array.from({ length: 30 }, (_unused, index) =>
+      workspaceChatKeyForSession(`session-browser-${index}`),
+    )
+    for (const chatKey of chatKeys) {
+      slots[chatKey] = workspaceSlot({
+        route: {
+          status: BENCH_ROUTE_STATUS_OPEN,
+          target: BROWSER_TARGET,
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+        },
+        docked: createExpandedWorkspaceState(null),
+        lastDrawer: WORKSPACE_DRAWER_FILES,
+      })
+    }
+
+    await writePersistedDirectoryWorkspace({
+      directory: "/workspace",
+      storage,
+      state: { slots },
+    })
+
+    const persisted = await readPersistedDirectoryWorkspace({
+      directory: "/workspace",
+      storage,
+    })
+    const oldestChatKey = chatKeys[0]
+    const newestChatKey = chatKeys.at(-1)
+    if (!oldestChatKey || !newestChatKey) throw new Error("Expected Browser chat keys.")
+    expect(persisted.status).toBe("ready")
+    expect(Object.keys(persisted.state?.slots ?? {})).toHaveLength(24)
+    expect(persisted.state?.slots[oldestChatKey]).toBeUndefined()
+    expect(persisted.state?.slots[newestChatKey]).toBeDefined()
   })
 
   test("serializes per-chat slot writes without allowing an older write to win", async () => {

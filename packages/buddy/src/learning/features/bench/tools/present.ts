@@ -1286,7 +1286,7 @@ async function presentOnBench(input: {
     if (tab.target.type === "browser") {
       return {
         status: "error",
-        reason: "tab_not_found",
+        reason: "unsupported_target",
         target: null,
         benchTarget: null,
         mode: null,

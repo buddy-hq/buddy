@@ -514,7 +514,7 @@ describe("bench_present", () => {
       }),
     ).resolves.toMatchObject({
       status: "error",
-      reason: "tab_not_found",
+      reason: "unsupported_target",
       message: expect.stringContaining("inapp_browser_open"),
     })
     expect(client.actions).toHaveLength(0)

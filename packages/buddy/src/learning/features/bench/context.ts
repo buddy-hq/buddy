@@ -23,6 +23,9 @@ const BENCH_DRAWER_KIND_VALUES = [
 
 const BenchContextStatusSchema = z.enum(["ready", "loading", "dirty", "error", "unavailable"])
 const BenchDrawerKindSchema = z.enum(BENCH_DRAWER_KIND_VALUES)
+const BrowserUrlSchema = nonEmptyString
+  .max(IN_APP_BROWSER_URL_MAX_LENGTH)
+  .refine(isInAppBrowserTargetUrl, "Browser URL must be HTTP, HTTPS, or about:blank.")
 
 const WorkspaceFileBenchTargetSchema = z
   .object({
@@ -44,9 +47,7 @@ const BrowserBenchTargetSchema = z
   .object({
     type: z.literal("browser"),
     tabID: nonEmptyString,
-    url: nonEmptyString
-      .max(IN_APP_BROWSER_URL_MAX_LENGTH)
-      .refine(isInAppBrowserTargetUrl, "Browser URL must be HTTP, HTTPS, or about:blank."),
+    url: BrowserUrlSchema,
   })
   .strict()
 
@@ -86,9 +87,7 @@ const PublishedBrowserBenchContextTargetSchema = z
     title: nonEmptyString.max(IN_APP_BROWSER_TITLE_MAX_LENGTH),
     workspaceRoot: nonEmptyString,
     tabID: nonEmptyString,
-    url: nonEmptyString
-      .max(IN_APP_BROWSER_URL_MAX_LENGTH)
-      .refine(isInAppBrowserTargetUrl, "Browser URL must be HTTP, HTTPS, or about:blank."),
+    url: BrowserUrlSchema,
     loading: z.boolean(),
     route: nonEmptyString,
     status: BenchContextStatusSchema,
@@ -157,9 +156,7 @@ const BenchReadContextParkedOutputSchema = z
     selectedBrowser: z
       .object({
         tabID: nonEmptyString,
-        url: nonEmptyString
-          .max(IN_APP_BROWSER_URL_MAX_LENGTH)
-          .refine(isInAppBrowserTargetUrl, "Browser URL must be HTTP, HTTPS, or about:blank."),
+        url: BrowserUrlSchema,
         title: nonEmptyString.max(IN_APP_BROWSER_TITLE_MAX_LENGTH),
         loading: z.boolean(),
       })

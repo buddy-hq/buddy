@@ -134,7 +134,7 @@ function attachInAppBrowserFaviconCapture(
         pageUrl: pageOrigin,
         capturedAt: Date.now(),
       })
-    })
+    }).catch(() => undefined)
   }
   const navigationStarted = (
     event: Electron.Event<Electron.WebContentsDidStartNavigationEventParams>,

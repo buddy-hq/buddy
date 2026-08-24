@@ -126,6 +126,17 @@ describe("inapp_browser_open", () => {
         }),
       ),
     ).rejects.toThrow("valid HTTP or HTTPS")
+    await expect(
+      inAppBrowserOpenTool.run(
+        { url: "file:///etc/passwd" },
+        createBuddyToolContext({
+          directory: project.path,
+          sessionID: SESSION_ID,
+          messageID: "msg_browser_file_scheme",
+          agent: "buddy",
+        }),
+      ),
+    ).rejects.toThrow("valid HTTP or HTTPS")
   })
 
   test("cancels when abort happens during synchronous action delivery", async () => {

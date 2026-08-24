@@ -62,6 +62,7 @@ export const DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER = WORKSPACE_DRAWER_SOURCES
 export const DIRECTORY_WORKSPACE_PERSISTENCE_VERSION = 4
 export const DIRECTORY_WORKSPACE_STORAGE_FILE = "buddy.directory-workspace.v4.dat"
 const DIRECTORY_WORKSPACE_STORAGE_KEY_PREFIX = "directory-workspace:"
+const WORKSPACE_CHAT_SLOT_LIMIT = 24
 
 export type DrawerKind =
   | typeof WORKSPACE_DRAWER_SEARCH
@@ -642,7 +643,17 @@ function withoutTransientBrowserTabs(
         : { status: BENCH_ROUTE_STATUS_CLOSED },
     }
   }
-  return { slots }
+  const persistedKeys = Object.keys(slots)
+  const excess = persistedKeys.length - WORKSPACE_CHAT_SLOT_LIMIT
+  if (excess <= 0) return { slots }
+
+  const bounded: Partial<Record<PersistedWorkspaceChatKey, WorkspacePresentationSlot>> = {}
+  for (const key of persistedKeys.slice(excess)) {
+    if (!isPersistedWorkspaceChatKey(key)) continue
+    const slot = slots[key]
+    if (slot) bounded[key] = slot
+  }
+  return { slots: bounded }
 }
 
 function tabsForRoute(tabs: readonly BenchTab[], route: BenchRouteSnapshot): BenchTab[] {
@@ -735,8 +746,6 @@ export function workspacePresentationSlotForChat(
  * removes it through `removeSessionTargets`. The touched chat is re-inserted last so the map doubles
  * as a recency order, and eviction drops the least recently touched eligible persisted slots.
  */
-const WORKSPACE_CHAT_SLOT_LIMIT = 24
-
 function slotKeepsLiveBrowserPage(slot: WorkspacePresentationSlot | undefined): boolean {
   return slot?.tabs.some((tab) => tab.target.type === "browser") ?? false
 }
