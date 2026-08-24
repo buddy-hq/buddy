@@ -79,6 +79,12 @@ const OBJECT_TARGET_NEXT_VIEW = {
   viewID: "summary",
 } satisfies BenchTarget
 
+const BROWSER_TARGET = {
+  type: "browser",
+  tabID: "browser-1",
+  url: "https://hibuddy.in/",
+} satisfies BenchTarget
+
 const SESSION_TARGET = {
   type: "session",
   sessionID: "subagent-1",
@@ -454,6 +460,39 @@ describe("createDirectoryWorkspaceStore", () => {
     )
   })
 
+  test("removes a deleted chat slot that owns a live Browser page", () => {
+    const activeChatKey = workspaceChatKeyForSession("active-session")
+    const deletedChatKey = workspaceChatKeyForSession("deleted-session")
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: {
+        activeChatKey,
+        hydration: { status: "ready" },
+        slots: {
+          [activeChatKey]: workspaceSlot({
+            route: DOCKED_OBJECT_ROUTE,
+            docked: createExpandedWorkspaceState(null),
+            lastDrawer: WORKSPACE_DRAWER_SOURCES,
+          }),
+          [deletedChatKey]: workspaceSlot({
+            route: {
+              status: BENCH_ROUTE_STATUS_OPEN,
+              target: BROWSER_TARGET,
+              mode: BENCH_CHAT_LAYOUT_DOCKED,
+            },
+            docked: createExpandedWorkspaceState(null),
+            lastDrawer: WORKSPACE_DRAWER_SOURCES,
+          }),
+        },
+      },
+    })
+
+    store.getState().removeSessionTargets({ sessionIDs: ["deleted-session"] })
+
+    expect(store.getState().slots[deletedChatKey]).toBeUndefined()
+    expect(store.getState().slots[activeChatKey]).toBeDefined()
+  })
+
   test("adds an auto-open target to an inactive chat without changing the active chat", () => {
     const activeChatKey = workspaceChatKeyForSession("active")
     const inactiveChatKey = workspaceChatKeyForSession("inactive")
@@ -502,6 +541,32 @@ describe("createDirectoryWorkspaceStore", () => {
       route: { status: BENCH_ROUTE_STATUS_OPEN, target: FILE_TARGET },
       tabs: [{ target: FILE_TARGET }],
     })
+  })
+
+  test("does not evict a chat slot while it owns an open Browser page", () => {
+    const activeChatKey = workspaceChatKeyForSession("active")
+    const browserChatKey = workspaceChatKeyForSession("browser-oldest")
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: { activeChatKey, hydration: { status: "ready" } },
+    })
+    store.getState().presentBackground({
+      chatKey: browserChatKey,
+      target: BROWSER_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+
+    for (let index = 0; index < 30; index += 1) {
+      store.getState().captureChatSlot({
+        chatKey: workspaceChatKeyForSession(`later-${index}`),
+        route: DOCKED_OBJECT_ROUTE,
+      })
+    }
+
+    expect(store.getState().slots[browserChatKey]).toMatchObject({
+      tabs: [{ target: BROWSER_TARGET }],
+    })
+    expect(Object.keys(store.getState().slots)).toHaveLength(24)
   })
 
   test("preserves the saved mode when background presentation refreshes the selected tab", () => {
@@ -742,6 +807,51 @@ describe("createDirectoryWorkspaceStore", () => {
 })
 
 describe("directory workspace persistence", () => {
+  test("does not persist transient browser tabs", async () => {
+    const storage = createMemoryStorage()
+    const chatKey = workspaceChatKeyForSession("session-a")
+    const tabs = upsertBenchTab(upsertBenchTab([], FILE_TARGET).tabs, BROWSER_TARGET).tabs
+
+    await writePersistedDirectoryWorkspace({
+      directory: "/workspace",
+      storage,
+      state: {
+        slots: {
+          [chatKey]: workspaceSlot({
+            route: {
+              status: BENCH_ROUTE_STATUS_OPEN,
+              target: BROWSER_TARGET,
+              mode: BENCH_CHAT_LAYOUT_DOCKED,
+            },
+            tabs,
+            docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
+            lastDrawer: WORKSPACE_DRAWER_FILES,
+          }),
+        },
+      },
+    })
+
+    await expect(
+      readPersistedDirectoryWorkspace({ directory: "/workspace", storage }),
+    ).resolves.toEqual({
+      status: "ready",
+      state: {
+        slots: {
+          [chatKey]: workspaceSlot({
+            route: {
+              status: BENCH_ROUTE_STATUS_OPEN,
+              target: FILE_TARGET,
+              mode: BENCH_CHAT_LAYOUT_DOCKED,
+            },
+            tabs: upsertBenchTab([], FILE_TARGET).tabs,
+            docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
+            lastDrawer: WORKSPACE_DRAWER_FILES,
+          }),
+        },
+      },
+    })
+  })
+
   test("serializes per-chat slot writes without allowing an older write to win", async () => {
     const entries = new Map<string, string>()
     let writeCount = 0

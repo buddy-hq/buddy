@@ -22,9 +22,9 @@ import {
   benchRouteFallbackContextFromTarget,
   routeString,
 } from "@/components/bench/bench-context-utils"
-import { isBenchContentTarget } from "@/lib/bench-navigation"
+import { benchTargetKey, isBenchContentTarget } from "@/lib/bench-navigation"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
-import { resolveBenchTabTitle, upsertBenchTab } from "@/lib/bench-tabs"
+import { resolveBenchTabTitle, upsertBenchTab, type BenchTab } from "@/lib/bench-tabs"
 import { DirectoryWorkspaceLifecycleService } from "@/lib/directory-workspace-lifecycle"
 import { registerLiveDirectoryWorkspace } from "@/lib/directory-workspace-registry"
 import { subagentBenchSelection } from "@/lib/subagent-bench-target"
@@ -32,6 +32,10 @@ import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-di
 import { workspaceChatKeyForSession, type WorkspaceChatKey } from "@/lib/workspace-chat-key"
 import { useChatStore } from "@/state/chat-store"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
+import {
+  inAppBrowserTabContextRuntime,
+  useInAppBrowserTabsStore,
+} from "@/state/in-app-browser-tabs-store"
 import {
   BENCH_ROUTE_STATUS_OPEN,
   type BenchRouteSnapshot,
@@ -75,6 +79,17 @@ function initialDockedState(route: BenchRouteSnapshot) {
     return createExpandedWorkspaceState(null)
   }
   return createCollapsedWorkspaceState()
+}
+
+export function shouldPublishInAppBrowserRuntimeChange(input: {
+  route: BenchRouteSnapshot
+  tabs: readonly BenchTab[]
+}): boolean {
+  if (input.route.status !== BENCH_ROUTE_STATUS_OPEN) return false
+  if (!input.tabs.some((tab) => tab.target.type === "browser")) return false
+  if (input.route.target.type !== "browser") return true
+  const selectedTargetKey = benchTargetKey(input.route.target)
+  return input.tabs.some((tab) => benchTargetKey(tab.target) === selectedTargetKey)
 }
 
 function workspaceChatKeyForRoute(directory: string, route: BenchRouteSnapshot): WorkspaceChatKey {
@@ -210,6 +225,7 @@ export function DirectoryWorkspaceProvider(props: {
           workspacePresentationSlotForChat(store.getState().slots, store.getState().activeChatKey)
             .tabs,
         getTabTitle: (tab) => resolveBenchTabTitle(tab, objectTitlesRef.current),
+        getBrowserTabRuntime: inAppBrowserTabContextRuntime,
         getHydrationStatus: () => store.getState().hydration.status,
         getRouteFallbackContext: (route) => {
           if (route.status !== BENCH_ROUTE_STATUS_OPEN || !isBenchContentTarget(route.target)) {
@@ -226,6 +242,26 @@ export function DirectoryWorkspaceProvider(props: {
           })
         },
       }),
+  )
+  useEffect(
+    () =>
+      useInAppBrowserTabsStore.subscribe(() => {
+        const projection = effectiveWorkspaceProjection(
+          routeRef.current,
+          {
+            docked: store.getState().docked,
+            lastDrawer: store.getState().lastDrawer,
+          },
+          store.getState().pendingIntent,
+        )
+        const tabs = workspacePresentationSlotForChat(
+          store.getState().slots,
+          store.getState().activeChatKey,
+        ).tabs
+        if (!shouldPublishInAppBrowserRuntimeChange({ route: projection.route, tabs })) return
+        void lifecycle.publishCurrent()
+      }),
+    [lifecycle, store],
   )
   const [blocker] = useState(
     () =>

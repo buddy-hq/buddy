@@ -103,6 +103,12 @@ function routeLocation(directory: string, route: BenchRouteSnapshot) {
       search: {},
     }
   }
+  if (route.target.type === "browser") {
+    return {
+      pathname: `/${encodeDirectory(directory)}/browser/${encodeURIComponent(route.target.tabID)}`,
+      search: { url: route.target.url },
+    }
+  }
   return {
     pathname: `/${encodeDirectory(directory)}/objects/${route.target.ref.kind}/${route.target.ref.objectID}`,
     search: { view: route.target.viewID },

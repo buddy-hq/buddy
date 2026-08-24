@@ -82,6 +82,9 @@ const BENCH_SURFACE_DEFAULTS = {
   session: {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
   },
+  browser: {
+    mode: BENCH_CHAT_LAYOUT_DOCKED,
+  },
   reading: {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
   },
@@ -166,6 +169,7 @@ function resolveObjectLayoutProfile(target: Extract<BenchTarget, { type: "object
 
 function resolveBenchLayoutProfile(target: BenchTabTarget): BenchLayoutProfileID {
   if (target.type === "session") return BENCH_LAYOUT_PROFILE_DOCUMENT
+  if (target.type === "browser") return BENCH_LAYOUT_PROFILE_VISUAL
   if (target.type === "workspace-file") {
     return resolveWorkspaceFileLayoutProfile(target)
   }

@@ -1,0 +1,3 @@
+:root[data-bench-capture-privacy="true"] webview[data-browser-tab-id] {
+  visibility: hidden !important;
+}

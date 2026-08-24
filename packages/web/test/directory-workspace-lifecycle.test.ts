@@ -11,6 +11,7 @@ import {
 } from "../src/lib/bench-navigation"
 import {
   BENCH_ROUTE_STATUS_OPEN,
+  createCollapsedWorkspaceState,
   createExpandedWorkspaceState,
   type DrawerKind,
   type EffectiveWorkspaceProjection,
@@ -43,6 +44,11 @@ const RESOURCE_TARGET = {
     itemID: null,
   },
   viewID: "reader",
+} satisfies BenchTarget
+const BROWSER_TARGET = {
+  type: "browser",
+  tabID: "browser-lifecycle",
+  url: "https://hibuddy.in/starting-page",
 } satisfies BenchTarget
 
 function tabsForTarget(target: BenchTarget): BenchTab[] {
@@ -141,6 +147,26 @@ function projectionFor(target: BenchTarget, drawer: DrawerKind | null = null) {
     },
     drawer,
     renderedSurface: "docked-bench",
+    pending: { status: "none" },
+  } satisfies EffectiveWorkspaceProjection
+}
+
+function parkedProjectionFor(target: BenchTarget) {
+  return {
+    route: {
+      status: BENCH_ROUTE_STATUS_OPEN,
+      target,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    },
+    dockedState: createCollapsedWorkspaceState(),
+    bench: {
+      visibility: "parked",
+      target,
+      targetKey: benchTargetKey(target),
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    },
+    drawer: null,
+    renderedSurface: "parked-bench",
     pending: { status: "none" },
   } satisfies EffectiveWorkspaceProjection
 }
@@ -391,6 +417,202 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       expect(firstForcedClosed.publicationSequence).toBe(3)
       expect(secondForcedClosed.publicationSequence).toBe(4)
       expect(firstForcedClosed.idempotencyKey).not.toBe(secondForcedClosed.idempotencyKey)
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("publishes the live selected Browser state while Bench is parked", async () => {
+    const publishBodies: unknown[] = []
+    let browserRuntime = {
+      url: "https://hibuddy.in/account",
+      title: "HiBuddy account",
+      loading: false,
+    }
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-browser/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: publishBodies.length }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const projection = parkedProjectionFor(BROWSER_TARGET)
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projection,
+        getTabs: () => tabsForTarget(BROWSER_TARGET),
+        getTabTitle: () => browserRuntime.title,
+        getBrowserTabRuntime: () => browserRuntime,
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-browser")
+
+      expect(publishBodies.at(-1)).toMatchObject({
+        value: {
+          status: "open",
+          visibility: "parked",
+          selectedBrowser: {
+            tabID: BROWSER_TARGET.tabID,
+            url: "https://hibuddy.in/account",
+            title: "HiBuddy account",
+            loading: false,
+          },
+          tabs: [
+            {
+              title: "HiBuddy account",
+              target: {
+                type: "browser",
+                tabID: BROWSER_TARGET.tabID,
+                url: "https://hibuddy.in/account",
+              },
+            },
+          ],
+        },
+      })
+
+      publishBodies.length = 0
+      browserRuntime = {
+        url: "https://hibuddy.in/settings",
+        title: "HiBuddy settings",
+        loading: true,
+      }
+      await service.publishCurrent()
+
+      expect(publishBodies).toHaveLength(1)
+      expect(publishBodies[0]).toMatchObject({
+        value: {
+          selectedBrowser: {
+            tabID: BROWSER_TARGET.tabID,
+            url: "https://hibuddy.in/settings",
+            title: "HiBuddy settings",
+            loading: true,
+          },
+          tabs: [
+            {
+              title: "HiBuddy settings",
+              target: {
+                type: "browser",
+                tabID: BROWSER_TARGET.tabID,
+                url: "https://hibuddy.in/settings",
+              },
+            },
+          ],
+        },
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("publishes closed context during a visible Browser tab insertion race", async () => {
+    const publishBodies: unknown[] = []
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-browser-race/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: publishBodies.length }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(BROWSER_TARGET),
+        getTabs: () => [],
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      service.registerSurface({
+        target: BROWSER_TARGET,
+        getSnapshot: () => ({
+          target: BROWSER_TARGET,
+          targetKey: benchTargetKey(BROWSER_TARGET),
+          semanticRevision: 1,
+          context: {
+            status: "open",
+            targetKey: benchTargetKey(BROWSER_TARGET),
+            target: {
+              type: "browser",
+              title: "HiBuddy",
+              workspaceRoot: DIRECTORY,
+              tabID: BROWSER_TARGET.tabID,
+              url: BROWSER_TARGET.url,
+              loading: false,
+              route: "/_bench/browser/browser-lifecycle",
+              status: "ready",
+            },
+            metadata: ["control: user-only"],
+            content: "User-controlled Browser tab.",
+            refs: [],
+            hints: [],
+          },
+        }),
+        subscribe: () => () => undefined,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+
+      await expect(service.setActiveSessionID("session-browser-race")).resolves.toBeUndefined()
+      expect(publishBodies.at(-1)).toMatchObject({ value: { status: "closed" } })
       await service.dispose()
     } finally {
       globalThis.fetch = previousFetch

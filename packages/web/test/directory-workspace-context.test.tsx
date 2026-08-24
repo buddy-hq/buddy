@@ -23,6 +23,7 @@ import {
 } from "../src/context/platform"
 import {
   DirectoryWorkspaceProvider,
+  shouldPublishInAppBrowserRuntimeChange,
   useDirectoryWorkspace,
 } from "../src/components/directory-chat/directory-workspace-context"
 import {
@@ -72,6 +73,11 @@ const TEST_DIRECT_BENCH_ROUTE = {
   target: TEST_DIRECT_BENCH_TARGET,
   mode: BENCH_CHAT_LAYOUT_DOCKED,
 } satisfies BenchRouteSnapshot
+const TEST_BROWSER_TARGET = {
+  type: "browser",
+  tabID: "browser-context",
+  url: "https://example.com/",
+} satisfies BenchTarget
 const TEST_DESKTOP_PLATFORM = {
   ...createBrowserPlatform(),
   platform: "desktop",
@@ -399,6 +405,32 @@ function deferredValue<T>() {
     },
   }
 }
+
+describe("Browser runtime context publication", () => {
+  test("republishes background Browser metadata while another Bench tab is selected", () => {
+    const tabs = upsertBenchTab(
+      upsertBenchTab([], TEST_DIRECT_BENCH_TARGET).tabs,
+      TEST_BROWSER_TARGET,
+    ).tabs
+
+    expect(
+      shouldPublishInAppBrowserRuntimeChange({
+        route: TEST_DIRECT_BENCH_ROUTE,
+        tabs,
+      }),
+    ).toBe(true)
+    expect(
+      shouldPublishInAppBrowserRuntimeChange({
+        route: {
+          status: BENCH_ROUTE_STATUS_OPEN,
+          target: TEST_BROWSER_TARGET,
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+        },
+        tabs: [],
+      }),
+    ).toBe(false)
+  })
+})
 
 describe("DirectoryWorkspaceProvider", () => {
   let container: HTMLDivElement | undefined

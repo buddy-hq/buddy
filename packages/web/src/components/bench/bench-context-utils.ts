@@ -12,6 +12,10 @@ type BenchReadSurfaceContextOpenOutput = Pick<
 type BenchSurfaceContextEnrichment = {
   targetStatus: BenchContextTarget["status"]
   title?: string
+  browser?: {
+    url: string
+    loading: boolean
+  }
   metadata: string[]
   content: string
   refs?: BenchContextRef[]
@@ -103,12 +107,37 @@ function objectTarget(input: {
   }
 }
 
+function browserTarget(input: {
+  directory: string
+  title: string
+  target: Extract<BenchTarget, { type: "browser" }>
+  route: string
+  status: BenchContextTarget["status"]
+  url: string
+  loading: boolean
+}): BenchContextTarget {
+  return {
+    type: "browser",
+    title: input.title,
+    workspaceRoot: input.directory,
+    tabID: input.target.tabID,
+    url: input.url,
+    loading: input.loading,
+    route: input.route,
+    status: input.status,
+  }
+}
+
 function benchContextTargetFromBenchTarget(input: {
   target: BenchTarget
   directory: string
   route: string
   status: BenchContextTarget["status"]
   title?: string
+  browser?: {
+    url: string
+    loading: boolean
+  }
 }): BenchContextTarget {
   if (input.target.type === "workspace-file") {
     return workspaceFileTarget(
@@ -122,6 +151,18 @@ function benchContextTargetFromBenchTarget(input: {
         input.title ? { title: input.title } : undefined,
       ),
     )
+  }
+
+  if (input.target.type === "browser") {
+    return browserTarget({
+      directory: input.directory,
+      title: input.title ?? "Browser",
+      target: input.target,
+      route: input.route,
+      status: input.status,
+      url: input.browser?.url ?? input.target.url,
+      loading: input.browser?.loading ?? true,
+    })
   }
 
   return objectTarget({
@@ -144,6 +185,13 @@ function benchContextRefsFromBenchTarget(target: BenchTarget): BenchContextRef[]
             : "File currently visible on Bench.",
       }),
     ]
+  }
+
+  if (target.type === "browser") {
+    return urlRef({
+      url: target.url,
+      note: "URL opened in the user-controlled Browser tab.",
+    })
   }
 
   const refs: BenchContextRef[] = [
@@ -209,6 +257,7 @@ function buildBenchSurfaceContextSnapshot(input: {
             status: input.enrichment.targetStatus,
           },
           input.enrichment.title ? { title: input.enrichment.title } : undefined,
+          input.enrichment.browser ? { browser: input.enrichment.browser } : undefined,
         ),
       ),
       metadata: input.enrichment.metadata,

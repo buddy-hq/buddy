@@ -2,6 +2,7 @@ import { FileBenchSurface } from "@/components/bench/surfaces/file-bench-surface
 import { MarkdownBenchSurface } from "@/components/bench/surfaces/markdown-bench-surface"
 import { ObjectBenchSurface } from "@/components/bench/surfaces/object-bench-surface"
 import { SessionBenchSurface } from "@/components/bench/surfaces/session-bench-surface"
+import { BrowserBenchSurface } from "@/components/bench/surfaces/browser-bench-surface"
 import type { BenchTabTarget } from "@/lib/bench-navigation"
 
 /**
@@ -21,6 +22,9 @@ export function BenchSurfaceRenderer(props: {
         onOpenSession={props.onOpenSession}
       />
     )
+  }
+  if (props.target.type === "browser") {
+    return <BrowserBenchSurface directory={props.directory} target={props.target} />
   }
   if (props.target.type === "workspace-file") {
     if (props.target.viewer === "markdown") {

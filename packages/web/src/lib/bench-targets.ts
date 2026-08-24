@@ -1,4 +1,5 @@
 import { parseTJsonObject, parseTString, readNonEmptyString } from "@/components/chat/tools/types"
+import { isInAppBrowserTargetUrl } from "@buddy/browser-contract"
 
 export const BENCH_CHAT_SEARCH_PARAM = "benchChat"
 export const BENCH_CHAT_LAYOUT_DOCKED = "docked"
@@ -42,6 +43,11 @@ export type BenchTarget =
       viewer: "markdown" | "file"
       fragment?: string
     }
+  | {
+      type: "browser"
+      tabID: string
+      url: string
+    }
   | { type: "object"; ref: BenchObjectRef; viewID: string }
 
 export type BenchSessionTarget = {
@@ -82,6 +88,7 @@ export type BenchLayoutProfileID =
 
 export type BenchSurfaceKey =
   | "session"
+  | "browser"
   | "markdown"
   | "file"
   | "reading"
@@ -132,6 +139,14 @@ function readBenchTarget<TValue>(value: TValue): BenchTarget | undefined {
       },
       fragment ? { fragment } : undefined,
     )
+  }
+
+  if (record.type === "browser") {
+    const tabID = readNonEmptyString(record.tabID)
+    const url = readNonEmptyString(record.url)
+    return tabID && url && isInAppBrowserTargetUrl(url)
+      ? { type: "browser", tabID, url }
+      : undefined
   }
 
   const ref = parseTJsonObject(record.ref)
@@ -200,6 +215,7 @@ function defaultBenchObjectViewID(kind: BenchObjectKind): string {
 
 function benchSurfaceKey(target: BenchTabTarget): BenchSurfaceKey {
   if (target.type === "session") return "session"
+  if (target.type === "browser") return "browser"
   if (target.type === "object") {
     if (target.ref.kind === "resource") return "reading"
     if (target.ref.kind === "whiteboard") return "whiteboard"
@@ -212,6 +228,9 @@ function benchSurfaceKey(target: BenchTabTarget): BenchSurfaceKey {
 function benchTargetKey(target: BenchTabTarget): string {
   if (target.type === "session") {
     return ["session", encodeURIComponent(target.sessionID)].join(BENCH_TARGET_KEY_PART_SEPARATOR)
+  }
+  if (target.type === "browser") {
+    return ["browser", encodeURIComponent(target.tabID)].join(BENCH_TARGET_KEY_PART_SEPARATOR)
   }
   if (target.type === "workspace-file") {
     // This is the shared frontend/backend content identity. Route-only state such as a

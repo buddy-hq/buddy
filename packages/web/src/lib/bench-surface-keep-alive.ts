@@ -5,8 +5,9 @@ import { benchTargetKey, isSameBenchTarget, type BenchTabTarget } from "@/lib/be
  *
  * A mounted surface is not free: whiteboards hold a canvas, HTML widgets hold a live browsing
  * context, and readers hold a rendered document. Whiteboards/widgets and light surfaces are
- * bounded independently. Readers are different: every open reader tab stays mounted because an
- * eviction visibly reopens the document. Closing a reader tab releases its instance.
+ * bounded independently. Readers and Browser tabs are different: every open tab stays mounted
+ * because eviction visibly reopens the document or resets the live page. Closing the tab releases
+ * its instance.
  *
  * The instance list is intentionally ordered by recency for eviction. It must not be used as the
  * render order: reordering a mounted iframe moves its DOM node and resets its browsing context.
@@ -19,17 +20,20 @@ import { benchTargetKey, isSameBenchTarget, type BenchTabTarget } from "@/lib/be
 export const BENCH_SURFACE_COST_HEAVY = "heavy"
 export const BENCH_SURFACE_COST_LIGHT = "light"
 export const BENCH_SURFACE_COST_READER = "reader"
+export const BENCH_SURFACE_COST_BROWSER = "browser"
 
 export type BenchSurfaceCostClass =
   | typeof BENCH_SURFACE_COST_HEAVY
   | typeof BENCH_SURFACE_COST_LIGHT
   | typeof BENCH_SURFACE_COST_READER
+  | typeof BENCH_SURFACE_COST_BROWSER
 
 /** Desktop-sized residency budgets; readers are governed by their open tabs instead. */
 export const BENCH_SURFACE_KEEP_ALIVE_LIMIT = {
   [BENCH_SURFACE_COST_HEAVY]: 4,
   [BENCH_SURFACE_COST_LIGHT]: 8,
   [BENCH_SURFACE_COST_READER]: Number.POSITIVE_INFINITY,
+  [BENCH_SURFACE_COST_BROWSER]: Number.POSITIVE_INFINITY,
 } satisfies Record<BenchSurfaceCostClass, number>
 
 const HEAVY_OBJECT_KINDS = new Set(["whiteboard", "html-widget", "media-presentation"])
@@ -37,6 +41,7 @@ const BENCH_SURFACE_COST_CLASSES = [
   BENCH_SURFACE_COST_HEAVY,
   BENCH_SURFACE_COST_LIGHT,
   BENCH_SURFACE_COST_READER,
+  BENCH_SURFACE_COST_BROWSER,
 ] as const
 
 export type BenchSurfaceInstance = {
@@ -46,6 +51,7 @@ export type BenchSurfaceInstance = {
 }
 
 export function benchSurfaceCostClass(target: BenchTabTarget): BenchSurfaceCostClass {
+  if (target.type === "browser") return BENCH_SURFACE_COST_BROWSER
   if (target.type === "object") {
     if (target.ref.kind === "resource") return BENCH_SURFACE_COST_READER
     return HEAVY_OBJECT_KINDS.has(target.ref.kind)

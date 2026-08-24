@@ -86,6 +86,11 @@ const SUBAGENT_SESSION_TARGET = {
   type: "session",
   sessionID: "session/child-1",
 } satisfies BenchSessionTarget
+const BROWSER_TARGET = {
+  type: "browser",
+  tabID: "browser/one",
+  url: "https://hibuddy.in/",
+} satisfies BenchTarget
 
 const RIGHT_WORKSPACE_CHROME_WIDTH_PX = 44
 
@@ -656,6 +661,66 @@ describe("bench navigation policy", () => {
       target: SUBAGENT_SESSION_TARGET,
       layoutProfile: BENCH_LAYOUT_PROFILE_DOCUMENT,
     })
+  })
+
+  test("round-trips browser targets through Bench navigation", () => {
+    const navigation = buildBenchNavigation({
+      directory: DIRECTORY,
+      target: BROWSER_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+    const pathname = `/${encodeDirectory(DIRECTORY)}/browser/${encodeURIComponent(
+      BROWSER_TARGET.tabID,
+    )}`
+
+    expect(navigation).toMatchObject({
+      to: "/$directory/browser/$tabID",
+      params: {
+        directory: encodeDirectory(DIRECTORY),
+        tabID: BROWSER_TARGET.tabID,
+      },
+      search: { url: BROWSER_TARGET.url },
+    })
+    expect(isBenchRoutePathname(pathname)).toBe(true)
+    expect(readBenchTargetFromLocation({ pathname, search: navigation.search })).toEqual(
+      BROWSER_TARGET,
+    )
+    expect(
+      readBenchOpenPolicyStateFromLocation({
+        directory: DIRECTORY,
+        pathname,
+        search: navigation.search,
+      }),
+    ).toMatchObject({
+      status: "open",
+      target: BROWSER_TARGET,
+      layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
+    })
+  })
+
+  test("rejects malformed encoded Bench route segments without throwing", () => {
+    const directoryParam = encodeDirectory(DIRECTORY)
+    const routes: Array<{
+      pathname: string
+      search: Record<string, string>
+    }> = [
+      {
+        pathname: `/${directoryParam}/sessions/%`,
+        search: {},
+      },
+      {
+        pathname: `/${directoryParam}/browser/%`,
+        search: { url: "https://example.com/" },
+      },
+      {
+        pathname: `/${directoryParam}/objects/resource/%`,
+        search: { view: "reader" },
+      },
+    ]
+
+    for (const route of routes) {
+      expect(readBenchTargetFromLocation(route)).toBeUndefined()
+    }
   })
 
   test("round-trips Markdown fragments through Bench navigation", () => {

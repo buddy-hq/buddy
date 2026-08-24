@@ -46,6 +46,33 @@ const BENCH_WORKSPACE_SELECTOR =
   '[data-component="directory-chat-right-workspace"][data-bench-visible="true"]'
 const BENCH_TITLEBAR_SELECTOR =
   '[data-component="directory-chat-right-workspace-titlebar"]:not([hidden]), [data-component="desktop-titlebar-root-content"]'
+const BENCH_CAPTURE_PRIVACY_ATTRIBUTE = "data-bench-capture-privacy"
+const BENCH_CAPTURE_PRIVACY_ACTIVE = "true"
+
+let activeBenchCapturePrivacyMasks = 0
+
+function activateBenchCapturePrivacyMask(): () => void {
+  activeBenchCapturePrivacyMasks += 1
+  document.documentElement.setAttribute(
+    BENCH_CAPTURE_PRIVACY_ATTRIBUTE,
+    BENCH_CAPTURE_PRIVACY_ACTIVE,
+  )
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    activeBenchCapturePrivacyMasks = Math.max(0, activeBenchCapturePrivacyMasks - 1)
+    if (activeBenchCapturePrivacyMasks === 0) {
+      document.documentElement.removeAttribute(BENCH_CAPTURE_PRIVACY_ATTRIBUTE)
+    }
+  }
+}
+
+function waitForBenchCapturePrivacyPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  })
+}
 
 type BenchClientObservedRoute =
   | { status: "closed" }
@@ -389,6 +416,9 @@ function captureFailureCompletion(
 async function captureVisibleBench(
   command: Extract<BenchClientActionV2["command"], { type: "capture_bench_screenshot" }>,
 ): Promise<BenchClientActionCompletionDraft> {
+  if (command.target.type === "browser") {
+    return captureFailureCompletion("capture_unavailable")
+  }
   const captureBenchScreenshot = getPlatform().captureBenchScreenshot
   if (!captureBenchScreenshot) return captureFailureCompletion("capture_unavailable")
   const region = document.querySelector(BENCH_CAPTURE_REGION_SELECTOR)
@@ -419,7 +449,18 @@ async function captureVisibleBench(
   const width = right - x
   const height = bottom - y
   if (width <= 0 || height <= 0) return captureFailureCompletion("capture_unavailable")
+  const releasePrivacyMask = activateBenchCapturePrivacyMask()
   try {
+    await waitForBenchCapturePrivacyPaint()
+    if (
+      document.querySelector(BENCH_CAPTURE_REGION_SELECTOR) !== region ||
+      document.querySelector(BENCH_WORKSPACE_SELECTOR) !== workspace ||
+      region.dataset.benchTabKey !== command.tabKey ||
+      region.dataset.benchTargetKey !== expectedTargetKey ||
+      workspace.dataset.selector !== expectedDrawer
+    ) {
+      return captureFailureCompletion("capture_failed")
+    }
     const pngBase64 = await captureBenchScreenshot({ x, y, width, height })
     if (
       document.querySelector(BENCH_CAPTURE_REGION_SELECTOR) !== region ||
@@ -433,6 +474,8 @@ async function captureVisibleBench(
     return { outcome: "captured", pngBase64 }
   } catch {
     return captureFailureCompletion("capture_failed")
+  } finally {
+    releasePrivacyMask()
   }
 }
 
@@ -762,6 +805,9 @@ export class DirectoryWorkspaceClientActionLedger {
     }
     if (action.command.type === "capture_bench_screenshot") {
       return captureVisibleBench(action.command)
+    }
+    if (action.command.target.type === "browser" && !getPlatform().inAppBrowser) {
+      return { outcome: "failed", reason: "navigation_failed" }
     }
     const autoOpen = bestEffortAutoOpenIdentity(action)
     const whiteboardClaimKey = whiteboardForegroundClaimKey(action)
