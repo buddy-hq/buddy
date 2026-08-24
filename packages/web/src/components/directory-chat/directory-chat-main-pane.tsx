@@ -41,7 +41,8 @@ import { providerCatalogSnapshotQueryOptions } from "@/state/bootstrap-query"
 import type { ResourceReadingTarget } from "@/state/resources-query"
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
 import type { PermissionReply } from "@/state/permission-types"
-import { ArrowDownIcon, Redo2Icon } from "@/icons/app-icons"
+import { Redo2Icon } from "@/icons/app-icons"
+import { JumpToLatestButton } from "@/components/chat/jump-to-latest-button"
 import { BenchClosedContextPublisher } from "@/components/bench/bench-route-context"
 import { isBenchRoutePathname } from "@/lib/bench-navigation"
 import { canEditImagesForModel } from "@/lib/image-editing"
@@ -87,7 +88,7 @@ type DirectoryChatMainPaneProps = {
   onTranscriptTouchEnd: () => void
   onTranscriptTouchCancel: () => void
   onTranscriptInteraction?: () => void
-  onTranscriptViewportHeightChange?: (element: HTMLElement) => void
+  onTranscriptScrollGeometryChange?: (element: HTMLElement) => void
   markTranscriptProgrammaticScroll?: (element: HTMLElement, top: number) => void
   onOpenSession: (sessionID: string) => void
   onOpenResource: (directory: string, resource: ResourceReadingTarget) => void
@@ -243,7 +244,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     onTranscriptTouchEnd,
     onTranscriptTouchCancel,
     onTranscriptInteraction,
-    onTranscriptViewportHeightChange,
+    onTranscriptScrollGeometryChange,
     markTranscriptProgrammaticScroll,
     onOpenSession,
     onOpenResource,
@@ -573,7 +574,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     initialScrollOffset={initialScrollOffset}
                     shouldAnchorBottom={shouldAnchorBottom}
                     hasScrollGesture={hasScrollGesture}
-                    onViewportHeightChange={onTranscriptViewportHeightChange}
+                    onViewportHeightChange={onTranscriptScrollGeometryChange}
+                    onContentSizeChange={onTranscriptScrollGeometryChange}
                     markProgrammaticScroll={markTranscriptProgrammaticScroll}
                     onOpenSession={onOpenSession}
                     onOpenResource={onOpenResource}
@@ -586,16 +588,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               </div>
             </ScrollArea>
             {showJumpToLatest ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-background-stronger shadow-md"
-                onClick={onJumpToLatest}
-              >
-                <ArrowDownIcon className="mr-1 h-4 w-4" />
-                {language.t("chat.jumpToLatest")}
-              </Button>
+              <JumpToLatestButton onClick={onJumpToLatest} />
             ) : null}
           </div>
 

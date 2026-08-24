@@ -9,9 +9,10 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
 type HarnessHandle = {
   pause: () => void
   forceScrollToBottom: () => void
-  handleViewportHeightChange: (element: HTMLElement) => void
+  handleScrollGeometryChange: (element: HTMLElement) => void
   initialScrollOffset: () => number | undefined
   shouldAnchorBottom: () => boolean
+  showJumpToLatest: boolean
 }
 
 type HarnessProps = {
@@ -33,15 +34,17 @@ function Harness(props: HarnessProps) {
     onReady({
       pause: auto.pause,
       forceScrollToBottom: auto.forceScrollToBottom,
-      handleViewportHeightChange: auto.handleViewportHeightChange,
+      handleScrollGeometryChange: auto.handleScrollGeometryChange,
       initialScrollOffset: auto.initialScrollOffset,
       shouldAnchorBottom: auto.shouldAnchorBottom,
+      showJumpToLatest: auto.showJumpToLatest,
     })
   }, [
     auto.forceScrollToBottom,
-    auto.handleViewportHeightChange,
+    auto.handleScrollGeometryChange,
     auto.initialScrollOffset,
     auto.pause,
+    auto.showJumpToLatest,
     auto.shouldAnchorBottom,
     onReady,
   ])
@@ -197,11 +200,44 @@ describe("useAutoScroll", () => {
     await act(async () => {
       readyHandle.pause()
       metrics.clientHeight = 320
-      readyHandle.handleViewportHeightChange(scrollElement)
+      readyHandle.handleScrollGeometryChange(scrollElement)
     })
 
     expect(readyHandle.shouldAnchorBottom()).toBe(false)
     expect(metrics.scrollTop).toBe(520)
+  })
+
+  test("reattaches and hides the jump control when collapsed content no longer scrolls", async () => {
+    let handle: HarnessHandle | undefined
+
+    await act(async () => {
+      root.render(
+        <Harness attachmentKey="session-1" onReady={(nextHandle) => (handle = nextHandle)} />,
+      )
+    })
+
+    const scrollElement = requireDiv(container, '[data-testid="scroll"]')
+    const metrics: ScrollMetrics = {
+      clientHeight: 400,
+      scrollHeight: 1_000,
+      scrollTop: 0,
+    }
+    installScrollMetrics(scrollElement, metrics)
+    if (!handle) throw new Error("Expected auto-scroll handle to be ready")
+
+    await act(async () => {
+      handle?.pause()
+    })
+    expect(handle?.shouldAnchorBottom()).toBe(false)
+    expect(handle?.showJumpToLatest).toBe(true)
+
+    metrics.scrollHeight = 300
+    await act(async () => {
+      handle?.handleScrollGeometryChange(scrollElement)
+    })
+
+    expect(handle?.shouldAnchorBottom()).toBe(true)
+    expect(handle?.showJumpToLatest).toBe(false)
   })
 
   test("starts a newly selected session attached after the previous session detached", async () => {

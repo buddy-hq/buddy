@@ -127,7 +127,7 @@ type AutoScrollResult = {
   handleTouchEnd: () => void
   handleTouchCancel: () => void
   handleInteraction: () => void
-  handleViewportHeightChange: (element: HTMLElement) => void
+  handleScrollGeometryChange: (element: HTMLElement) => void
   markProgrammaticScroll: (element: HTMLElement, top: number) => void
   pause: () => void
   forceScrollToBottom: () => void
@@ -235,13 +235,17 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
     [markAuto, rememberSessionState],
   )
 
-  const handleViewportHeightChange = useCallback(
+  const handleScrollGeometryChange = useCallback(
     (element: HTMLElement) => {
       const detached = isDetached()
+      if (!canScroll(element) || distanceFromBottom(element) <= ATTACHED_BOTTOM_THRESHOLD_PX) {
+        updateDetachedState(false, element)
+        return
+      }
       rememberSessionState({ detached, scrollTop: element.scrollTop })
       setShowJumpToLatest(detached && shouldShowJumpToLatest(element))
     },
-    [isDetached, rememberSessionState],
+    [isDetached, rememberSessionState, updateDetachedState],
   )
 
   const markProgrammaticScroll = useCallback(
@@ -439,7 +443,7 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
     handleTouchEnd,
     handleTouchCancel,
     handleInteraction,
-    handleViewportHeightChange,
+    handleScrollGeometryChange,
     markProgrammaticScroll,
     pause,
     forceScrollToBottom,

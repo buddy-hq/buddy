@@ -277,6 +277,9 @@ export function chatTranscriptEqual(
     prevProps.initialScrollOffset === nextProps.initialScrollOffset &&
     prevProps.shouldAnchorBottom === nextProps.shouldAnchorBottom &&
     prevProps.hasScrollGesture === nextProps.hasScrollGesture &&
+    prevProps.onViewportHeightChange === nextProps.onViewportHeightChange &&
+    prevProps.onContentSizeChange === nextProps.onContentSizeChange &&
+    prevProps.markProgrammaticScroll === nextProps.markProgrammaticScroll &&
     prevProps.onOpenSession === nextProps.onOpenSession &&
     prevProps.onOpenResource === nextProps.onOpenResource &&
     prevProps.onForkMessage === nextProps.onForkMessage &&

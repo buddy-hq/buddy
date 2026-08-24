@@ -1105,6 +1105,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     onRetryAction,
     onContinueTruncated,
     onViewportHeightChange,
+    onContentSizeChange,
     markProgrammaticScroll,
     scrollViewportRef,
     initialScrollOffset = DEFAULT_INITIAL_SCROLL_OFFSET,
@@ -1259,6 +1260,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     rowCountChangedSinceRestoreRef.current = true
   }
   const virtualContentRef = useRef<HTMLDivElement | null>(null)
+  const lastReportedTotalSizeRef = useRef<number | undefined>(undefined)
   const prependAnchorRef = useRef<{ key: string; offset: number } | undefined>(undefined)
   const restoreAnchorCancelRef = useRef<(() => void) | undefined>(undefined)
   const loadingOlderRef = useRef(false)
@@ -1396,6 +1398,33 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     }
   }, [rowVirtualizer, shouldAnchorBottom])
 
+  const notifyContentSizeChange = useCallback(() => {
+    const root = scrollViewportRef?.current
+    if (!root) return
+    const totalSize = rowVirtualizer.getTotalSize()
+    if (lastReportedTotalSizeRef.current === totalSize) return
+    // The first observation of a mount only records a baseline. Row sizes are still
+    // estimates and a restored offset has not been applied yet, so reporting that as a
+    // change would reattach a session the reader left detached.
+    const isBaseline = lastReportedTotalSizeRef.current === undefined
+    lastReportedTotalSizeRef.current = totalSize
+    if (virtualContentRef.current) {
+      virtualContentRef.current.style.height = `${totalSize}px`
+    }
+    if (isBaseline) return
+    onContentSizeChange?.(root)
+  }, [onContentSizeChange, rowVirtualizer, scrollViewportRef])
+
+  // `resizeItem` only runs when a mounted row re-measures. Dropping rows — a revert, a
+  // fork, a truncation — shortens the transcript without re-measuring anything that
+  // survives, and a detached reader parked at `scrollTop` 0 gets no scroll event either
+  // because there is no overflow left to clamp. Report the new geometry from here so the
+  // jump control cannot outlive the content it points at.
+  useLayoutEffect(() => {
+    void rows
+    notifyContentSizeChange()
+  }, [notifyContentSizeChange, rows])
+
   const bottomRepairTimerRef = useRef<number | undefined>(undefined)
   const anchorShiftAnimator = useMemo(() => createAnchorShiftAnimator(), [])
   const repairBottomAnchor = useCallback(
@@ -1513,6 +1542,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         })
       }
       resizeItem(index, size)
+      notifyContentSizeChange()
       if (
         root &&
         shouldAnchorBottom() &&
@@ -1543,6 +1573,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   }, [
     hasRestoredInitialScrollOffset,
     hasScrollGesture,
+    notifyContentSizeChange,
     rowVirtualizer,
     rows,
     scheduleInitialLayoutReady,

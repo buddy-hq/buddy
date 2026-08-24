@@ -1,7 +1,7 @@
-import { Button, ScrollArea } from "@buddy/ui"
+import { ScrollArea } from "@buddy/ui"
 import { useCallback, useEffect, useState } from "react"
 import { ChatTranscript } from "@/components/chat/chat-transcript"
-import { ArrowDownIcon } from "@/icons/app-icons"
+import { JumpToLatestButton } from "@/components/chat/jump-to-latest-button"
 import { BENCH_MODE_REQUEST_POLICY } from "@/lib/bench-navigation"
 import { useAutoScroll } from "@/lib/directory-chat/use-auto-scroll"
 import { useOpenReadingResource } from "@/lib/use-open-reading-resource"
@@ -99,7 +99,8 @@ export function SessionBenchSurface(props: SessionBenchSurfaceProps) {
               initialScrollOffset={autoScroll.initialScrollOffset}
               shouldAnchorBottom={autoScroll.shouldAnchorBottom}
               hasScrollGesture={autoScroll.hasScrollGesture}
-              onViewportHeightChange={autoScroll.handleViewportHeightChange}
+              onViewportHeightChange={autoScroll.handleScrollGeometryChange}
+              onContentSizeChange={autoScroll.handleScrollGeometryChange}
               markProgrammaticScroll={autoScroll.markProgrammaticScroll}
               onOpenSession={props.onOpenSession}
               onOpenResource={openReadingResource}
@@ -109,16 +110,7 @@ export function SessionBenchSurface(props: SessionBenchSurfaceProps) {
       </ScrollArea>
 
       {autoScroll.showJumpToLatest ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-background-stronger shadow-md"
-          onClick={autoScroll.forceScrollToBottom}
-        >
-          <ArrowDownIcon className="mr-1 size-4" />
-          Jump to latest
-        </Button>
+        <JumpToLatestButton onClick={autoScroll.forceScrollToBottom} />
       ) : null}
     </div>
   )
