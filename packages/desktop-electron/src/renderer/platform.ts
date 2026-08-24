@@ -1,4 +1,8 @@
 import { createBrowserPlatform, type Platform } from "@buddy/web/context/platform"
+import {
+  IN_APP_BROWSER_PARTITION,
+  IN_APP_BROWSER_WEB_PREFERENCES,
+} from "@buddy/browser-contract"
 import { readBuddyRendererGlobals } from "../shared/parse-external"
 import {
   checkForUpdate,
@@ -168,6 +172,12 @@ export function createDesktopPlatform(): Platform {
     ...createBrowserPlatform(),
     platform: "desktop",
     os,
+    inAppBrowser: {
+      partition: IN_APP_BROWSER_PARTITION,
+      webPreferences: IN_APP_BROWSER_WEB_PREFERENCES,
+      onMessage: window.api.onInAppBrowserMessage,
+      onFavicon: window.api.onInAppBrowserFavicon,
+    },
     get version() {
       return readDesktopAppVersion()
     },

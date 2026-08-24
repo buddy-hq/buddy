@@ -6,6 +6,7 @@ import type { TitlebarTheme } from "../preload/types"
 import { BUDDY_DEV_INSTANCE_NAME_ENV } from "../shared/dev-app-name"
 import { encodeBuddyWindowVersionArg } from "../shared/window-preload-args"
 import { wireContextMenu } from "./context-menu"
+import { wireInAppBrowser } from "./in-app-browser"
 
 type WindowGlobals = {
   updaterEnabled: boolean
@@ -118,7 +119,7 @@ export function createMainWindow(globals: WindowGlobals) {
             titleBarOverlay: titlebarOverlay(),
           }
         : undefined,
-      { webPreferences: resolveWebPreferences(globals) },
+      { webPreferences: resolveWebPreferences(globals, { webviewTag: true }) },
     ),
   )
 
@@ -126,6 +127,8 @@ export function createMainWindow(globals: WindowGlobals) {
   lockWindowTitle(win)
   loadWindow(win, "index.html")
   wireContextMenu(win)
+  const disposeInAppBrowser = wireInAppBrowser(win)
+  win.once("close", disposeInAppBrowser)
   wireZoom(win)
   wireFullscreen(win)
   injectGlobals(win, globals)
@@ -160,7 +163,7 @@ export function createLoadingWindow(globals: WindowGlobals) {
             titleBarOverlay: titlebarOverlay(),
           }
         : undefined,
-      { webPreferences: resolveWebPreferences(globals) },
+      { webPreferences: resolveWebPreferences(globals, { webviewTag: false }) },
     ),
   )
 
@@ -182,11 +185,12 @@ function lockWindowTitle(win: BrowserWindow) {
   })
 }
 
-function resolveWebPreferences(globals: WindowGlobals) {
+function resolveWebPreferences(globals: WindowGlobals, input: { webviewTag: boolean }) {
   return {
     preload: join(root, "../preload/index.mjs"),
     sandbox: false,
     additionalArguments: [encodeBuddyWindowVersionArg(globals.version)],
+    webviewTag: input.webviewTag,
   }
 }
 

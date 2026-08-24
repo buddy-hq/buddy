@@ -1,4 +1,8 @@
 import type { UpdateProgressSnapshot, UpdateRing } from "../shared/update-state"
+import type {
+  InAppBrowserFaviconMessage,
+  InAppBrowserHostMessage,
+} from "@buddy/browser-contract"
 
 export type InitStep = { phase: "server_waiting" } | { phase: "sqlite_waiting" } | { phase: "done" }
 
@@ -54,6 +58,8 @@ export type ElectronAPI = {
   onMenuCommand: (cb: (id: string) => void) => () => void
   onDeepLink: (cb: (urls: string[]) => void) => () => void
   onFullscreenChanged: (cb: (isFullscreen: boolean) => void) => () => void
+  onInAppBrowserMessage: (cb: (message: InAppBrowserHostMessage) => void) => () => void
+  onInAppBrowserFavicon: (cb: (message: InAppBrowserFaviconMessage) => void) => () => void
   getIsFullscreen: () => Promise<boolean>
 
   openDirectoryPicker: (opts?: {

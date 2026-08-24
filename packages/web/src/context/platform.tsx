@@ -1,6 +1,10 @@
 import { createContext, useContext, type ReactNode } from "react"
 import { createJSONStorage, type StateStorage } from "zustand/middleware"
 import { browserLocalStorage } from "@/state/parse-external"
+import type {
+  InAppBrowserFaviconMessage,
+  InAppBrowserHostMessage,
+} from "@buddy/browser-contract"
 
 export type OpenDirectoryPickerOptions = {
   title?: string
@@ -76,6 +80,12 @@ export type Platform = {
   update?(): Promise<void>
   parseMarkdown?(markdown: string): Promise<string>
   captureBenchScreenshot?(rectangle: BenchCaptureRectangle): Promise<string>
+  inAppBrowser?: {
+    partition: string
+    webPreferences: string
+    onMessage(cb: (message: InAppBrowserHostMessage) => void): () => void
+    onFavicon(cb: (message: InAppBrowserFaviconMessage) => void): () => void
+  }
 }
 
 function notifyWindowOfClick(href: string) {

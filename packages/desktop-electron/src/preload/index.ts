@@ -7,6 +7,12 @@ import {
   parseTString,
 } from "../shared/parse-external"
 import type { ElectronAPI, InitStep, SqliteMigrationProgress } from "./types"
+import {
+  IN_APP_BROWSER_FAVICON_CHANNEL,
+  IN_APP_BROWSER_MESSAGE_CHANNEL,
+  type InAppBrowserFaviconMessage,
+  type InAppBrowserHostMessage,
+} from "@buddy/browser-contract"
 
 const appVersion = readBuddyWindowVersionArg(process.argv)
 
@@ -153,6 +159,16 @@ const api: ElectronAPI = {
     const handler = (_: IpcRendererEvent, isFullscreen: boolean) => cb(isFullscreen)
     ipcRenderer.on("fullscreen-changed", handler)
     return () => ipcRenderer.removeListener("fullscreen-changed", handler)
+  },
+  onInAppBrowserMessage: (cb) => {
+    const handler = (_: IpcRendererEvent, message: InAppBrowserHostMessage) => cb(message)
+    ipcRenderer.on(IN_APP_BROWSER_MESSAGE_CHANNEL, handler)
+    return () => ipcRenderer.removeListener(IN_APP_BROWSER_MESSAGE_CHANNEL, handler)
+  },
+  onInAppBrowserFavicon: (cb) => {
+    const handler = (_: IpcRendererEvent, message: InAppBrowserFaviconMessage) => cb(message)
+    ipcRenderer.on(IN_APP_BROWSER_FAVICON_CHANNEL, handler)
+    return () => ipcRenderer.removeListener(IN_APP_BROWSER_FAVICON_CHANNEL, handler)
   },
   getIsFullscreen: () => ipcRenderer.invoke("get-is-fullscreen"),
 
