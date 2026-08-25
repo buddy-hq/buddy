@@ -76,6 +76,35 @@ describe("config routes", () => {
     expect(fs.existsSync(projectConfigFile(repo))).toBe(true)
   })
 
+  test("rejects misspelled project and global config patch fields", async () => {
+    const repo = createGitRepo("buddy-route-config-rejects-typos")
+
+    const projectResponse = await app.request("/api/config", {
+      method: "PATCH",
+      headers: {
+        "x-buddy-directory": repo,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        conscise_responses: true,
+        defualt_persona: "code",
+      }),
+    })
+    expect(projectResponse.status).toBe(400)
+
+    const globalResponse = await app.request("/api/global/config", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        conscise_responses: true,
+        defualt_persona: "code",
+      }),
+    })
+    expect(globalResponse.status).toBe(400)
+  })
+
   test("preserves concurrent project config patches", async () => {
     const repo = createGitRepo("buddy-route-config-project-concurrent")
     const nestedDirectory = path.join(repo, "nested")
@@ -192,6 +221,98 @@ describe("config routes", () => {
         },
         body: JSON.stringify({}),
       })
+    }
+  })
+
+  test("keeps working with settings written by a newer Buddy version", async () => {
+    const globalFile = path.join(Global.Path.config, "buddy.jsonc")
+    fs.mkdirSync(path.dirname(globalFile), { recursive: true })
+    const previousGlobal = fs.existsSync(globalFile)
+      ? fs.readFileSync(globalFile, "utf8")
+      : undefined
+
+    try {
+      writeFileSync(
+        globalFile,
+        JSON.stringify(
+          {
+            future_setting: { enabled: true },
+            model: "anthropic/original-global",
+            personalization: {
+              primary_use: "learn",
+              future_preference: "keep-me",
+            },
+          },
+          null,
+          2,
+        ) + "\n",
+      )
+
+      const updated = await Config.updateGlobal({ model: "anthropic/updated-global" })
+      expect(updated.model).toBe("anthropic/updated-global")
+      expect(updated).not.toHaveProperty("future_setting")
+      expect(updated.personalization).not.toHaveProperty("future_preference")
+
+      const saved = requireJsonObject(JSON.parse(fs.readFileSync(globalFile, "utf8")))
+      const savedPersonalization = parseJsonObject(saved.personalization)
+      expect(saved.future_setting).toEqual({ enabled: true })
+      expect(saved.model).toBe("anthropic/updated-global")
+      expect(savedPersonalization?.future_preference).toBe("keep-me")
+    } finally {
+      if (previousGlobal === undefined) {
+        fs.rmSync(globalFile, { force: true })
+      } else {
+        writeFileSync(globalFile, previousGlobal)
+      }
+
+      await Config.updateGlobal({})
+    }
+  })
+
+  test("preserves unknown settings and deletes omitted known settings in global buddy.json", async () => {
+    const globalJsonc = path.join(Global.Path.config, "buddy.jsonc")
+    const globalJson = path.join(Global.Path.config, "buddy.json")
+    fs.mkdirSync(Global.Path.config, { recursive: true })
+    const previousJsonc = fs.existsSync(globalJsonc)
+      ? fs.readFileSync(globalJsonc, "utf8")
+      : undefined
+    const previousJson = fs.existsSync(globalJson)
+      ? fs.readFileSync(globalJson, "utf8")
+      : undefined
+
+    try {
+      fs.rmSync(globalJsonc, { force: true })
+      writeFileSync(
+        globalJson,
+        JSON.stringify(
+          {
+            model: "anthropic/original-global-json",
+            small_model: "anthropic/remove-global-json",
+            future_setting: { enabled: true },
+          },
+          null,
+          2,
+        ) + "\n",
+      )
+
+      await Config.replaceGlobal(
+        Config.Info.parse({ model: "anthropic/updated-global-json" }),
+      )
+
+      const saved = requireJsonObject(JSON.parse(fs.readFileSync(globalJson, "utf8")))
+      expect(saved.model).toBe("anthropic/updated-global-json")
+      expect(saved.small_model).toBeUndefined()
+      expect(saved.future_setting).toEqual({ enabled: true })
+    } finally {
+      fs.rmSync(globalJsonc, { force: true })
+      fs.rmSync(globalJson, { force: true })
+      if (previousJsonc !== undefined) writeFileSync(globalJsonc, previousJsonc)
+      if (previousJson !== undefined) writeFileSync(globalJson, previousJson)
+
+      await Config.updateGlobal({})
+      if (previousJsonc === undefined && previousJson === undefined) {
+        fs.rmSync(globalJsonc, { force: true })
+      }
     }
   })
 

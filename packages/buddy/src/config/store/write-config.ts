@@ -3,10 +3,11 @@ import path from "node:path"
 import { mergeDeep } from "remeda"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import {
-  parseConfigText,
-  parseProjectConfigText,
+  loadConfigText,
+  loadProjectConfigText,
   patchJsoncDocument,
-  replaceJsoncDocument,
+  removeConfigDocumentValue,
+  updateKnownConfigDocument,
 } from "../contract/document.js"
 import { JsonError } from "../contract/errors.js"
 import { parseNodeErrorCode } from "../parse-values.js"
@@ -16,10 +17,16 @@ import {
   resolveProjectConfigContext,
   resolveProjectConfigFile,
 } from "./config-paths.js"
-import { Info, ProjectInfo } from "./types.js"
+import { Info } from "./types.js"
 import type { Mcp, Info as ConfigInfo, ProjectInfo as ProjectConfigInfo } from "./types.js"
 
 type GlobalConfigMutation = (current: ConfigInfo) => ConfigInfo
+type ConfigDocumentLoader<TConfig> = (text: string, filepath: string) => Promise<TConfig>
+
+const LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH = [
+  "learner_memory",
+  "master_enabled",
+] as const
 
 let globalConfigChangeLock: Promise<void> | undefined
 
@@ -34,8 +41,37 @@ async function readConfigTextOrDefault(filepath: string): Promise<string> {
   })
 }
 
-function writeJsonFile(filepath: string, value: ConfigInfo | ProjectConfigInfo): Promise<void> {
-  return fsp.writeFile(filepath, JSON.stringify(value, null, 2) + "\n", "utf8")
+async function writeConfigDocument<TConfig>(input: {
+  filepath: string
+  before: string
+  next: TConfig
+  load: ConfigDocumentLoader<TConfig>
+}): Promise<void> {
+  const current = await input.load(input.before, input.filepath)
+  let updated = updateKnownConfigDocument(input.before, current, input.next, input.filepath)
+
+  updated = removeConfigDocumentValue(
+    updated,
+    input.filepath,
+    [...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH],
+  )
+
+  await input.load(updated, input.filepath)
+  await fsp.writeFile(input.filepath, updated, "utf8")
+}
+
+function loadGlobalConfigDocument(text: string, filepath: string): Promise<ConfigInfo> {
+  return loadConfigText(text, {
+    dir: path.dirname(filepath),
+    source: filepath,
+  })
+}
+
+function loadProjectConfigDocument(text: string, filepath: string): Promise<ProjectConfigInfo> {
+  return loadProjectConfigText(text, {
+    dir: path.dirname(filepath),
+    source: filepath,
+  })
 }
 
 async function withGlobalConfigChangeLock<T>(task: () => Promise<T>): Promise<T> {
@@ -67,14 +103,12 @@ export async function updateProjectConfig(
   await ensureParentDirectory(filepath)
 
   const before = await readConfigTextOrDefault(filepath)
-  if (!filepath.endsWith(".jsonc")) {
-    await writeJsonFile(filepath, config)
-    return
-  }
-
-  const updated = replaceJsoncDocument(before, config)
-  parseProjectConfigText(updated, filepath)
-  await fsp.writeFile(filepath, updated, "utf8")
+  await writeConfigDocument({
+    filepath,
+    before,
+    next: config,
+    load: loadProjectConfigDocument,
+  })
 }
 
 export async function setProjectMcpConfig(
@@ -87,25 +121,18 @@ export async function setProjectMcpConfig(
   await ensureParentDirectory(filepath)
 
   const before = await readConfigTextOrDefault(filepath)
-  if (!filepath.endsWith(".jsonc")) {
-    const existing = parseProjectConfigText(before, filepath)
-    const next = ProjectInfo.parse({
-      ...existing,
-      mcp: {
-        ...existing.mcp,
-        [name]: mcp,
-      },
-    })
-    await writeJsonFile(filepath, next)
-    return
-  }
-
-  const updated = patchJsoncDocument(before, {
+  await loadProjectConfigDocument(before, filepath)
+  let updated = removeConfigDocumentValue(
+    before,
+    filepath,
+    [...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH],
+  )
+  updated = patchJsoncDocument(updated, {
     mcp: {
       [name]: mcp,
     },
   })
-  parseProjectConfigText(updated, filepath)
+  await loadProjectConfigDocument(updated, filepath)
   await fsp.writeFile(filepath, updated, "utf8")
 }
 
@@ -123,16 +150,15 @@ export async function mutateGlobalConfig(mutation: GlobalConfigMutation): Promis
     await ensureParentDirectory(filepath)
 
     const before = await readConfigTextOrDefault(filepath)
-    const current = parseConfigText(before, filepath)
+    const current = await loadGlobalConfigDocument(before, filepath)
     const next = Info.parse(mutation(current))
 
-    if (!filepath.endsWith(".jsonc")) {
-      await writeJsonFile(filepath, next)
-    } else {
-      const updated = replaceJsoncDocument(before, next)
-      parseConfigText(updated, filepath)
-      await fsp.writeFile(filepath, updated, "utf8")
-    }
+    await writeConfigDocument({
+      filepath,
+      before,
+      next,
+      load: loadGlobalConfigDocument,
+    })
 
     resetGlobalConfigCache()
     await OpenCodeInstance.disposeAll()
