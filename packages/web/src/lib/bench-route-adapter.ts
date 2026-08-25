@@ -1,4 +1,5 @@
 import type { NavigateOptions } from "@tanstack/react-router"
+import { isInAppBrowserTargetUrl } from "@buddy/browser-contract"
 import { parseTJsonObject, readNonEmptyString } from "@/components/chat/tools/types"
 import { decodeDirectory, encodeDirectory } from "@/lib/directory-token"
 import {
@@ -17,6 +18,8 @@ const CHAT_ROUTE_CHILD = "chat"
 const BENCH_ROUTE_GROUP_CHILD = "_bench"
 const BENCH_SESSION_ROUTE_CHILD = "sessions"
 const BENCH_SESSION_ROUTE_CHILD_PREFIX = `${BENCH_SESSION_ROUTE_CHILD}/`
+const BENCH_BROWSER_ROUTE_CHILD = "browser"
+const BENCH_BROWSER_ROUTE_CHILD_PREFIX = `${BENCH_BROWSER_ROUTE_CHILD}/`
 const BENCH_OBJECT_ROUTE_CHILD = "objects"
 const BENCH_OBJECT_ROUTE_CHILD_PREFIX = `${BENCH_OBJECT_ROUTE_CHILD}/`
 const BENCH_ROUTE_CHILDREN = new Set(["markdown", "file"])
@@ -60,6 +63,20 @@ function normalizeBenchChildPath(childPath: string): string {
   return childPath
 }
 
+function readSingleChildSegment(childPath: string, prefix: string): string | undefined {
+  if (!childPath.startsWith(prefix)) return undefined
+  const segments = childPath.split("/")
+  return segments.length === 2 && segments[1] ? segments[1] : undefined
+}
+
+function decodeRouteSegment(segment: string): string | undefined {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return undefined
+  }
+}
+
 function readEncodedDirectoryPathSegment(pathname: string): string | undefined {
   return pathname.split("/").find((segment) => segment.length > 0)
 }
@@ -85,10 +102,8 @@ function isBenchRoutePathname(pathname: string): boolean {
   if (rawChildPath === BENCH_ROUTE_GROUP_CHILD) return true
   const childPath = normalizeBenchChildPath(rawChildPath)
   if (BENCH_ROUTE_CHILDREN.has(childPath)) return true
-  if (childPath.startsWith(BENCH_SESSION_ROUTE_CHILD_PREFIX)) {
-    const segments = childPath.split("/")
-    return segments.length === 2 && segments[1] !== undefined && segments[1].length > 0
-  }
+  if (readSingleChildSegment(childPath, BENCH_SESSION_ROUTE_CHILD_PREFIX)) return true
+  if (readSingleChildSegment(childPath, BENCH_BROWSER_ROUTE_CHILD_PREFIX)) return true
   if (!childPath.startsWith(BENCH_OBJECT_ROUTE_CHILD_PREFIX)) return false
 
   const segments = childPath.split("/")
@@ -184,10 +199,20 @@ function readBenchTargetFromLocation<TSearch>(input: {
   }
 
   if (childPath.startsWith(BENCH_SESSION_ROUTE_CHILD_PREFIX)) {
-    const segments = childPath.split("/")
-    const sessionID = segments[1]
-    return segments.length === 2 && sessionID
-      ? { type: "session", sessionID: decodeURIComponent(sessionID) }
+    const encodedSessionID = readSingleChildSegment(
+      childPath,
+      BENCH_SESSION_ROUTE_CHILD_PREFIX,
+    )
+    const sessionID = encodedSessionID ? decodeRouteSegment(encodedSessionID) : undefined
+    return sessionID ? { type: "session", sessionID } : undefined
+  }
+
+  if (childPath.startsWith(BENCH_BROWSER_ROUTE_CHILD_PREFIX)) {
+    const encodedTabID = readSingleChildSegment(childPath, BENCH_BROWSER_ROUTE_CHILD_PREFIX)
+    const tabID = encodedTabID ? decodeRouteSegment(encodedTabID) : undefined
+    const url = readStringSearchValue(search, "url")
+    return tabID && url && isInAppBrowserTargetUrl(url)
+      ? { type: "browser", tabID, url }
       : undefined
   }
 
@@ -201,7 +226,8 @@ function readBenchTargetFromLocation<TSearch>(input: {
   }
 
   const kind = segments[1]
-  const objectID = segments[2]
+  const encodedObjectID = segments[2]
+  const objectID = encodedObjectID ? decodeRouteSegment(encodedObjectID) : undefined
   if (!kind || !isBenchObjectKind(kind) || !objectID) {
     return undefined
   }
@@ -213,7 +239,7 @@ function readBenchTargetFromLocation<TSearch>(input: {
     type: "object",
     ref: {
       kind,
-      objectID: decodeURIComponent(objectID),
+      objectID,
       revisionID,
       itemID: itemID ?? null,
     },
@@ -277,6 +303,14 @@ function buildBenchNavigation(input: {
         ),
         mode,
       ),
+    }
+  }
+
+  if (target.type === "browser") {
+    return {
+      to: "/$directory/browser/$tabID",
+      params: { directory: encodedDirectory, tabID: target.tabID },
+      search: withBenchModeSearch({ url: target.url }, mode),
     }
   }
 

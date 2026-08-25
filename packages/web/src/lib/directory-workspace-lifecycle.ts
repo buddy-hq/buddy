@@ -21,6 +21,10 @@ type BenchReadContextOpenOutput = Extract<
   BenchReadContextOutput,
   { status: "open"; visibility: "visible" }
 >
+type BenchReadContextParkedOutput = Extract<
+  BenchReadContextOutput,
+  { status: "open"; visibility: "parked" }
+>
 type BenchContextTabSummary = BenchReadContextOpenOutput["tabs"][number]
 type BenchReadSurfaceContextOpenOutput = Pick<
   BenchReadContextOpenOutput,
@@ -157,6 +161,7 @@ function openPublicationKey(input: {
   registrationOrder: number
   semanticRevision: number
   tabs: readonly BenchContextTabSummary[]
+  selectedBrowser?: BenchReadContextParkedOutput["selectedBrowser"]
 }): string {
   return [
     input.directory,
@@ -167,6 +172,7 @@ function openPublicationKey(input: {
     String(input.registrationOrder),
     String(input.semanticRevision),
     JSON.stringify(input.tabs),
+    JSON.stringify(input.selectedBrowser ?? null),
   ].join("\u0000")
 }
 
@@ -197,7 +203,18 @@ function drawerContext(drawer: DrawerKind | null): BenchReadContextOpenOutput["d
     : null
 }
 
-function sharedBenchTarget(target: BenchTarget): BenchContextTabSummary["target"] {
+function sharedBenchTarget(input: {
+  target: BenchTarget
+  browserRuntime?: { url: string; title: string; loading: boolean }
+}): BenchContextTabSummary["target"] {
+  const { target } = input
+  if (target.type === "browser") {
+    return {
+      type: target.type,
+      tabID: target.tabID,
+      url: input.browserRuntime?.url ?? target.url,
+    }
+  }
   if (target.type === "workspace-file") {
     return {
       type: target.type,
@@ -217,14 +234,12 @@ function visibleBenchContext(input: {
   drawer: DrawerKind | null
   mode: "docked" | "floating"
   tabs: readonly BenchContextTabSummary[]
-}): BenchReadContextOpenOutput {
+}): BenchReadContextOpenOutput | null {
   const { drawer: _drawer, ...context } = input.context
   const selectedTabKey = input.tabs.find(
     (tab) => benchTargetKey(tab.target) === input.context.targetKey,
   )?.tabKey
-  if (!selectedTabKey) {
-    throw new Error("The selected Bench target is missing from the synchronized tab set.")
-  }
+  if (!selectedTabKey) return null
   return {
     ...context,
     visibility: "visible",
@@ -240,17 +255,33 @@ function parkedBenchContext(input: {
     target: BenchTarget
   }
   tabs: readonly BenchContextTabSummary[]
+  getBrowserTabRuntime: (
+    tabID: string,
+  ) => { url: string; title: string; loading: boolean } | undefined
 }): BenchReadContextOutput {
-  const selectedTabKey = input.tabs.find(
+  const selectedTab = input.tabs.find(
     (tab) => benchTargetKey(tab.target) === benchTargetKey(input.route.target),
-  )?.tabKey
-  if (!selectedTabKey) return closedBenchContext()
+  )
+  if (!selectedTab) return closedBenchContext()
+  const selectedBrowser =
+    input.route.target.type === "browser"
+      ? (() => {
+          const runtime = input.getBrowserTabRuntime(input.route.target.tabID)
+          return {
+            tabID: input.route.target.tabID,
+            url: runtime?.url ?? input.route.target.url,
+            title: runtime?.title ?? selectedTab.title,
+            loading: runtime?.loading ?? false,
+          }
+        })()
+      : null
   return {
     status: "open",
     visibility: "parked",
     mode: input.route.mode,
-    selectedTabKey,
+    selectedTabKey: selectedTab.tabKey,
     tabs: [...input.tabs],
+    selectedBrowser,
     drawer: null,
   }
 }
@@ -294,6 +325,17 @@ function contextTargetDiagnosticValue(
     }
   }
 
+  if (target.type === "browser") {
+    return {
+      type: target.type,
+      tabID: target.tabID,
+      url: target.url,
+      loading: target.loading,
+      route: target.route,
+      status: target.status,
+    }
+  }
+
   return {
     type: target.type,
     kind: target.ref.kind,
@@ -314,6 +356,7 @@ function contextTargetDiagnostic(value: BenchReadContextOutput) {
       visibility: value.visibility,
       selectedTabKey: value.selectedTabKey,
       tabCount: value.tabs.length,
+      selectedBrowser: value.selectedBrowser,
     }
   }
   return {
@@ -347,6 +390,9 @@ export class DirectoryWorkspaceLifecycleService {
   readonly #getProjection: () => EffectiveWorkspaceProjection
   readonly #getTabs: () => readonly BenchTab[]
   readonly #getTabTitle: (tab: BenchTab) => string | undefined
+  readonly #getBrowserTabRuntime: (
+    tabID: string,
+  ) => { url: string; title: string; loading: boolean } | undefined
   readonly #getHydrationStatus: () => DirectoryWorkspaceHydrationState["status"]
   readonly #getRouteFallbackContext: (
     route: EffectiveWorkspaceProjection["route"],
@@ -372,6 +418,9 @@ export class DirectoryWorkspaceLifecycleService {
     getProjection: () => EffectiveWorkspaceProjection
     getTabs: () => readonly BenchTab[]
     getTabTitle?: (tab: BenchTab) => string | undefined
+    getBrowserTabRuntime?: (
+      tabID: string,
+    ) => { url: string; title: string; loading: boolean } | undefined
     getHydrationStatus: () => DirectoryWorkspaceHydrationState["status"]
     getRouteFallbackContext: (
       route: EffectiveWorkspaceProjection["route"],
@@ -381,6 +430,7 @@ export class DirectoryWorkspaceLifecycleService {
     this.#getProjection = input.getProjection
     this.#getTabs = input.getTabs
     this.#getTabTitle = input.getTabTitle ?? (() => undefined)
+    this.#getBrowserTabRuntime = input.getBrowserTabRuntime ?? (() => undefined)
     this.#getHydrationStatus = input.getHydrationStatus
     this.#getRouteFallbackContext = input.getRouteFallbackContext
   }
@@ -966,13 +1016,27 @@ export class DirectoryWorkspaceLifecycleService {
   #readTabSummaries(): BenchContextTabSummary[] {
     return this.#getTabs().flatMap((tab) =>
       isBenchContentTarget(tab.target)
-        ? [
-            {
-              tabKey: tab.key,
-              title: this.#getTabTitle(tab) ?? benchTabFallbackTitle(tab.target),
-              target: sharedBenchTarget(tab.target),
-            },
-          ]
+        ? (() => {
+            const browserRuntime =
+              tab.target.type === "browser"
+                ? this.#getBrowserTabRuntime(tab.target.tabID)
+                : undefined
+            return [
+              {
+                tabKey: tab.key,
+                title:
+                  browserRuntime?.title ??
+                  this.#getTabTitle(tab) ??
+                  benchTabFallbackTitle(tab.target),
+                target: sharedBenchTarget(
+                  Object.assign(
+                    { target: tab.target },
+                    browserRuntime ? { browserRuntime } : undefined,
+                  ),
+                ),
+              },
+            ]
+          })()
         : [],
     )
   }
@@ -1010,6 +1074,11 @@ export class DirectoryWorkspaceLifecycleService {
 
     const tabs = this.#readTabSummaries()
     if (input.visibility === "parked") {
+      const value = parkedBenchContext({
+        route: { ...input.route, target: observedTarget },
+        tabs,
+        getBrowserTabRuntime: this.#getBrowserTabRuntime,
+      })
       return {
         status: "open",
         publicationKey: openPublicationKey({
@@ -1021,11 +1090,12 @@ export class DirectoryWorkspaceLifecycleService {
           registrationOrder: DIRECTORY_WORKSPACE_FALLBACK_REGISTRATION_ORDER,
           semanticRevision: DIRECTORY_WORKSPACE_FALLBACK_REVISION,
           tabs,
+          selectedBrowser:
+            value.status === "open" && value.visibility === "parked"
+              ? value.selectedBrowser
+              : null,
         }),
-        value: parkedBenchContext({
-          route: { ...input.route, target: observedTarget },
-          tabs,
-        }),
+        value,
       }
     }
 
@@ -1057,6 +1127,23 @@ export class DirectoryWorkspaceLifecycleService {
       return output
     }
 
+    const value = visibleBenchContext({
+      context: fallbackContext,
+      drawer: input.drawer,
+      mode: input.route.mode,
+      tabs,
+    })
+    if (!value) {
+      return {
+        status: "closed",
+        publicationKey: closedPublicationKey({
+          directory: this.#directory,
+          sessionID: input.sessionID,
+          visibility: input.visibility,
+        }),
+        value: closedBenchContext(),
+      }
+    }
     const output = {
       status: "open",
       publicationKey: openPublicationKey({
@@ -1069,12 +1156,7 @@ export class DirectoryWorkspaceLifecycleService {
         semanticRevision: DIRECTORY_WORKSPACE_FALLBACK_REVISION,
         tabs,
       }),
-      value: visibleBenchContext({
-        context: fallbackContext,
-        drawer: input.drawer,
-        mode: input.route.mode,
-        tabs,
-      }),
+      value,
     } satisfies BenchContextPublishSnapshot
     logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-fallback", () => ({
       directory: this.#directory,
@@ -1108,6 +1190,13 @@ export class DirectoryWorkspaceLifecycleService {
     for (const registration of registrations) {
       const snapshot = registration.getSnapshot()
       if (snapshotMatchesBenchTarget({ snapshot, target: observedTarget })) {
+        const value = visibleBenchContext({
+          context: snapshot.context,
+          drawer: input.drawer,
+          mode: input.route.mode,
+          tabs,
+        })
+        if (!value) continue
         const output = {
           status: "open",
           publicationKey: openPublicationKey({
@@ -1120,12 +1209,7 @@ export class DirectoryWorkspaceLifecycleService {
             semanticRevision: snapshot.semanticRevision,
             tabs,
           }),
-          value: visibleBenchContext({
-            context: snapshot.context,
-            drawer: input.drawer,
-            mode: input.route.mode,
-            tabs,
-          }),
+          value,
         } satisfies BenchContextPublishSnapshot
         logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-registration", () => ({
           directory: this.#directory,

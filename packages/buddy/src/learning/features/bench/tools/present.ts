@@ -6,6 +6,7 @@ import type {
 } from "@buddy/opencode-adapter/tool-presentation"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import z from "zod"
+import { inAppBrowserFallbackTitle } from "@buddy/browser-contract"
 import {
   ResourceNotFoundError,
   resolveResourceObjectByKey,
@@ -514,6 +515,18 @@ async function buildPublishedTargetFromBenchTarget(input: {
       target: input.target,
     })
   }
+  if (input.target.type === "browser") {
+    return {
+      type: "browser",
+      title: inAppBrowserFallbackTitle(input.target.url),
+      workspaceRoot: input.directory,
+      tabID: input.target.tabID,
+      url: input.target.url,
+      loading: true,
+      route: `/_bench/browser/${encodeURIComponent(input.target.tabID)}?url=${encodeURIComponent(input.target.url)}`,
+      status: "loading",
+    }
+  }
   const manifest =
     input.manifest?.objectID === input.target.ref.objectID
       ? input.manifest
@@ -857,6 +870,9 @@ function timedOutClientResult(): BenchPresentOutput {
 function formatBenchTargetForMessage(target: BenchTarget): string {
   if (target.type === "workspace-file") {
     return `workspace file ${target.path} (${target.viewer})`
+  }
+  if (target.type === "browser") {
+    return `Browser tab ${target.tabID} (${target.url})`
   }
   const revision = target.ref.revisionID ? `, revision ${target.ref.revisionID}` : ""
   const item = target.ref.itemID ? `, item ${target.ref.itemID}` : ""
@@ -1264,6 +1280,18 @@ async function presentOnBench(input: {
         mode: null,
         message:
           "That Bench tab is no longer open. Call bench_read_context again and use an exact current tabKey.",
+        objectResult: null,
+      }
+    }
+    if (tab.target.type === "browser") {
+      return {
+        status: "error",
+        reason: "unsupported_target",
+        target: null,
+        benchTarget: null,
+        mode: null,
+        message:
+          "Browser tabs are user-controlled. Use inapp_browser_open to open a URL in a new visible Browser tab.",
         objectResult: null,
       }
     }

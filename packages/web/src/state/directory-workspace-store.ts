@@ -24,6 +24,7 @@ import {
   WORKSPACE_CHAT_TRANSITION_KEY_PREFIX,
   isPersistedWorkspaceChatKey,
   workspaceChatKeyForTransition,
+  workspaceSessionIDFromChatKey,
   type PersistedWorkspaceChatKey,
   type WorkspaceChatKey,
 } from "@/lib/workspace-chat-key"
@@ -61,6 +62,7 @@ export const DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER = WORKSPACE_DRAWER_SOURCES
 export const DIRECTORY_WORKSPACE_PERSISTENCE_VERSION = 4
 export const DIRECTORY_WORKSPACE_STORAGE_FILE = "buddy.directory-workspace.v4.dat"
 const DIRECTORY_WORKSPACE_STORAGE_KEY_PREFIX = "directory-workspace:"
+const WORKSPACE_CHAT_SLOT_LIMIT = 24
 
 export type DrawerKind =
   | typeof WORKSPACE_DRAWER_SEARCH
@@ -532,7 +534,10 @@ async function readPersistedDirectoryWorkspaceImmediately(input: {
 
   const payload = readPersistedDirectoryWorkspacePayload(parsed)
   if (!payload) return { status: WORKSPACE_HYDRATION_READY, state: null }
-  return { status: WORKSPACE_HYDRATION_READY, state: payload.state }
+  return {
+    status: WORKSPACE_HYDRATION_READY,
+    state: withoutTransientBrowserTabs(payload.state),
+  }
 }
 
 export async function readPersistedDirectoryWorkspace(input: {
@@ -551,7 +556,7 @@ async function writePersistedDirectoryWorkspaceImmediately(input: {
   const storage = input.storage ?? defaultDirectoryWorkspaceStorage()
   const payload: PersistedDirectoryWorkspacePayload = {
     version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
-    state: input.state,
+    state: withoutTransientBrowserTabs(input.state),
   }
   await storage.setItem(storageKeyForDirectory(input.directory), JSON.stringify(payload))
 }
@@ -612,6 +617,45 @@ export function defaultWorkspacePresentationSlot(): WorkspacePresentationSlot {
   }
 }
 
+function withoutTransientBrowserTabs(
+  state: PersistedDirectoryWorkspaceState,
+): PersistedDirectoryWorkspaceState {
+  const slots: Partial<Record<PersistedWorkspaceChatKey, WorkspacePresentationSlot>> = {}
+  for (const [chatKey, slot] of Object.entries(state.slots)) {
+    if (!slot || !isPersistedWorkspaceChatKey(chatKey)) continue
+    const tabs = slot.tabs.filter((tab) => tab.target.type !== "browser")
+    const tabsChanged = tabs.length !== slot.tabs.length
+    if (slot.route.status !== BENCH_ROUTE_STATUS_OPEN || slot.route.target.type !== "browser") {
+      slots[chatKey] = tabsChanged ? { ...slot, tabs } : slot
+      continue
+    }
+
+    const fallbackTab = tabs.at(-1)
+    slots[chatKey] = {
+      ...slot,
+      tabs,
+      route: fallbackTab
+        ? {
+            status: BENCH_ROUTE_STATUS_OPEN,
+            target: fallbackTab.target,
+            mode: slot.route.mode,
+          }
+        : { status: BENCH_ROUTE_STATUS_CLOSED },
+    }
+  }
+  const persistedKeys = Object.keys(slots)
+  const excess = persistedKeys.length - WORKSPACE_CHAT_SLOT_LIMIT
+  if (excess <= 0) return { slots }
+
+  const bounded: Partial<Record<PersistedWorkspaceChatKey, WorkspacePresentationSlot>> = {}
+  for (const key of persistedKeys.slice(excess)) {
+    if (!isPersistedWorkspaceChatKey(key)) continue
+    const slot = slots[key]
+    if (slot) bounded[key] = slot
+  }
+  return { slots: bounded }
+}
+
 function tabsForRoute(tabs: readonly BenchTab[], route: BenchRouteSnapshot): BenchTab[] {
   if (route.status === BENCH_ROUTE_STATUS_CLOSED) return []
   return upsertBenchTab(tabs, route.target).tabs
@@ -668,6 +712,15 @@ export function removeSessionBenchTargetsFromSlots(input: {
     if (!slot) continue
     const chatKey = parseWorkspaceChatKey(key)
     if (!chatKey) continue
+    const ownerSessionID = workspaceSessionIDFromChatKey(chatKey)
+    if (
+      chatKey !== input.excludeChatKey &&
+      ownerSessionID !== undefined &&
+      input.sessionIDs.has(ownerSessionID)
+    ) {
+      changed = true
+      continue
+    }
     const nextSlot =
       chatKey === input.excludeChatKey
         ? slot
@@ -686,15 +739,16 @@ export function workspacePresentationSlotForChat(
 }
 
 /**
- * Bounds the per-chat slot map.
+ * Bounds ordinary per-chat slots while preserving slots that own live Browser pages.
  *
- * A slot is created for every chat ever activated in a notebook and nothing removes one on archive
- * or delete, so both the in-memory map and its persisted blob would grow with chat count forever.
- * Every other cache in the workspace is bounded; this one is too. The touched chat is re-inserted
- * last so the map doubles as a recency order, and eviction only drops the least recently touched
- * persisted slots — never the one being written.
+ * A slot is created for every chat activated in a notebook, so ordinary inactive slots are bounded.
+ * A Browser slot is exempt because eviction would destroy a live page; session archive/delete
+ * removes it through `removeSessionTargets`. The touched chat is re-inserted last so the map doubles
+ * as a recency order, and eviction drops the least recently touched eligible persisted slots.
  */
-const WORKSPACE_CHAT_SLOT_LIMIT = 24
+function slotKeepsLiveBrowserPage(slot: WorkspacePresentationSlot | undefined): boolean {
+  return slot?.tabs.some((tab) => tab.target.type === "browser") ?? false
+}
 
 function retainWorkspaceChatSlots(input: {
   slots: Partial<Record<WorkspaceChatKey, WorkspacePresentationSlot>>
@@ -718,6 +772,9 @@ function retainWorkspaceChatSlots(input: {
   const protectedChatKeys = new Set<string>([
     input.touchedChatKey,
     ...(input.protectedChatKeys ?? []),
+    ...Object.entries(ordered).flatMap(([key, slot]) =>
+      slotKeepsLiveBrowserPage(slot) ? [key] : [],
+    ),
   ])
   const evicted = new Set<string>(
     persistedKeys.filter((key) => !protectedChatKeys.has(key)).slice(0, excess),

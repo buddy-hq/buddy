@@ -2,6 +2,10 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import type { DescribeRouteOptions } from "hono-openapi"
 import z from "zod"
+import {
+  IN_APP_BROWSER_TITLE_MAX_LENGTH,
+  IN_APP_BROWSER_URL_MAX_LENGTH,
+} from "@buddy/browser-contract"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import { readBoundedRequestBody, replayRequestBody } from "../http/bounded-request-body"
 import { assertSessionExistsInDirectory, SessionLookupError } from "../session"
@@ -113,8 +117,28 @@ const objectBenchContextTargetOpenApiSchema = {
   },
 }
 
+const browserBenchContextTargetOpenApiSchema = {
+  type: "object" as const,
+  required: ["type", "title", "workspaceRoot", "tabID", "url", "loading", "route", "status"],
+  additionalProperties: false,
+  properties: {
+    type: { type: "string" as const, enum: ["browser"] },
+    title: { type: "string" as const, maxLength: IN_APP_BROWSER_TITLE_MAX_LENGTH },
+    workspaceRoot: { type: "string" as const },
+    tabID: { type: "string" as const },
+    url: { type: "string" as const, maxLength: IN_APP_BROWSER_URL_MAX_LENGTH },
+    loading: { type: "boolean" as const },
+    route: { type: "string" as const },
+    status: benchContextStatusOpenApiSchema,
+  },
+}
+
 const benchContextTargetOpenApiSchema = {
-  oneOf: [workspaceFileBenchContextTargetOpenApiSchema, objectBenchContextTargetOpenApiSchema],
+  oneOf: [
+    workspaceFileBenchContextTargetOpenApiSchema,
+    browserBenchContextTargetOpenApiSchema,
+    objectBenchContextTargetOpenApiSchema,
+  ],
 }
 
 const workspaceFileBenchTargetOpenApiSchema = {
@@ -139,8 +163,23 @@ const objectBenchTargetOpenApiSchema = {
   },
 }
 
+const browserBenchTargetOpenApiSchema = {
+  type: "object" as const,
+  required: ["type", "tabID", "url"],
+  additionalProperties: false,
+  properties: {
+    type: { type: "string" as const, enum: ["browser"] },
+    tabID: { type: "string" as const },
+    url: { type: "string" as const, maxLength: IN_APP_BROWSER_URL_MAX_LENGTH },
+  },
+}
+
 const benchTargetOpenApiSchema: OpenApiRequestBodySchema = {
-  oneOf: [workspaceFileBenchTargetOpenApiSchema, objectBenchTargetOpenApiSchema],
+  oneOf: [
+    workspaceFileBenchTargetOpenApiSchema,
+    browserBenchTargetOpenApiSchema,
+    objectBenchTargetOpenApiSchema,
+  ],
 }
 
 const benchRouteSnapshotOpenApiSchema: OpenApiRequestBodySchema = {
@@ -261,7 +300,15 @@ const visibleBenchContextOpenApiSchema = {
 
 const parkedBenchContextOpenApiSchema = {
   type: "object" as const,
-  required: ["status", "visibility", "mode", "selectedTabKey", "tabs", "drawer"],
+  required: [
+    "status",
+    "visibility",
+    "mode",
+    "selectedTabKey",
+    "tabs",
+    "selectedBrowser",
+    "drawer",
+  ],
   additionalProperties: false,
   properties: {
     status: { type: "string" as const, enum: ["open"] },
@@ -269,6 +316,22 @@ const parkedBenchContextOpenApiSchema = {
     mode: { type: "string" as const, enum: ["docked", "floating"] },
     selectedTabKey: { type: "string" as const },
     tabs: { type: "array" as const, items: benchTabSummaryOpenApiSchema },
+    selectedBrowser: {
+      oneOf: [
+        {
+          type: "object" as const,
+          required: ["tabID", "url", "title", "loading"],
+          additionalProperties: false,
+          properties: {
+            tabID: { type: "string" as const },
+            url: { type: "string" as const, maxLength: IN_APP_BROWSER_URL_MAX_LENGTH },
+            title: { type: "string" as const, maxLength: IN_APP_BROWSER_TITLE_MAX_LENGTH },
+            loading: { type: "boolean" as const },
+          },
+        },
+        { type: "null" as const },
+      ],
+    },
     drawer: { type: "null" as const },
   },
 }

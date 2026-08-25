@@ -48,6 +48,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@buddy/browser-contract": "workspace:*",
     "@buddy/reader-contract": "workspace:*",
     "@buddy/script": "workspace:*",
     "@buddy/sdk": "workspace:*",

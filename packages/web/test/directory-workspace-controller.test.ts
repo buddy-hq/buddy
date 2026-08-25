@@ -168,6 +168,13 @@ function routeLocation(
     }
   }
 
+  if (route.target.type === "browser") {
+    return {
+      pathname: `/${directory}/browser/${encodeURIComponent(route.target.tabID)}`,
+      search: { url: route.target.url, ...modeSearch },
+    }
+  }
+
   return {
     pathname: `/${directory}/objects/${route.target.ref.kind}/${encodeURIComponent(
       route.target.ref.objectID,

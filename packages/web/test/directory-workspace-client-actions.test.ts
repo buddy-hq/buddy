@@ -33,6 +33,11 @@ const TARGET = {
   path: "notes.md",
   viewer: "markdown",
 } satisfies BenchTarget
+const BROWSER_TARGET = {
+  type: "browser",
+  tabID: "browser-client-actions",
+  url: "https://hibuddy.in/",
+} satisfies BenchTarget
 const HTML_WIDGET_TARGET = {
   type: "object",
   ref: {
@@ -128,13 +133,20 @@ function bestEffortAction(input: {
   }
 }
 
-function captureAction(actionID: string, drawer: DrawerKind | null = null): BenchClientActionV2 {
+function captureAction(
+  actionID: string,
+  drawer: DrawerKind | null = null,
+  target: BenchTarget = TARGET,
+): BenchClientActionV2 {
   return {
     ...benchAction({ actionID }),
     command: {
       type: "capture_bench_screenshot",
-      tabKey: "file:markdown:notes.md",
-      target: TARGET,
+      tabKey:
+        target.type === "browser"
+          ? `browser:${encodeURIComponent(target.tabID)}`
+          : "file:markdown:notes.md",
+      target,
       drawer,
     },
   }
@@ -253,6 +265,29 @@ describe("DirectoryWorkspaceClientActionLedger", () => {
           observedVisibility: "visible",
           changed: true,
         },
+      },
+    ])
+  })
+
+  test("rejects a Browser open when the desktop Browser capability is unavailable", async () => {
+    const harness = createHarness()
+    const action = benchAction({ actionID: "action-browser-unavailable" })
+
+    await harness.ledger.handle({
+      ...action,
+      command: {
+        type: "present",
+        target: BROWSER_TARGET,
+        autoOpen: null,
+      },
+    })
+
+    expect(harness.executed).toEqual([])
+    expect(harness.completions).toEqual([
+      {
+        actionID: "action-browser-unavailable",
+        sessionID: SESSION_ID,
+        completion: { outcome: "failed", reason: "navigation_failed" },
       },
     ])
   })
@@ -567,6 +602,34 @@ describe("DirectoryWorkspaceClientActionLedger", () => {
     }
   })
 
+  test("refuses Browser capture before calling the desktop pixel API", async () => {
+    let captureCalls = 0
+    setRuntimePlatform({
+      ...createBrowserPlatform(),
+      platform: "desktop",
+      async captureBenchScreenshot() {
+        captureCalls += 1
+        return "iVBORw0KGgo="
+      },
+    })
+    try {
+      const harness = createHarness()
+      await harness.ledger.handle(captureAction("action-browser-capture", null, BROWSER_TARGET))
+
+      expect(captureCalls).toBe(0)
+      expect(harness.executed).toHaveLength(0)
+      expect(harness.completions).toEqual([
+        {
+          actionID: "action-browser-capture",
+          sessionID: SESSION_ID,
+          completion: { outcome: "failed", reason: "capture_unavailable" },
+        },
+      ])
+    } finally {
+      setRuntimePlatform(createBrowserPlatform())
+    }
+  })
+
   test("captures the immersive workspace but rejects a selected-tab change", async () => {
     const titlebar = document.createElement("div")
     const workspace = document.createElement("section")
@@ -607,6 +670,64 @@ describe("DirectoryWorkspaceClientActionLedger", () => {
       ])
     } finally {
       titlebar.remove()
+      workspace.remove()
+      setRuntimePlatform(createBrowserPlatform())
+    }
+  })
+
+  test("masks every Browser webview for the full capture interval during a tab switch", async () => {
+    const workspace = document.createElement("section")
+    const region = document.createElement("div")
+    const browserWebview = document.createElement("webview")
+    workspace.dataset.component = "directory-chat-right-workspace"
+    workspace.dataset.benchVisible = "true"
+    workspace.dataset.selector = WORKSPACE_DRAWER_NONE
+    workspace.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600)
+    region.dataset.component = "right-workspace-bench-target"
+    region.dataset.benchVisible = "true"
+    region.dataset.benchTabKey = "file:markdown:notes.md"
+    region.dataset.benchTargetKey = benchTargetKey(TARGET)
+    browserWebview.dataset.browserTabId = BROWSER_TARGET.tabID
+    workspace.append(region, browserWebview)
+    document.body.append(workspace)
+
+    let resolveCapture: ((pngBase64: string) => void) | undefined
+    let signalCaptureStarted: (() => void) | undefined
+    const captureStarted = new Promise<void>((resolve) => {
+      signalCaptureStarted = resolve
+    })
+    setRuntimePlatform({
+      ...createBrowserPlatform(),
+      platform: "desktop",
+      captureBenchScreenshot() {
+        signalCaptureStarted?.()
+        expect(document.documentElement.dataset.benchCapturePrivacy).toBe("true")
+        return new Promise<string>((resolve) => {
+          resolveCapture = resolve
+        })
+      },
+    })
+    try {
+      const harness = createHarness()
+      const completion = harness.ledger.handle(captureAction("action-browser-switch-capture"))
+      await captureStarted
+
+      expect(document.documentElement.dataset.benchCapturePrivacy).toBe("true")
+      region.dataset.benchTabKey = `browser:${encodeURIComponent(BROWSER_TARGET.tabID)}`
+      region.dataset.benchTargetKey = benchTargetKey(BROWSER_TARGET)
+      resolveCapture?.("iVBORw0KGgo=")
+      await completion
+
+      expect(document.documentElement.dataset.benchCapturePrivacy).toBeUndefined()
+      expect(harness.completions).toEqual([
+        {
+          actionID: "action-browser-switch-capture",
+          sessionID: SESSION_ID,
+          completion: { outcome: "failed", reason: "capture_failed" },
+        },
+      ])
+    } finally {
+      document.documentElement.removeAttribute("data-bench-capture-privacy")
       workspace.remove()
       setRuntimePlatform(createBrowserPlatform())
     }

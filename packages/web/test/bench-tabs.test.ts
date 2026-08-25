@@ -42,6 +42,16 @@ const SUBAGENT_SESSION = {
   type: "session",
   sessionID: "session/child-1",
 } satisfies BenchSessionTarget
+const BROWSER_TAB = {
+  type: "browser",
+  tabID: "browser/one",
+  url: "https://hibuddy.in/",
+} satisfies BenchTarget
+const BLANK_BROWSER_TAB = {
+  type: "browser",
+  tabID: "browser/blank",
+  url: "about:blank",
+} satisfies BenchTarget
 
 function threeTabs() {
   return [FIRST_FILE, SECOND_FILE, THIRD_FILE].reduce(
@@ -55,6 +65,20 @@ describe("Bench tabs", () => {
     expect(benchTabKey(FIRST_FILE)).toBe("file:markdown:docs%2Ffirst.md")
     expect(benchTabKey(OBJECT_REVISION_ONE)).toBe("object:resource:resource-1:reader")
     expect(benchTabKey(OBJECT_REVISION_ONE)).not.toContain("\u0000")
+    expect(benchTabKey(BROWSER_TAB)).toBe("browser:browser%2Fone")
+  })
+
+  test("uses live browser titles with a hostname fallback", () => {
+    const tab = upsertBenchTab([], BROWSER_TAB).tabs[0]
+    if (!tab) throw new Error("Expected a browser tab.")
+
+    expect(resolveBenchTabTitle(tab, new Map())).toBe("hibuddy.in")
+    expect(
+      resolveBenchTabTitle(tab, new Map(), new Map(), new Map([[BROWSER_TAB.tabID, "HiBuddy"]])),
+    ).toBe("HiBuddy")
+    const blankTab = upsertBenchTab([], BLANK_BROWSER_TAB).tabs[0]
+    if (!blankTab) throw new Error("Expected a blank browser tab.")
+    expect(resolveBenchTabTitle(blankTab, new Map())).toBe("New tab")
   })
 
   test("uses logical identity and replaces a tab target without moving it", () => {

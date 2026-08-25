@@ -112,7 +112,7 @@
     "typecheck": "bun ./script/typecheck-lock.ts -- bun run typecheck:raw",
     "typecheck:raw": "bun run sdk:generate && bun ./node_modules/turbo/bin/turbo run typecheck --filter='@buddy/*' --only --concurrency=1 --output-logs=errors-only",
     "test": "bun run test:contracts && bun run --cwd packages/buddy test && bun run --cwd packages/web test",
-    "test:contracts": "bun run --cwd packages/buddy test:contracts && bun run --cwd packages/web test:contracts",
+    "test:contracts": "bun run --cwd packages/browser-contract test && bun run --cwd packages/buddy test:contracts && bun run --cwd packages/web test:contracts",
     "check:contracts": "bun run test:contracts",
     "check:vendor": "bun run typecheck && bun run test",
     "vendor:sync-catalog": "bun ./script/sync-opencode-catalog.ts",

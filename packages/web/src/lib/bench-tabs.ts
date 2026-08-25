@@ -1,4 +1,5 @@
 import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
+import { inAppBrowserFallbackTitle } from "@buddy/browser-contract"
 import { isSameBenchTarget, readBenchTabTarget, type BenchTabTarget } from "@/lib/bench-targets"
 
 export type BenchTab = {
@@ -17,6 +18,9 @@ export function benchTabKey(target: BenchTabTarget): string {
   if (target.type === "session") {
     return `session:${encodeURIComponent(target.sessionID)}`
   }
+  if (target.type === "browser") {
+    return `browser:${encodeURIComponent(target.tabID)}`
+  }
   if (target.type === "workspace-file") {
     return `file:${target.viewer}:${encodeURIComponent(target.path)}`
   }
@@ -26,6 +30,7 @@ export function benchTabKey(target: BenchTabTarget): string {
 
 export function benchTabFallbackTitle(target: BenchTabTarget): string {
   if (target.type === "session") return "Subagent"
+  if (target.type === "browser") return inAppBrowserFallbackTitle(target.url)
   if (target.type === "workspace-file") {
     return target.path.replaceAll("\\", "/").split("/").at(-1) ?? target.path
   }
@@ -55,12 +60,16 @@ export function resolveBenchTabTitle(
   tab: BenchTab,
   objectTitles: ReadonlyMap<string, string>,
   sessionTitles: ReadonlyMap<string, string> = EMPTY_BENCH_TAB_TITLES,
+  browserTitles: ReadonlyMap<string, string> = EMPTY_BENCH_TAB_TITLES,
 ): string {
   if (tab.target.type === "session") {
     return sessionTitles.get(tab.target.sessionID) ?? benchTabFallbackTitle(tab.target)
   }
   if (tab.target.type === "object") {
     return objectTitles.get(tab.target.ref.objectID) ?? benchTabFallbackTitle(tab.target)
+  }
+  if (tab.target.type === "browser") {
+    return browserTitles.get(tab.target.tabID) ?? benchTabFallbackTitle(tab.target)
   }
   return benchTabFallbackTitle(tab.target)
 }

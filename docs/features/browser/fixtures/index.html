@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Buddy Browser Test</title>
+    <link
+      rel="icon"
+      href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9WlP8AAAAASUVORK5CYII="
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        margin: 0 auto;
+        max-width: 44rem;
+        padding: 3rem 1.5rem 12rem;
+      }
+      section {
+        border-block-start: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+        margin-block-start: 2rem;
+        padding-block-start: 1.25rem;
+      }
+      button,
+      input,
+      a {
+        font: inherit;
+      }
+      button,
+      a {
+        margin: 0.25rem 0.5rem 0.25rem 0;
+      }
+      output {
+        display: block;
+        margin-block-start: 0.75rem;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Buddy Browser Test</h1>
+    <p id="location"></p>
+
+    <section>
+      <h2>Live page state</h2>
+      <button id="increment" type="button">Counter: 0</button>
+      <label>
+        Text kept while switching tabs
+        <input id="remembered-text" autocomplete="off" />
+      </label>
+    </section>
+
+    <section>
+      <h2>Shared session</h2>
+      <button id="set-cookie" type="button">Set test cookie</button>
+      <output id="cookie"></output>
+    </section>
+
+    <section>
+      <h2>Browser boundaries</h2>
+      <button id="popup" type="button">Open popup</button>
+      <a href="/?popup=link" target="_blank">Open popup link</a>
+      <a href="download.txt" download>Download file</a>
+      <a href="mailto:browser-test@hibuddy.in">Open mail app</a>
+      <button id="camera" type="button">Request camera</button>
+      <button id="clipboard" type="button">Copy text</button>
+      <output id="result"></output>
+    </section>
+
+    <script>
+      const locationOutput = document.querySelector("#location")
+      const incrementButton = document.querySelector("#increment")
+      const cookieOutput = document.querySelector("#cookie")
+      const resultOutput = document.querySelector("#result")
+      let count = 0
+
+      locationOutput.textContent = `URL: ${window.location.href}`
+      cookieOutput.textContent = `Cookie: ${document.cookie || "none"}`
+
+      incrementButton.addEventListener("click", () => {
+        count += 1
+        incrementButton.textContent = `Counter: ${count}`
+      })
+
+      document.querySelector("#set-cookie").addEventListener("click", () => {
+        document.cookie = "buddy_browser_fixture=persisted; max-age=86400; SameSite=Lax"
+        cookieOutput.textContent = `Cookie: ${document.cookie}`
+      })
+
+      document.querySelector("#popup").addEventListener("click", () => {
+        window.open("/?popup=opened", "_blank")
+      })
+
+      document.querySelector("#camera").addEventListener("click", async () => {
+        try {
+          await navigator.mediaDevices.getUserMedia({ video: true })
+          resultOutput.textContent = "Camera: allowed"
+        } catch {
+          resultOutput.textContent = "Camera: denied"
+        }
+      })
+
+      document.querySelector("#clipboard").addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText("Buddy Browser clipboard test")
+          resultOutput.textContent = "Clipboard: written"
+        } catch {
+          resultOutput.textContent = "Clipboard: denied"
+        }
+      })
+    </script>
+  </body>
+</html>

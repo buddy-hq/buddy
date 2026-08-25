@@ -2,6 +2,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type ComponentType,
   type CSSProperties,
   type KeyboardEvent,
@@ -9,6 +10,7 @@ import {
 import "@/components/prompt/composer-surfaces.css"
 import "@/components/bench/bench-tabs.css"
 import { useQuery } from "@tanstack/react-query"
+import { useShallow } from "zustand/react/shallow"
 import {
   Button,
   ContextMenu,
@@ -38,9 +40,12 @@ import {
 import type { BenchObjectKind } from "@/lib/bench-navigation"
 import { BenchNewTabPopover } from "@/components/bench/bench-new-tab-popover"
 import { resolveBenchTabTitle, type BenchTab } from "@/lib/bench-tabs"
+import { inAppBrowserFaviconForUrl } from "@/lib/in-app-browser-events"
 import { parseSubagentSession } from "@/lib/session-family"
 import { useChatStore } from "@/state/chat-store"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
+import { useInAppBrowserTabsStore } from "@/state/in-app-browser-tabs-store"
+import type { InAppBrowserTabRuntime } from "@/state/in-app-browser-tabs-store"
 
 type BenchTabsProps = {
   directory: string
@@ -67,6 +72,7 @@ type BenchTabItemProps = {
   onCloseOthers: () => void
   onCloseToRight: () => void
   onCloseAll: () => void
+  browserRuntime?: InAppBrowserTabRuntime
 }
 
 const TAB_ICON_CLASS = "size-3.5 shrink-0"
@@ -105,10 +111,40 @@ function objectTabIcon(kind: BenchObjectKind): ComponentType<{ className?: strin
 
 function benchTabIcon(target: BenchTab["target"]): ComponentType<{ className?: string }> {
   if (target.type === "session") return Bot
+  if (target.type === "browser") return Globe
   if (target.type === "workspace-file") {
     return target.viewer === "markdown" ? FileTextIcon : FileIcon
   }
   return objectTabIcon(target.ref.kind)
+}
+
+function BrowserTabFavicon(props: {
+  runtime: InAppBrowserTabRuntime | undefined
+  fallbackUrl: string
+}) {
+  const url = props.runtime?.url ?? props.fallbackUrl
+  const favicon = inAppBrowserFaviconForUrl(props.runtime?.favicon ?? null, url)
+  return (
+    <BrowserTabFaviconAttempt
+      key={favicon?.dataUrl ?? "no-favicon"}
+      source={favicon?.dataUrl ?? null}
+    />
+  )
+}
+
+function BrowserTabFaviconAttempt(props: { source: string | null }) {
+  const [failed, setFailed] = useState(false)
+  if (!props.source || failed) return <Globe className={TAB_ICON_CLASS} />
+  return (
+    <img
+      src={props.source}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      className={`${TAB_ICON_CLASS} rounded-sm object-contain`}
+      onError={() => setFailed(true)}
+    />
+  )
 }
 
 function BenchTabItem(props: BenchTabItemProps) {
@@ -162,7 +198,14 @@ function BenchTabItem(props: BenchTabItemProps) {
                 aria-selected={props.active}
                 className="bench-tab-label flex h-full min-w-0 flex-1 items-center gap-1.5 outline-none"
               >
-                <Icon className={TAB_ICON_CLASS} />
+                {props.tab.target.type === "browser" ? (
+                  <BrowserTabFavicon
+                    runtime={props.browserRuntime}
+                    fallbackUrl={props.tab.target.url}
+                  />
+                ) : (
+                  <Icon className={TAB_ICON_CLASS} />
+                )}
                 <span className="bench-tab-title min-w-0 flex-1">{props.title}</span>
               </button>
             </TooltipTrigger>
@@ -222,6 +265,22 @@ export function BenchTabs(props: BenchTabsProps) {
     }
     return titles
   }, [sessions])
+  const browserRuntimes = useInAppBrowserTabsStore(
+    useShallow((state) => {
+      const runtimes = new Map<string, InAppBrowserTabRuntime>()
+      for (const tab of props.tabs) {
+        if (tab.target.type !== "browser") continue
+        const runtime = state.byTabID[tab.target.tabID]
+        if (runtime) runtimes.set(tab.target.tabID, runtime)
+      }
+      return runtimes
+    }),
+  )
+  const browserTitles = useMemo(() => {
+    const titles = new Map<string, string>()
+    for (const [tabID, runtime] of browserRuntimes) titles.set(tabID, runtime.title)
+    return titles
+  }, [browserRuntimes])
   const stripStyle: CSSProperties & Record<typeof TAB_COUNT_PROPERTY, string> = {
     [TAB_COUNT_PROPERTY]: String(props.tabs.length),
   }
@@ -318,7 +377,7 @@ export function BenchTabs(props: BenchTabsProps) {
           style={stripStyle}
         >
           {props.tabs.map((tab, index) => {
-            const title = resolveBenchTabTitle(tab, objectTitles, sessionTitles)
+            const title = resolveBenchTabTitle(tab, objectTitles, sessionTitles, browserTitles)
             return (
               <BenchTabItem
                 key={tab.key}
@@ -332,6 +391,11 @@ export function BenchTabs(props: BenchTabsProps) {
                 onCloseOthers={() => props.onCloseOthers(tab.key)}
                 onCloseToRight={() => props.onCloseToRight(tab.key)}
                 onCloseAll={props.onCloseAll}
+                browserRuntime={
+                  tab.target.type === "browser"
+                    ? browserRuntimes.get(tab.target.tabID)
+                    : undefined
+                }
               />
             )
           })}

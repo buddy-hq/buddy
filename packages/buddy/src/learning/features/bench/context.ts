@@ -1,5 +1,10 @@
 import path from "node:path"
 import z from "zod"
+import {
+  IN_APP_BROWSER_TITLE_MAX_LENGTH,
+  IN_APP_BROWSER_URL_MAX_LENGTH,
+  isInAppBrowserTargetUrl,
+} from "@buddy/browser-contract"
 import { BuddyObjectRefSchema, nonEmptyString } from "../../../objects"
 
 const BENCH_CONTEXT_REGISTRY_LIMIT = 512
@@ -18,6 +23,9 @@ const BENCH_DRAWER_KIND_VALUES = [
 
 const BenchContextStatusSchema = z.enum(["ready", "loading", "dirty", "error", "unavailable"])
 const BenchDrawerKindSchema = z.enum(BENCH_DRAWER_KIND_VALUES)
+const BrowserUrlSchema = nonEmptyString
+  .max(IN_APP_BROWSER_URL_MAX_LENGTH)
+  .refine(isInAppBrowserTargetUrl, "Browser URL must be HTTP, HTTPS, or about:blank.")
 
 const WorkspaceFileBenchTargetSchema = z
   .object({
@@ -35,8 +43,17 @@ const ObjectBenchTargetSchema = z
   })
   .strict()
 
+const BrowserBenchTargetSchema = z
+  .object({
+    type: z.literal("browser"),
+    tabID: nonEmptyString,
+    url: BrowserUrlSchema,
+  })
+  .strict()
+
 const BenchTargetSchema = z.discriminatedUnion("type", [
   WorkspaceFileBenchTargetSchema,
+  BrowserBenchTargetSchema,
   ObjectBenchTargetSchema,
 ])
 
@@ -64,8 +81,22 @@ const PublishedObjectBenchContextTargetSchema = z
   })
   .strict()
 
+const PublishedBrowserBenchContextTargetSchema = z
+  .object({
+    type: z.literal("browser"),
+    title: nonEmptyString.max(IN_APP_BROWSER_TITLE_MAX_LENGTH),
+    workspaceRoot: nonEmptyString,
+    tabID: nonEmptyString,
+    url: BrowserUrlSchema,
+    loading: z.boolean(),
+    route: nonEmptyString,
+    status: BenchContextStatusSchema,
+  })
+  .strict()
+
 const BenchContextTargetSchema = z.discriminatedUnion("type", [
   PublishedWorkspaceFileBenchContextTargetSchema,
+  PublishedBrowserBenchContextTargetSchema,
   PublishedObjectBenchContextTargetSchema,
 ])
 
@@ -122,6 +153,15 @@ const BenchReadContextParkedOutputSchema = z
     mode: z.enum(["docked", "floating"]),
     selectedTabKey: nonEmptyString,
     tabs: z.array(BenchTabSummarySchema),
+    selectedBrowser: z
+      .object({
+        tabID: nonEmptyString,
+        url: BrowserUrlSchema,
+        title: nonEmptyString.max(IN_APP_BROWSER_TITLE_MAX_LENGTH),
+        loading: z.boolean(),
+      })
+      .strict()
+      .nullable(),
     drawer: z.null(),
   })
   .strict()
@@ -160,6 +200,7 @@ const closedBenchContext = {
 } as const
 
 type BenchTarget = z.infer<typeof BenchTargetSchema>
+type BrowserBenchTarget = z.infer<typeof BrowserBenchTargetSchema>
 type WorkspaceFileBenchTarget = z.infer<typeof WorkspaceFileBenchTargetSchema>
 type ObjectBenchTarget = z.infer<typeof ObjectBenchTargetSchema>
 type BenchClientLeaseIdentity = z.infer<typeof BenchClientLeaseIdentitySchema>
@@ -372,6 +413,9 @@ function clearBenchContextRegistry(): void {
 
 function benchTargetKey(target: BenchTarget): string {
   const parsed = BenchTargetSchema.parse(target)
+  if (parsed.type === "browser") {
+    return ["browser", encodeURIComponent(parsed.tabID)].join(BENCH_TARGET_KEY_PART_SEPARATOR)
+  }
   if (parsed.type === "workspace-file") {
     return ["workspace-file", parsed.viewer, encodeURIComponent(parsed.path)].join(
       BENCH_TARGET_KEY_PART_SEPARATOR,
@@ -425,7 +469,9 @@ export {
   BenchReadContextOutputSchema,
   BenchTabSummarySchema,
   BenchTargetSchema,
+  BrowserBenchTargetSchema,
   ObjectBenchTargetSchema,
+  PublishedBrowserBenchContextTargetSchema,
   PublishedObjectBenchContextTargetSchema,
   PublishedWorkspaceFileBenchContextTargetSchema,
   PublishBenchContextResponseSchema,
@@ -449,6 +495,7 @@ export type {
   BenchTabSummary,
   PublishBenchContextInput,
   BenchTarget,
+  BrowserBenchTarget,
   ObjectBenchTarget,
   PublishBenchContextResponse,
   StoredBenchContextSnapshot,

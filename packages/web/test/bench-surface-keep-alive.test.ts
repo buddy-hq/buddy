@@ -4,6 +4,7 @@ import {
   BENCH_SURFACE_COST_HEAVY,
   BENCH_SURFACE_COST_LIGHT,
   BENCH_SURFACE_COST_READER,
+  BENCH_SURFACE_COST_BROWSER,
   benchSurfaceCostClass,
   releaseBenchSurfaceInstances,
   retainBenchSurfaceInstance,
@@ -30,6 +31,10 @@ function whiteboardTarget(objectID: string): BenchTarget {
   }
 }
 
+function browserTarget(tabID: string): BenchTarget {
+  return { type: "browser", tabID, url: `https://example.com/${tabID}` }
+}
+
 function retainAll(targets: BenchTarget[]): BenchSurfaceInstance[] {
   return targets.reduce<BenchSurfaceInstance[]>(
     (instances, target) => retainBenchSurfaceInstance({ instances, target }),
@@ -44,6 +49,9 @@ describe("bench surface keep-alive", () => {
     expect(benchSurfaceCostClass(objectTarget("resource"))).toBe(BENCH_SURFACE_COST_READER)
     expect(benchSurfaceCostClass(fileTarget("docs/intro.md"))).toBe(BENCH_SURFACE_COST_LIGHT)
     expect(benchSurfaceCostClass(objectTarget("question-set"))).toBe(BENCH_SURFACE_COST_LIGHT)
+    expect(benchSurfaceCostClass(browserTarget("browser-1"))).toBe(
+      BENCH_SURFACE_COST_BROWSER,
+    )
   })
 
   test("keeps a previously active surface mounted so returning to it does not rebuild", () => {
@@ -113,6 +121,18 @@ describe("bench surface keep-alive", () => {
     expect(instances.map((instance) => instance.key)).toEqual(readers.map(benchTargetKey))
     expect(
       instances.every((instance) => instance.costClass === BENCH_SURFACE_COST_READER),
+    ).toBeTrue()
+  })
+
+  test("keeps every open Browser tab mounted beyond the light-surface budget", () => {
+    const browsers = Array.from({ length: 12 }, (_, index) =>
+      browserTarget(`browser-${index}`),
+    )
+    const instances = retainAll(browsers)
+
+    expect(instances.map((instance) => instance.key)).toEqual(browsers.map(benchTargetKey))
+    expect(
+      instances.every((instance) => instance.costClass === BENCH_SURFACE_COST_BROWSER),
     ).toBeTrue()
   })
 

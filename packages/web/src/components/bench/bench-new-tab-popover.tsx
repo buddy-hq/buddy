@@ -12,7 +12,9 @@ import {
   Skeleton,
   cn,
 } from "@buddy/ui"
-import { PlusIcon } from "@/icons/app-icons"
+import { IN_APP_BROWSER_BLANK_URL } from "@buddy/browser-contract"
+import { Globe, PlusIcon } from "@/icons/app-icons"
+import { usePlatform } from "@/context/platform"
 import { BENCH_MODE_REQUEST_POLICY } from "@/lib/bench-navigation"
 import {
   NOTEBOOK_SEARCH_FILTER_ALL,
@@ -39,6 +41,22 @@ type BenchNewTabSearchProps = {
 const NEW_TAB_LABEL = "Open in a new tab"
 const NEW_TAB_RECENT_LIMIT = 8
 const NEW_TAB_SKELETON_ROWS = 4
+const NEW_BROWSER_TAB_SEARCH_TERMS = ["browser", "new tab", "web"]
+
+export function benchNewBrowserTabMatchesQuery(query: string): boolean {
+  const normalized = query.trim().toLowerCase()
+  return (
+    normalized.length === 0 ||
+    NEW_BROWSER_TAB_SEARCH_TERMS.some((term) => term.includes(normalized))
+  )
+}
+
+export function benchNewBrowserTabIsVisible(input: {
+  browserAvailable: boolean
+  query: string
+}): boolean {
+  return input.browserAvailable && benchNewBrowserTabMatchesQuery(input.query)
+}
 
 function BenchNewTabMessage(props: { children: string }) {
   return <p className="px-2 py-6 text-center text-xs text-text-weaker">{props.children}</p>
@@ -61,6 +79,7 @@ function BenchNewTabSectionLabel(props: { children: string }) {
  * owner-aware subagent links, not this content picker.
  */
 function BenchNewTabSearch(props: BenchNewTabSearchProps) {
+  const platform = usePlatform()
   const [query, setQuery] = useState("")
   const search = useNotebookSearch({
     directory: props.directory,
@@ -73,6 +92,10 @@ function BenchNewTabSearch(props: BenchNewTabSearchProps) {
   const openTarget = useRightWorkspaceOpen({ mode: BENCH_MODE_REQUEST_POLICY })
   const showingRecents = !search.hasQuery
   const results = showingRecents ? search.recents : search.results
+  const showBrowser = benchNewBrowserTabIsVisible({
+    browserAvailable: platform.inAppBrowser !== undefined,
+    query,
+  })
 
   // The picker outlives the request: dismissing it up front would throw away
   // the query along with the popover on an open that never landed a tab.
@@ -80,6 +103,19 @@ function BenchNewTabSearch(props: BenchNewTabSearchProps) {
     const request = notebookSearchOpenRequest({ result, directory: props.directory })
     if (!request) return
     const outcome = await openTarget(request)
+    if (rightWorkspaceOpenSettled(outcome)) props.onOpened()
+  }
+
+  async function openBrowser() {
+    const outcome = await openTarget({
+      type: "object",
+      directory: props.directory,
+      target: {
+        type: "browser",
+        tabID: crypto.randomUUID(),
+        url: IN_APP_BROWSER_BLANK_URL,
+      },
+    })
     if (rightWorkspaceOpenSettled(outcome)) props.onOpened()
   }
 
@@ -156,7 +192,23 @@ function BenchNewTabSearch(props: BenchNewTabSearchProps) {
         placeholder="Search this notebook…"
         onValueChange={setQuery}
       />
-      <CommandList className="max-h-80 px-1 pb-1">{renderBody()}</CommandList>
+      <CommandList className="max-h-80 px-1 pb-1">
+        {showBrowser ? (
+          <CommandItem
+            value="new-browser-tab"
+            data-action="bench-new-browser-tab"
+            className="mt-1"
+            onSelect={() => void openBrowser()}
+          >
+            <Globe className="size-3.5 shrink-0 text-icon-base" aria-hidden />
+            <span className="min-w-0 flex-1 truncate">Browser</span>
+            <CommandShortcut className="text-[11px] tracking-normal text-text-weaker">
+              New tab
+            </CommandShortcut>
+          </CommandItem>
+        ) : null}
+        {renderBody()}
+      </CommandList>
     </Command>
   )
 }

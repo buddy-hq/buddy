@@ -26,6 +26,7 @@
     "stress:chemistry-renderer": "bun ./scripts/stress-chemistry-renderer.ts"
   },
   "dependencies": {
+    "@buddy/browser-contract": "workspace:*",
     "@buddy/opencode-adapter": "workspace:*",
     "@buddy/reader-contract": "workspace:*",
     "@buddy/sdk": "workspace:*",
