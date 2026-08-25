@@ -331,6 +331,8 @@ describe("config jsonc", () => {
       mkdirSync(path.dirname(filepath), { recursive: true })
       writeFileSync(filepath, original)
 
+      await expect(Config.getProjectFile(repo)).rejects.toBeInstanceOf(InvalidError)
+
       await expect(
         Config.updateProject(
           repo,

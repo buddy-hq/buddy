@@ -129,6 +129,8 @@ async function loadConfigTextWithSchema<T extends TConfigDocument>(
     })
   }
 
+  assertNoDuplicateConfigProperties(text, source)
+
   const parsed = safeParsePersistedConfig(parseConfigJsonValue(data), schema, parseOptions)
   if (!parsed.success) {
     throw new InvalidError({ path: source, issues: parsed.error.issues }, { cause: parsed.error })
@@ -201,15 +203,7 @@ function parseJsoncValue(text: string, filepath: string): TConfigJsonValue | und
     })
   }
 
-  const duplicate = findDuplicateConfigProperty(text)
-  if (duplicate !== undefined) {
-    throw new InvalidError({
-      path: filepath,
-      message:
-        `Duplicate config key ${JSON.stringify(duplicate.key)} at line ` +
-        `${duplicate.line}, column ${duplicate.column}. Remove duplicate keys and try again.`,
-    })
-  }
+  assertNoDuplicateConfigProperties(text, filepath)
 
   if (value === undefined) return undefined
   const parsed = parseConfigJsonValue(value)
@@ -220,6 +214,18 @@ function parseJsoncValue(text: string, filepath: string): TConfigJsonValue | und
     })
   }
   return parsed
+}
+
+function assertNoDuplicateConfigProperties(text: string, filepath: string): void {
+  const duplicate = findDuplicateConfigProperty(text)
+  if (duplicate === undefined) return
+
+  throw new InvalidError({
+    path: filepath,
+    message:
+      `Duplicate config key ${JSON.stringify(duplicate.key)} at line ` +
+      `${duplicate.line}, column ${duplicate.column}. Remove duplicate keys and try again.`,
+  })
 }
 
 // jsonc-parser edits the first matching key but resolves the last duplicate when parsing.
