@@ -230,7 +230,7 @@ describe("config jsonc", () => {
   })
 
   test.each(["buddy.jsonc", "buddy.json"])(
-    "preserves unknown properties when adding an MCP entry to %s",
+    "replaces known MCP fields and preserves unknown properties in %s",
     async (filename) => {
       const repo = createGitRepo(`buddy-config-mcp-preserve-unknown-${filename}`)
       const filepath = projectConfigFile(repo, filename)
@@ -241,9 +241,10 @@ describe("config jsonc", () => {
           {
             future_setting: true,
             mcp: {
-              existing: {
+              docs: {
                 type: "remote",
                 url: "https://existing.example.com",
+                enabled: true,
                 future_option: "keep-me",
               },
             },
@@ -257,21 +258,22 @@ describe("config jsonc", () => {
         repo,
         "docs",
         Config.Mcp.parse({
-          type: "remote",
-          url: "https://docs.example.com",
-          enabled: true,
+          type: "local",
+          command: ["docs-server"],
         }),
       )
 
       const saved = parseJsonObject(JSON.parse(readFileSync(filepath, "utf8")))
       const savedMcp = parseJsonObject(saved?.mcp)
+      const savedDocs = parseJsonObject(savedMcp?.docs)
       expect(saved?.future_setting).toBe(true)
-      expect(parseJsonObject(savedMcp?.existing)?.future_option).toBe("keep-me")
-      expect(savedMcp?.docs).toEqual({
-        type: "remote",
-        url: "https://docs.example.com",
-        enabled: true,
+      expect(savedDocs).toEqual({
+        type: "local",
+        command: ["docs-server"],
+        future_option: "keep-me",
       })
+      expect(savedDocs?.url).toBeUndefined()
+      expect(savedDocs?.enabled).toBeUndefined()
     },
   )
 

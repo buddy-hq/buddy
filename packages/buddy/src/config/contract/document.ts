@@ -216,7 +216,7 @@ function parseJsoncValue(text: string, filepath: string): TConfigJsonValue | und
   if (parsed === undefined) {
     throw new JsonError({
       path: filepath,
-      message: formatParseErrors(text, errors),
+      message: "Config document contains an unsupported JSON value",
     })
   }
   return parsed

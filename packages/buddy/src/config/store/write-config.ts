@@ -5,7 +5,6 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import {
   loadConfigText,
   loadProjectConfigText,
-  patchJsoncDocument,
   removeConfigDocumentValue,
   updateKnownConfigDocument,
 } from "../contract/document.js"
@@ -17,7 +16,7 @@ import {
   resolveProjectConfigContext,
   resolveProjectConfigFile,
 } from "./config-paths.js"
-import { Info } from "./types.js"
+import { Info, ProjectInfo } from "./types.js"
 import type { Mcp, Info as ConfigInfo, ProjectInfo as ProjectConfigInfo } from "./types.js"
 
 type GlobalConfigMutation = (current: ConfigInfo) => ConfigInfo
@@ -121,17 +120,20 @@ export async function setProjectMcpConfig(
   await ensureParentDirectory(filepath)
 
   const before = await readConfigTextOrDefault(filepath)
-  await loadProjectConfigDocument(before, filepath)
+  const current = await loadProjectConfigDocument(before, filepath)
+  const next = ProjectInfo.parse({
+    ...current,
+    mcp: {
+      ...current.mcp,
+      [name]: mcp,
+    },
+  })
   let updated = removeConfigDocumentValue(
     before,
     filepath,
     [...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH],
   )
-  updated = patchJsoncDocument(updated, {
-    mcp: {
-      [name]: mcp,
-    },
-  })
+  updated = updateKnownConfigDocument(updated, current, next, filepath)
   await loadProjectConfigDocument(updated, filepath)
   await fsp.writeFile(filepath, updated, "utf8")
 }
