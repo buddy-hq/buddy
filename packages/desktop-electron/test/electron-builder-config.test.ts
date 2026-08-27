@@ -1,17 +1,18 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import config from "../electron-builder.config"
+import { createElectronBuilderConfiguration } from "../electron-builder-config"
 import {
   WINDOWS_RELEASE_ARCHS,
   resolveWindowsReleaseArtifactPattern,
 } from "../src/shared/release-asset-names"
 
 describe("electron-builder config", () => {
-  test("packages Buddy and third-party license notices", () => {
-    const testDirectory = path.dirname(fileURLToPath(import.meta.url))
-    const repositoryRoot = path.resolve(testDirectory, "../../..")
+  const testDirectory = path.dirname(fileURLToPath(import.meta.url))
+  const repositoryRoot = path.resolve(testDirectory, "../../..")
+  const config = createElectronBuilderConfiguration({ channel: "prod", repositoryRoot })
 
+  test("packages Buddy and third-party license notices", () => {
     expect(config.extraResources).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
