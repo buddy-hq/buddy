@@ -6,6 +6,7 @@ import {
   TEST_SANDBOX_ROOT_ENVIRONMENT_KEY,
   type TestSandbox,
 } from "./test-sandbox"
+import { installTestNetworkGuard } from "./test-network"
 
 const INTERRUPT_EXIT_CODE = 130
 const TERMINATION_EXIT_CODE = 143
@@ -14,6 +15,8 @@ const configuredRoot = process.env[TEST_SANDBOX_ROOT_ENVIRONMENT_KEY]?.trim()
 const ownsRoot = !configuredRoot
 const root = configuredRoot || createTestSandboxRoot()
 const sandbox = configureTestSandbox(root)
+
+installTestNetworkGuard()
 
 let cleaned = false
 
