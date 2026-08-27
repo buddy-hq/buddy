@@ -11,14 +11,14 @@ async function readJson(response: Response) {
 
 describe("session prompt preflight regression", () => {
   test("does not misclassify same-project nested sessions as missing on prompt routes", async () => {
-    const repo = createGitRepo("buddy-session-preflight-same-project")
-    const nested = path.join(repo, "nested")
+    await using repo = await createGitRepo("buddy-session-preflight-same-project")
+    const nested = path.join(repo.path, "nested")
     mkdirSync(nested, { recursive: true })
 
     const createResponse = await app.request("/api/session", {
       method: "POST",
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
     expect(createResponse.status).toBe(200)

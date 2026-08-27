@@ -9,7 +9,7 @@ async function json(response: Response) {
   return requireJsonObject(await response.json())
 }
 
-function createMarkedGitRepo(prefix: string) {
+async function createMarkedGitRepo(prefix: string) {
   return createGitRepo(prefix, { readme: `# ${prefix}-marker\n` })
 }
 
@@ -27,15 +27,15 @@ describe("project-scoped session routes", () => {
   })
 
   test("scopes session access by project and allows same-project directories", async () => {
-    const repoA = createMarkedGitRepo("buddy-route-project-a")
-    const repoASubdir = path.join(repoA, "nested")
+    await using repoA = await createMarkedGitRepo("buddy-route-project-a")
+    const repoASubdir = path.join(repoA.path, "nested")
     mkdirSync(repoASubdir, { recursive: true })
-    const repoB = createMarkedGitRepo("buddy-route-project-b")
+    await using repoB = await createMarkedGitRepo("buddy-route-project-b")
 
     const createA = await app.request("/api/session", {
       method: "POST",
       headers: {
-        "x-buddy-directory": repoA,
+        "x-buddy-directory": repoA.path,
       },
     })
     expect(createA.status).toBe(200)
@@ -58,7 +58,7 @@ describe("project-scoped session routes", () => {
 
     const getB = await app.request(`/api/session/${sessionID}`, {
       headers: {
-        "x-buddy-directory": repoB,
+        "x-buddy-directory": repoB.path,
       },
     })
     expect(getB.status).toBe(404)
@@ -66,29 +66,29 @@ describe("project-scoped session routes", () => {
     const deleteB = await app.request(`/api/session/${sessionID}`, {
       method: "DELETE",
       headers: {
-        "x-buddy-directory": repoB,
+        "x-buddy-directory": repoB.path,
       },
     })
     expect(deleteB.status).toBe(404)
 
     const getAAfterRejectedDelete = await app.request(`/api/session/${sessionID}`, {
       headers: {
-        "x-buddy-directory": repoA,
+        "x-buddy-directory": repoA.path,
       },
     })
     expect(getAAfterRejectedDelete.status).toBe(200)
   })
 
   test("rejects conflicting query and header directory scopes", async () => {
-    const queryDirectory = createMarkedGitRepo("buddy-route-query-priority")
-    const headerDirectory = createMarkedGitRepo("buddy-route-header-priority")
+    await using queryDirectory = await createMarkedGitRepo("buddy-route-query-priority")
+    await using headerDirectory = await createMarkedGitRepo("buddy-route-header-priority")
 
     const create = await app.request(
-      `/api/session?directory=${encodeURIComponent(queryDirectory)}`,
+      `/api/session?directory=${encodeURIComponent(queryDirectory.path)}`,
       {
         method: "POST",
         headers: {
-          "x-buddy-directory": headerDirectory,
+          "x-buddy-directory": headerDirectory.path,
         },
       },
     )
@@ -99,11 +99,11 @@ describe("project-scoped session routes", () => {
     })
 
     const matchingScopes = await app.request(
-      `/api/session?directory=${encodeURIComponent(queryDirectory)}`,
+      `/api/session?directory=${encodeURIComponent(queryDirectory.path)}`,
       {
         method: "POST",
         headers: {
-          "x-buddy-directory": queryDirectory,
+          "x-buddy-directory": queryDirectory.path,
         },
       },
     )
@@ -111,12 +111,12 @@ describe("project-scoped session routes", () => {
   })
 
   test("lists sessions project-wide by default and supports directory filtering", async () => {
-    const repo = createMarkedGitRepo("buddy-route-list-project-scope")
-    const rootDirectory = repo
-    const nestedDirectory = path.join(repo, "workspace")
+    await using repo = await createMarkedGitRepo("buddy-route-list-project-scope")
+    const rootDirectory = repo.path
+    const nestedDirectory = path.join(repo.path, "workspace")
     mkdirSync(nestedDirectory, { recursive: true })
 
-    const repoB = createMarkedGitRepo("buddy-route-list-other-project")
+    await using repoB = await createMarkedGitRepo("buddy-route-list-other-project")
 
     const createRoot = await app.request("/api/session", {
       method: "POST",
@@ -137,7 +137,7 @@ describe("project-scoped session routes", () => {
     const createOtherProject = await app.request("/api/session", {
       method: "POST",
       headers: {
-        "x-buddy-directory": repoB,
+        "x-buddy-directory": repoB.path,
       },
     })
     expect(createOtherProject.status).toBe(200)

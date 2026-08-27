@@ -7,17 +7,17 @@ import { parseJsonArray, parseJsonObject, requireJsonObject } from "../helpers/p
 
 describe("teaching routes", () => {
   test("serializes saves that use the same lesson revision", async () => {
-    const repo = createGitRepo("buddy-route-teaching-concurrent-saves")
+    await using repo = await createGitRepo("buddy-route-teaching-concurrent-saves")
     const sessionID = "session_concurrent_saves"
-    const initial = await TeachingService.ensure(repo, sessionID, "ts")
+    const initial = await TeachingService.ensure(repo.path, sessionID, "ts")
 
     const results = await Promise.allSettled([
-      TeachingService.save(repo, sessionID, {
+      TeachingService.save(repo.path, sessionID, {
         code: "export const winner = 1\n",
         expectedRevision: initial.revision,
         relativePath: initial.activeRelativePath,
       }),
-      TeachingService.save(repo, sessionID, {
+      TeachingService.save(repo.path, sessionID, {
         code: "export const winner = 2\n",
         expectedRevision: initial.revision,
         relativePath: initial.activeRelativePath,
@@ -26,15 +26,15 @@ describe("teaching routes", () => {
 
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
     expect(results.filter((result) => result.status === "rejected")).toHaveLength(1)
-    const current = await TeachingService.read(repo, sessionID)
+    const current = await TeachingService.read(repo.path, sessionID)
     expect(current.revision).toBe(initial.revision + 1)
     expect(["export const winner = 1\n", "export const winner = 2\n"]).toContain(current.code)
   })
 
   test("returns 400 for invalid project config when starting a workspace", async () => {
-    const repo = createGitRepo("buddy-route-teaching-invalid-config")
+    await using repo = await createGitRepo("buddy-route-teaching-invalid-config")
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           personas: {
@@ -51,7 +51,7 @@ describe("teaching routes", () => {
     const response = await app.request("/api/teaching/session/session_1/workspace", {
       method: "POST",
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -66,14 +66,14 @@ describe("teaching routes", () => {
   })
 
   test("includes remote file list in workspace save conflicts", async () => {
-    const repo = createGitRepo("buddy-route-teaching-conflict-files")
+    await using repo = await createGitRepo("buddy-route-teaching-conflict-files")
     const sessionID = "session_conflict_files"
     const headers = {
-      "x-buddy-directory": repo,
+      "x-buddy-directory": repo.path,
       "content-type": "application/json",
     }
 
-    await TeachingService.ensure(repo, sessionID, "ts")
+    await TeachingService.ensure(repo.path, sessionID, "ts")
 
     const addFileResponse = await app.request(`/api/teaching/session/${sessionID}/file`, {
       method: "POST",

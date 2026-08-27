@@ -24,9 +24,9 @@ function createTestProject(directory: string): Project.Info {
 async function withTempProject<T>(fn: (directory: string, root: string) => Promise<T>): Promise<T> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-opencode-file-"))
   const directory = path.join(root, "project")
-  await fs.mkdir(directory)
 
   try {
+    await fs.mkdir(directory)
     return await fn(directory, root)
   } finally {
     await fs.rm(root, { recursive: true, force: true })

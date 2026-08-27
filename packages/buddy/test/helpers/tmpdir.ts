@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import type { Config } from "@buddy/backend/config"
 import { LearnerMemoryPath } from "../../src/learning/features/memory"
 import { projectConfigFile } from "./project-config"
+import { temporaryDirectory } from "./temporary-directory"
 
 type TmpDirOptions<T> = {
   git?: boolean
@@ -26,47 +26,56 @@ async function runGit(args: string[], cwd: string) {
 }
 
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
-  const dirpath = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-test-"))
-  if (!options?.preserveLearnerStore) {
-    await fs.rm(LearnerMemoryPath.root(dirpath), { recursive: true, force: true })
-  }
+  const directory = await temporaryDirectory()
 
-  if (options?.git) {
-    await runGit(["init"], dirpath)
-    await runGit(
-      [
-        "-c",
-        "user.email=buddy@test.local",
-        "-c",
-        "user.name=Buddy Test",
-        "commit",
-        "--allow-empty",
-        "-m",
-        `root commit ${dirpath}`,
-      ],
-      dirpath,
-    )
-  }
+  try {
+    if (!options?.preserveLearnerStore) {
+      await fs.rm(LearnerMemoryPath.root(directory.path), { recursive: true, force: true })
+    }
 
-  if (options?.config) {
-    const configFile = projectConfigFile(dirpath)
-    await fs.mkdir(path.dirname(configFile), { recursive: true })
-    await Bun.write(
-      configFile,
-      JSON.stringify({
-        ...options.config,
-      }),
-    )
-  }
+    if (options?.git) {
+      await runGit(["init"], directory.path)
+      await runGit(
+        [
+          "-c",
+          "user.email=buddy@test.local",
+          "-c",
+          "user.name=Buddy Test",
+          "commit",
+          "--allow-empty",
+          "-m",
+          `root commit ${directory.path}`,
+        ],
+        directory.path,
+      )
+    }
 
-  const extra = options?.init !== undefined ? await options.init(dirpath) : undefined
+    if (options?.config) {
+      const configFile = projectConfigFile(directory.path)
+      await fs.mkdir(path.dirname(configFile), { recursive: true })
+      await Bun.write(
+        configFile,
+        JSON.stringify({
+          ...options.config,
+        }),
+      )
+    }
 
-  return {
-    [Symbol.asyncDispose]: async () => {
-      await options?.dispose?.(dirpath)
-      await fs.rm(dirpath, { recursive: true, force: true })
-    },
-    path: dirpath,
-    extra,
+    const extra = options?.init !== undefined ? await options.init(directory.path) : undefined
+
+    return {
+      [Symbol.asyncDispose]: async () => {
+        try {
+          await options?.dispose?.(directory.path)
+        } finally {
+          await directory[Symbol.asyncDispose]()
+        }
+      },
+      path: directory.path,
+      extra,
+    }
+  } catch (error) {
+    await directory[Symbol.asyncDispose]()
+    throw error
   }
 }

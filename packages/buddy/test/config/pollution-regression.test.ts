@@ -6,10 +6,10 @@ import { createGitRepo } from "../helpers/repo"
 
 describe("config pollution regression", () => {
   test("must NOT create config.json in project root when patching config", async () => {
-    const repo = createGitRepo("buddy-config-pollution-test")
+    await using repository = await createGitRepo("buddy-config-pollution-test")
 
-    const configJsonPath = path.join(repo, "config.json")
-    const opencodeConfigPath = path.join(repo, "opencode.jsonc")
+    const configJsonPath = path.join(repository.path, "config.json")
+    const opencodeConfigPath = path.join(repository.path, "opencode.jsonc")
 
     expect(fs.existsSync(configJsonPath)).toBe(false)
     expect(fs.existsSync(opencodeConfigPath)).toBe(false)
@@ -17,7 +17,7 @@ describe("config pollution regression", () => {
     const patchResponse = await app.request("/api/config", {
       method: "PATCH",
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repository.path,
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -30,15 +30,13 @@ describe("config pollution regression", () => {
 
     expect(fs.existsSync(configJsonPath)).toBe(false)
     expect(fs.existsSync(opencodeConfigPath)).toBe(false)
-
-    fs.rmSync(repo, { recursive: true, force: true })
   })
 
   test("must NOT create config.json during prompt flow", async () => {
-    const repo = createGitRepo("buddy-prompt-config-pollution-test")
+    await using repository = await createGitRepo("buddy-prompt-config-pollution-test")
 
-    const configJsonPath = path.join(repo, "config.json")
-    const opencodeConfigPath = path.join(repo, "opencode.jsonc")
+    const configJsonPath = path.join(repository.path, "config.json")
+    const opencodeConfigPath = path.join(repository.path, "opencode.jsonc")
 
     expect(fs.existsSync(configJsonPath)).toBe(false)
     expect(fs.existsSync(opencodeConfigPath)).toBe(false)
@@ -46,7 +44,7 @@ describe("config pollution regression", () => {
     await app.request("/api/config", {
       method: "PATCH",
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repository.path,
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -60,11 +58,11 @@ describe("config pollution regression", () => {
     expect(fs.existsSync(opencodeConfigPath)).toBe(false)
 
     const headers = {
-      "x-buddy-directory": repo,
+      "x-buddy-directory": repository.path,
     }
 
     const configProvidersResponse = await app.request(
-      `/api/config/providers?directory=${encodeURIComponent(repo)}`,
+      `/api/config/providers?directory=${encodeURIComponent(repository.path)}`,
       {
         headers,
       },
@@ -72,7 +70,7 @@ describe("config pollution regression", () => {
     expect(configProvidersResponse.status).toBe(200)
 
     const providerListResponse = await app.request(
-      `/api/provider?directory=${encodeURIComponent(repo)}`,
+      `/api/provider?directory=${encodeURIComponent(repository.path)}`,
       {
         headers,
       },
@@ -80,21 +78,22 @@ describe("config pollution regression", () => {
     expect(providerListResponse.status).toBe(200)
 
     const commandListResponse = await app.request(
-      `/api/command?directory=${encodeURIComponent(repo)}`,
+      `/api/command?directory=${encodeURIComponent(repository.path)}`,
       {
         headers,
       },
     )
     expect(commandListResponse.status).toBe(200)
 
-    const mcpStatusResponse = await app.request(`/api/mcp?directory=${encodeURIComponent(repo)}`, {
-      headers,
-    })
+    const mcpStatusResponse = await app.request(
+      `/api/mcp?directory=${encodeURIComponent(repository.path)}`,
+      {
+        headers,
+      },
+    )
     expect(mcpStatusResponse.status).toBe(200)
 
     expect(fs.existsSync(configJsonPath)).toBe(false)
     expect(fs.existsSync(opencodeConfigPath)).toBe(false)
-
-    fs.rmSync(repo, { recursive: true, force: true })
   })
 })

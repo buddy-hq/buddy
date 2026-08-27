@@ -25,27 +25,32 @@ function runGit(root: string, args: string[]): void {
 
 async function createGitRepo(input: { commit?: boolean; remote?: string } = {}): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-opencode-project-"))
-  runGit(root, ["init", "-q"])
+  try {
+    runGit(root, ["init", "-q"])
 
-  if (input.commit) {
-    await fs.writeFile(path.join(root, "README.md"), "# test\n", "utf8")
-    runGit(root, ["add", "README.md"])
-    runGit(root, [
-      "-c",
-      "user.email=buddy@test.local",
-      "-c",
-      "user.name=Buddy Test",
-      "commit",
-      "-qm",
-      "init",
-    ])
+    if (input.commit) {
+      await fs.writeFile(path.join(root, "README.md"), "# test\n", "utf8")
+      runGit(root, ["add", "README.md"])
+      runGit(root, [
+        "-c",
+        "user.email=buddy@test.local",
+        "-c",
+        "user.name=Buddy Test",
+        "commit",
+        "-qm",
+        "init",
+      ])
+    }
+
+    if (input.remote) {
+      runGit(root, ["remote", "add", "origin", input.remote])
+    }
+
+    return root
+  } catch (error) {
+    await fs.rm(root, { recursive: true, force: true })
+    throw error
   }
-
-  if (input.remote) {
-    runGit(root, ["remote", "add", "origin", input.remote])
-  }
-
-  return root
 }
 
 describe("Project", () => {
@@ -65,21 +70,25 @@ describe("Project", () => {
 
   test("keeps file-origin repositories distinct when git root commits collide", async () => {
     const first = await createGitRepo({ commit: true })
-    const second = await createGitRepo({ commit: true })
 
     try {
-      runGit(first, ["remote", "add", "origin", `file://${first}`])
-      runGit(second, ["remote", "add", "origin", `file://${second}`])
+      const second = await createGitRepo({ commit: true })
 
-      const firstProject = await Project.fromDirectory(first)
-      const secondProject = await Project.fromDirectory(second)
+      try {
+        runGit(first, ["remote", "add", "origin", `file://${first}`])
+        runGit(second, ["remote", "add", "origin", `file://${second}`])
 
-      expect(firstProject.project.id.startsWith(LOCAL_PROJECT_ID_PREFIX)).toBe(true)
-      expect(secondProject.project.id.startsWith(LOCAL_PROJECT_ID_PREFIX)).toBe(true)
-      expect(firstProject.project.id).not.toBe(secondProject.project.id)
+        const firstProject = await Project.fromDirectory(first)
+        const secondProject = await Project.fromDirectory(second)
+
+        expect(firstProject.project.id.startsWith(LOCAL_PROJECT_ID_PREFIX)).toBe(true)
+        expect(secondProject.project.id.startsWith(LOCAL_PROJECT_ID_PREFIX)).toBe(true)
+        expect(firstProject.project.id).not.toBe(secondProject.project.id)
+      } finally {
+        await fs.rm(second, { recursive: true, force: true })
+      }
     } finally {
       await fs.rm(first, { recursive: true, force: true })
-      await fs.rm(second, { recursive: true, force: true })
     }
   })
 })

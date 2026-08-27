@@ -16,10 +16,10 @@ const ASK_ACTION = "ask"
 
 describe("config external_directory permission", () => {
   test("forces external directory access to ask even when project config sets allow", async () => {
-    const repo = createGitRepo("buddy-config-external-directory-ask")
+    await using repo = await createGitRepo("buddy-config-external-directory-ask")
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           permission: {
@@ -31,11 +31,11 @@ describe("config external_directory permission", () => {
       ) + "\n",
     )
 
-    const action = await withSyncedOpenCodeConfig(repo, async () => {
+    const action = await withSyncedOpenCodeConfig(repo.path, async () => {
       const agent = await OpenCodeAgent.get("buddy")
       return PermissionNext.evaluate(
         EXTERNAL_DIRECTORY_PERMISSION,
-        path.join(path.dirname(repo), "outside", "*"),
+        path.join(path.dirname(repo.path), "outside", "*"),
         agent.permission,
       ).action
     })
@@ -44,9 +44,9 @@ describe("config external_directory permission", () => {
   }, 30_000)
 
   test("allows preloaded managed system skill paths without prompting", async () => {
-    const repo = createGitRepo("buddy-config-external-directory-skills")
+    await using repo = await createGitRepo("buddy-config-external-directory-skills")
 
-    const action = await withSyncedOpenCodeConfig(repo, async () => {
+    const action = await withSyncedOpenCodeConfig(repo.path, async () => {
       const agent = await OpenCodeAgent.get("buddy")
       return PermissionNext.evaluate(
         EXTERNAL_DIRECTORY_PERMISSION,
@@ -59,9 +59,9 @@ describe("config external_directory permission", () => {
   }, 30_000)
 
   test("allows vendor tmp and tool-output paths without prompting", async () => {
-    const repo = createGitRepo("buddy-config-external-directory-vendor-paths")
+    await using repo = await createGitRepo("buddy-config-external-directory-vendor-paths")
 
-    const result = await withSyncedOpenCodeConfig(repo, async () => {
+    const result = await withSyncedOpenCodeConfig(repo.path, async () => {
       const agent = await OpenCodeAgent.get("buddy")
       return {
         tmp: PermissionNext.evaluate(
@@ -82,10 +82,10 @@ describe("config external_directory permission", () => {
   })
 
   test("forwards compaction settings into the OpenCode runtime overlay", async () => {
-    const repo = createGitRepo("buddy-config-compaction-overlay")
+    await using repo = await createGitRepo("buddy-config-compaction-overlay")
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           compaction: {
@@ -97,7 +97,7 @@ describe("config external_directory permission", () => {
       ) + "\n",
     )
 
-    const autoCompactionEnabled = await withSyncedOpenCodeConfig(repo, async () => {
+    const autoCompactionEnabled = await withSyncedOpenCodeConfig(repo.path, async () => {
       const runtimeConfig = await OpenCodeConfig.get()
       return runtimeConfig.compaction?.auto
     })

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import fsp from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import {
   parseGitleaksOutput,
@@ -9,21 +8,27 @@ import {
   parseSemgrepOutput,
   runSkillAudit,
 } from "../../script/skill-audit"
+import { temporaryDirectory, type TemporaryDirectory } from "../helpers/temporary-directory"
 
-async function tempSkillRoot(prefix: string): Promise<string> {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), `${prefix}-`))
-  await writeFile(
-    root,
-    "SKILL.md",
-    `---
+async function tempSkillRoot(prefix: string): Promise<TemporaryDirectory> {
+  const root = await temporaryDirectory({ prefix: `${prefix}-` })
+  try {
+    await writeFile(
+      root.path,
+      "SKILL.md",
+      `---
 name: audit-skill
 description: A test skill for audit checks.
 ---
 
 Use this skill for audit testing.
 `,
-  )
-  return root
+    )
+    return root
+  } catch (cause) {
+    await root[Symbol.asyncDispose]()
+    throw cause
+  }
 }
 
 async function writeFile(root: string, relativePath: string, content: string): Promise<void> {
@@ -141,10 +146,10 @@ describe("skill audit parsers", () => {
 
 describe("skill audit workflow", () => {
   test("audits a local skill root, normalizes tool evidence, and writes a review pack", async () => {
-    const root = await tempSkillRoot("buddy-skill-audit")
-    const outputRoot = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-skill-audit-pack-"))
+    await using root = await tempSkillRoot("buddy-skill-audit")
+    await using outputRoot = await temporaryDirectory({ prefix: "buddy-skill-audit-pack-" })
     await writeFile(
-      root,
+      root.path,
       "package.json",
       JSON.stringify({
         name: "audit-skill",
@@ -154,8 +159,8 @@ describe("skill audit workflow", () => {
 
     const report = await runSkillAudit(
       {
-        skillRoot: root,
-        outputDir: outputRoot,
+        skillRoot: root.path,
+        outputDir: outputRoot.path,
         skipTools: [],
         runtimeReviewStatus: "pass",
         runtimeReviewNote: "Ran in a temp workspace; only wrote expected outputs.",
@@ -179,7 +184,7 @@ describe("skill audit workflow", () => {
     expect(report.checks.find((check) => check.id === "grype-vulnerabilities")?.status).toBe("pass")
     expect(report.checks.find((check) => check.id === "semgrep-policy")?.status).toBe("warn")
     expect(report.overallStatus).toBe("warn")
-    expect(report.artifacts?.directory.startsWith(outputRoot)).toBe(true)
+    expect(report.artifacts?.directory.startsWith(outputRoot.path)).toBe(true)
     expect(report.artifacts?.reviewMarkdownPath.endsWith("review.md")).toBe(true)
     expect(report.artifacts?.reportJsonPath.endsWith("audit.json")).toBe(true)
     expect(report.artifacts?.skillSnapshotPath.endsWith("/skill")).toBe(true)

@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto"
 import fsp from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import { describe, expect, test } from "bun:test"
 import {
@@ -9,6 +8,7 @@ import {
 } from "../../src/learning/skill-management/service/catalog-icon-cache"
 import { catalogIconReleaseFilename } from "../../src/learning/skill-management/service/catalog-icon-reference"
 import type { SkillCatalogEntry } from "../../src/learning/skill-management/service/library"
+import { temporaryDirectory } from "../helpers/temporary-directory"
 
 function webpBytes(label: string): Buffer {
   return Buffer.from(`RIFF0000WEBP${label}`, "ascii")
@@ -55,13 +55,13 @@ function iconEntry(bytes: Uint8Array): SkillCatalogEntry {
 
 describe("catalog skill icon cache", () => {
   test("downloads, verifies, and reuses a content-addressed icon", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-catalog-icon-"))
+    await using root = await temporaryDirectory({ prefix: "buddy-catalog-icon-" })
     const bytes = webpBytes("verified")
     const entry = iconEntry(bytes)
     let fetchCount = 0
 
     const dependencies = {
-      cacheRoot: () => root,
+      cacheRoot: () => root.path,
       readCatalogEntry: async () => entry,
       fetch: async () => {
         fetchCount += 1
@@ -75,51 +75,50 @@ describe("catalog skill icon cache", () => {
     expect(first.bytes).toEqual(bytes)
     expect(second.bytes).toEqual(bytes)
     expect(fetchCount).toBe(1)
-    await expect(fsp.readFile(path.join(root, `${first.sha256}.webp`))).resolves.toEqual(bytes)
+    await expect(fsp.readFile(path.join(root.path, `${first.sha256}.webp`))).resolves.toEqual(bytes)
   })
 
   test("replaces a corrupt cache entry from the verified release asset", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-catalog-icon-corrupt-"))
+    await using root = await temporaryDirectory({ prefix: "buddy-catalog-icon-corrupt-" })
     const bytes = webpBytes("replacement")
     const entry = iconEntry(bytes)
     const digest = entry.icon?.sha256 ?? ""
-    await fsp.mkdir(root, { recursive: true })
-    await fsp.writeFile(path.join(root, `${digest}.webp`), webpBytes("corrupt"))
+    await fsp.writeFile(path.join(root.path, `${digest}.webp`), webpBytes("corrupt"))
 
     const icon = await readCatalogIcon(entry.id, digest, {
-      cacheRoot: () => root,
+      cacheRoot: () => root.path,
       readCatalogEntry: async () => entry,
       fetch: async () => iconResponse(bytes),
     })
 
     expect(icon.bytes).toEqual(bytes)
-    await expect(fsp.readFile(path.join(root, `${digest}.webp`))).resolves.toEqual(bytes)
+    await expect(fsp.readFile(path.join(root.path, `${digest}.webp`))).resolves.toEqual(bytes)
   })
 
   test("rejects mismatched catalog and downloaded digests", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-catalog-icon-mismatch-"))
+    await using root = await temporaryDirectory({ prefix: "buddy-catalog-icon-mismatch-" })
     const entry = iconEntry(webpBytes("expected"))
     const digest = entry.icon?.sha256 ?? ""
 
     await expect(
       readCatalogIcon(entry.id, digest, {
-        cacheRoot: () => root,
+        cacheRoot: () => root.path,
         readCatalogEntry: async () => entry,
         fetch: async () => iconResponse(webpBytes("unexpected")),
       }),
     ).rejects.toThrow("integrity verification")
-    await expect(fsp.stat(path.join(root, `${digest}.webp`))).rejects.toThrow()
+    await expect(fsp.stat(path.join(root.path, `${digest}.webp`))).rejects.toThrow()
 
     await expect(
       readCatalogIcon(entry.id, "c".repeat(64), {
-        cacheRoot: () => root,
+        cacheRoot: () => root.path,
         readCatalogEntry: async () => entry,
       }),
     ).rejects.toThrow("not found")
   })
 
   test("stops reading a chunked icon when it exceeds the size limit", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-catalog-icon-oversize-"))
+    await using root = await temporaryDirectory({ prefix: "buddy-catalog-icon-oversize-" })
     const entry = iconEntry(webpBytes("expected"))
     const digest = entry.icon?.sha256 ?? ""
     const firstChunk = new Uint8Array(CATALOG_ICON_MAX_BYTES)
@@ -137,11 +136,11 @@ describe("catalog skill icon cache", () => {
 
     await expect(
       readCatalogIcon(entry.id, digest, {
-        cacheRoot: () => root,
+        cacheRoot: () => root.path,
         readCatalogEntry: async () => entry,
         fetch: async () => response,
       }),
     ).rejects.toThrow("allowed size")
-    await expect(fsp.stat(path.join(root, `${digest}.webp`))).rejects.toThrow()
+    await expect(fsp.stat(path.join(root.path, `${digest}.webp`))).rejects.toThrow()
   })
 })

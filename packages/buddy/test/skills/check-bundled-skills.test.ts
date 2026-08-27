@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import fsp from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import {
@@ -11,6 +10,7 @@ import {
 import type { BuddySkill } from "../../src/learning/runtime/define-buddy-skill"
 import { isDisabledBundledSkillName } from "../../src/learning/skill-management/disabled-bundled-skills"
 import { renderBuddySkillManifest } from "../../src/learning/skill-management/service/manifests"
+import { temporaryDirectory } from "../helpers/temporary-directory"
 
 function createSkill(input: {
   name: string
@@ -74,11 +74,18 @@ describe("bundled skill registrations", () => {
   })
 
   test("detects source manifests that duplicate typed metadata", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-source-manifest-"))
-    const manifestPath = path.join(root, "feature", "skills", "explain", "agents", "buddy.yaml")
+    await using root = await temporaryDirectory({ prefix: "buddy-source-manifest-" })
+    const manifestPath = path.join(
+      root.path,
+      "feature",
+      "skills",
+      "explain",
+      "agents",
+      "buddy.yaml",
+    )
     await fsp.mkdir(path.dirname(manifestPath), { recursive: true })
     await fsp.writeFile(manifestPath, "interface: {}\n", "utf8")
 
-    expect(await collectSourceBuddyManifests(root)).toEqual([manifestPath])
+    expect(await collectSourceBuddyManifests(root.path)).toEqual([manifestPath])
   })
 })

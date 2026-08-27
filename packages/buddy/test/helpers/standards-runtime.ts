@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import { compress, init as initZstd } from "@bokuweb/zstd-wasm"
 import {
@@ -15,6 +14,7 @@ import {
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
 } from "../../src/learning/features/standards/constants"
 import { StandardsRuntimeService } from "../../src/local-runtimes/standards/service"
+import { temporaryDirectory } from "./temporary-directory"
 
 const STANDARDS_ASSET_BASE_URL_ENV = "BUDDY_STANDARDS_ASSET_BASE_URL"
 const STANDARDS_LOCAL_ASSET_DIR_ENV = "BUDDY_STANDARDS_LOCAL_ASSET_DIR"
@@ -110,31 +110,31 @@ export async function withMockStandardsRuntimeAssets<T>(run: () => Promise<T>) {
   const previousLocalAssetDir = process.env[STANDARDS_LOCAL_ASSET_DIR_ENV]
   const bundle = await buildMockStandardsBundle()
 
-  process.env[STANDARDS_ASSET_BASE_URL_ENV] = MOCK_STANDARDS_ASSET_BASE_URL
-  delete process.env[STANDARDS_LOCAL_ASSET_DIR_ENV]
-
-  await StandardsRuntimeService.remove().catch(() => undefined)
-
-  const assetInfo = StandardsRuntimeService.runtimeAssetInfo()
-  const mockFetch: typeof fetch = Object.assign(
-    async (input: RequestInfo | URL) => {
-      const url = String(input)
-      if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.archiveFilename}`) {
-        return new Response(Uint8Array.from(bundle.archiveBytes), { status: 200 })
-      }
-      if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.checksumFilename}`) {
-        return new Response(bundle.checksumText, { status: 200 })
-      }
-      if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.manifestFilename}`) {
-        return new Response(bundle.manifestJson, { status: 200 })
-      }
-      return new Response("not found", { status: 404 })
-    },
-    { preconnect: previousFetch.preconnect },
-  )
-  globalThis.fetch = mockFetch
-
   try {
+    process.env[STANDARDS_ASSET_BASE_URL_ENV] = MOCK_STANDARDS_ASSET_BASE_URL
+    delete process.env[STANDARDS_LOCAL_ASSET_DIR_ENV]
+
+    await StandardsRuntimeService.remove().catch(() => undefined)
+
+    const assetInfo = StandardsRuntimeService.runtimeAssetInfo()
+    const mockFetch: typeof fetch = Object.assign(
+      async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.archiveFilename}`) {
+          return new Response(Uint8Array.from(bundle.archiveBytes), { status: 200 })
+        }
+        if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.checksumFilename}`) {
+          return new Response(bundle.checksumText, { status: 200 })
+        }
+        if (url === `${MOCK_STANDARDS_ASSET_BASE_URL}/${assetInfo.manifestFilename}`) {
+          return new Response(bundle.manifestJson, { status: 200 })
+        }
+        return new Response("not found", { status: 404 })
+      },
+      { preconnect: previousFetch.preconnect },
+    )
+    globalThis.fetch = mockFetch
+
     return await run()
   } finally {
     await StandardsRuntimeService.remove().catch(() => undefined)
@@ -151,20 +151,21 @@ export async function withMockStandardsRuntimeAssets<T>(run: () => Promise<T>) {
 export async function withLocalMockStandardsRuntimeAssets<T>(run: () => Promise<T>) {
   const previousAssetBaseUrl = process.env[STANDARDS_ASSET_BASE_URL_ENV]
   const previousLocalAssetDir = process.env[STANDARDS_LOCAL_ASSET_DIR_ENV]
-  const localAssetRoot = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-standards-local-assets-"))
-
-  delete process.env[STANDARDS_ASSET_BASE_URL_ENV]
-  process.env[STANDARDS_LOCAL_ASSET_DIR_ENV] = localAssetRoot
-
-  await StandardsRuntimeService.remove().catch(() => undefined)
-
-  await writeMockStandardsBundle(localAssetRoot)
-
+  await using localAssetDirectory = await temporaryDirectory({
+    prefix: "buddy-standards-local-assets-",
+  })
+  const localAssetRoot = localAssetDirectory.path
   try {
+    delete process.env[STANDARDS_ASSET_BASE_URL_ENV]
+    process.env[STANDARDS_LOCAL_ASSET_DIR_ENV] = localAssetRoot
+
+    await StandardsRuntimeService.remove().catch(() => undefined)
+
+    await writeMockStandardsBundle(localAssetRoot)
+
     return await run()
   } finally {
     await StandardsRuntimeService.remove().catch(() => undefined)
-    await fs.rm(localAssetRoot, { recursive: true, force: true }).catch(() => undefined)
 
     if (previousAssetBaseUrl === undefined) delete process.env[STANDARDS_ASSET_BASE_URL_ENV]
     else process.env[STANDARDS_ASSET_BASE_URL_ENV] = previousAssetBaseUrl

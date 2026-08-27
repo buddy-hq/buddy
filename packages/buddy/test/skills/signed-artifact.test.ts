@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import fsp from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import { z } from "zod"
 import {
   createSignedArtifactEnvelope,
   createSignedArtifactStore,
 } from "../../src/learning/skill-management/service/signed-artifact"
+import { temporaryDirectory } from "../helpers/temporary-directory"
 
 const testArtifactSchema = z.strictObject({
   revision: z.number().int().positive(),
@@ -83,10 +83,10 @@ describe("signed skill artifact store", () => {
   })
 
   test("accepts, caches, and reloads a higher signed revision", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-signed-artifact-"))
+    await using root = await temporaryDirectory({ prefix: "buddy-signed-artifact-" })
     const remote = { revision: 2, value: "remote" }
     const first = store({
-      cacheRoot: root,
+      cacheRoot: root.path,
       bundled: { revision: 1, value: "bundled" },
       remote: () => remote,
     })
@@ -96,7 +96,7 @@ describe("signed skill artifact store", () => {
     expect(refreshed.source).toBe("remote")
 
     const reloaded = store({
-      cacheRoot: root,
+      cacheRoot: root.path,
       bundled: { revision: 1, value: "bundled" },
       remote: () => remote,
     })
@@ -106,11 +106,11 @@ describe("signed skill artifact store", () => {
   })
 
   test("shares initial resolution between startup refresh and request-time reads", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-signed-concurrent-"))
+    await using root = await temporaryDirectory({ prefix: "buddy-signed-concurrent-" })
     const loadBarrier = createDeferredResolution()
     let loadCount = 0
     const artifactStore = store({
-      cacheRoot: root,
+      cacheRoot: root.path,
       bundled: { revision: 1, value: "bundled" },
       remote: () => ({ revision: 2, value: "remote" }),
       beforeLoadBundled: async () => {
@@ -119,39 +119,32 @@ describe("signed skill artifact store", () => {
       },
     })
 
-    try {
-      const requestRead = artifactStore.get()
-      const startupRefresh = artifactStore.refresh()
-      loadBarrier.resolve()
-      const [requestResolution, refreshResolution] = await Promise.all([
-        requestRead,
-        startupRefresh,
-      ])
+    const requestRead = artifactStore.get()
+    const startupRefresh = artifactStore.refresh()
+    loadBarrier.resolve()
+    const [requestResolution, refreshResolution] = await Promise.all([requestRead, startupRefresh])
 
-      expect(loadCount).toBe(1)
-      expect(requestResolution.value.value).toBe("bundled")
-      expect(refreshResolution.value.value).toBe("remote")
-      await expect(fsp.readFile(path.join(root, "state.json"), "utf8")).resolves.toContain(
-        '"highestAcceptedRevision": 2',
-      )
-    } finally {
-      await fsp.rm(root, { recursive: true, force: true })
-    }
+    expect(loadCount).toBe(1)
+    expect(requestResolution.value.value).toBe("bundled")
+    expect(refreshResolution.value.value).toBe("remote")
+    await expect(fsp.readFile(path.join(root.path, "state.json"), "utf8")).resolves.toContain(
+      '"highestAcceptedRevision": 2',
+    )
   })
 
   test("recovers an accepted revision when its cached envelope is missing", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-signed-recovery-"))
+    await using root = await temporaryDirectory({ prefix: "buddy-signed-recovery-" })
     const remote = { revision: 2, value: "remote" }
     const first = store({
-      cacheRoot: root,
+      cacheRoot: root.path,
       bundled: { revision: 1, value: "bundled" },
       remote: () => remote,
     })
     await first.refresh()
-    await fsp.rm(path.join(root, "artifact.envelope.json"))
+    await fsp.rm(path.join(root.path, "artifact.envelope.json"))
 
     const recovered = await store({
-      cacheRoot: root,
+      cacheRoot: root.path,
       bundled: { revision: 1, value: "bundled" },
       remote: () => remote,
     }).refresh()
@@ -161,9 +154,9 @@ describe("signed skill artifact store", () => {
   })
 
   test("ignores a remote revision lagging behind the trusted bundled revision", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-signed-bundled-ahead-"))
+    await using root = await temporaryDirectory({ prefix: "buddy-signed-bundled-ahead-" })
     const artifactStore = store({
-      cacheRoot: root,
+      cacheRoot: root.path,
       bundled: { revision: 2, value: "bundled" },
       remote: () => ({ revision: 1, value: "remote-lagging" }),
     })
@@ -175,10 +168,10 @@ describe("signed skill artifact store", () => {
   })
 
   test("rejects rollback and same-revision replacement while retaining last-known-good", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-signed-rollback-"))
+    await using root = await temporaryDirectory({ prefix: "buddy-signed-rollback-" })
     let remote = { revision: 2, value: "accepted" }
     const artifactStore = store({
-      cacheRoot: root,
+      cacheRoot: root.path,
       bundled: { revision: 1, value: "bundled" },
       remote: () => remote,
     })
@@ -196,9 +189,9 @@ describe("signed skill artifact store", () => {
   })
 
   test("retains bundled content when signature verification fails", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-signed-invalid-"))
+    await using root = await temporaryDirectory({ prefix: "buddy-signed-invalid-" })
     const artifactStore = store({
-      cacheRoot: root,
+      cacheRoot: root.path,
       bundled: { revision: 1, value: "bundled" },
       remote: () => ({ revision: 2, value: "tampered" }),
       signatureValid: false,

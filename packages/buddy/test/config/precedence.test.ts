@@ -9,14 +9,14 @@ import { createGitRepo } from "../helpers/repo"
 
 describe("config precedence", () => {
   test("applies precedence from global -> env file -> project root -> inline content", async () => {
-    const repo = createGitRepo("buddy-config-precedence")
-    const nested = path.join(repo, "nested")
+    await using repository = await createGitRepo("buddy-config-precedence")
+    const nested = path.join(repository.path, "nested")
     fs.mkdirSync(nested, { recursive: true })
 
-    const customPath = path.join(repo, "custom.jsonc")
+    const customPath = path.join(repository.path, "custom.jsonc")
     writeFileSync(customPath, '{"model":"anthropic/custom"}\n')
 
-    writeProjectConfig(repo, '{"model":"anthropic/project"}\n')
+    writeProjectConfig(repository.path, '{"model":"anthropic/project"}\n')
     writeProjectConfig(nested, '{"model":"anthropic/nested"}\n')
 
     const globalFile = path.join(Global.Path.config, "buddy.jsonc")

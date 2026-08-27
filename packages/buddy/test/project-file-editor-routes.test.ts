@@ -7,14 +7,14 @@ import { requireJsonObject, requireString } from "./helpers/parse"
 
 describe("project file editor routes", () => {
   test("reads exact text content and saves with version updates", async () => {
-    const repo = createGitRepo("buddy-project-file-editor")
-    const targetPath = path.join(repo, "src", "app.ts")
+    await using repo = await createGitRepo("buddy-project-file-editor")
+    const targetPath = path.join(repo.path, "src", "app.ts")
     await fs.mkdir(path.dirname(targetPath), { recursive: true })
     await fs.writeFile(targetPath, "const answer = 42  \n\n", "utf8")
 
     const readResponse = await app.request("/api/file/edit?path=src/app.ts", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -25,7 +25,7 @@ describe("project file editor routes", () => {
 
     const statusResponse = await app.request("/api/file/edit/status?path=src/app.ts", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -40,7 +40,7 @@ describe("project file editor routes", () => {
       method: "PUT",
       headers: {
         "content-type": "application/json",
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
       body: JSON.stringify({
         content: "const answer = 43\n",
@@ -56,15 +56,15 @@ describe("project file editor routes", () => {
   })
 
   test("reads valid UTF-8 text containing form feed page separators", async () => {
-    const repo = createGitRepo("buddy-project-file-editor-form-feed")
-    const targetPath = path.join(repo, "notes", "pages.txt")
+    await using repo = await createGitRepo("buddy-project-file-editor-form-feed")
+    const targetPath = path.join(repo.path, "notes", "pages.txt")
     const content = "Page 1\n\fPage 2\n"
     await fs.mkdir(path.dirname(targetPath), { recursive: true })
     await fs.writeFile(targetPath, content, "utf8")
 
     const readResponse = await app.request("/api/file/edit?path=notes/pages.txt", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -75,8 +75,8 @@ describe("project file editor routes", () => {
   })
 
   test("rejects invalid UTF-8 text files instead of replacement-decoding them", async () => {
-    const repo = createGitRepo("buddy-project-file-editor-invalid-utf8")
-    const targetPath = path.join(repo, "notes", "invalid.txt")
+    await using repo = await createGitRepo("buddy-project-file-editor-invalid-utf8")
+    const targetPath = path.join(repo.path, "notes", "invalid.txt")
     const invalidContinuationByteWithoutLead = 0x80
     const invalidUtf8Content = Buffer.concat([
       Buffer.from("fo", "utf8"),
@@ -88,7 +88,7 @@ describe("project file editor routes", () => {
 
     const readResponse = await app.request("/api/file/edit?path=notes/invalid.txt", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -96,14 +96,14 @@ describe("project file editor routes", () => {
   })
 
   test("returns conflict when the on-disk version changed", async () => {
-    const repo = createGitRepo("buddy-project-file-editor-conflict")
-    const targetPath = path.join(repo, "src", "app.ts")
+    await using repo = await createGitRepo("buddy-project-file-editor-conflict")
+    const targetPath = path.join(repo.path, "src", "app.ts")
     await fs.mkdir(path.dirname(targetPath), { recursive: true })
     await fs.writeFile(targetPath, "export const value = 1\n", "utf8")
 
     const readResponse = await app.request("/api/file/edit?path=src/app.ts", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
     const readBody = requireJsonObject(await readResponse.json())
@@ -114,7 +114,7 @@ describe("project file editor routes", () => {
       method: "PUT",
       headers: {
         "content-type": "application/json",
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
       body: JSON.stringify({
         content: "export const value = 3\n",
@@ -126,14 +126,14 @@ describe("project file editor routes", () => {
   })
 
   test("serializes concurrent saves that use the same expected version", async () => {
-    const repo = createGitRepo("buddy-project-file-editor-concurrent")
-    const targetPath = path.join(repo, "src", "app.ts")
+    await using repo = await createGitRepo("buddy-project-file-editor-concurrent")
+    const targetPath = path.join(repo.path, "src", "app.ts")
     await fs.mkdir(path.dirname(targetPath), { recursive: true })
     await fs.writeFile(targetPath, "export const value = 1\n", "utf8")
 
     const readResponse = await app.request("/api/file/edit?path=src/app.ts", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
     const readBody = requireJsonObject(await readResponse.json())
@@ -143,7 +143,7 @@ describe("project file editor routes", () => {
         method: "PUT",
         headers: {
           "content-type": "application/json",
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
         body: JSON.stringify({ content, expectedVersion: readBody.version }),
       })
@@ -156,13 +156,13 @@ describe("project file editor routes", () => {
   })
 
   test("rejects unsupported binary files", async () => {
-    const repo = createGitRepo("buddy-project-file-editor-binary")
-    const targetPath = path.join(repo, "report.pdf")
+    await using repo = await createGitRepo("buddy-project-file-editor-binary")
+    const targetPath = path.join(repo.path, "report.pdf")
     await fs.writeFile(targetPath, Buffer.from("%PDF-1.4\n"))
 
     const readResponse = await app.request("/api/file/edit?path=report.pdf", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -170,7 +170,7 @@ describe("project file editor routes", () => {
 
     const statusResponse = await app.request("/api/file/edit/status?path=report.pdf", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -178,13 +178,13 @@ describe("project file editor routes", () => {
   })
 
   test("rejects paths that escape the project directory", async () => {
-    const repo = createGitRepo("buddy-project-file-editor-escape")
-    const outsidePath = path.join(path.dirname(repo), "outside.txt")
+    await using repo = await createGitRepo("buddy-project-file-editor-escape")
+    const outsidePath = path.join(path.dirname(repo.path), "outside.txt")
     await fs.writeFile(outsidePath, "outside\n", "utf8")
 
     const readResponse = await app.request("/api/file/edit?path=../outside.txt", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -192,7 +192,7 @@ describe("project file editor routes", () => {
 
     const statusResponse = await app.request("/api/file/edit/status?path=../outside.txt", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -200,12 +200,12 @@ describe("project file editor routes", () => {
   })
 
   test("reports contained missing editable files without content", async () => {
-    const repo = createGitRepo("buddy-project-file-editor-missing-status")
-    await fs.mkdir(path.join(repo, "src"), { recursive: true })
+    await using repo = await createGitRepo("buddy-project-file-editor-missing-status")
+    await fs.mkdir(path.join(repo.path, "src"), { recursive: true })
 
     const statusResponse = await app.request("/api/file/edit/status?path=src/missing.md", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -218,16 +218,16 @@ describe("project file editor routes", () => {
   })
 
   test("renames an editable file without changing its content", async () => {
-    const repo = createGitRepo("buddy-project-file-editor-rename")
-    const sourcePath = path.join(repo, "notes", "Original.md")
-    const destinationPath = path.join(repo, "notes", "Renamed note.md")
+    await using repo = await createGitRepo("buddy-project-file-editor-rename")
+    const sourcePath = path.join(repo.path, "notes", "Original.md")
+    const destinationPath = path.join(repo.path, "notes", "Renamed note.md")
     const content = "# Existing heading\n\nBody text.\n"
     await fs.mkdir(path.dirname(sourcePath), { recursive: true })
     await fs.writeFile(sourcePath, content, "utf8")
 
     const readResponse = await app.request("/api/file/edit?path=notes/Original.md", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
     const readBody = requireJsonObject(await readResponse.json())
@@ -236,7 +236,7 @@ describe("project file editor routes", () => {
       method: "PATCH",
       headers: {
         "content-type": "application/json",
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
       body: JSON.stringify({
         nextPath: "notes/Renamed note.md",
@@ -255,8 +255,8 @@ describe("project file editor routes", () => {
   })
 
   test("supports a case-only file rename", async () => {
-    const repo = createGitRepo("buddy-project-file-editor-case-rename")
-    const notesPath = path.join(repo, "notes")
+    await using repo = await createGitRepo("buddy-project-file-editor-case-rename")
+    const notesPath = path.join(repo.path, "notes")
     const sourcePath = path.join(notesPath, "Original.md")
     await fs.mkdir(notesPath, { recursive: true })
     await fs.writeFile(sourcePath, "Case-sensitive title\n", "utf8")
@@ -265,7 +265,7 @@ describe("project file editor routes", () => {
       method: "PATCH",
       headers: {
         "content-type": "application/json",
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
       body: JSON.stringify({
         nextPath: "notes/original.md",
@@ -277,9 +277,9 @@ describe("project file editor routes", () => {
   })
 
   test("rejects a rename when the destination exists or source version changed", async () => {
-    const repo = createGitRepo("buddy-project-file-editor-rename-conflict")
-    const sourcePath = path.join(repo, "notes", "Original.md")
-    const destinationPath = path.join(repo, "notes", "Existing.md")
+    await using repo = await createGitRepo("buddy-project-file-editor-rename-conflict")
+    const sourcePath = path.join(repo.path, "notes", "Original.md")
+    const destinationPath = path.join(repo.path, "notes", "Existing.md")
     await fs.mkdir(path.dirname(sourcePath), { recursive: true })
     await fs.writeFile(sourcePath, "Original\n", "utf8")
     await fs.writeFile(destinationPath, "Existing\n", "utf8")
@@ -288,7 +288,7 @@ describe("project file editor routes", () => {
       method: "PATCH",
       headers: {
         "content-type": "application/json",
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
       body: JSON.stringify({
         nextPath: "notes/Existing.md",
@@ -301,7 +301,7 @@ describe("project file editor routes", () => {
       method: "PATCH",
       headers: {
         "content-type": "application/json",
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
       body: JSON.stringify({
         nextPath: "notes/Renamed.md",

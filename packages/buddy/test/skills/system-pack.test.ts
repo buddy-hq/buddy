@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import fsp from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import type { BuddySkill } from "../../src/learning/runtime/define-buddy-skill"
@@ -18,6 +17,9 @@ import {
 } from "../../src/learning/skill-management/service/system-pack"
 import { managedSystemRoot } from "../../src/learning/skill-management/service/paths"
 import { renderBuddySkillManifest } from "../../src/learning/skill-management/service/manifests"
+import { BUDDY_ENV } from "../../src/storage/constants"
+import { temporaryDirectory, type TemporaryDirectory } from "../helpers/temporary-directory"
+import { temporaryEnvironment } from "../helpers/temporary-environment"
 
 function registeredSkill(documentPath: string): BuddySkill {
   return {
@@ -31,44 +33,57 @@ function registeredSkill(documentPath: string): BuddySkill {
   }
 }
 
-async function fixture() {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-system-pack-"))
-  const sourceRoot = path.join(root, "source")
-  const skillRoot = path.join(sourceRoot, "explain-test")
-  const documentPath = path.join(skillRoot, "SKILL.md")
-  const disabledSkillName = DISABLED_BUNDLED_SKILL_NAMES[0]
-  const disabledSkillRoot = path.join(sourceRoot, disabledSkillName)
-  await fsp.mkdir(path.join(skillRoot, "references"), { recursive: true })
-  await fsp.mkdir(disabledSkillRoot, { recursive: true })
-  await Promise.all([
-    fsp.writeFile(
+type SystemSkillFixture = TemporaryDirectory & {
+  sourceRoot: string
+  documentPath: string
+  skill: BuddySkill
+}
+
+async function fixture(): Promise<SystemSkillFixture> {
+  const root = await temporaryDirectory({ prefix: "buddy-system-pack-" })
+
+  try {
+    const sourceRoot = path.join(root.path, "source")
+    const skillRoot = path.join(sourceRoot, "explain-test")
+    const documentPath = path.join(skillRoot, "SKILL.md")
+    const disabledSkillName = DISABLED_BUNDLED_SKILL_NAMES[0]
+    const disabledSkillRoot = path.join(sourceRoot, disabledSkillName)
+    await fsp.mkdir(path.join(skillRoot, "references"), { recursive: true })
+    await fsp.mkdir(disabledSkillRoot, { recursive: true })
+    await Promise.all([
+      fsp.writeFile(
+        documentPath,
+        `---\nname: explain-test\ndescription: Explain test concepts.\n---\n\nUse this workflow.\n`,
+        "utf8",
+      ),
+      fsp.writeFile(path.join(skillRoot, "references", "guide.md"), "# Guide\n", "utf8"),
+      fsp.writeFile(
+        path.join(skillRoot, "index.ts"),
+        "throw new Error('not runtime content')\n",
+        "utf8",
+      ),
+      fsp.writeFile(
+        path.join(disabledSkillRoot, "SKILL.md"),
+        `---\nname: ${disabledSkillName}\ndescription: Disabled test skill.\n---\n\nDo not pack this skill.\n`,
+        "utf8",
+      ),
+    ])
+    return {
+      path: root.path,
+      sourceRoot,
       documentPath,
-      `---\nname: explain-test\ndescription: Explain test concepts.\n---\n\nUse this workflow.\n`,
-      "utf8",
-    ),
-    fsp.writeFile(path.join(skillRoot, "references", "guide.md"), "# Guide\n", "utf8"),
-    fsp.writeFile(
-      path.join(skillRoot, "index.ts"),
-      "throw new Error('not runtime content')\n",
-      "utf8",
-    ),
-    fsp.writeFile(
-      path.join(disabledSkillRoot, "SKILL.md"),
-      `---\nname: ${disabledSkillName}\ndescription: Disabled test skill.\n---\n\nDo not pack this skill.\n`,
-      "utf8",
-    ),
-  ])
-  return {
-    root,
-    sourceRoot,
-    documentPath,
-    skill: registeredSkill(documentPath),
+      skill: registeredSkill(documentPath),
+      [Symbol.asyncDispose]: () => root[Symbol.asyncDispose](),
+    }
+  } catch (error) {
+    await root[Symbol.asyncDispose]()
+    throw error
   }
 }
 
 describe("system skill packs", () => {
   test("builds a deterministic runtime-only pack with typed presentation metadata", async () => {
-    const input = await fixture()
+    await using input = await fixture()
     const pack = await buildBundledSystemSkillPack({
       roots: [input.sourceRoot],
       skills: [input.skill],
@@ -99,38 +114,34 @@ describe("system skill packs", () => {
   })
 
   test("rejects publishing a current contract against an incompatible released baseline", async () => {
-    const input = await fixture()
-    try {
-      const baseline = await buildBundledSystemSkillPack({
-        roots: [input.sourceRoot],
-        skills: [input.skill],
-      })
-      const changedSkill: BuddySkill = {
-        ...input.skill,
-        presentation: {
-          ...input.skill.presentation,
-          displayName: "Renamed Explain Test",
-        },
-      }
-      const update = await buildSystemSkillPack({
-        roots: [input.sourceRoot],
-        skills: [changedSkill],
-        revision: 1,
-        baseFingerprint: baseline.contentFingerprint,
-      })
-
-      expect(() =>
-        parseSystemSkillPack(update, systemSkillPackCompatibilityFromPack(baseline)),
-      ).toThrow('metadata does not match registered skill "explain-test"')
-    } finally {
-      await fsp.rm(input.root, { recursive: true, force: true })
+    await using input = await fixture()
+    const baseline = await buildBundledSystemSkillPack({
+      roots: [input.sourceRoot],
+      skills: [input.skill],
+    })
+    const changedSkill: BuddySkill = {
+      ...input.skill,
+      presentation: {
+        ...input.skill.presentation,
+        displayName: "Renamed Explain Test",
+      },
     }
+    const update = await buildSystemSkillPack({
+      roots: [input.sourceRoot],
+      skills: [changedSkill],
+      revision: 1,
+      baseFingerprint: baseline.contentFingerprint,
+    })
+
+    expect(() =>
+      parseSystemSkillPack(update, systemSkillPackCompatibilityFromPack(baseline)),
+    ).toThrow('metadata does not match registered skill "explain-test"')
   })
 
   test("atomically restores a damaged managed system installation", async () => {
-    const input = await fixture()
-    const previousHome = process.env.BUDDY_TEST_HOME
-    process.env.BUDDY_TEST_HOME = input.root
+    await using input = await fixture()
+    using environment = temporaryEnvironment({ [BUDDY_ENV.TEST_HOME]: input.path })
+    void environment
     resetSystemSkillPackStoresForTests()
 
     try {
@@ -149,19 +160,13 @@ describe("system skill packs", () => {
       expect(manifest.isFile()).toBe(true)
     } finally {
       resetSystemSkillPackStoresForTests()
-      if (previousHome === undefined) {
-        delete process.env.BUDDY_TEST_HOME
-      } else {
-        process.env.BUDDY_TEST_HOME = previousHome
-      }
-      await fsp.rm(input.root, { recursive: true, force: true })
     }
   })
 
   test("restores same-size changes to managed system skill content", async () => {
-    const input = await fixture()
-    const previousHome = process.env.BUDDY_TEST_HOME
-    process.env.BUDDY_TEST_HOME = input.root
+    await using input = await fixture()
+    using environment = temporaryEnvironment({ [BUDDY_ENV.TEST_HOME]: input.path })
+    void environment
     resetSystemSkillPackStoresForTests()
 
     try {
@@ -174,12 +179,6 @@ describe("system skill packs", () => {
       await expect(fsp.readFile(guidePath, "utf8")).resolves.toBe("# Guide\n")
     } finally {
       resetSystemSkillPackStoresForTests()
-      if (previousHome === undefined) {
-        delete process.env.BUDDY_TEST_HOME
-      } else {
-        process.env.BUDDY_TEST_HOME = previousHome
-      }
-      await fsp.rm(input.root, { recursive: true, force: true })
     }
   })
 })
