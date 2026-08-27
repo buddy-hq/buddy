@@ -5,6 +5,7 @@ import {
   coreToolPresentationCatalog,
   getCoreToolPresentationDescriptor,
 } from "../src/core-tool-presentations"
+import { MessageID, PartID, SessionID } from "../src/id"
 import type { MessageV2 } from "../src/message"
 import { withToolPresentationOnPart } from "../src/session-tool-presentation"
 import {
@@ -90,6 +91,7 @@ describe("tool presentation contract", () => {
     })
 
     expect(snapshot.archetype).toBe("activity")
+    if (snapshot.archetype !== "activity") throw new Error("Expected activity snapshot")
     expect(snapshot.layoutRole).toBe("activity")
     expect(snapshot.renderer).toBe("todo")
     expect(snapshot.archetype === "activity" ? snapshot.summary.label : undefined).toBe(
@@ -164,9 +166,9 @@ describe("tool presentation contract", () => {
   test("keeps runtime-defined MCP tool calls visible without exposing their raw IDs", () => {
     const toolID = "runtime-server_private_snake_case_tool"
     const pending: MessageV2.ToolPart = {
-      id: "part_mcp_pending",
-      sessionID: "session_mcp",
-      messageID: "message_mcp",
+      id: PartID.make("prt_mcp_pending"),
+      sessionID: SessionID.make("ses_mcp"),
+      messageID: MessageID.make("msg_mcp"),
       type: "tool",
       callID: "call_mcp_pending",
       tool: toolID,
@@ -178,7 +180,7 @@ describe("tool presentation contract", () => {
     }
     const failed: MessageV2.ToolPart = {
       ...pending,
-      id: "part_mcp_failed",
+      id: PartID.make("prt_mcp_failed"),
       callID: "call_mcp_failed",
       state: {
         status: "error",

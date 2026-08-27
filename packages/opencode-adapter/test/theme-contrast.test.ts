@@ -14,8 +14,12 @@ import {
 
 function readHex(tokens: Record<string, string>, key: string): HexColor {
   const value = tokens[key]
-  if (!value?.startsWith("#")) throw new Error(`Expected ${key} to resolve to a hex color`)
+  if (!value || !isHexColor(value)) throw new Error(`Expected ${key} to resolve to a hex color`)
   return value
+}
+
+function isHexColor(value: string): value is HexColor {
+  return value.startsWith("#")
 }
 
 describe("theme contrast", () => {

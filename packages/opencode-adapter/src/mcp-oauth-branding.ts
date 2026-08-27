@@ -150,6 +150,21 @@ function ensureMcpOAuthClientMetadataBrandingPatched() {
 type THttpEndCallback = () => void
 type THttpEndArg = string | Uint8Array | BufferEncoding | THttpEndCallback | undefined
 
+export type TMcpOAuthCallbackBrandedEnd = {
+  (this: ServerResponse, callback?: THttpEndCallback): ServerResponse
+  (
+    this: ServerResponse,
+    chunk: string | Uint8Array,
+    callback?: THttpEndCallback,
+  ): ServerResponse
+  (
+    this: ServerResponse,
+    chunk: string | Uint8Array,
+    encoding: BufferEncoding | undefined,
+    callback?: THttpEndCallback,
+  ): ServerResponse
+}
+
 function isEndCallback<TValue>(value: TValue): value is TValue & THttpEndCallback {
   return hasFunctionValue(value)
 }
@@ -165,7 +180,7 @@ function applyOriginalEnd(
 
 export function createMcpOAuthCallbackBrandedEnd(
   originalEnd: ServerResponse["end"],
-): ServerResponse["end"] {
+): TMcpOAuthCallbackBrandedEnd {
   function brandedEnd(this: ServerResponse, callback?: () => void): ServerResponse
   function brandedEnd(
     this: ServerResponse,
@@ -175,7 +190,7 @@ export function createMcpOAuthCallbackBrandedEnd(
   function brandedEnd(
     this: ServerResponse,
     chunk: string | Uint8Array,
-    encoding: BufferEncoding,
+    encoding: BufferEncoding | undefined,
     callback?: () => void,
   ): ServerResponse
   function brandedEnd(

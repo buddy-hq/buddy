@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { ServerResponse } from "node:http"
+import { IncomingMessage, ServerResponse } from "node:http"
+import { Socket } from "node:net"
 import { Effect } from "effect"
 import type { McpAuth } from "opencode/mcp/auth"
 import { McpOAuthProvider, OAUTH_CALLBACK_PATH } from "opencode/mcp/oauth-provider"
@@ -25,7 +26,6 @@ const stubAuth: McpAuth.Interface = {
   updateOAuthState: () => Effect.void,
   getOAuthState: () => Effect.succeed(undefined),
   clearOAuthState: () => Effect.void,
-  isTokenExpired: () => Effect.succeed(null),
 }
 
 function makeProvider(config: ConstructorParameters<typeof McpOAuthProvider>[2]) {
@@ -52,8 +52,15 @@ describe("ensureMcpOAuthBrandingPatched", () => {
       callbackInvoked = true
     }
     const brandedEnd = createMcpOAuthCallbackBrandedEnd(originalEnd)
+    const socket = new Socket()
+    const response = new ServerResponse(new IncomingMessage(socket))
 
-    brandedEnd("response", undefined, callback)
+    try {
+      brandedEnd.call(response, "response", undefined, callback)
+    } finally {
+      response.destroy()
+      socket.destroy()
+    }
 
     expect(receivedArgs).toEqual(["response", undefined, callback])
     expect(callbackInvoked).toBe(false)

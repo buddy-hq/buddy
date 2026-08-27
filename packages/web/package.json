@@ -21,8 +21,8 @@
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
     "typecheck:raw": "bun run prepare:web:typecheck && bun ../../node_modules/@typescript/native-preview/bin/tsgo.js -b",
     "preview": "vite preview",
-    "test": "node ./scripts/test-isolated.mjs",
-    "test:contracts": "bun test --preload ./happydom.ts test/parity",
+    "test": "bun ../../script/run-test-command.ts -- bun ./scripts/test-isolated.mjs",
+    "test:parity": "bun ../../script/run-test-command.ts -- bun test --preload ./happydom.ts test/parity",
     "stress:chemistry-renderer": "bun ./scripts/stress-chemistry-renderer.ts"
   },
   "dependencies": {

@@ -7,6 +7,11 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "bun test"
+    "test": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts",
+    "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
+    "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
   }
 }

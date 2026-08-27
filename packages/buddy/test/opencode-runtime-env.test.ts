@@ -6,6 +6,7 @@ import path from "node:path"
 import { configureOpenCodeEnvironment } from "../src/opencode-runtime"
 import { BUDDY_ENV, OPENCODE_ENV, XDG_ENV } from "../src/storage/constants"
 import z from "zod"
+import { TEST_SANDBOX } from "../../../script/test-preload"
 import { parseJsonText, parseWithSchema, requireJsonObject } from "./helpers/parse"
 
 const xdgPathsSchema = z.object({
@@ -614,12 +615,13 @@ describe("opencode runtime env", () => {
 
     const result = spawnSync(bunExecutable, ["-e", script], {
       env: childEnv({
+        HOME: TEST_SANDBOX.originalHome,
         [BUDDY_ENV.TEST_HOME]: testHome,
         [BUDDY_ENV.TEST_XDG_ROOT]: testXdgRoot,
         NODE_ENV: "test",
-        [XDG_ENV.DATA_HOME]: path.join(os.homedir(), ".local", "share"),
-        [XDG_ENV.CACHE_HOME]: path.join(os.homedir(), ".cache"),
-        [XDG_ENV.STATE_HOME]: path.join(os.homedir(), ".local", "state"),
+        [XDG_ENV.DATA_HOME]: path.join(TEST_SANDBOX.originalHome, ".local", "share"),
+        [XDG_ENV.CACHE_HOME]: path.join(TEST_SANDBOX.originalHome, ".cache"),
+        [XDG_ENV.STATE_HOME]: path.join(TEST_SANDBOX.originalHome, ".local", "state"),
       }),
       encoding: "utf8",
     })

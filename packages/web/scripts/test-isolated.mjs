@@ -1,12 +1,17 @@
-import { spawn } from "node:child_process"
 import { readdir } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { runSupervisedTestProcess } from "../../../script/test-process.ts"
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const TEST_ROOT = path.join(PACKAGE_ROOT, "test")
 const TEST_FILE_PATTERN = /\.test\.(?:js|jsx|ts|tsx)$/
-const BUN_EXECUTABLE = process.env.npm_execpath ?? "bun"
+const BUN_EXECUTABLE = process.execPath
+const MILLISECONDS_PER_SECOND = 1_000
+
+function formatDuration(durationMilliseconds) {
+  return `${(durationMilliseconds / MILLISECONDS_PER_SECOND).toFixed(2)}s`
+}
 
 function normalizeRequestedTestFile(value) {
   const resolved = path.resolve(PACKAGE_ROOT, value)
@@ -32,19 +37,24 @@ async function discoverTestFiles(directory = TEST_ROOT) {
   return files.toSorted()
 }
 
-function runTestFile(file) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(
+async function runTestFile(file) {
+  const startedAt = performance.now()
+  const result = await runSupervisedTestProcess({
+    command: [
       BUN_EXECUTABLE,
-      ["test", "--preload", "./happydom.ts", "--only-failures", `./${file}`],
-      {
-        cwd: PACKAGE_ROOT,
-        stdio: ["ignore", "inherit", "inherit"],
-      },
-    )
-    child.once("error", reject)
-    child.once("exit", (exitCode) => resolve(exitCode ?? 1))
+      "test",
+      "--preload",
+      "./happydom.ts",
+      "--only-failures",
+      `./${file}`,
+    ],
+    cwd: PACKAGE_ROOT,
   })
+  const durationMilliseconds = performance.now() - startedAt
+  console.log(
+    `[test:file] ${file}: ${result.exitCode === 0 ? "passed" : `failed (${result.exitCode})`} in ${formatDuration(durationMilliseconds)}`,
+  )
+  return { ...result, durationMilliseconds }
 }
 
 const requestedFiles = process.argv.slice(2).map(normalizeRequestedTestFile)
@@ -54,12 +64,25 @@ if (testFiles.length === 0) {
 }
 
 const failedFiles = []
+const startedAt = performance.now()
+let completedFiles = 0
+let interruptedExitCode
 for (const file of testFiles) {
-  const exitCode = await runTestFile(file)
-  if (exitCode !== 0) failedFiles.push(file)
+  const result = await runTestFile(file)
+  completedFiles += 1
+  if (result.exitCode !== 0) failedFiles.push(file)
+  if (result.signal !== undefined) {
+    interruptedExitCode = result.exitCode
+    break
+  }
 }
+console.log(
+  `[test:web] ${completedFiles}/${testFiles.length} files completed in ${formatDuration(performance.now() - startedAt)}`,
+)
 
-if (failedFiles.length > 0) {
+if (interruptedExitCode !== undefined) {
+  process.exitCode = interruptedExitCode
+} else if (failedFiles.length > 0) {
   console.error(`Failed web test files:\n${failedFiles.join("\n")}`)
   process.exitCode = 1
 }

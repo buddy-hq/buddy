@@ -7,6 +7,20 @@ import { File, rankNotebookFileSearchPaths } from "../src/file"
 import { Instance } from "../src/instance"
 import { Project } from "../src/project"
 
+function createTestProject(directory: string): Project.Info {
+  const project = Schema.decodeUnknownSync(Project.Info)({
+    id: "test-project",
+    worktree: directory,
+    time: {
+      created: 0,
+      updated: 0,
+    },
+    sandboxes: [],
+  })
+
+  return { ...project, sandboxes: [...project.sandboxes] }
+}
+
 async function withTempProject<T>(fn: (directory: string, root: string) => Promise<T>): Promise<T> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-opencode-file-"))
   const directory = path.join(root, "project")
@@ -49,15 +63,7 @@ describe("File", () => {
         fs.writeFile(path.join(directory, ".buddy", "search-state.json"), ""),
       ])
 
-      const project = Schema.decodeUnknownSync(Project.Info)({
-        id: "test-project",
-        worktree: directory,
-        time: {
-          created: 0,
-          updated: 0,
-        },
-        sandboxes: [],
-      })
+      const project = createTestProject(directory)
       const result = await Instance.restore(
         {
           directory,
@@ -77,15 +83,7 @@ describe("File", () => {
   test("honors an already-aborted notebook file search", async () => {
     await withTempProject(async (directory) => {
       await fs.writeFile(path.join(directory, "search-notes.md"), "")
-      const project = Schema.decodeUnknownSync(Project.Info)({
-        id: "test-project",
-        worktree: directory,
-        time: {
-          created: 0,
-          updated: 0,
-        },
-        sandboxes: [],
-      })
+      const project = createTestProject(directory)
       const controller = new AbortController()
       controller.abort()
 
@@ -112,15 +110,7 @@ describe("File", () => {
         fs.writeFile(path.join(directory, "search-one.md"), ""),
         fs.writeFile(path.join(directory, "search-two.md"), ""),
       ])
-      const project = Schema.decodeUnknownSync(Project.Info)({
-        id: "test-project",
-        worktree: directory,
-        time: {
-          created: 0,
-          updated: 0,
-        },
-        sandboxes: [],
-      })
+      const project = createTestProject(directory)
 
       const result = await Instance.restore(
         {
@@ -150,15 +140,7 @@ describe("File", () => {
         fs.writeFile(path.join(vendorDirectory, "search-two.md"), ""),
         fs.writeFile(path.join(directory, "search-notes.md"), ""),
       ])
-      const project = Schema.decodeUnknownSync(Project.Info)({
-        id: "test-project",
-        worktree: directory,
-        time: {
-          created: 0,
-          updated: 0,
-        },
-        sandboxes: [],
-      })
+      const project = createTestProject(directory)
 
       const result = await Instance.restore(
         {
@@ -189,15 +171,7 @@ describe("File", () => {
       await fs.symlink(outsidePath, fileLinkPath)
       await fs.symlink(outsideDirectory, directoryLinkPath)
 
-      const project = Schema.decodeUnknownSync(Project.Info)({
-        id: "test-project",
-        worktree: directory,
-        time: {
-          created: 0,
-          updated: 0,
-        },
-        sandboxes: [],
-      })
+      const project = createTestProject(directory)
 
       await expect(
         Instance.restore(

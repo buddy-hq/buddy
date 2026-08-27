@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "types": ["bun", "node"]
+  },
+  "include": [
+    "script/**/*.test.ts",
+    "script/run-root-script-tests.ts",
+    "script/run-test-command.ts",
+    "script/run-tests.ts",
+    "script/test-process.ts",
+    "script/test-preload.ts",
+    "script/test-sandbox.ts",
+    "script/test-topology.ts"
+  ]
+}

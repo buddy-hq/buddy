@@ -1,3 +1,4 @@
+import "../../script/test-preload"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { mock } from "bun:test"
 import { parseTString } from "./scripts/parse-values"
