@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import {
@@ -9,12 +9,14 @@ import {
   PresentedMediaValidationError,
   readPresentedMediaObject,
 } from "../../src/learning/features/media-presentations/service/file-media"
+import { resolveBuddyHomeDirectory } from "../../src/storage/constants"
 import {
   createToolContext,
   ensureBuddyPluginTools,
   requireTool,
   TEST_TOOL_MODEL,
 } from "../helpers/tools"
+import { temporaryDirectory } from "../helpers/temporary-directory"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("present media", () => {
@@ -61,8 +63,8 @@ describe("present media", () => {
 
   test("returns raw URLs for absolute local paths outside the workspace", async () => {
     await using project = await tmpdir({ git: true })
-    const localDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-present-media-local-"))
-    const localPath = path.join(localDir, "outside.png")
+    await using localDir = await temporaryDirectory({ prefix: "buddy-present-media-local-" })
+    const localPath = path.join(localDir.path, "outside.png")
     await fs.writeFile(localPath, "local-image")
 
     const output = await OpenCodeInstance.provide({
@@ -135,8 +137,8 @@ describe("present media", () => {
 
   test("accepts an absolute local image path outside the workspace", async () => {
     await using project = await tmpdir({ git: true })
-    const localDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-present-media-"))
-    const localPath = path.join(localDir, "outside.png")
+    await using localDir = await temporaryDirectory({ prefix: "buddy-present-media-" })
+    const localPath = path.join(localDir.path, "outside.png")
     await fs.writeFile(localPath, "local-image")
 
     const output = await OpenCodeInstance.provide({
@@ -163,8 +165,10 @@ describe("present media", () => {
 
   test("accepts a file url path", async () => {
     await using project = await tmpdir({ git: true })
-    const localDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-present-media-file-url-"))
-    const localPath = path.join(localDir, "outside.png")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-present-media-file-url-",
+    })
+    const localPath = path.join(localDir.path, "outside.png")
     await fs.writeFile(localPath, "local-image")
 
     const output = await OpenCodeInstance.provide({
@@ -174,7 +178,7 @@ describe("present media", () => {
           directory: project.path,
           items: [
             {
-              path: new URL(`file://${localPath}`).toString(),
+              path: pathToFileURL(localPath).toString(),
             },
           ],
         }),
@@ -185,33 +189,36 @@ describe("present media", () => {
 
   test("accepts a home-relative path", async () => {
     await using project = await tmpdir({ git: true })
-    const homeDir = os.homedir()
-    const tempName = `buddy-present-media-home-${Date.now()}.png`
-    const localPath = path.join(homeDir, tempName)
+    const testHome = resolveBuddyHomeDirectory()
+    await using homeDir = await temporaryDirectory({
+      parentDirectory: testHome,
+      prefix: "buddy-present-media-home-",
+    })
+    const localPath = path.join(homeDir.path, "outside.png")
+    const homeRelativePath = `~/${path.relative(testHome, localPath).split(path.sep).join("/")}`
     await fs.writeFile(localPath, "local-image")
 
-    try {
-      const output = await OpenCodeInstance.provide({
-        directory: project.path,
-        fn: async () =>
-          buildPresentedMediaObjectOutput({
-            directory: project.path,
-            items: [
-              {
-                path: `~/${tempName}`,
-              },
-            ],
-          }),
-      })
+    const output = await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: async () =>
+        buildPresentedMediaObjectOutput({
+          directory: project.path,
+          items: [
+            {
+              path: homeRelativePath,
+            },
+          ],
+        }),
+    })
 
-      expect(output.output.items[0]?.absolutePath).toBe(await fs.realpath(localPath))
-    } finally {
-      await fs.rm(localPath, { force: true })
-    }
+    expect(output.output.items[0]?.absolutePath).toBe(await fs.realpath(localPath))
   })
 
   test("fails for missing local path", async () => {
     await using project = await tmpdir({ git: true })
+    await using missingRoot = await temporaryDirectory({
+      prefix: "buddy-present-media-missing-",
+    })
 
     await expect(
       OpenCodeInstance.provide({
@@ -221,7 +228,7 @@ describe("present media", () => {
             directory: project.path,
             items: [
               {
-                path: path.join(os.tmpdir(), "buddy-not-found-does-not-exist.png"),
+                path: path.join(missingRoot.path, "does-not-exist.png"),
               },
             ],
           }),

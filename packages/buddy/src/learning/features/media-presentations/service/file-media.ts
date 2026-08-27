@@ -1,5 +1,4 @@
 import fs from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import z from "zod"
@@ -21,6 +20,7 @@ import {
 } from "../../../../objects"
 import { mimeTypeForPath } from "../../../../http/mime"
 import { readRawFileResponse } from "../../../../project/raw-file-response-service"
+import { resolveBuddyHomeDirectory } from "../../../../storage/constants"
 import {
   classifyWorkspaceMedia,
   type WorkspaceMediaKind as PresentedMediaKind,
@@ -162,11 +162,11 @@ function normalizeInputSourcePath(directory: string, inputPath: string) {
   }
 
   if (trimmed === "~") {
-    return os.homedir()
+    return resolveBuddyHomeDirectory()
   }
 
   if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
-    return path.join(os.homedir(), trimmed.slice(2))
+    return path.join(resolveBuddyHomeDirectory(), trimmed.slice(2))
   }
 
   if (path.isAbsolute(trimmed)) {
