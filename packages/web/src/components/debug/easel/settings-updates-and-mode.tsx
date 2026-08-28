@@ -40,7 +40,7 @@ import {
  * mis-state what the pick costs.
  *
  * Updates · the channel is a segmented ToggleGroup. Verified in
- * `settings-updates.tsx:174` and `desktop-electron/src/main/index.ts:922`:
+ * `settings-updates-section.tsx` and `desktop-electron/src/main/index.ts:922`:
  * choosing Preview calls `onCheckForUpdates()`, and on macOS the check *is* the
  * download — `checkCustomMacUpdate` streams progress inside `checkForUpdate`.
  * So a control shaped like a view switch pulls a release candidate onto the
@@ -198,7 +198,7 @@ function baselineStatusLabel(state: UpdateState, channel: UpdateChannel): string
   }
 }
 
-/** The shipped panel, rebuilt from `settings-updates.tsx` with its real primitives. */
+/** The shipped panel, rebuilt from `settings-updates-section.tsx` with its real primitives. */
 function UpdatesBaseline(props: { state: UpdateState; channel: UpdateChannel }) {
   const busy = props.state === "checking" || props.state === "downloading"
 
@@ -718,7 +718,7 @@ function UpdatesPart() {
       <DirectionBlock
         eyebrow="Shipping today"
         title="Three rows, one of them permanently empty"
-        thesis="Rebuilt from settings-updates.tsx with its own primitives, so the defects are the real ones."
+        thesis="Rebuilt from settings-updates-section.tsx with its own primitives, so the defects are the real ones."
       >
         <SettingsCanvas>
           <UpdatesBaseline state={state} channel={baselineChannel} />
@@ -740,7 +740,7 @@ function UpdatesPart() {
         </div>
         <DefectList
           items={[
-            "Selecting a channel starts a download. settings-updates.tsx:174 calls onCheckForUpdates() on switch, and on macOS checkCustomMacUpdate streams the file inside checkForUpdate. The control is shaped like a view toggle and costs a release candidate.",
+            "Selecting a channel starts a download. settings-updates-section.tsx calls onCheckForUpdates() on switch, and on macOS checkCustomMacUpdate streams the file inside checkForUpdate. The control is shaped like a view toggle and costs a release candidate.",
             "The selection is nearly invisible. toggleVariants sets data-[state=on]:bg-surface-weak and hover:bg-surface-weak — the same value. A hovered channel and the chosen channel paint identically.",
             'The right column is ragged. ToggleGroup size="sm" is 28px, Button size="xs" is 24px, and the status column is a hand-set w-60 against everyone else\'s sm:min-w-44. Three rows, three widths, two heights.',
             'The Status row is empty most of the time. It is a permanently mounted row whose usual content is the words "No update activity".',
