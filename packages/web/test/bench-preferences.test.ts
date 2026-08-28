@@ -13,13 +13,6 @@ beforeEach(() => {
 })
 
 describe("Bench presentation preferences", () => {
-  test("reuses one persisted workspace width across notebooks", () => {
-    setBenchPresentationWorkspaceWidth(736)
-
-    expect(readBenchPresentationPreferences().workspaceWidthPx).toBe(736)
-    expect(useBenchPresentationPreferences.getState().workspaceWidthPx).toBe(736)
-  })
-
   test("persists the requested workspace width without clamping presentation overflow", () => {
     setBenchPresentationWorkspaceWidth(10_000)
 

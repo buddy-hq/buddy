@@ -35,14 +35,6 @@ export function isIngestFullTextScopedReadingFallback(metadata: IngestFullTextMe
   )
 }
 
-export function isLegacyIngestFullTextScopedReadingError(error: string | undefined): boolean {
-  if (!error) return false
-  return (
-    error.includes("because the live session context is too full.") &&
-    error.includes("Use scoped reading instead of full-text ingestion in this session.")
-  )
-}
-
 function readIngestFullTextReason<TValue>(value: TValue): IngestFullTextMetadata["reason"] {
   const reason = parseTString(value)
   return reason === INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL ? reason : undefined

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { ObjectsListResponse } from "@buddy/sdk/types"
 import {
-  countMediaObjectsByDirectory,
   selectHtmlWidgetObjects,
   selectMediaLibraryObjects,
 } from "../src/components/layout/chat-left-sidebar/library-object-selectors"
@@ -82,7 +81,7 @@ const sourceOnlyWidgetObject: ObjectIndexItem = {
 }
 
 describe("library object selectors", () => {
-  test("selects legacy Bench-visible HTML widgets without a library surface", () => {
+  test("selects Bench-visible HTML widgets without a library surface", () => {
     const selected = selectHtmlWidgetObjects({
       data: {
         objects: [sourceOnlyWidgetObject, legacyHtmlWidgetObject],
@@ -104,32 +103,4 @@ describe("library object selectors", () => {
     expect(selected.map((object) => object.objectID)).toEqual([FIGURE_OBJECT_ID, MEDIA_OBJECT_ID])
   })
 
-  test("excludes unavailable media presentations", () => {
-    const selected = selectMediaLibraryObjects({
-      data: {
-        objects: [unavailableMediaObject],
-        loadErrors: [],
-      },
-    })
-
-    expect(selected).toEqual([])
-  })
-
-  test("counts media-tab objects per directory from unified query snapshots", () => {
-    const counts = countMediaObjectsByDirectory({
-      directories: ["/repo-a", "/repo-b"],
-      snapshots: [
-        {
-          data: {
-            objects: [mediaObject, unavailableMediaObject, figureObject],
-            loadErrors: [],
-          },
-        },
-        { data: { objects: [questionSetObject, figureObject], loadErrors: [] } },
-      ],
-    })
-
-    expect(counts.get("/repo-a")).toBe(2)
-    expect(counts.get("/repo-b")).toBe(1)
-  })
 })

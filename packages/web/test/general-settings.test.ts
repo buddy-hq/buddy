@@ -35,33 +35,6 @@ describe("createGeneralSettingsStore", () => {
     expect(store.getState().draft.fullTextReadingEnabled).toBe(false)
   })
 
-  test("replaceFromBundle refreshes the draft for the active initialized key", () => {
-    const store = createGeneralSettingsStore()
-    const bundle = {
-      globalConfig: {
-        tools: {
-          ingest_full_text: true,
-        },
-        compaction: {
-          auto: true,
-        },
-      },
-    }
-
-    store.getState().initializeFromBundle("", bundle)
-    store.getState().setFullTextReadingEnabled(false)
-    store.getState().replaceFromBundle("", {
-      ...bundle,
-      globalConfig: {
-        ...bundle.globalConfig,
-        tools: {
-          ingest_full_text: true,
-        },
-      },
-    })
-
-    expect(store.getState().draft.fullTextReadingEnabled).toBe(true)
-  })
 })
 
 describe("settings autosave retry guards", () => {

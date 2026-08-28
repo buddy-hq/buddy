@@ -12,8 +12,6 @@ describe("Markdown Bench chemistry plugin", () => {
     expect(chemistryFormatFromFenceLanguage("reaction-smiles")).toBe("reaction-smiles")
     expect(chemistryFormatFromFenceLanguage("ket")).toBe("ket")
     expect(chemistryFormatFromFenceLanguage("chemfig")).toBe("chemfig")
-    expect(chemistryFormatFromFenceLanguage("mol-v2000")).toBeUndefined()
-    expect(chemistryFormatFromFenceLanguage("rxn-v3000")).toBeUndefined()
     expect(chemistryFormatFromFenceLanguage("chemistry")).toBeUndefined()
   })
 

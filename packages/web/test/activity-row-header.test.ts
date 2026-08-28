@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { isValidElement } from "react"
 
 import {
   activityEntryLabel,
   activityHeaderKey,
-  activityWorkingLabel,
   createActivityEntry,
   resolveActivityHeader,
 } from "../src/components/chat/tools/activity-row/entries"
@@ -304,7 +302,7 @@ describe("ActivityRow header resolution", () => {
     expect(settledHeader.shimmer).toBe(false)
   })
 
-  test("keeps the semantic edit icon when the file target is not known", () => {
+  test("keeps the edit action when the file target is not known", () => {
     const [entry] = entries([
       toolPart({
         id: "edit",
@@ -320,7 +318,6 @@ describe("ActivityRow header resolution", () => {
     if (!entry) throw new Error("Expected activity entry")
 
     expect(activityEntryLabel(entry)).toBe("Editing")
-    expect(isValidElement(entry.icon("size-4"))).toBe(true)
   })
 
   test("keeps arguments in the expanded entry but out of the summary title", () => {
@@ -535,8 +532,4 @@ describe("ActivityRow header resolution", () => {
     ).toBe(title)
   })
 
-  test("selects a deterministic stable Panda word from the segment key", () => {
-    expect(activityWorkingLabel("activity:turn:2")).toBe(activityWorkingLabel("activity:turn:2"))
-    expect(activityWorkingLabel("activity:turn:2")).not.toBe("")
-  })
 })

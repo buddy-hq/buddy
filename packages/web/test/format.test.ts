@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test"
 import {
   formatDuration,
   formatThoughtDuration,
-  formatThoughtForLabel,
 } from "../src/components/chat/utils/format"
 
 describe("formatThoughtDuration", () => {
@@ -17,10 +16,6 @@ describe("formatThoughtDuration", () => {
     expect(formatThoughtDuration(60_000)).toBe("1m")
     expect(formatThoughtDuration(90_000)).toBe("1m 30s")
     expect(formatThoughtDuration(125_000)).toBe("2m 5s")
-  })
-
-  test("formatThoughtForLabel prefixes Thought for", () => {
-    expect(formatThoughtForLabel(90_000)).toBe("Thought for 1m 30s")
   })
 })
 

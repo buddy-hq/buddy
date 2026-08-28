@@ -31,7 +31,6 @@ export function buildGeneralSettingsDraft(globalConfig: TBuddyConfigObject): Gen
 
 type GeneralSettingsStoreState = GeneralSettingsState & {
   initializeFromBundle: (initialized: string, bundle: GeneralSettingsBundle) => void
-  replaceFromBundle: (initialized: string, bundle: GeneralSettingsBundle) => void
   startSaving: () => void
   finishSaving: (error?: string) => void
   failSaving: (errorMessage: string) => void
@@ -57,14 +56,6 @@ export function createGeneralSettingsStore() {
         return
       }
 
-      set({
-        saving: false,
-        error: undefined,
-        draft: buildGeneralSettingsDraft(bundle.globalConfig),
-        initialized,
-      })
-    },
-    replaceFromBundle(initialized, bundle) {
       set({
         saving: false,
         error: undefined,

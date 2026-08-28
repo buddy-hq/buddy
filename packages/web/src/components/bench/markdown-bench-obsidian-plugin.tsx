@@ -206,7 +206,7 @@ function createObsidianWikiLinkConstruct(embed: boolean): Construct {
   }
 }
 
-export function obsidianWikiLinkSyntaxExtension(): Extension {
+function obsidianWikiLinkSyntaxExtension(): Extension {
   return {
     text: {
       [LEFT_SQUARE_BRACKET_CODE]: createObsidianWikiLinkConstruct(false),
@@ -246,7 +246,7 @@ function exitObsidianWikiLink(this: CompileContext, token: Token): void {
   this.data.obsidianWikiLinkStack?.pop()
 }
 
-export function obsidianWikiLinkMdastExtension(): MdastExtension {
+function obsidianWikiLinkMdastExtension(): MdastExtension {
   return {
     enter: {
       [OBSIDIAN_WIKILINK_TYPE]: enterObsidianWikiLink,

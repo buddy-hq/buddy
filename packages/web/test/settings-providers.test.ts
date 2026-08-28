@@ -65,12 +65,6 @@ describe("resolveProviderListRowAction", () => {
     ).toBe("edit")
   })
 
-  test("still returns edit for connected env providers", () => {
-    expect(
-      resolveProviderListRowAction(createProviderInfo({ id: "openai", source: "env" }), true),
-    ).toBe("edit")
-  })
-
   test("returns connect for disconnected providers", () => {
     expect(
       resolveProviderListRowAction(

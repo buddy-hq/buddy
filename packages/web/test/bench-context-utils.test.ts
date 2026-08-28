@@ -1,28 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import {
-  benchContextTargetFromBenchTarget,
-  workspaceAbsolutePath,
-} from "../src/components/bench/bench-context-utils"
+import { benchContextTargetFromBenchTarget } from "../src/components/bench/bench-context-utils"
+import { absoluteWorkspaceFilePath } from "../src/lib/workspace-file-paths"
 
 describe("bench context utilities", () => {
-  test("builds POSIX workspace absolute paths", () => {
-    expect(
-      workspaceAbsolutePath({
-        directory: "/Users/me/project/",
-        path: "/docs/design.md",
-      }),
-    ).toBe("/Users/me/project/docs/design.md")
-  })
-
-  test("builds Windows workspace absolute paths without mixed separators", () => {
-    expect(
-      workspaceAbsolutePath({
-        directory: "C:\\Users\\me\\project\\",
-        path: "/docs/design.md",
-      }),
-    ).toBe("C:\\Users\\me\\project\\docs\\design.md")
-  })
-
   test("preserves object revision identity in published Bench context targets", () => {
     expect(
       benchContextTargetFromBenchTarget({
@@ -51,5 +31,20 @@ describe("bench context utilities", () => {
       },
       viewID: "reader",
     })
+  })
+
+  test("joins workspace file paths with the workspace's native separator", () => {
+    expect(
+      absoluteWorkspaceFilePath({
+        directory: "/Users/me/project/",
+        path: "/docs/design.md",
+      }),
+    ).toBe("/Users/me/project/docs/design.md")
+    expect(
+      absoluteWorkspaceFilePath({
+        directory: "C:\\Users\\me\\project\\",
+        path: "/docs/design.md",
+      }),
+    ).toBe("C:\\Users\\me\\project\\docs\\design.md")
   })
 })

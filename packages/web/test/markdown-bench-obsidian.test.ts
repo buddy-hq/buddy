@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test"
-import { fromMarkdown } from "mdast-util-from-markdown"
 import { QueryClient } from "@tanstack/react-query"
 import {
   prepareObsidianCalloutsForMdxEditor,
@@ -7,8 +6,6 @@ import {
 } from "../src/components/bench/markdown-bench-obsidian-callouts"
 import {
   collectObsidianWikiLinkTargets,
-  obsidianWikiLinkMdastExtension,
-  obsidianWikiLinkSyntaxExtension,
 } from "../src/components/bench/markdown-bench-obsidian-plugin"
 import {
   batchObsidianLinkTargets,
@@ -60,37 +57,6 @@ describe("Obsidian Markdown compatibility", () => {
 
     expect(prepareObsidianCalloutsForMdxEditor(markdown)).toBe(markdown)
     expect(restoreObsidianCalloutsFromMdxEditor(markdown)).toBe(markdown)
-  })
-
-  test("parses wikilinks, aliases, fragments, and embeds as first-class nodes", () => {
-    const markdown = "Read [[Notes/Alpha#Details|the explanation]] beside ![[diagram.png]]."
-    const tree = fromMarkdown(markdown, {
-      extensions: [obsidianWikiLinkSyntaxExtension()],
-      mdastExtensions: [obsidianWikiLinkMdastExtension()],
-    })
-
-    expect(tree).toMatchObject({
-      children: [
-        {
-          type: "paragraph",
-          children: [
-            { type: "text", value: "Read " },
-            {
-              type: "obsidianWikiLink",
-              value: "Notes/Alpha#Details",
-              data: { alias: "the explanation", embed: false },
-            },
-            { type: "text", value: " beside " },
-            {
-              type: "obsidianWikiLink",
-              value: "diagram.png",
-              data: { embed: true },
-            },
-            { type: "text", value: "." },
-          ],
-        },
-      ],
-    })
   })
 
   test("collects unique resolver targets without aliases", () => {

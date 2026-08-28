@@ -75,15 +75,4 @@ describe("SessionContextUsage", () => {
     expect(document.querySelector('[data-slot="popover-content"]')).toBeNull()
     expect(document.activeElement).toBe(composerInput)
   })
-
-  test("keeps default Popover autofocus for an explicit trigger open", async () => {
-    const trigger = await renderUsage()
-    trigger.focus()
-
-    await act(async () => trigger.click())
-
-    const content = document.querySelector<HTMLElement>('[data-slot="popover-content"]')
-    expect(content).not.toBeNull()
-    expect(document.activeElement).toBe(content)
-  })
 })

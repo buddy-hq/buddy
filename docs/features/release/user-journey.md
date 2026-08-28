@@ -115,7 +115,7 @@ Buddy has **no Playwright/E2E suite** for the desktop critical path. Release QA 
 | # | Step | Automated (what exists) | Still manual for release |
 | --- | --- | --- | --- |
 | 1 | Install | `smoke-backend-utility` at package time; updater version parsing | Download GitHub artifact, first launch, splash/backend UX |
-| 2 | Onboard | `onboarding-flow.test.ts`, `onboarding-setup.test.tsx`, provider bootstrap routes | Full UI flow; ChatGPT OAuth browser callback (Run B) |
+| 2 | Onboard | `onboarding-flow.test.ts`, provider bootstrap routes | Full UI flow; ChatGPT OAuth browser callback (Run B) |
 | 3 | Chat | SSE/sync/reducer/streaming render tests; message route reads transcript | Live provider send → stream → complete |
 | 4 | Import | `resource-routes.test.ts` (PDF add → ready), pack chunking | Library UI, drag-drop, desktop file picker |
 | 5 | Read | Reader navigation helpers; bench routing tests | Foliate renders real PDF/EPUB in Electron bench |

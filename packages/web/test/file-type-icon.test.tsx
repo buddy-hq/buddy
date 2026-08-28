@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { renderToStaticMarkup } from "react-dom/server"
 
-import { FileTypeIcon, resolveFileTypeIconUrl } from "../src/components/files/file-type-icon"
+import { FileTypeIcon } from "../src/components/files/file-type-icon"
 
 describe("FileTypeIcon", () => {
   test("renders markdown icons as theme-colored inline SVGs", () => {
@@ -13,7 +13,6 @@ describe("FileTypeIcon", () => {
     expect(html).not.toContain("<img")
     expect(html).toContain("text-icon-info-base")
     expect(html).toContain('fill="currentColor"')
-    expect(html).not.toContain(resolveFileTypeIconUrl({ fileName: "notes.md" }))
   })
 
   test("keeps non-markdown icons as image assets", () => {
@@ -23,6 +22,5 @@ describe("FileTypeIcon", () => {
 
     expect(html).toContain("<img")
     expect(html).not.toContain("<svg")
-    expect(html).toContain(resolveFileTypeIconUrl({ fileName: "app.tsx" }))
   })
 })

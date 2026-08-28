@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import {
-  bufferChatStreamEvents,
   createChatStreamEventBuffer,
   MESSAGE_PART_DELTA_EVENT_TYPE,
   MESSAGE_PART_UPDATED_EVENT_TYPE,
@@ -65,9 +64,17 @@ function eventPartState(event: GlobalEvent | undefined) {
   return parseBuddyConfigObject(eventPart(event)?.state)
 }
 
+function drainChatStreamEvents(events: readonly GlobalEvent[]) {
+  const buffer = createChatStreamEventBuffer()
+  for (const event of events) {
+    buffer.enqueue(event)
+  }
+  return buffer.drain()
+}
+
 describe("chat stream event buffer", () => {
   test("compacts superseded text deltas into the latest full part snapshot", () => {
-    const events = bufferChatStreamEvents([
+    const events = drainChatStreamEvents([
       messagePartUpdated({
         type: "text",
         text: "hel",
@@ -87,7 +94,7 @@ describe("chat stream event buffer", () => {
   })
 
   test("drops leading text deltas superseded by a later snapshot", () => {
-    const events = bufferChatStreamEvents([
+    const events = drainChatStreamEvents([
       messagePartDelta({
         field: "text",
         delta: " world",
@@ -103,7 +110,7 @@ describe("chat stream event buffer", () => {
   })
 
   test("coalesces adjacent compatible text deltas", () => {
-    const events = bufferChatStreamEvents([
+    const events = drainChatStreamEvents([
       messagePartDelta({
         field: "text",
         delta: "hel",
@@ -119,7 +126,7 @@ describe("chat stream event buffer", () => {
   })
 
   test("coalesces adjacent compatible full part snapshots", () => {
-    const events = bufferChatStreamEvents([
+    const events = drainChatStreamEvents([
       messagePartUpdated({
         type: "text",
         text: "hel",
@@ -135,7 +142,7 @@ describe("chat stream event buffer", () => {
   })
 
   test("does not coalesce across ordering barriers", () => {
-    const events = bufferChatStreamEvents([
+    const events = drainChatStreamEvents([
       messagePartUpdated({
         type: TOOL_PART_TYPE,
         tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,

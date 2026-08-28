@@ -1,15 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import {
-  CODE_FONT_PLACEHOLDER,
   DEFAULT_APPEARANCE_PREFERENCES,
   DEFAULT_CODE_FONT_SIZE,
   DEFAULT_UI_FONT_SIZE,
   MAX_APPEARANCE_FONT_SIZE,
   MIN_APPEARANCE_FONT_SIZE,
-  UI_FONT_PLACEHOLDER,
   applyAppearancePreferences,
   codeFontFamily,
-  documentRootFontSize,
   normalizeAppearanceFontSize,
   uiFontFamily,
   useAppearancePreferences,
@@ -23,8 +20,6 @@ describe("appearance preferences", () => {
   })
 
   test("builds font stacks with quoted custom family names", () => {
-    expect(UI_FONT_PLACEHOLDER).toBe("System Sans")
-    expect(CODE_FONT_PLACEHOLDER).toBe("System Mono")
     expect(uiFontFamily("Aptos")).toContain("Aptos,")
     expect(codeFontFamily("SF Mono")).toContain('"SF Mono",')
   })
@@ -46,9 +41,7 @@ describe("appearance preferences", () => {
 
     expect(document.documentElement.style.getPropertyValue("--buddy-ui-font-size")).toBe("15px")
     expect(document.documentElement.style.getPropertyValue("--buddy-code-font-size")).toBe("12px")
-    expect(Number.parseFloat(document.documentElement.style.fontSize)).toBeCloseTo(
-      documentRootFontSize(15),
-    )
+    expect(Number.parseFloat(document.documentElement.style.fontSize)).toBeCloseTo(17.142857)
     expect(document.documentElement.style.getPropertyValue("--font-sans")).toBe(
       "var(--buddy-font-family-sans)",
     )

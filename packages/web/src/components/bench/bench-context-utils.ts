@@ -278,7 +278,6 @@ export {
   routeString,
   toolRef,
   urlRef,
-  absoluteWorkspaceFilePath as workspaceAbsolutePath,
   workspaceFileRef,
   workspaceFileTarget,
 }

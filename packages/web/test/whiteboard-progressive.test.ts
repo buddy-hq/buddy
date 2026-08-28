@@ -306,7 +306,7 @@ describe("whiteboard progressive drawing", () => {
     ).toEqual([{ type: "rectangle", id: "existing", x: 0, y: 0, width: 120, height: 60 }])
   })
 
-  test("continues the current board for historical calls without boardAction", () => {
+  test("continues the current board when boardAction is absent", () => {
     const raw = JSON.stringify({
       elements: JSON.stringify([
         { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
@@ -346,7 +346,7 @@ describe("whiteboard progressive drawing", () => {
     ])
   })
 
-  test("replaces the current board for historical replace_current_board transcripts", () => {
+  test("supports replace_current_board transcripts", () => {
     const raw = JSON.stringify({
       boardAction: "replace_current_board",
       elements: JSON.stringify([

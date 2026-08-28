@@ -5,7 +5,6 @@ import {
   filterSlashCommands,
   getSlashMatch,
   parseSlashCommandInput,
-  QUIZ_SLASH_COMMAND_NAME,
 } from "../../../src/components/prompt/slash-autocomplete"
 import {
   PROMPT_PART_TYPE_AGENT,
@@ -66,13 +65,6 @@ describe("slash autocomplete", () => {
     ).toEqual({
       command: { name: "review" },
       arguments: "  staged changes",
-    })
-  })
-
-  test("parses the local quiz slash command", () => {
-    expect(parseSlashCommandInput("/quiz graphs", [{ name: QUIZ_SLASH_COMMAND_NAME }])).toEqual({
-      command: { name: QUIZ_SLASH_COMMAND_NAME },
-      arguments: "graphs",
     })
   })
 

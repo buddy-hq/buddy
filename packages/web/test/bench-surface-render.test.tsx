@@ -12,10 +12,6 @@ import { FlashcardBenchDeck } from "../src/components/bench/flashcard-bench-deck
 import { FlashcardDeckView } from "../src/components/flashcard/flashcard-deck-view"
 import { resolveFlashcardStanding } from "../src/components/flashcard/flashcard-deck-standing"
 import {
-  REVIEW_CARD_MAX_W_PX,
-  REVIEW_GROUP_MAX_H_PX,
-} from "../src/components/flashcard/flashcard-review-surface"
-import {
   BenchRouteContextProvider,
   useRegisterBenchContextProvider,
 } from "../src/components/bench/bench-route-context"
@@ -26,9 +22,6 @@ import { SvgBenchView } from "../src/components/bench/svg-bench-view"
 import {
   BenchSurfaceViewer,
   BenchZoomableViewer,
-  resolveBenchCenteredScroll,
-  resolveBenchFitZoom,
-  resolveBenchZoomableCanvasMetrics,
 } from "../src/components/bench/bench-viewer-shell"
 import { HtmlWidgetFrame } from "../src/components/chat/tools/render/html-widget"
 import { ServerProvider, type ServerConnection } from "../src/context/server"
@@ -670,18 +663,6 @@ describe("bench surface rendering", () => {
 
     expect(container.querySelector('[data-component="bench-viewer-shell"] header')).toBeNull()
     expect(container.querySelector('[data-component="bench-control-dock"]')).toBeNull()
-    expect(container.querySelector("iframe")?.className).toContain("h-full")
-    expect(container.querySelector("iframe")?.className).toContain("w-full")
-  })
-
-  test("fits zoomable content to the bench viewport with padding", () => {
-    const zoom = resolveBenchFitZoom({
-      viewportSize: { width: 1_200, height: 900 },
-      contentSize: { width: 1_000, height: 500 },
-      canvasPadding: 32,
-    })
-
-    expect(zoom).toBe(1.136)
   })
 
   test("animates only explicit user zoom changes in the zoomable bench", async () => {
@@ -746,28 +727,11 @@ describe("bench surface rendering", () => {
         await flushEffects()
       })
 
-      const zoom = resolveBenchFitZoom({
-        viewportSize: { width: 1_200, height: 900 },
-        contentSize: { width: 1_000, height: 500 },
-        canvasPadding: 32,
-      })
-      const metrics = resolveBenchZoomableCanvasMetrics({
-        viewportSize: { width: 1_200, height: 900 },
-        contentSize: { width: 1_000, height: 500 },
-        zoom,
-        canvasPadding: 32,
-        panOverscan: 512,
-      })
-      const centered = resolveBenchCenteredScroll({
-        viewportSize: { width: 1_200, height: 900 },
-        metrics,
-      })
-
       expect(container.querySelector('[data-component="bench-zoom-label"]')?.textContent).toBe(
         "114%",
       )
-      expect(viewport.scrollLeft).toBe(centered.left)
-      expect(viewport.scrollTop).toBe(centered.top)
+      expect(viewport.scrollLeft).toBe(512)
+      expect(viewport.scrollTop).toBe(512)
     } finally {
       if (originalResizeObserver) {
         globalThis.ResizeObserver = originalResizeObserver
@@ -857,31 +821,6 @@ describe("bench surface rendering", () => {
       panY: 125,
       autoFit: false,
     })
-  })
-
-  test("keeps zoomable content centered inside a larger pannable canvas", () => {
-    const metrics = resolveBenchZoomableCanvasMetrics({
-      viewportSize: { width: 1_000, height: 800 },
-      contentSize: { width: 400, height: 300 },
-      zoom: 2,
-      canvasPadding: 32,
-      panOverscan: 512,
-    })
-
-    expect(metrics).toEqual({
-      canvasWidth: 2_024,
-      canvasHeight: 1_824,
-      contentOffsetX: 612,
-      contentOffsetY: 612,
-      renderedWidth: 800,
-      renderedHeight: 600,
-    })
-    expect(
-      resolveBenchCenteredScroll({
-        viewportSize: { width: 1_000, height: 800 },
-        metrics,
-      }),
-    ).toEqual({ left: 512, top: 512 })
   })
 
   test("uses the loader flashcard deck without re-reading it on mount", async () => {
@@ -1270,9 +1209,6 @@ describe("bench surface rendering", () => {
           [],
       ).some((child) => child.tagName === "HEADER"),
     ).toBe(false)
-    expect(
-      container.querySelector('[data-component="flashcard-deck-content"]')?.className,
-    ).toContain("max-w-3xl")
 
     await act(async () => {
       await new Promise<void>((resolve) => setTimeout(resolve, 300))
@@ -1346,8 +1282,8 @@ describe("bench surface rendering", () => {
     expect(
       container.querySelector('[data-component="flashcard-practice-card-frame"]'),
     ).not.toBeNull()
-    expect(cardGroup?.style.maxWidth).toBe(`${REVIEW_CARD_MAX_W_PX}px`)
-    expect(cardGroup?.style.maxHeight).toBe(`${REVIEW_GROUP_MAX_H_PX}px`)
+    expect(cardGroup?.style.maxWidth).toBe("560px")
+    expect(cardGroup?.style.maxHeight).toBe("467px")
     expect(container.textContent).toContain("Off schedule")
     expect(container.textContent).toContain("Nothing here is rated")
     expect(container.textContent).toContain("Show answer")

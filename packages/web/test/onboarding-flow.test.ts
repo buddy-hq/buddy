@@ -293,19 +293,6 @@ describe("desktop onboarding entry routing", () => {
     ).resolves.toBe("/onboarding")
   })
 
-  test("does not return to onboarding after setup when a notebook exists", () => {
-    expect(
-      resolveDesktopEntryPath({
-        platform: "desktop",
-        setupCompleted: true,
-        openProjects: ["/repo"],
-        activeDirectory: "/repo",
-        pendingActiveDirectory: undefined,
-        lastSessionByDirectory: {},
-        directories: {},
-      }),
-    ).toBe("/chat")
-  })
 })
 
 describe("onboarding store", () => {

@@ -16,23 +16,25 @@ import { parseBuddyConfigObject, parseStringValue } from "./parse-test-values"
 type RecordedAnimation = {
   keyframes: Keyframe[]
   options: KeyframeAnimationOptions
+  cancelCount: number
 }
 
 function createAnimatableElement(recorded: RecordedAnimation[]): HTMLElement {
   const element = document.createElement("div")
-  const listeners = new Map<string, () => void>()
-  const animation = {
-    cancel: () => {
-      listeners.get("cancel")?.()
-    },
-    addEventListener: (type: string, listener: () => void) => {
-      listeners.set(type, listener)
-    },
-  }
   Object.assign(element, {
     animate: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => {
-      recorded.push({ keyframes, options })
-      return animation
+      const record: RecordedAnimation = { keyframes, options, cancelCount: 0 }
+      recorded.push(record)
+      const listeners = new Map<string, () => void>()
+      return {
+        cancel: () => {
+          record.cancelCount += 1
+          listeners.get("cancel")?.()
+        },
+        addEventListener: (type: string, listener: () => void) => {
+          listeners.set(type, listener)
+        },
+      }
     },
   })
   return element
@@ -119,15 +121,6 @@ describe("surface reveal variants", () => {
     )
   })
 
-  test("keeps the fade on the same duration the transcript catch-up uses", () => {
-    expect(resolveSurfaceRevealTransition(false).duration).toBe(
-      SURFACE_REVEAL_MOTION.durationMs / 1_000,
-    )
-    expect(resolveSurfaceRevealTransition(true).duration).toBe(
-      SURFACE_REVEAL_MOTION.reducedDurationMs / 1_000,
-    )
-  })
-
   test("drops the entrance drift when motion is reduced", () => {
     const enter = resolveSurfaceRevealVariants(true).enter
     const enterTarget = parseBuddyConfigObject(enter)
@@ -180,5 +173,6 @@ describe("createAnchorShiftAnimator", () => {
     animator.cancel()
 
     expect(recorded).toHaveLength(1)
+    expect(recorded[0]?.cancelCount).toBe(1)
   })
 })

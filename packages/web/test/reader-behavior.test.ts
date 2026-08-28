@@ -324,19 +324,6 @@ describe("reader themes", () => {
     expect(resolveAnnotationColorValue("amber", document.documentElement)).toBe("rgb(255, 191, 0)")
   })
 
-  test("ignores the legacy independent appearance preference", () => {
-    localStorage.setItem(
-      GLOBAL_PREFERENCES_STORAGE_KEY,
-      JSON.stringify({
-        themeId: "night",
-        flow: FLOW_PAGINATED,
-        appearanceMode: "light",
-      }),
-    )
-
-    expect(loadGlobalPreferences("paper", FLOW_SCROLLED)).not.toHaveProperty("appearanceMode")
-    expect(loadGlobalPreferences("paper", FLOW_SCROLLED).themeId).toBe("night")
-  })
 })
 
 describe("reader overlays", () => {

@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import {
-  MARKDOWN_PDF_MAX_ATOMIC_BLOCK_HEIGHT,
-  MARKDOWN_PDF_MAX_MERMAID_BLOCK_HEIGHT,
-  MARKDOWN_PDF_MAX_MERMAID_BLOCK_WIDTH,
-  MARKDOWN_PDF_PRINT_TYPE,
   serializeMarkdownPdfDocument,
   waitForMarkdownPdfRenderReady,
 } from "../src/lib/markdown-pdf-export"
+import {
+  MARKDOWN_PRINT_MAX_ATOMIC_BLOCK_HEIGHT,
+  MARKDOWN_PRINT_MAX_MERMAID_BLOCK_HEIGHT,
+  MARKDOWN_PRINT_MAX_MERMAID_BLOCK_WIDTH,
+  MARKDOWN_PRINT_TYPE,
+} from "../src/lib/markdown-print-theme"
 
 describe("Markdown PDF export", () => {
   afterEach(() => {
@@ -124,19 +126,19 @@ describe("Markdown PDF export", () => {
     expect(html).toContain('[data-component="markdown-bench-mdx-intrinsic"]')
     expect(html).toContain("break-inside: avoid-page !important;")
     expect(html).toContain("page-break-inside: avoid !important;")
-    expect(html).toContain(`margin: ${MARKDOWN_PDF_PRINT_TYPE.paragraphMarginBlock} !important;`)
-    expect(html).toContain(`orphans: ${MARKDOWN_PDF_PRINT_TYPE.paragraphOrphans};`)
-    expect(html).toContain(`widows: ${MARKDOWN_PDF_PRINT_TYPE.paragraphWidows};`)
-    expect(html).toContain(`font-size: ${MARKDOWN_PDF_PRINT_TYPE.figcaptionFontSize} !important;`)
+    expect(html).toContain(`margin: ${MARKDOWN_PRINT_TYPE.paragraphMarginBlock} !important;`)
+    expect(html).toContain(`orphans: ${MARKDOWN_PRINT_TYPE.paragraphOrphans};`)
+    expect(html).toContain(`widows: ${MARKDOWN_PRINT_TYPE.paragraphWidows};`)
+    expect(html).toContain(`font-size: ${MARKDOWN_PRINT_TYPE.figcaptionFontSize} !important;`)
     expect(html).toContain(
-      `padding-left: ${MARKDOWN_PDF_PRINT_TYPE.taskListItemPaddingLeft} !important;`,
+      `padding-left: ${MARKDOWN_PRINT_TYPE.taskListItemPaddingLeft} !important;`,
     )
-    expect(html).toContain(`width: ${MARKDOWN_PDF_PRINT_TYPE.taskListCheckboxSize} !important;`)
+    expect(html).toContain(`width: ${MARKDOWN_PRINT_TYPE.taskListCheckboxSize} !important;`)
     expect(html).toContain('li.task-list-item > input[type="checkbox"]')
     expect(html).toContain('li[role="checkbox"]')
-    expect(html).toContain(`max-height: ${MARKDOWN_PDF_MAX_ATOMIC_BLOCK_HEIGHT} !important;`)
-    expect(html).toContain(`max-width: ${MARKDOWN_PDF_MAX_MERMAID_BLOCK_WIDTH} !important;`)
-    expect(html).toContain(`max-height: ${MARKDOWN_PDF_MAX_MERMAID_BLOCK_HEIGHT} !important;`)
+    expect(html).toContain(`max-height: ${MARKDOWN_PRINT_MAX_ATOMIC_BLOCK_HEIGHT} !important;`)
+    expect(html).toContain(`max-width: ${MARKDOWN_PRINT_MAX_MERMAID_BLOCK_WIDTH} !important;`)
+    expect(html).toContain(`max-height: ${MARKDOWN_PRINT_MAX_MERMAID_BLOCK_HEIGHT} !important;`)
     expect(html).not.toContain('class="dark"')
     expect(html).not.toContain('data-theme="night"')
     expect(html).not.toContain('class="bg-background-base text-text-base overflow-hidden"')

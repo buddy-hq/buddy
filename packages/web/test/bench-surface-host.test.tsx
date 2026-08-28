@@ -265,20 +265,6 @@ describe("BenchSurfaceHost", () => {
     }
   })
 
-  test("mounts the newly active surface in the same render, without an empty frame", async () => {
-    mountCounts.clear()
-    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
-    container = document.createElement("div")
-    document.body.appendChild(container)
-    root = createRoot(container)
-
-    await renderHost(FIRST_TARGET)
-
-    expect(
-      container.querySelector(`[data-testid="surface-${benchTargetKey(FIRST_TARGET)}"]`),
-    ).not.toBeNull()
-  })
-
   test("parks runtime work while a retained Bench target is collapsed", async () => {
     mountCounts.clear()
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)

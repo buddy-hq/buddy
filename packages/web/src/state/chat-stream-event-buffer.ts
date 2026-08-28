@@ -192,14 +192,6 @@ function coalesceQueuedChatStreamEvents(events: GlobalEvent[]) {
   return output.filter((event) => event !== undefined)
 }
 
-export function bufferChatStreamEvents(events: GlobalEvent[]) {
-  const buffer = createChatStreamEventBuffer()
-  for (const event of events) {
-    buffer.enqueue(event)
-  }
-  return buffer.drain()
-}
-
 export function createChatStreamEventBuffer() {
   let queue: GlobalEvent[] = []
   let buffer: GlobalEvent[] = []

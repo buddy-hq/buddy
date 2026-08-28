@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
   buildPersonalizationPatch,
-  normalizePersonalizationSettings,
   readConciseResponses,
   readPersonalization,
   shouldResetPersonalizationForm,
@@ -73,20 +72,6 @@ describe("project-config personalization helpers", () => {
       personalization: {
         primary_use: "learn",
       },
-    })
-  })
-
-  test("normalizes personalization values by trimming whitespace", () => {
-    expect(
-      normalizePersonalizationSettings({
-        preferredName: " Pat ",
-        occupation: " Researcher ",
-        moreAboutYou: " Likes systems. ",
-      }),
-    ).toEqual({
-      preferredName: "Pat",
-      occupation: "Researcher",
-      moreAboutYou: "Likes systems.",
     })
   })
 

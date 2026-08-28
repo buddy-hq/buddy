@@ -317,7 +317,6 @@ describe("ActivityRow", () => {
       )
     })
 
-    expect(container.querySelector("[data-lucide='circle-alert']")).toBeNull()
     expect(container.querySelector("[data-activity-entry]")).toBeNull()
   })
 
