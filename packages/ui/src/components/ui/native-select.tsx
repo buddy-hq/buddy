@@ -28,6 +28,12 @@ function NativeSelect({
         data-slot="native-select"
         data-size={size}
         className={cn(
+          // The OS draws the menulist popup, and it inherits this element's colors. `input-base`
+          // is a translucent tint in dark themes, which the popup composites over its own light
+          // base — light `text-base` on a near-white list. Give the options an opaque surface so
+          // Windows/Linux Chromium has something legible to paint; macOS uses a native menu and
+          // ignores it.
+          "[&_option]:bg-surface-raised-stronger-non-alpha [&_option]:text-text-base",
           "border-border-base data-placeholder:text-text-weak bg-input-base hover:bg-input-hover focus-visible:border-border-interactive-base focus-visible:ring-border-interactive-base/50 aria-invalid:ring-border-critical-base/35 aria-invalid:border-border-critical-base text-text-base w-full min-w-0 appearance-none rounded-lg border py-2 pr-9 pl-2.5 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-[background-color,border-color,color,box-shadow] select-none whitespace-nowrap outline-none focus-visible:ring-2 aria-invalid:ring-3 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] data-[size=sm]:py-0.5 disabled:pointer-events-none disabled:cursor-not-allowed",
           className,
         )}
