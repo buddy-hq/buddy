@@ -332,10 +332,7 @@ export function GeneralSettings() {
       </SettingsSection>
 
       <div className="space-y-2">
-        <SettingsSectionHeader
-          title={language.t("settings.labs.diagnosticsSection")}
-          description={language.t("settings.advanced.logLevelDescription")}
-        />
+        <SettingsSectionHeader title={language.t("settings.labs.diagnosticsSection")} />
         <SettingsListCard>
           <SettingsRow
             title={language.t("settings.advanced.logLevelTitle")}

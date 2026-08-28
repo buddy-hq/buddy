@@ -25,6 +25,8 @@ const GLOBAL_MCP_CONFIG: GlobalMcpConfig = {
   },
 }
 
+let currentConfig: GlobalMcpConfig = GLOBAL_MCP_CONFIG
+
 type Deferred = {
   promise: Promise<GlobalMcpConfig>
   resolve: () => void
@@ -35,7 +37,17 @@ type SaveHandles = {
 }
 
 const savedNames: string[] = []
+const savedEntries: RemoteMcpEntry[] = []
 const pendingSaves = new Map<string, Deferred>()
+
+/** Fails loudly when the save under test was never registered, instead of silently passing. */
+function pendingSave(name: string): Deferred {
+  const deferred = pendingSaves.get(name)
+  if (!deferred) {
+    throw new Error(`no pending save for ${name}`)
+  }
+  return deferred
+}
 
 /** A save that stays in flight until the test settles it, so two toggles can overlap. */
 function deferSave(name: string): Deferred {
@@ -45,7 +57,7 @@ function deferSave(name: string): Deferred {
   })
   const deferred: Deferred = {
     promise,
-    resolve: () => handles.settle?.(GLOBAL_MCP_CONFIG),
+    resolve: () => handles.settle?.(currentConfig),
   }
   pendingSaves.set(name, deferred)
   return deferred
@@ -63,8 +75,9 @@ mock.module("@/lib/provider-auth", () => ({
 
 mock.module("@/state/chat-actions", () => ({
   ...actualChatActions,
-  saveGlobalMcpConfig: (name: string) => {
+  saveGlobalMcpConfig: (name: string, config: RemoteMcpEntry) => {
     savedNames.push(name)
+    savedEntries.push(config)
     return deferSave(name).promise
   },
   removeGlobalMcpConfig: async () => ({}),
@@ -93,6 +106,8 @@ describe("MCP settings concurrency", () => {
 
   beforeEach(() => {
     savedNames.length = 0
+    savedEntries.length = 0
+    currentConfig = GLOBAL_MCP_CONFIG
     pendingSaves.clear()
     useChatStore.setState({ openProjects: [DIRECTORY], activeDirectory: DIRECTORY })
 
@@ -134,8 +149,9 @@ describe("MCP settings concurrency", () => {
 
     // Settling alpha must not clear beta's busy state.
     await act(async () => {
-      pendingSaves.get(ALPHA)?.resolve()
-      await pendingSaves.get(ALPHA)?.promise
+      const alphaSave = pendingSave(ALPHA)
+      alphaSave.resolve()
+      await alphaSave.promise
     })
 
     expect(switchFor(container, ALPHA).disabled).toBe(false)
@@ -162,10 +178,50 @@ describe("MCP settings concurrency", () => {
     expect(savedNames).toEqual([ALPHA])
 
     await act(async () => {
-      pendingSaves.get(ALPHA)?.resolve()
-      await pendingSaves.get(ALPHA)?.promise
+      const alphaSave = pendingSave(ALPHA)
+      alphaSave.resolve()
+      await alphaSave.promise
     })
 
     expect(savedNames).toEqual([ALPHA, BETA])
+  })
+
+  test("writes the config as it stands when the queued toggle runs", async () => {
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <McpsSettings />
+        </QueryClientProvider>,
+      )
+    })
+
+    // Alpha's toggle goes first and holds the queue; beta's waits behind it.
+    await act(async () => {
+      switchFor(container, ALPHA).click()
+    })
+    await act(async () => {
+      switchFor(container, BETA).click()
+    })
+
+    // While beta is queued, something else rewrites beta's URL in the cache.
+    const rewrittenBeta: RemoteMcpEntry = {
+      type: "remote",
+      url: "https://beta.example.com/mcp/v2",
+      enabled: true,
+    }
+    act(() => {
+      currentConfig = { mcp: { ...GLOBAL_MCP_CONFIG.mcp, [BETA]: rewrittenBeta } }
+      queryClient.setQueryData(globalConfigQueryKeys.bundle(), currentConfig)
+    })
+
+    await act(async () => {
+      const alphaSave = pendingSave(ALPHA)
+      alphaSave.resolve()
+      await alphaSave.promise
+    })
+
+    // Beta's queued write must carry the rewritten URL, not the click-time snapshot.
+    expect(savedNames).toEqual([ALPHA, BETA])
+    expect(savedEntries.at(-1)?.url).toBe(rewrittenBeta.url)
   })
 })

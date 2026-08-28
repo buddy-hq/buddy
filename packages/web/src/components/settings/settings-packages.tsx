@@ -105,77 +105,73 @@ export function PackagesSettings() {
   return (
     <>
       <SettingsContent>
-        <div className="space-y-2">
-          <SettingsSectionHeader
-            title={language.t("settings.packages.title")}
-            description={language.t("settings.packages.description")}
-          />
-          <SettingsListCard>
-            {runtimesSupported ? (
-              <>
-                <SettingsRow
-                  title={language.t("settings.appearance.advancedMathTitle")}
-                  description={advancedMathRuntimeDescription(platform.os)}
-                  control={
-                    <AdvancedMathRuntimeControl
-                      os={platform.os}
-                      status={advancedMathStatus}
-                      loading={advancedMathLoading}
-                      busy={advancedMathBusy}
-                      enabled={advancedMathEnabled}
-                      onToggle={onToggleAdvancedMathRuntime}
-                    />
-                  }
-                />
-                <SettingsRow
-                  title={language.t("settings.tools.standardsRuntimeTitle")}
-                  description={language.t("settings.tools.standardsRuntimeDescription")}
-                  control={
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-end gap-3">
-                        {standardsActivity ? (
-                          <span className="text-xs text-text-weak">{standardsActivity}</span>
-                        ) : null}
-                        <Switch
-                          data-action="settings-standards-runtime-toggle"
-                          aria-label={language.t("settings.tools.standardsRuntimeToggleAria")}
-                          checked={standardsEnabled}
-                          disabled={standardsBusy || standardsStatus === null}
-                          onCheckedChange={onToggleStandardsRuntime}
-                        />
-                      </div>
-                      {standardsStatus?.installedDatasetVersion ? (
-                        <span className="text-[11px] text-text-subtle">
-                          {standardsStatus.installedDatasetVersion}
-                        </span>
+        {/* Runtimes are a desktop capability; on web the whole section would be an empty card. */}
+        {runtimesSupported ? (
+          <div className="space-y-2">
+            <SettingsSectionHeader
+              title={language.t("settings.packages.title")}
+              description={language.t("settings.packages.description")}
+            />
+            <SettingsListCard>
+              <SettingsRow
+                title={language.t("settings.appearance.advancedMathTitle")}
+                description={advancedMathRuntimeDescription(platform.os)}
+                control={
+                  <AdvancedMathRuntimeControl
+                    os={platform.os}
+                    status={advancedMathStatus}
+                    loading={advancedMathLoading}
+                    busy={advancedMathBusy}
+                    enabled={advancedMathEnabled}
+                    onToggle={onToggleAdvancedMathRuntime}
+                  />
+                }
+              />
+              <SettingsRow
+                title={language.t("settings.tools.standardsRuntimeTitle")}
+                description={language.t("settings.tools.standardsRuntimeDescription")}
+                control={
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-end gap-3">
+                      {standardsActivity ? (
+                        <span className="text-xs text-text-weak">{standardsActivity}</span>
                       ) : null}
-                      {standardsStatus?.progressMessage ||
-                      standardsProgressPercent !== undefined ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
-                            <span className="truncate">
-                              {standardsStatus?.progressMessage ??
-                                language.t("settings.appearance.working")}
-                            </span>
-                            {standardsProgressPercent !== undefined ? (
-                              <span>{Math.round(standardsProgressPercent)}%</span>
-                            ) : null}
-                          </div>
-                          <Progress value={standardsProgressPercent ?? 0} className="h-1.5" />
-                        </div>
-                      ) : null}
-                      {standardsStatus?.lastError ? (
-                        <p className="text-xs text-icon-critical-base">
-                          {standardsStatus.lastError}
-                        </p>
-                      ) : null}
+                      <Switch
+                        data-action="settings-standards-runtime-toggle"
+                        aria-label={language.t("settings.tools.standardsRuntimeToggleAria")}
+                        checked={standardsEnabled}
+                        disabled={standardsBusy || standardsStatus === null}
+                        onCheckedChange={onToggleStandardsRuntime}
+                      />
                     </div>
-                  }
-                />
-              </>
-            ) : null}
-          </SettingsListCard>
-        </div>
+                    {standardsStatus?.installedDatasetVersion ? (
+                      <span className="text-[11px] text-text-subtle">
+                        {standardsStatus.installedDatasetVersion}
+                      </span>
+                    ) : null}
+                    {standardsStatus?.progressMessage || standardsProgressPercent !== undefined ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
+                          <span className="truncate">
+                            {standardsStatus?.progressMessage ??
+                              language.t("settings.appearance.working")}
+                          </span>
+                          {standardsProgressPercent !== undefined ? (
+                            <span>{Math.round(standardsProgressPercent)}%</span>
+                          ) : null}
+                        </div>
+                        <Progress value={standardsProgressPercent ?? 0} className="h-1.5" />
+                      </div>
+                    ) : null}
+                    {standardsStatus?.lastError ? (
+                      <p className="text-xs text-icon-critical-base">{standardsStatus.lastError}</p>
+                    ) : null}
+                  </div>
+                }
+              />
+            </SettingsListCard>
+          </div>
+        ) : null}
 
         {/*
           Experimental capabilities keep their own header: the "may change or be removed"

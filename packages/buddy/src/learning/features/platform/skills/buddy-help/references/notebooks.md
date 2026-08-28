@@ -173,4 +173,4 @@ Sidebar **Organize chats**: by notebook · chronological; sort created · update
 - Notebooks above — notebook container / Home
 - `chat.md` — composer, other slashes
 - `workspace.md` — left sidebar chrome
-- `settings.md` — Advanced auto-compaction
+- `settings.md` — General auto-compaction

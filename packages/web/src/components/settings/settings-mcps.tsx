@@ -20,7 +20,11 @@ import {
   saveGlobalMcpConfig,
 } from "@/state/chat-actions"
 import type { McpStatusInfo, McpStatusMap } from "@/state/chat-types"
-import { globalConfigQueryOptions, setGlobalConfigQueryData } from "@/state/global-config-query"
+import {
+  globalConfigQueryKeys,
+  globalConfigQueryOptions,
+  setGlobalConfigQueryData,
+} from "@/state/global-config-query"
 import { mcpStatusQueryOptions } from "@/state/mcp-directory-query"
 import { notebookDefinesMcp } from "@/state/mcp-settings"
 import { notebookRawProjectConfigQueryOptions } from "@/state/notebook-settings-query"
@@ -116,9 +120,11 @@ export function McpsSettings() {
   const mcpEditor = useMcpEditor({
     onSave: async ({ name, config }) => {
       setPanelError(undefined)
-      const updatedGlobal = await saveGlobalMcpConfig(name, config)
-      setGlobalConfigQueryData(queryClient, updatedGlobal)
-      await reloadOpenNotebookMcpRuntimes()
+      await runGlobalMcpMutation(async () => {
+        const updatedGlobal = await saveGlobalMcpConfig(name, config)
+        setGlobalConfigQueryData(queryClient, updatedGlobal)
+        await reloadOpenNotebookMcpRuntimes()
+      })
     },
   })
 
@@ -188,8 +194,7 @@ export function McpsSettings() {
   }
 
   async function setConfigEnabled(name: string, enabled: boolean) {
-    const config = configByName[name]
-    if (!config) {
+    if (!configByName[name]) {
       return
     }
 
@@ -198,7 +203,16 @@ export function McpsSettings() {
 
     try {
       await runGlobalMcpMutation(async () => {
-        const updatedGlobal = await saveGlobalMcpConfig(name, { ...config, enabled })
+        // Re-read inside the queued task: an editor save may have rewritten this server while
+        // the toggle waited its turn, and the render-time snapshot would undo those fields.
+        const current = parseMcpConfigMap(
+          queryClient.getQueryData(globalConfigQueryKeys.bundle()) ?? {},
+        )[name]
+        if (!current) {
+          return
+        }
+
+        const updatedGlobal = await saveGlobalMcpConfig(name, { ...current, enabled })
         setGlobalConfigQueryData(queryClient, updatedGlobal)
         await reloadOpenNotebookMcpRuntimes()
       })

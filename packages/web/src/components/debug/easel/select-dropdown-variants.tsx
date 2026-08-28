@@ -8,7 +8,14 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
+  Z_INDEX,
 } from "@buddy/ui"
+
+/**
+ * SelectContent defaults to `Z_INDEX.floating`, which sits below the DevTools panel these
+ * easels render inside. Every portaled menu here needs the devtools layer to stay on top.
+ */
+const DEVTOOLS_MENU_STYLE = { zIndex: Z_INDEX.devtoolsFloating }
 
 const THEMES = [
   { value: "dracula", label: "Dracula" },
@@ -71,7 +78,7 @@ export function SelectDropdownVariantsEasel() {
               <SelectTrigger className="w-64">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent style={DEVTOOLS_MENU_STYLE}>
                 <SelectGroup>
                   <SelectLabel>OpenAI</SelectLabel>
                   <SelectItem value="gpt-4o">GPT-4o</SelectItem>
@@ -117,7 +124,7 @@ export function SelectDropdownVariantsEasel() {
               <SelectTrigger className="w-56">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent style={DEVTOOLS_MENU_STYLE}>
                 <SelectGroup>
                   <SelectLabel>Dark Themes</SelectLabel>
                   {THEMES.filter(
@@ -149,7 +156,7 @@ export function SelectDropdownVariantsEasel() {
               <SelectTrigger size="sm" className="w-32">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent style={DEVTOOLS_MENU_STYLE}>
                 {FONT_SIZES.map((f) => (
                   <SelectItem key={f.value} value={f.value}>
                     {f.label}
@@ -174,7 +181,7 @@ export function SelectDropdownVariantsEasel() {
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent style={DEVTOOLS_MENU_STYLE}>
                 <SelectItem value="allow">Always Allow</SelectItem>
                 <SelectItem value="ask">Ask Every Time</SelectItem>
                 <SelectItem value="deny">Deny</SelectItem>
@@ -189,7 +196,7 @@ export function SelectDropdownVariantsEasel() {
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose action…" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent style={DEVTOOLS_MENU_STYLE}>
                 <SelectItem value="read">Read Only</SelectItem>
                 <SelectItem value="write">Read &amp; Write</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
@@ -204,7 +211,7 @@ export function SelectDropdownVariantsEasel() {
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent style={DEVTOOLS_MENU_STYLE}>
                 <SelectItem value="ask">Ask Every Time</SelectItem>
               </SelectContent>
             </Select>
@@ -217,7 +224,7 @@ export function SelectDropdownVariantsEasel() {
               <SelectTrigger aria-invalid="true" className="w-full">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent style={DEVTOOLS_MENU_STYLE}>
                 <SelectItem value="error-val">Missing Provider Key</SelectItem>
               </SelectContent>
             </Select>
@@ -232,7 +239,7 @@ export function SelectDropdownVariantsEasel() {
               <SelectTrigger size="sm" className="w-full">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent style={DEVTOOLS_MENU_STYLE}>
                 <SelectItem value="allow">Always Allow</SelectItem>
                 <SelectItem value="ask">Ask Every Time</SelectItem>
                 <SelectItem value="deny">Deny</SelectItem>
@@ -256,7 +263,12 @@ export function SelectDropdownVariantsEasel() {
               <SelectTrigger className="w-64">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent position="popper" align="start" className="w-64">
+              <SelectContent
+                position="popper"
+                align="start"
+                className="w-64"
+                style={DEVTOOLS_MENU_STYLE}
+              >
                 <SelectGroup>
                   <SelectLabel>Batch 1 (1–10)</SelectLabel>
                   {Array.from({ length: 10 }, (_, i) => (
