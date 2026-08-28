@@ -54,4 +54,19 @@ jobs:
 
       - run: bun typecheck
 
+      # Search-backed tests spawn the vendored ripgrep adapter, which downloads a
+      # release binary when `rg` is missing from PATH. The test network guard blocks
+      # that fetch, so provide ripgrep from the runner instead.
+      - name: Install ripgrep
+        run: |
+          for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
+            if sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ripgrep; then
+              exit 0
+            fi
+            if ((attempt == INSTALL_MAX_ATTEMPTS)); then
+              exit 1
+            fi
+            sleep "$INSTALL_RETRY_DELAY_SECONDS"
+          done
+
       - run: bun run test
