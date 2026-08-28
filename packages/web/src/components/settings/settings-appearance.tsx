@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import {
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@buddy/ui"
+import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
 import { language } from "@/context/language"
 import { useTheme, type ColorScheme } from "@/theme"
 import {
@@ -119,100 +112,99 @@ export function AppearanceSettings() {
 
   return (
     <SettingsContent>
-        <SettingsSection title={language.t("settings.general.appearanceSection")}>
-          <SettingsRow
-            title={language.t("settings.appearance.colorSchemeTitle")}
-            control={
-              <Select
-                value={colorScheme}
-                onValueChange={(value) => {
-                  if (isColorScheme(value)) {
-                    setColorScheme(value)
-                  }
-                }}
-              >
-                <SelectTrigger data-action="settings-color-scheme" className="w-full">
-                  <SelectValue
-                    placeholder={language.t("settings.appearance.colorSchemePlaceholder")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {colorSchemeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            }
-          />
-          <SettingsRow
-            title={language.t("settings.appearance.themeTitle")}
-            control={
-              <Select value={themeId} onValueChange={setTheme}>
-                <SelectTrigger data-action="settings-theme" className="w-full">
-                  <SelectValue placeholder={language.t("settings.appearance.themePlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {themeOptions.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>
-                      {option.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            }
-          />
-          <SettingsRow
-            title={language.t("settings.general.uiFontTitle")}
-            control={
-              <FontTextInput
-                dataAction="settings-ui-font"
-                value={uiFont}
-                placeholder={UI_FONT_PLACEHOLDER}
-                ariaLabel={language.t("settings.general.uiFontAria")}
-                fontFamily={uiFontFamily(uiFont)}
-                onChange={setUiFont}
-              />
-            }
-          />
-          <SettingsRow
-            title={language.t("settings.general.codeFontTitle")}
-            control={
-              <FontTextInput
-                dataAction="settings-code-font"
-                value={codeFont}
-                placeholder={CODE_FONT_PLACEHOLDER}
-                ariaLabel={language.t("settings.general.codeFontAria")}
-                fontFamily={codeFontFamily(codeFont)}
-                onChange={setCodeFont}
-              />
-            }
-          />
-          <SettingsRow
-            title={language.t("settings.general.uiFontSizeTitle")}
-            control={
-              <FontSizeInput
-                dataAction="settings-ui-font-size"
-                value={uiFontSize}
-                ariaLabel={language.t("settings.general.uiFontSizeAria")}
-                onChange={setUiFontSize}
-              />
-            }
-          />
-          <SettingsRow
-            title={language.t("settings.general.codeFontSizeTitle")}
-            control={
-              <FontSizeInput
-                dataAction="settings-code-font-size"
-                value={codeFontSize}
-                ariaLabel={language.t("settings.general.codeFontSizeAria")}
-                onChange={setCodeFontSize}
-              />
-            }
-          />
-        </SettingsSection>
-
+      <SettingsSection title={language.t("settings.general.appearanceSection")}>
+        <SettingsRow
+          title={language.t("settings.appearance.colorSchemeTitle")}
+          control={
+            <Select
+              value={colorScheme}
+              onValueChange={(value) => {
+                if (isColorScheme(value)) {
+                  setColorScheme(value)
+                }
+              }}
+            >
+              <SelectTrigger data-action="settings-color-scheme" className="w-full">
+                <SelectValue
+                  placeholder={language.t("settings.appearance.colorSchemePlaceholder")}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {colorSchemeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.appearance.themeTitle")}
+          control={
+            <Select value={themeId} onValueChange={setTheme}>
+              <SelectTrigger data-action="settings-theme" className="w-full">
+                <SelectValue placeholder={language.t("settings.appearance.themePlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                {themeOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.uiFontTitle")}
+          control={
+            <FontTextInput
+              dataAction="settings-ui-font"
+              value={uiFont}
+              placeholder={UI_FONT_PLACEHOLDER}
+              ariaLabel={language.t("settings.general.uiFontAria")}
+              fontFamily={uiFontFamily(uiFont)}
+              onChange={setUiFont}
+            />
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.codeFontTitle")}
+          control={
+            <FontTextInput
+              dataAction="settings-code-font"
+              value={codeFont}
+              placeholder={CODE_FONT_PLACEHOLDER}
+              ariaLabel={language.t("settings.general.codeFontAria")}
+              fontFamily={codeFontFamily(codeFont)}
+              onChange={setCodeFont}
+            />
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.uiFontSizeTitle")}
+          control={
+            <FontSizeInput
+              dataAction="settings-ui-font-size"
+              value={uiFontSize}
+              ariaLabel={language.t("settings.general.uiFontSizeAria")}
+              onChange={setUiFontSize}
+            />
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.codeFontSizeTitle")}
+          control={
+            <FontSizeInput
+              dataAction="settings-code-font-size"
+              value={codeFontSize}
+              ariaLabel={language.t("settings.general.codeFontSizeAria")}
+              onChange={setCodeFontSize}
+            />
+          }
+        />
+      </SettingsSection>
     </SettingsContent>
   )
 }

@@ -1,25 +1,11 @@
 import { Badge, Button, PlusIcon, Spinner } from "@buddy/ui"
 import { GalleryStory, GallerySection, SpecimenRow } from "./gallery-primitives"
 
-const BUTTON_VARIANTS = [
-  "default",
-  "secondary",
-  "outline",
-  "ghost",
-  "destructive",
-  "link",
-] as const
+const BUTTON_VARIANTS = ["default", "secondary", "outline", "ghost", "destructive", "link"] as const
 
 const BUTTON_SIZES = ["xs", "sm", "default", "lg"] as const
 const ICON_SIZES = ["icon-xs", "icon-sm", "icon", "icon-lg"] as const
-const BADGE_VARIANTS = [
-  "default",
-  "secondary",
-  "outline",
-  "ghost",
-  "destructive",
-  "link",
-] as const
+const BADGE_VARIANTS = ["default", "secondary", "outline", "ghost", "destructive", "link"] as const
 
 export function ButtonsStory() {
   return (

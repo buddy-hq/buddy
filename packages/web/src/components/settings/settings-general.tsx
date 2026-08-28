@@ -309,27 +309,27 @@ export function GeneralSettings() {
       ) : null}
 
       <SettingsSection title={language.t("settings.general.storageSection")}>
-          <SettingsRow
-            title={language.t("settings.general.buddyHomeTitle")}
-            description={
-              notebookHome?.resolvedDirectory
-                ? `${language.t("settings.general.buddyHomeDescription")} (${notebookHome.resolvedDirectory})`
-                : language.t("settings.general.buddyHomeDescription")
-            }
-            control={
-              <Button
-                data-action="settings-change-buddy-home"
-                type="button"
-                onClick={() => void onChangeBuddyHome()}
-                disabled={changingBuddyHome || notebookHomeQuery.isPending}
-              >
-                {changingBuddyHome
-                  ? language.t("settings.general.buddyHomeChanging")
-                  : language.t("settings.general.buddyHomeChange")}
-              </Button>
-            }
-          />
-        </SettingsSection>
+        <SettingsRow
+          title={language.t("settings.general.buddyHomeTitle")}
+          description={
+            notebookHome?.resolvedDirectory
+              ? `${language.t("settings.general.buddyHomeDescription")} (${notebookHome.resolvedDirectory})`
+              : language.t("settings.general.buddyHomeDescription")
+          }
+          control={
+            <Button
+              data-action="settings-change-buddy-home"
+              type="button"
+              onClick={() => void onChangeBuddyHome()}
+              disabled={changingBuddyHome || notebookHomeQuery.isPending}
+            >
+              {changingBuddyHome
+                ? language.t("settings.general.buddyHomeChanging")
+                : language.t("settings.general.buddyHomeChange")}
+            </Button>
+          }
+        />
+      </SettingsSection>
 
       <div className="space-y-2">
         <SettingsSectionHeader

@@ -1,19 +1,13 @@
 import { useEffect } from "react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
-import {
-  SettingsContent,
-  SettingsListCard,
-  SettingsSectionHeader,
-} from "./settings-primitives"
+import { SettingsContent, SettingsListCard, SettingsSectionHeader } from "./settings-primitives"
 import { GlobalAgentsMdSettingsPanel } from "./global-agents-md-settings-panel"
 import { language } from "@/context/language"
 import { usePersonalizationSettingsAutosave } from "@/state/personalization-settings"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
 import { readPersonalization } from "@/state/project-config-readers"
-import {
-  SharedPersonalizationFormFields,
-} from "./shared-personalization-form"
+import { SharedPersonalizationFormFields } from "./shared-personalization-form"
 
 export function PersonalizationSettings() {
   const settingsQuery = useQuery(globalConfigQueryOptions())

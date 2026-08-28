@@ -49,7 +49,9 @@ export function SelectDropdownVariantsEasel() {
     <div className="flex h-full min-h-0 w-full flex-col gap-8 overflow-y-auto bg-background-base p-8">
       {/* Title */}
       <div>
-        <h1 className="text-lg font-semibold text-text-strong">Select Component States &amp; Variants</h1>
+        <h1 className="text-lg font-semibold text-text-strong">
+          Select Component States &amp; Variants
+        </h1>
         <p className="text-xs text-text-weak">
           Radix Select primitive from <code className="text-text-base">@buddy/ui</code>
         </p>
@@ -62,7 +64,9 @@ export function SelectDropdownVariantsEasel() {
         </h2>
         <div className="flex flex-wrap items-start gap-6">
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-text-strong">AI Models (Grouped by Provider)</span>
+            <span className="text-xs font-medium text-text-strong">
+              AI Models (Grouped by Provider)
+            </span>
             <Select value={model} onValueChange={setModel}>
               <SelectTrigger className="w-64">
                 <SelectValue />
@@ -106,7 +110,9 @@ export function SelectDropdownVariantsEasel() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-text-strong">Theme List (14 items, scrolling)</span>
+            <span className="text-xs font-medium text-text-strong">
+              Theme List (14 items, scrolling)
+            </span>
             <Select value={theme} onValueChange={setTheme}>
               <SelectTrigger className="w-56">
                 <SelectValue />
@@ -114,7 +120,9 @@ export function SelectDropdownVariantsEasel() {
               <SelectContent>
                 <SelectGroup>
                   <SelectLabel>Dark Themes</SelectLabel>
-                  {THEMES.filter((t) => !t.value.includes("light") && !t.value.includes("latte")).map((t) => (
+                  {THEMES.filter(
+                    (t) => !t.value.includes("light") && !t.value.includes("latte"),
+                  ).map((t) => (
                     <SelectItem key={t.value} value={t.value}>
                       {t.label}
                     </SelectItem>
@@ -123,11 +131,13 @@ export function SelectDropdownVariantsEasel() {
                 <SelectSeparator />
                 <SelectGroup>
                   <SelectLabel>Light Themes</SelectLabel>
-                  {THEMES.filter((t) => t.value.includes("light") || t.value.includes("latte")).map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
+                  {THEMES.filter((t) => t.value.includes("light") || t.value.includes("latte")).map(
+                    (t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -215,7 +225,9 @@ export function SelectDropdownVariantsEasel() {
 
           {/* Small size */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-text-strong">Small Size (size=&quot;sm&quot;)</span>
+            <span className="text-xs font-medium text-text-strong">
+              Small Size (size=&quot;sm&quot;)
+            </span>
             <Select value={permission} onValueChange={setPermission}>
               <SelectTrigger size="sm" className="w-full">
                 <SelectValue />
@@ -237,7 +249,9 @@ export function SelectDropdownVariantsEasel() {
         </h2>
         <div className="flex flex-wrap items-start gap-6">
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium text-text-strong">Popper Mode (Anchored below/above)</span>
+            <span className="text-xs font-medium text-text-strong">
+              Popper Mode (Anchored below/above)
+            </span>
             <Select value={longList} onValueChange={setLongList}>
               <SelectTrigger className="w-64">
                 <SelectValue />

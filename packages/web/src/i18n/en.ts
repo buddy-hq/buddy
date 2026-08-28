@@ -746,8 +746,7 @@ export const dict = {
   "settings.advanced.requestFailed": "Request failed",
   "settings.appearance.advancedMathDescription":
     "Lets Buddy solve equations and plot graphs with Python.",
-  "settings.appearance.advancedMathComingSoonDescription":
-    "Not available on Windows yet.",
+  "settings.appearance.advancedMathComingSoonDescription": "Not available on Windows yet.",
   "settings.appearance.advancedMathTitle": "Advanced math",
   "settings.appearance.advancedMathToggleAria": "Toggle advanced math runtime",
   "settings.appearance.comingSoon": "Coming soon",

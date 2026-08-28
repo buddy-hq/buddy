@@ -1,5 +1,18 @@
-import { Checkbox, RadioGroup, RadioGroupItem, Switch, ToggleGroup, ToggleGroupItem } from "@buddy/ui"
-import { GalleryStory, GallerySection, Specimen, SpecimenGrid, SpecimenRow } from "./gallery-primitives"
+import {
+  Checkbox,
+  RadioGroup,
+  RadioGroupItem,
+  Switch,
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@buddy/ui"
+import {
+  GalleryStory,
+  GallerySection,
+  Specimen,
+  SpecimenGrid,
+  SpecimenRow,
+} from "./gallery-primitives"
 
 export function SelectionControlsStory() {
   return (

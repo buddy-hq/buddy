@@ -207,7 +207,9 @@ export function isCoreSettingsTab(tab: SettingsTabDefinition): boolean {
 export function getVisibleSettingsTabDefinitions(
   input: SettingsTabVisibilityInput,
 ): SettingsTabDefinition[] {
-  return SETTINGS_TABS.filter((tab) => tab.reveal === undefined || revealIsActive(tab.reveal, input))
+  return SETTINGS_TABS.filter(
+    (tab) => tab.reveal === undefined || revealIsActive(tab.reveal, input),
+  )
 }
 
 export function getSettingsTabDefinition(id: SettingsTab): SettingsTabDefinition {

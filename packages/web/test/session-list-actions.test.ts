@@ -276,7 +276,9 @@ describe("session list actions", () => {
     ).resolves.toBeTrue()
 
     // Archive affects one session, never the whole family — the sibling must keep its state.
-    expect(usePromptStore.getState().draftsByKey[getPromptScopeKey(DIRECTORY, root.id)]).toBeUndefined()
+    expect(
+      usePromptStore.getState().draftsByKey[getPromptScopeKey(DIRECTORY, root.id)],
+    ).toBeUndefined()
     expect(useUiPreferences.getState().isPinned(DIRECTORY, root.id)).toBeFalse()
     expect(
       usePromptStore.getState().draftsByKey[getPromptScopeKey(DIRECTORY, successor.id)],

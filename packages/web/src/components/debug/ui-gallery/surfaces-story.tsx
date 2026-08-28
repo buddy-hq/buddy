@@ -1,5 +1,20 @@
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, cn } from "@buddy/ui"
-import { GalleryStory, GallerySection, Specimen, SpecimenGrid, TokenTag } from "./gallery-primitives"
+import {
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  cn,
+} from "@buddy/ui"
+import {
+  GalleryStory,
+  GallerySection,
+  Specimen,
+  SpecimenGrid,
+  TokenTag,
+} from "./gallery-primitives"
 import { useTokenSamples, contrastRatio, type TokenSample } from "./use-token-samples"
 
 /**
