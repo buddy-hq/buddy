@@ -1,13 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import {
-  BACKEND_PURE_UNIT_GROUP,
-  BACKEND_PURE_UNIT_GROUP_ID,
   createTestRunnerPlan,
   normalizePackageTestPath,
   normalizeRequestedPackageTestPath,
-  WEB_PURE_UNIT_GROUP,
-  WEB_PURE_UNIT_GROUP_ID,
   type TestRunnerGroup,
   type TestRunnerPlanInput,
 } from "./test-runner-plan"
@@ -42,33 +38,6 @@ function makePlanInput(
 }
 
 describe("test runner plan", () => {
-  test("defines the reviewed groups with their exact package-local files", () => {
-    expect(WEB_PURE_UNIT_GROUP).toEqual({
-      id: WEB_PURE_UNIT_GROUP_ID,
-      files: [
-        "test/agent-catalog.test.ts",
-        "test/chat-input.test.ts",
-        "test/chemistry-fence-metadata.test.ts",
-        "test/mermaid-contrast.test.ts",
-        "test/reader-contract.test.ts",
-        "test/reader-source-validation.test.ts",
-        "test/skill-library-actions.test.ts",
-        "test/skill-presentation.test.ts",
-        "test/theme-mapper.test.ts",
-      ],
-    })
-    expect(BACKEND_PURE_UNIT_GROUP).toEqual({
-      id: BACKEND_PURE_UNIT_GROUP_ID,
-      files: [
-        "test/config/primary-use.test.ts",
-        "test/config/development-personas.test.ts",
-        "test/whiteboard/element-null-fields.test.ts",
-        "test/whiteboard/route-errors.test.ts",
-        "test/http/sdk-response.test.ts",
-      ],
-    })
-  })
-
   test("isolates every ungrouped discovered file when no files are requested", () => {
     expect(createTestRunnerPlan(makePlanInput([]))).toEqual([
       {

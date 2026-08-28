@@ -9,6 +9,7 @@
     "types": ["bun", "node"]
   },
   "include": [
+    "script/check-import-contract.ts",
     "script/**/*.test.ts",
     "script/run-root-script-tests.ts",
     "script/run-test-command.ts",

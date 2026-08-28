@@ -38,6 +38,7 @@ export const WEB_PURE_UNIT_GROUP: TestRunnerGroup = {
   id: WEB_PURE_UNIT_GROUP_ID,
   files: [
     "test/agent-catalog.test.ts",
+    "test/bench-viewer-math.test.ts",
     "test/chat-input.test.ts",
     "test/chemistry-fence-metadata.test.ts",
     "test/mermaid-contrast.test.ts",
@@ -45,7 +46,6 @@ export const WEB_PURE_UNIT_GROUP: TestRunnerGroup = {
     "test/reader-source-validation.test.ts",
     "test/skill-library-actions.test.ts",
     "test/skill-presentation.test.ts",
-    "test/theme-mapper.test.ts",
   ],
 }
 
