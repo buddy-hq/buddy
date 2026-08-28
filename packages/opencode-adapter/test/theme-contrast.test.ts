@@ -12,6 +12,8 @@ import {
   type HexColor,
 } from "../src/theme"
 
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
+
 function readHex(tokens: Record<string, string>, key: string): HexColor {
   const value = tokens[key]
   if (!value || !isHexColor(value)) throw new Error(`Expected ${key} to resolve to a hex color`)
@@ -19,7 +21,7 @@ function readHex(tokens: Record<string, string>, key: string): HexColor {
 }
 
 function isHexColor(value: string): value is HexColor {
-  return value.startsWith("#")
+  return HEX_COLOR_PATTERN.test(value)
 }
 
 describe("theme contrast", () => {

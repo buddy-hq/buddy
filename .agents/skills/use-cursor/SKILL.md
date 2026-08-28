@@ -63,7 +63,7 @@ Complex (the noun is complexity) = many interacting parts, not predictable 
 
 `$CA create-chat` → `$SID`
 
-```
+```sh
 $CA -p --output-format json --yolo --trust --model cursor-grok-4.6-high --resume $SID '<prompt> never use subagents for this chat'
 ```
 

@@ -6,6 +6,7 @@ import {
   BACKEND_TEST_GROUPS,
   createTestRunnerPlan,
   normalizeRequestedPackageTestPath,
+  TEST_FILE_PATTERN,
   type TestRunnerPlanEntry,
 } from "../../../script/test-runner-plan"
 import {
@@ -15,7 +16,6 @@ import {
 
 const PACKAGE_ROOT = path.resolve(import.meta.dir, "..")
 const TEST_ROOT = path.join(PACKAGE_ROOT, "test")
-const TEST_FILE_PATTERN = /\.test\.(?:js|jsx|ts|tsx)$/
 const MILLISECONDS_PER_SECOND = 1_000
 const BUN_EXECUTABLE = process.execPath
 

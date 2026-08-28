@@ -3,8 +3,9 @@
 import fs from "node:fs"
 import path from "node:path"
 
+import { TEST_FILE_PATTERN } from "./test-runner-plan"
+
 const REPOSITORY_ROOT = path.resolve(import.meta.dir, "..")
-const TEST_FILE_PATTERN = /\.test\.(?:js|jsx|ts|tsx)$/
 const VENDOR_PATH_PREFIX = "vendor/"
 const GIT_LIST_FILES_COMMAND = [
   "git",

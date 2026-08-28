@@ -9,7 +9,12 @@ import {
 
 async function tempSkillRoot(prefix: string): Promise<TemporaryDirectory> {
   const root = await temporaryDirectory({ prefix: `${prefix}-` })
-  await fsp.writeFile(path.join(root.path, "SKILL.md"), "---\nname: scan\n---\n", "utf8")
+  try {
+    await fsp.writeFile(path.join(root.path, "SKILL.md"), "---\nname: scan\n---\n", "utf8")
+  } catch (error) {
+    await root[Symbol.asyncDispose]()
+    throw error
+  }
   return root
 }
 

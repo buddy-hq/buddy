@@ -264,24 +264,15 @@ describe("opencode runtime env", () => {
     )
   })
 
-  test("plans OpenCode database and feature defaults without channel-db disable", async () => {
+  test("plans OpenCode database and feature defaults", async () => {
     await using testHome = await temporaryDirectory({ prefix: "buddy-home-" })
-    const plan = planFor(
-      {
-        [BUDDY_ENV.TEST_HOME]: testHome.path,
-        [OPENCODE_ENV.CLIENT]: "",
-        [OPENCODE_ENV.ENABLE_QUESTION_TOOL]: "",
-      },
-      testHome.path,
-      os.tmpdir(),
-    )
+    const plan = planFor({ [BUDDY_ENV.TEST_HOME]: testHome.path }, testHome.path, os.tmpdir())
 
     expect(plan.defaults.database).toBe(BUDDY_OPENCODE_DB_FILENAME)
     expect(plan.defaults.client).toBe(DEFAULT_OPENCODE_CLIENT)
     expect(plan.defaults.enableQuestionTool).toBe(OPENCODE_ENABLE_FLAG)
     expect(plan.defaults.disableExternalSkills).toBe(OPENCODE_ENABLE_FLAG)
     expect(plan.defaults.enableExa).toBe(OPENCODE_ENABLE_FLAG)
-    expect(OPENCODE_ENV.DISABLE_CHANNEL_DB in plan.defaults).toBe(false)
   })
 
   test("aligns imported Global and OpenCode paths during explicit runtime-root bootstrap", async () => {

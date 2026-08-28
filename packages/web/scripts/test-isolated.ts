@@ -3,6 +3,7 @@ import path from "node:path"
 import {
   createTestRunnerPlan,
   normalizeRequestedPackageTestPath,
+  TEST_FILE_PATTERN,
   WEB_TEST_GROUPS,
   type TestRunnerPlanEntry,
 } from "../../../script/test-runner-plan"
@@ -13,7 +14,6 @@ import {
 
 const PACKAGE_ROOT = path.resolve(import.meta.dir, "..")
 const TEST_ROOT = path.join(PACKAGE_ROOT, "test")
-const TEST_FILE_PATTERN = /\.test\.(?:js|jsx|ts|tsx)$/
 const BUN_EXECUTABLE = process.execPath
 const MILLISECONDS_PER_SECOND = 1_000
 

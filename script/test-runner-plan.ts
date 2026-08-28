@@ -6,7 +6,13 @@ const TEST_PATH_PREFIX = "test/"
 const ISOLATED_RUN_ID_PREFIX = "isolated:"
 const MINIMUM_GROUP_FILE_COUNT = 2
 const WINDOWS_DRIVE_PATH_PATTERN = /^[A-Za-z]:\//
-const TEST_FILE_PATTERN = /\.test\.(?:js|jsx|ts|tsx)$/
+
+/**
+ * Every filename Bun's test runner discovers: a `test` or `spec` suffix joined by
+ * `.` or `_`, in any script extension Bun loads. Discovery and ownership checks
+ * share this so a test file can never run without an owner.
+ */
+export const TEST_FILE_PATTERN = /[._](?:test|spec)\.(?:js|jsx|ts|tsx|mjs|cjs|mts|cts)$/
 
 export type TestRunnerGroup = {
   readonly id: string

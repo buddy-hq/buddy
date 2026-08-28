@@ -36,10 +36,12 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  // Cancelling traces the attempt, so drop the scoped trace file first: its
+  // directory is already disposed and tracing would recreate it.
+  restoreEnvironmentVariable(BUDDY_ENV.OPENAI_AUTH_TRACE_FILE, originalOpenAIAuthTraceFile)
   cancelOpenAICodexAuthorization()
   restoreEnvironmentVariable(BUDDY_ENV.DESKTOP_CALLBACK_URL, originalDesktopCallbackUrl)
   globalThis.fetch = originalFetch
-  restoreEnvironmentVariable(BUDDY_ENV.OPENAI_AUTH_TRACE_FILE, originalOpenAIAuthTraceFile)
 })
 
 function readRequestUrl(input: RequestInfo | URL) {

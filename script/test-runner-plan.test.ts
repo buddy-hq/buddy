@@ -196,6 +196,22 @@ describe("test runner plan", () => {
     ).toThrow("Stale test runner group")
   })
 
+  test("accepts every filename convention Bun discovers as a test", () => {
+    for (const suffix of ["a.test", "a_test", "a.spec", "a_spec"]) {
+      for (const extension of ["js", "jsx", "ts", "tsx", "mjs", "cjs", "mts", "cts"]) {
+        const testPath = `test/${suffix}.${extension}`
+        expect(normalizePackageTestPath(testPath)).toBe(testPath)
+      }
+    }
+
+    expect(() => normalizePackageTestPath("test/a.tests.ts")).toThrow(
+      "Invalid package-local test file",
+    )
+    expect(() => normalizePackageTestPath("test/test.ts")).toThrow(
+      "Invalid package-local test file",
+    )
+  })
+
   test("rejects invalid and non-package-local paths", () => {
     expect(normalizePackageTestPath("test\\dir\\fourth.test.ts")).toBe(FOURTH_FILE)
     expect(() => normalizePackageTestPath("packages/web/test/first.test.ts")).toThrow(
