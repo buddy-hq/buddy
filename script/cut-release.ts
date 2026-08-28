@@ -10,6 +10,7 @@ import { stdin as input, stdout as output } from "node:process"
 import { cancel, isCancel, multiselect } from "@clack/prompts"
 import { z } from "zod"
 import { buildNotes, getLatestPublishedRelease, getLatestRelease } from "./changelog.ts"
+import { RELEASE_GATE_COMMAND_PLAN } from "./release-required-gates.ts"
 import { releaseRepository, sourceRepository } from "./release-repositories"
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
@@ -510,12 +511,9 @@ async function upsertDraftRelease(
 
 function runRequiredGates() {
   printStep("Validation", "Running required repo gates before dispatching the release.")
-  runCommand("bun", ["run", "sdk:generate"])
-  runCommand("bun", ["fmt"])
-  runCommand("bun", ["lint"])
-  runCommand("bun", ["typecheck"])
-  runCommand("bun", ["run", "--cwd", "packages/buddy", "test:release-skill-artifacts"])
-  runCommand("bun", ["run", "--cwd", "packages/buddy", "skill:artifacts:build"])
+  for (const gate of RELEASE_GATE_COMMAND_PLAN) {
+    runCommand(gate.command, [...gate.args])
+  }
 }
 
 async function waitForRunUrl(version: string, targetSha: string) {

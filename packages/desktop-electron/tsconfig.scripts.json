@@ -23,6 +23,7 @@
     "../../script/backend-node-artifact.ts",
     "../../script/changelog.ts",
     "../../script/cut-release.ts",
+    "../../script/release-required-gates.ts",
     "../../script/desktop-runtime-resources.ts",
     "../../script/release-local-gate.ts",
     "../../script/release-repositories.ts"
