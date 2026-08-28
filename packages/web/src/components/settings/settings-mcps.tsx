@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Badge, Button, Input, Switch } from "@buddy/ui"
 import { language } from "@/context/language"
@@ -31,6 +31,49 @@ import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primi
 const MCP_SEARCH_VISIBLE_THRESHOLD = 3
 const EMPTY_MCP_STATUS: McpStatusMap = {}
 
+/**
+ * Tracks in-flight work per MCP name. A single pending name cannot represent concurrent rows:
+ * only the busy row is disabled, so every other row stays clickable and a second request would
+ * clear the first one's busy state when it settles.
+ */
+function usePendingNames() {
+  const [names, setNames] = useState<ReadonlySet<string>>(() => new Set())
+
+  const start = useCallback((name: string) => {
+    setNames((current) => {
+      const next = new Set(current)
+      next.add(name)
+      return next
+    })
+  }, [])
+
+  const finish = useCallback((name: string) => {
+    setNames((current) => {
+      if (!current.has(name)) return current
+      const next = new Set(current)
+      next.delete(name)
+      return next
+    })
+  }, [])
+
+  return { has: (name: string) => names.has(name), start, finish }
+}
+
+/**
+ * Enabling and removing a server both rewrite the global config and then reload every open
+ * notebook's runtime. Overlapping those races a rewrite against an in-flight reload, so global
+ * mutations run one at a time while their rows stay individually busy.
+ */
+function useSerialTask() {
+  const tail = useRef<Promise<unknown>>(Promise.resolve())
+
+  return useCallback(<T,>(run: () => Promise<T>): Promise<T> => {
+    const result = tail.current.then(run, run)
+    tail.current = result.catch(() => undefined)
+    return result
+  }, [])
+}
+
 function getConnectButtonLabel(input: { pending: boolean; status: McpStatusInfo | undefined }) {
   if (mcpNeedsClientRegistration(input.status)) {
     return language.t("mcp.listPanel.editDetails")
@@ -54,9 +97,10 @@ export function McpsSettings() {
   const connectionDirectory = activeDirectory ?? openProjects[0]
   const [query, setQuery] = useState("")
   const [panelError, setPanelError] = useState<string | undefined>(undefined)
-  const [pendingRemoveName, setPendingRemoveName] = useState<string | null>(null)
-  const [pendingConnectName, setPendingConnectName] = useState<string | null>(null)
-  const [pendingEnabledName, setPendingEnabledName] = useState<string | null>(null)
+  const pendingRemove = usePendingNames()
+  const pendingConnect = usePendingNames()
+  const pendingEnabled = usePendingNames()
+  const runGlobalMcpMutation = useSerialTask()
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
   const activeMcpStatusQuery = useQuery({
     ...mcpStatusQueryOptions(connectionDirectory ?? ""),
@@ -124,20 +168,22 @@ export function McpsSettings() {
   }
 
   async function removeConfig(name: string) {
-    setPendingRemoveName(name)
+    pendingRemove.start(name)
     setPanelError(undefined)
 
     try {
-      const updatedGlobal = await removeGlobalMcpConfig(name)
-      setGlobalConfigQueryData(queryClient, updatedGlobal)
-      await reloadOpenNotebookMcpRuntimes()
+      await runGlobalMcpMutation(async () => {
+        const updatedGlobal = await removeGlobalMcpConfig(name)
+        setGlobalConfigQueryData(queryClient, updatedGlobal)
+        await reloadOpenNotebookMcpRuntimes()
+      })
       if (mcpEditor.editorMode === "edit" && mcpEditor.draft.name === name) {
         mcpEditor.onEditorOpenChange(false)
       }
     } catch (removeError) {
       setPanelError(formatMcpError(removeError))
     } finally {
-      setPendingRemoveName(null)
+      pendingRemove.finish(name)
     }
   }
 
@@ -147,17 +193,19 @@ export function McpsSettings() {
       return
     }
 
-    setPendingEnabledName(name)
+    pendingEnabled.start(name)
     setPanelError(undefined)
 
     try {
-      const updatedGlobal = await saveGlobalMcpConfig(name, { ...config, enabled })
-      setGlobalConfigQueryData(queryClient, updatedGlobal)
-      await reloadOpenNotebookMcpRuntimes()
+      await runGlobalMcpMutation(async () => {
+        const updatedGlobal = await saveGlobalMcpConfig(name, { ...config, enabled })
+        setGlobalConfigQueryData(queryClient, updatedGlobal)
+        await reloadOpenNotebookMcpRuntimes()
+      })
     } catch (enabledError) {
       setPanelError(formatMcpError(enabledError))
     } finally {
-      setPendingEnabledName(null)
+      pendingEnabled.finish(name)
     }
   }
 
@@ -176,7 +224,7 @@ export function McpsSettings() {
       return
     }
 
-    setPendingConnectName(name)
+    pendingConnect.start(name)
     setPanelError(undefined)
 
     try {
@@ -198,7 +246,7 @@ export function McpsSettings() {
     } catch (connectError) {
       setPanelError(formatMcpError(connectError))
     } finally {
-      setPendingConnectName(null)
+      pendingConnect.finish(name)
     }
   }
 
@@ -247,7 +295,7 @@ export function McpsSettings() {
             ) : (
               entries.map((name) => {
                 const config = configByName[name]
-                const removing = pendingRemoveName === name
+                const removing = pendingRemove.has(name)
                 const notebookDefinitionShadowsGlobal = notebookDefinesMcp(
                   activeProjectConfig,
                   name,
@@ -255,8 +303,8 @@ export function McpsSettings() {
                 const connectionTargetReady =
                   activeProjectConfigQuery.isSuccess && !notebookDefinitionShadowsGlobal
                 const status = connectionTargetReady ? activeMcpStatusByName[name] : undefined
-                const connecting = pendingConnectName === name
-                const updatingEnabled = pendingEnabledName === name
+                const connecting = pendingConnect.has(name)
+                const updatingEnabled = pendingEnabled.has(name)
                 const rowBusy = removing || connecting || updatingEnabled
                 const showConnectAction =
                   Boolean(connectionDirectory) &&
