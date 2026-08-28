@@ -60,30 +60,6 @@ export function formatRuntimeVersion(version: string | undefined): string {
   return `${dateStr}, ${timeStr} • ${hash}`
 }
 
-export function advancedMathStatusLabel(
-  status: AdvancedMathRuntimeStatus | null,
-  loading: boolean,
-): string {
-  if (!status) return loading ? "Loading..." : "Unknown"
-
-  switch (status.state) {
-    case "not_installed":
-      return "Not installed"
-    case "downloading":
-      return "Downloading..."
-    case "installing":
-      return "Installing..."
-    case "repairing":
-      return "Repairing..."
-    case "removing":
-      return "Removing..."
-    case "ready":
-      return "Installed"
-    case "error":
-      return "Installation failed"
-  }
-}
-
 function isAdvancedMathRuntimeOperationInProgress(status: AdvancedMathRuntimeStatus | null) {
   if (!status) return false
 

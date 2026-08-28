@@ -20,30 +20,6 @@ const STANDARDS_RUNTIME_ENABLED_STATES: ReadonlySet<StandardsRuntimeStatus["stat
   "repairing",
 ])
 
-export function standardsStatusLabel(
-  status: StandardsRuntimeStatus | null,
-  loading: boolean,
-): string {
-  if (!status) return loading ? "Loading..." : "Unknown"
-
-  switch (status.state) {
-    case "not_installed":
-      return "Not installed"
-    case "downloading":
-      return "Downloading..."
-    case "installing":
-      return "Installing..."
-    case "repairing":
-      return "Repairing..."
-    case "removing":
-      return "Removing..."
-    case "ready":
-      return "Installed"
-    case "error":
-      return "Installation failed"
-  }
-}
-
 function isStandardsRuntimeOperationInProgress(status: StandardsRuntimeStatus | null) {
   if (!status) return false
 

@@ -62,6 +62,9 @@ import {
 
 const SECONDARY_BUTTON_HOVER_LIGHTNESS_SHIFT = 0.035
 const SUBTLE_STATUS_SURFACE_ALPHA = 0.15
+const CONTROL_OVERLAY_TINT: HexColor = "#ffffff"
+const CONTROL_OVERLAY_ALPHA = 0.05
+const CONTROL_OVERLAY_HOVER_ALPHA = 0.09
 
 type ThemeIdentityColors = {
   primary: HexColor
@@ -120,6 +123,27 @@ function setReadableToken(
   tokens[key] = ensureTextContrast(preferred, backgrounds, minimum)
 }
 
+/** Eight-digit hex so the value stays a `HexColor` rather than an `rgba()` string. */
+function overlayTint(tint: HexColor, alpha: number): HexColor {
+  const channel = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
+  return `${tint}${channel.toString(16).padStart(2, "0")}`
+}
+
+/**
+ * Controls ship a fixed grey picked one rung off the page background, so they
+ * only land correctly when they sit directly on it. On any raised surface — a
+ * settings card, a popover — the fixed value reads darker than its parent and
+ * the control looks punched out instead of raised.
+ *
+ * A translucent overlay has no such assumption: it composites against whatever
+ * is actually behind it, so a control stays a step above its parent wherever it
+ * is placed. Light themes already order correctly and are left alone.
+ */
+function applyDarkControlOverlay(tokens: ResolvedTheme): void {
+  tokens["input-base"] = overlayTint(CONTROL_OVERLAY_TINT, CONTROL_OVERLAY_ALPHA)
+  tokens["input-hover"] = overlayTint(CONTROL_OVERLAY_TINT, CONTROL_OVERLAY_HOVER_ALPHA)
+}
+
 function normalizeBuddyTokens(
   tokens: ResolvedTheme,
   isDark: boolean,
@@ -135,6 +159,8 @@ function normalizeBuddyTokens(
 
   next["theme-primary-base"] = identity.primary
   next["theme-accent-base"] = identity.accent
+
+  if (isDark) applyDarkControlOverlay(next)
 
   setReadableToken(
     next,

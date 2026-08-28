@@ -8,13 +8,21 @@ import {
   type UpdateProgressSnapshot,
   type UpdateRing,
 } from "../src/context/platform"
-import { UpdatesSettings } from "../src/components/settings/settings-updates"
+import { UpdatesSettingsSection } from "../src/components/settings/settings-updates-section"
 import {
   resolveUpdateBanner,
   useUpdateSettings,
   type UpdateSettings,
 } from "../src/components/settings/use-update-settings"
-import { SETTINGS_TABS } from "../src/components/settings/settings-tabs"
+import {
+  CAPABILITY_FALLBACK_SETTINGS_TAB,
+  DEFAULT_SETTINGS_TAB,
+  SETTINGS_TABS,
+  getSettingsTabFallback,
+  isCoreSettingsTab,
+  resolveSettingsTab,
+} from "../src/components/settings/settings-tabs"
+import { t } from "../src/i18n"
 
 const BANNER_SELECTOR = '[data-action="settings-update-banner"]'
 const BANNER_ACTION_SELECTOR = '[data-action="settings-update-banner-action"]'
@@ -106,11 +114,66 @@ describe("settings updates", () => {
     return testRoot
   }
 
-  test("registers Updates as a main settings tab", () => {
-    const tabIds = SETTINGS_TABS.map((tab) => tab.id)
-    expect(tabIds.slice(0, 2)).toEqual(["general", "updates"])
-    expect(SETTINGS_TABS.find((tab) => tab.id === "updates")?.navLabelKey).toBe(
-      "routes.settings.nav.updates",
+  test("registers About as the last core settings tab", () => {
+    const coreTabIds = SETTINGS_TABS.filter(isCoreSettingsTab).map((tab) => tab.id)
+    expect(coreTabIds.at(0)).toBe("general")
+    expect(coreTabIds.at(-1)).toBe("about")
+    expect(SETTINGS_TABS.find((tab) => tab.id === "about")?.navLabelKey).toBe(
+      "routes.settings.nav.about",
+    )
+  })
+
+  test("registers standards and memory as independently revealed tabs", () => {
+    const revealed = SETTINGS_TABS.filter((tab) => !isCoreSettingsTab(tab))
+    expect(revealed.map((tab) => tab.id)).toEqual(["standards", "memory"])
+    expect(revealed.map((tab) => tab.reveal)).toEqual(["standards", "memory"])
+  })
+
+  test("resolves every retired tab id to a core tab that is always reachable", () => {
+    const coreTabIds = new Set(SETTINGS_TABS.filter(isCoreSettingsTab).map((tab) => tab.id))
+    const retired = [
+      "chat",
+      "notebook",
+      "tools",
+      "teaching",
+      "learnerMemory",
+      "advanced",
+      "labs",
+      "updates",
+      "attribution",
+    ]
+
+    // Core, not merely existing: a revealed tab is hidden until its capability is on, so a
+    // bookmark pointing at one would be bounced to General and the link lost.
+    for (const id of retired) {
+      const resolved = resolveSettingsTab(id)
+      expect(resolved !== undefined && coreTabIds.has(resolved)).toBe(true)
+    }
+  })
+
+  test("rejects inherited object keys as retired tab ids", () => {
+    expect(resolveSettingsTab("toString")).toBeUndefined()
+    expect(resolveSettingsTab("constructor")).toBeUndefined()
+  })
+
+  test("sends a hidden capability tab to the panel that enables it", () => {
+    // General has no switch for Standards or Memory, so bouncing a deep link there strands the
+    // reader; Packages is where the capability is turned on.
+    const revealedTabs = SETTINGS_TABS.filter((tab) => !isCoreSettingsTab(tab))
+    expect(revealedTabs.length).toBeGreaterThan(0)
+
+    for (const tab of revealedTabs) {
+      expect(getSettingsTabFallback(tab.id)).toBe(CAPABILITY_FALLBACK_SETTINGS_TAB)
+    }
+
+    for (const tab of SETTINGS_TABS.filter(isCoreSettingsTab)) {
+      expect(getSettingsTabFallback(tab.id)).toBe(DEFAULT_SETTINGS_TAB)
+    }
+  })
+
+  test("interpolates the MCP toggle accessible name", () => {
+    expect(t("mcp.settings.toggleAria", { name: "filesystem" })).toBe(
+      "Enable MCP server filesystem by default",
     )
   })
 
@@ -135,7 +198,7 @@ describe("settings updates", () => {
     await act(async () => {
       testRoot.render(
         <PlatformProvider value={updatePlatform.platform}>
-          <UpdatesSettings />
+          <UpdatesSettingsSection />
         </PlatformProvider>,
       )
     })
@@ -182,7 +245,7 @@ describe("settings updates", () => {
     await act(async () => {
       testRoot.render(
         <PlatformProvider value={updatePlatform.platform}>
-          <UpdatesSettings />
+          <UpdatesSettingsSection />
         </PlatformProvider>,
       )
     })
@@ -206,7 +269,7 @@ describe("settings updates", () => {
     await act(async () => {
       testRoot.render(
         <PlatformProvider value={updatePlatform.platform}>
-          <UpdatesSettings />
+          <UpdatesSettingsSection />
         </PlatformProvider>,
       )
     })
@@ -239,7 +302,7 @@ describe("settings updates", () => {
     await act(async () => {
       testRoot.render(
         <PlatformProvider value={updatePlatform.platform}>
-          <UpdatesSettings />
+          <UpdatesSettingsSection />
         </PlatformProvider>,
       )
     })

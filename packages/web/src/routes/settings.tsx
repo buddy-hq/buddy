@@ -15,22 +15,16 @@ import { SettingsPage } from "@/components/settings/settings-page"
 import { useStandardsRuntime } from "@/components/settings/use-standards-runtime"
 import {
   DEFAULT_SETTINGS_TAB,
+  getSettingsTabFallback,
   getVisibleSettingsTabDefinitions,
+  isCoreSettingsTab,
   resolveSettingsTab,
-  settingsTabGroupForPrimaryUse,
   type SettingsTab,
   type SettingsTabDefinition,
 } from "@/components/settings/settings-tabs"
-import {
-  closeOpenProject,
-  deleteSession,
-  openProject,
-  reorderOpenProjects,
-  updateSession,
-} from "@/state/chat-actions"
+import { closeOpenProject, openProject, reorderOpenProjects } from "@/state/chat-actions"
 import {
   activateChatDirectory,
-  runPreparedActiveChatMutation,
   selectActiveChatSession,
   startActiveChatDraft,
 } from "@/lib/active-chat-transition-coordinator"
@@ -40,10 +34,8 @@ import {
 } from "@/state/bootstrap-query"
 import { useChatStore } from "@/state/chat-store"
 import {
-  directoryChatQueryKeys,
   directorySessionsQueryOptions,
   removeDirectoryChatQueries,
-  upsertDirectorySessionQueryData,
 } from "@/state/directory-chat-query"
 import { useShallow } from "zustand/react/shallow"
 import { useUiPreferences } from "@/state/ui-preferences"
@@ -57,14 +49,11 @@ import {
   resolveLeftSidebarWidth,
 } from "@/lib/directory-chat/left-sidebar-layout"
 import { useViewportWidth } from "@/lib/use-viewport-width"
-import { sessionFamilyIDs } from "@/lib/session-family"
-import { getPromptScopeKey, usePromptStore } from "@/state/prompt-store"
 import {
-  getModelSelectionScopeKey,
-  getSelectedModelKey,
-  getSelectedVariantKey,
-  useModelSelectionStore,
-} from "@/state/model-selection-store"
+  archiveSessionFromList,
+  deleteSessionFromList,
+  renameSessionInList,
+} from "@/lib/session-list-actions"
 import {
   readSettingsReturnTo,
   resolveSettingsReturnLocation,
@@ -78,6 +67,7 @@ import {
 } from "@/state/experimental-features-query"
 
 const SETTINGS_TITLEBAR_HEIGHT_PX = 40
+const STANDARDS_SETTINGS_TAB: SettingsTab = "standards"
 
 type TIncomingSearchValue = string | number | boolean
 type TIncomingSearch = {
@@ -129,7 +119,6 @@ function SettingsRoute() {
   const togglePinned = useUiPreferences((state) => state.togglePinned)
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
-  const clearDirectorySessionState = useUiPreferences((state) => state.clearDirectorySessionState)
   const storedSettingsSidebarWidth = useUiPreferences((state) => state.settingsSidebarWidth)
   const setSettingsSidebarWidth = useUiPreferences((state) => state.setSettingsSidebarWidth)
   const viewportWidth = useViewportWidth()
@@ -137,12 +126,6 @@ function SettingsRoute() {
     widthPx: storedSettingsSidebarWidth,
     viewportWidthPx: viewportWidth,
   })
-  const { standardsEnabled, standardsStatus } = useStandardsRuntime({
-    open: true,
-    platform: platform.platform,
-  })
-  const globalConfigQuery = useQuery(globalConfigQueryOptions())
-  const primaryUse = readPersonalization(globalConfigQuery.data ?? {}).primaryUse
   const experimentalFeaturesQuery = useQuery(experimentalFeaturesQueryOptions())
   const enabledExperimentalFeatureIDs = useMemo(() => {
     const enabled = new Set<typeof EXPERIMENTAL_FEATURE_ID.learnerMemory>()
@@ -156,6 +139,12 @@ function SettingsRoute() {
     }
     return enabled
   }, [experimentalFeaturesQuery.data])
+  const { standardsEnabled, standardsStatus } = useStandardsRuntime({
+    open: true,
+    platform: platform.platform,
+  })
+  const globalConfigQuery = useQuery(globalConfigQueryOptions())
+  const primaryUse = readPersonalization(globalConfigQuery.data ?? {}).primaryUse
   const isDesktop = platform.platform === "desktop"
   const isMac = isDesktop && platform.os === "macos"
 
@@ -178,21 +167,13 @@ function SettingsRoute() {
       }),
     [enabledExperimentalFeatureIDs, primaryUse, standardsEnabled],
   )
-  const mainTabs = useMemo(
-    () => visibleTabs.filter((item) => settingsTabGroupForPrimaryUse(item, primaryUse) === "main"),
-    [primaryUse, visibleTabs],
-  )
-  const optionalTabs = useMemo(
-    () =>
-      visibleTabs.filter((item) => settingsTabGroupForPrimaryUse(item, primaryUse) === "optional"),
-    [primaryUse, visibleTabs],
+  const coreTabs = useMemo(() => visibleTabs.filter(isCoreSettingsTab), [visibleTabs])
+  const revealedTabs = useMemo(
+    () => visibleTabs.filter((item) => !isCoreSettingsTab(item)),
+    [visibleTabs],
   )
   const visibleTabIDs = useMemo(() => new Set(visibleTabs.map((item) => item.id)), [visibleTabs])
-  const activeTab = visibleTabIDs.has(tab)
-    ? tab
-    : tab === "standards" || tab === "learnerMemory"
-      ? "advanced"
-      : DEFAULT_SETTINGS_TAB
+  const activeTab = visibleTabIDs.has(tab) ? tab : getSettingsTabFallback(tab)
 
   const sessionsByDirectory = useMemo(
     () =>
@@ -214,28 +195,34 @@ function SettingsRoute() {
   )
 
   useEffect(() => {
-    if (globalConfigQuery.isPending) {
+    // Both queries feed tab visibility — experimental features reveal Memory, and the global
+    // config carries the `primaryUse` that reveals Standards. Bouncing before either has data
+    // would throw a reader off a tab that is about to become visible, and `replace` would take
+    // the deep link with it.
+    if (experimentalFeaturesQuery.isPending || globalConfigQuery.isPending) {
       return
     }
-    if (tab !== "standards" && visibleTabIDs.has(tab)) {
-      return
-    }
-    if (tab === "standards" && standardsStatus === null) {
-      return
-    }
-
-    const fallbackTab =
-      tab === "standards" || tab === "learnerMemory" ? "advanced" : DEFAULT_SETTINGS_TAB
     if (visibleTabIDs.has(tab)) {
       return
     }
-
+    // The standards runtime reports asynchronously; bouncing before it does would throw a reader
+    // off a tab that is about to become visible.
+    if (tab === STANDARDS_SETTINGS_TAB && standardsStatus === null) {
+      return
+    }
     navigate({
       to: "/settings",
-      search: (previous) => settingsSearchForTab(previous, fallbackTab),
+      search: (previous) => settingsSearchForTab(previous, getSettingsTabFallback(tab)),
       replace: true,
     })
-  }, [globalConfigQuery.isPending, navigate, standardsStatus, tab, visibleTabIDs])
+  }, [
+    experimentalFeaturesQuery.isPending,
+    globalConfigQuery.isPending,
+    navigate,
+    standardsStatus,
+    tab,
+    visibleTabIDs,
+  ])
 
   async function openChat(
     directory: string,
@@ -301,27 +288,10 @@ function SettingsRoute() {
   async function onArchiveSession(targetDirectory: string, targetSessionID: string) {
     if (!targetDirectory) return
     try {
-      const archive = () =>
-        updateSession({
-          directory: targetDirectory,
-          sessionID: targetSessionID,
-          archivedAt: Date.now(),
-        })
-      if (activeDirectory === targetDirectory && activeSessionID === targetSessionID) {
-        const result = await runPreparedActiveChatMutation({
-          directory: targetDirectory,
-          mutate: archive,
-        })
-        if (result.outcome !== "committed") {
-          if (result.outcome === "failed") throw result.error
-          return
-        }
-      } else {
-        await archive()
-      }
-      await queryClient.refetchQueries({
-        queryKey: directoryChatQueryKeys.sessions(targetDirectory),
-        exact: true,
+      await archiveSessionFromList({
+        queryClient,
+        directory: targetDirectory,
+        sessionID: targetSessionID,
       })
     } catch {
       toast.error(language.t("routes.settings.archiveThreadFailed"))
@@ -333,69 +303,12 @@ function SettingsRoute() {
     targetSessionID: string,
   ): Promise<boolean> {
     if (!targetDirectory) return false
-    const sessions = useChatStore.getState().directories[targetDirectory]?.sessions ?? []
-    const affectedSessionIDs = sessionFamilyIDs(sessions, targetSessionID)
-    const selectionSessionID =
-      activeDirectory === targetDirectory &&
-      activeSessionID !== undefined &&
-      affectedSessionIDs.includes(activeSessionID)
-        ? activeSessionID
-        : targetSessionID
-    const selectionKey = getModelSelectionScopeKey(targetDirectory, selectionSessionID)
-    const modelSelectionStore = useModelSelectionStore.getState()
-    const replacementDraftSelection = {
-      model: getSelectedModelKey(modelSelectionStore, selectionKey),
-      variant: getSelectedVariantKey(modelSelectionStore, selectionKey),
-    }
-    const deleteTarget = () =>
-      deleteSession({
+    try {
+      return await deleteSessionFromList({
+        queryClient,
         directory: targetDirectory,
         sessionID: targetSessionID,
       })
-
-    try {
-      const affectsActiveSession =
-        activeDirectory === targetDirectory &&
-        activeSessionID !== undefined &&
-        affectedSessionIDs.includes(activeSessionID)
-      if (affectsActiveSession) {
-        const result = await runPreparedActiveChatMutation({
-          directory: targetDirectory,
-          mutate: deleteTarget,
-        })
-        if (result.outcome === "failed") throw result.error
-        if (result.outcome !== "committed") return false
-      } else {
-        await deleteTarget()
-      }
-
-      for (const affectedSessionID of affectedSessionIDs) {
-        usePromptStore
-          .getState()
-          .removeSessionDraft(getPromptScopeKey(targetDirectory, affectedSessionID))
-        clearDirectorySessionState(targetDirectory, affectedSessionID)
-      }
-
-      await Promise.all([
-        queryClient.refetchQueries({
-          queryKey: directoryChatQueryKeys.sessions(targetDirectory),
-          exact: true,
-        }),
-        queryClient.refetchQueries({
-          queryKey: directoryChatQueryKeys.permissions(targetDirectory),
-          exact: true,
-        }),
-        queryClient.refetchQueries({
-          queryKey: directoryChatQueryKeys.questions(targetDirectory),
-          exact: true,
-        }),
-      ])
-
-      if (!useChatStore.getState().directories[targetDirectory]?.sessionID) {
-        await startActiveChatDraft({ directory: targetDirectory })
-        modelSelectionStore.seedWorkspaceSelection(targetDirectory, replacementDraftSelection)
-      }
-      return true
     } catch {
       toast.error(language.t("routes.settings.deleteThreadFailed"))
       return false
@@ -404,16 +317,13 @@ function SettingsRoute() {
 
   async function onRenameSession(targetDirectory: string, targetSessionID: string, title: string) {
     if (!targetDirectory) return
-    const nextTitle = title.trim()
-    if (!nextTitle) return
     try {
-      const updated = await updateSession({
+      await renameSessionInList({
+        queryClient,
         directory: targetDirectory,
         sessionID: targetSessionID,
-        title: nextTitle,
+        title,
       })
-      upsertDirectorySessionQueryData(queryClient, targetDirectory, updated)
-      useChatStore.getState().applySessionUpdated(targetDirectory, updated)
     } catch {
       toast.error(language.t("routes.settings.renameThreadFailed"))
     }
@@ -521,8 +431,8 @@ function SettingsRoute() {
             >
               <SettingsNavContent
                 activeTab={activeTab}
-                mainTabs={mainTabs}
-                optionalTabs={optionalTabs}
+                coreTabs={coreTabs}
+                revealedTabs={revealedTabs}
                 onTabChange={(nextTab) => {
                   navigate({
                     to: "/settings",
@@ -563,7 +473,16 @@ function SettingsRoute() {
         )}
       >
         <main className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background-base">
-          <SettingsPage activeTab={activeTab} />
+          <SettingsPage
+            activeTab={activeTab}
+            onOpenTab={(nextTab) => {
+              void navigate({
+                to: "/settings",
+                search: (previous) => settingsSearchForTab(previous, nextTab),
+                replace: true,
+              })
+            }}
+          />
         </main>
       </div>
     </div>
@@ -572,8 +491,8 @@ function SettingsRoute() {
 
 function SettingsNavContent(props: {
   activeTab: SettingsTab
-  mainTabs: SettingsTabDefinition[]
-  optionalTabs: SettingsTabDefinition[]
+  coreTabs: SettingsTabDefinition[]
+  revealedTabs: SettingsTabDefinition[]
   onTabChange: (tab: SettingsTab) => void
   onBack: () => void
 }) {
@@ -619,16 +538,16 @@ function SettingsNavContent(props: {
           {language.t("routes.settings.backToChat")}
         </Button>
       </div>
-      <div className="space-y-1">{props.mainTabs.map(renderTabButton)}</div>
-      {props.optionalTabs.length > 0 ? (
+      <div className="space-y-1">{props.coreTabs.map(renderTabButton)}</div>
+      {props.revealedTabs.length > 0 ? (
         <div className="mt-4 space-y-3 px-1">
           <div className="space-y-2">
             <Separator />
             <p className="px-1 text-[11px] font-medium uppercase tracking-[0.14em] text-text-weaker">
-              {language.t("routes.settings.optionalFeatures")}
+              {language.t("routes.settings.enabledFeatures")}
             </p>
           </div>
-          <div className="space-y-1">{props.optionalTabs.map(renderTabButton)}</div>
+          <div className="space-y-1">{props.revealedTabs.map(renderTabButton)}</div>
         </div>
       ) : null}
     </>

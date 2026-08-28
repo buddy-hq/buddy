@@ -75,6 +75,7 @@ import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
 import { DevToolsContextTab } from "./devtools-context-tab"
 import { DevToolsEaselTab } from "./devtools-easel-tab"
+import { DevToolsUITab } from "./devtools-ui-tab"
 import { DevToolsTranscriptTab } from "./devtools-transcript-tab"
 import { buildSessionTrace, copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
 import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
@@ -109,6 +110,7 @@ type BuddyDevToolsTab =
   | "query"
   | "actions"
   | "easel"
+  | "ui"
   | "transcript"
 
 const DEVTOOLS_AFFORDANCE_POSITIONS = [
@@ -229,6 +231,7 @@ function isBuddyDevToolsTab(value: string): value is BuddyDevToolsTab {
     value === "query" ||
     value === "actions" ||
     value === "easel" ||
+    value === "ui" ||
     value === "transcript"
   )
 }
@@ -3034,6 +3037,9 @@ export function BuddyDevTools() {
                   <TabsTrigger value="easel" className="text-xs">
                     Easel
                   </TabsTrigger>
+                  <TabsTrigger value="ui" className="text-xs">
+                    UI
+                  </TabsTrigger>
                   <TabsTrigger value="transcript" className="text-xs">
                     Transcript
                   </TabsTrigger>
@@ -3240,6 +3246,10 @@ export function BuddyDevTools() {
 
             <TabsContent value="easel" className="min-h-0 flex-1 overflow-hidden mt-0">
               <DevToolsEaselTab directory={activeDirectory} />
+            </TabsContent>
+
+            <TabsContent value="ui" className="min-h-0 flex-1 overflow-hidden mt-0">
+              <DevToolsUITab />
             </TabsContent>
 
             <TabsContent value="transcript" className="min-h-0 flex-1 overflow-hidden mt-0">

@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Badge, Button, Input } from "@buddy/ui"
+import { Badge, Button, Input, Switch } from "@buddy/ui"
 import { language } from "@/context/language"
 import {
   formatMcpError,
@@ -8,7 +8,6 @@ import {
   mcpNeedsAuth,
   mcpNeedsClientRegistration,
   parseMcpConfigMap,
-  type McpConfig,
 } from "@/components/mcp-dialog/mcp-config-schema"
 import { McpEditorDialog } from "@/components/mcp-dialog/mcp-editor-dialog"
 import { useMcpEditor } from "@/components/mcp-dialog/use-mcp-editor"
@@ -21,7 +20,11 @@ import {
   saveGlobalMcpConfig,
 } from "@/state/chat-actions"
 import type { McpStatusInfo, McpStatusMap } from "@/state/chat-types"
-import { globalConfigQueryOptions, setGlobalConfigQueryData } from "@/state/global-config-query"
+import {
+  globalConfigQueryKeys,
+  globalConfigQueryOptions,
+  setGlobalConfigQueryData,
+} from "@/state/global-config-query"
 import { mcpStatusQueryOptions } from "@/state/mcp-directory-query"
 import { notebookDefinesMcp } from "@/state/mcp-settings"
 import { notebookRawProjectConfigQueryOptions } from "@/state/notebook-settings-query"
@@ -32,10 +35,47 @@ import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primi
 const MCP_SEARCH_VISIBLE_THRESHOLD = 3
 const EMPTY_MCP_STATUS: McpStatusMap = {}
 
-function isEnabledLabel(config: McpConfig) {
-  return config.enabled === false
-    ? language.t("mcp.settings.defaultOff")
-    : language.t("mcp.settings.defaultOn")
+/**
+ * Tracks in-flight work per MCP name. A single pending name cannot represent concurrent rows:
+ * only the busy row is disabled, so every other row stays clickable and a second request would
+ * clear the first one's busy state when it settles.
+ */
+function usePendingNames() {
+  const [names, setNames] = useState<ReadonlySet<string>>(() => new Set())
+
+  const start = useCallback((name: string) => {
+    setNames((current) => {
+      const next = new Set(current)
+      next.add(name)
+      return next
+    })
+  }, [])
+
+  const finish = useCallback((name: string) => {
+    setNames((current) => {
+      if (!current.has(name)) return current
+      const next = new Set(current)
+      next.delete(name)
+      return next
+    })
+  }, [])
+
+  return { has: (name: string) => names.has(name), start, finish }
+}
+
+/**
+ * Enabling and removing a server both rewrite the global config and then reload every open
+ * notebook's runtime. Overlapping those races a rewrite against an in-flight reload, so global
+ * mutations run one at a time while their rows stay individually busy.
+ */
+function useSerialTask() {
+  const tail = useRef<Promise<unknown>>(Promise.resolve())
+
+  return useCallback(<T,>(run: () => Promise<T>): Promise<T> => {
+    const result = tail.current.then(run, run)
+    tail.current = result.catch(() => undefined)
+    return result
+  }, [])
 }
 
 function getConnectButtonLabel(input: { pending: boolean; status: McpStatusInfo | undefined }) {
@@ -61,8 +101,10 @@ export function McpsSettings() {
   const connectionDirectory = activeDirectory ?? openProjects[0]
   const [query, setQuery] = useState("")
   const [panelError, setPanelError] = useState<string | undefined>(undefined)
-  const [pendingRemoveName, setPendingRemoveName] = useState<string | null>(null)
-  const [pendingConnectName, setPendingConnectName] = useState<string | null>(null)
+  const pendingRemove = usePendingNames()
+  const pendingConnect = usePendingNames()
+  const pendingEnabled = usePendingNames()
+  const runGlobalMcpMutation = useSerialTask()
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
   const activeMcpStatusQuery = useQuery({
     ...mcpStatusQueryOptions(connectionDirectory ?? ""),
@@ -78,9 +120,11 @@ export function McpsSettings() {
   const mcpEditor = useMcpEditor({
     onSave: async ({ name, config }) => {
       setPanelError(undefined)
-      const updatedGlobal = await saveGlobalMcpConfig(name, config)
-      setGlobalConfigQueryData(queryClient, updatedGlobal)
-      await reloadOpenNotebookMcpRuntimes()
+      await runGlobalMcpMutation(async () => {
+        const updatedGlobal = await saveGlobalMcpConfig(name, config)
+        setGlobalConfigQueryData(queryClient, updatedGlobal)
+        await reloadOpenNotebookMcpRuntimes()
+      })
     },
   })
 
@@ -130,20 +174,52 @@ export function McpsSettings() {
   }
 
   async function removeConfig(name: string) {
-    setPendingRemoveName(name)
+    pendingRemove.start(name)
     setPanelError(undefined)
 
     try {
-      const updatedGlobal = await removeGlobalMcpConfig(name)
-      setGlobalConfigQueryData(queryClient, updatedGlobal)
-      await reloadOpenNotebookMcpRuntimes()
+      await runGlobalMcpMutation(async () => {
+        const updatedGlobal = await removeGlobalMcpConfig(name)
+        setGlobalConfigQueryData(queryClient, updatedGlobal)
+        await reloadOpenNotebookMcpRuntimes()
+      })
       if (mcpEditor.editorMode === "edit" && mcpEditor.draft.name === name) {
         mcpEditor.onEditorOpenChange(false)
       }
     } catch (removeError) {
       setPanelError(formatMcpError(removeError))
     } finally {
-      setPendingRemoveName(null)
+      pendingRemove.finish(name)
+    }
+  }
+
+  async function setConfigEnabled(name: string, enabled: boolean) {
+    if (!configByName[name]) {
+      return
+    }
+
+    pendingEnabled.start(name)
+    setPanelError(undefined)
+
+    try {
+      await runGlobalMcpMutation(async () => {
+        // Re-read inside the queued task: an editor save may have rewritten this server while
+        // the toggle waited its turn, and the render-time snapshot would undo those fields.
+        const current = parseMcpConfigMap(
+          queryClient.getQueryData(globalConfigQueryKeys.bundle()) ?? {},
+        )[name]
+        if (!current) {
+          return
+        }
+
+        const updatedGlobal = await saveGlobalMcpConfig(name, { ...current, enabled })
+        setGlobalConfigQueryData(queryClient, updatedGlobal)
+        await reloadOpenNotebookMcpRuntimes()
+      })
+    } catch (enabledError) {
+      setPanelError(formatMcpError(enabledError))
+    } finally {
+      pendingEnabled.finish(name)
     }
   }
 
@@ -162,7 +238,7 @@ export function McpsSettings() {
       return
     }
 
-    setPendingConnectName(name)
+    pendingConnect.start(name)
     setPanelError(undefined)
 
     try {
@@ -184,7 +260,7 @@ export function McpsSettings() {
     } catch (connectError) {
       setPanelError(formatMcpError(connectError))
     } finally {
-      setPendingConnectName(null)
+      pendingConnect.finish(name)
     }
   }
 
@@ -233,7 +309,7 @@ export function McpsSettings() {
             ) : (
               entries.map((name) => {
                 const config = configByName[name]
-                const removing = pendingRemoveName === name
+                const removing = pendingRemove.has(name)
                 const notebookDefinitionShadowsGlobal = notebookDefinesMcp(
                   activeProjectConfig,
                   name,
@@ -241,7 +317,9 @@ export function McpsSettings() {
                 const connectionTargetReady =
                   activeProjectConfigQuery.isSuccess && !notebookDefinitionShadowsGlobal
                 const status = connectionTargetReady ? activeMcpStatusByName[name] : undefined
-                const connecting = pendingConnectName === name
+                const connecting = pendingConnect.has(name)
+                const updatingEnabled = pendingEnabled.has(name)
+                const rowBusy = removing || connecting || updatingEnabled
                 const showConnectAction =
                   Boolean(connectionDirectory) &&
                   connectionTargetReady &&
@@ -256,9 +334,6 @@ export function McpsSettings() {
                     title={
                       <span className="flex min-w-0 flex-wrap items-center gap-2">
                         <span className="truncate">{name}</span>
-                        <Badge variant="outline" className="h-5">
-                          {isEnabledLabel(config)}
-                        </Badge>
                         <Badge variant="secondary" className="h-5">
                           {config.type}
                         </Badge>
@@ -272,6 +347,15 @@ export function McpsSettings() {
                     description={detail}
                     control={
                       <>
+                        <Switch
+                          data-action={`settings-mcp-enabled-${name}`}
+                          checked={config.enabled !== false}
+                          disabled={rowBusy}
+                          aria-label={language.t("mcp.settings.toggleAria", { name })}
+                          onCheckedChange={(checked) => {
+                            void setConfigEnabled(name, checked)
+                          }}
+                        />
                         {showConnectAction ? (
                           <Button
                             type="button"
@@ -280,7 +364,7 @@ export function McpsSettings() {
                             onClick={() => {
                               void connectConfig(name)
                             }}
-                            disabled={removing || connecting}
+                            disabled={rowBusy}
                           >
                             {getConnectButtonLabel({ pending: connecting, status })}
                           </Button>
@@ -290,7 +374,7 @@ export function McpsSettings() {
                           size="xs"
                           variant="outline"
                           onClick={() => openEditEditor(name)}
-                          disabled={removing}
+                          disabled={rowBusy}
                         >
                           {language.t("mcp.listPanel.editDetails")}
                         </Button>
@@ -301,7 +385,7 @@ export function McpsSettings() {
                           onClick={() => {
                             void removeConfig(name)
                           }}
-                          disabled={removing}
+                          disabled={rowBusy}
                         >
                           {removing ? language.t("common.saving") : language.t("common.remove")}
                         </Button>

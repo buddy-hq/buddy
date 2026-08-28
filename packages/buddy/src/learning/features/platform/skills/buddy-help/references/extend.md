@@ -62,7 +62,7 @@ On **Installed** rows (and the detail dialog): **Active** switch (list shows **O
 
 ### External discovery (optional)
 
-Settings → **Advanced** → **Skill discovery** → discover external skills (e.g. from `.agents` / `.claude` folders).
+Settings → **Skills** → **Skill discovery** → discover external skills (e.g. from `.agents` / `.claude` folders).
 
 - Off by default.
 - When on, those skills can appear on **Installed** as **Detected**.
@@ -154,7 +154,7 @@ Not app install (`setup.md`). Not skills (Skills above). Not MCP (MCP below).
 
 ### What they are
 
-Two **optional local packages**. Desktop only. **Settings → Advanced → Packages**.
+Two **optional local packages**. Desktop only. **Settings → Packages**.
 
 | Package (UI) | What user gets | Unlocks (when ready) |
 | --- | --- | --- |
@@ -165,8 +165,8 @@ Without the package installed and **ready**, those capabilities stay unavailable
 
 ### Install / remove
 
-1. Open **Settings → Advanced**.
-2. Under **Packages**, flip the package switch **on** to install (progress may show).
+1. Open **Settings → Packages**.
+2. Flip the package switch **on** to install (progress may show).
 3. Flip **off** → confirm remove → package leaves this device (reinstall anytime).
 
 **Advanced Math on Windows:** UI shows **Coming soon** — no install switch. Use macOS for Advanced Math today.

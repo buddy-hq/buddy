@@ -51,11 +51,9 @@ import {
   closeOpenProject,
   ensureDirectorySession,
   findWorkspaceFiles,
-  loadMessages,
   prefetchSessionMessages,
   createManagedNotebook,
   compactSession,
-  deleteSession,
   openInboxNotebook,
   rejectQuestion,
   reorderOpenProjects,
@@ -65,17 +63,14 @@ import {
   sendCommand,
   sendPrompt,
   undoLastSessionMessage,
-  updateSession,
 } from "../../state/chat-actions"
 import { addResource, rebuildResource, removeResource } from "../../state/resource-actions"
 import { invalidateResourcesQueries } from "../../state/resources-query"
 import { setOpenProjectsQueryData } from "../../state/bootstrap-query"
 import {
-  directoryChatQueryKeys,
   removeDirectoryChatQueries,
   removeDirectoryPermissionQueryData,
   removeDirectoryQuestionQueryData,
-  upsertDirectorySessionQueryData,
 } from "../../state/directory-chat-query"
 import { teachingSessionStateQueryOptions } from "../../state/teaching-session-query"
 import { invalidateObsidianWatcherCaches } from "../../state/obsidian-vault-query"
@@ -129,7 +124,12 @@ import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-di
 import { useOpenExistingNotebook } from "@/lib/use-open-existing-notebook"
 import { useOpenReadingResource } from "@/lib/use-open-reading-resource"
 import { useOpenSettings } from "@/lib/settings-navigation"
-import { sessionFamilyIDs } from "@/lib/session-family"
+import type { WorkspaceModelSelectionSeed } from "@/state/model-selection-store"
+import {
+  archiveSessionFromList,
+  deleteSessionFromList,
+  renameSessionInList,
+} from "@/lib/session-list-actions"
 import { referenceListQueryOptions } from "@/state/reference-query"
 import {
   activateChatDirectory,
@@ -672,13 +672,15 @@ export function useDirectoryChatPageController(
     void syncTeachingRuntimeSelection()
   }, [syncTeachingRuntimeSelection])
 
+  function composerModelSelectionSeed(): WorkspaceModelSelectionSeed {
+    return {
+      model: cs.selectedModelKey || undefined,
+      variant: selectedThinking === "default" ? null : selectedThinking,
+    }
+  }
+
   function seedDraftModelSelection(targetDirectory: string) {
-    const carryModelKey = cs.selectedModelKey || undefined
-    const carryVariantKey = selectedThinking === "default" ? null : selectedThinking
-    seedWorkspaceSelection(targetDirectory, {
-      model: carryModelKey,
-      variant: carryVariantKey,
-    })
+    seedWorkspaceSelection(targetDirectory, composerModelSelectionSeed())
   }
 
   async function onNewSession(targetDirectory = decodedDirectory) {
@@ -824,88 +826,15 @@ export function useDirectoryChatPageController(
     }
   }
 
-  async function commitSessionListRemoval(input: {
-    directory: string
-    affectedSessionIDs: string[]
-    mutate: () => Promise<void>
-  }): Promise<boolean> {
-    const stateBeforeMutation = useChatStore.getState()
-    const activeSessionBeforeMutation =
-      stateBeforeMutation.activeDirectory === input.directory
-        ? stateBeforeMutation.directories[input.directory]?.sessionID
-        : undefined
-    const affectsActiveSession =
-      activeSessionBeforeMutation !== undefined &&
-      input.affectedSessionIDs.includes(activeSessionBeforeMutation)
-
-    if (affectsActiveSession) {
-      const result = await runPreparedActiveChatMutation({
-        directory: input.directory,
-        mutate: input.mutate,
-      })
-      if (result.outcome === "failed") throw result.error
-      if (result.outcome !== "committed") return false
-    } else {
-      await input.mutate()
-    }
-
-    for (const affectedSessionID of input.affectedSessionIDs) {
-      cs.removePromptDraft(getPromptScopeKey(input.directory, affectedSessionID))
-      cs.clearDirectorySessionState(input.directory, affectedSessionID)
-    }
-
-    await Promise.all([
-      queryClient.refetchQueries({
-        queryKey: directoryChatQueryKeys.sessions(input.directory),
-        exact: true,
-      }),
-      queryClient.refetchQueries({
-        queryKey: directoryChatQueryKeys.permissions(input.directory),
-        exact: true,
-      }),
-      queryClient.refetchQueries({
-        queryKey: directoryChatQueryKeys.questions(input.directory),
-        exact: true,
-      }),
-    ])
-
-    const activeSessionID = useChatStore.getState().directories[input.directory]?.sessionID
-    if (!activeSessionID) {
-      await startActiveChatDraft({ directory: input.directory })
-      seedDraftModelSelection(input.directory)
-      await Promise.all([
-        queryClient.refetchQueries({
-          queryKey: directoryChatQueryKeys.permissions(input.directory),
-          exact: true,
-        }),
-        queryClient.refetchQueries({
-          queryKey: directoryChatQueryKeys.questions(input.directory),
-          exact: true,
-        }),
-      ])
-      return true
-    }
-
-    if (!input.affectedSessionIDs.includes(activeSessionID)) {
-      await loadMessages(input.directory, activeSessionID)
-      cs.clearUnread(input.directory, activeSessionID)
-    }
-    return true
-  }
-
   async function onArchiveSession(targetDirectory: string, targetSessionID: string) {
     if (!targetDirectory) return
     try {
-      await commitSessionListRemoval({
+      await archiveSessionFromList({
+        queryClient,
         directory: targetDirectory,
-        affectedSessionIDs: [targetSessionID],
-        mutate: async () => {
-          await updateSession({
-            directory: targetDirectory,
-            sessionID: targetSessionID,
-            archivedAt: Date.now(),
-          })
-        },
+        sessionID: targetSessionID,
+        draftModelSelection: composerModelSelectionSeed(),
+        refreshActiveTranscript: true,
       })
     } catch {
       // Action layers keep directory-level error state.
@@ -917,19 +846,14 @@ export function useDirectoryChatPageController(
     targetSessionID: string,
   ): Promise<boolean> {
     if (!targetDirectory) return false
-    const sessions = useChatStore.getState().directories[targetDirectory]?.sessions ?? []
-    const affectedSessionIDs = sessionFamilyIDs(sessions, targetSessionID)
 
     try {
-      return await commitSessionListRemoval({
+      return await deleteSessionFromList({
+        queryClient,
         directory: targetDirectory,
-        affectedSessionIDs,
-        mutate: async () => {
-          await deleteSession({
-            directory: targetDirectory,
-            sessionID: targetSessionID,
-          })
-        },
+        sessionID: targetSessionID,
+        draftModelSelection: composerModelSelectionSeed(),
+        refreshActiveTranscript: true,
       })
     } catch {
       // Action layers keep directory-level error state.
@@ -939,16 +863,13 @@ export function useDirectoryChatPageController(
 
   async function onRenameSession(targetDirectory: string, targetSessionID: string, title: string) {
     if (!targetDirectory) return
-    const trimmed = title.trim()
-    if (!trimmed) return
     try {
-      const updated = await updateSession({
+      await renameSessionInList({
+        queryClient,
         directory: targetDirectory,
         sessionID: targetSessionID,
-        title: trimmed,
+        title,
       })
-      upsertDirectorySessionQueryData(queryClient, targetDirectory, updated)
-      cs.applySessionUpdated(targetDirectory, updated)
     } catch {
       // Action layers keep directory-level error state.
     }

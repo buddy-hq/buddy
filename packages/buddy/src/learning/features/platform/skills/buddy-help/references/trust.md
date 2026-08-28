@@ -100,7 +100,7 @@ Headline examples: Access external folder, Read/Edit file, Run command, or gener
 
 ### Notifications
 
-**Settings → General → Permission notifications**: system notify when Buddy waits on a permission or a question. Title: “Permission required.”
+**Settings → Notifications → Permission notifications**: system notify when Buddy waits on a permission or a question. Title: “Permission required.”
 
 ### Gotchas
 

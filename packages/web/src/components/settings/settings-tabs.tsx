@@ -1,27 +1,29 @@
 import type { ReactNode } from "react"
-import { BotIcon } from "@buddy/ui"
 import {
+  AlertCircleIcon,
   BlocksIcon,
+  BotIcon,
   BoxesIcon,
   BrainIcon,
+  InfoIcon,
+  PaintbrushIcon,
   CpuSettingsIcon,
-  RefreshCwIcon,
   UserRoundIcon,
-  ScaleIcon,
   Settings05Icon,
   TeachingIcon,
   type AppIcon,
 } from "@/icons/app-icons"
 import { GeneralSettings } from "./settings-general"
+import { AppearanceSettings } from "./settings-appearance"
+import { NotificationsSettings } from "./settings-notifications"
+import { PersonalizationSettings } from "./settings-personalization"
 import { ProvidersSettings } from "./settings-providers"
 import { McpsSettings } from "./settings-mcps"
 import { SkillsSettings } from "./settings-skills"
-import { AdvancedSettings } from "./settings-advanced"
-import { StandardsSettings } from "./settings-tools"
-import { AttributionSettings } from "./settings-attribution"
-import { LearnerMemorySettings } from "./settings-learner-memory"
-import { PersonalizationSettings } from "./settings-personalization"
-import { UpdatesSettings } from "./settings-updates"
+import { PackagesSettings } from "./settings-packages"
+import { StandardsSettings } from "./settings-standards"
+import { MemorySettings } from "./settings-memory"
+import { AboutSettings } from "./settings-about"
 import {
   EXPERIMENTAL_FEATURE_ID,
   type ExperimentalFeatureID,
@@ -30,39 +32,66 @@ import type { PrimaryUse } from "@/state/project-config-readers"
 
 export type SettingsTab =
   | "general"
-  | "updates"
+  | "appearance"
+  | "notifications"
+  | "personalization"
   | "providers"
   | "skills"
   | "mcps"
-  | "personalization"
-  | "learnerMemory"
-  | "advanced"
-  | "attribution"
+  | "packages"
   | "standards"
+  | "memory"
+  | "about"
 
-export type SettingsTabGroup = "main" | "optional"
+/**
+ * Which optional capability reveals a tab. Core tabs have none and are always listed; a revealed
+ * tab appears only once its own capability is active, and each one is independent of the others —
+ * turning on memory must never surface standards, or vice versa.
+ */
+export type SettingsTabReveal = "standards" | "memory"
 
-export type SettingsTabScope = "global" | "info"
+export type SettingsTabRenderContext = {
+  onOpenTab: (tab: SettingsTab) => void
+}
 
 export type SettingsTabDefinition = {
   id: SettingsTab
   navLabelKey: string
   icon: AppIcon
   layout: "standard" | "full-page"
-  group: SettingsTabGroup
-  scope: SettingsTabScope
-  experimentalFeatureID?: ExperimentalFeatureID
+  reveal?: SettingsTabReveal
   badgeLabelKey?: string
-  render: () => ReactNode
+  render: (context: SettingsTabRenderContext) => ReactNode
 }
 
+/**
+ * Retired tab ids kept so existing `?tab=` links and bookmarks still resolve.
+ * Every id that has ever shipped must map to a tab that exists today — and to a *core* one:
+ * a revealed tab is hidden until its capability is on, so aliasing to one would bounce the
+ * reader to General and destroy the link. The ids whose content now lives behind a reveal
+ * point at Packages instead, which is where that capability is turned on.
+ */
 const SETTINGS_TAB_ALIAS_MAP = {
-  appearance: "general",
+  chat: "general",
   notebook: "general",
-  tools: "standards",
+  tools: "packages",
+  teaching: "packages",
+  learnerMemory: "packages",
+  advanced: "packages",
+  labs: "packages",
+  updates: "about",
+  attribution: "about",
 } as const satisfies Record<string, SettingsTab>
 
 export const DEFAULT_SETTINGS_TAB: SettingsTab = "general"
+
+/**
+ * Where a reader lands when the tab they asked for is hidden behind an inactive reveal.
+ * General has no way to turn a capability on, so a deep link to Standards or Memory would
+ * dead-end there. Packages carries the switch, which is the same destination the retired
+ * `?tab=` ids above resolve to.
+ */
+export const CAPABILITY_FALLBACK_SETTINGS_TAB: SettingsTab = "packages"
 
 export const SETTINGS_TABS: SettingsTabDefinition[] = [
   {
@@ -70,26 +99,34 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     navLabelKey: "routes.settings.nav.general",
     icon: Settings05Icon,
     layout: "standard",
-    group: "main",
-    scope: "global",
     render: () => <GeneralSettings />,
   },
   {
-    id: "updates",
-    navLabelKey: "routes.settings.nav.updates",
-    icon: RefreshCwIcon,
+    id: "appearance",
+    navLabelKey: "routes.settings.nav.appearance",
+    icon: PaintbrushIcon,
     layout: "standard",
-    group: "main",
-    scope: "global",
-    render: () => <UpdatesSettings />,
+    render: () => <AppearanceSettings />,
+  },
+  {
+    id: "notifications",
+    navLabelKey: "routes.settings.nav.notifications",
+    icon: AlertCircleIcon,
+    layout: "standard",
+    render: () => <NotificationsSettings />,
+  },
+  {
+    id: "personalization",
+    navLabelKey: "routes.settings.nav.personalization",
+    icon: UserRoundIcon,
+    layout: "standard",
+    render: () => <PersonalizationSettings />,
   },
   {
     id: "providers",
     navLabelKey: "routes.settings.nav.providers",
     icon: BotIcon,
     layout: "standard",
-    group: "main",
-    scope: "global",
     render: () => <ProvidersSettings />,
   },
   {
@@ -97,8 +134,6 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     navLabelKey: "routes.settings.nav.skills",
     icon: BoxesIcon,
     layout: "standard",
-    group: "main",
-    scope: "global",
     render: () => <SkillsSettings />,
   },
   {
@@ -106,56 +141,38 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     navLabelKey: "routes.settings.nav.mcps",
     icon: BlocksIcon,
     layout: "standard",
-    group: "main",
-    scope: "global",
     render: () => <McpsSettings />,
   },
   {
-    id: "personalization",
-    navLabelKey: "routes.settings.nav.personalization",
-    icon: UserRoundIcon,
-    layout: "standard",
-    group: "main",
-    scope: "global",
-    render: () => <PersonalizationSettings />,
-  },
-  {
-    id: "learnerMemory",
-    navLabelKey: "routes.settings.nav.learnerMemory",
-    icon: BrainIcon,
-    layout: "standard",
-    group: "optional",
-    scope: "global",
-    experimentalFeatureID: EXPERIMENTAL_FEATURE_ID.learnerMemory,
-    badgeLabelKey: "settings.advanced.experimentalBadge",
-    render: () => <LearnerMemorySettings />,
-  },
-  {
-    id: "advanced",
-    navLabelKey: "routes.settings.nav.advanced",
+    id: "packages",
+    navLabelKey: "routes.settings.nav.packages",
     icon: CpuSettingsIcon,
     layout: "standard",
-    group: "main",
-    scope: "global",
-    render: () => <AdvancedSettings />,
+    render: () => <PackagesSettings />,
   },
   {
-    id: "attribution",
-    navLabelKey: "routes.settings.nav.attribution",
-    icon: ScaleIcon,
+    id: "about",
+    navLabelKey: "routes.settings.nav.about",
+    icon: InfoIcon,
     layout: "standard",
-    group: "main",
-    scope: "info",
-    render: () => <AttributionSettings />,
+    render: () => <AboutSettings />,
   },
   {
     id: "standards",
     navLabelKey: "routes.settings.nav.standards",
     icon: TeachingIcon,
     layout: "standard",
-    group: "optional",
-    scope: "global",
-    render: () => <StandardsSettings />,
+    reveal: "standards",
+    render: (context) => <StandardsSettings onOpenTab={context.onOpenTab} />,
+  },
+  {
+    id: "memory",
+    navLabelKey: "routes.settings.nav.memory",
+    icon: BrainIcon,
+    layout: "standard",
+    reveal: "memory",
+    badgeLabelKey: "settings.advanced.experimentalBadge",
+    render: () => <MemorySettings />,
   },
 ]
 
@@ -163,54 +180,57 @@ export function isSettingsTab(value: string): value is SettingsTab {
   return SETTINGS_TABS.some((tab) => tab.id === value)
 }
 
+function isRetiredSettingsTab(value: string): value is keyof typeof SETTINGS_TAB_ALIAS_MAP {
+  return Object.hasOwn(SETTINGS_TAB_ALIAS_MAP, value)
+}
+
 export function resolveSettingsTab(value: string): SettingsTab | undefined {
   if (isSettingsTab(value)) {
     return value
   }
 
-  if (value === "appearance") {
-    return SETTINGS_TAB_ALIAS_MAP.appearance
-  }
-  if (value === "notebook") {
-    return SETTINGS_TAB_ALIAS_MAP.notebook
-  }
-  if (value === "tools") {
-    return SETTINGS_TAB_ALIAS_MAP.tools
-  }
-
-  return undefined
+  return isRetiredSettingsTab(value) ? SETTINGS_TAB_ALIAS_MAP[value] : undefined
 }
 
-export function getVisibleSettingsTabDefinitions(input: {
+export type SettingsTabVisibilityInput = {
   standardsEnabled: boolean
   primaryUse?: PrimaryUse
   enabledExperimentalFeatureIDs: ReadonlySet<ExperimentalFeatureID>
-}): SettingsTabDefinition[] {
-  return SETTINGS_TABS.filter((tab) => {
-    if (
-      tab.experimentalFeatureID &&
-      !input.enabledExperimentalFeatureIDs.has(tab.experimentalFeatureID)
-    ) {
-      return false
-    }
-
-    if (tab.group === "main") {
-      return true
-    }
-
-    if (tab.id === "standards") {
-      return input.primaryUse === "teach" || input.standardsEnabled
-    }
-
-    return tab.experimentalFeatureID !== undefined
-  })
 }
 
-export function settingsTabGroupForPrimaryUse(
-  tab: SettingsTabDefinition,
-  primaryUse: PrimaryUse | undefined,
-): SettingsTabGroup {
-  return tab.id === "standards" && primaryUse === "teach" ? "main" : tab.group
+function revealIsActive(reveal: SettingsTabReveal, input: SettingsTabVisibilityInput): boolean {
+  if (reveal === "standards") {
+    // Teachers see the tab before installing so the feature is discoverable; the panel itself
+    // offers the install rather than a wall of dead switches.
+    return input.standardsEnabled || input.primaryUse === "teach"
+  }
+
+  return input.enabledExperimentalFeatureIDs.has(EXPERIMENTAL_FEATURE_ID.learnerMemory)
+}
+
+export function isCoreSettingsTab(tab: SettingsTabDefinition): boolean {
+  return tab.reveal === undefined
+}
+
+/**
+ * The tab to show instead of `tab` when it is not currently visible. Capability tabs send the
+ * reader to the panel that enables them; anything else falls back to General.
+ */
+export function getSettingsTabFallback(tab: SettingsTab): SettingsTab {
+  const definition = SETTINGS_TABS.find((candidate) => candidate.id === tab)
+  if (definition && !isCoreSettingsTab(definition)) {
+    return CAPABILITY_FALLBACK_SETTINGS_TAB
+  }
+
+  return DEFAULT_SETTINGS_TAB
+}
+
+export function getVisibleSettingsTabDefinitions(
+  input: SettingsTabVisibilityInput,
+): SettingsTabDefinition[] {
+  return SETTINGS_TABS.filter(
+    (tab) => tab.reveal === undefined || revealIsActive(tab.reveal, input),
+  )
 }
 
 export function getSettingsTabDefinition(id: SettingsTab): SettingsTabDefinition {

@@ -71,6 +71,7 @@ import { CommandSelectionTokensEasel } from "./easel/command-selection-tokens"
 import { ReaderLayoutConsistencyEasel } from "./easel/reader-layout-consistency"
 import { SegmentedActiveStateEasel } from "./easel/segmented-active-state"
 import { SettingsUpdatesAndModeEasel } from "./easel/settings-updates-and-mode"
+import { SelectDropdownVariantsEasel } from "./easel/select-dropdown-variants"
 import { ThemeSelectors } from "./theme-selectors"
 import { findCatalogID } from "./easel/select-value"
 
@@ -88,6 +89,7 @@ type EaselRailItem = {
 }
 
 type EaselPrototype =
+  | "select-dropdown-variants"
   | "settings-updates-and-mode"
   | "segmented-active-state"
   | "reader-layout-consistency"
@@ -127,6 +129,12 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "select-dropdown-variants",
+    label: "Select · dropdown variants & states",
+    subtitle:
+      "Radix Select & NativeSelect across sizes (h-8 vs h-7), states (active, focus, disabled, invalid), groups, popper vs item-aligned, and the Settings panel reproduction",
+  },
   {
     id: "segmented-active-state",
     label: "Segmented active state · on vs hover",
@@ -1362,7 +1370,8 @@ export function DevToolsEaselTab(props: { directory?: string }) {
       <div
         className={cn(
           "flex min-h-0 flex-1",
-          prototype === "location-step-options" ||
+          prototype === "select-dropdown-variants" ||
+            prototype === "location-step-options" ||
             prototype === "settings-updates-and-mode" ||
             prototype === "segmented-active-state" ||
             prototype === "reader-layout-consistency" ||
@@ -1389,6 +1398,14 @@ export function DevToolsEaselTab(props: { directory?: string }) {
             : "items-center justify-center bg-surface-inset-base p-3",
         )}
       >
+        {prototype === "select-dropdown-variants" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <SelectDropdownVariantsEasel />
+            </div>
+          </div>
+        ) : null}
+
         {prototype === "settings-updates-and-mode" ? (
           <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
             <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">

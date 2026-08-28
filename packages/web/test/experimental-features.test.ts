@@ -5,7 +5,7 @@ import {
 } from "../src/state/experimental-features-query"
 import {
   getVisibleSettingsTabDefinitions,
-  settingsTabGroupForPrimaryUse,
+  isCoreSettingsTab,
 } from "../src/components/settings/settings-tabs"
 
 describe("experimentalFeatureIsEnabled", () => {
@@ -27,32 +27,56 @@ describe("experimentalFeatureIsEnabled", () => {
   })
 })
 
-describe("experimental settings visibility", () => {
-  test("hides learner memory until the experiment is enabled", () => {
-    const hidden = getVisibleSettingsTabDefinitions({
-      standardsEnabled: false,
-      enabledExperimentalFeatureIDs: new Set(),
-    })
-    const visible = getVisibleSettingsTabDefinitions({
-      standardsEnabled: false,
-      enabledExperimentalFeatureIDs: new Set([EXPERIMENTAL_FEATURE_ID.learnerMemory]),
-    })
+function revealedTabIds(input: Parameters<typeof getVisibleSettingsTabDefinitions>[0]) {
+  return getVisibleSettingsTabDefinitions(input)
+    .filter((tab) => !isCoreSettingsTab(tab))
+    .map((tab) => tab.id)
+}
 
-    expect(hidden.some((tab) => tab.id === "learnerMemory")).toBe(false)
-    expect(visible.some((tab) => tab.id === "learnerMemory")).toBe(true)
+describe("optional capability reveal", () => {
+  test("reveals nothing for a reader with no capability turned on", () => {
+    expect(
+      revealedTabIds({
+        standardsEnabled: false,
+        enabledExperimentalFeatureIDs: new Set(),
+      }),
+    ).toEqual([])
   })
 
-  test("promotes Standards into the main settings group for teachers", () => {
-    const visible = getVisibleSettingsTabDefinitions({
-      standardsEnabled: false,
-      primaryUse: "teach",
-      enabledExperimentalFeatureIDs: new Set(),
-    })
+  test("memory reveals only the memory tab", () => {
+    expect(
+      revealedTabIds({
+        standardsEnabled: false,
+        enabledExperimentalFeatureIDs: new Set([EXPERIMENTAL_FEATURE_ID.learnerMemory]),
+      }),
+    ).toEqual(["memory"])
+  })
 
-    const standardsTab = visible.find((tab) => tab.id === "standards")
-    if (!standardsTab) {
-      throw new Error("Expected Standards settings to be visible for teachers")
-    }
-    expect(settingsTabGroupForPrimaryUse(standardsTab, "teach")).toBe("main")
+  test("standards reveals only the standards tab", () => {
+    expect(
+      revealedTabIds({
+        standardsEnabled: true,
+        enabledExperimentalFeatureIDs: new Set(),
+      }),
+    ).toEqual(["standards"])
+  })
+
+  test("teachers see standards before it is installed, so they can install it", () => {
+    expect(
+      revealedTabIds({
+        standardsEnabled: false,
+        primaryUse: "teach",
+        enabledExperimentalFeatureIDs: new Set(),
+      }),
+    ).toEqual(["standards"])
+  })
+
+  test("both capabilities reveal both tabs", () => {
+    expect(
+      revealedTabIds({
+        standardsEnabled: true,
+        enabledExperimentalFeatureIDs: new Set([EXPERIMENTAL_FEATURE_ID.learnerMemory]),
+      }),
+    ).toEqual(["standards", "memory"])
   })
 })

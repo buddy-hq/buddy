@@ -413,9 +413,9 @@ export const dict = {
   "mcp.listPanel.signIn": "Sign in",
   "mcp.listPanel.signingIn": "Signing in...",
   "mcp.listPanel.title": "MCP definitions",
-  "mcp.settings.defaultOff": "Off by default",
-  "mcp.settings.defaultOn": "On by default",
-  "mcp.settings.description": "Global definitions. Connect and override them per notebook.",
+  "mcp.settings.description":
+    "Global defaults. Notebooks can override or replace these definitions.",
+  "mcp.settings.toggleAria": "Enable MCP server {{name}} by default",
   "mcp.settings.emptyDescription":
     "No global MCPs configured yet. Add one here to make it available to notebooks.",
   "mcp.localFields.commandHelp":
@@ -692,30 +692,26 @@ export const dict = {
   "routes.onboarding.signInFailed": "Sign-in failed",
   "routes.root.notFound": "404 Not Found",
   "routes.settings.archiveThreadFailed": "Couldn't archive that chat. Try again.",
+  "routes.settings.enabledFeatures": "Enabled features",
   "routes.settings.backToChat": "Back to chat",
   "routes.settings.closeNotebookFailed": "Couldn't close that notebook. Try again.",
   "routes.settings.deleteThreadFailed": "Couldn't delete that chat. Try again.",
   "routes.settings.emptyState": "Open a notebook to configure settings.",
-  "routes.settings.nav.advanced": "Advanced",
+  "routes.settings.nav.about": "About",
   "routes.settings.nav.appearance": "Appearance",
-  "routes.settings.nav.attribution": "Attribution",
   "routes.settings.nav.general": "General",
-  "routes.settings.nav.personalization": "Personalization",
-  "routes.settings.nav.learnerMemory": "Memory",
   "routes.settings.nav.mcps": "MCPs",
-  "routes.settings.nav.notebook": "Notebook",
+  "routes.settings.nav.memory": "Memory",
+  "routes.settings.nav.notifications": "Notifications",
+  "routes.settings.nav.packages": "Packages",
+  "routes.settings.nav.personalization": "Personalization",
   "routes.settings.nav.providers": "AI Providers",
   "routes.settings.nav.skills": "Skills",
   "routes.settings.nav.standards": "Standards",
-  "routes.settings.nav.tools": "Tools",
-  "routes.settings.nav.updates": "Updates",
-  "routes.settings.optionalFeatures": "Optional features",
   "routes.settings.openNotebookFailed": "Couldn't open that notebook. Try again.",
   "routes.settings.openThreadFailed": "Couldn't open that chat. Try again.",
   "routes.settings.renameThreadFailed": "Couldn't rename that chat. Try again.",
   "settings.attribution.title": "Attribution & Licenses",
-  "settings.attribution.description":
-    "Credits and licenses for third-party content and libraries used in Buddy.",
   "settings.attribution.knowledgeGraph.title": "Knowledge Graph",
   "settings.attribution.knowledgeGraph.description":
     "Educational standards, learning components, and progressions.",
@@ -723,15 +719,8 @@ export const dict = {
   "settings.attribution.evaluators.description": "Evaluation prompts and content assessment tools.",
   "settings.attribution.opencode.title": "OpenCode",
   "settings.attribution.opencode.description": "Core agent runtime and capabilities system.",
-  "settings.attribution.additionalAttributions.title": "Additional Attributions",
-  "settings.attribution.buddy.title": "Buddy",
-  "settings.attribution.buddy.description":
-    "Buddy uses many open source libraries and tools. For a complete list of dependencies and their licenses, please refer to the package.json files in the repository and the respective project documentation.",
-  "settings.advanced.description": "Advanced settings for power users.",
-  "settings.advanced.disabled": "Disabled",
   "settings.advanced.discoverExternalRootsAria": "Discover skills from external folders",
   "settings.advanced.discoverExternalSkills": "Discover skills from .agents and .claude folders.",
-  "settings.advanced.enabled": "Enabled",
   "settings.advanced.experimentalBadge": "Experimental",
   "settings.advanced.experimentalFeaturesDescription":
     "Try features still in progress. They may change or be removed between releases.",
@@ -744,7 +733,7 @@ export const dict = {
   "settings.advanced.loadSettingsFailed": "Failed to load settings",
   "settings.advanced.learnerMemoryExperimentAria": "Enable experimental memory",
   "settings.advanced.learnerMemoryExperimentDescription":
-    "Lets Buddy remember context between chats. Disabling hides memory controls and stops new writes \u2014 existing data is kept.",
+    "Lets Buddy remember context between chats. Turning it off keeps what is already saved.",
   "settings.advanced.learnerMemoryExperimentDisabled": "Experimental memory disabled.",
   "settings.advanced.learnerMemoryExperimentEnabled": "Experimental memory enabled.",
   "settings.advanced.learnerMemoryExperimentTitle": "Memory",
@@ -754,16 +743,11 @@ export const dict = {
   "settings.advanced.removeAdvancedMathDescription":
     "This will remove the optional advanced math runtime from this device. You can reinstall it at any time.",
   "settings.advanced.removeAdvancedMathTitle": "Remove advanced math runtime?",
-  "settings.advanced.runtimeSection": "Optional components",
-  "settings.advanced.notebookSection": "Notebook diagnostics",
   "settings.advanced.requestFailed": "Request failed",
-  "settings.advanced.skillDiscoverySection": "Skill discovery",
-  "settings.advanced.title": "Advanced",
   "settings.appearance.advancedMathDescription":
-    "Uses python to do advanced mathematics and graph work.",
-  "settings.appearance.advancedMathComingSoonDescription":
-    "Advanced math is coming soon on Windows.",
-  "settings.appearance.advancedMathTitle": "Advanced Math Package",
+    "Lets Buddy solve equations and plot graphs with Python.",
+  "settings.appearance.advancedMathComingSoonDescription": "Not available on Windows yet.",
+  "settings.appearance.advancedMathTitle": "Advanced math",
   "settings.appearance.advancedMathToggleAria": "Toggle advanced math runtime",
   "settings.appearance.comingSoon": "Coming soon",
   "settings.appearance.colorSchemePlaceholder": "Select color scheme",
@@ -771,12 +755,8 @@ export const dict = {
   "settings.appearance.colorSchemes.light": "Light",
   "settings.appearance.colorSchemes.system": "System",
   "settings.appearance.colorSchemeTitle": "Color scheme",
-  "settings.appearance.description": "Theme, fonts, and desktop app preferences.",
-  "settings.appearance.desktopSection": "Desktop app",
   "settings.appearance.themePlaceholder": "Select theme",
-  "settings.appearance.themeSection": "Theme",
   "settings.appearance.themeTitle": "Theme",
-  "settings.appearance.title": "Appearance",
   "settings.appearance.working": "Working...",
   "settings.autosave.retry": "Retry save",
   "settings.updates.bannerChecking": "Checking for updates",
@@ -815,8 +795,9 @@ export const dict = {
   "settings.general.appSection": "App",
   "settings.general.appearanceSection": "Appearance",
   "settings.general.defaultsSection": "Defaults",
-  "settings.general.description": "Defaults and interface settings for the whole app.",
-  "settings.general.title": "General",
+  "settings.general.notificationsSection": "Notifications",
+  "settings.general.renderingSection": "Rendering",
+  "settings.general.storageSection": "Storage",
   "settings.general.followupTitle": "Follow-up while Buddy is working",
   "settings.general.followupDescription":
     "Choose whether Enter sends your message now (steering the response) or queues it for after.",
@@ -837,8 +818,12 @@ export const dict = {
   "settings.general.codeFontSizeTitle": "Code font size",
   "settings.general.codeFontSizeAria": "Code font size",
   "settings.general.fullTextTitle": "Read entire book",
+  "settings.general.fullTextDescription":
+    "Allow Buddy to read an entire prepared resource into context when there is enough live context budget. Turn this off to avoid expensive full-book reads.",
   "settings.general.fullTextAria": "Enable whole-book full-text reading",
   "settings.general.autoCompactionTitle": "Auto-compaction",
+  "settings.general.autoCompactionDescription":
+    "Automatically compact the chat when context reaches the model limit window. Turn this off to keep full history and compact manually with slash commands.",
   "settings.general.autoCompactionAria": "Enable automatic context compaction",
   "settings.general.buddyHomeTitle": "Buddy Home",
   "settings.general.buddyHomeDescription":
@@ -863,6 +848,11 @@ export const dict = {
   "settings.general.getStartedChatsDescription":
     "Starter prompts in the sidebar and on the Inbox empty board.",
   "settings.general.getStartedChatsAria": "Show Try these prompts",
+  "settings.chat.conversationSection": "Conversation",
+  "settings.chat.responsesSection": "Responses",
+  "settings.chat.contextSection": "Context",
+  "settings.skills.discoverySection": "Discovery",
+  "settings.labs.diagnosticsSection": "Diagnostics",
   "notification.session.responseReady.fallbackDescription": "Buddy finished responding.",
   "notification.session.error.title": "Session error",
   "notification.permission.title": "Permission required",
@@ -885,7 +875,7 @@ export const dict = {
   "settings.personalization.primaryUseLearnDescription":
     "Explore, practise, and remember what matters to you.",
   "settings.personalization.primaryUseTeach": "Teach with Buddy",
-  "settings.personalization.primaryUseTeachConsequence": "Adds Standards to Settings.",
+  "settings.personalization.primaryUseTeachConsequence": "Tunes Buddy for teaching workflows.",
   "settings.personalization.primaryUseTeachDescription":
     "Plan, create, and assess learning experiences.",
   "settings.personalization.primaryUseTitle": "Default way Buddy works",
@@ -897,7 +887,6 @@ export const dict = {
   "settings.personalization.instructionsSectionTitle": "Instructions",
   "settings.personalization.instructionsSectionDescription":
     "Freeform global instructions that Buddy should follow across notebook sessions.",
-  "settings.personalization.responseStyleSectionTitle": "Response style",
   "settings.personalization.conciseResponsesTitle": "Concise responses",
   "settings.personalization.conciseResponsesDescription":
     "Use short, casual, WhatsApp-style replies. Turn this off when you want Buddy to choose the length and structure that fit your request.",
@@ -927,16 +916,9 @@ export const dict = {
   "settings.notebook.fullTextDescription":
     "Let Buddy read full books into context when there's room. Turn this off to save context space.",
   "settings.notebook.fullTextTitle": "Read entire book",
-  "settings.notebook.learnerMemoryAria": "Enable memory for this notebook",
-  "settings.notebook.learnerMemoryDescription":
-    "Allow Buddy to learn and store facts from your chats.",
-  "settings.notebook.learnerMemoryTitle": "Memory",
   "settings.notebook.inherited": "Inherited",
-  "settings.notebook.learnerMemoryAutoExtractAria":
-    "Enable automatic memory extraction from real chats",
   "settings.notebook.learnerMemoryAutoExtractDescription":
     "Automatically extract facts during conversations.",
-  "settings.notebook.learnerMemoryAutoExtractTitle": "Auto-extract from chats",
   "settings.notebook.overridden": "Override",
   "settings.advanced.logLevelDescription": "Controls backend logging verbosity for Buddy.",
   "settings.advanced.logLevels.debug": "debug",
@@ -948,9 +930,67 @@ export const dict = {
   "settings.notebook.off": "Off",
   "settings.notebook.on": "On",
   "settings.notebook.title": "Notebook",
-  "settings.learnerMemory.description":
-    "Control Buddy's global memory store and the defaults that notebooks inherit.",
-  "settings.learnerMemory.title": "Memory",
+  "settings.notebook.learnerMemoryTitle": "Memory",
+  "settings.notebook.learnerMemoryAutoExtractTitle": "Auto-extract from chats",
+  "settings.notebook.learnerMemoryAutoExtractAria":
+    "Enable automatic memory extraction from real chats",
+  "settings.notebook.learnerMemoryAria": "Enable memory for this notebook",
+  "settings.teaching.memorySection": "Memory",
+  "settings.teaching.memorySectionDescription":
+    "Experimental controls for Buddy's machine-local learner memory.",
+  "settings.teaching.memoryDefaultsDescription":
+    "These controls apply to Buddy's memory system across every notebook. Notebook-specific overrides live in notebook settings.",
+  "settings.teaching.memoryParticipationTitle": "Default notebook participation",
+  "settings.teaching.memoryParticipationDescription":
+    "Controls whether newly created and unchanged notebooks use memory by default.",
+  "settings.teaching.memoryParticipationAria": "Enable memory by default for notebooks",
+  "settings.teaching.memoryAutoExtractTitle": "Default auto-extract",
+  "settings.teaching.memoryAutoExtractDescription":
+    "Controls whether unchanged notebooks automatically extract memory from chats by default.",
+  "settings.teaching.memoryAutoExtractAria": "Enable memory auto-extract by default for notebooks",
+  "settings.teaching.memoryModelsDescription":
+    "Model defaults are global because extraction and consolidation write to one machine-local memory store.",
+  "settings.teaching.memoryExtractModelTitle": "Extraction model",
+  "settings.teaching.memoryExtractModelDescription":
+    "Small model used to read an idle chat and produce raw memory candidates.",
+  "settings.teaching.memoryExtractModelAuto":
+    "{{model}} when OpenAI is connected, otherwise a connected small model",
+  "settings.teaching.memoryConsolidationModelTitle": "Consolidation model",
+  "settings.teaching.memoryConsolidationModelDescription":
+    "Model used to compare candidates against existing memories before writing durable records.",
+  "settings.teaching.memoryConsolidationModelAuto":
+    "{{model}} when OpenAI is connected, otherwise the notebook default model",
+  "settings.teaching.memoryModelAuto": "Auto · {{description}}",
+  "settings.teaching.memoryModelCurrent": "Current · {{model}}",
+  "settings.teaching.memoryTuningDescription":
+    "Extraction tuning is global so the memory pipeline behaves consistently across notebooks.",
+  "settings.teaching.memoryMinMessagesTitle": "Minimum user messages",
+  "settings.teaching.memoryMinMessagesDescription":
+    "Minimum non-synthetic learner messages before automatic extraction can run.",
+  "settings.teaching.memoryStartupIdleTitle": "Startup idle threshold",
+  "settings.teaching.memoryStartupIdleDescription":
+    "Minimum idle time in milliseconds before a chat is eligible at notebook startup.",
+  "settings.teaching.memoryAttentionTitle": "Attention threshold",
+  "settings.teaching.memoryAttentionDescription":
+    "Higher values make automatic extraction less likely.",
+  "settings.teaching.memorySessionCapTitle": "Per-chat call cap",
+  "settings.teaching.memorySessionCapDescription":
+    "Maximum extraction model calls allowed for the same chat.",
+  "settings.teaching.memoryDailyCapTitle": "Daily call cap",
+  "settings.teaching.memoryDailyCapDescription":
+    "Maximum extraction model calls allowed globally per day.",
+  "settings.teaching.memoryContextLimitTitle": "Default context limit",
+  "settings.teaching.memoryContextLimitDescription":
+    "Maximum memories Buddy retrieves by default when no tool limit is provided.",
+  "settings.teaching.memoryConcurrencyTitle": "Startup concurrency",
+  "settings.teaching.memoryConcurrencyDescription":
+    "Maximum extraction jobs Buddy runs in parallel during notebook startup.",
+  "settings.teaching.memoryConsolidationCapTitle": "Consolidation input cap",
+  "settings.teaching.memoryConsolidationCapDescription":
+    "Maximum raw stage-one outputs considered during consolidation.",
+  "settings.teaching.memoryRetentionTitle": "Stage-one retention days",
+  "settings.teaching.memoryRetentionDescription":
+    "Old unselected extraction outputs are pruned after this many days.",
   "settings.providers.allConnected": "All available providers are already connected.",
   "settings.providers.allProvidersSection": "All providers",
   "settings.providers.availableProviders": "Available providers",
@@ -985,12 +1025,7 @@ export const dict = {
   "settings.providers.showAllProviders": "Show all providers",
   "settings.providers.title": "Providers",
   "settings.providers.unavailable": "Unavailable",
-  "settings.standards.description":
-    "Control standards defaults for all notebooks, then override individual notebooks only when needed.",
-  "settings.standards.title": "Standards",
   "settings.tools.disabledForNotebook": "Disabled for this notebook",
-  "settings.tools.description":
-    "Control the default standards-tool availability for notebooks on this machine.",
   "settings.tools.disabled": "Disabled",
   "settings.tools.enabledForNotebook": "Enabled for this notebook",
   "settings.tools.enabled": "Enabled",
@@ -1013,17 +1048,28 @@ export const dict = {
   "settings.tools.removeStandardsDescription":
     "This will remove the optional standards package from this device. You can reinstall it at any time.",
   "settings.tools.removeStandardsTitle": "Remove standards package?",
-  "settings.tools.standardsSection": "Standards",
+  "settings.packages.activityDownloading": "Downloading\u2026",
+  "settings.packages.activityFailed": "Install failed",
+  "settings.packages.activityInstalling": "Installing\u2026",
+  "settings.packages.activityLoading": "Checking\u2026",
+  "settings.packages.activityRemoving": "Removing\u2026",
+  "settings.packages.activityRepairing": "Repairing\u2026",
+  "settings.packages.description":
+    "Optional capabilities you can turn on. The ones with settings of their own get a tab in the sidebar.",
+  "settings.packages.title": "Packages",
+  "settings.standards.installPromptAction": "Open Packages",
+  "settings.standards.installPromptDescription":
+    "Install the standards package to choose which standards tools Buddy can use.",
+  "settings.standards.installPromptTitle": "Standards not installed",
   "settings.tools.standardsRuntimeDescription":
-    "Look up teaching standards, progressions and crosswalks.",
-  "settings.tools.standardsRuntimeSection": "Standards package",
-  "settings.tools.standardsRuntimeTitle": "Standards package",
+    "Lets Buddy look up teaching standards, progressions and crosswalks.",
+  "settings.tools.standardsRuntimeSection": "Teaching standards",
+  "settings.tools.standardsRuntimeTitle": "Teaching standards",
   "settings.tools.standardsRuntimeToggleAria": "Toggle standards package",
-  "settings.tools.title": "Tools",
   "settings.tools.toggleGlobalAllAria": "Toggle all standards tools for all notebooks",
   "settings.tools.toggleGlobalAria": "Toggle global default for {{tool}}",
-  "settings.tools.toggleAria": "Toggle {{tool}}",
   "settings.tools.useGlobalDefault": "Use global default",
+  "settings.tools.toggleAria": "Toggle {{tool}}",
   "sidebar.addNotebook": "Add notebook",
   "sidebar.archive": "Archive",
   "sidebar.archiveThreadAction": "Archive chat",
@@ -1044,23 +1090,8 @@ export const dict = {
   "sidebar.disconnectObsidian": "Disconnect Obsidian",
   "sidebar.currentBook": "Current book",
   "sidebar.dockChat": "Dock chat",
-  "sidebar.notebookSettings": "Notebook settings",
-  "sidebar.notebookSettingsAutosaveHint": "Changes save automatically.",
-  "sidebar.notebookSettingsBadge": "Notebook",
-  "sidebar.notebookSettingsDescription": "Configure local overrides for this notebook.",
   "sidebar.notebookSettingsLearnerMemorySectionDescription":
     "Customize memory behavior for this notebook.",
-  "sidebar.notebookSettingsLearnerMemorySectionTitle": "Memory",
-  "sidebar.notebookSettingsMcpEmpty":
-    "No MCPs are configured yet. Add one in global Settings to make it available here.",
-  "sidebar.notebookSettingsMcpEditorDescription":
-    "Update this notebook's MCP details, then connect it again.",
-  "sidebar.notebookSettingsMcpSectionDescription":
-    "Enable or disable Model Context Protocol (MCP) servers.",
-  "sidebar.notebookSettingsMcpSectionTitle": "MCP servers",
-  "sidebar.notebookSettingsStandardsSectionDescription": "Override default coding standard tools.",
-  "sidebar.notebookSettingsStandardsSectionTitle": "Standards",
-  "sidebar.notebookSettingsTitle": "Notebook settings",
   "sidebar.obsidianDisconnected": "Obsidian vault disconnected.",
   "sidebar.obsidianDisconnectFailed": "Could not disconnect this Obsidian vault.",
   "sidebar.notebookLearnerMemory": "Memory",
@@ -1419,6 +1450,14 @@ export const dict = {
   "sidebar.archiveThreadQuestion": 'Archive "{{title}}" and remove it from the active chat list?',
   "sidebar.optionsForDirectory": "Options for {{directoryLabel}}",
   "sidebar.startNewThreadIn": "Start new chat in {{directoryLabel}}",
+  "sidebar.notebookSettingsStandardsSectionTitle": "Standards",
+  "sidebar.notebookSettingsMcpSectionTitle": "MCP servers",
+  "sidebar.notebookSettingsMcpEmpty":
+    "No MCPs are configured yet. Add one in global Settings to make it available here.",
+  "sidebar.notebookSettingsMcpEditorDescription":
+    "Update this notebook's MCP details, then connect it again.",
+  "sidebar.notebookSettingsLearnerMemorySectionTitle": "Memory",
+  "sidebar.notebookSettings": "Notebook settings",
   "chat.permissionDock.pendingRequests.one": "+{{count}} more pending request",
   "chat.permissionDock.pendingRequests.other": "+{{count}} more pending requests",
   "desktopUpdates.updateReadyWithVersion": "Buddy {{version}} has been downloaded.",

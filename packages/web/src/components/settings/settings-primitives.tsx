@@ -105,13 +105,7 @@ export function SettingsListCard(props: { children: ReactNode }) {
   )
 }
 
-export function SettingsRow(props: {
-  title: ReactNode
-  description?: string
-  control: ReactNode
-  /** @deprecated No longer needed — rows use CSS border-t separators automatically */
-  last?: boolean
-}) {
+export function SettingsRow(props: { title: ReactNode; description?: string; control: ReactNode }) {
   return (
     <div className="border-t border-border-base/60 px-4 py-3.5 first:border-t-0 sm:px-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -34,7 +34,7 @@ Supported: macOS Apple Silicon + Intel; Windows **x64** first. No Linux install 
 
 In-app updates on the normal installed desktop app (not web-only).
 
-1. **Settings → Updates**
+1. **Settings → About**
 2. **Update channel:** **Stable** (default) or **Preview**
 3. **Check for updates** for a manual pass
 
