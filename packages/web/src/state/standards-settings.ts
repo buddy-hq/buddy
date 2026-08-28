@@ -83,13 +83,6 @@ export function resolveNotebookStandardEnabled<TConfig>(
   return override ?? readToolToggle(globalConfig, toolId, DEFAULT_TOOL_ENABLED)
 }
 
-export function notebookStandardUsesGlobalDefault<TConfig>(
-  rawProjectConfig: TConfig,
-  toolId: StandardsToolId,
-) {
-  return readNotebookStandardsOverride(rawProjectConfig, toolId) === undefined
-}
-
 export function buildNotebookStandardsOverridePatch<TConfig>(input: {
   globalConfig: TConfig
   rawProjectConfig: TConfig

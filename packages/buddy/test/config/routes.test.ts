@@ -24,9 +24,9 @@ function normalizePathForAssertion(value: string): string {
 
 describe("config routes", () => {
   test("orders teaching-buddy first when teaching is the primary use", async () => {
-    const repo = createGitRepo("buddy-route-config-personas-teach-default")
+    await using repo = await createGitRepo("buddy-route-config-personas-teach-default")
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify({
         personalization: {
           primary_use: "teach",
@@ -36,7 +36,7 @@ describe("config routes", () => {
 
     const response = await app.request("/api/config/personas", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -46,12 +46,12 @@ describe("config routes", () => {
   })
 
   test("patches and returns project config", async () => {
-    const repo = createGitRepo("buddy-route-config-project")
+    await using repo = await createGitRepo("buddy-route-config-project")
 
     const patchResponse = await app.request("/api/config", {
       method: "PATCH",
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -64,7 +64,7 @@ describe("config routes", () => {
 
     const getResponse = await app.request("/api/config", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -73,16 +73,16 @@ describe("config routes", () => {
 
     expect(body.default_persona).toBe("teaching-buddy")
     expect(body.model).toBe("anthropic/route-project")
-    expect(fs.existsSync(projectConfigFile(repo))).toBe(true)
+    expect(fs.existsSync(projectConfigFile(repo.path))).toBe(true)
   })
 
   test("rejects misspelled project and global config patch fields", async () => {
-    const repo = createGitRepo("buddy-route-config-rejects-typos")
+    await using repo = await createGitRepo("buddy-route-config-rejects-typos")
 
     const projectResponse = await app.request("/api/config", {
       method: "PATCH",
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -106,15 +106,15 @@ describe("config routes", () => {
   })
 
   test("preserves concurrent project config patches", async () => {
-    const repo = createGitRepo("buddy-route-config-project-concurrent")
-    const nestedDirectory = path.join(repo, "nested")
+    await using repo = await createGitRepo("buddy-route-config-project-concurrent")
+    const nestedDirectory = path.join(repo.path, "nested")
     fs.mkdirSync(nestedDirectory)
 
     const [personaResponse, modelResponse] = await Promise.all([
       app.request("/api/config", {
         method: "PATCH",
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
           "content-type": "application/json",
         },
         body: JSON.stringify({ default_persona: "teaching-buddy" }),
@@ -133,7 +133,7 @@ describe("config routes", () => {
     expect(modelResponse.status).toBe(200)
 
     const getResponse = await app.request("/api/config", {
-      headers: { "x-buddy-directory": repo },
+      headers: { "x-buddy-directory": repo.path },
     })
     expect(getResponse.status).toBe(200)
     expect(await getResponse.json()).toMatchObject({
@@ -143,8 +143,8 @@ describe("config routes", () => {
   })
 
   test("uses only the project root config when nested folders are opened", async () => {
-    const repo = createGitRepo("buddy-route-config-root-only")
-    const nested = path.join(repo, "nested")
+    await using repo = await createGitRepo("buddy-route-config-root-only")
+    const nested = path.join(repo.path, "nested")
     fs.mkdirSync(nested, { recursive: true })
     writeProjectConfig(nested, '{"default_persona":"buddy"}\n')
 
@@ -174,7 +174,7 @@ describe("config routes", () => {
     expect(fs.readFileSync(projectConfigFile(nested), "utf8")).toContain(
       '"default_persona":"buddy"',
     )
-    expect(fs.existsSync(projectConfigFile(repo))).toBe(true)
+    expect(fs.existsSync(projectConfigFile(repo.path))).toBe(true)
   })
 
   test("returns and patches global config", async () => {
@@ -276,9 +276,7 @@ describe("config routes", () => {
     const previousJsonc = fs.existsSync(globalJsonc)
       ? fs.readFileSync(globalJsonc, "utf8")
       : undefined
-    const previousJson = fs.existsSync(globalJson)
-      ? fs.readFileSync(globalJson, "utf8")
-      : undefined
+    const previousJson = fs.existsSync(globalJson) ? fs.readFileSync(globalJson, "utf8") : undefined
 
     try {
       fs.rmSync(globalJsonc, { force: true })
@@ -295,9 +293,7 @@ describe("config routes", () => {
         ) + "\n",
       )
 
-      await Config.replaceGlobal(
-        Config.Info.parse({ model: "anthropic/updated-global-json" }),
-      )
+      await Config.replaceGlobal(Config.Info.parse({ model: "anthropic/updated-global-json" }))
 
       const saved = requireJsonObject(JSON.parse(fs.readFileSync(globalJson, "utf8")))
       expect(saved.model).toBe("anthropic/updated-global-json")
@@ -467,7 +463,7 @@ describe("config routes", () => {
   })
 
   test("returns raw notebook config without merged global defaults", async () => {
-    const repo = createGitRepo("buddy-route-config-raw")
+    await using repo = await createGitRepo("buddy-route-config-raw")
     const globalFile = path.join(Global.Path.config, "buddy.jsonc")
     fs.mkdirSync(path.dirname(globalFile), { recursive: true })
     const previousGlobal = fs.existsSync(globalFile)
@@ -475,7 +471,7 @@ describe("config routes", () => {
       : undefined
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           default_persona: "teaching-buddy",
@@ -505,7 +501,7 @@ describe("config routes", () => {
 
       const rawResponse = await app.request("/api/config/raw", {
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
       })
 
@@ -519,7 +515,7 @@ describe("config routes", () => {
 
       const mergedResponse = await app.request("/api/config", {
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
       })
       expect(mergedResponse.status).toBe(200)
@@ -549,7 +545,7 @@ describe("config routes", () => {
   })
 
   test("patching notebook config keeps inherited global defaults out of the notebook file", async () => {
-    const repo = createGitRepo("buddy-route-config-no-global-copy")
+    await using repo = await createGitRepo("buddy-route-config-no-global-copy")
     const globalFile = path.join(Global.Path.config, "buddy.jsonc")
     fs.mkdirSync(path.dirname(globalFile), { recursive: true })
     const previousGlobal = fs.existsSync(globalFile)
@@ -571,7 +567,7 @@ describe("config routes", () => {
       const patchResponse = await app.request("/api/config", {
         method: "PATCH",
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
           "content-type": "application/json",
         },
         body: JSON.stringify({
@@ -585,7 +581,7 @@ describe("config routes", () => {
         model: "anthropic/route-global-only",
       })
 
-      const configFile = projectConfigFile(repo)
+      const configFile = projectConfigFile(repo.path)
       expect(fs.readFileSync(configFile, "utf8")).toContain('"default_persona": "teaching-buddy"')
       expect(fs.readFileSync(configFile, "utf8")).not.toContain("anthropic/route-global-only")
     } finally {
@@ -606,7 +602,7 @@ describe("config routes", () => {
   })
 
   test("removing a notebook override falls back to the global default", async () => {
-    const repo = createGitRepo("buddy-route-config-remove-override")
+    await using repo = await createGitRepo("buddy-route-config-remove-override")
     const globalFile = path.join(Global.Path.config, "buddy.jsonc")
     fs.mkdirSync(path.dirname(globalFile), { recursive: true })
     const previousGlobal = fs.existsSync(globalFile)
@@ -614,7 +610,7 @@ describe("config routes", () => {
       : undefined
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           tools: {
@@ -643,7 +639,7 @@ describe("config routes", () => {
       const patchResponse = await app.request("/api/config", {
         method: "PATCH",
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
           "content-type": "application/json",
         },
         body: JSON.stringify({
@@ -662,13 +658,15 @@ describe("config routes", () => {
 
       const rawResponse = await app.request("/api/config/raw", {
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
       })
       expect(rawResponse.status).toBe(200)
       const rawBody = requireJsonObject(await rawResponse.json())
       expect(parseJsonObject(rawBody.tools)?.search_standards).toBeUndefined()
-      expect(fs.readFileSync(projectConfigFile(repo), "utf8")).not.toContain("search_standards")
+      expect(fs.readFileSync(projectConfigFile(repo.path), "utf8")).not.toContain(
+        "search_standards",
+      )
     } finally {
       if (previousGlobal === undefined) {
         fs.rmSync(globalFile, { force: true })
@@ -721,9 +719,9 @@ describe("config routes", () => {
       expect(putResponse.status).toBe(200)
 
       const afterBody = requireJsonObject(await putResponse.json())
-      expect(normalizePathForAssertion(parsePromptString(afterBody.configuredDirectory) ?? "")).toBe(
-        normalizePathForAssertion(configuredDirectory),
-      )
+      expect(
+        normalizePathForAssertion(parsePromptString(afterBody.configuredDirectory) ?? ""),
+      ).toBe(normalizePathForAssertion(configuredDirectory))
       expect(normalizePathForAssertion(requireString(afterBody.resolvedDirectory))).toBe(
         normalizePathForAssertion(configuredDirectory),
       )
@@ -731,9 +729,9 @@ describe("config routes", () => {
       const getAfter = await app.request("/api/global/config")
       expect(getAfter.status).toBe(200)
       const persistedGlobal = requireJsonObject(await getAfter.json())
-      expect(normalizePathForAssertion(parsePromptString(persistedGlobal.notebook_home) ?? "")).toBe(
-        normalizePathForAssertion(configuredDirectory),
-      )
+      expect(
+        normalizePathForAssertion(parsePromptString(persistedGlobal.notebook_home) ?? ""),
+      ).toBe(normalizePathForAssertion(configuredDirectory))
     } finally {
       if (originalAllowedRoots === undefined) {
         delete process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS
@@ -848,12 +846,12 @@ describe("config routes", () => {
   })
 
   test("returns 400 for invalid project config on provider listing", async () => {
-    const repo = createGitRepo("buddy-route-config-providers-invalid")
-    writeProjectConfig(repo, ["{", '  "model":', "  ", ""].join("\n"))
+    await using repo = await createGitRepo("buddy-route-config-providers-invalid")
+    writeProjectConfig(repo.path, ["{", '  "model":', "  ", ""].join("\n"))
 
     const response = await app.request("/api/config/providers", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -864,9 +862,9 @@ describe("config routes", () => {
   })
 
   test("returns 400 when project config hides every Buddy persona", async () => {
-    const repo = createGitRepo("buddy-route-config-personas-invalid")
+    await using repo = await createGitRepo("buddy-route-config-personas-invalid")
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           personas: {
@@ -885,7 +883,7 @@ describe("config routes", () => {
 
     const response = await app.request("/api/config/personas", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -896,9 +894,9 @@ describe("config routes", () => {
   })
 
   test("returns 400 when a persona override removes its inherited default surface", async () => {
-    const repo = createGitRepo("buddy-route-config-default-surface-invalid")
+    await using repo = await createGitRepo("buddy-route-config-default-surface-invalid")
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           personas: {
@@ -914,7 +912,7 @@ describe("config routes", () => {
 
     const response = await app.request("/api/config/personas", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 

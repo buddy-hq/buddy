@@ -1,60 +1,83 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
+import { RELEASE_GATE_COMMAND_PLAN } from "./release-required-gates.ts"
 
 const ROOT_DIRECTORY = path.resolve(import.meta.dir, "..")
 
-async function workflowSource(filename: string): Promise<string> {
-  return await Bun.file(path.join(ROOT_DIRECTORY, ".github", "workflows", filename)).text()
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Parsed YAML entries are narrowed field-by-field below.
+type JsonObject = Record<string, unknown>
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This helper is the strict narrowing boundary for parsed YAML values.
+function isJsonObject(value: unknown): value is JsonObject {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Runtime narrowing is required for the parsed YAML boundary.
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function jobSource(source: string, jobName: string): string {
-  const marker = `  ${jobName}:\n`
-  const start = source.indexOf(marker)
-  if (start < 0) {
-    throw new Error(`Workflow job not found: ${jobName}`)
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This helper is the strict narrowing boundary for parsed YAML values.
+function objectValue(value: unknown, label: string): JsonObject {
+  if (!isJsonObject(value)) {
+    throw new Error(`Expected ${label} to be an object`)
   }
-
-  const remaining = source.slice(start + marker.length)
-  const nextJobOffset = remaining.search(/^  [a-z0-9-]+:\n/m)
-  return nextJobOffset < 0
-    ? source.slice(start)
-    : source.slice(start, start + marker.length + nextJobOffset)
+  return value
 }
 
-function workflowCallSecretsSource(source: string): string {
-  const marker = "  workflow_call:\n"
-  const start = source.indexOf(marker)
-  const end = source.indexOf("  workflow_dispatch:\n", start)
-  if (start < 0 || end < 0) throw new Error("Reusable workflow declaration not found")
-  const workflowCall = source.slice(start, end)
-  const secretsMarker = "    secrets:\n"
-  const secretsStart = workflowCall.indexOf(secretsMarker)
-  if (secretsStart < 0) throw new Error("Reusable workflow secrets not found")
-  return workflowCall.slice(secretsStart)
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This helper is the strict narrowing boundary for parsed YAML values.
+function arrayValue(value: unknown, label: string): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`Expected ${label} to be an array`)
+  }
+  return value
 }
 
-function namedStepSource(source: string, stepName: string): string {
-  const marker = `      - name: ${stepName}\n`
-  const start = source.indexOf(marker)
-  if (start < 0) throw new Error(`Workflow step not found: ${stepName}`)
-  const remaining = source.slice(start + marker.length)
-  const nextStepOffset = remaining.search(/^      - /m)
-  return nextStepOffset < 0
-    ? source.slice(start)
-    : source.slice(start, start + marker.length + nextStepOffset)
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This helper is the strict narrowing boundary for parsed YAML values.
+function stringValue(value: unknown, label: string): string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Runtime narrowing is required for the parsed YAML boundary.
+  if (typeof value !== "string") {
+    throw new Error(`Expected ${label} to be a string`)
+  }
+  return value
+}
+
+async function workflowDocument(filename: string): Promise<JsonObject> {
+  const source = await Bun.file(path.join(ROOT_DIRECTORY, ".github", "workflows", filename)).text()
+  return objectValue(Bun.YAML.parse(source), `workflow ${filename}`)
+}
+
+function workflowJob(document: JsonObject, name: string): JsonObject {
+  const jobs = objectValue(document.jobs, "workflow jobs")
+  return objectValue(jobs[name], `workflow job ${name}`)
+}
+
+function workflowJobs(document: JsonObject): JsonObject[] {
+  const jobs = objectValue(document.jobs, "workflow jobs")
+  return Object.entries(jobs).map(([name, job]) => objectValue(job, `workflow job ${name}`))
+}
+
+function workflowSteps(job: JsonObject): JsonObject[] {
+  return arrayValue(job.steps, "workflow job steps").map((step, index) =>
+    objectValue(step, `workflow step ${index}`),
+  )
+}
+
+function namedWorkflowStep(job: JsonObject, name: string): JsonObject {
+  const step = workflowSteps(job).find((candidate) => candidate.name === name)
+  return objectValue(step, `workflow step ${name}`)
 }
 
 describe("release skill artifacts", () => {
   test("gates desktop publication on the same-SHA skill artifact workflow", async () => {
-    const source = await workflowSource("publish-shared.yml")
-    const preflightJob = jobSource(source, "preflight")
-    const artifactJob = jobSource(source, "publish-skill-artifacts")
-    const finalJob = jobSource(source, "finalize-and-publish")
-
-    expect(preflightJob).toContain(
+    const document = await workflowDocument("publish-shared.yml")
+    const preflightJob = workflowJob(document, "preflight")
+    const artifactJob = workflowJob(document, "publish-skill-artifacts")
+    const finalJob = workflowJob(document, "finalize-and-publish")
+    const preflightValidationStep = namedWorkflowStep(
+      preflightJob,
       "Validate repository and signed skill artifacts before platform builds",
     )
-    expect(preflightJob).toContain("run: bun run release:validate-skill-artifacts")
+
+    expect(stringValue(preflightValidationStep.run, "preflight validation step run")).toBe(
+      "bun run release:validate-skill-artifacts",
+    )
     for (const platformJobName of [
       "build-electron-macos-arm64",
       "build-electron-macos-x64",
@@ -62,58 +85,145 @@ describe("release skill artifacts", () => {
       "build-advanced-math-macos-arm64",
       "build-advanced-math-macos-x64",
     ]) {
-      expect(jobSource(source, platformJobName)).toContain("      - preflight")
+      expect(
+        arrayValue(workflowJob(document, platformJobName).needs, `${platformJobName}.needs`),
+      ).toContain("preflight")
     }
-    expect(artifactJob).toContain("uses: ./.github/workflows/publish-skill-artifacts.yml")
-    expect(artifactJob).toContain("prevalidated: true")
-    expect(artifactJob).toContain("publish: ${{ !inputs.dry_run }}")
-    expect(artifactJob).toContain("release_source_sha: ${{ github.sha }}")
-    expect(artifactJob).toContain(
-      "release_source_mode: ${{ inputs.resume_draft && 'verify' || 'record' }}",
+    const artifactInputs = objectValue(artifactJob.with, "publish-skill-artifacts.with")
+    expect(stringValue(artifactJob.uses, "publish-skill-artifacts.uses")).toBe(
+      "./.github/workflows/publish-skill-artifacts.yml",
     )
-    expect(artifactJob).toContain("secrets: inherit")
-    expect(finalJob).toContain("needs.publish-skill-artifacts.result == 'success'")
-    expect(finalJob).toContain("- publish-skill-artifacts")
+    expect(artifactInputs.prevalidated).toBe(true)
+    expect(stringValue(artifactInputs.publish, "publish-skill-artifacts.with.publish")).toBe(
+      "${{ !inputs.dry_run }}",
+    )
+    expect(
+      stringValue(
+        artifactInputs.release_source_sha,
+        "publish-skill-artifacts.with.release_source_sha",
+      ),
+    ).toBe("${{ github.sha }}")
+    expect(
+      stringValue(
+        artifactInputs.release_source_mode,
+        "publish-skill-artifacts.with.release_source_mode",
+      ),
+    ).toBe("${{ inputs.resume_draft && 'verify' || 'record' }}")
+    expect(stringValue(artifactJob.secrets, "publish-skill-artifacts.secrets")).toBe("inherit")
+    expect(arrayValue(finalJob.needs, "finalize-and-publish.needs")).toContain(
+      "publish-skill-artifacts",
+    )
+    expect(stringValue(finalJob.if, "finalize-and-publish.if")).toContain(
+      "needs.publish-skill-artifacts.result == 'success'",
+    )
   })
 
   test("keeps manual and release-driven artifact builds on the triggering SHA", async () => {
-    const source = await workflowSource("publish-skill-artifacts.yml")
-    const workflowCallSecrets = workflowCallSecretsSource(source)
-    const publishStep = namedStepSource(
-      source,
+    const document = await workflowDocument("publish-skill-artifacts.yml")
+    const workflowTriggers = objectValue(document.on, "workflow triggers")
+    const workflowCall = objectValue(workflowTriggers.workflow_call, "on.workflow_call")
+    const workflowCallSecrets = objectValue(workflowCall.secrets, "on.workflow_call.secrets")
+    const publishJob = workflowJob(document, "publish")
+    const publishSteps = workflowSteps(publishJob)
+    const checkoutStep = objectValue(
+      publishSteps.find((step) => step.uses === "actions/checkout@v6"),
+      "actions/checkout@v6 step",
+    )
+    const publishStep = namedWorkflowStep(
+      publishJob,
       "Build and optionally publish signed skill artifacts",
     )
+    const releaseSourceStep = namedWorkflowStep(
+      publishJob,
+      "Record or verify desktop release source",
+    )
+    const validationStep = namedWorkflowStep(
+      publishJob,
+      "Validate repository and signed skill artifacts",
+    )
 
-    expect(workflowCallSecrets).toContain("BUDDY_SKILL_SIGNING_PRIVATE_KEY:")
-    expect(workflowCallSecrets).toContain("BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD:")
-    expect(workflowCallSecrets).toContain(
-      "BUDDY_SKILLS_REPOSITORY_TOKEN:\n        required: false",
+    expect(
+      objectValue(workflowCallSecrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY, "signing key").required,
+    ).toBe(true)
+    expect(
+      objectValue(
+        workflowCallSecrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD,
+        "signing key password",
+      ).required,
+    ).toBe(true)
+    expect(
+      objectValue(workflowCallSecrets.BUDDY_SKILLS_REPOSITORY_TOKEN, "repository token").required,
+    ).toBe(false)
+    const checkoutWith = objectValue(checkoutStep.with, "actions/checkout@v6.with")
+    expect(stringValue(checkoutWith.ref, "actions/checkout@v6.with.ref")).toBe("${{ github.sha }}")
+    expect(stringValue(releaseSourceStep.if, "release source step if")).toBe(
+      "${{ inputs.release_source_mode != '' }}",
     )
-    expect(source).toContain("ref: ${{ github.sha }}")
-    expect(source).toContain("if: ${{ inputs.release_source_mode != '' }}")
-    expect(source).toContain("run: bun ./script/release-source-metadata.ts")
-    expect(source).toContain("if: ${{ !inputs.prevalidated }}")
-    expect(source).toContain("run: bun run release:validate-skill-artifacts")
-    expect(publishStep).toContain('if [[ "$INPUT_PUBLISH" == "true" ]]')
-    expect(source).not.toContain("actions/upload-artifact")
-    expect(source).not.toContain("actions/download-artifact")
-    expect(publishStep).toContain("bun ./script/publish-skill-artifacts.ts")
-    expect(publishStep).toContain(
-      "BUDDY_SKILLS_REPOSITORY_TOKEN: ${{ secrets.BUDDY_SKILLS_REPOSITORY_TOKEN }}",
+    expect(stringValue(releaseSourceStep.run, "release source step run")).toBe(
+      "bun ./script/release-source-metadata.ts",
     )
+    expect(stringValue(validationStep.if, "validation step if")).toBe("${{ !inputs.prevalidated }}")
+    expect(stringValue(validationStep.run, "validation step run")).toBe(
+      "bun run release:validate-skill-artifacts",
+    )
+    const publishEnvironment = objectValue(publishStep.env, "publish step env")
+    expect(stringValue(publishStep.run, "publish step run")).toContain(
+      'if [[ "$INPUT_PUBLISH" == "true" ]]',
+    )
+    expect(stringValue(publishStep.run, "publish step run")).toContain(
+      "bun ./script/publish-skill-artifacts.ts",
+    )
+    expect(
+      stringValue(
+        publishEnvironment.BUDDY_SKILLS_REPOSITORY_TOKEN,
+        "publish step repository token",
+      ),
+    ).toBe("${{ secrets.BUDDY_SKILLS_REPOSITORY_TOKEN }}")
+    expect(
+      workflowJobs(document).some((job) =>
+        workflowSteps(job).some(
+          (step) =>
+            // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Workflow action references are optional YAML fields.
+            typeof step.uses === "string" &&
+            (step.uses.startsWith("actions/upload-artifact") ||
+              step.uses.startsWith("actions/download-artifact")),
+        ),
+      ),
+    ).toBe(false)
   })
 
-  test("runs the signed artifact smoke before a local cut-release dispatch", async () => {
-    const source = await Bun.file(path.join(ROOT_DIRECTORY, "script", "cut-release.ts")).text()
+  test("keeps local cut-release and CI artifact gates aligned", async () => {
+    expect(RELEASE_GATE_COMMAND_PLAN).toEqual([
+      { command: "bun", args: ["run", "sdk:generate"] },
+      { command: "bun", args: ["fmt"] },
+      { command: "bun", args: ["lint"] },
+      { command: "bun", args: ["typecheck"] },
+      {
+        command: "bun",
+        args: ["run", "--cwd", "packages/buddy", "test:release-skill-artifacts"],
+      },
+      {
+        command: "bun",
+        args: ["run", "--cwd", "packages/buddy", "skill:artifacts:build"],
+      },
+    ])
 
-    expect(source).toContain(
-      'runCommand("bun", ["run", "--cwd", "packages/buddy", "test:release-skill-artifacts"])',
+    const packageManifest = objectValue(
+      await Bun.file(path.join(ROOT_DIRECTORY, "package.json")).json(),
+      "package manifest",
     )
-    expect(source).toContain(
-      'runCommand("bun", ["run", "--cwd", "packages/buddy", "skill:artifacts:build"])',
+    const scripts = objectValue(packageManifest.scripts, "package scripts")
+    const ciGateCommand = RELEASE_GATE_COMMAND_PLAN.filter(
+      (gate) => !(gate.command === "bun" && gate.args.length === 1 && gate.args[0] === "fmt"),
     )
-    expect(source).not.toContain(
-      'runCommand("bun", ["run", "--cwd", "packages/buddy", "skill:artifacts:publish"])',
-    )
+      .map((gate) => [gate.command, ...gate.args].join(" "))
+      .join(" && ")
+
+    expect(
+      stringValue(
+        scripts["release:validate-skill-artifacts"],
+        "release:validate-skill-artifacts script",
+      ),
+    ).toBe(ciGateCommand)
   })
 })

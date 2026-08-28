@@ -1,29 +1,35 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
-import { mkdtempSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { configureOpenCodeEnvironment } from "../src/opencode-runtime"
-import { BUDDY_ENV, OPENCODE_ENV, XDG_ENV } from "../src/storage/constants"
-import z from "zod"
-import { parseJsonText, parseWithSchema, requireJsonObject } from "./helpers/parse"
-
-const xdgPathsSchema = z.object({
-  data: z.string(),
-  cache: z.string(),
-  config: z.string(),
-  state: z.string(),
-  tmp: z.string(),
-})
-type TXdgPaths = z.infer<typeof xdgPathsSchema>
-
-function parseXdgPaths(text: string): TXdgPaths {
-  return parseWithSchema(xdgPathsSchema, parseJsonText(text), "xdg paths")
-}
+import {
+  configureOpenCodeEnvironment,
+  resolveOpenCodeEnvironmentPlan,
+  type OpenCodeEnvironmentPlan,
+} from "../src/opencode-runtime/env"
+import {
+  BUDDY_APP_NAME,
+  BUDDY_ENV,
+  BUDDY_HOME_DIRECTORY_NAME,
+  BUDDY_OPENCODE_DB_FILENAME,
+  BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
+  OPENCODE_ENV,
+  RUNTIME_ROOT_SEGMENTS,
+  XDG_DEFAULT_SEGMENTS,
+  XDG_ENV,
+} from "../src/storage/constants"
+import { TEST_SANDBOX } from "../../../script/test-preload"
+import { parseJsonText, requireJsonObject } from "./helpers/parse"
+import { temporaryDirectory } from "./helpers/temporary-directory"
 
 const originalCwd = process.cwd()
 const originalBuddyMigrationDir = process.env[BUDDY_ENV.MIGRATION_DIR]
 const bunExecutable = process.execPath
+const DEFAULT_OPENCODE_CLIENT = "web"
+const OPENCODE_ENABLE_FLAG = "1"
+const OPENCODE_BINARY_DIRECTORY_NAME = "bin"
+const OPENCODE_LOG_DIRECTORY_NAME = "log"
+const OPENCODE_REPOSITORIES_DIRECTORY_NAME = "repos"
 const sanitizedEnvKeys = new Set<string>([
   ...Object.values(BUDDY_ENV),
   ...Object.values(OPENCODE_ENV),
@@ -57,6 +63,19 @@ function childEnv(overrides: Record<string, string | undefined> = {}): NodeJS.Pr
   return env
 }
 
+function planFor(
+  environment: Readonly<Record<string, string | undefined>>,
+  homeDirectory: string,
+  temporaryDirectory: string,
+): OpenCodeEnvironmentPlan {
+  return resolveOpenCodeEnvironmentPlan({
+    environment,
+    homeDirectory,
+    temporaryDirectory,
+    workingDirectory: originalCwd,
+  })
+}
+
 beforeEach(() => {
   process.chdir(originalCwd)
   restoreEnv(BUDDY_ENV.MIGRATION_DIR, originalBuddyMigrationDir)
@@ -68,509 +87,371 @@ afterEach(() => {
 })
 
 describe("opencode runtime env", () => {
-  test("uses BUDDY_RUNTIME_ROOT to derive XDG paths at process startup", () => {
-    const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-runtime-root-"))
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const modulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
+  test("derives runtime-root paths and defaults from the environment plan", async () => {
+    await using runtimeRoot = await temporaryDirectory({ prefix: "buddy-runtime-root-" })
+    await using testHome = await temporaryDirectory({ prefix: "buddy-home-" })
 
-    const script = `
-      const mod = await import(${JSON.stringify(modulePath)});
-      mod.configureOpenCodeEnvironment();
-      console.log(JSON.stringify({
-        data: process.env.XDG_DATA_HOME,
-        cache: process.env.XDG_CACHE_HOME,
-        config: process.env.XDG_CONFIG_HOME,
-        state: process.env.XDG_STATE_HOME,
-        tmp: mod.BUDDY_TMP_DIR
-      }));
-    `
+    const plan = planFor(
+      {
+        [BUDDY_ENV.RUNTIME_ROOT]: runtimeRoot.path,
+        [BUDDY_ENV.TEST_HOME]: testHome.path,
+      },
+      testHome.path,
+      os.tmpdir(),
+    )
+    const expectedConfigDirectory = path.join(testHome.path, BUDDY_HOME_DIRECTORY_NAME)
+    const expectedBuddyData = path.join(
+      runtimeRoot.path,
+      RUNTIME_ROOT_SEGMENTS.data,
+      BUDDY_APP_NAME,
+    )
+    const expectedBuddyCache = path.join(
+      runtimeRoot.path,
+      RUNTIME_ROOT_SEGMENTS.cache,
+      BUDDY_APP_NAME,
+    )
+    const expectedBuddyState = path.join(
+      runtimeRoot.path,
+      RUNTIME_ROOT_SEGMENTS.state,
+      BUDDY_APP_NAME,
+    )
+    const expectedTmp = path.join(
+      runtimeRoot.path,
+      RUNTIME_ROOT_SEGMENTS.tmp,
+      BUDDY_APP_NAME,
+      BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
+    )
 
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        [BUDDY_ENV.RUNTIME_ROOT]: runtimeRoot,
-        [BUDDY_ENV.TEST_HOME]: testHome,
-      }),
-      encoding: "utf8",
+    expect(plan.runtimeRoot).toBe(runtimeRoot.path)
+    expect(plan.xdg).toEqual({
+      data: path.join(runtimeRoot.path, RUNTIME_ROOT_SEGMENTS.data),
+      cache: path.join(runtimeRoot.path, RUNTIME_ROOT_SEGMENTS.cache),
+      config: path.join(runtimeRoot.path, RUNTIME_ROOT_SEGMENTS.config),
+      state: path.join(runtimeRoot.path, RUNTIME_ROOT_SEGMENTS.state),
     })
-
-    expect(result.status).toBe(0)
-
-    const parsed = parseXdgPaths(result.stdout.trim())
-
-    expect(parsed.data).toBe(path.join(runtimeRoot, "data"))
-    expect(parsed.cache).toBe(path.join(runtimeRoot, "cache"))
-    expect(parsed.config).toBe(path.join(runtimeRoot, "config"))
-    expect(parsed.state).toBe(path.join(runtimeRoot, "state"))
-    expect(parsed.tmp).toBe(path.join(runtimeRoot, "tmp", "buddy", "opencode"))
+    expect(plan.buddy).toEqual({
+      data: expectedBuddyData,
+      cache: expectedBuddyCache,
+      state: expectedBuddyState,
+      tmpParent: path.join(runtimeRoot.path, RUNTIME_ROOT_SEGMENTS.tmp, BUDDY_APP_NAME),
+      tmp: expectedTmp,
+      defaultGlobalConfig: expectedConfigDirectory,
+    })
+    expect(plan.openCode).toEqual({
+      data: path.join(expectedBuddyData, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+      cache: path.join(expectedBuddyCache, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+      config: expectedConfigDirectory,
+      state: path.join(expectedBuddyState, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+      tmp: expectedTmp,
+      bin: path.join(
+        expectedBuddyCache,
+        BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
+        OPENCODE_BINARY_DIRECTORY_NAME,
+      ),
+      log: path.join(
+        expectedBuddyData,
+        BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
+        OPENCODE_LOG_DIRECTORY_NAME,
+      ),
+      repos: path.join(
+        expectedBuddyData,
+        BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
+        OPENCODE_REPOSITORIES_DIRECTORY_NAME,
+      ),
+    })
+    expect(plan.defaults).toEqual({
+      configDirectory: expectedConfigDirectory,
+      database: BUDDY_OPENCODE_DB_FILENAME,
+      disableExternalSkills: OPENCODE_ENABLE_FLAG,
+      client: DEFAULT_OPENCODE_CLIENT,
+      enableQuestionTool: OPENCODE_ENABLE_FLAG,
+      enableExa: OPENCODE_ENABLE_FLAG,
+    })
   })
 
-  test("aligns the shared OpenCode config and temp paths during bootstrap", () => {
-    const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-runtime-root-"))
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const modulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
-
-    const script = `
-      const mod = await import(${JSON.stringify(modulePath)});
-      mod.configureOpenCodeEnvironment();
-      const { Global } = await import("@buddy/opencode-adapter/global");
-      console.log(JSON.stringify({
-        config: Global.Path.config,
-        tmp: Global.Path.tmp
-      }));
-    `
-
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        [BUDDY_ENV.RUNTIME_ROOT]: runtimeRoot,
-        [BUDDY_ENV.TEST_HOME]: testHome,
-      }),
-      encoding: "utf8",
-    })
-
-    expect(result.status).toBe(0)
-
-    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
-
-    expect(parsed.config).toBe(path.join(testHome, ".buddy"))
-    expect(parsed.tmp).toBe(path.join(runtimeRoot, "tmp", "buddy", "opencode"))
-  })
-
-  test("preserves existing XDG roots when BUDDY_RUNTIME_ROOT is absent", () => {
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const xdgRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-xdg-"))
-    const modulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
+  test("preserves configured XDG roots and temporary fallback without a runtime root", async () => {
+    await using testHome = await temporaryDirectory({ prefix: "buddy-home-" })
+    await using xdgRoot = await temporaryDirectory({ prefix: "buddy-xdg-" })
     const xdg = {
-      data: path.join(xdgRoot, "data"),
-      cache: path.join(xdgRoot, "cache"),
-      config: path.join(xdgRoot, "config"),
-      state: path.join(xdgRoot, "state"),
+      data: path.join(xdgRoot.path, RUNTIME_ROOT_SEGMENTS.data),
+      cache: path.join(xdgRoot.path, RUNTIME_ROOT_SEGMENTS.cache),
+      config: path.join(xdgRoot.path, RUNTIME_ROOT_SEGMENTS.config),
+      state: path.join(xdgRoot.path, RUNTIME_ROOT_SEGMENTS.state),
     }
 
-    const script = `
-      const mod = await import(${JSON.stringify(modulePath)});
-      mod.configureOpenCodeEnvironment();
-      console.log(JSON.stringify({
-        data: process.env.XDG_DATA_HOME,
-        cache: process.env.XDG_CACHE_HOME,
-        config: process.env.XDG_CONFIG_HOME,
-        state: process.env.XDG_STATE_HOME,
-        tmp: mod.BUDDY_TMP_DIR
-      }));
-    `
+    for (const nodeEnvironment of ["test", "development"] as const) {
+      const plan = planFor(
+        {
+          [BUDDY_ENV.TEST_HOME]: testHome.path,
+          NODE_ENV: nodeEnvironment,
+          [XDG_ENV.DATA_HOME]: xdg.data,
+          [XDG_ENV.CACHE_HOME]: xdg.cache,
+          [XDG_ENV.CONFIG_HOME]: xdg.config,
+          [XDG_ENV.STATE_HOME]: xdg.state,
+        },
+        testHome.path,
+        os.tmpdir(),
+      )
 
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        [BUDDY_ENV.TEST_HOME]: testHome,
-        [XDG_ENV.DATA_HOME]: xdg.data,
-        [XDG_ENV.CACHE_HOME]: xdg.cache,
-        [XDG_ENV.CONFIG_HOME]: xdg.config,
-        [XDG_ENV.STATE_HOME]: xdg.state,
-      }),
-      encoding: "utf8",
-    })
-
-    expect(result.status).toBe(0)
-
-    const parsed = parseXdgPaths(result.stdout.trim())
-
-    expect(parsed.data).toBe(xdg.data)
-    expect(parsed.cache).toBe(xdg.cache)
-    expect(parsed.config).toBe(xdg.config)
-    expect(parsed.state).toBe(xdg.state)
-    expect(parsed.tmp).toBe(path.join(os.tmpdir(), "buddy", "opencode"))
-  })
-
-  test("does not synthesize a repo-local runtime root when BUDDY_RUNTIME_ROOT is absent outside tests", () => {
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const xdgRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-xdg-"))
-    const modulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
-    const xdg = {
-      data: path.join(xdgRoot, "data"),
-      cache: path.join(xdgRoot, "cache"),
-      config: path.join(xdgRoot, "config"),
-      state: path.join(xdgRoot, "state"),
+      expect(plan.runtimeRoot).toBeUndefined()
+      expect(plan.xdg).toEqual(xdg)
+      expect(plan.buddy.data).toBe(path.join(xdg.data, BUDDY_APP_NAME))
+      expect(plan.buddy.cache).toBe(path.join(xdg.cache, BUDDY_APP_NAME))
+      expect(plan.buddy.state).toBe(path.join(xdg.state, BUDDY_APP_NAME))
+      expect(plan.buddy.tmp).toBe(
+        path.join(os.tmpdir(), BUDDY_APP_NAME, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+      )
     }
-
-    const script = `
-      const mod = await import(${JSON.stringify(modulePath)});
-      mod.configureOpenCodeEnvironment();
-      console.log(JSON.stringify({
-        data: process.env.XDG_DATA_HOME,
-        cache: process.env.XDG_CACHE_HOME,
-        config: process.env.XDG_CONFIG_HOME,
-        state: process.env.XDG_STATE_HOME,
-        tmp: mod.BUDDY_TMP_DIR
-      }));
-    `
-
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        [BUDDY_ENV.TEST_HOME]: testHome,
-        NODE_ENV: "development",
-        [XDG_ENV.DATA_HOME]: xdg.data,
-        [XDG_ENV.CACHE_HOME]: xdg.cache,
-        [XDG_ENV.CONFIG_HOME]: xdg.config,
-        [XDG_ENV.STATE_HOME]: xdg.state,
-      }),
-      encoding: "utf8",
-    })
-
-    expect(result.status).toBe(0)
-
-    const parsed = parseXdgPaths(result.stdout.trim())
-
-    expect(parsed.data).toBe(xdg.data)
-    expect(parsed.cache).toBe(xdg.cache)
-    expect(parsed.config).toBe(xdg.config)
-    expect(parsed.state).toBe(xdg.state)
-    expect(parsed.tmp).toBe(path.join(os.tmpdir(), "buddy", "opencode"))
   })
 
-  test("keeps Global storage data/cache/state under explicit runtime root after env bootstrap", () => {
-    const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-runtime-root-"))
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
+  test("uses HOME defaults and gives Buddy category overrides precedence", async () => {
+    await using testHome = await temporaryDirectory({ prefix: "buddy-home-" })
+    await using dataDir = await temporaryDirectory({ prefix: "buddy-data-dir-" })
+    await using cacheDir = await temporaryDirectory({ prefix: "buddy-cache-dir-" })
+    await using stateDir = await temporaryDirectory({ prefix: "buddy-state-dir-" })
+    await using configDir = await temporaryDirectory({ prefix: "buddy-config-dir-" })
+    await using xdgRoot = await temporaryDirectory({ prefix: "buddy-xdg-" })
+
+    const defaults = planFor({ [BUDDY_ENV.TEST_HOME]: testHome.path }, testHome.path, os.tmpdir())
+    expect(defaults.xdg).toEqual({
+      data: path.join(testHome.path, ...XDG_DEFAULT_SEGMENTS.data),
+      cache: path.join(testHome.path, ...XDG_DEFAULT_SEGMENTS.cache),
+      config: path.join(testHome.path, ...XDG_DEFAULT_SEGMENTS.config),
+      state: path.join(testHome.path, ...XDG_DEFAULT_SEGMENTS.state),
+    })
+    expect(defaults.buddy.data).toBe(
+      path.join(testHome.path, ...XDG_DEFAULT_SEGMENTS.data, BUDDY_APP_NAME),
+    )
+    expect(defaults.buddy.cache).toBe(
+      path.join(testHome.path, ...XDG_DEFAULT_SEGMENTS.cache, BUDDY_APP_NAME),
+    )
+    expect(defaults.buddy.state).toBe(
+      path.join(testHome.path, ...XDG_DEFAULT_SEGMENTS.state, BUDDY_APP_NAME),
+    )
+    expect(defaults.defaults.configDirectory).toBe(
+      path.join(testHome.path, BUDDY_HOME_DIRECTORY_NAME),
+    )
+
+    const overridden = planFor(
+      {
+        [BUDDY_ENV.TEST_HOME]: testHome.path,
+        [BUDDY_ENV.DATA_DIR]: dataDir.path,
+        [BUDDY_ENV.CACHE_DIR]: cacheDir.path,
+        [BUDDY_ENV.STATE_DIR]: stateDir.path,
+        [BUDDY_ENV.GLOBAL_CONFIG_DIR]: configDir.path,
+        [XDG_ENV.DATA_HOME]: path.join(xdgRoot.path, RUNTIME_ROOT_SEGMENTS.data),
+        [XDG_ENV.CACHE_HOME]: path.join(xdgRoot.path, RUNTIME_ROOT_SEGMENTS.cache),
+        [XDG_ENV.STATE_HOME]: path.join(xdgRoot.path, RUNTIME_ROOT_SEGMENTS.state),
+      },
+      testHome.path,
+      os.tmpdir(),
+    )
+    expect(overridden.buddy.data).toBe(dataDir.path)
+    expect(overridden.buddy.cache).toBe(cacheDir.path)
+    expect(overridden.buddy.state).toBe(stateDir.path)
+    expect(overridden.defaults.configDirectory).toBe(
+      path.join(testHome.path, BUDDY_HOME_DIRECTORY_NAME),
+    )
+    expect(overridden.openCode.config).toBe(configDir.path)
+    expect(overridden.openCode.data).toBe(
+      path.join(dataDir.path, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+    )
+    expect(overridden.openCode.cache).toBe(
+      path.join(cacheDir.path, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+    )
+    expect(overridden.openCode.state).toBe(
+      path.join(stateDir.path, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+    )
+  })
+
+  test("plans OpenCode database and feature defaults", async () => {
+    await using testHome = await temporaryDirectory({ prefix: "buddy-home-" })
+    const plan = planFor({ [BUDDY_ENV.TEST_HOME]: testHome.path }, testHome.path, os.tmpdir())
+
+    expect(plan.defaults.database).toBe(BUDDY_OPENCODE_DB_FILENAME)
+    expect(plan.defaults.client).toBe(DEFAULT_OPENCODE_CLIENT)
+    expect(plan.defaults.enableQuestionTool).toBe(OPENCODE_ENABLE_FLAG)
+    expect(plan.defaults.disableExternalSkills).toBe(OPENCODE_ENABLE_FLAG)
+    expect(plan.defaults.enableExa).toBe(OPENCODE_ENABLE_FLAG)
+  })
+
+  test("aligns imported Global and OpenCode paths during explicit runtime-root bootstrap", async () => {
+    await using runtimeRoot = await temporaryDirectory({ prefix: "buddy-runtime-root-" })
+    await using testHome = await temporaryDirectory({ prefix: "buddy-home-" })
     const envModulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
     const globalModulePath = path.resolve(import.meta.dir, "../src/storage/global.ts")
 
     const script = `
       const envMod = await import(${JSON.stringify(envModulePath)});
       envMod.configureOpenCodeEnvironment();
-      const globalMod = await import(${JSON.stringify(globalModulePath)});
+      const openCodeGlobalMod = await import("@buddy/opencode-adapter/global");
+      const buddyGlobalMod = await import(${JSON.stringify(globalModulePath)});
+      const storageDbMod = await import("@buddy/opencode-adapter/storage-db");
       console.log(JSON.stringify({
-        data: globalMod.Global.Path.data,
-        cache: globalMod.Global.Path.cache,
-        state: globalMod.Global.Path.state
+        openCodeData: openCodeGlobalMod.Global.Path.data,
+        openCodeCache: openCodeGlobalMod.Global.Path.cache,
+        openCodeConfig: openCodeGlobalMod.Global.Path.config,
+        openCodeState: openCodeGlobalMod.Global.Path.state,
+        openCodeTmp: openCodeGlobalMod.Global.Path.tmp,
+        buddyData: buddyGlobalMod.Global.Path.data,
+        buddyCache: buddyGlobalMod.Global.Path.cache,
+        buddyConfig: buddyGlobalMod.Global.Path.config,
+        buddyState: buddyGlobalMod.Global.Path.state,
+        db: storageDbMod.DatabasePath(),
+        buddyGlobalConfigDir: process.env[${JSON.stringify(BUDDY_ENV.GLOBAL_CONFIG_DIR)}],
+        opencodeConfigDir: process.env[${JSON.stringify(OPENCODE_ENV.CONFIG_DIR)}],
+        opencodeDb: process.env[${JSON.stringify(OPENCODE_ENV.DB)}],
+        opencodeClient: process.env[${JSON.stringify(OPENCODE_ENV.CLIENT)}],
+        questionTool: process.env[${JSON.stringify(OPENCODE_ENV.ENABLE_QUESTION_TOOL)}],
+        disableExternalSkills: process.env[${JSON.stringify(OPENCODE_ENV.DISABLE_EXTERNAL_SKILLS)}],
+        exa: process.env[${JSON.stringify(OPENCODE_ENV.ENABLE_EXA)}],
+        channelDbDisable: process.env[${JSON.stringify(OPENCODE_ENV.DISABLE_CHANNEL_DB)}]
       }));
     `
 
     const result = spawnSync(bunExecutable, ["-e", script], {
       env: childEnv({
-        [BUDDY_ENV.RUNTIME_ROOT]: runtimeRoot,
-        [BUDDY_ENV.TEST_HOME]: testHome,
-        [BUDDY_ENV.TEST_XDG_ROOT]: runtimeRoot,
+        [BUDDY_ENV.RUNTIME_ROOT]: runtimeRoot.path,
+        [BUDDY_ENV.TEST_HOME]: testHome.path,
+        [BUDDY_ENV.TEST_XDG_ROOT]: runtimeRoot.path,
         [BUDDY_ENV.GLOBAL_CONFIG_DIR]: "",
       }),
       encoding: "utf8",
     })
 
     expect(result.status).toBe(0)
-
     const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
+    const expectedBuddyData = path.join(
+      runtimeRoot.path,
+      RUNTIME_ROOT_SEGMENTS.data,
+      BUDDY_APP_NAME,
+    )
+    const expectedBuddyCache = path.join(
+      runtimeRoot.path,
+      RUNTIME_ROOT_SEGMENTS.cache,
+      BUDDY_APP_NAME,
+    )
+    const expectedBuddyState = path.join(
+      runtimeRoot.path,
+      RUNTIME_ROOT_SEGMENTS.state,
+      BUDDY_APP_NAME,
+    )
+    const expectedConfig = path.join(testHome.path, BUDDY_HOME_DIRECTORY_NAME)
+    const expectedOpenCodeData = path.join(expectedBuddyData, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME)
 
-    expect(parsed.data).toBe(path.join(runtimeRoot, "data", "buddy"))
-    expect(parsed.cache).toBe(path.join(runtimeRoot, "cache", "buddy"))
-    expect(parsed.state).toBe(path.join(runtimeRoot, "state", "buddy"))
+    expect(parsed.openCodeData).toBe(expectedOpenCodeData)
+    expect(parsed.openCodeCache).toBe(
+      path.join(expectedBuddyCache, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+    )
+    expect(parsed.openCodeConfig).toBe(expectedConfig)
+    expect(parsed.openCodeState).toBe(
+      path.join(expectedBuddyState, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+    )
+    expect(parsed.openCodeTmp).toBe(
+      path.join(
+        runtimeRoot.path,
+        RUNTIME_ROOT_SEGMENTS.tmp,
+        BUDDY_APP_NAME,
+        BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
+      ),
+    )
+    expect(parsed.buddyData).toBe(expectedBuddyData)
+    expect(parsed.buddyCache).toBe(expectedBuddyCache)
+    expect(parsed.buddyConfig).toBe(expectedConfig)
+    expect(parsed.buddyState).toBe(expectedBuddyState)
+    expect(parsed.db).toBe(path.join(expectedOpenCodeData, BUDDY_OPENCODE_DB_FILENAME))
+    expect(parsed.buddyGlobalConfigDir).toBe(expectedConfig)
+    expect(parsed.opencodeConfigDir).toBe(expectedConfig)
+    expect(parsed.opencodeDb).toBe(BUDDY_OPENCODE_DB_FILENAME)
+    expect(parsed.opencodeClient).toBe(DEFAULT_OPENCODE_CLIENT)
+    expect(parsed.questionTool).toBe(OPENCODE_ENABLE_FLAG)
+    expect(parsed.disableExternalSkills).toBe(OPENCODE_ENABLE_FLAG)
+    expect(parsed.exa).toBe(OPENCODE_ENABLE_FLAG)
+    expect(parsed.channelDbDisable).toBeUndefined()
   })
 
-  test("keeps Global storage data/cache/state under existing XDG roots without runtime root", () => {
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const xdgRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-xdg-"))
+  test("aligns imported Global and OpenCode paths with existing XDG roots", async () => {
+    await using testHome = await temporaryDirectory({ prefix: "buddy-home-" })
+    await using xdgRoot = await temporaryDirectory({ prefix: "buddy-xdg-" })
     const envModulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
     const globalModulePath = path.resolve(import.meta.dir, "../src/storage/global.ts")
     const xdg = {
-      data: path.join(xdgRoot, "data"),
-      cache: path.join(xdgRoot, "cache"),
-      state: path.join(xdgRoot, "state"),
+      data: path.join(xdgRoot.path, RUNTIME_ROOT_SEGMENTS.data),
+      cache: path.join(xdgRoot.path, RUNTIME_ROOT_SEGMENTS.cache),
+      state: path.join(xdgRoot.path, RUNTIME_ROOT_SEGMENTS.state),
     }
 
     const script = `
       const envMod = await import(${JSON.stringify(envModulePath)});
       envMod.configureOpenCodeEnvironment();
-      const globalMod = await import(${JSON.stringify(globalModulePath)});
-      console.log(JSON.stringify({
-        data: globalMod.Global.Path.data,
-        cache: globalMod.Global.Path.cache,
-        config: globalMod.Global.Path.config,
-        state: globalMod.Global.Path.state
-      }));
-    `
-
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        [BUDDY_ENV.TEST_HOME]: testHome,
-        [BUDDY_ENV.TEST_XDG_ROOT]: xdgRoot,
-        [BUDDY_ENV.GLOBAL_CONFIG_DIR]: "",
-        [XDG_ENV.DATA_HOME]: xdg.data,
-        [XDG_ENV.CACHE_HOME]: xdg.cache,
-        [XDG_ENV.STATE_HOME]: xdg.state,
-      }),
-      encoding: "utf8",
-    })
-
-    expect(result.status).toBe(0)
-
-    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
-
-    expect(parsed.data).toBe(path.join(xdg.data, "buddy"))
-    expect(parsed.cache).toBe(path.join(xdg.cache, "buddy"))
-    expect(parsed.config).toBe(path.join(testHome, ".buddy"))
-    expect(parsed.state).toBe(path.join(xdg.state, "buddy"))
-  })
-
-  test("places vendored OpenCode paths under Buddy-owned XDG parents without runtime root", () => {
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const xdgRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-xdg-"))
-    const envModulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
-    const xdg = {
-      data: path.join(xdgRoot, "data"),
-      cache: path.join(xdgRoot, "cache"),
-      config: path.join(xdgRoot, "config"),
-      state: path.join(xdgRoot, "state"),
-    }
-
-    const script = `
-      const envMod = await import(${JSON.stringify(envModulePath)});
-      envMod.configureOpenCodeEnvironment();
-      const globalMod = await import("@buddy/opencode-adapter/global");
+      const openCodeGlobalMod = await import("@buddy/opencode-adapter/global");
+      const buddyGlobalMod = await import(${JSON.stringify(globalModulePath)});
       const storageDbMod = await import("@buddy/opencode-adapter/storage-db");
       console.log(JSON.stringify({
-        data: globalMod.Global.Path.data,
-        cache: globalMod.Global.Path.cache,
-        config: globalMod.Global.Path.config,
-        state: globalMod.Global.Path.state,
-        tmp: globalMod.Global.Path.tmp,
-        db: storageDbMod.DatabasePath(),
-        opencodeDb: process.env.OPENCODE_DB,
-        channelDbDisable: process.env.OPENCODE_DISABLE_CHANNEL_DB
-      }));
-    `
-
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        [BUDDY_ENV.TEST_HOME]: testHome,
-        [XDG_ENV.DATA_HOME]: xdg.data,
-        [XDG_ENV.CACHE_HOME]: xdg.cache,
-        [XDG_ENV.CONFIG_HOME]: xdg.config,
-        [XDG_ENV.STATE_HOME]: xdg.state,
-      }),
-      encoding: "utf8",
-    })
-
-    expect(result.status).toBe(0)
-
-    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
-
-    const expectedData = path.join(xdg.data, "buddy", "opencode")
-    expect(parsed.data).toBe(expectedData)
-    expect(parsed.cache).toBe(path.join(xdg.cache, "buddy", "opencode"))
-    expect(parsed.config).toBe(path.join(testHome, ".buddy"))
-    expect(parsed.state).toBe(path.join(xdg.state, "buddy", "opencode"))
-    expect(parsed.tmp).toBe(path.join(os.tmpdir(), "buddy", "opencode"))
-    expect(parsed.db).toBe(path.join(expectedData, "opencode.db"))
-    expect(parsed.opencodeDb).toBe("opencode.db")
-    expect(parsed.channelDbDisable).toBeUndefined()
-  })
-
-  test("defaults vendored OpenCode paths to Buddy-owned XDG parents without runtime root", () => {
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const envModulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
-
-    const script = `
-      process.env.HOME = ${JSON.stringify(testHome)};
-      const envMod = await import(${JSON.stringify(envModulePath)});
-      envMod.configureOpenCodeEnvironment();
-      const globalMod = await import("@buddy/opencode-adapter/global");
-      const storageDbMod = await import("@buddy/opencode-adapter/storage-db");
-      console.log(JSON.stringify({
-        data: globalMod.Global.Path.data,
-        cache: globalMod.Global.Path.cache,
-        config: globalMod.Global.Path.config,
-        state: globalMod.Global.Path.state,
-        tmp: globalMod.Global.Path.tmp,
-        db: storageDbMod.DatabasePath(),
-        opencodeDb: process.env.OPENCODE_DB,
-        channelDbDisable: process.env.OPENCODE_DISABLE_CHANNEL_DB
-      }));
-    `
-
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        HOME: testHome,
-        [BUDDY_ENV.TEST_HOME]: testHome,
-      }),
-      encoding: "utf8",
-    })
-
-    expect(result.status).toBe(0)
-
-    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
-
-    const expectedData = path.join(testHome, ".local", "share", "buddy", "opencode")
-    expect(parsed.data).toBe(expectedData)
-    expect(parsed.cache).toBe(path.join(testHome, ".cache", "buddy", "opencode"))
-    expect(parsed.config).toBe(path.join(testHome, ".buddy"))
-    expect(parsed.state).toBe(path.join(testHome, ".local", "state", "buddy", "opencode"))
-    expect(parsed.tmp).toBe(path.join(os.tmpdir(), "buddy", "opencode"))
-    expect(parsed.db).toBe(path.join(expectedData, "opencode.db"))
-    expect(parsed.opencodeDb).toBe("opencode.db")
-    expect(parsed.channelDbDisable).toBeUndefined()
-  })
-
-  test("uses Buddy category overrides before XDG defaults for vendored OpenCode paths", () => {
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const dataDir = mkdtempSync(path.join(os.tmpdir(), "buddy-data-dir-"))
-    const cacheDir = mkdtempSync(path.join(os.tmpdir(), "buddy-cache-dir-"))
-    const stateDir = mkdtempSync(path.join(os.tmpdir(), "buddy-state-dir-"))
-    const configDir = mkdtempSync(path.join(os.tmpdir(), "buddy-config-dir-"))
-    const envModulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
-
-    const script = `
-      const envMod = await import(${JSON.stringify(envModulePath)});
-      envMod.configureOpenCodeEnvironment();
-      const globalMod = await import("@buddy/opencode-adapter/global");
-      const storageDbMod = await import("@buddy/opencode-adapter/storage-db");
-      console.log(JSON.stringify({
-        data: globalMod.Global.Path.data,
-        cache: globalMod.Global.Path.cache,
-        config: globalMod.Global.Path.config,
-        state: globalMod.Global.Path.state,
-        db: storageDbMod.DatabasePath(),
-        buddyConfigDir: process.env.BUDDY_GLOBAL_CONFIG_DIR,
-        opencodeConfigDir: process.env.OPENCODE_CONFIG_DIR
-      }));
-    `
-
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        [BUDDY_ENV.TEST_HOME]: testHome,
-        [BUDDY_ENV.DATA_DIR]: dataDir,
-        [BUDDY_ENV.CACHE_DIR]: cacheDir,
-        [BUDDY_ENV.STATE_DIR]: stateDir,
-        [BUDDY_ENV.GLOBAL_CONFIG_DIR]: configDir,
-      }),
-      encoding: "utf8",
-    })
-
-    expect(result.status).toBe(0)
-
-    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
-
-    const expectedData = path.join(dataDir, "opencode")
-    expect(parsed.data).toBe(expectedData)
-    expect(parsed.cache).toBe(path.join(cacheDir, "opencode"))
-    expect(parsed.config).toBe(configDir)
-    expect(parsed.state).toBe(path.join(stateDir, "opencode"))
-    expect(parsed.db).toBe(path.join(expectedData, "opencode.db"))
-    expect(parsed.buddyConfigDir).toBe(configDir)
-    expect(parsed.opencodeConfigDir).toBe(configDir)
-  })
-
-  test("places vendored OpenCode paths under explicit runtime root Buddy parents", () => {
-    const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-runtime-root-"))
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const envModulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
-
-    const script = `
-      const envMod = await import(${JSON.stringify(envModulePath)});
-      envMod.configureOpenCodeEnvironment();
-      const globalMod = await import("@buddy/opencode-adapter/global");
-      const storageDbMod = await import("@buddy/opencode-adapter/storage-db");
-      console.log(JSON.stringify({
-        data: globalMod.Global.Path.data,
-        cache: globalMod.Global.Path.cache,
-        state: globalMod.Global.Path.state,
-        tmp: globalMod.Global.Path.tmp,
+        openCodeData: openCodeGlobalMod.Global.Path.data,
+        openCodeCache: openCodeGlobalMod.Global.Path.cache,
+        openCodeConfig: openCodeGlobalMod.Global.Path.config,
+        openCodeState: openCodeGlobalMod.Global.Path.state,
+        openCodeTmp: openCodeGlobalMod.Global.Path.tmp,
+        buddyData: buddyGlobalMod.Global.Path.data,
+        buddyCache: buddyGlobalMod.Global.Path.cache,
+        buddyConfig: buddyGlobalMod.Global.Path.config,
+        buddyState: buddyGlobalMod.Global.Path.state,
         db: storageDbMod.DatabasePath()
       }));
     `
 
     const result = spawnSync(bunExecutable, ["-e", script], {
       env: childEnv({
-        [BUDDY_ENV.RUNTIME_ROOT]: runtimeRoot,
-        [BUDDY_ENV.TEST_HOME]: testHome,
-      }),
-      encoding: "utf8",
-    })
-
-    expect(result.status).toBe(0)
-
-    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
-
-    const expectedData = path.join(runtimeRoot, "data", "buddy", "opencode")
-    expect(parsed.data).toBe(expectedData)
-    expect(parsed.cache).toBe(path.join(runtimeRoot, "cache", "buddy", "opencode"))
-    expect(parsed.state).toBe(path.join(runtimeRoot, "state", "buddy", "opencode"))
-    expect(parsed.tmp).toBe(path.join(runtimeRoot, "tmp", "buddy", "opencode"))
-    expect(parsed.db).toBe(path.join(expectedData, "opencode.db"))
-  })
-
-  test("keeps migration env vars unset when repo paths cannot be resolved", () => {
-    const outsideRepo = mkdtempSync(path.join(os.tmpdir(), "buddy-env-outside-repo-"))
-
-    delete process.env[BUDDY_ENV.MIGRATION_DIR]
-    process.chdir(outsideRepo)
-
-    configureOpenCodeEnvironment()
-
-    expect(process.env[BUDDY_ENV.MIGRATION_DIR]).toBeUndefined()
-  })
-
-  test("defaults global Buddy config and OPENCODE config dir to ~/.buddy", () => {
-    const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-runtime-root-"))
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const modulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
-
-    const script = `
-      const mod = await import(${JSON.stringify(modulePath)});
-      mod.configureOpenCodeEnvironment();
-      console.log(JSON.stringify({
-        buddyGlobalConfigDir: process.env.BUDDY_GLOBAL_CONFIG_DIR,
-        opencodeConfigDir: process.env.OPENCODE_CONFIG_DIR
-      }));
-    `
-
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        [BUDDY_ENV.RUNTIME_ROOT]: runtimeRoot,
-        [BUDDY_ENV.TEST_HOME]: testHome,
+        [BUDDY_ENV.TEST_HOME]: testHome.path,
+        [BUDDY_ENV.TEST_XDG_ROOT]: xdgRoot.path,
         [BUDDY_ENV.GLOBAL_CONFIG_DIR]: "",
-        [OPENCODE_ENV.CONFIG_DIR]: "",
+        [XDG_ENV.DATA_HOME]: xdg.data,
+        [XDG_ENV.CACHE_HOME]: xdg.cache,
+        [XDG_ENV.STATE_HOME]: xdg.state,
       }),
       encoding: "utf8",
     })
 
     expect(result.status).toBe(0)
-
     const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
+    const expectedBuddyData = path.join(xdg.data, BUDDY_APP_NAME)
+    const expectedBuddyCache = path.join(xdg.cache, BUDDY_APP_NAME)
+    const expectedBuddyState = path.join(xdg.state, BUDDY_APP_NAME)
+    const expectedConfig = path.join(testHome.path, BUDDY_HOME_DIRECTORY_NAME)
+    const expectedOpenCodeData = path.join(expectedBuddyData, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME)
 
-    const expected = path.join(testHome, ".buddy")
-    expect(parsed.buddyGlobalConfigDir).toBe(expected)
-    expect(parsed.opencodeConfigDir).toBe(expected)
+    expect(parsed.openCodeData).toBe(expectedOpenCodeData)
+    expect(parsed.openCodeCache).toBe(
+      path.join(expectedBuddyCache, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+    )
+    expect(parsed.openCodeConfig).toBe(expectedConfig)
+    expect(parsed.openCodeState).toBe(
+      path.join(expectedBuddyState, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+    )
+    expect(parsed.openCodeTmp).toBe(
+      path.join(os.tmpdir(), BUDDY_APP_NAME, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME),
+    )
+    expect(parsed.buddyData).toBe(expectedBuddyData)
+    expect(parsed.buddyCache).toBe(expectedBuddyCache)
+    expect(parsed.buddyConfig).toBe(expectedConfig)
+    expect(parsed.buddyState).toBe(expectedBuddyState)
+    expect(parsed.db).toBe(path.join(expectedOpenCodeData, BUDDY_OPENCODE_DB_FILENAME))
   })
 
-  test("sets OPENCODE_DB without setting OPENCODE_DISABLE_CHANNEL_DB by default", () => {
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const xdgRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-xdg-"))
-    const modulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
+  test("keeps migration env vars unset when repo paths cannot be resolved", async () => {
+    await using outsideRepo = await temporaryDirectory({ prefix: "buddy-env-outside-repo-" })
 
-    const script = `
-      delete process.env.OPENCODE_DISABLE_CHANNEL_DB;
-      delete process.env.OPENCODE_DB;
-      const mod = await import(${JSON.stringify(modulePath)});
-      mod.configureOpenCodeEnvironment();
-      console.log(JSON.stringify({
-        opencodeDb: process.env.OPENCODE_DB,
-        channelDbDisable: process.env.OPENCODE_DISABLE_CHANNEL_DB
-      }));
-    `
+    try {
+      delete process.env[BUDDY_ENV.MIGRATION_DIR]
+      process.chdir(outsideRepo.path)
 
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        [BUDDY_ENV.TEST_HOME]: testHome,
-        [XDG_ENV.DATA_HOME]: path.join(xdgRoot, "data"),
-        [XDG_ENV.CACHE_HOME]: path.join(xdgRoot, "cache"),
-        [XDG_ENV.CONFIG_HOME]: path.join(xdgRoot, "config"),
-        [XDG_ENV.STATE_HOME]: path.join(xdgRoot, "state"),
-      }),
-      encoding: "utf8",
-    })
+      configureOpenCodeEnvironment()
 
-    expect(result.status).toBe(0)
-
-    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
-
-    expect(parsed.opencodeDb).toBe("opencode.db")
-    expect(parsed.channelDbDisable).toBeUndefined()
+      expect(process.env[BUDDY_ENV.MIGRATION_DIR]).toBeUndefined()
+    } finally {
+      process.chdir(originalCwd)
+    }
   })
 
   test("fails closed when test storage is initialized without BUDDY_TEST_HOME", () => {
@@ -597,9 +478,9 @@ describe("opencode runtime env", () => {
     expect(result.stderr).toContain("BUDDY_TEST_HOME")
   })
 
-  test("fails closed when test storage resolves under the real home", () => {
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const testXdgRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-xdg-root-"))
+  test("fails closed when test storage resolves under the real home", async () => {
+    await using testHome = await temporaryDirectory({ prefix: "buddy-home-" })
+    await using testXdgRoot = await temporaryDirectory({ prefix: "buddy-xdg-root-" })
     const globalModulePath = path.resolve(import.meta.dir, "../src/storage/global.ts")
 
     const script = `
@@ -614,12 +495,13 @@ describe("opencode runtime env", () => {
 
     const result = spawnSync(bunExecutable, ["-e", script], {
       env: childEnv({
-        [BUDDY_ENV.TEST_HOME]: testHome,
-        [BUDDY_ENV.TEST_XDG_ROOT]: testXdgRoot,
+        HOME: TEST_SANDBOX.originalHome,
+        [BUDDY_ENV.TEST_HOME]: testHome.path,
+        [BUDDY_ENV.TEST_XDG_ROOT]: testXdgRoot.path,
         NODE_ENV: "test",
-        [XDG_ENV.DATA_HOME]: path.join(os.homedir(), ".local", "share"),
-        [XDG_ENV.CACHE_HOME]: path.join(os.homedir(), ".cache"),
-        [XDG_ENV.STATE_HOME]: path.join(os.homedir(), ".local", "state"),
+        [XDG_ENV.DATA_HOME]: path.join(TEST_SANDBOX.originalHome, ...XDG_DEFAULT_SEGMENTS.data),
+        [XDG_ENV.CACHE_HOME]: path.join(TEST_SANDBOX.originalHome, ...XDG_DEFAULT_SEGMENTS.cache),
+        [XDG_ENV.STATE_HOME]: path.join(TEST_SANDBOX.originalHome, ...XDG_DEFAULT_SEGMENTS.state),
       }),
       encoding: "utf8",
     })
@@ -628,9 +510,10 @@ describe("opencode runtime env", () => {
     expect(result.stderr).toContain("real home directory")
   })
 
-  test("fails closed when test storage resolves outside isolated test roots", () => {
-    const testRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-test-root-"))
-    const testHome = path.join(testRoot, "home")
+  test("fails closed when test storage resolves outside isolated test roots", async () => {
+    await using testRoot = await temporaryDirectory({ prefix: "buddy-test-root-" })
+    await using outsideDataDir = await temporaryDirectory({ prefix: "buddy-outside-test-root-" })
+    const testHome = path.join(testRoot.path, "home")
     const globalModulePath = path.resolve(import.meta.dir, "../src/storage/global.ts")
 
     const script = `
@@ -645,53 +528,18 @@ describe("opencode runtime env", () => {
 
     const result = spawnSync(bunExecutable, ["-e", script], {
       env: childEnv({
-        [BUDDY_ENV.DATA_DIR]: mkdtempSync(path.join(os.tmpdir(), "buddy-outside-test-root-")),
+        [BUDDY_ENV.DATA_DIR]: outsideDataDir.path,
         [BUDDY_ENV.TEST_HOME]: testHome,
-        [BUDDY_ENV.TEST_XDG_ROOT]: testRoot,
+        [BUDDY_ENV.TEST_XDG_ROOT]: testRoot.path,
         NODE_ENV: "test",
-        [XDG_ENV.CACHE_HOME]: path.join(testRoot, "cache"),
-        [XDG_ENV.DATA_HOME]: path.join(testRoot, "data"),
-        [XDG_ENV.STATE_HOME]: path.join(testRoot, "state"),
+        [XDG_ENV.CACHE_HOME]: path.join(testRoot.path, RUNTIME_ROOT_SEGMENTS.cache),
+        [XDG_ENV.DATA_HOME]: path.join(testRoot.path, RUNTIME_ROOT_SEGMENTS.data),
+        [XDG_ENV.STATE_HOME]: path.join(testRoot.path, RUNTIME_ROOT_SEGMENTS.state),
       }),
       encoding: "utf8",
     })
 
     expect(result.status).toBe(1)
     expect(result.stderr).toContain("outside isolated test roots")
-  })
-
-  test("enables OpenCode question tool support for Buddy web sessions by default", () => {
-    const testHome = mkdtempSync(path.join(os.tmpdir(), "buddy-home-"))
-    const xdgRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-xdg-"))
-    const modulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
-
-    const script = `
-      const mod = await import(${JSON.stringify(modulePath)});
-      mod.configureOpenCodeEnvironment();
-      console.log(JSON.stringify({
-        client: process.env.OPENCODE_CLIENT,
-        questionTool: process.env.OPENCODE_ENABLE_QUESTION_TOOL
-      }));
-    `
-
-    const result = spawnSync(bunExecutable, ["-e", script], {
-      env: childEnv({
-        [BUDDY_ENV.TEST_HOME]: testHome,
-        [OPENCODE_ENV.CLIENT]: "",
-        [OPENCODE_ENV.ENABLE_QUESTION_TOOL]: "",
-        [XDG_ENV.DATA_HOME]: path.join(xdgRoot, "data"),
-        [XDG_ENV.CACHE_HOME]: path.join(xdgRoot, "cache"),
-        [XDG_ENV.CONFIG_HOME]: path.join(xdgRoot, "config"),
-        [XDG_ENV.STATE_HOME]: path.join(xdgRoot, "state"),
-      }),
-      encoding: "utf8",
-    })
-
-    expect(result.status).toBe(0)
-
-    const parsed = requireJsonObject(parseJsonText(result.stdout.trim()))
-
-    expect(parsed.client).toBe("web")
-    expect(parsed.questionTool).toBe("1")
   })
 })

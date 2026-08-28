@@ -511,7 +511,10 @@ describe("present media renderer", () => {
       await flushEffects()
     })
 
-    expect(container.querySelectorAll("img").length).toBe(4)
+    expect(container.querySelector('img[alt="a.png"]')).not.toBeNull()
+    expect(container.querySelector('img[alt="b.png"]')).not.toBeNull()
+    expect(container.querySelectorAll('img[src*="fileName=a.png"]')).not.toHaveLength(0)
+    expect(container.querySelectorAll('img[src*="fileName=b.png"]')).not.toHaveLength(0)
     expect(
       fetchMock.mock.calls.filter(([input, init]) => {
         const url =
@@ -576,7 +579,7 @@ describe("present media renderer", () => {
     expect(container.querySelector('button[aria-label="Open on Bench"]')).not.toBeNull()
   })
 
-  test("renders MIME-typed audio without legacy group headers", async () => {
+  test("renders MIME-typed audio", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
@@ -627,9 +630,6 @@ describe("present media renderer", () => {
     expect(container.querySelector("audio")?.getAttribute("src")).toContain(
       "/api/objects/media-presentation/object_mixed/raw/item_1",
     )
-    expect(container.textContent).not.toContain("Audio and video")
-    expect(container.textContent).not.toContain("Images")
-    expect(container.textContent).not.toContain("Files")
   })
 
   test("renders file actions for non-image items", async () => {
@@ -681,6 +681,7 @@ describe("present media renderer", () => {
 
     expect(container.textContent).toContain("notes.pdf")
     expect(mediaFileRows(container).length).toBe(1)
+    expect(container.querySelector('[aria-label="File actions for notes.pdf"]')).not.toBeNull()
   })
 
   test("opens workspace PDFs with the Buddy reader opener instead of the default app", async () => {
@@ -754,7 +755,8 @@ describe("present media renderer", () => {
   })
 
   test("hides PDF processing actions until resources load", async () => {
-    const pendingResponses: Array<() => void> = []
+    const pendingDiscoveryResponses: Array<() => void> = []
+    const pendingResourceListResponses: Array<() => void> = []
     const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         parseRequestUrl(input)
@@ -769,11 +771,14 @@ describe("present media renderer", () => {
       }
 
       if (method === "GET" && url.includes("/api/find/file")) {
-        return createPendingJsonResponse({ pendingResponses, body: [] })
+        return createPendingJsonResponse({ pendingResponses: pendingDiscoveryResponses, body: [] })
       }
 
       if (method === "GET" && url.includes("/api/objects/resource")) {
-        return createPendingJsonResponse({ pendingResponses, body: { resources: [] } })
+        return createPendingJsonResponse({
+          pendingResponses: pendingResourceListResponses,
+          body: { resources: [] },
+        })
       }
 
       throw new Error(`Unexpected fetch: ${method} ${url}`)
@@ -819,15 +824,32 @@ describe("present media renderer", () => {
       }),
     ).toBe(false)
 
-    for (const resolvePending of pendingResponses) {
-      resolvePending()
-    }
+    await waitForEffect(() => pendingDiscoveryResponses.length > 0)
 
     await act(async () => {
+      for (const resolvePending of pendingDiscoveryResponses.splice(0)) {
+        resolvePending()
+      }
       await flushEffects()
     })
 
+    await waitForEffect(() => pendingResourceListResponses.length > 0)
+    const resolveResourceList = pendingResourceListResponses.shift()
+    if (!resolveResourceList) {
+      throw new Error("Expected resource-list resolver")
+    }
+
+    await act(async () => {
+      resolveResourceList()
+      await flushEffects()
+    })
+
+    await waitForEffect(
+      () => container.querySelector('[aria-label="Process for Buddy"]') !== null,
+    )
+
     expect(container.textContent).toContain("notes.pdf")
+    expect(container.querySelector('[aria-label="Process for Buddy"]')).not.toBeNull()
   })
 
   test("renders local file actions and original path controls", async () => {

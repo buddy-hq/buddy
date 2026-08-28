@@ -79,4 +79,41 @@ describe("subagent card", () => {
     expect(container.textContent).toContain("Report available tools")
     expect(container.textContent).not.toContain("This large child response")
   })
+
+  test("opens the child session recorded by the completed task", async () => {
+    const openedSessionIDs: string[] = []
+
+    await act(async () => {
+      root.render(
+        <TaskToolCard
+          state={{
+            status: "completed",
+            input: {
+              subagent_type: "general",
+              description: "Review architecture",
+            },
+            metadata: { sessionId: "child-session" },
+            attachments: [],
+            output: "",
+          }}
+          onOpenSession={(sessionID) => {
+            openedSessionIDs.push(sessionID)
+          }}
+        />,
+      )
+      await flushEffects()
+    })
+
+    const headerButton = container.querySelector('[data-component="subagent-card"] > button')
+    if (!(headerButton instanceof HTMLButtonElement)) {
+      throw new Error("Expected the rendered subagent header to be a button")
+    }
+
+    await act(async () => {
+      headerButton.click()
+      await flushEffects()
+    })
+
+    expect(openedSessionIDs).toEqual(["child-session"])
+  })
 })

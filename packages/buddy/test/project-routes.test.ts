@@ -1,17 +1,22 @@
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from "node:fs"
-import os from "node:os"
+import { mkdirSync, realpathSync, writeFileSync } from "node:fs"
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
 import { app } from "../src/index.ts"
 import { createGitRepo } from "./helpers/repo"
-import { requireJsonObject, requireJsonArray, requireString, parseJsonObject } from "./helpers/parse"
+import {
+  requireJsonObject,
+  requireJsonArray,
+  requireString,
+  parseJsonObject,
+} from "./helpers/parse"
+import { temporaryDirectory } from "./helpers/temporary-directory"
 
-function createFixedDateGitRepo(prefix: string) {
-  const root = mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
+async function createFixedDateGitRepo(prefix: string) {
+  const directory = await temporaryDirectory({ prefix: `${prefix}-` })
   const runGit = (args: string[]) => {
     const result = spawnSync("git", args, {
-      cwd: root,
+      cwd: directory.path,
       encoding: "utf8",
       env: {
         ...process.env,
@@ -24,19 +29,24 @@ function createFixedDateGitRepo(prefix: string) {
     }
   }
 
-  runGit(["init", "-q"])
-  writeFileSync(path.join(root, "README.md"), "# test\n")
-  runGit(["add", "README.md"])
-  runGit([
-    "-c",
-    "user.email=buddy@test.local",
-    "-c",
-    "user.name=Buddy Test",
-    "commit",
-    "-qm",
-    "init",
-  ])
-  return root
+  try {
+    runGit(["init", "-q"])
+    writeFileSync(path.join(directory.path, "README.md"), "# test\n")
+    runGit(["add", "README.md"])
+    runGit([
+      "-c",
+      "user.email=buddy@test.local",
+      "-c",
+      "user.name=Buddy Test",
+      "commit",
+      "-qm",
+      "init",
+    ])
+    return directory
+  } catch (error) {
+    await directory[Symbol.asyncDispose]()
+    throw error
+  }
 }
 
 async function openProject(directory: string) {
@@ -53,9 +63,9 @@ async function openProject(directory: string) {
 
 describe("project routes", () => {
   test("returns the canonical project for nested directories", async () => {
-    const repo = createGitRepo("buddy-route-project-current")
-    const canonicalRepo = realpathSync(repo)
-    const nested = path.join(repo, "nested")
+    await using repo = await createGitRepo("buddy-route-project-current")
+    const canonicalRepo = realpathSync(repo.path)
+    const nested = path.join(repo.path, "nested")
     mkdirSync(nested, { recursive: true })
 
     const response = await app.request("/api/project/current", {
@@ -72,12 +82,12 @@ describe("project routes", () => {
   })
 
   test("lists and updates projects with the vendored project payload", async () => {
-    const repo = createGitRepo("buddy-route-project-list")
-    const canonicalRepo = realpathSync(repo)
+    await using repo = await createGitRepo("buddy-route-project-list")
+    const canonicalRepo = realpathSync(repo.path)
 
     const currentResponse = await app.request("/api/project/current", {
       headers: {
-        "x-buddy-directory": repo,
+        "x-buddy-directory": repo.path,
       },
     })
 
@@ -117,29 +127,18 @@ describe("project routes", () => {
     })
   })
 
-  test("project route no longer accepts project.open POST", async () => {
-    const response = await app.request("/api/project", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        directory: ".",
-      }),
-    })
-
-    expect(response.status).toBe(404)
-  })
-
   test("keeps unrelated local repos distinct when git root commits collide", async () => {
-    const firstRepo = realpathSync(createFixedDateGitRepo("buddy-route-project-collision-first"))
-    const secondRepo = realpathSync(createFixedDateGitRepo("buddy-route-project-collision-second"))
-    const targetRepo = realpathSync(createFixedDateGitRepo("buddy-route-project-collision-target"))
-    const nested = path.join(targetRepo, "nested")
+    await using firstRepo = await createFixedDateGitRepo("buddy-route-project-collision-first")
+    await using secondRepo = await createFixedDateGitRepo("buddy-route-project-collision-second")
+    await using targetRepo = await createFixedDateGitRepo("buddy-route-project-collision-target")
+    const firstRepoPath = realpathSync(firstRepo.path)
+    const secondRepoPath = realpathSync(secondRepo.path)
+    const targetRepoPath = realpathSync(targetRepo.path)
+    const nested = path.join(targetRepoPath, "nested")
     mkdirSync(nested, { recursive: true })
 
-    await openProject(firstRepo)
-    await openProject(secondRepo)
+    await openProject(firstRepoPath)
+    await openProject(secondRepoPath)
 
     const currentResponse = await app.request("/api/project/current", {
       headers: {
@@ -150,7 +149,7 @@ describe("project routes", () => {
     expect(currentResponse.status).toBe(200)
     const current = requireJsonObject(await currentResponse.json())
 
-    expect(current.worktree).toBe(targetRepo)
+    expect(current.worktree).toBe(targetRepoPath)
 
     const listResponse = await app.request("/api/project")
     expect(listResponse.status).toBe(200)
@@ -159,7 +158,7 @@ describe("project routes", () => {
     expect(
       list.some((project) => {
         const record = parseJsonObject(project)
-        return record?.id === current.id && record.worktree === targetRepo
+        return record?.id === current.id && record.worktree === targetRepoPath
       }),
     ).toBe(true)
   })

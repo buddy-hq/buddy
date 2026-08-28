@@ -1,24 +1,24 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { app } from "../src/index"
 import { buildPresentedMediaObjectOutput } from "../src/learning/features/media-presentations/service/file-media"
 import { createGitRepo } from "./helpers/repo"
+import { temporaryDirectory } from "./helpers/temporary-directory"
 
 describe("presented media raw routes", () => {
   test("serves presented media raw URLs for local files outside the workspace", async () => {
-    const repo = createGitRepo("buddy-presented-media-route")
-    const localDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-presented-media-route-"))
-    const localPath = path.join(localDir, "outside.png")
+    await using repo = await createGitRepo("buddy-presented-media-route")
+    await using localDir = await temporaryDirectory({ prefix: "buddy-presented-media-route-" })
+    const localPath = path.join(localDir.path, "outside.png")
     await fs.writeFile(localPath, "local-image")
 
     const output = await OpenCodeInstance.provide({
-      directory: repo,
+      directory: repo.path,
       fn: async () =>
         buildPresentedMediaObjectOutput({
-          directory: repo,
+          directory: repo.path,
           items: [
             {
               path: localPath,
@@ -39,16 +39,18 @@ describe("presented media raw routes", () => {
   })
 
   test("serves HEAD requests for object raw URLs using the encoded directory", async () => {
-    const repo = createGitRepo("buddy-presented-media-route-head")
-    const localDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-presented-media-route-head-"))
-    const localPath = path.join(localDir, "outside.png")
+    await using repo = await createGitRepo("buddy-presented-media-route-head")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-presented-media-route-head-",
+    })
+    const localPath = path.join(localDir.path, "outside.png")
     await fs.writeFile(localPath, "local-image")
 
     const output = await OpenCodeInstance.provide({
-      directory: repo,
+      directory: repo.path,
       fn: async () =>
         buildPresentedMediaObjectOutput({
-          directory: repo,
+          directory: repo.path,
           items: [
             {
               path: localPath,
@@ -69,24 +71,24 @@ describe("presented media raw routes", () => {
   })
 
   test("reports current availability without fetching media bytes", async () => {
-    const repo = createGitRepo("buddy-presented-media-route-availability")
-    const localDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "buddy-presented-media-route-availability-"),
-    )
-    const localPath = path.join(localDir, "outside.png")
+    await using repo = await createGitRepo("buddy-presented-media-route-availability")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-presented-media-route-availability-",
+    })
+    const localPath = path.join(localDir.path, "outside.png")
     await fs.writeFile(localPath, "local-image")
 
     const output = await OpenCodeInstance.provide({
-      directory: repo,
+      directory: repo.path,
       fn: async () =>
         buildPresentedMediaObjectOutput({
-          directory: repo,
+          directory: repo.path,
           items: [{ path: localPath }],
         }),
     })
     await fs.rm(localPath)
 
-    const availabilityUrl = `/api/objects/media-presentation/${output.output.objectID}/items/media_item_1/availability?directory=${encodeURIComponent(repo)}`
+    const availabilityUrl = `/api/objects/media-presentation/${output.output.objectID}/items/media_item_1/availability?directory=${encodeURIComponent(repo.path)}`
     const response = await app.request(availabilityUrl)
 
     expect(response.status).toBe(200)
@@ -96,23 +98,25 @@ describe("presented media raw routes", () => {
     })
 
     const missingItemResponse = await app.request(
-      `/api/objects/media-presentation/${output.output.objectID}/items/unknown/availability?directory=${encodeURIComponent(repo)}`,
+      `/api/objects/media-presentation/${output.output.objectID}/items/unknown/availability?directory=${encodeURIComponent(repo.path)}`,
     )
     expect(missingItemResponse.status).toBe(404)
     expect(await missingItemResponse.json()).toEqual({ error: "File not found" })
   })
 
   test("serves bounded, open-ended, and suffix byte ranges", async () => {
-    const repo = createGitRepo("buddy-presented-media-route-ranges")
-    const localDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-presented-media-route-ranges-"))
-    const localPath = path.join(localDir, "outside.mp4")
+    await using repo = await createGitRepo("buddy-presented-media-route-ranges")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-presented-media-route-ranges-",
+    })
+    const localPath = path.join(localDir.path, "outside.mp4")
     await fs.writeFile(localPath, "0123456789")
 
     const output = await OpenCodeInstance.provide({
-      directory: repo,
+      directory: repo.path,
       fn: async () =>
         buildPresentedMediaObjectOutput({
-          directory: repo,
+          directory: repo.path,
           items: [{ path: localPath }],
         }),
     })
@@ -142,18 +146,18 @@ describe("presented media raw routes", () => {
   })
 
   test("returns 416 for invalid or unsatisfiable ranges", async () => {
-    const repo = createGitRepo("buddy-presented-media-route-invalid-range")
-    const localDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "buddy-presented-media-route-invalid-range-"),
-    )
-    const localPath = path.join(localDir, "outside.mp4")
+    await using repo = await createGitRepo("buddy-presented-media-route-invalid-range")
+    await using localDir = await temporaryDirectory({
+      prefix: "buddy-presented-media-route-invalid-range-",
+    })
+    const localPath = path.join(localDir.path, "outside.mp4")
     await fs.writeFile(localPath, "0123456789")
 
     const output = await OpenCodeInstance.provide({
-      directory: repo,
+      directory: repo.path,
       fn: async () =>
         buildPresentedMediaObjectOutput({
-          directory: repo,
+          directory: repo.path,
           items: [{ path: localPath }],
         }),
     })

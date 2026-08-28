@@ -5,7 +5,6 @@ import {
   WINDOWS_UPDATE_MANIFEST_FILENAME,
   type WindowsUpdateFeed,
 } from "../src/main/windows-update-feed"
-import { resolveReleaseAssetUrl } from "../src/main/update-common"
 import { resolveWindowsReleaseArtifactFilename } from "../src/shared/release-asset-names"
 
 const UPDATE_VERSION = "1.2.3"
@@ -58,10 +57,10 @@ describe("windows update feed", () => {
         const manifest = await response.text()
 
         expect(manifest).toContain(
-          `  - url: ${resolveReleaseAssetUrl(UPDATE_VERSION, WINDOWS_ARTIFACT_FILENAME)}`,
+          `  - url: https://github.com/prashantbhudwal/buddy-releases/releases/download/v${UPDATE_VERSION}/${WINDOWS_ARTIFACT_FILENAME}`,
         )
         expect(manifest).toContain(
-          `path: '${resolveReleaseAssetUrl(UPDATE_VERSION, WINDOWS_BLOCKMAP_FILENAME)}'`,
+          `path: 'https://github.com/prashantbhudwal/buddy-releases/releases/download/v${UPDATE_VERSION}/${WINDOWS_BLOCKMAP_FILENAME}'`,
         )
       },
     )

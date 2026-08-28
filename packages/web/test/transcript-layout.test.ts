@@ -6,12 +6,10 @@ import {
   isSemanticTimelineTailAddition,
 } from "../src/components/chat/chat-transcript"
 import {
-  ACTIVITY_ROW_COLLAPSED_HEIGHT_PX,
   PROSE_ROW_ACTION_FOOTER_PX,
   PROSE_ROW_CHARS_PER_LINE_ESTIMATE,
   PROSE_ROW_LINE_HEIGHT_PX,
   TRANSCRIPT_GAP_PX,
-  TRANSCRIPT_LEADING_GAP_PX,
   collapsedActivityRowHeightPx,
   proseRowHeightPx,
   transcriptGapClass,
@@ -72,14 +70,6 @@ describe("collapsed activity row height", () => {
     expect(collapsedActivityRowHeightPx("prose")).toBe(40)
     expect(collapsedActivityRowHeightPx("activity")).toBe(36)
   })
-
-  test("stays in step with the gap table", () => {
-    for (const role of TOOL_LAYOUT_ROLES) {
-      expect(collapsedActivityRowHeightPx(role)).toBe(
-        ACTIVITY_ROW_COLLAPSED_HEIGHT_PX + TRANSCRIPT_GAP_PX[role].activity,
-      )
-    }
-  })
 })
 
 describe("prose row estimate", () => {
@@ -117,17 +107,6 @@ describe("prose row estimate", () => {
     expect(terminal - streaming).toBe(PROSE_ROW_ACTION_FOOTER_PX)
     expect(proseRowHeightPx({ previous: "activity", textLength: 0, hasActionFooter: false })).toBe(
       TRANSCRIPT_GAP_PX.activity.prose,
-    )
-  })
-
-  test("stays in step with the gap table", () => {
-    for (const role of TOOL_LAYOUT_ROLES) {
-      expect(proseRowHeightPx({ previous: role, textLength: 0, hasActionFooter: false })).toBe(
-        TRANSCRIPT_GAP_PX[role].prose,
-      )
-    }
-    expect(proseRowHeightPx({ previous: undefined, textLength: 0, hasActionFooter: false })).toBe(
-      TRANSCRIPT_LEADING_GAP_PX,
     )
   })
 

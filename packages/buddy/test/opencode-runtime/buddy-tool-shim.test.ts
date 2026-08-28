@@ -4,12 +4,10 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import type { MessageV2 } from "@buddy/opencode-adapter/message"
 import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
 import z from "zod"
-import { loadOpenCodeApp } from "../../src/opencode-runtime"
 import { createBuddyTool, type BuddyTool } from "../../src/learning/runtime/create-buddy-tool"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { defineToolPresentation } from "@buddy/opencode-adapter/tool-presentation"
 import {
-  allBuddyPluginTools,
   buddyToolToPluginTool,
   registerBuddyToolPresentationCatalog,
 } from "../../src/opencode-runtime/buddy-tool-shim"
@@ -78,18 +76,6 @@ function createPluginExecuteContext(input: {
 }
 
 describe("buddyToolToPluginTool shim", () => {
-  test("allBuddyPluginTools exports every Buddy tool without feature or config filtering", async () => {
-    await using project = await tmpdir({ git: true })
-
-    const toolMap = await allBuddyPluginTools(project.path)
-
-    expect(toolMap.search_standards).toBeDefined()
-    expect(toolMap.get_standard).toBeDefined()
-    expect(toolMap.learning_tool_search).toBeDefined()
-    expect(toolMap.learning_tool_load).toBeDefined()
-    expect(toolMap.save_flashcard_deck).toBeDefined()
-  })
-
   test("registers every Buddy tool presentation in the session catalog", async () => {
     await using project = await tmpdir({ git: true })
 
@@ -239,55 +225,6 @@ describe("buddyToolToPluginTool shim", () => {
     )
 
     expect(result.output).toBe("keep")
-  })
-
-  test("forwards ctx.ask through the plugin shim without InstanceRef errors", async () => {
-    await using project = await tmpdir({ git: true })
-    await loadOpenCodeApp()
-
-    const asks: TJsonObject[] = []
-    const tool = createBuddyTool({
-      id: "ask_test",
-      description: "Ask test",
-      presentation: TEST_TOOL_PRESENTATION,
-      parameters: z.object({}),
-      async execute(_args, ctx) {
-        await ctx.ask({
-          permission: "ask_test",
-          patterns: ["*"],
-          always: ["*"],
-          metadata: { phase: "before" },
-        })
-        return { title: "ask_test", output: "ok", metadata: {} }
-      },
-    })
-
-    await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: async () => {
-        const pluginTool = buddyToolToPluginTool(tool, project.path)
-        const result = expectToolObject(
-          await pluginTool.execute(
-            {},
-            {
-              sessionID: "ses_test",
-              messageID: "msg_test",
-              agent: "buddy",
-              directory: project.path,
-              worktree: project.path,
-              abort: new AbortController().signal,
-              metadata() {},
-              ask: createCompatiblePluginAskHandler((input) => {
-                asks.push(input)
-              }),
-            },
-          ),
-        )
-
-        expect(result.output).toBe("ok")
-        expect(asks).toHaveLength(1)
-      },
-    })
   })
 
   test("metadata updates are forwarded through the shim", async () => {

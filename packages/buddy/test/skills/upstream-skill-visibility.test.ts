@@ -4,12 +4,15 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { Skill as OpenCodeSkill } from "@buddy/opencode-adapter/skill"
 import { listSkillsCatalog } from "../../src/learning/skill-management"
-import { hiddenOpenCodeSkillNames } from "../../src/opencode-runtime/hidden-opencode-skills"
+import { isSuppressedOpenCodeSkill } from "../../src/opencode-runtime/hidden-opencode-skills"
 import { tmpdir } from "../helpers/tmpdir"
 import { withSyncedOpenCodeConfig } from "../helpers/opencode"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 
 const CUSTOMIZE_OPENCODE_SKILL_NAME = "customize-opencode" as const
+const OPENCODE_BUILT_IN_LOCATION = "<built-in>" as const
+const PROJECT_LOCAL_CUSTOMIZE_OPENCODE_LOCATION =
+  "/project/.opencode/skills/customize-opencode" as const
 
 function writeProjectCustomizeOpencodeSkill(directory: string) {
   const skillDirectory = path.join(directory, ".opencode", "skills", CUSTOMIZE_OPENCODE_SKILL_NAME)
@@ -31,14 +34,29 @@ function writeProjectCustomizeOpencodeSkill(directory: string) {
 }
 
 describe("upstream skill visibility", () => {
-  test("hides suppressed OpenCode built-in skills from the Buddy catalog", async () => {
+  test("isSuppressedOpenCodeSkill hides the built-in customize-opencode skill only", () => {
+    expect(
+      isSuppressedOpenCodeSkill({
+        name: CUSTOMIZE_OPENCODE_SKILL_NAME,
+        location: OPENCODE_BUILT_IN_LOCATION,
+      }),
+    ).toBe(true)
+    expect(
+      isSuppressedOpenCodeSkill({
+        name: CUSTOMIZE_OPENCODE_SKILL_NAME,
+        location: PROJECT_LOCAL_CUSTOMIZE_OPENCODE_LOCATION,
+      }),
+    ).toBe(false)
+  })
+
+  test("hides the built-in customize-opencode skill from the Buddy catalog", async () => {
     try {
       await using project = await tmpdir({ git: true })
 
-      const catalog = await listSkillsCatalog(project.path)
+      const catalog = await listSkillsCatalog(project.path, { refresh: true })
 
-      expect(catalog.installed.map((skill) => skill.name)).not.toEqual(
-        expect.arrayContaining(hiddenOpenCodeSkillNames()),
+      expect(catalog.installed.map((skill) => skill.name)).not.toContain(
+        CUSTOMIZE_OPENCODE_SKILL_NAME,
       )
     } finally {
       await OpenCodeInstance.disposeAll()

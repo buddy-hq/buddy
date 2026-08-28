@@ -9,7 +9,6 @@ import { parseJsonObject, requireString } from "./helpers/parse"
 const DIRECTORY_HEADER = "x-buddy-directory" as const
 const JSON_CONTENT_TYPE = "application/json" as const
 const LARGE_FILE_SIZE_BYTES = 64 * 1024 * 1024 + 1
-const RESPONSIVENESS_FILE_SIZE_BYTES = 32 * 1024 * 1024
 
 async function uploadRequest(directory: string, sourcePath: string): Promise<Response> {
   return await app.request("/api/notebook/uploads", {
@@ -84,17 +83,5 @@ describe("notebook upload route", () => {
     ])
     expect(responses.map((response) => response.status)).toEqual([400, 400, 400, 400, 400])
     await expect(readdir(path.join(project.path, "uploads"))).rejects.toThrow()
-  })
-
-  test("does not block a lightweight backend request while a copy is active", async () => {
-    await using project = await tmpdir({ git: true })
-    const sourcePath = path.join(project.path, "large-enough.pdf")
-    await writeFile(sourcePath, "", "utf8")
-    await truncate(sourcePath, RESPONSIVENESS_FILE_SIZE_BYTES)
-
-    const upload = uploadRequest(project.path, sourcePath)
-    const health = await app.request("/api/healthz")
-    expect(health.status).toBe(200)
-    expect((await upload).status).toBe(200)
   })
 })

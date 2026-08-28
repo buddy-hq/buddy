@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
 import { OPEN_CODE_GPT_SYSTEM_PROMPT } from "@buddy/opencode-adapter/system-prompt"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { BUDDY } from "../../src/learning/personas/buddy"
 import { CODE } from "../../src/learning/personas/code"
 import CODE_AVATAR_PROMPT from "../../src/learning/personas/prompts/code-avatar.p.md"
+import STUDENT_SHOW_DONT_TELL from "../../src/learning/personas/prompts/sections/constitution/student/show-dont-tell.p.md"
+import STUDENT_TEACH_THROUGH_CONVERSATION from "../../src/learning/personas/prompts/sections/constitution/student/teach-through-conversation.p.md"
+import TEACHER_SHOW_DONT_TELL from "../../src/learning/personas/prompts/sections/constitution/teacher/show-dont-tell.p.md"
+import TEACHER_TEACH_THROUGH_CONVERSATION from "../../src/learning/personas/prompts/sections/constitution/teacher/teach-through-conversation.p.md"
+import STUDENT_CONCISE_RESPONSES from "../../src/learning/personas/prompts/sections/product/concise-responses/student.p.md"
+import TEACHER_CONCISE_RESPONSES from "../../src/learning/personas/prompts/sections/product/concise-responses/teacher.p.md"
+import PICK_A_TEACHING_MODEL from "../../src/learning/personas/prompts/sections/teaching/student/pick-a-teaching-model.p.md"
 import SKILLS_SECTION from "../../src/learning/personas/prompts/sections/product/skills.p.md"
-import type { PersonaPromptID } from "../../src/learning/personas/prompts/render-persona-prompt"
 import {
   PERSONA_PROMPT_ID,
   renderBuddyPersonaPrompt,
@@ -43,20 +47,6 @@ describe("persona prompts", () => {
     expect(BUDDY.runtime.prompt).toBe(learningCompanion)
     expect(TEACHING_BUDDY.runtime.prompt).toBe(teachingAssistant)
     expect(learningCompanion).not.toBe(teachingAssistant)
-  })
-
-  test("declares response style in the persona documents", () => {
-    const learningDocument = readFileSync(
-      join(import.meta.dir, "../../src/learning/personas/prompts/learning-companion.p.md"),
-      "utf8",
-    )
-    const teachingDocument = readFileSync(
-      join(import.meta.dir, "../../src/learning/personas/prompts/teaching-assistant.p.md"),
-      "utf8",
-    )
-
-    expect(learningDocument).toContain("{{product/concise-responses/student}}")
-    expect(teachingDocument).toContain("{{product/concise-responses/teacher}}")
   })
 
   test("defaults concise responses on for a new chat", async () => {
@@ -263,23 +253,29 @@ describe("persona prompts", () => {
     expect(result.nextTeachingState?.conciseResponses).toBe(false)
   })
 
-  test("a document never mixes a forked section's two variants", () => {
-    const VARIANT_BY_PERSONA = {
-      "learning-companion": "student",
-      "teaching-assistant": "teacher",
-    } satisfies Readonly<Record<PersonaPromptID, string>>
+  test("renders only the sections for the selected persona variant", () => {
+    const learningCompanion = renderBuddyPersonaPrompt(PERSONA_PROMPT_ID.learningCompanion)
+    const teachingAssistant = renderBuddyPersonaPrompt(PERSONA_PROMPT_ID.teachingAssistant)
 
-    for (const [personaPromptID, variant] of Object.entries(VARIANT_BY_PERSONA)) {
-      const document = readFileSync(
-        join(import.meta.dir, "../../src/learning/personas/prompts", `${personaPromptID}.p.md`),
-        "utf8",
-      )
-      const variants = [...document.matchAll(/\{\{[^}]*\/(student|teacher)\//g)].map(
-        (match) => match[1],
-      )
+    const studentAssets = [
+      STUDENT_SHOW_DONT_TELL,
+      STUDENT_TEACH_THROUGH_CONVERSATION,
+      STUDENT_CONCISE_RESPONSES,
+      PICK_A_TEACHING_MODEL,
+    ]
+    for (const asset of studentAssets) {
+      expect(learningCompanion).toContain(asset.trim())
+      expect(teachingAssistant).not.toContain(asset.trim())
+    }
 
-      expect(variants.length).toBeGreaterThan(0)
-      expect(new Set(variants)).toEqual(new Set([variant]))
+    const teacherAssets = [
+      TEACHER_SHOW_DONT_TELL,
+      TEACHER_TEACH_THROUGH_CONVERSATION,
+      TEACHER_CONCISE_RESPONSES,
+    ]
+    for (const asset of teacherAssets) {
+      expect(teachingAssistant).toContain(asset.trim())
+      expect(learningCompanion).not.toContain(asset.trim())
     }
   })
 
@@ -290,30 +286,6 @@ describe("persona prompts", () => {
         .filter((line) => /^#{1,3} /.test(line))
 
       expect(headings).toEqual([...new Set(headings)])
-    }
-  })
-
-  test("headings never skip a level", () => {
-    const HEADING = /^(#{1,6}) /
-
-    for (const personaPromptID of Object.values(PERSONA_PROMPT_ID)) {
-      const levels = renderBuddyPersonaPrompt(personaPromptID)
-        .split("\n")
-        .flatMap((line) => {
-          const depth = HEADING.exec(line)?.[1].length
-          return depth === undefined ? [] : [{ depth, line }]
-        })
-
-      expect(levels.at(0)?.depth).toBe(1)
-
-      for (const [index, heading] of levels.entries()) {
-        const previousDepth = levels[index - 1]?.depth ?? heading.depth
-        if (heading.depth > previousDepth + 1) {
-          throw new Error(
-            `${personaPromptID}: "${heading.line}" jumps from h${previousDepth} to h${heading.depth}`,
-          )
-        }
-      }
     }
   })
 

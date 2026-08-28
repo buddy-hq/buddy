@@ -237,22 +237,6 @@ describe("native office resource extractors", () => {
     expect(extraction.extractor).toBe("sheetjs")
   })
 
-  test("extracts every admitted spreadsheet format through one SheetJS pipeline", async () => {
-    await using project = await tmpdir({ git: true })
-
-    for (const format of NATIVE_SPREADSHEET_FORMATS) {
-      const sourcePath = path.join(project.path, `attendance.${format}`)
-      await createSpreadsheet(sourcePath, format, false)
-      const extraction = await extractResourcePack(sourcePath, classifyResourcePath(sourcePath))
-      expect(extraction.status).toBe("ready")
-      expect(extraction.extractor).toBe("sheetjs")
-      expect(extraction.fullText).toContain("Asha")
-      expect(extraction.fullText).toContain("José नमस्ते")
-      expect(extraction.textArtifacts?.[0]?.relativePath).toBe("sheets/001-attendance.csv")
-      expect(extraction.warnings.join(" ")).toContain("macros are not extracted or executed")
-    }
-  })
-
   test("preserves empty rows in dense XLSX and XLS worksheets", async () => {
     await using project = await tmpdir({ git: true })
 
@@ -479,9 +463,13 @@ describe("native office resource extractors", () => {
         throw new Error(`Prepared ${NATIVE_SPREADSHEET_FORMATS[index]} did not expose full text.`)
       }
       expect(await readFile(resource.entrypointPath, "utf8")).toContain("sheets/001-attendance.csv")
-      expect(
-        await readFile(path.resolve(project.path, resource.record.fullTextPath), "utf8"),
-      ).toContain("Asha")
+      const fullText = await readFile(
+        path.resolve(project.path, resource.record.fullTextPath),
+        "utf8",
+      )
+      expect(fullText).toContain("Asha")
+      expect(fullText).toContain("José नमस्ते")
+      expect(resource.record.warnings.join(" ")).toContain("macros are not extracted or executed")
     }
   })
 

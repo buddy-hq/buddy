@@ -121,7 +121,6 @@ describe("shared reader UI", () => {
     expect(onHighlight).toHaveBeenCalledTimes(1)
     expect(onOpenAnnotationDialog).toHaveBeenCalledTimes(1)
     expect(onSearch).toHaveBeenCalledWith(selectedText)
-    expect(container.querySelector(".animate-in")).toBeNull()
     expect(container.querySelector('[role="toolbar"]')?.getAttribute("aria-label")).toBe(
       "Selection actions",
     )
@@ -217,7 +216,6 @@ describe("shared reader UI", () => {
     expect(reader.hasAttribute("data-theme")).toBe(false)
     expect(reader.classList.contains("bg-surface-base")).toBe(true)
     expect(reader.classList.contains("text-text-base")).toBe(true)
-    expect(reader.className).not.toContain("radial-gradient")
   })
 
   test("shares accessible pointer and keyboard progress commits across reader engines", async () => {

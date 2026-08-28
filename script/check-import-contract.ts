@@ -12,6 +12,42 @@ type Finding = {
 const REPO_ROOT = path.resolve(import.meta.dir, "..")
 const DESKTOP_PACKAGE_MANIFEST = "packages/desktop-electron/package.json"
 const WORKSPACE_VERSION_PREFIX = "workspace:"
+const OPENCODE_RUNTIME_SOURCE = "packages/buddy/src/opencode-runtime/runtime.ts"
+const TOOL_INPUT_DELTA_BRIDGE_CALL = "await ensureToolInputDeltaBridgePatched()"
+const OPENCODE_SERVER_STARTUP = "const built = await Server.Default()"
+const ACTIVE_CHAT_ENTRYPOINTS = [
+  "packages/web/src/app.tsx",
+  "packages/web/src/routes/chat.tsx",
+  "packages/web/src/routes/settings.tsx",
+  "packages/web/src/routes/onboarding.tsx",
+  "packages/web/src/lib/directory-chat/use-directory-chat-page-controller.ts",
+]
+const DIRECT_ACTIVE_CHAT_MUTATION =
+  /\b(?:selectSession|startNewSessionDraft|startNewSession|forkSession)\s*\(/
+const DIRECTORY_CHAT_CONTROLLER_SOURCE =
+  "packages/web/src/lib/directory-chat/use-directory-chat-page-controller.ts"
+const PRESENTATION_ONLY_SOURCES = [
+  "packages/web/src/lib/directory-workspace-controller.ts",
+  "packages/web/src/lib/directory-workspace-client-actions.ts",
+  "packages/web/src/lib/use-workspace-file-open.ts",
+  "packages/web/src/components/whiteboard/whiteboard-opening-preview.tsx",
+  "packages/web/src/components/directory-chat/right-workspace-open.ts",
+]
+const FORBIDDEN_DIRECTORY_CHAT_CONTROLLER_REFERENCES = [
+  "linkedSessionByResource",
+  "selectActiveChatSessionAndPresent",
+  "sessionPreference",
+]
+const REQUIRED_DIRECTORY_CHAT_CONTROLLER_REFERENCE = "buildWorkspaceRouteNavigation"
+const SESSION_BENCH_SURFACE_SOURCE =
+  "packages/web/src/components/bench/surfaces/session-bench-surface.tsx"
+const DIRECTORY_WORKSPACE_ROOT_SOURCE =
+  "packages/web/src/components/directory-chat/directory-workspace-root.tsx"
+const SUBAGENT_BENCH_HOOK_REFERENCE = "useOpenSubagentBench"
+const REQUIRED_SESSION_BENCH_SURFACE_WIRING = "onOpenSession={props.onOpenSession}"
+const REQUIRED_SUBAGENT_SESSION_WIRING = "onOpenSession={handleOpenSubagentSession}"
+const CHAT_TRANSITION_CALL =
+  /\b(?:activateChatDirectory|selectActiveChatSession|startActiveChatDraft|startActiveChatSession|forkActiveChatSession)\s*\(/
 
 function toPosix(value: string) {
   return value.split(path.sep).join("/")
@@ -19,6 +55,104 @@ function toPosix(value: string) {
 
 function toRepoPath(absolutePath: string) {
   return toPosix(path.relative(REPO_ROOT, absolutePath))
+}
+
+function checkActiveChatTransitionEntrypoints(findings: Finding[]) {
+  for (const relativePath of ACTIVE_CHAT_ENTRYPOINTS) {
+    const content = readFileSync(path.join(REPO_ROOT, relativePath), "utf8")
+    if (!DIRECT_ACTIVE_CHAT_MUTATION.test(content)) continue
+    findings.push({
+      file: relativePath,
+      message:
+        "Direct chat-session transition calls bypass the active chat transition coordinator. Route the transition through the coordinator instead.",
+    })
+  }
+}
+
+function checkBenchNavigationBoundary(findings: Finding[]) {
+  const controllerContent = readFileSync(
+    path.join(REPO_ROOT, DIRECTORY_CHAT_CONTROLLER_SOURCE),
+    "utf8",
+  )
+
+  for (const forbiddenReference of FORBIDDEN_DIRECTORY_CHAT_CONTROLLER_REFERENCES) {
+    if (!controllerContent.includes(forbiddenReference)) continue
+    findings.push({
+      file: DIRECTORY_CHAT_CONTROLLER_SOURCE,
+      message: `Bench chat controller must not reference "${forbiddenReference}". Keep resource presentation separate from chat selection.`,
+    })
+  }
+
+  if (!controllerContent.includes(REQUIRED_DIRECTORY_CHAT_CONTROLLER_REFERENCE)) {
+    findings.push({
+      file: DIRECTORY_CHAT_CONTROLLER_SOURCE,
+      message:
+        'Bench chat controller must use "buildWorkspaceRouteNavigation" for workspace route navigation.',
+    })
+  }
+
+  for (const relativePath of PRESENTATION_ONLY_SOURCES) {
+    const content = readFileSync(path.join(REPO_ROOT, relativePath), "utf8")
+    if (!CHAT_TRANSITION_CALL.test(content)) continue
+    findings.push({
+      file: relativePath,
+      message:
+        "Presentation-only modules must not invoke chat transition methods. Route chat transitions through the directory chat controller instead.",
+    })
+  }
+}
+
+function checkSubagentBenchWiring(findings: Finding[]) {
+  const sessionBenchSurfaceContent = readFileSync(
+    path.join(REPO_ROOT, SESSION_BENCH_SURFACE_SOURCE),
+    "utf8",
+  )
+  if (sessionBenchSurfaceContent.includes(SUBAGENT_BENCH_HOOK_REFERENCE)) {
+    findings.push({
+      file: SESSION_BENCH_SURFACE_SOURCE,
+      message:
+        "nested session surfaces must delegate session opening to their owner-provided callback rather than selecting/opening directly.",
+    })
+  }
+  if (!sessionBenchSurfaceContent.includes(REQUIRED_SESSION_BENCH_SURFACE_WIRING)) {
+    findings.push({
+      file: SESSION_BENCH_SURFACE_SOURCE,
+      message:
+        "nested session surfaces must forward their owner-provided session-opening callback to the rendered transcript.",
+    })
+  }
+
+  const directoryWorkspaceRootContent = readFileSync(
+    path.join(REPO_ROOT, DIRECTORY_WORKSPACE_ROOT_SOURCE),
+    "utf8",
+  )
+  if (!directoryWorkspaceRootContent.includes(REQUIRED_SUBAGENT_SESSION_WIRING)) {
+    findings.push({
+      file: DIRECTORY_WORKSPACE_ROOT_SOURCE,
+      message:
+        "directory workspace root must pass its owner-aware subagent session handler to Bench surfaces.",
+    })
+  }
+}
+
+function checkToolInputDeltaBridgeStartup(findings: Finding[]) {
+  const content = readFileSync(path.join(REPO_ROOT, OPENCODE_RUNTIME_SOURCE), "utf8")
+  const bridgeInstallIndex = content.indexOf(TOOL_INPUT_DELTA_BRIDGE_CALL)
+  const serverStartupIndex = content.indexOf(OPENCODE_SERVER_STARTUP)
+
+  if (
+    bridgeInstallIndex >= 0 &&
+    serverStartupIndex >= 0 &&
+    bridgeInstallIndex < serverStartupIndex
+  ) {
+    return
+  }
+
+  findings.push({
+    file: OPENCODE_RUNTIME_SOURCE,
+    message:
+      "The tool-input-delta bridge must be installed before OpenCode server startup.",
+  })
 }
 
 async function scanFiles(pattern: string): Promise<string[]> {
@@ -191,6 +325,10 @@ async function main() {
 
   checkViteAliasContract(findings)
   checkDesktopRuntimeDependencies(findings)
+  checkActiveChatTransitionEntrypoints(findings)
+  checkBenchNavigationBoundary(findings)
+  checkSubagentBenchWiring(findings)
+  checkToolInputDeltaBridgeStartup(findings)
   await checkUiAliasImports(findings)
   await checkWebUiBoundary(findings)
   await checkCrossPackageSrcImports(findings)

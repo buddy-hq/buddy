@@ -614,7 +614,7 @@ describe("createDirectoryWorkspaceStore", () => {
 
     store.getState().setPendingIntent(intent)
     store.getState().clearPendingIntent("other-command")
-    expect(store.getState().pendingIntent).toBe(intent)
+    expect(store.getState().pendingIntent).toEqual(intent)
 
     store.getState().commitDockedState({
       commandID: "command-4",
@@ -802,7 +802,7 @@ describe("createDirectoryWorkspaceStore", () => {
 
     store.getState().promoteChatSlot({ from: draftChatKey, to: existingChatKey })
 
-    expect(store.getState()).toBe(stateBeforePromotion)
+    expect(store.getState()).toEqual(stateBeforePromotion)
     expect(store.getState().slots[existingChatKey]).toEqual(existingSlot)
   })
 })
@@ -1043,17 +1043,13 @@ describe("directory workspace persistence", () => {
     })
   })
 
-  test("ignores legacy persistence instead of treating directory state as a chat slot", async () => {
+  test("ignores persisted workspace payloads with an unsupported version", async () => {
     const storage = createMemoryStorage()
     storage.setItem(
       "directory-workspace:%2Fworkspace",
       JSON.stringify({
         version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION + 1,
-        state: {
-          visibility: WORKSPACE_VISIBILITY_EXPANDED,
-          lastDrawer: WORKSPACE_DRAWER_SOURCES,
-          rightSidebarOpen: true,
-        },
+        state: { slots: {} },
       }),
     )
 

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test"
 import fsp from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import type { SkillSourceRef } from "../../src/learning/skill-management/service/catalog-schemas"
 import {
@@ -9,6 +8,7 @@ import {
 } from "../../src/learning/skill-management/service/library"
 import type { CurationArgs } from "../../script/skill-curation"
 import { buildCurationOutput, writeCatalogEntry } from "../../script/skill-curation"
+import { temporaryDirectory, type TemporaryDirectory } from "../helpers/temporary-directory"
 
 function sourceRef(): SkillSourceRef {
   return {
@@ -62,9 +62,8 @@ function entryFixture(overrides?: Partial<SkillCatalogEntry>): SkillCatalogEntry
   }
 }
 
-async function tempCatalogPath(prefix: string): Promise<string> {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), `${prefix}-`))
-  return path.join(root, "catalog.json")
+async function tempCatalogPath(prefix: string): Promise<TemporaryDirectory> {
+  return temporaryDirectory({ prefix: `${prefix}-` })
 }
 
 describe("skill curation hardening", () => {
@@ -243,7 +242,8 @@ describe("skill curation hardening", () => {
   })
 
   test("requires explicit replacement when overwriting an existing catalog entry", async () => {
-    const catalogPath = await tempCatalogPath("buddy-skill-curation")
+    await using catalogRoot = await tempCatalogPath("buddy-skill-curation")
+    const catalogPath = path.join(catalogRoot.path, "catalog.json")
     const iconSha256 = "c".repeat(64)
     await fsp.writeFile(
       catalogPath,

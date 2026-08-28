@@ -1,13 +1,13 @@
-import os from "node:os"
 import path from "node:path"
-import { mkdtempSync, writeFileSync } from "node:fs"
+import { writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
+import { temporaryDirectory, type TemporaryDirectory } from "./temporary-directory"
 
 type CreateGitRepoOptions = {
   readme?: string
 }
 
-export function runGit(cwd: string, args: string[]) {
+export function runGit(cwd: string, args: string[]): void {
   const result = spawnSync("git", args, {
     cwd,
     encoding: "utf8",
@@ -17,19 +17,28 @@ export function runGit(cwd: string, args: string[]) {
   }
 }
 
-export function createGitRepo(prefix: string, options?: CreateGitRepoOptions) {
-  const root = mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
-  runGit(root, ["init", "-q"])
-  writeFileSync(path.join(root, "README.md"), options?.readme ?? "# test\n")
-  runGit(root, ["add", "README.md"])
-  runGit(root, [
-    "-c",
-    "user.email=buddy@test.local",
-    "-c",
-    "user.name=Buddy Test",
-    "commit",
-    "-qm",
-    "init",
-  ])
-  return root
+export async function createGitRepo(
+  prefix: string,
+  options?: CreateGitRepoOptions,
+): Promise<TemporaryDirectory> {
+  const directory = await temporaryDirectory({ prefix: `${prefix}-` })
+
+  try {
+    runGit(directory.path, ["init", "-q"])
+    writeFileSync(path.join(directory.path, "README.md"), options?.readme ?? "# test\n")
+    runGit(directory.path, ["add", "README.md"])
+    runGit(directory.path, [
+      "-c",
+      "user.email=buddy@test.local",
+      "-c",
+      "user.name=Buddy Test",
+      "commit",
+      "-qm",
+      "init",
+    ])
+    return directory
+  } catch (error) {
+    await directory[Symbol.asyncDispose]()
+    throw error
+  }
 }

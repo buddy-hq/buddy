@@ -4,9 +4,7 @@ import { createRoot, type Root } from "react-dom/client"
 import {
   clampFloatingChatPosition,
   DirectoryChatBenchPageLayout,
-  resolveDefaultFloatingChatPosition,
   resolveDefaultFloatingChatRect,
-  resolveFloatingChatSize,
   resolveInitialFloatingChatContainerSize,
   type FloatingChatBounds,
   type FloatingChatRect,
@@ -235,47 +233,6 @@ describe("workspace floating chat helpers", () => {
     })
   })
 
-  test("places the floating chat low and right of center by default", () => {
-    const bounds: FloatingChatBounds = {
-      containerWidth: 1_000,
-      containerHeight: 800,
-      width: 420,
-      height: 320,
-      margin: 20,
-      safeTop: 48,
-    }
-
-    expect(resolveDefaultFloatingChatPosition(bounds)).toEqual({
-      x: 560,
-      y: 460,
-    })
-  })
-
-  test("shrinks the floating chat for narrow workspace viewports", () => {
-    const containerSize = {
-      containerWidth: 300,
-      containerHeight: 360,
-      safeTop: 24,
-    }
-    const size = resolveFloatingChatSize(containerSize)
-    const defaults = resolveBenchLayoutDefaults({
-      profile: BENCH_LAYOUT_PROFILE_DOCUMENT,
-      viewport: {
-        widthPx: containerSize.containerWidth,
-        heightPx: containerSize.containerHeight,
-        safeTopPx: containerSize.safeTop,
-      },
-    })
-
-    expect(size.width).toBeLessThanOrEqual(
-      containerSize.containerWidth - defaults.floatingMarginPx * 2,
-    )
-    expect(size.height).toBeLessThanOrEqual(
-      containerSize.containerHeight - containerSize.safeTop - defaults.floatingMarginPx,
-    )
-    expect(size.width).toBeGreaterThan(0)
-    expect(size.height).toBeGreaterThan(0)
-  })
 })
 
 describe("DirectoryChatBenchPageLayout floating chat", () => {

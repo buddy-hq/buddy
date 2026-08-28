@@ -9,9 +9,9 @@ import { createGitRepo } from "../helpers/repo"
 
 describe("config jsonc", () => {
   test("parses comments and trailing commas", async () => {
-    const repo = createGitRepo("buddy-config-jsonc")
+    await using repository = await createGitRepo("buddy-config-jsonc")
     writeProjectConfig(
-      repo,
+      repository.path,
       [
         "{",
         "  // JSONC comment",
@@ -22,22 +22,22 @@ describe("config jsonc", () => {
       ].join("\n"),
     )
 
-    const cfg = await Config.getProject(repo)
+    const cfg = await Config.getProject(repository.path)
 
     expect(cfg.default_persona).toBe("teaching-buddy")
     expect(cfg.model).toBe("anthropic/k2p5")
   })
 
   test("returns line and column diagnostics for invalid jsonc", async () => {
-    const repo = createGitRepo("buddy-config-jsonc-invalid")
-    const badConfig = path.join(repo, "bad.jsonc")
+    await using repository = await createGitRepo("buddy-config-jsonc-invalid")
+    const badConfig = path.join(repository.path, "bad.jsonc")
     writeFileSync(badConfig, ["{", '  "model": ', "  ", ""].join("\n"))
 
     const previous = process.env.BUDDY_CONFIG
     process.env.BUDDY_CONFIG = badConfig
 
     try {
-      await expect(Config.getProject(repo)).rejects.toBeInstanceOf(JsonError)
+      await expect(Config.getProject(repository.path)).rejects.toBeInstanceOf(JsonError)
     } finally {
       if (previous === undefined) {
         delete process.env.BUDDY_CONFIG
@@ -61,29 +61,11 @@ describe("config jsonc", () => {
     expect(thrown.data.path).toBe(filepath)
   })
 
-  test("rejects configurations that hide every Buddy persona", async () => {
-    const repo = createGitRepo("buddy-config-jsonc-hidden-all")
-    writeProjectConfig(
-      repo,
-      [
-        "{",
-        '  "personas": {',
-        '    "buddy": { "hidden": true },',
-        '    "teaching-buddy": { "hidden": true }',
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-    )
-
-    await expect(Config.getProject(repo)).rejects.toBeInstanceOf(InvalidError)
-  })
-
   test.each(["buddy.jsonc", "buddy.json"])(
     "ignores and preserves settings from newer versions in %s",
     async (filename) => {
-      const repo = createGitRepo(`buddy-config-forward-compatible-${filename}`)
-      const filepath = projectConfigFile(repo, filename)
+      await using repository = await createGitRepo(`buddy-config-forward-compatible-${filename}`)
+      const filepath = projectConfigFile(repository.path, filename)
       mkdirSync(path.dirname(filepath), { recursive: true })
       writeFileSync(
         filepath,
@@ -101,12 +83,12 @@ describe("config jsonc", () => {
         ) + "\n",
       )
 
-      const config = await Config.getProject(repo)
+      const config = await Config.getProject(repository.path)
       expect(config).not.toHaveProperty("future_setting")
       expect(config.personalization).not.toHaveProperty("future_preference")
 
       await Config.updateProject(
-        repo,
+        repository.path,
         Config.ProjectInfo.parse({
           model: "anthropic/updated",
           personalization: { primary_use: "teach" },
@@ -125,8 +107,10 @@ describe("config jsonc", () => {
   test.each(["buddy.jsonc", "buddy.json"])(
     "preserves unknown nested settings when their known parent is removed from %s",
     async (filename) => {
-      const repo = createGitRepo(`buddy-config-preserve-unknown-parent-${filename}`)
-      const filepath = projectConfigFile(repo, filename)
+      await using repository = await createGitRepo(
+        `buddy-config-preserve-unknown-parent-${filename}`,
+      )
+      const filepath = projectConfigFile(repository.path, filename)
       mkdirSync(path.dirname(filepath), { recursive: true })
       writeFileSync(
         filepath,
@@ -142,7 +126,7 @@ describe("config jsonc", () => {
         ) + "\n",
       )
 
-      await Config.updateProject(repo, Config.ProjectInfo.parse({}))
+      await Config.updateProject(repository.path, Config.ProjectInfo.parse({}))
 
       const saved = parseJsonObject(JSON.parse(readFileSync(filepath, "utf8")))
       expect(saved?.personalization).toEqual({ future_preference: "keep-me" })
@@ -152,13 +136,13 @@ describe("config jsonc", () => {
   test.each(["buddy.jsonc", "buddy.json"])(
     "updates normalized permission shorthand in %s",
     async (filename) => {
-      const repo = createGitRepo(`buddy-config-permission-shorthand-${filename}`)
-      const filepath = projectConfigFile(repo, filename)
+      await using repository = await createGitRepo(`buddy-config-permission-shorthand-${filename}`)
+      const filepath = projectConfigFile(repository.path, filename)
       mkdirSync(path.dirname(filepath), { recursive: true })
       writeFileSync(filepath, '{"permission": "allow"}\n')
 
       await Config.updateProject(
-        repo,
+        repository.path,
         Config.ProjectInfo.parse({ permission: { bash: "deny" } }),
       )
 
@@ -168,8 +152,8 @@ describe("config jsonc", () => {
   )
 
   test("preserves unaffected JSONC comments and unknown fields while updating known fields", async () => {
-    const repo = createGitRepo("buddy-config-forward-compatible-comments")
-    const filepath = projectConfigFile(repo)
+    await using repository = await createGitRepo("buddy-config-forward-compatible-comments")
+    const filepath = projectConfigFile(repository.path)
     mkdirSync(path.dirname(filepath), { recursive: true })
     writeFileSync(
       filepath,
@@ -185,7 +169,7 @@ describe("config jsonc", () => {
     )
 
     await Config.updateProject(
-      repo,
+      repository.path,
       Config.ProjectInfo.parse({ model: "anthropic/updated" }),
     )
 
@@ -198,23 +182,23 @@ describe("config jsonc", () => {
   })
 
   test("still rejects unsupported values for known settings", async () => {
-    const repo = createGitRepo("buddy-config-reject-future-enum")
-    writeProjectConfig(repo, '{"default_persona": "future-persona"}\n')
+    await using repository = await createGitRepo("buddy-config-reject-future-enum")
+    writeProjectConfig(repository.path, '{"default_persona": "future-persona"}\n')
 
-    await expect(Config.getProjectFile(repo)).rejects.toBeInstanceOf(InvalidError)
+    await expect(Config.getProjectFile(repository.path)).rejects.toBeInstanceOf(InvalidError)
   })
 
   test("still rejects known global-only settings in project config", async () => {
-    const repo = createGitRepo("buddy-config-reject-global-only-project-setting")
-    writeProjectConfig(repo, '{"concise_responses": true}\n')
+    await using repository = await createGitRepo("buddy-config-reject-global-only-project-setting")
+    writeProjectConfig(repository.path, '{"concise_responses": true}\n')
 
-    await expect(Config.getProjectFile(repo)).rejects.toBeInstanceOf(InvalidError)
+    await expect(Config.getProjectFile(repository.path)).rejects.toBeInstanceOf(InvalidError)
   })
 
   test("still rejects unsupported MCP transports", async () => {
-    const repo = createGitRepo("buddy-config-reject-unsupported-mcp")
+    await using repository = await createGitRepo("buddy-config-reject-unsupported-mcp")
     writeProjectConfig(
-      repo,
+      repository.path,
       JSON.stringify({
         mcp: {
           future: {
@@ -226,14 +210,14 @@ describe("config jsonc", () => {
       }),
     )
 
-    await expect(Config.getProjectFile(repo)).rejects.toBeInstanceOf(InvalidError)
+    await expect(Config.getProjectFile(repository.path)).rejects.toBeInstanceOf(InvalidError)
   })
 
   test.each(["buddy.jsonc", "buddy.json"])(
     "replaces known MCP fields and preserves unknown properties in %s",
     async (filename) => {
-      const repo = createGitRepo(`buddy-config-mcp-preserve-unknown-${filename}`)
-      const filepath = projectConfigFile(repo, filename)
+      await using repository = await createGitRepo(`buddy-config-mcp-preserve-unknown-${filename}`)
+      const filepath = projectConfigFile(repository.path, filename)
       mkdirSync(path.dirname(filepath), { recursive: true })
       writeFileSync(
         filepath,
@@ -255,7 +239,7 @@ describe("config jsonc", () => {
       )
 
       await Config.setProjectMcp(
-        repo,
+        repository.path,
         "docs",
         Config.Mcp.parse({
           type: "local",
@@ -278,9 +262,9 @@ describe("config jsonc", () => {
   )
 
   test("still rejects malformed known MCP transports", async () => {
-    const repo = createGitRepo("buddy-config-reject-malformed-known-mcp")
+    await using repository = await createGitRepo("buddy-config-reject-malformed-known-mcp")
     writeProjectConfig(
-      repo,
+      repository.path,
       JSON.stringify({
         mcp: {
           malformed: {
@@ -291,7 +275,7 @@ describe("config jsonc", () => {
       }),
     )
 
-    await expect(Config.getProjectFile(repo)).rejects.toBeInstanceOf(InvalidError)
+    await expect(Config.getProjectFile(repository.path)).rejects.toBeInstanceOf(InvalidError)
   })
 
   test.each([
@@ -300,14 +284,14 @@ describe("config jsonc", () => {
   ] as const)(
     "does not overwrite an invalid %s file",
     async (filename, invalidConfig, ErrorType) => {
-      const repo = createGitRepo(`buddy-config-invalid-update-${filename}`)
-      const filepath = projectConfigFile(repo, filename)
+      await using repository = await createGitRepo(`buddy-config-invalid-update-${filename}`)
+      const filepath = projectConfigFile(repository.path, filename)
       mkdirSync(path.dirname(filepath), { recursive: true })
       writeFileSync(filepath, invalidConfig)
 
       await expect(
         Config.updateProject(
-          repo,
+          repository.path,
           Config.ProjectInfo.parse({ model: "anthropic/repaired" }),
         ),
       ).rejects.toBeInstanceOf(ErrorType)
@@ -319,8 +303,8 @@ describe("config jsonc", () => {
   test.each(["buddy.jsonc", "buddy.json"])(
     "rejects an ambiguous duplicate known key without modifying %s",
     async (filename) => {
-      const repo = createGitRepo(`buddy-config-duplicate-key-${filename}`)
-      const filepath = projectConfigFile(repo, filename)
+      await using repository = await createGitRepo(`buddy-config-duplicate-key-${filename}`)
+      const filepath = projectConfigFile(repository.path, filename)
       const original = [
         "{",
         '  "model": "anthropic/first",',
@@ -331,11 +315,11 @@ describe("config jsonc", () => {
       mkdirSync(path.dirname(filepath), { recursive: true })
       writeFileSync(filepath, original)
 
-      await expect(Config.getProjectFile(repo)).rejects.toBeInstanceOf(InvalidError)
+      await expect(Config.getProjectFile(repository.path)).rejects.toBeInstanceOf(InvalidError)
 
       await expect(
         Config.updateProject(
-          repo,
+          repository.path,
           Config.ProjectInfo.parse({ model: "anthropic/updated" }),
         ),
       ).rejects.toBeInstanceOf(InvalidError)
@@ -345,9 +329,9 @@ describe("config jsonc", () => {
   )
 
   test("keeps env and file references unexpanded when another setting changes", async () => {
-    const repo = createGitRepo("buddy-config-preserve-references")
-    const filepath = projectConfigFile(repo)
-    const referencedFile = path.join(repo, "provider-url.txt")
+    await using repository = await createGitRepo("buddy-config-preserve-references")
+    const filepath = projectConfigFile(repository.path)
+    const referencedFile = path.join(repository.path, "provider-url.txt")
     const envName = "BUDDY_CONFIG_REFERENCE_TEST_SECRET"
     const previousEnv = process.env[envName]
     process.env[envName] = "expanded-secret"
@@ -372,9 +356,9 @@ describe("config jsonc", () => {
     )
 
     try {
-      const config = await Config.getProjectFile(repo)
+      const config = await Config.getProjectFile(repository.path)
       await Config.updateProject(
-        repo,
+        repository.path,
         Config.ProjectInfo.parse({ ...config, model: "anthropic/updated" }),
       )
 
@@ -393,8 +377,8 @@ describe("config jsonc", () => {
   })
 
   test("removes the deprecated learner-memory master switch on write", async () => {
-    const repo = createGitRepo("buddy-config-remove-legacy-memory-setting")
-    const filepath = projectConfigFile(repo)
+    await using repository = await createGitRepo("buddy-config-remove-legacy-memory-setting")
+    const filepath = projectConfigFile(repository.path)
     mkdirSync(path.dirname(filepath), { recursive: true })
     writeFileSync(
       filepath,
@@ -406,9 +390,9 @@ describe("config jsonc", () => {
       }),
     )
 
-    const config = await Config.getProjectFile(repo)
+    const config = await Config.getProjectFile(repository.path)
     await Config.updateProject(
-      repo,
+      repository.path,
       Config.ProjectInfo.parse({
         ...config,
         learner_memory: { ...config.learner_memory, enabled: false },

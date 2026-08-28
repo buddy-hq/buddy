@@ -13,15 +13,29 @@ import {
   type InAppBrowserSessionBoundary,
 } from "../src/main/in-app-browser-boundary"
 
+function requireInstalledHandler<THandler>(
+  handler: THandler | undefined,
+  name: string,
+): THandler {
+  if (handler === undefined) throw new Error(`${name} handler was not installed`)
+  return handler
+}
+
 describe("in-app Browser session boundary", () => {
   test("allows only sanitized clipboard writes, blocks downloads, and tears down handlers", () => {
-    let requestHandler: Parameters<
-      InAppBrowserSessionBoundary["setPermissionRequestHandler"]
-    >[0] = null
-    let checkHandler: Parameters<
-      InAppBrowserSessionBoundary["setPermissionCheckHandler"]
-    >[0] = null
-    let downloadHandler: Parameters<InAppBrowserSessionBoundary["onWillDownload"]>[0]
+    type PermissionRequestHandler = NonNullable<
+      Parameters<InAppBrowserSessionBoundary["setPermissionRequestHandler"]>[0]
+    >
+    type PermissionCheckHandler = NonNullable<
+      Parameters<InAppBrowserSessionBoundary["setPermissionCheckHandler"]>[0]
+    >
+    let requestHandler: PermissionRequestHandler | undefined
+    let checkHandler: PermissionCheckHandler | undefined
+    let downloadHandler:
+      | Parameters<InAppBrowserSessionBoundary["onWillDownload"]>[0]
+      | undefined
+    let requestHandlerCleared = false
+    let checkHandlerCleared = false
     let downloadDisposed = false
     let userAgent = "Mozilla Electron/41.0 Chrome/140.0 Buddy/0.0.63"
     const dispose = configureInAppBrowserSessionBoundary({
@@ -30,10 +44,12 @@ describe("in-app Browser session boundary", () => {
         userAgent = nextUserAgent
       },
       setPermissionRequestHandler: (handler) => {
-        requestHandler = handler
+        if (handler) requestHandler = handler
+        else requestHandlerCleared = true
       },
       setPermissionCheckHandler: (handler) => {
-        checkHandler = handler
+        if (handler) checkHandler = handler
+        else checkHandlerCleared = true
       },
       onWillDownload(handler) {
         downloadHandler = handler
@@ -44,16 +60,21 @@ describe("in-app Browser session boundary", () => {
     })
 
     expect(userAgent).toBe("Mozilla Chrome/140.0")
+    const installedRequestHandler = requireInstalledHandler(requestHandler, "Permission request")
+    const installedCheckHandler = requireInstalledHandler(checkHandler, "Permission check")
+    const installedDownloadHandler = requireInstalledHandler(downloadHandler, "Download")
     const permissionResults: boolean[] = []
-    requestHandler?.("clipboard-sanitized-write", (allowed) => permissionResults.push(allowed))
-    requestHandler?.("camera", (allowed) => permissionResults.push(allowed))
+    installedRequestHandler("clipboard-sanitized-write", (allowed) =>
+      permissionResults.push(allowed),
+    )
+    installedRequestHandler("camera", (allowed) => permissionResults.push(allowed))
     expect(permissionResults).toEqual([true, false])
-    expect(checkHandler?.("clipboard-sanitized-write")).toBe(true)
-    expect(checkHandler?.("notifications")).toBe(false)
+    expect(installedCheckHandler("clipboard-sanitized-write")).toBe(true)
+    expect(installedCheckHandler("notifications")).toBe(false)
 
     let prevented = false
     const messages: string[] = []
-    downloadHandler?.(
+    installedDownloadHandler(
       { preventDefault: () => (prevented = true) },
       { sendMessage: (message) => messages.push(message) },
     )
@@ -62,8 +83,8 @@ describe("in-app Browser session boundary", () => {
 
     dispose()
     expect(downloadDisposed).toBe(true)
-    expect(requestHandler).toBeNull()
-    expect(checkHandler).toBeNull()
+    expect(requestHandlerCleared).toBe(true)
+    expect(checkHandlerCleared).toBe(true)
   })
 })
 
@@ -100,23 +121,32 @@ describe("in-app Browser webview attachment boundary", () => {
       }),
     ).toBe(true)
     expect(prevented).toBe(false)
-    expect(webPreferences).toEqual({
-      sandbox: true,
-      nodeIntegration: false,
-      nodeIntegrationInSubFrames: false,
-      contextIsolation: true,
-    })
+    expect(webPreferences.preload).toBeUndefined()
+    expect(webPreferences.sandbox).toBe(true)
+    expect(webPreferences.nodeIntegration).toBe(false)
+    expect(webPreferences.nodeIntegrationInSubFrames).toBe(false)
+    expect(webPreferences.contextIsolation).toBe(true)
   })
 })
 
 describe("in-app Browser guest wiring", () => {
   test("replaces popups, guards navigation and redirects, and removes listeners on teardown", async () => {
-    let willAttach: Parameters<InAppBrowserHostBoundary["onWillAttachWebview"]>[0]
-    let didAttach: Parameters<InAppBrowserHostBoundary["onDidAttachWebview"]>[0]
-    let popupHandler: Parameters<InAppBrowserGuestBoundary["setWindowOpenHandler"]>[0]
-    let navigateHandler: Parameters<InAppBrowserGuestBoundary["onWillNavigate"]>[0]
-    let redirectHandler: Parameters<InAppBrowserGuestBoundary["onWillRedirect"]>[0]
-    let destroyedHandler: Parameters<InAppBrowserGuestBoundary["onDestroyed"]>[0]
+    let willAttach:
+      | Parameters<InAppBrowserHostBoundary["onWillAttachWebview"]>[0]
+      | undefined
+    let didAttach: Parameters<InAppBrowserHostBoundary["onDidAttachWebview"]>[0] | undefined
+    let popupHandler:
+      | Parameters<InAppBrowserGuestBoundary["setWindowOpenHandler"]>[0]
+      | undefined
+    let navigateHandler:
+      | Parameters<InAppBrowserGuestBoundary["onWillNavigate"]>[0]
+      | undefined
+    let redirectHandler:
+      | Parameters<InAppBrowserGuestBoundary["onWillRedirect"]>[0]
+      | undefined
+    let destroyedHandler:
+      | Parameters<InAppBrowserGuestBoundary["onDestroyed"]>[0]
+      | undefined
     const disposals: string[] = []
     const loadedUrls: string[] = []
     const messages: string[] = []
@@ -153,31 +183,38 @@ describe("in-app Browser guest wiring", () => {
     }
 
     const dispose = wireInAppBrowserHostBoundary(host)
+    const installedWillAttach = requireInstalledHandler(willAttach, "Will-attach")
+    const installedDidAttach = requireInstalledHandler(didAttach, "Did-attach")
     const preferences = { preload: "/tmp/preload.js" }
     let preventedAttach = false
-    willAttach?.(
+    installedWillAttach(
       { preventDefault: () => (preventedAttach = true) },
       preferences,
       { partition: IN_APP_BROWSER_PARTITION, src: "https://hibuddy.in" },
     )
     expect(preventedAttach).toBe(false)
     expect(preferences.preload).toBeUndefined()
-    didAttach?.(guest)
+    installedDidAttach(guest)
 
-    expect(popupHandler?.("https://hibuddy.in/popup")).toEqual({ action: "deny" })
+    const installedPopupHandler = requireInstalledHandler(popupHandler, "Popup")
+    const installedNavigateHandler = requireInstalledHandler(navigateHandler, "Navigate")
+    const installedRedirectHandler = requireInstalledHandler(redirectHandler, "Redirect")
+    const installedDestroyedHandler = requireInstalledHandler(destroyedHandler, "Destroyed")
+
+    expect(installedPopupHandler("https://hibuddy.in/popup")).toEqual({ action: "deny" })
     await Promise.resolve()
     expect(loadedUrls).toEqual(["https://hibuddy.in/popup"])
-    expect(popupHandler?.("mailto:hello@hibuddy.in")).toEqual({ action: "deny" })
+    expect(installedPopupHandler("mailto:hello@hibuddy.in")).toEqual({ action: "deny" })
     expect(messages).toEqual([IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE])
 
     let preventedNavigate = false
-    navigateHandler?.(
+    installedNavigateHandler(
       { preventDefault: () => (preventedNavigate = true) },
       "https://hibuddy.in/account",
     )
     expect(preventedNavigate).toBe(false)
     let preventedRedirect = false
-    redirectHandler?.(
+    installedRedirectHandler(
       { preventDefault: () => (preventedRedirect = true) },
       "javascript:alert(1)",
     )
@@ -187,7 +224,7 @@ describe("in-app Browser guest wiring", () => {
       IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE,
     ])
 
-    destroyedHandler?.()
+    installedDestroyedHandler()
     expect(disposals).toEqual(["navigate", "redirect", "destroyed"])
     dispose()
     expect(disposals).toEqual([

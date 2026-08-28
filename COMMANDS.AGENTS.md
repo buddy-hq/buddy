@@ -10,6 +10,9 @@ bun run typecheck
 bun run build
 bun run lint
 bun run fmt
+bun run test            # every owned test exactly once, with suite timings
+bun run test:topology   # verify every owned test file belongs to one suite
+bun run test:baseline   # slow per-file timing baseline; use only for deliberate measurement
 bun run test:contracts   # backend+web compatibility contract suites
 bun run check:vendor     # recommended full gate for vendored OpenCode updates
 bun run vendor:sync
@@ -57,6 +60,11 @@ Bun is the test runner. Prefer package-scoped tests and contract suites; avoid r
 
 ```bash
 bun run test:contracts
-bun test packages/buddy
-bun test packages/web
+bun run --cwd packages/buddy test
+bun run --cwd packages/web test
+bun run --cwd packages/desktop-electron test
+bun run --cwd packages/opencode-adapter test
 ```
+
+Use the package scripts because they install the required test preload and isolation. Raw
+root-level `bun test packages/web` omits Happy DOM and is not a valid frontend test command.

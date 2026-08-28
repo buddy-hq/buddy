@@ -118,47 +118,52 @@ describe("SVG auto-repair route", () => {
       },
     })
 
-    publishGlobalEvent({
-      directory: "/workspace",
-      payload: {
-        type: "message.updated",
-        properties: {
-          sessionID: SESSION_ID,
-          info: {
-            role: "assistant",
-            parentID: "msg_unrelated",
-            time: { completed: Date.now() },
+    try {
+      publishGlobalEvent({
+        directory: "/workspace",
+        payload: {
+          type: "message.updated",
+          properties: {
+            sessionID: SESSION_ID,
+            info: {
+              role: "assistant",
+              parentID: "msg_unrelated",
+              time: { completed: Date.now() },
+            },
           },
         },
-      },
-    })
-    expect(messages).toEqual([])
+      })
+      expect(messages).toEqual([])
 
-    publishGlobalEvent({
-      directory: "/workspace",
-      payload: {
-        type: "message.updated",
-        properties: {
-          sessionID: SESSION_ID,
-          info: {
-            role: "assistant",
-            parentID: repairRequestID,
-            time: { completed: Date.now() },
+      publishGlobalEvent({
+        directory: "/workspace",
+        payload: {
+          type: "message.updated",
+          properties: {
+            sessionID: SESSION_ID,
+            info: {
+              role: "assistant",
+              parentID: repairRequestID,
+              time: { completed: Date.now() },
+            },
           },
         },
-      },
-    })
-    expect(messages).toEqual(["Automatic SVG repair completed without producing a validated SVG."])
+      })
+      expect(messages).toEqual([
+        "Automatic SVG repair completed without producing a validated SVG.",
+      ])
 
-    publishGlobalEvent({
-      directory: "/workspace",
-      payload: {
-        type: "session.error",
-        properties: { sessionID: SESSION_ID },
-      },
-    })
-    expect(messages).toHaveLength(1)
-    unsubscribe()
+      publishGlobalEvent({
+        directory: "/workspace",
+        payload: {
+          type: "session.error",
+          properties: { sessionID: SESSION_ID },
+        },
+      })
+      expect(messages).toHaveLength(1)
+    } finally {
+      unsubscribe()
+    }
   })
 
   test("accepts only standalone transcript fences with the first valid closing delimiter", () => {

@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { SessionID } from "@buddy/opencode-adapter/id"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Config } from "@buddy/backend/config"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { loadOpenCodeApp } from "../../src/opencode-runtime"
@@ -175,19 +174,4 @@ describe("dynamic tool permission toggling", () => {
     expect(permission).toEqual(expect.arrayContaining(dynamicLearningToolDefaultDenyRules()))
   })
 
-  test("plugin pre-registers Buddy tools in the registry", async () => {
-    await using project = await tmpdir({ git: true })
-    await loadOpenCodeApp()
-    await syncOpenCodeProjectConfig(project.path)
-
-    const toolIDs = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => ToolRegistry.ids(),
-    })
-
-    expect(toolIDs).toContain("bash")
-    expect(toolIDs).toContain("read")
-    expect(toolIDs).toContain("prepare_resource")
-    expect(toolIDs).toContain("learning_tool_search")
-  })
 })

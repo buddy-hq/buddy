@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
-import os from "node:os"
 import { spawnSync } from "node:child_process"
 import { AdvancedMathRuntimeService } from "../../src/local-runtimes/advanced-math/service"
+import { temporaryDirectory } from "./temporary-directory"
 
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9p3xK+QAAAAASUVORK5CYII="
@@ -129,21 +129,19 @@ function createArchive(sourceDir: string, outputArchive: string) {
     return
   }
 
-  const result = spawnSync(
-    "zip",
-    ["-r", outputArchive, path.basename(sourceDir)],
-    { cwd: path.dirname(sourceDir) },
-  )
+  const result = spawnSync("zip", ["-r", outputArchive, path.basename(sourceDir)], {
+    cwd: path.dirname(sourceDir),
+  })
   assertArchiveCreated(result)
 }
 
 async function buildMockRuntimeBundle(options: MockRuntimeBundleOptions = {}) {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-advanced-math-test-"))
-  const bundleDir = path.join(tempDir, "buddy-advanced-math")
+  await using tempDir = await temporaryDirectory({ prefix: "buddy-advanced-math-test-" })
+  const bundleDir = path.join(tempDir.path, "buddy-advanced-math")
   const executableName =
     process.platform === "win32" ? "buddy-advanced-math.exe" : "buddy-advanced-math"
   const executablePath = path.join(bundleDir, executableName)
-  const archivePath = path.join(tempDir, "buddy-advanced-math.zip")
+  const archivePath = path.join(tempDir.path, "buddy-advanced-math.zip")
 
   await fs.mkdir(bundleDir, { recursive: true })
   await fs.writeFile(executablePath, buildFakeRuntimeExecutable(options), "utf8")
@@ -151,7 +149,6 @@ async function buildMockRuntimeBundle(options: MockRuntimeBundleOptions = {}) {
   createArchive(bundleDir, archivePath)
   const archiveBytes = await fs.readFile(archivePath)
 
-  await fs.rm(tempDir, { recursive: true, force: true })
   return archiveBytes
 }
 
@@ -164,28 +161,28 @@ export async function withMockAdvancedMathRuntimeAssets<T>(run: () => Promise<T>
   const archiveBytes = await buildMockRuntimeBundle()
   const checksum = sha256Bytes(archiveBytes)
 
-  process.env.BUDDY_ADVANCED_MATH_VERSION = version
-  process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL = baseUrl
-
-  await AdvancedMathRuntimeService.remove().catch(() => undefined)
-
-  const assetInfo = AdvancedMathRuntimeService.runtimeAssetInfo()
-  const mockFetch: typeof fetch = Object.assign(
-    async (input: RequestInfo | URL) => {
-      const url = String(input)
-      if (url === `${baseUrl}/${assetInfo.bundleFilename}`) {
-        return new Response(Uint8Array.from(archiveBytes), { status: 200 })
-      }
-      if (url === `${baseUrl}/${assetInfo.checksumFilename}`) {
-        return new Response(`${checksum}  ${assetInfo.bundleFilename}\n`, { status: 200 })
-      }
-      return new Response("not found", { status: 404 })
-    },
-    { preconnect: previousFetch.preconnect },
-  )
-  globalThis.fetch = mockFetch
-
   try {
+    process.env.BUDDY_ADVANCED_MATH_VERSION = version
+    process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL = baseUrl
+
+    await AdvancedMathRuntimeService.remove().catch(() => undefined)
+
+    const assetInfo = AdvancedMathRuntimeService.runtimeAssetInfo()
+    const mockFetch: typeof fetch = Object.assign(
+      async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === `${baseUrl}/${assetInfo.bundleFilename}`) {
+          return new Response(Uint8Array.from(archiveBytes), { status: 200 })
+        }
+        if (url === `${baseUrl}/${assetInfo.checksumFilename}`) {
+          return new Response(`${checksum}  ${assetInfo.bundleFilename}\n`, { status: 200 })
+        }
+        return new Response("not found", { status: 404 })
+      },
+      { preconnect: previousFetch.preconnect },
+    )
+    globalThis.fetch = mockFetch
+
     return await run()
   } finally {
     await AdvancedMathRuntimeService.remove().catch(() => undefined)
@@ -219,36 +216,35 @@ export async function withLocalMockAdvancedMathRuntimeAssets<T>(
   const previousBaseUrl = process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL
   const previousLocalAssetDir = process.env.BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR
   const version = `test-${randomUUID()}`
-  const localAssetRoot = await fs.mkdtemp(
-    path.join(os.tmpdir(), "buddy-advanced-math-local-assets-"),
-  )
-
-  process.env.BUDDY_ADVANCED_MATH_VERSION = version
-  delete process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL
-  process.env.BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR = localAssetRoot
-
-  await AdvancedMathRuntimeService.remove().catch(() => undefined)
-
-  const assetInfo = AdvancedMathRuntimeService.runtimeAssetInfo()
-  const targetDir = path.join(localAssetRoot, assetInfo.targetTriple)
-  const bundlePath = path.join(targetDir, assetInfo.bundleFilename)
-  const checksumPath = path.join(targetDir, assetInfo.checksumFilename)
-  const replaceAssets = async (options: MockRuntimeBundleOptions = {}) => {
-    const archiveBytes = await buildMockRuntimeBundle(options)
-    const checksum = sha256Bytes(archiveBytes)
-
-    await fs.mkdir(targetDir, { recursive: true })
-    await fs.writeFile(bundlePath, archiveBytes)
-    await fs.writeFile(checksumPath, `${checksum}  ${assetInfo.bundleFilename}\n`, "utf8")
-  }
-
-  await replaceAssets()
-
+  await using localAssetDirectory = await temporaryDirectory({
+    prefix: "buddy-advanced-math-local-assets-",
+  })
+  const localAssetRoot = localAssetDirectory.path
   try {
+    process.env.BUDDY_ADVANCED_MATH_VERSION = version
+    delete process.env.BUDDY_ADVANCED_MATH_ASSET_BASE_URL
+    process.env.BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR = localAssetRoot
+
+    await AdvancedMathRuntimeService.remove().catch(() => undefined)
+
+    const assetInfo = AdvancedMathRuntimeService.runtimeAssetInfo()
+    const targetDir = path.join(localAssetRoot, assetInfo.targetTriple)
+    const bundlePath = path.join(targetDir, assetInfo.bundleFilename)
+    const checksumPath = path.join(targetDir, assetInfo.checksumFilename)
+    const replaceAssets = async (options: MockRuntimeBundleOptions = {}) => {
+      const archiveBytes = await buildMockRuntimeBundle(options)
+      const checksum = sha256Bytes(archiveBytes)
+
+      await fs.mkdir(targetDir, { recursive: true })
+      await fs.writeFile(bundlePath, archiveBytes)
+      await fs.writeFile(checksumPath, `${checksum}  ${assetInfo.bundleFilename}\n`, "utf8")
+    }
+
+    await replaceAssets()
+
     return await run({ replaceAssets })
   } finally {
     await AdvancedMathRuntimeService.remove().catch(() => undefined)
-    await fs.rm(localAssetRoot, { recursive: true, force: true }).catch(() => undefined)
 
     if (previousVersion === undefined) delete process.env.BUDDY_ADVANCED_MATH_VERSION
     else process.env.BUDDY_ADVANCED_MATH_VERSION = previousVersion

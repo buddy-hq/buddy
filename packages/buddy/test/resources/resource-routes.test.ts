@@ -254,7 +254,6 @@ describe("resource routes", () => {
     const added = requireJsonObject(await addResponse.json())
     const objectID = BuddyObjectIDSchema.parse(added.objectID)
     await waitForResource(project.path, "interrupted")
-    await Bun.sleep(RESOURCE_POLL_DELAY_MS)
 
     const manifestPath = BuddyObjectPath.manifestFile(
       project.path,
@@ -421,7 +420,6 @@ describe("resource routes", () => {
     const readyResource = await waitForResource(project.path, "guide")
     expect(readyResource.status).toBe(RESOURCE_READY_STATUS)
 
-    await Bun.sleep(5)
     await writeFile(
       sourcePath,
       "<!doctype html><html><body><h1>Guide</h1><p>Version two is longer.</p></body></html>",

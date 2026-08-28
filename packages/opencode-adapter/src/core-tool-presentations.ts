@@ -509,7 +509,3 @@ export function getCoreToolPresentationDescriptor(
 export function getRuntimeToolPresentationDescriptor(): ToolPresentationDescriptor {
   return runtimeToolPresentation
 }
-
-export function coreToolPresentationCatalog() {
-  return catalog
-}

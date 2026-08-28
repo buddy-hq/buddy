@@ -20,14 +20,12 @@ export const BUDDY_MINISIGN_PUBLIC_KEY = "RWTcBSYzKsK7Gf1M2w9kTDB2fvSRlsZejPWt+A
 type TGithubRelease = {
   draft: boolean
   prerelease: boolean
-  publishedAt: string
   tagName: string
 }
 
 const githubReleaseSchema = z.object({
   draft: z.boolean(),
   prerelease: z.boolean(),
-  published_at: z.string(),
   tag_name: z.string().min(1),
 })
 
@@ -84,15 +82,6 @@ export function resolveReleaseTagAssetUrl(tag: string, filename: string): string
   return new URL(filename, resolveReleaseTagDownloadBaseUrl(tag)).toString()
 }
 
-export async function resolveLatestPrereleaseAssetUrl(filename: string): Promise<string> {
-  const release = await fetchLatestGithubPrerelease()
-  if (!release) {
-    throw new Error("No published GitHub prerelease found")
-  }
-
-  return resolveReleaseTagAssetUrl(release.tagName, filename)
-}
-
 export async function resolveLatestPreviewAssetUrl(filename: string): Promise<string> {
   const release = await fetchLatestGithubPreviewRelease()
   if (!release) {
@@ -111,22 +100,6 @@ export async function resolveLatestRingAssetUrl(input: {
   }
 
   return resolveLatestReleaseAssetUrl(input.filename)
-}
-
-async function fetchLatestGithubPrerelease(): Promise<TGithubRelease | undefined> {
-  const releases = await fetchGithubReleases()
-  let latestPrerelease: TGithubRelease | undefined
-  for (const release of releases) {
-    if (release.draft || !release.prerelease) continue
-    if (
-      !latestPrerelease ||
-      releasePublishedAtTime(release) > releasePublishedAtTime(latestPrerelease)
-    ) {
-      latestPrerelease = release
-    }
-  }
-
-  return latestPrerelease
 }
 
 async function fetchLatestGithubPreviewRelease(): Promise<TGithubRelease | undefined> {
@@ -176,11 +149,6 @@ async function fetchGithubReleases(): Promise<TGithubRelease[]> {
   return releases
 }
 
-function releasePublishedAtTime(release: TGithubRelease): number {
-  const time = Date.parse(release.publishedAt)
-  return Number.isNaN(time) ? 0 : time
-}
-
 function parseGithubRelease<TValue>(value: TValue): TGithubRelease | undefined {
   const parsed = parseWithSchema(githubReleaseSchema, value)
   if (parsed === undefined) return undefined
@@ -188,7 +156,6 @@ function parseGithubRelease<TValue>(value: TValue): TGithubRelease | undefined {
   return {
     draft: parsed.draft,
     prerelease: parsed.prerelease,
-    publishedAt: parsed.published_at,
     tagName: parsed.tag_name,
   }
 }

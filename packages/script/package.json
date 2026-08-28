@@ -14,7 +14,10 @@
     "./storage-env": "./src/storage-env.ts"
   },
   "scripts": {
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
+    "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit",
+    "test": "bun ../../script/run-test-command.ts -- bun test --preload ../../script/test-preload.ts src"
   },
   "dependencies": {
     "blakejs": "^1.2.1"

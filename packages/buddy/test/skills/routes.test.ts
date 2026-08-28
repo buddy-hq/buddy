@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test"
-import os from "node:os"
 import path from "node:path"
 import fs from "node:fs"
-import { mkdtempSync, writeFileSync } from "node:fs"
+import { writeFileSync } from "node:fs"
 import { app } from "../../src/index.ts"
 import { Config } from "@buddy/backend/config"
 import { Global } from "../../src/storage"
+import { BUDDY_ENV } from "../../src/storage/constants"
 import { createGitRepo } from "../helpers/repo"
+import { temporaryDirectory } from "../helpers/temporary-directory"
+import { temporaryEnvironment } from "../helpers/temporary-environment"
 import {
   requireJsonObject,
   requireJsonArray,
@@ -16,14 +18,17 @@ import {
   type TJsonObject,
 } from "../helpers/parse"
 
+const HOME_ENVIRONMENT_KEY = "HOME"
+const CODEX_HOME_ENVIRONMENT_KEY = "CODEX_HOME"
+
 function skillRecords(value: TJsonValue | undefined, label: string): TJsonObject[] {
   return requireJsonArray(value, label).map((entry) => requireJsonObject(entry, label))
 }
 
 describe("skills routes", () => {
   test("applies skills v2 roots, external toggle, and curated install flow", async () => {
-    const repo = createGitRepo("buddy-route-skills")
-    const workspaceAgentSkillDir = path.join(repo, ".agents", "skills", "local-review")
+    await using repo = await createGitRepo("buddy-route-skills")
+    const workspaceAgentSkillDir = path.join(repo.path, ".agents", "skills", "local-review")
     fs.mkdirSync(workspaceAgentSkillDir, {
       recursive: true,
     })
@@ -38,68 +43,73 @@ Use the local review workflow for this repository.
 `,
     )
 
-    const fakeHome = mkdtempSync(path.join(os.tmpdir(), "buddy-skills-home-"))
-    const previousHome = process.env.HOME
-    const previousBuddyHome = process.env.BUDDY_TEST_HOME
-    const previousCodexHome = process.env.CODEX_HOME
+    await using fakeHome = await temporaryDirectory({ prefix: "buddy-skills-home-" })
+    using environment = temporaryEnvironment({
+      [HOME_ENVIRONMENT_KEY]: fakeHome.path,
+      [BUDDY_ENV.TEST_HOME]: fakeHome.path,
+      [CODEX_HOME_ENVIRONMENT_KEY]: path.join(fakeHome.path, ".codex"),
+    })
+    void environment
     const globalFile = path.join(Global.Path.config, "buddy.jsonc")
     const previousGlobal = fs.existsSync(globalFile)
       ? fs.readFileSync(globalFile, "utf8")
       : undefined
 
-    process.env.HOME = fakeHome
-    process.env.BUDDY_TEST_HOME = fakeHome
-    process.env.CODEX_HOME = path.join(fakeHome, ".codex")
+    try {
+      fs.rmSync(path.join(fakeHome.path, ".buddy"), {
+        recursive: true,
+        force: true,
+      })
+      fs.rmSync(globalFile, {
+        force: true,
+      })
 
-    fs.rmSync(path.join(fakeHome, ".buddy"), {
-      recursive: true,
-      force: true,
-    })
-    fs.rmSync(globalFile, {
-      force: true,
-    })
-
-    const installedLockPath = path.join(fakeHome, ".buddy", "skills.lock.json")
-    fs.mkdirSync(path.dirname(installedLockPath), { recursive: true })
-    writeFileSync(
-      installedLockPath,
-      `${JSON.stringify(
-        {
-          schemaVersion: 1,
-          installed: {
-            "anthropic-pptx": {
-              catalogId: "anthropic-pptx",
-              displayName: "PowerPoint Presentation",
-              skillName: "pptx",
-              source: {
-                type: "github",
-                repo: "anthropics/skills",
-                path: "skills/pptx",
-                ref: "f458cee31a7577a47ba0c9a101976fa599385174",
+      const installedLockPath = path.join(fakeHome.path, ".buddy", "skills.lock.json")
+      fs.mkdirSync(path.dirname(installedLockPath), { recursive: true })
+      writeFileSync(
+        installedLockPath,
+        `${JSON.stringify(
+          {
+            schemaVersion: 1,
+            installed: {
+              "anthropic-pptx": {
+                catalogId: "anthropic-pptx",
+                displayName: "PowerPoint Presentation",
+                skillName: "pptx",
+                source: {
+                  type: "github",
+                  repo: "anthropics/skills",
+                  path: "skills/pptx",
+                  ref: "f458cee31a7577a47ba0c9a101976fa599385174",
+                },
+                integrity: {
+                  algorithm: "tree-sha256-v1",
+                  sha256: "282238363dfc8f6d3bf72326976397182e87e93d10ade6e2f05bfbf931a5dc37",
+                  sizeBytes: 1129944,
+                  fileCount: 59,
+                },
+                installedAt: "2026-05-10T00:00:00.000Z",
+                scannerPolicyVersion: 1,
+                state: "active",
+                installedPath: path.join(
+                  fakeHome.path,
+                  ".buddy",
+                  "skills",
+                  "library",
+                  "anthropic-pptx",
+                ),
               },
-              integrity: {
-                algorithm: "tree-sha256-v1",
-                sha256: "282238363dfc8f6d3bf72326976397182e87e93d10ade6e2f05bfbf931a5dc37",
-                sizeBytes: 1129944,
-                fileCount: 59,
-              },
-              installedAt: "2026-05-10T00:00:00.000Z",
-              scannerPolicyVersion: 1,
-              state: "active",
-              installedPath: path.join(fakeHome, ".buddy", "skills", "library", "anthropic-pptx"),
             },
           },
-        },
-        null,
-        2,
-      )}\n`,
-      "utf8",
-    )
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      )
 
-    try {
       const listBefore = await app.request("/api/skills", {
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
       })
 
@@ -108,7 +118,7 @@ Use the local review workflow for this repository.
       const beforeInstalled = skillRecords(beforeBody.installed, "installed skills")
       const beforeLibrary = skillRecords(beforeBody.library, "skill library")
 
-      expect(beforeBody.managedRoot).toBe(path.join(fakeHome, ".buddy", "skills"))
+      expect(beforeBody.managedRoot).toBe(path.join(fakeHome.path, ".buddy", "skills"))
       expect(beforeBody.externalVendorRootsEnabled).toBe(false)
       expect(beforeInstalled.some((skill) => skill.name === "local-review")).toBe(false)
       expect(
@@ -119,12 +129,10 @@ Use the local review workflow for this repository.
         shortDescription: "Read and analyze books, papers, articles, and resources",
       })
       expect(
-        beforeLibrary.some(
-          (entry) => entry.id === "anthropic-pptx" && entry.state === "available",
-        ),
+        beforeLibrary.some((entry) => entry.id === "anthropic-pptx" && entry.state === "available"),
       ).toBe(true)
       const installedSystemManifestPath = path.join(
-        fakeHome,
+        fakeHome.path,
         ".buddy",
         "skills",
         ".system",
@@ -138,24 +146,26 @@ Use the local review workflow for this repository.
       const removeSystemSkillResponse = await app.request("/api/skills/reading", {
         method: "DELETE",
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
       })
       expect(removeSystemSkillResponse.status).toBe(403)
       expect(
-        fs.existsSync(path.join(fakeHome, ".buddy", "skills", ".system", "reading", "SKILL.md")),
+        fs.existsSync(
+          path.join(fakeHome.path, ".buddy", "skills", ".system", "reading", "SKILL.md"),
+        ),
       ).toBe(true)
       expect(fs.existsSync(installedSystemManifestPath)).toBe(true)
       const reconciledLock = parseJsonObjectText(fs.readFileSync(installedLockPath, "utf8"))
-      expect(Object.keys(requireJsonObject(reconciledLock.installed, "installed skills"))).toHaveLength(
-        0,
-      )
+      expect(
+        Object.keys(requireJsonObject(reconciledLock.installed, "installed skills")),
+      ).toHaveLength(0)
 
       const toggleOnResponse = await app.request("/api/skills/settings", {
         method: "PATCH",
         headers: {
           "content-type": "application/json",
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
         body: JSON.stringify({
           externalVendorRootsEnabled: true,
@@ -165,7 +175,7 @@ Use the local review workflow for this repository.
 
       const listAfterToggle = await app.request("/api/skills?refresh=1", {
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
       })
       expect(listAfterToggle.status).toBe(200)
@@ -188,7 +198,7 @@ Use the local review workflow for this repository.
         method: "PATCH",
         headers: {
           "content-type": "application/json",
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
         body: JSON.stringify({
           action: "deny",
@@ -198,15 +208,12 @@ Use the local review workflow for this repository.
 
       const listAfterLocalRule = await app.request("/api/skills", {
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
       })
       expect(listAfterLocalRule.status).toBe(200)
       const afterLocalRuleBody = requireJsonObject(await listAfterLocalRule.json())
-      const afterLocalRuleInstalled = skillRecords(
-        afterLocalRuleBody.installed,
-        "installed skills",
-      )
+      const afterLocalRuleInstalled = skillRecords(afterLocalRuleBody.installed, "installed skills")
       expect(
         afterLocalRuleInstalled.some(
           (skill) =>
@@ -225,7 +232,7 @@ Use the local review workflow for this repository.
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
         body: JSON.stringify({
           name: "Local Review",
@@ -239,7 +246,7 @@ Use the local review workflow for this repository.
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
         body: JSON.stringify({
           name: "Plan Helper",
@@ -252,7 +259,7 @@ Use the local review workflow for this repository.
 
       const listAfterCreate = await app.request("/api/skills", {
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
       })
       expect(listAfterCreate.status).toBe(200)
@@ -266,14 +273,14 @@ Use the local review workflow for this repository.
       const removeCustomResponse = await app.request("/api/skills/plan-helper", {
         method: "DELETE",
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
       })
       expect(removeCustomResponse.status).toBe(200)
 
       const listAfterRemove = await app.request("/api/skills", {
         headers: {
-          "x-buddy-directory": repo,
+          "x-buddy-directory": repo.path,
         },
       })
       expect(listAfterRemove.status).toBe(200)
@@ -284,11 +291,7 @@ Use the local review workflow for this repository.
         ),
       ).toBe(false)
     } finally {
-      process.env.HOME = previousHome
-      process.env.BUDDY_TEST_HOME = previousBuddyHome
-      process.env.CODEX_HOME = previousCodexHome
-
-      fs.rmSync(path.join(fakeHome, ".buddy"), {
+      fs.rmSync(path.join(fakeHome.path, ".buddy"), {
         recursive: true,
         force: true,
       })

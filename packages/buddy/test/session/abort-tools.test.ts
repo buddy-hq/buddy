@@ -15,22 +15,28 @@ type TPluginMetadataUpdate = Parameters<ToolContext["metadata"]>[0]
 
 const TEST_TOOL_PRESENTATION = defineToolPresentation({ archetype: "silent" })
 
-const slowAbortTool = createBuddyTool({
-  id: "slow_abort_test",
-  description: "Slow tool used to verify abort propagation.",
-  presentation: TEST_TOOL_PRESENTATION,
-  parameters: z.object({
-    value: z.string(),
-  }),
-  async execute(args) {
-    await Bun.sleep(250)
-    return {
-      title: "slow",
-      output: args.value,
-      metadata: {},
-    }
-  },
-})
+function createSlowAbortTool() {
+  const started = Promise.withResolvers<void>()
+  const release = Promise.withResolvers<void>()
+  const tool = createBuddyTool({
+    id: "slow_abort_test",
+    description: "Slow tool used to verify abort propagation.",
+    presentation: TEST_TOOL_PRESENTATION,
+    parameters: z.object({
+      value: z.string(),
+    }),
+    async execute(args) {
+      started.resolve()
+      await release.promise
+      return {
+        title: "slow",
+        output: args.value,
+        metadata: {},
+      }
+    },
+  })
+  return { tool, started: started.promise, release: release.resolve }
+}
 
 const permissionBridgeTool = createBuddyTool({
   id: "permission_bridge_test",
@@ -60,9 +66,9 @@ describe("buddy tool abort handling", () => {
   test("rejects promptly when the tool context aborts", async () => {
     await using project = await tmpdir({ git: true })
 
-    const pluginTool = buddyToolToPluginTool(slowAbortTool, project.path)
+    const slowAbortTool = createSlowAbortTool()
+    const pluginTool = buddyToolToPluginTool(slowAbortTool.tool, project.path)
     const abortController = new AbortController()
-    setTimeout(() => abortController.abort(), 25)
 
     const execution = pluginTool.execute(
       { value: "late result" },
@@ -78,6 +84,9 @@ describe("buddy tool abort handling", () => {
       },
     )
 
+    await slowAbortTool.started
+    abortController.abort()
+    slowAbortTool.release()
     await expect(execution).rejects.toMatchObject({
       name: "AbortError",
     })

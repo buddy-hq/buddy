@@ -461,7 +461,7 @@ At minimum, verify:
 Relevant automated coverage lives in:
 
 - `packages/web/test/active-chat-transition-coordinator.test.ts`;
-- `packages/web/test/active-chat-transition-entrypoints.test.ts`;
+- `script/check-import-contract.ts` for active-chat entrypoint boundaries;
 - `packages/web/test/active-chat-transition-state.test.ts`;
 - `packages/web/test/directory-chat-layout-motion.test.tsx`;
 - `packages/web/test/use-auto-scroll.test.tsx`;

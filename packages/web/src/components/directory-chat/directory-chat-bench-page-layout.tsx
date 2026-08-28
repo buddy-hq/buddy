@@ -200,21 +200,6 @@ function resolveFloatingChatMinimumSize(
   }
 }
 
-export function resolveFloatingChatSize(
-  containerSize: FloatingChatContainerSize,
-  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_DOCUMENT,
-): FloatingChatSize {
-  const defaults = resolveBenchLayoutDefaults({
-    profile,
-    viewport: benchViewportFromContainerSize(containerSize),
-  })
-
-  return {
-    width: defaults.floatingRect.width,
-    height: defaults.floatingRect.height,
-  }
-}
-
 function clampFloatingChatSize(
   size: FloatingChatSize,
   containerSize: FloatingChatContainerSize,
@@ -288,18 +273,6 @@ export function clampFloatingChatPosition(
     x: Math.min(maxX, Math.max(bounds.margin, position.x)),
     y: maxY < minY ? minY : Math.min(maxY, Math.max(minY, position.y)),
   }
-}
-
-export function resolveDefaultFloatingChatPosition(
-  bounds: FloatingChatBounds,
-): FloatingChatPosition {
-  return clampFloatingChatPosition(
-    {
-      x: bounds.containerWidth - bounds.width - bounds.margin,
-      y: bounds.containerHeight - bounds.height - bounds.margin,
-    },
-    bounds,
-  )
 }
 
 export function clampFloatingChatRect(

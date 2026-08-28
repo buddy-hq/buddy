@@ -290,7 +290,7 @@ describe("whiteboard element conversion", () => {
     })
   })
 
-  test("dedupes rendered layout reports by board, element versions, viewport, and canvas", () => {
+  test("changes rendered layout signatures with viewport and element details", () => {
     const base = createWhiteboardRenderReport({
       boardID: "board_1",
       appState: {
@@ -354,7 +354,6 @@ describe("whiteboard element conversion", () => {
       throw new Error("Expected render reports for non-collapsed canvases")
     }
 
-    expect(whiteboardRenderReportSignature(base)).toBe(whiteboardRenderReportSignature(base))
     expect(whiteboardRenderReportSignature(base)).not.toBe(
       whiteboardRenderReportSignature(changedViewport),
     )

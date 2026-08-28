@@ -7,18 +7,18 @@ import { createGitRepo } from "../helpers/repo"
 
 describe("config default_persona", () => {
   test("defaults to buddy when no default_persona is configured", async () => {
-    const repo = createGitRepo("buddy-config-default-persona-default")
+    await using repo = await createGitRepo("buddy-config-default-persona-default")
 
-    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
+    const selected = await withSyncedOpenCodeConfig(repo.path, () => OpenCodeAgent.defaultAgent())
 
     expect(selected).toBe("buddy")
   })
 
   test("uses configured teaching-buddy as default_persona", async () => {
-    const repo = createGitRepo("buddy-config-default-persona-teaching")
+    await using repo = await createGitRepo("buddy-config-default-persona-teaching")
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           default_persona: "teaching-buddy",
@@ -28,16 +28,16 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
+    const selected = await withSyncedOpenCodeConfig(repo.path, () => OpenCodeAgent.defaultAgent())
 
     expect(selected).toBe("teaching-buddy")
   })
 
   test("uses teaching-buddy when teaching is the primary use", async () => {
-    const repo = createGitRepo("buddy-config-primary-use-teach")
+    await using repo = await createGitRepo("buddy-config-primary-use-teach")
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           personalization: {
@@ -49,16 +49,16 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
+    const selected = await withSyncedOpenCodeConfig(repo.path, () => OpenCodeAgent.defaultAgent())
 
     expect(selected).toBe("teaching-buddy")
   })
 
   test("keeps an explicit default_persona ahead of the primary-use default", async () => {
-    const repo = createGitRepo("buddy-config-explicit-default-over-primary-use")
+    await using repo = await createGitRepo("buddy-config-explicit-default-over-primary-use")
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           default_persona: "buddy",
@@ -71,16 +71,16 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
+    const selected = await withSyncedOpenCodeConfig(repo.path, () => OpenCodeAgent.defaultAgent())
 
     expect(selected).toBe("buddy")
   })
 
   test("propagates hidden personas into the runtime agent catalog", async () => {
-    const repo = createGitRepo("buddy-config-hidden-persona")
+    await using repo = await createGitRepo("buddy-config-hidden-persona")
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           personas: {
@@ -94,7 +94,7 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    const teachingBuddy = await withSyncedOpenCodeConfig(repo, async () =>
+    const teachingBuddy = await withSyncedOpenCodeConfig(repo.path, async () =>
       OpenCodeAgent.get("teaching-buddy"),
     )
 
@@ -102,10 +102,10 @@ describe("config default_persona", () => {
   })
 
   test("rejects configs that hide every Buddy persona", async () => {
-    const repo = createGitRepo("buddy-config-hidden-all-personas")
+    await using repo = await createGitRepo("buddy-config-hidden-all-personas")
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           personas: {
@@ -122,8 +122,8 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    await expect(Config.getProject(repo)).rejects.toBeInstanceOf(InvalidError)
-    await expect(Config.getProject(repo)).rejects.toMatchObject({
+    await expect(Config.getProject(repo.path)).rejects.toBeInstanceOf(InvalidError)
+    await expect(Config.getProject(repo.path)).rejects.toMatchObject({
       data: {
         issues: expect.arrayContaining([
           expect.objectContaining({
@@ -135,10 +135,10 @@ describe("config default_persona", () => {
   })
 
   test("rejects surfaces overrides that remove the inherited default surface", async () => {
-    const repo = createGitRepo("buddy-config-invalid-default-surface")
+    await using repo = await createGitRepo("buddy-config-invalid-default-surface")
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           personas: {
@@ -152,8 +152,8 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    await expect(Config.getProject(repo)).rejects.toBeInstanceOf(InvalidError)
-    await expect(Config.getProject(repo)).rejects.toMatchObject({
+    await expect(Config.getProject(repo.path)).rejects.toBeInstanceOf(InvalidError)
+    await expect(Config.getProject(repo.path)).rejects.toMatchObject({
       data: {
         issues: expect.arrayContaining([
           expect.objectContaining({
@@ -165,10 +165,10 @@ describe("config default_persona", () => {
   })
 
   test("rejects defaultSurface overrides that are not present in inherited surfaces", async () => {
-    const repo = createGitRepo("buddy-config-invalid-default-surface-only")
+    await using repo = await createGitRepo("buddy-config-invalid-default-surface-only")
 
     writeProjectConfig(
-      repo,
+      repo.path,
       JSON.stringify(
         {
           personas: {
@@ -182,8 +182,8 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    await expect(Config.getProject(repo)).rejects.toBeInstanceOf(InvalidError)
-    await expect(Config.getProject(repo)).rejects.toMatchObject({
+    await expect(Config.getProject(repo.path)).rejects.toBeInstanceOf(InvalidError)
+    await expect(Config.getProject(repo.path)).rejects.toMatchObject({
       data: {
         issues: expect.arrayContaining([
           expect.objectContaining({

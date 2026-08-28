@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import fsp from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
+import { BUDDY_ENV } from "../../src/storage/constants"
 import type { SkillCatalogEntry } from "../../src/learning/skill-management/service/library"
 import {
   readInstalledSkillLock,
@@ -10,6 +10,8 @@ import {
 import { installCuratedLibrarySkill } from "../../src/learning/skill-management/service/mutations"
 import { managedLibraryRoot } from "../../src/learning/skill-management/service/paths"
 import { computeSkillTreeSha256 } from "../../src/learning/skill-management/service/tree-hash"
+import { temporaryDirectory } from "../helpers/temporary-directory"
+import { temporaryEnvironment } from "../helpers/temporary-environment"
 
 const CATALOG_ID = "update-test"
 const SKILL_NAME = "update-test"
@@ -105,151 +107,120 @@ function fetchedSkill(fetchedRoot: string, sizeBytes: number) {
 
 describe("curated skill mutations", () => {
   test("atomically replaces an installed skill when the catalog hash changes", async () => {
-    const previousTestHome = process.env.BUDDY_TEST_HOME
-    const testHome = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-skill-update-"))
-    process.env.BUDDY_TEST_HOME = testHome
+    await using testHome = await temporaryDirectory({ prefix: "buddy-skill-update-" })
+    using environment = temporaryEnvironment({ [BUDDY_ENV.TEST_HOME]: testHome.path })
+    void environment
 
     const targetRoot = path.join(managedLibraryRoot(), CATALOG_ID)
-    const fetchedRoot = path.join(testHome, "fetched")
+    const fetchedRoot = path.join(testHome.path, "fetched")
     const oldDocument = skillDocument(SKILL_NAME, "Old workflow.")
     const newDocument = skillDocument(SKILL_NAME, "Updated workflow.")
 
-    try {
-      await Promise.all([
-        fsp.mkdir(targetRoot, { recursive: true }),
-        fsp.mkdir(fetchedRoot, { recursive: true }),
-      ])
-      await Promise.all([
-        fsp.writeFile(path.join(targetRoot, "SKILL.md"), oldDocument, "utf8"),
-        fsp.writeFile(path.join(fetchedRoot, "SKILL.md"), newDocument, "utf8"),
-      ])
+    await Promise.all([
+      fsp.mkdir(targetRoot, { recursive: true }),
+      fsp.mkdir(fetchedRoot, { recursive: true }),
+    ])
+    await Promise.all([
+      fsp.writeFile(path.join(targetRoot, "SKILL.md"), oldDocument, "utf8"),
+      fsp.writeFile(path.join(fetchedRoot, "SKILL.md"), newDocument, "utf8"),
+    ])
 
-      const newSha = await computeSkillTreeSha256(fetchedRoot)
-      const newSizeBytes = Buffer.byteLength(newDocument)
-      const entry = catalogEntry(newSha, newSizeBytes)
+    const newSha = await computeSkillTreeSha256(fetchedRoot)
+    const newSizeBytes = Buffer.byteLength(newDocument)
+    const entry = catalogEntry(newSha, newSizeBytes)
 
-      await writeActiveLock(entry, targetRoot, oldDocument)
+    await writeActiveLock(entry, targetRoot, oldDocument)
 
-      await expect(
-        installCuratedLibrarySkill(CATALOG_ID, testHome, {
-          readCatalogEntryByID: async () => entry,
-          fetchPinnedGitHubSkill: async () => fetchedSkill(fetchedRoot, newSizeBytes),
-          resolveInstalledSkillByName: async () => ({
-            name: SKILL_NAME,
-            description: "Old workflow.",
-            location: path.join(targetRoot, "SKILL.md"),
-            content: oldDocument,
-          }),
-          refreshSkillRuntime: async () => undefined,
+    await expect(
+      installCuratedLibrarySkill(CATALOG_ID, testHome.path, {
+        readCatalogEntryByID: async () => entry,
+        fetchPinnedGitHubSkill: async () => fetchedSkill(fetchedRoot, newSizeBytes),
+        resolveInstalledSkillByName: async () => ({
+          name: SKILL_NAME,
+          description: "Old workflow.",
+          location: path.join(targetRoot, "SKILL.md"),
+          content: oldDocument,
         }),
-      ).resolves.toBe(SKILL_NAME)
+        refreshSkillRuntime: async () => undefined,
+      }),
+    ).resolves.toBe(SKILL_NAME)
 
-      await expect(fsp.readFile(path.join(targetRoot, "SKILL.md"), "utf8")).resolves.toBe(
-        newDocument,
-      )
-      const lock = await readInstalledSkillLock()
-      expect(lock.installed[CATALOG_ID]?.integrity.sha256).toBe(newSha)
-      expect(lock.installed[CATALOG_ID]?.source.ref).toBe(NEW_REF)
-    } finally {
-      if (previousTestHome === undefined) {
-        delete process.env.BUDDY_TEST_HOME
-      } else {
-        process.env.BUDDY_TEST_HOME = previousTestHome
-      }
-      await fsp.rm(testHome, { recursive: true, force: true })
-    }
+    await expect(fsp.readFile(path.join(targetRoot, "SKILL.md"), "utf8")).resolves.toBe(newDocument)
+    const lock = await readInstalledSkillLock()
+    expect(lock.installed[CATALOG_ID]?.integrity.sha256).toBe(newSha)
+    expect(lock.installed[CATALOG_ID]?.source.ref).toBe(NEW_REF)
   })
 
   test("rejects a curated update that changes the installed skill name", async () => {
-    const previousTestHome = process.env.BUDDY_TEST_HOME
-    const testHome = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-skill-rename-"))
-    process.env.BUDDY_TEST_HOME = testHome
+    await using testHome = await temporaryDirectory({ prefix: "buddy-skill-rename-" })
+    using environment = temporaryEnvironment({ [BUDDY_ENV.TEST_HOME]: testHome.path })
+    void environment
 
     const targetRoot = path.join(managedLibraryRoot(), CATALOG_ID)
-    const fetchedRoot = path.join(testHome, "fetched")
+    const fetchedRoot = path.join(testHome.path, "fetched")
     const oldDocument = skillDocument(SKILL_NAME, "Old workflow.")
     const renamedDocument = skillDocument(RENAMED_SKILL_NAME, "Renamed workflow.")
 
-    try {
-      await Promise.all([
-        fsp.mkdir(targetRoot, { recursive: true }),
-        fsp.mkdir(fetchedRoot, { recursive: true }),
-      ])
-      await Promise.all([
-        fsp.writeFile(path.join(targetRoot, "SKILL.md"), oldDocument, "utf8"),
-        fsp.writeFile(path.join(fetchedRoot, "SKILL.md"), renamedDocument, "utf8"),
-      ])
+    await Promise.all([
+      fsp.mkdir(targetRoot, { recursive: true }),
+      fsp.mkdir(fetchedRoot, { recursive: true }),
+    ])
+    await Promise.all([
+      fsp.writeFile(path.join(targetRoot, "SKILL.md"), oldDocument, "utf8"),
+      fsp.writeFile(path.join(fetchedRoot, "SKILL.md"), renamedDocument, "utf8"),
+    ])
 
-      const renamedSha = await computeSkillTreeSha256(fetchedRoot)
-      const renamedSizeBytes = Buffer.byteLength(renamedDocument)
-      const entry = catalogEntry(renamedSha, renamedSizeBytes)
-      await writeActiveLock(entry, targetRoot, oldDocument)
+    const renamedSha = await computeSkillTreeSha256(fetchedRoot)
+    const renamedSizeBytes = Buffer.byteLength(renamedDocument)
+    const entry = catalogEntry(renamedSha, renamedSizeBytes)
+    await writeActiveLock(entry, targetRoot, oldDocument)
 
-      await expect(
-        installCuratedLibrarySkill(CATALOG_ID, testHome, {
-          readCatalogEntryByID: async () => entry,
-          fetchPinnedGitHubSkill: async () => fetchedSkill(fetchedRoot, renamedSizeBytes),
-          resolveInstalledSkillByName: async () => {
-            throw new Error("Name validation must happen before installed-skill resolution")
-          },
-          refreshSkillRuntime: async () => undefined,
-        }),
-      ).rejects.toThrow(
-        `Curated skill update cannot change name from "${SKILL_NAME}" to "${RENAMED_SKILL_NAME}"`,
-      )
+    await expect(
+      installCuratedLibrarySkill(CATALOG_ID, testHome.path, {
+        readCatalogEntryByID: async () => entry,
+        fetchPinnedGitHubSkill: async () => fetchedSkill(fetchedRoot, renamedSizeBytes),
+        resolveInstalledSkillByName: async () => {
+          throw new Error("Name validation must happen before installed-skill resolution")
+        },
+        refreshSkillRuntime: async () => undefined,
+      }),
+    ).rejects.toThrow(
+      `Curated skill update cannot change name from "${SKILL_NAME}" to "${RENAMED_SKILL_NAME}"`,
+    )
 
-      await expect(fsp.readFile(path.join(targetRoot, "SKILL.md"), "utf8")).resolves.toBe(
-        oldDocument,
-      )
-      const lock = await readInstalledSkillLock()
-      expect(lock.installed[CATALOG_ID]?.skillName).toBe(SKILL_NAME)
-      expect(lock.installed[CATALOG_ID]?.integrity.sha256).toBe(OLD_SHA)
-    } finally {
-      if (previousTestHome === undefined) {
-        delete process.env.BUDDY_TEST_HOME
-      } else {
-        process.env.BUDDY_TEST_HOME = previousTestHome
-      }
-      await fsp.rm(testHome, { recursive: true, force: true })
-    }
+    await expect(fsp.readFile(path.join(targetRoot, "SKILL.md"), "utf8")).resolves.toBe(oldDocument)
+    const lock = await readInstalledSkillLock()
+    expect(lock.installed[CATALOG_ID]?.skillName).toBe(SKILL_NAME)
+    expect(lock.installed[CATALOG_ID]?.integrity.sha256).toBe(OLD_SHA)
   })
 
   test("does not publish a skill withdrawn while installation is in progress", async () => {
-    const previousTestHome = process.env.BUDDY_TEST_HOME
-    const testHome = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-skill-withdraw-race-"))
-    process.env.BUDDY_TEST_HOME = testHome
-    const fetchedRoot = path.join(testHome, "fetched")
+    await using testHome = await temporaryDirectory({ prefix: "buddy-skill-withdraw-race-" })
+    using environment = temporaryEnvironment({ [BUDDY_ENV.TEST_HOME]: testHome.path })
+    void environment
+    const fetchedRoot = path.join(testHome.path, "fetched")
     const document = skillDocument(SKILL_NAME, "Reviewed workflow.")
 
-    try {
-      await fsp.mkdir(fetchedRoot, { recursive: true })
-      await fsp.writeFile(path.join(fetchedRoot, "SKILL.md"), document, "utf8")
-      const sizeBytes = Buffer.byteLength(document)
-      const entry = catalogEntry(await computeSkillTreeSha256(fetchedRoot), sizeBytes)
-      const withdrawnEntry: SkillCatalogEntry = { ...entry, status: "withdrawn" }
-      let catalogReadCount = 0
+    await fsp.mkdir(fetchedRoot, { recursive: true })
+    await fsp.writeFile(path.join(fetchedRoot, "SKILL.md"), document, "utf8")
+    const sizeBytes = Buffer.byteLength(document)
+    const entry = catalogEntry(await computeSkillTreeSha256(fetchedRoot), sizeBytes)
+    const withdrawnEntry: SkillCatalogEntry = { ...entry, status: "withdrawn" }
+    let catalogReadCount = 0
 
-      await expect(
-        installCuratedLibrarySkill(CATALOG_ID, testHome, {
-          readCatalogEntryByID: async () => {
-            catalogReadCount += 1
-            return catalogReadCount === 1 ? entry : withdrawnEntry
-          },
-          readCatalogRevision: async () => "1",
-          fetchPinnedGitHubSkill: async () => fetchedSkill(fetchedRoot, sizeBytes),
-          resolveInstalledSkillByName: async () => undefined,
-          refreshSkillRuntime: async () => undefined,
-        }),
-      ).rejects.toThrow("catalog changed during installation")
+    await expect(
+      installCuratedLibrarySkill(CATALOG_ID, testHome.path, {
+        readCatalogEntryByID: async () => {
+          catalogReadCount += 1
+          return catalogReadCount === 1 ? entry : withdrawnEntry
+        },
+        readCatalogRevision: async () => "1",
+        fetchPinnedGitHubSkill: async () => fetchedSkill(fetchedRoot, sizeBytes),
+        resolveInstalledSkillByName: async () => undefined,
+        refreshSkillRuntime: async () => undefined,
+      }),
+    ).rejects.toThrow("catalog changed during installation")
 
-      await expect(fsp.stat(path.join(managedLibraryRoot(), CATALOG_ID))).rejects.toThrow()
-    } finally {
-      if (previousTestHome === undefined) {
-        delete process.env.BUDDY_TEST_HOME
-      } else {
-        process.env.BUDDY_TEST_HOME = previousTestHome
-      }
-      await fsp.rm(testHome, { recursive: true, force: true })
-    }
+    await expect(fsp.stat(path.join(managedLibraryRoot(), CATALOG_ID))).rejects.toThrow()
   })
 })

@@ -7,14 +7,6 @@ const SESSIONS = [
   { id: "chat-a-grandchild", parentID: "chat-a-child" },
   { id: "chat-b" },
 ]
-const SESSION_BENCH_SURFACE_SOURCE = new URL(
-  "../src/components/bench/surfaces/session-bench-surface.tsx",
-  import.meta.url,
-)
-const DIRECTORY_WORKSPACE_ROOT_SOURCE = new URL(
-  "../src/components/directory-chat/directory-workspace-root.tsx",
-  import.meta.url,
-)
 
 describe("subagent Bench ownership", () => {
   test("resolves a subagent to its root owner chat", () => {
@@ -81,16 +73,5 @@ describe("subagent Bench ownership", () => {
 
     expect(result).toBe(false)
     expect(calls).toEqual([])
-  })
-
-  test("nested subagent links delegate to the root owner-aware navigation path", async () => {
-    const [sessionSurface, workspaceRoot] = await Promise.all([
-      Bun.file(SESSION_BENCH_SURFACE_SOURCE).text(),
-      Bun.file(DIRECTORY_WORKSPACE_ROOT_SOURCE).text(),
-    ])
-
-    expect(sessionSurface).not.toContain("useOpenSubagentBench")
-    expect(sessionSurface).toContain("onOpenSession={props.onOpenSession}")
-    expect(workspaceRoot).toContain("onOpenSession={handleOpenSubagentSession}")
   })
 })

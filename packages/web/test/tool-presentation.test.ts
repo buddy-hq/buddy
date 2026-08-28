@@ -105,7 +105,7 @@ function textPart(id: string, text: string): MessagePart {
 }
 
 describe("resolved tool presentation", () => {
-  test("accepts the discriminated snapshot and rejects the old optional metadata", () => {
+  test("accepts the discriminated snapshot", () => {
     const snapshot = activityPresentation({
       phase: "running",
       action: "Reading",
@@ -117,11 +117,6 @@ describe("resolved tool presentation", () => {
     })
 
     expect(parseToolPresentationMetadata(presentationMetadata(snapshot))).toEqual(snapshot)
-    expect(
-      parseToolPresentationMetadata({
-        buddy: { toolUi: { presentation: "hidden-summary" } },
-      }),
-    ).toBeUndefined()
   })
 
   test("uses authored presentation copy and never a raw snake-case name", () => {

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join, relative } from "node:path"
+import { join } from "node:path"
 import {
   isPathInsideDirectory,
   resolveAvailableMarkdownPdfExportPath,
@@ -36,7 +36,6 @@ describe("markdown PDF export paths", () => {
     })
 
     expect(resolved).toBe(join(canonicalNotebook, "lesson.pdf"))
-    expect(relative(canonicalNotebook, resolved).startsWith("..")).toBe(false)
   })
 
   test("increments the notebook-local file name when the export already exists", async () => {

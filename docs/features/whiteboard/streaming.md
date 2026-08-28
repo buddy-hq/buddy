@@ -587,10 +587,9 @@ Backend and adapter coverage:
   - proves callback delivery precedes corresponding AI SDK normalized events;
   - verifies callback/normalized deduplication.
 - `packages/buddy/test/opencode-runtime/tool-input-delta-bridge.test.ts`
-  - pins the current vendored normalization and processor behavior;
-  - verifies installation before server startup;
-  - verifies both services come from the live App runtime;
   - verifies whiteboard-only normalized fallback and cleanup bounds.
+- `script/check-import-contract.ts`
+  - enforces bridge installation before OpenCode server startup.
 
 Frontend coverage:
 

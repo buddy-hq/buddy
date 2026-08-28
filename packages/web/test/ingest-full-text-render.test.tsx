@@ -1,7 +1,6 @@
 import "../happydom"
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { NATIVE_RESOURCE_FORMATS } from "@buddy/workspace-file-policy"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ToolPartCard } from "../src/components/chat/parts/assistant-part/tool-part"
@@ -101,31 +100,9 @@ describe("ingest_full_text tool rendering", () => {
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
-  test("derives cards for every native and text ingestion format without a format whitelist", () => {
-    for (const format of NATIVE_RESOURCE_FORMATS) {
-      expect(
-        resolveFullTextResourceFilePresentation({
-          resourceKey: `lesson.${format}`,
-          record: {
-            alias: `lesson.${format}`,
-            format,
-            sourceRelpath: `.buddy/objects/lesson/source/lesson.${format}`,
-          },
-        }).extension,
-      ).toBe(format)
-    }
-
+  test("resolves extensions from aliases for text, code, and unknown formats", () => {
     const textFormats = [
-      ["html", "html"],
-      ["htm", "htm"],
-      ["xhtml", "xhtml"],
-      ["markdown", "markdown"],
       ["text", "txt"],
-      ["json", "json"],
-      ["jsonc", "jsonc"],
-      ["yaml", "yaml"],
-      ["yml", "yml"],
-      ["csv", "csv"],
       ["code", "ts"],
       ["unknown", "custom"],
     ] as const
@@ -287,56 +264,6 @@ describe("ingest_full_text tool rendering", () => {
                   '<resource_full_text_ingestion resource="guns-of-august" completed="false" reason="context_too_full">Use scoped reading instead.</resource_full_text_ingestion>',
                 title: "ingest_full_text",
                 time: { start: 1, end: 2 },
-              },
-            }}
-          />
-        </QueryClientProvider>,
-      )
-      await flushEffects()
-    })
-
-    expect(container.textContent).toBe("")
-  })
-
-  test("hides legacy context-too-full error results from the transcript", async () => {
-    await act(async () => {
-      root.render(
-        <QueryClientProvider client={queryClient}>
-          <ToolPartCard
-            part={{
-              id: "prt_full_text_legacy_fallback",
-              sessionID: "ses_full_text",
-              messageID: "msg_full_text",
-              callID: "call_full_text_legacy_fallback",
-              type: "tool",
-              tool: "ingest_full_text",
-              state: {
-                status: "error",
-                input: {
-                  resourceKey: "guns-of-august",
-                },
-                error:
-                  'Cannot ingest full text for resource "guns-of-august" because the live session context is too full.\nUse scoped reading instead of full-text ingestion in this session.',
-                time: { start: 1, end: 2 },
-              },
-              metadata: {
-                buddy: {
-                  presentation: {
-                    version: 1,
-                    phase: "completed",
-                    action: "Loaded full text",
-                    detail: "guns-of-august",
-                    icon: "file",
-                    renderer: "full-text",
-                    outcome: {
-                      type: "silent",
-                      reason: "scoped-reading-fallback",
-                    },
-                    archetype: "inline-output",
-                    layoutRole: "card-output",
-                    collection: "full-text-collection",
-                  },
-                },
               },
             }}
           />

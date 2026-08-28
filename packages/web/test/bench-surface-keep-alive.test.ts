@@ -54,18 +54,6 @@ describe("bench surface keep-alive", () => {
     )
   })
 
-  test("keeps a previously active surface mounted so returning to it does not rebuild", () => {
-    const first = fileTarget("docs/a.md")
-    const second = fileTarget("docs/b.md")
-
-    const instances = retainAll([first, second])
-
-    expect(instances.map((instance) => instance.key)).toEqual([
-      benchTargetKey(first),
-      benchTargetKey(second),
-    ])
-  })
-
   test("moves a re-activated surface to most-recently-used without remounting it", () => {
     const first = fileTarget("docs/a.md")
     const second = fileTarget("docs/b.md")

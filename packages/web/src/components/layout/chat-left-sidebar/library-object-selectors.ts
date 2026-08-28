@@ -138,24 +138,10 @@ function getFlashcardDeckObjectSummary(
   }
 }
 
-function countMediaObjectsByDirectory(input: {
-  directories: readonly string[]
-  snapshots: readonly WorkspaceObjectsQuerySnapshot[]
-}): Map<string, number> {
-  const counts = new Map<string, number>()
-  input.directories.forEach((directory, directoryIndex) => {
-    const snapshot = input.snapshots[directoryIndex]
-    const count = snapshot?.data?.objects.filter(isRenderableMediaLibraryObject).length ?? 0
-    counts.set(directory, count)
-  })
-  return counts
-}
-
 export {
   MEDIA_LIBRARY_KINDS,
   createBenchObjectTarget,
   objectKindFilter,
-  countMediaObjectsByDirectory,
   getFlashcardDeckObjectSummary,
   isLibraryVisibleObject,
   isMediaLibraryObject,

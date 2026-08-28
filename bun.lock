@@ -13,6 +13,8 @@
         "@oxlint/plugins": "1.78.0",
         "@tanstack/eslint-plugin-query": "^5.99.0",
         "@tsconfig/node22": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
         "@typescript/native-preview": "7.0.0-dev.20251207.1",
         "cspell": "^10.0.0",
         "oxfmt": "^0.58.0",
@@ -23,6 +25,9 @@
     },
     "packages/browser-contract": {
       "name": "@buddy/browser-contract",
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
     },
     "packages/buddy": {
       "name": "@buddy/backend",

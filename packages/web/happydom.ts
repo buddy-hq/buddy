@@ -1,8 +1,11 @@
+import "../../script/test-preload"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { mock } from "bun:test"
+import { installTestNetworkGuard } from "../../script/test-network"
 import { parseTString } from "./scripts/parse-values"
 
 GlobalRegistrator.register()
+installTestNetworkGuard()
 
 // Packaged skill icons are enumerated with `import.meta.glob`, which only exists
 // inside a Vite build — evaluating that module under the test runtime throws and

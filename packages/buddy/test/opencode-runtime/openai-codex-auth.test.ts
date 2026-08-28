@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, mock, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import fs from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import { APICallError } from "ai"
 import { BUDDY_ENV } from "../../src/storage/constants"
@@ -16,14 +15,33 @@ import {
   type OpenAICodexStoredAuth,
 } from "../../src/opencode-runtime/plugins/openai-codex-credentials"
 import { traceOpenAIAuth } from "../../src/opencode-runtime/plugins/openai-auth-trace"
+import { temporaryDirectory } from "../helpers/temporary-directory"
 
 const originalFetch = globalThis.fetch
+const originalDesktopCallbackUrl = process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]
+const originalOpenAIAuthTraceFile = process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE]
+
+function restoreEnvironmentVariable(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name]
+    return
+  }
+
+  process.env[name] = value
+}
+
+beforeEach(() => {
+  delete process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]
+  delete process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE]
+})
 
 afterEach(() => {
+  // Cancelling traces the attempt, so drop the scoped trace file first: its
+  // directory is already disposed and tracing would recreate it.
+  restoreEnvironmentVariable(BUDDY_ENV.OPENAI_AUTH_TRACE_FILE, originalOpenAIAuthTraceFile)
   cancelOpenAICodexAuthorization()
-  delete process.env[BUDDY_ENV.DESKTOP_CALLBACK_URL]
+  restoreEnvironmentVariable(BUDDY_ENV.DESKTOP_CALLBACK_URL, originalDesktopCallbackUrl)
   globalThis.fetch = originalFetch
-  delete process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE]
 })
 
 function readRequestUrl(input: RequestInfo | URL) {
@@ -94,18 +112,14 @@ describe("OpenAI Codex auth hook", () => {
   })
 
   test("writes structured auth diagnostics when the dev trace file is configured", async () => {
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-openai-auth-trace-"))
-    const traceFile = path.join(directory, "auth.jsonl")
+    await using directory = await temporaryDirectory({ prefix: "buddy-openai-auth-trace-" })
+    const traceFile = path.join(directory.path, "auth.jsonl")
     process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE] = traceFile
 
-    try {
-      await traceOpenAIAuth("test_event", { status: 200, ok: true })
-      const entry: unknown = JSON.parse((await fs.readFile(traceFile, "utf8")).trim())
+    await traceOpenAIAuth("test_event", { status: 200, ok: true })
+    const entry: unknown = JSON.parse((await fs.readFile(traceFile, "utf8")).trim())
 
-      expect(entry).toMatchObject({ event: "test_event", status: 200, ok: true })
-    } finally {
-      await fs.rm(directory, { recursive: true, force: true })
-    }
+    expect(entry).toMatchObject({ event: "test_event", status: 200, ok: true })
   })
 
   test("brands the success callback page for Buddy", () => {
@@ -233,9 +247,7 @@ describe("OpenAI Codex auth hook", () => {
       setAuth: async () => undefined,
     })
 
-    const result = await loader
-      .fetch("https://api.openai.com/v1/responses")
-      .catch((cause) => cause)
+    const result = await loader.fetch("https://api.openai.com/v1/responses").catch((cause) => cause)
 
     expect(APICallError.isInstance(result)).toBe(true)
     if (!APICallError.isInstance(result)) throw new Error("Expected an API call error")

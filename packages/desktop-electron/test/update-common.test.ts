@@ -2,11 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test"
 import {
   fetchSignedText,
   resolveLatestRingAssetUrl,
-  resolveLatestPrereleaseAssetUrl,
   resolveVersionedReleaseAssetUrls,
   SignedUpdateFetchError,
 } from "../src/main/update-common"
 import { resolveWindowsUpdateManifestFilename } from "../src/shared/release-asset-names"
+import { createTestFetch } from "./helpers/fetch"
 
 const ORIGINAL_FETCH = globalThis.fetch
 const WINDOWS_UPDATE_MANIFEST_FILENAME = resolveWindowsUpdateManifestFilename("x64")
@@ -17,9 +17,9 @@ afterEach(() => {
 
 describe("update common", () => {
   test("stable ring resolves stable latest assets without querying prereleases", async () => {
-    globalThis.fetch = async () => {
+    globalThis.fetch = createTestFetch(async () => {
       throw new Error("stable ring should not fetch GitHub prereleases")
-    }
+    })
 
     await expect(
       resolveLatestRingAssetUrl({
@@ -31,44 +31,8 @@ describe("update common", () => {
     )
   })
 
-  test("resolves latest prerelease assets without using the stable latest release", async () => {
-    let requestedUrl = ""
-    globalThis.fetch = async (input) => {
-      requestedUrl = String(input)
-      return new Response(
-        JSON.stringify([
-          {
-            draft: false,
-            prerelease: false,
-            published_at: "2026-01-03T00:00:00Z",
-            tag_name: "v2.0.0",
-          },
-          {
-            draft: false,
-            prerelease: true,
-            published_at: "2026-01-02T00:00:00Z",
-            tag_name: "v2.1.0-beta.1",
-          },
-          {
-            draft: false,
-            prerelease: true,
-            published_at: "2026-01-04T00:00:00Z",
-            tag_name: "v2.1.0-beta.2",
-          },
-        ]),
-      )
-    }
-
-    await expect(resolveLatestPrereleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)).resolves.toBe(
-      "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.1.0-beta.2/latest-windows-x64.yml",
-    )
-    expect(requestedUrl).toBe(
-      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
-    )
-  })
-
   test("preview ring resolves latest prerelease assets", async () => {
-    globalThis.fetch = async () =>
+    globalThis.fetch = createTestFetch(async () =>
       new Response(
         JSON.stringify([
           {
@@ -78,7 +42,8 @@ describe("update common", () => {
             tag_name: "v2.1.0",
           },
         ]),
-      )
+      ),
+    )
 
     await expect(
       resolveLatestRingAssetUrl({
@@ -91,7 +56,7 @@ describe("update common", () => {
   })
 
   test("preview ring resolves the newest stable release when no prerelease candidate exists", async () => {
-    globalThis.fetch = async () =>
+    globalThis.fetch = createTestFetch(async () =>
       new Response(
         JSON.stringify([
           {
@@ -101,7 +66,8 @@ describe("update common", () => {
             tag_name: "v2.1.0",
           },
         ]),
-      )
+      ),
+    )
 
     await expect(
       resolveLatestRingAssetUrl({
@@ -114,7 +80,7 @@ describe("update common", () => {
   })
 
   test("preview ring skips an older bad prerelease after a newer stable promotion", async () => {
-    globalThis.fetch = async () =>
+    globalThis.fetch = createTestFetch(async () =>
       new Response(
         JSON.stringify([
           {
@@ -130,7 +96,8 @@ describe("update common", () => {
             tag_name: "v2.2.0",
           },
         ]),
-      )
+      ),
+    )
 
     await expect(
       resolveLatestRingAssetUrl({
@@ -139,24 +106,6 @@ describe("update common", () => {
       }),
     ).resolves.toBe(
       "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.2.0/latest-windows-x64.yml",
-    )
-  })
-
-  test("explicit prerelease resolver still reports an empty prerelease channel", async () => {
-    globalThis.fetch = async () =>
-      new Response(
-        JSON.stringify([
-          {
-            draft: false,
-            prerelease: false,
-            published_at: "2026-01-02T00:00:00Z",
-            tag_name: "v2.1.0",
-          },
-        ]),
-      )
-
-    await expect(resolveLatestPrereleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)).rejects.toThrow(
-      "No published GitHub prerelease found",
     )
   })
 
@@ -174,7 +123,7 @@ describe("update common", () => {
   })
 
   test("throws typed fetch errors for missing signed update content", async () => {
-    globalThis.fetch = async () => new Response("missing", { status: 404 })
+    globalThis.fetch = createTestFetch(async () => new Response("missing", { status: 404 }))
 
     await expect(
       fetchSignedText({

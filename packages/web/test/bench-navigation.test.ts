@@ -162,6 +162,23 @@ describe("bench navigation policy", () => {
     }
   })
 
+  test("keeps the floating chat inside narrow workspace bounds", () => {
+    const viewport = { widthPx: 300, heightPx: 360, safeTopPx: 24 }
+    const layout = resolveBenchLayoutDefaults({
+      profile: BENCH_LAYOUT_PROFILE_DOCUMENT,
+      viewport,
+    })
+
+    expect(layout.floatingRect.width).toBeGreaterThan(0)
+    expect(layout.floatingRect.height).toBeGreaterThan(0)
+    expect(layout.floatingRect.width).toBeLessThanOrEqual(
+      viewport.widthPx - layout.floatingMarginPx * 2,
+    )
+    expect(layout.floatingRect.height).toBeLessThanOrEqual(
+      viewport.heightPx - viewport.safeTopPx - layout.floatingMarginPx,
+    )
+  })
+
   test("resolves every profile across representative docked widths", () => {
     const profiles = [
       BENCH_LAYOUT_PROFILE_READING,

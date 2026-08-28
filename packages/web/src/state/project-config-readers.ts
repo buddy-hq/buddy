@@ -55,7 +55,7 @@ export function parsePersonalizationSettings<TValue>(
   return parseWithSchema(personalizationSettingsSchema, value)
 }
 
-export function normalizePersonalizationSettings(
+function normalizePersonalizationSettings(
   input: PersonalizationSettings,
 ): PersonalizationSettings {
   return {

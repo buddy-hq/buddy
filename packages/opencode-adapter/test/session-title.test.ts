@@ -20,7 +20,7 @@ describe("forked session titles", () => {
     ).toBe("Annual plan (2025) (2)")
   })
 
-  test("migrates legacy vendor fork suffixes", () => {
+  test("adapts the current vendor fork suffix into Buddy lineage", () => {
     expect(
       createForkedSessionTitle({ title: "Explain closures (fork #4)", metadata: undefined }).title,
     ).toBe("Explain closures (6)")

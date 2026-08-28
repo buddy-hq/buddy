@@ -7,6 +7,7 @@ import {
   resolveMacRecoveryMetadataUrls,
 } from "../src/main/custom-mac-updater"
 import { resolveMacOsReleaseArtifactFilename } from "../src/shared/release-asset-names"
+import { createTestFetch } from "./helpers/fetch"
 
 const CURRENT_VERSION = "2.0.0"
 const ROLLBACK_VERSION = "1.9.0"
@@ -190,7 +191,7 @@ describe("resolveMacRecoveryMetadataUrls", () => {
       `https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/latest-macos-${process.arch}.json`,
     )
 
-    globalThis.fetch = async () =>
+    globalThis.fetch = createTestFetch(async () =>
       new Response(
         JSON.stringify([
           {
@@ -200,7 +201,8 @@ describe("resolveMacRecoveryMetadataUrls", () => {
             tag_name: "v2.1.0",
           },
         ]),
-      )
+      ),
+    )
 
     await expect(resolveDefaultMacMetadataUrl("preview")).resolves.toBe(
       `https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.1.0/latest-macos-${process.arch}.json`,

@@ -3,7 +3,6 @@ import {
   buildGlobalStandardsPatch,
   buildNotebookStandardsOverridePatch,
   buildGlobalStandardsDefaults,
-  notebookStandardUsesGlobalDefault,
   resolveNotebookStandardEnabled,
 } from "../src/state/standards-settings"
 
@@ -91,18 +90,5 @@ describe("global standards defaults", () => {
         search_standards: false,
       },
     })
-  })
-
-  test("reports when a notebook is inheriting the global default", () => {
-    expect(
-      notebookStandardUsesGlobalDefault(
-        {
-          tools: {
-            get_standard: false,
-          },
-        },
-        "search_standards",
-      ),
-    ).toBe(true)
   })
 })
