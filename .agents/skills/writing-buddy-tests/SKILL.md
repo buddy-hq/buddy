@@ -34,7 +34,7 @@ pure logic → state/store/component → API/filesystem → runtime → Electron
 - Use the cheapest truthful rung. Move matrices down; keep a narrow production-entry wiring guard.
 - Hard to test cheaply signals tangled design. Extract useful production logic; no test-only exports.
 - Integration tests prove integration or wiring. Never mock the boundary being proved.
-- Live app driving is verification, not checked-in regression coverage.
+- Manual live-app dogfooding is verification. Automated Electron/browser tests count when they assert a public contract unavailable below.
 
 ## Trust
 
@@ -47,7 +47,7 @@ pure logic → state/store/component → API/filesystem → runtime → Electron
 - Injected clocks do not freeze filesystem time, native watchers, Electron, or child processes. Avoid wall-time-expiring dates and duration assertions.
 - Assert failure shape, not truthiness. UI actions must produce asserted UI state.
 - Platform-sensitive contracts must run on every claimed platform.
-- Process isolation is default. Group only imports/runtime state proved hermetic alone, together, reordered. More files may mean more processes.
+- Process isolation is the default. Group test files only when imports and runtime state prove hermetic alone, together, and reordered. More files may mean more processes.
 
 ## Cleanup, flakes, cost
 
