@@ -19,6 +19,11 @@ export const Z_INDEX = {
   floating: 400,
   tooltip: 410,
   notification: 420,
+  /**
+   * Devtools sit above every application layer on purpose: they are a dev-only
+   * inspector for whatever is on screen, including modals and toasts. Keep this
+   * below `devtoolsFloating` so devtools' own popups stay above their panel.
+   */
   devtools: 500,
   devtoolsFloating: 510,
 } as const
