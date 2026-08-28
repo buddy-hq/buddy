@@ -85,6 +85,14 @@ const SETTINGS_TAB_ALIAS_MAP = {
 
 export const DEFAULT_SETTINGS_TAB: SettingsTab = "general"
 
+/**
+ * Where a reader lands when the tab they asked for is hidden behind an inactive reveal.
+ * General has no way to turn a capability on, so a deep link to Standards or Memory would
+ * dead-end there. Packages carries the switch, which is the same destination the retired
+ * `?tab=` ids above resolve to.
+ */
+export const CAPABILITY_FALLBACK_SETTINGS_TAB: SettingsTab = "packages"
+
 export const SETTINGS_TABS: SettingsTabDefinition[] = [
   {
     id: "general",
@@ -202,6 +210,19 @@ function revealIsActive(reveal: SettingsTabReveal, input: SettingsTabVisibilityI
 
 export function isCoreSettingsTab(tab: SettingsTabDefinition): boolean {
   return tab.reveal === undefined
+}
+
+/**
+ * The tab to show instead of `tab` when it is not currently visible. Capability tabs send the
+ * reader to the panel that enables them; anything else falls back to General.
+ */
+export function getSettingsTabFallback(tab: SettingsTab): SettingsTab {
+  const definition = SETTINGS_TABS.find((candidate) => candidate.id === tab)
+  if (definition && !isCoreSettingsTab(definition)) {
+    return CAPABILITY_FALLBACK_SETTINGS_TAB
+  }
+
+  return DEFAULT_SETTINGS_TAB
 }
 
 export function getVisibleSettingsTabDefinitions(

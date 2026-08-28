@@ -15,6 +15,7 @@ import { SettingsPage } from "@/components/settings/settings-page"
 import { useStandardsRuntime } from "@/components/settings/use-standards-runtime"
 import {
   DEFAULT_SETTINGS_TAB,
+  getSettingsTabFallback,
   getVisibleSettingsTabDefinitions,
   isCoreSettingsTab,
   resolveSettingsTab,
@@ -172,7 +173,7 @@ function SettingsRoute() {
     [visibleTabs],
   )
   const visibleTabIDs = useMemo(() => new Set(visibleTabs.map((item) => item.id)), [visibleTabs])
-  const activeTab = visibleTabIDs.has(tab) ? tab : DEFAULT_SETTINGS_TAB
+  const activeTab = visibleTabIDs.has(tab) ? tab : getSettingsTabFallback(tab)
 
   const sessionsByDirectory = useMemo(
     () =>
@@ -211,7 +212,7 @@ function SettingsRoute() {
     }
     navigate({
       to: "/settings",
-      search: (previous) => settingsSearchForTab(previous, DEFAULT_SETTINGS_TAB),
+      search: (previous) => settingsSearchForTab(previous, getSettingsTabFallback(tab)),
       replace: true,
     })
   }, [

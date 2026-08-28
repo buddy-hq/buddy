@@ -15,7 +15,10 @@ import {
   type UpdateSettings,
 } from "../src/components/settings/use-update-settings"
 import {
+  CAPABILITY_FALLBACK_SETTINGS_TAB,
+  DEFAULT_SETTINGS_TAB,
   SETTINGS_TABS,
+  getSettingsTabFallback,
   isCoreSettingsTab,
   resolveSettingsTab,
 } from "../src/components/settings/settings-tabs"
@@ -151,6 +154,21 @@ describe("settings updates", () => {
   test("rejects inherited object keys as retired tab ids", () => {
     expect(resolveSettingsTab("toString")).toBeUndefined()
     expect(resolveSettingsTab("constructor")).toBeUndefined()
+  })
+
+  test("sends a hidden capability tab to the panel that enables it", () => {
+    // General has no switch for Standards or Memory, so bouncing a deep link there strands the
+    // reader; Packages is where the capability is turned on.
+    const revealedTabs = SETTINGS_TABS.filter((tab) => !isCoreSettingsTab(tab))
+    expect(revealedTabs.length).toBeGreaterThan(0)
+
+    for (const tab of revealedTabs) {
+      expect(getSettingsTabFallback(tab.id)).toBe(CAPABILITY_FALLBACK_SETTINGS_TAB)
+    }
+
+    for (const tab of SETTINGS_TABS.filter(isCoreSettingsTab)) {
+      expect(getSettingsTabFallback(tab.id)).toBe(DEFAULT_SETTINGS_TAB)
+    }
   })
 
   test("interpolates the MCP toggle accessible name", () => {
