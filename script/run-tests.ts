@@ -66,7 +66,7 @@ function testFileCommand(testFile: OwnedTestFile): readonly string[] {
   if (testFile.owner.id === "backend") {
     command = ["bun", "test", "--preload", "./test/preload.ts", relativePath]
   } else if (testFile.owner.id === "web") {
-    command = ["bun", "./scripts/test-isolated.mjs", relativePath]
+    command = ["bun", "./scripts/test-isolated.ts", relativePath]
   } else if (
     testFile.owner.id === "desktop-electron" ||
     testFile.owner.id === "opencode-adapter" ||

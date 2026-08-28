@@ -1,11 +1,9 @@
-#!/usr/bin/env bun
-
 import { readdir } from "node:fs/promises"
 import path from "node:path"
 import {
-  BACKEND_TEST_GROUPS,
   createTestRunnerPlan,
   normalizeRequestedPackageTestPath,
+  WEB_TEST_GROUPS,
   type TestRunnerPlanEntry,
 } from "../../../script/test-runner-plan"
 import {
@@ -16,8 +14,8 @@ import {
 const PACKAGE_ROOT = path.resolve(import.meta.dir, "..")
 const TEST_ROOT = path.join(PACKAGE_ROOT, "test")
 const TEST_FILE_PATTERN = /\.test\.(?:js|jsx|ts|tsx)$/
-const MILLISECONDS_PER_SECOND = 1_000
 const BUN_EXECUTABLE = process.execPath
+const MILLISECONDS_PER_SECOND = 1_000
 
 type TestRunResult = SupervisedTestProcessResult & {
   readonly durationMilliseconds: number
@@ -50,14 +48,15 @@ async function runTestEntry(entry: TestRunnerPlanEntry): Promise<TestRunResult> 
       BUN_EXECUTABLE,
       "test",
       "--preload",
-      "./test/preload.ts",
+      "./happydom.ts",
+      "--only-failures",
       ...entry.files.map((file) => `./${file}`),
     ],
     cwd: PACKAGE_ROOT,
   })
   const durationMilliseconds = performance.now() - startedAt
   console.log(
-    `[test:backend:finish] ${entry.id}: ${result.exitCode === 0 ? "passed" : `failed (${result.exitCode})`} in ${formatDuration(durationMilliseconds)}`,
+    `[test:web:finish] ${entry.id}: ${result.exitCode === 0 ? "passed" : `failed (${result.exitCode})`} in ${formatDuration(durationMilliseconds)}`,
   )
   return { ...result, durationMilliseconds, entry }
 }
@@ -65,8 +64,8 @@ async function runTestEntry(entry: TestRunnerPlanEntry): Promise<TestRunResult> 
 const discoveredFiles = await discoverTestFiles()
 const plan = createTestRunnerPlan({
   discoveredFiles,
-  groups: BACKEND_TEST_GROUPS,
-  requestedFiles: Bun.argv
+  groups: WEB_TEST_GROUPS,
+  requestedFiles: process.argv
     .slice(2)
     .map((file) => normalizeRequestedPackageTestPath(PACKAGE_ROOT, file)),
 })
@@ -78,7 +77,7 @@ let completedProcesses = 0
 let interruptedExitCode: number | undefined
 for (const entry of plan) {
   console.log(
-    `\n[test:backend:start] ${entry.id} (${entry.files.length} files): ${entry.files.join(", ")}`,
+    `\n[test:web:start] ${entry.id} (${entry.files.length} files): ${entry.files.join(", ")}`,
   )
   const result = await runTestEntry(entry)
   completedProcesses += 1
@@ -88,15 +87,15 @@ for (const entry of plan) {
     break
   }
 }
-
 console.log(
-  `[test:backend] ${totalFileCount} files, ${completedProcesses}/${plan.length} processes completed in ${formatDuration(performance.now() - startedAt)}`,
+  `[test:web] ${totalFileCount} files, ${completedProcesses}/${plan.length} processes completed in ${formatDuration(performance.now() - startedAt)}`,
 )
+
 if (interruptedExitCode !== undefined) {
   process.exitCode = interruptedExitCode
 } else if (failedEntries.length > 0) {
   console.error(
-    `Failed backend test groups/files:\n${failedEntries
+    `Failed web test groups/files:\n${failedEntries
       .map((entry) => `${entry.id}: ${entry.files.join(", ")}`)
       .join("\n")}`,
   )
