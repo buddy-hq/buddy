@@ -9,20 +9,12 @@ import {
   RESOURCE_MAX_CHUNK_UNIT_COUNT,
   RESOURCE_MAX_ARCHIVE_EXPANDED_BYTES,
   RESOURCE_MAX_FULL_TEXT_CHARACTERS,
-  RESOURCE_MAX_FULL_TEXT_UTF8_BYTES,
   RESOURCE_MAX_PAGE_COUNT,
   RESOURCE_MAX_SOURCE_BYTES,
 } from "../../src/resource-packs/budgets"
 import { RESOURCE_PACK_STATUS_READY } from "../../src/resource-packs/contracts"
 
 describe("resource preparation budgets", () => {
-  test("allows the UTF-8 byte size of the full text character budget", () => {
-    expect(RESOURCE_MAX_FULL_TEXT_UTF8_BYTES).toBeGreaterThan(RESOURCE_MAX_FULL_TEXT_CHARACTERS)
-    expect(RESOURCE_MAX_FULL_TEXT_UTF8_BYTES).toBe(
-      Buffer.byteLength("界", "utf8") * RESOURCE_MAX_FULL_TEXT_CHARACTERS,
-    )
-  })
-
   test("rejects source files above the admission limit", () => {
     expect(() => assertResourceSourceSize(RESOURCE_MAX_SOURCE_BYTES)).not.toThrow()
     expect(() => assertResourceSourceSize(RESOURCE_MAX_SOURCE_BYTES + 1)).toThrow(

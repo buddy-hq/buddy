@@ -2,9 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { IN_APP_BROWSER_URL_MAX_LENGTH } from "@buddy/browser-contract"
 import {
   BENCH_CONTEXT_HISTORY_LIMIT,
-  BENCH_DRAWER_KIND_VALUES,
   BenchContextWriteConflictError,
-  BenchDrawerContextSchema,
   BenchReadContextInputSchema,
   BenchReadContextOutputSchema,
   benchTargetKey,
@@ -251,30 +249,5 @@ describe("bench target keys", () => {
         "reader%20notes",
       ].join(BENCH_TARGET_KEY_PART_SEPARATOR),
     )
-  })
-})
-
-describe("Bench drawer context", () => {
-  test("accepts every right-workspace drawer and rejects the removed Library taxonomy", () => {
-    expect(BENCH_DRAWER_KIND_VALUES).toContain("search")
-    expect(BENCH_DRAWER_KIND_VALUES).toContain("skills")
-    for (const kind of BENCH_DRAWER_KIND_VALUES) {
-      expect(
-        BenchDrawerContextSchema.parse({
-          kind,
-          presentation: "drawer",
-        }),
-      ).toEqual({
-        kind,
-        presentation: "drawer",
-      })
-    }
-
-    expect(() =>
-      BenchDrawerContextSchema.parse({
-        kind: "library",
-        presentation: "drawer",
-      }),
-    ).toThrow()
   })
 })

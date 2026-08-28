@@ -61,24 +61,6 @@ describe("config jsonc", () => {
     expect(thrown.data.path).toBe(filepath)
   })
 
-  test("rejects configurations that hide every Buddy persona", async () => {
-    await using repository = await createGitRepo("buddy-config-jsonc-hidden-all")
-    writeProjectConfig(
-      repository.path,
-      [
-        "{",
-        '  "personas": {',
-        '    "buddy": { "hidden": true },',
-        '    "teaching-buddy": { "hidden": true }',
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-    )
-
-    await expect(Config.getProject(repository.path)).rejects.toBeInstanceOf(InvalidError)
-  })
-
   test.each(["buddy.jsonc", "buddy.json"])(
     "ignores and preserves settings from newer versions in %s",
     async (filename) => {

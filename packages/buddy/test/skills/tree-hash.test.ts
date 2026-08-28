@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { createHash } from "node:crypto"
 import fsp from "node:fs/promises"
 import path from "node:path"
 import { computeSkillTreeSha256 } from "../../src/learning/skill-management/service/tree-hash"
 import { temporaryDirectory, type TemporaryDirectory } from "../helpers/temporary-directory"
+
+const TWO_FILE_VECTOR_TREE_SHA256 =
+  "e68e3e72dce7e1b774af07ffa52df0955b06b236f4b0cad4b341e3763ebf92a8"
 
 async function tempSkillRoot(prefix: string): Promise<TemporaryDirectory> {
   return temporaryDirectory({ prefix: `${prefix}-` })
@@ -15,25 +17,6 @@ async function writeFile(root: string, relativePath: string, content: string): P
   await fsp.writeFile(filepath, content, "utf8")
 }
 
-function expectedTreeHash(records: Array<{ path: string; content: string }>): string {
-  const digest = createHash("sha256")
-  for (const record of records.toSorted((left, right) => (left.path < right.path ? -1 : 1))) {
-    const pathBytes = Buffer.from(record.path, "utf8")
-    const fileBytes = Buffer.from(record.content, "utf8")
-    digest.update("file")
-    digest.update("\0")
-    digest.update(String(pathBytes.byteLength))
-    digest.update("\0")
-    digest.update(pathBytes)
-    digest.update("\0")
-    digest.update(String(fileBytes.byteLength))
-    digest.update("\0")
-    digest.update(fileBytes)
-    digest.update("\0")
-  }
-  return digest.digest("hex")
-}
-
 describe("tree-sha256-v1", () => {
   test("hashes sorted framed records with POSIX paths", async () => {
     await using root = await tempSkillRoot("buddy-tree-hash")
@@ -42,12 +25,7 @@ describe("tree-sha256-v1", () => {
 
     const hash = await computeSkillTreeSha256(root.path)
 
-    expect(hash).toBe(
-      expectedTreeHash([
-        { path: "nested/a.txt", content: "first" },
-        { path: "z.txt", content: "last" },
-      ]),
-    )
+    expect(hash).toBe(TWO_FILE_VECTOR_TREE_SHA256)
   })
 
   test("includes dotfiles but excludes source-control and Buddy metadata", async () => {

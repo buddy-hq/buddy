@@ -61,7 +61,7 @@ describe("present media", () => {
     expect(output.manifest.title).toBe("Waving Orange Panda")
   })
 
-  test("returns raw URLs for absolute local paths outside the workspace", async () => {
+  test("returns metadata and raw URLs for absolute local paths outside the workspace", async () => {
     await using project = await tmpdir({ git: true })
     await using localDir = await temporaryDirectory({ prefix: "buddy-present-media-local-" })
     const localPath = path.join(localDir.path, "outside.png")
@@ -81,6 +81,7 @@ describe("present media", () => {
     })
 
     expect(output.output.items[0]?.displayPath).toBe(await fs.realpath(localPath))
+    expect(output.output.items[0]?.absolutePath).toBe(await fs.realpath(localPath))
     expect(output.output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
     expect(output.output.items[0]?.rawUrl?.startsWith("/api/objects/media-presentation/")).toBe(
       true,
@@ -133,34 +134,6 @@ describe("present media", () => {
     expect(result.metadata?.buddyObjectResult?.presentations[0]?.data.items[0]?.mimeType).toBe(
       "application/pdf",
     )
-  })
-
-  test("accepts an absolute local image path outside the workspace", async () => {
-    await using project = await tmpdir({ git: true })
-    await using localDir = await temporaryDirectory({ prefix: "buddy-present-media-" })
-    const localPath = path.join(localDir.path, "outside.png")
-    await fs.writeFile(localPath, "local-image")
-
-    const output = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: async () =>
-        buildPresentedMediaObjectOutput({
-          directory: project.path,
-          items: [
-            {
-              path: localPath,
-            },
-          ],
-        }),
-    })
-
-    expect(output.output.items[0]?.absolutePath).toBe(await fs.realpath(localPath))
-    expect(output.output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
-    expect(output.output.items[0]?.rawUrl?.startsWith("/api/objects/media-presentation/")).toBe(
-      true,
-    )
-    expect(output.output.items[0]?.rawUrl).toContain(`/${output.output.objectID}/raw/media_item_1`)
-    expect(output.output.items[0]?.rawUrl?.includes(encodeURIComponent(localPath))).toBe(false)
   })
 
   test("accepts a file url path", async () => {

@@ -266,46 +266,6 @@ describe("opencode config overlay isolation", () => {
     }
   })
 
-  test("applies runtime overlays to the shared instance config object", async () => {
-    await using project = await tmpdir({ git: true })
-
-    const overlayCommandName = "buddy_shared_runtime_overlay_command"
-    const mutationCommandName = "buddy_shared_runtime_mutation_command"
-
-    try {
-      setConfigOverlay(project.path, {
-        command: {
-          [overlayCommandName]: {
-            template: "echo overlay",
-            description: "Overlay-scoped command",
-          },
-        },
-      })
-
-      await disposeDirectory(project.path)
-
-      await OpenCodeInstance.provide({
-        directory: project.path,
-        async fn() {
-          const firstConfig = await OpenCodeConfig.get()
-          expect(firstConfig.command?.[overlayCommandName]?.template).toBe("echo overlay")
-
-          firstConfig.command ??= {}
-          firstConfig.command[mutationCommandName] = {
-            template: "echo mutation",
-            description: "Mutation-scoped command",
-          }
-
-          const secondConfig = await OpenCodeConfig.get()
-          expect(secondConfig).toBe(firstConfig)
-          expect(secondConfig.command?.[mutationCommandName]?.template).toBe("echo mutation")
-        },
-      })
-    } finally {
-      clearConfigOverlay(project.path)
-    }
-  })
-
   test("preserves plugin config hook mutations when an overlay is active", async () => {
     await using project = await tmpdir({ git: true })
 

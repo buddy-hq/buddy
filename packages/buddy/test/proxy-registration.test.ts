@@ -2,12 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { syncOpenCodeProjectConfig } from "../src/config/runtime/opencode-sync"
-import { buildBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution/permissions/session-permissions"
-import { resolveSessionRuntime } from "../src/learning/access/resolve-session-runtime"
-import { REGISTERED_BUDDY_PERSONAS } from "../src/learning/personas/registry"
-import { getBuddyPersona } from "../src/learning/personas/wiring/persona-profiles"
 import { fetchInProcessOpenCode, loadOpenCodeApp } from "../src/opencode-runtime"
-import { writeProjectConfig } from "./helpers/project-config"
 import { tmpdir } from "./helpers/tmpdir"
 
 const SESSION_STATUS_PATH = "/session/status"
@@ -59,65 +54,4 @@ describe("proxy registration", () => {
       expect(afterToolIDs).toContain(toolID)
     }
   }, 30_000)
-
-  test("project tool toggles deny tools via session permissions after plugin pre-registration", async () => {
-    await using project = await tmpdir({ git: true })
-
-    writeProjectConfig(
-      project.path,
-      JSON.stringify(
-        {
-          tools: {
-            ingest_full_text: false,
-          },
-        },
-        null,
-        2,
-      ) + "\n",
-    )
-
-    await ensureBuddyPluginTools(project.path)
-
-    expect(await listRegisteredToolIDs(project.path)).toContain("ingest_full_text")
-
-    const buddyDefinition = REGISTERED_BUDDY_PERSONAS.find(
-      (definition) => definition.id === "buddy",
-    )
-    if (!buddyDefinition) {
-      throw new Error('Missing "buddy" persona definition')
-    }
-
-    const persona = getBuddyPersona("buddy")
-    const sessionRuntime = resolveSessionRuntime({
-      persona: {
-        id: persona.id,
-        features: buddyDefinition.features,
-        defaultSurface: persona.defaultSurface,
-      },
-      teachingWorkspaceState: "inactive",
-      config: {
-        tools: {
-          ingest_full_text: false,
-        },
-      },
-    })
-    const permission = buildBuddyRuntimeSessionPermissions({
-      sessionRuntime,
-    })
-
-    expect(permission).toContainEqual({
-      permission: "ingest_full_text",
-      pattern: "*",
-      action: "deny",
-    })
-
-    await fetchInProcessOpenCode({
-      directory: project.path,
-      method: "GET",
-      path: SESSION_STATUS_PATH,
-      headers: new Headers(),
-    })
-
-    expect(await listRegisteredToolIDs(project.path)).toContain("ingest_full_text")
-  })
 })

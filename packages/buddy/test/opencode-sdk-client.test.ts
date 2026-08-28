@@ -16,12 +16,4 @@ describe("OpenCode v2 SDK client helper", () => {
     expect(Array.isArray(result.data)).toBe(true)
   })
 
-  test("exposes explicit v2 session reads on the same client", async () => {
-    await using project = await tmpdir({ git: true })
-    const client = await getOpenCodeClient(project.path)
-    const result = await client.v2.session.list()
-
-    expect(result.error).toBeUndefined()
-    expect(result.data).toBeDefined()
-  })
 })

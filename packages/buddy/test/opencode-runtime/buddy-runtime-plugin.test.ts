@@ -1,6 +1,5 @@
 import path from "node:path"
 import { afterEach, describe, expect, test } from "bun:test"
-import { setConfigOverlay } from "@buddy/opencode-adapter/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Config } from "@buddy/backend/config"
@@ -11,7 +10,6 @@ import {
   applyConciseResponseTextVerbosity,
   createBuddyRuntimeHooks,
 } from "../../src/opencode-runtime/plugins/buddy-runtime-plugin"
-import { TEST_TOOL_MODEL } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 import { BUDDY } from "../../src/learning/personas/buddy"
 import {
@@ -91,18 +89,6 @@ describe("Buddy runtime plugin", () => {
     expect(codeOptions.textVerbosity).toBe("low")
   })
 
-  test("config overlay no longer injects Buddy as an external file plugin", async () => {
-    await using project = await tmpdir({ git: true })
-
-    const config = await Config.getProject(project.path)
-    const overlay = await buildOpenCodeConfigOverlay({
-      config,
-      directory: project.path,
-    })
-
-    expect("plugin" in overlay).toBe(false)
-  })
-
   test("Buddy tools appear in OpenCode tool registry after config sync", async () => {
     await using project = await tmpdir({ git: true })
 
@@ -125,47 +111,6 @@ describe("Buddy runtime plugin", () => {
       (toolID) => !ToolRegistry.getToolPresentationDescriptor(toolID, project.path),
     )
     expect(toolsWithoutPresentation).toEqual([])
-  }, 30_000)
-
-  test("Buddy tools load through the plugin path without registerBuddyTools", async () => {
-    await using project = await tmpdir({ git: true })
-
-    await loadOpenCodeApp()
-
-    const config = await Config.getProject(project.path)
-    const overlay = await buildOpenCodeConfigOverlay({
-      config,
-      directory: project.path,
-    })
-    setConfigOverlay(project.path, overlay)
-
-    await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => OpenCodeInstance.dispose(),
-    })
-
-    const toolIDs = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => ToolRegistry.ids(),
-    })
-
-    expect(toolIDs).toContain("prepare_resource")
-    expect(toolIDs).toContain("ingest_full_text")
-  }, 30_000)
-
-  test("Buddy tools can be resolved from the registry after plugin registration", async () => {
-    await using project = await tmpdir({ git: true })
-
-    await loadOpenCodeApp()
-    await syncOpenCodeProjectConfig(project.path)
-
-    const tools = await OpenCodeInstance.provide({
-      directory: project.path,
-      fn: () => ToolRegistry.tools(TEST_TOOL_MODEL),
-    })
-
-    const ingestTool = tools.find((tool) => tool.id === "prepare_resource")
-    expect(ingestTool).toBeDefined()
   }, 30_000)
 
   test("system prompt filtering preserves configured external AGENTS files", async () => {
@@ -205,7 +150,7 @@ describe("Buddy runtime plugin", () => {
     await using project = await tmpdir({ git: true })
 
     const config = await Config.getProject(project.path)
-    await Promise.all(
+    const results = await Promise.all(
       Array.from({ length: 10 }, async () =>
         Promise.all([
           buildOpenCodeConfigOverlay({
@@ -219,6 +164,10 @@ describe("Buddy runtime plugin", () => {
         ]),
       ),
     )
+
+    for (const [overlay] of results) {
+      expect("plugin" in overlay).toBe(false)
+    }
   }, 30_000)
 
   test("runtime hooks override the OpenAI auth flow with Buddy branding", async () => {

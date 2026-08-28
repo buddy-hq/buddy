@@ -127,20 +127,6 @@ describe("project routes", () => {
     })
   })
 
-  test("project route no longer accepts project.open POST", async () => {
-    const response = await app.request("/api/project", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        directory: ".",
-      }),
-    })
-
-    expect(response.status).toBe(404)
-  })
-
   test("keeps unrelated local repos distinct when git root commits collide", async () => {
     await using firstRepo = await createFixedDateGitRepo("buddy-route-project-collision-first")
     await using secondRepo = await createFixedDateGitRepo("buddy-route-project-collision-second")

@@ -1226,7 +1226,6 @@ function snapshotFor(input: { phase: "running" | "completed" | "error"; benchSta
 }
 
 describe("bench_present presentation", () => {
-
   test("a successful presentation is an inline receipt, not an activity line", () => {
     const snapshot = snapshotFor({ phase: "completed", benchStatus: "presented" })
 
@@ -1248,8 +1247,6 @@ describe("bench_present presentation", () => {
   })
 
   test("closing and re-presenting leave no receipt", () => {
-    // Closing has no target to point at, and re-presenting would duplicate the
-    // receipt the original call already left in the transcript.
     for (const benchStatus of ["closed", "already_presenting"]) {
       const snapshot = snapshotFor({ phase: "completed", benchStatus })
       expect(snapshot.outcome).toEqual({ type: "silent", reason: "no-op" })
