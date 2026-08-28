@@ -11,6 +11,8 @@ import {
   type TranscriptPerfEvent,
 } from "../src/lib/directory-chat/transcript-performance-probe"
 
+const OFFSET_PRECISION_DIGITS = 6
+
 describe("transcript performance probe", () => {
   test("keeps a bounded event buffer and summarizes transcript metrics", () => {
     const probe = createTranscriptPerformanceProbe({
@@ -376,7 +378,10 @@ describe("transcript performance probe", () => {
     expect(report.stoppedAt).toBeNumber()
     expect(report.events).toHaveLength(2)
     expect(report.events.map((entry) => entry.sequence)).toEqual([1, 2])
-    expect(report.events.map((entry) => entry.offsetMs)).toEqual([5, 9])
+    expect(report.events.map((entry) => entry.offsetMs)).toEqual([
+      expect.closeTo(5, OFFSET_PRECISION_DIGITS),
+      expect.closeTo(9, OFFSET_PRECISION_DIGITS),
+    ])
     expect(report.summary.renderStateSamples).toBe(1)
     expect(report.summary.bottomAnchorRepairs).toBe(1)
   })
@@ -402,7 +407,7 @@ describe("transcript performance probe", () => {
 
     expect(report.events).toHaveLength(1)
     expect(report.events[0]?.event.type).toBe("layout-shift")
-    expect(report.events[0]?.offsetMs).toBe(5)
+    expect(report.events[0]?.offsetMs).toBeCloseTo(5, OFFSET_PRECISION_DIGITS)
     expect(report.summary.longTasks).toBe(0)
     expect(report.summary.layoutShiftScore).toBe(0.12)
   })

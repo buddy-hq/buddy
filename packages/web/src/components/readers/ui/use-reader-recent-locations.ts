@@ -9,7 +9,14 @@ const READER_RECENT_LOCATION_LIMIT = 5
  * with a single scroll gesture and re-renders the reader twice per frame.
  * Only a position someone stopped at is a place worth returning to.
  */
-const READER_RECENT_LOCATION_SETTLE_MS = 600
+export const READER_RECENT_LOCATION_SETTLE_MS = 600
+
+export type ReaderRecentLocationScheduler = (callback: () => void, delayMs: number) => () => void
+
+export const scheduleReaderRecentLocation: ReaderRecentLocationScheduler = (callback, delayMs) => {
+  const timer = setTimeout(callback, delayMs)
+  return () => clearTimeout(timer)
+}
 
 function positionAnchorId(anchor: ReaderRelocation["anchor"]): string {
   if (anchor.kind === "cfi-position") return `cfi:${anchor.cfi}`
@@ -21,23 +28,29 @@ function positionAnchorId(anchor: ReaderRelocation["anchor"]): string {
  * one document, so a replacement document starts an empty list rather than
  * offering jumps into pages that belong to the book that just closed.
  */
-export function useReaderRecentLocations(input: {
-  sourceKey: string
-  relocation: ReaderRelocation | undefined | null
-}): ReaderRecentLocation[] {
+export function useReaderRecentLocations(
+  input: {
+    sourceKey: string
+    relocation: ReaderRelocation | undefined | null
+  },
+  schedule: ReaderRecentLocationScheduler = scheduleReaderRecentLocation,
+): ReaderRecentLocation[] {
   const [recent, setRecent] = useState<ReaderRecentLocation[]>([])
   const sourceKeyRef = useRef(input.sourceKey)
+  const cancelPendingLocationRef = useRef<(() => void) | undefined>(undefined)
 
   useEffect(() => {
     if (sourceKeyRef.current === input.sourceKey) return
     sourceKeyRef.current = input.sourceKey
+    cancelPendingLocationRef.current?.()
+    cancelPendingLocationRef.current = undefined
     setRecent([])
   }, [input.sourceKey])
 
   useEffect(() => {
     const relocation = input.relocation
     if (!relocation) return
-    const timer = setTimeout(() => {
+    const cancel = schedule(() => {
       const id = positionAnchorId(relocation.anchor)
       const label =
         relocation.tocLabel ?? relocation.pageLabel ?? relocation.locationLabel ?? "Location"
@@ -51,8 +64,14 @@ export function useReaderRecentLocations(input: {
         ].slice(-READER_RECENT_LOCATION_LIMIT)
       })
     }, READER_RECENT_LOCATION_SETTLE_MS)
-    return () => clearTimeout(timer)
-  }, [input.relocation])
+    cancelPendingLocationRef.current = cancel
+    return () => {
+      if (cancelPendingLocationRef.current === cancel) {
+        cancelPendingLocationRef.current = undefined
+      }
+      cancel()
+    }
+  }, [input.relocation, schedule])
 
   return recent
 }
