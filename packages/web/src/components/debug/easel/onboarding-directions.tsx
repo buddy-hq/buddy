@@ -69,7 +69,10 @@ const MODE_COPY = {
   },
 } satisfies Record<Mode, { verb: string; sentence: string; blurb: string }>
 
-const STEP_TITLE = { mode: "Mode", engine: "Engine", location: "Space" } satisfies Record<StepID, string>
+const STEP_TITLE = { mode: "Mode", engine: "Engine", location: "Space" } satisfies Record<
+  StepID,
+  string
+>
 
 type DirectoryDescription = { name: string; parent?: string; short: string }
 

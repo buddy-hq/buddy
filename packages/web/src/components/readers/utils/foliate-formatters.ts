@@ -8,7 +8,10 @@ const FoliateLocalizedTextSchema = z.union([z.string(), FoliateLocalizedTextReco
 const FoliateNamedContributorSchema = z.object({
   name: FoliateLocalizedTextSchema.optional(),
 })
-const FoliateContributorSchema = z.union([FoliateLocalizedTextSchema, FoliateNamedContributorSchema])
+const FoliateContributorSchema = z.union([
+  FoliateLocalizedTextSchema,
+  FoliateNamedContributorSchema,
+])
 export const FoliateMetadataValueSchema = z.union([
   FoliateContributorSchema,
   z.array(FoliateContributorSchema),
@@ -42,7 +45,9 @@ function formatNamedContributor(value: TFoliateContributor): string | undefined 
   return readLocalizedText(asNamed.data.name)
 }
 
-export function formatContributor(value: TFoliateContributor | TFoliateContributor[]): string | undefined {
+export function formatContributor(
+  value: TFoliateContributor | TFoliateContributor[],
+): string | undefined {
   if (Array.isArray(value)) {
     const entries = value
       .map(formatNamedContributor)

@@ -118,6 +118,6 @@ export type { MermaidRuntime, TMermaidRenderOutput }
 
 declare global {
   interface Window {
-    "__BUDDY_TEST_MERMAID_RUNTIME__"?: MermaidRuntime
+    __BUDDY_TEST_MERMAID_RUNTIME__?: MermaidRuntime
   }
 }

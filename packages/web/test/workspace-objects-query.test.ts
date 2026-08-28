@@ -129,8 +129,7 @@ describe("workspace object query", () => {
     const calls: string[] = []
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         calls.push(`${method} ${url}`)
 

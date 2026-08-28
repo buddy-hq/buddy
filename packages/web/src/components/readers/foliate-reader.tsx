@@ -47,7 +47,11 @@ import type {
   FoliateSearchResult,
   View as FoliateView,
 } from "foliate-js/view.js"
-import { FoliateMetadataValueSchema, formatContributor, formatMetadataValue } from "./utils/foliate-formatters"
+import {
+  FoliateMetadataValueSchema,
+  formatContributor,
+  formatMetadataValue,
+} from "./utils/foliate-formatters"
 import type {
   FoliateReaderHandle,
   FoliateReaderLocation,
@@ -173,9 +177,9 @@ function foliateAnnotationOrder(annotation: ReaderAnnotationViewModel): string {
 function readAnnotationThemeSignature(): string {
   const root = globalThis.document?.documentElement
   if (!root) return ""
-  return ANNOTATION_COLOR_IDS.map((colorId) =>
-    resolveAnnotationColorValue(colorId, root),
-  ).join("\0")
+  return ANNOTATION_COLOR_IDS.map((colorId) => resolveAnnotationColorValue(colorId, root)).join(
+    "\0",
+  )
 }
 
 function useAnnotationThemeSignature(): string {

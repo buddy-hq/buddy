@@ -134,10 +134,7 @@ function modelVisibleTarget(input: {
     return {
       type: target.type,
       tabID: target.tabID,
-      url:
-        input.selectedBrowser?.tabID === target.tabID
-          ? input.selectedBrowser.url
-          : target.url,
+      url: input.selectedBrowser?.tabID === target.tabID ? input.selectedBrowser.url : target.url,
     }
   }
   const absolutePath = benchTargetAbsolutePath({

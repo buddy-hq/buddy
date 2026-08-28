@@ -137,7 +137,10 @@ function parseMemoryBlock(
         title,
         body,
         tags: parseList(metadata.get("tags")),
-        confidence: parseNumber(normalizeMetadataValue(metadata.get("confidence")), DEFAULT_CONFIDENCE),
+        confidence: parseNumber(
+          normalizeMetadataValue(metadata.get("confidence")),
+          DEFAULT_CONFIDENCE,
+        ),
         strength: parseNumber(normalizeMetadataValue(metadata.get("strength")), DEFAULT_CONFIDENCE),
         source: readSourceMetadata(metadata),
         sourceEventIds: parseList(metadata.get("sources")),

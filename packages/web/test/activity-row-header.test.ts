@@ -531,5 +531,4 @@ describe("ActivityRow header resolution", () => {
       }).label,
     ).toBe(title)
   })
-
 })

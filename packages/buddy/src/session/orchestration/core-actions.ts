@@ -228,9 +228,7 @@ export async function proxySessionCollection(c: Context): Promise<Response> {
     const body = rawBody ?? {}
     const client = await getOpenCodeClient(syncResult.value.directory)
     const result = toSessionSdkResult(
-      await client.session.create(
-        buildSessionCreateParams(syncResult.value.directory, body),
-      ),
+      await client.session.create(buildSessionCreateParams(syncResult.value.directory, body)),
     )
 
     if (result.error) {

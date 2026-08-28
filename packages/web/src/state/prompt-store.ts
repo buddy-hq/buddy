@@ -362,7 +362,13 @@ function parsePromptDraftState<TValue>(value: TValue): PromptDraftState | undefi
   const attachments = parsePromptAttachments(record.attachments)
   const cursor = parseFiniteNumber(record.cursor)
   const updatedAt = parseFiniteNumber(record.updatedAt)
-  if (draftValue === undefined || !parts || !attachments || cursor === undefined || updatedAt === undefined) {
+  if (
+    draftValue === undefined ||
+    !parts ||
+    !attachments ||
+    cursor === undefined ||
+    updatedAt === undefined
+  ) {
     return undefined
   }
 

@@ -12,7 +12,13 @@ import {
 import { RESOURCE_PACK_ENTRYPOINT_FILE_NAME } from "../../src/resource-packs"
 import { tmpdir } from "../helpers/tmpdir"
 import { createTestPdf } from "../helpers/pdf"
-import { requireJsonObject, requireJsonArray, requireString, parseJsonObject, parsePromptString } from "../helpers/parse"
+import {
+  requireJsonObject,
+  requireJsonArray,
+  requireString,
+  parseJsonObject,
+  parsePromptString,
+} from "../helpers/parse"
 
 const DIRECTORY_HEADER = "x-buddy-directory" as const
 const JSON_CONTENT_TYPE = "application/json" as const
@@ -111,9 +117,9 @@ describe("resource routes", () => {
       responses.map(async (response) => requireJsonObject(await response.json())),
     )
 
-    expect(new Set(created.map((resource) => requireString(resource.objectID, "objectID"))).size).toBe(
-      2,
-    )
+    expect(
+      new Set(created.map((resource) => requireString(resource.objectID, "objectID"))).size,
+    ).toBe(2)
     expect(new Set(created.map((resource) => requireString(resource.alias, "alias")))).toEqual(
       new Set(["shared", "shared-2"]),
     )

@@ -534,10 +534,7 @@ async function scanObjectDirectories(input: {
   return { ready, tombstones, loadErrors }
 }
 
-function buildObjectListFromScan(input: {
-  directory: string
-  scanned: ObjectDirectoryScanResult
-}) {
+function buildObjectListFromScan(input: { directory: string; scanned: ObjectDirectoryScanResult }) {
   const liveByID = new Map<
     string,
     Array<{ manifest: BuddyObjectManifest; objectDirectory: string }>

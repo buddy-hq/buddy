@@ -87,10 +87,7 @@ async function buildAndApplyProjectOverlay(directory: string) {
   }
 }
 
-async function resolveProjectConfigFingerprint<TOverlay>(
-  config: Config.Info,
-  overlay: TOverlay,
-) {
+async function resolveProjectConfigFingerprint<TOverlay>(config: Config.Info, overlay: TOverlay) {
   const installedSystemSkillsFingerprint = await readInstalledSystemSkillsFingerprint().catch(
     () => undefined,
   )

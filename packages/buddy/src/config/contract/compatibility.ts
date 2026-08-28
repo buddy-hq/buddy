@@ -8,7 +8,11 @@ import type { ZodIssue, ZodSafeParseResult, ZodType } from "zod"
 
 const ConfigPathSegment = z.union([
   z.string().transform((key) => ({ kind: "property" as const, key })),
-  z.number().int().nonnegative().transform((index) => ({ kind: "index" as const, index })),
+  z
+    .number()
+    .int()
+    .nonnegative()
+    .transform((index) => ({ kind: "index" as const, index })),
 ])
 const ConfigPath = z.array(ConfigPathSegment)
 type TConfigPath = z.output<typeof ConfigPath>

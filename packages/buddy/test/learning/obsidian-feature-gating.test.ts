@@ -36,8 +36,8 @@ describe("Obsidian feature gating", () => {
 
   test("grants the Obsidian skill only to connected notebook sessions", () => {
     expect(resolveObsidianSkills(Config.Info.parse({})).obsidian).toBeUndefined()
-    expect(resolveObsidianSkills(Config.Info.parse({ obsidian_vault: { connected: true } })).obsidian).toBe(
-      "allow",
-    )
+    expect(
+      resolveObsidianSkills(Config.Info.parse({ obsidian_vault: { connected: true } })).obsidian,
+    ).toBe("allow")
   })
 })

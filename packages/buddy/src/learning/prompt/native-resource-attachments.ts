@@ -12,12 +12,7 @@ import {
 } from "@buddy/workspace-file-policy"
 import { SessionTransformValidationError } from "../../session"
 import { NATIVE_RESOURCE_ATTACHMENT_PART_TYPE } from "./native-resource-metadata"
-import {
-  parseJsonObject,
-  parsePromptString,
-  type TJsonObject,
-  type TPromptPart,
-} from "./utils"
+import { parseJsonObject, parsePromptString, type TJsonObject, type TPromptPart } from "./utils"
 
 export { NATIVE_RESOURCE_ATTACHMENT_PART_TYPE } from "./native-resource-metadata"
 

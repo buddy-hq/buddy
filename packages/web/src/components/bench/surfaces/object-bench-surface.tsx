@@ -270,7 +270,8 @@ export function ObjectBenchSurface(props: {
   )
 
   if (!props.directory) return <DirectoryInvalidNotebook />
-  if (surfaceQuery.isPending) return <ObjectBenchPending layout={pendingLayoutForKind(props.kind)} />
+  if (surfaceQuery.isPending)
+    return <ObjectBenchPending layout={pendingLayoutForKind(props.kind)} />
   if (surfaceQuery.isError || !surfaceQuery.data) return <ObjectBenchError />
 
   return (

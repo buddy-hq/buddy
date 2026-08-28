@@ -29,21 +29,23 @@ export type TodoProgress = {
   state: TodoProgressState
 }
 
-const STATUS_ALIASES = new Map<string, TodoStatus>(Object.entries({
-  in_progress: "in_progress",
-  "in-progress": "in_progress",
-  inprogress: "in_progress",
-  running: "in_progress",
-  pending: "pending",
-  todo: "pending",
-  not_started: "pending",
-  completed: "completed",
-  complete: "completed",
-  done: "completed",
-  cancelled: "cancelled",
-  canceled: "cancelled",
-  skipped: "cancelled",
-}))
+const STATUS_ALIASES = new Map<string, TodoStatus>(
+  Object.entries({
+    in_progress: "in_progress",
+    "in-progress": "in_progress",
+    inprogress: "in_progress",
+    running: "in_progress",
+    pending: "pending",
+    todo: "pending",
+    not_started: "pending",
+    completed: "completed",
+    complete: "completed",
+    done: "completed",
+    cancelled: "cancelled",
+    canceled: "cancelled",
+    skipped: "cancelled",
+  }),
+)
 
 function normalizeStatus(status: string): TodoStatus {
   return STATUS_ALIASES.get(status.trim().toLowerCase()) ?? "pending"

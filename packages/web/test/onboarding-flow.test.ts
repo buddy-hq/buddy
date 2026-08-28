@@ -292,7 +292,6 @@ describe("desktop onboarding entry routing", () => {
       }),
     ).resolves.toBe("/onboarding")
   })
-
 })
 
 describe("onboarding store", () => {

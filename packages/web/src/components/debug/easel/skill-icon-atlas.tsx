@@ -6,7 +6,12 @@ import { SearchIcon } from "@/icons/app-icons"
 import { resolveSkillIconURL } from "@/components/skills/skill-icon-assets"
 import { skillsCatalogQueryOptions } from "@/state/skills-catalog-query"
 import iconDesignSystemSource from "../../../../../../assets/skills/skill-icon-design-system.yaml?raw"
-import { parseTJsonObject, parseTString, parseTNumber, type TJsonObject } from "@/components/chat/tools/types"
+import {
+  parseTJsonObject,
+  parseTString,
+  parseTNumber,
+  type TJsonObject,
+} from "@/components/chat/tools/types"
 import { parseStringArray } from "@/state/chat-types"
 
 type SkillIconPlan = {
@@ -45,21 +50,23 @@ type PaletteSwatch = {
   surfaceClassName: string
 }
 
-const PALETTE_SURFACES = new Map(Object.entries({
-  amber: "bg-avatar-background-orange",
-  brick: "bg-avatar-background-pink",
-  cobalt: "bg-avatar-background-cyan",
-  coral: "bg-avatar-background-orange",
-  cream: "bg-background-base",
-  crimson: "bg-avatar-background-pink",
-  evergreen: "bg-avatar-background-mint",
-  indigo: "bg-avatar-background-purple",
-  navy: "bg-avatar-background-cyan",
-  plum: "bg-avatar-background-purple",
-  slate: "bg-surface-raised-base",
-  teal: "bg-avatar-background-mint",
-  violet: "bg-avatar-background-purple",
-}))
+const PALETTE_SURFACES = new Map(
+  Object.entries({
+    amber: "bg-avatar-background-orange",
+    brick: "bg-avatar-background-pink",
+    cobalt: "bg-avatar-background-cyan",
+    coral: "bg-avatar-background-orange",
+    cream: "bg-background-base",
+    crimson: "bg-avatar-background-pink",
+    evergreen: "bg-avatar-background-mint",
+    indigo: "bg-avatar-background-purple",
+    navy: "bg-avatar-background-cyan",
+    plum: "bg-avatar-background-purple",
+    slate: "bg-surface-raised-base",
+    teal: "bg-avatar-background-mint",
+    violet: "bg-avatar-background-purple",
+  }),
+)
 const DEFAULT_PALETTE_SURFACE = "bg-surface-raised-base"
 const FILENAME_ID_TOKEN = "{id}"
 

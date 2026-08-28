@@ -378,7 +378,9 @@ function readBenchRouteSnapshot<TValue>(value: TValue): BenchRouteSnapshot | und
   }
 }
 
-function readWorkspacePresentationSlot<TValue>(value: TValue): WorkspacePresentationSlot | undefined {
+function readWorkspacePresentationSlot<TValue>(
+  value: TValue,
+): WorkspacePresentationSlot | undefined {
   const record = parseBuddyConfigObject(value)
   if (!record) return undefined
   const route = readBenchRouteSnapshot(record.route)

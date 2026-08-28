@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  ensureGitHubReleaseExists,
-  type GitHubReleaseTarget,
-} from "../../script/github-release"
+import { ensureGitHubReleaseExists, type GitHubReleaseTarget } from "../../script/github-release"
 
 const TARGET: GitHubReleaseTarget = {
   environment: {},

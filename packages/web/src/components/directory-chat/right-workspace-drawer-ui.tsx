@@ -1,9 +1,4 @@
-import {
-  forwardRef,
-  useCallback,
-  type ComponentType,
-  type ReactNode,
-} from "react"
+import { forwardRef, useCallback, type ComponentType, type ReactNode } from "react"
 import { useDurableScrollTop } from "@/lib/use-durable-scroll-top"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Badge, Button, Input, Skeleton, Spinner, cn } from "@buddy/ui"

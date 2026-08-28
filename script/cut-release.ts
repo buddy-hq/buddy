@@ -366,9 +366,10 @@ async function loadRelease(tag: string) {
     return undefined
   }
 
-  const payload = await $`gh release view ${tag} --repo ${releaseRepository()} --json name,body,isDraft,url,tagName`
-    .cwd(ROOT_DIR)
-    .json()
+  const payload =
+    await $`gh release view ${tag} --repo ${releaseRepository()} --json name,body,isDraft,url,tagName`
+      .cwd(ROOT_DIR)
+      .json()
   return ReleaseSummarySchema.parse(payload)
 }
 
@@ -518,9 +519,10 @@ function runRequiredGates() {
 
 async function waitForRunUrl(version: string, targetSha: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const payload = await $`gh run list --repo ${sourceRepository()} --workflow ${RELEASE_WORKFLOW_FILENAME} --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
-      .cwd(ROOT_DIR)
-      .json()
+    const payload =
+      await $`gh run list --repo ${sourceRepository()} --workflow ${RELEASE_WORKFLOW_FILENAME} --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
+        .cwd(ROOT_DIR)
+        .json()
     const runs = z.array(WorkflowRunSchema).parse(payload)
 
     const exact = runs.find(

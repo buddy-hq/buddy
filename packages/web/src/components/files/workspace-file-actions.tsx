@@ -58,7 +58,9 @@ export function WorkspaceFileActionsMenu(props: { directory: string; path: strin
       <DropdownMenuContent align="end">
         {platform.openPath ? (
           <DropdownMenuItem
-            onSelect={() => runWorkspaceFileAction(() => platform.openPath?.(absolutePath) ?? Promise.resolve())}
+            onSelect={() =>
+              runWorkspaceFileAction(() => platform.openPath?.(absolutePath) ?? Promise.resolve())
+            }
           >
             <ExternalLinkIcon className="size-4" aria-hidden />
             Open in default app
@@ -66,14 +68,18 @@ export function WorkspaceFileActionsMenu(props: { directory: string; path: strin
         ) : null}
         {platform.revealPath ? (
           <DropdownMenuItem
-            onSelect={() => runWorkspaceFileAction(() => platform.revealPath?.(absolutePath) ?? Promise.resolve())}
+            onSelect={() =>
+              runWorkspaceFileAction(() => platform.revealPath?.(absolutePath) ?? Promise.resolve())
+            }
           >
             <FolderOpenIcon className="size-4" aria-hidden />
             {revealLabel}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem
-          onSelect={() => runWorkspaceFileAction(() => navigator.clipboard.writeText(absolutePath), "Path copied")}
+          onSelect={() =>
+            runWorkspaceFileAction(() => navigator.clipboard.writeText(absolutePath), "Path copied")
+          }
         >
           <ClipboardCopyIcon className="size-4" aria-hidden />
           Copy path

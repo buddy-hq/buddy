@@ -140,10 +140,7 @@ afterEach(() => {
   }
 })
 
-function routeLocation(
-  route: BenchRouteSnapshot,
-  targetDirectory = DIRECTORY,
-) {
+function routeLocation(route: BenchRouteSnapshot, targetDirectory = DIRECTORY) {
   const directory = encodeDirectory(targetDirectory)
   if (route.status === BENCH_ROUTE_STATUS_CLOSED) {
     return { pathname: `/${directory}/chat`, search: {} }

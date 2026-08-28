@@ -845,7 +845,9 @@ function resourceResolvedToRegisteredRecord(resource: ResourceObjectResolved): R
           resource.preparedAt ? { preparedAt: resource.preparedAt } : undefined,
           resource.sourceMtimeMs !== null ? { sourceMtimeMs: resource.sourceMtimeMs } : undefined,
         ),
-        resource.sourceSizeBytes !== null ? { sourceSizeBytes: resource.sourceSizeBytes } : undefined,
+        resource.sourceSizeBytes !== null
+          ? { sourceSizeBytes: resource.sourceSizeBytes }
+          : undefined,
         resource.coverRelpath ? { coverRelpath: resource.coverRelpath } : undefined,
         resource.title ? { title: resource.title } : undefined,
       ),

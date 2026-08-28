@@ -100,7 +100,7 @@ export async function readActiveDiagnostics(directory: string, record: TeachingW
   } catch {
     return {
       lspAvailable: false,
-            diagnostics: EMPTY_TEACHING_DIAGNOSTICS,
+      diagnostics: EMPTY_TEACHING_DIAGNOSTICS,
     }
   }
 }

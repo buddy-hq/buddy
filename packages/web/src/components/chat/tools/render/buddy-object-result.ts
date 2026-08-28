@@ -329,7 +329,9 @@ function readQuestionSetChoice<TValue>(value: TValue): QuestionSetInlineChoice |
   return choice
 }
 
-function readQuestionSetPayload<TValue>(value: TValue): QuestionSetInlineQuestion["payload"] | undefined {
+function readQuestionSetPayload<TValue>(
+  value: TValue,
+): QuestionSetInlineQuestion["payload"] | undefined {
   if (!isRecord(value)) return undefined
   const multipleSelect = parseTBoolean(value.multipleSelect)
   const countChoices = readOptionalBooleanField(value, "countChoices")

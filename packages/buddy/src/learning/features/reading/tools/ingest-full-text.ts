@@ -180,7 +180,9 @@ function readModelLimit<TValue>(value: TValue) {
   }
 }
 
-function normalizeActiveModel<TValue>(value: TValue): z.infer<typeof ActiveModelSchema> | undefined {
+function normalizeActiveModel<TValue>(
+  value: TValue,
+): z.infer<typeof ActiveModelSchema> | undefined {
   const direct = ActiveModelSchema.safeParse(value)
   if (direct.success) {
     return direct.data

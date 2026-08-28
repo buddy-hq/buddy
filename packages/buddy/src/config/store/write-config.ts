@@ -22,10 +22,7 @@ import type { Mcp, Info as ConfigInfo, ProjectInfo as ProjectConfigInfo } from "
 type GlobalConfigMutation = (current: ConfigInfo) => ConfigInfo
 type ConfigDocumentLoader<TConfig> = (text: string, filepath: string) => Promise<TConfig>
 
-const LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH = [
-  "learner_memory",
-  "master_enabled",
-] as const
+const LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH = ["learner_memory", "master_enabled"] as const
 
 let globalConfigChangeLock: Promise<void> | undefined
 
@@ -49,11 +46,9 @@ async function writeConfigDocument<TConfig>(input: {
   const current = await input.load(input.before, input.filepath)
   let updated = updateKnownConfigDocument(input.before, current, input.next, input.filepath)
 
-  updated = removeConfigDocumentValue(
-    updated,
-    input.filepath,
-    [...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH],
-  )
+  updated = removeConfigDocumentValue(updated, input.filepath, [
+    ...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH,
+  ])
 
   await input.load(updated, input.filepath)
   await fsp.writeFile(input.filepath, updated, "utf8")
@@ -128,11 +123,9 @@ export async function setProjectMcpConfig(
       [name]: mcp,
     },
   })
-  let updated = removeConfigDocumentValue(
-    before,
-    filepath,
-    [...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH],
-  )
+  let updated = removeConfigDocumentValue(before, filepath, [
+    ...LEGACY_LEARNER_MEMORY_MASTER_ENABLED_PATH,
+  ])
   updated = updateKnownConfigDocument(updated, current, next, filepath)
   await loadProjectConfigDocument(updated, filepath)
   await fsp.writeFile(filepath, updated, "utf8")

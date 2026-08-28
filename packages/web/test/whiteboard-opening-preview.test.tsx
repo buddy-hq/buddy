@@ -139,9 +139,7 @@ describe("whiteboard opening preview", () => {
                 status: "running",
                 input: { objectID: null },
                 raw: JSON.stringify({
-                  elements: JSON.stringify([
-                    { type: "rectangle", id: "first", x: 0, y: 0 },
-                  ]),
+                  elements: JSON.stringify([{ type: "rectangle", id: "first", x: 0, y: 0 }]),
                   objectID: null,
                 }),
                 metadata: { objectID: "reserved-object" },

@@ -203,10 +203,7 @@ function rollbackCallbackDelta(
   deleteEmptyCallbackDeltaQueue(queuedCallbackDeltas, key)
 }
 
-function consumeCallbackDeltaReceipt<TEvent>(input: {
-  event: TEvent
-  sessionID: string
-}): boolean {
+function consumeCallbackDeltaReceipt<TEvent>(input: { event: TEvent; sessionID: string }): boolean {
   const event = parseToolInputDeltaEvent(input.event)
   if (!event) return false
 

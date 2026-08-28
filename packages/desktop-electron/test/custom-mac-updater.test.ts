@@ -191,17 +191,18 @@ describe("resolveMacRecoveryMetadataUrls", () => {
       `https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/latest-macos-${process.arch}.json`,
     )
 
-    globalThis.fetch = createTestFetch(async () =>
-      new Response(
-        JSON.stringify([
-          {
-            draft: false,
-            prerelease: true,
-            published_at: "2026-01-02T00:00:00Z",
-            tag_name: "v2.1.0",
-          },
-        ]),
-      ),
+    globalThis.fetch = createTestFetch(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              draft: false,
+              prerelease: true,
+              published_at: "2026-01-02T00:00:00Z",
+              tag_name: "v2.1.0",
+            },
+          ]),
+        ),
     )
 
     await expect(resolveDefaultMacMetadataUrl("preview")).resolves.toBe(

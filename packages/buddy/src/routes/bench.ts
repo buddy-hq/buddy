@@ -300,15 +300,7 @@ const visibleBenchContextOpenApiSchema = {
 
 const parkedBenchContextOpenApiSchema = {
   type: "object" as const,
-  required: [
-    "status",
-    "visibility",
-    "mode",
-    "selectedTabKey",
-    "tabs",
-    "selectedBrowser",
-    "drawer",
-  ],
+  required: ["status", "visibility", "mode", "selectedTabKey", "tabs", "selectedBrowser", "drawer"],
   additionalProperties: false,
   properties: {
     status: { type: "string" as const, enum: ["open"] },

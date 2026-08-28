@@ -1,8 +1,5 @@
 import { createBrowserPlatform, type Platform } from "@buddy/web/context/platform"
-import {
-  IN_APP_BROWSER_PARTITION,
-  IN_APP_BROWSER_WEB_PREFERENCES,
-} from "@buddy/browser-contract"
+import { IN_APP_BROWSER_PARTITION, IN_APP_BROWSER_WEB_PREFERENCES } from "@buddy/browser-contract"
 import { readBuddyRendererGlobals } from "../shared/parse-external"
 import {
   checkForUpdate,

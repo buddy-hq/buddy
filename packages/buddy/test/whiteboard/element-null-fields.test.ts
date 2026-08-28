@@ -29,7 +29,9 @@ const boardWithElements = (elements: readonly unknown[]) => ({
 describe("whiteboard element schema tolerates Excalidraw null fields", () => {
   test("accepts unbound text with containerId: null", () => {
     const result = WhiteboardObjectStateSchema.safeParse(
-      boardWithElements([{ id: "text-1", type: "text", x: 10, y: 20, text: "Hello", containerId: null }]),
+      boardWithElements([
+        { id: "text-1", type: "text", x: 10, y: 20, text: "Hello", containerId: null },
+      ]),
     )
     expect(result.success).toBe(true)
   })
@@ -74,7 +76,14 @@ describe("whiteboard element schema tolerates Excalidraw null fields", () => {
   test("an unbound text element survives the full save round trip", () => {
     const state = WhiteboardObjectStateSchema.safeParse(
       boardWithElements([
-        { id: "text-1", type: "text", x: 10, y: 20, text: "Fixed round-trip text", containerId: null },
+        {
+          id: "text-1",
+          type: "text",
+          x: 10,
+          y: 20,
+          text: "Fixed round-trip text",
+          containerId: null,
+        },
       ]),
     )
     expect(state.success).toBe(true)

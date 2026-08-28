@@ -32,17 +32,18 @@ describe("update common", () => {
   })
 
   test("preview ring resolves latest prerelease assets", async () => {
-    globalThis.fetch = createTestFetch(async () =>
-      new Response(
-        JSON.stringify([
-          {
-            draft: false,
-            prerelease: true,
-            published_at: "2026-01-02T00:00:00Z",
-            tag_name: "v2.1.0",
-          },
-        ]),
-      ),
+    globalThis.fetch = createTestFetch(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              draft: false,
+              prerelease: true,
+              published_at: "2026-01-02T00:00:00Z",
+              tag_name: "v2.1.0",
+            },
+          ]),
+        ),
     )
 
     await expect(
@@ -56,17 +57,18 @@ describe("update common", () => {
   })
 
   test("preview ring resolves the newest stable release when no prerelease candidate exists", async () => {
-    globalThis.fetch = createTestFetch(async () =>
-      new Response(
-        JSON.stringify([
-          {
-            draft: false,
-            prerelease: false,
-            published_at: "2026-01-02T00:00:00Z",
-            tag_name: "v2.1.0",
-          },
-        ]),
-      ),
+    globalThis.fetch = createTestFetch(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              draft: false,
+              prerelease: false,
+              published_at: "2026-01-02T00:00:00Z",
+              tag_name: "v2.1.0",
+            },
+          ]),
+        ),
     )
 
     await expect(
@@ -80,23 +82,24 @@ describe("update common", () => {
   })
 
   test("preview ring skips an older bad prerelease after a newer stable promotion", async () => {
-    globalThis.fetch = createTestFetch(async () =>
-      new Response(
-        JSON.stringify([
-          {
-            draft: false,
-            prerelease: true,
-            published_at: "2026-01-01T00:00:00Z",
-            tag_name: "v2.1.0",
-          },
-          {
-            draft: false,
-            prerelease: false,
-            published_at: "2026-01-03T00:00:00Z",
-            tag_name: "v2.2.0",
-          },
-        ]),
-      ),
+    globalThis.fetch = createTestFetch(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              draft: false,
+              prerelease: true,
+              published_at: "2026-01-01T00:00:00Z",
+              tag_name: "v2.1.0",
+            },
+            {
+              draft: false,
+              prerelease: false,
+              published_at: "2026-01-03T00:00:00Z",
+              tag_name: "v2.2.0",
+            },
+          ]),
+        ),
     )
 
     await expect(

@@ -45,9 +45,7 @@ export function applyConciseResponseTextVerbosity(input: {
   input.options.textVerbosity = MEDIUM_TEXT_VERBOSITY
 }
 
-function createTextVerbosityHook(input: {
-  directory: string
-}): NonNullable<Hooks["chat.params"]> {
+function createTextVerbosityHook(input: { directory: string }): NonNullable<Hooks["chat.params"]> {
   return async (hookInput, output) => {
     if (!PRODUCTION_PERSONA_IDS.has(hookInput.agent)) return
 

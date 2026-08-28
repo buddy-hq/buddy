@@ -395,9 +395,7 @@ function resolvePhaseDetail(
   copy: ToolPresentationPhaseCopy,
   context: ToolPresentationResolutionContext,
 ): string | undefined {
-  const detail = isPresentationDetailResolver(copy.detail)
-    ? copy.detail(context)
-    : copy.detail
+  const detail = isPresentationDetailResolver(copy.detail) ? copy.detail(context) : copy.detail
   return normalizePresentationText(detail)
 }
 

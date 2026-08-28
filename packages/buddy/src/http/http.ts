@@ -27,7 +27,10 @@ export async function safeReadJson(
 ): Promise<TJsonValue | undefined> {
   try {
     const source = input?.clone || response.bodyUsed ? response.clone() : response
-    return await source.json().then(parseTJsonValue).catch(() => undefined)
+    return await source
+      .json()
+      .then(parseTJsonValue)
+      .catch(() => undefined)
   } catch {
     return undefined
   }

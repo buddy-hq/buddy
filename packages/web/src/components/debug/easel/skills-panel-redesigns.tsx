@@ -290,12 +290,14 @@ const FIXTURE_INSTALLED: SkillCard[] = FIXTURE_SKILLS.map((skill) =>
 const DISCOVER_STATE = new Map<
   string,
   Extract<RowControl, { kind: "install" | "installed" | "update" }>["kind"]
->(Object.entries({
-  arxiv: "installed",
-  docx: "installed",
-  powerpoint: "installed",
-  excalidraw: "update",
-}))
+>(
+  Object.entries({
+    arxiv: "installed",
+    docx: "installed",
+    powerpoint: "installed",
+    excalidraw: "update",
+  }),
+)
 
 function discoverRank(control: RowControl): number {
   return control.kind === "install" ? 1 : 0

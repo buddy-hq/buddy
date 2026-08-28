@@ -117,7 +117,10 @@ function containedWorkspaceRelativePath(input: {
   return relativePath.replaceAll(pathTools.sep, "/")
 }
 
-function transformWatcherEventPayload(record: TJsonObject, directory: string): TJsonObject | undefined {
+function transformWatcherEventPayload(
+  record: TJsonObject,
+  directory: string,
+): TJsonObject | undefined {
   const nestedPayload = parseTJsonObject(record.payload)
   if (nestedPayload === undefined) return undefined
   const watcherUpdate = readWorkspaceFileWatcherUpdatePayload(nestedPayload)
@@ -154,7 +157,10 @@ function transformMessagePartUpdatedPayload(record: TJsonObject): TJsonObject | 
   })
 }
 
-function transformGlobalEventPayload<TPayload>(payload: TPayload, directory: string): TPayload | TJsonObject {
+function transformGlobalEventPayload<TPayload>(
+  payload: TPayload,
+  directory: string,
+): TPayload | TJsonObject {
   const record = parseTJsonObject(payload)
   if (record === undefined) return payload
   return (

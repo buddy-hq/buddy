@@ -66,17 +66,19 @@ const MENTION_ICON_SIZE = "size-3.5 shrink-0"
 /** Artwork is an object, not a glyph — it needs more room than the line icons beside it. */
 const SKILL_ICON_CLASS = "size-5 rounded-[5px]"
 
-const SLASH_BUILTIN_ICONS = new Map<string, AppIcon>(Object.entries({
-  new: SquarePen,
-  model: CpuSettingsIcon,
-  mcp: PlugIcon,
-  play: Gamepad2Icon,
-  [COMPACT_SLASH_COMMAND_NAME]: Sigma,
-  [FORK_SLASH_COMMAND_NAME]: GitBranch,
-  [QUIZ_SLASH_COMMAND_NAME]: GraduationCapIcon,
-  [UNDO_SLASH_COMMAND_NAME]: Undo2Icon,
-  [REDO_SLASH_COMMAND_NAME]: Redo2Icon,
-}))
+const SLASH_BUILTIN_ICONS = new Map<string, AppIcon>(
+  Object.entries({
+    new: SquarePen,
+    model: CpuSettingsIcon,
+    mcp: PlugIcon,
+    play: Gamepad2Icon,
+    [COMPACT_SLASH_COMMAND_NAME]: Sigma,
+    [FORK_SLASH_COMMAND_NAME]: GitBranch,
+    [QUIZ_SLASH_COMMAND_NAME]: GraduationCapIcon,
+    [UNDO_SLASH_COMMAND_NAME]: Undo2Icon,
+    [REDO_SLASH_COMMAND_NAME]: Redo2Icon,
+  }),
+)
 
 function slashCommandIcon(command: SlashCommandOption): AppIcon {
   if (command.source === "skill") return RubiksCube

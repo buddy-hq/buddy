@@ -11,10 +11,7 @@ import {
   mkdirSync,
 } from "node:fs"
 
-import {
-  attachBrokenStandardIoErrorHandler,
-  isBrokenStandardIoError,
-} from "./broken-standard-io"
+import { attachBrokenStandardIoErrorHandler, isBrokenStandardIoError } from "./broken-standard-io"
 
 const MAX_LOG_AGE_DAYS = 7
 const LOG_SIZE_LIMIT_BYTES = 5 * 1024 * 1024

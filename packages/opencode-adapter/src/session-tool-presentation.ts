@@ -23,8 +23,7 @@ function isToolPart<TValue>(value: TValue): value is TValue & ToolPart {
 
 function presentationContext(part: ToolPart): ToolPresentationResolutionContext {
   const state = part.state
-  const metadata =
-    state.status === "pending" || !isJsonObject(state.metadata) ? {} : state.metadata
+  const metadata = state.status === "pending" || !isJsonObject(state.metadata) ? {} : state.metadata
 
   return Object.assign(
     {
@@ -55,7 +54,9 @@ function metadataWithPresentation(
 function stripPresentationFromState(state: ToolState): ToolState {
   if (state.status === "pending") return state
 
-  const metadata = stripBuddyToolPresentation(isJsonObject(state.metadata) ? state.metadata : undefined)
+  const metadata = stripBuddyToolPresentation(
+    isJsonObject(state.metadata) ? state.metadata : undefined,
+  )
   if (state.status === "completed") {
     return {
       ...state,

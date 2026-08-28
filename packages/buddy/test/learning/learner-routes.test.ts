@@ -11,12 +11,7 @@ import {
   writeLearnerEvidenceForEvent,
 } from "../../src/learning/features/memory"
 import { tmpdir } from "../helpers/tmpdir"
-import {
-  requireJsonObject,
-  requireJsonArray,
-  requireNumber,
-  requireString,
-} from "../helpers/parse"
+import { requireJsonObject, requireJsonArray, requireNumber, requireString } from "../helpers/parse"
 
 async function withLearnerMemoryExperiment<T>(testBody: () => Promise<T>): Promise<T> {
   const previous = await Config.getGlobal()

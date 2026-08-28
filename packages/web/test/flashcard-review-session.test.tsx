@@ -154,8 +154,7 @@ describe("flashcard review session", () => {
     let deckCalls = 0
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         if (method === "GET" && url.includes("/queued-cards")) {
           queueCalls++

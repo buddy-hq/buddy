@@ -6,7 +6,14 @@ import {
   type LexicalExportVisitor,
   type MdastImportVisitor,
 } from "@mdxeditor/editor"
-import { DecoratorNode, type LexicalEditor, type LexicalNode, type NodeKey, type SerializedLexicalNode, type Spread } from "lexical"
+import {
+  DecoratorNode,
+  type LexicalEditor,
+  type LexicalNode,
+  type NodeKey,
+  type SerializedLexicalNode,
+  type Spread,
+} from "lexical"
 import {
   createContext,
   useContext,

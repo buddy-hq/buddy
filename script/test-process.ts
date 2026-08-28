@@ -131,7 +131,8 @@ export async function runSupervisedTestProcess(
   try {
     const result = await exitPromise
     await terminationPromise
-    const signal = receivedSignal ?? (isTestProcessSignal(result.signal) ? result.signal : undefined)
+    const signal =
+      receivedSignal ?? (isTestProcessSignal(result.signal) ? result.signal : undefined)
     return {
       exitCode: signal === undefined ? (result.exitCode ?? 1) : SIGNAL_EXIT_CODES[signal],
       signal,

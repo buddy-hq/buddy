@@ -12,11 +12,7 @@ import {
 } from "../src/state/chat-stream-event-buffer"
 import type { GlobalEvent } from "../src/state/chat-types"
 import { createFetchStub } from "./test-utils"
-import {
-  parseBuddyConfigObject,
-  parseRequestUrl,
-  parseStringValue,
-} from "./parse-test-values"
+import { parseBuddyConfigObject, parseRequestUrl, parseStringValue } from "./parse-test-values"
 
 const originalFetch = globalThis.fetch
 const originalSetTimeout = globalThis.setTimeout
@@ -256,8 +252,7 @@ describe("startChatSync fetch stream", () => {
     ]
 
     globalThis.fetch = createFetchStub(async (input, init) => {
-      receivedPath =
-        parseRequestUrl(input)
+      receivedPath = parseRequestUrl(input)
       const headers = requestHeaders(input, init)
       receivedAuth = headers.get("authorization") ?? ""
       receivedAccept = headers.get("accept") ?? ""

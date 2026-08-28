@@ -46,9 +46,7 @@ function derivePersonaTools(features: readonly DefinedBuddyFeature[]) {
   return tools
 }
 
-function derivePersonaDynamicTools(
-  features: readonly DefinedBuddyFeature[],
-) {
+function derivePersonaDynamicTools(features: readonly DefinedBuddyFeature[]) {
   const tools: Record<string, "allow"> = {}
   for (const feature of features) {
     for (const tool of feature.tools) {
@@ -69,9 +67,7 @@ function derivePersonaSkills(features: readonly DefinedBuddyFeature[]) {
   return skills
 }
 
-function deriveFeaturePersonaSubagents(
-  features: readonly DefinedBuddyFeature[],
-) {
+function deriveFeaturePersonaSubagents(features: readonly DefinedBuddyFeature[]) {
   const subagents: Record<string, "allow"> = {}
   for (const feature of features) {
     for (const subagent of feature.subagents) {

@@ -56,7 +56,8 @@ export function latestReleaseVersionFromReleases(
 
 async function listGithubReleases(): Promise<GithubReleaseVersion[]> {
   const repo = releaseRepository()
-  const releases = await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()
+  const releases =
+    await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()
   return z.array(GithubReleaseVersionSchema).parse(releases)
 }
 

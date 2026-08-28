@@ -117,24 +117,26 @@ function attachInAppBrowserFaviconCapture(
           ? globalThis.fetch(url, init)
           : webContents.session.fetch(url, init),
       rasterize: rasterizeBrowserFavicon,
-    }).then((dataUrl) => {
-      if (
-        !dataUrl ||
-        disposed ||
-        controller.signal.aborted ||
-        webContents.isDestroyed() ||
-        captureDocumentGeneration !== documentGeneration ||
-        captureRequestGeneration !== requestGeneration ||
-        inAppBrowserSafeHttpOrigin(webContents.getURL()) !== pageOrigin
-      ) {
-        return
-      }
-      sendBrowserFavicon(webContents, {
-        dataUrl,
-        pageUrl: pageOrigin,
-        capturedAt: Date.now(),
+    })
+      .then((dataUrl) => {
+        if (
+          !dataUrl ||
+          disposed ||
+          controller.signal.aborted ||
+          webContents.isDestroyed() ||
+          captureDocumentGeneration !== documentGeneration ||
+          captureRequestGeneration !== requestGeneration ||
+          inAppBrowserSafeHttpOrigin(webContents.getURL()) !== pageOrigin
+        ) {
+          return
+        }
+        sendBrowserFavicon(webContents, {
+          dataUrl,
+          pageUrl: pageOrigin,
+          capturedAt: Date.now(),
+        })
       })
-    }).catch(() => undefined)
+      .catch(() => undefined)
   }
   const navigationStarted = (
     event: Electron.Event<Electron.WebContentsDidStartNavigationEventParams>,
@@ -163,9 +165,7 @@ function browserSessionBoundary(browserSession: Session): InAppBrowserSessionBou
     setUserAgent: (userAgent) => browserSession.setUserAgent(userAgent),
     setPermissionRequestHandler(handler) {
       browserSession.setPermissionRequestHandler(
-        handler
-          ? (_webContents, permission, callback) => handler(permission, callback)
-          : null,
+        handler ? (_webContents, permission, callback) => handler(permission, callback) : null,
       )
     },
     setPermissionCheckHandler(handler) {
@@ -174,11 +174,7 @@ function browserSessionBoundary(browserSession: Session): InAppBrowserSessionBou
       )
     },
     onWillDownload(handler) {
-      const listener = (
-        event: ElectronEvent,
-        _item: DownloadItem,
-        webContents: WebContents,
-      ) => {
+      const listener = (event: ElectronEvent, _item: DownloadItem, webContents: WebContents) => {
         handler(
           event,
           webContents

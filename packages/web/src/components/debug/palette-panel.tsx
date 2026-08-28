@@ -118,16 +118,18 @@ function getColorFamily(hsl: HslColor): string {
   return "Neutrals & Grays"
 }
 
-const COLOR_FAMILY_ORDER = new Map(Object.entries({
-  "Neutrals & Grays": 0,
-  "Reds & Pinks": 1,
-  "Oranges & Browns": 2,
-  "Yellows & Warm Tones": 3,
-  Greens: 4,
-  "Cyans & Teals": 5,
-  Blues: 6,
-  "Purples & Violets": 7,
-}))
+const COLOR_FAMILY_ORDER = new Map(
+  Object.entries({
+    "Neutrals & Grays": 0,
+    "Reds & Pinks": 1,
+    "Oranges & Browns": 2,
+    "Yellows & Warm Tones": 3,
+    Greens: 4,
+    "Cyans & Teals": 5,
+    Blues: 6,
+    "Purples & Violets": 7,
+  }),
+)
 const UNKNOWN_COLOR_FAMILY_ORDER = COLOR_FAMILY_ORDER.size
 
 function getColorTokens(): EnrichedColorToken[] {

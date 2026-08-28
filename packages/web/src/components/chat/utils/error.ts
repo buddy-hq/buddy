@@ -4,12 +4,7 @@ import {
   normalizeUpstreamProviderErrorMessage,
 } from "@/lib/upstream-provider-error"
 
-import {
-  parseTJsonObject,
-  parseTJsonText,
-  parseTString,
-  readNonEmptyString,
-} from "../tools/types"
+import { parseTJsonObject, parseTJsonText, parseTString, readNonEmptyString } from "../tools/types"
 
 function unwrapJsonPayload(value: string) {
   const first = parseTJsonText(value)

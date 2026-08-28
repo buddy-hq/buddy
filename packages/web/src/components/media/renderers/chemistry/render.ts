@@ -358,6 +358,6 @@ export function clearChemistryRenderCacheForTests(): void {
 
 declare global {
   interface Window {
-    "__BUDDY_TEST_CHEMISTRY_RENDERER__"?: ChemistryTestRenderer
+    __BUDDY_TEST_CHEMISTRY_RENDERER__?: ChemistryTestRenderer
   }
 }

@@ -587,9 +587,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                 )}
               </div>
             </ScrollArea>
-            {showJumpToLatest ? (
-              <JumpToLatestButton onClick={onJumpToLatest} />
-            ) : null}
+            {showJumpToLatest ? <JumpToLatestButton onClick={onJumpToLatest} /> : null}
           </div>
 
           <div ref={blockingSurfacesRef} className="shrink-0">

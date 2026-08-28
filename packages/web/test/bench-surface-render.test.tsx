@@ -19,10 +19,7 @@ import { BenchMediaPreview } from "../src/components/bench/bench-media-preview"
 import { DirectoryWorkspaceProvider } from "../src/components/directory-chat/directory-workspace-context"
 import { QuestionSetBenchReview } from "../src/components/bench/question-set-bench-review"
 import { SvgBenchView } from "../src/components/bench/svg-bench-view"
-import {
-  BenchSurfaceViewer,
-  BenchZoomableViewer,
-} from "../src/components/bench/bench-viewer-shell"
+import { BenchSurfaceViewer, BenchZoomableViewer } from "../src/components/bench/bench-viewer-shell"
 import { HtmlWidgetFrame } from "../src/components/chat/tools/render/html-widget"
 import { ServerProvider, type ServerConnection } from "../src/context/server"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
@@ -827,8 +824,7 @@ describe("bench surface rendering", () => {
     const calls: string[] = []
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         calls.push(`${method} ${url}`)
 
@@ -908,8 +904,7 @@ describe("bench surface rendering", () => {
     })
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
@@ -974,8 +969,7 @@ describe("bench surface rendering", () => {
     let readCalls = 0
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_READ_PATH)) {
@@ -1040,8 +1034,7 @@ describe("bench surface rendering", () => {
   test("restores a completed review tally after the Bench surface remounts", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
@@ -1159,8 +1152,7 @@ describe("bench surface rendering", () => {
     let queueCalls = 0
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
@@ -1225,8 +1217,7 @@ describe("bench surface rendering", () => {
   test("renders off-schedule practice as the Easel card stage without rating controls", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {
@@ -1307,8 +1298,7 @@ describe("bench surface rendering", () => {
     })
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (method === "GET" && url.includes(FLASHCARD_DECK_QUEUE_PATH)) {

@@ -173,5 +173,4 @@ describe("dynamic tool permission toggling", () => {
     ).toBe(false)
     expect(permission).toEqual(expect.arrayContaining(dynamicLearningToolDefaultDenyRules()))
   })
-
 })

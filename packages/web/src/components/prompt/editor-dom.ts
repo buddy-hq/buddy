@@ -97,11 +97,7 @@ export function getTextLength(node: Node): number {
   return length
 }
 
-function getTextLengthToPosition(
-  node: Node,
-  target: Node,
-  offset: number,
-) {
+function getTextLengthToPosition(node: Node, target: Node, offset: number) {
   if (node === target) {
     if (node.nodeType === Node.TEXT_NODE) {
       return {

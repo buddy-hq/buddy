@@ -6,7 +6,13 @@ import {
   type LexicalExportVisitor,
   type MdastImportVisitor,
 } from "@mdxeditor/editor"
-import { DecoratorNode, type LexicalNode, type NodeKey, type SerializedLexicalNode, type Spread } from "lexical"
+import {
+  DecoratorNode,
+  type LexicalNode,
+  type NodeKey,
+  type SerializedLexicalNode,
+  type Spread,
+} from "lexical"
 import { createContext, useContext, type ReactElement, type ReactNode } from "react"
 import type { Code } from "mdast"
 import { ChemistryDiagram } from "@/components/media/renderers/chemistry/chemistry-diagram"
@@ -206,9 +212,7 @@ function createBuddyChemistryNode(input: {
   return new BuddyChemistryNode(input.format, input.language, input.source, input.meta)
 }
 
-function isBuddyChemistryNode(
-  node: LexicalNode | null | undefined,
-): node is BuddyChemistryNode {
+function isBuddyChemistryNode(node: LexicalNode | null | undefined): node is BuddyChemistryNode {
   return node instanceof BuddyChemistryNode
 }
 

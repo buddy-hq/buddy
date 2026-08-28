@@ -546,10 +546,7 @@ function readIntersectionArea(a: WhiteboardBounds, b: WhiteboardBounds): number 
   return size.width * size.height
 }
 
-function readIntersectionSize(
-  a: WhiteboardBounds,
-  b: WhiteboardBounds,
-) {
+function readIntersectionSize(a: WhiteboardBounds, b: WhiteboardBounds) {
   const left = Math.max(a.x, b.x)
   const top = Math.max(a.y, b.y)
   const intersectionRight = Math.min(right(a), right(b))

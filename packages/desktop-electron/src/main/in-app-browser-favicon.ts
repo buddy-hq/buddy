@@ -12,17 +12,12 @@ const IN_APP_BROWSER_FAVICON_MAX_CANDIDATE_INPUT_UNITS = 262_144
 
 export type InAppBrowserFaviconRasterizer = (bytes: Uint8Array) => string | null
 
-export type InAppBrowserFaviconFetcher = (
-  url: string,
-  init: RequestInit,
-) => Promise<Response>
+export type InAppBrowserFaviconFetcher = (url: string, init: RequestInit) => Promise<Response>
 
 export function inAppBrowserSafeHttpOrigin(url: string): string | null {
   try {
     const parsed = new URL(url)
-    return parsed.protocol === "http:" || parsed.protocol === "https:"
-      ? parsed.origin
-      : null
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.origin : null
   } catch {
     return null
   }
@@ -52,10 +47,7 @@ export function selectInAppBrowserFaviconCandidates(
   let inputUnits = 0
 
   for (const candidate of candidates) {
-    inputUnits += Math.max(
-      IN_APP_BROWSER_FAVICON_MIN_CANDIDATE_INPUT_UNITS,
-      candidate.length,
-    )
+    inputUnits += Math.max(IN_APP_BROWSER_FAVICON_MIN_CANDIDATE_INPUT_UNITS, candidate.length)
     if (inputUnits > IN_APP_BROWSER_FAVICON_MAX_CANDIDATE_INPUT_UNITS) break
     if (!isSupportedFaviconCandidate(candidate) || seen.has(candidate)) continue
     seen.add(candidate)
@@ -71,19 +63,14 @@ async function readBoundedFaviconResponse(
   signal: AbortSignal,
 ): Promise<Uint8Array | null> {
   const contentLength = Number(response.headers.get("content-length"))
-  if (
-    Number.isFinite(contentLength) &&
-    contentLength > IN_APP_BROWSER_FAVICON_MAX_RESPONSE_BYTES
-  ) {
+  if (Number.isFinite(contentLength) && contentLength > IN_APP_BROWSER_FAVICON_MAX_RESPONSE_BYTES) {
     await response.body?.cancel()
     return null
   }
 
   if (!response.body) {
     const bytes = new Uint8Array(await response.arrayBuffer())
-    return bytes.byteLength <= IN_APP_BROWSER_FAVICON_MAX_RESPONSE_BYTES
-      ? bytes
-      : null
+    return bytes.byteLength <= IN_APP_BROWSER_FAVICON_MAX_RESPONSE_BYTES ? bytes : null
   }
 
   const reader = response.body.getReader()

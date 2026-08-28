@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { buildSessionTrace } from "../src/lib/directory-chat/chat-debug-helpers"
 import { resetTranscriptRepositoryForTests } from "../src/state/transcript-repository"
-import {
-  parseBuddyConfigObject,
-  parseJsonObjectText,
-} from "./parse-test-values"
+import { parseBuddyConfigObject, parseJsonObjectText } from "./parse-test-values"
 import {
   createAssistantMessageInfo,
   createDirectoryChatState,

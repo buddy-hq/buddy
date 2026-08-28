@@ -33,7 +33,11 @@ import {
   DEPENDENCY_REFERENCE_ID_START,
   METADATA_FIELDS,
 } from "../foliate-reader-constants"
-import { formatMetadataValue, FoliateMetadataValueSchema, toPercentLabel } from "./foliate-formatters"
+import {
+  formatMetadataValue,
+  FoliateMetadataValueSchema,
+  toPercentLabel,
+} from "./foliate-formatters"
 import type { View as FoliateView } from "foliate-js/view.js"
 
 // ============================================================

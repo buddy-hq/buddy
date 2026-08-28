@@ -10,11 +10,7 @@ import {
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import { addResource } from "../../src/resources/resource-registry-service"
 import { tmpdir } from "../helpers/tmpdir"
-import {
-  parseJsonObject,
-  parsePromptString,
-  requireJsonArray,
-} from "../helpers/parse"
+import { parseJsonObject, parsePromptString, requireJsonArray } from "../helpers/parse"
 
 const SESSION_ID = "session-bench-turn-context"
 

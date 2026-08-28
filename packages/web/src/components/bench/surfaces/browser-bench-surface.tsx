@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { Button, Input } from "@buddy/ui"
 import {
   inAppBrowserDisplayUrl,
@@ -29,12 +22,13 @@ import {
 } from "@/lib/in-app-browser-events"
 import "./browser-bench-surface.css"
 
-type InAppBrowserWebview = HTMLElement & InAppBrowserWebviewStateReader & {
-  loadURL(url: string): Promise<void>
-  goBack(): void
-  goForward(): void
-  reload(): void
-}
+type InAppBrowserWebview = HTMLElement &
+  InAppBrowserWebviewStateReader & {
+    loadURL(url: string): Promise<void>
+    goBack(): void
+    goForward(): void
+    reload(): void
+  }
 
 export function BrowserBenchSurface(props: {
   directory: string
@@ -49,9 +43,7 @@ export function BrowserBenchSurface(props: {
   const [webviewSource, setWebviewSource] = useState(props.target.url)
   const [crashed, setCrashed] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
-  const [address, setAddress] = useState(
-    inAppBrowserDisplayUrl(props.target.url),
-  )
+  const [address, setAddress] = useState(inAppBrowserDisplayUrl(props.target.url))
   const [runtime, setRuntimeState] = useState<InAppBrowserTabRuntime>(() => ({
     url: props.target.url,
     title: inAppBrowserFallbackTitle(props.target.url),
@@ -63,9 +55,7 @@ export function BrowserBenchSurface(props: {
   }))
   const runtimeRef = useRef(runtime)
   const updateRuntime = useCallback(
-    (
-      update: (current: InAppBrowserTabRuntime) => InAppBrowserTabRuntime,
-    ): void => {
+    (update: (current: InAppBrowserTabRuntime) => InAppBrowserTabRuntime): void => {
       const next = update(runtimeRef.current)
       runtimeRef.current = next
       setRuntimeState(next)
@@ -106,7 +96,11 @@ export function BrowserBenchSurface(props: {
   const contextProvider = useMemo(
     () => ({
       read: () => ({
-        targetStatus: runtime.error ? ("error" as const) : runtime.loading ? ("loading" as const) : ("ready" as const),
+        targetStatus: runtime.error
+          ? ("error" as const)
+          : runtime.loading
+            ? ("loading" as const)
+            : ("ready" as const),
         title: runtime.title,
         browser: { url: runtime.url, loading: runtime.loading },
         metadata: [
@@ -277,7 +271,10 @@ export function BrowserBenchSurface(props: {
   }
 
   return (
-    <div data-component="browser-bench-surface" className="flex h-full min-h-0 flex-col bg-background-base">
+    <div
+      data-component="browser-bench-surface"
+      className="flex h-full min-h-0 flex-col bg-background-base"
+    >
       <form
         className="flex h-10 shrink-0 items-center gap-1 border-b border-border-weaker-base px-2"
         onSubmit={navigate}
@@ -327,7 +324,10 @@ export function BrowserBenchSurface(props: {
         />
       </form>
       {surfaceMessage ? (
-        <div role="status" className="shrink-0 border-b border-border-weaker-base bg-surface-base px-3 py-2 text-xs text-text-weak">
+        <div
+          role="status"
+          className="shrink-0 border-b border-border-weaker-base bg-surface-base px-3 py-2 text-xs text-text-weak"
+        >
           {surfaceMessage}
         </div>
       ) : null}

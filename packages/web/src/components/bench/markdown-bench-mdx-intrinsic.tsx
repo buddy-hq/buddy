@@ -123,52 +123,56 @@ const BLOCK_HTML_ELEMENT_NAMES = new Set([
 
 const VOID_HTML_ELEMENT_NAMES = new Set(["br", "hr", "img"])
 
-const STYLE_PROPERTY_NAMES = new Map(Object.entries({
-  "align-items": "alignItems",
-  background: "background",
-  "background-color": "backgroundColor",
-  border: "border",
-  "border-bottom": "borderBottom",
-  "border-left": "borderLeft",
-  "border-radius": "borderRadius",
-  "border-right": "borderRight",
-  "border-top": "borderTop",
-  color: "color",
-  display: "display",
-  flex: "flex",
-  "flex-direction": "flexDirection",
-  "flex-wrap": "flexWrap",
-  "font-size": "fontSize",
-  "font-style": "fontStyle",
-  "font-weight": "fontWeight",
-  gap: "gap",
-  "grid-template-columns": "gridTemplateColumns",
-  "justify-content": "justifyContent",
-  "line-height": "lineHeight",
-  margin: "margin",
-  "margin-bottom": "marginBottom",
-  "margin-left": "marginLeft",
-  "margin-right": "marginRight",
-  "margin-top": "marginTop",
-  "max-height": "maxHeight",
-  "max-width": "maxWidth",
-  "min-height": "minHeight",
-  "min-width": "minWidth",
-  padding: "padding",
-  "padding-bottom": "paddingBottom",
-  "padding-left": "paddingLeft",
-  "padding-right": "paddingRight",
-  "padding-top": "paddingTop",
-  "text-align": "textAlign",
-}))
+const STYLE_PROPERTY_NAMES = new Map(
+  Object.entries({
+    "align-items": "alignItems",
+    background: "background",
+    "background-color": "backgroundColor",
+    border: "border",
+    "border-bottom": "borderBottom",
+    "border-left": "borderLeft",
+    "border-radius": "borderRadius",
+    "border-right": "borderRight",
+    "border-top": "borderTop",
+    color: "color",
+    display: "display",
+    flex: "flex",
+    "flex-direction": "flexDirection",
+    "flex-wrap": "flexWrap",
+    "font-size": "fontSize",
+    "font-style": "fontStyle",
+    "font-weight": "fontWeight",
+    gap: "gap",
+    "grid-template-columns": "gridTemplateColumns",
+    "justify-content": "justifyContent",
+    "line-height": "lineHeight",
+    margin: "margin",
+    "margin-bottom": "marginBottom",
+    "margin-left": "marginLeft",
+    "margin-right": "marginRight",
+    "margin-top": "marginTop",
+    "max-height": "maxHeight",
+    "max-width": "maxWidth",
+    "min-height": "minHeight",
+    "min-width": "minWidth",
+    padding: "padding",
+    "padding-bottom": "paddingBottom",
+    "padding-left": "paddingLeft",
+    "padding-right": "paddingRight",
+    "padding-top": "paddingTop",
+    "text-align": "textAlign",
+  }),
+)
 
-const ATTRIBUTE_NAME_OVERRIDES = new Map(Object.entries({
-  class: "className",
-  colspan: "colSpan",
-  rowspan: "rowSpan",
-  "xlink:href": "xlinkHref",
-  "xml:space": "xmlSpace",
-}))
+const ATTRIBUTE_NAME_OVERRIDES = new Map(
+  Object.entries({
+    class: "className",
+    colspan: "colSpan",
+    rowspan: "rowSpan",
+    "xlink:href": "xlinkHref",
+    "xml:space": "xmlSpace",
+  }),
+)
 
 type TCssStyleDeclarations = {
   [property: string]: string
@@ -223,10 +227,7 @@ function isSafeImageSource(value: string): boolean {
   )
 }
 
-function safeProps(
-  mdastNode: JsxEditorProps["mdastNode"],
-  context: SafeMarkdownRenderContext,
-) {
+function safeProps(mdastNode: JsxEditorProps["mdastNode"], context: SafeMarkdownRenderContext) {
   const props: TIntrinsicElementProps = {}
   for (const attribute of mdastNode.attributes) {
     if (attribute.type !== "mdxJsxAttribute" || !attribute.name) continue

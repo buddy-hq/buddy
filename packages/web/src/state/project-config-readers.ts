@@ -55,9 +55,7 @@ export function parsePersonalizationSettings<TValue>(
   return parseWithSchema(personalizationSettingsSchema, value)
 }
 
-function normalizePersonalizationSettings(
-  input: PersonalizationSettings,
-): PersonalizationSettings {
+function normalizePersonalizationSettings(input: PersonalizationSettings): PersonalizationSettings {
   return {
     primaryUse: input.primaryUse,
     preferredName: input.preferredName.trim(),

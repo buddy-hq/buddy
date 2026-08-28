@@ -83,8 +83,7 @@ export class BuddyMarkdownSvgNode extends DecoratorNode<ReactElement> {
 function isMarkdownSvgMdastNode(node: Nodes): node is MarkdownSvgMdastNode {
   if (!("name" in node)) return false
   return (
-    (node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement") &&
-    node.name === "svg"
+    (node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement") && node.name === "svg"
   )
 }
 

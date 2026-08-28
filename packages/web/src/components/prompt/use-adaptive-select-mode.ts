@@ -20,10 +20,8 @@ type UseAdaptiveSelectModeInput = {
 function buildPerformanceSignature(messages: MessageWithParts[]) {
   const lastMessage = messages[messages.length - 1]
   const lastMessageTextLength =
-    lastMessage?.parts.reduce(
-      (total, part) => total + (parseTString(part.text)?.length ?? 0),
-      0,
-    ) ?? 0
+    lastMessage?.parts.reduce((total, part) => total + (parseTString(part.text)?.length ?? 0), 0) ??
+    0
 
   return [
     messages.length,

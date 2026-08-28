@@ -233,7 +233,9 @@ describe("stored reader document state survives a bad sibling field", () => {
         version: 2,
         identity: { sourceId: "doc1", format: "pdf" },
         lastLocation: { kind: "pdf-position", pageIndex: 12, xRatio: 0, yRatio: 0.4 },
-        bookmarks: [{ id: "b1", anchor: { kind: "pdf-position", pageIndex: 3 }, label: "No created" }],
+        bookmarks: [
+          { id: "b1", anchor: { kind: "pdf-position", pageIndex: 3 }, label: "No created" },
+        ],
         annotations: [],
       }),
     )

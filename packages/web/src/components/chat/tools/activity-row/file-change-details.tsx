@@ -12,7 +12,13 @@ import { FileText } from "@/icons/app-icons"
 import { language } from "@/context/language"
 
 import { basename, dirname } from "../../utils/path"
-import { isRecord, parseTString, readNonEmptyString, readNonNegativeInt, readString } from "../types"
+import {
+  isRecord,
+  parseTString,
+  readNonEmptyString,
+  readNonNegativeInt,
+  readString,
+} from "../types"
 import { PierreContentCode, PierreContentDiff } from "./pierre-content"
 import {
   normalizePierreDiff,

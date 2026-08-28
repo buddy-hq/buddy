@@ -98,10 +98,7 @@ const FoliateAnnotationSchema = z.object({
 // discard lastLocation or its sibling records, which is how a stored position gets lost.
 const FoliateBookStateSchema = z.object({
   lastLocation: z.string().optional().catch(undefined),
-  bookmarks: z
-    .array(FoliateBookmarkSchema.optional().catch(undefined))
-    .optional()
-    .catch(undefined),
+  bookmarks: z.array(FoliateBookmarkSchema.optional().catch(undefined)).optional().catch(undefined),
   annotations: z
     .array(FoliateAnnotationSchema.optional().catch(undefined))
     .optional()
@@ -136,7 +133,10 @@ export function loadGlobalPreferences(
   defaultTheme: FoliateReaderThemeId,
   defaultFlow: FoliateReaderFlow,
 ): FoliateReaderPreferences {
-  const parsed = parseStoredJson(safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY), FoliatePreferencesSchema)
+  const parsed = parseStoredJson(
+    safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY),
+    FoliatePreferencesSchema,
+  )
   const legacyThemeId = parsed?.themeId ?? defaultTheme
   const readerPreferences = loadReaderPreferences(legacyThemeId)
   return {
@@ -266,7 +266,9 @@ export function buildBookPersistenceKey(
   const titleParsed = FoliateMetadataValueSchema.safeParse(book.metadata?.title)
   const authorParsed = FoliateMetadataValueSchema.safeParse(book.metadata?.author)
   const contributorParsed = FoliateMetadataValueSchema.safeParse(book.metadata?.contributor)
-  const identifier = identifierParsed.success ? formatMetadataValue(identifierParsed.data) : undefined
+  const identifier = identifierParsed.success
+    ? formatMetadataValue(identifierParsed.data)
+    : undefined
   const title = titleParsed.success ? formatMetadataValue(titleParsed.data) : undefined
   const author = authorParsed.success
     ? formatContributor(authorParsed.data)

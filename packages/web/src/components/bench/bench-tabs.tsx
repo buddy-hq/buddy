@@ -392,9 +392,7 @@ export function BenchTabs(props: BenchTabsProps) {
                 onCloseToRight={() => props.onCloseToRight(tab.key)}
                 onCloseAll={props.onCloseAll}
                 browserRuntime={
-                  tab.target.type === "browser"
-                    ? browserRuntimes.get(tab.target.tabID)
-                    : undefined
+                  tab.target.type === "browser" ? browserRuntimes.get(tab.target.tabID) : undefined
                 }
               />
             )

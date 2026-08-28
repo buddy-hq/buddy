@@ -46,10 +46,7 @@ import {
   type MermaidAutoRepairState,
 } from "../../learning/features/diagrams/service/types"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
-import {
-  persistCommandInvocationDisplay,
-  withCommandInvocationDisplay,
-} from "./command-transcript"
+import { persistCommandInvocationDisplay, withCommandInvocationDisplay } from "./command-transcript"
 import {
   parseTSessionInteger,
   parseTSessionJsonObject,
@@ -189,7 +186,11 @@ function svgAutoRepairTurnSettlementMessage(
   if (event.directory !== input.directory) return undefined
   const payload = parseTSessionJsonObject(event.payload)
   const properties = parseTSessionJsonObject(payload?.properties)
-  if (payload === undefined || properties === undefined || properties.sessionID !== input.sessionID) {
+  if (
+    payload === undefined ||
+    properties === undefined ||
+    properties.sessionID !== input.sessionID
+  ) {
     return undefined
   }
 

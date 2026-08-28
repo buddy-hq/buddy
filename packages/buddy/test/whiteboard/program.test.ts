@@ -27,7 +27,12 @@ import {
 import type { WhiteboardRenderReport } from "../../src/learning/features/whiteboard/service/types"
 import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
 import { tmpdir } from "../helpers/tmpdir"
-import { parseJsonArray, parseJsonObject, requireJsonObject, type TJsonObject } from "../helpers/parse"
+import {
+  parseJsonArray,
+  parseJsonObject,
+  requireJsonObject,
+  type TJsonObject,
+} from "../helpers/parse"
 
 type OverflowFixture = {
   programElements: unknown[]
@@ -1322,7 +1327,9 @@ describe("whiteboard drawing program", () => {
       overlapPx: { x: 90, y: 24 },
       occluderOpacity: 100,
     })
-    expect(layoutIssueRecords(output)?.some((issue) => issue.code === "sibling_collision")).toBeFalse()
+    expect(
+      layoutIssueRecords(output)?.some((issue) => issue.code === "sibling_collision"),
+    ).toBeFalse()
   })
 
   test("rebases concurrent continuation writes against the latest locked board", async () => {

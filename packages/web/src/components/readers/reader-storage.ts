@@ -115,12 +115,7 @@ const PdfReaderRotationSchema = z.union([
   z.literal(180),
   z.literal(270),
 ])
-const ReaderAnnotationStyleSchema = z.enum([
-  "highlight",
-  "underline",
-  "squiggly",
-  "strikethrough",
-])
+const ReaderAnnotationStyleSchema = z.enum(["highlight", "underline", "squiggly", "strikethrough"])
 const ReaderAnnotationColorIdSchema = z.enum(["amber", "mint", "sky", "rose"])
 const FoliateFlowSchema = z.union([z.literal(FLOW_PAGINATED), z.literal(FLOW_SCROLLED)])
 
@@ -246,7 +241,9 @@ function safeWriteStorage(key: string, value: string): void {
   }
 }
 
-function readPdfReaderMode(value: z.infer<typeof PdfReaderModeSchema> | undefined): PdfReaderMode | undefined {
+function readPdfReaderMode(
+  value: z.infer<typeof PdfReaderModeSchema> | undefined,
+): PdfReaderMode | undefined {
   return value
 }
 
@@ -269,7 +266,10 @@ function defaultReaderPreferences(defaultTheme: ReaderThemeId): ReaderPreference
 
 function readLegacyPreferences(defaultTheme: ReaderThemeId): ReaderPreferences {
   const defaults = defaultReaderPreferences(defaultTheme)
-  const value = parseStoredJson(safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY), LegacyPreferencesSchema)
+  const value = parseStoredJson(
+    safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY),
+    LegacyPreferencesSchema,
+  )
   if (!value) return defaults
   return {
     themeId: value.themeId ?? defaults.themeId,
@@ -281,7 +281,10 @@ function readLegacyPreferences(defaultTheme: ReaderThemeId): ReaderPreferences {
 
 export function loadReaderPreferences(defaultTheme: ReaderThemeId): ReaderPreferences {
   const legacy = readLegacyPreferences(defaultTheme)
-  const value = parseStoredJson(safeReadStorage(READER_PREFERENCES_STORAGE_KEY), StoredPreferencesSchema)
+  const value = parseStoredJson(
+    safeReadStorage(READER_PREFERENCES_STORAGE_KEY),
+    StoredPreferencesSchema,
+  )
   if (!value) return legacy
   return {
     themeId: value.themeId ?? legacy.themeId,
@@ -512,7 +515,10 @@ export function readerDocumentStateToLegacyEpubBookState(
   )
 }
 
-function readLegacyPdfBookmark(value: TLegacyPdfRecord, legacyIndex: number): ReaderBookmark | undefined {
+function readLegacyPdfBookmark(
+  value: TLegacyPdfRecord,
+  legacyIndex: number,
+): ReaderBookmark | undefined {
   if (value.value === undefined) return undefined
   const pageIndex = legacyPdfPageIndex(value.value)
   if (pageIndex === undefined) return undefined
@@ -700,13 +706,11 @@ export function loadStoredReaderDocumentState(
   if (source.contentFingerprint && identity.contentFingerprint !== source.contentFingerprint) {
     return undefined
   }
-  const bookmarks = (value.bookmarks ?? [])
-    .slice(0, MAX_READER_BOOKMARKS)
-    .flatMap((entry) => {
-      if (entry === undefined) return []
-      const bookmark = readReaderBookmark(entry)
-      return bookmark && positionAnchorMatchesFormat(bookmark.anchor, format) ? [bookmark] : []
-    })
+  const bookmarks = (value.bookmarks ?? []).slice(0, MAX_READER_BOOKMARKS).flatMap((entry) => {
+    if (entry === undefined) return []
+    const bookmark = readReaderBookmark(entry)
+    return bookmark && positionAnchorMatchesFormat(bookmark.anchor, format) ? [bookmark] : []
+  })
   const annotations = (value.annotations ?? [])
     .slice(0, MAX_READER_ANNOTATIONS)
     .flatMap((entry) => {

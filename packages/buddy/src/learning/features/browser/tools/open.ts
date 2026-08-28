@@ -2,10 +2,7 @@ import { normalizeInAppBrowserUrl } from "@buddy/browser-contract"
 import { ulid } from "ulid"
 import z from "zod"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
-import {
-  benchClientActionBroker,
-  type BenchBrokerTerminal,
-} from "../../bench/client-actions"
+import { benchClientActionBroker, type BenchBrokerTerminal } from "../../bench/client-actions"
 import type { BrowserBenchTarget } from "../../bench/context"
 
 const IN_APP_BROWSER_TAB_ID_PREFIX = "browser"

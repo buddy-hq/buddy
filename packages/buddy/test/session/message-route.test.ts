@@ -12,7 +12,10 @@ type RouteMessageID = ReturnType<typeof MessageID.ascending>
 
 function routeMessageIDs(body: Awaited<ReturnType<Response["json"]>>): string[] {
   return requireJsonArray(body, "session messages").map((message) =>
-    requireString(requireJsonObject(requireJsonObject(message, "message").info, "message info").id, "message id"),
+    requireString(
+      requireJsonObject(requireJsonObject(message, "message").info, "message info").id,
+      "message id",
+    ),
   )
 }
 

@@ -5,7 +5,10 @@ import {
   benchClientActionBroker,
   type BenchClientAction,
 } from "../../src/learning/features/bench/client-actions"
-import { clearBenchContextRegistry, benchTargetKey } from "../../src/learning/features/bench/context"
+import {
+  clearBenchContextRegistry,
+  benchTargetKey,
+} from "../../src/learning/features/bench/context"
 import { inAppBrowserOpenTool } from "../../src/learning/features/browser/tools/open"
 import { createBuddyToolContext } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"

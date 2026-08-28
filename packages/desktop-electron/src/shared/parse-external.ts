@@ -110,7 +110,9 @@ export function parseTErrorCode<TValue>(value: TValue): string | undefined {
   return parseTString(value.code)
 }
 
-export function readBuddyRendererGlobals<TValue>(source: TValue): TBuddyRendererGlobals | undefined {
+export function readBuddyRendererGlobals<TValue>(
+  source: TValue,
+): TBuddyRendererGlobals | undefined {
   if (!isObjectValue(source)) return undefined
   if (!(BUDDY_RENDERER_GLOBALS_KEY in source)) return undefined
   const descriptor = Object.getOwnPropertyDescriptor(source, BUDDY_RENDERER_GLOBALS_KEY)

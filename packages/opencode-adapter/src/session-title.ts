@@ -1,4 +1,9 @@
-import { isJsonObject, parseFiniteNumber, parseStringValue, type TJsonObject } from "./parse-external"
+import {
+  isJsonObject,
+  parseFiniteNumber,
+  parseStringValue,
+  type TJsonObject,
+} from "./parse-external"
 
 const FORK_TITLE_METADATA_KEY = "buddy.forkTitle"
 const VENDOR_FORK_TITLE_PATTERN = /^(.*) \(fork #(\d+)\)$/u

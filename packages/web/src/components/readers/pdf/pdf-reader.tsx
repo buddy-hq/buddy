@@ -1272,8 +1272,7 @@ export const PdfReader = forwardRef<DocumentReaderHandle, PdfReaderProps>(functi
               progress: 1,
               rows,
             },
-            current.activeResultId &&
-              results.some((result) => result.id === current.activeResultId)
+            current.activeResultId && results.some((result) => result.id === current.activeResultId)
               ? { activeResultId: current.activeResultId }
               : results[0]
                 ? { activeResultId: results[0].id }

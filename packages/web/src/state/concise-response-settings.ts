@@ -1,15 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { directoryChatQueryKeys } from "@/lib/directory-chat/chat-config-query"
 import { patchGlobalConfig } from "./chat-actions"
-import {
-  globalConfigQueryOptions,
-  setGlobalConfigQueryData,
-} from "./global-config-query"
+import { globalConfigQueryOptions, setGlobalConfigQueryData } from "./global-config-query"
 import { stringifyCaughtError } from "./parse-external"
-import {
-  CONCISE_RESPONSES_CONFIG_KEY,
-  readConciseResponses,
-} from "./project-config-readers"
+import { CONCISE_RESPONSES_CONFIG_KEY, readConciseResponses } from "./project-config-readers"
 
 export function useConciseResponseSettings() {
   const queryClient = useQueryClient()

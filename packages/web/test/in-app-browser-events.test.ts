@@ -95,9 +95,7 @@ describe("in-app Browser webview synchronization", () => {
       pageUrl: "https://example.com",
       capturedAt: 1,
     }
-    expect(inAppBrowserFaviconForUrl(favicon, "https://example.com/account")).toBe(
-      favicon,
-    )
+    expect(inAppBrowserFaviconForUrl(favicon, "https://example.com/account")).toBe(favicon)
     expect(inAppBrowserFaviconForUrl(favicon, "https://other.example/")).toBeNull()
     expect(inAppBrowserFaviconForUrl(favicon, "about:blank")).toBeNull()
   })

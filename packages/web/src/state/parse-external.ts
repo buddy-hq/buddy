@@ -82,7 +82,12 @@ export function parseBuddyConfigObject<TValue>(value: TValue): TBuddyConfigObjec
   if (Array.isArray(value)) return undefined
   if (hasFunctionValue(value)) return undefined
   if (!(value instanceof Object)) return undefined
-  if (value instanceof Date || value instanceof Map || value instanceof Set || value instanceof Promise) {
+  if (
+    value instanceof Date ||
+    value instanceof Map ||
+    value instanceof Set ||
+    value instanceof Promise
+  ) {
     return undefined
   }
 

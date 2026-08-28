@@ -10,7 +10,15 @@ import {
   humanizeSkillDisplayName,
   resolveSkillReference,
 } from "./skill-reference"
-import { isRecord, parseTJsonObject, parseTJsonText, parseTNumber, parseTString, readNonEmptyString, readNonNegativeInt } from "./types"
+import {
+  isRecord,
+  parseTJsonObject,
+  parseTJsonText,
+  parseTNumber,
+  parseTString,
+  readNonEmptyString,
+  readNonNegativeInt,
+} from "./types"
 import { readBuddyObjectResult } from "./render/buddy-object-result"
 import type { ToolInfo, ToolState } from "./types"
 import { parseToolPresentation } from "./parse-tool-presentation"
@@ -328,8 +336,7 @@ export function getToolInfo(
           subtitle: Array.isArray(input.toolIds)
             ? `${input.toolIds.length.toLocaleString()} requested`
             : undefined,
-          summary:
-            registeredToolCount !== undefined ? `${registeredToolCount} loaded` : undefined,
+          summary: registeredToolCount !== undefined ? `${registeredToolCount} loaded` : undefined,
         },
         metadataTitle,
       )
@@ -436,8 +443,7 @@ export function getToolInfo(
       return withMetadataTitle(
         {
           title: active ? "Preparing Resource" : "Prepare Resource",
-          subtitle:
-            parseTString(state.metadata.resource) ?? description,
+          subtitle: parseTString(state.metadata.resource) ?? description,
         },
         metadataTitle,
       )

@@ -6,7 +6,12 @@ import * as ProviderTransform from "opencode/provider/transform"
 import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
-import { parseJsonObjectFromText, parseJsonValue, type TJsonObject, type TJsonValue } from "./parse-external"
+import {
+  parseJsonObjectFromText,
+  parseJsonValue,
+  type TJsonObject,
+  type TJsonValue,
+} from "./parse-external"
 import type { Provider } from "./provider"
 
 const runtime = makeRuntime(OpenCodeProvider.Service, AppNodeBuilderV1.build(OpenCodeProvider.node))

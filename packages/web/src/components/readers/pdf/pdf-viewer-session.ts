@@ -197,7 +197,9 @@ function readPdfViewerEvent(value: z.infer<typeof PdfViewerEventSchema>): PdfVie
   return value
 }
 
-function readCropBox(value: readonly number[]): readonly [number, number, number, number] | undefined {
+function readCropBox(
+  value: readonly number[],
+): readonly [number, number, number, number] | undefined {
   const parsed = PdfCropBoxValuesSchema.safeParse(value.slice(0, 4))
   if (!parsed.success) return undefined
   const [x1, y1, x2, y2] = parsed.data
@@ -252,7 +254,10 @@ function abortError(): DOMException {
   return new DOMException("PDF operation was cancelled.", "AbortError")
 }
 
-function metadataRows(info: TPdfDocumentInfo, fingerprint: string | undefined): ReaderMetadataRow[] {
+function metadataRows(
+  info: TPdfDocumentInfo,
+  fingerprint: string | undefined,
+): ReaderMetadataRow[] {
   const rows: ReaderMetadataRow[] = []
   for (const [key, label] of PDF_METADATA_KEYS) {
     const value = readInfoString(info, key)
@@ -869,19 +874,13 @@ export class PdfViewerSession {
 
   zoomIn(origin?: readonly [number, number]): void {
     this.#viewer?.updateScale(
-      Object.assign(
-        { steps: 1 },
-        origin ? { origin: [...origin] } : undefined,
-      ),
+      Object.assign({ steps: 1 }, origin ? { origin: [...origin] } : undefined),
     )
   }
 
   zoomOut(origin?: readonly [number, number]): void {
     this.#viewer?.updateScale(
-      Object.assign(
-        { steps: -1 },
-        origin ? { origin: [...origin] } : undefined,
-      ),
+      Object.assign({ steps: -1 }, origin ? { origin: [...origin] } : undefined),
     )
   }
 

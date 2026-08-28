@@ -41,8 +41,7 @@ function readLearnerMemorySettings(
       ? learnerMemory.extract_model
       : undefined
   const consolidationModel =
-    learnerMemory?.consolidation_model !== undefined &&
-    learnerMemory.consolidation_model.length > 0
+    learnerMemory?.consolidation_model !== undefined && learnerMemory.consolidation_model.length > 0
       ? learnerMemory.consolidation_model
       : undefined
 
@@ -142,7 +141,10 @@ function readLearnerMemorySettings(
           override.minAssistantOutputTokens,
           settings.minAssistantOutputTokens,
         ),
-        attentionThreshold: positiveInteger(override.attentionThreshold, settings.attentionThreshold),
+        attentionThreshold: positiveInteger(
+          override.attentionThreshold,
+          settings.attentionThreshold,
+        ),
         maxExtractionCallsPerSession: positiveInteger(
           override.maxExtractionCallsPerSession,
           settings.maxExtractionCallsPerSession,
@@ -164,7 +166,10 @@ function readLearnerMemorySettings(
           override.maxSessionsPerStartup,
           settings.maxSessionsPerStartup,
         ),
-        startupConcurrency: positiveInteger(override.startupConcurrency, settings.startupConcurrency),
+        startupConcurrency: positiveInteger(
+          override.startupConcurrency,
+          settings.startupConcurrency,
+        ),
         maxRawMemoriesForConsolidation: positiveInteger(
           override.maxRawMemoriesForConsolidation,
           settings.maxRawMemoriesForConsolidation,
@@ -178,7 +183,8 @@ function readLearnerMemorySettings(
       override.autoExtract !== undefined ? { autoExtract: override.autoExtract } : undefined,
       override.extractModel !== undefined
         ? {
-            extractModel: override.extractModel.trim().length > 0 ? override.extractModel : undefined,
+            extractModel:
+              override.extractModel.trim().length > 0 ? override.extractModel : undefined,
           }
         : undefined,
     ),

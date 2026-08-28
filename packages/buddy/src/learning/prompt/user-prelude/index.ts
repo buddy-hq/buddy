@@ -293,7 +293,7 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
   if (!benchContext || benchContext.status === "closed") return {}
   const selectedBrowser: ModelVisibleSelectedBrowser | undefined =
     benchContext.visibility === "parked"
-      ? benchContext.selectedBrowser ?? undefined
+      ? (benchContext.selectedBrowser ?? undefined)
       : benchContext.target.type === "browser"
         ? {
             tabID: benchContext.target.tabID,
@@ -420,24 +420,24 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
           `State: ${target.status}`,
         ]
       : target.type === "object"
-      ? [
-          `Title: ${target.title}`,
-          `Object kind: ${target.ref.kind}`,
-          `Object ID: ${target.ref.objectID}`,
-          target.ref.revisionID ? `Revision ID: ${target.ref.revisionID}` : undefined,
-          target.ref.itemID ? `Item ID: ${target.ref.itemID}` : undefined,
-          `View ID: ${target.viewID}`,
-          selectedTab && selectedTab.target.type !== "browser"
-            ? `Absolute path: ${benchTargetAbsolutePath({ directory: context.directory, target: selectedTab.target })}`
-            : undefined,
-          `State: ${target.status}`,
-        ]
-      : [
-          `Title: ${target.title}`,
-          `Path: ${target.path}`,
-          `Absolute path: ${target.absolutePath}`,
-          `State: ${target.status}`,
-        ]
+        ? [
+            `Title: ${target.title}`,
+            `Object kind: ${target.ref.kind}`,
+            `Object ID: ${target.ref.objectID}`,
+            target.ref.revisionID ? `Revision ID: ${target.ref.revisionID}` : undefined,
+            target.ref.itemID ? `Item ID: ${target.ref.itemID}` : undefined,
+            `View ID: ${target.viewID}`,
+            selectedTab && selectedTab.target.type !== "browser"
+              ? `Absolute path: ${benchTargetAbsolutePath({ directory: context.directory, target: selectedTab.target })}`
+              : undefined,
+            `State: ${target.status}`,
+          ]
+        : [
+            `Title: ${target.title}`,
+            `Path: ${target.path}`,
+            `Absolute path: ${target.absolutePath}`,
+            `State: ${target.status}`,
+          ]
   const locationLines = targetLines.filter((line): line is string => line !== undefined)
   const metadataLines = benchContext.metadata
     .slice(0, BENCH_TURN_CONTEXT_METADATA_LIMIT)

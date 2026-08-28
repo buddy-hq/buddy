@@ -1,6 +1,10 @@
 import { queryOptions } from "@tanstack/react-query"
 import { loadGlobalConfig } from "./chat-actions"
-import { EMPTY_BUDDY_CONFIG, parseBuddyConfigObject, type TBuddyConfigObject } from "./parse-external"
+import {
+  EMPTY_BUDDY_CONFIG,
+  parseBuddyConfigObject,
+  type TBuddyConfigObject,
+} from "./parse-external"
 
 const GENERAL_SETTINGS_QUERY_SCOPE = "general-settings" as const
 const GENERAL_SETTINGS_BUNDLE_QUERY_KEY = "bundle" as const

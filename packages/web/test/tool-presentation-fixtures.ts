@@ -71,8 +71,6 @@ export function inlinePresentation(input: {
   )
 }
 
-export function presentationMetadata(
-  presentation: ToolPresentationSnapshot,
-) {
+export function presentationMetadata(presentation: ToolPresentationSnapshot) {
   return { buddy: { presentation } }
 }

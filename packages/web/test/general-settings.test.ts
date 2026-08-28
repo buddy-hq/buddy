@@ -34,7 +34,6 @@ describe("createGeneralSettingsStore", () => {
 
     expect(store.getState().draft.fullTextReadingEnabled).toBe(false)
   })
-
 })
 
 describe("settings autosave retry guards", () => {

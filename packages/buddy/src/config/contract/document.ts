@@ -12,10 +12,7 @@ import {
 } from "jsonc-parser"
 import { ConfigSchema } from "./schema.js"
 import { InvalidError, JsonError } from "./errors.js"
-import {
-  safeParsePersistedConfig,
-  type TPersistedConfigParseOptions,
-} from "./compatibility.js"
+import { safeParsePersistedConfig, type TPersistedConfigParseOptions } from "./compatibility.js"
 import {
   parseConfigJsonValue,
   parseConfigObject,
@@ -151,11 +148,7 @@ export function loadConfigFile(filepath: string): Promise<ConfigSchema.Info> {
 }
 
 export function loadProjectConfigFile(filepath: string): Promise<ConfigSchema.ProjectInfo> {
-  return loadConfigFileWithSchema(
-    filepath,
-    ConfigSchema.ProjectInfo,
-    PROJECT_CONFIG_PARSE_OPTIONS,
-  )
+  return loadConfigFileWithSchema(filepath, ConfigSchema.ProjectInfo, PROJECT_CONFIG_PARSE_OPTIONS)
 }
 
 export function loadConfigText(
@@ -229,9 +222,7 @@ function assertNoDuplicateConfigProperties(text: string, filepath: string): void
 }
 
 // jsonc-parser edits the first matching key but resolves the last duplicate when parsing.
-function findDuplicateConfigProperty(
-  text: string,
-): TDuplicateConfigProperty | undefined {
+function findDuplicateConfigProperty(text: string): TDuplicateConfigProperty | undefined {
   const objectProperties: Set<string>[] = []
   let duplicate: TDuplicateConfigProperty | undefined
 
@@ -282,13 +273,7 @@ export function updateKnownConfigDocument<TCurrent, TNext>(
     })
   }
 
-  return updateKnownConfigDocumentValue(
-    input,
-    inputRecord,
-    currentRecord,
-    nextRecord,
-    [],
-  )
+  return updateKnownConfigDocumentValue(input, inputRecord, currentRecord, nextRecord, [])
 }
 
 export function removeConfigDocumentValue(

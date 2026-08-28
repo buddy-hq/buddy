@@ -30,10 +30,7 @@ export function useStrictModeDeferredDisposal<TOwnerKey, TDiagnostics>(
     const prefix = eventPrefix ?? "strict-mode-deferred-disposal"
     const emitLog = (suffix: string, details: TDisposalLogDetails) => {
       if (!logEvent) return
-      logEvent(
-        `${prefix}-${suffix}`,
-        Object.assign({}, getDiagnosticsRef.current?.(), details),
-      )
+      logEvent(`${prefix}-${suffix}`, Object.assign({}, getDiagnosticsRef.current?.(), details))
     }
 
     emitLog("effect-mount", { disposalGeneration })

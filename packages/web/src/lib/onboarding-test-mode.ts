@@ -27,7 +27,9 @@ export function buildOnboardingTestSearch(): OnboardingTestSearch {
   return { test: ONBOARDING_TEST_SEARCH_VALUE }
 }
 
-export function isOnboardingTestSearch<TSearch>(search: TSearch): search is TSearch & OnboardingTestSearch {
+export function isOnboardingTestSearch<TSearch>(
+  search: TSearch,
+): search is TSearch & OnboardingTestSearch {
   const record = parseTJsonObject(search)
   if (!record) {
     return false

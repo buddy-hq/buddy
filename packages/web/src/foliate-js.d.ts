@@ -91,12 +91,17 @@ declare module "foliate-js/view.js" {
         }
     splitTOCHref?: (
       href: string,
-    ) => Promise<[string | number, TFoliateTocFragmentId]> | [string | number, TFoliateTocFragmentId]
+    ) =>
+      | Promise<[string | number, TFoliateTocFragmentId]>
+      | [string | number, TFoliateTocFragmentId]
     getTOCFragment?: (doc: Document, id: TFoliateTocFragmentId) => Node | null
     isExternal?: (href: string) => boolean
     getCover?: () => Promise<Blob | null> | Blob | null
     getMediaOverlay?: () => EventTarget
-    getCalibreBookmarks?: () => Promise<TFoliateCalibreBookmark[] | null> | TFoliateCalibreBookmark[] | null
+    getCalibreBookmarks?: () =>
+      | Promise<TFoliateCalibreBookmark[] | null>
+      | TFoliateCalibreBookmark[]
+      | null
     destroy?: () => void | Promise<void>
     transformTarget?: EventTarget
   }

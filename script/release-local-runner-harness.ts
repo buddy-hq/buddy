@@ -237,13 +237,17 @@ async function runMeasuredCommand(): Promise<void> {
   const cwd = readFlag("--cwd")
   const outputPath = readRequiredEnvironmentVariable(HARNESS_OUTPUT_ENV_KEY)
   const metrics = await readMetrics(outputPath)
-  await appendCommandMetric(outputPath, metrics, Object.assign(
-    {
-      command,
-      name,
-    },
-    cwd === undefined ? undefined : { cwd: resolve(repositoryRoot, cwd) },
-  ))
+  await appendCommandMetric(
+    outputPath,
+    metrics,
+    Object.assign(
+      {
+        command,
+        name,
+      },
+      cwd === undefined ? undefined : { cwd: resolve(repositoryRoot, cwd) },
+    ),
+  )
 }
 
 async function runAllMeasuredCommands(): Promise<void> {

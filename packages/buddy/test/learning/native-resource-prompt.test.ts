@@ -67,7 +67,9 @@ function nativePdfPromptParts(input: {
   ]
 }
 
-function transformedParts(result: Awaited<ReturnType<typeof runMessagePromptPipeline>>): TJsonArray {
+function transformedParts(
+  result: Awaited<ReturnType<typeof runMessagePromptPipeline>>,
+): TJsonArray {
   return requireJsonArray(result.transformed.parts, "transformed prompt parts")
 }
 

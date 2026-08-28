@@ -447,17 +447,13 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         >
           {isQuickChatGroup ? (
             <PopoverTrigger asChild>
-              <div onMouseLeave={handleMouseLeave}>
-                {headerNode}
-              </div>
+              <div onMouseLeave={handleMouseLeave}>{headerNode}</div>
             </PopoverTrigger>
           ) : (
             <ContextMenu>
               <ContextMenuTrigger asChild>
                 <PopoverTrigger asChild>
-                  <div onMouseLeave={handleMouseLeave}>
-                    {headerNode}
-                  </div>
+                  <div onMouseLeave={handleMouseLeave}>{headerNode}</div>
                 </PopoverTrigger>
               </ContextMenuTrigger>
               <ContextMenuContent className="w-44">

@@ -2,7 +2,11 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import { loadGlobalConfig } from "./chat-actions"
 import { setGlobalConfigQueryData } from "./global-config-query"
 import { readPersonalization, type PersonalizationSettings } from "./project-config-readers"
-import { EMPTY_BUDDY_CONFIG, parseBuddyConfigObject, type TBuddyConfigObject } from "./parse-external"
+import {
+  EMPTY_BUDDY_CONFIG,
+  parseBuddyConfigObject,
+  type TBuddyConfigObject,
+} from "./parse-external"
 
 const PERSONALIZATION_SETTINGS_QUERY_SCOPE = "personalization-settings" as const
 const PERSONALIZATION_SETTINGS_BUNDLE_QUERY_KEY = "bundle" as const

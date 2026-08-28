@@ -199,10 +199,7 @@ function readBenchTargetFromLocation<TSearch>(input: {
   }
 
   if (childPath.startsWith(BENCH_SESSION_ROUTE_CHILD_PREFIX)) {
-    const encodedSessionID = readSingleChildSegment(
-      childPath,
-      BENCH_SESSION_ROUTE_CHILD_PREFIX,
-    )
+    const encodedSessionID = readSingleChildSegment(childPath, BENCH_SESSION_ROUTE_CHILD_PREFIX)
     const sessionID = encodedSessionID ? decodeRouteSegment(encodedSessionID) : undefined
     return sessionID ? { type: "session", sessionID } : undefined
   }

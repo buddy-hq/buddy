@@ -28,7 +28,10 @@ export type InAppBrowserSessionBoundary = {
   ): void
   setPermissionCheckHandler(handler: ((permission: string) => boolean) | null): void
   onWillDownload(
-    handler: (event: PreventableEvent, guest: { sendMessage(message: string): void } | null) => void,
+    handler: (
+      event: PreventableEvent,
+      guest: { sendMessage(message: string): void } | null,
+    ) => void,
   ): Dispose
 }
 
@@ -100,9 +103,7 @@ export function applyInAppBrowserWebviewAttachmentPolicy(input: {
   return true
 }
 
-export function attachInAppBrowserGuestBoundary(
-  guest: InAppBrowserGuestBoundary,
-): Dispose {
+export function attachInAppBrowserGuestBoundary(guest: InAppBrowserGuestBoundary): Dispose {
   guest.setWindowOpenHandler((url) => {
     if (isAllowedInAppBrowserUrl(url)) {
       void guest.loadURL(url).catch(() => undefined)

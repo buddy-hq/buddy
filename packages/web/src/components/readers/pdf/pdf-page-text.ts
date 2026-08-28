@@ -92,7 +92,9 @@ type PdfTextContentItem = {
 }
 
 function readTextContentItem(value: TPdfTextContentItem): PdfTextContentItem | undefined {
-  const transform = PdfTextTransformSchema.safeParse(value.transform.slice(0, PDF_TEXT_TRANSFORM_LENGTH))
+  const transform = PdfTextTransformSchema.safeParse(
+    value.transform.slice(0, PDF_TEXT_TRANSFORM_LENGTH),
+  )
   if (!transform.success || value.width < 0 || value.height < 0) return undefined
   return {
     text: value.str,
@@ -122,10 +124,7 @@ function cropRelativePoint(point: PdfPoint, cropBox: PdfCropBox): PdfPoint {
   return { x: point.x - cropBox.xMin, y: point.y - cropBox.yMin }
 }
 
-function textItemQuad(
-  item: PdfTextContentItem,
-  cropBox: PdfCropBox,
-): PdfTextItemGeometry {
+function textItemQuad(item: PdfTextContentItem, cropBox: PdfCropBox): PdfTextItemGeometry {
   const [a, b, c, d, e, f] = item.transform
   const origin = { x: e, y: f }
   if (item.direction === "ttb") {
@@ -325,10 +324,7 @@ export function repairPdfTextAnchor(
   return { ...anchor, segments: repairedSegments }
 }
 
-function spanPositionRatios(
-  span: PdfPageTextSpan,
-  cropBox: PdfCropBox,
-) {
+function spanPositionRatios(span: PdfPageTextSpan, cropBox: PdfCropBox) {
   const points = [
     span.quad.topLeft,
     span.quad.topRight,

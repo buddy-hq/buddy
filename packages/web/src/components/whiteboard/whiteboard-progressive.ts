@@ -75,9 +75,7 @@ const jsonValueSchema: z.ZodType<TJsonValue> = z.lazy(() =>
   ]),
 )
 
-const jsonObjectSchema: z.ZodType<TJsonObject> = z.lazy(() =>
-  z.record(z.string(), jsonValueSchema),
-)
+const jsonObjectSchema: z.ZodType<TJsonObject> = z.lazy(() => z.record(z.string(), jsonValueSchema))
 
 const whiteboardCreateToolStateSchema = z.object({
   status: z.string(),
@@ -125,9 +123,7 @@ function parseJsonBoolean(value: TJsonValue | undefined): boolean | undefined {
   return parsed.success ? parsed.data : undefined
 }
 
-function parseWhiteboardCreateToolState(
-  part: MessagePart,
-): TWhiteboardCreateToolState | undefined {
+function parseWhiteboardCreateToolState(part: MessagePart): TWhiteboardCreateToolState | undefined {
   const parsed = whiteboardCreateToolStateSchema.safeParse(part.state)
   return parsed.success ? parsed.data : undefined
 }
@@ -601,10 +597,7 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
         ) {
           continue
         }
-        const program = readProgramFromElementsString(
-          readToolInputElements(toolState),
-          "complete",
-        )
+        const program = readProgramFromElementsString(readToolInputElements(toolState), "complete")
         if (program.length === 0) continue
         state = applyProgressiveProgram({
           current: state,

@@ -4,7 +4,16 @@ import { BasicTool } from "../../tools/basic-tool"
 import { ToolOutputPanel } from "../../tools/tool-output-panel"
 import { ToolErrorPanel } from "../../tools/tool-error-panel"
 import { language } from "@/context/language"
-import { isRecord, parseTBoolean, parseTJsonObject, parseTJsonText, parseTNumber, parseTString, readNonEmptyString, readNonNegativeInt } from "../../tools/types"
+import {
+  isRecord,
+  parseTBoolean,
+  parseTJsonObject,
+  parseTJsonText,
+  parseTNumber,
+  parseTString,
+  readNonEmptyString,
+  readNonNegativeInt,
+} from "../../tools/types"
 import type { ToolPartProps } from "../registry"
 
 const KNOWLEDGE_GRAPH_PREVIEW_LIMIT = 4

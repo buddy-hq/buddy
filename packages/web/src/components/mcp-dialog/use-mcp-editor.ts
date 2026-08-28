@@ -92,7 +92,9 @@ export function useMcpEditor(options: UseMcpEditorOptions): McpEditorState {
     setEditorMode("edit")
     setDraft(buildDraft(name, config))
     const oauthObject =
-      config.type === "remote" && config.oauth !== false ? parseTJsonObject(config.oauth) : undefined
+      config.type === "remote" && config.oauth !== false
+        ? parseTJsonObject(config.oauth)
+        : undefined
     setShowOAuthClientFields(oauthObject !== undefined && Object.keys(oauthObject).length > 0)
     setFieldErrors({})
     setEditorError(undefined)

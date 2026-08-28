@@ -417,9 +417,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     } catch (error) {
       return {
         status:
-          error instanceof Error
-            ? resolveAccountFailureStatus(error)
-            : OPENAI_ACCOUNT_ERROR_STATUS,
+          error instanceof Error ? resolveAccountFailureStatus(error) : OPENAI_ACCOUNT_ERROR_STATUS,
       }
     }
     if (!auth) {
@@ -466,9 +464,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     } catch (error) {
       return {
         status:
-          error instanceof Error
-            ? resolveAccountFailureStatus(error)
-            : OPENAI_ACCOUNT_ERROR_STATUS,
+          error instanceof Error ? resolveAccountFailureStatus(error) : OPENAI_ACCOUNT_ERROR_STATUS,
       }
     }
     if (!auth) return { status: "not_connected" }
@@ -487,9 +483,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     } catch (error) {
       return {
         status:
-          error instanceof Error
-            ? resolveAccountFailureStatus(error)
-            : OPENAI_ACCOUNT_ERROR_STATUS,
+          error instanceof Error ? resolveAccountFailureStatus(error) : OPENAI_ACCOUNT_ERROR_STATUS,
       }
     }
   }
@@ -576,9 +570,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     } catch (error) {
       return {
         status:
-          error instanceof Error
-            ? resolveAccountFailureStatus(error)
-            : OPENAI_ACCOUNT_ERROR_STATUS,
+          error instanceof Error ? resolveAccountFailureStatus(error) : OPENAI_ACCOUNT_ERROR_STATUS,
       }
     }
     if (!auth) {

@@ -44,10 +44,7 @@ type PublicSkillRepositorySyncResult = {
 
 function normalizedSourceSha(sourceSha: string): string {
   const normalized = sourceSha.trim().toLowerCase()
-  if (
-    normalized.length < SOURCE_SHA_MINIMUM_LENGTH ||
-    !SOURCE_SHA_PATTERN.test(normalized)
-  ) {
+  if (normalized.length < SOURCE_SHA_MINIMUM_LENGTH || !SOURCE_SHA_PATTERN.test(normalized)) {
     throw new Error("Buddy source SHA must be a hexadecimal Git commit identifier")
   }
   return normalized
@@ -197,10 +194,7 @@ async function preparePublicSkillRepository(
   const temporaryDirectory = await fsp.mkdtemp(
     path.join(os.tmpdir(), PUBLIC_SKILLS_TEMP_DIRECTORY_PREFIX),
   )
-  const checkoutDirectory = path.join(
-    temporaryDirectory,
-    PUBLIC_SKILLS_CHECKOUT_DIRECTORY_NAME,
-  )
+  const checkoutDirectory = path.join(temporaryDirectory, PUBLIC_SKILLS_CHECKOUT_DIRECTORY_NAME)
 
   try {
     runGit({
