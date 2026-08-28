@@ -317,8 +317,7 @@ describe("present media renderer", () => {
       rawUrl: "/api/objects/media-presentation/object_imagegen_2/raw/item_1",
     })
     const fetchMock = mock(async (input: RequestInfo | URL) => {
-      const url =
-        parseRequestUrl(input)
+      const url = parseRequestUrl(input)
       if (url.includes("/availability")) {
         return Response.json({ status: "available", message: null })
       }
@@ -349,8 +348,7 @@ describe("present media renderer", () => {
       rawUrl: "/api/objects/media-presentation/object_imagegen_missing/raw/item_1",
     })
     const fetchMock = mock(async (input: RequestInfo | URL) => {
-      const url =
-        parseRequestUrl(input)
+      const url = parseRequestUrl(input)
       if (url.includes("object_imagegen_available") && url.includes("/availability")) {
         return Response.json({ status: "available", message: null })
       }
@@ -373,8 +371,7 @@ describe("present media renderer", () => {
 
   test("stages a presented image with its exact local path when Edit image is selected", async () => {
     const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        parseRequestUrl(input)
+      const url = parseRequestUrl(input)
       const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
       if (
@@ -456,8 +453,7 @@ describe("present media renderer", () => {
 
   test("renders a gallery for multiple images", async () => {
     const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        parseRequestUrl(input)
+      const url = parseRequestUrl(input)
       const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
       if (
@@ -517,8 +513,7 @@ describe("present media renderer", () => {
     expect(container.querySelectorAll('img[src*="fileName=b.png"]')).not.toHaveLength(0)
     expect(
       fetchMock.mock.calls.filter(([input, init]) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         return url.includes("/api/objects/media-presentation/object_a/raw/") && method !== "HEAD"
       }).length,
@@ -528,8 +523,7 @@ describe("present media renderer", () => {
   test("renders MIME-typed video items with the inline player", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
@@ -582,8 +576,7 @@ describe("present media renderer", () => {
   test("renders MIME-typed audio", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
@@ -635,8 +628,7 @@ describe("present media renderer", () => {
   test("renders file actions for non-image items", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
@@ -689,8 +681,7 @@ describe("present media renderer", () => {
     const onOpenResource = mock(() => {})
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
@@ -758,8 +749,7 @@ describe("present media renderer", () => {
     const pendingDiscoveryResponses: Array<() => void> = []
     const pendingResourceListResponses: Array<() => void> = []
     const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        parseRequestUrl(input)
+      const url = parseRequestUrl(input)
       const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
       if (
@@ -817,8 +807,7 @@ describe("present media renderer", () => {
     expect(container.textContent).not.toContain("Process for Buddy")
     expect(
       fetchMock.mock.calls.some(([input, init]) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         return method === "POST" && url.includes("/api/objects/resource")
       }),
@@ -844,9 +833,7 @@ describe("present media renderer", () => {
       await flushEffects()
     })
 
-    await waitForEffect(
-      () => container.querySelector('[aria-label="Process for Buddy"]') !== null,
-    )
+    await waitForEffect(() => container.querySelector('[aria-label="Process for Buddy"]') !== null)
 
     expect(container.textContent).toContain("notes.pdf")
     expect(container.querySelector('[aria-label="Process for Buddy"]')).not.toBeNull()
@@ -856,8 +843,7 @@ describe("present media renderer", () => {
     const openPath = mock(async () => {})
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
@@ -920,8 +906,7 @@ describe("present media renderer", () => {
     const openPath = mock(async () => {})
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
@@ -978,8 +963,7 @@ describe("present media renderer", () => {
 
   test("does not fetch blobs for unavailable image items", async () => {
     const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        parseRequestUrl(input)
+      const url = parseRequestUrl(input)
 
       const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
@@ -1036,8 +1020,7 @@ describe("present media renderer", () => {
     expect(mediaFileRows(container).length).toBe(1)
     expect(
       fetchMock.mock.calls.filter(([input, init]) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         return (
           url.includes("/api/objects/media-presentation/object_missing/raw/item_1") &&
@@ -1050,8 +1033,7 @@ describe("present media renderer", () => {
   test("keeps oversized local media actionable via file row fallback", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
@@ -1117,8 +1099,7 @@ describe("present media renderer", () => {
   test("keeps non-previewable image siblings visible beside previewable images", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
@@ -1202,8 +1183,7 @@ describe("present media renderer", () => {
   test("fades unavailable object-backed items instead of retrying path resolution", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (

@@ -22,7 +22,10 @@ describe("PDF outline parsing", () => {
       {
         title: "Parent",
         dest: "parent",
-        items: [{ title: "Child", dest: "child", items: [] }, { title: 12, dest: "bad-child" }],
+        items: [
+          { title: "Child", dest: "child", items: [] },
+          { title: 12, dest: "bad-child" },
+        ],
       },
     ])
 

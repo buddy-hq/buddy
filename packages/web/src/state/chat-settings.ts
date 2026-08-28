@@ -54,7 +54,8 @@ export const useChatSettings = create<ChatSettingsStore>()(
             persisted.data.showReasoningSummaries ?? currentState.showReasoningSummaries,
           shellToolDefaultOpen:
             persisted.data.shellToolDefaultOpen ?? currentState.shellToolDefaultOpen,
-          editToolDefaultOpen: persisted.data.editToolDefaultOpen ?? currentState.editToolDefaultOpen,
+          editToolDefaultOpen:
+            persisted.data.editToolDefaultOpen ?? currentState.editToolDefaultOpen,
         }
       },
       partialize(state) {

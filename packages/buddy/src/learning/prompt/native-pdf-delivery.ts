@@ -34,9 +34,10 @@ function normalizedFilePartSourcePath(input: {
   if (!isPdfFilePart(input.part)) return undefined
 
   const source = parseJsonObject(input.part.source)
-  const sourcePath = source !== undefined && source.type === FILE_SOURCE_TYPE
-    ? parsePromptString(source.path)
-    : undefined
+  const sourcePath =
+    source !== undefined && source.type === FILE_SOURCE_TYPE
+      ? parsePromptString(source.path)
+      : undefined
   if (sourcePath !== undefined && sourcePath.length > 0) {
     return path.resolve(input.directory, sourcePath)
   }

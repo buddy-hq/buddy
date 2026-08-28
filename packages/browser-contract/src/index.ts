@@ -4,8 +4,7 @@ export const IN_APP_BROWSER_NEW_TAB_TITLE = "New tab"
 export const IN_APP_BROWSER_WEB_PREFERENCES =
   "contextIsolation=true,sandbox=true,nodeIntegration=false"
 export const IN_APP_BROWSER_DOWNLOAD_BLOCKED_MESSAGE = "Downloads are not supported yet."
-export const IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE =
-  "This link cannot open another app yet."
+export const IN_APP_BROWSER_EXTERNAL_LINK_BLOCKED_MESSAGE = "This link cannot open another app yet."
 export const IN_APP_BROWSER_TITLE_MAX_LENGTH = 200
 export const IN_APP_BROWSER_URL_MAX_LENGTH = 8_192
 export const IN_APP_BROWSER_FAVICON_DATA_URL_MAX_LENGTH = 8_192
@@ -40,7 +39,10 @@ function hasExplicitProtocol(value: string): boolean {
 }
 
 function normalizeHostname(hostname: string): string {
-  return hostname.toLowerCase().replace(/^\[|\]$/gu, "").replace(/\.$/u, "")
+  return hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/gu, "")
+    .replace(/\.$/u, "")
 }
 
 function parseIpv4Address(hostname: string): readonly number[] | undefined {
@@ -53,10 +55,7 @@ function parseIpv4Address(hostname: string): readonly number[] | undefined {
 
 function isLocalDevelopmentHostname(hostname: string): boolean {
   const normalized = normalizeHostname(hostname)
-  if (
-    LOCAL_DEVELOPMENT_HOSTNAMES.has(normalized) ||
-    normalized.endsWith(".localhost")
-  ) {
+  if (LOCAL_DEVELOPMENT_HOSTNAMES.has(normalized) || normalized.endsWith(".localhost")) {
     return true
   }
   return parseIpv4Address(normalized)?.[0] === 127
@@ -80,7 +79,8 @@ export function normalizeInAppBrowserUrl(value: string): string | undefined {
     : `${bareAddressProtocol(address)}://${address}`
   try {
     const url = new URL(candidate)
-    return IN_APP_BROWSER_PROTOCOLS.has(url.protocol) && url.href.length <= IN_APP_BROWSER_URL_MAX_LENGTH
+    return IN_APP_BROWSER_PROTOCOLS.has(url.protocol) &&
+      url.href.length <= IN_APP_BROWSER_URL_MAX_LENGTH
       ? url.href
       : undefined
   } catch {
@@ -116,10 +116,7 @@ export function normalizeInAppBrowserTitle(title: string, url: string): string {
     .replace(/[\p{Cc}\p{Cf}]+/gu, " ")
     .replace(/\s+/gu, " ")
     .trim()
-  return (normalized || inAppBrowserFallbackTitle(url)).slice(
-    0,
-    IN_APP_BROWSER_TITLE_MAX_LENGTH,
-  )
+  return (normalized || inAppBrowserFallbackTitle(url)).slice(0, IN_APP_BROWSER_TITLE_MAX_LENGTH)
 }
 
 export function inAppBrowserDisplayUrl(url: string): string {

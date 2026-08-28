@@ -235,7 +235,10 @@ describe("ingest_full_text via plugin shim", () => {
           },
           createPluginExecuteContext(pluginContext),
         )
-        const parsed_prepareResult = requireToolObjectResult(prepareResult, "Expected prepare_resource object result")
+        const parsed_prepareResult = requireToolObjectResult(
+          prepareResult,
+          "Expected prepare_resource object result",
+        )
         expect(parsed_prepareResult.output).toContain("status=ready")
         expect(parsed_prepareResult.output).toContain(
           `full_text_est_tokens=${estimateTokenCountFromText(sourceText.trim())}`,
@@ -246,7 +249,10 @@ describe("ingest_full_text via plugin shim", () => {
           { resourceKey: "frames-md" },
           createPluginExecuteContext(pluginContext),
         )
-        const parsed_ingestResult = requireToolObjectResult(ingestResult, "Expected ingest_full_text object result")
+        const parsed_ingestResult = requireToolObjectResult(
+          ingestResult,
+          "Expected ingest_full_text object result",
+        )
         expect(parsed_ingestResult.output).toContain("<resource_full_text_ingestion")
         expect(parsed_ingestResult.output).toContain('resource="frames-md"')
         expect(parsed_ingestResult.output).toContain("<full_text>")
@@ -398,7 +404,10 @@ describe("ingest_full_text via plugin shim", () => {
           },
           createPluginExecuteContext(baseContext),
         )
-        const parsed_prepareResult = requireToolObjectResult(prepareResult, "Expected prepare_resource object result")
+        const parsed_prepareResult = requireToolObjectResult(
+          prepareResult,
+          "Expected prepare_resource object result",
+        )
         expect(parsed_prepareResult.output).toContain("status=ready")
 
         const ingestPlugin = buddyToolToPluginTool(ingestFullTextTool, project.path)
@@ -406,7 +415,10 @@ describe("ingest_full_text via plugin shim", () => {
           { resourceKey: "native-pdf" },
           createPluginExecuteContext(baseContext),
         )
-        const parsed_nativeResult = requireToolObjectResult(nativeResult, "Expected native PDF fallback result with metadata")
+        const parsed_nativeResult = requireToolObjectResult(
+          nativeResult,
+          "Expected native PDF fallback result with metadata",
+        )
         const nativeMetadata = requireToolMetadata(parsed_nativeResult)
         expect(nativeMetadata.completed).toBe(false)
         expect(nativeMetadata.reason).toBe("native_pdf_already_in_context")
@@ -426,7 +438,10 @@ describe("ingest_full_text via plugin shim", () => {
             messages: resourceOnlyMessages,
           }),
         )
-        const parsed_resourceOnlyResult = requireToolObjectResult(resourceOnlyResult, "Expected resource-only ingestion object result with metadata")
+        const parsed_resourceOnlyResult = requireToolObjectResult(
+          resourceOnlyResult,
+          "Expected resource-only ingestion object result with metadata",
+        )
         expect(requireToolMetadata(parsed_resourceOnlyResult).completed).toBe(true)
         expect(parsed_resourceOnlyResult.output).toContain("<full_text>")
       },
@@ -466,7 +481,10 @@ describe("ingest_full_text via plugin shim", () => {
           },
           createPluginExecuteContext(pluginContext),
         )
-        const parsed_prepareResult = requireToolObjectResult(prepareResult, "Expected prepare_resource object result")
+        const parsed_prepareResult = requireToolObjectResult(
+          prepareResult,
+          "Expected prepare_resource object result",
+        )
         const parsed_fullTextPath = requireString(
           requireToolMetadata(parsed_prepareResult).fullTextPath,
           "Expected prepare_resource full-text path",
@@ -486,7 +504,10 @@ describe("ingest_full_text via plugin shim", () => {
           { resourceKey: "capped-window-md" },
           createPluginExecuteContext(pluginContext),
         )
-        const parsed_boundaryResult = requireToolObjectResult(boundaryResult, "Expected ingest_full_text object result with metadata")
+        const parsed_boundaryResult = requireToolObjectResult(
+          boundaryResult,
+          "Expected ingest_full_text object result with metadata",
+        )
         const boundaryMetadata = requireToolMetadata(parsed_boundaryResult)
         expect(boundaryMetadata.completed).toBe(true)
         expect(boundaryMetadata.inputWindow).toBe(FULL_TEXT_INPUT_WINDOW_CEILING_TOKENS)
@@ -502,7 +523,10 @@ describe("ingest_full_text via plugin shim", () => {
           { resourceKey: "capped-window-md" },
           createPluginExecuteContext(pluginContext),
         )
-        const parsed_overBoundaryResult = requireToolObjectResult(overBoundaryResult, "Expected ingest_full_text fallback result with metadata")
+        const parsed_overBoundaryResult = requireToolObjectResult(
+          overBoundaryResult,
+          "Expected ingest_full_text fallback result with metadata",
+        )
         const overBoundaryMetadata = requireToolMetadata(parsed_overBoundaryResult)
         expect(overBoundaryMetadata.completed).toBe(false)
         expect(overBoundaryMetadata.reason).toBe("context_too_full")
@@ -526,7 +550,10 @@ describe("ingest_full_text via plugin shim", () => {
           { resourceKey: "capped-window-md" },
           createPluginExecuteContext(usedPluginContext),
         )
-        const parsed_usedBoundaryResult = requireToolObjectResult(usedBoundaryResult, "Expected used-session ingest result with metadata")
+        const parsed_usedBoundaryResult = requireToolObjectResult(
+          usedBoundaryResult,
+          "Expected used-session ingest result with metadata",
+        )
         const usedBoundaryMetadata = requireToolMetadata(parsed_usedBoundaryResult)
         expect(usedBoundaryMetadata.completed).toBe(true)
         expect(usedBoundaryMetadata.liveUsageEstimate).toBe(INCIDENT_LIVE_USAGE_TOKENS)
@@ -539,7 +566,10 @@ describe("ingest_full_text via plugin shim", () => {
           { resourceKey: "capped-window-md" },
           createPluginExecuteContext(usedPluginContext),
         )
-        const parsed_usedOverBoundaryResult = requireToolObjectResult(usedOverBoundaryResult, "Expected used-session fallback result with metadata")
+        const parsed_usedOverBoundaryResult = requireToolObjectResult(
+          usedOverBoundaryResult,
+          "Expected used-session fallback result with metadata",
+        )
         const usedOverBoundaryMetadata = requireToolMetadata(parsed_usedOverBoundaryResult)
         expect(usedOverBoundaryMetadata.completed).toBe(false)
         expect(usedOverBoundaryMetadata.remainingAfterIngestion).toBe(
@@ -589,7 +619,10 @@ describe("ingest_full_text via plugin shim", () => {
             model: SMALL_TEST_ACTIVE_MODEL,
           }),
         )
-        const parsed_prepareResult = requireToolObjectResult(prepareResult, "Expected prepare_resource object result")
+        const parsed_prepareResult = requireToolObjectResult(
+          prepareResult,
+          "Expected prepare_resource object result",
+        )
         expect(parsed_prepareResult.output).toContain("status=ready")
 
         const ingestPlugin = buddyToolToPluginTool(ingestFullTextTool, project.path)
@@ -602,7 +635,10 @@ describe("ingest_full_text via plugin shim", () => {
             model: SMALL_TEST_ACTIVE_MODEL,
           }),
         )
-        const parsed_ingestResult = requireToolObjectResult(ingestResult, "Expected ingest_full_text object result")
+        const parsed_ingestResult = requireToolObjectResult(
+          ingestResult,
+          "Expected ingest_full_text object result",
+        )
         const ingestMetadata = requireToolMetadata(parsed_ingestResult)
         expect(ingestMetadata.completed).toBe(false)
         expect(ingestMetadata.reason).toBe("context_too_full")
@@ -650,7 +686,10 @@ describe("ingest_full_text via plugin shim", () => {
           },
           createPluginExecuteContext(pluginContext),
         )
-        const parsed_prepareResult = requireToolObjectResult(prepareResult, "Expected prepare_resource object result")
+        const parsed_prepareResult = requireToolObjectResult(
+          prepareResult,
+          "Expected prepare_resource object result",
+        )
         const parsed_fullTextPath = requireString(
           requireToolMetadata(parsed_prepareResult).fullTextPath,
           "Expected prepare_resource full-text path",
@@ -670,7 +709,10 @@ describe("ingest_full_text via plugin shim", () => {
           { resourceKey: "legacy-estimate-md" },
           createPluginExecuteContext(pluginContext),
         )
-        const parsed_ingestResult = requireToolObjectResult(ingestResult, "Expected stale-estimate fallback result with metadata")
+        const parsed_ingestResult = requireToolObjectResult(
+          ingestResult,
+          "Expected stale-estimate fallback result with metadata",
+        )
         const ingestMetadata = requireToolMetadata(parsed_ingestResult)
         expect(ingestMetadata.completed).toBe(false)
         expect(ingestMetadata.reason).toBe("context_too_full")

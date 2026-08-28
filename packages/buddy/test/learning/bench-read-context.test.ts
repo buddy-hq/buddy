@@ -444,7 +444,9 @@ describe("bench_read_context", () => {
         },
       })
       const capture = requireJsonObject(output.capture, "capture receipt")
-      expect(Number.isNaN(Date.parse(requireString(capture.capturedAt, "capture timestamp")))).toBeFalse()
+      expect(
+        Number.isNaN(Date.parse(requireString(capture.capturedAt, "capture timestamp"))),
+      ).toBeFalse()
       if (testCase.includesContext) {
         expect(output).toMatchObject({
           status: "open",

@@ -9,11 +9,7 @@ import {
 import { buildWhiteboardLayoutDigest } from "../service/layout-digest"
 import type { TJsonObject } from "../../../prompt/utils"
 import type { WhiteboardBoard, WhiteboardBounds, WhiteboardElement } from "../service/types"
-import {
-  parseNonEmptyTString,
-  parseTJsonObject,
-  readElementContainerID,
-} from "../service/types"
+import { parseNonEmptyTString, parseTJsonObject, readElementContainerID } from "../service/types"
 
 type TToolExecuteResult = {
   title: string

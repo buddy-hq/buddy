@@ -130,7 +130,9 @@ export function indigoErrorCode(error: Error): IndigoRenderErrorCode {
   return error instanceof IndigoRenderError ? error.code : "indigo_render_failed"
 }
 
-export function parseIndigoWorkerMessage(event: MessageEvent): IndigoWorkerRenderRequest | undefined {
+export function parseIndigoWorkerMessage(
+  event: MessageEvent,
+): IndigoWorkerRenderRequest | undefined {
   const parsed = indigoRenderRequestSchema.safeParse(event.data)
   return parsed.success ? parsed.data : undefined
 }

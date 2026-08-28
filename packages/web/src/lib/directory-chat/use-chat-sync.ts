@@ -129,7 +129,10 @@ function readLatestAssistantResponsePreview(directory: string, sessionID: string
 
   for (const message of messages.toReversed()) {
     if (message.info.role !== "assistant") continue
-    const text = message.parts.filter(isChatTextPart).map((part) => part.text).join("\n\n")
+    const text = message.parts
+      .filter(isChatTextPart)
+      .map((part) => part.text)
+      .join("\n\n")
     const normalized = normalizeNotificationText(text)
     if (normalized) return truncateNotificationText(normalized)
   }

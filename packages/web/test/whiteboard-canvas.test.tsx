@@ -99,7 +99,9 @@ type TWhiteboardPreferencesSlice = {
   togglePanelPlacement: () => void
 }
 
-function selectWhiteboardPreference<TValue>(selector: (state: TWhiteboardPreferencesSlice) => TValue) {
+function selectWhiteboardPreference<TValue>(
+  selector: (state: TWhiteboardPreferencesSlice) => TValue,
+) {
   return selector({ panelPlacement: "bottom", togglePanelPlacement: () => undefined })
 }
 
@@ -271,9 +273,7 @@ describe("whiteboard canvas", () => {
     expect(container.querySelector('[data-component="whiteboard-canvas-settling"]')).not.toBeNull()
 
     await act(async () => {
-      await new Promise((resolve) =>
-        window.setTimeout(resolve, CANVAS_FALLBACK_SETTLE_WAIT_MS),
-      )
+      await new Promise((resolve) => window.setTimeout(resolve, CANVAS_FALLBACK_SETTLE_WAIT_MS))
     })
 
     expect(activeSceneElements.map((element) => element.id)).toEqual(["persisted"])

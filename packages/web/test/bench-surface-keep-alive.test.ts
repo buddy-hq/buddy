@@ -49,9 +49,7 @@ describe("bench surface keep-alive", () => {
     expect(benchSurfaceCostClass(objectTarget("resource"))).toBe(BENCH_SURFACE_COST_READER)
     expect(benchSurfaceCostClass(fileTarget("docs/intro.md"))).toBe(BENCH_SURFACE_COST_LIGHT)
     expect(benchSurfaceCostClass(objectTarget("question-set"))).toBe(BENCH_SURFACE_COST_LIGHT)
-    expect(benchSurfaceCostClass(browserTarget("browser-1"))).toBe(
-      BENCH_SURFACE_COST_BROWSER,
-    )
+    expect(benchSurfaceCostClass(browserTarget("browser-1"))).toBe(BENCH_SURFACE_COST_BROWSER)
   })
 
   test("moves a re-activated surface to most-recently-used without remounting it", () => {
@@ -113,9 +111,7 @@ describe("bench surface keep-alive", () => {
   })
 
   test("keeps every open Browser tab mounted beyond the light-surface budget", () => {
-    const browsers = Array.from({ length: 12 }, (_, index) =>
-      browserTarget(`browser-${index}`),
-    )
+    const browsers = Array.from({ length: 12 }, (_, index) => browserTarget(`browser-${index}`))
     const instances = retainAll(browsers)
 
     expect(instances.map((instance) => instance.key)).toEqual(browsers.map(benchTargetKey))

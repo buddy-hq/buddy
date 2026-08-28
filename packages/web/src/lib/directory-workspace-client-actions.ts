@@ -177,7 +177,9 @@ function readNullableString<TValue>(value: TValue): string | null | undefined {
   return readString(value)
 }
 
-function readBenchAutoOpenIdentity<TValue>(value: TValue): BenchAutoOpenIdentity | null | undefined {
+function readBenchAutoOpenIdentity<TValue>(
+  value: TValue,
+): BenchAutoOpenIdentity | null | undefined {
   if (value === null) return null
   const record = parseTJsonObject(value)
   if (!record) return undefined
@@ -199,7 +201,8 @@ function readBenchClientAction<TValue>(value: TValue): BenchClientActionV2 | und
   const sessionID = readString(record.sessionID)
   const messageID = readString(record.messageID)
   const callID = readNullableString(record.callID)
-  const origin = record.origin === "agent" || record.origin === "auto-open" ? record.origin : undefined
+  const origin =
+    record.origin === "agent" || record.origin === "auto-open" ? record.origin : undefined
   const acknowledgement =
     record.acknowledgement === "required" || record.acknowledgement === "best-effort"
       ? record.acknowledgement
@@ -254,11 +257,7 @@ function readBenchClientAction<TValue>(value: TValue): BenchClientActionV2 | und
   if (command.type === "capture_bench_screenshot") {
     const tabKey = readString(command.tabKey)
     const drawer =
-      command.drawer === null
-        ? null
-        : isDrawerKind(command.drawer)
-          ? command.drawer
-          : undefined
+      command.drawer === null ? null : isDrawerKind(command.drawer) ? command.drawer : undefined
     if (!tabKey || drawer === undefined) return undefined
     return {
       version: BENCH_CLIENT_ACTION_VERSION,

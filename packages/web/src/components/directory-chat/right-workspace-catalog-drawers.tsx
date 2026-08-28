@@ -397,8 +397,7 @@ function EmptyInventory(props: {
 
 function useStickyReadingPath() {
   const search = useSearch({ strict: false })
-  const readingPath =
-    "path" in search ? parseTString(search.path) : undefined
+  const readingPath = "path" in search ? parseTString(search.path) : undefined
   const [stickyReadingPath, setStickyReadingPath] = useState<string | undefined>(readingPath)
 
   useEffect(() => {

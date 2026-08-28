@@ -19,11 +19,7 @@ import { resolveBenchRouteViewTransitionTypes } from "@/lib/bench-navigation"
 import { buildWorkspaceRouteNavigation } from "@/lib/directory-workspace-controller"
 import { ThemeProvider } from "@/theme"
 import type { ThemeAppliedDetails } from "@/theme"
-import {
-  browserWindow,
-  parseBuddyConfigObject,
-  parseStringValue,
-} from "@/state/parse-external"
+import { browserWindow, parseBuddyConfigObject, parseStringValue } from "@/state/parse-external"
 import { routeTree } from "./routeTree.gen"
 import "@/state/appearance-preferences"
 import "./bench-view-transitions.css"

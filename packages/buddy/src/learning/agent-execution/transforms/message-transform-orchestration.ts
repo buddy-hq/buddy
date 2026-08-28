@@ -221,50 +221,51 @@ export async function orchestrateSessionMessageTransform(input: {
     rollbackState: () => {
       rollbackTeachingState?.()
     },
-    onAccepted: conciseResponseChatState || learnerContextDelivery
-      ? async () => {
-          let failure: { cause: unknown } | undefined
+    onAccepted:
+      conciseResponseChatState || learnerContextDelivery
+        ? async () => {
+            let failure: { cause: unknown } | undefined
 
-          if (conciseResponseChatState) {
-            try {
-              await persistConciseResponseChatState({
-                directory: input.context.directory,
-                sessionID: input.context.sessionID,
-                ...conciseResponseChatState,
-              })
-            } catch (cause) {
-              failure = { cause }
-            }
-          }
-
-          if (learnerContextDelivery) {
-            try {
-              const state = readTeachingSessionState(
-                input.context.directory,
-                input.context.sessionID,
-              )
-              if (state) {
-                const messageId = `learner_ctx_${input.context.sessionID}_${Date.now()}`
-                writeTeachingSessionState(input.context.directory, {
-                  ...state,
-                  lastDeliveredLearnerContextMessageId: messageId,
-                })
-                await ingestLearnerContextDelivery({
+            if (conciseResponseChatState) {
+              try {
+                await persistConciseResponseChatState({
                   directory: input.context.directory,
                   sessionID: input.context.sessionID,
-                  messageID: messageId,
-                  deliveryKind: learnerContextDelivery.kind,
-                  fingerprint: learnerContextDelivery.fingerprint,
-                  itemCount: learnerContextDelivery.items?.length ?? 0,
+                  ...conciseResponseChatState,
                 })
+              } catch (cause) {
+                failure = { cause }
               }
-            } catch (cause) {
-              failure ??= { cause }
             }
-          }
 
-          if (failure) throw failure.cause
-        }
-      : undefined,
+            if (learnerContextDelivery) {
+              try {
+                const state = readTeachingSessionState(
+                  input.context.directory,
+                  input.context.sessionID,
+                )
+                if (state) {
+                  const messageId = `learner_ctx_${input.context.sessionID}_${Date.now()}`
+                  writeTeachingSessionState(input.context.directory, {
+                    ...state,
+                    lastDeliveredLearnerContextMessageId: messageId,
+                  })
+                  await ingestLearnerContextDelivery({
+                    directory: input.context.directory,
+                    sessionID: input.context.sessionID,
+                    messageID: messageId,
+                    deliveryKind: learnerContextDelivery.kind,
+                    fingerprint: learnerContextDelivery.fingerprint,
+                    itemCount: learnerContextDelivery.items?.length ?? 0,
+                  })
+                }
+              } catch (cause) {
+                failure ??= { cause }
+              }
+            }
+
+            if (failure) throw failure.cause
+          }
+        : undefined,
   }
 }

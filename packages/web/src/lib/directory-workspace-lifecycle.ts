@@ -313,9 +313,7 @@ function workspaceFileSignalMatchesTarget(input: {
   )
 }
 
-function contextTargetDiagnosticValue(
-  target: BenchReadContextOpenOutput["target"],
-) {
+function contextTargetDiagnosticValue(target: BenchReadContextOpenOutput["target"]) {
   if (target.type === "workspace-file") {
     return {
       type: target.type,
@@ -366,9 +364,7 @@ function contextTargetDiagnostic(value: BenchReadContextOutput) {
   }
 }
 
-function surfaceContextDiagnostic(
-  value: BenchReadSurfaceContextOpenOutput,
-) {
+function surfaceContextDiagnostic(value: BenchReadSurfaceContextOpenOutput) {
   return {
     status: value.status,
     targetKey: value.targetKey,
@@ -1091,9 +1087,7 @@ export class DirectoryWorkspaceLifecycleService {
           semanticRevision: DIRECTORY_WORKSPACE_FALLBACK_REVISION,
           tabs,
           selectedBrowser:
-            value.status === "open" && value.visibility === "parked"
-              ? value.selectedBrowser
-              : null,
+            value.status === "open" && value.visibility === "parked" ? value.selectedBrowser : null,
         }),
         value,
       }

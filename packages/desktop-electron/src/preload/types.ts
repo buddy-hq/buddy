@@ -1,8 +1,5 @@
 import type { UpdateProgressSnapshot, UpdateRing } from "../shared/update-state"
-import type {
-  InAppBrowserFaviconMessage,
-  InAppBrowserHostMessage,
-} from "@buddy/browser-contract"
+import type { InAppBrowserFaviconMessage, InAppBrowserHostMessage } from "@buddy/browser-contract"
 
 export type InitStep = { phase: "server_waiting" } | { phase: "sqlite_waiting" } | { phase: "done" }
 

@@ -353,10 +353,7 @@ async function renderPersistedMermaidSvg(input: {
         }).catch(() => undefined)
         throw new MermaidRenderFailureError(
           errorMessage,
-          Object.assign(
-            { persisted: false },
-            stored ? { renderKey: stored.renderKey } : undefined,
-          ),
+          Object.assign({ persisted: false }, stored ? { renderKey: stored.renderKey } : undefined),
         )
       }
     },

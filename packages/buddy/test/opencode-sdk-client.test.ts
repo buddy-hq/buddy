@@ -15,5 +15,4 @@ describe("OpenCode v2 SDK client helper", () => {
     const result = await client.session.list({ directory: project.path })
     expect(Array.isArray(result.data)).toBe(true)
   })
-
 })

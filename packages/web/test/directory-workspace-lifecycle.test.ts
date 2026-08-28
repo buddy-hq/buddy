@@ -85,11 +85,7 @@ function readPublishBodyProbe<TValue>(value: TValue): PublishBodyProbe {
   const publicationSequence = parseFiniteNumber(record?.publicationSequence)
   const contextValue = parseBuddyConfigObject(record?.value)
   const status = parseStringValue(contextValue?.status)
-  if (
-    idempotencyKey === undefined ||
-    publicationSequence === undefined ||
-    status === undefined
-  ) {
+  if (idempotencyKey === undefined || publicationSequence === undefined || status === undefined) {
     throw new Error("Expected publish body idempotency key and sequence.")
   }
   return {
@@ -2288,8 +2284,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
         const request = input instanceof Request ? input : null
         const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
         const body = init?.body ?? (request ? await request.clone().text() : undefined)
-        const parsedBody =
-          body === undefined ? undefined : parseJsonObjectText(String(body))
+        const parsedBody = body === undefined ? undefined : parseJsonObjectText(String(body))
         requests.push(
           Object.assign(
             { method },

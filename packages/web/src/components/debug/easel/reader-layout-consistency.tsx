@@ -106,7 +106,10 @@ const DIRECTIONS: Array<{ id: Direction; label: string; tagline: string }> = [
  * column, and any control that cannot hold its shape there is wrong — so the
  * fixed widths are a test to run, not the way to read the mock.
  */
-const FRAME_WIDTH_PX = { docked: 480, wide: 900 } satisfies Record<Exclude<FrameWidth, "fill">, number>
+const FRAME_WIDTH_PX = { docked: 480, wide: 900 } satisfies Record<
+  Exclude<FrameWidth, "fill">,
+  number
+>
 const FRAME_WIDTH_LABEL = {
   fill: "fill",
   docked: "480px · Bench docked",

@@ -13,10 +13,7 @@ import {
   type InAppBrowserSessionBoundary,
 } from "../src/main/in-app-browser-boundary"
 
-function requireInstalledHandler<THandler>(
-  handler: THandler | undefined,
-  name: string,
-): THandler {
+function requireInstalledHandler<THandler>(handler: THandler | undefined, name: string): THandler {
   if (handler === undefined) throw new Error(`${name} handler was not installed`)
   return handler
 }
@@ -31,9 +28,7 @@ describe("in-app Browser session boundary", () => {
     >
     let requestHandler: PermissionRequestHandler | undefined
     let checkHandler: PermissionCheckHandler | undefined
-    let downloadHandler:
-      | Parameters<InAppBrowserSessionBoundary["onWillDownload"]>[0]
-      | undefined
+    let downloadHandler: Parameters<InAppBrowserSessionBoundary["onWillDownload"]>[0] | undefined
     let requestHandlerCleared = false
     let checkHandlerCleared = false
     let downloadDisposed = false
@@ -131,22 +126,12 @@ describe("in-app Browser webview attachment boundary", () => {
 
 describe("in-app Browser guest wiring", () => {
   test("replaces popups, guards navigation and redirects, and removes listeners on teardown", async () => {
-    let willAttach:
-      | Parameters<InAppBrowserHostBoundary["onWillAttachWebview"]>[0]
-      | undefined
+    let willAttach: Parameters<InAppBrowserHostBoundary["onWillAttachWebview"]>[0] | undefined
     let didAttach: Parameters<InAppBrowserHostBoundary["onDidAttachWebview"]>[0] | undefined
-    let popupHandler:
-      | Parameters<InAppBrowserGuestBoundary["setWindowOpenHandler"]>[0]
-      | undefined
-    let navigateHandler:
-      | Parameters<InAppBrowserGuestBoundary["onWillNavigate"]>[0]
-      | undefined
-    let redirectHandler:
-      | Parameters<InAppBrowserGuestBoundary["onWillRedirect"]>[0]
-      | undefined
-    let destroyedHandler:
-      | Parameters<InAppBrowserGuestBoundary["onDestroyed"]>[0]
-      | undefined
+    let popupHandler: Parameters<InAppBrowserGuestBoundary["setWindowOpenHandler"]>[0] | undefined
+    let navigateHandler: Parameters<InAppBrowserGuestBoundary["onWillNavigate"]>[0] | undefined
+    let redirectHandler: Parameters<InAppBrowserGuestBoundary["onWillRedirect"]>[0] | undefined
+    let destroyedHandler: Parameters<InAppBrowserGuestBoundary["onDestroyed"]>[0] | undefined
     const disposals: string[] = []
     const loadedUrls: string[] = []
     const messages: string[] = []
@@ -187,11 +172,10 @@ describe("in-app Browser guest wiring", () => {
     const installedDidAttach = requireInstalledHandler(didAttach, "Did-attach")
     const preferences = { preload: "/tmp/preload.js" }
     let preventedAttach = false
-    installedWillAttach(
-      { preventDefault: () => (preventedAttach = true) },
-      preferences,
-      { partition: IN_APP_BROWSER_PARTITION, src: "https://hibuddy.in" },
-    )
+    installedWillAttach({ preventDefault: () => (preventedAttach = true) }, preferences, {
+      partition: IN_APP_BROWSER_PARTITION,
+      src: "https://hibuddy.in",
+    })
     expect(preventedAttach).toBe(false)
     expect(preferences.preload).toBeUndefined()
     installedDidAttach(guest)
@@ -227,12 +211,6 @@ describe("in-app Browser guest wiring", () => {
     installedDestroyedHandler()
     expect(disposals).toEqual(["navigate", "redirect", "destroyed"])
     dispose()
-    expect(disposals).toEqual([
-      "navigate",
-      "redirect",
-      "destroyed",
-      "will-attach",
-      "did-attach",
-    ])
+    expect(disposals).toEqual(["navigate", "redirect", "destroyed", "will-attach", "did-attach"])
   })
 })

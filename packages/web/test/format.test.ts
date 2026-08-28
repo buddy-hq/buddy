@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import {
-  formatDuration,
-  formatThoughtDuration,
-} from "../src/components/chat/utils/format"
+import { formatDuration, formatThoughtDuration } from "../src/components/chat/utils/format"
 
 describe("formatThoughtDuration", () => {
   test("uses seconds under one minute", () => {

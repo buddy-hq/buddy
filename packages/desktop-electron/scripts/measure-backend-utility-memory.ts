@@ -365,10 +365,7 @@ function scenario(mode: Mode): ScenarioStep[] {
   ]
 }
 
-function endpointStep(
-  label: string,
-  endpoint: string,
-): ScenarioStep {
+function endpointStep(label: string, endpoint: string): ScenarioStep {
   return {
     endpoint,
     label,

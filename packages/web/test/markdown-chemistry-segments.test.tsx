@@ -11,10 +11,7 @@ import {
 import { clearChemistryRenderCacheForTests } from "../src/components/media/renderers/chemistry/render"
 import { ChemfigRenderRequestError } from "../src/components/media/renderers/chemistry/chemfig-adapter"
 import { chemistryDiagramViewportClass } from "../src/components/media/renderers/chemistry/layout"
-import {
-  setBuddyTestGlobal,
-  TEST_CHEMISTRY_RENDERER_KEY,
-} from "./parse-test-values"
+import { setBuddyTestGlobal, TEST_CHEMISTRY_RENDERER_KEY } from "./parse-test-values"
 
 const originalIntersectionObserver = globalThis.IntersectionObserver
 

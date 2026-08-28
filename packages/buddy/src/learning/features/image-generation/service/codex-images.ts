@@ -67,15 +67,15 @@ export function createCodexImagesClient(dependencies: CodexImagesClientDependenc
 
       const response = await dependencies.fetch(`${CHATGPT_CODEX_BASE_URL}/${endpointPath}`, {
         method: "POST",
-          headers: Object.assign(
-            {
-              Accept: "application/json",
-              Authorization: `Bearer ${auth.access}`,
-              "Content-Type": "application/json",
-              originator: IMAGE_ORIGINATOR,
-            },
-            auth.accountId ? { "ChatGPT-Account-Id": auth.accountId } : undefined,
-          ),
+        headers: Object.assign(
+          {
+            Accept: "application/json",
+            Authorization: `Bearer ${auth.access}`,
+            "Content-Type": "application/json",
+            originator: IMAGE_ORIGINATOR,
+          },
+          auth.accountId ? { "ChatGPT-Account-Id": auth.accountId } : undefined,
+        ),
         body: JSON.stringify(body),
         signal: request.signal,
       })

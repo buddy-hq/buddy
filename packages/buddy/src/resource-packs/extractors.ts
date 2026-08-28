@@ -79,9 +79,7 @@ type TPdfPageRef = {
   num: number
   gen: number
 }
-type TPdfOutlineDest =
-  | { kind: "name"; name: string }
-  | { kind: "explicit"; reference: TPdfPageRef }
+type TPdfOutlineDest = { kind: "name"; name: string } | { kind: "explicit"; reference: TPdfPageRef }
 type TPdfOutlineNode = {
   title: string
   dest?: TPdfOutlineDest

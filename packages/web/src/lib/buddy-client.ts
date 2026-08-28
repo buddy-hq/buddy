@@ -54,10 +54,7 @@ export function requireBuddyData<TData>(result: TBuddyResult<TData>): TData {
   return result.data
 }
 
-export function buddyResultMessage(result: {
-  error: unknown
-  response: Response | undefined
-}) {
+export function buddyResultMessage(result: { error: unknown; response: Response | undefined }) {
   return (
     errorMessage(result.error) ?? `Request failed (${result.response?.status ?? "no response"})`
   )

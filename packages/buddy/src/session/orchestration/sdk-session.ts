@@ -3,10 +3,7 @@ import { isJsonContentType } from "../../http/http"
 import { invalidJsonResponse } from "../../http/request-json"
 import { extractSdkErrorMessage, type SdkResult } from "../../http/sdk-response"
 import { flattenPromptPartsForRuntime } from "../../learning/prompt/workspace-file-references"
-import {
-  parseTSessionJsonObject,
-  type TSessionJsonObject,
-} from "./parse-values"
+import { parseTSessionJsonObject, type TSessionJsonObject } from "./parse-values"
 
 async function parseRequestJsonObject(c: Context): Promise<TSessionJsonObject | Response> {
   try {
@@ -17,9 +14,7 @@ async function parseRequestJsonObject(c: Context): Promise<TSessionJsonObject | 
   }
 }
 
-export async function readValidatedJsonObject(
-  c: Context,
-): Promise<TSessionJsonObject | Response> {
+export async function readValidatedJsonObject(c: Context): Promise<TSessionJsonObject | Response> {
   const contentType = c.req.header("content-type")
   if (!isJsonContentType(contentType)) {
     return invalidJsonResponse()

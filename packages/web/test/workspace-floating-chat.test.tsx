@@ -232,7 +232,6 @@ describe("workspace floating chat helpers", () => {
       y: 460,
     })
   })
-
 })
 
 describe("DirectoryChatBenchPageLayout floating chat", () => {

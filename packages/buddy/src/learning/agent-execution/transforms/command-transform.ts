@@ -65,8 +65,7 @@ export function createSessionCommandTransform(input: {
 
         conciseResponseChatState = previousState
           ? {
-              base:
-                previousState.baseConciseResponses ?? previousState.conciseResponses ?? true,
+              base: previousState.baseConciseResponses ?? previousState.conciseResponses ?? true,
               applied: previousState.conciseResponses ?? true,
             }
           : await readConciseResponseChatState({

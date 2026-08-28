@@ -3,12 +3,7 @@ import { createServer } from "node:net"
 import path from "node:path"
 import * as XLSX from "xlsx"
 import { assertBackendNodeArtifactRuntimeFiles } from "../../../script/backend-node-artifact"
-import {
-  parseTJsonObject,
-  parseTJsonText,
-  parseTPortedAddress,
-  parseTString,
-} from "./parse-values"
+import { parseTJsonObject, parseTJsonText, parseTPortedAddress, parseTString } from "./parse-values"
 
 export const HOSTNAME = "127.0.0.1"
 export const USERNAME = "buddy"

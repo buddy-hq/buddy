@@ -161,7 +161,9 @@ function readStringRecord<TValue>(value: TValue): Record<string, string> | undef
   return result
 }
 
-function readLastOpenedReadingResource<TValue>(value: TValue): LastOpenedReadingResource | undefined {
+function readLastOpenedReadingResource<TValue>(
+  value: TValue,
+): LastOpenedReadingResource | undefined {
   if (!isRecord(value)) return undefined
   const name = parseString(value.name)
   const path = parseString(value.path)

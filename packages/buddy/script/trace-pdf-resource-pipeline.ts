@@ -164,7 +164,10 @@ async function traceExtractResourcePack(sourcePath: string): Promise<void> {
   })
 }
 
-async function tracePhase<T>(name: string, run: () => Promise<T | TTraceWrappedValue<T>>): Promise<T> {
+async function tracePhase<T>(
+  name: string,
+  run: () => Promise<T | TTraceWrappedValue<T>>,
+): Promise<T> {
   const startedAt = performance.now()
   trace(`${name}:start`, memorySnapshot())
   const heartbeat = setInterval(() => {

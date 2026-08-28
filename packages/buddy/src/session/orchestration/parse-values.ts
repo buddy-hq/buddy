@@ -55,7 +55,9 @@ export function parseTSessionInteger<TValue>(value: TValue): number | undefined 
 
 export type TSessionJsonValidator = (target: "json") => TSessionJsonObject
 
-export function parseTSessionJsonValidator<TValue>(value: TValue): TSessionJsonValidator | undefined {
+export function parseTSessionJsonValidator<TValue>(
+  value: TValue,
+): TSessionJsonValidator | undefined {
   const parsed = sessionJsonValidatorSchema.safeParse(value)
   if (!parsed.success) {
     return undefined
@@ -63,7 +65,9 @@ export function parseTSessionJsonValidator<TValue>(value: TValue): TSessionJsonV
   return (target) => parseTSessionJsonObject(parsed.data(target)) ?? {}
 }
 
-export function parseTOpenCodeErrorPayload<TValue>(value: TValue): TOpenCodeErrorPayload | undefined {
+export function parseTOpenCodeErrorPayload<TValue>(
+  value: TValue,
+): TOpenCodeErrorPayload | undefined {
   const parsed = openCodeErrorPayloadSchema.safeParse(value)
   if (!parsed.success) {
     return undefined

@@ -323,7 +323,6 @@ describe("reader themes", () => {
 
     expect(resolveAnnotationColorValue("amber", document.documentElement)).toBe("rgb(255, 191, 0)")
   })
-
 })
 
 describe("reader overlays", () => {

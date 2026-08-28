@@ -400,10 +400,7 @@ async function initialize() {
   }
 }
 
-async function handleInitializationFailure<TError>(
-  error: TError,
-  overlay: BrowserWindow | null,
-) {
+async function handleInitializationFailure<TError>(error: TError, overlay: BrowserWindow | null) {
   logger.error("initialization failed", error)
 
   if (overlay && !overlay.isDestroyed()) {

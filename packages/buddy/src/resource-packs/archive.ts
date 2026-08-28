@@ -158,10 +158,7 @@ export function getResourceXmlValue(
   return current
 }
 
-export function resourceXmlStringValue(
-  record: TResourceXmlValue | undefined,
-  key: string,
-): string {
+export function resourceXmlStringValue(record: TResourceXmlValue | undefined, key: string): string {
   const parsed = parseTResourceXmlRecord(record)
   if (parsed === undefined) return ""
   return resourceXmlScalarText(parsed[key])

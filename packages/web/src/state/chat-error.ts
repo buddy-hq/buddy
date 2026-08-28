@@ -28,7 +28,9 @@ export function isAbortLikeError<TValue>(value: TValue): boolean {
 
   const name = parsed.data.name ?? ""
   const message = parsed.data.message ?? ""
-  const dataMessage = isRecord(parsed.data.data) ? (parseString(parsed.data.data.message) ?? "") : ""
+  const dataMessage = isRecord(parsed.data.data)
+    ? (parseString(parsed.data.data.message) ?? "")
+    : ""
 
   return (
     ABORT_ERROR_NAMES.has(name) ||

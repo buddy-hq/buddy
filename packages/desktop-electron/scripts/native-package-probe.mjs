@@ -74,7 +74,9 @@ function resolvePackageEntry(name) {
 
   const manifestPath = require.resolve(`${name}/package.json`)
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
-  const importEntry = parseString(manifest.exports?.["."]?.import ?? manifest.module ?? manifest.main)
+  const importEntry = parseString(
+    manifest.exports?.["."]?.import ?? manifest.module ?? manifest.main,
+  )
   if (importEntry === undefined || importEntry.length === 0) {
     throw new Error(`${name} does not expose a loadable package entry`)
   }
@@ -93,7 +95,11 @@ async function loadPackage(packagePath) {
 }
 
 async function assertLiteParseCanParse(loadedPackage) {
-  if (!loadedPackage || !isObjectValue(loadedPackage) || !isFunctionValue(loadedPackage.LiteParse)) {
+  if (
+    !loadedPackage ||
+    !isObjectValue(loadedPackage) ||
+    !isFunctionValue(loadedPackage.LiteParse)
+  ) {
     throw new Error("LiteParse package does not export LiteParse")
   }
 

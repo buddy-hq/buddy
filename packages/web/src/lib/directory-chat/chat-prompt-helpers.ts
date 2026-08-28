@@ -719,10 +719,7 @@ export async function loadComposerConfiguration(directory: string) {
     loadCommandCatalog(directory),
   ])
   const configuredDefault =
-    resolveDefaultPersonaID(
-      personas,
-      parseTString(config.default_persona),
-    ) ?? "buddy"
+    resolveDefaultPersonaID(personas, parseTString(config.default_persona)) ?? "buddy"
 
   return {
     personas,

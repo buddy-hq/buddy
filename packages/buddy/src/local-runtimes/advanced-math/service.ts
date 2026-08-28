@@ -317,8 +317,7 @@ function nextStatus(
 ): AdvancedMathRuntimeStatus {
   const currentVersion = runtimeVersion()
   const executablePath = state.executablePath
-  const executableExists =
-    isNonEmptyText(executablePath) && fs.existsSync(executablePath)
+  const executableExists = isNonEmptyText(executablePath) && fs.existsSync(executablePath)
   const versionMatches = state.installedRuntimeVersion === currentVersion
   const localAssetState = currentLocalAssetChecksumState()
   const localAssetError =
@@ -717,10 +716,7 @@ function shouldAutoUpdate(): boolean {
   if (versionMatches) return false
 
   // Has a previous version installed that needs updating
-  return (
-    runtimeState.state === READY_STATE &&
-    isNonEmptyText(runtimeState.installedRuntimeVersion)
-  )
+  return runtimeState.state === READY_STATE && isNonEmptyText(runtimeState.installedRuntimeVersion)
 }
 
 async function updateRuntimeState(input: Partial<z.infer<typeof advancedMathRuntimeStateSchema>>) {

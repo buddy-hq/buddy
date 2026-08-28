@@ -189,7 +189,9 @@ export async function normalizePromptParts(input: {
 
     const readingSelection = parseReadingSelectionPart(part)
     if (readingSelection) {
-      normalizedParts.push(readingSelectionPromptPart(normalizeReadingSelectionPart(readingSelection)))
+      normalizedParts.push(
+        readingSelectionPromptPart(normalizeReadingSelectionPart(readingSelection)),
+      )
       continue
     }
 
@@ -244,10 +246,7 @@ async function expandOpenCodeReferencePart(input: {
   })
 }
 
-async function findOpenCodeReference(input: {
-  directory: string
-  part: OpenCodeReferencePart
-}) {
+async function findOpenCodeReference(input: { directory: string; part: OpenCodeReferencePart }) {
   const client = await getOpenCodeClient(input.directory)
   const result = await client.v2.reference.list()
   if (result.error !== undefined) {
@@ -484,7 +483,10 @@ function stripPromptTextValues(part: TPromptPart) {
 function parsePromptTextPart<T>(part: T): TPromptTextPart | undefined {
   const object = parseJsonObject(part)
   if (object === undefined || object.type !== PROMPT_PART_TYPE_TEXT) return undefined
-  if (parsePromptString(object.text) === undefined && parsePromptString(object.content) === undefined) {
+  if (
+    parsePromptString(object.text) === undefined &&
+    parsePromptString(object.content) === undefined
+  ) {
     return undefined
   }
   return Object.assign(object, { type: PROMPT_PART_TYPE_TEXT })

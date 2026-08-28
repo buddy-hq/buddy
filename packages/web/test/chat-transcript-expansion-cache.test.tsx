@@ -127,7 +127,9 @@ describe("chat transcript expansion cache", () => {
       await flushEffects()
     })
 
-    const planningButton = container.querySelector<HTMLButtonElement>("[data-activity-row] > button")
+    const planningButton = container.querySelector<HTMLButtonElement>(
+      "[data-activity-row] > button",
+    )
     expect(planningButton).not.toBeNull()
 
     await act(async () => {

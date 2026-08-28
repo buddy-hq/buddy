@@ -1,9 +1,5 @@
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
-import {
-  parseTJsonObject,
-  parseTString,
-  type TJsonObject,
-} from "@/components/chat/tools/types"
+import { parseTJsonObject, parseTString, type TJsonObject } from "@/components/chat/tools/types"
 
 export type DevToolsContextBreakdownKey = "system" | "user" | "assistant" | "tool" | "other"
 

@@ -1032,11 +1032,13 @@ function toFixtureCard(skill: FixtureSkill, control: RowControl): SkillCard {
 }
 
 /** Everything not listed here is installed and on. */
-const FIXTURE_STATE_OVERRIDES = new Map<string, SkillState>(Object.entries({
-  "nousresearch-hermes-agent-duckduckgo-search": SKILL_STATE_OFF,
-  "nousresearch-hermes-agent-maps": SKILL_STATE_OFF,
-  "hermes-excalidraw": SKILL_STATE_UPDATE,
-}))
+const FIXTURE_STATE_OVERRIDES = new Map<string, SkillState>(
+  Object.entries({
+    "nousresearch-hermes-agent-duckduckgo-search": SKILL_STATE_OFF,
+    "nousresearch-hermes-agent-maps": SKILL_STATE_OFF,
+    "hermes-excalidraw": SKILL_STATE_UPDATE,
+  }),
+)
 
 function fixtureState(id: string): SkillState {
   return FIXTURE_STATE_OVERRIDES.get(id) ?? SKILL_STATE_ON
@@ -1049,12 +1051,14 @@ const FIXTURE_INSTALLED: SkillCard[] = FIXTURE_SKILLS.map((skill) =>
 const DISCOVER_STATE = new Map<
   string,
   Extract<RowControl, { kind: "install" | "installed" | "update" }>["kind"]
->(Object.entries({
-  "nousresearch-hermes-agent-arxiv": "installed",
-  "anthropics-skills-docx": "installed",
-  "anthropic-pptx": "installed",
-  "hermes-excalidraw": "update",
-}))
+>(
+  Object.entries({
+    "nousresearch-hermes-agent-arxiv": "installed",
+    "anthropics-skills-docx": "installed",
+    "anthropic-pptx": "installed",
+    "hermes-excalidraw": "update",
+  }),
+)
 
 function discoverRank(control: RowControl): number {
   return control.kind === "install" ? 1 : 0

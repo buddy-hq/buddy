@@ -474,9 +474,7 @@ if (process.argv.includes(PUBLISH_FLAG)) {
       process.env,
     )
     await verifyPublishedArtifacts(artifactPaths, process.env)
-    const publicRepository = await publishPreparedPublicSkillRepository(
-      preparedPublicRepository,
-    )
+    const publicRepository = await publishPreparedPublicSkillRepository(preparedPublicRepository)
     console.log(
       publicRepository.changed
         ? `Published public skill repository commit ${publicRepository.commitSha}`

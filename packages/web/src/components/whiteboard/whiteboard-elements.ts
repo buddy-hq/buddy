@@ -159,7 +159,9 @@ function isFiniteNumber(value: number | undefined): value is number {
   return value !== undefined && Number.isFinite(value)
 }
 
-function parseDrawnElement(element: PersistedWhiteboardElement): TWhiteboardDrawnElement | undefined {
+function parseDrawnElement(
+  element: PersistedWhiteboardElement,
+): TWhiteboardDrawnElement | undefined {
   const parsed = whiteboardDrawnElementSchema.safeParse(element)
   return parsed.success ? parsed.data : undefined
 }
@@ -216,10 +218,7 @@ function isNativeExcalidrawElement(
   )
 }
 
-function describeUnsupportedElement(
-  element: PersistedWhiteboardElement,
-  index: number,
-): string {
+function describeUnsupportedElement(element: PersistedWhiteboardElement, index: number): string {
   const parsed = whiteboardElementIdentitySchema.safeParse(element)
   if (!parsed.success) return `#${index}: non-object`
   const id = parsed.data.id ?? "missing-id"

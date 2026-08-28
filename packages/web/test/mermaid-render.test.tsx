@@ -193,8 +193,7 @@ describe("mermaid render pipeline", () => {
     })
 
     installTestFetch(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        parseRequestUrl(input)
+      const url = parseRequestUrl(input)
       const method = init?.method ?? (input instanceof Request ? input.method : undefined) ?? "GET"
       if (
         url.includes("/api/objects/mermaid/object_1/render-record") &&
@@ -243,8 +242,7 @@ describe("mermaid render pipeline", () => {
     let fetchCount = 0
     installTestFetch(async (input: RequestInfo | URL) => {
       fetchCount += 1
-      const url =
-        parseRequestUrl(input)
+      const url = parseRequestUrl(input)
       if (!url.includes("/api/session/ses_test/mermaid-repair-async")) {
         throw new Error(`Unexpected fetch: ${url}`)
       }
@@ -285,8 +283,7 @@ describe("mermaid render pipeline", () => {
     })
 
     installTestFetch(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        parseRequestUrl(input)
+      const url = parseRequestUrl(input)
       const method = init?.method ?? (input instanceof Request ? input.method : undefined) ?? "GET"
       if (
         url.includes("/api/objects/mermaid/object_2/render-record") &&

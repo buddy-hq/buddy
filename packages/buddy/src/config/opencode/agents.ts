@@ -30,10 +30,10 @@ function mergeBuddyAgentConfig(base: Config.Agent, override: Config.Agent): Conf
         ...base,
         ...override,
       },
-      override.steps ?? base.steps !== undefined
+      (override.steps ?? base.steps !== undefined)
         ? { steps: override.steps ?? base.steps }
         : undefined,
-      override.maxSteps ?? base.maxSteps !== undefined
+      (override.maxSteps ?? base.maxSteps !== undefined)
         ? { maxSteps: override.maxSteps ?? base.maxSteps }
         : undefined,
       options ? { options } : undefined,
@@ -144,9 +144,7 @@ function normalizeConfiguredAgentOverride(
   return removeDisableFlag(override)
 }
 
-function applyPersonaLearningToolPermissions(
-  agentOverlay: Record<string, Config.Agent>,
-) {
+function applyPersonaLearningToolPermissions(agentOverlay: Record<string, Config.Agent>) {
   const next = { ...agentOverlay }
 
   for (const [name, agent] of Object.entries(agentOverlay)) {

@@ -178,7 +178,8 @@ export function buildRetryStateModel(status: RetryStatus): RetryStateModel {
 
 export function readAssistantErrorDetails(error: MessageError): AssistantErrorDetails {
   const data = parseMessageErrorData(error.data)
-  const message = readNonEmptyString(error.message) ?? readNonEmptyString(data?.message ?? undefined)
+  const message =
+    readNonEmptyString(error.message) ?? readNonEmptyString(data?.message ?? undefined)
   const providerID = readNonEmptyString(data?.providerID ?? undefined)
   const statusCode = data?.statusCode ?? undefined
   const isRetryable = data?.isRetryable ?? undefined

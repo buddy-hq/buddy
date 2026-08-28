@@ -2012,12 +2012,14 @@ const STATES: WorkingState[] = [
 
 const FAMILIES = ["Chaotic", "Field", "Blob", "Tile", "Orbital", "Path", "Physical", "Form"]
 
-const FAMILY_NOTES = new Map(Object.entries({
-  Chaotic: "Integrated live on a canvas — no keyframe loop, so the picture never repeats.",
-  Field: "Many particles, one equation.",
-  Blob: "One organic form, driven by a curve equation.",
-  Tile: "Big grids. Delay comes from the maths, not from a stagger.",
-}))
+const FAMILY_NOTES = new Map(
+  Object.entries({
+    Chaotic: "Integrated live on a canvas — no keyframe loop, so the picture never repeats.",
+    Field: "Many particles, one equation.",
+    Blob: "One organic form, driven by a curve equation.",
+    Tile: "Big grids. Delay comes from the maths, not from a stagger.",
+  }),
+)
 
 // ─── canvas ──────────────────────────────────────────────────────────────────
 

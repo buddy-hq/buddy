@@ -21,11 +21,7 @@ import { stripConciseResponseInstructions } from "../../src/learning/personas/pr
 import { defineBuddyPersona } from "../../src/learning/personas/wiring/define-buddy-persona"
 import { personaCatalogEntries } from "../../src/learning/personas/wiring/persona-metadata"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
-import {
-  parseJsonObject,
-  parsePromptString,
-  requireJsonArray,
-} from "../helpers/parse"
+import { parseJsonObject, parsePromptString, requireJsonArray } from "../helpers/parse"
 import { tmpdir } from "../helpers/tmpdir"
 
 function syntheticPromptText(result: Awaited<ReturnType<typeof runMessagePromptPipeline>>): string {

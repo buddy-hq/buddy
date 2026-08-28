@@ -1824,9 +1824,7 @@ export function getTranscriptPerformanceProbe(): TranscriptPerformanceProbe | un
   return transcriptPerfGlobals()[TRANSCRIPT_PERF_GLOBAL_KEY]
 }
 
-export function setTranscriptPerformanceProbe(
-  probe: TranscriptPerformanceProbe | undefined,
-): void {
+export function setTranscriptPerformanceProbe(probe: TranscriptPerformanceProbe | undefined): void {
   writeTranscriptPerfSlot(TRANSCRIPT_PERF_GLOBAL_KEY, probe)
 }
 

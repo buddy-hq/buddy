@@ -30,9 +30,7 @@ describe("in-app Browser favicon capture", () => {
         ...candidates,
       ]),
     ).toEqual(candidates.slice(0, IN_APP_BROWSER_FAVICON_MAX_CANDIDATES))
-    expect(inAppBrowserSafeHttpOrigin("https://example.com/page")).toBe(
-      "https://example.com",
-    )
+    expect(inAppBrowserSafeHttpOrigin("https://example.com/page")).toBe("https://example.com")
     expect(inAppBrowserSafeHttpOrigin("about:blank")).toBeNull()
   })
 
@@ -52,9 +50,7 @@ describe("in-app Browser favicon capture", () => {
     })
 
     expect(dataUrl).toBe("data:image/png;base64,AAAA")
-    expect(requests).toEqual([
-      { url: "https://example.com/favicon.png", credentials: "include" },
-    ])
+    expect(requests).toEqual([{ url: "https://example.com/favicon.png", credentials: "include" }])
   })
 
   test("rejects oversized and non-image responses", async () => {

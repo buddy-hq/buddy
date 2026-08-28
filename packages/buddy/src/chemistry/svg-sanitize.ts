@@ -401,9 +401,7 @@ function serializeSvgNode(node: TSanitizedSvgElement): string {
     .join("")
   if (node.children.length === 0) return `<${node.name}${attributes}/>`
   const children = node.children
-    .map((child) =>
-      child.kind === "text" ? escapeXmlText(child.value) : serializeSvgNode(child),
-    )
+    .map((child) => (child.kind === "text" ? escapeXmlText(child.value) : serializeSvgNode(child)))
     .join("")
   return `<${node.name}${attributes}>${children}</${node.name}>`
 }

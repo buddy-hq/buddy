@@ -74,8 +74,7 @@ describe("presented media path helpers", () => {
     const calls: string[] = []
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         calls.push(`${method} ${url}`)
 
@@ -112,8 +111,7 @@ describe("presented media path helpers", () => {
     const calls: string[] = []
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         calls.push(`${method} ${url}`)
 
@@ -151,8 +149,7 @@ describe("presented media path helpers", () => {
   test("treats oversized media as available when the backend can serve it", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
@@ -184,8 +181,7 @@ describe("presented media path helpers", () => {
   test("returns missing when the presented media source no longer exists", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url =
-          parseRequestUrl(input)
+        const url = parseRequestUrl(input)
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (

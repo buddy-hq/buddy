@@ -102,5 +102,4 @@ describe("library object selectors", () => {
 
     expect(selected.map((object) => object.objectID)).toEqual([FIGURE_OBJECT_ID, MEDIA_OBJECT_ID])
   })
-
 })

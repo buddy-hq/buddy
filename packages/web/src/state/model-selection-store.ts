@@ -63,7 +63,9 @@ const numberRecordSchema = z.record(z.string(), z.number().finite())
 const stringRecordSchema = z.record(z.string(), z.string())
 const variantRecordSchema = z.record(z.string(), z.string().nullable())
 
-function parseSelectionSourceRecord<TValue>(value: TValue): Record<string, SelectionSource> | undefined {
+function parseSelectionSourceRecord<TValue>(
+  value: TValue,
+): Record<string, SelectionSource> | undefined {
   const parsed = parseWithSchema(selectionSourceRecordSchema, value)
   if (parsed) return parsed
   const record = parseBuddyConfigObject(value)

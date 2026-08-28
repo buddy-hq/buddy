@@ -272,16 +272,13 @@ describe("production chemistry renderer", () => {
       }
 
       addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
-        this.listeners.set(
-          type,
-          (event) => {
-            if ("handleEvent" in listener) {
-              listener.handleEvent(event)
-              return
-            }
-            listener(event)
-          },
-        )
+        this.listeners.set(type, (event) => {
+          if ("handleEvent" in listener) {
+            listener.handleEvent(event)
+            return
+          }
+          listener(event)
+        })
       }
 
       postMessage<TValue>(value: TValue): void {
@@ -341,16 +338,13 @@ describe("production chemistry renderer", () => {
       }
 
       addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
-        this.listeners.set(
-          type,
-          (event) => {
-            if ("handleEvent" in listener) {
-              listener.handleEvent(event)
-              return
-            }
-            listener(event)
-          },
-        )
+        this.listeners.set(type, (event) => {
+          if ("handleEvent" in listener) {
+            listener.handleEvent(event)
+            return
+          }
+          listener(event)
+        })
       }
 
       postMessage<TValue>(value: TValue): void {

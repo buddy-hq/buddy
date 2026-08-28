@@ -63,7 +63,4 @@ export const REVIEW_RATING_TONE = {
   hard: { rule: "bg-surface-warning-base", text: "text-text-warning-base" },
   good: { rule: "bg-surface-success-base", text: "text-text-success-base" },
   easy: { rule: "bg-surface-interactive-base", text: "text-text-interactive-base" },
-} satisfies Record<
-  "again" | "hard" | "good" | "easy",
-  { rule: string; text: string }
->
+} satisfies Record<"again" | "hard" | "good" | "easy", { rule: string; text: string }>

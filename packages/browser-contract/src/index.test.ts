@@ -18,18 +18,12 @@ describe("normalizeInAppBrowserUrl", () => {
   })
 
   test("defaults local development addresses to HTTP", () => {
-    expect(normalizeInAppBrowserUrl("localhost:1420/chat")).toBe(
-      "http://localhost:1420/chat",
-    )
+    expect(normalizeInAppBrowserUrl("localhost:1420/chat")).toBe("http://localhost:1420/chat")
     expect(normalizeInAppBrowserUrl("127.0.0.1:3000")).toBe("http://127.0.0.1:3000/")
     expect(normalizeInAppBrowserUrl("127.0.0.2:3000")).toBe("http://127.0.0.2:3000/")
-    expect(normalizeInAppBrowserUrl("[0:0:0:0:0:0:0:1]:3000")).toBe(
-      "http://[::1]:3000/",
-    )
+    expect(normalizeInAppBrowserUrl("[0:0:0:0:0:0:0:1]:3000")).toBe("http://[::1]:3000/")
     expect(normalizeInAppBrowserUrl("localhost.:3000")).toBe("http://localhost.:3000/")
-    expect(normalizeInAppBrowserUrl("app.localhost:3000")).toBe(
-      "http://app.localhost:3000/",
-    )
+    expect(normalizeInAppBrowserUrl("app.localhost:3000")).toBe("http://app.localhost:3000/")
     expect(normalizeInAppBrowserUrl("0.0.0.0:3000")).toBe("http://0.0.0.0:3000/")
   })
 
@@ -51,9 +45,7 @@ describe("normalizeInAppBrowserUrl", () => {
 
   test("returns a human fallback title", () => {
     expect(inAppBrowserFallbackTitle("https://hibuddy.in/sign-in")).toBe("hibuddy.in")
-    expect(inAppBrowserFallbackTitle(IN_APP_BROWSER_BLANK_URL)).toBe(
-      IN_APP_BROWSER_NEW_TAB_TITLE,
-    )
+    expect(inAppBrowserFallbackTitle(IN_APP_BROWSER_BLANK_URL)).toBe(IN_APP_BROWSER_NEW_TAB_TITLE)
     expect(normalizeInAppBrowserTitle("about:blank", IN_APP_BROWSER_BLANK_URL)).toBe(
       IN_APP_BROWSER_NEW_TAB_TITLE,
     )
@@ -68,8 +60,6 @@ describe("normalizeInAppBrowserUrl", () => {
     expect(title).not.toContain("\n")
     expect(title).not.toContain("\u0000")
     expect(title.length).toBe(IN_APP_BROWSER_TITLE_MAX_LENGTH)
-    expect(normalizeInAppBrowserTitle("\n\u0000", "https://hibuddy.in/account")).toBe(
-      "hibuddy.in",
-    )
+    expect(normalizeInAppBrowserTitle("\n\u0000", "https://hibuddy.in/account")).toBe("hibuddy.in")
   })
 })

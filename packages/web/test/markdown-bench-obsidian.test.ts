@@ -4,9 +4,7 @@ import {
   prepareObsidianCalloutsForMdxEditor,
   restoreObsidianCalloutsFromMdxEditor,
 } from "../src/components/bench/markdown-bench-obsidian-callouts"
-import {
-  collectObsidianWikiLinkTargets,
-} from "../src/components/bench/markdown-bench-obsidian-plugin"
+import { collectObsidianWikiLinkTargets } from "../src/components/bench/markdown-bench-obsidian-plugin"
 import {
   batchObsidianLinkTargets,
   invalidateObsidianFileCaches,

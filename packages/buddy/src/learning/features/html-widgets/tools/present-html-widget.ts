@@ -40,21 +40,29 @@ const PresentHtmlWidgetInputSchema = z
       .describe(
         "Choose one exact mode. Use present_path only when you have a real local HTML file or widget folder to adopt for the first presentation. Use present_object only after Buddy returned an html-widget object_id and you want to show that same managed widget again.",
       ),
-    path: nonEmptyString.optional().describe(
-      "For present_path only: local .html/.htm file or widget folder, for example widgets/fraction-builder.html. Prefer workspace-relative paths; absolute paths, file:// URLs, Windows drive paths, and ~/ paths are accepted only when they resolve inside the current workspace. Omit for present_object. Do not put the widget title or object_id here.",
-    ),
+    path: nonEmptyString
+      .optional()
+      .describe(
+        "For present_path only: local .html/.htm file or widget folder, for example widgets/fraction-builder.html. Prefer workspace-relative paths; absolute paths, file:// URLs, Windows drive paths, and ~/ paths are accepted only when they resolve inside the current workspace. Omit for present_object. Do not put the widget title or object_id here.",
+      ),
     objectID: BuddyObjectIDSchema.optional().describe(
       "For present_object only: the returned 26-character html-widget object_id, supplied here as objectID, copied from a previous successful Buddy tool output. Omit for present_path. Never invent it; never put the title, filename, path, display name, or description here.",
     ),
-    entryPath: nonEmptyString.optional().describe(
-      "For present_path when path is a folder only: .html/.htm entry file inside that folder, relative to path, for example index.html. Omit when path points directly to an HTML file and for present_object. Do not pass a workspace-absolute path here.",
-    ),
-    title: nonEmptyString.optional().describe(
-      "Required for present_path: learner-facing display title, for example Fraction Builder or Counter Widget. This is where the widget name goes. Omit for present_object. Never put the title in objectID.",
-    ),
-    description: nonEmptyString.optional().describe(
-      "Optional short learner-facing description for present_path. Omit when not needed and for present_object. Do not use this for path, title, or objectID.",
-    ),
+    entryPath: nonEmptyString
+      .optional()
+      .describe(
+        "For present_path when path is a folder only: .html/.htm entry file inside that folder, relative to path, for example index.html. Omit when path points directly to an HTML file and for present_object. Do not pass a workspace-absolute path here.",
+      ),
+    title: nonEmptyString
+      .optional()
+      .describe(
+        "Required for present_path: learner-facing display title, for example Fraction Builder or Counter Widget. This is where the widget name goes. Omit for present_object. Never put the title in objectID.",
+      ),
+    description: nonEmptyString
+      .optional()
+      .describe(
+        "Optional short learner-facing description for present_path. Omit when not needed and for present_object. Do not use this for path, title, or objectID.",
+      ),
     viewportPreset: HtmlWidgetViewportPresetSchema.optional().describe(
       "Required for present_path: choose compact_4_3, standard_16_10, wide_16_9, square, or tall_mobile based on the authored layout. Omit for present_object.",
     ),

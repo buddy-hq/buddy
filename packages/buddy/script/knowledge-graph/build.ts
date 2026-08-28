@@ -23,11 +23,7 @@ import {
   KNOWLEDGE_GRAPH_LOCKFILE_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
 } from "../../src/learning/features/standards/constants"
-import {
-  parseTJsonValue,
-  parseTString,
-  type TJsonValue,
-} from "../parse-values"
+import { parseTJsonValue, parseTString, type TJsonValue } from "../parse-values"
 import {
   validateKnowledgeGraphNodeSchema,
   validateKnowledgeGraphRelationshipSchema,

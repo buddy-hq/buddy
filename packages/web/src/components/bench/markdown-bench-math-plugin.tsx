@@ -9,7 +9,15 @@ import {
   type LexicalExportVisitor,
   type MdastImportVisitor,
 } from "@mdxeditor/editor"
-import { DecoratorNode, type EditorConfig, type LexicalEditor, type LexicalNode, type NodeKey, type SerializedLexicalNode, type Spread } from "lexical"
+import {
+  DecoratorNode,
+  type EditorConfig,
+  type LexicalEditor,
+  type LexicalNode,
+  type NodeKey,
+  type SerializedLexicalNode,
+  type Spread,
+} from "lexical"
 import { mathFromMarkdown, mathToMarkdown, type InlineMath, type Math } from "mdast-util-math"
 import { math } from "micromark-extension-math"
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react"
@@ -188,9 +196,7 @@ export class BuddyMathNode extends DecoratorNode<ReactElement> {
 
   updateDOM(previousNode: BuddyMathNode, dom: HTMLElement, _config: EditorConfig): boolean {
     const expectedTagName = this.mathDisplayMode ? "DIV" : "SPAN"
-    return (
-      previousNode.mathDisplayMode !== this.mathDisplayMode || dom.tagName !== expectedTagName
-    )
+    return previousNode.mathDisplayMode !== this.mathDisplayMode || dom.tagName !== expectedTagName
   }
 
   getValue(): string {

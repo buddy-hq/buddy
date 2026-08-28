@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import { inAppBrowserTabTitle, useInAppBrowserTabsStore } from "../src/state/in-app-browser-tabs-store"
+import {
+  inAppBrowserTabTitle,
+  useInAppBrowserTabsStore,
+} from "../src/state/in-app-browser-tabs-store"
 
 const RUNTIME = {
   url: "https://hibuddy.in/",

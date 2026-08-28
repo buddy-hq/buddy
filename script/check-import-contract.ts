@@ -150,8 +150,7 @@ function checkToolInputDeltaBridgeStartup(findings: Finding[]) {
 
   findings.push({
     file: OPENCODE_RUNTIME_SOURCE,
-    message:
-      "The tool-input-delta bridge must be installed before OpenCode server startup.",
+    message: "The tool-input-delta bridge must be installed before OpenCode server startup.",
   })
 }
 
@@ -219,9 +218,7 @@ function checkViteAliasContract(findings: Finding[]) {
 }
 
 function checkDesktopRuntimeDependencies(findings: Finding[]) {
-  const manifest = JSON.parse(
-    readFileSync(path.join(REPO_ROOT, DESKTOP_PACKAGE_MANIFEST), "utf8"),
-  )
+  const manifest = JSON.parse(readFileSync(path.join(REPO_ROOT, DESKTOP_PACKAGE_MANIFEST), "utf8"))
   if (!isJsonObject(manifest) || !isJsonObject(manifest.dependencies)) return
 
   for (const [packageName, version] of Object.entries(manifest.dependencies)) {

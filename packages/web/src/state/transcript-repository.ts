@@ -893,16 +893,15 @@ export function sealTranscriptAssistantMessages(
 
   for (const [messageID, message] of record.messagesByID) {
     if (message.role !== "assistant") continue
-    const sealed =
-      Number.isFinite(message.time.completed)
-        ? message
-        : {
-            ...message,
-            time: {
-              ...message.time,
-              completed: completedAt,
-            },
-          }
+    const sealed = Number.isFinite(message.time.completed)
+      ? message
+      : {
+          ...message,
+          time: {
+            ...message.time,
+            completed: completedAt,
+          },
+        }
     changed = reconcileRecordTerminalAssistantMessage(record, messageID, sealed) || changed
   }
 

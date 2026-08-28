@@ -5,11 +5,7 @@ import {
   shouldReportChemistryRenderFailure,
 } from "../src/components/media/renderers/chemistry/auto-repair"
 import { installTestFetch, restoreTestFetch } from "./test-utils"
-import {
-  parseJsonObjectText,
-  parseStringValue,
-  type TBuddyConfigObject,
-} from "./parse-test-values"
+import { parseJsonObjectText, parseStringValue, type TBuddyConfigObject } from "./parse-test-values"
 
 const originalFetch = globalThis.fetch
 

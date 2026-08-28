@@ -81,7 +81,9 @@ function parseTeachingLanguage<TValue>(value: TValue): TeachingLanguage | undefi
   return TEACHING_LANGUAGE_OPTIONS.find((option) => option.value === text)?.value
 }
 
-function parseTeachingWorkspaceFile<TValue>(value: TValue): TeachingWorkspace["files"][number] | undefined {
+function parseTeachingWorkspaceFile<TValue>(
+  value: TValue,
+): TeachingWorkspace["files"][number] | undefined {
   const parsed = parseWithSchema(teachingWorkspaceFileFieldsSchema, value)
   if (!parsed) return undefined
   const language = parseTeachingLanguage(parsed.language)
@@ -107,7 +109,9 @@ function parseTeachingDiagnostics<TValue>(
   return diagnostics
 }
 
-function parseTeachingWorkspaceFiles<TValue>(value: TValue): TeachingWorkspace["files"] | undefined {
+function parseTeachingWorkspaceFiles<TValue>(
+  value: TValue,
+): TeachingWorkspace["files"] | undefined {
   if (!Array.isArray(value)) return undefined
   const files: TeachingWorkspace["files"] = []
   for (const entry of value) {

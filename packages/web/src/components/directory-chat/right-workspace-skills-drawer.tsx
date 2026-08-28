@@ -652,11 +652,7 @@ export function SkillsCatalogSurface(props: SkillsCatalogSurfaceProps) {
       return (
         <SkillsListRow
           key={`installed:${item.skill.name}`}
-          {...Object.assign(
-            {},
-            shared,
-            off ? { dimmed: true } : undefined,
-          )}
+          {...Object.assign({}, shared, off ? { dimmed: true } : undefined)}
           control={
             <InstalledToggle
               skill={item.skill}

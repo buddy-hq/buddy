@@ -6,8 +6,7 @@ const TEACH_THROUGH_CONVERSATION_HEADING = "## Teach through conversation; don't
 const KEEP_ANSWERS_CONCISE = "- Keep answers concise unless you're asked for depth."
 const SIMPLE_ANSWER_ONE_LINER =
   "- The complexity of the answer should match the question. If the question is simple, your answer should be a one-liner."
-const COMPLEXITY_AND_ONE_LINER =
-  `${SIMPLE_ANSWER_ONE_LINER} Order sections from general to specific to supporting.`
+const COMPLEXITY_AND_ONE_LINER = `${SIMPLE_ANSWER_ONE_LINER} Order sections from general to specific to supporting.`
 const FLEXIBLE_COMPLEXITY = "- Order sections from general to specific to supporting."
 
 function responseStyleBody(source: string): string {

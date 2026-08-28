@@ -160,10 +160,7 @@ function ensureLayer(geometry: PdfPageViewGeometry, spec: PdfLayerSpec): HTMLDiv
  * Marks are placed in text-layer space while the layer fills the page box, which
  * can sit inside a page border. This is the gap between the two boxes.
  */
-function layerOffset(
-  geometry: PdfPageViewGeometry,
-  layer: HTMLDivElement,
-) {
+function layerOffset(geometry: PdfPageViewGeometry, layer: HTMLDivElement) {
   const textBounds = geometry.textLayerDiv.getBoundingClientRect()
   const layerBounds = layer.getBoundingClientRect()
   return {

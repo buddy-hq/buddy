@@ -15,30 +15,32 @@ import { FileTypeIcon } from "./file-type-icon"
 
 // Friendlier labels for the common office/document types; everything else falls
 // back to the uppercased extension (e.g. "SVG"), then the mime subtype.
-const FRIENDLY_FILE_TYPE_BY_EXTENSION = new Map(Object.entries({
-  xls: "Excel spreadsheet",
-  xlsb: "Excel spreadsheet",
-  xlsm: "Excel spreadsheet",
-  xlsx: "Excel spreadsheet",
-  numbers: "Numbers spreadsheet",
-  ods: "Spreadsheet",
-  csv: "CSV table",
-  tsv: "Table",
-  doc: "Word document",
-  docx: "Word document",
-  odt: "Document",
-  rtf: "Rich text",
-  txt: "Text",
-  md: "Markdown",
-  mdx: "Markdown",
-  pdf: "PDF",
-  ppt: "PowerPoint",
-  pptx: "PowerPoint",
-  key: "Keynote",
-  odp: "Presentation",
-  json: "JSON",
-  zip: "Archive",
-}))
+const FRIENDLY_FILE_TYPE_BY_EXTENSION = new Map(
+  Object.entries({
+    xls: "Excel spreadsheet",
+    xlsb: "Excel spreadsheet",
+    xlsm: "Excel spreadsheet",
+    xlsx: "Excel spreadsheet",
+    numbers: "Numbers spreadsheet",
+    ods: "Spreadsheet",
+    csv: "CSV table",
+    tsv: "Table",
+    doc: "Word document",
+    docx: "Word document",
+    odt: "Document",
+    rtf: "Rich text",
+    txt: "Text",
+    md: "Markdown",
+    mdx: "Markdown",
+    pdf: "PDF",
+    ppt: "PowerPoint",
+    pptx: "PowerPoint",
+    key: "Keynote",
+    odp: "Presentation",
+    json: "JSON",
+    zip: "Archive",
+  }),
+)
 
 function describeFileType(fileName: string, mime?: string): string {
   const extension = fileExtensionFromPath(fileName)

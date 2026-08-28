@@ -1,7 +1,12 @@
 import { stringifyError } from "../../lib/api-client"
 import { language } from "@/context/language"
 import type { McpStatusInfo } from "@/state/chat-types"
-import { parseTJsonObject, parseTString, parseTBoolean, parseTNumber } from "@/components/chat/tools/types"
+import {
+  parseTJsonObject,
+  parseTString,
+  parseTBoolean,
+  parseTNumber,
+} from "@/components/chat/tools/types"
 import { parseStringArray } from "@/state/chat-types"
 
 type TMcpOAuthObject = {
@@ -195,12 +200,11 @@ export function parseMcpConfigMap<TConfig>(config: TConfig) {
     const url = parseTString(candidate.url)
     if (candidate.type === "remote" && url !== undefined) {
       const oauthDisabled = candidate.oauth === false
-      const oauthObject =
-        oauthDisabled
-          ? undefined
-          : parseTJsonObject(candidate.oauth)
-            ? parseOAuthObject(candidate.oauth)
-            : undefined
+      const oauthObject = oauthDisabled
+        ? undefined
+        : parseTJsonObject(candidate.oauth)
+          ? parseOAuthObject(candidate.oauth)
+          : undefined
 
       const headers = parseTStringRecord(candidate.headers, true)
       const enabled = parseTBoolean(candidate.enabled)

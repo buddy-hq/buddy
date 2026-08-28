@@ -50,9 +50,7 @@ function normalizeSkillAction(action: PermissionAction): SkillRuleAction {
 
 function normalizeExistingSkillAction<TValue>(action: TValue): SkillRuleAction {
   const parsed = parseTPermissionAction(action)
-  return parsed !== undefined
-    ? normalizeSkillAction(parsed)
-    : SKILL_RULE_DEFAULTS.defaultAction
+  return parsed !== undefined ? normalizeSkillAction(parsed) : SKILL_RULE_DEFAULTS.defaultAction
 }
 
 export function resolveSkillPermission(name: string, ruleset: PermissionRuleset) {
@@ -115,8 +113,7 @@ export async function setSkillPermission(pattern: string, action: SkillRuleActio
   const normalizedExistingSkillPermission =
     existingSkillAction !== undefined
       ? {
-          [SKILL_RULE_DEFAULTS.wildcardPattern]:
-            normalizeExistingSkillAction(existingSkillAction),
+          [SKILL_RULE_DEFAULTS.wildcardPattern]: normalizeExistingSkillAction(existingSkillAction),
         }
       : Object.fromEntries(
           Object.entries(existingSkillPermission ?? {}).map(([rulePattern, ruleAction]) => [

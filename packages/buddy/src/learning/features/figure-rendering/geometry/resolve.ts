@@ -36,11 +36,7 @@ function clampUnit(value: number): number {
   return value
 }
 
-function interpolate(
-  from: GeometryPoint,
-  to: GeometryPoint,
-  position: number,
-) {
+function interpolate(from: GeometryPoint, to: GeometryPoint, position: number) {
   return {
     x: from.x + (to.x - from.x) * position,
     y: from.y + (to.y - from.y) * position,

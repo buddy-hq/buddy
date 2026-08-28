@@ -16,11 +16,7 @@ describe("Bench new-tab Browser option", () => {
   })
 
   test("does not offer Browser without the Electron capability", () => {
-    expect(
-      benchNewBrowserTabIsVisible({ browserAvailable: false, query: "" }),
-    ).toBe(false)
-    expect(
-      benchNewBrowserTabIsVisible({ browserAvailable: true, query: "" }),
-    ).toBe(true)
+    expect(benchNewBrowserTabIsVisible({ browserAvailable: false, query: "" })).toBe(false)
+    expect(benchNewBrowserTabIsVisible({ browserAvailable: true, query: "" })).toBe(true)
   })
 })

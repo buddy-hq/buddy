@@ -7,16 +7,18 @@ const EXECUTABLE_SVG_ELEMENT_NAMES = [
   "meta",
 ] as const
 
-const HTML_CHARACTER_REFERENCES = new Map(Object.entries({
-  amp: "&",
-  apos: "'",
-  colon: ":",
-  gt: ">",
-  lt: "<",
-  NewLine: "\n",
-  quot: '"',
-  Tab: "\t",
-}))
+const HTML_CHARACTER_REFERENCES = new Map(
+  Object.entries({
+    amp: "&",
+    apos: "'",
+    colon: ":",
+    gt: ">",
+    lt: "<",
+    NewLine: "\n",
+    quot: '"',
+    Tab: "\t",
+  }),
+)
 
 const HTML_CHARACTER_REFERENCE_PATTERN = /&(?:#x([\da-f]+)|#(\d+)|([A-Za-z][A-Za-z\d]+));?/giu
 const UNSAFE_REFERENCE_SCHEME_PATTERN = /^(?:javascript:|data:text\/html)/iu

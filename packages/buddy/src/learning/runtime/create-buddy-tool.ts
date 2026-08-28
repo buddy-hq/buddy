@@ -109,7 +109,8 @@ function normalizeNullableAnyOf(schema: TJsonObject): TJsonObject {
   const nullSchema = anyOf.find(isNullJsonSchema)
   const valueSchema = anyOf.find((item) => !isNullJsonSchema(item))
   const parsedValueSchema = parseJsonObject(valueSchema)
-  const valueType = parsedValueSchema === undefined ? undefined : parsePromptString(parsedValueSchema.type)
+  const valueType =
+    parsedValueSchema === undefined ? undefined : parsePromptString(parsedValueSchema.type)
   if (!nullSchema || parsedValueSchema === undefined || valueType === undefined) {
     return schema
   }
@@ -322,7 +323,9 @@ function cloneConstraints(
   if (!constraints) return undefined
   const cloned: BuddyToolConstraints = Object.assign(
     {},
-    constraints.teachingWorkspace ? { teachingWorkspace: constraints.teachingWorkspace } : undefined,
+    constraints.teachingWorkspace
+      ? { teachingWorkspace: constraints.teachingWorkspace }
+      : undefined,
     constraints.runtime ? { runtime: constraints.runtime } : undefined,
   )
   return cloned

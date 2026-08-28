@@ -690,10 +690,7 @@ function shouldAutoUpdate() {
   if (lastFailedAutoUpdateSignature === bundledDatasetSignature(bundledManifest)) return false
   if (!bundledDatasetUpdatePending()) return false
 
-  return (
-    runtimeState.state === READY_STATE &&
-    isNonEmptyText(runtimeState.installedDatasetVersion)
-  )
+  return runtimeState.state === READY_STATE && isNonEmptyText(runtimeState.installedDatasetVersion)
 }
 
 async function updateRuntimeState(input: Partial<z.infer<typeof standardsRuntimeStateSchema>>) {

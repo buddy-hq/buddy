@@ -21,11 +21,7 @@ const CREATED_BUDDY_TOOL_IDS = new Set([
 ])
 const PRESENT_HTML_WIDGET_REQUIRED_FIELDS = ["action"] as const
 const BENCH_PRESENT_REQUIRED_FIELDS = ["action"] as const
-const WHITEBOARD_CREATE_REQUIRED_FIELDS = [
-  "objectAction",
-  "boardAction",
-  "elements",
-] as const
+const WHITEBOARD_CREATE_REQUIRED_FIELDS = ["objectAction", "boardAction", "elements"] as const
 const TEST_OBJECT_ID = "01KG1A0KH77HJ9QGAQ5QK0N4BD"
 
 const originalAdvancedMathReady = AdvancedMathRuntimeService.isReady.bind(

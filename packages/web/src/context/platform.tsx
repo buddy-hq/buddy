@@ -1,10 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react"
 import { createJSONStorage, type StateStorage } from "zustand/middleware"
 import { browserLocalStorage } from "@/state/parse-external"
-import type {
-  InAppBrowserFaviconMessage,
-  InAppBrowserHostMessage,
-} from "@buddy/browser-contract"
+import type { InAppBrowserFaviconMessage, InAppBrowserHostMessage } from "@buddy/browser-contract"
 
 export type OpenDirectoryPickerOptions = {
   title?: string

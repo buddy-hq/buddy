@@ -205,7 +205,11 @@ function readTrimmedStringField(value: TJsonObject, key: string): string | undef
   return parseNonEmptyPromptString(value[key])
 }
 
-function readBoundedStringField(value: TJsonObject, key: string, maxChars: number): string | undefined {
+function readBoundedStringField(
+  value: TJsonObject,
+  key: string,
+  maxChars: number,
+): string | undefined {
   const trimmed = readTrimmedStringField(value, key)
   if (!trimmed) return undefined
   return boundText(trimmed, maxChars)
@@ -256,7 +260,8 @@ function readReadingTrail(value: TJsonValue | undefined): ReaderTrailEntry[] | u
   const entries = entriesValue.flatMap((entry) => {
     const object = parseJsonObject(entry)
     if (object === undefined) return []
-    const label = readTrimmedStringField(object, "label") ?? readTrimmedStringField(object, "tocLabel")
+    const label =
+      readTrimmedStringField(object, "label") ?? readTrimmedStringField(object, "tocLabel")
     if (!label) return []
     const fraction = readFiniteNumberField(object, "fraction")
     const location =
@@ -332,7 +337,9 @@ async function resolvePromptModel(input: {
       modelID: resolvedModel.id,
       contextWindow: resolvedModel.limit.context,
     },
-    resolvedModel.limit.input !== undefined ? { inputWindow: resolvedModel.limit.input } : undefined,
+    resolvedModel.limit.input !== undefined
+      ? { inputWindow: resolvedModel.limit.input }
+      : undefined,
     { outputWindow: resolvedModel.limit.output },
     image ? { image } : undefined,
   )
@@ -482,7 +489,9 @@ function readAnnotationSummary(
     if (!text) return []
     const tocLabel = readTrimmedStringField(object, "tocLabel")
     const note = readTrimmedStringField(object, "note")
-    return [Object.assign({ text }, tocLabel ? { tocLabel } : undefined, note ? { note } : undefined)]
+    return [
+      Object.assign({ text }, tocLabel ? { tocLabel } : undefined, note ? { note } : undefined),
+    ]
   })
   return entries.length > 0 ? entries : undefined
 }

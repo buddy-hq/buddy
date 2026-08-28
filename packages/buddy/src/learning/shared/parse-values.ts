@@ -62,7 +62,9 @@ export function parseTNodeErrorCode<TError>(error: TError): string | undefined {
   return parseNodeErrorCode(error)
 }
 
-export function parseTOpenCodeErrorPayload<TError>(error: TError): TOpenCodeErrorPayload | undefined {
+export function parseTOpenCodeErrorPayload<TError>(
+  error: TError,
+): TOpenCodeErrorPayload | undefined {
   if (error instanceof Error) {
     const parsed = openCodeErrorPayloadSchema.safeParse(error)
     const dataMessage = parsed.success ? parsed.data.data?.message : undefined

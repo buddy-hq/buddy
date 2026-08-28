@@ -57,10 +57,7 @@ const THREAD_STATUS_DOT_CLASSES = {
     motion:
       "motion-safe:animate-pulse motion-reduce:ring-2 motion-reduce:ring-surface-warning-base/40",
   },
-} satisfies Record<
-  Exclude<ThreadStatus, "idle">,
-  { fill: string; motion?: string }
->
+} satisfies Record<Exclude<ThreadStatus, "idle">, { fill: string; motion?: string }>
 
 export function ThreadStatusIndicator(props: { status: ThreadStatus }) {
   if (props.status === "idle") return null

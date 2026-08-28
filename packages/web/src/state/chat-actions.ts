@@ -33,13 +33,7 @@ import type {
   TFailure,
   TRecord,
 } from "./chat-types"
-import {
-  filterStringArray,
-  isRecord,
-  parseBoolean,
-  parseFailure,
-  parseString,
-} from "./chat-types"
+import { filterStringArray, isRecord, parseBoolean, parseFailure, parseString } from "./chat-types"
 import {
   applyTranscriptMessageRemoved,
   applyTranscriptMessageUpdated,
@@ -758,10 +752,7 @@ function normalizeMcpStatusMap(input: McpStatusResponses[200]): McpStatusMap {
   return Object.fromEntries(
     Object.entries(input).map(([name, status]) => {
       const error = "error" in status ? parseString(status.error) : undefined
-      return [
-        name,
-        Object.assign({ status: status.status }, error ? { error } : undefined),
-      ]
+      return [name, Object.assign({ status: status.status }, error ? { error } : undefined)]
     }),
   )
 }
@@ -930,9 +921,7 @@ export async function loadProviderCatalogSnapshot(directory?: string) {
 }
 
 export async function loadOpenProjects() {
-  const response = requireBuddyData(
-    await getBuddyClient().openProjects.list(),
-  )
+  const response = requireBuddyData(await getBuddyClient().openProjects.list())
   const knownOpenProjects = normalizeDirectoryList(response.directories)
   useChatStore.getState().setOpenProjects(knownOpenProjects)
   useChatStore.getState().setOpenProjectsRecovery(response.recovery)
@@ -940,9 +929,7 @@ export async function loadOpenProjects() {
 }
 
 export async function loadOpenProjectRecovery() {
-  return requireBuddyData(
-    await getBuddyClient().openProjects.recovery(),
-  )
+  return requireBuddyData(await getBuddyClient().openProjects.recovery())
 }
 
 export async function restoreOpenProjectRecovery(directories: string[]) {
@@ -958,9 +945,7 @@ export async function restoreOpenProjectRecovery(directories: string[]) {
 }
 
 export async function startFreshOpenProjectRecovery() {
-  const response = requireBuddyData(
-    await getBuddyClient().openProjects.startFresh(),
-  )
+  const response = requireBuddyData(await getBuddyClient().openProjects.startFresh())
   const knownOpenProjects = normalizeDirectoryList(response.directories)
   useChatStore.getState().setOpenProjects(knownOpenProjects)
   useChatStore.getState().setOpenProjectsRecovery(response.recovery)
@@ -1009,9 +994,7 @@ export async function openInboxNotebook() {
 }
 
 export async function loadNotebookHome() {
-  const result = requireBuddyData(
-    await getBuddyClient().global.notebookHome.get(),
-  )
+  const result = requireBuddyData(await getBuddyClient().global.notebookHome.get())
   return {
     configuredDirectory: result.configuredDirectory,
     defaultDirectory: result.defaultDirectory,
@@ -1022,9 +1005,7 @@ export async function loadNotebookHome() {
 }
 
 export async function loadNotebookHomeAccess() {
-  const result = requireBuddyData(
-    await getBuddyClient().global.notebookHome.access(),
-  )
+  const result = requireBuddyData(await getBuddyClient().global.notebookHome.access())
   return {
     defaultDirectory: result.defaultDirectory,
     granted: result.granted,
@@ -1050,9 +1031,7 @@ export async function saveNotebookHome(directory: string) {
 }
 
 export async function loadManagedNotebooks() {
-  const notebooks = requireBuddyData(
-    await getBuddyClient().global.notebooks.list(),
-  )
+  const notebooks = requireBuddyData(await getBuddyClient().global.notebooks.list())
   return notebooks.map((notebook) => ({
     name: notebook.name,
     directory: notebook.directory,
@@ -1060,9 +1039,7 @@ export async function loadManagedNotebooks() {
 }
 
 export async function loadKnownNotebooks() {
-  const projects = requireBuddyData(
-    await getBuddyClient().project.list(),
-  )
+  const projects = requireBuddyData(await getBuddyClient().project.list())
   return projects.map((project) => ({
     directory: project.worktree,
     name: project.name,
@@ -1114,9 +1091,7 @@ export async function loadSessions(directory: string) {
   )
 
   try {
-    const sessions = requireBuddyData(
-      await getBuddyClient(directory).session.list({ directory }),
-    )
+    const sessions = requireBuddyData(await getBuddyClient(directory).session.list({ directory }))
     if (latestSessionListRequestByDirectory.get(directory) !== requestSequence) {
       return store.directories[directory]?.sessions ?? []
     }
@@ -2282,10 +2257,7 @@ export async function forkSession(
   try {
     const forkedSession = requireBuddyData(
       await getBuddyClient(directory).session.fork(
-        Object.assign(
-          { sessionID },
-          input?.messageID ? { messageID: input.messageID } : undefined,
-        ),
+        Object.assign({ sessionID }, input?.messageID ? { messageID: input.messageID } : undefined),
       ),
     )
 
@@ -2757,16 +2729,12 @@ export async function loadLearnerProgress(directory: string) {
 }
 
 export async function loadProjectConfig(directory: string) {
-  const config = requireBuddyData(
-    await getBuddyClient(directory).config.get(),
-  )
+  const config = requireBuddyData(await getBuddyClient(directory).config.get())
   return asRecord(config) ?? {}
 }
 
 export async function loadRawProjectConfig(directory: string) {
-  const config = requireBuddyData(
-    await getBuddyClient(directory).config.getRaw(),
-  )
+  const config = requireBuddyData(await getBuddyClient(directory).config.getRaw())
   return asRecord(config) ?? {}
 }
 
@@ -2778,9 +2746,7 @@ export async function patchProjectConfig(directory: string, patch: TRecord) {
 }
 
 export async function loadGlobalConfig() {
-  const config = requireBuddyData(
-    await getBuddyClient().global.config.get(),
-  )
+  const config = requireBuddyData(await getBuddyClient().global.config.get())
   return asRecord(config) ?? {}
 }
 

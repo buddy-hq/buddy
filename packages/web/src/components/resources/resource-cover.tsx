@@ -29,22 +29,34 @@ const RESOURCE_COVER_DEFAULT_PALETTE: ResourceCoverPalette = {
 }
 
 const RESOURCE_COVER_PALETTE_BY_MEDIA_KIND = new Map<WorkspaceMediaKind, ResourceCoverPalette>([
-  ["document", {
-    accentClass: "text-icon-info-base",
-    heroClass: "bg-surface-info-weak",
-  }],
-  ["spreadsheet", {
-    accentClass: "text-icon-success-base",
-    heroClass: "bg-surface-success-weak",
-  }],
-  ["presentation", {
-    accentClass: "text-icon-warning-base",
-    heroClass: "bg-surface-warning-weak",
-  }],
-  ["pdf", {
-    accentClass: "text-icon-critical-base",
-    heroClass: "bg-surface-critical-weak",
-  }],
+  [
+    "document",
+    {
+      accentClass: "text-icon-info-base",
+      heroClass: "bg-surface-info-weak",
+    },
+  ],
+  [
+    "spreadsheet",
+    {
+      accentClass: "text-icon-success-base",
+      heroClass: "bg-surface-success-weak",
+    },
+  ],
+  [
+    "presentation",
+    {
+      accentClass: "text-icon-warning-base",
+      heroClass: "bg-surface-warning-weak",
+    },
+  ],
+  [
+    "pdf",
+    {
+      accentClass: "text-icon-critical-base",
+      heroClass: "bg-surface-critical-weak",
+    },
+  ],
 ])
 
 type ResourceCoverPresentation =

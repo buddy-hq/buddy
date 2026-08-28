@@ -1,10 +1,6 @@
 import { ServerResponse } from "node:http"
 import { McpOAuthProvider } from "opencode/mcp/oauth-provider"
-import {
-  hasFunctionValue,
-  parseStringArray,
-  parseStringValue,
-} from "./parse-external"
+import { hasFunctionValue, parseStringArray, parseStringValue } from "./parse-external"
 
 export const BUDDY_MCP_OAUTH_CLIENT_NAME = "Buddy"
 export const BUDDY_MCP_OAUTH_CLIENT_URI = "https://hibuddy.in"
@@ -152,11 +148,7 @@ type THttpEndArg = string | Uint8Array | BufferEncoding | THttpEndCallback | und
 
 export type TMcpOAuthCallbackBrandedEnd = {
   (this: ServerResponse, callback?: THttpEndCallback): ServerResponse
-  (
-    this: ServerResponse,
-    chunk: string | Uint8Array,
-    callback?: THttpEndCallback,
-  ): ServerResponse
+  (this: ServerResponse, chunk: string | Uint8Array, callback?: THttpEndCallback): ServerResponse
   (
     this: ServerResponse,
     chunk: string | Uint8Array,

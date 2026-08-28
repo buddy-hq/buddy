@@ -73,9 +73,7 @@ function buildToolPermissions(
   return permissions
 }
 
-function buildSkillPermissions(
-  features: readonly DefinedBuddyFeature[],
-) {
+function buildSkillPermissions(features: readonly DefinedBuddyFeature[]) {
   const permissions: Record<string, "allow" | "deny"> = {}
   const seen = new Set<string>()
 
@@ -90,9 +88,7 @@ function buildSkillPermissions(
   return permissions
 }
 
-function buildSubagentPermissions(
-  features: readonly DefinedBuddyFeature[],
-) {
+function buildSubagentPermissions(features: readonly DefinedBuddyFeature[]) {
   const permissions: Record<string, "allow" | "deny"> = {}
   const seen = new Set<string>()
 

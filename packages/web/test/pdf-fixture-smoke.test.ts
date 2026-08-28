@@ -3,10 +3,7 @@ import { fileURLToPath } from "node:url"
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs"
 import { findPdfTextMatches } from "../src/components/readers/pdf/pdf-search"
 import { createSyntheticMultiPagePdf } from "./fixtures/synthetic-pdf"
-import {
-  parseBuddyConfigObject,
-  parseStringValue,
-} from "./parse-test-values"
+import { parseBuddyConfigObject, parseStringValue } from "./parse-test-values"
 
 const SYNTHETIC_PAGE_TEXT = [
   "Buddy PDF page one alpha",

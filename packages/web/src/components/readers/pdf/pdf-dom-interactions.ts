@@ -214,10 +214,7 @@ function selectionBelongsToRoot(selection: Selection, root: HTMLElement): boolea
   return Boolean(anchorNode && focusNode && root.contains(anchorNode) && root.contains(focusNode))
 }
 
-function segmentOffsets(
-  pageElement: HTMLElement,
-  selectedRange: Range,
-) {
+function segmentOffsets(pageElement: HTMLElement, selectedRange: Range) {
   const prefixRange = pageElement.ownerDocument.createRange()
   prefixRange.selectNodeContents(pageElement)
   try {
@@ -284,11 +281,7 @@ function quoteContext(input: {
           input.lastEndOffset,
           input.lastEndOffset + PDF_QUOTE_CONTEXT_LENGTH,
         )
-  return Object.assign(
-    {},
-    prefix ? { prefix } : undefined,
-    suffix ? { suffix } : undefined,
-  )
+  return Object.assign({}, prefix ? { prefix } : undefined, suffix ? { suffix } : undefined)
 }
 
 /**

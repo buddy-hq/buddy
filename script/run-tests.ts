@@ -1,15 +1,8 @@
 #!/usr/bin/env bun
 
 import path from "node:path"
-import {
-  TEST_OWNERS,
-  type OwnedTestFile,
-  verifyTestTopology,
-} from "./test-topology"
-import {
-  runSupervisedTestProcess,
-  type TestProcessSignal,
-} from "./test-process"
+import { TEST_OWNERS, type OwnedTestFile, verifyTestTopology } from "./test-topology"
+import { runSupervisedTestProcess, type TestProcessSignal } from "./test-process"
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dir, "..")
 const TEST_COMMAND_RUNNER = path.join(REPOSITORY_ROOT, "script", "run-test-command.ts")

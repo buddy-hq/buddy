@@ -69,7 +69,10 @@ export function buildGlobalStandardsPatch<TConfig>(
   return Object.keys(toolsPatch).length > 0 ? { tools: toolsPatch } : undefined
 }
 
-function readNotebookStandardsOverride<TConfig>(rawProjectConfig: TConfig, toolId: StandardsToolId) {
+function readNotebookStandardsOverride<TConfig>(
+  rawProjectConfig: TConfig,
+  toolId: StandardsToolId,
+) {
   const tools = readRecord(rawProjectConfig, "tools")
   return parseBooleanValue(tools?.[toolId])
 }

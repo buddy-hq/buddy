@@ -41,7 +41,10 @@ function hasDirectoryAccess(directory: string) {
     return true
   } catch (error) {
     const code = parseProjectNodeErrnoCode(error)
-    if (code === PROJECT_NODE_ERRNO.notFound || DIRECTORY_ACCESS_DENIED_ERROR_CODES.has(code ?? "")) {
+    if (
+      code === PROJECT_NODE_ERRNO.notFound ||
+      DIRECTORY_ACCESS_DENIED_ERROR_CODES.has(code ?? "")
+    ) {
       return false
     }
 

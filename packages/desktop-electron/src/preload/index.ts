@@ -1,11 +1,7 @@
 import type { IpcRendererEvent } from "electron"
 import { contextBridge, ipcRenderer, webUtils } from "electron"
 import { readBuddyWindowVersionArg } from "../shared/window-preload-args"
-import {
-  isFunctionValue,
-  isObjectValue,
-  parseTString,
-} from "../shared/parse-external"
+import { isFunctionValue, isObjectValue, parseTString } from "../shared/parse-external"
 import type { ElectronAPI, InitStep, SqliteMigrationProgress } from "./types"
 import {
   IN_APP_BROWSER_FAVICON_CHANNEL,

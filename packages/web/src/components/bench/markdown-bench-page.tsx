@@ -403,9 +403,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
           {
             type: "workspace-file" as const,
             path: target.path,
-            viewer: isMarkdownBenchPath(target.path)
-              ? ("markdown" as const)
-              : ("file" as const),
+            viewer: isMarkdownBenchPath(target.path) ? ("markdown" as const) : ("file" as const),
           },
           target.fragment ? { fragment: target.fragment } : undefined,
         ),

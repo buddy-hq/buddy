@@ -12,9 +12,7 @@ console.log(`Generating SDK from ${API_URL}...`)
 
 const JsonValueSchema = z.json()
 const JsonObjectSchema = z.record(z.string(), JsonValueSchema)
-const OpenApiDocumentSchema = JsonObjectSchema.and(
-  z.object({ paths: JsonObjectSchema.optional() }),
-)
+const OpenApiDocumentSchema = JsonObjectSchema.and(z.object({ paths: JsonObjectSchema.optional() }))
 const ScalarAllOfSchema = z.object({
   type: z.enum(["string", "number", "integer", "boolean"]),
   allOf: z.array(JsonObjectSchema),

@@ -20,9 +20,7 @@ self.addEventListener("message", (event: MessageEvent) => {
     })
     .catch((error) => {
       const failure =
-        error instanceof Error
-          ? error
-          : new Error("Indigo could not render this chemistry source.")
+        error instanceof Error ? error : new Error("Indigo could not render this chemistry source.")
       const response: IndigoWorkerRenderFailure = {
         type: "error",
         requestID: request.requestID,
