@@ -59,10 +59,6 @@ export function resolveRuntimeXdgEnvironment(runtimeRoot: string): RuntimeXdgEnv
   }
 }
 
-export function resolveDevXdgEnvironment(userDataPath: string): Record<string, string> {
-  return resolveRuntimeXdgEnvironment(join(userDataPath, DEV_XDG_DIRECTORY_NAME))
-}
-
 export function resolveDevRuntimeEnvironment(userDataPath: string): DevRuntimeEnvironment {
   const runtimeRoot = join(userDataPath, DEV_XDG_DIRECTORY_NAME)
 

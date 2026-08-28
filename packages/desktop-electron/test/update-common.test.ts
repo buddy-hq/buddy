@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test"
 import {
   fetchSignedText,
   resolveLatestRingAssetUrl,
-  resolveLatestPrereleaseAssetUrl,
   resolveVersionedReleaseAssetUrls,
   SignedUpdateFetchError,
 } from "../src/main/update-common"
@@ -29,42 +28,6 @@ describe("update common", () => {
       }),
     ).resolves.toBe(
       "https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/latest-windows-x64.yml",
-    )
-  })
-
-  test("resolves latest prerelease assets without using the stable latest release", async () => {
-    let requestedUrl = ""
-    globalThis.fetch = createTestFetch(async (input) => {
-      requestedUrl = String(input)
-      return new Response(
-        JSON.stringify([
-          {
-            draft: false,
-            prerelease: false,
-            published_at: "2026-01-03T00:00:00Z",
-            tag_name: "v2.0.0",
-          },
-          {
-            draft: false,
-            prerelease: true,
-            published_at: "2026-01-02T00:00:00Z",
-            tag_name: "v2.1.0-beta.1",
-          },
-          {
-            draft: false,
-            prerelease: true,
-            published_at: "2026-01-04T00:00:00Z",
-            tag_name: "v2.1.0-beta.2",
-          },
-        ]),
-      )
-    })
-
-    await expect(resolveLatestPrereleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)).resolves.toBe(
-      "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.1.0-beta.2/latest-windows-x64.yml",
-    )
-    expect(requestedUrl).toBe(
-      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
     )
   })
 
@@ -143,25 +106,6 @@ describe("update common", () => {
       }),
     ).resolves.toBe(
       "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.2.0/latest-windows-x64.yml",
-    )
-  })
-
-  test("explicit prerelease resolver still reports an empty prerelease channel", async () => {
-    globalThis.fetch = createTestFetch(async () =>
-      new Response(
-        JSON.stringify([
-          {
-            draft: false,
-            prerelease: false,
-            published_at: "2026-01-02T00:00:00Z",
-            tag_name: "v2.1.0",
-          },
-        ]),
-      ),
-    )
-
-    await expect(resolveLatestPrereleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)).rejects.toThrow(
-      "No published GitHub prerelease found",
     )
   })
 

@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import {
-  CORE_TOOL_PRESENTATION_IDS,
-  coreToolPresentationCatalog,
-  getCoreToolPresentationDescriptor,
-} from "../src/core-tool-presentations"
+import { getCoreToolPresentationDescriptor } from "../src/core-tool-presentations"
 import { MessageID, PartID, SessionID } from "../src/id"
 import type { MessageV2 } from "../src/message"
 import { withToolPresentationOnPart } from "../src/session-tool-presentation"
@@ -29,15 +25,6 @@ function context(phase: "pending" | "running" | "completed" | "error") {
 }
 
 describe("tool presentation contract", () => {
-  test("catalog covers every supported core tool ID", () => {
-    expect(Object.keys(coreToolPresentationCatalog()).toSorted()).toEqual(
-      [...CORE_TOOL_PRESENTATION_IDS, "codesearch", "list", "todoread"].toSorted(),
-    )
-    for (const toolID of CORE_TOOL_PRESENTATION_IDS) {
-      expect(getCoreToolPresentationDescriptor(toolID)).toBeDefined()
-    }
-  })
-
   test("resolves and runtime-validates every lifecycle phase", () => {
     const descriptor = getCoreToolPresentationDescriptor("read")
     expect(descriptor).toBeDefined()

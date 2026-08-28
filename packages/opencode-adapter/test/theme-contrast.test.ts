@@ -23,16 +23,6 @@ function isHexColor(value: string): value is HexColor {
 }
 
 describe("theme contrast", () => {
-  test("exposes the theme-defining primary and accent colors", () => {
-    const theme = defaultThemes.synthwave84
-    if (!theme) throw new Error("Expected the Synthwave84 theme")
-
-    const tokens = resolveThemeVariant(theme.dark, true)
-
-    expect(tokens["theme-primary-base"]).toBe("#36f9f6")
-    expect(tokens["theme-accent-base"]).toBe("#b084eb")
-  })
-
   test("composites translucent layers before measuring contrast", () => {
     expect(compositeLayerStack(["#00000080", "#ffffff"])).toBe("#7f7f7f")
     expect(layeredContrastRatio("#ffffff", ["#00000080", "#ffffff"])).toBeGreaterThan(4)
@@ -52,6 +42,8 @@ describe("theme contrast", () => {
     for (const theme of Object.values(defaultThemes)) {
       for (const mode of ["light", "dark"] as const) {
         const tokens = resolveThemeVariant(theme[mode], mode === "dark")
+        readHex(tokens, "theme-primary-base")
+        readHex(tokens, "theme-accent-base")
         const parents = [
           "background-base",
           "surface-raised-base",

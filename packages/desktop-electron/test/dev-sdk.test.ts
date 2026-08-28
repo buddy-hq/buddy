@@ -62,20 +62,6 @@ describe("desktop development SDK preparation", () => {
     })
   })
 
-  test("generates when the SDK entry is missing", () => {
-    const root = createTestDirectory()
-    const source = path.join(root, "source.ts")
-    writeFileSync(source, "export const source = true\n")
-
-    expect(
-      generatedSdkNeedsRefresh({
-        generatedOutputs: [path.join(root, "sdk.gen.ts")],
-        successMarker: path.join(root, ".generation-complete"),
-        sourcePaths: [source],
-      }),
-    ).toBe(true)
-  })
-
   test("regenerates when generation did not complete or an output is missing", () => {
     const root = createTestDirectory()
     const source = path.join(root, "source.ts")
@@ -85,6 +71,7 @@ describe("desktop development SDK preparation", () => {
 
     writeFileSync(source, "export const source = true\n")
     writeFileSync(generatedEntry, "export const sdk = true\n")
+    writeFileSync(generatedTypes, "export const types = true\n")
 
     expect(
       generatedSdkNeedsRefresh({
@@ -95,6 +82,7 @@ describe("desktop development SDK preparation", () => {
     ).toBe(true)
 
     writeFileSync(successMarker, "")
+    rmSync(generatedTypes)
 
     expect(
       generatedSdkNeedsRefresh({

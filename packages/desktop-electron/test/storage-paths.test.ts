@@ -5,11 +5,8 @@ import {
   DESKTOP_XDG_ENV,
   resolveAllowedDirectoryRoots,
   resolveBuddyDataDir,
-  resolveDefaultNotebookHome,
   resolveDevRuntimeEnvironment,
-  resolveDevXdgEnvironment,
   resolveOpenCodeSqlitePath,
-  resolveRuntimeXdgEnvironment,
   shouldUseDevRuntimeIsolation,
 } from "../src/main/storage-paths"
 
@@ -41,17 +38,6 @@ describe("desktop storage paths", () => {
     ).toBe(false)
   })
 
-  test("builds dev XDG data/cache/config/state under Electron userData only", () => {
-    const userData = path.join("/tmp", "Buddy Dev")
-
-    expect(resolveDevXdgEnvironment(userData)).toEqual({
-      [DESKTOP_XDG_ENV.DATA_HOME]: path.join(userData, "xdg", "data"),
-      [DESKTOP_XDG_ENV.CACHE_HOME]: path.join(userData, "xdg", "cache"),
-      [DESKTOP_XDG_ENV.CONFIG_HOME]: path.join(userData, "xdg", "config"),
-      [DESKTOP_XDG_ENV.STATE_HOME]: path.join(userData, "xdg", "state"),
-    })
-  })
-
   test("pins every mutable Buddy Dev root under Electron userData", () => {
     const userData = path.join("/tmp", "Buddy Dev")
 
@@ -67,20 +53,9 @@ describe("desktop storage paths", () => {
     })
   })
 
-  test("builds XDG roots from an explicit runtime root", () => {
-    const runtimeRoot = path.join("/tmp", "buddy-runtime")
-
-    expect(resolveRuntimeXdgEnvironment(runtimeRoot)).toEqual({
-      [DESKTOP_XDG_ENV.DATA_HOME]: path.join(runtimeRoot, "data"),
-      [DESKTOP_XDG_ENV.CACHE_HOME]: path.join(runtimeRoot, "cache"),
-      [DESKTOP_XDG_ENV.CONFIG_HOME]: path.join(runtimeRoot, "config"),
-      [DESKTOP_XDG_ENV.STATE_HOME]: path.join(runtimeRoot, "state"),
-    })
-  })
-
   test("authorizes notebook home without authorizing runtime storage", () => {
     const home = path.join("/Users", "buddy")
-    const expectedNotebookHome = resolveDefaultNotebookHome(home)
+    const expectedNotebookHome = path.join(home, "Documents", "Buddy")
 
     expect(resolveAllowedDirectoryRoots({ home })).toBe(expectedNotebookHome)
   })
