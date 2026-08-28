@@ -33,19 +33,30 @@ Settings is a full page. **Back to chat** returns to the prior chat/Bench locati
 
 Tell the user: **Settings → \<tab\>**.
 
+Always listed:
+
 | Tab | What lives there |
 | --- | --- |
-| **General** | Appearance (System/Light/Dark, theme, fonts); follow-up **Steer** vs **Queue for later**; game-break frequency; notifications (agent, permissions, errors) |
-| **Updates** | Channel **Stable** / **Preview**; check for updates. Desktop app only |
-| **Providers** | Connect and manage AI providers |
-| **MCPs** | Global MCP definitions |
+| **General** | Follow-up **Steer** vs **Queue for later**; game-break frequency; concise responses; default way Buddy works; Read entire book; Auto-compaction; **Buddy Home**; log level |
+| **Appearance** | System/Light/Dark, theme, UI + code font and size |
+| **Notifications** | Agent, permissions, errors |
 | **Personalization** | Profile + global **AGENTS.md** |
-| **Memory** | Experiment opt-in, notebook defaults, models, tuning |
-| **Advanced** | Packages; log level; Read entire book; Auto-compaction; **Buddy Home**; external skill discovery |
-| **Attribution** | Third-party credits (read-only) |
-| **Standards** | Optional — only when Standards package is enabled |
+| **Providers** | Connect and manage AI providers |
+| **Skills** | Skills catalog; external skill discovery |
+| **MCPs** | Global MCP definitions; per-server on/off by default |
+| **Packages** | Advanced Math and Standards install; **Memory** experiment opt-in |
+| **About** | Version; channel **Stable** / **Preview**; check for updates (desktop only); third-party credits |
 
-No live tab named Notebook or Appearance (Appearance lives under **General**).
+Revealed once the matching capability is on — each is independent:
+
+| Tab | Appears when |
+| --- | --- |
+| **Standards** | Standards package installed, or the user's default way of working is **Teach** |
+| **Memory** | Memory experiment enabled under **Packages** |
+
+No live tab named Notebook, Advanced, Updates, or Attribution. Old `?tab=` links for those still
+resolve: `advanced` / `labs` / `tools` / `teaching` / `learnerMemory` land on **Packages**,
+`updates` / `attribution` on **About**, `chat` / `notebook` on **General**.
 
 ## Notebook settings (separate)
 
@@ -67,8 +78,8 @@ Autosave. Does **not** set theme, providers, or global profile.
 
 ## Gotchas
 
-- Appearance is under **General**, not its own nav item.
-- Standards tab missing → Standards package not enabled (`extend.md`).
-- Updates / package install need the **desktop** app.
-- Memory experiment off → memory settings and notebook controls are hidden.
+- Appearance is its own tab; so are Notifications and Packages.
+- Standards tab missing → Standards package not installed and the user is not a teacher (`extend.md`).
+- Updates live under **About**; updates / package install need the **desktop** app.
+- Memory experiment off → the Memory tab, its settings, and notebook controls are hidden.
 - Permission “allow always” is the live permission prompt, not a Settings preference (`trust.md`).

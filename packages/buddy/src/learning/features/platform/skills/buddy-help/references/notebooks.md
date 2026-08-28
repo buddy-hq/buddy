@@ -32,7 +32,7 @@ A **notebook** is a **folder** Buddy has open (workspace). Chats live inside a n
 | Dedicated space | **New notebook** → name → folder under Buddy Home → opens with a new chat |
 | Use an existing project/folder | **Open existing folder** → that folder becomes the notebook |
 | Leave a notebook open list | **Close notebook** — removes from open list; **does not delete** the folder on disk |
-| Change where new managed notebooks go | Settings → **Advanced** → Buddy Home → **Change Home** |
+| Change where new managed notebooks go | Settings → **General** → Buddy Home → **Change Home** |
 | Reopen after close | Open existing folder, or create again with same name under Home if folder still exists |
 
 Empty-state intent: **Inbox** for quick chats and loose notes; named notebooks for dedicated work.
@@ -108,7 +108,7 @@ Not for chat input beyond session slashes — `chat.md`. Notebook create/open �
 - Title starts as **New chat**; may auto-title after first real message. Rename anytime.
 - **Pin** and **unread** are local UI prefs on this machine.
 - **Archive** drops the chat from the active list (confirm). No in-app unarchive UI found — under-claim recovery.
-- Auto-compaction **on** by default. Toggle: Settings → Advanced → **Auto-compaction**. Manual `/compact` still works when off.
+- Auto-compaction **on** by default. Toggle: Settings → General → **Auto-compaction**. Manual `/compact` still works when off.
 - Manual compact needs a selected model and an existing session.
 
 ### User paths

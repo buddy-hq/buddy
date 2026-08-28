@@ -41,7 +41,7 @@ Invalid/corrupt files fail process.
 
 ### Settings
 
-**Settings → Advanced → Behavior → Read entire book** (default on). Off blocks whole-book full-text load into context.
+**Settings → General → Read entire book** (default on). Off blocks whole-book full-text load into context.
 
 ### Slash (user)
 

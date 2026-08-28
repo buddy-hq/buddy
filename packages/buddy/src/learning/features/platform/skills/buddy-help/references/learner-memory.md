@@ -17,7 +17,7 @@ Opt-in machine-local store of durable learner facts (preferences, misconceptions
 
 ## Turn it on
 
-1. **Settings → Advanced → Experimental features** → enable **Memory**.
+1. **Settings → Packages → Experimental features** → enable **Memory**.
 2. **Settings → Memory** → optionally set **Default notebook participation** and **Default auto-extract**.
 3. Per notebook: **Notebook settings** → **Memory** / **Auto-extract from chats**.
 4. The **Create notebook** dialog shows the same two switches while the experiment is enabled.
