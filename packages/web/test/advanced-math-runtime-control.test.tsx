@@ -23,9 +23,7 @@ describe("advanced math runtime settings control", () => {
 
   test("reports Windows as unsupported and uses the coming soon description", () => {
     expect(isAdvancedMathRuntimeSupported("windows")).toBe(false)
-    expect(advancedMathRuntimeDescription("windows")).toBe(
-      "Advanced math is coming soon on Windows.",
-    )
+    expect(advancedMathRuntimeDescription("windows")).toBe("Not available on Windows yet.")
   })
 
   test("renders a coming soon badge on Windows instead of a toggle", async () => {

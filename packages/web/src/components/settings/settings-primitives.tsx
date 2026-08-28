@@ -109,8 +109,6 @@ export function SettingsRow(props: {
   title: ReactNode
   description?: string
   control: ReactNode
-  /** @deprecated No longer needed — rows use CSS border-t separators automatically */
-  last?: boolean
 }) {
   return (
     <div className="border-t border-border-base/60 px-4 py-3.5 first:border-t-0 sm:px-5">

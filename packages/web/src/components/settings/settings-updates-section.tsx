@@ -11,7 +11,7 @@ import {
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import type { UpdateRing } from "@/context/platform"
-import { SettingsContent, SettingsRow, SettingsSection } from "./settings-primitives"
+import { SettingsRow, SettingsSection } from "./settings-primitives"
 import {
   isUpdateRing,
   useUpdateSettings,
@@ -96,7 +96,11 @@ function UpdateBannerStrip(props: {
   )
 }
 
-export function UpdatesSettings() {
+/**
+ * Rendered inside About rather than as a panel of its own — checking for an update is an
+ * app-level chore, not a thing you go to a separate tab for.
+ */
+export function UpdatesSettingsSection() {
   const updates = useUpdateSettings()
   const banner = updates.banner
 
@@ -110,70 +114,68 @@ export function UpdatesSettings() {
   }
 
   return (
-    <SettingsContent>
-      <SettingsSection title={language.t("settings.updates.title")}>
-        {banner ? (
-          <UpdateBannerStrip
-            banner={banner}
+    <SettingsSection title={language.t("settings.updates.title")}>
+      {banner ? (
+        <UpdateBannerStrip
+          banner={banner}
+          disabled={!updates.supported || updates.busy}
+          onAction={onBannerAction}
+        />
+      ) : null}
+
+      <SettingsRow
+        title={language.t("settings.updates.versionTitle")}
+        control={
+          <span className="text-xs text-text-weak tabular-nums">
+            {updates.version ?? language.t("settings.updates.versionUnknown")}
+          </span>
+        }
+      />
+
+      <SettingsRow
+        title={language.t("settings.updates.channelTitle")}
+        description={language.t(RING_DESCRIPTION_KEYS[updates.ring])}
+        control={
+          <Select
+            value={updates.ring}
             disabled={!updates.supported || updates.busy}
-            onAction={onBannerAction}
-          />
-        ) : null}
+            onValueChange={(value) => {
+              if (isUpdateRing(value)) {
+                void updates.changeRing(value)
+              }
+            }}
+          >
+            <SelectTrigger data-action="settings-update-ring" className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="stable">{language.t(RING_LABEL_KEYS.stable)}</SelectItem>
+              <SelectItem value="preview">{language.t(RING_LABEL_KEYS.preview)}</SelectItem>
+            </SelectContent>
+          </Select>
+        }
+      />
 
-        <SettingsRow
-          title={language.t("settings.updates.versionTitle")}
-          control={
-            <span className="text-xs text-text-weak tabular-nums">
-              {updates.version ?? language.t("settings.updates.versionUnknown")}
-            </span>
-          }
-        />
-
-        <SettingsRow
-          title={language.t("settings.updates.channelTitle")}
-          description={language.t(RING_DESCRIPTION_KEYS[updates.ring])}
-          control={
-            <Select
-              value={updates.ring}
-              disabled={!updates.supported || updates.busy}
-              onValueChange={(value) => {
-                if (isUpdateRing(value)) {
-                  void updates.changeRing(value)
-                }
-              }}
-            >
-              <SelectTrigger data-action="settings-update-ring" className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="stable">{language.t(RING_LABEL_KEYS.stable)}</SelectItem>
-                <SelectItem value="preview">{language.t(RING_LABEL_KEYS.preview)}</SelectItem>
-              </SelectContent>
-            </Select>
-          }
-        />
-
-        <SettingsRow
-          title={language.t("settings.updates.checkTitle")}
-          description={
-            updates.supported
-              ? language.t("settings.updates.checkDescription")
-              : language.t("settings.updates.unavailable")
-          }
-          control={
-            <Button
-              data-action="settings-check-updates"
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={!updates.supported || updates.busy}
-              onClick={() => void updates.checkForUpdates()}
-            >
-              {language.t("settings.updates.checkNow")}
-            </Button>
-          }
-        />
-      </SettingsSection>
-    </SettingsContent>
+      <SettingsRow
+        title={language.t("settings.updates.checkTitle")}
+        description={
+          updates.supported
+            ? language.t("settings.updates.checkDescription")
+            : language.t("settings.updates.unavailable")
+        }
+        control={
+          <Button
+            data-action="settings-check-updates"
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={!updates.supported || updates.busy}
+            onClick={() => void updates.checkForUpdates()}
+          >
+            {language.t("settings.updates.checkNow")}
+          </Button>
+        }
+      />
+    </SettingsSection>
   )
 }

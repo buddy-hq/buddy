@@ -48,15 +48,15 @@ type SharedPersonalizationFormFieldsProps = {
   form: PersonalizationFormApi
 }
 
-function FieldBlock(props: { title: string; children: React.ReactNode; first?: boolean }) {
+/**
+ * The whole profile is one row of the card. The PROFILE header above already names the block, so
+ * the row spends no width on a title column, and one row means no dividers cutting between fields
+ * that belong to the same answer — the gap between them does that work instead.
+ */
+function ProfileField(props: { title: string; children: React.ReactNode }) {
   return (
-    <div
-      className={cn(
-        "space-y-2 px-4 py-3.5 sm:px-5",
-        props.first ? undefined : "border-t border-border-base/60",
-      )}
-    >
-      <p className="text-[13px] font-medium tracking-[-0.01em] text-text-base">{props.title}</p>
+    <div className="min-w-0 space-y-1.5">
+      <p className="text-xs font-medium tracking-[-0.01em] text-text-weak">{props.title}</p>
       {props.children}
     </div>
   )
@@ -135,48 +135,50 @@ export function SharedPersonalizationPrimaryUseField(props: {
 export function SharedPersonalizationFormFields(props: SharedPersonalizationFormFieldsProps) {
   return (
     <SettingsListCard>
-      <props.form.Field name="preferredName">
-        {(field: AnyFieldApi) => (
-          <FieldBlock title={language.t("settings.personalization.preferredNameTitle")} first>
-            <Input
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-              placeholder="What should Buddy call you?"
-              className="w-full"
-            />
-          </FieldBlock>
-        )}
-      </props.form.Field>
+      <div className="flex flex-col gap-5 px-4 py-4 sm:px-5">
+        <props.form.Field name="preferredName">
+          {(field: AnyFieldApi) => (
+            <ProfileField title={language.t("settings.personalization.preferredNameTitle")}>
+              <Input
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+                placeholder="What should Buddy call you?"
+                className="w-full"
+              />
+            </ProfileField>
+          )}
+        </props.form.Field>
 
-      <props.form.Field name="occupation">
-        {(field: AnyFieldApi) => (
-          <FieldBlock title={language.t("settings.personalization.occupationTitle")}>
-            <Input
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-              placeholder="Student, engineer..."
-              className="w-full"
-            />
-          </FieldBlock>
-        )}
-      </props.form.Field>
+        <props.form.Field name="occupation">
+          {(field: AnyFieldApi) => (
+            <ProfileField title={language.t("settings.personalization.occupationTitle")}>
+              <Input
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+                placeholder="Student, engineer..."
+                className="w-full"
+              />
+            </ProfileField>
+          )}
+        </props.form.Field>
 
-      <props.form.Field name="moreAboutYou">
-        {(field: AnyFieldApi) => (
-          <FieldBlock title={language.t("settings.personalization.moreAboutYouTitle")}>
-            <Textarea
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-              placeholder="Goals, context, preferences..."
-              rows={4}
-              className="w-full resize-y"
-            />
-          </FieldBlock>
-        )}
-      </props.form.Field>
+        <props.form.Field name="moreAboutYou">
+          {(field: AnyFieldApi) => (
+            <ProfileField title={language.t("settings.personalization.moreAboutYouTitle")}>
+              <Textarea
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+                placeholder="Goals, context, preferences..."
+                rows={4}
+                className="w-full resize-y"
+              />
+            </ProfileField>
+          )}
+        </props.form.Field>
+      </div>
     </SettingsListCard>
   )
 }

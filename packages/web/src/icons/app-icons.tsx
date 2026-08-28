@@ -293,6 +293,7 @@ export const Bookmark = createIcon(Bookmark02IconData, "Bookmark")
 export const BookmarkIcon = createIcon(Bookmark02IconData, "BookmarkIcon")
 /** Hugeicons free `BotIcon` (antenna + body + arms + eyes) — not Robot*. */
 export const Bot = createIcon(BotIconData, "Bot")
+export const BotIcon = createIcon(BotIconData, "BotIcon")
 export const BotMessageSquare = createIcon(BotMessageSquareIconData, "BotMessageSquare")
 export const Boxes = createIcon(BoxesIconData, "Boxes")
 export const BoxesIcon = createIcon(BoxesIconData, "BoxesIcon")

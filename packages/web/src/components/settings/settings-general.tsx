@@ -1,20 +1,32 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  Input,
+  Button,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
   Switch,
+  toast,
 } from "@buddy/ui"
+import { useForm } from "@tanstack/react-form"
 import { language } from "@/context/language"
+import { parseTString } from "@/components/chat/tools/types"
+import { pickProjectDirectory } from "@/lib/directory-picker"
+import { patchGlobalConfig, saveNotebookHome } from "@/state/chat-actions"
+import { notebookHomeQueryOptions, setNotebookHomeQueryData } from "@/state/bootstrap-query"
+import { globalConfigQueryOptions, setGlobalConfigQueryData } from "@/state/global-config-query"
+import { readPersonalization } from "@/state/project-config-readers"
+import { usePersonalizationSettingsAutosave } from "@/state/personalization-settings"
+import { SharedPersonalizationPrimaryUseField } from "./shared-personalization-form"
 import {
   FOLLOWUP_BEHAVIOR_QUEUE,
   FOLLOWUP_BEHAVIOR_STEER,
   useChatSettings,
   type FollowupBehavior,
 } from "@/state/chat-settings"
+import { useConciseResponseSettings } from "@/state/concise-response-settings"
 import {
   GAME_PROMPT_PREFERENCE_DISABLED,
   GAME_PROMPT_PREFERENCE_REDUCED,
@@ -22,22 +34,24 @@ import {
   useGameStore,
   type TGamePromptPreference,
 } from "@/state/game-store"
-import { useNotificationPreferences } from "@/state/notification-preferences"
+import { useGeneralSettings } from "@/state/general-settings"
 import { useGetStartedFlowStore } from "@/state/get-started-flow-store"
-import { useTheme, type ColorScheme } from "@/theme"
+import { useChatStore } from "@/state/chat-store"
 import {
-  CODE_FONT_PLACEHOLDER,
-  MAX_APPEARANCE_FONT_SIZE,
-  MIN_APPEARANCE_FONT_SIZE,
-  UI_FONT_PLACEHOLDER,
-  codeFontFamily,
-  uiFontFamily,
-  useAppearancePreferences,
-} from "@/state/appearance-preferences"
-import { SettingsContent, SettingsSection, SettingsRow } from "./settings-primitives"
+  SettingsContent,
+  SettingsListCard,
+  SettingsRow,
+  SettingsSection,
+  SettingsSectionHeader,
+} from "./settings-primitives"
 
-function isColorScheme(value: string): value is ColorScheme {
-  return value === "system" || value === "light" || value === "dark"
+const DEFAULT_LOG_LEVEL_VALUE = "__default__"
+const ADVANCED_LOG_LEVELS = ["debug", "info", "warn", "error"] as const
+
+type AdvancedLogLevel = (typeof ADVANCED_LOG_LEVELS)[number]
+
+function isAdvancedLogLevel(value: string): value is AdvancedLogLevel {
+  return ADVANCED_LOG_LEVELS.some((level) => level === value)
 }
 
 function isFollowupBehavior(value: string): value is FollowupBehavior {
@@ -52,99 +66,88 @@ function isGamePromptPreference(value: string): value is TGamePromptPreference {
   )
 }
 
-function FontTextInput(props: {
-  value: string
-  placeholder: string
-  ariaLabel: string
-  dataAction: string
-  fontFamily: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <Input
-      data-action={props.dataAction}
-      value={props.value}
-      placeholder={props.placeholder}
-      aria-label={props.ariaLabel}
-      spellCheck={false}
-      autoCorrect="off"
-      autoComplete="off"
-      autoCapitalize="off"
-      className="h-8 text-xs"
-      style={{ fontFamily: props.fontFamily }}
-      onChange={(event) => props.onChange(event.currentTarget.value)}
-    />
-  )
-}
-
-export function FontSizeInput(props: {
-  value: number
-  ariaLabel: string
-  dataAction: string
-  onChange: (value: number) => void
-}) {
-  const [draft, setDraft] = useState(String(props.value))
-
-  useEffect(() => {
-    setDraft(String(props.value))
-  }, [props.value])
-
-  return (
-    <div className="flex items-center justify-end gap-2">
-      <Input
-        data-action={props.dataAction}
-        type="number"
-        min={MIN_APPEARANCE_FONT_SIZE}
-        max={MAX_APPEARANCE_FONT_SIZE}
-        step={1}
-        value={draft}
-        aria-label={props.ariaLabel}
-        className="h-8 w-20 text-right text-xs tabular-nums"
-        onChange={(event) => {
-          const nextDraft = event.currentTarget.value
-          setDraft(nextDraft)
-          const value = Number(nextDraft)
-          if (
-            Number.isInteger(value) &&
-            value >= MIN_APPEARANCE_FONT_SIZE &&
-            value <= MAX_APPEARANCE_FONT_SIZE
-          ) {
-            props.onChange(value)
-          }
-        }}
-        onBlur={() => setDraft(String(props.value))}
-      />
-      <span className="w-5 text-xs text-text-weak">px</span>
-    </div>
-  )
-}
-
 export function GeneralSettings() {
-  const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
-  const uiFont = useAppearancePreferences((state) => state.uiFont)
-  const codeFont = useAppearancePreferences((state) => state.codeFont)
-  const uiFontSize = useAppearancePreferences((state) => state.uiFontSize)
-  const codeFontSize = useAppearancePreferences((state) => state.codeFontSize)
-  const setUiFont = useAppearancePreferences((state) => state.setUiFont)
-  const setCodeFont = useAppearancePreferences((state) => state.setCodeFont)
-  const setUiFontSize = useAppearancePreferences((state) => state.setUiFontSize)
-  const setCodeFontSize = useAppearancePreferences((state) => state.setCodeFontSize)
+  const openProjects = useChatStore((state) => state.openProjects)
   const followupBehavior = useChatSettings((state) => state.followupBehavior)
   const setFollowupBehavior = useChatSettings((state) => state.setFollowupBehavior)
-  const notificationPreferences = useNotificationPreferences((state) => state.preferences)
-  const setAgentNotifications = useNotificationPreferences((state) => state.setAgent)
-  const setPermissionNotifications = useNotificationPreferences((state) => state.setPermissions)
-  const setErrorNotifications = useNotificationPreferences((state) => state.setErrors)
   const gamePromptPreference = useGameStore((state) => state.gamePromptPreference)
   const setGamePromptPreference = useGameStore((state) => state.setGamePromptPreference)
   const getStartedFlowEnabled = useGetStartedFlowStore((state) => state.enabled)
   const setGetStartedFlowEnabled = useGetStartedFlowStore((state) => state.setEnabled)
+  const conciseResponses = useConciseResponseSettings()
+  const queryClient = useQueryClient()
+  const [changingBuddyHome, setChangingBuddyHome] = useState(false)
+  const [logLevelDraft, setLogLevelDraft] = useState<string>(DEFAULT_LOG_LEVEL_VALUE)
+  const [logLevelBusy, setLogLevelBusy] = useState(false)
+  const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
+  const notebookHome = notebookHomeQuery.data
+  const globalConfigQuery = useQuery(globalConfigQueryOptions())
+  const personalizationForm = useForm({
+    defaultValues: readPersonalization(globalConfigQuery.data ?? {}),
+    onSubmit: async () => undefined,
+  })
+  const { save: savePersonalization } = usePersonalizationSettingsAutosave(personalizationForm, {
+    globalConfig: globalConfigQuery.data,
+    isPending: globalConfigQuery.isPending,
+  })
+  const logLevelLoading = globalConfigQuery.isPending || globalConfigQuery.isFetching
+  const logLevelSelectValue = logLevelDraft
+  const generalSettings = useGeneralSettings({ cleanupDirectories: openProjects })
+  const showGeneralSettingsRetry = Boolean(
+    generalSettings.status.error && generalSettings.status.hasPendingChanges,
+  )
 
-  const colorSchemeOptions: ReadonlyArray<{ value: ColorScheme; label: string }> = [
-    { value: "system", label: language.t("settings.appearance.colorSchemes.system") },
-    { value: "light", label: language.t("settings.appearance.colorSchemes.light") },
-    { value: "dark", label: language.t("settings.appearance.colorSchemes.dark") },
-  ]
+  useEffect(() => {
+    if (!globalConfigQuery.error) return
+    toast.error(
+      globalConfigQuery.error instanceof Error
+        ? globalConfigQuery.error.message
+        : language.t("settings.advanced.loadSettingsFailed"),
+    )
+  }, [globalConfigQuery.error])
+
+  useEffect(() => {
+    if (!globalConfigQuery.data) return
+    const level = parseTString(globalConfigQuery.data.logLevel)
+    setLogLevelDraft(
+      level !== undefined && isAdvancedLogLevel(level) ? level : DEFAULT_LOG_LEVEL_VALUE,
+    )
+  }, [globalConfigQuery.data])
+
+  async function handleLogLevelChange(value: string) {
+    const previous = logLevelDraft
+    setLogLevelDraft(value)
+    setLogLevelBusy(true)
+    try {
+      const updatedGlobal = await patchGlobalConfig({ logLevel: value || null })
+      setGlobalConfigQueryData(queryClient, updatedGlobal)
+    } catch (error) {
+      setLogLevelDraft(previous)
+      toast.error(
+        error instanceof Error ? error.message : language.t("settings.advanced.requestFailed"),
+      )
+    } finally {
+      setLogLevelBusy(false)
+    }
+  }
+
+  async function onChangeBuddyHome() {
+    try {
+      const picked = await pickProjectDirectory()
+      if (!picked) return
+
+      setChangingBuddyHome(true)
+      const nextNotebookHome = await saveNotebookHome(picked)
+      setNotebookHomeQueryData(queryClient, nextNotebookHome)
+      toast.success(language.t("settings.general.buddyHomeSaved"))
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : language.t("settings.general.buddyHomeSaveFailed"),
+      )
+    } finally {
+      setChangingBuddyHome(false)
+    }
+  }
 
   const followupBehaviorOptions: ReadonlyArray<{ value: FollowupBehavior; label: string }> = [
     {
@@ -175,112 +178,24 @@ export function GeneralSettings() {
     },
   ]
 
-  const themeOptions = useMemo(
-    () =>
-      Object.entries(themes).map(([id, theme]) => ({
-        id,
-        name: theme.name,
-      })),
-    [themes],
-  )
-
   return (
     <SettingsContent>
-      <SettingsSection title="Appearance">
-        <SettingsRow
-          title={language.t("settings.appearance.colorSchemeTitle")}
-          control={
-            <Select
-              value={colorScheme}
-              onValueChange={(value) => {
-                if (isColorScheme(value)) {
-                  setColorScheme(value)
-                }
-              }}
+      <SettingsSection
+        title={language.t("settings.chat.conversationSection")}
+        headerAction={
+          showGeneralSettingsRetry ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={generalSettings.status.loading || generalSettings.status.saving}
+              onClick={() => void generalSettings.actions.save()}
             >
-              <SelectTrigger data-action="settings-color-scheme" className="w-full">
-                <SelectValue
-                  placeholder={language.t("settings.appearance.colorSchemePlaceholder")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {colorSchemeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.appearance.themeTitle")}
-          control={
-            <Select value={themeId} onValueChange={setTheme}>
-              <SelectTrigger data-action="settings-theme" className="w-full">
-                <SelectValue placeholder={language.t("settings.appearance.themePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {themeOptions.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.general.uiFontTitle")}
-          control={
-            <FontTextInput
-              dataAction="settings-ui-font"
-              value={uiFont}
-              placeholder={UI_FONT_PLACEHOLDER}
-              ariaLabel={language.t("settings.general.uiFontAria")}
-              fontFamily={uiFontFamily(uiFont)}
-              onChange={setUiFont}
-            />
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.general.codeFontTitle")}
-          control={
-            <FontTextInput
-              dataAction="settings-code-font"
-              value={codeFont}
-              placeholder={CODE_FONT_PLACEHOLDER}
-              ariaLabel={language.t("settings.general.codeFontAria")}
-              fontFamily={codeFontFamily(codeFont)}
-              onChange={setCodeFont}
-            />
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.general.uiFontSizeTitle")}
-          control={
-            <FontSizeInput
-              dataAction="settings-ui-font-size"
-              value={uiFontSize}
-              ariaLabel={language.t("settings.general.uiFontSizeAria")}
-              onChange={setUiFontSize}
-            />
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.general.codeFontSizeTitle")}
-          control={
-            <FontSizeInput
-              dataAction="settings-code-font-size"
-              value={codeFontSize}
-              ariaLabel={language.t("settings.general.codeFontSizeAria")}
-              onChange={setCodeFontSize}
-            />
-          }
-        />
-      </SettingsSection>
-
-      <SettingsSection title="Chat">
+              {language.t("settings.autosave.retry")}
+            </Button>
+          ) : undefined
+        }
+      >
         <SettingsRow
           title={language.t("settings.general.getStartedChatsTitle")}
           description={language.t("settings.general.getStartedChatsDescription")}
@@ -343,46 +258,138 @@ export function GeneralSettings() {
             </Select>
           }
         />
-      </SettingsSection>
 
-      <SettingsSection title="Notifications">
         <SettingsRow
-          title={language.t("settings.general.notificationsAgentTitle")}
-          description={language.t("settings.general.notificationsAgentDescription")}
+          title={language.t("settings.personalization.conciseResponsesTitle")}
+          description={language.t("settings.personalization.conciseResponsesDescription")}
           control={
             <Switch
-              data-action="settings-notifications-agent"
-              checked={notificationPreferences.agent}
-              onCheckedChange={setAgentNotifications}
-              aria-label={language.t("settings.general.notificationsAgentAria")}
+              data-action="settings-concise-responses"
+              checked={conciseResponses.enabled}
+              onCheckedChange={conciseResponses.setEnabled}
+              disabled={conciseResponses.loading || conciseResponses.saving}
+              aria-label={language.t("settings.personalization.conciseResponsesAria")}
+            />
+          }
+        />
+        {generalSettings.status.error ? (
+          <div className="px-4 py-3 text-xs text-icon-critical-base sm:px-5">
+            {generalSettings.status.error}
+          </div>
+        ) : null}
+        <SettingsRow
+          title={language.t("settings.general.fullTextTitle")}
+          description={language.t("settings.general.fullTextDescription")}
+          control={
+            <Switch
+              data-action="settings-global-full-text"
+              checked={generalSettings.selection.fullTextReadingEnabled}
+              onCheckedChange={generalSettings.actions.setFullTextReadingEnabled}
+              disabled={generalSettings.status.loading}
+              aria-label={language.t("settings.general.fullTextAria")}
             />
           }
         />
         <SettingsRow
-          title={language.t("settings.general.notificationsPermissionsTitle")}
-          description={language.t("settings.general.notificationsPermissionsDescription")}
+          title={language.t("settings.general.autoCompactionTitle")}
+          description={language.t("settings.general.autoCompactionDescription")}
           control={
             <Switch
-              data-action="settings-notifications-permissions"
-              checked={notificationPreferences.permissions}
-              onCheckedChange={setPermissionNotifications}
-              aria-label={language.t("settings.general.notificationsPermissionsAria")}
-            />
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.general.notificationsErrorsTitle")}
-          description={language.t("settings.general.notificationsErrorsDescription")}
-          control={
-            <Switch
-              data-action="settings-notifications-errors"
-              checked={notificationPreferences.errors}
-              onCheckedChange={setErrorNotifications}
-              aria-label={language.t("settings.general.notificationsErrorsAria")}
+              data-action="settings-global-auto-compaction"
+              checked={generalSettings.selection.autoCompactionEnabled}
+              onCheckedChange={generalSettings.actions.setAutoCompactionEnabled}
+              disabled={generalSettings.status.loading}
+              aria-label={language.t("settings.general.autoCompactionAria")}
             />
           }
         />
       </SettingsSection>
+      {conciseResponses.error ? (
+        <p className="px-1 text-sm text-text-critical-base">{conciseResponses.error}</p>
+      ) : null}
+
+      <SettingsSection title={language.t("settings.general.storageSection")}>
+          <SettingsRow
+            title={language.t("settings.general.buddyHomeTitle")}
+            description={
+              notebookHome?.resolvedDirectory
+                ? `${language.t("settings.general.buddyHomeDescription")} (${notebookHome.resolvedDirectory})`
+                : language.t("settings.general.buddyHomeDescription")
+            }
+            control={
+              <Button
+                data-action="settings-change-buddy-home"
+                type="button"
+                onClick={() => void onChangeBuddyHome()}
+                disabled={changingBuddyHome || notebookHomeQuery.isPending}
+              >
+                {changingBuddyHome
+                  ? language.t("settings.general.buddyHomeChanging")
+                  : language.t("settings.general.buddyHomeChange")}
+              </Button>
+            }
+          />
+        </SettingsSection>
+
+      <div className="space-y-2">
+        <SettingsSectionHeader
+          title={language.t("settings.labs.diagnosticsSection")}
+          description={language.t("settings.advanced.logLevelDescription")}
+        />
+        <SettingsListCard>
+          <SettingsRow
+            title={language.t("settings.advanced.logLevelTitle")}
+            description={language.t("settings.advanced.logLevelDescription")}
+            control={
+              <Select
+                value={logLevelSelectValue}
+                onValueChange={(value) => {
+                  if (value === DEFAULT_LOG_LEVEL_VALUE) {
+                    void handleLogLevelChange("")
+                    return
+                  }
+
+                  if (isAdvancedLogLevel(value)) {
+                    void handleLogLevelChange(value)
+                  }
+                }}
+                disabled={logLevelLoading || logLevelBusy}
+              >
+                <SelectTrigger data-action="settings-log-level" className="w-full">
+                  <SelectValue placeholder={language.t("settings.advanced.defaultLogLevel")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={DEFAULT_LOG_LEVEL_VALUE}>
+                    {language.t("settings.advanced.defaultLogLevel")}
+                  </SelectItem>
+                  {import.meta.env.DEV ? (
+                    <SelectItem value="debug">
+                      {language.t("settings.advanced.logLevels.debug")}
+                    </SelectItem>
+                  ) : null}
+                  <SelectItem value="info">
+                    {language.t("settings.advanced.logLevels.info")}
+                  </SelectItem>
+                  <SelectItem value="warn">
+                    {language.t("settings.advanced.logLevels.warn")}
+                  </SelectItem>
+                  <SelectItem value="error">
+                    {language.t("settings.advanced.logLevels.error")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            }
+          />
+        </SettingsListCard>
+      </div>
+
+      <div className="space-y-2.5">
+        <SettingsSectionHeader title={language.t("settings.personalization.primaryUseTitle")} />
+        <SharedPersonalizationPrimaryUseField
+          form={personalizationForm}
+          onPrimaryUseChange={() => void savePersonalization()}
+        />
+      </div>
     </SettingsContent>
   )
 }

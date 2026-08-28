@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Badge, Button, Input } from "@buddy/ui"
+import { Badge, Button, Input, Switch } from "@buddy/ui"
 import { language } from "@/context/language"
 import {
   formatMcpError,
@@ -8,7 +8,6 @@ import {
   mcpNeedsAuth,
   mcpNeedsClientRegistration,
   parseMcpConfigMap,
-  type McpConfig,
 } from "@/components/mcp-dialog/mcp-config-schema"
 import { McpEditorDialog } from "@/components/mcp-dialog/mcp-editor-dialog"
 import { useMcpEditor } from "@/components/mcp-dialog/use-mcp-editor"
@@ -31,12 +30,6 @@ import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primi
 
 const MCP_SEARCH_VISIBLE_THRESHOLD = 3
 const EMPTY_MCP_STATUS: McpStatusMap = {}
-
-function isEnabledLabel(config: McpConfig) {
-  return config.enabled === false
-    ? language.t("mcp.settings.defaultOff")
-    : language.t("mcp.settings.defaultOn")
-}
 
 function getConnectButtonLabel(input: { pending: boolean; status: McpStatusInfo | undefined }) {
   if (mcpNeedsClientRegistration(input.status)) {
@@ -63,6 +56,7 @@ export function McpsSettings() {
   const [panelError, setPanelError] = useState<string | undefined>(undefined)
   const [pendingRemoveName, setPendingRemoveName] = useState<string | null>(null)
   const [pendingConnectName, setPendingConnectName] = useState<string | null>(null)
+  const [pendingEnabledName, setPendingEnabledName] = useState<string | null>(null)
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
   const activeMcpStatusQuery = useQuery({
     ...mcpStatusQueryOptions(connectionDirectory ?? ""),
@@ -144,6 +138,26 @@ export function McpsSettings() {
       setPanelError(formatMcpError(removeError))
     } finally {
       setPendingRemoveName(null)
+    }
+  }
+
+  async function setConfigEnabled(name: string, enabled: boolean) {
+    const config = configByName[name]
+    if (!config) {
+      return
+    }
+
+    setPendingEnabledName(name)
+    setPanelError(undefined)
+
+    try {
+      const updatedGlobal = await saveGlobalMcpConfig(name, { ...config, enabled })
+      setGlobalConfigQueryData(queryClient, updatedGlobal)
+      await reloadOpenNotebookMcpRuntimes()
+    } catch (enabledError) {
+      setPanelError(formatMcpError(enabledError))
+    } finally {
+      setPendingEnabledName(null)
     }
   }
 
@@ -242,6 +256,8 @@ export function McpsSettings() {
                   activeProjectConfigQuery.isSuccess && !notebookDefinitionShadowsGlobal
                 const status = connectionTargetReady ? activeMcpStatusByName[name] : undefined
                 const connecting = pendingConnectName === name
+                const updatingEnabled = pendingEnabledName === name
+                const rowBusy = removing || connecting || updatingEnabled
                 const showConnectAction =
                   Boolean(connectionDirectory) &&
                   connectionTargetReady &&
@@ -256,9 +272,6 @@ export function McpsSettings() {
                     title={
                       <span className="flex min-w-0 flex-wrap items-center gap-2">
                         <span className="truncate">{name}</span>
-                        <Badge variant="outline" className="h-5">
-                          {isEnabledLabel(config)}
-                        </Badge>
                         <Badge variant="secondary" className="h-5">
                           {config.type}
                         </Badge>
@@ -272,6 +285,15 @@ export function McpsSettings() {
                     description={detail}
                     control={
                       <>
+                        <Switch
+                          data-action={`settings-mcp-enabled-${name}`}
+                          checked={config.enabled !== false}
+                          disabled={rowBusy}
+                          aria-label={language.t("mcp.settings.toggleAria", { name })}
+                          onCheckedChange={(checked) => {
+                            void setConfigEnabled(name, checked)
+                          }}
+                        />
                         {showConnectAction ? (
                           <Button
                             type="button"
@@ -280,7 +302,7 @@ export function McpsSettings() {
                             onClick={() => {
                               void connectConfig(name)
                             }}
-                            disabled={removing || connecting}
+                            disabled={rowBusy}
                           >
                             {getConnectButtonLabel({ pending: connecting, status })}
                           </Button>
@@ -290,7 +312,7 @@ export function McpsSettings() {
                           size="xs"
                           variant="outline"
                           onClick={() => openEditEditor(name)}
-                          disabled={removing}
+                          disabled={rowBusy}
                         >
                           {language.t("mcp.listPanel.editDetails")}
                         </Button>
@@ -301,7 +323,7 @@ export function McpsSettings() {
                           onClick={() => {
                             void removeConfig(name)
                           }}
-                          disabled={removing}
+                          disabled={rowBusy}
                         >
                           {removing ? language.t("common.saving") : language.t("common.remove")}
                         </Button>

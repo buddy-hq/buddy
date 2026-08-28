@@ -1,12 +1,20 @@
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@buddy/ui"
 import { language } from "@/context/language"
 import { useGlobalLearnerMemorySettings } from "@/state/learner-memory-settings"
 import {
   GlobalDefaultsSection,
-  SettingsContent,
+  SettingsSwitchControl,
+  SettingsSectionHeader,
   SettingsListCard,
   SettingsRow,
-  SettingsSwitchControl,
 } from "./settings-primitives"
 
 const MIN_EXTRACTION_DELAY_MS = 1_000
@@ -30,9 +38,8 @@ function NumberControl(props: {
   onChange: (value: number) => void
 }) {
   return (
-    <input
+    <Input
       type="number"
-      className="h-9 w-full rounded-md border border-border-base/60 bg-background-base px-3 text-sm text-text-base disabled:cursor-not-allowed disabled:opacity-50"
       min={props.min}
       max={props.max}
       step={props.step ?? 1}
@@ -64,7 +71,9 @@ function ModelSelectControl(props: {
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={AUTO_MODEL_VALUE}>Auto · {props.autoDescription}</SelectItem>
+        <SelectItem value={AUTO_MODEL_VALUE}>
+          {language.t("settings.teaching.memoryModelAuto", { description: props.autoDescription })}
+        </SelectItem>
         {props.options.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
@@ -83,14 +92,14 @@ function modelOptionsWithCurrent(
   return [
     {
       value: currentValue,
-      label: `Current · ${currentValue}`,
+      label: language.t("settings.teaching.memoryModelCurrent", { model: currentValue }),
       description: currentValue,
     },
     ...options,
   ]
 }
 
-export function LearnerMemorySettings() {
+export function LearnerMemorySettingsSections() {
   const settings = useGlobalLearnerMemorySettings()
   const globalControlsDisabled = settings.status.loading
   const showRetry = Boolean(settings.status.error && settings.status.hasPendingChanges)
@@ -103,9 +112,14 @@ export function LearnerMemorySettings() {
   )
 
   return (
-    <SettingsContent>
+    <>
+      <SettingsSectionHeader
+        title={language.t("settings.teaching.memorySection")}
+        description={language.t("settings.teaching.memorySectionDescription")}
+        badge={language.t("settings.advanced.experimentalBadge")}
+      />
       <GlobalDefaultsSection
-        description="These controls apply to Buddy's memory system across every notebook. Notebook-specific overrides now live in notebook settings."
+        description={language.t("settings.teaching.memoryDefaultsDescription")}
         headerAction={
           showRetry ? (
             <Button
@@ -122,31 +136,30 @@ export function LearnerMemorySettings() {
       >
         <SettingsListCard>
           <SettingsRow
-            title="Default notebook participation"
-            description="Controls whether newly created and unchanged notebooks use memory by default."
+            title={language.t("settings.teaching.memoryParticipationTitle")}
+            description={language.t("settings.teaching.memoryParticipationDescription")}
             control={
               <SettingsSwitchControl
                 dataAction="settings-global-learner-memory-default"
                 checked={settings.selection.learnerMemoryDefaultEnabled}
                 onCheckedChange={settings.actions.setLearnerMemoryDefaultEnabled}
                 disabled={globalControlsDisabled}
-                ariaLabel="Enable memory by default for notebooks"
+                ariaLabel={language.t("settings.teaching.memoryParticipationAria")}
                 onLabel={language.t("settings.notebook.on")}
                 offLabel={language.t("settings.notebook.off")}
               />
             }
           />
           <SettingsRow
-            title="Default auto-extract"
-            description="Controls whether unchanged notebooks automatically extract memory from chats by default."
-            last
+            title={language.t("settings.teaching.memoryAutoExtractTitle")}
+            description={language.t("settings.teaching.memoryAutoExtractDescription")}
             control={
               <SettingsSwitchControl
                 dataAction="settings-global-learner-memory-auto-default"
                 checked={settings.selection.learnerMemoryDefaultAutoExtract}
                 onCheckedChange={settings.actions.setLearnerMemoryDefaultAutoExtract}
                 disabled={globalControlsDisabled || !settings.selection.learnerMemoryDefaultEnabled}
-                ariaLabel="Enable memory auto-extract by default for notebooks"
+                ariaLabel={language.t("settings.teaching.memoryAutoExtractAria")}
                 onLabel={language.t("settings.notebook.on")}
                 offLabel={language.t("settings.notebook.off")}
               />
@@ -158,11 +171,11 @@ export function LearnerMemorySettings() {
         ) : null}
       </GlobalDefaultsSection>
 
-      <GlobalDefaultsSection description="Model defaults are global because extraction and consolidation write to one machine-local memory store.">
+      <GlobalDefaultsSection description={language.t("settings.teaching.memoryModelsDescription")}>
         <SettingsListCard>
           <SettingsRow
-            title="Extraction model"
-            description="Small model used to read an idle chat and produce raw memory candidates."
+            title={language.t("settings.teaching.memoryExtractModelTitle")}
+            description={language.t("settings.teaching.memoryExtractModelDescription")}
             control={
               <ModelSelectControl
                 dataAction="settings-learner-memory-extract-model"
@@ -171,7 +184,9 @@ export function LearnerMemorySettings() {
                   modelOptions,
                   settings.selection.learnerMemoryExtractModel,
                 )}
-                autoDescription={`${DEFAULT_OPENAI_EXTRACT_MODEL} when OpenAI is connected, otherwise a connected small model`}
+                autoDescription={language.t("settings.teaching.memoryExtractModelAuto", {
+                  model: DEFAULT_OPENAI_EXTRACT_MODEL,
+                })}
                 disabled={globalControlsDisabled}
                 onChange={(value) =>
                   settings.actions.setLearnerMemoryModel("learnerMemoryExtractModel", value)
@@ -180,9 +195,8 @@ export function LearnerMemorySettings() {
             }
           />
           <SettingsRow
-            title="Consolidation model"
-            description="Model used to compare candidates against existing memories before writing durable records."
-            last
+            title={language.t("settings.teaching.memoryConsolidationModelTitle")}
+            description={language.t("settings.teaching.memoryConsolidationModelDescription")}
             control={
               <ModelSelectControl
                 dataAction="settings-learner-memory-consolidation-model"
@@ -191,7 +205,9 @@ export function LearnerMemorySettings() {
                   modelOptions,
                   settings.selection.learnerMemoryConsolidationModel,
                 )}
-                autoDescription={`${DEFAULT_OPENAI_CONSOLIDATION_MODEL} when OpenAI is connected, otherwise the notebook default model`}
+                autoDescription={language.t("settings.teaching.memoryConsolidationModelAuto", {
+                  model: DEFAULT_OPENAI_CONSOLIDATION_MODEL,
+                })}
                 disabled={globalControlsDisabled}
                 onChange={(value) =>
                   settings.actions.setLearnerMemoryModel("learnerMemoryConsolidationModel", value)
@@ -202,11 +218,11 @@ export function LearnerMemorySettings() {
         </SettingsListCard>
       </GlobalDefaultsSection>
 
-      <GlobalDefaultsSection description="Extraction tuning is global so the memory pipeline behaves consistently across notebooks.">
+      <GlobalDefaultsSection description={language.t("settings.teaching.memoryTuningDescription")}>
         <SettingsListCard>
           <SettingsRow
-            title="Minimum user messages"
-            description="Minimum non-synthetic learner messages before automatic extraction can run."
+            title={language.t("settings.teaching.memoryMinMessagesTitle")}
+            description={language.t("settings.teaching.memoryMinMessagesDescription")}
             control={
               <NumberControl
                 min={1}
@@ -219,8 +235,8 @@ export function LearnerMemorySettings() {
             }
           />
           <SettingsRow
-            title="Startup idle threshold"
-            description="Minimum idle time in milliseconds before a session is eligible at notebook startup."
+            title={language.t("settings.teaching.memoryStartupIdleTitle")}
+            description={language.t("settings.teaching.memoryStartupIdleDescription")}
             control={
               <NumberControl
                 min={MIN_EXTRACTION_DELAY_MS}
@@ -234,8 +250,8 @@ export function LearnerMemorySettings() {
             }
           />
           <SettingsRow
-            title="Attention threshold"
-            description="Higher values make automatic extraction less likely."
+            title={language.t("settings.teaching.memoryAttentionTitle")}
+            description={language.t("settings.teaching.memoryAttentionDescription")}
             control={
               <NumberControl
                 min={1}
@@ -248,8 +264,8 @@ export function LearnerMemorySettings() {
             }
           />
           <SettingsRow
-            title="Per-session call cap"
-            description="Maximum extraction model calls allowed for the same session."
+            title={language.t("settings.teaching.memorySessionCapTitle")}
+            description={language.t("settings.teaching.memorySessionCapDescription")}
             control={
               <NumberControl
                 min={1}
@@ -265,8 +281,8 @@ export function LearnerMemorySettings() {
             }
           />
           <SettingsRow
-            title="Daily call cap"
-            description="Maximum extraction model calls allowed globally per day."
+            title={language.t("settings.teaching.memoryDailyCapTitle")}
+            description={language.t("settings.teaching.memoryDailyCapDescription")}
             control={
               <NumberControl
                 min={1}
@@ -282,8 +298,8 @@ export function LearnerMemorySettings() {
             }
           />
           <SettingsRow
-            title="Default context limit"
-            description="Maximum memories Buddy retrieves by default when no tool limit is provided."
+            title={language.t("settings.teaching.memoryContextLimitTitle")}
+            description={language.t("settings.teaching.memoryContextLimitDescription")}
             control={
               <NumberControl
                 min={1}
@@ -296,8 +312,8 @@ export function LearnerMemorySettings() {
             }
           />
           <SettingsRow
-            title="Startup concurrency"
-            description="Maximum extraction jobs Buddy runs in parallel during notebook startup."
+            title={language.t("settings.teaching.memoryConcurrencyTitle")}
+            description={language.t("settings.teaching.memoryConcurrencyDescription")}
             control={
               <NumberControl
                 min={1}
@@ -310,8 +326,8 @@ export function LearnerMemorySettings() {
             }
           />
           <SettingsRow
-            title="Consolidation input cap"
-            description="Maximum raw stage-one outputs considered during consolidation."
+            title={language.t("settings.teaching.memoryConsolidationCapTitle")}
+            description={language.t("settings.teaching.memoryConsolidationCapDescription")}
             control={
               <NumberControl
                 min={1}
@@ -327,9 +343,8 @@ export function LearnerMemorySettings() {
             }
           />
           <SettingsRow
-            title="Stage-one retention days"
-            description="Old unselected extraction outputs are pruned after this many days."
-            last
+            title={language.t("settings.teaching.memoryRetentionTitle")}
+            description={language.t("settings.teaching.memoryRetentionDescription")}
             control={
               <NumberControl
                 min={1}
@@ -346,6 +361,6 @@ export function LearnerMemorySettings() {
           />
         </SettingsListCard>
       </GlobalDefaultsSection>
-    </SettingsContent>
+    </>
   )
 }

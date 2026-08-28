@@ -1,6 +1,6 @@
 import { memo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Progress, Switch } from "@buddy/ui"
+import { Button, Switch } from "@buddy/ui"
 import { language } from "@/context/language"
 import { patchGlobalConfig } from "@/state/chat-actions"
 import { globalConfigQueryOptions, setGlobalConfigQueryData } from "@/state/global-config-query"
@@ -19,10 +19,11 @@ import {
   SettingsSectionHeader,
 } from "./settings-primitives"
 import { usePlatform } from "@/context/platform"
-import { standardsStatusLabel, useStandardsRuntime } from "./use-standards-runtime"
+import { useStandardsRuntime } from "./use-standards-runtime"
 import { stringifyError } from "@/lib/api-client"
-import { parseTNumber } from "@/components/chat/tools/types"
-import { ConfirmRemoveStandardsRuntimeDialog } from "./confirm-remove-standards-runtime-dialog"
+import type { SettingsTab } from "./settings-tabs"
+
+const PACKAGES_TAB: SettingsTab = "packages"
 
 function toolStateLabel(enabled: boolean) {
   return enabled ? language.t("settings.tools.enabled") : language.t("settings.tools.disabled")
@@ -33,7 +34,6 @@ const GlobalDefaultsBulkRow = memo(function GlobalDefaultsBulkRow(props: {
   mixed: boolean
   disabled: boolean
   onToggleAll: (enabled: boolean) => void
-  last?: boolean
 }) {
   const stateLabel = props.allEnabled
     ? language.t("settings.tools.enabled")
@@ -45,7 +45,6 @@ const GlobalDefaultsBulkRow = memo(function GlobalDefaultsBulkRow(props: {
     <SettingsRow
       title={language.t("settings.tools.globalDefaultsBulkTitle")}
       description={language.t("settings.tools.globalDefaultsBulkDescription")}
-      last={props.last}
       control={
         <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
           <span className="text-sm text-text-weak">{stateLabel}</span>
@@ -67,13 +66,11 @@ const GlobalToolRow = memo(function GlobalToolRow(props: {
   enabled: boolean
   disabled: boolean
   onToggleTool: (toolId: StandardsToolId, enabled: boolean) => void
-  last?: boolean
 }) {
   return (
     <SettingsRow
       title={STANDARDS_TOOL_DISPLAY_NAMES[props.toolId]}
       description={STANDARDS_TOOL_DESCRIPTIONS[props.toolId]}
-      last={props.last}
       control={
         <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
           <span className="text-sm text-text-weak">{toolStateLabel(props.enabled)}</span>
@@ -92,29 +89,53 @@ const GlobalToolRow = memo(function GlobalToolRow(props: {
   )
 })
 
-export function StandardsSettings() {
+/**
+ * Shown to a teacher whose standards package is not installed yet. The tab is revealed by
+ * `primaryUse === "teach"` so the feature is discoverable, but a wall of disabled switches
+ * reads as broken — point at the switchboard instead.
+ */
+function StandardsNotInstalled(props: { onOpenPackages: () => void }) {
+  return (
+    <div className="space-y-2">
+      <SettingsSectionHeader
+        title={language.t("settings.standards.installPromptTitle")}
+        description={language.t("settings.standards.installPromptDescription")}
+      />
+      <SettingsListCard>
+        <SettingsRow
+          title={language.t("settings.tools.standardsRuntimeTitle")}
+          description={language.t("settings.tools.standardsRuntimeDescription")}
+          control={
+            <Button
+              data-action="settings-standards-open-packages"
+              type="button"
+              onClick={props.onOpenPackages}
+            >
+              {language.t("settings.standards.installPromptAction")}
+            </Button>
+          }
+        />
+      </SettingsListCard>
+    </div>
+  )
+}
+
+export function StandardsSettings(props: { onOpenTab: (tab: SettingsTab) => void }) {
   const queryClient = useQueryClient()
   const platform = usePlatform()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
-  const {
-    standardsStatus,
-    standardsLoading,
-    standardsBusy,
-    standardsEnabled,
-    removeConfirmOpen,
-    setRemoveConfirmOpen,
-    onToggleStandardsRuntime,
-    onConfirmRemoveStandardsRuntime,
-  } = useStandardsRuntime({
+  const { standardsStatus, standardsEnabled, standardsBusy } = useStandardsRuntime({
     open: true,
     platform: platform.platform,
   })
-  const standardsProgressPercent = parseTNumber(standardsStatus?.progressPercent)
   const defaults = buildGlobalStandardsDefaults(globalConfigQuery.data ?? {})
   const allGlobalEnabled = STANDARDS_TOOL_IDS.every((toolId) => defaults[toolId])
   const someGlobalEnabled = STANDARDS_TOOL_IDS.some((toolId) => defaults[toolId])
+  // `!standardsEnabled` matters even though the install prompt below covers the known-absent case:
+  // when the status query is disabled (web) or errored, `standardsStatus` stays null, the prompt
+  // never renders, and these switches would otherwise write defaults for a runtime that is not there.
   const toolControlsDisabled =
     globalConfigQuery.isPending || saving || standardsBusy || !standardsEnabled
 
@@ -137,41 +158,17 @@ export function StandardsSettings() {
     }
   }
 
+  // `standardsStatus === null` means the runtime has not reported yet; don't flash the prompt.
+  if (!standardsEnabled && standardsStatus !== null) {
+    return (
+      <SettingsContent>
+        <StandardsNotInstalled onOpenPackages={() => props.onOpenTab(PACKAGES_TAB)} />
+      </SettingsContent>
+    )
+  }
+
   return (
     <SettingsContent>
-      <div className="space-y-2">
-        <SettingsSectionHeader
-          title={language.t("settings.tools.standardsRuntimeSection")}
-          description={language.t("settings.tools.standardsRuntimeDescription")}
-        />
-        <SettingsListCard>
-          <SettingsRow
-            title={language.t("settings.tools.standardsRuntimeTitle")}
-            description={standardsStatusLabel(standardsStatus, standardsLoading)}
-            control={
-              <Switch
-                data-action="settings-standards-runtime-toggle"
-                aria-label={language.t("settings.tools.standardsRuntimeToggleAria")}
-                checked={standardsEnabled}
-                disabled={standardsBusy || standardsStatus === null}
-                onCheckedChange={onToggleStandardsRuntime}
-              />
-            }
-          />
-          {standardsStatus?.progressMessage || standardsProgressPercent !== undefined ? (
-            <div className="space-y-1 border-t border-border-base/60 px-4 py-3 sm:px-5">
-              <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
-                <span>{standardsStatus?.progressMessage}</span>
-                {standardsProgressPercent !== undefined ? (
-                  <span>{Math.round(standardsProgressPercent)}%</span>
-                ) : null}
-              </div>
-              <Progress value={standardsProgressPercent ?? 0} className="h-1.5" />
-            </div>
-          ) : null}
-        </SettingsListCard>
-      </div>
-
       <div className="space-y-2">
         <div className="space-y-1">
           <h3 className="text-sm font-medium text-text-base">
@@ -193,9 +190,8 @@ export function StandardsSettings() {
               }
               void applyDefaults(nextDefaults)
             }}
-            last={false}
           />
-          {STANDARDS_TOOL_IDS.map((toolId, index) => (
+          {STANDARDS_TOOL_IDS.map((toolId) => (
             <GlobalToolRow
               key={toolId}
               toolId={toolId}
@@ -207,7 +203,6 @@ export function StandardsSettings() {
                   [nextToolId]: enabled,
                 })
               }}
-              last={index === STANDARDS_TOOL_IDS.length - 1}
             />
           ))}
         </SettingsListCard>
@@ -220,11 +215,6 @@ export function StandardsSettings() {
       {standardsStatus?.lastError ? (
         <p className="text-xs text-icon-critical-base">{standardsStatus.lastError}</p>
       ) : null}
-      <ConfirmRemoveStandardsRuntimeDialog
-        open={removeConfirmOpen}
-        onOpenChange={setRemoveConfirmOpen}
-        onConfirm={onConfirmRemoveStandardsRuntime}
-      />
     </SettingsContent>
   )
 }

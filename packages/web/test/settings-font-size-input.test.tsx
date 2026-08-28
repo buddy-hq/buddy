@@ -2,7 +2,7 @@ import "../happydom"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { FontSizeInput } from "../src/components/settings/settings-general"
+import { FontSizeInput } from "../src/components/settings/settings-appearance"
 
 function enterInputValue(input: HTMLInputElement, value: string): void {
   const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
