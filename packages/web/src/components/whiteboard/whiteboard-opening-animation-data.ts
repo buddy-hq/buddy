@@ -167,7 +167,7 @@ type TLottieFigureLayer = {
     s: LottieMultiValue
   }
   ao: number
-  shapes: LottieGroup[]
+  ["shapes"]: LottieGroup[]
   ip: number
   op: number
   st: number
@@ -354,7 +354,7 @@ function figureLayer(input: {
       s: fixedVector(IDENTITY_SCALE_3D),
     },
     ao: NO_AUTO_ORIENT,
-    shapes: input.groups,
+    ["shapes"]: input.groups,
     ip: 0,
     op: input.duration,
     st: 0,
