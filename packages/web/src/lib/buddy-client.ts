@@ -26,7 +26,7 @@ export function getBuddyClient(directory?: string): BuddyClient {
 type TBuddyResult<TData> = {
   data: TData | undefined
   error: unknown
-  response: Response | undefined
+  response?: Response
 }
 
 function errorMessage<TError>(value: TError): string | undefined {
@@ -54,7 +54,7 @@ export function requireBuddyData<TData>(result: TBuddyResult<TData>): TData {
   return result.data
 }
 
-export function buddyResultMessage(result: { error: unknown; response: Response | undefined }) {
+export function buddyResultMessage(result: { error: unknown; response?: Response }) {
   return (
     errorMessage(result.error) ?? `Request failed (${result.response?.status ?? "no response"})`
   )
