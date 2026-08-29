@@ -1,0 +1,55 @@
+# Dependabot's Bun updater refreshes package manifests and the root bun.lock
+# together. Vendored OpenCode dependencies remain owned by upstream syncs.
+version: 2
+
+updates:
+  - package-ecosystem: bun
+    directory: "/"
+    exclude-paths:
+      - "vendor/**"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      astro:
+        patterns:
+          - astro
+          - "@astrojs/*"
+      vite:
+        patterns:
+          - vite
+          - "@vitejs/*"
+          - electron-vite
+        update-types:
+          - minor
+          - patch
+      electron:
+        patterns:
+          - electron
+          - electron-builder
+          - electron-updater
+          - electron-log
+          - electron-store
+        update-types:
+          - minor
+          - patch
+      routine:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+        exclude-patterns:
+          - astro
+          - "@astrojs/*"
+          - vite
+          - "@vitejs/*"
+          - electron-vite
+          - electron
+          - electron-builder
+          - electron-updater
+          - electron-log
+          - electron-store

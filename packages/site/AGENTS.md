@@ -5,7 +5,7 @@
 - Buddy is still free and local-first. The trust story is privacy + local-first + no-account, not open source.
 
 ## Stack
-- Astro 5 + Cloudflare adapter + Starlight for /docs/
+- Astro 7 + Cloudflare adapter + Starlight for /docs/
 - Content config: `src/content/site.ts` (type-safe, `satisfies` pattern)
 - Styles: `src/styles/global.css` with CSS custom properties
 - Swap animation utilities: `.swap`, `.swap-content`, `.swap-media` in global.css
