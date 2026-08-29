@@ -9,8 +9,16 @@ import {
   TEST_FILE_PATTERN,
   type TestRunnerPlanEntry,
 } from "../../../script/test-runner-plan"
+import { runSandboxedTestProcess } from "../../../script/sandboxed-test-process"
 import {
-  runSupervisedTestProcess,
+  runWithConcurrency,
+  selectTestShardItems,
+  testConcurrency,
+  testShard,
+  testShardForExplicitSelection,
+} from "../../../script/test-concurrency"
+import {
+  testProcessFailed,
   type SupervisedTestProcessResult,
 } from "../../../script/test-process"
 
@@ -18,6 +26,8 @@ const PACKAGE_ROOT = path.resolve(import.meta.dir, "..")
 const TEST_ROOT = path.join(PACKAGE_ROOT, "test")
 const MILLISECONDS_PER_SECOND = 1_000
 const BUN_EXECUTABLE = process.execPath
+const TEST_CONCURRENCY = testConcurrency()
+const TEST_SHARD = testShard()
 
 type TestRunResult = SupervisedTestProcessResult & {
   readonly durationMilliseconds: number
@@ -43,9 +53,13 @@ async function discoverTestFiles(directory = TEST_ROOT): Promise<readonly string
   return files.toSorted()
 }
 
-async function runTestEntry(entry: TestRunnerPlanEntry): Promise<TestRunResult> {
+async function runTestEntry(
+  entry: TestRunnerPlanEntry,
+  abortSignal: AbortSignal,
+): Promise<TestRunResult> {
   const startedAt = performance.now()
-  const result = await runSupervisedTestProcess({
+  const result = await runSandboxedTestProcess({
+    abortSignal,
     command: [
       BUN_EXECUTABLE,
       "test",
@@ -63,42 +77,47 @@ async function runTestEntry(entry: TestRunnerPlanEntry): Promise<TestRunResult> 
 }
 
 const discoveredFiles = await discoverTestFiles()
-const plan = createTestRunnerPlan({
+const requestedFiles = Bun.argv
+  .slice(2)
+  .map((file) => normalizeRequestedPackageTestPath(PACKAGE_ROOT, file))
+const completePlan = createTestRunnerPlan({
   discoveredFiles,
   groups: BACKEND_TEST_GROUPS,
-  requestedFiles: Bun.argv
-    .slice(2)
-    .map((file) => normalizeRequestedPackageTestPath(PACKAGE_ROOT, file)),
+  requestedFiles,
 })
+const effectiveTestShard = testShardForExplicitSelection(TEST_SHARD, requestedFiles.length > 0)
+const plan = selectTestShardItems(completePlan, effectiveTestShard)
 
 const startedAt = performance.now()
 const totalFileCount = plan.reduce((count, entry) => count + entry.files.length, 0)
 const failedEntries: TestRunnerPlanEntry[] = []
-let completedProcesses = 0
-let interruptedExitCode: number | undefined
-for (const entry of plan) {
-  console.log(
-    `\n[test:backend:start] ${entry.id} (${entry.files.length} files): ${entry.files.join(", ")}`,
-  )
-  const result = await runTestEntry(entry)
-  completedProcesses += 1
-  if (result.exitCode !== 0) failedEntries.push(entry)
-  if (result.signal !== undefined) {
-    interruptedExitCode = result.exitCode
-    break
-  }
+const results = await runWithConcurrency({
+  concurrency: TEST_CONCURRENCY,
+  items: plan,
+  run: async (entry, _index, abortSignal) => {
+    console.log(
+      `\n[test:backend:start] ${entry.id} (${entry.files.length} files): ${entry.files.join(", ")}`,
+    )
+    return runTestEntry(entry, abortSignal)
+  },
+  shouldStop: testProcessFailed,
+})
+
+for (const result of results) {
+  if (testProcessFailed(result) && result.signal === undefined) failedEntries.push(result.entry)
 }
+const interruptedResult = results.find((result) => result.signal !== undefined)
 
 console.log(
-  `[test:backend] ${totalFileCount} files, ${completedProcesses}/${plan.length} processes completed in ${formatDuration(performance.now() - startedAt)}`,
+  `[test:backend] shard ${effectiveTestShard.index + 1}/${effectiveTestShard.count}: ${totalFileCount} files, ${results.length}/${plan.length} processes completed with concurrency ${TEST_CONCURRENCY} in ${formatDuration(performance.now() - startedAt)}`,
 )
-if (interruptedExitCode !== undefined) {
-  process.exitCode = interruptedExitCode
-} else if (failedEntries.length > 0) {
+if (failedEntries.length > 0) {
   console.error(
     `Failed backend test groups/files:\n${failedEntries
       .map((entry) => `${entry.id}: ${entry.files.join(", ")}`)
       .join("\n")}`,
   )
   process.exitCode = 1
+} else if (interruptedResult !== undefined) {
+  process.exitCode = interruptedResult.exitCode
 }

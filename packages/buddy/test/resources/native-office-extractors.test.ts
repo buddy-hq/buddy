@@ -415,63 +415,69 @@ describe("native office resource extractors", () => {
     await expect(stat(path.join(packRoot, "sheets/002-teacher-notes.csv"))).rejects.toThrow()
   })
 
-  test("prepares PPTX and every spreadsheet format through the prepare_resource registry", async () => {
-    await using project = await tmpdir({ git: true })
-    const pptxSourcePath = path.join(project.path, "lesson.pptx")
-    await createPptx(pptxSourcePath)
-    const spreadsheetSources = await Promise.all(
-      NATIVE_SPREADSHEET_FORMATS.map(async (format) => {
-        const sourcePath = path.join(project.path, `attendance.${format}`)
-        await createSpreadsheet(sourcePath, format, false)
-        return { format, sourcePath }
-      }),
-    )
-
-    await addResource({
-      directory: project.path,
-      sourcePath: pptxSourcePath,
-      alias: "lesson-slides",
-    })
-    await Promise.all(
-      spreadsheetSources.map(({ format, sourcePath }) =>
-        addResource({
-          directory: project.path,
-          sourcePath,
-          alias: `attendance-${format}`,
+  test(
+    "prepares PPTX and every spreadsheet format through the prepare_resource registry",
+    async () => {
+      await using project = await tmpdir({ git: true })
+      const pptxSourcePath = path.join(project.path, "lesson.pptx")
+      await createPptx(pptxSourcePath)
+      const spreadsheetSources = await Promise.all(
+        NATIVE_SPREADSHEET_FORMATS.map(async (format) => {
+          const sourcePath = path.join(project.path, `attendance.${format}`)
+          await createSpreadsheet(sourcePath, format, false)
+          return { format, sourcePath }
         }),
-      ),
-    )
-
-    const [pptxResource, ...spreadsheetResources] = await Promise.all([
-      waitForPreparedResource({ directory: project.path, alias: "lesson-slides" }),
-      ...NATIVE_SPREADSHEET_FORMATS.map((format) =>
-        waitForPreparedResource({ directory: project.path, alias: `attendance-${format}` }),
-      ),
-    ])
-    expect(pptxResource.record.format).toBe("pptx")
-    if (!pptxResource.tocPath) throw new Error("Prepared PPTX did not produce a TOC.")
-    if (!pptxResource.record.fullTextPath) {
-      throw new Error("Prepared PPTX did not expose full text.")
-    }
-    expect(await readFile(pptxResource.tocPath, "utf8")).toContain("Slide 1")
-    expect(
-      await readFile(path.resolve(project.path, pptxResource.record.fullTextPath), "utf8"),
-    ).toContain("Evaporation lesson")
-    for (const [index, resource] of spreadsheetResources.entries()) {
-      expect(resource.record.format).toBe(NATIVE_SPREADSHEET_FORMATS[index])
-      if (!resource.record.fullTextPath) {
-        throw new Error(`Prepared ${NATIVE_SPREADSHEET_FORMATS[index]} did not expose full text.`)
-      }
-      expect(await readFile(resource.entrypointPath, "utf8")).toContain("sheets/001-attendance.csv")
-      const fullText = await readFile(
-        path.resolve(project.path, resource.record.fullTextPath),
-        "utf8",
       )
-      expect(fullText).toContain("Asha")
-      expect(fullText).toContain("José नमस्ते")
-      expect(resource.record.warnings.join(" ")).toContain("macros are not extracted or executed")
-    }
-  })
+
+      await addResource({
+        directory: project.path,
+        sourcePath: pptxSourcePath,
+        alias: "lesson-slides",
+      })
+      await Promise.all(
+        spreadsheetSources.map(({ format, sourcePath }) =>
+          addResource({
+            directory: project.path,
+            sourcePath,
+            alias: `attendance-${format}`,
+          }),
+        ),
+      )
+
+      const [pptxResource, ...spreadsheetResources] = await Promise.all([
+        waitForPreparedResource({ directory: project.path, alias: "lesson-slides" }),
+        ...NATIVE_SPREADSHEET_FORMATS.map((format) =>
+          waitForPreparedResource({ directory: project.path, alias: `attendance-${format}` }),
+        ),
+      ])
+      expect(pptxResource.record.format).toBe("pptx")
+      if (!pptxResource.tocPath) throw new Error("Prepared PPTX did not produce a TOC.")
+      if (!pptxResource.record.fullTextPath) {
+        throw new Error("Prepared PPTX did not expose full text.")
+      }
+      expect(await readFile(pptxResource.tocPath, "utf8")).toContain("Slide 1")
+      expect(
+        await readFile(path.resolve(project.path, pptxResource.record.fullTextPath), "utf8"),
+      ).toContain("Evaporation lesson")
+      for (const [index, resource] of spreadsheetResources.entries()) {
+        expect(resource.record.format).toBe(NATIVE_SPREADSHEET_FORMATS[index])
+        if (!resource.record.fullTextPath) {
+          throw new Error(`Prepared ${NATIVE_SPREADSHEET_FORMATS[index]} did not expose full text.`)
+        }
+        expect(await readFile(resource.entrypointPath, "utf8")).toContain(
+          "sheets/001-attendance.csv",
+        )
+        const fullText = await readFile(
+          path.resolve(project.path, resource.record.fullTextPath),
+          "utf8",
+        )
+        expect(fullText).toContain("Asha")
+        expect(fullText).toContain("José नमस्ते")
+        expect(resource.record.warnings.join(" ")).toContain("macros are not extracted or executed")
+      }
+    },
+    OFFICE_BUDGET_TEST_TIMEOUT_MS,
+  )
 
   test("rejects malformed PPTX and every admitted spreadsheet container", async () => {
     await using project = await tmpdir({ git: true })

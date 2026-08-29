@@ -20,8 +20,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  check:
-    name: Check
+  static:
+    name: Static analysis
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -32,11 +32,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ci-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
       - name: Install dependencies
         run: |
@@ -54,10 +49,80 @@ jobs:
 
       - run: bun typecheck
 
+  tests:
+    name: Tests (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: backend 1/2
+            owners: backend
+            shard_count: 2
+            shard_index: 0
+            test_concurrency: 2
+            install_ripgrep: true
+            prepare_generated: false
+          - name: backend 2/2
+            owners: backend
+            shard_count: 2
+            shard_index: 1
+            test_concurrency: 2
+            install_ripgrep: true
+            prepare_generated: false
+          - name: web 1/2
+            owners: web
+            shard_count: 2
+            shard_index: 0
+            test_concurrency: 2
+            install_ripgrep: false
+            prepare_generated: true
+          - name: web 2/2
+            owners: web
+            shard_count: 2
+            shard_index: 1
+            test_concurrency: 2
+            install_ripgrep: false
+            prepare_generated: true
+          - name: remaining
+            owners: browser-contract,desktop-electron,opencode-adapter,shared-script,root-script
+            shard_count: 1
+            shard_index: 0
+            test_concurrency: 2
+            install_ripgrep: true
+            prepare_generated: false
+    env:
+      BUDDY_TEST_CONCURRENCY: ${{ matrix.test_concurrency }}
+      BUDDY_TEST_OWNERS: ${{ matrix.owners }}
+      BUDDY_TEST_SHARD_COUNT: ${{ matrix.shard_count }}
+      BUDDY_TEST_SHARD_INDEX: ${{ matrix.shard_index }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
+            if bun install --frozen-lockfile; then
+              exit 0
+            fi
+            if ((attempt == INSTALL_MAX_ATTEMPTS)); then
+              exit 1
+            fi
+            sleep "$INSTALL_RETRY_DELAY_SECONDS"
+          done
+
       # Search-backed tests spawn the vendored ripgrep adapter, which downloads a
       # release binary when `rg` is missing from PATH. The test network guard blocks
       # that fetch, so provide ripgrep from the runner instead.
       - name: Install ripgrep
+        if: ${{ matrix.install_ripgrep }}
         run: |
           for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
             if sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ripgrep; then
@@ -69,4 +134,99 @@ jobs:
             sleep "$INSTALL_RETRY_DELAY_SECONDS"
           done
 
-      - run: bun run test
+      - name: Prepare generated test inputs
+        if: ${{ matrix.prepare_generated }}
+        run: bun run test:prepare
+
+      - name: Run selected test shard
+        run: bun ./script/run-tests.ts
+
+  vendor_guard:
+    name: vendor-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Resolve diff range
+        id: range
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          resolve_new_ref_range() {
+            local new_sha="$1"
+            local default_ref=""
+
+            if default_ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null)"; then
+              :
+            elif git rev-parse --verify --quiet refs/heads/main >/dev/null; then
+              default_ref="refs/heads/main"
+            elif git rev-parse --verify --quiet refs/remotes/origin/main >/dev/null; then
+              default_ref="refs/remotes/origin/main"
+            else
+              local empty_tree
+              empty_tree="$(git hash-object -t tree /dev/null)"
+              echo "$empty_tree..$new_sha"
+              return
+            fi
+
+            local merge_base
+            if merge_base="$(git merge-base "$default_ref" "$new_sha" 2>/dev/null)"; then
+              echo "$merge_base..$new_sha"
+            else
+              echo "$default_ref..$new_sha"
+            fi
+          }
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+            merge_base="$(git merge-base "$base_sha" "$head_sha")"
+            echo "range=$merge_base..$head_sha" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          before_sha="${{ github.event.before }}"
+          if [ "$before_sha" = "0000000000000000000000000000000000000000" ]; then
+            echo "range=$(resolve_new_ref_range "${{ github.sha }}")" >> "$GITHUB_OUTPUT"
+          else
+            echo "range=$before_sha..${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enforce vendor guard
+        run: bun run script/vendor-guard.ts --range "${{ steps.range.outputs.range }}"
+
+  check:
+    name: Check
+    if: ${{ always() }}
+    needs:
+      - static
+      - tests
+      - vendor_guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify required jobs
+        env:
+          STATIC_RESULT: ${{ needs.static.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+          VENDOR_GUARD_RESULT: ${{ needs.vendor_guard.result }}
+        run: |
+          if [ "$STATIC_RESULT" = "success" ] && [ "$TESTS_RESULT" = "success" ] && [ "$VENDOR_GUARD_RESULT" = "success" ]; then
+            exit 0
+          fi
+
+          echo "Static analysis: $STATIC_RESULT"
+          echo "Tests: $TESTS_RESULT"
+          echo "Vendor guard: $VENDOR_GUARD_RESULT"
+          exit 1
