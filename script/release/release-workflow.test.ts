@@ -202,13 +202,16 @@ describe("release workflow", () => {
         ),
       ).toContain("checkpoint.ts record")
     }
-    expect(workflowJob(document, "build-electron")["timeout-minutes"]).toBe(45)
-
+    const electronJob = workflowJob(document, "build-electron")
+    expect(electronJob["timeout-minutes"]).toBe(45)
     expect(
-      objectValue(workflowJob(document, "build-electron").strategy, "electron strategy")[
-        "fail-fast"
-      ],
-    ).toBe(false)
+      objectValue(
+        objectValue(electronJob.defaults, "electron defaults").run,
+        "electron run defaults",
+      ).shell,
+    ).toBe("bash")
+
+    expect(objectValue(electronJob.strategy, "electron strategy")["fail-fast"]).toBe(false)
     expect(
       objectValue(workflowJob(document, "build-advanced-math").strategy, "advanced math strategy")[
         "fail-fast"
