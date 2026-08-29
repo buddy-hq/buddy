@@ -90,4 +90,20 @@ describe("CI workflow", () => {
     expect(actionReferences.some((reference) => reference.startsWith("actions/cache@"))).toBe(false)
     expect(await Bun.file(path.join(WORKFLOW_DIRECTORY, "vendor-guard.yml")).exists()).toBe(false)
   })
+
+  test("prepares generated OpenAPI SDK and web route tree once before isolated test processes", async () => {
+    const packageJson = objectValue(
+      await Bun.file(path.join(ROOT_DIRECTORY, "package.json")).json(),
+      "root package.json",
+    )
+    const scripts = objectValue(packageJson.scripts, "root package.json scripts")
+
+    expect(scripts["test:prepare"]).toBe(
+      "bun run sdk:generate && bun run --cwd packages/web prepare:web:typecheck",
+    )
+    expect(scripts.test).toBe("bun run test:prepare && bun ./script/run-tests.ts")
+    expect(scripts["test:baseline"]).toBe(
+      "bun run test:prepare && bun ./script/run-tests.ts --per-file",
+    )
+  })
 })
