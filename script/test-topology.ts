@@ -87,7 +87,9 @@ export function selectTestOwners(
   const availableOwnerIds = new Set(owners.map((owner) => owner.id))
   const unknownOwnerIds = requestedOwnerIds.filter((ownerId) => !availableOwnerIds.has(ownerId))
   if (unknownOwnerIds.length > 0) {
-    throw new Error(`Unknown ${TEST_OWNERS_ENVIRONMENT_KEY} owner IDs: ${unknownOwnerIds.join(", ")}`)
+    throw new Error(
+      `Unknown ${TEST_OWNERS_ENVIRONMENT_KEY} owner IDs: ${unknownOwnerIds.join(", ")}`,
+    )
   }
   return owners.filter((owner) => uniqueOwnerIds.has(owner.id))
 }

@@ -9,11 +9,7 @@ import {
   type TestOwner,
   verifyTestTopology,
 } from "./test-topology"
-import {
-  runSupervisedTestProcess,
-  testProcessFailed,
-  type TestProcessSignal,
-} from "./test-process"
+import { runSupervisedTestProcess, testProcessFailed, type TestProcessSignal } from "./test-process"
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dir, "..")
 const TEST_COMMAND_RUNNER = path.join(REPOSITORY_ROOT, "script", "run-test-command.ts")
@@ -116,14 +112,9 @@ function hasPerFileFlag(args: readonly string[]): boolean {
 async function runAllTests(): Promise<void> {
   const startedAt = performance.now()
   const testFiles = await verifyTestTopology()
-  const selectedOwners = selectTestOwners(
-    TEST_OWNERS,
-    process.env[TEST_OWNERS_ENVIRONMENT_KEY],
-  )
+  const selectedOwners = selectTestOwners(TEST_OWNERS, process.env[TEST_OWNERS_ENVIRONMENT_KEY])
   const selectedOwnerIds = new Set(selectedOwners.map((owner) => owner.id))
-  const selectedTestFiles = testFiles.filter((testFile) =>
-    selectedOwnerIds.has(testFile.owner.id),
-  )
+  const selectedTestFiles = testFiles.filter((testFile) => selectedOwnerIds.has(testFile.owner.id))
   const runs = hasPerFileFlag(Bun.argv.slice(2))
     ? fileRuns(selectedTestFiles)
     : packageRuns(selectedOwners)

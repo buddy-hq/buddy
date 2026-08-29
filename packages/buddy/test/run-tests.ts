@@ -17,10 +17,7 @@ import {
   testShard,
   testShardForExplicitSelection,
 } from "../../../script/test-concurrency"
-import {
-  testProcessFailed,
-  type SupervisedTestProcessResult,
-} from "../../../script/test-process"
+import { testProcessFailed, type SupervisedTestProcessResult } from "../../../script/test-process"
 
 const PACKAGE_ROOT = path.resolve(import.meta.dir, "..")
 const TEST_ROOT = path.join(PACKAGE_ROOT, "test")
