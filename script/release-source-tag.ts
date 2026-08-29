@@ -1,137 +1,115 @@
 import { $ } from "bun"
-
-const SOURCE_REMOTE = "origin"
-const TAG_REF_PREFIX = "refs/tags/"
-const PUSH_CREATED_FLAG = "*"
-const PUSH_EXISTING_FLAG = "="
+import { z } from "zod"
 
 export type SourceTagState = "created" | "existing"
 
-type SourceTagInput = {
-  rootDir: string
-  tag: string
-  target: string
+type GithubSourceTag = {
+  sha: string
+  type: string
 }
 
-type SourceTagPublication = {
-  isPublished: () => Promise<boolean>
-  publish: () => Promise<void>
-}
+const githubReferenceSchema = z.object({
+  object: z.object({
+    sha: z.string(),
+    type: z.string(),
+  }),
+  ref: z.string(),
+})
 
-function tagRef(tag: string): string {
-  return `${TAG_REF_PREFIX}${tag}`
-}
-
-function peeledTagRef(tag: string): string {
-  return `${tagRef(tag)}^{}`
-}
-
-function conflictingSourceTagError(input: SourceTagInput, existingSha: string): Error {
-  return new Error(
-    `Source tag ${input.tag} already exists at ${existingSha}, expected ${input.target}`,
+export function resolveSourceGithubToken(environment: NodeJS.ProcessEnv): string | undefined {
+  return (
+    environment.BUDDY_SOURCE_GH_TOKEN?.trim() ||
+    environment.GITHUB_TOKEN?.trim() ||
+    environment.GH_TOKEN?.trim() ||
+    undefined
   )
 }
 
-export async function resolveRemoteSourceTagSha(
-  input: Pick<SourceTagInput, "rootDir" | "tag">,
-): Promise<string | undefined> {
-  const ref = tagRef(input.tag)
-  const peeledRef = peeledTagRef(input.tag)
-  const output = await $`git ls-remote ${SOURCE_REMOTE} ${ref} ${peeledRef}`
-    .cwd(input.rootDir)
-    .text()
-  let directSha: string | undefined
-
-  for (const line of output.split(/\r?\n/)) {
-    const [sha, remoteRef] = line.trim().split(/\s+/)
-    if (!sha || !remoteRef) continue
-    if (remoteRef === peeledRef) return sha
-    if (remoteRef === ref) directSha = sha
+export function assertGithubSourceTagReference(input: {
+  reference: GithubSourceTag | undefined
+  repository: string
+  tag: string
+  target: string
+}): void {
+  if (
+    !input.reference ||
+    input.reference.type !== "commit" ||
+    input.reference.sha !== input.target
+  ) {
+    const actual = input.reference ? `${input.reference.type}:${input.reference.sha}` : "missing"
+    throw new Error(
+      `Source tag ${input.repository}@${input.tag} is ${actual}, expected commit:${input.target}`,
+    )
   }
-
-  return directSha
 }
 
-function sourceTagStateFromPushOutput(output: string): SourceTagState | undefined {
-  for (const line of output.split(/\r?\n/)) {
-    const [flag] = line.split("\t")
-    if (flag === PUSH_CREATED_FLAG) return "created"
-    if (flag === PUSH_EXISTING_FLAG) return "existing"
-  }
-
-  return undefined
+export async function resolveGithubSourceTag(input: {
+  repository: string
+  tag: string
+}): Promise<GithubSourceTag | undefined> {
+  const sourceToken = resolveSourceGithubToken(process.env)
+  const environment = { ...process.env }
+  if (sourceToken) environment.GH_TOKEN = sourceToken
+  const result = await $`gh api ${`repos/${input.repository}/git/ref/tags/${input.tag}`}`
+    .env(environment)
+    .quiet()
+    .nothrow()
+  if (result.exitCode !== 0) return undefined
+  const reference = githubReferenceSchema.parse(JSON.parse(result.text()))
+  return reference.object
 }
 
-export async function ensureSourceTag(input: SourceTagInput): Promise<SourceTagState> {
-  const existingSha = await resolveRemoteSourceTagSha(input)
-  if (existingSha) {
-    if (existingSha === input.target) return "existing"
-    throw conflictingSourceTagError(input, existingSha)
+export async function ensureGithubSourceTag(input: {
+  repository: string
+  tag: string
+  target: string
+}): Promise<SourceTagState> {
+  const existing = await resolveGithubSourceTag(input)
+  if (existing) {
+    assertGithubSourceTagReference({ ...input, reference: existing })
+    return "existing"
   }
 
-  const pushResult =
-    await $`git push --porcelain ${SOURCE_REMOTE} ${`${input.target}:${tagRef(input.tag)}`}`
-      .cwd(input.rootDir)
+  const created =
+    await $`gh api --method POST ${`repos/${input.repository}/git/refs`} -f ${`ref=refs/tags/${input.tag}`} -f ${`sha=${input.target}`}`
       .quiet()
       .nothrow()
-
-  if (pushResult.exitCode === 0) {
-    const state = sourceTagStateFromPushOutput(pushResult.text())
-    if (state) return state
-    throw new Error(`Could not determine whether source tag ${input.tag} was created`)
+  if (created.exitCode === 0) {
+    const reference = githubReferenceSchema.parse(JSON.parse(created.text())).object
+    assertGithubSourceTagReference({ ...input, reference })
+    return "created"
   }
 
-  const currentSha = await resolveRemoteSourceTagSha(input)
-  if (currentSha === input.target) return "existing"
-  if (currentSha) throw conflictingSourceTagError(input, currentSha)
+  const concurrent = await resolveGithubSourceTag(input)
+  if (concurrent) {
+    assertGithubSourceTagReference({ ...input, reference: concurrent })
+    return "existing"
+  }
 
-  const detail = pushResult.stderr.toString().trim()
+  const detail = created.stderr.toString().trim()
   throw new Error(`Failed to create source tag ${input.tag}${detail ? `: ${detail}` : ""}`)
 }
 
-export async function removeSourceTag(input: SourceTagInput): Promise<void> {
-  const existingSha = await resolveRemoteSourceTagSha(input)
-  if (!existingSha) return
-  if (existingSha !== input.target) {
-    throw new Error(
-      `Refusing to remove source tag ${input.tag} at ${existingSha}; expected ${input.target}`,
-    )
-  }
-
-  await $`git push ${SOURCE_REMOTE} ${`:${tagRef(input.tag)}`}`.cwd(input.rootDir)
+export async function assertGithubSourceTag(input: {
+  repository: string
+  tag: string
+  target: string
+}): Promise<void> {
+  assertGithubSourceTagReference({
+    ...input,
+    reference: await resolveGithubSourceTag(input),
+  })
 }
 
-export async function publishWithSourceTag(
-  input: SourceTagInput,
-  publication: SourceTagPublication,
-): Promise<void> {
-  const sourceTagState = await ensureSourceTag(input)
-
-  try {
-    await publication.publish()
-  } catch (publishError) {
-    let isPublished: boolean
-    try {
-      isPublished = await publication.isPublished()
-    } catch (verificationError) {
-      throw new Error(
-        `Failed to publish ${input.tag}; its publication state is unknown, so the source tag was preserved. Publish error: ${String(publishError)}`,
-        { cause: verificationError },
-      )
-    }
-
-    if (isPublished) return
-
-    if (sourceTagState === "created") {
-      try {
-        await removeSourceTag(input)
-      } catch (cleanupError) {
-        throw new Error(
-          `Failed to publish ${input.tag} and remove its source tag. Publish error: ${String(publishError)}`,
-          { cause: cleanupError },
-        )
-      }
-    }
-    throw publishError
+if (import.meta.main) {
+  const repository = process.env.BUDDY_RELEASE_SOURCE_REPOSITORY?.trim()
+  const tag = process.env.BUDDY_RELEASE_TAG?.trim()
+  const target = process.env.BUDDY_RELEASE_SOURCE_SHA?.trim().toLowerCase()
+  if (!repository || !tag || !target || !/^[0-9a-f]{40}$/u.test(target)) {
+    throw new Error(
+      "BUDDY_RELEASE_SOURCE_REPOSITORY, BUDDY_RELEASE_TAG, and a full BUDDY_RELEASE_SOURCE_SHA are required",
+    )
   }
+  const state = await ensureGithubSourceTag({ repository, tag, target })
+  console.log(`Source tag ${repository}@${tag} is ${state} at ${target}`)
 }

@@ -18,7 +18,10 @@
     "src/main/recovery-policy-core.ts",
     "src/shared/**/*.ts",
     "../buddy/script/node-artifact-runtime.ts",
+    "../buddy/script/advanced-math-version.ts",
     "../buddy/script/parse-values.ts",
+    "../buddy/src/http/parse.ts",
+    "../buddy/src/local-runtimes/advanced-math/version.ts",
     "../script/src/backend-node-runtime.ts",
     "../../script/backend-node-artifact.ts",
     "../../script/changelog.ts",
@@ -26,7 +29,12 @@
     "../../script/release-required-gates.ts",
     "../../script/desktop-runtime-resources.ts",
     "../../script/release-local-gate.ts",
-    "../../script/release-repositories.ts"
+    "../../script/release-repositories.ts",
+    "../../script/release/assets.ts",
+    "../../script/release/constants.ts",
+    "../../script/release/plan.ts",
+    "../../script/release/preflight.ts",
+    "../../script/release/published-manifest.ts"
   ],
   "references": [{ "path": "../sdk" }]
 }

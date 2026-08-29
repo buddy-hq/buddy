@@ -1,23 +1,16 @@
 name: publish
-run-name: "${{ format('preview candidate {0}', github.ref_type == 'tag' && github.ref_name || inputs.version || inputs.bump || github.ref_name) }}"
+run-name: "${{ format('preview candidate v{0}', inputs.version) }}"
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
-      bump:
-        description: "Bump major, minor, or patch"
-        required: false
-        type: choice
-        options:
-          - major
-          - minor
-          - patch
       version:
-        description: "Override version (optional)"
-        required: false
+        description: "Exact semver without the v prefix"
+        required: true
+        type: string
+      source_sha:
+        description: "Exact green main commit to package"
+        required: true
         type: string
       build_macos_arm64:
         description: "Build macOS Apple Silicon"
@@ -40,21 +33,23 @@ on:
         default: false
         type: boolean
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref_type == 'tag' && github.ref_name || inputs.version || inputs.bump || github.sha }}
+concurrency:
+  group: release-${{ inputs.version }}-${{ inputs.dry_run && 'dry-run' || 'publish' }}
+  cancel-in-progress: false
 
 permissions:
   actions: read
+  checks: read
   contents: write
 
 jobs:
   publish:
     uses: ./.github/workflows/publish-shared.yml
     with:
-      build_macos_arm64: ${{ github.event_name != 'workflow_dispatch' || inputs.build_macos_arm64 }}
-      build_macos_x64: ${{ github.event_name != 'workflow_dispatch' || inputs.build_macos_x64 }}
-      build_windows_x64: ${{ github.event_name != 'workflow_dispatch' || inputs.build_windows_x64 }}
-      bump: ${{ github.event.inputs.bump || '' }}
-      direct_release_uploads: false
-      dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
-      version: ${{ github.event.inputs.version || '' }}
+      build_macos_arm64: ${{ inputs.build_macos_arm64 }}
+      build_macos_x64: ${{ inputs.build_macos_x64 }}
+      build_windows_x64: ${{ inputs.build_windows_x64 }}
+      dry_run: ${{ inputs.dry_run }}
+      source_sha: ${{ inputs.source_sha }}
+      version: ${{ inputs.version }}
     secrets: inherit

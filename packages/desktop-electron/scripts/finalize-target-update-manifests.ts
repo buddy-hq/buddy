@@ -20,11 +20,14 @@ import {
 } from "../src/shared/parse-external"
 import { resolveTauriSignerBinaryPath } from "./utils"
 import { z } from "zod"
+import { uploadReleaseAssetSafely } from "../../../script/release/assets"
+import { readNewestPublishedReleaseWithAssets } from "../../../script/release/published-manifest"
 
 const RELEASE_REPOSITORY_ENV_KEY = "BUDDY_RELEASE_REPO"
 const LEGACY_RELEASE_REPOSITORY_ENV_KEY = "GH_REPO"
 const RELEASE_TAG_ENV_KEY = "BUDDY_RELEASE_TAG"
 const VERSION_ENV_KEY = "BUDDY_VERSION"
+const RELEASE_DATE_ENV_KEY = "BUDDY_RELEASE_DATE"
 const ELECTRON_DIST_DIR_ENV_KEY = "ELECTRON_DIST_DIR"
 const UPDATE_OUTPUT_DIR_ENV_KEY = "BUDDY_UPDATE_OUTPUT_DIR"
 const MACOS_ARM64_TARGET_ENV_KEY = "BUDDY_RELEASE_TARGET_MACOS_ARM64"
@@ -56,11 +59,6 @@ type WindowsUpdateManifest = {
   files: FileEntry[]
   releaseDate: string
   version: string
-}
-
-type TGithubRelease = {
-  publishedAt: string
-  tagName: string
 }
 
 const githubReleaseSchema = z.object({
@@ -110,6 +108,7 @@ const releaseVersion = process.env[VERSION_ENV_KEY]?.trim() || ""
 if (!releaseVersion) {
   throw new Error(`${VERSION_ENV_KEY} is required`)
 }
+const releaseDate = process.env[RELEASE_DATE_ENV_KEY]?.trim() || ""
 
 const checkOnly = process.env[CHECK_ONLY_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 const dryRun = process.env[DRY_RUN_ENV_KEY]?.trim() === TRUE_ENV_VALUE || checkOnly
@@ -154,7 +153,6 @@ if (!releaseTargets.some((target) => target.selected)) {
 
 await mkdir(outputDirectory, { recursive: true })
 
-let previousStableReleaseTag: string | undefined
 const signer = checkOnly
   ? undefined
   : {
@@ -178,8 +176,7 @@ for (const target of releaseTargets) {
     continue
   }
 
-  previousStableReleaseTag ??= await resolvePreviousStableReleaseTag()
-  await resolveOmittedTargetManifest(target, previousStableReleaseTag, signer)
+  await resolveOmittedTargetManifest(target, signer)
 }
 
 const action = checkOnly ? "validated" : dryRun ? "dry-ran" : "finalized"
@@ -221,6 +218,9 @@ async function buildMacOsUpdateManifest(target: MacOsTarget): Promise<MacOsUpdat
 }
 
 async function buildWindowsUpdateManifest(target: WindowsTarget): Promise<WindowsUpdateManifest> {
+  if (!releaseDate) {
+    throw new Error(`${RELEASE_DATE_ENV_KEY} is required for Windows update manifests`)
+  }
   const artifactPath = path.join(electronDistDir, target.artifactFilename)
   const file = await readFileEntry(artifactPath)
 
@@ -231,30 +231,31 @@ async function buildWindowsUpdateManifest(target: WindowsTarget): Promise<Window
         url: resolveReleaseAssetUrl(tag, target.artifactFilename),
       },
     ],
-    releaseDate: new Date().toISOString(),
+    releaseDate,
     version: releaseVersion,
   }
 }
 
 async function resolveOmittedTargetManifest(
   target: ReleaseTarget,
-  previousTag: string,
   signer: Signer | undefined,
 ): Promise<void> {
-  if (await previousTargetManifestExists(target, previousTag)) {
+  const previousPublishedTag = await resolvePreviousPublishedTargetManifest(target)
+  if (previousPublishedTag) {
     if (checkOnly) {
       console.log(`omitted ${target.manifestFilename}: previous per-target manifest exists`)
       return
     }
 
-    await copyPreviousSignedTargetManifest(target, previousTag)
+    await copyPreviousSignedTargetManifest(target, previousPublishedTag)
     return
   }
 
+  const previousStableTag = await resolvePreviousStableReleaseTag()
   const bootstrapped =
     target.platform === "macos"
-      ? await bootstrapMacOsManifest(target, previousTag)
-      : await bootstrapWindowsManifest(target, previousTag)
+      ? await bootstrapMacOsManifest(target, previousStableTag)
+      : await bootstrapWindowsManifest(target, previousStableTag)
 
   if (checkOnly) {
     console.log(`omitted ${target.manifestFilename}: legacy manifest can bootstrap`)
@@ -269,20 +270,18 @@ async function resolveOmittedTargetManifest(
   await Bun.write(manifestPath, bootstrapped)
   await signManifest(manifestPath, signer)
   await maybeUploadManifestPair(manifestPath, target.manifestFilename)
-  console.log(`bootstrapped ${target.manifestFilename} from ${previousTag}`)
+  console.log(`bootstrapped ${target.manifestFilename} from ${previousStableTag}`)
 }
 
-async function previousTargetManifestExists(
+async function downloadPreviousTargetManifest(
   target: ReleaseTarget,
   previousTag: string,
-): Promise<boolean> {
+): Promise<void> {
   const manifestPath = path.join(outputDirectory, target.manifestFilename)
   const signaturePath = path.join(outputDirectory, `${target.manifestFilename}.sig`)
   await Promise.all([rm(manifestPath, { force: true }), rm(signaturePath, { force: true })])
-
-  const manifest = await downloadReleaseAsset(previousTag, target.manifestFilename)
-  const signature = await downloadReleaseAsset(previousTag, `${target.manifestFilename}.sig`)
-  return manifest && signature
+  await $`gh release download ${previousTag} --repo ${repo} --dir ${outputDirectory} --pattern ${target.manifestFilename} --pattern ${`${target.manifestFilename}.sig`}`.quiet()
+  await Promise.all([assertFileExists(manifestPath), assertFileExists(signaturePath)])
 }
 
 async function copyPreviousSignedTargetManifest(
@@ -330,6 +329,9 @@ async function bootstrapWindowsManifest(
   target: WindowsTarget,
   previousTag: string,
 ): Promise<string> {
+  if (!releaseDate) {
+    throw new Error(`${RELEASE_DATE_ENV_KEY} is required for Windows update manifests`)
+  }
   const legacyPath = await requireReleaseAsset(previousTag, LEGACY_WINDOWS_MANIFEST_FILENAME)
   const legacyManifest = parseWindowsManifest(await Bun.file(legacyPath).text())
   const expectedInstaller = resolveWindowsReleaseArtifactFilename(
@@ -353,7 +355,7 @@ async function bootstrapWindowsManifest(
         url: resolvePreviousReleaseAssetUrl(previousTag, file.url),
       },
     ],
-    releaseDate: legacyManifest.releaseDate || new Date().toISOString(),
+    releaseDate: legacyManifest.releaseDate || releaseDate,
     version: legacyManifest.version,
   })
 }
@@ -502,7 +504,20 @@ async function resolvePreviousStableReleaseTag(): Promise<string> {
   return previous.tagName
 }
 
-function parseGithubReleases<TValue>(value: TValue): TGithubRelease[] {
+async function resolvePreviousPublishedTargetManifest(
+  target: ReleaseTarget,
+): Promise<string | undefined> {
+  const release = await readNewestPublishedReleaseWithAssets({
+    currentTag: tag,
+    repository: repo,
+    requiredAssetNames: [target.manifestFilename, `${target.manifestFilename}.sig`],
+  })
+  if (!release) return undefined
+  await downloadPreviousTargetManifest(target, release.tag)
+  return release.tag
+}
+
+function parseGithubReleases<TValue>(value: TValue): { publishedAt: string; tagName: string }[] {
   if (!Array.isArray(value)) {
     throw new Error("GitHub release list response was not an array")
   }
@@ -525,7 +540,7 @@ function parseGithubReleases<TValue>(value: TValue): TGithubRelease[] {
   })
 }
 
-function releasePublishedAtTime(release: TGithubRelease): number {
+function releasePublishedAtTime(release: { publishedAt: string }): number {
   const time = Date.parse(release.publishedAt)
   return Number.isNaN(time) ? 0 : time
 }
@@ -558,7 +573,8 @@ async function maybeUploadManifestPair(
     return
   }
 
-  await $`gh release upload ${tag} ${manifestPath} ${`${manifestPath}.sig`} --clobber --repo ${repo}`
+  await uploadReleaseAssetSafely({ filePath: manifestPath, repository: repo, tag })
+  await uploadReleaseAssetSafely({ filePath: `${manifestPath}.sig`, repository: repo, tag })
   console.log(`uploaded ${manifestFilename}`)
 }
 

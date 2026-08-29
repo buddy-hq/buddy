@@ -1,116 +1,29 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
-import path from "node:path"
 import { Script } from "@buddy/script"
-import {
-  RELEASE_VERSION_GIT_FILES,
-  stageReleaseVersionPackageFiles,
-  updateReleaseVersionPackageFiles,
-} from "./release-version-files"
-import { releaseRepository } from "./release-repositories"
-import { publishWithSourceTag } from "./release-source-tag"
+import { z } from "zod"
+import { verifyReleaseFreeze } from "./release/freeze"
+import { releaseRepository, sourceRepository } from "./release-repositories"
 
-const RELEASE_DRAFT_VALUE = "true"
-const RELEASE_PUBLISHED_VALUE = "false"
+const releaseStateSchema = z.object({
+  isDraft: z.boolean(),
+  isPrerelease: z.boolean(),
+  tagName: z.string(),
+})
 
-function currentRefType() {
-  return process.env.GITHUB_REF_TYPE?.trim()
+function requiredEnvironmentValue(key: string): string {
+  const value = process.env[key]?.trim()
+  if (!value) throw new Error(`${key} is required`)
+  return value
 }
 
-function currentBranch() {
-  if (currentRefType() === "branch" && process.env.GITHUB_REF_NAME?.trim()) {
-    return process.env.GITHUB_REF_NAME.trim()
-  }
-
-  return "main"
-}
-
-const ROOT_DIR = path.resolve(import.meta.dir, "..")
-
-async function configureReleaseCommitter() {
-  await $`git config user.name github-actions[bot]`.cwd(ROOT_DIR)
-  await $`git config user.email 41898282+github-actions[bot]@users.noreply.github.com`.cwd(ROOT_DIR)
-}
-
-function parseStatusPaths(output: string) {
-  return output
-    .split(/\r?\n/)
-    .map((line) => line.trimEnd())
-    .filter(Boolean)
-    .map((line) => line.slice(3))
-    .map((path) => {
-      const renamed = path.split(" -> ")
-      return renamed[renamed.length - 1] ?? path
-    })
-}
-
-async function releaseTargetSha(): Promise<string> {
-  const target = process.env.GITHUB_SHA?.trim() || "HEAD"
-  return $`git rev-parse ${`${target}^{commit}`}`
-    .cwd(ROOT_DIR)
-    .text()
-    .then((output) => output.trim())
-}
-
-async function isReleasePublished(tag: string, repository: string): Promise<boolean> {
-  const isDraft = await $`gh release view ${tag} --json isDraft --jq .isDraft --repo ${repository}`
-    .text()
-    .then((output) => output.trim())
-
-  if (isDraft === RELEASE_PUBLISHED_VALUE) return true
-  if (isDraft === RELEASE_DRAFT_VALUE) return false
-  throw new Error(`Unexpected draft state for release ${tag}: ${isDraft || "empty"}`)
-}
-
-async function persistWorkflowDispatchReleaseVersion(tag: string, releaseTarget: string) {
-  const branch = currentBranch()
-
-  if (branch !== "main") {
-    throw new Error(
-      `Preview release candidates must sync version files back to main, received '${branch}'`,
-    )
-  }
-
-  await configureReleaseCommitter()
-  await $`git fetch origin ${branch} --tags`.cwd(ROOT_DIR)
-
-  const remoteHead = await $`git rev-parse ${`origin/${branch}`}`
-    .cwd(ROOT_DIR)
-    .text()
-    .then((output) => output.trim())
-
-  if (remoteHead !== releaseTarget) {
-    throw new Error(
-      `Cannot sync release version to ${branch}: origin/${branch} advanced from ${releaseTarget} to ${remoteHead} while the release was building. Rerun the release from the new head.`,
-    )
-  }
-
-  await $`git switch -c ${`release-sync-${tag}`}`.cwd(ROOT_DIR)
-  await updateReleaseVersionPackageFiles(ROOT_DIR, Script.version)
-
-  const dirtyPaths = parseStatusPaths(await $`git status --porcelain`.cwd(ROOT_DIR).text())
-  const unexpectedDirtyPaths = dirtyPaths.filter(
-    (path) => !RELEASE_VERSION_GIT_FILES.some((releasePath) => releasePath === path),
-  )
-  if (unexpectedDirtyPaths.length > 0) {
-    throw new Error(
-      `Publish job produced unexpected dirty files: ${unexpectedDirtyPaths.join(", ")}`,
-    )
-  }
-
-  await stageReleaseVersionPackageFiles(ROOT_DIR)
-
-  const staged = await $`git diff --cached --name-only`.cwd(ROOT_DIR).text()
-  if (!staged.trim()) {
-    console.log(
-      `Release version files already match ${Script.version}; skipping repo version sync.`,
-    )
-    return
-  }
-
-  await $`git commit -m ${`chore(release): sync package versions to ${tag}`}`.cwd(ROOT_DIR)
-  await $`git push origin ${`HEAD:refs/heads/${branch}`}`.cwd(ROOT_DIR)
+async function readReleaseState(repository: string, tag: string) {
+  const value =
+    await $`gh release view ${tag} --repo ${repository} --json isDraft,isPrerelease,tagName`
+      .quiet()
+      .json()
+  return releaseStateSchema.parse(value)
 }
 
 if (!Script.release) {
@@ -118,23 +31,44 @@ if (!Script.release) {
 }
 
 const tag = `v${Script.version}`
-const releaseTarget = await releaseTargetSha()
-const releaseRepo = releaseRepository()
-
-if (currentRefType() !== "tag") {
-  await persistWorkflowDispatchReleaseVersion(tag, releaseTarget)
+const releaseTarget = requiredEnvironmentValue("BUDDY_RELEASE_SOURCE_SHA").toLowerCase()
+if (!/^[0-9a-f]{40}$/u.test(releaseTarget)) {
+  throw new Error("BUDDY_RELEASE_SOURCE_SHA must be a full 40-character Git commit SHA")
 }
 
-await publishWithSourceTag(
-  {
-    rootDir: ROOT_DIR,
-    tag,
-    target: releaseTarget,
-  },
-  {
-    isPublished: () => isReleasePublished(tag, releaseRepo),
-    publish: async () => {
-      await $`gh release edit ${tag} --draft=false --prerelease --repo ${releaseRepo}`
-    },
-  },
-)
+const releaseRepo = releaseRepository()
+const sourceRepo = sourceRepository()
+let release = await readReleaseState(releaseRepo, tag)
+if (release.tagName !== tag) {
+  throw new Error(`Release tag mismatch: expected ${tag}, received ${release.tagName}`)
+}
+if (!release.isDraft && !release.isPrerelease) {
+  throw new Error(`Release ${tag} is already stable and cannot be republished`)
+}
+
+const freeze = await verifyReleaseFreeze({
+  directory: requiredEnvironmentValue("RUNNER_TEMP"),
+  repository: releaseRepo,
+  tag,
+})
+if (
+  freeze.planDigest !== requiredEnvironmentValue("BUDDY_RELEASE_PLAN_DIGEST") ||
+  freeze.sourceRepository !== sourceRepo ||
+  freeze.sourceSha !== releaseTarget ||
+  freeze.tag !== tag ||
+  freeze.version !== Script.version
+) {
+  throw new Error(`Release freeze identity does not match ${releaseRepo}@${tag}`)
+}
+
+if (release.isDraft) {
+  await $`gh release edit ${tag} --draft=false --prerelease --latest=false --repo ${releaseRepo}`
+  release = await readReleaseState(releaseRepo, tag)
+}
+if (release.isDraft || !release.isPrerelease) {
+  throw new Error(
+    `Expected ${releaseRepo}@${tag} to be a published Preview prerelease, got draft=${release.isDraft} prerelease=${release.isPrerelease}`,
+  )
+}
+
+console.log(`Published Preview ${releaseRepo}@${tag} from ${sourceRepo}@${releaseTarget}`)

@@ -45,6 +45,9 @@ jobs:
             sleep "$INSTALL_RETRY_DELAY_SECONDS"
           done
 
+      - name: Check formatting
+        run: bun fmt:check
+
       - run: bun lint
 
       - run: bun typecheck

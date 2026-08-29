@@ -75,12 +75,14 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.sha }}
+          persist-credentials: false
+          ref: ${{ inputs.release_source_sha || github.sha }}
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup-release-runtime
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
@@ -95,8 +97,6 @@ jobs:
           BUDDY_RELEASE_SOURCE_SHA: ${{ inputs.release_source_sha }}
           BUDDY_RELEASE_TAG: ${{ inputs.release_tag }}
         run: bun ./script/release-source-metadata.ts
-
-      - run: bun install --frozen-lockfile
 
       - if: ${{ !inputs.prevalidated }}
         name: Validate repository and signed skill artifacts
