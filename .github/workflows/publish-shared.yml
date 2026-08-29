@@ -320,6 +320,9 @@ jobs:
     name: Electron (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.preflight.outputs.electron_matrix) }}
