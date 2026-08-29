@@ -64,7 +64,6 @@ Single home for Buddy's documentation. One owner per concept; place new docs by 
 | `known-issues/state-collapsed-into-hover.md` | `reviews/state-collapsed-into-hover.md` |
 | `outdated/` | `archive/` |
 | `skills/buddy-skill-creator-context.md` | `skills-authoring/buddy-skill-creator-context.md` |
-| `releases/cutting 0.0.1.md` | `ops/releases/cutting-0.0.1.md` |
 | `releases/upstream fetch audit.md` | `ops/releases/upstream-fetch-audit.md` |
 | `guides/PROMPT-GUIDE.md` | `guides/prompt-guide.md` |
 | `guides/PROMPT-PIPELINE.md` | `guides/prompt-pipeline.md` |
