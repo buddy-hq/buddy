@@ -5,6 +5,7 @@ import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { z } from "zod"
+import { uploadReleaseAssetSafely } from "./release/assets"
 
 const RELEASE_SOURCE_METADATA_FILENAME = "buddy-release-source.json"
 const RELEASE_SOURCE_METADATA_SCHEMA_VERSION = 1
@@ -99,18 +100,11 @@ async function recordReleaseSourceMetadata(input: {
   await withTemporaryDirectory(async (directory) => {
     const filepath = path.join(directory, RELEASE_SOURCE_METADATA_FILENAME)
     await fsp.writeFile(filepath, renderReleaseSourceMetadata(input.metadata), "utf8")
-    runGh(
-      [
-        "release",
-        "upload",
-        input.releaseTag,
-        filepath,
-        "--clobber",
-        "--repo",
-        input.releaseRepository,
-      ],
-      input.environment,
-    )
+    await uploadReleaseAssetSafely({
+      filePath: filepath,
+      repository: input.releaseRepository,
+      tag: input.releaseTag,
+    })
   })
 }
 

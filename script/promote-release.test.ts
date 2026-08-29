@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import {
+  assertPrereleasePromotionMovesForward,
   assertPromotableRelease,
+  latestReleaseTagFromCommandResult,
   normalizePromotionTag,
   parseGithubReleasePromotionState,
+  selectHighestStableReleaseTag,
 } from "./promote-release"
 
 describe("promote release", () => {
@@ -31,7 +34,7 @@ describe("promote release", () => {
     )
   })
 
-  test("refuses drafts, stable releases, and mismatched tags", () => {
+  test("refuses drafts and mismatched tags", () => {
     expect(() =>
       assertPromotableRelease(
         {
@@ -42,17 +45,6 @@ describe("promote release", () => {
         "v1.2.3",
       ),
     ).toThrow("still a draft")
-
-    expect(() =>
-      assertPromotableRelease(
-        {
-          isDraft: false,
-          isPrerelease: false,
-          tagName: "v1.2.3",
-        },
-        "v1.2.3",
-      ),
-    ).toThrow("already stable")
 
     expect(() =>
       assertPromotableRelease(
@@ -77,5 +69,47 @@ describe("promote release", () => {
         "v1.2.3",
       ),
     ).not.toThrow()
+  })
+
+  test("accepts a stable release so interrupted promotion can be retried", () => {
+    const release = {
+      isDraft: false,
+      isPrerelease: false,
+      tagName: "v1.2.3",
+    }
+    expect(() => assertPromotableRelease(release, "v1.2.3")).not.toThrow()
+  })
+
+  test("refuses to promote an older Preview over a newer stable release", () => {
+    expect(() => assertPrereleasePromotionMovesForward("v1.2.4", "v1.2.3")).not.toThrow()
+    expect(() => assertPrereleasePromotionMovesForward("v2.0.0", "v1.99.99")).not.toThrow()
+    expect(() => assertPrereleasePromotionMovesForward("v1.2.3", "v1.2.3")).toThrow(
+      "refusing to move latest backward",
+    )
+    expect(() => assertPrereleasePromotionMovesForward("v1.2.2", "v1.2.3")).toThrow(
+      "refusing to move latest backward",
+    )
+  })
+
+  test("ignores non-release tags when selecting the highest stable version", () => {
+    expect(
+      selectHighestStableReleaseTag([
+        { tagName: "desktop-hotfix" },
+        { tagName: "v1.2.3" },
+        { tagName: "v2.0.0-preview.1" },
+        { tagName: "v1.10.0" },
+      ]),
+    ).toBe("v1.10.0")
+  })
+
+  test("never points latest at the candidate before repairing to the highest stable", async () => {
+    const source = await Bun.file(new URL("./promote-release.ts", import.meta.url)).text()
+    expect(source).toContain("--prerelease=false --latest=false")
+    expect(source).not.toContain("--prerelease=false --latest --repo")
+  })
+
+  test("treats a missing GitHub latest pointer as repairable", () => {
+    expect(latestReleaseTagFromCommandResult({ exitCode: 1, output: "" })).toBeUndefined()
+    expect(latestReleaseTagFromCommandResult({ exitCode: 0, output: "v1.2.3\n" })).toBe("v1.2.3")
   })
 })

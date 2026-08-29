@@ -11,16 +11,19 @@ import { cancel, isCancel, multiselect } from "@clack/prompts"
 import { z } from "zod"
 import { buildNotes, getLatestPublishedRelease, getLatestRelease } from "./changelog.ts"
 import { RELEASE_GATE_COMMAND_PLAN } from "./release-required-gates.ts"
+import { parseReleasePlan, RELEASE_PLAN_FILENAME, type ReleasePlan } from "./release/plan"
+import { assertGreenMainReleaseSource } from "./release/preflight"
 import { releaseRepository, sourceRepository } from "./release-repositories"
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
 const RELEASE_BRANCH = "main"
-const RELEASE_WORKFLOW_FILENAME = "publish-cheap.yml"
+const RELEASE_WORKFLOW_FILENAME = "publish.yml"
 const FAST_SKIP_FLAG = "--fs"
 
 type SyncState = "in-sync" | "ahead" | "behind" | "diverged"
 
 type ReleaseSummary = {
+  assets: { name: string }[]
   body: string
   isDraft: boolean
   name: string
@@ -29,6 +32,7 @@ type ReleaseSummary = {
 }
 
 const ReleaseSummarySchema = z.object({
+  assets: z.array(z.object({ name: z.string() })),
   body: z.string(),
   isDraft: z.boolean(),
   name: z.string(),
@@ -45,10 +49,21 @@ const WorkflowRunSchema = z.object({
   url: z.string(),
 })
 
+export type WorkflowRun = z.infer<typeof WorkflowRunSchema>
+export type WorkflowRunSelection = {
+  exact: string | undefined
+  fallback: string | undefined
+}
+
 type ReleaseTargets = {
   macosArm64: boolean
   macosX64: boolean
   windowsX64: boolean
+}
+
+type ReleaseExecution = {
+  sourceSha: string
+  targets: ReleaseTargets
 }
 
 type ReleaseWizardFlags = {
@@ -188,7 +203,7 @@ function ensureGithubAuth() {
 }
 
 async function ensureReleaseSecrets() {
-  printStep("Secrets", "Checking optional Electron signing/notarization secrets.")
+  printStep("Secrets", "Checking required release and updater signing secrets.")
   const output = await $`gh secret list --repo ${sourceRepository()}`.cwd(ROOT_DIR).text()
   const names = new Set(
     output
@@ -208,7 +223,14 @@ async function ensureReleaseSecrets() {
     "WINDOWS_CERTIFICATE",
     "WINDOWS_CERTIFICATE_PASSWORD",
   ]
-  const requiredSecrets = ["BUDDY_RELEASE_TOKEN"]
+  const requiredSecrets = [
+    "BUDDY_RELEASE_TOKEN",
+    "BUDDY_SKILLS_REPOSITORY_TOKEN",
+    "BUDDY_SKILL_SIGNING_PRIVATE_KEY",
+    "BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD",
+    "TAURI_SIGNING_PRIVATE_KEY",
+    "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
+  ]
 
   const missingRequired = requiredSecrets.filter((name) => !names.has(name))
   if (missingRequired.length > 0) {
@@ -313,7 +335,20 @@ async function chooseVersion(rl: ReleaseReadline, fast = false) {
   const latestStable = await getLatestRelease()
   const latestPublished = await getLatestPublishedRelease()
   const versionBase = latestPublished ?? latestStable
-  const patchSuggestion = versionBase ? bumpVersion(versionBase, "patch") : "0.0.1"
+  let patchSuggestion = versionBase ? bumpVersion(versionBase, "patch") : "0.0.1"
+  const incompatibleDrafts: string[] = []
+  while (true) {
+    const draft = await loadRelease(`v${patchSuggestion}`)
+    if (
+      !draft?.isDraft ||
+      draft.assets.length === 0 ||
+      draft.assets.some((asset) => asset.name === RELEASE_PLAN_FILENAME)
+    ) {
+      break
+    }
+    incompatibleDrafts.push(draft.tagName)
+    patchSuggestion = bumpVersion(patchSuggestion, "patch")
+  }
   const minorSuggestion = versionBase ? bumpVersion(versionBase, "minor") : "0.1.0"
   const majorSuggestion = versionBase ? bumpVersion(versionBase, "major") : "1.0.0"
   const versionContext = versionBase
@@ -322,13 +357,23 @@ async function chooseVersion(rl: ReleaseReadline, fast = false) {
         `Highest published release tag: v${versionBase}`,
       ].join("\n")
     : "No prior published release found."
+  const draftContext =
+    incompatibleDrafts.length > 0
+      ? `\nSkipped incompatible legacy draft(s): ${incompatibleDrafts.join(", ")}.`
+      : ""
 
   if (fast) {
-    printStep("Version", `${versionContext}\nUsing suggested patch version: v${patchSuggestion}`)
+    printStep(
+      "Version",
+      `${versionContext}${draftContext}\nUsing suggested patch version: v${patchSuggestion}`,
+    )
     return patchSuggestion
   }
 
-  printStep("Version", `${versionContext}\nSuggested next release: v${patchSuggestion}`)
+  printStep(
+    "Version",
+    `${versionContext}${draftContext}\nSuggested next release: v${patchSuggestion}`,
+  )
 
   console.log("1. Use the suggested patch version")
   console.log(`   v${patchSuggestion}`)
@@ -367,10 +412,26 @@ async function loadRelease(tag: string) {
   }
 
   const payload =
-    await $`gh release view ${tag} --repo ${releaseRepository()} --json name,body,isDraft,url,tagName`
+    await $`gh release view ${tag} --repo ${releaseRepository()} --json assets,name,body,isDraft,url,tagName`
       .cwd(ROOT_DIR)
       .json()
   return ReleaseSummarySchema.parse(payload)
+}
+
+async function loadDraftReleasePlan(
+  release: ReleaseSummary | undefined,
+): Promise<ReleasePlan | undefined> {
+  if (!release?.assets.some((asset) => asset.name === RELEASE_PLAN_FILENAME)) return undefined
+  const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "buddy-release-plan-"))
+  const planPath = path.join(temporaryDirectory, RELEASE_PLAN_FILENAME)
+  try {
+    await $`gh release download ${release.tagName} --repo ${releaseRepository()} --dir ${temporaryDirectory} --pattern ${RELEASE_PLAN_FILENAME}`
+      .cwd(ROOT_DIR)
+      .quiet()
+    return parseReleasePlan(JSON.parse(await Bun.file(planPath).text()))
+  } finally {
+    rmSync(temporaryDirectory, { recursive: true, force: true })
+  }
 }
 
 async function ensureVersionIsAvailable(version: string) {
@@ -380,6 +441,28 @@ async function ensureVersionIsAvailable(version: string) {
     throw new Error(`Release ${tag} already exists: ${existing.url}`)
   }
   return existing
+}
+
+export function resolveReleaseExecution(input: {
+  currentSourceSha: string
+  plan: ReleasePlan | undefined
+  repository: string
+  requestedTargets: ReleaseTargets
+  tag: string
+  version: string
+}): ReleaseExecution {
+  if (
+    input.plan &&
+    (input.plan.tag !== input.tag ||
+      input.plan.version !== input.version ||
+      input.plan.sourceRepository !== input.repository)
+  ) {
+    throw new Error(`Existing release plan identity does not match ${input.tag}`)
+  }
+  return {
+    sourceSha: input.plan?.sourceSha ?? input.currentSourceSha,
+    targets: input.plan?.targets ?? input.requestedTargets,
+  }
 }
 
 async function initialReleaseBody(version: string, existingDraft: ReleaseSummary | undefined) {
@@ -517,7 +600,24 @@ function runRequiredGates() {
   }
 }
 
-async function waitForRunUrl(version: string, targetSha: string) {
+export function selectWorkflowRunUrls(
+  runs: readonly WorkflowRun[],
+  version: string,
+): WorkflowRunSelection {
+  const exact = runs.find(
+    (run) =>
+      run.event === "workflow_dispatch" &&
+      run.headBranch === RELEASE_BRANCH &&
+      run.displayTitle === `preview candidate v${version}`,
+  )
+  const fallback = runs.find(
+    (run) => run.event === "workflow_dispatch" && run.headBranch === RELEASE_BRANCH,
+  )
+  return { exact: exact?.url, fallback: fallback?.url }
+}
+
+async function waitForRunUrl(version: string) {
+  let fallbackUrl: string | undefined
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const payload =
       await $`gh run list --repo ${sourceRepository()} --workflow ${RELEASE_WORKFLOW_FILENAME} --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
@@ -525,38 +625,20 @@ async function waitForRunUrl(version: string, targetSha: string) {
         .json()
     const runs = z.array(WorkflowRunSchema).parse(payload)
 
-    const exact = runs.find(
-      (run) =>
-        run.event === "workflow_dispatch" &&
-        run.headBranch === RELEASE_BRANCH &&
-        run.headSha === targetSha &&
-        run.displayTitle === `preview candidate ${version}`,
-    )
-    if (exact) {
-      return exact.url
-    }
-
-    const fallback = runs.find(
-      (run) =>
-        run.event === "workflow_dispatch" &&
-        run.headBranch === RELEASE_BRANCH &&
-        run.headSha === targetSha,
-    )
-    if (fallback) {
-      return fallback.url
-    }
-
-    await Bun.sleep(2_000)
+    const selected = selectWorkflowRunUrls(runs, version)
+    if (selected.exact) return selected.exact
+    fallbackUrl = selected.fallback ?? fallbackUrl
+    if (attempt < 9) await Bun.sleep(2_000)
   }
 
-  return undefined
+  return fallbackUrl
 }
 
 async function dispatchRelease(version: string, targetSha: string, targets: ReleaseTargets) {
   printStep("Dispatch", `Triggering GitHub release workflow for v${version}.`)
 
   const dispatchOutput =
-    await $`gh workflow run ${RELEASE_WORKFLOW_FILENAME} --repo ${sourceRepository()} -f ${`version=${version}`} -f ${`build_macos_arm64=${String(targets.macosArm64)}`} -f ${`build_macos_x64=${String(targets.macosX64)}`} -f ${`build_windows_x64=${String(targets.windowsX64)}`}`
+    await $`gh workflow run ${RELEASE_WORKFLOW_FILENAME} --repo ${sourceRepository()} --ref ${RELEASE_BRANCH} -f ${`version=${version}`} -f ${`source_sha=${targetSha}`} -f ${`build_macos_arm64=${String(targets.macosArm64)}`} -f ${`build_macos_x64=${String(targets.macosX64)}`} -f ${`build_windows_x64=${String(targets.windowsX64)}`}`
       .cwd(ROOT_DIR)
       .text()
       .then((output) => output.trim())
@@ -565,7 +647,7 @@ async function dispatchRelease(version: string, targetSha: string, targets: Rele
     return dispatchOutput
   }
 
-  const fallbackUrl = await waitForRunUrl(version, targetSha)
+  const fallbackUrl = await waitForRunUrl(version)
   if (!fallbackUrl) {
     throw new Error(
       "Release workflow was dispatched, but the GitHub Actions run URL could not be resolved",
@@ -598,27 +680,6 @@ function watchRun(runId: string): boolean {
     `Local workflow monitoring failed. The GitHub Actions run is still authoritative: https://github.com/${sourceRepository()}/actions/runs/${runId}`,
   )
   return false
-}
-
-function syncTagsFromOrigin() {
-  printStep("Tag Sync", "Force-syncing local tags from origin to avoid local tag drift conflicts.")
-  runCommand("git", ["fetch", "origin", "+refs/tags/*:refs/tags/*"])
-}
-
-async function maybePullReleaseSync(rl: ReleaseReadline, fast = false) {
-  await fetchOriginMain()
-  const state = await syncState()
-  if (state.state !== "behind") {
-    return
-  }
-
-  console.log(`origin/main gained ${state.behind} new commit(s) during release publishing.`)
-  if (!fast && !(await confirm(rl, "Pull the release-sync commit into local main now?", true))) {
-    return
-  }
-
-  syncTagsFromOrigin()
-  runCommand("git", ["pull", "--rebase", "origin", RELEASE_BRANCH])
 }
 
 function parseArgs(): ReleaseWizardFlags {
@@ -846,11 +907,38 @@ async function main() {
     const targetSha = await alignWithOriginMain(rl)
     await ensureCleanTree()
 
+    printStep("Green Main", `Verifying required CI checks for ${targetSha.slice(0, 12)}.`)
+    await assertGreenMainReleaseSource({
+      repository: sourceRepository(),
+      sourceSha: targetSha,
+    })
+
     printStep("Targets", describeReleaseTargets(targets))
 
     const version = await chooseVersion(rl, flags.fast)
     const tag = `v${version}`
     const existingDraft = await ensureVersionIsAvailable(version)
+    const existingPlan = await loadDraftReleasePlan(existingDraft)
+    const execution = resolveReleaseExecution({
+      currentSourceSha: targetSha,
+      plan: existingPlan,
+      repository: sourceRepository(),
+      requestedTargets: targets,
+      tag,
+      version,
+    })
+    const releaseTargetSha = execution.sourceSha
+    const releaseTargets = execution.targets
+    if (existingPlan) {
+      printStep(
+        "Resume",
+        `Continuing ${tag} from its immutable plan at ${releaseTargetSha.slice(0, 12)} for ${describeReleaseTargets(releaseTargets)}.`,
+      )
+      await assertGreenMainReleaseSource({
+        repository: sourceRepository(),
+        sourceSha: releaseTargetSha,
+      })
+    }
     const editedDraft = await editReleaseDraft(rl, version, existingDraft, flags.fast)
     try {
       const shouldDispatch =
@@ -867,7 +955,7 @@ async function main() {
           editedDraft.title,
           editedDraft.notesPath,
           editedDraft.body,
-          targetSha,
+          releaseTargetSha,
           existingDraft,
         )
         console.log(`Release draft updated without dispatch: ${release.url}`)
@@ -876,13 +964,18 @@ async function main() {
 
       runRequiredGates()
       await ensureCleanTree()
-      if (flags.skipLocalReleaseGates) {
+      if (existingPlan && releaseTargetSha !== targetSha) {
+        printStep(
+          "Local Release Gates",
+          `Skipped because ${tag} already passed gates and is resuming its pinned source ${releaseTargetSha.slice(0, 12)}.`,
+        )
+      } else if (flags.skipLocalReleaseGates) {
         printStep(
           "Local Release Gates",
           `Skipped local Buddy Dev and production release builds via ${FAST_SKIP_FLAG}.`,
         )
       } else {
-        runLocalReleaseGates(version, targetSha, targets)
+        runLocalReleaseGates(version, releaseTargetSha, releaseTargets)
       }
       await ensureCleanTree()
 
@@ -891,12 +984,12 @@ async function main() {
         editedDraft.title,
         editedDraft.notesPath,
         editedDraft.body,
-        targetSha,
+        releaseTargetSha,
         existingDraft,
       )
       console.log(`Draft release ready: ${release.url}`)
 
-      const runUrl = await dispatchRelease(version, targetSha, targets)
+      const runUrl = await dispatchRelease(version, releaseTargetSha, releaseTargets)
       console.log(`Workflow dispatched: ${runUrl}`)
 
       const runId = runIdFromUrl(runUrl)
@@ -916,8 +1009,6 @@ async function main() {
         console.log(`Release draft: ${release.url}`)
       }
 
-      await maybePullReleaseSync(rl, flags.fast)
-
       console.log("\nNext steps:")
       console.log(`- Use a Preview-channel Buddy installation to check for ${tag}`)
       console.log("- Verify the updater downloads, installs, and restarts into the new version")
@@ -933,8 +1024,10 @@ async function main() {
   }
 }
 
-await main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error)
-  console.error(`\nRelease wizard failed: ${message}`)
-  process.exit(1)
-})
+if (import.meta.main) {
+  await main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error(`\nRelease wizard failed: ${message}`)
+    process.exit(1)
+  })
+}

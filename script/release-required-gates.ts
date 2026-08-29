@@ -5,7 +5,7 @@ export type ReleaseGateCommand = {
 
 export const RELEASE_GATE_COMMAND_PLAN: readonly ReleaseGateCommand[] = [
   { command: "bun", args: ["run", "sdk:generate"] },
-  { command: "bun", args: ["fmt"] },
+  { command: "bun", args: ["fmt:check"] },
   { command: "bun", args: ["lint"] },
   { command: "bun", args: ["typecheck"] },
   {

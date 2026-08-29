@@ -5,6 +5,7 @@ import { access, mkdir } from "node:fs/promises"
 import path from "node:path"
 import { z } from "zod"
 import { resolveTauriSignerBinaryPath } from "./utils"
+import { uploadReleaseAssetSafely } from "../../../script/release/assets"
 
 const RELEASE_REPOSITORY_ENV_KEY = "GH_REPO"
 const VERSION_ENV_KEY = "BUDDY_VERSION"
@@ -120,7 +121,8 @@ if (!skipUpload) {
     throw new Error(`${RELEASE_REPOSITORY_ENV_KEY} is required when uploading signed manifests`)
   }
 
-  await $`gh release upload ${tag} ${outputPath} ${`${outputPath}.sig`} --clobber --repo ${repo}`
+  await uploadReleaseAssetSafely({ filePath: outputPath, repository: repo, tag })
+  await uploadReleaseAssetSafely({ filePath: `${outputPath}.sig`, repository: repo, tag })
 }
 
 console.log("finalized recovery-policy.json")

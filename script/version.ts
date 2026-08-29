@@ -7,11 +7,11 @@ import path from "node:path"
 import { Script } from "@buddy/script"
 import { buildNotes, getLatestRelease } from "./changelog.ts"
 import { releaseRepository, sourceRepository } from "./release-repositories"
+import { appendGithubOutputs } from "./release/github-output"
 
 const DRY_RUN_ENV_KEY = "BUDDY_RELEASE_DRY_RUN"
 const TRUE_ENV_VALUE = "1"
 const DRY_RUN_RELEASE_ID = "dry-run"
-const LOCAL_RUN_ID = "local"
 
 type CreatedRelease = {
   databaseId: number | string
@@ -22,6 +22,7 @@ type CreatedRelease = {
 const ExistingReleaseSchema = z.object({
   databaseId: z.number(),
   isDraft: z.boolean(),
+  isPrerelease: z.boolean(),
   tagName: z.string(),
 })
 
@@ -29,19 +30,6 @@ const CreatedReleaseSchema = z.object({
   databaseId: z.number(),
   tagName: z.string(),
 })
-
-function currentTag() {
-  if (process.env.GITHUB_REF_TYPE !== "tag") {
-    return undefined
-  }
-
-  const refName = process.env.GITHUB_REF_NAME?.trim()
-  if (!refName) {
-    return undefined
-  }
-
-  return refName
-}
 
 async function currentBranch() {
   if (process.env.GITHUB_REF_NAME?.trim()) {
@@ -51,33 +39,24 @@ async function currentBranch() {
   return $`git branch --show-current`.text().then((output) => output.trim())
 }
 
-const tagRef = currentTag()
 const dryRun = process.env[DRY_RUN_ENV_KEY]?.trim() === TRUE_ENV_VALUE
-
-if (!tagRef) {
-  const branch = await currentBranch()
-
-  if (!dryRun && branch !== "main") {
-    throw new Error(
-      `Preview release candidates must be cut from main, received '${branch || "detached"}'`,
-    )
-  }
-
-  if (!process.env.BUDDY_VERSION && !process.env.BUDDY_BUMP) {
-    throw new Error("Non-tag releases require BUDDY_VERSION or BUDDY_BUMP")
-  }
+const branch = await currentBranch()
+if (!dryRun && branch !== "main") {
+  throw new Error(
+    `Preview release candidates must be cut from main, received '${branch || "detached"}'`,
+  )
+}
+if (!process.env.BUDDY_VERSION?.trim()) {
+  throw new Error("Preview release candidates require an explicit BUDDY_VERSION")
 }
 
 const releaseRepo = releaseRepository()
 const sourceRepo = sourceRepository()
 const tag = `v${Script.version}`
 
-if (tagRef && tagRef !== tag) {
-  throw new Error(`Tag ref ${tagRef} does not match computed version ${tag}`)
-}
-
 async function releaseTargetSha() {
   return (
+    process.env.BUDDY_RELEASE_SOURCE_SHA?.trim() ||
     process.env.GITHUB_SHA?.trim() ||
     (await $`git rev-parse HEAD`.text().then((output) => output.trim()))
   )
@@ -86,11 +65,7 @@ async function releaseTargetSha() {
 async function createRelease(file: string) {
   if (releaseRepo === sourceRepo) {
     const target = await releaseTargetSha()
-    if (tagRef) {
-      await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --repo ${releaseRepo}`
-    } else {
-      await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --target ${target} --repo ${releaseRepo}`
-    }
+    await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --target ${target} --repo ${releaseRepo}`
     return
   }
 
@@ -100,20 +75,19 @@ async function createRelease(file: string) {
 let release: CreatedRelease
 
 if (dryRun) {
-  const runId = process.env.GITHUB_RUN_ID?.trim() || LOCAL_RUN_ID
   release = {
     databaseId: DRY_RUN_RELEASE_ID,
-    tagName: `dry-run-${tag}-${runId}`,
+    tagName: tag,
   }
 } else {
   const existing = await $`gh release view ${tag} --repo ${releaseRepo}`.quiet().nothrow()
   if (existing.exitCode === 0) {
     const releasePayload =
-      await $`gh release view ${tag} --json tagName,databaseId,isDraft --repo ${releaseRepo}`.json()
+      await $`gh release view ${tag} --json tagName,databaseId,isDraft,isPrerelease --repo ${releaseRepo}`.json()
     release = ExistingReleaseSchema.parse(releasePayload)
 
-    if (!release.isDraft) {
-      throw new Error(`Release ${tag} already exists`)
+    if (!release.isDraft && !release.isPrerelease) {
+      throw new Error(`Stable release ${tag} already exists`)
     }
   } else {
     const previous = await getLatestRelease(undefined)
@@ -142,6 +116,4 @@ const output = [
   `source_repo=${sourceRepo}`,
 ]
 
-if (process.env.GITHUB_OUTPUT) {
-  await Bun.write(process.env.GITHUB_OUTPUT, output.join("\n"))
-}
+await appendGithubOutputs(process.env, output)

@@ -75,11 +75,7 @@ describe("CI workflow", () => {
     expect(vendorGuardJob.name).toBe("vendor-guard")
     expect(checkJob.name).toBe("Check")
     expect(checkJob.if).toBe("${{ always() }}")
-    expect(arrayValue(checkJob.needs, "check.needs")).toEqual([
-      "static",
-      "tests",
-      "vendor_guard",
-    ])
+    expect(arrayValue(checkJob.needs, "check.needs")).toEqual(["static", "tests", "vendor_guard"])
   })
 
   test("keeps the PR workflow read-only and avoids the oversized dependency cache", async () => {
@@ -104,6 +100,18 @@ describe("CI workflow", () => {
     expect(await Bun.file(path.join(WORKFLOW_DIRECTORY, "vendor-guard.yml")).exists()).toBe(false)
   })
 
+  test("checks formatting before the slower static gates", async () => {
+    const staticJob = workflowJob(workflowJobs(await ciWorkflow()), "static")
+    const commands = workflowSteps(staticJob).flatMap((step) =>
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Workflow run commands are optional YAML fields.
+      typeof step.run === "string" ? [step.run] : [],
+    )
+
+    expect(commands.indexOf("bun fmt:check")).toBeGreaterThan(-1)
+    expect(commands.indexOf("bun fmt:check")).toBeLessThan(commands.indexOf("bun lint"))
+    expect(commands.indexOf("bun lint")).toBeLessThan(commands.indexOf("bun typecheck"))
+  })
+
   test("checks the pull request merge-base and never trusts a vendor-sync commit subject", async () => {
     const vendorGuardJob = workflowJob(workflowJobs(await ciWorkflow()), "vendor_guard")
     const rangeStep = workflowStep(vendorGuardJob, "Resolve diff range")
@@ -112,7 +120,11 @@ describe("CI workflow", () => {
 
     expect(rangeScript).toContain('merge_base="$(git merge-base "$base_sha" "$head_sha")"')
     expect(rangeScript).toContain('echo "range=$merge_base..$head_sha"')
-    expect(workflowSteps(vendorGuardJob).some((step) => step.name === "Allow explicit vendor sync commits")).toBe(false)
+    expect(
+      workflowSteps(vendorGuardJob).some(
+        (step) => step.name === "Allow explicit vendor sync commits",
+      ),
+    ).toBe(false)
     expect(enforceStep.env).toBeUndefined()
   })
 

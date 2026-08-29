@@ -62,8 +62,8 @@ async function assertFileExists(filepath: string): Promise<void> {
 
 await mkdir(outputDirectory, { recursive: true })
 
+await $`gh release download ${tag} --repo ${repo} --dir ${outputDirectory} ${updateAssets.flatMap((asset) => ["--pattern", asset])}`
 for (const asset of updateAssets) {
-  await $`gh release download ${tag} --repo ${repo} --dir ${outputDirectory} --pattern ${asset}`
   await assertFileExists(path.join(outputDirectory, asset))
 }
 

@@ -78,7 +78,7 @@ const report = [
   `- macOS ARM64: ${readOptionalEnvironmentVariable(MACOS_ARM64_TARGET_ENV_KEY) || "unknown"}`,
   `- macOS x64: ${readOptionalEnvironmentVariable(MACOS_X64_TARGET_ENV_KEY) || "unknown"}`,
   `- Windows x64: ${readOptionalEnvironmentVariable(WINDOWS_X64_TARGET_ENV_KEY) || "unknown"}`,
-  `- Baseline full publish-cheap estimate: ${formatNumber(BASELINE_WEIGHTED_MINUTES)} weighted minutes`,
+  `- Legacy full-release baseline: ${formatNumber(BASELINE_WEIGHTED_MINUTES)} weighted minutes`,
   `- Current completed-job estimate: ${formatNumber(completedWeightedMinutes)} weighted minutes`,
   `- Estimated reduction vs baseline: ${formatSignedNumber(delta)} weighted minutes (${formatSignedNumber(
     reductionPercent,
@@ -131,7 +131,7 @@ function normalizeJobName(name: string): string {
 
 function inferRunnerWeight(jobName: string): number {
   const lowerName = jobName.toLowerCase()
-  if (lowerName.includes("macos")) {
+  if (lowerName.includes("macos") || lowerName.includes("apple-darwin")) {
     return MACOS_RUNNER_WEIGHT
   }
 

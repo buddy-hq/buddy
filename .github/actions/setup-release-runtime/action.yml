@@ -1,0 +1,36 @@
+name: Setup release runtime
+description: Install the pinned Bun runtime, restore dependency downloads, and optionally install the workspace.
+
+inputs:
+  bun-version:
+    description: Exact Bun version used by release jobs.
+    required: true
+  install:
+    description: Whether to run the standard frozen workspace install.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ inputs.bun-version }}
+
+    - uses: actions/cache@v5
+      with:
+        path: ~/.bun/install/cache
+        key: release-bun-v2-${{ inputs.bun-version }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+        restore-keys: |
+          release-bun-v2-${{ inputs.bun-version }}-${{ runner.os }}-${{ runner.arch }}-
+
+    - if: inputs.install == 'true'
+      shell: bash
+      run: |
+        for attempt in 1 2 3; do
+          bun install --frozen-lockfile && exit 0
+          if [[ "$attempt" == "3" ]]; then
+            exit 1
+          fi
+          sleep "$((attempt * 5))"
+        done

@@ -92,7 +92,10 @@ export function testShardForExplicitSelection(
 export async function runWithConcurrency<TItem, TResult>(
   options: ConcurrentRunOptions<TItem, TResult>,
 ): Promise<readonly TResult[]> {
-  if (!Number.isSafeInteger(options.concurrency) || options.concurrency < MINIMUM_TEST_CONCURRENCY) {
+  if (
+    !Number.isSafeInteger(options.concurrency) ||
+    options.concurrency < MINIMUM_TEST_CONCURRENCY
+  ) {
     throw new Error(`Test concurrency must be a positive integer; received ${options.concurrency}`)
   }
   if (options.items.length === 0) return []

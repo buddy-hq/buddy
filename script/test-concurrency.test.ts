@@ -151,9 +151,7 @@ describe("test concurrency", () => {
         [TEST_SHARD_INDEX_ENVIRONMENT_KEY]: "2",
       }),
     ).toThrow("must be an integer from 0 through 1")
-    expect(() => selectTestShardItems(["only"], { count: 2, index: 1 })).toThrow(
-      "received no work",
-    )
+    expect(() => selectTestShardItems(["only"], { count: 2, index: 1 })).toThrow("received no work")
   })
 
   test("disables sharding for an explicit file selection", () => {

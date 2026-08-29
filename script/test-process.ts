@@ -22,9 +22,7 @@ export type SupervisedTestProcessInput = {
   env?: NodeJS.ProcessEnv
 }
 
-export function testProcessFailed(
-  result: Pick<SupervisedTestProcessResult, "exitCode">,
-): boolean {
+export function testProcessFailed(result: Pick<SupervisedTestProcessResult, "exitCode">): boolean {
   return result.exitCode !== 0
 }
 
