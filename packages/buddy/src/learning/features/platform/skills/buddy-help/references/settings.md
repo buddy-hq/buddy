@@ -1,6 +1,6 @@
 ---
 name: settings
-description: "Buddy Settings tabs: General, Updates, Providers, MCPs, Personalization, Memory, Advanced."
+description: "Buddy Settings tabs: General, Appearance, Notifications, Personalization, Providers, Skills, MCPs, Packages, About; conditional Standards and Memory."
 ---
 
 # Settings
@@ -37,7 +37,7 @@ Always listed:
 
 | Tab | What lives there |
 | --- | --- |
-| **General** | Follow-up **Steer** vs **Queue for later**; game-break frequency; concise responses; default way Buddy works; Read entire book; Auto-compaction; **Buddy Home**; log level |
+| **General** | **Show Try these** starter prompts; Follow-up **Steer** vs **Queue for later**; game-break frequency; concise responses; default way Buddy works; Read entire book; Auto-compaction; **Buddy Home**; log level |
 | **Appearance** | System/Light/Dark, theme, UI + code font and size |
 | **Notifications** | Agent, permissions, errors |
 | **Personalization** | Profile + global **AGENTS.md** |
@@ -45,7 +45,7 @@ Always listed:
 | **Skills** | Skills catalog; external skill discovery |
 | **MCPs** | Global MCP definitions; per-server on/off by default |
 | **Packages** | Advanced Math and Standards install; **Memory** experiment opt-in |
-| **About** | Version; channel **Stable** / **Preview**; check for updates (desktop only); third-party credits |
+| **About** | Version; channel **Stable** / **Preview**; **Check now** (desktop only); third-party credits |
 
 Revealed once the matching capability is on — each is independent:
 

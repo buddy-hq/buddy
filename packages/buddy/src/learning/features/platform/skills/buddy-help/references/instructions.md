@@ -21,7 +21,6 @@ Profile is not written into `AGENTS.md`. Global and notebook `AGENTS.md` are dif
 Fields: **Preferred name**, **Occupation**, **More about you**.
 
 - Settings → **Personalization** → Profile (badge **Global**). Autosaves.
-- First-run onboarding may offer the same three fields (skippable).
 - One profile for the app — not per notebook.
 - Empty fields: Buddy has no preferred-name / occupation / about-you text to use.
 

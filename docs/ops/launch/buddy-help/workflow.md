@@ -1,5 +1,10 @@
 # Buddy Help — subagent workflow
 
+> **Status: superseded launch workflow.** Do not run these historical authoring steps. Edit and
+> verify the shipped skill under
+> `packages/buddy/src/learning/features/platform/skills/buddy-help/`; its `SKILL.md` and
+> `references/` directory are the runtime source of truth.
+
 You are a **writer subagent**. Fully research and author **one** product-help reference for the `buddy-help` skill.
 
 You are not the orchestrator. Ignore priority waves, multi-file plans, and other agents’ work.

@@ -1,6 +1,11 @@
 # Buddy Help — consolidated research
 
-Single source for this launch lane. Supersedes prior fragments (candidates, term-checks, file-trees, taxonomies).  
+> **Status: superseded planning record.** The shipped runtime source of truth is
+> `packages/buddy/src/learning/features/platform/skills/buddy-help/`. The proposed tree and
+> file counts below describe an earlier design and must not be used to locate or inventory the
+> current skill.
+
+Historical record for this launch lane. Supersedes prior fragments (candidates, term-checks, file-trees, taxonomies).
 **Related (kept separate):** `skill-style-guide.md` — how to *write* skills (agent-scripts corpus).  
 **Launch home:** `docs/ops/launch/critical-path.md` → About Buddy Skill.
 

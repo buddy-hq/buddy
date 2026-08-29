@@ -42,19 +42,19 @@ Not question sets / quizzes — `practice.md`.
 | **Cloze** | sentence with one or more hidden parts | exact terms, symbols, short phrases, ordered steps |
 
 - Basic front/back render Markdown: emphasis, lists, tables, links, inline/block code, and math.
-- Cloze is plain text in review; Markdown inside it is not formatted.
+- Cloze cards also render Markdown. The selected cloze blank keeps its rendered content hidden until reveal.
 - Each distinct cloze number makes one card. Repeated blanks with the same number belong to that card.
 - Deck title + optional deck source. Notes can also store tags + source labels.
-- Tags/source are stored; no current deck-view filter/editor for them.
+- Deck view filters cards by **All / Due / New / Leeches**.
+- Tags/source are stored, but there is no current tag/source filter or user-facing card editor.
 - Recall is self-rated. No typed-answer checking or automatic grading.
 
 ## Images and media
 
 - No native image-attachment field or deck media bundle.
-- Basic cards can render a reachable image URL in Markdown: `![label](https://…)`.
+- Basic and cloze cards can render a reachable image URL in Markdown: `![label](https://…)`.
 - Buddy does not copy that image into the deck. Offline, moved, private, or expired URL → image may fail.
 - Do not promise notebook-relative/local image paths.
-- Cloze cards do not render Markdown images.
 - No native audio card, video card, image occlusion, or embedded media editor.
 - A link can appear on a basic card; that is not the same as bundled playable media.
 

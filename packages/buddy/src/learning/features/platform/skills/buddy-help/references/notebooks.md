@@ -37,6 +37,8 @@ A **notebook** is a **folder** Buddy has open (workspace). Chats live inside a n
 
 Empty-state intent: **Inbox** for quick chats and loose notes; named notebooks for dedicated work.
 
+**Try these** cards offer starter prompts in the sidebar and on the Inbox empty board. Choosing one stages or starts that prompt. Hide them with the card close control or Settings → General → **Show Try these**; the same setting restores them.
+
 ### Inbox vs named notebooks
 
 - Sidebar labels the `Inbox` folder **Quick chats** (basename still `Inbox` on disk).

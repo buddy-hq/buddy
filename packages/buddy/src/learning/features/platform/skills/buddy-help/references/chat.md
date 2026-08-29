@@ -52,7 +52,7 @@ Type `/` at the **start** of the box for autocomplete. Mix of built-ins + entrie
 | --- | --- |
 | `/new` | New chat in this notebook |
 | `/model` | Open model picker |
-| `/mcp` | Settings → MCP |
+| `/mcp` | Settings → MCPs |
 | `/play` | Buddy Arcade |
 
 **Session / message:**
@@ -64,6 +64,7 @@ Type `/` at the **start** of the box for autocomplete. Mix of built-ins + entrie
 | `/branch` (`/fork`) | Branch chat from latest user message |
 | `/compact` (`/summarize`) | Compact session — needs selected model + active session |
 | `/quiz [topic]` | Sends a quiz-create prompt (rewritten user message) |
+| `/flashcard [topic]` | In Learn mode, sends a flashcard-create prompt (rewritten user message) |
 
 Also: `/resources` and related for Sources ops when listed.
 
@@ -95,6 +96,7 @@ Structured choices mid-turn appear in the **question UI** above the composer —
 - Undo / Branch on user messages (same idea as `/undo`, `/branch`).
 - Jump to latest when scrolled up.
 - Permission dock can appear above the composer — `trust.md` (Allow always = until Buddy restarts).
+- When a chat has tasks, the **Tasks** button by the composer opens a todo dock. It can show list or board view and reflects task progress.
 - Auto-compaction notice near context limit; manual `/compact` still available.
 
 ## Gotchas
