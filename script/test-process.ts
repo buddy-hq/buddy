@@ -16,6 +16,7 @@ export type SupervisedTestProcessResult = {
 }
 
 export type SupervisedTestProcessInput = {
+  abortSignal?: AbortSignal
   command: readonly string[]
   cwd?: string
   env?: NodeJS.ProcessEnv
@@ -119,13 +120,19 @@ export async function runSupervisedTestProcess(
   let receivedSignal: TestProcessSignal | undefined
   let terminationPromise: Promise<void> | undefined
   const signalHandlers = new Map<TestProcessSignal, () => void>()
+  const requestTermination = (signal: TestProcessSignal): void => {
+    receivedSignal ??= signal
+    terminationPromise ??= terminateChildTree(child, exitPromise, receivedSignal)
+  }
   for (const signal of TEST_PROCESS_SIGNALS) {
-    const handler = () => {
-      receivedSignal ??= signal
-      terminationPromise ??= terminateChildTree(child, exitPromise, receivedSignal)
-    }
+    const handler = () => requestTermination(signal)
     signalHandlers.set(signal, handler)
     process.once(signal, handler)
+  }
+  const abortHandler = () => requestTermination("SIGTERM")
+  if (input.abortSignal !== undefined) {
+    input.abortSignal.addEventListener("abort", abortHandler, { once: true })
+    if (input.abortSignal.aborted) abortHandler()
   }
 
   try {
@@ -141,5 +148,6 @@ export async function runSupervisedTestProcess(
     for (const [signal, handler] of signalHandlers) {
       process.off(signal, handler)
     }
+    input.abortSignal?.removeEventListener("abort", abortHandler)
   }
 }

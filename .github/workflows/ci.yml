@@ -17,11 +17,12 @@ env:
   BUN_VERSION: "1.3.13"
   INSTALL_MAX_ATTEMPTS: "3"
   INSTALL_RETRY_DELAY_SECONDS: "10"
+  BUDDY_TEST_CONCURRENCY: "4"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  check:
-    name: Check
+  static:
+    name: Static analysis
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -32,11 +33,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ci-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
       - name: Install dependencies
         run: |
@@ -54,6 +50,31 @@ jobs:
 
       - run: bun typecheck
 
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          for ((attempt = 1; attempt <= INSTALL_MAX_ATTEMPTS; attempt++)); do
+            if bun install --frozen-lockfile; then
+              exit 0
+            fi
+            if ((attempt == INSTALL_MAX_ATTEMPTS)); then
+              exit 1
+            fi
+            sleep "$INSTALL_RETRY_DELAY_SECONDS"
+          done
+
       # Search-backed tests spawn the vendored ripgrep adapter, which downloads a
       # release binary when `rg` is missing from PATH. The test network guard blocks
       # that fetch, so provide ripgrep from the runner instead.
@@ -70,3 +91,104 @@ jobs:
           done
 
       - run: bun run test
+
+  vendor_guard:
+    name: vendor-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Resolve diff range
+        id: range
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          resolve_new_ref_range() {
+            local new_sha="$1"
+            local default_ref=""
+
+            if default_ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null)"; then
+              :
+            elif git rev-parse --verify --quiet refs/heads/main >/dev/null; then
+              default_ref="refs/heads/main"
+            elif git rev-parse --verify --quiet refs/remotes/origin/main >/dev/null; then
+              default_ref="refs/remotes/origin/main"
+            else
+              local empty_tree
+              empty_tree="$(git hash-object -t tree /dev/null)"
+              echo "$empty_tree..$new_sha"
+              return
+            fi
+
+            local merge_base
+            if merge_base="$(git merge-base "$default_ref" "$new_sha" 2>/dev/null)"; then
+              echo "$merge_base..$new_sha"
+            else
+              echo "$default_ref..$new_sha"
+            fi
+          }
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "range=${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          before_sha="${{ github.event.before }}"
+          if [ "$before_sha" = "0000000000000000000000000000000000000000" ]; then
+            echo "range=$(resolve_new_ref_range "${{ github.sha }}")" >> "$GITHUB_OUTPUT"
+          else
+            echo "range=$before_sha..${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Allow explicit vendor sync commits
+        id: allow
+        shell: bash
+        run: |
+          set -euo pipefail
+          range="${{ steps.range.outputs.range }}"
+          if git log --format=%s "$range" | grep -E '^chore\(vendor\): sync opencode' >/dev/null; then
+            echo "allow=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "allow=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enforce vendor guard
+        env:
+          ALLOW_VENDOR_SYNC: ${{ steps.allow.outputs.allow }}
+        run: bun run script/vendor-guard.ts --range "${{ steps.range.outputs.range }}"
+
+  check:
+    name: Check
+    if: ${{ always() }}
+    needs:
+      - static
+      - tests
+      - vendor_guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify required jobs
+        env:
+          STATIC_RESULT: ${{ needs.static.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+          VENDOR_GUARD_RESULT: ${{ needs.vendor_guard.result }}
+        run: |
+          if [ "$STATIC_RESULT" = "success" ] && [ "$TESTS_RESULT" = "success" ] && [ "$VENDOR_GUARD_RESULT" = "success" ]; then
+            exit 0
+          fi
+
+          echo "Static analysis: $STATIC_RESULT"
+          echo "Tests: $TESTS_RESULT"
+          echo "Vendor guard: $VENDOR_GUARD_RESULT"
+          exit 1

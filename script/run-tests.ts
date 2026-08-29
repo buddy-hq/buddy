@@ -54,13 +54,16 @@ function relativeTestPath(testFile: OwnedTestFile): string {
 
 function testFileCommand(testFile: OwnedTestFile): readonly string[] {
   const relativePath = relativeTestPath(testFile)
-  let command: readonly string[]
 
   if (testFile.owner.id === "backend") {
-    command = ["bun", "test", "--preload", "./test/preload.ts", relativePath]
-  } else if (testFile.owner.id === "web") {
-    command = ["bun", "./scripts/test-isolated.ts", relativePath]
-  } else if (
+    return [process.execPath, "./test/run-tests.ts", relativePath]
+  }
+  if (testFile.owner.id === "web") {
+    return [process.execPath, "./scripts/test-isolated.ts", relativePath]
+  }
+
+  let command: readonly string[]
+  if (
     testFile.owner.id === "desktop-electron" ||
     testFile.owner.id === "opencode-adapter" ||
     testFile.owner.id === "shared-script"
