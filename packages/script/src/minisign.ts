@@ -16,6 +16,7 @@ const SIGNATURE_DATA_OFFSET = 2 + KEY_ID_LENGTH_BYTES
 const HASHED_SIGNATURE_ALGORITHM = "ED"
 const RAW_SIGNATURE_ALGORITHM = "Ed"
 const BLAKE2B_OUTPUT_LENGTH_BYTES = 64
+const BASE64_TEXT_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/u
 
 type MinisignPublicKey = {
   cryptoKey: Awaited<ReturnType<typeof webcrypto.subtle.importKey>>
@@ -113,7 +114,7 @@ async function parsePublicKey(publicKeyText: string): Promise<MinisignPublicKey>
 }
 
 function parseSignatureFile(signatureFileText: string): ParsedSignatureFile {
-  const lines = signatureFileText.trim().split(/\r?\n/)
+  const lines = decodeSignatureFileText(signatureFileText).split(/\r?\n/)
   if (lines.length < 4) {
     throw new Error("Invalid minisign signature content")
   }
@@ -137,6 +138,17 @@ function parseSignatureFile(signatureFileText: string): ParsedSignatureFile {
     signature,
     globalSignature,
   }
+}
+
+function decodeSignatureFileText(signatureFileText: string): string {
+  const trimmed = signatureFileText.trim()
+  if (trimmed.includes("\n") || trimmed.includes("\r")) {
+    return trimmed
+  }
+  if (trimmed.length === 0 || trimmed.length % 4 !== 0 || !BASE64_TEXT_PATTERN.test(trimmed)) {
+    throw new Error("Invalid minisign signature content")
+  }
+  return Buffer.from(trimmed, BASE64_ENCODING).toString(UTF8_ENCODING).trim()
 }
 
 function parseSignature(signatureText: string): ParsedSignature {
