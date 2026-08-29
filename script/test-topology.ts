@@ -7,6 +7,7 @@ import { TEST_FILE_PATTERN } from "./test-runner-plan"
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dir, "..")
 const VENDOR_PATH_PREFIX = "vendor/"
+export const TEST_OWNERS_ENVIRONMENT_KEY = "BUDDY_TEST_OWNERS"
 const GIT_LIST_FILES_COMMAND = [
   "git",
   "ls-files",
@@ -67,6 +68,29 @@ export const TEST_OWNERS: readonly TestOwner[] = [
     workingDirectory: ".",
   },
 ]
+
+export function selectTestOwners(
+  owners: readonly TestOwner[],
+  configuredValue: string | undefined,
+): readonly TestOwner[] {
+  if (configuredValue === undefined || configuredValue.trim().length === 0) return owners
+
+  const requestedOwnerIds = configuredValue.split(",").map((ownerId) => ownerId.trim())
+  if (requestedOwnerIds.some((ownerId) => ownerId.length === 0)) {
+    throw new Error(`${TEST_OWNERS_ENVIRONMENT_KEY} contains an empty owner ID`)
+  }
+  const uniqueOwnerIds = new Set(requestedOwnerIds)
+  if (uniqueOwnerIds.size !== requestedOwnerIds.length) {
+    throw new Error(`${TEST_OWNERS_ENVIRONMENT_KEY} contains duplicate owner IDs`)
+  }
+
+  const availableOwnerIds = new Set(owners.map((owner) => owner.id))
+  const unknownOwnerIds = requestedOwnerIds.filter((ownerId) => !availableOwnerIds.has(ownerId))
+  if (unknownOwnerIds.length > 0) {
+    throw new Error(`Unknown ${TEST_OWNERS_ENVIRONMENT_KEY} owner IDs: ${unknownOwnerIds.join(", ")}`)
+  }
+  return owners.filter((owner) => uniqueOwnerIds.has(owner.id))
+}
 
 export type OwnedTestFile = {
   owner: TestOwner

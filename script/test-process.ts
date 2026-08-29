@@ -22,6 +22,12 @@ export type SupervisedTestProcessInput = {
   env?: NodeJS.ProcessEnv
 }
 
+export function testProcessFailed(
+  result: Pick<SupervisedTestProcessResult, "exitCode">,
+): boolean {
+  return result.exitCode !== 0
+}
+
 const SIGNAL_EXIT_CODES = {
   SIGHUP: 129,
   SIGINT: 130,

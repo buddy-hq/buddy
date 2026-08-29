@@ -1,9 +1,19 @@
 import { availableParallelism } from "node:os"
 
 export const TEST_CONCURRENCY_ENVIRONMENT_KEY = "BUDDY_TEST_CONCURRENCY"
+export const TEST_SHARD_COUNT_ENVIRONMENT_KEY = "BUDDY_TEST_SHARD_COUNT"
+export const TEST_SHARD_INDEX_ENVIRONMENT_KEY = "BUDDY_TEST_SHARD_INDEX"
 
 const DEFAULT_MAXIMUM_TEST_CONCURRENCY = 4
+const DEFAULT_TEST_SHARD_COUNT = 1
+const DEFAULT_TEST_SHARD_INDEX = 0
 const MINIMUM_TEST_CONCURRENCY = 1
+const MINIMUM_TEST_SHARD_COUNT = 1
+
+export type TestShard = {
+  readonly count: number
+  readonly index: number
+}
 
 export type ConcurrentRunOptions<TItem, TResult> = {
   readonly concurrency: number
@@ -31,6 +41,44 @@ export function testConcurrency(environment: Readonly<NodeJS.ProcessEnv> = proce
     )
   }
   return configuredConcurrency
+}
+
+export function testShard(environment: Readonly<NodeJS.ProcessEnv> = process.env): TestShard {
+  const configuredCount = environment[TEST_SHARD_COUNT_ENVIRONMENT_KEY]?.trim()
+  const configuredIndex = environment[TEST_SHARD_INDEX_ENVIRONMENT_KEY]?.trim()
+  if (configuredCount === undefined && configuredIndex === undefined) {
+    return { count: DEFAULT_TEST_SHARD_COUNT, index: DEFAULT_TEST_SHARD_INDEX }
+  }
+  if (!configuredCount || !configuredIndex) {
+    throw new Error(
+      `${TEST_SHARD_COUNT_ENVIRONMENT_KEY} and ${TEST_SHARD_INDEX_ENVIRONMENT_KEY} must be configured together`,
+    )
+  }
+
+  const count = Number(configuredCount)
+  const index = Number(configuredIndex)
+  if (!Number.isSafeInteger(count) || count < MINIMUM_TEST_SHARD_COUNT) {
+    throw new Error(
+      `${TEST_SHARD_COUNT_ENVIRONMENT_KEY} must be a positive integer; received ${configuredCount}`,
+    )
+  }
+  if (!Number.isSafeInteger(index) || index < DEFAULT_TEST_SHARD_INDEX || index >= count) {
+    throw new Error(
+      `${TEST_SHARD_INDEX_ENVIRONMENT_KEY} must be an integer from 0 through ${count - 1}; received ${configuredIndex}`,
+    )
+  }
+  return { count, index }
+}
+
+export function selectTestShardItems<TItem>(
+  items: readonly TItem[],
+  shard: TestShard,
+): readonly TItem[] {
+  const selected = items.filter((_item, index) => index % shard.count === shard.index)
+  if (selected.length === 0) {
+    throw new Error(`Test shard ${shard.index + 1} of ${shard.count} received no work`)
+  }
+  return selected
 }
 
 export async function runWithConcurrency<TItem, TResult>(

@@ -86,9 +86,37 @@ describe("CI workflow", () => {
     expect(triggers).toHaveProperty("pull_request")
     expect(arrayValue(push.branches, "CI push branches")).toEqual(["main"])
     expect(permissions.contents).toBe("read")
-    expect(environment.BUDDY_TEST_CONCURRENCY).toBe("4")
+    expect(environment.BUDDY_TEST_CONCURRENCY).toBeUndefined()
     expect(actionReferences.some((reference) => reference.startsWith("actions/cache@"))).toBe(false)
     expect(await Bun.file(path.join(WORKFLOW_DIRECTORY, "vendor-guard.yml")).exists()).toBe(false)
+  })
+
+  test("shards backend and web tests across dedicated runners with matrix fail-fast", async () => {
+    const document = await ciWorkflow()
+    const testsJob = workflowJob(workflowJobs(document), "tests")
+    const strategy = objectValue(testsJob.strategy, "tests strategy")
+    const matrix = objectValue(strategy.matrix, "tests matrix")
+    const jobEnvironment = objectValue(testsJob.env, "tests environment")
+    const shards = arrayValue(matrix.include, "tests matrix includes").map((entry, index) =>
+      objectValue(entry, `tests matrix entry ${index}`),
+    )
+
+    expect(strategy["fail-fast"]).toBe(true)
+    expect(shards.map((shard) => shard.name)).toEqual([
+      "backend 1/2",
+      "backend 2/2",
+      "web 1/2",
+      "web 2/2",
+      "remaining",
+    ])
+    expect(shards.filter((shard) => shard.owners === "backend")).toHaveLength(2)
+    expect(shards.filter((shard) => shard.owners === "web")).toHaveLength(2)
+    expect(shards.filter((shard) => shard.install_ripgrep === true)).toHaveLength(2)
+    expect(shards.filter((shard) => shard.prepare_generated === true)).toHaveLength(2)
+    expect(jobEnvironment.BUDDY_TEST_CONCURRENCY).toBe("${{ matrix.test_concurrency }}")
+    expect(jobEnvironment.BUDDY_TEST_OWNERS).toBe("${{ matrix.owners }}")
+    expect(jobEnvironment.BUDDY_TEST_SHARD_COUNT).toBe("${{ matrix.shard_count }}")
+    expect(jobEnvironment.BUDDY_TEST_SHARD_INDEX).toBe("${{ matrix.shard_index }}")
   })
 
   test("prepares generated OpenAPI SDK and web route tree once before isolated test processes", async () => {

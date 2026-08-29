@@ -10,14 +10,23 @@ import {
   type TestRunnerPlanEntry,
 } from "../../../script/test-runner-plan"
 import { runSandboxedTestProcess } from "../../../script/sandboxed-test-process"
-import { runWithConcurrency, testConcurrency } from "../../../script/test-concurrency"
-import type { SupervisedTestProcessResult } from "../../../script/test-process"
+import {
+  runWithConcurrency,
+  selectTestShardItems,
+  testConcurrency,
+  testShard,
+} from "../../../script/test-concurrency"
+import {
+  testProcessFailed,
+  type SupervisedTestProcessResult,
+} from "../../../script/test-process"
 
 const PACKAGE_ROOT = path.resolve(import.meta.dir, "..")
 const TEST_ROOT = path.join(PACKAGE_ROOT, "test")
 const MILLISECONDS_PER_SECOND = 1_000
 const BUN_EXECUTABLE = process.execPath
 const TEST_CONCURRENCY = testConcurrency()
+const TEST_SHARD = testShard()
 
 type TestRunResult = SupervisedTestProcessResult & {
   readonly durationMilliseconds: number
@@ -67,13 +76,14 @@ async function runTestEntry(
 }
 
 const discoveredFiles = await discoverTestFiles()
-const plan = createTestRunnerPlan({
+const completePlan = createTestRunnerPlan({
   discoveredFiles,
   groups: BACKEND_TEST_GROUPS,
   requestedFiles: Bun.argv
     .slice(2)
     .map((file) => normalizeRequestedPackageTestPath(PACKAGE_ROOT, file)),
 })
+const plan = selectTestShardItems(completePlan, TEST_SHARD)
 
 const startedAt = performance.now()
 const totalFileCount = plan.reduce((count, entry) => count + entry.files.length, 0)
@@ -87,24 +97,24 @@ const results = await runWithConcurrency({
     )
     return runTestEntry(entry, abortSignal)
   },
-  shouldStop: (result) => result.signal !== undefined,
+  shouldStop: testProcessFailed,
 })
 
 for (const result of results) {
-  if (result.exitCode !== 0) failedEntries.push(result.entry)
+  if (testProcessFailed(result) && result.signal === undefined) failedEntries.push(result.entry)
 }
 const interruptedResult = results.find((result) => result.signal !== undefined)
 
 console.log(
-  `[test:backend] ${totalFileCount} files, ${results.length}/${plan.length} processes completed with concurrency ${TEST_CONCURRENCY} in ${formatDuration(performance.now() - startedAt)}`,
+  `[test:backend] shard ${TEST_SHARD.index + 1}/${TEST_SHARD.count}: ${totalFileCount} files, ${results.length}/${plan.length} processes completed with concurrency ${TEST_CONCURRENCY} in ${formatDuration(performance.now() - startedAt)}`,
 )
-if (interruptedResult !== undefined) {
-  process.exitCode = interruptedResult.exitCode
-} else if (failedEntries.length > 0) {
+if (failedEntries.length > 0) {
   console.error(
     `Failed backend test groups/files:\n${failedEntries
       .map((entry) => `${entry.id}: ${entry.files.join(", ")}`)
       .join("\n")}`,
   )
   process.exitCode = 1
+} else if (interruptedResult !== undefined) {
+  process.exitCode = interruptedResult.exitCode
 }

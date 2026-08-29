@@ -1,8 +1,19 @@
 #!/usr/bin/env bun
 
 import path from "node:path"
-import { TEST_OWNERS, type OwnedTestFile, verifyTestTopology } from "./test-topology"
-import { runSupervisedTestProcess, type TestProcessSignal } from "./test-process"
+import {
+  selectTestOwners,
+  TEST_OWNERS,
+  TEST_OWNERS_ENVIRONMENT_KEY,
+  type OwnedTestFile,
+  type TestOwner,
+  verifyTestTopology,
+} from "./test-topology"
+import {
+  runSupervisedTestProcess,
+  testProcessFailed,
+  type TestProcessSignal,
+} from "./test-process"
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dir, "..")
 const TEST_COMMAND_RUNNER = path.join(REPOSITORY_ROOT, "script", "run-test-command.ts")
@@ -40,8 +51,8 @@ async function runTest(run: TestRun): Promise<TestRunResult> {
   return { durationMilliseconds, exitCode: result.exitCode, id: run.id, signal: result.signal }
 }
 
-function packageRuns(): readonly TestRun[] {
-  return TEST_OWNERS.map((owner) => ({
+function packageRuns(owners: readonly TestOwner[]): readonly TestRun[] {
+  return owners.map((owner) => ({
     id: owner.id,
     command: owner.runCommand,
     workingDirectory: owner.workingDirectory,
@@ -105,13 +116,23 @@ function hasPerFileFlag(args: readonly string[]): boolean {
 async function runAllTests(): Promise<void> {
   const startedAt = performance.now()
   const testFiles = await verifyTestTopology()
-  const runs = hasPerFileFlag(Bun.argv.slice(2)) ? fileRuns(testFiles) : packageRuns()
+  const selectedOwners = selectTestOwners(
+    TEST_OWNERS,
+    process.env[TEST_OWNERS_ENVIRONMENT_KEY],
+  )
+  const selectedOwnerIds = new Set(selectedOwners.map((owner) => owner.id))
+  const selectedTestFiles = testFiles.filter((testFile) =>
+    selectedOwnerIds.has(testFile.owner.id),
+  )
+  const runs = hasPerFileFlag(Bun.argv.slice(2))
+    ? fileRuns(selectedTestFiles)
+    : packageRuns(selectedOwners)
   const results: TestRunResult[] = []
 
   for (const run of runs) {
     const result = await runTest(run)
     results.push(result)
-    if (result.signal !== undefined) break
+    if (testProcessFailed(result)) break
   }
 
   const totalDurationMilliseconds = performance.now() - startedAt

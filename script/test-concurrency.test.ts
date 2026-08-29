@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import {
   runWithConcurrency,
+  selectTestShardItems,
   TEST_CONCURRENCY_ENVIRONMENT_KEY,
+  TEST_SHARD_COUNT_ENVIRONMENT_KEY,
+  TEST_SHARD_INDEX_ENVIRONMENT_KEY,
   testConcurrency,
+  testShard,
 } from "./test-concurrency"
 
 type Deferred = {
@@ -115,6 +119,39 @@ describe("test concurrency", () => {
     )
     expect(() => testConcurrency({ [TEST_CONCURRENCY_ENVIRONMENT_KEY]: "many" })).toThrow(
       "must be a positive integer",
+    )
+  })
+
+  test("partitions deterministic test plans across configured shards", () => {
+    const items = ["a", "b", "c", "d", "e"]
+    const firstShard = testShard({
+      [TEST_SHARD_COUNT_ENVIRONMENT_KEY]: "2",
+      [TEST_SHARD_INDEX_ENVIRONMENT_KEY]: "0",
+    })
+    const secondShard = testShard({
+      [TEST_SHARD_COUNT_ENVIRONMENT_KEY]: "2",
+      [TEST_SHARD_INDEX_ENVIRONMENT_KEY]: "1",
+    })
+
+    expect(selectTestShardItems(items, firstShard)).toEqual(["a", "c", "e"])
+    expect(selectTestShardItems(items, secondShard)).toEqual(["b", "d"])
+  })
+
+  test("validates complete and nonempty test shard configuration", () => {
+    expect(testShard({})).toEqual({ count: 1, index: 0 })
+    expect(() =>
+      testShard({
+        [TEST_SHARD_COUNT_ENVIRONMENT_KEY]: "2",
+      }),
+    ).toThrow("must be configured together")
+    expect(() =>
+      testShard({
+        [TEST_SHARD_COUNT_ENVIRONMENT_KEY]: "2",
+        [TEST_SHARD_INDEX_ENVIRONMENT_KEY]: "2",
+      }),
+    ).toThrow("must be an integer from 0 through 1")
+    expect(() => selectTestShardItems(["only"], { count: 2, index: 1 })).toThrow(
+      "received no work",
     )
   })
 })
