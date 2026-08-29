@@ -13,6 +13,7 @@ import {
   selectTestShardItems,
   testConcurrency,
   testShard,
+  testShardForExplicitSelection,
 } from "../../../script/test-concurrency"
 import {
   testProcessFailed,
@@ -75,14 +76,16 @@ async function runTestEntry(
 }
 
 const discoveredFiles = await discoverTestFiles()
+const requestedFiles = process.argv
+  .slice(2)
+  .map((file) => normalizeRequestedPackageTestPath(PACKAGE_ROOT, file))
 const completePlan = createTestRunnerPlan({
   discoveredFiles,
   groups: WEB_TEST_GROUPS,
-  requestedFiles: process.argv
-    .slice(2)
-    .map((file) => normalizeRequestedPackageTestPath(PACKAGE_ROOT, file)),
+  requestedFiles,
 })
-const plan = selectTestShardItems(completePlan, TEST_SHARD)
+const effectiveTestShard = testShardForExplicitSelection(TEST_SHARD, requestedFiles.length > 0)
+const plan = selectTestShardItems(completePlan, effectiveTestShard)
 
 const startedAt = performance.now()
 const totalFileCount = plan.reduce((count, entry) => count + entry.files.length, 0)
@@ -104,7 +107,7 @@ for (const result of results) {
 }
 const interruptedResult = results.find((result) => result.signal !== undefined)
 console.log(
-  `[test:web] shard ${TEST_SHARD.index + 1}/${TEST_SHARD.count}: ${totalFileCount} files, ${results.length}/${plan.length} processes completed with concurrency ${TEST_CONCURRENCY} in ${formatDuration(performance.now() - startedAt)}`,
+  `[test:web] shard ${effectiveTestShard.index + 1}/${effectiveTestShard.count}: ${totalFileCount} files, ${results.length}/${plan.length} processes completed with concurrency ${TEST_CONCURRENCY} in ${formatDuration(performance.now() - startedAt)}`,
 )
 
 if (failedEntries.length > 0) {

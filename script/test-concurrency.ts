@@ -81,6 +81,14 @@ export function selectTestShardItems<TItem>(
   return selected
 }
 
+export function testShardForExplicitSelection(
+  configuredShard: TestShard,
+  hasExplicitSelection: boolean,
+): TestShard {
+  if (!hasExplicitSelection) return configuredShard
+  return { count: DEFAULT_TEST_SHARD_COUNT, index: DEFAULT_TEST_SHARD_INDEX }
+}
+
 export async function runWithConcurrency<TItem, TResult>(
   options: ConcurrentRunOptions<TItem, TResult>,
 ): Promise<readonly TResult[]> {

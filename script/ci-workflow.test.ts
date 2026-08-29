@@ -27,6 +27,13 @@ function arrayValue(value: unknown, label: string): unknown[] {
   return value
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This helper is the strict narrowing boundary for parsed YAML values.
+function stringValue(value: unknown, label: string): string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Runtime narrowing is required for the parsed YAML boundary.
+  if (typeof value !== "string") throw new Error(`Expected ${label} to be a string`)
+  return value
+}
+
 async function ciWorkflow(): Promise<JsonObject> {
   const source = await Bun.file(path.join(WORKFLOW_DIRECTORY, "ci.yml")).text()
   return objectValue(Bun.YAML.parse(source), "CI workflow")
@@ -44,6 +51,12 @@ function workflowSteps(job: JsonObject): JsonObject[] {
   return arrayValue(job.steps, "CI workflow job steps").map((step, index) =>
     objectValue(step, `CI workflow step ${index}`),
   )
+}
+
+function workflowStep(job: JsonObject, name: string): JsonObject {
+  const step = workflowSteps(job).find((candidate) => candidate.name === name)
+  if (step === undefined) throw new Error(`Expected CI workflow step ${name}`)
+  return step
 }
 
 describe("CI workflow", () => {
@@ -89,6 +102,18 @@ describe("CI workflow", () => {
     expect(environment.BUDDY_TEST_CONCURRENCY).toBeUndefined()
     expect(actionReferences.some((reference) => reference.startsWith("actions/cache@"))).toBe(false)
     expect(await Bun.file(path.join(WORKFLOW_DIRECTORY, "vendor-guard.yml")).exists()).toBe(false)
+  })
+
+  test("checks the pull request merge-base and never trusts a vendor-sync commit subject", async () => {
+    const vendorGuardJob = workflowJob(workflowJobs(await ciWorkflow()), "vendor_guard")
+    const rangeStep = workflowStep(vendorGuardJob, "Resolve diff range")
+    const enforceStep = workflowStep(vendorGuardJob, "Enforce vendor guard")
+    const rangeScript = stringValue(rangeStep.run, "vendor range script")
+
+    expect(rangeScript).toContain('merge_base="$(git merge-base "$base_sha" "$head_sha")"')
+    expect(rangeScript).toContain('echo "range=$merge_base..$head_sha"')
+    expect(workflowSteps(vendorGuardJob).some((step) => step.name === "Allow explicit vendor sync commits")).toBe(false)
+    expect(enforceStep.env).toBeUndefined()
   })
 
   test("shards backend and web tests across dedicated runners with matrix fail-fast", async () => {

@@ -234,13 +234,6 @@ function main(): void {
 
   if (vendorPaths.length === 0) process.exit(0)
 
-  if (process.env.ALLOW_VENDOR_SYNC === "1") {
-    console.log(
-      `vendor-guard: allowing ${vendorPaths.length} vendor path change(s) because ALLOW_VENDOR_SYNC=1`,
-    )
-    process.exit(0)
-  }
-
   printFailure(vendorPaths, mode)
   process.exit(1)
 }

@@ -7,6 +7,7 @@ import {
   TEST_SHARD_INDEX_ENVIRONMENT_KEY,
   testConcurrency,
   testShard,
+  testShardForExplicitSelection,
 } from "./test-concurrency"
 
 type Deferred = {
@@ -153,5 +154,12 @@ describe("test concurrency", () => {
     expect(() => selectTestShardItems(["only"], { count: 2, index: 1 })).toThrow(
       "received no work",
     )
+  })
+
+  test("disables sharding for an explicit file selection", () => {
+    const configuredShard = { count: 2, index: 1 }
+
+    expect(testShardForExplicitSelection(configuredShard, false)).toBe(configuredShard)
+    expect(testShardForExplicitSelection(configuredShard, true)).toEqual({ count: 1, index: 0 })
   })
 })
