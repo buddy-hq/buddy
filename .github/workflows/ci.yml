@@ -90,7 +90,7 @@ jobs:
             shard_count: 1
             shard_index: 0
             test_concurrency: 2
-            install_ripgrep: false
+            install_ripgrep: true
             prepare_generated: false
     env:
       BUDDY_TEST_CONCURRENCY: ${{ matrix.test_concurrency }}
