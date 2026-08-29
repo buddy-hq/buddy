@@ -25,6 +25,11 @@ export function resolveSourceGithubToken(environment: NodeJS.ProcessEnv): string
   )
 }
 
+export function sourceGithubEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const sourceToken = resolveSourceGithubToken(environment)
+  return sourceToken ? { ...environment, GH_TOKEN: sourceToken } : { ...environment }
+}
+
 export function assertGithubSourceTagReference(input: {
   reference: GithubSourceTag | undefined
   repository: string
@@ -47,11 +52,8 @@ export async function resolveGithubSourceTag(input: {
   repository: string
   tag: string
 }): Promise<GithubSourceTag | undefined> {
-  const sourceToken = resolveSourceGithubToken(process.env)
-  const environment = { ...process.env }
-  if (sourceToken) environment.GH_TOKEN = sourceToken
   const result = await $`gh api ${`repos/${input.repository}/git/ref/tags/${input.tag}`}`
-    .env(environment)
+    .env(sourceGithubEnvironment(process.env))
     .quiet()
     .nothrow()
   if (result.exitCode !== 0) return undefined
@@ -72,6 +74,7 @@ export async function ensureGithubSourceTag(input: {
 
   const created =
     await $`gh api --method POST ${`repos/${input.repository}/git/refs`} -f ${`ref=refs/tags/${input.tag}`} -f ${`sha=${input.target}`}`
+      .env(sourceGithubEnvironment(process.env))
       .quiet()
       .nothrow()
   if (created.exitCode === 0) {

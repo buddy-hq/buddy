@@ -21,6 +21,7 @@ import {
 } from "./checkpoint"
 import { RELEASE_FREEZE_FILENAME } from "./constants"
 import { verifyReleaseFreeze, type ReleaseFreeze } from "./freeze"
+import { appendGithubOutputs } from "./github-output"
 import {
   hashAdvancedMathInputs,
   parseReleasePlan,
@@ -70,13 +71,11 @@ function selectedTargets(environment: NodeJS.ProcessEnv): ReleaseCheckpointTarge
 function writeReuseOutputs(
   reusedTargets: readonly ReleaseCheckpointTarget[],
   environment: NodeJS.ProcessEnv,
-): Promise<number> {
-  const outputPath = environment.GITHUB_OUTPUT?.trim()
-  if (!outputPath) return Promise.resolve(0)
-  return Bun.write(
-    outputPath,
-    `${REUSED_ARM64_OUTPUT}=${String(reusedTargets.includes("advanced-math-macos-arm64"))}\n${REUSED_X64_OUTPUT}=${String(reusedTargets.includes("advanced-math-macos-x64"))}\n`,
-  )
+): Promise<void> {
+  return appendGithubOutputs(environment, [
+    `${REUSED_ARM64_OUTPUT}=${String(reusedTargets.includes("advanced-math-macos-arm64"))}`,
+    `${REUSED_X64_OUTPUT}=${String(reusedTargets.includes("advanced-math-macos-x64"))}`,
+  ])
 }
 
 async function previousPublishedReleaseTags(
@@ -289,15 +288,16 @@ async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void>
     console.log("No compatible frozen published release can provide advanced math runtimes")
     return
   }
+  const releaseToReuse = reusableRelease
   const reused = await Promise.all(
     targets.map((target) =>
       tryReuseTarget({
         dryRun,
         environment,
-        previousAssets: reusableRelease.assets,
-        previousFreeze: reusableRelease.freeze,
-        previousPlan: reusableRelease.plan,
-        previousTag: reusableRelease.tag,
+        previousAssets: releaseToReuse.assets,
+        previousFreeze: releaseToReuse.freeze,
+        previousPlan: releaseToReuse.plan,
+        previousTag: releaseToReuse.tag,
         repository,
         target,
         temporaryDirectory,

@@ -11,6 +11,8 @@ import {
   sha256File,
   uploadReleaseAssetSafely,
 } from "./assets"
+import { appendGithubOutputs } from "./github-output"
+import { normalizeReleaseSourceSha } from "./preflight"
 
 export const RELEASE_PLAN_FILENAME = "buddy-release-plan.json"
 const RELEASE_PLAN_SCHEMA_VERSION = 1
@@ -135,7 +137,9 @@ async function sourceReleaseDate(sourceSha: string): Promise<string> {
 
 async function expectedPlanIdentity(environment: NodeJS.ProcessEnv): Promise<ReleasePlanIdentity> {
   const version = requiredEnvironmentValue(environment, "BUDDY_VERSION")
-  const sourceSha = requiredEnvironmentValue(environment, "BUDDY_RELEASE_SOURCE_SHA").toLowerCase()
+  const sourceSha = normalizeReleaseSourceSha(
+    requiredEnvironmentValue(environment, "BUDDY_RELEASE_SOURCE_SHA"),
+  )
   const identity = {
     advancedMathInputSha256: await hashAdvancedMathInputs(),
     advancedMathVersion: resolveAdvancedMathRuntimeVersion(),
@@ -182,14 +186,10 @@ function planForCurrentRun(
 }
 
 async function writeOutputs(plan: ReleasePlan, environment: NodeJS.ProcessEnv): Promise<void> {
-  const outputPath = environment.GITHUB_OUTPUT?.trim()
-  if (!outputPath) return
-  await Bun.write(
-    outputPath,
-    `${[`plan_digest=${releasePlanDigest(plan)}`, `release_date=${plan.releaseDate}`].join(
-      "\n",
-    )}\n`,
-  )
+  await appendGithubOutputs(environment, [
+    `plan_digest=${releasePlanDigest(plan)}`,
+    `release_date=${plan.releaseDate}`,
+  ])
 }
 
 async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void> {

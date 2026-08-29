@@ -13,6 +13,7 @@ import {
   type ReleaseAssetDigest,
 } from "./assets"
 import { RELEASE_FREEZE_FILENAME } from "./constants"
+import { appendGithubOutputs } from "./github-output"
 
 export { RELEASE_FREEZE_FILENAME } from "./constants"
 const RELEASE_FREEZE_SCHEMA_VERSION = 1
@@ -59,7 +60,9 @@ export function renderReleaseFreeze(freeze: ReleaseFreeze): string {
   return `${JSON.stringify(parseReleaseFreeze(freeze), null, 2)}\n`
 }
 
-function freezeIdentity(environment: NodeJS.ProcessEnv): Omit<ReleaseFreeze, "assets"> {
+export function releaseFreezeIdentity(
+  environment: NodeJS.ProcessEnv,
+): Omit<ReleaseFreeze, "assets"> {
   return {
     planDigest: requiredEnvironmentValue(environment, "BUDDY_RELEASE_PLAN_DIGEST"),
     schemaVersion: RELEASE_FREEZE_SCHEMA_VERSION,
@@ -67,6 +70,22 @@ function freezeIdentity(environment: NodeJS.ProcessEnv): Omit<ReleaseFreeze, "as
     sourceSha: requiredEnvironmentValue(environment, "BUDDY_RELEASE_SOURCE_SHA").toLowerCase(),
     tag: requiredEnvironmentValue(environment, "BUDDY_RELEASE_TAG"),
     version: requiredEnvironmentValue(environment, "BUDDY_VERSION"),
+  }
+}
+
+export function assertReleaseFreezeIdentity(
+  actual: Omit<ReleaseFreeze, "assets">,
+  expected: Omit<ReleaseFreeze, "assets">,
+): void {
+  if (
+    actual.planDigest !== expected.planDigest ||
+    actual.schemaVersion !== expected.schemaVersion ||
+    actual.sourceRepository !== expected.sourceRepository ||
+    actual.sourceSha !== expected.sourceSha ||
+    actual.tag !== expected.tag ||
+    actual.version !== expected.version
+  ) {
+    throw new Error("Release freeze identity does not match the release plan")
   }
 }
 
@@ -112,9 +131,7 @@ export async function verifyReleaseFreeze(input: {
       tag: freeze.tag,
       version: freeze.version,
     }
-    if (JSON.stringify(actualIdentity) !== JSON.stringify(input.expectedIdentity)) {
-      throw new Error("Release freeze identity does not match the release plan")
-    }
+    assertReleaseFreezeIdentity(actualIdentity, input.expectedIdentity)
   }
 
   assertAssetDigestSet({
@@ -126,7 +143,7 @@ export async function verifyReleaseFreeze(input: {
 }
 
 async function recordReleaseFreeze(environment: NodeJS.ProcessEnv): Promise<void> {
-  const identity = freezeIdentity(environment)
+  const identity = releaseFreezeIdentity(environment)
   const repository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_REPO")
   const directory = requiredEnvironmentValue(environment, "RUNNER_TEMP")
   const existingAssets = await readGithubReleaseAssets(repository, identity.tag)
@@ -169,7 +186,7 @@ async function recordReleaseFreeze(environment: NodeJS.ProcessEnv): Promise<void
 }
 
 async function inspectReleaseFreeze(environment: NodeJS.ProcessEnv): Promise<void> {
-  const identity = freezeIdentity(environment)
+  const identity = releaseFreezeIdentity(environment)
   const repository = requiredEnvironmentValue(environment, "BUDDY_RELEASE_REPO")
   const directory = requiredEnvironmentValue(environment, "RUNNER_TEMP")
   const assets = await readGithubReleaseAssets(repository, identity.tag)
@@ -182,8 +199,7 @@ async function inspectReleaseFreeze(environment: NodeJS.ProcessEnv): Promise<voi
       tag: identity.tag,
     })
   }
-  const outputPath = environment.GITHUB_OUTPUT?.trim()
-  if (outputPath) await Bun.write(outputPath, `frozen=${String(frozen)}`)
+  await appendGithubOutputs(environment, [`frozen=${String(frozen)}`])
   console.log(`${identity.tag} is ${frozen ? "frozen and verified" : "not frozen"}`)
 }
 

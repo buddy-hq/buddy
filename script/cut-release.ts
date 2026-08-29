@@ -49,6 +49,12 @@ const WorkflowRunSchema = z.object({
   url: z.string(),
 })
 
+export type WorkflowRun = z.infer<typeof WorkflowRunSchema>
+export type WorkflowRunSelection = {
+  exact: string | undefined
+  fallback: string | undefined
+}
+
 type ReleaseTargets = {
   macosArm64: boolean
   macosX64: boolean
@@ -594,7 +600,24 @@ function runRequiredGates() {
   }
 }
 
+export function selectWorkflowRunUrls(
+  runs: readonly WorkflowRun[],
+  version: string,
+): WorkflowRunSelection {
+  const exact = runs.find(
+    (run) =>
+      run.event === "workflow_dispatch" &&
+      run.headBranch === RELEASE_BRANCH &&
+      run.displayTitle === `preview candidate v${version}`,
+  )
+  const fallback = runs.find(
+    (run) => run.event === "workflow_dispatch" && run.headBranch === RELEASE_BRANCH,
+  )
+  return { exact: exact?.url, fallback: fallback?.url }
+}
+
 async function waitForRunUrl(version: string) {
+  let fallbackUrl: string | undefined
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const payload =
       await $`gh run list --repo ${sourceRepository()} --workflow ${RELEASE_WORKFLOW_FILENAME} --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
@@ -602,27 +625,13 @@ async function waitForRunUrl(version: string) {
         .json()
     const runs = z.array(WorkflowRunSchema).parse(payload)
 
-    const exact = runs.find(
-      (run) =>
-        run.event === "workflow_dispatch" &&
-        run.headBranch === RELEASE_BRANCH &&
-        run.displayTitle === `preview candidate v${version}`,
-    )
-    if (exact) {
-      return exact.url
-    }
-
-    const fallback = runs.find(
-      (run) => run.event === "workflow_dispatch" && run.headBranch === RELEASE_BRANCH,
-    )
-    if (fallback) {
-      return fallback.url
-    }
-
-    await Bun.sleep(2_000)
+    const selected = selectWorkflowRunUrls(runs, version)
+    if (selected.exact) return selected.exact
+    fallbackUrl = selected.fallback ?? fallbackUrl
+    if (attempt < 9) await Bun.sleep(2_000)
   }
 
-  return undefined
+  return fallbackUrl
 }
 
 async function dispatchRelease(version: string, targetSha: string, targets: ReleaseTargets) {

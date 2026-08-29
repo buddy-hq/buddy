@@ -10,7 +10,7 @@ const SHA256_DIGEST_PREFIX = "sha256:"
 const ASSET_DIGEST_ATTEMPTS = 5
 const ASSET_DIGEST_RETRY_DELAY_MS = 2_000
 const githubAssetDigestSchema = z.preprocess(
-  (value) => (value === "" ? null : value),
+  (value) => (value === "" || value === undefined ? null : value),
   z.string().startsWith(SHA256_DIGEST_PREFIX).nullable(),
 )
 
@@ -56,7 +56,9 @@ export function normalizeSha256Digest(value: string): string {
 export function parseGithubReleaseAssets<TValue>(value: TValue): GithubReleaseAsset[] {
   const parsed = z.object({ assets: z.array(githubReleaseAssetSchema) }).safeParse(value)
   if (!parsed.success) {
-    throw new Error("GitHub release response did not contain valid asset metadata")
+    throw new Error(
+      `GitHub release response did not contain valid asset metadata: ${JSON.stringify(z.treeifyError(parsed.error))}`,
+    )
   }
   return parsed.data.assets.toSorted((left, right) => left.name.localeCompare(right.name))
 }
@@ -77,7 +79,11 @@ export async function readGithubReleaseState(
       .quiet()
       .json()
   const parsed = githubReleaseStateSchema.safeParse(value)
-  if (!parsed.success) throw new Error("GitHub release response was invalid")
+  if (!parsed.success) {
+    throw new Error(
+      `GitHub release response was invalid: ${JSON.stringify(z.treeifyError(parsed.error))}`,
+    )
+  }
   return {
     ...parsed.data,
     assets: parsed.data.assets.toSorted((left, right) => left.name.localeCompare(right.name)),
@@ -230,23 +236,27 @@ export function assertAssetDigestSet(input: {
   }
 }
 
-function parseUploadArgs(): ReleaseAssetUploadArguments {
+export function parseUploadArgs(
+  args: readonly string[] = process.argv.slice(3),
+): ReleaseAssetUploadArguments {
   let repository = ""
   let tag = ""
   const files: string[] = []
-  for (let index = 3; index < process.argv.length; index += 1) {
-    const argument = process.argv[index]
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index]
     if (argument === "--repo") {
-      repository = process.argv[index + 1]?.trim() ?? ""
+      repository = args[index + 1]?.trim() ?? ""
       index += 1
       continue
     }
     if (argument === "--tag") {
-      tag = process.argv[index + 1]?.trim() ?? ""
+      tag = args[index + 1]?.trim() ?? ""
       index += 1
       continue
     }
-    if (argument) files.push(argument)
+    if (!argument) continue
+    if (argument.startsWith("--")) throw new Error(`Unknown option: ${argument}`)
+    files.push(argument)
   }
   if (!repository || !tag || files.length === 0) {
     throw new Error(

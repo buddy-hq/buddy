@@ -169,6 +169,7 @@ jobs:
           BUDDY_RELEASE_RUNNER_MACOS_ARM64: ${{ env.RUNNER_MACOS_ARM64 }}
           BUDDY_RELEASE_RUNNER_MACOS_X64: ${{ env.RUNNER_MACOS_X64 }}
           BUDDY_RELEASE_RUNNER_WINDOWS_X64: ${{ env.RUNNER_WINDOWS_X64 }}
+          BUDDY_RELEASE_SOURCE_REPOSITORY: ${{ github.repository }}
           BUDDY_RELEASE_SOURCE_SHA: ${{ inputs.source_sha }}
           BUDDY_RELEASE_TAG: ${{ steps.version.outputs.tag }}
           BUDDY_RELEASE_TARGET_MACOS_ARM64: ${{ inputs.build_macos_arm64 }}
@@ -224,6 +225,7 @@ jobs:
           BUDDY_RELEASE_RUNNER_MACOS_ARM64: ${{ env.RUNNER_MACOS_ARM64 }}
           BUDDY_RELEASE_RUNNER_MACOS_X64: ${{ env.RUNNER_MACOS_X64 }}
           BUDDY_RELEASE_RUNNER_WINDOWS_X64: ${{ env.RUNNER_WINDOWS_X64 }}
+          BUDDY_RELEASE_SOURCE_REPOSITORY: ${{ github.repository }}
           BUDDY_RELEASE_SOURCE_SHA: ${{ inputs.source_sha }}
           BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
           BUDDY_RELEASE_TARGET_MACOS_ARM64: ${{ inputs.build_macos_arm64 }}
@@ -349,19 +351,23 @@ jobs:
           key: release-electron-v1-${{ runner.os }}-${{ runner.arch }}-electron-${{ steps.cache-versions.outputs.electron }}-builder-${{ steps.cache-versions.outputs.electron_builder }}
 
       - name: Install target dependencies
+        env:
+          TARGET_ARCHITECTURE: ${{ matrix.architecture }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
         shell: bash
         run: |
           args=(--frozen-lockfile)
-          if [[ "${{ matrix.platform }}" == "darwin" ]]; then
-            args+=(--os=darwin --cpu="${{ matrix.architecture }}")
+          if [[ "$TARGET_PLATFORM" == "darwin" ]]; then
+            args+=(--os=darwin --cpu="$TARGET_ARCHITECTURE")
           fi
           bun install "${args[@]}"
 
       - name: Build and smoke target
         env:
+          BUDDY_RELEASE_BUILD_TARGET: ${{ matrix.target }}
           BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
           NODE_OPTIONS: ${{ env.ELECTRON_BUILD_NODE_OPTIONS }}
-        run: bun ./packages/desktop-electron/scripts/build-release-target.ts --target ${{ matrix.target }}
+        run: bun ./packages/desktop-electron/scripts/build-release-target.ts --target "$BUDDY_RELEASE_BUILD_TARGET"
 
       - if: ${{ inputs.dry_run }}
         name: Validate target update manifest
@@ -391,7 +397,8 @@ jobs:
           BUDDY_RELEASE_SOURCE_SHA: ${{ inputs.source_sha }}
           BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
           BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
-        run: bun ./script/release/checkpoint.ts record ${{ matrix.checkpoint }}
+          RELEASE_CHECKPOINT_TARGET: ${{ matrix.checkpoint }}
+        run: bun ./script/release/checkpoint.ts record "$RELEASE_CHECKPOINT_TARGET"
 
   build-advanced-math:
     needs:
@@ -443,7 +450,8 @@ jobs:
           BUDDY_RELEASE_SOURCE_SHA: ${{ inputs.source_sha }}
           BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
           BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
-        run: bun ./script/release/checkpoint.ts record ${{ matrix.checkpoint }}
+          RELEASE_CHECKPOINT_TARGET: ${{ matrix.checkpoint }}
+        run: bun ./script/release/checkpoint.ts record "$RELEASE_CHECKPOINT_TARGET"
 
   build-standards:
     needs:
@@ -492,7 +500,10 @@ jobs:
       release_dry_run: ${{ inputs.dry_run }}
       release_source_repository: ${{ needs.preflight.outputs.source_repo }}
       release_source_sha: ${{ inputs.source_sha }}
-    secrets: inherit
+    secrets:
+      BUDDY_SKILL_SIGNING_PRIVATE_KEY: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY }}
+      BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD }}
+      BUDDY_SKILLS_REPOSITORY_TOKEN: ${{ secrets.BUDDY_SKILLS_REPOSITORY_TOKEN }}
 
   finalize-and-publish:
     needs:
@@ -554,14 +565,16 @@ jobs:
 
       - if: ${{ !inputs.dry_run && steps.freeze.outputs.frozen != 'true' }}
         name: Upload installer scripts
-        run: >
-          bun ./script/release/assets.ts upload
-          --repo "${{ needs.preflight.outputs.release_repo }}"
-          --tag "${{ needs.preflight.outputs.tag }}"
-          scripts/install-buddy-macos.sh
-          scripts/install-buddy-windows.ps1
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+        run: >
+          bun ./script/release/assets.ts upload
+          --repo "$RELEASE_REPO"
+          --tag "$RELEASE_TAG"
+          scripts/install-buddy-macos.sh
+          scripts/install-buddy-windows.ps1
 
       - if: ${{ !inputs.dry_run && steps.freeze.outputs.frozen != 'true' }}
         name: Finalize signed target update manifests
@@ -615,18 +628,26 @@ jobs:
       - if: ${{ !inputs.dry_run && steps.freeze.outputs.frozen != 'true' }}
         name: Deep-verify downloaded draft assets
         env:
+          MACOS_ARM64: ${{ needs.preflight.outputs.build_macos_arm64 }}
+          MACOS_X64: ${{ needs.preflight.outputs.build_macos_x64 }}
+          PLAN_DIGEST: ${{ needs.preflight.outputs.plan_digest }}
+          RELEASE_ASSET_DIR: ${{ runner.temp }}/electron-dist
+          RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          WINDOWS_X64: ${{ needs.preflight.outputs.build_windows_x64 }}
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
         run: >
           bun ./script/verify-release-assets.ts
           --draft
-          --asset-dir "${{ runner.temp }}/electron-dist"
-          --repo "${{ needs.preflight.outputs.release_repo }}"
-          --tag "${{ needs.preflight.outputs.tag }}"
-          --source-sha "${{ inputs.source_sha }}"
-          --plan-digest "${{ needs.preflight.outputs.plan_digest }}"
-          --macos-arm64 "${{ needs.preflight.outputs.build_macos_arm64 }}"
-          --macos-x64 "${{ needs.preflight.outputs.build_macos_x64 }}"
-          --windows-x64 "${{ needs.preflight.outputs.build_windows_x64 }}"
+          --asset-dir "$RELEASE_ASSET_DIR"
+          --repo "$RELEASE_REPO"
+          --tag "$RELEASE_TAG"
+          --source-sha "$SOURCE_SHA"
+          --plan-digest "$PLAN_DIGEST"
+          --macos-arm64 "$MACOS_ARM64"
+          --macos-x64 "$MACOS_X64"
+          --windows-x64 "$WINDOWS_X64"
 
       - if: ${{ !inputs.dry_run && steps.freeze.outputs.frozen != 'true' }}
         name: Freeze verified release bytes
@@ -665,13 +686,21 @@ jobs:
         env:
           BUDDY_SOURCE_GH_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          MACOS_ARM64: ${{ needs.preflight.outputs.build_macos_arm64 }}
+          MACOS_X64: ${{ needs.preflight.outputs.build_macos_x64 }}
+          PLAN_DIGEST: ${{ needs.preflight.outputs.plan_digest }}
+          RELEASE_ASSET_DIR: ${{ runner.temp }}/electron-dist
+          RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          WINDOWS_X64: ${{ needs.preflight.outputs.build_windows_x64 }}
         run: >
           bun ./script/verify-release-assets.ts
-          --asset-dir "${{ runner.temp }}/electron-dist"
-          --repo "${{ needs.preflight.outputs.release_repo }}"
-          --tag "${{ needs.preflight.outputs.tag }}"
-          --source-sha "${{ inputs.source_sha }}"
-          --plan-digest "${{ needs.preflight.outputs.plan_digest }}"
-          --macos-arm64 "${{ needs.preflight.outputs.build_macos_arm64 }}"
-          --macos-x64 "${{ needs.preflight.outputs.build_macos_x64 }}"
-          --windows-x64 "${{ needs.preflight.outputs.build_windows_x64 }}"
+          --asset-dir "$RELEASE_ASSET_DIR"
+          --repo "$RELEASE_REPO"
+          --tag "$RELEASE_TAG"
+          --source-sha "$SOURCE_SHA"
+          --plan-digest "$PLAN_DIGEST"
+          --macos-arm64 "$MACOS_ARM64"
+          --macos-x64 "$MACOS_X64"
+          --windows-x64 "$WINDOWS_X64"

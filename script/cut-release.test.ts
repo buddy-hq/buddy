@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { resolveReleaseExecution } from "./cut-release"
+import { resolveReleaseExecution, selectWorkflowRunUrls, type WorkflowRun } from "./cut-release"
 import { parseReleasePlan } from "./release/plan"
 
 const CURRENT_SOURCE_SHA = "1".repeat(40)
@@ -35,6 +35,32 @@ function plannedRelease() {
 }
 
 describe("cut release", () => {
+  test("prefers the exact dispatched release run over an older fallback", () => {
+    const run = (displayTitle: string, url: string): WorkflowRun => ({
+      createdAt: "2026-08-29T10:00:00Z",
+      displayTitle,
+      event: "workflow_dispatch",
+      headBranch: "main",
+      headSha: CURRENT_SOURCE_SHA,
+      url,
+    })
+    expect(
+      selectWorkflowRunUrls([run("preview candidate v1.2.2", "https://example.test/old")], "1.2.3"),
+    ).toEqual({ exact: undefined, fallback: "https://example.test/old" })
+    expect(
+      selectWorkflowRunUrls(
+        [
+          run("preview candidate v1.2.3", "https://example.test/exact"),
+          run("preview candidate v1.2.2", "https://example.test/old"),
+        ],
+        "1.2.3",
+      ),
+    ).toEqual({
+      exact: "https://example.test/exact",
+      fallback: "https://example.test/exact",
+    })
+  })
+
   test("resumes a planned draft from its pinned source and targets", () => {
     expect(
       resolveReleaseExecution({

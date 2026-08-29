@@ -24,6 +24,8 @@ import {
   sha256File,
   type GithubReleaseAsset,
 } from "./release/assets"
+
+const MAX_RELEASE_ARCHIVE_BUFFER_BYTES = 512 * 1024 * 1024
 import {
   assertCheckpointMatches,
   expectedCheckpointAssetNames,
@@ -399,7 +401,15 @@ async function verifyAdvancedMathChecksum(directory: string, archiveName: string
 }
 
 function commandText(command: string, args: string[]): string {
-  const result = spawnSync(command, args, { encoding: "utf8" })
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    maxBuffer: MAX_RELEASE_ARCHIVE_BUFFER_BYTES,
+  })
+  if (result.error) {
+    throw new Error(`${command} ${args.join(" ")} failed to start: ${result.error.message}`, {
+      cause: result.error,
+    })
+  }
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed: ${result.stderr.trim()}`)
   }
@@ -414,7 +424,12 @@ async function extractZipEntry(
   const entry = commandText("unzip", ["-Z1", archivePath]).split(/\r?\n/u).find(entryMatcher)
   if (!entry)
     throw new Error(`Could not locate required executable inside ${path.basename(archivePath)}`)
-  const result = spawnSync("unzip", ["-p", archivePath, entry])
+  const result = spawnSync("unzip", ["-p", archivePath, entry], {
+    maxBuffer: MAX_RELEASE_ARCHIVE_BUFFER_BYTES,
+  })
+  if (result.error) {
+    throw new Error(`Failed to extract ${entry}: ${result.error.message}`, { cause: result.error })
+  }
   if (result.status !== 0) throw new Error(`Failed to extract ${entry}`)
   await writeFile(outputPath, result.stdout)
 }

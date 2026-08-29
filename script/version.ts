@@ -7,6 +7,7 @@ import path from "node:path"
 import { Script } from "@buddy/script"
 import { buildNotes, getLatestRelease } from "./changelog.ts"
 import { releaseRepository, sourceRepository } from "./release-repositories"
+import { appendGithubOutputs } from "./release/github-output"
 
 const DRY_RUN_ENV_KEY = "BUDDY_RELEASE_DRY_RUN"
 const TRUE_ENV_VALUE = "1"
@@ -115,6 +116,4 @@ const output = [
   `source_repo=${sourceRepo}`,
 ]
 
-if (process.env.GITHUB_OUTPUT) {
-  await Bun.write(process.env.GITHUB_OUTPUT, output.join("\n"))
-}
+await appendGithubOutputs(process.env, output)

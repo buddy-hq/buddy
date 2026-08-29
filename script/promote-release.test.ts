@@ -5,6 +5,7 @@ import {
   latestReleaseTagFromCommandResult,
   normalizePromotionTag,
   parseGithubReleasePromotionState,
+  selectHighestStableReleaseTag,
 } from "./promote-release"
 
 describe("promote release", () => {
@@ -88,6 +89,17 @@ describe("promote release", () => {
     expect(() => assertPrereleasePromotionMovesForward("v1.2.2", "v1.2.3")).toThrow(
       "refusing to move latest backward",
     )
+  })
+
+  test("ignores non-release tags when selecting the highest stable version", () => {
+    expect(
+      selectHighestStableReleaseTag([
+        { tagName: "desktop-hotfix" },
+        { tagName: "v1.2.3" },
+        { tagName: "v2.0.0-preview.1" },
+        { tagName: "v1.10.0" },
+      ]),
+    ).toBe("v1.10.0")
   })
 
   test("never points latest at the candidate before repairing to the highest stable", async () => {

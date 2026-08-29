@@ -5,6 +5,7 @@ import path from "node:path"
 import {
   assertAssetDigestSet,
   parseGithubReleaseAssets,
+  parseUploadArgs,
   releaseAssetDigestNeedsSettlement,
   releaseAssetUploadDecision,
 } from "./assets"
@@ -17,6 +18,8 @@ import {
   releaseCheckpointIsReusable,
   type ReleaseCheckpoint,
 } from "./checkpoint"
+import { assertReleaseFreezeIdentity, releaseFreezeIdentity, type ReleaseFreeze } from "./freeze"
+import { appendGithubOutputs } from "./github-output"
 import {
   assertMatchingReleasePlanIdentity,
   hashAdvancedMathInputs,
@@ -293,6 +296,24 @@ describe("release protocol", () => {
     ).toBe(false)
   })
 
+  test("compares release freeze identity field by field", () => {
+    const identity = releaseFreezeIdentity({
+      BUDDY_RELEASE_PLAN_DIGEST: PLAN_DIGEST,
+      BUDDY_RELEASE_SOURCE_REPOSITORY: "buddy-hq/buddy",
+      BUDDY_RELEASE_SOURCE_SHA: SOURCE_SHA.toUpperCase(),
+      BUDDY_RELEASE_TAG: "v1.2.3",
+      BUDDY_VERSION: "1.2.3",
+    })
+    expect(identity.sourceSha).toBe(SOURCE_SHA)
+    expect(() => assertReleaseFreezeIdentity(identity, identity)).not.toThrow()
+    expect(() =>
+      assertReleaseFreezeIdentity(
+        { ...identity, planDigest: "3".repeat(64) } satisfies Omit<ReleaseFreeze, "assets">,
+        identity,
+      ),
+    ).toThrow("identity does not match")
+  })
+
   test("compares release asset sets by name, size, and digest", () => {
     const expected = [{ name: "Buddy.zip", sha256: "7".repeat(64), size: 100 }]
     expect(() =>
@@ -363,13 +384,31 @@ describe("release protocol", () => {
         assets: [
           {
             apiUrl: "https://api.github.com/repos/buddy/releases/assets/1",
-            digest: null,
             name: "legacy.zip",
             size: 100,
           },
         ],
       }),
     ).toHaveLength(1)
+  })
+
+  test("rejects unknown release asset upload options", () => {
+    expect(() =>
+      parseUploadArgs(["--repo", "buddy/releases", "--rep", "v1.2.3", "Buddy.zip"]),
+    ).toThrow("Unknown option: --rep")
+  })
+
+  test("appends step outputs without replacing earlier entries", async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "buddy-github-output-"))
+    const outputPath = path.join(directory, "output")
+    try {
+      const environment = { GITHUB_OUTPUT: outputPath }
+      await appendGithubOutputs(environment, ["first=1"])
+      await appendGithubOutputs(environment, ["second=2"])
+      expect(await Bun.file(outputPath).text()).toBe("first=1\nsecond=2\n")
+    } finally {
+      await rm(directory, { force: true, recursive: true })
+    }
   })
 
   test("ignores unsettled sibling assets when inspecting a checkpoint", () => {

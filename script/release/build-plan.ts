@@ -3,7 +3,8 @@
 import { inspectReleaseCheckpoint, type ReleaseCheckpointTarget } from "./checkpoint"
 import { readGithubReleaseState } from "./assets"
 import { RELEASE_FREEZE_FILENAME } from "./constants"
-import { verifyReleaseFreeze } from "./freeze"
+import { releaseFreezeIdentity, verifyReleaseFreeze } from "./freeze"
+import { appendGithubOutputs } from "./github-output"
 
 const TRUE_ENV_VALUE = "1"
 const RELEASE_BUILD_PLAN_SCOPES = ["all", "non-math", "advanced-math"] as const
@@ -117,6 +118,7 @@ async function assertFrozenReleaseIsComplete(
   const tag = requiredEnvironmentValue(environment, "BUDDY_RELEASE_TAG")
   await verifyReleaseFreeze({
     directory: requiredEnvironmentValue(environment, "RUNNER_TEMP"),
+    expectedIdentity: releaseFreezeIdentity(environment),
     repository,
     tag,
   })
@@ -211,19 +213,14 @@ export async function resolveReleaseBuildPlan(
 }
 
 async function writeOutputs(plan: ReleaseBuildPlan, environment: NodeJS.ProcessEnv): Promise<void> {
-  const outputPath = environment.GITHUB_OUTPUT?.trim()
-  if (!outputPath) return
-  await Bun.write(
-    outputPath,
-    `${[
-      `any_electron=${String(plan.electron.length > 0)}`,
-      `any_math=${String(plan.advancedMath.length > 0)}`,
-      `build_standards=${String(plan.buildStandards)}`,
-      `electron_matrix=${JSON.stringify({ include: plan.electron })}`,
-      `frozen=${String(plan.frozen)}`,
-      `math_matrix=${JSON.stringify({ include: plan.advancedMath })}`,
-    ].join("\n")}\n`,
-  )
+  await appendGithubOutputs(environment, [
+    `any_electron=${String(plan.electron.length > 0)}`,
+    `any_math=${String(plan.advancedMath.length > 0)}`,
+    `build_standards=${String(plan.buildStandards)}`,
+    `electron_matrix=${JSON.stringify({ include: plan.electron })}`,
+    `frozen=${String(plan.frozen)}`,
+    `math_matrix=${JSON.stringify({ include: plan.advancedMath })}`,
+  ])
 }
 
 if (import.meta.main) {

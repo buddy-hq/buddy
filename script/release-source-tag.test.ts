@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { assertGithubSourceTagReference, resolveSourceGithubToken } from "./release-source-tag"
+import {
+  assertGithubSourceTagReference,
+  resolveSourceGithubToken,
+  sourceGithubEnvironment,
+} from "./release-source-tag"
 
 const SOURCE_SHA = "1".repeat(40)
 
@@ -47,5 +51,11 @@ describe("release source tag", () => {
       }),
     ).toBe("source-token")
     expect(resolveSourceGithubToken({ GH_TOKEN: "release-token" })).toBe("release-token")
+    expect(
+      sourceGithubEnvironment({
+        BUDDY_SOURCE_GH_TOKEN: "source-token",
+        GH_TOKEN: "release-token",
+      }).GH_TOKEN,
+    ).toBe("source-token")
   })
 })

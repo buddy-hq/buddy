@@ -16,6 +16,7 @@ import {
   type GithubReleaseAsset,
   type ReleaseAssetDigest,
 } from "./assets"
+import { appendGithubOutputs } from "./github-output"
 
 export const RELEASE_CHECKPOINT_SCHEMA_VERSION = 1
 const CHECKPOINT_COMMANDS = ["inspect", "record"] as const
@@ -155,14 +156,13 @@ export function assertCheckpointMatches(input: {
   expectedAssetNames: readonly string[]
   identity: Omit<ReleaseCheckpoint, "assets">
 }): void {
-  const checkpointIdentityValue = {
-    planDigest: input.checkpoint.planDigest,
-    schemaVersion: input.checkpoint.schemaVersion,
-    sourceSha: input.checkpoint.sourceSha,
-    target: input.checkpoint.target,
-    version: input.checkpoint.version,
-  }
-  if (JSON.stringify(checkpointIdentityValue) !== JSON.stringify(input.identity)) {
+  if (
+    input.checkpoint.planDigest !== input.identity.planDigest ||
+    input.checkpoint.schemaVersion !== input.identity.schemaVersion ||
+    input.checkpoint.sourceSha !== input.identity.sourceSha ||
+    input.checkpoint.target !== input.identity.target ||
+    input.checkpoint.version !== input.identity.version
+  ) {
     throw new Error(`Checkpoint identity mismatch for ${input.identity.target}`)
   }
 
@@ -247,12 +247,13 @@ export async function inspectReleaseCheckpoint(input: {
     requiredEnvironmentValue(input.environment, "BUDDY_VERSION"),
     resolveAdvancedMathRuntimeVersion(),
   )
+  const identity = checkpointIdentity(input)
   try {
     return releaseCheckpointIsReusable({
       checkpointValue,
       currentAssets: checkpointGithubAssetDigests(assets, expectedAssetNames),
       expectedAssetNames,
-      identity: checkpointIdentity(input),
+      identity,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -301,8 +302,7 @@ async function writeInspectionOutput(
   valid: boolean,
   environment: NodeJS.ProcessEnv,
 ): Promise<void> {
-  const outputPath = environment.GITHUB_OUTPUT?.trim()
-  if (outputPath) await Bun.write(outputPath, `valid=${String(valid)}`)
+  await appendGithubOutputs(environment, [`valid=${String(valid)}`])
 }
 
 async function main(environment: NodeJS.ProcessEnv = process.env): Promise<void> {

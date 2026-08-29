@@ -78,6 +78,7 @@ describe("release workflow", () => {
     const inputs = objectValue(dispatch.inputs, "workflow_dispatch inputs")
     const sourceSha = objectValue(inputs.source_sha, "source_sha input")
     const publishJob = workflowJob(document, "publish")
+    const publishSecrets = objectValue(publishJob.secrets, "publish job secrets")
     const permissions = objectValue(document.permissions, "publish workflow permissions")
 
     expect(Object.keys(triggers)).toEqual(["workflow_dispatch"])
@@ -92,6 +93,15 @@ describe("release workflow", () => {
         "publish source SHA",
       ),
     ).toBe("${{ inputs.source_sha }}")
+    expect(Object.keys(publishSecrets).toSorted()).toEqual([
+      "BUDDY_RELEASE_TOKEN",
+      "BUDDY_SKILLS_REPOSITORY_TOKEN",
+      "BUDDY_SKILL_SIGNING_PRIVATE_KEY",
+      "BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD",
+      "TAURI_SIGNING_PRIVATE_KEY",
+      "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
+      "TAURI_SIGNING_PRIVATE_KEY_PATH",
+    ])
   })
 
   test("declares every release credential before starting runners", async () => {
@@ -133,6 +143,12 @@ describe("release workflow", () => {
     expect(
       stringValue(namedWorkflowStep(preflightJob, "Resolve recoverable build plan").run, "plan"),
     ).toContain("build-plan.ts non-math")
+    expect(
+      objectValue(
+        namedWorkflowStep(preflightJob, "Resolve recoverable build plan").env,
+        "preflight build plan environment",
+      ).BUDDY_RELEASE_SOURCE_REPOSITORY,
+    ).toBe("${{ github.repository }}")
     expect(prepareMathJob.needs).toBe("preflight")
     expect(stringValue(prepareMathJob.if, "prepare-math.if")).toBe(
       "needs.preflight.outputs.frozen != 'true'",
@@ -198,6 +214,14 @@ describe("release workflow", () => {
         "fail-fast"
       ],
     ).toBe(false)
+    for (const job of workflowJobs(document)) {
+      if (!Array.isArray(job.steps)) continue
+      for (const step of workflowSteps(job)) {
+        if (step.run !== undefined) {
+          expect(stringValue(step.run, "release workflow run step")).not.toContain("${{ matrix.")
+        }
+      }
+    }
   })
 
   test("freezes verified bytes before publishing and verifies the public Preview afterward", async () => {
@@ -235,6 +259,16 @@ describe("release workflow", () => {
     )
     expect(publicVerifyEnvironment.BUDDY_SOURCE_GH_TOKEN).toBe("${{ github.token }}")
     expect(publicVerifyEnvironment.GH_TOKEN).toBe("${{ secrets.BUDDY_RELEASE_TOKEN }}")
+    for (const verificationName of [
+      "Deep-verify downloaded draft assets",
+      "Verify published Preview bytes",
+    ]) {
+      const verification = namedWorkflowStep(finalJob, verificationName)
+      expect(stringValue(verification.run, `${verificationName}.run`)).not.toContain("${{")
+      expect(objectValue(verification.env, `${verificationName}.env`).SOURCE_SHA).toBe(
+        "${{ inputs.source_sha }}",
+      )
+    }
     const finalCondition = stringValue(finalJob.if, "finalize-and-publish.if")
     expect(finalCondition).toContain("always()")
     expect(finalCondition).toContain(
@@ -257,9 +291,15 @@ describe("release skill artifacts", () => {
       "bun run --cwd packages/buddy skill:artifacts:build",
     )
     const artifactInputs = objectValue(artifactJob.with, "publish-skill-artifacts.with")
+    const artifactSecrets = objectValue(artifactJob.secrets, "publish-skill-artifacts.secrets")
     expect(stringValue(artifactJob.uses, "publish-skill-artifacts.uses")).toBe(
       "./.github/workflows/publish-skill-artifacts.yml",
     )
+    expect(Object.keys(artifactSecrets).toSorted()).toEqual([
+      "BUDDY_SKILLS_REPOSITORY_TOKEN",
+      "BUDDY_SKILL_SIGNING_PRIVATE_KEY",
+      "BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD",
+    ])
     expect(artifactInputs.prevalidated).toBe(true)
     expect(stringValue(artifactInputs.publish, "publish-skill-artifacts.with.publish")).toBe(
       "${{ !inputs.dry_run }}",
@@ -270,7 +310,6 @@ describe("release skill artifacts", () => {
         "publish-skill-artifacts.with.release_source_sha",
       ),
     ).toBe("${{ inputs.source_sha }}")
-    expect(stringValue(artifactJob.secrets, "publish-skill-artifacts.secrets")).toBe("inherit")
     expect(arrayValue(artifactJob.needs, "publish-skill-artifacts.needs")).toEqual([
       "preflight",
       "finalize-and-publish",

@@ -150,10 +150,15 @@ async function verifyLatestRelease(repo: string, tag: string): Promise<void> {
 async function readHighestStableReleaseTag(repo: string): Promise<string | undefined> {
   const releases =
     await $`gh release list --repo ${repo} --exclude-drafts --exclude-pre-releases --limit 1000 --json tagName`.json()
-  return z
-    .array(stableReleaseTagSchema)
-    .parse(releases)
-    .map((release) => normalizePromotionTag(release.tagName))
+  return selectHighestStableReleaseTag(z.array(stableReleaseTagSchema).parse(releases))
+}
+
+export function selectHighestStableReleaseTag(
+  releases: readonly { tagName: string }[],
+): string | undefined {
+  return releases
+    .map((release) => release.tagName.trim())
+    .filter((tag) => RELEASE_TAG_PATTERN.test(tag))
     .toSorted(compareReleaseTags)
     .at(-1)
 }
