@@ -32,6 +32,7 @@
     "../../script/release-repositories.ts",
     "../../script/release/assets.ts",
     "../../script/release/constants.ts",
+    "../../script/release/github-output.ts",
     "../../script/release/plan.ts",
     "../../script/release/preflight.ts",
     "../../script/release/published-manifest.ts"
