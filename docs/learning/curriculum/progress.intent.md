@@ -1,15 +1,14 @@
 # Progress & Adaptation — Intent
 
-Sub-intent of [curriculum system](./curriculum.intent.md). Progress tracking records what has been demonstrated. Adaptation adjusts the path based on that evidence.
+Status: Detailed pedagogical evidence for progress. Concise index: [principles.md](./principles.md). Shipped owner: learner-memory runtime snapshot (`packages/buddy/src/learning/features/memory/runtime/snapshot.ts`), not a standalone progress-tracker agent or service named in older drafts.
+
+Sub-intent of the curriculum system in [principles.md](./principles.md). Progress tracking records what has been demonstrated. Adaptation adjusts the path based on that evidence.
 
 ## Source anchors
 
-Primary sources for this intent:
+Official sources (local `raw/` dumps were removed):
 
-- [docs/learning/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/learning/curriculum/principles.md)
-- `docs/learning/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
-- `docs/learning/curriculum/raw/how-people-learn-implications-for-teac.txt`
-- `docs/learning/curriculum/raw/cwsei-teaching-practices-inventory.txt`
+- [principles.md](./principles.md) bibliography: Course Transformation Guide; NRC *How People Learn*.
 
 ---
 
@@ -102,18 +101,15 @@ From the Course Transformation Guide:
 
 ---
 
-## Current Buddy direction
+## Current Buddy direction (verified)
 
-Progress tracking in Buddy should behave like a memory system, but it does not need to be a chatty standalone agent.
+Progress tracking behaves like a memory system, not a chatty standalone agent.
 
-The current direction is:
+- **Evidence-first writes** from goals, practice, assessment, question-set attempts, flashcard reviews, and session extraction (`packages/buddy/src/learning/features/memory/`).
+- **Runtime snapshot** (`buildLearnerRuntimeSnapshot`) so personas see a digest: goals, `openFeedback`, misconceptions, evidence, constraints.
+- **Prompt/context injection** in `packages/buddy/src/learning/prompt/runtime-context/learner-context/`.
 
-- **Evidence-first writes** from goals, practice, assessment, and session summaries
-- **A separate progress-tracker service** so runtime personas do not need a cluttered toolkit
-- **Periodic safety sweeps** to catch missed follow-through and stale open feedback loops
-- **Prompt/context injection** so the active runtime sees a digest instead of the raw learner store
-
----
+**Historical:** drafts mentioned a separate "progress-tracker service" and periodic "safety sweeps" as named products. Those names are not current module owners. Consolidation and extraction exist; do not document a phantom service.
 
 ## Adapting for Buddy
 
@@ -127,9 +123,6 @@ The current direction is:
 
 ---
 
-## Open questions
+## Historical: open questions
 
-1. **How do we detect regression well?** Time-based decay, later failure on a mastered goal, and misconception reappearance may need different weights.
-2. **How visible should progress be to the learner?** Dashboard-like explicitness vs. subtle session guidance.
-3. **How aggressive should the safety sweep be?** Frequent enough to catch drift, cheap enough not to become noisy.
-4. **When should progress surface course-level synthesis?** Topic success is easier than cross-topic transfer claims.
+Draft-time questions about regression weights, dashboard visibility, sweep aggressiveness, and course-level synthesis claims are not a live spec.

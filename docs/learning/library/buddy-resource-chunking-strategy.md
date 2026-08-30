@@ -1,7 +1,8 @@
 # Buddy Resource Chunking Strategy
 
-Date: 2026-03-20
-Status: Proposed
+Status: Detailed chunking notes. Shipped constants and frontmatter writers live in `packages/buddy/src/resource-packs/` (`chunking-config.ts`, `chunking.ts`). Product summary, including the distinction between **token** thresholds and **file-count** budgets: [docs/features/prepare-resource/design.md](../../features/prepare-resource/design.md).
+
+Date: 2026-03-20 (draft origin). Token caps `20_000` / `10_000` are shipped, not a proposal.
 
 ## Size Heuristic
 

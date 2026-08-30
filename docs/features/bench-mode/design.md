@@ -1,6 +1,17 @@
 # Bench Mode Design
 
-> Historical note: this document records the pre-refactor Bench mode design history. The current post-refactor architecture is documented in `current-architecture.md`. Keep the material below for context, but do not use stale references to session-owned whiteboards, `present_whiteboard`, linked-resource navigation, `BenchAutoOpen`, transcript-driven presentation, transition classifiers, or legacy right-sidebar state as current implementation guidance.
+> **Historical / pre-refactor design.** This is not the current locked product
+> spec. Code does not implement this document’s “Locked” layout API, session-owned
+> whiteboards, `present_whiteboard`, linked-resource navigation, `BenchAutoOpen`,
+> transcript-driven presentation, transition classifiers, or legacy right-sidebar
+> state as current behavior.
+>
+> **Current authorities:**
+> [`current-architecture.md`](current-architecture.md) (ownership, protocol),
+> [`unified-bench-ux-design.md`](unified-bench-ux-design.md) (Cut 1/2 file routing
+> and editor UX). Keep the pixel math, motion separation, and design dead ends
+> below as design history only. Present-tense **Locked** language is a lock of
+> that historical pass, not a claim about today’s tree.
 
 ## Objective
 

@@ -1,11 +1,14 @@
 # Managed Objects Implementation Log
 
-> Historical note: this implementation log is preserved for audit context. Current Bench presentation, client-action, and lifecycle behavior is documented in `current-architecture.md` and governed by `bench-refactor.md`.
+> Historical snapshot (reclassified 2026-08-30): this implementation log is preserved for audit context. Current Bench presentation, client-action, and lifecycle behavior is authoritative in [current-architecture.md](./current-architecture.md). `bench-refactor.md` is historical refactor context only.
 
 This log records implementation decisions for
 `docs/features/bench-mode/managed-objects-design.md`.
 
-## Current Status
+## Historical Checkpoint (formerly Current Status)
+
+The bullets below describe the checkpoint recorded in this implementation log,
+not live project status.
 
 - Implementation verification in progress before final read-only audit/review.
 - Latest focused grep pass over changed files found only intentional negative
@@ -135,7 +138,7 @@ This log records implementation decisions for
   writes revisioned flashcard-deck objects, stores mutable review scheduler
   state in `state/deck.json`, writes pending/committed review records under
   `state/reviews`, and exposes object deck/queued-cards/review routes. Current
-  scheduler details live in [Flashcards](../../learning/library/flashcards.md).
+  scheduler details live in [Flashcards](../flashcards/decisions.md).
 - Renamed the flashcard object payload/state/review path away from old identity
   vocabulary. Decks, notes, review records, review inputs, object routes, and
   flashcard tests now use `objectID` for the managed deck identity.

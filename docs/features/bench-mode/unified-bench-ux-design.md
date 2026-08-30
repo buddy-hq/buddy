@@ -1,8 +1,8 @@
 # Unified Bench UX
 
-> Historical note: this document is retained as product/background context. The current implementation no longer uses legacy right-sidebar ownership or transcript-scanned Bench presentation. For the active architecture and invariants, read `current-architecture.md`; for the authoritative refactor plan, read `bench-refactor.md`.
+> Historical snapshot (reclassified 2026-08-30; Cut 1/2 file-routing and editor-UX design): this document is retained as product/background context. The current implementation no longer uses legacy right-sidebar ownership or transcript-scanned Bench presentation. For live ownership and invariants, read [current-architecture.md](./current-architecture.md). Chat-scoped Bench tabs are now owned by [../tabs/system-design.md](../tabs/system-design.md); `bench-refactor.md` is historical context, not live authority.
 
-Status: Cut 1 implemented; Cut 2 UX and implementation contract locked.
+Status: historical Cut 1/2 design snapshot; file-routing and editor-UX decisions retained. Chat-scoped tabs are shipped and documented separately in `../tabs/system-design.md`.
 
 This document sits beside `managed-objects-design.md`. That document defines
 the managed-object primitive. This document defines how the product should use
@@ -67,9 +67,9 @@ The target UX is one content destination:
 Explorer, Library, and object shelves remain useful, but they become browsing
 and selection surfaces. They should not own separate content viewers.
 
-## Current Code Assessment
+## Code Assessment At The Time (historical snapshot)
 
-The current frontend already has the foundation for a unified Bench:
+At the time of this design, the frontend already had the following foundation for a unified Bench:
 
 - `packages/web/src/lib/bench-targets.ts` defines `BenchTarget` as either a
   workspace file or a managed object.
@@ -261,18 +261,17 @@ and API decisions:
   fragile?
 - Which tabs are restored after app restart?
 
-Decision for the current convergence cut:
+Decision for the historical Cut 1/2 convergence scope:
 
-- Keep Bench single-target.
+- Keep Bench single-target for this cut; later chat-scoped tabs are specified in `../tabs/system-design.md`.
 - Remove Explorer-owned content tabs from primary open behavior.
-- Do not expose visible tabs until they are designed as a Bench-level primitive.
+- Do not expose visible tabs in this cut; do not use this historical exclusion as the current tab contract.
 - A small recent-target history can exist internally if it simplifies routing,
   but it is not a user-facing tab model.
 
-The likely future tab direction is a bounded Bench tab strip with the active
-tab as the only model-facing context. `bench_present` should default to
-replacing or reusing the active tab unless the tool contract is extended with an
-explicit tab action.
+The likely future tab direction recorded at the time was a bounded Bench tab
+strip with the active tab as the only model-facing context. That direction is
+now superseded by the shipped/documented contract in `../tabs/system-design.md`.
 
 ## Implementation Direction
 
@@ -291,7 +290,7 @@ clean cuts should be batched when the mapping is obvious.
 
 ### Cut 1: Right Workspace And Docked Bench Convergence
 
-Status: locked for implementation.
+Status: historical Cut 1 implementation contract (locked at the time; retained for its decisions).
 
 Cut 1 changes the docked Bench experience from a separate `Bench | Chat` route
 layout into a right-workspace layout:
@@ -451,9 +450,9 @@ alternatives. These are not fallback implementation options:
 
 ### Cut 2: Complete Surface Convergence Onto Bench
 
-Status: locked for implementation. This cut replaces the previous staged Cuts
-2-5. The decisions below are the implementation contract. Rejected options are
-recorded so implementation does not reopen them or make ad hoc substitutions.
+Status: historical Cut 2 implementation contract (locked at the time; retained
+for its decisions). This cut replaced the previous staged Cuts 2-5. Rejected
+options are recorded so the historical implementation record remains explicit.
 
 Cut 2 completes the move from divergent file, Library, object, and navigation
 surfaces to Bench as the only primary content destination. Explorer and
@@ -474,8 +473,10 @@ all converge on Bench.
 - Floating Bench remains the Cut 1 full-canvas focused mode with no rail. To
   reach Explorer or Library, the user docks first. Rejected adding duplicate
   floating toolbar selectors or an action that auto-docks and opens one.
-- Bench remains single-target. Visible tabs, Explorer-tab migration, tab
-  overflow, and tab-aware `bench_present` semantics remain out of scope.
+- For the Cut 2 scope, Bench was single-target. Visible tabs, Explorer-tab
+  migration, tab overflow, and tab-aware `bench_present` semantics were out of
+  scope; current chat-scoped tab behavior is documented in
+  `../tabs/system-design.md`.
 - Cross-notebook Library behavior is out of scope because the app-level Library
   primitive is removed.
 - No backend, OpenAPI, or SDK contract change is required or permitted for this
@@ -697,7 +698,8 @@ Additional routing decisions:
   right workspace while teaching state still attempts to select it. Record
   this as a pre-existing known functional gap for a dedicated teaching Bench
   renderer plan; do not misrepresent the teaching flow as unchanged.
-- Visible Bench tabs and tab-aware model/tool contracts remain future work.
+- Visible Bench tabs and tab-aware model/tool contracts were out of scope for
+  Cut 2; the current contract is documented in `../tabs/system-design.md`.
 - Cross-notebook Library and app-level Library migration remain out because the
   app-level Library is removed rather than adapted.
 - Additional reader formats, UTF-16/legacy source encoding, a source merge
@@ -740,11 +742,12 @@ Additional routing decisions:
   EPUB, unsupported/binary files, Library objects, selector blocks, parking,
   floating mode, `bench_present`, and `bench_read_context`.
 
-## Risks And Constraints
+## Risks And Constraints (historical snapshot)
 
-- The current Bench route owns a different page layout from the normal chat
-  route. Moving Bench to the right is easy mechanically, but collapsing the
-  normal right sidebar and Bench conceptually requires careful state cleanup.
+- At the time, the Bench route owned a different page layout from the normal
+  chat route. Moving Bench to the right was easy mechanically, but collapsing
+  the normal right sidebar and Bench conceptually required careful state
+  cleanup.
 - The Explorer panel currently contains valuable editor, Markdown preview,
   Foliate reader, image preview, local tab, and default-app fallback behavior.
   The implementation should reuse the valuable parts but not keep the panel as

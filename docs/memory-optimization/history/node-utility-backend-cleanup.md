@@ -1,8 +1,10 @@
 # Node Utility Backend Cleanup
 
+> **Historical review (2026-06-24).** Canonical packaging: [utility-process-backend.md](../../architecture/decisions/utility-process-backend.md). Durable traps below (`child.killed`, `/var` realpath, `tree-kill`, `closeAllConnections`, watcher/WASM smoke) still apply. **Do not** follow the open “copy CJS into `node_modules`” prescription — superseded by the Failure Rule and the June 25 vendor-parallel reset.
+
 Created: 2026-06-24 04:04 IST
 
-This document tracks production-hardening cleanup for the Node utility backend foundation. Memory optimization work is intentionally out of scope here except where a vendor-faithful or production-grade foundation directly affects startup, packaging, or runtime correctness.
+This document tracked production-hardening cleanup for the Node utility backend foundation **as of 2026-06-24**. Later `current-status.md` / the ADR closed the `resources/backend-node` island and isolated Electron utility smoke.
 
 ## Current Read
 
@@ -13,7 +15,7 @@ The main architecture direction is sound:
 - Buddy keeps its Hono API surface and calls OpenCode in-process through the adapter/vendor server app.
 - The desktop main bundle no longer statically imports `@buddy/backend`, vendored OpenCode, `#sqlite`, or backend source.
 
-The foundation is close, but not production-complete. The remaining concerns are mostly Electron-host smoke coverage and artifact relocatability.
+The foundation is close, but not production-complete **in this 2026-06-24 snapshot**. Later work added isolated Electron utility smoke and dropped `resources/backend-node`. Artifact absolute-path strings in the bundle remain a vendor-inherited limit, not a copy-packages task.
 
 ## Verified Cleanup Items
 
@@ -58,9 +60,9 @@ Resolution:
 
 ### P1: Make the Node Artifact Relocatable
 
-Status: open
+Status: **superseded / rejected as a copy-list task** (2026-06-25 Failure Rule)
 
-The built `packages/buddy/dist/node/node.js` contains absolute monorepo paths in runtime code, not only in the sourcemap. Verified examples include paths under:
+The built `packages/buddy/dist/node/node.js` contains absolute monorepo paths in runtime code, not only in the sourcemap. Verified examples (2026-06-24) include paths under:
 
 - `node_modules/.bun/node-gyp`
 - `node_modules/.bun/@npmcli+run-script`
@@ -69,16 +71,14 @@ The built `packages/buddy/dist/node/node.js` contains absolute monorepo paths in
 - `node_modules/.bun/pino`
 - `node_modules/.bun/@aws-sdk+core`
 
-Why this matters:
+Why this was investigated:
 
 - Packaged user machines will not have the developer monorepo path.
 - Some paths may be dormant during basic startup, but plugin/npm install paths, logging worker paths, native build paths, or provider-specific CJS paths can fail later.
 
-Fix direction:
+**Rejected fix:** externalize and copy those CJS packages into `dist/node/node_modules` or grow `out/main/node_modules` with ordinary JavaScript. That is the package-manager/runtime-island loop. If a missing module requires adding another ordinary JS package to a manual copy list, **stop** (Failure Rule). Treat generated lazy strings as vendor-inherited limits unless a supported desktop flow hits them. A real npm/native plugin strategy is next-map item 6 on the ADR, not one-package-at-a-time copies.
 
-- Add an artifact relocation audit that fails if `dist/node/node.js` contains repo absolute paths.
-- Either externalize and copy the offending CJS packages into `dist/node/node_modules`, or move further toward a native Node artifact layout with packaged `node_modules` instead of bundling those modules into one file.
-- Keep the relocated temporary-directory health smoke. It now passes, but absolute repo paths are still present in bundled runtime code and must be removed before this item is closed.
+Keep relocated/isolated smokes. Do not fail the artifact solely because the bundled vendor graph contains generated absolute-path strings.
 
 ## Additional Reviewer Findings
 
@@ -267,12 +267,11 @@ After the current findings are fixed:
 
 ## Foundation Done Criteria
 
-The Node foundation is complete when:
+**As of the later ADR (2026-06-25+), the vendor-parallel foundation is the accepted shape.** Criteria from this review, updated for that decision:
 
 - Electron Vite still bundles only the launcher/main/preload, not the backend/vendor graph.
-- The built backend artifact can run from a relocated directory.
-- The artifact has no developer-machine absolute paths in runtime code.
-- CI executes the built artifact on each release target OS/architecture.
-- CI or a local smoke executes the Electron utility-process host path.
+- The built backend artifact / utility output can run from a relocated directory (isolated `out/main` smoke).
+- Generated developer-machine absolute paths in bundled vendor strings are **vendor-inherited limits**, not a copy-`node_modules` closer.
+- Package jobs build `out/main` on the **target** OS/arch.
+- Isolated Electron utility smoke exercises the production host path.
 - Startup errors for missing runtime capabilities, especially `node:sqlite`, are explicit.
-- Desktop dev and build paths both stage and validate the runtime resources before use.

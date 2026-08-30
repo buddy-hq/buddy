@@ -1,6 +1,6 @@
 # Bench Refactor Divergences
 
-This file records implementation judgment calls made under the `bench-refactor.md` Deadend Policy. The active plan remains authoritative; these notes document places where the code preserves the plan's intent without following one literal implementation detail.
+This file records implementation judgment calls made under the `bench-refactor.md` Deadend Policy. Live protocol for best-effort identity is [`current-architecture.md`](current-architecture.md) (Client Actions). These notes document where the code preserved plan intent without one literal implementation detail.
 
 ## Best-Effort Hydration Coalescing Key (superseded by tabs Phase 2)
 
@@ -26,15 +26,15 @@ transcript replay. Canonical wire identity removes target-kind inference, coales
 producers deterministically, and does not make backend tool completion depend on best-effort UI
 state.
 
-## Final Review Without Subagents
+## Final Review Without Subagents (non-authoritative historical process noise)
 
-`bench-refactor.md` asks for two parallel review subagents at completion. The user later explicitly instructed not to make subagents while debugging the Electron-only toggle failure.
+This section records a **one-session** operational override from the Electron
+toggle-debug closeout. It is **not** repository process, not AGENTS.md policy,
+and not an instruction for later work.
 
-Implementation judgment:
+`bench-refactor.md` asked for two parallel review subagents at completion. The
+user for that session instructed not to dispatch subagents while debugging the
+toggle failure. Closeout used a direct faithfulness pass, toggle-path audit, and
+focused tests instead.
 
-- Do not dispatch review subagents for this closeout.
-- Keep the same review intent by running a direct faithfulness pass against the active plan, auditing the uncommitted toggle path for similar lifecycle-disposal bugs, and running the focused tests plus `bun lint` and root `bun typecheck`.
-
-Why this preserves intent:
-
-The plan's closing policy is meant to catch unfaithful implementation and review bugs. The later user instruction is more specific operational guidance for this session. A direct review pass avoids violating that instruction while still preserving the verification purpose.
+Do not cite this section as a standing “never use subagents” rule.

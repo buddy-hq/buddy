@@ -1,29 +1,31 @@
-Deadend Policy: The plan is meant to be exhaustive and complete but some deadends and hurdles can only be encountered while implementation; as map is not the territory. In such situation the agent is free to make a judgement call that preserves the intent and spirit of the plan. But it must document the divergences in bench-refactor.divergences.md.
+> Historical snapshot (reclassified 2026-08-30; refactor-era plan): the Bench refactor is shipped. This file preserves the reviewed problem statement, target architecture, and execution decisions from that refactor; it is not live authority. For current ownership, routing, and protocol, read [current-architecture.md](./current-architecture.md).
 
-Closing Policy: If plan is done, dispatch 2 paralel review subagents; one for faithfulness pass and another for review pass. for review use these instrucions added at /Users/prashantbhudwal/Code/buddy/docs/guides/commands/review.md
+Deadend Policy (historical): The plan was meant to be exhaustive and complete but some deadends and hurdles could only be encountered during implementation; the map is not the territory. In that situation, the implementer was free to make a judgement call that preserved the intent and spirit of the plan, while documenting divergences in `bench-refactor.divergences.md`.
+
+Closing Policy (historical): Once the plan was complete, the completion gate dispatched two parallel review passes—faithfulness and review—using the repository guidance in [agent-operating.md](../../guides/commands/agent-operating.md).
 
 user comment: as of 0215 local time; the right sidebar toggle does nto work. when calling the bench tool; the tool times out; check the latest taken screenshot on desktop; even after you latest typechecks this is broekn
 
 
 # Bench Refactor: Problem Statement and Reviewed Plan
 
-> Ownership amendment: `current-architecture.md` supersedes this plan wherever this document assigns a book, resource, or whiteboard to one session. Artifacts are directory-owned; chats own independent presentation slots that reference them. Session IDs scope/validate presentation actions but cannot select a chat. Starting a new chat inherits the currently visible artifact into an independent draft slot.
+> Ownership amendment: The live authority is [current-architecture.md](./current-architecture.md), which supersedes this historical plan for current ownership, routing, and protocol. Artifacts are directory-owned; chats own independent presentation slots that reference them. Session IDs scope/validate presentation actions but cannot select a chat. Starting a new chat inherits the currently visible artifact into an independent draft slot.
 
 ## Document purpose
 
-This document is the complete handoff for replacing Buddy's Bench/right-workspace architecture. It contains the verified structural problems, the locked product behavior, the reviewed target architecture, and the execution and validation requirements. The implementer must not rely on chat history or earlier Bench design documents to fill gaps. When an older Bench document conflicts with this document, this document is authoritative for the refactor.
+This document preserves the complete refactor-era handoff for replacing Buddy's Bench/right-workspace architecture. It contains the structural problems, locked product behavior, reviewed target architecture, and execution and validation requirements as understood during that refactor. The refactor is shipped; do not use this historical plan to infer current behavior. When this plan conflicts with current documentation, `current-architecture.md` is authoritative.
 
-This is an architectural reliability refactor, not a UI or product redesign. Existing coherent behavior must remain intact except where this document explicitly replaces contradictory or undefined behavior.
+At the time, this was an architectural reliability refactor, not a UI or product redesign. Existing coherent behavior was to remain intact except where the plan explicitly replaced contradictory or undefined behavior.
 
 ## Problem statement
 
-Bench is conceptually simple: it presents one file, object, resource, whiteboard, or other notebook-related target in the right workspace, under user or agent control. The current implementation makes that feature fragile because route state, workspace state, component-local state, persistence, lifecycle registries, animations, and streamed chat metadata can advance independently. Effects and timers then attempt to reconcile combinations that should never have been representable.
+Bench was conceptually simple: it presented one file, object, resource, whiteboard, or other notebook-related target in the right workspace, under user or agent control. The pre-refactor implementation made that feature fragile because route state, workspace state, component-local state, persistence, lifecycle registries, animations, and streamed chat metadata could advance independently. Effects and timers then attempted to reconcile combinations that should never have been representable.
 
 The problem is not React, Zustand, TanStack Router, or Motion individually. The problem is the absence of one explicit ownership model and one transactional command boundary across those systems.
 
-### Current conflicting authorities
+### Incident-time conflicting authorities (pre-refactor snapshot)
 
-The current implementation distributes live Bench behavior across:
+The pre-refactor implementation distributed Bench behavior across:
 
 - The URL for target identity and docked/floating mode.
 - A global persisted `rightSidebarOpen` value for workspace visibility.

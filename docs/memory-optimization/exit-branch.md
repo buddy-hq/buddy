@@ -1,5 +1,7 @@
 # Memory Optimization Branch Exit
 
+> **Dated branch exit (2026-06-26).** Canonical architecture: [utility-process-backend.md](../architecture/decisions/utility-process-backend.md). This file keeps the negative catalog, Windows measurement table, and six-item next map.
+
 Created: 2026-06-26
 
 ## Branch Verdict

@@ -1,5 +1,11 @@
 # Skill Library Design
 
+> **Implementation status:** The MVP described here is **shipped**. Catalog JSON, `tree-sha256-v1`,
+> GitHub pin fetch, full-directory scanner, install lock, and install/update/withdraw flows exist
+> under `packages/buddy/src/learning/skill-management/`. The lock file is Buddy-home
+> `skills.lock.json` (`installedSkillLockPath()`), schema field `installed` — not
+> `.buddy/skills.lock.json`. Phases 1–5 below are the original build sequence, not remaining work.
+
 ## Goal
 
 Let users install useful skills in-product while keeping Buddy safe, learning-focused, and low-maintenance.
@@ -353,7 +359,9 @@ catalog entry is withdrawn
 
 ## Implementation Phases
 
-### Phase 1: Catalog Foundation
+Shipped. Keep the phase text as the original sequencing and acceptance intent.
+
+### Phase 1: Catalog Foundation (shipped)
 
 Define the catalog as JSON data validated by typed schemas.
 
@@ -379,7 +387,7 @@ Key implementation files:
 - Existing response composition in `packages/buddy/src/learning/skill-management/service/catalog.ts`.
 - Route schema surface in `packages/buddy/src/routes/skills.ts`.
 
-### Phase 2: Install Lock Foundation
+### Phase 2: Install Lock Foundation (shipped)
 
 Add persistent installed-state tracking for curated catalog skills.
 
@@ -409,7 +417,7 @@ Reference implementations:
 - Hermes lock provenance in `/Users/prashantbhudwal/Code/hermes-agent/tools/skills_hub.py`.
 - OpenClaw ClawHub origin/lock tracking in `/Users/prashantbhudwal/Code/openclaw/src/agents/skills-clawhub.ts`.
 
-### Phase 3: Canonical Hash
+### Phase 3: Canonical Hash (shipped)
 
 Implement `tree-sha256-v1` for deterministic artifact verification.
 
@@ -439,7 +447,7 @@ Note:
 
 - Buddy should define its own stricter hash format instead of copying either implementation exactly.
 
-### Phase 4: GitHub Fetcher
+### Phase 4: GitHub Fetcher (shipped)
 
 Implement the only MVP source fetcher: pinned GitHub repo/path/commit.
 
@@ -467,7 +475,7 @@ Recommendation:
 
 - Start with the simplest reliable fetch implementation, then optimize later.
 
-### Phase 5: Scanner MVP
+### Phase 5: Scanner MVP (shipped)
 
 Implement Buddy's deterministic full-directory scanner.
 

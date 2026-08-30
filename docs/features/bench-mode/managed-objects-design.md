@@ -10,11 +10,19 @@
 > update keeps the real populated board mounted; the first complete drawable
 > replaces the new-board opening animation; raw fragments are observed through
 > targeted part-level subscriptions; and no object or route is persisted before
-> authorization.
+> authorization. In-body **Locked** decisions are the original cut’s lock; they
+> are proposed/historical relative to today’s tools and routes unless confirmed
+> by current code.
 
-This is the working design source for consolidating Buddy resources,
-artifacts, whiteboards, media presentations, HTML widgets, and other
-app-managed learner objects.
+This is a **historical / proposed** managed-object design record for
+consolidating Buddy resources, artifacts, whiteboards, media presentations, HTML
+widgets, and other app-managed learner objects. It is not the live Bench
+lifecycle contract. Where this body conflicts with
+[`current-architecture.md`](current-architecture.md),
+[`../whiteboard/streaming.md`](../whiteboard/streaming.md), or current object
+routes and tools, those sources win. Storage layouts and tool schemas below are
+preserved as the design cut’s evidence, not as an instruction to re-litigate
+shipped directory-owned objects.
 
 The document intentionally includes the problem statement because the API and
 storage decisions only make sense against those problems.

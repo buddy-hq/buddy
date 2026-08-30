@@ -36,6 +36,14 @@ Whiteboard tool presentation has two distinct lifecycles:
 
 After permission succeeds, tool execution creates or resolves the directory-owned object, publishes its stable target, and applies the final program. A new-board preview hands off to that real target; an existing-board update continues on the same real surface. The UI observes raw drawing input through targeted active-part subscriptions because `state.raw` changes are transient part-level events, not session-snapshot rerenders. Auto-open is settled only after the intended target is visibly committed; bounded retries may bridge a New Chat/workspace race, but an inactive action cannot activate its session. Session/message/part/call identifiers remain correlation and provenance only, and `part.id` must not be substituted for the backend `callID`.
 
+## Bench Tabs
+
+Chat-scoped Bench tabs (identity, capture receipts, four-step tool
+acknowledgement, keep-alive vs descriptors, lifecycle table, T3 patterns) are
+owned by [`../tabs/system-design.md`](../tabs/system-design.md). This document
+does not duplicate that contract. The directory workspace store owns the per-chat
+ordered tab list; the route owns the selected target.
+
 ## Routing And Rendering
 
 The `/$directory` route is the stable owner of the chat shell, scoped workspace store, lifecycle service, controller, action ledger, and Bench host. The `/$directory/chat` child does not mount a second shell. The `/$directory/_bench/*` chain validates route parameters and provides the target outlet rendered by the single Bench host.
@@ -49,6 +57,31 @@ Bench target identity is keyed by the full canonical `BenchTarget`, including ob
 Docked mode places the conversation on the left and the same right-workspace host at the derived workspace width. Floating mode suppresses the still-mounted shell chrome, expands that same right-workspace host to the content viewport, and positions the same conversation host with the floating rectangle. Parked and hydration-pending hosts stay mounted but inert, non-focusable, and visually suppressed. Floating mode does not render selector access.
 
 Docked, floating, collapsed, and drawer states are visual consequences of the route snapshot plus committed store state. No semantic transition waits for a CSS transition event, DOM query, Motion callback, or timer.
+
+### Explorer File Matrix And Browse/Edit Boundary
+
+The Explorer is a browse-first tree. Its directory listing excludes `.git` and
+`.DS_Store`; other entries remain available for browsing, and rows marked
+`ignored` are de-emphasized rather than treated as a different editor class.
+Opening a file follows one class matrix (the reader engine split is detailed in
+[`build-reader.md`](../../guides/commands/build-reader.md)):
+
+| File class | Browse/open target | Buddy edit contract |
+|---|---|---|
+| Markdown (`.md`, `.mdx`) | Markdown Bench/MDX editor | Editable; use the editor's save and conflict handling. |
+| PDF | `DocumentReader` → `PdfReader` / PDF.js | Read-only in Buddy; no implicit save-back. |
+| EPUB | `DocumentReader` → `FoliateReader` | Read-only in Buddy; no implicit save-back. |
+| Previewable images, including SVG | Media preview | No source editor. |
+| Audio and video | Media preview | No source editor. |
+| Other readable UTF-8 non-Markdown text (CSV, TSV, JSON, HTML, XML, source, or extensionless text) | Monaco file Bench | Editable; use the editor's save and conflict handling. |
+| Office/document and presentation formats, archives, binaries, unreadable, or unsupported files | OS default app, Reveal, or Copy path | No Buddy editor. |
+| Missing or unavailable files | Only actions that are still possible, such as Copy path | No viewer or editor is invented. |
+
+Being browseable or readable does not imply editability: only Markdown and
+readable UTF-8 source paths have a Buddy write path. PDF/EPUB, media, default-app,
+binary, and other fallback routes remain view/open-only until an explicit
+write-and-conflict contract is added, and external/default-app access keeps its
+existing external-directory permission boundary.
 
 ## Command Boundary
 

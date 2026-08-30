@@ -3,7 +3,7 @@
 **Platform:** macOS desktop (first release).  
 **Rule:** One path, top to bottom. Any step fails → release blocked.
 
-Test checklist: `pre-release-checklist.md` (same steps — pass/fail criteria, prompts, and sign-off).
+Manual pass/fail checklist (prompts, sign-off): [Release QA checklist](../../ops/releases/qa-checklist.md). This file is the feature inventory, golden-run derivation, and automated-vs-manual coverage map — not a second checklist.
 
 ---
 
@@ -118,7 +118,7 @@ Buddy has **no Playwright/E2E suite** for the desktop critical path. Release QA 
 | 2 | Onboard | `onboarding-flow.test.ts`, provider bootstrap routes | Full UI flow; ChatGPT OAuth browser callback (Run B) |
 | 3 | Chat | SSE/sync/reducer/streaming render tests; message route reads transcript | Live provider send → stream → complete |
 | 4 | Import | `resource-routes.test.ts` (PDF add → ready), pack chunking | Library UI, drag-drop, desktop file picker |
-| 5 | Read | Reader navigation helpers; bench routing tests | Foliate renders real PDF/EPUB in Electron bench |
+| 5 | Read | Reader navigation helpers; bench routing tests | `DocumentReader` renders real PDF (PDF.js) and EPUB (Foliate) in Electron Bench |
 | 6 | Read + chat | `active-reading-context.test.ts` (reading payload → prompt) | Prompt from reading bench with live LLM |
 | 7 | Flashcards | `flashcard-tools-routes.test.ts`, `bench-surface-render` (review UI) | Agent creates deck via chat → library → bench flow |
 | 8 | Skill | Skills routes (custom CRUD, permissions); `github-fetcher.test.ts` | **No test for `POST /skills/library/:id/install` or library delete**; Skills page UI; real GitHub fetch |

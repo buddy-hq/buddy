@@ -1,7 +1,11 @@
-!!IMP read the message file this folder and make changes. /Users/prashantbhudwal/Code/buddy/docs/features/whiteboard/message.md
 <!-- cspell:ignore titlebar -->
 
 # Whiteboard Design
+
+> There is no `message.md` in this folder. Do not follow old absolute paths under
+> `/Users/.../Code/buddy/docs/features/whiteboard/`. Authoritative current facts:
+> [facts.md](./facts.md) (invariants) and [streaming.md](./streaming.md) (pipeline and postmortems).
+> V1/V2 sections below are historical.
 
 ## Current V3 Ownership (authoritative)
 
@@ -58,12 +62,14 @@ The material below records the previous session-owned design and rendering ratio
 - The learner can pan and zoom the canvas; the persistence model must support direct learner edits.
 - The backend stores one mutable current board per chat session, plus a previous-board snapshot only for compact learner-edit context.
 - The primary whiteboard UI shows only the current board. There is no learner-facing history scrubber, scene switcher, or `New scene` action.
-- Whiteboard tool activity uses the existing hidden-steps summary with a Presentation icon, `Updating Whiteboard` while running, and `Updated Whiteboard` when complete.
+- Whiteboard tool activity uses the activity-row summary (`packages/web/src/components/chat/tools/activity-row/`) with a Presentation icon, `Updating Whiteboard` while running, and `Updated Whiteboard` when complete.
 - The model-facing contract follows the official Excalidraw MCP append-program approach rather than a provider-facing union-heavy mutation schema.
 - The long authoring guide is a feature-owned `whiteboard-authoring` skill loaded through the existing `skill` tool.
 - `cameraUpdate` remains part of the drawing DSL so the contract can support guided viewport motion; full choreography may be implemented incrementally.
 
-## Feature Boundary
+> **Historical boundary:** The following Feature Boundary, Tool Count, Model-Visible Tools, UI-Only API, Frontend Summary, Composer, Tool Schema, and Streaming sections preserve session-owned V1/V2 design work. Their session routes, implicit current-board resolution, empty `whiteboard_read_context({})`, and automatic `/$directory/whiteboard` navigation are superseded. Use the V3 `objectID` contract and Bench presentation boundary above; retain drawing, continuation, layout, and streaming details only where they do not conflict.
+
+## Historical V1/V2 Feature Boundary (superseded)
 
 - Add an atomic `whiteboard` Buddy feature.
 - The feature owns `whiteboard_create_view`, `whiteboard_read_context`, and the `whiteboard-authoring` skill.
@@ -76,7 +82,7 @@ The material below records the previous session-owned design and rendering ratio
 - Extend the existing titlebar back-to-chat behavior from the reading route to both focused workspace routes.
 - Enable the feature for each persona that should be allowed to use the whiteboard.
 
-## Tool Count And Runtime API
+## Historical V1/V2 Tool Count And Runtime API (superseded)
 
 - Buddy adds two model-visible tools: `whiteboard_create_view` and `whiteboard_read_context`.
 - Official Excalidraw MCP registers five tools in total: model-visible `read_me` and `create_view`, plus app-only `export_to_excalidraw`, `save_checkpoint`, and `read_checkpoint`.
@@ -85,7 +91,7 @@ The material below records the previous session-owned design and rendering ratio
 - The existing `createBuddyTool` API is sufficient. The whiteboard feature does not require a new tool-definition abstraction.
 - Provider-level strict-schema propagation is a separate runtime improvement and is not required for this feature.
 
-## Model-Visible Tools
+## Historical V1/V2 Model-Visible Tools (superseded)
 
 ```ts
 whiteboard_create_view({
@@ -120,6 +126,8 @@ whiteboard_create_view({
 - Do not use backend-estimated text or label overflow as an auto-repair trigger. Only frontend-render-report digest may report `text_overflow`, and only when actual rendered text bounds protrude outside the rendered container by a meaningful area and pixel margin.
 - The measured digest intentionally avoids treating background panels and container-like shapes as collisions when text is mostly contained inside them. If text is mostly inside an earlier container-like shape but protrudes beyond it, the digest reports directional `text_overflow` on that container rather than a generic collision, steering the repair toward resizing/redrawing the local container in the correct axis instead of repeatedly translating one text item.
 
+> The empty read signature below is historical only. The current contract at the top of this document requires `whiteboard_read_context({ objectID: string })`.
+
 ```ts
 whiteboard_read_context({})
 ```
@@ -147,18 +155,20 @@ whiteboard_read_context({})
 - Non-4:3 `cameraUpdate` entries are accepted but return the same style of corrective ratio hint as Excalidraw MCP.
 - Full canonical Excalidraw snapshots remain backend-owned; the model does not submit raw editor state.
 
-## Continuation
+## Historical V1/V2 Continuation (superseded)
 
-- `checkpointId` remains a semantic current-board continuation handle in tool metadata, not an immutable revision id or a model input.
-- Buddy currently exposes one continuation handle, `current`, but the model does not need to send it back. `boardAction: "continue_current_board"` resolves to the latest persisted current board under the session mutation lock.
-- Every agent write creates the next current checkpoint. Learner autosaves update that same checkpoint id in place, matching Excalidraw MCP's widget-only `save_checkpoint`.
+> The checkpoint/session-lock wording in this retained sketch is historical. Current V3 continuation uses the `continuationHandle` in tool metadata, resolves the latest persisted board by concrete `objectID`, and serializes mutation through the object-scoped lock described in the authoritative contract above.
+
+- Historical V1/V2 used `checkpointId` as a semantic current-board continuation handle in tool metadata, not an immutable revision id or a model input.
+- Historical V1/V2 exposed one continuation handle, `current`, and resolved `boardAction: "continue_current_board"` under the session mutation lock. Current V3 uses `continuationHandle` plus concrete `objectID` ownership and an object-scoped mutation lock.
+- Historical V1/V2 agent writes created the next current checkpoint, while learner autosaves updated that checkpoint id in place, matching Excalidraw MCP's widget-only `save_checkpoint`.
 - The backend keeps the previous board only to summarize the latest learner edit for model context.
 - Continuation writes are stale-guarded only for touched ids from `delete`, `translate`, and new elements that reference an existing `containerId`, `startBinding.elementId`, or `endBinding.elementId`.
 - Continuation appends that touch no existing ids are allowed even if unrelated learner edits happened after the model last read the board.
 - Render bounds are supplemental stale anchors. They fail a touched-id write only when both the model-seen anchor and current board have render bounds and those bounds changed; bounds becoming newly available or temporarily unavailable is not a stale conflict.
 - `continue_current_board` writes use targeted stale safety for touched existing ids. `destructively_replace_current_board` writes skip stale safety because they intentionally replace the whole board.
 
-## UI-Only API Boundary
+## Historical V1/V2 UI-Only API Boundary (superseded)
 
 - React uses generated `BuddyClient` routes for session state, learner-edit persistence, and sharing.
 - UI-only routes are not exposed as model-visible tools.
@@ -166,13 +176,13 @@ whiteboard_read_context({})
 - Excalidraw image insertion is disabled in v1 because the persistence contract does not include binary files.
 - `Share board` is a user-initiated UI action, not a model-visible tool. It settles pending learner saves, serializes the live canvas draft when present, otherwise serializes the latest fetched current board, sends the Excalidraw JSON through a typed Buddy route, encrypts and uploads it using Excalidraw's public JSON endpoint flow, and opens the returned `excalidraw.com/#json=...` link through Buddy's platform external-link handler.
 
-## Frontend Summary Integration
+## Historical V1/V2 Frontend Summary Integration (superseded)
 
-- `whiteboard_create_view` appears inside the existing hidden-steps summary block alongside other tool activity; it is not rendered as a new standalone transcript block.
+- `whiteboard_create_view` appears inside the activity-row summary alongside other tool activity; it is not rendered as a new standalone transcript block.
 - The summary row uses a Presentation icon.
 - While pending or running, the summary label is `Updating Whiteboard` and uses the existing active `TextShimmer` treatment.
 - When complete, the summary label becomes the static past-tense `Updated Whiteboard`.
-- Repeated completed whiteboard writes aggregate using the existing hidden-steps count treatment, for example `Updated Whiteboard ×3`.
+- Repeated completed whiteboard writes aggregate using the activity-row count treatment, for example `Updated Whiteboard ×3`.
 - `whiteboard_read_context` remains summarized as lightweight tool activity and should not create a visible artifact card.
 - Configure `whiteboard_create_view` with the existing Buddy tool UI metadata:
 
@@ -188,7 +198,7 @@ ui: {
 
 - Add a built-in web tool-renderer registration for `whiteboard_create_view` so the summary row uses a Presentation icon instead of the generic fallback Wrench icon.
 
-## Composer Workspace Shortcuts
+## Historical V1/V2 Composer Workspace Shortcuts (superseded)
 
 - After a whiteboard tool has appeared in the current conversation, show a ghost Presentation button in the composer context row next to the Buddy persona selector.
 - The Presentation button toggles between the normal chat route and the whiteboard workspace route.
@@ -196,7 +206,7 @@ ui: {
 - The Book button toggles between the normal chat route and the reading workspace route, using the existing persisted last-opened reading resource.
 - These buttons are derived from existing chat/tool history and reading store state; they do not introduce a new persistence model.
 
-## Tool Schema Constraints
+## Historical V1/V2 Tool Schema Constraints (superseded)
 
 - Model-visible tool schemas use strict root objects and avoid root-level discriminated unions.
 - `whiteboard_create_view` has `boardAction` plus `elements: string`; the drawing program itself remains a single compact string.
@@ -205,7 +215,7 @@ ui: {
 - Buddy must retain runtime Zod validation after parsing the string program.
 - Provider-level strict generation is a separate reliability improvement because Buddy's current AI SDK bridge does not yet pass `strict: true`.
 
-## Streaming Decision
+## Historical V1/V2 Streaming Decision (retained detail; session routes superseded)
 
 - Keep the string-program API regardless of initial animation scope.
 - Include model-time progressive drawing in v1.
@@ -248,6 +258,8 @@ ui: {
 - The user mental model is: "this chat has one whiteboard, and Buddy or I can update the current board."
 
 ## Historical V1/V2 Implementation Status (superseded)
+
+> The implementation claims below are historical V1/V2 status, not evidence that those session-owned routes or schemas are shipped. Verify current behavior against the authoritative V3 section and [Whiteboard Facts](./facts.md).
 
 - The durable backend and embedded UI are implemented end to end: feature registration, two model-visible tools, authoring skill, one mutable current board per session, typed UI routes, generated SDK consumption, editable Excalidraw canvas, learner-save debounce, and hidden-summary labels and icon.
 - The frontend progressive consumer is implemented and tested. It accepts pending `state.raw` deltas, removes one outer JSON-string escaping layer, applies each complete inner object immediately, keeps incomplete objects buffered, and applies restore, delete, and translate semantics ephemerally.

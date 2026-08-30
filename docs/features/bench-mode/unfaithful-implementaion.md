@@ -1,18 +1,20 @@
 # Bench Refactor Spike: Unfaithful Implementation Review
 
+> Historical spike review (dated 2026-06-21; reclassified 2026-08-30): this file records the implementation state and recommendation from that incident. It is not a current work order. Live Bench ownership, routing, and protocol are documented in [current-architecture.md](./current-architecture.md).
+
 Date: 2026-06-21
 
 ## Verdict
 
-The current implementation spike is materially unfaithful to `docs/features/bench-mode/bench-refactor.md`.
+The implementation spike reviewed on 2026-06-21 was materially unfaithful to the refactor-era `bench-refactor.md` plan.
 
-Do not continue by monkey-patching the observed UI/session failures. The failures are consistent with structural divergences from the plan, not isolated bugs. Treat the spike as disposable, or at most as a source of small reusable pieces such as the route snapshot/projection sketch and some shell-hosting experiments.
+At that time, reviewers recommended not continuing by monkey-patching the observed UI/session failures. The failures were consistent with structural divergences from the plan, not isolated bugs. The spike was treated as disposable, or at most as a source of small reusable pieces such as the route snapshot/projection sketch and some shell-hosting experiments.
 
-The recommended path is to reset the implementation and reimplement from the plan with the hard invariants in place before integrating UI call sites.
+The incident-time recommendation was to reset the implementation and reimplement from the plan with the hard invariants in place before integrating UI call sites; it is retained as historical evidence, not a current instruction.
 
 ## Why this matters
 
-The refactor plan was written to remove split authority, effect reconciliation, stale lifecycle ownership, and transcript/session race behavior. The spike reintroduced several of those same failure classes under new names. The current visible regressions are therefore expected symptoms:
+The refactor plan was written to remove split authority, effect reconciliation, stale lifecycle ownership, and transcript/session race behavior. The spike reintroduced several of those same failure classes under new names. The visible regressions observed in that spike were therefore expected symptoms:
 
 - the titlebar/right-workspace toggle can be rendered from the wrong ownership path or without the correct workspace transaction;
 - `bench_present` can report `client_inactive` even while the backend session is actively accepting messages;
@@ -150,7 +152,7 @@ The controller, blocker, context publication, registration, lease/session, and a
 
 ## Recommendation
 
-Reset the implementation code and reimplement from `bench-refactor.md` in the documented order:
+The incident-time recommendation was to reset the implementation code and reimplement from `bench-refactor.md` in the documented order:
 
 1. pure model and exhaustive projection tests;
 2. stable route/shell ownership and mount-identity tests;

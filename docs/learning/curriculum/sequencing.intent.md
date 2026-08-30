@@ -1,15 +1,14 @@
 # Sequencing — Intent
 
-Sub-intent of [curriculum system](./curriculum.intent.md). Sequencing determines the order in which topics and goals are presented. Done wrong, it creates isolated knowledge islands. Done right, it builds interconnected expertise.
+Status: Detailed pedagogical evidence for sequencing. Concise index: [principles.md](./principles.md). There is no shipped standalone sequencing-agent product mode; the curriculum orchestrator and companion use goals, evidence, and the learner snapshot.
+
+Sub-intent of the curriculum system in [principles.md](./principles.md). Sequencing determines the order in which topics and goals are presented. Done wrong, it creates isolated knowledge islands. Done right, it builds interconnected expertise.
 
 ## Source anchors
 
-Primary sources for this intent:
+Official sources (local `raw/` dumps were removed):
 
-- [docs/learning/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/learning/curriculum/principles.md)
-- `docs/learning/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
-- `docs/learning/curriculum/raw/how-people-learn-implications-for-teac.txt`
-- `docs/learning/curriculum/raw/good-examples-of-learning-goals-at-ubc-and-cu.txt`
+- [principles.md](./principles.md) bibliography: Course Transformation Guide; NRC *How People Learn*.
 
 ---
 
@@ -42,6 +41,8 @@ From the learning science summary:
 - **Revisit** — demonstrated goals should periodically be re-exercised with new surface features
 - **Cumulative exercises** — later exercises should require combining multiple goals
 
+A historical implementation sketch uses **1 day, 3 days, 1 week, 2 weeks, 1 month** as a starting cadence from Ebbinghaus/Leitner. This is not a CWSEI-specified interval schedule; adapt it from review outcomes and learner preference.
+
 ---
 
 ## Prerequisites and dependencies
@@ -56,13 +57,15 @@ After topic-level goals are developed, they're mapped to course-level goals. Thi
 
 ### For Buddy
 
-The sequencing agent/system should:
+The companion / curriculum orchestrator should:
 
 1. Take the set of learning goals
 2. Identify dependencies between them (does goal B require goal A?)
 3. Determine a valid ordering (topological sort with flexibility)
 4. Build in interleaving and spacing
 5. Flag goals that have no dependencies (can be done anytime) vs. those with strict prerequisites
+
+Do not invent a Tab-switchable "sequencing agent" as a product surface.
 
 ---
 
@@ -72,7 +75,7 @@ From the working memory section:
 
 - **Front-load vocabulary** with pre-reading/pre-work so teaching time can be higher-level
 - **Start simple, add complexity** — scaffolded introduction, then remove supports
-- **Don't introduce too many new terms at once** — each unfamiliar term consumes working memory
+- **Working-memory guardrail:** working memory holds roughly **4–7 new items**; front-load vocabulary and chunk instruction so simultaneous novel terms stay within that practical bound
 - **Use worked examples early** — show structure before requiring independent work
 
 The sequence should follow a **scaffold → practice → independence** arc per topic:
@@ -97,10 +100,6 @@ Worked example  →  Guided exercise  →  Independent problem  →  Transfer/no
 
 ---
 
-## Open questions
+## Historical: open questions
 
-1. **Who determines the sequence?** The goal-writer when goals are created? A separate sequencing step? The companion ad hoc?
-2. **How rigid is the sequence?** Strict prerequisites or flexible recommendations? Can the learner skip ahead?
-3. **How does spacing work practically?** A scheduler that resurfaces goals? Or the companion maintaining awareness of time-since-last-practice?
-4. **How do we handle the learner who wants to jump around?** Honor their agency or warn about missing prerequisites?
-5. **How does interleaving work in conversation?** Mix topics within a session? Or across sessions?
+Draft-time questions about rigidity, skip-ahead, and interleaving-within-session vs across-session are not a live spec.

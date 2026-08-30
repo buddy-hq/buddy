@@ -1,8 +1,10 @@
 # OpenCode SDK v2 & Plugin System Analysis
 
+> **Historical compatibility research (2026-05-23).** Not current vendor version and not the live architecture map. Shipped plugin/SDK boundary: [about.md](./about.md). Appendix B’s eight hotspot failure mechanisms remain useful. The “1.15.4 / 1.15.7” pins are the snapshot under test that day.
+>
 > Research date: 2026-05-23
 > Source repo: `~/code/opencode` (`anomalyco/opencode`, branch `dev`, 1.15.7)
-> Vendored version in this project: 1.15.4 (3 patch versions behind, hooks identical)
+> Vendored version **in that snapshot**: 1.15.4 (3 patch versions behind, hooks identical)
 > Assessed by: cross-referencing the hypothesis against multiple independent agents; this is the corrected, consensus-informed version.
 
 ## Table of Contents
@@ -106,8 +108,8 @@ The real win is consolidating Buddy's agent behavior into published plugin hooks
 | `packages/buddy/src/http/proxy/fetch.ts` | 49 | Proxy fetch to internal OpenCode server (would be deleted) |
 | `packages/buddy/src/http/proxy/registration.ts` | 61 | Proxy tool registration flags (would be deleted) |
 | `packages/buddy/src/opencode-runtime/session-prompt-tool-forwarding.ts` | 32 | Subagent forwarding adapter patch (WOULD BE RETAINED) |
-| `packages/buddy/src/opencode-runtime/task-tool-forwarding.ts` | 80 | Task tool forwarding patch (replaced by `tool.execute.before`) |
-| `packages/buddy/src/opencode-runtime/skill-filtering.ts` | 10 | Skill visibility filtering (replaced by plugin `skillsOverride`) |
+| `packages/buddy/src/opencode-runtime/task-tool-forwarding.ts` | 80 | Task tool forwarding patch (**retained**; `tool.execute.before` cannot wrap `promptOps.prompt()`) |
+| `packages/buddy/src/opencode-runtime/skill-filtering.ts` | 10 | Skill visibility filtering (**retained**; no plugin `skillsOverride` replacement shipped) |
 | `packages/buddy/src/opencode-runtime/system-prompt-guard-plugin.ts` | 183 | System prompt guard (replaced by `experimental.chat.system.transform`) |
 | `packages/buddy/src/learning/agent-execution/transforms/subagent-tool-forwarding.ts` | 478 | Subagent tool forwarding logic |
 | `packages/buddy/src/learning/runtime/create-buddy-tool.ts` | 409 | Buddy tool factory (tools become plugin `tool` exports) |
@@ -653,7 +655,7 @@ Buddy Hono ──SDK (HTTP)──▶ OpenCode server (vendored, in-process)
 
 ## Appendix B: Upstream Sync Pain Assessment
 
-This analysis evaluates how the plugin approach affects the [upstream-fetch.algo.md](../../../guides/upstream-fetch.algo.md) process — the repeatable 15-step ritual for syncing vendored OpenCode without breaking Buddy.
+This analysis evaluates how the plugin approach affects the [upstream-fetch.algo.md](../../guides/upstream-fetch.algo.md) process — the repeatable 15-step ritual for syncing vendored OpenCode without breaking Buddy.
 
 ### The core question
 

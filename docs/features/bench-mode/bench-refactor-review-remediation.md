@@ -1,14 +1,16 @@
 # Bench Refactor Review Remediation
 
+> Historical remediation snapshot (dated 2026-06-21; reclassified 2026-08-30): this file records follow-up findings in the then-uncommitted Bench refactor. “Current” and “uncommitted” language below is scoped to that incident. For live Bench ownership, routing, and protocol, read [current-architecture.md](./current-architecture.md).
+
 Date: 2026-06-21
 
-Status: additional session/reconnect/blocker follow-up complete
+Status: historical remediation complete (2026-06-21)
 
 ## Purpose
 
-This document records the four verified review findings in the current uncommitted Bench refactor, distinguishes introduced regressions from a pre-existing acceptance gap, and fixes the implementation plan before code changes begin.
+This document records the four verified review findings in the then-uncommitted Bench refactor, distinguishes introduced regressions from a pre-existing acceptance gap, and records the remediation plan and results from that incident.
 
-`bench-refactor.md` remains authoritative. When a prior implementation divergence conflicts with the remediation below, the original refactor invariants win unless this document explicitly preserves the divergence.
+`current-architecture.md` is authoritative for live behavior. `bench-refactor.md` and this file are historical refactor context. When a prior implementation divergence conflicted with the remediation below, the original refactor invariants won unless this document explicitly preserved the divergence.
 
 ## Initial follow-up review candidates
 

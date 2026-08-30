@@ -1,17 +1,27 @@
 # Combined pre-launch bug triage
 
+> **Historical snapshot (audit 2026-07-13, hardening reassessment 2026-07-14).**
+> This is not the live issue tracker and is not a current release-candidate queue.
+> Live open items, including still-reproducing L02 / L03 / L07 / L10 threats, are in
+> [`docs/reviews/knownissues.md`](../../../../reviews/knownissues.md).
+> Threat models and then-open / then-resolved dispositions below are preserved as the
+> launch-audit record. “Verification pending” means the 2026-07 second pass was not
+> completed in this snapshot, not that a live verification queue exists today.
+
+
 > [!NOTE]
 > These statuses include the 2026-07-14 hardening reassessment. Rejected Buddy-owned runtime
-> mechanisms are reopened below. The evidence and disposition log is
-> [Hardening pass reassessment](./hardening-reassessment.md).
+> mechanisms were reopened **in this snapshot**. The evidence and disposition log is
+> [Hardening pass reassessment](./hardening-reassessment.md). Live status is the
+> [current tracker](../../../../reviews/knownissues.md).
 
 Audit date: 2026-07-13
 Scope: All 10 launch-risk discovery files
-Triage status: 9 launch blockers resolved; 7 launch blockers open
+Triage status then: 9 launch blockers resolved; 7 launch blockers open (2026-07-14). See knownissues.md for which of those still reproduce.
 
 ## Purpose
 
-This file puts every current finding in one decision-oriented view. It deliberately separates launch-blocking product failures from security hardening, deliberate policy, and failure-injection resilience work.
+This file puts every **then-current** (2026-07-13/14) finding in one decision-oriented view. It deliberately separates launch-blocking product failures from security hardening, deliberate policy, and failure-injection resilience work.
 
 The discovery priority (`P0`/`P1`/`P2`) is not the same as a launch verdict. A security issue can be severe without being a launch blocker under the product definition below.
 
@@ -28,12 +38,12 @@ The discovery priority (`P0`/`P1`/`P2`) is not the same as a launch verdict. A s
 | Primary triage | Count | Launch meaning |
 |---|---:|---|
 | Resolved launch blockers | 9 | Fixed or explicitly removed from launch scope after reassessment |
-| Open launch blockers | 7 | Six rejected hardening implementations were reopened; `L08-C06` was already open |
+| Then-open launch blockers | 7 | Six rejected hardening implementations were reopened then; `L08-C06` was already open. Not a 2026-08 live count. |
 | User-facing, not blockers | 16 | Product defects worth fixing, but not launch-stopping by this definition |
 | Security/boundary | 19 | Security or product-boundary review; not counted as user-facing blockers |
 | Resilience/edge/operations | 22 | Retain only after reachability/frequency verification |
 | Intentional/closed policy | 2 | Do not fix unless the product decision changes |
-| **Total** | **75** | Seven blockers remain open; non-blockers retain their existing candidate/verification states |
+| **Total** | **75** | Then: seven blockers open; non-blockers retain their 2026-07 candidate/verification states |
 
 `L01-C01` (platform signing/notarization) is explicitly treated as deliberate policy and excluded from the blocker count. The raw-HTML, HTML-widget, EPUB-script, calculator-authority, credential, and similar findings remain in the security lane rather than being mislabeled as user-facing blockers.
 
@@ -54,7 +64,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 | [x] | `L09-C08` | Fixed: a goal commit archives only the prior active set for the same scope and context. |
 | [x] | `L09-C09` | Fixed: flashcard reviews and question attempts use request-bound submission IDs, durable transactions and learner-memory outboxes, stable ingestion event IDs, and reconciliation of unfinished ingestion. |
 
-## Open launch blockers
+## Then-open launch blockers (2026-07-14)
 
 | ID | Why open | Later work |
 |---|---|---|
@@ -70,7 +80,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ### [LAUNCH-01 — Release packaging, installation, and first startup](./launch-01-release-startup.bugs.md)
 
-| ID | Triage | Audit status | Finding |
+| ID | Triage | Audit status (2026-07 snapshot) | Finding |
 |---|---|---|---|
 | `L01-C01` | Intentional | Candidate | Release artifacts are not platform-trusted; signing/notarization is a deliberate release decision. |
 | `L01-C02` | User-facing | Candidate | Startup feedback omits existing-database upgrades and early backend bootstrap. |
@@ -78,7 +88,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ### [LAUNCH-02 — Electron renderer, preload, and native IPC authority](./launch-02-electron-ipc.bugs.md)
 
-| ID | Triage | Audit status | Finding |
+| ID | Triage | Audit status (2026-07 snapshot) | Finding |
 |---|---|---|---|
 | `L02-C01` | Security | Candidate | Model-authored raw HTML can navigate the privileged app window to a remote origin. |
 | `L02-C02` | Security | Candidate | Renderer-controlled store names escape Electron user data. |
@@ -86,7 +96,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ### [LAUNCH-03 — Backend exposure, credentials, OAuth, onboarding, and first response](./launch-03-backend-auth-transport.bugs.md)
 
-| ID | Triage | Audit status | Finding |
+| ID | Triage | Audit status (2026-07 snapshot) | Finding |
 |---|---|---|---|
 | `L03-C01` | Security | Candidate | Standalone server fails open when credentials are absent or incomplete. |
 | `L03-C02` | Blocker | Open | Embedded backend death after startup is only logged. |
@@ -98,7 +108,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ### [LAUNCH-04 — Durable storage, workspace/file identity, migrations, and API scope](./launch-04-storage-migrations.bugs.md)
 
-| ID | Triage | Audit status | Finding |
+| ID | Triage | Audit status (2026-07 snapshot) | Finding |
 |---|---|---|---|
 | `L04-C01` | Intentional | Rejected | Legacy runtime-root migration is outside the current backward-compatibility policy. |
 | `L04-C02` | Resilience | Candidate | Provider authentication persistence is unlocked and non-atomic. |
@@ -114,7 +124,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ### [LAUNCH-05 — Desktop update, signature, install, and recovery lifecycle](./launch-05-updates-recovery.bugs.md)
 
-| ID | Triage | Audit status | Finding |
+| ID | Triage | Audit status (2026-07 snapshot) | Finding |
 |---|---|---|---|
 | `L05-C01` | Resilience | Candidate | macOS update replacement deletes the working app before replacement succeeds. |
 | `L05-C02` | Resilience | Candidate | Helper process creation is mistaken for installer readiness. |
@@ -128,7 +138,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ### [LAUNCH-06 — Session lifecycle, event streaming, transcript state, and runtime isolation](./launch-06-session-events-runtime.bugs.md)
 
-| ID | Triage | Audit status | Finding |
+| ID | Triage | Audit status (2026-07 snapshot) | Finding |
 |---|---|---|---|
 | `L06-C01` | Security | Verified | Abort can cross the authorized notebook boundary by session ID. |
 | `L06-C02` | Resilience | Verified | Async prompt success is acknowledged before durable admission. |
@@ -142,7 +152,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ### [LAUNCH-07 — Capability/config compilation, permissions, MCP, and skills](./launch-07-capabilities-config-permissions-mcp-skills.bugs.md)
 
-| ID | Triage | Audit status | Finding |
+| ID | Triage | Audit status (2026-07 snapshot) | Finding |
 |---|---|---|---|
 | `L07-C01` | Blocker | Fixed | Concurrent notebook config patches can silently discard each other. |
 | `L07-C02` | Resilience | Candidate | Config and instruction writes are direct, non-atomic replacements. |
@@ -155,7 +165,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ### [LAUNCH-08 — Advanced-math and standards execution/data runtimes](./launch-08-math-standards-runtimes.bugs.md)
 
-| ID | Triage | Audit status | Finding |
+| ID | Triage | Audit status (2026-07 snapshot) | Finding |
 |---|---|---|---|
 | `L08-C01` | Security | Candidate | The Python calculator is unrestricted same-user code execution behind a tool-wide approval. |
 | `L08-C02` | Security | Candidate | Calculator output, memory, artifacts, and descendant processes are unbounded. |
@@ -168,7 +178,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ### [LAUNCH-09 — Learning workspace, managed objects, memory, curriculum, and assessment state](./launch-09-learning-objects-memory-assessment.bugs.md)
 
-| ID | Triage | Audit status | Finding |
+| ID | Triage | Audit status (2026-07 snapshot) | Finding |
 |---|---|---|---|
 | `L09-C01` | Blocker | Fixed | Lesson-workspace revision checks do not serialize saves, restores, or multi-file commits. |
 | `L09-C02` | Resilience | Candidate | A crash during managed-object replacement strands the only good copy as staging data. |
@@ -182,7 +192,7 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ### [LAUNCH-10 — Active content, resources, Bench, whiteboard, and Obsidian](./launch-10-active-content-resources-bench.bugs.md)
 
-| ID | Triage | Audit status | Finding |
+| ID | Triage | Audit status (2026-07 snapshot) | Finding |
 |---|---|---|---|
 | `L10-C01` | Security | Candidate | Sandboxed HTML widgets can read the authenticated Buddy API. |
 | `L10-C02` | Security | Candidate | `prepare_resource` bypasses the external-directory permission boundary. |
@@ -195,8 +205,10 @@ These findings matched the launch-blocker definition and survived the hardening 
 
 ## Next decision gate
 
-Seven launch blockers remain. Resolve them through the owner-specific later work above; do not close
-them with parallel Buddy runtime mechanisms. After they are resolved, choose the next lane:
+At the 2026-07-14 snapshot, seven launch blockers remained. This is a historical next-decision
+gate, not a current count; use the [current tracker](../../../../reviews/knownissues.md) for live
+status and the owner-specific later work above for the preserved follow-up boundaries. Do not close
+historical blockers with parallel Buddy runtime mechanisms. After they are resolved, choose the next lane:
 
 1. Verify and prioritize the 16 user-facing non-blockers, or
 2. review the 19 security/boundary findings against explicit product decisions, or

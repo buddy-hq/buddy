@@ -1,10 +1,19 @@
 # LAUNCH-02 — Electron renderer, preload, and native IPC authority
 
-Audit date: 2026-07-13
-Pass status: Discovery complete; verification pending
-Baseline: Current workspace, evaluated as a clean release-candidate tree. Unrelated dirty-worktree changes were ignored.
+> **Historical snapshot (audit 2026-07-13, hardening reassessment 2026-07-14).**
+> This is not the live issue tracker and is not a current release-candidate queue.
+> Live open items, including still-reproducing L02 / L03 / L07 / L10 threats, are in
+> [`docs/reviews/knownissues.md`](../../../../reviews/knownissues.md).
+> Threat models and then-open / then-resolved dispositions below are preserved as the
+> launch-audit record. “Verification pending” means the 2026-07 second pass was not
+> completed in this snapshot, not that a live verification queue exists today.
 
-This file records first-pass candidates. A candidate is not a final launch verdict until the verification pass either retains it under **Verified bugs** or moves it to **Rejected after verification**.
+
+Audit date: 2026-07-13
+Pass status (then): Discovery complete; 2026-07 verification pass not completed
+Baseline (then): 2026-07-13 workspace, evaluated as a launch-audit tree. Not a claim about the 2026-08 working tree.
+
+This file records 2026-07-13 first-pass candidates. It is not a live verdict. Then-open items that still reproduce are tracked in `docs/reviews/knownissues.md`.
 
 ## Candidate bugs
 
@@ -37,13 +46,13 @@ This file records first-pass candidates. A candidate is not a final launch verdi
 - **Impact:** Commands affect a hidden/background window, events disappear from the focused window, destroyed-webContents calls can throw, and a running app can become windowless and unrecoverable from a second launch or dock activation.
 - **Verification pending:** Exercise two-window routing, close windows in both orders, send a deep link/update event, and relaunch the packaged app under the single-instance lock.
 - **First-pass confidence:** High on routing mismatch; lifecycle consequences require packaged runtime confirmation.
-- **Reassessment status:** Open. The hardening implementation was discarded.
+- **Reassessment status (2026-07-14 snapshot):** Then-open. The hardening implementation was discarded.
 - **Why reopened:** It introduced Buddy-specific window and deep-link registries even though vendored OpenCode's Electron desktop already owns window registration/restoration, last-focused routing, and deep-link buffering. Local unit tests did not justify a parallel lifecycle.
 - **Later work:** Port or adapt the established flow in `vendor/opencode/packages/desktop/src/main/window-registry.ts`, `windows.ts`, and `index.ts`, then verify it in Buddy's packaged macOS and Windows apps. Do not design another independent registry.
 
 ## Verified bugs
 
-Pending second-pass verification.
+Not completed in this snapshot. Do not read this heading as an active queue.
 
 ## Rejected after verification
 

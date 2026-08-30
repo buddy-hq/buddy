@@ -1,5 +1,9 @@
-Below is a **CWSEI-named artifact catalog**, with **(a) how to make it** (only where CWSEI sources in this project give explicit guidance) and **(b) a “not to do” list** when CWSEI explicitly provides one.  
-For items that CWSEI only **lists in the Teaching Practices Inventory (TPI)** (i.e., it’s an inventory prompt, not a how-to), I’ll label them **“TPI item (no build guide in provided sources)”** and give the _most direct CWSEI-adjacent guidance available_ from the Course Transformation Guide / learning-science notes we have.
+# CWSEI Pedagogical Artifacts Guide
+
+Status: Craft authority for constructing evidence-based pedagogical artifacts. Concise principles index: [principles.md](../principles.md). This file is not a second copy of principles.md.
+
+The catalog below uses **(a) how to make it** (only where CWSEI sources give explicit guidance) and **(b) a “not to do” list** when CWSEI provides one.
+For items that CWSEI only **lists in the Teaching Practices Inventory (TPI)** (inventory prompt, not a how-to), they are labeled **“TPI item (no build guide in provided sources)”** with the most direct CWSEI-adjacent guidance from the Course Transformation Guide / learning-science notes. Official URLs: [principles.md](../principles.md) bibliography.
 
 ---
 

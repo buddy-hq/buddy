@@ -1,71 +1,93 @@
-# Docs
+# Buddy Documentation
 
-Single home for Buddy's documentation. One owner per concept; place new docs by the rules below.
+Single home for Buddy's documentation. One canonical home per concept.
+
+Code, configuration, tests, and `packages/buddy/src/learning/shared/teaching-vocabulary.ts` are authoritative for structure and behavior. Documentation preserves architectural rationale, decisions, product contracts, open issues, and durable procedures.
 
 ## Layout
 
-| Directory | What belongs here |
-| --- | --- |
-| `guides/` | Durable how-tos and algorithms: authoring guides, upstream-fetch, smoke tests, agent command algos (`guides/commands/`), debugging howtos (`guides/debugging/`) |
-| `features/<feature>/` | Everything about one product feature: design, implementation logs, known issues, research |
-| `learning/` | The learning domain: `curriculum/`, `library/`, `commons/` |
-| `research/` | Research and comparisons: context-engineering, llm-wiki, notebooklm, screen sizes |
-| `ops/` | Operating and shipping the app: releases, run logs, incidents, launch, site audits |
-| `architecture/` | Cross-cutting system architecture: decoupling, upstream v2 audits, decision records, design notes (`architecture/design/`) |
-| `reviews/` | Cross-cutting review material and known-issues snapshots |
-| `archive/` | Superseded docs kept for history. Nothing new goes here; when a doc is superseded it moves here instead of being deleted |
-| `artifacts/` | Working artifacts: plans, benchmarks, distilled notes |
-| `memory-optimization/` | Active memory workstream (has its own AGENTS.md) |
-| `skills-authoring/` | Authoring context for Buddy skills |
-| `demo/` | Demo media |
-| `local/`, `dogfooding/` | Personal scratch — gitignored, untracked |
+```text
+docs/
+  README.md
+  docs-refactor.md
+  architecture/
+    decisions/
+      backend-dev-markdown-loader-cwd.md
+      composer-accessory-vertical-budget.md
+      dynamic-tools-runtime-permissions.md
+      learner-memory-taxonomy-and-storage.md
+      opencode-config-overlay.md
+      opencode-subagent-runtime-semantics.md
+      permission-v2.md
+      settings-scope-architecture.md
+      utility-process-backend.md
+    decoupling/
+      about.md
+      phase-3-tool-semantics-shipped.md
+      plugin-analysis.md
+      tiered-decoupling-plan.md
+      tool-permissions-and-migration-faq.md
+      upstream-fetch-reduction-plan.md
+    design/grain.md
+    v2-upstream/
+      buddy-opencode-v2-findings.md
+      permission-v2-adoption-decision.md
+      upstream-v2-audit-2026-07-04.md
+  guides/
+    commands/
+    debugging/
+    build-reader.md
+    learner-memory.md
+    scrollbar.md
+    tool-authoring-guide.md
+    upstream-fetch.algo.md
+  learning/
+    commons/
+    skills-authoring.md
+    curriculum/index.md
+    curriculum/principles.md
+    library/
+  memory-optimization/
+    AGENTS.md
+    current-status.md
+    exit-branch.md
+    history/
+  features/
+    <feature>/
+      # contracts, open issues, decisions, incidents
+  ops/
+    bug-audit/
+    incidents/
+    launch/
+    logs/
+    releases/
+      logs/
+    site-audits/
+    launch-video/design.md
+  tests/
+    cleanup.md
+  reviews/
+    knownissues.md
+    state-collapsed-into-hover.md
+```
+
+## Directory Map
+
+| Directory | Scope |
+|---|---|
+| `architecture/` | System design, ADRs (`decisions/`), decoupling (`decoupling/`), upstream snapshots (`v2-upstream/`), and UI surfaces (`design/grain.md`). |
+| `guides/` | Operating procedures: reader builds, memory, scrollbar, vendor sync, agent commands, debugging. |
+| `learning/` | Pedagogy principles, [skill authoring](learning/skills-authoring.md), curriculum architecture. |
+| `memory-optimization/` | Active memory workstream status, exit criteria, and historical recovery notes; its `AGENTS.md` governs this area. |
+| `features/` | Feature contracts, design rationale, and feature-specific known issues. |
+| `ops/` | Incidents, launch material, site-audit prose, releases, and durable upstream-fetch logs (`logs/`; release-cut logs stay under `releases/logs/`). |
+| `tests/` | Durable test-cleanup and measurement lessons (`cleanup.md`). |
+| `reviews/` | Single cross-cutting open-issue tracker (`knownissues.md`) plus the separate collapsed-hover class-of-bug audit. |
+
+Key authorities: [dynamic tool permissions](architecture/decisions/dynamic-tools-runtime-permissions.md), [subagent runtime semantics](architecture/decisions/opencode-subagent-runtime-semantics.md), [learner memory taxonomy](architecture/decisions/learner-memory-taxonomy-and-storage.md), [settings scope](architecture/decisions/settings-scope-architecture.md), [pedagogical skill authoring](learning/skills-authoring.md), and the [docs-refactor execution record](docs-refactor.md). On-disk memory files: [learner-memory guide](guides/learner-memory.md).
 
 ## Conventions
 
-- Filenames are kebab-case: no spaces, no uppercase.
-- Known-issues live in their feature dir (`features/<f>/known-issues.md`) or in `reviews/` when cross-cutting.
-- Upstream-fetch run logs go to `ops/logs/`; release-cut logs stay inside `ops/releases/logs/`.
-- Never delete tracked docs — supersede them into `archive/`.
-
-## Reorganization map (old path → new path)
-
-| Old | New |
-| --- | --- |
-| `tabs/` | `features/tabs/` |
-| `reader/` | `features/reader/` |
-| `annotations/` | `features/annotations/` |
-| `model-selector/` | `features/model-selector/` |
-| `mdx/` | `features/mdx/` |
-| `errors/` | `features/error-handling/` |
-| `code-persona/` | `features/code-persona/` |
-| `UI/chat motion and scroll.md` | `features/chat-motion/chat-motion-and-scroll.md` |
-| `integrations/obsidian/` | `features/integrations/obsidian/` |
-| `rfc/rfc-html-widget-print-and-pdf.md` | `features/html-widgets/rfc-html-widget-print-and-pdf.md` |
-| `onboarding/design.md` | `features/onboarding/design-direction.md` |
-| `curriculum/` | `learning/curriculum/` |
-| `library-resources/` | `learning/library/` |
-| `learning-commons/` | `learning/commons/` |
-| `context-engineering/` | `research/context-engineering/` |
-| `llm-wiki/` | `research/llm-wiki/` |
-| `notebooklm/` | `research/notebooklm/` |
-| `releases/` | `ops/releases/` |
-| `logs/` | `ops/logs/` |
-| `incidents/` | `ops/incidents/` |
-| `launch/` | `ops/launch/` |
-| `launch-video/` | `ops/launch-video/` |
-| `site/audits/` | `ops/site-audits/` |
-| `decoupling/` | `architecture/decoupling/` |
-| `v2/` | `architecture/v2-upstream/` |
-| `decisions/` | `architecture/decisions/` |
-| `design/grain.md` | `architecture/design/grain.md` |
-| `commands/` | `guides/commands/` |
-| `session-debugging/` | `guides/debugging/` |
-| `misc/known-issues.md` | `reviews/known-issues.misc.md` |
-| `known-issues/state-collapsed-into-hover.md` | `reviews/state-collapsed-into-hover.md` |
-| `outdated/` | `archive/` |
-| `skills/buddy-skill-creator-context.md` | `skills-authoring/buddy-skill-creator-context.md` |
-| `releases/upstream fetch audit.md` | `ops/releases/upstream-fetch-audit.md` |
-| `guides/PROMPT-GUIDE.md` | `guides/prompt-guide.md` |
-| `guides/PROMPT-PIPELINE.md` | `guides/prompt-pipeline.md` |
-| `archive/Tauri Vs Context.md` | `archive/tauri-vs-context.md` |
-| `artifacts/.../Sdk Migration Feasibility.md` | `artifacts/using-opencode-js-sdk/sdk-migration-feasibility.md` |
+- **Naming:** kebab-case filenames only.
+- **Known issues:** Feature issues in `features/<f>/known-issues.md`; cross-cutting issues in `reviews/knownissues.md`.
+- **Git is the archive:** Never keep obsolete plans, work logs, or completed checklists in active docs.

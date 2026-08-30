@@ -138,5 +138,15 @@ Options:
     -
 
 ## Subagent Prompt Scratchpad
-- Detailed prompt iteration lives in `docs/features/prompt-engineering/explanation-guide-subagent-prompt.md`.
-- Keep this file focused on scope and design decisions.
+
+The old scratchpad file `docs/features/prompt-engineering/explanation-guide-subagent-prompt.md` was
+never in this repository. Do not recreate it as a second prompt authority.
+
+Detailed skill and subagent prompt craft lives in:
+
+- [Pedagogical skill authoring](../../learning/skills-authoring.md)
+- [Skill library design](../skills/design.md) (routing vs packaged teaching skills)
+- [Teaching vocabulary](../../../packages/buddy/src/learning/shared/teaching-vocabulary.ts)
+
+Keep this file focused on scope and design decisions (`learn` / `practice` / `assess`, do not
+conflate `curriculum` with `teaching-guidance`).

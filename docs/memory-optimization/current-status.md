@@ -1,5 +1,7 @@
 # Memory Optimization Current Status
 
+> **Dated foundation notes (2026-06-25).** Canonical packaging contracts, Failure Rule, target-native `out/main`, and next-map: [utility-process-backend.md](../architecture/decisions/utility-process-backend.md).
+
 Created: 2026-06-25
 
 ## Purpose

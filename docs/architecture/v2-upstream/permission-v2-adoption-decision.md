@@ -1,5 +1,7 @@
 # Permission v2 adoption decision
 
+> **Historical write-up (2026-06-10).** Canonical current decision: [permission-v2.md](../decisions/permission-v2.md). This file keeps the full reverted-implementation inventory, upstream source links, and numbered principles 1–10.
+
 Date: 2026-06-10
 
 ## Decision

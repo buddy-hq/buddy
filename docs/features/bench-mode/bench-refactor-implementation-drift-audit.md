@@ -1,19 +1,21 @@
 # Bench Refactor Implementation Drift Audit
 
+> Historical survey snapshot (dated 2026-06-21; reclassified 2026-08-30): this audit records the implementation and findings observed during that survey. Its “current” statuses are time-scoped to that snapshot, not a live implementation claim. For live Bench ownership and protocol, read [current-architecture.md](./current-architecture.md).
+
 Date: 2026-06-21
 
-Status: survey complete
+Status: historical survey complete (2026-06-21)
 
 ## Purpose
 
-This document audits the current Bench refactor implementation for drift from
+This document audits the Bench refactor implementation as observed on 2026-06-21 for drift from
 `bench-refactor.md`, `bench-refactor-review-remediation.md`, and
 `bench-refactor.divergences.md`.
 
-The goal is not to fix code in this pass. The goal is to identify where the
-current implementation still permits old architectural failure modes or partial
-implementations, then define a focused hardening/refactor plan that can be done
-after the current working state is committed.
+The goal was not to fix code in that pass. The goal was to identify where the
+surveyed implementation still permitted old architectural failure modes or
+partial implementations, then define a focused hardening/refactor plan for the
+next pass after the working state was committed.
 
 Backward compatibility is not required for the follow-up work. The plan should
 prefer deleting or renaming drift-prone compatibility surfaces over preserving
@@ -44,9 +46,9 @@ Implementation drift means one of these is true:
 - A documented divergence causes behavior outside the intent of
   `bench-refactor.md`.
 
-## Current Read
+## Survey Read (2026-06-21)
 
-The current implementation appears to have converged back toward the intended
+The implementation observed in the 2026-06-21 survey appeared to have converged back toward the intended
 architecture after the remediation passes. The major known failures were mostly
 caused by implementation drift from the plan rather than by the two active
 documented divergences.
@@ -367,22 +369,23 @@ next refactor should keep this distinction explicit: timers may support local
 surface behavior or the backend expiry circuit breaker, but not authorize or
 sequence Bench route/workspace transitions.
 
-## Final Refactor Plan
+## Historical Follow-up Plan (2026-06-21)
 
-This should be a drift-hardening refactor, not another architecture replacement.
-The current architecture is the right shape: stable directory root, one
-controller command boundary, one lifecycle publication boundary, one backend
-broker, and one rendered Bench outlet. The follow-up should make that shape
-harder to partially violate.
+This was intended to be a drift-hardening refactor, not another architecture
+replacement. The survey considered the architecture the right shape: stable
+directory root, one controller command boundary, one lifecycle publication
+boundary, one backend broker, and one rendered Bench outlet. The follow-up was
+intended to make that shape harder to partially violate.
 
 Backward compatibility is not required, so prefer deletion and direct renames
 over adapters.
 
-### Phase 0: Commit the current working baseline
+### Phase 0: Commit the surveyed working baseline
 
-Commit the current state before starting this pass. The current implementation
-works and already contains the important remediation fixes. The next pass should
-be reviewable as cleanup/hardening on top of a known-good baseline.
+The incident-time instruction was to commit the surveyed state before starting
+that pass. The implementation then appeared to work and already contained the
+important remediation fixes; the next pass was intended to be reviewable as
+cleanup/hardening on top of a known-good baseline.
 
 ### Phase 1: Lock behavior with missing tests first
 

@@ -1,10 +1,19 @@
 # LAUNCH-06 — Session lifecycle, event streaming, transcript state, and runtime isolation
 
-Audit date: 2026-07-13
-Pass status: Verification complete
-Baseline: Current workspace, evaluated as a clean release-candidate tree. Unrelated dirty-worktree changes were ignored.
+> **Historical snapshot (audit 2026-07-13, hardening reassessment 2026-07-14).**
+> This is not the live issue tracker and is not a current release-candidate queue.
+> Live open items, including still-reproducing L02 / L03 / L07 / L10 threats, are in
+> [`docs/reviews/knownissues.md`](../../../../reviews/knownissues.md).
+> Threat models and then-open / then-resolved dispositions below are preserved as the
+> launch-audit record. “Verification pending” means the 2026-07 second pass was not
+> completed in this snapshot, not that a live verification queue exists today.
 
-This file records the completed discovery and independent verification passes. Every retained finding below was traced through the current Buddy code path; focused probes were used where they materially strengthened the result.
+
+Audit date: 2026-07-13
+Pass status (then): Verification complete for the 2026-07 audit
+Baseline (then): 2026-07-13 workspace, evaluated as a launch-audit tree. Not a claim about the 2026-08 working tree.
+
+This file records the completed discovery and independent verification passes from the 2026-07 audit. Every retained finding below was traced through the Buddy code path as observed then; focused probes were used where they materially strengthened the result. It is not a live verdict; current status is in `docs/reviews/knownissues.md`.
 
 ## Candidate bugs
 
@@ -41,7 +50,7 @@ None. All nine discovery candidates were resolved by the verification pass.
 - **Impact:** A request can report success yet leave a visible user turn or requested compaction permanently pending, with client behavior depending on a narrow race. Retrying can later cause duplicate or unexpectedly ordered work.
 - **Verification evidence:** Both prompt and summarize persist their records before calling `loop`. `Runner.ensureRunning` discards the new work effect when the session is already running and only awaits the existing deferred. The active loop loaded its message snapshot before the concurrent record existed and breaks immediately on a normal `stop`, so neither caller starts a drain of the newly persisted work before returning success.
 - **Verification result:** Retained as P1/P2.
-- **Reassessment status:** Open. The notebook-wide Buddy admission mechanism was discarded.
+- **Reassessment status (2026-07-14 snapshot):** Then-open. The notebook-wide Buddy admission mechanism was discarded.
 - **Why reopened:** Vendored OpenCode owns prompt persistence and runners by `SessionID`. The rejected implementation serialized every session in a notebook and added a separate Buddy admission/monitoring lifecycle, breaking independent conversations without fixing the vendor owner.
 - **Later work:** Correct or adopt the behavior at the vendored prompt/run-state owner during a tracked vendor update. The acceptable outcome is atomic same-session busy rejection before persistence or a queue the vendored runner durably drains. Do not add a Buddy project or session gate.
 
@@ -54,7 +63,7 @@ None. All nine discovery candidates were resolved by the verification pass.
 - **Impact:** A turn can be shown as aborted while its tool later overwrites a lesson, saves an artifact, updates memory, or performs another durable side effect. This breaks cancellation truth and can cause changes after the user believes execution has stopped.
 - **Verification evidence:** The shared wrapper is a `Promise.race` and has no way to cancel or join `definition.execute`. A focused in-process probe latched an abort-unaware Buddy tool after execution began, aborted its context, observed the exposed execution reject with `AbortError`, and then observed the tool's delayed mutation complete. `teaching_restore_checkpoint` likewise performs its restore after permission without checking the signal.
 - **Verification result:** Retained as P1.
-- **Reassessment status:** Open. The generic wait-after-abort wrapper was discarded.
+- **Reassessment status (2026-07-14 snapshot):** Then-open. The generic wait-after-abort wrapper was discarded.
 - **Why reopened:** Vendored OpenCode already supplies `Tool.Context.abort`; cancellation must be cooperative at the operation that owns each side effect. The rejected wrapper raced abort and then could wait forever for an abort-unaware promise, making Stop hang without cancelling the mutation.
 - **Later work:** Audit Buddy-owned durable tools individually. Propagate `ctx.abort` into cancellable operations and check it at safe transaction boundaries before mutation/publication. Do not add another global tool wrapper that claims cancellation authority it does not have.
 
@@ -87,7 +96,7 @@ None. All nine discovery candidates were resolved by the verification pass.
 - **Impact:** Reverting one turn can silently overwrite or delete another active session's work or edits made directly by the user, causing cross-session attribution errors and durable data loss.
 - **Verification evidence:** Run serialization is keyed only by session ID. Snapshot `track` and `patch` serialize Git bookkeeping but `patch` stages every changed/untracked worktree path since the starting tree, with no session ownership metadata. Revert later enumerates those paths and force-checks them out or deletes them after checking only the selected session's busy state, so concurrent session or user edits can be captured and overwritten.
 - **Verification result:** Retained as P1.
-- **Reassessment status:** Open. Vendor-backed revert/unrevert behavior was restored.
+- **Reassessment status (2026-07-14 snapshot):** Then-open. Vendor-backed revert/unrevert behavior was restored.
 - **Why reopened:** The hardening pass disabled the feature at Buddy's HTTP layer with unconditional `409` responses even though vendored OpenCode owns snapshot attribution and rewind semantics. That removed vendor behavior without correcting causal attribution.
 - **Later work:** Address attribution/conflict detection at the vendored snapshot/revert owner in a tracked vendor parity change. Until then, preserve vendor behavior and document the risk; do not replace it with a Buddy route-level ban.
 

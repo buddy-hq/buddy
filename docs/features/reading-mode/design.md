@@ -4,25 +4,30 @@
 - make reading mode a first-class read-and-chat workspace for notebook resources, not just a document viewer bolted onto chat.
 
 ## Current Product Shape
-- reading mode lives at `/$directory/read?path=...&resource=...`.
-- it is a dedicated split-pane screen.
-- the left pane is `DirectoryChatReadingReaderPane`, which loads a resource blob and renders `FoliateReader`.
-- the right pane is the normal chat conversation pane with a reading-specific thread browser header.
-- the main entrypoint is `openResourceInReadingMode` from the notebook UI.
-- while the route is mounted, the selected session persona is switched to `buddy`.
-- when the route unmounts, the page restores the prior persona selection for the affected session.
-- every prompt sent from reading mode includes the `reading` payload (position, passage, trail, annotations) as primary grounding. Resource-reference auto-injection has been removed; the model grounds on local reading context first and uses resource pack reads only when broader scope is needed.
+
+- reading is a Bench surface inside the notebook route `/$directory` (`packages/web/src/routes/$directory.tsx`), not a dedicated `/read` route.
+- the open path is `useOpenReadingResource` (`packages/web/src/lib/use-open-reading-resource.ts`), which prefetches catalog/blob when safe and calls `openBench`.
+- a processed resource opens as a Bench object target (`kind: "resource"`, `viewID: "reader"`). An unprocessed file opens as a workspace-file Bench target.
+- `file-bench-surface.tsx` and `object-bench-surface.tsx` mount `DirectoryChatReadingPage`.
+- the left pane is `DirectoryChatReadingReaderPane`, which loads a resource blob and renders `DocumentReader` (`PdfReader` / PDF.js for PDF, `FoliateReader` / `foliate-js` for EPUB).
+- the right pane is the docked chat conversation with `DirectoryChatBenchThreadBrowser`.
+- while the reading page is mounted, the selected session persona is switched to `buddy`; unmount restores the prior persona.
+- every prompt sent from reading includes the `reading` payload (position, passage, trail, annotations) as primary grounding. Resource-reference auto-injection has been removed; the model grounds on local reading context first and uses resource pack reads only when broader scope is needed.
 - the backend turns that request payload into `activeResource` prompt context and renders `<active_reading_resource>` into the prompt pipeline.
+
+**Historical route (removed):** an earlier design used `/$directory/read?path=...&resource=...` via `packages/web/src/routes/$directory.read.tsx` and `directory-chat-reading-thread-browser.tsx`. Those files are gone. `routeTree.gen.ts` has no `/read` route. Keep the phases below as the product roadmap; do not treat the dedicated route as current ownership.
 
 ## Key Files
 - full-text ingestion budget and provider-limit policy:
   [Full-text ingestion design](../full-text-ingestion/design.md)
-- route: `packages/web/src/routes/$directory.read.tsx`
+- notebook route: `packages/web/src/routes/$directory.tsx`
+- open path: `packages/web/src/lib/use-open-reading-resource.ts` (`openResourceInReadingMode` in the page controller still calls this)
+- bench mounts: `packages/web/src/components/bench/surfaces/file-bench-surface.tsx`, `object-bench-surface.tsx`
 - page shell: `packages/web/src/components/directory-chat/directory-chat-reading-page.tsx`
 - reader pane: `packages/web/src/components/directory-chat/directory-chat-reading-reader-pane.tsx`
-- thread browser: `packages/web/src/components/directory-chat/directory-chat-reading-thread-browser.tsx`
-- reader implementation: `packages/web/src/components/readers/foliate-reader.tsx`
-- reader persistence helpers: `packages/web/src/components/readers/utils/foliate-storage.ts`
+- thread browser: `packages/web/src/components/directory-chat/directory-chat-bench-thread-browser.tsx`
+- reader implementation: `packages/web/src/components/readers/document-reader.tsx` (PDF: `pdf/pdf-reader.tsx`; EPUB: `foliate-reader.tsx`)
+- reader persistence helpers: `packages/web/src/components/readers/reader-storage.ts` and `packages/web/src/components/readers/utils/foliate-storage.ts`
 - route controller entrypoint: `packages/web/src/lib/directory-chat/use-directory-chat-page-controller.ts`
 - chat state: `packages/web/src/state/chat-store.ts`
 - resource blob query: `packages/web/src/state/resources-query.ts`
@@ -31,19 +36,20 @@
 
 ## End-To-End Flow
 1. the user opens a PDF or EPUB resource.
-2. `openResourceInReadingMode` prefetches notebook resources and, for supported files, prefetches the raw blob for the reader.
-3. the app navigates to `/$directory/read` with the resource path and optional resource id in search params.
+2. `useOpenReadingResource` prefetches notebook resources and, for supported ready files, prefetches the raw blob for the reader.
+3. `openBench` presents the resource on Bench (object + `viewID: "reader"`, or workspace-file). There is no navigation to `/$directory/read`.
 4. `DirectoryChatReadingPage` resolves the matching resource record, marks it as the active reading resource for the directory, and switches the current session to `buddy`.
-5. `DirectoryChatReadingReaderPane` loads the blob through `readingResourceBlobQueryOptions` and passes it to `FoliateReader`.
-6. `FoliateReader` opens the book, restores persisted reader state, and emits location updates.
+5. `DirectoryChatReadingReaderPane` loads the blob through `readingResourceBlobQueryOptions` and passes it to `DocumentReader`.
+6. `DocumentReader` opens the PDF or EPUB engine, restores persisted reader state, and emits location updates.
 7. those location updates are copied into `activeReadingResourceByDirectory`, so the current location, toc label, and page label are available to prompt submission.
 8. `sendRuntimePrompt` attaches the `reading` payload with position, passage, trail, and annotation data. Resource references are only included when explicitly requested (e.g. via `/resource use`).
 9. the backend parses that payload into `activeResource` and includes `<active_reading_resource>` in the prompt context for the turn.
 10. the active chat remains selected. The submitted turn snapshots the visible reading context; the resource does not acquire a canonical chat or navigation authority.
 
 ## Verified Behavior
-- last-location restore already exists in `FoliateReader`. it loads `persisted.lastLocation` from `loadBookState(...)` and passes it into `view.init(...)`.
-- reader open and init failures are already caught inside `FoliateReader`, which renders `FoliateErrorState` instead of crashing on the normal async failure path.
+- for EPUB, last-location restore already exists in `FoliateReader`. It loads `persisted.lastLocation` from `loadBookState(...)` and passes it into `view.init(...)`.
+- the EPUB/Foliate reader's open and init failures are already caught inside `FoliateReader`, which renders `FoliateErrorState` instead of crashing on the normal async failure path. PDF follows the `DocumentReader` → `PdfReader` / PDF.js error path.
+- `DocumentReader` owns the current engine split: PDF uses `PdfReader` / PDF.js and EPUB uses `FoliateReader` / `foliate-js`.
 - generic resource opening is navigation-free. Sources, Search, and Explorer present the resource in the active chat's Bench workspace and never restore another session.
 
 ## Obvious Improvements
@@ -53,76 +59,117 @@
 - invariant: a book is shared notebook content. A normal book click cannot inspect resource history and activate another chat.
 - future continuation UI: an explicit “Continue discussion” action may intentionally select a named chat and then present the resource. That compound action must stay separate from generic resource opening.
 
-### 2. Gate the reader on resource readiness before fetching the blob
+### 2. Gate the reader on resource readiness before fetching the blob (remaining)
+
+> **Status: Open.** The current pane gates on supported reader format, but `resourceStatus` is not used to gate `readingResourceBlobQueryOptions` before the blob query runs.
+
 - current behavior: the route loader and reader pane fetch the blob for any supported path, but the pane does not check the resource's processing status before trying to open it.
 - why it matters: resources in `preparing` or `unprocessed` states can fall through to a generic loading or error path instead of showing a clear product state.
 - likely change: resolve the matching `ResourceRecord` earlier and show explicit `preparing`, `not ready`, `unsupported`, or `error` states before the blob query runs.
 
-### 3. Use a reading-specific cache policy for large blobs
-- current behavior: `readingResourceBlobQueryOptions` uses the same `RESOURCE_COVER_STALE_TIME_MS` constant as resource covers, which is only five minutes.
+### 3. Use a reading-specific cache policy for large blobs (shipped)
+
+> **Status: Implemented.** `readingResourceBlobQueryOptions` uses the dedicated `READING_BLOB_STALE_TIME_MS` cache setting with a 30-minute `staleTime`, separate from the five-minute cover cache.
+
+- shipped behavior: the reading blob query avoids a short cover-cache lifetime for large PDF and EPUB blobs.
 - why it matters: reopening a large PDF or EPUB after a short idle period can trigger another expensive blob load even though the file is effectively immutable for the session.
-- likely change: give reading blobs their own cache constant with a much longer `staleTime`, and consider an explicit `gcTime` tuned for large local files.
+- remaining consideration: tune an explicit `gcTime` for large local files if profiling shows that the default retention is not appropriate.
 
-### 4. Remove the unused `foliate-reader-backup.tsx`
-- current behavior: `packages/web/src/components/readers/foliate-reader-backup.tsx` is a very large unused file and there are no in-repo references to it.
+### 4. Remove the unused `foliate-reader-backup.tsx` (shipped)
+
+> **Status: Implemented.** The former `foliate-reader-backup.tsx` file is absent from the current reader tree; the active selection implementation is `reader-selection-toolbar.tsx`.
+
+- historical gap: `foliate-reader-backup.tsx` was a very large unused file with no in-repo references.
 - why it matters: it adds noise when navigating the reader code and makes it less clear which implementation is real.
-- likely change: delete it if it is truly dead, or move it out of the main source tree if it still needs to be kept for reference.
+- shipped result: the dead backup was removed from the main source tree.
 
-### 5. Make previous resource discussions discoverable without creating ownership
-- current behavior: `DirectoryChatReadingThreadBrowser` receives the full notebook session list and does not distinguish sessions that discussed the current resource.
+### 5. Make previous resource discussions discoverable without creating ownership (shipped)
+
+> **Status: Implemented for linked-session restore and resource-aware thread history.** `ThreadHistoryPopover` receives the linked session, sorts it first, and marks it with the `Current book` badge.
+
+- shipped behavior: `DirectoryChatBenchThreadBrowser` passes current-resource linkage into the thread-history surface without making resource history a chat or navigation owner.
 - why it matters: relevant history becomes difficult to find in notebooks with many chats.
-- likely change: derive informational many-to-many resource/message history and offer explicit discussion links. Never consult that history from the normal resource-open path.
+- remaining improvement: derive informational many-to-many resource/message history and offer explicit discussion links. Never consult that history from the normal resource-open path.
 
-### 6. Add a true cross-route resume-reading affordance
-- current behavior: the active reading resource is cleared on reading-page unmount, so normal chat does not retain enough state to offer a reliable “resume reading” action.
+### 6. Add a true cross-route resume-reading affordance (partial)
+
+> **Status: Partial.** The page-local active reading resource is still cleared on reading-page unmount, but `lastOpenedReadingResourceByDirectory` is persisted and the resource grid/catalog drawer exposes `Resume reading`.
+
+- shipped behavior: normal navigation can retain the last-opened resource per directory and offer a resume action outside the reader page.
 - why it matters: moving between normal chat and reading mode feels more like leaving the feature than switching surfaces inside one workflow.
-- likely change: persist a separate last-opened reading resource per directory and expose a small resume affordance from the normal chat surface.
+- remaining gap: keep the active reading context itself available across unmount when needed, while preserving the persisted resume affordance.
 
 ## Deeper Context Gaps
 
+These items were the original gap list. Phases 1–5 below record what shipped. **Do not treat 7–12 as still missing.** Phase 6 (jump-back citations / reading quick actions) is still open. Gap 14 (reading-goal chips) is still open. Gap 13 is partially addressed via optional `persistenceSuffix` on `DocumentReader` / `PdfReader` / `FoliateReader`; standalone keys can still be document-derived.
+
 ### 7. Reading context drops machine-usable position data before it reaches chat
-- current behavior: `FoliateReaderLocation` already contains `fraction`, `cfi`, and `index`, but `DirectoryChatReadingPage` only copies `locationLabel`, `tocLabel`, and `pageLabel` into `chat-store`.
-- current behavior: the backend parser in `packages/buddy/src/learning/prompt/context.ts` also only reads the label-style fields, so even if the web app sent richer position data today, the prompt context would ignore it.
+
+> **Status: Implemented** (Phase 2). The original gap text is kept as the problem statement.
+
+- original behavior: `FoliateReaderLocation` already contains `fraction`, `cfi`, and `index`, but `DirectoryChatReadingPage` only copies `locationLabel`, `tocLabel`, and `pageLabel` into `chat-store`.
+- original behavior: the backend parser in `packages/buddy/src/learning/prompt/context.ts` also only reads the label-style fields, so even if the web app sent richer position data today, the prompt context would ignore it.
 - why it matters: the agent cannot anchor itself to an exact place in the book, detect revisits, or map the current position to a prepared page/chunk with confidence.
 - likely change: promote a real reading-position payload end to end, including at least `cfi`, `index`, `fraction`, and the human labels.
 
 ### 8. The agent does not receive the current visible passage
-- current behavior: reading mode tells the agent which resource is open and roughly where the reader is, but not what text is actually on screen right now.
-- current behavior: `resource-reference` expansion is still resource-level. it expands to the resource entrypoint and optional TOC, not the current passage, current chunk, or current page window.
+
+> **Status: Implemented** (Phase 3). `currentPassageText` is part of the reading payload.
+
+- original behavior: reading mode tells the agent which resource is open and roughly where the reader is, but not what text is actually on screen right now.
+- original behavior: `resource-reference` expansion is still resource-level. it expands to the resource entrypoint and optional TOC, not the current passage, current chunk, or current page window.
 - why it matters: close-reading questions are often really about the passage in front of the user, not the whole book. a state-of-the-art reading surface should make that local scope easy for the agent to use.
 - likely change: add a bounded `current passage` context block. for PDF this can likely map to prepared page windows. for EPUB it may need a viewport-derived excerpt or a mapping from section/index/href into processed chunks.
 
 ### 9. There is no first-class selection-to-chat workflow
-- current behavior: the reader selection toolbar only exposes `Copy`, `Highlight`, `Note`, and `Search` in `packages/web/src/components/readers/ui/foliate-selection-toolbar.tsx`.
-- current behavior: the prompt part model only supports text, agent mentions, workspace-file references, resource references, and files. there is no `reading-selection` or `quoted-passage` part.
+
+> **Status: Implemented** (Phase 1). Toolbar `Chat` and `reading-selection` prompt parts exist.
+
+- original behavior: the reader selection toolbar only exposes `Copy`, `Highlight`, `Note`, and `Search` in the former `packages/web/src/components/readers/ui/foliate-selection-toolbar.tsx` (now `reader-selection-toolbar.tsx`).
+- original behavior: the prompt part model only supports text, agent mentions, workspace-file references, resource references, and files. there is no `reading-selection` or `quoted-passage` part.
 - why it matters: this is the most obvious missing interaction for a reader with an agent beside it. users should be able to select a passage, ask about it, and have that selection travel with the message in a structured way.
 - likely change, v1: add a `Chat` action on the selection toolbar that inserts a quoted excerpt into the draft plus the current resource reference.
 - likely change, proper end-state: add a first-class `reading-selection` prompt part carrying `text`, `cfi`, `index`, `tocLabel`, `pageLabel`, and `resourceKey`, and render it as a removable selection card above or inside the composer.
 
 ### 10. The system has no “seen so far” reading trail
-- current behavior: there is no state that records which sections, chapters, or page windows the learner has already visited over the course of the session.
-- current behavior: this is notable because the `reading` skill explicitly says to maintain awareness of what portion of the document has been seen so far.
+
+> **Status: Implemented** (Phase 4; reading trail in prompt context).
+
+- original behavior: there is no state that records which sections, chapters, or page windows the learner has already visited over the course of the session.
+- original behavior: this is notable because the `reading` skill explicitly says to maintain awareness of what portion of the document has been seen so far.
 - why it matters: without a reading trail, the agent cannot distinguish “we are still in chapter 1” from “the learner has already moved through five sections and came back here.”
 - likely change: keep a bounded reading trail such as the last several distinct TOC items, page windows, or section indexes with timestamps and revisit counts.
 
 ### 11. Reader annotations are local UI state, not agent-visible reading state
-- current behavior: highlights, notes, and bookmarks exist in `FoliateReader` and persist via browser local storage, but they are not included in prompt context.
+
+> **Status: Partial** (Phase 4: annotation summary in reading payload; full annotation store sync deferred).
+
+- original behavior: highlights, notes, and bookmarks exist in `FoliateReader` and persist via browser local storage, but they are not included in prompt context.
 - why it matters: highlights and notes are some of the strongest signals of what the learner found important or confusing. leaving them invisible to the agent wastes one of the best sources of authentic reading context.
 - likely change: expose a lightweight annotations context to chat, such as recent highlights, the currently opened note, or an explicit “chat with this highlight” action.
 
 ### 12. Active reading context does not expose the prepared resource pack directly
-- current behavior: the prompt’s active-reading block renders `id`, `alias`, `status`, `toc`, `page`, and `location`, but not direct pack pointers like entrypoint path, TOC path, full-text path, chunks path, or pages path.
-- current behavior: some of this metadata already exists elsewhere in prompt context, but not in the active-reading block itself.
+
+> **Status: Implemented** for pack/full-text pointers on resource inventory and active-resource context (`packPath` / `full_text` in `packages/buddy/src/learning/prompt/`).
+
+- original behavior: the prompt’s active-reading block renders `id`, `alias`, `status`, `toc`, `page`, and `location`, but not direct pack pointers like entrypoint path, TOC path, full-text path, chunks path, or pages path.
+- original behavior: some of this metadata already exists elsewhere in prompt context, but not in the active-reading block itself.
 - why it matters: the current resource should be the easiest resource for the model to operate on. today, the model still has to infer or rediscover the prepared substrate when it wants to go beyond the current labels.
 - likely change: enrich active-reading context with direct prepared-pack pointers, or add a specialized reading-context block that names the active resource’s processed files explicitly.
 
 ### 13. Reader state persistence is app-global, not notebook-aware
-- current behavior: book progress, bookmarks, and annotations are persisted in browser local storage using a book-derived key from metadata and source name.
+
+> **Status: Partial.** Engines accept `persistenceSuffix`; PDF also migrates legacy keys in `reader-storage.ts`. Copies of the same file without a suffix can still share state.
+
+- original behavior: book progress, bookmarks, and annotations are persisted in browser local storage using a book-derived key from metadata and source name.
 - why it matters: copies of the same book across notebooks, or different revisions with identical metadata, can end up sharing reader state unexpectedly.
 - likely change: include notebook/resource identity in the persistence key when Buddy opens a notebook resource, while still letting plain standalone reader usage fall back to the current document-derived key.
 
 ### 14. The reading surface does not capture the learner’s reading goal
-- current behavior: the chat pane is the normal generic prompt composer. it does not capture whether the learner is reading for comprehension, close reading, critique, study, exam prep, or discussion.
+
+> **Status: Open.** No composer goal chips (`Understand` / `Analyze` / …) in current reading-mode UI.
+
+- original behavior: the chat pane is the normal generic prompt composer. it does not capture whether the learner is reading for comprehension, close reading, critique, study, exam prep, or discussion.
 - why it matters: the `reading` skill is already designed around these modes, but the UI does not help the user express them. that makes the agent feel less intentional than the skill design suggests.
 - likely change: add lightweight reading-mode goal chips or quick intents above the composer, such as `Understand`, `Analyze`, `Close read`, `Study`, and `Discuss`.
 
@@ -201,7 +248,7 @@ This would let the agent answer very different questions well:
 These are not just shortcuts. they make the product feel like a reading environment with an embedded guide.
 
 ## Non-Issues From Earlier Drafting
-- restoring the last reading location is already implemented inside `FoliateReader`; it should not be treated as a missing feature.
+- restoring the last reading location for EPUB is already implemented inside `FoliateReader`; it should not be treated as a missing feature.
 - linked session restore is not entirely missing; it is partial and inconsistent.
 - the async reader-open path already has in-component error handling, so “add an error fallback” is lower priority than the UX and state-flow issues above.
 
@@ -235,7 +282,7 @@ Reading mode is done when Buddy behaves like a real reading workspace with an em
 - reading mode preserves continuity across route changes, library re-entry, and notebook sessions
 
 ### Technical end state
-- the web app carries an explicit reading context model from `FoliateReader` through prompt submission
+- the web app carries an explicit reading context model from `DocumentReader` (PDF.js `PdfReader` / EPUB `FoliateReader`) through prompt submission
 - prompt submission supports a first-class `reading-selection` part instead of flattening selections into plain text only
 - backend prompt context understands:
   - active reading position
@@ -248,6 +295,8 @@ Reading mode is done when Buddy behaves like a real reading workspace with an em
 - all reading-mode state transitions are test-covered where logic is non-trivial
 
 ## Concrete Implementation Plan
+
+> **Historical implementation plan:** Phases 1–5 below preserve the original build sequence and acceptance intent. The current source map and the `## Implementation Status` section are authoritative for shipped behavior. Legacy plan wording is historical unless it names the current shared reader files explicitly.
 
 ### Phase 1. Selection-to-chat MVP
 
@@ -263,15 +312,15 @@ Reading mode is done when Buddy behaves like a real reading workspace with an em
 - sending the prompt carries the selected text with enough metadata to identify where it came from
 
 #### Web changes
-- update `packages/web/src/components/readers/ui/foliate-selection-toolbar.tsx`
+- update `packages/web/src/components/readers/ui/reader-selection-toolbar.tsx`
   - add a `Chat` action next to `Copy`, `Highlight`, `Note`, and `Search`
-- update `packages/web/src/components/readers/foliate-reader-types.ts`
+- update `packages/web/src/components/readers/reader-types.ts`
   - add a typed payload for a reader selection event that includes at least `text`, `cfi`, `index`, `tocLabel`, `pageLabel`, and `locationLabel`
-- update `packages/web/src/components/readers/foliate-reader.tsx`
+- update `packages/web/src/components/readers/document-reader.tsx`
   - expose `onChatSelection` callback from the reader
   - on selection toolbar `Chat`, pass the current selection payload upward instead of only keeping it local
 - update `packages/web/src/components/directory-chat/directory-chat-reading-reader-pane.tsx`
-  - accept a callback for chat selection and forward it to `FoliateReader`
+  - accept a callback for chat selection and forward it to `DocumentReader`
 - update `packages/web/src/components/directory-chat/directory-chat-reading-page.tsx`
   - wire reader `onChatSelection` into prompt drafting
   - use the existing prompt draft path via `cs.setPromptDraft(...)` from the notebook route controller context
@@ -318,7 +367,7 @@ Reading mode is done when Buddy behaves like a real reading workspace with an em
   - expand `ActiveReadingResourceState` to include `cfi`, `index`, and `fraction`
   - add optional `currentPassage` and `selection` fields only if the shape remains manageable
 - update `packages/web/src/components/directory-chat/directory-chat-reading-page.tsx`
-  - persist the richer location payload from `FoliateReader`
+  - persist the richer location payload from `DocumentReader`
 - update `packages/web/src/lib/directory-chat/use-directory-chat-page-controller.ts`
   - include the richer fields in the `reading` payload passed to `sendPrompt(...)`
 
@@ -356,7 +405,7 @@ Reading mode is done when Buddy behaves like a real reading workspace with an em
 
 #### Changes
 - web:
-  - capture a bounded visible excerpt or a resolvable current-scope key from `FoliateReader`
+  - capture a bounded visible excerpt or a resolvable current-scope key from `DocumentReader`
 - backend:
   - extend active reading context or add a separate `current passage` prompt block
   - keep the payload bounded and predictable
@@ -382,7 +431,7 @@ Reading mode is done when Buddy behaves like a real reading workspace with an em
   - add recent-annotation summary state or derived selectors as needed
 - update `packages/web/src/components/directory-chat/directory-chat-reading-page.tsx`
   - append new trail entries when the user crosses into a new TOC item, section index, or page window
-- update `packages/web/src/components/readers/foliate-reader.tsx`
+- update `packages/web/src/components/readers/document-reader.tsx`
   - expose annotation events if needed for upstream state sync
 
 #### Backend changes
@@ -409,7 +458,7 @@ Reading mode is done when Buddy behaves like a real reading workspace with an em
 #### Changes
 - update `packages/web/src/lib/directory-chat/use-directory-chat-page-controller.ts`
   - always prefer linked reading session restore when available
-- update `packages/web/src/components/directory-chat/directory-chat-reading-thread-browser.tsx`
+- update `packages/web/src/components/directory-chat/directory-chat-bench-thread-browser.tsx`
   - filter, badge, or sort sessions by current resource linkage
 - update reading resource persistence in `chat-store` to retain last-opened resource per directory outside the route lifecycle
 
@@ -419,6 +468,8 @@ Reading mode is done when Buddy behaves like a real reading workspace with an em
 - leaving reading mode does not sever the reading workflow
 
 ### Phase 6. Jump-back citations and authentic reading actions
+
+> **Status: Not implemented.** No jump-back citation UI or `Explain this page` / `Quiz me` reading quick actions in current chat/reader chrome.
 
 #### Goal
 - make chat outputs actionable inside the reader itself
@@ -473,10 +524,9 @@ That slice creates the biggest improvement in felt product quality while also es
 ### Implemented
 - **Phase 1**: Selection-to-chat MVP (`Chat` on toolbar, `reading-selection` part, selection card in composer, metadata-backed flattening)
 - **Phase 2**: Rich active reading context (`cfi`, `index`, `fraction`, `currentPassageText` in prompt)
-- **Phase 3**: Current passage grounding (bounded excerpt from Foliate `relocate.range`, capped at 1200 chars, live-only)
+- **Phase 3**: Current passage grounding (bounded excerpt from the `DocumentReader` relocation range, capped at 1200 chars, live-only)
 - **Phase 4**: Reading trail (up to 20 TOC sections) + annotation summary (last 10 highlights with notes)
 - **Phase 5**: Linked session restore from library, resource-aware thread browser with `Current book` badge, `lastOpenedReadingResourceByDirectory` persistence, "Resume reading" affordance in resource grid
-- **Item 2**: Reader loading gated on resource readiness (preparing/unsupported/error states)
 - **Item 3**: Reading blob caching at 30min staleTime (was 5min)
 - **Item 4**: Removed dead `foliate-reader-backup.tsx`
 - **Item 13**: Notebook-aware reader persistence via `notebook:{resourceID}` suffix in book keys
@@ -484,4 +534,5 @@ That slice creates the biggest improvement in felt product quality while also es
 ### Remaining
 - **Phase 6**: Jump-back citations and quick reading actions (Explain this page, Quiz me, etc.)
 - **Item 1**: Already done (linked session restore in Phase 5)
+- **Item 2**: Resource-readiness gating remains open. The pane gates supported file extensions and renders query errors, but does not use `resourceStatus` to stop blob loading for `preparing` or `unprocessed` resources.
 - Full annotation store sync into prompt (current summary is derived from onAnnotationsChange callback)

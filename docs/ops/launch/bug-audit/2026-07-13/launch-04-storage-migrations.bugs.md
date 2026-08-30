@@ -1,10 +1,19 @@
 # LAUNCH-04 — Durable storage, workspace/file identity, migrations, and API scope
 
-Audit date: 2026-07-13
-Pass status: Full merged-domain discovery complete; verification pending
-Baseline: Current workspace, evaluated as a clean release-candidate tree. Unrelated dirty-worktree changes were ignored.
+> **Historical snapshot (audit 2026-07-13, hardening reassessment 2026-07-14).**
+> This is not the live issue tracker and is not a current release-candidate queue.
+> Live open items, including still-reproducing L02 / L03 / L07 / L10 threats, are in
+> [`docs/reviews/knownissues.md`](../../../../reviews/knownissues.md).
+> Threat models and then-open / then-resolved dispositions below are preserved as the
+> launch-audit record. “Verification pending” means the 2026-07 second pass was not
+> completed in this snapshot, not that a live verification queue exists today.
 
-This file records first-pass candidates across runtime storage, notebook identity, project files, and typed SDK/query scope. A candidate is not a final launch verdict until the verification pass either retains it under **Verified bugs** or moves it to **Rejected after verification**.
+
+Audit date: 2026-07-13
+Pass status (then): Full merged-domain discovery complete; 2026-07 verification pass not completed
+Baseline (then): 2026-07-13 workspace, evaluated as a launch-audit tree. Not a claim about the 2026-08 working tree.
+
+This file records the 2026-07-13 first-pass candidates across runtime storage, notebook identity, project files, and typed SDK/query scope. It is not a live verdict; then-open items that still reproduce are tracked in `docs/reviews/knownissues.md`.
 
 ## Candidate bugs
 
@@ -120,7 +129,7 @@ This file records first-pass candidates across runtime storage, notebook identit
 
 ## Verified bugs
 
-Pending second-pass verification.
+Not completed in this snapshot. Do not read this heading as an active queue.
 
 ## Rejected after verification
 

@@ -1,13 +1,27 @@
-# Transcript errors: current state
+# Transcript errors: historical audit (2026-07-22)
 
-Status: current-state audit  
-Audited: 2026-07-22  
-Scope: non-tool errors and retry states visible in or immediately around the chat transcript  
-Source basis: the current working tree, including the vendored OpenCode app and runtime
+Status: **historical audit**. Do not treat this file as current product behavior.
+Audited: 2026-07-22
+Scope at audit time: non-tool errors and retry states visible in or immediately around the chat transcript
+Source basis at audit time: the 2026-07-22 working tree, including the vendored OpenCode app and runtime
 
-This document is descriptive only. It records the current contracts, event flows, state ownership,
-rendering behavior, message handling, observed screenshots, OpenCode desktop behavior, and test
-coverage.
+This document is a dated failure analysis. It preserves contracts, event publication sites,
+compaction/read-fallback lessons, and OpenCode desktop comparisons from that audit.
+
+**Current Buddy `session.error` behavior (verify in code, not in the historical sections below):**
+`packages/web/src/lib/directory-chat/use-chat-sync.ts` handles `session.error` as
+notification-only. It ignores non-parent sessions and abort-like errors, then calls
+`appendErrorNotification` and optionally `platform.notify`. It does **not** mark the session
+idle, does **not** mark the transcript not-running, and does **not** write
+`DirectoryChatState.error`. Session lifecycle stays on `session.status`. Terminal turn copy
+comes from `assistantMessage.error` via `packages/web/src/state/chat-error-model.ts` and
+`packages/web/src/components/chat/assistant-error-card.tsx`. Retry `status.action` is preserved
+by `normalizeSessionStatusValue` in `packages/web/src/state/session-status.ts`.
+
+Where later sections say “Buddy currently” about `session.error`, retry `action` dropping, or
+the undifferentiated assistant-error card, that language describes **2026-07-22**, not the tree
+now. Line numbers cited in historical sections were true at audit time and must not be used as
+live pointers.
 
 ## Executive summary
 
@@ -39,9 +53,14 @@ directory-level composer dock. These are two projections of the same underlying 
 
 The `session.error` event is not semantically terminal. OpenCode also publishes it for operations
 that continue or automatically recover, including automatic context compaction and failed file or
-directory reads that are replaced with synthetic fallback text. Buddy nevertheless marks the
-session non-running, changes its status to idle, and populates the error dock for every non-abort
-`session.error` event belonging to a parent session.
+directory reads that are replaced with synthetic fallback text.
+
+**Historical failure (2026-07-22, the lesson to keep):** Buddy treated every non-abort parent
+`session.error` as terminal UI: it marked the session non-running, forced idle, and populated the
+composer dock. That made recoverable compaction and read fallbacks look like hard failures.
+
+**Current behavior:** that path is gone. `session.error` is notification-only (see the header).
+Do not reintroduce idle/dock writes from this event.
 
 OpenCode's own desktop app separates these sources differently. Its transcript derives retry rows
 from session status and durable error rows from assistant messages. Its session-state reducer does
@@ -138,10 +157,16 @@ values. Invalid or unknown values become idle. A malformed retry uses:
 - message `"Retrying request"`;
 - `Date.now()` as the next retry time.
 
-The normalization preserves only `type`, `attempt`, `message`, and `next`. Although the generated
-contract contains `action`, Buddy's normalized retry object currently omits it.
+**Historical (2026-07-22):** normalization kept `type`, `attempt`, `message`, and `next`, and
+dropped `action` even though the generated contract includes it.
 
-Source: `packages/web/src/state/session-status.ts:5-57`.
+**Current:** `normalizeSessionStatusValue` in `packages/web/src/state/session-status.ts` parses
+`action` with `retryActionSchema` and preserves it on retry status. `retryStage` in
+`packages/web/src/state/chat-error-model.ts` treats a present `status.action` as stage
+`actionable`. `SessionRetryNotice` in `packages/web/src/components/chat/session-retry-notice.tsx`
+renders that action.
+
+Source (current): `packages/web/src/state/session-status.ts` (`normalizeSessionStatusValue`).
 
 ### Assistant-error discriminants
 
@@ -306,25 +331,29 @@ On `session.status`, Buddy:
 Retry status remains an active/working status. `isSessionStatusActive` returns true for both `busy`
 and `retry`.
 
-Source: `packages/web/src/lib/directory-chat/use-chat-sync.ts:373-410`.
+Source (audit-time line numbers, do not reuse): `use-chat-sync.ts` session-status branch.
 
 ### Session-error events
 
-On `session.error`, Buddy currently performs this sequence:
+**Current (notification-only):** on `session.error`, Buddy:
 
 1. Reads the optional event session ID.
 2. Ignores the event when it belongs to a non-parent/subagent session.
-3. Marks the transcript session as not running.
-4. applies idle status to that session;
-5. treats abort-like errors as interruptions, clears the directory error, and returns;
-6. formats every other event error into a string;
-7. writes the string to `DirectoryChatState.error`;
-8. appends an in-app error notification;
-9. optionally sends an operating-system notification.
+3. Ignores abort-like errors and returns.
+4. Formats the event error for notification text via `readSessionErrorMessage`.
+5. Appends an in-app error notification (`appendErrorNotification`).
+6. Optionally sends an operating-system notification when error notifications are enabled.
+7. Returns without changing session status, running flags, or `DirectoryChatState.error`.
 
-Source: `packages/web/src/lib/directory-chat/use-chat-sync.ts:413-439`.
+Source: `packages/web/src/lib/directory-chat/use-chat-sync.ts` (`payload.type === "session.error"`).
+Helper: `appendErrorNotification` in the same file.
 
-There is no check for:
+**Historical (2026-07-22, do not restore):** the same event also marked the transcript not
+running, applied idle, treated abort as a dock-clearing interruption, and wrote every other
+error into `DirectoryChatState.error`. The event still has no terminal/recoverable flag, which
+is why routing it into session lifecycle and the dock was the failure mode.
+
+There is still no check on the event itself for:
 
 - whether a durable assistant message already contains the same error;
 - whether the runtime remains busy;
@@ -333,6 +362,8 @@ There is no check for:
 - whether a message ID exists;
 - whether the event has already been displayed;
 - whether the event is terminal.
+
+Those gaps are why the current design keeps `session.error` off the transcript and dock.
 
 ### Message-update events
 
@@ -475,11 +506,16 @@ An assistant error row is appended when:
 Its key is `error:${userMessageID}`. It is durable because it is reconstructed from stored assistant
 messages whenever history is loaded.
 
-The error name is displayed unless it is exactly `UnknownError`. Current names such as `APIError`,
-`ProviderAuthError`, `ContextOverflowError`, `ContentFilterError`, and
-`StructuredOutputError` are therefore exposed as technical labels.
+**Historical (2026-07-22):** the error name was displayed unless it was exactly `UnknownError`.
+Schema names such as `APIError` were exposed as technical labels.
 
-Source: `packages/web/src/components/chat/chat-timeline-rows.ts:428-440`.
+**Current:** `createAssistantErrorCardSpec` in `assistant-error-card.tsx` maps
+`AssistantErrorCategory` from `chat-error-model.ts` to product headlines (for example
+"You've hit the model's rate limit", "Couldn't reach the model"). Schema names stay in
+diagnostics/details, not as the card face.
+
+Source (current): `packages/web/src/components/chat/assistant-error-card.tsx`,
+`packages/web/src/state/chat-error-model.ts`.
 
 ### Row layout and virtualization
 
@@ -492,45 +528,46 @@ Source: `packages/web/src/components/chat/chat-transcript.tsx:229-249` and `:764
 
 ### Assistant error card
 
-`AssistantErrorCard` renders:
+**Historical (2026-07-22):** `AssistantErrorCard` was an undifferentiated critical box: fixed
+uppercase `Assistant error` label, technical name, raw formatted message, copy of that message
+only. No retry, settings, or details disclosure.
 
-- `role="alert"` and `aria-atomic="true"`;
-- a critical border and critical-tinted background;
-- the uppercase fixed label `Assistant error`;
-- the technical error name when supplied;
-- the formatted message;
-- a copy action that copies only the formatted message.
+**Current:** `createAssistantErrorCardSpec` builds per-category headline, detail, and actions
+(`try-again`, `open-settings`, `compact-and-continue`, `new-session`, `dismiss`, `continue`,
+`copy-details`, `stop`). `directory-chat-main-pane.tsx` mounts that card from
+`resolveLatestTerminalAssistantError`, not from `session.error`.
 
-It has no dismissal, retry action, provider action, details disclosure, timestamp, attempt count, or
-link to raw metadata.
-
-Source: `packages/web/src/components/chat/assistant-error-card.tsx`.
+Source: `packages/web/src/components/chat/assistant-error-card.tsx`,
+`packages/web/src/components/directory-chat/directory-chat-main-pane.tsx`.
 
 ### Retry notice
 
-`SessionRetryNotice` renders:
+**Historical (2026-07-22):** `SessionRetryNotice` used the same critical red family as terminal
+errors, showed the raw retry message, and **did not** render `status.action`.
 
-- `role="status"` and `aria-live="polite"`;
-- the same critical border/background family as terminal errors;
-- a spinning loader;
-- the normalized retry message;
-- either `Retrying in Ns. Attempt #N.` or `Retrying now. Attempt #N.`.
+**Current:** quiet retries (`attempt` below `RETRY_NOTICE_MIN_ATTEMPT` = 3, and no action) render
+nothing. Notice/persistent stages use `buildRetryStateModel`. When `status.action` is present,
+stage is `actionable` and `RetryActionCard` renders the structured action. Attempt thresholds:
+notice at 3, persistent at 5 (`RETRY_PERSISTENT_MIN_ATTEMPT`).
 
-The countdown updates every second and uses rounded seconds. The component does not render the
-optional structured `status.action`.
-
-Source: `packages/web/src/components/chat/session-retry-notice.tsx`.
+Source: `packages/web/src/components/chat/session-retry-notice.tsx`,
+`packages/web/src/state/chat-error-model.ts` (`retryStage`, `buildRetryStateModel`).
 
 ### Directory error dock
 
-The directory error dock is rendered after the transcript `ScrollArea` and before permissions,
-compaction warnings, active questions, follow-up controls, and the prompt composer. It is therefore
-visually anchored above the composer rather than attached to a turn.
+**Historical (2026-07-22):** a raw-string dock sat after the transcript `ScrollArea` and before
+the composer, fed in part by `session.error`. Audit citation `directory-chat-main-pane.tsx:398-404`
+is stale.
 
-It renders only the raw string inside a critical border/background. It has no `role="alert"`, label,
-copy action, dismiss control, action, source, or session/turn association.
+**Current:** that raw dock is not what sits above the composer. `directory-chat-main-pane.tsx`
+renders classified `AssistantErrorCard` from `resolveLatestTerminalAssistantError`.
+`DirectoryChatState.error` / `setDirectoryError` still exist for operational writers in
+`chat-actions.ts` and `use-directory-chat-page-controller.ts`, but they are not the
+`session.error` path and are not the old untyped red dock described in this audit. Retiring the
+remaining string writers is still an open design item in `proposed-design.md` §5.
 
-Source: `packages/web/src/components/directory-chat/directory-chat-main-pane.tsx:398-404`.
+Source: `packages/web/src/components/directory-chat/directory-chat-main-pane.tsx`,
+`packages/web/src/state/chat-store.ts` (`setDirectoryError`).
 
 ## Message extraction and normalization
 
@@ -628,16 +665,21 @@ For common provider/runtime terminal failures, the processor:
 2. publishes `session.error` containing that same error;
 3. sets session status idle.
 
-Buddy then receives two independently handled representations:
+**Historical (2026-07-22):** Buddy then received two independently handled representations:
 
-- `message.updated` stores the durable assistant error, from which the transcript projection creates
+- `message.updated` stored the durable assistant error, from which the transcript projection created
   an `AssistantErrorCard`;
-- `session.error` writes the formatted string to `DirectoryChatState.error`, from which the main pane
-  creates the composer-level dock.
+- `session.error` wrote the formatted string to `DirectoryChatState.error`, from which the main pane
+  created the composer-level dock.
 
-No shared presentation identifier or deduplication key connects the two. The transcript card is
-turn-scoped and durable; the dock is directory-scoped and transient. Their differing scopes explain
-why they appear at different vertical locations.
+No shared presentation identifier connected the two. That duplication was the visible two-red-box
+failure.
+
+**Current:** `session.error` does not write the dock. Terminal copy is classified in
+`chat-error-model.ts` and rendered by `assistant-error-card.tsx` from `assistantMessage.error`.
+`DirectoryChatState.error` still exists and operational paths in `chat-actions.ts` still write it,
+but directory-chat UI no longer renders that string as the old composer dock; the composer-adjacent
+card is the classified `AssistantErrorCard`.
 
 When two separate user turns both end with durable assistant errors, history contains two transcript
 cards. If the latest `session.error` string remains in directory state, the page also shows the dock,
@@ -657,15 +699,14 @@ With automatic compaction enabled, OpenCode's processor:
 
 The error is not attached to the assistant message in this branch.
 
-Buddy's event handler nevertheless marks the session not running, applies idle status, and writes the
-context error into the directory dock. Later busy/status/message events can clear it. The visible
-state can therefore flash or move through idle/error while the backend is entering a recovery path.
+**Historical failure lesson:** Buddy's 2026-07-22 handler nevertheless marked the session not
+running, applied idle, and wrote the context error into the directory dock. Later busy/status/message
+events could clear it. The visible state could flash idle/error while the backend was entering
+compaction.
 
-Sources:
-
-- `vendor/opencode/packages/opencode/src/session/processor.ts:607-617`
-- `vendor/opencode/packages/opencode/src/session/prompt.ts:1319-1328`
-- `packages/web/src/lib/directory-chat/use-chat-sync.ts:421-430`
+**Current:** do not treat this event as a turn error. Notification-only handling in `use-chat-sync.ts`
+avoids that flash. Runtime publication sites remain in vendored `processor.ts` / `prompt.ts` (line
+numbers from the audit will have drifted).
 
 ### File and directory read fallback
 
@@ -673,10 +714,22 @@ While creating a user message, OpenCode can fail to read a referenced file or di
 `session.error`, but also inserts synthetic text describing the failed read and continues building
 the model input.
 
-Buddy handles the event as idle plus a directory error even though the runtime source explicitly
-continues with fallback content.
+**Historical:** Buddy handled the event as idle plus a directory error even though the runtime
+continued with fallback content.
 
-Sources: `vendor/opencode/packages/opencode/src/session/prompt.ts:878-929`.
+**Current:** same publication still exists in vendored `prompt.ts`; Buddy must not map it to idle or
+a red dock. At most a muted inline caveat on the user message remains an unshipped/product choice
+documented in `proposed-design.md` §5.3.
+
+Sources: `vendor/opencode/packages/opencode/src/session/prompt.ts` (file/directory read fallback
+around user-message creation).
+
+## Historical screenshot mapping (images not in this repository)
+
+The five `codex-clipboard-*.png` filenames below were local Codex clipboard captures from the
+2026-07-22 audit. They are **not** in the repo and cannot be re-opened from these names. Keep the
+classifications as historical evidence of the old retry/card/dock layout; do not treat them as
+current screenshots.
 
 ## Supplied screenshot mapping
 
@@ -814,92 +867,86 @@ provider/runtime-controlled.
 
 ## Buddy and OpenCode comparison
 
-| Concern | Buddy current state | OpenCode app current state |
-| --- | --- | --- |
-| Durable terminal turn error source | `assistantMessage.error` | `assistantMessage.error` |
-| Retry source | `session.status.retry` | `session.status.retry` |
-| `session.error` in session-state reducer | Marks transcript not running, forces idle, fills directory dock | No reducer case |
-| `session.error` notification use | In-app and optional OS notification | In-app and optional OS notification |
-| Composer-level duplicate | Present through `DirectoryChatState.error` | No equivalent transcript-adjacent dock from `session.error` |
-| Retry action use | Dropped during status normalization and not rendered | Used for selected usage-limit dialogs |
-| Technical error name | Shown except `UnknownError` | Inline error row uses message text only |
-| Error chosen from multiple assistant messages in one turn | Last non-abort error | First non-abort error |
-| Plain JSON-string parsing | Retains surrounding quotes in the identified edge case | Same parser shape and edge case |
-| Retry long-message handling | Full message wraps in the card | Truncated at 80 characters with tooltip |
+The OpenCode-app column is still a useful baseline. The Buddy column is split: **now** vs **2026-07-22**.
 
-## Confirmed current-state failure modes
+| Concern | Buddy now | Buddy 2026-07-22 (historical) | OpenCode app |
+| --- | --- | --- | --- |
+| Durable terminal turn error source | `assistantMessage.error` via `chat-error-model.ts` | `assistantMessage.error` | `assistantMessage.error` |
+| Retry source | `session.status.retry` + `buildRetryStateModel` | `session.status.retry` | `session.status.retry` |
+| `session.error` in Buddy sync | Notification-only; no idle, no dock write | Marked not running, forced idle, filled dock | No reducer case |
+| `session.error` notification use | In-app and optional OS notification | Same plus dock | In-app and optional OS notification |
+| Composer-adjacent error | Classified `AssistantErrorCard` | Raw `DirectoryChatState.error` dock | No equivalent dock from `session.error` |
+| Retry `status.action` | Preserved and rendered when present | Dropped in normalization | Used for selected usage-limit dialogs |
+| Technical error name | Behind details; face is product copy | Shown except `UnknownError` | Inline row uses message text |
 
-### Duplicate presentation
+## Historical failure modes (2026-07-22) vs remaining work
 
-One runtime failure can create both a durable transcript card and a directory dock because message
-updates and session-error events are rendered independently.
+These subsections preserve the audit's failure analysis. **Struck-as-current** means the client no
+longer behaves this way. **Still open** means store/UI leftovers.
 
-### Mixed scopes in one string
+### Duplicate presentation (historical)
 
-`DirectoryChatState.error` combines turn failures, session failures, directory-loading failures,
-mutation failures, and locally generated validation messages. The renderer cannot distinguish their
-origin.
+One runtime failure **used to** create both a durable transcript card and a directory dock because
+`message.updated` and `session.error` were rendered independently. **Now** `session.error` does not
+write that dock.
 
-### Terminal assumption applied to a non-terminal event
+### Mixed scopes in one string (still open at the store)
 
-Every parent-session `session.error` except abort is treated as idle plus visible error, while the
-runtime uses the event for both terminal and continuing/recovering paths.
+`DirectoryChatState.error` can still be written by operational `setDirectoryError` callers
+(`chat-actions.ts`, page controller). The old mixed-scope dock renderer is gone from
+`directory-chat-main-pane.tsx`. Fully retiring the string is unshipped (`proposed-design.md` §5).
 
-### Independent lifecycle and clearing
+### Terminal assumption applied to a non-terminal event (historical)
 
-The durable assistant card persists with message history. The dock persists only in current
-directory memory and is cleared by unrelated later operations. The two copies can appear and
-disappear at different times.
+Every parent-session `session.error` except abort **used to** be treated as idle plus visible error.
+**Now** the event is notifications only; `session.status` owns lifecycle.
 
-### Session-switch lifetime
+### Independent lifecycle and clearing (historical for `session.error`)
 
-The directory dock is directory-scoped. The session-selection reducer retains it, while the normal
-successful transcript load that follows `selectSession` clears it. Its lifetime during a switch is
-therefore controlled by the later load result rather than by the session-selection state transition.
+The durable assistant card still persists with message history. The `session.error` dock mirror is
+gone. Unrelated `clearDirectoryError` still runs on busy/status and other actions for leftover
+string state.
 
-### Raw provider/runtime language
+### Session-switch lifetime (historical dock)
 
-Outside two specific normalization patterns and general JSON extraction, messages are displayed as
-received. They may include provider names, internal categories, transport terminology, SQL details,
-quoted JSON strings, URLs, or other implementation language unrelated to the user's task.
+The old directory dock was directory-scoped. That `session.error`-driven dock is gone.
 
-### Technical discriminants exposed
+### Raw provider/runtime language (partially shipped)
 
-The transcript card exposes all error names except `UnknownError`. The labels are runtime schema
-names rather than product language.
+Classifier + product headlines now cover the mapped categories. Unmapped strings can still appear
+in Details/raw. Historical: almost all messages were shown raw.
 
-### Inconsistent formatter output
+### Technical discriminants exposed (historical)
 
-The assistant card and directory dock use separate extraction functions. Embedded JSON can be
-unwrapped in one path but not the other.
+**Now** schema names are diagnostic, not the card face. Historical: all names except `UnknownError`
+were on the card.
 
-### Output-limit name duplication
+### Inconsistent formatter output (historical for dock vs card)
 
-The output-limit variant contains no required message. The current fallback can display
-`MessageOutputLengthError` as both the technical label and message.
+The `session.error` dock path no longer mirrors the card. Classification lives in `chat-error-model.ts`.
 
-### Retry visually uses critical error styling
+### Output-limit name duplication (historical)
 
-Retry is an active recovery state but uses the same critical red border/background family as
-terminal assistant errors and the directory dock.
+**Now** `output-length` uses headline "Response was cut off at the model's length limit" in
+`createAssistantErrorCardSpec`.
 
-### Structured actions lost in Buddy
+### Retry visually uses critical error styling (partially shipped)
 
-The SDK status can contain a structured action, and the runtime populates it for selected usage
-limits. Buddy's normalization does not retain that field, so neither the retry card nor another
-Buddy chat surface receives it from normalized status.
+Retry stages are modeled; quiet retries hide the notice. Remaining visual-token work is easel/design.
 
-### Accessibility differs by renderer
+### Structured actions lost in Buddy (historical — shipped)
 
-- assistant card: `role="alert"`;
-- retry card: `role="status"`, polite live region;
-- directory dock: no alert/status role.
+**Now** `normalizeSessionStatusValue` keeps `action`; `retryStage` returns `actionable`;
+`SessionRetryNotice` renders `RetryActionCard`.
+
+### Accessibility differs by renderer (partially open)
+
+Assistant card still uses alert; retry uses status. The raw directory dock role gap is historical.
 
 ### Aborted turn suppresses other error cards
 
-If any assistant message in a turn is classified as aborted, the whole turn receives the stopped
-divider and the final error-row condition rejects the turn, even when another assistant message in
-that same turn contains a non-abort error.
+Keep as an audit finding unless later tests prove the timeline rule changed. Verify in
+`chat-timeline-rows.ts` before treating as current.
 
 ## Existing test coverage
 

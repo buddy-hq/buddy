@@ -1,15 +1,14 @@
 # Alignment — Intent
 
-Sub-intent of [curriculum system](./curriculum.intent.md). Alignment ensures goals ↔ practice ↔ assessment are coherent. Without it, learners feel they're doing "busy work."
+Status: Detailed pedagogical evidence for alignment, including worked examples. Concise index: [principles.md](./principles.md). Shipped specialists: `goal-writer`, `practice-agent`, `assessment-agent` (OpenCode subagents via Task / `@`, not default Tab agents).
+
+Sub-intent of the curriculum system in [principles.md](./principles.md). Alignment ensures goals ↔ practice ↔ assessment are coherent. Without it, learners feel they're doing "busy work."
 
 ## Source anchors
 
-Primary sources for this intent:
+Official sources (local `raw/` dumps were removed):
 
-- [docs/learning/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/learning/curriculum/principles.md)
-- `docs/learning/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
-- `docs/learning/curriculum/raw/creating-and-using-effective-learning-goals.txt`
-- `docs/learning/curriculum/raw/creating-good-homework-problems-and-grading-them.txt`
+- [principles.md](./principles.md) bibliography: Bentley & Foley *Promoting Course Alignment*; Course Transformation Guide; Simon & Perkins (2010); homework guide.
 
 ---
 
@@ -87,19 +86,104 @@ If practice exists without a goal → it's busy work.
 
 ## How alignment works in Buddy
 
-- The **goal-writer** produces goals with cognitive levels
-- The **practice agent** must generate exercises mapped to specific goals
-- The **assessment** must check mastery of specific goals
-- **Progress tracking** records per-goal status
-- The **learner** should be able to see why they're doing what they're doing
+- **goal-writer** produces goals with cognitive levels (`packages/buddy/src/learning/features/curriculum-planning/`)
+- **practice-agent** generates exercises mapped to specific goal IDs (`packages/buddy/src/learning/features/practice/`)
+- **assessment-agent** checks mastery of specific goals as an inline teaching move (`packages/buddy/src/learning/features/assessment/`)
+- Learner-memory snapshot records evidence, open feedback, and constraints
+- The learner-facing UI should still explain why the next task exists without turning alignment into a top-level mode
 
-The alignment map is the connective tissue. Without it, each agent operates in isolation and the curriculum fragments.
+These are OpenCode subagents (Task / `@`), not default Tab session agents. See [packages/opencode-adapter/docs/dynamic-tools.md](../../../packages/opencode-adapter/docs/dynamic-tools.md).
+
+## Historical: alignment auditor contract (superseded sketch)
+
+The earlier one-agent design is retained as a dated contract sketch, not as a shipped runtime surface. The auditor reports structural gaps to the curriculum orchestrator; it does **not** talk to the learner, generate exercises or assessments, or fix content. Gaps are recommendations, not blockers.
+
+It checks that every goal has practice and assessment coverage, every exercise and assessment references a valid goal, and assessment suites use varied formats. It also flags cognitive-level mismatch, such as an **Analysis** goal assessed only with `concept_check` recall/comprehension items.
+
+### Historical actionable gap → recommendation mapping
+
+When gaps are found, the auditor recommends specific structural actions to the curriculum orchestrator:
+
+| Gap | Recommendation |
+| --- | --- |
+| Goal with no exercises | "Generate a practice exercise for [goal]. Start at scaffolded difficulty." |
+| Goal with no assessment | "Create an assessment check for [goal]. Use [format] based on the cognitive level." |
+| Incomplete suite | "Add a [format] assessment for [goal] — currently only tested via [existing formats]." |
+| Orphaned exercise | "Exercise [id] references goal [id] which doesn't exist. Remove or reassign." |
+| Level mismatch | "Goal [id] is Analysis-level but only assessed via recall. Add a debug_task or review_task." |
+
+These are structural alignment checks, not subjective quality judgments about individual exercises. The auditor does not create content, talk to the learner, or block learning; gaps remain recommendations, not errors.
+
+Suite completeness follows the original threshold:
+
+| Assessment formats for a goal | Status |
+| ---: | --- |
+| 1 | Incomplete; only one format is represented |
+| 2 | Minimum viable suite |
+| 3+ | Strong coverage |
+
+The proposed `alignment_audit` return shape was:
+
+```ts
+{
+  status: "healthy" | "gaps_found" | "critical_gaps",
+  goals: Array<{
+    goalId: string,
+    goalStatement: string,
+    exerciseCount: number,
+    assessmentCount: number,
+    assessmentFormats: string[],
+    coverageStatus: "full" | "partial" | "none",
+    issues: string[],
+  }>,
+  orphans: {
+    exercisesWithoutGoals: string[],
+    assessmentsWithoutGoals: string[],
+  },
+  suiteStatus: Array<{
+    goalId: string,
+    formatsUsed: string[],
+    formatsNeeded: string[],
+    isSuiteComplete: boolean,
+  }>,
+  recommendations: string[],
+}
+```
+
+The companion `alignment_map` sketch returned `{ map: string }` (a table, tree, or brief human-readable view), for orchestrator/debugging use rather than automatic learner-facing content.
+
+## Historical: rejected first-class alignment map (Option A vs Option B)
+
+The shipped direction is **Option A: implicit alignment via `goalIds`**. Practice and assessment artifacts carry goal references, and each workflow validates its own links; a health check can report gaps. This adds no new artifact or infrastructure, but it cannot enforce varied assessment suites, discovers gaps reactively, and gives the learner no explicit map.
+
+**Option B** was a proposed first-class `AlignmentMapSchema` with `alignment_generate`, `alignment_audit`, and `alignment_commit` operations:
+
+```ts
+const AlignmentMapSchema = z.object({
+  entries: z.array(z.object({
+    goalId: z.string(),
+    goalStatement: z.string(),
+    cognitiveLevel: CognitiveLevelSchema,
+    exercises: z.array(z.object({
+      id: z.string(),
+      format: z.string(),
+      difficulty: z.string(),
+      componentsTargeted: z.array(z.string()),
+    })),
+    assessments: z.array(z.object({
+      id: z.string(),
+      format: z.string(),
+      surfaceVariant: z.string(),
+    })),
+    status: z.enum(["no_coverage", "partial", "full"]),
+  })),
+})
+```
+
+Option B would enforce two-or-more assessment formats and surface variants proactively, and could show the learner the big picture. It was rejected as a live architecture because it adds generation/storage/audit infrastructure, another artifact that can become stale beside goals and evidence, and complexity in every agent workflow. Keep this record to preserve the decision; do not treat these unshipped operations as current tools.
 
 ---
 
-## Open questions
+## Historical: open questions
 
-1. **Where does the alignment map live?** In the learner store, generated dynamically, or both?
-2. **Who maintains it?** The goal-writer creates goals and the practice agent creates exercises — who ensures they're actually aligned?
-3. **Is alignment visible to the learner?** Should Buddy say "this exercise targets goal #3" or is that too meta?
-4. **How do we handle gaps?** If a goal has no exercises, does the system flag it? Auto-generate?
+Draft-time questions about where the alignment map lives, who maintains it, and learner-visible goal IDs are not a live spec. Shipped linkage is `goalIds` on practice/assessment artifacts plus the learner snapshot.

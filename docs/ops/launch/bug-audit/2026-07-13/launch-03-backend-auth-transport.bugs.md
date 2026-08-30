@@ -1,10 +1,19 @@
 # LAUNCH-03 — Backend exposure, credentials, OAuth, onboarding, and first response
 
-Audit date: 2026-07-13
-Pass status: Discovery complete; verification pending
-Baseline: Current workspace, evaluated as a clean release-candidate tree. Unrelated dirty-worktree changes were ignored.
+> **Historical snapshot (audit 2026-07-13, hardening reassessment 2026-07-14).**
+> This is not the live issue tracker and is not a current release-candidate queue.
+> Live open items, including still-reproducing L02 / L03 / L07 / L10 threats, are in
+> [`docs/reviews/knownissues.md`](../../../../reviews/knownissues.md).
+> Threat models and then-open / then-resolved dispositions below are preserved as the
+> launch-audit record. “Verification pending” means the 2026-07 second pass was not
+> completed in this snapshot, not that a live verification queue exists today.
 
-This file records first-pass candidates. A candidate is not a final launch verdict until the verification pass either retains it under **Verified bugs** or moves it to **Rejected after verification**.
+
+Audit date: 2026-07-13
+Pass status (then): Discovery complete; 2026-07 verification pass not completed
+Baseline (then): 2026-07-13 workspace, evaluated as a launch-audit tree. Not a claim about the 2026-08 working tree.
+
+This file records 2026-07-13 first-pass candidates. It is not a live verdict. Then-open items that still reproduce are tracked in `docs/reviews/knownissues.md`.
 
 ## Candidate bugs
 
@@ -27,16 +36,16 @@ This file records first-pass candidates. A candidate is not a final launch verdi
 - **Impact:** The app remains open but all backend-backed functionality is permanently dead until the user manually restarts Buddy, with no actionable explanation.
 - **Verification pending:** Emit a post-ready termination in a lifecycle harness and observe process state, renderer state, reconnect behavior, and recovery UI.
 - **First-pass confidence:** High.
-- **Reassessment status:** Open. The hardening supervisor was discarded.
+- **Reassessment status (2026-07-14 snapshot):** Then-open. The hardening supervisor was discarded.
 - **Why reopened:** Vendored OpenCode's Electron desktop owns local-sidecar startup, readiness, health observation, and shutdown. The hardening pass added a new Buddy recovery state machine and restart/quit policy instead of following that owner; the vendor currently logs a later sidecar exit rather than implementing this stronger recovery behavior.
-- **Later work:** First treat post-ready recovery as an explicit product decision and compare with the current vendor desktop during the next upstream/parity pass. If Buddy intentionally requires stronger recovery, design it as a separate desktop product feature with packaged macOS/Windows failure tests—not as an audit-checkbox hardening wrapper.
+- **Later work:** First treat post-ready recovery as an explicit product decision and compare with the vendor desktop during the next upstream/parity pass. If Buddy intentionally requires stronger recovery, design it as a separate desktop product feature with packaged macOS/Windows failure tests—not as an audit-checkbox hardening wrapper.
 
 ### L03-C03 — P1/P2 — Remote Basic-auth secrets are embedded in asset URLs and Bench context
 
 - **Locations:** `packages/web/src/lib/server-client.ts:38-43`, `packages/web/src/lib/resource-url.ts:10-45`, `packages/web/src/components/chat/tools/tool-attachments.tsx:20-55`, `packages/web/src/routes/$directory._bench.file.tsx:180-215`, `packages/web/src/components/bench/bench-context-utils.ts:64-72`, `packages/web/test/resource-url.test.tsx:109-138`
 - **Trigger:** Use an authenticated non-embedded/browser server and render or open a Buddy-served asset.
 - **Expected:** Credentials remain in request headers or a scoped asset mechanism and never enter user-visible URLs or context records.
-- **Observed in discovery:** Client helpers place username/password into URL userinfo. Those URLs are used in DOM attributes, and Bench context can retain the exact credential-bearing URL as a `kind: "url"` reference. A current test explicitly expects the secret-bearing URL form.
+- **Observed in discovery:** Client helpers place username/password into URL userinfo. Those URLs are used in DOM attributes, and Bench context can retain the exact credential-bearing URL as a `kind: "url"` reference. A test in that audit explicitly expected the secret-bearing URL form.
 - **Impact:** The full API credential may leak through DOM inspection/extensions, copy-link behavior, diagnostics, or context capture and later persistence.
 - **Verification pending:** Render a remote asset with a sentinel password, collect DOM and Bench context snapshots, trace persistence/agent delivery, and assert the sentinel is absent while the request remains authenticated.
 - **First-pass confidence:** High on URL/DOM/context presence; downstream persistence severity remains to be traced.
@@ -83,7 +92,7 @@ This file records first-pass candidates. A candidate is not a final launch verdi
 
 ## Verified bugs
 
-Pending second-pass verification.
+Not completed in this snapshot. Do not read this heading as an active queue.
 
 ## Rejected after verification
 

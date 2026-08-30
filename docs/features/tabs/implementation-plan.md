@@ -1,5 +1,10 @@
 # Buddy Bench Tabs — Implementation Plan
 
+> **Historical implementation plan.** Phases 1 and 2 in this file were the original
+> chat-scoped tabs roadmap. Both phases are **complete** (see `implementation-log.md`).
+> This document is not the live tabs contract. Current authority:
+> [`system-design.md`](system-design.md).
+
 ## Outcome
 
 Give every chat a persistent ordered set of Bench tabs with T3 Code-style presentation and

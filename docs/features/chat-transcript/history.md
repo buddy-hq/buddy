@@ -5,7 +5,8 @@ avoid re-deriving a conclusion that already has evidence behind it.
 
 Current architecture lives in [design.md](./design.md) and
 [scroll-and-virtualization.md](./scroll-and-virtualization.md). The contracts
-live in [invariants.md](./invariants.md). Work in flight lives in
+live in [invariants.md](./invariants.md). The 2026-08-12 scroll-flicker
+investigation is historical (implemented); evidence and falsification live in
 [hypothesis.md](./hypothesis.md).
 
 
@@ -119,7 +120,7 @@ reuse the same component. Covered by `markdown-stream-rendering.test.tsx`.
 **Content-derived tail keys (P1-B).** Growing tail blocks keyed by content
 checksum produced a new React key on every append. Block identity is now ordinal.
 
-### Still open
+### Still open as of 2026-06-28 (not re-verified here)
 
 **First completed Mermaid remounts the prior Markdown tree (P1-C).** Closing the
 first Mermaid fence switches the whole root from ordinary to segmented Markdown,

@@ -1,5 +1,12 @@
 # Memory Startup Recovery Worktree Review
 
+> **Historical worktree review (2026-06-23).** The measurements and branch
+> decision below are snapshot-only, not current host/process evidence. The
+> risky startup optimization and sidecar/provider path were not shipped.
+> Current process and packaging authority is
+> [utility-process-backend.md](../../architecture/decisions/utility-process-backend.md);
+> branch disposition is [exit-branch.md](../exit-branch.md).
+
 **Created:** Tue Jun 23 2026  
 **Branch reviewed:** `memory-startup-recovery`  
 **Decision:** Keep measurement/tooling documentation, discard the risky startup optimization code, and fix provider demand splitting first.
@@ -38,12 +45,9 @@ Provider bootstrap tests also exposed cold runtime timeouts under Bun's default 
 ## Probe Summary
 
 Measurements were taken with the built Windows Node backend artifact and the reusable script added in `packages/buddy/script/measure-node-memory.ts`.
-The script now defaults to the standard optimization probe shape: `/api/healthz`, `/api/health`, `/api/provider`, and `/api/provider/auth` over 2 cycles, with 2s settle time, 30s final settle time, 180s probe timeout, automatic cleanup, and a timestamped durable JSON output. Current memory optimization measurements are kept under `docs/memory-optimization/log/`.
+The script now defaults to the standard optimization probe shape: `/api/healthz`, `/api/health`, `/api/provider`, and `/api/provider/auth` over 2 cycles, with 2s settle time, 30s final settle time, 180s probe timeout, automatic cleanup, and a timestamped durable JSON output.
 
-Durable measurement files:
-
-- [Main measurement](log/memory-main-measurement-current-script.json)
-- [Current worktree measurement](log/memory-current-worktree-measurement.json)
+Probe numbers below are the committed record. Local JSON dumps (`memory-main-measurement-current-script.json`, `memory-current-worktree-measurement.json`) were produced by that script and were not committed.
 
 ### Main
 

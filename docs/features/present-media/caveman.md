@@ -1,5 +1,12 @@
 # Present Media — Caveman Data Flow
 
+> **Status:** Historical pre-managed-object flow, retained for the capability/rationale trace.
+> The current contract is [`display-media.md`](./display-media.md): `present_media` returns a
+> managed `media-presentation` object with `objectID`, persists item metadata under
+> `.buddy/objects/v1/`, and serves `/api/objects/media-presentation/...` routes. The
+> `presentationID`, `media.presentation.v1`, in-memory reference, and `/api/presented-media/...`
+> names below are migration-era details, not APIs for new work.
+
 ## 1. Agent calls `present_media`
 
 - passes: items[{path}]

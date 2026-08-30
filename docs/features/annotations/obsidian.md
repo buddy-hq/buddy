@@ -91,7 +91,9 @@ These representations do not form a common object carrying annotation identity, 
 
 ## Official sources
 
-- [Internal links, headings, and blocks](https://obsidian.md/help/links)
-- [Embedding files and PDF page fragments](https://obsidian.md/help/embeds)
-- [Obsidian URI](https://obsidian.md/help/Extending%2BObsidian/Obsidian%2BURI)
-- [Vault file API](https://docs.obsidian.md/Plugins/Vault)
+Verified 2026-08-30 (HTTP 200; page titles and official help source match the topics below).
+
+- [Internal links, headings, and blocks](https://obsidian.md/help/Linking+notes+and+files/Internal+links)
+- [Embedding files and PDF page fragments](https://obsidian.md/help/Linking+notes+and+files/Embed+files)
+- [Obsidian URI](https://obsidian.md/help/uri)
+- [Vault file API](https://docs.obsidian.md/Reference/TypeScript+API/Vault)

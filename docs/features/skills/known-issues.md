@@ -25,14 +25,3 @@ can be redesigned later if each gains a distinct owner, routing boundary, and su
 `teaching-models` remains the active router for concise explanation, concept contrasts, worked
 examples, guided practice, and quick understanding checks. Its stale named cross-references to
 `practice` and `explain` have been removed.
-
-## Resolved
-
-### Visible progress for curated skill actions
-
-Resolved by tracking active library actions independently and showing a spinner plus an
-operation-specific label in each affected skill button:
-
-- `Installing...`
-- `Updating...`
-- `Removing...`

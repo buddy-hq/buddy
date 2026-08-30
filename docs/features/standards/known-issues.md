@@ -1,27 +1,33 @@
 # Standards Known Issues
 
-## Verified uninstall behavior
+## Verified Uninstall Behavior & External Database Caveat
 
-Turning the Standards toggle off removes the installed Standards runtime directory.
+Turning the Standards toggle off removes the packaged Standards install directory and its bundled SQLite database.
 
-In the default packaged flow, that includes the bundled SQLite database that ships inside the Standards install root, so the normal toggle-off path does remove the installed database.
+**Caveat:** If a developer configures Buddy with an external knowledge graph database path outside the default packaged install location, Buddy clears its internal reference upon uninstall but does not delete that external database file.
 
-One caveat remains:
-
-- if a developer points Buddy at an external knowledge graph database path outside the packaged Standards install location, Buddy clears its own reference but does not try to delete that external database file
-
-## Install and removal progress is not surfaced well
+## Install and Removal Progress Is Not Surfaced Well
 
 The backend tracks progress percent and progress messages for Standards download, install, repair, and removal work, but the current desktop UI does not stream that progress clearly while the request is in flight.
 
-What the user sees today:
+**What the user sees today:**
+- The toggle becomes busy or disabled.
+- The operation can look hung for a while.
+- The final state shows up only after the request completes.
 
-- the toggle becomes busy or disabled
-- the operation can look hung for a while
-- the final state shows up only after the request completes
+**Why this is a problem:**
+- Large downloads feel frozen.
+- Slow Windows machines make the gap much more obvious.
+- Removal and repair have the same visibility issue.
 
-Why this is a problem:
+## Unbounded SQL rawRows Materialization (L08-C06)
 
-- large downloads feel frozen
-- slow Windows machines make the gap much more obvious
-- removal and repair have the same visibility issue
+`KnowledgeGraphService.runSqlQuery` allows statements beginning with `select`, `with`, `pragma`, or `explain` and calls SQLite `this.connection().prepare(sql).all()` synchronously. Slicing to `rowLimit` occurs in JavaScript only after the complete `rawRows` array is resident in memory.
+
+**Impact:** Queries producing massive result sets, Cartesian joins, or expensive recursive CTEs can block the backend event loop and cause memory spikes before the slice is reached.
+
+**Recommended fix:** Enforce an engine-level SQL `LIMIT` or statement execution/memory budget before materializing rows.
+
+**Affected code:**
+- `packages/buddy/src/learning/features/standards/service.ts`
+- `packages/buddy/src/learning/features/standards/tools/query-standards-sql.ts`

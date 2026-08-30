@@ -2,11 +2,11 @@
 
 ## Purpose
 
-This is the source inventory for a one-time, pre-launch bug-finding campaign against the current Buddy product. It is not based on recent Git changes, and it does not reuse the old Bugeera weekly inventory as its source of truth.
+This is the historical source inventory for a one-time, pre-launch bug-finding campaign against Buddy as audited in the launch hardening pass on 2026-07-13. It is not a current product-status or issue-tracking document, and it does not reuse the old Bugeera weekly inventory as its source of truth.
 
 The former 30-unit inventory was compacted into 10 end-to-end risk domains on 2026-07-13. Compaction changes review ownership, not scope: every former unit maps to exactly one domain below.
 
-The audit starts from a clean worktree at a named release-candidate commit. Paths are review seeds, not limits. Each investigation must trace callers, callees, persistence, IPC or HTTP boundaries, renderer behavior, platform differences, and recovery paths end to end.
+The 2026-07-13 audit started from a clean worktree at a named release-candidate commit. Paths are review seeds, not limits. Each investigation had to trace callers, callees, persistence, IPC or HTTP boundaries, renderer behavior, platform differences, and recovery paths end to end.
 
 This document inventories risk. It does not claim that any listed surface currently contains a bug.
 
@@ -32,7 +32,7 @@ Every domain must be investigated through all applicable lenses:
 
 “Former units” refers to the pre-compaction 30-unit inventory.
 
-| Current domain | Former units absorbed |
+| Compacted domain (2026-07 inventory) | Former units absorbed |
 |---|---|
 | `LAUNCH-01` | `01` |
 | `LAUNCH-02` | `02` |

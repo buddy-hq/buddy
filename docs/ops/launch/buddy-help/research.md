@@ -6,10 +6,10 @@
 > current skill.
 
 Historical record for this launch lane. Supersedes prior fragments (candidates, term-checks, file-trees, taxonomies).
-**Related (kept separate):** `skill-style-guide.md` — how to *write* skills (agent-scripts corpus).  
-**Launch home:** `docs/ops/launch/critical-path.md` → About Buddy Skill.
+**Related (kept separate):** `skill-style-guide.md` — how to *write* skills (agent-scripts corpus).
+**Shipped runtime:** `packages/buddy/src/learning/features/platform/skills/buddy-help/` (`SKILL.md` router + `references/*.md`). There is no `docs/ops/launch/critical-path.md` in this tree.
 
-**Out of scope this product pass (archived, not in live skill tree):** personas / Code Buddy / Math Buddy / teaching workspace / checkpoints / “surfaces” as product vocab. See `pilot-archive/out-of-scope-code-buddy-personas/`. Live `overview.md` is product map only (no persona modes).
+**Out of scope this product pass (planning record only):** personas / Code Buddy / Math Buddy / teaching workspace / checkpoints / “surfaces” as product vocab. Those leaves were archived out of the live skill tree; the `pilot-archive/out-of-scope-code-buddy-personas/` path is not in this repository. Live `overview.md` is product map only (no persona modes).
 
 ---
 

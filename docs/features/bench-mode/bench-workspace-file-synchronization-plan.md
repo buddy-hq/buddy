@@ -1,8 +1,10 @@
 # Bench Workspace File Synchronization Plan
 
+> Historical snapshot (plan dated 2026-06-22; reclassified 2026-08-30): this document preserves the synchronization design and its acceptance target. Bench identity work and watcher delivery are now shipped; the remaining follow-up is eight-state synchronization completeness and removal of Monaco's polling fallback. For current Bench ownership and protocol, read [current-architecture.md](./current-architecture.md).
+
 Date: 2026-06-22
 
-Status: proposed; ready for implementation after the current Bench identity work is committed
+Status: historical plan (2026-06-22); identity work and watcher delivery shipped; remaining follow-up is eight-state synchronization completeness and removal of Monaco's two-second polling fallback
 
 ## Purpose
 
@@ -56,7 +58,7 @@ editor.
 - Do not add a general multi-file cache or background indexer.
 - Do not use hover, polling, or agent-tool metadata as the correctness mechanism.
 
-## Verified Current Architecture
+## Architecture Snapshot (verified 2026-06-22)
 
 ### A native watcher already exists
 
@@ -87,13 +89,16 @@ single logical write can produce both an immediate tool event and a later OS
 event.
 
 The OpenCode `EventV2` bridge forwards watcher events through `/global/event`.
-Buddy proxies that stream through `/api/event`, and `useChatSync` already
-receives the event. The web client currently ignores the event because it has no
-`file.watcher.updated` handler.
+Buddy proxies that stream through `/api/event`. At the time of this snapshot,
+`useChatSync` received the event but the web client had no
+`file.watcher.updated` handler. The path is now wired: `use-chat-sync.ts`
+normalizes the event and the directory chat controller calls
+`DirectoryWorkspaceLifecycleService.synchronizeWorkspaceFile`. The remaining
+fallback gap is Monaco's polling described below.
 
-### Markdown currently has a narrow reload signal
+### Markdown reload path at the plan snapshot (remaining cleanup)
 
-`packages/web/src/components/bench/markdown-bench-page.tsx`:
+At the time of this snapshot, `packages/web/src/components/bench/markdown-bench-page.tsx`:
 
 - initializes React and MDXEditor state from route loader data;
 - reloads only after recognized `edit`, `write`, or `apply_patch` tool metadata;
@@ -102,16 +107,18 @@ receives the event. The web client currently ignores the event because it has no
 - uses `MDXEditorMethods.setMarkdown` correctly when Buddy supplies new content;
 - already protects dirty saves with a content-hash version and conflict state.
 
-The tool-part parser is a duplicate and incomplete change detector. It should be
-removed after the watcher path is connected.
+The watcher path is now connected through the lifecycle synchronizer, but the
+tool-part parser remains in current code as a duplicate and incomplete change
+detector. Removing that compatibility path is still a cleanup item from this
+plan.
 
-### Monaco currently polls but ignores deletion
+### Monaco polling fallback (remaining gap, verified 2026-08-30)
 
 `packages/web/src/components/bench/source-file-bench-view.tsx` passes a
 two-second `externalReloadIntervalMs` to
 `packages/web/src/components/editors/versioned-text-file-editor.tsx`.
 
-The polling effect:
+The current polling effect:
 
 - calls the full editable-file read endpoint every two seconds;
 - reloads clean content when the returned version changes;

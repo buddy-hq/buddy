@@ -1,67 +1,65 @@
 # MDX on Markdown Bench
 
-## Product contract
+## Product Contract
 
-Markdown Bench is the editing and rendering surface for both `.md` and `.mdx` workspace files. Monaco is reserved for source-oriented file types. A `bench_present` request for an MDX path uses the Markdown viewer, so agent-presented MDX and user-opened MDX follow the same route.
+Markdown Bench is the viewing and editing surface for both `.md` and `.mdx` workspace files. Monaco is reserved for source-oriented file types.
 
-MDXEditor remains behind Buddy's `MarkdownBenchEditor` wrapper. Files are persisted as Markdown or MDX text; MDXEditor is not exposed as an application-wide API.
+`MarkdownBenchEditor` wraps MDXEditor for rich-text editing. Documents are stored and round-tripped as plain Markdown/MDX text; MDXEditor is not exposed as an application-wide API.
 
-## Supported document features
+## Supported Document Features
 
-| Feature | Markdown | MDX | Notes |
+| Feature | Markdown | MDX | Current boundary |
 | --- | --- | --- | --- |
-| Headings, paragraphs, emphasis, strong text, block quotes | Yes | Yes | Rich-text editing and Markdown shortcuts are enabled. |
-| Ordered and unordered lists | Yes | Yes | Serialized back to Markdown. |
-| Links and link editing | Yes | Yes | The advanced tools include the link dialog. |
-| Tables | Yes | Yes | Editable in normal view and read-only in print view. |
-| Thematic breaks | Yes | Yes | Standard `---` syntax. |
-| Fenced code blocks | Yes | Yes | CodeMirror editing is enabled for common web and scripting languages. |
-| Inline and display math | Yes | Yes | Buddy math nodes render with KaTeX and round-trip to source. |
-| Mermaid blocks | Yes | Yes | `mermaid` code fences render as diagrams and preserve their source. |
-| Images | Yes | Yes | Standard Markdown images and safe MDX `<img>` elements render. |
-| Frontmatter | Yes | Yes | YAML frontmatter is parsed, editable, and preserved. |
-| Container directives | Yes | Yes | Known admonitions such as `:::tip` render as styled callouts; other containers such as `:::answer-key` render as neutral structural sections and round-trip. |
-| HTML comments | Preserved | Yes | In MDX, `<!-- -->` comments are normalized to MDX comments before parsing. |
-| Safe HTML layout | No raw preview | Yes | An allowlist of structural and inline elements renders as an inert preview. |
-| Inline SVG | No raw preview | Yes | Safe SVG geometry, gradients, labels, and grouped content render inline. |
-| Imports and custom components | No | Preserved | They are displayed and round-tripped, but never executed. |
+| Headings, paragraphs, emphasis, quotes, lists, links, tables, thematic breaks | Yes | Yes | Round-trip through Markdown text. |
+| Fenced code blocks and inline/display math | Yes | Yes | CodeMirror and KaTeX renderers. |
+| Mermaid blocks and images | Yes | Yes | Mermaid source is preserved; images use the safe media path. |
+| YAML frontmatter and container directives | Yes | Yes | Known admonitions are styled; unknown containers remain neutral structural sections. |
+| HTML comments | Preserved | Yes | MDX comments are normalized outside fenced/inline code. |
+| Safe HTML layout and inline SVG | No raw preview | Yes | Allowlists below; no arbitrary intrinsic execution. |
+| Imports and custom components | No | Preserved | Source is retained and rendered as inert labeled blocks. |
 
-The advanced authoring controls are intentionally not a permanent top toolbar. The minimal Bench dock contains an Advanced button. Activating it opens a horizontally scrollable, separately spaced row above the minimal dock. Markdown Bench has no document header shell.
+The advanced authoring controls live behind the Markdown Bench dock's Advanced action rather than
+in a permanent header toolbar. The wrapper keeps editor controls, dialogs, and selection UI out of
+print output.
 
-## Safe MDX rendering boundary
+## Documents-Not-Programs Boundary
 
-MDX files are treated as authored documents, not trusted React programs. Buddy parses JSX but does not evaluate imports, JavaScript expressions, event handlers, or custom components.
+MDX files are treated as authored educational documents, not executable React programs. Buddy parses JSX syntax but strictly prohibits arbitrary code execution:
+- Imports, exports, and custom JSX components are parsed and preserved in source, but rendered as inert labeled blocks.
+- JavaScript expressions, event handlers (`onClick`, `onError`), and `srcDoc` are stripped.
+- Arbitrary component runtimes (e.g. Sandpack) and eval environments are excluded.
 
-Safe HTML elements include document sections, `div`, `span`, text emphasis, lists, tables, figures, details, and images. Safe SVG elements include `svg`, shapes, paths, lines, polygons, groups, text, definitions, gradients, masks, patterns, and fragment-local `use` references.
+## Safe Rendering Constraints
 
-The intrinsic renderer:
+### Safe HTML and SVG Allowlists
+- **HTML**: Structural elements (`section`, `div`, `span`), typography/emphasis, lists, tables, figures, details, and safe images.
+- **SVG**: Vector elements (`svg`, `path`, `rect`, `circle`, `line`, `polyline`, `polygon`, `text`, `defs`, `g`, `linearGradient`, `radialGradient`, `mask`, `pattern`), with `href`/`xlink:href` restricted to same-document fragment identifiers (`#id`).
 
-- preserves nested Markdown text nodes inside HTML and SVG, including text below diagrams;
-- strips event attributes and `srcDoc`;
-- ignores expression-valued attributes;
-- permits only an allowlist of layout and typography CSS properties;
-- rejects CSS expressions, JavaScript URLs, and external CSS `url()` values;
-- permits image data URLs only when they are `data:image/*`;
-- restricts SVG `href` and `xlink:href` to same-document fragment references;
-- does not allow scripts, iframes, `foreignObject`, audio, or video.
+### Style and Resource Restrictions
+- Inline styles are restricted to an allowlist of layout and typography CSS properties.
+- CSS expressions, JavaScript URLs, and external CSS `url()` references are rejected.
+- Images are restricted to safe URLs and `data:image/*` data URIs.
+- Scripts, iframes, `foreignObject`, audio, and video elements are blocked.
 
-Unknown or imported components render as inert labeled blocks. Their child Markdown remains editable and their source is preserved. Sandpack and arbitrary component execution are intentionally excluded because an educational document should not gain application privileges merely by being opened.
+## Error Recovery and Normalization
 
-## Errors and recovery
+If MDX rich-text parsing fails, Markdown Bench switches to source mode, displaying MDXEditor's parser error alongside raw text for manual repair. Syntax normalization automatically converts standard HTML comments (`<!-- -->`) outside code blocks into MDX comments (`{/* */}`).
 
-An invalid MDX document must not produce a blank Bench surface. If rich-text parsing fails, Markdown Bench switches to source mode and shows MDXEditor's parser error with the original source available for repair.
+## Print Behavior
 
-Compatibility normalization is limited to syntax that MDX rejects but existing educational files commonly contain. In particular, HTML comments are converted to MDX comments outside fenced and inline code. Valid source is otherwise left intact.
-
-## Print behavior
-
-Print mode is read-only and uses the dedicated PDF theme. Editor toolbars, dialogs, table controls, selection affordances, the advanced dock panel, and the hidden MDXEditor toolbar root are excluded from exported markup.
-
-Figures, images, SVG diagrams, Mermaid diagrams, display math, code blocks, tables, and safe MDX intrinsic blocks use `break-inside: avoid-page`. Images and SVG are constrained to the printable page height so a block that fits on one page moves to the next page instead of being split.
+Print/PDF export uses a read-only theme:
+- All editor toolbars, dialogs, dock panels, and selection handles are stripped.
+- `break-inside: avoid-page` is applied to figures, images, SVG diagrams, Mermaid diagrams, display math, code blocks, tables, and MDX intrinsic blocks.
+- Images and SVG are constrained to printable page height so a block that fits on one page moves
+  intact to the next page instead of splitting.
 
 ## Verification
 
-The MDX editor stress test covers one document containing frontmatter, an import, a custom component, rich text, a link, quote, list, table, admonition, code, math, Mermaid, a Markdown image, an HTML comment, styled HTML, an intrinsic image, and labeled SVG. Separate tests cover generic container directives, unsafe attribute removal, invalid-MDX recovery, advanced-toolbar placement, print serialization, workspace routing, resource routing, and `bench_present`.
+The stress document covers frontmatter, imports, custom components, rich text, links, quotes,
+lists, tables, admonitions, code, math, Mermaid, Markdown images, HTML comments, styled HTML, an
+intrinsic image, and labeled SVG. Focused tests cover generic container directives, unsafe
+attribute removal, invalid-MDX recovery, advanced-toolbar placement, print serialization,
+workspace/resource routing, and `bench_present`.
 
 Relevant implementation:
 

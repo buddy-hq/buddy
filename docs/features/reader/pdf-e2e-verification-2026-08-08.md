@@ -1,19 +1,27 @@
 # PDF reader end-to-end verification — 2026-08-08
 
+> **Status:** Dated manual log for branch `pdf-reader` on 2026-08-08. It is not today's product
+> contract. Observations here showed Buddy's PDF.js reader path on that branch (including
+> INVESTIGATION-001). Shipped routing is: PDF → `PdfReader` / PDF.js, EPUB → `foliate-js`, both
+> under `DocumentReader` — see [PDF long-term architecture](./pdf-long-term.md).
+>
+> Fixture paths below name a developer Inbox copy used that day. Do not treat those labels as
+> repo fixtures.
+
 ## Scope
 
-Manual verification of the current `pdf-reader` branch in the already-running Electron window `Buddy Dev — pdf-reader` on the localhost dev server. This log is grounded in the current implementation and on-disk fixtures; the PDF design docs are treated as non-authoritative where they differ from code.
+Manual verification of the `pdf-reader` branch in an already-running Electron window `Buddy Dev — pdf-reader` on the localhost dev server. This log is grounded in the implementation and on-disk fixtures **as of that run**; later design docs and code win where they differ.
 
 ## Environment
 
 - App: `Buddy Dev — pdf-reader` (Electron, existing dev-server window; no app startup performed intentionally).
 - Branch: `pdf-reader`.
 - Test start: 2026-08-08, Asia/Kolkata.
-- Current open source: `/Users/prashantbhudwal/Documents/Buddy/Inbox/CCEM_COMPULSORYI_2024.pdf`.
+- Open source that day: a local `CCEM_COMPULSORYI_2024.pdf` in the tester's Buddy Inbox (not a repo fixture).
 
 ## On-disk fixture inventory
 
-The fixture pool includes text-heavy textbooks and exams, long books, worksheets, slide/deck PDFs, and PDFs stored under nested `resources/` directories. Candidate sources selected for manual coverage will be recorded with their absolute path, page count, and observed characteristics before each UI run.
+The fixture pool includes text-heavy textbooks and exams, long books, worksheets, slide/deck PDFs, and PDFs stored under nested `resources/` directories. Candidate sources selected for manual coverage will be recorded with a neutral path label, page count, and observed characteristics before each UI run.
 
 ## Coverage matrix
 
@@ -59,14 +67,14 @@ The fixture pool includes text-heavy textbooks and exams, long books, worksheets
 
 | Fixture | Pages | Useful characteristic |
 | --- | ---: | --- |
-| `/Users/prashantbhudwal/Documents/Buddy/Inbox/CCEM_COMPULSORYI_2024.pdf` | 21 | Text-heavy exam; unusual metadata warning; visible text layer. |
-| `/Users/prashantbhudwal/Documents/Buddy/Inbox/UPSC_CSE_2026_GS1.pdf` | 56 | Scanned PDF (`ScandAll PRO` / Adobe PDF Scan Library); likely image/OCR stress case. |
-| `/Users/prashantbhudwal/Documents/Buddy/Inbox/NCF-SE-2023.pdf` | 600 | Long A4 document with AcroForm metadata. |
-| `/Users/prashantbhudwal/Documents/Buddy/reading/gutenberg/moby-dick.pdf` | 375 | Long text PDF with Title/Author metadata. |
-| `/Users/prashantbhudwal/Documents/Buddy/startups/zero-to-one-presentation.pdf` | 10 | Landscape slide/deck PDF with Title, Subject, and Author metadata. |
-| `/Users/prashantbhudwal/Documents/Buddy/Inbox/resources/pg-how-to-work-hard/paulgraham.com-How to Work Hard.pdf` | 6 | Tagged Chromium-generated web PDF. |
-| `/Users/prashantbhudwal/Documents/Buddy/Inbox/diksha-exploring-magnets/curiosity-class-6-science-chapter-4-exploring-magnets.pdf` | 2 | Small tagged Microsoft Word-generated worksheet. |
-| `/Users/prashantbhudwal/Documents/Buddy/video/uploads/States-of-Matter-NGSS-MS-PS1-4-Worksheet--ZqlHUC-ESQ.pdf` | 7 | Tagged LibreOffice worksheet in Letter size. |
+| `<Buddy Inbox>/CCEM_COMPULSORYI_2024.pdf` | 21 | Text-heavy exam; unusual metadata warning; visible text layer. |
+| `<Buddy Inbox>/UPSC_CSE_2026_GS1.pdf` | 56 | Scanned PDF (`ScandAll PRO` / Adobe PDF Scan Library); likely image/OCR stress case. |
+| `<Buddy Inbox>/NCF-SE-2023.pdf` | 600 | Long A4 document with AcroForm metadata. |
+| `<Buddy workspace>/reading/gutenberg/moby-dick.pdf` | 375 | Long text PDF with Title/Author metadata. |
+| `<Buddy workspace>/startups/zero-to-one-presentation.pdf` | 10 | Landscape slide/deck PDF with Title, Subject, and Author metadata. |
+| `<Buddy Inbox>/resources/pg-how-to-work-hard/paulgraham.com-How to Work Hard.pdf` | 6 | Tagged Chromium-generated web PDF. |
+| `<Buddy Inbox>/diksha-exploring-magnets/curiosity-class-6-science-chapter-4-exploring-magnets.pdf` | 2 | Small tagged Microsoft Word-generated worksheet. |
+| `<Buddy workspace>/video/uploads/States-of-Matter-NGSS-MS-PS1-4-Worksheet--ZqlHUC-ESQ.pdf` | 7 | Tagged LibreOffice worksheet in Letter size. |
 
 ### Source panel inspection
 

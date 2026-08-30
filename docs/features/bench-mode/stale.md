@@ -1,1 +1,0 @@
-- docs/research/context-engineering/tools/tool-rendering-audit.md

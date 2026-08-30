@@ -2,28 +2,30 @@
 
 ## Windows status
 
-For now, Advanced Math on Windows should remain `Coming soon` in the app instead of exposing an install toggle.
+Advanced Math on Windows remains `Coming soon` in Settings instead of exposing an install toggle.
 
-## Why we are not enabling it right now
+## Decision and build-time evidence
 
-We tested the Windows runtime build locally on a real slow Windows machine and the experience was not acceptable for end users.
+Testing the Windows runtime build locally on a slow machine showed an unacceptable install experience:
 
-What we observed:
+- The machine lacked Python, requiring a bootstrap install of Python 3.12.
+- Local runtime build took 9 to 10 minutes creating the virtualenv, downloading packages, and running PyInstaller.
+- The build failed during archive creation because `Compress-Archive` was brittle on this machine.
+- Even if fixed, a 10-minute wait on a slow machine is not a shippable end-user experience.
 
-- The machine did not have Python installed, so setup had to start with installing Python 3.12.
-- After Python was available, the local runtime build still spent around 9 to 10 minutes creating the virtualenv, downloading Python packages, and running PyInstaller.
-- The build reached the final packaging stage but then failed while creating the ZIP archive because the current Windows archive step relies on `Compress-Archive`, which was brittle on this machine.
-- Even if the archive step is fixed, making Windows users wait around 10 minutes on a slow machine is not a shippable install experience.
+Until prebuilt assets or a skill package replace the local build path, Windows should:
 
-## Current product decision
+- show `Coming soon` in Settings;
+- avoid prompting users to build or install the runtime locally;
+- avoid exposing a toggle leading to long waits or unreliable setup.
 
-Do not enable Advanced Math installation on Windows yet.
+## Prerequisites for revisiting Windows
 
-Until we have a better approach, Windows should:
+Restoring Windows support requires:
 
-- show `Coming soon` in Settings
-- avoid prompting users to build or install the runtime locally
-- avoid exposing a toggle that leads to long waits or unreliable setup
+- prebuilt Windows runtime assets published with releases (or a pure skill package);
+- no requirement for end users to bootstrap Python locally;
+- a fast, reliable install experience on low-resource machines.
 
 ## Current macOS runtime UX issue
 
@@ -36,12 +38,3 @@ What happens today:
 - the UI can look stuck instead of showing continuous download, build, or removal progress
 
 This is the same product issue class as the Standards runtime flow and should be treated as unfinished UX.
-
-## What needs to change before we revisit this
-
-We should only restore Windows support when we have a faster and more reliable path, such as:
-
-- prebuilt Windows runtime assets published with releases
-- no requirement for end users to bootstrap Python locally
-- a packaging flow that is reliable on Windows
-- an install experience that is acceptable on slow machines

@@ -1,11 +1,13 @@
 # Post-Provider Memory Analysis
 
+> **Dated research (2026-06-23).** Dev import probes and sidecar-era measurements — **not** production proof and **not** what merged. [exit-branch.md](../exit-branch.md) / [utility-process-backend.md](../../architecture/decisions/utility-process-backend.md): no provider demand split, no `models=usable` API, no `ProviderCatalog` implementation shipped. Keep the RSS attribution tables as evidence for future import-graph work.
+
 **Created:** Tue Jun 23 2026
-**Purpose:** Summarize what the provider optimization fixed, what remains, and where the next optimization should focus.
+**Purpose:** Summarize what a sidecar-era provider-split experiment measured, what import probes attributed, and where the next optimization should focus **if** that work is restarted on the utility-process baseline.
 
-## Provider Result
+## Provider Result (sidecar experiment — did not merge)
 
-The provider optimization was completed and measured with the rebuilt Windows production sidecar.
+A provider-split experiment was measured with a rebuilt Windows production **sidecar**. Those numbers are historical. The architecture that shipped is the Electron utility process; the provider split is in the negative catalog.
 
 Before the fix, from `log/memory-main-measurement-current-script.json`:
 

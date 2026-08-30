@@ -1,14 +1,21 @@
 # Buddy Demo Video
 
-This folder contains the current Buddy demo video:
+> Historical capture procedure (2026-06-04). The teaching-pack MP4 described
+> here was removed from the repository. This README is not the current
+> launch-film media source; see [packages/videos/README.md](../../packages/videos/README.md)
+> and [launch-video design](../ops/launch-video/design.md).
 
-- `buddy-demo-live-electron.mp4`
+This document records the historical teaching-pack capture; the referenced MP4
+is no longer in the tree:
+
+- Historical output: `buddy-demo-live-electron.mp4` (removed from the
+  repository; not a current media asset).
 
 The video is a real Electron app recording, not a presentation mockup. It shows Buddy creating a teaching pack from a fresh Quick Chat thread, including generated diagram, flashcard, and question content.
 
-## Final Video
+## Historical Capture Output (removed)
 
-- File: `docs/demo/buddy-demo-live-electron.mp4`
+- File: `docs/demo/buddy-demo-live-electron.mp4` (removed; not in the tree)
 - Resolution: 1920x1080
 - Frame rate: 30 fps
 - Duration: 92.4 seconds
