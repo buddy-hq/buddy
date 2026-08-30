@@ -11,11 +11,11 @@ The working tree under `docs/` is the accepted result. Preservation and truth ou
 | Measure | HEAD (`a5eb94fd9`) | Invalidated first pass | Accepted working tree |
 |---|---:|---:|---:|
 | Files | 360 tracked | 73 | **197** |
-| Bytes | 18,322,783 | 268,671 | **2,698,128** |
+| Bytes | 18,322,783 | 268,671 | **2,698,100** |
 
 Current counts (2026-08-30, this worktree):
 
-- **197** files on disk under `docs/` (2,698,128 bytes).
+- **197** files on disk under `docs/` (2,698,100 bytes).
 - **178** original HEAD paths still present (**130** modified in place, **48** byte-identical to HEAD).
 - **182** original HEAD paths deleted (`git diff --name-only --diff-filter=D -- docs`).
 - **19** new canonical documents relative to HEAD.
