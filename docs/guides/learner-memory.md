@@ -1,75 +1,73 @@
-# Learner Memory In Buddy
+# Learner Memory in Buddy
 
-Buddy can remember useful learning context across chats and notebooks on your machine. The goal is not to profile you. The goal is to avoid starting from zero every time: what you are trying to learn, what keeps tripping you up, what teaching style helps, and what evidence Buddy has seen from real work.
+Buddy retains durable learning context across sessions on the local machine to avoid starting from zero: goals, fragile skills, misconceptions, demonstrated evidence, and teaching preferences.
 
-## What Buddy Remembers
+---
 
-Buddy stores learner memory as small records with a title, explanation, type, confidence, strength, source pointers, and notebook/project metadata.
+## 1. Creation & Extraction
 
-Typical memory types:
+- **Explicit:** Learner instructions to remember, forget, correct, pin, or reject facts.
+- **Deterministic:** Evidence recorded automatically from learning artifacts (question-set attempts, flashcard reviews, task checkpoints).
+- **Automatic Extraction:** A background startup sweep evaluates sufficiently idle sessions when enough signal exists (message span, tool activity, artifacts; shallow or hot sessions are skipped).
 
-- Preferences: examples before theory, concise hints, visual explanations.
-- Goals: what you are currently trying to learn or finish.
-- Evidence: things you demonstrated in quizzes, flashcards, tasks, or real project work.
-- Fragile skills: areas that need more practice.
-- Misconceptions: incorrect models that were corrected or still need care.
-- Open loops: unanswered questions or follow-up tasks.
-- Project context: facts that matter only inside a notebook.
+Learner corrections override model-inferred extractions.
 
-## How Memory Is Created
+---
 
-Memory can be created in three ways:
+## 2. Controls & Prompt Integration
 
-- Explicitly: you ask Buddy to remember, forget, correct, pin, or reject something.
-- Deterministically: Buddy records evidence from learning artifacts such as question-set attempts, flashcard reviews, and task checkpoints.
-- Automatically: if enabled for a notebook, Buddy can scan a real chat after the turn finishes and extract candidate memories using a small model from your connected provider.
+- **Prompt Caching:** Delivers a compact summary only when memory state changes, preserving cache stability.
+- **On-Demand Search:** Calls `learner_memory_search` when deeper recall helps. Results rank by text match, scope, strength, recency, and pinned status.
+- **Settings:**
+  - *Notebook level:* Toggle memory delivery, search, and auto-extraction.
+  - *Global machine level:* Configure extraction/consolidation models, attention gates, and retention limits.
+  - *DevTools:* Memory tab provides record inspection, query scoring, and manual extraction testing.
 
-Automatic extraction is not run on every message. Buddy first checks whether the session has enough learning signal: enough user messages, enough session span or active burst, assistant effort, tool use, or learning artifacts. Shallow chats are skipped.
+---
 
-## How Buddy Uses Memory
+## 3. Two-Lane Storage Architecture
 
-Buddy gets a small learner context only when it changes. This keeps prompt caching safe and avoids re-sending the same dynamic context every turn.
+Local path: `~/.buddy/learner-memory/`
 
-During a chat, Buddy can also call `learner_memory_search` when deeper recall would materially improve the answer. Search results include ranking reasons such as text match, notebook scope, memory strength, recency, pinned status, stale penalties, and evidence strength.
+Buddy maintains a strict two-lane file-first architecture:
 
-Passive delivery does not strengthen memory. A memory strengthens only when it is actively used, explicitly pinned, or reinforced by evidence.
+- **Consolidated Base Lane (`MEMORY.md`, `summary.md`):** Read-only base memory written strictly by the background consolidator. Chat-time CRUD never rewrites base files.
+- **Working Lane (`working-memory.md`, `working-summary.md`):** Editable lane for explicit corrections, new evidence, and chat CRUD.
+- **Audit & Index (`events/*.jsonl`, `evidence/*.json`, `index.sqlite`):** Append-only event streams, raw evidence, and rebuildable SQLite search index.
 
-## Notebook Controls
+The consolidator periodically folds validated working evidence into the base lane.
 
-Open learner memory settings to configure memory.
+## 4. Extraction Pipeline
 
-- Notebook controls: turn memory delivery/search and auto-extraction on or off for the current notebook.
-- Global model defaults: choose extraction and consolidation models once for the machine.
-- Global extraction tuning: set attention gates, delays, call caps, retention, and search limits once for the machine.
+The automatic path is a background startup sweep over sessions that have been
+idle long enough; it is not scheduled by the per-turn message transform. The
+current session, internal memory sessions, archived sessions, sessions older
+than the startup age limit, and sessions below the idle threshold are excluded
+unless extraction is explicitly forced; the sweep also caps the number of
+sessions and uses configured concurrency.
 
-## Inspecting And Correcting Memory
+Stage-one extraction claims a durable job in `jobs.sqlite` using a SQLite
+`BEGIN IMMEDIATE` transaction. Its lease owner, expiry, retry backoff,
+last-success watermark, source fingerprint, and source message count survive a
+restart, so concurrent workers do not re-extract an unchanged snapshot. The
+phase-two consolidator uses the same ledger as a singleton leased job, selects
+new or changed stage-one outputs, and publishes the validated base files only
+after its staged registry and summary pass validation.
 
-The notebook settings panel shows learner memory records, their scope, source IDs, and quick controls. You can pin, hide, or delete records there.
+Before a provider call, the pipeline applies the attention gate and per-session
+and per-day extraction budgets. [`session-source.ts`](../../packages/buddy/src/learning/features/memory/session-source.ts)
+keeps user/assistant evidence and selected learning events, drops system and
+skill scaffolding, reasoning, and bulky raw tool material, compacts tool
+evidence, and redacts secrets. The effective context prefers the model's
+`inputWindow`, then `contextWindow`; the default uses 70% of that window minus
+6,000 reserved prompt tokens and 4,000 reserved output tokens, with an 8,000
+token minimum. [`text-budget.ts`](../../packages/buddy/src/learning/features/memory/text-budget.ts)
+keeps the head and tail when truncation is needed and inserts a marker for the
+dropped middle. Stage-one candidate JSON and its ledger are intermediate
+evidence, not final memory; consolidation merges, supersedes, or rejects those
+candidates into the readable base lane.
 
-In development builds, Buddy DevTools has a Memory tab. It shows recent records, search scoring for a query, records linked to the current session, and a manual "Extract Session" action for testing real-session extraction.
-
-If Buddy remembers something wrong, correct it directly. Learner corrections override inferred model extraction.
-
-## Where Memory Lives
-
-Memory is local to your machine under Buddy's global home:
-
-```text
-~/.buddy/learner-memory/
-```
-
-Buddy keeps two file-first memory lanes:
-
-- `MEMORY.md`: read-only consolidated base memory written by the background consolidator.
-- `summary.md`: compact read-path summary written by the background consolidator.
-- `working-memory.md`: editable working memory for explicit learner corrections, deterministic learning evidence, and chat-time memory CRUD.
-- `working-summary.md`: compact summary generated from `working-memory.md`.
-- `events/*.jsonl`: memory events and audit trail.
-- `evidence/*.json`: deterministic learning evidence.
-- `session-summaries/*`: summaries of session extraction.
-
-Generated state can be rebuilt:
-
-- `index.sqlite`
-
-Buddy does not parse or rewrite consolidated base memory for chat-time CRUD. The UI and memory tools edit the working lane; the background consolidator can later fold selected working/session evidence into the base lane.
+The main mechanics live in [`startup.ts`](../../packages/buddy/src/learning/features/memory/startup.ts),
+[`session-extraction.ts`](../../packages/buddy/src/learning/features/memory/session-extraction.ts),
+[`stage-one-store.ts`](../../packages/buddy/src/learning/features/memory/stage-one-store.ts),
+and [`consolidation.ts`](../../packages/buddy/src/learning/features/memory/consolidation.ts).

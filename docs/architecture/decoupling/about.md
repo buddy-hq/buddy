@@ -1,53 +1,28 @@
-# OpenCode decoupling — handoff
+# OpenCode Decoupling Architecture
 
-Read this file first. The other documents in this folder are research notes, phase logs, and checklists from a migration that **already landed**. They tell you *how* we got here. This file tells you *why* we did it and what to preserve going forward.
+How Buddy moves agent behavior onto **official OpenCode plugin + SDK** surfaces and shrinks `@buddy/opencode-adapter` to patches that have no upstream equivalent.
 
-You do not need to read every phase doc unless you are changing a specific area — see [Appendix: document map](#appendix-document-map) at the end.
+## Philosophy
 
----
+Decoupling means **stopping calls to vendored OpenCode internals from Buddy product code** except through a documented adapter boundary. The goal is maintainability under vendor sync:
 
-## The problem we were solving
-
-Buddy runs on vendored OpenCode. For a long time, the integration looked like this: Buddy's Hono server proxied HTTP into an in-process OpenCode instance, registered and unregistered learning tools on every request, and patched vendored internals (session, tools, skills, subagent spawning) wherever OpenCode did not expose a public extension point.
-
-That worked, but it was brittle. Every upstream OpenCode bump was a dice roll. Internal Effect types, bootstrap order, registry APIs, and prompt pipeline shapes could change without TypeScript catching the breakage at Buddy call sites. The proxy layer also mixed transport with product logic — tool registration rode along on unrelated routes.
-
-We did **not** set out to replace OpenCode or build a second agent runtime. We set out to **narrow the integration boundary**: use maintained surfaces where they exist, and keep a small, honest adapter only where they do not.
+- **Plugin first:** Buddy learning tools and in-loop behavior (system prompt guard, tool UI stripping) live in `@opencode-ai/plugin` hooks loaded as a single runtime plugin.
+- **SDK for transport:** Buddy Hono communicates with OpenCode via typed `@opencode-ai/sdk` client calls rather than a custom HTTP proxy.
+- **Permissions for visibility:** Tools are registered once at plugin bootstrap; LLM visibility is governed by session permission rules, not runtime registration churn.
+- **Adapter only for gaps:** Subagent forwarding, skill filtering, config overlay, permission replace semantics, and live session caching stay in `@buddy/opencode-adapter` until OpenCode exposes official extension points.
 
 ---
 
-## The philosophy
-
-**Decoupling, in this repo, means:** stop calling vendored OpenCode internals from Buddy product code except through a documented adapter boundary.
-
-It does **not** mean:
-
-- Removing OpenCode from the stack
-- Migrating to OpenCode v2 prompt or message format (v2 prompt was stubbed when we researched this; v1 remains the frontend contract)
-- Pretending we can delete all adapter patches without upstream hooks
-- Achieving "zero vendored hacking" as a vanity metric
-
-It **does** mean:
-
-- **Plugin first** — Buddy learning tools and in-loop behavior (system prompt filtering, message transforms) live in `@opencode-ai/plugin` hooks, loaded as a single runtime plugin
-- **SDK for transport** — Buddy Hono talks to OpenCode through `@opencode-ai/sdk`, not a custom proxy
-- **Permissions for visibility** — tools are registered once at plugin load; what the model sees is gated by session permission rules, not runtime register/unregister
-- **Adapter only for gaps** — subagent forwarding, skill filtering, config overlay, permission replace semantics, and a few other cases stay in `@buddy/opencode-adapter` until OpenCode adds equivalent hooks
-
-The north star is **maintainability under vendor sync**, not architectural purity. We accepted a modest win: fewer surfaces that break on bump, clearer ownership of Buddy vs OpenCode code, and explicit documentation of what still requires patches.
-
----
-
-## What we changed
+## Architecture: Before vs. After
 
 ### Before
 
 ```
-Buddy Hono ── custom proxy ──▶ OpenCode (vendored, in-process)
-    │                               │
-    │                               ├─ monkey-patches on session, tools, skills, prompts
-    │                               ├─ register/unregister tools per request
-    │                               └─ separate system-prompt plugin via config overlay
+Buddy Hono ── raw fetch / proxy ──▶ OpenCode (vendored, in-process)
+    │                                  │
+    ├─ proxy tool registration shims  ├─ ToolRegistry monkey-patches
+    ├─ withConfigOverlay env mutation ├─ Session.Service monkey-patches
+    │                                  └─ Plugin.Service monkey-patches
     │
     └─ teaching state, learner routes, config (Buddy-owned)
 ```
@@ -111,7 +86,7 @@ Follow-on work in `upstream-fetch-reduction-plan.md` further shrank patch surfac
 Do not try to "finish decoupling" by deleting these without upstream support.
 
 | Buddy need | Why plugin/SDK is not enough today |
-|------------|-------------------------------------|
+|---|---|
 | **Subagent / task child sessions** | Must seed child teaching state, tool overrides, and permissions before the child's first prompt. `tool.execute.before` can mutate task args; it cannot wrap internal `promptOps.prompt()`. |
 | **Skill visibility** | No hook to hide built-in OpenCode skills from `skill.available()`. We patch the skill service. |
 | **Pre-prompt targeting** | Persona, model, and tool targeting run in Hono before the SDK prompt. `chat.message` runs after agent/model resolution — too late. |
@@ -132,15 +107,16 @@ When adding or changing agent behavior, ask in order:
 3. **Is it session-scoped visibility?** Use permissions, not registry changes.
 4. **Does it need pre-prompt orchestration?** Keep it in Hono / `message-prompt-pipeline.ts` unless upstream adds an earlier hook.
 5. **Only then** — extend the adapter, document the missing upstream hook, and add a test that explains why the patch exists.
+6. **Do not start a second OpenCode runtime casually.** The SDK's `createOpencodeServer()` spawns a separate `opencode` process; use Buddy's in-process `getOpenCodeClient()`/custom fetch boundary instead. Moving to a child-process runtime is a separate, explicit architecture decision.
 
-Incremental cleanup (SDK v2 for routes v1 omits, optional compaction hooks, etc.) lives in `tiered-decoupling-plan.md`. Phase docs are historical; use the tier table for remaining work.
+Incremental cleanup notes live in the dated [tiered-decoupling-plan.md](./tiered-decoupling-plan.md) (not a live sprint board). Blocked gaps: [UPSTREAM-HOOKS.md](../../../packages/buddy/src/opencode-runtime/UPSTREAM-HOOKS.md). Landed patch reduction: [upstream-fetch-reduction-plan.md](./upstream-fetch-reduction-plan.md).
 
 ---
 
 ## Appendix: where things live in code
 
 | Concern | Path |
-|---------|------|
+|---|---|
 | Plugin entry | `packages/buddy/src/opencode-runtime/plugins/buddy-runtime-plugin.ts` |
 | Tool export | `packages/buddy/src/opencode-runtime/buddy-tool-shim.ts` |
 | SDK client | `packages/buddy/src/opencode-runtime/client.ts` |
@@ -154,16 +130,15 @@ Incremental cleanup (SDK v2 for routes v1 omits, optional compaction hooks, etc.
 
 ## Appendix: document map
 
-The folder is a scattered plan on purpose — research, phases, and follow-on tracks were written as we went. Use this map instead of reading everything.
+The folder is structured as follows:
 
 | When you need… | Read |
-|----------------|------|
+|---|---|
 | **This handoff (philosophy + conclusion)** | `about.md` (this file) |
-| **Current backlog (done vs next)** | [tiered-decoupling-plan.md](./tiered-decoupling-plan.md) |
+| **Dated May–June 2026 snapshot (re-verify NEXT)** | [tiered-decoupling-plan.md](./tiered-decoupling-plan.md) |
 | **Blocked on upstream** | [UPSTREAM-HOOKS.md](../../../packages/buddy/src/opencode-runtime/UPSTREAM-HOOKS.md) |
 | **Shipped tool permission semantics** | [phase-3-tool-semantics-shipped.md](./phase-3-tool-semantics-shipped.md) |
 | **FAQ (registry timing, deny vs register)** | [tool-permissions-and-migration-faq.md](./tool-permissions-and-migration-faq.md) |
-| **Original research + 0–8 phase plan** | [migration-plan.md](./migration-plan.md), [plugin-analysis.md](./plugin-analysis.md) |
-| **Step-by-step phase notes** | `phase-1` through `phase-6-7-8` implementation docs — only if touching that area |
+| **Plugin research & compatibility analysis** | [plugin-analysis.md](./plugin-analysis.md) |
 | **Post-migration patch reduction** | [upstream-fetch-reduction-plan.md](./upstream-fetch-reduction-plan.md) |
-| **Vendor bump ritual** | [../guides/upstream-fetch.algo.md](../../guides/upstream-fetch.algo.md) |
+| **Vendor bump ritual** | [../../guides/upstream-fetch.algo.md](../../guides/upstream-fetch.algo.md) |

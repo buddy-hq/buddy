@@ -2,7 +2,7 @@
 
 ## Status
 
-Display media is implemented.
+Display media is implemented as a managed `media-presentation` object.
 
 Buddy now has two real ways to surface local files in chat:
 
@@ -11,7 +11,9 @@ Buddy now has two real ways to surface local files in chat:
 2. Markdown path interception
    - a convenience fallback for path mentions in assistant text
 
-This document reflects the current implementation, not the earlier proposal.
+This document reflects the current managed-object implementation, not the earlier proposal. The
+old `presentationID`, `media.presentation.v1`, and `/api/presented-media/...` names are historical
+and are not the current contract.
 
 ## What Exists
 
@@ -42,37 +44,45 @@ Relevant files:
 - `packages/buddy/src/learning/features/media-presentations/tools/present-media.ts`
 - `packages/buddy/src/learning/features/media-presentations/service/file-media.ts`
 
-### Backend artifact shape
+### Backend object shape
 
-Buddy enriches each file into a structured artifact:
+Buddy enriches each file into a structured managed object:
 
 ```ts
-type PresentedMediaOutput = {
-  presentationID: string
-  kind: "media.presentation.v1"
-  layout: "single" | "gallery" | "deck" | "list"
+type MediaPresentationOutput = {
+  objectID: string
+  kind: "media-presentation"
+  layout: "single" | "grid" | "strip"
   items: PresentedMediaItem[]
 }
 ```
 
-Note: `layout` is computed (`deriveLayout` only returns `single`, `gallery`, or `list`) but the frontend does not consume it — it renders by grouping items by `mediaKind`.
+The object manifest is stored under `.buddy/objects/v1/media-presentation/<objectID>/object.json`;
+the item metadata is persisted in `state/media-items.json`. The object is an external reference:
+Buddy records paths and file metadata but does not copy the media bytes. Availability is refreshed
+from those paths when the object is read.
+
+`layout` is computed from the item set (`single` for one item, `grid` for all-image sets, and
+`strip` otherwise). The frontend routes rendering by `mediaKind` and does not use layout to choose
+the renderer.
 
 Important notes:
 
-- the artifact is file-derived
+- the object is file-derived
 - the model only supplies paths
 
 ### Raw file serving
 
-Presented media is served through opaque Buddy routes:
+Managed media is served through object routes:
 
-- `GET /api/presented-media/:id/raw?fileName=<name>`
-- `HEAD /api/presented-media/:id/raw?fileName=<name>`
-- `GET /api/presented-media/resolve?path=<path>` — used by the frontend to re-resolve files after a stale reference
+- `GET /api/objects/media-presentation/:objectID/raw/:itemID?directory=<workspace>&fileName=<name>`
+- `HEAD /api/objects/media-presentation/:objectID/raw/:itemID?directory=<workspace>&fileName=<name>`
+- `GET /api/objects/media-presentation/:objectID/items/:itemID/availability?directory=<workspace>`
 
-Relevant file:
+Relevant files:
 
-- `packages/buddy/src/routes/compatibility.ts`
+- `packages/buddy/src/routes/object-media-presentation.ts`
+- `packages/buddy/src/learning/features/media-presentations/service/file-media.ts`
 
 ## Current Rendering Behavior
 
@@ -118,7 +128,7 @@ Important current behavior:
 - rows are not disabled just because a file is not inline-previewable
 - deleted or moved files remain faded
 - existing local files remain actionable
-- if a raw presented-media reference goes stale after a backend restart, Buddy re-resolves the file from its stored path
+- the persisted object survives a backend restart, while each availability read refreshes the external file path
 - if the file still exists, it becomes available again
 - if the file no longer exists, it stays `missing`
 
@@ -165,7 +175,7 @@ Use markdown path mentions only as a fallback convenience.
 
 The product contract is:
 
-- structured tool artifact first
+- structured managed-object result first
 - markdown interception second
 
 ## Source Map
@@ -174,7 +184,8 @@ Core backend:
 
 - `packages/buddy/src/learning/features/media-presentations/tools/present-media.ts`
 - `packages/buddy/src/learning/features/media-presentations/service/file-media.ts`
-- `packages/buddy/src/routes/compatibility.ts`
+- `packages/buddy/src/routes/object-media-presentation.ts`
+- `packages/buddy/src/objects/manifest.ts`
 
 Core frontend:
 

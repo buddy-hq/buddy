@@ -1,15 +1,14 @@
 # Assessment — Intent
 
-Sub-intent of [curriculum system](./curriculum.intent.md). Assessment's purpose is to generate feedback, not grades. It tells both the learner and Buddy what's been mastered and what hasn't.
+Status: Detailed pedagogical evidence for assessment. Concise index: [principles.md](./principles.md). Shipped owner: `assessment-agent` in `packages/buddy/src/learning/features/assessment/` (inline mastery check, not a gradebook).
+
+Sub-intent of the curriculum system in [principles.md](./principles.md). Assessment's purpose is to generate feedback, not grades. It tells both the learner and Buddy what's been mastered and what hasn't.
 
 ## Source anchors
 
-Primary sources for this intent:
+Official sources (local `raw/` dumps were removed):
 
-- [docs/learning/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/learning/curriculum/principles.md)
-- `docs/learning/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
-- `docs/learning/curriculum/raw/cwsei-teaching-practices-inventory.txt`
-- `docs/learning/curriculum/raw/creating-good-homework-problems-and-grading-them.txt`
+- [principles.md](./principles.md) bibliography: Gibbs & Simpson (2004); Wieman Course Transformation Guide; homework guide.
 
 ---
 
@@ -54,20 +53,33 @@ Key findings:
 
 ---
 
+## Desired Buddy check taxonomy (design guidance, not a live tool contract)
+
+An earlier assessment-agent sketch named the following seven check types. Keep them as a content taxonomy for varied inline mastery checks; the shipped `assessment-agent` currently chooses one format for one inline check. These names do **not** expose an `assessment_generate`, `assessment_evaluate`, or `assessment_record` tool IDL.
+
+| Check type | Evidence it seeks |
+| --- | --- |
+| `concept_check` | Recall or explain the key idea in the learner's own words. |
+| `predict_outcome` | Predict what happens in a concrete scenario or code path. |
+| `debug_task` | Find and fix a conceptual problem in code or a system. |
+| `build_task` | Create an artifact that meets explicit criteria. |
+| `review_task` | Compare approaches, evaluate trade-offs, and justify a choice. |
+| `explain_reasoning` | Articulate the process and decision points used to solve a problem. |
+| `transfer_task` | Apply the same underlying concept in a novel context. |
+
+When a check is authored, retain a `surfaceVariant` that distinguishes it from prior checks for the same goal and a concrete `followUp` action. Its evidence rubric has three levels: `demonstrated` (the goal's observable performance is present), `partial` (some criteria are present but a specific gap remains), and `notDemonstrated` (the required performance is not yet shown). This is a desired content shape, not a claim that those fields or a dedicated assessment tool are currently shipped.
+
+---
+
 ## Suites of questions (CWSEI's alignment mechanism)
 
-From "Promoting Course Alignment" (Bentley & Foley):
+Use the **canonical 5-step** Bentley & Foley method in [alignment.intent.md](./alignment.intent.md) and [principles.md](./principles.md) Section 4. Do not use a shortened 4-step list.
 
-One learning goal → multiple assessment items across different formats:
-
-1. Choose a learning goal
-2. Develop an initial question (application/prediction type works best)
-3. Identify variables you can change across questions
-4. Create variants for homework, quiz, and exam — same concept, different surface features
+One learning goal → multiple assessment items across settings: choose the goal, determine settings, write an application/prediction seed, vary surface features, then place at least one variant in each setting.
 
 > This prevents learners from feeling assessments are "busy work" — they see the connection between practice and testing.
 
-For Buddy: a goal should have multiple ways to check mastery, with varied surface features so the learner can't pattern-match.
+For Buddy: a goal should have multiple ways to check mastery, with varied surface features so the learner cannot pattern-match.
 
 ---
 
@@ -90,14 +102,8 @@ Buddy doesn't have grades. The stakes are intrinsic motivation. So assessment ne
 - **Generate evidence** — observable demonstrations that can update the progress tracker
 - **Drive adaptation** — assessment results should change what comes next
 
-In product/runtime terms, Buddy may expose an inline `Check` strategy, but that strategy should still feel like a teaching move inside the same conversation, not an exam handoff.
+In product/runtime terms, Buddy exposes an inline mastery check via `assessment-agent`. That strategy should still feel like a teaching move inside the same conversation, not an exam handoff.
 
----
+## Historical: open questions
 
-## Open questions
-
-1. **When does assessment happen?** End of topic? During practice? On-demand?
-2. **What counts as "evidence of mastery"?** Code that works? Explaining reasoning? Both?
-3. **How formal?** Explicit "check your understanding" prompts or naturally embedded in conversation?
-4. **Self-assessment support?** Should Buddy generate rubrics the learner can use to evaluate their own work?
-5. **How does assessment feed into progress?** Direct update to progress tracker? Companion judgment?
+Draft-time questions about timing, formality, and how evidence updates progress are not a live spec. Shipped path: assessment-agent produces evidence; learner memory records `evidence` / `open_loop`; question-set attempts ingest via deterministic memory events.

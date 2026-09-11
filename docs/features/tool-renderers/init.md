@@ -1,63 +1,89 @@
-## Situation 
-- right now tool rendering system and components are very complicated. 
-- we have a summary area that has a title and a body.
-- then some tools are not in summary and are rendered inline.
-- some tools are in summary but no summary is generated for them.
-- then since every time a text part is generated or a tool that presents like render mermaid, render figure etc are used, they break the summary block and are shown inline. 
-- when a user opens the summary block while the genertion is happening thy can see the summary and collapsed stuf.
-
+## Situation
+- The old chat tool UI mixed a summary area (title + body), inline cards, and tools that sat in the summary with no summary. Mermaid/figure-style parts broke the summary block by going inline. Expanding the summary during generation showed collapsed steps.
 
 ## Complication
-- this is very complicated and a lot to manage and we need to simplify the ui. 
+- That mix was hard to reason about. The product direction was one linear timeline.
 
+## Suggestions (original)
+- One linear timeline.
+- Thinking collapsed by default, shimmer, expand on click.
+- Keep aggregating repeated tools (historical example: `Thought, Ran 3x, Read 4 files`).
+- Keep specialized inline renderers for mermaid, media, question sets, etc.
 
-## Suggestions 
-- we will go for a simpler system where everyting happens in one linear timeline. 
-- thinking blocks will be collapsed by default; will shimmer, and the user can open them on click. ie by default not thinking is visible to the user.
-- we will still combine tool calls like we are doing right now
-  - Thought, Ran 3x, Read 4 files,.... so on.
-- the inline renderers still render inline.
-  
+## Shipped architecture (current)
 
+The `hidden-steps/` tree and `tool-summary-resolver.ts` **do not exist**. Collapsible activity lives in `activity-row/` (`packages/web/src/components/chat/tools/activity-row/`). Aggregation is `createActivityEntry` / count sorting in `entries.ts` (thought label, tool action+detail, count). Registry is `built-in-tool-renderers.ts` (`toolRenderersByToken`).
 
-## Relevant files
+- Core presentation descriptors resolve by exact integrated tool ID; there is no
+  `names: []` alias map or alias helper.
+- The token renderer registry is separate from exact-ID descriptor resolution.
+- Keep the `buddy-custom` renderer token distinct from `generic`; Buddy-owned
+  custom cards must not collapse into the generic fallback, and runtime-defined
+  tools use their explicit runtime activity descriptor.
+- `getToolInfo()` remains a shared title/icon helper, not the sole owner of
+  renderer-owned trigger or title copy; renderer cards and the activity row own
+  their detail presentation.
+- Activity-row summaries and aggregation are the shipped replacement for
+  hidden steps. Do not reintroduce the removed hidden-step paths or casually
+  change their count, ordering, or error behavior.
+- The old blueprint's `render_saved_question_set` versus `save_question_set`
+  mismatch is historical; the current shipped registration is
+  `save_question_set`, so verify current code before treating that old note as
+  an open issue.
+
+### Dynamic-tool presentation contract (current)
+
+Dynamic tool authoring uses `presentation` descriptors serialized on the tool
+part as `metadata.buddy.presentation`; the older `metadata.buddy.toolUi`
+proposal is historical and is not the current wire contract. Pending tool calls
+do not have usable state metadata, so their presentation snapshot stays on
+`part.metadata`; running, completed, and error states may also carry state
+metadata. Adapter history and SSE boundaries strip that snapshot before
+model-facing messages so presentation data is not replayed to the provider
+while remaining available to Buddy-owned UI responses. The `dynamic` field
+remains runtime and search metadata, not a UI descriptor consumed by the web
+renderer.
+
+Core presentations resolve by exact integrated tool ID, while runtime-defined
+tools receive an explicit generic activity descriptor and custom catalogs
+remain directory-scoped and unregister-safe. `buddy-custom` is a distinct
+renderer token from `generic`, so Buddy-owned/custom cards must not collapse
+into generic fallback. `getToolInfo` is a shared title/icon helper, but
+renderer cards and the activity row own trigger/detail copy and aggregation.
+Current dynamic learning tools use explicit activity presentations and do not
+rely on a default hidden-summary mode. The old hidden-steps/default-hidden-
+summary blueprint and its provider-history rules are historical context; future
+metadata changes must preserve pending replay, model-history stripping, and
+renderer-token invariants together.
+
+## Relevant files (current)
 
 ### Core resolver & types
-- `packages/web/src/components/chat/tools/tool-renderer-resolver.ts` — resolves inline card renderer + summary definition per tool
-- `packages/web/src/components/chat/tools/tool-summary-resolver.ts` — resolves `ToolSummary` into `ResolvedToolSummary` (label, preview, details, error)
-- `packages/web/src/components/chat/tools/tool-registry-types.ts` — `ToolRenderer`, `ToolSummary`, `ResolvedToolSummary`, `ToolPartProps` type definitions
-- `packages/web/src/components/chat/tools/types.ts` — `ToolState`, `ToolInfo`, `ToolAttachment` base types
-- `packages/web/src/components/chat/tools/built-in-tool-renderers.ts` — registry mapping every tool name to its renderer config (icon, card, summary, aggregate)
+- `packages/web/src/components/chat/tools/tool-renderer-resolver.ts` — icon + card lookup
+- `packages/web/src/components/chat/tools/tool-registry-types.ts` — `ToolRenderer`, `ToolPartProps`
+- `packages/web/src/components/chat/tools/types.ts` — `ToolState`, `ToolInfo`, `ToolAttachment`
+- `packages/web/src/components/chat/tools/built-in-tool-renderers.ts` — token → card/icon
+- `packages/web/src/components/chat/tools/registry.ts` — resolver/type exports; dynamic presentation catalog registration lives in `packages/opencode-adapter/src/registry.ts`
+- `packages/web/src/components/chat/tools/tool-info.ts` — titles including image read running/idle copy
+- `packages/web/src/components/chat/tools/parse-tool-presentation.ts` — presentation snapshot
 
-### Hidden steps (collapsible summary block)
-- `packages/web/src/components/chat/tools/hidden-steps/index.tsx` — `HiddenSteps` collapsible component with toggle, live preview, and expanded content
-- `packages/web/src/components/chat/tools/hidden-steps/entries.ts` — `createHiddenStepsEntry`, `buildHiddenStepsSummary`, `buildHiddenStepsPreview`, bucket aggregation logic
-- `packages/web/src/components/chat/tools/hidden-steps/summary-row.tsx` — `HiddenStepsSummaryRow` renders individual summary entries with `display: "row"`
-- `packages/web/src/components/chat/tools/hidden-steps/styles.ts` — shared CSS class names for hidden steps
-- `packages/web/src/components/chat/tools/hidden-steps/thinking-placeholder.tsx` — thinking/reasoning placeholder UI
+### Activity row (replaces HiddenSteps)
+- `packages/web/src/components/chat/tools/activity-row/index.tsx` — collapsible activity header, shimmer, expand
+- `packages/web/src/components/chat/tools/activity-row/entries.ts` — entry creation, labels (`Thought` / `Thinking`), aggregation counts
+- `packages/web/src/components/chat/tools/activity-row/file-change-details.tsx`
+- `packages/web/src/components/chat/tools/text-shimmer.tsx`
 
-### Tool card renderers (`packages/web/src/components/chat/tools/render/`)
-- `buddy-custom.tsx` — generic Buddy custom tool card
-- `generic.tsx` — fallback generic tool card
-- `bash.tsx` — shell/terminal tool
-- `read.tsx` — file read tool
-- `edit.tsx` — file edit tool
-- `apply-patch.tsx` / `apply-patch-item.tsx` — patch application
-- `search.tsx` — file search (list, glob, grep)
-- `exa-search.tsx` — web/code search
-- `webfetch.tsx` — URL fetch tool
-- `mermaid/` — mermaid diagram rendering (index, diagram, inline view, fullscreen, action bar, lib/)
-- `render-figure.tsx` — figure/image rendering
-- `present-media/index.tsx` — media presentation
-- `task.tsx` — subagent/task delegation
-- `skill.tsx` — skill loading
-- `question.tsx` — question tool
-- `question-set/` — question set UI (inline view, tool card, side panel)
-- `knowledge-graph.tsx` — knowledge graph queries
-- `python-calculator.tsx` — Python calculator tool
-- `diagnostic-list.tsx` — diagnostic output listsuggestion
+### Tool card renderers
+Under `packages/web/src/components/chat/tools/render/` unless noted:
+- `buddy-custom.tsx`, `generic.tsx`, `bash.tsx`, `read.tsx` (image thumbnails via `packages/web/src/components/chat/tools/read-image-preview.ts`)
+- `edit.tsx`, `apply-patch.tsx` / `apply-patch-item.tsx`
+- `search.tsx`, `exa-search.tsx`, `webfetch.tsx`
+- Mermaid: `packages/web/src/components/media/renderers/mermaid/` (not `tools/render/mermaid/`)
+- `render-figure.tsx`, `present-media/index.tsx`, `html-widget/index.tsx`
+- `task.tsx` + `task/`, `skill.tsx`, `question.tsx`, `question-set/`
+- `flashcard-deck/`, `knowledge-graph.tsx`, `python-calculator.tsx`
+- `ingest-full-text.tsx`, `bench-present.tsx`, `diagnostic-list.tsx`, `todo.tsx`
 
+## Current Status
 
-
-
-## Current Status: Done
+Linear timeline + activity-row aggregation is the live UI. The Situation/Complication text above is the original problem statement, not a description of today's files.

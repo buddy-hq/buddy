@@ -1,13 +1,17 @@
 # PDF Reader Long-Term Architecture
 
-This document records the PDF reader investigation and the long-term direction for Buddy's reader architecture. It covers the original problem, what was verified in local upstream checkouts, what Buddy currently does, why the current Foliate PDF path is structurally limited, and how to keep the same Buddy reader interface while replacing the PDF rendering engine.
+> **Shipped engine split (code):** `DocumentReader` in `packages/web/src/components/readers/document-reader.tsx` routes PDF sources to `PdfReader` (PDF.js under `packages/web/src/components/readers/pdf/`) and other ebook sources to `FoliateReader` (`foliate-js`). The investigation below is why Foliate-as-PDF failed and how the PDF.js path was designed. Dated manual checks: [pdf-e2e-verification-2026-08-08.md](./pdf-e2e-verification-2026-08-08.md).
+>
+> Reader build notes: [build-reader.md](../../guides/commands/build-reader.md). Local `~/code/foliate-js` / `~/code/foliate` checkouts were investigation references, not runtime dependencies.
+
+This document records the PDF reader investigation and the long-term direction for Buddy's reader architecture. It covers the original problem, what was verified in local upstream checkouts, **what Buddy did at investigation time**, why the Foliate PDF path is structurally limited, and how to keep the same Buddy reader interface while replacing the PDF rendering engine.
 
 ## Decision
 
 Buddy should keep one user-facing reader interface, but split the rendering engine by document type.
 
 - EPUB and other reflowable ebook formats should keep using `foliate-js`.
-- PDF should move to a dedicated PDF.js-backed engine.
+- PDF uses a dedicated PDF.js-backed engine (`PdfReader` is the shipped path).
 - Highlights, bookmarks, search results, current location, chat selection, notes, and the reader toolbar/panels should belong to Buddy's reader shell, not to Foliate.
 - Buddy should build its PDF surface from PDF.js's exported viewer components, not embed the stock viewer application and not begin by rebuilding its rendering queue from the low-level display API.
 
@@ -30,11 +34,11 @@ PdfJsEngine
 
 The long-term answer is not a short-term Foliate patch. The long-term answer is to make Buddy's reader UI engine-neutral and make PDF a first-class PDF reader underneath that interface.
 
-This is one end-to-end delivery, not a sequence of independently releasable partial readers. The new PDF path remains internal until it reaches current Buddy PDF feature parity and passes the cutover gates in this document. Shared shell behavior should still be extracted incrementally during implementation so the architecture is proven by working features rather than a speculative full rewrite.
+**Cutover status:** The PDF.js engine is the shipped PDF path (`PdfReader`), not an internal-only prototype. Remaining work is parity, shared chrome, reliability, and accessibility — not “whether PDF still goes through Foliate.” The historical cutover gates later in this document retain migration rationale. Shared shell behavior should still be extracted so the two engines stay behind one `DocumentReader` handle.
 
 ## Original Problem
 
-Buddy currently uses `foliate-js` for PDFs because it provides a common reading surface across formats:
+At investigation time Buddy used `foliate-js` for PDFs because it provided a common reading surface across formats:
 
 - a shared reading view
 - selection support
@@ -57,9 +61,11 @@ The desired user behavior is:
 - bookmarks and notes still work
 - the UI still feels like Buddy's reader, not like an embedded foreign PDF app
 
-## Current Buddy State
+## Investigation-Time Buddy State (Foliate PDF)
 
-The reader guidance lives in `docs/guides/commands/build-reader.md`.
+This section is the **pre-cutover** snapshot. EPUB still uses `foliate-js`. PDF no longer uses that path. Live PDF UI: `packages/web/src/components/readers/pdf/pdf-reader.tsx`. Paths named `foliate-pdf-compat.ts` below were investigation-time; they are not in the tree now.
+
+The reader guidance lives in [`docs/guides/commands/build-reader.md`](../../guides/commands/build-reader.md).
 
 Relevant guidance from that file:
 
@@ -77,31 +83,33 @@ github:johnfactotum/foliate-js#399248a67a8862ffb5e6463a33f9d52b317ca2eb
 
 That is in `packages/web/package.json`.
 
-The current React reader component is:
+The Foliate React reader (EPUB now; this was also the PDF host at investigation time) is:
 
 ```txt
 packages/web/src/components/readers/foliate-reader.tsx
 ```
 
-The current PDF compatibility layer is:
+The investigation-time PDF compatibility layer was:
 
 ```txt
 packages/web/src/components/readers/utils/foliate-pdf-compat.ts
 ```
 
-The current local type surface consumed from Foliate is:
+That file is gone after the PDF.js cutover.
+
+The current local type surface consumed by the EPUB/Foliate reader is:
 
 ```txt
 packages/web/src/foliate-js.d.ts
 ```
 
-The current storage helper is:
+The current EPUB/Foliate storage helper is:
 
 ```txt
 packages/web/src/components/readers/utils/foliate-storage.ts
 ```
 
-The current reader already has more than the older inventory doc claimed. The live production route includes:
+The current reader shell already has more than the older inventory doc claimed. The live production route includes:
 
 - toolbar
 - TOC popover
@@ -114,11 +122,11 @@ The current reader already has more than the older inventory doc claimed. The li
 - location dialog
 - persisted per-book state
 - global preferences
-- PDF-specific compatibility code for selection and overlay drawing
+- PDF.js-specific compatibility code for selection and overlay drawing
 
 There is an older `FoliateSidebar` component and a set of reader hooks in the tree, but the live `FoliateReader` does not mount that sidebar or use those hooks. They are not part of the parity baseline. Likewise, production resource discovery currently routes only `.epub` and `.pdf` files into the reader. MOBI, AZW, FB2, and CBZ are engine capabilities or future extensions, not current production routes.
 
-The existing PDF route also has important gaps that must not be mislabeled as working parity requirements:
+The investigation-time Foliate PDF route also had important gaps that must not be mislabeled as current PDF.js behavior or working parity requirements:
 
 - its whole-document search does not produce useful PDF results because Foliate PDF sections do not expose the document factory used by Foliate search
 - it has a table of contents when the PDF exposes an outline, but no PDF page-label/page-list model
@@ -128,9 +136,9 @@ The existing PDF route also has important gaps that must not be mislabeled as wo
 
 The new engine must preserve every working behavior and may improve these known gaps. “Feature parity” in this document never means reproducing a broken search path or inventing a legacy sidebar requirement.
 
-The important limitation is that this is still built around a Foliate-shaped anchor model.
+At investigation time, the PDF route was built around a Foliate-shaped anchor model. The shipped PDF.js route uses the neutral reader contract and canonical PDF anchors; EPUB continues to use Foliate-shaped anchors.
 
-Current persisted state shape is roughly:
+Historical Foliate-backed persisted state shape was roughly:
 
 ```ts
 type CurrentBookState = {
@@ -151,7 +159,7 @@ type ReaderAnnotation = FoliateAnnotationPayload & {
 }
 ```
 
-The key issue is `value: string`. For EPUB this is normally a CFI-like Foliate value. For PDF, Buddy currently bends this through Foliate's fixed-layout renderer. Long term, PDF annotations should not be encoded as Foliate strings.
+The key issue is `value: string`. For EPUB this is normally a CFI-like Foliate value. At investigation time, Buddy bent PDF annotations through Foliate's fixed-layout renderer; the shipped PDF.js path uses canonical PDF anchors instead. PDF annotations should not be encoded as Foliate strings.
 
 ## Verified Local Reference State
 
@@ -295,16 +303,18 @@ That distinction matters:
 - PDF uses `foliate-fxl`.
 - Therefore PDF cannot become vertical page-after-page by setting Foliate's existing `flow` mode.
 
-## Current Buddy PDF Modes
+## Investigation-Time Foliate PDF Modes (`PDF_VIEW_MODE_*`)
 
-Buddy currently detects PDF sources and fixed-layout snapshots. It disables normal flow switching for fixed-layout sources:
+This subsection is **pre-cutover Foliate PDF chrome**. Those identifiers are not in `packages/web` now. Do not treat them as the shipped PDF reader.
+
+At investigation time Buddy detected PDF sources and fixed-layout snapshots and disabled normal Foliate flow switching for fixed-layout sources:
 
 ```ts
 const canChangeFlow = snapshot ? !snapshot.isFixedLayout : false
 const canChangePdfView = sourceIsPdf && (snapshot?.isFixedLayout ?? false)
 ```
 
-For PDFs, Buddy exposes three modes:
+Foliate PDF exposed three modes:
 
 ```ts
 PDF_VIEW_MODE_FIT = "fit"
@@ -312,7 +322,7 @@ PDF_VIEW_MODE_FIT_WIDTH = "fit-width"
 PDF_VIEW_MODE_SPREAD = "spread"
 ```
 
-Those map to:
+Those mapped to Foliate fixed-layout spread/zoom:
 
 ```ts
 fit       -> spread: "none", zoom: "fit-page"
@@ -320,7 +330,9 @@ fit-width -> spread: "none", zoom: "fit-width"
 spread    -> spread: "both", zoom: "fit-page"
 ```
 
-This is useful, but it still cannot express continuous vertical page layout. It only configures Foliate fixed-layout spread and zoom behavior.
+That mapping could not express continuous vertical page layout. It only configured Foliate `foliate-fxl` spread and zoom. That limitation is why PDF moved off Foliate.
+
+**Shipped PDF path:** `DocumentReader` routes PDFs to `PdfReader` (`packages/web/src/components/readers/pdf/pdf-reader.tsx`) and `pdf-viewer-session.ts`. Live mode is `PdfReaderMode` in `reader-types.ts`: `layout` (`continuous` | `single-page` | `two-up`), `scaleMode` (`fit-width` | `fit-page` | `custom`), optional `scale`, `rotation`. Fit-width / fit-page apply PDF.js `currentScaleValue`; two-up uses `SpreadMode.ODD`. EPUB remains `FoliateReader`.
 
 ## Foliate App Behavior
 
@@ -369,7 +381,7 @@ Issue #139 in `johnfactotum/foliate` contains earlier design discussion. Importa
 - the fixed-layout renderer lacked zooming and continuous scrolling
 - some PDF support was added, but described as basic, experimental, and needing fixed-layout renderer improvements
 
-This aligns with the source code: Foliate's architecture is not currently the right long-term foundation for a high-quality small-screen PDF reader.
+This aligns with the source code: Foliate's architecture was not the right long-term foundation for a high-quality small-screen PDF reader, which is why the shipped PDF path uses PDF.js.
 
 ## PDF.js Capabilities Verified
 
@@ -898,7 +910,7 @@ The preferences UI can stay in the same place, but it should render engine-speci
 
 ## Persistence
 
-Current state uses localStorage through `foliate-storage.ts`. The new design should introduce a Buddy-owned, versioned `ReaderStateRepository` boundary and keep localStorage as its first implementation. Moving state into Buddy's object/resource system is a separate project and should not be coupled to the PDF renderer migration.
+EPUB state uses localStorage through `foliate-storage.ts`; the shipped PDF path uses the shared `reader-storage.ts` boundary. The design should keep a Buddy-owned, versioned `ReaderStateRepository` boundary and localStorage as its first implementation. Moving state into Buddy's object/resource system is a separate project and should not be coupled to the PDF renderer migration.
 
 Persisted data must be runtime-validated from `unknown` before use. During the transition, read v2 first, fall back to v1 where migration is supported, and write only v2.
 
@@ -952,7 +964,7 @@ Existing PDF highlights are harder because they are stored as Foliate values ove
 
 The implementation uses a deliberate two-tier migration:
 
-1. When full range geometry can be resolved safely, convert it while the Foliate PDF path still exists:
+1. When full range geometry can be resolved safely, convert it using the historical Foliate PDF path:
    - open the PDF using the old Foliate engine
    - resolve the old annotation value
    - find page index and range rects
@@ -1120,10 +1132,10 @@ The location dialog can remain the same shell feature, but should offer page-ori
 
 ## Theme And Dark Mode
 
-Current Buddy PDF theming through Foliate applies CSS filters to the fixed-layout renderer. The PDF.js engine should preserve that behavior for the initial cutover so the engine migration does not also become a visual-theme change.
+At investigation time, Buddy PDF theming through Foliate applied CSS filters to the fixed-layout renderer. The shipped PDF.js engine is now the production PDF path; preserve equivalent theme behavior there as a parity requirement rather than treating Foliate as the current PDF renderer.
 
-- keep PDF canvas rendering unmodified in light themes
-- preserve the current filter behavior in dark themes
+- keep PDF.js canvas rendering unmodified in light themes
+- preserve the observed filter behavior in dark themes
 - keep Buddy annotation and search overlays outside the page filter so their colors remain stable
 - treat a future explicit "invert PDF" preference as separate product work
 
@@ -1183,7 +1195,9 @@ Native PDF views could be fast, but Buddy needs a web/Electron renderer with sel
 
 ## End-To-End Delivery Plan
 
-This work is complete only when one production-ready `DocumentReader` provides the current Buddy PDF feature set plus continuous vertical reading, explicit zoom, and horizontal panning for zoomed pages. Intermediate implementation checkpoints may be exposed through tests or a development-only flag, but they are not releasable product states and must not replace the current Foliate PDF path.
+> **Historical pre-cutover plan:** The delivery plan, baseline matrix, and work packages below were written before the PDF.js cutover. They preserve migration rationale and acceptance intent; they are not a current release-routing contract. The shipped PDF path is `DocumentReader` → `PdfReader` / PDF.js. Use current code and the shipped-engine split above for present status.
+
+The historical completion target was one production-ready `DocumentReader` providing the current Buddy PDF feature set plus continuous vertical reading, explicit zoom, and horizontal panning for zoomed pages. The PDF.js cutover is now shipped; remaining work is parity and hardening. Intermediate implementation checkpoints were never intended as releasable product states.
 
 ### Outcome And Non-Regression Contract
 
@@ -1215,9 +1229,11 @@ EPUB continues through Foliate and must not change behavior as part of this work
 
 ### Verified Baseline Acceptance Matrix
 
-This matrix is the source of truth for parity. A “working baseline” row must remain unchanged from the user's perspective. An “improvement” row closes a verified gap in the Foliate PDF route and is not a behavior regression.
+> **Historical pre-cutover baseline:** This matrix is the source of truth for parity during the Foliate-to-PDF.js migration. It records the old Foliate PDF baseline and the required PDF.js result; the shipped PDF.js implementation supersedes the migration target where already complete.
 
-| Area | Verified Foliate PDF baseline | Required PDF.js result | Classification |
+A “working baseline” row was required to remain unchanged from the user's perspective. An “improvement” row closed a verified gap in the historical Foliate PDF route and was not a behavior regression.
+
+| Area | Historical Foliate PDF baseline | Required PDF.js result | Classification |
 | --- | --- | --- | --- |
 | Open/lifecycle | Blob opens through the shared reader with opening, ready, timeout, empty, and error states | Preserve states; additionally cancel rapid source replacement and release loading task, worker, page views, events, observers, and object URLs | Preserve and harden |
 | Reader chrome | Buddy toolbar, popovers, dialogs, metadata hover card, help, and footer are mounted; the orphaned sidebar is not | Keep Buddy-owned chrome and neutral shared panels; do not expose the stock PDF.js toolbar/sidebar | Preserve |
@@ -1273,7 +1289,7 @@ Introduce the product boundary without performing a big-bang UI rewrite.
 - keep format-specific modes discriminated rather than forcing Foliate text preferences onto PDF
 - extract toolbar/panel/dialog components only when both engines have a concrete shared need
 
-Production PDF routing remains on Foliate throughout this package.
+**Historical pre-cutover routing note:** The original plan kept production PDF routing on Foliate throughout this package. The shipped route is now `DocumentReader` → `PdfReader` / PDF.js; treat this package as historical migration scope and use current code for remaining parity and hardening.
 
 ### Work Package 4: Implement Anchors And Versioned State
 
@@ -1303,7 +1319,7 @@ Implement the new PDF engine until every row in the current behavior matrix is s
 - cancellable search, result excerpts, active result, match overlays, and result navigation
 - shared toolbar, panels, dialogs, preferences, help, keyboard shortcuts, reduced-motion behavior, and theming
 
-Preserve the current PDF theme/filter behavior for the initial cutover so theme changes are not bundled into the engine migration. A separate explicit invert-PDF preference can be considered later.
+Preserve the observed PDF theme/filter behavior in the shipped PDF.js reader so theme changes are not bundled into the engine migration. A separate explicit invert-PDF preference can be considered later.
 
 ### Work Package 6: Reliability, Performance, And Accessibility
 
@@ -1335,6 +1351,8 @@ Cut over only after the complete acceptance matrix passes.
 No partial PDF reader is released between these work packages.
 
 ## Cutover Gates
+
+> **Historical pre-cutover gates:** These gates record the release criteria used before PDF.js became the shipped PDF engine. They remain migration and regression-test rationale; they are not evidence that PDF.js is still waiting to become the default.
 
 | Area | Required before PDF.js becomes the default |
 | --- | --- |
@@ -1452,7 +1470,7 @@ Mitigation:
 - Use exported PDF.js viewer-layer components behind a Buddy adapter; do not embed the stock viewer application.
 - Let PDF.js own page rendering and the single scroll container initially; add TanStack Virtual only if profiling requires it.
 - Keep reader state in a versioned localStorage-backed repository during this project; moving it into the source system is separate work.
-- Preserve current PDF theme/filter behavior for the cutover; an explicit inversion preference is future work.
+- Preserve the observed PDF theme/filter behavior in the shipped PDF.js reader; an explicit inversion preference is future work.
 - Default PDFs to continuous fit-width, with fit-page, numeric zoom, single-page, and two-up available as user modes.
 - For documents above PDF.js's 10,000-page continuous-view safety limit, surface the enforced page-mode fallback instead of silently claiming continuous layout.
 - Provide horizontal panning when zoom makes a page wider than the pane; do not introduce horizontal page flow.

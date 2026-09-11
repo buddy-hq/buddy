@@ -1,8 +1,17 @@
 # Transcript scroll flicker: hypothesis and fix plan
 
-Status: implemented (2026-08-12). Written before the change so the reasoning can
-be reviewed independently of the diff, and so a regression can be reverted
-against a stated prediction rather than a guess.
+> [!NOTE]
+> **Status: Historical Investigation (Implemented 2026-08-12).**
+> This document is the original H1–H9 investigation record: frame-by-frame
+> traces, predictions, the H3 reservation revert, H4–H8 root causes, the H8
+> estimate table, probe-gap fixes, rejected alternatives, and falsification
+> criteria. It is **not** a current-implementation spec. Enduring behavioral
+> contracts live in [invariants.md](./invariants.md) and
+> [scroll-and-virtualization.md](./scroll-and-virtualization.md).
+>
+> Predictions below describe what the 2026-08-12 change set was expected to
+> do. Verify behavior against the contracts and the code, not against these
+> hypotheses.
 
 Evidence: three raw `transcript-perf` probe traces recorded from dev tools on
 2026-08-12 covering (a) steering during streaming, (b) end-of-turn jerk, and

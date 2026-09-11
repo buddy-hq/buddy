@@ -1,17 +1,15 @@
 # Goals — Intent
 
+Status: Detailed pedagogical evidence for goals. Concise index: [principles.md](./principles.md). Shipped tools: `packages/buddy/src/learning/features/curriculum-planning/` (`goal_decide_scope`, `goal_lint`, `goal_commit`, `goal_state`) and the `goal-writer` subagent.
+
+This is a sub-intent of the curriculum system documented in [principles.md](./principles.md). Goals are the anchor — everything else (practice, assessment, feedback, progress) aligns back to them.
+
 ## Source anchors
 
-Primary sources for this intent:
+Official sources (local `raw/` dumps were removed):
 
-- [docs/learning/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/learning/curriculum/principles.md)
-- `docs/learning/curriculum/raw/creating-and-using-effective-learning-goals.txt`
-- `docs/learning/curriculum/raw/how-to-develop-learning-goals-for-an-established-course-the-computer-science-model1.txt`
-- `docs/learning/curriculum/raw/good-examples-of-learning-goals-at-ubc-and-cu.txt`
-
-This is a sub-intent of the broader [curriculum system](./curriculum.intent.md). Goals are the anchor — everything else (practice, assessment, feedback, progress) aligns back to them.
-
----
+- [principles.md](./principles.md) bibliography: Simon & Perkins (2010) *Creating and Using Effective Learning Goals*; Simon & Wolfman *How to Develop Learning Goals for an Established Course: The Computer Science Model*; Wieman Course Transformation Guide.
+- Course-scale coverage: learning goals should cover approximately **70–80%** of course content (leave room for emerging inquiry). This is a pedagogical coverage rule, not a lint code.
 
 ## What goals are (from CWSEI primary sources)
 
@@ -23,7 +21,7 @@ From the Course Transformation Guide:
 
 Two scopes:
 
-- **Course-level goals** (5–10): The major outcomes for an entire learning journey.
+- **Course-level goals** (5–10 drafted, typically 4–7 after refinement): The major outcomes for an entire learning journey. They should cover about **70–80%** of the journey's content so core instruction is anchored without pretending every curiosity is pre-specified.
   - Form: "At the end of this course, you will be able to `<verb>` `<task>`."
   - These are the "big picture" themes. They often end up as 4–7 after refinement (Beth Simon CS model).
   - Example: "Deduce information about genes, alleles, and gene functions from analysis of genetic crosses and patterns of inheritance."
@@ -109,69 +107,32 @@ For every learning goal, check:
 
 ## What the current implementation does
 
-The current goal system (`packages/buddy/src/learning/goals/`) has:
+Shipped in `packages/buddy/src/learning/features/curriculum-planning/`:
 
-- a real `goal-writer` subagent
-- deterministic CWSEI-oriented linting
-- learner-store persistence through `goal_commit`
-- learner-state visibility through `goal_state` and `learner_state_query`
-- notebook-neutral storage, so goals survive across sessions and workspaces
+- `goal-writer` subagent (`GOAL_WRITER_AGENT_NAME`)
+- Tools: `goal_decide_scope`, `goal_lint`, `goal_commit`, `goal_state` (`GOAL_TOOL_IDS`)
+- Deterministic lint codes: `VAGUE_VERB`, `MISSING_TESTABILITY`, `COMPOUND_GOAL`, `TOPIC_NOT_TASK`, `TEMPLATE_MISMATCH`, `LEVEL_VERB_MISMATCH`, `TOO_BROAD`, `JARGON_HEAVY`, `WEAK_RELEVANCE`, `COUNT_OUT_OF_RANGE` (`GoalLintCodeSchema` in `types.ts`). Blocking errors refuse `goal_commit`.
+- Persistence through `goal_commit` into the cross-notebook learner store; `goal_state` for visibility.
 
-## What still needs care
+### Still needs care (quality, not missing tools)
 
 1. **Conversation quality** — goal-setting should feel like clarification and synthesis, not form filling.
 2. **Grounding quality** — goals still need enough context from the learner's actual project and motivation.
-3. **Scope discipline** — the system should avoid generating too many shallow goals too early.
+3. **Scope discipline** — avoid generating too many shallow goals too early.
 4. **Language quality** — keep learner-facing wording concrete and direct, never bureaucratic.
 
----
+## Historical: architecture version menu (not current)
 
-## Proposed architecture versions
+An earlier design compared tool counts (A: `goal_lint`+`goal_commit`; B: add `goal_plan`; C: add `goal_research`; D: subagent orchestration). **Shipped shape is closest to B+D:** `goal_decide_scope` is the brief checkpoint (not named `goal_plan` / `goal_research`), plus `goal_lint` / `goal_commit` / `goal_state`, invoked via the `goal-writer` subagent so the learner does not switch default agents.
 
-### Common elements (all versions)
+Do not treat Versions A–C as an open product decision.
 
-- **Lint rules** — Deterministic CWSEI checks: vague verbs, compounds, topic-not-task, level-verb mismatch, jargon, breadth, testability. These are valuable.
-- **Bloom's verb table** — Hard-coded verb → level mapping. Reusable.
-- **Zod schemas** — Structure for goals. Keep but simplify.
-- **Learner-store persistence** — Goals must be written to the cross-notebook learner store.
-- **Learner-state read access** — Goal writing must see existing goals and nearby learner context.
+## Historical: open questions (goals-specific)
 
-### Version A: Minimal (2 tools)
+These were product-UX questions at draft time. They are not a live spec:
 
-`goal_lint` + `goal_commit`
-
-- LLM does all thinking through prompt-guided reasoning
-- Fewest round-trips, most natural conversation
-- Risk: LLM might skip quality steps
-
-### Version B: Guided (3 tools)
-
-`goal_plan` + `goal_lint` + `goal_commit`
-
-- LLM must submit a structured brief before drafting
-- Forces "think before you draft" checkpoint
-- One extra round-trip
-
-### Version C: Research-first (4 tools)
-
-`goal_research` + `goal_plan` + `goal_lint` + `goal_commit`
-
-- Research step assembles source pack from docs/syllabi
-- Goals grounded in real sources
-- Slower, more complex
-
-### Version D: Subagent (same tools, different orchestration)
-
-- Companion invokes goal-writer internally
-- Learner never switches agents
-- Stated end-state
-
----
-
-## Open questions (goals-specific)
-
-1. **Clarifying vs. proposing?** Should the agent ask questions first, or propose goals and let the learner react?
-2. **What triggers goal creation?** Learner asks? Companion detects no goals? First message?
-3. **Goal lifecycle?** Status per goal (not-started / in-progress / demonstrated)? Where does that live?
-4. **Can goals evolve?** Add/remove/edit as learning progresses?
-5. **Granularity?** Every 30-minute session? Or just topic/course arcs?
+1. Clarifying vs proposing first.
+2. What triggers goal creation.
+3. Per-goal lifecycle location (shipped: goal records + learner-memory evidence statuses).
+4. Whether goals can evolve (shipped: commit archives previous active sets with the same scope/contextLabel).
+5. Session vs topic/course granularity.

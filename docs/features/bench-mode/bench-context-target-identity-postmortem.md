@@ -1,8 +1,44 @@
 # Bench Context Target Identity Postmortem
 
+> **Historical postmortem** (incident date 2026-06-21). This file preserves the
+> durable execution trace, ruled-out proofs, local-fix procedure, proposed API
+> shapes, nine-phase plan, and no-polling verification checklist. It is **not**
+> the live Bench architecture spec. Live ownership and protocol:
+> [`current-architecture.md`](current-architecture.md).
+>
+> **Shipped (verified 2026-08-30 against current code):**
+> - Local mismatch guard remains in
+>   `DirectoryWorkspaceLifecycleService.#readPublishSnapshotForObservation` /
+>   `#readRegisteredPublishSnapshotForObservation`. Mismatched registrations log
+>   `workspace-lifecycle-read-observed-snapshot-registration-target-mismatch` and
+>   fall through to route-derived fallback context.
+> - Forward-only context construction:
+>   `benchContextTargetFromBenchTarget` in `bench-context-utils.ts`. Ordinary
+>   providers return `BenchSurfaceContextEnrichment`;
+>   `buildBenchSurfaceContextSnapshot` attaches `targetKey` and `context.target`
+>   from the route `BenchTarget`.
+> - Snapshot match is by canonical keys (`snapshot.targetKey`,
+>   `snapshot.context.targetKey`, `benchTargetKey(snapshot.target)`), not reverse
+>   parsing of model context into `BenchTarget`. No `benchTargetFromContext`
+>   helper exists.
+> - Published context carries `targetKey`; backend completion in
+>   `packages/buddy/src/learning/features/bench/client-actions.ts` compares
+>   `completion.context.targetKey` to the expected action target key.
+> - Required-action completion can succeed on fallback context before the child
+>   surface mounts. The no-polling / no-sleep / no-DOM-timer / no-transcript-scan
+>   proof obligation holds for this path.
+>
+> **Proposed systemic follow-ups (not a claim that every phase is unfinished):**
+> Phases 1–9 and the Proposed Final API Shape below remain the original proof
+> plan. Treat “Current Code Shape” as the **incident-time** snapshot. Later work
+> added browser targets, tabs, and client-action V2; do not copy those type
+> listings as today’s `BenchTarget` union.
+
 Date: 2026-06-21
 
-Status: ready for review
+Status: historical postmortem — incident closed; local guard and forward-only
+identity shipped; remaining API-unrepresentability work is follow-up, not an
+open incident.
 
 ## Purpose
 
@@ -115,7 +151,12 @@ selected registration target key must match snapshot.context.target
 Without that invariant, lifecycle could select a registration by one target and
 publish context for another.
 
-## Current Code Shape
+## Code Shape At Incident Time (historical snapshot)
+
+The types and registration API below describe the implementation **at the time of
+the incident**. They are preserved as evidence. Current `BenchTarget` also
+includes browser tabs; tabs and `BenchClientActionV2` are documented in
+`current-architecture.md` and `../tabs/system-design.md`.
 
 ### Canonical Route Target
 
@@ -352,7 +393,7 @@ places to stay aligned:
 That is not extensible. Every new target kind risks another subtle
 route/context mismatch unless lifecycle gets another manual conversion branch.
 
-## Local Fix
+## Local Fix (shipped guard; not the systemic end state)
 
 The immediate fix added a runtime guard in
 `DirectoryWorkspaceLifecycleService.#readPublishSnapshotForObservation`:
@@ -405,7 +446,13 @@ Problems with keeping this as the final shape:
 The durable fix is to make the registration snapshot carry canonical identity
 directly.
 
-## Systemic Refactor Plan
+## Systemic Refactor Plan (proposed follow-up; original proof obligations)
+
+This plan is the durable proposed systemic shape from the postmortem. Several
+invariants are already enforced in code (see the banner). Unfinished work is
+whatever still allows providers to mint independent target identity rather than
+enrichment-only snapshots. Do not treat every phase checkbox as an open
+incident.
 
 ### Goal
 
@@ -798,7 +845,11 @@ identity comparison uses BenchTarget/targetKey only
 context target is payload, not authority
 ```
 
-## Proposed Final API Shape
+## Proposed Final API Shape (proposed follow-up)
+
+Incident-time proposed types. Current enrichment already matches the
+`BenchSurfaceContextEnrichment` direction; treat remaining fields as the original
+proposal, not a guarantee of byte-identical types in today’s tree.
 
 The final route-owned provider API should look conceptually like this:
 
@@ -904,7 +955,7 @@ It should only answer:
 route?"
 ```
 
-## Review Checklist
+## Review Checklist (original proof obligations, including no-polling)
 
 Use this checklist during review of the systemic refactor:
 

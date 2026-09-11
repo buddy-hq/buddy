@@ -1,8 +1,12 @@
 # Theming Migration Guide
 
-This plan removes the shadcn bridge without replacing it with another hand-maintained map.
+Status: **historical design guidance**. The shadcn-bridge removal plan below is complete
+enough that `packages/web/src/theme/shadcn-mapper.ts` is already gone and live classes
+use vendor tokens such as `bg-background-base`. Do **not** run the migration order as a
+current checklist. Keep the semantic recipes (hover, overlay, input, status surface vs
+text vs icon) as the durable mapping rules.
 
-The goal is:
+The original goal was:
 - use vendor tokens as the only theme source of truth
 - migrate shadcn classes only where the replacement is actually equivalent
 - handle ambiguous classes by component recipe, not by a global blind replace
@@ -194,15 +198,15 @@ When a soft neutral outline is still needed, choose an explicit token:
 - `shadow-xs-border`
 - `shadow-lg-border-base`
 
-## Live Repo Coverage
+## Live Repo Coverage (historical)
 
-This migration must cover both:
+At migration time this work had to cover both:
 - `packages/ui/src/components/ui/`
 - `packages/web/src/`
 
 Do not treat the shared UI package as the whole migration surface.
 
-The repo still contains live classes outside the original table, including:
+At migration time the repo still contained live classes outside the original table, including:
 - `bg-input`
 - `bg-info`
 - `bg-success`
@@ -213,7 +217,7 @@ The repo still contains live classes outside the original table, including:
 - `text-sidebar-accent-foreground`
 - `ring-foreground/10`
 
-## Correct Migration Order
+## Correct Migration Order (completed; do not re-run)
 
 1. Add a Buddy generator that emits a Tailwind token file from resolved theme token keys.
 2. Register that generated Buddy token file in `packages/ui`.
@@ -229,11 +233,12 @@ The repo still contains live classes outside the original table, including:
    - shadcn-only theme token registration that is no longer needed
 9. Bump the theme cache version and update theme tests at the same time as bridge removal.
 
-## Removal Rule
+## Removal Rule (completed)
 
-`packages/web/src/theme/shadcn-mapper.ts` is the last cleanup step, not the first migration step.
+`packages/web/src/theme/shadcn-mapper.ts` was the last cleanup step, not the first migration step.
+It is no longer in the tree. Do not restore it in order to "finish" this plan.
 
-If we remove it before both runtime CSS generation and class usage are migrated, we will break:
-- first paint preload styling
-- cached theme CSS
-- every remaining `bg-background`, `text-foreground`, `bg-popover`, `bg-accent`, and related shadcn class still present in the app
+Historical note: removing the mapper before both runtime CSS generation and class
+usage were migrated would have broken first paint preload styling, cached theme CSS,
+and remaining shadcn classes (`bg-background`, `text-foreground`, `bg-popover`,
+`bg-accent`, and related).

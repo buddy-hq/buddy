@@ -1,126 +1,73 @@
-# Composer surface system ("grain")
+# Composer Surface System ("Grain")
 
-Every surface the prompt composer spawns — the composer itself, its model/
-thinking dropdowns, the `@`/`/` autocomplete menus, the arcade and sketch
-docks, and the context-usage popover — plus the chat transcript's sent
-user-message bubble, shares one material: a paper-grained, borderless surface
-with a soft shadow and a consistent radius. This doc is the map.
+Every surface the prompt composer spawns — the composer itself, its model/thinking dropdowns, the `@`/`/` autocomplete menus, the arcade and sketch docks, the context-usage popover, the Bench tab, and the chat transcript's sent user-message bubble — shares one paper-grained, borderless surface material with soft lift and consistent geometry.
 
 **Source of truth:** [`packages/web/src/components/prompt/composer-surfaces.css`](../../../packages/web/src/components/prompt/composer-surfaces.css)
 
-## The idea
+## Architectural Principles
 
-The whole look is driven by CSS custom properties declared once on `:root`.
-Components never hardcode a radius, shadow, background, or grain value — they
-wear a class that reads those variables. Retune the system, or wire up a future
-**grain controller**, by writing the variables in one place; every surface
-follows.
+### 1. Unlayered CSS Rules
+Surface classes are declared **outside `@layer`**. Unlayered CSS rules take precedence over Tailwind's layered utilities, allowing shared UI components (`SelectContent`, `ComposerDock`, `TooltipContent`) to adopt the grain system without specificity hacks or fighting local component utility classes. The host element must be positioned (`relative`/`absolute`) so the grain overlay anchors correctly.
 
-The classes are deliberately **unlayered** (declared outside any `@layer`).
-Unlayered rules beat Tailwind's layered utilities, so a surface built from a
-shared UI component (`SelectContent`, `ComposerDock`, `TooltipContent`) adopts
-the system by adding one class — without fighting the component's own
-`rounded-*` / `shadow-*` / `bg-*` utilities. The only requirement is that the
-host element is already positioned (all our surfaces are), so the grain overlay
-can anchor to it.
+### 2. Synchronous Inline Clamp vs. Virtualizer Stability
+Sent user messages cap content at `COLLAPSED_MAX_HEIGHT_PX` with a fade gradient and Show more/less toggle:
+- **Synchronous inline clamp:** Clamping must be applied via inline `max-height` during render, never via post-mount JS animation.
+- **Virtualizer protection:** TanStack React Virtual measures row heights during layout via `ResizeObserver`. Any post-layout animation (e.g. Motion animating `height: auto` in its own frame) causes measurement cascade oscillations and continuous scroll flicker.
+- **No inner scrollbars:** The grain `::after` anchors to the bubble's box; scrolling content underneath it would drag the tooth along and uncover the fill. Clamp-and-reveal keeps the grain still.
+- **Observer bail-out:** The `ResizeObserver` measurement `setState` bails out when measured numbers are unchanged to prevent observer re-render loops.
+- **CSS transitions:** Expand/collapse transitions run purely via CSS `max-height` and only after an explicit user toggle (`hasToggledRef`). `motion-reduce:transition-none` honors reduced motion.
 
-## Tokens
+### 3. Grain Controller Rationale
+All visual properties derive from CSS custom properties on `:root`. The `--composer-grain-opacity` token (default `0.06`) is the global controller knob: setting it to `0` removes grain across every surface without component changes.
 
-| Variable | Default | What it controls |
-| --- | --- | --- |
-| `--composer-grain-opacity` | `0.06` | Grain strength. **The grain-controller knob** — set to `0` to remove grain everywhere. |
-| `--composer-grain-size` | `180px` | Grain tile size (kept uniform so a big dock and a small menu share the same tooth). |
-| `--composer-grain-image` | inline SVG noise | The `feTurbulence` texture, as a `data:` URI. |
-| `--composer-surface-radius` | `16px` | Panel radius (composer, docks). |
-| `--composer-surface-radius-sm` | `10px` | Compact radius (dropdowns, menus, popover). |
-| `--composer-surface-bg` | `--surface-raised-base` | Anchored surface fill. |
-| `--composer-surface-bg-floating` | `--surface-raised-stronger-non-alpha` | Floating surface fill (opaque, so menus read over busy content). |
-| `--composer-surface-hairline` | `border-weak-base @ 55%` | Faint edge, baked into the floating shadow instead of a hard border. |
-| `--composer-surface-shadow` | soft two-layer | Anchored lift (the composer resting on the page). |
-| `--composer-surface-shadow-floating` | hairline + deeper lift | Floating lift (menus, docks, popovers). |
-| `--composer-focus-ring` | `border-interactive-base @ 12%` | Composer shell focus ring. |
+## Tokens & Classes Summary
 
-## Classes
+| Variable / Token | Default / Role |
+|---|---|
+| `--composer-grain-opacity` | `0.06` (grain strength; global controller knob) |
+| `--composer-grain-size` | `180px` (uniform tile size across large docks and small menus) |
+| `--composer-grain-image` | Inline SVG noise (`feTurbulence` texture as `data:` URI) |
+| `--composer-surface-radius` | `16px` (composer shell, floating docks) |
+| `--composer-surface-radius-sm` | `10px` (compact dropdowns, autocomplete menus, popovers, Bench tab) |
+| `--composer-surface-bg` | `--surface-raised-base` (anchored surface fill) |
+| `--composer-surface-bg-floating` | `--surface-raised-stronger-non-alpha` (opaque floating surface fill) |
+| `--composer-surface-hairline` | `border-weak-base @ 55%` (faint edge baked into floating shadow) |
+| `--composer-surface-shadow` | Soft two-layer anchored lift |
+| `--composer-surface-shadow-floating` | Hairline + deeper floating lift |
+| `--composer-focus-ring` | `border-interactive-base @ 12%` |
 
-| Class | Use on | Gives |
-| --- | --- | --- |
-| `composer-grain` | any positioned surface | The paper-tooth `::after` overlay (non-interactive, sits at `z-index: 2` so it runs across the whole surface). |
-| `composer-surface` | the composer shell | Panel radius + anchored bg + resting shadow, borderless. |
-| `composer-surface-tab` | selected Bench tab | Anchored composer material at the compact radius. |
-| `composer-surface-floating` | large floating panels (docks) | Panel radius + floating bg + floating shadow + hairline. |
-| `composer-surface-menu` | compact popovers (dropdowns, `@`/`/` menu, context popover) | Same material as floating, but the compact radius. |
-| `composer-surface-bubble` | the sent user-message bubble | Minimal: fill + radius + grain only, **no shadow/ring**, with a pinched bottom-right corner (the chat-bubble tail). |
-| `composer-shell` | the composer shell | Focus-ring behaviour (`:has(:focus-visible)`). |
-| `composer-scroll` | the editor's scroll container | Track-less, thin, hover-firming scrollbar (overrides the app's chunky global one). |
+| Class | Use On | Material / Effect |
+|---|---|---|
+| `composer-grain` | Any positioned surface | SVG `feTurbulence` noise overlay (`::after` at `z-index: 2`). |
+| `composer-surface` | Composer shell | Panel radius + anchored bg + resting shadow, borderless. |
+| `composer-surface-floating` | Floating panels (docks) | Panel radius + opaque bg + lift shadow + hairline. |
+| `composer-surface-menu` | Compact popovers | Compact radius + floating material (dropdowns, autocomplete menus). |
+| `composer-surface-bubble` | Sent message bubble | Fill + radius + grain only (**no shadow/ring**), pinched bottom-right tail. |
+| `composer-surface-tab` | Selected Bench tab | Compact radius anchored material. |
+| `composer-shell` | Composer shell | Focus-ring behavior (`:has(:focus-visible)`). |
+| `composer-scroll` | Editor scroll container | Thin, trackless, hover-firming scrollbar overriding global scrollbars. |
 
-Two edge cases the CSS also handles, both keyed off `composer-surface-menu`:
+## CSS Edge Cases
 
-- **Select scroll chevrons** ship an opaque fill at `z-10`; they're dropped to
-  `z-1` so the grain (`z-2`) covers them too, while they still mask the list
-  scrolling beneath.
-- **The context popover's Radix arrow** is hidden — the rest of the system is
-  arrow-less, and its hardcoded light fill would show as a pale diamond on the
-  dark surface.
+Both edge cases are keyed off `composer-surface-menu`:
+- **Select scroll chevrons:** Ship an opaque fill at `z-10`; they are dropped to `z-1` so the grain (`z-2`) covers them too while they still mask scrolling list items underneath.
+- **Context popover Radix arrow:** The Radix arrow is explicitly hidden. The system is arrow-less, and the hardcoded light fill of the default Radix arrow appears as a pale diamond artifact on dark surfaces.
 
-## Where each surface lives
+## Surface File Mapping
 
 | Surface | File | Class(es) |
-| --- | --- | --- |
-| Composer shell | `prompt/prompt-composer.tsx` | `composer-surface composer-grain composer-shell` |
-| Editor scrollbar | `prompt/prompt-composer.tsx` | `composer-scroll` |
-| Model / thinking dropdowns | `prompt/components/prompt-composer-toolbar.tsx` | `composer-surface-menu composer-grain` |
-| `@` / `/` autocomplete menu | `prompt/components/prompt-autocomplete-menu.tsx` | `composer-surface-menu composer-grain` |
-| Arcade dock, Sketch dock | `prompt/prompt-composer.tsx` (call sites) | `composer-surface-floating composer-grain` |
-| Context-usage popover | `directory-chat/session-context-usage.tsx` | `composer-surface-menu composer-grain` |
-| Sent user-message bubble | `chat/parts/user-message.tsx` | `composer-surface-bubble composer-grain` |
-| Selected Bench tab | `bench/bench-tabs.tsx` | `composer-surface-tab composer-grain` |
+|---|---|---|
+| Composer shell | `packages/web/src/components/prompt/prompt-composer.tsx` | `composer-surface composer-grain composer-shell` |
+| Editor scrollbar | `packages/web/src/components/prompt/prompt-composer.tsx` | `composer-scroll` |
+| Model / thinking dropdowns | `packages/web/src/components/prompt/components/prompt-composer-toolbar.tsx` | `composer-surface-menu composer-grain` |
+| `@` / `/` autocomplete menu | `packages/web/src/components/prompt/components/prompt-autocomplete-menu.tsx` | `composer-surface-menu composer-grain` |
+| Arcade dock, Sketch dock | `packages/web/src/components/prompt/prompt-composer.tsx` | `composer-surface-floating composer-grain` |
+| Context-usage popover | `packages/web/src/components/directory-chat/session-context-usage.tsx` | `composer-surface-menu composer-grain` |
+| Sent user-message bubble | `packages/web/src/components/chat/parts/user-message.tsx` | `composer-surface-bubble composer-grain` |
+| Selected Bench tab | `packages/web/src/components/bench/bench-tabs.tsx` | `composer-surface-tab composer-grain` |
 
-The docks are styled at their call sites (passed via `className` into the
-shared `ComposerDock`) so the `@buddy/ui` package stays decoupled from the app's
-CSS.
-
-### The height-capped message bubble
-
-A long sent message is clamped instead of running full-length. The bubble caps
-its content at `COLLAPSED_MAX_HEIGHT_PX`, lays a short fade (a `to top` gradient
-in `--composer-surface-bg-floating`, the bubble's own fill, so it dissolves into
-the surface) over the bottom of the clamped text, and offers a **Show more /
-Show less** toggle. No inner scrollbar — the grain `::after` anchors to the
-bubble's box, so scrolling content underneath it would drag the tooth along and
-uncover the fill; clamp-and-reveal keeps the grain still. Overflow is measured
-off the content's `scrollHeight` via a `ResizeObserver`.
-
-**The clamp must be applied synchronously**, never through a JS animation
-library. The transcript virtualiser measures every row's height in a layout
-effect and observes it with a `ResizeObserver`; anything that sets the height
-*after* layout (e.g. Motion animating `height: auto` in its own frame) is
-measured full-height first, then collapsed, and the correction cascades into a
-continuous scroll flicker as rows mount and unmount. So the height is a plain
-inline `max-height` set during render — capped at `COLLAPSED_MAX_HEIGHT_PX` even
-before the first measurement (a no-op for short messages, but it keeps a long
-one from ever being measured full-height) — and the measurement `setState` bails
-out when the numbers are unchanged so the observer can't drive a re-render loop.
-
-Open/close animates with a **CSS** `max-height` transition (~0.3s) plus an
-opacity cross-fade on the gradient, and only after the first real toggle
-(`hasToggledRef`) — never on mount or a re-measure, so loading a chat never
-animates row heights. `motion-reduce:transition-none` honours reduced motion.
-The expanded target is the measured `scrollHeight`, so the transition eases to
-the exact content height; the virtualiser tracks that one bounded, user-driven
-resize normally.
-
-## Adding a new composer surface
+## Adding a New Composer Surface
 
 1. Make sure the host element is positioned (`relative`/`absolute`).
-2. Add `composer-grain` plus one of `composer-surface` / `composer-surface-floating`
-   / `composer-surface-menu`.
-3. Drop any local `rounded-*`, `border`, `shadow-*`, `bg-surface-*` utilities —
-   the system class owns them now.
-
-## A future grain controller
-
-Because grain is a single variable, a control only has to write it — e.g. a
-setting that does `document.documentElement.style.setProperty('--composer-grain-opacity', value)`,
-or a `[data-grain="off"] { --composer-grain-opacity: 0 }` rule. No component
-changes, no per-surface edits. Same story for radius, shadow, or fill: retune
-the token, every surface moves together.
+2. Add `composer-grain` plus one of `composer-surface` / `composer-surface-floating` / `composer-surface-menu`.
+3. Drop local `rounded-*`, `border`, `shadow-*`, `bg-surface-*` utilities — the system classes own geometry and styling.

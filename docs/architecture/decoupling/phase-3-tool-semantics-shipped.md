@@ -3,7 +3,7 @@
 **Status:** Implemented on `decoupling` branch, smoke-tested 2026-05-23.  
 **Supersedes (for runtime behavior):** the “branch still filters plugin export like main” description in [tool-permissions-and-migration-faq.md](./tool-permissions-and-migration-faq.md) §2–3.
 
-**Related:** [phase-3-implementation.md](./phase-3-implementation.md), [migration-plan.md](./migration-plan.md), [tool-permissions-and-migration-faq.md](./tool-permissions-and-migration-faq.md)
+**Related:** [tiered-decoupling-plan.md](./tiered-decoupling-plan.md), [tool-permissions-and-migration-faq.md](./tool-permissions-and-migration-faq.md)
 
 ---
 
@@ -125,15 +125,20 @@ Repo: `bun typecheck`, `bun lint`.
 
 ---
 
-## What is **not** done yet (migration backlog)
+## Shipped vs still open
 
-These are still called out in [migration-plan.md](./migration-plan.md); not required for Plan A tool semantics.
+This file is the **2026-05-23 as-built tool-semantics contract**, not an open Phase 3–7 checklist.
 
-- Delete proxy layer entirely (`proxyToOpenCode`, `prepareProxyBody`, …) — Phase 7
-- Remove dead proxy registration flag helpers if nothing reads them
-- Consolidate remaining adapter patches (skill filtering, upstream hooks doc)
-- Optional: auto-dispose instance when standards DB becomes ready without settings save
-- Broader buddy test suite: some tests still call `registerBuddyTools` directly and may need plugin bootstrap if run in isolation
+### Shipped after this smoke (do not reopen)
+
+- **Phase 7 / proxy deletion:** `proxyToOpenCode`, `prepareProxyBody`, and the `http/proxy` layer are gone. Buddy Hono talks to OpenCode through the typed SDK (`about.md`).
+- Dead proxy registration helpers and per-request `registerOpenCodeTools` are no-ops or removed; do not restore register/unregister for visibility.
+
+### Still optional / adapter-bound (not Phase 7)
+
+- Remaining adapter patches (skill filtering, subagent spawn, permission replace) — see [UPSTREAM-HOOKS.md](../../../packages/buddy/src/opencode-runtime/UPSTREAM-HOOKS.md) and the dated [tiered-decoupling-plan.md](./tiered-decoupling-plan.md)
+- Optional: auto-dispose the OpenCode instance when standards DB becomes ready without a settings save
+- Isolated tests that still call `registerBuddyTools` may need plugin bootstrap
 
 ---
 

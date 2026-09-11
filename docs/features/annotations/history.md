@@ -95,3 +95,9 @@ The migration therefore preserves what it can:
 ```
 
 The migrated record remains listable and retains its page and quote. Its `quads` array is empty because the old record did not contain enough source information to reconstruct exact geometry. As a result, the migrated record cannot reproduce the old visible highlight shape from persisted data alone.
+
+## External system lessons
+
+- **Obsidian:** Stores inline Markdown markup (`==highlight==`, `[[file#page=N]]`, `^block-id`) rather than standalone coordinate records with separate identity.
+- **Calibre:** Uses book-specific JSON records keyed by UUID/type with CFI/spine positions and embedded container files (`META-INF/calibre_bookmarks.txt`), avoiding general Web Annotation target schemas.
+- **Implication:** Dedicated readers require format-native anchors; synthetic DOM-based locators fail across renderer and format migrations.

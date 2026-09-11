@@ -1,14 +1,18 @@
 # Buddy Resource Grounding Design
 
-Date: 2026-03-18
-Status: Proposed
+Status: Historical design rationale for local file packs versus embeddings-first RAG, pure-JS extractors, and Kindle/Calibre policy. The shipped pipeline and condensed decisions are in [docs/features/prepare-resource/design.md](../../features/prepare-resource/design.md).
+
+Date: 2026-03-18 (draft origin). Pack-versus-RAG and extractor strategy remain current product decisions. The layout, entrypoint, and prompt-preflight wording below is a historical sketch, not the current runtime contract. Kindle remains unsupported natively; Calibre is an optional agent `bash` fallback, not a Buddy-owned extractor.
+
 Owner: Buddy product/runtime
 
 ## Summary
 
 Buddy should support user-provided resources by preparing opaque or oversized documents into plain files inside the workspace, then letting the agent use the general tools it already has.
 
-The finished product is:
+### Historical end-state sketch (not the current runtime contract)
+
+The following bullets preserve the 2026-03-18 design sketch. They use the old `.buddy/resources/` layout and automatic prompt-preflight trigger; current preparation is agent-owned by `prepare_resource` and writes an object-backed pack as described below.
 
 - the user drops a resource into the notebook folder
 - the user references it in chat
@@ -104,9 +108,9 @@ The correct layering is:
 
 If the pack exists, the main agent and any subagent can use the same plain files. If the pack does not exist, spawning a subagent just moves the same format problem somewhere else.
 
-## End-State Behavior
+## Historical End-State Behavior (not the current runtime contract)
 
-This section describes the intended finished product.
+This section describes the historical prompt-preflight design. The current flow is documented in [Prepare Resource Design](../../features/prepare-resource/design.md): the prompt prelude asks the agent to call `prepare_resource`, which owns registration and background preparation.
 
 1. The user places a resource into the notebook folder.
 2. The user references it in chat by file mention, typed path, or a future file-picker UI.
@@ -119,9 +123,9 @@ This section describes the intended finished product.
 
 The important property is that preparation gives the model a strong starting point, not a closed workflow.
 
-## What The Model Should Receive
+## Historical Model-Entrypoint Sketch (not the current runtime contract)
 
-The model should mostly see normal file references.
+The historical sketch expected the model to mostly see normal file references. In the current pipeline, `prepare_resource` returns a pack under `.buddy/objects/v1/resource/<objectID>/derived/pack/`; the current entrypoint is `00-resource.md`, with `10-toc.md`, `20-full-text.md`, and generated unit/page/chunk files when available.
 
 For a prepared resource, the useful default is:
 
@@ -133,9 +137,11 @@ For a prepared resource, the useful default is:
 
 This keeps the surface legible to strong models and smaller models without forcing them into a custom retrieval tool.
 
-## Resource Pack Layout
+## Historical Resource Pack Layout (not the current runtime contract)
 
-Each prepared resource should live under:
+The draft layout below is retained for rationale only. Each current prepared resource lives under `.buddy/objects/v1/resource/<objectID>/derived/pack/`, as implemented by `resourcePackRootPath` and summarized in [Prepare Resource Design](../../features/prepare-resource/design.md).
+
+The historical sketch placed each prepared resource under:
 
 ```text
 <workspace>/.buddy/resources/<pack-key>/
@@ -168,9 +174,9 @@ Rules:
 
 This is intentionally plain. The pack should be understandable without any Buddy-specific runtime knowledge.
 
-## `RESOURCE.md`
+## Historical `RESOURCE.md` Entrypoint Sketch (not the current runtime contract)
 
-`RESOURCE.md` is the entrypoint for both the model and the user.
+`RESOURCE.md` was the historical entrypoint for both the model and the user. Current packs use `00-resource.md`; do not treat the frontmatter shape or filenames below as a shipped contract.
 
 It should be markdown with YAML frontmatter rather than a separate manifest file as the primary surface.
 
@@ -226,27 +232,25 @@ This is the difference between good defaults and rigidity. The pack gives struct
 
 ## Processing Model
 
-Preparation should be a Buddy runtime service, not a noisy public chat tool by default.
+Preparation remains a Buddy runtime service, not a noisy public chat tool by default. The current owner is the agent-visible `prepare_resource` tool: it authorizes the source, registers the managed resource object, starts preparation, and returns the object/pack paths. It does not rely on automatic prompt-preflight rewriting.
 
 ### Trigger
 
-The default trigger is:
+The current trigger is an agent call to `prepare_resource` for a referenced native resource. The prompt prelude supplies the exact source path and alias, but the agent owns the decision to prepare; a separate automatic preflight trigger is historical.
 
-- the user references a file that requires preparation
-
-Preparation may later also be invoked from UI or maintenance actions, but the core product path should begin from agent grounding, not from a separate dashboard ritual.
+Preparation may also be invoked from UI or maintenance actions, but the shipped core path is the agent-owned tool call rather than a hidden dashboard or preflight rewrite.
 
 ### Execution
 
-Buddy should use a short synchronous budget during prompt preflight.
+The tool uses a bounded wait while the background preparation continues.
 
 Recommended behavior:
 
-- if the pack is fresh, reuse it immediately
-- if preparation completes within the short budget, use it in the same turn
-- if preparation is slower, create the pack skeleton immediately, write `RESOURCE.md` with `status: preparing`, and continue the extraction in the background
+- if the object already exposes a ready pack, return its current object-backed paths
+- if preparation completes within the wait budget, return the ready pack in the same turn
+- if preparation is slower, return `status=preparing` and `timed_out=true` while the generation-specific pack continues in the background
 
-That avoids long visible ETL turns while preserving the principle that the resource becomes relevant because the agent or user referenced it.
+That avoids an unbounded visible ETL turn while preserving the principle that the resource becomes relevant because the agent referenced it.
 
 ### Freshness
 
@@ -403,7 +407,7 @@ Expected limitations:
 
 Required behavior:
 
-- surface those degradations as warnings in `RESOURCE.md`
+- surface those degradations as warnings in the pack metadata returned by `prepare_resource`
 - keep the output text usable even when formatting fidelity is imperfect
 
 ### HTML / XHTML
@@ -477,7 +481,7 @@ Required behavior:
 Required behavior:
 
 - keep the text usable
-- record the lossiness in `RESOURCE.md`
+- record the lossiness in the pack metadata returned by `prepare_resource`
 
 ### Large plain-text edge cases
 
@@ -505,18 +509,18 @@ If semantic retrieval is added later, it should sit on top of the prepared files
 
 The prepared pack is the base substrate.
 
-## How The Agent Should Use A Pack
+## How The Agent Should Use A Current Pack
 
-The pack itself should teach the default workflow.
+The current pack itself should teach the default workflow through `00-resource.md` and the paths returned by `prepare_resource`.
 
 The intended flow is:
 
-1. read `RESOURCE.md`
-2. read `toc.md` if present
+1. read `00-resource.md`
+2. read `10-toc.md` if present
 3. search the pack with `grep`
-4. read relevant files under `chunks/`
-5. fall back to `pages/` when structure is weak
-6. use `full.md` or the original source if custom processing is needed
+4. read relevant `30-unit-*`, `40-pages-*`, or `50-chunk-*` files
+5. fall back to `pages/` or page files when structure is weak
+6. use `20-full-text.md` or the original source if custom processing is needed
 
 That is enough guidance for strong models and for smaller models.
 
@@ -528,16 +532,17 @@ This design fits the current Buddy seams without vendoring changes.
 
 Buddy-owned integration points:
 
-- prompt preflight in `packages/buddy/src/learning/prompt/message-prompt-pipeline.ts`
+- agent-owned preparation in `packages/buddy/src/learning/features/reading/tools/prepare-resource.ts`
+- object-backed pack registration in `packages/buddy/src/resources/resource-registry-service.ts`
 - session input shape in `packages/buddy/src/routes/session.ts`
 - web mention serialization in `packages/web/src/components/prompt/prompt-composer.tsx`
 
 Implementation rule:
 
 - do not patch vendored OpenCode core for this
-- keep preparation and reference rewriting in Buddy-owned code
+- keep preparation in Buddy-owned code; do not claim that current runtime automatically rewrites references during prompt preflight
 
-OpenCode already knows how to inline text file parts into the model turn. Buddy should exploit that behavior by resolving resource references to prepared text entrypoints before the prompt reaches vendor core.
+OpenCode already knows how to inline text file parts into the model turn. Buddy's current path lets the agent call `prepare_resource`, then read the returned object-backed Markdown entrypoint with normal tools.
 
 ## Final Position
 
@@ -546,7 +551,9 @@ Buddy should not ship a resource-specific tool family.
 Buddy should ship:
 
 - a local preparation service
-- a plain file-based resource pack under `.buddy/resources/`
+- a plain file-based resource pack under `.buddy/objects/v1/resource/<objectID>/derived/pack/`
+- `00-resource.md` as the current pack entrypoint (not the historical `RESOURCE.md`)
+- agent-owned preparation through `prepare_resource`, not automatic prompt-preflight rewriting
 - concrete built-in converters for PDF, EPUB, DOCX, and large text-like formats
 - honest warnings and unsupported states for bad documents
 - full-text access and original-source access so the agent can keep going beyond the defaults

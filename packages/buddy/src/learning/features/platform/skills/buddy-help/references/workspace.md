@@ -40,7 +40,7 @@ No Buddy multi-user accounts. AI providers may still need login or keys — `pro
 | Models / keys / OAuth | Providers | `providers.md` |
 | Permission prompts | Allow once / always / reject | `trust.md` |
 | Remember me | Memory | `learner-memory.md` |
-| MCP servers | Settings → MCP | `extend.md` |
+| MCP servers | Settings → MCPs | `extend.md` |
 | Math/standards packages | Advanced packages | `extend.md` |
 
 ### Defaults
@@ -103,7 +103,8 @@ Show/hide whole right side: titlebar **Expand/Collapse right panel**.
 - Expand with **Bench open** → shows Bench; rail can open a drawer **over** Bench.
 - Opening a list item typically **closes the drawer** and puts content on Bench.
 
-**Create** in Boards/Creations: stages a prompt in the composer — user still sends.
+**Create board** in Boards immediately creates and opens an empty whiteboard. See `library.md`.
+**Create** in Creations only stages a prompt in the composer — the user still sends it.
 
 ### Docked vs floating
 

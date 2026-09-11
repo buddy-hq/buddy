@@ -33,7 +33,7 @@ Not locked. Live copy is in [prompts.json](../../../packages/videos/prompts.json
 
 Scenes are independent. Each prompt has to cold-justify its own hero frame with no memory of the scene before it, so none of them may be a follow-up. Subject variety is deliberate: five domains prove range, where one subject would make Buddy look narrow.
 
-The one fixed point is the peak. [game.mp4](../../../packages/videos/public/captures/game.mp4) captures **Solar Odyssey**, a solar-system spaceship journey on immersive Bench, so that prompt is dictated by the asset. The rest are free.
+The one fixed point is the peak. Remotion composition `GamePeak` loads **Solar Odyssey** via `staticFile("captures/game.mp4")` (`packages/videos/src/components/GamePeak.tsx`). That MP4 is a local capture under `packages/videos/public/captures/` and is **not** stored in git (do not restore the binary). The prompt is dictated by that capture when the file is present for a render.
 
 These are typed into production Buddy by `bun type`, so every prompt has to do two jobs at once: read as something a real person would write, and reliably steer Buddy to the Bench target the scene needs. Each one therefore carries a **steering phrase** that selects the surface. Removing it for brevity is what breaks the capture.
 
@@ -71,7 +71,7 @@ Not locked or ordered. These may be inserted, removed, or used to replace frames
 |---|---|---|---|---|
 | **Mastery** | A graded question set reaches its result state—score and explanation—surrounded by restrained celebratory motion. | Buddy turns understanding into demonstrated ability. | One question set on Bench, Practice selected, docked chat. A flashcard-review frame is an alternative, not something shown simultaneously. | Possible high-intensity climax |
 | **Native Obsidian** | A destination note has just opened after following a wikilink. The Obsidian-marked notebook and selected destination file remain visible around the rendered note. | Buddy understands and navigates an existing Obsidian vault. | Obsidian-marked notebook in the left sidebar, minimal chat, destination Markdown note on Bench, Files drawer with the destination file selected | Distinctive interoperability frame; likely mid-arc |
-| **Interactive artifact / game** | A learner’s decisive interaction pushes an immersive game or simulation into its most visually dramatic success or discovery state. Source capture: [game.mp4](file:///Users/prashantbhudwal/Code/buddies/demo-video/packages/videos/public/captures/game.mp4) (1920×1080, 60fps, 10.2s). | Buddy can create experiences that are playable, explorable, and responsive—not merely static answers. | One sandboxed HTML/canvas widget on immersive Bench, small secondary chat, sidebar and rail hidden | Hero climax / Peak frame asset ready |
+| **Interactive artifact / game** | A learner’s decisive interaction pushes an immersive game or simulation into its most visually dramatic success or discovery state. Source capture (local, untracked): `packages/videos/public/captures/game.mp4` via `GamePeak` (`staticFile("captures/game.mp4")`); historically recorded at 1920×1080, 60fps, ~10.2s. | Buddy can create experiences that are playable, explorable, and responsive—not merely static answers. | One sandboxed HTML/canvas widget on immersive Bench, small secondary chat, sidebar and rail hidden | Hero climax / Peak frame asset ready |
 
 ## Probable final composition
 

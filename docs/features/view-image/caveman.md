@@ -36,42 +36,24 @@
 - image read: "Viewing" while running, "Viewed" when done
 - text read: "Reading" / "Read" (unchanged)
 
-## 6. Hidden steps toggle shows View icon for image reads
+## 6–10. Historical HiddenSteps image UI (not shipped)
 
-- `HiddenSteps` `toggleIcon` checks the active preview entry for image attachments or image filename extension
-- image read → `View` icon (eye from lucide)
-- text read → `FileText` icon
+The `hidden-steps/` tree and `tool-summary-resolver.ts` were removed. Do not treat stages 6–10 below as live.
 
-## 7. While streaming, images appear inside the live preview panel
+**What shipped instead:**
 
-- `showLivePreview` is true (tool is active or assistant is still busy)
-- `HiddenStepsPreviewPanel` receives `imageAttachments` prop
-- images render inside `previewContentRef` flex container, directly after the live preview text — no gap
-- thumbnail size is `small` (`max-h-16`) to fit within the 80px viewport height
-- 80px fixed height is preserved for layout stability; content starts at top, scrolls when viewport fills
+- Activity aggregation: `packages/web/src/components/chat/tools/activity-row/` (`entries.ts` counts repeated tools; thinking uses `Thought` / `Thinking`).
+- Image `read` titles: `tool-info.ts` uses i18n keys `chatTools.info.read.image.running` / `chatTools.info.read.image`.
+- Thumbnails: `render/read.tsx` + `read-image-preview.ts` (`max-h-28` row under the tool row). SVG still follows `isImageAttachment` (text XML) in analysis.md; `.svg` can still be treated as an image filename for titles.
 
-## 8. When the tool completes, images move outside the collapsible
+**Historical HiddenSteps behavior (keep as the old interaction design):**
 
-- `showLivePreview` becomes false → title switches from "Viewing" to collapsed summary label
-- external image row renders below the preview panel (only when `!isOpen && !showLivePreview`)
-- thumbnails use full size (`max-h-28`) in horizontal scrollable flex row
-- the external row has `px-2` indentation matching the expanded content
+- Toggle icon: image read → View/eye; text read → FileText.
+- Live preview panel during stream (`HiddenStepsPreviewPanel`, ~80px, small thumbs `max-h-16`).
+- After complete: external image row when collapsed; expand used `AssistantPartRenderer` → `renderReadTool`.
+- Collapsed buckets: `view-image` vs `read` (`Viewed 2 images` vs `Read 1 file`).
 
-## 9. Hidden steps expanded: images render inline inside the card
-
-- when user clicks to expand (`isOpen = true`), external image row hides
-- `CollapsibleContent` renders each read entry via `AssistantPartRenderer` → `renderReadTool`
-- tool row shows `[Eye icon] filename` with image thumbnails below
-- SVG files: detected by `.svg` filename, raw markup from `state.output` converted to `data:image/svg+xml,...` URL, rendered as `<img>`
-
-## 10. Collapsed summary splits text and image reads
-
-- `tool-summary-resolver.ts` `resolveToolSummary` "read" case checks `isImageRead()`
-- image reads bucket under aggregate key `"view-image"` → "Viewed 2 images"
-- text reads bucket under aggregate key `"read"` → "Read 1 file"
-- final collapsed label: `Read 1 file · Viewed 2 images`
-
-## Source Map
+## Source Map (current)
 
 Composer:
 - `packages/web/src/components/prompt/prompt-composer.tsx` — unsupported detection, canSubmit gating, file input accept, toast, warning banner
@@ -90,11 +72,12 @@ Model state:
 
 UI components:
 - `packages/ui/src/components/ui/select.tsx` — background highlight instead of checkmark
-- `packages/web/src/components/chat/tools/render/read.tsx` — Eye icon, SVG rendering, thumbnail row
-- `packages/web/src/components/chat/tools/hidden-steps/index.tsx` — HiddenStepsImageRow, visibleImageAttachments, preview panel integration, View icon toggle, px-2 indentation
-- `packages/web/src/components/chat/tools/tool-info.ts` — isImageFilePath, hasImageAttachments, Viewing/Viewed titles
-- `packages/web/src/components/chat/tools/tool-summary-resolver.ts` — isImageRead, split aggregate keys
-- `packages/web/src/i18n/en.ts` — chatTools.info.read.image and chatTools.info.read.image.running
+- `packages/web/src/components/chat/tools/render/read.tsx` — thumbnail row for image reads
+- `packages/web/src/components/chat/tools/read-image-preview.ts` — attachment filter for previews
+- `packages/web/src/components/chat/tools/activity-row/index.tsx` — linear activity UI (replaces HiddenSteps)
+- `packages/web/src/components/chat/tools/activity-row/entries.ts` — aggregation
+- `packages/web/src/components/chat/tools/tool-info.ts` — image vs text read titles
+- `packages/web/src/i18n/en.ts` — `chatTools.info.read.image` and `.running`
 
 Vendor:
 - `vendor/opencode/packages/opencode/src/util/media.ts` — isImageAttachment excludes SVG

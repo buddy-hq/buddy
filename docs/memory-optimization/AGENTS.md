@@ -1,10 +1,10 @@
 # AGENTS.md
 
-- This folder is the source of truth for Buddy backend memory optimization work.
-- After context compaction, read `exit-branch.md` first. It is the current synthesis for this branch and distinguishes shipped architecture changes from historical investigation work.
-- After reading `exit-branch.md`, read `current-status.md` before changing the Node utility backend foundation.
-- Before continuing memory/provider work, read `history/memory-optimization-recovery-plan.md`, `history/memory-optimization-log.md`, `history/memory-startup-recovery-worktree-review.md`, and `history/memory-fix-invariants.md`.
-- Durable Node backend measurement JSON files live in `log/`.
+- Canonical desktop backend packaging and process model: `docs/architecture/decisions/utility-process-backend.md` (Failure Rule, target-native `out/main`, isolated smoke, next-map).
+- Dated synthesis of what this memory branch shipped vs did not: `exit-branch.md`, then `current-status.md`.
+- `history/` files are investigation evidence, not living host contracts. `history/memory-fix-invariants.md` is the June 22 sidecar-era contract (Zen vs Go still useful). `history/post-provider-analysis.md` is import-RSS research; the provider split did not merge.
+- Do not restore `memory-optimization-log.md` from git; it is not in the tree.
+- Durable Node backend measurement JSON files live in `log/` when present.
 - The reusable measurement script stays at `packages/buddy/script/measure-node-memory.ts`.
-- Keep using the built production Node backend artifact for proof. Dev import probes are useful attribution, not final memory proof.
+- Dev import probes are useful attribution, not final memory proof. Measure the Electron utility-process host.
 - Keep referring to the vendored OpenCode Electron frontend before changing provider/model/auth UX or state patterns.

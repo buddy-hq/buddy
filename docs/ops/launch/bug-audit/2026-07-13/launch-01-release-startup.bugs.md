@@ -1,10 +1,19 @@
 # LAUNCH-01 — Release packaging, installation, and first startup
 
-Audit date: 2026-07-13
-Pass status: Discovery complete; verification pending
-Baseline: Current workspace, evaluated as a clean release-candidate tree. Unrelated dirty-worktree changes were ignored.
+> **Historical snapshot (audit 2026-07-13, hardening reassessment 2026-07-14).**
+> This is not the live issue tracker and is not a current release-candidate queue.
+> Live open items, including still-reproducing L02 / L03 / L07 / L10 threats, are in
+> [`docs/reviews/knownissues.md`](../../../../reviews/knownissues.md).
+> Threat models and then-open / then-resolved dispositions below are preserved as the
+> launch-audit record. “Verification pending” means the 2026-07 second pass was not
+> completed in this snapshot, not that a live verification queue exists today.
 
-This file records first-pass candidates. A candidate is not a final launch verdict until the verification pass either retains it under **Verified bugs** or moves it to **Rejected after verification**.
+
+Audit date: 2026-07-13
+Pass status (then): Discovery complete; 2026-07 verification pass not completed
+Baseline (then): 2026-07-13 workspace, evaluated as a launch-audit tree. Not a claim about the 2026-08 working tree.
+
+This file records 2026-07-13 first-pass candidates. It is not a live verdict. Then-open items that still reproduce are tracked in `docs/reviews/knownissues.md`.
 
 ## Candidate bugs
 
@@ -40,7 +49,7 @@ This file records first-pass candidates. A candidate is not a final launch verdi
 
 ## Verified bugs
 
-Pending second-pass verification.
+Not completed in this snapshot. Do not read this heading as an active queue.
 
 ## Rejected after verification
 

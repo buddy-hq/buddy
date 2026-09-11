@@ -1,15 +1,14 @@
 # Feedback — Intent
 
-Sub-intent of [curriculum system](./curriculum.intent.md). CWSEI is emphatic: feedback is the single most important element for learning. Not content delivery. Not assessment. Feedback.
+Status: Detailed pedagogical evidence for feedback. Concise index: [principles.md](./principles.md). Shipped persistence: learner-memory `open_loop` / `fragile_skill` → runtime `openFeedback.requiredAction`.
+
+Sub-intent of the curriculum system in [principles.md](./principles.md). CWSEI is emphatic: feedback is the single most important element for learning. Not content delivery. Not assessment. Feedback.
 
 ## Source anchors
 
-Primary sources for this intent:
+Official sources (local `raw/` dumps were removed):
 
-- [docs/learning/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/learning/curriculum/principles.md)
-- `docs/learning/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
-- `docs/learning/curriculum/raw/cwsei-teaching-practices-inventory.txt`
-- `docs/learning/curriculum/raw/creating-good-homework-problems-and-grading-them.txt`
+- [principles.md](./principles.md) bibliography: Gibbs & Simpson (2004); Course Transformation Guide; homework guide.
 
 ---
 
@@ -97,9 +96,6 @@ CWSEI is explicit that giving feedback is not enough. Three proven mechanisms:
 
 ---
 
-## Open questions
+## Historical: open questions
 
-1. **How does Buddy decide when to give feedback?** After every attempt? Only when errors are detected? Learner-triggered?
-2. **How detailed?** Risk of overwhelming the learner vs. being too vague
-3. **How does feedback connect to progress tracking?** Does receiving and acting on feedback update mastery status?
-4. **Self-check prompts?** Should Buddy periodically ask "does this make sense? How would you check?" to build metacognition?
+Draft-time questions about trigger, detail, and progress coupling are not a live spec. Shipped: open feedback is injected into prompt learner-context; resolution is a memory status change (`memory_resolved` and related events).

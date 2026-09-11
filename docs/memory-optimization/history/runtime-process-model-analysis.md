@@ -1,9 +1,15 @@
 # Runtime Process Model Analysis
 
+> **Historical process-model snapshot (2026-06-23).** The sidecar description
+> below is a then-current snapshot, not today's process contract. Current
+> process and packaging authority is
+> [utility-process-backend.md](../../architecture/decisions/utility-process-backend.md);
+> the branch disposition is [exit-branch.md](../exit-branch.md).
+
 **Created:** Tue Jun 23 2026
 **Purpose:** Ground the question of whether Buddy can run its backend more like the vendored desktop app, without changing provider/runtime semantics.
 
-## Current Buddy Process Model
+## Buddy Process Model at the 2026-06-23 Snapshot
 
 Buddy Desktop currently starts a separate backend sidecar process from Electron main.
 

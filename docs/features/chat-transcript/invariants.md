@@ -1,13 +1,6 @@
 # Chat transcript invariants
 
-The contracts every transcript change must preserve. This is the single list —
-`scroll-and-virtualization.md` and `chat-switch-flicker.md` explain *why* the
-scroll and transition ones hold, but do not maintain competing lists.
-
-Reference lock: use the standalone OpenCode checkout at
-`/Users/prashantbhudwal/code/opencode` as the implementation reference, not
-`vendor/opencode`. Do not reinvent OpenCode transcript patterns without a
-product-specific reason.
+The contracts every transcript change must preserve. This is the single canonical list — [scroll-and-virtualization.md](./scroll-and-virtualization.md) and [chat-switch-flicker.md](./chat-switch-flicker.md) explain *why* scroll and transition contracts hold, but do not maintain competing lists.
 
 ## Navigation and scroll
 
@@ -19,46 +12,25 @@ product-specific reason.
 - Detached history must not be pulled down by new streaming content or async row resizing.
 - Prepending history preserves the visible keyed anchor, not an approximate aggregate `scrollHeight` offset.
 - Jump to latest appears only when the user is meaningfully separated from the end.
-- An attached position is semantic ("follow the end"), never a durable pixel
-  offset. A detached position is a pixel offset and is restored exactly.
-- A first-time task starts attached. A revisited task restores its own state
-  independently of the previously visible task.
+- An attached position is semantic ("follow the end"), never a durable pixel offset. A detached position is a pixel offset and is restored exactly.
+- A first-time task starts attached. A revisited task restores its own state independently of the previously visible task.
 
 ## Scroll ownership
 
 The core invariant:
 
-> While attached to the bottom, a height change of `Δ` causes exactly one scroll
-> correction of `Δ`, in the same direction. While detached, streaming causes no
-> bottom-following correction at all.
+> While attached to the bottom, a height change of `Δ` causes exactly one scroll correction of `Δ`, in the same direction. While detached, streaming causes no bottom-following correction at all.
 
-- Row **size** changes are corrected by TanStack Virtual. Row **appends** are
-  corrected by Buddy. A settled remaining gap is corrected by the gated trailing
-  repair. Nothing else writes the scroll offset.
-- Every direct write to the virtual end notifies the virtualizer before returning,
-  so a measurement landing before the native scroll event cannot correct from a
-  stale base.
-- Every direct write is marked programmatic, so the auto-scroll owner cannot read
-  it as a user gesture.
-- Measurement must not be deferred past the frame that laid it out.
+- Row **size** changes are corrected by TanStack Virtual (`resizeItem` → `applyScrollAdjustment`). Row **appends** are corrected by Buddy (`commitTranscriptVirtualEnd`). A settled remaining gap is corrected by the gated 120ms trailing repair. Nothing else writes the scroll offset.
+- Every direct write to the virtual end synchronizes spacer height, sets programmatic flag, writes `scrollTop`, and notifies the virtualizer before returning, preventing measurements from correcting from a stale base.
+- Measurement must not be deferred past the frame that laid it out (`useAnimationFrameWithResizeObserver: false`).
 - No two scroll writes inside one measurement batch may have opposite signs.
-- A scroll correction and the row geometry it compensates for land in the same
-  painted frame. A correction written directly to the DOM may not wait on a React
-  commit to move the rows it accounts for.
-- Geometry that appears after an async load is reserved in advance: an HTML
-  widget's viewport box, and any content whose size is known before it arrives.
-  Reservation is for geometry the user cannot see arriving — it is not a
-  substitute for following a growth correctly. Space is never reserved for
-  something the turn has not produced yet: the assistant action footer mounts at
-  terminal and is followed, rather than sitting empty under every streaming
-  answer.
-- Sub-pixel row remeasures are ignored; they cannot matter visually but can flip a
-  virtual range boundary and remount a very tall row.
-- A row estimate is derived from the same layout table the renderer uses, never
-  hand-tuned.
-- An estimate counts only what the row renders. A user row's estimate excludes
-  text the bubble hides, and an assistant prose row appended before its first
-  delta estimates as empty rather than as a whole turn.
+- A scroll correction and the row geometry it compensates for land in the same painted frame (`syncVirtualRowGeometry`). A correction written directly to the DOM may not wait on a React commit to move the rows it accounts for.
+- Geometry that appears after an async load is reserved in advance: an HTML widget's viewport box, and any content whose size is known before it arrives.
+- Space is never reserved for something the turn has not produced yet: the assistant action footer mounts at terminal and is followed, rather than sitting empty under streaming answers.
+- Sub-pixel row remeasures are ignored to avoid flipping virtual range boundaries.
+- Row estimates derive from rendered geometry tables, never hand-tuned numbers.
+- Estimates count only what the row renders: user row estimates exclude hidden prompt context, and assistant prose rows appended before deltas estimate as empty prose.
 
 ## Streaming and thinking
 
@@ -84,26 +56,20 @@ The core invariant:
 
 ## Event ordering and reconciliation
 
-- `message.part.updated` may arrive before the parent `message.updated`; the part must be preserved as an orphan and merged when the parent arrives.
-- `message.part.delta` may arrive while the part is orphaned; the delta must be accumulated and preserved.
-- `message.part.removed` may arrive while the part is orphaned; the removal must be honored.
+- `message.part.updated` arriving before parent `message.updated` must be preserved as an orphan and merged when the parent arrives.
+- `message.part.delta` arriving while the part is orphaned must be accumulated and preserved.
+- `message.part.removed` arriving while the part is orphaned must be honored.
 - HTTP refreshes and pagination must not truncate newer streamed suffixes.
 - Snapshot prefix reconciliation must preserve newer streamed suffixes.
 - Removals, optimistic entities, orphan parts, pending inputs, and in-flight refresh state must survive refresh races.
-- Terminal assistant messages must reconcile terminal parts:
-  - unterminated text/reasoning part times get an end time
-  - pending/running tool parts become interrupted tool errors
-  - already terminal tool parts are not rewritten
+- Terminal assistant messages must reconcile terminal parts: unterminated text/reasoning part times get an end time, pending/running tool parts become interrupted tool errors, and already terminal tool parts are preserved.
 - Late part/message snapshots after terminal assistant state must not resurrect running tools.
 
 ## Markdown, code, math, and media rendering
 
 - Streaming Markdown renders the latest frame-coalesced state without artificial character pacing.
 - Streaming-to-final Markdown must not visibly collapse the response to the first block while final parsing is pending.
-- A streaming projection may only grow. Streaming a document prefix by prefix must
-  never reduce its rendered line count — an open code fence must not render its
-  uncommitted trailing line, and a raw fallback must not paint a line the parsed
-  HTML will not have.
+- A streaming projection may only grow. Streaming a document prefix by prefix must never reduce its rendered line count — an open code fence must not render its uncommitted trailing line, and a raw fallback must not paint a line the parsed HTML will not have.
 - Existing rendered blocks stay visible until replacement content is ready.
 - Broken Markdown images keep a stable node/shell while the live block grows.
 - Code blocks keep Buddy’s theme and raw fallback when highlighting is unavailable.
@@ -119,8 +85,7 @@ The core invariant:
 - Expensive inline content activates near the viewport, not globally for every hidden instance.
 - Offscreen heavy DOM unmounts are allowed, but row interaction state and last measured height should be preserved.
 - Async artifacts must report content-ready or size-change so the virtualizer can remeasure the specific row.
-- Do not introduce a generic rendered-DOM cache for inline artifacts.
-- Existing source-owner caches remain the source of truth: React Query, content-addressed Mermaid/object caches, and tool-specific caches.
+- Do not introduce a generic rendered-DOM cache for inline artifacts; rely on source-owner caches (React Query, Mermaid cache, tool caches).
 
 ## Motion and geometry
 
@@ -136,18 +101,6 @@ The core invariant:
 ## Verification expectations
 
 - Every regression in these invariants needs a focused test.
-- Required coverage includes:
-  - orphan part/update/delta/removal ordering
-  - terminal assistant part reconciliation
-  - initial load preserving the latest user boundary
-  - visibility-changing deltas rerendering the timeline
-  - broken image stability
-  - worker-unavailable code fallback
-  - reduced-motion artifact entrances
-  - attached and detached scroll behavior
-- Before implementation is considered complete, affected tests must pass, then root `bun lint` and root `bun typecheck` must pass.
-- Do not run `bun fmt` without explicit approval.
-- Probe numbers must be correlated with viewport position and user observation
-  before declaring a visible regression. A large number in a trace is not by
-  itself evidence of a visible bug — and a clean trace is not by itself evidence
-  of a stable transcript, because a one-frame paint lag leaves no trace signature.
+- Required coverage includes orphan ordering, terminal part reconciliation, user boundary completeness on initial load, visibility-changing delta notifications, broken image stability, worker-unavailable code fallback, reduced-motion artifact entrances, and attached/detached scroll behavior.
+- Before code changes are complete, run package test scripts, then root `bun lint` and root `bun typecheck`.
+- Probe numbers must be correlated with viewport position and user observation before declaring a visible regression.

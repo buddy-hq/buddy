@@ -12,7 +12,8 @@ links to it rather than restating it.
 | [dead-zone.md](./dead-zone.md) | Activity-row working labels and their timing | You are about to change a dead-zone constant |
 | [invariants.md](./invariants.md) | The contracts every change must preserve | Before and after any change here |
 | [history.md](./history.md) | What broke, what was diagnosed, what was resolved | Before re-deriving a conclusion that already has evidence |
-| [hypothesis.md](./hypothesis.md) | Work currently in flight, with predictions and falsification criteria | You are picking up an unfinished thread |
+| [hypothesis.md](./hypothesis.md) | Historical 2026-08-12 investigation (H1–H9, traces, falsification). Not a current-implementation spec | You need the original predictions and evidence |
+| [chat-motion-and-scroll.md](../chat-motion/chat-motion-and-scroll.md) | Desired viewport/turn-transition UX. Not verified as current transcript runtime | You are changing motion or turn-entry layout |
 
 ## Ownership boundaries
 

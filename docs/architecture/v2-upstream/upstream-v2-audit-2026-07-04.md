@@ -1,9 +1,11 @@
 # Upstream OpenCode v2 audit — 2026-07-04
 
+> **Upstream snapshot 2026-07-04.** Re-verify against current `vendor/opencode` before acting. The 3-row Buddy/dev/v2 matrix and unchecked sync boxes are **that day’s** findings, not a 2026-08 backlog. Canonical PermissionV2 decision: [permission-v2.md](../decisions/permission-v2.md).
+
 Research date: 2026-07-04
 Method: read-only investigation against `~/code/opencode` (remote `upstream` = `github.com/anomalyco/opencode.git`), comparing Buddy's vendored copy and adapter against `upstream/dev` (tip `7a8e7c88f4`) and `upstream/v2` (tip `610e618bc5`). No Buddy git changes were made.
 
-This report supersedes the branch/sync notes and H2/H3 findings in [buddy-opencode-v2-findings.md](./buddy-opencode-v2-findings.md) (2026-06-01), which are now stale.
+This report supersedes the branch/sync notes and H2/H3 findings in [buddy-opencode-v2-findings.md](./buddy-opencode-v2-findings.md) (2026-06-01), which are now stale **as current vendor claims**. The June file is kept as dated evidence with H2/H3/H11 labeled superseded.
 
 ---
 
@@ -258,17 +260,19 @@ The v2 branch has a completely different tool architecture in `packages/core/src
 1. **HTTP prompt route cutover** has not happened — still v1 `SessionPrompt.Service` on both branches.
 2. **`buddy-runtime-plugin` v1 hooks** have no v2 successor on dev (only on v2 branch).
 3. **Config/Auth/MCP/Server** have no v2 on either branch.
-4. **Permission adoption** guidance in [permission-v2-adoption-decision.md](./permission-v2-adoption-decision.md) still holds — stay on v1 runtime until end-to-end v2 cutover.
+4. **Permission adoption** guidance in [permission-v2.md](../decisions/permission-v2.md) still holds — stay on v1 runtime until end-to-end v2 cutover. Dated write-up: [permission-v2-adoption-decision.md](./permission-v2-adoption-decision.md).
 5. **Buddy teaching/subagent policy** (`subagent-tool-forwarding.ts`) remains substantial; upstream task/subagent tool only covers generic subagent permissions.
 
-### Vendor sync checklist (next sync)
+### Vendor sync checklist (as of 2026-07-04 — re-verify; not a live backlog)
+
+These were open against that day’s `upstream/dev`. Confirm each against current vendor before changing adapter code.
 
 - [ ] Repath `@opencode-ai/core/filesystem/ripgrep` → `@opencode-ai/core/ripgrep` in `adapter/file.ts` and vendor `glob`/`grep`/`skill` tools.
 - [ ] Handle `Reference` service removal in `glob`/`grep`/`read` — if Buddy relies on reference-based cwd bypass, that's gone.
 - [ ] Handle `shell` tool `description` param removal — breaking for any prompt/code passing `description` to bash.
 - [ ] Review `task` tool `deriveSubagentSessionPermission` signature change and `childToolDenies` injection.
 - [ ] Evaluate `execute` (CodeMode) tool — decide whether Buddy wants to expose it.
-- [ ] Update this doc and [buddy-opencode-v2-findings.md](./buddy-opencode-v2-findings.md) H2/H3/H11 with resolved status.
+- [x] Record H2/H3/H11 dated status in [buddy-opencode-v2-findings.md](./buddy-opencode-v2-findings.md) (June file labeled; this audit remains the later snapshot).
 
 ### Adoption gate
 
@@ -278,4 +282,4 @@ Buddy can adopt v2 session/prompt meaningfully only when:
 3. GUI/TUI cutover lands (app GUI still consumes legacy permission/session events).
 4. Buddy teaching seed/subagent policy has a v2 hook point (`session.subagent.spawn` or `session.metadata`-based, or `ctx.tool.hook`).
 
-Until then, stay on vendored v1 runtime + presentation-only permission UI, per [permission-v2-adoption-decision.md](./permission-v2-adoption-decision.md).
+Until then, stay on vendored v1 runtime + presentation-only permission UI, per [permission-v2.md](../decisions/permission-v2.md).

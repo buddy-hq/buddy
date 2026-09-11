@@ -1,15 +1,14 @@
 # Practice & Exercises — Intent
 
-Sub-intent of [curriculum system](./curriculum.intent.md). Practice is where most learning actually happens — not during explanation, but during effortful work.
+Status: Detailed pedagogical evidence for practice. Concise index: [principles.md](./principles.md). Shipped owner: `practice-agent` in `packages/buddy/src/learning/features/practice/`.
+
+Sub-intent of the curriculum system in [principles.md](./principles.md). Practice is where most learning actually happens — not during explanation, but during effortful work.
 
 ## Source anchors
 
-Primary sources for this intent:
+Official sources (local `raw/` dumps were removed):
 
-- [docs/learning/curriculum/principles.md](/Users/prashantbhudwal/Code/buddy/docs/learning/curriculum/principles.md)
-- `docs/learning/curriculum/raw/creating-good-homework-problems-and-grading-them.txt`
-- `docs/learning/curriculum/raw/coursetransformationguide-cwsei-cu-sei.txt`
-- `docs/learning/curriculum/raw/cwsei-teaching-practices-inventory.txt`
+- [principles.md](./principles.md) bibliography: Wieman *Creating Good Homework Problems*; Course Transformation Guide; CWSEI Teaching Practices Inventory via that guide.
 
 ---
 
@@ -46,6 +45,10 @@ From the CWSEI homework guide (Wieman), practice should exercise:
 > "Typical back-of-chapter problems result in the student primarily practicing (i) — carrying out routine procedures. That's 1 out of 10 components."
 
 **Buddy's practice must target all 10.** This is the single biggest differentiator from "do this exercise."
+
+### Generation quality guardrails (historical, still binding)
+
+An earlier build-strategy note warns that generated practice can vary only in wording while still exercising component (i). Treat prior-exercise context (historically called `previousExercises`) as structural constraints—components targeted, surface domain, and constraint type—draw from a surface-feature library, and audit each task against the full a–j checklist. The old `practice_generate` and `practice_validate` names are historical sketches, not current tool IDs; the shipped `practice-agent` still needs to honor these quality constraints.
 
 ---
 
@@ -118,10 +121,6 @@ Don't give them all the info. Don't tell them which concept to apply. Don't stat
 
 ---
 
-## Open questions
+## Historical: open questions
 
-1. **How does the practice agent generate exercises?** From the goals + Bloom's level + expert-thinking components → exercise spec?
-2. **What's the exercise format?** Free-form coding challenge? Structured multi-part? MCQ for concept checks?
-3. **How does difficulty scale?** Start with scaffolded (worked example + guided steps) → independent (open-ended problem)?
-4. **Where do exercises live?** In the learner store, a separate exercise bank, or generated on the fly with only attempt history persisted?
-5. **How should practice split between chat and the interactive workspace?** Which scaffolding levels belong in each surface?
+Draft-time questions (exercise bank vs on-the-fly, chat vs workspace split) are not a live spec. Shipped practice generation is `practice-agent`; persisted question sets are a separate feature (`docs/features/question-sets/direction.md`).

@@ -2,9 +2,12 @@
 
 ## Status
 
-This document began as a recommendation backlog. On 2026-06-29, sixteen API-keyless skills were
-selected for the Buddy catalog. Twelve new entries were added and four existing
-entries were refreshed through the pinned-source curation pipeline.
+This document is the 2026-06-29 Hermes accept/reject record, not a weekly catalog dump.
+
+On 2026-06-29, sixteen API-keyless Hermes skills were selected for the Buddy catalog. Twelve new
+entries were added and four existing entries were refreshed through the pinned-source curation
+pipeline. `catalog.json` later also gained Anthropic-authored entries; those do not reopen the
+Hermes rejects below (`memento-flashcards` remains out).
 
 Every skill selected for the Buddy library must still pass the existing pinned-source curation,
 full-directory scan, manual review, and integrity verification pipeline before it is added to the

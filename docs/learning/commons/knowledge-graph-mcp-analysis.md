@@ -1,5 +1,7 @@
 # Knowledge Graph MCP Analysis
 
+Status: Historical design notes plus the still-current rejection of hosted MCP. Canonical product write-up: [docs/features/standards/intent.md](../../features/standards/intent.md). The TypeScript tool list below is a **design-time sketch that matches the shipped local tools**; do not treat it as an unimplemented backlog.
+
 ## What Learning Commons Offers
 
 Learning Commons provides a **hosted MCP server** at:
@@ -42,11 +44,11 @@ The MCP server:
 
 **Verdict:** Using their hosted MCP violates Buddy's core "Local" principle.
 
-## What Buddy Should Build Instead
+## What Buddy Built Instead (local tools)
 
-**Local tools inspired by their MCP, but improved:**
+**Historical heading in the original draft was "What Buddy Should Build Instead."** The local tools listed here shipped. Hosted MCP remains rejected.
 
-### Core Tools (Same Functionality)
+### Core Tools (same functionality as hosted MCP, local SQLite)
 
 | Tool | Input | Output | Improvement Over Theirs |
 |------|-------|--------|------------------------|
@@ -154,22 +156,14 @@ const knowledgeGraphTools = [
 
 ## Implementation Path
 
-**Option A: Direct Tools (Recommended for MVP)**
-- Query local SQLite database directly
-- Simplest integration with existing Buddy architecture
-- No MCP abstraction layer needed
+**Option A: Direct tools (shipped).** Query local SQLite. No hosted MCP. Tools registered on the Buddy runtime (`packages/buddy/src/learning/features/standards/tools/`).
 
-**Option B: Local MCP Server (Future)**
-- Build MCP server wrapper around SQLite
-- Allows other tools to use Knowledge Graph
-- More complex, but interoperable
-
-**Recommendation:** Start with Option A. Add Option B later if needed.
+**Option B: Local MCP server wrapping SQLite (not shipped).** Interoperability later if needed.
 
 ## Key Insight
 
-Learning Commons' MCP proves the **value of the tools** — standards lookup, skill decomposition, prerequisite tracing. 
+Learning Commons' MCP proves the **value of the tools** — standards lookup, skill decomposition, prerequisite tracing.
 
-But Buddy needs these tools **local, offline, and private**. Build the same capabilities using the public JSONL data, not their hosted service.
+Buddy ships those capabilities against the **local** packaged graph, not the hosted service.
 
-**Result:** Same functionality, better alignment with Buddy's principles.
+**Result:** Same lookup/progression/crosswalk jobs, local and private.

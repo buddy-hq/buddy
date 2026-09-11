@@ -36,7 +36,7 @@ In-app updates on the normal installed desktop app (not web-only).
 
 1. **Settings → About**
 2. **Update channel:** **Stable** (default) or **Preview**
-3. **Check for updates** for a manual pass
+3. **Check now** for a manual pass
 
 **Stable** = approved releases. **Preview** = release candidates; switching to Preview saves and checks immediately.
 
@@ -52,7 +52,7 @@ Status row: idle / checking / downloading / ready / installing / error.
 
 - Startup failure can offer an update check; may install a fix (including an older or newer build).
 - **Blocked** update ≠ “up to date.”
-- Mid-fail install → may still be on old build; **Check for updates** again or re-run the site install command.
+- Mid-fail install → may still be on old build; use **Check now** again or re-run the site install command.
 - Re-run install script anytime to re-download latest and open the installer.
 
 ### Guardrails
@@ -143,6 +143,7 @@ Desktop only. Web does not show this flow. Install/update: Install & updates abo
 ### Defaults
 
 - First desktop launch with no notebooks open → onboarding (choose a focus, AI engine, and notebook location).
+- **Learn** selects the **Buddy** persona. **Teach** selects **Teaching Buddy**, reveals teaching-oriented empty-state copy, and makes the **Standards** Settings tab discoverable.
 - Default notebook home: **Documents → Buddy** (`~/Documents/Buddy` shape).
 - First notebook after Next: **Inbox**.
 - AI engines in wizard: **ChatGPT** or **Free Models** only.
@@ -183,5 +184,5 @@ Skip onboarding when open notebooks already exist or recovery is needed.
 
 - Do not invent extra wizard steps or Buddy logins.
 - Do not invent free model names; catalog varies.
-- Prefer UI nouns: onboarding, AI Engine, Documents, Inbox, Preferred name.
+- Prefer UI nouns: onboarding, Learn, Teach, AI Engine, Documents, Inbox.
 - Provider detail after setup: `providers.md`. Notebooks / Home / Inbox: `notebooks.md`.

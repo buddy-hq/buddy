@@ -33,6 +33,7 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | --- | --- |
 | What is an agent / tools / skills / MCP / subagents / session / context / providers (complete newbie or fundamentals only) | `references/basics-of-agents.md` |
 | Install, update, channels, download, won’t start, restart, logs, first launch, onboarding | `references/setup.md` |
+| Learn vs Teach, Buddy vs Teaching Buddy | `references/setup.md` |
 | No account, privacy, local data, site claims, permission prompts, Allow once/always | `references/trust.md` |
 | What Buddy can do, layout, sidebar, library rail, Bench docked/floating | `references/workspace.md` |
 | Notebooks, Home, Inbox, Quick Chat, chats, pin/archive, branch, compact | `references/notebooks.md` |
@@ -69,7 +70,7 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | Practice | flashcards and question sets |
 | Boards | whiteboard catalog |
 | Creations | widgets, diagrams, figures, media catalog |
-| Skills | right-rail Skills drawer (Installed / Discover) |
+| Skills | right-rail Skills drawer or Settings → Skills (Installed / Discover) |
 | chat input / composer | user message entry (not a tool) |
 | slash commands | user input |
 

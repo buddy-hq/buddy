@@ -1,5 +1,10 @@
 # Hardening pass reassessment
 
+> **Historical decision record (reassessment 2026-07-14).** This file preserves the
+> ownership and rejection decisions from that pass; it is not a current implementation
+> status or issue tracker. Current open status is in
+> [`docs/reviews/knownissues.md`](../../../../reviews/knownissues.md).
+
 ## Status
 
 Reassessment complete as of 2026-07-14. This is the decision log for the eight commits that were
@@ -8,7 +13,8 @@ accepted merely because it closed an audit checkbox. The surviving Buddy-owned d
 tests, repository lint, and root typecheck; rejected vendor-owned mechanisms are absent.
 
 The task's pre-compaction user text, assistant text, reasoning summaries, file changes, and
-compaction markers are preserved verbatim in [hardening-thread-history.md](hardening-thread-history.md).
+compaction markers were never checked into this repository (`hardening-thread-history.md` does
+not exist at HEAD or in the working tree). The durable decision record is this file.
 
 ## Non-negotiable ownership boundary
 
@@ -229,13 +235,13 @@ global queue until the remaining work has an explicit owner, bounded waiting, an
   no route ever used them. Verified `interaction-actions.ts` is back to its pre-attempt contents and
   the temporary admission file no longer exists. The durable decision remains: no Buddy turn gate;
   keep the vendor-owned race open until there is a vendor-native correction.
-- **2026-07-14:** Exported the complete textual task history available through the Codex history
-  API into `hardening-thread-history.md`: 12 user messages, 39 assistant messages, 48 reasoning-
-  summary items, 25 file-change records, and three compaction markers across four chronological
-  turns. Added the vendor-ownership rule above as a non-negotiable boundary so later compactions
-  cannot reinterpret the rejected session gate as pending implementation. The API exposes concise
-  reasoning summaries rather than a hidden token-by-token stream; the export states that limitation
-  and reproduces every textual item it returned without reconstruction.
+- **2026-07-14:** The complete textual task history available through the Codex history API
+  (12 user messages, 39 assistant messages, 48 reasoning-summary items, 25 file-change records,
+  and three compaction markers) was exported in-session as `hardening-thread-history.md` but **was
+  never committed**. That dump is not in git. The durable decision remains in this file: the
+  vendor-ownership rule is a non-negotiable boundary so later work cannot reinterpret the rejected
+  session gate as pending implementation. The API exposes concise reasoning summaries rather than a
+  hidden token-by-token stream.
 - **2026-07-14:** Removed the global resource build queue and restored parallel selective-PDF
   analysis while retaining extraction budget checks.
 - **2026-07-14:** Kept project-editor atomic compare-and-replace, but moved its cross-process locks

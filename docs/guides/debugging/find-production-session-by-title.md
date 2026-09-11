@@ -570,6 +570,16 @@ The title `120021` resolved to:
 ses_071644b91ffeXLzHVfchEnW96H
 ```
 
-The detailed analysis is recorded in:
+Title `120021` was a silent-stop incident whose durable session ID is above. The
+standalone incident note `session-120021-unknown-finish-silent-stop.md` is not in this
+tree. Do not use [proposed-design.md](../../features/error-handling/proposed-design.md)
+as that write-up; it is a later transcript-error proposal, not the 120021 analysis.
 
-- [Session 120021: unknown provider finishes caused repeated silent stops](../../features/error-handling/session-120021-unknown-finish-silent-stop.md)
+The error-handling authority for unknown/provider finishes, assistant-error
+discriminants, and silent-looking stops is:
+
+- [Transcript errors: historical audit](../../features/error-handling/current-state.md)
+
+Use this runbook's SQL (finish reasons, `step-finish`, durable `event` rows) against
+`ses_071644b91ffeXLzHVfchEnW96H`, then classify with that audit. Verify current UI
+behavior in code; the audit's "Buddy currently" language is dated (see its header).

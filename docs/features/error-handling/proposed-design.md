@@ -1,15 +1,34 @@
-# Transcript errors: proposed design
+# Transcript errors: design record
 
-Status: design proposal
-Author basis: `docs/features/error-handling/current-state.md` audit + current source
-Companion to: the current-state audit (read that first for the "why")
+Status: **design record** with shipped vs unshipped called out below.
+Author basis: dated audit in [`current-state.md`](./current-state.md) plus the current client.
+Companion: read `current-state.md` for **why** `session.error` must not drive idle/dock (historical
+failure). Do not read that file as today's UI.
 
-This document proposes an end-to-end replacement for how Buddy presents retries, turn
-failures, and operational errors. It is opinionated. Where it makes a call you might
-disagree with, that call is flagged in the final section.
+This document still holds the target ladder, copy dictionary, and rejected vendor shortcuts.
+Several phases are **already in the tree**. Present-tense "today the UI is raw red boxes" claims
+below are **pre-redesign (2026-07-22)** unless marked Current.
 
-Every claim about runtime behavior below was checked against the vendored source
-(`vendor/opencode/**`) and the adapter/web layers, not inferred.
+### Shipped in the current tree
+
+- `session.error` → in-app + optional OS notification only (`use-chat-sync.ts`). No idle, no
+  `DirectoryChatState.error` write from that event.
+- `normalizeSessionStatusValue` preserves `status.action` (`session-status.ts`).
+- Retry stages Q/N/P/A: `RETRY_NOTICE_MIN_ATTEMPT = 3`, `RETRY_PERSISTENT_MIN_ATTEMPT = 5`,
+  `retryStage` / `buildRetryStateModel` (`chat-error-model.ts`); `SessionRetryNotice`.
+- Terminal taxonomy + product headlines/actions: `buildAssistantErrorModel`,
+  `createAssistantErrorCardSpec` (`assistant-error-card.tsx`), mounted from
+  `resolveLatestTerminalAssistantError` in `directory-chat-main-pane.tsx`.
+
+### Still unshipped / incomplete
+
+- Full retirement of `DirectoryChatState.error` / `setDirectoryError` operational writers
+  (`chat-actions.ts`, page controller) and a typed operational toast channel (§5.1).
+- Any remaining easel-only copy variants vs live `createAssistantErrorCardSpec` strings.
+- Client-initiated compact-progress chrome if not already on that flow (§5.3).
+
+Every claim about **vendored runtime** publication of `session.error` was checked against
+`vendor/opencode/**` at design time. Client claims must match the files listed above.
 
 ---
 
@@ -48,14 +67,13 @@ unusually long, or repeating). Red is never used for a state the system is activ
 recovering from.
 
 **Principle 2 — One failure appears in exactly one place, in the user's language.**
-Today one terminal failure can render as two or three red boxes, in raw provider/runtime
-text, using schema names like `APIError`. The target: a single, calm, turn-anchored card,
-written in product language, with one obvious next step and the raw text tucked behind
-"Details".
+**Pre-redesign (2026-07-22):** one terminal failure could render as two or three red boxes, in raw
+provider/runtime text, using schema names like `APIError`. **Current:** `session.error` does not
+mirror that failure into a dock; the classified `AssistantErrorCard` is the composer-adjacent
+turn error. Operational `setDirectoryError` writers remain a leftover channel (§5).
 
-The current system violates both. It styles active retries in critical red, and it splits
-one failure across a durable transcript card **and** a shared, untyped composer dock fed by
-an overloaded `session.error` event.
+The 2026-07-22 system violated both: active retries in critical red, and one failure split across
+a durable card **and** a shared dock fed by `session.error`. Do not reintroduce that split.
 
 ---
 
@@ -152,12 +170,12 @@ change. When it happens it should *settle in place* — same column, same width 
 as a new box elsewhere. Stage P's **Stop** and **Switch model** are the user's escape
 hatches precisely because the system will otherwise keep trying forever.
 
-### 3.4 Fix: keep `status.action`
+### 3.4 Current: keep `status.action` (shipped)
 
-`normalizeSessionStatusValue` currently drops `status.action`
-(`packages/web/src/state/session-status.ts`). Preserve it. Stage A depends on it, and it's
-how OpenCode surfaces free-tier / account-rate-limit dialogs. This is a real capability we
-currently throw away.
+`normalizeSessionStatusValue` in `packages/web/src/state/session-status.ts` **preserves**
+`status.action` via `retryActionSchema`. `retryStage` returns `"actionable"` when `action` is
+present. `SessionRetryNotice` renders `RetryActionCard` for that stage. Do not describe this as
+a current drop/bug. The 2026-07-22 client did drop the field; that is historical only.
 
 ---
 
@@ -458,8 +476,8 @@ Countdown ticks are `aria-hidden`; a stable polite summary carries the meaning.
   Never survives the turn.
 - **Terminal card**: derived purely from the stored message error. Durable. Replaced only
   when the turn is re-run / forked. **Never** cleared by `busy`, by another session's
-  activity, or by unrelated loads. (Today the dock is cleared by all three — that goes away
-  with the dock.)
+  activity, or by unrelated loads. (The 2026-07-22 dock was cleared by all three; that dock
+  is no longer fed by `session.error`.)
 - **Toast**: appears on operational failure, auto-expires (≈8s) unless blocking,
   dismissible, deduped within a window.
 - **Compaction progress**: shown **only** while the client is running its own "Compact &
@@ -473,21 +491,19 @@ Countdown ticks are `aria-hidden`; a stable polite summary carries the meaning.
 
 ---
 
-## 10. Copy lock (current → proposed)
+## 10. Copy lock (canonical dictionary + current shipped face)
 
-This is the canonical wording table — the easel's **Copy lock** view renders these same
-rows so the team can sign off on every string in one place. "Today" is what actually renders
-in the current build; "Proposed" is what we're locking. Final wording is still yours to tune,
-but lock the *set* here.
+This is the canonical wording table. The easel's **Copy lock** view was designed to render these
+same rows. **"Pre-redesign"** is the 2026-07-22 undifferentiated card. **"Proposed"** is the locked
+dictionary to preserve. **"Current shipped"** is `createAssistantErrorCardSpec` in
+`assistant-error-card.tsx` (may differ slightly from Proposed; do not treat Proposed as unimplemented).
 
 ### 10.1 Terminal cards
 
-Today, **every** discriminant renders identically: an uppercase **"Assistant error"** label,
-the raw **schema name**, and the **raw provider text** — via `AssistantErrorCard` +
-`formatMessageError`. There is no per-category copy, no headline, no guidance. The lock
-replaces that undifferentiated card with:
+Pre-redesign, **every** discriminant rendered identically: uppercase **"Assistant error"**, the
+raw **schema name**, and **raw provider text**. The lock replaces that with:
 
-| Category | Today (renders now) | Proposed headline | Proposed detail |
+| Category | Pre-redesign (2026-07-22) | Proposed headline | Proposed detail |
 | --- | --- | --- | --- |
 | auth | `Assistant error` · `ProviderAuthError` · *raw 401 text* | This model needs to be connected | Add your {provider} API key to continue. |
 | rate_limit | `Assistant error` · `APIError` · *raw 429 JSON* | You've hit the model's rate limit | Wait a moment, or switch models. |
@@ -501,19 +517,34 @@ replaces that undifferentiated card with:
 | unknown | `Assistant error` · `UnknownError` · *raw / empty* | Something went wrong | Try again. If it keeps happening, copy the details. |
 | aborted | *(card suppressed today, but only sometimes — §4)* | Stopped | *(neutral divider, never red — not an error card)* |
 
+**Current shipped headlines** (`createAssistantErrorCardSpec`; categories from `chat-error-model.ts`
+may be finer-grained than the table: `usage-limit`, `temporarily-unavailable`, `model-unavailable`,
+`access-restricted`, `output-length`):
+
+- auth: "{provider} disconnected" / "Your model provider disconnected"
+- rate-limit: "You've hit the model's rate limit"
+- temporarily-unavailable: "This model is temporarily unavailable"
+- network: "Couldn't reach the model"
+- context: "This conversation is too long for the model"
+- content: "The model stopped this response"
+- format: "The model couldn't return a valid result"
+- output-length: "Response was cut off at the model's length limit"
+- unknown: "Something went wrong"
+
 ### 10.2 Retry (session.status)
 
-| Field | Today | Proposed |
-| --- | --- | --- |
-| headline | raw provider `message`, or `Retrying request` | overloaded → "The model provider is busy." · rate limit → "Hitting the model's rate limit." · network → "Reconnecting to the model." · unknown → "Retrying the request." |
-| persistent stage | *(none — no stage concept today)* | "Still busy — this is taking longer than usual." / "Still rate limited — you can switch models." + **Switch model** / **Stop** |
-| countdown | `Retrying in {n}s. Attempt #{k}.` / `Retrying now. Attempt #{k}.` | `Trying again in {n}s · attempt {k}` |
-| color | **critical red** | **amber / warning** |
+| Field | Pre-redesign (2026-07-22) | Proposed | Current shipped |
+| --- | --- | --- | --- |
+| headline | raw provider `message`, or `Retrying request` | overloaded → "The model provider is busy." · rate limit → "Hitting the model's rate limit." · network → "Reconnecting to the model." · unknown → "Retrying the request." | `buildRetryStateModel` + `SessionRetryNotice`; quiet below attempt 3 |
+| persistent stage | *(none)* | "Still busy…" / Switch model / Stop | `attempt >= 5` → persistent; `status.action` → actionable `RetryActionCard` |
+| countdown | `Retrying in {n}s. Attempt #{k}.` | `Trying again in {n}s · attempt {k}` | countdown from `next` in `SessionRetryNotice` |
+| `status.action` | dropped | Stage A | **preserved** in `normalizeSessionStatusValue` |
 
 ### 10.3 Operational (toast)
 
-Today these strings land in the shared dock as raw text (`readSessionErrorMessage` →
-"An error occurred"). Proposed — typed toasts, keyed by source:
+**Pre-redesign:** these strings landed in the shared dock as raw text (`readSessionErrorMessage` →
+"An error occurred"). **Proposed** typed toasts (still the target; `setDirectoryError` writers
+remain):
 
 - transcript load: "Couldn't load this conversation." / Retry
 - session list: "Couldn't load your sessions." / Retry
@@ -524,7 +555,7 @@ Today these strings land in the shared dock as raw text (`readSessionErrorMessag
 
 ### 10.4 Composer setup hint
 
-Replaces today's raw "No provider available"-style dock string:
+Replaces the pre-redesign raw "No provider available"-style dock string:
 
 - "Connect a model to start chatting →"
 
@@ -534,33 +565,27 @@ Replaces today's raw "No provider available"-style dock string:
 
 Each phase is independently shippable and independently valuable.
 
-**Phase 0 — Foundations.** Build `classifyError` (§6.1). Preserve `status.action` in
-`normalizeSessionStatusValue` (§3.4). No visible change yet.
+**Phase 0 — Foundations.** **Shipped:** `buildAssistantErrorModel` / `retryStage` in
+`chat-error-model.ts`. **Shipped:** preserve `status.action` in `normalizeSessionStatusValue`.
 
-**Phase 1 — Stop the duplication (highest UX win, lowest risk).** `session.error` no longer
-writes the dock, the transcript, or forces idle; it routes to notifications/logging only
-(§6.2). `assistantMessage.error` becomes the sole transcript error source. Result: the
-two/three-red-box screenshots collapse to one card — structurally, so no dedup heuristic is
-needed on the turn-error path.
+**Phase 1 — Stop the duplication.** **Shipped for `session.error`:** that event no longer writes
+the dock, the transcript, or forces idle; it routes to notifications (`use-chat-sync.ts`).
+`assistantMessage.error` is the composer-adjacent card source. **Unshipped:** deleting every
+`setDirectoryError` writer.
 
-**Phase 2 — Retry as recovery.** Implement stages Q/N/P/A (§3); restyle the notice amber;
-source its text from the classifier; render the usage-limit action.
+**Phase 2 — Retry as recovery.** **Shipped:** stages Q/N/P/A and `SessionRetryNotice`.
 
-**Phase 3 — Terminal taxonomy + card.** Rebuild `AssistantErrorCard` with
-headline/detail/actions/Details (§4). Hide schema names. Fix output-length duplication
-(→ truncated note). Fix content-filter tone. Fix the abort-suppresses-a-real-error bug
-(only suppress the card when the turn's *terminal* error is itself abort-like, not when any
-message in the turn was aborted).
+**Phase 3 — Terminal taxonomy + card.** **Shipped:** `createAssistantErrorCardSpec` headlines and
+actions. Remaining copy deltas vs §10.1 Proposed are product polish, not a missing classifier.
 
-**Phase 4 — Operational surface.** Typed toast (§5.1); composer setup hint + inline submit
-error (§5.2); retire `DirectoryChatState.error` as a shared string.
+**Phase 4 — Operational surface.** **Unshipped** as specified: typed toast; composer setup hint;
+retire `DirectoryChatState.error` as a shared string.
 
-**Phase 5 — Recovery states.** Progress for the client-initiated "Compact & continue" flow
-(no passive runtime signal to observe — §5.3) + read-fallback note.
+**Phase 5 — Recovery states.** Compact-and-continue progress and read-fallback note: treat as
+not fully specified here until the client flow is re-audited.
 
-**Phase 6 — Tests.** Rendering matrix (category × tier), dedup, compaction, fallback,
-session switch, escalation thresholds, action wiring, single-announcement. Closes the gaps
-the audit lists under "Existing test coverage".
+**Phase 6 — Tests.** Keep expanding the rendering matrix; do not claim the 2026-07-22 coverage
+gaps are all still open without reading current tests.
 
 Phases 1–3 alone resolve every failure mode in the audit's "Confirmed current-state failure
 modes" list except the ones Phase 4–5 own (mixed-scope dock string, recovery-as-terminal).

@@ -302,14 +302,15 @@ The benchmark harness:
   and runtime version;
 - writes a reusable JSON report.
 
-Benchmark artifacts are retained under:
+Raw JSON reports used to live under `docs/artifacts/benchmarks/`. That tree was deleted in the
+docs cleanup; do not look there for files. The harness contract above still describes how to
+regenerate measurements. Empirical conclusions that remain in force:
 
-```text
-docs/artifacts/benchmarks/
-```
-
-Current measurements show that selective OCR is close to no-OCR and legacy preparation time for
-normal text-bearing educational PDFs, while still recovering text from image-only scanned PDFs.
+- Selective OCR is close to no-OCR and legacy preparation time for normal text-bearing
+  educational PDFs.
+- Selective OCR still recovers text from image-only scanned PDFs.
+- Page-level routing evidence for those conclusions (NCF-SE-2023 vs a fully scanned book) is
+  preserved in [PDF parsing known issues](./known-issues.md).
 
 ## Failure Semantics
 

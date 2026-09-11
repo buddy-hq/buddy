@@ -1,5 +1,12 @@
 # Node Utility Backend Migration Plan
 
+> **Superseded migration plan (2026-06-23).** This document is retained for
+> rationale only; its standalone sidecar/Bun-to-utility migration instructions
+> are not a live implementation plan. The accepted utility-process architecture
+> and current packaging contract live in
+> [utility-process-backend.md](../../architecture/decisions/utility-process-backend.md);
+> see [exit-branch.md](../exit-branch.md) for the branch disposition.
+
 **Created:** Tue Jun 23 2026
 **Purpose:** Move Buddy Desktop toward the vendored Electron backend process model without reimplementing provider, auth, model, or runtime semantics.
 

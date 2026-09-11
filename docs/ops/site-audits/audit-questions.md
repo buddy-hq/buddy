@@ -1,52 +1,19 @@
-# Landing Page Audit — Remaining Questions
+# Landing page audit — remaining product questions
 
-Answer only the nested `Answer:` lines.
+Revalidated 2026-08-30. Earlier unanswered infra questions that now have code answers are recorded here so this file is not a live questionnaire.
 
-- Primary page `<h1>`
-  - Needed: choose which hero audience headline stays as the page `<h1>`.
-  - Options: `learners` or `educators`.
-  - Answer: learners
+## Settled in current sources
 
-- Title tag copy
-  - Current: `Buddy - The Learning Superapp`
-  - Target: 50-60 characters, primary keyword near the start.
-  - Options:
-    - `Buddy - Private Local-First AI Learning Assistant App`
-    - `Buddy - Local-First AI Learning App for Desktop Study`
-    - `Buddy - Private AI Learning App for Mac and Windows`
-    - `Buddy - AI Learning Assistant for Your Desktop Study`
-    - `Buddy - Local-First Learning App for Students and Teachers`
-  - Answer: Agentic Learning Companion for Mac and Windows.
+| Question | Current answer |
+|---|---|
+| Primary page `<h1>` | Learner landing (`index.astro` → `LearnerHero.astro`). Educator hero is a separate landing, not a second `<h1>` on `/`. |
+| Title / description | `content/site.ts` learner SEO fields, passed into `layouts/Landing.astro` → `SeoHead.astro`. |
+| Twitter handles | `meta.twitterHandle` = `@hibuddyai` on site and creator tags. |
+| Organization `sameAs` | `https://x.com/hibuddyai`, YouTube `@hibuddyin`, LinkedIn company URL in `content/site.ts`. |
+| Analytics | PostHog capture endpoint + project token in `Landing.astro` (layout), not a Google Fonts / third-party tag manager. |
+| JSON-LD types | `SoftwareApplication` and `Organization` (not EducationalOrganization). |
 
-- Meta description copy
-  - Current: `A private, local-first desktop learning assistant for students, lifelong learners, and educators.`
-  - Target: 150-160 characters, with a clear call-to-action.
-  - Options:
-    - `Buddy is a private, local-first AI learning assistant for Mac and Windows. Read, study, quiz, and remember with your data on your computer. Download Buddy free.`
-    - `Study with a private AI learning companion that runs on your computer. Bring books, PDFs, notes, and models, then read, quiz, and remember. Try Buddy free.`
-    - `Buddy helps students and educators read, understand, create, quiz, and review with a local-first desktop AI app that keeps learning data private. Download free.`
-    - `Turn books, PDFs, notes, and topics into summaries, games, quizzes, flashcards, and diagrams with a private AI learning app for desktop. Try Buddy free.`
-    - `Learn with a local-first AI desktop app for students and educators. Use your own AI, keep files on your computer, and make study stick. Download Buddy.`
-  - Answer: Learn with a local-first AI desktop app for students and educators. Use your own AI, keep files on your computer, and make study stick. Download Buddy.
+## Still open
 
-- Twitter/X card attribution
-  - Needed: handle for `twitter:site` and `twitter:creator`, or `none`.
-  - Answer:this is my twitter; use however you want https://x.com/prashant_hq
-
-- Organization social URLs
-  - Needed: URLs for `Organization` JSON-LD `sameAs`, or `none` to skip the block.
-  - Answer:
-    - Twitter/X: https://x.com/prashant_hq
-    - GitHub: https://github.com/prashantbhudwal
-    - LinkedIn: https://www.linkedin.com/in/prashantbhudwal/
-    - Other:
-
-- FeatureSteps section heading
-  - Needed: choose how to fix the missing section `<h2>`.
-  - Options: `visible existing headline`, `sr-only existing headline`, or `leave as-is`.
-  - Answer:as is
-
-- Hero mockup animation
-  - Needed: choose whether performance work may change the visible animation.
-  - Options: `gate only, keep same appearance` or `okay to simplify visually`.
-  - Answer:
+- Hero mock animation: gate-only vs visual simplify for INP (see `core-web-vitals-audit.md`).
+- Hosting/DNS/domain ops: not encoded in these sources; keep in launch/ops, not as stale `Landing.astro` line questions.

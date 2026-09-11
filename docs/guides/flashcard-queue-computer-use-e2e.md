@@ -121,7 +121,10 @@ Pass: the agent receives the flashcard deck edit path/context, performs only the
 
 Pass: persisted state survives reload and no flashcard-related fatal/runtime error was emitted.
 
-## Execution record
+## Execution record (historical run 2026-08-09)
+
+This table is a dated Computer Use log (PIDs, object IDs, window title). It is **not** a
+current environment fixture. Durable protocol is the FC-E2E-01–10 cases above.
 
 | ID | Result | Evidence / notes |
 | --- | --- | --- |

@@ -1,10 +1,19 @@
 # LAUNCH-10 — Active content, resource ingestion, Bench, whiteboard, and Obsidian surfaces
 
-Audit date: 2026-07-13
-Pass status: Discovery complete; verification pending
-Baseline: Current workspace, evaluated as a clean release-candidate tree. Unrelated dirty-worktree changes were ignored.
+> **Historical snapshot (audit 2026-07-13, hardening reassessment 2026-07-14).**
+> This is not the live issue tracker and is not a current release-candidate queue.
+> Live open items, including still-reproducing L02 / L03 / L07 / L10 threats, are in
+> [`docs/reviews/knownissues.md`](../../../../reviews/knownissues.md).
+> Threat models and then-open / then-resolved dispositions below are preserved as the
+> launch-audit record. “Verification pending” means the 2026-07 second pass was not
+> completed in this snapshot, not that a live verification queue exists today.
 
-This file records first-pass candidates across renderers, managed HTML widgets, resource ingestion and readers, Bench, whiteboard, and Obsidian integration. A candidate is not a final launch verdict until the verification pass either retains it under **Verified bugs** or moves it to **Rejected after verification**.
+
+Audit date: 2026-07-13
+Pass status (then): Discovery complete; 2026-07 verification pass not completed
+Baseline (then): 2026-07-13 workspace, evaluated as a launch-audit tree. Not a claim about the 2026-08 working tree.
+
+This file records 2026-07-13 first-pass candidates across renderers, widgets, resources, Bench, whiteboard, and Obsidian. It is not a live verdict. Then-open items that still reproduce are tracked in `docs/reviews/knownissues.md`.
 
 ## Candidate bugs
 
@@ -33,7 +42,7 @@ This file records first-pass candidates across renderers, managed HTML widgets, 
 - **Locations:** `packages/web/package.json:53`, `packages/web/src/components/readers/foliate-reader.tsx:932-1045`, `packages/web/src/components/readers/hooks/use-foliate-book.ts:215-270`, `packages/web/node_modules/foliate-js/view.js:30-42`, `packages/web/node_modules/foliate-js/view.js:231-265`, `packages/web/node_modules/foliate-js/epub.js:762-784`, `packages/web/node_modules/foliate-js/epub.js:813-863`, `packages/web/node_modules/foliate-js/paginator.js:242-245`, `packages/web/node_modules/foliate-js/paginator.js:646-664`, `packages/web/node_modules/foliate-js/fixed-layout.js:71-104`
 - **Trigger:** Open a structurally valid EPUB containing an inline script or a manifest JavaScript resource.
 - **Expected:** EPUB markup is passive: scripts are removed or denied before publication content is loaded into a frame that can access the application origin.
-- **Observed in discovery:** Foliate creates content iframes with `sandbox="allow-same-origin allow-scripts"`. Its resource loader defaults JavaScript resources to `allow: true`, and its HTML rewrite explicitly leaves inline scripts untouched. The book exposes a transform/load event that can deny scripts, but Buddy's reader setup does not register such a listener before `open`/`init`; the only current transform listener rewrites CSS data. EPUB content is loaded through creator-origin blob URLs, so the two sandbox flags allow publication script to execute with same-origin parent access.
+- **Observed in discovery:** Foliate creates content iframes with `sandbox="allow-same-origin allow-scripts"`. Its resource loader defaults JavaScript resources to `allow: true`, and its HTML rewrite explicitly leaves inline scripts untouched. The book exposes a transform/load event that can deny scripts, but Buddy's reader setup did not register such a listener before `open`/`init`; the only transform listener observed in that audit rewrote CSS data. EPUB content is loaded through creator-origin blob URLs, so the two sandbox flags allow publication script to execute with same-origin parent access.
 - **Impact:** A malicious ebook can reach the Buddy renderer DOM, `window.parent`, preload-exposed APIs, and authenticated backend requests. It can tamper with the UI or cross from an imported document into host/API authority simply by being opened.
 - **Verification pending:** Build hostile reflowable and fixed-layout EPUB fixtures with inline and external scripts; test parent DOM/preload/API access, sandbox removal/reload, external network requests, navigation/popups, and cleanup on macOS and Windows.
 - **First-pass confidence:** High on the executable path; exact Electron authority reached by a fixture remains to be measured.
@@ -47,7 +56,7 @@ This file records first-pass candidates across renderers, managed HTML widgets, 
 - **Impact:** A local or downloaded resource can exhaust backend memory, CPU, subprocess slots, and disk, hang deletion/shutdown, or make all notebooks unresponsive. Multiple ordinary large imports can produce the same failure without malicious input.
 - **Verification pending:** Exercise declared-size/expanded-size ZIP bombs, huge entry tables, deeply structured documents, oversized text output, parser hangs, many concurrent imports, cancellation, deletion, and shutdown while recording peak RSS/CPU/disk, child PIDs, recovery, and Windows/macOS behavior.
 - **First-pass confidence:** High on missing budgets and cancellation; the smallest launch-blocking fixture remains to be determined.
-- **Reassessment status:** Partially fixed and still open.
+- **Reassessment status (2026-07-14 snapshot):** Partially fixed and then-open.
 - **Retained work:** Source, declared archive expansion, per-entry, aggregate text/page, parser-growth, and chunk ceilings now fail early. The focused resource suite passes.
 - **Why still open:** The ownerless process-global build queue was discarded because one hung parser blocked every resource and notebook. There is still no wall-clock deadline, cooperative parser/subprocess cancellation, trustworthy accounting of actual inflated bytes, justified bounded-concurrency owner, or empirical validation of the 64 MiB source ceiling.
 - **Later work:** Measure real large textbooks and hostile fixtures, then add deadlines and cancellation at the Buddy resource/parser owners. Any concurrency limit must have an explicit resource/notebook owner and bounded waiting; do not restore a module-global promise tail.
@@ -94,7 +103,7 @@ This file records first-pass candidates across renderers, managed HTML widgets, 
 
 ## Verified bugs
 
-Pending second-pass verification.
+Not completed in this snapshot. Do not read this heading as an active queue.
 
 ## Rejected after verification
 

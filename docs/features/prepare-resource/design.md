@@ -22,6 +22,51 @@ Related documents:
 - [PDF parsing known issues](../pdf-parsing/known-issues.md)
 - [Prepare-resource known issues](./known-issues.md)
 - [Minimal hardening plan](./minimal-hardening-plan.md)
+- Chunking constants: `packages/buddy/src/resource-packs/chunking-config.ts`
+- Longer design notes (historical draft, still detailed): [buddy-resource-grounding-design.md](../../learning/library/buddy-resource-grounding-design.md) and [buddy-resource-chunking-strategy.md](../../learning/library/buddy-resource-chunking-strategy.md)
+
+## File packs versus embeddings-first RAG
+
+Buddy prepares opaque or oversized documents into ordinary local files, then lets the agent use `read`, `grep`, `glob`, `bash`, and subagents. Embeddings-first RAG is the wrong default substrate: it adds indexing and invalidation immediately, hides failures behind retrieval scores, does not match the file-and-tool runtime, and is harder for a learner to inspect or override. If semantic retrieval is added later, it should sit **on top of** prepared files, not replace them. Buddy should not add a public `resource_search` / `resource_read` / `resource_list` tool family as the base layer.
+
+## Cross-platform extractors (pure JS)
+
+Native preparation must not depend on OS-packaged PDF or Office toolchains as the default path. Shipped extractors in `packages/buddy` use:
+
+- `pdfjs-dist` (PDF text; system `pdftotext` / `mutool` remain fallbacks when pdfjs throws)
+- `@zip.js/zip.js` plus `fast-xml-parser` (EPUB, PPTX, archives)
+- `mammoth` plus `turndown` (DOCX)
+- `turndown` (HTML)
+
+These are direct dependencies of `packages/buddy`, not accidental transitives.
+
+## Kindle / AZW policy (Calibre)
+
+Buddy does **not** ship a first-party Kindle (AZW / AZW3 / KFX) extractor. There is no `ebook-convert` invocation in `packages/buddy`. Product policy:
+
+- If the learner already has a local converter such as Calibre's `ebook-convert`, the agent may invoke it through `bash` and then run the normal EPUB or HTML pack pipeline.
+- If no such converter exists, mark the format unsupported rather than pretending native support.
+
+Do not distort the default stack for every user to accommodate Kindle.
+
+## Chunking token thresholds versus pack file-count limits
+
+Two different 10,000-scale numbers exist. Do not mix them.
+
+**Token thresholds** (semantic chunk size, shipped in `chunking-config.ts`):
+
+| Unit | Max estimated tokens before split |
+| --- | ---: |
+| Chapter | 20,000 (`RESOURCE_PACK_CHAPTER_MAX_TOKENS`) |
+| Everything else | 10,000 (`RESOURCE_PACK_NON_CHAPTER_MAX_TOKENS`) |
+
+Estimate used for chunking decisions is character-based (`ceil(chars / 4)` plus a non-ASCII safety path in `estimateTokenCountFromText`). Split **inside** an oversized unit; do not shatter a 20,100-token chapter into many 10k pieces. Chapter parts stay near the 20k cap.
+
+**Pack write budgets** (how many files a pack may contain) are separate. The table below lists `Chunk units | 10,000` as a **file-count** ceiling, not a token cap.
+
+**Frontmatter linked list** (written by `packages/buddy/src/resource-packs/chunking.ts`):
+
+Each chunk markdown file carries YAML including `file_kind`, `unit_kind`, `part_key`, `prev_part`, `next_part`, `chars`, `est_tokens`, `threshold_tokens`, and `split_reason`. Pointers live in front matter, not a footer. `file_kind` values include `resource_index`, `toc`, `full_text`, `unit`, `page_window`, `generic_chunk`, and `page`.
 
 ## Product Invariants
 

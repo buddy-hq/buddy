@@ -1,6 +1,16 @@
 # Skill Library Candidates (Teaching/Learning Focus)
 
-This is the initial shortlist of skills to import into Buddy **after verification pass**.
+> **Status:** Pre-audit shortlist. It is not the live import list.
+>
+> Later accept/reject work is [Hermes skill library analysis](./hermes-skill-library-analysis.md)
+> (2026-06-29, pin `9a0010fd469f0de6c7e2146f955ed9980d02b397`). That analysis **rejects**
+> `memento-flashcards` as duplicating Buddy's native flashcards. Current approved catalog entries
+> are `packages/buddy/src/learning/skill-management/service/catalog.json` (Hermes sixteen plus
+> later Anthropic entries such as `xlsx-author` / PPTX / DOCX).
+>
+> Keep the table below as the original evaluation log (criteria, provenance, verification focus).
+
+This was the initial shortlist of skills considered for Buddy **before** the Hermes library audit.
 
 ## Selection criteria
 

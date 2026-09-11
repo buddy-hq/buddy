@@ -1,5 +1,12 @@
 # Buddy Backend Memory Investigation: Provider Catalog Loading
 
+> **Historical investigation (2026-06-22).** This is not a current host-model
+> or provider contract. It records the unshipped provider-catalog/sidecar
+> hypothesis; no provider-demand split, `models=usable` API, or ProviderCatalog
+> implementation shipped. Current process and packaging authority is
+> [utility-process-backend.md](../../architecture/decisions/utility-process-backend.md);
+> branch disposition is [exit-branch.md](../exit-branch.md).
+
 **Date:** Mon Jun 22 2026
 **Machine:** macOS arm64 (developer's Mac)
 **Reported issue:** On Windows, Buddy backend RSS reaches 800–900 MB at idle startup, total process memory ~1 GB. On Mac, idle is ~100 MB. Investigation requested to determine whether eager provider loading is the cause.

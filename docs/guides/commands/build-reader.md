@@ -9,50 +9,79 @@ packages/web/src/components/directory-chat/directory-chat-reading-reader-pane.ts
   -> packages/web/src/components/readers/document-reader.tsx
 ```
 
-`DocumentReader` is the only product-level reader entry point. Do not route a document directly to an engine from a feature or page.
+`DocumentReader` is the single product-level reader entry point. Do not route a document directly to an underlying engine from a feature or page.
 
-## Engine Split
+---
 
-Buddy has one reader interface with format-specific rendering engines:
+## Engine Split & Architecture
 
-- EPUB uses `foliate-js` through `FoliateReader`.
-- PDF uses the exact direct `pdfjs-dist` dependency through `PdfReader` and PDF.js viewer-layer components.
-- Production resource discovery currently admits `.epub` and `.pdf`. Other ebook formats are future routing work, even when Foliate can parse them.
+Buddy provides a unified reader interface with format-specific rendering engines:
 
-Keep product concerns in Buddy-owned reader code:
+- **EPUB:** Uses `foliate-js` via `FoliateReader`.
+- **PDF:** Uses the exact pinned `pdfjs-dist` dependency via `PdfReader` and PDF.js viewer-layer components.
+- Production resource discovery currently admits `.epub` and `.pdf`.
 
-- toolbar, popovers, panels, dialogs, preferences, and help
-- versioned document state
-- bookmarks, annotations, and search result view models
-- selection-to-chat staging and removal
-- active reading state and prompt context
+### Ownership Boundaries
 
-Keep engine concerns behind the adapter:
+- **Product Concerns (Buddy-owned):** Toolbar, popovers, panels, dialogs, preferences, help, versioned document state, bookmarks, annotations, search result view models, selection-to-chat staging, active reading prompt context.
+- **Engine Concerns (Behind Adapter):** Rendering, teardown, format-specific navigation, text selection extraction, search execution, highlight overlays, geometry calculations, location events, display modes.
 
-- rendering and teardown
-- format-specific navigation
-- text selection extraction
-- search execution and match highlighting
-- annotation overlay geometry
-- location events and display modes
+---
 
-## Contracts and Persistence
+## License Boundary & Upstream Foliate Integration
 
-Shared persisted and cross-package anchor types live in:
+- **License Boundary:**
+  - The `foliate` desktop app repository is **GPL**.
+  - The `foliate-js` repository is **MIT**.
+  - The `PDF.js` assets used by `foliate-js` are **Apache 2.0**.
+  - Buddy must **never** copy GPL implementation code from the Foliate app into Buddy-owned packages. It is fully acceptable to use `foliate-js` directly as an MIT package dependency.
+- **Dependency Pinning:**
+  - The published `foliate-js@1.0.1` npm package omitted bundled `pdf.js` assets and failed with `UnsupportedTypeError` when opening PDFs.
+  - Buddy pins `packages/web` directly to the known-good upstream source commit used by the official Foliate desktop submodule:
+    `github:johnfactotum/foliate-js#399248a67a8862ffb5e6463a33f9d52b317ca2eb`
+
+---
+
+## Vite & Runtime Integration Gotchas
+
+1. **Vite Cache Invalidation:**
+   - After updating the `foliate-js` dependency pin, Electron/Vite may serve stale prebundled output from `packages/desktop-electron/node_modules/.vite`.
+   - If runtime behavior diverges from the source pin, clear generated `.vite` caches and restart the application.
+2. **`optimizeDeps` Exclusions:**
+   - Vite dependency optimization can incorrectly prebundle PDF.js modules inside `foliate-js`.
+   - Buddy explicitly excludes `foliate-js/view.js`, `foliate-js/pdf.js`, and `foliate-js/vendor/pdfjs/pdf.mjs` from `optimizeDeps` so the renderer loads source modules directly.
+3. **Asset Resolution & Glob Import Prevention:**
+   - Upstream `foliate-js/pdf.js` uses `new URL(\`vendor/pdfjs/\${path}\`, import.meta.url)`. Vite interprets template literals in `new URL()` as glob imports, dragging `.mjs.map` files into the module graph as `?import&url` (served as `application/json`), breaking browser module evaluation.
+   - Buddy transforms this at the Vite layer into `new URL("./vendor/pdfjs/" + path, import.meta.url)`, preserving runtime-relative asset resolution while bypassing the glob transform.
+4. **Runtime Compatibility & Teardown Shims:**
+   - **`Map.prototype.getOrInsertComputed`:** Foliate/PDF.js relies on this nonstandard helper. Buddy installs this shim in the runtime before importing `foliate-js/view.js`.
+   - **Paginator Null Guard:** In `foliate-js/paginator.js`, `requestAnimationFrame` callbacks can execute after view teardown. Buddy guards `this.#view?.document` to prevent `Cannot read properties of null (reading 'document')` exceptions on fast view cleanup.
+
+---
+
+## Contracts & Persistence
+
+Shared persisted reader types live in:
 
 ```txt
 packages/reader-contract/src/index.ts
 ```
 
-Use discriminated `ReaderPositionAnchor` and `ReaderTextAnchor` values throughout shared code. EPUB uses CFI anchors. PDF uses page/ratio position anchors and crop-relative canonical PDF text quads. Never encode a PDF location or selection as a fake CFI.
+- Use discriminated `ReaderPositionAnchor` and `ReaderTextAnchor` values across all reader code.
+- **EPUB:** Uses CFI anchors.
+- **PDF:** Uses page/ratio position anchors and crop-relative canonical PDF text quads. **Never encode a PDF location or selection as a synthetic CFI.**
+- Text geometry for PDF is stored in unrotated user space relative to the page crop box. Convert through the active page viewport at boundary edges. Never persist DOM pixels, current zoom scale, or rotation.
 
-Reader v2 preferences and per-document state live behind the repository in:
+Reader preferences and per-document state live in:
 
 ```txt
 packages/web/src/components/readers/reader-storage.ts
 ```
 
-New writes use the v2 neutral schema. Legacy CFI data is an inbound migration concern only. PDF state must be associated with a stable source id and a PDF fingerprint when available so changed bytes do not silently inherit stale geometry.
+- All new writes use the v2 neutral schema.
+- Associate PDF state with a stable source ID and PDF fingerprint so byte changes never inherit stale geometry.
+
+---
 
 ## PDF.js Runtime
 
@@ -63,30 +92,16 @@ packages/web/src/components/readers/pdf/pdfjs-runtime.ts
 packages/web/scripts/create-pdfjs-vite-plugin.ts
 ```
 
-Do not add a CDN, iframe, stock PDF.js application shell, or an independently versioned worker. API and worker versions must match. The Vite integration owns worker, CMaps, standard fonts, WASM, ICC profiles, viewer images, compatibility transforms, and scoped viewer CSS for Vite and packaged Electron.
+- Do not add CDNs, iframes, stock PDF.js viewer shells, or independently versioned workers. API and worker versions must match.
+- `PDFViewer` owns a single two-axis scroll container. Do not split continuous vertical scrolling, zoomed horizontal panning, and canvas virtualization across nested scroll owners.
 
-`PDFViewer` owns one two-axis scroll container. Continuous vertical reading, zoomed horizontal panning, render prioritization, and canvas retention must not be split across nested scroll owners or a second virtualization system without profiling evidence.
+---
 
-PDF text geometry is persisted in unrotated PDF user space relative to the crop box. Convert through the active page viewport at the boundary and add the crop origin only when rendering. DOM pixels, current scale, and current rotation are never persisted.
+## Workflow & Verification
 
-## References
-
-- Foliate engine API reference: `~/code/foliate-js`
-- Foliate behavior/UI reference: `~/code/foliate`
-- Foliate integration incident guide: `docs/features/reader/foliate-gotchas.md`
-- PDF.js API/viewer reference: the pinned `packages/web/node_modules/pdfjs-dist` source and official PDF.js documentation
-- Long-term decision, baseline matrix, risks, and gates: `docs/features/reader/pdf-long-term.md`
-
-Buddy may use `foliate-js` but must not copy GPL Foliate app source. Build shared UI with Buddy components and tokens, using the references for behavior rather than visual source copying.
-
-## Workflow
-
-1. Identify whether the change is product-shell behavior or engine behavior.
-2. Inspect the relevant upstream/reference implementation and Buddy's existing neutral contract.
-3. Extend a shared type or module before duplicating logic in an engine.
-4. Keep format-specific modes discriminated; do not force EPUB typography settings onto PDF or PDF layouts onto EPUB.
-5. Add runtime tests for observable behavior, persistence boundaries, cancellation, or geometry; do not test what TypeScript already guarantees.
-6. Verify only changed-package tests, then run repository `bun lint` and one root `bun typecheck` for completion.
-7. For PDF changes, verify continuous layout, fit modes, numeric zoom, horizontal panning, rotation, selection/annotations, search, rapid source replacement, and bounded rendered canvases.
-
-Use `.agents/skills/buddy-frontend` for Buddy frontend architecture and interaction guidance. Use the shadcn/Buddy UI skill when composing shared reader controls.
+1. Determine whether a change affects product-shell behavior or engine-adapter behavior.
+2. Extend shared types in `packages/reader-contract` before adding engine-specific abstractions.
+3. Keep format-specific modes discriminated; do not leak EPUB typography concepts into PDF or PDF coordinate logic into EPUB.
+4. Add runtime tests for observable behavior, persistence serialization, cancellation, and quad geometry.
+5. For PDF changes, manually verify continuous layout, fit modes, numeric zoom, horizontal panning, page rotation, selection/annotations, search match jumping, rapid document switching, and memory canvas disposal.
+6. Use `.agents/skills/buddy-frontend` for frontend component standards and design token usage.

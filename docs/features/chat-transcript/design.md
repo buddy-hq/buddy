@@ -16,11 +16,14 @@ Date: 2026-06-28. Revised 2026-08-12 to match the code.
 
 ## Reference lock
 
-For this feature, the implementation reference is the current standalone OpenCode checkout:
+Dated investigation constraint (2026-06-28 / 2026-08-12): that pass compared Buddy against a
+maintainer-local standalone OpenCode checkout (not this repository's `vendor/opencode`
+tree). That comparison evidence still stands as a 2026-06-28 / 2026-08-12 snapshot.
 
-`/Users/prashantbhudwal/code/opencode`
-
-Do not use `vendor/opencode` as the reference for this pass. Buddy should follow current OpenCode transcript patterns unless Buddy has an explicit product or architecture reason to diverge.
+That checkout is **not** a current procedure. Current reference material is
+`vendor/opencode`. Buddy-owned transcript behavior lives in `packages/web`. Follow current
+OpenCode transcript patterns unless Buddy has an explicit product or architecture reason to
+diverge.
 
 ## Goal
 
@@ -60,12 +63,15 @@ Primary files:
 - `packages/web/src/components/chat/tools/render/*`
   - Tool/card/object renderers for Mermaid, figures, media, HTML widgets, task cards, question sets, and other Buddy-specific inline artifacts.
 
-Reference OpenCode files:
+Current OpenCode counterparts in this repo (`vendor/opencode`):
 
-- `/Users/prashantbhudwal/code/opencode/packages/app/src/context/server-sdk.tsx`
-- `/Users/prashantbhudwal/code/opencode/packages/app/src/pages/session/timeline/`
-- `/Users/prashantbhudwal/code/opencode/packages/ui/src/hooks/create-auto-scroll.tsx`
-- `/Users/prashantbhudwal/code/opencode/packages/session-ui/src/components/markdown*`
+- `vendor/opencode/packages/app/src/context/server-sdk.tsx`
+- `vendor/opencode/packages/app/src/pages/session/timeline/`
+- `vendor/opencode/packages/ui/src/hooks/create-auto-scroll.tsx`
+- `vendor/opencode/packages/session-ui/src/components/markdown*`
+
+The 2026-06-28 / 2026-08-12 investigation compared the same relative package paths in a
+standalone OpenCode clone, not `vendor/opencode`. Use the vendor paths above for current work.
 
 ## End-to-end data flow
 
@@ -110,6 +116,22 @@ It still owns navigation and directory-level UI state:
 - directory errors/loading state
 
 `useChatSync` still updates this store for non-transcript UI state and compatibility behavior.
+
+### Query, Router, and Zustand boundary (current)
+
+- Keep one app-level `QueryClient` in router context (`packages/web/src/app.tsx`).
+- Route-critical request/response data belongs in route `loader`s using
+  `context.queryClient.ensureQueryData(queryOptions(...))`; components reuse
+  the same query options.
+- Use `useQuery` for non-blocking reads and invalidate or update affected
+  queries explicitly after mutations; do not introduce ad hoc caches.
+- TanStack Query owns request/response server state.
+- Zustand plus the `chat-sync` event stream and transcript repository owns live
+  chat/transcript state, optimistic editor state, and local UI state.
+- Keep session create/send/abort and incremental transcript patching out of
+  Query.
+- Do not add `@tanstack/react-router-ssr-query`: this surface is a Vite SPA and
+  Electron app, not an SSR router.
 
 ### Transcript repository
 
@@ -445,7 +467,8 @@ Reasoning summaries are not just debug text. Buddy’s expected UX includes comp
 
 ## Known open issues
 
-The first two of the original P1 Markdown findings are resolved. Still open:
+The first two of the original P1 Markdown findings are resolved. The following were still
+open as of 2026-06-28 and have not been re-verified in this documentation pass:
 
 - Mermaid segmentation remounts prior Markdown when the first Mermaid fence
   completes.

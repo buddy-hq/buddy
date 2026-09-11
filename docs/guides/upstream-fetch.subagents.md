@@ -6,10 +6,10 @@ This is the biggest/longest chunk and safest to isolate. Give one worker ownersh
 Step 8 (Post-sync validation commands in real workspace)
 A worker can run the 4 required checks and return pass/fail + key output.
 
-Step 9 (Vendor cleanliness verification)
+Step 10 (Vendor cleanliness verification)
 Good delegation target for compare commands and drift report.
 
-Step 12 (Vendor delta + Buddy unlocks summary writing)
+Step 14 (Vendor delta + Buddy unlocks summary writing)
 Exactly what you asked the subagent to do; perfect sidecar task.
 
 Optional parallel sidecar during Step 3
@@ -20,7 +20,10 @@ Parts that should stay in the main agent (not delegated):
 Step 6 (Apply validated changes to real tree)
 Critical-path, high-risk write operation.
 
-Step 11/13 (Commit + push with vendor guard handling)
+Step 12 (Human review / stop-go decision)
+The orchestrator must summarize evidence and ask whether the sync is ready to commit before Step 13.
+
+Step 13 (Commit + push with vendor guard handling)
 Needs tight control of staging scope and hook bypass env usage.
 
 Final decision points and stop/go gates

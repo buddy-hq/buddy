@@ -2,12 +2,14 @@
 
 This guide explains how the current Buddy prompt pipeline is organized, what each layer owns, and where to make changes.
 
+Stacking, cache-prefix rules, and FCI placement also live in `packages/buddy/src/learning/prompt/AGENTS.md`. This file is the authoring/debugging map.
+
 ## Goal
 
 The prompt system is split into three Buddy-owned layers:
 
 1. persona prompt
-2. per-turn system context
+2. per-turn system context (`<buddy_runtime_context>`)
 3. per-turn user prelude
 
 Those layers are assembled by one Buddy entrypoint:
@@ -31,79 +33,74 @@ If you keep those boundaries clean, the pipeline stays understandable.
 Files:
 
 - `packages/buddy/src/learning/personas/prompts/*.p.md`
+- `packages/buddy/src/learning/personas/prompts/render-persona-prompt.ts`
 - `packages/buddy/src/learning/personas/*.ts`
 - `packages/buddy/src/learning/personas/wiring/define-buddy-persona.ts`
 - `packages/buddy/src/learning/personas/wiring/persona.orchestration.ts`
 
 What happens:
 
-- `base.p.md` and the persona-specific prompt are merged in `define-buddy-persona.ts`.
-- The merged result becomes the runtime agent prompt.
+- Persona documents are composed with `renderBuddyPersonaPrompt(...)` (section includes under `prompts/sections/`).
+- `defineBuddyPersona` stores the resulting string on `runtime.prompt`.
+- That string becomes the OpenCode agent prompt.
 
-This is the agent-level instruction layer.
+This is the agent-level instruction layer. There is no `base.p.md` merge inside `define-buddy-persona.ts`.
 
 ### 2. Buddy Prompt Compiler
 
 Files:
 
 - `packages/buddy/src/learning/prompt/buddy-prompt-compiler.ts`
-- `packages/buddy/src/learning/prompt/resolve-buddy-prompt-context.ts`
-- `packages/buddy/src/learning/prompt/contracts.ts`
+- `packages/buddy/src/learning/prompt/context.ts` (`PromptContext`, `createPromptContext`)
 
 What happens:
 
-- `resolve-buddy-prompt-context.ts` gathers the Buddy-owned runtime inputs for one turn.
-- `buildBuddyPromptEnvelope(ctx)` receives all Buddy runtime inputs for one turn.
-- It returns:
+- `createPromptContext` gathers Buddy-owned runtime inputs for one turn.
+- `buildBuddyPromptEnvelope(input)` returns:
   - `systemContext`
   - `userPreludeParts`
   - `changedSinceCheckpoint`
+  - turn-context delivery fingerprints
+  - optional `deliveredLearnerContext`
 
 This is the only Buddy public entrypoint for turn-level prompt assembly.
 
+These files do **not** exist: `resolve-buddy-prompt-context.ts`, `contracts.ts`.
+
 ### 3. System Context
 
-File:
+Directory:
 
-- `packages/buddy/src/learning/prompt/runtime-context.ts`
+- `packages/buddy/src/learning/prompt/runtime-context/` (`buildBuddyRuntimeContext` in `index.ts`)
 
 What it owns:
 
-- `<buddy_runtime_context>`
+- `<buddy_runtime_context>` wrapping the rendered sections
 
-Current runtime sections:
+Shipped section modules (see `RUNTIME_SECTIONS` in `runtime-context/index.ts`):
 
+- feature instructions
 - `<workspace_state>`
-- `<model_limits>` when model info exists
-- `<calculator_runtime>` when `python_calculator` is allowed
-- `<notebook_resources>`
-- `<active_reading_resource>` when reading context exists
-- `<learner_state>`
-- `<learner_progress>`
-- `<learner_feedback>`
-- `<teaching_policy>` when the persona has editor surface access
-- `<teaching_workspace>` when an interactive teaching workspace is active
+- `<model_limits>`
+- `<personalization>`
+- `<calculator_runtime>` when the calculator path is in play
+- `<active_reading_resource>` / `<notebook_resources>` / `<about_resources>`
+- teaching policy / `<teaching_workspace>` when editor/workspace context applies
 
-Use this file when you need to change structured runtime context.
+Learner state/progress/feedback templates still exist under `runtime-context/learner-context/`, but turn-time learner delivery is decided in the compiler and emitted with the prelude, not as a duplicate runtime-context dump. Follow `AGENTS.md` for FCI vs prefix placement.
 
 ### 4. User Prelude
 
-File:
+Directory:
 
-- `packages/buddy/src/learning/prompt/user-prelude.ts`
+- `packages/buddy/src/learning/prompt/user-prelude/` (`buildBuddyUserPrelude` in `index.ts`)
 
 What it owns:
 
 - short synthetic reminder text inserted ahead of the user-authored parts
-
-Current reminder types:
-
-- teaching focus switch
-- persona switch
-- workspace switch
-- unaccepted checkpoint changes
-
-Use this file when you need to change short transition or reminder text.
+- reading / teaching / bench turn-context blocks and unchanged refs
+- checkpoint and learner-memory reminders
+- concise-response / turn-transition reminders
 
 ### 5. Request Transform
 
@@ -115,11 +112,15 @@ What it owns:
 
 - normalize prompt parts
 - resolve target agent
-- call `resolve-buddy-prompt-context.ts`
-- call the compiler
+- call `createPromptContext` then the compiler
 - write transformed request fields
 
-It should not own prompt content policy beyond wiring.
+HTTP/orchestration wiring also includes:
+
+- `packages/buddy/src/session/orchestration/interaction-actions.ts`
+- `packages/buddy/src/learning/agent-execution/transforms/message-transform-orchestration.ts`
+
+The pipeline should not own prompt content policy beyond wiring.
 
 ### 6. Vendor Merge
 
@@ -140,49 +141,21 @@ The Buddy user prelude stays in the conversation as user message content.
 
 ### Change persona behavior
 
-Edit:
-
-- `packages/buddy/src/learning/personas/prompts/base.p.md`
-- `packages/buddy/src/learning/personas/prompts/<persona>.p.md`
+Edit persona prompt documents and `render-persona-prompt.ts`, then the persona module's `runtime.prompt`. See [persona-authoring-guide-v2.md](./persona-authoring-guide-v2.md).
 
 Do not edit the prompt pipeline for persona-only behavior.
 
 ### Change structured runtime context
 
-Edit:
-
-- `packages/buddy/src/learning/prompt/runtime-context.ts`
-
-Examples:
-
-- add a new runtime XML block
-- change learner/resource/model context wording
-- change when teaching policy is included
+Edit the matching module under `packages/buddy/src/learning/prompt/runtime-context/` and `index.t.md` if the wrapper changes.
 
 ### Change transient turn reminders
 
-Edit:
-
-- `packages/buddy/src/learning/prompt/user-prelude.ts`
-
-Examples:
-
-- change switch messaging
-- add a new reminder based on turn transitions
-- remove noisy reminder text
+Edit `packages/buddy/src/learning/prompt/user-prelude/`.
 
 ### Change what data is available to prompt assembly
 
-Edit:
-
-- `packages/buddy/src/learning/prompt/contracts.ts`
-- `packages/buddy/src/learning/prompt/resolve-buddy-prompt-context.ts`
-
-Examples:
-
-- new context field
-- new resolved runtime input
-- new model/resource/session metadata
+Edit `packages/buddy/src/learning/prompt/context.ts` (and callers of `createPromptContext`).
 
 ### Change final vendor system merge
 
@@ -196,22 +169,19 @@ This should be rare. Most Buddy prompt changes should stay in Buddy-owned files.
 
 ### Add a new system context block
 
-1. Add the data to `BuddyPromptBuildContext` if needed.
-2. Resolve that data in `resolve-buddy-prompt-context.ts`.
-3. Render the block in `runtime-context.ts`.
-4. Update `prompt-pipeline.md` if the shape changed.
+1. Add the data to `PromptContext` in `context.ts` if needed.
+2. Resolve that data in `createPromptContext`.
+3. Add a section module under `runtime-context/` and register it in `RUNTIME_SECTIONS`.
 
 ### Add a new reminder
 
-1. Add the condition in `user-prelude.ts`.
+1. Add the condition in `user-prelude/`.
 2. Keep it short.
 3. Do not move durable runtime policy into user prelude.
 
 ### Add a new persona
 
-1. Add prompt file under `personas/prompts/`.
-2. Add persona definition under `personas/`.
-3. Register it in `registered-personas.ts`.
+Follow [persona-authoring-guide-v2.md](./persona-authoring-guide-v2.md). There is no `registered-personas.ts`.
 
 The prompt pipeline should not need changes for a normal new persona.
 
@@ -220,7 +190,7 @@ The prompt pipeline should not need changes for a normal new persona.
 When something looks wrong, ask these in order:
 
 1. Is this supposed to be persona prompt, system context, or user prelude?
-2. Is the data missing from `message-prompt-pipeline.ts`, or only rendered incorrectly?
+2. Is the data missing from `createPromptContext` / `message-prompt-pipeline.ts`, or only rendered incorrectly?
 3. Is the issue Buddy-owned, or is it in vendor final merge?
 
 Fast mapping:
@@ -234,9 +204,9 @@ Fast mapping:
 
 - `buddy-prompt-compiler.ts` is the only Buddy public prompt assembly entrypoint.
 - `message-prompt-pipeline.ts` orchestrates; it should not become a prompt-content dump.
-- `resolve-buddy-prompt-context.ts` gathers Buddy runtime inputs; keep data resolution there.
+- `context.ts` / `createPromptContext` gathers Buddy runtime inputs; keep data resolution there.
 - Persona prompts own durable behavior.
-- Runtime context owns structured state.
-- User prelude owns short transient reminders.
+- Runtime context owns structured state that is safe for the cache prefix.
+- User prelude owns short transient reminders and change-only turn context.
 
 If a change breaks those rules, the architecture is drifting again.

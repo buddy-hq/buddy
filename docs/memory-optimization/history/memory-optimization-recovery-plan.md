@@ -1,13 +1,20 @@
 # Memory Optimization Recovery Plan
 
+> **Superseded recovery plan (2026-06-23).** This is historical rationale, not
+> a live implementation plan. The provider-demand split and `models=usable`
+> path described here did not ship; do not treat its sidecar/provider-split
+> prescriptions as current. Current process and packaging authority is
+> [utility-process-backend.md](../../architecture/decisions/utility-process-backend.md);
+> branch disposition is [exit-branch.md](../exit-branch.md).
+
 **Created:** Tue Jun 23 2026
 **Purpose:** Reset the memory optimization work onto a maintainable path after the first branch mixed useful startup optimizations with fragile provider reimplementation.
 
 ## Context Recovery
 
-- After any context summarization or compaction, read this entire plan before continuing work.
-- Also read `docs/memory-optimization/memory-optimization-log.md`, `docs/memory-optimization/memory-startup-recovery-worktree-review.md`, and `docs/memory-optimization/memory-fix-invariants.md` before continuing memory/provider work.
-- Do not continue from summarized memory of this plan. Use the recorded files as the source of truth.
+- After any context summarization, read [utility-process-backend.md](../../architecture/decisions/utility-process-backend.md) and [exit-branch.md](../exit-branch.md) before continuing memory/provider work.
+- Dated notes in this folder: [memory-startup-recovery-worktree-review.md](./memory-startup-recovery-worktree-review.md), [memory-fix-invariants.md](./memory-fix-invariants.md). Do not restore `docs/memory-optimization/memory-optimization-log.md` from git.
+- Do not continue from summarized memory of this plan as if the sidecar host or the unshipped provider split were current.
 
 ## Problem Statement
 

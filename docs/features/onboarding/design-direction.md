@@ -1,7 +1,12 @@
 # Buddy Onboarding — Design Direction
 
-> Early-phase direction. No concrete values, no implementation detail.
-> The goal is to align on feeling and intent before any pixel or code decision.
+> **Status:** Historical UX exploration. It is not the current onboarding contract.
+>
+> Locked product decisions live in [`design.md`](./design.md): setup-first screens (provider, then skippable personalization), default Buddy Home on the happy path (folder picker only on recovery), and structured profile fields in global config — not first-conversation data collection.
+>
+> Options A/B/C below record a competitive teardown and feeling debate. **Option A is not what shipped.** Keep the Linear / Raycast / Arc takeaways as research; do not treat the option pick as an open product choice.
+
+---
 
 ---
 

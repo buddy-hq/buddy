@@ -19,11 +19,11 @@ Not app install (`setup.md`), MCP (MCP below), optional runtimes (Packages below
 
 A skill is a package of workflow instructions Buddy loads on demand. Not a separate app, provider, or MCP server.
 
-**UI:** Skills drawer on the **right workspace rail** (not the left sidebar).
+**UI:** Skills has two separate entry points: the **right workspace rail** drawer inside a notebook and **Settings → Skills** on the full Settings page. Both expose the catalog; Settings also holds external skill discovery.
 
 ### Open Skills
 
-1. Right workspace rail → **Skills** (near Files / Notebook Instructions; separator before it).
+1. Right workspace rail → **Skills** (near Files / Notebook Instructions; separator before it), or Settings → **Skills**.
 2. Tabs:
    - **Installed** — skills already on this machine (built-in / curated / custom / detected). Active On/Off per skill.
    - **Discover** — Buddy-approved catalog; Install / Update.
@@ -74,7 +74,7 @@ Settings → **Skills** → **Skill discovery** → discover external skills (e.
 - **Name collisions** key off skill **name** globally.
 - **No reachable “New skill” control** in the current Skills UI — do not invent one.
 - Some built-in skills may be hidden from Buddy’s list.
-- Skills lives on the **right rail**, not left sidebar or Settings.
+- The notebook Skills drawer is on the **right rail**, not the left sidebar. **Settings → Skills** is a separate full-page surface.
 
 ### Related
 
@@ -190,4 +190,3 @@ Package can stay installed while individual standards items are toggled off.
 - **Install error:** row shows error text; need network unless local assets already present.
 - **App update while package enabled:** may auto-repair in background.
 - Do not invent curriculum inventory lists the UI does not promise.
-

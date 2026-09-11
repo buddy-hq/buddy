@@ -1,10 +1,19 @@
 # LAUNCH-08 — Advanced-math and standards execution/data runtimes
 
-Audit date: 2026-07-13
-Pass status: Discovery complete; verification pending
-Baseline: Current workspace, evaluated as a clean release-candidate tree. Unrelated dirty-worktree changes were ignored.
+> **Historical snapshot (audit 2026-07-13, hardening reassessment 2026-07-14).**
+> This is not the live issue tracker and is not a current release-candidate queue.
+> Live open items, including still-reproducing L02 / L03 / L07 / L10 threats, are in
+> [`docs/reviews/knownissues.md`](../../../../reviews/knownissues.md).
+> Threat models and then-open / then-resolved dispositions below are preserved as the
+> launch-audit record. “Verification pending” means the 2026-07 second pass was not
+> completed in this snapshot, not that a live verification queue exists today.
 
-This file records first-pass candidates. A candidate is not a final launch verdict until the verification pass either retains it under **Verified bugs** or moves it to **Rejected after verification**.
+
+Audit date: 2026-07-13
+Pass status (then): Discovery complete; 2026-07 verification pass not completed
+Baseline (then): 2026-07-13 workspace, evaluated as a launch-audit tree. Not a claim about the 2026-08 working tree.
+
+This file records 2026-07-13 first-pass candidates. It is not a live verdict. Then-open items that still reproduce are tracked in `docs/reviews/knownissues.md`.
 
 ## Candidate bugs
 
@@ -36,7 +45,7 @@ This file records first-pass candidates. A candidate is not a final launch verdi
 - **Observed in discovery:** Buddy fetches the advanced-math executable ZIP and its SHA-256 file from the same origin, then executes the extracted binary. Standards likewise trusts an archive, checksum, and manifest from that origin. The release workflow publishes checksum files but no runtime signature or app-rooted digest consumed by these services.
 - **Impact:** Control of the asset origin is sufficient to gain same-user native code execution through the advanced-math install path; a replaced standards database also reaches SQLite's native parser and model-visible data.
 - **Verification pending:** Trace the production release asset set and signing procedure end to end, substitute a locally served bundle with a matching replacement checksum, and confirm whether any unseen signed parent manifest rejects it.
-- **First-pass confidence:** High on current consumer and workflow wiring.
+- **First-pass confidence:** High on the consumer and workflow wiring observed in the July 2026 audit.
 
 ### L08-C04 — P1/P2 — Runtime downloads and extraction have no trustworthy resource or containment limits
 
@@ -85,12 +94,12 @@ This file records first-pass candidates. A candidate is not a final launch verdi
 - **Expected:** Installation self-check imports every promised library and executes a minimal calculation and artifact round trip before replacing the working runtime.
 - **Observed in discovery:** The self-check writes a fixed success line and returns zero. It never imports the supported libraries, parses a request, executes code, or creates a plot, yet a zero exit marks the staged bundle healthy.
 - **Impact:** Buddy can discard a working runtime and advertise the replacement as ready even though the first real calculator call fails for common supported work.
-- **Verification pending:** Build fixture executables/packages with missing library/data/plot dependencies that still implement the current self-check and confirm installation reaches `ready` before a representative calculation fails.
+- **Verification pending:** Build fixture executables/packages with missing library/data/plot dependencies that still implement the then-current self-check and confirm installation reaches `ready` before a representative calculation fails.
 - **First-pass confidence:** High.
 
 ## Verified bugs
 
-Pending second-pass verification.
+Not completed in this snapshot. Do not read this heading as an active queue.
 
 ## Rejected after verification
 

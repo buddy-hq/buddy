@@ -87,10 +87,12 @@ Expected body:
 
 Most Buddy routes are directory-scoped.
 
-Use a real absolute directory and URL-encode it:
+Set `DIRECTORY` to the absolute path of the **notebook under test**, then URL-encode it.
+The snippets fail if it is unset. Do not hardcode another clone. Use `DIRECTORY="$PWD"`
+only when the current working directory is that notebook.
 
 ```bash
-DIRECTORY='/Users/prashantbhudwal/Code/buddy'
+: "${DIRECTORY:?Set DIRECTORY to the absolute notebook path to smoke}"
 DIRECTORY_Q=$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$DIRECTORY")
 ```
 
@@ -141,7 +143,7 @@ present in one environment and fail in another.
 ## Create a fresh session
 
 ```bash
-DIRECTORY='/Users/prashantbhudwal/Code/buddy'
+: "${DIRECTORY:?Set DIRECTORY to the absolute notebook path to smoke}"
 DIRECTORY_Q=$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$DIRECTORY")
 
 CREATE_RESPONSE=$(curl -sS -X POST \
@@ -326,7 +328,7 @@ their feature is in scope:
   save a one-card deck. The main chat renders the saved object from task
   metadata, so verify the `task` flow completes, the new `flashcard-deck`
   object appears in the managed object index, then verify `queued-cards` and
-  `reviews`. See [Flashcards](../learning/library/flashcards.md) for the
+  `reviews`. See [Flashcards](../features/flashcards/decisions.md) for the
   scheduler contract.
 - `render_figure`: prompt for a small geometry spec and verify the SVG raw
   route.
@@ -513,8 +515,8 @@ Success criteria:
 If load succeeds but the dynamic tool is still unavailable in the same run,
 inspect:
 
-- [packages/opencode-adapter/src/session-live.ts](/Users/prashantbhudwal/Code/buddy/packages/opencode-adapter/src/session-live.ts)
-- [packages/opencode-adapter/docs/dynamic-tools.md](/Users/prashantbhudwal/Code/buddy/packages/opencode-adapter/docs/dynamic-tools.md)
+- [packages/opencode-adapter/src/session-live.ts](../../packages/opencode-adapter/src/session-live.ts)
+- [packages/opencode-adapter/docs/dynamic-tools.md](../../packages/opencode-adapter/docs/dynamic-tools.md)
 
 ## Project route smoke
 
