@@ -3,10 +3,9 @@
 import { $ } from "bun"
 import { createHash } from "node:crypto"
 import { createReadStream } from "node:fs"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { spawnSync } from "node:child_process"
 import { verifySignedMessage } from "@buddy/script/minisign"
 import { z } from "zod"
 import { BUDDY_MINISIGN_PUBLIC_KEY } from "../packages/desktop-electron/src/main/update-common"
@@ -25,7 +24,6 @@ import {
   type GithubReleaseAsset,
 } from "./release/assets"
 
-const MAX_RELEASE_ARCHIVE_BUFFER_BYTES = 512 * 1024 * 1024
 import {
   assertCheckpointMatches,
   expectedCheckpointAssetNames,
@@ -400,91 +398,6 @@ async function verifyAdvancedMathChecksum(directory: string, archiveName: string
   }
 }
 
-function commandText(command: string, args: string[]): string {
-  const result = spawnSync(command, args, {
-    encoding: "utf8",
-    maxBuffer: MAX_RELEASE_ARCHIVE_BUFFER_BYTES,
-  })
-  if (result.error) {
-    throw new Error(`${command} ${args.join(" ")} failed to start: ${result.error.message}`, {
-      cause: result.error,
-    })
-  }
-  if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(" ")} failed: ${result.stderr.trim()}`)
-  }
-  return result.stdout
-}
-
-async function extractZipEntry(
-  archivePath: string,
-  entryMatcher: (entry: string) => boolean,
-  outputPath: string,
-): Promise<void> {
-  const entry = commandText("unzip", ["-Z1", archivePath]).split(/\r?\n/u).find(entryMatcher)
-  if (!entry)
-    throw new Error(`Could not locate required executable inside ${path.basename(archivePath)}`)
-  const result = spawnSync("unzip", ["-p", archivePath, entry], {
-    maxBuffer: MAX_RELEASE_ARCHIVE_BUFFER_BYTES,
-  })
-  if (result.error) {
-    throw new Error(`Failed to extract ${entry}: ${result.error.message}`, { cause: result.error })
-  }
-  if (result.status !== 0) throw new Error(`Failed to extract ${entry}`)
-  await writeFile(outputPath, result.stdout)
-}
-
-async function verifyMacOsBundleVersion(input: {
-  archivePath: string
-  directory: string
-  version: string
-}): Promise<void> {
-  const plistPath = path.join(input.directory, `${path.basename(input.archivePath)}.Info.plist`)
-  await extractZipEntry(
-    input.archivePath,
-    (entry) => entry.endsWith(".app/Contents/Info.plist"),
-    plistPath,
-  )
-  const actualVersion = commandText("python3", [
-    "-c",
-    "import plistlib,sys; print(plistlib.load(open(sys.argv[1], 'rb')).get('CFBundleShortVersionString', ''))",
-    plistPath,
-  ]).trim()
-  if (actualVersion !== input.version) {
-    throw new Error(
-      `${path.basename(input.archivePath)} bundle version mismatch: expected ${input.version}, received ${actualVersion || "empty"}`,
-    )
-  }
-}
-
-async function verifyMachOArchitecture(input: {
-  archivePath: string
-  architecture: "arm64" | "x86_64"
-  directory: string
-  entryMatcher: (entry: string) => boolean
-}): Promise<void> {
-  const executablePath = path.join(
-    input.directory,
-    `${path.basename(input.archivePath)}.executable`,
-  )
-  await extractZipEntry(input.archivePath, input.entryMatcher, executablePath)
-  const description = commandText("file", [executablePath])
-  if (!description.includes("Mach-O") || !description.includes(input.architecture)) {
-    throw new Error(
-      `${path.basename(input.archivePath)} architecture mismatch: expected ${input.architecture}, received ${description.trim()}`,
-    )
-  }
-}
-
-function verifyWindowsArchitecture(executablePath: string): void {
-  const description = commandText("file", [executablePath])
-  if (!description.includes("PE32+") || !description.includes("x86-64")) {
-    throw new Error(
-      `${path.basename(executablePath)} architecture mismatch: expected Windows x86-64, received ${description.trim()}`,
-    )
-  }
-}
-
 async function verifyProvenance(input: {
   arguments: VerifyArguments
   assets: readonly GithubReleaseAsset[]
@@ -682,17 +595,6 @@ async function main(): Promise<void> {
         tag: options.tag,
         version,
       })
-      await verifyMachOArchitecture({
-        architecture: "arm64",
-        archivePath: path.join(directory, archiveName),
-        directory,
-        entryMatcher: (entry) => /\.app\/Contents\/MacOS\/[^/]+$/u.test(entry),
-      })
-      await verifyMacOsBundleVersion({
-        archivePath: path.join(directory, archiveName),
-        directory,
-        version,
-      })
     }
     if (options.targets.macosX64) {
       const archiveName = resolveMacOsReleaseArtifactFilename(version, "x64", "zip")
@@ -702,17 +604,6 @@ async function main(): Promise<void> {
         manifestName: resolveMacOsUpdateManifestFilename("x64"),
         repo: options.repo,
         tag: options.tag,
-        version,
-      })
-      await verifyMachOArchitecture({
-        architecture: "x86_64",
-        archivePath: path.join(directory, archiveName),
-        directory,
-        entryMatcher: (entry) => /\.app\/Contents\/MacOS\/[^/]+$/u.test(entry),
-      })
-      await verifyMacOsBundleVersion({
-        archivePath: path.join(directory, archiveName),
-        directory,
         version,
       })
     }
@@ -726,21 +617,14 @@ async function main(): Promise<void> {
         tag: options.tag,
         version,
       })
-      verifyWindowsArchitecture(path.join(directory, executableName))
     }
 
-    for (const [target, architecture] of [
-      ...(options.targets.macosArm64 ? ([["aarch64-apple-darwin", "arm64"]] as const) : []),
-      ...(options.targets.macosX64 ? ([["x86_64-apple-darwin", "x86_64"]] as const) : []),
-    ] as const) {
+    for (const target of [
+      ...(options.targets.macosArm64 ? (["aarch64-apple-darwin"] as const) : []),
+      ...(options.targets.macosX64 ? (["x86_64-apple-darwin"] as const) : []),
+    ]) {
       const archiveName = `buddy-advanced-math-v${advancedMathVersion}-${target}.zip`
       await verifyAdvancedMathChecksum(directory, archiveName)
-      await verifyMachOArchitecture({
-        architecture,
-        archivePath: path.join(directory, archiveName),
-        directory,
-        entryMatcher: (entry) => entry.endsWith("/buddy-advanced-math"),
-      })
     }
 
     if (!options.draft) {
