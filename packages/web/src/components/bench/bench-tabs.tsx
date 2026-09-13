@@ -202,7 +202,7 @@ function BenchTabItem(props: BenchTabItemProps) {
                 role="tab"
                 tabIndex={props.active ? 0 : -1}
                 aria-selected={props.active}
-                className="bench-tab-label flex h-full min-w-0 flex-1 items-center gap-1.5 outline-none"
+                className="bench-tab-label flex h-full min-w-0 flex-1 items-center gap-1.5 text-left outline-none"
               >
                 {props.tab.target.type === "browser" ? (
                   <BrowserTabFavicon
