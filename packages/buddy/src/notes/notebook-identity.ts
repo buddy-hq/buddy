@@ -97,8 +97,7 @@ function entryForDirectory(
   inboxDirectory: string,
 ) {
   const normalized = normalizedDirectory(directory)
-  const kind =
-    normalized === normalizedDirectory(inboxDirectory) ? QUICK_CHATS_KIND : NOTEBOOK_KIND
+  const kind = normalized === normalizedDirectory(inboxDirectory) ? QUICK_CHATS_KIND : NOTEBOOK_KIND
   return entries.find((entry) =>
     kind === QUICK_CHATS_KIND
       ? entry.kind === QUICK_CHATS_KIND

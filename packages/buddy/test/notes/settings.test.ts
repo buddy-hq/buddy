@@ -12,9 +12,7 @@ import { tmpdir } from "../helpers/tmpdir"
 
 describe("Notes directory settings", () => {
   test("rejects relative library paths", async () => {
-    await expect(saveNotesDirectory("relative/notes")).rejects.toBeInstanceOf(
-      NotesDirectoryError,
-    )
+    await expect(saveNotesDirectory("relative/notes")).rejects.toBeInstanceOf(NotesDirectoryError)
   })
 
   test("pins the old default when Buddy Home changes and never moves files", async () => {

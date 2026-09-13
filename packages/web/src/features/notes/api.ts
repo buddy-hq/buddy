@@ -28,9 +28,7 @@ export async function createNote(input: { directory: string; title?: string }) {
 }
 
 export async function readNoteDocument(input: { path: string }) {
-  return requireBuddyData<NoteDocument>(
-    await getBuddyClient().notes.read({ path: input.path }),
-  )
+  return requireBuddyData<NoteDocument>(await getBuddyClient().notes.read({ path: input.path }))
 }
 
 export async function readNoteDocumentStatus(input: { path: string }) {

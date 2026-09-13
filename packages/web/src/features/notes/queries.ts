@@ -49,11 +49,7 @@ export async function resetNotesQueries(queryClient: QueryClient) {
   queryClient.removeQueries({ queryKey: notesQueryKeys.all() })
 }
 
-function contextualNoteSummary(
-  library: NotesLibrary,
-  note: NoteSummary,
-  previousPath?: string,
-) {
+function contextualNoteSummary(library: NotesLibrary, note: NoteSummary, previousPath?: string) {
   const identityPath = previousPath ?? note.relativePath
   const previous = library.notes.find((candidate) => candidate.relativePath === identityPath)
   if (previous?.kind === "buddy" && note.kind === "buddy") {
@@ -75,31 +71,23 @@ function contextualNoteSummary(
   return note
 }
 
-function cacheBuddyNoteSummary(
-  queryClient: QueryClient,
-  note: NoteSummary,
-  previousPath?: string,
-) {
-  queryClient.setQueriesData<NotesLibrary>(
-    { queryKey: notesQueryKeys.libraries() },
-    (library) => {
-      if (!library) return library
-      const identityPath = previousPath ?? note.relativePath
-      const contextualNote = contextualNoteSummary(library, note, previousPath)
-      const notes = library.notes.some((candidate) => candidate.relativePath === identityPath)
-        ? library.notes.map((candidate) =>
-            candidate.relativePath === identityPath ? contextualNote : candidate,
-          )
-        : [...library.notes, contextualNote]
-      return {
-        ...library,
-        notes: notes.toSorted((left, right) => right.updatedAt - left.updatedAt),
-      }
-    },
-  )
-  queryClient.setQueryData<NoteDocument>(
-    notesQueryKeys.note(note.relativePath),
-    (document) => (document ? { ...document, note } : document),
+function cacheBuddyNoteSummary(queryClient: QueryClient, note: NoteSummary, previousPath?: string) {
+  queryClient.setQueriesData<NotesLibrary>({ queryKey: notesQueryKeys.libraries() }, (library) => {
+    if (!library) return library
+    const identityPath = previousPath ?? note.relativePath
+    const contextualNote = contextualNoteSummary(library, note, previousPath)
+    const notes = library.notes.some((candidate) => candidate.relativePath === identityPath)
+      ? library.notes.map((candidate) =>
+          candidate.relativePath === identityPath ? contextualNote : candidate,
+        )
+      : [...library.notes, contextualNote]
+    return {
+      ...library,
+      notes: notes.toSorted((left, right) => right.updatedAt - left.updatedAt),
+    }
+  })
+  queryClient.setQueryData<NoteDocument>(notesQueryKeys.note(note.relativePath), (document) =>
+    document ? { ...document, note } : document,
   )
 }
 

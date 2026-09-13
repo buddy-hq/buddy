@@ -47,9 +47,9 @@ test("scans nested Attachments folders and rejects the reserved library Attachme
     await expect(
       updateNote({ path: "Attachments/hidden.md", content: "# Hidden\n\nEdited.\n" }),
     ).rejects.toMatchObject(reservedPathError)
-    await expect(renameNote({ path: "Attachments/hidden.md", title: "Moved" })).rejects.toMatchObject(
-      reservedPathError,
-    )
+    await expect(
+      renameNote({ path: "Attachments/hidden.md", title: "Moved" }),
+    ).rejects.toMatchObject(reservedPathError)
 
     const nested = await readNote("Project/Attachments/nested.md")
     const updated = await updateNote({

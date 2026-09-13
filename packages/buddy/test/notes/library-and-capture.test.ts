@@ -118,7 +118,9 @@ describe("Notes library and chat capture", () => {
       const library = await listNotes(afterDirectory)
 
       expect(identityAfter.id).toBe(identityBefore.id)
-      expect(library.notes.find((note) => note.relativePath === created.relativePath)).toMatchObject({
+      expect(
+        library.notes.find((note) => note.relativePath === created.relativePath),
+      ).toMatchObject({
         notebook: "After",
         notebookAvailable: true,
         notebookID: identityBefore.id,
@@ -203,14 +205,11 @@ describe("Notes library and chat capture", () => {
       expect(updateResponse.status).toBe(200)
       expect((await readNote("Global.md")).content).toContain("Updated.")
 
-      const renameResponse = await app.request(
-        `/api/notes/document/rename?path=${documentPath}`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ title: "Renamed" }),
-        },
-      )
+      const renameResponse = await app.request(`/api/notes/document/rename?path=${documentPath}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "Renamed" }),
+      })
       expect(renameResponse.status).toBe(200)
       expect((await readNote("Renamed.md")).note.title).toBe("Renamed")
     } finally {
@@ -227,9 +226,10 @@ describe("Notes library and chat capture", () => {
       await fsp.mkdir(root)
       await fsp.writeFile(path.join(root, "Ordinary.md"), "# Ordinary\n", "utf8")
 
-      await expect(
-        renameNote({ path: "Ordinary.md", title: "NUL" }),
-      ).rejects.toMatchObject({ status: 400, message: "Note title is reserved by Windows" })
+      await expect(renameNote({ path: "Ordinary.md", title: "NUL" })).rejects.toMatchObject({
+        status: 400,
+        message: "Note title is reserved by Windows",
+      })
 
       expect(await fsp.readFile(path.join(root, "Ordinary.md"), "utf8")).toBe("# Ordinary\n")
     } finally {

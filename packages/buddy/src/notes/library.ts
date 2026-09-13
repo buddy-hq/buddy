@@ -33,10 +33,7 @@ import {
   loadNotebookLabelsByID,
   type NotesNotebookIdentity,
 } from "./notebook-identity"
-import {
-  isLexicallyReservedNotesAttachmentsPath,
-  isReservedNotesAttachmentsPath,
-} from "./paths"
+import { isLexicallyReservedNotesAttachmentsPath, isReservedNotesAttachmentsPath } from "./paths"
 import type { NoteDocument, NoteSummary, NotesLibraryView, BuddyNoteType } from "./types"
 
 const DEFAULT_NOTE_TITLE = "Untitled note" as const
@@ -138,7 +135,10 @@ export async function createNoteFile(input: {
   return readNoteFile(input.root, filepath)
 }
 
-function applyNotebookContext(summary: NoteSummary, availableNotebooks: ReadonlyMap<string, string>) {
+function applyNotebookContext(
+  summary: NoteSummary,
+  availableNotebooks: ReadonlyMap<string, string>,
+) {
   if (summary.kind === "plain" || !summary.notebookID) return summary
   const currentName = availableNotebooks.get(summary.notebookID)
   return {

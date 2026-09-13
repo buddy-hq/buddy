@@ -11,9 +11,7 @@ export function isPathInsideDirectory(pathname: string, directory: string): bool
   const relativePath = relative(comparablePath(directory), comparablePath(pathname))
   return (
     relativePath === "" ||
-    (relativePath !== ".." &&
-      !relativePath.startsWith(`..${sep}`) &&
-      !isAbsolute(relativePath))
+    (relativePath !== ".." && !relativePath.startsWith(`..${sep}`) && !isAbsolute(relativePath))
   )
 }
 

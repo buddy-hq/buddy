@@ -13,10 +13,7 @@ const BENCH_TARGET_KEY_PART_SEPARATOR = "\u0000"
 const BENCH_TARGET_KEY_NULL_PART = "\u2400"
 const BENCH_WORKSPACE_ROOT_NOTEBOOK = "notebook" as const
 const BENCH_WORKSPACE_ROOT_NOTES = "notes" as const
-const BenchWorkspaceRootSchema = z.enum([
-  BENCH_WORKSPACE_ROOT_NOTEBOOK,
-  BENCH_WORKSPACE_ROOT_NOTES,
-])
+const BenchWorkspaceRootSchema = z.enum([BENCH_WORKSPACE_ROOT_NOTEBOOK, BENCH_WORKSPACE_ROOT_NOTES])
 const BENCH_DRAWER_KIND_VALUES = [
   "search",
   "sources",
@@ -425,12 +422,9 @@ function benchTargetKey(target: BenchTarget): string {
     return ["browser", encodeURIComponent(parsed.tabID)].join(BENCH_TARGET_KEY_PART_SEPARATOR)
   }
   if (parsed.type === "workspace-file") {
-    return [
-      "workspace-file",
-      parsed.root,
-      parsed.viewer,
-      encodeURIComponent(parsed.path),
-    ].join(BENCH_TARGET_KEY_PART_SEPARATOR)
+    return ["workspace-file", parsed.root, parsed.viewer, encodeURIComponent(parsed.path)].join(
+      BENCH_TARGET_KEY_PART_SEPARATOR,
+    )
   }
 
   return [

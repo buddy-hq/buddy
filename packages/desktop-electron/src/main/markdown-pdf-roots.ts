@@ -1,25 +1,25 @@
 import { Buffer } from "node:buffer"
-import {
-  createBuddyClient,
-  type GlobalNotebookHomeGetResponses,
-  type GlobalNotesDirectoryGetResponses,
-  type OpenProjectsListResponses,
+import type {
+  GlobalNotebookHomeGetResponses,
+  GlobalNotesDirectoryGetResponses,
+  OpenProjectsListResponses,
 } from "@buddy/sdk"
 
 const BUDDY_API_PATH = "/api" as const
 
-type BuddyRouteResult<T> = {
-  data: T | undefined
-  response: Response | undefined
-}
-
-function requireRouteData<T>(result: BuddyRouteResult<T>): T {
-  if (!result.response?.ok || result.data === undefined) {
-    throw new Error(
-      `Could not resolve Markdown PDF roots from Buddy (${result.response?.status ?? "no response"})`,
-    )
+async function loadRouteData<T>(input: {
+  baseUrl: string
+  path: string
+  authorization: string
+}): Promise<T> {
+  const response = await fetch(`${input.baseUrl}${input.path}`, {
+    headers: { authorization: input.authorization },
+  })
+  if (!response.ok) {
+    throw new Error(`Could not resolve Markdown PDF roots from Buddy (${response.status})`)
   }
-  return result.data
+  // SAFETY: These authenticated Buddy endpoints return the generated route response shape for T.
+  return (await response.json()) as T
 }
 
 export function resolveMarkdownPdfAllowedRoots(input: {
@@ -43,18 +43,26 @@ export async function loadMarkdownPdfAllowedRoots(input: {
 }): Promise<string[]> {
   const baseUrl = `${input.backendUrl.replace(/\/+$/, "")}${BUDDY_API_PATH}`
   const authorization = `Basic ${Buffer.from(`${input.username}:${input.password}`).toString("base64")}`
-  const client = createBuddyClient({
-    baseUrl,
-    headers: { authorization },
-  })
-  const [notebookHomeResult, notesDirectoryResult, openProjectsResult] = await Promise.all([
-    client.global.notebookHome.get(),
-    client.global.notesDirectory.get(),
-    client.openProjects.list(),
+  const [notebookHome, notesDirectory, openProjects] = await Promise.all([
+    loadRouteData<GlobalNotebookHomeGetResponses[200]>({
+      baseUrl,
+      path: "/global/notebook-home",
+      authorization,
+    }),
+    loadRouteData<GlobalNotesDirectoryGetResponses[200]>({
+      baseUrl,
+      path: "/global/notes-directory",
+      authorization,
+    }),
+    loadRouteData<OpenProjectsListResponses[200]>({
+      baseUrl,
+      path: "/open-projects",
+      authorization,
+    }),
   ])
   return resolveMarkdownPdfAllowedRoots({
-    notebookHome: requireRouteData(notebookHomeResult),
-    notesDirectory: requireRouteData(notesDirectoryResult),
-    openProjects: requireRouteData(openProjectsResult),
+    notebookHome,
+    notesDirectory,
+    openProjects,
   })
 }

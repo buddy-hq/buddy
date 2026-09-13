@@ -2,12 +2,7 @@ import { constants as fsConstants } from "node:fs"
 import fs from "node:fs/promises"
 import { nodeErrorHasCode } from "./parse-node-error"
 
-const HARD_LINK_FALLBACK_ERROR_CODES = new Set([
-  "ENOSYS",
-  "ENOTSUP",
-  "EOPNOTSUPP",
-  "EPERM",
-])
+const HARD_LINK_FALLBACK_ERROR_CODES = new Set(["ENOSYS", "ENOTSUP", "EOPNOTSUPP", "EPERM"])
 
 export class FileRenameConflictError extends Error {}
 

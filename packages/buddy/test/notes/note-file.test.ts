@@ -13,8 +13,9 @@ describe("Notes frontmatter", () => {
   test("never executes frontmatter while reading or rendering Markdown", () => {
     const source = `---javascript\n({ ran: Reflect.set(globalThis, "${EXECUTION_MARKER}", true) })\n---\n# Imported note`
     try {
-      expect(parseNoteFile({ root: "/notes", filepath: "/notes/imported.md", source, updatedAt: 0 }))
-        .toMatchObject({ content: source, summary: { kind: "plain" } })
+      expect(
+        parseNoteFile({ root: "/notes", filepath: "/notes/imported.md", source, updatedAt: 0 }),
+      ).toMatchObject({ content: source, summary: { kind: "plain" } })
       expect(Reflect.has(globalThis, EXECUTION_MARKER)).toBe(false)
       const rendered = renderNoteSource(source, METADATA)
       expect(parseNoteSource(rendered)?.content).toBe(source)
@@ -31,14 +32,24 @@ describe("Notes frontmatter", () => {
       "---\ntype: buddy-note\n---\n# Missing identity",
       "---\ntitle: Missing closing delimiter",
     ]) {
-      expect(parseNoteFile({ root: "/notes", filepath: "/notes/plain.md", source, updatedAt: 0 }))
-        .toMatchObject({ content: source, summary: { kind: "plain" } })
+      expect(
+        parseNoteFile({ root: "/notes", filepath: "/notes/plain.md", source, updatedAt: 0 }),
+      ).toMatchObject({ content: source, summary: { kind: "plain" } })
     }
   })
 
   test("preserves edited bodies exactly, including Markdown that resembles frontmatter", () => {
-    for (const content of ["", "Edited note", "Edited note\n", "\nEdited note\n\n", "---\ntitle: Body text\n---\nKeep this"]) {
-      expect(parseNoteSource(renderNoteSource(content, METADATA))).toEqual({ content, metadata: METADATA })
+    for (const content of [
+      "",
+      "Edited note",
+      "Edited note\n",
+      "\nEdited note\n\n",
+      "---\ntitle: Body text\n---\nKeep this",
+    ]) {
+      expect(parseNoteSource(renderNoteSource(content, METADATA))).toEqual({
+        content,
+        metadata: METADATA,
+      })
     }
     const windowsSource = renderNoteSource("Body", METADATA).replaceAll("\n", "\r\n")
     expect(parseNoteSource(windowsSource)?.content).toBe("Body")

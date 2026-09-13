@@ -4,13 +4,7 @@ import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import { annotateChatMessage, captureComposerNote } from "../notes/chat-capture"
 import { mapNotesError } from "../notes/errors"
-import {
-  createStandaloneNote,
-  listNotes,
-  readNote,
-  renameNote,
-  updateNote,
-} from "../notes/library"
+import { createStandaloneNote, listNotes, readNote, renameNote, updateNote } from "../notes/library"
 import { BUDDY_NOTE_TYPES } from "../notes/types"
 
 const MAX_NOTE_CONTENT_CHARACTERS = 5_000_000

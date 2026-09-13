@@ -133,8 +133,7 @@ export async function saveNotebookHome(directory: string) {
     return {
       ...current,
       notebook_home: resolved.resolvedPath,
-      notes_directory:
-        current.notes_directory ?? resolveDefaultNotesLibraryDirectory(previousHome),
+      notes_directory: current.notes_directory ?? resolveDefaultNotesLibraryDirectory(previousHome),
     }
   })
   return readNotebookHomeState()

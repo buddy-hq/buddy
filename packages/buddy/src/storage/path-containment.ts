@@ -5,8 +5,6 @@ export function isPathInsideDirectory(parentDirectory: string, candidatePath: st
   const relative = path.relative(parentDirectory, candidatePath)
   return (
     relative === "" ||
-    (relative !== ".." &&
-      !relative.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relative))
+    (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
   )
 }

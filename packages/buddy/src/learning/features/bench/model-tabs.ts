@@ -1,10 +1,7 @@
 import path from "node:path"
 import { normalizeInAppBrowserTitle } from "@buddy/browser-contract"
 import { BuddyObjectPath } from "../../../objects"
-import {
-  BENCH_WORKSPACE_ROOT_NOTES,
-  type BenchTabSummary,
-} from "./context"
+import { BENCH_WORKSPACE_ROOT_NOTES, type BenchTabSummary } from "./context"
 
 const BENCH_READ_CONTEXT_TAB_LIMIT = 20
 const BENCH_TURN_CONTEXT_TAB_LIMIT = 6
@@ -125,7 +122,9 @@ function benchTargetAbsolutePath(input: {
       throw new Error("Notes directory is required to resolve a Notes-root Bench target")
     }
     return path.resolve(
-      root === BENCH_WORKSPACE_ROOT_NOTES ? (input.notesDirectory ?? input.directory) : input.directory,
+      root === BENCH_WORKSPACE_ROOT_NOTES
+        ? (input.notesDirectory ?? input.directory)
+        : input.directory,
       input.target.path,
     )
   }

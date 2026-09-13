@@ -133,8 +133,10 @@ describe("config external_directory permission", () => {
             relativeNotesDirectory,
             agent.permission,
           ).action,
-          read: PermissionNext.evaluate(READ_PERMISSION, relativeNotesFile, agent.permission).action,
-          edit: PermissionNext.evaluate(EDIT_PERMISSION, relativeNotesFile, agent.permission).action,
+          read: PermissionNext.evaluate(READ_PERMISSION, relativeNotesFile, agent.permission)
+            .action,
+          edit: PermissionNext.evaluate(EDIT_PERMISSION, relativeNotesFile, agent.permission)
+            .action,
           shell: PermissionNext.evaluate(
             SHELL_PERMISSION,
             `printf note > ${notesFile}`,
@@ -221,16 +223,10 @@ describe("config external_directory permission", () => {
               notesFile,
               agent.permission,
             ).action,
-            notesRead: PermissionNext.evaluate(
-              READ_PERMISSION,
-              relativeNotesFile,
-              agent.permission,
-            ).action,
-            notesEdit: PermissionNext.evaluate(
-              EDIT_PERMISSION,
-              relativeNotesFile,
-              agent.permission,
-            ).action,
+            notesRead: PermissionNext.evaluate(READ_PERMISSION, relativeNotesFile, agent.permission)
+              .action,
+            notesEdit: PermissionNext.evaluate(EDIT_PERMISSION, relativeNotesFile, agent.permission)
+              .action,
             unrelatedExternal: PermissionNext.evaluate(
               EXTERNAL_DIRECTORY_PERMISSION,
               path.join(unrelatedDirectory, "private.md"),
@@ -279,8 +275,10 @@ describe("config external_directory permission", () => {
             path.join(canonicalNotesDirectory, "Configured.md"),
             agent.permission,
           ).action,
-          read: PermissionNext.evaluate(READ_PERMISSION, relativeNotesFile, agent.permission).action,
-          edit: PermissionNext.evaluate(EDIT_PERMISSION, relativeNotesFile, agent.permission).action,
+          read: PermissionNext.evaluate(READ_PERMISSION, relativeNotesFile, agent.permission)
+            .action,
+          edit: PermissionNext.evaluate(EDIT_PERMISSION, relativeNotesFile, agent.permission)
+            .action,
         }
       })
 

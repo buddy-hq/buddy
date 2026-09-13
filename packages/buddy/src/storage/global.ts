@@ -72,9 +72,7 @@ function assertTestPathsIsolated(paths: typeof preferred) {
 
   for (const target of mutablePaths) {
     const resolved = path.resolve(target)
-    const underAllowedRoot = allowedRoots.some((root) =>
-      isPathInsideDirectory(root, resolved),
-    )
+    const underAllowedRoot = allowedRoots.some((root) => isPathInsideDirectory(root, resolved))
     const underRealHome = isPathInsideDirectory(realHome, resolved)
 
     if (underRealHome && !underAllowedRoot) {

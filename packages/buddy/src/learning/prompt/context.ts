@@ -37,10 +37,7 @@ import type {
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { listRegisteredResources } from "../../resources/resource-registry-service"
 import { IMAGE_EDIT_TARGET_MAX, type ImageEditIntent } from "../features/image-generation/contracts"
-import {
-  displayNameForNotebook,
-  findNotebookIdentity,
-} from "../../notes/notebook-identity"
+import { displayNameForNotebook, findNotebookIdentity } from "../../notes/notebook-identity"
 import { readNotesDirectoryState } from "../../notes/settings"
 import { readNotebookHomeState } from "../../project/buddy-home"
 import type { NativeResourcePromptAttachment } from "./native-resource-attachments"

@@ -7,11 +7,7 @@ import { writeTextFileAtomic } from "../storage/atomic-file"
 import { withFileLock } from "../storage/file-lock"
 import { textFileWriteLockPath } from "../storage/locked-atomic-file"
 import { NotesError } from "./errors"
-import {
-  activateNotesLibraryRoot,
-  invalidateIndexedPath,
-  scanNotes,
-} from "./library-index"
+import { activateNotesLibraryRoot, invalidateIndexedPath, scanNotes } from "./library-index"
 import { createNoteFile, createNoteID } from "./library"
 import {
   normalizeNoteTitle,
@@ -28,10 +24,7 @@ const SESSION_NOTE_HEADING = "Notes" as const
 type SessionCaptureInput = {
   directory: string
   sessionID: string
-} & (
-  | { kind: "note"; text: string }
-  | { kind: "annotation"; messageID: string; text: string }
-)
+} & ({ kind: "note"; text: string } | { kind: "annotation"; messageID: string; text: string })
 
 type SessionNoteEntry =
   | { kind: "note"; text: string; capturedAt: Date }
@@ -74,11 +67,9 @@ function renderSessionNoteEntry(entry: SessionNoteEntry) {
   if (entry.kind === "note") {
     return [`## Note — ${timestamp}`, entry.text].join("\n\n")
   }
-  return [
-    `## Annotation — ${timestamp}`,
-    quoteMarkdown(entry.quotedMessage),
-    entry.text,
-  ].join("\n\n")
+  return [`## Annotation — ${timestamp}`, quoteMarkdown(entry.quotedMessage), entry.text].join(
+    "\n\n",
+  )
 }
 
 function readableMessageText(
@@ -186,11 +177,7 @@ async function captureSession(input: SessionCaptureInput): Promise<SessionNoteCa
   return { note: note.summary, created }
 }
 
-export function captureComposerNote(input: {
-  directory: string
-  sessionID: string
-  text: string
-}) {
+export function captureComposerNote(input: { directory: string; sessionID: string; text: string }) {
   return captureSession({ ...input, kind: "note" })
 }
 

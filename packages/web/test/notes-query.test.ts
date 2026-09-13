@@ -73,17 +73,13 @@ describe("Buddy Notes query cache", () => {
     await cacheNoteDocument(queryClient, renamed, original.note.relativePath)
 
     expect(
-      queryClient.getQueryData<NoteDocument>(
-        notesQueryKeys.note(renamed.note.relativePath),
-      ),
+      queryClient.getQueryData<NoteDocument>(notesQueryKeys.note(renamed.note.relativePath)),
     ).toEqual(renamed)
     expect(
-      queryClient.getQueryData<NotesLibrary>(notesQueryKeys.library(FIRST_DIRECTORY))
-        ?.notes,
+      queryClient.getQueryData<NotesLibrary>(notesQueryKeys.library(FIRST_DIRECTORY))?.notes,
     ).toEqual([renamed.note])
     expect(
-      queryClient.getQueryData<NotesLibrary>(notesQueryKeys.library(SECOND_DIRECTORY))
-        ?.notes,
+      queryClient.getQueryData<NotesLibrary>(notesQueryKeys.library(SECOND_DIRECTORY))?.notes,
     ).toEqual([
       {
         ...renamed.note,
@@ -92,8 +88,7 @@ describe("Buddy Notes query cache", () => {
       },
     ])
     expect(
-      queryClient.getQueryData<NotesLibrary>(notesQueryKeys.library(thirdDirectory))
-        ?.notes,
+      queryClient.getQueryData<NotesLibrary>(notesQueryKeys.library(thirdDirectory))?.notes,
     ).toEqual([{ ...renamed.note, notebookAvailable: false }])
   })
 
