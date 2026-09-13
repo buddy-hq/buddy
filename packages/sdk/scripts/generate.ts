@@ -7,6 +7,10 @@ import { z } from "zod"
 // Generate SDK from running backend
 const API_URL = process.env.API_URL || "http://localhost:3000/doc"
 const OPENAPI_PATH = path.resolve("openapi.json")
+const GENERATED_FETCH_CLIENT_PATH = path.resolve("src/gen/client/client.gen.ts")
+const FETCH_BODY_TYPE = "BodyInit" as const
+const PORTABLE_FETCH_BODY_TYPE = 'RequestInit["body"]' as const
+const EXPECTED_FETCH_BODY_TYPE_REFERENCES = 2
 
 console.log(`Generating SDK from ${API_URL}...`)
 
@@ -114,6 +118,23 @@ function normalizeSchemaForSdk(schema: OpenApiDocument): OpenApiDocument {
   return OpenApiDocumentSchema.parse(normalizeOpenApiObject(schema))
 }
 
+async function normalizeGeneratedFetchClient() {
+  const source = await fs.readFile(GENERATED_FETCH_CLIENT_PATH, "utf8")
+  const referenceCount = source.split(FETCH_BODY_TYPE).length - 1
+  if (referenceCount !== EXPECTED_FETCH_BODY_TYPE_REFERENCES) {
+    throw new Error(
+      `Expected ${EXPECTED_FETCH_BODY_TYPE_REFERENCES} generated ${FETCH_BODY_TYPE} references, found ${referenceCount}`,
+    )
+  }
+  // The native TypeScript compiler currently omits the DOM BodyInit alias even when it
+  // provides RequestInit. Express the same generated fetch type through that portable API.
+  await fs.writeFile(
+    GENERATED_FETCH_CLIENT_PATH,
+    source.replaceAll(FETCH_BODY_TYPE, PORTABLE_FETCH_BODY_TYPE),
+    "utf8",
+  )
+}
+
 async function loadSchema() {
   try {
     const response = await fetch(API_URL)
@@ -166,6 +187,7 @@ await createClient({
     },
   ],
 })
+await normalizeGeneratedFetchClient()
 
 await fs.rm(OPENAPI_PATH, { force: true })
 
