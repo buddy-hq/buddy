@@ -31,6 +31,32 @@ export function createTextPdf(text: string): string {
   ])
 }
 
+export function createRecoverableBrokenXrefTextPdf(text: string, xrefOffset = 0): string {
+  if (!Number.isSafeInteger(xrefOffset) || xrefOffset < 0) {
+    throw new Error("Test PDF xref offset must be a non-negative integer")
+  }
+  const pdf = createTextPdf(text)
+  const startXrefMarker = "startxref\n"
+  const startXrefIndex = pdf.lastIndexOf(startXrefMarker)
+  if (startXrefIndex < 0) {
+    throw new Error("Test PDF is missing its startxref marker")
+  }
+  const offsetStart = startXrefIndex + startXrefMarker.length
+  const offsetEnd = pdf.indexOf("\n", offsetStart)
+  if (offsetEnd < 0) {
+    throw new Error("Test PDF is missing its startxref offset terminator")
+  }
+  return `${pdf.slice(0, offsetStart)}${xrefOffset}${pdf.slice(offsetEnd)}`
+}
+
+export function createRecoverablePdfWithoutStartXref(text: string): string {
+  return createTextPdf(text).replace(/startxref\n\d+\n/u, "")
+}
+
+export function createRecoverablePdfWithoutEof(text: string): string {
+  return createTextPdf(text).replace(/%%EOF\n$/u, "")
+}
+
 function buildPdf(objects: string[]): string {
   let body = "%PDF-1.4\n"
   const offsets: number[] = []

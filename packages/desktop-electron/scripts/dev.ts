@@ -1,5 +1,5 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process"
-import { unlinkSync, writeFileSync } from "node:fs"
+import { copyFileSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { BUDDY_CHANNEL_ENV, readBuddyReleaseChannel } from "@buddy/script/channel"
@@ -18,6 +18,9 @@ import { resolveElectronBin } from "./electron-bin"
 import { ensureGeneratedSdk, generatedSdkFreshnessInput } from "./dev-sdk"
 import { prepareMacDevElectronExecutable } from "./mac-dev-electron-app"
 import { BUDDY_DEV_INSTANCE_NAME_ENV, formatBuddyDevAppName } from "../src/shared/dev-app-name"
+import {
+  BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES,
+} from "@buddy/script/backend-node-runtime"
 
 const DEV_COMMAND = "electron-vite"
 const DEV_ARGUMENTS = ["dev"] as const
@@ -53,6 +56,8 @@ const repoRoot = path.resolve(packageRoot, "..", "..")
 const backendDir = path.resolve(packageRoot, "../buddy")
 const sdkDir = path.resolve(packageRoot, "../sdk")
 const backendWatchRoots = backendDevelopmentWatchRoots(repoRoot)
+const backendNodeOutputDirectory = path.resolve(backendDir, "dist/node")
+const electronMainChunksDirectory = path.resolve(packageRoot, "out/main/chunks")
 const sdkFreshness = generatedSdkFreshnessInput({
   backendSourcePaths: backendWatchRoots,
   repositoryRoot: repoRoot,
@@ -274,6 +279,16 @@ function waitForChild(child: ReturnType<typeof spawn>): Promise<number | null> {
   })
 }
 
+function syncBackendRuntimeSidecarsForDevelopment(): void {
+  mkdirSync(electronMainChunksDirectory, { recursive: true })
+  for (const filename of BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES) {
+    copyFileSync(
+      path.join(backendNodeOutputDirectory, filename),
+      path.join(electronMainChunksDirectory, filename),
+    )
+  }
+}
+
 async function refreshGeneratedSdkForDevelopment(): Promise<void> {
   await ensureGeneratedSdk(sdkFreshness, async () => {
     console.log("Backend API sources changed; refreshing the generated Buddy SDK...")
@@ -317,8 +332,17 @@ async function rebuildDevelopmentBackend() {
       waitForChild(build),
       refreshGeneratedSdkForDevelopment(),
     ])
-    const backendBuildSucceeded = buildOutcome.status === "fulfilled" && buildOutcome.value === 0
+    let backendBuildSucceeded = buildOutcome.status === "fulfilled" && buildOutcome.value === 0
     const sdkRefreshSucceeded = sdkOutcome.status === "fulfilled"
+
+    if (backendBuildSucceeded) {
+      try {
+        syncBackendRuntimeSidecarsForDevelopment()
+      } catch (error) {
+        backendBuildSucceeded = false
+        console.error("Backend runtime sidecar refresh failed; keeping the current app running.", error)
+      }
+    }
 
     if (!backendBuildSucceeded) {
       const detail =

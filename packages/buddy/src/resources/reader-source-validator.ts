@@ -11,6 +11,7 @@ import {
   assertResourceSourceSize,
   ResourceBudgetExceededError,
 } from "../resource-packs/budgets"
+import { validatePdfDocumentInWorker } from "./pdf-validation"
 
 const READER_SOURCE_PREFIX_BYTES = 1024
 const EPUB_MIMETYPE_ENTRY = "mimetype" as const
@@ -29,7 +30,13 @@ type CachedReaderSourceValidation = {
   validation: ReaderSourceValidation
 }
 
+type PendingReaderSourceValidation = {
+  identity: string
+  task: Promise<ReaderSourceValidation>
+}
+
 const validationCache = new Map<string, CachedReaderSourceValidation>()
+const pendingValidations = new Map<string, PendingReaderSourceValidation>()
 
 const PDF_TAIL_PROBE_BYTES = 65_536
 const PDF_XREF_PROBE_BYTES = 1_024
@@ -95,68 +102,66 @@ function xrefProbeLooksValid(bytes: Uint8Array): boolean {
   return trimmed.startsWith(PDF_XREF_TABLE_MARKER) || PDF_XREF_STREAM_PATTERN.test(text)
 }
 
+async function recoverPdfValidation(input: {
+  filepath: string
+  reason: string
+}): Promise<ReaderSourceValidation> {
+  const valid = await validatePdfDocumentInWorker(input.filepath)
+  return valid
+    ? { format: "pdf", sourceValidity: "valid", reason: null }
+    : { format: "pdf", sourceValidity: "invalid", reason: input.reason }
+}
+
 async function probePdf(input: {
   filepath: string
   size: number
 }): Promise<ReaderSourceValidation> {
   const tailLength = Math.min(PDF_TAIL_PROBE_BYTES, input.size)
   const tailPosition = Math.max(0, input.size - tailLength)
-  try {
-    const tailText = decodeProbeText(
-      await readFileSegment({
-        filepath: input.filepath,
-        position: tailPosition,
-        length: tailLength,
-      }),
-    )
-    const eofIndex = tailText.lastIndexOf(PDF_EOF_MARKER)
-    if (eofIndex < 0) {
-      return {
-        format: "pdf",
-        sourceValidity: "invalid",
-        reason: "The PDF is missing its EOF marker.",
-      }
-    }
-
-    const startXrefIndex = tailText.lastIndexOf(PDF_STARTXREF_MARKER, eofIndex)
-    if (startXrefIndex < 0) {
-      return {
-        format: "pdf",
-        sourceValidity: "invalid",
-        reason: "The PDF is missing its startxref marker.",
-      }
-    }
-
-    const xrefOffset = parsePdfStartXrefOffset({ tailText, startXrefIndex })
-    if (xrefOffset === null || xrefOffset < 0 || xrefOffset >= input.size) {
-      return {
-        format: "pdf",
-        sourceValidity: "invalid",
-        reason: "The PDF startxref marker does not reference a valid byte offset.",
-      }
-    }
-
-    const xrefProbe = await readFileSegment({
+  const tailText = decodeProbeText(
+    await readFileSegment({
       filepath: input.filepath,
-      position: xrefOffset,
-      length: Math.min(PDF_XREF_PROBE_BYTES, input.size - xrefOffset),
+      position: tailPosition,
+      length: tailLength,
+    }),
+  )
+  const eofIndex = tailText.lastIndexOf(PDF_EOF_MARKER)
+  if (eofIndex < 0) {
+    return await recoverPdfValidation({
+      filepath: input.filepath,
+      reason: "The PDF is missing its EOF marker.",
     })
-    if (!xrefProbeLooksValid(xrefProbe)) {
-      return {
-        format: "pdf",
-        sourceValidity: "invalid",
-        reason: "The PDF startxref marker does not reference an xref table or xref stream.",
-      }
-    }
-
-    return { format: "pdf", sourceValidity: "valid", reason: null }
-  } catch (error) {
-    return {
-      format: "pdf",
-      sourceValidity: "invalid",
-      reason: `PDF structural probe failed: ${errorMessage(error)}`,
-    }
   }
+
+  const startXrefIndex = tailText.lastIndexOf(PDF_STARTXREF_MARKER, eofIndex)
+  if (startXrefIndex < 0) {
+    return await recoverPdfValidation({
+      filepath: input.filepath,
+      reason: "The PDF is missing its startxref marker.",
+    })
+  }
+
+  const xrefOffset = parsePdfStartXrefOffset({ tailText, startXrefIndex })
+  if (xrefOffset === null || xrefOffset < 0 || xrefOffset >= input.size) {
+    return await recoverPdfValidation({
+      filepath: input.filepath,
+      reason: "The PDF startxref marker does not reference a valid byte offset.",
+    })
+  }
+
+  const xrefProbe = await readFileSegment({
+    filepath: input.filepath,
+    position: xrefOffset,
+    length: Math.min(PDF_XREF_PROBE_BYTES, input.size - xrefOffset),
+  })
+  if (!xrefProbeLooksValid(xrefProbe)) {
+    return await recoverPdfValidation({
+      filepath: input.filepath,
+      reason: "The PDF startxref marker does not reference an xref table or xref stream.",
+    })
+  }
+
+  return { format: "pdf", sourceValidity: "valid", reason: null }
 }
 
 async function probeEpub(bytes: Uint8Array): Promise<ReaderSourceValidation> {
@@ -220,43 +225,54 @@ export async function validateReaderSourcePath(filepath: string): Promise<Reader
   const identity = `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`
   const cached = validationCache.get(filepath)
   if (cached?.identity === identity) return cached.validation
+  const pending = pendingValidations.get(filepath)
+  if (pending?.identity === identity) return await pending.task
 
+  const task = validateExistingReaderSource({ filepath, format, size: stat.size })
+  pendingValidations.set(filepath, { identity, task })
   try {
-    assertResourceSourceSize(stat.size)
+    const validation = await task
+    validationCache.set(filepath, { identity, validation })
+    return validation
+  } finally {
+    if (pendingValidations.get(filepath)?.task === task) pendingValidations.delete(filepath)
+  }
+}
+
+async function validateExistingReaderSource(input: {
+  filepath: string
+  format: ReaderSourceFormat
+  size: number
+}): Promise<ReaderSourceValidation> {
+  try {
+    assertResourceSourceSize(input.size)
   } catch (error) {
     if (!(error instanceof ResourceBudgetExceededError)) throw error
-    const validation: ReaderSourceValidation = {
-      format,
+    return {
+      format: input.format,
       sourceValidity: "invalid",
       reason: error.message,
     }
-    validationCache.set(filepath, { identity, validation })
-    return validation
   }
 
-  const handle = await fs.open(filepath, "r")
+  const handle = await fs.open(input.filepath, "r")
   let prefix: Uint8Array
   try {
-    const buffer = new Uint8Array(Math.min(READER_SOURCE_PREFIX_BYTES, stat.size))
+    const buffer = new Uint8Array(Math.min(READER_SOURCE_PREFIX_BYTES, input.size))
     const { bytesRead } = await handle.read(buffer, 0, buffer.byteLength, 0)
     prefix = buffer.subarray(0, bytesRead)
   } finally {
     await handle.close()
   }
-  const inspection = inspectReaderSourceBytes({ path: filepath, bytes: prefix })
-  if (inspection.sourceValidity === "invalid") {
-    validationCache.set(filepath, { identity, validation: inspection })
-    return inspection
-  }
+  const inspection = inspectReaderSourceBytes({ path: input.filepath, bytes: prefix })
+  if (inspection.sourceValidity === "invalid") return inspection
 
-  const validation =
-    format === "pdf"
-      ? await probePdf({ filepath, size: stat.size })
-      : await probeEpub(new Uint8Array(await fs.readFile(filepath)))
-  validationCache.set(filepath, { identity, validation })
-  return validation
+  return input.format === "pdf"
+    ? await probePdf({ filepath: input.filepath, size: input.size })
+    : await probeEpub(new Uint8Array(await fs.readFile(input.filepath)))
 }
 
 export function clearReaderSourceValidationCache(): void {
   validationCache.clear()
+  pendingValidations.clear()
 }
