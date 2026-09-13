@@ -145,10 +145,7 @@ export function registerIpcHandlers(deps: Deps) {
   )
   ipcMain.handle("store-delete", (_event: IpcMainInvokeEvent, name: string, key: string) => {
     const store = getStore(name)
-    store.store = deleteRendererStoreValue(
-      parseRendererStoreRecord(store.store),
-      key,
-    ).valuesByKey
+    store.store = deleteRendererStoreValue(parseRendererStoreRecord(store.store), key).valuesByKey
   })
   ipcMain.handle("store-clear", (_event: IpcMainInvokeEvent, name: string) => {
     getStore(name).clear()
