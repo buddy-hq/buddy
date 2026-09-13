@@ -114,10 +114,7 @@ import { SelectionClip, type SelectionClipData } from "./selection-clip"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
 import { usePromptEditorSync } from "./use-prompt-editor-sync"
-import {
-  useComposerNoteMode,
-  type SaveComposerNote,
-} from "@/features/notes/use-composer-note-mode"
+import { useComposerNoteMode, type SaveComposerNote } from "@/features/notes/use-composer-note-mode"
 import {
   resolveComposerAccessoryPresentation,
   resolveComposerReplacementHeight,

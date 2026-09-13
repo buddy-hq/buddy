@@ -1,10 +1,6 @@
 import { parseTJsonObject, parseTString } from "@/components/chat/tools/types"
 import { inAppBrowserFallbackTitle } from "@buddy/browser-contract"
-import {
-  isSameBenchTarget,
-  readBenchTabTarget,
-  type BenchTabTarget,
-} from "@/lib/bench-targets"
+import { isSameBenchTarget, readBenchTabTarget, type BenchTabTarget } from "@/lib/bench-targets"
 
 export type BenchTab = {
   key: string

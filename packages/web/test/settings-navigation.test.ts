@@ -77,9 +77,9 @@ describe("settings navigation", () => {
 
     expect(dropNotesBenchSettingsReturnTo(notesReturnTo)).toBeUndefined()
     expect(dropNotesBenchSettingsReturnTo(notebookReturnTo)).toBe(notebookReturnTo)
-    expect(
-      dropNotesBenchSettingsReturnTo(`/${DIRECTORY_TOKEN}/chat?session=session-1`),
-    ).toBe(`/${DIRECTORY_TOKEN}/chat?session=session-1`)
+    expect(dropNotesBenchSettingsReturnTo(`/${DIRECTORY_TOKEN}/chat?session=session-1`)).toBe(
+      `/${DIRECTORY_TOKEN}/chat?session=session-1`,
+    )
   })
 
   test("falls back to active directory chat and then root chat", () => {

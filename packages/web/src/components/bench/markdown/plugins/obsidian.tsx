@@ -588,8 +588,4 @@ export function viewerForObsidianResolution(
   return resolution.path && isMarkdownBenchPath(resolution.path) ? "markdown" : "file"
 }
 
-export type {
-  ObsidianEmbeddedMarkdownLoader,
-  ObsidianLinkResolution,
-  ObsidianWikiLinkContext,
-}
+export type { ObsidianEmbeddedMarkdownLoader, ObsidianLinkResolution, ObsidianWikiLinkContext }

@@ -156,12 +156,7 @@ function readBenchTarget<TValue>(value: TValue): BenchTarget | undefined {
           : undefined
     const fragment = record.fragment === undefined ? undefined : readNonEmptyString(record.fragment)
     const root = readBenchWorkspaceRoot(record.root)
-    if (
-      !path ||
-      !viewer ||
-      !root ||
-      (record.fragment !== undefined && !fragment)
-    ) {
+    if (!path || !viewer || !root || (record.fragment !== undefined && !fragment)) {
       return undefined
     }
     return Object.assign(
@@ -269,12 +264,9 @@ function benchTargetKey(target: BenchTabTarget): string {
   if (target.type === "workspace-file") {
     // This is the shared frontend/backend content identity. Route-only state such as a
     // Markdown fragment must not change the key used by Bench context acknowledgements.
-    return [
-      "workspace-file",
-      target.root,
-      target.viewer,
-      encodeURIComponent(target.path),
-    ].join(BENCH_TARGET_KEY_PART_SEPARATOR)
+    return ["workspace-file", target.root, target.viewer, encodeURIComponent(target.path)].join(
+      BENCH_TARGET_KEY_PART_SEPARATOR,
+    )
   }
 
   return [

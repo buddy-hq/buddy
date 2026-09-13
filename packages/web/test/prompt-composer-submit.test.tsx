@@ -297,9 +297,7 @@ describe("prompt composer submit", () => {
           },
           onSaveNote: ({ text }) => {
             savedNote = text
-            usePromptStore
-              .getState()
-              .replaceDraft(targetPromptKey, createTextPromptDraft(text))
+            usePromptStore.getState().replaceDraft(targetPromptKey, createTextPromptDraft(text))
             return Promise.resolve({ sessionID: targetSessionID })
           },
         }),

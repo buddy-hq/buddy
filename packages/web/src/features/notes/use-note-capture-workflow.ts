@@ -2,10 +2,7 @@ import { useCallback } from "react"
 import { toast } from "@buddy/ui"
 import { language } from "@/context/language"
 import { startActiveChatSession } from "@/lib/active-chat-transition-coordinator"
-import {
-  BENCH_MODE_REQUEST_POLICY,
-  type OpenBench,
-} from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, type OpenBench } from "@/lib/bench-navigation"
 import type { DirectoryWorkspaceController } from "@/lib/directory-workspace-controller"
 import type { DirectoryWorkspaceLifecycleService } from "@/lib/directory-workspace-lifecycle"
 import { createNotesBenchTarget } from "@/lib/bench-targets"

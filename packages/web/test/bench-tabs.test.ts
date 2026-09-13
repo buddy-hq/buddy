@@ -110,9 +110,7 @@ describe("Bench tabs", () => {
     const tab = updated.tabs[1]
     if (!tab) throw new Error("Expected a note tab.")
 
-    expect(benchTabKey(original)).toBe(
-      "file:notes:markdown:Untitled%20%E2%80%94%20note-1.md",
-    )
+    expect(benchTabKey(original)).toBe("file:notes:markdown:Untitled%20%E2%80%94%20note-1.md")
     expect(benchTabKey(renamed)).not.toBe(benchTabKey(original))
     expect(isSameBenchTarget(original, renamed)).toBe(false)
     expect(updated.tabs).toHaveLength(2)

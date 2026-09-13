@@ -825,8 +825,7 @@ export function removeNotesBenchTargetsFromSlot(
   const removedTabKeys = slot.tabs
     .filter(
       (tab) =>
-        tab.target.type === "workspace-file" &&
-        tab.target.root === BENCH_WORKSPACE_ROOT_NOTES,
+        tab.target.type === "workspace-file" && tab.target.root === BENCH_WORKSPACE_ROOT_NOTES,
     )
     .map((tab) => tab.key)
   if (removedTabKeys.length === 0) return slot

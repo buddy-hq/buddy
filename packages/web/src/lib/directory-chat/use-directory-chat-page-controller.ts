@@ -380,14 +380,11 @@ export function useDirectoryChatPageController(
       benchActionLedger.handle(action),
     [benchActionLedger],
   )
-  const onAgentTurnComplete = useCallback(
-    () => {
-      return workspace.lifecycle.synchronizeCurrentWorkspaceFile({
-        reason: "turn-complete",
-      })
-    },
-    [workspace.lifecycle],
-  )
+  const onAgentTurnComplete = useCallback(() => {
+    return workspace.lifecycle.synchronizeCurrentWorkspaceFile({
+      reason: "turn-complete",
+    })
+  }, [workspace.lifecycle])
   const onWorkspaceFileChanged = useCallback(
     async (input: { path: string; event: "add" | "change" | "unlink" }) => {
       await Promise.all([

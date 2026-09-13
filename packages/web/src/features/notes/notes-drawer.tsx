@@ -88,10 +88,7 @@ function useCapturedNoteHighlight(directory: string) {
 }
 
 /** Main UI entry for browsing, creating, and opening Notes. */
-export function NotesDrawer(props: {
-  directory: string
-  onOpen: RightWorkspaceOpener
-}) {
+export function NotesDrawer(props: { directory: string; onOpen: RightWorkspaceOpener }) {
   const [scope, setScope] = useState<NotesScope>("notebook")
   const [search, setSearch] = useState("")
   const [creating, setCreating] = useState(false)

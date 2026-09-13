@@ -87,10 +87,7 @@ export function useComposerNoteMode(input: ComposerNoteModeInput) {
         const currentPromptKey = activePromptKey.current
         const liveDraftStillMatches = readDraft().value.trim() === noteText
 
-        for (const completedPromptKey of new Set([
-          initiatingPromptKey,
-          destinationPromptKey,
-        ])) {
+        for (const completedPromptKey of new Set([initiatingPromptKey, destinationPromptKey])) {
           if (completedPromptKey !== currentPromptKey || liveDraftStillMatches) {
             clearDraft(completedPromptKey)
           }

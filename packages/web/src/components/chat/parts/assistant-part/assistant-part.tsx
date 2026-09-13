@@ -99,9 +99,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         stripLeadingMermaidSources={stripLeadingMermaidSources}
         directory={directory}
         onOpenResource={onOpenResource}
-        onQuoteMessage={
-          actionsEnabled && actionPartID === part.id ? onQuoteMessage : undefined
-        }
+        onQuoteMessage={actionsEnabled && actionPartID === part.id ? onQuoteMessage : undefined}
         onForkMessage={actionsEnabled && actionPartID === part.id ? onForkMessage : undefined}
       />
     )
