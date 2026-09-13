@@ -1,5 +1,5 @@
 import { toast } from "@buddy/ui"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   SELECTION_CONTEXT_PART_TYPE,
   type PromptComposerPart,
@@ -48,13 +48,20 @@ export function useComposerNoteMode(input: ComposerNoteModeInput) {
   } = input
   const [active, setActive] = useState(false)
   const [saving, setSaving] = useState(false)
+  const hadQuotedMessage = useRef(false)
+  const readDraftRef = useRef(readDraft)
+  readDraftRef.current = readDraft
 
   useEffect(() => {
     setActive(false)
   }, [promptKey])
 
   useEffect(() => {
+    const quoteRemoved = hadQuotedMessage.current && !quotedMessage
+    hadQuotedMessage.current = !!quotedMessage
     if (quotedMessage) setActive(true)
+    // Quoting is what opened Note mode, so dropping the quote closes it unless a note is underway.
+    else if (quoteRemoved && !readDraftRef.current().value.trim()) setActive(false)
   }, [quotedMessage])
 
   const changeActive = useCallback(
