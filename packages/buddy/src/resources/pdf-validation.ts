@@ -47,7 +47,9 @@ export function validatePdfDocumentInWorker(sourcePath: string): Promise<boolean
       if (settled) return
       settled = true
       void worker.terminate()
-      reject(new Error(`PDF validation worker timed out after ${PDF_VALIDATION_WORKER_TIMEOUT_MS} ms.`))
+      reject(
+        new Error(`PDF validation worker timed out after ${PDF_VALIDATION_WORKER_TIMEOUT_MS} ms.`),
+      )
     }, PDF_VALIDATION_WORKER_TIMEOUT_MS)
 
     worker.once("message", (value) => {

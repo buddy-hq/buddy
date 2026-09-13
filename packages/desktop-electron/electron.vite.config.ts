@@ -10,9 +10,7 @@ import {
   CHEMFIG_RUNTIME_DIRECTORY_NAME,
   ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS,
 } from "@buddy/script/chemfig-runtime"
-import {
-  BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES,
-} from "@buddy/script/backend-node-runtime"
+import { BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES } from "@buddy/script/backend-node-runtime"
 import {
   LITEPARSE_PACKAGE_NAME,
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,

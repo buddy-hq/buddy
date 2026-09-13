@@ -237,7 +237,7 @@ export async function loadPdfJs(): Promise<typeof import("pdfjs-dist/legacy/buil
 }
 
 export type PdfJsDocument = Awaited<
-  ReturnType<typeof import("pdfjs-dist/legacy/build/pdf.mjs")["getDocument"]>["promise"]
+  ReturnType<(typeof import("pdfjs-dist/legacy/build/pdf.mjs"))["getDocument"]>["promise"]
 >
 
 export async function openPdfDocument(

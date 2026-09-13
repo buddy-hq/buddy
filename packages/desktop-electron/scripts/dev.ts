@@ -18,9 +18,7 @@ import { resolveElectronBin } from "./electron-bin"
 import { ensureGeneratedSdk, generatedSdkFreshnessInput } from "./dev-sdk"
 import { prepareMacDevElectronExecutable } from "./mac-dev-electron-app"
 import { BUDDY_DEV_INSTANCE_NAME_ENV, formatBuddyDevAppName } from "../src/shared/dev-app-name"
-import {
-  BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES,
-} from "@buddy/script/backend-node-runtime"
+import { BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES } from "@buddy/script/backend-node-runtime"
 
 const DEV_COMMAND = "electron-vite"
 const DEV_ARGUMENTS = ["dev"] as const
@@ -340,7 +338,10 @@ async function rebuildDevelopmentBackend() {
         syncBackendRuntimeSidecarsForDevelopment()
       } catch (error) {
         backendBuildSucceeded = false
-        console.error("Backend runtime sidecar refresh failed; keeping the current app running.", error)
+        console.error(
+          "Backend runtime sidecar refresh failed; keeping the current app running.",
+          error,
+        )
       }
     }
 

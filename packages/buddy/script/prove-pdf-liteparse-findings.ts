@@ -206,10 +206,7 @@ async function* walkPdfFiles(
 
 async function pdfHasOutline(sourcePath: string): Promise<boolean> {
   try {
-    await using opened = await withTimeout(
-      openPdfDocument(sourcePath),
-      PDFJS_OPERATION_TIMEOUT_MS,
-    )
+    await using opened = await withTimeout(openPdfDocument(sourcePath), PDFJS_OPERATION_TIMEOUT_MS)
     const outline = await withTimeout(opened.document.getOutline(), PDFJS_OPERATION_TIMEOUT_MS)
     return Array.isArray(outline) && outline.length > 0
   } catch {

@@ -66,10 +66,7 @@ export function assertBackendNodeArtifactRuntimeFiles(input: { artifactDir: stri
     )
   }
 
-  const pdfValidationWorker = path.join(
-    input.artifactDir,
-    PDF_VALIDATION_WORKER_BUNDLED_FILENAME,
-  )
+  const pdfValidationWorker = path.join(input.artifactDir, PDF_VALIDATION_WORKER_BUNDLED_FILENAME)
   if (!existsSync(pdfValidationWorker)) {
     throw new Error(
       `Buddy Node artifact is missing the PDF validation worker at ${pdfValidationWorker}`,
