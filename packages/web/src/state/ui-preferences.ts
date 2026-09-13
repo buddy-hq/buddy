@@ -21,6 +21,7 @@ type TPersistedUiPreferences = {
   settingsSidebarWidth?: number
   projectFileTreeOpen?: boolean
   teacherStandardsAutoSetupComplete?: boolean
+  notesLocationIntroSeen?: boolean
 }
 
 const persistedUiPreferencesSchema = z.object({
@@ -33,6 +34,7 @@ const persistedUiPreferencesSchema = z.object({
   settingsSidebarWidth: z.number().finite().optional(),
   projectFileTreeOpen: z.boolean().optional(),
   teacherStandardsAutoSetupComplete: z.boolean().optional(),
+  notesLocationIntroSeen: z.boolean().optional(),
 })
 
 function parsePersistedUiPreferences<TValue>(value: TValue): TPersistedUiPreferences | undefined {
@@ -52,6 +54,7 @@ export type UiPreferencesStore = {
   settingsSidebarWidth: number
   projectFileTreeOpen: boolean
   teacherStandardsAutoSetupComplete: boolean
+  notesLocationIntroSeen: boolean
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -64,6 +67,8 @@ export type UiPreferencesStore = {
   setSettingsSidebarWidth: (width: number) => void
   setProjectFileTreeOpen: (open: boolean) => void
   setTeacherStandardsAutoSetupComplete: (complete: boolean) => void
+  /** One-time: the first capture opens the Notes drawer so the user learns where notes live. */
+  markNotesLocationIntroSeen: () => void
 }
 
 export const useUiPreferences = create<UiPreferencesStore>()(
@@ -180,12 +185,21 @@ export const useUiPreferences = create<UiPreferencesStore>()(
 
       const discoverySlice: Pick<
         UiPreferencesStore,
-        "teacherStandardsAutoSetupComplete" | "setTeacherStandardsAutoSetupComplete"
+        | "teacherStandardsAutoSetupComplete"
+        | "setTeacherStandardsAutoSetupComplete"
+        | "notesLocationIntroSeen"
+        | "markNotesLocationIntroSeen"
       > = {
         teacherStandardsAutoSetupComplete: false,
         setTeacherStandardsAutoSetupComplete(complete) {
           set((state) => {
             state.teacherStandardsAutoSetupComplete = complete
+          })
+        },
+        notesLocationIntroSeen: false,
+        markNotesLocationIntroSeen() {
+          set((state) => {
+            state.notesLocationIntroSeen = true
           })
         },
       }
@@ -198,7 +212,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 19,
+      version: 20,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = parsePersistedUiPreferences(persistedState)
@@ -212,6 +226,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
           projectFileTreeOpen: state?.projectFileTreeOpen ?? DEFAULT_PROJECT_FILE_TREE_OPEN,
           teacherStandardsAutoSetupComplete: state?.teacherStandardsAutoSetupComplete ?? false,
+          notesLocationIntroSeen: state?.notesLocationIntroSeen ?? false,
         }
       },
       partialize(state) {
@@ -224,6 +239,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           settingsSidebarWidth: state.settingsSidebarWidth,
           projectFileTreeOpen: state.projectFileTreeOpen,
           teacherStandardsAutoSetupComplete: state.teacherStandardsAutoSetupComplete,
+          notesLocationIntroSeen: state.notesLocationIntroSeen,
         }
       },
     },

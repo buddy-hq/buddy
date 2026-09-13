@@ -1,6 +1,10 @@
 import { useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { BENCH_CHAT_LAYOUT_DOCKED, type BenchModeRequest } from "@/lib/bench-targets"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
+  type BenchModeRequest,
+} from "@/lib/bench-targets"
 import { useOpenBench, type OpenBenchResult } from "@/lib/use-open-bench"
 import {
   isSupportedReadingResourcePath,
@@ -59,7 +63,12 @@ export function useOpenReadingResource(options?: OpenReadingResourceOptions): Op
               },
               viewID: "reader",
             }
-          : { type: "workspace-file", path: resource.path, viewer: "file" },
+          : {
+              type: "workspace-file",
+              root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+              path: resource.path,
+              viewer: "file",
+            },
         mode,
         autoOpen: null,
       })

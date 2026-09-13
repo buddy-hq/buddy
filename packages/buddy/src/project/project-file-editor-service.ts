@@ -1,13 +1,16 @@
 import { isUtf8 } from "node:buffer"
-import { createHash } from "node:crypto"
-import { constants as fsConstants } from "node:fs"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { File as OpenCodeFile } from "@buddy/opencode-adapter/file"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { writeTextFileAtomic } from "../storage/atomic-file"
-import { withFileLock } from "../storage/file-lock"
+import { withFileLock, withFileLocks } from "../storage/file-lock"
 import { textFileWriteLockPath } from "../storage/locked-atomic-file"
+import {
+  FileRenameConflictError,
+  renameFileWithoutOverwrite,
+} from "../storage/rename-file-without-overwrite"
+import { textContentVersion } from "../storage/text-content-version"
 import { parseProjectNodeErrnoCode } from "./parse-values"
 
 const PROJECT_FILE_ESCAPE_ERROR = "Access denied: path escapes project directory"
@@ -17,18 +20,8 @@ const PROJECT_TEXT_FILE_UNSUPPORTED_ERROR = "File type is not supported for in-a
 const PROJECT_TEXT_FILE_CONFLICT_ERROR = "File changed on disk. Reload or overwrite to continue."
 const FILE_SYSTEM_ERROR_CODE = {
   alreadyExists: "EEXIST",
-  functionNotImplemented: "ENOSYS",
   notFound: "ENOENT",
-  operationNotSupported: "ENOTSUP",
-  operationNotSupportedPosix: "EOPNOTSUPP",
-  permissionDenied: "EPERM",
 } as const
-const HARD_LINK_FALLBACK_ERROR_CODES = new Set<string>([
-  FILE_SYSTEM_ERROR_CODE.functionNotImplemented,
-  FILE_SYSTEM_ERROR_CODE.operationNotSupported,
-  FILE_SYSTEM_ERROR_CODE.operationNotSupportedPosix,
-  FILE_SYSTEM_ERROR_CODE.permissionDenied,
-])
 
 export type ProjectTextFileState = {
   path: string
@@ -67,21 +60,12 @@ type ProjectContainedFile = {
 
 type FileSystemErrorCode = (typeof FILE_SYSTEM_ERROR_CODE)[keyof typeof FILE_SYSTEM_ERROR_CODE]
 
-function fileSystemErrorCode<TValue>(error: TValue): string | undefined {
-  return parseProjectNodeErrnoCode(error)
-}
-
 function isFileSystemError<TValue>(error: TValue, code: FileSystemErrorCode) {
   return parseProjectNodeErrnoCode(error) === code
 }
 
 function normalizeRelativePath(filepath: string) {
   return filepath.trim().replaceAll("\\", "/").replace(/^\/+/, "")
-}
-
-function contentVersion(content: string | undefined) {
-  if (content === undefined) return null
-  return createHash("sha256").update(content, "utf8").digest("hex")
 }
 
 async function readFileContent(filePath: string) {
@@ -149,59 +133,6 @@ async function assertTextEditableFile(relativePath: string) {
   }
 }
 
-async function createFileLinkWithoutOverwrite(sourcePath: string, destinationPath: string) {
-  try {
-    await fs.link(sourcePath, destinationPath)
-  } catch (error) {
-    if (isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.alreadyExists)) {
-      throw new ProjectFileRenameConflictError(PROJECT_FILE_RENAME_CONFLICT_ERROR)
-    }
-    const code = fileSystemErrorCode(error)
-    if (!code || !HARD_LINK_FALLBACK_ERROR_CODES.has(code)) {
-      throw error
-    }
-    try {
-      await fs.copyFile(sourcePath, destinationPath, fsConstants.COPYFILE_EXCL)
-    } catch (copyError) {
-      if (isFileSystemError(copyError, FILE_SYSTEM_ERROR_CODE.alreadyExists)) {
-        throw new ProjectFileRenameConflictError(PROJECT_FILE_RENAME_CONFLICT_ERROR)
-      }
-      throw copyError
-    }
-  }
-}
-
-async function renameFileWithoutOverwrite(source: ProjectContainedFile, destinationPath: string) {
-  const destinationStats = await fs.lstat(destinationPath).catch((error) => {
-    if (isFileSystemError(error, FILE_SYSTEM_ERROR_CODE.notFound)) return undefined
-    throw error
-  })
-
-  if (destinationStats) {
-    const [sourceStats, destinationRealPath] = await Promise.all([
-      fs.lstat(source.absolutePath),
-      fs.realpath(destinationPath),
-    ])
-    const sameDirectoryEntry =
-      destinationRealPath === source.realPath &&
-      destinationStats.dev === sourceStats.dev &&
-      destinationStats.ino === sourceStats.ino
-    if (!sameDirectoryEntry) {
-      throw new ProjectFileRenameConflictError(PROJECT_FILE_RENAME_CONFLICT_ERROR)
-    }
-    await fs.rename(source.absolutePath, destinationPath)
-    return
-  }
-
-  await createFileLinkWithoutOverwrite(source.absolutePath, destinationPath)
-  try {
-    await fs.unlink(source.absolutePath)
-  } catch (error) {
-    await fs.unlink(destinationPath).catch(() => undefined)
-    throw error
-  }
-}
-
 export function mapProjectTextFileEditorError<TValue>(error: TValue): Response | undefined {
   if (error instanceof ProjectFilePathEscapeError) {
     return Response.json({ error: error.message }, { status: 403 })
@@ -211,6 +142,9 @@ export function mapProjectTextFileEditorError<TValue>(error: TValue): Response |
   }
   if (error instanceof ProjectFileRenameConflictError) {
     return Response.json({ error: error.message }, { status: 409 })
+  }
+  if (error instanceof FileRenameConflictError) {
+    return Response.json({ error: PROJECT_FILE_RENAME_CONFLICT_ERROR }, { status: 409 })
   }
   if (error instanceof ProjectTextFileUnsupportedError) {
     return Response.json({ error: error.message }, { status: 415 })
@@ -235,7 +169,7 @@ export async function readProjectTextFile(input: {
       return {
         path: normalizedPath,
         content,
-        version: contentVersion(content),
+        version: textContentVersion(content),
       }
     },
   })
@@ -281,7 +215,7 @@ export async function readProjectTextFileStatus(input: {
       return {
         path: normalizedPath,
         exists: true,
-        version: contentVersion(content),
+        version: textContentVersion(content),
       }
     },
   })
@@ -350,7 +284,7 @@ export async function saveProjectTextFile(input: {
             const currentContent = latestContainedFile
               ? await readFileContent(latestContainedFile.realPath)
               : undefined
-            const currentVersion = contentVersion(currentContent)
+            const currentVersion = textContentVersion(currentContent)
             if (input.expectedVersion !== undefined && input.expectedVersion !== currentVersion) {
               throw new ProjectTextFileVersionConflictError(PROJECT_TEXT_FILE_CONFLICT_ERROR)
             }
@@ -366,7 +300,7 @@ export async function saveProjectTextFile(input: {
         return {
           path: normalizedPath,
           content: input.content,
-          version: contentVersion(input.content) ?? "",
+          version: textContentVersion(input.content) ?? "",
         }
       })
     },
@@ -394,18 +328,13 @@ export async function renameProjectTextFile(input: {
         throw new ProjectFilePathEscapeError(PROJECT_FILE_ESCAPE_ERROR)
       }
 
-      const lockPaths = [
-        textFileWriteLockPath(sourcePath),
-        textFileWriteLockPath(destinationPath),
-      ].toSorted()
-
       const rename = async (): Promise<ProjectTextFileRenameResult> => {
         const source = await resolveContainedFile(input.directory, normalizedPath)
         await assertTextEditableFile(normalizedPath)
         await assertContainedParentDirectory(input.directory, normalizedNextPath)
 
         const content = (await readFileContent(source.realPath)) ?? ""
-        const version = contentVersion(content)
+        const version = textContentVersion(content)
         if (input.expectedVersion !== undefined && input.expectedVersion !== version) {
           throw new ProjectTextFileVersionConflictError(PROJECT_TEXT_FILE_CONFLICT_ERROR)
         }
@@ -418,7 +347,7 @@ export async function renameProjectTextFile(input: {
           }
         }
 
-        await renameFileWithoutOverwrite(source, destinationPath)
+        await renameFileWithoutOverwrite(source.absolutePath, destinationPath)
 
         return {
           path: normalizedNextPath,
@@ -427,10 +356,10 @@ export async function renameProjectTextFile(input: {
         }
       }
 
-      if (lockPaths[0] === lockPaths[1]) {
-        return withFileLock(lockPaths[0], rename)
-      }
-      return withFileLock(lockPaths[0], () => withFileLock(lockPaths[1], rename))
+      return withFileLocks(
+        [textFileWriteLockPath(sourcePath), textFileWriteLockPath(destinationPath)],
+        rename,
+      )
     },
   })
 }

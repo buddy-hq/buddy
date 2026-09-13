@@ -12,7 +12,7 @@ import {
 } from "../src/lib/bench-surface-keep-alive"
 
 function fileTarget(path: string): BenchTarget {
-  return { type: "workspace-file", path, viewer: "markdown" }
+  return { type: "workspace-file", root: "notebook", path, viewer: "markdown" }
 }
 
 function objectTarget(kind: BenchObjectKind): BenchTarget {

@@ -11,6 +11,7 @@ import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import { useTranscriptMessage } from "@/state/transcript-repository"
 import type { ChatTextPart } from "../../utils/part-guards"
 import { isSvgAutoRepairAssistantMessage } from "../../utils/message-visibility"
+import { MessageNoteAction } from "@/features/notes/message-note-action"
 
 type AssistantTextPartProps = {
   part: ChatTextPart
@@ -25,6 +26,7 @@ type AssistantTextPartProps = {
   directory?: string
   onOpenResource?: WorkspaceResourceOpener
   onForkMessage?: () => Promise<void> | void
+  onQuoteMessage?: () => void
 }
 
 function stripLeadingRenderFigureMarkdown(text: string): string {
@@ -75,6 +77,7 @@ function assistantTextPartEqual(
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
   if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
+  if (prevProps.onQuoteMessage !== nextProps.onQuoteMessage) return false
   return prevProps.part.text === nextProps.part.text
 }
 
@@ -89,6 +92,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   directory,
   onOpenResource,
   onForkMessage,
+  onQuoteMessage,
 }: AssistantTextPartProps) {
   const [branching, setBranching] = useState(false)
   const text = part.text
@@ -175,6 +179,12 @@ export const AssistantTextPart = memo(function AssistantTextPart({
             interrupted && "w-full justify-end",
           )}
         >
+          {onQuoteMessage ? (
+            <MessageNoteAction
+              className="inline-flex h-auto w-auto shrink-0 items-center justify-center rounded-sm p-0 text-inherit transition-colors hover:bg-transparent hover:text-text-weak"
+              onQuote={onQuoteMessage}
+            />
+          ) : null}
           {/* Same icon size as before; drop the 32×32 padded box so the row is left-flush. */}
           <CopyAction
             value={displayedText}

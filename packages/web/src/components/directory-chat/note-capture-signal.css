@@ -1,0 +1,61 @@
+/* Where a captured note landed.
+   Two signals, each matched to how long its situation lasts: the rail button
+   flashes once (a moment), while a list row that just jumped to the top of a
+   last-updated sort holds a wash long enough to explain the jump. Neither is a
+   loop — a nav element pressed dozens of times a day should not keep moving. */
+
+@layer components {
+  .right-workspace-rail-button[data-attention="true"] {
+    color: var(--color-icon-interactive-base);
+  }
+
+  .right-workspace-rail-button[data-attention="true"]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1px solid var(--color-icon-interactive-base);
+    animation: rail-attention-ring 700ms ease-out 1 both;
+    pointer-events: none;
+  }
+
+  .right-workspace-row-highlight {
+    animation: row-capture-wash 1200ms ease-out 1 both;
+  }
+}
+
+@keyframes rail-attention-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+@keyframes row-capture-wash {
+  0%,
+  40% {
+    background-color: var(--color-surface-raised-base);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* The signal still has to arrive: hold a static ring and a static wash rather
+   than dropping to nothing, then let them clear when the class is removed. */
+@media (prefers-reduced-motion: reduce) {
+  .right-workspace-rail-button[data-attention="true"]::after {
+    animation: none;
+    opacity: 0.9;
+    transform: none;
+  }
+
+  .right-workspace-row-highlight {
+    animation: none;
+    background-color: var(--color-surface-raised-base);
+  }
+}

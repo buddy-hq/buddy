@@ -138,7 +138,10 @@ function ApprovedMarkdownBenchLoader(props: {
   path: string
 }) {
   const approvedFileQuery = useQuery(
-    markdownBenchApprovedFileQueryOptions({ directory: props.directory, path: props.path }),
+    markdownBenchApprovedFileQueryOptions({
+      directory: props.directory,
+      path: props.path,
+    }),
   )
 
   if (approvedFileQuery.isPending) return <MarkdownBenchPending />

@@ -22,7 +22,7 @@ export function benchTabKey(target: BenchTabTarget): string {
     return `browser:${encodeURIComponent(target.tabID)}`
   }
   if (target.type === "workspace-file") {
-    return `file:${target.viewer}:${encodeURIComponent(target.path)}`
+    return `file:${target.root}:${target.viewer}:${encodeURIComponent(target.path)}`
   }
 
   return `object:${target.ref.kind}:${encodeURIComponent(target.ref.objectID)}:${encodeURIComponent(target.viewID)}`

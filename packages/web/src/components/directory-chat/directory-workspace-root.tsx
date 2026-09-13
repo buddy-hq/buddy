@@ -69,13 +69,14 @@ import {
   WORKSPACE_HYDRATION_PENDING,
   workspacePresentationSlotForChat,
 } from "@/state/directory-workspace-store"
-import type { ResizeHandleIntent } from "@buddy/ui"
+import { toast, type ResizeHandleIntent } from "@buddy/ui"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStore } from "zustand"
 import { useShallow } from "zustand/react/shallow"
 import { resolveWorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
 import { requestPromptComposerFocus } from "@/components/prompt/prompt-composer-focus"
-import { createTextPromptDraft, getPromptDraft, usePromptStore } from "@/state/prompt-store"
+import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer-live-draft"
+import { createTextPromptDraft } from "@/state/prompt-store"
 import {
   readActiveChatLayoutMotionSuppressed,
   subscribeActiveChatLayoutMotion,
@@ -83,6 +84,8 @@ import {
 import { openOwnedSubagentBench } from "@/lib/subagent-bench-target"
 import { useOpenSubagentBench } from "@/lib/use-open-subagent-bench"
 import { browserWindow, hasFunctionValue } from "@/state/parse-external"
+import { createNotesBenchTarget } from "@/lib/bench-targets"
+import { createNoteAndUpdateCache } from "@/features/notes/create-note"
 
 type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
 type DirectoryWorkspaceBenchRuntimeState = Omit<BenchRuntimeState, "target"> & {
@@ -634,6 +637,19 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const handleNewBoard = useCallback(() => {
     void createBoard()
   }, [createBoard])
+  const handleNewNote = useCallback(() => {
+    void createNoteAndUpdateCache(currentDirectory)
+      .then(async (note) => {
+        await openWorkspaceTarget({
+          type: "object",
+          directory: currentDirectory,
+          target: createNotesBenchTarget(note),
+        })
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : "Note could not be created.")
+      })
+  }, [currentDirectory, openWorkspaceTarget])
 
   const selectWorkspaceSession = useCallback(
     async (nextSessionID: string): Promise<boolean> => {
@@ -696,7 +712,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const stageWorkspacePrompt = useCallback(
     (prompt: string) => {
       const promptKey = controller.mainPaneProps.chatState.promptKey
-      const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
+      const currentDraft = readPromptComposerLiveDraft(promptKey)
       const nextValue = currentDraft.value.trim()
         ? `${currentDraft.value.trimEnd()}\n\n${prompt}`
         : prompt
@@ -877,6 +893,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           <ChatLeftSidebar
             {...controller.leftSidebarProps}
             onSelectSession={handleSidebarSelectSession}
+            onNewNote={handleNewNote}
             onNewBoard={handleNewBoard}
           />
         }

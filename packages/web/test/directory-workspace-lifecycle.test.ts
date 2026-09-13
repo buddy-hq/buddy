@@ -27,11 +27,13 @@ import {
 const DIRECTORY = "/workspace/lifecycle-test"
 const TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/intro.md",
   viewer: "file",
 } satisfies BenchTarget
 const OTHER_TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/other.md",
   viewer: "markdown",
 } satisfies BenchTarget
@@ -1533,10 +1535,11 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     }
   })
 
-  test("omits route-only fragments from published tab targets", async () => {
+  test("preserves Notes roots while omitting route-only fragments from published tabs", async () => {
     const publishBodies: unknown[] = []
     const anchoredTarget = {
       type: "workspace-file",
+      root: "notes",
       path: "docs/intro.md",
       viewer: "markdown",
       fragment: "installation",
@@ -1592,6 +1595,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
 
       expect(readFirstPublishedTabTarget(publishBodies.at(-1))).toEqual({
         type: "workspace-file",
+        root: "notes",
         path: anchoredTarget.path,
         viewer: anchoredTarget.viewer,
       })

@@ -4,7 +4,8 @@ import {
   appendSelectionContextToDraft,
   removeSelectionContextFromDraft,
 } from "@/components/readers/utils/reading-selection-draft"
-import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
+import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer-live-draft"
+import { usePromptStore } from "@/state/prompt-store"
 
 function createMarkdownSelectionKey() {
   const random = Math.random().toString(36).slice(2, 10)
@@ -24,7 +25,7 @@ export function useMarkdownBenchSelectionSync(input: {
     (selection: MarkdownBenchDocumentSelection) => {
       if (!promptKey) return
       const text = selection.text.trim()
-      const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
+      const currentDraft = readPromptComposerLiveDraft(promptKey)
       const stagedSelectionKey = stagedSelectionKeyRef.current
       const draftWithoutPreviousSelection = stagedSelectionKey
         ? (removeSelectionContextFromDraft(currentDraft, stagedSelectionKey) ?? currentDraft)

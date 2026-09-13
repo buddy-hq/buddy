@@ -3,7 +3,7 @@ import { createTextPromptDraft, type PromptDraftState } from "@/state/prompt-sto
 
 export function createGetStartedChatDraft(
   chat: Pick<GetStartedChat, "prompt">,
-  currentDraft: PromptDraftState,
+  currentDraft: Pick<PromptDraftState, "attachments">,
 ): Omit<PromptDraftState, "updatedAt"> {
   return {
     ...createTextPromptDraft(chat.prompt),

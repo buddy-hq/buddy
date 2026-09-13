@@ -5,6 +5,7 @@ import { BenchTargetDeclaration } from "@/components/bench/bench-target-declarat
 type MarkdownBenchSearch = {
   fragment?: string
   path?: string
+  root?: "notebook" | "notes"
 }
 
 type TIncomingSearchValue = string | number | boolean
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/$directory/_bench/markdown")({
   validateSearch: (search: TIncomingSearch): MarkdownBenchSearch => ({
     fragment: parseTSearchString(search.fragment),
     path: parseTSearchString(search.path),
+    root: search.root === "notebook" || search.root === "notes" ? search.root : undefined,
   }),
   component: BenchTargetDeclaration,
 })

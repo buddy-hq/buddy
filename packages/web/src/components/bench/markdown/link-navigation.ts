@@ -1,9 +1,11 @@
+import { BENCH_WORKSPACE_ROOT_NOTEBOOK, type BenchWorkspaceRoot } from "@/lib/bench-targets"
+
 const URI_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/u
 const SAFE_EXTERNAL_LINK_SCHEMES = new Set(["http:", "https:", "mailto:", "obsidian:"])
 
 export type MarkdownBenchLinkTarget =
   | { type: "external"; url: string }
-  | { type: "workspace-file"; path: string; fragment?: string }
+  | { type: "workspace-file"; path: string; root: BenchWorkspaceRoot; fragment?: string }
 
 function decodeLinkPart(value: string): string {
   try {
@@ -35,6 +37,7 @@ function normalizedWorkspaceLinkPath(documentPath: string, hrefPath: string): st
 export function resolveMarkdownBenchLink(
   documentPath: string,
   href: string,
+  root?: BenchWorkspaceRoot,
 ): MarkdownBenchLinkTarget | undefined {
   const normalizedHref = href.trim()
   if (!normalizedHref) return undefined
@@ -61,6 +64,7 @@ export function resolveMarkdownBenchLink(
     {
       type: "workspace-file" as const,
       path,
+      root: root ?? BENCH_WORKSPACE_ROOT_NOTEBOOK,
     },
     fragment ? { fragment } : undefined,
   )

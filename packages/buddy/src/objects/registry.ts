@@ -11,6 +11,7 @@ type ObjectBenchTarget = {
 
 type WorkspaceFileBenchTarget = {
   type: "workspace-file"
+  root: "notebook" | "notes"
   path: string
   viewer: "markdown" | "file"
 }

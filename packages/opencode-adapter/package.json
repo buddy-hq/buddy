@@ -11,6 +11,7 @@
     "./mcp": "./src/mcp.ts",
     "./mcp-oauth-branding": "./src/mcp-oauth-branding.ts",
     "./message": "./src/message.ts",
+    "./message-visibility": "./src/message-visibility.ts",
     "./provider-auth": "./src/provider-auth.ts",
     "./id": "./src/id.ts",
     "./permission": "./src/permission.ts",

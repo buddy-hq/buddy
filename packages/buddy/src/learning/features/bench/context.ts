@@ -11,12 +11,16 @@ const BENCH_CONTEXT_REGISTRY_LIMIT = 512
 const BENCH_CONTEXT_HISTORY_LIMIT = 512
 const BENCH_TARGET_KEY_PART_SEPARATOR = "\u0000"
 const BENCH_TARGET_KEY_NULL_PART = "\u2400"
+const BENCH_WORKSPACE_ROOT_NOTEBOOK = "notebook" as const
+const BENCH_WORKSPACE_ROOT_NOTES = "notes" as const
+const BenchWorkspaceRootSchema = z.enum([BENCH_WORKSPACE_ROOT_NOTEBOOK, BENCH_WORKSPACE_ROOT_NOTES])
 const BENCH_DRAWER_KIND_VALUES = [
   "search",
   "sources",
   "practice",
   "creations",
   "boards",
+  "notes",
   "files",
   "skills",
 ] as const
@@ -30,6 +34,7 @@ const BrowserUrlSchema = nonEmptyString
 const WorkspaceFileBenchTargetSchema = z
   .object({
     type: z.literal("workspace-file"),
+    root: BenchWorkspaceRootSchema.default(BENCH_WORKSPACE_ROOT_NOTEBOOK),
     path: nonEmptyString,
     viewer: z.enum(["markdown", "file"]),
   })
@@ -417,7 +422,7 @@ function benchTargetKey(target: BenchTarget): string {
     return ["browser", encodeURIComponent(parsed.tabID)].join(BENCH_TARGET_KEY_PART_SEPARATOR)
   }
   if (parsed.type === "workspace-file") {
-    return ["workspace-file", parsed.viewer, encodeURIComponent(parsed.path)].join(
+    return ["workspace-file", parsed.root, parsed.viewer, encodeURIComponent(parsed.path)].join(
       BENCH_TARGET_KEY_PART_SEPARATOR,
     )
   }
@@ -451,6 +456,8 @@ const BenchReadContextInputSchema = z
   .strict()
 
 export {
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
+  BENCH_WORKSPACE_ROOT_NOTES,
   BENCH_CONTEXT_HISTORY_LIMIT,
   BENCH_DRAWER_KIND_VALUES,
   BenchContextRefSchema,

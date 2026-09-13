@@ -1,5 +1,5 @@
 import { access, constants, realpath } from "node:fs/promises"
-import { basename, extname, isAbsolute, join, relative, resolve } from "node:path"
+import { basename, extname, isAbsolute, join, relative, resolve, sep } from "node:path"
 
 const MAX_MARKDOWN_PDF_EXPORT_PATH_ATTEMPTS = 1000
 
@@ -9,7 +9,10 @@ function comparablePath(value: string): string {
 
 export function isPathInsideDirectory(pathname: string, directory: string): boolean {
   const relativePath = relative(comparablePath(directory), comparablePath(pathname))
-  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))
+  return (
+    relativePath === "" ||
+    (relativePath !== ".." && !relativePath.startsWith(`..${sep}`) && !isAbsolute(relativePath))
+  )
 }
 
 async function resolveCanonicalPath(pathname: string): Promise<string> {

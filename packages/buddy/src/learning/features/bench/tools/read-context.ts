@@ -1,5 +1,7 @@
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
+import { readNotesDirectoryState } from "../../../../notes/settings"
 import {
+  BENCH_WORKSPACE_ROOT_NOTES,
   BenchReadContextInputSchema,
   BenchReadContextOutputSchema,
   readCurrentBenchContext,
@@ -52,6 +54,7 @@ function selectedBrowserForContext(
 function projectModelVisibleBenchContext(input: {
   context: OpenBenchContext
   directory: string
+  notesDirectory: string
   tabSearch?: string
 }) {
   const { context } = input
@@ -60,6 +63,7 @@ function projectModelVisibleBenchContext(input: {
     Object.assign(
       {
         directory: input.directory,
+        notesDirectory: input.notesDirectory,
         tabs: context.tabs,
         selectedTabKey: context.selectedTabKey,
         limit: BENCH_READ_CONTEXT_TAB_LIMIT,
@@ -237,6 +241,15 @@ const benchReadContextTool = createBuddyTool({
         sessionID: String(ctx.sessionID),
       }),
     )
+    const hasNotesTarget =
+      result.status === "open" &&
+      result.tabs.some(
+        (tab) =>
+          tab.target.type === "workspace-file" && tab.target.root === BENCH_WORKSPACE_ROOT_NOTES,
+      )
+    const notesDirectory = hasNotesTarget
+      ? (await readNotesDirectoryState()).resolvedDirectory
+      : ctx.directory
 
     if (params.responseFormat !== "context_only") {
       if (result.status === "closed") {
@@ -274,6 +287,7 @@ const benchReadContextTool = createBuddyTool({
                   {
                     context: synchronizedContext,
                     directory: ctx.directory,
+                    notesDirectory,
                   },
                   params.tabSearch ? { tabSearch: params.tabSearch } : undefined,
                 ),
@@ -314,6 +328,7 @@ const benchReadContextTool = createBuddyTool({
               {
                 context: result,
                 directory: ctx.directory,
+                notesDirectory,
               },
               params.tabSearch ? { tabSearch: params.tabSearch } : undefined,
             ),
@@ -337,6 +352,7 @@ const benchReadContextTool = createBuddyTool({
             {
               context: result,
               directory: ctx.directory,
+              notesDirectory,
             },
             params.tabSearch ? { tabSearch: params.tabSearch } : undefined,
           ),

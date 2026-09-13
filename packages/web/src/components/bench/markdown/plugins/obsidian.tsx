@@ -37,7 +37,7 @@ import { MarkdownHtmlSegment } from "@/components/markdown/markdown-html-segment
 import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { readProjectExplorerEditableFile } from "@/state/chat-actions"
-import { obsidianVaultQueryKeys, type ObsidianLinkResolution } from "@/state/obsidian-vault-query"
+import { obsidianVaultQueryKeys } from "@/state/obsidian-vault-query"
 
 const LEFT_SQUARE_BRACKET_CODE = 91
 const RIGHT_SQUARE_BRACKET_CODE = 93
@@ -72,12 +72,40 @@ type SerializedObsidianWikiLinkNode = Spread<
   SerializedLexicalNode
 >
 
+type ObsidianEmbeddedMarkdownLocation = {
+  directory: string
+  path: string
+}
+
+type ObsidianEmbeddedMarkdownDocument = {
+  content: string
+}
+
+type ObsidianEmbeddedMarkdownLoader = {
+  queryKey(input: ObsidianEmbeddedMarkdownLocation): readonly unknown[]
+  read(input: ObsidianEmbeddedMarkdownLocation): Promise<ObsidianEmbeddedMarkdownDocument>
+}
+
+export const EXPLORER_EMBEDDED_MARKDOWN_LOADER: ObsidianEmbeddedMarkdownLoader = {
+  queryKey: ({ directory, path }) => obsidianVaultQueryKeys.embeddedNote(directory, path),
+  read: readProjectExplorerEditableFile,
+}
+
 type ObsidianWikiLinkContext = {
   directory: string
   documentPath: string
   compatible: boolean
   resolutions: ReadonlyMap<string, ObsidianLinkResolution>
+  embeddedMarkdownLoader: ObsidianEmbeddedMarkdownLoader
   openResolution(resolution: ObsidianLinkResolution): void
+}
+
+type ObsidianLinkResolution = {
+  target: string
+  status: "resolved" | "unresolved"
+  path?: string
+  fragment?: string
+  kind?: "file" | "image" | "markdown" | "media"
 }
 
 declare module "mdast" {
@@ -111,6 +139,7 @@ const EMPTY_OBSIDIAN_WIKILINK_CONTEXT: ObsidianWikiLinkContext = {
   documentPath: "",
   compatible: false,
   resolutions: new Map(),
+  embeddedMarkdownLoader: EXPLORER_EMBEDDED_MARKDOWN_LOADER,
   openResolution() {},
 }
 
@@ -405,9 +434,10 @@ function ObsidianEmbeddedNote(props: {
   label: string
 }) {
   const path = props.resolution.path ?? ""
+  const location = { directory: props.context.directory, path }
   const noteQuery = useQuery({
-    queryKey: obsidianVaultQueryKeys.embeddedNote(props.context.directory, path),
-    queryFn: () => readProjectExplorerEditableFile({ directory: props.context.directory, path }),
+    queryKey: props.context.embeddedMarkdownLoader.queryKey(location),
+    queryFn: () => props.context.embeddedMarkdownLoader.read(location),
     enabled: path.length > 0,
     staleTime: OBSIDIAN_EMBED_PREVIEW_STALE_TIME_MS,
   })
@@ -558,4 +588,4 @@ export function viewerForObsidianResolution(
   return resolution.path && isMarkdownBenchPath(resolution.path) ? "markdown" : "file"
 }
 
-export type { ObsidianWikiLinkContext }
+export type { ObsidianEmbeddedMarkdownLoader, ObsidianLinkResolution, ObsidianWikiLinkContext }

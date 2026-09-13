@@ -6,8 +6,11 @@ import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
   BENCH_CHAT_SEARCH_PARAM,
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
+  BENCH_WORKSPACE_ROOT_NOTES,
   defaultBenchObjectViewID,
   isBenchObjectKind,
+  readBenchWorkspaceRoot,
   readBenchChatLayoutMode,
   type BenchMode,
   type BenchTabTarget,
@@ -171,10 +174,12 @@ function readBenchTargetFromLocation<TSearch>(input: {
   if (childPath === "markdown") {
     const path = readStringSearchValue(search, "path")
     const fragment = readStringSearchValue(search, "fragment")
+    const root = readBenchWorkspaceRoot(search.root) ?? BENCH_WORKSPACE_ROOT_NOTEBOOK
     return path
       ? Object.assign(
           {
             type: "workspace-file" as const,
+            root,
             path,
             viewer: "markdown" as const,
           },
@@ -186,10 +191,12 @@ function readBenchTargetFromLocation<TSearch>(input: {
   if (childPath === "file") {
     const path = readStringSearchValue(search, "path")
     const fragment = readStringSearchValue(search, "fragment")
+    const root = readBenchWorkspaceRoot(search.root) ?? BENCH_WORKSPACE_ROOT_NOTEBOOK
     return path
       ? Object.assign(
           {
             type: "workspace-file" as const,
+            root,
             path,
             viewer: "file" as const,
           },
@@ -296,6 +303,7 @@ function buildBenchNavigation(input: {
       search: withBenchModeSearch(
         Object.assign(
           { path: target.path },
+          target.root === BENCH_WORKSPACE_ROOT_NOTES ? { root: target.root } : undefined,
           target.fragment ? { fragment: target.fragment } : undefined,
         ),
         mode,

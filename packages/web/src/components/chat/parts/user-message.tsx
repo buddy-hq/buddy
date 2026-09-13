@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@buddy/ui"
 import { Undo2Icon } from "@/icons/app-icons"
 import type { MessageInfo, ProviderInfo } from "@/state/chat-types"
 import type { ChatAgentPart, ChatFilePart, ChatTextPart } from "../utils/part-guards"
+import { MessageNoteAction } from "@/features/notes/message-note-action"
 
 // Collapsed height cap for a long sent message. Anything taller gets clamped
 // behind a fade with a "Show more" toggle instead of running full-length.
@@ -23,6 +24,7 @@ type UserMessagePartProps = {
   providers?: ProviderInfo[]
   queued?: boolean
   onRevertMessage?: () => Promise<void> | void
+  onQuoteMessage?: () => void
 }
 
 function userMessagePartEqual(
@@ -45,6 +47,7 @@ function userMessagePartEqual(
   if (prevProps.inlineReferences !== nextProps.inlineReferences) return false
   if (prevProps.providers !== nextProps.providers) return false
   if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
+  if (prevProps.onQuoteMessage !== nextProps.onQuoteMessage) return false
 
   return true
 }
@@ -58,6 +61,7 @@ export const UserMessagePart = memo(function UserMessagePart({
   providers: _providers,
   queued,
   onRevertMessage,
+  onQuoteMessage,
 }: UserMessagePartProps) {
   const [reverting, setReverting] = useState(false)
   const [expanded, setExpanded] = useState(false)
@@ -183,6 +187,12 @@ export const UserMessagePart = memo(function UserMessagePart({
         )}
       </div>
       <div className="mt-1 flex min-h-6 w-full items-center justify-end gap-2.5 text-text-weaker opacity-0 pointer-events-none transition-opacity group-hover/user:opacity-100 group-hover/user:pointer-events-auto group-focus-within/user:opacity-100 group-focus-within/user:pointer-events-auto">
+        {onQuoteMessage ? (
+          <MessageNoteAction
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base"
+            onQuote={onQuoteMessage}
+          />
+        ) : null}
         {onRevertMessage ? (
           <Tooltip>
             <TooltipTrigger

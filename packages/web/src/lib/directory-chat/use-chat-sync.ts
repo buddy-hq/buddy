@@ -198,7 +198,7 @@ type UseChatSyncProps = {
   getBenchEventStreamLeaseQuery?: () => Partial<NonNullable<EventStreamData["query"]>>
   onBenchClientLease?: (lease: BenchClientLease) => void
   onBenchClientAction?: (action: BenchClientActionV2) => void | Promise<void>
-  onAgentTurnComplete?: () => void | Promise<void>
+  onAgentTurnComplete?: (sessionID: string) => void | Promise<void>
   onWorkspaceFileChanged?: (input: {
     path: string
     event: WorkspaceFileWatcherEventKind
@@ -397,7 +397,7 @@ export function useChatSync(props: UseChatSyncProps) {
               workingSessions.delete(statusSessionID) &&
               isParentSession(directory, statusSessionID)
             ) {
-              void onAgentTurnComplete?.()
+              void onAgentTurnComplete?.(statusSessionID)
               appendTurnCompleteNotification(directory, statusSessionID)
               const notificationPreferences = useNotificationPreferences.getState().preferences
               if (notificationPreferences.agent) {

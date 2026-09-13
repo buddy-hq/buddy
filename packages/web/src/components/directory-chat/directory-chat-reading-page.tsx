@@ -17,8 +17,8 @@ import {
 import type { ReaderSelection } from "@/components/readers/reader-types"
 import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
+import { readPromptComposerLiveDraft } from "@/components/prompt/prompt-composer-live-draft"
 import { useChatStore } from "@/state/chat-store"
-import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
 import {
   invalidateResourcesQueries,
   resourceFileExtensionFromFormat,
@@ -350,7 +350,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   function stageReadingSelection(input: ReaderSelection) {
     const promptKey = readyController.mainPaneProps.chatState.promptKey
     const setPromptDraft = readyController.mainPaneProps.chatState.setPromptDraft
-    const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
+    const currentDraft = readPromptComposerLiveDraft(promptKey)
     const resourceKey = resourceRecord?.objectID ?? resourceRecord?.alias ?? props.resourceKey
     setPromptDraft(
       promptKey,
@@ -374,7 +374,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   function removeStagedReadingSelection(selectionKey: string) {
     const promptKey = readyController.mainPaneProps.chatState.promptKey
     const setPromptDraft = readyController.mainPaneProps.chatState.setPromptDraft
-    const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
+    const currentDraft = readPromptComposerLiveDraft(promptKey)
     const nextDraft = removeReadingSelectionFromDraft(currentDraft, selectionKey)
     if (nextDraft) setPromptDraft(promptKey, nextDraft)
   }

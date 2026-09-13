@@ -1,7 +1,7 @@
 import path from "node:path"
 import { normalizeInAppBrowserTitle } from "@buddy/browser-contract"
 import { BuddyObjectPath } from "../../../objects"
-import type { BenchTabSummary } from "./context"
+import { BENCH_WORKSPACE_ROOT_NOTES, type BenchTabSummary } from "./context"
 
 const BENCH_READ_CONTEXT_TAB_LIMIT = 20
 const BENCH_TURN_CONTEXT_TAB_LIMIT = 6
@@ -11,6 +11,7 @@ const TAB_NUMBER_SEARCH_PATTERN = /^tab\s+(\d+)$/u
 type ModelVisibleBenchTarget =
   | {
       type: "workspace-file"
+      root?: typeof BENCH_WORKSPACE_ROOT_NOTES
       path: string
       absolutePath: string
       viewer: "markdown" | "file"
@@ -73,7 +74,15 @@ type ModelVisibleBrowserTabs = {
 function searchableTabValues(tab: NumberedBenchTab): string[] {
   const target = tab.target
   if (target.type === "workspace-file") {
-    return [tab.title, tab.tabKey, `tab ${tab.tabNumber}`, target.type, target.path, target.viewer]
+    return [
+      tab.title,
+      tab.tabKey,
+      `tab ${tab.tabNumber}`,
+      target.type,
+      target.root,
+      target.path,
+      target.viewer,
+    ]
   }
 
   if (target.type === "browser") {
@@ -104,10 +113,20 @@ function tabMatchesSearch(tab: NumberedBenchTab, normalizedSearch: string): bool
 
 function benchTargetAbsolutePath(input: {
   directory: string
+  notesDirectory?: string
   target: Exclude<BenchTabSummary["target"], { type: "browser" }>
 }): string {
   if (input.target.type === "workspace-file") {
-    return path.resolve(input.directory, input.target.path)
+    const root = input.target.root
+    if (root === BENCH_WORKSPACE_ROOT_NOTES && !input.notesDirectory) {
+      throw new Error("Notes directory is required to resolve a Notes-root Bench target")
+    }
+    return path.resolve(
+      root === BENCH_WORKSPACE_ROOT_NOTES
+        ? (input.notesDirectory ?? input.directory)
+        : input.directory,
+      input.target.path,
+    )
   }
   if (input.target.ref.revisionID) {
     return BuddyObjectPath.revisionDirectory({
@@ -126,6 +145,7 @@ function benchTargetAbsolutePath(input: {
 
 function modelVisibleTarget(input: {
   directory: string
+  notesDirectory?: string
   target: BenchTabSummary["target"]
   selectedBrowser?: ModelVisibleSelectedBrowser
 }): ModelVisibleBenchTarget {
@@ -137,17 +157,22 @@ function modelVisibleTarget(input: {
       url: input.selectedBrowser?.tabID === target.tabID ? input.selectedBrowser.url : target.url,
     }
   }
-  const absolutePath = benchTargetAbsolutePath({
-    directory: input.directory,
-    target,
-  })
+  const absolutePath = benchTargetAbsolutePath(
+    Object.assign(
+      { directory: input.directory, target },
+      input.notesDirectory ? { notesDirectory: input.notesDirectory } : undefined,
+    ),
+  )
   if (target.type === "workspace-file") {
-    return {
-      type: target.type,
-      path: target.path,
-      absolutePath,
-      viewer: target.viewer,
-    }
+    return Object.assign(
+      {
+        type: target.type,
+        path: target.path,
+        absolutePath,
+        viewer: target.viewer,
+      },
+      target.root === BENCH_WORKSPACE_ROOT_NOTES ? { root: target.root } : undefined,
+    )
   }
   return Object.assign(
     {
@@ -164,6 +189,7 @@ function modelVisibleTarget(input: {
 
 function projectModelVisibleBenchTabs(input: {
   directory: string
+  notesDirectory?: string
   tabs: readonly BenchTabSummary[]
   selectedTabKey: string
   selectedTabTitle?: string
@@ -223,6 +249,7 @@ function projectModelVisibleBenchTabs(input: {
       target: modelVisibleTarget(
         Object.assign(
           { directory: input.directory, target: tab.target },
+          input.notesDirectory ? { notesDirectory: input.notesDirectory } : undefined,
           input.selectedBrowser ? { selectedBrowser: input.selectedBrowser } : undefined,
         ),
       ),

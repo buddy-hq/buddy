@@ -3,6 +3,7 @@ import { useCallback } from "react"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 import type { SettingsTab } from "@/components/settings/settings-tabs"
 import {
+  BENCH_WORKSPACE_ROOT_NOTES,
   isDirectoryChatRoutePathname,
   readBenchOpenPolicyStateFromLocation,
 } from "@/lib/bench-navigation"
@@ -48,6 +49,28 @@ export function readSettingsReturnTo<TValue>(value: TValue): string | undefined 
   if (!isDirectoryChat && benchState.status !== "open") return undefined
 
   return `${url.pathname}${url.search}`
+}
+
+function isNotesBenchReturnTo(returnTo: string): boolean {
+  const url = new URL(returnTo, SETTINGS_RETURN_ORIGIN)
+  const directory = readDirectoryFromReturnPath(url.pathname)
+  if (!directory) return false
+  const benchState = readBenchOpenPolicyStateFromLocation({
+    directory,
+    pathname: url.pathname,
+    search: Object.fromEntries(url.searchParams),
+  })
+  return (
+    benchState.status === "open" &&
+    benchState.target.type === "workspace-file" &&
+    benchState.target.root === BENCH_WORKSPACE_ROOT_NOTES
+  )
+}
+
+export function dropNotesBenchSettingsReturnTo(returnTo: string | undefined): string | undefined {
+  const validated = readSettingsReturnTo(returnTo)
+  if (!validated || !isNotesBenchReturnTo(validated)) return validated
+  return undefined
 }
 
 export function buildSettingsSearch(input: { tab: SettingsTab; returnTo: string }): SettingsSearch {

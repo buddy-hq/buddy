@@ -175,7 +175,7 @@ export type PromptReadingSelectionPart = {
   locationLabel?: string
 }
 
-export type PromptSelectionContextSource = "reading" | "markdown"
+export type PromptSelectionContextSource = "reading" | "markdown" | "message"
 
 export type PromptReadingSelectionContextPart = {
   type: typeof SELECTION_CONTEXT_PART_TYPE
@@ -207,9 +207,30 @@ export type PromptMarkdownSelectionContextPart = {
   locationLabel?: never
 }
 
+/**
+ * A quoted chat message. Only the text travels for display — the capture sends
+ * `messageID` so the note stores what was actually said, not a stale client copy.
+ */
+export type PromptMessageSelectionContextPart = {
+  type: typeof SELECTION_CONTEXT_PART_TYPE
+  source: "message"
+  text: string
+  selectionKey: string
+  quotedMessageID: string
+  path?: never
+  version?: never
+  headingPath?: never
+  resourceKey?: never
+  anchor?: never
+  tocLabel?: never
+  pageLabel?: never
+  locationLabel?: never
+}
+
 export type PromptSelectionContextPart =
   | PromptReadingSelectionContextPart
   | PromptMarkdownSelectionContextPart
+  | PromptMessageSelectionContextPart
 
 export type PromptNativeResourceAttachmentPart = {
   type: typeof NATIVE_RESOURCE_ATTACHMENT_PART_TYPE

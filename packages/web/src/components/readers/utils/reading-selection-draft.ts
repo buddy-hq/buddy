@@ -4,6 +4,7 @@ import {
   SELECTION_CONTEXT_PART_TYPE,
   type PromptComposerPart,
   type PromptMarkdownSelectionContextPart,
+  type PromptMessageSelectionContextPart,
   type PromptReadingSelectionContextPart,
 } from "@/components/prompt/prompt-types"
 import type { PromptDraftState } from "@/state/prompt-store"
@@ -15,6 +16,7 @@ type ReadingSelectionDraftInput = Omit<PromptReadingSelectionContextPart, "type"
 type SelectionContextDraftInput =
   | Omit<PromptReadingSelectionContextPart, "type">
   | Omit<PromptMarkdownSelectionContextPart, "type">
+  | Omit<PromptMessageSelectionContextPart, "type">
 
 type PromptDraftUpdate = Omit<PromptDraftState, "updatedAt">
 

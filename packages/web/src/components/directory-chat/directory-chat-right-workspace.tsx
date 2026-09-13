@@ -15,6 +15,7 @@ import {
   Books02Icon,
   BoxesIcon,
   FolderIcon,
+  NoteIcon,
   PresentationIcon,
   RefreshCwIcon,
   ScrollTextIcon,
@@ -23,6 +24,9 @@ import {
 } from "@/icons/app-icons"
 import * as AppIcons from "@/icons/app-icons"
 import obsidianIconUrl from "@/assets/obsidian-icon.svg"
+import "@/components/directory-chat/note-capture-signal.css"
+import { useNoteCaptureSignal } from "@/features/notes/capture-activity"
+import { language } from "@/context/language"
 import type { SessionInfo } from "@/state/chat-types"
 import {
   resolveRightWorkspaceOpenOutcome,
@@ -36,6 +40,7 @@ import { ProjectFileExplorerPanel } from "@/components/project-explorer/project-
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
   benchTargetKey,
   resolveBenchSurfaceDefaults,
   useOpenBench,
@@ -50,6 +55,7 @@ import {
 } from "@/lib/directory-chat/right-workspace-layout"
 import {
   BENCH_ROUTE_STATUS_OPEN,
+  WORKSPACE_DRAWER_NOTES,
   WORKSPACE_DRAWER_NONE,
   type DrawerKind,
 } from "@/state/directory-workspace-store"
@@ -60,6 +66,7 @@ import { RightWorkspaceBoardsDrawer } from "./right-workspace-boards-drawer"
 import { RightWorkspaceDrawerShell } from "./right-workspace-drawer-ui"
 import { RightWorkspaceSearchDrawer } from "./right-workspace-search-drawer"
 import { RightWorkspaceSkillsDrawer } from "./right-workspace-skills-drawer"
+import { NotesDrawer } from "@/features/notes/notes-drawer"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { obsidianVaultProfileQueryOptions } from "@/state/obsidian-vault-query"
 import { BenchTabs } from "@/components/bench/bench-tabs"
@@ -107,6 +114,8 @@ type RightWorkspaceRailItem = {
   active?: boolean
   disabled?: boolean
   separatorBefore?: boolean
+  /** Bumping this flashes the button once: something landed behind it. */
+  attention?: number
   onClick: () => void
 }
 
@@ -130,6 +139,7 @@ export function resolveRightWorkspaceFilesPresentation(input: {
 }
 
 const RIGHT_RAIL_ICON_SIZE_CLASS = "size-3.5 shrink-0"
+const RAIL_ATTENTION_DURATION_MS = 700
 
 function railIcon(icon: ReactElement<{ className?: string }>) {
   return cloneElement(icon, {
@@ -153,6 +163,16 @@ function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
   const icon = isValidElement<{ className?: string }>(props.icon)
     ? railIcon(props.icon)
     : props.icon
+  const attention = props.attention
+  const [flashing, setFlashing] = useState(false)
+
+  useEffect(() => {
+    if (!attention) return
+    setFlashing(true)
+    const timeout = window.setTimeout(() => setFlashing(false), RAIL_ATTENTION_DURATION_MS)
+    return () => window.clearTimeout(timeout)
+  }, [attention])
+
   return (
     <Button
       type="button"
@@ -161,8 +181,9 @@ function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
       aria-label={props.label}
       aria-pressed={props.active}
       disabled={props.disabled}
+      data-attention={flashing ? "true" : undefined}
       className={cn(
-        "rounded-lg text-icon-base hover:bg-surface-base-hover hover:text-icon-base",
+        "right-workspace-rail-button relative rounded-lg text-icon-base hover:bg-surface-base-hover hover:text-icon-base",
         props.active ? "bg-surface-raised-base text-icon-base" : undefined,
       )}
       onClick={props.onClick}
@@ -375,7 +396,12 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       const outcome = resolveRightWorkspaceOpenOutcome(
         await openBenchRoute({
           directory: props.directory,
-          target: { type: "workspace-file", path: "AGENTS.md", viewer: "markdown" },
+          target: {
+            type: "workspace-file",
+            root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+            path: "AGENTS.md",
+            viewer: "markdown",
+          },
           mode: BENCH_CHAT_LAYOUT_DOCKED,
           autoOpen: null,
         }),
@@ -425,6 +451,9 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       return (
         <RightWorkspaceBoardsDrawer directory={props.directory} onOpen={openWorkspaceRequest} />
       )
+    }
+    if (resolvedSelector === WORKSPACE_DRAWER_NOTES) {
+      return <NotesDrawer directory={props.directory} onOpen={openWorkspaceRequest} />
     }
     if (resolvedSelector === "skills") {
       return <RightWorkspaceSkillsDrawer directory={props.directory} />
@@ -480,6 +509,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     selectorAccessEnabled,
   ])
 
+  const noteCaptureSignal = useNoteCaptureSignal(props.directory)
   const railItems: RightWorkspaceRailItem[] = [
     {
       id: "search",
@@ -523,6 +553,20 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       active: resolvedSelector === "files",
       onClick: () => openSelector("files"),
     },
+    Object.assign(
+      {
+        id: WORKSPACE_DRAWER_NOTES,
+        label: language.t("notes.library.title"),
+        icon: <NoteIcon />,
+        active: resolvedSelector === WORKSPACE_DRAWER_NOTES,
+        onClick: () => openSelector(WORKSPACE_DRAWER_NOTES),
+      },
+      // The drawer already shows the note landing, and the icon reads as selected
+      // while it is open, so a flash there would say nothing.
+      noteCaptureSignal && resolvedSelector !== WORKSPACE_DRAWER_NOTES
+        ? { attention: noteCaptureSignal.nonce }
+        : undefined,
+    ),
     {
       id: "skills",
       label: "Skills",

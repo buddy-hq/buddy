@@ -7,7 +7,10 @@ import {
   type MarkdownBenchEditorHandle,
   type MarkdownBenchProcessingResult,
 } from "../src/components/bench/markdown/editor"
-import type { ObsidianWikiLinkContext } from "../src/components/bench/markdown/plugins/obsidian"
+import {
+  EXPLORER_EMBEDDED_MARKDOWN_LOADER,
+  type ObsidianWikiLinkContext,
+} from "../src/components/bench/markdown/plugins/obsidian"
 import { createMermaidThemeConfig } from "../src/components/media/renderers/mermaid/lib/theme"
 import { ThemeProvider } from "../src/theme"
 
@@ -107,7 +110,8 @@ describe("MarkdownBenchEditor", () => {
             conflict={false}
             directory="/tmp/test-dir"
             documentFormat="markdown"
-            path="test.md"
+            path="test — 01M0SHCWXGYA3ZV63GE13HTS24.md"
+            title="test"
             onHistoryControlsChange={(controls) => {
               historyControls = controls
             }}
@@ -1025,6 +1029,7 @@ describe("MarkdownBenchEditor", () => {
       directory: "/tmp/test-vault",
       documentPath: "Current.md",
       compatible: true,
+      embeddedMarkdownLoader: EXPLORER_EMBEDDED_MARKDOWN_LOADER,
       resolutions: new Map([
         [
           "Notes/Alpha#Details",

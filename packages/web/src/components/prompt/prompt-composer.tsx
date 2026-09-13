@@ -88,6 +88,7 @@ import {
 } from "./prompt-parts"
 import {
   getSlashMatch,
+  NOTE_SLASH_COMMAND_NAME,
   type SlashCommandOption,
   type SlashCommandSource,
 } from "./slash-autocomplete"
@@ -97,6 +98,7 @@ import {
   PROMPT_PART_TYPE_TEXT,
   READING_SELECTION_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
+  type PromptMessageSelectionContextPart,
   type PromptComposerAttachment,
   type PromptComposerPart,
 } from "./prompt-types"
@@ -112,6 +114,7 @@ import { SelectionClip, type SelectionClipData } from "./selection-clip"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
 import { usePromptEditorSync } from "./use-prompt-editor-sync"
+import { useComposerNoteMode, type SaveComposerNote } from "@/features/notes/use-composer-note-mode"
 import {
   resolveComposerAccessoryPresentation,
   resolveComposerReplacementHeight,
@@ -129,6 +132,7 @@ import {
   consumePromptComposerFocusRequest,
   subscribePromptComposerFocusRequests,
 } from "./prompt-composer-focus"
+import { registerPromptComposerLiveDraftReader } from "./prompt-composer-live-draft"
 import type { PromptSelectMode } from "./prompt-select-performance"
 import {
   getPromptDraft,
@@ -141,7 +145,14 @@ import {
   type PromptDraftState,
 } from "../../state/prompt-store"
 
-const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set(["new", "persona", "model", "mcp", "play"])
+const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set([
+  "new",
+  "persona",
+  "model",
+  "mcp",
+  "play",
+  NOTE_SLASH_COMMAND_NAME,
+])
 const DRAFT_STORE_SYNC_DELAY_MS = 250
 const CURSOR_NAVIGATION_KEYS = new Set([
   "ArrowLeft",
@@ -200,6 +211,7 @@ type PromptComposerProps = {
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
   onSubmit: (draft: Omit<PromptDraftState, "updatedAt">) => void | Promise<void>
+  onSaveNote?: SaveComposerNote
   onAbort: () => void
   onNewSession: () => void
   onOpenSettings?: () => void
@@ -362,6 +374,8 @@ export function PromptComposer(props: PromptComposerProps) {
     () => getPromptScopeKey(props.directory, props.sessionID),
     [props.directory, props.sessionID],
   )
+  const activePromptKeyRef = useRef(promptKey)
+  activePromptKeyRef.current = promptKey
   const skillPresentation = useSkillPresentationLookup(props.directory)
   const storeDraft = usePromptStore((state) => getPromptDraft(state, promptKey))
   const [draft, setDraft] = useState(() => storeDraft)
@@ -369,6 +383,12 @@ export function PromptComposer(props: PromptComposerProps) {
   const pendingStoreDraftRef = useRef<Omit<PromptDraftState, "updatedAt"> | undefined>(undefined)
   const storeSyncTimerRef = useRef<number | undefined>(undefined)
   const draftRenderTimerRef = useRef<number | undefined>(undefined)
+  const readLiveDraftRef = useRef<() => Omit<PromptDraftState, "updatedAt">>(() => ({
+    value: draftRef.current.value,
+    parts: draftRef.current.parts,
+    attachments: draftRef.current.attachments,
+    cursor: draftRef.current.cursor,
+  }))
   const historyEntries = usePromptStore((state) => getPromptHistoryEntries(state, props.directory))
   const historyNavigation = usePromptStore((state) => getPromptHistoryNavigation(state, promptKey))
   const replaceDraft = usePromptStore((state) => state.replaceDraft)
@@ -433,7 +453,30 @@ export function PromptComposer(props: PromptComposerProps) {
     () => draft.parts.filter((part) => !isSelectionContextChipPart(part)),
     [draft.parts],
   )
+  const quotedMessagePart = useMemo(
+    () =>
+      draft.parts.find(
+        (part): part is PromptMessageSelectionContextPart =>
+          part.type === SELECTION_CONTEXT_PART_TYPE && part.source === "message",
+      ),
+    [draft.parts],
+  )
   const draftEditorValue = useMemo(() => serializePromptEditorParts(draft.parts), [draft.parts])
+  const noteMode = useComposerNoteMode({
+    directory: props.directory,
+    promptKey,
+    activePromptKey: activePromptKeyRef,
+    quotedMessage: quotedMessagePart,
+    saveNote: props.onSaveNote,
+    clearDraft,
+    clearComposer: () => clearComposer({ clearStore: false, resetHistory: false }),
+    readDraft: readEditorDraft,
+    removeQuotedMessage: () => {
+      if (quotedMessagePart) {
+        removeSelectionContextByKey(buildSelectionContextEntryKey(quotedMessagePart))
+      }
+    },
+  })
   const hasSubmittableParts = useMemo(() => hasSubmittablePromptParts(draft.parts), [draft.parts])
   const unsupportedImageAttachments = useMemo(
     () =>
@@ -474,6 +517,8 @@ export function PromptComposer(props: PromptComposerProps) {
       hasUnreadyNativeResources,
     ],
   )
+  const canSaveNote =
+    draftEditorValue.trim().length > 0 && draft.attachments.length === 0 && !noteMode.saving
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
   // Live editor snapshot that drives @/ autocomplete matching. Updated
   // synchronously on every keystroke/cursor move so the menu never lags behind
@@ -546,6 +591,10 @@ export function PromptComposer(props: PromptComposerProps) {
   ])
 
   useEffect(() => {
+    return registerPromptComposerLiveDraftReader(promptKey, () => readLiveDraftRef.current())
+  }, [promptKey])
+
+  useEffect(() => {
     if (arePromptDraftContentsEqual(draftRef.current, storeDraft)) return
     pendingStoreDraftRef.current = undefined
     if (storeSyncTimerRef.current !== undefined) {
@@ -575,6 +624,7 @@ export function PromptComposer(props: PromptComposerProps) {
     slashCommands: props.slashCommands,
     modelOptions: props.modelOptions,
     skillPresentation,
+    noteCommandAvailable: !!props.onSaveNote && !noteMode.active,
     onSearchFiles: props.onSearchFiles,
     onRefreshSlashCommands: props.onRefreshSlashCommands,
   })
@@ -1057,6 +1107,12 @@ export function PromptComposer(props: PromptComposerProps) {
     }
   }
 
+  readLiveDraftRef.current = () => {
+    const liveDraft = readEditorDraft()
+    replaceDraftFromComposer(liveDraft)
+    return liveDraft
+  }
+
   function removeSelectionContextByKey(key: string) {
     const dismissedSelection = selectionContextEntries.find((entry) => entry.key === key)
     if (dismissedSelection) {
@@ -1394,6 +1450,12 @@ export function PromptComposer(props: PromptComposerProps) {
         clearComposer()
         props.onOpenMcpDialog?.()
         return true
+      case NOTE_SLASH_COMMAND_NAME:
+        if (!props.onSaveNote) return false
+        clearComposer()
+        noteMode.enter()
+        setFocusRequestID((current) => current + 1)
+        return true
       case "play":
         openArcade({ clearDraft: true })
         return true
@@ -1440,6 +1502,8 @@ export function PromptComposer(props: PromptComposerProps) {
     if (hasUnsupportedImageAttachments || hasUnreadyNativeResources) return
 
     const currentDraft = readEditorDraft()
+
+    if (await noteMode.submit(currentDraft)) return
 
     // Intercept UI-only slash commands
     const text = currentDraft.value.trim()
@@ -1636,7 +1700,13 @@ export function PromptComposer(props: PromptComposerProps) {
               transition={surfaceTransition}
               className="w-full"
             >
-              <div className="composer-surface composer-grain group/prompt-input relative z-10">
+              <div
+                data-mode={noteMode.active ? "note" : "chat"}
+                className={cn(
+                  "composer-surface composer-grain group/prompt-input relative z-10",
+                  noteMode.active && "ring-1 ring-border-info-base/60",
+                )}
+              >
                 <form
                   id="prompt-composer-form"
                   data-component="prompt-composer"
@@ -1681,7 +1751,9 @@ export function PromptComposer(props: PromptComposerProps) {
                         className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-text-weaker transition-opacity duration-250 ease-out"
                         style={{ opacity: viewState.placeholderOpacity }}
                       >
-                        {viewState.displayedPlaceholder}
+                        {noteMode.active
+                          ? language.t("notes.composer.placeholder")
+                          : viewState.displayedPlaceholder}
                       </div>
                     ) : null}
 
@@ -1929,14 +2001,24 @@ export function PromptComposer(props: PromptComposerProps) {
                   thinkingOptions={props.thinkingOptions}
                   onThinkingChange={props.onThinkingChange}
                   isBusy={props.isBusy}
-                  canSubmit={canSubmit}
+                  canSubmit={noteMode.active ? canSaveNote : canSubmit}
                   sendDisabledReason={nativeResourceSendDisabledReason}
                   onAttach={() => fileInputRef.current?.click()}
+                  noteMode={noteMode.active}
+                  {...(props.onSaveNote ? { onNoteModeChange: noteMode.changeActive } : {})}
                   onAbort={props.onAbort}
                   attachLabel={language.t("prompt.composer.attachFilesTitle")}
                   attachAriaLabel={language.t("prompt.composer.attachFilesAria")}
-                  sendLabel={language.t("prompt.composer.send")}
-                  sendAriaLabel={language.t("prompt.composer.send")}
+                  sendLabel={
+                    noteMode.active
+                      ? language.t("notes.action.save")
+                      : language.t("prompt.composer.send")
+                  }
+                  sendAriaLabel={
+                    noteMode.active
+                      ? language.t("notes.action.save")
+                      : language.t("prompt.composer.send")
+                  }
                   stopLabel={language.t("prompt.composer.stop")}
                   stopAriaLabel={language.t("prompt.composer.stop")}
                 />

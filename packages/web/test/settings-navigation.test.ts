@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { encodeDirectory } from "../src/lib/directory-token"
 import {
   buildSettingsSearch,
+  dropNotesBenchSettingsReturnTo,
   readSettingsReturnTo,
   resolveSettingsReturnLocation,
   settingsSearchForTab,
@@ -68,6 +69,17 @@ describe("settings navigation", () => {
       returnTo,
     })
     expect(resolveSettingsReturnLocation(changedSearch)).toBe(returnTo)
+  })
+
+  test("drops a Notes Bench returnTo after the library pointer changes", () => {
+    const notesReturnTo = `/${DIRECTORY_TOKEN}/markdown?root=notes&path=Research.md`
+    const notebookReturnTo = `/${DIRECTORY_TOKEN}/markdown?path=docs%2Fintro.md`
+
+    expect(dropNotesBenchSettingsReturnTo(notesReturnTo)).toBeUndefined()
+    expect(dropNotesBenchSettingsReturnTo(notebookReturnTo)).toBe(notebookReturnTo)
+    expect(dropNotesBenchSettingsReturnTo(`/${DIRECTORY_TOKEN}/chat?session=session-1`)).toBe(
+      `/${DIRECTORY_TOKEN}/chat?session=session-1`,
+    )
   })
 
   test("falls back to active directory chat and then root chat", () => {

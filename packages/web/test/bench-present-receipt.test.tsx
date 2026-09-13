@@ -140,6 +140,7 @@ describe("bench present receipt", () => {
               reason: "presented_file",
               benchTarget: {
                 type: "workspace-file",
+                root: "notebook",
                 path: "notes/week-3/photosynthesis.md",
                 viewer: "markdown",
               },
@@ -184,6 +185,7 @@ describe("bench present receipt", () => {
               reason: "surface_error",
               benchTarget: {
                 type: "workspace-file",
+                root: "notebook",
                 path: "broken.mdx",
                 viewer: "markdown",
               },

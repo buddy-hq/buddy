@@ -252,7 +252,7 @@ describe("thumbnailEarnsItsSpace", () => {
 
 function fileModel(path: string, directory?: string) {
   const input: ObjectDescriptorInput = {
-    target: { type: "workspace-file", path, viewer: "file" },
+    target: { type: "workspace-file", root: "notebook", path, viewer: "file" },
     kind: OBJECT_KIND_WORKSPACE_FILE,
     title: path.slice(path.lastIndexOf("/") + 1),
   }

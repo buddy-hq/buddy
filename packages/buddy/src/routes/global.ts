@@ -22,6 +22,11 @@ import {
 } from "../http"
 import { getOpenCodeClient } from "../opencode-runtime/client"
 import {
+  mapNotesDirectoryError,
+  readNotesDirectoryState,
+  saveNotesDirectory,
+} from "../notes/settings"
+import {
   listManagedNotebooks,
   mapManagedNotebookError,
   readBuddyHomeDefaultAccessState,
@@ -58,6 +63,14 @@ const notebookHomeAccessResponseSchema = z.object({
   granted: z.boolean(),
 })
 const notebookHomeBodySchema = z.object({
+  directory: z.string(),
+})
+const notesDirectoryResponseSchema = z.object({
+  configuredDirectory: z.string().optional(),
+  defaultDirectory: z.string(),
+  resolvedDirectory: z.string(),
+})
+const notesDirectoryBodySchema = z.object({
   directory: z.string(),
 })
 const managedNotebookSchema = z.object({
@@ -229,7 +242,7 @@ export const GlobalRoutes = new Hono()
             "application/json": { schema: resolver(notebookHomeResponseSchema) },
           },
         },
-        ...routeErrors(400, 403, 409),
+        ...routeErrors(400, 403),
       },
     }),
     validator("json", notebookHomeBodySchema),
@@ -237,6 +250,45 @@ export const GlobalRoutes = new Hono()
       runRouteTask({
         task: async () => c.json(await saveNotebookHome(c.req.valid("json").directory)),
         mapError: (error) => mapManagedNotebookError(error) ?? mapConfigRouteError(error),
+      }),
+  )
+  .get(
+    "/notes-directory",
+    describeRoute({
+      operationId: "global.notesDirectory.get",
+      summary: "Get the central Notes directory",
+      responses: {
+        200: {
+          description: "Central Notes directory state",
+          content: { "application/json": { schema: resolver(notesDirectoryResponseSchema) } },
+        },
+        ...routeErrors(400, 403),
+      },
+    }),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json(await readNotesDirectoryState()),
+        mapError: mapConfigRouteError,
+      }),
+  )
+  .put(
+    "/notes-directory",
+    describeRoute({
+      operationId: "global.notesDirectory.put",
+      summary: "Set the central Notes directory without moving files",
+      responses: {
+        200: {
+          description: "Updated central Notes directory state",
+          content: { "application/json": { schema: resolver(notesDirectoryResponseSchema) } },
+        },
+        ...routeErrors(400, 403),
+      },
+    }),
+    validator("json", notesDirectoryBodySchema),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json(await saveNotesDirectory(c.req.valid("json").directory)),
+        mapError: (error) => mapNotesDirectoryError(error) ?? mapConfigRouteError(error),
       }),
   )
   .get(

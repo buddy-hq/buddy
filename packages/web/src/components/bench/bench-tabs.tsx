@@ -39,13 +39,17 @@ import {
 } from "@/icons/app-icons"
 import type { BenchObjectKind } from "@/lib/bench-navigation"
 import { BenchNewTabPopover } from "@/components/bench/bench-new-tab-popover"
-import { resolveBenchTabTitle, type BenchTab } from "@/lib/bench-tabs"
+import { benchTabKey, resolveBenchTabTitle, type BenchTab } from "@/lib/bench-tabs"
+import { createNotesBenchTarget } from "@/lib/bench-targets"
 import { inAppBrowserFaviconForUrl } from "@/lib/in-app-browser-events"
+import { useNoteCaptureSignal } from "@/features/notes/capture-activity"
 import { parseSubagentSession } from "@/lib/session-family"
 import { useChatStore } from "@/state/chat-store"
 import { workspaceObjectsQueryOptions } from "@/state/workspace-objects-query"
 import { useInAppBrowserTabsStore } from "@/state/in-app-browser-tabs-store"
 import type { InAppBrowserTabRuntime } from "@/state/in-app-browser-tabs-store"
+
+const EMPTY_TAB_KEYS: ReadonlySet<string> = new Set()
 
 type BenchTabsProps = {
   directory: string
@@ -65,6 +69,8 @@ type BenchTabItemProps = {
   tab: BenchTab
   title: string
   active: boolean
+  /** The file changed while this tab was in the background, so it is showing old text. */
+  stale: boolean
   last: boolean
   only: boolean
   onActivate: () => void
@@ -207,6 +213,13 @@ function BenchTabItem(props: BenchTabItemProps) {
                   <Icon className={TAB_ICON_CLASS} />
                 )}
                 <span className="bench-tab-title min-w-0 flex-1">{props.title}</span>
+                {props.stale ? (
+                  <span
+                    data-component="bench-tab-stale"
+                    className="size-1.5 shrink-0 rounded-full bg-icon-interactive-base"
+                    aria-hidden
+                  />
+                ) : null}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" sideOffset={6}>
@@ -242,8 +255,63 @@ function BenchTabItem(props: BenchTabItemProps) {
   )
 }
 
+/**
+ * A background tab keeps showing the text it loaded, and only re-reads the file when
+ * it is activated. A dot is the honest marker for that: the mismatch lasts until the
+ * user looks, so a flash they might miss would leave the tab silently wrong.
+ */
+function useStaleNoteTabKeys(input: {
+  directory: string
+  tabs: readonly BenchTab[]
+  activeTabKey: string | null
+}) {
+  const signal = useNoteCaptureSignal(input.directory)
+  const nonce = signal?.nonce
+  const relativePath = signal?.relativePath
+  const [staleTabKeys, setStaleTabKeys] = useState<ReadonlySet<string>>(EMPTY_TAB_KEYS)
+  const capturedTabKey = useMemo(() => {
+    if (!relativePath) return undefined
+    return benchTabKey(createNotesBenchTarget({ relativePath }))
+  }, [relativePath])
+
+  // Read through refs so the effect fires on the capture alone. Depending on the
+  // tab list or the active tab would re-run it on every tab switch and resurrect
+  // a dot the user already resolved by looking.
+  const tabsRef = useRef(input.tabs)
+  tabsRef.current = input.tabs
+  const activeTabKeyRef = useRef(input.activeTabKey)
+  activeTabKeyRef.current = input.activeTabKey
+
+  useEffect(() => {
+    if (!nonce || !capturedTabKey) return
+    if (capturedTabKey === activeTabKeyRef.current) return
+    if (!tabsRef.current.some((tab) => tab.key === capturedTabKey)) return
+    setStaleTabKeys((current) =>
+      current.has(capturedTabKey) ? current : new Set(current).add(capturedTabKey),
+    )
+  }, [capturedTabKey, nonce])
+
+  const activeTabKey = input.activeTabKey
+  useEffect(() => {
+    if (!activeTabKey) return
+    setStaleTabKeys((current) => {
+      if (!current.has(activeTabKey)) return current
+      const next = new Set(current)
+      next.delete(activeTabKey)
+      return next
+    })
+  }, [activeTabKey])
+
+  return staleTabKeys
+}
+
 export function BenchTabs(props: BenchTabsProps) {
   const placement = props.placement ?? "workspace"
+  const staleTabKeys = useStaleNoteTabKeys({
+    directory: props.directory,
+    tabs: props.tabs,
+    activeTabKey: props.activeTabKey,
+  })
   const sessions = useChatStore((state) => state.directories[props.directory]?.sessions)
   const hasObjectTabs = props.tabs.some((tab) => tab.target.type === "object")
   const objectsQuery = useQuery({
@@ -384,6 +452,7 @@ export function BenchTabs(props: BenchTabsProps) {
                 tab={tab}
                 title={title}
                 active={tab.key === props.activeTabKey}
+                stale={staleTabKeys.has(tab.key)}
                 last={index === props.tabs.length - 1}
                 only={props.tabs.length === 1}
                 onActivate={() => props.onActivate(tab.key)}

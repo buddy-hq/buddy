@@ -94,6 +94,7 @@ type DirectoryChatMainPaneProps = {
   onOpenResource: (directory: string, resource: ResourceReadingTarget) => void
   onForkMessage?: (input: { sessionID: string; messageID?: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  onQuoteMessage?: (input: { sessionID: string; messageID: string; text: string }) => void
   onRestoreRevertedMessages?: () => Promise<void> | void
   onPermissionReply: (reply: PermissionReply) => Promise<void>
   onQuestionReply: (requestID: string, answers: string[][]) => Promise<void>
@@ -250,6 +251,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     onOpenResource,
     onForkMessage,
     onRevertMessage,
+    onQuoteMessage,
     onRestoreRevertedMessages,
     onPermissionReply,
     onQuestionReply,
@@ -580,6 +582,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     onOpenSession={onOpenSession}
                     onOpenResource={onOpenResource}
                     onForkMessage={onForkMessage}
+                    onQuoteMessage={onQuoteMessage}
                     onRevertMessage={onRevertMessage}
                     onRetryAction={handleRetryAction}
                     onContinueTruncated={handleContinueTruncated}

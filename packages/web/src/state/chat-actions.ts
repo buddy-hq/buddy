@@ -353,6 +353,12 @@ export type NotebookHomeState = {
   inboxName: string
 }
 
+export type NotesDirectoryState = {
+  configuredDirectory?: string
+  defaultDirectory: string
+  resolvedDirectory: string
+}
+
 export type ManagedNotebookEntry = {
   name: string
   directory: string
@@ -1027,6 +1033,28 @@ export async function saveNotebookHome(directory: string) {
     resolvedDirectory: result.resolvedDirectory,
     inboxDirectory: result.inboxDirectory,
     inboxName: result.inboxName,
+  }
+}
+
+export async function loadNotesDirectory(): Promise<NotesDirectoryState> {
+  const result = requireBuddyData(await getBuddyClient().global.notesDirectory.get())
+  return {
+    configuredDirectory: result.configuredDirectory,
+    defaultDirectory: result.defaultDirectory,
+    resolvedDirectory: result.resolvedDirectory,
+  }
+}
+
+export async function saveNotesDirectory(directory: string): Promise<NotesDirectoryState> {
+  const nextDirectory = directory.trim()
+  if (!nextDirectory) throw new Error("Notes directory is required")
+  const result = requireBuddyData(
+    await getBuddyClient().global.notesDirectory.put({ directory: nextDirectory }),
+  )
+  return {
+    configuredDirectory: result.configuredDirectory,
+    defaultDirectory: result.defaultDirectory,
+    resolvedDirectory: result.resolvedDirectory,
   }
 }
 

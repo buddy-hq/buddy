@@ -39,6 +39,7 @@ describe("parked Bench turn context", () => {
       title: `Tab ${index}`,
       target: {
         type: "workspace-file" as const,
+        root: "notebook" as const,
         path: `notes/tab-${index}.md`,
         viewer: "markdown" as const,
       },
@@ -122,7 +123,12 @@ describe("parked Bench turn context", () => {
             {
               tabKey: "file:markdown:notes.md",
               title: "Notes",
-              target: { type: "workspace-file", path: "notes.md", viewer: "markdown" },
+              target: {
+                type: "workspace-file",
+                root: "notebook",
+                path: "notes.md",
+                viewer: "markdown",
+              },
             },
             {
               tabKey: "browser:recent-browser",

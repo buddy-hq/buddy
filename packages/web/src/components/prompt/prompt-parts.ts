@@ -32,6 +32,7 @@ import {
   type PromptComposerPart,
   type PromptOpenCodeReferencePart,
   type PromptMarkdownSelectionContextPart,
+  type PromptMessageSelectionContextPart,
   type PromptReadingSelectionPart,
   type PromptReadingSelectionContextPart,
   type PromptSelectionContextPart,
@@ -115,8 +116,18 @@ function createReadingSelectionPart(
 type SelectionContextPartInput =
   | Omit<PromptReadingSelectionContextPart, "type">
   | Omit<PromptMarkdownSelectionContextPart, "type">
+  | Omit<PromptMessageSelectionContextPart, "type">
 
 function createSelectionContextPart(part: SelectionContextPartInput): PromptSelectionContextPart {
+  if (part.source === "message") {
+    return {
+      type: SELECTION_CONTEXT_PART_TYPE,
+      source: "message",
+      text: part.text,
+      selectionKey: part.selectionKey,
+      quotedMessageID: part.quotedMessageID,
+    }
+  }
   if (part.source === "markdown") {
     return Object.assign(
       {

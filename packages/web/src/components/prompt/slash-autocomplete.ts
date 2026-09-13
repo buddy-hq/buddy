@@ -10,6 +10,7 @@ export const COMPACT_SLASH_COMMAND_NAME = "compact" as const
 export const COMPACT_SLASH_COMMAND_ALIASES = ["summarize"] as const
 export const FORK_SLASH_COMMAND_NAME = "branch" as const
 export const FORK_SLASH_COMMAND_ALIASES = ["fork"] as const
+export const NOTE_SLASH_COMMAND_NAME = "note" as const
 export const QUIZ_SLASH_COMMAND_NAME = "quiz" as const
 export const REDO_SLASH_COMMAND_NAME = "redo" as const
 export const UNDO_SLASH_COMMAND_NAME = "undo" as const

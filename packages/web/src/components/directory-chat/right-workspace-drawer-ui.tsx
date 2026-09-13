@@ -3,6 +3,7 @@ import { useDurableScrollTop } from "@/lib/use-durable-scroll-top"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Badge, Button, Input, Skeleton, Spinner, cn } from "@buddy/ui"
 import { ChevronRightIcon, SearchIcon } from "@/icons/app-icons"
+import "@/components/directory-chat/note-capture-signal.css"
 
 const RIGHT_WORKSPACE_LIST_OVERSCAN = 8
 const RIGHT_WORKSPACE_ROW_ESTIMATE_PX = 56
@@ -41,6 +42,8 @@ type RightWorkspaceListRowProps = {
   metadata: string
   badge?: string
   active?: boolean
+  /** Marks a row that just changed, so a list that reorders itself stays legible. */
+  highlighted?: boolean
   disabled?: boolean
   onClick: () => void
   onPreviewIntent?: (anchor: HTMLButtonElement) => void
@@ -171,6 +174,7 @@ export const RightWorkspaceListRow = forwardRef<HTMLButtonElement, RightWorkspac
         className={cn(
           "h-auto w-full justify-start px-2 py-2 text-left",
           props.active ? "bg-surface-raised-base" : undefined,
+          props.highlighted ? "right-workspace-row-highlight" : undefined,
         )}
         onPointerEnter={(event) => {
           if (event.pointerType === "touch") return

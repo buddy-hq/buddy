@@ -12,6 +12,7 @@ import { prepareFlashcardBenchTarget } from "../src/components/flashcard/flashca
 
 const TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "README.md",
   viewer: "markdown",
 } satisfies BenchTarget

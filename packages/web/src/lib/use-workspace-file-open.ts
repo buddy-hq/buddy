@@ -16,6 +16,7 @@ import {
 } from "./workspace-file-open"
 import {
   BENCH_MODE_REQUEST_POLICY,
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
   useOpenBench,
   type BenchModeRequest,
   type OpenBenchResult,
@@ -84,7 +85,12 @@ export function useWorkspaceFileOpen(
       if (target === WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH) {
         return openBenchRoute({
           directory,
-          target: { type: "workspace-file", path: input.path, viewer: "file" },
+          target: {
+            type: "workspace-file",
+            root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+            path: input.path,
+            viewer: "file",
+          },
           mode: benchMode,
           autoOpen: null,
         })
@@ -93,7 +99,12 @@ export function useWorkspaceFileOpen(
       if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) {
         return openBenchRoute({
           directory,
-          target: { type: "workspace-file", path: input.path, viewer: "markdown" },
+          target: {
+            type: "workspace-file",
+            root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+            path: input.path,
+            viewer: "markdown",
+          },
           mode: benchMode,
           autoOpen: null,
         })

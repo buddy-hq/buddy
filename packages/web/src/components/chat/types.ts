@@ -61,6 +61,8 @@ export type ChatTranscriptProps = {
   onOpenResource?: (directory: string, resource: ResourceReadingTarget) => void
   onForkMessage?: (input: TForkMessageInput) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  /** `text` is the quoted message, not a note: the composer takes the note itself. */
+  onQuoteMessage?: (input: { sessionID: string; messageID: string; text: string }) => void
   onRetryAction?: (input: TRetryActionInput) => void
   onContinueTruncated?: (input: { userMessageID: string }) => void
 }
@@ -69,6 +71,8 @@ export type UserSectionProps = {
   userMessage?: MessageWithParts
   providers: ProviderInfo[]
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  /** `text` is the quoted message, not a note: the composer takes the note itself. */
+  onQuoteMessage?: (input: { sessionID: string; messageID: string; text: string }) => void
   /** Play the transform/opacity entrance once, when this message is first sent. */
   animateEntrance?: boolean
 }

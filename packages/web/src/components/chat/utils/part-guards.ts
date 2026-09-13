@@ -97,7 +97,9 @@ function readOptionalStringArray<TValue>(value: TValue): string[] | undefined {
 
 function addMessageIdentity(
   part: MessagePart,
-  normalized: PromptReadingSelectionPart | PromptSelectionContextPart,
+  normalized:
+    | PromptReadingSelectionPart
+    | Exclude<PromptSelectionContextPart, { source: "message" }>,
 ): ChatReadingSelectionPart {
   return {
     id: part.id,
@@ -203,7 +205,9 @@ export function readChatReadingSelectionPart(
   }
 
   const metadataPart = readPromptSelectionContextMetadata(part.metadata)
-  if (metadataPart) {
+  // A quoted message is composer-only: it is captured into a note by ID and never
+  // round-trips through chat part metadata.
+  if (metadataPart && !("source" in metadataPart && metadataPart.source === "message")) {
     return addMessageIdentity(part, metadataPart)
   }
 

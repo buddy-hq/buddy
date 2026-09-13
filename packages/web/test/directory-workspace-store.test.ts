@@ -29,6 +29,8 @@ import {
   persistedDirectoryWorkspaceStateFromStore,
   readPersistedDirectoryWorkspace,
   readPersistedWorkspaceSlot,
+  removeNotesBenchTargetsFromSlot,
+  removePersistedNotesBenchTargets,
   removeSessionBenchTargetsFromSlots,
   writePersistedDirectoryWorkspace,
   writePersistedWorkspaceSlot,
@@ -48,14 +50,23 @@ import { benchTabKey, upsertBenchTab } from "../src/lib/bench-tabs"
 
 const FILE_TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/intro.md",
   viewer: "markdown",
 } satisfies BenchTarget
 
 const FILE_TARGET_AS_FILE = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/intro.md",
   viewer: "file",
+} satisfies BenchTarget
+
+const NOTES_TARGET = {
+  type: "workspace-file",
+  root: "notes",
+  path: "Research.md",
+  viewer: "markdown",
 } satisfies BenchTarget
 
 const OBJECT_TARGET = {
@@ -142,6 +153,9 @@ function createMemoryStorage(): DirectoryWorkspacePersistenceStorage & {
     removeItem(name) {
       entries.delete(name)
     },
+    keys() {
+      return [...entries.keys()]
+    },
   }
 }
 
@@ -165,11 +179,12 @@ describe("bench target keys", () => {
     expect(
       benchTargetKey({
         type: "workspace-file",
+        root: "notebook",
         path: "docs/intro notes.md",
         viewer: "markdown",
       }),
     ).toBe(
-      ["workspace-file", "markdown", "docs%2Fintro%20notes.md"].join(
+      ["workspace-file", "notebook", "markdown", "docs%2Fintro%20notes.md"].join(
         BENCH_TARGET_KEY_PART_SEPARATOR,
       ),
     )
@@ -177,11 +192,14 @@ describe("bench target keys", () => {
     expect(
       benchTargetKey({
         type: "workspace-file",
+        root: "notebook",
         path: "docs/intro notes.md",
         viewer: "file",
       }),
     ).toBe(
-      ["workspace-file", "file", "docs%2Fintro%20notes.md"].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+      ["workspace-file", "notebook", "file", "docs%2Fintro%20notes.md"].join(
+        BENCH_TARGET_KEY_PART_SEPARATOR,
+      ),
     )
 
     expect(
@@ -426,6 +444,74 @@ describe("effectiveWorkspaceProjection", () => {
 })
 
 describe("createDirectoryWorkspaceStore", () => {
+  test("removes Notes-root tabs when the global library pointer changes", () => {
+    const notesRoute = {
+      status: BENCH_ROUTE_STATUS_OPEN,
+      target: NOTES_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    } satisfies BenchRouteSnapshot
+    const slot = removeNotesBenchTargetsFromSlot(
+      workspaceSlot({
+        route: notesRoute,
+        tabs: [
+          { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
+          { key: benchTabKey(NOTES_TARGET), target: NOTES_TARGET },
+        ],
+        docked: createExpandedWorkspaceState(null),
+        lastDrawer: WORKSPACE_DRAWER_SOURCES,
+      }),
+    )
+
+    expect(slot.route).toEqual({
+      status: BENCH_ROUTE_STATUS_OPEN,
+      target: FILE_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+    expect(slot.tabs).toEqual([{ key: benchTabKey(FILE_TARGET), target: FILE_TARGET }])
+  })
+
+  test("clears Notes targets from every live chat slot", () => {
+    const chatKey = workspaceChatKeyForSession("owner-session")
+    const store = createDirectoryWorkspaceStore({
+      directory: "/workspace",
+      initialState: {
+        activeChatKey: chatKey,
+        docked: createExpandedWorkspaceState(null),
+        hydration: { status: "ready" },
+        slots: {
+          [chatKey]: workspaceSlot({
+            route: {
+              status: BENCH_ROUTE_STATUS_OPEN,
+              target: NOTES_TARGET,
+              mode: BENCH_CHAT_LAYOUT_DOCKED,
+            },
+            tabs: [
+              { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
+              { key: benchTabKey(NOTES_TARGET), target: NOTES_TARGET },
+            ],
+            docked: createExpandedWorkspaceState(null),
+            lastDrawer: WORKSPACE_DRAWER_SOURCES,
+          }),
+        },
+      },
+    })
+
+    store.getState().removeNotesTargets()
+
+    expect(store.getState().slots[chatKey]).toEqual(
+      workspaceSlot({
+        route: {
+          status: BENCH_ROUTE_STATUS_OPEN,
+          target: FILE_TARGET,
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+        },
+        tabs: [{ key: benchTabKey(FILE_TARGET), target: FILE_TARGET }],
+        docked: createExpandedWorkspaceState(null),
+        lastDrawer: WORKSPACE_DRAWER_SOURCES,
+      }),
+    )
+  })
+
   test("repairs a saved chat slot after its selected subagent is deleted", () => {
     const chatKey = workspaceChatKeyForSession("owner-session")
     const sessionRoute = {
@@ -1085,6 +1171,84 @@ describe("directory workspace persistence", () => {
           },
           lastDrawer: WORKSPACE_DRAWER_SOURCES,
         }),
+      },
+    })
+  })
+
+  test("removes Notes tabs from closed notebooks without wiping unrelated workspaces", async () => {
+    const storage = createMemoryStorage()
+    const closedChatKey = workspaceChatKeyForSession("closed-session")
+    const unrelatedChatKey = workspaceChatKeyForSession("unrelated-session")
+    const closedNotesRoute = {
+      status: BENCH_ROUTE_STATUS_OPEN,
+      target: NOTES_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    } satisfies BenchRouteSnapshot
+
+    await writePersistedDirectoryWorkspace({
+      directory: "/notebooks/closed",
+      storage,
+      state: {
+        slots: {
+          [closedChatKey]: workspaceSlot({
+            route: closedNotesRoute,
+            tabs: [
+              { key: benchTabKey(FILE_TARGET), target: FILE_TARGET },
+              { key: benchTabKey(NOTES_TARGET), target: NOTES_TARGET },
+            ],
+            docked: createExpandedWorkspaceState(null),
+            lastDrawer: WORKSPACE_DRAWER_SOURCES,
+          }),
+        },
+      },
+    })
+    await writePersistedDirectoryWorkspace({
+      directory: "/notebooks/unrelated",
+      storage,
+      state: {
+        slots: {
+          [unrelatedChatKey]: workspaceSlot({
+            route: DOCKED_OBJECT_ROUTE,
+            docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
+            lastDrawer: WORKSPACE_DRAWER_FILES,
+          }),
+        },
+      },
+    })
+
+    await removePersistedNotesBenchTargets({ storage })
+
+    await expect(
+      readPersistedDirectoryWorkspace({ directory: "/notebooks/closed", storage }),
+    ).resolves.toEqual({
+      status: "ready",
+      state: {
+        slots: {
+          [closedChatKey]: workspaceSlot({
+            route: {
+              status: BENCH_ROUTE_STATUS_OPEN,
+              target: FILE_TARGET,
+              mode: BENCH_CHAT_LAYOUT_DOCKED,
+            },
+            tabs: [{ key: benchTabKey(FILE_TARGET), target: FILE_TARGET }],
+            docked: createExpandedWorkspaceState(null),
+            lastDrawer: WORKSPACE_DRAWER_SOURCES,
+          }),
+        },
+      },
+    })
+    await expect(
+      readPersistedDirectoryWorkspace({ directory: "/notebooks/unrelated", storage }),
+    ).resolves.toEqual({
+      status: "ready",
+      state: {
+        slots: {
+          [unrelatedChatKey]: workspaceSlot({
+            route: DOCKED_OBJECT_ROUTE,
+            docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
+            lastDrawer: WORKSPACE_DRAWER_FILES,
+          }),
+        },
       },
     })
   })

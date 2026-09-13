@@ -72,10 +72,33 @@ describe("markdown PDF export paths", () => {
     ).rejects.toThrow("outside the allowed notebook roots")
   })
 
+  test("allows export into a separately configured Notes root", async () => {
+    const root = await createTempDirectory()
+    cleanupPaths.push(root)
+    const notebookHome = join(root, "Buddy")
+    const notesRoot = join(root, "Obsidian", "Vault")
+    await mkdir(notebookHome)
+    await mkdir(notesRoot, { recursive: true })
+
+    await expect(
+      resolveAvailableMarkdownPdfExportPath({
+        allowedRoots: [notebookHome, notesRoot],
+        defaultPath: "note.pdf",
+        directory: notesRoot,
+      }),
+    ).resolves.toBe(join(await realpath(notesRoot), "note.pdf"))
+  })
+
   test("detects paths outside a directory", () => {
     expect(
       isPathInsideDirectory(join("/tmp", "notebook", "lesson.pdf"), join("/tmp", "notebook")),
     ).toBe(true)
     expect(isPathInsideDirectory(join("/tmp", "lesson.pdf"), join("/tmp", "notebook"))).toBe(false)
+    expect(
+      isPathInsideDirectory(
+        join("/tmp", "notebook", "..cache", "lesson.pdf"),
+        join("/tmp", "notebook"),
+      ),
+    ).toBe(true)
   })
 })

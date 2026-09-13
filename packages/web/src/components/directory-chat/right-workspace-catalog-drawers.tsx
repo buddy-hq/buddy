@@ -126,7 +126,11 @@ import {
   type ObjectVariant,
 } from "@/components/objects/types"
 import type { MediaAction } from "@/components/media/types"
-import type { BenchObjectKind, BenchTarget } from "@/lib/bench-targets"
+import {
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
+  type BenchObjectKind,
+  type BenchTarget,
+} from "@/lib/bench-targets"
 import type { FlashcardDeckSurfaceMode } from "@/state/bench-surface-ui-state"
 import { prepareFlashcardBenchTarget } from "@/components/flashcard/flashcard-bench-target"
 import { parseTString } from "@/components/chat/tools/types"
@@ -262,7 +266,12 @@ function resourceObjectStatus(resource: ResourceListItem, busy: boolean): Object
 /** An unprocessed source has no object yet, but the file on disk is still the thing. */
 function resourceBenchTarget(resource: ResourceListItem): BenchTarget {
   if (resource.objectID) return createBenchObjectTarget(RESOURCE_OBJECT_KIND, resource.objectID)
-  return { type: "workspace-file", path: resource.path, viewer: "file" }
+  return {
+    type: "workspace-file",
+    root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+    path: resource.path,
+    viewer: "file",
+  }
 }
 
 type TResourceCoverThumbnail = {

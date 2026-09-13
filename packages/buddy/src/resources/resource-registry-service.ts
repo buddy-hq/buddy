@@ -19,6 +19,7 @@ import {
   resolveResourcePackFullTextMetadataFromRoot,
 } from "../resource-packs"
 import { writeJsonFileAtomic } from "../storage/atomic-file"
+import { isPathInsideDirectory } from "../storage/path-containment"
 import { parseTJsonObject, parseTNumber, parseTString, type TJsonObject } from "../http/parse"
 import {
   BUDDY_OBJECT_KINDS,
@@ -1651,11 +1652,6 @@ async function directoryExists(directoryPath: string): Promise<boolean> {
 
 function isPathInsideWorkspace(directory: string, targetPath: string): boolean {
   return isPathInsideDirectory(path.resolve(directory), path.resolve(targetPath))
-}
-
-function isPathInsideDirectory(parentPath: string, targetPath: string): boolean {
-  const relative = path.relative(parentPath, targetPath)
-  return relative.length === 0 || (!relative.startsWith("..") && !path.isAbsolute(relative))
 }
 
 function relativeDisplayPath(directory: string, targetPath: string): string {

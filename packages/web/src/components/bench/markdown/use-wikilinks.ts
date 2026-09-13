@@ -2,15 +2,20 @@ import { useCallback, useDeferredValue, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   collectObsidianWikiLinkTargets,
+  EXPLORER_EMBEDDED_MARKDOWN_LOADER,
   useObsidianResolutionMap,
   viewerForObsidianResolution,
+  type ObsidianLinkResolution,
   type ObsidianWikiLinkContext,
 } from "@/components/bench/markdown/plugins/obsidian"
-import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
+import {
+  BENCH_MODE_REQUEST_POLICY,
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
+  useOpenBench,
+} from "@/lib/bench-navigation"
 import {
   obsidianLinkResolutionsQueryOptions,
   obsidianVaultProfileQueryOptions,
-  type ObsidianLinkResolution,
 } from "@/state/obsidian-vault-query"
 
 export function useMarkdownBenchWikiLinkContext(input: {
@@ -47,6 +52,7 @@ export function useMarkdownBenchWikiLinkContext(input: {
         target: Object.assign(
           {
             type: "workspace-file" as const,
+            root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
             path: resolution.path,
             viewer: viewerForObsidianResolution(resolution),
           },
@@ -65,6 +71,7 @@ export function useMarkdownBenchWikiLinkContext(input: {
       documentPath: path,
       compatible: connected,
       resolutions,
+      embeddedMarkdownLoader: EXPLORER_EMBEDDED_MARKDOWN_LOADER,
       openResolution,
     }),
     [connected, openResolution, path, resolutions, storageDirectory],

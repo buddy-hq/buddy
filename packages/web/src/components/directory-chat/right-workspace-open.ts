@@ -2,6 +2,7 @@ import { useCallback } from "react"
 import { toast } from "@buddy/ui"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
   useOpenBench,
   type BenchModeRequest,
   type BenchTarget,
@@ -137,6 +138,11 @@ export function notebookSearchOpenRequest(input: {
   return {
     type: "object",
     directory: input.directory,
-    target: { type: "workspace-file", path: target.path, viewer: target.viewer },
+    target: {
+      type: "workspace-file",
+      root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
+      path: target.path,
+      viewer: target.viewer,
+    },
   }
 }

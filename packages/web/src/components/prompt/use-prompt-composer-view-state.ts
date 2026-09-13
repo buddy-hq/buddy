@@ -19,6 +19,7 @@ import {
   FORK_SLASH_COMMAND_NAME,
   getSlashMatch,
   isHiddenSlashCommandName,
+  NOTE_SLASH_COMMAND_NAME,
   QUIZ_SLASH_COMMAND_NAME,
   REDO_SLASH_COMMAND_NAME,
   UNDO_SLASH_COMMAND_NAME,
@@ -87,6 +88,15 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
   },
 ]
 
+// Listed only while the composer can actually save notes, and only from chat
+// mode — once Note mode is on there is nothing left for the command to do.
+const NOTE_SLASH_COMMAND: SlashCommandOption = {
+  type: "builtin",
+  name: NOTE_SLASH_COMMAND_NAME,
+  title: language.t("prompt.slash.note.title"),
+  description: language.t("prompt.slash.note.description"),
+}
+
 function translatePromptPlaceholder(key: string, params?: Record<string, string>) {
   if (key === "prompt.placeholder.normal") {
     if (params?.example) return language.t(key, params)
@@ -122,6 +132,7 @@ type UsePromptComposerViewStateProps = {
     acceptsImages: boolean
   }>
   skillPresentation: SkillPresentationLookup
+  noteCommandAvailable: boolean
   onSearchFiles?: (query: string) => Promise<MentionableFile[]>
   onRefreshSlashCommands?: () => void
 }
@@ -170,12 +181,16 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
     )
     const customNames = new Set(filteredCustomCommands.map((command) => command.name.toLowerCase()))
 
+    const builtinCommands = props.noteCommandAvailable
+      ? [...BUILTIN_SLASH_COMMANDS, NOTE_SLASH_COMMAND]
+      : BUILTIN_SLASH_COMMANDS
+
     return [
       ...filteredCustomCommands,
-      ...BUILTIN_SLASH_COMMANDS.filter((command) => !customNames.has(command.name.toLowerCase())),
+      ...builtinCommands.filter((command) => !customNames.has(command.name.toLowerCase())),
       ...RESOURCE_LOCAL_SLASH_COMMANDS,
     ]
-  }, [props.slashCommands, skillPresentation])
+  }, [props.noteCommandAvailable, props.slashCommands, skillPresentation])
 
   const mentionMatch = useMemo(
     () => getMentionMatch(props.draftValue, props.cursorOffset),

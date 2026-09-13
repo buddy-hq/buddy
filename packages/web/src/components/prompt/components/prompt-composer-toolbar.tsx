@@ -14,8 +14,9 @@ import {
   SelectValue,
   SquareIcon,
   XIcon,
+  cn,
 } from "@buddy/ui"
-import { ImageIcon } from "@/icons/app-icons"
+import { ImageIcon, NoteIcon } from "@/icons/app-icons"
 import { hasFunctionValue } from "@/state/parse-external"
 import type { RefObject } from "react"
 import * as React from "react"
@@ -46,6 +47,8 @@ type PromptComposerToolbarProps = {
   canSubmit?: boolean
   sendDisabledReason?: string
   onAttach?: () => void
+  noteMode?: boolean
+  onNoteModeChange?: (active: boolean) => void
   onAbort?: () => void
   attachLabel?: string
   attachAriaLabel?: string
@@ -102,7 +105,11 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
   ])
 
   const isNativeMode = props.selectorMode === "native"
-  const primaryButtonStopsRun = !!props.isBusy && !props.canSubmit
+  const primaryButtonStopsRun = !props.noteMode && !!props.isBusy && !props.canSubmit
+  const noteModeShowsStop = !!props.noteMode && !!props.isBusy
+  const noteModeLabel = props.noteMode
+    ? language.t("notes.composer.returnToChat")
+    : language.t("notes.composer.takeNote")
 
   return (
     <div className="bg-transparent px-2 py-2">
@@ -126,35 +133,54 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
 
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            data-action="prompt-attach"
-            className="inline-flex size-7 items-center justify-center rounded-full text-text-weaker transition-colors hover:bg-surface-weak/60 hover:text-text-base"
-            title={props.attachLabel}
-            aria-label={props.attachAriaLabel}
-            onClick={props.onAttach}
-          >
-            <PlusIcon className="size-3.5" />
-          </button>
-
-          {isNativeMode ? (
-            <NativeSelect
-              ref={props.modelNativeTriggerRef}
-              value={props.selectedModel}
-              onChange={(event) => props.onModelChange(event.currentTarget.value)}
-              size="sm"
-              aria-label={language.t("prompt.toolbar.aria.model")}
-              wrapperClassName="w-[180px] max-w-[180px] min-w-0"
-              className="h-7 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
+          {!props.noteMode ? (
+            <button
+              type="button"
+              data-action="prompt-attach"
+              className="inline-flex size-7 items-center justify-center rounded-full text-text-weaker transition-colors hover:bg-surface-weak/60 hover:text-text-base"
+              title={props.attachLabel}
+              aria-label={props.attachAriaLabel}
+              onClick={props.onAttach}
             >
-              {props.groupedModelOptions.ungrouped.map((option) => (
-                <NativeSelectOption key={option.key} value={option.key} disabled={option.disabled}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-              {props.groupedModelOptions.grouped.map(([group, options]) => (
-                <NativeSelectOptGroup key={group} label={group}>
-                  {options.map((option) => (
+              <PlusIcon className="size-3.5" />
+            </button>
+          ) : null}
+
+          {props.onNoteModeChange ? (
+            <button
+              type="button"
+              data-action="prompt-note-mode"
+              aria-pressed={props.noteMode}
+              aria-label={noteModeLabel}
+              className={cn(
+                "inline-flex h-7 items-center justify-center rounded-full transition-colors",
+                // Idle it is a bare glyph, sized like the attach button beside
+                // it; only the active mode earns a labelled pill.
+                props.noteMode
+                  ? "gap-1.5 bg-surface-interactive-base px-2 text-xs text-text-on-interactive-base"
+                  : "size-7 text-text-weaker hover:bg-surface-weak/60 hover:text-text-base",
+              )}
+              title={noteModeLabel}
+              onClick={() => props.onNoteModeChange?.(!props.noteMode)}
+            >
+              <NoteIcon className="size-3.5" aria-hidden />
+              {props.noteMode ? language.t("notes.composer.mode") : null}
+            </button>
+          ) : null}
+
+          {!props.noteMode ? (
+            <>
+              {isNativeMode ? (
+                <NativeSelect
+                  ref={props.modelNativeTriggerRef}
+                  value={props.selectedModel}
+                  onChange={(event) => props.onModelChange(event.currentTarget.value)}
+                  size="sm"
+                  aria-label={language.t("prompt.toolbar.aria.model")}
+                  wrapperClassName="w-[180px] max-w-[180px] min-w-0"
+                  className="h-7 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
+                >
+                  {props.groupedModelOptions.ungrouped.map((option) => (
                     <NativeSelectOption
                       key={option.key}
                       value={option.key}
@@ -163,71 +189,61 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                       {option.label}
                     </NativeSelectOption>
                   ))}
-                </NativeSelectOptGroup>
-              ))}
-            </NativeSelect>
-          ) : (
-            <Select
-              value={props.selectedModel}
-              onValueChange={props.onModelChange}
-              open={modelSelectOpen}
-              onOpenChange={setModelSelectOpen}
-            >
-              <SelectTrigger
-                type="button"
-                ref={props.modelRadixTriggerRef}
-                size="sm"
-                data-action="prompt-model-select"
-                className="h-7 max-w-[180px] min-w-0 border-0 bg-transparent px-2 text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
-                aria-label={language.t("prompt.toolbar.aria.model")}
-              >
-                <SelectValue placeholder={language.t("prompt.toolbar.placeholders.model")}>
-                  {selectedModelLabel}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent
-                side="top"
-                align="start"
-                position="popper"
-                sideOffset={6}
-                className="composer-surface-menu composer-grain w-[min(22rem,calc(100vw-2rem))] max-h-[min(28rem,calc(100vh-8rem))]"
-              >
-                {props.groupedModelOptions.ungrouped.map((option) => (
-                  <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
-                    <span className="flex min-w-0 items-center gap-2">
-                      {option.key.includes("/") ? (
-                        <>
-                          <ProviderIcon
-                            id={option.key.slice(0, option.key.indexOf("/"))}
-                            className="size-4 shrink-0 opacity-60"
-                            aria-hidden="true"
-                          />
-                          <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                        </>
-                      ) : (
-                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                      )}
-                      {option.acceptsImages ? (
-                        <ImageIcon
-                          className="size-3 shrink-0 text-icon-info-base"
-                          aria-hidden="true"
-                        />
-                      ) : null}
-                    </span>
-                  </SelectItem>
-                ))}
-                {props.groupedModelOptions.grouped.map(([group, options]) => (
-                  <SelectGroup key={group}>
-                    <SelectLabel>{group}</SelectLabel>
-                    {options.map((option) => (
+                  {props.groupedModelOptions.grouped.map(([group, options]) => (
+                    <NativeSelectOptGroup key={group} label={group}>
+                      {options.map((option) => (
+                        <NativeSelectOption
+                          key={option.key}
+                          value={option.key}
+                          disabled={option.disabled}
+                        >
+                          {option.label}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelectOptGroup>
+                  ))}
+                </NativeSelect>
+              ) : (
+                <Select
+                  value={props.selectedModel}
+                  onValueChange={props.onModelChange}
+                  open={modelSelectOpen}
+                  onOpenChange={setModelSelectOpen}
+                >
+                  <SelectTrigger
+                    type="button"
+                    ref={props.modelRadixTriggerRef}
+                    size="sm"
+                    data-action="prompt-model-select"
+                    className="h-7 max-w-[180px] min-w-0 border-0 bg-transparent px-2 text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+                    aria-label={language.t("prompt.toolbar.aria.model")}
+                  >
+                    <SelectValue placeholder={language.t("prompt.toolbar.placeholders.model")}>
+                      {selectedModelLabel}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent
+                    side="top"
+                    align="start"
+                    position="popper"
+                    sideOffset={6}
+                    className="composer-surface-menu composer-grain w-[min(22rem,calc(100vw-2rem))] max-h-[min(28rem,calc(100vh-8rem))]"
+                  >
+                    {props.groupedModelOptions.ungrouped.map((option) => (
                       <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
                         <span className="flex min-w-0 items-center gap-2">
-                          <ProviderIcon
-                            id={option.key.slice(0, option.key.indexOf("/"))}
-                            className="size-4 shrink-0 opacity-60"
-                            aria-hidden="true"
-                          />
-                          <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                          {option.key.includes("/") ? (
+                            <>
+                              <ProviderIcon
+                                id={option.key.slice(0, option.key.indexOf("/"))}
+                                className="size-4 shrink-0 opacity-60"
+                                aria-hidden="true"
+                              />
+                              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                            </>
+                          ) : (
+                            <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                          )}
                           {option.acceptsImages ? (
                             <ImageIcon
                               className="size-3 shrink-0 text-icon-info-base"
@@ -237,56 +253,95 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                         </span>
                       </SelectItem>
                     ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+                    {props.groupedModelOptions.grouped.map(([group, options]) => (
+                      <SelectGroup key={group}>
+                        <SelectLabel>{group}</SelectLabel>
+                        {options.map((option) => (
+                          <SelectItem
+                            key={option.key}
+                            value={option.key}
+                            disabled={option.disabled}
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <ProviderIcon
+                                id={option.key.slice(0, option.key.indexOf("/"))}
+                                className="size-4 shrink-0 opacity-60"
+                                aria-hidden="true"
+                              />
+                              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                              {option.acceptsImages ? (
+                                <ImageIcon
+                                  className="size-3 shrink-0 text-icon-info-base"
+                                  aria-hidden="true"
+                                />
+                              ) : null}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
-          {props.thinkingOptions.length <= 1 ? null : isNativeMode ? (
-            <NativeSelect
-              value={props.selectedThinking}
-              onChange={(event) => props.onThinkingChange(event.currentTarget.value)}
-              size="sm"
-              aria-label={language.t("prompt.toolbar.aria.thinking")}
-              wrapperClassName="w-[160px] max-w-[160px] min-w-0"
-              className="h-7 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
-            >
-              {props.thinkingOptions.map((option) => (
-                <NativeSelectOption key={option.key} value={option.key}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          ) : (
-            <Select value={props.selectedThinking} onValueChange={props.onThinkingChange}>
-              <SelectTrigger
-                type="button"
-                size="sm"
-                data-action="prompt-thinking-select"
-                className="h-7 max-w-[160px] min-w-0 border-0 bg-transparent px-2 text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
-                aria-label={language.t("prompt.toolbar.aria.thinking")}
-              >
-                <SelectValue placeholder={language.t("prompt.toolbar.placeholders.thinking")} />
-              </SelectTrigger>
-              <SelectContent
-                side="top"
-                align="start"
-                position="popper"
-                sideOffset={6}
-                className="composer-surface-menu composer-grain w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
-              >
-                {props.thinkingOptions.map((option) => (
-                  <SelectItem key={option.key} value={option.key}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+              {props.thinkingOptions.length <= 1 ? null : isNativeMode ? (
+                <NativeSelect
+                  value={props.selectedThinking}
+                  onChange={(event) => props.onThinkingChange(event.currentTarget.value)}
+                  size="sm"
+                  aria-label={language.t("prompt.toolbar.aria.thinking")}
+                  wrapperClassName="w-[160px] max-w-[160px] min-w-0"
+                  className="h-7 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
+                >
+                  {props.thinkingOptions.map((option) => (
+                    <NativeSelectOption key={option.key} value={option.key}>
+                      {option.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              ) : (
+                <Select value={props.selectedThinking} onValueChange={props.onThinkingChange}>
+                  <SelectTrigger
+                    type="button"
+                    size="sm"
+                    data-action="prompt-thinking-select"
+                    className="h-7 max-w-[160px] min-w-0 border-0 bg-transparent px-2 text-xs text-text-weaker shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+                    aria-label={language.t("prompt.toolbar.aria.thinking")}
+                  >
+                    <SelectValue placeholder={language.t("prompt.toolbar.placeholders.thinking")} />
+                  </SelectTrigger>
+                  <SelectContent
+                    side="top"
+                    align="start"
+                    position="popper"
+                    sideOffset={6}
+                    className="composer-surface-menu composer-grain w-[min(18rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
+                  >
+                    {props.thinkingOptions.map((option) => (
+                      <SelectItem key={option.key} value={option.key}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1">
+          {noteModeShowsStop ? (
+            <button
+              type="button"
+              data-action="prompt-stop"
+              className="inline-flex size-7 items-center justify-center rounded-full text-text-weaker transition-colors hover:bg-surface-weak/60 hover:text-text-base"
+              aria-label={props.stopAriaLabel}
+              title={props.stopLabel}
+              onClick={props.onAbort}
+            >
+              <SquareIcon className="size-3.5" />
+            </button>
+          ) : null}
           <button
             type={primaryButtonStopsRun ? "button" : "submit"}
             form="prompt-composer-form"

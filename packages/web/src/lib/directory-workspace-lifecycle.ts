@@ -3,7 +3,13 @@ import { isSessionNotFoundResult } from "@/lib/session-request-result"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "@/lib/bench-leave-guard"
 import { allowBenchLeave } from "@/lib/bench-leave-guard"
-import { benchTargetKey, isBenchContentTarget, type BenchTarget } from "@/lib/bench-navigation"
+import {
+  benchTargetKey,
+  isBenchContentTarget,
+  readBenchTarget,
+  type BenchMode,
+  type BenchTarget,
+} from "@/lib/bench-navigation"
 import { benchTabFallbackTitle, benchTabKey, type BenchTab } from "@/lib/bench-tabs"
 import type {
   DirectoryWorkspaceHydrationState,
@@ -68,6 +74,13 @@ type BenchCommittedClientActionCompletionDraft = Extract<
   BenchClientActionCompletionDraft,
   { outcome: "committed" }
 >
+type BenchClientObservedRoute =
+  | { status: "closed" }
+  | {
+      status: "open"
+      target: BenchTarget
+      mode: BenchMode
+    }
 
 type BenchSurfaceSnapshot = {
   target: BenchTarget
@@ -203,6 +216,21 @@ function drawerContext(drawer: DrawerKind | null): BenchReadContextOpenOutput["d
     : null
 }
 
+function normalizedBenchContextTarget(target: BenchContextTabSummary["target"]): BenchTarget {
+  const parsed = readBenchTarget(target)
+  if (!parsed) throw new Error("Invalid Bench context tab target")
+  return parsed
+}
+
+function normalizedBenchClientObservedRoute(
+  route: BenchClientActionCompletion["observedRoute"] | undefined,
+): BenchClientObservedRoute {
+  if (!route || route.status === "closed") return { status: "closed" }
+  const target = readBenchTarget(route.target)
+  if (!target) throw new Error("Invalid Bench client action observed route target")
+  return { status: "open", target, mode: route.mode }
+}
+
 function sharedBenchTarget(input: {
   target: BenchTarget
   browserRuntime?: { url: string; title: string; loading: boolean }
@@ -216,11 +244,14 @@ function sharedBenchTarget(input: {
     }
   }
   if (target.type === "workspace-file") {
-    return {
-      type: target.type,
-      path: target.path,
-      viewer: target.viewer,
-    }
+    return Object.assign(
+      {
+        type: target.type,
+        path: target.path,
+        viewer: target.viewer,
+      },
+      target.root === "notes" ? { root: target.root } : undefined,
+    )
   }
   return {
     type: target.type,
@@ -237,7 +268,7 @@ function visibleBenchContext(input: {
 }): BenchReadContextOpenOutput | null {
   const { drawer: _drawer, ...context } = input.context
   const selectedTabKey = input.tabs.find(
-    (tab) => benchTargetKey(tab.target) === input.context.targetKey,
+    (tab) => benchTargetKey(normalizedBenchContextTarget(tab.target)) === input.context.targetKey,
   )?.tabKey
   if (!selectedTabKey) return null
   return {
@@ -260,7 +291,9 @@ function parkedBenchContext(input: {
   ) => { url: string; title: string; loading: boolean } | undefined
 }): BenchReadContextOutput {
   const selectedTab = input.tabs.find(
-    (tab) => benchTargetKey(tab.target) === benchTargetKey(input.route.target),
+    (tab) =>
+      benchTargetKey(normalizedBenchContextTarget(tab.target)) ===
+      benchTargetKey(input.route.target),
   )
   if (!selectedTab) return closedBenchContext()
   const selectedBrowser =
@@ -637,7 +670,7 @@ export class DirectoryWorkspaceLifecycleService {
       if (this.#disposed) return false
       completedSnapshot = this.#readPublishSnapshotForObservation({
         sessionID: input.sessionID,
-        route: input.completion.observedRoute,
+        route: normalizedBenchClientObservedRoute(input.completion.observedRoute),
         visibility: input.completion.observedVisibility,
         drawer: input.completion.drawer,
       })
@@ -681,7 +714,9 @@ export class DirectoryWorkspaceLifecycleService {
       return null
     }
 
-    const target = completion.observedRoute.target
+    const route = normalizedBenchClientObservedRoute(completion.observedRoute)
+    if (route.status === "closed") return null
+    const target = route.target
     for (const registration of this.#selectedRegistrations(benchTargetKey(target))) {
       const snapshot = registration.getSnapshot()
       if (!snapshotMatchesBenchTarget({ snapshot, target })) continue
@@ -860,15 +895,14 @@ export class DirectoryWorkspaceLifecycleService {
       if (input.completion.outcome === "committed") {
         if (!completionSnapshot) return false
         const currentTargetKey = this.#getProjection().bench.targetKey
+        const observedRoute = normalizedBenchClientObservedRoute(input.completion.observedRoute)
         const observedTargetKey =
-          input.completion.observedRoute.status === "open"
-            ? benchTargetKey(input.completion.observedRoute.target)
-            : null
+          observedRoute.status === "open" ? benchTargetKey(observedRoute.target) : null
         if (currentTargetKey === observedTargetKey) {
           completionSnapshot =
             this.#readRegisteredPublishSnapshotForObservation({
               sessionID: input.sessionID,
-              route: input.completion.observedRoute,
+              route: observedRoute,
               visibility: input.completion.observedVisibility,
               drawer: input.completion.drawer,
             }) ?? completionSnapshot

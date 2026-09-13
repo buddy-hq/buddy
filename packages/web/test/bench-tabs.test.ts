@@ -7,20 +7,28 @@ import {
   resolveBenchTabTitle,
   upsertBenchTab,
 } from "../src/lib/bench-tabs"
-import type { BenchSessionTarget, BenchTarget } from "../src/lib/bench-navigation"
+import {
+  createNotesBenchTarget,
+  isSameBenchTarget,
+  type BenchSessionTarget,
+  type BenchTarget,
+} from "../src/lib/bench-navigation"
 
 const FIRST_FILE = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/first.md",
   viewer: "markdown",
 } satisfies BenchTarget
 const SECOND_FILE = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/second.md",
   viewer: "markdown",
 } satisfies BenchTarget
 const THIRD_FILE = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/third.md",
   viewer: "markdown",
 } satisfies BenchTarget
@@ -62,7 +70,7 @@ function threeTabs() {
 
 describe("Bench tabs", () => {
   test("uses JSON-safe logical keys that ignore rendered revisions", () => {
-    expect(benchTabKey(FIRST_FILE)).toBe("file:markdown:docs%2Ffirst.md")
+    expect(benchTabKey(FIRST_FILE)).toBe("file:notebook:markdown:docs%2Ffirst.md")
     expect(benchTabKey(OBJECT_REVISION_ONE)).toBe("object:resource:resource-1:reader")
     expect(benchTabKey(OBJECT_REVISION_ONE)).not.toContain("\u0000")
     expect(benchTabKey(BROWSER_TAB)).toBe("browser:browser%2Fone")
@@ -92,6 +100,21 @@ describe("Bench tabs", () => {
       benchTabKey(SECOND_FILE),
     ])
     expect(updated.tabs[0]?.target).toEqual(OBJECT_REVISION_TWO)
+  })
+
+  test("treats a renamed central note path as a new target", () => {
+    const original = createNotesBenchTarget({ relativePath: "Untitled — note-1.md" })
+    const renamed = createNotesBenchTarget({ relativePath: "Research — note-1.md" })
+    const opened = upsertBenchTab([], original)
+    const updated = upsertBenchTab(opened.tabs, renamed)
+    const tab = updated.tabs[1]
+    if (!tab) throw new Error("Expected a note tab.")
+
+    expect(benchTabKey(original)).toBe("file:notes:markdown:Untitled%20%E2%80%94%20note-1.md")
+    expect(benchTabKey(renamed)).not.toBe(benchTabKey(original))
+    expect(isSameBenchTarget(original, renamed)).toBe(false)
+    expect(updated.tabs).toHaveLength(2)
+    expect(resolveBenchTabTitle(tab, new Map())).toBe("Research — note-1.md")
   })
 
   test("uses stored object titles and falls back only when one is unavailable", () => {

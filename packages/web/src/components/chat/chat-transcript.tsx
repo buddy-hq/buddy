@@ -101,6 +101,7 @@ import {
   registerActiveChatDestinationLayout,
 } from "@/lib/active-chat-transition-state"
 import type { ChatTranscriptProps, TForkMessageInput, TRetryActionInput } from "./types"
+import { visibleMessageText } from "./utils/user-message-text"
 
 const HISTORY_PREPEND_TOP_THRESHOLD_PX = 160
 const TIMELINE_PADDING_END_PX = 64
@@ -617,6 +618,7 @@ function TimelineUserRow(props: {
   canRevert: boolean
   animateEntrance: boolean
   onRevertMessage: ChatTranscriptProps["onRevertMessage"]
+  onQuoteMessage: ChatTranscriptProps["onQuoteMessage"]
 }) {
   const info = useTranscriptMessage(props.row.userMessageID)
   const parts = useTranscriptParts(props.row.partIDs)
@@ -632,6 +634,7 @@ function TimelineUserRow(props: {
         userMessage={userMessage}
         providers={props.providers}
         onRevertMessage={props.canRevert ? props.onRevertMessage : undefined}
+        onQuoteMessage={props.onQuoteMessage}
         animateEntrance={props.animateEntrance}
       />
     </article>
@@ -679,6 +682,7 @@ function TimelineAssistantRow(props: {
   onOpenSession: ChatTranscriptProps["onOpenSession"]
   onOpenResource: ChatTranscriptProps["onOpenResource"]
   onForkMessage: ChatTranscriptProps["onForkMessage"]
+  onQuoteMessage: ChatTranscriptProps["onQuoteMessage"]
   toolOpenByPartID: TimelineViewState["toolOpenByPartID"]
   onToolOpenChange: (partID: string, open: boolean) => void
 }) {
@@ -727,6 +731,19 @@ function TimelineAssistantRow(props: {
   }, [assistantSessionID, forkExclusiveMessageID, requestFork, rowActive])
   const availableOnForkMessage =
     requestFork && assistantSessionID && !rowActive ? onForkMessage : undefined
+  const annotationMessageID = itemPart?.messageID
+  const annotationSessionID = itemPart?.sessionID
+  const requestQuote = props.onQuoteMessage
+  const onQuoteMessage = useCallback(() => {
+    if (!requestQuote || !annotationSessionID || !annotationMessageID) return
+    requestQuote({
+      sessionID: annotationSessionID,
+      messageID: annotationMessageID,
+      text: visibleMessageText(parts),
+    })
+  }, [annotationMessageID, annotationSessionID, parts, requestQuote])
+  const availableOnQuoteMessage =
+    requestQuote && annotationSessionID && annotationMessageID ? onQuoteMessage : undefined
 
   return (
     <article
@@ -771,6 +788,7 @@ function TimelineAssistantRow(props: {
                 canEditImages={props.canEditImages}
                 onOpenSession={props.onOpenSession}
                 onOpenResource={props.onOpenResource}
+                onQuoteMessage={availableOnQuoteMessage}
                 onForkMessage={availableOnForkMessage}
                 defaultOpen={rendererDefaultOpen(
                   partRenderer(itemPart),
@@ -793,6 +811,7 @@ function TimelineAssistantRow(props: {
               canEditImages={props.canEditImages}
               onOpenSession={props.onOpenSession}
               onOpenResource={props.onOpenResource}
+              onQuoteMessage={availableOnQuoteMessage}
               onForkMessage={availableOnForkMessage}
             />
           )
@@ -881,6 +900,7 @@ function TimelineRowRenderer(props: {
   onOpenResource: ChatTranscriptProps["onOpenResource"]
   onForkMessage: ChatTranscriptProps["onForkMessage"]
   onRevertMessage: ChatTranscriptProps["onRevertMessage"]
+  onQuoteMessage: ChatTranscriptProps["onQuoteMessage"]
   onRetryAction: ChatTranscriptProps["onRetryAction"]
   onContinueTruncated: ChatTranscriptProps["onContinueTruncated"]
   activityRowExpansionByKey: Record<string, ActivityRowExpansionState>
@@ -899,6 +919,7 @@ function TimelineRowRenderer(props: {
           canRevert={props.row.userMessageID === props.lastUserMessageID}
           animateEntrance={props.row.userMessageID === props.entranceUserMessageID}
           onRevertMessage={props.onRevertMessage}
+          onQuoteMessage={props.onQuoteMessage}
         />
       )
     case "turn-divider":
@@ -927,6 +948,7 @@ function TimelineRowRenderer(props: {
           onOpenSession={props.onOpenSession}
           onOpenResource={props.onOpenResource}
           onForkMessage={props.onForkMessage}
+          onQuoteMessage={props.onQuoteMessage}
           toolOpenByPartID={props.toolOpenByPartID}
           onToolOpenChange={props.onToolOpenChange}
         />
@@ -1099,6 +1121,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     directory,
     sessionID: requestedSessionID,
     onForkMessage,
+    onQuoteMessage,
     onOpenSession,
     onOpenResource,
     onRevertMessage,
@@ -1909,6 +1932,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                     onOpenSession={onOpenSession}
                     onOpenResource={onOpenResource}
                     onForkMessage={onForkMessage}
+                    onQuoteMessage={onQuoteMessage}
                     onRevertMessage={onRevertMessage}
                     onRetryAction={onRetryAction}
                     onContinueTruncated={onContinueTruncated}

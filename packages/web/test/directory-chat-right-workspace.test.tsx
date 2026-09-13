@@ -31,6 +31,7 @@ import { skillsCatalogQueryKeys } from "../src/state/skills-catalog-query"
 import { workspaceChatKeyForSession } from "../src/lib/workspace-chat-key"
 import { obsidianVaultQueryKeys } from "../src/state/obsidian-vault-query"
 import { WORKSPACE_DESTINATION_RESTORE } from "../src/state/directory-workspace-store"
+import { notesQueryKeys } from "../src/features/notes/queries"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_RESOURCE_ID = "resource-1"
@@ -147,6 +148,11 @@ function createTestRouter(options?: {
     detected: options?.obsidianConnected === true,
     connected: options?.obsidianConnected === true,
     configDirectories: options?.obsidianConnected === true ? [".obsidian"] : [],
+  })
+  queryClient.setQueryData(notesQueryKeys.library(TEST_DIRECTORY), {
+    directory: "/home/Notes",
+    activeNotebookID: "notebook-1",
+    notes: [],
   })
   const rootRoute = createRootRoute({
     component: () => <Outlet />,
@@ -275,9 +281,31 @@ describe("DirectoryChatRightWorkspace", () => {
       "Creations",
       "Boards",
       "Files",
+      "Notes",
       "Skills",
       "Notebook Instructions",
     ])
+  })
+
+  test("opens Notes as the central note library drawer", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<RouterProvider router={createTestRouter()} />)
+      await flushEffects()
+    })
+
+    await act(async () => {
+      container?.querySelector<HTMLButtonElement>('[aria-label="Notes"]')?.click()
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("notes")
+    expect(container.textContent).toContain("No notes yet")
+    expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
   })
 
   test("uses the Obsidian rail mark for a connected vault", async () => {

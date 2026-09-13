@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto"
 import fsp from "node:fs/promises"
 import path from "node:path"
 import { parseNodeErrorCode } from "../storage/parse-node-error"
+import { textContentVersion } from "../storage/text-content-version"
 import { Global } from "../storage"
 
 const AGENTS_MD_FILE_NAME = "AGENTS.md"
@@ -28,11 +28,6 @@ export function mapAgentsMdConflictError<TError>(error: TError): Response | unde
   return undefined
 }
 
-function contentVersion(content: string | undefined) {
-  if (content === undefined) return null
-  return createHash("sha256").update(content, "utf8").digest("hex")
-}
-
 async function readFileContent(filePath: string) {
   return fsp.readFile(filePath, "utf8").catch((error) => {
     const maybeCode = parseNodeErrorCode(error)
@@ -49,7 +44,7 @@ async function readAgentsMd(filePath: string): Promise<AgentsMdState> {
     path: filePath,
     exists: content !== undefined,
     content: content ?? "",
-    version: contentVersion(content),
+    version: textContentVersion(content),
   }
 }
 
@@ -60,7 +55,7 @@ async function saveAgentsMd(input: {
   conflictMessage: string
 }): Promise<AgentsMdSaveResult> {
   const currentContent = await readFileContent(input.filePath)
-  const currentVersion = contentVersion(currentContent)
+  const currentVersion = textContentVersion(currentContent)
 
   if (input.expectedVersion !== undefined && input.expectedVersion !== currentVersion) {
     throw new AgentsMdVersionConflictError(input.conflictMessage)
@@ -72,7 +67,7 @@ async function saveAgentsMd(input: {
   return {
     path: input.filePath,
     content: input.content,
-    version: contentVersion(input.content) ?? "",
+    version: textContentVersion(input.content) ?? "",
   }
 }
 

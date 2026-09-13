@@ -418,7 +418,6 @@ export async function summarizeSessionById(c: Context): Promise<Response> {
   if (result.error) {
     return sdkErrorResponse(result, { forceBusyAs409: true })
   }
-
   return Response.json(result.data ?? true)
 }
 
@@ -452,7 +451,6 @@ export async function revertSessionById(c: Context): Promise<Response> {
   if (result.error) {
     return sdkErrorResponse(result, { forceBusyAs409: true })
   }
-
   return Response.json(result.data ?? true)
 }
 
@@ -509,7 +507,6 @@ export async function unrevertSessionById(c: Context): Promise<Response> {
   if (result.error) {
     return sdkErrorResponse(result, { forceBusyAs409: true })
   }
-
   return Response.json(result.data ?? true)
 }
 

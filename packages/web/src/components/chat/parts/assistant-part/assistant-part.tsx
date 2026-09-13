@@ -24,6 +24,7 @@ export type AssistantPartRendererProps = {
   onOpenSession?: (sessionID: string) => void
   onOpenResource?: (directory: string, resource: ResourceReadingTarget) => void
   onForkMessage?: () => Promise<void> | void
+  onQuoteMessage?: () => void
   stripLeadingFigureImage?: boolean
   stripLeadingMermaidSources?: string[]
   directory?: string
@@ -49,6 +50,7 @@ function assistantPartRendererEqual(
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
   if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
+  if (prevProps.onQuoteMessage !== nextProps.onQuoteMessage) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
 
   // Deep comparison for part content
@@ -74,6 +76,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   onOpenSession,
   onOpenResource,
   onForkMessage,
+  onQuoteMessage,
   stripLeadingFigureImage,
   stripLeadingMermaidSources,
   directory,
@@ -96,6 +99,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         stripLeadingMermaidSources={stripLeadingMermaidSources}
         directory={directory}
         onOpenResource={onOpenResource}
+        onQuoteMessage={actionsEnabled && actionPartID === part.id ? onQuoteMessage : undefined}
         onForkMessage={actionsEnabled && actionPartID === part.id ? onForkMessage : undefined}
       />
     )

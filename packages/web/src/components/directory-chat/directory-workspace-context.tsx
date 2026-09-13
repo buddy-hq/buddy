@@ -312,6 +312,13 @@ export function DirectoryWorkspaceProvider(props: {
     )
   }, [props.directory, props.persistenceStorage, store])
 
+  const removeNotesBenchTargets = useCallback(async (): Promise<void> => {
+    const state = store.getState()
+    state.removeNotesTargets()
+    if (store.getState().slots === state.slots) return
+    await persistCurrentWorkspaceState()
+  }, [persistCurrentWorkspaceState, store])
+
   useBlocker({
     shouldBlockFn: ({ next }) =>
       blocker.shouldBlockNavigation({
@@ -329,6 +336,7 @@ export function DirectoryWorkspaceProvider(props: {
       getRoute: () => routeRef.current,
       setActiveSessionContext: (sessionID) => lifecycle.setActiveSessionID(sessionID),
       persist: persistCurrentWorkspaceState,
+      removeNotesBenchTargets,
       isDisposed: () => workspaceDisposedRef.current || controller.isDisposed(),
     })
     unregisterWorkspaceRef.current = unregister
@@ -339,7 +347,14 @@ export function DirectoryWorkspaceProvider(props: {
         unregisterWorkspaceRef.current = () => undefined
       }
     }
-  }, [controller, lifecycle, persistCurrentWorkspaceState, props.directory, store])
+  }, [
+    controller,
+    lifecycle,
+    persistCurrentWorkspaceState,
+    props.directory,
+    removeNotesBenchTargets,
+    store,
+  ])
 
   useStrictModeDeferredDisposal({
     ownerKey: controller,

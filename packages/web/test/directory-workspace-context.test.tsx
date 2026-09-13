@@ -65,6 +65,7 @@ const TEST_UNRELATED_SESSION_ID = "chat-b"
 const FLUSH_DELAY_MS = 0
 const TEST_DIRECT_BENCH_TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "docs/direct.md",
   viewer: "markdown",
 } satisfies BenchTarget
