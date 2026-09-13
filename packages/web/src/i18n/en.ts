@@ -1528,6 +1528,7 @@ export const dict = {
   "chatTools.patch.created": "Created",
   "chatTools.patch.deleted": "Deleted",
   "chatTools.patch.moved": "Moved",
+  "chatTools.patch.openFileOnBench": "Open {{name}} on Bench",
   "chatTools.repairedLabel.one": "repaired {{attempts}} time",
   "chatTools.repairedLabel.other": "repaired {{attempts}} times",
   "chatTools.answeredCount": "{{count}} answered",
