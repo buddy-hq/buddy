@@ -1,14 +1,14 @@
 ---
 name: use-antigravity-gemini
-description: use Gemini 3.7 Flash as subagents via agy CLI. Use when the user asks to use agy. gemini models are unreliable; never invoke without user's explicit direction.
+description: use Gemini 3.8 Flash as subagents via agy CLI. Use when the user asks to use agy. gemini models are unreliable; never invoke without user's explicit direction.
 ---
 
 
 ## Invariants [only break if user explicitly asks; warn user when asked, before execution]
 
-- use Gemini 3.7 Flash through agy cli
-- only use gemini-3.7-flash
-- select reasoning based on swe scores
+- use Gemini 3.8 Flash through agy cli
+- only use gemini-3.8-flash
+- select reasoning based on SWE scores when available; otherwise use the complexity rubric below
 - only use medium/high
 - never use low
 - run all prompts with --dangerously-skip-permissions
@@ -19,7 +19,13 @@ description: use Gemini 3.7 Flash as subagents via agy CLI. Use when the user as
 
 ## SWE Scores
 
-- gemini-3.7-flash
+- gemini-3.8-flash
+  - current default
+  - DeepSWE v1.1 pass@1
+    - medium: 71.0%
+    - high: 73.8%
+  - source: https://deepswe.datacurve.ai/ (113 tasks, 4 runs; updated September 3, 2026)
+- historical gemini-3.7-flash baseline
   - medium: 65.5%
   - high: 65.3%
 - context
@@ -37,7 +43,7 @@ Complex (the noun is complexity) = many interacting parts, not predictable in ad
 
 ## What it's good for (complicated)
 
-~65% DeepSWE: reliable when work is hard because it is large, not because the outcome is unknowable.
+Gemini 3.8 Flash scores 71.0% at medium and 73.8% at high on DeepSWE v1.1. Treat it as suitable when work is hard because it is large, not because the outcome is unknowable.
 
 - many files, logic still straight-line
 - refactors
@@ -68,13 +74,14 @@ Complex (the noun is complexity) = many interacting parts, not predictable in ad
 2. Help
   `$AGY --help`
    learn print, json, conversation, continue, add-dir, dangerously-skip-permissions, model, effort
+   `$AGY models` must list `gemini-3.8-flash-medium` and `gemini-3.8-flash-high`
 3. Create Chat
-   `$AGY --output-format json --dangerously-skip-permissions --add-dir="$PWD" --model gemini-3.7-flash-high -p='ready'`
+   `$AGY --output-format json --dangerously-skip-permissions --add-dir="$PWD" --model gemini-3.8-flash-high -p='ready'`
    wait for json → `conversation_id` → `$SID`
    (agy has no create-chat; this is a cheap turn to get the id)
 4. Send Prompt
    run in background
-   `$AGY --conversation $SID --output-format json --dangerously-skip-permissions --add-dir="$PWD" --model gemini-3.7-flash-high -p='<prompt>'`
+   `$AGY --conversation $SID --output-format json --dangerously-skip-permissions --add-dir="$PWD" --model gemini-3.8-flash-high -p='<prompt>'`
    do not use stream-json
 5. Steer Subagent [if you need to update the subagent, stop it, change its direction]
    SIGINT / TTY Ctrl+C to stop the turn
