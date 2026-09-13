@@ -1235,7 +1235,7 @@ export const dict = {
   "sidebar.sortBy": "Sort by",
   "sidebar.sortCreated": "Created",
   "sidebar.sortUpdated": "Updated",
-  "sidebar.statusLive": "Live",
+  "sidebar.statusLive": "Working",
   "sidebar.statusRetrying": "Retrying",
   "sidebar.statusUnread": "Unread",
   "sidebar.statusUpToDate": "Up to date",
