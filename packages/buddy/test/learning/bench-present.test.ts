@@ -385,11 +385,13 @@ describe("bench_present", () => {
     const client = connectTestBenchClient({ directory: project.path })
     const selectedTarget = {
       type: "workspace-file",
+      root: "notebook",
       path: "selected.md",
       viewer: "markdown",
     } satisfies BenchTarget
     const backgroundTarget = {
       type: "workspace-file",
+      root: "notebook",
       path: "background.md",
       viewer: "markdown",
     } satisfies BenchTarget
@@ -1047,6 +1049,7 @@ describe("bench_present", () => {
     const client = connectTestBenchClient({ directory: project.path })
     const observedTarget = {
       type: "workspace-file",
+      root: "notebook",
       path: "other.md",
       viewer: "markdown",
     } satisfies BenchTarget

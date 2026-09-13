@@ -34,6 +34,7 @@ import {
 import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
 import { authorizeFileReadPath } from "../../../runtime/external-file-authorization"
 import {
+  BENCH_WORKSPACE_ROOT_NOTEBOOK,
   BenchTargetSchema,
   benchTargetKey,
   readCurrentBenchContext,
@@ -129,12 +130,19 @@ const BenchPresentInputSchema = z
   .strict()
   .superRefine(validateBenchPresentInput)
 
+const BenchPresentMetadataTargetSchema = BenchTargetSchema.transform((target) => {
+  if (target.type !== "workspace-file" || target.root !== BENCH_WORKSPACE_ROOT_NOTEBOOK) {
+    return target
+  }
+  return { type: target.type, path: target.path, viewer: target.viewer }
+})
+
 const BenchPresentToolMetadataSchema = z
   .object({
     benchAction: BenchPresentActionSchema,
     benchStatus: BenchPresentStatusSchema,
     reason: BenchPresentReasonSchema.nullable(),
-    benchTarget: BenchTargetSchema.nullable(),
+    benchTarget: BenchPresentMetadataTargetSchema.nullable(),
     buddyObjectResult: BuddyObjectResultSchema.optional(),
   })
   .strict()
@@ -422,6 +430,7 @@ function objectRoute(target: ObjectBenchTarget): string {
 function buildWorkspaceFileBenchTarget(input: { relativePath: string }): WorkspaceFileBenchTarget {
   return {
     type: "workspace-file",
+    root: BENCH_WORKSPACE_ROOT_NOTEBOOK,
     path: input.relativePath,
     viewer: viewerForWorkspacePath(input.relativePath),
   }

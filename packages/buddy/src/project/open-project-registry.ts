@@ -11,6 +11,7 @@ import { Global } from "../storage/global"
 import { resolveBuddyHomeState } from "./buddy-home"
 import { resolveDirectory } from "./directory"
 import { INBOX_NOTEBOOK_NAME } from "./notebook-constants"
+import { NOTES_LIBRARY_DIRECTORY_NAME } from "../notes/paths"
 import { projectUpdateErrorMessage } from "./orchestration/project-operations"
 import {
   parseProjectJsonObject,
@@ -185,7 +186,13 @@ async function scanManagedNotebookDirectories() {
   for (const root of notebookHomeRecoveryRoots()) {
     const entries = await fs.readdir(root, { withFileTypes: true }).catch(() => [])
     for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name.startsWith(".")) continue
+      if (
+        !entry.isDirectory() ||
+        entry.name.startsWith(".") ||
+        entry.name.toLowerCase() === NOTES_LIBRARY_DIRECTORY_NAME.toLowerCase()
+      ) {
+        continue
+      }
       directories.push(path.join(root, entry.name))
     }
   }

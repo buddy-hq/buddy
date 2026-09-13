@@ -4,6 +4,7 @@ import { calculatorSection } from "./calculator-context"
 import { featureInstructionsSection } from "./feature-instructions-context"
 import type { RuntimeSectionContext, RuntimeSectionDefinition } from "./definition"
 import { modelSection } from "./model-context"
+import { notesSection } from "./notes-context"
 import { personalizationSection } from "./personalization-context"
 import { activeResourceSection, resourcesSection } from "./resource-context"
 import {
@@ -68,6 +69,7 @@ const RUNTIME_SECTIONS: readonly RuntimeSectionDefinition[] = [
   modelSection,
   personalizationSection,
   calculatorSection,
+  notesSection,
   activeResourceSection,
   resourcesSection,
   teachingPolicySection,

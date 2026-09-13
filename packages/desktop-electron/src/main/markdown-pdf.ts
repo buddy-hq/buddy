@@ -3,7 +3,6 @@ import { join } from "node:path"
 import { app, BrowserWindow } from "electron"
 import type { MarkdownPdfExportInput } from "../preload/types"
 import { resolveAvailableMarkdownPdfExportPath } from "./markdown-pdf-path"
-import { resolveAllowedDirectoryRoots } from "./storage-paths"
 
 const MARKDOWN_PDF_RENDER_READY_SCRIPT = `
   (async () => {
@@ -23,17 +22,12 @@ const MARKDOWN_PDF_RENDER_READY_SCRIPT = `
 const MARKDOWN_PDF_LETTER_WIDTH_PIXELS = 816
 const MARKDOWN_PDF_LETTER_HEIGHT_PIXELS = 1056
 
-function resolveMarkdownPdfAllowedRoots(): string[] {
-  return [
-    resolveAllowedDirectoryRoots({
-      home: app.getPath("home"),
-    }),
-  ]
-}
-
-export async function exportMarkdownPdf(input: MarkdownPdfExportInput): Promise<string | null> {
+export async function exportMarkdownPdf(
+  input: MarkdownPdfExportInput,
+  allowedRoots: readonly string[],
+): Promise<string | null> {
   const resultPath = await resolveAvailableMarkdownPdfExportPath({
-    allowedRoots: resolveMarkdownPdfAllowedRoots(),
+    allowedRoots,
     defaultPath: input.defaultPath,
     directory: input.directory,
   })

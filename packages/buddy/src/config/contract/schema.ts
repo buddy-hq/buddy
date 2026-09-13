@@ -12,6 +12,7 @@ import { resolveBuddyPersonaMetadata } from "../../learning/personas/wiring/pers
 
 export namespace ConfigSchema {
   const NOTEBOOK_HOME_PATH_ERROR_MESSAGE = "notebook_home must be an absolute path" as const
+  const NOTES_DIRECTORY_PATH_ERROR_MESSAGE = "notes_directory must be an absolute path" as const
   const NonNegativeInteger = z.number().int().nonnegative()
 
   export const Mcp = zodFromEffectSchema(OpenCodeConfig.Mcp)
@@ -154,7 +155,10 @@ export namespace ConfigSchema {
   const ProjectInfoBase = z.object(PROJECT_INFO_FIELDS).strict()
   type ProjectInfoBase = z.output<typeof ProjectInfoBase>
 
-  function validateInfo(value: ProjectInfoBase, ctx: z.RefinementCtx): void {
+  function validateInfo(
+    value: ProjectInfoBase & { notes_directory?: string | null },
+    ctx: z.RefinementCtx,
+  ): void {
     const profiles = resolveBuddyPersonaMetadata(value.personas)
 
     for (const personaID of PERSONAS) {
@@ -201,6 +205,17 @@ export namespace ConfigSchema {
         })
       }
     }
+
+    if (value.notes_directory !== undefined && value.notes_directory !== null) {
+      const notesDirectoryPath = value.notes_directory.trim()
+      if (!path.isAbsolute(notesDirectoryPath)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["notes_directory"],
+          message: NOTES_DIRECTORY_PATH_ERROR_MESSAGE,
+        })
+      }
+    }
   }
 
   export const ProjectInfo = ProjectInfoBase.superRefine(validateInfo)
@@ -211,6 +226,7 @@ export namespace ConfigSchema {
       ...PROJECT_INFO_FIELDS,
       concise_responses: z.boolean().optional(),
       experimental_features: ExperimentalFeatures,
+      notes_directory: z.string().nullable().optional(),
     })
     .strict()
     .superRefine(validateInfo)

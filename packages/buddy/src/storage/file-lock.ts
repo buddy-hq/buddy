@@ -374,4 +374,13 @@ async function withFileLock<T>(
   }
 }
 
-export { fileLockIsActiveSync, withFileLock, withFileLockSync }
+function withFileLocks<T>(lockPaths: readonly string[], task: () => Promise<T>): Promise<T> {
+  const orderedPaths = [...new Set(lockPaths)].toSorted()
+  const acquireNext = (index: number): Promise<T> => {
+    const lockPath = orderedPaths[index]
+    return lockPath ? withFileLock(lockPath, () => acquireNext(index + 1)) : task()
+  }
+  return acquireNext(0)
+}
+
+export { fileLockIsActiveSync, withFileLock, withFileLocks, withFileLockSync }

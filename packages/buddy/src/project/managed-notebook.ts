@@ -6,6 +6,7 @@ import { BuddyHomeError, resolveBuddyHomeState } from "./buddy-home"
 import { mapBuddyHomeError } from "./buddy-home"
 import { INBOX_NOTEBOOK_NAME } from "./notebook-constants"
 import { parseProjectNodeErrnoCode, PROJECT_NODE_ERRNO } from "./parse-values"
+import { NOTES_LIBRARY_DIRECTORY_NAME } from "../notes/paths"
 
 export { INBOX_NOTEBOOK_NAME }
 
@@ -67,6 +68,10 @@ function normalizeNotebookName(name: string) {
     throw new ManagedNotebookError("Notebook name is reserved on Windows")
   }
 
+  if (trimmed.toLowerCase() === NOTES_LIBRARY_DIRECTORY_NAME.toLowerCase()) {
+    throw new ManagedNotebookError(`${NOTES_LIBRARY_DIRECTORY_NAME} is reserved by Buddy`)
+  }
+
   return trimmed
 }
 
@@ -118,7 +123,12 @@ export async function listManagedNotebooks() {
     })
 
   return entries
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        !entry.name.startsWith(".") &&
+        entry.name.toLowerCase() !== NOTES_LIBRARY_DIRECTORY_NAME.toLowerCase(),
+    )
     .map((entry) => ({
       name: entry.name,
       directory: path.join(homeState.resolvedPath, entry.name),

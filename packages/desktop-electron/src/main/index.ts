@@ -46,6 +46,7 @@ import {
 } from "./mac-installer-failure-dialog"
 import { parseMarkdown } from "./markdown"
 import { exportMarkdownPdf } from "./markdown-pdf"
+import { loadMarkdownPdfAllowedRoots } from "./markdown-pdf-roots"
 import { createMenu } from "./menu"
 import {
   blockUpdateVersion,
@@ -701,7 +702,18 @@ registerIpcHandlers({
   setUpdateRing: (ring) => saveUpdateRing(ring),
   installUpdate: async () => installUpdate(),
   setBackgroundColor: (color) => setBackgroundColor(color),
-  exportMarkdownPdf: (input) => exportMarkdownPdf(input),
+  exportMarkdownPdf: async (input) => {
+    const config = embeddedBackendConfig
+    if (!config) {
+      throw new Error("Cannot export Markdown PDF before the embedded backend is ready")
+    }
+    const allowedRoots = await loadMarkdownPdfAllowedRoots({
+      backendUrl: `http://${config.hostname}:${config.port}`,
+      username: BACKEND_SERVER_USERNAME,
+      password: config.password,
+    })
+    return exportMarkdownPdf(input, allowedRoots)
+  },
 })
 
 async function killBackendUtility() {

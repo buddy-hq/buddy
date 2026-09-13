@@ -33,6 +33,7 @@ const ONE_PIXEL_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
 const TARGET = {
   type: "workspace-file",
+  root: "notebook",
   path: "notes.md",
   viewer: "markdown",
 } satisfies BenchTarget
@@ -62,6 +63,13 @@ describe("bench_read_context", () => {
     expect(benchTargetAbsolutePath({ directory: project.path, target: TARGET })).toBe(
       path.join(project.path, TARGET.path),
     )
+    expect(
+      benchTargetAbsolutePath({
+        directory: project.path,
+        notesDirectory: path.join(project.path, "central-notes"),
+        target: { ...TARGET, root: "notes" },
+      }),
+    ).toBe(path.join(project.path, "central-notes", TARGET.path))
     expect(
       benchTargetAbsolutePath({
         directory: project.path,
@@ -206,6 +214,7 @@ describe("bench_read_context", () => {
     const tabs = Array.from({ length: 30 }, (_, index) => {
       const target = {
         type: "workspace-file" as const,
+        root: "notebook" as const,
         path: index === 4 ? "chapters/chapter-4.pdf" : `notes/note-${index}.md`,
         viewer: index === 4 ? ("file" as const) : ("markdown" as const),
       }
@@ -268,7 +277,9 @@ describe("bench_read_context", () => {
       tabNumber: 1,
       selected: true,
       target: {
-        ...selectedTab.target,
+        type: "workspace-file",
+        path: selectedTab.target.path,
+        viewer: selectedTab.target.viewer,
         absolutePath: path.join(project.path, selectedTab.target.path),
       },
     })
@@ -292,7 +303,9 @@ describe("bench_read_context", () => {
           tabNumber: 1,
           selected: true,
           target: {
-            ...selectedTab.target,
+            type: "workspace-file",
+            path: selectedTab.target.path,
+            viewer: selectedTab.target.viewer,
             absolutePath: path.join(project.path, selectedTab.target.path),
           },
         },
@@ -312,7 +325,9 @@ describe("bench_read_context", () => {
           tabNumber: 1,
           selected: true,
           target: {
-            ...selectedTab.target,
+            type: "workspace-file",
+            path: selectedTab.target.path,
+            viewer: selectedTab.target.viewer,
             absolutePath: path.join(project.path, selectedTab.target.path),
           },
         },
@@ -460,7 +475,9 @@ describe("bench_read_context", () => {
               title: capturedContext.target.title,
               selected: true,
               target: {
-                ...TARGET,
+                type: "workspace-file",
+                path: TARGET.path,
+                viewer: TARGET.viewer,
                 absolutePath: path.join(project.path, TARGET.path),
               },
             },

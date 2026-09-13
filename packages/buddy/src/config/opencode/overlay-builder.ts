@@ -1,5 +1,6 @@
 import path from "node:path"
 import { Global } from "@buddy/opencode-adapter/global"
+import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { Truncate } from "@buddy/opencode-adapter/tool"
 import { Config } from "../config.js"
 import {
@@ -12,6 +13,8 @@ import { parseConfiguredModel } from "./models.js"
 import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from "./skills.js"
 import { getDefaultBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
 import { preloadBuddyBootstrapGraph } from "../../learning/runtime/bootstrap-preload"
+import { resolveNotesDirectoryState } from "../../notes/settings"
+import { resolveBuddyHomeState } from "../../project/buddy-home"
 
 const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   "goal_*": "deny",
@@ -47,34 +50,73 @@ const BUDDY_BUILTIN_COMMANDS = {
 } satisfies Record<string, { template: string; description: string }>
 
 const EXTERNAL_DIRECTORY_PERMISSION = "external_directory" as const
+const READ_PERMISSION = "read" as const
+const EDIT_PERMISSION = "edit" as const
 const ANY_PATTERN = "*" as const
 const ALLOW_ACTION: Config.PermissionAction = "allow"
 const ASK_ACTION: Config.PermissionAction = "ask"
 
-function buildExternalDirectoryRules(skillPaths: string[] | undefined): Config.PermissionRule {
-  // Match OpenCode vendor defaults (agent.ts): ask for unknown externals, but allow
-  // tool-output, tmp, and skill dirs. Put `*` first to override project-level allow,
-  // then re-allow vendor paths so findLast resolves to allow for those patterns.
-  const rules: Array<[string, Config.PermissionAction]> = [[ANY_PATTERN, ASK_ACTION]]
-
-  rules.push([Truncate.GLOB, ALLOW_ACTION])
-  rules.push([path.join(Global.Path.tmp, ANY_PATTERN), ALLOW_ACTION])
-
-  for (const skillPath of skillPaths ?? []) {
-    rules.push([path.join(skillPath, ANY_PATTERN), ALLOW_ACTION])
+function appendPermissionRules(
+  rule: Config.PermissionRule | undefined,
+  additions: ReadonlyArray<readonly [string, Config.PermissionAction]>,
+): Config.PermissionRule {
+  const entries: Array<[string, Config.PermissionAction]> = []
+  if (rule === "allow" || rule === "ask" || rule === "deny") {
+    entries.push([ANY_PATTERN, rule])
+  } else if (rule) {
+    entries.push(...Object.entries(rule))
   }
-
-  return Object.fromEntries(rules)
+  for (const [pattern, action] of additions) {
+    entries.push([pattern, action])
+  }
+  return Object.fromEntries(entries)
 }
 
 function buildOpenCodePermissionOverlay(
   permission: Config.Permission | undefined,
   skillPaths: string[] | undefined,
+  notesPermissionPatterns: {
+    absoluteRoot: string
+    absoluteDescendants: string
+    relative?: {
+      root: string
+      descendants: string
+    }
+  },
 ): Config.Permission {
   return {
     ...permission,
     ...BUDDY_RUNTIME_PERMISSION_OVERLAY,
-    [EXTERNAL_DIRECTORY_PERMISSION]: buildExternalDirectoryRules(skillPaths),
+    [EXTERNAL_DIRECTORY_PERMISSION]: appendPermissionRules(
+      permission?.[EXTERNAL_DIRECTORY_PERMISSION],
+      [
+        [Truncate.GLOB, ALLOW_ACTION],
+        [path.join(Global.Path.tmp, ANY_PATTERN), ALLOW_ACTION],
+        ...(skillPaths ?? []).map(
+          (skillPath) => [path.join(skillPath, ANY_PATTERN), ALLOW_ACTION] as const,
+        ),
+        [notesPermissionPatterns.absoluteRoot, ALLOW_ACTION],
+        [notesPermissionPatterns.absoluteDescendants, ALLOW_ACTION],
+      ],
+    ),
+    [READ_PERMISSION]: appendPermissionRules(
+      permission?.[READ_PERMISSION],
+      notesPermissionPatterns.relative
+        ? [
+            [notesPermissionPatterns.relative.root, ALLOW_ACTION],
+            [notesPermissionPatterns.relative.descendants, ALLOW_ACTION],
+          ]
+        : [],
+    ),
+    [EDIT_PERMISSION]: appendPermissionRules(
+      permission?.[EDIT_PERMISSION],
+      notesPermissionPatterns.relative
+        ? [
+            [notesPermissionPatterns.relative.root, ASK_ACTION],
+            [notesPermissionPatterns.relative.descendants, ASK_ACTION],
+          ]
+        : [],
+    ),
   }
 }
 
@@ -94,7 +136,29 @@ function orderAgentsWithDefaultFirst(
 
 async function buildOpenCodeConfigOverlay(input: { config: Config.Info; directory: string }) {
   await preloadBuddyBootstrapGraph()
-  const skillPaths = await resolveOpenCodeSkillPaths(input.config, input.directory)
+  const [skillPaths, globalConfig] = await Promise.all([
+    resolveOpenCodeSkillPaths(input.config, input.directory),
+    Config.getGlobal(),
+  ])
+  const buddyHome = resolveBuddyHomeState(globalConfig.notebook_home)
+  const notesDirectory = resolveNotesDirectoryState({
+    buddyHomeDirectory: buddyHome.resolvedPath,
+    configuredDirectory: globalConfig.notes_directory,
+  }).resolvedDirectory
+  const { project } = await OpenCodeProject.fromDirectory(input.directory)
+  const relativeNotesDirectory = path.relative(project.worktree, notesDirectory)
+  const notesPermissionPatterns = {
+    absoluteRoot: notesDirectory,
+    absoluteDescendants: path.join(notesDirectory, ANY_PATTERN),
+    ...(relativeNotesDirectory
+      ? {
+          relative: {
+            root: relativeNotesDirectory,
+            descendants: path.join(relativeNotesDirectory, ANY_PATTERN),
+          },
+        }
+      : undefined),
+  }
   const mergedAgents = applyBuddyPersonaHiddenFlags(
     mergeBuddyAndConfiguredAgents(input.config.agent ?? {}),
     input.config.personas,
@@ -113,7 +177,11 @@ async function buildOpenCodeConfigOverlay(input: { config: Config.Info; director
     Object.assign(
       Object.assign(
         {
-          permission: buildOpenCodePermissionOverlay(input.config.permission, skillPaths),
+          permission: buildOpenCodePermissionOverlay(
+            input.config.permission,
+            skillPaths,
+            notesPermissionPatterns,
+          ),
           command: {
             ...BUDDY_BUILTIN_COMMANDS,
           },

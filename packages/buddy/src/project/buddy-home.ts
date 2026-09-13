@@ -1,6 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { Config } from "../config"
+import { resolveDefaultNotesLibraryDirectory } from "../notes/paths"
 import { Global } from "../storage/global"
 import { resolveDirectory } from "./directory"
 import { BUDDY_HOME_DEFAULT_PATH_SEGMENTS, INBOX_NOTEBOOK_NAME } from "./notebook-constants"
@@ -127,8 +128,14 @@ export async function readNotebookHomeState() {
 
 export async function saveNotebookHome(directory: string) {
   const resolved = resolveBuddyHomeState(directory)
-  await Config.updateGlobal({
-    notebook_home: resolved.resolvedPath,
+  await Config.mutateGlobal((current) => {
+    const previousHome = resolveBuddyHomeState(current.notebook_home).resolvedPath
+    return {
+      ...current,
+      notebook_home: resolved.resolvedPath,
+      notes_directory:
+        current.notes_directory ?? resolveDefaultNotesLibraryDirectory(previousHome),
+    }
   })
   return readNotebookHomeState()
 }

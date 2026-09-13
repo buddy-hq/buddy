@@ -37,6 +37,12 @@ import type {
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { listRegisteredResources } from "../../resources/resource-registry-service"
 import { IMAGE_EDIT_TARGET_MAX, type ImageEditIntent } from "../features/image-generation/contracts"
+import {
+  displayNameForNotebook,
+  findNotebookIdentity,
+} from "../../notes/notebook-identity"
+import { readNotesDirectoryState } from "../../notes/settings"
+import { readNotebookHomeState } from "../../project/buddy-home"
 import type { NativeResourcePromptAttachment } from "./native-resource-attachments"
 import {
   parseJsonArray,
@@ -142,6 +148,11 @@ export type PromptContext = {
   priorDeliveredBenchTurnContextDigest?: string
   priorDeliveredTeachingTurnContextDigest?: string
   focusGoalIds: string[]
+  notes: {
+    directory: string
+    notebook: string
+    notebookID?: string
+  }
   resources: PromptResource[]
   activeResource?: ActivePromptResource
   benchContext?: BenchReadContextOutput
@@ -600,7 +611,7 @@ async function buildPromptContext(
     config: input.projectConfig,
   })
 
-  const [model, promptResources] = await Promise.all([
+  const [model, promptResources, notebookHome, notesDirectory, notesNotebook] = await Promise.all([
     resolvePromptModel({
       body: input.body,
       projectConfig: input.projectConfig,
@@ -613,6 +624,9 @@ async function buildPromptContext(
         }),
       ),
     ),
+    readNotebookHomeState(),
+    readNotesDirectoryState(),
+    findNotebookIdentity(input.directory),
   ])
   const activeResource = buildActiveResource(activeReadingContext, promptResources)
   const benchContext = readSynchronizedBenchContext({
@@ -632,6 +646,15 @@ async function buildPromptContext(
     learnerSnapshot,
     learnerContextDigest,
     focusGoalIds,
+    notes: Object.assign(
+      {
+        directory: notesDirectory.resolvedDirectory,
+        notebook:
+          notesNotebook?.name ??
+          displayNameForNotebook(input.directory, notebookHome.inboxDirectory),
+      },
+      notesNotebook ? { notebookID: notesNotebook.id } : undefined,
+    ),
     resources: promptResources,
   }
   Object.assign(

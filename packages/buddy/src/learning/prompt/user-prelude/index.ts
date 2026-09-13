@@ -244,6 +244,7 @@ const BENCH_DRAWER_LABELS = {
   practice: "Practice",
   creations: "Creations",
   boards: "Boards",
+  notes: "Notes",
   files: "Files",
   skills: "Skills",
 } as const
@@ -330,6 +331,7 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
       Object.assign(
         {
           directory: context.directory,
+          notesDirectory: context.notes.directory,
           tabs: benchContext.tabs,
           selectedTabKey: benchContext.selectedTabKey,
           limit: BENCH_TURN_CONTEXT_TAB_LIMIT,
@@ -428,7 +430,11 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
             target.ref.itemID ? `Item ID: ${target.ref.itemID}` : undefined,
             `View ID: ${target.viewID}`,
             selectedTab && selectedTab.target.type !== "browser"
-              ? `Absolute path: ${benchTargetAbsolutePath({ directory: context.directory, target: selectedTab.target })}`
+              ? `Absolute path: ${benchTargetAbsolutePath({
+                  directory: context.directory,
+                  notesDirectory: context.notes.directory,
+                  target: selectedTab.target,
+                })}`
               : undefined,
             `State: ${target.status}`,
           ]

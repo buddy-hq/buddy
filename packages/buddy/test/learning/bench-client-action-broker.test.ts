@@ -114,6 +114,7 @@ function enqueuePresentAction(broker: BenchClientActionBroker, input?: { session
       autoOpen: null,
       target: {
         type: "workspace-file",
+        root: "notebook",
         path: "notes.md",
         viewer: "markdown",
       },
@@ -435,6 +436,7 @@ describe("BenchClientActionBroker", () => {
         autoOpen: null,
         target: {
           type: "workspace-file",
+          root: "notebook",
           path: "notes.md",
           viewer: "file",
         },
@@ -461,6 +463,7 @@ describe("BenchClientActionBroker", () => {
             ...completion.context,
             targetKey: benchTargetKey({
               type: "workspace-file",
+              root: "notebook",
               path: "notes.md",
               viewer: "markdown",
             }),
@@ -511,6 +514,7 @@ describe("BenchClientActionBroker", () => {
     const client = connectClient({ broker })
     const target = {
       type: "workspace-file",
+      root: "notebook",
       path: "notes.md",
       viewer: "markdown",
     } satisfies BenchTarget

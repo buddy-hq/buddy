@@ -187,11 +187,12 @@ describe("bench target keys", () => {
     expect(
       benchTargetKey({
         type: "workspace-file",
+        root: "notebook",
         path: "docs/intro notes.md",
         viewer: "markdown",
       }),
     ).toBe(
-      ["workspace-file", "markdown", "docs%2Fintro%20notes.md"].join(
+      ["workspace-file", "notebook", "markdown", "docs%2Fintro%20notes.md"].join(
         BENCH_TARGET_KEY_PART_SEPARATOR,
       ),
     )
@@ -199,11 +200,27 @@ describe("bench target keys", () => {
     expect(
       benchTargetKey({
         type: "workspace-file",
+        root: "notebook",
         path: "docs/intro notes.md",
         viewer: "file",
       }),
     ).toBe(
-      ["workspace-file", "file", "docs%2Fintro%20notes.md"].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+      ["workspace-file", "notebook", "file", "docs%2Fintro%20notes.md"].join(
+        BENCH_TARGET_KEY_PART_SEPARATOR,
+      ),
+    )
+
+    expect(
+      benchTargetKey({
+        type: "workspace-file",
+        root: "notes",
+        path: "docs/intro notes.md",
+        viewer: "markdown",
+      }),
+    ).toBe(
+      ["workspace-file", "notes", "markdown", "docs%2Fintro%20notes.md"].join(
+        BENCH_TARGET_KEY_PART_SEPARATOR,
+      ),
     )
 
     expect(

@@ -9,6 +9,7 @@ import {
   resolveConfiguredPath,
   resolveDefaultBuddyGlobalConfigDir,
 } from "./constants"
+import { isPathInsideDirectory } from "./path-containment"
 
 function resolveXdgDirectory(envName: string, fallbackSegments: readonly string[]) {
   return resolveConfiguredPath(process.env[envName]) ?? path.join(os.homedir(), ...fallbackSegments)
@@ -52,11 +53,6 @@ const preferred = buildPaths({
 
 let current = preferred
 
-function isInsidePath(directory: string, root: string) {
-  const relative = path.relative(root, directory)
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
-}
-
 function assertTestPathsIsolated(paths: typeof preferred) {
   if (process.env.NODE_ENV !== "test") return
 
@@ -76,8 +72,10 @@ function assertTestPathsIsolated(paths: typeof preferred) {
 
   for (const target of mutablePaths) {
     const resolved = path.resolve(target)
-    const underAllowedRoot = allowedRoots.some((root) => isInsidePath(resolved, root))
-    const underRealHome = isInsidePath(resolved, realHome)
+    const underAllowedRoot = allowedRoots.some((root) =>
+      isPathInsideDirectory(root, resolved),
+    )
+    const underRealHome = isPathInsideDirectory(realHome, resolved)
 
     if (underRealHome && !underAllowedRoot) {
       throw new Error(`Buddy test storage path resolves under the real home directory: ${resolved}`)

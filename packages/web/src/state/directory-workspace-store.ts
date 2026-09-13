@@ -41,6 +41,7 @@ export const WORKSPACE_DRAWER_SEARCH = "search"
 export const WORKSPACE_DRAWER_PRACTICE = "practice"
 export const WORKSPACE_DRAWER_CREATIONS = "creations"
 export const WORKSPACE_DRAWER_BOARDS = "boards"
+export const WORKSPACE_DRAWER_NOTES = "notes"
 export const WORKSPACE_DRAWER_FILES = "files"
 export const WORKSPACE_DRAWER_SKILLS = "skills"
 export const WORKSPACE_DRAWER_NONE = "none"
@@ -70,6 +71,7 @@ export type DrawerKind =
   | typeof WORKSPACE_DRAWER_PRACTICE
   | typeof WORKSPACE_DRAWER_CREATIONS
   | typeof WORKSPACE_DRAWER_BOARDS
+  | typeof WORKSPACE_DRAWER_NOTES
   | typeof WORKSPACE_DRAWER_FILES
   | typeof WORKSPACE_DRAWER_SKILLS
 
@@ -323,6 +325,7 @@ const drawerKindSchema = z.enum([
   WORKSPACE_DRAWER_PRACTICE,
   WORKSPACE_DRAWER_CREATIONS,
   WORKSPACE_DRAWER_BOARDS,
+  WORKSPACE_DRAWER_NOTES,
   WORKSPACE_DRAWER_FILES,
   WORKSPACE_DRAWER_SKILLS,
 ])
