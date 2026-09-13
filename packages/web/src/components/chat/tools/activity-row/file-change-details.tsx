@@ -6,10 +6,18 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   cn,
+  toast,
 } from "@buddy/ui"
 import { FileText } from "@/icons/app-icons"
 
 import { language } from "@/context/language"
+import { usePlatform } from "@/context/platform"
+import { useWorkspaceFileOpen, type WorkspaceFileActionInput } from "@/lib/use-workspace-file-open"
+import {
+  WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH,
+  WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
+} from "@/lib/workspace-file-open"
+import { workspaceRelativeFilePath } from "@/lib/workspace-file-paths"
 
 import { basename, dirname } from "../../utils/path"
 import {
@@ -32,6 +40,7 @@ type FilePatchKind = "add" | "update" | "delete" | "move"
 
 type FilePatch = {
   path: string
+  absolutePath: string | undefined
   type?: FilePatchKind
   diff: PierreDiffInput
 }
@@ -63,6 +72,15 @@ function usePierreViewDiff(diff: PierreDiffInput): PierreViewDiff {
   )
 }
 
+function editFilePath(state: ToolActivityEntry["state"]): string | undefined {
+  const filediff = isRecord(state.metadata.filediff) ? state.metadata.filediff : undefined
+  return readNonEmptyString(filediff?.file) ?? readNonEmptyString(state.input.filePath)
+}
+
+function writeFilePath(state: ToolActivityEntry["state"]): string | undefined {
+  return readNonEmptyString(state.metadata.filepath) ?? readNonEmptyString(state.input.filePath)
+}
+
 function editDetails(entry: ToolActivityEntry): FileChangeDetails | undefined {
   const state = entry.state
   if (!state) return undefined
@@ -86,6 +104,7 @@ function editDetails(entry: ToolActivityEntry): FileChangeDetails | undefined {
     files: [
       {
         path,
+        absolutePath: editFilePath(state),
         diff: {
           file: path,
           patch,
@@ -136,6 +155,8 @@ function applyPatchDetails(entry: ToolActivityEntry): FileChangeDetails | undefi
     return [
       {
         path: relativePath,
+        // A moved file no longer lives at `filePath`, and a deleted one is gone.
+        absolutePath: type === "move" || type === "delete" ? undefined : filePath,
         type,
         diff: {
           file: relativePath,
@@ -158,6 +179,22 @@ function detailsForEntry(entry: ToolActivityEntry): FileChangeDetails | undefine
   if (tool === "edit") return editDetails(entry)
   if (tool === "write") return writeDetails(entry)
   return tool === "apply_patch" ? applyPatchDetails(entry) : undefined
+}
+
+// The one file a finished write or edit changed, as an absolute path.
+export function activityEntryFilePath(entry: ToolActivityEntry): string | undefined {
+  const state = entry.state
+  if (state?.status !== "completed") return undefined
+
+  const tool = String(entry.part.tool ?? "")
+  if (tool === "write") return writeFilePath(state)
+  if (tool === "edit") return editFilePath(state)
+  if (tool !== "apply_patch") return undefined
+
+  const details = applyPatchDetails(entry)
+  return details?.type === "patch" && details.files.length === 1
+    ? details.files[0].absolutePath
+    : undefined
 }
 
 export function hasActivityFileChangeDetails(entry: ToolActivityEntry): boolean {
@@ -239,32 +276,104 @@ function ActivityPatchFileAction({ file }: { file: FilePatch }) {
   return <ActivityDiffChanges additions={file.diff.additions} deletions={file.diff.deletions} />
 }
 
-function ActivityPatchFile({ file }: { file: FilePatch }) {
+// Opens a changed file on the Bench. Undefined when the file is outside the notebook or the Bench
+// can't show it, so callers render a plain name instead of a link.
+export function useBenchFileOpener(
+  directory: string | undefined,
+  absolutePath: string | undefined,
+): (() => void) | undefined {
+  const platform = usePlatform()
+  const { resolvePlan, executePrimary } = useWorkspaceFileOpen(directory)
+  const path =
+    directory && absolutePath
+      ? workspaceRelativeFilePath({ directory, path: absolutePath })
+      : undefined
+  if (!path) return undefined
+
+  const input: WorkspaceFileActionInput = {
+    path,
+    absolutePath,
+    name: basename(path),
+    available: true,
+    canOpenInBuddy: true,
+    canOpenDefaultApp: !!platform.openPath,
+    canReveal: !!platform.revealPath,
+  }
+  const target = resolvePlan(input).primaryTarget
+  if (
+    target !== WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH &&
+    target !== WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH
+  ) {
+    return undefined
+  }
+
+  return () => {
+    void executePrimary(input).catch((error) => {
+      toast.error(error instanceof Error ? error.message : String(error))
+    })
+  }
+}
+
+export function ActivityFileNameLink(props: {
+  name: string
+  onOpen: () => void
+  className?: string
+}) {
+  const label = language.t("chatTools.patch.openFileOnBench", { name: props.name })
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={cn("relative cursor-pointer underline-offset-2 hover:underline", props.className)}
+      onClick={props.onOpen}
+    >
+      {props.name}
+    </button>
+  )
+}
+
+function ActivityPatchFile({ file, directory }: { file: FilePatch; directory?: string }) {
   const [open, setOpen] = useState(file.type !== "delete")
-  const directory = dirname(file.path)
+  const openFile = useBenchFileOpener(directory, file.absolutePath)
+  const fileDirectory = dirname(file.path)
   const filename = basename(file.path)
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="activity-patch-file">
-      <CollapsibleTrigger asChild>
-        <button type="button" className="activity-patch-file-trigger" title={file.path}>
-          <span className="activity-patch-file-info">
-            <FileText className="size-3.5 shrink-0 text-icon-weak-base" />
-            <span className="activity-patch-file-name">
-              {directory !== "/" ? (
-                <span className="activity-patch-file-directory">{directory}/</span>
-              ) : null}
+      <div className="activity-patch-file-header">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="activity-patch-file-trigger"
+            title={file.path}
+            aria-label={file.path}
+          />
+        </CollapsibleTrigger>
+        <span className="activity-patch-file-info">
+          <FileText className="size-3.5 shrink-0 text-icon-weak-base" />
+          <span className="activity-patch-file-name">
+            {fileDirectory !== "/" ? (
+              <span className="activity-patch-file-directory">{fileDirectory}/</span>
+            ) : null}
+            {openFile ? (
+              <ActivityFileNameLink
+                name={filename}
+                onOpen={openFile}
+                className="activity-patch-file-filename"
+              />
+            ) : (
               <span className="activity-patch-file-filename">{filename}</span>
-            </span>
+            )}
           </span>
-          <span className="activity-patch-file-actions">
-            <ActivityPatchFileAction file={file} />
-            <ChevronRightIcon
-              className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
-            />
-          </span>
-        </button>
-      </CollapsibleTrigger>
+        </span>
+        <span className="activity-patch-file-actions">
+          <ActivityPatchFileAction file={file} />
+          <ChevronRightIcon
+            className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          />
+        </span>
+      </div>
       <CollapsibleContent>{open ? <ActivityPatchFileDiff file={file} /> : null}</CollapsibleContent>
     </Collapsible>
   )
@@ -280,7 +389,13 @@ function ActivitySinglePatchFile({ file }: { file: FilePatch }) {
   return <PierreContentDiff view={view} />
 }
 
-export function ActivityFileChangeDetails({ entry }: { entry: ToolActivityEntry }) {
+export function ActivityFileChangeDetails({
+  entry,
+  directory,
+}: {
+  entry: ToolActivityEntry
+  directory?: string
+}) {
   const details = detailsForEntry(entry)
   if (!details) return null
 
@@ -295,7 +410,7 @@ export function ActivityFileChangeDetails({ entry }: { entry: ToolActivityEntry 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col">
       {details.files.map((file) => (
-        <ActivityPatchFile key={file.path} file={file} />
+        <ActivityPatchFile key={file.path} file={file} directory={directory} />
       ))}
     </div>
   )
