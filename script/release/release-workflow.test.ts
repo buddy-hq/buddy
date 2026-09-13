@@ -356,9 +356,9 @@ describe("release skill artifacts", () => {
     expect(concurrency.group).toBe("publish-skill-artifacts")
     expect(concurrency["cancel-in-progress"]).toBe(false)
 
-    expect(
-      objectValue(workflowCallSecrets.BUDDY_RELEASE_TOKEN, "release token").required,
-    ).toBe(true)
+    expect(objectValue(workflowCallSecrets.BUDDY_RELEASE_TOKEN, "release token").required).toBe(
+      true,
+    )
     expect(
       objectValue(workflowCallSecrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY, "signing key").required,
     ).toBe(true)
