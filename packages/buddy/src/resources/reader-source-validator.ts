@@ -102,66 +102,78 @@ function xrefProbeLooksValid(bytes: Uint8Array): boolean {
   return trimmed.startsWith(PDF_XREF_TABLE_MARKER) || PDF_XREF_STREAM_PATTERN.test(text)
 }
 
+function invalidPdfValidation(reason: string): ReaderSourceValidation {
+  return { format: "pdf", sourceValidity: "invalid", reason }
+}
+
 async function recoverPdfValidation(input: {
   filepath: string
   reason: string
 }): Promise<ReaderSourceValidation> {
-  const valid = await validatePdfDocumentInWorker(input.filepath)
-  return valid
-    ? { format: "pdf", sourceValidity: "valid", reason: null }
-    : { format: "pdf", sourceValidity: "invalid", reason: input.reason }
+  try {
+    const valid = await validatePdfDocumentInWorker(input.filepath)
+    return valid
+      ? { format: "pdf", sourceValidity: "valid", reason: null }
+      : invalidPdfValidation(input.reason)
+  } catch (error) {
+    return invalidPdfValidation(`PDF parser probe failed: ${errorMessage(error)}`)
+  }
 }
 
 async function probePdf(input: {
   filepath: string
   size: number
 }): Promise<ReaderSourceValidation> {
-  const tailLength = Math.min(PDF_TAIL_PROBE_BYTES, input.size)
-  const tailPosition = Math.max(0, input.size - tailLength)
-  const tailText = decodeProbeText(
-    await readFileSegment({
-      filepath: input.filepath,
-      position: tailPosition,
-      length: tailLength,
-    }),
-  )
-  const eofIndex = tailText.lastIndexOf(PDF_EOF_MARKER)
-  if (eofIndex < 0) {
-    return await recoverPdfValidation({
-      filepath: input.filepath,
-      reason: "The PDF is missing its EOF marker.",
-    })
-  }
+  try {
+    const tailLength = Math.min(PDF_TAIL_PROBE_BYTES, input.size)
+    const tailPosition = Math.max(0, input.size - tailLength)
+    const tailText = decodeProbeText(
+      await readFileSegment({
+        filepath: input.filepath,
+        position: tailPosition,
+        length: tailLength,
+      }),
+    )
+    const eofIndex = tailText.lastIndexOf(PDF_EOF_MARKER)
+    if (eofIndex < 0) {
+      return await recoverPdfValidation({
+        filepath: input.filepath,
+        reason: "The PDF is missing its EOF marker.",
+      })
+    }
 
-  const startXrefIndex = tailText.lastIndexOf(PDF_STARTXREF_MARKER, eofIndex)
-  if (startXrefIndex < 0) {
-    return await recoverPdfValidation({
-      filepath: input.filepath,
-      reason: "The PDF is missing its startxref marker.",
-    })
-  }
+    const startXrefIndex = tailText.lastIndexOf(PDF_STARTXREF_MARKER, eofIndex)
+    if (startXrefIndex < 0) {
+      return await recoverPdfValidation({
+        filepath: input.filepath,
+        reason: "The PDF is missing its startxref marker.",
+      })
+    }
 
-  const xrefOffset = parsePdfStartXrefOffset({ tailText, startXrefIndex })
-  if (xrefOffset === null || xrefOffset < 0 || xrefOffset >= input.size) {
-    return await recoverPdfValidation({
-      filepath: input.filepath,
-      reason: "The PDF startxref marker does not reference a valid byte offset.",
-    })
-  }
+    const xrefOffset = parsePdfStartXrefOffset({ tailText, startXrefIndex })
+    if (xrefOffset === null || xrefOffset < 0 || xrefOffset >= input.size) {
+      return await recoverPdfValidation({
+        filepath: input.filepath,
+        reason: "The PDF startxref marker does not reference a valid byte offset.",
+      })
+    }
 
-  const xrefProbe = await readFileSegment({
-    filepath: input.filepath,
-    position: xrefOffset,
-    length: Math.min(PDF_XREF_PROBE_BYTES, input.size - xrefOffset),
-  })
-  if (!xrefProbeLooksValid(xrefProbe)) {
-    return await recoverPdfValidation({
+    const xrefProbe = await readFileSegment({
       filepath: input.filepath,
-      reason: "The PDF startxref marker does not reference an xref table or xref stream.",
+      position: xrefOffset,
+      length: Math.min(PDF_XREF_PROBE_BYTES, input.size - xrefOffset),
     })
-  }
+    if (!xrefProbeLooksValid(xrefProbe)) {
+      return await recoverPdfValidation({
+        filepath: input.filepath,
+        reason: "The PDF startxref marker does not reference an xref table or xref stream.",
+      })
+    }
 
-  return { format: "pdf", sourceValidity: "valid", reason: null }
+    return { format: "pdf", sourceValidity: "valid", reason: null }
+  } catch (error) {
+    return invalidPdfValidation(`PDF parser probe failed: ${errorMessage(error)}`)
+  }
 }
 
 async function probeEpub(bytes: Uint8Array): Promise<ReaderSourceValidation> {
