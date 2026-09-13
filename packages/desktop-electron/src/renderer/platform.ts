@@ -23,6 +23,7 @@ type TDesktopStateStorage = {
   getItem(name: string): string | null | Promise<string | null>
   setItem(name: string, value: string): Promise<void>
   removeItem(name: string): Promise<void>
+  keys(): Promise<string[]>
   flush: () => Promise<void>
 }
 
@@ -139,6 +140,15 @@ function createStorage(name: string) {
     async removeItem(key) {
       pending.set(key, null)
       schedule()
+    },
+    async keys() {
+      const stored = await store.keys().catch((): string[] => [])
+      const next = new Set(stored)
+      for (const [key, value] of pending) {
+        if (value === null) next.delete(key)
+        else next.add(key)
+      }
+      return [...next]
     },
     flush,
   }

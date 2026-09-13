@@ -17,6 +17,13 @@ import type { UpdateProgressSnapshot, UpdateRing } from "../shared/update-state"
 import { isValidBenchCaptureRectangle } from "./bench-capture"
 import { parseTString } from "../shared/parse-external"
 import { getStore } from "./store"
+import {
+  deleteRendererStoreValue,
+  listRendererStoreKeys,
+  parseRendererStoreRecord,
+  readRendererStoreValue,
+  setRendererStoreValue,
+} from "./renderer-store-record"
 import { setTitlebar } from "./windows"
 
 const pickerFilters = (extensions?: string[]) => {
@@ -115,7 +122,7 @@ export function registerIpcHandlers(deps: Deps) {
 
   ipcMain.handle("store-get", (_event: IpcMainInvokeEvent, name: string, key: string) => {
     const store = getStore(name)
-    const value = store.get(key)
+    const value = readRendererStoreValue(parseRendererStoreRecord(store.store), key)
     const text = parseTString(value)
     if (text !== undefined) {
       return text
@@ -128,22 +135,28 @@ export function registerIpcHandlers(deps: Deps) {
   ipcMain.handle(
     "store-set",
     (_event: IpcMainInvokeEvent, name: string, key: string, value: string) => {
-      getStore(name).set(key, value)
+      const store = getStore(name)
+      store.store = setRendererStoreValue(
+        parseRendererStoreRecord(store.store),
+        key,
+        value,
+      ).valuesByKey
     },
   )
   ipcMain.handle("store-delete", (_event: IpcMainInvokeEvent, name: string, key: string) => {
-    getStore(name).delete(key)
+    const store = getStore(name)
+    store.store = deleteRendererStoreValue(parseRendererStoreRecord(store.store), key).valuesByKey
   })
   ipcMain.handle("store-clear", (_event: IpcMainInvokeEvent, name: string) => {
     getStore(name).clear()
   })
   ipcMain.handle("store-keys", (_event: IpcMainInvokeEvent, name: string) => {
     const store = getStore(name)
-    return Object.keys(store.store)
+    return listRendererStoreKeys(parseRendererStoreRecord(store.store))
   })
   ipcMain.handle("store-length", (_event: IpcMainInvokeEvent, name: string) => {
     const store = getStore(name)
-    return Object.keys(store.store).length
+    return listRendererStoreKeys(parseRendererStoreRecord(store.store)).length
   })
 
   ipcMain.handle(
