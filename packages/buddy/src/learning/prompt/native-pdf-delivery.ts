@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { readPdfDocumentPageCount } from "../../resources/pdf-document"
 import { SessionTransformValidationError } from "../../session"
 import {
   isNativeResourceAttachmentPart,
@@ -52,30 +52,6 @@ function normalizedFilePartSourcePath(input: {
   }
 }
 
-export async function readPdfPageCount(sourcePath: string): Promise<number> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs")
-  const loadingTask = pdfjs.getDocument({
-    data: new Uint8Array(await readFile(sourcePath)),
-    useWorkerFetch: false,
-    isEvalSupported: false,
-  })
-  let document: Awaited<typeof loadingTask.promise> | undefined
-
-  try {
-    document = await loadingTask.promise
-    if (!Number.isSafeInteger(document.numPages) || document.numPages <= 0) {
-      throw new Error("PDF page count is invalid")
-    }
-    return document.numPages
-  } finally {
-    if (document) {
-      await document.destroy()
-    } else {
-      await loadingTask.destroy()
-    }
-  }
-}
-
 export async function applyNativePdfDeliveryPolicy(input: {
   directory: string
   parts: TPromptPart[]
@@ -120,7 +96,7 @@ export async function applyNativePdfDeliveryPolicy(input: {
     if (decisions.has(sourcePath)) continue
 
     const pageCount = nativePdfFilePaths.has(sourcePath)
-      ? await readPdfPageCount(sourcePath).catch(() => undefined)
+      ? await readPdfDocumentPageCount(sourcePath).catch(() => undefined)
       : undefined
     const withinPerFileLimit = pageCount !== undefined && pageCount <= NATIVE_PDF_MAX_PAGES_PER_FILE
     const withinPromptLimit =

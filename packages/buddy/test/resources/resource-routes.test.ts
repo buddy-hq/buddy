@@ -11,7 +11,7 @@ import {
 } from "../../src/objects"
 import { RESOURCE_PACK_ENTRYPOINT_FILE_NAME } from "../../src/resource-packs"
 import { tmpdir } from "../helpers/tmpdir"
-import { createTestPdf } from "../helpers/pdf"
+import { createRecoverableBrokenXrefTextPdf, createTestPdf } from "../helpers/pdf"
 import {
   requireJsonObject,
   requireJsonArray,
@@ -91,6 +91,46 @@ describe("resource routes", () => {
     )
     expect(rawResponse.status).toBe(200)
     expect(rawResponse.headers.get("content-type")).toBe("application/octet-stream")
+  })
+
+  test("prepares recoverable PDFs with incorrect xref offsets and advertises PDF MIME", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourceRelpath = "recoverable.pdf"
+    const expectedText = "Recoverable PDF text"
+    await writeFile(
+      path.join(project.path, sourceRelpath),
+      createRecoverableBrokenXrefTextPdf(expectedText),
+      "utf8",
+    )
+
+    const createResponse = await app.request("/api/objects/resource", {
+      method: "POST",
+      headers: {
+        [DIRECTORY_HEADER]: project.path,
+        "content-type": JSON_CONTENT_TYPE,
+      },
+      body: JSON.stringify({ sourcePath: sourceRelpath }),
+    })
+    expect(createResponse.status).toBe(200)
+    const created = requireJsonObject(await createResponse.json())
+    expect(created.sourceValidity).toBe("valid")
+
+    const readyResource = await waitForResource(project.path, "recoverable")
+    expect(readyResource.extractionStatus).toBe(RESOURCE_READY_STATUS)
+    const fullTextPath = requireString(readyResource.fullTextPath, "full text path")
+    await expect(readFile(path.join(project.path, fullTextPath), "utf8")).resolves.toContain(
+      expectedText,
+    )
+
+    const rawResponse = await app.request(
+      `/api/file/raw/${sourceRelpath}?path=${encodeURIComponent(sourceRelpath)}`,
+      {
+        method: "HEAD",
+        headers: { [DIRECTORY_HEADER]: project.path },
+      },
+    )
+    expect(rawResponse.status).toBe(200)
+    expect(rawResponse.headers.get("content-type")).toBe("application/pdf")
   })
 
   test("serializes concurrent creates that request the same alias", async () => {

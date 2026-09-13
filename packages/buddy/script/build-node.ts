@@ -19,7 +19,10 @@ import {
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
 } from "../../../script/backend-node-artifact"
-import { SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME } from "@buddy/script/backend-node-runtime"
+import {
+  PDF_VALIDATION_WORKER_BUNDLED_FILENAME,
+  SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME,
+} from "@buddy/script/backend-node-runtime"
 import {
   BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE,
   computeAdvancedMathRuntimeVersion,
@@ -46,6 +49,11 @@ const spreadsheetParserWorkerOutputPath = path.resolve(
   outdir,
   SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME,
 )
+const pdfValidationWorkerEntryPath = path.resolve(
+  backendDir,
+  "src/resources/pdf-validation-worker.ts",
+)
+const pdfValidationWorkerOutputPath = path.resolve(outdir, PDF_VALIDATION_WORKER_BUNDLED_FILENAME)
 const firstStageExternals = [
   "jsonc-parser",
   "@lydell/node-pty",
@@ -117,6 +125,7 @@ if (!result.success) {
 }
 
 await buildSpreadsheetParserWorker()
+await buildPdfValidationWorker()
 copyChonkieWasm()
 copyTessdata()
 await buildChemfigChild()
@@ -143,6 +152,26 @@ async function buildSpreadsheetParserWorker(): Promise<void> {
   }
   if (!existsSync(spreadsheetParserWorkerOutputPath)) {
     throw new Error("Spreadsheet parser worker output was not created.")
+  }
+}
+
+async function buildPdfValidationWorker(): Promise<void> {
+  const workerResult = await Bun.build({
+    conditions: ["node"],
+    target: "node",
+    format: "esm",
+    minify: true,
+    sourcemap: "none",
+    entrypoints: [pdfValidationWorkerEntryPath],
+    outdir,
+    naming: PDF_VALIDATION_WORKER_BUNDLED_FILENAME,
+  })
+  if (!workerResult.success) {
+    const summary = workerResult.logs.map((log) => log.message).join("\n")
+    throw new Error(summary || "PDF validation worker build failed.")
+  }
+  if (!existsSync(pdfValidationWorkerOutputPath)) {
+    throw new Error("PDF validation worker output was not created.")
   }
 }
 

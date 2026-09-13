@@ -1,1 +1,6 @@
 export const SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME = "spreadsheet-parser-worker.js" as const
+export const PDF_VALIDATION_WORKER_BUNDLED_FILENAME = "pdf-validation-worker.js" as const
+export const BACKEND_NODE_RUNTIME_SIDECAR_FILENAMES = [
+  PDF_VALIDATION_WORKER_BUNDLED_FILENAME,
+  SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME,
+] as const

@@ -1,6 +1,9 @@
 import { existsSync, readdirSync } from "node:fs"
 import path from "node:path"
-import { SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME } from "../packages/script/src/backend-node-runtime"
+import {
+  PDF_VALIDATION_WORKER_BUNDLED_FILENAME,
+  SPREADSHEET_PARSER_WORKER_BUNDLED_FILENAME,
+} from "../packages/script/src/backend-node-runtime"
 
 const CHONKIE_WASM_RELATIVE_PATH = ["pkg", "chonkiejs_chunk_bg.wasm"] as const
 const ENGLISH_TESSDATA_RELATIVE_PATH = ["resources", "tessdata", "eng.traineddata"] as const
@@ -60,6 +63,13 @@ export function assertBackendNodeArtifactRuntimeFiles(input: { artifactDir: stri
   if (!existsSync(spreadsheetParserWorker)) {
     throw new Error(
       `Buddy Node artifact is missing the spreadsheet parser worker at ${spreadsheetParserWorker}`,
+    )
+  }
+
+  const pdfValidationWorker = path.join(input.artifactDir, PDF_VALIDATION_WORKER_BUNDLED_FILENAME)
+  if (!existsSync(pdfValidationWorker)) {
+    throw new Error(
+      `Buddy Node artifact is missing the PDF validation worker at ${pdfValidationWorker}`,
     )
   }
 
