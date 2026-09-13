@@ -38,7 +38,7 @@ import {
   type BenchViewerAction,
 } from "@/components/bench/bench-viewer-shell"
 import { FlashcardBenchDeck } from "@/components/bench/flashcard-bench-deck"
-import { MarkdownBenchPage } from "@/components/bench/markdown-bench-page"
+import { MarkdownBenchPage } from "@/components/bench/markdown/page"
 import { QuestionSetBenchReview } from "@/components/bench/question-set-bench-review"
 import { SvgBenchView } from "@/components/bench/svg-bench-view"
 import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
@@ -468,8 +468,11 @@ function ResourceObjectBenchView(props: {
       >
         <MarkdownBenchPage
           directory={props.directory}
-          path={props.resourcePath}
-          initialFile={props.resourceMarkdown}
+          document={{
+            storageDirectory: props.directory,
+            path: props.resourcePath,
+            initialFile: props.resourceMarkdown,
+          }}
         />
       </ObjectBenchContextProvider>
     )

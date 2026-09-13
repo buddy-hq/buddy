@@ -1,7 +1,7 @@
 import { fromMarkdown } from "mdast-util-from-markdown"
 import type { Nodes, Root } from "mdast"
 import { matchBuddyBlockMath, matchBuddyInlineMath } from "@/components/markdown/markdown-math"
-import { prepareObsidianCalloutsForMdxEditor } from "@/components/bench/markdown-bench-obsidian-callouts"
+import { prepareObsidianCalloutsForMdxEditor } from "@/components/bench/markdown/obsidian-callouts"
 
 type TMarkdownPoint = {
   line: number

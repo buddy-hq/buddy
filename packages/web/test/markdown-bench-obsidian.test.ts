@@ -3,8 +3,8 @@ import { QueryClient } from "@tanstack/react-query"
 import {
   prepareObsidianCalloutsForMdxEditor,
   restoreObsidianCalloutsFromMdxEditor,
-} from "../src/components/bench/markdown-bench-obsidian-callouts"
-import { collectObsidianWikiLinkTargets } from "../src/components/bench/markdown-bench-obsidian-plugin"
+} from "../src/components/bench/markdown/obsidian-callouts"
+import { collectObsidianWikiLinkTargets } from "../src/components/bench/markdown/plugins/obsidian"
 import {
   batchObsidianLinkTargets,
   invalidateObsidianFileCaches,

@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query"
+import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import { defaultBenchObjectViewID, type BenchObjectKind } from "@/lib/bench-navigation"
 import { resolveResourceObjectViewerPathWithFallback } from "@/lib/resource-object-viewer-path"
@@ -112,6 +112,55 @@ export function markdownBenchApprovedFileQueryOptions(input: { directory: string
       readProjectExplorerEditableFile(input),
     staleTime: BENCH_SURFACE_STALE_TIME_MS,
   })
+}
+
+/**
+ * Markdown Bench reads and writes the file itself after the surface loads it, so every committed
+ * read or save writes back here. Without this the cached entry keeps pre-save content for
+ * `BENCH_SURFACE_STALE_TIME_MS` and a reopened surface reseeds the editor from it.
+ */
+export function cacheMarkdownBenchFile(
+  queryClient: QueryClient,
+  input: { directory: string; path: string; file: ProjectExplorerEditableFileState },
+): void {
+  const location = { directory: input.directory, path: input.path }
+  queryClient.setQueryData(
+    benchSurfaceQueryKeys.markdownFile(location),
+    (current: MarkdownBenchFileData | undefined): MarkdownBenchFileData | undefined => {
+      if (current?.status !== "ready") return current
+      return { ...current, initialFile: input.file }
+    },
+  )
+  queryClient.setQueryData(
+    [...benchSurfaceQueryKeys.markdownFile(location), "approved"] as const,
+    (current: ProjectExplorerEditableFileState | undefined) =>
+      current === undefined ? current : input.file,
+  )
+  void queryClient.invalidateQueries({
+    queryKey: benchSurfaceQueryKeys.fileMetadata(location),
+  })
+}
+
+export function invalidateMarkdownBenchFile(
+  queryClient: QueryClient,
+  input: { directory: string; path: string },
+): void {
+  // The surface owns the in-memory editor buffer after load. A default active refetch
+  // on deletion fails, replaces the surface, and unmounts that buffer. Mark the markdown
+  // query stale so a later remount refetches, but do not refetch current observers.
+  void queryClient.invalidateQueries({
+    queryKey: benchSurfaceQueryKeys.markdownFile(input),
+    refetchType: "none",
+  })
+  void queryClient.invalidateQueries({ queryKey: benchSurfaceQueryKeys.fileMetadata(input) })
+}
+
+export function forgetMarkdownBenchFile(
+  queryClient: QueryClient,
+  input: { directory: string; path: string },
+): void {
+  queryClient.removeQueries({ queryKey: benchSurfaceQueryKeys.markdownFile(input) })
+  queryClient.removeQueries({ queryKey: benchSurfaceQueryKeys.fileMetadata(input) })
 }
 
 export type ObjectBenchSurfaceData = {

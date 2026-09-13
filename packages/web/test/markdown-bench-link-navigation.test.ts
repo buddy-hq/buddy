@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { resolveMarkdownBenchLink } from "../src/components/bench/markdown-bench-link-navigation"
+import { resolveMarkdownBenchLink } from "../src/components/bench/markdown/link-navigation"
 
 describe("Markdown Bench link navigation", () => {
   test("resolves same-document fragments and relative workspace files", () => {

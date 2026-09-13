@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { createPlatformJsonStorage } from "@/context/platform"
-import type { MarkdownBenchContentThemeMode } from "@/components/bench/markdown-bench-document-theme"
+import type { MarkdownBenchContentThemeMode } from "@/components/bench/markdown/document-theme"
 
 export const MARKDOWN_BENCH_PREFERENCES_STORAGE_KEY = "buddy.markdown-bench.v1"
 export const MARKDOWN_BENCH_PREFERENCES_STORAGE_FILE = "buddy.markdown-bench.dat"

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import { BenchSurfacePending } from "@/components/bench/bench-surface-pending"
-import { MarkdownBenchPage } from "@/components/bench/markdown-bench-page"
+import { MarkdownBenchPage } from "@/components/bench/markdown/page"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
 import {
@@ -91,9 +91,12 @@ function LargeMarkdownBenchGate(props: {
       <MarkdownBenchPage
         directory={props.directory}
         fragment={props.fragment}
-        path={props.path}
-        initialFile={props.fileData.initialFile}
-        placeholder={props.path === AGENTS_MD_PATH ? AGENTS_MD_PLACEHOLDER : undefined}
+        document={{
+          storageDirectory: props.directory,
+          path: props.path,
+          initialFile: props.fileData.initialFile,
+          placeholder: props.path === AGENTS_MD_PATH ? AGENTS_MD_PLACEHOLDER : undefined,
+        }}
       />
     )
   }
@@ -145,9 +148,12 @@ function ApprovedMarkdownBenchLoader(props: {
     <MarkdownBenchPage
       directory={props.directory}
       fragment={props.fragment}
-      path={props.path}
-      initialFile={approvedFileQuery.data}
-      placeholder={props.path === AGENTS_MD_PATH ? AGENTS_MD_PLACEHOLDER : undefined}
+      document={{
+        storageDirectory: props.directory,
+        path: props.path,
+        initialFile: approvedFileQuery.data,
+        placeholder: props.path === AGENTS_MD_PATH ? AGENTS_MD_PLACEHOLDER : undefined,
+      }}
     />
   )
 }

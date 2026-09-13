@@ -2,7 +2,7 @@ import { Fragment, createContext, createElement, useContext, type ReactNode } fr
 import type { JsxEditorProps } from "@mdxeditor/editor"
 import type { RootContent } from "mdast"
 import { resolveMarkdownBenchImageSrc } from "@/lib/markdown-bench-image-src"
-import { MARKDOWN_BENCH_IMAGE_SCREEN_CLASS_NAME } from "@/components/bench/markdown-bench-image"
+import { MARKDOWN_BENCH_IMAGE_SCREEN_CLASS_NAME } from "@/components/bench/markdown/image"
 
 type MarkdownBenchIntrinsicContextValue = {
   directory: string

@@ -4,12 +4,13 @@ import {
   reconcileMarkdownBenchSavedSnapshot,
   resolveMarkdownBenchTargetStatus,
   shouldFlushMarkdownBenchPendingSave,
+  type MarkdownBenchFileState,
   type MarkdownBenchPendingSaveSnapshot,
-} from "../src/components/bench/markdown-bench-page"
+} from "../src/components/bench/markdown/file-rules"
 import {
   resolveMarkdownBenchNoteTitle,
   resolveRenamedMarkdownBenchPath,
-} from "../src/components/bench/markdown-bench-note-title"
+} from "../src/components/bench/markdown/note-title"
 import type { ProjectExplorerEditableFileState } from "../src/state/chat-actions"
 
 const BASE_SNAPSHOT: MarkdownBenchPendingSaveSnapshot = {
@@ -101,29 +102,32 @@ describe("MarkdownBenchPage pending save flush", () => {
 })
 
 describe("MarkdownBenchPage target status", () => {
-  const baseInput = {
+  const baseState: MarkdownBenchFileState = {
     conflict: false,
-    dirty: false,
     exists: true,
     loading: false,
-    processingStatus: "ready" as const,
+    markdown: "body",
+    processingError: undefined,
+    processingStatus: "ready",
+    savedMarkdown: "body",
     saveError: undefined,
+    saving: false,
+    version: "version-1",
   }
 
   test("publishes parser loading and error through the existing Bench status", () => {
-    expect(
-      resolveMarkdownBenchTargetStatus({
-        ...baseInput,
-        processingStatus: "loading",
-      }),
-    ).toBe("loading")
-    expect(
-      resolveMarkdownBenchTargetStatus({
-        ...baseInput,
-        processingStatus: "error",
-      }),
-    ).toBe("error")
-    expect(resolveMarkdownBenchTargetStatus(baseInput)).toBe("ready")
+    expect(resolveMarkdownBenchTargetStatus({ ...baseState, processingStatus: "loading" })).toBe(
+      "loading",
+    )
+    expect(resolveMarkdownBenchTargetStatus({ ...baseState, processingStatus: "error" })).toBe(
+      "error",
+    )
+    expect(resolveMarkdownBenchTargetStatus(baseState)).toBe("ready")
+  })
+
+  test("reports unsaved edits and missing files without a separate dirty flag", () => {
+    expect(resolveMarkdownBenchTargetStatus({ ...baseState, markdown: "edited" })).toBe("dirty")
+    expect(resolveMarkdownBenchTargetStatus({ ...baseState, exists: false })).toBe("unavailable")
   })
 })
 

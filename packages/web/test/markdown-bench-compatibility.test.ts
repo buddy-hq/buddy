@@ -3,7 +3,7 @@ import {
   prepareMarkdownForMdxEditor,
   prepareMdxForMdxEditor,
   restoreMarkdownFromMdxEditor,
-} from "../src/components/bench/markdown-bench-compatibility"
+} from "../src/components/bench/markdown/compatibility"
 
 describe("Markdown Bench compatibility", () => {
   test("protects CommonMark URL and email autolinks from MDX parsing", () => {

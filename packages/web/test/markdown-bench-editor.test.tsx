@@ -6,8 +6,8 @@ import {
   MarkdownBenchEditor,
   type MarkdownBenchEditorHandle,
   type MarkdownBenchProcessingResult,
-} from "../src/components/bench/markdown-bench-editor"
-import type { ObsidianWikiLinkContext } from "../src/components/bench/markdown-bench-obsidian-plugin"
+} from "../src/components/bench/markdown/editor"
+import type { ObsidianWikiLinkContext } from "../src/components/bench/markdown/plugins/obsidian"
 import { createMermaidThemeConfig } from "../src/components/media/renderers/mermaid/lib/theme"
 import { ThemeProvider } from "../src/theme"
 
