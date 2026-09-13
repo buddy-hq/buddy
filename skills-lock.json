@@ -18,6 +18,18 @@
       "skillPath": "skills/install-anti-slop/SKILL.md",
       "computedHash": "8c03582ef9b14d0034d6a21da154449f7b9e6618900fb19886008982b3453f90"
     },
+    "pr-explainer": {
+      "source": "mastra-ai/mastra",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/pr-explainer/SKILL.md",
+      "computedHash": "28931b80779cd1aa6a4bf70dd70a1bbcf0bcc36a14e368e17cd20577832263e5"
+    },
+    "pr-splitter": {
+      "source": "mastra-ai/mastra",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/pr-splitter/SKILL.md",
+      "computedHash": "254db219ac733e03fe7bfe5e5aa6d77be6577869a65d6ce53606bfab10471ba4"
+    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",
