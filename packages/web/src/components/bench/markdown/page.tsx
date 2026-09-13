@@ -44,11 +44,7 @@ import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/di
 import { usePlatform } from "@/context/platform"
 import { useTheme } from "@/theme"
 import { workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
-import {
-  BENCH_MODE_REQUEST_POLICY,
-  useOpenBench,
-  type BenchTarget,
-} from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
 import type { ProjectExplorerEditableFileState } from "@/state/chat-actions"
 import { benchSurfaceUiKey } from "@/state/bench-surface-ui-state"
 import {

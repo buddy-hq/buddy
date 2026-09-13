@@ -6,11 +6,7 @@ import {
 } from "@/components/bench/markdown/file-rules"
 import { resolveRenamedMarkdownBenchPath } from "@/components/bench/markdown/note-title"
 import type { MarkdownBenchFileController } from "@/components/bench/markdown/use-file"
-import {
-  BENCH_MODE_REQUEST_POLICY,
-  useOpenBench,
-  type BenchTarget,
-} from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
 import { renameProjectExplorerEditableFile } from "@/state/chat-actions"
 import { forgetMarkdownBenchFile } from "@/state/bench-surface-query"
 import { appQueryClient } from "@/state/query-client"
