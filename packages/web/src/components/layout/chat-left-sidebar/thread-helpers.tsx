@@ -1,5 +1,5 @@
-import { cn } from "@buddy/ui"
 import { language } from "@/context/language"
+import { LoaderCircleIcon, RotateCwIcon } from "@/icons/app-icons"
 export {
   buildSessionChildrenByParent,
   findRootSessionID,
@@ -23,9 +23,9 @@ export function formatThreadAge(timestamp: number) {
 }
 
 /**
- * One dot, one slot, one size. Position never changes across states — only fill
- * colour and whether it pulses, so a thread moving through these states never
- * shifts anything around it.
+ * Every status renders inside the same fixed leading slot, so a thread moving
+ * through these states never shifts anything around it. Shape carries the state
+ * (dot, spinner, retry arrow), so it still reads without colour or motion.
  */
 export type ThreadStatus = "idle" | "unread" | "working" | "retrying"
 
@@ -42,36 +42,30 @@ export function threadStatusLabel(status: ThreadStatus) {
   }
 }
 
-// Pulsing is the only channel separating `working` from `unread` — both are solid
-// interactive dots. When motion is suppressed the pulse can't carry that, so the
-// active states fall back to a static ring.
-const THREAD_STATUS_DOT_CLASSES = {
-  unread: { fill: "bg-surface-interactive-base" },
-  working: {
-    fill: "bg-surface-interactive-base",
-    motion:
-      "motion-safe:animate-pulse motion-reduce:ring-2 motion-reduce:ring-surface-interactive-base/40",
-  },
-  retrying: {
-    fill: "bg-surface-warning-base",
-    motion:
-      "motion-safe:animate-pulse motion-reduce:ring-2 motion-reduce:ring-surface-warning-base/40",
-  },
-} satisfies Record<Exclude<ThreadStatus, "idle">, { fill: string; motion?: string }>
+// Glyphs stay within the 14px leading slot (see row-geometry.ts).
+function ThreadStatusGlyph(props: { status: Exclude<ThreadStatus, "idle"> }) {
+  if (props.status === "working") {
+    return (
+      <LoaderCircleIcon
+        aria-hidden="true"
+        className="size-3 text-icon-interactive-base motion-safe:animate-[spin_2s_linear_infinite]"
+      />
+    )
+  }
+  if (props.status === "retrying") {
+    return <RotateCwIcon aria-hidden="true" className="size-3 text-icon-warning-base" />
+  }
+  return <span className="block size-1.5 rounded-full bg-surface-interactive-base" />
+}
 
 export function ThreadStatusIndicator(props: { status: ThreadStatus }) {
   if (props.status === "idle") return null
 
   const label = threadStatusLabel(props.status)
-  const dot = THREAD_STATUS_DOT_CLASSES[props.status]
-  const motion = "motion" in dot ? dot.motion : undefined
 
   return (
-    <span
-      role="img"
-      aria-label={label}
-      title={label}
-      className={cn("inline-block size-1.5 shrink-0 rounded-full", dot.fill, motion)}
-    />
+    <span role="img" aria-label={label} title={label} className="inline-flex shrink-0">
+      <ThreadStatusGlyph status={props.status} />
+    </span>
   )
 }

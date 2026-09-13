@@ -736,7 +736,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
               data-session-id={props.session.id}
               data-active={active ? "true" : "false"}
               aria-expanded={canToggleChildren ? branchExpanded : undefined}
-              className="relative w-full py-1 pr-2.5 text-left"
+              className="relative block w-full py-1 pr-2.5 text-left"
               style={{ paddingLeft: `${leftPadding}px` }}
               onClick={handleSelectSession}
               onPointerEnter={(event) => {
@@ -753,7 +753,9 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
               >
                 {/* self-stretch: the slot adopts the label's line box instead of
                     contributing a height of its own, so mounting the status dot
-                    cannot resize the row. See row-geometry.ts. */}
+                    cannot resize the row. The button is `block` for the same reason:
+                    as an inline-block it baseline-aligns to its parent's text line,
+                    and the slot's contents set that baseline. See row-geometry.ts. */}
                 <span
                   className="flex shrink-0 items-center justify-center self-stretch"
                   style={{ width: `${SIDEBAR_ROW_LEADING_SLOT_PX}px` }}
